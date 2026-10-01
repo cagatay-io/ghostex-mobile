@@ -4,6 +4,9 @@
  * reference implementation (GhostexRemoteSession / GhostexWorkspaceInventory).
  */
 
+import { normalizeLook } from '../dots/look';
+import type { DotLook } from '../dots/types';
+
 // ---------------------------------------------------------------------------
 // Wire types (what the CLI emits; everything except sessionId is optional).
 // ---------------------------------------------------------------------------
@@ -90,6 +93,8 @@ export type MobileSummaryWireRoot = {
   sidebarSpaces?: unknown;
   /** Server-normalized custom session tag catalog: {order, tags}; absent when the daemon has none. */
   customSessionTags?: unknown;
+  /** OpenDots: `{ enabled }`; absent on a computer that predates OpenDots. */
+  openDots?: unknown;
 };
 
 // ---------------------------------------------------------------------------
@@ -129,6 +134,19 @@ export type GhostexProject = {
    * parent (see src/spaces/otherSpace.ts).
    */
   worktreeParentProjectId: string;
+  /**
+   * OpenDots: the project stands for a dot (`launchSettings.isDot` on the computer). Dot projects
+   * are listed only under the Dots chip, never in a Space or the plain list. False, with the other
+   * dot fields empty, on every other project and on a computer that predates OpenDots.
+   */
+  isDot: boolean;
+  dotId: string;
+  /** The dot's face, normalized like gx-core `DotLook::from_value`; null on non-dot projects. */
+  dotLook: DotLook | null;
+  dotAgentId: string;
+  dotPaused: boolean;
+  /** Pending approvals for this dot. */
+  dotNeedsYou: number;
 };
 
 export type GhostexRecentProject = {
@@ -388,6 +406,8 @@ export type GhostexMobileSummary = {
   sidebarSpaces: GhostexSidebarSpaces;
   /** Ordered user-defined session tags; empty when the daemon has none. */
   customSessionTags: GhostexCustomSessionTags;
+  /** OpenDots on this computer: off when the computer predates it. */
+  openDots: { enabled: boolean };
   /**
    * Derived: workspaceGroups present OR any raw session carries a sortOrder.
    * When true the payload is pre-sorted like the desktop sidebar and must not
@@ -979,9 +999,27 @@ function parseProjects(value: unknown): GhostexProject[] {
       worktreeParentProjectId: isObject(entry.worktree)
         ? trimmedValue(entry.worktree, 'parentProjectId')
         : '',
+      ...parseDotFields(entry),
     });
   }
   return projects;
+}
+
+/** The OpenDots fields of one project entry (CONTRACT.md §3); all empty on non-dot projects. */
+function parseDotFields(
+  entry: JsonObject,
+): Pick<GhostexProject, 'isDot' | 'dotId' | 'dotLook' | 'dotAgentId' | 'dotPaused' | 'dotNeedsYou'> {
+  const isDot = boolValue(entry, 'isDot', false);
+  const needsYou = entry.dotNeedsYou;
+  return {
+    isDot,
+    dotId: isDot ? trimmedValue(entry, 'dotId') : '',
+    dotLook: isDot ? normalizeLook(entry.dotLook) : null,
+    dotAgentId: isDot ? trimmedValue(entry, 'dotAgentId') : '',
+    dotPaused: isDot && boolValue(entry, 'dotPaused', false),
+    dotNeedsYou:
+      isDot && typeof needsYou === 'number' && Number.isFinite(needsYou) ? Math.max(0, Math.floor(needsYou)) : 0,
+  };
 }
 
 /**
@@ -1284,6 +1322,7 @@ function normalizeRoot(root: JsonObject): GhostexMobileSummary {
       : null,
     sidebarSpaces: parseSidebarSpaces(root.sidebarSpaces),
     customSessionTags: parseCustomSessionTags(root.customSessionTags),
+    openDots: { enabled: isObject(root.openDots) && boolValue(root.openDots, 'enabled', false) },
     preserveSessionOrder: workspaceGroups !== null || anySortOrder,
   };
 }

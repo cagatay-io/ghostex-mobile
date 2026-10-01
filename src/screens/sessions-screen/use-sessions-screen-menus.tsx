@@ -247,7 +247,12 @@ export function useSessionsScreenMenus({
         }
         return below;
       }
-      const cards = block.kind === 'project' ? [block.card] : block.projects;
+      const cards =
+        block.kind === 'project' || block.kind === 'dot'
+          ? [block.card]
+          : block.kind === 'collection'
+            ? block.projects
+            : [];
       for (const card of cards) {
         const pressedIndex = card.children.findIndex((child) => child.key === ctx.item.key);
         if (pressedIndex < 0) continue;

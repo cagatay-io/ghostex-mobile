@@ -123,6 +123,9 @@ import {
 } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
 import { resolveSelectedSpaceId, spaceRowItems, spaceSessionCounts } from '../spaces/spaceFilter';
+import { DotsDrawerBlock } from '../dots/DotsDrawerRows';
+import { isDotSession, preferChatView } from '../dots/openChat';
+import { DOTS_SIDEBAR_SPACE_ID } from '../dots/space';
 import { useSpacesStore } from '../spaces/store';
 import { useSettingsStore } from '../settings/store';
 import { acknowledgeSessionAttention } from '../terminal/attention';
@@ -286,6 +289,8 @@ export default function SessionsScreen({ navigation }: Props) {
 
   const selectedInventory = machine === null ? undefined : inventoriesByMachineId[machine.id];
   const machineSpaces = selectedInventory?.summary?.sidebarSpaces ?? EMPTY_SIDEBAR_SPACES;
+  /** OpenDots is on for this computer: its Space row ends with the Dots chip. */
+  const dotsEnabled = selectedInventory?.summary?.openDots.enabled === true;
   /*
    * A Space id is only ever resolved against the machine that owns it, so a
    * stored id from another machine — or one this daemon has since deleted —
@@ -294,12 +299,17 @@ export default function SessionsScreen({ navigation }: Props) {
   const selectedSpaceId = resolveSelectedSpaceId(
     machineSpaces,
     machine === null ? undefined : selectedSpaceIdByMachine[machine.id],
+    dotsEnabled,
   );
   const spaceItems = useMemo(() => spaceRowItems(machineSpaces), [machineSpaces]);
   const selectedSummary = selectedInventory?.summary ?? null;
   const spaceCounts = useMemo(
-    () => spaceSessionCounts(selectedSummary, spaceItems.map((item) => item.spaceId)),
-    [selectedSummary, spaceItems],
+    () =>
+      spaceSessionCounts(selectedSummary, [
+        ...spaceItems.map((item) => item.spaceId),
+        ...(dotsEnabled ? [DOTS_SIDEBAR_SPACE_ID] : []),
+      ]),
+    [selectedSummary, spaceItems, dotsEnabled],
   );
 
   const clockSessions = useMemo(
@@ -428,6 +438,7 @@ export default function SessionsScreen({ navigation }: Props) {
       // Desktop parity: opening a session from the list acknowledges its
       // attention status.
       acknowledgeSessionAttention(target.id, session.sessionId);
+      if (isDotSession(target.id, session)) preferChatView(target.id, session.sessionId);
       setTransientStatus(ProgressCopy.preparingAttach(session.alias));
       try {
         const sessionKey = await useTerminalStore.getState().attachSession(target, {
@@ -970,6 +981,24 @@ export default function SessionsScreen({ navigation }: Props) {
 
   const renderBlock = ({ item: block }: { item: DrawerBlock }) => {
     const target = machineById(block.machineId);
+    if (block.kind === 'dotsHome' || block.kind === 'dot') {
+      return (
+        <DotsDrawerBlock
+          block={block}
+          machine={target}
+          navigation={navigation}
+          sidebarBackground={sidebarAppearance.background}
+          renderChild={(child) =>
+            renderChildItem(target, block.machineId, child, neutralExpandedGroupSurface)
+          }
+          onToggle={() => {
+            if (block.kind === 'dot') collapse.toggleProject(block.machineId, block.card.header.projectKey);
+          }}
+          onProgress={setProgress}
+          onError={setTransientStatus}
+        />
+      );
+    }
     if (block.kind === 'project') {
       return renderProjectCard(
         target,
@@ -1307,14 +1336,16 @@ export default function SessionsScreen({ navigation }: Props) {
         ) : null}
       </View>
       {/*
-        A machine with no Spaces has nothing to switch between — Other alone
-        would be every project — so the row appears only once it has one.
+        A machine with no Spaces has nothing to switch between (Other alone
+        would be every project), so the row appears only once it has one, or
+        when OpenDots is on (then "All" + "Dots").
       */}
-      {machine !== null && spaceItems.length > 0 ? (
+      {machine !== null && (spaceItems.length > 0 || dotsEnabled) ? (
         <SpaceTabs
           spaces={spaceItems}
           selectedSpaceId={selectedSpaceId}
           countsBySpaceId={spaceCounts}
+          showDots={dotsEnabled}
           onSelect={(spaceId) => selectSpace(machine.id, spaceId)}
         />
       ) : null}

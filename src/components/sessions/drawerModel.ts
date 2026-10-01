@@ -7,7 +7,8 @@
  *
  * The drawer shows ONE machine, the one its tab strip has selected (desktop
  * parity: packages/core-ui/sidebar-app/machine-tabs.tsx), filtered to the
- * Space that machine's Space row has selected.
+ * Space that machine's Space row has selected. The Dots chip lists the
+ * OpenDots row, then one card per dot (its face header and its sessions).
  */
 
 import {
@@ -18,6 +19,10 @@ import {
   type ProjectHeaderItem,
 } from '../../contract/grouping';
 import { StateCardCopy } from '../../copy';
+import type { GhostexMobileSummary } from '../../contract/mobileSummary';
+import { DOTS_SIDEBAR_SPACE_ID, dotsNeedsYouCount, dotsOnlySummary } from '../../dots/space';
+import { inventoryDotStatus } from '../../dots/status';
+import type { DotLook, DotStatus } from '../../dots/types';
 import type { MachineInventory } from '../../inventory/store';
 import { machineDisplayLabel, type MachineRecord } from '../../machines/store';
 import { filterSummaryForSpace } from '../../spaces/spaceFilter';
@@ -27,8 +32,23 @@ export type ProjectCardBlock = {
   children: DrawerItem[];
 };
 
+/** What a dot's header draws, read off its project row and its sessions. */
+export type DotRowInfo = {
+  projectId: string;
+  dotId: string;
+  name: string;
+  look: DotLook | null;
+  agentId: string;
+  status: DotStatus;
+  needsYou: number;
+};
+
 export type DrawerBlock =
   | { kind: 'row'; listKey: string; machineId: string; item: DrawerItem }
+  /** The Dots chip's pinned OpenDots row (opens DotsHome); badge = pending approvals. */
+  | { kind: 'dotsHome'; listKey: string; machineId: string; needsYou: number; dotCount: number }
+  /** One dot under the Dots chip: its face header and its sessions as ordinary rows. */
+  | { kind: 'dot'; listKey: string; machineId: string; card: ProjectCardBlock; dot: DotRowInfo }
   | { kind: 'project'; listKey: string; machineId: string; card: ProjectCardBlock }
   | {
       kind: 'collection';
@@ -136,6 +156,66 @@ export function blocksFromItems(machineId: string, items: DrawerItem[]): DrawerB
   return blocks;
 }
 
+/** The Dots chip's list: the OpenDots row, then each dot (flat, in project order). */
+function dotsBlocks(
+  machineId: string,
+  fullSummary: GhostexMobileSummary,
+  collapse: DrawerCollapseInput,
+  nowMs: number,
+): DrawerBlock[] {
+  const summary = dotsOnlySummary(fullSummary);
+  const items = withoutQuickSection(
+    buildDrawerItems({
+      machineId,
+      nowMs,
+      summary,
+      expandedDraftSessionKeys: new Set(collapse.expandedDraftSessionKeysByMachine?.[machineId] ?? []),
+      expandedProjectKeys: new Set(collapse.expandedProjectsByMachine[machineId] ?? []),
+      expandedCollectionIds: new Set<string>(),
+      expandedGroupKeys: new Set(collapse.expandedGroupsByMachine[machineId] ?? []),
+      collapsedSessionListKeys: new Set(collapse.collapsedSessionListsByMachine[machineId] ?? []),
+      collapsedSectionKeys: new Set<string>(),
+      collapsedSessionKindKeys: new Set(collapse.collapsedSessionKindsByMachine[machineId] ?? []),
+      expandedParkedSessionKeys: new Set(collapse.expandedParkedSessionKeysByMachine?.[machineId] ?? []),
+    }),
+  ).filter((item) => item.type !== 'SECTION_LABEL');
+  const projectsById = new Map(summary.projects.map((project) => [project.projectId, project]));
+  const blocks: DrawerBlock[] = [
+    {
+      kind: 'dotsHome',
+      listKey: `${machineId}:dots-home`,
+      machineId,
+      needsYou: dotsNeedsYouCount(fullSummary),
+      dotCount: summary.projects.length,
+    },
+  ];
+  for (const block of blocksFromItems(machineId, items)) {
+    if (block.kind !== 'project') continue;
+    const project = projectsById.get(block.card.header.projectId);
+    if (project === undefined) continue;
+    blocks.push({
+      kind: 'dot',
+      listKey: block.listKey,
+      machineId,
+      card: block.card,
+      dot: {
+        projectId: project.projectId,
+        dotId: project.dotId,
+        name: block.card.header.title,
+        look: project.dotLook,
+        agentId: project.dotAgentId,
+        status: inventoryDotStatus(
+          project.dotPaused,
+          project.dotNeedsYou,
+          summary.sessions.filter((session) => session.projectId === project.projectId),
+        ),
+        needsYou: project.dotNeedsYou,
+      },
+    });
+  }
+  return blocks;
+}
+
 function machineBlocks(
   machine: MachineRecord,
   inventory: MachineInventory | undefined,
@@ -169,6 +249,9 @@ function machineBlocks(
         ),
       ),
     ];
+  }
+  if (selectedSpaceId === DOTS_SIDEBAR_SPACE_ID) {
+    return dotsBlocks(machine.id, inventory.summary, collapse, nowMs);
   }
   const items = withoutQuickSection(
     buildDrawerItems({

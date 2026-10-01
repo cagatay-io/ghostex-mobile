@@ -13,6 +13,10 @@
  * selectors.rs), its icon dimmed to 80% while it does, like the desktop. The
  * phone chip carries its name, so the dots follow the name instead of hanging
  * under the icon.
+ *
+ * While the computer has OpenDots on, a Dots chip ends the row (the desktop's
+ * Dots slot after the Space buttons); a computer with no Spaces then shows the
+ * two-chip row "All" + "Dots", where All is the built-in Other selection.
  */
 
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -25,6 +29,12 @@ import {
 } from '../../spaces/otherSpace';
 import type { SessionCounts } from '../../contract/grouping';
 import type { SpaceRowItem } from '../../spaces/spaceFilter';
+import { DotsMark } from '../../dots/DotFace';
+import {
+  DOTS_SIDEBAR_SPACE_COLOR,
+  DOTS_SIDEBAR_SPACE_ID,
+  DOTS_SIDEBAR_SPACE_LABEL,
+} from '../../dots/space';
 import { GhostexPalette, GhostexRadii, GhostexStrokeWidth, SidebarPalette } from '../../theme/palette';
 import StatusDotStack from './StatusDotStack';
 
@@ -35,10 +45,21 @@ const OTHER_ROW_ITEM: SpaceRowItem = {
   color: '#4f5663',
 };
 
+/** Other's chip beside Dots on a computer with no Spaces: it is then every project. */
+const ALL_ROW_ITEM: SpaceRowItem = { ...OTHER_ROW_ITEM, name: 'All' };
+
+const DOTS_ROW_ITEM: SpaceRowItem = {
+  spaceId: DOTS_SIDEBAR_SPACE_ID,
+  name: DOTS_SIDEBAR_SPACE_LABEL,
+  icon: '',
+  color: DOTS_SIDEBAR_SPACE_COLOR,
+};
+
 export default function SpaceTabs({
   spaces,
   selectedSpaceId,
   countsBySpaceId,
+  showDots = false,
   onSelect,
 }: {
   /** The machine's own Spaces, in order; Other is appended here. */
@@ -46,9 +67,13 @@ export default function SpaceTabs({
   selectedSpaceId: string;
   /** spaceSessionCounts: what each chip's status dots draw. */
   countsBySpaceId: Readonly<Record<string, SessionCounts>>;
+  /** The computer has OpenDots on: append the Dots chip. */
+  showDots?: boolean;
   onSelect: (spaceId: string) => void;
 }) {
-  const items = [...spaces, OTHER_ROW_ITEM];
+  const items = showDots
+    ? [...spaces, spaces.length === 0 ? ALL_ROW_ITEM : OTHER_ROW_ITEM, DOTS_ROW_ITEM]
+    : [...spaces, OTHER_ROW_ITEM];
   return (
     <ScrollView
       contentContainerStyle={styles.row}
@@ -73,10 +98,14 @@ export default function SpaceTabs({
             style={[styles.chip, selected ? styles.chipSelected : null]}
           >
             <View style={hasStatus ? styles.iconWithStatus : null}>
-              <Icon
-                size={14}
-                color={selected ? GhostexPalette.FOREGROUND : SidebarPalette.MUTED}
-              />
+              {item.spaceId === DOTS_SIDEBAR_SPACE_ID ? (
+                <DotsMark size={14} color={selected ? GhostexPalette.FOREGROUND : SidebarPalette.MUTED} />
+              ) : (
+                <Icon
+                  size={14}
+                  color={selected ? GhostexPalette.FOREGROUND : SidebarPalette.MUTED}
+                />
+              )}
             </View>
             <Text
               ellipsizeMode="tail"

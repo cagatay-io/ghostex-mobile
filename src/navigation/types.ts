@@ -72,4 +72,17 @@ export type RootStackParamList = {
     repositoryTitle: string;
     repositoryUrl: string;
   };
+  /** OpenDots home on one computer: hand off a task, what needs you, your dots, latest updates. */
+  DotsHome: { machineId: string };
+  /** One dot: status and controls, then its Chats, its Computer (browser screen, files) or its Setup. */
+  DotDetail: { machineId: string; dotId: string; tab?: DotDetailTab };
+  /** Make a dot: name, job, a starter, its look, its agent and model. */
+  NewDot: { machineId: string };
+  /** Rules for every dot and the saved logins dots can sign in with. */
+  DotsSettings: { machineId: string };
+  /** Team chats: start one with a lead dot and members, or reopen one. */
+  DotsTeamChat: { machineId: string };
 };
+
+/** The three segments of a dot's screen. */
+export type DotDetailTab = 'chats' | 'computer' | 'setup';

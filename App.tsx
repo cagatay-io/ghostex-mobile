@@ -55,6 +55,11 @@ import CantReachScreen from './src/screens/CantReachScreen';
 import DocsScreen from './src/screens/DocsScreen';
 import DocViewerScreen from './src/screens/DocViewerScreen';
 import SshAccessHelpScreen from './src/screens/SshAccessHelpScreen';
+import DotDetailScreen from './src/screens/dots/DotDetailScreen';
+import DotsHomeScreen from './src/screens/dots/DotsHomeScreen';
+import DotsSettingsScreen from './src/screens/dots/DotsSettingsScreen';
+import DotsTeamChatScreen from './src/screens/dots/DotsTeamChatScreen';
+import NewDotScreen from './src/screens/dots/NewDotScreen';
 import { useWebPreviewStore } from './src/webPreview/store';
 import {
   AddProjectCopy,
@@ -230,6 +235,19 @@ export default function App() {
                   name="AddProjectDestination"
                   component={AddProjectDestinationScreen}
                   options={{ title: AddProjectCopy.destinationTitle }}
+                />
+                <Stack.Screen name="DotsHome" component={DotsHomeScreen} options={{ title: 'OpenDots' }} />
+                <Stack.Screen name="DotDetail" component={DotDetailScreen} options={{ title: '' }} />
+                <Stack.Screen name="NewDot" component={NewDotScreen} options={{ title: 'New dot' }} />
+                <Stack.Screen
+                  name="DotsSettings"
+                  component={DotsSettingsScreen}
+                  options={{ title: 'OpenDots settings' }}
+                />
+                <Stack.Screen
+                  name="DotsTeamChat"
+                  component={DotsTeamChatScreen}
+                  options={{ title: 'Team chats' }}
                 />
               </>
             ) : null}

@@ -13,6 +13,7 @@ import type {
   GhostexSidebarSpaces,
 } from '../contract/mobileSummary';
 import { countSessions, type SessionCounts } from '../contract/grouping';
+import { DOTS_SIDEBAR_SPACE_ID, dotsOnlySummary, withoutDotProjects } from '../dots/space';
 import {
   isSidebarSpaceProject,
   isUnassignedSidebarSpaceProject,
@@ -46,8 +47,11 @@ export function orderedSpaces(spaces: GhostexSidebarSpaces): GhostexSidebarSpace
 export function resolveSelectedSpaceId(
   spaces: GhostexSidebarSpaces,
   storedSpaceId: string | undefined,
+  /** The computer has OpenDots on, so its Dots chip is a valid selection. */
+  dotsEnabled = false,
 ): string {
   if (storedSpaceId === OTHER_SIDEBAR_SPACE_ID) return OTHER_SIDEBAR_SPACE_ID;
+  if (storedSpaceId === DOTS_SIDEBAR_SPACE_ID && dotsEnabled) return DOTS_SIDEBAR_SPACE_ID;
   if (storedSpaceId !== undefined && spaces.spaces[storedSpaceId] !== undefined) {
     return storedSpaceId;
   }
@@ -80,13 +84,16 @@ function collectionIdByProjectId(summary: GhostexMobileSummary): Map<string, str
  * the Projects list a Space scopes. Collections are left verbatim because
  * `buildDrawerItems` already drops a collection whose member projects are gone.
  *
- * Returns the input unchanged when the machine has no Spaces at all — Other
- * alone would then be every project, and the row is hidden.
+ * Returns every project when the machine has no Spaces at all: Other alone
+ * would then be every project, and the row is hidden (or reads "All" beside
+ * the Dots chip). Dot projects are only ever in the Dots selection.
  */
 export function filterSummaryForSpace(
-  summary: GhostexMobileSummary,
+  fullSummary: GhostexMobileSummary,
   selectedSpaceId: string,
 ): GhostexMobileSummary {
+  if (selectedSpaceId === DOTS_SIDEBAR_SPACE_ID) return dotsOnlySummary(fullSummary);
+  const summary = withoutDotProjects(fullSummary);
   const spaces = orderedSpaces(summary.sidebarSpaces);
   if (spaces.length === 0) return summary;
   const selectedSpace =
