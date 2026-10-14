@@ -11,6 +11,7 @@ export { ensureConnected } from '../remote/connection';
 import { sessionsListCommand } from '../commands/ghostexCli';
 import { parseMobileSummary, scanJsonObjects, type GhostexMobileSummary } from '../contract/mobileSummary';
 import { FailureCopy } from '../copy';
+import { readablePowerShellError } from '../remote/powershell';
 import type { MachineConnectionTarget } from '../machines/credentials';
 
 export const INVENTORY_EXEC_TIMEOUT_MS = 20000;
@@ -197,7 +198,7 @@ export function summarizeFailure(raw: unknown, hasPassword: boolean): string {
 const TIMED_OUT_TEXT = /\b(?:connection|operation|connect|read|dial|handshake)\s+timed out\b/iu;
 
 function classifyFailure(error: unknown, hasPassword: boolean): Pick<FailureSummary, 'message' | 'reasonCode'> {
-  let text = unwrapNativeException(errorText(error).trim());
+  let text = readablePowerShellError(unwrapNativeException(errorText(error).trim()));
   const cliError = extractCliError(text);
   if (cliError !== null) text = cliError;
   const lowerText = text.toLowerCase();
@@ -231,7 +232,8 @@ function classifyFailure(error: unknown, hasPassword: boolean): Pick<FailureSumm
   if (
     lowerText.includes('ghostex: command not found') ||
     lowerText.includes('command not found: ghostex') ||
-    lowerText.includes('ghostex not found')
+    lowerText.includes('ghostex not found') ||
+    lowerText.includes('ghostex cli not found')
   ) {
     return { message: FailureCopy.noCli, reasonCode: 'ghostexMissing' };
   }

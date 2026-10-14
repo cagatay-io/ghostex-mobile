@@ -5,6 +5,7 @@ import {
   powershellCommand,
   powershellPrelude,
   powershellQuote,
+  readablePowerShellError,
   windowsCliScript,
   windowsEnvironmentProbe,
   windowsProcess,
@@ -47,7 +48,9 @@ async function probeEnvironment(machineId: string): Promise<RemoteEnvironment> {
   // A direct SSH login inside WSL stays POSIX, even if Windows interop is available.
   const unix = await GhostexNative.exec(machineId, "printf '__GHOSTEX_POSIX__'; uname -s", PROBE_TIMEOUT);
   if (unix.exitCode === 0 && /__GHOSTEX_POSIX__(Linux|Darwin)/u.test(unix.stdout)) return { kind: 'posix' };
-  const windows = await GhostexNative.exec(machineId, powershellCommand(windowsEnvironmentProbe), PROBE_TIMEOUT);
+  const windows = readableResult(
+    await GhostexNative.exec(machineId, powershellCommand(windowsEnvironmentProbe), PROBE_TIMEOUT)
+  );
   const line = windows.stdout.split(/\r?\n/u).find((value) => value.startsWith('__GHOSTEX_REMOTE_WINDOWS__'));
   if (windows.exitCode !== 0 || line === undefined) {
     throw new Error(windows.stderr.trim() || unix.stderr.trim() || 'Could not identify the remote SSH shell.');
@@ -65,10 +68,12 @@ async function probeEnvironment(machineId: string): Promise<RemoteEnvironment> {
     '-c',
     'printf "__GHOSTEX_WSL__%s\\n" "$WSL_DISTRO_NAME"',
   ];
-  const wsl = await GhostexNative.exec(
-    machineId,
-    powershellCommand(powershellPrelude + windowsProcess("'wsl.exe'", argv)),
-    PROBE_TIMEOUT
+  const wsl = readableResult(
+    await GhostexNative.exec(
+      machineId,
+      powershellCommand(powershellPrelude + windowsProcess("'wsl.exe'", argv)),
+      PROBE_TIMEOUT
+    )
   );
   const distribution = wsl.stdout
     .split(/\r?\n/u)
@@ -94,7 +99,11 @@ function wslScript(target: Extract<RemoteEnvironment, { kind: 'wsl' }>, posix: s
 /** Windows exec scripts travel over stdin, avoiding OpenSSH's Windows command-line limit. */
 async function execScript(machineId: string, script: string, timeoutMs: number): Promise<ExecResult> {
   const loader = powershellCommand(powershellPrelude + '& ([ScriptBlock]::Create([Console]::In.ReadToEnd()))');
-  return GhostexNative.execWithInput(machineId, loader, script, timeoutMs);
+  return readableResult(await GhostexNative.execWithInput(machineId, loader, script, timeoutMs));
+}
+
+function readableResult(result: ExecResult): ExecResult {
+  return { ...result, stderr: readablePowerShellError(result.stderr) };
 }
 
 export async function execRemoteCommand(machineId: string, command: string, timeoutMs: number): Promise<ExecResult> {

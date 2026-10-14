@@ -69,18 +69,52 @@ exit $gxProcess.ExitCode
 `;
 }
 
+/**
+ * CDXC:RemoteMachines 2026-10-14 WHY:
+ * An SSH login does not see the app's PATH, so the per-user install's CLI (`%LOCALAPPDATA%\Ghostex\current\resources\native`) was invisible and Easy Connect failed with "Ghostex CLI not found". Read the app folder the desktop records on every gxserver start first (its CLI matches the running gxserver), then the managed package, then the per-user and machine-wide install folders, then PATH. The CLI install only writes `ghostex.cmd` shims to `~\.local\bin`, never an exe. The failure goes to stderr as plain text because a `throw` reaches the phone as CLIXML.
+ * SEE-ALSO: apps/desktop/src/app/helpers/remote/windows.rs (`gpui_remote_windows_cli_setup`), packages/paths `windows_app_dir_file`.
+ */
 export function windowsCliScript(argv: string[], interactive = false): string {
   return `${powershellPrelude}${windowsStorage}
-$gxCandidates=@(
-  (Join-Path $gxData 'gxserver/package/bin/ghostex.exe'),
-  (Join-Path $env:ProgramFiles 'Ghostex/resources/native/ghostex.exe'),
-  (Join-Path $env:USERPROFILE '.local/bin/ghostex.exe')
-)
+$gxCandidates=@()
+$gxAppDirFile=Join-Path $gxData 'gxserver/windows-app-dir'
+if (Test-Path -LiteralPath $gxAppDirFile -PathType Leaf) {
+  $gxAppDir=[IO.File]::ReadAllText($gxAppDirFile).Trim()
+  if ($gxAppDir) { $gxCandidates+=Join-Path $gxAppDir 'resources/native/ghostex.exe' }
+}
+$gxCandidates+=Join-Path $gxData 'gxserver/package/bin/ghostex.exe'
+if ($env:LOCALAPPDATA) { $gxCandidates+=Join-Path $env:LOCALAPPDATA 'Ghostex/current/resources/native/ghostex.exe' }
+foreach ($gxRoot in @($env:ProgramW6432, $env:ProgramFiles)) { if ($gxRoot) { $gxCandidates+=Join-Path $gxRoot 'Ghostex/resources/native/ghostex.exe' } }
 $gxCommand=Get-Command ghostex.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($gxCommand) { $gxCandidates+= $gxCommand.Source }
 $gxExe=$gxCandidates | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
-if (!$gxExe) { throw 'Ghostex CLI not found. Install Ghostex on this Windows machine.' }
+if (!$gxExe) { [Console]::Error.WriteLine('Ghostex CLI not found. Install Ghostex on this Windows machine.'); exit 127 }
 ${windowsProcess('$gxExe', argv, interactive)}`;
+}
+
+/**
+ * CDXC:RemoteMachines 2026-10-14 WHY:
+ * Windows PowerShell 5.1 writes its error stream as CLIXML whenever stdin and stderr are redirected, which is every Easy Connect or SSH exec (`-OutputFormat Text` does not change it). Decode the `<S S="Error">` text and its `_xHHHH_` escapes, and drop the position and `+ CategoryInfo` lines, so the phone shows the message itself.
+ */
+export function readablePowerShellError(stderr: string): string {
+  if (!stderr.includes('#< CLIXML')) return stderr;
+  return stderr
+    .replace(/#< CLIXML\s*(<Objs[\s\S]*?(?:<\/Objs>|$))?/gu, (_, objects: string | undefined) => {
+      let text = '';
+      for (const match of (objects ?? '').matchAll(/<S S="Error">([\s\S]*?)<\/S>/gu)) text += match[1] ?? '';
+      const lines = text
+        .replace(/&lt;/gu, '<')
+        .replace(/&gt;/gu, '>')
+        .replace(/&quot;/gu, '"')
+        .replace(/&apos;/gu, "'")
+        .replace(/&amp;/gu, '&')
+        .replace(/_x([0-9A-Fa-f]{4})_/gu, (__, hex: string) => String.fromCharCode(parseInt(hex, 16)))
+        .split(/\r?\n/u);
+      // The line before the first `+ ` source excerpt is the localized "At line:… char:…".
+      const excerpt = lines.findIndex((line) => line.startsWith('+ '));
+      return `\n${(excerpt > 0 ? lines.slice(0, excerpt - 1) : lines).join('\n').trim()}\n`;
+    })
+    .trim();
 }
 
 /** Decode only the literal argv grammar emitted by the existing CLI builders. */
