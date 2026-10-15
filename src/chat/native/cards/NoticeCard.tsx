@@ -13,7 +13,7 @@
  */
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
 
 import type { ChatDocument } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
@@ -44,6 +44,7 @@ export function NoticeCard({
   const notice = obj(document.terminalNotice);
   const key = `notice:${str(notice, 'kind')}:${str(notice, 'detectedAt')}`;
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const [moreKey, setMoreKey] = useState<string | null>(null);
   const [choiceWidths, setChoiceWidths] = useState<Record<string, number>>({});
   const dialogInput = useDialogInput(obj(notice?.dialog));
   if (notice === null || document.noticeVisible !== true) return null;
@@ -55,7 +56,9 @@ export function NoticeCard({
   // A tabbed Claude panel with option rows (`/plugin`'s install scope) shows its details above the rows and never folds them
   // away (notice.rs, terminal_prompts.rs `highlighted_row`).
   const panel = arr(obj(dialog?.presentation)?.blocks).length > 0;
-  const foldable = answerable && !panel;
+  // A live dialog's rows are numbered choices that open with the card (`dialog_rows.rs` in the chat core).
+  const numbered = notice?.numbered === true;
+  const foldable = answerable && !panel && !numbered;
   const collapsed = foldable && expandedKey !== key;
   const rateLimit = choices.some((choice) => str(choice, 'label').startsWith('Wait here, then continue automatically'));
 
@@ -65,7 +68,7 @@ export function NoticeCard({
   if (obj(notice.passthrough) !== null) {
     return <PassthroughCard chat={chat} document={document} notice={notice} onHostAction={onHostAction} />;
   }
-  if (dialog !== null && Array.isArray(dialog.rows) && dialog.rows.length === 0) {
+  if (dialog !== null && !numbered && Array.isArray(dialog.rows) && dialog.rows.length === 0) {
     if (obj(obj(dialog.presentation)?.sideQuestion) !== null) {
       return <SideQuestionCard chat={chat} dialog={dialog} />;
     }
@@ -106,7 +109,27 @@ export function NoticeCard({
       </Text>
     );
   }
-  if (answerable) {
+  if (answerable && numbered) {
+    const moreOpen = moreKey === key;
+    const more = obj(notice.more);
+    body.push(
+      <ScrollView key="choices" style={{ maxHeight: height * (panel ? 0.3 : 0.45) }} contentContainerStyle={styles.choicesColumn} nestedScrollEnabled>
+        {choices
+          .filter((choice) => moreOpen || obj(choice)?.folded !== true)
+          .map((choice, index) => (
+            <DialogChoiceRow
+              key={`${num(choice, 'index') ?? index}`}
+              choice={obj(choice) ?? {}}
+              disabled={busy}
+              onPress={() => dispatch({ type: 'answer', answer: asJson(obj(choice)?.answer) })}
+            />
+          ))}
+        {more !== null && !moreOpen ? (
+          <DialogChoiceRow key="more" choice={{ title: str(more, 'label'), detail: str(more, 'detail') }} onPress={() => setMoreKey(key)} />
+        ) : null}
+      </ScrollView>
+    );
+  } else if (answerable) {
     const shown = collapsed ? (num(notice, 'collapsedChoiceCount') ?? 2) : choices.length;
     const labels = choices.slice(0, shown).map((choice) => str(choice, collapsed ? 'collapsedLabel' : 'label'));
     /*
@@ -200,6 +223,15 @@ export function NoticeCard({
       title={(panel && str(obj(dialog?.presentation), 'title')) || str(notice, 'title')}
       trailing={foldable ? <Glyph name={collapsed ? 'chevron-right' : 'chevron-down'} size={14} color={look.P.muted} /> : undefined}
       body={body}
+      footerStart={
+        numbered
+          ? [
+              <Text key="number-hint" style={styles.numberHint}>
+                Tap a row to pick it
+              </Text>,
+            ]
+          : undefined
+      }
       footerEnd={[...actions, ...footerEnd]}
       accessibilityLabel={collapsed ? 'Show all options' : 'Show less'}
       onPressHeader={foldable ? () => setExpandedKey(collapsed ? key : null) : undefined}
@@ -291,7 +323,10 @@ function terminalDialogParts(
         placeholderTextColor={P.placeholder}
       />
     );
-    actions.push(<ToneButton key="submit" kind="primary" label={search ? 'Search' : str(presentation, 'submitLabel')} onPress={submit} />);
+    // Beside numbered rows the labelled Confirm is the one filled button (terminal_dialog.rs).
+    actions.push(
+      <ToneButton key="submit" kind={search && hasRows ? 'secondary' : 'primary'} label={search ? 'Search' : str(presentation, 'submitLabel')} onPress={submit} />
+    );
   }
   if (input === 'key') {
     body.push(
@@ -310,8 +345,8 @@ function terminalDialogParts(
       />
     );
   }
-  // Written copy and blocks come with buttons for everything the key-hint footer says.
-  if (copy === null && arr(presentation?.blocks).length === 0 && str(dialog, 'footer').length > 0) {
+  // Written copy and blocks come with buttons for everything the key-hint footer says, and numbered rows with their own hint.
+  if (copy === null && !hasRows && arr(presentation?.blocks).length === 0 && str(dialog, 'footer').length > 0) {
     body.push(
       <Text key="footer" style={cardText.prose}>
         {str(dialog, 'footer')}
@@ -322,7 +357,8 @@ function terminalDialogParts(
     actions.push(
       <ToneButton
         key={`dialog-action:${str(action, 'action')}`}
-        kind="secondary"
+        // The labelled Confirm says what Enter picks, so it is the card's filled button (terminal_dialog.rs).
+        kind={hasRows && str(action, 'action') === 'confirm' ? 'primary' : 'secondary'}
         label={str(action, 'label')}
         onPress={() =>
           dispatch({ type: 'answer', answer: { kind: 'terminalDialog', dialogId, dialogAction: asJson(obj(action)?.action) } })
@@ -347,7 +383,129 @@ function useDialogInput(dialog: Record<string, unknown> | null): DialogInput {
   return [value, setValue];
 }
 
+/**
+ * One numbered row of a live terminal dialog (option D, `dialog_rows.rs` in the chat core; desktop `dialog_choice`): the
+ * question card's row sizes with the number at the start, filled on the row the terminal highlights, the name on one line
+ * (whole while held), a muted suffix and detail, and the row's stats at the end. A row without a number is "More".
+ */
+function DialogChoiceRow({ choice, disabled, onPress }: { choice: Record<string, unknown>; disabled?: boolean; onPress: () => void }) {
+  const styles = useStyles();
+  const P = useTranscriptTheme();
+  const [revealed, setRevealed] = useState(false);
+  const highlighted = choice.highlighted === true;
+  const number = num(choice, 'number');
+  const suffix = str(choice, 'suffix');
+  const detail = str(choice, 'detail');
+  const meta = str(choice, 'meta');
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={str(choice, 'title')}
+      accessibilityState={{ selected: highlighted, disabled: disabled === true }}
+      disabled={disabled === true}
+      onPress={onPress}
+      onLongPress={() => setRevealed(true)}
+      onPressOut={() => setRevealed(false)}
+      style={({ pressed }) => [
+        styles.dialogRow,
+        P.light && { backgroundColor: P.background },
+        highlighted && styles.dialogRowHighlighted,
+        disabled === true && { opacity: 0.6 },
+        pressed && { backgroundColor: P.pressedFill },
+      ]}
+    >
+      <View style={[styles.dialogRowNumber, highlighted && styles.dialogRowNumberHighlighted]}>
+        <Text style={[styles.dialogRowNumberText, highlighted && { color: P.background }]}>{number === null ? '⋯' : String(number)}</Text>
+      </View>
+      <View style={styles.dialogRowText}>
+        <View style={styles.dialogRowTitleLine}>
+          <Text style={styles.dialogRowTitle} {...(revealed ? {} : { numberOfLines: 1, ellipsizeMode: 'tail' as const })}>
+            {str(choice, 'title')}
+          </Text>
+          {suffix.length > 0 ? <Text style={styles.dialogRowSuffix}>{suffix}</Text> : null}
+          {choice.ticked === true ? <Glyph name="check" size={14} color={P.controlPrimary} /> : null}
+        </View>
+        {detail.length > 0 ? <Text style={styles.dialogRowDetail}>{detail}</Text> : null}
+      </View>
+      {meta.length > 0 ? (
+        <Text style={styles.dialogRowMeta} numberOfLines={1}>
+          {meta}
+        </Text>
+      ) : null}
+    </Pressable>
+  );
+}
+
 const useStyles = themedStyles((P) => ({
+  dialogRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 11,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: P.controlBorder,
+  },
+  dialogRowHighlighted: {
+    borderColor: P.selectedBorder,
+    backgroundColor: P.selectedFill,
+  },
+  dialogRowNumber: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: P.controlBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dialogRowNumberHighlighted: {
+    backgroundColor: P.controlPrimary,
+    borderColor: P.controlPrimary,
+  },
+  dialogRowNumberText: {
+    color: P.cardMuted,
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  dialogRowText: {
+    flex: 1,
+    minWidth: 0,
+    gap: 1,
+  },
+  dialogRowTitleLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minWidth: 0,
+  },
+  dialogRowTitle: {
+    flexShrink: 1,
+    color: P.foreground,
+    fontSize: CARD_TEXT_SIZE,
+    lineHeight: 19,
+    fontWeight: '600',
+  },
+  dialogRowSuffix: {
+    color: P.cardMuted,
+    fontSize: 12,
+  },
+  dialogRowDetail: {
+    color: P.cardMuted,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  dialogRowMeta: {
+    maxWidth: 120,
+    color: P.muted,
+    fontSize: 12,
+    lineHeight: 19,
+  },
+  numberHint: {
+    color: P.muted,
+    fontSize: 12.5,
+  },
   choicesColumn: {
     gap: 6,
   },
