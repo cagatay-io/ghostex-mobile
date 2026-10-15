@@ -109,6 +109,14 @@ export function NoticeCard({
       </Text>
     );
   }
+  // What a failed start printed (`errorLines` from gxserver), so the card says why without the terminal.
+  if (!collapsed && typeof notice.errorLines === 'string') {
+    body.push(
+      <Text key="error-lines" style={styles.monoText}>
+        {notice.errorLines}
+      </Text>
+    );
+  }
   if (answerable && numbered) {
     const moreOpen = moreKey === key;
     const more = obj(notice.more);
