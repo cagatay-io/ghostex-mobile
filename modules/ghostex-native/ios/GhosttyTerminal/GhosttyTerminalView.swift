@@ -207,6 +207,17 @@ class GhosttyTerminalView: UIView {
         return recognizer
     }()
 
+    /// CDXC:Clipboard 2026-10-16 WHY: a long press is how an iOS user asks for Paste, but on iPhone the terminal hands long presses to UIKit's editable text interaction, which on current iOS only moves a caret and never opens the edit menu, and an empty screen does not start it at all; iPad had no long-press handling. Paste was reachable only by double-tapping a word first, so a customer reported they could not paste. This recognizer runs beside UIKit's and opens the edit menu (Paste, plus Copy when text is selected) when the press ends.
+    lazy var pasteMenuRecognizer: UILongPressGestureRecognizer = {
+        let recognizer = UILongPressGestureRecognizer(
+            target: self,
+            action: #selector(handlePasteMenuPress(_:))
+        )
+        recognizer.minimumPressDuration = 0.5
+        recognizer.cancelsTouchesInView = false
+        return recognizer
+    }()
+
     var editMenuInteraction: UIEditMenuInteraction?
 
     // MARK: - Text Input State
@@ -340,6 +351,9 @@ class GhosttyTerminalView: UIView {
             addGestureRecognizer(selectionRecognizer)
             addGestureRecognizer(doubleTapRecognizer)
             addGestureRecognizer(tripleTapRecognizer)
+        } else {
+            pasteMenuRecognizer.delegate = self
+            addGestureRecognizer(pasteMenuRecognizer)
         }
         isUserInteractionEnabled = true
 

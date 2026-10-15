@@ -179,7 +179,7 @@ extension GhosttyTerminalView {
     }
 
     @available(iOS 16.0, *)
-    func nativeSelectionMenuElements() -> [UIMenuElement] {
+    func nativeSelectionMenuElements(suggestedActions: [UIMenuElement]) -> [UIMenuElement] {
         let selectionText = normalizedSelectionMenuText()
         var actions: [UIMenuElement] = []
 
@@ -189,9 +189,7 @@ extension GhosttyTerminalView {
             })
         }
 
-        actions.append(UIAction(title: "Paste", image: UIImage(systemName: "doc.on.clipboard")) { [weak self] _ in
-            self?.paste(nil)
-        })
+        actions.append(systemPasteMenuElement(from: suggestedActions))
 
         if nativeSelectionSnapshot.length > 0 || selectionGridMetrics() != nil {
             actions.append(UIAction(title: "Select All", image: UIImage(systemName: "selection.pin.in.out")) { [weak self] _ in
@@ -200,6 +198,20 @@ extension GhosttyTerminalView {
         }
 
         return actions
+    }
+
+    /// CDXC:Clipboard 2026-10-16 WHY: the menus' Paste must be UIKit's own `paste:` command, never a custom `UIAction` that calls `paste(nil)`. iOS lets only its own Paste command read another app's clipboard without asking; a custom action made iOS show the "Allow Paste" prompt on every paste, and when that prompt was declined or never came up (a customer report, and the iOS 27 simulator) the clipboard read came back empty and nothing was pasted.
+    func systemPasteMenuElement(from suggestedActions: [UIMenuElement]) -> UIMenuElement {
+        let pasteAction = #selector(UIResponderStandardEditActions.paste(_:))
+        func find(in elements: [UIMenuElement]) -> UIMenuElement? {
+            for element in elements {
+                if let command = element as? UICommand, command.action == pasteAction { return command }
+                if let menu = element as? UIMenu, let found = find(in: menu.children) { return found }
+            }
+            return nil
+        }
+        return find(in: suggestedActions)
+            ?? UICommand(title: "Paste", image: UIImage(systemName: "doc.on.clipboard"), action: pasteAction)
     }
 
     private func selectAllVisibleText() {
@@ -621,6 +633,21 @@ extension GhosttyTerminalView {
         }
     }
 
+    /// Long press that ended without a text selection: open the edit menu with Paste.
+    /// A press that selected text already has UIKit's own menu (`editMenu(for:suggestedActions:)`).
+    @objc func handlePasteMenuPress(_ recognizer: UILongPressGestureRecognizer) {
+        guard recognizer.state == .ended else { return }
+        let location = recognizer.location(in: self)
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if let nativeSelectedRange, nativeSelectedRange.length > 0 { return }
+            // The menu's Paste is the `paste:` command, which UIKit sends to the first responder.
+            self.requestKeyboardFocus(for: .selectionGesture)
+            let config = UIEditMenuConfiguration(identifier: nil, sourcePoint: location)
+            self.editMenuInteraction?.presentEditMenu(with: config)
+        }
+    }
+
     private func showEditMenu(at location: CGPoint) {
         let hasGhosttySelection: Bool
         if let surface = surface?.unsafeCValue {
@@ -784,9 +811,7 @@ extension GhosttyTerminalView: UIEditMenuInteractionDelegate {
             })
         }
 
-        actions.append(UIAction(title: "Paste", image: UIImage(systemName: "doc.on.clipboard")) { [weak self] _ in
-            self?.paste(nil)
-        })
+        actions.append(systemPasteMenuElement(from: suggestedActions))
 
         if usesAppOwnedTouchSelection {
             actions.append(UIAction(title: "Select All", image: UIImage(systemName: "selection.pin.in.out")) { [weak self] _ in

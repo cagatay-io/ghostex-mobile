@@ -280,7 +280,7 @@ extension GhosttyTerminalView: UITextInput {
     @available(iOS 16.0, *)
     func editMenu(for textRange: UITextRange, suggestedActions: [UIMenuElement]) -> UIMenu? {
         guard usesNativeTouchSelection else { return nil }
-        return UIMenu(children: nativeSelectionMenuElements())
+        return UIMenu(children: nativeSelectionMenuElements(suggestedActions: suggestedActions))
     }
 
     func position(within range: UITextRange, atCharacterOffset offset: Int) -> UITextPosition? {
