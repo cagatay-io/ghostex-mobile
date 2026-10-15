@@ -689,7 +689,17 @@ export function useSessionsScreenMenus({
       openPath: (next) => setOverlay({ kind: 'sessionMenu', ctx, menuPath: next }),
       run: (menuCommand) => runMenuCommand(ctx.machine, menuCommand, { session: ctx }),
     });
-    return { subtitle: view.openedLabel ?? ctx.item.projectTitle, items: view.items };
+    // CDXC:SessionStatus 2026-10-15 SEE-ALSO: contract/programStatus.ts (the line the program reported, shown on long press only).
+    const programLine = ctx.item.session.programStatusLine;
+    const items =
+      view.openedLabel === null && programLine.length > 0
+        ? [
+            { kind: 'note' as const, key: 'program-status', label: programLine },
+            { kind: 'separator' as const, key: 'program-status-sep' },
+            ...view.items,
+          ]
+        : view.items;
+    return { subtitle: view.openedLabel ?? ctx.item.projectTitle, items };
   };
 
   /**

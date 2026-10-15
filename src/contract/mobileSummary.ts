@@ -4,6 +4,8 @@
  * reference implementation (GhostexRemoteSession / GhostexWorkspaceInventory).
  */
 
+import { programStatusLine } from './programStatus';
+
 // ---------------------------------------------------------------------------
 // Wire types (what the CLI emits; everything except sessionId is optional).
 // ---------------------------------------------------------------------------
@@ -76,6 +78,15 @@ export type MobileSummaryWireSession = {
   pendingQuestionCount?: number;
   /** Present while a background shell or monitor the agent started still runs after its turn. */
   backgroundWorkDetectedAt?: string;
+  /** The session's OSC 7501 program status (server/src/program_status/presentation.rs). */
+  programStatus?: {
+    governs?: boolean;
+    state?: string;
+    kind?: string;
+    progress?: number;
+    app?: string;
+    message?: string;
+  };
   /** Branch of the session's cwd; Copy Branch reads it (`GxserverPresentationSessionGitStatus`). */
   gitStatus?: { branch?: string | null };
   /** What a work-mode session is linked to (`GxserverPresentationSessionWork`); absent outside work mode. */
@@ -469,6 +480,12 @@ export type GhostexSession = {
    * after its turn ('' when none, or from a computer that predates the field).
    */
   backgroundWorkDetectedAt: string;
+  /**
+   * The line the program running in the session reported about itself (OSC 7501), shown in the
+   * session's long-press menu: '' when its reports do not drive the session's status, or when it
+   * said nothing (contract/programStatus.ts).
+   */
+  programStatusLine: string;
   /** Normalized so a live session is never marked sleeping (isSleeping && !isLive). */
   isSleeping: boolean;
   isLive: boolean;
@@ -1112,6 +1129,7 @@ export function parseSession(value: unknown): GhostexSession | null {
         ? Math.max(0, Math.floor(value.pendingQuestionCount))
         : 0,
     backgroundWorkDetectedAt: trimmedValue(value, 'backgroundWorkDetectedAt'),
+    programStatusLine: programStatusLine(value.programStatus),
     isSleeping: legacySleeping && !isLive,
     isLive,
     isPrimaryTitleTerminalTitle: boolValue(value, 'isPrimaryTitleTerminalTitle', false),

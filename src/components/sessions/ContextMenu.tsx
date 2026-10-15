@@ -64,6 +64,8 @@ type ContextMenuLeadingVisual =
 export type ContextMenuItem =
   | { kind: 'separator'; key: string }
   | { kind: 'label'; key: string; label: string }
+  /** Read-only text about the menu's subject (a program's status message): wrapped, not pressable. */
+  | { kind: 'note'; key: string; label: string }
   /** The desktop sidebar menu's small dimmed heading ("Session", "Below"), sentence case. */
   | { kind: 'heading'; key: string; label: string }
   | (ContextMenuAction & ContextMenuLeadingVisual);
@@ -181,6 +183,13 @@ export default function ContextMenu({
               if (item.kind === 'label') {
                 return (
                   <Text key={item.key} style={styles.sectionLabel} numberOfLines={1}>
+                    {item.label}
+                  </Text>
+                );
+              }
+              if (item.kind === 'note') {
+                return (
+                  <Text key={item.key} style={styles.note} numberOfLines={4} selectable>
                     {item.label}
                   </Text>
                 );
@@ -386,6 +395,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingTop: 6,
     paddingBottom: 2,
+  },
+  note: {
+    color: SidebarPalette.FOREGROUND,
+    opacity: 0.8,
+    fontSize: 13,
+    lineHeight: 18,
+    paddingHorizontal: 10,
+    paddingTop: 4,
+    paddingBottom: 4,
   },
   separator: {
     height: 1,
