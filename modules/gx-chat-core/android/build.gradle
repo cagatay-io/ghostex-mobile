@@ -11,6 +11,8 @@ android {
   defaultConfig {
     versionCode 1
     versionName "0.1.0"
+    // R8 rules for the libraries this module links (release builds minify).
+    consumerProguardFiles "proguard-rules.pro"
   }
   // src/main/jniLibs/<abi>/libgx_chat_mobile.so and the UniFFI Kotlin bindings under
   // src/main/java/dev/ghostex/gxchatcore/uniffi/ are build outputs of

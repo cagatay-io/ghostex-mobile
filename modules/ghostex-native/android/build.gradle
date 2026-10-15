@@ -11,6 +11,8 @@ android {
   defaultConfig {
     versionCode 1
     versionName "0.1.0"
+    // R8 rules for the libraries this module links (release builds minify).
+    consumerProguardFiles "proguard-rules.pro"
   }
   sourceSets {
     main {

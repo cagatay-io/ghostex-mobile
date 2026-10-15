@@ -13,6 +13,7 @@
       "./plugins/withPodfileMinDeploymentTarget.js",
       "./plugins/withSceneLifecycle.js",
       "./plugins/withAndroidReleaseSigning.js",
+      "./plugins/withAndroidReleaseSize.js",
       "./plugins/withLoopbackCleartext.js",
       "expo-status-bar",
       "@react-native-community/datetimepicker",
