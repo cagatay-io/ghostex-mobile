@@ -161,8 +161,9 @@ const FileChangeRow = memo(function FileChangeRow({
   const { theme, filePreviews } = useTranscriptEnv();
   const { disclosures } = useNativeChatUi();
   const key = `file:${stackId}:${index}`;
-  // Settings > Chat > Show file edit previews opens every row to its preview.
-  const [open, toggle] = useDisclosure(disclosures, key, filePreviews);
+  // Settings > Chat > Show file edit previews opens every row to its preview, and a write waiting on
+  // an approval opens its own row so the diff shows beside the card (gx-chat-core `approval_wait.rs`).
+  const [open, toggle] = useDisclosure(disclosures, key, filePreviews || file.awaitingApproval === true);
   const status = str(file, 'status') || 'edited';
   const hue = statusHue(colors, status);
   const failed = file.failed === true;

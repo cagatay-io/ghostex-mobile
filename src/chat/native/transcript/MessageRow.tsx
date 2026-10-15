@@ -218,7 +218,9 @@ function AgentMessage({ message, proseColor }: { message: ProjectedMessage; pros
 function MessageFiles({ message }: { message: ProjectedMessage }) {
   const { simple } = useTranscriptEnv();
   const { disclosures } = useNativeChatUi();
-  const [open, toggle] = useDisclosure(disclosures, `files:${message.id}`);
+  // A write waiting on an approval opens the group (gx-chat-core `approval_wait.rs`).
+  const awaiting = arr(message.files).some((file) => obj(file)?.awaitingApproval === true);
+  const [open, toggle] = useDisclosure(disclosures, `files:${message.id}`, awaiting);
   const stack = <FileChangeStack stackId={message.id} files={message.files} card={message.fileCard} />;
   if (!simple) return stack;
   return (
