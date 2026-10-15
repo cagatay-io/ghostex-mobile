@@ -9,11 +9,11 @@ import { arr, isTrue, obj, str } from './json';
 import { rowsOf, type MenuRow } from './MenuSheet';
 
 /** The toolbar controls in desktop's order, which is also the order they fold into More actions
- * (`toolbar.rs`, `COMPOSER_CONTROLS`). Maximize is desktop-only. */
+ * (`toolbar.rs`, `COMPOSER_CONTROLS`). Maximize is desktop-only. Files and links is always a More
+ * actions row (`filesLinksRow`). */
 export const COMPOSER_CONTROLS = [
   { id: 'summary', action: 'summaryMode', label: 'Summary mode', icon: 'titlebar/list-details.svg' },
   { id: 'note', action: 'sessionNote', label: 'Session note', icon: 'titlebar/note.svg' },
-  { id: 'files', action: 'filesLinks', label: 'Files and links', icon: 'titlebar/link.svg' },
   { id: 'stash', action: 'stashPrompt', label: 'Stash prompt', icon: 'titlebar/stack-push.svg' },
   { id: 'attach', action: 'attachPath', label: 'Attach a file or folder', icon: 'titlebar/paperclip.svg' },
   { id: 'dictate', action: 'dictate', label: 'Dictate', icon: 'titlebar/microphone.svg' },
@@ -188,8 +188,17 @@ export function moreActionsRows({ document, simple, verbose, available, serves, 
     if (control.id === 'summary' || !overflowed(document, control.id) || !available(control.id)) continue;
     const row: MenuRow = { label: control.label, iconPath: control.icon, command: { type: 'composerHost', action: control.action } };
     if (control.id === 'note') row.checked = document.note.open;
-    if (control.id === 'files') row.checked = document.filesLinks?.open === true;
     rows.push(row);
+  }
+  // Files and links is always here, never a toolbar button (desktop `actions.rs`,
+  // CDXC:FilesAndLinks 2026-10-15 there); it opens as a sheet.
+  if (document.composerActions?.files !== false) {
+    rows.push({
+      label: 'Files and links',
+      iconPath: 'titlebar/link.svg',
+      checked: document.filesLinks?.open === true,
+      command: { type: 'composerHost', action: 'filesLinks' },
+    });
   }
   const agentRows: MenuRow[] = [];
   for (const action of actions) {

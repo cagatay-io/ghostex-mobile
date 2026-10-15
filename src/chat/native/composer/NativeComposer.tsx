@@ -97,7 +97,6 @@ function terminalReadinessTint(document: ChatDocument): string | null {
 const CONTROL_GLYPHS: Record<ComposerControlId, GlyphName> = {
   summary: 'list-details',
   note: 'note',
-  files: 'link',
   stash: 'stack-push',
   attach: 'paperclip',
   dictate: 'microphone',
@@ -496,7 +495,6 @@ export function NativeComposer({ chat, onHostAction, hostActions = DEFAULT_HOST_
                       const pressed =
                         (control.id === 'summary' && document.composerChrome.summaryPressed) ||
                         (control.id === 'note' && document.composerChrome.notePressed) ||
-                        (control.id === 'files' && document.filesLinks?.open === true) ||
                         (control.id === 'dictate' && dictation.listening);
                       const badge =
                         control.id === 'stash'

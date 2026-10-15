@@ -1,5 +1,5 @@
 /**
- * Files and links (desktop `native_chat/files_links.rs`): the card above the composer that lists
+ * Files and links (desktop `native_chat/files_links.rs`): the sheet, opened from More actions, that lists
  * every attachment, file and link the session mentioned, and a coordinator's threads too. The core
  * owns what is listed, the sections, the filter and where a jump lands (`gx-chat-core`
  * `composer/files_links.rs`). A tap opens the item: a picture in the image viewer, a file or a link
@@ -16,7 +16,8 @@ import type { FilesLinksRow, FilesLinksState } from '../../rust/document';
 import { Glyph, type GlyphName } from '../composer/icons';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { openChatImageViewer, type ChatImage } from './overlayStore';
-import { ChatButton, StatusCard } from './primitives';
+import { Sheet } from '../composer/Sheet';
+import { ChatButton } from './primitives';
 
 const ROW_GLYPHS: Record<string, GlyphName> = { photo: 'photo', folder: 'folder', link: 'link', file: 'file' };
 
@@ -37,16 +38,14 @@ export function FilesLinksCard({ filesLinks, dispatch }: { filesLinks: FilesLink
       setHeld(null);
     }
   }, [open]);
-  if (filesLinks === undefined || !open) return null;
+  if (filesLinks === undefined) return null;
+  const close = () => dispatch({ type: 'filesLinksClose' });
+  if (!open) return <Sheet visible={false} onClose={close} title="Files and links">{null}</Sheet>;
   const sections = filesLinks.sections ?? [];
   const header = (
-    <View style={styles.header}>
-      <Glyph name="link" size={14} color={P.primary} />
-      <Text style={styles.title}>Files and links</Text>
-      <Text style={styles.status} numberOfLines={1}>
-        {filesLinks.loading && filesLinks.caption.length === 0 ? 'Reading the session…' : filesLinks.caption}
-      </Text>
-    </View>
+    <Text style={styles.status} numberOfLines={1}>
+      {filesLinks.loading && filesLinks.caption.length === 0 ? 'Reading the session…' : filesLinks.caption}
+    </Text>
   );
   const run = (command: unknown) => dispatch(command as UserAction);
   const openRow = (row: FilesLinksRow, gallery: ChatImage[]) => {
@@ -93,7 +92,7 @@ export function FilesLinksCard({ filesLinks, dispatch }: { filesLinks: FilesLink
     );
   } else {
     body.push(
-      <ScrollView key="list" style={{ maxHeight: height * 0.45 }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+      <ScrollView key="list" style={{ maxHeight: height * 0.55 }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
         <Text style={styles.hint}>Tap to open; hold a row to jump to where it was mentioned.</Text>
         {sections.map((section) => (
           <View key={section.id} style={styles.section}>
@@ -166,11 +165,20 @@ export function FilesLinksCard({ filesLinks, dispatch }: { filesLinks: FilesLink
       </ScrollView>
     );
   }
-  const actions = [
-    <ChatButton key="refresh" label="Refresh" icon="refresh" disabled={filesLinks.loading} onPress={() => dispatch({ type: 'filesLinksRefresh' })} />,
-    <ChatButton key="close" label="Close" icon="x" onPress={() => dispatch({ type: 'filesLinksClose' })} />,
-  ];
-  return <StatusCard header={header} body={body} actions={actions} />;
+  // The sheet's title row says "Files and links"; Refresh sits beside it and a tap outside or Back closes it.
+  return (
+    <Sheet
+      visible
+      onClose={close}
+      title="Files and links"
+      accessory={<ChatButton label="Refresh" icon="refresh" disabled={filesLinks.loading} onPress={() => dispatch({ type: 'filesLinksRefresh' })} />}
+    >
+      <View style={styles.sheetBody}>
+        {header}
+        {body}
+      </View>
+    </Sheet>
+  );
 }
 
 /** The three bars the side question card shows while it answers. */
@@ -186,8 +194,7 @@ function Placeholder() {
 }
 
 const useStyles = themedStyles((P) => ({
-  header: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  title: { flex: 1, minWidth: 0, color: P.foreground, fontSize: 14, lineHeight: 20, fontWeight: '500' },
+  sheetBody: { flexShrink: 1, gap: 10, paddingHorizontal: 16, paddingBottom: 8 },
   status: { flexShrink: 1, color: P.muted, fontSize: 12, lineHeight: 20 },
   error: { color: P.error, fontSize: 13, lineHeight: 19 },
   empty: { color: P.muted, fontSize: 13, lineHeight: 19 },
