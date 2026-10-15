@@ -24,7 +24,7 @@ export const QUESTION_PILL = {
 };
 
 /**
- * The Q-tag pills in a reply and the Previous question pill's outline: `question-tags.json` in
+ * The Q-tag pills in a reply: `question-tags.json` in
  * packages/gx-chat-core/visual (desktop reads it in `open_questions.rs`), one tone per state of the
  * tag's question (gx-chat-core `TagState`, where the user's 2026-10-15 decision lives).
  */
@@ -35,13 +35,13 @@ export const QUESTION_TAGS = {
   gap: 3,
   tone: {
     dark: {
-      open: { text: '#fdba74', border: 'rgba(251,146,60,0.55)' },
-      answered: { text: '#86efac', border: 'rgba(74,222,128,0.4)' },
-      withdrawn: { text: '#8a8a8a', border: 'rgba(255,255,255,0.16)' },
+      open: { text: '#d2b48f', border: 'rgba(201,164,122,0.34)' },
+      answered: { text: '#a3c9aa', border: 'rgba(143,191,153,0.3)' },
+      withdrawn: { text: '#838383', border: 'rgba(255,255,255,0.13)' },
     },
     light: {
-      open: { text: '#c2410c', border: 'rgba(234,88,12,0.5)' },
-      answered: { text: '#15803d', border: 'rgba(22,163,74,0.45)' },
+      open: { text: '#8a6339', border: 'rgba(169,122,74,0.34)' },
+      answered: { text: '#3f6e4a', border: 'rgba(79,138,92,0.34)' },
       withdrawn: { text: '#71717a', border: 'rgba(0,0,0,0.16)' },
     },
   },

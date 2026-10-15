@@ -18,7 +18,6 @@ import type { ChatDocument, ChatPill } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
 import { Sheet } from '../composer/Sheet';
 import { useTranscriptBottomStore } from '../transcript/bottomStore';
-import { QUESTION_TAGS } from '../transcript/OpenQuestions';
 import { AgentFleetMenu, AgentTasksMenu, CoordinatorThreadsMenu } from './AgentPanels';
 import { Glyph } from './icons';
 import { obj } from './json';
@@ -46,8 +45,6 @@ export function ChatPillsRow({ chat, document }: { chat: RustChat; document: Cha
   const question = questions !== undefined && questions !== null && questions.count > 0 ? questions : null;
   const showJump = awayFromBottom && jumpToBottom !== null;
   if (pills.length === 0 && question === null && !showJump) return null;
-  // The amber outline an open Q-tag has (CDXC:SessionChat 2026-10-15 on gx-chat-core's `TagState`).
-  const questionTone = (P.light ? QUESTION_TAGS.tone.light : QUESTION_TAGS.tone.dark).open;
   const close = () => {
     // The Threads list goes back to its first step, as folding the panel did (desktop `pill_menu_closed`).
     if (open === 'threads') chat.dispatch({ type: 'toggleCoordinatorThreadsMore', step: 0 });
@@ -69,8 +66,7 @@ export function ChatPillsRow({ chat, document }: { chat: RustChat; document: Cha
           <IconPill
             glyph="question-mark"
             accessibilityLabel={question.accessibilityLabel}
-            color={questionTone.text}
-            style={{ backgroundColor: 'transparent', borderColor: questionTone.border }}
+            color={P.cardMuted}
             onPress={() => chat.dispatch({ type: 'previousQuestion' })}
           />
         ) : null}
@@ -165,10 +161,14 @@ const useStyles = themedStyles((P) => ({
     borderWidth: 1,
     borderColor: P.ink(0.1),
   },
-  /** Square-ish around its glyph, the row's height (the label pills' 16pt line plus 2pt above and below). */
+  /**
+   * Square-ish around its glyph, the label pills' height: their 16pt line plus 2pt above and below,
+   * so the 14pt glyph takes 3pt. The ? pill is neutral like Threads (user, 2026-10-15: "same height as
+   * the threads and scroll to bottom pills (and same color)", desktop `chat_pills.rs`).
+   */
   iconPill: {
     paddingHorizontal: 5,
-    paddingVertical: 1,
+    paddingVertical: 3,
   },
   pillPressed: {
     backgroundColor: P.ink(0.08),
