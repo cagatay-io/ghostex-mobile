@@ -96,6 +96,7 @@ function UserMessage({ message }: { message: ProjectedMessage }) {
       color={theme.primary}
       breaks
       selectable={openMenu === undefined}
+      strips={false}
     />
   );
   const bubble =

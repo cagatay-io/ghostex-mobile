@@ -36,6 +36,8 @@ type InlineContext = {
   selectable: boolean;
   /** Transcript search's word highlight for the row this text is in (`searchHighlight.tsx`). */
   find: RowFind | null;
+  /** False in a prompt somebody sent: its pictures stay small thumbnails (`pictureRuns`). */
+  strips: boolean;
 };
 
 function referenceMap(references: unknown): Map<string, Reference> {
@@ -518,7 +520,7 @@ function Blocks({ blocks, context, color, depth, listDepth }: BlockProps) {
             if (block.c.some((inline) => inline.t === 'image')) {
               return (
                 <View key={key} style={[spacing, styles.pictureLines]}>
-                  {pictureRuns(block.c).map((run, part) =>
+                  {(context.strips ? pictureRuns(block.c) : [{ pictures: false, inlines: block.c }]).map((run, part) =>
                     run.pictures ? (
                       <PictureStrip key={part} images={run.inlines.flatMap((inline) => (inline.t === 'image' ? [inline.image] : []))} />
                     ) : (
@@ -666,9 +668,11 @@ export type MarkdownProps = {
   breaks?: boolean;
   /** False where a long press on the message opens the transcript menu instead. */
   selectable?: boolean;
+  /** False in a sent prompt, whose pictures keep their small thumbnails instead of a filmstrip. */
+  strips?: boolean;
 };
 
-export const Markdown = memo(function Markdown({ text, references, color, breaks = false, selectable = true }: MarkdownProps) {
+export const Markdown = memo(function Markdown({ text, references, color, breaks = false, selectable = true, strips = true }: MarkdownProps) {
   const { theme, dispatch } = useTranscriptEnv();
   const find = useRowFind();
   const blocks = useMemo(() => parseMarkdown(text, { breaks }), [breaks, text]);
@@ -685,8 +689,9 @@ export const Markdown = memo(function Markdown({ text, references, color, breaks
       longPressLink: (href: string) => openTranscriptMenu({ href }),
       selectable,
       find,
+      strips,
     }),
-    [find, openLink, referencesMap, selectable, theme]
+    [find, openLink, referencesMap, selectable, strips, theme]
   );
   return (
     <View style={styles.root}>

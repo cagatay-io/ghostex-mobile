@@ -32,6 +32,7 @@ const VISUAL = {
   stripRadius: 8,
   captionGap: 5,
   captionSize: 11.5,
+  captionMinWidth: 96,
   stripPaddingBottom: 4,
 };
 
@@ -87,10 +88,15 @@ export const InlineImage = memo(function InlineImage({ image }: { image: ChatIma
  * A paragraph made only of pictures: one row at each picture's own shape with its file name under
  * it, scrolling sideways when it is wider than the screen (desktop `picture_strip` in `images.rs`).
  *
- * CDXC:SessionChat 2026-10-15 DECISION:
+ * CDXC:SessionChat 2026-10-16 DECISION:
  * User picked option B, Filmstrip (Q134): pictures an agent writes on lines of their own sit side by
- * side at their own shape, about 136px tall (a lone picture larger), with the file name always
- * under each. This supersedes the 48pt squares those pictures used to be.
+ * side, about 136px tall (a lone picture larger), with the file name always under each, and each
+ * frame follows its picture's shape so a wide, short picture never gets black bars. Only in an
+ * agent's messages: of the strip in a sent prompt the user said "this is too big my fam … in the
+ * sent user messages no need for massive image like this. revert it there to how it was before",
+ * so a prompt's pictures keep the small inline thumbnails (`strips={false}` on its `Markdown`).
+ * Supersedes the 2026-10-15 decision, which drew the strip in prompts too and letterboxed a wide
+ * picture.
  */
 export const PictureStrip = memo(function PictureStrip({ images }: { images: ChatImageSource[] }) {
   const single = images.length === 1;
@@ -132,11 +138,13 @@ function StripTile({ image, index, height, maxWidth, onOpen }: { image: ChatImag
     );
   }
   // Its own shape once the picture says it; a screenshot's 16:10 until then.
+  // The frame is the picture's shape: a picture wider than the cap gets shorter, never black bars.
   const aspect = size !== null && size.width > 0 && size.height > 0 ? size.width / size.height : 1.6;
-  const width = Math.min(Math.max(height * aspect, height * 0.4), maxWidth);
+  const width = Math.min(height * aspect, maxWidth);
+  const frameHeight = width / aspect;
   return (
-    <Pressable onPress={onOpen} accessibilityRole='imagebutton' accessibilityLabel={`View ${alt.length > 0 ? alt : named}`} style={[styles.stripTile, { width }]}>
-      <View style={[styles.stripFrame, { width, height, borderColor: theme.border }, display.state === 'loading' && styles.stripLoading]}>
+    <Pressable onPress={onOpen} accessibilityRole='imagebutton' accessibilityLabel={`View ${alt.length > 0 ? alt : named}`} style={[styles.stripTile, { width: Math.max(width, VISUAL.captionMinWidth) }]}>
+      <View style={[styles.stripFrame, { width, height: frameHeight, borderColor: theme.border }, display.state === 'loading' && styles.stripLoading]}>
         {display.state === 'ready' ? (
           <Image
             source={{ uri: display.uri }}
