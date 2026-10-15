@@ -31,8 +31,17 @@ export function ImageViewer({ chat }: { chat: RustChat }) {
   const image = viewer === null ? null : viewer.images[viewer.index] ?? null;
   const source = useChatImage(chat, image);
   const [natural, setNatural] = useState<{ width: number; height: number } | null>(null);
-  // Bytes that arrived but would not decode (a truncated or corrupt file the server recognised by
-  // its first bytes): the card says the file looks damaged instead of an empty stage.
+  /**
+   * The picture failed to draw: only the `<Image>` that shows it decides that, never a separate
+   * size probe.
+   *
+   * CDXC:SessionChat 2026-10-15 WHY:
+   * `Image.getSize` on Android reads the size through Fresco's encoded-image metadata, a different
+   * path from the decode `<Image>` does, and it rejected a valid 1080x2520 phone JPEG the composer
+   * thumbnail drew fine, so a picture the phone had just attached opened as "damaged". The size now
+   * comes from the `<Image>`'s own `onLoad`, and a draw failure says the phone cannot show the
+   * picture rather than calling the file damaged, because nothing here has read its bytes.
+   */
   const [broken, setBroken] = useState(false);
   const uri = source.status === 'ready' && !broken ? source.uri : null;
   const readyUri = source.status === 'ready' ? source.uri : null;
@@ -42,15 +51,6 @@ export function ImageViewer({ chat }: { chat: RustChat }) {
     setZoomed(false);
     setNatural(null);
     setBroken(false);
-    if (readyUri === null) return;
-    Image.getSize(
-      readyUri,
-      (w, h) => setNatural({ width: w, height: h }),
-      () => {
-        setNatural(null);
-        setBroken(true);
-      }
-    );
   }, [readyUri]);
 
   if (viewer === null || image === null) return null;
@@ -63,7 +63,7 @@ export function ImageViewer({ chat }: { chat: RustChat }) {
   const frameHeight = height - insets.top - insets.bottom - 120;
   const fitted = fit(natural, frameWidth, frameHeight);
   const failure: ChatImageFailure | null =
-    source.status === 'unavailable' ? source.failure : broken ? { reason: 'damaged', error: '' } : null;
+    source.status === 'unavailable' ? source.failure : broken ? { reason: 'unsupported', error: '' } : null;
   const copyPath = failure === null && typeof image.copyPath === 'string' ? image.copyPath : '';
   const base64 = uri !== null && uri.startsWith('data:') ? uri.slice(uri.indexOf(',') + 1) : null;
 
@@ -148,6 +148,10 @@ export function ImageViewer({ chat }: { chat: RustChat }) {
                   source={{ uri }}
                   style={{ width: fitted.width, height: fitted.height }}
                   resizeMode="contain"
+                  onLoad={(event) => {
+                    const { width: w, height: h } = event.nativeEvent.source;
+                    if (w > 0 && h > 0 && (natural?.width !== w || natural?.height !== h)) setNatural({ width: w, height: h });
+                  }}
                   onError={() => setBroken(true)}
                 />
               </Pressable>
