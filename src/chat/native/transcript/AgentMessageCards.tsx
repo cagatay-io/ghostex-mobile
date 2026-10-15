@@ -12,6 +12,8 @@ import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { ProjectedMessage } from '../../rust/document';
+import { CoordinatorGlyph } from '../../../components/sessions/icons';
+import { SidebarPalette } from '../../../theme/palette';
 import { AgentMark } from '../cards/agentMark';
 import { useNativeChatUi, useTranscriptEnv } from './context';
 import { Glyph, type GlyphName } from './icons';
@@ -26,7 +28,11 @@ function toneColor(tone: string, theme: TranscriptTheme): string {
   return theme.light ? '#059669' : '#34d399';
 }
 
-/** The agent's own logo with a small arrow badge (prose grey coming in, sky going out), or a subagent's sparkle. */
+/**
+ * The agent's own logo (a coordinator's crown, `CDXC:Coordinators 2026-10-15` in the core's
+ * agent_message_card.rs) with a small arrow badge (prose grey coming in, sky going out), or a
+ * subagent's sparkle.
+ */
 function Mark({ card }: { card: JsonRecord }) {
   const { theme } = useTranscriptEnv();
   const direction = str(card, 'direction');
@@ -35,7 +41,11 @@ function Mark({ card }: { card: JsonRecord }) {
   const icon = str(card, 'agentIcon');
   return (
     <View style={styles.mark}>
-      <AgentMark icon={icon.length > 0 ? icon : null} size={17} />
+      {card.coordinator === true ? (
+        <CoordinatorGlyph size={17} color={theme.light ? '#000000' : SidebarPalette.ROW_COORDINATOR_CROWN} />
+      ) : (
+        <AgentMark icon={icon.length > 0 ? icon : null} size={17} />
+      )}
       <View
         style={[styles.badge, { backgroundColor: sent ? (theme.light ? '#0284c7' : '#7dd3fc') : theme.prose, borderColor: theme.cardPanel }]}
       >

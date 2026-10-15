@@ -24,6 +24,7 @@ export function currentSessionDirectory(): ChatKnownSession[] {
         title: session.displayTitle || session.title,
         agentId: session.agent,
         agentName: session.agentName,
+        coordinator: session.isCoordinator === true,
       });
     }
   }

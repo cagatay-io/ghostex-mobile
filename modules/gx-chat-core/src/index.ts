@@ -82,6 +82,8 @@ export type ChatKnownSession = {
   title: string;
   agentId: string;
   agentName: string;
+  /** A coordinator (orchestrator): its message cards draw the crown, as its row does. */
+  coordinator: boolean;
 };
 
 export type ChatMeasurement =
