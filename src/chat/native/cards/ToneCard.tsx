@@ -60,6 +60,7 @@ export function toneLook(tone: string, light: boolean): ToneLook {
 
 export function ToneCard({
   tone,
+  icon,
   title,
   detail,
   trailing,
@@ -70,6 +71,8 @@ export function ToneCard({
   accessibilityLabel,
 }: {
   tone: string;
+  /** Replaces the tone's own glyph (an API error card draws its failure's). */
+  icon?: GlyphName;
   title: string;
   detail?: string;
   trailing?: ReactNode;
@@ -82,7 +85,8 @@ export function ToneCard({
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
-  const look = toneLook(tone, P.light);
+  const toneOnly = toneLook(tone, P.light);
+  const look = icon === undefined ? toneOnly : { ...toneOnly, icon };
   const bodyItems = (body ?? []).filter((item) => item !== null && item !== undefined && item !== false);
   const start = (footerStart ?? []).filter(Boolean);
   const end = (footerEnd ?? []).filter(Boolean);

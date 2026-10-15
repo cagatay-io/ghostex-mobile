@@ -8,7 +8,7 @@ import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { ProjectedMessage } from '../../rust/document';
-import { QuestionExchangeCards } from '../cards';
+import { ApiErrorCard, ApiErrorNote, QuestionExchangeCards } from '../cards';
 import { useNativeChatUi, useTranscriptEnv, useTranscriptFlags } from './context';
 import { Chevron, DisclosureBody, DisclosureHeading, LaneMarker, useFoldPlace } from './Disclosure';
 import { FileChangeStack } from './FileChanges';
@@ -55,9 +55,18 @@ export const MessageRow = memo(function MessageRow({ message }: { message: Proje
   if (message.role === 'user' && obj(message.suppressed) === null) return <UserMessage message={message} />;
   if (obj(message.sideQuestion) !== null) return <SideQuestionRow message={message} />;
   if (obj(message.suppressed) !== null) return <SuppressedRow message={message} />;
+  if (obj(message.apiError) !== null) return <ApiErrorRow message={message} />;
   if (obj(message.systemCard) !== null) return <SystemCard message={message} />;
   return <AgentMessage message={message} proseColor={theme.prose} />;
 });
+
+/** A failed API call: the open card when the core names this row, otherwise one quiet line. */
+function ApiErrorRow({ message }: { message: ProjectedMessage }) {
+  const { dispatch } = useTranscriptEnv();
+  const { apiErrorCard } = useTranscriptFlags();
+  if (obj(apiErrorCard)?.messageId === message.id) return <ApiErrorCard card={apiErrorCard} dispatch={dispatch} />;
+  return <ApiErrorNote error={message.apiError} time={message.time} />;
+}
 
 /**
  * The long press that opens the transcript menu on a message (desktop's right press), with the

@@ -17,6 +17,7 @@ import { useRef } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions } from 'react-native';
 
 import type { RustChat } from '../../rust/useRustChat';
+import { ApiErrorCard } from './ApiErrorCard';
 import { AsyncQuestionsCard } from './AsyncQuestionsCard';
 import { ChatPillsRow } from './ChatPills';
 import { useTranscriptBottomStore } from '../transcript/bottomStore';
@@ -28,6 +29,12 @@ import type { CardHostAction } from './types';
 import { WorkingStrip, type ArmedAction } from './WorkingStrip';
 
 const NO_ARMED: readonly ArmedAction[] = [];
+
+/** A failure the agent keeps no record of (Codex shows it only on screen): its card sits here, where its screen notice would have been. */
+function unrecordedApiError(card: unknown): boolean {
+  const value = obj(card);
+  return value !== null && value.messageId === null;
+}
 
 export type NativeChatCardsProps = {
   chat: RustChat;
@@ -54,6 +61,7 @@ export function NativeChatCards({ chat, onHostAction, armed = NO_ARMED, onArmedP
     typeof document.operationError === 'string' ||
     hasPills ||
     (obj(document.terminalNotice) !== null && document.noticeVisible === true) ||
+    unrecordedApiError(document.apiErrorCard) ||
     typeof document.asyncQuestions?.question?.key === 'string' ||
     document.questionCard?.visible === true;
   if (!hasAny) return null;
@@ -77,6 +85,7 @@ export function NativeChatCards({ chat, onHostAction, armed = NO_ARMED, onArmedP
       />
       <ComposerNotReadyCard chat={chat} document={document} onHostAction={onHostAction} />
       <NoticeCard chat={chat} document={document} onHostAction={onHostAction} />
+      {unrecordedApiError(document.apiErrorCard) ? <ApiErrorCard card={document.apiErrorCard} dispatch={chat.dispatch} /> : null}
       <AsyncQuestionsCard chat={chat} document={document} />
       <QuestionCard chat={chat} document={document} />
     </ScrollView>

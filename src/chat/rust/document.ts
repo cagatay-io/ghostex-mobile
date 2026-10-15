@@ -269,6 +269,8 @@ export type ProjectedMessage = {
   sideQuestion?: Json;
   /** A system card (compaction, errors, agent messages...), or null. Desktop: `system_cards.rs`. */
   systemCard?: Json;
+  /** A failed API call the agent recorded: `{kind, title, detail, icon}`, or null. Desktop: `api_error_card.rs`. */
+  apiError?: Json;
   /** File change rows. Desktop: `file_change_card.rs`, `file_change_rows` in the core. */
   files?: Json[];
   /** The file change card's header over `files` (`file_change_card` in the core). */
@@ -479,6 +481,8 @@ export type ChatDocument = {
   accountPanel: Json;
   /** The account switch card, or null. Desktop: `account_switch_card.rs`. */
   accountSwitchCard: Json;
+  /** The open API error card with gxserver's retry (`{messageId, kind, icon, tone, title, detail, status, actions}`), or null. Desktop: `api_error_card.rs`. */
+  apiErrorCard?: Json;
   /** The switch gxserver reports, or null. */
   accountSwitch: Json;
   /** A model selection waiting on the agent. */

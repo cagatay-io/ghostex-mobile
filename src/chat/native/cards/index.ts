@@ -17,6 +17,7 @@ export type { ArmedAction } from './WorkingStrip';
 
 // Inline pieces the transcript draws inside its rows.
 export { EmptyTranscript } from './EmptyTranscript';
+export { ApiErrorCard, ApiErrorNote } from './ApiErrorCard';
 export { QuestionExchangeCards } from './QuestionExchangeCards';
 export { subagentOpenAction } from './AgentPanels';
 

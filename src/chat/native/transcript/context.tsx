@@ -126,6 +126,8 @@ export type TranscriptFlags = {
   /** The message a Back to composer is taking back right now. */
   takeBackBusy: string | null;
   deferredWork: { [itemId: string]: { loading: boolean; error?: string | null } };
+  /** The open API error card (`apiErrorCard`); the row whose id it names draws it, other failed-call rows a quiet line. */
+  apiErrorCard: Json;
 };
 
 const EMPTY_FLAGS: TranscriptFlags = {
@@ -140,6 +142,7 @@ const EMPTY_FLAGS: TranscriptFlags = {
   takeBackIds: new Set(),
   takeBackBusy: null,
   deferredWork: {},
+  apiErrorCard: null,
 };
 
 const FlagsContext = createContext<TranscriptFlags>(EMPTY_FLAGS);
@@ -162,6 +165,7 @@ export function transcriptFlags(document: ChatDocument | null): TranscriptFlags 
     takeBackIds: new Set(arr(document.queueTakeBackIds).filter((id): id is string => typeof id === 'string')),
     takeBackBusy: typeof document.queueTakeBackBusy === 'string' ? document.queueTakeBackBusy : null,
     deferredWork: obj(document.deferredWork) === null ? {} : document.deferredWork,
+    apiErrorCard: document.apiErrorCard ?? null,
   };
 }
 
