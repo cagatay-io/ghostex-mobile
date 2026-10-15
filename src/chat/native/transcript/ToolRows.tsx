@@ -48,8 +48,10 @@ export function ToolRows({ message }: { message: ProjectedMessage }) {
     .filter((tool): tool is JsonRecord => tool !== null);
   const runKey = `tool-run:${message.id}`;
   const [runOpen, toggleRun] = useDisclosure(disclosures, runKey);
-  // Simple mode's run heading opens on demand only; verbose mode never opens it.
-  const [simpleOpen, toggleSimple] = useDisclosure(disclosures, `tools:${message.id}`);
+  // Simple mode's run heading opens on demand only; verbose mode never opens it. A call waiting on
+  // an approval opens it (gx-chat-core `approval_wait.rs`).
+  const awaiting = tools.some((tool) => tool.awaitingApproval === true);
+  const [simpleOpen, toggleSimple] = useDisclosure(disclosures, `tools:${message.id}`, awaiting);
   if (tools.length === 0) return null;
   // Under a heading that already folds the run, every row shows (React's `showAllRows`).
   const showAll = message.toolsShowAllRows === true;
@@ -186,7 +188,9 @@ const ToolRow = memo(function ToolRow({
   const { theme, dispatch, simple } = useTranscriptEnv();
   const { disclosures } = useNativeChatUi();
   const key = `tool:${messageId}:${index}`;
-  const [open, toggle] = useDisclosure(disclosures, key);
+  // A call waiting on an approval starts open so its command shows beside the card, and folds back
+  // once it is answered unless the reader toggled it (gx-chat-core `approval_wait.rs`).
+  const [open, toggle] = useDisclosure(disclosures, key, tool.awaitingApproval === true);
   const hasDetail = tool.hasDetail === true;
   const expanded = open && hasDetail;
   const detail = obj(useRowDetail(key, 'tool', messageId, index, expanded));
