@@ -5,8 +5,8 @@
  * (`loadImage`), and a tap opens the image viewer `NativeChatOverlays` draws.
  */
 
-import { memo } from 'react';
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { memo, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import { openChatImageViewer } from '../cards';
 import { fileNameOf, imageFailureCopy } from '../cards/ImageUnavailable';
@@ -24,6 +24,15 @@ const VISUAL = {
   inlineMarginX: 4,
   inlineMarginY: 2,
   loadingIconSize: 16,
+  stripHeight: 136,
+  stripMaxWidth: 230,
+  singleHeight: 252,
+  singleMaxWidth: 420,
+  stripGap: 10,
+  stripRadius: 8,
+  captionGap: 5,
+  captionSize: 11.5,
+  stripPaddingBottom: 4,
 };
 
 function Thumbnail({ image }: { image: ChatImageSource }) {
@@ -73,6 +82,84 @@ export const InlineImage = memo(function InlineImage({ image }: { image: ChatIma
     </Pressable>
   );
 });
+
+/**
+ * A paragraph made only of pictures: one row at each picture's own shape with its file name under
+ * it, scrolling sideways when it is wider than the screen (desktop `picture_strip` in `images.rs`).
+ *
+ * CDXC:SessionChat 2026-10-15 DECISION:
+ * User picked option B, Filmstrip (Q134): pictures an agent writes on lines of their own sit side by
+ * side at their own shape, about 136px tall (a lone picture larger), with the file name always
+ * under each. This supersedes the 48pt squares those pictures used to be.
+ */
+export const PictureStrip = memo(function PictureStrip({ images }: { images: ChatImageSource[] }) {
+  const single = images.length === 1;
+  const { width: screenWidth } = useWindowDimensions();
+  const height = single ? VISUAL.singleHeight : VISUAL.stripHeight;
+  // A lone picture is never wider than the screen it is read on; a row of them scrolls instead.
+  const maxWidth = single ? Math.min(VISUAL.singleMaxWidth, screenWidth - 48) : VISUAL.stripMaxWidth;
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={!single} contentContainerStyle={styles.strip}>
+      {images.map((image, index) => (
+        <StripTile key={index} image={image} index={index} height={height} maxWidth={maxWidth} onOpen={() => openChatImageViewer(images, index)} />
+      ))}
+    </ScrollView>
+  );
+});
+
+function StripTile({ image, index, height, maxWidth, onOpen }: { image: ChatImageSource; index: number; height: number; maxWidth: number; onOpen(): void }) {
+  const { theme } = useTranscriptEnv();
+  const display = useImageDisplay(image);
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+  const label = str(image, 'label');
+  const alt = str(image, 'alt');
+  const named = label.length > 0 ? fileNameOf(label) : `Image #${index + 1}`;
+  if (display.state === 'unavailable') {
+    return (
+      <Pressable
+        onPress={onOpen}
+        accessibilityRole='button'
+        accessibilityLabel={`${imageFailureCopy({ reason: display.reason, error: '' }).title}: ${named}`}
+        style={[styles.card, { borderColor: theme.border, backgroundColor: theme.cardBackground }]}
+      >
+        <View style={[styles.cardWell, { backgroundColor: theme.input }]}>
+          <Glyph name='photo-off' size={14} color={theme.muted} />
+        </View>
+        <Text numberOfLines={1} style={[styles.cardLabel, { color: theme.foreground }]}>
+          {named}
+        </Text>
+      </Pressable>
+    );
+  }
+  // Its own shape once the picture says it; a screenshot's 16:10 until then.
+  const aspect = size !== null && size.width > 0 && size.height > 0 ? size.width / size.height : 1.6;
+  const width = Math.min(Math.max(height * aspect, height * 0.4), maxWidth);
+  return (
+    <Pressable onPress={onOpen} accessibilityRole='imagebutton' accessibilityLabel={`View ${alt.length > 0 ? alt : named}`} style={[styles.stripTile, { width }]}>
+      <View style={[styles.stripFrame, { width, height, borderColor: theme.border }, display.state === 'loading' && styles.stripLoading]}>
+        {display.state === 'ready' ? (
+          <Image
+            source={{ uri: display.uri }}
+            style={styles.stripPicture}
+            resizeMode='contain'
+            onLoad={(event) => {
+              const source = event.nativeEvent.source;
+              if (source !== undefined && (source.width !== size?.width || source.height !== size?.height)) setSize({ width: source.width, height: source.height });
+            }}
+          />
+        ) : (
+          <ActivityIndicator size='small' color={theme.muted} />
+        )}
+      </View>
+      <View style={styles.caption}>
+        <Text numberOfLines={1} style={[styles.captionName, { color: theme.cardMuted }]}>
+          {named}
+        </Text>
+        {size !== null ? <Text style={[styles.captionMeta, { color: theme.muted }]}>{`${size.width}×${size.height}`}</Text> : null}
+      </View>
+    </Pressable>
+  );
+}
 
 /** A message's own pictures: right-aligned above a prompt, left-aligned above an agent's prose. */
 export const ImageRow = memo(function ImageRow({ images, user }: { images: unknown; user: boolean }) {
@@ -165,5 +252,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   cardWell: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  strip: { flexDirection: 'row', alignItems: 'flex-start', gap: VISUAL.stripGap, paddingBottom: VISUAL.stripPaddingBottom },
+  stripTile: { gap: VISUAL.captionGap },
+  stripFrame: {
+    borderRadius: VISUAL.stripRadius,
+    borderWidth: VISUAL.borderWidth,
+    overflow: 'hidden',
+    backgroundColor: '#000',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stripLoading: { borderStyle: 'dashed', backgroundColor: 'transparent' },
+  stripPicture: { width: '100%', height: '100%' },
+  caption: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
+  captionName: { flexShrink: 1, fontSize: VISUAL.captionSize, lineHeight: VISUAL.captionSize * 1.3 },
+  captionMeta: { fontSize: VISUAL.captionSize, lineHeight: VISUAL.captionSize * 1.3 },
   cardLabel: { flexShrink: 1, fontSize: 12, fontWeight: '500', paddingHorizontal: 6 },
 });

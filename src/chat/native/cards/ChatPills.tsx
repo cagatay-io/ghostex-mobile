@@ -18,7 +18,7 @@ import type { ChatDocument, ChatPill } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
 import { Sheet } from '../composer/Sheet';
 import { useTranscriptBottomStore } from '../transcript/bottomStore';
-import { QUESTION_PILL } from '../transcript/OpenQuestions';
+import { QUESTION_TAGS } from '../transcript/OpenQuestions';
 import { AgentFleetMenu, AgentTasksMenu, CoordinatorThreadsMenu } from './AgentPanels';
 import { Glyph } from './icons';
 import { obj } from './json';
@@ -46,7 +46,8 @@ export function ChatPillsRow({ chat, document }: { chat: RustChat; document: Cha
   const question = questions !== undefined && questions !== null && questions.count > 0 ? questions : null;
   const showJump = awayFromBottom && jumpToBottom !== null;
   if (pills.length === 0 && question === null && !showJump) return null;
-  const questionTone = P.light ? QUESTION_PILL.tone.light : QUESTION_PILL.tone.dark;
+  // The amber outline an open Q-tag has (CDXC:SessionChat 2026-10-15 on gx-chat-core's `TagState`).
+  const questionTone = (P.light ? QUESTION_TAGS.tone.light : QUESTION_TAGS.tone.dark).open;
   const close = () => {
     // The Threads list goes back to its first step, as folding the panel did (desktop `pill_menu_closed`).
     if (open === 'threads') chat.dispatch({ type: 'toggleCoordinatorThreadsMore', step: 0 });
@@ -66,10 +67,10 @@ export function ChatPillsRow({ chat, document }: { chat: RustChat; document: Cha
         ) : null}
         {question !== null ? (
           <IconPill
-            glyph="help-circle"
+            glyph="question-mark"
             accessibilityLabel={question.accessibilityLabel}
             color={questionTone.text}
-            style={{ backgroundColor: questionTone.background, borderColor: questionTone.border }}
+            style={{ backgroundColor: 'transparent', borderColor: questionTone.border }}
             onPress={() => chat.dispatch({ type: 'previousQuestion' })}
           />
         ) : null}
@@ -100,7 +101,7 @@ function IconPill({
   style,
   onPress,
 }: {
-  glyph: 'help-circle' | 'arrow-down';
+  glyph: 'question-mark' | 'arrow-down';
   accessibilityLabel: string;
   color: string;
   style?: { backgroundColor: string; borderColor: string };

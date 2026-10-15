@@ -14,16 +14,17 @@ import { useTranscriptEnv } from '../context';
 import { Glyph, type GlyphName } from '../icons';
 import { arr, obj, str, type JsonRecord } from '../json';
 import { CODE_SIZE, MONO_FONT, PROSE_LINE, PROSE_SIZE, type TranscriptTheme } from '../theme';
-import { InlineImage } from '../Images';
+import { InlineImage, PictureStrip } from '../Images';
 import { VisualBlock } from '../VisualBlock';
 import { QuestionForm } from '../QuestionForm';
+import { QUESTION_TAGS, type QuestionTagState } from '../OpenQuestions';
 import { openTranscriptMenu } from '../transcriptMenuStore';
 import { highlightText, useOwnFind, useRowFind, type RowFind } from '../searchHighlight';
 import { inlineText, parseMarkdown, type Block, type FenceHeader, type Inline } from './parse';
 import { fitTableColumns } from './tableLayout';
 import { MarkedSection, useMarkedEmoji, useMarkedStyle } from './MarkedSections';
 
-type Reference = { label: string; kind: string };
+type Reference = { label: string; kind: string; state: string; title: string };
 
 type InlineContext = {
   theme: TranscriptTheme;
@@ -45,7 +46,12 @@ function referenceMap(references: unknown): Map<string, Reference> {
     const href = str(reference, 'href');
     const sourceLabel = str(reference, 'sourceLabel');
     if (href.length === 0) continue;
-    map.set(`${href}\u0000${sourceLabel}`, { label: str(reference, 'label'), kind: str(reference, 'kind') });
+    map.set(`${href}\u0000${sourceLabel}`, {
+      label: str(reference, 'label'),
+      kind: str(reference, 'kind'),
+      state: str(reference, 'state'),
+      title: str(reference, 'title'),
+    });
   }
   return map;
 }
@@ -112,6 +118,7 @@ function renderInlines(inlines: readonly Inline[], context: InlineContext, keyPr
         return str(inline.image, 'label');
       case 'link': {
         const reference = context.references.get(`${inline.href}\u0000${inline.label}`);
+        if (reference?.kind === 'question') return <QuestionTagPill key={key} reference={reference} href={inline.href} context={context} />;
         const kind = reference?.kind ?? (isExternal(inline.href) ? 'url' : 'file');
         const color = linkColor(context.theme, kind);
         const glyph = reference !== undefined ? REFERENCE_GLYPHS[kind] : undefined;
@@ -139,6 +146,56 @@ function renderInlines(inlines: readonly Inline[], context: InlineContext, keyPr
       }
     }
   });
+}
+
+/**
+ * A Q-tag (`Q80`) as an outlined pill in its question's state: amber with a ? while open, green with
+ * a check once answered, grey and struck through once withdrawn. Desktop draws the same pill from
+ * `question_tag_link` in `open_questions.rs`; the state is gx-chat-core's `TagState`.
+ */
+function QuestionTagPill({ reference, href, context }: { reference: Reference; href: string; context: InlineContext }) {
+  const state = (reference.state in QUESTION_TAGS.tone.dark ? reference.state : 'open') as QuestionTagState;
+  const tone = (context.theme.light ? QUESTION_TAGS.tone.light : QUESTION_TAGS.tone.dark)[state];
+  const glyph = state === 'open' ? 'question-mark' : state === 'answered' ? 'check' : undefined;
+  return (
+    <Text>
+      <Pressable
+        accessibilityRole="link"
+        accessibilityLabel={reference.title}
+        onPress={() => context.openLink(href)}
+        {...(context.longPressLink !== undefined ? { onLongPress: () => context.longPressLink?.(href) } : {})}
+        style={({ pressed }) => [
+          styles.questionTag,
+          { borderColor: tone.border, backgroundColor: pressed ? tone.border : 'transparent' },
+        ]}
+      >
+        {glyph !== undefined ? <Glyph name={glyph} size={QUESTION_TAGS.iconSize} color={tone.text} strokeWidth={2.8} /> : null}
+        <Text style={[styles.questionTagLabel, { color: tone.text }, state === 'withdrawn' ? styles.del : null]}>{reference.label}</Text>
+      </Pressable>
+    </Text>
+  );
+}
+
+/**
+ * A paragraph with pictures in it, cut at its line breaks: consecutive lines made only of pictures
+ * become one filmstrip, every other line keeps its words and inline thumbnails (`parse` in
+ * desktop's `rich_markdown.rs` groups the same lines).
+ */
+function pictureRuns(inlines: Inline[]): { pictures: boolean; inlines: Inline[] }[] {
+  const lines: Inline[][] = [[]];
+  for (const inline of inlines) {
+    if (inline.t === 'br') lines.push([]);
+    else lines[lines.length - 1]!.push(inline);
+  }
+  const runs: { pictures: boolean; inlines: Inline[] }[] = [];
+  for (const line of lines) {
+    if (line.length === 0) continue;
+    const pictures = line.some((inline) => inline.t === 'image') && line.every((inline) => inline.t === 'image' || (inline.t === 'text' && inline.v.trim().length === 0));
+    const last = runs[runs.length - 1];
+    if (last !== undefined && last.pictures === pictures) last.inlines.push(...(pictures ? line : [{ t: 'br' } as Inline, ...line]));
+    else runs.push({ pictures, inlines: [...line] });
+  }
+  return runs;
 }
 
 /** A paragraph with pictures in it: the run of words and thumbnails it was written as (`flow` in `rich_markdown.rs`). */
@@ -460,8 +517,14 @@ function Blocks({ blocks, context, color, depth, listDepth }: BlockProps) {
           case 'p':
             if (block.c.some((inline) => inline.t === 'image')) {
               return (
-                <View key={key} style={spacing}>
-                  <FlowParagraph inlines={block.c} context={context} color={color} />
+                <View key={key} style={[spacing, styles.pictureLines]}>
+                  {pictureRuns(block.c).map((run, part) =>
+                    run.pictures ? (
+                      <PictureStrip key={part} images={run.inlines.flatMap((inline) => (inline.t === 'image' ? [inline.image] : []))} />
+                    ) : (
+                      <FlowParagraph key={part} inlines={run.inlines} context={context} color={color} />
+                    )
+                  )}
                 </View>
               );
             }
@@ -640,7 +703,18 @@ const styles = StyleSheet.create({
   del: { textDecorationLine: 'line-through' },
   inlineCode: { fontFamily: MONO_FONT, fontSize: CODE_SIZE },
   referenceIcon: { width: 13, height: 13, transform: [{ translateY: 2 }] },
+  questionTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: QUESTION_TAGS.gap,
+    paddingHorizontal: QUESTION_TAGS.paddingX,
+    borderWidth: 1,
+    borderRadius: QUESTION_TAGS.radius,
+    transform: [{ translateY: 4 }],
+  },
+  questionTagLabel: { fontSize: PROSE_SIZE - 1, lineHeight: PROSE_SIZE + 4, fontWeight: '600' },
   flow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' },
+  pictureLines: { gap: 6 },
   blockGap: { marginTop: 10.4 },
   headingGap: { marginTop: 20 },
   headingBottom: { marginBottom: 0 },

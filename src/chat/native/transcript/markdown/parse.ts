@@ -651,7 +651,12 @@ export function parseInline(text: string, breaks: boolean): Inline[] {
     }
     if (character === '\n') {
       const hard = plain.endsWith('  ');
-      if (hard || breaks) {
+      // A line of pictures is a block of its own on the desktop (`parse` in `rich_markdown.rs`),
+      // so the newline either side of one breaks the line here too and the pictures can form a
+      // filmstrip (`pictureRuns` in `Markdown.tsx`).
+      const nextLine = text.slice(index + 1).trimStart();
+      const besidePicture = nextLine.startsWith(IMAGE_OPEN) || (plain.trim().length === 0 && out[out.length - 1]?.t === 'image');
+      if (hard || breaks || besidePicture) {
         plain = plain.replace(/ +$/, '');
         flush();
         out.push({ t: 'br' });
