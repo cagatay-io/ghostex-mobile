@@ -4,7 +4,7 @@
  * reference implementation (GhostexRemoteSession / GhostexWorkspaceInventory).
  */
 
-import { programStatusLine } from './programStatus';
+import { programStatusFailed, programStatusLine } from './programStatus';
 
 // ---------------------------------------------------------------------------
 // Wire types (what the CLI emits; everything except sessionId is optional).
@@ -486,6 +486,8 @@ export type GhostexSession = {
    * said nothing (contract/programStatus.ts).
    */
   programStatusLine: string;
+  /** The program reported `error` while its reports drive the status (contract/programStatus.ts). */
+  programStatusFailed: boolean;
   /** Normalized so a live session is never marked sleeping (isSleeping && !isLive). */
   isSleeping: boolean;
   isLive: boolean;
@@ -1130,6 +1132,7 @@ export function parseSession(value: unknown): GhostexSession | null {
         : 0,
     backgroundWorkDetectedAt: trimmedValue(value, 'backgroundWorkDetectedAt'),
     programStatusLine: programStatusLine(value.programStatus),
+    programStatusFailed: programStatusFailed(value.programStatus),
     isSleeping: legacySleeping && !isLive,
     isLive,
     isPrimaryTitleTerminalTitle: boolValue(value, 'isPrimaryTitleTerminalTitle', false),

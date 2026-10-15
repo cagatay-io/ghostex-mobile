@@ -16,6 +16,16 @@ function text(json: JsonObject, key: string): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+/**
+ * The program reported `error` and its reports drive the session's status (gx-core
+ * `program_status_failed`); the row draws the red dot while the session is in attention.
+ */
+export function programStatusFailed(raw: unknown): boolean {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return false;
+  const status = raw as JsonObject;
+  return status.governs === true && text(status, 'state') === 'error';
+}
+
 /** '' when there is nothing to show or the reports do not drive the session's status. */
 export function programStatusLine(raw: unknown): string {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return '';

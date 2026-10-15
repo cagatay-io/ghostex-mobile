@@ -89,6 +89,8 @@ export const SidebarPalette = {
   ROW_ATTENTION: '#95D7F6',
   /** Background shell or monitor dot, 8dp (status.rs background_work_color). */
   ROW_BACKGROUND_WORK: '#B4B8BF',
+  /** Failed dot, 8dp (status.rs FAILED_COLOR): the session's program reported an error. */
+  ROW_FAILED: '#EF4444',
   /** Pending question dot, 6dp (status.rs question_indicator). */
   ROW_QUESTION: '#F472B6',
   /** Relative time and timer countdown. */

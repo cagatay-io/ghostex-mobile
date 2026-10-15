@@ -18,6 +18,7 @@ type RowSession = Pick<
   | 'activity'
   | 'pendingQuestionCount'
   | 'backgroundWorkDetectedAt'
+  | 'programStatusFailed'
   | 'lastInteractionAt'
   | 'delayedSendDeadlineAt'
   | 'delayedSendRemainingLabel'
@@ -31,7 +32,7 @@ type RowSession = Pick<
 >;
 
 /** The dot in the row's status slot (apps/desktop/src/app/native_sidebar/status.rs `activity_indicator`). */
-export type RowActivityIndicator = 'working' | 'attention' | 'backgroundWork' | null;
+export type RowActivityIndicator = 'failed' | 'working' | 'attention' | 'backgroundWork' | null;
 
 /** apps/desktop/src/app/native_sidebar/sessions.rs `question`: the row draws the question indicator. */
 export function hasPendingQuestion(session: RowSession): boolean {
@@ -49,6 +50,8 @@ export function hasBackgroundWork(session: RowSession): boolean {
  * Lifecycle (sleeping, stopped, error) draws no dot.
  */
 export function rowActivityIndicator(session: RowSession): RowActivityIndicator {
+  // CDXC:SessionStatus 2026-10-15 DECISION: User (Q118): the phone shows the same red dot as the desktop when a session's program reports an error (OSC 7501, while its reports drive the status); it wins over the other dots and lasts until the user has seen it (the session leaves attention).
+  if (session.programStatusFailed && session.activity === 'attention') return 'failed';
   if (session.activity === 'working') return 'working';
   if (session.activity === 'attention') return 'attention';
   if (hasBackgroundWork(session)) return 'backgroundWork';

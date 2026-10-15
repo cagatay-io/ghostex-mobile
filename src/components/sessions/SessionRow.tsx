@@ -152,16 +152,18 @@ function useRenameShake(session: GhostexSession): Animated.Value {
  * apps/desktop/src/app/native_sidebar/status.rs `activity_indicator`: one dot
  * centered in a 19x16 slot.
  */
-function ActivityDot({ kind }: { kind: 'working' | 'attention' | 'backgroundWork' }) {
+function ActivityDot({ kind }: { kind: 'failed' | 'working' | 'attention' | 'backgroundWork' }) {
   return (
     <View style={styles.indicatorSlot}>
       <View
         style={
-          kind === 'working'
-            ? styles.workingDot
-            : kind === 'attention'
-              ? styles.attentionDot
-              : styles.backgroundWorkDot
+          kind === 'failed'
+            ? styles.failedDot
+            : kind === 'working'
+              ? styles.workingDot
+              : kind === 'attention'
+                ? styles.attentionDot
+                : styles.backgroundWorkDot
         }
       />
     </View>
@@ -599,6 +601,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: ds(4),
+  },
+  failedDot: {
+    width: ds(8),
+    height: ds(8),
+    borderRadius: 999,
+    backgroundColor: SidebarPalette.ROW_FAILED,
   },
   workingDot: {
     width: ds(8),
