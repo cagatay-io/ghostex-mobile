@@ -505,6 +505,10 @@ export type ChatDocument = {
   agentTasksPanel: Json;
   /** A coordinator's Threads panel, or null. Desktop: `coordinator_threads.rs`. */
   coordinatorThreadsPanel: Json;
+  /** The background tasks the agent left running, or null; the Background pill's sheet. Desktop: `background_tasks.rs`. */
+  backgroundTasksPanel: Json;
+  /** The working row's pills, each opening one of the panels above. Desktop: `chat_pills.rs`. */
+  chatPills: ChatPill[];
   /** The subagent viewer header state, or null when closed (its rows come in `subagentSplice`).
    * Desktop: `subagent_view.rs`. */
   subagent: Json;
@@ -755,6 +759,20 @@ export type AccountStatus = {
   /** A switch is in flight, so sending is held. */
   busy: boolean;
   [key: string]: unknown;
+};
+
+/** One pill on the working row (gx-chat-core `extras/chat_pills.rs`). */
+export type ChatPill = {
+  /** `threads`, `tasks`, `subagents` or `background`: which panel value the pill's sheet draws. */
+  id: string;
+  label: string;
+  /** The number after the label ("3", "4/9"), or "" for none. */
+  count: string;
+  /** Something in the sheet needs the user (a thread waiting on an approval): an amber dot. */
+  attention: boolean;
+  /** The panel's muted detail ("2 working · 212 threads"). */
+  meta: string;
+  ariaLabel: string;
 };
 
 export type WorkingStrip = {

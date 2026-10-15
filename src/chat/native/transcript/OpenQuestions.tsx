@@ -1,6 +1,6 @@
 /**
- * The "Previous question" pill beside Scroll to bottom and the brief highlight on the question a jump
- * lands on (the pill, or a Q-tag link in a reply). Which questions are unanswered, which one a tap
+ * The brief highlight on the question a jump lands on (from the "Previous question" icon pill on the
+ * working row, `cards/ChatPills.tsx`, or a Q-tag link in a reply), and the pill's tone. Which questions are unanswered, which one a tap
  * goes to and the row it sits in are the chat core's (`openQuestions`,
  * packages/gx-chat-core/src/questions/open_questions.rs); Transcript.tsx scrolls, this draws.
  *
@@ -11,7 +11,7 @@
  */
 
 import { createContext, useContext, useEffect, useRef, type ReactNode } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, StyleSheet, View } from 'react-native';
 
 /** `questionTone`, `pillGap` and `questionFlashMs` in `scroll-bottom.json`. */
 export const QUESTION_PILL = {
@@ -72,47 +72,6 @@ export function QuestionFlashFrame({
   );
 }
 
-/** The pill: "❓ 2 · Previous question ↑". */
-export function PreviousQuestionPill({
-  text,
-  accessibilityLabel,
-  light,
-  height,
-  paddingX,
-  fontSize,
-  onPress,
-}: {
-  text: string;
-  accessibilityLabel: string;
-  light: boolean;
-  height: number;
-  paddingX: number;
-  fontSize: number;
-  onPress(): void;
-}) {
-  const tone = light ? QUESTION_PILL.tone.light : QUESTION_PILL.tone.dark;
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole='button'
-      accessibilityLabel={accessibilityLabel}
-      style={[
-        styles.pill,
-        {
-          height,
-          paddingHorizontal: paddingX,
-          borderRadius: height / 2,
-          backgroundColor: tone.background,
-          borderColor: tone.border,
-        },
-      ]}
-    >
-      <Text style={{ fontSize, fontWeight: '500', color: tone.text }}>{text}</Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   ring: { position: 'absolute', top: -4, left: -4, right: -4, bottom: -4, borderRadius: 18, borderWidth: 2 },
-  pill: { borderWidth: 1, justifyContent: 'center' },
 });

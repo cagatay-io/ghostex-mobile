@@ -1,71 +1,68 @@
 /**
- * The two panels pinned above the composer: the agent's task plan (`agentTasksPanel`, desktop
- * `agent_tasks.rs`) and the Subagents strip (`agentFleetStrip`, desktop `agent_fleet.rs`). Rows,
- * labels, clocks, counters and both folds come from the core; the panels only lay them out.
+ * What the working row's pills open (`ChatPills.tsx`): a coordinator's threads
+ * (`coordinatorThreadsPanel`, desktop `coordinator_threads.rs`), the agent's task plan
+ * (`agentTasksPanel`, desktop `agent_tasks.rs`) and the Subagents list (`agentFleetStrip`, desktop
+ * `agent_fleet.rs`), each the body of the pill's sheet. Rows, labels, clocks, counters and the folds
+ * come from the core; these only lay them out.
  */
 
+import type { ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import type { ChatDocument } from '../../rust/document';
 import type { UserAction } from '../../rust/actions';
 import type { RustChat } from '../../rust/useRustChat';
-import { useSettingsStore } from '../../../settings/store';
 import { Glyph } from './icons';
 import { arr, asJson, isTrue, num, obj, str } from './json';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
-import { CARD_TEXT_SIZE, CardHeader, PulseDot, Spinner, StatusCard } from './primitives';
+import { CARD_TEXT_SIZE, PulseDot, Spinner } from './primitives';
 
-export function AgentTasksPanel({ chat, document }: { chat: RustChat; document: ChatDocument }) {
+/** A sheet's first line under its title: the panel's muted detail and an optional ornament. */
+function MenuMeta({ meta, trailing }: { meta: string; trailing?: ReactNode }) {
+  const styles = useStyles();
+  return (
+    <View style={styles.menuMeta}>
+      <Text style={styles.meta} numberOfLines={1}>
+        {meta}
+      </Text>
+      {trailing}
+    </View>
+  );
+}
+
+/** The Tasks pill's sheet: what the Tasks panel above the composer showed. */
+export function AgentTasksMenu({ chat, document }: { chat: RustChat; document: ChatDocument }) {
   const styles = useStyles();
   const panel = obj(document.agentTasksPanel);
   if (panel === null) return null;
-  const open = panel.collapsed !== true;
   const percent = Math.max(0, Math.min(100, num(panel, 'percent') ?? 0));
   const expanded = isTrue(panel, 'showCompleted');
   const fold = str(panel, 'foldLabel');
-  const header = (
-    <CardHeader
-      icon="list-check"
-      title="Tasks"
-      titleAddon={
-        <Text style={styles.meta} numberOfLines={1}>
-          {str(panel, 'meta')}
-        </Text>
-      }
-      trailing={
-        <View style={styles.bar}>
-          <View style={[styles.barFill, { width: `${percent}%` }]} />
-        </View>
-      }
-      chevron={open ? 'open' : 'closed'}
-      hasBody={open}
-      accessibilityLabel={open ? 'Hide tasks' : 'Show tasks'}
-      onPress={() => chat.dispatch({ type: 'toggleAgentTasks', open: !open })}
-    />
-  );
-  const body = open
-    ? [
-        <ScrollView key="rows" style={styles.taskRows} contentContainerStyle={styles.rows} nestedScrollEnabled>
-          {arr(panel.rows).map((row, index) => (
-            <TaskRow key={str(row, 'id') || String(index)} row={row} />
-          ))}
-        </ScrollView>,
-        // The fold is a text line, not a button (a desktop user decision in agent_tasks.rs).
-        fold.length > 0 ? (
-          <Text
-            key="fold"
-            accessibilityRole="button"
-            style={styles.fold}
-            onPress={() => chat.dispatch({ type: 'toggleAgentTasksCompleted', expanded: !expanded })}
-          >
-            {fold}
-          </Text>
-        ) : null,
-      ]
-    : [];
   return (
-    <View accessibilityLabel="Agent tasks" style={styles.fill}>
-      <StatusCard header={header} body={body} />
+    <View accessibilityLabel="Agent tasks" style={styles.menu}>
+      <MenuMeta
+        meta={str(panel, 'meta')}
+        trailing={
+          <View style={styles.bar}>
+            <View style={[styles.barFill, { width: `${percent}%` }]} />
+          </View>
+        }
+      />
+      <ScrollView style={styles.menuRows} contentContainerStyle={styles.rows} nestedScrollEnabled>
+        {arr(panel.rows).map((row, index) => (
+          <TaskRow key={str(row, 'id') || String(index)} row={row} />
+        ))}
+      </ScrollView>
+      {/* The fold is a text line, not a button (a desktop user decision in agent_tasks.rs). */}
+      {fold.length > 0 ? (
+        <Text
+          accessibilityRole="button"
+          style={styles.fold}
+          onPress={() => chat.dispatch({ type: 'toggleAgentTasksCompleted', expanded: !expanded })}
+        >
+          {fold}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -100,73 +97,57 @@ const THREAD_APPROVAL = '#f5a524';
 const NEEDS_APPROVAL_LABEL = 'Needs your approval';
 
 /**
- * A coordinator's Threads panel (`coordinatorThreadsPanel`, desktop `coordinator_threads.rs`): one
- * list of its threads, working ones first. Order, labels and the steps ("Show recent", "N more") come from the core; a
- * row opens that thread through the `openCoordinatorThread` host action.
+ * The Threads pill's sheet (`coordinatorThreadsPanel`, desktop `coordinator_threads.rs`): one list of
+ * a coordinator's threads, working ones first. Order, labels and the steps ("Show recent", "N more")
+ * come from the core; a row opens that thread through the `openCoordinatorThread` host action and
+ * closes the sheet (`onDone`).
  */
-export function CoordinatorThreadsPanel({ chat, document }: { chat: RustChat; document: ChatDocument }) {
+export function CoordinatorThreadsMenu({ chat, document, onDone }: { chat: RustChat; document: ChatDocument; onDone: () => void }) {
   const styles = useStyles();
   const panel = obj(document.coordinatorThreadsPanel);
   if (panel === null) return null;
-  const open = panel.collapsed !== true;
   const moreLabel = str(panel, 'moreLabel');
   const moreStep = typeof panel.moreStep === 'number' ? panel.moreStep : 0;
   const emptyLabel = str(panel, 'emptyLabel');
-  const header = (
-    <CardHeader
-      icon="users"
-      title="Threads"
-      titleAddon={
-        <Text style={styles.meta} numberOfLines={1}>
-          {str(panel, 'meta')}
-        </Text>
-      }
-      trailing={isTrue(panel, 'attention') ? <View style={[styles.threadDot, { backgroundColor: THREAD_APPROVAL }]} /> : undefined}
-      chevron={open ? 'open' : 'closed'}
-      hasBody={open}
-      accessibilityLabel={open ? 'Hide threads' : 'Show threads'}
-      onPress={() => chat.dispatch({ type: 'toggleCoordinatorThreads', open: !open })}
-    />
-  );
-  const body = open
-    ? [
-        <ScrollView key="rows" style={styles.threadRows} contentContainerStyle={styles.rows} nestedScrollEnabled>
-          {arr(panel.rows).map((row, index) => (
-            <ThreadRow key={str(row, 'key') || String(index)} row={row} chat={chat} />
-          ))}
-          {emptyLabel.length > 0 ? <Text style={styles.stale}>{emptyLabel}</Text> : null}
-        </ScrollView>,
-        moreLabel.length > 0 ? (
-          <Text
-            key="more"
-            accessibilityRole="button"
-            accessibilityLabel={moreStep === 0 ? 'Show fewer threads' : moreStep === 1 ? 'Show recent threads' : `Show ${moreLabel} threads`}
-            style={styles.fold}
-            onPress={() => chat.dispatch({ type: 'toggleCoordinatorThreadsMore', step: moreStep })}
-          >
-            {moreLabel}
-          </Text>
-        ) : null,
-      ]
-    : [];
   return (
-    <View accessibilityLabel="Orchestrator threads" style={styles.fill}>
-      <StatusCard header={header} body={body} />
+    <View accessibilityLabel="Orchestrator threads" style={styles.menu}>
+      <MenuMeta
+        meta={str(panel, 'meta')}
+        trailing={isTrue(panel, 'attention') ? <View style={[styles.threadDot, { backgroundColor: THREAD_APPROVAL }]} /> : undefined}
+      />
+      <ScrollView style={styles.menuRows} contentContainerStyle={styles.rows} nestedScrollEnabled>
+        {arr(panel.rows).map((row, index) => (
+          <ThreadRow key={str(row, 'key') || String(index)} row={row} chat={chat} onDone={onDone} />
+        ))}
+        {emptyLabel.length > 0 ? <Text style={styles.stale}>{emptyLabel}</Text> : null}
+      </ScrollView>
+      {moreLabel.length > 0 ? (
+        <Text
+          accessibilityRole="button"
+          accessibilityLabel={moreStep === 0 ? 'Show fewer threads' : moreStep === 1 ? 'Show recent threads' : `Show ${moreLabel} threads`}
+          style={styles.fold}
+          onPress={() => chat.dispatch({ type: 'toggleCoordinatorThreadsMore', step: moreStep })}
+        >
+          {moreLabel}
+        </Text>
+      ) : null}
     </View>
   );
 }
 
-function ThreadRow({ row, chat }: { row: unknown; chat: RustChat }) {
+function ThreadRow({ row, chat, onDone }: { row: unknown; chat: RustChat; onDone: () => void }) {
   const styles = useStyles();
   const title = str(row, 'title');
   const detail = str(row, 'detail');
   const branch = str(row, 'branch');
-  const openThread = () =>
+  const openThread = () => {
     chat.dispatch({
       type: 'openCoordinatorThread',
       projectId: str(row, 'projectId'),
       sessionId: str(row, 'sessionId'),
     });
+    onDone();
+  };
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={`Open thread ${title}`} onPress={openThread} style={styles.threadRow}>
       <View style={styles.taskMarker}>
@@ -193,11 +174,6 @@ function ThreadRow({ row, chat }: { row: unknown; chat: RustChat }) {
   );
 }
 
-/** The fleet card's fold: the user's last choice, else expanded unless Simple mode (desktop `agent_fleet.rs`). */
-function fleetOpen(strip: Record<string, unknown>, simple: boolean): boolean {
-  return typeof strip.openOverride === 'boolean' ? strip.openOverride : !simple;
-}
-
 /** The `openSubagent` action a fleet row's links send; a self row is plain text. */
 export function subagentOpenAction(target: unknown): UserAction | null {
   const value = obj(target);
@@ -215,62 +191,59 @@ export function subagentOpenAction(target: unknown): UserAction | null {
   } as UserAction;
 }
 
-export function AgentFleetStrip({ chat, document }: { chat: RustChat; document: ChatDocument }) {
+/** The Subagents pill's sheet: what the Subagents strip above the composer listed. A row's link opens the subagent's transcript and closes the sheet (`onDone`). */
+export function AgentFleetMenu({ chat, document, onDone }: { chat: RustChat; document: ChatDocument; onDone: () => void }) {
   const styles = useStyles();
-  const simple = useSettingsStore((store) => store.settings.sessionChatSimpleMode);
   const strip = obj(document.agentFleetStrip);
   if (strip === null) return null;
   const stale = isTrue(strip, 'stale');
-  const open = fleetOpen(strip, simple);
   const rows = arr(strip.rows);
   // Every task starts at the same x whatever the names above it are (desktop measures the widest
   // label; this estimates it from the 12pt medium glyph width), capped at 140pt.
   const nameWidth = Math.min(140, Math.max(...rows.map((row) => str(row, 'modelLabel').length), 1) * 7 + 2);
-  const header = (
-    <CardHeader
-      icon="users"
-      // "Subagents", without a hyphen or all caps (a desktop user decision in agent_fleet.rs).
-      title="Subagents"
-      titleAddon={
-        <Text style={styles.meta} numberOfLines={1}>
-          {str(strip, 'countLabel')}
-        </Text>
-      }
-      chevron={open ? 'open' : 'closed'}
-      hasBody={open}
-      accessibilityLabel={open ? 'Minimize subagents' : 'Expand subagents'}
-      onPress={() => chat.dispatch({ type: 'toggleAgentFleet', open: !open })}
-    />
-  );
-  const body = open
-    ? [
-        stale ? (
-          <Text key="stale" accessibilityRole="text" style={styles.stale}>
-            Subagent status unavailable
-          </Text>
-        ) : null,
-        <ScrollView key="rows" style={styles.fleetRows} contentContainerStyle={styles.rows} nestedScrollEnabled>
-          {rows.map((row, index) => (
-            <FleetRow key={str(row, 'key') || String(index)} row={row} stale={stale} chat={chat} nameWidth={nameWidth} />
-          ))}
-        </ScrollView>,
-      ]
-    : [];
   return (
-    <View accessibilityLabel="Subagents" style={styles.fill}>
-      <StatusCard header={header} body={body} />
+    <View accessibilityLabel="Subagents" style={styles.menu}>
+      <MenuMeta meta={str(strip, 'countLabel')} />
+      {stale ? (
+        <Text accessibilityRole="text" style={styles.stale}>
+          Subagent status unavailable
+        </Text>
+      ) : null}
+      <ScrollView style={styles.menuRows} contentContainerStyle={styles.rows} nestedScrollEnabled>
+        {rows.map((row, index) => (
+          <FleetRow key={str(row, 'key') || String(index)} row={row} stale={stale} chat={chat} nameWidth={nameWidth} onDone={onDone} />
+        ))}
+      </ScrollView>
     </View>
   );
 }
 
-function FleetRow({ row, stale, chat, nameWidth }: { row: unknown; stale: boolean; chat: RustChat; nameWidth: number }) {
+function FleetRow({
+  row,
+  stale,
+  chat,
+  nameWidth,
+  onDone,
+}: {
+  row: unknown;
+  stale: boolean;
+  chat: RustChat;
+  nameWidth: number;
+  onDone: () => void;
+}) {
   const styles = useStyles();
   const P = useTranscriptTheme();
   const open = subagentOpenAction(row);
   const working = isTrue(row, 'working');
   const status = str(row, 'statusText');
   const nested = num(row, 'nested') ?? 0;
-  const press = open === null ? undefined : () => chat.dispatch(open);
+  const press =
+    open === null
+      ? undefined
+      : () => {
+          chat.dispatch(open);
+          onDone();
+        };
   return (
     <View style={styles.fleetRow}>
       <PulseDot size={6} color={working ? P.controlPrimary : P.mutedInk(0.5)} active={working} />
@@ -306,8 +279,20 @@ function FleetRow({ row, stale, chat, nameWidth }: { row: unknown; stale: boolea
 }
 
 const useStyles = themedStyles((P) => ({
-  fill: {
-    width: '100%',
+  /** A sheet's body under its title row (`Sheet`), the rows taking what the sheet's height leaves. */
+  menu: {
+    flexShrink: 1,
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  menuMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  menuRows: {
+    flexShrink: 1,
   },
   /** The header's muted detail, the title's size (desktop `panel_card.rs`). */
   meta: {
@@ -331,12 +316,6 @@ const useStyles = themedStyles((P) => ({
   },
   rows: {
     gap: 6,
-  },
-  taskRows: {
-    maxHeight: 220,
-  },
-  fleetRows: {
-    maxHeight: 180,
   },
   taskRow: {
     flexDirection: 'row',
@@ -421,9 +400,6 @@ const useStyles = themedStyles((P) => ({
     color: P.cardMuted,
     fontSize: 11,
     fontVariant: ['tabular-nums'],
-  },
-  threadRows: {
-    maxHeight: 360,
   },
   threadRow: {
     flexDirection: 'row',

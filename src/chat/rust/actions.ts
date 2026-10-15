@@ -32,7 +32,6 @@ export type ActionFields = {
   toggleAgentTasks: { open: boolean };
   toggleAgentTasksCompleted: { expanded: boolean };
   /** A coordinator's Threads panel fold, and the step its list is at (0 in flight, 1 recent, 2+ 30 more each). Desktop: `coordinator_threads.rs`. */
-  toggleCoordinatorThreads: { open: boolean };
   toggleCoordinatorThreadsMore: { step: number };
   /** The grouped background-task row's fold. Desktop: `background_tasks.rs`. */
   toggleBackgroundTasks: { open: boolean };

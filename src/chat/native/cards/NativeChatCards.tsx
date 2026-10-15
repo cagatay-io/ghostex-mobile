@@ -2,12 +2,11 @@
  * Everything the chat stacks between the transcript and the composer, in desktop's order
  * (`render_composer` in apps/desktop/src/app/native_chat/composer.rs):
  *
- * 1. the working strip,
+ * 1. the working strip, with the pills (Threads, Tasks, Subagents) on their own line under the word,
  * 2. the composer-not-ready card, or a refused operation's error line,
- * 3. a coordinator's Threads panel, the task plan and the Subagents strip,
- * 4. the terminal notice,
- * 5. the async questions,
- * 6. the blocking question or approval.
+ * 3. the terminal notice,
+ * 4. the async questions,
+ * 5. the blocking question or approval.
  *
  * The incoming draft bar and the session note sit in the same stack on desktop but belong to the
  * composer. While a `question` prompt shows, desktop draws this stack instead of the composer; see
@@ -18,8 +17,9 @@ import { useRef } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions } from 'react-native';
 
 import type { RustChat } from '../../rust/useRustChat';
-import { AgentFleetStrip, AgentTasksPanel, CoordinatorThreadsPanel } from './AgentPanels';
 import { AsyncQuestionsCard } from './AsyncQuestionsCard';
+import { ChatPillsRow } from './ChatPills';
+import { useTranscriptBottomStore } from '../transcript/bottomStore';
 import { ComposerNotReadyCard } from './ComposerNotReadyCard';
 import { obj } from './json';
 import { NoticeCard } from './NoticeCard';
@@ -42,16 +42,17 @@ export type NativeChatCardsProps = {
 export function NativeChatCards({ chat, onHostAction, armed = NO_ARMED, onArmedPress }: NativeChatCardsProps) {
   const { height } = useWindowDimensions();
   const band = useRef<ScrollView>(null);
+  const awayFromBottom = useTranscriptBottomStore((store) => store.awayFromBottom);
   const document = chat.state?.document ?? null;
   if (document === null) return null;
+  // The pills' row: the question and scroll-to-bottom icon pills, then Threads, Tasks, Subagents.
+  const hasPills = (document.chatPills?.length ?? 0) > 0 || (document.openQuestions?.count ?? 0) > 0 || awayFromBottom;
   const hasAny =
     armed.length > 0 ||
     typeof document.workingStrip?.label === 'string' ||
     obj(document.workingStrip?.presentation) !== null ||
     typeof document.operationError === 'string' ||
-    obj(document.coordinatorThreadsPanel) !== null ||
-    obj(document.agentTasksPanel) !== null ||
-    obj(document.agentFleetStrip) !== null ||
+    hasPills ||
     (obj(document.terminalNotice) !== null && document.noticeVisible === true) ||
     typeof document.asyncQuestions?.question?.key === 'string' ||
     document.questionCard?.visible === true;
@@ -67,11 +68,14 @@ export function NativeChatCards({ chat, onHostAction, armed = NO_ARMED, onArmedP
       keyboardShouldPersistTaps="handled"
       nestedScrollEnabled
     >
-      <WorkingStrip chat={chat} document={document} armed={armed} {...(onArmedPress !== undefined ? { onArmedPress } : {})} />
+      <WorkingStrip
+        chat={chat}
+        document={document}
+        armed={armed}
+        {...(hasPills ? { pills: <ChatPillsRow chat={chat} document={document} /> } : {})}
+        {...(onArmedPress !== undefined ? { onArmedPress } : {})}
+      />
       <ComposerNotReadyCard chat={chat} document={document} onHostAction={onHostAction} />
-      <CoordinatorThreadsPanel chat={chat} document={document} />
-      <AgentTasksPanel chat={chat} document={document} />
-      <AgentFleetStrip chat={chat} document={document} />
       <NoticeCard chat={chat} document={document} onHostAction={onHostAction} />
       <AsyncQuestionsCard chat={chat} document={document} />
       <QuestionCard chat={chat} document={document} />

@@ -37,7 +37,8 @@ import { useTranscriptTheme } from './theme';
 import { TranscriptItemView } from './TranscriptItemRow';
 import { QuestionFormsProvider } from './QuestionForm';
 import { RowFindContext, type RowFind } from './searchHighlight';
-import { PreviousQuestionPill, QUESTION_PILL, QuestionFlashProvider, type QuestionFlash } from './OpenQuestions';
+import { QUESTION_PILL, QuestionFlashProvider, type QuestionFlash } from './OpenQuestions';
+import { useTranscriptBottomStore } from './bottomStore';
 
 /**
  * `scroll-bottom.json`: the pill's look and how far from the bottom it appears.
@@ -240,8 +241,6 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
     const timer = setTimeout(() => setQuestionFlash(null), QUESTION_PILL.flashMs);
     return () => clearTimeout(timer);
   }, [questionJump, questionJumpRevision, rows.length]);
-  const questionPill = openQuestions !== null && openQuestions.count > 0 ? openQuestions : null;
-  const previousQuestion = useCallback(() => dispatch({ type: 'previousQuestion' }), [dispatch]);
 
   const interruptToast = main ? (document?.interruptToast ?? null) : null;
   const errorTone = theme.light ? SCROLL_BOTTOM.errorTone.light : SCROLL_BOTTOM.errorTone.dark;
@@ -303,6 +302,17 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
     listRef.current?.scrollToOffset({ offset: 0, animated: true });
     dispatch({ type: 'composerExpand' });
   }, [dispatch]);
+
+  // The scroll-to-bottom pill lives in the working row's pills (`ChatPills.tsx`), outside this list.
+  const showJump = main && awayFromBottom && rows.length > 0;
+  useEffect(() => {
+    if (!main) return;
+    useTranscriptBottomStore.setState({ awayFromBottom: showJump, jumpToBottom });
+  }, [jumpToBottom, main, showJump]);
+  useEffect(() => {
+    if (!main) return;
+    return () => useTranscriptBottomStore.setState({ awayFromBottom: false, jumpToBottom: null });
+  }, [main]);
 
   // Settings > Chat's custom transcript width (desktop's `transcript_width`): the rows take that
   // share of the pane instead of the composer's 768pt column.
@@ -394,8 +404,8 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
         {body}
         {interruptToast ? (
           /*
-           * CDXC:SessionChat 2026-10-01 DECISION:
-           * User: the interrupt toasts take the Scroll to bottom pill's spot and look, hiding it while they show; "Agent was interrupted" is red. Visual only, so it takes no touches.
+           * CDXC:SessionChat 2026-10-15 DECISION:
+           * User (2026-10-01): the interrupt toasts take the Scroll to bottom pill's spot and look; "Agent was interrupted" is red. Visual only, so it takes no touches. User (2026-10-15): the Previous question and Scroll to bottom pills stop floating and become icon pills at the left of the working row's pills (`ChatPills.tsx`), so the toasts keep this floating spot on their own.
            */
           <View style={styles.pillRow} pointerEvents='none'>
             <View
@@ -423,36 +433,6 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
                 {interruptToast.text}
               </Text>
             </View>
-          </View>
-        ) : (awayFromBottom || questionPill !== null) && rows.length > 0 ? (
-          <View style={[styles.pillRow, styles.pillRowSplit]} pointerEvents='box-none'>
-            {questionPill !== null ? (
-              <PreviousQuestionPill
-                text={questionPill.text}
-                accessibilityLabel={questionPill.accessibilityLabel}
-                light={theme.light}
-                height={SCROLL_BOTTOM.height}
-                paddingX={SCROLL_BOTTOM.paddingX}
-                fontSize={SCROLL_BOTTOM.fontSize}
-                onPress={previousQuestion}
-              />
-            ) : null}
-            {awayFromBottom ? (
-              <Pressable
-                onPress={jumpToBottom}
-                accessibilityRole='button'
-                accessibilityLabel={SCROLL_BOTTOM.label}
-                style={[
-                  styles.pill,
-                  {
-                    backgroundColor: theme.light ? '#fefefe' : '#151515',
-                    borderColor: theme.light ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.05)',
-                  },
-                ]}
-              >
-                <Text style={[styles.pillText, { color: theme.primary }]}>{SCROLL_BOTTOM.label}</Text>
-              </Pressable>
-            ) : null}
           </View>
         ) : null}
       </View>
@@ -524,7 +504,6 @@ const styles = StyleSheet.create({
   buttonText: { fontSize: 14 },
   pageSpinner: { paddingVertical: 12, alignItems: 'center' },
   pillRow: { position: 'absolute', left: 0, right: 0, bottom: SCROLL_BOTTOM.bottom, alignItems: 'center' },
-  pillRowSplit: { flexDirection: 'row', justifyContent: 'center', gap: QUESTION_PILL.gap },
   pill: {
     height: SCROLL_BOTTOM.height,
     paddingHorizontal: SCROLL_BOTTOM.paddingX,

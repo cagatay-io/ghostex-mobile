@@ -8,6 +8,7 @@ import Svg, { Path } from 'react-native-svg';
 type GlyphSpec = { paths: string[]; strokeWidth?: number; filled?: boolean };
 
 const GLYPHS = {
+  'arrow-down': { paths: ['M12 5l0 14', 'M18 13l-6 6', 'M6 13l6 6'] },
   'help-circle': { paths: ['M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0', 'M12 16v.01', 'M12 13a2 2 0 0 0 .914 -3.782a1.98 1.98 0 0 0 -2.414 .483'] },
   'chevron-right': { paths: ['M9 6l6 6l-6 6'] },
   'chevron-down': { paths: ['M6 9l6 6l6-6'] },
