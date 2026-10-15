@@ -38,11 +38,13 @@ export const QUESTION_TAGS = {
       open: { text: '#d2b48f', border: 'rgba(201,164,122,0.34)' },
       answered: { text: '#a3c9aa', border: 'rgba(143,191,153,0.3)' },
       withdrawn: { text: '#838383', border: 'rgba(255,255,255,0.13)' },
+      skipped: { text: '#838383', border: 'rgba(255,255,255,0.13)' },
     },
     light: {
       open: { text: '#8a6339', border: 'rgba(169,122,74,0.34)' },
       answered: { text: '#3f6e4a', border: 'rgba(79,138,92,0.34)' },
       withdrawn: { text: '#71717a', border: 'rgba(0,0,0,0.16)' },
+      skipped: { text: '#71717a', border: 'rgba(0,0,0,0.16)' },
     },
   },
 } as const;

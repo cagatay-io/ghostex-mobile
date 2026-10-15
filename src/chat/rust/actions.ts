@@ -150,6 +150,8 @@ export type ActionFields = {
   formText: { form: string; question: number; text: string };
   formNotes: { form: string; text: string };
   formSend: { form: string };
+  formSkip: { form: string; question: number };
+  formSkipAll: { form: string };
   formToggle: { form: string };
   asyncQuestionToggle: {};
   asyncQuestionNavigate: { direction: string };

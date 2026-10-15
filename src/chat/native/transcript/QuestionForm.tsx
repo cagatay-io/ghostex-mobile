@@ -10,7 +10,7 @@
  */
 
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import type { Json } from '../../rust/document';
 import { useTranscriptEnv } from './context';
@@ -81,6 +81,7 @@ function QuestionFormCard({ id, source }: { id: string; source: string }) {
         question={obj(question)}
         draft={obj(drafts[index])}
         otherLabel={str(form, 'otherLabel')}
+        skipLabel={str(form, 'skipLabel')}
         enabled={enabled}
         answered={phase === 'answered'}
       />
@@ -149,6 +150,19 @@ function QuestionFormCard({ id, source }: { id: string; source: string }) {
   const footer = (
     <>
       <Text style={[styles.status, { color: enabled && sendError.length > 0 ? theme.error : theme.muted }]}>{status}</Text>
+      {enabled ? (
+        // Skip all sends at once, every question not yet answered skipped (the core's `skip_all`; the
+        // SessionChat 2026-10-16 DECISION on `SKIPPED` in packages/gx-visual/src/questions.rs).
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Skip all"
+          onPress={() => dispatch({ type: 'formSkipAll', form: id })}
+          hitSlop={6}
+          style={({ pressed }) => [styles.secondary, { borderColor: theme.ink(0.12) }, pressed && { backgroundColor: theme.ink(0.06) }]}
+        >
+          <Text style={[styles.secondaryLabel, { color: theme.foreground }]}>Skip all</Text>
+        </Pressable>
+      ) : null}
       <PrimaryButton label={sendLabel} disabled={!canSend} onPress={() => dispatch({ type: 'formSend', form: id })} />
     </>
   );
@@ -213,6 +227,7 @@ function FormQuestion({
   question,
   draft,
   otherLabel,
+  skipLabel,
   enabled,
   answered,
 }: {
@@ -221,6 +236,7 @@ function FormQuestion({
   question: JsonRecord | null;
   draft: JsonRecord | null;
   otherLabel: string;
+  skipLabel: string;
   enabled: boolean;
   answered: boolean;
 }) {
@@ -235,6 +251,20 @@ function FormQuestion({
   const pick = (choice: number) => dispatch({ type: 'formChoice', form: formId, question: index, choice });
   const { filled, typed } = useSettledText(written);
   const reveal = useRevealFocusedField();
+  const skipped = draft?.skipped === true;
+  // Skip, after "Other / none of these" (or a text question's box): a pick like any other.
+  const skipRow = (
+    <AskOption
+      keyLabel={letter(isText ? 0 : choices.length + 1)}
+      label={skipLabel}
+      picked={skipped}
+      multiple={false}
+      other
+      enabled={enabled}
+      answered={answered}
+      onPress={() => dispatch({ type: 'formSkip', form: formId, question: index })}
+    />
+  );
   return (
     <View style={styles.question}>
       <View style={styles.questionHead}>
@@ -273,6 +303,7 @@ function FormQuestion({
           onPress={() => pick(choices.length)}
         />
       ) : null}
+      {!isText ? skipRow : null}
       {enabled ? (
         <TextInput
           key={filled}
@@ -296,9 +327,10 @@ function FormQuestion({
         <Text selectable style={[styles.detail, { color: theme.cardMuted }]}>
           {isText ? written : `Note: ${written}`}
         </Text>
-      ) : isText ? (
+      ) : isText && !skipped ? (
         <Text style={[styles.detail, { color: theme.muted }]}>Not answered</Text>
       ) : null}
+      {isText && (enabled || skipped) ? skipRow : null}
     </View>
   );
 }
@@ -316,6 +348,8 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, borderRadius: 9, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13.5, minHeight: 38, textAlignVertical: 'top' },
   textAnswer: { minHeight: 70 },
   status: { flex: 1, fontSize: 12.5 },
+  secondary: { minHeight: 32, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  secondaryLabel: { fontSize: 13.5, fontWeight: '500' },
   answered: { fontSize: 12 },
   source: { fontFamily: MONO_FONT, fontSize: 12 },
 });
