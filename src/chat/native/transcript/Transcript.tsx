@@ -39,6 +39,7 @@ import { QuestionFormsProvider } from './QuestionForm';
 import { RowFindContext, type RowFind } from './searchHighlight';
 import { QUESTION_PILL, QuestionFlashProvider, type QuestionFlash } from './OpenQuestions';
 import { useTranscriptBottomStore } from './bottomStore';
+import { TranscriptFieldRevealContext, useTranscriptFieldReveal } from './fieldReveal';
 
 /**
  * `scroll-bottom.json`: the pill's look and how far from the bottom it appears.
@@ -258,6 +259,8 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
     document?.composerCollapseEligible === true &&
     !(document.questionCard?.visible === true && str(document.prompt, 'kind') === 'question');
   const collapse = useRef({ eligible: false, collapsed: false, userScrolling: false, offset: 0 });
+  const listOffset = useRef(0);
+  const revealFocusedField = useTranscriptFieldReveal(listRef, listOffset);
   collapse.current.eligible = collapseEligible;
   collapse.current.collapsed = main && document?.composerCollapsed === true;
   const startUserScroll = useCallback(() => {
@@ -276,6 +279,7 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
       const state = collapse.current;
       const previous = state.offset;
       state.offset = offset;
+      listOffset.current = offset;
       if (!main) return;
       // Following the newest turn again opens a collapsed box (desktop's scroll handler).
       if (state.collapsed) {
@@ -381,6 +385,9 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
         onScrollToIndexFailed={onScrollToIndexFailed}
         maintainVisibleContentPosition={{ minIndexForVisible: 0, autoscrollToTopThreshold: SCROLL_BOTTOM.edgeThreshold }}
         keyboardDismissMode='interactive'
+        // Android's scroll-into-view for a focused field is mirrored in an inverted list; the
+        // question form's fields reveal themselves instead (`fieldReveal.ts`).
+        scrollsChildToFocus={false}
         keyboardShouldPersistTaps='handled'
         initialNumToRender={12}
         maxToRenderPerBatch={8}
@@ -400,6 +407,7 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
   return (
     <TranscriptScope chat={chat} main={main}>
       <QuestionFlashProvider value={questionFlash}>
+      <TranscriptFieldRevealContext.Provider value={revealFocusedField}>
       <View style={[styles.root, { backgroundColor: theme.background }]} accessibilityLabel='Conversation'>
         {body}
         {interruptToast ? (
@@ -436,6 +444,7 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
           </View>
         ) : null}
       </View>
+      </TranscriptFieldRevealContext.Provider>
       </QuestionFlashProvider>
     </TranscriptScope>
   );

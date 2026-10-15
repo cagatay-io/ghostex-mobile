@@ -14,6 +14,7 @@ import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import type { Json } from '../../rust/document';
 import { useTranscriptEnv } from './context';
+import { useRevealFocusedField } from './fieldReveal';
 import { AskCard, AskHead, AskOption, PrimaryButton, type AskTone } from '../cards/askCard';
 import type { GlyphName } from '../cards/icons';
 import { arr, obj, str, type JsonRecord } from './json';
@@ -176,6 +177,7 @@ function useSettledText(written: string) {
 function FormNotes({ formId, notes, enabled }: { formId: string; notes: string; enabled: boolean }) {
   const { theme, dispatch } = useTranscriptEnv();
   const { filled, typed } = useSettledText(notes);
+  const reveal = useRevealFocusedField();
   if (!enabled) {
     return (
       <Text selectable style={[styles.detail, { color: theme.cardMuted }]}>
@@ -191,6 +193,8 @@ function FormNotes({ formId, notes, enabled }: { formId: string; notes: string; 
       placeholder={NOTES_PLACEHOLDER}
       placeholderTextColor={theme.placeholder}
       accessibilityLabel="Notes"
+      onFocus={reveal}
+      onContentSizeChange={reveal}
       onChangeText={(text) => {
         typed();
         dispatch({ type: 'formNotes', form: formId, text });
@@ -230,6 +234,7 @@ function FormQuestion({
   const written = str(draft, 'other');
   const pick = (choice: number) => dispatch({ type: 'formChoice', form: formId, question: index, choice });
   const { filled, typed } = useSettledText(written);
+  const reveal = useRevealFocusedField();
   return (
     <View style={styles.question}>
       <View style={styles.questionHead}>
@@ -275,6 +280,8 @@ function FormQuestion({
           defaultValue={written}
           placeholder={placeholder(question, draft)}
           placeholderTextColor={theme.placeholder}
+          onFocus={reveal}
+          onContentSizeChange={reveal}
           onChangeText={(text) => {
             typed();
             dispatch({ type: 'formText', form: formId, question: index, text });
