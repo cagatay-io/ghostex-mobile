@@ -51,8 +51,12 @@ export function NoticeCard({
   const busy = document.questionCard?.busy === true;
   const choices = arr(notice.choices);
   const answerable = choices.length > 0;
-  const collapsed = answerable && expandedKey !== key;
   const dialog = obj(notice.dialog);
+  // A tabbed Claude panel with option rows (`/plugin`'s install scope) shows its details above the rows and never folds them
+  // away (notice.rs, terminal_prompts.rs `highlighted_row`).
+  const panel = arr(obj(dialog?.presentation)?.blocks).length > 0;
+  const foldable = answerable && !panel;
+  const collapsed = foldable && expandedKey !== key;
   const rateLimit = choices.some((choice) => str(choice, 'label').startsWith('Wait here, then continue automatically'));
 
   if (obj(obj(dialog?.presentation)?.picker) !== null) {
@@ -82,7 +86,12 @@ export function NoticeCard({
   // The notice's own actions sit at the footer's right end, ahead of a live dialog's buttons and Dismiss.
   const actions: ReactNode[] = [];
   const footerEnd: ReactNode[] = [];
-  if (!collapsed && typeof notice.detail === 'string') {
+  if (panel && !rateLimit && dialog !== null) {
+    const parts = terminalDialogParts(chat, dialog, busy, dialogInput, look);
+    body.push(...parts.body);
+    footerEnd.push(...parts.actions);
+  }
+  if (!collapsed && !panel && typeof notice.detail === 'string') {
     body.push(
       <Text key="detail" style={cardText.prose}>
         {notice.detail}
@@ -143,7 +152,7 @@ export function NoticeCard({
       </ScrollView>
     );
   }
-  if (!collapsed && !rateLimit && dialog !== null) {
+  if (!collapsed && !rateLimit && !panel && dialog !== null) {
     const parts = terminalDialogParts(chat, dialog, busy, dialogInput, look);
     body.push(...parts.body);
     footerEnd.push(...parts.actions);
@@ -188,12 +197,12 @@ export function NoticeCard({
   return (
     <ToneCard
       tone={str(notice, 'tone')}
-      title={str(notice, 'title')}
-      trailing={answerable ? <Glyph name={collapsed ? 'chevron-right' : 'chevron-down'} size={14} color={look.P.muted} /> : undefined}
+      title={(panel && str(obj(dialog?.presentation), 'title')) || str(notice, 'title')}
+      trailing={foldable ? <Glyph name={collapsed ? 'chevron-right' : 'chevron-down'} size={14} color={look.P.muted} /> : undefined}
       body={body}
       footerEnd={[...actions, ...footerEnd]}
       accessibilityLabel={collapsed ? 'Show all options' : 'Show less'}
-      onPressHeader={answerable ? () => setExpandedKey(collapsed ? key : null) : undefined}
+      onPressHeader={foldable ? () => setExpandedKey(collapsed ? key : null) : undefined}
     />
   );
 }
