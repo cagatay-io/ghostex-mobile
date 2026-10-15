@@ -55,6 +55,8 @@ export type RootStackParamList = {
    * (a link such as `other.md#setup`).
    */
   DocViewer: { machineId: string; path: string; fragment?: string };
+  /** Send Bug / Feedback; `machineId` is the computer the "Collect more data with an agent" switch uses. */
+  Feedback: { machineId?: string } | undefined;
   /** Settings home: the list of Settings pages. */
   Settings: undefined;
   /** One Settings page (Theme, Chat, Terminal, Keyboard, Sounds, Connection, Updates, Advanced). */

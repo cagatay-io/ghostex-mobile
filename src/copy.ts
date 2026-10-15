@@ -834,3 +834,49 @@ export const DocsCopy = {
     count === 1 ? 'One file this page uses was too large to copy to the phone.' : `${count} files this page uses were too large to copy to the phone.`,
   notADoc: 'Only Markdown and HTML files open on the phone. The path was copied.',
 } as const;
+
+/**
+ * Send Bug / Feedback (src/feedback/FeedbackScreen.tsx): the phone's form of the computer's
+ * pop-up (apps/desktop/src/app/window/feedback_modal/render.rs), worded the same where the
+ * two say the same thing.
+ */
+export const FeedbackCopy = {
+  title: 'Send Bug / Feedback',
+  menuLabel: 'Send Bug / Feedback',
+  intro:
+    'Tell us what is broken, confusing or missing. You review the issue before it is posted publicly on the Ghostex GitHub.',
+  introAgent:
+    'Tell us what is broken, confusing or missing. Start Agent opens a session on your computer where an agent gathers the details and drafts the issue for the Ghostex GitHub.',
+  usernameLabel: 'GitHub username',
+  usernamePlaceholder: 'name or @name',
+  usernameHint: "Required. The issue mentions you, so GitHub lets you know when it's fixed.",
+  usernameInvalid: "That isn't a GitHub username: letters, digits and single hyphens, up to 39 characters.",
+  messageLabel: 'Feedback',
+  messagePlaceholder: 'What happened, what did you expect, or what would you like to see?',
+  imagesHint: 'You can attach up to 5 PNG, JPEG or WebP screenshots of 5 MB each.',
+  addScreenshots: 'Add Screenshots',
+  pasteImage: 'Paste Image',
+  removeImage: 'Remove screenshot',
+  agentLabel: 'Collect more data with an agent',
+  agentDescription:
+    "An agent on your computer reads its Ghostex logs and settings, looks into the problem without changing anything, and shows you the issue before it posts it.",
+  review: 'Review',
+  startAgent: 'Start Agent',
+  reviewTitle: 'Review Issue',
+  reviewIntro:
+    'This is exactly what will be posted publicly on the Ghostex GitHub. Edit anything before you send it.',
+  issueTitleLabel: 'Title',
+  issueBodyLabel: 'Description',
+  back: 'Back',
+  send: 'Send',
+  sentTitle: 'Thanks for the feedback',
+  sentBody: (number: number) => `Issue #${number} is on GitHub now. You can follow it there.`,
+  openIssue: 'Open Issue',
+  done: 'Done',
+  added: (screenshots: number, footer: string) =>
+    `Added when it is posted: ${
+      screenshots === 0 ? '' : screenshots === 1 ? '1 screenshot and ' : `${screenshots} screenshots and `
+    }“${footer}”.`,
+  agentUnsupported: 'Update Ghostex on this computer to start the feedback agent from the phone.',
+  agentNoSession: 'The agent started, but Ghostex did not say which session it is in.',
+} as const;

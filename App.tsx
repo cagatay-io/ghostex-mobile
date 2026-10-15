@@ -33,6 +33,7 @@ import { initAndroidSelfUpdate } from './src/updates/androidSelfUpdateStore';
 import { addProjectSourceLabel } from './src/addProject/sources';
 import { GhostexPalette } from './src/theme/palette';
 import ExtraKeysEditorScreen from './src/screens/ExtraKeysEditorScreen';
+import FeedbackScreen from './src/screens/FeedbackScreen';
 import AgentHotkeysEditorScreen from './src/screens/AgentHotkeysEditorScreen';
 import AddProjectDestinationScreen from './src/screens/AddProjectDestinationScreen';
 import AddProjectLocalScreen from './src/screens/AddProjectLocalScreen';
@@ -61,6 +62,7 @@ import { useWebPreviewStore } from './src/webPreview/store';
 import {
   AddProjectCopy,
   DocsCopy,
+  FeedbackCopy,
   FindPromptsCopy,
   MachineCopy,
   SshAccessCopy,
@@ -165,6 +167,8 @@ export default function App() {
               component={ConnectedScreen}
               options={{ headerShown: false, gestureEnabled: false }}
             />
+            {/* Outside the machine routes: feedback posts with no computer connected. */}
+            <Stack.Screen name="Feedback" component={FeedbackScreen} options={{ title: FeedbackCopy.title }} />
             {hasMachines ? (
               <>
                 <Stack.Screen name="Machines" component={MachinesScreen} options={{ title: 'Machines' }} />

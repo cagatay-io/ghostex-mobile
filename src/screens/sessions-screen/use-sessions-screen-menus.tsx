@@ -88,7 +88,7 @@ import {
   type GhostexQuickAction,
   type GhostexSession,
 } from '../../contract/mobileSummary';
-import { DocsCopy, ProgressCopy, StripCopy, WebPreviewCopy } from '../../copy';
+import { DocsCopy, FeedbackCopy, ProgressCopy, StripCopy, WebPreviewCopy } from '../../copy';
 import type { OptimisticInventoryChange } from '../../inventory/optimistic';
 import { useInventoryStore } from '../../inventory/store';
 import { useMachinesStore, type MachineRecord } from '../../machines/store';
@@ -1309,6 +1309,17 @@ export function useSessionsScreenMenus({
       onPress: () => {
         setOverlay(NONE);
         navigation.navigate('Settings');
+      },
+    });
+    // CDXC:Feedback 2026-10-16 SEE-ALSO: the phone's place for Send Bug / Feedback (src/screens/FeedbackScreen.tsx).
+    items.push({
+      kind: 'item',
+      key: 'feedback',
+      label: FeedbackCopy.menuLabel,
+      icon: <MessageCircleGlyph size={14} color={menuIconColor} />,
+      onPress: () => {
+        setOverlay(NONE);
+        navigation.navigate('Feedback', target === null ? undefined : { machineId: target.id });
       },
     });
     if (Platform.OS === 'android') {
