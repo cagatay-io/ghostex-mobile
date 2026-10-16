@@ -31,7 +31,7 @@ import { WebView, type WebViewNavigation } from 'react-native-webview';
 import type { ShouldStartLoadRequest, WebViewErrorEvent } from 'react-native-webview/lib/WebViewTypes';
 
 import { GhostexNative } from '../../modules/ghostex-native/src';
-import { ArrowIcon, CloseIcon, ExternalLinkIcon, RefreshIcon } from '../components/terminal/icons';
+import { ArrowIcon, CloseIcon, DesktopIcon, ExternalLinkIcon, RefreshIcon } from '../components/terminal/icons';
 import { WebPreviewCopy } from '../copy';
 import { ensureConnected } from '../inventory/client';
 import { hasPassword } from '../machines/credentials';
@@ -40,6 +40,7 @@ import type { RootStackParamList } from '../navigation/types';
 import { GhostexPalette } from '../theme/palette';
 import { describeForwardFailure, startWebPreviewForward, type WebPreviewFailure } from '../webPreview/forwards';
 import { holdComputerForward, releaseComputerForward } from '../webPreview/machineLinks';
+import { DESKTOP_VIEWPORT_SCRIPT, desktopUserAgent, siteKeyForUrl } from '../webPreview/desktopSite';
 import { useWebPreviewStore } from '../webPreview/store';
 import { LOOPBACK_HOST, isLoopbackHost, localPreviewUrl, parseHttpUrl, parseAddressInput, remoteDisplayAddress } from '../webPreview/urls';
 import { styles } from './web-preview/styles';
@@ -174,6 +175,9 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
     state.machines.find((candidate) => candidate.id === route.params.machineId)
   );
   const setLastPort = useWebPreviewStore((state) => state.setLastPort);
+  const hydrateWebPreview = useWebPreviewStore((state) => state.hydrate);
+  const previewHydrated = useWebPreviewStore((state) => state.hydrated);
+  const setDesktopSite = useWebPreviewStore((state) => state.setDesktopSite);
 
   /*
    * The machine record is rebuilt whenever the inventory records a connection,
@@ -200,6 +204,13 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
    */
   const remoteToLocalRef = useRef(new Map<number, number>());
   const localToRemoteRef = useRef(new Map<number, number>());
+  /**
+   * Whether the WebView on screen was built for the desktop site. The user agent cannot be changed
+   * under a live page, so a change of mode remounts the WebView (`webViewKey`) and loads again.
+   * A ref too, because `onShouldStartLoadWithRequest` has to decide synchronously.
+   */
+  const desktopModeRef = useRef(false);
+  const [desktopMode, setDesktopMode] = useState(false);
   /** Mirror of `remoteToLocal` for the in-page rewrite, which needs a render. */
   const [forwardedPairs, setForwardedPairs] = useState<ReadonlyArray<readonly [number, number]>>([]);
 
@@ -294,21 +305,36 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
     return () => subscription.remove();
   }, [machineId]);
 
+  /** The remembered Desktop site choice for the site `url` belongs to. */
+  const wantsDesktopSite = useCallback((url: string): boolean => {
+    const key = siteKeyForUrl(url, (localPort) => localToRemoteRef.current.get(localPort));
+    return key !== null && useWebPreviewStore.getState().desktopSites[key] === true;
+  }, []);
+
   /**
    * Put `uri` on screen. An identical `source.uri` is dropped by React and by
    * RNCWebView, so the same page is reloaded through the ref (which keeps
    * history) and only a source prop that has gone stale forces a remount.
    */
   const loadUri = useCallback((uri: string): void => {
-    if (currentUrlRef.current === uri) {
+    const wanted = wantsDesktopSite(uri);
+    const modeChanged = wanted !== desktopModeRef.current;
+    if (modeChanged) {
+      desktopModeRef.current = wanted;
+      setDesktopMode(wanted);
+    }
+    if (!modeChanged && currentUrlRef.current === uri) {
       webviewRef.current?.reload();
       return;
     }
     setSource((previous) => {
       if (previous === null) return { uri, nonce: 0 };
-      return previous.uri === uri ? { uri, nonce: previous.nonce + 1 } : { uri, nonce: previous.nonce };
+      // A new user agent needs a new WebView, so a mode change always takes a fresh nonce.
+      return previous.uri === uri || modeChanged
+        ? { uri, nonce: previous.nonce + 1 }
+        : { uri, nonce: previous.nonce };
     });
-  }, []);
+  }, [wantsDesktopSite]);
 
   /** Forward `remotePort`, then load it. Native is idempotent per (machine, port). */
   const openRemotePort = useCallback(
@@ -469,6 +495,14 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
           void Linking.openURL(request.url).catch(() => undefined);
           return false;
         }
+        /*
+         * Following a link to a site with the other Desktop site choice reloads it in that mode,
+         * as Safari does; a link within the same site keeps the page it is on.
+         */
+        if (isTopNavigation(request) && wantsDesktopSite(request.url) !== desktopModeRef.current) {
+          loadUri(request.url);
+          return false;
+        }
         return true;
       }
       /*
@@ -483,6 +517,10 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
        * whose port this screen forwarded, so that pair identifies them.
        */
       if (parsed.host === LOOPBACK_HOST && localToRemoteRef.current.has(parsed.port)) {
+        if (wantsDesktopSite(request.url) !== desktopModeRef.current) {
+          loadUri(request.url);
+          return false;
+        }
         return true;
       }
       /*
@@ -494,7 +532,7 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
       void openRemotePort(parsed.scheme, parsed.port, parsed.pathAndQuery, parsed.host);
       return false;
     },
-    [onGxserverPage, openRemotePort]
+    [loadUri, onGxserverPage, openRemotePort, wantsDesktopSite]
   );
 
   const handleNavigationStateChange = useCallback((state: WebViewNavigation): void => {
@@ -572,6 +610,33 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
     webviewRef.current?.reload();
   }, []);
 
+  /** The site on screen, which the Desktop site choice is remembered under. */
+  const siteKey = useMemo(
+    () => (currentUrl === null ? null : siteKeyForUrl(currentUrl, (localPort) => localToRemoteRef.current.get(localPort))),
+    [currentUrl]
+  );
+
+  /** Remember the choice for this site, then show the page again in the new mode. */
+  const toggleDesktopSite = useCallback((): void => {
+    const url = currentUrlRef.current;
+    if (siteKey === null || url === null) return;
+    setDesktopSite(siteKey, !desktopModeRef.current);
+    loadUri(url);
+  }, [loadUri, setDesktopSite, siteKey]);
+
+  /*
+   * The remembered sites are read from disk, and a preview opened straight from a link can have
+   * loaded its first page before that finished. When the table arrives and the page on screen
+   * should have been the other mode, it is shown again.
+   */
+  useEffect(() => {
+    void hydrateWebPreview();
+  }, [hydrateWebPreview]);
+  useEffect(() => {
+    const url = currentUrlRef.current;
+    if (previewHydrated && url !== null && wantsDesktopSite(url) !== desktopModeRef.current) loadUri(url);
+  }, [loadUri, previewHydrated, wantsDesktopSite]);
+
   // Computer-side addresses stay in the preview that owns their forwards.
   const openInBrowser = useCallback((): void => {
     if (currentUrl === null || address.kind === 'remote' || isLoopbackHost(parseHttpUrl(currentUrl)?.host ?? '')) return;
@@ -640,6 +705,13 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
             />
           </View>
           <ToolbarButton
+            label={WebPreviewCopy.desktopSiteLabel}
+            disabled={siteKey === null || failure !== null}
+            active={desktopMode}
+            onPress={toggleDesktopSite}
+            icon={<DesktopIcon size={18} color={desktopMode ? GhostexPalette.ACCENT : GhostexPalette.FOREGROUND} />}
+          />
+          <ToolbarButton
             label={WebPreviewCopy.openInBrowserLabel}
             disabled={currentUrl === null || address.kind === 'remote'}
             onPress={openInBrowser}
@@ -682,7 +754,7 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
         {source !== null ? (
           <WebView
             ref={webviewRef}
-            key={source.nonce}
+            key={`${source.nonce}:${desktopMode ? 'desktop' : 'phone'}`}
             source={{ uri: source.uri }}
             originWhitelist={['http://*', 'https://*']}
             style={styles.webview}
@@ -690,7 +762,15 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
             onShouldStartLoadWithRequest={handleShouldStartLoad}
             onError={handleLoadError}
             renderError={renderLoadFailure}
-            injectedJavaScript={linkRewriteScript}
+            // Android runs the before-content script at navigation start, ahead of the new document,
+            // so the viewport is also set once the page has loaded; WebKit runs it at document start.
+            injectedJavaScript={desktopMode ? `${linkRewriteScript}\n${DESKTOP_VIEWPORT_SCRIPT}` : linkRewriteScript}
+            // CDXC:Browser 2026-10-17 WHY: the Desktop site switch is the phone side of the desktop
+            // Browser's size and user-agent menu. WebKit takes a desktop content mode plus the Mac
+            // Safari agent; Android takes the Chrome agent and a desktop-width viewport tag.
+            userAgent={desktopMode ? desktopUserAgent() : undefined}
+            contentMode={desktopMode ? 'desktop' : 'recommended'}
+            injectedJavaScriptBeforeContentLoaded={desktopMode ? DESKTOP_VIEWPORT_SCRIPT : undefined}
             onLoadStart={() => {
               setPageLoading(true);
               setLoadProgress(0);
@@ -786,11 +866,14 @@ function PreviewFailure({ failure, onRetry }: { failure: WebPreviewFailure; onRe
 }
 
 function ToolbarButton({
+  active,
   disabled,
   icon,
   label,
   onPress,
 }: {
+  /** A switch that is on: the button reads as pressed in and is announced as a checked switch. */
+  active?: boolean;
   disabled?: boolean;
   icon: ReactNode;
   label: string;
@@ -799,14 +882,14 @@ function ToolbarButton({
   const isDisabled = disabled === true;
   return (
     <Pressable
-      accessibilityRole='button'
+      accessibilityRole={active === undefined ? 'button' : 'switch'}
       accessibilityLabel={label}
-      accessibilityState={{ disabled: isDisabled }}
+      accessibilityState={active === undefined ? { disabled: isDisabled } : { disabled: isDisabled, checked: active }}
       disabled={isDisabled}
       onPress={onPress}
       style={({ pressed }) => [
         styles.toolbarButton,
-        pressed && !isDisabled && styles.toolbarButtonPressed,
+        (pressed || active === true) && !isDisabled && styles.toolbarButtonPressed,
         isDisabled && styles.toolbarButtonDisabled,
       ]}
     >

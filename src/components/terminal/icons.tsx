@@ -290,3 +290,14 @@ export function ExternalLinkIcon(props: IconProps) {
     </Svg>
   );
 }
+
+/** A computer monitor: the Web preview's Desktop site switch. */
+export function DesktopIcon(props: IconProps) {
+  const { size, color, strokeWidth } = iconDefaults(props);
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x={3} y={4} width={18} height={12} rx={2} stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round" />
+      <Path d="M8 20h8M12 16v4" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    </Svg>
+  );
+}

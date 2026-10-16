@@ -484,6 +484,7 @@ export const WebPreviewCopy = {
   backLabel: 'Back',
   forwardLabel: 'Forward',
   reloadLabel: 'Reload',
+  desktopSiteLabel: 'Desktop site',
   openInBrowserLabel: 'Open in browser',
   openInBrowserFailed: 'No app on this phone could open that address.',
 } as const;
