@@ -641,8 +641,7 @@ extension GhosttyTerminalView {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             if let nativeSelectedRange, nativeSelectedRange.length > 0 { return }
-            // The menu's Paste is the `paste:` command, which UIKit sends to the first responder.
-            self.requestKeyboardFocus(for: .selectionGesture)
+            guard self.focusForEditMenu() else { return }
             let config = UIEditMenuConfiguration(identifier: nil, sourcePoint: location)
             self.editMenuInteraction?.presentEditMenu(with: config)
         }
@@ -733,7 +732,8 @@ extension GhosttyTerminalView: UITextInteractionDelegate {
         shouldRestoreFocusAfterNativeSelection = shouldRestoreFocusAfterNativeSelection || isFirstResponder
         nativeSelectionInteractionActive = true
         if !isFirstResponder {
-            _ = becomeFirstResponder()
+            // Same focus as the long-press Paste menu: no keyboard when the user hid it or turned it off.
+            _ = focusForEditMenu()
         }
         refreshNativeSelectionSnapshot()
     }

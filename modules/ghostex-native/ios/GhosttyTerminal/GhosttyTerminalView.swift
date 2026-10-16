@@ -219,6 +219,9 @@ class GhosttyTerminalView: UIView {
     }()
 
     var editMenuInteraction: UIEditMenuInteraction?
+    /// True while the terminal holds first responder only so the edit menu's Paste reaches it; `inputView` then hides the software keyboard.
+    var editMenuFocusHidesKeyboard = false
+    lazy var editMenuEmptyInputView = UIView(frame: .zero)
 
     // MARK: - Text Input State
 

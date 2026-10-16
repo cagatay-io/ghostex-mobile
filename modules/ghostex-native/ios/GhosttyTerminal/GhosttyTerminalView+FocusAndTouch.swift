@@ -34,6 +34,10 @@ extension GhosttyTerminalView {
         nil
     }
 
+    override var inputView: UIView? {
+        editMenuFocusHidesKeyboard ? editMenuEmptyInputView : nil
+    }
+
     @discardableResult
     func requestKeyboardFocus(for reason: TerminalKeyboardFocusReason) -> Bool {
         // First-responder status is what presents the IME (UIKeyInput), so
@@ -49,8 +53,22 @@ extension GhosttyTerminalView {
             }
         }
         guard keyboardFocusPolicy.requestFocus(for: reason) else { return false }
+        if editMenuFocusHidesKeyboard {
+            // The terminal is already first responder for the edit menu; bring the keyboard back.
+            editMenuFocusHidesKeyboard = false
+            if isFirstResponder { reloadInputViews() }
+        }
         guard !isFirstResponder else { return true }
         return becomeFirstResponder()
+    }
+
+    /// CDXC:Clipboard 2026-10-16 WHY: the edit menu's Paste is UIKit's `paste:` command, which UIKit sends to the first responder, so a long press must make the terminal first responder or the menu has nothing to paste into and does not appear. A long press after the user hid the keyboard (browse mode) or with the software keyboard turned off was refused focus, so the menu never showed, the reported "long press doesn't show Paste". Focus taken only for the menu keeps the keyboard hidden through `inputView` until the user taps the terminal again.
+    func focusForEditMenu() -> Bool {
+        if requestKeyboardFocus(for: .selectionGesture) || isFirstResponder { return true }
+        editMenuFocusHidesKeyboard = true
+        if becomeFirstResponder() { return true }
+        editMenuFocusHidesKeyboard = false
+        return false
     }
 
     @discardableResult
@@ -86,6 +104,7 @@ extension GhosttyTerminalView {
     override func resignFirstResponder() -> Bool {
         let resigned = super.resignFirstResponder()
         if resigned {
+            editMenuFocusHidesKeyboard = false
             if let surface = surface?.unsafeCValue {
                 ghostty_surface_set_focus(surface, false)
             }
