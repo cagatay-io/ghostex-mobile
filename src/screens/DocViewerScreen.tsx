@@ -39,7 +39,8 @@ import {
 } from '../docs/page';
 import { viewerProject } from '../docs/mediaStream';
 import { remotePathFromFileUrl } from '../docs/openDoc';
-import { baseName, docKindForPath, normalizeRemotePath, previewKindForPath } from '../docs/paths';
+import { openComputerFile } from '../docs/openComputerFile';
+import { baseName, docKindForPath, normalizeRemotePath } from '../docs/paths';
 import { useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
 import { GhostexPalette } from '../theme/palette';
@@ -147,21 +148,14 @@ export default function DocViewerScreen({ navigation, route }: Props) {
     [fragment, page]
   );
 
-  /** Opens another file on the computer: in a new viewer when the phone can show it, else its path is copied. */
-  const openComputerFile = useCallback(
+  /** Opens another file on the computer where the phone opens it (`docs/openComputerFile.ts`). */
+  const openLinkedFile = useCallback(
     (path: string, fragmentText: string): void => {
-      const target = normalizeRemotePath(path);
-      if (previewKindForPath(target) !== null) {
-        navigation.push('DocViewer', {
-          machineId,
-          path: target,
-          ...(fragmentText.length > 0 ? { fragment: decodeFragment(fragmentText) } : {}),
-          ...(projectId !== undefined ? { projectId } : {}),
-        });
-        return;
-      }
-      void Clipboard.setStringAsync(target);
-      showNotice(DocsCopy.notADoc);
+      openComputerFile(navigation, machineId, path, {
+        ...(projectId !== undefined ? { projectId } : {}),
+        ...(fragmentText.length > 0 ? { fragment: decodeFragment(fragmentText) } : {}),
+        notify: showNotice,
+      });
     },
     [machineId, navigation, projectId, showNotice]
   );
@@ -184,18 +178,18 @@ export default function DocViewerScreen({ navigation, route }: Props) {
          * phone's own file system; it names a file on the computer.
          */
         const file = remotePathFromFileUrl(url);
-        if (file !== null) openComputerFile(file.path, file.fragment ?? '');
-        else if (/^[a-z]:\//iu.test(url)) openComputerFile(decodeFragment(url.split(/[?#]/u)[0] ?? ''), '');
+        if (file !== null) openLinkedFile(file.path, file.fragment ?? '');
+        else if (/^[a-z]:\//iu.test(url)) openLinkedFile(decodeFragment(url.split(/[?#]/u)[0] ?? ''), '');
         else void Linking.openURL(url).catch(() => undefined);
         return false;
       }
       const target = normalizeRemotePath(mirrored.remotePath);
       // The page itself, including a jump to one of its own anchors.
       if (target === remotePath || target === `${remotePath}.ghostex-view.html`) return true;
-      openComputerFile(target, mirrored.fragment);
+      openLinkedFile(target, mirrored.fragment);
       return false;
     },
-    [openComputerFile, openMachineLink, page, remotePath]
+    [openLinkedFile, openMachineLink, page, remotePath]
   );
 
   /*

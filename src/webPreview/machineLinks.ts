@@ -152,18 +152,22 @@ GhostexNative.addListener('onConnectionState', (event) => {
   }
 });
 
+/** The port the computer's gxserver listens on, from an earlier handshake or by asking once. */
+export async function gxserverComputerPort(machine: MachineConnectionTarget): Promise<number> {
+  const known = knownGxserverPort(machine.id);
+  if (known !== null) return known;
+  const answer = await readServerEndpoint(machine);
+  if (answer.kind !== 'endpoint') throw new Error(answer.message);
+  return answer.port;
+}
+
 /**
  * The phone's origin for the computer's gxserver (`http://127.0.0.1:<forward>`), for its pre-auth
  * routes such as a file link (`/open-file/…`). Rides the chat link's forward.
  */
 export async function gxserverPhoneOrigin(machine: MachineConnectionTarget): Promise<string> {
   await ensureConnected(machine);
-  let port = knownGxserverPort(machine.id);
-  if (port === null) {
-    const answer = await readServerEndpoint(machine);
-    if (answer.kind !== 'endpoint') throw new Error(answer.message);
-    port = answer.port;
-  }
+  const port = await gxserverComputerPort(machine);
   const { localPort } = await GhostexNative.startPortForward(machine.id, port, GXSERVER_FORWARD_HOST);
   return `http://127.0.0.1:${localPort}`;
 }

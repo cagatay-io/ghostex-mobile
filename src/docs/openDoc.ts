@@ -1,11 +1,10 @@
 /**
- * Opening a file on the computer from anywhere in the app (a chat file link, a terminal `file://`
- * hyperlink) in the file viewer: Markdown, HTML, plain text, pictures, video and audio
- * (`previewKindForPath`).
+ * Placing a file on the computer that a chat file link or a terminal `file://` hyperlink names;
+ * `openComputerFile.ts` opens it.
  */
 
 import { isAbsoluteRemotePath } from '../addProject/paths';
-import { joinRemotePath, normalizeRemotePath, previewKindForPath } from './paths';
+import { joinRemotePath, normalizeRemotePath } from './paths';
 
 /**
  * The computer-side path a `file://` URL names, whatever the file is. The host part is ignored: a
@@ -39,10 +38,4 @@ export function remotePathForChatFile(path: string, projectPath: string): string
   if (isAbsoluteRemotePath(trimmed)) return normalizeRemotePath(trimmed);
   if (trimmed.startsWith('~') || projectPath.length === 0) return null;
   return normalizeRemotePath(joinRemotePath(projectPath, trimmed.replace(/^\.[\\/]/u, '')));
-}
-
-/** {@link remotePathForChatFile} when the viewer can show the file, else null. */
-export function docPathForChatFile(path: string, projectPath: string): string | null {
-  const remote = remotePathForChatFile(path, projectPath);
-  return remote !== null && previewKindForPath(remote) !== null ? remote : null;
 }

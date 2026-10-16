@@ -1,20 +1,19 @@
 import { useCallback } from 'react';
 import { Alert, Linking } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { DocsCopy } from '../copy';
-import { previewKindForPath } from '../docs/paths';
+import { openComputerFile } from '../docs/openComputerFile';
 import type { RootStackParamList } from '../navigation/types';
 import { useSettingsStore } from '../settings/store';
 import { classifyMachineLink, withPageTheme } from './machineLinks';
 
 export type OpenMachineLinkOptions = {
-  /** The session's project, whose file link plays a video or audio file the link names. */
+  /** The session's project, whose file link reads a video, audio, PDF or drawing the link names. */
   projectId?: string;
-  /** Shown instead of the default alert when the link names a file the phone has no viewer for. */
-  onUnviewableFile?: (path: string) => void;
+  /** Shows what opening a computer file reports (`openComputerFile`) instead of an alert. */
+  notify?: (message: string, error: boolean, title?: string) => void;
 };
 
 /**
@@ -32,19 +31,14 @@ export function useOpenMachineLink() {
   return useCallback((machineId: string, url: string, options: OpenMachineLinkOptions = {}): void => {
     const link = classifyMachineLink(url);
     if (link.kind === 'file') {
-      if (previewKindForPath(link.path) !== null) {
-        navigation.push('DocViewer', {
-          machineId,
-          path: link.path,
-          ...(link.fragment !== undefined ? { fragment: link.fragment } : {}),
-          ...(options.projectId !== undefined && options.projectId.length > 0 ? { projectId: options.projectId } : {}),
-        });
-        return;
-      }
-      // The file is on the computer, where the phone has nothing to open it with; its path is what it can offer.
-      void Clipboard.setStringAsync(link.path);
-      if (options.onUnviewableFile !== undefined) options.onUnviewableFile(link.path);
-      else Alert.alert(DocsCopy.cantPreview, DocsCopy.pathCopiedNote(link.path));
+      openComputerFile(navigation, machineId, link.path, {
+        ...(options.projectId !== undefined ? { projectId: options.projectId } : {}),
+        ...(link.fragment !== undefined ? { fragment: link.fragment } : {}),
+        notify: options.notify ?? ((message, error, title) => {
+          // Progress needs no alert; a copied path or a failure does.
+          if (error || title !== undefined) Alert.alert(title ?? DocsCopy.openFailed, message);
+        }),
+      });
       return;
     }
     if (link.kind === 'computer') {

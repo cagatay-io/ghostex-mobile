@@ -1,13 +1,15 @@
 /**
- * Where the phone plays a video or audio file that is on the computer: the file link the computer's
- * gxserver gives the desktop's Files view (`/open-file/<token>/…`, answered with byte ranges, so a
- * long video starts at once and seeks), loaded through the forward the chat already holds to that
- * gxserver. Copying the file over SSH first would cost the whole file before a frame shows.
+ * Where the phone reads a file on the computer that it plays or shows itself (video, audio, a PDF,
+ * an Excalidraw drawing): a file link from the computer's gxserver (`/open-file/<token>/…`,
+ * answered with byte ranges, so a long video starts at once and seeks), loaded through the forward
+ * the chat already holds to that gxserver. Copying the file over SSH first would cost the whole file
+ * before a frame shows.
  *
- * A link is minted for a folder gxserver knows (the session's project), so a file outside the
- * project cannot be played this way; the viewer says so with the file's path.
- * SEE-ALSO: server/src/file_links/ (the link and its ranged answers),
- * server/src/project_docs/actions.rs (`openLink`), src/webPreview/machineLinks.ts
+ * A file in the session's project gets the project's folder link (`openLink`), the one the
+ * desktop's Files view opens; a file anywhere else on the computer gets a link to that one file
+ * (`openSessionFileLink`, CDXC:Docs 2026-10-16 in server/src/file_links/registry.rs).
+ * SEE-ALSO: server/src/file_links/ (the links and their ranged answers),
+ * server/src/project_docs/actions.rs (`openLink`, `openSessionFileLink`), src/webPreview/machineLinks.ts
  */
 
 import { sessionChatRpc } from '../chat/rust/transport';
@@ -41,31 +43,53 @@ function projectRelativePath(remotePath: string, projectPath: string): string | 
   return relative.length > 0 ? relative : null;
 }
 
-/** The phone URL that streams `remotePath`. Throws a message fit to show when it cannot. */
-export async function mediaStreamUrl(
+/**
+ * The gxserver path (`/open-file/<token>/…`) that reads `remotePath`. Throws a message fit to show
+ * when it cannot.
+ */
+export async function computerFileLinkPath(
   machine: MachineConnectionTarget,
   remotePath: string,
   project: ViewerProject | null
 ): Promise<string> {
+  // The link is asked for through the project's Files actions, so it needs the session's project.
   if (project === null) {
-    throw new Error(`Videos and audio play on the phone from a session's project folder. Open this file from the session's chat: ${remotePath}`);
+    throw new Error(`Open this file from the session's chat to view it on the phone: ${remotePath}`);
   }
   const relative = projectRelativePath(remotePath, project.projectPath);
-  if (relative === null) {
-    throw new Error(`This file is outside the session's project folder, so the phone can't play it: ${remotePath}`);
-  }
   const answer = await sessionChatRpc(machine, 'runProjectDocsAction', {
     projectId: project.projectId,
-    action: 'openLink',
-    path: relative,
-    scope: 'project',
+    ...(relative !== null
+      ? { action: 'openLink', path: relative, scope: 'project' }
+      : { action: 'openSessionFileLink', filePath: normalizeRemotePath(remotePath) }),
     additionalDocsFolders: '',
-    requestId: `mobile-media-${Date.now()}`,
+    requestId: `mobile-file-${Date.now()}`,
   });
-  if (answer.error !== null) throw new Error(answer.error.message);
-  const result = (answer.result ?? {}) as Record<string, unknown>;
-  if (typeof result.error === 'string' && result.error.length > 0) throw new Error(result.error);
-  const linkPath = typeof result.linkPath === 'string' ? result.linkPath : '';
-  if (!linkPath.startsWith('/')) throw new Error('Update Ghostex on the computer to play its videos and audio on the phone.');
+  const error = answer.error?.message ?? errorText((answer.result ?? {}) as Record<string, unknown>);
+  if (error !== null) {
+    // A computer from before one-file links answers that it has no such action.
+    if (relative === null && /unsupported files action/iu.test(error)) {
+      throw new Error(`Update Ghostex on the computer to open files outside the project on the phone: ${remotePath}`);
+    }
+    throw new Error(error);
+  }
+  const linkPath = ((answer.result ?? {}) as Record<string, unknown>).linkPath;
+  if (typeof linkPath !== 'string' || !linkPath.startsWith('/')) {
+    throw new Error('Update Ghostex on the computer to open its files on the phone.');
+  }
+  return linkPath;
+}
+
+function errorText(result: Record<string, unknown>): string | null {
+  return typeof result.error === 'string' && result.error.length > 0 ? result.error : null;
+}
+
+/** The phone URL that reads `remotePath` (see {@link computerFileLinkPath}). */
+export async function computerFileUrl(
+  machine: MachineConnectionTarget,
+  remotePath: string,
+  project: ViewerProject | null
+): Promise<string> {
+  const linkPath = await computerFileLinkPath(machine, remotePath, project);
   return `${await gxserverPhoneOrigin(machine)}${linkPath}`;
 }

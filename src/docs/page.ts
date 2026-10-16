@@ -17,7 +17,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 
 import type { MachineConnectionTarget } from '../machines/credentials';
 import { renderMarkdownDocument } from './markdownDocument';
-import { mediaStreamUrl, type ViewerProject } from './mediaStream';
+import { computerFileUrl, type ViewerProject } from './mediaStream';
 import { remotePathFromFileUrl } from './openDoc';
 import {
   baseName,
@@ -388,7 +388,7 @@ export async function buildDocPage(
 
   if (kind === 'video' || kind === 'audio') {
     // Streamed from the computer rather than copied: the page only names where it plays from.
-    const source = await mediaStreamUrl(machine, documentPath, project);
+    const source = await computerFileUrl(machine, documentPath, project);
     writeMirrorFile(pageUri, renderMediaDocument(kind, source, title), 'utf8');
     return { kind, uri: pageUri, rootUri, title, skippedAssets: 0, mirror: emptyMirror(machine, rootUri, documentPath) };
   }
