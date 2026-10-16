@@ -252,12 +252,13 @@ function StatusPill({ label, detail, tone }: { label: string; detail: string; to
 
 function InlineSuppressed({ suppressed }: { suppressed: JsonRecord }) {
   const { theme } = useTranscriptEnv();
+  const body = str(suppressed, 'text');
   return (
     <View style={styles.lane}>
       <LaneMarker color={theme.muted} />
       <Text style={[styles.prose, styles.laneText, { color: theme.muted }]}>
-        <Text style={styles.semibold}>{`${str(suppressed, 'label')} · `}</Text>
-        {str(suppressed, 'text')}
+        <Text style={styles.semibold}>{body.length > 0 ? `${str(suppressed, 'label')} · ` : str(suppressed, 'label')}</Text>
+        {body}
       </Text>
     </View>
   );

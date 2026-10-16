@@ -153,7 +153,7 @@ export type SummaryItem = {
   /** The running turn's "Active work" fold starts open (gx-chat-core `summary_mode_turns`). */
   workOpen?: boolean;
   /** What ended a turn the agent wrote no reply to: a slash command's output ("Set effort level to
-   * High") or the "Interrupted" marker. Drawn under the prompt without a fold. */
+   * High") or the "Agent was interrupted" marker. Drawn under the prompt without a fold. */
   outcome?: ProjectedMessage[];
   /** The newest turn that has a reply: its "Agent reply" fold starts open. */
   latestReply?: boolean;
