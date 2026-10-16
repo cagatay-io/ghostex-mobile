@@ -220,30 +220,20 @@ export function AskOption({
   );
 }
 
-/** A '#rrggbb' colour moved `amount` of the way to black (the desktop blends black over it). */
-function darken(hex: string, amount: number): string {
-  const channel = (at: number) => Math.round(parseInt(hex.slice(at, at + 2), 16) * (1 - amount));
-  return `rgb(${channel(1)},${channel(3)},${channel(5)})`;
-}
-
 /**
- * The filled button that moves the ask on (Next, Send answer, Send). `darker` fills it a shade
- * darker, for the button beside the primary one (the question form's Skip all).
+ * The filled button that moves the ask on (Next, Send answer, Send).
  */
 export function PrimaryButton({
   label,
   onPress,
   disabled,
-  darker,
 }: {
   label: string;
   onPress: () => void;
   disabled?: boolean;
-  darker?: boolean;
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
-  const fill = darker === true ? darken(P.controlPrimary, 0.16) : undefined;
   return (
     <Pressable
       accessibilityRole="button"
@@ -254,12 +244,33 @@ export function PrimaryButton({
       hitSlop={6}
       style={({ pressed }) => [
         styles.primary,
-        fill !== undefined && { backgroundColor: fill, borderColor: fill },
         pressed && styles.primaryPressed,
         disabled === true && styles.disabled,
       ]}
     >
       <Text style={styles.primaryLabel}>{label}</Text>
+    </Pressable>
+  );
+}
+
+/**
+ * The quiet button beside the primary one (the question form's Skip all): a faint fill of the
+ * foreground, the normal text colour, no border, the primary button's size.
+ *
+ * CDXC:SessionChat 2026-10-16 DECISION: User: "skip all looks disabled cuz it's darker color"; shown a mockup of options, they picked "soft fill": the foreground at 10% on the dark theme and 7% on the light one, normal text colour, no border. Send answers keeps the solid fill. Matches the desktop `ask_soft_button` (apps/desktop/src/app/native_chat/ask_card.rs) and the page kit's `.gx-skip-all`.
+ */
+export function SoftButton({ label, onPress }: { label: string; onPress: () => void }) {
+  const styles = useStyles();
+  const P = useTranscriptTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      hitSlop={6}
+      style={({ pressed }) => [styles.soft, { backgroundColor: P.ink(P.light ? (pressed ? 0.11 : 0.07) : pressed ? 0.15 : 0.1) }]}
+    >
+      <Text style={styles.softLabel}>{label}</Text>
     </Pressable>
   );
 }
@@ -465,6 +476,18 @@ const useStyles = themedStyles((P) => ({
   },
   primaryPressed: {
     opacity: 0.85,
+  },
+  soft: {
+    minHeight: 32,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  softLabel: {
+    color: P.foreground,
+    fontSize: 13.5,
+    fontWeight: '500',
   },
   primaryLabel: {
     color: P.background,

@@ -15,7 +15,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { Json } from '../../rust/document';
 import { useTranscriptEnv } from './context';
 import { useRevealFocusedField } from './fieldReveal';
-import { AskCard, AskHead, AskOption, PrimaryButton, type AskTone } from '../cards/askCard';
+import { AskCard, AskHead, AskOption, PrimaryButton, SoftButton, type AskTone } from '../cards/askCard';
 import type { GlyphName } from '../cards/icons';
 import { arr, obj, str, type JsonRecord } from './json';
 import { MONO_FONT } from './theme';
@@ -152,7 +152,7 @@ function QuestionFormCard({ id, source }: { id: string; source: string }) {
       {enabled ? (
         // Skip all sends at once, every question not yet answered skipped (the core's `skip_all`; the
         // SessionChat 2026-10-16 DECISION on `SKIPPED` in packages/gx-visual/src/questions.rs).
-        <PrimaryButton label="Skip all" darker onPress={() => dispatch({ type: 'formSkipAll', form: id })} />
+        <SoftButton label="Skip all" onPress={() => dispatch({ type: 'formSkipAll', form: id })} />
       ) : null}
       <PrimaryButton label={sendLabel} disabled={!canSend} onPress={() => dispatch({ type: 'formSend', form: id })} />
     </>
