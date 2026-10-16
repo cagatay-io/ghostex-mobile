@@ -766,6 +766,7 @@ export default function SessionsScreen({ navigation }: Props) {
             remotePort: previewTarget.remotePort,
             path: previewTarget.path,
             scheme: previewTarget.scheme,
+            host: previewTarget.host,
           });
           return;
         }

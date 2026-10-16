@@ -17,6 +17,8 @@ import { Directory, File, Paths } from 'expo-file-system';
 
 import type { MachineConnectionTarget } from '../machines/credentials';
 import { renderMarkdownDocument } from './markdownDocument';
+import { mediaStreamUrl, type ViewerProject } from './mediaStream';
+import { remotePathFromFileUrl } from './openDoc';
 import {
   baseName,
   extensionOf,
@@ -27,7 +29,7 @@ import {
   resolveRemoteReference,
   type PreviewKind,
 } from './paths';
-import { renderImageDocument, renderTextDocument } from './plainDocument';
+import { renderImageDocument, renderMediaDocument, renderTextDocument } from './plainDocument';
 import { decodeBase64Utf8, readRemoteFiles } from './remoteFiles';
 
 export const MIRROR_FOLDER = 'ghostex-docs-view';
@@ -310,24 +312,56 @@ async function mirrorAssets(
 }
 
 /**
- * Copies files the loaded page asked for while it ran (see `assetLoader.ts`), given as the mirror
- * URLs that failed. Returns the URLs whose files are now in the mirror; a file that is missing on
- * the computer or too large is left out, and the page tries each file again only once.
+ * The computer path a URL a page failed to load names: a file in the mirror, or an absolute path
+ * the page wrote itself (`/Users/…/shot.png`, `file:///home/…`, `C:/…`), which on the phone resolved
+ * against the phone's own file system. Null for anything else.
  */
-export async function mirrorRequestedAssets(page: DocPage, urls: readonly string[]): Promise<string[]> {
+function remotePathForRequestedUrl(url: string): string | null {
+  const mirrored = remotePathForMirrorUrl(url);
+  if (mirrored !== null) return mirrored.remotePath;
+  const file = remotePathFromFileUrl(url);
+  if (file !== null) return file.path;
+  // A Windows path in a page reads as a one-letter URL scheme (`c:/Users/…`).
+  if (/^[a-z]:\//iu.test(url)) {
+    try {
+      return decodeURIComponent(url.split(/[?#]/u)[0] ?? '');
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Copies files the loaded page asked for while it ran (see `assetLoader.ts`), given as the URLs
+ * that failed: mirror URLs, and absolute computer paths, which are copied into the mirror like any
+ * other file. Answers each URL whose file is now in the mirror with the mirror URL to load instead
+ * (the same URL for a mirror file); a file that is missing on the computer or too large is left
+ * out, and the page tries each file again only once.
+ */
+export async function mirrorRequestedAssets(page: DocPage, urls: readonly string[]): Promise<Record<string, string>> {
   const byPath = new Map<string, string[]>();
   for (const url of urls) {
-    const remotePath = remotePathForMirrorUrl(url)?.remotePath;
-    if (remotePath === undefined) continue;
+    const remotePath = remotePathForRequestedUrl(url);
+    if (remotePath === null) continue;
     const path = normalizeRemotePath(remotePath);
     byPath.set(path, [...(byPath.get(path) ?? []), url]);
   }
-  if (byPath.size === 0) return [];
+  if (byPath.size === 0) return {};
   const mirror = page.mirror;
   const request = mirror.requests.then(() => mirrorAssets(mirror, [...byPath.keys()], () => false, false));
   mirror.requests = request.catch(() => undefined);
   await request;
-  return [...byPath.entries()].filter(([path]) => mirror.copied.has(path)).flatMap(([, pathUrls]) => pathUrls);
+  const replacements: Record<string, string> = {};
+  for (const [path, pathUrls] of byPath) {
+    if (!mirror.copied.has(path)) continue;
+    const mirrored = mirrorUri(mirror.rootUri, path);
+    for (const url of pathUrls) {
+      const replacement = remotePathForMirrorUrl(url) !== null ? url : mirrored;
+      if (replacement !== null) replacements[url] = replacement;
+    }
+  }
+  return replacements;
 }
 
 /**
@@ -338,7 +372,8 @@ export async function mirrorRequestedAssets(page: DocPage, urls: readonly string
 export async function buildDocPage(
   machine: MachineConnectionTarget,
   remotePath: string,
-  isCancelled: () => boolean = () => false
+  isCancelled: () => boolean = () => false,
+  project: ViewerProject | null = null
 ): Promise<DocPage> {
   const documentPath = normalizeRemotePath(remotePath);
   const kind = previewKindForPath(documentPath);
@@ -347,13 +382,21 @@ export async function buildDocPage(
   const rootUri = directoryUri(root);
   const documentUri = mirrorUri(rootUri, documentPath);
   if (documentUri === null) throw new Error(`Not a full path on the computer: ${remotePath}`);
+  const title = baseName(documentPath);
+  // Beside the file, so a Markdown page's relative images and a picture's own name resolve there.
+  const pageUri = `${documentUri}.ghostex-view.html`;
+
+  if (kind === 'video' || kind === 'audio') {
+    // Streamed from the computer rather than copied: the page only names where it plays from.
+    const source = await mediaStreamUrl(machine, documentPath, project);
+    writeMirrorFile(pageUri, renderMediaDocument(kind, source, title), 'utf8');
+    return { kind, uri: pageUri, rootUri, title, skippedAssets: 0, mirror: emptyMirror(machine, rootUri, documentPath) };
+  }
+
   const maximumBytes = kind === 'image' ? ASSET_MAX_BYTES : kind === 'text' ? TEXT_MAX_BYTES : DOCUMENT_MAX_BYTES;
   const [read] = await readRemoteFiles(machine, [documentPath], maximumBytes);
   if (read === undefined || read.status === 'missing') throw new Error(`File not found: ${documentPath}`);
   if (read.status === 'tooLarge') throw new Error('This file is too large to open on the phone.');
-  const title = baseName(documentPath);
-  // Beside the file, so a Markdown page's relative images and a picture's own name resolve there.
-  const pageUri = `${documentUri}.ghostex-view.html`;
 
   if (kind === 'image') {
     writeMirrorFile(documentUri, read.base64, 'base64');

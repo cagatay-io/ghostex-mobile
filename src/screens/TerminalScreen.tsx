@@ -545,7 +545,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
             sessionKey={activeTab.sessionKey}
             style={styles.terminal}
             onSingleTap={() => setTapKeyboardHint(true)}
-            onOpenUrl={({ nativeEvent }) => openMachineLink(activeTab.machineId, nativeEvent.url)}
+            onOpenUrl={({ nativeEvent }) => openMachineLink(activeTab.machineId, nativeEvent.url, { projectId: activeProjectId })}
           />
         ) : null}
         {activeTab !== null && chatMachineTarget !== null ? (

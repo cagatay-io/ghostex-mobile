@@ -45,8 +45,15 @@ export type RootStackParamList = {
   WebPreviewPorts: { machineId: string };
   /** Browse a computer-side port through SSH, or an ordinary website directly. */
   WebPreview: { machineId: string } & (
-    | { remotePort: number; path?: string; scheme?: 'http' | 'https'; url?: never }
-    | { url: string; remotePort?: never; path?: never; scheme?: never }
+    | {
+        remotePort: number;
+        path?: string;
+        scheme?: 'http' | 'https';
+        /** The loopback host the link named (`localhost` when absent), which the computer dials. */
+        host?: string;
+        url?: never;
+      }
+    | { url: string; remotePort?: never; path?: never; scheme?: never; host?: never }
   );
   /** A project's Docs: its Markdown and HTML files, by folder, as the desktop Docs view lists them. */
   Docs: { machineId: string; projectId: string; projectName: string; projectPath: string };
@@ -54,7 +61,13 @@ export type RootStackParamList = {
    * One Markdown or HTML file from the computer, by absolute path. `fragment` scrolls to an anchor
    * (a link such as `other.md#setup`).
    */
-  DocViewer: { machineId: string; path: string; fragment?: string };
+  DocViewer: {
+    machineId: string;
+    path: string;
+    fragment?: string;
+    /** The session's project, whose file link streams a video or audio file (`docs/mediaStream.ts`). */
+    projectId?: string;
+  };
   /** Send Bug / Feedback; `machineId` is the computer the "Collect more data with an agent" switch uses. */
   Feedback: { machineId?: string } | undefined;
   /** Settings home: the list of Settings pages. */

@@ -4,10 +4,10 @@
  * blank page.
  */
 
-import { GhostexNative } from '../../modules/ghostex-native/src';
 import { WebPreviewCopy } from '../copy';
-import { ensureConnected, summarizeFailure } from '../inventory/client';
+import { summarizeFailure } from '../inventory/client';
 import type { MachineConnectionTarget } from '../machines/credentials';
+import { openComputerForward, type ComputerForward } from './machineLinks';
 
 /**
  * The three outcomes the preview has better copy for, identified by the
@@ -43,11 +43,14 @@ function nativeErrorCode(error: unknown): HandledCode | null {
  * Connect the machine if needed, then forward `remotePort`. Idempotent per
  * (machine, remotePort) for as long as the connection lives, so callers that
  * cannot know whether a forward survived a reconnect simply call this again.
+ * The computer's own gxserver comes back as the chat's shared forward
+ * (`gxserver: true`), which the preview must never close.
  */
-export async function startWebPreviewForward(machine: MachineConnectionTarget, remotePort: number): Promise<number> {
-  await ensureConnected(machine);
-  const { localPort } = await GhostexNative.startPortForward(machine.id, remotePort);
-  return localPort;
+export function startWebPreviewForward(
+  machine: MachineConnectionTarget,
+  address: { remotePort: number; host: string; path: string }
+): Promise<ComputerForward> {
+  return openComputerForward(machine, address);
 }
 
 /**

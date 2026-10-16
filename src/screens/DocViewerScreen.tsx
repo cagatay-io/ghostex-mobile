@@ -9,7 +9,12 @@
  * (`src/docs/assetLoader.ts`).
  * A link to another Markdown or HTML file opens it in a new viewer, web links go through the
  * machine-aware opener (localhost links open in the Web Preview), and Reload reads the file again,
- * which is how an agent's latest edit shows up.
+ * which is how an agent's latest edit shows up. What a page names on the computer by an absolute
+ * path or a loopback address (an image at `/Users/…/shot.png`, a link to `file:///…/notes.md`, a
+ * picture from `http://localhost:3000/…`) is the computer's too: links open it from there, and
+ * embedded files are copied into the mirror or loaded through a forward
+ * (CDXC:RemoteMachines 2026-10-16 in `webPreview/machineLinks.ts`). Video and audio play from the
+ * computer's gxserver (`docs/mediaStream.ts`).
  */
 
 import * as Clipboard from 'expo-clipboard';
@@ -32,10 +37,13 @@ import {
   remotePathForMirrorUrl,
   type DocPage,
 } from '../docs/page';
+import { viewerProject } from '../docs/mediaStream';
+import { remotePathFromFileUrl } from '../docs/openDoc';
 import { baseName, docKindForPath, normalizeRemotePath, previewKindForPath } from '../docs/paths';
 import { useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
 import { GhostexPalette } from '../theme/palette';
+import { classifyMachineLink, holdComputerForward, openComputerForward, releaseComputerForward } from '../webPreview/machineLinks';
 import { useOpenMachineLink } from '../webPreview/useOpenMachineLink';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DocViewer'>;
@@ -52,7 +60,7 @@ let annotationsEnabled = true;
 
 export default function DocViewerScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
-  const { machineId, fragment } = route.params;
+  const { machineId, fragment, projectId } = route.params;
   const remotePath = normalizeRemotePath(route.params.path);
   const machine = useMachinesStore((state) => state.machines.find((candidate) => candidate.id === machineId));
   const openMachineLink = useOpenMachineLink();
@@ -80,7 +88,7 @@ export default function DocViewerScreen({ navigation, route }: Props) {
       return;
     }
     setLoad({ kind: 'loading' });
-    buildDocPage(target, remotePath, () => current !== generation.current)
+    buildDocPage(target, remotePath, () => current !== generation.current, viewerProject(target.id, projectId))
       .then((page) => {
         if (current !== generation.current) return;
         setLoad({ kind: 'ready', page, nonce: current });
@@ -90,7 +98,7 @@ export default function DocViewerScreen({ navigation, route }: Props) {
         if (current !== generation.current) return;
         setLoad({ kind: 'failed', message: error instanceof Error ? error.message : String(error) });
       });
-  }, [remotePath, showNotice]);
+  }, [projectId, remotePath, showNotice]);
 
   useEffect(() => {
     reload();
@@ -139,6 +147,25 @@ export default function DocViewerScreen({ navigation, route }: Props) {
     [fragment, page]
   );
 
+  /** Opens another file on the computer: in a new viewer when the phone can show it, else its path is copied. */
+  const openComputerFile = useCallback(
+    (path: string, fragmentText: string): void => {
+      const target = normalizeRemotePath(path);
+      if (previewKindForPath(target) !== null) {
+        navigation.push('DocViewer', {
+          machineId,
+          path: target,
+          ...(fragmentText.length > 0 ? { fragment: decodeFragment(fragmentText) } : {}),
+          ...(projectId !== undefined ? { projectId } : {}),
+        });
+        return;
+      }
+      void Clipboard.setStringAsync(target);
+      showNotice(DocsCopy.notADoc);
+    },
+    [machineId, navigation, projectId, showNotice]
+  );
+
   const handleShouldStartLoad = useCallback(
     (request: ShouldStartLoadRequest): boolean => {
       // Frames load what their page asks for; only the page's own navigations are routed.
@@ -152,25 +179,64 @@ export default function DocViewerScreen({ navigation, route }: Props) {
       }
       const mirrored = remotePathForMirrorUrl(url);
       if (mirrored === null) {
-        if (!url.startsWith('file:')) void Linking.openURL(url).catch(() => undefined);
+        /*
+         * An absolute path the page wrote (`/Users/…`, `file:///…`, `C:/…`) resolved against the
+         * phone's own file system; it names a file on the computer.
+         */
+        const file = remotePathFromFileUrl(url);
+        if (file !== null) openComputerFile(file.path, file.fragment ?? '');
+        else if (/^[a-z]:\//iu.test(url)) openComputerFile(decodeFragment(url.split(/[?#]/u)[0] ?? ''), '');
+        else void Linking.openURL(url).catch(() => undefined);
         return false;
       }
       const target = normalizeRemotePath(mirrored.remotePath);
       // The page itself, including a jump to one of its own anchors.
       if (target === remotePath || target === `${remotePath}.ghostex-view.html`) return true;
-      if (previewKindForPath(target) !== null) {
-        navigation.push('DocViewer', {
-          machineId,
-          path: target,
-          ...(mirrored.fragment.length > 0 ? { fragment: decodeFragment(mirrored.fragment) } : {}),
-        });
-        return false;
-      }
-      void Clipboard.setStringAsync(target);
-      showNotice(DocsCopy.notADoc);
+      openComputerFile(target, mirrored.fragment);
       return false;
     },
-    [machineId, navigation, openMachineLink, page, remotePath, showNotice]
+    [openComputerFile, openMachineLink, page, remotePath]
+  );
+
+  /*
+   * Forwards this viewer opened for a page's loopback pictures and media, released when it goes.
+   * The machine id never changes for a mounted viewer, so this runs once, on unmount.
+   */
+  const heldPortsRef = useRef(new Set<number>());
+  useEffect(() => {
+    const held = heldPortsRef.current;
+    return () => {
+      for (const port of held) void releaseComputerForward(machineId, port);
+      held.clear();
+    };
+  }, [machineId]);
+
+  /**
+   * The phone URLs for loopback addresses a page failed to load (`http://localhost:3000/a.png`):
+   * the same path through a forward to that port on the computer.
+   */
+  const forwardRequestedAddresses = useCallback(
+    async (urls: readonly string[]): Promise<Record<string, string>> => {
+      const target = machineRef.current;
+      const replacements: Record<string, string> = {};
+      if (target === undefined) return replacements;
+      for (const url of urls) {
+        const link = classifyMachineLink(url);
+        if (link.kind !== 'computer') continue;
+        try {
+          const { localPort, gxserver } = await openComputerForward(target, link.address);
+          if (!gxserver && !heldPortsRef.current.has(link.address.remotePort)) {
+            holdComputerForward(target.id, link.address.remotePort);
+            heldPortsRef.current.add(link.address.remotePort);
+          }
+          replacements[url] = `${link.address.scheme}://127.0.0.1:${localPort}${link.address.path}`;
+        } catch {
+          // Nothing listens there on the computer either; the picture stays broken, as it would there.
+        }
+      }
+      return replacements;
+    },
+    []
   );
 
   const handleMessage = useCallback(
@@ -178,12 +244,15 @@ export default function DocViewerScreen({ navigation, route }: Props) {
       const assets = parseDocAssetsMessage(event.nativeEvent.data);
       if (assets !== null) {
         if (page === null) return;
-        const answer = (ready: readonly string[]) => {
+        const answer = (replacements: Readonly<Record<string, string>>) => {
           // A reload in between replaced the page (and its mirror state); the old page is gone.
           if (loadedPage.current !== page) return;
-          webViewRef.current?.injectJavaScript(assetLoaderAnswerScript(assets.urls, ready));
+          webViewRef.current?.injectJavaScript(assetLoaderAnswerScript(assets.urls, replacements));
         };
-        mirrorRequestedAssets(page, assets.urls).then(answer, () => answer([]));
+        void Promise.all([
+          mirrorRequestedAssets(page, assets.urls).catch(() => ({})),
+          forwardRequestedAddresses(assets.urls),
+        ]).then(([mirrored, forwarded]) => answer({ ...mirrored, ...forwarded }));
         return;
       }
       const message = parseDocPageMessage(event.nativeEvent.data);
@@ -195,7 +264,7 @@ export default function DocViewerScreen({ navigation, route }: Props) {
         showNotice(DocsCopy.agentationFailed, true);
       }
     },
-    [page, showNotice]
+    [forwardRequestedAddresses, page, showNotice]
   );
 
   const injectAgentation = isHtml && annotate;
@@ -215,7 +284,8 @@ export default function DocViewerScreen({ navigation, route }: Props) {
           allowFileAccess
           // A page's own module scripts, stylesheets and frames are `file://` loads from a `file://` page.
           allowFileAccessFromFileURLs
-          injectedJavaScriptBeforeContentLoaded={ASSET_LOADER_SCRIPT}
+          // A player page names the computer's stream through a phone forward, which is not the page's to report.
+          injectedJavaScriptBeforeContentLoaded={load.page.kind === 'video' || load.page.kind === 'audio' ? undefined : ASSET_LOADER_SCRIPT}
           injectedJavaScript={injectedScript}
           onMessage={handleMessage}
           onShouldStartLoadWithRequest={handleShouldStartLoad}

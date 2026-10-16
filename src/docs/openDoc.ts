@@ -1,16 +1,17 @@
 /**
  * Opening a file on the computer from anywhere in the app (a chat file link, a terminal `file://`
- * hyperlink) in the file viewer: Markdown, HTML, plain text and pictures (`previewKindForPath`).
+ * hyperlink) in the file viewer: Markdown, HTML, plain text, pictures, video and audio
+ * (`previewKindForPath`).
  */
 
 import { isAbsoluteRemotePath } from '../addProject/paths';
 import { joinRemotePath, normalizeRemotePath, previewKindForPath } from './paths';
 
 /**
- * The computer-side path a `file://` URL names, when the viewer can show that file. The host part
- * is ignored: a terminal on the computer writes its own hostname there.
+ * The computer-side path a `file://` URL names, whatever the file is. The host part is ignored: a
+ * terminal on the computer writes its own hostname there.
  */
-export function docPathFromFileUrl(url: string): { path: string; fragment?: string } | null {
+export function remotePathFromFileUrl(url: string): { path: string; fragment?: string } | null {
   const match = /^file:\/\/[^/]*(\/[^?#]*)(?:\?[^#]*)?(?:#(.*))?$/iu.exec(url.trim());
   if (match === null) return null;
   let path: string;
@@ -21,7 +22,6 @@ export function docPathFromFileUrl(url: string): { path: string; fragment?: stri
   }
   // `file:///C:/Users/…` names a Windows drive.
   if (/^\/[a-z]:\//iu.test(path)) path = path.slice(1);
-  if (previewKindForPath(path) === null) return null;
   const fragment = match[2];
   return fragment !== undefined && fragment.length > 0 ? { path, fragment } : { path };
 }

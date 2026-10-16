@@ -7,6 +7,11 @@
  * and every message here say `localhost:<remotePort>`, which is what the same
  * page is at on the computer.
  *
+ * The computer's own gxserver (an agent's `ghostex show` page, which posts its
+ * answers and draft back to the same origin) is reached through the forward the
+ * chat link already holds to it, never one of the preview's own, and that
+ * forward stays up when the preview is left (`webPreview/machineLinks.ts`).
+ *
  * Cross-port links are followed the same way. `onShouldStartLoadWithRequest`
  * sees every navigation (including `target=_blank`), so a link to another
  * loopback port gets its own forward and is then loaded rewritten. Requests the
@@ -28,11 +33,13 @@ import type { ShouldStartLoadRequest, WebViewErrorEvent } from 'react-native-web
 import { GhostexNative } from '../../modules/ghostex-native/src';
 import { ArrowIcon, CloseIcon, ExternalLinkIcon, RefreshIcon } from '../components/terminal/icons';
 import { WebPreviewCopy } from '../copy';
+import { ensureConnected } from '../inventory/client';
 import { hasPassword } from '../machines/credentials';
 import { useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
 import { GhostexPalette } from '../theme/palette';
 import { describeForwardFailure, startWebPreviewForward, type WebPreviewFailure } from '../webPreview/forwards';
+import { holdComputerForward, releaseComputerForward } from '../webPreview/machineLinks';
 import { useWebPreviewStore } from '../webPreview/store';
 import { LOOPBACK_HOST, isLoopbackHost, localPreviewUrl, parseHttpUrl, parseAddressInput, remoteDisplayAddress } from '../webPreview/urls';
 import { styles } from './web-preview/styles';
@@ -46,8 +53,11 @@ type Props = NativeStackScreenProps<RootStackParamList, 'WebPreview'>;
  */
 type PreviewLoadRequest = ShouldStartLoadRequest & { hasTargetFrame?: boolean };
 
-/** One place on the computer, as the preview means to open it. */
-type RemoteTarget = { scheme: 'http' | 'https'; remotePort: number; path: string };
+/**
+ * One place on the computer, as the preview means to open it. `host` is the loopback host the link
+ * named, which the computer's end of the forward dials (`computerDialHost`).
+ */
+type RemoteTarget = { scheme: 'http' | 'https'; remotePort: number; path: string; host: string };
 
 /**
  * A failure and where it came from. A forward that never opened has no failed
@@ -75,6 +85,22 @@ function addressText(address: PreviewAddress): string {
   return address.kind === 'remote'
     ? `${address.scheme}://${remoteDisplayAddress(address.remotePort, address.path)}`
     : address.url;
+}
+
+/**
+ * Whether a navigation replaces the page, rather than loading into a sub-frame.
+ *
+ * Android never reports the flag: its WebView only raises
+ * shouldOverrideUrlLoading for the top frame, and the synchronous bridge
+ * path (RNCWebViewClient.createWebViewEvent) omits `isTopFrame`
+ * altogether, so it arrives here as undefined. Only an explicit `false`
+ * means a sub-frame — and on iOS not even then, because a `target=_blank`
+ * link has no target frame at all, which also makes `isTopFrame` false.
+ * Those are exactly the links that must be rewritten, not handed to
+ * WebKit's own new-window path.
+ */
+function isTopNavigation(request: PreviewLoadRequest): boolean {
+  return request.isTopFrame !== false || request.hasTargetFrame === false;
 }
 
 /**
@@ -182,7 +208,21 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
     scheme: route.params.scheme ?? 'http',
     remotePort: route.params.remotePort ?? 80,
     path: route.params.path ?? '/',
+    host: route.params.host ?? 'localhost',
   });
+  /**
+   * Ports whose forward this screen holds (`holdComputerForward`), released when it goes. The
+   * computer's own gxserver is never among them: its forward is the chat link's
+   * (`gxserverPortsRef`), and closing it when the preview was left dropped the chat's socket.
+   */
+  const heldPortsRef = useRef(new Set<number>());
+  const gxserverPortsRef = useRef(new Set<number>());
+  /**
+   * The host each port was first opened with. A page at `127.0.0.1:3000` linking to
+   * `localhost:3000` keeps its forward instead of replacing it (and the page's origin) with one that
+   * dials another host.
+   */
+  const hostByPortRef = useRef(new Map<number, string>());
   /** Guards every state write against an older navigation finishing last. */
   const seqRef = useRef(0);
 
@@ -227,10 +267,10 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
    */
   useEffect(() => {
     const forwarded = remoteToLocalRef.current;
+    const held = heldPortsRef.current;
     return () => {
-      for (const remotePort of forwarded.keys()) {
-        void GhostexNative.stopPortForward(machineId, remotePort).catch(() => undefined);
-      }
+      for (const remotePort of held) void releaseComputerForward(machineId, remotePort);
+      held.clear();
       forwarded.clear();
     };
   }, [machineId]);
@@ -247,6 +287,8 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
       if (event.state !== 'disconnected' && event.state !== 'failed') return;
       remoteToLocalRef.current.clear();
       localToRemoteRef.current.clear();
+      // The connection took every forward with it, and with them every hold.
+      heldPortsRef.current.clear();
       if (mountedRef.current) setForwardedPairs([]);
     });
     return () => subscription.remove();
@@ -270,11 +312,12 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
 
   /** Forward `remotePort`, then load it. Native is idempotent per (machine, port). */
   const openRemotePort = useCallback(
-    async (scheme: 'http' | 'https', remotePort: number, path: string): Promise<void> => {
+    async (scheme: 'http' | 'https', remotePort: number, path: string, linkHost: string): Promise<void> => {
       const seq = seqRef.current + 1;
       seqRef.current = seq;
       const isCurrent = (): boolean => mountedRef.current && seqRef.current === seq;
-      intendedRef.current = { scheme, remotePort, path };
+      const host = hostByPortRef.current.get(remotePort) ?? linkHost;
+      intendedRef.current = { scheme, remotePort, path, host };
 
       const target = machineRef.current;
       if (target === undefined) {
@@ -286,27 +329,36 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
       }
       // The address bar names what is being opened, so a failure keeps pointing
       // at the port that failed instead of the last one that worked.
-      setAddress({ kind: 'remote', scheme, remotePort, path });
+      setAddress({ kind: 'remote', scheme, remotePort, path, host });
       setConnecting(true);
       setFailure(null);
       try {
-        const localPort = await startWebPreviewForward(target, remotePort);
+        const { localPort, gxserver } = await startWebPreviewForward(target, { remotePort, host, path });
         /*
          * Recorded before the liveness checks below: the forward exists now, and
          * a screen that has gone away still has to release it.
          */
+        hostByPortRef.current.set(remotePort, host);
+        if (gxserver) gxserverPortsRef.current.add(remotePort);
+        else if (!heldPortsRef.current.has(remotePort)) {
+          holdComputerForward(target.id, remotePort);
+          heldPortsRef.current.add(remotePort);
+        }
+        const previousLocal = remoteToLocalRef.current.get(remotePort);
+        if (previousLocal !== undefined && previousLocal !== localPort) localToRemoteRef.current.delete(previousLocal);
         remoteToLocalRef.current.set(remotePort, localPort);
         localToRemoteRef.current.set(localPort, remotePort);
         if (!mountedRef.current) {
           remoteToLocalRef.current.delete(remotePort);
           localToRemoteRef.current.delete(localPort);
-          void GhostexNative.stopPortForward(target.id, remotePort).catch(() => undefined);
+          if (heldPortsRef.current.delete(remotePort)) void releaseComputerForward(target.id, remotePort);
           return;
         }
         setForwardedPairs([...remoteToLocalRef.current.entries()]);
         if (seqRef.current !== seq) return;
         loadUri(localPreviewUrl(scheme, localPort, path));
-        setLastPort(target.id, remotePort);
+        // The Ports screen's prefill is for the user's own servers, not a page gxserver published.
+        if (!gxserver) setLastPort(target.id, remotePort);
       } catch (error) {
         if (!isCurrent()) return;
         setFailure({ origin: 'forward', ...describeForwardFailure(remotePort, error, hasPasswordRef.current) });
@@ -324,7 +376,7 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
     const parsed = parseHttpUrl(url);
     if (parsed === null) return;
     if (isLoopbackHost(parsed.host)) {
-      void openRemotePort(parsed.scheme, parsed.port, parsed.pathAndQuery);
+      void openRemotePort(parsed.scheme, parsed.port, parsed.pathAndQuery, parsed.host);
       return;
     }
     // A newly entered website supersedes any pending port-forward navigation.
@@ -350,9 +402,11 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
 
   /*
    * Retry re-establishes only the port that failed. The forward it is replacing
-   * may still be half-alive on the native side, so it is stopped and forgotten
+   * may still be half-alive on the native side, so it is released and forgotten
    * before the new one is asked for; forwards for other ports this preview
-   * opened are healthy and stay up.
+   * opened are healthy and stay up. gxserver's forward is the chat's and is never
+   * closed from here: the SSH connection is verified instead, and a dead one is
+   * redialled, which brings every forward back fresh.
    */
   const retry = useCallback((): void => {
     if (address.kind === 'external') {
@@ -366,39 +420,63 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
         remoteToLocalRef.current.delete(target.remotePort);
         localToRemoteRef.current.delete(stale);
         if (mountedRef.current) setForwardedPairs([...remoteToLocalRef.current.entries()]);
-        await GhostexNative.stopPortForward(machineId, target.remotePort).catch(() => undefined);
+        const machineTarget = machineRef.current;
+        if (gxserverPortsRef.current.has(target.remotePort)) {
+          if (machineTarget !== undefined) await ensureConnected(machineTarget, { verify: true }).catch(() => undefined);
+        } else if (heldPortsRef.current.delete(target.remotePort)) {
+          await releaseComputerForward(machineId, target.remotePort);
+        }
       }
-      await openRemotePort(target.scheme, target.remotePort, target.path);
+      await openRemotePort(target.scheme, target.remotePort, target.path, target.host);
     })();
   }, [address, machineId, openAddress, openRemotePort]);
 
   // Opening the screen, and re-opening it with new params from a followed link.
   useEffect(() => {
-    openAddress(route.params.url ?? `${route.params.scheme ?? 'http'}://localhost:${route.params.remotePort ?? 80}${route.params.path ?? '/'}`);
-  }, [openAddress, route.params.url, route.params.path, route.params.remotePort, route.params.scheme]);
+    if (route.params.url !== undefined) {
+      openAddress(route.params.url);
+      return;
+    }
+    void openRemotePort(
+      route.params.scheme ?? 'http',
+      route.params.remotePort ?? 80,
+      route.params.path ?? '/',
+      route.params.host ?? 'localhost'
+    );
+  }, [openAddress, openRemotePort, route.params.url, route.params.path, route.params.remotePort, route.params.scheme, route.params.host]);
+
+  /** Whether the page on screen is one the computer's gxserver serves (a `ghostex show` page). */
+  const onGxserverPage = useCallback((): boolean => {
+    const parsed = currentUrlRef.current === null ? null : parseHttpUrl(currentUrlRef.current);
+    if (parsed === null || parsed.host !== LOOPBACK_HOST) return false;
+    const remotePort = localToRemoteRef.current.get(parsed.port);
+    return remotePort !== undefined && gxserverPortsRef.current.has(remotePort);
+  }, []);
 
   const handleShouldStartLoad = useCallback(
     (request: PreviewLoadRequest): boolean => {
       const parsed = parseHttpUrl(request.url);
       // about:blank, data:, blob: and app schemes are the WebView's business.
       if (parsed === null) return true;
-      // An ordinary web link: it is not on the computer, so it loads in place.
-      if (!isLoopbackHost(parsed.host)) return true;
+      if (!isLoopbackHost(parsed.host)) {
+        /*
+         * A web link on a page the computer's gxserver published (`ghostex show`) goes to the
+         * phone's browser, as the desktop's page window sends it to the user's browser, so the
+         * page (and the answers being written in it) stays put. Elsewhere an ordinary web link
+         * is not on the computer and loads in place.
+         */
+        if (isTopNavigation(request) && onGxserverPage()) {
+          void Linking.openURL(request.url).catch(() => undefined);
+          return false;
+        }
+        return true;
+      }
       /*
        * Only page navigations are rewritten. A sub-frame cannot be moved to a
        * different port without replacing the whole page, and it belongs to the
        * same class as fetch/XHR: a resource the preview cannot re-point.
-       *
-       * Android never reports the flag: its WebView only raises
-       * shouldOverrideUrlLoading for the top frame, and the synchronous bridge
-       * path (RNCWebViewClient.createWebViewEvent) omits `isTopFrame`
-       * altogether, so it arrives here as undefined. Only an explicit `false`
-       * means a sub-frame — and on iOS not even then, because a `target=_blank`
-       * link has no target frame at all, which also makes `isTopFrame` false.
-       * Those are exactly the links that must be rewritten, not handed to
-       * WebKit's own new-window path.
        */
-      if (request.isTopFrame === false && request.hasTargetFrame !== false) return true;
+      if (!isTopNavigation(request)) return true;
       /*
        * Our own rewritten URLs come back through here on every navigation the
        * page makes. They are the only loopback URLs whose host is 127.0.0.1 and
@@ -413,10 +491,10 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
        * that is gone, and `startPortForward` is idempotent while the connection
        * lives and reports `E_NOT_CONNECTED` when it does not.
        */
-      void openRemotePort(parsed.scheme, parsed.port, parsed.pathAndQuery);
+      void openRemotePort(parsed.scheme, parsed.port, parsed.pathAndQuery, parsed.host);
       return false;
     },
-    [openRemotePort]
+    [onGxserverPage, openRemotePort]
   );
 
   const handleNavigationStateChange = useCallback((state: WebViewNavigation): void => {
@@ -434,6 +512,7 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
         scheme: parsed.scheme,
         remotePort,
         path: parsed.pathAndQuery,
+        host: hostByPortRef.current.get(remotePort) ?? 'localhost',
       });
     }
   }, []);
@@ -462,7 +541,12 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
       });
     } else {
       // Retry re-attempts the page that failed, not the last one that worked.
-      intendedRef.current = { scheme: parsed.scheme, remotePort, path: parsed.pathAndQuery };
+      intendedRef.current = {
+        scheme: parsed.scheme,
+        remotePort,
+        path: parsed.pathAndQuery,
+        host: hostByPortRef.current.get(remotePort) ?? 'localhost',
+      };
       setFailure({
         origin: 'load',
         message:

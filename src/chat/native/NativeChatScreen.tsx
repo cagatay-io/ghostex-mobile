@@ -24,12 +24,13 @@ import * as Clipboard from 'expo-clipboard';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Linking, Platform, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
+import { DocsCopy } from '../../copy';
 import { docPathForChatFile, remotePathForChatFile } from '../../docs/openDoc';
 import { isGpuiAvailable } from '../../../modules/gx-chat-core/src/gpui';
 import { useInventoryStore } from '../../inventory/store';
 import type { MachineConnectionTarget } from '../../machines/credentials';
 import type { RootStackParamList } from '../../navigation/types';
-import { webPreviewTargetForUrl } from '../../webPreview/routing';
+import { classifyMachineLink } from '../../webPreview/machineLinks';
 import { useOpenMachineLink } from '../../webPreview/useOpenMachineLink';
 import type { ChatViewRequest } from '../rust/effects';
 import { sessionChatRpc } from '../rust/transport';
@@ -296,19 +297,24 @@ function useChatViewRequests(
             show(request.message, request.level === 'error', request.title);
             return;
           case 'open':
-            if (request.target.kind === 'url') openMachineLink(machineId, request.target.url);
-            else {
-              // Markdown, HTML, text and pictures open in the file viewer; a relative path is the session project's.
+            if (request.target.kind === 'url') {
+              // An address the session printed is the computer's (`webPreview/machineLinks.ts`).
+              openMachineLink(machineId, request.target.url, {
+                projectId,
+                onUnviewableFile: (path) => show(DocsCopy.pathCopiedNote(path), false, DocsCopy.cantPreview),
+              });
+            } else {
+              // Markdown, HTML, text, pictures, video and audio open in the file viewer; a relative path is the session project's.
               const projectPath = projectPathFor(machineId, projectId);
               const docPath = docPathForChatFile(request.target.path, projectPath);
               if (docPath !== null) {
-                navigation.push('DocViewer', { machineId, path: docPath });
+                navigation.push('DocViewer', { machineId, path: docPath, projectId });
                 return;
               }
               // Any other file has no viewer on the phone; the path is what it can offer.
               const path = remotePathForChatFile(request.target.path, projectPath) ?? request.target.path;
               void Clipboard.setStringAsync(path);
-              show(`${path} (path copied)`, false, "Can't preview this file on the phone");
+              show(DocsCopy.pathCopiedNote(path), false, DocsCopy.cantPreview);
             }
             return;
           case 'markdownSaved':
@@ -379,6 +385,7 @@ function useTranscriptMenuHost(
   show: (message: string, error: boolean, title?: string) => void
 ): TranscriptMenuHost {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const openMachineLink = useOpenMachineLink();
   return useMemo<TranscriptMenuHost>(() => {
     const docPath = (command: MenuRow): string | null =>
       typeof command.path === 'string' ? docPathForChatFile(command.path, projectPathFor(machineId, projectId)) : null;
@@ -400,20 +407,32 @@ function useTranscriptMenuHost(
         }
         if (command.action === 'openLink' && typeof command.url === 'string') {
           const url = command.url;
+          const link = classifyMachineLink(url);
+          /*
+           * An address on the computer opens in the Web preview whichever browser was asked for:
+           * the phone's own browser cannot reach the computer's loopback.
+           */
+          if (link.kind !== 'web') {
+            openMachineLink(machineId, url, {
+              projectId,
+              onUnviewableFile: (path) => show(DocsCopy.pathCopiedNote(path), false, DocsCopy.cantPreview),
+            });
+            return;
+          }
           if (command.external === true) {
             void Linking.openURL(url).catch(() => undefined);
             return;
           }
-          navigation.navigate('WebPreview', { machineId, ...(webPreviewTargetForUrl(url) ?? { url }) });
+          navigation.navigate('WebPreview', { machineId, url });
           return;
         }
         if (command.action === 'openFile') {
           const path = docPath(command);
-          if (path !== null) navigation.push('DocViewer', { machineId, path });
+          if (path !== null) navigation.push('DocViewer', { machineId, path, projectId });
         }
       },
     };
-  }, [machineId, navigation, projectId, show]);
+  }, [machineId, navigation, openMachineLink, projectId, show]);
 }
 
 /** A short-lived toast at the top of the chat. */

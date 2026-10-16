@@ -40,6 +40,25 @@ export function renderImageDocument(fileName: string, title: string): string {
   );
 }
 
+/**
+ * A page that plays one video or audio file from `src` (the computer's stream, `mediaStream.ts`).
+ * A file the phone cannot decode, or a stream that stopped answering, says so in the page.
+ */
+export function renderMediaDocument(kind: 'video' | 'audio', src: string, title: string): string {
+  const source = escapeHtml(src);
+  const player =
+    kind === 'video'
+      ? `<video controls playsinline preload="metadata" src="${source}"></video>`
+      : `<audio controls preload="metadata" src="${source}"></audio>`;
+  return shell(
+    title,
+    MEDIA_STYLES,
+    `<main class="media media-${kind}">${player}<p class="media-name">${escapeHtml(title)}</p>` +
+      `<p class="media-error" hidden>This file can't play on the phone. Reload to try again, or open it on the computer.</p></main>` +
+      `<script>(function () { var player = document.querySelector('video, audio'); player.addEventListener('error', function () { document.querySelector('.media-error').hidden = false; }); })();</script>`
+  );
+}
+
 const BASE_STYLES = `
 :root { color-scheme: dark; }
 html { -webkit-text-size-adjust: 100%; }
@@ -72,4 +91,21 @@ const IMAGE_STYLES = `
   height: auto;
   background: repeating-conic-gradient(#2a2a2a 0% 25%, #1f1f1f 0% 50%) 50% / 16px 16px;
 }
+`;
+
+const MEDIA_STYLES = `
+.media {
+  box-sizing: border-box;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+}
+.media video { width: 100%; max-height: 80vh; background: #000; border-radius: 8px; }
+.media audio { width: 100%; }
+.media-name { margin: 0; color: #9a9a9a; font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow-wrap: anywhere; text-align: center; }
+.media-error { margin: 0; color: #f87171; font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; }
 `;

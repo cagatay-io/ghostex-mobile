@@ -25,9 +25,14 @@ const LOOPBACK_HOSTS = new Set([
   '127.0.0.1',
   '0.0.0.0',
   '[::1]',
-  // IPv4-mapped loopback: what a dual-stack server prints for 127.0.0.1.
+  // IPv4-mapped loopback: what a dual-stack server prints for 127.0.0.1, and the
+  // compressed form a WebView reports for the same address.
   '[::ffff:127.0.0.1]',
+  '[::ffff:7f00:1]',
 ]);
+
+/** The rest of 127.0.0.0/8 (Debian names its own host 127.0.1.1). */
+const IPV4_LOOPBACK = /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/u;
 
 const DEFAULT_PORT_BY_SCHEME: Record<string, number> = { http: 80, https: 443 };
 
@@ -101,9 +106,28 @@ export function parseHttpUrl(url: string): ParsedHttpUrl | null {
   };
 }
 
-/** Whether a parsed host names the machine the page is served from. */
+/**
+ * Whether a parsed host names the machine the page is served from. A `*.localhost` name is that
+ * machine too (browsers resolve the whole TLD to loopback, and Portless names its dev servers so);
+ * on the phone it would resolve to the phone itself.
+ */
 export function isLoopbackHost(host: string): boolean {
-  return LOOPBACK_HOSTS.has(host);
+  return LOOPBACK_HOSTS.has(host) || IPV4_LOOPBACK.test(host) || host.endsWith('.localhost');
+}
+
+/**
+ * The address the computer's end of a forward dials for a loopback host as a link wrote it. A link
+ * naming `127.0.0.1` reaches a listener bound to that address only, which Windows OpenSSH never
+ * finds when asked for `localhost` (it tries `::1` and does not fall back; CDXC:Mobile 2026-10-09 in
+ * `GhostexSshConnection.kt`), so the address is kept as written; `localhost` names stay `localhost`
+ * so a server bound only to `::1` is still reached.
+ */
+export function computerDialHost(host: string): string {
+  if (host === 'localhost' || host.endsWith('.localhost')) return 'localhost';
+  if (host === '[::1]') return '::1';
+  if (IPV4_LOOPBACK.test(host)) return host;
+  // `0.0.0.0` and the IPv4-mapped forms: a listener on every IPv4 address answers on 127.0.0.1.
+  return LOOPBACK_HOST;
 }
 
 export function isValidPort(port: number): boolean {

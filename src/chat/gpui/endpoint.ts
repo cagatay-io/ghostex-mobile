@@ -31,6 +31,18 @@ export const GXSERVER_FORWARD_HOST = '127.0.0.1';
 
 const resolved = new Map<string, Promise<GpuiMachineEndpoint>>();
 
+/** The gxserver port each computer last reported, whoever asked (the chat link, the GPUI chat, a link opener). */
+const reportedPorts = new Map<string, number>();
+
+/**
+ * The port the computer's gxserver listens on, when any handshake this app run has learned it. A
+ * loopback link to that port is gxserver's own (an agent's `ghostex show` page), which opens through
+ * the `127.0.0.1` forward the chat already holds rather than a Web preview forward of its own.
+ */
+export function knownGxserverPort(machineId: string): number | null {
+  return reportedPorts.get(machineId) ?? null;
+}
+
 /** The forward and token for `machine`, resolving them on first use. */
 export function gpuiMachineEndpoint(machine: MachineConnectionTarget): Promise<GpuiMachineEndpoint> {
   let pending = resolved.get(machine.id);
@@ -67,6 +79,7 @@ export async function readServerEndpoint(machine: MachineConnectionTarget): Prom
   const port = typeof answer?.port === 'number' ? answer.port : null;
   const authToken = typeof answer?.authToken === 'string' ? answer.authToken : null;
   if (port !== null && authToken !== null) {
+    reportedPorts.set(machine.id, port);
     const protocolVersion = typeof answer?.protocolVersion === 'number' ? answer.protocolVersion : null;
     // Older daemons print no list; they promise nothing beyond the port and token.
     const capabilities = Array.isArray(answer?.capabilities)

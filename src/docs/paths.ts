@@ -41,9 +41,12 @@ const TEXT_EXTENSIONS = new Set([
 ]);
 const TEXT_FILE_NAMES = new Set(['makefile', 'dockerfile', 'license', 'readme', 'changelog', 'procfile', 'gemfile', 'rakefile', 'justfile']);
 const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'avif', 'svg']);
+/** What Android's WebView plays in a `<video>` / `<audio>` element. */
+const VIDEO_EXTENSIONS = new Set(['mp4', 'm4v', 'mov', 'webm', 'mkv', '3gp', 'ogv']);
+const AUDIO_EXTENSIONS = new Set(['mp3', 'm4a', 'aac', 'wav', 'ogg', 'oga', 'opus', 'flac']);
 
-/** What the phone's file viewer can show: the two Docs kinds, plain text, and pictures. */
-export type PreviewKind = DocKind | 'text' | 'image';
+/** What the phone's file viewer can show: the two Docs kinds, plain text, pictures, video and audio. */
+export type PreviewKind = DocKind | 'text' | 'image' | 'video' | 'audio';
 
 /**
  * CDXC:Docs 2026-10-06 DECISION:
@@ -51,12 +54,17 @@ export type PreviewKind = DocKind | 'text' | 'image';
  * A file link in chat (or a terminal `file://` link) opens in the phone's viewer when the file is
  * Markdown, HTML, plain text or source code, or a picture (SVG included); anything else shows that
  * it cannot be previewed on the phone, with its path. The Docs list keeps to {@link docKindForPath}.
+ * Extended 2026-10-16 by the user's "not being able to view it, whether it's a video or image etc"
+ * (CDXC:RemoteMachines in `webPreview/machineLinks.ts`): video and audio files play in the viewer too,
+ * streamed from the computer's gxserver (`mediaStream.ts`).
  */
 export function previewKindForPath(path: string): PreviewKind | null {
   const doc = docKindForPath(path);
   if (doc !== null) return doc;
   const extension = extensionOf(path);
   if (IMAGE_EXTENSIONS.has(extension)) return 'image';
+  if (VIDEO_EXTENSIONS.has(extension)) return 'video';
+  if (AUDIO_EXTENSIONS.has(extension)) return 'audio';
   if (TEXT_EXTENSIONS.has(extension)) return 'text';
   const name = baseName(path).toLowerCase();
   if (TEXT_FILE_NAMES.has(name) || (name.startsWith('.') && TEXT_EXTENSIONS.has(name.slice(1)))) return 'text';

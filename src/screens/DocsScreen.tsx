@@ -153,7 +153,7 @@ export default function DocsScreen({ navigation, route }: Props) {
       if (target === undefined || opening !== null) return;
       setOpening(file.path);
       resolveDocsEntryPath(target, projectId, projectPath, file.path)
-        .then((path) => navigation.push('DocViewer', { machineId, path }))
+        .then((path) => navigation.push('DocViewer', { machineId, path, projectId }))
         .catch((failure: unknown) => setError(failure instanceof Error ? failure.message : String(failure)))
         .finally(() => setOpening(null));
     },

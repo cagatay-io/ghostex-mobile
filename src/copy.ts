@@ -832,7 +832,9 @@ export const DocsCopy = {
   agentationFailed: 'Agentation could not load. It needs an internet connection on this phone.',
   skippedAssets: (count: number) =>
     count === 1 ? 'One file this page uses was too large to copy to the phone.' : `${count} files this page uses were too large to copy to the phone.`,
-  notADoc: 'Only Markdown and HTML files open on the phone. The path was copied.',
+  notADoc: "This kind of file can't be previewed on the phone. The path was copied.",
+  cantPreview: "Can't preview this file on the phone",
+  pathCopiedNote: (path: string) => `${path} (path copied)`,
 } as const;
 
 /**
