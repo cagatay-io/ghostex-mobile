@@ -13,6 +13,24 @@ import { fileNameOf, imageFailureCopy } from '../cards/ImageUnavailable';
 import { useImageDisplay, useTranscriptEnv, type ChatImageSource } from './context';
 import { Glyph } from './icons';
 import { arr, obj, str } from './json';
+import { openTranscriptMenu } from './transcriptMenuStore';
+
+/** A picture's file on the computer (`copyPath`, or the path it is read from); none for a web address or pasted bytes. */
+function imageFilePath(image: ChatImageSource): string {
+  const copyPath = str(image, 'copyPath');
+  const path = copyPath.length > 0 ? copyPath : str(image, 'transport') === 'read' ? str(image, 'path') : '';
+  return /^(https?:|data:)/i.test(path) ? '' : path;
+}
+
+/**
+ * Holding a picture with a file behind it opens the file menu a held file link opens: Copy Path, the
+ * phone's share of the desktop's Copy Path and folder row (CDXC:SessionChat 2026-10-17 in desktop
+ * `native_chat/file_actions.rs`; the phone cannot show a folder on the computer).
+ */
+function fileMenuProps(image: ChatImageSource): { onLongPress?: () => void } {
+  const path = imageFilePath(image);
+  return path.length > 0 ? { onLongPress: () => openTranscriptMenu({ href: path }) } : {};
+}
 
 const VISUAL = {
   thumbnailSize: 48,
@@ -61,7 +79,7 @@ export const InlineImage = memo(function InlineImage({ image }: { image: ChatIma
     // card can say why the picture is not there (desktop `inline_image`).
     const named = label.length > 0 ? fileNameOf(label) : 'Image';
     return (
-      <Pressable
+      <Pressable {...fileMenuProps(image)}
         style={[styles.inlineMissing, { borderColor: theme.border }]}
         onPress={() => openChatImageViewer([image], 0)}
         accessibilityRole='button'
@@ -73,7 +91,7 @@ export const InlineImage = memo(function InlineImage({ image }: { image: ChatIma
     );
   }
   return (
-    <Pressable
+    <Pressable {...fileMenuProps(image)}
       style={styles.inline}
       onPress={() => openChatImageViewer([image], 0)}
       accessibilityRole='imagebutton'
@@ -122,7 +140,7 @@ function StripTile({ image, index, height, maxWidth, onOpen }: { image: ChatImag
   const named = label.length > 0 ? fileNameOf(label) : `Image #${index + 1}`;
   if (display.state === 'unavailable') {
     return (
-      <Pressable
+      <Pressable {...fileMenuProps(image)}
         onPress={onOpen}
         accessibilityRole='button'
         accessibilityLabel={`${imageFailureCopy({ reason: display.reason, error: '' }).title}: ${named}`}
@@ -143,7 +161,7 @@ function StripTile({ image, index, height, maxWidth, onOpen }: { image: ChatImag
   const width = Math.min(height * aspect, maxWidth);
   const frameHeight = width / aspect;
   return (
-    <Pressable onPress={onOpen} accessibilityRole='imagebutton' accessibilityLabel={`View ${alt.length > 0 ? alt : named}`} style={[styles.stripTile, { width: Math.max(width, VISUAL.captionMinWidth) }]}>
+    <Pressable {...fileMenuProps(image)} onPress={onOpen} accessibilityRole='imagebutton' accessibilityLabel={`View ${alt.length > 0 ? alt : named}`} style={[styles.stripTile, { width: Math.max(width, VISUAL.captionMinWidth) }]}>
       <View style={[styles.stripFrame, { width, height: frameHeight, borderColor: theme.border }, display.state === 'loading' && styles.stripLoading]}>
         {display.state === 'ready' ? (
           <Image
@@ -197,14 +215,14 @@ function ImageTile({ image, index, user, onOpen, themeMuted }: { image: ChatImag
     const spoken = `${imageFailureCopy({ reason: display.reason, error: '' }).title}: ${named}`;
     if (user)
       return (
-        <Pressable onPress={onOpen} accessibilityRole='button' accessibilityLabel={spoken}>
+        <Pressable {...fileMenuProps(image)} onPress={onOpen} accessibilityRole='button' accessibilityLabel={spoken}>
           <View style={[styles.thumbnail, styles.centered, styles.missing, { borderColor: theme.border }]}>
             <Glyph name='photo-off' size={18} color={themeMuted} />
           </View>
         </Pressable>
       );
     return (
-      <Pressable
+      <Pressable {...fileMenuProps(image)}
         onPress={onOpen}
         accessibilityRole='button'
         accessibilityLabel={spoken}
@@ -220,7 +238,7 @@ function ImageTile({ image, index, user, onOpen, themeMuted }: { image: ChatImag
     );
   }
   return (
-    <Pressable onPress={onOpen} accessibilityRole='imagebutton' accessibilityLabel={`View ${alt.length > 0 ? alt : label}`}>
+    <Pressable {...fileMenuProps(image)} onPress={onOpen} accessibilityRole='imagebutton' accessibilityLabel={`View ${alt.length > 0 ? alt : label}`}>
       <Thumbnail image={image} />
     </Pressable>
   );

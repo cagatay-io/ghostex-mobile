@@ -5,9 +5,12 @@
  * `composer/files_links.rs`). A tap opens the item: a picture in the image viewer, a file or a link
  * the way the transcript's own pill or link opens it. Holding a row shows its jumps (to the message
  * that first or last mentioned it, or the thread that did), the phone's long-press rule for message
- * actions (user decision 2026-10-12), so no row carries an always-visible button.
+ * actions (user decision 2026-10-12), so no row carries an always-visible button. A held file or
+ * folder also offers Copy path (CDXC:SessionChat 2026-10-17 in desktop `native_chat/file_actions.rs`;
+ * the desktop's folder row is left out because the phone cannot show a folder on the computer).
  */
 
+import * as Clipboard from 'expo-clipboard';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
 
@@ -31,6 +34,7 @@ export function FilesLinksCard({ filesLinks, dispatch }: { filesLinks: FilesLink
   const { height } = useWindowDimensions();
   const [query, setQuery] = useState(filesLinks?.query ?? '');
   const [held, setHeld] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
   const open = filesLinks?.open === true;
   useEffect(() => {
     if (!open) {
@@ -148,6 +152,16 @@ export function FilesLinksCard({ filesLinks, dispatch }: { filesLinks: FilesLink
                               }}
                             />
                           ))}
+                          {row.path ? (
+                            <ChatButton
+                              label={copied === row.key ? 'Path copied' : 'Copy path'}
+                              icon="copy"
+                              onPress={() => {
+                                const key = row.key;
+                                void Clipboard.setStringAsync(row.path ?? '').then(() => setCopied(key));
+                              }}
+                            />
+                          ) : null}
                         </View>
                       ) : null}
                     </View>

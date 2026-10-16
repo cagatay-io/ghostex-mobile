@@ -673,6 +673,8 @@ export type FilesLinksRow = {
   open: Json;
   image: Json | null;
   jumps: { label: string; tooltip: string; command: Json }[];
+  /** The file's or folder's path, for Copy Path; absent for a web link. */
+  path?: string;
 };
 
 export type FilesLinksGroup = { key: string; title: string; rows: FilesLinksRow[] };

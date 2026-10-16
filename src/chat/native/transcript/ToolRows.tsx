@@ -210,10 +210,13 @@ const ToolRow = memo(function ToolRow({
   // A description reads as the agent's own prose: the reply's size and weight, a fifth dimmer.
   const heading = failed ? theme.error : described ? dimmed(theme.prose, DESCRIBED_LABEL_OPACITY) : theme.foreground;
   const nameStyle = described ? [styles.name, styles.described] : styles.name;
+  // Holding a call that names a file opens that file's menu (Copy Path; CDXC:SessionChat 2026-10-17 in desktop `native_chat/file_actions.rs`).
+  const filePath = str(tool, 'filePath');
   const trigger = (
     <Pressable
-      disabled={!hasDetail}
-      onPress={toggle}
+      disabled={!hasDetail && filePath.length === 0}
+      onPress={hasDetail ? toggle : undefined}
+      {...(filePath.length > 0 ? { onLongPress: () => openTranscriptMenu({ href: filePath }) } : {})}
       accessibilityRole='button'
       accessibilityLabel={subagent.length > 0 ? `Tool ${name} (${subagent})` : argument.length > 0 ? `Tool ${name}: ${argument}` : `Tool ${name}`}
       accessibilityState={{ expanded }}

@@ -17,6 +17,7 @@ import { Glyph, type GlyphName } from './icons';
 import { arr, num, obj, str, type JsonRecord } from './json';
 import { useDisclosure } from './state';
 import { MONO_FONT, type TranscriptTheme } from './theme';
+import { openTranscriptMenu } from './transcriptMenuStore';
 
 function fileRows(files: unknown): JsonRecord[] {
   return arr(files)
@@ -167,10 +168,13 @@ const FileChangeRow = memo(function FileChangeRow({
   const status = str(file, 'status') || 'edited';
   const hue = statusHue(colors, status);
   const failed = file.failed === true;
+  // Holding a file's row opens the file menu a held file link opens (Copy Path; CDXC:SessionChat 2026-10-17 in desktop `native_chat/file_actions.rs`).
+  const path = str(file, 'path');
   return (
     <View>
       <Pressable
         onPress={toggle}
+        {...(path.length > 0 ? { onLongPress: () => openTranscriptMenu({ href: path }) } : {})}
         accessibilityRole='button'
         accessibilityState={{ expanded: open }}
         style={({ pressed }) => [styles.row, { borderTopColor: colors.hairline }, pressed && { backgroundColor: theme.pressed }]}
