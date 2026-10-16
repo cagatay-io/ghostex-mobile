@@ -9,6 +9,7 @@
  */
 
 import { useCallback, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,6 +22,14 @@ import { CameraGlyph, QrcodeGlyph, ShieldGlyph } from '../components/onboarding/
 import { setupText } from '../components/onboarding/SetupPrimitives';
 import { MachinesCopy } from '../copy';
 import { useInventoryStore } from '../inventory/store';
+import {
+  APP_UPDATE_FRESH_MS,
+  appUpdateCardLine,
+  appUpdateView,
+  refreshAppUpdate,
+  runAppUpdateOp,
+  useAppUpdateStore,
+} from '../machines/appUpdate';
 import { useMachinesStore, type MachineRecord } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
 import { useSpacesStore } from '../spaces/store';
@@ -46,7 +55,21 @@ export default function MachinesScreen({ navigation }: Props) {
   const clearMachineInventory = useInventoryStore((state) => state.clearMachine);
   const clearMachineSpace = useSpacesStore((state) => state.clearMachine);
 
+  const appUpdates = useAppUpdateStore((state) => state.byMachineId);
+
   const [overlay, setOverlay] = useState<Overlay>(NONE);
+
+  // Every computer the phone reaches is read again when the list opens, if its answer is old.
+  useFocusEffect(
+    useCallback(() => {
+      const inventories = useInventoryStore.getState().inventoriesByMachineId;
+      for (const machine of useMachinesStore.getState().machines) {
+        if (machineCardStatus(machine, inventories[machine.id]) === 'connected') {
+          refreshAppUpdate(machine, { ifOlderThanMs: APP_UPDATE_FRESH_MS });
+        }
+      }
+    }, []),
+  );
 
   const editMachine = useCallback(
     (machine: MachineRecord): void => navigation.navigate('MachineForm', { machineId: machine.id }),
@@ -81,12 +104,20 @@ export default function MachinesScreen({ navigation }: Props) {
               {machines.map((machine) => {
                 const inventory = inventoriesByMachineId[machine.id];
                 const status = machineCardStatus(machine, inventory);
+                const appUpdate = appUpdates[machine.id];
+                const view = appUpdate === undefined ? null : appUpdateView(appUpdate);
+                const line = view === null ? null : appUpdateCardLine(view);
                 return (
                   <MachineCard
                     key={machine.id}
                     title={machineCardTitle(machine)}
                     detail={machineCardDetail(machine, status, inventory, now)}
                     status={status}
+                    update={
+                      view !== null && line !== null
+                        ? { line, view, onUpdate: () => runAppUpdateOp(machine, 'install') }
+                        : null
+                    }
                     onPress={() => editMachine(machine)}
                     onEdit={() => editMachine(machine)}
                     onRemove={() => setOverlay({ kind: 'remove', machine })}

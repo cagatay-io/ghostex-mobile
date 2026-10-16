@@ -8,15 +8,17 @@
  */
 
 import { useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
   ChevronRightGlyph,
   CloudGlyph,
+  DownloadGlyph,
   PencilGlyph,
   TrashGlyph,
 } from '../../components/sessions/icons';
 import { MachinesCopy } from '../../copy';
+import type { AppUpdateView } from '../../machines/appUpdate';
 import { GhostexRadii, GhostexStrokeWidth, SetupPalette } from '../../theme/palette';
 import {
   MACHINE_STATUS_BADGE_LABEL,
@@ -38,10 +40,24 @@ function StatusBadge({ status }: { status: MachineCardStatus }) {
   );
 }
 
+const UPDATE_TONE_COLOR: Record<AppUpdateView['tone'], string> = {
+  muted: SetupPalette.DIM,
+  warning: SetupPalette.WARN,
+  success: SetupPalette.OK,
+};
+
+/** The card's Ghostex line, and its Update button while an update is available (`tile_update_line`, `tile_update_button`). */
+export type MachineCardUpdate = {
+  line: string;
+  view: AppUpdateView;
+  onUpdate: () => void;
+};
+
 export default function MachineCard({
   title,
   detail,
   status,
+  update,
   onPress,
   onEdit,
   onRemove,
@@ -49,10 +65,12 @@ export default function MachineCard({
   title: string;
   detail: string;
   status: MachineCardStatus;
+  update?: MachineCardUpdate | null;
   onPress: () => void;
   onEdit: () => void;
   onRemove: () => void;
 }) {
+  const installLabel = update?.view.updateAvailable === true ? (update.view.action?.label ?? MachinesCopy.update) : null;
   const row = useRef<SwipeRevealRowMethods>(null);
   const [open, setOpen] = useState(false);
   const closeThen = (action: () => void) => (): void => {
@@ -108,7 +126,26 @@ export default function MachineCard({
           <Text numberOfLines={1} style={styles.detail}>
             {detail}
           </Text>
+          {update != null ? (
+            <Text numberOfLines={1} style={[styles.detail, { color: UPDATE_TONE_COLOR[update.view.tone] }]}>
+              {update.line}
+            </Text>
+          ) : null}
         </View>
+        {update?.view.busy === true ? <ActivityIndicator size="small" color={SetupPalette.MUTED} /> : null}
+        {installLabel !== null && update?.view.busy !== true ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={installLabel}
+            disabled={update?.view.action?.enabled === false}
+            onPress={update?.onUpdate}
+            hitSlop={6}
+            style={({ pressed }) => [styles.updateButton, pressed ? styles.updateButtonPressed : null]}
+          >
+            <DownloadGlyph size={14} color={SetupPalette.FOREGROUND} />
+            <Text style={styles.updateLabel}>{MachinesCopy.update}</Text>
+          </Pressable>
+        ) : null}
         <ChevronRightGlyph size={16} color={SetupPalette.DIM} />
       </Pressable>
     </SwipeRevealRow>
@@ -165,6 +202,23 @@ const styles = StyleSheet.create({
     marginTop: 2,
     color: SetupPalette.MUTED,
     fontSize: 12.5,
+  },
+  updateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    height: 28,
+    paddingHorizontal: 10,
+    borderRadius: GhostexRadii.control,
+    backgroundColor: SetupPalette.NEUTRAL_FILL,
+  },
+  updateButtonPressed: {
+    backgroundColor: SetupPalette.CARD_HOVER,
+  },
+  updateLabel: {
+    color: SetupPalette.FOREGROUND,
+    fontSize: 12.5,
+    fontWeight: '600',
   },
   badge: {
     flexDirection: 'row',

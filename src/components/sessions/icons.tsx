@@ -747,6 +747,21 @@ export function CloudGlyph({ size, color }: GlyphProps) {
   );
 }
 
+/** Arrow into a tray: a computer's Ghostex Update button (desktop titlebar/download.svg). */
+export function DownloadGlyph({ size, color }: GlyphProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M 4 17 v 2 a 2 2 0 0 0 2 2 h 12 a 2 2 0 0 0 2 -2 v -2 M 7 11 l 5 5 l 5 -5 M 12 4 v 12"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 /** Three-quarter ring loader (desktop IconLoader2); the caller rotates it. */
 export function LoaderGlyph({ size, color }: GlyphProps) {
   return (

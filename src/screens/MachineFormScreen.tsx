@@ -29,6 +29,7 @@ import { SetupButton, setupText } from '../components/onboarding/SetupPrimitives
 import SshAccessHelpSheet, { type SshOs } from '../components/onboarding/SshAccessHelpSheet';
 import { EditMachineCopy, MachineCopy, TailscaleFormCopy } from '../copy';
 import { useInventoryStore } from '../inventory/store';
+import { APP_UPDATE_FRESH_MS, refreshAppUpdate } from '../machines/appUpdate';
 import {
   getPassphrase,
   getPublicKey,
@@ -54,6 +55,7 @@ import { useWorkspacesStore } from '../workspaces/store';
 import { useWebPreviewStore } from '../webPreview/store';
 import { SetupPalette } from '../theme/palette';
 import AdvancedSection from './machine-form/AdvancedSection';
+import AppUpdateSection from './machine-form/AppUpdateSection';
 import EasyConnectSummary from './machine-form/EasyConnectSummary';
 import PrecheckList from './machine-form/PrecheckList';
 import { formStyles } from './machine-form/styles';
@@ -300,6 +302,12 @@ export default function MachineFormScreen({ navigation, route }: Props) {
     else navigation.reset({ index: 0, routes: [{ name: 'Sessions' }] });
   }, [navigation, removed]);
 
+  // A computer the phone reaches: read the Ghostex version it runs and whether an update is out.
+  const reachable = existing !== null && isMachineEnabled(existing) && inventory?.lastError === null && inventory.summary !== null;
+  useEffect(() => {
+    if (reachable && existing !== null) refreshAppUpdate(existing, { ifOlderThanMs: APP_UPDATE_FRESH_MS });
+  }, [reachable, existing]);
+
   useLayoutEffect(() => {
     if (removed !== 'no') return;
     if (!editing) {
@@ -447,6 +455,7 @@ export default function MachineFormScreen({ navigation, route }: Props) {
                   <View style={formStyles.rowsCard}>{showInSessionsRow}</View>
                 </>
               )}
+              <AppUpdateSection machine={existing} />
               {advanced}
               {test}
               {errorBanner}

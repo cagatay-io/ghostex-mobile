@@ -547,6 +547,8 @@ export const MachinesCopy = {
     remove: 'Remove',
     hint: 'Swipe left on a machine to edit or remove it. Tap to open it.',
   },
+  /** The card's Update button (its long label is "Update to <version>"). */
+  update: 'Update',
   remove: {
     title: 'Remove this computer?',
     body: (name: string) =>
@@ -704,6 +706,14 @@ export const EditMachineCopy = {
   },
   showInSessions: 'Show in Sessions',
   showInSessionsDetail: 'Adds a tab to the machine strip.',
+  /** The computer's Ghostex row; the status wording lives in src/machines/appUpdate.ts with the desktop's. */
+  appUpdate: {
+    label: 'Ghostex',
+    reading: 'Reading the Ghostex version…',
+    autoUpdate: 'Keep this machine up to date',
+    autoUpdateDetail:
+      'Installs Ghostex updates on that computer by itself while none of its agents is working. Sessions keep running through the restart.',
+  },
   errorPrefix: (name: string) => `Can't reach ${name}. `,
   whatCanICheck: 'What can I check?',
   remove: {
