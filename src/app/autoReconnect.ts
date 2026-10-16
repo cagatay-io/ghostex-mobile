@@ -13,6 +13,7 @@
 import { AppState } from 'react-native';
 
 import { GhostexNative } from '../../modules/ghostex-native/src';
+import type { FailureReasonCode } from '../inventory/client';
 import { useInventoryStore } from '../inventory/store';
 import { enabledMachines, useMachinesStore } from '../machines/store';
 import { cancelConnectionAttempt, ensureConnected } from '../remote/connection';
@@ -67,7 +68,7 @@ function scheduleReconnect(machineId: string): void {
     machineId,
     setTimeout(() => {
       retryTimers.delete(machineId);
-      void recoverMachine(machineId);
+      void recoverMachine(machineId, true);
     }, delay)
   );
 }
@@ -139,4 +140,23 @@ export function initAutoReconnect(): void {
   AppState.addEventListener('change', () => {
     if (!foreground()) for (const machineId of retryTimers.keys()) cancelRetry(machineId);
   });
+  /**
+   * CDXC:RemoteMachines 2026-10-16 WHY:
+   * A connection that dies without a socket error (iOS suspended the app, a NAT or tunnel
+   * dropped it silently) still answers isConnected, so the 5 s inventory poll only times out
+   * against it and no connection-state event ever starts a reconnect. A poll that starts
+   * failing for a connection reason runs the same recovery as returning to the foreground:
+   * probe, replace the dead connection, retry on the ladder until it works.
+   */
+  useInventoryStore.subscribe((state, previous) => {
+    for (const [machineId, inventory] of Object.entries(state.inventoriesByMachineId)) {
+      const code = inventory.lastErrorCode;
+      if (code === null || code === previous.inventoriesByMachineId[machineId]?.lastErrorCode) continue;
+      if (!CONNECTION_FAILURES.has(code)) continue;
+      if (canRecover(machineId)) void recoverMachine(machineId, true);
+    }
+  });
 }
+
+/** Inventory failures that mean the SSH connection itself may be dead. */
+const CONNECTION_FAILURES: ReadonlySet<FailureReasonCode> = new Set(['timeout', 'noRoute', 'sshRefused', 'unknown']);

@@ -46,6 +46,8 @@ const LEGACY_RECHECK_MS = 10 * 60_000;
 const UNAVAILABLE_RECHECK_MS = 5_000;
 /** The socket stays open this long after its last chat closes, so the next chat reuses it. */
 const IDLE_CLOSE_MS = 30_000;
+/** How long a socket that survived the background has to answer its fresh subscribes. */
+const RESUME_ANSWER_MS = 5_000;
 /** The four chat frame types a chat-only stream carries (`FRAME_TYPES` in `wire.rs`). */
 const FRAME_TYPES = new Set(['sessionChatSnapshot', 'sessionChatReplaced', 'sessionChatAppended', 'sessionChatState']);
 /** A forward is rebuilt at most this often; failures in between go straight to the exec route. */
@@ -149,13 +151,25 @@ class ChatMachineLink {
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private repairing: Promise<void> | null = null;
   private lastRepairAt = 0;
+  /** Set when the app went to the background, so the next `active` checks the open socket. */
+  private wasBackgrounded = false;
+  /** Armed while a socket that survived the background owes an answer (`checkResumedSocket`). */
+  private resumeTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private machine: MachineConnectionTarget) {
     AppState.addEventListener('change', (next: AppStateStatus) => {
-      if (next === 'active') this.reconnectNow();
+      if (next === 'background') this.wasBackgrounded = true;
+      if (next !== 'active') return;
+      const resumed = this.wasBackgrounded;
+      this.wasBackgrounded = false;
+      if (resumed && this.socket !== null) this.checkResumedSocket();
+      else this.reconnectNow();
     });
     GhostexNative.addListener('onConnectionState', (event) => {
-      if (event.machineId === this.machine.id && event.state === 'connected') this.reconnectNow();
+      if (event.machineId !== this.machine.id || event.state !== 'connected') return;
+      // A new SSH connection means the old forward, and any socket riding it, is gone.
+      if (this.socket !== null) this.replaceSocket();
+      else this.reconnectNow();
     });
   }
 
@@ -454,6 +468,34 @@ class ChatMachineLink {
     void this.connect();
   }
 
+  /**
+   * CDXC:RemoteMachines 2026-10-16 WHY:
+   * iOS suspends the app's sockets in the background, and one it killed there can still read as
+   * open on return, so the chat sat on a socket that would never deliver another frame. Back from
+   * the background every follower subscribes again (gxserver answers each with a fresh snapshot,
+   * which also replaces anything missed while suspended); a socket that sends nothing within
+   * `RESUME_ANSWER_MS` is dropped and a new one opened.
+   */
+  private checkResumedSocket(): void {
+    if (!this.socketOpen) {
+      this.replaceSocket();
+      return;
+    }
+    for (const follower of this.followers.values()) this.send(this.subscribeMessage(follower));
+    if (this.resumeTimer !== null) clearTimeout(this.resumeTimer);
+    const generation = this.socketGeneration;
+    this.resumeTimer = setTimeout(() => {
+      this.resumeTimer = null;
+      if (generation === this.socketGeneration) this.replaceSocket();
+    }, RESUME_ANSWER_MS);
+  }
+
+  /** Drops the current socket without waiting for its close and opens a fresh one now. */
+  private replaceSocket(): void {
+    this.closeSocket();
+    this.reconnectNow();
+  }
+
   private async connect(): Promise<void> {
     if (this.connecting || !foreground()) return;
     this.connecting = true;
@@ -498,6 +540,10 @@ class ChatMachineLink {
     };
     socket.onmessage = (event: WebSocketMessageEvent) => {
       if (generation !== this.socketGeneration || typeof event.data !== 'string') return;
+      if (this.resumeTimer !== null) {
+        clearTimeout(this.resumeTimer);
+        this.resumeTimer = null;
+      }
       this.receive(event.data);
     };
     socket.onerror = () => {
@@ -540,6 +586,10 @@ class ChatMachineLink {
     const socket = this.socket;
     this.socket = null;
     this.socketOpen = false;
+    if (this.resumeTimer !== null) {
+      clearTimeout(this.resumeTimer);
+      this.resumeTimer = null;
+    }
     if (this.retryTimer !== null) {
       clearTimeout(this.retryTimer);
       this.retryTimer = null;

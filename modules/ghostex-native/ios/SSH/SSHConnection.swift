@@ -57,7 +57,8 @@ struct SSHConnectionConfig: Sendable {
     var port: Int
     var username: String
     var credentials: SSHCredentials
-    var connectionTimeout: TimeInterval = 30
+    /// Bounds the TCP connect and every blocking libssh2 call (handshake, login, opening a shell).
+    var connectionTimeout: TimeInterval = 20
     /// Send SSH protocol keep-alive packets on this connection.
     var keepAliveEnabled: Bool = true
     /// Keep-alive interval in seconds; clamped to 10...120 when enabled.
@@ -340,9 +341,12 @@ actor SSHConnection {
     /// Flag the whole connection dead on socket-level libssh2 errors so
     /// callers (ensureConnected / reopen flows) actually reconnect.
     func noteTransportError(_ code: Int) {
+        // LIBSSH2_ERROR_TIMEOUT only comes from a blocking call that ran past the session
+        // timeout set in `connect`: the transport stopped answering.
         guard code == Int(LIBSSH2_ERROR_SOCKET_SEND) || code == Int(LIBSSH2_ERROR_SOCKET_RECV)
             || code == Int(LIBSSH2_ERROR_SOCKET_DISCONNECT)
-            || code == Int(LIBSSH2_ERROR_SOCKET_TIMEOUT) else {
+            || code == Int(LIBSSH2_ERROR_SOCKET_TIMEOUT)
+            || code == Int(LIBSSH2_ERROR_TIMEOUT) else {
             return
         }
         let wasAlive = !transportDead
@@ -460,6 +464,11 @@ actor SSHConnection {
                 candidate = current.pointee.ai_next
                 continue
             }
+            var connectTimeoutSeconds = Int32(config.connectionTimeout)
+            setsockopt(
+                candidateSocket, IPPROTO_TCP, TCP_CONNECTIONTIMEOUT,
+                &connectTimeoutSeconds, socklen_t(MemoryLayout<Int32>.size)
+            )
 
             let connectResult = Darwin.connect(candidateSocket, current.pointee.ai_addr, current.pointee.ai_addrlen)
             if connectResult == 0 {
@@ -524,6 +533,19 @@ actor SSHConnection {
         libssh2_session_method_pref(session, LIBSSH2_METHOD_MAC_CS, fastMACs)
         libssh2_session_method_pref(session, LIBSSH2_METHOD_MAC_SC, fastMACs)
 
+        /**
+         * CDXC:RemoteMachines 2026-10-16 WHY:
+         * libssh2's blocking calls wait forever by default, and they run inside this actor. A
+         * socket that iOS left half-dead while the app was suspended, or an Easy Connect tunnel
+         * that accepts the loopback dial and then stalls, kept `startShell` or the handshake
+         * waiting with the actor held, so the foreground probe, its exec watchdog and even
+         * `disconnect` queued behind it: the phone stayed disconnected until it was
+         * force-quit. Every blocking call now gives up after
+         * `connectionTimeout`, and a timed-out call marks the transport dead
+         * (`noteTransportError`) so the reconnect path replaces it.
+         */
+        libssh2_session_set_timeout(session, Int(config.connectionTimeout * 1000))
+
         // Set blocking mode for handshake
         libssh2_session_set_blocking(session, 1)
 
@@ -545,6 +567,9 @@ actor SSHConnection {
             logger.error(
                 "handshake \(self.config.machineId, privacy: .public) failed: \(handshakeResult)"
             )
+            if handshakeResult == LIBSSH2_ERROR_TIMEOUT {
+                throw SSHError.timeout
+            }
             if handshakeResult == LIBSSH2_ERROR_SOCKET_RECV
                 || handshakeResult == LIBSSH2_ERROR_SOCKET_SEND
                 || handshakeResult == LIBSSH2_ERROR_SOCKET_DISCONNECT {
@@ -733,6 +758,13 @@ actor SSHConnection {
             libssh2_session_last_error(session, &errmsg, &errmsgLen, 0)
             let errorMsg = errmsg != nil ? String(cString: errmsg!) : "Unknown error"
             logger.error("Auth failed (\(authResult)): \(errorMsg)")
+            // A login that never got an answer is a dead connection, not a wrong credential:
+            // reporting it as an auth failure would stop every automatic retry.
+            if authResult == LIBSSH2_ERROR_TIMEOUT { throw SSHError.timeout }
+            if authResult == LIBSSH2_ERROR_SOCKET_SEND || authResult == LIBSSH2_ERROR_SOCKET_RECV
+                || authResult == LIBSSH2_ERROR_SOCKET_DISCONNECT {
+                throw SSHError.connectionFailed("The connection dropped while logging in.")
+            }
             throw SSHError.authenticationFailed
         }
 
@@ -857,7 +889,7 @@ actor SSHConnection {
         // Claim the session's channel-open state BEFORE switching to blocking mode, so a
         // non-blocking exec/forward open parked on EAGAIN cannot have its state taken over
         // here, and so the io loop never runs while the session is blocking.
-        let opener = try await awaitChannelOpenClaim()
+        let opener = try await awaitChannelOpenClaim(timeout: config.connectionTimeout)
         defer { releaseChannelOpen(opener) }
 
         // Set blocking for channel setup
@@ -874,6 +906,7 @@ actor SSHConnection {
             nil,
             0
         ) else {
+            noteTransportError(Int(libssh2_session_last_errno(session)))
             throw SSHError.channelOpenFailed
         }
 
@@ -906,6 +939,7 @@ actor SSHConnection {
             0
         )
         guard ptyResult == 0 else {
+            noteTransportError(Int(ptyResult))
             libssh2_channel_close(channel)
             libssh2_channel_free(channel)
             throw SSHError.shellRequestFailed
@@ -917,6 +951,7 @@ actor SSHConnection {
                 libssh2_channel_process_startup(channel, "exec", 4, ptr, commandLength)
             }
             guard execResult == 0 else {
+                noteTransportError(Int(execResult))
                 libssh2_channel_close(channel)
                 libssh2_channel_free(channel)
                 throw SSHError.shellRequestFailed
@@ -924,6 +959,7 @@ actor SSHConnection {
         } else {
             let shellResult = libssh2_channel_process_startup(channel, "shell", 5, nil, 0)
             guard shellResult == 0 else {
+                noteTransportError(Int(shellResult))
                 libssh2_channel_close(channel)
                 libssh2_channel_free(channel)
                 throw SSHError.shellRequestFailed
