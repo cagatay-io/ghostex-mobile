@@ -165,18 +165,25 @@ export default function FeedbackScreen() {
   }, [canContinue, images, machine, message, name, navigation, remember]);
 
   const send = useCallback(async () => {
-    if (step.kind !== 'review' || step.title.trim().length === 0 || step.body.trim().length === 0) return;
+    if (
+      step.kind !== 'review' ||
+      typeof name !== 'string' ||
+      step.title.trim().length === 0 ||
+      step.body.trim().length === 0
+    ) {
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      const issue = await sendFeedback(feedbackRequest(step.title, step.body, images));
+      const issue = await sendFeedback(feedbackRequest(step.title, step.body, images, name));
       setStep({ kind: 'sent', ...issue });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
     } finally {
       setBusy(false);
     }
-  }, [images, step]);
+  }, [images, name, step]);
 
   const input = [styles.input, local.input];
   const multiline = [styles.input, local.input, local.multiline];

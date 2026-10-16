@@ -61,13 +61,20 @@ export interface FeedbackRequest {
   images: { name: string; contentType: string; dataBase64: string }[];
   client: FeedbackClient;
   collectedByAgent: boolean;
+  /**
+   * The sender's GitHub username. The relay keeps the mention of a first line that is exactly
+   * `Reported by @<reporter>` so GitHub notifies them, and neutralizes every other one (CDXC:Feedback
+   * 2026-10-16 DECISION in server/src/feedback/relay.rs). An older relay ignores the field.
+   */
+  reporter: string;
 }
 
-/** The relay request for a reviewed issue. */
+/** The relay request for a reviewed issue sent by GitHub user `reporter`. */
 export function feedbackRequest(
   title: string,
   body: string,
   images: FeedbackImage[],
+  reporter: string,
 ): FeedbackRequest {
   return {
     title: title.trim(),
@@ -79,6 +86,7 @@ export function feedbackRequest(
     })),
     client: feedbackClient(),
     collectedByAgent: false,
+    reporter,
   };
 }
 
