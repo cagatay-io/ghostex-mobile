@@ -220,9 +220,30 @@ export function AskOption({
   );
 }
 
-/** The filled button that moves the ask on (Next, Send answer, Send). */
-export function PrimaryButton({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) {
+/** A '#rrggbb' colour moved `amount` of the way to black (the desktop blends black over it). */
+function darken(hex: string, amount: number): string {
+  const channel = (at: number) => Math.round(parseInt(hex.slice(at, at + 2), 16) * (1 - amount));
+  return `rgb(${channel(1)},${channel(3)},${channel(5)})`;
+}
+
+/**
+ * The filled button that moves the ask on (Next, Send answer, Send). `darker` fills it a shade
+ * darker, for the button beside the primary one (the question form's Skip all).
+ */
+export function PrimaryButton({
+  label,
+  onPress,
+  disabled,
+  darker,
+}: {
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+  darker?: boolean;
+}) {
   const styles = useStyles();
+  const P = useTranscriptTheme();
+  const fill = darker === true ? darken(P.controlPrimary, 0.16) : undefined;
   return (
     <Pressable
       accessibilityRole="button"
@@ -231,7 +252,12 @@ export function PrimaryButton({ label, onPress, disabled }: { label: string; onP
       disabled={disabled === true}
       onPress={onPress}
       hitSlop={6}
-      style={({ pressed }) => [styles.primary, pressed && styles.primaryPressed, disabled === true && styles.disabled]}
+      style={({ pressed }) => [
+        styles.primary,
+        fill !== undefined && { backgroundColor: fill, borderColor: fill },
+        pressed && styles.primaryPressed,
+        disabled === true && styles.disabled,
+      ]}
     >
       <Text style={styles.primaryLabel}>{label}</Text>
     </Pressable>
