@@ -451,7 +451,8 @@ extension Ghostty {
             }
         }
 
-        /// CDXC:Clipboard 2026-10-16 WHY: Ghostty asks here before a paste it calls unsafe (several lines into a program that has not turned on bracketed paste, which is how a pasted line could run as a command). The phone pastes it, like the Android terminal: ignoring the request dropped the paste without a word. Only the user's own paste is confirmed; a program asking to read the clipboard (OSC 52) stays unanswered, so it gets nothing.
+        /// CDXC:Clipboard 2026-10-17 DECISION: the user: "Yes, ask first like the desktop". Ghostty asks here before a paste it calls unsafe (several lines into a program that has not turned on bracketed paste, which could run a pasted line as a command); the phone shows the desktop's "Paste potentially unsafe text?" question and pastes only on Paste. Supersedes 2026-10-16, when the phone pasted these without asking. Only the user's own paste is asked about; a program asking to read the clipboard (OSC 52) stays unanswered, so it gets nothing.
+        /// SEE-ALSO: apps/desktop/src/app/window/terminal_paste_confirm_modal.rs (the desktop copy), android GhostexTerminalSessionClient.kt (the Android question).
         static func confirmReadClipboard(
             _ userdata: UnsafeMutableRawPointer?,
             string: UnsafePointer<CChar>?,
@@ -461,7 +462,14 @@ extension Ghostty {
             guard request == GHOSTTY_CLIPBOARD_REQUEST_PASTE, let userdata, let string else { return }
             let terminalView = Unmanaged<GhosttyTerminalView>.fromOpaque(userdata).takeUnretainedValue()
             guard let surface = terminalView.surface?.unsafeCValue else { return }
-            ghostty_surface_complete_clipboard_request(surface, string, state, true)
+            // Ghostty lends `string` only for this call.
+            let text = String(cString: string)
+            terminalView.askBeforeUnsafePaste { confirmed in
+                // A reconnect replaces the surface, and the old one's request went with it.
+                guard terminalView.surface?.unsafeCValue == surface else { return }
+                // An empty paste finishes a cancelled request without typing anything.
+                ghostty_surface_complete_clipboard_request(surface, confirmed ? text : "", state, true)
+            }
         }
 
         static func writeClipboard(

@@ -3,8 +3,6 @@ package com.termux.view;
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.app.Activity;
-import android.content.ClipData;
-import android.content.ClipboardManager;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Typeface;
@@ -14,7 +12,6 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.text.Editable;
 import android.text.InputType;
-import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.ActionMode;
 import android.view.HapticFeedbackConstants;
@@ -640,15 +637,8 @@ public final class TerminalView extends View {
                 if (action == MotionEvent.ACTION_DOWN) showContextMenu();
                 return true;
             } else if (event.isButtonPressed(MotionEvent.BUTTON_TERTIARY)) {
-                ClipboardManager clipboardManager = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
-                ClipData clipData = clipboardManager.getPrimaryClip();
-                if (clipData != null) {
-                    ClipData.Item clipItem = clipData.getItemAt(0);
-                    if (clipItem != null) {
-                        CharSequence text = clipItem.coerceToText(getContext());
-                        if (!TextUtils.isEmpty(text)) mEmulator.paste(text.toString());
-                    }
-                }
+                // Same path as the Paste menu, so an unsafe paste is asked about first.
+                if (mTermSession != null) mTermSession.onPasteTextFromClipboard();
             } else if (mEmulator.isMouseTrackingActive()) { // BUTTON_PRIMARY.
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_DOWN:

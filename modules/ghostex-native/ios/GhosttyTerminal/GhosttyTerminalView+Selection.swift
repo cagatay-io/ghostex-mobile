@@ -717,6 +717,34 @@ extension GhosttyTerminalView {
         editMenuInteraction?.presentEditMenu(with: config)
     }
 
+    /// Asks with the desktop's unsafe-paste question; `decide` gets true only for Paste.
+    func askBeforeUnsafePaste(_ decide: @escaping (Bool) -> Void) {
+        guard !unsafePasteQuestionOpen, var presenter = window?.rootViewController else {
+            decide(false)
+            return
+        }
+        while let presented = presenter.presentedViewController {
+            presenter = presented
+        }
+        let alert = UIAlertController(
+            title: "Paste potentially unsafe text?",
+            message: "This paste contains a newline or terminal control sequence and may run commands.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { [weak self] _ in
+            self?.unsafePasteQuestionOpen = false
+            decide(false)
+        })
+        let paste = UIAlertAction(title: "Paste", style: .default) { [weak self] _ in
+            self?.unsafePasteQuestionOpen = false
+            decide(true)
+        }
+        alert.addAction(paste)
+        alert.preferredAction = paste
+        unsafePasteQuestionOpen = true
+        presenter.present(alert, animated: true)
+    }
+
     private func clearSelectionAfterPaste() {
         if usesNativeTouchSelection, nativeSelectedRange != nil {
             setNativeSelectedRange(nil)

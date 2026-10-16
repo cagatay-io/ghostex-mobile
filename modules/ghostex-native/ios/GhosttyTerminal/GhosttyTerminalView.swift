@@ -224,6 +224,8 @@ class GhosttyTerminalView: UIView {
     lazy var editMenuEmptyInputView = UIView(frame: .zero)
     /// Clipboard text `paste(_:)` already read, handed to Ghostty's clipboard request so iOS is asked only once.
     var pendingPasteText: String?
+    /// True while the unsafe-paste question is on screen; a second unsafe paste meanwhile is dropped.
+    var unsafePasteQuestionOpen = false
 
     // MARK: - Text Input State
 

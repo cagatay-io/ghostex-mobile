@@ -1,9 +1,11 @@
 package expo.modules.ghostexnative
 
+import android.app.AlertDialog
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.util.Log
+import com.termux.terminal.TerminalEmulator
 import com.termux.terminal.TerminalSession
 import com.termux.terminal.TerminalSessionClient
 
@@ -43,7 +45,30 @@ class GhostexTerminalSessionClient(
     val item = clipboard.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0) ?: return
     val text = item.coerceToText(module.safeContext).toString()
     if (text.isEmpty()) return
-    session?.emulator?.paste(text)
+    val emulator = session?.emulator ?: return
+    if (!pasteNeedsConfirmation(text, emulator)) {
+      emulator.paste(text)
+      return
+    }
+    val activity = module.appContext.currentActivity ?: return
+    AlertDialog.Builder(activity)
+      .setTitle("Paste potentially unsafe text?")
+      .setMessage("This paste contains a newline or terminal control sequence and may run commands.")
+      .setNegativeButton("Cancel", null)
+      .setPositiveButton("Paste") { _, _ ->
+        // A reconnect replaces the emulator; the question was about this one.
+        if (session?.emulator === emulator) emulator.paste(text)
+      }
+      .show()
+  }
+
+  /**
+   * CDXC:Clipboard 2026-10-17 DECISION: the user: "Yes, ask first like the desktop". A paste with a newline into a program that has not turned on bracketed paste (where a pasted line runs as a command), or one carrying the bracketed-paste end sequence, asks the desktop's "Paste potentially unsafe text?" question first and pastes only on Paste. Supersedes Termux's paste-without-asking. Same rule as the desktop terminal and Ghostty on iOS.
+   * SEE-ALSO: apps/desktop/src/terminal_element.rs `paste_requires_confirmation`, iOS Ghostty.App.swift `confirmReadClipboard`.
+   */
+  private fun pasteNeedsConfirmation(text: String, emulator: TerminalEmulator): Boolean {
+    if (text.contains("\u001b[201~")) return true
+    return !emulator.isBracketedPasteMode && (text.contains('\n') || text.contains('\r'))
   }
 
   override fun onBell(session: TerminalSession) {

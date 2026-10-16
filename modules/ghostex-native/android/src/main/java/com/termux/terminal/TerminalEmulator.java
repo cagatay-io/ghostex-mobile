@@ -451,6 +451,11 @@ public final class TerminalEmulator {
         return isDecsetInternalBitSet(DECSET_BIT_REVERSE_VIDEO);
     }
 
+    /** DECSET 2004: the program wraps pastes, so a pasted newline cannot run a command. */
+    public boolean isBracketedPasteMode() {
+        return isDecsetInternalBitSet(DECSET_BIT_BRACKETED_PASTE_MODE);
+    }
+
 
 
     public boolean isCursorEnabled() {
