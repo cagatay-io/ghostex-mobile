@@ -97,6 +97,7 @@ export function TranscriptScope({ chat, main, children }: { chat: RustChat; main
   const verboseSetting = useSettingsStore((store) => store.settings.sessionChatVerboseMode);
   const simpleSetting = useSettingsStore((store) => store.settings.sessionChatSimpleMode);
   const filePreviews = useSettingsStore((store) => store.settings.sessionChatFileEditPreviews);
+  const mutedThinking = useSettingsStore((store) => store.settings.sessionChatMutedThinking);
   const state = chat.state;
   const document = state?.document ?? null;
   // A subagent's transcript uses the normal display, whatever the main chat's mode (desktop DECISION).
@@ -104,8 +105,8 @@ export function TranscriptScope({ chat, main, children }: { chat: RustChat; main
   const simple = main && simpleSetting;
   const workOpen = main && (verbose || !simple);
   const env = useMemo<TranscriptEnv>(
-    () => ({ dispatch: chat.dispatch, theme, verbose, simple, workOpen, filePreviews: main && filePreviews, main }),
-    [chat.dispatch, filePreviews, main, simple, theme, verbose, workOpen]
+    () => ({ dispatch: chat.dispatch, theme, verbose, simple, workOpen, filePreviews: main && filePreviews, mutedThinking, main }),
+    [chat.dispatch, filePreviews, main, mutedThinking, simple, theme, verbose, workOpen]
   );
   // The document is parsed afresh per frame, so the flags are keyed by their content.
   const flagsSignature =

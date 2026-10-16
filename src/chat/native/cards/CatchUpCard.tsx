@@ -113,7 +113,7 @@ function Summary({ dispatch, markdown, references }: { dispatch: (action: UserAc
   const theme = useTranscriptTheme();
   const { height } = useWindowDimensions();
   const env = useMemo<TranscriptEnv>(
-    () => ({ dispatch, theme, verbose: false, simple: false, workOpen: false, filePreviews: false, main: false }),
+    () => ({ dispatch, theme, verbose: false, simple: false, workOpen: false, filePreviews: false, mutedThinking: false, main: false }),
     [dispatch, theme]
   );
   return (

@@ -77,6 +77,8 @@ export type GhostexSettings = {
   /** Reveal thinking-owned tool calls by default. */
   sessionChatVerboseMode: boolean;
   sessionChatFileEditPreviews: boolean;
+  /** Grey thinking: the agent's thinking in the muted tone, its replies in the full foreground. */
+  sessionChatMutedThinking: boolean;
   /**
    * Draw the chat transcript with the desktop's own GPUI renderer (`packages/gpui-mobile` in the
    * main repo) instead of the React Native one. Only builds of the phone library made with
@@ -156,6 +158,7 @@ export function defaultSettings(): GhostexSettings {
     sessionChatSimpleMode: true,
     sessionChatVerboseMode: false,
     sessionChatFileEditPreviews: false,
+    sessionChatMutedThinking: false,
     sessionChatGpuiTranscript: false,
     markedHandoversStyle: 'labels',
     markedHandoversEmoji: false,
@@ -257,6 +260,7 @@ function sanitizeSettings(value: unknown): GhostexSettings {
     ),
     sessionChatTranscriptWidthPercent,
     sessionChatFileEditPreviews: bool('sessionChatFileEditPreviews', defaults.sessionChatFileEditPreviews),
+    sessionChatMutedThinking: bool('sessionChatMutedThinking', defaults.sessionChatMutedThinking),
     sessionChatSimpleMode: bool('sessionChatSimpleMode', defaults.sessionChatSimpleMode),
     sessionChatVerboseMode: bool('sessionChatVerboseMode', defaults.sessionChatVerboseMode),
     sessionChatGpuiTranscript: bool('sessionChatGpuiTranscript', defaults.sessionChatGpuiTranscript),

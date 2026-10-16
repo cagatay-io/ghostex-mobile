@@ -59,6 +59,8 @@ export default function ChatPage() {
       <Caption>Simplify all chats: hide tool command previews and group file edits behind an expandable file count.</Caption>
       <SettingToggle settingKey='sessionChatFileEditPreviews' label='Show file edit previews' />
       <Caption>Show the first seven code lines instead of only the path and change counts.</Caption>
+      <SettingToggle settingKey='sessionChatMutedThinking' label='Grey thinking' />
+      <Caption>Show the agent's thinking in grey and its replies in the full text colour, so the two are easy to tell apart.</Caption>
       <SettingToggle settingKey='sessionChatVerboseMode' label='Verbose Mode' />
       <Caption>Expands thinking blocks to show their tool calls by default.</Caption>
 

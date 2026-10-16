@@ -38,6 +38,8 @@ type InlineContext = {
   find: RowFind | null;
   /** False in a prompt somebody sent: its pictures stay small thumbnails (`pictureRuns`). */
   strips: boolean;
+  /** The heading colour (levels 1 to 5): the theme's `primary` unless the row's lane sets one. */
+  heading: string;
 };
 
 function referenceMap(references: unknown): Map<string, Reference> {
@@ -544,7 +546,7 @@ function Blocks({ blocks, context, color, depth, listDepth }: BlockProps) {
                 style={[
                   styles.heading,
                   { fontSize: HEADING_SIZES[block.level] ?? PROSE_SIZE, lineHeight: (HEADING_SIZES[block.level] ?? PROSE_SIZE) * HEADING_LINE },
-                  { color: block.level === 6 ? theme.muted : theme.primary },
+                  { color: block.level === 6 ? theme.muted : context.heading },
                   spacing,
                   styles.headingBottom,
                 ]}
@@ -664,6 +666,8 @@ export type MarkdownProps = {
   references?: unknown;
   /** The running text colour; defaults to the answer's prose tone. */
   color?: string;
+  /** The headings' colour; defaults to the theme's `primary` (Grey thinking sets it, desktop `thinking_lane`). */
+  headingColor?: string;
   /** Text somebody typed: single newlines are line breaks. */
   breaks?: boolean;
   /** False where a long press on the message opens the transcript menu instead. */
@@ -672,7 +676,15 @@ export type MarkdownProps = {
   strips?: boolean;
 };
 
-export const Markdown = memo(function Markdown({ text, references, color, breaks = false, selectable = true, strips = true }: MarkdownProps) {
+export const Markdown = memo(function Markdown({
+  text,
+  references,
+  color,
+  headingColor,
+  breaks = false,
+  selectable = true,
+  strips = true,
+}: MarkdownProps) {
   const { theme, dispatch } = useTranscriptEnv();
   const find = useRowFind();
   const blocks = useMemo(() => parseMarkdown(text, { breaks }), [breaks, text]);
@@ -690,8 +702,9 @@ export const Markdown = memo(function Markdown({ text, references, color, breaks
       selectable,
       find,
       strips,
+      heading: headingColor ?? theme.primary,
     }),
-    [find, openLink, referencesMap, selectable, strips, theme]
+    [find, headingColor, openLink, referencesMap, selectable, strips, theme]
   );
   return (
     <View style={styles.root}>

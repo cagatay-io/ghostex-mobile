@@ -95,6 +95,8 @@ export type TranscriptEnv = {
   workOpen: boolean;
   /** File edit previews: file cards show their first lines without a tap. */
   filePreviews: boolean;
+  /** Grey thinking (`sessionChatMutedThinking`): thinking muted, replies in the foreground (desktop `ChatAppearance::thinking_lane`). */
+  mutedThinking: boolean;
   /** This session's own transcript (not the subagent viewer): only it offers rewind. */
   main: boolean;
 };

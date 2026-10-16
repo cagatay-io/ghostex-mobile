@@ -29,15 +29,23 @@ import { openTranscriptMenu, type MessageMenuAction } from './transcriptMenuStor
 import { useDisclosure } from './state';
 import { InterAgentCard, SentAgentMessageCards } from './AgentMessageCards';
 import { estimatedLines, StartupDelivery, SuppressedRow, SystemCard, TerminalToolRow } from './SystemRows';
-import { PROSE_LINE, PROSE_SIZE } from './theme';
+import { PROSE_LINE, PROSE_SIZE, type TranscriptTheme } from './theme';
 import { SideQuestionRow } from './SideQuestionRow';
 import { ShellCommandCard, ToolRows } from './ToolRows';
 
 /** React caps a secondary block at 18rem (`.ghostex-chat-scroll-cap`). */
 const THINKING_CAP = 288;
 
+/**
+ * The agent's thinking tone: light mode always mutes it; dark mode draws it like the answer unless
+ * Grey thinking is on (desktop `ChatAppearance::thinking_lane`, CDXC:SessionChat 2026-10-16 DECISION).
+ */
+function thinkingTone(theme: TranscriptTheme, mutedThinking: boolean): string {
+  return mutedThinking || theme.light ? theme.muted : theme.primary;
+}
+
 export const MessageRow = memo(function MessageRow({ message }: { message: ProjectedMessage }) {
-  const { theme } = useTranscriptEnv();
+  const { theme, mutedThinking } = useTranscriptEnv();
   if (message.pending === true) return <PendingRow user={message.role === 'user'} />;
   if (message.role === 'user' && obj(message.interAgentMessage) !== null) return <InterAgentCard message={message} />;
   if (message.role === 'user' && obj(message.pageAnswers) !== null) {
@@ -57,7 +65,8 @@ export const MessageRow = memo(function MessageRow({ message }: { message: Proje
   if (obj(message.suppressed) !== null) return <SuppressedRow message={message} />;
   if (obj(message.apiError) !== null) return <ApiErrorRow message={message} />;
   if (obj(message.systemCard) !== null) return <SystemCard message={message} />;
-  return <AgentMessage message={message} proseColor={theme.prose} />;
+  // Grey thinking draws a reply in the full foreground so it reads apart from the muted thinking.
+  return <AgentMessage message={message} proseColor={mutedThinking ? theme.foreground : theme.prose} />;
 });
 
 /** A failed API call: the open card when the core names this row, otherwise one quiet line. */
@@ -139,7 +148,7 @@ function UserMessage({ message }: { message: ProjectedMessage }) {
 }
 
 function AgentMessage({ message, proseColor }: { message: ProjectedMessage; proseColor: string }) {
-  const { theme, workOpen } = useTranscriptEnv();
+  const { theme, workOpen, mutedThinking } = useTranscriptEnv();
   const { disclosures } = useNativeChatUi();
   const flags = useTranscriptFlags();
   const { inWorkFold, hideFileChanges } = useFoldPlace();
@@ -158,12 +167,15 @@ function AgentMessage({ message, proseColor }: { message: ProjectedMessage; pros
     if (reasoning && hasTools) {
       // A reasoning headline owns the tools that followed it (React's ReasoningRow).
       const detail = str(message.reasoning, 'body');
+      const thought = mutedThinking ? theme.muted : undefined;
       lead = (
         <>
-          <DisclosureHeading label={str(message.reasoning, 'headline')} open={toolsOpen} onToggle={toggleTools} />
+          <DisclosureHeading label={str(message.reasoning, 'headline')} open={toolsOpen} onToggle={toggleTools} color={thought} />
           {toolsOpen ? (
             <DisclosureBody onCollapse={toggleTools} label='Collapse thinking'>
-              {detail.length > 0 ? <Markdown text={detail} references={message.markdownReferences} /> : null}
+              {detail.length > 0 ? (
+                <Markdown text={detail} references={message.markdownReferences} color={thought} headingColor={thought} />
+              ) : null}
               <ToolRows message={message} />
             </DisclosureBody>
           ) : null}
@@ -178,7 +190,13 @@ function AgentMessage({ message, proseColor }: { message: ProjectedMessage; pros
         <View style={styles.heading}>
           {hasTools ? <Chevron open={toolsOpen} color={theme.primary} /> : flush ? null : <LaneMarker color={theme.primary} />}
           <View style={styles.headingBody}>
-            <Markdown text={body} references={message.markdownReferences} color={proseColor} selectable={openMenu === undefined} />
+            <Markdown
+              text={body}
+              references={message.markdownReferences}
+              color={proseColor}
+              headingColor={mutedThinking ? theme.foreground : undefined}
+              selectable={openMenu === undefined}
+            />
           </View>
         </View>
       );
@@ -243,17 +261,17 @@ function MessageFiles({ message }: { message: ProjectedMessage }) {
 
 /** A reasoning turn with no tool calls: the quiet lane, with a long thought capped (`thinking.rs`). */
 function ThinkingRow({ id, body, references }: { id: string; body: string; references: unknown }) {
-  const { theme } = useTranscriptEnv();
+  const { theme, mutedThinking } = useTranscriptEnv();
   const { disclosures } = useNativeChatUi();
   const [open, toggle] = useDisclosure(disclosures, `thinking:${id}`);
-  const lane = theme.light ? theme.muted : theme.primary;
+  const lane = thinkingTone(theme, mutedThinking);
   const capped = estimatedLines(body) > THINKING_CAP / PROSE_LINE;
   return (
     <View style={styles.thinking}>
       <LaneMarker color={lane} />
       <View style={styles.thinkingColumn}>
         <View style={capped && !open ? styles.capped : null}>
-          <Markdown text={body} references={references} color={lane} />
+          <Markdown text={body} references={references} color={lane} headingColor={mutedThinking ? lane : undefined} />
         </View>
         {capped ? (
           <Pressable onPress={toggle} style={styles.showMore} accessibilityRole='button'>
