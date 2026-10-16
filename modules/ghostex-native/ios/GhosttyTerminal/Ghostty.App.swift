@@ -442,20 +442,26 @@ extension Ghostty {
             let terminalView = Unmanaged<GhosttyTerminalView>.fromOpaque(userdata).takeUnretainedValue()
             guard let surface = terminalView.surface?.unsafeCValue else { return }
 
-            let clipboardString = Clipboard.readString() ?? ""
+            // A paste already read the clipboard in `paste(_:)`; a second read could make iOS ask again.
+            let clipboardString = terminalView.pendingPasteText ?? Clipboard.readString() ?? ""
+            terminalView.pendingPasteText = nil
 
             clipboardString.withCString { ptr in
                 ghostty_surface_complete_clipboard_request(surface, ptr, state, false)
             }
         }
 
+        /// CDXC:Clipboard 2026-10-16 WHY: Ghostty asks here before a paste it calls unsafe (several lines into a program that has not turned on bracketed paste, which is how a pasted line could run as a command). The phone pastes it, like the Android terminal: ignoring the request dropped the paste without a word. Only the user's own paste is confirmed; a program asking to read the clipboard (OSC 52) stays unanswered, so it gets nothing.
         static func confirmReadClipboard(
             _ userdata: UnsafeMutableRawPointer?,
             string: UnsafePointer<CChar>?,
             state: UnsafeMutableRawPointer?,
             request: ghostty_clipboard_request_e
         ) {
-            Ghostty.logger.debug("Clipboard read confirmation requested")
+            guard request == GHOSTTY_CLIPBOARD_REQUEST_PASTE, let userdata, let string else { return }
+            let terminalView = Unmanaged<GhosttyTerminalView>.fromOpaque(userdata).takeUnretainedValue()
+            guard let surface = terminalView.surface?.unsafeCValue else { return }
+            ghostty_surface_complete_clipboard_request(surface, string, state, true)
         }
 
         static func writeClipboard(

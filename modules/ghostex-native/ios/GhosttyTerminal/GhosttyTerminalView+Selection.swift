@@ -694,7 +694,27 @@ extension GhosttyTerminalView {
     }
 
     @objc override func paste(_ sender: Any?) {
+        guard UIPasteboard.general.hasStrings else { return }
+        guard let text = UIPasteboard.general.string else {
+            presentPasteMenuAtCursor()
+            return
+        }
+        pendingPasteText = text
         performPasteAction()
+        pendingPasteText = nil
+    }
+
+    /// CDXC:Clipboard 2026-10-16 WHY: iOS can refuse a paste it does not count as the user's own (on the iOS 27 simulator a hardware-keyboard Cmd+V reads an empty clipboard, in a system text field too). A text field then shows a Paste bubble the user taps to allow it; the terminal does the same with its edit menu at the cursor, whose Paste is the system command iOS always allows, instead of pasting nothing.
+    func presentPasteMenuAtCursor() {
+        var x: Double = 0
+        var y: Double = 0
+        var width: Double = 0
+        var height: Double = 0
+        if let surface = surface?.unsafeCValue {
+            ghostty_surface_ime_point(surface, &x, &y, &width, &height)
+        }
+        let config = UIEditMenuConfiguration(identifier: nil, sourcePoint: CGPoint(x: x, y: y))
+        editMenuInteraction?.presentEditMenu(with: config)
     }
 
     private func clearSelectionAfterPaste() {
@@ -707,13 +727,10 @@ extension GhosttyTerminalView {
         }
     }
 
-    func performPasteAction(requestRenderAfterward: Bool = false) {
+    func performPasteAction() {
         invalidateLocalTextInputSession()
         pasteTextFromClipboard()
         clearSelectionAfterPaste()
-        if requestRenderAfterward {
-            requestRender()
-        }
     }
 }
 

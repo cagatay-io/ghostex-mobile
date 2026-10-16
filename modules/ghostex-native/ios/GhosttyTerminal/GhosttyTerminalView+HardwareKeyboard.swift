@@ -18,18 +18,6 @@ extension GhosttyTerminalView {
         return nil
     }
 
-    private func handlePasteShortcut(_ key: UIKey) -> Bool {
-        let input = key.charactersIgnoringModifiers.lowercased()
-        guard input == "v" else { return false }
-
-        if key.modifierFlags.contains(.command) {
-            performPasteAction(requestRenderAfterward: true)
-            return true
-        }
-
-        return false
-    }
-
     private func handleCommandShortcut(_ key: UIKey) -> Bool {
         guard key.modifierFlags.contains(.command) else { return false }
         let input = key.charactersIgnoringModifiers.lowercased()
@@ -281,10 +269,6 @@ extension GhosttyTerminalView {
                 continue
             }
             hasHardwareKeyboardAttached = true
-            if handlePasteShortcut(key) {
-                result.didHandleGhosttyInput = true
-                continue
-            }
             if handleCommandShortcut(key) { continue }
             if key.modifierFlags.contains(.command) {
                 result.forwardedToSystem.insert(press)

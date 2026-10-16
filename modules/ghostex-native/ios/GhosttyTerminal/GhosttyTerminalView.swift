@@ -222,6 +222,8 @@ class GhosttyTerminalView: UIView {
     /// True while the terminal holds first responder only so the edit menu's Paste reaches it; `inputView` then hides the software keyboard.
     var editMenuFocusHidesKeyboard = false
     lazy var editMenuEmptyInputView = UIView(frame: .zero)
+    /// Clipboard text `paste(_:)` already read, handed to Ghostty's clipboard request so iOS is asked only once.
+    var pendingPasteText: String?
 
     // MARK: - Text Input State
 
