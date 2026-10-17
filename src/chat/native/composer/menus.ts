@@ -168,6 +168,17 @@ export function moreActionsRows({ document, simple, verbose, available, serves, 
   const branches = branchesRow(document);
   if (branches !== null) rows.push(branches);
   rows.push(viewModesRow(document, simple, verbose, available('summary')));
+  /**
+   * CDXC:SessionChat 2026-10-17 DECISION:
+   * User: "Move catch me up on mobile to be inside the 3 dots menu above side chat". The phone has no Catch me up button on the composer; this row sends the same action (it opens the card, or closes it when open) whenever the button would have shown. Desktop keeps its button.
+   */
+  if (document.catchUp?.button === true) {
+    rows.push({
+      label: document.catchUp.loading ? 'Catching up…' : 'Catch me up',
+      iconPath: 'titlebar/sparkles.svg',
+      command: { type: 'catchUp' },
+    });
+  }
   // Side chat: offered only for agents that take `/btw` (core `composer/side_chat.rs`).
   if (typeof document.sideChat === 'string') {
     rows.push({

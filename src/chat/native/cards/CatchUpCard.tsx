@@ -6,8 +6,8 @@
  */
 
 import * as Clipboard from 'expo-clipboard';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { useMemo } from 'react';
+import { ScrollView, Text, View, useWindowDimensions } from 'react-native';
 
 import type { UserAction } from '../../rust/actions';
 import type { CatchUpState, Json } from '../../rust/document';
@@ -16,9 +16,6 @@ import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { ChatButton, StatusCard } from './primitives';
 import { TranscriptEnvProvider, type TranscriptEnv } from '../transcript/context';
 import { Markdown } from '../transcript/markdown/Markdown';
-
-/** How long the button takes to fade in or out (desktop `BUTTON_FADE`). */
-const BUTTON_FADE_MS = 180;
 
 export function CatchUpCard({ catchUp, dispatch }: { catchUp: CatchUpState | undefined; dispatch: (action: UserAction) => void }) {
   const styles = useStyles();
@@ -62,50 +59,6 @@ export function CatchUpCard({ catchUp, dispatch }: { catchUp: CatchUpState | und
 }
 
 /**
- * The button at the composer card's top right, on its own row above the field: a phone's chat box
- * is too narrow to give the field's first line up to it the way desktop does.
- */
-export function CatchUpButton({ catchUp, dispatch }: { catchUp: CatchUpState | undefined; dispatch: (action: UserAction) => void }) {
-  const styles = useStyles();
-  const P = useTranscriptTheme();
-  // The core shows it only while the chat box is empty (`button`); it fades in and out, and stays
-  // mounted until its fade-out ends (desktop `catch_up.rs` does the same).
-  const visible = catchUp?.button === true;
-  const opacity = useRef(new Animated.Value(visible ? 1 : 0)).current;
-  const [mounted, setMounted] = useState(visible);
-  useEffect(() => {
-    if (visible) setMounted(true);
-    const fade = Animated.timing(opacity, {
-      toValue: visible ? 1 : 0,
-      duration: BUTTON_FADE_MS,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    });
-    fade.start(({ finished }) => {
-      if (finished && !visible) setMounted(false);
-    });
-    return () => fade.stop();
-  }, [opacity, visible]);
-  if (catchUp === undefined || !mounted) return null;
-  const color = catchUp.open ? P.controlPrimary : P.primary;
-  return (
-    <Animated.View style={[styles.buttonRow, { opacity }]} pointerEvents={visible ? 'auto' : 'none'}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Catch me up"
-        accessibilityState={{ expanded: catchUp.open }}
-        hitSlop={6}
-        onPress={() => dispatch({ type: 'catchUp' })}
-        style={({ pressed }) => [styles.button, catchUp.open || pressed ? styles.buttonPressed : null]}
-      >
-        <Glyph name="sparkles" size={13} color={color} />
-        <Text style={[styles.buttonLabel, { color }]}>{catchUp.loading ? 'Catching up…' : 'Catch me up'}</Text>
-      </Pressable>
-    </Animated.View>
-  );
-}
-
-/**
  * The whole catch-up at once (no "Show all" cap: it is short and read in one go); a tall one
  * scrolls inside the card so the transcript stays in view.
  */
@@ -145,8 +98,4 @@ const useStyles = themedStyles((P) => ({
   caption: { color: P.muted, fontSize: 12, marginTop: 6 },
   placeholder: { gap: 9, paddingVertical: 4 },
   placeholderBar: { height: 9, borderRadius: 5, backgroundColor: P.muted, opacity: 0.28 },
-  buttonRow: { flexDirection: 'row', justifyContent: 'flex-end' },
-  button: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 26, paddingHorizontal: 9, borderRadius: 13, backgroundColor: P.neutralFill },
-  buttonPressed: { backgroundColor: P.neutralFillPressed },
-  buttonLabel: { fontSize: 12 },
 }));

@@ -33,7 +33,7 @@ import { COMPOSER_CONTROLS, moreActionsRows, optionMenuRows, overflowed, sendCho
 import { MenuSheet, type MenuRow } from './MenuSheet';
 import { ModelMenuSheet } from './ModelMenuSheet';
 import { NotePanel } from './NotePanel';
-import { CatchUpButton, CatchUpCard } from '../cards/CatchUpCard';
+import { CatchUpCard } from '../cards/CatchUpCard';
 import { FilesLinksCard } from '../cards/FilesLinksCard';
 import { OptionPills, type PillKind } from './OptionPills';
 import { RunLocationRow } from './RunLocationRow';
@@ -435,7 +435,6 @@ export function NativeComposer({ chat, onHostAction, hostActions = DEFAULT_HOST_
             />
           ) : null}
           {document !== null ? <QueueList document={document} dispatch={dispatch} /> : null}
-          {!collapsed && document !== null ? <CatchUpButton catchUp={document.catchUp} dispatch={dispatch} /> : null}
           <View style={collapsed ? styles.collapsedRow : null}>
             <View style={collapsed ? styles.grow : null}>
               <ComposerInput

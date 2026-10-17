@@ -60,16 +60,10 @@ const SCROLL_BOTTOM = {
   },
 };
 /**
- * The composer's scroll collapse (`composer_scroll.rs`): at or under this many points from the end
- * the reader is at the bottom (`COMPOSER_BOTTOM_THRESHOLD_PX` in the core).
+ * At or under this many points from the end the reader is at the bottom and a collapsed composer
+ * opens again (`COMPOSER_BOTTOM_THRESHOLD_PX` in the core, `composer_scroll.rs`).
  */
 const COMPOSER_BOTTOM_THRESHOLD = 10;
-/**
- * About how much shorter the collapsed composer is than the open one (its pills and toolbar row
- * plus their gap): a scroll that stays within this much of the end is not a collapse gesture,
- * because collapsing there uncovers no rows (desktop's `collapse_travel` guard).
- */
-const COMPOSER_COLLAPSE_TRAVEL = 56;
 /** Space above the first row, and below the last (`transcript-layout.json`). */
 const TOP_PADDING = 32;
 const END_PADDING = 16;
@@ -252,55 +246,24 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
     if (hasMore && !loadingEarlier) dispatch({ type: 'loadEarlier' });
   }, [dispatch, hasMore, loadingEarlier]);
 
-  // The composer collapses while the reader scrolls the transcript and opens again at the end
-  // (`composer_scroll.rs`). Desktop reports wheel events; a phone reports the finger's drag and the
-  // fling after it. The core owns the gesture's threshold and timing (`composerScroll`).
-  const collapseEligible =
-    main &&
-    document?.composerCollapseEligible === true &&
-    !(document.questionCard?.visible === true && str(document.prompt, 'kind') === 'question');
-  const collapse = useRef({ eligible: false, collapsed: false, userScrolling: false, offset: 0 });
+  // CDXC:SessionChat 2026-10-17 DECISION:
+  // User: "Please disable the composer becoming smaller/bigger on scrolling when I'm on the phone app for now. it's not working that well on phone." Scrolling the transcript on the phone never sends `composerScroll`, so the chat box keeps its full size; `useComposerMotion` stays for when it comes back. Desktop and the web build still collapse on scroll.
+  const collapsed = main && document?.composerCollapsed === true;
   const listOffset = useRef(0);
   const revealFocusedField = useTranscriptFieldReveal(listRef, listOffset);
-  collapse.current.eligible = collapseEligible;
-  collapse.current.collapsed = main && document?.composerCollapsed === true;
-  const startUserScroll = useCallback(() => {
-    collapse.current.userScrolling = true;
-  }, []);
-  const endUserScroll = useCallback(() => {
-    collapse.current.userScrolling = false;
-  }, []);
 
   const onScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+      const { contentOffset } = event.nativeEvent;
       // Inverted: the offset is the distance from the bottom.
       const offset = contentOffset.y;
       setAwayFromBottom(offset > SCROLL_BOTTOM.edgeThreshold);
-      const state = collapse.current;
-      const previous = state.offset;
-      state.offset = offset;
       listOffset.current = offset;
       if (!main) return;
       // Following the newest turn again opens a collapsed box (desktop's scroll handler).
-      if (state.collapsed) {
-        if (offset <= COMPOSER_BOTTOM_THRESHOLD) dispatch({ type: 'composerExpand' });
-        return;
-      }
-      const delta = offset - previous;
-      if (!state.userScrolling || !state.eligible || delta === 0) return;
-      const distanceToEnd = Math.max(0, previous);
-      if (Math.max(0, distanceToEnd + delta) < COMPOSER_COLLAPSE_TRAVEL) return;
-      const distanceToTop = Math.max(0, contentSize.height - layoutMeasurement.height - previous);
-      dispatch({
-        type: 'composerScroll',
-        delta,
-        distanceToEnd,
-        canScroll: delta > 0 ? distanceToTop > 0 : distanceToEnd > 0,
-        eligible: true,
-      });
+      if (collapsed && offset <= COMPOSER_BOTTOM_THRESHOLD) dispatch({ type: 'composerExpand' });
     },
-    [dispatch, main]
+    [collapsed, dispatch, main]
   );
 
   const jumpToBottom = useCallback(() => {
@@ -376,10 +339,6 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
         keyExtractor={keyExtractor}
         extraData={renderItem}
         onScroll={onScroll}
-        onScrollBeginDrag={startUserScroll}
-        onScrollEndDrag={endUserScroll}
-        onMomentumScrollBegin={startUserScroll}
-        onMomentumScrollEnd={endUserScroll}
         scrollEventThrottle={32}
         onEndReached={loadEarlier}
         onEndReachedThreshold={0.6}
