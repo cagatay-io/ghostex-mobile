@@ -21,6 +21,7 @@ import { QUESTION_TAGS, type QuestionTagState } from '../OpenQuestions';
 import { openTranscriptMenu } from '../transcriptMenuStore';
 import { highlightText, useOwnFind, useRowFind, type RowFind } from '../searchHighlight';
 import { inlineText, parseMarkdown, type Block, type FenceHeader, type Inline } from './parse';
+import { BlockLongPress } from './blockLongPress';
 import { fitTableColumns } from './tableLayout';
 import { MarkedSection, useMarkedEmoji, useMarkedStyle } from './MarkedSections';
 
@@ -272,7 +273,7 @@ function CodeBlock({ block, blockKey, selectable }: { block: Extract<Block, { t:
     <View style={styles.codeBody}>{body}</View>
   ) : (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.codeBody}>
-      {body}
+      <BlockLongPress>{body}</BlockLongPress>
     </ScrollView>
   );
   return (
@@ -416,7 +417,7 @@ function Table({ block, context: rowContext }: { block: Extract<Block, { t: 'tab
             </View>
           ))}
         </View>
-        <View>
+        <BlockLongPress>
           <View style={[styles.tableRow, { borderBottomColor: theme.border }]}>
             {block.head.map((cell, column) => (
               <View key={column} style={cellStyle(column)}>
@@ -437,7 +438,7 @@ function Table({ block, context: rowContext }: { block: Extract<Block, { t: 'tab
               ))}
             </View>
           ))}
-        </View>
+        </BlockLongPress>
       </ScrollView>
       <View style={styles.tableActions}>
         <TableAction label='Open table' glyph='maximize' theme={theme} onPress={() => openChatTablePreview(block.source)} />

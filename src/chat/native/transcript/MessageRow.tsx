@@ -14,6 +14,7 @@ import { Chevron, DisclosureBody, DisclosureHeading, LaneMarker, useFoldPlace } 
 import { FileChangeStack } from './FileChanges';
 import { ImageRow } from './Images';
 import { arr, obj, str } from './json';
+import { MessageLongPressContext } from './markdown/blockLongPress';
 import { Markdown } from './markdown/Markdown';
 import {
   DeliveryIndicator,
@@ -134,7 +135,7 @@ function UserMessage({ message }: { message: ProjectedMessage }) {
                 accessibilityHint={MENU_HINT}
                 style={({ pressed }) => [styles.bubble, { backgroundColor: theme.input }, pressed && { opacity: 0.85 }]}
               >
-                {bubble}
+                <MessageLongPressContext.Provider value={openMenu}>{bubble}</MessageLongPressContext.Provider>
               </Pressable>
             ) : (
               <View style={[styles.bubble, { backgroundColor: theme.input }]}>{bubble}</View>
@@ -187,18 +188,20 @@ function AgentMessage({ message, proseColor }: { message: ProjectedMessage; pros
     } else {
       // An agent's own words are the heading its tool calls hang from (React's AgentToolsDisclosure).
       const heading = (
-        <View style={styles.heading}>
-          {hasTools ? <Chevron open={toolsOpen} color={theme.primary} /> : flush ? null : <LaneMarker color={theme.primary} />}
-          <View style={styles.headingBody}>
-            <Markdown
-              text={body}
-              references={message.markdownReferences}
-              color={proseColor}
-              headingColor={mutedThinking ? theme.foreground : undefined}
-              selectable={openMenu === undefined}
-            />
+        <MessageLongPressContext.Provider value={openMenu}>
+          <View style={styles.heading}>
+            {hasTools ? <Chevron open={toolsOpen} color={theme.primary} /> : flush ? null : <LaneMarker color={theme.primary} />}
+            <View style={styles.headingBody}>
+              <Markdown
+                text={body}
+                references={message.markdownReferences}
+                color={proseColor}
+                headingColor={mutedThinking ? theme.foreground : undefined}
+                selectable={openMenu === undefined}
+              />
+            </View>
           </View>
-        </View>
+        </MessageLongPressContext.Provider>
       );
       lead = hasTools ? (
         <>
