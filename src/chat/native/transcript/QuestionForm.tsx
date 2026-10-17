@@ -128,6 +128,10 @@ function QuestionFormCard({ id, source }: { id: string; source: string }) {
       <AskCard head={head}>
         <View style={styles.errorBody}>
           <Text style={{ color: theme.error }}>These questions could not be shown: {error}</Text>
+          {form.resent === true ? (
+            // Desktop question_form.rs RESENT_NOTE: gxserver asked the agent to send them again.
+            <Text style={[styles.detail, { color: theme.cardMuted }]}>Ghostex asked the agent to send these questions again.</Text>
+          ) : null}
           <Text style={[styles.source, { color: theme.cardMuted }]}>{source}</Text>
         </View>
       </AskCard>
