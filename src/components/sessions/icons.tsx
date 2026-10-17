@@ -18,16 +18,18 @@ export function InfoGlyph({ size, color }: GlyphProps) {
   );
 }
 
-/** Directional arrow for Back and project-reordering context-menu rows. */
+/** Directional arrow for Back, project-reordering and machine-reordering context-menu rows. */
 export function ArrowGlyph({
   size,
   color,
   direction,
-}: GlyphProps & { direction: 'left' | 'up' | 'down' }) {
+}: GlyphProps & { direction: 'left' | 'right' | 'up' | 'down' }) {
   const path =
     direction === 'left'
       ? 'M 19 12 H 5 M 10 7 l -5 5 5 5'
-      : direction === 'up'
+      : direction === 'right'
+        ? 'M 5 12 H 19 M 14 7 l 5 5 -5 5'
+        : direction === 'up'
         ? 'M 12 19 V 5 M 7 10 l 5 -5 5 5'
         : 'M 12 5 v 14 M 7 14 l 5 5 5 -5';
   return (

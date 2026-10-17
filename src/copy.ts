@@ -512,6 +512,8 @@ export const StripCopy = {
     edit: 'Edit machine',
     hide: 'Hide from this strip',
     whatCanICheck: 'What can I check?',
+    moveLeft: 'Move left',
+    moveRight: 'Move right',
     allMachines: 'All machines',
     addProject: 'Add Project',
   },

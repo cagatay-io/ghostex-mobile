@@ -91,7 +91,7 @@ import {
 import { DocsCopy, FeedbackCopy, ProgressCopy, StripCopy, WebPreviewCopy } from '../../copy';
 import type { OptimisticInventoryChange } from '../../inventory/optimistic';
 import { useInventoryStore } from '../../inventory/store';
-import { useMachinesStore, type MachineRecord } from '../../machines/store';
+import { isMachineEnabled, useMachinesStore, type MachineRecord } from '../../machines/store';
 import { useSettingsStore } from '../../settings/store';
 import type { RootStackParamList } from '../../navigation/types';
 import { GhostexPalette, SidebarPalette } from '../../theme/palette';
@@ -1191,84 +1191,119 @@ export function useSessionsScreenMenus({
    * the desktop tab glyph; Hide flips the same "Show in Sessions" switch the
    * Machines list and Edit machine expose, without touching live terminals.
    */
-  const machineMenuItems = (target: MachineRecord): ContextMenuItem[] => [
-    ...(useInventoryStore.getState().inventoriesByMachineId[target.id]?.lastError != null
-      ? [
-          {
-            kind: 'item' as const,
-            key: 'what-can-i-check',
-            label: StripCopy.menu.whatCanICheck,
-            icon: <InfoGlyph size={14} color={menuIconColor} />,
-            onPress: () => {
-              setOverlay(NONE);
-              navigation.navigate('CantReach', { machineId: target.id });
+  const machineMenuItems = (target: MachineRecord): ContextMenuItem[] => {
+    // Same tab order as the strip: the visible machines in saved order. Like the
+    // project menu's Move rows, an edge row stays but is disabled; with a single
+    // machine neither row shows.
+    const visibleMachines = useMachinesStore.getState().machines.filter(isMachineEnabled);
+    const tabIndex = visibleMachines.findIndex((entry) => entry.id === target.id);
+    const moveRows: ContextMenuItem[] =
+      visibleMachines.length > 1 && tabIndex >= 0
+        ? [
+            {
+              kind: 'item',
+              key: 'move-left',
+              label: StripCopy.menu.moveLeft,
+              icon: <ArrowGlyph size={14} color={menuIconColor} direction='left' />,
+              disabled: tabIndex === 0,
+              onPress: () => {
+                setOverlay(NONE);
+                useMachinesStore.getState().moveMachine(target.id, 'left');
+              },
             },
-          },
-        ]
-      : []),
-    {
-      kind: 'item',
-      key: 'retry',
-      label: StripCopy.menu.retry,
-      icon: <RefreshGlyph size={14} color={menuIconColor} />,
-      onPress: () => {
-        setOverlay(NONE);
-        void reconnectMachine(target);
+            {
+              kind: 'item',
+              key: 'move-right',
+              label: StripCopy.menu.moveRight,
+              icon: <ArrowGlyph size={14} color={menuIconColor} direction='right' />,
+              disabled: tabIndex === visibleMachines.length - 1,
+              onPress: () => {
+                setOverlay(NONE);
+                useMachinesStore.getState().moveMachine(target.id, 'right');
+              },
+            },
+          ]
+        : [];
+    return [
+      ...(useInventoryStore.getState().inventoriesByMachineId[target.id]?.lastError != null
+        ? [
+            {
+              kind: 'item' as const,
+              key: 'what-can-i-check',
+              label: StripCopy.menu.whatCanICheck,
+              icon: <InfoGlyph size={14} color={menuIconColor} />,
+              onPress: () => {
+                setOverlay(NONE);
+                navigation.navigate('CantReach', { machineId: target.id });
+              },
+            },
+          ]
+        : []),
+      {
+        kind: 'item',
+        key: 'retry',
+        label: StripCopy.menu.retry,
+        icon: <RefreshGlyph size={14} color={menuIconColor} />,
+        onPress: () => {
+          setOverlay(NONE);
+          void reconnectMachine(target);
+        },
       },
-    },
-    {
-      kind: 'item',
-      key: 'edit',
-      label: StripCopy.menu.edit,
-      icon: <PencilGlyph size={14} color={menuIconColor} />,
-      onPress: () => {
-        setOverlay(NONE);
-        navigation.navigate('MachineForm', { machineId: target.id });
+      {
+        kind: 'item',
+        key: 'edit',
+        label: StripCopy.menu.edit,
+        icon: <PencilGlyph size={14} color={menuIconColor} />,
+        onPress: () => {
+          setOverlay(NONE);
+          navigation.navigate('MachineForm', { machineId: target.id });
+        },
       },
-    },
-    {
-      kind: 'item',
-      key: 'hide',
-      label: StripCopy.menu.hide,
-      icon: <EyeOffGlyph size={14} color={menuIconColor} />,
-      onPress: () => {
-        setOverlay(NONE);
-        useMachinesStore.getState().setMachineDisabled(target.id, true);
+      ...moveRows,
+      {
+        kind: 'item',
+        key: 'hide',
+        label: StripCopy.menu.hide,
+        icon: <EyeOffGlyph size={14} color={menuIconColor} />,
+        onPress: () => {
+          setOverlay(NONE);
+          useMachinesStore.getState().setMachineDisabled(target.id, true);
+        },
       },
-    },
-    {
-      kind: 'item',
-      key: 'all-machines',
-      label: StripCopy.menu.allMachines,
-      icon: <MachinesGlyph size={14} color={menuIconColor} />,
-      onPress: () => {
-        setOverlay(NONE);
-        navigation.navigate('Machines');
+      {
+        kind: 'item',
+        key: 'all-machines',
+        label: StripCopy.menu.allMachines,
+        icon: <MachinesGlyph size={14} color={menuIconColor} />,
+        onPress: () => {
+          setOverlay(NONE);
+          navigation.navigate('Machines');
+        },
       },
-    },
-    { kind: 'separator', key: 'sep-1' },
-    {
-      kind: 'item',
-      key: 'add-project',
-      label: StripCopy.menu.addProject,
-      icon: <PlusGlyph size={14} color={menuIconColor} />,
-      onPress: () => {
-        setOverlay(NONE);
-        navigation.navigate('AddProjectSource', { machineId: target.id });
+      { kind: 'separator', key: 'sep-1' },
+      {
+        kind: 'item',
+        key: 'add-project',
+        label: StripCopy.menu.addProject,
+        icon: <PlusGlyph size={14} color={menuIconColor} />,
+        onPress: () => {
+          setOverlay(NONE);
+          navigation.navigate('AddProjectSource', { machineId: target.id });
+        },
       },
-    },
-    {
-      kind: 'item',
-      key: 'web-preview',
-      label: WebPreviewCopy.menuLabel,
-      icon: <WorldGlyph size={14} color={menuIconColor} />,
-      onPress: () => {
-        setOverlay(NONE);
-        navigation.navigate('WebPreviewPorts', { machineId: target.id });
+      {
+        kind: 'item',
+        key: 'web-preview',
+        label: WebPreviewCopy.menuLabel,
+        icon: <WorldGlyph size={14} color={menuIconColor} />,
+        onPress: () => {
+          setOverlay(NONE);
+          navigation.navigate('WebPreviewPorts', { machineId: target.id });
+        },
       },
-    },
-    ...projectListMenuItems(target),
-  ];
+      ...projectListMenuItems(target),
+    ];
+  };
 
   /**
    * Header hamburger menu: app-level actions and Recent Projects, which moved

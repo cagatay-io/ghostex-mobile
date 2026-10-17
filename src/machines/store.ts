@@ -298,6 +298,8 @@ type MachinesState = {
   removeMachine: (id: string) => Promise<void>;
   /** Show/hide a machine on the Sessions screen; reselects when needed. */
   setMachineDisabled: (id: string, disabled: boolean) => void;
+  /** Moves a machine one place left or right in the Sessions tab strip (see `moveMachine`). */
+  moveMachine: (id: string, direction: 'left' | 'right') => void;
   selectMachine: (id: string | null) => void;
   markConnected: (id: string) => void;
 };
@@ -455,6 +457,24 @@ export const useMachinesStore = create<MachinesState>()((set, get) => ({
     set({ machines: nextMachines, selectedMachineId });
     persistMachines(nextMachines);
     persistSelectedMachineId(selectedMachineId);
+  },
+
+  /**
+   * CDXC:RemoteMachines 2026-10-17 DECISION:
+   * User: "allow rearranging the machines that are at the top with move left move right in the extra options (shown when i hold on them)". The saved `machines.v1` array order is the tab order (a machine paired later is appended, a removed one drops out), so a move swaps the machine with its neighbour among the visible machines and persists the array. Phone only; the desktop sidebar's machine order is untouched.
+   */
+  moveMachine: (id, direction) => {
+    const current = get().machines;
+    const visible = current.filter(isMachineEnabled);
+    const from = visible.findIndex((machine) => machine.id === id);
+    const neighbour = visible[direction === 'left' ? from - 1 : from + 1];
+    if (from < 0 || neighbour === undefined) return;
+    const nextMachines = [...current];
+    const a = nextMachines.findIndex((machine) => machine.id === id);
+    const b = nextMachines.findIndex((machine) => machine.id === neighbour.id);
+    [nextMachines[a], nextMachines[b]] = [nextMachines[b]!, nextMachines[a]!];
+    set({ machines: nextMachines });
+    persistMachines(nextMachines);
   },
 
   selectMachine: (id) => {
