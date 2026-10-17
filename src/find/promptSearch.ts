@@ -29,12 +29,23 @@ import { runGhostexCli } from '../components/sessions/cli';
 import type { MachineConnectionTarget } from '../machines/credentials';
 
 /** The agents Find indexes, in filter order. */
-export const FIND_PROMPT_AGENTS = ['claude', 'codex', 'pi', 'opencode', 'cursor', 'grok', 'empryo'] as const;
+export const FIND_PROMPT_AGENTS = [
+  'claude',
+  'codex',
+  'pi',
+  'opencode',
+  'cursor',
+  'grok',
+  'empryo',
+  'antigravity',
+  'hermes',
+  'copilot',
+] as const;
 
 export type FindPromptAgent = (typeof FIND_PROMPT_AGENTS)[number];
 
-/** The agents a prompt can be forked into, in the order the fork picker numbers them. Empryo's terminal app takes no starting prompt. */
-export const FIND_PROMPT_FORK_AGENTS: readonly FindPromptAgent[] = FIND_PROMPT_AGENTS.filter((agent) => agent !== 'empryo');
+/** The agents a prompt can be forked into, in the order the fork picker numbers them: the six ahead of Empryo, the same targets the desktop numbers 1-6. Empryo's terminal app takes no starting prompt. */
+export const FIND_PROMPT_FORK_AGENTS: readonly FindPromptAgent[] = FIND_PROMPT_AGENTS.slice(0, 6);
 
 export function isFindPromptAgent(value: unknown): value is FindPromptAgent {
   return typeof value === 'string' && (FIND_PROMPT_AGENTS as readonly string[]).includes(value);
