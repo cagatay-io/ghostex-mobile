@@ -40,6 +40,9 @@ export const FIND_PROMPT_AGENTS = [
   'antigravity',
   'hermes',
   'copilot',
+  'droid',
+  'omp',
+  'zcode',
 ] as const;
 
 export type FindPromptAgent = (typeof FIND_PROMPT_AGENTS)[number];
