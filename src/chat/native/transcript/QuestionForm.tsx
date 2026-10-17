@@ -9,12 +9,13 @@
  * packages/gx-chat-core/src/transcript/question_forms.rs. Change them together.
  */
 
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import type { Json } from '../../rust/document';
 import { useTranscriptEnv } from './context';
 import { useRevealFocusedField } from './fieldReveal';
+import { useEchoedText } from '../cards/useEchoedText';
 import { AskCard, AskHead, AskOption, PrimaryButton, SoftButton, type AskTone } from '../cards/askCard';
 import type { GlyphName } from '../cards/icons';
 import { arr, obj, str, type JsonRecord } from './json';
@@ -168,24 +169,10 @@ function QuestionFormCard({ id, source }: { id: string; source: string }) {
   );
 }
 
-/** A typed box that takes the saved draft once, when it lands after the box was made. */
-function useSettledText(written: string) {
-  // The saved draft is read as the form appears, so its text can land after the box was made: it
-  // fills the box once (a remount with the saved text), never over what the reader typed.
-  const settled = useRef(written.length > 0);
-  const [filled, setFilled] = useState(0);
-  useEffect(() => {
-    if (!settled.current && written.length > 0) {
-      settled.current = true;
-      setFilled((count) => count + 1);
-    }
-  }, [written]);
-  return { filled, typed: () => (settled.current = true) };
-}
-
 function FormNotes({ formId, notes, enabled }: { formId: string; notes: string; enabled: boolean }) {
   const { theme, dispatch } = useTranscriptEnv();
-  const { filled, typed } = useSettledText(notes);
+  const report = useCallback((text: string) => dispatch({ type: 'formNotes', form: formId, text }), [dispatch, formId]);
+  const [text, setText] = useEchoedText(`${formId}:notes`, notes, report);
   const reveal = useRevealFocusedField();
   if (!enabled) {
     return (
@@ -196,18 +183,14 @@ function FormNotes({ formId, notes, enabled }: { formId: string; notes: string; 
   }
   return (
     <TextInput
-      key={filled}
       multiline
-      defaultValue={notes}
+      value={text}
       placeholder={NOTES_PLACEHOLDER}
       placeholderTextColor={theme.placeholder}
       accessibilityLabel="Notes"
       onFocus={reveal}
       onContentSizeChange={reveal}
-      onChangeText={(text) => {
-        typed();
-        dispatch({ type: 'formNotes', form: formId, text });
-      }}
+      onChangeText={setText}
       style={[
         styles.input,
         { color: theme.foreground, borderColor: theme.inputBorder, backgroundColor: theme.light ? theme.background : theme.cardRow },
@@ -242,7 +225,11 @@ function FormQuestion({
   const choices = arr(question?.choices);
   const written = str(draft, 'other');
   const pick = (choice: number) => dispatch({ type: 'formChoice', form: formId, question: index, choice });
-  const { filled, typed } = useSettledText(written);
+  const report = useCallback(
+    (text: string) => dispatch({ type: 'formText', form: formId, question: index, text }),
+    [dispatch, formId, index]
+  );
+  const [text, setText] = useEchoedText(`${formId}:${index}`, written, report);
   const reveal = useRevealFocusedField();
   const skipped = draft?.skipped === true;
   return (
@@ -285,17 +272,13 @@ function FormQuestion({
       ) : null}
       {enabled ? (
         <TextInput
-          key={filled}
           multiline
-          defaultValue={written}
+          value={text}
           placeholder={placeholder(question, draft)}
           placeholderTextColor={theme.placeholder}
           onFocus={reveal}
           onContentSizeChange={reveal}
-          onChangeText={(text) => {
-            typed();
-            dispatch({ type: 'formText', form: formId, question: index, text });
-          }}
+          onChangeText={setText}
           style={[
             styles.input,
             { color: theme.foreground, borderColor: theme.inputBorder, backgroundColor: theme.light ? theme.background : theme.cardRow },

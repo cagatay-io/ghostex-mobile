@@ -5,6 +5,8 @@
  * field would cut the answer short and jump the caret. The field owns what it typed; only a value
  * it never reported (an option pick clearing it, a saved answer restored after load, a new
  * question) replaces the text. Same rule as desktop's `AsyncAnswerEcho` in `async_questions.rs`.
+ *
+ * CDXC:SessionChat 2026-10-17 WHY: Every chat field whose text goes to the core uses this, never an uncontrolled `defaultValue` fed from the document or a check that writes back any value it did not type last. On Android a stale echo reaches the native field with the newest event count, so it lands as a fresh edit while the keyboard is still composing: gesture (swipe) typing on Samsung Keyboard and Gboard commits a word and its auto-space in quick succession, the echo wiped the space and the keyboard's composition, and swiped words came out joined (the questions form's boxes and the session note did this).
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';

@@ -5,26 +5,22 @@
  */
 
 import * as Clipboard from 'expo-clipboard';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import type { UserAction } from '../../rust/actions';
 import type { NoteState } from '../../rust/document';
 import { Glyph, type GlyphName } from './icons';
+import { useEchoedText } from '../cards/useEchoedText';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 
 export function NotePanel({ note, dispatch }: { note: NoteState; dispatch: (action: UserAction) => void }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
-  const [text, setText] = useState(note.value);
-  const typed = useRef(note.value);
-  useEffect(() => {
-    // The core's value wins when it moved somewhere this field did not put it (a load, a clear).
-    if (note.value !== typed.current) {
-      typed.current = note.value;
-      setText(note.value);
-    }
-  }, [note.value]);
+  // The core's value wins only when it moved somewhere this field did not put it (a load, a clear);
+  // a lagging echo of an earlier keystroke stays out of the field.
+  const report = useCallback((next: string) => dispatch({ type: 'editNote', text: next }), [dispatch]);
+  const [text, setText] = useEchoedText('note', note.value, report);
   if (!note.open) return null;
   const button = (glyph: GlyphName, label: string, onPress: () => void) => (
     <Pressable accessibilityRole="button" accessibilityLabel={label} hitSlop={6} onPress={onPress} style={({ pressed }) => [styles.icon, pressed ? styles.pressed : null]}>
@@ -43,11 +39,7 @@ export function NotePanel({ note, dispatch }: { note: NoteState; dispatch: (acti
       </View>
       <TextInput
         value={text}
-        onChangeText={(next) => {
-          typed.current = next;
-          setText(next);
-          dispatch({ type: 'editNote', text: next });
-        }}
+        onChangeText={setText}
         onBlur={() => dispatch({ type: 'saveNote' })}
         editable={!note.loading}
         multiline
