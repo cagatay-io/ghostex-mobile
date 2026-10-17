@@ -319,39 +319,6 @@ export function StartupDelivery({ message, waitingLine = true }: { message: Proj
   );
 }
 
-/** One key for every card, so the next pending tool comes up the way the last one was left. */
-const TERMINAL_TOOL_KEY = 'terminal-tool';
-
-export const TerminalToolRow = memo(function TerminalToolRow({ activity }: { activity: unknown }) {
-  const { theme } = useTranscriptEnv();
-  const { disclosures } = useNativeChatUi();
-  const [openState, toggle] = useDisclosure(disclosures, TERMINAL_TOOL_KEY);
-  const detail = str(activity, 'detail').trim();
-  const expandable = detail.length > 0;
-  const open = expandable && openState;
-  return (
-    <StatusCard
-      header={
-        <Pressable disabled={!expandable} onPress={toggle} style={styles.cardHeader} accessibilityState={{ expanded: open }}>
-          <View style={styles.cardGlyph}>
-            <View style={[styles.toolDot, { backgroundColor: theme.cardMuted }]} />
-          </View>
-          <Text style={[styles.prose, styles.cardTitle, { color: theme.foreground }]}>{str(activity, 'label')}</Text>
-          {expandable ? <Chevron open={open} color={theme.muted} /> : null}
-        </Pressable>
-      }
-    >
-      {open ? (
-        <ScrollView nestedScrollEnabled style={[styles.terminalDetail, { backgroundColor: theme.input }]}>
-          <Text selectable style={[styles.commandText, { color: theme.prose }]}>
-            {detail}
-          </Text>
-        </ScrollView>
-      ) : null}
-    </StatusCard>
-  );
-});
-
 const styles = StyleSheet.create({
   prose: { fontSize: PROSE_SIZE, lineHeight: PROSE_LINE },
   small: { fontSize: 12, lineHeight: 17 },

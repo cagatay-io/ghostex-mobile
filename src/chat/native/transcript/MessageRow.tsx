@@ -29,7 +29,7 @@ import { PageAnswersCard } from './PageAnswersCard';
 import { openTranscriptMenu, type MessageMenuAction } from './transcriptMenuStore';
 import { useDisclosure } from './state';
 import { InterAgentCard, SentAgentMessageCards } from './AgentMessageCards';
-import { estimatedLines, StartupDelivery, SuppressedRow, SystemCard, TerminalToolRow } from './SystemRows';
+import { estimatedLines, StartupDelivery, SuppressedRow, SystemCard } from './SystemRows';
 import { PROSE_LINE, PROSE_SIZE, type TranscriptTheme } from './theme';
 import { SideQuestionRow } from './SideQuestionRow';
 import { ShellCommandCard, ToolRows } from './ToolRows';
@@ -59,7 +59,6 @@ export const MessageRow = memo(function MessageRow({ message }: { message: Proje
       </View>
     );
   }
-  if (obj(message.terminalTool) !== null) return <TerminalToolRow activity={message.terminalTool} />;
   if (message.shellCommand === true) return <ShellCommandCard message={message} />;
   if (message.role === 'user' && obj(message.suppressed) === null) return <UserMessage message={message} />;
   if (obj(message.sideQuestion) !== null) return <SideQuestionRow message={message} />;

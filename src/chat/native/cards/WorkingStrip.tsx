@@ -1,28 +1,21 @@
 /**
- * The line above the composer while the agent works, drawn from `workingStrip`. Port of desktop
- * `working_strip.rs`: the spark and the stint word (`label`, "Brewing…"), or, when the terminal
- * shows something more specific (compaction, running shells), the activity card with its clock
- * and progress. Every word, clock and percent comes from the document; the strip only animates.
- *
- * The armed Delayed Send / Close After Done items on the right of the row come from the app shell,
- * not the document (desktop's `armed_actions`); the screen builds them from the session's row in the
- * inventory (`armedActions`) and a tap opens Delayed Actions, as desktop's click does.
+ * The working card's moving parts (`WorkingCard.tsx`): the spark, the progress track of a live
+ * activity, and the background tasks' rows its Background section lists. Port of desktop
+ * `working_spark.rs`, `working_card.rs` and `background_tasks.rs`; every word, clock and percent
+ * comes from the document, these only animate.
  */
 
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { Animated, Easing, Pressable, Text, View } from 'react-native';
 
-import type { ChatDocument } from '../../rust/document';
-import type { RustChat } from '../../rust/useRustChat';
-import { Glyph as ComposerGlyph } from '../composer/icons';
 import { Glyph, Spark } from './icons';
 import { arr, isTrue, num, obj, str } from './json';
 import type { JsonRecord } from './json';
 import { MONO_FONT, themedStyles, useTranscriptTheme } from '../transcript/theme';
-import { CARD_TEXT_SIZE, PulseDot, SWEEP_EASING, Spinner, StatusCard, useLoop } from './primitives';
+import { CARD_TEXT_SIZE, SWEEP_EASING, Spinner, useLoop } from './primitives';
 
 /** `packages/gx-chat-core/visual/working-strip.json`. */
-const VISUAL = {
+export const VISUAL = {
   minHeight: 24,
   paddingX: 6,
   gap: 8,
@@ -38,94 +31,11 @@ const VISUAL = {
   closeAfterDoneColor: '#ff9aa2',
 };
 
-/** One armed timer on the working row (`SessionChatArmedAction` in `armed-actions.ts`). */
+/** One armed timer on the working card (`SessionChatArmedAction` in `armed-actions.ts`). */
 export type ArmedAction = { id: 'delayedSend' | 'closeAfterDone'; label: string };
 
-export function WorkingStrip({
-  chat,
-  document,
-  armed = [],
-  onArmedPress,
-  pills,
-}: {
-  chat: RustChat;
-  document: ChatDocument;
-  armed?: readonly ArmedAction[];
-  /** Opens Delayed Actions; without it the items are drawn but not pressable. */
-  onArmedPress?: () => void;
-  /** The pills' row (`ChatPills.tsx`), on its own line under the word as desktop draws a narrow chat. */
-  pills?: ReactNode;
-}) {
-  const styles = useStyles();
-  const strip = document.workingStrip;
-  const activity = obj(strip?.presentation);
-  const label = typeof strip?.label === 'string' ? strip.label : null;
-  // A running turn keeps its word beside a background-task card (the core sends both); the word
-  // always comes first, then the pills, then the card (desktop `working_strip.rs`).
-  const parts = [
-    label !== null || armed.length > 0 ? <WorkingRow key="row" label={label} armed={armed} onArmedPress={onArmedPress} /> : null,
-    pills !== undefined ? <View key="pills">{pills}</View> : null,
-    activity !== null ? <WorkingActivity key="activity" activity={activity} /> : null,
-  ].filter((part) => part !== null);
-  if (parts.length === 0) return null;
-  if (parts.length === 1) return parts[0];
-  return <View style={styles.stack}>{parts}</View>;
-}
-
-/**
- * The working row: spark and word on the left while the agent works, the armed items pushed right,
- * wrapping onto a left-aligned second line when they do not fit (`working_row`).
- */
-function WorkingRow({
-  label,
-  armed,
-  onArmedPress,
-}: {
-  label: string | null;
-  armed: readonly ArmedAction[];
-  onArmedPress: (() => void) | undefined;
-}) {
-  const styles = useStyles();
-  const P = useTranscriptTheme();
-  const aria = [label, ...armed.map((action) => action.label)].filter((part): part is string => part !== null).join(', ');
-  return (
-    <View accessibilityRole="text" accessibilityLabel={aria} style={styles.row}>
-      <View style={styles.lead}>
-        {label !== null ? (
-          <>
-            <WorkingSpark />
-            <Text style={styles.word} numberOfLines={1}>
-              {label}
-            </Text>
-          </>
-        ) : null}
-      </View>
-      {armed.map((action) => (
-        <Pressable
-          key={action.id}
-          disabled={onArmedPress === undefined}
-          onPress={onArmedPress}
-          accessibilityRole="button"
-          accessibilityLabel={`${action.label}. Manage delayed actions`}
-          hitSlop={6}
-          style={({ pressed }) => [styles.armed, pressed ? styles.armedPressed : null]}
-        >
-          <View style={styles.sparkBox}>
-            <ComposerGlyph
-              name="clock"
-              size={VISUAL.sparkSize}
-              color={action.id === 'delayedSend' ? VISUAL.delayedSendColor : VISUAL.closeAfterDoneColor}
-            />
-          </View>
-          <Text style={[styles.armedLabel, { color: P.foreground }]}>{action.label}</Text>
-        </Pressable>
-      ))}
-    </View>
-  );
-}
-
 /** The spark: a slow turn with a breathing scale and opacity, as `working_spark.rs` draws it. */
-function WorkingSpark() {
+export function WorkingSpark() {
   const styles = useStyles();
   const P = useTranscriptTheme();
   const pulse = useLoop(VISUAL.pulseMs, Easing.linear);
@@ -144,52 +54,6 @@ function WorkingSpark() {
       >
         <Spark size={VISUAL.sparkSize} color={P.foreground} />
       </Animated.View>
-    </View>
-  );
-}
-
-/**
- * Compaction and running shells: a status card with the activity, its clock and its progress.
- *
- * CDXC:SessionChat 2026-09-11 DECISION: User: put the compaction hint in an info-circle tooltip immediately right of the title, replacing the visible hint line.
- */
-function WorkingActivity({ activity }: { activity: Record<string, unknown> }) {
-  const styles = useStyles();
-  const P = useTranscriptTheme();
-  const percent = num(activity, 'percent');
-  const indeterminate = isTrue(activity, 'indeterminate');
-  const elapsed = str(activity, 'elapsedLabel');
-  const tokens = str(activity, 'tokens');
-  const hint = str(activity, 'hint');
-  const header = (
-    <View style={styles.activityHeader}>
-      <View style={styles.activityLead}>
-        {isTrue(activity, 'shellsRunning') ? (
-          <Spinner size={14} color={P.controlPrimary} />
-        ) : (
-          <PulseDot size={6} color={P.controlPrimary} active />
-        )}
-      </View>
-      <View style={styles.activityTitle}>
-        <Text style={styles.activityLabel}>{str(activity, 'label')}</Text>
-        {hint.length > 0 ? (
-          <View accessibilityLabel={hint} accessible>
-            <Glyph name="info-circle" size={14} color={P.muted} />
-          </View>
-        ) : null}
-      </View>
-      {elapsed.length > 0 ? <Text style={styles.activityClock}>{elapsed}</Text> : null}
-      {tokens.length > 0 ? <Text style={styles.activityClock}>{tokens}</Text> : null}
-      {percent !== null ? <Text style={styles.activityPercent}>{`${percent}%`}</Text> : null}
-    </View>
-  );
-  const body =
-    percent !== null || indeterminate
-      ? [<ProgressTrack key="progress" percent={percent} />]
-      : [];
-  return (
-    <View accessibilityRole="progressbar" style={styles.fill}>
-      <StatusCard header={header} body={body} />
     </View>
   );
 }
@@ -272,7 +136,7 @@ function BackgroundTaskRow({ row, info }: { row: JsonRecord; info: string }) {
   );
 }
 
-function ProgressTrack({ percent }: { percent: number | null }) {
+export function ProgressTrack({ percent }: { percent: number | null }) {
   const styles = useStyles();
   const [width, setWidth] = useState(0);
   const sweep = useLoop(1800, SWEEP_EASING, percent === null);

@@ -39,6 +39,7 @@ import { QuestionFormsProvider } from './QuestionForm';
 import { RowFindContext, type RowFind } from './searchHighlight';
 import { QUESTION_PILL, QuestionFlashProvider, type QuestionFlash } from './OpenQuestions';
 import { useTranscriptBottomStore } from './bottomStore';
+import { useWorkingLaneStore } from './workingLaneStore';
 import { TranscriptFieldRevealContext, useTranscriptFieldReveal } from './fieldReveal';
 
 /**
@@ -238,6 +239,9 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
     return () => clearTimeout(timer);
   }, [questionJump, questionJumpRevision, rows.length]);
 
+  // The working card sits over the transcript's bottom edge (`cards/WorkingCard.tsx`); the list
+  // keeps its height free below the newest row, and the toasts float above it.
+  const laneHeight = useWorkingLaneStore((store) => (main ? store.height : 0));
   const interruptToast = main ? (document?.interruptToast ?? null) : null;
   const errorTone = theme.light ? SCROLL_BOTTOM.errorTone.light : SCROLL_BOTTOM.errorTone.dark;
   const hasMore = main && document?.hasMore === true;
@@ -271,7 +275,7 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
     dispatch({ type: 'composerExpand' });
   }, [dispatch]);
 
-  // The scroll-to-bottom pill lives in the working row's pills (`ChatPills.tsx`), outside this list.
+  // The scroll-to-bottom pill lives on the working card (`cards/WorkingCard.tsx`), outside this list.
   const showJump = main && awayFromBottom && rows.length > 0;
   useEffect(() => {
     if (!main) return;
@@ -352,6 +356,7 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
         initialNumToRender={12}
         maxToRenderPerBatch={8}
         windowSize={11}
+        ListHeaderComponent={laneHeight > 0 ? <View style={{ height: laneHeight }} /> : null}
         ListFooterComponent={
           loadingEarlier ? (
             <View style={styles.pageSpinner}>
@@ -373,9 +378,9 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
         {interruptToast ? (
           /*
            * CDXC:SessionChat 2026-10-15 DECISION:
-           * User (2026-10-01): the interrupt toasts take the Scroll to bottom pill's spot and look; "Agent was interrupted" is red. Visual only, so it takes no touches. User (2026-10-15): the Previous question and Scroll to bottom pills stop floating and become icon pills at the left of the working row's pills (`ChatPills.tsx`), so the toasts keep this floating spot on their own.
+           * User (2026-10-01): the interrupt toasts take the Scroll to bottom pill's spot and look; "Agent was interrupted" is red. Visual only, so it takes no touches. User (2026-10-15): the Previous question and Scroll to bottom pills stop floating and become icon pills at the left of the working row's pills (`ChatPills.tsx`), so the toasts keep this floating spot on their own; since 2026-10-17 those pills ride on the working card (`cards/WorkingCard.tsx`) and the toasts float above it.
            */
-          <View style={styles.pillRow} pointerEvents='none'>
+          <View style={[styles.pillRow, laneHeight > 0 && { bottom: SCROLL_BOTTOM.bottom + laneHeight }]} pointerEvents='none'>
             <View
               accessibilityRole='text'
               accessibilityLiveRegion='polite'

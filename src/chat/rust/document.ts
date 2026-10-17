@@ -497,7 +497,7 @@ export type ChatDocument = {
 
   // ---- panels and extras ------------------------------------------------------------------
 
-  /** The line above the composer while the agent works. Desktop: `working_strip.rs`. */
+  /** The working word and live activity the working card reads them from (`workingCard`). */
   workingStrip: WorkingStrip;
   /** The agent terminal's last lines. Desktop: `terminal_ready.rs`, `composer_not_ready.rs`. */
   terminalTail: TerminalTail;
@@ -509,8 +509,10 @@ export type ChatDocument = {
   coordinatorThreadsPanel: Json;
   /** The background tasks the agent left running, or null; the Background pill's sheet. Desktop: `background_tasks.rs`. */
   backgroundTasksPanel: Json;
-  /** The working row's pills, each opening one of the panels above. Desktop: `chat_pills.rs`. */
+  /** The working card's pills, each a summary of one of the panels above. Desktop: `chat_pills.rs`. */
   chatPills: ChatPill[];
+  /** The working card at the transcript's end. Desktop: `working_card.rs`. */
+  workingCard?: WorkingCard;
   /** The subagent viewer header state, or null when closed (its rows come in `subagentSplice`).
    * Desktop: `subagent_view.rs`. */
   subagent: Json;
@@ -770,9 +772,9 @@ export type AccountStatus = {
   [key: string]: unknown;
 };
 
-/** One pill on the working row (gx-chat-core `extras/chat_pills.rs`). */
+/** One pill on the working card (gx-chat-core `extras/chat_pills.rs`): a summary of one panel. */
 export type ChatPill = {
-  /** `threads`, `tasks`, `subagents` or `background`: which panel value the pill's sheet draws. */
+  /** `threads`, `tasks`, `subagents` or `background`: which panel the card's section draws. */
   id: string;
   label: string;
   /** The number after the label ("3", "4/9"), or "" for none. */
@@ -781,6 +783,27 @@ export type ChatPill = {
   attention: boolean;
   /** The panel's muted detail ("2 working · 212 threads"). */
   meta: string;
+  ariaLabel: string;
+};
+
+/** The working card at the transcript's end (gx-chat-core `extras/working_card.rs`). */
+export type WorkingCard = {
+  /** The lane at the transcript's end shows the card. */
+  visible: boolean;
+  phase: 'working' | 'worked' | 'idle';
+  /** The spark turns. */
+  working: boolean;
+  /** One line: the running tool's, a live activity's, the working word or "Worked 2m 13s"; null with pills only. */
+  label: string | null;
+  labelKind: 'tool' | 'activity' | 'word' | 'worked' | null;
+  /** A live activity's clock and progress: `elapsedLabel`, `tokens`, `percent`, `indeterminate`, `hint`. */
+  activity: Json;
+  /** The open card's first section: `{ title, label, detail }`. */
+  tool: Json;
+  /** The pill ids whose sections the open card lists, in order. */
+  sections: string[];
+  expandable: boolean;
+  open: boolean;
   ariaLabel: string;
 };
 
