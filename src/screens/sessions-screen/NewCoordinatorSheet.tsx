@@ -1,12 +1,16 @@
 /**
- * The phone's New Coordinator form, opened from a project's agent menu: name the coordinator, pick
- * its agent, model and effort, and optionally give it a goal and a first request.
+ * The phone's New Coordinator form, opened from a project's agent menu: name the orchestrator, pick
+ * its agent, model and effort, and see the locked line its first message starts with.
  *
  * The desktop's dialog is apps/desktop/src/app/window/new_coordinator_modal.rs; the copy and the
- * defaults match it. The choices come from `ghostex coordinator options` and the coordinator is
- * created by `ghostex coordinator create`, so the lineup, the Claude-on-Opus-5.5 default and the
- * medium effort default are gxserver's (server/src/ghostex_cli/coordinator/command.rs), and an
- * unnamed coordinator gets gxserver's placeholder title.
+ * defaults match it. The choices come from `ghostex coordinator options` and the orchestrator is
+ * created by `ghostex coordinator create`, so the agent list, the Claude-on-Opus-5.5 default, the
+ * High/XHigh efforts with XHigh first choice and each agent's skill line are gxserver's
+ * (server/src/ghostex_cli/coordinator/command.rs), and an unnamed orchestrator gets gxserver's
+ * placeholder title.
+ *
+ * CDXC:Coordinators 2026-10-17 DECISION:
+ * User: "let's please allow picking more cli agents here ... we should just include a line that can't be removed saying: "Read and adhere to this skill: /ghostex-orchestrator" ... also remove this [First request] and this [Goal]", and for the phone: "phone too". No Goal or First request field; the first message is shown locked.
  */
 
 import { useEffect, useState } from 'react';
@@ -14,13 +18,31 @@ import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, TextInput, View 
 
 import type { CreateCoordinatorInput } from '../../commands/ghostexCli';
 import KeyboardAvoidingContainer from '../../components/common/keyboard/KeyboardAvoidingContainer';
+import { LockGlyph } from '../../components/onboarding/SetupIcons';
 import KeyboardAwareScrollView from '../../components/common/keyboard/KeyboardAwareScrollView';
 import { GhostexPalette, GhostexStrokeWidth } from '../../theme/palette';
 
 type Choice = { value: string; label: string };
-type CoordinatorModel = Choice & { efforts: Choice[] };
-type CoordinatorAgent = { agentId: string; name: string; models: CoordinatorModel[]; defaultModel: string };
+type CoordinatorModel = Choice & { efforts: Choice[]; defaultEffort: string };
+type CoordinatorAgent = {
+  agentId: string;
+  name: string;
+  models: CoordinatorModel[];
+  defaultModel: string;
+  /** The locked first line ("Read and adhere to this skill: …"); '' from a computer before 2026-10-17. */
+  skillLine: string;
+};
 export type CoordinatorOptions = { agents: CoordinatorAgent[]; defaultEffort: string };
+
+/**
+ * The (i) text beside "New Orchestrator…" in the agent menu.
+ * SEE-ALSO: NEW_ORCHESTRATOR_BENEFITS in packages/gx-core/src/sidebar_menu/header.rs (the desktop's tooltip; keep the two equal).
+ */
+export const NEW_ORCHESTRATOR_BENEFITS = `Recommended
+• The main way Ghostex itself is built
+• You talk to one agent and the work gets done
+• It keeps improving as it saves memories about your project
+• Needs a very good model, e.g. Opus 5.5 at high or xhigh`;
 
 function text(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -46,11 +68,13 @@ export function parseCoordinatorOptions(json: unknown): CoordinatorOptions {
       agentId: text(agent.agentId),
       name: text(agent.name) || text(agent.agentId),
       defaultModel: text(agent.defaultModel),
+      skillLine: text(agent.skillLine),
       models: records(agent.models)
         .map((model) => ({
           value: text(model.value),
           label: text(model.label) || text(model.value),
           efforts: choices(model.efforts),
+          defaultEffort: text(model.defaultEffort),
         }))
         .filter((model) => model.value.length > 0),
     }))
@@ -58,11 +82,18 @@ export function parseCoordinatorOptions(json: unknown): CoordinatorOptions {
   return { agents, defaultEffort: text(root.defaultEffort) };
 }
 
-/** The effort a model starts on: the one already picked when it takes it, else the default, else its first. */
+/**
+ * The effort a model starts on: the one already picked when it takes it, else the model's own
+ * default (its highest orchestrator level), else the form's default, else its last.
+ */
 function effortFor(model: CoordinatorModel | undefined, picked: string, fallback: string): string {
   const efforts = model?.efforts ?? [];
   if (efforts.some((effort) => effort.value === picked)) return picked;
-  return (efforts.find((effort) => effort.value === fallback) ?? efforts[0])?.value ?? '';
+  const preferred = [model?.defaultEffort ?? '', fallback];
+  return (
+    preferred.map((value) => efforts.find((effort) => effort.value === value)).find((effort) => effort !== undefined) ??
+    efforts[efforts.length - 1]
+  )?.value ?? '';
 }
 
 export type NewCoordinatorSheetProps = {
@@ -79,8 +110,6 @@ export default function NewCoordinatorSheet({ projectTitle, loadOptions, onCreat
   const [model, setModel] = useState('');
   const [effort, setEffort] = useState('');
   const [name, setName] = useState('');
-  const [goal, setGoal] = useState('');
-  const [request, setRequest] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -119,8 +148,6 @@ export default function NewCoordinatorSheet({ projectTitle, loadOptions, onCreat
       agentId: agent.agentId,
       agentName: agent.name,
       title: name,
-      goal,
-      task: request,
       model,
       effort,
     });
@@ -183,7 +210,7 @@ export default function NewCoordinatorSheet({ projectTitle, loadOptions, onCreat
                 )
               ) : options.agents.length === 0 ? (
                 <Text style={styles.error}>
-                  No Claude, Codex, ZCode or Empryo agent is set up on this computer. An orchestrator runs on one of them.
+                  No agent an orchestrator can run on is set up on this computer: Claude, Codex, ZCode, Cursor, Grok, Copilot, Antigravity, Pi or OMP.
                 </Text>
               ) : (
                 <>
@@ -193,7 +220,7 @@ export default function NewCoordinatorSheet({ projectTitle, loadOptions, onCreat
                     agentId,
                     (value) => {
                       const next = options.agents.find((entry) => entry.agentId === value);
-                      if (next !== undefined) pickAgent(next, options, effort);
+                      if (next !== undefined) pickAgent(next, options, '');
                     },
                   )}
                   {agent !== undefined && agent.models.length > 0
@@ -207,30 +234,20 @@ export default function NewCoordinatorSheet({ projectTitle, loadOptions, onCreat
                     : null}
                 </>
               )}
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>Goal (optional)</Text>
-                <TextInput
-                  accessibilityLabel="Goal"
-                  style={styles.input}
-                  value={goal}
-                  onChangeText={setGoal}
-                  placeholder="One line it works toward, e.g. Ship the new checkout by Friday"
-                  placeholderTextColor={GhostexPalette.MUTED}
-                />
-              </View>
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>First request (optional)</Text>
-                <TextInput
-                  accessibilityLabel="First request"
-                  style={[styles.input, styles.multiline]}
-                  value={request}
-                  onChangeText={setRequest}
-                  multiline
-                  placeholder="Describe the work. It plans it, starts a thread for each task, and reports back."
-                  placeholderTextColor={GhostexPalette.MUTED}
-                />
-                <Text style={styles.hint}>Threads show up under the orchestrator in the session list.</Text>
-              </View>
+              {agent !== undefined && agent.skillLine.length > 0 ? (
+                <View style={styles.field}>
+                  <Text style={styles.fieldLabel}>First message</Text>
+                  <View accessibilityLabel={`First message, locked: ${agent.skillLine}`} style={styles.lockedLine}>
+                    <LockGlyph size={14} color={GhostexPalette.MUTED} />
+                    <Text style={styles.lockedText} selectable>
+                      {agent.skillLine}
+                    </Text>
+                  </View>
+                  <Text style={styles.hint}>
+                    Every orchestrator starts with this line, which loads its playbook. Write your first request in its chat.
+                  </Text>
+                </View>
+              ) : null}
               <View style={styles.buttonRow}>
                 <Pressable
                   accessibilityRole="button"
@@ -313,9 +330,22 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     fontSize: 15,
   },
-  multiline: {
-    minHeight: 88,
-    textAlignVertical: 'top',
+  lockedLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 8,
+    borderWidth: GhostexStrokeWidth,
+    borderColor: GhostexPalette.BORDER,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  lockedText: {
+    flex: 1,
+    color: GhostexPalette.MUTED,
+    fontSize: 14,
+    lineHeight: 19,
   },
   chips: {
     flexDirection: 'row',

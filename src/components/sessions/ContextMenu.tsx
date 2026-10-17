@@ -7,7 +7,7 @@
  * tinting carried over from the desktop sidebar menu.
  */
 
-import type { ReactElement } from 'react';
+import { Fragment, useState, type ReactElement } from 'react';
 import {
   Modal,
   Pressable,
@@ -20,6 +20,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GhostexPalette, SidebarPalette } from '../../theme/palette';
+import { InfoGlyph } from './icons';
 
 /** Window-coordinate frame of the pressed button (measureInWindow). */
 export type MenuAnchor = { x: number; y: number; width: number; height: number };
@@ -35,6 +36,12 @@ type ContextMenuAction = {
   /** Optional right-aligned informational glyph. */
   trailingIcon?: ReactElement;
   trailingIconLabel?: string;
+  /**
+   * Text behind an (i) at the row's end. The phone has no hover, so a tap on the (i) shows it
+   * under the row (and a second tap hides it); a tap on the row still runs `onPress`. The desktop
+   * shows the same text as the (i)'s tooltip (gx-core `MenuItem::info`).
+   */
+  info?: string;
   /** Dimmed text after the label (what a Link to row is linked to). */
   suffix?: string;
   /** Trailing chevron marking a submenu row. */
@@ -136,6 +143,7 @@ export default function ContextMenu({
 }: ContextMenuProps) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const safeArea = useSafeAreaInsets();
+  const [openInfo, setOpenInfo] = useState<string | null>(null);
 
   const horizontalRoom =
     screenWidth - Math.max(EDGE_MARGIN, safeArea.left) - Math.max(EDGE_MARGIN, safeArea.right);
@@ -201,62 +209,77 @@ export default function ContextMenu({
                   </Text>
                 );
               }
+              const infoOpen = item.info !== undefined && openInfo === item.key;
               return (
-                <Pressable
-                  key={item.key}
-                  accessibilityHint={item.trailingIconLabel}
-                  accessibilityRole="menuitem"
-                  accessibilityState={{
-                    disabled: item.disabled === true,
-                    selected: item.selected === true,
-                  }}
-                  disabled={item.disabled === true}
-                  style={({ pressed }) => [
-                    styles.item,
-                    pressed || item.selected === true ? styles.itemActive : null,
-                    item.disabled === true ? styles.itemDisabled : null,
-                  ]}
-                  onPress={item.onPress}
-                >
-                  {item.swatch !== undefined ? (
-                    <View
-                      style={[
-                        styles.itemSwatch,
-                        item.swatch === 'transparent'
-                          ? styles.itemSwatchTransparent
-                          : { backgroundColor: item.swatch },
-                      ]}
-                    />
-                  ) : item.icon !== undefined ? (
-                    <View style={styles.itemIcon}>{item.icon}</View>
-                  ) : null}
-                  <Text
-                    style={[
-                      styles.itemLabel,
-                      item.selected === true && item.selectedPresentation === 'emphasis'
-                        ? styles.itemLabelSelected
-                        : null,
-                      item.destructive === true ? styles.itemLabelDanger : null,
+                <Fragment key={item.key}>
+                  <Pressable
+                    accessibilityHint={item.trailingIconLabel}
+                    accessibilityRole="menuitem"
+                    accessibilityState={{
+                      disabled: item.disabled === true,
+                      selected: item.selected === true,
+                    }}
+                    disabled={item.disabled === true}
+                    style={({ pressed }) => [
+                      styles.item,
+                      pressed || item.selected === true ? styles.itemActive : null,
+                      item.disabled === true ? styles.itemDisabled : null,
                     ]}
+                    onPress={item.onPress}
                   >
-                    {item.label}
-                  </Text>
-                  {item.suffix !== undefined ? (
-                    <Text style={styles.itemSuffix} numberOfLines={1}>
-                      {item.suffix}
+                    {item.swatch !== undefined ? (
+                      <View
+                        style={[
+                          styles.itemSwatch,
+                          item.swatch === 'transparent'
+                            ? styles.itemSwatchTransparent
+                            : { backgroundColor: item.swatch },
+                        ]}
+                      />
+                    ) : item.icon !== undefined ? (
+                      <View style={styles.itemIcon}>{item.icon}</View>
+                    ) : null}
+                    <Text
+                      style={[
+                        styles.itemLabel,
+                        item.selected === true && item.selectedPresentation === 'emphasis'
+                          ? styles.itemLabelSelected
+                          : null,
+                        item.destructive === true ? styles.itemLabelDanger : null,
+                      ]}
+                    >
+                      {item.label}
                     </Text>
-                  ) : null}
-                  {item.trailingIcon !== undefined ? (
-                    <View style={styles.itemTrailingIcon}>{item.trailingIcon}</View>
-                  ) : null}
-                  {item.selected === true && item.selectedPresentation !== 'emphasis' ? (
-                    <View style={styles.itemCheck}>
-                      <CheckGlyph color={SidebarPalette.FOREGROUND} />
-                    </View>
-                  ) : item.submenu === true ? (
-                    <Text style={styles.itemChevron}>›</Text>
-                  ) : null}
-                </Pressable>
+                    {item.suffix !== undefined ? (
+                      <Text style={styles.itemSuffix} numberOfLines={1}>
+                        {item.suffix}
+                      </Text>
+                    ) : null}
+                    {item.trailingIcon !== undefined ? (
+                      <View style={styles.itemTrailingIcon}>{item.trailingIcon}</View>
+                    ) : null}
+                    {item.info !== undefined ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`About ${item.label}`}
+                        accessibilityState={{ expanded: infoOpen }}
+                        hitSlop={10}
+                        style={styles.itemInfo}
+                        onPress={() => setOpenInfo(infoOpen ? null : item.key)}
+                      >
+                        <InfoGlyph size={15} color={infoOpen ? SidebarPalette.FOREGROUND : SidebarPalette.MUTED} />
+                      </Pressable>
+                    ) : null}
+                    {item.selected === true && item.selectedPresentation !== 'emphasis' ? (
+                      <View style={styles.itemCheck}>
+                        <CheckGlyph color={SidebarPalette.FOREGROUND} />
+                      </View>
+                    ) : item.submenu === true ? (
+                      <Text style={styles.itemChevron}>›</Text>
+                    ) : null}
+                  </Pressable>
+                  {infoOpen ? <Text style={styles.itemInfoText}>{item.info}</Text> : null}
+                </Fragment>
               );
             })}
           </ScrollView>
@@ -360,6 +383,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     opacity: 0.58,
+  },
+  itemInfo: {
+    marginLeft: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  itemInfoText: {
+    color: SidebarPalette.FOREGROUND,
+    opacity: 0.8,
+    fontSize: 13,
+    lineHeight: 19,
+    paddingHorizontal: 12,
+    paddingTop: 2,
+    paddingBottom: 8,
   },
   itemChevron: {
     color: SidebarPalette.MUTED,

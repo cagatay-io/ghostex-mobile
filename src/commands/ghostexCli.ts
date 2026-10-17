@@ -230,9 +230,10 @@ export type CreateCoordinatorInput = {
   agentId: string;
   /** '' leaves the coordinator unnamed: gxserver saves the placeholder "Coordinator". */
   title: string;
-  goal: string;
-  /** The first request, queued for the coordinator once it starts. */
-  task: string;
+  /** The New Orchestrator sheet sets neither (user decision 2026-10-17); the verb still takes both. */
+  goal?: string;
+  /** The first request, after the skill line in the orchestrator's first message. */
+  task?: string;
   model: string;
   effort: string;
 };
@@ -243,8 +244,8 @@ export type CreateCoordinatorInput = {
  */
 export function createCoordinatorCommand(input: CreateCoordinatorInput): string {
   // `--flag=value`, so a goal or request that starts with "-" is never read as a flag.
-  const optional = (flag: string, value: string): string =>
-    value.trim().length === 0 ? '' : ` ${flag}=${shellQuote(value.trim())}`;
+  const optional = (flag: string, value: string | undefined): string =>
+    (value ?? '').trim().length === 0 ? '' : ` ${flag}=${shellQuote((value ?? '').trim())}`;
   return (
     'ghostex coordinator create' +
     ` --project-id ${shellQuote(requireId(input.projectId, 'project id'))}` +
@@ -259,7 +260,7 @@ export function createCoordinatorCommand(input: CreateCoordinatorInput): string 
 }
 
 /**
- * `ghostex coordinator promote`: makes an existing Claude, Codex, ZCode or Empryo session a coordinator without
+ * `ghostex coordinator promote`: makes an existing session a coordinator without
  * restarting or interrupting it (the desktop's Advanced > Make Coordinator).
  */
 export function promoteCoordinatorCommand(globalRef: string): string {

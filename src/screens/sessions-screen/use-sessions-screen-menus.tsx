@@ -117,7 +117,7 @@ import {
   type ProjectContext,
   type SessionContext,
 } from './session-actions';
-import { parseCoordinatorOptions, type CoordinatorOptions } from './NewCoordinatorSheet';
+import { NEW_ORCHESTRATOR_BENEFITS, parseCoordinatorOptions, type CoordinatorOptions } from './NewCoordinatorSheet';
 import {
   parseCoordinatorDetails,
   type CoordinatorDetails,
@@ -1425,6 +1425,7 @@ export function useSessionsScreenMenus({
               key: 'new-coordinator',
               label: 'New Orchestrator…',
               icon: <CrewGlyph size={14} color={SidebarPalette.MUTED} />,
+              info: NEW_ORCHESTRATOR_BENEFITS,
               onPress: () => setOverlay({ kind: 'newCoordinator', ctx }),
             },
             { kind: 'separator', key: 'new-coordinator-separator' },
