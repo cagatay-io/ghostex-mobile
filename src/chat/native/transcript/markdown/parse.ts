@@ -570,6 +570,27 @@ function isLiteralWindowsDestination(destination: string): boolean {
   return destination.startsWith('\\\\') && destination[2] !== '\\';
 }
 
+/**
+ * CDXC:SessionChat 2026-10-17 WHY:
+ * An absolute Windows path written as plain text (`C:\Users\me\dev\_scratch`, `\\server\share`)
+ * keeps every backslash instead of reading `\_` as an escaped underscore. The core doubles such a
+ * path's backslashes in the Markdown it hands the phone; this is the same test for text that does
+ * not come through it, and a path the core doubled fails it and decodes as ordinary escaped Markdown.
+ * SEE-ALSO: packages/gx-chat-core/src/transcript/native_markdown.rs (`windows_prose_path_end`)
+ */
+function windowsProsePathEnd(text: string, start: number): number | null {
+  const before = start > 0 ? text[start - 1]! : '';
+  if (/[A-Za-z0-9\\:/]/u.test(before)) return null;
+  const drive = /^[A-Za-z]:\\/u.test(text.slice(start, start + 3));
+  const unc = text.startsWith('\\\\', start) && /[A-Za-z0-9]/u.test(text[start + 2] ?? '');
+  if (!drive && !unc) return null;
+  let end = start;
+  while (end < text.length && !/[\s<>"|?*`[\]]/u.test(text[end]!)) end += 1;
+  // A reply's hard break (`\` before a newline) after the path stays a break.
+  if (end > start && text[end - 1] === '\\' && text[end] === '\n') end -= 1;
+  return isLiteralWindowsDestination(text.slice(start, end)) ? end : null;
+}
+
 /** Where a destination ends when its backslashes are literal (`literal_destination_end` in the core). */
 function literalDestinationEnd(text: string, start: number, bracketed: boolean): number | null {
   if (bracketed) {
@@ -634,6 +655,12 @@ export function parseInline(text: string, breaks: boolean): Inline[] {
   };
   while (index < text.length) {
     const character = text[index]!;
+    const pathEnd = windowsProsePathEnd(text, index);
+    if (pathEnd !== null) {
+      plain += text.slice(index, pathEnd);
+      index = pathEnd;
+      continue;
+    }
     const rest = text.slice(index);
     if (character === '\\' && index + 1 < text.length) {
       const next = text[index + 1]!;
