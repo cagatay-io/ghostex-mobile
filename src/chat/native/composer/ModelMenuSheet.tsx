@@ -121,6 +121,23 @@ export function ModelMenuSheet({
   }, [openButton, open]);
   const error = str(menu, 'error');
   const emptyText = str(menu, 'emptyText');
+  // The tab's Legacy models toggle: the core lists the legacy rows after the current ones while it is open.
+  const legacy = obj(menu?.legacy);
+  const legacyOpen = legacy !== null && isTrue(legacy, 'open');
+  const firstLegacy = rows.findIndex((row) => isTrue(row, 'legacy'));
+  const legacyToggle =
+    legacy === null ? null : (
+      <Pressable
+        key="legacy-toggle"
+        accessibilityRole="button"
+        accessibilityState={{ expanded: legacyOpen }}
+        onPress={() => dispatch({ type: 'modelMenuView', legacyOpen: !legacyOpen })}
+        style={({ pressed }) => [styles.legacy, pressed ? styles.rowButtonPressed : null]}
+      >
+        <Glyph name={legacyOpen ? 'chevron-down' : 'chevron-right'} size={16} color={P.ink(0.64)} />
+        <Text style={styles.legacyLabel}>{`${str(legacy, 'label')} (${String(legacy.count ?? 0)})`}</Text>
+      </Pressable>
+    );
   const listHeight = Math.min(340, Math.round(height * 0.4));
 
   /** Desktop's Enter (the default) and Option+Enter (`secondary`, this session only): the highlighted row with its level, then close. */
@@ -241,7 +258,7 @@ export function ModelMenuSheet({
           contentContainerStyle={styles.listContent}
         >
           {rows.length === 0 ? <Text style={styles.empty}>{emptyText}</Text> : null}
-          {rows.map((row) => {
+          {rows.map((row, index) => {
             const key = str(row, 'key');
             const label = str(row, 'label');
             const icon = str(row, 'icon');
@@ -250,7 +267,7 @@ export function ModelMenuSheet({
             const selected = isTrue(row, 'selected');
             const active = key === highlightedKey;
             const favorite = isTrue(row, 'favorite');
-            return (
+            const item = (
               <Pressable
                 key={key}
                 accessibilityRole="menuitem"
@@ -297,7 +314,9 @@ export function ModelMenuSheet({
                 {active && about === key && description.length > 0 ? <Text style={styles.description}>{description}</Text> : null}
               </Pressable>
             );
+            return index === firstLegacy ? [legacyToggle, item] : item;
           })}
+          {firstLegacy === -1 ? legacyToggle : null}
         </ScrollView>
         <ModelMenuTray buttons={buttons} disabled={disabled} sessionScope={sessionScope} onActivate={activate} />
         <ApplyBar menu={menu} row={highlighted} ownProvider={ownProvider} handoff={highlighted !== null && handoffTabs.has(str(highlighted, 'provider'))} disabled={disabled} onApply={apply} />
@@ -412,6 +431,8 @@ const useStyles = themedStyles((P) => ({
   rowButton: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   rowButtonPressed: { backgroundColor: P.ink(0.08) },
   description: { color: P.ink(0.64), fontSize: 13, lineHeight: 18, paddingBottom: 6, paddingRight: 8 },
+  legacy: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 8, paddingHorizontal: 10, minHeight: 40 },
+  legacyLabel: { color: P.ink(0.64), fontSize: 14 },
   applyBar: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: P.ink(0.08), paddingHorizontal: 12, paddingTop: 10, gap: 8 },
   hint: { color: P.ink(0.64), fontSize: 12, lineHeight: 16, paddingHorizontal: 4 },
   applyRow: { flexDirection: 'row', gap: 8 },

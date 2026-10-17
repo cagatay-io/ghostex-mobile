@@ -165,8 +165,8 @@ export type ActionFields = {
   // ---- options, models and accounts ---------------------------------------------------------
   /** Pick an option row (`optionMenus` rows carry the exact payload to send). */
   selectOption: { descriptorId?: string; value?: Json; [field: string]: unknown };
-  /** `tab: null` is the picker opening, which also re-reads the stars (`model_menu_view`). */
-  modelMenuView: { tab?: string | null; query?: string };
+  /** `tab: null` is the picker opening, which also re-reads the stars (`model_menu_view`); `legacyOpen` opens or closes the tab's Legacy models. */
+  modelMenuView: { tab?: string | null; query?: string; legacyOpen?: boolean };
   modelMenuFavorite: { key: string };
   /** `effort` is the reasoning level the pick carries (desktop's Left and Right); left out, the model keeps its own. */
   modelMenuPick: { key: string; secondary?: boolean; effort?: string };
