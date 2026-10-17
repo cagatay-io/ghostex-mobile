@@ -688,6 +688,11 @@ export type OpenQuestionsState = {
   /** The pill's text: "❓ 2 · Previous question ↑". */
   text: string;
   accessibilityLabel: string;
+  /**
+   * The newest unanswered form's or page's id, or null when none waits. A change without `count`
+   * dropping means a new question arrived, which pings the pill (`ChatPills.tsx`).
+   */
+  newest?: string | null;
   /** Scroll to `item` once per `revision`, then highlight `target` (a form's or page's id). */
   jump: { revision: number; item: number; target: string } | null;
 };
