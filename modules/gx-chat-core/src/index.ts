@@ -88,7 +88,6 @@ export type ChatKnownSession = {
 
 export type ChatMeasurement =
   | { kind: 'composerOverflow'; overflowed: string[]; optionsOverflowed: boolean }
-  | { kind: 'contextStatusRows'; rows: number[] }
   | {
       kind: 'openRowDetails';
       rows: { key: string; kind: string; messageId: string; index: number }[];

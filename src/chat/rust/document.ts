@@ -494,8 +494,6 @@ export type ChatDocument = {
   contextMeter: Json;
   /** The context rows editor, or null when closed. Desktop: `context_editor/`. */
   contextEditor: Json;
-  /** Where the status line wraps, measured by the screen (`contextStatusRows` measurement). */
-  contextStatusRows: number[];
 
   // ---- panels and extras ------------------------------------------------------------------
 

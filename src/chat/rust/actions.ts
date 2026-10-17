@@ -189,8 +189,6 @@ export type ActionFields = {
   contextReset: {};
   contextSave: {};
   contextCompact: {};
-  /** The status line's measured widths. */
-  measureContextStatus: { available?: number; widths?: number[]; separator?: number };
 
   // ---- the session note and Save to Markdown ------------------------------------------------
   toggleNote: {};
