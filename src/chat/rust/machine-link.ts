@@ -141,6 +141,9 @@ class ChatMachineLink {
   private lastRoute: ChatRoute | null = null;
   private readonly routeListeners = new Set<(route: ChatRoute) => void>();
   private readonly followers = new Map<string, Follower>();
+  /** The model catalog this computer's gxserver last pushed on the socket, or null before its first. */
+  private modelCatalog: unknown = null;
+  private readonly catalogListeners = new Set<(catalog: unknown) => void>();
   private socket: WebSocket | null = null;
   private socketOpen = false;
   /** Bumped for every socket, so a late callback of a replaced one does nothing. */
@@ -207,6 +210,23 @@ class ChatMachineLink {
     });
     this.state = { kind: 'probing', done };
     return done;
+  }
+
+  /**
+   * CDXC:AgentModelCatalog 2026-10-17 WHY: gxserver serves the model lineups its own CLIs print, so
+   * each computer's catalog is its own (the Mac's Cursor account lists other models than the
+   * Windows machine's). The catalog a computer pushes reaches only that computer's chats, as on
+   * desktop (`adopt_catalog` in apps/desktop/src/app/gx_chat/transport.rs); until 2026-10-17 the
+   * phone dropped the pushes and every chat showed the build's bundled list.
+   */
+  currentModelCatalog(): unknown {
+    return this.modelCatalog;
+  }
+
+  /** Hears every model catalog this computer pushes. */
+  onModelCatalog(listener: (catalog: unknown) => void): () => void {
+    this.catalogListeners.add(listener);
+    return () => this.catalogListeners.delete(listener);
   }
 
   /** Called with each new route once the handshake settles on a different one. */
@@ -603,8 +623,8 @@ class ChatMachineLink {
 
   /**
    * Routes one socket message to the chat that follows its conversation: the checks `route` in
-   * `wire.rs` makes. The `eventStreamReady` header, model catalog pushes and frames for a
-   * conversation unfollowed a moment ago are dropped here.
+   * `wire.rs` makes. A model catalog push is kept for this computer's chats; the
+   * `eventStreamReady` header and frames for a conversation unfollowed a moment ago are dropped.
    */
   private receive(text: string): void {
     let frame: Record<string, unknown>;
@@ -613,6 +633,11 @@ class ChatMachineLink {
       if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return;
       frame = parsed as Record<string, unknown>;
     } catch {
+      return;
+    }
+    if (frame.type === 'agentModelCatalogChanged' && typeof frame.catalog === 'object' && frame.catalog !== null) {
+      this.modelCatalog = frame.catalog;
+      for (const listener of this.catalogListeners) listener(frame.catalog);
       return;
     }
     if (

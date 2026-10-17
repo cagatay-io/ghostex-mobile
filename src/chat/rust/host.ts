@@ -56,6 +56,7 @@ import {
 } from './host-records';
 import { currentSessionDirectory, subscribeSessionDirectory } from './sessionDirectory';
 import { readRecord, readRetainedSnapshot, writeRecord, writeRetainedSnapshot } from './storage';
+import { chatMachineLink } from './machine-link';
 import { SessionChatStream, sessionChatRpc, type RpcAnswer } from './transport';
 import { markSessionOpen } from '../../terminal/openTiming';
 import { receivePageThumbnail } from '../native/transcript/pageThumbnails';
@@ -175,6 +176,7 @@ export class RustChatHost {
   private draftRetryBusy = false;
   private appStateSubscription: NativeEventSubscription | null = null;
   private unsubscribeSessionDirectory: (() => void) | null = null;
+  private unsubscribeModelCatalog: (() => void) | null = null;
   /** Session-open timing (`terminal/openTiming.ts`): the phone tab's `${machineId}:${sessionId}`. */
   private readonly openTraceKey: string;
   private retainedTranscriptLoaded = false;
@@ -246,6 +248,11 @@ export class RustChatHost {
     this.unsubscribeSessionDirectory = subscribeSessionDirectory((sessions) =>
       this.enqueue({ type: 'sessionDirectoryChanged', sessions }),
     );
+    // This computer's model lineup, pushed on its chat socket; the `subscribe` effect hands over
+    // the one already known.
+    this.unsubscribeModelCatalog = chatMachineLink(this.target.machine).onModelCatalog((catalog) =>
+      this.enqueue({ type: 'modelCatalogChanged', catalog }),
+    );
     // `replayDraftSaves`: a save an earlier run could not deliver is still in the outbox.
     this.scheduleDraftRetry(0);
     // Only `background` pauses: `inactive` is a pulled-down notification centre or an app switcher
@@ -264,6 +271,8 @@ export class RustChatHost {
     this.appStateSubscription = null;
     this.unsubscribeSessionDirectory?.();
     this.unsubscribeSessionDirectory = null;
+    this.unsubscribeModelCatalog?.();
+    this.unsubscribeModelCatalog = null;
     this.poll.stop();
     if (this.timer !== null) clearTimeout(this.timer);
     if (this.draftRetryTimer !== null) clearTimeout(this.draftRetryTimer);
@@ -440,9 +449,12 @@ export class RustChatHost {
       case 'sendRpc':
         this.sendRpc(effect.requestId, effect.method, effect.params, answers);
         return;
-      case 'subscribe':
+      case 'subscribe': {
         this.poll.start(effect.limit);
+        const catalog = chatMachineLink(this.target.machine).currentModelCatalog();
+        if (effect.catalog && catalog !== null) answers.push({ type: 'modelCatalogChanged', catalog });
         return;
+      }
       case 'unsubscribe':
         this.poll.stop();
         return;
