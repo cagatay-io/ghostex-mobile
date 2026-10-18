@@ -16,9 +16,10 @@ import type { Json } from '../../rust/document';
 import { useTranscriptEnv } from './context';
 import { useRevealFocusedField } from './fieldReveal';
 import { useEchoedText } from '../cards/useEchoedText';
-import { AskCard, AskHead, AskOption, PrimaryButton, SoftButton, type AskTone } from '../cards/askCard';
+import { AskCard, AskHead, AskOption, PrimaryButton, SoftButton, answeredColor, type AskTone } from '../cards/askCard';
 import type { GlyphName } from '../cards/icons';
 import { arr, obj, str, type JsonRecord } from './json';
+import { SingleLinePill } from './singleLineCard';
 import { MONO_FONT } from './theme';
 import { QuestionFlashFrame } from './OpenQuestions';
 
@@ -107,13 +108,14 @@ function QuestionFormCard({ id, source }: { id: string; source: string }) {
     const open = form.collapsed !== true;
     return (
       <AskCard
+        singleLine
         head={
           <AskHead
+            singleLine
             icon="check"
             tone="answered"
             title={str(form, 'title') || 'Questions'}
-            trailing={<Text style={[styles.answered, { color: theme.muted }]}>Answered</Text>}
-            chevron={open ? 'open' : 'closed'}
+            trailing={<SingleLinePill label="Answered" color={answeredColor(theme.light)} />}
             accessibilityLabel={open ? 'Hide the questions' : 'Show the questions'}
             onPress={() => dispatch({ type: 'formToggle', form: id })}
           />
@@ -311,6 +313,5 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, borderRadius: 9, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13.5, minHeight: 38, textAlignVertical: 'top' },
   textAnswer: { minHeight: 70 },
   status: { flex: 1, fontSize: 12.5 },
-  answered: { fontSize: 12 },
   source: { fontFamily: MONO_FONT, fontSize: 12 },
 });

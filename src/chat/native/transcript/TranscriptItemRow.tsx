@@ -12,11 +12,11 @@ import { QuestionExchangeCards } from '../cards';
 import { useNativeChatUi, useTranscriptEnv, useTranscriptFlags } from './context';
 import { DisclosureBody, DisclosureHeading, FoldPlaceProvider } from './Disclosure';
 import { CompletedFilesFold } from './FileChanges';
-import { Glyph } from './icons';
 import { obj } from './json';
 import { MessageRow } from './MessageRow';
 import { SentAgentMessageCards } from './AgentMessageCards';
 import { useDisclosure } from './state';
+import { SINGLE_LINE_CARD, SINGLE_LINE_TITLE, SingleLinePill, singleLineShell } from './singleLineCard';
 import { PROSE_SIZE } from './theme';
 
 const IN_WORK_FOLD = { inWorkFold: true, hideFileChanges: true };
@@ -114,9 +114,9 @@ function CompletedWorkRow({ item }: { item: CompletedWorkItem }) {
 }
 
 /**
- * The bar a finished turn folds behind (desktop `work_summary` in `completed_work_row.rs`): a
- * chevron, "Worked for 2m 5s", and the turn's counts as chips (gx-chat-core `work_summary.rs`), so the
- * closed fold still says what happened.
+ * The bar a finished turn folds behind (desktop `work_summary` in `completed_work_row.rs`):
+ * "Worked for 2m 5s" and the turn's counts as pills (gx-chat-core `work_summary.rs`), so the closed
+ * fold still says what happened; the whole bar opens and closes it, with no chevron.
  */
 function WorkSummary({ item, open, onToggle }: { item: CompletedWorkItem; open: boolean; onToggle(): void }) {
   const { theme } = useTranscriptEnv();
@@ -129,23 +129,21 @@ function WorkSummary({ item, open, onToggle }: { item: CompletedWorkItem; open: 
       accessibilityRole='button'
       accessibilityLabel={spoken}
       accessibilityState={{ expanded: open }}
-      style={({ pressed }) => [
-        styles.summary,
-        { borderColor: theme.ink(0.06), backgroundColor: pressed ? theme.input : theme.ink(0.025) },
-      ]}
+      style={({ pressed }) => [styles.summary, singleLineShell(theme), pressed && { backgroundColor: theme.input }]}
     >
-      {item.expandable ? <Glyph name={open ? 'chevron-down' : 'chevron-right'} size={14} color={theme.muted} /> : null}
-      <Text style={[styles.summaryLabel, { color: item.expandable ? theme.foreground : theme.muted }]}>{item.label}</Text>
+      <Text style={[SINGLE_LINE_TITLE, { color: item.expandable ? theme.foreground : theme.muted }]}>{item.label}</Text>
       {/* The count pills sit at the row's right end and wrap among themselves (desktop `work_summary`). */}
       <View style={styles.chips}>
         {stats.map((stat) => {
           const failed = stat.kind === 'failed' || stat.kind === 'recovered';
           const tone = failed ? theme.error : theme.cardMuted;
           return (
-            <View key={stat.kind} style={[styles.chip, { borderColor: theme.ink(0.1) }]}>
-              <Glyph name={stat.kind === 'files' ? 'pencil' : failed ? 'alert-triangle' : 'tool'} size={12} color={tone} />
-              <Text style={[styles.chipText, { color: tone }]}>{stat.label}</Text>
-            </View>
+            <SingleLinePill
+              key={stat.kind}
+              icon={stat.kind === 'files' ? 'pencil' : failed ? 'alert-triangle' : 'tool'}
+              label={stat.label}
+              color={tone}
+            />
           );
         })}
       </View>
@@ -176,28 +174,15 @@ function DeferredNotice({ item, error }: { item: CompletedWorkItem; error: strin
 const styles = StyleSheet.create({
   column: { gap: 8, minWidth: 0 },
   completedColumn: { gap: 10, minWidth: 0 },
+  // Every one-line card's height and padding (`singleLineCard.ts`).
   summary: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingLeft: 8,
-    paddingRight: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
+    height: SINGLE_LINE_CARD.height,
+    paddingHorizontal: SINGLE_LINE_CARD.paddingX,
   },
-  summaryLabel: { fontSize: 13.5, lineHeight: 18, fontWeight: '500' },
   chips: { flex: 1, minWidth: 0, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'center', gap: 6 },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  chipText: { fontSize: 11.5, lineHeight: 16 },
   deferred: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8 },
   deferredText: { fontSize: PROSE_SIZE, flexShrink: 1 },
   retry: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },

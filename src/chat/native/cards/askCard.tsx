@@ -13,6 +13,7 @@ import type { ReactNode } from 'react';
 import { Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { Glyph, type GlyphName } from './icons';
+import { SINGLE_LINE_CARD, SINGLE_LINE_HEADER_HEIGHT, SINGLE_LINE_TITLE, singleLineShell } from '../transcript/singleLineCard';
 import { MONO_FONT, themedStyles, useTranscriptTheme, type TranscriptTheme } from '../transcript/theme';
 
 /** What a card's tile says about the question: waiting, answered, or closed without an answer. */
@@ -40,46 +41,59 @@ export function tint(hex: string, alpha: number): string {
     .padStart(2, '0')}`;
 }
 
-/** The card's shell around its head, its body and its footer band. */
+/**
+ * The card's shell around its head, its body and its footer band. `singleLine` is an answered card
+ * that folds to a `singleLine` head: the shell every one-line card shares (`singleLineCard.ts`).
+ */
 export function AskCard({
   head,
   children,
   footer,
   style,
+  singleLine,
 }: {
   head: ReactNode;
   children?: ReactNode;
   footer?: ReactNode;
   style?: StyleProp<ViewStyle>;
+  singleLine?: boolean;
 }) {
   const styles = useStyles();
+  const P = useTranscriptTheme();
   const hasBody = children !== undefined && children !== null && children !== false;
   return (
-    <View style={[styles.card, style]}>
+    <View style={[styles.card, singleLine === true && singleLineShell(P), style]}>
       {head}
-      {hasBody ? <View style={styles.body}>{children}</View> : null}
+      {hasBody ? <View style={[styles.body, singleLine === true && styles.singleLineBody]}>{children}</View> : null}
       {footer !== undefined && footer !== null ? <View style={styles.footer}>{footer}</View> : null}
     </View>
   );
 }
 
-/** The 28px tile that leads the card's head. */
-export function AskTile({ icon, tone }: { icon: GlyphName; tone: AskTone }) {
+/** The 28px tile that leads the card's head; a one-line card's is smaller so the row keeps its height. */
+export function AskTile({ icon, tone, small }: { icon: GlyphName; tone: AskTone; small?: boolean }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
   const hue = toneColor(tone, P);
   // A waiting question's amber is a light tint; the answered and quiet tiles keep their strength (desktop ask_card.rs).
   const [ring, fill, ink] = tone === 'ask' ? [0.14, 0.09, 0.8] : [0.22, 0.15, 1];
+  const box = small === true ? SINGLE_LINE_CARD.iconBox : 28;
   return (
-    <View style={[styles.tile, { backgroundColor: tint(hue, fill), borderColor: tint(hue, ring) }]}>
-      <Glyph name={icon} size={15} color={ink < 1 ? tint(hue, ink) : hue} />
+    <View
+      style={[
+        styles.tile,
+        { width: box, height: box, borderRadius: (box * 2) / 7, backgroundColor: tint(hue, fill), borderColor: tint(hue, ring) },
+      ]}
+    >
+      <Glyph name={icon} size={small === true ? SINGLE_LINE_CARD.iconSize : 15} color={ink < 1 ? tint(hue, ink) : hue} />
     </View>
   );
 }
 
 /**
  * The head row: tile, title over a muted detail line, then whatever trails it. With `onPress` the
- * whole row folds the card and lights edge to edge when pressed.
+ * whole row folds the card and lights edge to edge when pressed. `singleLine` is the 44pt head of a
+ * card that folds to one line, in the fold's title type (`singleLineCard.ts`).
  */
 export function AskHead({
   icon,
@@ -90,6 +104,7 @@ export function AskHead({
   chevron,
   onPress,
   accessibilityLabel,
+  singleLine,
 }: {
   icon: GlyphName;
   tone: AskTone;
@@ -100,14 +115,17 @@ export function AskHead({
   chevron?: 'open' | 'closed';
   onPress?: () => void;
   accessibilityLabel?: string;
+  singleLine?: boolean;
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
+  const compact = singleLine === true;
+  const headStyle = compact ? [styles.head, styles.singleLineHead] : styles.head;
   const content = (
     <>
-      <AskTile icon={icon} tone={tone} />
+      <AskTile icon={icon} tone={tone} small={compact} />
       <View style={styles.titles}>
-        <Text style={styles.title} numberOfLines={1}>
+        <Text style={compact ? [styles.title, SINGLE_LINE_TITLE] : styles.title} numberOfLines={1}>
           {title}
         </Text>
         {detail !== undefined && detail.length > 0 ? (
@@ -120,13 +138,13 @@ export function AskHead({
       {chevron !== undefined ? <Glyph name={chevron === 'open' ? 'chevron-up' : 'chevron-down'} size={14} color={P.muted} /> : null}
     </>
   );
-  if (onPress === undefined) return <View style={styles.head}>{content}</View>;
+  if (onPress === undefined) return <View style={headStyle}>{content}</View>;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
-      style={({ pressed }) => [styles.head, pressed && { backgroundColor: P.pressedFill }]}
+      style={({ pressed }) => [headStyle, pressed && { backgroundColor: P.pressedFill }]}
     >
       {content}
     </Pressable>
@@ -337,10 +355,12 @@ const useStyles = themedStyles((P) => ({
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
+  singleLineHead: {
+    height: SINGLE_LINE_HEADER_HEIGHT,
+    paddingHorizontal: SINGLE_LINE_CARD.paddingX,
+    paddingVertical: 0,
+  },
   tile: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -363,6 +383,10 @@ const useStyles = themedStyles((P) => ({
   body: {
     paddingHorizontal: 14,
     paddingBottom: 14,
+  },
+  singleLineBody: {
+    paddingHorizontal: SINGLE_LINE_CARD.paddingX,
+    paddingBottom: SINGLE_LINE_CARD.paddingX,
   },
   footer: {
     flexDirection: 'row',

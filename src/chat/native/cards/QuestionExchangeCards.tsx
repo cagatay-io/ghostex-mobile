@@ -72,13 +72,14 @@ function ExchangeCard({ exchange }: { exchange: unknown }) {
   const hasRows = total > 0 || fallback.length > 0;
   return (
     <AskCard
+      singleLine
       head={
         <AskHead
+          singleLine
           icon={icon}
           tone={tone}
           title={title}
           detail={detail}
-          chevron={open ? 'open' : 'closed'}
           accessibilityLabel={open ? 'Hide the answers' : 'Show the answers'}
           onPress={() => setOpen(!open)}
         />

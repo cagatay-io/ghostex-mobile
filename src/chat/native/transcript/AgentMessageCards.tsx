@@ -1,10 +1,11 @@
 /**
  * The cards for messages between agents (desktop `inter_agent_message.rs`): one another agent sent
- * this session, one this session's agent sent another, and a subagent's reply. Each is one 40px row
+ * this session, one this session's agent sent another, and a subagent's reply. Each is one 44pt row
  * (the agent's logo, one sentence such as `Message from "<session>"` that reads the same collapsed and
- * opened, the time, the status and a chevron) that opens to the whole message. Everything a card says is the core's
+ * opened, the time and the status as a pill, no chevron) that opens to the whole message. Everything a card says is the core's
  * `card` object (`agent_message_card.rs`; the user's pick is the `CDXC:SessionChat 2026-10-12 DECISION` there);
- * this file only lays it out. The phone has no hover, so Go to session sits in the opened message;
+ * this file only lays it out, in the shell, height and title type every one-line card shares
+ * (`singleLineCard.ts`). The phone has no hover, so Go to session sits in the opened message;
  * a message sent to several sessions lists each of them there instead, each name opening its session.
  */
 
@@ -19,6 +20,7 @@ import { useNativeChatUi, useTranscriptEnv } from './context';
 import { Glyph, type GlyphName } from './icons';
 import { arr, obj, str, type JsonRecord } from './json';
 import { Markdown } from './markdown/Markdown';
+import { SINGLE_LINE_CARD, SINGLE_LINE_HEADER_HEIGHT, SINGLE_LINE_TITLE, SingleLinePill, singleLineShell } from './singleLineCard';
 import { useDisclosure } from './state';
 import type { TranscriptTheme } from './theme';
 
@@ -55,7 +57,7 @@ function Mark({ card }: { card: JsonRecord }) {
   );
 }
 
-/** Delivered is a small check; Queued, Waiting for agent and Not sent say so in their colour. */
+/** A pill (`singleLineCard.tsx`): Delivered is a green check; Queued, Waiting for agent and Not sent say so in their colour. */
 function Status({ status }: { status: JsonRecord }) {
   const { theme } = useTranscriptEnv();
   const color = toneColor(str(status, 'tone'), theme);
@@ -63,9 +65,8 @@ function Status({ status }: { status: JsonRecord }) {
   const glyph: GlyphName = icon === 'alert' ? 'alert-triangle' : icon === 'clock' ? 'clock' : 'check';
   const iconOnly = status.iconOnly === true;
   return (
-    <View style={styles.status} accessibilityRole='text' accessibilityLabel={str(status, 'hint')}>
-      <Glyph name={glyph} size={iconOnly ? 13 : 12} color={color} strokeWidth={2.2} />
-      {iconOnly ? null : <Text style={[styles.small, { color }]}>{str(status, 'label')}</Text>}
+    <View accessibilityRole='text' accessibilityLabel={str(status, 'hint')}>
+      <SingleLinePill icon={glyph} label={iconOnly ? undefined : str(status, 'label')} color={color} />
     </View>
   );
 }
@@ -98,7 +99,7 @@ const AgentCard = memo(function AgentCard({
   const showSession = failure.length === 0 && session !== null;
 
   return (
-    <View style={[styles.card, { borderColor: theme.inputBorder, backgroundColor: theme.cardPanel }]}>
+    <View style={[styles.card, singleLineShell(theme)]}>
       <Pressable
         disabled={!expandable}
         onPress={toggle}
@@ -108,12 +109,11 @@ const AgentCard = memo(function AgentCard({
         style={({ pressed }) => [styles.row, pressed && expandable && { backgroundColor: theme.ink(0.04) }]}
       >
         <Mark card={card} />
-        <Text style={[styles.name, { color: theme.foreground }]} numberOfLines={1}>
+        <Text style={[SINGLE_LINE_TITLE, styles.name, { color: theme.foreground }]} numberOfLines={1}>
           {str(card, 'name')}
         </Text>
         {time.length > 0 ? <Text style={[styles.small, { color: theme.muted }]}>{time}</Text> : null}
         {status !== null ? <Status status={status} /> : null}
-        {expandable ? <Glyph name={open ? 'chevron-down' : 'chevron-right'} size={14} color={theme.muted} /> : null}
       </Pressable>
       {open ? (
         <View style={[styles.opened, { borderTopColor: hairline }]}>
@@ -221,9 +221,9 @@ export function SentAgentMessageCards({ cards }: { cards: unknown }) {
 
 const styles = StyleSheet.create({
   column: { gap: 8, minWidth: 0 },
-  card: { borderWidth: 1, borderRadius: 10, overflow: 'hidden', minWidth: 0 },
-  row: { height: 40, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 9 },
-  name: { flex: 1, minWidth: 0, fontSize: 14, fontWeight: '600' },
+  card: { minWidth: 0 },
+  row: { height: SINGLE_LINE_HEADER_HEIGHT, paddingHorizontal: SINGLE_LINE_CARD.paddingX, flexDirection: 'row', alignItems: 'center', gap: 9 },
+  name: { flex: 1, minWidth: 0 },
   small: { fontSize: 12, lineHeight: 16 },
   mark: { width: 17, height: 17 },
   badge: {
@@ -237,7 +237,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  status: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   opened: { borderTopWidth: 1, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10, gap: 6 },
   goto: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 4, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, marginLeft: -6 },
   gotoText: { fontSize: 12.5, lineHeight: 17 },
