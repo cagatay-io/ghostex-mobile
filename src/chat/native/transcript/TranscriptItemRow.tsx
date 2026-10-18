@@ -1,6 +1,6 @@
 /**
  * One transcript item (desktop `transcript.rs` `transcript_item_row`): a message, a summary-mode
- * turn, or a finished turn folded behind its "Worked 2m 5s" summary (`completed_work_row.rs`,
+ * turn, or a finished turn folded behind its "Worked for 2m 5s" summary (`completed_work_row.rs`,
  * `deferred_work.rs`). A kind this build does not know draws nothing.
  */
 
@@ -115,7 +115,7 @@ function CompletedWorkRow({ item }: { item: CompletedWorkItem }) {
 
 /**
  * The bar a finished turn folds behind (desktop `work_summary` in `completed_work_row.rs`): a
- * chevron, "Worked 2m 5s", and the turn's counts as chips (gx-chat-core `work_summary.rs`), so the
+ * chevron, "Worked for 2m 5s", and the turn's counts as chips (gx-chat-core `work_summary.rs`), so the
  * closed fold still says what happened.
  */
 function WorkSummary({ item, open, onToggle }: { item: CompletedWorkItem; open: boolean; onToggle(): void }) {

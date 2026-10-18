@@ -159,7 +159,7 @@ export type SummaryItem = {
   latestReply?: boolean;
 };
 
-/** One count beside a finished turn's "Worked 2m 5s" (gx-chat-core `work_summary.rs`). */
+/** One count beside a finished turn's "Worked for 2m 5s" (gx-chat-core `work_summary.rs`). */
 export type WorkStat = {
   /** Picks the chip's glyph and tone. */
   kind: 'tools' | 'files' | 'failed' | 'recovered';
@@ -167,12 +167,12 @@ export type WorkStat = {
   label: string;
 };
 
-/** A finished turn in verbose mode: "Worked 2m 5s" with its counts, plus its file changes in one
+/** A finished turn in verbose mode: "Worked for 2m 5s" with its counts, plus its file changes in one
  * fold. Desktop: `completed_work_row.rs`, `deferred_work.rs`. */
 export type CompletedWorkItem = {
   kind: 'completed-work';
   id: string;
-  /** "Worked 2m 5s". */
+  /** "Worked for 2m 5s". */
   label: string;
   /** The counts the summary bar shows beside the label; omitted when there are none. */
   stats?: WorkStat[];
@@ -793,7 +793,7 @@ export type WorkingCard = {
   phase: 'working' | 'worked' | 'idle';
   /** The spark turns. */
   working: boolean;
-  /** One line: the running tool's, a live activity's, the working word or "Worked 2m 13s"; null with pills only. */
+  /** One line: the running tool's, a live activity's, the working word or "Worked for 2m 13s"; null with pills only. */
   label: string | null;
   labelKind: 'tool' | 'activity' | 'word' | 'worked' | null;
   /** A live activity's clock and progress: `elapsedLabel`, `tokens`, `percent`, `indeterminate`, `hint`. */

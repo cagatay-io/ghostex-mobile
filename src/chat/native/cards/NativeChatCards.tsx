@@ -18,6 +18,7 @@
 import { useRef } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions } from 'react-native';
 
+import type { ChatDocument } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
 import { ApiErrorCard } from './ApiErrorCard';
 import { AsyncQuestionsCard } from './AsyncQuestionsCard';
@@ -33,6 +34,17 @@ function unrecordedApiError(card: unknown): boolean {
   return value !== null && value.messageId === null;
 }
 
+/** Whether this stack draws anything, so the working card above it knows what it sits on (`WorkingCard.tsx`). */
+export function chatCardsShown(document: ChatDocument): boolean {
+  return (
+    typeof document.operationError === 'string' ||
+    (obj(document.terminalNotice) !== null && document.noticeVisible === true) ||
+    unrecordedApiError(document.apiErrorCard) ||
+    typeof document.asyncQuestions?.question?.key === 'string' ||
+    document.questionCard?.visible === true
+  );
+}
+
 export type NativeChatCardsProps = {
   chat: RustChat;
   /** The app-shell actions a card offers (Terminal View, Switch account). Without it those buttons are not drawn. */
@@ -44,13 +56,7 @@ export function NativeChatCards({ chat, onHostAction }: NativeChatCardsProps) {
   const band = useRef<ScrollView>(null);
   const document = chat.state?.document ?? null;
   if (document === null) return null;
-  const hasAny =
-    typeof document.operationError === 'string' ||
-    (obj(document.terminalNotice) !== null && document.noticeVisible === true) ||
-    unrecordedApiError(document.apiErrorCard) ||
-    typeof document.asyncQuestions?.question?.key === 'string' ||
-    document.questionCard?.visible === true;
-  if (!hasAny) return null;
+  if (!chatCardsShown(document)) return null;
   return (
     // A phone is short: several cards at once scroll inside a band so the transcript keeps its room.
     // When the band overflows, the newest card (the blocking question, nearest the composer) stays in view.

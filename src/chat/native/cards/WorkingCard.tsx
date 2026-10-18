@@ -23,6 +23,7 @@ import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { IconPill, Pill, PillMenuSheet, QuestionPill } from './ChatPills';
 import { Glyph } from './icons';
 import { isTrue, num, obj, str } from './json';
+import { chatCardsShown } from './NativeChatCards';
 import { PulseDot, Spinner } from './primitives';
 import { ProgressTrack, VISUAL, WorkingSpark, type ArmedAction } from './WorkingStrip';
 
@@ -31,6 +32,30 @@ const ROW_MAX_WIDTH = 768;
 /** The transcript's end padding under its newest row (`Transcript.tsx` `END_PADDING`). */
 const END_PADDING = 16;
 const HEADER_PAD_Y = 6;
+
+/**
+ * The gap between the card's bottom edge and the chat box's top edge when nothing stacks between
+ * them; the composer brings 6 of it (`NativeComposer.tsx` `root.paddingTop`), the card's row the rest.
+ *
+ * CDXC:SessionChat 2026-10-18 DECISION:
+ * User, pointing at the gap between the working card and the chat box: "reduce the margin here to
+ * 9px". Only that gap changes; a card or panel stacked between them keeps the usual spacing. Desktop:
+ * `WORKING_CARD_GAP` in apps/desktop/src/app/native_chat/working_card.rs.
+ */
+const BOX_GAP = 9;
+const COMPOSER_TOP_PADDING = 6;
+
+/** Nothing stacks between the card and the chat box: no card band and nothing above the box in the composer. */
+function sitsOnBox(document: ChatDocument): boolean {
+  return (
+    !chatCardsShown(document) &&
+    document.incomingDraft === null &&
+    !document.note.open &&
+    document.catchUp?.open !== true &&
+    obj(document.suggestions) === null &&
+    document.runLocation === undefined
+  );
+}
 
 /** Whether the card shows: the core has something for it, or a timer is armed. */
 function cardShown(document: ChatDocument, armed: readonly ArmedAction[]): boolean {
@@ -67,7 +92,7 @@ export function WorkingCard({
   const label = card.label;
   return (
     <View style={styles.row}>
-      <View style={styles.column}>
+      <View style={[styles.column, sitsOnBox(document) && { paddingBottom: BOX_GAP - COMPOSER_TOP_PADDING }]}>
         <Pressable
           disabled={label === null}
           onLongPress={label !== null ? () => setHeld(true) : undefined}
