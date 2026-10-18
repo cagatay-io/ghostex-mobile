@@ -33,7 +33,7 @@ export const SINGLE_LINE_CARD = {
   borderAlpha: 0.06,
   pill: { paddingX: 8, paddingY: 2, gap: 5, textSize: 11.5, lineHeight: 16, iconSize: 12, borderAlpha: 0.1 },
   tile: { size: 22, radius: 6, glyphSize: 14, fillAlpha: 0.06, glyphAlpha: 0.8 },
-  badge: { size: 13, ring: 2, offset: -4, glyphSize: 8, fill: '#16a34a' },
+  badge: { size: 13, ring: 2, offset: -4, glyphSize: 8, fill: '#16a34a', errorFill: '#dc2626' },
 };
 
 /** The fold's border width, which the header inside a shell leaves room for. */
@@ -73,43 +73,58 @@ export function SingleLinePill({ icon, label, color }: { icon?: GlyphName; label
 }
 
 /**
- * The tile leading the fold (`clock`, with the green check badge when `checked`) and the question
- * cards (`question`). The glyphs are the mockup's own 16-unit drawings (desktop
- * `assets/titlebar/chat-card-*.svg`), not the 24-unit Tabler set `Glyph` draws.
+ * The tile leading a one-line card: the fold's `clock` and the question cards' `question` (the
+ * mockup's own 16-unit drawings, desktop `assets/titlebar/chat-card-*.svg`), or any transcript
+ * `Glyph` (a status card's). `badge` puts the green check or the red cross at its bottom right.
  */
-export function SingleLineTile({ glyph, checked }: { glyph: 'clock' | 'question'; checked?: boolean }) {
+export function SingleLineTile({ glyph, badge }: { glyph: 'clock' | 'question' | GlyphName; badge?: 'check' | 'error' }) {
   const theme = useTranscriptTheme();
-  const { tile, badge } = SINGLE_LINE_CARD;
+  const { tile } = SINGLE_LINE_CARD;
   const ink = theme.ink(tile.glyphAlpha);
   return (
     <View style={[styles.tile, { backgroundColor: theme.ink(tile.fillAlpha) }]}>
-      <Svg width={tile.glyphSize} height={tile.glyphSize} viewBox='0 0 16 16' fill='none' stroke={ink}>
-        {glyph === 'clock' ? (
-          <>
-            <Circle cx={8} cy={8} r={5.8} strokeWidth={1.4} />
-            <Path d='M8 4.8V8l2.2 1.4' strokeWidth={1.4} strokeLinecap='round' />
-          </>
-        ) : (
-          <>
+      {glyph === 'clock' || glyph === 'question' ? (
+        <Svg width={tile.glyphSize} height={tile.glyphSize} viewBox='0 0 16 16' fill='none' stroke={ink}>
+          {glyph === 'clock' ? (
+            <>
+              <Circle cx={8} cy={8} r={5.8} strokeWidth={1.4} />
+              <Path d='M8 4.8V8l2.2 1.4' strokeWidth={1.4} strokeLinecap='round' />
+            </>
+          ) : (
+            <>
+              <Path
+                d='M3 3.5h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5V11.5H3a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z'
+                strokeWidth={1.3}
+                strokeLinejoin='round'
+              />
+              <Path d='M6.6 6.2a1.5 1.5 0 1 1 2.1 1.4c-.5.2-.7.5-.7 1' strokeWidth={1.3} strokeLinecap='round' />
+              <Circle cx={8} cy={10} r={0.7} fill={ink} stroke='none' />
+            </>
+          )}
+        </Svg>
+      ) : (
+        <Glyph name={glyph} size={tile.glyphSize} color={ink} />
+      )}
+      {badge !== undefined ? (
+        <SingleLineBadge fill={badge === 'error' ? SINGLE_LINE_CARD.badge.errorFill : SINGLE_LINE_CARD.badge.fill}>
+          <Svg width={SINGLE_LINE_CARD.badge.glyphSize} height={SINGLE_LINE_CARD.badge.glyphSize} viewBox='0 0 10 10' fill='none'>
             <Path
-              d='M3 3.5h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5V11.5H3a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z'
-              strokeWidth={1.3}
+              d={badge === 'error' ? 'M3.2 3.2 6.8 6.8M6.8 3.2 3.2 6.8' : 'M2 5.2 4.2 7.4 8 2.8'}
+              stroke='#ffffff'
+              strokeWidth={1.8}
+              strokeLinecap='round'
               strokeLinejoin='round'
             />
-            <Path d='M6.6 6.2a1.5 1.5 0 1 1 2.1 1.4c-.5.2-.7.5-.7 1' strokeWidth={1.3} strokeLinecap='round' />
-            <Circle cx={8} cy={10} r={0.7} fill={ink} stroke='none' />
-          </>
-        )}
-      </Svg>
-      {checked === true ? (
-        <SingleLineBadge fill={badge.fill}>
-          <Svg width={badge.glyphSize} height={badge.glyphSize} viewBox='0 0 10 10' fill='none'>
-            <Path d='M2 5.2 4.2 7.4 8 2.8' stroke='#ffffff' strokeWidth={1.8} strokeLinecap='round' strokeLinejoin='round' />
           </Svg>
         </SingleLineBadge>
       ) : null}
     </View>
   );
+}
+
+/** What a one-line card shows while it is pressed, the desktop's hover fill (`card_hover_fill`). */
+export function singleLinePressed(theme: TranscriptTheme): ViewStyle {
+  return { backgroundColor: theme.ink(0.04) };
 }
 
 /**

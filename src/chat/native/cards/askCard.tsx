@@ -13,7 +13,7 @@ import type { ReactNode } from 'react';
 import { Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { Glyph, type GlyphName } from './icons';
-import { SINGLE_LINE_CARD, SINGLE_LINE_HEADER_HEIGHT, SINGLE_LINE_TITLE, SingleLineTile, singleLineShell } from '../transcript/singleLineCard';
+import { SINGLE_LINE_CARD, SINGLE_LINE_HEADER_HEIGHT, SINGLE_LINE_TITLE, SingleLineTile, singleLinePressed, singleLineShell } from '../transcript/singleLineCard';
 import { MONO_FONT, themedStyles, useTranscriptTheme, type TranscriptTheme } from '../transcript/theme';
 
 /** What a card's tile says about the question: waiting, answered, or closed without an answer. */
@@ -139,7 +139,7 @@ export function AskHead({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
-      style={({ pressed }) => [headStyle, pressed && { backgroundColor: P.pressedFill }]}
+      style={({ pressed }) => [headStyle, pressed && (compact ? singleLinePressed(P) : { backgroundColor: P.pressedFill })]}
     >
       {content}
     </Pressable>

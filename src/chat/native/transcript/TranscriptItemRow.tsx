@@ -16,7 +16,7 @@ import { obj } from './json';
 import { MessageRow } from './MessageRow';
 import { SentAgentMessageCards } from './AgentMessageCards';
 import { useDisclosure } from './state';
-import { SINGLE_LINE_CARD, SINGLE_LINE_TITLE, SingleLinePill, SingleLineTile, singleLineShell } from './singleLineCard';
+import { SINGLE_LINE_CARD, SINGLE_LINE_TITLE, SingleLinePill, SingleLineTile, singleLinePressed, singleLineShell } from './singleLineCard';
 import { PROSE_SIZE } from './theme';
 
 const IN_WORK_FOLD = { inWorkFold: true, hideFileChanges: true };
@@ -129,10 +129,10 @@ function WorkSummary({ item, open, onToggle }: { item: CompletedWorkItem; open: 
       accessibilityRole='button'
       accessibilityLabel={spoken}
       accessibilityState={{ expanded: open }}
-      style={({ pressed }) => [styles.summary, singleLineShell(theme), pressed && { backgroundColor: theme.input }]}
+      style={({ pressed }) => [styles.summary, singleLineShell(theme), pressed && singleLinePressed(theme)]}
     >
-      <SingleLineTile glyph='clock' checked />
-      <Text style={[SINGLE_LINE_TITLE, { color: item.expandable ? theme.foreground : theme.muted }]}>{item.label}</Text>
+      <SingleLineTile glyph='clock' badge='check' />
+      <Text style={[SINGLE_LINE_TITLE, { color: theme.foreground }]}>{item.label}</Text>
       {/* The count pills sit at the row's right end and wrap among themselves (desktop `work_summary`). */}
       <View style={styles.chips}>
         {stats.map((stat) => {

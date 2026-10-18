@@ -20,7 +20,7 @@ import { useNativeChatUi, useTranscriptEnv } from './context';
 import { Glyph, type GlyphName } from './icons';
 import { arr, obj, str, type JsonRecord } from './json';
 import { Markdown } from './markdown/Markdown';
-import { SINGLE_LINE_CARD, SINGLE_LINE_HEADER_HEIGHT, SINGLE_LINE_TITLE, SingleLineBadge, SingleLinePill, singleLineShell } from './singleLineCard';
+import { SINGLE_LINE_CARD, SINGLE_LINE_HEADER_HEIGHT, SINGLE_LINE_TITLE, SingleLineBadge, SingleLinePill, singleLinePressed, singleLineShell } from './singleLineCard';
 import { useDisclosure } from './state';
 import type { TranscriptTheme } from './theme';
 
@@ -55,16 +55,15 @@ function Mark({ card }: { card: JsonRecord }) {
   );
 }
 
-/** A pill (`singleLineCard.tsx`): Delivered is a green check; Queued, Waiting for agent and Not sent say so in their colour. */
+/** A pill (`singleLineCard.tsx`) with its glyph and word: Delivered in green, like Answered; Queued, Waiting for agent and Not sent in their colour. */
 function Status({ status }: { status: JsonRecord }) {
   const { theme } = useTranscriptEnv();
   const color = toneColor(str(status, 'tone'), theme);
   const icon = str(status, 'icon');
   const glyph: GlyphName = icon === 'alert' ? 'alert-triangle' : icon === 'clock' ? 'clock' : 'check';
-  const iconOnly = status.iconOnly === true;
   return (
     <View accessibilityRole='text' accessibilityLabel={str(status, 'hint')}>
-      <SingleLinePill icon={glyph} label={iconOnly ? undefined : str(status, 'label')} color={color} />
+      <SingleLinePill icon={glyph} label={str(status, 'label')} color={color} />
     </View>
   );
 }
@@ -104,7 +103,7 @@ const AgentCard = memo(function AgentCard({
         accessibilityRole={expandable ? 'button' : undefined}
         accessibilityLabel={str(card, 'title')}
         accessibilityState={expandable ? { expanded: open } : undefined}
-        style={({ pressed }) => [styles.row, pressed && expandable && { backgroundColor: theme.ink(0.04) }]}
+        style={({ pressed }) => [styles.row, pressed && expandable && singleLinePressed(theme)]}
       >
         <Mark card={card} />
         <Text style={[SINGLE_LINE_TITLE, styles.name, { color: theme.foreground }]} numberOfLines={1}>

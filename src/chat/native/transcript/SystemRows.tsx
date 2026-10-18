@@ -6,7 +6,7 @@
  * cards area's (`../cards/QuestionExchangeCards.tsx`). Which card a row is comes from the core; this file only lays it out.
  */
 
-import { memo, type ReactNode } from 'react';
+import { memo, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { ProjectedMessage } from '../../rust/document';
@@ -17,6 +17,7 @@ import { arr, obj, str, type JsonRecord } from './json';
 import { Markdown } from './markdown/Markdown';
 import { useDisclosure } from './state';
 import { SubagentMessageCard } from './AgentMessageCards';
+import { SINGLE_LINE_CARD, SINGLE_LINE_TITLE, SingleLinePill, SingleLineTile, singleLineShell } from './singleLineCard';
 import { MONO_FONT, PROSE_LINE, PROSE_SIZE } from './theme';
 
 /** Collapsed, a goal shows this many lines of its objective. */
@@ -197,12 +198,15 @@ function SystemMarker({ card }: { card: JsonRecord }) {
 
 // ---- harness-injected turns ----------------------------------------------------------------
 
-/** The tone table React's status rows read (`status-tone.json`). */
-const TONES: { [tone: string]: { glyph: GlyphName; color: string | null } } = {
-  ok: { glyph: 'check', color: '#34d399' },
-  error: { glyph: 'alert-triangle', color: '#fb7185' },
-  neutral: { glyph: 'info-circle', color: null },
-};
+/** The status tones' colours (`status-tone.json`); a trailing fact takes its tone's, a neutral one muted. */
+const TONE_COLORS: { [tone: string]: string | null } = { ok: '#34d399', error: '#fb7185', neutral: null };
+
+/** What a status card's tile shows (`subject` from the core's `suppressed_turn_presentation`). */
+function subjectGlyph(subject: string): GlyphName {
+  if (subject === 'task') return 'terminal-2';
+  if (subject === 'compaction') return 'arrows-diagonal-minimize';
+  return 'adjustments-horizontal';
+}
 
 export const SuppressedRow = memo(function SuppressedRow({ message }: { message: ProjectedMessage }) {
   const suppressed = obj(message.suppressed);
@@ -220,32 +224,47 @@ export const SuppressedRow = memo(function SuppressedRow({ message }: { message:
 function StatusRows({ suppressed }: { suppressed: JsonRecord }) {
   const listed = arr(suppressed.statuses).map((status) => obj(status)).filter((status): status is JsonRecord => status !== null);
   const statuses = listed.length > 0 ? listed : [{ label: suppressed.label, tone: suppressed.tone } as JsonRecord];
+  const glyph = subjectGlyph(str(suppressed, 'subject'));
   return (
     <View style={styles.statusColumn}>
       {statuses.map((status, index) => (
-        <StatusPill key={index} label={str(status, 'label')} detail={str(status, 'detail')} tone={str(status, 'tone')} />
+        <StatusRowCard key={index} glyph={glyph} label={str(status, 'label')} detail={str(status, 'detail')} tone={str(status, 'tone')} />
       ))}
     </View>
   );
 }
 
-function StatusPill({ label, detail, tone }: { label: string; detail: string; tone: string }) {
+/**
+ * A status as a one-line card (desktop `status_row` in `status_rows.rs`): a tile for what it is
+ * about with its tone as the badge (a green check, a red cross, none when neutral), the sentence on
+ * one line, and a trailing fact such as "exit code 1" as a pill. Holding the card shows the whole
+ * sentence above it, so the card keeps its height.
+ */
+function StatusRowCard({ glyph, label, detail, tone }: { glyph: GlyphName; label: string; detail: string; tone: string }) {
   const { theme } = useTranscriptEnv();
-  const spec = TONES[tone] ?? TONES.ok!;
-  const color = spec.color ?? theme.cardMuted;
+  const [held, setHeld] = useState(false);
+  const badge = tone === 'error' ? 'error' : tone === 'neutral' ? undefined : 'check';
+  const detailColor = tone === 'error' ? (TONE_COLORS.error ?? theme.cardMuted) : theme.cardMuted;
   return (
-    <View style={[styles.statusPill, { borderColor: theme.border, backgroundColor: theme.input }]}>
-      <View style={[styles.statusBadge, { backgroundColor: spec.color !== null ? `${spec.color}26` : theme.border }]}>
-        <Glyph name={spec.glyph} size={10} color={color} strokeWidth={2.4} />
-      </View>
-      <View style={styles.statusText}>
-        <Text style={[styles.statusLabel, { color: theme.muted }]}>{label}</Text>
-        {detail.length > 0 ? (
-          <View style={[styles.statusDetail, { borderColor: theme.border }]}>
-            <Text style={[styles.statusDetailText, { color: theme.muted }]}>{detail}</Text>
-          </View>
-        ) : null}
-      </View>
+    <View>
+      <Pressable
+        onLongPress={() => setHeld(true)}
+        onPressOut={() => setHeld(false)}
+        accessibilityRole='text'
+        accessibilityLabel={detail.length > 0 ? `${label}, ${detail}` : label}
+        style={[styles.statusCard, singleLineShell(theme)]}
+      >
+        <SingleLineTile glyph={glyph} {...(badge !== undefined ? { badge } : {})} />
+        <Text style={[SINGLE_LINE_TITLE, styles.statusLabel, { color: theme.foreground }]} numberOfLines={1} ellipsizeMode='tail'>
+          {label}
+        </Text>
+        {detail.length > 0 ? <SingleLinePill label={detail} color={detailColor} /> : null}
+      </Pressable>
+      {held ? (
+        <View pointerEvents='none' style={[styles.statusBubble, { borderColor: theme.inputBorder, backgroundColor: theme.cardPanel }]}>
+          <Text style={[styles.statusBubbleText, { color: theme.foreground }]}>{label}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -346,13 +365,29 @@ const styles = StyleSheet.create({
   commandBody: { maxHeight: 384, paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 1 },
   commandText: { fontFamily: MONO_FONT, fontSize: 12, lineHeight: 19.5 },
   markerRow: { paddingBottom: 8 },
-  statusColumn: { alignItems: 'flex-start', gap: 6 },
-  statusPill: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6, maxWidth: '100%' },
-  statusBadge: { width: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  statusText: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, flexShrink: 1 },
-  statusLabel: { fontSize: 12, lineHeight: 16, fontWeight: '500' },
-  statusDetail: { borderRadius: 6, borderWidth: 1, paddingHorizontal: 6 },
-  statusDetailText: { fontFamily: MONO_FONT, fontSize: 11 },
+  statusColumn: { gap: 8, minWidth: 0 },
+  statusCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    height: SINGLE_LINE_CARD.height,
+    paddingHorizontal: SINGLE_LINE_CARD.paddingX,
+    minWidth: 0,
+  },
+  statusLabel: { flex: 1, minWidth: 0 },
+  /** The whole sentence while the card is held, above the card (`WorkingCard.tsx`'s bubble). */
+  statusBubble: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: '100%',
+    marginBottom: -2,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  statusBubbleText: { fontSize: 13, lineHeight: 18 },
   lane: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, paddingBottom: 13 },
   laneText: { flex: 1 },
   collapsed: { gap: 6, paddingBottom: 8 },

@@ -113,7 +113,7 @@ function QuestionFormCard({ id, source }: { id: string; source: string }) {
           <AskHead
             singleLine
             title={str(form, 'title') || 'Questions'}
-            trailing={<SingleLinePill label="Answered" color={answeredColor(theme.light)} />}
+            trailing={<SingleLinePill icon="check" label="Answered" color={answeredColor(theme.light)} />}
             accessibilityLabel={open ? 'Hide the questions' : 'Show the questions'}
             onPress={() => dispatch({ type: 'formToggle', form: id })}
           />
