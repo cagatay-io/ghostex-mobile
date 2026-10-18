@@ -82,7 +82,7 @@ export function SingleLineTile({ glyph, badge }: { glyph: 'clock' | 'question' |
   const { tile } = SINGLE_LINE_CARD;
   const ink = theme.ink(tile.glyphAlpha);
   return (
-    <View style={[styles.tile, { backgroundColor: theme.ink(tile.fillAlpha) }]}>
+    <SingleLineTileBox>
       {glyph === 'clock' || glyph === 'question' ? (
         <Svg width={tile.glyphSize} height={tile.glyphSize} viewBox='0 0 16 16' fill='none' stroke={ink}>
           {glyph === 'clock' ? (
@@ -118,8 +118,17 @@ export function SingleLineTile({ glyph, badge }: { glyph: 'clock' | 'question' |
           </Svg>
         </SingleLineBadge>
       ) : null}
-    </View>
+    </SingleLineTileBox>
   );
+}
+
+/**
+ * The tile without its glyph, for a mark that brings its own colours (the agent's logo on
+ * "Message from", drawn at `SINGLE_LINE_CARD.tile.glyphSize`); a badge goes in as a child.
+ */
+export function SingleLineTileBox({ children }: { children: ReactNode }) {
+  const theme = useTranscriptTheme();
+  return <View style={[styles.tile, { backgroundColor: theme.ink(SINGLE_LINE_CARD.tile.fillAlpha) }]}>{children}</View>;
 }
 
 /** What a one-line card shows while it is pressed, the desktop's hover fill (`card_hover_fill`). */

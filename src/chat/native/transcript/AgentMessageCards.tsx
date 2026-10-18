@@ -20,7 +20,7 @@ import { useNativeChatUi, useTranscriptEnv } from './context';
 import { Glyph, type GlyphName } from './icons';
 import { arr, obj, str, type JsonRecord } from './json';
 import { Markdown } from './markdown/Markdown';
-import { SINGLE_LINE_CARD, SINGLE_LINE_HEADER_HEIGHT, SINGLE_LINE_TITLE, SingleLineBadge, SingleLinePill, singleLinePressed, singleLineShell } from './singleLineCard';
+import { SINGLE_LINE_CARD, SINGLE_LINE_HEADER_HEIGHT, SINGLE_LINE_TITLE, SingleLineBadge, SingleLinePill, SingleLineTileBox, singleLinePressed, singleLineShell } from './singleLineCard';
 import { useDisclosure } from './state';
 import type { TranscriptTheme } from './theme';
 
@@ -33,25 +33,32 @@ function toneColor(tone: string, theme: TranscriptTheme): string {
 /**
  * The agent's own logo (a coordinator's crown, `CDXC:Coordinators 2026-10-15` in the core's
  * agent_message_card.rs) with a small arrow badge (prose grey coming in, sky going out), or a
- * subagent's sparkle, the size of the fold's tile (`SINGLE_LINE_CARD.tile`) so the left icons line up.
+ * subagent's sparkle, inside the fold's tile (`SingleLineTileBox`) so the left icons look alike.
  */
 function Mark({ card }: { card: JsonRecord }) {
   const { theme } = useTranscriptEnv();
   const direction = str(card, 'direction');
-  if (direction === 'subagent') return <Glyph name='sparkles' size={SINGLE_LINE_CARD.tile.size} color={theme.prose} />;
+  const size = SINGLE_LINE_CARD.tile.glyphSize;
+  if (direction === 'subagent') {
+    return (
+      <SingleLineTileBox>
+        <Glyph name='sparkles' size={size} color={theme.prose} />
+      </SingleLineTileBox>
+    );
+  }
   const sent = direction === 'sent';
   const icon = str(card, 'agentIcon');
   return (
-    <View style={styles.mark}>
+    <SingleLineTileBox>
       {card.coordinator === true ? (
-        <CoordinatorGlyph size={SINGLE_LINE_CARD.tile.size} color={theme.light ? '#000000' : SidebarPalette.ROW_COORDINATOR_CROWN} />
+        <CoordinatorGlyph size={size} color={theme.light ? '#000000' : SidebarPalette.ROW_COORDINATOR_CROWN} />
       ) : (
-        <AgentMark icon={icon.length > 0 ? icon : null} size={SINGLE_LINE_CARD.tile.size} />
+        <AgentMark icon={icon.length > 0 ? icon : null} size={size} />
       )}
       <SingleLineBadge fill={sent ? (theme.light ? '#0284c7' : '#7dd3fc') : theme.prose}>
         <Glyph name={sent ? 'arrow-up-right' : 'arrow-down-left'} size={SINGLE_LINE_CARD.badge.glyphSize} color={theme.cardPanel} strokeWidth={2.8} />
       </SingleLineBadge>
-    </View>
+    </SingleLineTileBox>
   );
 }
 
@@ -222,7 +229,6 @@ const styles = StyleSheet.create({
   row: { height: SINGLE_LINE_HEADER_HEIGHT, paddingHorizontal: SINGLE_LINE_CARD.paddingX, flexDirection: 'row', alignItems: 'center', gap: 10 },
   name: { flex: 1, minWidth: 0 },
   small: { fontSize: 12, lineHeight: 16 },
-  mark: { width: SINGLE_LINE_CARD.tile.size, height: SINGLE_LINE_CARD.tile.size },
   opened: { borderTopWidth: 1, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10, gap: 6 },
   goto: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 4, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, marginLeft: -6 },
   gotoText: { fontSize: 12.5, lineHeight: 17 },
