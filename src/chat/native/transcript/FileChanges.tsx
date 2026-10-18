@@ -17,6 +17,7 @@ import { Glyph, type GlyphName } from './icons';
 import { arr, num, obj, str, type JsonRecord } from './json';
 import { useDisclosure } from './state';
 import { MONO_FONT, type TranscriptTheme } from './theme';
+import { SingleLineTile } from './singleLineCard';
 import { openTranscriptMenu } from './transcriptMenuStore';
 
 function fileRows(files: unknown): JsonRecord[] {
@@ -81,9 +82,8 @@ export function FileChangeStack({ stackId, files, card }: { stackId: string; fil
   return (
     <View style={[styles.card, { backgroundColor: theme.input, borderColor: colors.border }]}>
       <View style={styles.header}>
-        <View style={[styles.tile, { backgroundColor: `${colors.edited}26`, borderColor: `${colors.edited}38` }]}>
-          <Glyph name='pencil' size={15} color={colors.edited} />
-        </View>
+        {/* The one-line cards' neutral tile (desktop `file_change_card.rs`); the counts and the bar are the colour. */}
+        <SingleLineTile glyph='pencil' />
         <View style={styles.titleColumn}>
           <Text numberOfLines={1} style={[styles.title, { color: theme.foreground }]}>
             {str(summary, 'title')}
@@ -289,7 +289,6 @@ const styles = StyleSheet.create({
   fold: { gap: 8, minWidth: 0 },
   card: { borderRadius: 14, borderWidth: 1, overflow: 'hidden', minWidth: 0 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 12, minWidth: 0 },
-  tile: { width: 28, height: 28, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   titleColumn: { flex: 1, minWidth: 0 },
   title: { fontSize: 13.5, lineHeight: 18, fontWeight: '600' },
   folder: { fontSize: 12, lineHeight: 16 },

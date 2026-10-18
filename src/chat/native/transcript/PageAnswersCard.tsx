@@ -32,9 +32,10 @@ export function PageAnswersCard({ message }: { message: ProjectedMessage }) {
   // The answer is plain text under its question, no chip and no count (the user's 2026-10-12 decision in desktop page_answers.rs).
   return (
     <AskCard
+      lined
       head={
-        // The one-line cards' question tile with its green check, the ring in this card's panel (desktop `answered_ask_head`).
-        <AskHead lead={<SingleLineTile glyph='question' badge='check' ring={theme.cardPanel} />} title={`You answered “${str(answers, 'title')}”`} />
+        // The one-line cards' question tile with its green check, the ring in this card's panel, lined up with the one-line cards (desktop `answered_ask_head`).
+        <AskHead lined lead={<SingleLineTile glyph='question' badge='check' ring={theme.cardPanel} />} title={`You answered “${str(answers, 'title')}”`} />
       }
     >
       <View style={styles.rows}>

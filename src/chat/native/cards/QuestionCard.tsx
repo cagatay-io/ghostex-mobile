@@ -16,6 +16,7 @@ import { Glyph } from './icons';
 import { arr, isTrue, obj, str } from './json';
 import { MONO_FONT, themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { AskCard, AskHead, AskOption, PrimaryButton, ProgressDots } from './askCard';
+import { SingleLineTile } from '../transcript/singleLineCard';
 import { CARD_LINE_HEIGHT, CARD_TEXT_SIZE, CardButton, CardHeader, StatusCard, useCardText } from './primitives';
 import { ApprovalCard } from './ApprovalCard';
 import { useEchoedText } from './useEchoedText';
@@ -81,8 +82,7 @@ function QuestionPromptCard({ chat, document }: { chat: RustChat; document: Chat
       : header;
   const head = (
     <AskHead
-      icon="help-circle"
-      tone="ask"
+      lead={<SingleLineTile glyph='question' badge='ask' ring={P.cardPanel} />}
       title="Needs your answer"
       detail={detail}
       trailing={count > 1 && !collapsed ? <ProgressDots index={index} count={count} /> : undefined}

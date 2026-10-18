@@ -32,8 +32,8 @@ export const SINGLE_LINE_CARD = {
   titleWeight: '500' as TextStyle['fontWeight'],
   borderAlpha: 0.06,
   pill: { paddingX: 8, paddingY: 2, gap: 5, textSize: 11.5, lineHeight: 16, iconSize: 12, borderAlpha: 0.1 },
-  tile: { size: 22, radius: 6, glyphSize: 14, fillAlpha: 0.06, glyphAlpha: 0.8 },
-  badge: { size: 13, ring: 2, offset: -4, glyphSize: 8, fill: '#16a34a', errorFill: '#dc2626' },
+  tile: { size: 28, radius: 8, glyphSize: 15, fillAlpha: 0.06, glyphAlpha: 0.8 },
+  badge: { size: 16, ring: 2, offset: -5, glyphSize: 10, fill: '#16a34a', errorFill: '#dc2626', askFill: '#D2A024', askInk: '#161616' },
 };
 
 /** The fold's border width, which the header inside a shell leaves room for. */
@@ -75,7 +75,8 @@ export function SingleLinePill({ icon, label, color }: { icon?: GlyphName; label
 /**
  * The tile leading a one-line card: the fold's `clock` and the question cards' `question` (the
  * mockup's own 16-unit drawings, desktop `assets/titlebar/chat-card-*.svg`), or any transcript
- * `Glyph` (a status card's). `badge` puts the green check or the red cross at its bottom right.
+ * `Glyph` (a status card's). `badge` puts the green check, the red cross or a waiting question's
+ * "?" at its bottom right.
  */
 export function SingleLineTile({
   glyph,
@@ -83,8 +84,8 @@ export function SingleLineTile({
   ring,
 }: {
   glyph: 'clock' | 'question' | GlyphName;
-  badge?: 'check' | 'error';
-  /** The badge's ring when the tile sits on another card's fill (the page answers' panel). */
+  badge?: 'check' | 'error' | 'ask';
+  /** The badge's ring when the tile sits on another card's fill (a question card's panel). */
   ring?: string;
 }) {
   const theme = useTranscriptTheme();
@@ -115,15 +116,25 @@ export function SingleLineTile({
         <Glyph name={glyph} size={tile.glyphSize} color={ink} />
       )}
       {badge !== undefined ? (
-        <SingleLineBadge fill={badge === 'error' ? SINGLE_LINE_CARD.badge.errorFill : SINGLE_LINE_CARD.badge.fill} {...(ring !== undefined ? { ring } : {})}>
+        <SingleLineBadge
+          fill={badge === 'error' ? SINGLE_LINE_CARD.badge.errorFill : badge === 'ask' ? SINGLE_LINE_CARD.badge.askFill : SINGLE_LINE_CARD.badge.fill}
+          {...(ring !== undefined ? { ring } : {})}
+        >
           <Svg width={SINGLE_LINE_CARD.badge.glyphSize} height={SINGLE_LINE_CARD.badge.glyphSize} viewBox='0 0 10 10' fill='none'>
-            <Path
-              d={badge === 'error' ? 'M3.2 3.2 6.8 6.8M6.8 3.2 3.2 6.8' : 'M2 5.2 4.2 7.4 8 2.8'}
-              stroke='#ffffff'
-              strokeWidth={1.8}
-              strokeLinecap='round'
-              strokeLinejoin='round'
-            />
+            {badge === 'ask' ? (
+              <>
+                <Path d='M3.4 3.6a1.7 1.7 0 1 1 2.4 1.5c-.5.25-.8.55-.8 1.1' stroke={SINGLE_LINE_CARD.badge.askInk} strokeWidth={1.6} strokeLinecap='round' />
+                <Circle cx={5} cy={8.1} r={0.8} fill={SINGLE_LINE_CARD.badge.askInk} />
+              </>
+            ) : (
+              <Path
+                d={badge === 'error' ? 'M3.2 3.2 6.8 6.8M6.8 3.2 3.2 6.8' : 'M2 5.2 4.2 7.4 8 2.8'}
+                stroke='#ffffff'
+                strokeWidth={1.8}
+                strokeLinecap='round'
+                strokeLinejoin='round'
+              />
+            )}
           </Svg>
         </SingleLineBadge>
       ) : null}

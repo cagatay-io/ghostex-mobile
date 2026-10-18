@@ -16,10 +16,9 @@ import type { Json } from '../../rust/document';
 import { useTranscriptEnv } from './context';
 import { useRevealFocusedField } from './fieldReveal';
 import { useEchoedText } from '../cards/useEchoedText';
-import { AskCard, AskHead, AskOption, PrimaryButton, SoftButton, answeredColor, type AskTone } from '../cards/askCard';
-import type { GlyphName } from '../cards/icons';
+import { AskCard, AskHead, AskOption, PrimaryButton, SoftButton, answeredColor, askColor } from '../cards/askCard';
 import { arr, obj, str, type JsonRecord } from './json';
-import { SingleLinePill } from './singleLineCard';
+import { SingleLinePill, SingleLineTile } from './singleLineCard';
 import { MONO_FONT } from './theme';
 import { QuestionFlashFrame } from './OpenQuestions';
 
@@ -59,21 +58,19 @@ function QuestionFormCard({ id, source }: { id: string; source: string }) {
   const enabled = phase === 'open';
   const error = str(form, 'error');
   const questions = arr(form.questions);
-  // The tile carries the form's state: amber while it waits, green once answered (desktop question_form.rs).
-  const tone: AskTone = error.length > 0 ? 'quiet' : phase === 'answered' ? 'answered' : 'ask';
-  const icon: GlyphName = error.length > 0 ? 'alert-circle' : phase === 'answered' ? 'check' : 'help-circle';
+  // The form's state is a pill on the right, as "Answered" is once it folds (desktop question_form.rs).
   const detail =
-    error.length > 0
-      ? "Couldn't be shown"
-      : phase === 'answered'
-        ? 'Sent to the agent'
-        : phase === 'sending'
-          ? 'Sending…'
-          : phase === 'queued'
-            ? 'Queued'
-            : questions.length === 1
-              ? '1 question'
-              : `${questions.length} questions`;
+    error.length > 0 ? 'These questions could not be shown' : questions.length === 1 ? '1 question' : `${questions.length} questions`;
+  const state =
+    error.length > 0 ? (
+      <SingleLinePill label='Not shown' color={theme.error} />
+    ) : (
+      <SingleLinePill
+        {...(phase === 'sending' ? {} : { icon: 'clock' as const })}
+        label={phase === 'sending' ? 'Sending…' : phase === 'queued' ? 'Queued' : 'Waiting'}
+        color={askColor(theme.light)}
+      />
+    );
   const drafts = arr(form.drafts);
   const questionViews = questions.map((question, index) => (
     <View key={index} style={index > 0 ? [styles.later, { borderTopColor: theme.ink(0.06) }] : undefined}>
@@ -123,7 +120,14 @@ function QuestionFormCard({ id, source }: { id: string; source: string }) {
       </AskCard>
     );
   }
-  const head = <AskHead icon={icon} tone={tone} title={str(form, 'title') || 'Questions'} detail={detail} />;
+  const head = (
+    <AskHead
+      lead={<SingleLineTile glyph='question' ring={theme.cardPanel} />}
+      title={str(form, 'title') || 'Questions'}
+      detail={detail}
+      trailing={state}
+    />
+  );
   if (error.length > 0) {
     return (
       <AskCard head={head}>
@@ -235,10 +239,10 @@ function FormQuestion({
   return (
     <View style={styles.question}>
       <View style={styles.questionHead}>
+        <Text style={[styles.questionTitle, { color: theme.foreground }]}>{str(question, 'title')}</Text>
         {tag.length > 0 ? (
           <Text style={[styles.tag, { color: theme.muted, backgroundColor: `${theme.muted}2e` }]}>{tag}</Text>
         ) : null}
-        <Text style={[styles.questionTitle, { color: theme.foreground }]}>{str(question, 'title')}</Text>
       </View>
       {detail.length > 0 ? <Text style={[styles.detail, { color: theme.cardMuted }]}>{detail}</Text> : null}
       {!isText && multiple ? <Text style={[styles.hint, { color: theme.muted }]}>Pick any that apply.</Text> : null}
@@ -302,10 +306,10 @@ const styles = StyleSheet.create({
   later: { marginTop: 16, paddingTop: 16, borderTopWidth: 1 },
   errorBody: { gap: 8 },
   question: { gap: 8 },
-  // The user's pick (desktop question_form.rs): the tag is a filled chip above the title.
-  questionHead: { alignItems: 'flex-start', gap: 4 },
-  tag: { fontFamily: MONO_FONT, fontSize: 10.5, lineHeight: 18, fontWeight: '500', paddingHorizontal: 7, borderRadius: 999, overflow: 'hidden' },
-  questionTitle: { alignSelf: 'stretch', fontSize: 15, lineHeight: 22, fontWeight: '500' },
+  // The user's pick (desktop question_form.rs): the tag is a filled chip at the right end of the title's first line, the title wrapping beside it.
+  questionHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  tag: { flexShrink: 0, marginTop: 2, fontFamily: MONO_FONT, fontSize: 10.5, lineHeight: 18, fontWeight: '500', paddingHorizontal: 7, borderRadius: 999, overflow: 'hidden' },
+  questionTitle: { flex: 1, minWidth: 0, fontSize: 15, lineHeight: 22, fontWeight: '500' },
   detail: { fontSize: 13, lineHeight: 19 },
   hint: { fontSize: 12 },
   input: { borderWidth: 1, borderRadius: 9, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13.5, minHeight: 38, textAlignVertical: 'top' },
