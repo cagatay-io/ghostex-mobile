@@ -130,7 +130,20 @@ function isBlank(line: string): boolean {
 }
 
 function indentOf(line: string): number {
-  return line.length - line.trimStart().length;
+  return line.length - trimMarkdownStart(line).length;
+}
+
+/**
+ * Markdown's whitespace is spaces and tabs only. JavaScript's `trim` also takes the no-break spaces
+ * the core writes to keep a reply line's indentation (core `line_breaks.rs`, GitHub issue #252), so
+ * the paragraph code trims with these instead.
+ */
+function trimMarkdownStart(line: string): string {
+  return line.replace(/^[ \t]+/, '');
+}
+
+function trimMarkdown(line: string): string {
+  return line.replace(/^[ \t]+|[ \t]+$/g, '');
 }
 
 type ListMarker = { indent: number; bullet: string; ordered: boolean; start: number; content: number; rest: string };
@@ -309,7 +322,7 @@ class BlockParser {
         }
       }
       // A paragraph: runs until a blank line or a line that starts another block.
-      const paragraph: string[] = [line.trim()];
+      const paragraph: string[] = [trimMarkdown(line)];
       index += 1;
       let setext = 0;
       while (index < lines.length) {
@@ -322,7 +335,7 @@ class BlockParser {
           break;
         }
         if (this.interrupts(current) || isTableStart(lines, index)) break;
-        paragraph.push(this.options.breaks === true ? current : current.trim());
+        paragraph.push(this.options.breaks === true ? current : trimMarkdown(current));
         index += 1;
       }
       const text = paragraph.join('\n');
@@ -402,7 +415,7 @@ class BlockParser {
         if (next !== null) break;
         if (previousBlank || this.interrupts(line)) break;
         // Lazy continuation of the item's paragraph.
-        content.push(line.trim());
+        content.push(trimMarkdown(line));
         index += 1;
       }
       while (content.length > 0 && isBlank(content[content.length - 1]!)) content.pop();
