@@ -82,7 +82,7 @@ function QuestionPromptCard({ chat, document }: { chat: RustChat; document: Chat
       : header;
   const head = (
     <AskHead
-      lead={<SingleLineTile glyph='question' badge='ask' ring={P.cardPanel} />}
+      lead={<SingleLineTile glyph='checklist' badge='ask' ring={P.cardPanel} />}
       title="Needs your answer"
       detail={detail}
       trailing={count > 1 && !collapsed ? <ProgressDots index={index} count={count} /> : undefined}

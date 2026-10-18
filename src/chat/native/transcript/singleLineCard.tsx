@@ -32,8 +32,8 @@ export const SINGLE_LINE_CARD = {
   titleWeight: '500' as TextStyle['fontWeight'],
   borderAlpha: 0.06,
   pill: { paddingX: 8, paddingY: 2, gap: 5, textSize: 11.5, lineHeight: 16, iconSize: 12, borderAlpha: 0.1 },
-  tile: { size: 28, radius: 8, glyphSize: 15, fillAlpha: 0.06, glyphAlpha: 0.8 },
-  badge: { size: 16, ring: 2, offset: -5, glyphSize: 10, fill: '#16a34a', errorFill: '#dc2626', askFill: '#D2A024', askInk: '#161616' },
+  tile: { size: 28, radius: 8, glyphSize: 17, fillAlpha: 0.06, glyphAlpha: 0.8 },
+  badge: { size: 12, ring: 2, offset: -4, glyphSize: 6, fill: '#16a34a', errorFill: '#dc2626', askFill: '#D2A024', askInk: '#161616' },
 };
 
 /** The fold's border width, which the header inside a shell leaves room for. */
@@ -73,8 +73,9 @@ export function SingleLinePill({ icon, label, color }: { icon?: GlyphName; label
 }
 
 /**
- * The tile leading a one-line card: the fold's `clock` and the question cards' `question` (the
- * mockup's own 16-unit drawings, desktop `assets/titlebar/chat-card-*.svg`), or any transcript
+ * The tile leading a one-line card: the fold's `clock`, the question cards' `question` and the
+ * live question card's `checklist` (the mockup's own 16-unit drawings, desktop
+ * `assets/titlebar/chat-card-*.svg`), or any transcript
  * `Glyph` (a status card's). `badge` puts the green check, the red cross or a waiting question's
  * "?" at its bottom right.
  */
@@ -83,7 +84,7 @@ export function SingleLineTile({
   badge,
   ring,
 }: {
-  glyph: 'clock' | 'question' | GlyphName;
+  glyph: 'clock' | 'question' | 'checklist' | GlyphName;
   badge?: 'check' | 'error' | 'ask';
   /** The badge's ring when the tile sits on another card's fill (a question card's panel). */
   ring?: string;
@@ -93,13 +94,15 @@ export function SingleLineTile({
   const ink = theme.ink(tile.glyphAlpha);
   return (
     <SingleLineTileBox>
-      {glyph === 'clock' || glyph === 'question' ? (
+      {glyph === 'clock' || glyph === 'question' || glyph === 'checklist' ? (
         <Svg width={tile.glyphSize} height={tile.glyphSize} viewBox='0 0 16 16' fill='none' stroke={ink}>
           {glyph === 'clock' ? (
             <>
               <Circle cx={8} cy={8} r={5.8} strokeWidth={1.4} />
               <Path d='M8 4.8V8l2.2 1.4' strokeWidth={1.4} strokeLinecap='round' />
             </>
+          ) : glyph === 'checklist' ? (
+            <Path d='M2.5 4.5 3.6 5.6 5.5 3.6M2.5 10.5l1.1 1.1 1.9-2M8 4.6h5.5M8 10.6h5.5' strokeWidth={1.4} strokeLinecap='round' strokeLinejoin='round' />
           ) : (
             <>
               <Path
