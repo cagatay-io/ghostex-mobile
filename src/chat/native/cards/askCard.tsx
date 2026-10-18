@@ -88,11 +88,12 @@ export function AskTile({ icon, tone }: { icon: GlyphName; tone: AskTone }) {
  * The head row: tile, title over a muted detail line, then whatever trails it. With `onPress` the
  * whole row folds the card and lights edge to edge when pressed. `singleLine` is the 44pt head of a
  * card that folds to one line, led by the question-bubble tile in the fold's title type
- * (`singleLineCard.tsx`).
+ * (`singleLineCard.tsx`); `lead` replaces the tinted tile (the page answers' shared tile).
  */
 export function AskHead({
   icon,
   tone,
+  lead,
   title,
   detail,
   trailing,
@@ -101,8 +102,9 @@ export function AskHead({
   accessibilityLabel,
   singleLine,
 }: (
-  | { singleLine?: false; icon: GlyphName; tone: AskTone }
-  | { singleLine: true; icon?: undefined; tone?: undefined }
+  | { singleLine?: false; lead?: undefined; icon: GlyphName; tone: AskTone }
+  | { singleLine?: false; lead: ReactNode; icon?: undefined; tone?: undefined }
+  | { singleLine: true; lead?: undefined; icon?: undefined; tone?: undefined }
 ) & {
   title: string;
   detail?: string;
@@ -118,7 +120,7 @@ export function AskHead({
   const headStyle = compact ? [styles.head, styles.singleLineHead] : styles.head;
   const content = (
     <>
-      {singleLine === true ? <SingleLineTile glyph='question' /> : <AskTile icon={icon} tone={tone} />}
+      {singleLine === true ? <SingleLineTile glyph='question' /> : icon !== undefined && tone !== undefined ? <AskTile icon={icon} tone={tone} /> : lead}
       <View style={styles.titles}>
         <Text style={compact ? [styles.title, SINGLE_LINE_TITLE] : styles.title} numberOfLines={1}>
           {title}

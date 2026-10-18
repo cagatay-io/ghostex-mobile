@@ -77,7 +77,16 @@ export function SingleLinePill({ icon, label, color }: { icon?: GlyphName; label
  * mockup's own 16-unit drawings, desktop `assets/titlebar/chat-card-*.svg`), or any transcript
  * `Glyph` (a status card's). `badge` puts the green check or the red cross at its bottom right.
  */
-export function SingleLineTile({ glyph, badge }: { glyph: 'clock' | 'question' | GlyphName; badge?: 'check' | 'error' }) {
+export function SingleLineTile({
+  glyph,
+  badge,
+  ring,
+}: {
+  glyph: 'clock' | 'question' | GlyphName;
+  badge?: 'check' | 'error';
+  /** The badge's ring when the tile sits on another card's fill (the page answers' panel). */
+  ring?: string;
+}) {
   const theme = useTranscriptTheme();
   const { tile } = SINGLE_LINE_CARD;
   const ink = theme.ink(tile.glyphAlpha);
@@ -106,7 +115,7 @@ export function SingleLineTile({ glyph, badge }: { glyph: 'clock' | 'question' |
         <Glyph name={glyph} size={tile.glyphSize} color={ink} />
       )}
       {badge !== undefined ? (
-        <SingleLineBadge fill={badge === 'error' ? SINGLE_LINE_CARD.badge.errorFill : SINGLE_LINE_CARD.badge.fill}>
+        <SingleLineBadge fill={badge === 'error' ? SINGLE_LINE_CARD.badge.errorFill : SINGLE_LINE_CARD.badge.fill} {...(ring !== undefined ? { ring } : {})}>
           <Svg width={SINGLE_LINE_CARD.badge.glyphSize} height={SINGLE_LINE_CARD.badge.glyphSize} viewBox='0 0 10 10' fill='none'>
             <Path
               d={badge === 'error' ? 'M3.2 3.2 6.8 6.8M6.8 3.2 3.2 6.8' : 'M2 5.2 4.2 7.4 8 2.8'}
@@ -141,13 +150,13 @@ export function singleLinePressed(theme: TranscriptTheme): ViewStyle {
  * mark's arrow on "Message from"), its ring in the card's own fill over the transcript so the
  * icon's corner never shows through it. Its parent is the icon's box.
  */
-export function SingleLineBadge({ fill, children }: { fill: string; children: ReactNode }) {
+export function SingleLineBadge({ fill, ring: ringColor, children }: { fill: string; ring?: string; children: ReactNode }) {
   const theme = useTranscriptTheme();
   const { badge } = SINGLE_LINE_CARD;
   const ring = badge.size + 2 * badge.ring;
   return (
-    <View style={[styles.badge, { width: ring, height: ring, borderRadius: ring / 2, backgroundColor: theme.background }]}>
-      <View style={[styles.badgeRing, { borderRadius: ring / 2, backgroundColor: theme.ink(0.025) }]}>
+    <View style={[styles.badge, { width: ring, height: ring, borderRadius: ring / 2, backgroundColor: ringColor ?? theme.background }]}>
+      <View style={[styles.badgeRing, { borderRadius: ring / 2, backgroundColor: ringColor !== undefined ? 'transparent' : theme.ink(0.025) }]}>
         <View style={[styles.badgeDot, { backgroundColor: fill }]}>{children}</View>
       </View>
     </View>

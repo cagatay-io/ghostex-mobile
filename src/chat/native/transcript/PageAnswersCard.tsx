@@ -12,6 +12,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import type { ProjectedMessage } from '../../rust/document';
 import { AnswerAside, AskCard, AskHead, PlainAnswer, ReceiptRow } from '../cards/askCard';
 import { useTranscriptEnv } from './context';
+import { SingleLineTile } from './singleLineCard';
 import { arr, num, obj, str } from './json';
 
 /** The green that marks an answered page or form (desktop `answered_color`). */
@@ -30,7 +31,12 @@ export function PageAnswersCard({ message }: { message: ProjectedMessage }) {
   const rows = arr(answers?.rows);
   // The answer is plain text under its question, no chip and no count (the user's 2026-10-12 decision in desktop page_answers.rs).
   return (
-    <AskCard head={<AskHead icon="check" tone="answered" title={`You answered “${str(answers, 'title')}”`} />}>
+    <AskCard
+      head={
+        // The one-line cards' question tile with its green check, the ring in this card's panel (desktop `answered_ask_head`).
+        <AskHead lead={<SingleLineTile glyph='question' badge='check' ring={theme.cardPanel} />} title={`You answered “${str(answers, 'title')}”`} />
+      }
+    >
       <View style={styles.rows}>
         {rows.map((row, index) => {
           const value = str(row, 'value');
