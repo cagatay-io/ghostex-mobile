@@ -13,7 +13,7 @@ import type { ReactNode } from 'react';
 import { Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { Glyph, type GlyphName } from './icons';
-import { SINGLE_LINE_CARD, SINGLE_LINE_HEADER_HEIGHT, SINGLE_LINE_TITLE, singleLineShell } from '../transcript/singleLineCard';
+import { SINGLE_LINE_CARD, SINGLE_LINE_HEADER_HEIGHT, SINGLE_LINE_TITLE, SingleLineTile, singleLineShell } from '../transcript/singleLineCard';
 import { MONO_FONT, themedStyles, useTranscriptTheme, type TranscriptTheme } from '../transcript/theme';
 
 /** What a card's tile says about the question: waiting, answered, or closed without an answer. */
@@ -43,7 +43,7 @@ export function tint(hex: string, alpha: number): string {
 
 /**
  * The card's shell around its head, its body and its footer band. `singleLine` is an answered card
- * that folds to a `singleLine` head: the shell every one-line card shares (`singleLineCard.ts`).
+ * that folds to a `singleLine` head: the shell every one-line card shares (`singleLineCard.tsx`).
  */
 export function AskCard({
   head,
@@ -70,22 +70,16 @@ export function AskCard({
   );
 }
 
-/** The 28px tile that leads the card's head; a one-line card's is smaller so the row keeps its height. */
-export function AskTile({ icon, tone, small }: { icon: GlyphName; tone: AskTone; small?: boolean }) {
+/** The 28px tile that leads the card's head. */
+export function AskTile({ icon, tone }: { icon: GlyphName; tone: AskTone }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
   const hue = toneColor(tone, P);
   // A waiting question's amber is a light tint; the answered and quiet tiles keep their strength (desktop ask_card.rs).
   const [ring, fill, ink] = tone === 'ask' ? [0.14, 0.09, 0.8] : [0.22, 0.15, 1];
-  const box = small === true ? SINGLE_LINE_CARD.iconBox : 28;
   return (
-    <View
-      style={[
-        styles.tile,
-        { width: box, height: box, borderRadius: (box * 2) / 7, backgroundColor: tint(hue, fill), borderColor: tint(hue, ring) },
-      ]}
-    >
-      <Glyph name={icon} size={small === true ? SINGLE_LINE_CARD.iconSize : 15} color={ink < 1 ? tint(hue, ink) : hue} />
+    <View style={[styles.tile, { backgroundColor: tint(hue, fill), borderColor: tint(hue, ring) }]}>
+      <Glyph name={icon} size={15} color={ink < 1 ? tint(hue, ink) : hue} />
     </View>
   );
 }
@@ -93,7 +87,8 @@ export function AskTile({ icon, tone, small }: { icon: GlyphName; tone: AskTone;
 /**
  * The head row: tile, title over a muted detail line, then whatever trails it. With `onPress` the
  * whole row folds the card and lights edge to edge when pressed. `singleLine` is the 44pt head of a
- * card that folds to one line, in the fold's title type (`singleLineCard.ts`).
+ * card that folds to one line, led by the question-bubble tile in the fold's title type
+ * (`singleLineCard.tsx`).
  */
 export function AskHead({
   icon,
@@ -105,9 +100,10 @@ export function AskHead({
   onPress,
   accessibilityLabel,
   singleLine,
-}: {
-  icon: GlyphName;
-  tone: AskTone;
+}: (
+  | { singleLine?: false; icon: GlyphName; tone: AskTone }
+  | { singleLine: true; icon?: undefined; tone?: undefined }
+) & {
   title: string;
   detail?: string;
   trailing?: ReactNode;
@@ -115,7 +111,6 @@ export function AskHead({
   chevron?: 'open' | 'closed';
   onPress?: () => void;
   accessibilityLabel?: string;
-  singleLine?: boolean;
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
@@ -123,7 +118,7 @@ export function AskHead({
   const headStyle = compact ? [styles.head, styles.singleLineHead] : styles.head;
   const content = (
     <>
-      <AskTile icon={icon} tone={tone} small={compact} />
+      {singleLine === true ? <SingleLineTile glyph='question' /> : <AskTile icon={icon} tone={tone} />}
       <View style={styles.titles}>
         <Text style={compact ? [styles.title, SINGLE_LINE_TITLE] : styles.title} numberOfLines={1}>
           {title}
@@ -361,6 +356,9 @@ const useStyles = themedStyles((P) => ({
     paddingVertical: 0,
   },
   tile: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',

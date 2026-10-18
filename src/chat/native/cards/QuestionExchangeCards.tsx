@@ -13,7 +13,7 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { AnswerAside, AskCard, AskHead, PlainAnswer, ReceiptRow, type AskTone } from './askCard';
-import { Glyph, type GlyphName } from './icons';
+import { Glyph } from './icons';
 import { arr, isTrue, obj, str } from './json';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { ChoiceRow } from './primitives';
@@ -47,11 +47,9 @@ function ExchangeCard({ exchange }: { exchange: unknown }) {
   const dismissed = questions.some((_, index) => isTrue(answerAt(index), 'dismissed'));
   const headers = questions.map((question) => str(question, 'header')).filter((header) => header.length > 0);
   let tone: AskTone;
-  let icon: GlyphName;
   let title: string;
   if (answered > 0 || fallback.length > 0) {
     tone = 'answered';
-    icon = 'check';
     title =
       total <= 1 || answered === 0
         ? 'You answered the question'
@@ -60,7 +58,6 @@ function ExchangeCard({ exchange }: { exchange: unknown }) {
           : `You answered ${answered} of ${total} questions`;
   } else {
     tone = 'quiet';
-    icon = 'help-circle';
     title = dismissed ? 'Dismissed without answering' : total > 1 ? 'Questions skipped' : 'Question skipped';
   }
   let detail = headers.join(' · ');
@@ -76,8 +73,6 @@ function ExchangeCard({ exchange }: { exchange: unknown }) {
       head={
         <AskHead
           singleLine
-          icon={icon}
-          tone={tone}
           title={title}
           detail={detail}
           accessibilityLabel={open ? 'Hide the answers' : 'Show the answers'}

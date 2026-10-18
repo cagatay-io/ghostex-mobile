@@ -112,8 +112,6 @@ function QuestionFormCard({ id, source }: { id: string; source: string }) {
         head={
           <AskHead
             singleLine
-            icon="check"
-            tone="answered"
             title={str(form, 'title') || 'Questions'}
             trailing={<SingleLinePill label="Answered" color={answeredColor(theme.light)} />}
             accessibilityLabel={open ? 'Hide the questions' : 'Show the questions'}

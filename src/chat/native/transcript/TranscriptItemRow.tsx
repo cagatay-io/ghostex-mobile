@@ -16,7 +16,7 @@ import { obj } from './json';
 import { MessageRow } from './MessageRow';
 import { SentAgentMessageCards } from './AgentMessageCards';
 import { useDisclosure } from './state';
-import { SINGLE_LINE_CARD, SINGLE_LINE_TITLE, SingleLinePill, singleLineShell } from './singleLineCard';
+import { SINGLE_LINE_CARD, SINGLE_LINE_TITLE, SingleLinePill, SingleLineTile, singleLineShell } from './singleLineCard';
 import { PROSE_SIZE } from './theme';
 
 const IN_WORK_FOLD = { inWorkFold: true, hideFileChanges: true };
@@ -114,8 +114,8 @@ function CompletedWorkRow({ item }: { item: CompletedWorkItem }) {
 }
 
 /**
- * The bar a finished turn folds behind (desktop `work_summary` in `completed_work_row.rs`):
- * "Worked for 2m 5s" and the turn's counts as pills (gx-chat-core `work_summary.rs`), so the closed
+ * The bar a finished turn folds behind (desktop `work_summary` in `completed_work_row.rs`): a clock
+ * tile with a green check badge, "Worked for 2m 5s" and the turn's counts as pills (gx-chat-core `work_summary.rs`), so the closed
  * fold still says what happened; the whole bar opens and closes it, with no chevron.
  */
 function WorkSummary({ item, open, onToggle }: { item: CompletedWorkItem; open: boolean; onToggle(): void }) {
@@ -131,6 +131,7 @@ function WorkSummary({ item, open, onToggle }: { item: CompletedWorkItem; open: 
       accessibilityState={{ expanded: open }}
       style={({ pressed }) => [styles.summary, singleLineShell(theme), pressed && { backgroundColor: theme.input }]}
     >
+      <SingleLineTile glyph='clock' checked />
       <Text style={[SINGLE_LINE_TITLE, { color: item.expandable ? theme.foreground : theme.muted }]}>{item.label}</Text>
       {/* The count pills sit at the row's right end and wrap among themselves (desktop `work_summary`). */}
       <View style={styles.chips}>
@@ -178,7 +179,7 @@ const styles = StyleSheet.create({
   summary: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     height: SINGLE_LINE_CARD.height,
     paddingHorizontal: SINGLE_LINE_CARD.paddingX,
   },
