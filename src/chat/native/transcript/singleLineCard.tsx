@@ -6,7 +6,8 @@
  * fill and hairline, and title in the fold's type. None draws a chevron (the whole card opens and
  * closes), and every status on the right is a `SingleLinePill` shaped like the fold's "1 tool call",
  * in its own colour. The fold leads with a clock `SingleLineTile` wearing a green check badge, the
- * question cards with a question-bubble tile, sized like the agent mark on "Message from".
+ * question cards with a question-bubble tile; the agent mark on "Message from" is the same size and
+ * wears the same `SingleLineBadge`, so the left icons line up.
  *
  * CDXC:SessionChat 2026-10-18 SEE-ALSO:
  * The values are `packages/gx-chat-core/visual/single-line-card.json`, which the desktop reads in
@@ -15,6 +16,7 @@
  * input tone.
  */
 
+import type { ReactNode } from 'react';
 import { StyleSheet, Text, View, type TextStyle, type ViewStyle } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
@@ -79,7 +81,6 @@ export function SingleLineTile({ glyph, checked }: { glyph: 'clock' | 'question'
   const theme = useTranscriptTheme();
   const { tile, badge } = SINGLE_LINE_CARD;
   const ink = theme.ink(tile.glyphAlpha);
-  const ring = badge.size + 2 * badge.ring;
   return (
     <View style={[styles.tile, { backgroundColor: theme.ink(tile.fillAlpha) }]}>
       <Svg width={tile.glyphSize} height={tile.glyphSize} viewBox='0 0 16 16' fill='none' stroke={ink}>
@@ -101,17 +102,30 @@ export function SingleLineTile({ glyph, checked }: { glyph: 'clock' | 'question'
         )}
       </Svg>
       {checked === true ? (
-        // The ring is the card's own fill over the transcript, so the tile's corner never shows through it.
-        <View style={[styles.badge, { width: ring, height: ring, borderRadius: ring / 2, backgroundColor: theme.background }]}>
-          <View style={[styles.badgeRing, { borderRadius: ring / 2, backgroundColor: theme.ink(0.025) }]}>
-            <View style={[styles.badgeDot, { backgroundColor: badge.fill }]}>
-              <Svg width={badge.glyphSize} height={badge.glyphSize} viewBox='0 0 10 10' fill='none'>
-                <Path d='M2 5.2 4.2 7.4 8 2.8' stroke='#ffffff' strokeWidth={1.8} strokeLinecap='round' strokeLinejoin='round' />
-              </Svg>
-            </View>
-          </View>
-        </View>
+        <SingleLineBadge fill={badge.fill}>
+          <Svg width={badge.glyphSize} height={badge.glyphSize} viewBox='0 0 10 10' fill='none'>
+            <Path d='M2 5.2 4.2 7.4 8 2.8' stroke='#ffffff' strokeWidth={1.8} strokeLinecap='round' strokeLinejoin='round' />
+          </Svg>
+        </SingleLineBadge>
       ) : null}
+    </View>
+  );
+}
+
+/**
+ * The round badge at the bottom right of a row's leading icon (the fold tile's check, the agent
+ * mark's arrow on "Message from"), its ring in the card's own fill over the transcript so the
+ * icon's corner never shows through it. Its parent is the icon's box.
+ */
+export function SingleLineBadge({ fill, children }: { fill: string; children: ReactNode }) {
+  const theme = useTranscriptTheme();
+  const { badge } = SINGLE_LINE_CARD;
+  const ring = badge.size + 2 * badge.ring;
+  return (
+    <View style={[styles.badge, { width: ring, height: ring, borderRadius: ring / 2, backgroundColor: theme.background }]}>
+      <View style={[styles.badgeRing, { borderRadius: ring / 2, backgroundColor: theme.ink(0.025) }]}>
+        <View style={[styles.badgeDot, { backgroundColor: fill }]}>{children}</View>
+      </View>
     </View>
   );
 }

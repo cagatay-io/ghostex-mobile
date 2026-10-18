@@ -5,7 +5,7 @@
  * opened, the time and the status as a pill, no chevron) that opens to the whole message. Everything a card says is the core's
  * `card` object (`agent_message_card.rs`; the user's pick is the `CDXC:SessionChat 2026-10-12 DECISION` there);
  * this file only lays it out, in the shell, height and title type every one-line card shares
- * (`singleLineCard.ts`). The phone has no hover, so Go to session sits in the opened message;
+ * (`singleLineCard.tsx`). The phone has no hover, so Go to session sits in the opened message;
  * a message sent to several sessions lists each of them there instead, each name opening its session.
  */
 
@@ -20,7 +20,7 @@ import { useNativeChatUi, useTranscriptEnv } from './context';
 import { Glyph, type GlyphName } from './icons';
 import { arr, obj, str, type JsonRecord } from './json';
 import { Markdown } from './markdown/Markdown';
-import { SINGLE_LINE_CARD, SINGLE_LINE_HEADER_HEIGHT, SINGLE_LINE_TITLE, SingleLinePill, singleLineShell } from './singleLineCard';
+import { SINGLE_LINE_CARD, SINGLE_LINE_HEADER_HEIGHT, SINGLE_LINE_TITLE, SingleLineBadge, SingleLinePill, singleLineShell } from './singleLineCard';
 import { useDisclosure } from './state';
 import type { TranscriptTheme } from './theme';
 
@@ -33,26 +33,24 @@ function toneColor(tone: string, theme: TranscriptTheme): string {
 /**
  * The agent's own logo (a coordinator's crown, `CDXC:Coordinators 2026-10-15` in the core's
  * agent_message_card.rs) with a small arrow badge (prose grey coming in, sky going out), or a
- * subagent's sparkle.
+ * subagent's sparkle, the size of the fold's tile (`SINGLE_LINE_CARD.tile`) so the left icons line up.
  */
 function Mark({ card }: { card: JsonRecord }) {
   const { theme } = useTranscriptEnv();
   const direction = str(card, 'direction');
-  if (direction === 'subagent') return <Glyph name='sparkles' size={16} color={theme.prose} />;
+  if (direction === 'subagent') return <Glyph name='sparkles' size={SINGLE_LINE_CARD.tile.size} color={theme.prose} />;
   const sent = direction === 'sent';
   const icon = str(card, 'agentIcon');
   return (
     <View style={styles.mark}>
       {card.coordinator === true ? (
-        <CoordinatorGlyph size={17} color={theme.light ? '#000000' : SidebarPalette.ROW_COORDINATOR_CROWN} />
+        <CoordinatorGlyph size={SINGLE_LINE_CARD.tile.size} color={theme.light ? '#000000' : SidebarPalette.ROW_COORDINATOR_CROWN} />
       ) : (
-        <AgentMark icon={icon.length > 0 ? icon : null} size={17} />
+        <AgentMark icon={icon.length > 0 ? icon : null} size={SINGLE_LINE_CARD.tile.size} />
       )}
-      <View
-        style={[styles.badge, { backgroundColor: sent ? (theme.light ? '#0284c7' : '#7dd3fc') : theme.prose, borderColor: theme.cardPanel }]}
-      >
-        <Glyph name={sent ? 'arrow-up-right' : 'arrow-down-left'} size={7} color={theme.cardPanel} strokeWidth={2.8} />
-      </View>
+      <SingleLineBadge fill={sent ? (theme.light ? '#0284c7' : '#7dd3fc') : theme.prose}>
+        <Glyph name={sent ? 'arrow-up-right' : 'arrow-down-left'} size={SINGLE_LINE_CARD.badge.glyphSize} color={theme.cardPanel} strokeWidth={2.8} />
+      </SingleLineBadge>
     </View>
   );
 }
@@ -222,26 +220,15 @@ export function SentAgentMessageCards({ cards }: { cards: unknown }) {
 const styles = StyleSheet.create({
   column: { gap: 8, minWidth: 0 },
   card: { minWidth: 0 },
-  row: { height: SINGLE_LINE_HEADER_HEIGHT, paddingHorizontal: SINGLE_LINE_CARD.paddingX, flexDirection: 'row', alignItems: 'center', gap: 9 },
+  row: { height: SINGLE_LINE_HEADER_HEIGHT, paddingHorizontal: SINGLE_LINE_CARD.paddingX, flexDirection: 'row', alignItems: 'center', gap: 10 },
   name: { flex: 1, minWidth: 0 },
   small: { fontSize: 12, lineHeight: 16 },
-  mark: { width: 17, height: 17 },
-  badge: {
-    position: 'absolute',
-    right: -4,
-    bottom: -4,
-    width: 11,
-    height: 11,
-    borderRadius: 6,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  mark: { width: SINGLE_LINE_CARD.tile.size, height: SINGLE_LINE_CARD.tile.size },
   opened: { borderTopWidth: 1, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10, gap: 6 },
   goto: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 4, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, marginLeft: -6 },
   gotoText: { fontSize: 12.5, lineHeight: 17 },
   recipients: { gap: 4, paddingBottom: 4 },
-  recipient: { flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 0, paddingVertical: 2, paddingHorizontal: 6, marginLeft: -6, borderRadius: 6 },
+  recipient: { flexDirection: 'row', alignItems: 'center', gap: 10, minWidth: 0, paddingVertical: 2, paddingHorizontal: 6, marginLeft: -6, borderRadius: 6 },
   recipientName: { flexShrink: 1, minWidth: 0, fontSize: 13 },
   failure: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4, borderTopWidth: 1, paddingHorizontal: 12, paddingVertical: 8 },
   failureText: { flex: 1, minWidth: 0 },
