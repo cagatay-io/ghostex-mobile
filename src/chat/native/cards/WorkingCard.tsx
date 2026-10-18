@@ -1,46 +1,41 @@
 /**
- * The working card at the transcript's end (`workingCard`, decided in
- * packages/gx-chat-core/src/extras/working_card.rs). Port of desktop `working_card.rs`: one line with
- * the spark, the label and the pills, which a tap opens to the running tool's call and a section per
- * pill. It is drawn over the transcript's bottom edge; the transcript keeps its height free below the
- * newest row (`workingLaneStore.ts`), so at the bottom it sits after the last message and scrolled
- * up it stays where it is: one card in both places, and nothing moves.
+ * The working card (`workingCard`, decided in packages/gx-chat-core/src/extras/working_card.rs). Port
+ * of desktop `working_card.rs`: one line with the spark, the label and the pills, in its own row right
+ * above the cards and the composer, so the transcript's visible area ends above it and nothing scrolls
+ * under it. It never opens and a tap on it does nothing; each pill opens its own sheet
+ * (`ChatPills.tsx`). The inverted transcript already keeps a short conversation at its bottom, right
+ * above this row.
  *
  * The label stays on one line, cut with an ellipsis at its end so the pills keep their full width;
- * pressing and holding the card shows the whole label under the line, as hovering does on the
- * desktop. The armed Delayed Send / Close After Done timers come from the app shell, not the
- * document (desktop's `armed_actions`); a tap opens Delayed Actions.
+ * pressing and holding the card shows the whole label in a bubble above it, as hovering does on the
+ * desktop, without changing the card's height. The armed Delayed Send / Close After Done timers come
+ * from the app shell, not the document (desktop's `armed_actions`); a tap opens Delayed Actions.
  */
 
-import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
-import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
+import { useCallback, useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
 
 import type { ChatDocument, WorkingCard as WorkingCardValue } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
 import { Glyph as ComposerGlyph } from '../composer/icons';
 import { useTranscriptBottomStore } from '../transcript/bottomStore';
-import { useWorkingLaneStore } from '../transcript/workingLaneStore';
-import { MONO_FONT, themedStyles, useTranscriptTheme } from '../transcript/theme';
-import { AgentFleetMenu, AgentTasksMenu, CoordinatorThreadsMenu } from './AgentPanels';
-import { IconPill, Pill, QuestionPill } from './ChatPills';
+import { themedStyles, useTranscriptTheme } from '../transcript/theme';
+import { IconPill, Pill, PillMenuSheet, QuestionPill } from './ChatPills';
 import { Glyph } from './icons';
 import { isTrue, num, obj, str } from './json';
 import { PulseDot, Spinner } from './primitives';
-import { BackgroundTasksMenu, ProgressTrack, VISUAL, WorkingSpark, type ArmedAction } from './WorkingStrip';
+import { ProgressTrack, VISUAL, WorkingSpark, type ArmedAction } from './WorkingStrip';
 
-/** The transcript's end padding under its newest row (`Transcript.tsx` `END_PADDING`). */
-const LANE_BOTTOM = 16;
 /** The transcript rows' column (`Transcript.tsx` `ROW_MAX_WIDTH`). */
 const ROW_MAX_WIDTH = 768;
+/** The transcript's end padding under its newest row (`Transcript.tsx` `END_PADDING`). */
+const END_PADDING = 16;
 const HEADER_PAD_Y = 6;
 
-const SECTION_TITLES: Record<string, string> = {
-  threads: 'Threads',
-  tasks: 'Tasks',
-  subagents: 'Subagents',
-  background: 'Background tasks',
-};
+/** Whether the card shows: the core has something for it, or a timer is armed. */
+function cardShown(document: ChatDocument, armed: readonly ArmedAction[]): boolean {
+  return document.workingCard?.visible === true || armed.length > 0;
+}
 
 export function WorkingCard({
   chat,
@@ -59,56 +54,27 @@ export function WorkingCard({
   const awayFromBottom = useTranscriptBottomStore((store) => store.awayFromBottom);
   const jumpToBottom = useTranscriptBottomStore((store) => store.jumpToBottom);
   const [held, setHeld] = useState(false);
+  const [menu, setMenu] = useState<string | null>(null);
+  const closeMenu = useCallback(() => setMenu(null), []);
   const card = document.workingCard;
-  const visible = card?.visible === true || armed.length > 0;
+  if (!cardShown(document, armed) || card === undefined) return null;
   const showJump = awayFromBottom && jumpToBottom !== null;
-  const jump = showJump ? (
-    <IconPill glyph='arrow-down' accessibilityLabel='Scroll to bottom' color={P.primary} onPress={() => jumpToBottom?.()} />
-  ) : null;
-  const shown = visible && card !== undefined;
-  useEffect(() => {
-    if (!shown) useWorkingLaneStore.setState({ height: 0 });
-  }, [shown]);
-  useEffect(() => () => useWorkingLaneStore.setState({ height: 0 }), []);
-  if (!shown || card === undefined) {
-    return jump !== null ? (
-      <View pointerEvents='box-none' style={styles.layer}>
-        <View pointerEvents='box-none' style={[styles.column, styles.lone]}>
-          {jump}
-        </View>
-      </View>
-    ) : null;
-  }
-  const open = card.expandable && card.open;
-  const toggle = () => chat.dispatch({ type: 'toggleWorkingCard', open: !open });
   const questions = document.openQuestions;
   const question = questions !== undefined && questions !== null && questions.count > 0 ? questions : null;
-  const pills = card.sections
+  const pills = card.pills
     .map((id) => (document.chatPills ?? []).find((pill) => pill.id === id))
     .filter((pill) => pill !== undefined);
   const label = card.label;
   return (
-    <View pointerEvents='box-none' style={styles.layer}>
-      <View pointerEvents='box-none' style={styles.column}>
-      <Animated.View
-        layout={LinearTransition.duration(200)}
-        onLayout={(event) => {
-          const height = event.nativeEvent.layout.height;
-          if (Math.abs(useWorkingLaneStore.getState().height - height) > 0.5) useWorkingLaneStore.setState({ height });
-        }}
-        accessibilityRole='summary'
-        accessibilityLabel={card.ariaLabel}
-        style={styles.card}
-      >
+    <View style={styles.row}>
+      <View style={styles.column}>
         <Pressable
-          disabled={!card.expandable && label === null}
-          onPress={card.expandable ? toggle : undefined}
+          disabled={label === null}
           onLongPress={label !== null ? () => setHeld(true) : undefined}
           onPressOut={() => setHeld(false)}
-          accessibilityRole='button'
-          accessibilityState={{ expanded: open }}
-          accessibilityHint={card.expandable ? 'Opens what the agent is doing' : undefined}
-          style={({ pressed }) => [styles.header, pressed && card.expandable && styles.headerPressed]}
+          accessibilityRole='summary'
+          accessibilityLabel={card.ariaLabel}
+          style={styles.card}
         >
           <Lead card={card} />
           <View style={styles.labelSlot}>
@@ -126,7 +92,9 @@ export function WorkingCard({
           {/* Right to left from the card's edge: panel pills, question, timers, then scroll-to-bottom
               leftmost, so one appearing moves none of the others. */}
           <View style={styles.pills}>
-            {jump}
+            {showJump ? (
+              <IconPill glyph='arrow-down' accessibilityLabel='Scroll to bottom' color={P.primary} onPress={() => jumpToBottom?.()} />
+            ) : null}
             {armed.map((action) => (
               <Pressable
                 key={action.id}
@@ -156,17 +124,35 @@ export function WorkingCard({
               />
             ) : null}
             {pills.map((pill) => (
-              <Pill key={pill.id} pill={pill} />
+              <Pill key={pill.id} pill={pill} open={pill.id === menu} onPress={() => setMenu(pill.id)} />
             ))}
           </View>
         </Pressable>
-        {held && label !== null ? <Text style={styles.fullLabel}>{label}</Text> : null}
-        {open ? (
-          <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(150)}>
-            <CardBody chat={chat} document={document} card={card} />
-          </Animated.View>
+        {held && label !== null ? (
+          <View pointerEvents='none' style={styles.bubble}>
+            <Text style={styles.bubbleText}>{label}</Text>
+          </View>
         ) : null}
-      </Animated.View>
+      </View>
+      <PillMenuSheet chat={chat} document={document} open={menu} onClose={closeMenu} />
+    </View>
+  );
+}
+
+/**
+ * Scroll-to-bottom on its own over the transcript's bottom edge, while the reader is away from the
+ * bottom and no card shows to carry it (desktop `render_lone_scroll_bottom`).
+ */
+export function LoneScrollBottom({ document, armed }: { document: ChatDocument; armed: readonly ArmedAction[] }) {
+  const styles = useStyles();
+  const P = useTranscriptTheme();
+  const awayFromBottom = useTranscriptBottomStore((store) => store.awayFromBottom);
+  const jumpToBottom = useTranscriptBottomStore((store) => store.jumpToBottom);
+  if (cardShown(document, armed) || !awayFromBottom || jumpToBottom === null) return null;
+  return (
+    <View pointerEvents='box-none' style={styles.lone}>
+      <View pointerEvents='box-none' style={styles.loneColumn}>
+        <IconPill glyph='arrow-down' accessibilityLabel='Scroll to bottom' color={P.primary} onPress={() => jumpToBottom()} />
       </View>
     </View>
   );
@@ -219,83 +205,34 @@ function ActivityTrailing({ activity }: { activity: Record<string, unknown> | nu
   );
 }
 
-/** The open card: the running tool's call, then one section per pill with its rows. */
-function CardBody({ chat, document, card }: { chat: RustChat; document: ChatDocument; card: WorkingCardValue }) {
-  const styles = useStyles();
-  const tool = obj(card.tool);
-  const close = () => chat.dispatch({ type: 'toggleWorkingCard', open: false });
-  return (
-    <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} nestedScrollEnabled>
-      {tool !== null ? (
-        <View style={styles.section}>
-          <SectionTitle title={str(tool, 'title')} meta={str(tool, 'label')} />
-          <ScrollView nestedScrollEnabled style={styles.detail}>
-            <Text selectable style={styles.detailText}>
-              {str(tool, 'detail')}
-            </Text>
-          </ScrollView>
-        </View>
-      ) : null}
-      {card.sections.map((id) => (
-        <View key={id} style={styles.section}>
-          <SectionTitle title={SECTION_TITLES[id] ?? id} meta='' />
-          {id === 'threads' ? (
-            <CoordinatorThreadsMenu chat={chat} document={document} onDone={close} />
-          ) : id === 'tasks' ? (
-            <AgentTasksMenu chat={chat} document={document} />
-          ) : id === 'subagents' ? (
-            <AgentFleetMenu chat={chat} document={document} onDone={close} />
-          ) : id === 'background' && obj(document.backgroundTasksPanel) !== null ? (
-            <BackgroundTasksMenu tasks={obj(document.backgroundTasksPanel)!} />
-          ) : null}
-        </View>
-      ))}
-    </ScrollView>
-  );
-}
-
-function SectionTitle({ title, meta }: { title: string; meta: string }) {
-  const styles = useStyles();
-  return (
-    <View style={styles.sectionTitleRow}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      {meta.length > 0 ? (
-        <Text style={styles.sectionMeta} numberOfLines={1}>
-          {meta}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
-
 const useStyles = themedStyles((P) => ({
-  /** Over the transcript's bottom edge, in the rows' column. */
-  layer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: LANE_BOTTOM,
+  /** Its own row above the cards and the composer, in the rows' column. */
+  row: {
+    width: '100%',
     alignItems: 'center',
   },
   column: {
     width: '100%',
     maxWidth: ROW_MAX_WIDTH,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
+    paddingTop: 8,
   },
-  /** Scroll-to-bottom alone, at the card's right end where the pills sit. */
+  /** Scroll-to-bottom alone over the transcript's bottom edge, at the card's right end. */
   lone: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: END_PADDING,
+    alignItems: 'center',
+  },
+  loneColumn: {
+    width: '100%',
+    maxWidth: ROW_MAX_WIDTH,
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    paddingRight: 16 + 10,
+    paddingHorizontal: 12 + 10,
   },
   card: {
-    borderWidth: 1,
-    borderColor: P.inputBorder,
-    borderRadius: 12,
-    backgroundColor: P.cardPanel,
-    overflow: 'hidden',
-  },
-  header: {
     minHeight: VISUAL.minHeight + HEADER_PAD_Y * 2,
     paddingLeft: 12,
     paddingRight: 10,
@@ -304,9 +241,29 @@ const useStyles = themedStyles((P) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: VISUAL.gap,
+    borderWidth: 1,
+    borderColor: P.inputBorder,
+    borderRadius: 12,
+    backgroundColor: P.cardPanel,
   },
-  headerPressed: {
-    backgroundColor: P.ink(0.04),
+  /** The whole label while the card is held, above the card, so the card keeps its height. */
+  bubble: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: '100%',
+    marginBottom: -2,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: P.inputBorder,
+    backgroundColor: P.cardPanel,
+  },
+  bubbleText: {
+    color: P.foreground,
+    fontSize: 13,
+    lineHeight: 19.5,
   },
   sparkBox: {
     width: VISUAL.sparkBox,
@@ -329,13 +286,6 @@ const useStyles = themedStyles((P) => ({
   },
   labelStrong: {
     flexShrink: 1,
-    color: P.foreground,
-    fontSize: 13,
-    lineHeight: 19.5,
-  },
-  fullLabel: {
-    paddingHorizontal: 12,
-    paddingBottom: 8,
     color: P.foreground,
     fontSize: 13,
     lineHeight: 19.5,
@@ -368,45 +318,5 @@ const useStyles = themedStyles((P) => ({
     color: P.foreground,
     fontSize: VISUAL.fontSize,
     lineHeight: VISUAL.fontSize * 1.5,
-  },
-  body: {
-    maxHeight: 360,
-  },
-  bodyContent: {
-    gap: 12,
-    paddingTop: 2,
-    paddingBottom: 10,
-  },
-  section: {
-    gap: 6,
-  },
-  sectionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-  },
-  sectionTitle: {
-    color: P.foreground,
-    fontSize: 13,
-  },
-  sectionMeta: {
-    flex: 1,
-    minWidth: 0,
-    color: P.cardMuted,
-    fontSize: 13,
-  },
-  detail: {
-    maxHeight: 200,
-    marginHorizontal: 12,
-    padding: 10,
-    borderRadius: 6,
-    backgroundColor: P.input,
-  },
-  detailText: {
-    color: P.prose,
-    fontFamily: MONO_FONT,
-    fontSize: 12,
-    lineHeight: 17,
   },
 }));

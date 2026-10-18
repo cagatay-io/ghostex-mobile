@@ -7,8 +7,8 @@
  * 3. the async questions,
  * 4. the blocking question or approval.
  *
- * The working card and its pills are not here: they sit at the transcript's end
- * (`WorkingCard.tsx`, drawn over the transcript's bottom edge by the screen).
+ * The working card and its pills are not here: the screen draws them in their own row right above
+ * this stack (`WorkingCard.tsx`), where desktop puts them first in the same stack.
  *
  * The incoming draft bar and the session note sit in the same stack on desktop but belong to the
  * composer. While a `question` prompt shows, desktop draws this stack instead of the composer; see

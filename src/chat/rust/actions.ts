@@ -35,8 +35,6 @@ export type ActionFields = {
   toggleCoordinatorThreadsMore: { step: number };
   /** The grouped background-task row's fold. Desktop: `background_tasks.rs`. */
   toggleBackgroundTasks: { open: boolean };
-  /** Open or shut the working card at the transcript's end. Desktop: `working_card.rs`. */
-  toggleWorkingCard: { open: boolean };
   /** Open one of the coordinator's threads: gxserver resumes it if closed, then the host opens its tab. */
   openCoordinatorThread: { projectId: string; sessionId: string };
   searchOpen: {};

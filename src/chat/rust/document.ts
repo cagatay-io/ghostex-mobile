@@ -509,9 +509,9 @@ export type ChatDocument = {
   coordinatorThreadsPanel: Json;
   /** The background tasks the agent left running, or null; the Background pill's sheet. Desktop: `background_tasks.rs`. */
   backgroundTasksPanel: Json;
-  /** The working card's pills, each a summary of one of the panels above. Desktop: `chat_pills.rs`. */
+  /** The working card's pills, each opening the menu of one of the panels above. Desktop: `chat_pills.rs`. */
   chatPills: ChatPill[];
-  /** The working card at the transcript's end. Desktop: `working_card.rs`. */
+  /** The working card right above the composer. Desktop: `working_card.rs`. */
   workingCard?: WorkingCard;
   /** The subagent viewer header state, or null when closed (its rows come in `subagentSplice`).
    * Desktop: `subagent_view.rs`. */
@@ -772,7 +772,7 @@ export type AccountStatus = {
   [key: string]: unknown;
 };
 
-/** One pill on the working card (gx-chat-core `extras/chat_pills.rs`): a summary of one panel. */
+/** One pill on the working card (gx-chat-core `extras/chat_pills.rs`): one panel, whose rows its menu shows. */
 export type ChatPill = {
   /** `threads`, `tasks`, `subagents` or `background`: which panel the card's section draws. */
   id: string;
@@ -786,9 +786,9 @@ export type ChatPill = {
   ariaLabel: string;
 };
 
-/** The working card at the transcript's end (gx-chat-core `extras/working_card.rs`). */
+/** The working card right above the composer (gx-chat-core `extras/working_card.rs`). It never opens. */
 export type WorkingCard = {
-  /** The lane at the transcript's end shows the card. */
+  /** The row above the composer shows the card. */
   visible: boolean;
   phase: 'working' | 'worked' | 'idle';
   /** The spark turns. */
@@ -798,12 +798,8 @@ export type WorkingCard = {
   labelKind: 'tool' | 'activity' | 'word' | 'worked' | null;
   /** A live activity's clock and progress: `elapsedLabel`, `tokens`, `percent`, `indeterminate`, `hint`. */
   activity: Json;
-  /** The open card's first section: `{ title, label, detail }`. */
-  tool: Json;
-  /** The pill ids whose sections the open card lists, in order. */
-  sections: string[];
-  expandable: boolean;
-  open: boolean;
+  /** The pill ids (`chatPills`) on the card, in order. */
+  pills: string[];
   ariaLabel: string;
 };
 

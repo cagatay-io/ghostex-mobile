@@ -41,7 +41,7 @@ import { useGpuiChat } from '../gpui/useGpuiChat';
 import { useSettingsStore } from '../../settings/store';
 import { useArmedActions } from './armedActions';
 import { NativeChatCards, NativeChatOverlays, questionReplacesComposer } from './cards';
-import { WorkingCard } from './cards/WorkingCard';
+import { LoneScrollBottom, WorkingCard } from './cards/WorkingCard';
 import { NativeComposer } from './composer';
 import { HandoffSheet, type HandoffRequest } from './composer/HandoffSheet';
 import type { MenuRow } from './composer/MenuSheet';
@@ -225,11 +225,13 @@ export default function NativeChatScreen({
           ) : (
             <NativeTranscript chat={chat} />
           )}
-          {/* The working card over the transcript's bottom edge; the GPUI transcript draws its own. */}
-          {gpui || document === null ? null : (
-            <WorkingCard chat={chat} document={document} armed={armed} {...(openDelayedActions !== undefined ? { onArmedPress: openDelayedActions } : {})} />
-          )}
+          {/* Scroll-to-bottom alone while no card carries it; the GPUI transcript draws its own. */}
+          {gpui || document === null ? null : <LoneScrollBottom document={document} armed={armed} />}
         </View>
+        {/* The working card in its own row above the cards and the composer: the transcript ends above it. */}
+        {document === null ? null : (
+          <WorkingCard chat={chat} document={document} armed={armed} {...(openDelayedActions !== undefined ? { onArmedPress: openDelayedActions } : {})} />
+        )}
         <NativeChatCards chat={chat} onHostAction={hostAction} />
         {questionReplacesComposer(document) ? null : <NativeComposer chat={chat} onHostAction={hostAction} hostActions={composerHostActions} openAccountsRequestId={accountsRequestId} />}
         <RewindDialog chat={chat} />
