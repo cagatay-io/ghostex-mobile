@@ -159,6 +159,8 @@ function onFrame(json: string): void {
       });
       return;
     case 'caption': {
+      // An interrupted reply ends with one `cut` caption holding only the words that were played;
+      // it replaces the reply's caption by `itemId` even when that one was already final.
       const role = frame.role === 'user' ? 'user' : 'agent';
       pushLine({
         kind: 'caption',
@@ -168,14 +170,6 @@ function onFrame(json: string): void {
         final: frame.final === true,
         cut: frame.cut === true,
       });
-      return;
-    }
-    case 'interrupted': {
-      // gxserver sends a `cut` caption only while the reply's caption is still growing; a reply
-      // whose text was already final is marked here, so every cut reply reads as cut.
-      const key = `caption-${text('itemId')}`;
-      const line = useVoiceStore.getState().lines.find((entry) => entry.key === key);
-      if (line?.kind === 'caption') pushLine({ ...line, cut: true });
       return;
     }
     case 'tool': {

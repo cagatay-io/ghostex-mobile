@@ -66,8 +66,7 @@ function Line({ line }: { line: VoiceLine }) {
         <View style={[styles.caption, line.role === 'user' ? styles.captionUser : styles.captionAgent]}>
           <Text style={styles.captionWho}>{line.role === 'user' ? 'You' : 'Agent'}</Text>
           <Text style={[styles.captionText, !line.final && styles.captionDraft]}>
-            {line.text}
-            {line.cut ? ' …' : ''}
+            {line.cut ? (line.text.trim().length > 0 ? `${line.text} …` : '…') : line.text}
           </Text>
         </View>
       );
