@@ -32,7 +32,7 @@ export const SINGLE_LINE_CARD = {
   titleWeight: '500' as TextStyle['fontWeight'],
   borderAlpha: 0.06,
   pill: { paddingX: 8, paddingY: 2, gap: 5, textSize: 11.5, lineHeight: 16, iconSize: 12, borderAlpha: 0.1 },
-  tile: { size: 28, radius: 8, glyphSize: 17, fillAlpha: 0.06, glyphAlpha: 0.8 },
+  tile: { size: 28, radius: 8, glyphSize: 17, fillAlpha: 0.06, glyphAlpha: 0.8, numberSize: 13, numberWeight: '600' as TextStyle['fontWeight'] },
   badge: { size: 12, ring: 2, offset: -4, glyphSize: 6, fill: '#16a34a', errorFill: '#dc2626', askFill: '#D2A024', askInk: '#161616' },
 };
 
@@ -152,6 +152,17 @@ export function SingleLineTile({
 export function SingleLineTileBox({ children }: { children: ReactNode }) {
   const theme = useTranscriptTheme();
   return <View style={[styles.tile, { backgroundColor: theme.ink(SINGLE_LINE_CARD.tile.fillAlpha) }]}>{children}</View>;
+}
+
+/** The tile with a number in it, an answered question's row number (`ReceiptRow`; desktop `number_tile`). */
+export function SingleLineNumberTile({ number }: { number: number }) {
+  const theme = useTranscriptTheme();
+  const { tile } = SINGLE_LINE_CARD;
+  return (
+    <SingleLineTileBox>
+      <Text style={{ color: theme.ink(tile.glyphAlpha), fontSize: tile.numberSize, lineHeight: tile.size, fontWeight: tile.numberWeight }}>{number}</Text>
+    </SingleLineTileBox>
+  );
 }
 
 /** What a one-line card shows while it is pressed, the desktop's hover fill (`card_hover_fill`). */

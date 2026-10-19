@@ -13,7 +13,7 @@ import type { ReactNode } from 'react';
 import { Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { Glyph } from './icons';
-import { SINGLE_LINE_CARD, SINGLE_LINE_HEADER_HEIGHT, SINGLE_LINE_TITLE, SingleLineTile, singleLinePressed, singleLineShell } from '../transcript/singleLineCard';
+import { SINGLE_LINE_CARD, SINGLE_LINE_HEADER_HEIGHT, SINGLE_LINE_TITLE, SingleLineNumberTile, SingleLineTile, singleLinePressed, singleLineShell } from '../transcript/singleLineCard';
 import { MONO_FONT, themedStyles, useTranscriptTheme, type TranscriptTheme } from '../transcript/theme';
 
 /** Whether an answered exchange got an answer. */
@@ -289,6 +289,9 @@ export function AnswerAside({ children, italic }: { children: string; italic?: b
   return <Text style={[styles.aside, italic === true && styles.italic]}>{children}</Text>;
 }
 
+/** The line height of an answered question in a receipt row. */
+const RECEIPT_QUESTION_LINE = 19;
+
 /**
  * One answered question in a receipt: its number, the question (muted), and under it the plain
  * answer and whatever follows it.
@@ -309,7 +312,8 @@ export function ReceiptRow({
   const styles = useStyles();
   return (
     <View style={[styles.receiptRow, !first && styles.receiptDivider]}>
-      <Text style={styles.number}>{number}</Text>
+      {/* The card's own tile with the number in it, so the question and answer line up under the title. */}
+      <SingleLineNumberTile number={number} />
       <View style={styles.receiptBody}>
         {question.length > 0 ? <Text style={styles.receiptQuestion}>{question}</Text> : null}
         <View style={styles.answerLine}>{answer}</View>
@@ -523,27 +527,17 @@ const useStyles = themedStyles((P) => ({
     borderTopWidth: 1,
     borderTopColor: P.ink(0.05),
   },
-  number: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    overflow: 'hidden',
-    backgroundColor: P.ink(0.07),
-    color: P.muted,
-    fontSize: 11,
-    lineHeight: 22,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
   receiptBody: {
     flex: 1,
     minWidth: 0,
     gap: 4,
+    // The question's first line sits centred on the number tile.
+    paddingTop: (SINGLE_LINE_CARD.tile.size - RECEIPT_QUESTION_LINE) / 2,
   },
   receiptQuestion: {
     color: P.muted,
     fontSize: 13,
-    lineHeight: 19,
+    lineHeight: RECEIPT_QUESTION_LINE,
   },
   answerLine: {
     flexDirection: 'row',
