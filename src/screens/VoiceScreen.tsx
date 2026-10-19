@@ -25,7 +25,7 @@ import {
   voiceActive,
   type VoiceLine,
 } from '../voice/conversation';
-import { MicrophoneGlyph } from '../voice/VoiceButton';
+import { HeadsetGlyph, MicrophoneGlyph } from '../voice/VoiceButton';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Voice'>;
 
@@ -195,7 +195,7 @@ export default function VoiceScreen({ navigation }: Props) {
               style={({ pressed }) => [styles.control, styles.wide, styles.controlOn, pressed && styles.controlPressed]}
               onPress={() => void startVoice(machine, voice.machineName)}
             >
-              <MicrophoneGlyph size={30} color={GhostexPalette.ACCENT_FOREGROUND} />
+              <HeadsetGlyph size={30} color={GhostexPalette.ACCENT_FOREGROUND} />
               <Text style={[styles.controlLabel, styles.controlLabelOn]}>Talk again</Text>
             </Pressable>
           ) : null}

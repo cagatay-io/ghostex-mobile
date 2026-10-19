@@ -17,7 +17,23 @@ import type { RootStackParamList } from '../navigation/types';
 import { GhostexPalette } from '../theme/palette';
 import { startVoice, useVoiceStore, voiceActive, VOICE_SUPPORTED } from './conversation';
 
-/** A microphone: the Voice button and the voice screen's mute control. */
+/**
+ * A headset (Tabler `headset`): the voice agent's glyph, the same icon the desktop's work area
+ * header uses (`apps/desktop/assets/titlebar/headset.svg`), so the microphone stays Dictate's.
+ */
+export function HeadsetGlyph({ size, color }: { size: number; color: string }) {
+  const stroke = { stroke: color, strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 14v-3a8 8 0 1 1 16 0v3" {...stroke} />
+      <Path d="M18 19c0 1.657 -2.686 3 -6 3" {...stroke} />
+      <Path d="M4 14a2 2 0 0 1 2 -2h1a2 2 0 0 1 2 2v3a2 2 0 0 1 -2 2h-1a2 2 0 0 1 -2 -2v-3z" {...stroke} />
+      <Path d="M15 14a2 2 0 0 1 2 -2h1a2 2 0 0 1 2 2v3a2 2 0 0 1 -2 2h-1a2 2 0 0 1 -2 -2v-3z" {...stroke} />
+    </Svg>
+  );
+}
+
+/** A microphone: the voice screen's mute control. */
 export function MicrophoneGlyph({ size, color, crossed = false }: { size: number; color: string; crossed?: boolean }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -101,7 +117,7 @@ export function VoiceButton({ machine, style, color, size = 22, activeFill = tru
         navigation.navigate('Voice');
       }}
     >
-      <MicrophoneGlyph size={size} color={active ? (activeFill ? GhostexPalette.ACCENT_FOREGROUND : GhostexPalette.ACCENT) : color} />
+      <HeadsetGlyph size={size} color={active ? (activeFill ? GhostexPalette.ACCENT_FOREGROUND : GhostexPalette.ACCENT) : color} />
     </Pressable>
   );
 }
