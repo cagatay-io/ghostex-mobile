@@ -73,8 +73,8 @@ export function SingleLinePill({ icon, label, color }: { icon?: GlyphName; label
 }
 
 /**
- * The tile leading a one-line card: the fold's `clock`, the question cards' `question` and the
- * live question card's `checklist` (the mockup's own 16-unit drawings, desktop
+ * The tile leading a one-line card: the fold's `clock`, the answered question cards' `question` and
+ * the waiting ones' `checklist` (the mockup's own 16-unit drawings, desktop
  * `assets/titlebar/chat-card-*.svg`), or any transcript
  * `Glyph` (a status card's). `badge` puts the green check, the red cross or a waiting question's
  * "?" at its bottom right.

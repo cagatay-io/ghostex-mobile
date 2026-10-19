@@ -29,7 +29,7 @@ import { ProgressTrack, VISUAL, WorkingSpark, type ArmedAction } from './Working
 
 /** The transcript rows' column (`Transcript.tsx` `ROW_MAX_WIDTH`). */
 const ROW_MAX_WIDTH = 768;
-/** The transcript's end padding under its newest row (`Transcript.tsx` `END_PADDING`). */
+/** How far the lone scroll-to-bottom pill sits above the transcript's bottom edge (desktop `transcript_layout.rs`). */
 const END_PADDING = 16;
 const HEADER_PAD_Y = 6;
 
@@ -240,7 +240,6 @@ const useStyles = themedStyles((P) => ({
     width: '100%',
     maxWidth: ROW_MAX_WIDTH,
     paddingHorizontal: 12,
-    paddingTop: 8,
   },
   /** Scroll-to-bottom alone over the transcript's bottom edge, at the card's right end. */
   lone: {

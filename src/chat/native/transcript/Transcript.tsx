@@ -64,9 +64,12 @@ const SCROLL_BOTTOM = {
  * opens again (`COMPOSER_BOTTOM_THRESHOLD_PX` in the core, `composer_scroll.rs`).
  */
 const COMPOSER_BOTTOM_THRESHOLD = 10;
-/** Space above the first row, and below the last (`transcript-layout.json`). */
+/**
+ * Space above the first row. The last row ends with the gap every row has, so nothing stands
+ * between it and the working card but that gap (the 2026-10-18 DECISION in
+ * packages/gx-chat-core/src/extras/working_card.rs; desktop `transcript.rs`).
+ */
 const TOP_PADDING = 32;
-const END_PADDING = 16;
 const ROW_MAX_WIDTH = 768;
 
 const EMPTY_DETAILS = {};
@@ -288,20 +291,18 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
   const widthPercent = useSettingsStore((store) => store.settings.sessionChatTranscriptWidthPercent);
   const rowWidth = main && customWidth ? widthPercent : null;
 
-  const lastIndex = rows.length - 1;
   const renderItem = useCallback(
     ({ item: row }: ListRenderItemInfo<Row>) => (
       <TranscriptRowFrame
         item={row.item}
         first={row.index === 0}
-        last={row.index === lastIndex}
         tint={searchItems.has(row.index) ? (activeItem === row.index ? theme.searchActive : theme.searchHit) : null}
         findNeedle={searchItems.has(row.index) ? searchNeedle : ''}
         findActive={activeItem === row.index ? activeInRow : null}
         widthPercent={rowWidth}
       />
     ),
-    [activeInRow, activeItem, lastIndex, rowWidth, searchItems, searchNeedle, theme]
+    [activeInRow, activeItem, rowWidth, searchItems, searchNeedle, theme]
   );
 
   const keyExtractor = useCallback((row: Row) => transcriptItemKey(row.item), []);
@@ -413,7 +414,6 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
 const TranscriptRowFrame = memo(function TranscriptRowFrame({
   item,
   first,
-  last,
   tint,
   findNeedle,
   findActive,
@@ -421,7 +421,6 @@ const TranscriptRowFrame = memo(function TranscriptRowFrame({
 }: {
   item: TranscriptItem;
   first: boolean;
-  last: boolean;
   tint: string | null;
   /** Transcript search's query, lowercase, when this row holds a match; empty otherwise. */
   findNeedle: string;
@@ -444,7 +443,7 @@ const TranscriptRowFrame = memo(function TranscriptRowFrame({
           counter: { next: 0 },
         };
   return (
-    <View style={[styles.rowOuter, first && styles.rowFirst, last && styles.rowLast]}>
+    <View style={[styles.rowOuter, first && styles.rowFirst]}>
       <View
         style={[
           styles.rowInner,
@@ -465,7 +464,6 @@ const styles = StyleSheet.create({
   list: { flex: 1 },
   rowOuter: { width: '100%', alignItems: 'center' },
   rowFirst: { paddingTop: TOP_PADDING },
-  rowLast: { paddingBottom: END_PADDING },
   rowInner: { width: '100%', maxWidth: ROW_MAX_WIDTH, paddingHorizontal: 16, paddingBottom: 16 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
   subagentRow: { paddingHorizontal: 4, paddingBottom: 16 },

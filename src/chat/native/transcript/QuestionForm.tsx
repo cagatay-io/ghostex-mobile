@@ -122,7 +122,7 @@ function QuestionFormCard({ id, source }: { id: string; source: string }) {
   }
   const head = (
     <AskHead
-      lead={<SingleLineTile glyph='question' ring={theme.cardPanel} />}
+      lead={<SingleLineTile glyph='checklist' ring={theme.cardPanel} />}
       title={str(form, 'title') || 'Questions'}
       detail={detail}
       trailing={state}
