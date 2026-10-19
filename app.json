@@ -53,6 +53,23 @@
         "NSCameraUsageDescription": "Ghostex uses the camera to scan the tailcat pairing QR code shown on your computer, and when you capture a photo to attach to a session.",
         "NSMicrophoneUsageDescription": "Ghostex uses the microphone when you dictate a message in the chat or record a video to attach to a session.",
         "NSSpeechRecognitionUsageDescription": "Ghostex turns what you dictate in the chat into text."
+      },
+      "privacyManifests": {
+        "NSPrivacyTracking": false,
+        "NSPrivacyCollectedDataTypes": [
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeProductInteraction",
+            "NSPrivacyCollectedDataTypeLinked": true,
+            "NSPrivacyCollectedDataTypeTracking": false,
+            "NSPrivacyCollectedDataTypePurposes": ["NSPrivacyCollectedDataTypePurposeAnalytics"]
+          },
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeOtherDiagnosticData",
+            "NSPrivacyCollectedDataTypeLinked": true,
+            "NSPrivacyCollectedDataTypeTracking": false,
+            "NSPrivacyCollectedDataTypePurposes": ["NSPrivacyCollectedDataTypePurposeAnalytics"]
+          }
+        ]
       }
     },
     "android": {
@@ -63,6 +80,7 @@
         "foregroundImage": "./assets/android-icon-foreground.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
+      "blockedPermissions": ["android.permission.SYSTEM_ALERT_WINDOW"],
       "predictiveBackGestureEnabled": false
     },
     "web": {

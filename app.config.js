@@ -12,9 +12,14 @@ function releaseBuildNumber(version) {
 // sideloaded APK today, so it checks GitHub for a newer release and installs it
 // through the system package installer. Google Play rejects apps that install
 // other packages, so set GHOSTEX_ANDROID_SELF_UPDATE=0 before a Play Store
-// build: that drops the REQUEST_INSTALL_PACKAGES permission from the manifest
+// build: that blocks the REQUEST_INSTALL_PACKAGES permission in the manifest
 // on the next `expo prebuild` and makes `ANDROID_SELF_UPDATE_ENABLED`
 // (src/config/featureFlags.ts) false, which removes the update check and UI.
+// The permission is blocked (tools:node="remove"), not just left out, so a
+// prebuild over an android/ folder generated for the GitHub APK, or a library
+// that declares it, cannot carry it into the Play build.
+// `tooling/release-mobile/android.sh` (GHOSTEX_ANDROID_DISTRIBUTION=play)
+// fails the build when it is still there.
 const ANDROID_SELF_UPDATE_PERMISSION = 'android.permission.REQUEST_INSTALL_PACKAGES';
 
 function androidSelfUpdateEnabled() {
@@ -29,6 +34,7 @@ module.exports = () => {
   const buildNumber = process.env.GHOSTEX_RELEASE_BUILD_NUMBER || String(releaseBuildNumber(version));
   const androidSelfUpdate = androidSelfUpdateEnabled();
   const basePermissions = app.expo.android.permissions ?? [];
+  const baseBlockedPermissions = app.expo.android.blockedPermissions ?? [];
 
   return {
     ...app.expo,
@@ -45,6 +51,9 @@ module.exports = () => {
       ...app.expo.android,
       versionCode: Number(buildNumber),
       permissions: androidSelfUpdate ? [...basePermissions, ANDROID_SELF_UPDATE_PERMISSION] : basePermissions,
+      blockedPermissions: androidSelfUpdate
+        ? baseBlockedPermissions
+        : [...baseBlockedPermissions, ANDROID_SELF_UPDATE_PERMISSION],
     },
   };
 };
