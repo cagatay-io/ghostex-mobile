@@ -45,6 +45,8 @@ import { useTerminalStore, type TerminalTab } from '../terminal/sessions';
 import { setChatGridSessionKey } from '../terminal/chatGridClaim';
 import { setMountedSessionKeys } from '../terminal/zmxDisplay';
 import { GhostexPalette } from '../theme/palette';
+import { useMachinesStore } from '../machines/store';
+import { VoiceButton } from '../voice/VoiceButton';
 import { useOpenMachineLink } from '../webPreview/useOpenMachineLink';
 import {
   AGENT_OVERLAY_NONE,
@@ -96,6 +98,9 @@ export default function TerminalScreen({ navigation, route }: Props) {
 
   const openMachineLink = useOpenMachineLink();
   const activeTab = tabs.find((tab) => tab.sessionKey === selectedSessionKey) ?? null;
+  const activeMachine = useMachinesStore(
+    (state) => (activeTab === null ? null : state.machines.find((entry) => entry.id === activeTab.machineId) ?? null)
+  );
   const activeAgentId = useInventoryStore((state) =>
     sessionAgentIdFor(
       activeTab,
@@ -494,6 +499,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
             if (tab !== undefined) requestCloseTab(tab);
           }}
         />
+        <VoiceButton machine={activeMachine} style={styles.headerButton} color={GhostexPalette.FOREGROUND} size={20} activeFill={false} />
         {chatCapable && (
           <Pressable
             accessibilityRole='button'

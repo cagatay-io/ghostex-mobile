@@ -14,6 +14,9 @@ import type {
   TerminalGrid,
   TerminalKey,
   TerminalRuntimeSettings,
+  VoiceMode,
+  VoiceStartOptions,
+  VoiceStatus,
 } from './GhostexNative.types';
 
 declare class GhostexNativeModule extends NativeModule<GhostexNativeEvents> {
@@ -148,6 +151,21 @@ declare class GhostexNativeModule extends NativeModule<GhostexNativeEvents> {
   setPersistentNotificationEnabled(enabled: boolean): Promise<void>;
   updatePersistentNotification(rows: NotificationSessionRow[]): Promise<void>;
   requestNotificationPermission(): Promise<void>;
+
+  // Voice mode, Android only (GhostexVoice.kt): the manager voice agent and Grok dictation.
+  /** Opens `/api/voice` and starts the microphone; a conversation also enters "Voice mode on". */
+  voiceStart(options: VoiceStartOptions): Promise<string>;
+  /** A fresh forward port and token after the SSH link was rebuilt (answers a `linkNeeded`). */
+  voiceUpdateLink(mode: VoiceMode, localPort: number, authToken: string): Promise<void>;
+  voiceSetMuted(muted: boolean): Promise<void>;
+  /** "Stop talking": the agent's reply is cut. */
+  voiceInterrupt(): Promise<void>;
+  voiceSendText(text: string): Promise<void>;
+  /** Conversation: hang up. Dictation: stop and wait for the final text. */
+  voiceEnd(mode: VoiceMode): Promise<void>;
+  /** Drops a dictation without its final text. */
+  voiceCancel(mode: VoiceMode): Promise<void>;
+  voiceStatus(): Promise<VoiceStatus | null>;
 }
 
 export default requireNativeModule<GhostexNativeModule>('GhostexNative');

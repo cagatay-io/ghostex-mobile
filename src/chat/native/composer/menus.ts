@@ -48,6 +48,8 @@ export type MoreActionsInput = {
   available: (id: ComposerControlId) => boolean;
   /** Whether the screen performs this app-shell action (`NativeComposer`'s `hostActions`). */
   serves: (action: string) => boolean;
+  /** Dictate is listening: its folded row stops it, since no toolbar button shows the stop. */
+  dictating?: boolean;
   /**
    * Compact & Send, while there is a draft. Desktop offers it in Send's own right-click menu
    * (`show_send_actions` in `actions.rs`) and on Option+Enter; a phone has neither, and Send's hold
@@ -134,7 +136,7 @@ export function sendChoiceRows({ ready, canQueue }: { ready: boolean; canQueue: 
   ];
 }
 
-export function moreActionsRows({ document, simple, verbose, available, serves, compactAndSend = null, interruptAndSend = null, draft = '' }: MoreActionsInput): MenuRow[] {
+export function moreActionsRows({ document, simple, verbose, available, serves, compactAndSend = null, interruptAndSend = null, draft = '', dictating = false }: MoreActionsInput): MenuRow[] {
   const rows: MenuRow[] = [];
   if (interruptAndSend !== null) {
     rows.push({ label: 'Interrupt & Send', iconPath: 'titlebar/arrow-up.svg', disabled: interruptAndSend.disabled, command: { type: 'submit', mode: 'interrupt' } });
@@ -199,6 +201,7 @@ export function moreActionsRows({ document, simple, verbose, available, serves, 
     if (control.id === 'summary' || !overflowed(document, control.id) || !available(control.id)) continue;
     const row: MenuRow = { label: control.label, iconPath: control.icon, command: { type: 'composerHost', action: control.action } };
     if (control.id === 'note') row.checked = document.note.open;
+    if (control.id === 'dictate' && dictating) Object.assign(row, { label: 'Stop dictating', iconPath: 'titlebar/player-stop.svg' });
     rows.push(row);
   }
   // Files and links is always here, never a toolbar button (desktop `actions.rs`,

@@ -51,6 +51,11 @@ function sessionTitleFor(machineId: string, sessionId: string, urlTitle: string)
 }
 
 function handleUrl(url: string | null): void {
+  // The "Voice mode on" notification opens the voice screen.
+  if (url !== null && url.startsWith('ghostex://voice')) {
+    navigateWhenReady(() => navigationRef.navigate('Voice'));
+    return;
+  }
   if (url === null || !url.startsWith('ghostex://session')) return;
   const machineId = queryParam(url, 'machineId') ?? '';
   const sessionId = queryParam(url, 'sessionId') ?? '';

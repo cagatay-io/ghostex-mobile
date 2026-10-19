@@ -1,12 +1,11 @@
 /**
- * The composer's Dictate control: the platform speech recognizer (`expo-speech-recognition`) turns
- * what the reader says into text, and each finished phrase goes into the draft at the caret.
+ * The composer's Dictate control: Grok dictation through the computer's gxserver
+ * (`src/voice/dictation.ts`). Pressing the microphone starts listening and pressing it again stops;
+ * the text gxserver sends back replaces the dictated span of the draft as it grows.
  *
  * CDXC:SessionChat 2026-10-08 DECISION: User asked for voice input in the chat box, to the left of the Terminal View button, on the desktop and the phone (GPUI Kit's speech input, #3333, on the desktop). Pressing the microphone starts listening and pressing it again stops; recognized text is typed into the draft and never sent by itself.
  * CDXC:SessionChat 2026-10-08 SEE-ALSO: `apps/desktop/src/app/native_chat/dictation.rs` is the desktop's control.
- *
- * The native module is looked up rather than imported: a build without it (an older dev client)
- * has no Dictate control instead of failing when the composer loads.
+ * CDXC:VoiceMode 2026-10-20 DECISION: User: "use grok bot's api for the dictation mic button" and "the one in the chat box just pastes whatever i say into the chat box". Dictate uses xAI speech-to-text through gxserver (`/api/voice?mode=dictation`) with the key kept on the computer, instead of the platform recognizer; the platform recognizer code below is kept but unused (user: "keep but mark the old code as unused").
  */
 
 import { requireOptionalNativeModule } from 'expo';
@@ -16,6 +15,10 @@ import type {
   ExpoSpeechRecognitionResultEvent,
 } from 'expo-speech-recognition';
 import { useCallback, useEffect, useRef, useState } from 'react';
+
+import type { MachineConnectionTarget } from '../../../machines/credentials';
+import { dictationSupported, startDictation, type Dictation } from '../../../voice/dictation';
+import { chatMachineLink } from '../../rust/machine-link';
 
 type Subscription = { remove(): void };
 type SpeechNative = {
@@ -33,13 +36,91 @@ const speech = requireOptionalNativeModule<SpeechNative>('ExpoSpeechRecognition'
 /**
  * The switch for the Dictate control.
  *
- * CDXC:SessionChat 2026-10-09 DECISION: User: "if we can't fix this np release with mic button hidden on all os for now i'll test it later". Dictation returns no words on the desktop and was never confirmed on a phone, so the control is hidden everywhere until it is tested. Set this to `true` to bring it back; the dictation code stays in place.
+ * CDXC:VoiceMode 2026-10-20 DECISION: The Dictate control is back on the phone, on Grok dictation (supersedes the 2026-10-09 decision that hid it on every OS until it was tested: the user asked for it to return with xAI speech-to-text). It shows only when the chat's computer lists the `voiceAgent` capability.
  * CDXC:SessionChat 2026-10-09 SEE-ALSO: the desktop's switch is `DICTATION_ENABLED` in `apps/desktop/src/app/native_chat/dictation.rs`.
  */
-const DICTATION_ENABLED = false;
+const DICTATION_ENABLED = true;
+
+/**
+ * The dictated span of the draft: the text around the caret when dictation started. Each new
+ * transcript is put between them, a space apart from the text on either side.
+ */
+type DictationAnchor = { before: string; after: string };
+
+/**
+ * Grok dictation into the draft. `draft()` reads the composer's text and caret when dictation
+ * starts; `replace` writes the draft with the dictated text in place; `onError` gets a short
+ * message for a failure the reader should know about (no microphone permission, no xAI key on the
+ * computer).
+ */
+export function useDictation(
+  machine: MachineConnectionTarget | null,
+  draft: () => { text: string; caret: number },
+  replace: (text: string) => void,
+  onError: (message: string) => void
+) {
+  const [available, setAvailable] = useState(() => DICTATION_ENABLED && dictationSupported(machine));
+  const [listening, setListening] = useState(false);
+  const running = useRef<Dictation | null>(null);
+  const starting = useRef(false);
+  const callbacks = useRef({ draft, replace, onError });
+  callbacks.current = { draft, replace, onError };
+
+  useEffect(() => {
+    if (!DICTATION_ENABLED || machine === null) {
+      setAvailable(false);
+      return undefined;
+    }
+    const link = chatMachineLink(machine);
+    const refresh = () => setAvailable(dictationSupported(machine));
+    refresh();
+    void link.route().then(refresh, refresh);
+    return link.onRouteChange(refresh);
+  }, [machine]);
+
+  // Leaving the chat drops a dictation still running.
+  useEffect(() => () => running.current?.cancel(), []);
+
+  const toggle = useCallback(async () => {
+    if (machine === null || starting.current) return;
+    if (running.current !== null) {
+      running.current.stop();
+      return;
+    }
+    const { text, caret } = callbacks.current.draft();
+    const anchor: DictationAnchor = { before: text.slice(0, caret), after: text.slice(caret) };
+    starting.current = true;
+    setListening(true);
+    const dictation = await startDictation(machine, {
+      onText: (dictated) => {
+        const words = dictated.trim();
+        if (words.length === 0) return;
+        const lead = anchor.before.length > 0 && !/\s$/.test(anchor.before) ? ' ' : '';
+        const trail = anchor.after.length > 0 && !/^\s/.test(anchor.after) ? ' ' : '';
+        callbacks.current.replace(anchor.before + lead + words + trail + anchor.after);
+      },
+      onEnd: () => {
+        running.current = null;
+        setListening(false);
+      },
+      onError: (message) => callbacks.current.onError(message),
+    });
+    starting.current = false;
+    if (dictation === null) setListening(false);
+    else running.current = dictation;
+  }, [machine]);
+
+  return { available, listening, toggle };
+}
+
+/**
+ * UNUSED since 2026-10-20 (CDXC:VoiceMode DECISION above): the platform speech recognizer
+ * (`expo-speech-recognition`) the Dictate control used before Grok dictation. Kept, not wired.
+ */
+const SYSTEM_DICTATION_ENABLED = false;
 
 function recognitionAvailable(): boolean {
-  if (!DICTATION_ENABLED) return false;
+  if (!SYSTEM_DICTATION_ENABLED) return false;
   try {
     return speech?.isRecognitionAvailable() ?? false;
   } catch {
@@ -57,10 +138,11 @@ function deviceLanguage(): string | undefined {
 }
 
 /**
- * `onPhrase` receives each recognized phrase; `onError` a short message for a failure the reader
- * should know about (no microphone permission, no recognizer for the language).
+ * UNUSED since 2026-10-20: the platform recognizer's Dictate. `onPhrase` receives each recognized
+ * phrase; `onError` a short message for a failure the reader should know about (no microphone
+ * permission, no recognizer for the language).
  */
-export function useDictation(onPhrase: (text: string) => void, onError: (message: string) => void) {
+export function useSystemDictation(onPhrase: (text: string) => void, onError: (message: string) => void) {
   const [available] = useState(recognitionAvailable);
   const [listening, setListening] = useState(false);
   const phrase = useRef(onPhrase);

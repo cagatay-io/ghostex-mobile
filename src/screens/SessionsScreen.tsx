@@ -44,6 +44,7 @@ import {
   type ProjectCardBlock,
 } from '../components/sessions/drawerModel';
 import { MachinesGlyph, MenuGlyph, SearchGlyph, WorldGlyph } from '../components/sessions/icons';
+import { VoiceButton } from '../voice/VoiceButton';
 import MachineTabs, {
   MACHINE_TAB_ADD,
   type MachineTabItem,
@@ -1273,6 +1274,8 @@ export default function SessionsScreen({ navigation }: Props) {
           CDXC:Sessions 2026-10-01 DECISION:
           User: "add the ability to search for a session, exactly like the modal we have in the app ... add it to the top right as a search icon button", and then chose that the search also finds closed sessions and restores one when tapped, as the desktop's does. The first button of the header's right-hand group opens SessionSearchSheet, which searches every visible computer's open and closed sessions with the desktop's Sessions search rules; this supersedes the 2026-09-30 open-sessions-only search.
         */}
+        {/* Voice mode: talk with the manager voice agent on this computer (src/voice/). */}
+        <VoiceButton machine={machine} style={styles.headerButton} color={sidebarAppearance.foreground} />
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={SessionSearchCopy.buttonLabel}

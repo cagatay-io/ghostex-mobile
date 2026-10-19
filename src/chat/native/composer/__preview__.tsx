@@ -110,6 +110,7 @@ function useFakeChat(scene: string): RustChat {
       attachFiles: async () => undefined,
       query: (name, args) => (name === 'composerReferences' ? refs(String(args[0] ?? '')) : null),
       onViewRequest: () => () => undefined,
+      machine: null,
     }),
     [composer, model, docRef.current]
   );

@@ -30,6 +30,8 @@ export type RootStackParamList = {
   /** Per-OS "turn on SSH access" instructions as a full screen. */
   SshAccessHelp: { platform?: 'macos' | 'windows' | 'linux' } | undefined;
   Sessions: undefined;
+  /** The voice agent's conversation screen (the top bar's Voice button, the "Voice mode on" notification). */
+  Voice: undefined;
   Machines: undefined;
   /**
    * Add/edit form. `tailcatToken` prefills the Easy Connect address when the

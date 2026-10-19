@@ -66,3 +66,16 @@ class NotificationSessionRecord : Record {
   @Field var machineId: String = ""
   @Field var sessionId: String = ""
 }
+
+/** Mirrors `VoiceStartOptions` in GhostexNative.types.ts. */
+class VoiceStartOptionsRecord : Record {
+  /** `conversation` (the manager voice agent) or `dictation` (the composer's Dictate). */
+  @Field var mode: String = "conversation"
+  /** The phone's loopback forward to the computer's gxserver. */
+  @Field var localPort: Int = 0
+  @Field var authToken: String = ""
+  /** The computer's name, for the "Voice mode on" notification. */
+  @Field var title: String = ""
+  @Field var provider: String? = null
+  @Field var language: String? = null
+}

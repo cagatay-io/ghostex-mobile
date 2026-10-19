@@ -33,7 +33,7 @@ const KNOWN_GLYPHS = new Set<string>([
   'trash', 'loader', 'x', 'check', 'file-text', 'file', 'folder', 'photo', 'camera', 'eye', 'eye-off', 'leaf', 'message-circle', 'clock',
   'clock-check', 'layout-columns', 'file-export', 'git-branch', 'moon', 'switch-horizontal', 'maximize', 'minimize',
   'settings', 'copy', 'star', 'search', 'link', 'bolt', 'map', 'brain', 'arrow-back-up', 'sparkles', 'blockquote', 'world',
-  'share',
+  'share', 'microphone', 'player-stop',
 ]);
 
 function isGlyph(name: string): name is GlyphName {

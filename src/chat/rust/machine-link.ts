@@ -81,8 +81,14 @@ const TIMEOUT_MESSAGE = "Ghostex on this computer didn't answer in time.";
  */
 export type ChatRoute = 'socket' | 'legacy' | 'unavailable';
 
-/** `sendLedger`: the daemon advertised `sendRequestLedger`, so a send may be retried under its id. */
-type Endpoint = { port: number; authToken: string; sendLedger: boolean };
+/**
+ * `sendLedger`: the daemon advertised `sendRequestLedger`, so a send may be retried under its id.
+ * `capabilities`: everything `ghostex server endpoint` listed (`voiceAgent` gates Voice mode).
+ */
+type Endpoint = { port: number; authToken: string; sendLedger: boolean; capabilities: readonly string[] };
+
+/** The phone's loopback forward to a computer's gxserver, for sockets other than the chat's. */
+export type GxserverLink = { localPort: number; authToken: string; capabilities: readonly string[] };
 
 /**
  * How one request over the link ended: an answer for the core, or `fallBack` when nothing reached
@@ -235,6 +241,25 @@ class ChatMachineLink {
     return () => this.routeListeners.delete(listener);
   }
 
+  /** What this computer's gxserver advertised, once a handshake settled on the socket route. */
+  capabilities(): readonly string[] | null {
+    return this.state.kind === 'socket' ? this.state.endpoint.capabilities : null;
+  }
+
+  /**
+   * The loopback forward and token for another socket to this computer's gxserver (the voice
+   * agent's `/api/voice`), or null when the computer has no socket route. `repair` first rebuilds
+   * a forward a socket was just lost on (the same repair a lost chat request runs).
+   */
+  async gxserverLink(options: { repair?: boolean } = {}): Promise<GxserverLink | null> {
+    if (options.repair === true) await this.repair();
+    if ((await this.route()) !== 'socket') return null;
+    const state = this.state;
+    if (state.kind !== 'socket') return null;
+    const localPort = await this.forward(state.endpoint);
+    return { localPort, authToken: state.endpoint.authToken, capabilities: state.endpoint.capabilities };
+  }
+
   // ---- the handshake -----------------------------------------------------------------------------
 
   private async handshake(): Promise<{ route: 'socket'; endpoint: Endpoint } | { route: 'legacy' | 'unavailable' }> {
@@ -246,7 +271,10 @@ class ChatMachineLink {
       if (answer.protocolVersion !== PROTOCOL_VERSION) return { route: 'legacy' };
       await GhostexNative.startPortForward(this.machine.id, answer.port, GXSERVER_FORWARD_HOST);
       const sendLedger = answer.capabilities.includes('sendRequestLedger');
-      return { route: 'socket', endpoint: { port: answer.port, authToken: answer.authToken, sendLedger } };
+      return {
+        route: 'socket',
+        endpoint: { port: answer.port, authToken: answer.authToken, sendLedger, capabilities: answer.capabilities },
+      };
     } catch (error) {
       // An sshd with `AllowTcpForwarding no` will never carry the link; anything else may pass.
       return { route: errorCode(error) === 'E_FORWARDING_PROHIBITED' ? 'legacy' : 'unavailable' };

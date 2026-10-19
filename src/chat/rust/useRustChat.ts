@@ -36,6 +36,8 @@ export type RustChat = {
   query(name: ChatCoreQuery, args: readonly unknown[]): unknown;
   /** Subscribe to view requests; returns the unsubscribe. Stable per chat. */
   onViewRequest(listener: (request: ChatViewRequest) => void): () => void;
+  /** The computer this chat lives on (stable per chat), or null while no target is set. */
+  machine: RustChatTarget['machine'] | null;
 };
 
 const noop = (): void => undefined;
@@ -83,8 +85,9 @@ export function useRustChat(target: RustChatTarget | null): RustChat {
     (name: ChatCoreQuery, args: readonly unknown[]) => (host ? host.query(name, args) : null),
     [host]
   );
+  const machine = latestTarget?.machine ?? null;
   return useMemo<RustChat>(
-    () => ({ state, dispatch, measure, setTitle, composer: host?.composerInput ?? null, attachFiles, query, onViewRequest }),
-    [host, state, dispatch, measure, setTitle, attachFiles, query, onViewRequest]
+    () => ({ state, dispatch, measure, setTitle, composer: host?.composerInput ?? null, attachFiles, query, onViewRequest, machine }),
+    [host, state, dispatch, measure, setTitle, attachFiles, query, onViewRequest, machine]
   );
 }

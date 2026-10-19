@@ -103,7 +103,10 @@ class GhostexNativeModule : Module() {
     // Java enumerator before it builds its first client (see GhostexTailcatInterfaces). This
     // runs while the native module registry is being assembled, ahead of any JavaScript call,
     // so every tailcat entry point below is guaranteed to find the lister already installed.
-    OnCreate { GhostexTailcatInterfaces.register() }
+    OnCreate {
+      GhostexTailcatInterfaces.register()
+      GhostexVoice.emitter = { event -> sendEvent("onVoiceEvent", event) }
+    }
 
     Events(
       "onTerminalState",
@@ -114,7 +117,8 @@ class GhostexNativeModule : Module() {
       "onVisibleWindowFrameChange",
       "onTerminalGridChange",
       "onConnectionState",
-      "onNetworkChanged"
+      "onNetworkChanged",
+      "onVoiceEvent"
     )
 
     OnStartObserving("onNetworkChanged") {
@@ -567,6 +571,52 @@ class GhostexNativeModule : Module() {
 
     // endregion
 
+    // region voice (the manager voice agent and Grok dictation, GhostexVoice.kt)
+
+    AsyncFunction("voiceStart") { options: VoiceStartOptionsRecord ->
+      GhostexVoice.start(
+        requireAndroidContext(),
+        GhostexVoice.Options(
+          mode = if (options.mode == "dictation") "dictation" else "conversation",
+          localPort = options.localPort,
+          authToken = options.authToken,
+          title = options.title.ifBlank { "your computer" },
+          provider = options.provider?.takeIf { it.isNotBlank() },
+          language = options.language?.takeIf { it.isNotBlank() },
+        )
+      )
+    }
+
+    AsyncFunction("voiceUpdateLink") { mode: String, localPort: Int, authToken: String ->
+      GhostexVoice.updateLink(mode, localPort, authToken)
+    }
+
+    AsyncFunction("voiceSetMuted") { muted: Boolean ->
+      GhostexVoice.setMuted(muted)
+    }
+
+    AsyncFunction("voiceInterrupt") {
+      GhostexVoice.interrupt()
+    }
+
+    AsyncFunction("voiceSendText") { text: String ->
+      GhostexVoice.sendText(text)
+    }
+
+    AsyncFunction("voiceEnd") { mode: String ->
+      GhostexVoice.end(mode)
+    }
+
+    AsyncFunction("voiceCancel") { mode: String ->
+      GhostexVoice.cancel(mode)
+    }
+
+    AsyncFunction("voiceStatus") {
+      GhostexVoice.status()
+    }
+
+    // endregion
+
     View(GhostexTerminalView::class) {
       Events("onSingleTap", "onOpenUrl")
 
@@ -580,6 +630,7 @@ class GhostexNativeModule : Module() {
     }
 
     OnDestroy {
+      GhostexVoice.emitter = null
       networkObserver?.close()
       networkObserver = null
       stopVisibleWindowFrameObserver()

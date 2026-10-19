@@ -46,6 +46,8 @@ import SettingsScreen from './src/screens/SettingsScreen';
 import SettingsPageScreen from './src/screens/settings/SettingsPageScreen';
 import { SETTINGS_PAGES } from './src/screens/settings/pages';
 import TerminalScreen from './src/screens/TerminalScreen';
+import VoiceScreen from './src/screens/VoiceScreen';
+import { initVoice } from './src/voice/conversation';
 import FindPromptScreen from './src/screens/FindPromptScreen';
 import FindPromptsScreen from './src/screens/FindPromptsScreen';
 import WebPreviewPortsScreen from './src/screens/WebPreviewPortsScreen';
@@ -99,6 +101,7 @@ export default function App() {
     initTerminalKeepAwake();
     initChatGridClaim();
     initAndroidSelfUpdate();
+    initVoice();
     void useMachinesStore.getState().hydrate();
     void useTerminalStore.getState().hydrate();
     void useExtraKeysStore.getState().hydrate();
@@ -136,6 +139,11 @@ export default function App() {
                 options={{ headerShown: false }}
               />
             )}
+            <Stack.Screen
+              name="Voice"
+              component={VoiceScreen}
+              options={{ headerShown: false, animation: 'slide_from_bottom' }}
+            />
             <Stack.Screen
               name="ConnectChoose"
               component={ConnectChooseScreen}

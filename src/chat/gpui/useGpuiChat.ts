@@ -55,5 +55,6 @@ export function useGpuiChat(target: RustChatTarget | null): RustChat {
     }),
     [host]
   );
-  return useMemo<RustChat>(() => ({ state, ...actions }), [state, actions]);
+  const machine = latestTarget?.machine ?? null;
+  return useMemo<RustChat>(() => ({ state, ...actions, machine }), [state, actions, machine]);
 }

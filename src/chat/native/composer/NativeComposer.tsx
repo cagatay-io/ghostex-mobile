@@ -130,18 +130,16 @@ export function NativeComposer({ chat, onHostAction, hostActions = DEFAULT_HOST_
   const [menu, setMenu] = useState<OpenMenu>(null);
   const [focused, setFocused] = useState(false);
   const pendingPick = useRef<AttachSource | null>(null);
-  // Dictated phrases go into the draft at the caret, a space apart from the text around them.
+  // Dictated text goes into the draft at the caret it started from, a space apart from the text around it.
   const draftAt = useRef({ text, caret });
   draftAt.current = { text, caret };
+  const fieldFocused = useRef(false);
+  fieldFocused.current = focused;
   const dictation = useDictation(
-    (phrase) => {
-      const { text: current, caret: at } = draftAt.current;
-      const before = current.slice(0, at);
-      const after = current.slice(at);
-      const lead = before.length > 0 && !/\s$/.test(before) ? ' ' : '';
-      const trail = after.length > 0 && !/^\s/.test(after) ? ' ' : '';
-      input?.replace(before + lead + phrase + trail + after);
-    },
+    chat.machine,
+    // An unfocused field has no caret the reader chose: dictation goes after the draft.
+    () => (fieldFocused.current ? draftAt.current : { text: draftAt.current.text, caret: draftAt.current.text.length }),
+    (draft) => input?.replace(draft),
     (message) => onHostAction?.('toast', { message, level: 'error' })
   );
   const verboseSetting = useSettingsStore((store) => store.settings.sessionChatVerboseMode);
@@ -169,7 +167,7 @@ export function NativeComposer({ chat, onHostAction, hostActions = DEFAULT_HOST_
   const available = useCallback(
     (id: ComposerControlId): boolean => {
       if (document === null) return false;
-      // Dictation is the phone's own (the platform recognizer), so the core does not gate it.
+      // Dictation is the phone's own (Grok through the computer's gxserver), so the core does not gate it.
       if (id === 'dictate') return dictation.available;
       const gate = document.composerActions?.[id];
       if (gate === false) return false;
@@ -373,8 +371,8 @@ export function NativeComposer({ chat, onHostAction, hostActions = DEFAULT_HOST_
         : null;
     const interruptAndSend =
       model !== null && model.text.trim().length > 0 && document.working === true ? { disabled: !model.ready } : null;
-    setMenu({ kind: 'rows', rows: moreActionsRows({ document, simple: simpleSetting, verbose, available, serves, compactAndSend, interruptAndSend, draft: model?.text ?? '' }) });
-  }, [available, document, model, serves, simpleSetting, verboseSetting]);
+    setMenu({ kind: 'rows', rows: moreActionsRows({ document, simple: simpleSetting, verbose, available, serves, compactAndSend, interruptAndSend, draft: model?.text ?? '', dictating: dictation.listening }) });
+  }, [available, dictation.listening, document, model, serves, simpleSetting, verboseSetting]);
 
   /** Send held while the agent works: Interrupt & Send or Queue. */
   const openSendChoices = useCallback(() => {

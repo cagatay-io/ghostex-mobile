@@ -198,6 +198,58 @@ export type GhostexNativeEvents = {
   onVisibleWindowFrameChange: (event: VisibleWindowFrameChangeEvent) => void;
   onTerminalGridChange: (event: TerminalGridChangeEvent) => void;
   onConnectionState: (event: ConnectionStateEvent) => void;
+  onVoiceEvent: (event: VoiceEvent) => void;
+};
+
+/** Android only: what `voiceStart` opens (gxserver's `/api/voice`, see GhostexVoice.kt). */
+export type VoiceStartOptions = {
+  mode: VoiceMode;
+  /** The phone's loopback forward to the computer's gxserver. */
+  localPort: number;
+  authToken: string;
+  /** The computer's name, shown in the "Voice mode on" notification. */
+  title: string;
+  provider?: 'xai' | 'openai';
+  /** Dictation only: a BCP-47 hint for the recognizer. */
+  language?: string;
+};
+
+export type VoiceMode = 'conversation' | 'dictation';
+
+/**
+ * A voice session's event: `frame` carries one JSON text frame from gxserver verbatim (the client
+ * contract's server-to-client table); `status` is the phone's own news about the link and audio.
+ */
+export type VoiceEvent =
+  | { sessionId: string; mode: VoiceMode; kind: 'frame'; json: string }
+  | {
+      sessionId: string;
+      mode: VoiceMode;
+      kind: 'status';
+      status:
+        | 'open'
+        | 'reattaching'
+        | 'linkNeeded'
+        | 'failed'
+        | 'lost'
+        | 'closed'
+        | 'micError'
+        | 'focusPaused'
+        | 'focusResumed'
+        | 'muted'
+        | 'unmuted';
+      message: string | null;
+    };
+
+/** The conversation the native side is running, if any (after a JavaScript reload). */
+export type VoiceStatus = {
+  id: string;
+  mode: VoiceMode;
+  conversationId: string | null;
+  state: string;
+  muted: boolean;
+  title: string;
+  reattaching: boolean;
 };
 
 export type GeneratedSshKey = {

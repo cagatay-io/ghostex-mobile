@@ -7,12 +7,15 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
 import android.net.Uri
 import android.net.wifi.WifiManager
 import android.os.IBinder
 import android.os.PowerManager
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import kotlin.math.abs
 
@@ -23,6 +26,13 @@ import kotlin.math.abs
  * warm terminal sessions alive while the app is backgrounded, shows the
  * remote session inventory (status dot + title per row), and offers Exit and
  * Keep-awake (PARTIAL_WAKE_LOCK + high-perf wifi lock) actions.
+ *
+ * CDXC:VoiceMode 2026-10-20 WHY: A voice conversation with the manager voice agent turns the same
+ * service and notification into "Voice mode on" (Hang up and Mute actions) and adds the `microphone`
+ * service type, so the conversation keeps going with the screen locked; it does not add a second
+ * service or notification (docs/2026-10-20/voice-mode/read-aloud-extension-spec.md, section 6.3,
+ * which Read aloud reuses for its `mediaPlayback` type). Android only lets a service take the
+ * microphone type while the app is in front, which it is: the user just tapped the Voice button.
  */
 class GhostexForegroundService : Service() {
 
@@ -36,7 +46,26 @@ class GhostexForegroundService : Service() {
     instance = this
     isRunning = true
     setupNotificationChannel()
-    startForeground(NOTIFICATION_ID, buildNotification())
+    enterForeground()
+  }
+
+  /**
+   * (Re)enters the foreground with the service types the current mode needs: `specialUse` for the
+   * session notification, plus `microphone` while a voice conversation runs.
+   */
+  private fun enterForeground() {
+    var types = if (android.os.Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE else 0
+    if (voiceLine != null && android.os.Build.VERSION.SDK_INT >= 30 &&
+      ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+    ) {
+      types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+    }
+    try {
+      ServiceCompat.startForeground(this, NOTIFICATION_ID, buildNotification(), types)
+    } catch (error: RuntimeException) {
+      // The microphone type is refused from the background; keep the session notification.
+      ServiceCompat.startForeground(this, NOTIFICATION_ID, buildNotification(), types and ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE.inv())
+    }
   }
 
   /** Rebuild + repost the ongoing notification (thread-safe). */
@@ -48,16 +77,37 @@ class GhostexForegroundService : Service() {
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     when (intent?.action) {
       ACTION_STOP -> {
-        releaseLocks()
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
+        // Exit ends everything, a voice conversation included.
+        if (voiceLine != null) GhostexVoice.end("conversation")
+        voiceLine = null
+        persistentWanted = false
+        return shutDown()
+      }
+      ACTION_PERSISTENT_OFF -> {
+        persistentWanted = false
+        if (voiceLine == null) return shutDown()
+      }
+      ACTION_VOICE_OFF -> if (!persistentWanted) return shutDown()
+      ACTION_VOICE_HANG_UP -> {
+        GhostexVoice.end("conversation")
+        return START_NOT_STICKY
+      }
+      ACTION_VOICE_MUTE -> {
+        GhostexVoice.setMuted(!voiceMuted)
         return START_NOT_STICKY
       }
       ACTION_WAKE_LOCK -> acquireLocks()
       ACTION_WAKE_UNLOCK -> releaseLocks()
     }
     setupNotificationChannel()
-    startForeground(NOTIFICATION_ID, buildNotification())
+    enterForeground()
+    return START_NOT_STICKY
+  }
+
+  private fun shutDown(): Int {
+    releaseLocks()
+    stopForeground(STOP_FOREGROUND_REMOVE)
+    stopSelf()
     return START_NOT_STICKY
   }
 
@@ -97,6 +147,13 @@ class GhostexForegroundService : Service() {
     val channel = NotificationChannel(CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_LOW)
     channel.setShowBadge(false)
     manager.createNotificationChannel(channel)
+    // "Voice mode on" sits with the user's alerts rather than in the collapsed Silent group, so
+    // Hang up and Mute are one pull away; it never makes a sound or vibrates itself.
+    val voice = NotificationChannel(VOICE_CHANNEL_ID, VOICE_CHANNEL_NAME, NotificationManager.IMPORTANCE_DEFAULT)
+    voice.setShowBadge(false)
+    voice.setSound(null, null)
+    voice.enableVibration(false)
+    manager.createNotificationChannel(voice)
   }
 
   private fun servicePendingIntent(action: String, requestCode: Int): PendingIntent {
@@ -167,7 +224,33 @@ class GhostexForegroundService : Service() {
     return parts.joinToString(" · ")
   }
 
+  /** "Voice mode on": the state line, Mute / Unmute and Hang up; tapping it opens the voice screen. */
+  private fun buildVoiceNotification(line: String): Notification {
+    val open = Intent(Intent.ACTION_VIEW, Uri.parse("ghostex://voice"))
+      .setPackage(packageName)
+      .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    return NotificationCompat.Builder(this, VOICE_CHANNEL_ID)
+      .setSmallIcon(R.drawable.ic_ghostex_service)
+      .setColor(0xFF607D8B.toInt())
+      .setContentTitle("Voice mode on")
+      .setContentText(line)
+      .setOngoing(true)
+      .setShowWhen(false)
+      .setSilent(true)
+      .setCategory(NotificationCompat.CATEGORY_CALL)
+      .setPriority(NotificationCompat.PRIORITY_HIGH)
+      .setContentIntent(PendingIntent.getActivity(this, 3, open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
+      .addAction(
+        android.R.drawable.ic_btn_speak_now,
+        if (voiceMuted) "Unmute" else "Mute",
+        servicePendingIntent(ACTION_VOICE_MUTE, 4)
+      )
+      .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Hang up", servicePendingIntent(ACTION_VOICE_HANG_UP, 5))
+      .build()
+  }
+
   private fun buildNotification(): Notification {
+    voiceLine?.let { return buildVoiceNotification(it) }
     val rows = sessionRows
     val builder = NotificationCompat.Builder(this, CHANNEL_ID)
       .setSmallIcon(R.drawable.ic_ghostex_service)
@@ -231,9 +314,16 @@ class GhostexForegroundService : Service() {
     const val NOTIFICATION_ID = 1337
     const val CHANNEL_ID = "ghostex_notification_channel"
     const val CHANNEL_NAME = "Ghostex App"
+    const val VOICE_CHANNEL_ID = "ghostex_voice_mode_channel"
+    const val VOICE_CHANNEL_NAME = "Voice mode"
     const val ACTION_STOP = "expo.modules.ghostexnative.service.STOP"
     const val ACTION_WAKE_LOCK = "expo.modules.ghostexnative.service.WAKE_LOCK"
     const val ACTION_WAKE_UNLOCK = "expo.modules.ghostexnative.service.WAKE_UNLOCK"
+    const val ACTION_PERSISTENT_OFF = "expo.modules.ghostexnative.service.PERSISTENT_OFF"
+    const val ACTION_VOICE_ON = "expo.modules.ghostexnative.service.VOICE_ON"
+    const val ACTION_VOICE_OFF = "expo.modules.ghostexnative.service.VOICE_OFF"
+    const val ACTION_VOICE_HANG_UP = "expo.modules.ghostexnative.service.VOICE_HANG_UP"
+    const val ACTION_VOICE_MUTE = "expo.modules.ghostexnative.service.VOICE_MUTE"
     const val MAX_NOTIFICATION_ROWS = 5
     const val COLLAPSED_ROW_COUNT = 2
 
@@ -264,10 +354,22 @@ class GhostexForegroundService : Service() {
     @Volatile
     var isRunning = false
 
+    /** Whether the session notification is wanted (a computer is configured), apart from voice. */
+    @Volatile
+    private var persistentWanted = false
+
+    /** The "Voice mode on" state line while a conversation runs, else null. */
+    @Volatile
+    private var voiceLine: String? = null
+
+    @Volatile
+    private var voiceMuted = false
+
     @Volatile
     private var instance: GhostexForegroundService? = null
 
     fun start(context: Context) {
+      persistentWanted = true
       ContextCompat.startForegroundService(
         context,
         Intent(context, GhostexForegroundService::class.java)
@@ -275,9 +377,45 @@ class GhostexForegroundService : Service() {
     }
 
     fun stop(context: Context) {
+      if (!isRunning) {
+        persistentWanted = false
+        return
+      }
       context.startService(
-        Intent(context, GhostexForegroundService::class.java).setAction(ACTION_STOP)
+        Intent(context, GhostexForegroundService::class.java).setAction(ACTION_PERSISTENT_OFF)
       )
+    }
+
+    /** Switches the notification to "Voice mode on" and takes the microphone service type. */
+    fun startVoiceMode(context: Context, title: String) {
+      voiceMuted = false
+      voiceLine = "Connecting to $title…"
+      ContextCompat.startForegroundService(
+        context,
+        Intent(context, GhostexForegroundService::class.java).setAction(ACTION_VOICE_ON)
+      )
+    }
+
+    /** A new state line (Listening, Speaking, Reconnecting…) for the voice notification. */
+    fun updateVoiceMode(line: String, muted: Boolean) {
+      if (voiceLine == null || (voiceLine == line && voiceMuted == muted)) return
+      voiceLine = line
+      voiceMuted = muted
+      update()
+    }
+
+    /** Back to the session notification (or no service at all when none is wanted). */
+    fun stopVoiceMode(context: Context) {
+      if (voiceLine == null) return
+      voiceLine = null
+      voiceMuted = false
+      if (!isRunning) return
+      try {
+        context.startService(Intent(context, GhostexForegroundService::class.java).setAction(ACTION_VOICE_OFF))
+      } catch (_: IllegalStateException) {
+        // In the background a plain start is refused; the running service just redraws.
+        update()
+      }
     }
 
     /** Re-render the notification in place if the service is running. */
