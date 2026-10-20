@@ -10,6 +10,7 @@ import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioRecord
 import android.media.AudioTrack
+import android.media.PlaybackParams
 import android.media.MediaRecorder
 import android.media.audiofx.AcousticEchoCanceler
 import android.media.audiofx.NoiseSuppressor
@@ -227,6 +228,20 @@ internal object GhostexVoiceAudio {
 
     fun enqueue(audio: ByteArray) {
       if (running) queue.add(audio)
+    }
+
+    /**
+     * Plays the agent's audio [speed] times as fast with its pitch kept (the voice screen's speed
+     * buttons, `voiceAgentSpeed`).
+     *
+     * CDXC:VoiceMode 2026-10-20 WHY: neither provider talks faster than 1.5x and the user's buttons go to 2x, so the speed is the track's playback rate, like the desktop's time stretch. The track's head position still counts the provider's frames, so [cut] keeps reporting how much of the reply's audio was heard, in the provider's time.
+     */
+    fun setSpeed(speed: Float) {
+      try {
+        track.playbackParams = PlaybackParams().setSpeed(speed).setPitch(1f)
+      } catch (_: IllegalArgumentException) {
+      } catch (_: IllegalStateException) {
+      }
     }
 
     /** True while agent audio is queued or still draining from the track. */

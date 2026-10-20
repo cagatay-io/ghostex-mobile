@@ -241,6 +241,16 @@ export type VoiceEvent =
       message: string | null;
     };
 
+/** A Dictate recording on the phone, waiting for the computer to take it (GhostexVoiceRecorder.kt). */
+export type LocalDictation = {
+  id: string;
+  path: string;
+  createdAt: number;
+  durationMs: number;
+  bytes: number;
+  dismissed: boolean;
+};
+
 /** The conversation the native side is running, if any (after a JavaScript reload). */
 export type VoiceStatus = {
   id: string;

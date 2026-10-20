@@ -1,11 +1,14 @@
 /**
- * The composer's Dictate control: Grok dictation through the computer's gxserver
- * (`src/voice/dictation.ts`). Pressing the microphone starts listening and pressing it again stops;
- * the text gxserver sends back replaces the dictated span of the draft as it grows.
+ * The composer's Dictate control: the microphone records to a file on the phone first and, after
+ * Stop, the computer's gxserver keeps and transcribes it (`src/voice/dictation.ts`); the text is
+ * typed into the draft at the caret. While it records or transcribes, a row above the box shows it
+ * with an ✕ that cancels (the recording is kept as dismissed); a failure stays in that row with
+ * Transcribe again; a long press on the microphone offers Transcribe previous.
  *
  * CDXC:SessionChat 2026-10-08 DECISION: User asked for voice input in the chat box, to the left of the Terminal View button, on the desktop and the phone (GPUI Kit's speech input, #3333, on the desktop). Pressing the microphone starts listening and pressing it again stops; recognized text is typed into the draft and never sent by itself.
  * CDXC:SessionChat 2026-10-08 SEE-ALSO: `apps/desktop/src/app/native_chat/dictation.rs` is the desktop's control.
- * CDXC:VoiceMode 2026-10-20 DECISION: User: "use grok bot's api for the dictation mic button" and "the one in the chat box just pastes whatever i say into the chat box". Dictate uses xAI speech-to-text through gxserver (`/api/voice?mode=dictation`) with the key kept on the computer, instead of the platform recognizer; the platform recognizer code below is kept but unused (user: "keep but mark the old code as unused").
+ * CDXC:VoiceMode 2026-10-20 DECISION: User: "use grok bot's api for the dictation mic button" and "the one in the chat box just pastes whatever i say into the chat box". Dictate uses xAI speech-to-text through gxserver with the key kept on the computer, instead of the platform recognizer; the platform recognizer code below is kept but unused (user: "keep but mark the old code as unused").
+ * CDXC:VoiceMode 2026-10-20 SEE-ALSO: recording first and transcribing second, the Transcribing ✕, keeping cancelled recordings and Transcribe previous are the user's decision in the computer's `apps/desktop/src/app/voice_agent/dictation.rs`; the phone opens Transcribe previous on a long press (CDXC:SessionChat 2026-10-12 DECISION: actions open on a long press on the phone).
  */
 
 import { requireOptionalNativeModule } from 'expo';
@@ -17,7 +20,19 @@ import type {
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { MachineConnectionTarget } from '../../../machines/credentials';
-import { dictationSupported, startDictation, type Dictation } from '../../../voice/dictation';
+import {
+  dictationSupported,
+  dismissDictation,
+  dismissLocal,
+  latestUntranscribed,
+  saveAndTranscribe,
+  sendUnsent,
+  startRecording,
+  stopRecording,
+  transcribeLatest,
+  type Kept,
+  type Transcription,
+} from '../../../voice/dictation';
 import { chatMachineLink } from '../../rust/machine-link';
 
 type Subscription = { remove(): void };
@@ -41,17 +56,18 @@ const speech = requireOptionalNativeModule<SpeechNative>('ExpoSpeechRecognition'
  */
 const DICTATION_ENABLED = true;
 
-/**
- * The dictated span of the draft: the text around the caret when dictation started. Each new
- * transcript is put between them, a space apart from the text on either side.
- */
-type DictationAnchor = { before: string; after: string };
+export type DictationPhase = 'idle' | 'starting' | 'recording' | 'transcribing' | 'failed';
+
+/** `m:ss` for a recording's length. */
+export function dictationClock(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+}
 
 /**
- * Grok dictation into the draft. `draft()` reads the composer's text and caret when dictation
- * starts; `replace` writes the draft with the dictated text in place; `onError` gets a short
- * message for a failure the reader should know about (no microphone permission, no xAI key on the
- * computer).
+ * Dictate into the draft. `draft()` reads the composer's text and caret when the text arrives;
+ * `replace` writes the draft with the dictated text in place; `onError` gets a short message for a
+ * problem no row shows (no microphone permission, nothing waiting for Transcribe previous).
  */
 export function useDictation(
   machine: MachineConnectionTarget | null,
@@ -60,9 +76,14 @@ export function useDictation(
   onError: (message: string) => void
 ) {
   const [available, setAvailable] = useState(() => DICTATION_ENABLED && dictationSupported(machine));
-  const [listening, setListening] = useState(false);
-  const running = useRef<Dictation | null>(null);
-  const starting = useRef(false);
+  const [phase, setPhase] = useState<DictationPhase>('idle');
+  const [failure, setFailure] = useState<{ kept: Kept; message: string } | null>(null);
+  const [startedAt, setStartedAt] = useState(0);
+  const [now, setNow] = useState(0);
+  const phaseRef = useRef<DictationPhase>('idle');
+  phaseRef.current = phase;
+  /** One per run: a cancel flips it and remembers the computer's id to dismiss. */
+  const run = useRef<{ cancelled: boolean; serverId: string | null }>({ cancelled: false, serverId: null });
   const callbacks = useRef({ draft, replace, onError });
   callbacks.current = { draft, replace, onError };
 
@@ -78,39 +99,154 @@ export function useDictation(
     return link.onRouteChange(refresh);
   }, [machine]);
 
-  // Leaving the chat drops a dictation still running.
-  useEffect(() => () => running.current?.cancel(), []);
+  // The recording row's clock.
+  useEffect(() => {
+    if (phase !== 'recording') return undefined;
+    const timer = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(timer);
+  }, [phase]);
 
-  const toggle = useCallback(async () => {
-    if (machine === null || starting.current) return;
-    if (running.current !== null) {
-      running.current.stop();
+  // Leaving the chat keeps a recording still running, as dismissed.
+  useEffect(
+    () => () => {
+      if (phaseRef.current === 'recording' || phaseRef.current === 'starting') void stopRecording(true);
+      run.current.cancelled = true;
+    },
+    []
+  );
+
+  const insert = useCallback((dictated: string) => {
+    const words = dictated.trim();
+    if (words.length === 0) return;
+    const { text, caret } = callbacks.current.draft();
+    const before = text.slice(0, caret);
+    const after = text.slice(caret);
+    const lead = before.length > 0 && !/\s$/.test(before) ? ' ' : '';
+    const trail = after.length > 0 && !/^\s/.test(after) ? ' ' : '';
+    callbacks.current.replace(before + lead + words + trail + after);
+  }, []);
+
+  const settle = useCallback(
+    (current: { cancelled: boolean }, result: Transcription | null) => {
+      if (current.cancelled || result === null) return;
+      if (result.kind === 'text') {
+        setPhase('idle');
+        insert(result.text);
+      } else if (result.kind === 'nothing') {
+        setPhase('idle');
+        if (result.message) callbacks.current.onError(result.message);
+      } else {
+        setFailure({ kept: result.kept, message: result.message });
+        setPhase('failed');
+      }
+    },
+    [insert]
+  );
+
+  const transcribeKept = useCallback(
+    async (kept: Kept | null) => {
+      if (machine === null) return;
+      const current = { cancelled: false, serverId: kept?.kind === 'server' ? kept.id : null };
+      run.current = current;
+      setFailure(null);
+      setPhase('transcribing');
+      const result =
+        kept === null
+          ? await transcribeLatest(machine, () => current.cancelled)
+          : await saveAndTranscribe(machine, kept, () => current.cancelled, (id) => (current.serverId = id));
+      settle(current, result);
+    },
+    [machine, settle]
+  );
+
+  const stop = useCallback(async () => {
+    // Shown at once, so a second tap while the file closes does not stop it twice.
+    setPhase('transcribing');
+    const recording = await stopRecording(false);
+    if (recording === null) {
+      setPhase('idle');
       return;
     }
-    const { text, caret } = callbacks.current.draft();
-    const anchor: DictationAnchor = { before: text.slice(0, caret), after: text.slice(caret) };
-    starting.current = true;
-    setListening(true);
-    const dictation = await startDictation(machine, {
-      onText: (dictated) => {
-        const words = dictated.trim();
-        if (words.length === 0) return;
-        const lead = anchor.before.length > 0 && !/\s$/.test(anchor.before) ? ' ' : '';
-        const trail = anchor.after.length > 0 && !/^\s/.test(anchor.after) ? ' ' : '';
-        callbacks.current.replace(anchor.before + lead + words + trail + anchor.after);
-      },
-      onEnd: () => {
-        running.current = null;
-        setListening(false);
-      },
-      onError: (message) => callbacks.current.onError(message),
+    await transcribeKept({ kind: 'local', recording });
+  }, [transcribeKept]);
+
+  const start = useCallback(async () => {
+    if (machine === null) return;
+    const current = { cancelled: false, serverId: null };
+    run.current = current;
+    setFailure(null);
+    setPhase('starting');
+    // Recordings an earlier run could not hand over go now, off the path of this one.
+    void sendUnsent(machine);
+    const started = await startRecording((message) => {
+      // The microphone went away: what was recorded so far is transcribed.
+      callbacks.current.onError(`${message} What was recorded so far is being transcribed.`);
+      if (phaseRef.current === 'recording') void stop();
     });
-    starting.current = false;
-    if (dictation === null) setListening(false);
-    else running.current = dictation;
+    if ('error' in started) {
+      setPhase('idle');
+      callbacks.current.onError(started.error);
+      return;
+    }
+    if (current.cancelled) {
+      const recording = await stopRecording(true);
+      if (recording !== null) void saveAndTranscribe(machine, { kind: 'local', recording }, () => true, () => undefined);
+      return;
+    }
+    setStartedAt(Date.now());
+    setNow(Date.now());
+    setPhase('recording');
+  }, [machine, stop]);
+
+  /** The microphone button: start, or stop and transcribe. */
+  const toggle = useCallback(async () => {
+    if (phaseRef.current === 'recording') await stop();
+    else if (phaseRef.current === 'idle' || phaseRef.current === 'failed') await start();
+  }, [start, stop]);
+
+  /** ✕: a recording stops and is kept as dismissed; a transcription is dismissed; a failure row goes away. */
+  const cancel = useCallback(async () => {
+    const current = run.current;
+    const was = phaseRef.current;
+    current.cancelled = true;
+    setPhase('idle');
+    setFailure(null);
+    if (machine === null) return;
+    if (was === 'recording') {
+      const recording = await stopRecording(true);
+      if (recording !== null) {
+        const dismissed = await dismissLocal(recording);
+        void saveAndTranscribe(machine, { kind: 'local', recording: dismissed }, () => true, () => undefined);
+      }
+    } else if (was === 'transcribing' && current.serverId !== null) {
+      void dismissDictation(machine, current.serverId);
+    }
   }, [machine]);
 
-  return { available, listening, toggle };
+  const retry = useCallback(async () => {
+    if (failure !== null) await transcribeKept(failure.kept);
+  }, [failure, transcribeKept]);
+
+  const transcribePrevious = useCallback(async () => {
+    if (phaseRef.current === 'recording' || phaseRef.current === 'transcribing' || phaseRef.current === 'starting') return;
+    await transcribeKept(null);
+  }, [transcribeKept]);
+
+  /** What Transcribe previous would take, asked fresh (for the long-press menu). */
+  const previous = useCallback(async () => (machine === null ? null : latestUntranscribed(machine)), [machine]);
+
+  return {
+    available,
+    phase,
+    listening: phase === 'recording' || phase === 'starting',
+    failure: failure?.message ?? null,
+    elapsedMs: phase === 'recording' ? Math.max(0, now - startedAt) : 0,
+    toggle,
+    cancel,
+    retry,
+    transcribePrevious,
+    previous,
+  };
 }
 
 /**

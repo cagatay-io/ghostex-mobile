@@ -101,6 +101,22 @@ internal object GhostexVoice {
     current("conversation")?.sendJson(JSONObject().put("type", "text").put("text", text))
   }
 
+  /** The voice screen's speed buttons: plays the agent faster and tells gxserver the rate. */
+  fun setSpeed(speed: Double) {
+    current("conversation")?.setSpeed(speed.toFloat())
+  }
+
+  /** The voice screen's voice picker: gxserver switches when the provider can and answers `voice`. */
+  fun setVoice(voice: String) {
+    current("conversation")?.sendJson(JSONObject().put("type", "voice").put("voice", voice))
+  }
+
+  /** The voice screen's memory card: `continueMemory` or `forgetMemory`, frames without a payload. */
+  fun sendControl(type: String) {
+    if (type != "continueMemory" && type != "forgetMemory") return
+    current("conversation")?.sendJson(JSONObject().put("type", type))
+  }
+
   /** Conversation: hang up. Dictation: stop listening and wait for the final text. */
   fun end(mode: String) {
     current(mode)?.end()
@@ -165,6 +181,7 @@ internal object GhostexVoice {
     @Volatile private var ready = false
     @Volatile private var muted = false
     @Volatile private var focusPaused = false
+    @Volatile private var speed = 1f
     @Volatile private var conversationId: String? = null
     @Volatile private var state = "connecting"
     /** The server said `ended` or `done`, or the user hung up: a closed socket is final. */
@@ -193,7 +210,7 @@ internal object GhostexVoice {
     fun start() {
       if (conversationMode) {
         audioSession = GhostexVoiceAudio.Session(context) { gained -> onFocus(gained) }.also { it.begin() }
-        player = GhostexVoiceAudio.Player()
+        player = GhostexVoiceAudio.Player().also { it.setSpeed(speed) }
         holdLocks()
         GhostexForegroundService.startVoiceMode(context, title)
       }
@@ -227,6 +244,17 @@ internal object GhostexVoice {
 
     fun sendJson(json: JSONObject) {
       socket?.send(json.toString())
+    }
+
+    fun setSpeed(value: Float) {
+      speed = value
+      player?.setSpeed(value)
+      if (ready) sendPlaybackRate()
+    }
+
+    /** gxserver times the reply's end and an interruption's estimate by this rate; it resets on every attach. */
+    private fun sendPlaybackRate() {
+      sendJson(JSONObject().put("type", "playbackRate").put("rate", speed.toDouble()))
     }
 
     fun updateLink(port: Int, token: String) {
@@ -317,6 +345,7 @@ internal object GhostexVoice {
           frame.optString("conversationId").takeIf { it.isNotEmpty() }?.let { conversationId = it }
           detachedAt = 0L
           attempts = 0
+          if (conversationMode) sendPlaybackRate()
         }
         "state" -> {
           state = frame.optString("state", state)

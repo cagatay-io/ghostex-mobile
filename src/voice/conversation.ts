@@ -10,6 +10,7 @@
  *
  * CDXC:VoiceMode 2026-10-20 DECISION: User: "the one in the chat box just pastes whatever i say into the chat box, while the one above is more general and for discussing". The phone's top bar has a global Voice button that starts and ends a conversation with the manager voice agent; it keeps going while you move between screens and with the phone locked ("Voice mode on" notification with Hang up). The composer's Dictate microphone is the other entry point (`src/chat/native/composer/useDictation.ts`).
  * CDXC:VoiceMode 2026-10-20 DECISION: The API keys live on the computer; the phone never stores one. When the computer has none, the phone says so and points to Ghostex Settings › Voice agent on that computer.
+ * CDXC:VoiceMode 2026-10-20 DECISION: User: "on the voice mode screen, the user should be able to click on Eve to change the voice, and click buttons to change the voice agent's speed, with options 1, 1.2, 1.4, 1.6, 1.8, and 2", and the phone's voice screen gets the same picker and speed buttons, reading and saving the computer's settings (`voiceAgentXaiVoice` / `voiceAgentOpenaiVoice`, `voiceAgentSpeed`) through gxserver's `setVoiceAgentSettings`. The speed is played on the phone (`AudioTrack` playback rate, pitch kept) like the desktop's time stretch.
  */
 
 import { PermissionsAndroid, Platform } from 'react-native';
@@ -33,6 +34,15 @@ export type VoiceLine =
 
 export type VoiceProblem = { code: string; message: string };
 
+/** The remembered last conversation gxserver names in `ready` (server/src/voice_agent/memory.rs). */
+export type VoiceMemory = { gist: string; summary: string; endedAt: string };
+
+/**
+ * What the screen shows of it: the Continue / Start fresh card, "Remembering last conversation",
+ * "Forgot the last conversation.", or nothing (none remembered, Start fresh, or the user just talked).
+ */
+export type VoiceMemoryState = 'hidden' | 'offered' | 'continued' | 'forgotten';
+
 type VoiceState = {
   phase: VoicePhase;
   machineId: string | null;
@@ -47,6 +57,16 @@ type VoiceState = {
   problem: VoiceProblem | null;
   /** Why it ended, in one sentence, once `phase` is `ended`. */
   endedMessage: string | null;
+  /** `xai` or `openai`, the voice the agent speaks with now and the provider's voices (`ready`). */
+  provider: string | null;
+  voice: string | null;
+  voiceOptions: string[];
+  /** A picked voice this conversation could not switch to: it speaks from the next one. */
+  nextVoice: string | null;
+  /** How fast the agent's audio plays (`voiceAgentSpeed`). */
+  speed: number;
+  memory: VoiceMemory | null;
+  memoryState: VoiceMemoryState;
 };
 
 const INITIAL: VoiceState = {
@@ -60,6 +80,13 @@ const INITIAL: VoiceState = {
   lines: [],
   problem: null,
   endedMessage: null,
+  provider: null,
+  voice: null,
+  voiceOptions: [],
+  nextVoice: null,
+  speed: 1,
+  memory: null,
+  memoryState: 'hidden',
 };
 
 /** Lines kept on screen; older ones scroll away for good. */
@@ -77,6 +104,19 @@ let installed = false;
 
 /** Voice mode needs the Android voice engine; the iOS module has none yet. */
 export const VOICE_SUPPORTED = Platform.OS === 'android';
+
+/** The speeds the speed buttons offer (`voiceAgentSpeed`). */
+export const VOICE_SPEEDS = [1, 1.2, 1.4, 1.6, 1.8, 2] as const;
+
+/** "Grok" / "GPT Realtime", for "Grok · Eve". */
+export function voiceProviderName(provider: string | null): string {
+  return provider === 'openai' ? 'GPT Realtime' : 'Grok';
+}
+
+/** "eve" → "Eve". */
+export function voiceName(voice: string): string {
+  return voice.length > 0 ? voice[0].toUpperCase() + voice.slice(1) : voice;
+}
 
 /** One sentence per error code (the contract's section 3), in the phone's words. */
 function problemMessage(code: string, serverMessage: string, provider: string | null): string {
@@ -116,6 +156,26 @@ function endedMessage(reason: string, serverMessage: string): string {
   }
 }
 
+function parseMemory(value: unknown): VoiceMemory | null {
+  if (value === null || typeof value !== 'object') return null;
+  const record = value as Record<string, unknown>;
+  const text = (key: string): string => (typeof record[key] === 'string' ? (record[key] as string).trim() : '');
+  const summary = text('summary');
+  return summary ? { gist: text('gist'), summary, endedAt: text('endedAt') } : null;
+}
+
+/** "25 min ago", "yesterday", for the memory card. */
+export function memoryAgo(endedAt: string): string {
+  const ended = Date.parse(endedAt);
+  if (Number.isNaN(ended)) return '';
+  const minutes = Math.max(0, Math.floor((Date.now() - ended) / 60_000));
+  if (minutes === 0) return 'just now';
+  if (minutes < 60) return `${minutes} min ago`;
+  if (minutes < 1440) return `${Math.floor(minutes / 60)} h ago`;
+  if (minutes < 2880) return 'yesterday';
+  return `${Math.floor(minutes / 1440)} days ago`;
+}
+
 function set(partial: Partial<VoiceState>): void {
   useVoiceStore.setState(partial);
 }
@@ -148,10 +208,49 @@ function onFrame(json: string): void {
   }
   const text = (key: string): string => (typeof frame[key] === 'string' ? (frame[key] as string) : '');
   switch (frame.type) {
-    case 'ready':
+    case 'ready': {
       currentProvider = text('provider') || currentProvider;
-      set({ phase: 'live', problem: null });
+      const options = Array.isArray(frame.voiceOptions) ? frame.voiceOptions.filter((voice): voice is string => typeof voice === 'string') : [];
+      const memory = parseMemory(frame.memory);
+      set({
+        phase: 'live',
+        problem: null,
+        provider: currentProvider,
+        voice: text('voice') || null,
+        ...(options.length > 0 ? { voiceOptions: options } : {}),
+        memory,
+        memoryState: memory === null ? 'hidden' : frame.memoryContinued === true ? 'continued' : 'offered',
+      });
       return;
+    }
+    case 'memory': {
+      // Continued (the button or the agent's own recall), nothing to continue, or forgotten anywhere.
+      if (frame.state === 'continued') {
+        set({ memory: parseMemory(frame.memory) ?? useVoiceStore.getState().memory, memoryState: 'continued' });
+      } else if (frame.state === 'forgotten') {
+        set({ memory: null, memoryState: 'forgotten' });
+      } else {
+        set({ memory: null, memoryState: 'hidden' });
+      }
+      return;
+    }
+    case 'voice': {
+      // gxserver's answer to a picked voice: switched now, or kept for the next conversation.
+      const voice = text('voice');
+      if (frame.applied === 'now') {
+        set({ voice, nextVoice: null });
+        return;
+      }
+      if (useVoiceStore.getState().nextVoice === voice) return;
+      set({ nextVoice: voice });
+      const provider = voiceProviderName(currentProvider);
+      notice(
+        frame.reason === 'providerLocksVoice'
+          ? `${provider} keeps a call's voice once it has spoken, so ${voiceName(voice)} speaks from your next conversation.`
+          : `${provider} didn't switch voices mid-call, so ${voiceName(voice)} speaks from your next conversation.`,
+      );
+      return;
+    }
     case 'state':
       set({
         agentState: (text('state') || 'listening') as VoiceAgentState,
@@ -162,6 +261,10 @@ function onFrame(json: string): void {
       // An interrupted reply ends with one `cut` caption holding only the words that were played;
       // it replaces the reply's caption by `itemId` even when that one was already final.
       const role = frame.role === 'user' ? 'user' : 'agent';
+      // Talking with the memory card still up counts as Start fresh.
+      if (role === 'user' && text('text').trim() && useVoiceStore.getState().memoryState === 'offered') {
+        set({ memoryState: 'hidden' });
+      }
       pushLine({
         kind: 'caption',
         key: `caption-${text('itemId')}`,
@@ -317,9 +420,22 @@ export async function startVoice(machine: MachineConnectionTarget, machineName: 
       fail('unreachable', info.error.message);
       return;
     }
-    const result = (info.result ?? {}) as { provider?: string; keys?: Record<string, { configured?: boolean }> };
+    const result = (info.result ?? {}) as {
+      provider?: string;
+      keys?: Record<string, { configured?: boolean }>;
+      voices?: Record<string, string>;
+      voiceOptions?: Record<string, string[]>;
+      speed?: number;
+    };
     const provider = result.provider === 'openai' ? 'openai' : 'xai';
     currentProvider = provider;
+    const speed = VOICE_SPEEDS.find((offered) => Math.abs(offered - (result.speed ?? 1)) < 0.01) ?? 1;
+    set({
+      provider,
+      voice: result.voices?.[provider] ?? null,
+      voiceOptions: result.voiceOptions?.[provider] ?? [],
+      speed,
+    });
     if (result.keys?.[provider]?.configured !== true) {
       fail('noKey', problemMessage('noKey', '', provider));
       return;
@@ -331,6 +447,7 @@ export async function startVoice(machine: MachineConnectionTarget, machineName: 
       authToken: forward.authToken,
       title: machineName,
     });
+    if (speed !== 1) await GhostexNative.voiceSetSpeed(speed);
   } catch (error) {
     fail('unreachable', `Couldn't reach Ghostex on ${machineName}. ${error instanceof Error ? error.message : ''}`.trim());
   }
@@ -351,6 +468,55 @@ export function setVoiceMuted(muted: boolean): void {
 /** "Stop talking": cuts the agent's reply. */
 export function interruptVoice(): void {
   void GhostexNative.voiceInterrupt().catch(() => undefined);
+}
+
+/** Saves the computer's voice settings through gxserver (which saves them through the desktop app). */
+async function saveVoiceSettings(params: { provider?: string; voice?: string; speed?: number }, what: string): Promise<void> {
+  if (target === null) return;
+  try {
+    const answer = await chatMachineLink(target).rpc('setVoiceAgentSettings', params, READ_TIMEOUT_MS);
+    if (answer.error !== null) {
+      notice(`Couldn't save the ${what} on ${useVoiceStore.getState().machineName} (${answer.error.message}), so it lasts for this conversation only.`);
+    }
+  } catch {
+    notice(`Couldn't save the ${what} on ${useVoiceStore.getState().machineName}, so it lasts for this conversation only.`);
+  }
+}
+
+/** The speed buttons: faster at once (on the phone), and saved as the computer's `voiceAgentSpeed`. */
+export function setVoiceSpeed(speed: number): void {
+  if (speed === useVoiceStore.getState().speed) return;
+  set({ speed });
+  void GhostexNative.voiceSetSpeed(speed).catch(() => undefined);
+  void saveVoiceSettings({ speed }, 'speed');
+}
+
+/** The voice picker: saved as the computer's voice for this provider, and switched to when the provider can. */
+export function pickVoice(voice: string): void {
+  const state = useVoiceStore.getState();
+  if (voice === state.voice && state.nextVoice === null) return;
+  if (voice === state.voice) set({ nextVoice: null });
+  void saveVoiceSettings({ provider: state.provider ?? undefined, voice }, 'voice');
+  if (voiceActive(state.phase)) void GhostexNative.voiceSetVoice(voice).catch(() => undefined);
+}
+
+/** Continue: gxserver hands the summary to the agent, which recaps it, and answers `memory`. */
+export function continueVoiceMemory(): void {
+  if (useVoiceStore.getState().phase !== 'live') return;
+  set({ memoryState: 'continued' });
+  void GhostexNative.voiceSendControl('continueMemory').catch(() => undefined);
+}
+
+/** Start fresh: puts the card away; this call's own summary replaces the old one when it ends. */
+export function startVoiceFresh(): void {
+  set({ memoryState: 'hidden' });
+}
+
+/** Forget: gxserver deletes the summary, on the computer, for every device. */
+export function forgetVoiceMemory(): void {
+  if (useVoiceStore.getState().phase !== 'live') return;
+  set({ memory: null, memoryState: 'forgotten' });
+  void GhostexNative.voiceSendControl('forgetMemory').catch(() => undefined);
 }
 
 /** Back to idle once the ended conversation is dismissed. */

@@ -44,7 +44,8 @@ import { SendControl } from './SendControl';
 import { StatusLine, statusLineReserved } from './StatusLine';
 import { Suggestions } from './Suggestions';
 import { useComposerMotion } from './useComposerMotion';
-import { useDictation } from './useDictation';
+import { DictationBar } from './DictationBar';
+import { dictationClock, useDictation } from './useDictation';
 import { useKeyboardInset } from './useKeyboardInset';
 
 export type NativeComposerProps = {
@@ -239,6 +240,9 @@ export function NativeComposer({ chat, onHostAction, hostActions = DEFAULT_HOST_
         case 'dictate':
           void dictation.toggle();
           return;
+        case 'transcribePreviousDictation':
+          void dictation.transcribePrevious();
+          return;
         case 'stashPrompt':
           if (model !== null && model.text.trim().length > 0) {
             dispatch({ type: 'stash', text: model.text, draftVersion: { draftId: model.draftId, revision: model.revision } });
@@ -361,6 +365,29 @@ export function NativeComposer({ chat, onHostAction, hostActions = DEFAULT_HOST_
     }
   }, [document, openAccountsRequestId]);
 
+  // A long press on the microphone offers Transcribe previous: the newest recording that has no text yet.
+  const openDictationMenu = useCallback(() => {
+    void dictation.previous().then((previous) => {
+      if (previous === null) {
+        onHostAction?.('toast', { message: 'There is no recording waiting to be transcribed.', level: 'info' });
+        return;
+      }
+      const minutes = Math.floor((Date.now() - previous.createdAt) / 60_000);
+      const when = minutes < 1 ? 'just now' : minutes < 60 ? `${minutes} min ago` : `${Math.floor(minutes / 60)} h ago`;
+      setMenu({
+        kind: 'rows',
+        title: 'Dictate',
+        rows: [
+          {
+            label: `Transcribe previous (${dictationClock(previous.durationMs)}, ${when})`,
+            iconPath: 'titlebar/microphone.svg',
+            command: { type: 'composerHost', action: 'transcribePreviousDictation' },
+          },
+        ],
+      });
+    });
+  }, [dictation, onHostAction]);
+
   const openMore = useCallback(() => {
     if (document === null) return;
     const verbose = document.verboseOverride ?? verboseSetting;
@@ -412,6 +439,13 @@ export function NativeComposer({ chat, onHostAction, hostActions = DEFAULT_HOST_
       {document !== null ? <FilesLinksCard filesLinks={document.filesLinks} dispatch={dispatch} /> : null}
       {document?.suggestions ? <Suggestions data={document.suggestions} dispatch={dispatch} /> : null}
       {document?.runLocation ? <RunLocationRow row={document.runLocation} dispatch={dispatch} /> : null}
+      <DictationBar
+        phase={dictation.phase}
+        elapsedMs={dictation.elapsedMs}
+        failure={dictation.failure}
+        onCancel={() => void dictation.cancel()}
+        onRetry={() => void dictation.retry()}
+      />
       <Animated.View style={[styles.card, focused ? styles.cardFocused : null, motion.cardStyle]}>
         <Pressable
           accessible={false}
@@ -509,6 +543,7 @@ export function NativeComposer({ chat, onHostAction, hostActions = DEFAULT_HOST_
                           tint={control.id === 'terminal' ? terminalReadinessTint(document) : null}
                           onPress={() => performComposerAction(control.action)}
                           {...(control.id === 'stash' && serves('stashedPrompts') ? { onLongPress: () => host('stashedPrompts') } : {})}
+                          {...(control.id === 'dictate' ? { onLongPress: openDictationMenu } : {})}
                         />
                       );
                     })

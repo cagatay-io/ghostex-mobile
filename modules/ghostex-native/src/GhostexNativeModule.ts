@@ -17,6 +17,7 @@ import type {
   VoiceMode,
   VoiceStartOptions,
   VoiceStatus,
+  LocalDictation,
 } from './GhostexNative.types';
 
 declare class GhostexNativeModule extends NativeModule<GhostexNativeEvents> {
@@ -161,11 +162,29 @@ declare class GhostexNativeModule extends NativeModule<GhostexNativeEvents> {
   /** "Stop talking": the agent's reply is cut. */
   voiceInterrupt(): Promise<void>;
   voiceSendText(text: string): Promise<void>;
+  /** Plays the agent `speed` times as fast, pitch kept, and tells gxserver the rate (`playbackRate`). */
+  voiceSetSpeed(speed: number): Promise<void>;
+  /** Asks gxserver to switch the conversation to `voice`; it answers with a `voice` frame. */
+  voiceSetVoice(voice: string): Promise<void>;
+  /** The memory card: Continue hands the last conversation's summary to the agent; Forget deletes it. */
+  voiceSendControl(type: 'continueMemory' | 'forgetMemory'): Promise<void>;
   /** Conversation: hang up. Dictation: stop and wait for the final text. */
   voiceEnd(mode: VoiceMode): Promise<void>;
   /** Drops a dictation without its final text. */
   voiceCancel(mode: VoiceMode): Promise<void>;
   voiceStatus(): Promise<VoiceStatus | null>;
+  // Dictate's recordings, Android only (GhostexVoiceRecorder.kt): the microphone to a WAV file first.
+  /** Starts recording; answers the recording's id. A microphone failure arrives as a `micError` status. */
+  dictationRecordStart(): Promise<string>;
+  /** Stops recording and closes the file; null when none ran. */
+  dictationRecordStop(dismissed: boolean): Promise<LocalDictation | null>;
+  /** Recordings the computer never confirmed, oldest first. */
+  dictationUnsent(): Promise<LocalDictation[]>;
+  /** `length` bytes of a recording from `offset`, as base64 (empty at the end). */
+  dictationReadPiece(path: string, offset: number, length: number): Promise<string>;
+  dictationDismissLocal(path: string): Promise<void>;
+  /** The computer has it: the phone's copy goes. */
+  dictationForget(path: string): Promise<void>;
 }
 
 export default requireNativeModule<GhostexNativeModule>('GhostexNative');

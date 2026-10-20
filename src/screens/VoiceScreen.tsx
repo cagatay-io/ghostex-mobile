@@ -1,17 +1,20 @@
 /**
  * The voice screen: one conversation with the manager voice agent, made to be glanced at while
  * walking or driving. A big state circle (listening, thinking, speaking, running a tool), live
- * captions of what you and the agent said with tool calls as short rows, and large Mute, Stop
- * talking and Hang up controls. Closing the screen keeps the conversation going; the top bar's
+ * captions of what you and the agent said with tool calls as short rows, the voice (tap it to pick
+ * another), speed buttons from 1x to 2x, the remembered last conversation to continue
+ * (`VoiceMemoryCard`), and large Mute, Stop talking and Hang up controls. Closing the screen keeps the conversation going; the top bar's
  * Voice button and the "Voice mode on" notification bring it back.
  */
 
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
+import BottomSheet from '../components/common/BottomSheet';
+import { CheckGlyph } from '../components/onboarding/SetupIcons';
 import { useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
 import { GhostexPalette, GhostexRadii } from '../theme/palette';
@@ -19,13 +22,19 @@ import {
   dismissVoice,
   hangUpVoice,
   interruptVoice,
+  pickVoice,
   setVoiceMuted,
+  setVoiceSpeed,
   startVoice,
   useVoiceStore,
   voiceActive,
+  voiceName,
+  voiceProviderName,
+  VOICE_SPEEDS,
   type VoiceLine,
 } from '../voice/conversation';
 import { HeadsetGlyph, MicrophoneGlyph } from '../voice/VoiceButton';
+import { VoiceMemoryCard } from '../voice/VoiceMemoryCard';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Voice'>;
 
@@ -56,6 +65,43 @@ function ChevronDown({ color }: { color: string }) {
     <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
       <Path d="M 6 9 l 6 6 6 -6" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
+  );
+}
+
+/** "1×", "1.2×", … "2×". */
+function speedLabel(speed: number): string {
+  return `${speed}×`;
+}
+
+/** The voice list: the computer's voices for the conversation's provider, the current one checked. */
+function VoicePickerSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const provider = useVoiceStore((state) => state.provider);
+  const current = useVoiceStore((state) => state.voice);
+  const next = useVoiceStore((state) => state.nextVoice);
+  const options = useVoiceStore((state) => state.voiceOptions);
+  return (
+    <BottomSheet visible={visible} onClose={onClose}>
+      <Text style={styles.sheetTitle}>{`${voiceProviderName(provider)} voice`}</Text>
+      {options.map((voice) => {
+        const checked = voice === current;
+        return (
+          <Pressable
+            key={voice}
+            accessibilityRole="radio"
+            accessibilityState={{ checked }}
+            style={({ pressed }) => [styles.sheetRow, pressed && styles.controlPressed]}
+            onPress={() => {
+              onClose();
+              pickVoice(voice);
+            }}
+          >
+            <View style={styles.sheetCheck}>{checked ? <CheckGlyph size={18} color={GhostexPalette.FOREGROUND} strokeWidth={2.4} /> : null}</View>
+            <Text style={styles.sheetRowLabel}>{voiceName(voice)}</Text>
+            {voice === next ? <Text style={styles.sheetRowDetail}>Next conversation</Text> : null}
+          </Pressable>
+        );
+      })}
+    </BottomSheet>
   );
 }
 
@@ -95,6 +141,8 @@ export default function VoiceScreen({ navigation }: Props) {
   const active = voiceActive(voice.phase);
   const compact = voice.lines.length > 0;
   const machine = useMachinesStore((state) => state.machines.find((entry) => entry.id === voice.machineId) ?? null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const canPickVoice = active && voice.voiceOptions.length > 0;
 
   useEffect(() => {
     scroll.current?.scrollToEnd({ animated: true });
@@ -117,6 +165,25 @@ export default function VoiceScreen({ navigation }: Props) {
           <Text style={styles.subtitle} numberOfLines={1}>
             {voice.machineName}
           </Text>
+          {voice.voice !== null ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Voice: ${voiceName(voice.voice)}. Change the voice`}
+              disabled={!canPickVoice}
+              hitSlop={8}
+              style={({ pressed }) => [styles.voiceChip, pressed && styles.controlPressed]}
+              onPress={() => setPickerOpen(true)}
+            >
+              <Text style={styles.voiceChipText} numberOfLines={1}>
+                {`${voiceProviderName(voice.provider)} · ${voiceName(voice.voice)}`}
+              </Text>
+              {canPickVoice ? (
+                <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+                  <Path d="M 6 9 l 6 6 6 -6" stroke={GhostexPalette.MUTED} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+                </Svg>
+              ) : null}
+            </Pressable>
+          ) : null}
         </View>
         <View style={styles.headerButton} />
       </View>
@@ -138,6 +205,7 @@ export default function VoiceScreen({ navigation }: Props) {
       ) : null}
 
       <ScrollView ref={scroll} style={styles.lines} contentContainerStyle={styles.linesContent}>
+        {voice.phase === 'live' ? <VoiceMemoryCard /> : null}
         {voice.lines.length === 0 && active ? <Text style={styles.hint}>Ask what your agents are doing, or tell one what to do next.</Text> : null}
         {voice.lines.map((line) => (
           <Line key={line.key} line={line} />
@@ -146,6 +214,26 @@ export default function VoiceScreen({ navigation }: Props) {
           <Text style={styles.notice}>{voice.endedMessage}</Text>
         ) : null}
       </ScrollView>
+
+      {active ? (
+        <View style={styles.speedRow} accessibilityRole="radiogroup" accessibilityLabel="Speaking speed">
+          {VOICE_SPEEDS.map((speed) => {
+            const selected = Math.abs(speed - voice.speed) < 0.01;
+            return (
+              <Pressable
+                key={speed}
+                accessibilityRole="radio"
+                accessibilityLabel={`${speedLabel(speed)} speed`}
+                accessibilityState={{ checked: selected }}
+                style={({ pressed }) => [styles.speed, selected && styles.speedOn, pressed && styles.controlPressed]}
+                onPress={() => setVoiceSpeed(speed)}
+              >
+                <Text style={[styles.speedLabel, selected && styles.speedLabelOn]}>{speedLabel(speed)}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
 
       {active ? (
         <View style={styles.controls}>
@@ -208,6 +296,7 @@ export default function VoiceScreen({ navigation }: Props) {
           </Pressable>
         </View>
       )}
+      <VoicePickerSheet visible={pickerOpen && canPickVoice} onClose={() => setPickerOpen(false)} />
     </SafeAreaView>
   );
 }
@@ -219,6 +308,34 @@ const styles = StyleSheet.create({
   headerTitles: { flex: 1, alignItems: 'center' },
   title: { color: GhostexPalette.FOREGROUND, fontSize: 18, fontWeight: '600' },
   subtitle: { color: GhostexPalette.MUTED, fontSize: 14, marginTop: 2 },
+  voiceChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+    paddingHorizontal: 12,
+    minHeight: 32,
+    borderRadius: 16,
+    backgroundColor: GhostexPalette.CARD_ACTIVE,
+  },
+  voiceChipText: { color: GhostexPalette.FOREGROUND, fontSize: 15, fontWeight: '600' },
+  speedRow: { flexDirection: 'row', gap: 6, paddingHorizontal: 16, paddingTop: 4 },
+  speed: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: GhostexRadii.section,
+    backgroundColor: GhostexPalette.CARD,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  speedOn: { backgroundColor: GhostexPalette.ACCENT },
+  speedLabel: { color: GhostexPalette.FOREGROUND, fontSize: 16, fontWeight: '600' },
+  speedLabelOn: { color: GhostexPalette.ACCENT_FOREGROUND },
+  sheetTitle: { color: GhostexPalette.FOREGROUND, fontSize: 18, fontWeight: '700', marginBottom: 8 },
+  sheetRow: { flexDirection: 'row', alignItems: 'center', minHeight: 52, gap: 10 },
+  sheetCheck: { width: 24, alignItems: 'center' },
+  sheetRowLabel: { flex: 1, color: GhostexPalette.FOREGROUND, fontSize: 18 },
+  sheetRowDetail: { color: GhostexPalette.MUTED, fontSize: 14 },
   stateBlock: { alignItems: 'center', paddingTop: 12, paddingBottom: 16 },
   orb: { width: 132, height: 132, borderRadius: 66, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
   orbCore: { width: 72, height: 72, borderRadius: 36, opacity: 0.85 },

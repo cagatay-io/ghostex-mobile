@@ -106,6 +106,7 @@ class GhostexNativeModule : Module() {
     OnCreate {
       GhostexTailcatInterfaces.register()
       GhostexVoice.emitter = { event -> sendEvent("onVoiceEvent", event) }
+      GhostexVoiceRecorder.emitter = { event -> sendEvent("onVoiceEvent", event) }
     }
 
     Events(
@@ -603,6 +604,18 @@ class GhostexNativeModule : Module() {
       GhostexVoice.sendText(text)
     }
 
+    AsyncFunction("voiceSetSpeed") { speed: Double ->
+      GhostexVoice.setSpeed(speed)
+    }
+
+    AsyncFunction("voiceSetVoice") { voice: String ->
+      GhostexVoice.setVoice(voice)
+    }
+
+    AsyncFunction("voiceSendControl") { type: String ->
+      GhostexVoice.sendControl(type)
+    }
+
     AsyncFunction("voiceEnd") { mode: String ->
       GhostexVoice.end(mode)
     }
@@ -613,6 +626,31 @@ class GhostexNativeModule : Module() {
 
     AsyncFunction("voiceStatus") {
       GhostexVoice.status()
+    }
+
+    // Dictate's recordings (GhostexVoiceRecorder.kt): record to a file first, upload it after.
+    AsyncFunction("dictationRecordStart") {
+      GhostexVoiceRecorder.start(requireAndroidContext())
+    }
+
+    AsyncFunction("dictationRecordStop") { dismissed: Boolean ->
+      GhostexVoiceRecorder.stop(dismissed)
+    }
+
+    AsyncFunction("dictationUnsent") {
+      GhostexVoiceRecorder.unsent(requireAndroidContext())
+    }
+
+    AsyncFunction("dictationReadPiece") { path: String, offset: Double, length: Int ->
+      GhostexVoiceRecorder.readPiece(path, offset.toLong(), length)
+    }
+
+    AsyncFunction("dictationDismissLocal") { path: String ->
+      GhostexVoiceRecorder.dismiss(path)
+    }
+
+    AsyncFunction("dictationForget") { path: String ->
+      GhostexVoiceRecorder.forget(path)
     }
 
     // endregion
@@ -631,6 +669,7 @@ class GhostexNativeModule : Module() {
 
     OnDestroy {
       GhostexVoice.emitter = null
+      GhostexVoiceRecorder.emitter = null
       networkObserver?.close()
       networkObserver = null
       stopVisibleWindowFrameObserver()
