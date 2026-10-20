@@ -35,18 +35,26 @@ export function SideQuestionRow({ message }: { message: ProjectedMessage }) {
           <Text style={[styles.question, { color: theme.foreground }]} numberOfLines={1}>
             {str(card, 'question')}
           </Text>
-          <Text style={[styles.time, { color: theme.muted }]}>{typeof message.time === 'string' ? message.time : ''}</Text>
+          <Text style={[styles.time, { color: theme.muted }]}>
+            {typeof message.time === 'string' ? message.time : ''}
+          </Text>
         </Pressable>
         {open ? (
           <View style={[styles.body, { borderTopColor: theme.border }]}>
             {answer.length > 0 ? (
-              <SideAnswer dispatch={dispatch} markdown={str(card, 'answerMarkdown')} references={card?.answerReferences as Json} />
+              <SideAnswer
+                dispatch={dispatch}
+                markdown={str(card, 'answerMarkdown')}
+                references={card?.answerReferences as Json}
+              />
             ) : (
               <Text style={[styles.note, { color: theme.muted }]}>No answer was saved for this side question.</Text>
             )}
             <View style={styles.footer}>
               <Text style={[styles.note, { color: theme.muted }]}>Not added to the conversation</Text>
-              {answer.length > 0 ? <ChatButton label="Copy" icon="copy" onPress={() => void Clipboard.setStringAsync(answer)} /> : null}
+              {answer.length > 0 ? (
+                <ChatButton label="Copy" icon="copy" onPress={() => void Clipboard.setStringAsync(answer)} />
+              ) : null}
             </View>
           </View>
         ) : null}

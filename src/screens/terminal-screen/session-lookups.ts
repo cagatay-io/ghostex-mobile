@@ -3,11 +3,7 @@
  * moved verbatim from src/screens/TerminalScreen.tsx.
  */
 
-import {
-  resolveAgentIconId,
-  type GhostexMobileSummary,
-  type GhostexSession,
-} from '../../contract/mobileSummary';
+import { resolveAgentIconId, type GhostexMobileSummary, type GhostexSession } from '../../contract/mobileSummary';
 import { isSessionChatSupportedAgent } from '../../chat/session-chat-helpers';
 import { useInventoryStore } from '../../inventory/store';
 import type { MachineConnectionTarget } from '../../machines/credentials';
@@ -77,10 +73,11 @@ export const TAP_KEYBOARD_HINT_TIMEOUT_MS = 1500;
  * packages/shared/session-chat-file-references.ts owns the descriptive handoff-link format, mirrored here for the standalone mobile app.
  */
 export function transcriptMentionDraft(path: string, sessionTitle: string): string {
-  const label = `${sessionTitle} Handoff`.replace(/\s+/g, ' ').trim().replace(/[\\\[\]]/g, '\\$&');
-  const destination = /[\s<>]/.test(path)
-    ? `<${path.replace(/[\\<>]/g, '\\$&')}>`
-    : path.replace(/[\\()]/g, '\\$&');
+  const label = `${sessionTitle} Handoff`
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[\\\[\]]/g, '\\$&');
+  const destination = /[\s<>]/.test(path) ? `<${path.replace(/[\\<>]/g, '\\$&')}>` : path.replace(/[\\()]/g, '\\$&');
   return `[${label}](${destination}) `;
 }
 
@@ -122,17 +119,11 @@ export function sessionFolderFor(tab: TerminalTab | null): string {
  * a shell tab or the session is unknown) — drives the key bar's agent-hotkey
  * page. Pure so the screen can subscribe to it as an inventory selector.
  */
-export function sessionAgentIdFor(
-  tab: TerminalTab | null,
-  summary: GhostexMobileSummary | null | undefined,
-): string {
+export function sessionAgentIdFor(tab: TerminalTab | null, summary: GhostexMobileSummary | null | undefined): string {
   if (tab === null || tab.ghostexSessionId === undefined) return 'terminal';
   const session = summary?.sessions.find((entry) => entry.sessionId === tab.ghostexSessionId);
   if (session === undefined) return tab.ghostexAgentId ?? 'terminal';
-  return resolveAgentIconId(
-    session.agentIcon,
-    session.agentName.length > 0 ? session.agentName : session.agent,
-  );
+  return resolveAgentIconId(session.agentIcon, session.agentName.length > 0 ? session.agentName : session.agent);
 }
 
 /**
@@ -156,10 +147,7 @@ export function sessionOpensInChatView(sessionKey: string, session: GhostexSessi
  * has not resolved it) — the Session Chat CLI verbs address sessions by the
  * (projectId, sessionId) pair.
  */
-export function sessionProjectIdFor(
-  tab: TerminalTab | null,
-  summary: GhostexMobileSummary | null | undefined,
-): string {
+export function sessionProjectIdFor(tab: TerminalTab | null, summary: GhostexMobileSummary | null | undefined): string {
   if (tab === null || tab.ghostexSessionId === undefined) return '';
   const session = summary?.sessions.find((entry) => entry.sessionId === tab.ghostexSessionId);
   return session?.projectId ?? tab.ghostexProjectId ?? '';

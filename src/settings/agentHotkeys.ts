@@ -1,10 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 
-import type {
-  KeyModifiers,
-  TerminalKey,
-} from '../../modules/ghostex-native/src/GhostexNative.types';
+import type { KeyModifiers, TerminalKey } from '../../modules/ghostex-native/src/GhostexNative.types';
 
 const AGENT_HOTKEYS_STORAGE_KEY = 'agentHotkeys.v1';
 
@@ -96,12 +93,7 @@ function step(key: TerminalKey, mods: KeyModifiers): AgentHotkeyStep {
   return { key, mods };
 }
 
-function shortcut(
-  id: string,
-  label: string,
-  key: TerminalKey,
-  mods: KeyModifiers,
-): AgentHotkey {
+function shortcut(id: string, label: string, key: TerminalKey, mods: KeyModifiers): AgentHotkey {
   return { id, label, steps: [step(key, mods)] };
 }
 
@@ -179,9 +171,7 @@ function sanitizeStep(value: unknown): AgentHotkeyStep | null {
   const record = value as Record<string, unknown>;
   if (typeof record.key !== 'string' || record.key.length === 0) return null;
   const modsRecord =
-    typeof record.mods === 'object' && record.mods !== null
-      ? (record.mods as Record<string, unknown>)
-      : {};
+    typeof record.mods === 'object' && record.mods !== null ? (record.mods as Record<string, unknown>) : {};
   const mods: KeyModifiers = {
     ctrl: modsRecord.ctrl === true,
     alt: modsRecord.alt === true,

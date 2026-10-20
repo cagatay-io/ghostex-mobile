@@ -13,10 +13,7 @@ import { TailscaleFormCopy } from '../../copy';
 import { formStyles } from './styles';
 import { runConnectionTest, type ConnectionTestOutcome, type ConnectionTestPlan } from './testConnection';
 
-export type TestState =
-  | { kind: 'idle' }
-  | { kind: 'testing' }
-  | { kind: 'done'; outcome: ConnectionTestOutcome };
+export type TestState = { kind: 'idle' } | { kind: 'testing' } | { kind: 'done'; outcome: ConnectionTestOutcome };
 
 export type TestConnectionButtonProps = {
   disabled: boolean;

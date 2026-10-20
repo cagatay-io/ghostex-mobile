@@ -6,14 +6,7 @@
 import { ANDROID_SELF_UPDATE_ENABLED } from '../../config/featureFlags';
 
 export type SettingsPageId =
-  | 'updates'
-  | 'theme'
-  | 'chat'
-  | 'terminal'
-  | 'keyboard'
-  | 'sounds'
-  | 'connection'
-  | 'advanced';
+  'updates' | 'theme' | 'chat' | 'terminal' | 'keyboard' | 'sounds' | 'connection' | 'advanced';
 
 export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, { title: string; description: string }>> = {
   updates: { title: 'Updates', description: 'Check for a newer Ghostex release.' },

@@ -59,7 +59,7 @@ export function openComputerFile(
   navigation: FileNavigation,
   machineId: string,
   path: string,
-  options: OpenComputerFileOptions
+  options: OpenComputerFileOptions,
 ): void {
   const target = normalizeRemotePath(path);
   const projectId = options.projectId !== undefined && options.projectId.length > 0 ? options.projectId : undefined;
@@ -92,7 +92,13 @@ export function openComputerFile(
             gxserverComputerPort(machine),
           ]);
           // gxserver binds `127.0.0.1`, so the preview shares the chat's forward to it.
-          navigation.navigate('WebPreview', { machineId, scheme: 'http', remotePort, host: '127.0.0.1', path: linkPath });
+          navigation.navigate('WebPreview', {
+            machineId,
+            scheme: 'http',
+            remotePort,
+            host: '127.0.0.1',
+            path: linkPath,
+          });
         })();
   opened.catch((error: unknown) => {
     options.notify(error instanceof Error ? error.message : String(error), true, DocsCopy.openFailed);

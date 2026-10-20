@@ -44,15 +44,18 @@ import { baseName, docKindForPath, normalizeRemotePath } from '../docs/paths';
 import { useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
 import { GhostexPalette } from '../theme/palette';
-import { classifyMachineLink, holdComputerForward, openComputerForward, releaseComputerForward } from '../webPreview/machineLinks';
+import {
+  classifyMachineLink,
+  holdComputerForward,
+  openComputerForward,
+  releaseComputerForward,
+} from '../webPreview/machineLinks';
 import { useOpenMachineLink } from '../webPreview/useOpenMachineLink';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DocViewer'>;
 
 type LoadState =
-  | { kind: 'loading' }
-  | { kind: 'ready'; page: DocPage; nonce: number }
-  | { kind: 'failed'; message: string };
+  { kind: 'loading' } | { kind: 'ready'; page: DocPage; nonce: number } | { kind: 'failed'; message: string };
 
 type Notice = { id: number; title?: string; message: string; error: boolean };
 
@@ -133,8 +136,16 @@ export default function DocViewerScreen({ navigation, route }: Props) {
               icon={<PencilGlyph size={17} color={annotate ? GhostexPalette.ACCENT : GhostexPalette.FOREGROUND} />}
             />
           ) : null}
-          <HeaderButton label={DocsCopy.copyPath} onPress={copyPath} icon={<CopyGlyph size={17} color={GhostexPalette.FOREGROUND} />} />
-          <HeaderButton label={DocsCopy.reload} onPress={reload} icon={<RefreshIcon size={18} color={GhostexPalette.FOREGROUND} />} />
+          <HeaderButton
+            label={DocsCopy.copyPath}
+            onPress={copyPath}
+            icon={<CopyGlyph size={17} color={GhostexPalette.FOREGROUND} />}
+          />
+          <HeaderButton
+            label={DocsCopy.reload}
+            onPress={reload}
+            icon={<RefreshIcon size={18} color={GhostexPalette.FOREGROUND} />}
+          />
         </View>
       ),
     });
@@ -145,7 +156,7 @@ export default function DocViewerScreen({ navigation, route }: Props) {
   loadedPage.current = page;
   const source = useMemo(
     () => (page === null ? null : { uri: fragment ? `${page.uri}#${encodeURIComponent(fragment)}` : page.uri }),
-    [fragment, page]
+    [fragment, page],
   );
 
   /** Opens another file on the computer where the phone opens it (`docs/openComputerFile.ts`). */
@@ -157,7 +168,7 @@ export default function DocViewerScreen({ navigation, route }: Props) {
         notify: showNotice,
       });
     },
-    [machineId, navigation, projectId, showNotice]
+    [machineId, navigation, projectId, showNotice],
   );
 
   const handleShouldStartLoad = useCallback(
@@ -189,7 +200,7 @@ export default function DocViewerScreen({ navigation, route }: Props) {
       openLinkedFile(target, mirrored.fragment);
       return false;
     },
-    [openLinkedFile, openMachineLink, page, remotePath]
+    [openLinkedFile, openMachineLink, page, remotePath],
   );
 
   /*
@@ -209,29 +220,26 @@ export default function DocViewerScreen({ navigation, route }: Props) {
    * The phone URLs for loopback addresses a page failed to load (`http://localhost:3000/a.png`):
    * the same path through a forward to that port on the computer.
    */
-  const forwardRequestedAddresses = useCallback(
-    async (urls: readonly string[]): Promise<Record<string, string>> => {
-      const target = machineRef.current;
-      const replacements: Record<string, string> = {};
-      if (target === undefined) return replacements;
-      for (const url of urls) {
-        const link = classifyMachineLink(url);
-        if (link.kind !== 'computer') continue;
-        try {
-          const { localPort, gxserver } = await openComputerForward(target, link.address);
-          if (!gxserver && !heldPortsRef.current.has(link.address.remotePort)) {
-            holdComputerForward(target.id, link.address.remotePort);
-            heldPortsRef.current.add(link.address.remotePort);
-          }
-          replacements[url] = `${link.address.scheme}://127.0.0.1:${localPort}${link.address.path}`;
-        } catch {
-          // Nothing listens there on the computer either; the picture stays broken, as it would there.
+  const forwardRequestedAddresses = useCallback(async (urls: readonly string[]): Promise<Record<string, string>> => {
+    const target = machineRef.current;
+    const replacements: Record<string, string> = {};
+    if (target === undefined) return replacements;
+    for (const url of urls) {
+      const link = classifyMachineLink(url);
+      if (link.kind !== 'computer') continue;
+      try {
+        const { localPort, gxserver } = await openComputerForward(target, link.address);
+        if (!gxserver && !heldPortsRef.current.has(link.address.remotePort)) {
+          holdComputerForward(target.id, link.address.remotePort);
+          heldPortsRef.current.add(link.address.remotePort);
         }
+        replacements[url] = `${link.address.scheme}://127.0.0.1:${localPort}${link.address.path}`;
+      } catch {
+        // Nothing listens there on the computer either; the picture stays broken, as it would there.
       }
-      return replacements;
-    },
-    []
-  );
+    }
+    return replacements;
+  }, []);
 
   const handleMessage = useCallback(
     (event: WebViewMessageEvent) => {
@@ -258,11 +266,14 @@ export default function DocViewerScreen({ navigation, route }: Props) {
         showNotice(DocsCopy.agentationFailed, true);
       }
     },
-    [forwardRequestedAddresses, page, showNotice]
+    [forwardRequestedAddresses, page, showNotice],
   );
 
   const injectAgentation = isHtml && annotate;
-  const injectedScript = useMemo(() => (injectAgentation ? agentationInjectionScript() : undefined), [injectAgentation]);
+  const injectedScript = useMemo(
+    () => (injectAgentation ? agentationInjectionScript() : undefined),
+    [injectAgentation],
+  );
 
   return (
     <View style={[styles.screen, { paddingBottom: insets.bottom }]}>
@@ -279,7 +290,9 @@ export default function DocViewerScreen({ navigation, route }: Props) {
           // A page's own module scripts, stylesheets and frames are `file://` loads from a `file://` page.
           allowFileAccessFromFileURLs
           // A player page names the computer's stream through a phone forward, which is not the page's to report.
-          injectedJavaScriptBeforeContentLoaded={load.page.kind === 'video' || load.page.kind === 'audio' ? undefined : ASSET_LOADER_SCRIPT}
+          injectedJavaScriptBeforeContentLoaded={
+            load.page.kind === 'video' || load.page.kind === 'audio' ? undefined : ASSET_LOADER_SCRIPT
+          }
           injectedJavaScript={injectedScript}
           onMessage={handleMessage}
           onShouldStartLoadWithRequest={handleShouldStartLoad}
@@ -299,7 +312,7 @@ export default function DocViewerScreen({ navigation, route }: Props) {
           <Text style={styles.failureBody} selectable>
             {load.message}
           </Text>
-          <Pressable accessibilityRole='button' onPress={reload} style={styles.retryButton}>
+          <Pressable accessibilityRole="button" onPress={reload} style={styles.retryButton}>
             <Text style={styles.retryText}>{DocsCopy.retry}</Text>
           </Pressable>
         </View>
@@ -334,12 +347,16 @@ function HeaderButton({
 }) {
   return (
     <Pressable
-      accessibilityRole='button'
+      accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ selected: active }}
       hitSlop={6}
       onPress={onPress}
-      style={({ pressed }) => [styles.headerButton, active && styles.headerButtonActive, pressed && styles.headerButtonPressed]}
+      style={({ pressed }) => [
+        styles.headerButton,
+        active && styles.headerButtonActive,
+        pressed && styles.headerButtonPressed,
+      ]}
     >
       {icon}
     </Pressable>
@@ -370,7 +387,7 @@ function NoticeToast({ notice, bottom }: { notice: Notice | null; bottom: number
   }, [notice, opacity]);
   if (shown === null) return null;
   return (
-    <Animated.View pointerEvents='none' style={[styles.toastRow, { bottom, opacity }]} accessibilityLiveRegion='polite'>
+    <Animated.View pointerEvents="none" style={[styles.toastRow, { bottom, opacity }]} accessibilityLiveRegion="polite">
       <View style={styles.toast}>
         {shown.title !== undefined ? <Text style={styles.toastTitle}>{shown.title}</Text> : null}
         <Text style={[styles.toastText, shown.error && styles.toastError]} numberOfLines={3}>

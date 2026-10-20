@@ -19,28 +19,18 @@ export function InfoGlyph({ size, color }: GlyphProps) {
 }
 
 /** Directional arrow for Back, project-reordering and machine-reordering context-menu rows. */
-export function ArrowGlyph({
-  size,
-  color,
-  direction,
-}: GlyphProps & { direction: 'left' | 'right' | 'up' | 'down' }) {
+export function ArrowGlyph({ size, color, direction }: GlyphProps & { direction: 'left' | 'right' | 'up' | 'down' }) {
   const path =
     direction === 'left'
       ? 'M 19 12 H 5 M 10 7 l -5 5 5 5'
       : direction === 'right'
         ? 'M 5 12 H 19 M 14 7 l 5 5 -5 5'
         : direction === 'up'
-        ? 'M 12 19 V 5 M 7 10 l 5 -5 5 5'
-        : 'M 12 5 v 14 M 7 14 l 5 5 5 -5';
+          ? 'M 12 19 V 5 M 7 10 l 5 -5 5 5'
+          : 'M 12 5 v 14 M 7 14 l 5 5 5 -5';
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d={path}
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Path d={path} stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -49,10 +39,7 @@ export function ArrowGlyph({
 export function ExitGlyph({ size, color }: GlyphProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M 10 4 h 8 a 1 1 0 0 1 1 1 v 14 a 1 1 0 0 1 -1 1 h -8 v -2 h 7 V 6 h -7 Z"
-        fill={color}
-      />
+      <Path d="M 10 4 h 8 a 1 1 0 0 1 1 1 v 14 a 1 1 0 0 1 -1 1 h -8 v -2 h 7 V 6 h -7 Z" fill={color} />
       <Path
         d="M 5 12 h 9 M 9.5 7.5 L 5 12 l 4.5 4.5"
         stroke={color}
@@ -69,13 +56,7 @@ export function ClockGlyph({ size, color }: GlyphProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx={12} cy={12} r={9} stroke={color} strokeWidth={2} />
-      <Path
-        d="M 12 7 v 5 l 3 3"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Path d="M 12 7 v 5 l 3 3" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -84,12 +65,7 @@ export function ClockGlyph({ size, color }: GlyphProps) {
 export function RefreshGlyph({ size, color }: GlyphProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M 20 12 a 8 8 0 1 1 -2.34 -5.66"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-      />
+      <Path d="M 20 12 a 8 8 0 1 1 -2.34 -5.66" stroke={color} strokeWidth={2} strokeLinecap="round" />
       <Path d="M 20 3 v 4 h -4" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
@@ -110,12 +86,7 @@ export function MachinesGlyph({ size, color }: GlyphProps) {
 export function MenuGlyph({ size, color }: GlyphProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M 4 7 h 16 M 4 12 h 16 M 4 17 h 16"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-      />
+      <Path d="M 4 7 h 16 M 4 12 h 16 M 4 17 h 16" stroke={color} strokeWidth={2} strokeLinecap="round" />
     </Svg>
   );
 }
@@ -129,14 +100,7 @@ export function SettingsGlyph({ size, color }: GlyphProps) {
         strokeWidth={2}
         strokeLinejoin="round"
       />
-      <Circle
-        cx={12}
-        cy={12}
-        r={3}
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-      />
+      <Circle cx={12} cy={12} r={3} stroke={color} strokeWidth={2} strokeLinecap="round" />
     </Svg>
   );
 }
@@ -145,10 +109,7 @@ export function SettingsGlyph({ size, color }: GlyphProps) {
 export function SleepGlyph({ size, color }: GlyphProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M 20 14.5 A 8.5 8.5 0 1 1 9.5 4 a 7 7 0 0 0 10.5 10.5 Z"
-        fill={color}
-      />
+      <Path d="M 20 14.5 A 8.5 8.5 0 1 1 9.5 4 a 7 7 0 0 0 10.5 10.5 Z" fill={color} />
     </Svg>
   );
 }
@@ -447,12 +408,7 @@ export function WorldGlyph({ size, color }: GlyphProps) {
 export function PlayGlyph({ size, color }: GlyphProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M 7 5 v 14 l 11 -7 Z"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinejoin="round"
-      />
+      <Path d="M 7 5 v 14 l 11 -7 Z" stroke={color} strokeWidth={2} strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -621,13 +577,7 @@ export function UserGlyph({ size, color }: GlyphProps) {
 /** Pin (desktop IconPin, mirrored like the sidebar's pinned marker). */
 export function PinGlyph({ size, color }: GlyphProps) {
   return (
-    <Svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      style={{ transform: [{ scaleX: -1 }] }}
-    >
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ transform: [{ scaleX: -1 }] }}>
       <Path
         d="M 9 4 h 6 l -0.8 6 2.8 2.5 v 1.5 H 7 v -1.5 L 9.8 10 Z M 12 14 v 6"
         stroke={color}

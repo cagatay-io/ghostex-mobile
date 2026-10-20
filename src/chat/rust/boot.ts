@@ -89,7 +89,12 @@ function entryWithVersion(stored: StoredDraft | null): Record<string, unknown> {
 }
 
 /** `{ "<sessionKey>[#<scope>]": value }` for every stored record of this session. */
-async function scoped(store: string, sessionKey: string, nowMs: number, reads: BootReads): Promise<Record<string, unknown>> {
+async function scoped(
+  store: string,
+  sessionKey: string,
+  nowMs: number,
+  reads: BootReads,
+): Promise<Record<string, unknown>> {
   reads.attempts += 1;
   let rows: [string, string][];
   try {
@@ -145,13 +150,25 @@ export async function readComposerBoot(sessionKey: string, nowMs: number): Promi
         { store: 'verbose', suffix: sessionKey },
       ],
       nowMs,
-      reads
+      reads,
     ),
     scoped('sessionOptions', sessionKey, nowMs, reads),
     scoped('modelOutbox', sessionKey, nowMs, reads),
   ]);
-  const [storedClientId, storedRaw, catalogRaw, claudeRaw, codexRaw, cursorRaw, hermesRaw, piRaw, basicRaw, noticeRaw, summaryRaw, verboseRaw] =
-    records;
+  const [
+    storedClientId,
+    storedRaw,
+    catalogRaw,
+    claudeRaw,
+    codexRaw,
+    cursorRaw,
+    hermesRaw,
+    piRaw,
+    basicRaw,
+    noticeRaw,
+    summaryRaw,
+    verboseRaw,
+  ] = records;
   const id = await clientId(storedClientId, nowMs, reads);
   const entry = entryWithVersion(storedRaw === null ? null : decodeStoredDraft(storedRaw));
   const modelCatalog = parse(catalogRaw);

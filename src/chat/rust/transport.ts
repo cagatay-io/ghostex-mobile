@@ -71,7 +71,7 @@ function utf8Binary(text: string): string {
         0xf0 | (code >> 18),
         0x80 | ((code >> 12) & 0x3f),
         0x80 | ((code >> 6) & 0x3f),
-        0x80 | (code & 0x3f)
+        0x80 | (code & 0x3f),
       );
   }
   return out;
@@ -114,7 +114,7 @@ export async function sessionChatRpc(
   machine: MachineConnectionTarget,
   method: string,
   params: unknown,
-  timeoutMs = RPC_EXEC_TIMEOUT_MS
+  timeoutMs = RPC_EXEC_TIMEOUT_MS,
 ): Promise<RpcAnswer> {
   if (!METHOD_PATTERN.test(method)) {
     return { error: { code: null, message: `Invalid chat request method: ${method}`, endpoint: `/api/${method}` } };
@@ -132,7 +132,7 @@ async function sessionChatRpcOverSsh(
   machine: MachineConnectionTarget,
   method: string,
   params: unknown,
-  timeoutMs = RPC_EXEC_TIMEOUT_MS
+  timeoutMs = RPC_EXEC_TIMEOUT_MS,
 ): Promise<RpcAnswer> {
   const endpoint = `/api/${method}`;
   try {
@@ -205,7 +205,7 @@ export class SessionChatLongPoll {
     private readonly machine: MachineConnectionTarget,
     private readonly projectId: string,
     private readonly sessionId: string,
-    private readonly callbacks: LongPollCallbacks
+    private readonly callbacks: LongPollCallbacks,
   ) {}
 
   /** Starts (or widens) the poll. The window only grows, like the daemon follower's. */
@@ -312,7 +312,7 @@ export class SessionChatLongPoll {
         this.machine,
         'readSessionChat',
         params,
-        (fingerprint !== undefined ? LONG_POLL_WAIT_MS : 0) + LONG_POLL_EXEC_MARGIN_MS + RPC_EXEC_TIMEOUT_MS
+        (fingerprint !== undefined ? LONG_POLL_WAIT_MS : 0) + LONG_POLL_EXEC_MARGIN_MS + RPC_EXEC_TIMEOUT_MS,
       );
       if (generation !== this.generation) return;
       if (answer.error !== null) {
@@ -400,7 +400,7 @@ export class SessionChatStream {
     machine: MachineConnectionTarget,
     private readonly projectId: string,
     private readonly sessionId: string,
-    callbacks: LongPollCallbacks
+    callbacks: LongPollCallbacks,
   ) {
     this.link = chatMachineLink(machine);
     this.poll = new SessionChatLongPoll(machine, projectId, sessionId, callbacks);

@@ -126,14 +126,14 @@ function parsePortsPayload(stdout: string): RemoteListeningPort[] | null {
  */
 export async function fetchRemotePorts(
   machine: MachineConnectionTarget,
-  includeWebMetadata = false
+  includeWebMetadata = false,
 ): Promise<RemoteListeningPort[]> {
   try {
     await ensureConnected(machine);
     const result = await execRemoteCommand(
       machine.id,
       portsListCommand(includeWebMetadata),
-      includeWebMetadata ? 30000 : INVENTORY_EXEC_TIMEOUT_MS
+      includeWebMetadata ? 30000 : INVENTORY_EXEC_TIMEOUT_MS,
     );
     const output = `${result.stdout}\n${result.stderr}`.trim();
     if (result.exitCode !== 0) {

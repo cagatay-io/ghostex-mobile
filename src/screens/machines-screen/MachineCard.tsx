@@ -10,21 +10,11 @@
 import { useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import {
-  ChevronRightGlyph,
-  CloudGlyph,
-  DownloadGlyph,
-  PencilGlyph,
-  TrashGlyph,
-} from '../../components/sessions/icons';
+import { ChevronRightGlyph, CloudGlyph, DownloadGlyph, PencilGlyph, TrashGlyph } from '../../components/sessions/icons';
 import { MachinesCopy } from '../../copy';
 import type { AppUpdateView } from '../../machines/appUpdate';
 import { GhostexRadii, GhostexStrokeWidth, SetupPalette } from '../../theme/palette';
-import {
-  MACHINE_STATUS_BADGE_LABEL,
-  MACHINE_STATUS_COLOR,
-  type MachineCardStatus,
-} from './machineCardModel';
+import { MACHINE_STATUS_BADGE_LABEL, MACHINE_STATUS_COLOR, type MachineCardStatus } from './machineCardModel';
 import SwipeRevealRow, { SWIPE_REVEAL_WIDTH, type SwipeRevealRowMethods } from './SwipeRevealRow';
 
 function StatusBadge({ status }: { status: MachineCardStatus }) {
@@ -70,7 +60,8 @@ export default function MachineCard({
   onEdit: () => void;
   onRemove: () => void;
 }) {
-  const installLabel = update?.view.updateAvailable === true ? (update.view.action?.label ?? MachinesCopy.update) : null;
+  const installLabel =
+    update?.view.updateAvailable === true ? (update.view.action?.label ?? MachinesCopy.update) : null;
   const row = useRef<SwipeRevealRowMethods>(null);
   const [open, setOpen] = useState(false);
   const closeThen = (action: () => void) => (): void => {
@@ -100,9 +91,7 @@ export default function MachineCard({
             style={[styles.action, styles.actionRemove]}
           >
             <TrashGlyph size={16} color="#ffffff" />
-            <Text style={[styles.actionLabel, styles.actionRemoveLabel]}>
-              {MachinesCopy.swipe.remove}
-            </Text>
+            <Text style={[styles.actionLabel, styles.actionRemoveLabel]}>{MachinesCopy.swipe.remove}</Text>
           </Pressable>
         </>
       }

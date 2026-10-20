@@ -25,13 +25,7 @@ export type TailscalePasswordSheetProps = {
   onSave: (password: string) => void;
 };
 
-export default function TailscalePasswordSheet({
-  code,
-  busy,
-  error,
-  onClose,
-  onSave,
-}: TailscalePasswordSheetProps) {
+export default function TailscalePasswordSheet({ code, busy, error, onClose, onSave }: TailscalePasswordSheetProps) {
   const [password, setPassword] = useState('');
   const [touched, setTouched] = useState(false);
 
@@ -85,9 +79,7 @@ export default function TailscalePasswordSheet({
                 returnKeyType="go"
               />
             </View>
-            {emptyError !== null || error !== null ? (
-              <Text style={styles.error}>{error ?? emptyError}</Text>
-            ) : null}
+            {emptyError !== null || error !== null ? <Text style={styles.error}>{error ?? emptyError}</Text> : null}
           </View>
           <SetupButton
             variant="primary"

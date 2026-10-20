@@ -19,12 +19,7 @@ export type TerminalStateOverlayProps = {
   onReconnect: () => void;
 };
 
-export default function TerminalStateOverlay({
-  tab,
-  errorCaption,
-  onRetry,
-  onReconnect,
-}: TerminalStateOverlayProps) {
+export default function TerminalStateOverlay({ tab, errorCaption, onRetry, onReconnect }: TerminalStateOverlayProps) {
   if (tab.state === 'open') return null;
 
   return (
@@ -39,9 +34,7 @@ export default function TerminalStateOverlay({
         <View style={styles.stack}>
           <WarningTriangleIcon size={40} color={GhostexPalette.DANGER} />
           <Text style={styles.headline}>Connection Failed</Text>
-          {errorCaption !== null && errorCaption.length > 0 && (
-            <Text style={styles.caption}>{errorCaption}</Text>
-          )}
+          {errorCaption !== null && errorCaption.length > 0 && <Text style={styles.caption}>{errorCaption}</Text>}
           <Pressable
             accessibilityRole="button"
             style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}

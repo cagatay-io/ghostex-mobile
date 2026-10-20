@@ -12,10 +12,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { GhostexNative } from '../../../modules/ghostex-native/src';
 import { createdSessionId, runGhostexCli } from '../../components/sessions/cli';
 import { type TerminalMenuActionId } from '../../components/terminal/TerminalMenu';
-import {
-  pickAndSendAttachment,
-  pickAndSendImageAttachment,
-} from '../../components/terminal/uploads';
+import { pickAndSendAttachment, pickAndSendImageAttachment } from '../../components/terminal/uploads';
 import {
   cancelDelayedSendCommand,
   closeAfterDoneCommand,
@@ -42,11 +39,7 @@ import { useInventoryStore } from '../../inventory/store';
 import type { MachineConnectionTarget } from '../../machines/credentials';
 import { useMachinesStore, type MachineRecord } from '../../machines/store';
 import type { RootStackParamList } from '../../navigation/types';
-import {
-  lifecycleMutation,
-  renameMutation,
-  runSessionCommand,
-} from '../../sessions/sessionCommands';
+import { lifecycleMutation, renameMutation, runSessionCommand } from '../../sessions/sessionCommands';
 import { acknowledgeSessionAttention } from '../../terminal/attention';
 import { useTerminalStore, type TerminalTab } from '../../terminal/sessions';
 import {
@@ -82,10 +75,7 @@ export type TerminalAgentActionsDeps = {
   setChatSearchRequestId: Dispatch<SetStateAction<number>>;
   navigation: TerminalNavigation;
   requestCloseTab: (tab: TerminalTab) => void;
-  openShellTab: (
-    machine: MachineConnectionTarget,
-    options?: { title?: string; cwd?: string },
-  ) => Promise<string>;
+  openShellTab: (machine: MachineConnectionTarget, options?: { title?: string; cwd?: string }) => Promise<string>;
 };
 
 export function useTerminalAgentActions({
@@ -203,9 +193,7 @@ export function useTerminalAgentActions({
     // slept session has no surface left for this screen to show.
     await runSessionCommand(
       machine,
-      sleeping
-        ? wakeSessionCommand(session.sessionId, projectId)
-        : sleepSessionCommand(session.sessionId, projectId),
+      sleeping ? wakeSessionCommand(session.sessionId, projectId) : sleepSessionCommand(session.sessionId, projectId),
       sleeping
         ? {
             optimisticChange: lifecycleMutation(session.sessionId, false),
@@ -240,22 +228,18 @@ export function useTerminalAgentActions({
     const target = agentTarget();
     if (target === null) return;
     setAgentOverlay(AGENT_OVERLAY_NONE);
-    await runSessionCommand(
-      target.machine,
-      cancelDelayedSendCommand(target.session.sessionId),
-      { onError: (message) => Alert.alert('Delayed Send Failed', message, [{ text: 'OK' }]) },
-    );
+    await runSessionCommand(target.machine, cancelDelayedSendCommand(target.session.sessionId), {
+      onError: (message) => Alert.alert('Delayed Send Failed', message, [{ text: 'OK' }]),
+    });
   }, [agentTarget]);
 
   const toggleCloseAfterDone = useCallback(async (): Promise<void> => {
     const target = agentTarget();
     if (target === null) return;
     setAgentOverlay(AGENT_OVERLAY_NONE);
-    await runSessionCommand(
-      target.machine,
-      closeAfterDoneCommand(target.session.sessionId),
-      { onError: (message) => Alert.alert('Session Automation Failed', message, [{ text: 'OK' }]) },
-    );
+    await runSessionCommand(target.machine, closeAfterDoneCommand(target.session.sessionId), {
+      onError: (message) => Alert.alert('Session Automation Failed', message, [{ text: 'OK' }]),
+    });
   }, [agentTarget]);
 
   const runAgentFork = useCallback(async (): Promise<void> => {
@@ -274,13 +258,10 @@ export function useTerminalAgentActions({
       // visible session instead of leaving the user on the original.
       const forked = useInventoryStore
         .getState()
-        .inventoriesByMachineId[machine.id]?.summary?.sessions.find(
-          (entry) => entry.sessionId === forkedId,
-        );
+        .inventoriesByMachineId[machine.id]?.summary?.sessions.find((entry) => entry.sessionId === forkedId);
       const sessionKey = await useTerminalStore.getState().attachSession(machine, {
         sessionId: forkedId,
-        projectId:
-          forked !== undefined && forked.projectId.length > 0 ? forked.projectId : undefined,
+        projectId: forked !== undefined && forked.projectId.length > 0 ? forked.projectId : undefined,
         title: forked?.displayTitle,
       });
       useTerminalStore.getState().selectTab(sessionKey);
@@ -332,10 +313,7 @@ export function useTerminalAgentActions({
     const { machine, projectId, session } = target;
     setAgentProgress('Exporting transcript…');
     try {
-      const result = await runGhostexCli(
-        machine,
-        exportSessionTranscriptCommand(session.sessionId, projectId),
-      );
+      const result = await runGhostexCli(machine, exportSessionTranscriptCommand(session.sessionId, projectId));
       setAgentProgress(null);
       const path = typeof result.json?.path === 'string' ? result.json.path.trim() : '';
       if (path.length === 0) {
@@ -346,8 +324,7 @@ export function useTerminalAgentActions({
       setExportedTranscript({
         machine,
         projectId,
-        sessionTitle:
-          session.displayTitle.length > 0 ? session.displayTitle : SessionCopy.fallbackTitle,
+        sessionTitle: session.displayTitle.length > 0 ? session.displayTitle : SessionCopy.fallbackTitle,
         agentId: session.agent.trim(),
         agentLabel: session.agentName.length > 0 ? session.agentName : session.agent,
         path,
@@ -384,9 +361,7 @@ export function useTerminalAgentActions({
       // visible session instead of leaving the user on the exported one.
       const record = useInventoryStore
         .getState()
-        .inventoriesByMachineId[machine.id]?.summary?.sessions.find(
-          (entry) => entry.sessionId === sessionId,
-        );
+        .inventoriesByMachineId[machine.id]?.summary?.sessions.find((entry) => entry.sessionId === sessionId);
       const sessionKey = await useTerminalStore.getState().attachSession(machine, {
         sessionId,
         projectId,
@@ -417,11 +392,9 @@ export function useTerminalAgentActions({
     if (!chatModeActive) return;
     const target = agentTarget();
     if (target === null) return;
-    void readSessionChatSyncedDraft(
-      target.machine,
-      target.projectId,
-      target.session.sessionId,
-    ).then(setPromptEditorDraft);
+    void readSessionChatSyncedDraft(target.machine, target.projectId, target.session.sessionId).then(
+      setPromptEditorDraft,
+    );
   }, [agentTarget, chatModeActive]);
 
   /**
@@ -436,12 +409,9 @@ export function useTerminalAgentActions({
       const target = agentTarget();
       if (target === null) return;
       setPromptEditorDraft({ content, supported: true });
-      void writeSessionChatSyncedDraft(
-        target.machine,
-        target.projectId,
-        target.session.sessionId,
-        content,
-      ).catch((error: unknown) => reportAgentFailure('Draft Not Saved', error));
+      void writeSessionChatSyncedDraft(target.machine, target.projectId, target.session.sessionId, content).catch(
+        (error: unknown) => reportAgentFailure('Draft Not Saved', error),
+      );
     },
     [agentTarget, promptEditorDraft, reportAgentFailure],
   );
@@ -468,37 +438,30 @@ export function useTerminalAgentActions({
         reportAgentFailure('Send Failed', error);
       }
     },
-    [
-      agentTarget,
-      chatModeActive,
-      pushPromptEditorDraft,
-      reportAgentFailure,
-      sendChatMessageFromUser,
-    ],
+    [agentTarget, chatModeActive, pushPromptEditorDraft, reportAgentFailure, sendChatMessageFromUser],
   );
 
   /** Attach from the Files browser ('file') or the photo library ('image'). */
-  const handleUpload = useCallback(async (source: 'file' | 'image'): Promise<void> => {
-    const store = useTerminalStore.getState();
-    const tab = store.tabs.find((entry) => entry.sessionKey === store.selectedSessionKey);
-    if (tab === undefined || uploading) return;
-    // Chat mode has the terminal parked behind the chat surface, so the
-    // reference is sent as a message and the native terminal need not be open.
-    if (!chatModeActive && tab.state !== 'open') return;
-    setUploading(true);
-    try {
-      const pick = source === 'image' ? pickAndSendImageAttachment : pickAndSendAttachment;
-      await pick(
-        tab.machineId,
-        tab.sessionKey,
-        chatModeActive ? sendChatMessageFromUser : undefined,
-      );
-    } catch {
-      Alert.alert('Upload Failed', undefined, [{ text: 'OK' }]);
-    } finally {
-      setUploading(false);
-    }
-  }, [chatModeActive, sendChatMessageFromUser, uploading]);
+  const handleUpload = useCallback(
+    async (source: 'file' | 'image'): Promise<void> => {
+      const store = useTerminalStore.getState();
+      const tab = store.tabs.find((entry) => entry.sessionKey === store.selectedSessionKey);
+      if (tab === undefined || uploading) return;
+      // Chat mode has the terminal parked behind the chat surface, so the
+      // reference is sent as a message and the native terminal need not be open.
+      if (!chatModeActive && tab.state !== 'open') return;
+      setUploading(true);
+      try {
+        const pick = source === 'image' ? pickAndSendImageAttachment : pickAndSendAttachment;
+        await pick(tab.machineId, tab.sessionKey, chatModeActive ? sendChatMessageFromUser : undefined);
+      } catch {
+        Alert.alert('Upload Failed', undefined, [{ text: 'OK' }]);
+      } finally {
+        setUploading(false);
+      }
+    },
+    [chatModeActive, sendChatMessageFromUser, uploading],
+  );
 
   const handleNewTerminal = useCallback(async (): Promise<void> => {
     const machineId = activeTab?.machineId ?? useMachinesStore.getState().selectedMachineId;
@@ -526,31 +489,21 @@ export function useTerminalAgentActions({
     if (machine === null) return;
     const session = activeSession;
     const projectId = session.projectId.length > 0 ? session.projectId : undefined;
-    const title =
-      session.displayTitle.length > 0 ? session.displayTitle : SessionCopy.fallbackTitle;
-    Alert.alert(
-      'Kill Session?',
-      `This permanently ends "${title}" on the connected machine.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Kill Session',
-          style: 'destructive',
-          onPress: () => {
-            void runSessionCommand(
-              machine,
-              killSessionCommand(session.sessionId, projectId),
-              {
-                closeWarmSessionId: session.sessionId,
-                optimisticChange: { kind: 'sessionClose', sessionId: session.sessionId },
-                onError: (message) =>
-                  Alert.alert('Kill Session Failed', message, [{ text: 'OK' }]),
-              },
-            );
-          },
+    const title = session.displayTitle.length > 0 ? session.displayTitle : SessionCopy.fallbackTitle;
+    Alert.alert('Kill Session?', `This permanently ends "${title}" on the connected machine.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Kill Session',
+        style: 'destructive',
+        onPress: () => {
+          void runSessionCommand(machine, killSessionCommand(session.sessionId, projectId), {
+            closeWarmSessionId: session.sessionId,
+            optimisticChange: { kind: 'sessionClose', sessionId: session.sessionId },
+            onError: (message) => Alert.alert('Kill Session Failed', message, [{ text: 'OK' }]),
+          });
         },
-      ],
-    );
+      },
+    ]);
   }, [activeSession, activeTab]);
 
   /**

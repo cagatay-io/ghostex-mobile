@@ -16,17 +16,7 @@
 
 import { File, Paths } from 'expo-file-system';
 import { useRef } from 'react';
-import {
-  ActivityIndicator,
-  Modal,
-  Platform,
-  Pressable,
-  Share,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Modal, Platform, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import KeyboardAvoidingContainer from '../../../components/common/keyboard/KeyboardAvoidingContainer';
 import KeyboardAwareScrollView from '../../../components/common/keyboard/KeyboardAwareScrollView';
@@ -41,7 +31,11 @@ const DESCRIPTION = 'Save this final response in the project Docs folder. Its fu
 
 /** Hands the Markdown to the platform share sheet as `<name>.md`. */
 async function shareMarkdown(markdown: string, fileName: string): Promise<void> {
-  const stem = fileName.trim().replace(/[\\/:*?"<>|]/gu, ' ').trim() || 'Saved response';
+  const stem =
+    fileName
+      .trim()
+      .replace(/[\\/:*?"<>|]/gu, ' ')
+      .trim() || 'Saved response';
   const name = `${stem}.md`;
   if (Platform.OS === 'ios') {
     const file = new File(Paths.cache, name);
@@ -65,10 +59,10 @@ export function SaveMarkdownDialog({ chat }: { chat: RustChat }) {
   const identity = String(generation.current);
   const { dispatch } = chat;
   const [folder, setFolder] = useEchoedText(identity, str(state, 'folder'), (value) =>
-    dispatch({ type: 'markdownSaveFolder', value })
+    dispatch({ type: 'markdownSaveFolder', value }),
   );
   const [fileName, setFileName] = useEchoedText(identity, str(state, 'fileName'), (value) =>
-    dispatch({ type: 'markdownSaveName', value })
+    dispatch({ type: 'markdownSaveName', value }),
   );
   if (state === null) return null;
   const saving = isTrue(state, 'saving');
@@ -86,7 +80,7 @@ export function SaveMarkdownDialog({ chat }: { chat: RustChat }) {
     onChange: (value: string) => void,
     error: string,
     affix: { prefix?: string; suffix?: string },
-    options: { selectOnFocus: boolean; autoFocus: boolean; onSubmit?: () => void }
+    options: { selectOnFocus: boolean; autoFocus: boolean; onSubmit?: () => void },
   ) => {
     const invalid = error.length > 0;
     return (
@@ -101,13 +95,15 @@ export function SaveMarkdownDialog({ chat }: { chat: RustChat }) {
             },
           ]}
         >
-          {affix.prefix !== undefined ? <Text style={[styles.affix, { color: theme.muted }]}>{affix.prefix}</Text> : null}
+          {affix.prefix !== undefined ? (
+            <Text style={[styles.affix, { color: theme.muted }]}>{affix.prefix}</Text>
+          ) : null}
           <TextInput
             value={value}
             onChangeText={onChange}
             editable={!saving}
             accessibilityLabel={label}
-            autoCapitalize='none'
+            autoCapitalize="none"
             autoCorrect={false}
             autoFocus={options.autoFocus}
             selectTextOnFocus={options.selectOnFocus}
@@ -115,9 +111,13 @@ export function SaveMarkdownDialog({ chat }: { chat: RustChat }) {
             {...(options.onSubmit !== undefined ? { onSubmitEditing: options.onSubmit } : {})}
             style={[styles.inputText, { color: invalid ? destructive : theme.foreground }]}
           />
-          {affix.suffix !== undefined ? <Text style={[styles.affix, { color: theme.muted }]}>{affix.suffix}</Text> : null}
+          {affix.suffix !== undefined ? (
+            <Text style={[styles.affix, { color: theme.muted }]}>{affix.suffix}</Text>
+          ) : null}
         </View>
-        {label === 'Folder' ? <Text style={[styles.hint, { color: theme.muted }]}>Use / to create nested folders.</Text> : null}
+        {label === 'Folder' ? (
+          <Text style={[styles.hint, { color: theme.muted }]}>Use / to create nested folders.</Text>
+        ) : null}
         {invalid ? <Text style={[styles.error, { color: destructive }]}>{error}</Text> : null}
       </View>
     );
@@ -126,7 +126,7 @@ export function SaveMarkdownDialog({ chat }: { chat: RustChat }) {
     <Pressable
       disabled={disabled}
       onPress={onPress}
-      accessibilityRole='button'
+      accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled, busy }}
       style={({ pressed }) => [
@@ -135,28 +135,49 @@ export function SaveMarkdownDialog({ chat }: { chat: RustChat }) {
         disabled && styles.disabled,
       ]}
     >
-      {busy ? <ActivityIndicator size='small' color={theme.foreground} /> : null}
+      {busy ? <ActivityIndicator size="small" color={theme.foreground} /> : null}
       <Text style={[styles.buttonText, { color: theme.foreground }]}>{label}</Text>
-      {primary ? <Glyph name='chevron-right' size={16} color={theme.primary} /> : null}
+      {primary ? <Glyph name="chevron-right" size={16} color={theme.primary} /> : null}
     </Pressable>
   );
   return (
-    <Modal visible transparent animationType='fade' onRequestClose={cancel} statusBarTranslucent>
+    <Modal visible transparent animationType="fade" onRequestClose={cancel} statusBarTranslucent>
       <KeyboardAvoidingContainer safeAreaTop style={styles.fill}>
         <View style={styles.backdrop}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={saving ? undefined : cancel} accessibilityLabel='Cancel saving' />
-          <View style={[styles.card, { backgroundColor: theme.light ? theme.background : '#191919' }]} accessibilityViewIsModal>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={saving ? undefined : cancel}
+            accessibilityLabel="Cancel saving"
+          />
+          <View
+            style={[styles.card, { backgroundColor: theme.light ? theme.background : '#191919' }]}
+            accessibilityViewIsModal
+          >
             <View style={styles.header}>
               <Text style={[styles.title, { color: theme.foreground }]}>Save to Markdown</Text>
               <Text style={[styles.description, { color: theme.muted }]}>{DESCRIPTION}</Text>
             </View>
             <KeyboardAwareScrollView style={styles.fields} contentContainerStyle={styles.fieldsContent}>
-              {field('Folder', folder, setFolder, folderError, { prefix: '…/docs/' }, { selectOnFocus: false, autoFocus: false })}
-              {field('File name', fileName, setFileName, nameError, { suffix: '.md' }, {
-                selectOnFocus: isTrue(state, 'suggested'),
-                autoFocus: true,
-                onSubmit: submit,
-              })}
+              {field(
+                'Folder',
+                folder,
+                setFolder,
+                folderError,
+                { prefix: '…/docs/' },
+                { selectOnFocus: false, autoFocus: false },
+              )}
+              {field(
+                'File name',
+                fileName,
+                setFileName,
+                nameError,
+                { suffix: '.md' },
+                {
+                  selectOnFocus: isTrue(state, 'suggested'),
+                  autoFocus: true,
+                  onSubmit: submit,
+                },
+              )}
             </KeyboardAwareScrollView>
             {/* Desktop stacks its footer below 640px wide, the save action on top. */}
             <View style={styles.footer}>

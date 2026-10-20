@@ -80,12 +80,15 @@ export function SavedPromptsSheet({
 
   const load = useCallback(() => {
     setStage({ kind: 'loading' });
-    void sessionChatRpc(machine, 'listStashedPrompts', { projectId, sessionId, includeDelivered: false, includeRecovery: false }).then(
-      (answer) => {
-        if (answer.error === null) setStage({ kind: 'ready', prompts: savedPrompts(answer.result) });
-        else setStage({ kind: 'failed', message: answer.error.message });
-      }
-    );
+    void sessionChatRpc(machine, 'listStashedPrompts', {
+      projectId,
+      sessionId,
+      includeDelivered: false,
+      includeRecovery: false,
+    }).then((answer) => {
+      if (answer.error === null) setStage({ kind: 'ready', prompts: savedPrompts(answer.result) });
+      else setStage({ kind: 'failed', message: answer.error.message });
+    });
   }, [machine, projectId, sessionId]);
 
   useEffect(() => {
@@ -98,9 +101,12 @@ export function SavedPromptsSheet({
       const payload = shellQuote(JSON.stringify({ promptId: prompt.promptId }));
       execRemoteCommand(machine.id, `ghostex saved-prompts delete --payload-json ${payload} --json`, DELETE_TIMEOUT_MS)
         .then((result) => {
-          if (result.exitCode !== 0) throw new Error(result.stderr.trim() || result.stdout.trim() || 'The prompt was not deleted.');
+          if (result.exitCode !== 0)
+            throw new Error(result.stderr.trim() || result.stdout.trim() || 'The prompt was not deleted.');
           setStage((current) =>
-            current.kind === 'ready' ? { kind: 'ready', prompts: current.prompts.filter((row) => row.promptId !== prompt.promptId) } : current
+            current.kind === 'ready'
+              ? { kind: 'ready', prompts: current.prompts.filter((row) => row.promptId !== prompt.promptId) }
+              : current,
           );
           onChanged();
         })
@@ -109,7 +115,7 @@ export function SavedPromptsSheet({
         })
         .finally(() => setDeleting(null));
     },
-    [machine.id, onChanged]
+    [machine.id, onChanged],
   );
 
   const confirmRemove = useCallback(
@@ -119,7 +125,7 @@ export function SavedPromptsSheet({
         { text: 'Delete', style: 'destructive', onPress: () => remove(prompt) },
       ]);
     },
-    [remove]
+    [remove],
   );
 
   let body;
@@ -133,7 +139,11 @@ export function SavedPromptsSheet({
     body = (
       <View style={styles.centered}>
         <Text style={styles.error}>{stage.message}</Text>
-        <Pressable onPress={load} accessibilityRole="button" style={({ pressed }) => [styles.retry, pressed && { backgroundColor: P.neutralFillPressed }]}>
+        <Pressable
+          onPress={load}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.retry, pressed && { backgroundColor: P.neutralFillPressed }]}
+        >
           <Text style={styles.retryText}>Retry</Text>
         </Pressable>
       </View>
@@ -141,7 +151,9 @@ export function SavedPromptsSheet({
   } else if (stage.prompts.length === 0) {
     body = (
       <View style={styles.centered}>
-        <Text style={styles.empty}>No saved prompts in this project. Type a prompt and tap Stash to keep it for later.</Text>
+        <Text style={styles.empty}>
+          No saved prompts in this project. Type a prompt and tap Stash to keep it for later.
+        </Text>
       </View>
     );
   } else {
@@ -177,7 +189,11 @@ export function SavedPromptsSheet({
                 accessibilityLabel="Delete saved prompt"
                 style={({ pressed }) => [styles.delete, pressed && { backgroundColor: P.controlPressed }]}
               >
-                {deleting === prompt.promptId ? <ActivityIndicator size="small" color={P.muted} /> : <Glyph name="trash" size={16} color={P.muted} />}
+                {deleting === prompt.promptId ? (
+                  <ActivityIndicator size="small" color={P.muted} />
+                ) : (
+                  <Glyph name="trash" size={16} color={P.muted} />
+                )}
               </Pressable>
             </View>
           );
@@ -201,7 +217,14 @@ const useStyles = themedStyles((P) => ({
   retryText: { color: P.menuForeground, fontSize: 14 },
   list: { flexGrow: 0 },
   listContent: { paddingHorizontal: 12, paddingBottom: 8, gap: 6 },
-  row: { flexDirection: 'row', alignItems: 'flex-start', gap: 4, borderRadius: 12, borderWidth: 1, borderColor: P.menuBorder },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: P.menuBorder,
+  },
   rowBody: { flex: 1, minWidth: 0, gap: 4, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12 },
   content: { color: P.menuForeground, fontSize: 14, lineHeight: 20 },
   meta: { color: P.muted, fontSize: 12 },

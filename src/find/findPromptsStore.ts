@@ -74,7 +74,11 @@ function errorMessage(error: unknown): string {
 /** One notice for the agent histories gxserver found but could not read; null when both read fine. */
 function unreadableHistoryNotice(opencodeError?: string, empryoError?: string): FindPromptsNotice | null {
   if (opencodeError && empryoError) {
-    return { detail: `${opencodeError}\n${empryoError}`, kind: 'info', message: 'opencode and Empryo history could not be read.' };
+    return {
+      detail: `${opencodeError}\n${empryoError}`,
+      kind: 'info',
+      message: 'opencode and Empryo history could not be read.',
+    };
   }
   if (opencodeError) return { detail: opencodeError, kind: 'info', message: 'opencode history could not be read.' };
   if (empryoError) return { detail: empryoError, kind: 'info', message: 'Empryo history could not be read.' };

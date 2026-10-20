@@ -12,11 +12,7 @@ import BottomSheet from '../components/common/BottomSheet';
 import { CheckGlyph } from '../components/onboarding/SetupIcons';
 import { FindPromptsCopy } from '../copy';
 import { useFindStyles } from './findStyles';
-import {
-  FIND_PROMPT_AGENTS,
-  type FindPromptAgent,
-  type FindPromptProjectFacet,
-} from './promptSearch';
+import { FIND_PROMPT_AGENTS, type FindPromptAgent, type FindPromptProjectFacet } from './promptSearch';
 
 function SheetRow({
   checked,

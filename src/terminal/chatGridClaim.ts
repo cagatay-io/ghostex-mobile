@@ -50,7 +50,13 @@ function resolveHolderId(): string {
 function machineTarget(machineId: string): MachineConnectionTarget | null {
   const record = useMachinesStore.getState().machines.find((machine) => machine.id === machineId);
   if (record === undefined) return null;
-  return { id: record.id, host: record.host, username: record.username, port: record.port, transport: record.transport };
+  return {
+    id: record.id,
+    host: record.host,
+    username: record.username,
+    port: record.port,
+    transport: record.transport,
+  };
 }
 
 function desired(): Held | null {
@@ -73,7 +79,12 @@ async function send(hold: Held, release: boolean): Promise<void> {
   const target = machineTarget(hold.machineId);
   if (target === null) return;
   const sessions = [{ projectId: hold.projectId, sessionId: hold.sessionId }];
-  const params = { holderId: resolveHolderId(), sessions, ttlMs: CHAT_GRID_TTL_MS, ...(release ? { release: true } : {}) };
+  const params = {
+    holderId: resolveHolderId(),
+    sessions,
+    ttlMs: CHAT_GRID_TTL_MS,
+    ...(release ? { release: true } : {}),
+  };
   const link = chatMachineLink(target);
   if ((await link.route()) === 'socket') {
     const answer = await link.rpc('holdSessionChatGrid', params, REQUEST_TIMEOUT_MS);
@@ -82,9 +93,13 @@ async function send(hold: Held, release: boolean): Promise<void> {
     return;
   }
   try {
-    await runGhostexCli(target, holdSessionChatGridCommand(sessions, { holderId: params.holderId, ttlMs: CHAT_GRID_TTL_MS, release }), {
-      timeoutMs: REQUEST_TIMEOUT_MS,
-    });
+    await runGhostexCli(
+      target,
+      holdSessionChatGridCommand(sessions, { holderId: params.holderId, ttlMs: CHAT_GRID_TTL_MS, release }),
+      {
+        timeoutMs: REQUEST_TIMEOUT_MS,
+      },
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (message === FailureCopy.outdatedForFeature || message === FailureCopy.noCli) {

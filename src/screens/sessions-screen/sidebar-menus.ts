@@ -125,16 +125,7 @@ function command(message: SidebarMenuMessage): SidebarMenuCommand {
 // ---------------------------------------------------------------------------
 
 /** The session card hover buttons (gx-core `HoverAction`). */
-type HoverAction =
-  | 'rename'
-  | 'pin'
-  | 'note'
-  | 'snooze'
-  | 'closeAfterDone'
-  | 'tag'
-  | 'park'
-  | 'sleep'
-  | 'close';
+type HoverAction = 'rename' | 'pin' | 'note' | 'snooze' | 'closeAfterDone' | 'tag' | 'park' | 'sleep' | 'close';
 
 /**
  * CDXC:ContextMenus 2026-09-25 WHY:
@@ -158,13 +149,7 @@ const PHONE_MENU_SETTINGS = {
  * Tags the desktop's first-run tag list hides and disables (gx-core `DEFAULT_OFF_TAGS`); the Tag
  * As menu leaves them out unless the session already carries one.
  */
-const DEFAULT_HIDDEN_TAGS: readonly string[] = [
-  'high-priority',
-  'low-priority',
-  'todo',
-  'bug',
-  'feature',
-];
+const DEFAULT_HIDDEN_TAGS: readonly string[] = ['high-priority', 'low-priority', 'todo', 'bug', 'feature'];
 
 /** Built-in tag glyph ids (gx-core `builtin_presentation`); the renderer maps them to TAG_ICONS. */
 export const BUILTIN_TAG_ICON_IDS: Readonly<Record<string, string>> = {
@@ -208,12 +193,7 @@ export function isRunningSession(session: GhostexSession): boolean {
  */
 export function isInactiveSession(session: GhostexSession): boolean {
   const status = displayStatus(session);
-  return (
-    !isBrowserSession(session) &&
-    isRunningSession(session) &&
-    status !== 'working' &&
-    status !== 'attention'
-  );
+  return !isBrowserSession(session) && isRunningSession(session) && status !== 'working' && status !== 'attention';
 }
 
 function sessionAgentIcon(session: GhostexSession): string {
@@ -329,10 +309,7 @@ function sessionCapabilities(session: GhostexSession): SessionCapabilities {
 
 type TagOption = { value: string; label: string; icon: string; color: string };
 
-function tagSections(
-  current: string | undefined,
-  catalog: GhostexCustomSessionTags,
-): TagOption[][] {
+function tagSections(current: string | undefined, catalog: GhostexCustomSessionTags): TagOption[][] {
   const builtins = SESSION_TAG_SECTIONS.map((section) =>
     section.options
       .filter((option) => !DEFAULT_HIDDEN_TAGS.includes(option.value) || option.value === current)
@@ -400,7 +377,7 @@ function parkWithTag(item: SidebarMenuItem, session: GhostexSession): SidebarMen
           type: 'setSessionTag',
           sessionId: session.sessionId,
           // The row for the tag the session already has clears it; parking through it keeps it.
-          sessionTag: tag === null ? effectiveSessionTag(session) ?? null : tag,
+          sessionTag: tag === null ? (effectiveSessionTag(session) ?? null) : tag,
         },
         { type: 'setSessionParked', sessionId: session.sessionId, parked: true },
       ],
@@ -527,12 +504,21 @@ function linkSubmenu(session: GhostexSession, project: SessionMenuInput['project
   }
   if (linearProject !== undefined) unlinkRows.push(unlink('Unlink Linear project', { linearProject: '' }));
   if (githubIssues !== undefined) {
-    unlinkRows.push(unlink(githubNumbers.length > 1 ? 'Unlink GitHub issues' : 'Unlink GitHub issue', { githubIssues: [] }));
+    unlinkRows.push(
+      unlink(githubNumbers.length > 1 ? 'Unlink GitHub issues' : 'Unlink GitHub issue', { githubIssues: [] }),
+    );
   }
   if (githubProject !== undefined) unlinkRows.push(unlink('Unlink GitHub project', { githubProject: 'none' }));
   if (unlinkRows.length > 0) children.push(separator(), ...unlinkRows);
   if (work?.handSet === true) {
-    children.push(separator(), row('Back to automatic', 'refresh', command({ type: 'setSessionWorkLinks', sessionId: id, links: { clear: true } })));
+    children.push(
+      separator(),
+      row(
+        'Back to automatic',
+        'refresh',
+        command({ type: 'setSessionWorkLinks', sessionId: id, links: { clear: true } }),
+      ),
+    );
   }
   return submenu('Link to', 'link', children);
 }
@@ -672,11 +658,7 @@ export function buildSessionMenu(input: SessionMenuInput): SidebarMenuItem[] {
     ...(caps.canTag && tags.length > 0 ? { tag: submenu('Tag As', 'tag', tags) } : {}),
     ...(caps.canCloseAfterDone
       ? {
-          closeAfterDone: row(
-            'Close After Done',
-            'clock',
-            command({ type: 'toggleCloseAfterDone', sessionId: id }),
-          ),
+          closeAfterDone: row('Close After Done', 'clock', command({ type: 'toggleCloseAfterDone', sessionId: id })),
         }
       : {}),
   };
@@ -708,11 +690,7 @@ export function buildSessionMenu(input: SessionMenuInput): SidebarMenuItem[] {
   if (session.isCoordinator && session.isDraft !== true) {
     if (coordinatorBlock.length === 0 && menu.length > 0) menu.push(separator());
     menu.push({
-      ...row(
-        'Sleep Inactive Threads',
-        'moon',
-        command({ type: 'sleepInactiveCoordinatorThreads', sessionId: id }),
-      ),
+      ...row('Sleep Inactive Threads', 'moon', command({ type: 'sleepInactiveCoordinatorThreads', sessionId: id })),
       disabled: !threads.some(isInactiveSession),
     });
   }
@@ -741,9 +719,7 @@ export function buildSessionMenu(input: SessionMenuInput): SidebarMenuItem[] {
     advanced.push(row('Make Orchestrator', 'users-group', command({ type: 'makeCoordinator', sessionId: id })));
   }
   if (caps.canExportTranscript) {
-    advanced.push(
-      row('Handoff / Export', 'file-export', command({ type: 'exportSessionTranscript', sessionId: id })),
-    );
+    advanced.push(row('Handoff / Export', 'file-export', command({ type: 'exportSessionTranscript', sessionId: id })));
   }
   if (below.length > 0) {
     advanced.push(separator());
@@ -752,9 +728,7 @@ export function buildSessionMenu(input: SessionMenuInput): SidebarMenuItem[] {
      * CDXC:SessionSleep 2026-10-01 DECISION: User: "please don't sleep terminal sessions that have shell running or a question status", and Sleep Below is a bulk sweep too, so it skips rows with the grey shell-running dot or an unanswered question (the desktop's gx-core sidebar_menu/session.rs `full_menu`).
      */
     const sleepable = below
-      .filter(
-        (entry) => isRunningSession(entry) && !hasBackgroundWork(entry) && !hasPendingQuestion(entry),
-      )
+      .filter((entry) => isRunningSession(entry) && !hasBackgroundWork(entry) && !hasPendingQuestion(entry))
       .map((entry) => entry.sessionId);
     if (sleepable.length > 0) {
       advanced.push(
@@ -766,11 +740,7 @@ export function buildSessionMenu(input: SessionMenuInput): SidebarMenuItem[] {
       );
     }
     advanced.push({
-      ...row(
-        'Close Below',
-        'x',
-        command({ type: 'closeSessions', sessionIds: below.map((entry) => entry.sessionId) }),
-      ),
+      ...row('Close Below', 'x', command({ type: 'closeSessions', sessionIds: below.map((entry) => entry.sessionId) })),
       danger: true,
     });
   }

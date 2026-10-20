@@ -10,11 +10,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { MachineConnectionTarget } from '../machines/credentials';
-import {
-  browseDirectories,
-  type AddProjectBrowseEntry,
-  type AddProjectBrowseResult,
-} from './client';
+import { browseDirectories, type AddProjectBrowseEntry, type AddProjectBrowseResult } from './client';
 import { getBrowseDirectoryPath, getBrowseLeafPathSegment, hasTrailingPathSeparator } from './paths';
 
 export type DirectoryBrowseState = {
@@ -31,10 +27,7 @@ export type DirectoryBrowseState = {
   exactEntry: AddProjectBrowseEntry | null;
 };
 
-export function useDirectoryBrowse(
-  machine: MachineConnectionTarget | null,
-  query: string,
-): DirectoryBrowseState {
+export function useDirectoryBrowse(machine: MachineConnectionTarget | null, query: string): DirectoryBrowseState {
   const directory = getBrowseDirectoryPath(query);
   const machineId = machine?.id ?? null;
   const [result, setResult] = useState<AddProjectBrowseResult | null>(null);
@@ -81,9 +74,7 @@ export function useDirectoryBrowse(
   const entries = useMemo(() => {
     const source = currentResult?.entries ?? [];
     const lower = filter.toLowerCase();
-    return source.filter(
-      (entry) => !entry.name.startsWith('.') && entry.name.toLowerCase().startsWith(lower),
-    );
+    return source.filter((entry) => !entry.name.startsWith('.') && entry.name.toLowerCase().startsWith(lower));
   }, [currentResult, filter]);
 
   const exactEntry = useMemo(() => {

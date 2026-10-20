@@ -102,7 +102,15 @@ const NEEDS_APPROVAL_LABEL = 'Needs your approval';
  * come from the core; a row opens that thread through the `openCoordinatorThread` host action and
  * closes the sheet (`onDone`).
  */
-export function CoordinatorThreadsMenu({ chat, document, onDone }: { chat: RustChat; document: ChatDocument; onDone: () => void }) {
+export function CoordinatorThreadsMenu({
+  chat,
+  document,
+  onDone,
+}: {
+  chat: RustChat;
+  document: ChatDocument;
+  onDone: () => void;
+}) {
   const styles = useStyles();
   const panel = obj(document.coordinatorThreadsPanel);
   if (panel === null) return null;
@@ -113,7 +121,11 @@ export function CoordinatorThreadsMenu({ chat, document, onDone }: { chat: RustC
     <View accessibilityLabel="Orchestrator threads" style={styles.menu}>
       <MenuMeta
         meta={str(panel, 'meta')}
-        trailing={isTrue(panel, 'attention') ? <View style={[styles.threadDot, { backgroundColor: THREAD_APPROVAL }]} /> : undefined}
+        trailing={
+          isTrue(panel, 'attention') ? (
+            <View style={[styles.threadDot, { backgroundColor: THREAD_APPROVAL }]} />
+          ) : undefined
+        }
       />
       <ScrollView style={styles.menuRows} contentContainerStyle={styles.rows} nestedScrollEnabled>
         {arr(panel.rows).map((row, index) => (
@@ -124,7 +136,9 @@ export function CoordinatorThreadsMenu({ chat, document, onDone }: { chat: RustC
       {moreLabel.length > 0 ? (
         <Text
           accessibilityRole="button"
-          accessibilityLabel={moreStep === 0 ? 'Show fewer threads' : moreStep === 1 ? 'Show recent threads' : `Show ${moreLabel} threads`}
+          accessibilityLabel={
+            moreStep === 0 ? 'Show fewer threads' : moreStep === 1 ? 'Show recent threads' : `Show ${moreLabel} threads`
+          }
           style={styles.fold}
           onPress={() => chat.dispatch({ type: 'toggleCoordinatorThreadsMore', step: moreStep })}
         >
@@ -149,7 +163,12 @@ function ThreadRow({ row, chat, onDone }: { row: unknown; chat: RustChat; onDone
     onDone();
   };
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={`Open thread ${title}`} onPress={openThread} style={styles.threadRow}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Open thread ${title}`}
+      onPress={openThread}
+      style={styles.threadRow}
+    >
       <View style={styles.taskMarker}>
         {isTrue(row, 'working') ? (
           <View style={[styles.threadDot, { backgroundColor: THREAD_WORKING }]} />
@@ -192,7 +211,15 @@ export function subagentOpenAction(target: unknown): UserAction | null {
 }
 
 /** The Subagents pill's sheet: what the Subagents strip above the composer listed. A row's link opens the subagent's transcript and closes the sheet (`onDone`). */
-export function AgentFleetMenu({ chat, document, onDone }: { chat: RustChat; document: ChatDocument; onDone: () => void }) {
+export function AgentFleetMenu({
+  chat,
+  document,
+  onDone,
+}: {
+  chat: RustChat;
+  document: ChatDocument;
+  onDone: () => void;
+}) {
   const styles = useStyles();
   const strip = obj(document.agentFleetStrip);
   if (strip === null) return null;
@@ -211,7 +238,14 @@ export function AgentFleetMenu({ chat, document, onDone }: { chat: RustChat; doc
       ) : null}
       <ScrollView style={styles.menuRows} contentContainerStyle={styles.rows} nestedScrollEnabled>
         {rows.map((row, index) => (
-          <FleetRow key={str(row, 'key') || String(index)} row={row} stale={stale} chat={chat} nameWidth={nameWidth} onDone={onDone} />
+          <FleetRow
+            key={str(row, 'key') || String(index)}
+            row={row}
+            stale={stale}
+            chat={chat}
+            nameWidth={nameWidth}
+            onDone={onDone}
+          />
         ))}
       </ScrollView>
     </View>

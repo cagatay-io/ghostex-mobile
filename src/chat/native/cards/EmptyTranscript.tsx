@@ -24,7 +24,8 @@ import { ChatButton } from './primitives';
 export function EmptyTranscript({ chat, document }: { chat: RustChat; document: ChatDocument | null }) {
   const styles = useStyles();
   const retry = () => chat.dispatch({ type: 'retry' });
-  const stage = document === null ? 'indicator' : (document.loadingStage ?? (document.status == null ? 'indicator' : null));
+  const stage =
+    document === null ? 'indicator' : (document.loadingStage ?? (document.status == null ? 'indicator' : null));
   if (document === null || stage !== null) {
     if (document?.transcriptSkeleton === true) return <TranscriptSkeleton />;
     const notice = document?.loadingNotice ?? null;

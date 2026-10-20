@@ -35,9 +35,7 @@ export interface FeedbackClient {
 
 /** The phone as the relay's `client`: the app's version and `iOS 18.1` / `Android 15 (API 35)`. */
 export function feedbackClient(): FeedbackClient {
-  const version = (Application.nativeApplicationVersion ?? '')
-    .replace(/[^0-9A-Za-z.+_-]/g, '')
-    .slice(0, 64);
+  const version = (Application.nativeApplicationVersion ?? '').replace(/[^0-9A-Za-z.+_-]/g, '').slice(0, 64);
   const release =
     Platform.OS === 'android'
       ? `Android ${String((Platform.constants as { Release?: string }).Release ?? '')} (API ${Platform.Version})`
@@ -91,9 +89,7 @@ export function feedbackRequest(
 }
 
 /** Posts the issue and answers its number and URL, or throws an Error the user can read. */
-export async function sendFeedback(
-  request: FeedbackRequest,
-): Promise<{ issueNumber: number; issueUrl: string }> {
+export async function sendFeedback(request: FeedbackRequest): Promise<{ issueNumber: number; issueUrl: string }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FEEDBACK_RELAY_TIMEOUT_MS);
   let response: Response;
@@ -130,9 +126,7 @@ export async function sendFeedback(
   }
   const retryAfter = Number.parseInt(response.headers.get('Retry-After') ?? '', 10);
   const error = ((answer ?? {}) as { error?: RelayError }).error ?? {};
-  throw new Error(
-    relayErrorMessage(response.status, error, Number.isFinite(retryAfter) ? retryAfter : undefined),
-  );
+  throw new Error(relayErrorMessage(response.status, error, Number.isFinite(retryAfter) ? retryAfter : undefined));
 }
 
 interface RelayError {
@@ -147,8 +141,7 @@ interface RelayError {
 /** `relay_error_message` in server/src/feedback/relay.rs. */
 function relayErrorMessage(status: number, error: RelayError, retryAfter?: number): string {
   const code = error.code ?? '';
-  const relaySaid = (fallback: string) =>
-    `The feedback service refused the issue: ${error.message ?? fallback}`;
+  const relaySaid = (fallback: string) => `The feedback service refused the issue: ${error.message ?? fallback}`;
   if (status === 429 || code === 'rate_limited') {
     return rateLimitMessage(error.limit, error.retryAfterSeconds ?? retryAfter);
   }
@@ -159,12 +152,7 @@ function relayErrorMessage(status: number, error: RelayError, retryAfter?: numbe
   if (status === 415 || code === 'unsupported_media_type') {
     return relaySaid('only PNG, JPEG and WebP images can be attached.');
   }
-  if (
-    status === 400 ||
-    code === 'invalid_json' ||
-    code === 'invalid_request' ||
-    code === 'invalid_image'
-  ) {
+  if (status === 400 || code === 'invalid_json' || code === 'invalid_request' || code === 'invalid_image') {
     return relaySaid('the issue was not in the expected shape.');
   }
   if (status === 502 || code === 'github_error') return githubRefusalMessage(error);

@@ -26,7 +26,9 @@ export default function SettingsScreen() {
           <LinkRow
             key={page}
             title={SETTINGS_PAGES[page].title}
-            description={updateAvailable ? `Update available: Ghostex ${updateVersion}` : SETTINGS_PAGES[page].description}
+            description={
+              updateAvailable ? `Update available: Ghostex ${updateVersion}` : SETTINGS_PAGES[page].description
+            }
             descriptionAccent={updateAvailable}
             onPress={() => navigation.navigate('SettingsPage', { page })}
           />

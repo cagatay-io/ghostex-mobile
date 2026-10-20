@@ -93,8 +93,15 @@ function viewModesRow(document: ChatDocument, simple: boolean, verbose: boolean,
       command: { type: 'toggleSummary' },
     });
   }
-  const on = [simple ? 'Simple' : null, verbose ? 'Verbose' : null, summary ? 'Summary' : null].filter((name) => name !== null);
-  return { label: 'View', iconPath: 'titlebar/eye.svg', detail: on.length > 0 ? on.join(', ') : 'Standard', children: modes };
+  const on = [simple ? 'Simple' : null, verbose ? 'Verbose' : null, summary ? 'Summary' : null].filter(
+    (name) => name !== null,
+  );
+  return {
+    label: 'View',
+    iconPath: 'titlebar/eye.svg',
+    detail: on.length > 0 ? on.join(', ') : 'Standard',
+    children: modes,
+  };
 }
 
 /**
@@ -105,7 +112,9 @@ function branchesRow(document: ChatDocument): MenuRow | null {
   const branches = obj(document.forkBranches);
   const tooltip = str(branches, 'tooltip');
   // A phone has no hover, so the summary sentence sits under the list's heading.
-  const children = rowsOf(branches?.menu).map((row) => (row.heading === true && tooltip.length > 0 ? { ...row, description: tooltip } : row));
+  const children = rowsOf(branches?.menu).map((row) =>
+    row.heading === true && tooltip.length > 0 ? { ...row, description: tooltip } : row,
+  );
   if (children.length === 0) return null;
   return { label: 'Branches', iconPath: 'titlebar/git-branch.svg', detail: String(branches?.count ?? ''), children };
 }
@@ -121,7 +130,10 @@ function skillsRow(document: ChatDocument): MenuRow {
     command: { type: 'insertSkill', name: skill.name },
   }));
   if (skills.length === 0) skills.push({ label: 'No Ghostex skills installed', disabled: true });
-  skills.push({ separator: true }, { label: 'Configure / Install more', iconPath: 'titlebar/settings.svg', command: { type: 'openSkillsSettings' } });
+  skills.push(
+    { separator: true },
+    { label: 'Configure / Install more', iconPath: 'titlebar/settings.svg', command: { type: 'openSkillsSettings' } },
+  );
   return { label: 'Skills', iconPath: 'titlebar/sparkles.svg', children: skills };
 }
 
@@ -131,18 +143,48 @@ function skillsRow(document: ChatDocument): MenuRow {
  */
 export function sendChoiceRows({ ready, canQueue }: { ready: boolean; canQueue: boolean }): MenuRow[] {
   return [
-    { label: 'Interrupt & Send', iconPath: 'titlebar/arrow-up.svg', disabled: !ready, command: { type: 'submit', mode: 'interrupt' } },
-    { label: 'Queue', iconPath: 'titlebar/stack-push.svg', disabled: !(ready && canQueue), command: { type: 'submit', mode: 'queue' } },
+    {
+      label: 'Interrupt & Send',
+      iconPath: 'titlebar/arrow-up.svg',
+      disabled: !ready,
+      command: { type: 'submit', mode: 'interrupt' },
+    },
+    {
+      label: 'Queue',
+      iconPath: 'titlebar/stack-push.svg',
+      disabled: !(ready && canQueue),
+      command: { type: 'submit', mode: 'queue' },
+    },
   ];
 }
 
-export function moreActionsRows({ document, simple, verbose, available, serves, compactAndSend = null, interruptAndSend = null, draft = '', dictating = false }: MoreActionsInput): MenuRow[] {
+export function moreActionsRows({
+  document,
+  simple,
+  verbose,
+  available,
+  serves,
+  compactAndSend = null,
+  interruptAndSend = null,
+  draft = '',
+  dictating = false,
+}: MoreActionsInput): MenuRow[] {
   const rows: MenuRow[] = [];
   if (interruptAndSend !== null) {
-    rows.push({ label: 'Interrupt & Send', iconPath: 'titlebar/arrow-up.svg', disabled: interruptAndSend.disabled, command: { type: 'submit', mode: 'interrupt' } });
+    rows.push({
+      label: 'Interrupt & Send',
+      iconPath: 'titlebar/arrow-up.svg',
+      disabled: interruptAndSend.disabled,
+      command: { type: 'submit', mode: 'interrupt' },
+    });
   }
   if (compactAndSend !== null) {
-    rows.push({ label: 'Compact & Send', iconPath: 'titlebar/arrow-up.svg', disabled: compactAndSend.disabled, command: { type: 'submit', mode: 'compact' } });
+    rows.push({
+      label: 'Compact & Send',
+      iconPath: 'titlebar/arrow-up.svg',
+      disabled: compactAndSend.disabled,
+      command: { type: 'submit', mode: 'compact' },
+    });
   }
   if (interruptAndSend !== null || compactAndSend !== null) rows.push({ separator: true });
   const labels = obj(document.optionLabels);
@@ -196,12 +238,18 @@ export function moreActionsRows({ document, simple, verbose, available, serves, 
     iconPath: HOST_ACTION_ICONS[action.id] ?? null,
     command: { type: 'host', action: action.id },
   });
-  for (const action of actions) if (CHAT_GROUP_HOST_ACTIONS.has(action.id) && serves(action.id)) rows.push(hostRow(action));
+  for (const action of actions)
+    if (CHAT_GROUP_HOST_ACTIONS.has(action.id) && serves(action.id)) rows.push(hostRow(action));
   for (const control of COMPOSER_CONTROLS) {
     if (!overflowed(document, control.id) || !available(control.id)) continue;
-    const row: MenuRow = { label: control.label, iconPath: control.icon, command: { type: 'composerHost', action: control.action } };
+    const row: MenuRow = {
+      label: control.label,
+      iconPath: control.icon,
+      command: { type: 'composerHost', action: control.action },
+    };
     if (control.id === 'note') row.checked = document.note.open;
-    if (control.id === 'dictate' && dictating) Object.assign(row, { label: 'Stop dictating', iconPath: 'titlebar/player-stop.svg' });
+    if (control.id === 'dictate' && dictating)
+      Object.assign(row, { label: 'Stop dictating', iconPath: 'titlebar/player-stop.svg' });
     rows.push(row);
   }
   // Files and links is always here, never a toolbar button (desktop `actions.rs`,
@@ -221,7 +269,11 @@ export function moreActionsRows({ document, simple, verbose, available, serves, 
       // Desktop's rule (actions.rs, a user decision there): Claude and Codex sessions open the
       // Accounts & limits panel; other agents keep the daemon's switchable-agent rows.
       if (obj(document.accountPanel) !== null) {
-        agentRows.push({ label: 'Switch Account', iconPath: HOST_ACTION_ICONS.switchAccount, children: [{ accounts: document.accountPanel }] });
+        agentRows.push({
+          label: 'Switch Account',
+          iconPath: HOST_ACTION_ICONS.switchAccount,
+          children: [{ accounts: document.accountPanel }],
+        });
         continue;
       }
       if (!serves('switchAccount')) continue;
@@ -230,7 +282,8 @@ export function moreActionsRows({ document, simple, verbose, available, serves, 
         icon: str(account, 'icon'),
         command: { type: 'host', action: 'switchAccount', agentId: obj(account)?.agentId ?? null },
       }));
-      if (accounts.length > 0) agentRows.push({ label: 'Switch Account', iconPath: HOST_ACTION_ICONS.switchAccount, children: accounts });
+      if (accounts.length > 0)
+        agentRows.push({ label: 'Switch Account', iconPath: HOST_ACTION_ICONS.switchAccount, children: accounts });
     } else if (serves(action.id)) {
       agentRows.push(hostRow(action));
     }
@@ -238,7 +291,9 @@ export function moreActionsRows({ document, simple, verbose, available, serves, 
   if (agentRows.length > 0) {
     rows.push({ separator: true }, { heading: true, label: 'Agent' }, ...agentRows);
   }
-  const other = actions.filter((action) => action.group !== 'agent' && !CHAT_GROUP_HOST_ACTIONS.has(action.id) && serves(action.id));
+  const other = actions.filter(
+    (action) => action.group !== 'agent' && !CHAT_GROUP_HOST_ACTIONS.has(action.id) && serves(action.id),
+  );
   if (other.length > 0) rows.push({ separator: true }, ...other.map(hostRow));
   // Second from the bottom, as on desktop (actions.rs `skills_row`).
   rows.splice(Math.max(rows.length - 1, 0), 0, skillsRow(document));

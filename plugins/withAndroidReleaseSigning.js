@@ -30,15 +30,8 @@ module.exports = function withAndroidReleaseSigning(config) {
     }
     const buildTypesStart = contents.indexOf('    buildTypes {');
     const releaseBuildTypeStart = contents.indexOf('        release {', buildTypesStart);
-    const releaseSigningStart = contents.indexOf(
-      'signingConfig signingConfigs.debug',
-      releaseBuildTypeStart
-    );
-    if (
-      buildTypesStart === -1 ||
-      releaseBuildTypeStart === -1 ||
-      releaseSigningStart === -1
-    ) {
+    const releaseSigningStart = contents.indexOf('signingConfig signingConfigs.debug', releaseBuildTypeStart);
+    if (buildTypesStart === -1 || releaseBuildTypeStart === -1 || releaseSigningStart === -1) {
       throw new Error('withAndroidReleaseSigning could not select the release signing config');
     }
     contents =

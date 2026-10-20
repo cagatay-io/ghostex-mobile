@@ -120,7 +120,7 @@ export function clampSessionChatTranscriptWidthPercent(value: number): number {
   if (!Number.isFinite(value)) return DEFAULT_SESSION_CHAT_TRANSCRIPT_WIDTH_PERCENT;
   const clamped = Math.min(
     MAX_SESSION_CHAT_TRANSCRIPT_WIDTH_PERCENT,
-    Math.max(MIN_SESSION_CHAT_TRANSCRIPT_WIDTH_PERCENT, value)
+    Math.max(MIN_SESSION_CHAT_TRANSCRIPT_WIDTH_PERCENT, value),
   );
   return Math.round(clamped / SESSION_CHAT_TRANSCRIPT_WIDTH_PERCENT_STEP) * SESSION_CHAT_TRANSCRIPT_WIDTH_PERCENT_STEP;
 }
@@ -256,7 +256,7 @@ function sanitizeSettings(value: unknown): GhostexSettings {
     sessionChatTheme,
     sessionChatCustomTranscriptWidthEnabled: bool(
       'sessionChatCustomTranscriptWidthEnabled',
-      defaults.sessionChatCustomTranscriptWidthEnabled
+      defaults.sessionChatCustomTranscriptWidthEnabled,
     ),
     sessionChatTranscriptWidthPercent,
     sessionChatFileEditPreviews: bool('sessionChatFileEditPreviews', defaults.sessionChatFileEditPreviews),

@@ -22,10 +22,7 @@ module.exports = function withPodfileMinDeploymentTarget(config) {
       const podfile = path.join(cfg.modRequest.platformProjectRoot, 'Podfile');
       let contents = fs.readFileSync(podfile, 'utf8');
       if (!contents.includes("IPHONEOS_DEPLOYMENT_TARGET'].to_f < 15.0")) {
-        contents = contents.replace(
-          /post_install do \|installer\|\n/,
-          `post_install do |installer|\n${SNIPPET}`
-        );
+        contents = contents.replace(/post_install do \|installer\|\n/, `post_install do |installer|\n${SNIPPET}`);
         fs.writeFileSync(podfile, contents);
       }
       return cfg;

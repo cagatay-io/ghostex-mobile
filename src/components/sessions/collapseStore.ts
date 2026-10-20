@@ -213,25 +213,23 @@ export const useCollapseStore = create<CollapseState>()((set, get) => {
       });
     },
 
-    toggleProject: (machineId, projectKey) =>
-      toggleIn('expandedProjectsByMachine', machineId, projectKey),
+    toggleProject: (machineId, projectKey) => toggleIn('expandedProjectsByMachine', machineId, projectKey),
 
-    toggleCollection: (machineId, collectionId) =>
-      toggleIn('expandedCollectionsByMachine', machineId, collectionId),
+    toggleCollection: (machineId, collectionId) => toggleIn('expandedCollectionsByMachine', machineId, collectionId),
 
-    toggleGroup: (machineId, groupCollapseKey) =>
-      toggleIn('expandedGroupsByMachine', machineId, groupCollapseKey),
+    toggleGroup: (machineId, groupCollapseKey) => toggleIn('expandedGroupsByMachine', machineId, groupCollapseKey),
 
-    toggleSection: (machineId, section) =>
-      toggleIn('collapsedSectionsByMachine', machineId, section),
+    toggleSection: (machineId, section) => toggleIn('collapsedSectionsByMachine', machineId, section),
 
     toggleSessionKind: (machineId, kindCollapseKey) => {
       if (kindCollapseKey.endsWith('|drafts')) {
         const current = get().expandedDraftSessionKeysByMachine;
-        set({ expandedDraftSessionKeysByMachine: {
-          ...current,
-          [machineId]: toggled(current[machineId] ?? [], kindCollapseKey),
-        } });
+        set({
+          expandedDraftSessionKeysByMachine: {
+            ...current,
+            [machineId]: toggled(current[machineId] ?? [], kindCollapseKey),
+          },
+        });
       } else if (kindCollapseKey.endsWith('|parked')) {
         const current = get().expandedParkedSessionKeysByMachine;
         set({

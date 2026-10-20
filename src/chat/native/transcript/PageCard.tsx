@@ -42,7 +42,13 @@ const VISUAL = {
 };
 
 /** The card, outlined for a moment when the Previous question pill or a Q-tag link lands on it. */
-export function PageCard({ answer, onLayout }: { answer: JsonRecord | null; onLayout: (event: LayoutChangeEvent) => void }) {
+export function PageCard({
+  answer,
+  onLayout,
+}: {
+  answer: JsonRecord | null;
+  onLayout: (event: LayoutChangeEvent) => void;
+}) {
   const { theme } = useTranscriptEnv();
   return (
     <QuestionFlashFrame target={str(answer, 'pageId')} light={theme.light}>
@@ -51,7 +57,13 @@ export function PageCard({ answer, onLayout }: { answer: JsonRecord | null; onLa
   );
 }
 
-function PageCardBody({ answer, onLayout }: { answer: JsonRecord | null; onLayout: (event: LayoutChangeEvent) => void }) {
+function PageCardBody({
+  answer,
+  onLayout,
+}: {
+  answer: JsonRecord | null;
+  onLayout: (event: LayoutChangeEvent) => void;
+}) {
   const { theme, dispatch } = useTranscriptEnv();
   const flags = useTranscriptFlags();
   const url = str(answer, 'url');
@@ -67,7 +79,10 @@ function PageCardBody({ answer, onLayout }: { answer: JsonRecord | null; onLayou
       ? null
       : withdrawnEntry.tags.length >= withdrawnEntry.total
         ? { label: 'Withdrawn', hint: 'Withdrawn, no answer needed' }
-        : { label: `${withdrawnEntry.tags.length} of ${withdrawnEntry.total} withdrawn`, hint: `${withdrawnEntry.tags.join(', ')}: withdrawn, no answer needed` };
+        : {
+            label: `${withdrawnEntry.tags.length} of ${withdrawnEntry.total} withdrawn`,
+            hint: `${withdrawnEntry.tags.join(', ')}: withdrawn, no answer needed`,
+          };
   const entry = usePageThumbnailStore((state) => (pageId.length > 0 ? state.pages[pageId] : undefined));
 
   // Asked once per page and answered state (an answered page is pictured again), not per mount.
@@ -90,9 +105,12 @@ function PageCardBody({ answer, onLayout }: { answer: JsonRecord | null; onLayou
   const good = answeredColor(theme.light);
   return (
     <Pressable
-      style={({ pressed }) => [styles.card, { backgroundColor: theme.input, borderColor: pressed ? theme.muted : theme.border }]}
+      style={({ pressed }) => [
+        styles.card,
+        { backgroundColor: theme.input, borderColor: pressed ? theme.muted : theme.border },
+      ]}
       onPress={open}
-      accessibilityRole='link'
+      accessibilityRole="link"
       accessibilityLabel={`Open page ${title}`}
       onLayout={onLayout}
     >
@@ -110,23 +128,28 @@ function PageCardBody({ answer, onLayout }: { answer: JsonRecord | null; onLayou
       </View>
       <View style={[styles.preview, { backgroundColor: theme.background }]}>
         {picture !== null ? (
-          <Image source={{ uri: `data:image/png;base64,${picture}` }} style={styles.picture} resizeMode='stretch' accessibilityIgnoresInvertColors />
+          <Image
+            source={{ uri: `data:image/png;base64,${picture}` }}
+            style={styles.picture}
+            resizeMode="stretch"
+            accessibilityIgnoresInvertColors
+          />
         ) : (
           <View style={styles.placeholder}>
-            <Glyph name='file-code' size={22} color={theme.muted} />
+            <Glyph name="file-code" size={22} color={theme.muted} />
             <Text numberOfLines={1} style={[styles.placeholderLabel, { color: theme.muted }]}>
               {file.length > 0 ? file : title}
             </Text>
           </View>
         )}
-        <Svg style={styles.fade} width='100%' height={VISUAL.fadeHeight} pointerEvents='none'>
+        <Svg style={styles.fade} width="100%" height={VISUAL.fadeHeight} pointerEvents="none">
           <Defs>
-            <LinearGradient id='page-card-fade' x1='0' y1='0' x2='0' y2='1'>
-              <Stop offset='0' stopColor={theme.input} stopOpacity={0} />
-              <Stop offset='1' stopColor={theme.input} stopOpacity={1} />
+            <LinearGradient id="page-card-fade" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={theme.input} stopOpacity={0} />
+              <Stop offset="1" stopColor={theme.input} stopOpacity={1} />
             </LinearGradient>
           </Defs>
-          <Rect x='0' y='0' width='100%' height='100%' fill='url(#page-card-fade)' />
+          <Rect x="0" y="0" width="100%" height="100%" fill="url(#page-card-fade)" />
         </Svg>
       </View>
       <View style={styles.footer}>
@@ -139,24 +162,28 @@ function PageCardBody({ answer, onLayout }: { answer: JsonRecord | null; onLayou
           </Text>
         </View>
         {withdrawn !== null ? (
-          <View style={[styles.answered, { backgroundColor: `${theme.muted}24` }]} accessibilityRole='text' accessibilityLabel={withdrawn.hint}>
+          <View
+            style={[styles.answered, { backgroundColor: `${theme.muted}24` }]}
+            accessibilityRole="text"
+            accessibilityLabel={withdrawn.hint}
+          >
             <Text style={[styles.answeredText, { color: theme.muted }]}>{withdrawn.label}</Text>
           </View>
         ) : null}
         {answered ? (
           <View style={[styles.answered, { backgroundColor: `${good}24` }]}>
-            <Glyph name='check' size={11} color={good} />
+            <Glyph name="check" size={11} color={good} />
             <Text style={[styles.answeredText, { color: good }]}>Answered</Text>
           </View>
         ) : null}
         <Pressable
           style={({ pressed }) => [styles.open, { backgroundColor: theme.controlPrimary }, pressed && { opacity: 0.8 }]}
           onPress={open}
-          accessibilityRole='button'
-          accessibilityLabel='Open'
+          accessibilityRole="button"
+          accessibilityLabel="Open"
         >
           <Text style={[styles.openText, { color: theme.background }]}>Open</Text>
-          <Glyph name='arrow-up-right' size={13} color={theme.background} />
+          <Glyph name="arrow-up-right" size={13} color={theme.background} />
         </Pressable>
       </View>
     </Pressable>
@@ -165,22 +192,48 @@ function PageCardBody({ answer, onLayout }: { answer: JsonRecord | null; onLayou
 
 const styles = StyleSheet.create({
   card: { borderWidth: 1, borderRadius: VISUAL.radius, overflow: 'hidden' },
-  bar: { flexDirection: 'row', alignItems: 'center', gap: 10, height: VISUAL.barHeight, paddingHorizontal: 12, borderBottomWidth: 1 },
+  bar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    height: VISUAL.barHeight,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+  },
   dots: { flexDirection: 'row', gap: VISUAL.dotGap },
   dot: { width: VISUAL.dotSize, height: VISUAL.dotSize, borderRadius: VISUAL.dotSize / 2 },
   dotsBalance: { width: VISUAL.dotSize * 3 + VISUAL.dotGap * 2 },
   barLabel: { flex: 1, minWidth: 0, textAlign: 'center', fontSize: 11.5 },
   preview: { height: VISUAL.previewHeight, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   // As wide as the card, cut at the bottom: the top of the page is what it opens on.
-  picture: { position: 'absolute', top: 0, left: 0, width: '100%', aspectRatio: VISUAL.thumbnailWidth / VISUAL.thumbnailHeight },
+  picture: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    aspectRatio: VISUAL.thumbnailWidth / VISUAL.thumbnailHeight,
+  },
   placeholder: { alignItems: 'center', gap: 6, maxWidth: '80%' },
   placeholderLabel: { fontSize: 11.5 },
   fade: { position: 'absolute', left: 0, right: 0, bottom: 0 },
-  footer: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: VISUAL.footerPaddingX, paddingVertical: VISUAL.footerPaddingY },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: VISUAL.footerPaddingX,
+    paddingVertical: VISUAL.footerPaddingY,
+  },
   text: { flex: 1, minWidth: 0 },
   title: { fontSize: VISUAL.titleSize, fontWeight: '600' },
   detail: { fontSize: VISUAL.detailSize },
-  answered: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
+  answered: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+  },
   answeredText: { fontSize: 11, fontWeight: '600' },
   open: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 28, paddingHorizontal: 11, borderRadius: 8 },
   openText: { fontSize: 12.5, fontWeight: '600' },

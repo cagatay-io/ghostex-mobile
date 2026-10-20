@@ -75,7 +75,18 @@ type SectionProps = {
   selectable: boolean;
 };
 
-export function MarkedSection({ meta, style, emoji, theme, color, all, rest, label: labelText, first, selectable }: SectionProps) {
+export function MarkedSection({
+  meta,
+  style,
+  emoji,
+  theme,
+  color,
+  all,
+  rest,
+  label: labelText,
+  first,
+  selectable,
+}: SectionProps) {
   if (style === 'plain') return <View>{all}</View>;
   const accent = kindColor(meta.kind, theme.light);
   if (style === 'rule') {
@@ -101,13 +112,21 @@ export function MarkedSection({ meta, style, emoji, theme, color, all, rest, lab
         <View style={styles.badgeRow}>
           {emoji ? <Text style={[styles.prose, { color }]}>{meta.emoji}</Text> : null}
           <View style={styles.badgeLine}>
-            <View style={[styles.badge, { borderColor: withAlpha(accent, edge), backgroundColor: withAlpha(accent, fill + 0.05) }]}>
+            <View
+              style={[
+                styles.badge,
+                { borderColor: withAlpha(accent, edge), backgroundColor: withAlpha(accent, fill + 0.05) },
+              ]}
+            >
               <View style={[styles.badgeDot, { backgroundColor: accent }]} />
               <Text style={[styles.badgeText, { color: accent }]}>{meta.name.toUpperCase()}</Text>
             </View>
           </View>
           {label.length > 0 ? (
-            <Text selectable={selectable} style={[styles.prose, styles.badgeLead, styles.label, { color: theme.foreground }]}>
+            <Text
+              selectable={selectable}
+              style={[styles.prose, styles.badgeLead, styles.label, { color: theme.foreground }]}
+            >
               {labelText}
             </Text>
           ) : null}
@@ -137,7 +156,16 @@ const styles = StyleSheet.create({
   rule: { borderLeftWidth: 3, paddingLeft: 12 },
   badgeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
   badgeLine: { height: PROSE_LINE, justifyContent: 'center' },
-  badge: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderRadius: 999, paddingLeft: 7, paddingRight: 8, paddingVertical: 3 },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingLeft: 7,
+    paddingRight: 8,
+    paddingVertical: 3,
+  },
   badgeDot: { width: 6, height: 6, borderRadius: 3 },
   badgeText: { fontSize: 11, lineHeight: 13, fontWeight: '600', letterSpacing: 0.4 },
   badgeLead: { flex: 1, minWidth: 0 },

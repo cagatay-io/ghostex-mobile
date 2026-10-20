@@ -25,7 +25,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { ActivityIndicator, Alert, Animated, BackHandler, Linking, Pressable, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Animated,
+  BackHandler,
+  Linking,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, type WebViewNavigation } from 'react-native-webview';
 import type { ShouldStartLoadRequest, WebViewErrorEvent } from 'react-native-webview/lib/WebViewTypes';
@@ -42,7 +52,14 @@ import { describeForwardFailure, startWebPreviewForward, type WebPreviewFailure 
 import { holdComputerForward, releaseComputerForward } from '../webPreview/machineLinks';
 import { DESKTOP_VIEWPORT_SCRIPT, desktopUserAgent, siteKeyForUrl } from '../webPreview/desktopSite';
 import { useWebPreviewStore } from '../webPreview/store';
-import { LOOPBACK_HOST, isLoopbackHost, localPreviewUrl, parseHttpUrl, parseAddressInput, remoteDisplayAddress } from '../webPreview/urls';
+import {
+  LOOPBACK_HOST,
+  isLoopbackHost,
+  localPreviewUrl,
+  parseHttpUrl,
+  parseAddressInput,
+  remoteDisplayAddress,
+} from '../webPreview/urls';
 import { styles } from './web-preview/styles';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'WebPreview'>;
@@ -172,7 +189,7 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const webviewRef = useRef<WebView>(null);
   const machine = useMachinesStore((state) =>
-    state.machines.find((candidate) => candidate.id === route.params.machineId)
+    state.machines.find((candidate) => candidate.id === route.params.machineId),
   );
   const setLastPort = useWebPreviewStore((state) => state.setLastPort);
   const hydrateWebPreview = useWebPreviewStore((state) => state.hydrate);
@@ -237,9 +254,9 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
   /** Guards every state write against an older navigation finishing last. */
   const seqRef = useRef(0);
 
-  const [address, setAddress] = useState<PreviewAddress>(() => route.params.url
-    ? { kind: 'external', url: route.params.url }
-    : { kind: 'remote', ...intendedRef.current });
+  const [address, setAddress] = useState<PreviewAddress>(() =>
+    route.params.url ? { kind: 'external', url: route.params.url } : { kind: 'remote', ...intendedRef.current },
+  );
   const [addressDraft, setAddressDraft] = useState(() => addressText(address));
   const editingAddressRef = useRef(false);
   const addressInputRef = useRef<TextInput>(null);
@@ -316,25 +333,28 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
    * RNCWebView, so the same page is reloaded through the ref (which keeps
    * history) and only a source prop that has gone stale forces a remount.
    */
-  const loadUri = useCallback((uri: string): void => {
-    const wanted = wantsDesktopSite(uri);
-    const modeChanged = wanted !== desktopModeRef.current;
-    if (modeChanged) {
-      desktopModeRef.current = wanted;
-      setDesktopMode(wanted);
-    }
-    if (!modeChanged && currentUrlRef.current === uri) {
-      webviewRef.current?.reload();
-      return;
-    }
-    setSource((previous) => {
-      if (previous === null) return { uri, nonce: 0 };
-      // A new user agent needs a new WebView, so a mode change always takes a fresh nonce.
-      return previous.uri === uri || modeChanged
-        ? { uri, nonce: previous.nonce + 1 }
-        : { uri, nonce: previous.nonce };
-    });
-  }, [wantsDesktopSite]);
+  const loadUri = useCallback(
+    (uri: string): void => {
+      const wanted = wantsDesktopSite(uri);
+      const modeChanged = wanted !== desktopModeRef.current;
+      if (modeChanged) {
+        desktopModeRef.current = wanted;
+        setDesktopMode(wanted);
+      }
+      if (!modeChanged && currentUrlRef.current === uri) {
+        webviewRef.current?.reload();
+        return;
+      }
+      setSource((previous) => {
+        if (previous === null) return { uri, nonce: 0 };
+        // A new user agent needs a new WebView, so a mode change always takes a fresh nonce.
+        return previous.uri === uri || modeChanged
+          ? { uri, nonce: previous.nonce + 1 }
+          : { uri, nonce: previous.nonce };
+      });
+    },
+    [wantsDesktopSite],
+  );
 
   /** Forward `remotePort`, then load it. Native is idempotent per (machine, port). */
   const openRemotePort = useCallback(
@@ -395,23 +415,26 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
         if (isCurrent()) setConnecting(false);
       }
     },
-    [loadUri, setLastPort]
+    [loadUri, setLastPort],
   );
 
-  const openAddress = useCallback((url: string): void => {
-    const parsed = parseHttpUrl(url);
-    if (parsed === null) return;
-    if (isLoopbackHost(parsed.host)) {
-      void openRemotePort(parsed.scheme, parsed.port, parsed.pathAndQuery, parsed.host);
-      return;
-    }
-    // A newly entered website supersedes any pending port-forward navigation.
-    seqRef.current += 1;
-    setAddress({ kind: 'external', url });
-    setFailure(null);
-    setConnecting(false);
-    loadUri(url);
-  }, [loadUri, openRemotePort]);
+  const openAddress = useCallback(
+    (url: string): void => {
+      const parsed = parseHttpUrl(url);
+      if (parsed === null) return;
+      if (isLoopbackHost(parsed.host)) {
+        void openRemotePort(parsed.scheme, parsed.port, parsed.pathAndQuery, parsed.host);
+        return;
+      }
+      // A newly entered website supersedes any pending port-forward navigation.
+      seqRef.current += 1;
+      setAddress({ kind: 'external', url });
+      setFailure(null);
+      setConnecting(false);
+      loadUri(url);
+    },
+    [loadUri, openRemotePort],
+  );
 
   const submitAddress = useCallback((): void => {
     const url = parseAddressInput(addressDraft);
@@ -448,7 +471,8 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
         if (mountedRef.current) setForwardedPairs([...remoteToLocalRef.current.entries()]);
         const machineTarget = machineRef.current;
         if (gxserverPortsRef.current.has(target.remotePort)) {
-          if (machineTarget !== undefined) await ensureConnected(machineTarget, { verify: true }).catch(() => undefined);
+          if (machineTarget !== undefined)
+            await ensureConnected(machineTarget, { verify: true }).catch(() => undefined);
         } else if (heldPortsRef.current.delete(target.remotePort)) {
           await releaseComputerForward(machineId, target.remotePort);
         }
@@ -467,9 +491,17 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
       route.params.scheme ?? 'http',
       route.params.remotePort ?? 80,
       route.params.path ?? '/',
-      route.params.host ?? 'localhost'
+      route.params.host ?? 'localhost',
     );
-  }, [openAddress, openRemotePort, route.params.url, route.params.path, route.params.remotePort, route.params.scheme, route.params.host]);
+  }, [
+    openAddress,
+    openRemotePort,
+    route.params.url,
+    route.params.path,
+    route.params.remotePort,
+    route.params.scheme,
+    route.params.host,
+  ]);
 
   /** Whether the page on screen is one the computer's gxserver serves (a `ghostex show` page). */
   const onGxserverPage = useCallback((): boolean => {
@@ -532,7 +564,7 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
       void openRemotePort(parsed.scheme, parsed.port, parsed.pathAndQuery, parsed.host);
       return false;
     },
-    [loadUri, onGxserverPage, openRemotePort, wantsDesktopSite]
+    [loadUri, onGxserverPage, openRemotePort, wantsDesktopSite],
   );
 
   const handleNavigationStateChange = useCallback((state: WebViewNavigation): void => {
@@ -612,8 +644,9 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
 
   /** The site on screen, which the Desktop site choice is remembered under. */
   const siteKey = useMemo(
-    () => (currentUrl === null ? null : siteKeyForUrl(currentUrl, (localPort) => localToRemoteRef.current.get(localPort))),
-    [currentUrl]
+    () =>
+      currentUrl === null ? null : siteKeyForUrl(currentUrl, (localPort) => localToRemoteRef.current.get(localPort)),
+    [currentUrl],
   );
 
   /** Remember the choice for this site, then show the page again in the new mode. */
@@ -639,7 +672,8 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
 
   // Computer-side addresses stay in the preview that owns their forwards.
   const openInBrowser = useCallback((): void => {
-    if (currentUrl === null || address.kind === 'remote' || isLoopbackHost(parseHttpUrl(currentUrl)?.host ?? '')) return;
+    if (currentUrl === null || address.kind === 'remote' || isLoopbackHost(parseHttpUrl(currentUrl)?.host ?? ''))
+      return;
     void Linking.openURL(currentUrl).catch(() => {
       Alert.alert(WebPreviewCopy.previewTitle, WebPreviewCopy.openInBrowserFailed);
     });
@@ -654,7 +688,7 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
         return true;
       });
       return () => subscription.remove();
-    }, [canGoBack])
+    }, [canGoBack]),
   );
 
   const linkRewriteScript = useMemo(() => buildLinkRewriteScript(forwardedPairs), [forwardedPairs]);
@@ -672,7 +706,7 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
       ) : (
         <ConnectingSurface address={address} />
       ),
-    [address, failure, retry]
+    [address, failure, retry],
   );
 
   return (
@@ -689,13 +723,13 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
               label={WebPreviewCopy.backLabel}
               disabled={!canGoBack}
               onPress={goBack}
-              icon={<ArrowIcon direction='left' size={18} color={GhostexPalette.FOREGROUND} />}
+              icon={<ArrowIcon direction="left" size={18} color={GhostexPalette.FOREGROUND} />}
             />
             <ToolbarButton
               label={WebPreviewCopy.forwardLabel}
               disabled={!canGoForward}
               onPress={goForward}
-              icon={<ArrowIcon direction='right' size={18} color={GhostexPalette.FOREGROUND} />}
+              icon={<ArrowIcon direction="right" size={18} color={GhostexPalette.FOREGROUND} />}
             />
             <ToolbarButton
               label={WebPreviewCopy.reloadLabel}
@@ -723,8 +757,12 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
             ref={addressInputRef}
             style={styles.addressText}
             value={addressDraft}
-            onFocus={() => { editingAddressRef.current = true; }}
-            onBlur={() => { editingAddressRef.current = false; }}
+            onFocus={() => {
+              editingAddressRef.current = true;
+            }}
+            onBlur={() => {
+              editingAddressRef.current = false;
+            }}
             onChangeText={(value) => {
               setAddressDraft(value);
               setAddressError(null);
@@ -733,10 +771,10 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
             accessibilityLabel={WebPreviewCopy.manualSection}
             placeholder={WebPreviewCopy.manualPlaceholder}
             placeholderTextColor={GhostexPalette.MUTED}
-            keyboardType='url'
-            returnKeyType='go'
-            submitBehavior='submit'
-            autoCapitalize='none'
+            keyboardType="url"
+            returnKeyType="go"
+            submitBehavior="submit"
+            autoCapitalize="none"
             autoCorrect={false}
             spellCheck={false}
             selectTextOnFocus
@@ -744,10 +782,14 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
           <ToolbarButton
             label={WebPreviewCopy.openButton}
             onPress={submitAddress}
-            icon={<ArrowIcon direction='right' size={18} color={GhostexPalette.FOREGROUND} />}
+            icon={<ArrowIcon direction="right" size={18} color={GhostexPalette.FOREGROUND} />}
           />
         </View>
-        {addressError !== null ? <Text accessibilityRole='alert' style={styles.errorBannerBody}>{addressError}</Text> : null}
+        {addressError !== null ? (
+          <Text accessibilityRole="alert" style={styles.errorBannerBody}>
+            {addressError}
+          </Text>
+        ) : null}
       </View>
 
       <View style={styles.contentArea}>
@@ -782,7 +824,7 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
             setSupportMultipleWindows={false}
             allowsLinkPreview={false}
             webviewDebuggingEnabled={__DEV__}
-            contentInsetAdjustmentBehavior='never'
+            contentInsetAdjustmentBehavior="never"
             automaticallyAdjustContentInsets={false}
           />
         ) : null}
@@ -790,9 +832,7 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
           A forward that never opened has no failed page load behind it, so
           RNCWebView never enters its error state; that surface is drawn here.
         */}
-        {failure !== null && failure.origin === 'forward' ? (
-          <PreviewFailure failure={failure} onRetry={retry} />
-        ) : null}
+        {failure !== null && failure.origin === 'forward' ? <PreviewFailure failure={failure} onRetry={retry} /> : null}
         {source === null && failure === null ? <ConnectingSurface address={address} /> : null}
 
         {/* Progress for work happening behind a page that is already on screen:
@@ -824,12 +864,9 @@ function LoadProgressBar({ progress }: { progress: number }) {
     }).start();
   }, [progress, width]);
   return (
-    <View style={styles.progressTrack} pointerEvents='none' accessibilityRole='progressbar'>
+    <View style={styles.progressTrack} pointerEvents="none" accessibilityRole="progressbar">
       <Animated.View
-        style={[
-          styles.progressFill,
-          { width: width.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) },
-        ]}
+        style={[styles.progressFill, { width: width.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }]}
       />
     </View>
   );
@@ -838,9 +875,11 @@ function LoadProgressBar({ progress }: { progress: number }) {
 function ConnectingSurface({ address }: { address: PreviewAddress }) {
   return (
     <View style={[styles.stateSurface, styles.failureOverlay]}>
-      <ActivityIndicator size='small' color={GhostexPalette.ACCENT} />
+      <ActivityIndicator size="small" color={GhostexPalette.ACCENT} />
       <Text style={styles.stateBody}>
-        {address.kind === 'remote' ? WebPreviewCopy.connecting(address.remotePort) : WebPreviewCopy.loadingAddress(address.url)}
+        {address.kind === 'remote'
+          ? WebPreviewCopy.connecting(address.remotePort)
+          : WebPreviewCopy.loadingAddress(address.url)}
       </Text>
     </View>
   );
@@ -854,7 +893,7 @@ function PreviewFailure({ failure, onRetry }: { failure: WebPreviewFailure; onRe
       {failure.hint.length > 0 ? <Text style={styles.stateBody}>{failure.hint}</Text> : null}
       <View style={styles.stateActions}>
         <Pressable
-          accessibilityRole='button'
+          accessibilityRole="button"
           onPress={onRetry}
           style={({ pressed }) => [styles.pillButton, pressed && styles.pillButtonPressed]}
         >

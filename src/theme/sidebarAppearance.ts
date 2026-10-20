@@ -72,17 +72,12 @@ export type SidebarAppearance = {
 
 export function normalizeSidebarTint(value: string): string {
   const normalized = value.trim().toLowerCase();
-  return /^#[0-9a-f]{6}$/u.test(normalized)
-    ? normalized
-    : DEFAULT_SIDEBAR_BACKGROUND_TINT;
+  return /^#[0-9a-f]{6}$/u.test(normalized) ? normalized : DEFAULT_SIDEBAR_BACKGROUND_TINT;
 }
 
 export function clampSidebarContrast(value: number): number {
   if (!Number.isFinite(value)) return DEFAULT_SIDEBAR_BACKGROUND_CONTRAST;
-  return Math.min(
-    SIDEBAR_BACKGROUND_CONTRAST_MAX,
-    Math.max(SIDEBAR_BACKGROUND_CONTRAST_MIN, Math.round(value)),
-  );
+  return Math.min(SIDEBAR_BACKGROUND_CONTRAST_MAX, Math.max(SIDEBAR_BACKGROUND_CONTRAST_MIN, Math.round(value)));
 }
 
 function parseHex(value: string): Rgb {
@@ -96,7 +91,9 @@ function parseHex(value: string): Rgb {
 
 function formatHex(color: Rgb): string {
   const channel = (value: number): string =>
-    Math.min(255, Math.max(0, Math.round(value))).toString(16).padStart(2, '0');
+    Math.min(255, Math.max(0, Math.round(value)))
+      .toString(16)
+      .padStart(2, '0');
   return `#${channel(color.red)}${channel(color.green)}${channel(color.blue)}`;
 }
 
@@ -112,11 +109,7 @@ function defaultDarkTintBackground(tint: string): Rgb {
     green: color.green - average,
     blue: color.blue - average,
   };
-  const magnitude = Math.max(
-    Math.abs(direction.red),
-    Math.abs(direction.green),
-    Math.abs(direction.blue),
-  );
+  const magnitude = Math.max(Math.abs(direction.red), Math.abs(direction.green), Math.abs(direction.blue));
   if (magnitude < 0.5) return parseHex(DEFAULT_UNCALIBRATED_BACKGROUND);
 
   const base = parseHex(DEFAULT_UNCALIBRATED_BACKGROUND);
@@ -132,8 +125,7 @@ export function sidebarBackgroundForSettings(tint: string, contrast: number): st
   const clamped = clampSidebarContrast(contrast);
   if (clamped === SIDEBAR_BACKGROUND_CONTRAST_MAX) return '#000000';
   const scale =
-    (SIDEBAR_BACKGROUND_CONTRAST_MAX - clamped) /
-    (SIDEBAR_BACKGROUND_CONTRAST_MAX - SCALE_REFERENCE_CONTRAST);
+    (SIDEBAR_BACKGROUND_CONTRAST_MAX - clamped) / (SIDEBAR_BACKGROUND_CONTRAST_MAX - SCALE_REFERENCE_CONTRAST);
   return formatHex({
     red: calibrated.red * scale,
     green: calibrated.green * scale,

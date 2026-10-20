@@ -36,7 +36,7 @@ export function renderImageDocument(fileName: string, title: string): string {
   return shell(
     title,
     IMAGE_STYLES,
-    `<main class="picture"><img src="${escapeHtml(encodeURIComponent(fileName))}" alt="${escapeHtml(title)}"></main>`
+    `<main class="picture"><img src="${escapeHtml(encodeURIComponent(fileName))}" alt="${escapeHtml(title)}"></main>`,
   );
 }
 
@@ -55,7 +55,7 @@ export function renderMediaDocument(kind: 'video' | 'audio', src: string, title:
     MEDIA_STYLES,
     `<main class="media media-${kind}">${player}<p class="media-name">${escapeHtml(title)}</p>` +
       `<p class="media-error" hidden>This file can't play on the phone. Reload to try again, or open it on the computer.</p></main>` +
-      `<script>(function () { var player = document.querySelector('video, audio'); player.addEventListener('error', function () { document.querySelector('.media-error').hidden = false; }); })();</script>`
+      `<script>(function () { var player = document.querySelector('video, audio'); player.addEventListener('error', function () { document.querySelector('.media-error').hidden = false; }); })();</script>`,
   );
 }
 

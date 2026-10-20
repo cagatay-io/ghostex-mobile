@@ -33,7 +33,9 @@ const DESCRIBED_LABEL_OPACITY = 0.8;
 /** A `#rrggbb` theme colour at an alpha (a nested `Text` run ignores `opacity`). */
 function dimmed(hex: string, alpha: number): string {
   if (!/^#[0-9a-f]{6}$/i.test(hex)) return hex;
-  return `${hex}${Math.round(alpha * 255).toString(16).padStart(2, '0')}`;
+  return `${hex}${Math.round(alpha * 255)
+    .toString(16)
+    .padStart(2, '0')}`;
 }
 
 /**
@@ -72,7 +74,7 @@ export function ToolRows({ message }: { message: ProjectedMessage }) {
       <View style={styles.column}>
         <DisclosureHeading label={str(message, 'simpleToolLabel')} open={simpleOpen} onToggle={toggleSimple} />
         {simpleOpen ? (
-          <DisclosureBody onCollapse={toggleSimple} label='Collapse tool calls' gap={ROW_GAP}>
+          <DisclosureBody onCollapse={toggleSimple} label="Collapse tool calls" gap={ROW_GAP}>
             {rows(visible)}
           </DisclosureBody>
         ) : null}
@@ -85,7 +87,7 @@ export function ToolRows({ message }: { message: ProjectedMessage }) {
   const toggle = (
     <Pressable
       onPress={toggleRun}
-      accessibilityRole='button'
+      accessibilityRole="button"
       accessibilityState={{ expanded: runOpen }}
       style={({ pressed }) => [styles.foldToggle, pressed && { backgroundColor: theme.pressed }]}
     >
@@ -98,7 +100,7 @@ export function ToolRows({ message }: { message: ProjectedMessage }) {
   );
   if (runOpen) {
     return (
-      <DisclosureBody onCollapse={toggleRun} label='Show fewer tool calls' gap={ROW_GAP}>
+      <DisclosureBody onCollapse={toggleRun} label="Show fewer tool calls" gap={ROW_GAP}>
         {rows(visible)}
         {toggle}
       </DisclosureBody>
@@ -146,11 +148,15 @@ export function ShellCommandCard({ message }: { message: ProjectedMessage }) {
             onPress={hasBody ? toggle : undefined}
             // Holding the bubble opens the menu with Copy of the bare command.
             {...(fullCommand.length > 0 ? { onLongPress: () => openTranscriptMenu({ selection: fullCommand }) } : {})}
-            accessibilityRole='button'
+            accessibilityRole="button"
             accessibilityLabel={`Shell command: ${fullCommand}`}
-            accessibilityHint='Long press for Copy'
+            accessibilityHint="Long press for Copy"
             accessibilityState={{ expanded: open, disabled: !hasBody }}
-            style={({ pressed }) => [styles.trigger, styles.shellTrigger, pressed && { backgroundColor: theme.pressed }]}
+            style={({ pressed }) => [
+              styles.trigger,
+              styles.shellTrigger,
+              pressed && { backgroundColor: theme.pressed },
+            ]}
           >
             <View style={styles.glyphSlot}>
               <Glyph name={toolGlyph('terminal')} size={14} color={theme.muted} />
@@ -160,7 +166,9 @@ export function ShellCommandCard({ message }: { message: ProjectedMessage }) {
             </Text>
             {hasBody ? <Glyph name={open ? 'chevron-down' : 'chevron-right'} size={12} color={theme.muted} /> : null}
             <View style={styles.shellSpacer} />
-            {status.length > 0 ? <Text style={[styles.shellStatus, { color: failed ? theme.error : theme.muted }]}>{status}</Text> : null}
+            {status.length > 0 ? (
+              <Text style={[styles.shellStatus, { color: failed ? theme.error : theme.muted }]}>{status}</Text>
+            ) : null}
           </Pressable>
         </View>
       </View>
@@ -169,7 +177,7 @@ export function ShellCommandCard({ message }: { message: ProjectedMessage }) {
       {open && blocks.length > 0 ? (
         <View style={[styles.shellBubble, styles.shellOutputBubble, { backgroundColor: theme.input }]}>
           {blocks.map(({ part, error, content }) => (
-            <ToolBody key={part} label={null} content={content} failed={error} copyText='' />
+            <ToolBody key={part} label={null} content={content} failed={error} copyText="" />
           ))}
         </View>
       ) : null}
@@ -221,8 +229,14 @@ const ToolRow = memo(function ToolRow({
       disabled={!hasDetail && filePath.length === 0}
       onPress={hasDetail ? toggle : undefined}
       {...(filePath.length > 0 ? { onLongPress: () => openTranscriptMenu({ href: filePath }) } : {})}
-      accessibilityRole='button'
-      accessibilityLabel={subagent.length > 0 ? `Tool ${name} (${subagent})` : argument.length > 0 ? `Tool ${name}: ${argument}` : `Tool ${name}`}
+      accessibilityRole="button"
+      accessibilityLabel={
+        subagent.length > 0
+          ? `Tool ${name} (${subagent})`
+          : argument.length > 0
+            ? `Tool ${name}: ${argument}`
+            : `Tool ${name}`
+      }
       accessibilityState={{ expanded }}
       style={({ pressed }) => [
         styles.trigger,
@@ -240,7 +254,9 @@ const ToolRow = memo(function ToolRow({
         <Text numberOfLines={1} style={[styles.nameLine, styles.fill]}>
           <Text style={[nameStyle, { color: heading }]}>{nameText}</Text>
           {' '}
-          <Text style={[styles.preview, { color: theme.muted }]}>{highlightLabel(preview, find, `tool-preview:${messageId}:${index}`)}</Text>
+          <Text style={[styles.preview, { color: theme.muted }]}>
+            {highlightLabel(preview, find, `tool-preview:${messageId}:${index}`)}
+          </Text>
         </Text>
       ) : (
         <Text numberOfLines={1} style={[nameStyle, subagent.length === 0 && styles.fill, { color: heading }]}>
@@ -248,8 +264,8 @@ const ToolRow = memo(function ToolRow({
         </Text>
       )}
       {duration.length > 0 ? <Text style={[styles.duration, { color: theme.mutedInk(0.75) }]}>{duration}</Text> : null}
-      {status === 'done' ? <Glyph name='check' size={13} color={successTone(theme.light)} /> : null}
-      {status === 'failed' ? <Glyph name='x' size={13} color={theme.error} /> : null}
+      {status === 'done' ? <Glyph name="check" size={13} color={successTone(theme.light)} /> : null}
+      {status === 'failed' ? <Glyph name="x" size={13} color={theme.error} /> : null}
     </Pressable>
   );
   let body = null;
@@ -262,12 +278,24 @@ const ToolRow = memo(function ToolRow({
     const parts = [];
     if (input.length > 0) {
       parts.push(
-        <ToolBody key='input' label={command ? 'Command' : output.length > 0 ? 'Input' : null} content={input} failed={false} copyText={copyText} />,
+        <ToolBody
+          key="input"
+          label={command ? 'Command' : output.length > 0 ? 'Input' : null}
+          content={input}
+          failed={false}
+          copyText={copyText}
+        />,
       );
     }
     if (output.length > 0) {
       parts.push(
-        <ToolBody key='output' label={tool.hasCall === true ? 'Result' : null} content={output} failed={failed} copyText={parts.length === 0 ? copyText : ''} />,
+        <ToolBody
+          key="output"
+          label={tool.hasCall === true ? 'Result' : null}
+          content={output}
+          failed={failed}
+          copyText={parts.length === 0 ? copyText : ''}
+        />,
       );
     }
     if (parts.length > 0) {
@@ -275,7 +303,7 @@ const ToolRow = memo(function ToolRow({
       // marker column the rail is measured from.
       body = (
         <View style={styles.detailInset}>
-          <DisclosureBody onCollapse={toggle} label={`Collapse ${name}`} rail='tool'>
+          <DisclosureBody onCollapse={toggle} label={`Collapse ${name}`} rail="tool">
             {parts}
           </DisclosureBody>
         </View>
@@ -292,7 +320,7 @@ const ToolRow = memo(function ToolRow({
           {openSubagent !== null ? (
             <Pressable
               onPress={() => dispatch(openSubagent)}
-              accessibilityRole='button'
+              accessibilityRole="button"
               accessibilityLabel={`View ${subagent}'s transcript`}
               style={styles.subagentLink}
             >
@@ -327,7 +355,17 @@ function errorWash(error: string): string {
  * with a long press. A non-empty `copyText` puts the copy button for the whole call on its label row
  * (desktop `tool_run.rs`).
  */
-function ToolBody({ label, content, failed, copyText }: { label: string | null; content: string; failed: boolean; copyText: string }) {
+function ToolBody({
+  label,
+  content,
+  failed,
+  copyText,
+}: {
+  label: string | null;
+  content: string;
+  failed: boolean;
+  copyText: string;
+}) {
   const { theme } = useTranscriptEnv();
   const [copied, setCopied] = useState(false);
   const copy = useCallback(() => {
@@ -346,7 +384,7 @@ function ToolBody({ label, content, failed, copyText }: { label: string | null; 
             <Pressable
               hitSlop={6}
               onPress={copy}
-              accessibilityRole='button'
+              accessibilityRole="button"
               accessibilityLabel={copied ? 'Copied' : 'Copy tool call'}
               style={({ pressed }) => [styles.copyAction, pressed && { backgroundColor: theme.pressed }]}
             >
@@ -355,7 +393,11 @@ function ToolBody({ label, content, failed, copyText }: { label: string | null; 
           ) : null}
         </View>
       ) : null}
-      <ScrollView nestedScrollEnabled style={[styles.bodyBox, { backgroundColor: theme.input }]} contentContainerStyle={styles.bodyContent}>
+      <ScrollView
+        nestedScrollEnabled
+        style={[styles.bodyBox, { backgroundColor: theme.input }]}
+        contentContainerStyle={styles.bodyContent}
+      >
         <Text selectable style={[styles.bodyText, { color: failed ? theme.error : theme.muted }]}>
           {content}
         </Text>
@@ -399,7 +441,14 @@ const styles = StyleSheet.create({
   subagentLine: { flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 0 },
   subagentLink: { flexShrink: 1, minWidth: 0 },
   subagentText: { fontSize: PROSE_SIZE, lineHeight: PROSE_LINE },
-  foldToggle: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: ROW_PAD_X, paddingVertical: 2, borderRadius: 8 },
+  foldToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: ROW_PAD_X,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
   foldSlot: { width: TILE, height: PROSE_LINE, alignItems: 'center', justifyContent: 'center' },
   foldLabel: { fontSize: 13.5, lineHeight: PROSE_LINE },
   bodyGroup: { gap: 4, minWidth: 0 },

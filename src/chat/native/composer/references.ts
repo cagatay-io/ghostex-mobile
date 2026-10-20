@@ -67,7 +67,8 @@ export function guardEdit(before: string, after: string, references: readonly Co
   if (references.length === 0) return { kind: 'accept' };
   const edit = diffEdit(before, after);
   for (const reference of references) {
-    const deletesInside = edit.removedEnd > edit.start && edit.start < reference.end && edit.removedEnd > reference.start;
+    const deletesInside =
+      edit.removedEnd > edit.start && edit.start < reference.end && edit.removedEnd > reference.start;
     if (deletesInside) {
       const covers = edit.start <= reference.start && edit.removedEnd >= reference.end;
       if (covers) continue;

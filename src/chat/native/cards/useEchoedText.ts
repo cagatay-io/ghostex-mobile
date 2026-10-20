@@ -14,7 +14,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 export function useEchoedText(
   identity: string,
   serverValue: string,
-  report: (text: string) => void
+  report: (text: string) => void,
 ): [string, (text: string) => void] {
   const [text, setText] = useState(serverValue);
   const sent = useRef<string[]>([]);
@@ -48,7 +48,7 @@ export function useEchoedText(
       sent.current.push(next);
       report(next);
     },
-    [report]
+    [report],
   );
   return [text, change];
 }

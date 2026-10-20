@@ -51,7 +51,12 @@ function splitPath(path: string): { folder: string; file: string } {
 
 /** A label that is a whole path, cut to its file name (desktop `file_name_of`). */
 export function fileNameOf(label: string): string {
-  return label.split(/[\\/]/).filter((segment) => segment.length > 0).pop() ?? label;
+  return (
+    label
+      .split(/[\\/]/)
+      .filter((segment) => segment.length > 0)
+      .pop() ?? label
+  );
 }
 
 /**

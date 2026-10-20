@@ -825,7 +825,8 @@ export const DocsCopy = {
   searchSection: (count: number) => (count === 1 ? '1 match' : `${count} matches`),
   loading: 'Listing this project’s docs…',
   empty: 'No Markdown or HTML files in this project’s Docs folders yet.',
-  emptyHint: 'Docs lists docs/, artifacts/, ai/ and tmp/, the Markdown and HTML files in the project folder, and any folders added under Settings > Projects > Docs on the computer.',
+  emptyHint:
+    'Docs lists docs/, artifacts/, ai/ and tmp/, the Markdown and HTML files in the project folder, and any folders added under Settings > Projects > Docs on the computer.',
   noMatches: 'No docs match that search.',
   listFailed: 'Could not list this project’s docs',
   oldCli: 'Update Ghostex on the computer to list its docs from the phone.',
@@ -844,11 +845,14 @@ export const DocsCopy = {
   annotationsCopiedHint: 'Paste them into a session’s chat or terminal.',
   agentationFailed: 'Agentation could not load. It needs an internet connection on this phone.',
   skippedAssets: (count: number) =>
-    count === 1 ? 'One file this page uses was too large to copy to the phone.' : `${count} files this page uses were too large to copy to the phone.`,
+    count === 1
+      ? 'One file this page uses was too large to copy to the phone.'
+      : `${count} files this page uses were too large to copy to the phone.`,
   cantPreview: "Can't preview this file on the phone",
   pathCopiedNote: (path: string) => `${path} (path copied)`,
   openingPdf: 'Downloading the PDF from the computer…',
-  noPdfApp: (path: string) => `No app on this phone opens PDFs. Install a PDF viewer, or open it on the computer: ${path}`,
+  noPdfApp: (path: string) =>
+    `No app on this phone opens PDFs. Install a PDF viewer, or open it on the computer: ${path}`,
 } as const;
 
 /**
@@ -875,12 +879,11 @@ export const FeedbackCopy = {
   removeImage: 'Remove screenshot',
   agentLabel: 'Collect more data with an agent',
   agentDescription:
-    "An agent on your computer reads its Ghostex logs and settings, looks into the problem without changing anything, and shows you the issue before it posts it.",
+    'An agent on your computer reads its Ghostex logs and settings, looks into the problem without changing anything, and shows you the issue before it posts it.',
   review: 'Review',
   startAgent: 'Start Agent',
   reviewTitle: 'Review Issue',
-  reviewIntro:
-    'This is exactly what will be posted publicly on the Ghostex GitHub. Edit anything before you send it.',
+  reviewIntro: 'This is exactly what will be posted publicly on the Ghostex GitHub. Edit anything before you send it.',
   issueTitleLabel: 'Title',
   issueBodyLabel: 'Description',
   back: 'Back',

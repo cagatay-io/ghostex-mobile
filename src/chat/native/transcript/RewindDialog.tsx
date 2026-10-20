@@ -24,7 +24,7 @@ export function RewindDialog({ chat }: { chat: RustChat }) {
     <Pressable
       disabled={disabled}
       onPress={onPress}
-      accessibilityRole='button'
+      accessibilityRole="button"
       accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.button,
@@ -38,16 +38,28 @@ export function RewindDialog({ chat }: { chat: RustChat }) {
     </Pressable>
   );
   return (
-    <Modal visible transparent animationType='fade' onRequestClose={cancel} statusBarTranslucent>
+    <Modal visible transparent animationType="fade" onRequestClose={cancel} statusBarTranslucent>
       <View style={styles.backdrop}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={busy ? undefined : cancel} accessibilityLabel='Cancel rewind' />
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={busy ? undefined : cancel}
+          accessibilityLabel="Cancel rewind"
+        />
         <View
-          style={[styles.card, { backgroundColor: theme.light ? '#fefefe' : '#161616', borderColor: theme.light ? '#e5e5e5' : 'rgba(255,255,255,0.08)' }]}
+          style={[
+            styles.card,
+            {
+              backgroundColor: theme.light ? '#fefefe' : '#161616',
+              borderColor: theme.light ? '#e5e5e5' : 'rgba(255,255,255,0.08)',
+            },
+          ]}
           accessibilityViewIsModal
         >
           <View style={styles.titleBlock}>
             <Text style={[styles.title, { color: theme.foreground }]}>Rewind conversation</Text>
-            <Text style={[styles.text, { color: theme.cardMuted }]}>Restore the conversation to the point before you sent this message?</Text>
+            <Text style={[styles.text, { color: theme.cardMuted }]}>
+              Restore the conversation to the point before you sent this message?
+            </Text>
           </View>
           <View style={styles.details}>
             {preview.length > 0 ? (
@@ -62,7 +74,12 @@ export function RewindDialog({ chat }: { chat: RustChat }) {
           </View>
           <View style={styles.buttons}>
             {button(str(state, 'cancelLabel') || 'Cancel', cancel, busy, false)}
-            {button(str(state, 'submitLabel') || 'Rewind', () => chat.dispatch({ type: 'rewindSubmit' }), busy || completed, true)}
+            {button(
+              str(state, 'submitLabel') || 'Rewind',
+              () => chat.dispatch({ type: 'rewindSubmit' }),
+              busy || completed,
+              true,
+            )}
           </View>
         </View>
       </View>
@@ -71,7 +88,13 @@ export function RewindDialog({ chat }: { chat: RustChat }) {
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.45)', padding: 16 },
+  backdrop: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    padding: 16,
+  },
   card: { width: 448, maxWidth: '100%', gap: 24, padding: 24, borderRadius: 12, borderWidth: 1 },
   titleBlock: { gap: 6 },
   title: { fontSize: 16, fontWeight: '500' },

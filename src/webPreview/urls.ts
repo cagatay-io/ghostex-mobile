@@ -151,14 +151,18 @@ export function parseAddressInput(value: string): string | null {
     return port === null ? null : `http://localhost:${port}/`;
   }
   if (text.includes('://') && !/^https?:\/\//i.test(text)) return null;
-  const candidate = /^https?:\/\//i.test(text)
-    ? text
-    : text.startsWith('//') ? `http:${text}` : `http://${text}`;
+  const candidate = /^https?:\/\//i.test(text) ? text : text.startsWith('//') ? `http:${text}` : `http://${text}`;
   const parsed = parseHttpUrl(candidate);
   if (parsed === null || parsed.host.length === 0 || parsed.host.includes('@')) return null;
   // Reject unsupported schemes and malformed authorities before giving them to the WebView.
   if (!parsed.host.startsWith('[') && parsed.host.includes(':')) return null;
-  if (candidate.slice(candidate.indexOf('://') + 3).split(/[/?#]/)[0].includes('@')) return null;
+  if (
+    candidate
+      .slice(candidate.indexOf('://') + 3)
+      .split(/[/?#]/)[0]
+      .includes('@')
+  )
+    return null;
   if (/^https?:\/\//i.test(text) || text.startsWith('//') || isLoopbackHost(parsed.host)) return candidate;
   return `https://${text}`;
 }

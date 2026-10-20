@@ -96,9 +96,7 @@ function projectIdForSession(machineId: string, sessionId: string, tabProjectId?
   if (remembered.length > 0) return remembered;
   const session = useInventoryStore
     .getState()
-    .inventoriesByMachineId[machineId]?.summary?.sessions.find(
-      (entry) => entry.sessionId === sessionId,
-    );
+    .inventoriesByMachineId[machineId]?.summary?.sessions.find((entry) => entry.sessionId === sessionId);
   const discovered = session?.projectId.trim() ?? '';
   return discovered.length > 0 ? discovered : null;
 }

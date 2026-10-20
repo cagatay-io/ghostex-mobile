@@ -212,7 +212,7 @@ function utf8Encode(text: string): number[] {
         0xf0 | (codePoint >> 18),
         0x80 | ((codePoint >> 12) & 63),
         0x80 | ((codePoint >> 6) & 63),
-        0x80 | (codePoint & 63)
+        0x80 | (codePoint & 63),
       );
     }
   }

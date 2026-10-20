@@ -32,7 +32,10 @@ export function fitTableColumns(columns: TableColumnExtent[], inset: number, ava
   const max = columns.map((column) => Math.ceil(column.max) + inset);
   const floor = columns.map((column, index) => {
     if (column.max <= SHORT_COLUMN_EM * em) return max[index]!;
-    const text = Math.max(Math.ceil(column.min), Math.min(column.max * LONG_TEXT_FLOOR_SHARE, LONG_TEXT_FLOOR_MAX_EM * em));
+    const text = Math.max(
+      Math.ceil(column.min),
+      Math.min(column.max * LONG_TEXT_FLOOR_SHARE, LONG_TEXT_FLOOR_MAX_EM * em),
+    );
     return Math.min(max[index]!, Math.min(Math.max(text, WRAP_MIN_EM * em), WORD_FLOOR_MAX_EM * em) + inset);
   });
   const extra = available - floor.reduce((sum, value) => sum + value, 0);

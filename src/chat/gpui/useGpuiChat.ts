@@ -49,11 +49,12 @@ export function useGpuiChat(target: RustChatTarget | null): RustChat {
       setTitle: noop,
       composer: host ? host.composerInput : null,
       attachFiles: (files: Parameters<RustChat['attachFiles']>[0]) => host?.attachFiles(files) ?? Promise.resolve(),
-      query: (name: Parameters<RustChat['query']>[0], args: readonly unknown[]) => (host ? host.query(name, args) : null),
+      query: (name: Parameters<RustChat['query']>[0], args: readonly unknown[]) =>
+        host ? host.query(name, args) : null,
       onViewRequest: (listener: Parameters<RustChat['onViewRequest']>[0]) =>
         host ? host.onViewRequest(listener) : noop,
     }),
-    [host]
+    [host],
   );
   const machine = latestTarget?.machine ?? null;
   return useMemo<RustChat>(() => ({ state, ...actions, machine }), [state, actions, machine]);

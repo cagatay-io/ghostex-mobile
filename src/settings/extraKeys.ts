@@ -98,8 +98,20 @@ export function extraKeyCatalog(): { id: string; label: string; isModifier: bool
 
 /** Shortcut target keys the custom-action editor accepts (plus any single character). */
 export const SHORTCUT_KEY_NAMES: string[] = [
-  'escape', 'tab', 'enter', 'backspace', 'delete', 'insert', 'home', 'end',
-  'pageUp', 'pageDown', 'up', 'down', 'left', 'right',
+  'escape',
+  'tab',
+  'enter',
+  'backspace',
+  'delete',
+  'insert',
+  'home',
+  'end',
+  'pageUp',
+  'pageDown',
+  'up',
+  'down',
+  'left',
+  'right',
   ...Array.from({ length: 12 }, (_, index) => `f${index + 1}`),
 ];
 

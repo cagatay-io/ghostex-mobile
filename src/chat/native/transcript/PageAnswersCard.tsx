@@ -35,7 +35,11 @@ export function PageAnswersCard({ message }: { message: ProjectedMessage }) {
       lined
       head={
         // The one-line cards' question tile with its green check, the ring in this card's panel, lined up with the one-line cards (desktop `answered_ask_head`).
-        <AskHead lined lead={<SingleLineTile glyph='question' badge='check' ring={theme.cardPanel} />} title={`You answered “${str(answers, 'title')}”`} />
+        <AskHead
+          lined
+          lead={<SingleLineTile glyph="question" badge="check" ring={theme.cardPanel} />}
+          title={`You answered “${str(answers, 'title')}”`}
+        />
       }
     >
       <View style={styles.rows}>
@@ -56,7 +60,7 @@ export function PageAnswersCard({ message }: { message: ProjectedMessage }) {
         })}
         {more > 0 ? <Text style={[styles.more, { color: theme.muted }]}>and {more} more</Text> : null}
         {delivery !== null && !failed ? (
-          <View style={styles.delivery} accessibilityRole='progressbar'>
+          <View style={styles.delivery} accessibilityRole="progressbar">
             <ActivityIndicator size={12} color={theme.muted} />
             <Text style={[styles.deliveryText, { color: theme.muted }]}>
               {delivery.state === 'queued' ? 'Waiting for the agent to be free…' : 'Sending to the agent…'}
@@ -64,7 +68,7 @@ export function PageAnswersCard({ message }: { message: ProjectedMessage }) {
           </View>
         ) : null}
         {failed ? (
-          <View style={styles.delivery} accessibilityRole='alert'>
+          <View style={styles.delivery} accessibilityRole="alert">
             <Text style={[styles.deliveryText, { color: errorColor }]}>
               {delivery?.errorMessage
                 ? `Your answers could not be delivered: ${delivery.errorMessage}`
@@ -74,14 +78,14 @@ export function PageAnswersCard({ message }: { message: ProjectedMessage }) {
               <>
                 <Pressable
                   hitSlop={6}
-                  accessibilityRole='button'
+                  accessibilityRole="button"
                   onPress={() => dispatch({ type: 'retryQueue', promptId })}
                 >
                   <Text style={[styles.deliveryAction, { color: theme.primary }]}>Retry</Text>
                 </Pressable>
                 <Pressable
                   hitSlop={6}
-                  accessibilityRole='button'
+                  accessibilityRole="button"
                   onPress={() => dispatch({ type: 'removeQueue', promptId })}
                 >
                   <Text style={[styles.deliveryAction, { color: theme.primary }]}>Remove</Text>

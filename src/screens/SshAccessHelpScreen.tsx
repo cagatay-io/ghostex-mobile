@@ -9,11 +9,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import {
-  SshAccessHelpContent,
-  SshOsButtons,
-  type SshOs,
-} from '../components/onboarding/SshAccessHelpSheet';
+import { SshAccessHelpContent, SshOsButtons, type SshOs } from '../components/onboarding/SshAccessHelpSheet';
 import type { RootStackParamList } from '../navigation/types';
 import { SetupPalette } from '../theme/palette';
 

@@ -19,10 +19,7 @@ export function isNewSidebarSession(session: DraftSession | undefined, nowMs: nu
   return newSessionPriorityExpiresAt(session) > nowMs;
 }
 
-export function isSidebarDraftSectionSession(
-  session: DraftSession | undefined,
-  nowMs: number = Date.now()
-): boolean {
+export function isSidebarDraftSectionSession(session: DraftSession | undefined, nowMs: number = Date.now()): boolean {
   return (
     session?.isDraft === true &&
     session.isPinned !== true &&

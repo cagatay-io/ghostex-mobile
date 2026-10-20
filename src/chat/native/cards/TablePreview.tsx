@@ -59,8 +59,17 @@ export function TablePreview() {
             <Text style={styles.title}>Table</Text>
             <View style={styles.headerActions}>
               <CopyAction label={copied === 'MD' ? 'Copied' : 'MD'} onPress={() => copy('MD', preview.source)} />
-              <CopyAction label={copied === 'CSV' ? 'Copied' : 'CSV'} onPress={() => copy('CSV', tableCsv(preview.source))} />
-              <Pressable accessibilityRole="button" accessibilityLabel="Close table preview" hitSlop={8} onPress={close} style={styles.close}>
+              <CopyAction
+                label={copied === 'CSV' ? 'Copied' : 'CSV'}
+                onPress={() => copy('CSV', tableCsv(preview.source))}
+              />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close table preview"
+                hitSlop={8}
+                onPress={close}
+                style={styles.close}
+              >
                 <Glyph name="x" size={16} color={P.muted} />
               </Pressable>
             </View>
@@ -139,7 +148,10 @@ function tableRowCells(line: string): string[] {
 
 /** A cell as it reads: bold marks, code ticks and link targets dropped. */
 function tableCellText(cell: string): string {
-  return cell.replaceAll('**', '').replaceAll('`', '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1');
+  return cell
+    .replaceAll('**', '')
+    .replaceAll('`', '')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1');
 }
 
 function isTableDelimiterRow(line: string): boolean {
@@ -155,7 +167,7 @@ export function tableCsv(source: string): string {
           const value = tableCellText(cell);
           return /["\n,]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value;
         })
-        .join(',')
+        .join(','),
     )
     .join('\n');
 }

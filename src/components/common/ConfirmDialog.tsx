@@ -68,9 +68,7 @@ export default function ConfirmDialog({
               style={[styles.confirmButton, destructive ? styles.confirmButtonDestructive : null]}
               onPress={onConfirm}
             >
-              <Text
-                style={[styles.confirmLabel, destructive ? styles.confirmLabelDestructive : null]}
-              >
+              <Text style={[styles.confirmLabel, destructive ? styles.confirmLabelDestructive : null]}>
                 {confirmLabel}
               </Text>
             </Pressable>

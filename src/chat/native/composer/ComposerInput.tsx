@@ -60,13 +60,16 @@ export const ComposerInput = forwardRef<
     onTextChange: (text: string) => void;
     onCaret: (caret: number) => void;
   }
->(function ComposerInput({ model, input, references, parsedFor, parse, placeholder, collapsed, maxHeight, dispatch, onTextChange, onCaret }, ref) {
+>(function ComposerInput(
+  { model, input, references, parsedFor, parse, placeholder, collapsed, maxHeight, dispatch, onTextChange, onCaret },
+  ref,
+) {
   const styles = useStyles();
   const P = useTranscriptTheme();
   const { scale, fontScale } = useWindowDimensions();
   const hidden = useMemo(
     () => [styles.hidden, { letterSpacing: -HIDDEN_GLYPH_ADVANCE_PX / (scale * fontScale) }],
-    [styles.hidden, scale, fontScale]
+    [styles.hidden, scale, fontScale],
   );
   const field = useRef<TextInput>(null);
   const [text, setText] = useState(model.text);
@@ -150,7 +153,7 @@ export const ComposerInput = forwardRef<
         // (core `reference_pill_text`).
         <Text key={`h1:${index}`} style={reference.kind === 'sideChat' ? undefined : hidden}>
           {text.slice(reference.labelEnd, reference.end)}
-        </Text>
+        </Text>,
       );
       cursor = reference.end;
     });

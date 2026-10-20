@@ -77,7 +77,12 @@ function isExternal(href: string): boolean {
   return /^(https?|mailto):/i.test(href);
 }
 
-function renderInlines(inlines: readonly Inline[], context: InlineContext, keyPrefix: string, style?: TextStyle): ReactNode[] {
+function renderInlines(
+  inlines: readonly Inline[],
+  context: InlineContext,
+  keyPrefix: string,
+  style?: TextStyle,
+): ReactNode[] {
   return inlines.map((inline, index) => {
     const key = `${keyPrefix}.${index}`;
     switch (inline.t) {
@@ -123,7 +128,8 @@ function renderInlines(inlines: readonly Inline[], context: InlineContext, keyPr
         return str(inline.image, 'label');
       case 'link': {
         const reference = context.references.get(`${inline.href}\u0000${inline.label}`);
-        if (reference?.kind === 'question') return <QuestionTagPill key={key} reference={reference} href={inline.href} context={context} />;
+        if (reference?.kind === 'question')
+          return <QuestionTagPill key={key} reference={reference} href={inline.href} context={context} />;
         const kind = reference?.kind ?? (isExternal(inline.href) ? 'url' : 'file');
         const color = linkColor(context.theme, kind);
         const glyph = reference !== undefined ? REFERENCE_GLYPHS[kind] : undefined;
@@ -136,7 +142,7 @@ function renderInlines(inlines: readonly Inline[], context: InlineContext, keyPr
             {...(context.longPressLink !== undefined
               ? { onLongPress: () => context.longPressLink?.(inline.href) }
               : {})}
-            accessibilityRole='link'
+            accessibilityRole="link"
           >
             {glyph !== undefined ? (
               <Text>
@@ -145,7 +151,9 @@ function renderInlines(inlines: readonly Inline[], context: InlineContext, keyPr
                 </View>{' '}
               </Text>
             ) : null}
-            {reference !== undefined && reference.label.length > 0 ? reference.label : renderInlines(inline.c, context, key)}
+            {reference !== undefined && reference.label.length > 0
+              ? reference.label
+              : renderInlines(inline.c, context, key)}
           </Text>
         );
       }
@@ -174,8 +182,12 @@ function QuestionTagPill({ reference, href, context }: { reference: Reference; h
           { borderColor: tone.border, backgroundColor: pressed ? tone.border : 'transparent' },
         ]}
       >
-        {glyph !== undefined ? <Glyph name={glyph} size={QUESTION_TAGS.iconSize} color={tone.text} strokeWidth={2.8} /> : null}
-        <Text style={[styles.questionTagLabel, { color: tone.text }, state === 'withdrawn' ? styles.del : null]}>{reference.label}</Text>
+        {glyph !== undefined ? (
+          <Glyph name={glyph} size={QUESTION_TAGS.iconSize} color={tone.text} strokeWidth={2.8} />
+        ) : null}
+        <Text style={[styles.questionTagLabel, { color: tone.text }, state === 'withdrawn' ? styles.del : null]}>
+          {reference.label}
+        </Text>
       </Pressable>
     </Text>
   );
@@ -195,9 +207,12 @@ function pictureRuns(inlines: Inline[]): { pictures: boolean; inlines: Inline[] 
   const runs: { pictures: boolean; inlines: Inline[] }[] = [];
   for (const line of lines) {
     if (line.length === 0) continue;
-    const pictures = line.some((inline) => inline.t === 'image') && line.every((inline) => inline.t === 'image' || (inline.t === 'text' && inline.v.trim().length === 0));
+    const pictures =
+      line.some((inline) => inline.t === 'image') &&
+      line.every((inline) => inline.t === 'image' || (inline.t === 'text' && inline.v.trim().length === 0));
     const last = runs[runs.length - 1];
-    if (last !== undefined && last.pictures === pictures) last.inlines.push(...(pictures ? line : [{ t: 'br' } as Inline, ...line]));
+    if (last !== undefined && last.pictures === pictures)
+      last.inlines.push(...(pictures ? line : [{ t: 'br' } as Inline, ...line]));
     else runs.push({ pictures, inlines: [...line] });
   }
   return runs;
@@ -223,7 +238,7 @@ function FlowParagraph({ inlines, context, color }: { inlines: Inline[]; context
           <Text key={index} style={[styles.prose, { color }]}>
             {renderInlines(part.inlines, context, `f${index}`)}
           </Text>
-        )
+        ),
       )}
     </View>
   );
@@ -248,7 +263,15 @@ const CODE_CAP = CODE_COLLAPSED_LINES * 17.5 + 12 * 2;
 const HEADING_SIZES = [0, 20, 18, 16, 14, 14, 14];
 const HEADING_LINE = 1.3;
 
-function CodeBlock({ block, blockKey, selectable }: { block: Extract<Block, { t: 'code' }>; blockKey: string; selectable: boolean }) {
+function CodeBlock({
+  block,
+  blockKey,
+  selectable,
+}: {
+  block: Extract<Block, { t: 'code' }>;
+  blockKey: string;
+  selectable: boolean;
+}) {
   const { theme, dispatch } = useTranscriptEnv();
   const [find, findDone] = useOwnFind(useRowFind());
   const [wrapped, setWrapped] = useState(false);
@@ -277,20 +300,35 @@ function CodeBlock({ block, blockKey, selectable }: { block: Extract<Block, { t:
     </ScrollView>
   );
   return (
-    <View style={[styles.codeBlock, { backgroundColor: theme.light ? '#fafafa' : '#171717', borderColor: theme.border }]} key={blockKey}>
+    <View
+      style={[styles.codeBlock, { backgroundColor: theme.light ? '#fafafa' : '#171717', borderColor: theme.border }]}
+      key={blockKey}
+    >
       <View style={[styles.codeHeader, { borderBottomColor: theme.border }]}>
         {header !== null ? (
           <Pressable
             style={styles.codeTitle}
             disabled={openHeader === undefined}
-            onPress={() => openHeader !== undefined && dispatch({ type: 'openMarkdownLink', href: openHeader, external: false })}
-            accessibilityRole='link'
+            onPress={() =>
+              openHeader !== undefined && dispatch({ type: 'openMarkdownLink', href: openHeader, external: false })
+            }
+            accessibilityRole="link"
             accessibilityLabel={`Open ${header.label}`}
           >
-            <Glyph name={header.icon === 'markdown' ? 'markdown' : header.icon === 'file-code' ? 'file-code' : 'file'} size={13} color={theme.muted} />
-            <Text numberOfLines={1} ellipsizeMode='head' style={[styles.codeHeaderText, { color: theme.muted, flexShrink: 1 }]}>
+            <Glyph
+              name={header.icon === 'markdown' ? 'markdown' : header.icon === 'file-code' ? 'file-code' : 'file'}
+              size={13}
+              color={theme.muted}
+            />
+            <Text
+              numberOfLines={1}
+              ellipsizeMode="head"
+              style={[styles.codeHeaderText, { color: theme.muted, flexShrink: 1 }]}
+            >
               {separator >= 0 ? header.label.slice(0, separator + 1) : ''}
-              <Text style={{ color: theme.primary }}>{separator >= 0 ? header.label.slice(separator + 1) : header.label}</Text>
+              <Text style={{ color: theme.primary }}>
+                {separator >= 0 ? header.label.slice(separator + 1) : header.label}
+              </Text>
             </Text>
           </Pressable>
         ) : (
@@ -304,7 +342,7 @@ function CodeBlock({ block, blockKey, selectable }: { block: Extract<Block, { t:
               hitSlop={6}
               style={styles.codeAction}
               onPress={() => setExpanded((value) => !value)}
-              accessibilityRole='button'
+              accessibilityRole="button"
               accessibilityLabel={expanded ? 'Collapse code' : 'Show all code'}
               accessibilityState={{ expanded }}
             >
@@ -315,13 +353,19 @@ function CodeBlock({ block, blockKey, selectable }: { block: Extract<Block, { t:
             hitSlop={6}
             style={[styles.codeAction, wrapped && { backgroundColor: theme.pressed }]}
             onPress={() => setWrapped((value) => !value)}
-            accessibilityRole='button'
+            accessibilityRole="button"
             accessibilityLabel={wrapped ? 'Turn off line wrap' : 'Wrap lines'}
             accessibilityState={{ selected: wrapped }}
           >
-            <Glyph name='text-wrap' size={14} color={wrapped ? theme.foreground : theme.muted} />
+            <Glyph name="text-wrap" size={14} color={wrapped ? theme.foreground : theme.muted} />
           </Pressable>
-          <Pressable hitSlop={6} style={styles.codeAction} onPress={copy} accessibilityRole='button' accessibilityLabel='Copy code'>
+          <Pressable
+            hitSlop={6}
+            style={styles.codeAction}
+            onPress={copy}
+            accessibilityRole="button"
+            accessibilityLabel="Copy code"
+          >
             <Glyph name={copied ? 'check' : 'copy'} size={14} color={theme.muted} />
           </Pressable>
         </View>
@@ -358,10 +402,14 @@ function Table({ block, context: rowContext }: { block: Extract<Block, { t: 'tab
   const longWords = useMemo(
     () =>
       block.head.map((cell, column) => {
-        const words = [cell, ...block.rows.map((row) => row[column] ?? [])].flatMap((inlines) => inlineText(inlines).split(/\s+/));
-        return [...new Set(words.filter((word) => word.length > 0))].sort((a, b) => b.length - a.length).slice(0, TABLE_MEASURED_WORDS);
+        const words = [cell, ...block.rows.map((row) => row[column] ?? [])].flatMap((inlines) =>
+          inlineText(inlines).split(/\s+/),
+        );
+        return [...new Set(words.filter((word) => word.length > 0))]
+          .sort((a, b) => b.length - a.length)
+          .slice(0, TABLE_MEASURED_WORDS);
       }),
-    [block]
+    [block],
   );
   const columns = useMemo(() => {
     let natural: number[];
@@ -384,22 +432,46 @@ function Table({ block, context: rowContext }: { block: Extract<Block, { t: 'tab
     widths[kind][column] = columnWidth;
     const complete = (values: number[]) => block.head.every((_, index) => typeof values[index] === 'number');
     if (!complete(widths.max) || !complete(widths.min)) return;
-    const next = { max: block.head.map((_, index) => widths.max[index]!), min: block.head.map((_, index) => widths.min[index]!) };
+    const next = {
+      max: block.head.map((_, index) => widths.max[index]!),
+      min: block.head.map((_, index) => widths.min[index]!),
+    };
     const same = (a: number[], b: number[]) => a.length === b.length && a.every((value, index) => value === b[index]);
-    setMeasured((current) => (current !== null && same(current.max, next.max) && same(current.min, next.min) ? current : next));
+    setMeasured((current) =>
+      current !== null && same(current.max, next.max) && same(current.min, next.min) ? current : next,
+    );
   };
   const cellStyle = (column: number) => {
     const align = block.align[column] ?? null;
-    return [styles.tableCell, { width: columns[column] }, align === 'right' ? styles.right : align === 'center' ? styles.center : null];
+    return [
+      styles.tableCell,
+      { width: columns[column] },
+      align === 'right' ? styles.right : align === 'center' ? styles.center : null,
+    ];
   };
   const lines = collapsed ? 1 : undefined;
   const table = (
     <View style={styles.table}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} onLayout={(event) => setAvailable(event.nativeEvent.layout.width)}>
-        <View style={styles.tableMeasure} pointerEvents='none' accessibilityElementsHidden importantForAccessibility='no-hide-descendants'>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        onLayout={(event) => setAvailable(event.nativeEvent.layout.width)}
+      >
+        <View
+          style={styles.tableMeasure}
+          pointerEvents="none"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        >
           {block.head.map((cell, column) => (
-            <View key={column} style={styles.tableMeasureColumn} onLayout={(event) => report('max', column, event.nativeEvent.layout.width)}>
-              <Text style={[styles.tableText, styles.strong]}>{renderInlines(cell, measureContext, `mh${column}`)}</Text>
+            <View
+              key={column}
+              style={styles.tableMeasureColumn}
+              onLayout={(event) => report('max', column, event.nativeEvent.layout.width)}
+            >
+              <Text style={[styles.tableText, styles.strong]}>
+                {renderInlines(cell, measureContext, `mh${column}`)}
+              </Text>
               {block.rows.map((row, rowIndex) => (
                 <Text key={rowIndex} style={styles.tableText}>
                   {renderInlines(row[column] ?? [], measureContext, `mr${rowIndex}.${column}`)}
@@ -408,7 +480,11 @@ function Table({ block, context: rowContext }: { block: Extract<Block, { t: 'tab
             </View>
           ))}
           {longWords.map((words, column) => (
-            <View key={`w${column}`} style={styles.tableMeasureColumn} onLayout={(event) => report('min', column, event.nativeEvent.layout.width)}>
+            <View
+              key={`w${column}`}
+              style={styles.tableMeasureColumn}
+              onLayout={(event) => report('min', column, event.nativeEvent.layout.width)}
+            >
               {words.map((word, wordIndex) => (
                 <Text key={wordIndex} style={[styles.tableText, styles.strong]}>
                   {word}
@@ -428,7 +504,13 @@ function Table({ block, context: rowContext }: { block: Extract<Block, { t: 'tab
             ))}
           </View>
           {block.rows.map((row, rowIndex) => (
-            <View key={rowIndex} style={[styles.tableRow, { borderBottomColor: theme.light ? 'rgba(229,229,229,0.6)' : 'rgba(29,29,29,0.6)' }]}>
+            <View
+              key={rowIndex}
+              style={[
+                styles.tableRow,
+                { borderBottomColor: theme.light ? 'rgba(229,229,229,0.6)' : 'rgba(29,29,29,0.6)' },
+              ]}
+            >
               {row.map((cell, column) => (
                 <View key={column} style={cellStyle(column)}>
                   <Text numberOfLines={lines} style={[styles.tableText, { color: theme.prose }]}>
@@ -441,15 +523,30 @@ function Table({ block, context: rowContext }: { block: Extract<Block, { t: 'tab
         </BlockLongPress>
       </ScrollView>
       <View style={styles.tableActions}>
-        <TableAction label='Open table' glyph='maximize' theme={theme} onPress={() => openChatTablePreview(block.source)} />
+        <TableAction
+          label="Open table"
+          glyph="maximize"
+          theme={theme}
+          onPress={() => openChatTablePreview(block.source)}
+        />
         <TableAction
           label={collapsed ? 'Expand cells' : 'Collapse cells'}
           glyph={collapsed ? 'chevron-down' : 'chevron-up'}
           theme={theme}
           onPress={() => setCollapsed((value) => !value)}
         />
-        <TableAction label='Copy as Markdown' text='MD' theme={theme} onPress={() => void Clipboard.setStringAsync(block.source)} />
-        <TableAction label='Copy as CSV' text='CSV' theme={theme} onPress={() => void Clipboard.setStringAsync(tableCsv(block.source))} />
+        <TableAction
+          label="Copy as Markdown"
+          text="MD"
+          theme={theme}
+          onPress={() => void Clipboard.setStringAsync(block.source)}
+        />
+        <TableAction
+          label="Copy as CSV"
+          text="CSV"
+          theme={theme}
+          onPress={() => void Clipboard.setStringAsync(tableCsv(block.source))}
+        />
       </View>
     </View>
   );
@@ -457,16 +554,32 @@ function Table({ block, context: rowContext }: { block: Extract<Block, { t: 'tab
   return table;
 }
 
-function TableAction({ label, glyph, text, theme, onPress }: { label: string; glyph?: GlyphName; text?: string; theme: TranscriptTheme; onPress(): void }) {
+function TableAction({
+  label,
+  glyph,
+  text,
+  theme,
+  onPress,
+}: {
+  label: string;
+  glyph?: GlyphName;
+  text?: string;
+  theme: TranscriptTheme;
+  onPress(): void;
+}) {
   return (
     <Pressable
       hitSlop={4}
       onPress={onPress}
-      accessibilityRole='button'
+      accessibilityRole="button"
       accessibilityLabel={label}
       style={({ pressed }) => [styles.tableAction, pressed && { backgroundColor: theme.pressed }]}
     >
-      {glyph !== undefined ? <Glyph name={glyph} size={14} color={theme.muted} /> : <Text style={[styles.tableActionText, { color: theme.muted }]}>{text}</Text>}
+      {glyph !== undefined ? (
+        <Glyph name={glyph} size={14} color={theme.muted} />
+      ) : (
+        <Text style={[styles.tableActionText, { color: theme.muted }]}>{text}</Text>
+      )}
     </Pressable>
   );
 }
@@ -493,7 +606,13 @@ function orderedLabel(value: number, depth: number): string {
     return `${label}.`;
   }
   if (depth % 3 === 2) {
-    const numerals: [number, string][] = [[10, 'x'], [9, 'ix'], [5, 'v'], [4, 'iv'], [1, 'i']];
+    const numerals: [number, string][] = [
+      [10, 'x'],
+      [9, 'ix'],
+      [5, 'v'],
+      [4, 'iv'],
+      [1, 'i'],
+    ];
     let label = '';
     let remaining = value;
     for (const [amount, numeral] of numerals) {
@@ -507,7 +626,13 @@ function orderedLabel(value: number, depth: number): string {
   return `${value}.`;
 }
 
-type BlockProps = { blocks: Block[]; context: InlineContext; color: string; depth: number; listDepth: { ordered: number; bullet: number } };
+type BlockProps = {
+  blocks: Block[];
+  context: InlineContext;
+  color: string;
+  depth: number;
+  listDepth: { ordered: number; bullet: number };
+};
 
 function Blocks({ blocks, context, color, depth, listDepth }: BlockProps) {
   const { theme } = context;
@@ -525,10 +650,13 @@ function Blocks({ blocks, context, color, depth, listDepth }: BlockProps) {
                 <View key={key} style={[spacing, styles.pictureLines]}>
                   {(context.strips ? pictureRuns(block.c) : [{ pictures: false, inlines: block.c }]).map((run, part) =>
                     run.pictures ? (
-                      <PictureStrip key={part} images={run.inlines.flatMap((inline) => (inline.t === 'image' ? [inline.image] : []))} />
+                      <PictureStrip
+                        key={part}
+                        images={run.inlines.flatMap((inline) => (inline.t === 'image' ? [inline.image] : []))}
+                      />
                     ) : (
                       <FlowParagraph key={part} inlines={run.inlines} context={context} color={color} />
-                    )
+                    ),
                   )}
                 </View>
               );
@@ -543,10 +671,13 @@ function Blocks({ blocks, context, color, depth, listDepth }: BlockProps) {
               <Text
                 key={key}
                 selectable={context.selectable}
-                accessibilityRole='header'
+                accessibilityRole="header"
                 style={[
                   styles.heading,
-                  { fontSize: HEADING_SIZES[block.level] ?? PROSE_SIZE, lineHeight: (HEADING_SIZES[block.level] ?? PROSE_SIZE) * HEADING_LINE },
+                  {
+                    fontSize: HEADING_SIZES[block.level] ?? PROSE_SIZE,
+                    lineHeight: (HEADING_SIZES[block.level] ?? PROSE_SIZE) * HEADING_LINE,
+                  },
                   { color: block.level === 6 ? theme.muted : context.heading },
                   spacing,
                   styles.headingBottom,
@@ -585,23 +716,51 @@ function Blocks({ blocks, context, color, depth, listDepth }: BlockProps) {
                   theme={theme}
                   color={color}
                   selectable={context.selectable}
-                  all={<Blocks blocks={block.all} context={context} color={color} depth={depth + 1} listDepth={listDepth} />}
+                  all={
+                    <Blocks
+                      blocks={block.all}
+                      context={context}
+                      color={color}
+                      depth={depth + 1}
+                      listDepth={listDepth}
+                    />
+                  }
                   rest={
                     block.rest.length > 0 ? (
                       <View style={styles.blockGap}>
-                        <Blocks blocks={block.rest} context={context} color={color} depth={depth + 1} listDepth={listDepth} />
+                        <Blocks
+                          blocks={block.rest}
+                          context={context}
+                          color={color}
+                          depth={depth + 1}
+                          listDepth={listDepth}
+                        />
                       </View>
                     ) : null
                   }
                   label={renderInlines(block.label, context, `${key}.label`)}
-                  first={<Blocks blocks={block.first} context={context} color={color} depth={depth + 1} listDepth={listDepth} />}
+                  first={
+                    <Blocks
+                      blocks={block.first}
+                      context={context}
+                      color={color}
+                      depth={depth + 1}
+                      listDepth={listDepth}
+                    />
+                  }
                 />
               </View>
             );
           case 'quote':
             return (
               <View key={key} style={[styles.quote, { borderLeftColor: theme.border }, spacing]}>
-                <Blocks blocks={block.c} context={context} color={theme.muted} depth={depth + 1} listDepth={listDepth} />
+                <Blocks
+                  blocks={block.c}
+                  context={context}
+                  color={theme.muted}
+                  depth={depth + 1}
+                  listDepth={listDepth}
+                />
               </View>
             );
           case 'alert': {
@@ -635,8 +794,16 @@ function Blocks({ blocks, context, color, depth, listDepth }: BlockProps) {
                   <View key={itemIndex} style={[styles.listItem, itemIndex > 0 && styles.listItemGap]}>
                     <View style={[styles.listMarker, { width: gutter }]}>
                       {item.checked !== null ? (
-                        <View style={[styles.checkbox, { borderColor: theme.muted }, item.checked && { backgroundColor: theme.muted }]}>
-                          {item.checked ? <Glyph name='check' size={10} color={theme.background} strokeWidth={3} /> : null}
+                        <View
+                          style={[
+                            styles.checkbox,
+                            { borderColor: theme.muted },
+                            item.checked && { backgroundColor: theme.muted },
+                          ]}
+                        >
+                          {item.checked ? (
+                            <Glyph name="check" size={10} color={theme.background} strokeWidth={3} />
+                          ) : null}
                         </View>
                       ) : (
                         <Text style={[styles.prose, { color: theme.muted }]}>
@@ -648,7 +815,13 @@ function Blocks({ blocks, context, color, depth, listDepth }: BlockProps) {
                     </View>
                     <View style={styles.listBody}>
                       {/* A done task steps back so the open ones stand out, as on the desktop. */}
-                      <Blocks blocks={item.c} context={context} color={item.checked ? theme.muted : color} depth={depth + 1} listDepth={nested} />
+                      <Blocks
+                        blocks={item.c}
+                        context={context}
+                        color={item.checked ? theme.muted : color}
+                        depth={depth + 1}
+                        listDepth={nested}
+                      />
                     </View>
                   </View>
                 ))}
@@ -692,7 +865,7 @@ export const Markdown = memo(function Markdown({
   const referencesMap = useMemo(() => referenceMap(references), [references]);
   const openLink = useCallback(
     (href: string) => dispatch({ type: 'openMarkdownLink', href, external: false }),
-    [dispatch]
+    [dispatch],
   );
   const context = useMemo<InlineContext>(
     () => ({
@@ -705,11 +878,17 @@ export const Markdown = memo(function Markdown({
       strips,
       heading: headingColor ?? theme.primary,
     }),
-    [find, headingColor, openLink, referencesMap, selectable, strips, theme]
+    [find, headingColor, openLink, referencesMap, selectable, strips, theme],
   );
   return (
     <View style={styles.root}>
-      <Blocks blocks={blocks} context={context} color={color ?? theme.prose} depth={0} listDepth={{ ordered: 0, bullet: 0 }} />
+      <Blocks
+        blocks={blocks}
+        context={context}
+        color={color ?? theme.prose}
+        depth={0}
+        listDepth={{ ordered: 0, bullet: 0 }}
+      />
     </View>
   );
 });
@@ -747,7 +926,15 @@ const styles = StyleSheet.create({
   listItemGap: { marginTop: 4 },
   listMarker: { alignItems: 'flex-start' },
   listBody: { flex: 1, minWidth: 0 },
-  checkbox: { width: 13, height: 13, borderWidth: 1, borderRadius: 3, marginTop: 5, alignItems: 'center', justifyContent: 'center' },
+  checkbox: {
+    width: 13,
+    height: 13,
+    borderWidth: 1,
+    borderRadius: 3,
+    marginTop: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   codeBlock: { borderWidth: 1, borderRadius: 12, overflow: 'hidden' },
   codeHeader: {
     minHeight: 32,
@@ -767,13 +954,28 @@ const styles = StyleSheet.create({
   codeText: { fontFamily: MONO_FONT, fontSize: CODE_SIZE, lineHeight: 17.5 },
   table: { gap: 2 },
   tableRow: { flexDirection: 'row', borderBottomWidth: 1 },
-  tableMeasure: { position: 'absolute', left: 0, top: 0, width: 10000, flexDirection: 'row', alignItems: 'flex-start', opacity: 0 },
+  tableMeasure: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    width: 10000,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    opacity: 0,
+  },
   tableMeasureColumn: { alignItems: 'flex-start' },
   tableCell: { paddingHorizontal: CELL_PAD_X, paddingVertical: 7 },
   tableText: { fontSize: PROSE_SIZE, lineHeight: 20 },
   right: { alignItems: 'flex-end' },
   center: { alignItems: 'center' },
   tableActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 2 },
-  tableAction: { minWidth: 26, height: 24, paddingHorizontal: 5, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  tableAction: {
+    minWidth: 26,
+    height: 24,
+    paddingHorizontal: 5,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   tableActionText: { fontSize: 11, fontWeight: '600' },
 });

@@ -59,19 +59,19 @@ export default function AdvancedPage() {
   const stepKeepAliveInterval = (delta: number): void => {
     const next = Math.min(
       KEEP_ALIVE_INTERVAL_MAX_SEC,
-      Math.max(KEEP_ALIVE_INTERVAL_MIN_SEC, settings.keepAliveIntervalSec + delta)
+      Math.max(KEEP_ALIVE_INTERVAL_MIN_SEC, settings.keepAliveIntervalSec + delta),
     );
     setSetting('keepAliveIntervalSec', next);
   };
 
   return (
-    <SettingsScreenLayout intro='Older and rarely needed settings. The defaults suit most people.'>
-      <SectionHeader title='Terminal' />
+    <SettingsScreenLayout intro="Older and rarely needed settings. The defaults suit most people.">
+      <SectionHeader title="Terminal" />
       {LEGACY_TERMINAL_TOGGLES.map((toggle) => (
         <SettingToggle key={toggle.key} settingKey={toggle.key} label={toggle.label} />
       ))}
 
-      <SectionHeader title='Cursor' />
+      <SectionHeader title="Cursor" />
       {CURSOR_STYLE_ROWS.map((row) => (
         <ChoiceRow
           key={row.value}
@@ -80,11 +80,11 @@ export default function AdvancedPage() {
           onPress={() => setSetting('cursorStyle', row.value)}
         />
       ))}
-      <SettingToggle settingKey='cursorBlink' label='Blink' />
+      <SettingToggle settingKey="cursorBlink" label="Blink" />
 
-      <SectionHeader title='Scrollback' />
+      <SectionHeader title="Scrollback" />
       <SettingsSlider
-        label='Scrollback'
+        label="Scrollback"
         maximumValue={SCROLLBACK_ROWS_MAX}
         minimumValue={SCROLLBACK_ROWS_MIN}
         step={SCROLLBACK_ROWS_STEP}
@@ -94,7 +94,7 @@ export default function AdvancedPage() {
       />
       <Caption>Applies to newly opened terminals.</Caption>
 
-      <SectionHeader title='Terminal bell' />
+      <SectionHeader title="Terminal bell" />
       {BELL_ROWS.map((row) => (
         <ChoiceRow
           key={row.value}
@@ -104,13 +104,13 @@ export default function AdvancedPage() {
         />
       ))}
 
-      <SectionHeader title='Chat transcript' />
-      <SettingToggle settingKey='sessionChatCustomTranscriptWidthEnabled' label='Custom Transcript Width' />
+      <SectionHeader title="Chat transcript" />
+      <SettingToggle settingKey="sessionChatCustomTranscriptWidthEnabled" label="Custom Transcript Width" />
       <Caption>Lets the transcript use a different width from the prompt composer.</Caption>
       {settings.sessionChatCustomTranscriptWidthEnabled ? (
         <>
           <SettingsSlider
-            label='Transcript width'
+            label="Transcript width"
             maximumValue={MAX_SESSION_CHAT_TRANSCRIPT_WIDTH_PERCENT}
             minimumValue={MIN_SESSION_CHAT_TRANSCRIPT_WIDTH_PERCENT}
             step={SESSION_CHAT_TRANSCRIPT_WIDTH_PERCENT_STEP}
@@ -122,9 +122,9 @@ export default function AdvancedPage() {
         </>
       ) : null}
 
-      <SectionHeader title='Sessions list' />
+      <SectionHeader title="Sessions list" />
       <SettingsSlider
-        label='Sidebar groups opacity'
+        label="Sidebar groups opacity"
         maximumValue={SIDEBAR_SURFACE_OPACITY_MAX}
         minimumValue={SIDEBAR_SURFACE_OPACITY_MIN}
         step={1}
@@ -134,10 +134,10 @@ export default function AdvancedPage() {
       />
       <Caption>Changes only group backgrounds and borders.</Caption>
 
-      <SectionHeader title='SSH connection' />
-      <SettingToggle settingKey='keepAliveEnabled' label='Send keep-alive packets' />
+      <SectionHeader title="SSH connection" />
+      <SettingToggle settingKey="keepAliveEnabled" label="Send keep-alive packets" />
       <StepperRow
-        label='Keep-alive interval'
+        label="Keep-alive interval"
         value={`${settings.keepAliveIntervalSec} s`}
         canDecrease={settings.keepAliveIntervalSec > KEEP_ALIVE_INTERVAL_MIN_SEC}
         canIncrease={settings.keepAliveIntervalSec < KEEP_ALIVE_INTERVAL_MAX_SEC}

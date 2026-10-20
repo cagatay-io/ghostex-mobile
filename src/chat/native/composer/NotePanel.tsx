@@ -23,7 +23,13 @@ export function NotePanel({ note, dispatch }: { note: NoteState; dispatch: (acti
   const [text, setText] = useEchoedText('note', note.value, report);
   if (!note.open) return null;
   const button = (glyph: GlyphName, label: string, onPress: () => void) => (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} hitSlop={6} onPress={onPress} style={({ pressed }) => [styles.icon, pressed ? styles.pressed : null]}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={6}
+      onPress={onPress}
+      style={({ pressed }) => [styles.icon, pressed ? styles.pressed : null]}
+    >
       <Glyph name={glyph} size={15} color={P.muted} />
     </Pressable>
   );
@@ -53,11 +59,29 @@ export function NotePanel({ note, dispatch }: { note: NoteState; dispatch: (acti
 }
 
 const useStyles = themedStyles((P) => ({
-  panel: { gap: 4, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10, borderRadius: 16, borderWidth: 1, borderColor: P.border, backgroundColor: P.composerBackground },
+  panel: {
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: P.border,
+    backgroundColor: P.composerBackground,
+  },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { color: P.muted, fontSize: 12 },
   actions: { flexDirection: 'row', gap: 4 },
   icon: { width: 30, height: 30, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   pressed: { backgroundColor: P.controlPressed },
-  input: { color: P.foreground, fontSize: 14, lineHeight: 20, minHeight: 60, maxHeight: 160, paddingTop: 0, paddingBottom: 0, textAlignVertical: 'top' },
+  input: {
+    color: P.foreground,
+    fontSize: 14,
+    lineHeight: 20,
+    minHeight: 60,
+    maxHeight: 160,
+    paddingTop: 0,
+    paddingBottom: 0,
+    textAlignVertical: 'top',
+  },
 }));

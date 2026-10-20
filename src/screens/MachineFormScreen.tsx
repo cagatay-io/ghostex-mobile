@@ -195,8 +195,7 @@ export default function MachineFormScreen({ navigation, route }: Props) {
         if (keyPassphrase.length > 0) config.passphrase = keyPassphrase;
       }
       // A blank field while editing keeps the stored password, so test with it.
-      const effective =
-        password.length > 0 ? password : existing !== null ? await resolvePassword(existing.id) : null;
+      const effective = password.length > 0 ? password : existing !== null ? await resolvePassword(existing.id) : null;
       if (effective !== null && effective.length > 0) config.password = effective;
     }
     return {
@@ -303,7 +302,8 @@ export default function MachineFormScreen({ navigation, route }: Props) {
   }, [navigation, removed]);
 
   // A computer the phone reaches: read the Ghostex version it runs and whether an update is out.
-  const reachable = existing !== null && isMachineEnabled(existing) && inventory?.lastError === null && inventory.summary !== null;
+  const reachable =
+    existing !== null && isMachineEnabled(existing) && inventory?.lastError === null && inventory.summary !== null;
   useEffect(() => {
     if (reachable && existing !== null) refreshAppUpdate(existing, { ifOlderThanMs: APP_UPDATE_FRESH_MS });
   }, [reachable, existing]);

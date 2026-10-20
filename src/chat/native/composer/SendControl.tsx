@@ -45,9 +45,12 @@ export function SendControl({
    * prompt had just been queued behind. So a press does one thing: its hold or its tap.
    */
   const heldThisPress = useRef(false);
-  useEffect(() => () => {
-    if (timer.current !== null) clearTimeout(timer.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (timer.current !== null) clearTimeout(timer.current);
+    },
+    [],
+  );
   const working = document?.working === true;
   const stop = (working || cooling) && !hasDraft;
   const pendingAttachments = document?.pendingAttachments ?? 0;

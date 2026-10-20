@@ -263,12 +263,6 @@ export default function TerminalMenu({
   }
 
   return (
-    <ContextMenu
-      visible={visible}
-      title={sessionTitle}
-      items={items}
-      onClose={onClose}
-      onDismissed={onDismissed}
-    />
+    <ContextMenu visible={visible} title={sessionTitle} items={items} onClose={onClose} onDismissed={onDismissed} />
   );
 }

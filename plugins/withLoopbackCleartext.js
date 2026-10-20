@@ -79,7 +79,7 @@ function withNetworkSecurityConfigManifest(config) {
     const queries = manifest.queries[0];
     queries.intent = queries.intent ?? [];
     const declaresHttp = queries.intent.some((intent) =>
-      (intent.data ?? []).some((data) => data.$?.['android:scheme'] === 'http')
+      (intent.data ?? []).some((data) => data.$?.['android:scheme'] === 'http'),
     );
     if (!declaresHttp) {
       queries.intent.push({

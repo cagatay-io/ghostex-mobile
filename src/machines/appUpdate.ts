@@ -122,7 +122,10 @@ export function appUpdateView(update: RemoteAppUpdate): AppUpdateView {
   const finishedAt = Date.parse(text(status.lastResult?.finishedAt) ?? '');
   const lastResult = status.lastResult != null && Date.now() - finishedAt < DAY_MS ? status.lastResult : null;
   const inProgress =
-    phase === 'downloading' || phase === 'installing' || phase === 'restarting' || (phase === 'checking' && update.following);
+    phase === 'downloading' ||
+    phase === 'installing' ||
+    phase === 'restarting' ||
+    (phase === 'checking' && update.following);
   let tone: AppUpdateView['tone'] = 'muted';
   let detail: string | null = null;
   if (update.error !== null) {
@@ -162,8 +165,10 @@ export function appUpdateView(update: RemoteAppUpdate): AppUpdateView {
   }
   let action: AppUpdateAction | null = null;
   if (!inProgress) {
-    if (available !== null && supported) action = { label: `Update to ${available}`, op: 'install', enabled: !update.busy };
-    else if (supported || phase === 'appNotRunning') action = { label: 'Check for updates', op: 'check', enabled: !update.busy };
+    if (available !== null && supported)
+      action = { label: `Update to ${available}`, op: 'install', enabled: !update.busy };
+    else if (supported || phase === 'appNotRunning')
+      action = { label: 'Check for updates', op: 'check', enabled: !update.busy };
   }
   return {
     versionText: version === null ? null : `Ghostex ${version}`,
@@ -217,7 +222,11 @@ const METHOD_FOR_OP: Record<AppUpdateOp, string> = {
 export function refreshAppUpdate(machine: MachineConnectionTarget, options: { ifOlderThanMs?: number } = {}): void {
   const update = current(machine.id);
   if (update.busy || update.following) return;
-  if (options.ifOlderThanMs !== undefined && update.refreshedAt !== null && Date.now() - update.refreshedAt < options.ifOlderThanMs) {
+  if (
+    options.ifOlderThanMs !== undefined &&
+    update.refreshedAt !== null &&
+    Date.now() - update.refreshedAt < options.ifOlderThanMs
+  ) {
     return;
   }
   void run(machine, 'refresh');
@@ -245,7 +254,10 @@ async function run(machine: MachineConnectionTarget, op: AppUpdateOp | 'setAuto'
   const follow = (op === 'check' || op === 'install') && 'status' in answer;
   const before = current(machine.id).status;
   // A refused switch goes back to what the computer last said.
-  const unchanged = op === 'setAuto' && before !== null ? { status: { ...before, autoUpdate: !(params as { enabled: boolean }).enabled } } : {};
+  const unchanged =
+    op === 'setAuto' && before !== null
+      ? { status: { ...before, autoUpdate: !(params as { enabled: boolean }).enabled } }
+      : {};
   patch(machine.id, {
     busy: false,
     refreshedAt: Date.now(),

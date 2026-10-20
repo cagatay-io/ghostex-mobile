@@ -88,9 +88,7 @@ export default function ExportTranscriptSheet({
                 ]}
                 onPress={onStartNewConversation}
               >
-                <Text style={styles.rowLabel}>
-                  {starting ? 'Handing off…' : 'Handoff'}
-                </Text>
+                <Text style={styles.rowLabel}>{starting ? 'Handing off…' : 'Handoff'}</Text>
                 <Text style={styles.rowDetail}>
                   {`Opens a new ${agentLabel} session in this project with the transcript mentioned in its input, ready for your prompt. Nothing is sent for you.`}
                 </Text>

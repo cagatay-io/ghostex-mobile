@@ -12,13 +12,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { GhostexPalette, GhostexStrokeWidth } from '../../theme/palette';
-import {
-  HourglassIcon,
-  KeyboardDismissIcon,
-  KeyboardIcon,
-  PaperclipIcon,
-  RefreshIcon,
-} from './icons';
+import { HourglassIcon, KeyboardDismissIcon, KeyboardIcon, PaperclipIcon, RefreshIcon } from './icons';
 
 export type TerminalFloatingControlsProps = {
   showKeyboardButton: boolean;

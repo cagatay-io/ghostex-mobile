@@ -6,11 +6,7 @@
  * .session-tag-agent-icon in packages/core-ui/styles/session-cards.css).
  */
 
-import {
-  COMMAND_ICONS,
-  TAG_ICONS,
-  type TablerIconComponent,
-} from '../assets/tablerIcons.generated';
+import { COMMAND_ICONS, TAG_ICONS, type TablerIconComponent } from '../assets/tablerIcons.generated';
 import { TagGlyph } from '../components/sessions/icons';
 import type { GhostexCustomSessionTags } from './mobileSummary';
 
@@ -53,10 +49,7 @@ export const SESSION_TAG_SECTIONS: readonly SessionTagSection[] = [
 ];
 
 const OPTION_BY_VALUE: Readonly<Record<string, SessionTagOption>> = Object.fromEntries(
-  SESSION_TAG_SECTIONS.flatMap((section) => section.options).map((option) => [
-    option.value,
-    option,
-  ]),
+  SESSION_TAG_SECTIONS.flatMap((section) => section.options).map((option) => [option.value, option]),
 );
 
 /**
@@ -71,10 +64,7 @@ const UNRESOLVED_CUSTOM_TAG_COLOR = '#9AA8B6';
 const UNRESOLVED_CUSTOM_TAG_LABEL = 'Custom tag';
 
 export function isCustomSessionTagId(value: string): boolean {
-  return (
-    value.startsWith(CUSTOM_SESSION_TAG_ID_PREFIX) &&
-    value.length > CUSTOM_SESSION_TAG_ID_PREFIX.length
-  );
+  return value.startsWith(CUSTOM_SESSION_TAG_ID_PREFIX) && value.length > CUSTOM_SESSION_TAG_ID_PREFIX.length;
 }
 
 /**
@@ -83,10 +73,7 @@ export function isCustomSessionTagId(value: string): boolean {
  * even when the catalog lacks it, so a tag deleted on the desktop (or one
  * shipped by a newer daemon) still marks the row instead of silently vanishing.
  */
-export function effectiveSessionTag(session: {
-  isFavorite?: boolean;
-  sessionTag?: string;
-}): string | undefined {
+export function effectiveSessionTag(session: { isFavorite?: boolean; sessionTag?: string }): string | undefined {
   const tag = session.sessionTag ?? '';
   if (tag.length > 0 && tag !== 'none') {
     if (OPTION_BY_VALUE[tag] !== undefined || isCustomSessionTagId(tag)) return tag;

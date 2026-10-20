@@ -52,9 +52,7 @@ export default function ActionSheet({ visible, title, subtitle, items, onClose }
                 ]}
                 onPress={item.onPress}
               >
-                <Text
-                  style={[styles.rowLabel, item.destructive === true ? styles.rowLabelDestructive : null]}
-                >
+                <Text style={[styles.rowLabel, item.destructive === true ? styles.rowLabelDestructive : null]}>
                   {item.label}
                 </Text>
                 {item.detail !== undefined && item.detail.length > 0 ? (

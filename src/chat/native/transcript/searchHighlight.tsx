@@ -33,8 +33,20 @@ export function useRowFind(): RowFind | null {
 }
 
 /** `text` with each occurrence of the row's query wrapped in a highlighted run. */
-export function highlightText(text: string, find: RowFind | null, key: string, style?: StyleProp<TextStyle>): ReactNode {
-  const plain = style === undefined ? text : <Text key={key} style={style}>{text}</Text>;
+export function highlightText(
+  text: string,
+  find: RowFind | null,
+  key: string,
+  style?: StyleProp<TextStyle>,
+): ReactNode {
+  const plain =
+    style === undefined ? (
+      text
+    ) : (
+      <Text key={key} style={style}>
+        {text}
+      </Text>
+    );
   if (find === null || find.needle.length === 0) return plain;
   const lower = text.toLowerCase();
   // Lowercasing changed the length (a handful of scripts): offsets would not line up, so the
@@ -50,9 +62,12 @@ export function highlightText(text: string, find: RowFind | null, key: string, s
     find.counter.next += 1;
     const end = found + find.needle.length;
     parts.push(
-      <Text key={`${key}~${found}`} style={{ backgroundColor: occurrence === find.active ? find.activeBackground : find.background }}>
+      <Text
+        key={`${key}~${found}`}
+        style={{ backgroundColor: occurrence === find.active ? find.activeBackground : find.background }}
+      >
         {text.slice(found, end)}
-      </Text>
+      </Text>,
     );
     at = end;
     found = lower.indexOf(find.needle, at);
@@ -70,7 +85,8 @@ const SEARCHED_LABELS = ['tool:', 'tool-preview:', 'reasoning:'];
 
 /** A one-line label with each occurrence of the row's query highlighted; `key` is its fold key. */
 export function highlightLabel(text: string, find: RowFind | null, key: string): ReactNode {
-  if (find === null || find.needle.length === 0 || !SEARCHED_LABELS.some((prefix) => key.startsWith(prefix))) return text;
+  if (find === null || find.needle.length === 0 || !SEARCHED_LABELS.some((prefix) => key.startsWith(prefix)))
+    return text;
   const lower = text.toLowerCase();
   if (lower.length !== text.length) return text;
   const active = find.activeLabel !== null && find.activeLabel.key === key ? find.activeLabel.occurrence : null;
@@ -83,9 +99,12 @@ export function highlightLabel(text: string, find: RowFind | null, key: string):
     if (found > at) parts.push(text.slice(at, found));
     const end = found + find.needle.length;
     parts.push(
-      <Text key={`${key}~${found}`} style={{ backgroundColor: occurrence === active ? find.activeBackground : find.background }}>
+      <Text
+        key={`${key}~${found}`}
+        style={{ backgroundColor: occurrence === active ? find.activeBackground : find.background }}
+      >
         {text.slice(found, end)}
-      </Text>
+      </Text>,
     );
     occurrence += 1;
     at = end;
@@ -107,7 +126,10 @@ export function useOwnFind(find: RowFind | null): [RowFind | null, () => void] {
   const passRender = start.current?.counter !== find.counter;
   if (passRender) start.current = { counter: find.counter, next: find.counter.next };
   const own = { ...find, counter: { next: start.current!.next } };
-  return [own, () => {
-    if (passRender) find.counter.next = own.counter.next;
-  }];
+  return [
+    own,
+    () => {
+      if (passRender) find.counter.next = own.counter.next;
+    },
+  ];
 }

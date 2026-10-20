@@ -53,10 +53,7 @@ export default function PasteCodeSheet({ visible, cameraDenied, onClose, onCode 
       {cameraDenied ? (
         <Text style={[setupText.small, styles.deniedLine]}>
           {ScanCopy.cameraDenied}{' '}
-          <Text
-            style={setupText.accent}
-            onPress={() => void Linking.openSettings().catch(() => undefined)}
-          >
+          <Text style={setupText.accent} onPress={() => void Linking.openSettings().catch(() => undefined)}>
             {ScanCopy.cameraDeniedSettingsLink}
           </Text>
         </Text>

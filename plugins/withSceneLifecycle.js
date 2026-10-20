@@ -50,11 +50,11 @@ function patchAppDelegate(contents) {
   if (contents.includes('cachedLaunchOptions')) return contents; // already patched
   let out = contents.replace(
     /#if os\(iOS\) \|\| os\(tvOS\)\n\s*window = UIWindow\(frame: UIScreen\.main\.bounds\)\n\s*factory\.startReactNative\(\n\s*withModuleName: "main",\n\s*in: window,\n\s*launchOptions: launchOptions\)\n#endif\n/,
-    '    cachedLaunchOptions = launchOptions\n'
+    '    cachedLaunchOptions = launchOptions\n',
   );
   out = out.replace(
     /var window: UIWindow\?\n/,
-    'var window: UIWindow?\n  var cachedLaunchOptions: [UIApplication.LaunchOptionsKey: Any]?\n'
+    'var window: UIWindow?\n  var cachedLaunchOptions: [UIApplication.LaunchOptionsKey: Any]?\n',
   );
   if (!out.includes('cachedLaunchOptions')) {
     throw new Error('withSceneLifecycle: AppDelegate.swift did not match the expected template');

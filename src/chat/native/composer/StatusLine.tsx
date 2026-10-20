@@ -22,7 +22,9 @@ const SKELETON = { widths: [52, 72, 36], height: 10, gap: 12 };
 export function statusLineReserved(document: ChatDocument): boolean {
   const context = obj(document.contextMeter);
   if (context === null) return false;
-  return isTrue(context, 'statusLineReserved') || isTrue(context, 'hasConfiguredItems') || arr(context.starred).length > 0;
+  return (
+    isTrue(context, 'statusLineReserved') || isTrue(context, 'hasConfiguredItems') || arr(context.starred).length > 0
+  );
 }
 
 export function StatusLine({ document, dispatch }: { document: ChatDocument; dispatch: (action: UserAction) => void }) {
@@ -61,7 +63,11 @@ export function StatusLine({ document, dispatch }: { document: ChatDocument; dis
             <View key={`${index}:${str(item, 'id')}`} style={styles.item}>
               {index > 0 ? <Text style={styles.separator}>◆</Text> : null}
               {copy.length > 0 ? (
-                <Pressable accessibilityRole="button" accessibilityLabel={`${str(item, 'label')}, copy id`} onPress={() => void Clipboard.setStringAsync(copy)}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${str(item, 'label')}, copy id`}
+                  onPress={() => void Clipboard.setStringAsync(copy)}
+                >
                   {value}
                 </Pressable>
               ) : (
@@ -71,7 +77,13 @@ export function StatusLine({ document, dispatch }: { document: ChatDocument; dis
           );
         })}
       </ScrollView>
-      <Pressable accessibilityRole="button" accessibilityLabel="Edit status line" hitSlop={10} onPress={() => dispatch({ type: 'contextEdit' })} style={styles.pen}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Edit status line"
+        hitSlop={10}
+        onPress={() => dispatch({ type: 'contextEdit' })}
+        style={styles.pen}
+      >
         <Glyph name="pencil" size={11} color={P.muted} />
       </Pressable>
     </View>

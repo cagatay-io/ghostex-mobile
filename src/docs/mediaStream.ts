@@ -27,7 +27,8 @@ export function viewerProject(machineId: string, projectId: string | undefined):
   const projectPath =
     useInventoryStore
       .getState()
-      .inventoriesByMachineId[machineId]?.summary?.projects.find((project) => project.projectId === projectId)?.path ?? '';
+      .inventoriesByMachineId[machineId]?.summary?.projects.find((project) => project.projectId === projectId)?.path ??
+    '';
   return projectPath.length > 0 ? { projectId, projectPath } : null;
 }
 
@@ -50,7 +51,7 @@ function projectRelativePath(remotePath: string, projectPath: string): string | 
 export async function computerFileLinkPath(
   machine: MachineConnectionTarget,
   remotePath: string,
-  project: ViewerProject | null
+  project: ViewerProject | null,
 ): Promise<string> {
   // The link is asked for through the project's Files actions, so it needs the session's project.
   if (project === null) {
@@ -88,7 +89,7 @@ function errorText(result: Record<string, unknown>): string | null {
 export async function computerFileUrl(
   machine: MachineConnectionTarget,
   remotePath: string,
-  project: ViewerProject | null
+  project: ViewerProject | null,
 ): Promise<string> {
   const linkPath = await computerFileLinkPath(machine, remotePath, project);
   return `${await gxserverPhoneOrigin(machine)}${linkPath}`;

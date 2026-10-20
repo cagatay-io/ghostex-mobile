@@ -53,8 +53,7 @@ export function SetupButton({
   style,
   accessibilityLabel,
 }: SetupButtonProps) {
-  const labelColor =
-    variant === 'primary' ? SetupPalette.PRIMARY_BUTTON_FOREGROUND : SetupPalette.FOREGROUND;
+  const labelColor = variant === 'primary' ? SetupPalette.PRIMARY_BUTTON_FOREGROUND : SetupPalette.FOREGROUND;
   return (
     <Pressable
       accessibilityRole="button"
@@ -152,9 +151,7 @@ export function SetupRows({
   panel?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
-  return (
-    <View style={[rowStyles.group, panel ? rowStyles.groupPanel : null, style]}>{children}</View>
-  );
+  return <View style={[rowStyles.group, panel ? rowStyles.groupPanel : null, style]}>{children}</View>;
 }
 
 export function SetupRow({
@@ -179,11 +176,7 @@ export function SetupRow({
       <View style={rowStyles.valueWrap}>
         {leading}
         <Text
-          style={[
-            rowStyles.value,
-            mono ? rowStyles.valueMono : null,
-            compact ? rowStyles.textCompact : null,
-          ]}
+          style={[rowStyles.value, mono ? rowStyles.valueMono : null, compact ? rowStyles.textCompact : null]}
           numberOfLines={1}
         >
           {value}

@@ -172,7 +172,8 @@ function localReference(raw: string): string | null {
   }
 }
 
-const EMBEDDING_TAG = /<(img|source|video|audio|script|link|iframe|frame|embed|object|input|track|use|image)\b([^>]*)>/giu;
+const EMBEDDING_TAG =
+  /<(img|source|video|audio|script|link|iframe|frame|embed|object|input|track|use|image)\b([^>]*)>/giu;
 const URL_ATTRIBUTE = /\s(src|href|srcset|poster|data|xlink:href)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/giu;
 const CSS_URL = /url\(\s*(?:"([^"]*)"|'([^']*)'|([^)'"]*))\s*\)/giu;
 const CSS_IMPORT = /@import\s+(?:"([^"]*)"|'([^']*)')/giu;
@@ -203,13 +204,17 @@ function htmlReferences(html: string): Set<string> {
   for (const tag of html.matchAll(EMBEDDING_TAG)) {
     const name = (tag[1] ?? '').toLowerCase();
     const attributes = tag[2] ?? '';
-    if (name === 'link' && /\brel\s*=\s*["']?(?:canonical|alternate|next|prev|author|help|license)\b/iu.test(attributes)) {
+    if (
+      name === 'link' &&
+      /\brel\s*=\s*["']?(?:canonical|alternate|next|prev|author|help|license)\b/iu.test(attributes)
+    ) {
       continue;
     }
     for (const attribute of attributes.matchAll(URL_ATTRIBUTE)) {
       const key = (attribute[1] ?? '').toLowerCase();
       const value = attribute[2] ?? attribute[3] ?? attribute[4] ?? '';
-      const candidates = key === 'srcset' ? value.split(',').map((part) => part.trim().split(/\s+/u)[0] ?? '') : [value];
+      const candidates =
+        key === 'srcset' ? value.split(',').map((part) => part.trim().split(/\s+/u)[0] ?? '') : [value];
       for (const candidate of candidates) {
         const reference = localReference(candidate);
         if (reference !== null) references.add(reference);
@@ -217,7 +222,8 @@ function htmlReferences(html: string): Set<string> {
     }
   }
   for (const block of html.matchAll(STYLE_BLOCK)) cssReferences(block[1] ?? '', references);
-  for (const attribute of html.matchAll(STYLE_ATTRIBUTE)) cssReferences(decodeEntities(attribute[1] ?? attribute[2] ?? ''), references);
+  for (const attribute of html.matchAll(STYLE_ATTRIBUTE))
+    cssReferences(decodeEntities(attribute[1] ?? attribute[2] ?? ''), references);
   moduleReferences(html, references);
   return references;
 }
@@ -254,7 +260,7 @@ async function mirrorAssets(
   mirror: DocMirror,
   initialPaths: readonly string[],
   isCancelled: () => boolean,
-  limitTotals: boolean
+  limitTotals: boolean,
 ): Promise<number> {
   let skipped = 0;
   let pending = [...initialPaths];
@@ -373,7 +379,7 @@ export async function buildDocPage(
   machine: MachineConnectionTarget,
   remotePath: string,
   isCancelled: () => boolean = () => false,
-  project: ViewerProject | null = null
+  project: ViewerProject | null = null,
 ): Promise<DocPage> {
   const documentPath = normalizeRemotePath(remotePath);
   const kind = previewKindForPath(documentPath);
@@ -390,7 +396,14 @@ export async function buildDocPage(
     // Streamed from the computer rather than copied: the page only names where it plays from.
     const source = await computerFileUrl(machine, documentPath, project);
     writeMirrorFile(pageUri, renderMediaDocument(kind, source, title), 'utf8');
-    return { kind, uri: pageUri, rootUri, title, skippedAssets: 0, mirror: emptyMirror(machine, rootUri, documentPath) };
+    return {
+      kind,
+      uri: pageUri,
+      rootUri,
+      title,
+      skippedAssets: 0,
+      mirror: emptyMirror(machine, rootUri, documentPath),
+    };
   }
 
   const maximumBytes = kind === 'image' ? ASSET_MAX_BYTES : kind === 'text' ? TEXT_MAX_BYTES : DOCUMENT_MAX_BYTES;
@@ -401,13 +414,27 @@ export async function buildDocPage(
   if (kind === 'image') {
     writeMirrorFile(documentUri, read.base64, 'base64');
     writeMirrorFile(pageUri, renderImageDocument(title, title), 'utf8');
-    return { kind, uri: pageUri, rootUri, title, skippedAssets: 0, mirror: emptyMirror(machine, rootUri, documentPath) };
+    return {
+      kind,
+      uri: pageUri,
+      rootUri,
+      title,
+      skippedAssets: 0,
+      mirror: emptyMirror(machine, rootUri, documentPath),
+    };
   }
   const text = decodeBase64Utf8(read.base64);
   if (kind === 'text') {
     if (/\u0000/u.test(text)) throw new Error("This file isn't text, so it can't be previewed on the phone.");
     writeMirrorFile(pageUri, renderTextDocument(text, title), 'utf8');
-    return { kind, uri: pageUri, rootUri, title, skippedAssets: 0, mirror: emptyMirror(machine, rootUri, documentPath) };
+    return {
+      kind,
+      uri: pageUri,
+      rootUri,
+      title,
+      skippedAssets: 0,
+      mirror: emptyMirror(machine, rootUri, documentPath),
+    };
   }
 
   const mirror = emptyMirror(machine, rootUri, documentPath);

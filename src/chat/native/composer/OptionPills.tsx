@@ -43,7 +43,8 @@ export function OptionPills({ document, onOpen }: { document: ChatDocument; onOp
   const merged = modelMenu !== null;
   const optionsOverflowed = document.composerOverflow?.optionsOverflowed === true;
   const loadingModel = str(labels, 'model').length === 0;
-  const modelLabel = (merged ? str(obj(modelMenu?.pill), 'label') : '') || str(labels, 'modelDisplay') || str(labels, 'model');
+  const modelLabel =
+    (merged ? str(obj(modelMenu?.pill), 'label') : '') || str(labels, 'modelDisplay') || str(labels, 'model');
   const suffix = merged && !loadingModel ? str(obj(modelMenu?.pill), 'suffix') : '';
   const agentIcon = str(labels, 'agentIcon');
   const AgentIcon = agentIcon.length > 0 ? AGENT_ICONS[agentIcon] : undefined;
@@ -67,7 +68,12 @@ export function OptionPills({ document, onOpen }: { document: ChatDocument; onOp
     <View style={styles.row}>
       {chipName.length > 0 ? (
         <View style={styles.agentChip} accessibilityLabel={`Agent: ${chipName}`}>
-          <View style={[styles.agentTile, { backgroundColor: chipIcon.length > 0 ? agentAccent(chipIcon, P.light) : P.muted }]}>
+          <View
+            style={[
+              styles.agentTile,
+              { backgroundColor: chipIcon.length > 0 ? agentAccent(chipIcon, P.light) : P.muted },
+            ]}
+          >
             <Text style={styles.agentInitial}>{Array.from(chipName)[0]}</Text>
           </View>
           <Text style={styles.agentName} numberOfLines={1}>
@@ -88,7 +94,9 @@ export function OptionPills({ document, onOpen }: { document: ChatDocument; onOp
                 <View style={styles.accountLogo}>
                   <AgentIcon size={19} color={agentAccent(agentIcon, P.light)} />
                 </View>
-                <Text style={[styles.accountIndicator, agentIcon === 'codex' ? styles.accountIndicatorCodex : null]}>{indicator}</Text>
+                <Text style={[styles.accountIndicator, agentIcon === 'codex' ? styles.accountIndicatorCodex : null]}>
+                  {indicator}
+                </Text>
               </View>
             ) : (
               <AgentIcon size={14} color={agentAccent(agentIcon, P.light)} />

@@ -12,24 +12,11 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Modal,
-  Pressable,
-  SectionList,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Modal, Pressable, SectionList, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AGENT_ICONS } from '../../assets/agentIcons.generated';
-import {
-  agentIconTint,
-  resolveAgentIconId,
-  type GhostexSession,
-} from '../../contract/mobileSummary';
+import { agentIconTint, resolveAgentIconId, type GhostexSession } from '../../contract/mobileSummary';
 import { resolveSessionTag } from '../../contract/sessionTags';
 import { SessionCopy, SessionSearchCopy } from '../../copy';
 import { useInventoryStore } from '../../inventory/store';
@@ -65,13 +52,7 @@ const STATUS_DOT_OPEN = '#FFFFFF';
 /** Each keystroke would be an SSH round trip per computer; wait for a pause in typing. */
 const CLOSED_QUERY_DEBOUNCE_MS = 300;
 
-export default function SessionSearchSheet({
-  visible,
-  machines,
-  onOpen,
-  onRestore,
-  onClose,
-}: SessionSearchSheetProps) {
+export default function SessionSearchSheet({ visible, machines, onOpen, onRestore, onClose }: SessionSearchSheetProps) {
   const insets = useSafeAreaInsets();
   const inputRef = useRef<TextInput | null>(null);
   const [query, setQuery] = useState('');
@@ -87,8 +68,7 @@ export default function SessionSearchSheet({
 
   // The computers that answered the inventory: only those can be reached for closed sessions too.
   const reporting = useMemo(
-    () =>
-      visible ? machines.filter((machine) => inventoriesByMachineId[machine.id]?.summary != null) : [],
+    () => (visible ? machines.filter((machine) => inventoriesByMachineId[machine.id]?.summary != null) : []),
     [visible, machines, inventoriesByMachineId],
   );
   const reportingIds = reporting.map((machine) => machine.id).join('\n');
@@ -147,9 +127,7 @@ export default function SessionSearchSheet({
           customSessionTags: summary.customSessionTags,
           open: summary.sessions.map((session) => ({
             session,
-            projectLabel: chatProjectIds.has(session.projectId)
-              ? SessionCopy.chatsTitle
-              : session.projectName.trim(),
+            projectLabel: chatProjectIds.has(session.projectId) ? SessionCopy.chatsTitle : session.projectName.trim(),
           })),
           closed: closedByMachine[machine.id] ?? [],
         },
@@ -159,10 +137,7 @@ export default function SessionSearchSheet({
 
   const nowMs = Date.now();
   const groups = useMemo(() => searchSessions(sources, query, Date.now()), [sources, query]);
-  const sections = useMemo(
-    () => groups.map((group) => ({ title: group.heading, data: group.rows })),
-    [groups],
-  );
+  const sections = useMemo(() => groups.map((group) => ({ title: group.heading, data: group.rows })), [groups]);
   const firstKey = groups[0]?.rows[0]?.key;
 
   const close = (): void => {
@@ -199,9 +174,7 @@ export default function SessionSearchSheet({
       },
       (error: unknown) => {
         setRestoringKey(null);
-        setRestoreError(
-          SessionSearchCopy.restoreFailed(error instanceof Error ? error.message : String(error)),
-        );
+        setRestoreError(SessionSearchCopy.restoreFailed(error instanceof Error ? error.message : String(error)));
       },
     );
   };
@@ -238,9 +211,7 @@ export default function SessionSearchSheet({
         accessibilityState={{ busy: restoring, disabled: closed && !item.closed.isRestorable }}
         style={({ pressed }) => [
           styles.row,
-          pressed || restoring || (restoringKey === null && item.key === firstKey)
-            ? styles.rowSelected
-            : null,
+          pressed || restoring || (restoringKey === null && item.key === firstKey) ? styles.rowSelected : null,
           closed && !item.closed.isRestorable ? styles.rowUnavailable : null,
         ]}
         onPress={() => open(item)}
@@ -268,10 +239,7 @@ export default function SessionSearchSheet({
               style={
                 item.kind === 'closed'
                   ? [styles.statusDot, styles.statusDotClosed]
-                  : [
-                      styles.statusDot,
-                      { backgroundColor: item.session.isSleeping ? STATUS_DOT : STATUS_DOT_OPEN },
-                    ]
+                  : [styles.statusDot, { backgroundColor: item.session.isSleeping ? STATUS_DOT : STATUS_DOT_OPEN }]
               }
             />
           </>

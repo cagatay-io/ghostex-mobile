@@ -14,9 +14,7 @@ import type { ChatImage } from './overlayStore';
 export type ChatImageFailure = { reason: string; error: string };
 
 export type ChatImageSource =
-  | { status: 'ready'; uri: string }
-  | { status: 'loading' }
-  | { status: 'unavailable'; failure: ChatImageFailure };
+  { status: 'ready'; uri: string } | { status: 'loading' } | { status: 'unavailable'; failure: ChatImageFailure };
 
 const NO_SOURCE: ChatImageSource = { status: 'unavailable', failure: { reason: 'unavailable', error: '' } };
 
@@ -47,6 +45,7 @@ export function useChatImage(chat: RustChat, image: ChatImage | null | undefined
   }
   if (transport !== 'read' || path.length === 0) return NO_SOURCE;
   if (loaded === undefined) return { status: 'loading' };
-  if (loaded.status === 'failed') return { status: 'unavailable', failure: { reason: loaded.reason, error: loaded.error } };
+  if (loaded.status === 'failed')
+    return { status: 'unavailable', failure: { reason: loaded.reason, error: loaded.error } };
   return { status: 'ready', uri: `data:${loaded.mediaType};base64,${loaded.base64Data}` };
 }

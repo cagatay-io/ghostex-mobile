@@ -28,9 +28,7 @@ import { useMachinesStore } from '../../machines/store';
 import type { RootStackParamList } from '../../navigation/types';
 
 export type ScanPhase =
-  | { kind: 'scanning' }
-  | { kind: 'pairing'; code: EasyConnectCode }
-  | { kind: 'tailscale'; code: TailscaleCode };
+  { kind: 'scanning' } | { kind: 'pairing'; code: EasyConnectCode } | { kind: 'tailscale'; code: TailscaleCode };
 
 export type ScanToast = { tone: 'error' | 'ok'; title: string; detail?: string };
 

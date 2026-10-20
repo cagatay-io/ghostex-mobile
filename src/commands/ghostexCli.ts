@@ -72,18 +72,8 @@ export type SessionAction = 'focus' | 'wake' | 'sleep' | 'kill' | 'acknowledge-s
  * Validated at the command boundary so UI changes can never send arbitrary
  * remote commands.
  */
-export function sessionActionCommand(
-  action: SessionAction,
-  sessionId: string,
-  projectId?: string,
-): string {
-  const supported: readonly SessionAction[] = [
-    'focus',
-    'wake',
-    'sleep',
-    'kill',
-    'acknowledge-session-attention',
-  ];
+export function sessionActionCommand(action: SessionAction, sessionId: string, projectId?: string): string {
+  const supported: readonly SessionAction[] = ['focus', 'wake', 'sleep', 'kill', 'acknowledge-session-attention'];
   if (!supported.includes(action)) {
     throw new Error(`Unsupported Ghostex session action: ${action as string}`);
   }
@@ -171,10 +161,7 @@ export function createSessionCommand(options?: { projectId?: string; groupId?: s
  * The daemon registers (or reuses) the project at that folder itself, which is
  * what lets Find open a resumed agent in a folder the phone has never seen.
  */
-export function quickTerminalCommand(
-  cwd: string,
-  options?: { command?: string; title?: string },
-): string {
+export function quickTerminalCommand(cwd: string, options?: { command?: string; title?: string }): string {
   const folder = cwd.trim();
   if (folder.length === 0) throw new Error('Ghostex quick terminal folder is required.');
   const parts = ['ghostex terminal --json', `--cwd ${shellQuote(folder)}`];
@@ -363,11 +350,7 @@ export function sessionNoteReadCommand(sessionId: string, projectId: string): st
  * reason documented there: user prose can open with `--`, and multi-line notes
  * are carried verbatim by the single-quoted shell wrapper.
  */
-export function sessionNoteSaveCommand(
-  sessionId: string,
-  projectId: string,
-  note: string,
-): string {
+export function sessionNoteSaveCommand(sessionId: string, projectId: string, note: string): string {
   return (
     `ghostex session-note save --session-id ${shellQuote(requireId(sessionId, 'session id'))}` +
     ` --project-id ${shellQuote(requireId(projectId, 'project id'))}` +
@@ -470,8 +453,7 @@ export function clientHelloCommand(platform: ClientHelloPlatform): string {
 /** Acknowledge attention: `ghostex acknowledge-session-attention --session-id <id> --json`. */
 export function acknowledgeAttentionCommand(sessionId: string): string {
   return (
-    `ghostex acknowledge-session-attention --session-id` +
-    ` ${shellQuote(requireId(sessionId, 'session id'))} --json`
+    `ghostex acknowledge-session-attention --session-id` + ` ${shellQuote(requireId(sessionId, 'session id'))} --json`
   );
 }
 
@@ -480,13 +462,8 @@ export type DelayedSendTrigger = 'afterDelay' | 'agentStops' | 'allAgentsStop';
 /**
  * Arms one of the gxserver renderer's Session Automations Enter triggers.
  */
-export function delayedSendCommand(
-  sessionId: string,
-  trigger: DelayedSendTrigger,
-  delayMs?: number,
-): string {
-  const selector =
-    `ghostex delayed-send --session-id ${shellQuote(requireId(sessionId, 'session id'))}`;
+export function delayedSendCommand(sessionId: string, trigger: DelayedSendTrigger, delayMs?: number): string {
+  const selector = `ghostex delayed-send --session-id ${shellQuote(requireId(sessionId, 'session id'))}`;
   if (trigger === 'agentStops') {
     return `${selector} --when-agent-finishes --json`;
   }
@@ -501,18 +478,12 @@ export function delayedSendCommand(
 
 /** Cancel Delayed Send: `ghostex delayed-send --session-id <id> --cancel --json`. */
 export function cancelDelayedSendCommand(sessionId: string): string {
-  return (
-    `ghostex delayed-send --session-id ${shellQuote(requireId(sessionId, 'session id'))}` +
-    ' --cancel --json'
-  );
+  return `ghostex delayed-send --session-id ${shellQuote(requireId(sessionId, 'session id'))}` + ' --cancel --json';
 }
 
 /** Toggle Close After Done: `ghostex close-after-done --session-id <id> --json`. */
 export function closeAfterDoneCommand(sessionId: string): string {
-  return (
-    `ghostex close-after-done --session-id ${shellQuote(requireId(sessionId, 'session id'))}` +
-    ' --json'
-  );
+  return `ghostex close-after-done --session-id ${shellQuote(requireId(sessionId, 'session id'))}` + ' --json';
 }
 
 /** Close project: `ghostex remove-project --project-id <id> --json`. */
@@ -554,11 +525,7 @@ export function workLinkCandidatesCommand(
 }
 
 /** Link or unlink: `ghostex link-session … [--pr n|none] [--linear A,B|none] [--issue n|none] [--linear-project name|none] [--github-project owner/number|none] [--auto] --json`. */
-export function setSessionWorkLinksCommand(
-  sessionId: string,
-  projectId: string,
-  links: SessionWorkLinks,
-): string {
+export function setSessionWorkLinksCommand(sessionId: string, projectId: string, links: SessionWorkLinks): string {
   const list = (values: readonly string[]): string => shellQuote(values.length > 0 ? values.join(',') : 'none');
   const flags: string[] = [];
   if (links.clear === true) flags.push('--auto');
@@ -591,10 +558,7 @@ export function setProjectWorkModeCommand(projectId: string, enabled: boolean): 
  * user typed but has not created yet; without it gxserver keeps rejecting a
  * missing path.
  */
-export function addProjectCommand(
-  path: string,
-  options?: { createIfMissing?: boolean; workspaceId?: string },
-): string {
+export function addProjectCommand(path: string, options?: { createIfMissing?: boolean; workspaceId?: string }): string {
   const createIfMissing = options?.createIfMissing === true ? ' --create-if-missing' : '';
   return (
     `ghostex add-project ${shellQuote(requirePositional(path, 'project path'))}${createIfMissing}` +
@@ -613,18 +577,14 @@ function workspaceFlag(workspaceId: string | undefined): string {
  * `--cwd` is never sent: mobile has no active project, so relative paths are
  * not offered at all.
  */
-export function browseDirectoriesCommand(
-  partialPath: string,
-  options?: { limit?: number },
-): string {
+export function browseDirectoriesCommand(partialPath: string, options?: { limit?: number }): string {
   const limit = options?.limit;
   if (limit !== undefined && (!Number.isInteger(limit) || limit <= 0)) {
     throw new Error('Ghostex browse limit must be a positive whole number.');
   }
   const limitFlag = limit === undefined ? '' : ` --limit ${limit}`;
   return (
-    `ghostex browse-directories ${shellQuote(requirePositional(partialPath, 'browse path'))}` +
-    `${limitFlag} --json`
+    `ghostex browse-directories ${shellQuote(requirePositional(partialPath, 'browse path'))}` + `${limitFlag} --json`
   );
 }
 
@@ -667,11 +627,7 @@ export function cloneRepositoryCommand(
   destinationPath: string,
   options?: { waitTimeoutMs?: number; timeoutMs?: number; workspaceId?: string },
 ): string {
-  const waitTimeout = positiveIntegerFlag(
-    '--wait-timeout-ms',
-    options?.waitTimeoutMs,
-    'clone wait timeout',
-  );
+  const waitTimeout = positiveIntegerFlag('--wait-timeout-ms', options?.waitTimeoutMs, 'clone wait timeout');
   const timeout = positiveIntegerFlag('--timeout', options?.timeoutMs, 'clone request timeout');
   return (
     `ghostex clone-repository ${shellQuote(requirePositional(remoteUrl, 'repository URL'))}` +
@@ -686,10 +642,7 @@ export function cloneRepositoryCommand(
  * The CLI passes the FULL state through; gxserver normalizes and persists.
  */
 export function updateProjectCollectionsCommand(state: unknown): string {
-  return (
-    'ghostex update-sidebar-project-collections --state-json ' +
-    `${shellQuote(JSON.stringify(state))} --json`
-  );
+  return 'ghostex update-sidebar-project-collections --state-json ' + `${shellQuote(JSON.stringify(state))} --json`;
 }
 
 /** Reorder: `ghostex move-project --json --project-id <id> --direction <up|down>`. */
@@ -856,9 +809,7 @@ export function searchAgentPromptsCommand(options?: FindPromptsSearchOptions): s
   }
   parts.push(nonNegativeIntegerFlag('--limit', options?.limit, 'prompt search limit').trim());
   parts.push(nonNegativeIntegerFlag('--offset', options?.offset, 'prompt search offset').trim());
-  parts.push(
-    nonNegativeIntegerFlag('--text-limit', options?.textLimit, 'prompt text limit').trim(),
-  );
+  parts.push(nonNegativeIntegerFlag('--text-limit', options?.textLimit, 'prompt text limit').trim());
   parts.push('--json');
   return parts.filter((part) => part.length > 0).join(' ');
 }
@@ -881,11 +832,7 @@ export function toggleAgentPromptFavoriteCommand(key: string, favorite?: boolean
 }
 
 /** `ghostex resolve-agent-prompt-launch --key <key> [--action a] [--fork-agent id] --json` */
-export function resolveAgentPromptLaunchCommand(
-  key: string,
-  action: 'fork' | 'resume',
-  forkAgent?: string,
-): string {
+export function resolveAgentPromptLaunchCommand(key: string, action: 'fork' | 'resume', forkAgent?: string): string {
   const fork = forkAgent?.trim() ?? '';
   const forkFlag = fork.length > 0 ? ` --fork-agent ${shellQuote(fork)}` : '';
   return `ghostex resolve-agent-prompt-launch ${promptKeyFlag(key)} --action ${action}${forkFlag} --json`;
@@ -900,11 +847,7 @@ export function resolveAgentPromptLaunchCommand(
  */
 
 /** `ghostex previous-sessions [--query q] [--cursor c] --limit n --json` */
-export function previousSessionsCommand(options: {
-  query?: string;
-  cursor?: string;
-  limit: number;
-}): string {
+export function previousSessionsCommand(options: { query?: string; cursor?: string; limit: number }): string {
   const parts = ['ghostex previous-sessions'];
   const query = options.query?.trim() ?? '';
   if (query.length > 0) parts.push(`--query ${shellQuote(query)}`);

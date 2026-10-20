@@ -30,7 +30,14 @@ const SECTION_OPEN = `${MARK}section:`;
 const SECTION_CLOSE = `${MARK}/section`;
 
 /** A marked section of an agent's reply, as the core described it (`marked_sections.rs`). */
-export type SectionMeta = { kind: string; emoji: string; name: string; label: string; labelRepeats: boolean; plain?: string };
+export type SectionMeta = {
+  kind: string;
+  emoji: string;
+  name: string;
+  label: string;
+  labelRepeats: boolean;
+  plain?: string;
+};
 
 export type Inline =
   | { t: 'text'; v: string }
@@ -208,7 +215,14 @@ class BlockParser {
   private interrupts(line: string): boolean {
     if (FENCE.test(line) || ATX.test(line) || HR.test(line) || QUOTE.test(line)) return true;
     if (line.startsWith(SECTION_OPEN) || line === SECTION_CLOSE) return true;
-    if (line.startsWith(ALERT_OPEN) || line === TABLE_OPEN || line === MERMAID_OPEN || line === VISUAL_OPEN || line.startsWith(QUESTIONS_OPEN)) return true;
+    if (
+      line.startsWith(ALERT_OPEN) ||
+      line === TABLE_OPEN ||
+      line === MERMAID_OPEN ||
+      line === VISUAL_OPEN ||
+      line.startsWith(QUESTIONS_OPEN)
+    )
+      return true;
     const marker = listMarker(line);
     // Only a bullet, or an ordered item starting at 1, interrupts a paragraph (CommonMark).
     return marker !== null && marker.indent <= 3 && marker.rest.length > 0 && (!marker.ordered || marker.start === 1);
@@ -231,7 +245,11 @@ class BlockParser {
           else if (lines[end] === ALERT_CLOSE && --depth === 0) break;
           end += 1;
         }
-        out.push({ t: 'alert', kind: line.slice(ALERT_OPEN.length).trim(), c: this.blocks(lines.slice(index + 1, end)) });
+        out.push({
+          t: 'alert',
+          kind: line.slice(ALERT_OPEN.length).trim(),
+          c: this.blocks(lines.slice(index + 1, end)),
+        });
         index = end + 1;
         continue;
       }
@@ -241,7 +259,14 @@ class BlockParser {
         const meta = parseJson<SectionMeta | null>(line.slice(SECTION_OPEN.length), null);
         const body = lines.slice(index + 1, end);
         if (meta !== null) {
-          out.push({ t: 'section', meta, all: this.blocks(body), rest: this.blocks(body.slice(1)), label: this.inline(meta.label), first: this.blocks([meta.plain ?? body[0] ?? '']) });
+          out.push({
+            t: 'section',
+            meta,
+            all: this.blocks(body),
+            rest: this.blocks(body.slice(1)),
+            label: this.inline(meta.label),
+            first: this.blocks([meta.plain ?? body[0] ?? '']),
+          });
         } else {
           out.push(...this.blocks(body));
         }
@@ -257,7 +282,11 @@ class BlockParser {
       if (line.startsWith(QUESTIONS_OPEN)) {
         let end = index + 1;
         while (end < lines.length && lines[end] !== QUESTIONS_CLOSE) end += 1;
-        out.push({ t: 'questions', id: line.slice(QUESTIONS_OPEN.length), source: fenceSource(lines.slice(index + 1, end)) });
+        out.push({
+          t: 'questions',
+          id: line.slice(QUESTIONS_OPEN.length),
+          source: fenceSource(lines.slice(index + 1, end)),
+        });
         index = end + 1;
         continue;
       }
@@ -300,7 +329,12 @@ class BlockParser {
           const current = lines[index]!;
           const match = QUOTE.exec(current);
           if (match !== null) quoted.push(match[1]!);
-          else if (!isBlank(current) && quoted.length > 0 && !isBlank(quoted[quoted.length - 1]!) && !this.interrupts(current))
+          else if (
+            !isBlank(current) &&
+            quoted.length > 0 &&
+            !isBlank(quoted[quoted.length - 1]!) &&
+            !this.interrupts(current)
+          )
             quoted.push(current);
           else break;
           index += 1;
@@ -695,7 +729,8 @@ export function parseInline(text: string, breaks: boolean): Inline[] {
       // so the newline either side of one breaks the line here too and the pictures can form a
       // filmstrip (`pictureRuns` in `Markdown.tsx`).
       const nextLine = text.slice(index + 1).trimStart();
-      const besidePicture = nextLine.startsWith(IMAGE_OPEN) || (plain.trim().length === 0 && out[out.length - 1]?.t === 'image');
+      const besidePicture =
+        nextLine.startsWith(IMAGE_OPEN) || (plain.trim().length === 0 && out[out.length - 1]?.t === 'image');
       if (hard || breaks || besidePicture) {
         plain = plain.replace(/ +$/, '');
         flush();
@@ -728,7 +763,8 @@ export function parseInline(text: string, breaks: boolean): Inline[] {
       const close = text.indexOf(run, index + run.length);
       if (close >= 0 && text[close + run.length] !== '`') {
         let code = text.slice(index + run.length, close).replace(/\n/g, ' ');
-        if (code.length > 2 && code.startsWith(' ') && code.endsWith(' ') && code.trim().length > 0) code = code.slice(1, -1);
+        if (code.length > 2 && code.startsWith(' ') && code.endsWith(' ') && code.trim().length > 0)
+          code = code.slice(1, -1);
         flush();
         out.push({ t: 'code', v: code });
         index = close + run.length;
@@ -748,7 +784,12 @@ export function parseInline(text: string, breaks: boolean): Inline[] {
           const label = text.slice(open + 1, close);
           flush();
           // A picture the core did not mark (its bytes cannot be read) reads as its words.
-          out.push({ t: 'link', href: destination.href, label, c: image ? [{ t: 'text', v: label }] : parseInline(label, breaks) });
+          out.push({
+            t: 'link',
+            href: destination.href,
+            label,
+            c: image ? [{ t: 'text', v: label }] : parseInline(label, breaks),
+          });
           index = destination.end + 1;
           continue;
         }
@@ -769,7 +810,8 @@ export function parseInline(text: string, breaks: boolean): Inline[] {
         let url = match[0];
         // GFM trims trailing punctuation, and a `)` the URL did not open.
         url = url.replace(/[.,:;!?"'*_~]+$/, '');
-        while (url.endsWith(')') && (url.match(/\(/g)?.length ?? 0) < (url.match(/\)/g)?.length ?? 0)) url = url.slice(0, -1);
+        while (url.endsWith(')') && (url.match(/\(/g)?.length ?? 0) < (url.match(/\)/g)?.length ?? 0))
+          url = url.slice(0, -1);
         flush();
         out.push({ t: 'link', href: url, label: url, c: [{ t: 'text', v: url }] });
         index += url.length;

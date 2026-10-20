@@ -71,7 +71,11 @@ export function useVoiceCapability(machine: MachineConnectionTarget | null): boo
     // (the link answers from its cache unless its last handshake failed).
     const inventory = useInventoryStore.subscribe((state, previous) => {
       const summary = state.inventoriesByMachineId[machine.id]?.summary;
-      if (summary !== undefined && summary !== null && summary !== previous.inventoriesByMachineId[machine.id]?.summary) {
+      if (
+        summary !== undefined &&
+        summary !== null &&
+        summary !== previous.inventoriesByMachineId[machine.id]?.summary
+      ) {
         if (link.capabilities() === null) check();
       }
     });
@@ -117,7 +121,10 @@ export function VoiceButton({ machine, style, color, size = 22, activeFill = tru
         navigation.navigate('Voice');
       }}
     >
-      <HeadsetGlyph size={size} color={active ? (activeFill ? GhostexPalette.ACCENT_FOREGROUND : GhostexPalette.ACCENT) : color} />
+      <HeadsetGlyph
+        size={size}
+        color={active ? (activeFill ? GhostexPalette.ACCENT_FOREGROUND : GhostexPalette.ACCENT) : color}
+      />
     </Pressable>
   );
 }

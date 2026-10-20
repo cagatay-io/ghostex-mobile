@@ -28,7 +28,13 @@ function isPicture(image: unknown): image is ChatImage {
   return typeof image === 'object' && image !== null && (image as ChatImage).transport !== 'none';
 }
 
-export function FilesLinksCard({ filesLinks, dispatch }: { filesLinks: FilesLinksState | undefined; dispatch: (action: UserAction) => void }) {
+export function FilesLinksCard({
+  filesLinks,
+  dispatch,
+}: {
+  filesLinks: FilesLinksState | undefined;
+  dispatch: (action: UserAction) => void;
+}) {
   const styles = useStyles();
   const P = useTranscriptTheme();
   const { height } = useWindowDimensions();
@@ -44,7 +50,12 @@ export function FilesLinksCard({ filesLinks, dispatch }: { filesLinks: FilesLink
   }, [open]);
   if (filesLinks === undefined) return null;
   const close = () => dispatch({ type: 'filesLinksClose' });
-  if (!open) return <Sheet visible={false} onClose={close} title="Files and links">{null}</Sheet>;
+  if (!open)
+    return (
+      <Sheet visible={false} onClose={close} title="Files and links">
+        {null}
+      </Sheet>
+    );
   const sections = filesLinks.sections ?? [];
   const header = (
     <Text style={styles.status} numberOfLines={1}>
@@ -77,7 +88,7 @@ export function FilesLinksCard({ filesLinks, dispatch }: { filesLinks: FilesLink
           autoCorrect={false}
           autoCapitalize="none"
         />
-      </View>
+      </View>,
     );
   }
   if (filesLinks.loading && sections.length === 0) {
@@ -86,17 +97,22 @@ export function FilesLinksCard({ filesLinks, dispatch }: { filesLinks: FilesLink
     body.push(
       <Text key="error" style={styles.error}>
         {filesLinks.error}
-      </Text>
+      </Text>,
     );
   } else if (sections.length === 0) {
     body.push(
       <Text key="empty" style={styles.empty}>
         {filesLinks.emptyLabel}
-      </Text>
+      </Text>,
     );
   } else {
     body.push(
-      <ScrollView key="list" style={{ maxHeight: height * 0.55 }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+      <ScrollView
+        key="list"
+        style={{ maxHeight: height * 0.55 }}
+        nestedScrollEnabled
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={styles.hint}>Tap to open; hold a row to jump to where it was mentioned.</Text>
         {sections.map((section) => (
           <View key={section.id} style={styles.section}>
@@ -122,7 +138,10 @@ export function FilesLinksCard({ filesLinks, dispatch }: { filesLinks: FilesLink
                         accessibilityHint="Hold to jump to where it was mentioned"
                         onPress={() => openRow(row, gallery)}
                         onLongPress={() => setHeld(held === row.key ? null : row.key)}
-                        style={({ pressed }) => [styles.row, pressed || held === row.key ? { backgroundColor: P.pressedFill } : null]}
+                        style={({ pressed }) => [
+                          styles.row,
+                          pressed || held === row.key ? { backgroundColor: P.pressedFill } : null,
+                        ]}
                       >
                         <Glyph name={ROW_GLYPHS[row.icon] ?? 'file'} size={15} color={P.muted} />
                         <View style={styles.rowText}>
@@ -145,7 +164,13 @@ export function FilesLinksCard({ filesLinks, dispatch }: { filesLinks: FilesLink
                           {row.jumps.map((jump) => (
                             <ChatButton
                               key={jump.label}
-                              label={jump.label === 'Show' ? 'Show message' : jump.label === 'First' || jump.label === 'Last' ? `${jump.label} mention` : jump.label}
+                              label={
+                                jump.label === 'Show'
+                                  ? 'Show message'
+                                  : jump.label === 'First' || jump.label === 'Last'
+                                    ? `${jump.label} mention`
+                                    : jump.label
+                              }
                               onPress={() => {
                                 setHeld(null);
                                 run(jump.command);
@@ -170,13 +195,17 @@ export function FilesLinksCard({ filesLinks, dispatch }: { filesLinks: FilesLink
               );
             })}
             {section.moreLabel.length > 0 ? (
-              <Pressable accessibilityRole="button" hitSlop={6} onPress={() => dispatch({ type: 'filesLinksShowAll', section: section.id })}>
+              <Pressable
+                accessibilityRole="button"
+                hitSlop={6}
+                onPress={() => dispatch({ type: 'filesLinksShowAll', section: section.id })}
+              >
                 <Text style={styles.more}>{section.moreLabel}</Text>
               </Pressable>
             ) : null}
           </View>
         ))}
-      </ScrollView>
+      </ScrollView>,
     );
   }
   // The sheet's title row says "Files and links"; Refresh sits beside it and a tap outside or Back closes it.
@@ -185,7 +214,14 @@ export function FilesLinksCard({ filesLinks, dispatch }: { filesLinks: FilesLink
       visible
       onClose={close}
       title="Files and links"
-      accessory={<ChatButton label="Refresh" icon="refresh" disabled={filesLinks.loading} onPress={() => dispatch({ type: 'filesLinksRefresh' })} />}
+      accessory={
+        <ChatButton
+          label="Refresh"
+          icon="refresh"
+          disabled={filesLinks.loading}
+          onPress={() => dispatch({ type: 'filesLinksRefresh' })}
+        />
+      }
     >
       <View style={styles.sheetBody}>
         {header}
@@ -229,11 +265,25 @@ const useStyles = themedStyles((P) => ({
   sectionLabel: { color: P.foreground, fontSize: 12, fontWeight: '600' },
   sectionCount: { color: P.muted, fontSize: 12 },
   groupTitle: { color: P.muted, fontSize: 11, paddingTop: 4, paddingHorizontal: 6 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 6, paddingVertical: 5, borderRadius: 6 },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
   rowText: { flex: 1, minWidth: 0 },
   rowTitle: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   rowLabel: { flexShrink: 1, color: P.foreground, fontSize: 13 },
-  tag: { color: P.muted, fontSize: 10, paddingHorizontal: 5, borderRadius: 4, backgroundColor: P.border, overflow: 'hidden' },
+  tag: {
+    color: P.muted,
+    fontSize: 10,
+    paddingHorizontal: 5,
+    borderRadius: 4,
+    backgroundColor: P.border,
+    overflow: 'hidden',
+  },
   rowDetail: { color: P.muted, fontSize: 11.5 },
   rowMeta: { color: P.muted, fontSize: 11, opacity: 0.75 },
   jumps: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingLeft: 29, paddingBottom: 4 },

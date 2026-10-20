@@ -56,7 +56,7 @@ export function IconPill({
   const styles = useStyles();
   return (
     <Pressable
-      accessibilityRole='button'
+      accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
       hitSlop={4}
@@ -84,9 +84,9 @@ export function QuestionPill({
   const P = useTranscriptTheme();
   const ping = useQuestionPing(count, newest);
   return (
-    <IconPill glyph='question-mark' accessibilityLabel={accessibilityLabel} color={P.cardMuted} onPress={onPress}>
+    <IconPill glyph="question-mark" accessibilityLabel={accessibilityLabel} color={P.cardMuted} onPress={onPress}>
       <PingRing progress={ping} />
-      <View pointerEvents='none' style={styles.questionDot} />
+      <View pointerEvents="none" style={styles.questionDot} />
     </IconPill>
   );
 }
@@ -135,7 +135,7 @@ function PingRing({ progress }: { progress: Animated.Value }) {
   const size = dotSize * scale;
   return (
     <Animated.View
-      pointerEvents='none'
+      pointerEvents="none"
       style={{
         position: 'absolute',
         top: DOT_TOP + dotSize / 2 - size / 2,
@@ -165,7 +165,7 @@ export function Pill({ pill, open, onPress }: { pill: ChatPill; open: boolean; o
   const P = useTranscriptTheme();
   return (
     <Pressable
-      accessibilityRole='button'
+      accessibilityRole="button"
       accessibilityLabel={pill.ariaLabel}
       accessibilityState={{ expanded: open }}
       onPress={onPress}

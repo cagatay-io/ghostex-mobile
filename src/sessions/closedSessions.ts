@@ -8,11 +8,7 @@
 import { runGhostexCli } from '../components/sessions/cli';
 import { previousSessionsCommand, restorePreviousSessionCommand } from '../commands/ghostexCli';
 import type { MachineRecord } from '../machines/store';
-import {
-  CLOSED_SESSIONS_VISIBLE_WINDOW_MS,
-  parseClosedSessionsPage,
-  type ClosedSession,
-} from './sessionSearch';
+import { CLOSED_SESSIONS_VISIBLE_WINDOW_MS, parseClosedSessionsPage, type ClosedSession } from './sessionSearch';
 
 /** The desktop's page size (`SESSIONS_PAGE_SIZE`). */
 const PAGE_SIZE = 80;
@@ -34,10 +30,7 @@ export async function fetchClosedSessions(
   const sessions: ClosedSession[] = [];
   let cursor: string | undefined;
   for (let page = 0; page < MAX_WINDOW_PAGES; page += 1) {
-    const result = await runGhostexCli(
-      machine,
-      previousSessionsCommand({ query: trimmed, cursor, limit: PAGE_SIZE }),
-    );
+    const result = await runGhostexCli(machine, previousSessionsCommand({ query: trimmed, cursor, limit: PAGE_SIZE }));
     const parsed = parseClosedSessionsPage(result.json);
     sessions.push(...parsed.sessions);
     if (trimmed.length > 0 || parsed.cursor === null) break;
@@ -59,11 +52,9 @@ export async function restoreClosedSession(
   machine: MachineRecord,
   session: ClosedSession,
 ): Promise<{ projectId: string; sessionId: string }> {
-  const result = await runGhostexCli(
-    machine,
-    restorePreviousSessionCommand(session.projectId, session.sessionId),
-    { timeoutMs: RESTORE_TIMEOUT_MS },
-  );
+  const result = await runGhostexCli(machine, restorePreviousSessionCommand(session.projectId, session.sessionId), {
+    timeoutMs: RESTORE_TIMEOUT_MS,
+  });
   const sessionId = typeof result.json?.sessionId === 'string' ? result.json.sessionId.trim() : '';
   if (sessionId.length === 0) throw new Error('The computer did not say which session it restored.');
   const projectId =

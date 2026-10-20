@@ -36,7 +36,8 @@ export function QueueList({ document, dispatch }: { document: ChatDocument; disp
           capabilities={capabilities}
           onMove={(to) => {
             const target = prompts[to];
-            if (target !== undefined && to !== index) dispatch({ type: 'moveQueue', promptId: prompt.id, targetId: target.id });
+            if (target !== undefined && to !== index)
+              dispatch({ type: 'moveQueue', promptId: prompt.id, targetId: target.id });
           }}
           dispatch={dispatch}
         />
@@ -91,14 +92,38 @@ function QueueRow({
         offset.setValue(0);
         setDragging(false);
       },
-    })
+    }),
   ).current;
 
   const actions: { glyph: GlyphName; label: string; action: UserAction; show: boolean; disabled: boolean }[] = [
-    { glyph: 'refresh', label: 'Retry', action: { type: 'retryQueue', promptId: prompt.id }, show: capabilities.canRetry && failed, disabled: blocked },
-    { glyph: 'pencil', label: 'Edit', action: { type: 'removeQueue', promptId: prompt.id, edit: true }, show: capabilities.canEdit, disabled: locked },
-    { glyph: 'arrow-up', label: 'Send now', action: { type: 'sendQueue', promptId: prompt.id }, show: capabilities.canSendNow, disabled: locked },
-    { glyph: 'trash', label: 'Delete', action: { type: 'removeQueue', promptId: prompt.id }, show: capabilities.canRemove, disabled: locked },
+    {
+      glyph: 'refresh',
+      label: 'Retry',
+      action: { type: 'retryQueue', promptId: prompt.id },
+      show: capabilities.canRetry && failed,
+      disabled: blocked,
+    },
+    {
+      glyph: 'pencil',
+      label: 'Edit',
+      action: { type: 'removeQueue', promptId: prompt.id, edit: true },
+      show: capabilities.canEdit,
+      disabled: locked,
+    },
+    {
+      glyph: 'arrow-up',
+      label: 'Send now',
+      action: { type: 'sendQueue', promptId: prompt.id },
+      show: capabilities.canSendNow,
+      disabled: locked,
+    },
+    {
+      glyph: 'trash',
+      label: 'Delete',
+      action: { type: 'removeQueue', promptId: prompt.id },
+      show: capabilities.canRemove,
+      disabled: locked,
+    },
   ];
 
   return (
@@ -111,15 +136,27 @@ function QueueRow({
       ]}
     >
       {canDrag && !busy ? (
-        <View {...responder.panHandlers} style={styles.grip} accessibilityRole="adjustable" accessibilityLabel="Reorder queued prompt">
+        <View
+          {...responder.panHandlers}
+          style={styles.grip}
+          accessibilityRole="adjustable"
+          accessibilityLabel="Reorder queued prompt"
+        >
           <Glyph name="grip-vertical" size={15} color={P.muted} strokeWidth={1.8} />
         </View>
       ) : (
         <View style={[styles.grip, busy ? null : styles.gripInert]}>
-          {busy ? <ActivityIndicator size="small" color={P.muted} /> : <Glyph name="grip-vertical" size={15} color={P.muted} strokeWidth={1.8} />}
+          {busy ? (
+            <ActivityIndicator size="small" color={P.muted} />
+          ) : (
+            <Glyph name="grip-vertical" size={15} color={P.muted} strokeWidth={1.8} />
+          )}
         </View>
       )}
-      <Text style={[styles.text, failed ? styles.textFailed : null, prompt.state === 'sending' ? styles.textSending : null]} numberOfLines={1}>
+      <Text
+        style={[styles.text, failed ? styles.textFailed : null, prompt.state === 'sending' ? styles.textSending : null]}
+        numberOfLines={1}
+      >
         {prompt.preview}
       </Text>
       {failed ? (
@@ -140,7 +177,11 @@ function QueueRow({
             disabled={entry.disabled}
             hitSlop={4}
             onPress={() => dispatch(entry.action)}
-            style={({ pressed }) => [styles.action, pressed ? styles.actionPressed : null, entry.disabled ? styles.disabled : null]}
+            style={({ pressed }) => [
+              styles.action,
+              pressed ? styles.actionPressed : null,
+              entry.disabled ? styles.disabled : null,
+            ]}
           >
             <Glyph name={entry.glyph} size={15} color={P.muted} />
           </Pressable>

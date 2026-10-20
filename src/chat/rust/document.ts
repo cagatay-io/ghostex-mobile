@@ -35,7 +35,12 @@ export type RunLocationRow = {
   selected: string;
   /** A switch is in flight. */
   busy: boolean;
-  options: { runLocation: string; label: string; icon: 'computer' | 'box' | 'server' | 'cloud'; tooltip: string | null }[];
+  options: {
+    runLocation: string;
+    label: string;
+    icon: 'computer' | 'box' | 'server' | 'cloud';
+    tooltip: string | null;
+  }[];
 };
 
 // ---------------------------------------------------------------------------------------------
@@ -682,7 +687,13 @@ export type FilesLinksRow = {
 
 export type FilesLinksGroup = { key: string; title: string; rows: FilesLinksRow[] };
 
-export type FilesLinksSection = { id: string; label: string; count: number; groups: FilesLinksGroup[]; moreLabel: string };
+export type FilesLinksSection = {
+  id: string;
+  label: string;
+  count: number;
+  groups: FilesLinksGroup[];
+  moreLabel: string;
+};
 
 /** The Files and links card: every attachment, file and link the session (and a coordinator's threads) mentioned. */
 export type OpenQuestionsState = {
@@ -723,7 +734,13 @@ export type Interaction = { queueLongPressMs: number; stopButtonCooldownMs: numb
 export type IncomingDraft = { content: string; version?: Json; [key: string]: unknown };
 
 /** One More actions row. `group` is `agent` or `session`. Pressing it is an app-shell action. */
-export type HostActionRow = { id: string; label: string; hotkey?: string | null; group: string; [key: string]: unknown };
+export type HostActionRow = {
+  id: string;
+  label: string;
+  hotkey?: string | null;
+  group: string;
+  [key: string]: unknown;
+};
 
 /** One row of More actions > Skills (core `composer/ghostex_skills.rs`). */
 export type GhostexSkill = { name: string; description?: string | null; invocation?: string | null };

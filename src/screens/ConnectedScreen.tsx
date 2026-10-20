@@ -195,11 +195,8 @@ export default function ConnectedScreen({ navigation, route }: Props) {
       </View>
 
       <View style={styles.footer}>
-        <SetupButton variant='primary' large label={ConnectedCopy.openSessions} onPress={openSessions} />
-        <SetupButton
-          label={ConnectedCopy.addAnother}
-          onPress={() => navigation.navigate('ConnectChoose')}
-        />
+        <SetupButton variant="primary" large label={ConnectedCopy.openSessions} onPress={openSessions} />
+        <SetupButton label={ConnectedCopy.addAnother} onPress={() => navigation.navigate('ConnectChoose')} />
       </View>
     </SafeAreaView>
   );

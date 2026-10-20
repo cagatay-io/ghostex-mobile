@@ -108,7 +108,12 @@ export function CardHeader({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
-      style={({ pressed }) => [styles.header, styles.pressHeader, hasBody === true && styles.pressHeaderWithBody, pressed && { backgroundColor: P.pressedFill }]}
+      style={({ pressed }) => [
+        styles.header,
+        styles.pressHeader,
+        hasBody === true && styles.pressHeaderWithBody,
+        pressed && { backgroundColor: P.pressedFill },
+      ]}
     >
       {content}
     </Pressable>
@@ -179,7 +184,12 @@ export const CHOICE_ROW_CHROME = 26;
 export function ChoiceRowLabelMeasure({ label, onWidth }: { label: string; onWidth: (width: number) => void }) {
   const styles = useStyles();
   return (
-    <View pointerEvents="none" style={styles.measureLayer} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+    <View
+      pointerEvents="none"
+      style={styles.measureLayer}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
       <Text
         style={styles.choiceLabel}
         onTextLayout={(event) => {
@@ -250,7 +260,11 @@ export function ChatButton({
       disabled={disabled === true}
       onPress={onPress}
       hitSlop={6}
-      style={({ pressed }) => [styles.chatButton, disabled === true && styles.disabled, pressed && { backgroundColor: P.neutralFillPressed }]}
+      style={({ pressed }) => [
+        styles.chatButton,
+        disabled === true && styles.disabled,
+        pressed && { backgroundColor: P.neutralFillPressed },
+      ]}
     >
       {icon !== undefined ? <Glyph name={icon} size={14} color={P.primary} /> : null}
       <Text style={styles.chatButtonLabel}>{label}</Text>
@@ -272,10 +286,10 @@ export function Spinner({ size, color, periodMs = 1000 }: { size: number; color:
 /** A dot whose opacity pulses (the fleet's working dot, the activity dot). */
 export function PulseDot({ size, color, active }: { size: number; color: string; active: boolean }) {
   const phase = useLoop(1600, Easing.linear, active);
-  const opacity = active
-    ? phase.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 0.35, 1] })
-    : 1;
-  return <Animated.View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: color, opacity }} />;
+  const opacity = active ? phase.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 0.35, 1] }) : 1;
+  return (
+    <Animated.View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: color, opacity }} />
+  );
 }
 
 /**
@@ -294,7 +308,7 @@ export function useLoop(periodMs: number, easing: (value: number) => number, run
       return undefined;
     }
     const loop = Animated.loop(
-      Animated.timing(value, { toValue: 1, duration: periodMs, easing, useNativeDriver: true })
+      Animated.timing(value, { toValue: 1, duration: periodMs, easing, useNativeDriver: true }),
     );
     loop.start();
     return () => loop.stop();

@@ -146,7 +146,7 @@ type TerminalState = {
   /** Open (or re-select) an attach tab for a remote Ghostex session. */
   attachSession: (
     machine: MachineConnectionTarget,
-    session: { sessionId: string; projectId?: string; title?: string; agentId?: string }
+    session: { sessionId: string; projectId?: string; title?: string; agentId?: string },
   ) => Promise<string>;
   /**
    * Open (or re-select) a session's tab for its Chat View without attaching its terminal. A tab
@@ -154,7 +154,7 @@ type TerminalState = {
    */
   openChatTab: (
     machine: MachineConnectionTarget,
-    session: { sessionId: string; projectId?: string; title?: string }
+    session: { sessionId: string; projectId?: string; title?: string },
   ) => string;
   /** Attach a `detached` tab's terminal (its first switch to the Terminal view). */
   ensureTerminalAttached: (sessionKey: string) => Promise<void>;
@@ -462,7 +462,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
       if (existing)
         return existing.then(
           () => undefined,
-          () => undefined
+          () => undefined,
         );
       return trackTabOpen(sessionKey, async () => {
         const tab = get().tabs.find((entry) => entry.sessionKey === sessionKey);
@@ -508,7 +508,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
             // every reconnect to rediscover the project this tab already knows.
             opts.command = await remoteTerminalCommand(
               tab.machineId,
-              attachCommand(tab.ghostexSessionId, tab.ghostexProjectId)
+              attachCommand(tab.ghostexSessionId, tab.ghostexProjectId),
             );
           } else if (tab.kind === 'shell') {
             const command = await remoteShellCommand(tab.machineId, tab.cwd);
@@ -571,7 +571,7 @@ export function restoreAttachTabs(machineId: string): Promise<void> {
     const store = useTerminalStore.getState();
     const tabs = store.tabs.filter((tab) => tab.machineId === machineId && tab.kind === 'attach');
     tabs.sort(
-      (a, b) => Number(b.sessionKey === store.selectedSessionKey) - Number(a.sessionKey === store.selectedSessionKey)
+      (a, b) => Number(b.sessionKey === store.selectedSessionKey) - Number(a.sessionKey === store.selectedSessionKey),
     );
     for (const tab of tabs) {
       if (AppState.currentState === 'background' || AppState.currentState === 'inactive') break;
@@ -606,7 +606,7 @@ export function initTerminalEvents(): void {
     if (event.state === 'closed' && tab.state === 'opening' && tabOpenRequests.has(event.sessionKey)) return;
     useTerminalStore.setState({
       tabs: store.tabs.map((entry) =>
-        entry.sessionKey === event.sessionKey ? { ...entry, state: event.state, error: event.error } : entry
+        entry.sessionKey === event.sessionKey ? { ...entry, state: event.state, error: event.error } : entry,
       ),
     });
     if (event.state === 'open' && tab.kind === 'attach' && Platform.OS === 'ios') {

@@ -93,9 +93,7 @@ function useCompletionFlash(session: GhostexSession): Animated.AnimatedInterpola
     [progress],
   );
   const previousActivity = useRef<string | null>(null);
-  const soundEnabled = useSettingsStore(
-    (state) => state.hydrated && state.settings.doneNotificationSound,
-  );
+  const soundEnabled = useSettingsStore((state) => state.hydrated && state.settings.doneNotificationSound);
   useEffect(() => {
     const previous = previousActivity.current;
     previousActivity.current = session.activity;
@@ -423,11 +421,7 @@ export default function SessionRow({
             </View>
           ) : null}
           <Animated.Text
-            style={[
-              styles.title,
-              active ? styles.titleActive : null,
-              { transform: [{ translateX: renameShake }] },
-            ]}
+            style={[styles.title, active ? styles.titleActive : null, { transform: [{ translateX: renameShake }] }]}
             numberOfLines={1}
             ellipsizeMode="tail"
           >

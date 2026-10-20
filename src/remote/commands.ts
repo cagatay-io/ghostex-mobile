@@ -49,7 +49,7 @@ async function probeEnvironment(machineId: string): Promise<RemoteEnvironment> {
   const unix = await GhostexNative.exec(machineId, "printf '__GHOSTEX_POSIX__'; uname -s", PROBE_TIMEOUT);
   if (unix.exitCode === 0 && /__GHOSTEX_POSIX__(Linux|Darwin)/u.test(unix.stdout)) return { kind: 'posix' };
   const windows = readableResult(
-    await GhostexNative.exec(machineId, powershellCommand(windowsEnvironmentProbe), PROBE_TIMEOUT)
+    await GhostexNative.exec(machineId, powershellCommand(windowsEnvironmentProbe), PROBE_TIMEOUT),
   );
   const line = windows.stdout.split(/\r?\n/u).find((value) => value.startsWith('__GHOSTEX_REMOTE_WINDOWS__'));
   if (windows.exitCode !== 0 || line === undefined) {
@@ -72,8 +72,8 @@ async function probeEnvironment(machineId: string): Promise<RemoteEnvironment> {
     await GhostexNative.exec(
       machineId,
       powershellCommand(powershellPrelude + windowsProcess("'wsl.exe'", argv)),
-      PROBE_TIMEOUT
-    )
+      PROBE_TIMEOUT,
+    ),
   );
   const distribution = wsl.stdout
     .split(/\r?\n/u)
@@ -91,7 +91,7 @@ function wslScript(target: Extract<RemoteEnvironment, { kind: 'wsl' }>, posix: s
     windowsProcess(
       "'wsl.exe'",
       ['--distribution', target.distribution, '--exec', 'sh', '-c', loginShellCommand(posix)],
-      interactive
+      interactive,
     )
   );
 }
@@ -112,21 +112,21 @@ export async function execRemoteCommand(machineId: string, command: string, time
   return execScript(
     machineId,
     target.kind === 'powershell' ? windowsCliScript(cliArguments(command)) : wslScript(target, command),
-    timeoutMs
+    timeoutMs,
   );
 }
 
 export async function execRemoteScript(
   machineId: string,
   script: RemoteScript,
-  timeoutMs: number
+  timeoutMs: number,
 ): Promise<ExecResult> {
   const target = await remoteEnvironment(machineId);
   if (target.kind === 'posix') return GhostexNative.exec(machineId, loginShellCommand(script.posix), timeoutMs);
   return execScript(
     machineId,
     target.kind === 'powershell' ? powershellPrelude + script.powershell : wslScript(target, script.posix),
-    timeoutMs
+    timeoutMs,
   );
 }
 
@@ -134,7 +134,7 @@ export function terminalCommandFor(target: RemoteEnvironment, command: string): 
   if (target.kind === 'posix') return loginShellCommand(command);
   return powershellCommand(
     target.kind === 'powershell' ? windowsCliScript(cliArguments(command), true) : wslScript(target, command, true),
-    true
+    true,
   );
 }
 
@@ -151,7 +151,7 @@ export async function remoteShellCommand(machineId: string, cwd?: string): Promi
         "$gxShell=Join-Path $env:ProgramFiles 'PowerShell/7/pwsh.exe'; if (!(Test-Path -LiteralPath $gxShell)) { $gxShell='powershell.exe' }; " +
         location +
         windowsProcess('$gxShell', ['-NoLogo'], true),
-      true
+      true,
     );
   }
   const script = `${cwd ? `cd ${shellQuote(cwd)} && ` : ''}exec "$SHELL" -l`;

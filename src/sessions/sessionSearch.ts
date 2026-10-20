@@ -87,10 +87,7 @@ function matchesToken(searchText: string, query: string): boolean {
     return true;
   }
   const words = searchText.split(/\s+/).filter((word) => word.length > 0);
-  return (
-    words.some((word) => isLongQueryTypoCandidate(word, query)) ||
-    hasAdjacentWordSingleEditDistance(words, query)
-  );
+  return words.some((word) => isLongQueryTypoCandidate(word, query)) || hasAdjacentWordSingleEditDistance(words, query);
 }
 
 // ---------------------------------------------------------------------------
@@ -389,8 +386,7 @@ export function parseClosedSessionsPage(json: Record<string, unknown> | null): C
 function closedFields(session: ClosedSession): SearchFields {
   // The desktop's previous-session item: `alias` is the row's title, `primaryTitle` falls back to it.
   const title =
-    [session.displayTitle, session.primaryTitle, session.title].find((value) => value.length > 0) ??
-    'Previous Session';
+    [session.displayTitle, session.primaryTitle, session.title].find((value) => value.length > 0) ?? 'Previous Session';
   return {
     alias: title,
     displayTitle: session.displayTitle,

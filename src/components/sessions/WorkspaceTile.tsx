@@ -79,21 +79,19 @@ export function workspaceMenuItems(
 ): ContextMenuItem[] {
   return [
     { kind: 'heading', key: 'heading', label: 'Workspaces' },
-    ...orderedWorkspaces(workspaces).map(
-      (workspace): ContextMenuItem => ({
-        kind: 'item',
-        key: workspace.workspaceId,
-        label: workspace.name,
-        icon:
-          workspace.kind === 'work' ? (
-            <BriefcaseGlyph size={14} color={workspace.color} />
-          ) : (
-            <UserGlyph size={14} color={workspace.color} />
-          ),
-        selected: workspace.workspaceId === currentWorkspaceId,
-        onPress: () => onSelect(workspace.workspaceId),
-      }),
-    ),
+    ...orderedWorkspaces(workspaces).map((workspace): ContextMenuItem => ({
+      kind: 'item',
+      key: workspace.workspaceId,
+      label: workspace.name,
+      icon:
+        workspace.kind === 'work' ? (
+          <BriefcaseGlyph size={14} color={workspace.color} />
+        ) : (
+          <UserGlyph size={14} color={workspace.color} />
+        ),
+      selected: workspace.workspaceId === currentWorkspaceId,
+      onPress: () => onSelect(workspace.workspaceId),
+    })),
   ];
 }
 

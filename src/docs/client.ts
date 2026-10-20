@@ -67,7 +67,7 @@ export async function listProjectDocs(machine: MachineConnectionTarget, projectI
     machine,
     'runProjectDocsAction',
     { projectId, action: 'list', additionalDocsFolders: folders, requestId: `mobile-docs-${Date.now()}` },
-    LIST_TIMEOUT_MS
+    LIST_TIMEOUT_MS,
   );
   if (answer.error !== null) throw new Error(answer.error.message);
   const result = (answer.result ?? {}) as Record<string, unknown>;
@@ -85,7 +85,7 @@ export async function resolveDocsEntryPath(
   machine: MachineConnectionTarget,
   projectId: string,
   projectPath: string,
-  entryPath: string
+  entryPath: string,
 ): Promise<string> {
   if (entryPath !== DOCS_MOUNT_SEGMENT && !entryPath.startsWith(`${DOCS_MOUNT_SEGMENT}/`)) {
     return joinRemotePath(projectPath, entryPath);

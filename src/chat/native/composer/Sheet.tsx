@@ -29,7 +29,16 @@ export type SheetProps = {
   onDismissed?: () => void;
 };
 
-export function Sheet({ visible, onClose, title, onBack, accessory, children, maxHeight = '80%', onDismissed }: SheetProps) {
+export function Sheet({
+  visible,
+  onClose,
+  title,
+  onBack,
+  accessory,
+  children,
+  maxHeight = '80%',
+  onDismissed,
+}: SheetProps) {
   const styles = useStyles();
   const P = useTranscriptTheme();
   const insets = useSafeAreaInsets();
@@ -51,7 +60,13 @@ export function Sheet({ visible, onClose, title, onBack, accessory, children, ma
           {title !== undefined || onBack !== undefined || accessory !== undefined ? (
             <View style={styles.titleRow}>
               {onBack !== undefined ? (
-                <Pressable onPress={onBack} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back" style={styles.back}>
+                <Pressable
+                  onPress={onBack}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel="Back"
+                  style={styles.back}
+                >
                   <Glyph name="chevron-left" size={18} color={P.primary} />
                 </Pressable>
               ) : null}
@@ -80,7 +95,14 @@ const useStyles = themedStyles((P) => ({
     paddingTop: 8,
   },
   grabber: { width: 36, height: 4, borderRadius: 2, backgroundColor: P.grabber, alignSelf: 'center', marginBottom: 8 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingBottom: 8, minHeight: 32 },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    minHeight: 32,
+  },
   back: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
   title: { flex: 1, color: P.foreground, fontSize: 15, fontWeight: '600' },
 }));

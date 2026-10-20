@@ -63,9 +63,7 @@ export function cloneCollectionsState(raw: unknown): CollectionsState {
         collectionId: typeof entry.collectionId === 'string' ? entry.collectionId : id,
         title: typeof entry.title === 'string' ? entry.title : '',
         color:
-          typeof entry.color === 'string' && entry.color !== 'transparent'
-            ? entry.color
-            : DEFAULT_COLLECTION_COLOR,
+          typeof entry.color === 'string' && entry.color !== 'transparent' ? entry.color : DEFAULT_COLLECTION_COLOR,
         projectIds: Array.isArray(entry.projectIds)
           ? entry.projectIds.filter((value): value is string => typeof value === 'string')
           : [],
@@ -85,11 +83,7 @@ function removeProjectEverywhere(state: CollectionsState, projectId: string): vo
 }
 
 /** Move `projectId` into `collectionId` (a project lives in one collection). */
-export function stateWithProjectInCollection(
-  raw: unknown,
-  collectionId: string,
-  projectId: string,
-): CollectionsState {
+export function stateWithProjectInCollection(raw: unknown, collectionId: string, projectId: string): CollectionsState {
   const state = cloneCollectionsState(raw);
   removeProjectEverywhere(state, projectId);
   const target = state.collections[collectionId];
@@ -123,22 +117,14 @@ export function stateWithNewCollection(raw: unknown, projectId: string): Collect
   return state;
 }
 
-export function stateWithCollectionTitle(
-  raw: unknown,
-  collectionId: string,
-  title: string,
-): CollectionsState {
+export function stateWithCollectionTitle(raw: unknown, collectionId: string, title: string): CollectionsState {
   const state = cloneCollectionsState(raw);
   const target = state.collections[collectionId];
   if (target !== undefined) target.title = title;
   return state;
 }
 
-export function stateWithCollectionColor(
-  raw: unknown,
-  collectionId: string,
-  color: string,
-): CollectionsState {
+export function stateWithCollectionColor(raw: unknown, collectionId: string, color: string): CollectionsState {
   const state = cloneCollectionsState(raw);
   const target = state.collections[collectionId];
   if (target !== undefined) target.color = color;

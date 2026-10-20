@@ -36,7 +36,7 @@ type ListingState =
  */
 export default function WebPreviewPortsScreen({ navigation, route }: Props) {
   const machine = useMachinesStore((state) =>
-    state.machines.find((candidate) => candidate.id === route.params.machineId)
+    state.machines.find((candidate) => candidate.id === route.params.machineId),
   );
   const hydrateWebPreview = useWebPreviewStore((state) => state.hydrate);
   const rememberedPort = useWebPreviewStore((state) => state.lastPortByMachine[route.params.machineId]);
@@ -80,7 +80,8 @@ export default function WebPreviewPortsScreen({ navigation, route }: Props) {
           const enriched = await fetchRemotePorts(target, true);
           if (isCurrent()) setListing({ kind: 'loaded', ports: enriched });
         } catch {
-          if (isCurrent()) setDetailsError('Could not read page details. You can still open a port or refresh to try again.');
+          if (isCurrent())
+            setDetailsError('Could not read page details. You can still open a port or refresh to try again.');
         } finally {
           if (isCurrent()) setInspecting(false);
         }
@@ -98,7 +99,9 @@ export default function WebPreviewPortsScreen({ navigation, route }: Props) {
 
   useEffect(() => {
     void loadPorts(false);
-    return () => { listingRequestRef.current += 1; };
+    return () => {
+      listingRequestRef.current += 1;
+    };
   }, [loadPorts]);
 
   // Remembered ports come off disk, so the field starts empty on a cold start
@@ -120,9 +123,13 @@ export default function WebPreviewPortsScreen({ navigation, route }: Props) {
 
   const openPort = useCallback(
     (entry: RemoteListeningPort): void => {
-      navigation.navigate('WebPreview', { machineId: route.params.machineId, remotePort: entry.port, scheme: entry.web?.scheme ?? 'http' });
+      navigation.navigate('WebPreview', {
+        machineId: route.params.machineId,
+        remotePort: entry.port,
+        scheme: entry.web?.scheme ?? 'http',
+      });
     },
-    [navigation, route.params.machineId]
+    [navigation, route.params.machineId],
   );
 
   const submitAddress = useCallback((): void => {
@@ -133,9 +140,10 @@ export default function WebPreviewPortsScreen({ navigation, route }: Props) {
     }
     setAddressError(null);
     const target = webPreviewTargetForUrl(url);
-    navigation.navigate('WebPreview', target === null
-      ? { machineId: route.params.machineId, url }
-      : { machineId: route.params.machineId, ...target });
+    navigation.navigate(
+      'WebPreview',
+      target === null ? { machineId: route.params.machineId, url } : { machineId: route.params.machineId, ...target },
+    );
   }, [navigation, route.params.machineId, addressText]);
 
   const addressValid = parseAddressInput(addressText) !== null;
@@ -156,8 +164,8 @@ export default function WebPreviewPortsScreen({ navigation, route }: Props) {
     <SafeAreaView style={styles.screen} edges={['bottom']}>
       <KeyboardAwareScrollView
         contentContainerStyle={styles.pickerContent}
-        keyboardShouldPersistTaps='handled'
-        keyboardDismissMode='on-drag'
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -183,17 +191,17 @@ export default function WebPreviewPortsScreen({ navigation, route }: Props) {
             onSubmitEditing={submitAddress}
             placeholder={WebPreviewCopy.manualPlaceholder}
             placeholderTextColor={GhostexPalette.MUTED}
-            keyboardType='url'
+            keyboardType="url"
             selectTextOnFocus
-            autoCapitalize='none'
+            autoCapitalize="none"
             autoCorrect={false}
             spellCheck={false}
-            returnKeyType='go'
-            submitBehavior='blurAndSubmit'
+            returnKeyType="go"
+            submitBehavior="blurAndSubmit"
             accessibilityLabel={WebPreviewCopy.manualSection}
           />
           <Pressable
-            accessibilityRole='button'
+            accessibilityRole="button"
             accessibilityState={{ disabled: !addressValid }}
             disabled={!addressValid}
             onPress={submitAddress}
@@ -205,15 +213,18 @@ export default function WebPreviewPortsScreen({ navigation, route }: Props) {
         {addressError === null ? (
           <Text style={styles.hint}>{WebPreviewCopy.manualHint}</Text>
         ) : (
-          <View accessibilityRole='alert' style={styles.errorBanner}>
+          <View accessibilityRole="alert" style={styles.errorBanner}>
             <Text style={styles.errorBannerBody}>{addressError}</Text>
           </View>
         )}
 
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionHeaderTitle}>{WebPreviewCopy.listeningSection}{listedPorts.length > 0 ? ` (${listedPorts.length})` : ''}</Text>
+          <Text style={styles.sectionHeaderTitle}>
+            {WebPreviewCopy.listeningSection}
+            {listedPorts.length > 0 ? ` (${listedPorts.length})` : ''}
+          </Text>
           <Pressable
-            accessibilityRole='button'
+            accessibilityRole="button"
             accessibilityLabel={WebPreviewCopy.refreshButton}
             onPress={() => void loadPorts(true)}
             style={({ pressed }) => [styles.pillButton, pressed && styles.pillButtonPressed]}
@@ -224,13 +235,13 @@ export default function WebPreviewPortsScreen({ navigation, route }: Props) {
 
         {listing.kind === 'loading' ? (
           <View style={styles.pendingRow}>
-            <ActivityIndicator size='small' color={GhostexPalette.ACCENT} />
+            <ActivityIndicator size="small" color={GhostexPalette.ACCENT} />
             <Text style={styles.pendingLabel}>{WebPreviewCopy.listeningLoading}</Text>
           </View>
         ) : null}
 
         {listing.kind === 'failed' ? (
-          <View accessibilityRole='alert' style={styles.errorBanner}>
+          <View accessibilityRole="alert" style={styles.errorBanner}>
             <Text style={styles.errorBannerTitle}>{WebPreviewCopy.listeningFailedTitle}</Text>
             <Text style={styles.errorBannerBody}>{listing.message}</Text>
             <Text style={styles.errorBannerHint}>{WebPreviewCopy.listeningFailedHint}</Text>
@@ -243,7 +254,7 @@ export default function WebPreviewPortsScreen({ navigation, route }: Props) {
 
         {inspecting ? (
           <View style={styles.pendingRow}>
-            <ActivityIndicator size='small' color={GhostexPalette.ACCENT} />
+            <ActivityIndicator size="small" color={GhostexPalette.ACCENT} />
             <Text style={styles.pendingLabel}>Reading page titles and icons…</Text>
           </View>
         ) : null}

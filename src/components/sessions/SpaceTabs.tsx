@@ -18,11 +18,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { COMMAND_ICONS } from '../../assets/tablerIcons.generated';
-import {
-  OTHER_SIDEBAR_SPACE_ICON,
-  OTHER_SIDEBAR_SPACE_ID,
-  OTHER_SIDEBAR_SPACE_LABEL,
-} from '../../spaces/otherSpace';
+import { OTHER_SIDEBAR_SPACE_ICON, OTHER_SIDEBAR_SPACE_ID, OTHER_SIDEBAR_SPACE_LABEL } from '../../spaces/otherSpace';
 import { tabStatusCounts, type SessionCounts } from '../../contract/grouping';
 import type { SpaceRowItem } from '../../spaces/spaceFilter';
 import { GhostexPalette, GhostexRadii, GhostexStrokeWidth, SidebarPalette } from '../../theme/palette';
@@ -80,16 +76,9 @@ export default function SpaceTabs({
             style={[styles.chip, selected ? styles.chipSelected : null]}
           >
             <View style={hasStatus ? styles.iconWithStatus : null}>
-              <Icon
-                size={14}
-                color={selected ? GhostexPalette.FOREGROUND : SidebarPalette.MUTED}
-              />
+              <Icon size={14} color={selected ? GhostexPalette.FOREGROUND : SidebarPalette.MUTED} />
             </View>
-            <Text
-              ellipsizeMode="tail"
-              numberOfLines={1}
-              style={[styles.label, selected ? styles.labelSelected : null]}
-            >
+            <Text ellipsizeMode="tail" numberOfLines={1} style={[styles.label, selected ? styles.labelSelected : null]}>
               {item.name}
             </Text>
             {hasStatus ? (
@@ -101,9 +90,7 @@ export default function SpaceTabs({
                 ringColor={GhostexPalette.CARD_ACTIVE}
               />
             ) : null}
-            {selected ? (
-              <View style={[styles.selectedRail, { backgroundColor: item.color }]} />
-            ) : null}
+            {selected ? <View style={[styles.selectedRail, { backgroundColor: item.color }]} /> : null}
           </Pressable>
         );
       })}

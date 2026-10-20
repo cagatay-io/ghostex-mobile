@@ -128,7 +128,7 @@ function structuredError(json: JsonObject | null): string | null {
 async function runAddProjectCli(
   machine: MachineConnectionTarget,
   command: string,
-  timeoutMs: number
+  timeoutMs: number,
 ): Promise<JsonObject> {
   let output = '';
   let json: JsonObject | null = null;
@@ -172,7 +172,7 @@ function parseBrowseEntries(value: unknown): AddProjectBrowseEntry[] {
 /** Directory suggestions for one directory query (no `cwd`, dirs only). */
 export async function browseDirectories(
   machine: MachineConnectionTarget,
-  partialPath: string
+  partialPath: string,
 ): Promise<AddProjectBrowseResult> {
   const json = await runAddProjectCli(machine, browseDirectoriesCommand(partialPath), INVENTORY_EXEC_TIMEOUT_MS);
   return {
@@ -207,12 +207,12 @@ function parseProviderDiscovery(value: unknown): AddProjectProviderDiscovery | n
 
 /** Which hosting CLIs this machine can clone with. */
 export async function discoverSourceControl(
-  machine: MachineConnectionTarget
+  machine: MachineConnectionTarget,
 ): Promise<AddProjectSourceControlDiscovery> {
   const json = await runAddProjectCli(
     machine,
     discoverSourceControlCommand({ timeoutMs: DISCOVERY_RPC_TIMEOUT_MS }),
-    DISCOVERY_EXEC_TIMEOUT_MS
+    DISCOVERY_EXEC_TIMEOUT_MS,
   );
   const discovery = isObject(json.discovery) ? json.discovery : null;
   const rawProviders = discovery === null ? [] : discovery.providers;
@@ -230,12 +230,12 @@ export async function discoverSourceControl(
 export async function lookupRepository(
   machine: MachineConnectionTarget,
   provider: SourceControlLookupProvider,
-  repository: string
+  repository: string,
 ): Promise<AddProjectRepositoryInfo> {
   const json = await runAddProjectCli(
     machine,
     lookupRepositoryCommand(provider, repository, { timeoutMs: LOOKUP_RPC_TIMEOUT_MS }),
-    LOOKUP_EXEC_TIMEOUT_MS
+    LOOKUP_EXEC_TIMEOUT_MS,
   );
   const raw = isObject(json.repository) ? json.repository : null;
   const sshUrl = raw === null ? '' : readString(raw.sshUrl);
@@ -259,7 +259,7 @@ export async function lookupRepository(
 export async function cloneRepository(
   machine: MachineConnectionTarget,
   remoteUrl: string,
-  destinationPath: string
+  destinationPath: string,
 ): Promise<AddProjectCloneResult> {
   const json = await runAddProjectCli(
     machine,
@@ -268,7 +268,7 @@ export async function cloneRepository(
       timeoutMs: LOOKUP_RPC_TIMEOUT_MS,
       workspaceId: addedProjectWorkspaceId(machine.id),
     }),
-    CLONE_EXEC_TIMEOUT_MS
+    CLONE_EXEC_TIMEOUT_MS,
   );
   if (json.waitTimedOut === true) {
     throw new Error('The clone is still running on the machine. Reopen the project list once it finishes.');
@@ -285,7 +285,7 @@ export async function cloneRepository(
 export async function addProjectPath(
   machine: MachineConnectionTarget,
   path: string,
-  options: { createIfMissing: boolean }
+  options: { createIfMissing: boolean },
 ): Promise<void> {
   await runAddProjectCli(
     machine,
@@ -293,6 +293,6 @@ export async function addProjectPath(
       createIfMissing: options.createIfMissing,
       workspaceId: addedProjectWorkspaceId(machine.id),
     }),
-    INVENTORY_EXEC_TIMEOUT_MS
+    INVENTORY_EXEC_TIMEOUT_MS,
   );
 }

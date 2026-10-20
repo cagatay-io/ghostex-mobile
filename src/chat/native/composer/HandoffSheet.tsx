@@ -23,7 +23,14 @@ import { AGENT_ICONS } from '../../../assets/agentIcons.generated';
 import type { GhostexAgentLauncher } from '../../../contract/mobileSummary';
 import { resolveAgentIconId } from '../../../contract/mobileSummary';
 import type { MachineConnectionTarget } from '../../../machines/credentials';
-import { exportTranscript, machineAgents, modelPickerProvider, sessionRecord, sessionTitle, startHandoffConversation } from '../sessionShell';
+import {
+  exportTranscript,
+  machineAgents,
+  modelPickerProvider,
+  sessionRecord,
+  sessionTitle,
+  startHandoffConversation,
+} from '../sessionShell';
 import { Glyph, type GlyphName } from './icons';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { Sheet } from './Sheet';
@@ -64,7 +71,12 @@ function readRememberedMode(): Promise<Mode | null> {
 function rememberMode(mode: Mode): void {
   void AsyncStorage.setItem(MODE_KEY, mode).catch(() => undefined);
 }
-type Stage = { kind: 'options' } | { kind: 'exporting' } | { kind: 'starting' } | { kind: 'done'; path: string } | { kind: 'failed'; message: string };
+type Stage =
+  | { kind: 'options' }
+  | { kind: 'exporting' }
+  | { kind: 'starting' }
+  | { kind: 'done'; path: string }
+  | { kind: 'failed'; message: string };
 
 export function HandoffSheet({
   request,
@@ -101,7 +113,11 @@ export function HandoffSheet({
     setStage({ kind: 'options' });
     setPicking(false);
     setCopied(false);
-    setSelected(target === null ? null : (agents.find((agent) => modelPickerProvider(agent.icon) === target.provider)?.agentId ?? null));
+    setSelected(
+      target === null
+        ? null
+        : (agents.find((agent) => modelPickerProvider(agent.icon) === target.provider)?.agentId ?? null),
+    );
     if (target !== null) return undefined;
     let current = true;
     void readRememberedMode().then((remembered) => {
@@ -159,14 +175,17 @@ export function HandoffSheet({
           sessionTitle: sessionTitle(machine.id, sessionId),
           target: request.target,
         }).catch((error: unknown) => {
-          const message = error instanceof Error && error.message.trim().length > 0 ? error.message : 'Could not create the new agent session.';
+          const message =
+            error instanceof Error && error.message.trim().length > 0
+              ? error.message
+              : 'Could not create the new agent session.';
           onFailure('Could not start the conversation', message);
         });
       },
       (error: unknown) => {
         const message = error instanceof Error ? error.message.trim() : '';
         setStage({ kind: 'failed', message: message.length > 0 ? message : EXPORT_FAILED });
-      }
+      },
     );
   };
 
@@ -181,7 +200,7 @@ export function HandoffSheet({
           rememberMode(value);
           setPicking(false);
         }}
-        accessibilityRole='radio'
+        accessibilityRole="radio"
         accessibilityState={{ checked: active, disabled }}
         style={[styles.card, active ? styles.cardActive : null, disabled ? styles.dim : null]}
       >
@@ -192,7 +211,7 @@ export function HandoffSheet({
         <Text style={styles.cardDescription}>{description}</Text>
         {active ? (
           <View style={styles.cardCheck}>
-            <Glyph name='check' size={14} color={P.foreground} />
+            <Glyph name="check" size={14} color={P.foreground} />
           </View>
         ) : null}
       </Pressable>
@@ -200,11 +219,13 @@ export function HandoffSheet({
   };
 
   return (
-    <Sheet visible onClose={busy ? () => undefined : onClose} title={TITLE} maxHeight='90%'>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps='handled'>
+    <Sheet visible onClose={busy ? () => undefined : onClose} title={TITLE} maxHeight="90%">
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={styles.description}>{DESCRIPTION}</Text>
         <View style={styles.modes}>
-          {agents.length > 0 ? modeCard('handoff', 'switch-horizontal', HANDOFF_CARD_TITLE, HANDOFF_CARD_DESCRIPTION) : null}
+          {agents.length > 0
+            ? modeCard('handoff', 'switch-horizontal', HANDOFF_CARD_TITLE, HANDOFF_CARD_DESCRIPTION)
+            : null}
           {modeCard('export', 'file-text', EXPORT_CARD_TITLE, EXPORT_CARD_DESCRIPTION)}
         </View>
         {effectiveMode === 'export' ? (
@@ -215,7 +236,7 @@ export function HandoffSheet({
             <Pressable
               disabled={disabled}
               onPress={() => setPicking((open) => !open)}
-              accessibilityRole='button'
+              accessibilityRole="button"
               accessibilityLabel={`${CONTINUE_WITH} ${agent !== null ? agentName(agent) : SELECT_AGENT_PLACEHOLDER}`}
               style={[styles.select, disabled ? styles.dim : null]}
             >
@@ -236,7 +257,7 @@ export function HandoffSheet({
                   setSelected(candidate.agentId);
                   setPicking(false);
                 }}
-                accessibilityRole='menuitem'
+                accessibilityRole="menuitem"
                 accessibilityState={{ checked: candidate.agentId === agent?.agentId }}
                 style={({ pressed }) => [styles.agentOption, pressed ? styles.pressed : null]}
               >
@@ -244,7 +265,7 @@ export function HandoffSheet({
                 <Text style={styles.agentOptionText} numberOfLines={1}>
                   {agentName(candidate)}
                 </Text>
-                {candidate.agentId === agent?.agentId ? <Glyph name='check' size={16} color={P.foreground} /> : null}
+                {candidate.agentId === agent?.agentId ? <Glyph name="check" size={16} color={P.foreground} /> : null}
               </Pressable>
             ))}
           </View>
@@ -253,7 +274,7 @@ export function HandoffSheet({
         {showResult && stage.kind === 'done' ? (
           <View style={styles.result}>
             <View style={styles.resultTitle}>
-              <Glyph name='check' size={16} color='#22c55e' />
+              <Glyph name="check" size={16} color="#22c55e" />
               <Text style={styles.resultTitleText}>{SAVED_AS_MARKDOWN}</Text>
             </View>
             <Text selectable style={styles.path}>
@@ -266,7 +287,7 @@ export function HandoffSheet({
         <Pressable
           disabled={busy}
           onPress={onClose}
-          accessibilityRole='button'
+          accessibilityRole="button"
           style={({ pressed }) => [styles.button, pressed ? styles.buttonPressed : null, busy ? styles.dim : null]}
         >
           <Text style={styles.buttonText}>{showResult ? 'Done' : 'Cancel'}</Text>
@@ -276,7 +297,7 @@ export function HandoffSheet({
             onPress={() => {
               void Clipboard.setStringAsync(stage.path).then(() => setCopied(true));
             }}
-            accessibilityRole='button'
+            accessibilityRole="button"
             style={({ pressed }) => [styles.button, pressed ? styles.buttonPressed : null]}
           >
             <Text style={styles.buttonText}>{copied ? 'Path Copied' : 'Copy Path'}</Text>
@@ -285,11 +306,16 @@ export function HandoffSheet({
           <Pressable
             disabled={!canRun}
             onPress={run}
-            accessibilityRole='button'
+            accessibilityRole="button"
             accessibilityState={{ disabled: !canRun, busy }}
-            style={({ pressed }) => [styles.button, styles.primary, pressed ? styles.pressedPrimary : null, !canRun ? styles.dim : null]}
+            style={({ pressed }) => [
+              styles.button,
+              styles.primary,
+              pressed ? styles.pressedPrimary : null,
+              !canRun ? styles.dim : null,
+            ]}
           >
-            {busy ? <ActivityIndicator size='small' color={P.send.ink} /> : null}
+            {busy ? <ActivityIndicator size="small" color={P.send.ink} /> : null}
             <Text style={styles.primaryText} numberOfLines={1}>
               {primaryLabel}
             </Text>
@@ -324,7 +350,14 @@ const useStyles = themedStyles((P) => ({
     backgroundColor: P.composerBackground,
   },
   cardActive: { borderColor: P.ring, backgroundColor: P.selectedFill },
-  cardIcon: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: P.input },
+  cardIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: P.input,
+  },
   cardTitle: { color: P.foreground, fontSize: 14, fontWeight: '600' },
   cardDescription: { color: P.muted, fontSize: 12.5, lineHeight: 17 },
   cardCheck: { position: 'absolute', top: 10, right: 10 },

@@ -8,15 +8,7 @@
  */
 
 import { Fragment, useState, type ReactElement } from 'react';
-import {
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GhostexPalette, SidebarPalette } from '../../theme/palette';
@@ -133,36 +125,21 @@ const checkStyles = StyleSheet.create({
   },
 });
 
-export default function ContextMenu({
-  visible,
-  title,
-  subtitle,
-  items,
-  onClose,
-  onDismissed,
-}: ContextMenuProps) {
+export default function ContextMenu({ visible, title, subtitle, items, onClose, onDismissed }: ContextMenuProps) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const safeArea = useSafeAreaInsets();
   const [openInfo, setOpenInfo] = useState<string | null>(null);
 
-  const horizontalRoom =
-    screenWidth - Math.max(EDGE_MARGIN, safeArea.left) - Math.max(EDGE_MARGIN, safeArea.right);
+  const horizontalRoom = screenWidth - Math.max(EDGE_MARGIN, safeArea.left) - Math.max(EDGE_MARGIN, safeArea.right);
   const menuWidth = Math.max(1, Math.min(MENU_MAX_WIDTH, horizontalRoom));
-  const verticalRoom =
-    screenHeight - Math.max(EDGE_MARGIN, safeArea.top) - Math.max(EDGE_MARGIN, safeArea.bottom);
+  const verticalRoom = screenHeight - Math.max(EDGE_MARGIN, safeArea.top) - Math.max(EDGE_MARGIN, safeArea.bottom);
   const maxHeight = Math.max(1, verticalRoom * MAX_HEIGHT_RATIO);
 
   // The Modal stays mounted while `visible` is false (it renders nothing then,
   // exactly like the old early return) so `onDismiss` can still fire after a
   // close instead of being unmounted out from under the dismissal.
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-      onDismiss={onDismissed}
-    >
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} onDismiss={onDismissed}>
       <Pressable style={styles.backdrop} onPress={onClose}>
         {/* Swallows presses on the card itself so only the backdrop closes. */}
         <Pressable
@@ -181,11 +158,7 @@ export default function ContextMenu({
               </Text>
             ) : null}
           </View>
-          <ScrollView
-            style={styles.menuScroll}
-            contentContainerStyle={styles.menuContent}
-            bounces={false}
-          >
+          <ScrollView style={styles.menuScroll} contentContainerStyle={styles.menuContent} bounces={false}>
             {items.map((item) => {
               if (item.kind === 'separator') return <View key={item.key} style={styles.separator} />;
               if (item.kind === 'label') {

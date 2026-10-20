@@ -36,11 +36,7 @@ import { useSpacesStore } from '../spaces/store';
 import { useWorkspacesStore } from '../workspaces/store';
 import { SetupPalette } from '../theme/palette';
 import MachineCard from './machines-screen/MachineCard';
-import {
-  machineCardDetail,
-  machineCardStatus,
-  machineCardTitle,
-} from './machines-screen/machineCardModel';
+import { machineCardDetail, machineCardStatus, machineCardTitle } from './machines-screen/machineCardModel';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Machines'>;
 
@@ -125,9 +121,7 @@ export default function MachinesScreen({ navigation }: Props) {
                 );
               })}
             </View>
-            <Text style={[setupText.small, setupText.dim, styles.swipeHint]}>
-              {MachinesCopy.swipe.hint}
-            </Text>
+            <Text style={[setupText.small, setupText.dim, styles.swipeHint]}>{MachinesCopy.swipe.hint}</Text>
           </>
         ) : null}
 

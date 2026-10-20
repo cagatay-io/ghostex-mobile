@@ -36,8 +36,7 @@ export function useKeyboardOverlap(): {
   }, []);
   // The window may have moved or resized with the keyboard without changing this view's own layout.
   useEffect(onLayout, [keyboardTop, onLayout]);
-  const overlap =
-    keyboardTop === null || frame === null ? 0 : Math.max(0, Math.round(frame.bottom - keyboardTop));
+  const overlap = keyboardTop === null || frame === null ? 0 : Math.max(0, Math.round(frame.bottom - keyboardTop));
   return { ref, onLayout, overlap, keyboardTop, frame };
 }
 

@@ -64,7 +64,7 @@ export function DisclosureHeading({
   return (
     <Pressable
       onPress={onToggle}
-      accessibilityRole='button'
+      accessibilityRole="button"
       accessibilityState={{ expanded: open }}
       style={({ pressed }) => [styles.heading, pressed && { backgroundColor: theme.pressed }]}
     >
@@ -102,11 +102,9 @@ export function DisclosureBody({
   const contentX = rail === 'marker' ? 17 : rail === 'work' ? 23 : 29.5;
   return (
     <View style={[styles.body, { marginLeft: SLOT_CENTRE - RAIL_BOX / 2, gap: contentX - SLOT_CENTRE - RAIL_BOX / 2 }]}>
-      <Pressable onPress={onCollapse} accessibilityRole='button' accessibilityLabel={label} style={styles.railBox}>
+      <Pressable onPress={onCollapse} accessibilityRole="button" accessibilityLabel={label} style={styles.railBox}>
         {({ pressed }) => (
-          <View
-            style={[styles.rail, { backgroundColor: pressed ? theme.foreground : theme.ink(RAIL_LINE_OPACITY) }]}
-          />
+          <View style={[styles.rail, { backgroundColor: pressed ? theme.foreground : theme.ink(RAIL_LINE_OPACITY) }]} />
         )}
       </Pressable>
       <View style={[styles.bodyColumn, { gap }]}>{children}</View>

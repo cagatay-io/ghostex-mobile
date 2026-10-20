@@ -5,15 +5,7 @@
  */
 
 import type { ReactElement, ReactNode } from 'react';
-import {
-  ActivityIndicator,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import KeyboardAwareScrollView from '../components/common/keyboard/KeyboardAwareScrollView';
@@ -194,13 +186,7 @@ export function PendingRow({ label }: { label: string }): ReactElement {
 }
 
 /** Repository context card pinned above the destination browser (spec §5.7). */
-export function RepositoryCard({
-  subtitle,
-  title,
-}: {
-  subtitle: string;
-  title: string;
-}): ReactElement {
+export function RepositoryCard({ subtitle, title }: { subtitle: string; title: string }): ReactElement {
   return (
     <View style={styles.repositoryCard}>
       <Text numberOfLines={1} style={styles.repositoryTitle}>

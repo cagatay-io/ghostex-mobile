@@ -98,9 +98,7 @@ export default function AddProjectDestinationScreen({ navigation, route }: Props
         onSubmitEditing={() => void submit()}
         placeholder={AddProjectCopy.pathPlaceholder}
       />
-      {destination.length === 0 ? null : (
-        <MutedText>{AddProjectCopy.destinationPreview(destination)}</MutedText>
-      )}
+      {destination.length === 0 ? null : <MutedText>{AddProjectCopy.destinationPreview(destination)}</MutedText>}
       <PrimaryActionButton
         testID="add-project-clone"
         label={pending ? AddProjectCopy.cloningButton : AddProjectCopy.cloneButton}

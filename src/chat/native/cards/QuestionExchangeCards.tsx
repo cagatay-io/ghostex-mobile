@@ -83,9 +83,22 @@ function ExchangeCard({ exchange }: { exchange: unknown }) {
       {hasRows && open ? (
         <View style={{ marginTop: -6 }}>
           {questions.map((question, index) => (
-            <ExchangeRow key={index} question={question} answer={answerAt(index)} parsedAnswers={answers !== null} index={index} />
+            <ExchangeRow
+              key={index}
+              question={question}
+              answer={answerAt(index)}
+              parsedAnswers={answers !== null}
+              index={index}
+            />
           ))}
-          {fallback.length > 0 ? <ReceiptRow number={total + 1} question="" answer={<PlainAnswer>{fallback}</PlainAnswer>} first={total === 0} /> : null}
+          {fallback.length > 0 ? (
+            <ReceiptRow
+              number={total + 1}
+              question=""
+              answer={<PlainAnswer>{fallback}</PlainAnswer>}
+              first={total === 0}
+            />
+          ) : null}
         </View>
       ) : null}
     </AskCard>
@@ -136,8 +149,15 @@ function ExchangeRow({
       {other.length > 0 && picked.length > 0 ? <AnswerAside>{`Note: ${other}`}</AnswerAside> : null}
       {options.length > 0 ? (
         <>
-          <Pressable accessibilityRole="button" onPress={() => setExpanded(!expanded)} style={styles.disclosure} hitSlop={6}>
-            <Text style={styles.disclosureLabel}>{expanded ? 'Hide options' : `Show all ${options.length} options`}</Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setExpanded(!expanded)}
+            style={styles.disclosure}
+            hitSlop={6}
+          >
+            <Text style={styles.disclosureLabel}>
+              {expanded ? 'Hide options' : `Show all ${options.length} options`}
+            </Text>
             <Glyph name={expanded ? 'chevron-down' : 'chevron-right'} size={12} color={P.muted} />
           </Pressable>
           {expanded ? (

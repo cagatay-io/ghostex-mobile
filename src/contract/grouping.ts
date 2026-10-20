@@ -261,10 +261,7 @@ export function sessionKindSection(session: GhostexSession, nowMs: number = Date
   return session.isPinned ? 'pinned' : 'sessions';
 }
 
-export function sessionKindCollapseKey(
-  projectKey: string,
-  section: SessionKindSection,
-): string {
+export function sessionKindCollapseKey(projectKey: string, section: SessionKindSection): string {
   return `${projectKey}|${section}`;
 }
 
@@ -331,7 +328,11 @@ function groupsForProject(summary: GhostexMobileSummary, projectId: string): Gho
  * lastInteractionAt → parked. The wire order (server sortOrder) is the stable
  * base, which matches the desktop's saved manual order.
  */
-export function compareForSidebarOrder(left: GhostexSession, right: GhostexSession, nowMs: number = Date.now()): number {
+export function compareForSidebarOrder(
+  left: GhostexSession,
+  right: GhostexSession,
+  nowMs: number = Date.now(),
+): number {
   const kindDelta = sessionKindRank(left) - sessionKindRank(right);
   if (kindDelta !== 0) return kindDelta;
   const parkedDelta = Number(left.isParked === true) - Number(right.isParked === true);
@@ -346,7 +347,7 @@ export function compareForSidebarOrder(left: GhostexSession, right: GhostexSessi
   const leftDraft = sessionKindSection(left, nowMs) === 'drafts';
   const rightDraft = sessionKindSection(right, nowMs) === 'drafts';
   if (leftDraft !== rightDraft) {
-    return leftDraft ? (right.isPinned ? 1 : -1) : (left.isPinned ? -1 : 1);
+    return leftDraft ? (right.isPinned ? 1 : -1) : left.isPinned ? -1 : 1;
   }
   if (leftDraft && rightDraft) return parseTimestamp(right.createdAt) - parseTimestamp(left.createdAt);
   const pinnedDelta = pinnedRank(left) - pinnedRank(right);
@@ -442,9 +443,7 @@ export function tabStatusCounts(
  */
 export function showsBackgroundWork(session: GhostexSession): boolean {
   return (
-    session.backgroundWorkDetectedAt.length > 0 &&
-    session.activity !== 'working' &&
-    session.activity !== 'attention'
+    session.backgroundWorkDetectedAt.length > 0 && session.activity !== 'working' && session.activity !== 'attention'
   );
 }
 
@@ -556,7 +555,7 @@ function withOlderThreadRows(items: DrawerItem[]): DrawerItem[] {
     while (open.length > 0 && open[open.length - 1].depth >= depth) result.push(open.pop() as CoordinatorOlderItem);
   };
   for (const item of items) {
-    close(item.type === 'SESSION' ? item.nesting?.depth ?? 0 : -1);
+    close(item.type === 'SESSION' ? (item.nesting?.depth ?? 0) : -1);
     result.push(item);
     const nesting = item.type === 'SESSION' ? item.nesting : undefined;
     if (item.type !== 'SESSION' || nesting === undefined || nesting.olderThreads === 0 || nesting.collapsed) continue;
@@ -567,9 +566,7 @@ function withOlderThreadRows(items: DrawerItem[]): DrawerItem[] {
       projectKey: item.projectKey,
       coordinatorKey: coordinatorRowKey(item.session),
       depth: nesting.depth,
-      label: nesting.olderShown
-        ? SessionCopy.hideOlderThreads
-        : SessionCopy.olderThreads(nesting.olderThreads),
+      label: nesting.olderShown ? SessionCopy.hideOlderThreads : SessionCopy.olderThreads(nesting.olderThreads),
       collectionColor: item.collectionColor,
     });
   }
@@ -602,8 +599,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
   const sessionsByProjectKey = new Map<string, GhostexSession[]>();
   for (const session of summary.sessions) {
     const project = projectById.get(session.projectId);
-    const key =
-      project !== undefined && project.isChat === true ? CHATS_PROJECT_KEY : projectKeyForSession(session);
+    const key = project !== undefined && project.isChat === true ? CHATS_PROJECT_KEY : projectKeyForSession(session);
     const bucket = sessionsByProjectKey.get(key);
     if (bucket === undefined) sessionsByProjectKey.set(key, [session]);
     else bucket.push(session);
@@ -618,7 +614,10 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
   // manual base; browser-first/pinned-first/draft-first/activity sorting is applied on top
   // exactly like the gpui sidebar's default "lastActivity" mode.
   for (const [key, bucket] of sessionsByProjectKey) {
-    sessionsByProjectKey.set(key, stableSort(bucket, (left, right) => compareForSidebarOrder(left, right, nowMs)));
+    sessionsByProjectKey.set(
+      key,
+      stableSort(bucket, (left, right) => compareForSidebarOrder(left, right, nowMs)),
+    );
   }
 
   // Project order: chats → workspaceGroups.projectOrder → projects array order
@@ -642,24 +641,18 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
     const allProjectSessions = sessionsByProjectKey.get(projectKey);
     if (allProjectSessions === undefined) return;
     const first = allProjectSessions.length > 0 ? allProjectSessions[0] : null;
-    const project = projectKey.startsWith('id:')
-      ? projectById.get(projectKey.slice(3)) ?? null
-      : null;
+    const project = projectKey.startsWith('id:') ? (projectById.get(projectKey.slice(3)) ?? null) : null;
 
     const projectId = project !== null ? project.projectId : first === null ? '' : first.projectId;
     const projectTitle =
-      project !== null
-        ? projectDisplayName(project)
-        : first === null
-          ? 'Project'
-          : displayProjectName(first);
-    const projectPath =
-      project !== null ? project.path ?? '' : first === null ? '' : first.projectPath;
+      project !== null ? projectDisplayName(project) : first === null ? 'Project' : displayProjectName(first);
+    const projectPath = project !== null ? (project.path ?? '') : first === null ? '' : first.projectPath;
     const legacyGroupId = first === null ? '' : first.groupId;
     const counts = countSessions(allProjectSessions);
-    const icon: GhostexProjectIcon = project !== null
-      ? project.icon
-      : { imageDataUrl: '', discoveredIconDataUrl: '', glyph: '', glyphColor: '', isWorktree: false };
+    const icon: GhostexProjectIcon =
+      project !== null
+        ? project.icon
+        : { imageDataUrl: '', discoveredIconDataUrl: '', glyph: '', glyphColor: '', isWorktree: false };
 
     const namedGroups = groupsForProject(summary, projectId);
     const groupedSessionIds = new Set(namedGroups.flatMap((group) => group.sessionIds));
@@ -683,8 +676,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
     const nesting = new Map(tree.nesting);
     const sectionOf = (session: GhostexSession): SessionKindSection =>
       tree.sections.get(coordinatorRowKey(session)) ?? kindSection(session);
-    const isFolded = (session: GhostexSession): boolean =>
-      nesting.get(coordinatorRowKey(session))?.folded === true;
+    const isFolded = (session: GhostexSession): boolean => nesting.get(coordinatorRowKey(session))?.folded === true;
     const parkedSessions = tree.sessions.filter((session) => sectionOf(session) === 'parked');
     const draftSessions = tree.sessions.filter((session) => sectionOf(session) === 'drafts');
     const projectSessions = [
@@ -721,7 +713,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
       icon,
       themeColor: project !== null ? project.themeColor : '',
       agents: projectId.length > 0 ? summary.agents : [],
-      quickActions: projectId.length > 0 ? summary.quickActionsByProject[projectId] ?? [] : [],
+      quickActions: projectId.length > 0 ? (summary.quickActionsByProject[projectId] ?? []) : [],
     });
     if (collapsed) return;
 
@@ -743,14 +735,17 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
       machineId,
       projectKey,
       projectId,
-      groupId: groupId || namedGroups.find((group) => group.sessionIds.includes(session.sessionId))?.groupId || session.groupId,
+      groupId:
+        groupId ||
+        namedGroups.find((group) => group.sessionIds.includes(session.sessionId))?.groupId ||
+        session.groupId,
       projectTitle,
       projectPath,
       session,
       collectionColor,
       nesting: nesting.get(coordinatorRowKey(session)),
       coordinatorBadge: session.isCoordinator
-        ? badges.get(coordinatorRowKey(session)) ?? { count: 0, tone: 'idle' }
+        ? (badges.get(coordinatorRowKey(session)) ?? { count: 0, tone: 'idle' })
         : undefined,
     });
 
@@ -760,10 +755,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
      * only that kind's rows. Drafts and Parked are emitted separately so the
      * ordinary "Show N more" cap cannot hide their disclosures.
      */
-    const emitSessionsWithKindLabels = (
-      sessions: readonly GhostexSession[],
-      groupId: string,
-    ): void => {
+    const emitSessionsWithKindLabels = (sessions: readonly GhostexSession[], groupId: string): void => {
       const labelledSections = new Set<SessionKindSection>();
       for (const session of sessions) {
         const section = sectionOf(session);
@@ -786,9 +778,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
             kindCollapseKey,
             label: SESSION_KIND_LABELS[section],
             collapsed: kindCollapsed,
-            status: countSectionSessions(
-              sectionPool.filter((candidate) => sectionOf(candidate) === section),
-            ),
+            status: countSectionSessions(sectionPool.filter((candidate) => sectionOf(candidate) === section)),
             collectionColor,
           });
         }
@@ -841,7 +831,9 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
         (left, right) =>
           sessionKindRank(left) - sessionKindRank(right) ||
           pinnedRank(left) - pinnedRank(right) ||
-          (isNewSidebarSession(left, nowMs) || isNewSidebarSession(right, nowMs) ? compareForSidebarOrder(left, right, nowMs) : 0),
+          (isNewSidebarSession(left, nowMs) || isNewSidebarSession(right, nowMs)
+            ? compareForSidebarOrder(left, right, nowMs)
+            : 0),
       );
       const groupTree = nestCoordinatorThreads(
         groupSessions,
@@ -985,9 +977,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
   for (const collection of summary.projectCollections) {
     const memberKeys = collection.projectIds
       .map((projectId) => `id:${projectId}`)
-      .filter(
-        (key) => sessionsByProjectKey.has(key) && !emittedProjectKeys.has(key),
-      );
+      .filter((key) => sessionsByProjectKey.has(key) && !emittedProjectKeys.has(key));
     if (memberKeys.length === 0) continue;
     const collectionSessions: GhostexSession[] = [];
     for (const key of memberKeys) {

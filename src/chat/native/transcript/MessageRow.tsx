@@ -113,7 +113,7 @@ function UserMessage({ message }: { message: ProjectedMessage }) {
     collapsed.length > 0 ? (
       <View style={styles.promptColumn}>
         {prose}
-        <Pressable onPress={toggle} style={styles.showMore} accessibilityRole='button'>
+        <Pressable onPress={toggle} style={styles.showMore} accessibilityRole="button">
           <Chevron open={!open} color={theme.muted} />
           <Text style={[styles.showMoreText, { color: theme.muted }]}>{open ? 'Show less' : 'Show more'}</Text>
         </Pressable>
@@ -180,9 +180,14 @@ function AgentMessage({ message, proseColor }: { message: ProjectedMessage; pros
             color={thought}
           />
           {toolsOpen ? (
-            <DisclosureBody onCollapse={toggleTools} label='Collapse thinking'>
+            <DisclosureBody onCollapse={toggleTools} label="Collapse thinking">
               {detail.length > 0 ? (
-                <Markdown text={detail} references={message.markdownReferences} color={thought} headingColor={thought} />
+                <Markdown
+                  text={detail}
+                  references={message.markdownReferences}
+                  color={thought}
+                  headingColor={thought}
+                />
               ) : null}
               <ToolRows message={message} />
             </DisclosureBody>
@@ -197,7 +202,11 @@ function AgentMessage({ message, proseColor }: { message: ProjectedMessage; pros
       const heading = (
         <MessageLongPressContext.Provider value={openMenu}>
           <View style={styles.heading}>
-            {hasTools ? <Chevron open={toolsOpen} color={theme.primary} /> : flush ? null : <LaneMarker color={theme.primary} />}
+            {hasTools ? (
+              <Chevron open={toolsOpen} color={theme.primary} />
+            ) : flush ? null : (
+              <LaneMarker color={theme.primary} />
+            )}
             <View style={styles.headingBody}>
               <Markdown
                 text={body}
@@ -215,7 +224,7 @@ function AgentMessage({ message, proseColor }: { message: ProjectedMessage; pros
           <Pressable
             onPress={toggleTools}
             {...(openMenu !== undefined ? { onLongPress: openMenu } : {})}
-            accessibilityRole='button'
+            accessibilityRole="button"
             accessibilityState={{ expanded: toolsOpen }}
             accessibilityHint={toolsOpen ? 'Hide tool calls for this message' : 'Show tool calls for this message'}
             style={({ pressed }) => [styles.headingPress, pressed && { backgroundColor: theme.pressed }]}
@@ -223,13 +232,17 @@ function AgentMessage({ message, proseColor }: { message: ProjectedMessage; pros
             {heading}
           </Pressable>
           {toolsOpen ? (
-            <DisclosureBody onCollapse={toggleTools} label='Collapse tool calls'>
+            <DisclosureBody onCollapse={toggleTools} label="Collapse tool calls">
               <ToolRows message={message} />
             </DisclosureBody>
           ) : null}
         </>
       ) : openMenu !== undefined ? (
-        <Pressable onLongPress={openMenu} accessibilityHint={MENU_HINT} style={({ pressed }) => [styles.headingPress, pressed && { backgroundColor: theme.pressed }]}>
+        <Pressable
+          onLongPress={openMenu}
+          accessibilityHint={MENU_HINT}
+          style={({ pressed }) => [styles.headingPress, pressed && { backgroundColor: theme.pressed }]}
+        >
           {heading}
         </Pressable>
       ) : (
@@ -284,7 +297,7 @@ function ThinkingRow({ id, body, references }: { id: string; body: string; refer
           <Markdown text={body} references={references} color={lane} headingColor={mutedThinking ? lane : undefined} />
         </View>
         {capped ? (
-          <Pressable onPress={toggle} style={styles.showMore} accessibilityRole='button'>
+          <Pressable onPress={toggle} style={styles.showMore} accessibilityRole="button">
             <Chevron open={!open} color={theme.muted} />
             <Text style={[styles.showMoreText, { color: theme.muted }]}>{open ? 'Show less' : 'Show more'}</Text>
           </Pressable>

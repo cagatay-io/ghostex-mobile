@@ -588,12 +588,7 @@ function isActionableStatus(value: string): boolean {
   return value === 'attention' || value === 'working' || value === 'done' || value === 'error';
 }
 
-function normalizedNativePaneState(
-  value: string,
-  isSleeping: boolean,
-  activity: string,
-  status: string,
-): string {
+function normalizedNativePaneState(value: string, isSleeping: boolean, activity: string, status: string): string {
   const normalized = normalizedToken(value).replace(/[_ ]/g, '-');
   if (normalized === 'mounted' || normalized === 'mounting' || normalized === 'unmounted') {
     return normalized;
@@ -639,11 +634,7 @@ function deriveIsLive(
   activity: string,
   status: string,
 ): boolean {
-  if (
-    nativePaneState === 'mounted' ||
-    nativePaneState === 'mounting' ||
-    providerSessionState === 'exists'
-  ) {
+  if (nativePaneState === 'mounted' || nativePaneState === 'mounting' || providerSessionState === 'exists') {
     return true;
   }
   const activityState = normalizeStatusToken(activity);
@@ -668,12 +659,7 @@ function deriveIsLive(
   ) {
     return false;
   }
-  return (
-    activityState === 'running' ||
-    statusState === 'running' ||
-    activityState === 'idle' ||
-    statusState === 'idle'
-  );
+  return activityState === 'running' || statusState === 'running' || activityState === 'idle' || statusState === 'idle';
 }
 
 /**
@@ -682,27 +668,17 @@ function deriveIsLive(
  * from normalized activity then status; else !live && sleepish → "sleep"; else
  * first non-empty non-"running" activity/status; else "idle".
  */
-export function displayStatus(
-  session: Pick<GhostexSession, 'activity' | 'status' | 'isSleeping' | 'isLive'>,
-): string {
+export function displayStatus(session: Pick<GhostexSession, 'activity' | 'status' | 'isSleeping' | 'isLive'>): string {
   if (session.isSleeping && !session.isLive) return 'sleep';
   const activityState = normalizeStatusToken(session.activity);
   const statusState = normalizeStatusToken(session.status);
   if (isActionableStatus(activityState)) return activityState;
   if (isActionableStatus(statusState)) return statusState;
   if (!session.isLive && (activityState === 'sleep' || statusState === 'sleep')) return 'sleep';
-  if (
-    activityState.length > 0 &&
-    activityState !== 'running' &&
-    (!session.isLive || activityState !== 'sleep')
-  ) {
+  if (activityState.length > 0 && activityState !== 'running' && (!session.isLive || activityState !== 'sleep')) {
     return activityState;
   }
-  if (
-    statusState.length > 0 &&
-    statusState !== 'running' &&
-    (!session.isLive || statusState !== 'sleep')
-  ) {
+  if (statusState.length > 0 && statusState !== 'running' && (!session.isLive || statusState !== 'sleep')) {
     return statusState;
   }
   return 'idle';
@@ -800,7 +776,7 @@ const AGENT_NAME_ALIASES: Record<string, AgentIconId> = {
   'cursor-agent': 'cursor-cli',
   pi: 'pi',
   'pi agent': 'pi',
-  'π': 'pi',
+  π: 'pi',
   opencode: 'opencode',
   'open code': 'opencode',
   gemini: 'gemini',
@@ -1038,9 +1014,7 @@ export function parseSession(value: unknown): GhostexSession | null {
     activity,
     status,
   );
-  const providerSessionState = normalizedProviderSessionState(
-    trimmedValue(value, 'providerSessionState'),
-  );
+  const providerSessionState = normalizedProviderSessionState(trimmedValue(value, 'providerSessionState'));
   const isLive =
     typeof value.isLive === 'boolean'
       ? value.isLive
@@ -1108,8 +1082,7 @@ export function parseSession(value: unknown): GhostexSession | null {
         ? Math.max(0, Math.floor(value.queuedPromptCount))
         : 0,
     queuedPromptFailedCount:
-      typeof value.queuedPromptFailedCount === 'number' &&
-      Number.isFinite(value.queuedPromptFailedCount)
+      typeof value.queuedPromptFailedCount === 'number' && Number.isFinite(value.queuedPromptFailedCount)
         ? Math.max(0, Math.floor(value.queuedPromptFailedCount))
         : 0,
     sessionNote: trimmedValue(value, 'sessionNote'),
@@ -1118,11 +1091,7 @@ export function parseSession(value: unknown): GhostexSession | null {
     coordinatorSessionId: trimmedValue(value, 'coordinatorSessionId'),
     coordinatorThreadState: trimmedValue(value, 'coordinatorThreadState'),
     agentSessionId: trimmedValue(value, 'agentSessionId'),
-    sendWhenAllProjectSessionsStopActive: boolValue(
-      value,
-      'sendWhenAllProjectSessionsStopActive',
-      false,
-    ),
+    sendWhenAllProjectSessionsStopActive: boolValue(value, 'sendWhenAllProjectSessionsStopActive', false),
     sendWhenAgentStopsActive: boolValue(value, 'sendWhenAgentStopsActive', false),
     closeAfterDone: boolValue(value, 'closeAfterDone', false),
     closeAfterDoneDeadlineAt: trimmedValue(value, 'closeAfterDoneDeadlineAt'),
@@ -1138,11 +1107,7 @@ export function parseSession(value: unknown): GhostexSession | null {
     isPrimaryTitleTerminalTitle: boolValue(value, 'isPrimaryTitleTerminalTitle', false),
     isTemporaryTitle: boolValue(value, 'isTemporaryTitle', false),
     visibleInSidebarByDefault: boolValue(value, 'visibleInSidebarByDefault', false),
-    shouldSubmitStagedFirstPromptTitleCommand: boolValue(
-      value,
-      'shouldSubmitStagedFirstPromptTitleCommand',
-      false,
-    ),
+    shouldSubmitStagedFirstPromptTitleCommand: boolValue(value, 'shouldSubmitStagedFirstPromptTitleCommand', false),
     attentionEnteredAt: attention === null ? '' : trimmedValue(attention, 'enteredAt'),
     attentionAcknowledged: attention === null ? false : boolValue(attention, 'acknowledged', false),
     attentionEventId: attention === null ? '' : trimmedValue(attention, 'eventId'),
@@ -1156,12 +1121,7 @@ function isChatStoragePath(path: string): boolean {
   for (let i = 1; i < segments.length; i++) {
     if (segments[i] !== 'chats') continue;
     const owner = segments[i - 1];
-    if (
-      owner === 'ghostex' ||
-      owner === '.active' ||
-      owner === '.ghostex' ||
-      owner.startsWith('.ghostex-')
-    ) {
+    if (owner === 'ghostex' || owner === '.active' || owner === '.ghostex' || owner.startsWith('.ghostex-')) {
       return true;
     }
   }
@@ -1183,9 +1143,7 @@ function parseProjects(value: unknown): GhostexProject[] {
       isChat: boolValue(entry, 'isChat', false) || isChatStoragePath(path),
       icon: parseProjectIcon(entry),
       themeColor: normalizedHexColor(trimmedValue(entry, 'themeColor')),
-      worktreeParentProjectId: isObject(entry.worktree)
-        ? trimmedValue(entry.worktree, 'parentProjectId')
-        : '',
+      worktreeParentProjectId: isObject(entry.worktree) ? trimmedValue(entry.worktree, 'parentProjectId') : '',
       workMode: entry.workMode === true,
       workTracker: entry.workTracker === 'github' || entry.workTracker === 'linear' ? entry.workTracker : undefined,
       worktree: isObject(entry.worktree)
@@ -1215,11 +1173,9 @@ function parseProjectIcon(entry: Record<string, unknown>): GhostexProjectIcon {
     ),
     discoveredIconDataUrl: trimmedValue(entry, 'discoveredIconDataUrl'),
     glyph: kind === 'tabler' && icon !== null ? trimmedValue(icon, 'icon') : '',
-    glyphColor:
-      kind === 'tabler' && icon !== null ? normalizedHexColor(trimmedValue(icon, 'color')) : '',
+    glyphColor: kind === 'tabler' && icon !== null ? normalizedHexColor(trimmedValue(icon, 'color')) : '',
     isWorktree:
-      isObject(worktree) ||
-      (typeof worktree === 'string' && worktree.trim().length > 0 && worktree.trim() !== 'null'),
+      isObject(worktree) || (typeof worktree === 'string' && worktree.trim().length > 0 && worktree.trim() !== 'null'),
   };
 }
 
@@ -1240,8 +1196,7 @@ function parseRecentProjects(value: unknown): GhostexRecentProject[] {
       projectId,
       title: trimmedValue(entry, 'title'),
       path: trimmedValue(entry, 'path'),
-      sessionCount:
-        typeof rawCount === 'number' && Number.isFinite(rawCount) ? Math.max(0, rawCount) : 0,
+      sessionCount: typeof rawCount === 'number' && Number.isFinite(rawCount) ? Math.max(0, rawCount) : 0,
     });
   }
   return projects;
@@ -1365,8 +1320,7 @@ export function parseProjectCollections(value: unknown): GhostexProjectCollectio
     collections.push({
       collectionId,
       title: firstNonEmpty(trimmedValue(entry, 'title')) || collectionId,
-      color:
-        rawColor !== 'transparent' && /^#[0-9a-f]{6}$/i.test(rawColor) ? rawColor : '#4f5663',
+      color: rawColor !== 'transparent' && /^#[0-9a-f]{6}$/i.test(rawColor) ? rawColor : '#4f5663',
       projectIds,
     });
   }
@@ -1534,9 +1488,7 @@ function normalizeRoot(root: JsonObject): GhostexMobileSummary {
     quickActionsByProject: parseQuickActionsByProject(root.quickActionsByProject),
     workspaceGroups,
     projectCollections: parseProjectCollections(root.sidebarProjectCollections),
-    projectCollectionsState: isObject(root.sidebarProjectCollections)
-      ? root.sidebarProjectCollections
-      : null,
+    projectCollectionsState: isObject(root.sidebarProjectCollections) ? root.sidebarProjectCollections : null,
     sidebarSpaces: parseSidebarSpaces(root.sidebarSpaces),
     customSessionTags: parseCustomSessionTags(root.customSessionTags),
     workspaces: parseWorkspaces(root.sidebarWorkspaces),
@@ -1572,5 +1524,10 @@ function parseAgentbox(value: unknown): GhostexSession['agentbox'] {
   const provider = text('provider');
   const boxName = text('boxName');
   if (provider.length === 0 || boxName.length === 0) return undefined;
-  return { provider, boxName, providerLabel: text('providerLabel'), pending: record.pending === true ? true : undefined };
+  return {
+    provider,
+    boxName,
+    providerLabel: text('providerLabel'),
+    pending: record.pending === true ? true : undefined,
+  };
 }

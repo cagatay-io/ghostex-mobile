@@ -1,5 +1,10 @@
 import { isGpuiAvailable } from '../../../modules/gx-chat-core/src/gpui';
-import { useSettingsStore, type MarkedHandoversStyle, type PreferredAgentInterface, type SessionChatTheme } from '../../settings/store';
+import {
+  useSettingsStore,
+  type MarkedHandoversStyle,
+  type PreferredAgentInterface,
+  type SessionChatTheme,
+} from '../../settings/store';
 import { Caption, ChoiceRow, SectionHeader, SettingsScreenLayout, SettingToggle } from './SettingsControls';
 
 /** Same option order as the desktop app's Default Agent View control. */
@@ -29,7 +34,7 @@ export default function ChatPage() {
 
   return (
     <SettingsScreenLayout>
-      <SectionHeader title='Default agent view' />
+      <SectionHeader title="Default agent view" />
       {PREFERRED_AGENT_INTERFACE_ROWS.map((row) => (
         <ChoiceRow
           key={row.value}
@@ -39,11 +44,11 @@ export default function ChatPage() {
         />
       ))}
       <Caption>
-        Agent sessions that support chat open in this view. Each tab can still be switched between chat and terminal
-        at any time, and a switched tab remembers its own choice.
+        Agent sessions that support chat open in this view. Each tab can still be switched between chat and terminal at
+        any time, and a switched tab remembers its own choice.
       </Caption>
 
-      <SectionHeader title='Chat theme' />
+      <SectionHeader title="Chat theme" />
       {SESSION_CHAT_THEME_ROWS.map((row) => (
         <ChoiceRow
           key={row.value}
@@ -54,17 +59,21 @@ export default function ChatPage() {
       ))}
       <Caption>Changes chat content only; the rest of the app keeps its dark theme.</Caption>
 
-      <SectionHeader title='Messages' />
-      <SettingToggle settingKey='sessionChatSimpleMode' label='Simple mode' />
-      <Caption>Simplify all chats: hide tool command previews and group file edits behind an expandable file count.</Caption>
-      <SettingToggle settingKey='sessionChatFileEditPreviews' label='Show file edit previews' />
+      <SectionHeader title="Messages" />
+      <SettingToggle settingKey="sessionChatSimpleMode" label="Simple mode" />
+      <Caption>
+        Simplify all chats: hide tool command previews and group file edits behind an expandable file count.
+      </Caption>
+      <SettingToggle settingKey="sessionChatFileEditPreviews" label="Show file edit previews" />
       <Caption>Show the first seven code lines instead of only the path and change counts.</Caption>
-      <SettingToggle settingKey='sessionChatMutedThinking' label='Grey thinking' />
-      <Caption>Show the agent's thinking in grey and its replies in the full text colour, so the two are easy to tell apart.</Caption>
-      <SettingToggle settingKey='sessionChatVerboseMode' label='Verbose Mode' />
+      <SettingToggle settingKey="sessionChatMutedThinking" label="Grey thinking" />
+      <Caption>
+        Show the agent's thinking in grey and its replies in the full text colour, so the two are easy to tell apart.
+      </Caption>
+      <SettingToggle settingKey="sessionChatVerboseMode" label="Verbose Mode" />
       <Caption>Expands thinking blocks to show their tool calls by default.</Caption>
 
-      <SectionHeader title='Marked sections' />
+      <SectionHeader title="Marked sections" />
       {MARKED_HANDOVERS_STYLE_ROWS.map((row) => (
         <ChoiceRow
           key={row.value}
@@ -73,7 +82,9 @@ export default function ChatPage() {
           onPress={() => setSetting('markedHandoversStyle', row.value)}
         />
       ))}
-      {markedHandoversStyle !== 'plain' ? <SettingToggle settingKey='markedHandoversEmoji' label='Show marker emojis' /> : null}
+      {markedHandoversStyle !== 'plain' ? (
+        <SettingToggle settingKey="markedHandoversEmoji" label="Show marker emojis" />
+      ) : null}
       <Caption>
         How the chat colours the sections an agent marks with ❓ Needs you, ✅ Done, ⚠️ Read this and the other markers
         (Marked handovers in the desktop app's Settings &gt; Chat). Show marker emojis puts the marker emoji in front of
@@ -82,11 +93,10 @@ export default function ChatPage() {
 
       {isGpuiAvailable() ? (
         <>
-          <SectionHeader title='Developer' />
-          <SettingToggle settingKey='sessionChatGpuiTranscript' label='GPUI transcript (beta)' />
+          <SectionHeader title="Developer" />
+          <SettingToggle settingKey="sessionChatGpuiTranscript" label="GPUI transcript (beta)" />
           <Caption>
-            Draws the conversation with the desktop app's own chat renderer. Takes effect the next time a chat
-            opens.
+            Draws the conversation with the desktop app's own chat renderer. Takes effect the next time a chat opens.
           </Caption>
         </>
       ) : null}

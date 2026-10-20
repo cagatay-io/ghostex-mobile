@@ -156,13 +156,13 @@ async function sendPickedAttachment(
   machineId: string,
   sessionKey: string,
   picked: { localUri: string; name: string; isImage: boolean },
-  deliver?: AttachmentReferenceSink
+  deliver?: AttachmentReferenceSink,
 ): Promise<AttachmentUploadResult> {
   const sanitized = sanitizeAttachmentFilename(picked.name);
   const exec = await execRemoteScript(
     machineId,
     { posix: remoteAttachmentPathScript(sanitized), powershell: windowsAttachmentPath(sanitized) },
-    REMOTE_PATH_EXEC_TIMEOUT_MS
+    REMOTE_PATH_EXEC_TIMEOUT_MS,
   );
   const remotePath = exec.stdout.trim().split('\n').pop()?.trim() ?? '';
   if (exec.exitCode !== 0 || remotePath.length === 0) {
@@ -172,7 +172,7 @@ async function sendPickedAttachment(
   await GhostexNative.uploadFile(
     machineId,
     localPathFromUri(picked.localUri),
-    await remoteUploadPath(machineId, remotePath)
+    await remoteUploadPath(machineId, remotePath),
   );
 
   const title = picked.isImage ? `Image #${++imageCounter}` : `File #${++fileCounter}`;
@@ -195,7 +195,7 @@ async function sendPickedAttachment(
 export async function pickAndSendAttachment(
   machineId: string,
   sessionKey: string,
-  deliver?: AttachmentReferenceSink
+  deliver?: AttachmentReferenceSink,
 ): Promise<AttachmentUploadResult> {
   const result = await DocumentPicker.getDocumentAsync({
     multiple: false,
@@ -213,7 +213,7 @@ export async function pickAndSendAttachment(
       name: asset.name,
       isImage: asset.mimeType?.startsWith('image/') === true,
     },
-    deliver
+    deliver,
   );
 }
 
@@ -234,7 +234,7 @@ function imageAssetExtension(mimeType: string | undefined): string {
 export async function pickAndSendImageAttachment(
   machineId: string,
   sessionKey: string,
-  deliver?: AttachmentReferenceSink
+  deliver?: AttachmentReferenceSink,
 ): Promise<AttachmentUploadResult> {
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ['images'],

@@ -99,7 +99,10 @@ export function ToneCard({
           styles.tile,
           look.hue === null
             ? { backgroundColor: P.light ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.05)', borderColor: P.controlBorder }
-            : { backgroundColor: withAlpha(look.hue, SHELL.tileFill), borderColor: withAlpha(look.hue, SHELL.tileRing) },
+            : {
+                backgroundColor: withAlpha(look.hue, SHELL.tileFill),
+                borderColor: withAlpha(look.hue, SHELL.tileRing),
+              },
         ]}
       >
         <Glyph name={look.icon} size={SHELL.tileIcon} color={look.hue ?? P.muted} />

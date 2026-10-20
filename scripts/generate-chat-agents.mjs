@@ -55,7 +55,7 @@ if (supportedAgents.length === 0) {
  * ZCode and OpenClaude were in the generated support list but resolved to terminal in the native app, hiding the chat toggle.
  */
 const unrecognizedAgents = supportedAgents.filter(
-  (agentId) => resolveAgentIconId(agentId) === 'terminal' || resolveAgentIconId(undefined, agentId) === 'terminal'
+  (agentId) => resolveAgentIconId(agentId) === 'terminal' || resolveAgentIconId(undefined, agentId) === 'terminal',
 );
 if (unrecognizedAgents.length > 0) {
   throw new Error(`Mobile agent resolution hides chat for supported agents: ${unrecognizedAgents.join(', ')}`);

@@ -63,10 +63,17 @@ export function AccountsPanel({ panel, onCommand }: { panel: JsonRecord; onComma
       ) : null}
       {message.length > 0 ? <Text style={styles.paragraph}>{message}</Text> : null}
       {message.length === 0 && session !== null ? (
-        <SessionBlocks session={session} busy={busy} customize={customize} onCustomize={() => setCustomize(true)} onDefaults={() => {
-          setCustomize(false);
-          onCommand(policyCommand(null), true);
-        }} onCommand={onCommand} />
+        <SessionBlocks
+          session={session}
+          busy={busy}
+          customize={customize}
+          onCustomize={() => setCustomize(true)}
+          onDefaults={() => {
+            setCustomize(false);
+            onCommand(policyCommand(null), true);
+          }}
+          onCommand={onCommand}
+        />
       ) : null}
     </View>
   );
@@ -130,7 +137,12 @@ function SessionBlocks({
       {usageError.length > 0 ? <Text style={styles.paragraph}>{usageError}</Text> : null}
       {usage.length === 0 ? <Text style={styles.paragraph}>Usage is unavailable for this login.</Text> : null}
       {usage.map((window, index) => (
-        <Meter key={index} label={str(window, 'label')} percent={num(window, 'percent') ?? 0} left={str(window, 'reset')} />
+        <Meter
+          key={index}
+          label={str(window, 'label')}
+          percent={num(window, 'percent') ?? 0}
+          left={str(window, 'reset')}
+        />
       ))}
       {context !== null ? (
         <Meter
@@ -156,7 +168,7 @@ function SessionBlocks({
                 ready
                   ? { type: 'accounts', request: { operation: 'select', accountId: record.id ?? null } }
                   : { type: 'openAccountsSettings' },
-                false
+                false,
               )
             }
             style={({ pressed }) => [styles.account, pressed ? styles.pressed : null, busy ? styles.dim : null]}
@@ -176,7 +188,9 @@ function SessionBlocks({
           </Pressable>
         );
       })}
-      <Text style={styles.paragraph}>Switching resumes the same conversation. Stop an active turn before switching.</Text>
+      <Text style={styles.paragraph}>
+        Switching resumes the same conversation. Stop an active turn before switching.
+      </Text>
       <View style={styles.divider} />
       <View style={styles.header}>
         <Text style={styles.strong}>Keep going at a limit</Text>
@@ -233,7 +247,9 @@ function SessionBlocks({
                     accessibilityRole="radio"
                     accessibilityState={{ selected, disabled: dim }}
                     disabled={dim}
-                    onPress={() => onCommand(policyCommand(withField(policy, 'priority', obj(option)?.value ?? null)), true)}
+                    onPress={() =>
+                      onCommand(policyCommand(withField(policy, 'priority', obj(option)?.value ?? null)), true)
+                    }
                     style={({ pressed }) => [styles.priority, pressed ? styles.pressed : null]}
                   >
                     <Text style={styles.accountName}>{str(option, 'label')}</Text>
@@ -247,14 +263,21 @@ function SessionBlocks({
             label="Recover from temporary errors"
             value={isTrue(policy, 'retryErrors')}
             disabled={dim}
-            onChange={() => onCommand(policyCommand(withField(policy, 'retryErrors', !isTrue(policy, 'retryErrors'))), true)}
+            onChange={() =>
+              onCommand(policyCommand(withField(policy, 'retryErrors', !isTrue(policy, 'retryErrors'))), true)
+            }
           />
           <Text style={[styles.paragraph, dim ? styles.dim : null]}>{str(policyState, 'retryDescription')}</Text>
           <Pressable
             accessibilityRole="button"
             disabled={busy}
             onPress={onDefaults}
-            style={({ pressed }) => [styles.customize, styles.filled, pressed ? styles.filledPressed : null, busy ? styles.dim : null]}
+            style={({ pressed }) => [
+              styles.customize,
+              styles.filled,
+              pressed ? styles.filledPressed : null,
+              busy ? styles.dim : null,
+            ]}
           >
             <Glyph name="arrow-back-up" size={15} color={P.foreground} />
             <Text style={styles.filledLabel}>Use session defaults</Text>
@@ -301,7 +324,17 @@ function Meter({ label, percent, left, right }: { label: string; percent: number
   );
 }
 
-function ToggleRow({ label, value, disabled, onChange }: { label: string; value: boolean; disabled: boolean; onChange: () => void }) {
+function ToggleRow({
+  label,
+  value,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  value: boolean;
+  disabled: boolean;
+  onChange: () => void;
+}) {
   const styles = useStyles();
   return (
     <View style={[styles.header, disabled ? styles.dim : null]}>
@@ -312,14 +345,27 @@ function ToggleRow({ label, value, disabled, onChange }: { label: string; value:
 }
 
 /** The panel's labelled button: the chat's neutral fill (CDXC:AppModal 2026-10-14 on the desktop's `neutral_button_fills`). */
-function FilledButton({ label, disabled = false, onPress }: { label: string; disabled?: boolean; onPress: () => void }) {
+function FilledButton({
+  label,
+  disabled = false,
+  onPress,
+}: {
+  label: string;
+  disabled?: boolean;
+  onPress: () => void;
+}) {
   const styles = useStyles();
   return (
     <Pressable
       accessibilityRole="button"
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [styles.filledWide, styles.filled, pressed ? styles.filledPressed : null, disabled ? styles.dim : null]}
+      style={({ pressed }) => [
+        styles.filledWide,
+        styles.filled,
+        pressed ? styles.filledPressed : null,
+        disabled ? styles.dim : null,
+      ]}
     >
       <Text style={styles.filledLabel}>{label}</Text>
     </Pressable>
@@ -339,18 +385,47 @@ const useStyles = themedStyles((P) => ({
   current: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   grow: { flex: 1, minWidth: 0 },
   sectionHeading: { color: P.muted, fontSize: 12, fontWeight: '600', marginTop: 4 },
-  account: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, paddingHorizontal: 8, borderRadius: 10 },
+  account: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+  },
   accountName: { color: P.foreground, fontSize: 14 },
   accountAction: { color: P.primary, fontSize: 13 },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: P.menuBorder },
-  customize: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, height: 34, borderRadius: 8, alignSelf: 'flex-start' },
-  segmented: { flexDirection: 'row', padding: 3, borderRadius: 10, borderWidth: 1, borderColor: P.menuBorder, backgroundColor: P.composerBackground },
+  customize: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    height: 34,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  segmented: {
+    flexDirection: 'row',
+    padding: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: P.menuBorder,
+    backgroundColor: P.composerBackground,
+  },
   segment: { flex: 1, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
   segmentPressed: { backgroundColor: P.border },
   segmentText: { color: P.muted, fontSize: 13 },
   segmentTextPressed: { color: P.foreground },
   priorities: { gap: 2 },
-  priority: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, paddingHorizontal: 8, borderRadius: 8 },
+  priority: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
   identity: { flexDirection: 'row', alignItems: 'center', gap: 7, minWidth: 40 },
   figure: { color: P.foreground, fontFamily: 'Menlo', fontSize: 10, lineHeight: 13 },
   figureDim: { opacity: 0.6 },

@@ -7,7 +7,10 @@ import { groupPorts, type PortListRow, type PortSectionId } from '../../webPrevi
 import type { RemoteListeningPort } from '../../webPreview/ports';
 import { styles } from './styles';
 
-export function PortSections({ ports, onOpen }: {
+export function PortSections({
+  ports,
+  onOpen,
+}: {
   ports: RemoteListeningPort[];
   onOpen: (entry: RemoteListeningPort) => void;
 }) {
@@ -19,14 +22,17 @@ export function PortSections({ ports, onOpen }: {
     <View style={styles.portSections}>
       <TextInput
         value={query}
-        onChangeText={(value) => { setQuery(value); setSearchCollapsed(new Set()); }}
+        onChangeText={(value) => {
+          setQuery(value);
+          setSearchCollapsed(new Set());
+        }}
         style={styles.portSearch}
-        placeholder='Find a page, process, or port'
+        placeholder="Find a page, process, or port"
         placeholderTextColor={GhostexPalette.MUTED}
-        accessibilityLabel='Search pages and ports'
-        autoCapitalize='none'
+        accessibilityLabel="Search pages and ports"
+        autoCapitalize="none"
         autoCorrect={false}
-        clearButtonMode='while-editing'
+        clearButtonMode="while-editing"
       />
       {sections.length === 0 ? <Text style={styles.emptyRow}>No matching pages or ports.</Text> : null}
       {sections.map((section) => {
@@ -35,7 +41,7 @@ export function PortSections({ ports, onOpen }: {
         return (
           <View key={section.id} style={styles.listSection}>
             <Pressable
-              accessibilityRole='button'
+              accessibilityRole="button"
               accessibilityLabel={`${section.title}, ${section.rows.length}`}
               accessibilityState={{ expanded }}
               style={styles.portSectionHeader}
@@ -67,10 +73,12 @@ export function PortSections({ ports, onOpen }: {
 function PortRow({ row, onOpen }: { row: PortListRow; onOpen: (entry: RemoteListeningPort) => void }) {
   const [failedIcon, setFailedIcon] = useState<string | null>(null);
   const icon = row.entry.web?.faviconDataUrl;
-  const process = [row.entry.command, row.entry.pid === null ? null : `PID ${row.entry.pid}`].filter(Boolean).join(' · ');
+  const process = [row.entry.command, row.entry.pid === null ? null : `PID ${row.entry.pid}`]
+    .filter(Boolean)
+    .join(' · ');
   return (
     <Pressable
-      accessibilityRole='button'
+      accessibilityRole="button"
       accessibilityLabel={`Open ${row.title}, ${row.address}`}
       onPress={() => onOpen(row.entry)}
       style={({ pressed }) => [styles.portRow, styles.portRowDivided, pressed && styles.portRowPressed]}
@@ -80,13 +88,25 @@ function PortRow({ row, onOpen }: { row: PortListRow; onOpen: (entry: RemoteList
           <Image source={{ uri: icon }} style={styles.portFavicon} onError={() => setFailedIcon(icon)} />
         ) : /storybook/i.test(row.title) ? (
           <Text style={styles.storybookIcon}>S</Text>
-        ) : <WorldGlyph size={16} color={GhostexPalette.MUTED} />}
+        ) : (
+          <WorldGlyph size={16} color={GhostexPalette.MUTED} />
+        )}
       </View>
       <View style={styles.portRowBody}>
-        <Text numberOfLines={2} style={styles.portPageTitle}>{row.title}</Text>
-        <Text numberOfLines={1} style={styles.portAddress}>{row.address}</Text>
-        <Text numberOfLines={2} style={styles.portRowDescription}>{row.description}</Text>
-        {process ? <Text numberOfLines={1} style={styles.portRowDescription}>{process}</Text> : null}
+        <Text numberOfLines={2} style={styles.portPageTitle}>
+          {row.title}
+        </Text>
+        <Text numberOfLines={1} style={styles.portAddress}>
+          {row.address}
+        </Text>
+        <Text numberOfLines={2} style={styles.portRowDescription}>
+          {row.description}
+        </Text>
+        {process ? (
+          <Text numberOfLines={1} style={styles.portRowDescription}>
+            {process}
+          </Text>
+        ) : null}
       </View>
     </Pressable>
   );

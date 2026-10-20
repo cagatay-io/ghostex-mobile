@@ -70,7 +70,9 @@ export function NativeChatCards({ chat, onHostAction }: NativeChatCardsProps) {
     >
       <ComposerNotReadyCard chat={chat} document={document} onHostAction={onHostAction} />
       <NoticeCard chat={chat} document={document} onHostAction={onHostAction} />
-      {unrecordedApiError(document.apiErrorCard) ? <ApiErrorCard card={document.apiErrorCard} dispatch={chat.dispatch} /> : null}
+      {unrecordedApiError(document.apiErrorCard) ? (
+        <ApiErrorCard card={document.apiErrorCard} dispatch={chat.dispatch} />
+      ) : null}
       <AsyncQuestionsCard chat={chat} document={document} />
       <QuestionCard chat={chat} document={document} />
     </ScrollView>

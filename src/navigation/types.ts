@@ -6,9 +6,7 @@ import type { SettingsPageId } from '../screens/settings/pages';
  * address when the scanner read a bare legacy address. `focus` opens the
  * editor with that field focused (Can't reach → Wrong password → Edit machine).
  */
-export type MachineFormParams =
-  | { machineId?: string; tailcatToken?: string; focus?: 'password' }
-  | undefined;
+export type MachineFormParams = { machineId?: string; tailcatToken?: string; focus?: 'password' } | undefined;
 
 /** Root native-stack route map. */
 export type RootStackParamList = {

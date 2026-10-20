@@ -23,17 +23,64 @@ export type MenuRow = { [key: string]: unknown };
 export function glyphForIconPath(iconPath: unknown): GlyphName | null {
   if (typeof iconPath !== 'string') return null;
   const name = iconPath.replace(/^.*\//u, '').replace(/\.svg$/u, '');
-  const aliases: Record<string, GlyphName> = { 'eye-filled': 'eye', loader2: 'loader', 'folder-open': 'folder', code: 'file' };
+  const aliases: Record<string, GlyphName> = {
+    'eye-filled': 'eye',
+    loader2: 'loader',
+    'folder-open': 'folder',
+    code: 'file',
+  };
   const glyph = aliases[name] ?? name;
   return isGlyph(glyph) ? glyph : null;
 }
 
 const KNOWN_GLYPHS = new Set<string>([
-  'dots', 'list-details', 'list-check', 'note', 'stack-push', 'paperclip', 'terminal-2', 'arrow-up', 'refresh', 'pencil',
-  'trash', 'loader', 'x', 'check', 'file-text', 'file', 'folder', 'photo', 'camera', 'eye', 'eye-off', 'leaf', 'message-circle', 'clock',
-  'clock-check', 'layout-columns', 'file-export', 'git-branch', 'moon', 'switch-horizontal', 'maximize', 'minimize',
-  'settings', 'copy', 'star', 'search', 'link', 'bolt', 'map', 'brain', 'arrow-back-up', 'sparkles', 'blockquote', 'world',
-  'share', 'microphone', 'player-stop',
+  'dots',
+  'list-details',
+  'list-check',
+  'note',
+  'stack-push',
+  'paperclip',
+  'terminal-2',
+  'arrow-up',
+  'refresh',
+  'pencil',
+  'trash',
+  'loader',
+  'x',
+  'check',
+  'file-text',
+  'file',
+  'folder',
+  'photo',
+  'camera',
+  'eye',
+  'eye-off',
+  'leaf',
+  'message-circle',
+  'clock',
+  'clock-check',
+  'layout-columns',
+  'file-export',
+  'git-branch',
+  'moon',
+  'switch-horizontal',
+  'maximize',
+  'minimize',
+  'settings',
+  'copy',
+  'star',
+  'search',
+  'link',
+  'bolt',
+  'map',
+  'brain',
+  'arrow-back-up',
+  'sparkles',
+  'blockquote',
+  'world',
+  'share',
+  'microphone',
+  'player-stop',
 ]);
 
 function isGlyph(name: string): name is GlyphName {
@@ -62,7 +109,10 @@ export function MenuSheet({ rows, title, onClose, onCommand, header, onDismissed
     setStack([]);
   }, [rows]);
   const page: Page | null = stack.length > 0 ? stack[stack.length - 1]! : rows !== null ? { title, rows } : null;
-  const rootIsPanel = page !== null && page.rows.length === 1 && (obj(page.rows[0])?.accounts !== undefined || obj(page.rows[0])?.context !== undefined);
+  const rootIsPanel =
+    page !== null &&
+    page.rows.length === 1 &&
+    (obj(page.rows[0])?.accounts !== undefined || obj(page.rows[0])?.context !== undefined);
 
   const run = (command: MenuRow, keepOpen: boolean): void => {
     const keep = onCommand(command) === true || keepOpen;
@@ -78,7 +128,10 @@ export function MenuSheet({ rows, title, onClose, onCommand, header, onDismissed
       {...(stack.length > 0 ? { onBack: () => setStack(stack.slice(0, -1)) } : {})}
     >
       {page !== null ? (
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={rootIsPanel ? styles.panelContent : styles.content}>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={rootIsPanel ? styles.panelContent : styles.content}
+        >
           {stack.length === 0 ? header : null}
           {page.rows.map((row, index) => (
             <MenuRowView
@@ -183,11 +236,24 @@ export function rowsOf(value: unknown): MenuRow[] {
 const useStyles = themedStyles((P) => ({
   content: { paddingHorizontal: 8, paddingBottom: 8 },
   panelContent: { paddingHorizontal: 16, paddingBottom: 12 },
-  separator: { height: StyleSheet.hairlineWidth, backgroundColor: P.menuBorder, marginVertical: 6, marginHorizontal: 8 },
+  separator: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: P.menuBorder,
+    marginVertical: 6,
+    marginHorizontal: 8,
+  },
   heading: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4, gap: 2 },
   headingText: { color: P.muted, fontSize: 12, fontWeight: '600' },
   headingDescription: { color: P.muted, fontSize: 12 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minHeight: 44,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
   rowPressed: { backgroundColor: P.controlPressed },
   rowDisabled: { opacity: 0.45 },
   rowText: { flex: 1, minWidth: 0, gap: 2 },

@@ -156,7 +156,8 @@ export default function CoordinatorDetailsSheet({ mode, load, onSave, onCancel }
                 <>
                   {notes.length === 0 ? (
                     <Text style={styles.empty}>
-                      No notes yet. The orchestrator saves the lasting preferences you confirm, and you can add one below.
+                      No notes yet. The orchestrator saves the lasting preferences you confirm, and you can add one
+                      below.
                     </Text>
                   ) : null}
                   {notes.map((entry, index) => (
@@ -188,7 +189,11 @@ export default function CoordinatorDetailsSheet({ mode, load, onSave, onCancel }
                     <Pressable
                       accessibilityRole="button"
                       disabled={note.trim().length === 0}
-                      style={({ pressed }) => [styles.addButton, pressed && styles.cancelButtonPressed, note.trim().length === 0 ? styles.buttonDisabled : null]}
+                      style={({ pressed }) => [
+                        styles.addButton,
+                        pressed && styles.cancelButtonPressed,
+                        note.trim().length === 0 ? styles.buttonDisabled : null,
+                      ]}
                       onPress={addNote}
                     >
                       <Text style={styles.cancelLabel}>Add</Text>

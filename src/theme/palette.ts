@@ -238,9 +238,7 @@ export function mixHexColors(color: string, base: string, colorPercent: number):
   if (top === null || bottom === null) return base;
   const ratio = Math.max(0, Math.min(100, colorPercent)) / 100;
   const channel = (index: number): number => Math.round(top[index] * ratio + bottom[index] * (1 - ratio));
-  return `#${[channel(0), channel(1), channel(2)]
-    .map((value) => value.toString(16).padStart(2, '0'))
-    .join('')}`;
+  return `#${[channel(0), channel(1), channel(2)].map((value) => value.toString(16).padStart(2, '0')).join('')}`;
 }
 
 /** Scale a color's alpha without changing its RGB channels or dimming child content. */

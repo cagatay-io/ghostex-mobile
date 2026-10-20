@@ -17,10 +17,7 @@ import { GhostexNative } from '../../modules/ghostex-native/src';
 import { formatAppLog, useAppLogStore } from '../app/appLog';
 import { Accordion, type AccordionItem } from '../components/common/Collapsible';
 import { SetupButton, StatusDot, setupText } from '../components/onboarding/SetupPrimitives';
-import SshAccessHelpSheet, {
-  SshOsButtons,
-  type SshOs,
-} from '../components/onboarding/SshAccessHelpSheet';
+import SshAccessHelpSheet, { SshOsButtons, type SshOs } from '../components/onboarding/SshAccessHelpSheet';
 import { CantReachCopy } from '../copy';
 import { useInventoryStore } from '../inventory/store';
 import { machineDisplayLabel, machineTransportLabel, useMachinesStore } from '../machines/store';
@@ -35,9 +32,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'CantReach'>;
 
 export default function CantReachScreen({ navigation, route }: Props) {
   const { machineId } = route.params;
-  const machine = useMachinesStore(
-    (state) => state.machines.find((entry) => entry.id === machineId) ?? null,
-  );
+  const machine = useMachinesStore((state) => state.machines.find((entry) => entry.id === machineId) ?? null);
   const inventory = useInventoryStore((state) => state.inventoriesByMachineId[machineId]);
   const refreshMachineFresh = useInventoryStore((state) => state.refreshMachineFresh);
   const logEntries = useAppLogStore((state) => state.entries);
@@ -116,8 +111,7 @@ export default function CantReachScreen({ navigation, route }: Props) {
 
   const otherReasons = CantReachCopy.tailscale.otherReasons;
   // The row for the error that actually happened is titled in the error colour.
-  const currentReason = (code: string): string | undefined =>
-    reasonCode === code ? SetupPalette.ERROR : undefined;
+  const currentReason = (code: string): string | undefined => (reasonCode === code ? SetupPalette.ERROR : undefined);
   const otherReasonItems: readonly AccordionItem[] = [
     {
       id: 'sshRefused',

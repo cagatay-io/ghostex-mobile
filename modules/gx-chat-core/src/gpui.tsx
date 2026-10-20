@@ -85,7 +85,7 @@ export function GpuiView({ onEvent, surfaceType = 'surface', ...props }: GpuiVie
       }
       onEvent?.(parsed);
     },
-    [onEvent]
+    [onEvent],
   );
   const View = nativeView();
   return <View {...props} surfaceType={surfaceType} onGpuiEvent={onGpuiEvent} />;

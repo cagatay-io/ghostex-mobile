@@ -11,7 +11,16 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -26,7 +35,14 @@ import {
 import { RefreshIcon } from '../components/terminal/icons';
 import { DocsCopy } from '../copy';
 import { listProjectDocs, resolveDocsEntryPath } from '../docs/client';
-import { buildDocsTree, flattenDocsFiles, recentDocsFiles, searchDocsFiles, type DocsFileNode, type DocsNode } from '../docs/tree';
+import {
+  buildDocsTree,
+  flattenDocsFiles,
+  recentDocsFiles,
+  searchDocsFiles,
+  type DocsFileNode,
+  type DocsNode,
+} from '../docs/tree';
 import { useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
 import { GhostexPalette } from '../theme/palette';
@@ -100,7 +116,11 @@ export default function DocsScreen({ navigation, route }: Props) {
       .catch((failure: unknown) => {
         if (current !== generation.current) return;
         const message = failure instanceof Error ? failure.message : String(failure);
-        setError(/unsupportedClient|Unknown command: session-chat-rpc|Update Ghostex/iu.test(message) ? DocsCopy.oldCli : message);
+        setError(
+          /unsupportedClient|Unknown command: session-chat-rpc|Update Ghostex/iu.test(message)
+            ? DocsCopy.oldCli
+            : message,
+        );
       })
       .finally(() => {
         if (current === generation.current) setLoading(false);
@@ -119,7 +139,7 @@ export default function DocsScreen({ navigation, route }: Props) {
       title: projectName.length > 0 ? `${DocsCopy.listTitle} · ${projectName}` : DocsCopy.listTitle,
       headerRight: () => (
         <Pressable
-          accessibilityRole='button'
+          accessibilityRole="button"
           accessibilityLabel={DocsCopy.reload}
           hitSlop={6}
           onPress={refresh}
@@ -144,7 +164,7 @@ export default function DocsScreen({ navigation, route }: Props) {
       else next.add(path);
       setExpanded(next);
     },
-    [expandedSet]
+    [expandedSet],
   );
 
   const openFile = useCallback(
@@ -157,7 +177,7 @@ export default function DocsScreen({ navigation, route }: Props) {
         .catch((failure: unknown) => setError(failure instanceof Error ? failure.message : String(failure)))
         .finally(() => setOpening(null));
     },
-    [machineId, navigation, opening, projectId, projectPath]
+    [machineId, navigation, opening, projectId, projectPath],
   );
 
   const rows = useMemo<Row[]>(() => {
@@ -167,14 +187,21 @@ export default function DocsScreen({ navigation, route }: Props) {
       const matches = searchDocsFiles(listing.files, trimmed);
       return [
         { kind: 'section', key: 'search', title: DocsCopy.searchSection(matches.length) },
-        ...matches.map((node): Row => ({ kind: 'file', key: `match:${node.path}`, node, depth: 0, showLocation: true })),
+        ...matches.map((node): Row => ({
+          kind: 'file',
+          key: `match:${node.path}`,
+          node,
+          depth: 0,
+          showLocation: true,
+        })),
       ];
     }
     const out: Row[] = [];
     const recent = recentDocsFiles(listing.files, RECENT_LIMIT);
     if (recent.length > 0 && listing.files.length > RECENT_LIMIT) {
       out.push({ kind: 'section', key: 'recent', title: DocsCopy.recentSection });
-      for (const node of recent) out.push({ kind: 'file', key: `recent:${node.path}`, node, depth: 0, showLocation: true });
+      for (const node of recent)
+        out.push({ kind: 'file', key: `recent:${node.path}`, node, depth: 0, showLocation: true });
       out.push({ kind: 'section', key: 'folders', title: DocsCopy.foldersSection });
     }
     const walk = (nodes: readonly DocsNode[], depth: number) => {
@@ -198,10 +225,14 @@ export default function DocsScreen({ navigation, route }: Props) {
       if (item.kind === 'folder') {
         return (
           <Pressable
-            accessibilityRole='button'
+            accessibilityRole="button"
             accessibilityState={{ expanded: item.expanded }}
             onPress={() => toggleFolder(item.node.path)}
-            style={({ pressed }) => [styles.row, { paddingLeft: 12 + item.depth * INDENT }, pressed && styles.rowPressed]}
+            style={({ pressed }) => [
+              styles.row,
+              { paddingLeft: 12 + item.depth * INDENT },
+              pressed && styles.rowPressed,
+            ]}
           >
             <CaretRightGlyph size={12} color={GhostexPalette.MUTED} rotated={item.expanded} />
             {item.expanded ? (
@@ -220,7 +251,7 @@ export default function DocsScreen({ navigation, route }: Props) {
       const location = item.showLocation ? folderOf(file) : '';
       return (
         <Pressable
-          accessibilityRole='button'
+          accessibilityRole="button"
           onPress={() => openFile(file)}
           style={({ pressed }) => [
             styles.row,
@@ -244,14 +275,14 @@ export default function DocsScreen({ navigation, route }: Props) {
             ) : null}
           </View>
           {opening === file.path ? (
-            <ActivityIndicator size='small' color={GhostexPalette.MUTED} />
+            <ActivityIndicator size="small" color={GhostexPalette.MUTED} />
           ) : (
             <Text style={styles.meta}>{relativeTime(file.modifiedAt)}</Text>
           )}
         </Pressable>
       );
     },
-    [openFile, opening, toggleFolder]
+    [openFile, opening, toggleFolder],
   );
 
   const empty =
@@ -279,14 +310,19 @@ export default function DocsScreen({ navigation, route }: Props) {
           onChangeText={setQuery}
           placeholder={DocsCopy.searchPlaceholder}
           placeholderTextColor={GhostexPalette.MUTED}
-          autoCapitalize='none'
+          autoCapitalize="none"
           autoCorrect={false}
           spellCheck={false}
-          clearButtonMode='never'
-          returnKeyType='search'
+          clearButtonMode="never"
+          returnKeyType="search"
         />
         {query.length > 0 ? (
-          <Pressable accessibilityRole='button' accessibilityLabel='Clear search' hitSlop={8} onPress={() => setQuery('')}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Clear search"
+            hitSlop={8}
+            onPress={() => setQuery('')}
+          >
             <XGlyph size={14} color={GhostexPalette.MUTED} />
           </Pressable>
         ) : null}
@@ -297,7 +333,7 @@ export default function DocsScreen({ navigation, route }: Props) {
           <Text style={styles.errorBody} selectable>
             {error}
           </Text>
-          <Pressable accessibilityRole='button' onPress={refresh} style={styles.retryButton}>
+          <Pressable accessibilityRole="button" onPress={refresh} style={styles.retryButton}>
             <Text style={styles.retryText}>{DocsCopy.retry}</Text>
           </Pressable>
         </View>
@@ -306,15 +342,21 @@ export default function DocsScreen({ navigation, route }: Props) {
         data={rows}
         keyExtractor={(row) => row.key}
         renderItem={renderRow}
-        keyboardShouldPersistTaps='handled'
-        keyboardDismissMode='on-drag'
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 24 }]}
         ListEmptyComponent={error === null ? empty : null}
         ListFooterComponent={
-          query.trim().length > 0 && rows.length <= 1 ? <Text style={[styles.muted, styles.noMatches]}>{DocsCopy.noMatches}</Text> : null
+          query.trim().length > 0 && rows.length <= 1 ? (
+            <Text style={[styles.muted, styles.noMatches]}>{DocsCopy.noMatches}</Text>
+          ) : null
         }
         refreshControl={
-          <RefreshControl refreshing={loading && listing !== null} onRefresh={refresh} tintColor={GhostexPalette.MUTED} />
+          <RefreshControl
+            refreshing={loading && listing !== null}
+            onRefresh={refresh}
+            tintColor={GhostexPalette.MUTED}
+          />
         }
         initialNumToRender={30}
         windowSize={11}

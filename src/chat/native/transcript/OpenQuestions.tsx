@@ -82,7 +82,7 @@ function useAnchorRef(key: string | null) {
       if (view) anchors.set(key, view);
       else anchors.delete(key);
     },
-    [anchors, key]
+    [anchors, key],
   );
 }
 
@@ -134,7 +134,7 @@ export function QuestionFlashFrame({
       {children}
       {active ? (
         <Animated.View
-          pointerEvents='none'
+          pointerEvents="none"
           style={[styles.ring, { borderColor: ring, backgroundColor: `${ring}14`, opacity }]}
         />
       ) : null}

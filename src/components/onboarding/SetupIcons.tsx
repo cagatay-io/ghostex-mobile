@@ -13,12 +13,7 @@ export type SetupGlyphProps = {
   strokeWidth?: number;
 };
 
-function Glyph({
-  color,
-  size = 20,
-  strokeWidth = 1.9,
-  children,
-}: SetupGlyphProps & { children: React.ReactNode }) {
+function Glyph({ color, size = 20, strokeWidth = 1.9, children }: SetupGlyphProps & { children: React.ReactNode }) {
   return (
     <Svg
       width={size}

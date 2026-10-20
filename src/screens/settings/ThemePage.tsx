@@ -43,7 +43,10 @@ function TintControl({
       <View style={styles.tintHeader}>
         <Text style={settingsStyles.rowLabel}>Background Tint</Text>
         <View
-          style={[styles.resolvedBackgroundPreview, { backgroundColor: resolvedBackground, borderColor: appearance.border }]}
+          style={[
+            styles.resolvedBackgroundPreview,
+            { backgroundColor: resolvedBackground, borderColor: appearance.border },
+          ]}
         />
       </View>
       <View style={styles.tintSwatches}>
@@ -52,7 +55,7 @@ function TintControl({
           return (
             <Pressable
               key={option.value}
-              accessibilityRole='radio'
+              accessibilityRole="radio"
               accessibilityLabel={`${option.label} background tint`}
               accessibilityState={{ selected }}
               hitSlop={3}
@@ -67,13 +70,13 @@ function TintControl({
         })}
       </View>
       <TextInput
-        accessibilityLabel='Background tint hex color'
-        autoCapitalize='characters'
+        accessibilityLabel="Background tint hex color"
+        autoCapitalize="characters"
         autoCorrect={false}
         maxLength={7}
-        placeholder='#808080'
+        placeholder="#808080"
         placeholderTextColor={appearance.muted}
-        returnKeyType='done'
+        returnKeyType="done"
         spellCheck={false}
         style={[settingsStyles.input, styles.tintInput]}
         value={draft}
@@ -98,7 +101,7 @@ export default function ThemePage() {
   return (
     <SettingsScreenLayout>
       <SettingsSlider
-        label='Background Contrast'
+        label="Background Contrast"
         maximumValue={SIDEBAR_BACKGROUND_CONTRAST_MAX}
         minimumValue={SIDEBAR_BACKGROUND_CONTRAST_MIN}
         step={1}

@@ -27,13 +27,7 @@ export type KeyPageItem =
       description: string;
     };
 
-function pressKey(
-  id: string,
-  label: string,
-  key: TerminalKey,
-  description: string,
-  mods?: KeyModifiers,
-): KeyPageItem {
+function pressKey(id: string, label: string, key: TerminalKey, description: string, mods?: KeyModifiers): KeyPageItem {
   return { id, kind: 'key', label, key, mods, description };
 }
 
@@ -71,10 +65,7 @@ function isConfigurableAgentId(agentId: string): agentId is ConfigurableAgentId 
 }
 
 /** Agent hotkey rows for the resolved agent id, or null (no AGENT page). */
-export function agentKeyPage(
-  agentId: string,
-  profiles: AgentHotkeyProfiles,
-): KeyPageItem[][] | null {
+export function agentKeyPage(agentId: string, profiles: AgentHotkeyProfiles): KeyPageItem[][] | null {
   if (!isConfigurableAgentId(agentId)) return null;
   const hotkeys = profiles[agentId];
   if (hotkeys.length === 0) return null;
@@ -86,7 +77,5 @@ export function agentKeyPage(
     description: `${formatAgentHotkeySteps(hotkey.steps)} · ${hotkey.label}`,
   }));
   const firstRowLength = Math.ceil(items.length / 2);
-  return [items.slice(0, firstRowLength), items.slice(firstRowLength)].filter(
-    (row) => row.length > 0,
-  );
+  return [items.slice(0, firstRowLength), items.slice(firstRowLength)].filter((row) => row.length > 0);
 }

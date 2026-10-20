@@ -84,12 +84,7 @@ export type TerminalTabsBarProps = {
   onClose: (sessionKey: string) => void;
 };
 
-export default function TerminalTabsBar({
-  tabs,
-  selectedSessionKey,
-  onSelect,
-  onClose,
-}: TerminalTabsBarProps) {
+export default function TerminalTabsBar({ tabs, selectedSessionKey, onSelect, onClose }: TerminalTabsBarProps) {
   const [trackWidth, setTrackWidth] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
   const tabLayouts = useRef(new Map<string, { x: number; width: number }>());
@@ -106,10 +101,7 @@ export default function TerminalTabsBar({
       const layout = tabLayouts.current.get(selectedSessionKey);
       if (layout === undefined) return;
       const maxOffset = Math.max(0, contentWidth.current - trackWidth);
-      const target = Math.min(
-        maxOffset,
-        Math.max(0, layout.x + layout.width / 2 - trackWidth / 2),
-      );
+      const target = Math.min(maxOffset, Math.max(0, layout.x + layout.width / 2 - trackWidth / 2));
       scrollRef.current?.scrollTo({ x: target, animated });
     },
     [selectedSessionKey, trackWidth],
@@ -145,10 +137,7 @@ export default function TerminalTabsBar({
 
   return (
     <View style={styles.container}>
-      <View
-        style={styles.track}
-        onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}
-      >
+      <View style={styles.track} onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}>
         {equalWidth ? (
           <View style={styles.equalRow}>{tabs.map(renderTab)}</View>
         ) : (

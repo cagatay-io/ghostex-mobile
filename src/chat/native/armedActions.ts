@@ -37,7 +37,8 @@ export function armedActions(session: GhostexSession | null, nowMs: number): Arm
 /** The armed items for one session, ticking once a second while a Delayed Send counts down. */
 export function useArmedActions(machineId: string, sessionId: string): ArmedAction[] {
   const session = useInventoryStore(
-    (state) => state.inventoriesByMachineId[machineId]?.summary?.sessions.find((entry) => entry.sessionId === sessionId) ?? null
+    (state) =>
+      state.inventoriesByMachineId[machineId]?.summary?.sessions.find((entry) => entry.sessionId === sessionId) ?? null,
   );
   const nowMs = useNowTick(session !== null && session.delayedSendDeadlineAt.length > 0);
   return useMemo(() => armedActions(session, nowMs), [nowMs, session]);

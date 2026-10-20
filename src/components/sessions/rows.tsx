@@ -28,13 +28,7 @@ import type { SectionStatusCounts } from '../../contract/grouping';
 import { decodeBase64Utf8 } from '../../docs/remoteFiles';
 import { GhostexPalette, mixHexColors, SidebarPalette } from '../../theme/palette';
 import type { MenuAnchor } from './ContextMenu';
-import {
-  CaretRightGlyph,
-  ChevronDownGlyph,
-  ChevronRightGlyph,
-  MoreGlyph,
-  TerminalGlyph,
-} from './icons';
+import { CaretRightGlyph, ChevronDownGlyph, ChevronRightGlyph, MoreGlyph, TerminalGlyph } from './icons';
 
 /** Sessions page base surface (the resolved sidebar appearance paints over it). */
 export const SIDEBAR_BACKGROUND = '#0B0B0B';
@@ -99,21 +93,10 @@ export function collectionHeaderTint(color: string, sidebarBackground: string): 
  * The leading column that carries one project's branch. `trailingGap` keeps the
  * line from touching the project icon, matching the desktop's 4px stop-short.
  */
-export function ProjectBranch({
-  color,
-  width,
-}: {
-  color: string;
-  width: number;
-}) {
+export function ProjectBranch({ color, width }: { color: string; width: number }) {
   return (
     <View style={{ width }}>
-      <View
-        style={[
-          branchStyles.line,
-          { backgroundColor: color, right: ds(4), top: PROJECT_HEADER_CENTER - ds(1) },
-        ]}
-      />
+      <View style={[branchStyles.line, { backgroundColor: color, right: ds(4), top: PROJECT_HEADER_CENTER - ds(1) }]} />
     </View>
   );
 }
@@ -151,13 +134,7 @@ function svgXmlFromDataUrl(uri: string): string | null {
 /** Default glyph tint: the same muted header color the desktop glyph uses. */
 const PROJECT_GLYPH_COLOR = mixHexColors(SidebarPalette.FOREGROUND, SidebarPalette.MUTED, 72);
 
-export function ProjectIcon({
-  icon,
-  size = ds(16),
-}: {
-  icon: GhostexProjectIcon;
-  size?: number;
-}) {
+export function ProjectIcon({ icon, size = ds(16) }: { icon: GhostexProjectIcon; size?: number }) {
   const imageUri =
     icon.imageDataUrl.length > 0
       ? icon.imageDataUrl
@@ -170,12 +147,7 @@ export function ProjectIcon({
     if (svgXml !== null) {
       return (
         <View style={{ width: size, height: size, borderRadius: ds(3), overflow: 'hidden' }}>
-          <SvgXml
-            xml={svgXml}
-            width={size}
-            height={size}
-            onError={() => setFailedUri(imageUri)}
-          />
+          <SvgXml xml={svgXml} width={size} height={size} onError={() => setFailedUri(imageUri)} />
         </View>
       );
     }
@@ -202,11 +174,7 @@ const TITLE_COLOR = mixHexColors(SidebarPalette.FOREGROUND, '#FFFFFF', 92);
 const SECTION_LABEL_COLOR = 'rgba(200,205,213,0.52)';
 
 /** Agent-launcher glyph base color: mix(fg 62%, muted 38%). */
-const AGENT_LAUNCHER_ICON_COLOR = mixHexColors(
-  SidebarPalette.FOREGROUND,
-  SidebarPalette.MUTED,
-  62,
-);
+const AGENT_LAUNCHER_ICON_COLOR = mixHexColors(SidebarPalette.FOREGROUND, SidebarPalette.MUTED, 62);
 
 // ---------------------------------------------------------------------------
 // Collapsed header status, drawn as the desktop sidebar draws it
@@ -247,9 +215,7 @@ export function ProjectStatusCounts({
   if (workingCount === 0 && attentionCount === 0 && awakeCount === 0) return null;
   return (
     <View style={statusStyles.projectCluster}>
-      {workingCount > 0 ? (
-        <ProjectStatusBadge count={workingCount} dotColor={SidebarPalette.ROW_WORKING} />
-      ) : null}
+      {workingCount > 0 ? <ProjectStatusBadge count={workingCount} dotColor={SidebarPalette.ROW_WORKING} /> : null}
       {attentionCount > 0 ? (
         <ProjectStatusBadge count={attentionCount} dotColor={SidebarPalette.ROW_ATTENTION} />
       ) : null}
@@ -264,12 +230,7 @@ export function ProjectStatusCounts({
 }
 
 /** apps/desktop/src/app/native_sidebar/collections.rs: a collapsed collection's colored numbers. */
-function CollectionStatusCounts({
-  workingCount,
-  attentionCount,
-  backgroundWorkCount,
-  awakeCount,
-}: HeaderStatusCounts) {
+function CollectionStatusCounts({ workingCount, attentionCount, backgroundWorkCount, awakeCount }: HeaderStatusCounts) {
   const counts: { key: string; count: number; color: string }[] = [];
   if (workingCount > 0) counts.push({ key: 'working', count: workingCount, color: SidebarPalette.ROW_WORKING });
   if (attentionCount > 0) {
@@ -367,10 +328,7 @@ const statusStyles = StyleSheet.create({
 // card fill and 14dp icon. The agent split-button is a 24+17 joined pair.
 // ---------------------------------------------------------------------------
 
-function measurePress(
-  ref: RefObject<View | null>,
-  onAnchor: (anchor: MenuAnchor) => void,
-): void {
+function measurePress(ref: RefObject<View | null>, onAnchor: (anchor: MenuAnchor) => void): void {
   const node = ref.current;
   if (node === null) return;
   node.measureInWindow((x, y, width, height) => onAnchor({ x, y, width, height }));
@@ -429,10 +387,7 @@ function AgentSplitButton({
           primaryAgent !== null ? `Create ${primaryAgent.name ?? primaryAgent.agentId}` : 'Create agent'
         }
         hitSlop={{ top: 5, bottom: 5, left: 5, right: 0 }}
-        style={({ pressed }) => [
-          buttonStyles.splitMain,
-          pressed ? buttonStyles.buttonPressed : null,
-        ]}
+        style={({ pressed }) => [buttonStyles.splitMain, pressed ? buttonStyles.buttonPressed : null]}
         onPress={onLaunchPrimary}
       >
         <Icon size={ds(14)} color={AGENT_LAUNCHER_ICON_COLOR} />
@@ -441,10 +396,7 @@ function AgentSplitButton({
         accessibilityRole="button"
         accessibilityLabel="Select agent"
         hitSlop={{ top: 5, bottom: 5, left: 0, right: 5 }}
-        style={({ pressed }) => [
-          buttonStyles.splitToggle,
-          pressed ? buttonStyles.buttonPressed : null,
-        ]}
+        style={({ pressed }) => [buttonStyles.splitToggle, pressed ? buttonStyles.buttonPressed : null]}
         onPress={() => measurePress(ref, onOpenMenu)}
       >
         <ChevronDownGlyph size={ds(13)} color={SidebarPalette.HEADER_BUTTON_ICON} />
@@ -617,17 +569,13 @@ export function SectionLabelRow({
     <View ref={rowRef} style={[sectionStyles.row, first ? sectionStyles.rowFirst : null]}>
       <Pressable
         accessibilityRole={onToggle === undefined ? 'header' : 'button'}
-        accessibilityLabel={
-          onToggle === undefined ? title : `${collapsed ? 'Expand' : 'Collapse'} ${title}`
-        }
+        accessibilityLabel={onToggle === undefined ? title : `${collapsed ? 'Expand' : 'Collapse'} ${title}`}
         style={sectionStyles.heading}
         onPress={onToggle}
         onLongPress={onMenu === undefined ? undefined : () => measurePress(rowRef, onMenu)}
       >
         <Text style={sectionStyles.title}>{title}</Text>
-        {onToggle !== undefined ? (
-          <CaretRightGlyph size={ds(13)} color="#727982" rotated={!collapsed} />
-        ) : null}
+        {onToggle !== undefined ? <CaretRightGlyph size={ds(13)} color="#727982" rotated={!collapsed} /> : null}
       </Pressable>
       <View style={sectionStyles.trailing}>
         {collapsed ? (
@@ -724,10 +672,7 @@ export function CollectionHeaderRow({
       ref={rowRef}
       accessibilityRole="button"
       accessibilityLabel={`${collapsed ? 'Expand' : 'Collapse'} ${title}`}
-      style={({ pressed }) => [
-        collectionStyles.header,
-        pressed ? collectionStyles.headerPressed : null,
-      ]}
+      style={({ pressed }) => [collectionStyles.header, pressed ? collectionStyles.headerPressed : null]}
       onPress={onPress}
       onLongPress={() => measurePress(rowRef, onMenu)}
     >
@@ -823,10 +768,7 @@ export function ProjectHeaderRow({
     <Pressable
       ref={rowRef}
       accessibilityRole="button"
-      style={({ pressed }) => [
-        projectHeaderStyles.row,
-        pressed ? projectHeaderStyles.rowPressed : null,
-      ]}
+      style={({ pressed }) => [projectHeaderStyles.row, pressed ? projectHeaderStyles.rowPressed : null]}
       onPress={onToggle}
       onLongPress={() => measurePress(rowRef, onMenu)}
     >
@@ -981,10 +923,7 @@ export function GroupHeaderRow({
     <Pressable
       ref={rowRef}
       accessibilityRole="button"
-      style={({ pressed }) => [
-        groupHeaderStyles.row,
-        pressed ? groupHeaderStyles.rowPressed : null,
-      ]}
+      style={({ pressed }) => [groupHeaderStyles.row, pressed ? groupHeaderStyles.rowPressed : null]}
       onPress={onPress}
       onLongPress={() => measurePress(rowRef, onMenu)}
     >
@@ -1070,10 +1009,7 @@ export function SessionKindLabelRow({
         accessibilityState={{ expanded: !collapsed }}
         accessibilityLabel={`${collapsed ? 'Expand' : 'Collapse'} ${label}`}
         hitSlop={{ top: ds(4), bottom: ds(4), left: ds(6), right: ds(10) }}
-        style={({ pressed }) => [
-          kindLabelStyles.button,
-          pressed ? kindLabelStyles.buttonPressed : null,
-        ]}
+        style={({ pressed }) => [kindLabelStyles.button, pressed ? kindLabelStyles.buttonPressed : null]}
         onPress={onPress}
         onLongPress={onMenu}
       >

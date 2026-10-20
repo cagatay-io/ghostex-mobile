@@ -6,7 +6,16 @@
  */
 
 import { memo, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 
 import { openChatImageViewer } from '../cards';
 import { fileNameOf, imageFailureCopy } from '../cards/ImageUnavailable';
@@ -58,11 +67,11 @@ function Thumbnail({ image }: { image: ChatImageSource }) {
   const { theme } = useTranscriptEnv();
   const display = useImageDisplay(image);
   const frame = [styles.thumbnail, { borderColor: theme.border, backgroundColor: theme.input }];
-  if (display.state === 'ready') return <Image source={{ uri: display.uri }} style={frame} resizeMode='cover' />;
+  if (display.state === 'ready') return <Image source={{ uri: display.uri }} style={frame} resizeMode="cover" />;
   if (display.state === 'loading')
     return (
       <View style={[frame, styles.centered]}>
-        <ActivityIndicator size='small' color={theme.muted} />
+        <ActivityIndicator size="small" color={theme.muted} />
       </View>
     );
   return null;
@@ -79,22 +88,24 @@ export const InlineImage = memo(function InlineImage({ image }: { image: ChatIma
     // card can say why the picture is not there (desktop `inline_image`).
     const named = label.length > 0 ? fileNameOf(label) : 'Image';
     return (
-      <Pressable {...fileMenuProps(image)}
+      <Pressable
+        {...fileMenuProps(image)}
         style={[styles.inlineMissing, { borderColor: theme.border }]}
         onPress={() => openChatImageViewer([image], 0)}
-        accessibilityRole='button'
+        accessibilityRole="button"
         accessibilityLabel={`${imageFailureCopy({ reason: display.reason, error: '' }).title}: ${named}`}
       >
-        <Glyph name='photo-off' size={13} color={theme.muted} />
+        <Glyph name="photo-off" size={13} color={theme.muted} />
         <Text style={[styles.inlineMissingLabel, { color: theme.muted }]}>{named}</Text>
       </Pressable>
     );
   }
   return (
-    <Pressable {...fileMenuProps(image)}
+    <Pressable
+      {...fileMenuProps(image)}
       style={styles.inline}
       onPress={() => openChatImageViewer([image], 0)}
-      accessibilityRole='imagebutton'
+      accessibilityRole="imagebutton"
       accessibilityLabel={`View ${alt.length > 0 ? alt : label}`}
     >
       <Thumbnail image={image} />
@@ -125,13 +136,32 @@ export const PictureStrip = memo(function PictureStrip({ images }: { images: Cha
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={!single} contentContainerStyle={styles.strip}>
       {images.map((image, index) => (
-        <StripTile key={index} image={image} index={index} height={height} maxWidth={maxWidth} onOpen={() => openChatImageViewer(images, index)} />
+        <StripTile
+          key={index}
+          image={image}
+          index={index}
+          height={height}
+          maxWidth={maxWidth}
+          onOpen={() => openChatImageViewer(images, index)}
+        />
       ))}
     </ScrollView>
   );
 });
 
-function StripTile({ image, index, height, maxWidth, onOpen }: { image: ChatImageSource; index: number; height: number; maxWidth: number; onOpen(): void }) {
+function StripTile({
+  image,
+  index,
+  height,
+  maxWidth,
+  onOpen,
+}: {
+  image: ChatImageSource;
+  index: number;
+  height: number;
+  maxWidth: number;
+  onOpen(): void;
+}) {
   const { theme } = useTranscriptEnv();
   const display = useImageDisplay(image);
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
@@ -140,14 +170,15 @@ function StripTile({ image, index, height, maxWidth, onOpen }: { image: ChatImag
   const named = label.length > 0 ? fileNameOf(label) : `Image #${index + 1}`;
   if (display.state === 'unavailable') {
     return (
-      <Pressable {...fileMenuProps(image)}
+      <Pressable
+        {...fileMenuProps(image)}
         onPress={onOpen}
-        accessibilityRole='button'
+        accessibilityRole="button"
         accessibilityLabel={`${imageFailureCopy({ reason: display.reason, error: '' }).title}: ${named}`}
         style={[styles.card, { borderColor: theme.border, backgroundColor: theme.cardBackground }]}
       >
         <View style={[styles.cardWell, { backgroundColor: theme.input }]}>
-          <Glyph name='photo-off' size={14} color={theme.muted} />
+          <Glyph name="photo-off" size={14} color={theme.muted} />
         </View>
         <Text numberOfLines={1} style={[styles.cardLabel, { color: theme.foreground }]}>
           {named}
@@ -161,27 +192,42 @@ function StripTile({ image, index, height, maxWidth, onOpen }: { image: ChatImag
   const width = Math.min(height * aspect, maxWidth);
   const frameHeight = width / aspect;
   return (
-    <Pressable {...fileMenuProps(image)} onPress={onOpen} accessibilityRole='imagebutton' accessibilityLabel={`View ${alt.length > 0 ? alt : named}`} style={[styles.stripTile, { width: Math.max(width, VISUAL.captionMinWidth) }]}>
-      <View style={[styles.stripFrame, { width, height: frameHeight, borderColor: theme.border }, display.state === 'loading' && styles.stripLoading]}>
+    <Pressable
+      {...fileMenuProps(image)}
+      onPress={onOpen}
+      accessibilityRole="imagebutton"
+      accessibilityLabel={`View ${alt.length > 0 ? alt : named}`}
+      style={[styles.stripTile, { width: Math.max(width, VISUAL.captionMinWidth) }]}
+    >
+      <View
+        style={[
+          styles.stripFrame,
+          { width, height: frameHeight, borderColor: theme.border },
+          display.state === 'loading' && styles.stripLoading,
+        ]}
+      >
         {display.state === 'ready' ? (
           <Image
             source={{ uri: display.uri }}
             style={styles.stripPicture}
-            resizeMode='contain'
+            resizeMode="contain"
             onLoad={(event) => {
               const source = event.nativeEvent.source;
-              if (source !== undefined && (source.width !== size?.width || source.height !== size?.height)) setSize({ width: source.width, height: source.height });
+              if (source !== undefined && (source.width !== size?.width || source.height !== size?.height))
+                setSize({ width: source.width, height: source.height });
             }}
           />
         ) : (
-          <ActivityIndicator size='small' color={theme.muted} />
+          <ActivityIndicator size="small" color={theme.muted} />
         )}
       </View>
       <View style={styles.caption}>
         <Text numberOfLines={1} style={[styles.captionName, { color: theme.cardMuted }]}>
           {named}
         </Text>
-        {size !== null ? <Text style={[styles.captionMeta, { color: theme.muted }]}>{`${size.width}×${size.height}`}</Text> : null}
+        {size !== null ? (
+          <Text style={[styles.captionMeta, { color: theme.muted }]}>{`${size.width}×${size.height}`}</Text>
+        ) : null}
       </View>
     </Pressable>
   );
@@ -197,13 +243,32 @@ export const ImageRow = memo(function ImageRow({ images, user }: { images: unkno
   return (
     <View style={[styles.row, { gap: user ? VISUAL.userRowGap : VISUAL.assistantRowGap }, user && styles.rowEnd]}>
       {list.map((image, index) => (
-        <ImageTile key={index} image={image} index={index} user={user} onOpen={() => openChatImageViewer(list, index)} themeMuted={theme.muted} />
+        <ImageTile
+          key={index}
+          image={image}
+          index={index}
+          user={user}
+          onOpen={() => openChatImageViewer(list, index)}
+          themeMuted={theme.muted}
+        />
       ))}
     </View>
   );
 });
 
-function ImageTile({ image, index, user, onOpen, themeMuted }: { image: ChatImageSource; index: number; user: boolean; onOpen(): void; themeMuted: string }) {
+function ImageTile({
+  image,
+  index,
+  user,
+  onOpen,
+  themeMuted,
+}: {
+  image: ChatImageSource;
+  index: number;
+  user: boolean;
+  onOpen(): void;
+  themeMuted: string;
+}) {
   const { theme } = useTranscriptEnv();
   const display = useImageDisplay(image);
   const label = str(image, 'label');
@@ -215,21 +280,22 @@ function ImageTile({ image, index, user, onOpen, themeMuted }: { image: ChatImag
     const spoken = `${imageFailureCopy({ reason: display.reason, error: '' }).title}: ${named}`;
     if (user)
       return (
-        <Pressable {...fileMenuProps(image)} onPress={onOpen} accessibilityRole='button' accessibilityLabel={spoken}>
+        <Pressable {...fileMenuProps(image)} onPress={onOpen} accessibilityRole="button" accessibilityLabel={spoken}>
           <View style={[styles.thumbnail, styles.centered, styles.missing, { borderColor: theme.border }]}>
-            <Glyph name='photo-off' size={18} color={themeMuted} />
+            <Glyph name="photo-off" size={18} color={themeMuted} />
           </View>
         </Pressable>
       );
     return (
-      <Pressable {...fileMenuProps(image)}
+      <Pressable
+        {...fileMenuProps(image)}
         onPress={onOpen}
-        accessibilityRole='button'
+        accessibilityRole="button"
         accessibilityLabel={spoken}
         style={[styles.card, { borderColor: theme.border, backgroundColor: theme.cardBackground }]}
       >
         <View style={[styles.cardWell, { backgroundColor: theme.input }]}>
-          <Glyph name='photo-off' size={14} color={themeMuted} />
+          <Glyph name="photo-off" size={14} color={themeMuted} />
         </View>
         <Text numberOfLines={1} style={[styles.cardLabel, { color: theme.foreground }]}>
           {named}
@@ -238,7 +304,12 @@ function ImageTile({ image, index, user, onOpen, themeMuted }: { image: ChatImag
     );
   }
   return (
-    <Pressable {...fileMenuProps(image)} onPress={onOpen} accessibilityRole='imagebutton' accessibilityLabel={`View ${alt.length > 0 ? alt : label}`}>
+    <Pressable
+      {...fileMenuProps(image)}
+      onPress={onOpen}
+      accessibilityRole="imagebutton"
+      accessibilityLabel={`View ${alt.length > 0 ? alt : label}`}
+    >
       <Thumbnail image={image} />
     </Pressable>
   );
@@ -278,7 +349,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   cardWell: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  strip: { flexDirection: 'row', alignItems: 'flex-start', gap: VISUAL.stripGap, paddingBottom: VISUAL.stripPaddingBottom },
+  strip: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: VISUAL.stripGap,
+    paddingBottom: VISUAL.stripPaddingBottom,
+  },
   stripTile: { gap: VISUAL.captionGap },
   stripFrame: {
     borderRadius: VISUAL.stripRadius,

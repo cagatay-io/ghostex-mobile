@@ -19,7 +19,7 @@ export function cancelConnectionAttempt(machineId: string): void {
  */
 export function ensureConnected(
   machine: MachineConnectionTarget,
-  options: { verify?: boolean; reset?: boolean } = {}
+  options: { verify?: boolean; reset?: boolean } = {},
 ): Promise<void> {
   const existing = attempts.get(machine.id);
   if (existing && (!options.reset || existing.reset)) {

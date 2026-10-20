@@ -9,10 +9,7 @@
  */
 
 import { runGhostexCli, type CliJsonResult } from '../components/sessions/cli';
-import {
-  optimisticChangeResourceKey,
-  type OptimisticInventoryChange,
-} from '../inventory/optimistic';
+import { optimisticChangeResourceKey, type OptimisticInventoryChange } from '../inventory/optimistic';
 import { useInventoryStore } from '../inventory/store';
 import type { MachineRecord } from '../machines/store';
 import { useTerminalStore } from '../terminal/sessions';
@@ -104,10 +101,7 @@ export function tagMutation(sessionId: string, tag: string): OptimisticInventory
  * presentation, so the optimistic row has to carry the trimmed text or the
  * confirmation would never match the server's own answer.
  */
-export function sessionNoteMutation(
-  sessionId: string,
-  note: string,
-): OptimisticInventoryChange {
+export function sessionNoteMutation(sessionId: string, note: string): OptimisticInventoryChange {
   const sessionNote = note.trim();
   return {
     kind: 'sessionPatch',
@@ -142,10 +136,7 @@ export function renameMutation(sessionId: string, title: string): OptimisticInve
   };
 }
 
-export function lifecycleMutation(
-  sessionId: string,
-  sleeping: boolean,
-): OptimisticInventoryChange {
+export function lifecycleMutation(sessionId: string, sleeping: boolean): OptimisticInventoryChange {
   return sleeping
     ? {
         kind: 'sessionPatch',
@@ -205,9 +196,7 @@ export async function runSessionCommand(
   try {
     const run = async (): Promise<void> => {
       if (options?.closeWarmSessionId !== undefined) {
-        await useTerminalStore
-          .getState()
-          .closeWarmSessionFor(target.id, options.closeWarmSessionId);
+        await useTerminalStore.getState().closeWarmSessionFor(target.id, options.closeWarmSessionId);
       }
       result = await runGhostexCli(target, command);
       if (mutationIds.length > 0) {
@@ -217,11 +206,7 @@ export async function runSessionCommand(
     if (options?.optimisticChange === undefined) {
       await run();
     } else {
-      await enqueueRemoteMutation(
-        target.id,
-        optimisticChangeResourceKey(options.optimisticChange),
-        run,
-      );
+      await enqueueRemoteMutation(target.id, optimisticChangeResourceKey(options.optimisticChange), run);
     }
     await useInventoryStore.getState().refreshMachineFresh(target);
     return result;

@@ -198,9 +198,7 @@ function machineBlocks(
       expandedCollectionIds: new Set(collapse.expandedCollectionsByMachine[machine.id] ?? []),
       expandedGroupKeys: new Set(collapse.expandedGroupsByMachine[machine.id] ?? []),
       collapsedSectionKeys: new Set(collapse.collapsedSectionsByMachine[machine.id] ?? []),
-      collapsedSessionKindKeys: new Set(
-        collapse.collapsedSessionKindsByMachine[machine.id] ?? [],
-      ),
+      collapsedSessionKindKeys: new Set(collapse.collapsedSessionKindsByMachine[machine.id] ?? []),
       expandedParkedSessionKeys: new Set(collapse.expandedParkedSessionKeysByMachine?.[machine.id] ?? []),
       collapsedCoordinatorKeys: new Set(collapse.collapsedCoordinatorsByMachine?.[machine.id] ?? []),
       expandedCoordinatorOlderKeys: new Set(collapse.expandedCoordinatorOlderByMachine?.[machine.id] ?? []),
@@ -210,12 +208,7 @@ function machineBlocks(
     return [
       rowBlock(
         machine.id,
-        stateCardItem(
-          'empty',
-          StateCardCopy.empty.title,
-          StateCardCopy.empty.body,
-          StateCardCopy.empty.actionHint,
-        ),
+        stateCardItem('empty', StateCardCopy.empty.title, StateCardCopy.empty.body, StateCardCopy.empty.actionHint),
       ),
     ];
   }
@@ -223,8 +216,7 @@ function machineBlocks(
 }
 
 export function buildDrawerList(input: DrawerListInput): DrawerBlock[] {
-  const { machines, selectedMachineId, inventoriesByMachineId, selectedSpaceId, selectedWorkspaceId, collapse } =
-    input;
+  const { machines, selectedMachineId, inventoriesByMachineId, selectedSpaceId, selectedWorkspaceId, collapse } = input;
   if (machines.length === 0) {
     return [
       rowBlock(
@@ -238,8 +230,7 @@ export function buildDrawerList(input: DrawerListInput): DrawerBlock[] {
       ),
     ];
   }
-  const machine =
-    machines.find((entry) => entry.id === selectedMachineId) ?? machines[0];
+  const machine = machines.find((entry) => entry.id === selectedMachineId) ?? machines[0];
   return machineBlocks(
     machine,
     inventoriesByMachineId[machine.id],
@@ -251,10 +242,7 @@ export function buildDrawerList(input: DrawerListInput): DrawerBlock[] {
 }
 
 /** Status line per sessions-drawer.md §5 for the selected machine. */
-export function drawerStatusLine(
-  machine: MachineRecord | null,
-  inventory: MachineInventory | undefined,
-): string {
+export function drawerStatusLine(machine: MachineRecord | null, inventory: MachineInventory | undefined): string {
   if (machine === null) return StateCardCopy.noMachines.status;
   const label = machineDisplayLabel(machine);
   if (inventory === undefined || (!inventory.hasLoaded && inventory.summary === null)) {

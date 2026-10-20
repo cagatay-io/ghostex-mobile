@@ -17,7 +17,13 @@ import { ChatButton, StatusCard } from './primitives';
 import { TranscriptEnvProvider, type TranscriptEnv } from '../transcript/context';
 import { Markdown } from '../transcript/markdown/Markdown';
 
-export function CatchUpCard({ catchUp, dispatch }: { catchUp: CatchUpState | undefined; dispatch: (action: UserAction) => void }) {
+export function CatchUpCard({
+  catchUp,
+  dispatch,
+}: {
+  catchUp: CatchUpState | undefined;
+  dispatch: (action: UserAction) => void;
+}) {
   const styles = useStyles();
   const P = useTranscriptTheme();
   if (catchUp === undefined || !catchUp.open) return null;
@@ -37,7 +43,12 @@ export function CatchUpCard({ catchUp, dispatch }: { catchUp: CatchUpState | und
           </Text>,
         ]
       : [
-          <Summary key="summary" dispatch={dispatch} markdown={catchUp.markdown} references={catchUp.references as Json} />,
+          <Summary
+            key="summary"
+            dispatch={dispatch}
+            markdown={catchUp.markdown}
+            references={catchUp.references as Json}
+          />,
           catchUp.caption ? (
             <Text key="caption" style={styles.caption}>
               {catchUp.caption}
@@ -45,7 +56,13 @@ export function CatchUpCard({ catchUp, dispatch }: { catchUp: CatchUpState | und
           ) : null,
         ];
   const actions = [
-    <ChatButton key="refresh" label="Refresh" icon="refresh" disabled={catchUp.loading} onPress={() => dispatch({ type: 'catchUpRefresh' })} />,
+    <ChatButton
+      key="refresh"
+      label="Refresh"
+      icon="refresh"
+      disabled={catchUp.loading}
+      onPress={() => dispatch({ type: 'catchUpRefresh' })}
+    />,
     <ChatButton
       key="copy"
       label="Copy"
@@ -62,12 +79,29 @@ export function CatchUpCard({ catchUp, dispatch }: { catchUp: CatchUpState | und
  * The whole catch-up at once (no "Show all" cap: it is short and read in one go); a tall one
  * scrolls inside the card so the transcript stays in view.
  */
-function Summary({ dispatch, markdown, references }: { dispatch: (action: UserAction) => void; markdown: string; references?: Json }) {
+function Summary({
+  dispatch,
+  markdown,
+  references,
+}: {
+  dispatch: (action: UserAction) => void;
+  markdown: string;
+  references?: Json;
+}) {
   const theme = useTranscriptTheme();
   const { height } = useWindowDimensions();
   const env = useMemo<TranscriptEnv>(
-    () => ({ dispatch, theme, verbose: false, simple: false, workOpen: false, filePreviews: false, mutedThinking: false, main: false }),
-    [dispatch, theme]
+    () => ({
+      dispatch,
+      theme,
+      verbose: false,
+      simple: false,
+      workOpen: false,
+      filePreviews: false,
+      mutedThinking: false,
+      main: false,
+    }),
+    [dispatch, theme],
   );
   return (
     <TranscriptEnvProvider value={env}>

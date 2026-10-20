@@ -166,12 +166,7 @@ export type ChatCoreEffect =
  * `renderVisual(source, width, theme, fontFamily)` lays out one ```visual block and answers its SVG.
  */
 export type ChatCoreQuery =
-  | 'composerReferences'
-  | 'composerKeyIntent'
-  | 'referenceMenu'
-  | 'transcriptMenu'
-  | 'sendBlockedToast'
-  | 'renderVisual';
+  'composerReferences' | 'composerKeyIntent' | 'referenceMenu' | 'transcriptMenu' | 'sendBlockedToast' | 'renderVisual';
 
 // ---------------------------------------------------------------------------------------------
 // The handle
@@ -299,8 +294,7 @@ export function createChatCore(): ChatCoreHandle {
     handle: (eventJson, contextJson) => checked(module.handle(live(), eventJson, contextJson)),
     // -1 crosses as "no revision held": the native side maps it to a revision the core never
     // reaches, so the snapshot always ships.
-    frame: (lastRevision, nowMs) =>
-      checked(module.frameAt(live(), lastRevision ?? -1, nowMs ?? Date.now())),
+    frame: (lastRevision, nowMs) => checked(module.frameAt(live(), lastRevision ?? -1, nowMs ?? Date.now())),
     nextWakeMs: () => module.nextWakeMs(live()),
     revision: () => module.revision(live()),
     forgetSent: () => {

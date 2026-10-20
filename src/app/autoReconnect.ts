@@ -69,7 +69,7 @@ function scheduleReconnect(machineId: string): void {
     setTimeout(() => {
       retryTimers.delete(machineId);
       void recoverMachine(machineId, true);
-    }, delay)
+    }, delay),
   );
 }
 

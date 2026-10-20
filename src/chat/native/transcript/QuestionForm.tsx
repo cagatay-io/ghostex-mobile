@@ -60,10 +60,14 @@ function QuestionFormCard({ id, source }: { id: string; source: string }) {
   const questions = arr(form.questions);
   // The form's state is a pill on the right, as "Answered" is once it folds (desktop question_form.rs).
   const detail =
-    error.length > 0 ? 'These questions could not be shown' : questions.length === 1 ? '1 question' : `${questions.length} questions`;
+    error.length > 0
+      ? 'These questions could not be shown'
+      : questions.length === 1
+        ? '1 question'
+        : `${questions.length} questions`;
   const state =
     error.length > 0 ? (
-      <SingleLinePill label='Not shown' color={theme.error} />
+      <SingleLinePill label="Not shown" color={theme.error} />
     ) : (
       <SingleLinePill
         {...(phase === 'sending' ? {} : { icon: 'clock' as const })}
@@ -122,7 +126,7 @@ function QuestionFormCard({ id, source }: { id: string; source: string }) {
   }
   const head = (
     <AskHead
-      lead={<SingleLineTile glyph='checklist' ring={theme.cardPanel} />}
+      lead={<SingleLineTile glyph="checklist" ring={theme.cardPanel} />}
       title={str(form, 'title') || 'Questions'}
       detail={detail}
       trailing={state}
@@ -135,7 +139,9 @@ function QuestionFormCard({ id, source }: { id: string; source: string }) {
           <Text style={{ color: theme.error }}>These questions could not be shown: {error}</Text>
           {form.resent === true ? (
             // Desktop question_form.rs RESENT_NOTE: gxserver asked the agent to send them again.
-            <Text style={[styles.detail, { color: theme.cardMuted }]}>Ghostex asked the agent to send these questions again.</Text>
+            <Text style={[styles.detail, { color: theme.cardMuted }]}>
+              Ghostex asked the agent to send these questions again.
+            </Text>
           ) : null}
           <Text style={[styles.source, { color: theme.cardMuted }]}>{source}</Text>
         </View>
@@ -150,14 +156,16 @@ function QuestionFormCard({ id, source }: { id: string; source: string }) {
       : phase === 'queued'
         ? "Queued: it goes to the agent once it's ready."
         : phase === 'sending'
-        ? 'Sending…'
-        : sendError.length > 0
-          ? sendError
-          : 'Questions you leave blank are sent as skipped.';
+          ? 'Sending…'
+          : sendError.length > 0
+            ? sendError
+            : 'Questions you leave blank are sent as skipped.';
   const sendLabel = phase === 'answered' ? 'Sent' : phase === 'queued' ? 'Queued' : str(form, 'submit');
   const footer = (
     <>
-      <Text style={[styles.status, { color: enabled && sendError.length > 0 ? theme.error : theme.muted }]}>{status}</Text>
+      <Text style={[styles.status, { color: enabled && sendError.length > 0 ? theme.error : theme.muted }]}>
+        {status}
+      </Text>
       {enabled ? (
         // Skip all sends at once, every question not yet answered skipped (the core's `skip_all`; the
         // SessionChat 2026-10-16 DECISION on `SKIPPED` in packages/gx-visual/src/questions.rs).
@@ -197,7 +205,11 @@ function FormNotes({ formId, notes, enabled }: { formId: string; notes: string; 
       onChangeText={setText}
       style={[
         styles.input,
-        { color: theme.foreground, borderColor: theme.inputBorder, backgroundColor: theme.light ? theme.background : theme.cardRow },
+        {
+          color: theme.foreground,
+          borderColor: theme.inputBorder,
+          backgroundColor: theme.light ? theme.background : theme.cardRow,
+        },
       ]}
     />
   );
@@ -231,7 +243,7 @@ function FormQuestion({
   const pick = (choice: number) => dispatch({ type: 'formChoice', form: formId, question: index, choice });
   const report = useCallback(
     (text: string) => dispatch({ type: 'formText', form: formId, question: index, text }),
-    [dispatch, formId, index]
+    [dispatch, formId, index],
   );
   const [text, setText] = useEchoedText(`${formId}:${index}`, written, report);
   const reveal = useRevealFocusedField();
@@ -286,7 +298,11 @@ function FormQuestion({
           onChangeText={setText}
           style={[
             styles.input,
-            { color: theme.foreground, borderColor: theme.inputBorder, backgroundColor: theme.light ? theme.background : theme.cardRow },
+            {
+              color: theme.foreground,
+              borderColor: theme.inputBorder,
+              backgroundColor: theme.light ? theme.background : theme.cardRow,
+            },
             isText && styles.textAnswer,
           ]}
         />
@@ -309,11 +325,29 @@ const styles = StyleSheet.create({
   question: { gap: 8 },
   // The user's pick (desktop question_form.rs): the tag is a filled chip at the right end of the title's first line, the title wrapping beside it.
   questionHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  tag: { flexShrink: 0, marginTop: 2, fontFamily: MONO_FONT, fontSize: 10.5, lineHeight: 18, fontWeight: '500', paddingHorizontal: 7, borderRadius: 999, overflow: 'hidden' },
+  tag: {
+    flexShrink: 0,
+    marginTop: 2,
+    fontFamily: MONO_FONT,
+    fontSize: 10.5,
+    lineHeight: 18,
+    fontWeight: '500',
+    paddingHorizontal: 7,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
   questionTitle: { flex: 1, minWidth: 0, fontSize: 15, lineHeight: 22, fontWeight: '500' },
   detail: { fontSize: 13, lineHeight: 19 },
   hint: { fontSize: 12 },
-  input: { borderWidth: 1, borderRadius: 9, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13.5, minHeight: 38, textAlignVertical: 'top' },
+  input: {
+    borderWidth: 1,
+    borderRadius: 9,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 13.5,
+    minHeight: 38,
+    textAlignVertical: 'top',
+  },
   textAnswer: { minHeight: 70 },
   status: { flex: 1, fontSize: 12.5 },
   source: { fontFamily: MONO_FONT, fontSize: 12 },

@@ -40,14 +40,24 @@ function questionActive(document: ChatDocument | null): boolean {
  * viewer's modal carries its own copy, since a modal presented from under another one does not show
  * on iOS.
  */
-export function TranscriptMenuSheet({ chat, host, enabled = true }: { chat: RustChat; host: TranscriptMenuHost; enabled?: boolean }) {
+export function TranscriptMenuSheet({
+  chat,
+  host,
+  enabled = true,
+}: {
+  chat: RustChat;
+  host: TranscriptMenuHost;
+  enabled?: boolean;
+}) {
   const request = useTranscriptMenuStore((state) => state.request);
   const document = chat.state?.document ?? null;
   const active = questionActive(document);
   const { query } = chat;
   const rows = useMemo<MenuRow[] | null>(() => {
     if (request === null || !enabled) return null;
-    const answer = arr(query('transcriptMenu', [{ href: request.href, selection: request.selection, questionActive: active }]));
+    const answer = arr(
+      query('transcriptMenu', [{ href: request.href, selection: request.selection, questionActive: active }]),
+    );
     const served = answer
       .map((row) => obj(row))
       .filter((row): row is MenuRow => {
@@ -82,7 +92,7 @@ export function TranscriptMenuSheet({ chat, host, enabled = true }: { chat: Rust
       host.perform(command);
       return false;
     },
-    [chat, composerText, host]
+    [chat, composerText, host],
   );
   return <MenuSheet rows={rows} onClose={closeTranscriptMenu} onCommand={onCommand} />;
 }

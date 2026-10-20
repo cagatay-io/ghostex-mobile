@@ -66,8 +66,7 @@ export type RustChatTarget = { machine: MachineConnectionTarget; projectId: stri
 
 /** One image the transcript asked for (`loadImage`), as the viewer and thumbnails read it. */
 export type ChatImageState =
-  | { status: 'loaded'; base64Data: string; mediaType: string }
-  | { status: 'failed'; error: string; reason: string };
+  { status: 'loaded'; base64Data: string; mediaType: string } | { status: 'failed'; error: string; reason: string };
 
 /** Counters for the dev log and the tester. Names only, never chat content. */
 export type RustChatStats = {
@@ -471,7 +470,11 @@ export class RustChatHost {
         return;
       }
       case 'writeStorage':
-        answers.push({ type: 'storageWritten', key: effect.key, error: await this.write(effect.key, effect.value, nowMs) });
+        answers.push({
+          type: 'storageWritten',
+          key: effect.key,
+          error: await this.write(effect.key, effect.value, nowMs),
+        });
         return;
       case 'writeStorageBatch': {
         let error: string | null = null;
@@ -641,17 +644,17 @@ export class RustChatHost {
     }
     this.state.stats.rpcsSent += 1;
     if (method === 'importNativeAttachments') {
-      const paths = Array.isArray(fields.paths) ? fields.paths.filter((path): path is string => typeof path === 'string') : [];
+      const paths = Array.isArray(fields.paths)
+        ? fields.paths.filter((path): path is string => typeof path === 'string')
+        : [];
       void this.uploadLocalFiles(paths.map((uri) => ({ uri })))
         .then((uploaded): RpcAnswer => ({ result: uploaded, error: null }))
-        .catch(
-          (error: unknown): RpcAnswer => ({
-            error: {
-              message: error instanceof Error ? error.message : 'The attachment could not be uploaded.',
-              endpoint: '/api/importNativeAttachments',
-            },
-          })
-        )
+        .catch((error: unknown): RpcAnswer => ({
+          error: {
+            message: error instanceof Error ? error.message : 'The attachment could not be uploaded.',
+            endpoint: '/api/importNativeAttachments',
+          },
+        }))
         .then((answer) => this.settle(requestId, answer));
       return;
     }
@@ -679,7 +682,7 @@ export class RustChatHost {
     this.enqueue(
       answer.error === null
         ? { type: 'rpcSettled', requestId, result: answer.result, error: null }
-        : { type: 'rpcSettled', requestId, error: answer.error }
+        : { type: 'rpcSettled', requestId, error: answer.error },
     );
   }
 
@@ -688,7 +691,7 @@ export class RustChatHost {
     for (const file of files) {
       const name = file.name ?? fileName(file.uri);
       uploaded.push(
-        await uploadSessionChatLocalFile(this.target.machine, file.uri, name, isImagePath(name) ? 'image' : 'file')
+        await uploadSessionChatLocalFile(this.target.machine, file.uri, name, isImagePath(name) ? 'image' : 'file'),
       );
     }
     return uploaded;
@@ -700,7 +703,8 @@ export class RustChatHost {
   private async noteDraftSave(requestId: number, params: Record<string, unknown>): Promise<void> {
     const version = (params.draftVersion ?? params.version) as { draftId?: unknown; revision?: unknown } | undefined;
     if (typeof version?.draftId !== 'string' || typeof version.revision !== 'number') return;
-    const content = typeof params.content === 'string' ? params.content : typeof params.text === 'string' ? params.text : '';
+    const content =
+      typeof params.content === 'string' ? params.content : typeof params.text === 'string' ? params.text : '';
     this.draftSaves.set(requestId, { draftId: version.draftId, revision: version.revision });
     await queueDraftSave(
       {
@@ -710,7 +714,7 @@ export class RustChatHost {
         version: { draftId: version.draftId, revision: version.revision },
         updatedAt: Date.now(),
       },
-      Date.now()
+      Date.now(),
     ).catch(() => {
       this.state.stats.storageRefused += 1;
     });
@@ -811,10 +815,13 @@ export class RustChatHost {
     if (this.timer !== null) clearTimeout(this.timer);
     this.timer = null;
     if (delayMs === null) return;
-    this.timer = setTimeout(() => {
-      this.timer = null;
-      this.enqueue({ type: 'tick' });
-    }, Math.max(1, delayMs));
+    this.timer = setTimeout(
+      () => {
+        this.timer = null;
+        this.enqueue({ type: 'tick' });
+      },
+      Math.max(1, delayMs),
+    );
   }
 
   /** Drains one frame and publishes whatever it changed. */
@@ -840,7 +847,8 @@ export class RustChatHost {
     }
     if (Object.keys(next).length === 0) return;
     if (this.liveReadArrived) markSessionOpen(this.openTraceKey, 'livePaint');
-    else if (this.retainedTranscriptLoaded && (next.items?.length ?? 0) > 0) markSessionOpen(this.openTraceKey, 'cachedPaint');
+    else if (this.retainedTranscriptLoaded && (next.items?.length ?? 0) > 0)
+      markSessionOpen(this.openTraceKey, 'cachedPaint');
     this.state.stats.framesPublished += 1;
     this.update({ ...next, revision: frame.revision });
   }

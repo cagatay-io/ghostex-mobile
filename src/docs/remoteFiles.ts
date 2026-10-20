@@ -13,9 +13,7 @@ import { execRemoteScript } from '../remote/commands';
 import { powershellQuote } from '../remote/powershell';
 
 export type RemoteFileRead =
-  | { status: 'ok'; base64: string; bytes: number }
-  | { status: 'missing' }
-  | { status: 'tooLarge' };
+  { status: 'ok'; base64: string; bytes: number } | { status: 'missing' } | { status: 'tooLarge' };
 
 /** Printed before the answers, so a login shell's banner never reads as one. */
 const ANSWER_MARKER = '__GHOSTEX_DOCS_READ__';
@@ -56,20 +54,20 @@ foreach ($gxPath in @(${paths.map(powershellQuote).join(',')})) {
 export async function readRemoteFiles(
   machine: MachineConnectionTarget,
   paths: readonly string[],
-  maximumBytes: number
+  maximumBytes: number,
 ): Promise<RemoteFileRead[]> {
   if (paths.length === 0) return [];
   await ensureConnected(machine);
   const exec = await execRemoteScript(
     machine.id,
     { posix: posixReadScript(paths, maximumBytes), powershell: powershellReadScript(paths, maximumBytes) },
-    READ_EXEC_TIMEOUT_MS
+    READ_EXEC_TIMEOUT_MS,
   );
   const lines = exec.stdout.split(/\r?\n/u);
   const start = lines.findIndex((line) => line.trim() === ANSWER_MARKER);
   if (start < 0) {
     const detail = exec.stderr.trim() || exec.stdout.trim();
-    throw new Error(detail.length > 0 ? detail.split('\n').slice(-1)[0] ?? detail : 'The computer did not answer.');
+    throw new Error(detail.length > 0 ? (detail.split('\n').slice(-1)[0] ?? detail) : 'The computer did not answer.');
   }
   const answers = lines.slice(start + 1);
   return paths.map((_, index): RemoteFileRead => {

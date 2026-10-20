@@ -27,7 +27,7 @@ export function RunLocationRow({ row, dispatch }: { row: Row; dispatch: (action:
           return (
             <Pressable
               key={option.runLocation}
-              accessibilityRole='button'
+              accessibilityRole="button"
               accessibilityState={{ selected: on, busy: row.busy && on }}
               accessibilityLabel={`Run on ${option.label}`}
               accessibilityHint={option.tooltip ?? undefined}

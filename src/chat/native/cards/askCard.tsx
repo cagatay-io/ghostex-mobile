@@ -13,7 +13,15 @@ import type { ReactNode } from 'react';
 import { Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { Glyph } from './icons';
-import { SINGLE_LINE_CARD, SINGLE_LINE_HEADER_HEIGHT, SINGLE_LINE_TITLE, SingleLineNumberTile, SingleLineTile, singleLinePressed, singleLineShell } from '../transcript/singleLineCard';
+import {
+  SINGLE_LINE_CARD,
+  SINGLE_LINE_HEADER_HEIGHT,
+  SINGLE_LINE_TITLE,
+  SingleLineNumberTile,
+  SingleLineTile,
+  singleLinePressed,
+  singleLineShell,
+} from '../transcript/singleLineCard';
 import { MONO_FONT, themedStyles, useTranscriptTheme, type TranscriptTheme } from '../transcript/theme';
 
 /** Whether an answered exchange got an answer. */
@@ -63,7 +71,9 @@ export function AskCard({
   return (
     <View style={[styles.card, singleLine === true && singleLineShell(P), style]}>
       {head}
-      {hasBody ? <View style={[styles.body, (singleLine === true || lined === true) && styles.singleLineBody]}>{children}</View> : null}
+      {hasBody ? (
+        <View style={[styles.body, (singleLine === true || lined === true) && styles.singleLineBody]}>{children}</View>
+      ) : null}
       {footer !== undefined && footer !== null ? <View style={styles.footer}>{footer}</View> : null}
     </View>
   );
@@ -100,12 +110,25 @@ export function AskHead({
   const styles = useStyles();
   const P = useTranscriptTheme();
   const compact = singleLine === true;
-  const headStyle = compact ? [styles.head, styles.singleLineHead] : lined === true ? [styles.head, styles.linedHead] : styles.head;
+  const headStyle = compact
+    ? [styles.head, styles.singleLineHead]
+    : lined === true
+      ? [styles.head, styles.linedHead]
+      : styles.head;
   const content = (
     <>
-      {singleLine === true ? <SingleLineTile glyph='question' /> : lead}
+      {singleLine === true ? <SingleLineTile glyph="question" /> : lead}
       <View style={styles.titles}>
-        <Text style={compact ? [styles.title, SINGLE_LINE_TITLE] : lined === true ? [styles.title, { fontWeight: SINGLE_LINE_CARD.titleWeight }] : styles.title} numberOfLines={1}>
+        <Text
+          style={
+            compact
+              ? [styles.title, SINGLE_LINE_TITLE]
+              : lined === true
+                ? [styles.title, { fontWeight: SINGLE_LINE_CARD.titleWeight }]
+                : styles.title
+          }
+          numberOfLines={1}
+        >
           {title}
         </Text>
         {detail !== undefined && detail.length > 0 ? (
@@ -115,7 +138,9 @@ export function AskHead({
         ) : null}
       </View>
       {trailing}
-      {chevron !== undefined ? <Glyph name={chevron === 'open' ? 'chevron-up' : 'chevron-down'} size={14} color={P.muted} /> : null}
+      {chevron !== undefined ? (
+        <Glyph name={chevron === 'open' ? 'chevron-up' : 'chevron-down'} size={14} color={P.muted} />
+      ) : null}
     </>
   );
   if (onPress === undefined) return <View style={headStyle}>{content}</View>;
@@ -124,7 +149,10 @@ export function AskHead({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
-      style={({ pressed }) => [headStyle, pressed && (compact ? singleLinePressed(P) : { backgroundColor: P.pressedFill })]}
+      style={({ pressed }) => [
+        headStyle,
+        pressed && (compact ? singleLinePressed(P) : { backgroundColor: P.pressedFill }),
+      ]}
     >
       {content}
     </Pressable>
@@ -202,13 +230,22 @@ export function AskOption({
         !enabled && !picked && styles.dimmed,
       ]}
     >
-      <View style={[styles.mark, multiple ? styles.checkbox : styles.radio, { borderColor: picked ? markHue : P.mutedInk(0.7) }, picked && multiple && { backgroundColor: markHue }]}>
+      <View
+        style={[
+          styles.mark,
+          multiple ? styles.checkbox : styles.radio,
+          { borderColor: picked ? markHue : P.mutedInk(0.7) },
+          picked && multiple && { backgroundColor: markHue },
+        ]}
+      >
         {picked && multiple ? <Glyph name="check" size={11} color={P.background} /> : null}
         {picked && !multiple ? <View style={[styles.radioDot, { backgroundColor: markHue }]} /> : null}
       </View>
       <View style={styles.optionBody}>
         <View style={styles.optionLine}>
-          <Text style={[styles.optionLabel, { color: other === true && !picked ? P.cardMuted : P.foreground }]}>{label}</Text>
+          <Text style={[styles.optionLabel, { color: other === true && !picked ? P.cardMuted : P.foreground }]}>
+            {label}
+          </Text>
           {recommended === true ? <Text style={styles.recommended}>Recommended</Text> : null}
         </View>
         {showDetail ? <Text style={styles.optionDetail}>{detail}</Text> : null}
@@ -240,11 +277,7 @@ export function PrimaryButton({
       disabled={disabled === true}
       onPress={onPress}
       hitSlop={6}
-      style={({ pressed }) => [
-        styles.primary,
-        pressed && styles.primaryPressed,
-        disabled === true && styles.disabled,
-      ]}
+      style={({ pressed }) => [styles.primary, pressed && styles.primaryPressed, disabled === true && styles.disabled]}
     >
       <Text style={styles.primaryLabel}>{label}</Text>
     </Pressable>
@@ -266,7 +299,10 @@ export function SoftButton({ label, onPress }: { label: string; onPress: () => v
       accessibilityLabel={label}
       onPress={onPress}
       hitSlop={6}
-      style={({ pressed }) => [styles.soft, { backgroundColor: P.ink(P.light ? (pressed ? 0.11 : 0.07) : pressed ? 0.15 : 0.1) }]}
+      style={({ pressed }) => [
+        styles.soft,
+        { backgroundColor: P.ink(P.light ? (pressed ? 0.11 : 0.07) : pressed ? 0.15 : 0.1) },
+      ]}
     >
       <Text style={styles.softLabel}>{label}</Text>
     </Pressable>

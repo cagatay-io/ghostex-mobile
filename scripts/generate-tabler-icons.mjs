@@ -155,7 +155,7 @@ function renderComponent(prefix, id, spec) {
     .map((d) =>
       filled
         ? `      <Path d=${JSON.stringify(d)} fill={color} />`
-        : `      <Path d=${JSON.stringify(d)} stroke={color} />`
+        : `      <Path d=${JSON.stringify(d)} stroke={color} />`,
     )
     .join('\n');
   const svgProps = filled
@@ -219,5 +219,5 @@ ${fallbackEntries.join('\n')}
 fs.mkdirSync(path.dirname(outFile), { recursive: true });
 fs.writeFileSync(outFile, output);
 console.log(
-  `Wrote ${path.relative(mobileRoot, outFile)} (${Object.keys(TAG_ICONS).length} tag, ${Object.keys(COMMAND_ICONS).length} command, ${Object.keys(FALLBACK_ICONS).length} fallback icons).`
+  `Wrote ${path.relative(mobileRoot, outFile)} (${Object.keys(TAG_ICONS).length} tag, ${Object.keys(COMMAND_ICONS).length} command, ${Object.keys(FALLBACK_ICONS).length} fallback icons).`,
 );

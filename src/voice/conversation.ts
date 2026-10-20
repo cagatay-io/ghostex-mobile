@@ -231,7 +231,9 @@ function onFrame(json: string): void {
   switch (frame.type) {
     case 'ready': {
       currentProvider = text('provider') || currentProvider;
-      const options = Array.isArray(frame.voiceOptions) ? frame.voiceOptions.filter((voice): voice is string => typeof voice === 'string') : [];
+      const options = Array.isArray(frame.voiceOptions)
+        ? frame.voiceOptions.filter((voice): voice is string => typeof voice === 'string')
+        : [];
       const memory = parseMemory(frame.memory);
       set({
         phase: 'live',
@@ -397,7 +399,12 @@ export function initVoice(): void {
     .then((status) => {
       if (status === null || nativeSessionId !== null) return;
       nativeSessionId = status.id;
-      set({ ...INITIAL, phase: status.reattaching ? 'reattaching' : 'live', machineName: status.title, muted: status.muted });
+      set({
+        ...INITIAL,
+        phase: status.reattaching ? 'reattaching' : 'live',
+        machineName: status.title,
+        muted: status.muted,
+      });
     })
     .catch(() => undefined);
 }
@@ -425,7 +432,10 @@ export async function startVoice(machine: MachineConnectionTarget, machineName: 
   const fail = (code: string, message: string) => finish(message, { code, message });
   try {
     if (!(await microphoneAllowed())) {
-      fail('microphone', 'Ghostex needs microphone access to talk with the voice agent. Allow it in Android Settings › Apps › Ghostex › Permissions.');
+      fail(
+        'microphone',
+        'Ghostex needs microphone access to talk with the voice agent. Allow it in Android Settings › Apps › Ghostex › Permissions.',
+      );
       return;
     }
     const link = chatMachineLink(machine);
@@ -472,7 +482,10 @@ export async function startVoice(machine: MachineConnectionTarget, machineName: 
     });
     if (speed !== 1) await GhostexNative.voiceSetSpeed(speed);
   } catch (error) {
-    fail('unreachable', `Couldn't reach Ghostex on ${machineName}. ${error instanceof Error ? error.message : ''}`.trim());
+    fail(
+      'unreachable',
+      `Couldn't reach Ghostex on ${machineName}. ${error instanceof Error ? error.message : ''}`.trim(),
+    );
   }
 }
 
@@ -494,15 +507,22 @@ export function interruptVoice(): void {
 }
 
 /** Saves the computer's voice settings through gxserver (which saves them through the desktop app). */
-async function saveVoiceSettings(params: { provider?: string; voice?: string; speed?: number }, what: string): Promise<void> {
+async function saveVoiceSettings(
+  params: { provider?: string; voice?: string; speed?: number },
+  what: string,
+): Promise<void> {
   if (target === null) return;
   try {
     const answer = await chatMachineLink(target).rpc('setVoiceAgentSettings', params, READ_TIMEOUT_MS);
     if (answer.error !== null) {
-      notice(`Couldn't save the ${what} on ${useVoiceStore.getState().machineName} (${answer.error.message}), so it lasts for this conversation only.`);
+      notice(
+        `Couldn't save the ${what} on ${useVoiceStore.getState().machineName} (${answer.error.message}), so it lasts for this conversation only.`,
+      );
     }
   } catch {
-    notice(`Couldn't save the ${what} on ${useVoiceStore.getState().machineName}, so it lasts for this conversation only.`);
+    notice(
+      `Couldn't save the ${what} on ${useVoiceStore.getState().machineName}, so it lasts for this conversation only.`,
+    );
   }
 }
 

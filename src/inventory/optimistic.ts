@@ -1,9 +1,5 @@
 import { cloneCollectionsState } from '../contract/collectionsState';
-import {
-  parseProjectCollections,
-  type GhostexMobileSummary,
-  type GhostexSession,
-} from '../contract/mobileSummary';
+import { parseProjectCollections, type GhostexMobileSummary, type GhostexSession } from '../contract/mobileSummary';
 
 export type OptimisticSessionPatch = Partial<
   Pick<
@@ -89,10 +85,7 @@ function canonicalCollectionsState(raw: unknown): string {
   });
 }
 
-function applyChange(
-  summary: GhostexMobileSummary,
-  change: OptimisticInventoryChange,
-): GhostexMobileSummary {
+function applyChange(summary: GhostexMobileSummary, change: OptimisticInventoryChange): GhostexMobileSummary {
   switch (change.kind) {
     case 'sessionPatch':
       return {
@@ -123,10 +116,7 @@ function applyChange(
   }
 }
 
-function changeIsConfirmed(
-  summary: GhostexMobileSummary,
-  change: OptimisticInventoryChange,
-): boolean {
+function changeIsConfirmed(summary: GhostexMobileSummary, change: OptimisticInventoryChange): boolean {
   switch (change.kind) {
     case 'sessionPatch': {
       const session = summary.sessions.find((entry) => entry.sessionId === change.sessionId);
@@ -138,10 +128,7 @@ function changeIsConfirmed(
     case 'sessionClose':
       return !summary.sessions.some((session) => session.sessionId === change.sessionId);
     case 'projectCollections':
-      return (
-        canonicalCollectionsState(summary.projectCollectionsState) ===
-        canonicalCollectionsState(change.state)
-      );
+      return canonicalCollectionsState(summary.projectCollectionsState) === canonicalCollectionsState(change.state);
     case 'projectOrder':
       return arraysEqual(summary.workspaceGroups?.projectOrder ?? [], change.projectOrder);
   }
@@ -151,10 +138,7 @@ export function applyOptimisticMutations(
   summary: GhostexMobileSummary,
   pending: readonly PendingInventoryMutation[],
 ): GhostexMobileSummary {
-  return pending.reduce(
-    (current, mutation) => applyChange(current, mutation.change),
-    summary,
-  );
+  return pending.reduce((current, mutation) => applyChange(current, mutation.change), summary);
 }
 
 /**
@@ -182,10 +166,7 @@ export function reconcileOptimisticMutations(
     ) {
       return;
     }
-    confirmedThroughIndexByResource.set(
-      optimisticChangeResourceKey(mutation.change),
-      index,
-    );
+    confirmedThroughIndexByResource.set(optimisticChangeResourceKey(mutation.change), index);
   });
 
   for (let index = 0; index < pending.length; index++) {
@@ -198,8 +179,7 @@ export function reconcileOptimisticMutations(
       remaining.push(mutation);
       continue;
     }
-    const confirmedThrough =
-      confirmedThroughIndexByResource.get(optimisticChangeResourceKey(mutation.change)) ?? -1;
+    const confirmedThrough = confirmedThroughIndexByResource.get(optimisticChangeResourceKey(mutation.change)) ?? -1;
     if (index <= confirmedThrough) {
       changed = true;
       if (!changeIsConfirmed(serverSummary, mutation.change)) {

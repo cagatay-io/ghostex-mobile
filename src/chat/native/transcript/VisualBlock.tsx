@@ -36,7 +36,14 @@ const TOOLTIP_WIDTH = 200;
 
 type TooltipLine = { label: string; value: string; color: string };
 /** `shape` is a pie slice's outline: a tap is matched to the slice it lands in, not its box. */
-type Region = { x: number; y: number; width: number; height: number; lines: TooltipLine[]; shape: [number, number][] | null };
+type Region = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  lines: TooltipLine[];
+  shape: [number, number][] | null;
+};
 
 function insidePolygon(points: [number, number][], x: number, y: number): boolean {
   let inside = false;
@@ -74,7 +81,11 @@ function regions(answer: JsonRecord | null): Region[] {
     const width = num(region, 'width');
     const height = num(region, 'height');
     if (region === null || x === null || y === null || width === null || height === null) return [];
-    const lines = arr(region.lines).map((line) => ({ label: str(line, 'label'), value: str(line, 'value'), color: str(line, 'color') }));
+    const lines = arr(region.lines).map((line) => ({
+      label: str(line, 'label'),
+      value: str(line, 'value'),
+      color: str(line, 'color'),
+    }));
     const points = arr(region.shape).flatMap((point) => {
       const pair = arr(point);
       return typeof pair[0] === 'number' && typeof pair[1] === 'number' ? [[pair[0], pair[1]] as [number, number]] : [];
@@ -93,7 +104,7 @@ export function VisualBlock({ source }: { source: string }) {
   const scheme = useMemo(() => visualTheme(theme), [theme]);
   const answer = useMemo(
     () => (ui !== null && width > 0 ? ui.renderVisual(source, width, scheme) : null),
-    [scheme, source, ui, width]
+    [scheme, source, ui, width],
   );
   const kind = str(answer, 'kind');
   const hits = useMemo(() => regions(answer), [answer]);
@@ -139,11 +150,11 @@ export function VisualBlock({ source }: { source: string }) {
           locationX <= region.x + region.width &&
           locationY >= region.y &&
           locationY <= region.y + region.height &&
-          (region.shape === null || insidePolygon(region.shape, locationX, locationY))
+          (region.shape === null || insidePolygon(region.shape, locationX, locationY)),
       );
       setActive(hit >= 0 && hit !== active?.region ? { region: hit, x: locationX, y: locationY } : null);
     },
-    [active, hits]
+    [active, hits],
   );
 
   if (kind === 'page') {
@@ -155,24 +166,34 @@ export function VisualBlock({ source }: { source: string }) {
   const tip = active !== null ? hits[active.region] : undefined;
   // Beside the tap, flipped to the other side near the drawing's edge (desktop `visual.rs` `tooltip`).
   const tipHeight = tip === undefined ? 0 : tip.lines.length * 17 + 16;
-  const tipLeft = active === null ? 0 : active.x + 12 + TOOLTIP_WIDTH <= width ? active.x + 12 : Math.max(0, active.x - 12 - TOOLTIP_WIDTH);
-  const tipTop = active === null ? 0 : active.y + 12 + tipHeight <= height ? active.y + 12 : Math.max(0, active.y - 12 - tipHeight);
+  const tipLeft =
+    active === null
+      ? 0
+      : active.x + 12 + TOOLTIP_WIDTH <= width
+        ? active.x + 12
+        : Math.max(0, active.x - 12 - TOOLTIP_WIDTH);
+  const tipTop =
+    active === null ? 0 : active.y + 12 + tipHeight <= height ? active.y + 12 : Math.max(0, active.y - 12 - tipHeight);
   return (
     <View style={[styles.card, { backgroundColor: theme.input, borderColor: theme.border }]}>
       <View style={[styles.header, { borderBottomColor: theme.border }]}>
         <View style={styles.title}>
-          <Glyph name='chart-bar' size={13} color={theme.muted} />
+          <Glyph name="chart-bar" size={13} color={theme.muted} />
           <Text numberOfLines={1} style={[styles.headerText, { color: theme.muted }]}>
             {str(answer, 'title') || 'visual'}
           </Text>
         </View>
         <View style={styles.actions}>
           {kind === 'drawing' ? (
-            <Pressable style={styles.action} onPress={() => setShowSource((value) => !value)} accessibilityRole='button'>
+            <Pressable
+              style={styles.action}
+              onPress={() => setShowSource((value) => !value)}
+              accessibilityRole="button"
+            >
               <Text style={[styles.actionText, { color: theme.muted }]}>{showSource ? 'Chart' : 'Source'}</Text>
             </Pressable>
           ) : null}
-          <Pressable style={styles.action} onPress={copy} accessibilityRole='button' accessibilityLabel='Copy source'>
+          <Pressable style={styles.action} onPress={copy} accessibilityRole="button" accessibilityLabel="Copy source">
             <Glyph name={copied ? 'check' : 'copy'} size={14} color={theme.muted} />
           </Pressable>
         </View>
@@ -183,16 +204,23 @@ export function VisualBlock({ source }: { source: string }) {
             <SvgXml xml={frame ?? str(answer, 'svg')} width={width} height={height} />
             {tip !== undefined && tip.lines.length > 0 ? (
               <View
-                pointerEvents='none'
+                pointerEvents="none"
                 style={[
                   styles.tooltip,
-                  { left: tipLeft, top: tipTop, backgroundColor: theme.light ? '#ffffff' : '#1f1f23', borderColor: theme.border },
+                  {
+                    left: tipLeft,
+                    top: tipTop,
+                    backgroundColor: theme.light ? '#ffffff' : '#1f1f23',
+                    borderColor: theme.border,
+                  },
                 ]}
               >
                 {tip.lines.map((line, index) => (
                   <View key={index} style={styles.tooltipLine}>
                     {line.color.length > 0 ? <View style={[styles.swatch, { backgroundColor: line.color }]} /> : null}
-                    {line.label.length > 0 ? <Text style={[styles.tooltipText, { color: theme.muted }]}>{line.label}</Text> : null}
+                    {line.label.length > 0 ? (
+                      <Text style={[styles.tooltipText, { color: theme.muted }]}>{line.label}</Text>
+                    ) : null}
                     <Text numberOfLines={1} style={[styles.tooltipText, styles.tooltipValue, { color: theme.prose }]}>
                       {line.value}
                     </Text>
@@ -203,7 +231,9 @@ export function VisualBlock({ source }: { source: string }) {
           </Pressable>
         ) : (
           <View>
-            {kind === 'error' ? <Text style={[styles.note, { color: theme.muted }]}>{str(answer, 'message')}</Text> : null}
+            {kind === 'error' ? (
+              <Text style={[styles.note, { color: theme.muted }]}>{str(answer, 'message')}</Text>
+            ) : null}
             <Text selectable style={[styles.source, { color: theme.prose }]}>
               {source}
             </Text>
@@ -229,7 +259,14 @@ const styles = StyleSheet.create({
   title: { flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 1, minWidth: 0 },
   headerText: { fontSize: 11, flexShrink: 1 },
   actions: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  action: { minWidth: 26, height: 26, paddingHorizontal: 5, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  action: {
+    minWidth: 26,
+    height: 26,
+    paddingHorizontal: 5,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   actionText: { fontSize: 11, fontWeight: '500' },
   body: { padding: PADDING },
   note: { fontSize: 12, marginBottom: 8 },

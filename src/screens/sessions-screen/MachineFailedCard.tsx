@@ -47,12 +47,7 @@ export default function MachineFailedCard({
           icon={<RefreshGlyph size={14} color={SetupPalette.PRIMARY_BUTTON_FOREGROUND} />}
           onPress={onRetry}
         />
-        <SetupButton
-          small
-          variant="secondary"
-          label={StripCopy.failedCard.whatCanICheck}
-          onPress={onWhatCanICheck}
-        />
+        <SetupButton small variant="secondary" label={StripCopy.failedCard.whatCanICheck} onPress={onWhatCanICheck} />
       </View>
     </View>
   );

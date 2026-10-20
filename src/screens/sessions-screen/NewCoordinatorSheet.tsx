@@ -91,9 +91,12 @@ function effortFor(model: CoordinatorModel | undefined, picked: string, fallback
   if (efforts.some((effort) => effort.value === picked)) return picked;
   const preferred = [model?.defaultEffort ?? '', fallback];
   return (
-    preferred.map((value) => efforts.find((effort) => effort.value === value)).find((effort) => effort !== undefined) ??
-    efforts[efforts.length - 1]
-  )?.value ?? '';
+    (
+      preferred
+        .map((value) => efforts.find((effort) => effort.value === value))
+        .find((effort) => effort !== undefined) ?? efforts[efforts.length - 1]
+    )?.value ?? ''
+  );
 }
 
 export type NewCoordinatorSheetProps = {
@@ -103,7 +106,12 @@ export type NewCoordinatorSheetProps = {
   onCancel: () => void;
 };
 
-export default function NewCoordinatorSheet({ projectTitle, loadOptions, onCreate, onCancel }: NewCoordinatorSheetProps) {
+export default function NewCoordinatorSheet({
+  projectTitle,
+  loadOptions,
+  onCreate,
+  onCancel,
+}: NewCoordinatorSheetProps) {
   const [options, setOptions] = useState<CoordinatorOptions | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [agentId, setAgentId] = useState('');
@@ -153,12 +161,7 @@ export default function NewCoordinatorSheet({ projectTitle, loadOptions, onCreat
     });
   };
 
-  const chipRow = (
-    label: string,
-    items: Choice[],
-    selected: string,
-    onPick: (value: string) => void,
-  ) => (
+  const chipRow = (label: string, items: Choice[], selected: string, onPick: (value: string) => void) => (
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>{label}</Text>
       <View accessibilityRole="radiogroup" style={styles.chips}>
@@ -200,7 +203,9 @@ export default function NewCoordinatorSheet({ projectTitle, loadOptions, onCreat
                   placeholder="e.g. Checkout redesign"
                   placeholderTextColor={GhostexPalette.MUTED}
                 />
-                <Text style={styles.hint}>Shown in the sidebar so you can find this orchestrator later. It keeps this name.</Text>
+                <Text style={styles.hint}>
+                  Shown in the sidebar so you can find this orchestrator later. It keeps this name.
+                </Text>
               </View>
               {options === null ? (
                 loadError === null ? (
@@ -210,7 +215,8 @@ export default function NewCoordinatorSheet({ projectTitle, loadOptions, onCreat
                 )
               ) : options.agents.length === 0 ? (
                 <Text style={styles.error}>
-                  No agent an orchestrator can run on is set up on this computer: Claude, Codex, ZCode, Cursor, Grok, Copilot, Antigravity, Pi or OMP.
+                  No agent an orchestrator can run on is set up on this computer: Claude, Codex, ZCode, Cursor, Grok,
+                  Copilot, Antigravity, Pi or OMP.
                 </Text>
               ) : (
                 <>
@@ -226,7 +232,13 @@ export default function NewCoordinatorSheet({ projectTitle, loadOptions, onCreat
                   {agent !== undefined && agent.models.length > 0
                     ? chipRow('Model', agent.models, model, (value) => {
                         setModel(value);
-                        setEffort(effortFor(agent.models.find((entry) => entry.value === value), effort, options.defaultEffort));
+                        setEffort(
+                          effortFor(
+                            agent.models.find((entry) => entry.value === value),
+                            effort,
+                            options.defaultEffort,
+                          ),
+                        );
                       })
                     : null}
                   {selectedModel !== undefined && selectedModel.efforts.length > 0
@@ -244,7 +256,8 @@ export default function NewCoordinatorSheet({ projectTitle, loadOptions, onCreat
                     </Text>
                   </View>
                   <Text style={styles.hint}>
-                    Every orchestrator starts with this line, which loads its playbook. Write your first request in its chat.
+                    Every orchestrator starts with this line, which loads its playbook. Write your first request in its
+                    chat.
                   </Text>
                 </View>
               ) : null}

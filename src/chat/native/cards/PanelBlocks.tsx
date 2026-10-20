@@ -70,7 +70,9 @@ export function PanelBlocks({ chat, dialog, blocks }: { chat: RustChat; dialog: 
           return (
             <View key={index} style={styles.meter}>
               <View style={styles.meterHead}>
-                <Text style={styles.meterLabel}>{label ? `${label} · ${str(block, 'value')}` : str(block, 'value')}</Text>
+                <Text style={styles.meterLabel}>
+                  {label ? `${label} · ${str(block, 'value')}` : str(block, 'value')}
+                </Text>
                 <Text style={styles.meterDetail}>{str(block, 'detail')}</Text>
               </View>
               <View style={styles.meterTrack}>
@@ -113,7 +115,12 @@ const useStyles = themedStyles((P) => ({
   meterHead: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' },
   meterLabel: { color: P.foreground, fontSize: 13 },
   meterDetail: { color: P.muted, fontSize: 12 },
-  meterTrack: { height: 6, borderRadius: 3, backgroundColor: P.light ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.12)', overflow: 'hidden' },
+  meterTrack: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: P.light ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.12)',
+    overflow: 'hidden',
+  },
   meterFill: { height: 6, borderRadius: 3, backgroundColor: P.primary },
   pre: { borderRadius: 8, padding: 10, backgroundColor: P.light ? P.input : 'rgba(29,29,29,0.3)' },
   preText: { color: P.cardMuted, fontFamily: MONO_FONT, fontSize: 12, lineHeight: 18 },

@@ -111,8 +111,17 @@ export function TranscriptScope({ chat, main, children }: { chat: RustChat; main
   const simple = main && simpleSetting;
   const workOpen = main && (verbose || !simple);
   const env = useMemo<TranscriptEnv>(
-    () => ({ dispatch: chat.dispatch, theme, verbose, simple, workOpen, filePreviews: main && filePreviews, mutedThinking, main }),
-    [chat.dispatch, filePreviews, main, mutedThinking, simple, theme, verbose, workOpen]
+    () => ({
+      dispatch: chat.dispatch,
+      theme,
+      verbose,
+      simple,
+      workOpen,
+      filePreviews: main && filePreviews,
+      mutedThinking,
+      main,
+    }),
+    [chat.dispatch, filePreviews, main, mutedThinking, simple, theme, verbose, workOpen],
   );
   // The document is parsed afresh per frame, so the flags are keyed by their content.
   const flagsSignature =
@@ -161,7 +170,7 @@ export function useSubagentRowRenderer(chat: RustChat): (item: TranscriptItem, i
         </View>
       </TranscriptScope>
     ),
-    [chat]
+    [chat],
   );
 }
 
@@ -190,7 +199,7 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
   const searchKey = JSON.stringify(search?.items ?? null);
   const searchItems = useMemo(
     () => new Set(arr(search?.items).filter((value): value is number => typeof value === 'number')),
-    [searchKey] // eslint-disable-line react-hooks/exhaustive-deps
+    [searchKey], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const activeItem = num(search, 'activeItem');
   const activeInRow = num(search, 'activeInRow');
@@ -248,9 +257,12 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // A question jump's row that was too far to scroll to at once lands the same way on its retry.
   const questionRetry = useRef(false);
-  useEffect(() => () => {
-    if (settleTimer.current !== null) clearTimeout(settleTimer.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (settleTimer.current !== null) clearTimeout(settleTimer.current);
+    },
+    [],
+  );
   useEffect(() => {
     if (questionJumped.current === null) {
       questionJumped.current = questionJumpRevision;
@@ -326,7 +338,7 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
       // Following the newest turn again opens a collapsed box (desktop's scroll handler).
       if (collapsed && offset <= COMPOSER_BOTTOM_THRESHOLD) dispatch({ type: 'composerExpand' });
     },
-    [collapsed, dispatch, main]
+    [collapsed, dispatch, main],
   );
 
   const jumpToBottom = useCallback(() => {
@@ -363,7 +375,7 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
         widthPercent={rowWidth}
       />
     ),
-    [activeInRow, activeItem, activeLabelKey, activeLabelOccurrence, rowWidth, searchItems, searchNeedle]
+    [activeInRow, activeItem, activeLabelKey, activeLabelOccurrence, rowWidth, searchItems, searchNeedle],
   );
 
   const keyExtractor = useCallback((row: Row) => transcriptItemKey(row.item), []);
@@ -377,9 +389,9 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
         listRef.current?.scrollToIndex(
           question
             ? { index: info.index, viewPosition: 0, animated: false }
-            : { index: info.index, viewPosition: 0.5, animated: true }
+            : { index: info.index, viewPosition: 0.5, animated: true },
         ),
-      120
+      120,
     );
   }, []);
 
@@ -391,10 +403,15 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
         <View style={styles.empty}>
           <Pressable
             onPress={loadEarlier}
-            style={({ pressed }) => [styles.button, { backgroundColor: pressed ? theme.neutralFillPressed : theme.neutralFill }]}
-            accessibilityRole='button'
+            style={({ pressed }) => [
+              styles.button,
+              { backgroundColor: pressed ? theme.neutralFillPressed : theme.neutralFill },
+            ]}
+            accessibilityRole="button"
           >
-            <Text style={[styles.buttonText, { color: theme.primary }]}>{loadingEarlier ? 'Loading earlier turns…' : 'Load earlier turns'}</Text>
+            <Text style={[styles.buttonText, { color: theme.primary }]}>
+              {loadingEarlier ? 'Loading earlier turns…' : 'Load earlier turns'}
+            </Text>
           </Pressable>
         </View>
       ) : main ? (
@@ -415,19 +432,22 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
         onEndReached={loadEarlier}
         onEndReachedThreshold={0.6}
         onScrollToIndexFailed={onScrollToIndexFailed}
-        maintainVisibleContentPosition={{ minIndexForVisible: 0, autoscrollToTopThreshold: SCROLL_BOTTOM.edgeThreshold }}
-        keyboardDismissMode='interactive'
+        maintainVisibleContentPosition={{
+          minIndexForVisible: 0,
+          autoscrollToTopThreshold: SCROLL_BOTTOM.edgeThreshold,
+        }}
+        keyboardDismissMode="interactive"
         // Android's scroll-into-view for a focused field is mirrored in an inverted list; the
         // question form's fields reveal themselves instead (`fieldReveal.ts`).
         scrollsChildToFocus={false}
-        keyboardShouldPersistTaps='handled'
+        keyboardShouldPersistTaps="handled"
         initialNumToRender={12}
         maxToRenderPerBatch={8}
         windowSize={11}
         ListFooterComponent={
           loadingEarlier ? (
             <View style={styles.pageSpinner}>
-              <ActivityIndicator size='small' color={theme.muted} />
+              <ActivityIndicator size="small" color={theme.muted} />
             </View>
           ) : null
         }
@@ -440,50 +460,50 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
     <TranscriptScope chat={chat} main={main}>
       {main && searchOpen ? <SearchFoldsReport dispatch={dispatch} /> : null}
       <QuestionFlashProvider value={questionFlash}>
-      <QuestionAnchorsProvider value={questionAnchors}>
-      <TranscriptFieldRevealContext.Provider value={revealFocusedField}>
-      <View
-        ref={rootRef}
-        style={[styles.root, { backgroundColor: theme.background }]}
-        accessibilityLabel='Conversation'
-      >
-        {body}
-        {interruptToast ? (
-          /*
-           * CDXC:SessionChat 2026-10-15 DECISION:
-           * User (2026-10-01): the interrupt toasts take the Scroll to bottom pill's spot and look; "Agent was interrupted" is red. Visual only, so it takes no touches. User (2026-10-15): the Previous question and Scroll to bottom pills stop floating and become icon pills at the left of the working row's pills (`ChatPills.tsx`), so the toasts keep this floating spot on their own; since 2026-10-17 those pills ride on the working card (`cards/WorkingCard.tsx`), which since 2026-10-18 sits in its own row below the transcript, so this spot stays just above it.
-           */
-          <View style={styles.pillRow} pointerEvents='none'>
+        <QuestionAnchorsProvider value={questionAnchors}>
+          <TranscriptFieldRevealContext.Provider value={revealFocusedField}>
             <View
-              accessibilityRole='text'
-              accessibilityLiveRegion='polite'
-              style={[
-                styles.pill,
-                interruptToast.tone === 'error'
-                  ? {
-                      backgroundColor: errorTone.background,
-                      borderColor: errorTone.border,
-                    }
-                  : {
-                      backgroundColor: theme.light ? '#fefefe' : '#151515',
-                      borderColor: theme.light ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.05)',
-                    },
-              ]}
+              ref={rootRef}
+              style={[styles.root, { backgroundColor: theme.background }]}
+              accessibilityLabel="Conversation"
             >
-              <Text
-                style={[
-                  styles.pillText,
-                  { color: interruptToast.tone === 'error' ? errorTone.text : theme.primary },
-                ]}
-              >
-                {interruptToast.text}
-              </Text>
+              {body}
+              {interruptToast ? (
+                /*
+                 * CDXC:SessionChat 2026-10-15 DECISION:
+                 * User (2026-10-01): the interrupt toasts take the Scroll to bottom pill's spot and look; "Agent was interrupted" is red. Visual only, so it takes no touches. User (2026-10-15): the Previous question and Scroll to bottom pills stop floating and become icon pills at the left of the working row's pills (`ChatPills.tsx`), so the toasts keep this floating spot on their own; since 2026-10-17 those pills ride on the working card (`cards/WorkingCard.tsx`), which since 2026-10-18 sits in its own row below the transcript, so this spot stays just above it.
+                 */
+                <View style={styles.pillRow} pointerEvents="none">
+                  <View
+                    accessibilityRole="text"
+                    accessibilityLiveRegion="polite"
+                    style={[
+                      styles.pill,
+                      interruptToast.tone === 'error'
+                        ? {
+                            backgroundColor: errorTone.background,
+                            borderColor: errorTone.border,
+                          }
+                        : {
+                            backgroundColor: theme.light ? '#fefefe' : '#151515',
+                            borderColor: theme.light ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.05)',
+                          },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.pillText,
+                        { color: interruptToast.tone === 'error' ? errorTone.text : theme.primary },
+                      ]}
+                    >
+                      {interruptToast.text}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
             </View>
-          </View>
-        ) : null}
-      </View>
-      </TranscriptFieldRevealContext.Provider>
-      </QuestionAnchorsProvider>
+          </TranscriptFieldRevealContext.Provider>
+        </QuestionAnchorsProvider>
       </QuestionFlashProvider>
     </TranscriptScope>
   );
@@ -543,17 +563,13 @@ const TranscriptRowFrame = memo(function TranscriptRowFrame({
           background: theme.searchMatch,
           activeBackground: theme.searchMatchActive,
           active: findActive,
-          activeLabel: findActiveLabel === null ? null : { key: findActiveLabel, occurrence: findActiveLabelOccurrence },
+          activeLabel:
+            findActiveLabel === null ? null : { key: findActiveLabel, occurrence: findActiveLabelOccurrence },
           counter: { next: 0 },
         };
   return (
     <View style={[styles.rowOuter, first && styles.rowFirst]}>
-      <View
-        style={[
-          styles.rowInner,
-          widthPercent !== null && { width: `${widthPercent}%`, maxWidth: '100%' },
-        ]}
-      >
+      <View style={[styles.rowInner, widthPercent !== null && { width: `${widthPercent}%`, maxWidth: '100%' }]}>
         <RowFindContext.Provider value={find}>
           <TranscriptItemView item={item} />
         </RowFindContext.Provider>

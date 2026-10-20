@@ -75,19 +75,29 @@ export function useRustChat(target: RustChatTarget | null): RustChat {
   const setTitle = useCallback((title: string | null) => host?.setTitle(title), [host]);
   const attachFiles = useCallback(
     (files: readonly { uri: string; name?: string }[]) => host?.attachFiles(files) ?? Promise.resolve(),
-    [host]
+    [host],
   );
   const onViewRequest = useCallback(
     (listener: (request: ChatViewRequest) => void) => (host ? host.onViewRequest(listener) : noop),
-    [host]
+    [host],
   );
   const query = useCallback(
     (name: ChatCoreQuery, args: readonly unknown[]) => (host ? host.query(name, args) : null),
-    [host]
+    [host],
   );
   const machine = latestTarget?.machine ?? null;
   return useMemo<RustChat>(
-    () => ({ state, dispatch, measure, setTitle, composer: host?.composerInput ?? null, attachFiles, query, onViewRequest, machine }),
-    [host, state, dispatch, measure, setTitle, attachFiles, query, onViewRequest, machine]
+    () => ({
+      state,
+      dispatch,
+      measure,
+      setTitle,
+      composer: host?.composerInput ?? null,
+      attachFiles,
+      query,
+      onViewRequest,
+      machine,
+    }),
+    [host, state, dispatch, measure, setTitle, attachFiles, query, onViewRequest, machine],
   );
 }

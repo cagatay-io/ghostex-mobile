@@ -157,7 +157,7 @@ export type SessionsScreenMenusDeps = {
     target: MachineRecord,
     command: string,
     message: string,
-    chatLaunch?: { agentId: string; projectId: string; title: string }
+    chatLaunch?: { agentId: string; projectId: string; title: string },
   ) => Promise<void>;
   runQuickAction: (target: MachineRecord, projectId: string, projectTitle: string, action: GhostexQuickAction) => void;
   runSessionCommand: (
@@ -166,7 +166,7 @@ export type SessionsScreenMenusDeps = {
     options?: {
       closeWarmSessionId?: string;
       optimisticChange?: OptimisticInventoryChange;
-    }
+    },
   ) => Promise<void>;
   sessionsForProject: (target: MachineRecord, header: ProjectHeaderItem) => GhostexSession[];
   setOverlay: (overlay: Overlay) => void;
@@ -217,7 +217,7 @@ export function useSessionsScreenMenus({
         optimisticChange: { kind: 'projectCollections', state },
       });
     },
-    [runSessionCommand]
+    [runSessionCommand],
   );
 
   const collectionMemberSessions = (ctx: CollectionContext): GhostexSession[] => {
@@ -267,11 +267,7 @@ export function useSessionsScreenMenus({
         for (const next of entries.slice(blockIndex + 1)) {
           if (next.kind !== 'row') break;
           if (next.item.type === 'SESSION') below.push(next.item.session);
-          else if (
-            next.item.type !== 'SESSION_KIND_LABEL' &&
-            next.item.type !== 'COORDINATOR_OLDER'
-          )
-            break;
+          else if (next.item.type !== 'SESSION_KIND_LABEL' && next.item.type !== 'COORDINATOR_OLDER') break;
         }
         return below;
       }
@@ -325,10 +321,7 @@ export function useSessionsScreenMenus({
     setOverlay(NONE);
     setProgress('Exporting transcript…');
     try {
-      const result = await runGhostexCli(
-        machine,
-        exportSessionTranscriptCommand(session.sessionId, session.projectId),
-      );
+      const result = await runGhostexCli(machine, exportSessionTranscriptCommand(session.sessionId, session.projectId));
       const path = typeof result.json?.path === 'string' ? result.json.path.trim() : '';
       if (path.length === 0) {
         throw new Error('gxserver exported the transcript without reporting its path.');
@@ -539,7 +532,10 @@ export function useSessionsScreenMenus({
       case 'setSessionWorkLinks': {
         const { session } = requireSession().item;
         setOverlay(NONE);
-        void runSessionCommand(machine, setSessionWorkLinksCommand(session.sessionId, session.projectId, message.links));
+        void runSessionCommand(
+          machine,
+          setSessionWorkLinksCommand(session.sessionId, session.projectId, message.links),
+        );
         return;
       }
       case 'setProjectWorkMode':
@@ -681,9 +677,8 @@ export function useSessionsScreenMenus({
           )
         : [],
       project:
-        summaryFor(ctx.machine.id)?.projects.find(
-          (project) => project.projectId === ctx.item.session.projectId,
-        ) ?? null,
+        summaryFor(ctx.machine.id)?.projects.find((project) => project.projectId === ctx.item.session.projectId) ??
+        null,
     });
     const view = sidebarMenuView(menu, menuPath, {
       openPath: (next) => setOverlay({ kind: 'sessionMenu', ctx, menuPath: next }),
@@ -755,9 +750,11 @@ export function useSessionsScreenMenus({
      */
     const headerRows: ContextMenuItem[] = [];
     if (header.quickActions.length > 0) {
-      const lastAction = header.quickActions.find(
-        (action) => (action.commandId ?? '') === (lastActionByProject[lastActionKey(ctx.machine.id, header.projectId)] ?? ''),
-      ) ?? header.quickActions[0];
+      const lastAction =
+        header.quickActions.find(
+          (action) =>
+            (action.commandId ?? '') === (lastActionByProject[lastActionKey(ctx.machine.id, header.projectId)] ?? ''),
+        ) ?? header.quickActions[0];
       headerRows.push({
         kind: 'item',
         key: 'quick-actions',
@@ -812,7 +809,7 @@ export function useSessionsScreenMenus({
         kind: 'item',
         key: 'move-up',
         label: 'Move Project Up',
-        icon: <ArrowGlyph size={14} color={menuIconColor} direction='up' />,
+        icon: <ArrowGlyph size={14} color={menuIconColor} direction="up" />,
         disabled: !canMove || projectIndex <= 0,
         onPress: () =>
           void runSessionCommand(ctx.machine, moveProjectCommand(header.projectId, 'up'), {
@@ -823,7 +820,7 @@ export function useSessionsScreenMenus({
         kind: 'item',
         key: 'move-down',
         label: 'Move Project Down',
-        icon: <ArrowGlyph size={14} color={menuIconColor} direction='down' />,
+        icon: <ArrowGlyph size={14} color={menuIconColor} direction="down" />,
         disabled: !canMove || projectIndex >= orderedProjectIds.length - 1,
         onPress: () =>
           void runSessionCommand(ctx.machine, moveProjectCommand(header.projectId, 'down'), {
@@ -848,7 +845,10 @@ export function useSessionsScreenMenus({
         onPress: () => setOverlay({ kind: 'projectDetails', ctx }),
       },
     );
-    return { subtitle: 'Project', items: [...headerRows, { kind: 'separator', key: 'header-sep' }, ...view.items, ...phoneRows] };
+    return {
+      subtitle: 'Project',
+      items: [...headerRows, { kind: 'separator', key: 'header-sep' }, ...view.items, ...phoneRows],
+    };
   };
 
   /** COLLECTION header menu root — desktop project-collection menu. */
@@ -872,7 +872,7 @@ export function useSessionsScreenMenus({
         onPress: () =>
           void runBulkSessionActions(
             ctx.machine,
-            awake.map((session) => lifecycleSessionAction(session, true))
+            awake.map((session) => lifecycleSessionAction(session, true)),
           ),
       });
     }
@@ -885,7 +885,7 @@ export function useSessionsScreenMenus({
         onPress: () =>
           void runBulkSessionActions(
             ctx.machine,
-            sleeping.map((session) => lifecycleSessionAction(session, false))
+            sleeping.map((session) => lifecycleSessionAction(session, false)),
           ),
       });
     }
@@ -898,7 +898,7 @@ export function useSessionsScreenMenus({
         onPress: () =>
           void runBulkSessionActions(
             ctx.machine,
-            unpinned.map((session) => pinSessionAction(session, true))
+            unpinned.map((session) => pinSessionAction(session, true)),
           ),
       });
     }
@@ -911,7 +911,7 @@ export function useSessionsScreenMenus({
         onPress: () =>
           void runBulkSessionActions(
             ctx.machine,
-            pinned.map((session) => pinSessionAction(session, false))
+            pinned.map((session) => pinSessionAction(session, false)),
           ),
       });
     }
@@ -983,7 +983,7 @@ export function useSessionsScreenMenus({
         kind: 'item',
         key: 'back',
         label: 'Back',
-        icon: <ArrowGlyph size={14} color={menuIconColor} direction='left' />,
+        icon: <ArrowGlyph size={14} color={menuIconColor} direction="left" />,
         onPress: () => setOverlay({ kind: 'collectionMenu', ctx, view: 'root' }),
       },
       { kind: 'separator', key: 'sep-back' },
@@ -1033,7 +1033,7 @@ export function useSessionsScreenMenus({
         const targets = allSleeping ? sleeping : running;
         void runBulkSessionActions(
           ctx.machine,
-          targets.map((session) => lifecycleSessionAction(session, !allSleeping))
+          targets.map((session) => lifecycleSessionAction(session, !allSleeping)),
         );
       },
     });
@@ -1072,9 +1072,7 @@ export function useSessionsScreenMenus({
       const session = summary?.sessions.find((entry) => entry.sessionId === sessionId);
       return session === undefined ? [] : [session];
     });
-    const sleepable = parked.filter(
-      (session) => !isBrowserMenuSession(session) && isRunningMenuSession(session),
-    );
+    const sleepable = parked.filter((session) => !isBrowserMenuSession(session) && isRunningMenuSession(session));
     return [
       {
         kind: 'item',
@@ -1204,7 +1202,7 @@ export function useSessionsScreenMenus({
               kind: 'item',
               key: 'move-left',
               label: StripCopy.menu.moveLeft,
-              icon: <ArrowGlyph size={14} color={menuIconColor} direction='left' />,
+              icon: <ArrowGlyph size={14} color={menuIconColor} direction="left" />,
               disabled: tabIndex === 0,
               onPress: () => {
                 setOverlay(NONE);
@@ -1215,7 +1213,7 @@ export function useSessionsScreenMenus({
               kind: 'item',
               key: 'move-right',
               label: StripCopy.menu.moveRight,
-              icon: <ArrowGlyph size={14} color={menuIconColor} direction='right' />,
+              icon: <ArrowGlyph size={14} color={menuIconColor} direction="right" />,
               disabled: tabIndex === visibleMachines.length - 1,
               onPress: () => {
                 setOverlay(NONE);
@@ -1385,7 +1383,7 @@ export function useSessionsScreenMenus({
       if (agents.length === 0) return null;
       return agents.find((agent) => agent.agentId === primaryAgentId) ?? agents[0];
     },
-    [primaryAgentId]
+    [primaryAgentId],
   );
 
   const launchAgent = useCallback(
@@ -1402,10 +1400,10 @@ export function useSessionsScreenMenus({
         target,
         createAgentCommand(agent.agentId, header.projectId, undefined, chatFirst, true),
         ProgressCopy.startingAgent(agentName, header.title),
-        chatFirst ? { agentId: iconId, projectId: header.projectId, title: agentName } : undefined
+        chatFirst ? { agentId: iconId, projectId: header.projectId, title: agentName } : undefined,
       );
     },
-    [runCreationFlow, setTransientStatus]
+    [runCreationFlow, setTransientStatus],
   );
 
   /**
@@ -1431,27 +1429,30 @@ export function useSessionsScreenMenus({
             { kind: 'separator', key: 'new-coordinator-separator' },
           ]
         : [];
-    return [...newCoordinator, ...ctx.header.agents.map((agent): ContextMenuItem => {
-      const name = agent.name !== undefined && agent.name.length > 0 ? agent.name : agent.agentId;
-      const iconId = resolveAgentIconId(agent.icon, name);
-      const Icon = AGENT_ICONS[iconId] ?? AGENT_ICONS.terminal;
-      const supportsChat = isSessionChatSupportedAgent(agent.agentId) || isSessionChatSupportedAgent(iconId);
-      return {
-        kind: 'item' as const,
-        key: agent.agentId,
-        label: name,
-        icon: <Icon size={14} color={agentIconTint(iconId)} />,
-        selected: selected !== null && selected.agentId === agent.agentId,
-        selectedPresentation: 'emphasis' as const,
-        trailingIcon: supportsChat ? <MessageCircleGlyph size={14} color={SidebarPalette.MUTED} /> : undefined,
-        trailingIconLabel: supportsChat ? 'Supports chat' : undefined,
-        onPress: () => {
-          setOverlay(NONE);
-          useLauncherStore.getState().setPrimaryAgent(agent.agentId);
-          launchAgent(ctx.machine, ctx.header, agent);
-        },
-      };
-    })];
+    return [
+      ...newCoordinator,
+      ...ctx.header.agents.map((agent): ContextMenuItem => {
+        const name = agent.name !== undefined && agent.name.length > 0 ? agent.name : agent.agentId;
+        const iconId = resolveAgentIconId(agent.icon, name);
+        const Icon = AGENT_ICONS[iconId] ?? AGENT_ICONS.terminal;
+        const supportsChat = isSessionChatSupportedAgent(agent.agentId) || isSessionChatSupportedAgent(iconId);
+        return {
+          kind: 'item' as const,
+          key: agent.agentId,
+          label: name,
+          icon: <Icon size={14} color={agentIconTint(iconId)} />,
+          selected: selected !== null && selected.agentId === agent.agentId,
+          selectedPresentation: 'emphasis' as const,
+          trailingIcon: supportsChat ? <MessageCircleGlyph size={14} color={SidebarPalette.MUTED} /> : undefined,
+          trailingIconLabel: supportsChat ? 'Supports chat' : undefined,
+          onPress: () => {
+            setOverlay(NONE);
+            useLauncherStore.getState().setPrimaryAgent(agent.agentId);
+            launchAgent(ctx.machine, ctx.header, agent);
+          },
+        };
+      }),
+    ];
   };
 
   /** The New Coordinator form's Create: the coordinator opens in chat, where its reports read best (as on the desktop). */

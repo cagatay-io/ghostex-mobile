@@ -103,7 +103,7 @@ export function WorkingCard({
           onPress={showJump ? () => jumpToBottom?.() : undefined}
           onLongPress={label !== null ? () => setHeld(true) : undefined}
           onPressOut={() => setHeld(false)}
-          accessibilityRole='summary'
+          accessibilityRole="summary"
           accessibilityLabel={card.ariaLabel}
           style={styles.card}
         >
@@ -113,7 +113,7 @@ export function WorkingCard({
               <Text
                 style={card.labelKind === 'tool' || card.labelKind === 'activity' ? styles.labelStrong : styles.label}
                 numberOfLines={1}
-                ellipsizeMode='tail'
+                ellipsizeMode="tail"
               >
                 {label}
               </Text>
@@ -124,20 +124,25 @@ export function WorkingCard({
               leftmost, so one appearing moves none of the others. */}
           <View style={styles.pills}>
             {showJump ? (
-              <IconPill glyph='arrow-down' accessibilityLabel='Scroll to bottom' color={P.primary} onPress={() => jumpToBottom?.()} />
+              <IconPill
+                glyph="arrow-down"
+                accessibilityLabel="Scroll to bottom"
+                color={P.primary}
+                onPress={() => jumpToBottom?.()}
+              />
             ) : null}
             {armed.map((action) => (
               <Pressable
                 key={action.id}
                 disabled={onArmedPress === undefined}
                 onPress={onArmedPress}
-                accessibilityRole='button'
+                accessibilityRole="button"
                 accessibilityLabel={`${action.label}. Manage delayed actions`}
                 hitSlop={6}
                 style={({ pressed }) => [styles.armed, pressed ? styles.armedPressed : null]}
               >
                 <ComposerGlyph
-                  name='clock'
+                  name="clock"
                   size={VISUAL.sparkSize}
                   color={action.id === 'delayedSend' ? VISUAL.delayedSendColor : VISUAL.closeAfterDoneColor}
                 />
@@ -160,7 +165,7 @@ export function WorkingCard({
           </View>
         </Pressable>
         {held && label !== null ? (
-          <View pointerEvents='none' style={styles.bubble}>
+          <View pointerEvents="none" style={styles.bubble}>
             <Text style={styles.bubbleText}>{label}</Text>
           </View>
         ) : null}
@@ -181,9 +186,14 @@ export function LoneScrollBottom({ document, armed }: { document: ChatDocument; 
   const jumpToBottom = useTranscriptBottomStore((store) => store.jumpToBottom);
   if (cardShown(document, armed) || !awayFromBottom || jumpToBottom === null) return null;
   return (
-    <View pointerEvents='box-none' style={styles.lone}>
-      <View pointerEvents='box-none' style={styles.loneColumn}>
-        <IconPill glyph='arrow-down' accessibilityLabel='Scroll to bottom' color={P.primary} onPress={() => jumpToBottom()} />
+    <View pointerEvents="box-none" style={styles.lone}>
+      <View pointerEvents="box-none" style={styles.loneColumn}>
+        <IconPill
+          glyph="arrow-down"
+          accessibilityLabel="Scroll to bottom"
+          color={P.primary}
+          onPress={() => jumpToBottom()}
+        />
       </View>
     </View>
   );
@@ -207,7 +217,7 @@ function Lead({ card }: { card: WorkingCardValue }) {
   if (card.labelKind === 'worked') {
     return (
       <View style={styles.sparkBox}>
-        <Glyph name='check' size={VISUAL.sparkSize} color={P.muted} />
+        <Glyph name="check" size={VISUAL.sparkSize} color={P.muted} />
       </View>
     );
   }

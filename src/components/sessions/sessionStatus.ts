@@ -103,9 +103,7 @@ export function timerTrailingLabel(session: RowSession, nowMs: number): string |
       return deadlineCountdown(session.delayedSendDeadlineAt, nowMs);
     }
     if (session.delayedSendRemainingLabel.length > 0) {
-      return isDelayedSendWaitingLabel(session.delayedSendRemainingLabel)
-        ? null
-        : session.delayedSendRemainingLabel;
+      return isDelayedSendWaitingLabel(session.delayedSendRemainingLabel) ? null : session.delayedSendRemainingLabel;
     }
   }
   if (!session.closeAfterDone || session.closeAfterDoneDeadlineAt.length === 0) return null;
@@ -136,11 +134,7 @@ export function rowTimeLabel(session: RowSession, nowMs: number): string | null 
   if (hasPendingQuestion(session)) return null;
   const timer = timerTrailingLabel(session, nowMs);
   if (timer !== null) return timer;
-  if (
-    session.activity === 'working' ||
-    session.activity === 'attention' ||
-    hasBackgroundWork(session)
-  ) {
+  if (session.activity === 'working' || session.activity === 'attention' || hasBackgroundWork(session)) {
     return null;
   }
   return lastInteractionLabel(session, nowMs);
@@ -171,19 +165,14 @@ export function nextLabelDeadline(session: RowSession, nowMs: number): number | 
   }
   if (countdown !== null) return Math.max(countdown, nowMs + 1);
   if (timerTrailingLabel(session, nowMs) !== null) return null;
-  if (
-    session.activity === 'working' ||
-    session.activity === 'attention' ||
-    hasBackgroundWork(session)
-  ) {
+  if (session.activity === 'working' || session.activity === 'attention' || hasBackgroundWork(session)) {
     return null;
   }
   if (session.lastInteractionAt.length === 0) return null;
   const at = Date.parse(session.lastInteractionAt);
   if (Number.isNaN(at)) return null;
   const elapsed = Math.max(0, nowMs - at);
-  const step =
-    elapsed < 60_000 ? 1_000 : elapsed < 3_600_000 ? 60_000 : elapsed < 86_400_000 ? 3_600_000 : 86_400_000;
+  const step = elapsed < 60_000 ? 1_000 : elapsed < 3_600_000 ? 60_000 : elapsed < 86_400_000 ? 3_600_000 : 86_400_000;
   const deadline = at + (Math.floor(elapsed / step) + 1) * step;
   return deadline > nowMs ? deadline : null;
 }
@@ -213,8 +202,7 @@ export function shouldStartCompletionFlash(
 ): boolean {
   if (session.activity !== 'attention' || session.attentionAcknowledged) return false;
   if (previousActivity === null || previousActivity === 'attention') return false;
-  const eventId =
-    session.attentionEventId.length > 0 ? session.attentionEventId : session.attentionEnteredAt;
+  const eventId = session.attentionEventId.length > 0 ? session.attentionEventId : session.attentionEnteredAt;
   if (eventId.length > 0) {
     const key = `${session.sessionId}\u001f${eventId}`;
     if (flashedEvents.has(key)) return false;

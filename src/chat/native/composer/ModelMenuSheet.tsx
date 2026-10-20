@@ -100,7 +100,7 @@ export function ModelMenuSheet({
   const handoffTabs = new Set(
     arr(menu?.tabs)
       .filter((entry) => isTrue(entry, 'handoff'))
-      .map((entry) => str(entry, 'id'))
+      .map((entry) => str(entry, 'id')),
   );
   const tabs = arr(menu?.tabs)
     .map(obj)
@@ -108,7 +108,8 @@ export function ModelMenuSheet({
   const rows = arr(menu?.rows)
     .map(obj)
     .filter((row): row is JsonRecord => row !== null);
-  const highlighted = rows.find((row) => str(row, 'key') === cursor) ?? rows.find((row) => isTrue(row, 'selected')) ?? rows[0] ?? null;
+  const highlighted =
+    rows.find((row) => str(row, 'key') === cursor) ?? rows.find((row) => isTrue(row, 'selected')) ?? rows[0] ?? null;
   const highlightedKey = highlighted === null ? null : str(highlighted, 'key');
   const buttons = arr(menu?.traits)
     .map(obj)
@@ -205,7 +206,13 @@ export function ModelMenuSheet({
       {...(open !== undefined ? { title: str(open, 'label'), onBack: () => setOpenButton(null) } : {})}
       maxHeight="90%"
     >
-      {open !== undefined ? <ModelMenuChoices setting={open} sessionScope={sessionScope} onChoose={(choice, secondary) => choose(open, choice, secondary)} /> : null}
+      {open !== undefined ? (
+        <ModelMenuChoices
+          setting={open}
+          sessionScope={sessionScope}
+          onChoose={(choice, secondary) => choose(open, choice, secondary)}
+        />
+      ) : null}
       {/* Kept mounted under an open list, so coming back keeps the list where it was scrolled. */}
       <View style={open !== undefined ? styles.hidden : null}>
         <View style={styles.tabs} accessibilityRole="tablist">
@@ -296,7 +303,10 @@ export function ModelMenuSheet({
                       accessibilityState={{ expanded: about === key }}
                       hitSlop={6}
                       onPress={() => setAbout((current) => (current === key ? null : key))}
-                      style={({ pressed }) => [styles.rowButton, pressed || about === key ? styles.rowButtonPressed : null]}
+                      style={({ pressed }) => [
+                        styles.rowButton,
+                        pressed || about === key ? styles.rowButtonPressed : null,
+                      ]}
                     >
                       <Glyph name="info-circle" size={16} color={P.ink(0.64)} />
                     </Pressable>
@@ -311,7 +321,9 @@ export function ModelMenuSheet({
                     <Glyph name={favorite ? 'star-filled' : 'star'} size={16} color={favorite ? P.star : P.ink(0.64)} />
                   </Pressable>
                 </View>
-                {active && about === key && description.length > 0 ? <Text style={styles.description}>{description}</Text> : null}
+                {active && about === key && description.length > 0 ? (
+                  <Text style={styles.description}>{description}</Text>
+                ) : null}
               </Pressable>
             );
             return index === firstLegacy ? [legacyToggle, item] : item;
@@ -319,7 +331,14 @@ export function ModelMenuSheet({
           {firstLegacy === -1 ? legacyToggle : null}
         </ScrollView>
         <ModelMenuTray buttons={buttons} disabled={disabled} sessionScope={sessionScope} onActivate={activate} />
-        <ApplyBar menu={menu} row={highlighted} ownProvider={ownProvider} handoff={highlighted !== null && handoffTabs.has(str(highlighted, 'provider'))} disabled={disabled} onApply={apply} />
+        <ApplyBar
+          menu={menu}
+          row={highlighted}
+          ownProvider={ownProvider}
+          handoff={highlighted !== null && handoffTabs.has(str(highlighted, 'provider'))}
+          disabled={disabled}
+          onApply={apply}
+        />
       </View>
     </Sheet>
   );
@@ -412,8 +431,21 @@ const useStyles = themedStyles((P) => ({
     justifyContent: 'center',
   },
   // The 44pt tab sits centred in the 48pt bar, so 2pt below it is the bar's own hairline.
-  underline: { position: 'absolute', left: 8, right: 8, bottom: -2, height: 2, borderRadius: 1, backgroundColor: P.controlPrimary },
-  error: { paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: P.ink(0.08) },
+  underline: {
+    position: 'absolute',
+    left: 8,
+    right: 8,
+    bottom: -2,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: P.controlPrimary,
+  },
+  error: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: P.ink(0.08),
+  },
   errorTitle: { color: P.ink(0.64), fontSize: 12 },
   errorText: { color: P.menuForeground, fontSize: 13, lineHeight: 18, marginTop: 2 },
   list: { flexGrow: 0, backgroundColor: P.ink(0.02) },
@@ -422,7 +454,15 @@ const useStyles = themedStyles((P) => ({
   listContent: { padding: 6, gap: 2 },
   empty: { color: P.ink(0.64), fontSize: 14, textAlign: 'center', paddingHorizontal: 12, paddingVertical: 28 },
   // The selected row's ring is a border every row reserves, so rows keep one height.
-  row: { borderRadius: 8, borderWidth: 1, borderColor: 'transparent', paddingHorizontal: 10, paddingVertical: 4, minHeight: 46, justifyContent: 'center' },
+  row: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    minHeight: 46,
+    justifyContent: 'center',
+  },
   rowSelected: { backgroundColor: P.ink(0.11), borderColor: P.ink(0.09) },
   rowActive: { backgroundColor: P.ink(0.05) },
   rowLine: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 36 },
@@ -433,10 +473,23 @@ const useStyles = themedStyles((P) => ({
   description: { color: P.ink(0.64), fontSize: 13, lineHeight: 18, paddingBottom: 6, paddingRight: 8 },
   legacy: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 8, paddingHorizontal: 10, minHeight: 40 },
   legacyLabel: { color: P.ink(0.64), fontSize: 14 },
-  applyBar: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: P.ink(0.08), paddingHorizontal: 12, paddingTop: 10, gap: 8 },
+  applyBar: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: P.ink(0.08),
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    gap: 8,
+  },
   hint: { color: P.ink(0.64), fontSize: 12, lineHeight: 16, paddingHorizontal: 4 },
   applyRow: { flexDirection: 'row', gap: 8 },
-  apply: { flex: 1, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  apply: {
+    flex: 1,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
   applyPrimary: { backgroundColor: P.send.fill },
   applySecondary: { backgroundColor: P.neutralFill },
   applySecondaryPressed: { backgroundColor: P.neutralFillPressed },

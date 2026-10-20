@@ -69,10 +69,7 @@ export function addProjectSourceRowDescription(source: AddProjectSourceId): stri
 export function addProjectRepositoryPlaceholder(source: AddProjectSourceId): string {
   return source === 'url'
     ? AddProjectCopy.urlPlaceholder
-    : AddProjectCopy.repositoryPlaceholder(
-        addProjectSourceLabel(source),
-        addProjectSourcePathHint(source),
-      );
+    : AddProjectCopy.repositoryPlaceholder(addProjectSourceLabel(source), addProjectSourcePathHint(source));
 }
 
 /** Repository-step action label (spec §5.4). */
@@ -86,9 +83,7 @@ function unavailableReadiness(): AddProjectSourceReadiness {
   return { ready: false, hint: AddProjectCopy.providerUnavailableHint };
 }
 
-function readinessForProvider(
-  provider: AddProjectProviderDiscovery,
-): AddProjectSourceReadiness {
+function readinessForProvider(provider: AddProjectProviderDiscovery): AddProjectSourceReadiness {
   const label = provider.label.length > 0 ? provider.label : addProjectSourceLabel(provider.provider);
   if (provider.status !== 'available') {
     const hint = provider.installHint.trim();

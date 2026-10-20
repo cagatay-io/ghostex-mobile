@@ -10,7 +10,13 @@ import { Glyph } from './icons';
 import { arr, isTrue, num, obj, str, type JsonRecord } from './json';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 
-export function ContextPanel({ context, onCommand }: { context: JsonRecord; onCommand: (command: JsonRecord) => void }) {
+export function ContextPanel({
+  context,
+  onCommand,
+}: {
+  context: JsonRecord;
+  onCommand: (command: JsonRecord) => void;
+}) {
   const styles = useStyles();
   const P = useTranscriptTheme();
   const percentage = num(context, 'usedPercentage');
@@ -34,7 +40,11 @@ export function ContextPanel({ context, onCommand }: { context: JsonRecord; onCo
         accessibilityLabel="Compact context"
         disabled={compactDisabled}
         onPress={() => onCommand({ type: 'contextCompact' })}
-        style={({ pressed }) => [styles.compact, pressed ? styles.compactPressed : null, compactDisabled ? styles.disabled : null]}
+        style={({ pressed }) => [
+          styles.compact,
+          pressed ? styles.compactPressed : null,
+          compactDisabled ? styles.disabled : null,
+        ]}
       >
         <Text style={styles.compactText}>Compact context</Text>
       </Pressable>
@@ -90,7 +100,13 @@ const useStyles = themedStyles((P) => ({
   reason: { color: P.muted, fontSize: 12 },
   pressed: { backgroundColor: P.controlPressed },
   disabled: { opacity: 0.5 },
-  details: { marginTop: 4, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: P.menuBorder, gap: 4 },
+  details: {
+    marginTop: 4,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: P.menuBorder,
+    gap: 4,
+  },
   detailsTitle: { color: P.foreground, fontSize: 14, fontWeight: '500' },
   pen: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   group: { paddingTop: 8, gap: 4 },

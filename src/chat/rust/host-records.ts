@@ -82,7 +82,12 @@ function versionOf(value: unknown): DraftVersion | null {
 export function decodeStoredDraft(raw: string): StoredDraft {
   try {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
-    if (typeof parsed === 'object' && parsed !== null && typeof parsed.text === 'string' && typeof parsed.updatedAt === 'number') {
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      typeof parsed.text === 'string' &&
+      typeof parsed.updatedAt === 'number'
+    ) {
       const version = versionOf(parsed.version);
       return {
         text: parsed.text,
@@ -135,8 +140,14 @@ export async function draftSubmitted(sessionKey: string, value: string | null, n
   if (current !== null && current.text === text && matches(current, version)) {
     await writeDraft(
       sessionKey,
-      { text: '', updatedAt: nowMs, ...(current.version ? { version: current.version } : {}), submitted: true, parked: false },
-      nowMs
+      {
+        text: '',
+        updatedAt: nowMs,
+        ...(current.version ? { version: current.version } : {}),
+        submitted: true,
+        parked: false,
+      },
+      nowMs,
     );
   }
   await recordSentPrompt(text, sessionKey, null, isoFromMillis(nowMs), nowMs).catch(() => false);
@@ -162,7 +173,7 @@ export async function draftPark(sessionKey: string, value: string | null, nowMs:
       submitted: false,
       parked: true,
     },
-    nowMs
+    nowMs,
   );
   return { handoffId: randomUuid(), content: current.text, draftVersion: current.version ?? null };
 }
@@ -202,7 +213,7 @@ async function sortedSentPrompts(nowMs: number): Promise<SentRow[]> {
   prompts.sort((left, right) =>
     left.createdAt === right.createdAt
       ? right.promptId.localeCompare(left.promptId)
-      : right.createdAt.localeCompare(left.createdAt)
+      : right.createdAt.localeCompare(left.createdAt),
   );
   return prompts;
 }
@@ -220,7 +231,7 @@ export async function recordSentPrompt(
   sessionKey: string | null,
   deliveryId: string | null,
   timestamp: string,
-  nowMs: number
+  nowMs: number,
 ): Promise<boolean> {
   if (text.trim().length === 0) return false;
   const parts = sessionKey === null ? [] : sessionKey.split(':');
@@ -277,7 +288,7 @@ export async function recordDeliveries(deliveries: readonly unknown[], nowMs: nu
       sessionKey,
       id,
       typeof record.deliveredAt === 'string' ? record.deliveredAt : isoFromMillis(nowMs),
-      nowMs
+      nowMs,
     ).catch(() => false);
     if (!recorded) continue;
     seen.push(id);

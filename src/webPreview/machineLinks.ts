@@ -74,7 +74,7 @@ const VISUAL_PAGE_PATH = /^\/visual\/[0-9a-f]{32}(?=[/?#]|$)/u;
 export async function isGxserverAddress(
   machine: MachineConnectionTarget,
   remotePort: number,
-  path: string
+  path: string,
 ): Promise<boolean> {
   const known = knownGxserverPort(machine.id);
   if (known !== null) return known === remotePort;
@@ -102,7 +102,7 @@ export type ComputerForward = {
  */
 export async function openComputerForward(
   machine: MachineConnectionTarget,
-  address: Pick<ComputerAddress, 'remotePort' | 'host' | 'path'>
+  address: Pick<ComputerAddress, 'remotePort' | 'host' | 'path'>,
 ): Promise<ComputerForward> {
   await ensureConnected(machine);
   const gxserver = await isGxserverAddress(machine, address.remotePort, address.path);

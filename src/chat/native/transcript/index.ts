@@ -7,6 +7,12 @@
 export { NativeChatUiProvider, useNativeChatUi } from './context';
 export { RewindDialog } from './RewindDialog';
 export { TranscriptSearchBar } from './SearchBar';
-export { NativeTranscript, TranscriptScope, useSubagentRowRenderer, useTranscriptTheme, type NativeTranscriptProps } from './Transcript';
+export {
+  NativeTranscript,
+  TranscriptScope,
+  useSubagentRowRenderer,
+  useTranscriptTheme,
+  type NativeTranscriptProps,
+} from './Transcript';
 export { TranscriptItemView } from './TranscriptItemRow';
 export { transcriptTheme, type TranscriptTheme } from './theme';

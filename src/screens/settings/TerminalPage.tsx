@@ -23,9 +23,9 @@ export default function TerminalPage() {
 
   return (
     <SettingsScreenLayout>
-      <SectionHeader title='Font size' />
+      <SectionHeader title="Font size" />
       <StepperRow
-        label='Font size'
+        label="Font size"
         value={`${fontSize}`}
         canDecrease={fontSize > TERMINAL_FONT_SIZE_MIN}
         canIncrease={fontSize < TERMINAL_FONT_SIZE_MAX}
@@ -34,7 +34,7 @@ export default function TerminalPage() {
       <Caption>Applies immediately to terminals without a pinch-zoom size of their own.</Caption>
       {hasFontOverrides && (
         <Pressable
-          accessibilityRole='button'
+          accessibilityRole="button"
           style={styles.row}
           onPress={() => useTerminalStore.getState().clearFontSizeOverrides()}
         >
@@ -42,10 +42,10 @@ export default function TerminalPage() {
         </Pressable>
       )}
 
-      <SectionHeader title='Behavior' />
-      <SettingToggle settingKey='keepScreenOn' label='Keep screen on' />
+      <SectionHeader title="Behavior" />
+      <SettingToggle settingKey="keepScreenOn" label="Keep screen on" />
       <Caption>Keeps the screen awake while a terminal is open.</Caption>
-      <SettingToggle settingKey='confirmTabClose' label='Confirm before closing tabs' />
+      <SettingToggle settingKey="confirmTabClose" label="Confirm before closing tabs" />
     </SettingsScreenLayout>
   );
 }

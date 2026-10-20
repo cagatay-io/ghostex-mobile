@@ -32,7 +32,8 @@ export function SideQuestionCard({ chat, dialog }: { chat: RustChat; dialog: Jso
   const answering = isTrue(card, 'answering');
   const answer = str(card, 'answer');
   const offered = (action: string) => arr(presentation?.actions).some((entry) => str(entry, 'action') === action);
-  const send = (dialogAction: string) => dispatch({ type: 'answer', answer: { kind: 'terminalDialog', dialogId, dialogAction } });
+  const send = (dialogAction: string) =>
+    dispatch({ type: 'answer', answer: { kind: 'terminalDialog', dialogId, dialogAction } });
   // Cut to one line like the desktop's note; a phone has no hover, so a tap shows the whole line.
   const [noteOpen, setNoteOpen] = useState(false);
   const header = (
@@ -45,10 +46,20 @@ export function SideQuestionCard({ chat, dialog }: { chat: RustChat; dialog: Jso
   const body = answering ? (
     <AnsweringPlaceholder key="answering" />
   ) : (
-    <SideAnswer key={`answer:${dialogId}`} dispatch={dispatch} markdown={str(card, 'answerMarkdown')} references={card?.answerReferences as Json} />
+    <SideAnswer
+      key={`answer:${dialogId}`}
+      dispatch={dispatch}
+      markdown={str(card, 'answerMarkdown')}
+      references={card?.answerReferences as Json}
+    />
   );
   const actions = [
-    <Text key="note" style={styles.note} numberOfLines={noteOpen ? undefined : 1} onPress={() => setNoteOpen(!noteOpen)}>
+    <Text
+      key="note"
+      style={styles.note}
+      numberOfLines={noteOpen ? undefined : 1}
+      onPress={() => setNoteOpen(!noteOpen)}
+    >
       {SIDE_CARD_NOTE}
     </Text>,
     <ChatButton
@@ -65,13 +76,30 @@ export function SideQuestionCard({ chat, dialog }: { chat: RustChat; dialog: Jso
 }
 
 /** The answer, capped at about `CAP_LINES` lines with a Show all / Show less toggle under it. */
-export function SideAnswer({ dispatch, markdown, references }: { dispatch: RustChat['dispatch']; markdown: string; references?: Json }) {
+export function SideAnswer({
+  dispatch,
+  markdown,
+  references,
+}: {
+  dispatch: RustChat['dispatch'];
+  markdown: string;
+  references?: Json;
+}) {
   const styles = useStyles();
   const theme = useTranscriptTheme();
   const [expanded, setExpanded] = useState(false);
   const env = useMemo<TranscriptEnv>(
-    () => ({ dispatch, theme, verbose: false, simple: false, workOpen: false, filePreviews: false, mutedThinking: false, main: false }),
-    [dispatch, theme]
+    () => ({
+      dispatch,
+      theme,
+      verbose: false,
+      simple: false,
+      workOpen: false,
+      filePreviews: false,
+      mutedThinking: false,
+      main: false,
+    }),
+    [dispatch, theme],
   );
   const lines = estimatedLines(markdown);
   const capped = lines > CAP_LINES;
@@ -89,7 +117,9 @@ export function SideAnswer({ dispatch, markdown, references }: { dispatch: RustC
           style={styles.toggle}
         >
           <Glyph name={expanded ? 'chevron-up' : 'chevron-down'} size={14} color={theme.primary} />
-          <Text style={styles.toggleLabel}>{expanded ? 'Show less' : `Show all · ${lines - CAP_LINES} more lines`}</Text>
+          <Text style={styles.toggleLabel}>
+            {expanded ? 'Show less' : `Show all · ${lines - CAP_LINES} more lines`}
+          </Text>
         </Pressable>
       ) : null}
     </TranscriptEnvProvider>

@@ -137,7 +137,12 @@ export class ComposerModel {
       this.hooks.dispatch({ type: 'completeComposerCommand' });
       return false;
     }
-    const submission = { type: mode, text: this.state.text, draftVersion: this.version(), ...(interrupt ? { interrupt } : {}) } as UserAction;
+    const submission = {
+      type: mode,
+      text: this.state.text,
+      draftVersion: this.version(),
+      ...(interrupt ? { interrupt } : {}),
+    } as UserAction;
     this.set({
       pendingSend: true,
       text: '',
@@ -158,7 +163,8 @@ export class ComposerModel {
     const entry = (read.entry ?? {}) as { text?: unknown; parked?: unknown; submitted?: unknown; version?: unknown };
     const version = (entry.version ?? {}) as { draftId?: unknown; revision?: unknown };
     const typedBeforeReady = this.state.revision > 0 ? this.state.text : null;
-    const restored = entry.parked === true || entry.submitted === true ? '' : typeof entry.text === 'string' ? entry.text : '';
+    const restored =
+      entry.parked === true || entry.submitted === true ? '' : typeof entry.text === 'string' ? entry.text : '';
     const text = typedBeforeReady === null ? restored : `${restored}${typedBeforeReady}`;
     this.set({
       clientId: typeof read.clientId === 'string' ? read.clientId : '',

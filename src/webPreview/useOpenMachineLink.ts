@@ -28,25 +28,30 @@ export type OpenMachineLinkOptions = {
  */
 export function useOpenMachineLink() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  return useCallback((machineId: string, url: string, options: OpenMachineLinkOptions = {}): void => {
-    const link = classifyMachineLink(url);
-    if (link.kind === 'file') {
-      openComputerFile(navigation, machineId, link.path, {
-        ...(options.projectId !== undefined ? { projectId: options.projectId } : {}),
-        ...(link.fragment !== undefined ? { fragment: link.fragment } : {}),
-        notify: options.notify ?? ((message, error, title) => {
-          // Progress needs no alert; a copied path or a failure does.
-          if (error || title !== undefined) Alert.alert(title ?? DocsCopy.openFailed, message);
-        }),
-      });
-      return;
-    }
-    if (link.kind === 'computer') {
-      const { scheme, remotePort, host, path } = link.address;
-      const theme = useSettingsStore.getState().settings.sessionChatTheme;
-      navigation.navigate('WebPreview', { machineId, scheme, remotePort, host, path: withPageTheme(path, theme) });
-      return;
-    }
-    void Linking.openURL(link.url).catch(() => undefined);
-  }, [navigation]);
+  return useCallback(
+    (machineId: string, url: string, options: OpenMachineLinkOptions = {}): void => {
+      const link = classifyMachineLink(url);
+      if (link.kind === 'file') {
+        openComputerFile(navigation, machineId, link.path, {
+          ...(options.projectId !== undefined ? { projectId: options.projectId } : {}),
+          ...(link.fragment !== undefined ? { fragment: link.fragment } : {}),
+          notify:
+            options.notify ??
+            ((message, error, title) => {
+              // Progress needs no alert; a copied path or a failure does.
+              if (error || title !== undefined) Alert.alert(title ?? DocsCopy.openFailed, message);
+            }),
+        });
+        return;
+      }
+      if (link.kind === 'computer') {
+        const { scheme, remotePort, host, path } = link.address;
+        const theme = useSettingsStore.getState().settings.sessionChatTheme;
+        navigation.navigate('WebPreview', { machineId, scheme, remotePort, host, path: withPageTheme(path, theme) });
+        return;
+      }
+      void Linking.openURL(link.url).catch(() => undefined);
+    },
+    [navigation],
+  );
 }

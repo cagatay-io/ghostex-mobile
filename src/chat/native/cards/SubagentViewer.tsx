@@ -51,7 +51,11 @@ export function SubagentViewer({
         <View style={styles.card}>
           <View style={styles.header}>
             {isTrue(state, 'canBack') ? (
-              <IconButton label="Back to previous subagent" icon="chevron-left" onPress={() => dispatch({ type: 'subagentBack' })} />
+              <IconButton
+                label="Back to previous subagent"
+                icon="chevron-left"
+                onPress={() => dispatch({ type: 'subagentBack' })}
+              />
             ) : null}
             <View style={styles.titles}>
               <Text style={styles.title} numberOfLines={1} accessibilityHint={str(state, 'tooltip') || undefined}>
@@ -108,7 +112,7 @@ function PlainRow({ item }: { item: TranscriptItem }) {
     item.kind === 'message'
       ? [(item as { message: ProjectedMessage }).message]
       : item.kind === 'summary' || item.kind === 'completed-work'
-        ? [((item as { final?: ProjectedMessage | null }).final ?? null)].filter((m): m is ProjectedMessage => m !== null)
+        ? [(item as { final?: ProjectedMessage | null }).final ?? null].filter((m): m is ProjectedMessage => m !== null)
         : [];
   const label = item.kind === 'completed-work' ? str(item, 'label') : '';
   return (

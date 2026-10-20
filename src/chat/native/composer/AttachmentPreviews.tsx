@@ -62,7 +62,11 @@ export function AttachmentPreviews({
               style={[styles.tile, active === tile.path ? styles.tileActive : null]}
             >
               {image?.status === 'loaded' ? (
-                <Image source={{ uri: `data:${image.mediaType};base64,${image.base64Data}` }} style={styles.image} resizeMode="cover" />
+                <Image
+                  source={{ uri: `data:${image.mediaType};base64,${image.base64Data}` }}
+                  style={styles.image}
+                  resizeMode="cover"
+                />
               ) : image === undefined ? (
                 <ActivityIndicator size="small" color={P.muted} />
               ) : (

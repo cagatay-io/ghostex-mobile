@@ -98,11 +98,7 @@ import {
   type ProjectHeaderItem,
 } from '../contract/grouping';
 import { coordinatorRowKey } from '../contract/coordinatorTree';
-import {
-  EMPTY_SIDEBAR_SPACES,
-  type GhostexQuickAction,
-  type GhostexSession,
-} from '../contract/mobileSummary';
+import { EMPTY_SIDEBAR_SPACES, type GhostexQuickAction, type GhostexSession } from '../contract/mobileSummary';
 import {
   ProgressCopy,
   RenameCopy,
@@ -186,13 +182,9 @@ export default function SessionsScreen({ navigation }: Props) {
   const primaryAgentId = useLauncherStore((state) => state.primaryAgentId);
   const lastActionByProject = useLauncherStore((state) => state.lastActionByProject);
   const selectedSessionKey = useTerminalStore((state) => state.selectedSessionKey);
-  const sidebarBackgroundContrast = useSettingsStore(
-    (state) => state.settings.sidebarBackgroundContrast,
-  );
+  const sidebarBackgroundContrast = useSettingsStore((state) => state.settings.sidebarBackgroundContrast);
   const sidebarBackgroundTint = useSettingsStore((state) => state.settings.sidebarBackgroundTint);
-  const sidebarGroupsOpacityPercent = useSettingsStore(
-    (state) => state.settings.sidebarGroupsOpacityPercent,
-  );
+  const sidebarGroupsOpacityPercent = useSettingsStore((state) => state.settings.sidebarGroupsOpacityPercent);
   const sidebarAppearance = useMemo(
     () => resolveSidebarAppearance(sidebarBackgroundTint, sidebarBackgroundContrast),
     [sidebarBackgroundContrast, sidebarBackgroundTint],
@@ -350,7 +342,11 @@ export default function SessionsScreen({ navigation }: Props) {
   );
   const spaceItems = useMemo(() => spaceRowItems(machineSpaces), [machineSpaces]);
   const spaceCounts = useMemo(
-    () => spaceSessionCounts(selectedSummary, spaceItems.map((item) => item.spaceId)),
+    () =>
+      spaceSessionCounts(
+        selectedSummary,
+        spaceItems.map((item) => item.spaceId),
+      ),
     [selectedSummary, spaceItems],
   );
 
@@ -464,9 +460,7 @@ export default function SessionsScreen({ navigation }: Props) {
   /** The tab's connection line (the failure reason when failed): the long-press menu subtitle. */
   const machineConnectionLine = useCallback(
     (machineId: string): string | undefined => {
-      const tab = machineTabs.find(
-        (item): item is MachineTabItem => !('kind' in item) && item.id === machineId,
-      );
+      const tab = machineTabs.find((item): item is MachineTabItem => !('kind' in item) && item.id === machineId);
       return tab?.connectionLabel;
     },
     [machineTabs],
@@ -529,18 +523,21 @@ export default function SessionsScreen({ navigation }: Props) {
 
   /** Attach a session that only exists as an id (creation flows, §6). */
   const attachCreated = useCallback(
-    async (target: MachineRecord, sessionId: string, chatLaunch?: { agentId: string; projectId: string; title: string }): Promise<void> => {
+    async (
+      target: MachineRecord,
+      sessionId: string,
+      chatLaunch?: { agentId: string; projectId: string; title: string },
+    ): Promise<void> => {
       const created = useInventoryStore
         .getState()
-        .inventoriesByMachineId[target.id]?.summary?.sessions.find(
-          (session) => session.sessionId === sessionId,
-        );
+        .inventoriesByMachineId[target.id]?.summary?.sessions.find((session) => session.sessionId === sessionId);
       const sessionKey = attachSessionKey(target.id, sessionId);
       if (chatLaunch) useTerminalStore.getState().setSessionViewMode(sessionKey, 'chat');
       const attaching = useTerminalStore.getState().attachSession(target, {
         sessionId,
         projectId:
-          chatLaunch?.projectId ?? (created !== undefined && created.projectId.length > 0 ? created.projectId : undefined),
+          chatLaunch?.projectId ??
+          (created !== undefined && created.projectId.length > 0 ? created.projectId : undefined),
         title: chatLaunch?.title ?? (created !== undefined ? sessionTitle(created) : undefined),
         agentId: chatLaunch?.agentId,
       });
@@ -552,9 +549,10 @@ export default function SessionsScreen({ navigation }: Props) {
         machineId: target.id,
         title: chatLaunch?.title ?? (created !== undefined ? sessionTitle(created) : undefined),
       });
-      if (chatLaunch) void attaching.catch((error: unknown) => {
-        setTransientStatus(error instanceof Error ? error.message : String(error));
-      });
+      if (chatLaunch)
+        void attaching.catch((error: unknown) => {
+          setTransientStatus(error instanceof Error ? error.message : String(error));
+        });
     },
     [navigation, setTransientStatus],
   );
@@ -613,8 +611,7 @@ export default function SessionsScreen({ navigation }: Props) {
       const mutationIds = useInventoryStore.getState().beginOptimisticMutations(target.id, changes);
       let mutationIndex = 0;
       const prepared = actions.map((action) => {
-        const mutationId =
-          action.optimisticChange === undefined ? null : mutationIds[mutationIndex++];
+        const mutationId = action.optimisticChange === undefined ? null : mutationIds[mutationIndex++];
         return { action, mutationId };
       });
       const failures: string[] = [];
@@ -623,21 +620,15 @@ export default function SessionsScreen({ navigation }: Props) {
       for (const { action, mutationId } of prepared) {
         const actionMutationIds = mutationId === null ? [] : [mutationId];
         try {
-          await enqueueRemoteMutation(
-            target.id,
-            `session:${action.sessionId}`,
-            async (): Promise<void> => {
-              if (action.closeWarmSession) {
-                await useTerminalStore.getState().closeWarmSessionFor(target.id, action.sessionId);
-              }
-              await runGhostexCli(target, action.command);
-              if (actionMutationIds.length > 0) {
-                useInventoryStore
-                  .getState()
-                  .commitOptimisticMutations(target.id, actionMutationIds);
-              }
-            },
-          );
+          await enqueueRemoteMutation(target.id, `session:${action.sessionId}`, async (): Promise<void> => {
+            if (action.closeWarmSession) {
+              await useTerminalStore.getState().closeWarmSessionFor(target.id, action.sessionId);
+            }
+            await runGhostexCli(target, action.command);
+            if (actionMutationIds.length > 0) {
+              useInventoryStore.getState().commitOptimisticMutations(target.id, actionMutationIds);
+            }
+          });
           successCount++;
         } catch (error) {
           if (actionMutationIds.length > 0) {
@@ -651,10 +642,7 @@ export default function SessionsScreen({ navigation }: Props) {
         await useInventoryStore.getState().refreshMachineFresh(target);
       }
       if (failures.length > 0) {
-        const prefix =
-          failures.length === 1
-            ? '1 session action failed'
-            : `${failures.length} session actions failed`;
+        const prefix = failures.length === 1 ? '1 session action failed' : `${failures.length} session actions failed`;
         setTransientStatus(`${prefix}: ${failures[0]}`);
       }
     },
@@ -663,7 +651,12 @@ export default function SessionsScreen({ navigation }: Props) {
 
   /** Chat creation opens from the returned identity; inventory and attachment finish in the background. */
   const runCreationFlow = useCallback(
-    async (target: MachineRecord, command: string, message: string, chatLaunch?: { agentId: string; projectId: string; title: string }): Promise<void> => {
+    async (
+      target: MachineRecord,
+      command: string,
+      message: string,
+      chatLaunch?: { agentId: string; projectId: string; title: string },
+    ): Promise<void> => {
       setOverlay(NONE);
       setProgress(message);
       try {
@@ -674,9 +667,10 @@ export default function SessionsScreen({ navigation }: Props) {
         if (sessionId !== null) {
           await attachCreated(target, sessionId, chatLaunch);
         }
-        if (chatLaunch) void refreshMachine(target).catch((error: unknown) => {
-          setTransientStatus(error instanceof Error ? error.message : String(error));
-        });
+        if (chatLaunch)
+          void refreshMachine(target).catch((error: unknown) => {
+            setTransientStatus(error instanceof Error ? error.message : String(error));
+          });
       } catch (error) {
         setProgress(null);
         setTransientStatus(error instanceof Error ? error.message : String(error));
@@ -694,7 +688,7 @@ export default function SessionsScreen({ navigation }: Props) {
     async (target: MachineRecord): Promise<void> => {
       await retryMachine(target.id);
     },
-    [retryMachine]
+    [retryMachine],
   );
 
   const submitRename = useCallback(
@@ -707,11 +701,7 @@ export default function SessionsScreen({ navigation }: Props) {
       const { session } = ctx.item;
       const result = await runSessionCommand(
         ctx.machine,
-        renameCommandCommand(
-          session.sessionId,
-          title,
-          session.projectId.length > 0 ? session.projectId : undefined,
-        ),
+        renameCommandCommand(session.sessionId, title, session.projectId.length > 0 ? session.projectId : undefined),
         { optimisticChange: renameMutation(session.sessionId, title) },
       );
       // gxserver shows the new name until the agent confirms it or the window runs out; one
@@ -733,24 +723,15 @@ export default function SessionsScreen({ navigation }: Props) {
     async (ctx: SessionContext, value: string): Promise<void> => {
       const { session } = ctx.item;
       const note = value.trim();
-      await runSessionCommand(
-        ctx.machine,
-        sessionNoteSaveCommand(session.sessionId, session.projectId, note),
-        {
-          optimisticChange: sessionNoteMutation(session.sessionId, note),
-        },
-      );
+      await runSessionCommand(ctx.machine, sessionNoteSaveCommand(session.sessionId, session.projectId, note), {
+        optimisticChange: sessionNoteMutation(session.sessionId, note),
+      });
     },
     [runSessionCommand],
   );
 
   const runQuickAction = useCallback(
-    (
-      target: MachineRecord,
-      projectId: string,
-      projectTitle: string,
-      action: GhostexQuickAction,
-    ): void => {
+    (target: MachineRecord, projectId: string, projectTitle: string, action: GhostexQuickAction): void => {
       const name = quickActionDisplayName(action);
       if (action.actionType === 'browser') {
         const url = action.url ?? '';
@@ -804,21 +785,15 @@ export default function SessionsScreen({ navigation }: Props) {
     [refreshMachine, setTransientStatus],
   );
 
-  const sessionsForProject = useCallback(
-    (target: MachineRecord, header: ProjectHeaderItem): GhostexSession[] => {
-      const summary = useInventoryStore.getState().inventoriesByMachineId[target.id]?.summary;
-      if (summary === null || summary === undefined) return [];
-      return summary.sessions.filter((session) => {
-        const project = summary.projects.find((entry) => entry.projectId === session.projectId);
-        const key =
-          project !== undefined && project.isChat === true
-            ? CHATS_PROJECT_KEY
-            : projectKeyForSession(session);
-        return key === header.projectKey;
-      });
-    },
-    [],
-  );
+  const sessionsForProject = useCallback((target: MachineRecord, header: ProjectHeaderItem): GhostexSession[] => {
+    const summary = useInventoryStore.getState().inventoriesByMachineId[target.id]?.summary;
+    if (summary === null || summary === undefined) return [];
+    return summary.sessions.filter((session) => {
+      const project = summary.projects.find((entry) => entry.projectId === session.projectId);
+      const key = project !== undefined && project.isChat === true ? CHATS_PROJECT_KEY : projectKeyForSession(session);
+      return key === header.projectKey;
+    });
+  }, []);
 
   const runProjectSessionsAction = useCallback(
     async (ctx: ProjectContext, action: 'wake' | 'sleep' | 'kill'): Promise<void> => {
@@ -826,9 +801,7 @@ export default function SessionsScreen({ navigation }: Props) {
       await runBulkSessionActions(
         ctx.machine,
         sessions.map((session) =>
-          action === 'kill'
-            ? closeSessionAction(session)
-            : lifecycleSessionAction(session, action === 'sleep'),
+          action === 'kill' ? closeSessionAction(session) : lifecycleSessionAction(session, action === 'sleep'),
         ),
       );
     },
@@ -1047,9 +1020,7 @@ export default function SessionsScreen({ navigation }: Props) {
           />
           {!header.collapsed && card.children.length > 0 ? (
             <View style={styles.cardSessions}>
-              {card.children.map((child) =>
-                renderChildItem(target, machineId, child, expandedGroupSurface),
-              )}
+              {card.children.map((child) => renderChildItem(target, machineId, child, expandedGroupSurface))}
             </View>
           ) : null}
         </View>
@@ -1060,13 +1031,7 @@ export default function SessionsScreen({ navigation }: Props) {
   const renderBlock = ({ item: block }: { item: DrawerBlock }) => {
     const target = machineById(block.machineId);
     if (block.kind === 'project') {
-      return renderProjectCard(
-        target,
-        block.machineId,
-        block.card,
-        false,
-        neutralExpandedGroupSurface,
-      );
+      return renderProjectCard(target, block.machineId, block.card, false, neutralExpandedGroupSurface);
     }
     if (block.kind === 'collection') {
       const header = block.header;
@@ -1089,10 +1054,7 @@ export default function SessionsScreen({ navigation }: Props) {
             the bordered card the panel used to be.
           */}
           {!header.collapsed ? (
-            <View
-              pointerEvents="none"
-              style={[styles.collectionRail, { backgroundColor: railColor }]}
-            />
+            <View pointerEvents="none" style={[styles.collectionRail, { backgroundColor: railColor }]} />
           ) : null}
           <View
             style={[
@@ -1169,9 +1131,7 @@ export default function SessionsScreen({ navigation }: Props) {
             first={item.section === 'quick'}
             /* Projects is always open (grouping.ts), so it draws no caret. */
             onToggle={
-              item.section === 'projects'
-                ? undefined
-                : () => collapse.toggleSection(block.machineId, item.section)
+              item.section === 'projects' ? undefined : () => collapse.toggleSection(block.machineId, item.section)
             }
             onMoreMenu={
               item.section === 'projects'
@@ -1188,11 +1148,7 @@ export default function SessionsScreen({ navigation }: Props) {
               item.section === 'quick'
                 ? () => {
                     if (target === null) return;
-                    void runCreationFlow(
-                      target,
-                      createChatCommand(),
-                      ProgressCopy.creatingQuickSession,
-                    );
+                    void runCreationFlow(target, createChatCommand(), ProgressCopy.creatingQuickSession);
                   }
                 : undefined
             }
@@ -1368,11 +1324,7 @@ export default function SessionsScreen({ navigation }: Props) {
           style={styles.statusPressable}
           onPress={() => setOverlay({ kind: 'logs' })}
         >
-          <Text
-            style={[styles.statusLine, { color: sidebarAppearance.muted }]}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
+          <Text style={[styles.statusLine, { color: sidebarAppearance.muted }]} numberOfLines={1} ellipsizeMode="tail">
             {statusLine}
           </Text>
         </Pressable>
@@ -1384,9 +1336,7 @@ export default function SessionsScreen({ navigation }: Props) {
             style={styles.tailscaleIndicator}
             onPress={() => void openTailscaleOrDownload()}
           >
-            <Text
-              style={[styles.tailscaleIndicatorLabel, { color: GhostexPalette.STATUS_CONNECTED }]}
-            >
+            <Text style={[styles.tailscaleIndicatorLabel, { color: GhostexPalette.STATUS_CONNECTED }]}>
               • Tailscale
             </Text>
           </Pressable>
@@ -1530,9 +1480,7 @@ export default function SessionsScreen({ navigation }: Props) {
           sessionTitle={sessionTitle(overlay.ctx.item.session)}
           remainingLabel={overlay.ctx.item.session.delayedSendRemainingLabel}
           delayedSendDeadlineAt={overlay.ctx.item.session.delayedSendDeadlineAt}
-          sendWhenAllProjectSessionsStopActive={
-            overlay.ctx.item.session.sendWhenAllProjectSessionsStopActive
-          }
+          sendWhenAllProjectSessionsStopActive={overlay.ctx.item.session.sendWhenAllProjectSessionsStopActive}
           sendWhenAgentStopsActive={overlay.ctx.item.session.sendWhenAgentStopsActive}
           onConfirm={async (trigger, delayMs) => {
             await runSessionCommand(
@@ -1541,16 +1489,10 @@ export default function SessionsScreen({ navigation }: Props) {
             );
           }}
           onCancelTimer={async () => {
-            await runSessionCommand(
-              overlay.ctx.machine,
-              cancelDelayedSendCommand(overlay.ctx.item.session.sessionId),
-            );
+            await runSessionCommand(overlay.ctx.machine, cancelDelayedSendCommand(overlay.ctx.item.session.sessionId));
           }}
           onToggleCloseAfterDone={async () => {
-            await runSessionCommand(
-              overlay.ctx.machine,
-              closeAfterDoneCommand(overlay.ctx.item.session.sessionId),
-            );
+            await runSessionCommand(overlay.ctx.machine, closeAfterDoneCommand(overlay.ctx.item.session.sessionId));
           }}
           onCancel={() => setOverlay(NONE)}
         />
@@ -1569,9 +1511,7 @@ export default function SessionsScreen({ navigation }: Props) {
               overlay.ctx.machine,
               killSessionCommand(
                 overlay.ctx.item.session.sessionId,
-                overlay.ctx.item.session.projectId.length > 0
-                  ? overlay.ctx.item.session.projectId
-                  : undefined,
+                overlay.ctx.item.session.projectId.length > 0 ? overlay.ctx.item.session.projectId : undefined,
               ),
               {
                 closeWarmSessionId: overlay.ctx.item.session.sessionId,
@@ -1591,9 +1531,7 @@ export default function SessionsScreen({ navigation }: Props) {
           agentLabel={overlay.exported.agentId.length > 0 ? overlay.exported.agentLabel : ''}
           starting={false}
           error={null}
-          onStartNewConversation={() =>
-            startTranscriptConversation(overlay.exported, overlay.projectTitle)
-          }
+          onStartNewConversation={() => startTranscriptConversation(overlay.exported, overlay.projectTitle)}
           onClose={() => setOverlay(NONE)}
         />
       ) : null}
@@ -1612,11 +1550,7 @@ export default function SessionsScreen({ navigation }: Props) {
           visible
           title={overlay.ctx.header.title}
           subtitle={overlay.view === 'colors' ? 'Group color' : 'Group'}
-          items={
-            overlay.view === 'colors'
-              ? collectionColorItems(overlay.ctx)
-              : collectionMenuRootItems(overlay.ctx)
-          }
+          items={overlay.view === 'colors' ? collectionColorItems(overlay.ctx) : collectionMenuRootItems(overlay.ctx)}
           onClose={() => setOverlay(NONE)}
         />
       ) : null}
@@ -1806,10 +1740,7 @@ export default function SessionsScreen({ navigation }: Props) {
           title="Recent Projects"
           subtitle="Choose a parked project to restore to the active sidebar."
           items={recentProjects.map((project) => {
-            const title =
-              project.title !== undefined && project.title.length > 0
-                ? project.title
-                : project.projectId;
+            const title = project.title !== undefined && project.title.length > 0 ? project.title : project.projectId;
             return {
               key: project.projectId,
               label: title,
@@ -1826,11 +1757,7 @@ export default function SessionsScreen({ navigation }: Props) {
       {overlay.kind === 'recovery' ? (
         <ActionSheet
           visible
-          title={
-            overlay.machine !== null
-              ? machineDisplayLabel(overlay.machine)
-              : StateCardCopy.noMachines.title
-          }
+          title={overlay.machine !== null ? machineDisplayLabel(overlay.machine) : StateCardCopy.noMachines.title}
           items={recoveryItems(overlay.machine)}
           onClose={() => setOverlay(NONE)}
         />

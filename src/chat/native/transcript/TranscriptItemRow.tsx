@@ -16,7 +16,14 @@ import { obj } from './json';
 import { MessageRow } from './MessageRow';
 import { SentAgentMessageCards } from './AgentMessageCards';
 import { useDisclosure } from './state';
-import { SINGLE_LINE_CARD, SINGLE_LINE_TITLE, SingleLinePill, SingleLineTile, singleLinePressed, singleLineShell } from './singleLineCard';
+import {
+  SINGLE_LINE_CARD,
+  SINGLE_LINE_TITLE,
+  SingleLinePill,
+  SingleLineTile,
+  singleLinePressed,
+  singleLineShell,
+} from './singleLineCard';
 import { PROSE_SIZE } from './theme';
 
 const IN_WORK_FOLD = { inWorkFold: true, hideFileChanges: true };
@@ -57,7 +64,9 @@ function SummaryRow({ item }: { item: SummaryItem }) {
           {open ? (
             <View style={styles.column}>
               {hasFinal
-                ? [...(item.earlierReplies ?? []), item.final!].map((message) => <MessageRow key={message.id} message={message} />)
+                ? [...(item.earlierReplies ?? []), item.final!].map((message) => (
+                    <MessageRow key={message.id} message={message} />
+                  ))
                 : item.work.map((message) => <MessageRow key={message.id} message={message} />)}
             </View>
           ) : null}
@@ -85,7 +94,7 @@ function CompletedWorkRow({ item }: { item: CompletedWorkItem }) {
       <WorkSummary item={item} open={open} onToggle={toggle} />
       {open ? (
         <FoldPlaceProvider value={IN_WORK_FOLD}>
-          <DisclosureBody onCollapse={toggle} label='Collapse completed work' rail='work'>
+          <DisclosureBody onCollapse={toggle} label="Collapse completed work" rail="work">
             {deferredState !== undefined ? <DeferredNotice item={item} error={deferredState.error ?? ''} /> : null}
             {item.work.map((message) => (
               <MessageRow key={message.id} message={message} />
@@ -126,12 +135,12 @@ function WorkSummary({ item, open, onToggle }: { item: CompletedWorkItem; open: 
     <Pressable
       disabled={!item.expandable}
       onPress={onToggle}
-      accessibilityRole='button'
+      accessibilityRole="button"
       accessibilityLabel={spoken}
       accessibilityState={{ expanded: open }}
       style={({ pressed }) => [styles.summary, singleLineShell(theme), pressed && singleLinePressed(theme)]}
     >
-      <SingleLineTile glyph='clock' badge='check' />
+      <SingleLineTile glyph="clock" badge="check" />
       <Text style={[SINGLE_LINE_TITLE, { color: theme.foreground }]}>{item.label}</Text>
       {/* The count pills sit at the row's right end and wrap among themselves (desktop `work_summary`). */}
       <View style={styles.chips}>
@@ -158,12 +167,14 @@ function DeferredNotice({ item, error }: { item: CompletedWorkItem; error: strin
   const failed = error.length > 0;
   return (
     <View style={styles.deferred}>
-      <Text style={[styles.deferredText, { color: failed ? theme.error : theme.muted }]}>{failed ? error : 'Loading work details…'}</Text>
+      <Text style={[styles.deferredText, { color: failed ? theme.error : theme.muted }]}>
+        {failed ? error : 'Loading work details…'}
+      </Text>
       {failed ? (
         <Pressable
           onPress={() => dispatch({ type: 'loadWork', id: item.id, work: (item.deferred ?? null) as never })}
           style={({ pressed }) => [styles.retry, pressed && { backgroundColor: theme.pressed }]}
-          accessibilityRole='button'
+          accessibilityRole="button"
         >
           <Text style={[styles.deferredText, { color: theme.muted }]}>Retry</Text>
         </Pressable>
@@ -183,7 +194,15 @@ const styles = StyleSheet.create({
     height: SINGLE_LINE_CARD.height,
     paddingHorizontal: SINGLE_LINE_CARD.paddingX,
   },
-  chips: { flex: 1, minWidth: 0, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'center', gap: 6 },
+  chips: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 6,
+  },
   deferred: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8 },
   deferredText: { fontSize: PROSE_SIZE, flexShrink: 1 },
   retry: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },

@@ -15,15 +15,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import {
-  ActivityIndicator,
-  Pressable,
-  RefreshControl,
-  SectionList,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, SectionList, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -355,9 +347,7 @@ export default function FindPromptsScreen({ navigation, route }: Props) {
             numberOfLines={3}
           >
             {find.notice.message}
-            {find.notice.detail !== undefined ? (
-              <Text style={styles.noticeDetail}> {find.notice.detail}</Text>
-            ) : null}
+            {find.notice.detail !== undefined ? <Text style={styles.noticeDetail}> {find.notice.detail}</Text> : null}
           </Text>
         </View>
       ) : null}

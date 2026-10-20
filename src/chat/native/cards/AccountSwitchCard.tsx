@@ -18,7 +18,6 @@ import { colorWithOpacity } from '../../../theme/palette';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { ChatButton, SWEEP_EASING, useLoop } from './primitives';
 
-
 export function AccountSwitchCard({ chat }: { chat: RustChat }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
@@ -28,7 +27,12 @@ export function AccountSwitchCard({ chat }: { chat: RustChat }) {
   useEffect(() => {
     if (id.length === 0) return;
     appear.setValue(0);
-    Animated.timing(appear, { toValue: 1, duration: 260, easing: Easing.out(Easing.poly(5)), useNativeDriver: true }).start();
+    Animated.timing(appear, {
+      toValue: 1,
+      duration: 260,
+      easing: Easing.out(Easing.poly(5)),
+      useNativeDriver: true,
+    }).start();
   }, [appear, id]);
   if (card === null) return null;
 
@@ -59,7 +63,10 @@ export function AccountSwitchCard({ chat }: { chat: RustChat }) {
               label="Retry switch"
               disabled={retry.busy === true}
               onPress={() =>
-                chat.dispatch({ type: 'accounts', request: { operation: 'select', accountId: str(retry, 'accountId') } })
+                chat.dispatch({
+                  type: 'accounts',
+                  request: { operation: 'select', accountId: str(retry, 'accountId') },
+                })
               }
             />
           </View>
@@ -148,13 +155,7 @@ function UsageTile({ usage, target }: { usage: unknown; target: boolean }) {
           {reset.length > 0 ? reset : '–'}
         </Text>
       </View>
-      <Text
-        style={[
-          styles.tilePercent,
-          strong && styles.tilePercentStrong,
-          level === 'unknown' && { color: P.muted },
-        ]}
-      >
+      <Text style={[styles.tilePercent, strong && styles.tilePercentStrong, level === 'unknown' && { color: P.muted }]}>
         {used === null ? '–' : String(Math.round(used))}
         {used !== null ? <Text style={styles.tilePercentSign}>%</Text> : null}
       </Text>
@@ -201,7 +202,11 @@ function Step({ index, step }: { index: number; step: unknown }) {
               styles.stepSweep,
               { width: lineWidth * 0.4 },
               // `gx-account-switch-step-sweep`: a 40% bar crossing from -100% to 250% of its own width.
-              { transform: [{ translateX: sweep.interpolate({ inputRange: [0, 1], outputRange: [-0.4 * lineWidth, lineWidth] }) }] },
+              {
+                transform: [
+                  { translateX: sweep.interpolate({ inputRange: [0, 1], outputRange: [-0.4 * lineWidth, lineWidth] }) },
+                ],
+              },
             ]}
           />
         ) : null}

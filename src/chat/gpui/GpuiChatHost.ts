@@ -15,11 +15,7 @@
  * The transcript itself (items, row details, images, the subagent viewer) is GPUI's, so this host
  * keeps none of it.
  */
-import {
-  createChatCore,
-  type ChatCoreHandle,
-  type ChatCoreQuery,
-} from '../../../modules/gx-chat-core/src';
+import { createChatCore, type ChatCoreHandle, type ChatCoreQuery } from '../../../modules/gx-chat-core/src';
 import { gpuiCommand, startGpui, type GpuiEvent } from '../../../modules/gx-chat-core/src/gpui';
 import type { ChatDocument } from '../rust/document';
 import type { ChatViewRequest } from '../rust/effects';
@@ -296,7 +292,7 @@ export class GpuiChatHost {
           text(params.content),
           typeof params.caret === 'number' ? params.caret : null,
           request.method === 'history',
-          params.preserveError === true
+          params.preserveError === true,
         );
         return;
       case 'composerClearExpected':

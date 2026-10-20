@@ -49,7 +49,13 @@ export function hasReplyActions(message: ProjectedMessage, finalIds: ReadonlySet
  * opens the reply in the desktop Docs review surface, which the phone does not have, so it is left
  * out rather than drawn as a control that does nothing.
  */
-export const ReplyActions = memo(function ReplyActions({ message, flush }: { message: ProjectedMessage; flush: boolean }) {
+export const ReplyActions = memo(function ReplyActions({
+  message,
+  flush,
+}: {
+  message: ProjectedMessage;
+  flush: boolean;
+}) {
   // Only the time shows; Save to md is in the long-press menu (see the file doc).
   if (str(message.time, 'label').length === 0) return null;
   return (
@@ -94,7 +100,11 @@ export function DeliveryIndicator({ message }: { message: ProjectedMessage }) {
   const queued = message.queued === true && (delivery === undefined || delivery === null);
   if (waiting) {
     return (
-      <View style={[styles.button, styles.indicator]} accessibilityRole='progressbar' accessibilityLabel='Waiting for agent'>
+      <View
+        style={[styles.button, styles.indicator]}
+        accessibilityRole="progressbar"
+        accessibilityLabel="Waiting for agent"
+      >
         <ActivityIndicator size={13} color={theme.muted} />
       </View>
     );
@@ -103,8 +113,8 @@ export function DeliveryIndicator({ message }: { message: ProjectedMessage }) {
   // The play button's action ("Send now") is in the long-press menu; the glyph stays as the sign
   // that the message is waiting.
   return (
-    <View style={[styles.button, styles.indicator]} accessibilityLabel='Queued. Hold the message to send it now'>
-      <Glyph name='player-play' size={13} color={theme.muted} />
+    <View style={[styles.button, styles.indicator]} accessibilityLabel="Queued. Hold the message to send it now">
+      <Glyph name="player-play" size={13} color={theme.muted} />
     </View>
   );
 }
@@ -122,7 +132,7 @@ export const UserActions = memo(function UserActions({ message }: { message: Pro
     <View style={[styles.row, styles.userRow]}>
       <MessageTime message={message} />
       {takingBack ? (
-        <View style={styles.button} accessibilityRole='progressbar' accessibilityLabel='Taking the message back'>
+        <View style={styles.button} accessibilityRole="progressbar" accessibilityLabel="Taking the message back">
           <ActivityIndicator size={13} color={theme.muted} />
         </View>
       ) : null}
@@ -153,16 +163,32 @@ function useUserActionItems(message: ProjectedMessage): ActionItem[] {
     items.push({ label: 'Send now', icon: 'arrow-up', run: () => dispatch({ type: 'sendKey', key: 'escape' }) });
   }
   if (waitingPromptId !== null && flags.canEditQueued) {
-    items.push({ label: 'Edit message', icon: 'pencil', run: () => dispatch({ type: 'removeQueue', promptId: waitingPromptId, edit: true }) });
+    items.push({
+      label: 'Edit message',
+      icon: 'pencil',
+      run: () => dispatch({ type: 'removeQueue', promptId: waitingPromptId, edit: true }),
+    });
   }
   if (takeable) {
-    items.push({ label: 'Back to composer', icon: 'arrow-back-up', run: () => dispatch({ type: 'takeBackQueued', messageId: message.id }) });
+    items.push({
+      label: 'Back to composer',
+      icon: 'arrow-back-up',
+      run: () => dispatch({ type: 'takeBackQueued', messageId: message.id }),
+    });
   }
   if (waitingPromptId !== null && flags.canRemoveQueued) {
-    items.push({ label: 'Delete message', icon: 'trash', run: () => dispatch({ type: 'removeQueue', promptId: waitingPromptId }) });
+    items.push({
+      label: 'Delete message',
+      icon: 'trash',
+      run: () => dispatch({ type: 'removeQueue', promptId: waitingPromptId }),
+    });
   }
   if (rewindable) {
-    items.push({ label: 'Rewind to here', icon: 'arrow-back-up', run: () => dispatch({ type: 'rewindOpen', messageId: message.id, prompt }) });
+    items.push({
+      label: 'Rewind to here',
+      icon: 'arrow-back-up',
+      run: () => dispatch({ type: 'rewindOpen', messageId: message.id, prompt }),
+    });
   }
   if (flags.canSavePrompt) {
     items.push({

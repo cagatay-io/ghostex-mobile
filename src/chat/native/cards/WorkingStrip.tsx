@@ -149,7 +149,11 @@ export function ProgressTrack({ percent }: { percent: number | null }) {
           style={[
             styles.trackFill,
             styles.trackSweep,
-            { transform: [{ translateX: sweep.interpolate({ inputRange: [0, 1], outputRange: [-0.35 * width, width] }) }] },
+            {
+              transform: [
+                { translateX: sweep.interpolate({ inputRange: [0, 1], outputRange: [-0.35 * width, width] }) },
+              ],
+            },
           ]}
         />
       )}

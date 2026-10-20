@@ -102,7 +102,7 @@ export default function UpdatesPage() {
         <View style={styles.actions}>
           {download.phase === 'ready' ? (
             <SetupButton
-              variant='primary'
+              variant="primary"
               label={UpdatesCopy.installButton(download.version)}
               accessibilityLabel={UpdatesCopy.installButton(download.version)}
               onPress={() => void installUpdate()}
@@ -110,7 +110,7 @@ export default function UpdatesPage() {
           ) : download.phase === 'downloading' ? (
             <>
               <SetupButton
-                variant='primary'
+                variant="primary"
                 disabled
                 label={UpdatesCopy.downloading(downloadPercent(download))}
                 onPress={() => undefined}
@@ -119,7 +119,7 @@ export default function UpdatesPage() {
             </>
           ) : (
             <SetupButton
-              variant='primary'
+              variant="primary"
               label={UpdatesCopy.downloadButton(update.version)}
               accessibilityLabel={UpdatesCopy.downloadButton(update.version)}
               onPress={() => void downloadUpdate()}

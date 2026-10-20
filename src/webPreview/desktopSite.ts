@@ -37,7 +37,7 @@ export function desktopUserAgent(): string {
  */
 export function siteKeyForUrl(
   url: string,
-  remotePortForLocal: (localPort: number) => number | undefined
+  remotePortForLocal: (localPort: number) => number | undefined,
 ): string | null {
   const parsed = parseHttpUrl(url);
   if (parsed === null) return null;

@@ -113,7 +113,7 @@ type LinkState =
 type HeaderWebSocket = new (
   url: string,
   protocols: string | string[] | undefined,
-  options: { headers: Record<string, string> }
+  options: { headers: Record<string, string> },
 ) => WebSocket;
 
 /** One conversation the socket follows. */

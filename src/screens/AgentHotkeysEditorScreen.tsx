@@ -1,13 +1,5 @@
 import { useMemo, useState } from 'react';
-import {
-  Alert,
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -145,8 +137,7 @@ export default function AgentHotkeysEditorScreen() {
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <KeyboardAwareScrollView contentContainerStyle={styles.list}>
         <Text style={styles.status}>
-          Configure the exact terminal shortcuts shown on each agent's key page. These keys never
-          type slash commands.
+          Configure the exact terminal shortcuts shown on each agent's key page. These keys never type slash commands.
         </Text>
 
         <Text style={styles.fieldLabel}>Agent</Text>
@@ -183,7 +174,11 @@ export default function AgentHotkeysEditorScreen() {
                   accessibilityRole="button"
                   accessibilityLabel={`Move ${item.label} earlier`}
                   disabled={index === 0}
-                  style={({ pressed }) => [styles.smallButton, pressed && styles.smallButtonPressed, index === 0 && styles.disabled]}
+                  style={({ pressed }) => [
+                    styles.smallButton,
+                    pressed && styles.smallButtonPressed,
+                    index === 0 && styles.disabled,
+                  ]}
                   onPress={() => moveHotkey(index, -1)}
                 >
                   <Text style={styles.smallButtonLabel}>↑</Text>
@@ -214,9 +209,7 @@ export default function AgentHotkeysEditorScreen() {
           ))
         )}
 
-        <Text style={styles.sectionHeader}>
-          {editingIndex >= 0 ? 'Edit hotkey' : 'Add hotkey'}
-        </Text>
+        <Text style={styles.sectionHeader}>{editingIndex >= 0 ? 'Edit hotkey' : 'Add hotkey'}</Text>
         <Text style={styles.fieldLabel}>Label</Text>
         <TextInput
           autoCapitalize="characters"
@@ -239,19 +232,12 @@ export default function AgentHotkeysEditorScreen() {
           onChangeText={setHotkey}
         />
         <Text style={styles.help}>
-          Use Ctrl, Option, or Shift with a character or named key. For a sequence, use “then”:
-          Ctrl+C then Ctrl+C.
+          Use Ctrl, Option, or Shift with a character or named key. For a sequence, use “then”: Ctrl+C then Ctrl+C.
         </Text>
 
         <View style={styles.editorActions}>
-          <Pressable
-            accessibilityRole="button"
-            style={styles.primaryButton}
-            onPress={submitHotkey}
-          >
-            <Text style={styles.primaryButtonLabel}>
-              {editingIndex >= 0 ? 'Update hotkey' : 'Add hotkey'}
-            </Text>
+          <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={submitHotkey}>
+            <Text style={styles.primaryButtonLabel}>{editingIndex >= 0 ? 'Update hotkey' : 'Add hotkey'}</Text>
           </Pressable>
           {editingIndex >= 0 ? (
             <Pressable
@@ -269,9 +255,7 @@ export default function AgentHotkeysEditorScreen() {
           style={({ pressed }) => [styles.resetButton, pressed && styles.resetButtonPressed]}
           onPress={handleReset}
         >
-          <Text style={styles.resetButtonLabel}>
-            Restore {AGENT_NAMES[agentId]} defaults
-          </Text>
+          <Text style={styles.resetButtonLabel}>Restore {AGENT_NAMES[agentId]} defaults</Text>
         </Pressable>
       </KeyboardAwareScrollView>
 

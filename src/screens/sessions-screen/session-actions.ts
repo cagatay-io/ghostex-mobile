@@ -26,12 +26,7 @@ import type {
 import type { GhostexQuickAction, GhostexSession } from '../../contract/mobileSummary';
 import { SessionCopy } from '../../copy';
 import type { OptimisticInventoryChange } from '../../inventory/optimistic';
-import {
-  lifecycleMutation,
-  parkMutation,
-  pinMutation,
-  tagMutation,
-} from '../../sessions/sessionCommands';
+import { lifecycleMutation, parkMutation, pinMutation, tagMutation } from '../../sessions/sessionCommands';
 import type { MachineRecord } from '../../machines/store';
 import type { ExportedTranscript } from '../terminal-screen/session-lookups';
 

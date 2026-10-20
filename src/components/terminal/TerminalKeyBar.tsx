@@ -20,20 +20,10 @@ import {
   type AgentHotkeyStep,
 } from '../../settings/agentHotkeys';
 import { useSettingsStore } from '../../settings/store';
-import {
-  resolveExtraKeysLayout,
-  useExtraKeysStore,
-  type ResolvedExtraKey,
-} from '../../settings/extraKeys';
+import { resolveExtraKeysLayout, useExtraKeysStore, type ResolvedExtraKey } from '../../settings/extraKeys';
 import { agentKeyPage, EXTRA_KEYS_PAGE, type KeyPageItem } from './keyBarPages';
 import { GhostexPalette } from '../../theme/palette';
-import {
-  ArrowIcon,
-  KeyboardDismissIcon,
-  PencilIcon,
-  ReturnIcon,
-  SendIcon,
-} from './icons';
+import { ArrowIcon, KeyboardDismissIcon, PencilIcon, ReturnIcon, SendIcon } from './icons';
 
 export const KEY_BAR_HEIGHT = 88;
 const REPEAT_DELAY_MS = 350;
@@ -107,11 +97,7 @@ export type TerminalKeyBarProps = {
   onDismissKeyboard: () => void;
 };
 
-export default function TerminalKeyBar({
-  sessionKey,
-  agentId,
-  onDismissKeyboard,
-}: TerminalKeyBarProps) {
+export default function TerminalKeyBar({ sessionKey, agentId, onDismissKeyboard }: TerminalKeyBarProps) {
   const layout = useExtraKeysStore((state) => state.layout);
   const agentHotkeyProfiles = useAgentHotkeysStore((state) => state.profiles);
   const [row1 = [], row2 = []] = resolveExtraKeysLayout(layout);
@@ -156,9 +142,7 @@ export default function TerminalKeyBar({
 
   const clearModifiers = useCallback((): void => {
     setModifiers(NO_MODIFIERS);
-    void GhostexNative.setKeyModifiers(sessionKey, modifierPayload(NO_MODIFIERS)).catch(
-      () => undefined,
-    );
+    void GhostexNative.setKeyModifiers(sessionKey, modifierPayload(NO_MODIFIERS)).catch(() => undefined);
   }, [sessionKey]);
 
   useEffect(() => {
@@ -174,9 +158,7 @@ export default function TerminalKeyBar({
     });
     return () => {
       subscription.remove();
-      void GhostexNative.setKeyModifiers(sessionKey, modifierPayload(NO_MODIFIERS)).catch(
-        () => undefined,
-      );
+      void GhostexNative.setKeyModifiers(sessionKey, modifierPayload(NO_MODIFIERS)).catch(() => undefined);
     };
   }, [clearModifiers, sessionKey]);
 
@@ -260,9 +242,7 @@ export default function TerminalKeyBar({
           ? 'oneShot'
           : 'off';
       const next = { ...current, [modifier]: nextMode };
-      void GhostexNative.setKeyModifiers(sessionKey, modifierPayload(next)).catch(
-        () => undefined,
-      );
+      void GhostexNative.setKeyModifiers(sessionKey, modifierPayload(next)).catch(() => undefined);
       return next;
     });
   };
@@ -341,12 +321,7 @@ export default function TerminalKeyBar({
             accessibilityState={{ selected: active }}
             accessibilityHint="Tap for one key, or hold to lock until tapped again"
             delayLongPress={MODIFIER_LONG_PRESS_MS}
-            style={[
-              styles.pill,
-              styles.modifierPill,
-              active && styles.pillActive,
-              locked && styles.pillLocked,
-            ]}
+            style={[styles.pill, styles.modifierPill, active && styles.pillActive, locked && styles.pillLocked]}
             onPress={() => setModifierMode(item.modifier, false)}
             onLongPress={() => setModifierMode(item.modifier, true)}
           >
@@ -430,10 +405,7 @@ export default function TerminalKeyBar({
     <View>
       {!editorVisible && pageRows !== null ? (
         <View style={styles.pagePanel}>
-          <Text
-            style={[styles.pageHint, pageHint === null && styles.pageHintPlaceholder]}
-            numberOfLines={1}
-          >
+          <Text style={[styles.pageHint, pageHint === null && styles.pageHintPlaceholder]} numberOfLines={1}>
             {pageHint ?? PAGE_HINT_PLACEHOLDER}
           </Text>
           {pageRows.map((row, rowIndex) => (
@@ -445,71 +417,66 @@ export default function TerminalKeyBar({
       ) : null}
       <View style={styles.bar}>
         {editorVisible ? (
-        <View style={styles.editorContainer}>
-          <TextInput
-            autoFocus
-            accessibilityLabel="Terminal text editor"
-            autoCapitalize="none"
-            autoCorrect
-            keyboardType="default"
-            multiline
-            placeholder="Type text to send to the terminal"
-            placeholderTextColor={GhostexPalette.MUTED}
-            selectionColor="rgba(125,211,252,0.45)"
-            spellCheck
-            style={styles.editor}
-            submitBehavior="newline"
-            value={editorText}
-            onChangeText={setEditorText}
-            onKeyPress={(event) => handleEditorKeyPress(event.nativeEvent.key)}
-          />
-        </View>
-      ) : (
-        <View style={styles.rows}>
-          <View style={styles.row}>{row1.map((item) => renderItem(item, true))}</View>
-          <View style={styles.row}>{row2.map((item) => renderItem(item, true))}</View>
-        </View>
-      )}
+          <View style={styles.editorContainer}>
+            <TextInput
+              autoFocus
+              accessibilityLabel="Terminal text editor"
+              autoCapitalize="none"
+              autoCorrect
+              keyboardType="default"
+              multiline
+              placeholder="Type text to send to the terminal"
+              placeholderTextColor={GhostexPalette.MUTED}
+              selectionColor="rgba(125,211,252,0.45)"
+              spellCheck
+              style={styles.editor}
+              submitBehavior="newline"
+              value={editorText}
+              onChangeText={setEditorText}
+              onKeyPress={(event) => handleEditorKeyPress(event.nativeEvent.key)}
+            />
+          </View>
+        ) : (
+          <View style={styles.rows}>
+            <View style={styles.row}>{row1.map((item) => renderItem(item, true))}</View>
+            <View style={styles.row}>{row2.map((item) => renderItem(item, true))}</View>
+          </View>
+        )}
         <View style={styles.trailingCluster}>
           <View style={styles.separator} />
           <View style={styles.trailingButtons}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={editorVisible ? 'Show terminal keys' : 'Open text editor'}
-            accessibilityState={{ selected: editorVisible }}
-            style={[styles.trailingButton, editorVisible && styles.trailingButtonActive]}
-            onPress={toggleEditor}
-          >
-            <PencilIcon
-              size={16}
-              color={editorVisible ? '#FFFFFF' : GhostexPalette.FOREGROUND}
-            />
-          </Pressable>
-          {editorVisible ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={
-                editorText.length === 0 ? 'Send Enter to terminal' : 'Insert text into terminal'
-              }
-              style={styles.trailingButton}
-              onPress={submitEditor}
+              accessibilityLabel={editorVisible ? 'Show terminal keys' : 'Open text editor'}
+              accessibilityState={{ selected: editorVisible }}
+              style={[styles.trailingButton, editorVisible && styles.trailingButtonActive]}
+              onPress={toggleEditor}
             >
-              {editorText.length === 0 ? (
-                <SendIcon size={16} color={GhostexPalette.FOREGROUND} />
-              ) : (
-                <ArrowIcon direction="up" size={16} color={GhostexPalette.FOREGROUND} />
-              )}
+              <PencilIcon size={16} color={editorVisible ? '#FFFFFF' : GhostexPalette.FOREGROUND} />
             </Pressable>
-          ) : (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Dismiss keyboard"
-              style={styles.trailingButton}
-              onPress={onDismissKeyboard}
-            >
-              <KeyboardDismissIcon size={16} color={GhostexPalette.FOREGROUND} />
-            </Pressable>
-          )}
+            {editorVisible ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={editorText.length === 0 ? 'Send Enter to terminal' : 'Insert text into terminal'}
+                style={styles.trailingButton}
+                onPress={submitEditor}
+              >
+                {editorText.length === 0 ? (
+                  <SendIcon size={16} color={GhostexPalette.FOREGROUND} />
+                ) : (
+                  <ArrowIcon direction="up" size={16} color={GhostexPalette.FOREGROUND} />
+                )}
+              </Pressable>
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Dismiss keyboard"
+                style={styles.trailingButton}
+                onPress={onDismissKeyboard}
+              >
+                <KeyboardDismissIcon size={16} color={GhostexPalette.FOREGROUND} />
+              </Pressable>
+            )}
           </View>
         </View>
       </View>

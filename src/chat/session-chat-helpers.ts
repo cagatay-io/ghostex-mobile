@@ -49,7 +49,7 @@ async function uploadStagedChatFile(
   localUri: string,
   kind: 'image' | 'file',
   prefix: string,
-  tail: string
+  tail: string,
 ): Promise<string> {
   await ensureConnected(machine);
   const exec = await execRemoteScript(
@@ -58,13 +58,17 @@ async function uploadStagedChatFile(
       posix: remoteSessionChatUploadPathScript(kind === 'image' ? 'i' : 'f', prefix, tail),
       powershell: windowsChatUploadPath(kind === 'image' ? 'i' : 'f', prefix, tail),
     },
-    REMOTE_PATH_EXEC_TIMEOUT_MS
+    REMOTE_PATH_EXEC_TIMEOUT_MS,
   );
   const remotePath = exec.stdout.trim().split('\n').pop()?.trim() ?? '';
   if (exec.exitCode !== 0 || remotePath.length === 0) {
     throw new Error(exec.stderr.trim().length > 0 ? exec.stderr.trim() : 'Remote path creation failed.');
   }
-  await GhostexNative.uploadFile(machine.id, localPathFromUri(localUri), await remoteUploadPath(machine.id, remotePath));
+  await GhostexNative.uploadFile(
+    machine.id,
+    localPathFromUri(localUri),
+    await remoteUploadPath(machine.id, remotePath),
+  );
   return remotePath;
 }
 
@@ -80,7 +84,7 @@ export async function uploadSessionChatLocalFile(
   machine: MachineConnectionTarget,
   localUri: string,
   suggestedName: string | undefined,
-  kind: 'image' | 'file'
+  kind: 'image' | 'file',
 ): Promise<string> {
   const prefix = String(Date.now());
   const tail =
@@ -146,7 +150,7 @@ export type SessionChatSyncedDraft = {
 export async function readSessionChatSyncedDraft(
   machine: MachineConnectionTarget,
   projectId: string,
-  sessionId: string
+  sessionId: string,
 ): Promise<SessionChatSyncedDraft> {
   if (projectId.trim().length === 0 || sessionId.trim().length === 0) {
     return { content: '', supported: false };
@@ -175,7 +179,7 @@ export async function writeSessionChatSyncedDraft(
   machine: MachineConnectionTarget,
   projectId: string,
   sessionId: string,
-  content: string
+  content: string,
 ): Promise<void> {
   const clientId = await resolvePromptEditorClientId();
   await runGhostexCli(machine, setSessionChatDraftCommand(sessionId, projectId, content, clientId), {

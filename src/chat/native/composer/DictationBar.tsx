@@ -44,7 +44,11 @@ export function DictationBar({
         {failed && failure ? <Text style={styles.detail}>{`${failure} Your recording is kept.`}</Text> : null}
       </View>
       {failed ? (
-        <Pressable accessibilityRole="button" onPress={onRetry} style={({ pressed }) => [styles.button, pressed ? styles.buttonPressed : null]}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={onRetry}
+          style={({ pressed }) => [styles.button, pressed ? styles.buttonPressed : null]}
+        >
           <Text style={styles.buttonText}>Transcribe again</Text>
         </Pressable>
       ) : null}
@@ -70,7 +74,13 @@ const useStyles = themedStyles((P) => ({
   detail: { color: P.muted, fontSize: 12.5, lineHeight: 17 },
   close: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   pressed: { backgroundColor: P.border },
-  button: { paddingHorizontal: 10, height: 30, justifyContent: 'center', borderRadius: 8, backgroundColor: P.neutralFill },
+  button: {
+    paddingHorizontal: 10,
+    height: 30,
+    justifyContent: 'center',
+    borderRadius: 8,
+    backgroundColor: P.neutralFill,
+  },
   buttonPressed: { backgroundColor: P.neutralFillPressed },
   buttonText: { color: P.primary, fontSize: 13 },
 }));

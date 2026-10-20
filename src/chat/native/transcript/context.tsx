@@ -53,12 +53,17 @@ export function NativeChatUiProvider({ chat, children }: { chat: RustChat; child
   }, []);
   const renderVisual = useCallback(
     (source: string, width: number, theme: JsonRecord, progress?: number): JsonRecord | null =>
-      obj(queryRef.current('renderVisual', progress === undefined ? [source, width, theme, 'System'] : [source, width, theme, 'System', progress])),
-    []
+      obj(
+        queryRef.current(
+          'renderVisual',
+          progress === undefined ? [source, width, theme, 'System'] : [source, width, theme, 'System', progress],
+        ),
+      ),
+    [],
   );
   const value = useMemo<NativeChatUi>(
     () => ({ disclosures, demand, requestImage, renderVisual }),
-    [demand, disclosures, requestImage, renderVisual]
+    [demand, disclosures, requestImage, renderVisual],
   );
   return <UiContext.Provider value={value}>{children}</UiContext.Provider>;
 }
@@ -191,7 +196,13 @@ export function useChatImages(): RustChatImages {
 }
 
 /** Registers an open row's demand for its detail while mounted, and returns the detail (or null). */
-export function useRowDetail(key: string, kind: 'tool' | 'file', messageId: string, index: number, active: boolean): Json {
+export function useRowDetail(
+  key: string,
+  kind: 'tool' | 'file',
+  messageId: string,
+  index: number,
+  active: boolean,
+): Json {
   const { demand } = useNativeChatUi();
   const details = useRowDetails();
   useEffect(() => {
@@ -202,7 +213,8 @@ export function useRowDetail(key: string, kind: 'tool' | 'file', messageId: stri
 }
 
 /** What an image tile shows: a URI React Native can load, a spinner, or the picture's own words. */
-export type ImageDisplay = { state: 'ready'; uri: string } | { state: 'loading' } | { state: 'unavailable'; reason: string };
+export type ImageDisplay =
+  { state: 'ready'; uri: string } | { state: 'loading' } | { state: 'unavailable'; reason: string };
 
 /** Resolves one projected image source, asking the core for machine bytes the first time (`images.rs`). */
 export function useImageDisplay(image: ChatImageSource): ImageDisplay {
@@ -214,7 +226,8 @@ export function useImageDisplay(image: ChatImageSource): ImageDisplay {
   useEffect(() => {
     if (transport === 'read' && path.length > 0 && images[path] === undefined) requestImage(path);
   }, [images, path, requestImage, transport]);
-  if (transport === 'url' || transport === 'data') return url.length > 0 ? { state: 'ready', uri: url } : { state: 'unavailable', reason: 'unavailable' };
+  if (transport === 'url' || transport === 'data')
+    return url.length > 0 ? { state: 'ready', uri: url } : { state: 'unavailable', reason: 'unavailable' };
   if (transport !== 'read' || path.length === 0) return { state: 'unavailable', reason: 'unavailable' };
   const loaded = images[path];
   if (loaded === undefined) return { state: 'loading' };

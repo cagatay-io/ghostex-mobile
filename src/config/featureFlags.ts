@@ -18,5 +18,4 @@ import { Platform } from 'react-native';
 
 const extra: Record<string, unknown> = Constants.expoConfig?.extra ?? {};
 
-export const ANDROID_SELF_UPDATE_ENABLED: boolean =
-  Platform.OS === 'android' && extra.androidSelfUpdate === true;
+export const ANDROID_SELF_UPDATE_ENABLED: boolean = Platform.OS === 'android' && extra.androidSelfUpdate === true;

@@ -58,7 +58,12 @@ function deviceLanguage(): string | undefined {
   }
 }
 
-async function rpc(machine: MachineConnectionTarget, method: string, params: unknown, timeoutMs: number): Promise<{ result: Record<string, unknown> } | { error: string }> {
+async function rpc(
+  machine: MachineConnectionTarget,
+  method: string,
+  params: unknown,
+  timeoutMs: number,
+): Promise<{ result: Record<string, unknown> } | { error: string }> {
   const answer = await chatMachineLink(machine).rpc(method, params, timeoutMs);
   if (answer.error) return { error: answer.error.message || "Couldn't reach Ghostex on your computer." };
   return { result: (answer.result ?? {}) as Record<string, unknown> };
@@ -68,11 +73,17 @@ async function rpc(machine: MachineConnectionTarget, method: string, params: unk
  * Starts recording. `onMicError` hears about a microphone that stops later. Answers the recording's
  * id, or a sentence for why the microphone did not start.
  */
-export async function startRecording(onMicError: (message: string) => void): Promise<{ id: string } | { error: string }> {
+export async function startRecording(
+  onMicError: (message: string) => void,
+): Promise<{ id: string } | { error: string }> {
   const permission = PermissionsAndroid.PERMISSIONS.RECORD_AUDIO;
   const allowed =
-    (await PermissionsAndroid.check(permission)) || (await PermissionsAndroid.request(permission)) === PermissionsAndroid.RESULTS.GRANTED;
-  if (!allowed) return { error: 'Ghostex needs microphone access to dictate. Allow it in Android Settings › Apps › Ghostex › Permissions.' };
+    (await PermissionsAndroid.check(permission)) ||
+    (await PermissionsAndroid.request(permission)) === PermissionsAndroid.RESULTS.GRANTED;
+  if (!allowed)
+    return {
+      error: 'Ghostex needs microphone access to dictate. Allow it in Android Settings › Apps › Ghostex › Permissions.',
+    };
   let id: string;
   try {
     id = await GhostexNative.dictationRecordStart();
@@ -104,7 +115,10 @@ export async function stopRecording(dismissed: boolean): Promise<LocalDictation 
 }
 
 /** Hands a phone recording to the computer in pieces; the phone's copy goes once it has all of it. */
-async function upload(machine: MachineConnectionTarget, recording: LocalDictation): Promise<{ id: string } | { error: string }> {
+async function upload(
+  machine: MachineConnectionTarget,
+  recording: LocalDictation,
+): Promise<{ id: string } | { error: string }> {
   let offset = 0;
   for (;;) {
     const chunk = await GhostexNative.dictationReadPiece(recording.path, offset, PIECE_BYTES);
@@ -124,7 +138,7 @@ async function upload(machine: MachineConnectionTarget, recording: LocalDictatio
         dismissed: recording.dismissed,
         language: deviceLanguage(),
       },
-      UPLOAD_TIMEOUT_MS
+      UPLOAD_TIMEOUT_MS,
     );
     if ('error' in answer) return answer;
     const dictation = answer.result.dictation as ServerDictation | undefined;
@@ -156,7 +170,11 @@ function outcome(answer: { result: Record<string, unknown> } | { error: string }
     const text = (dictation.text ?? '').trim();
     return text.length > 0
       ? { kind: 'text', text }
-      : { kind: 'nothing', message: 'No words were heard in the recording. It is kept on your computer in Settings › Voice agent › Dictation history.' };
+      : {
+          kind: 'nothing',
+          message:
+            'No words were heard in the recording. It is kept on your computer in Settings › Voice agent › Dictation history.',
+        };
   }
   return { kind: 'failed', kept, message: dictation?.error?.message ?? 'The transcription failed.' };
 }
@@ -170,7 +188,7 @@ export async function saveAndTranscribe(
   machine: MachineConnectionTarget,
   kept: Kept,
   isCancelled: () => boolean,
-  onServerId: (id: string) => void
+  onServerId: (id: string) => void,
 ): Promise<Transcription | null> {
   let id: string;
   if (kept.kind === 'local') {
@@ -201,7 +219,10 @@ export async function saveAndTranscribe(
 }
 
 /** Transcribe previous: the newest recording without text, from any device. */
-export async function transcribeLatest(machine: MachineConnectionTarget, isCancelled: () => boolean): Promise<Transcription | null> {
+export async function transcribeLatest(
+  machine: MachineConnectionTarget,
+  isCancelled: () => boolean,
+): Promise<Transcription | null> {
   await sendUnsent(machine);
   const answer = await rpc(machine, 'transcribeDictation', { latest: true }, TRANSCRIBE_TIMEOUT_MS);
   const id = 'result' in answer ? (answer.result.dictation as ServerDictation | undefined)?.id : undefined;
@@ -225,7 +246,9 @@ export async function dismissLocal(recording: LocalDictation): Promise<LocalDict
 }
 
 /** What Transcribe previous would take: `{durationMs, createdAt}` of the newest recording without text. */
-export async function latestUntranscribed(machine: MachineConnectionTarget): Promise<{ durationMs: number; createdAt: number } | null> {
+export async function latestUntranscribed(
+  machine: MachineConnectionTarget,
+): Promise<{ durationMs: number; createdAt: number } | null> {
   const answer = await rpc(machine, 'listDictations', { limit: 0 }, SHORT_TIMEOUT_MS);
   if ('error' in answer) return null;
   const latest = answer.result.latestUntranscribed as ServerDictation | null | undefined;

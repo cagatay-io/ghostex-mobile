@@ -15,14 +15,22 @@ import { NativeComposer } from './NativeComposer';
 
 const SCENE: string = 'queue';
 
-const IMAGE_DRAFT = 'Compare these [Image #1](/Users/admin/.local/share/ghostex/i/1.png) and check [notes.md](/Users/admin/p/notes.md) please';
+const IMAGE_DRAFT =
+  'Compare these [Image #1](/Users/admin/.local/share/ghostex/i/1.png) and check [notes.md](/Users/admin/p/notes.md) please';
 
 function refs(text: string) {
   const out: unknown[] = [];
   const re = /\[([^\]]+)\]\(([^)]+)\)/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
-    out.push({ start: m.index, end: m.index + m[0].length, kind: /\.png$/.test(m[2]!) ? 'image' : 'file', label: m[1], path: m[2], pill: m[1] });
+    out.push({
+      start: m.index,
+      end: m.index + m[0].length,
+      kind: /\.png$/.test(m[2]!) ? 'image' : 'file',
+      label: m[1],
+      path: m[2],
+      pill: m[1],
+    });
   }
   return out;
 }
@@ -39,14 +47,38 @@ function useFakeChat(scene: string): RustChat {
       doc.queue = {
         ...doc.queue,
         prompts: [
-          { id: 'a', text: 'Then run the tests', preview: 'Then run the tests', state: 'queued', busy: false, createdAt: '', updatedAt: '' },
-          { id: 'b', text: 'And update the changelog', preview: 'And update the changelog', state: 'failed', errorMessage: 'the terminal did not answer.', busy: false, createdAt: '', updatedAt: '' },
+          {
+            id: 'a',
+            text: 'Then run the tests',
+            preview: 'Then run the tests',
+            state: 'queued',
+            busy: false,
+            createdAt: '',
+            updatedAt: '',
+          },
+          {
+            id: 'b',
+            text: 'And update the changelog',
+            preview: 'And update the changelog',
+            state: 'failed',
+            errorMessage: 'the terminal did not answer.',
+            busy: false,
+            createdAt: '',
+            updatedAt: '',
+          },
         ],
       };
     }
     if (scene === 'slash') doc.suggestions = data.slash;
     if (scene === 'files') doc.suggestions = data.files;
-    if (scene === 'note') doc.note = { open: true, value: 'Next: wire the mobile composer to the queue.', saved: '', edited: false, loading: false };
+    if (scene === 'note')
+      doc.note = {
+        open: true,
+        value: 'Next: wire the mobile composer to the queue.',
+        saved: '',
+        edited: false,
+        loading: false,
+      };
     if (scene === 'incoming') doc.incomingDraft = { content: 'A draft typed on the computer.' };
     if (scene === 'context') doc.contextEditor = data.contextEditor;
     if (scene === 'images') doc.pendingAttachments = 1;
@@ -56,7 +88,16 @@ function useFakeChat(scene: string): RustChat {
     console.log('[preview] dispatch', JSON.stringify(action).slice(0, 200));
     if (action.type === 'measureComposer') {
       // The core's fit_composer_controls, for the preview only.
-      const m = action.measurements as { available: number; options: number; actions: number; footerGap: number; clearance: number; actionGap: number; hasOverflowOptions: boolean; controls: { id: string; width: number }[] };
+      const m = action.measurements as {
+        available: number;
+        options: number;
+        actions: number;
+        footerGap: number;
+        clearance: number;
+        actionGap: number;
+        hasOverflowOptions: boolean;
+        controls: { id: string; width: number }[];
+      };
       let required = m.options + m.actions + m.footerGap + m.clearance;
       const overflowed: string[] = [];
       for (const control of m.controls) {
@@ -64,7 +105,10 @@ function useFakeChat(scene: string): RustChat {
         overflowed.push(control.id);
         required -= control.width + m.actionGap;
       }
-      docRef.current = { ...docRef.current, composerOverflow: { overflowed, optionsOverflowed: required > m.available && m.hasOverflowOptions } };
+      docRef.current = {
+        ...docRef.current,
+        composerOverflow: { overflowed, optionsOverflowed: required > m.available && m.hasOverflowOptions },
+      };
       force((n) => n + 1);
     }
   };
@@ -77,7 +121,10 @@ function useFakeChat(scene: string): RustChat {
       onSendBlocked: () => undefined,
       onFocusRequested: () => undefined,
     });
-    modelRef.current.init({ clientId: 'preview', entry: { text: scene === 'images' || scene === 'queue' ? IMAGE_DRAFT : '' } }, 'preview');
+    modelRef.current.init(
+      { clientId: 'preview', entry: { text: scene === 'images' || scene === 'queue' ? IMAGE_DRAFT : '' } },
+      'preview',
+    );
   }
   const model = modelRef.current;
   const composer: ComposerModelState = model.state;
@@ -112,7 +159,7 @@ function useFakeChat(scene: string): RustChat {
       onViewRequest: () => () => undefined,
       machine: null,
     }),
-    [composer, model, docRef.current]
+    [composer, model, docRef.current],
   );
 }
 
@@ -128,12 +175,40 @@ function Preview() {
         </ScrollView>
         <NativeComposer chat={chat} onHostAction={(action) => console.log('[preview] host', action)} />
         {SCENE === 'more' ? (
-          <MenuSheet rows={moreActionsRows({ document: doc, simple: true, verbose: false, available: () => true, serves: () => true })} onClose={() => undefined} onCommand={() => true} />
+          <MenuSheet
+            rows={moreActionsRows({
+              document: doc,
+              simple: true,
+              verbose: false,
+              available: () => true,
+              serves: () => true,
+            })}
+            onClose={() => undefined}
+            onCommand={() => true}
+          />
         ) : null}
-        {SCENE === 'model' ? <ModelMenuSheet menu={doc.modelMenu as never} visible ownProvider="claude" onClose={() => undefined} dispatch={() => undefined} /> : null}
-        {SCENE === 'mode' ? <MenuSheet rows={(doc.optionMenus as { mode: never[] }).mode} onClose={() => undefined} onCommand={() => true} /> : null}
-        {SCENE === 'contextMeter' ? <MenuSheet rows={[{ context: doc.contextMeter }]} onClose={() => undefined} onCommand={() => true} /> : null}
-        {SCENE === 'accounts' ? <MenuSheet rows={[{ accounts: doc.accountPanel }]} onClose={() => undefined} onCommand={() => true} /> : null}
+        {SCENE === 'model' ? (
+          <ModelMenuSheet
+            menu={doc.modelMenu as never}
+            visible
+            ownProvider="claude"
+            onClose={() => undefined}
+            dispatch={() => undefined}
+          />
+        ) : null}
+        {SCENE === 'mode' ? (
+          <MenuSheet
+            rows={(doc.optionMenus as { mode: never[] }).mode}
+            onClose={() => undefined}
+            onCommand={() => true}
+          />
+        ) : null}
+        {SCENE === 'contextMeter' ? (
+          <MenuSheet rows={[{ context: doc.contextMeter }]} onClose={() => undefined} onCommand={() => true} />
+        ) : null}
+        {SCENE === 'accounts' ? (
+          <MenuSheet rows={[{ accounts: doc.accountPanel }]} onClose={() => undefined} onCommand={() => true} />
+        ) : null}
       </SafeAreaView>
     </SafeAreaProvider>
   );

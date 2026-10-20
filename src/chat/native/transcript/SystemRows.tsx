@@ -30,7 +30,15 @@ export function estimatedLines(text: string): number {
 }
 
 /** The status card shell (`cards.rs`): a rounded panel, its header, body column and footer band. */
-export function StatusCard({ header, children, footer }: { header: ReactNode; children?: ReactNode; footer?: ReactNode }) {
+export function StatusCard({
+  header,
+  children,
+  footer,
+}: {
+  header: ReactNode;
+  children?: ReactNode;
+  footer?: ReactNode;
+}) {
   const { theme } = useTranscriptEnv();
   const panel = theme.light ? '#fefefe' : '#1f1f1f';
   const footerTone = theme.light ? '#fdfdfd' : '#161616';
@@ -38,7 +46,10 @@ export function StatusCard({ header, children, footer }: { header: ReactNode; ch
     <View
       style={[
         styles.card,
-        { borderColor: theme.light ? '#e5e5e5' : 'rgba(255,255,255,0.08)', backgroundColor: footer !== undefined ? footerTone : panel },
+        {
+          borderColor: theme.light ? '#e5e5e5' : 'rgba(255,255,255,0.08)',
+          backgroundColor: footer !== undefined ? footerTone : panel,
+        },
       ]}
     >
       <View style={[styles.cardPanel, footer !== undefined && { backgroundColor: panel }]}>
@@ -46,7 +57,11 @@ export function StatusCard({ header, children, footer }: { header: ReactNode; ch
         {children !== undefined && children !== null ? <View style={styles.cardBody}>{children}</View> : null}
       </View>
       {footer !== undefined ? (
-        <View style={[styles.cardFooter, { borderTopColor: theme.light ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.04)' }]}>{footer}</View>
+        <View
+          style={[styles.cardFooter, { borderTopColor: theme.light ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.04)' }]}
+        >
+          {footer}
+        </View>
       ) : null}
     </View>
   );
@@ -59,7 +74,9 @@ function CardHeader({ glyph, title, trailing }: { glyph: GlyphName; title: React
       <View style={styles.cardGlyph}>
         <Glyph name={glyph} size={14} color={theme.muted} />
       </View>
-      <View style={styles.cardTitle}>{typeof title === 'string' ? <Text style={[styles.prose, { color: theme.foreground }]}>{title}</Text> : title}</View>
+      <View style={styles.cardTitle}>
+        {typeof title === 'string' ? <Text style={[styles.prose, { color: theme.foreground }]}>{title}</Text> : title}
+      </View>
       {trailing}
     </View>
   );
@@ -68,7 +85,13 @@ function CardHeader({ glyph, title, trailing }: { glyph: GlyphName; title: React
 function CardChevron({ open, onPress }: { open: boolean; onPress(): void }) {
   const { theme } = useTranscriptEnv();
   return (
-    <Pressable hitSlop={8} onPress={onPress} accessibilityRole='button' accessibilityState={{ expanded: open }} style={styles.cardChevron}>
+    <Pressable
+      hitSlop={8}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ expanded: open }}
+      style={styles.cardChevron}
+    >
       <Glyph name={open ? 'chevron-down' : 'chevron-right'} size={14} color={theme.muted} />
     </Pressable>
   );
@@ -119,7 +142,7 @@ function ForkBoundary({ card }: { card: JsonRecord }) {
   return (
     <View style={styles.forkBoundary}>
       <View style={[styles.forkRule, { backgroundColor: theme.border }]} />
-      <Glyph name='git-branch' size={14} color={theme.muted} />
+      <Glyph name="git-branch" size={14} color={theme.muted} />
       <Text style={[styles.prose, { color: theme.muted }]}>{str(card, 'text')}</Text>
       <View style={[styles.forkRule, { backgroundColor: theme.border }]} />
     </View>
@@ -140,12 +163,17 @@ function GoalCard({ id, card }: { id: string; card: JsonRecord }) {
     <StatusCard
       header={
         <CardHeader
-          glyph='focus-2'
+          glyph="focus-2"
           title={
             <View style={styles.goalTitle}>
               <Text style={[styles.prose, { color: theme.foreground }]}>Goal</Text>
               {status.length > 0 ? (
-                <View style={[styles.goalPill, { backgroundColor: limited ? 'rgba(251,113,133,0.15)' : 'rgba(180,184,191,0.15)' }]}>
+                <View
+                  style={[
+                    styles.goalPill,
+                    { backgroundColor: limited ? 'rgba(251,113,133,0.15)' : 'rgba(180,184,191,0.15)' },
+                  ]}
+                >
                   <Text style={[styles.goalPillText, { color: pill }]}>{status}</Text>
                 </View>
               ) : null}
@@ -161,7 +189,10 @@ function GoalCard({ id, card }: { id: string; card: JsonRecord }) {
       }
     >
       {objective.length > 0 ? (
-        <Text numberOfLines={expandable && !open ? GOAL_PREVIEW_LINES : undefined} style={[styles.prose, { color: theme.cardMuted }]}>
+        <Text
+          numberOfLines={expandable && !open ? GOAL_PREVIEW_LINES : undefined}
+          style={[styles.prose, { color: theme.cardMuted }]}
+        >
           {objective}
         </Text>
       ) : null}
@@ -222,13 +253,21 @@ export const SuppressedRow = memo(function SuppressedRow({ message }: { message:
 });
 
 function StatusRows({ suppressed }: { suppressed: JsonRecord }) {
-  const listed = arr(suppressed.statuses).map((status) => obj(status)).filter((status): status is JsonRecord => status !== null);
+  const listed = arr(suppressed.statuses)
+    .map((status) => obj(status))
+    .filter((status): status is JsonRecord => status !== null);
   const statuses = listed.length > 0 ? listed : [{ label: suppressed.label, tone: suppressed.tone } as JsonRecord];
   const glyph = subjectGlyph(str(suppressed, 'subject'));
   return (
     <View style={styles.statusColumn}>
       {statuses.map((status, index) => (
-        <StatusRowCard key={index} glyph={glyph} label={str(status, 'label')} detail={str(status, 'detail')} tone={str(status, 'tone')} />
+        <StatusRowCard
+          key={index}
+          glyph={glyph}
+          label={str(status, 'label')}
+          detail={str(status, 'detail')}
+          tone={str(status, 'tone')}
+        />
       ))}
     </View>
   );
@@ -240,7 +279,17 @@ function StatusRows({ suppressed }: { suppressed: JsonRecord }) {
  * one line, and a trailing fact such as "exit code 1" as a pill. Holding the card shows the whole
  * sentence above it, so the card keeps its height.
  */
-function StatusRowCard({ glyph, label, detail, tone }: { glyph: GlyphName; label: string; detail: string; tone: string }) {
+function StatusRowCard({
+  glyph,
+  label,
+  detail,
+  tone,
+}: {
+  glyph: GlyphName;
+  label: string;
+  detail: string;
+  tone: string;
+}) {
   const { theme } = useTranscriptEnv();
   const [held, setHeld] = useState(false);
   const badge = tone === 'error' ? 'error' : tone === 'neutral' ? undefined : 'check';
@@ -250,18 +299,25 @@ function StatusRowCard({ glyph, label, detail, tone }: { glyph: GlyphName; label
       <Pressable
         onLongPress={() => setHeld(true)}
         onPressOut={() => setHeld(false)}
-        accessibilityRole='text'
+        accessibilityRole="text"
         accessibilityLabel={detail.length > 0 ? `${label}, ${detail}` : label}
         style={[styles.statusCard, singleLineShell(theme)]}
       >
         <SingleLineTile glyph={glyph} {...(badge !== undefined ? { badge } : {})} />
-        <Text style={[SINGLE_LINE_TITLE, styles.statusLabel, { color: theme.foreground }]} numberOfLines={1} ellipsizeMode='tail'>
+        <Text
+          style={[SINGLE_LINE_TITLE, styles.statusLabel, { color: theme.foreground }]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
           {label}
         </Text>
         {detail.length > 0 ? <SingleLinePill label={detail} color={detailColor} /> : null}
       </Pressable>
       {held ? (
-        <View pointerEvents='none' style={[styles.statusBubble, { borderColor: theme.inputBorder, backgroundColor: theme.cardPanel }]}>
+        <View
+          pointerEvents="none"
+          style={[styles.statusBubble, { borderColor: theme.inputBorder, backgroundColor: theme.cardPanel }]}
+        >
           <Text style={[styles.statusBubbleText, { color: theme.foreground }]}>{label}</Text>
         </View>
       ) : null}
@@ -276,7 +332,9 @@ function InlineSuppressed({ suppressed }: { suppressed: JsonRecord }) {
     <View style={styles.lane}>
       <LaneMarker color={theme.muted} />
       <Text style={[styles.prose, styles.laneText, { color: theme.muted }]}>
-        <Text style={styles.semibold}>{body.length > 0 ? `${str(suppressed, 'label')} · ` : str(suppressed, 'label')}</Text>
+        <Text style={styles.semibold}>
+          {body.length > 0 ? `${str(suppressed, 'label')} · ` : str(suppressed, 'label')}
+        </Text>
         {body}
       </Text>
     </View>
@@ -292,7 +350,10 @@ function CollapsedSuppressed({ id, suppressed }: { id: string; suppressed: JsonR
     <View style={styles.collapsed}>
       <DisclosureHeading label={str(suppressed, 'label')} open={open} onToggle={toggle} color={theme.muted} />
       {open && body.length > 0 ? (
-        <ScrollView nestedScrollEnabled style={[styles.suppressedBody, { borderColor: theme.border, backgroundColor: theme.input }]}>
+        <ScrollView
+          nestedScrollEnabled
+          style={[styles.suppressedBody, { borderColor: theme.border, backgroundColor: theme.input }]}
+        >
           <Text selectable style={[styles.commandText, { color: theme.muted }]}>
             {body}
           </Text>
@@ -314,20 +375,30 @@ export function StartupDelivery({ message, waitingLine = true }: { message: Proj
   if (delivery === undefined || delivery === null) return null;
   const failed = delivery.state === 'failed';
   if (!failed && !waitingLine) return null;
-  const status = failed ? (delivery.errorMessage?.length ? delivery.errorMessage : 'Message could not be delivered.') : 'Waiting for agent…';
+  const status = failed
+    ? delivery.errorMessage?.length
+      ? delivery.errorMessage
+      : 'Message could not be delivered.'
+    : 'Waiting for agent…';
   return (
-    <View style={styles.delivery} accessibilityRole='text'>
+    <View style={styles.delivery} accessibilityRole="text">
       <Text style={[styles.small, { color: theme.muted }]}>{status}</Text>
       {failed ? (
         <>
           <Pressable
-            style={({ pressed }) => [styles.deliveryAction, { backgroundColor: pressed ? theme.neutralFillPressed : theme.neutralFill }]}
+            style={({ pressed }) => [
+              styles.deliveryAction,
+              { backgroundColor: pressed ? theme.neutralFillPressed : theme.neutralFill },
+            ]}
             onPress={() => dispatch({ type: 'retryQueue', promptId: delivery.promptId })}
           >
             <Text style={[styles.small, { color: theme.primary }]}>Retry</Text>
           </Pressable>
           <Pressable
-            style={({ pressed }) => [styles.deliveryAction, { backgroundColor: pressed ? theme.neutralFillPressed : theme.neutralFill }]}
+            style={({ pressed }) => [
+              styles.deliveryAction,
+              { backgroundColor: pressed ? theme.neutralFillPressed : theme.neutralFill },
+            ]}
             onPress={() => dispatch({ type: 'removeQueue', promptId: delivery.promptId })}
           >
             <Text style={[styles.small, { color: theme.primary }]}>Remove</Text>
@@ -346,13 +417,31 @@ const styles = StyleSheet.create({
   card: { borderWidth: 1, borderRadius: 12, overflow: 'hidden', minWidth: 0 },
   cardPanel: { paddingHorizontal: 16, paddingVertical: 12 },
   cardBody: { paddingTop: 8, gap: 12 },
-  cardFooter: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 1 },
+  cardFooter: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+  },
   cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   cardGlyph: { height: PROSE_LINE, justifyContent: 'center' },
   cardTitle: { flex: 1, minWidth: 0 },
   cardChevron: { width: 22, height: PROSE_LINE, alignItems: 'center', justifyContent: 'center' },
   autoNamedRow: { flexDirection: 'row', paddingBottom: 8 },
-  autoNamed: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 16, borderWidth: 1, flexShrink: 1 },
+  autoNamed: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    flexShrink: 1,
+  },
   autoNamedGlyph: { marginTop: 2 },
   autoNamedText: { gap: 2, flexShrink: 1 },
   forkBoundary: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 4, paddingBottom: 12 },
@@ -408,8 +497,15 @@ const styles = StyleSheet.create({
   unanswered: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
   optionsToggle: { paddingTop: 4 },
   option: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, gap: 2 },
-  answerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1 },
+  answerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
   answerCheck: { marginTop: 3 },
   answerText: { flex: 1, minWidth: 0, gap: 2 },
 });
-

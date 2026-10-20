@@ -133,22 +133,14 @@ export default function App() {
             {!hasMachines ? (
               <Stack.Screen name="Welcome" component={WelcomeScreen} options={{ headerShown: false }} />
             ) : (
-              <Stack.Screen
-                name="Sessions"
-                component={SessionsScreen}
-                options={{ headerShown: false }}
-              />
+              <Stack.Screen name="Sessions" component={SessionsScreen} options={{ headerShown: false }} />
             )}
             <Stack.Screen
               name="Voice"
               component={VoiceScreen}
               options={{ headerShown: false, animation: 'slide_from_bottom' }}
             />
-            <Stack.Screen
-              name="ConnectChoose"
-              component={ConnectChooseScreen}
-              options={{ title: '' }}
-            />
+            <Stack.Screen name="ConnectChoose" component={ConnectChooseScreen} options={{ title: '' }} />
             <Stack.Screen name="ScanCode" component={ScanCodeScreen} options={{ title: 'Scan code' }} />
             <Stack.Screen
               name="TailscaleForm"
@@ -165,9 +157,7 @@ export default function App() {
               component={MachineFormScreen}
               options={({ route }) => ({
                 title:
-                  route.params?.machineId !== undefined
-                    ? MachineCopy.editor.editTitle
-                    : MachineCopy.editor.addTitle,
+                  route.params?.machineId !== undefined ? MachineCopy.editor.editTitle : MachineCopy.editor.addTitle,
               })}
             />
             <Stack.Screen
@@ -205,11 +195,7 @@ export default function App() {
                   component={WebPreviewPortsScreen}
                   options={{ title: WebPreviewCopy.pickerTitle }}
                 />
-                <Stack.Screen
-                  name="WebPreview"
-                  component={WebPreviewScreen}
-                  options={{ headerShown: false }}
-                />
+                <Stack.Screen name="WebPreview" component={WebPreviewScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="Docs" component={DocsScreen} options={{ title: DocsCopy.listTitle }} />
                 <Stack.Screen name="DocViewer" component={DocViewerScreen} options={{ title: '' }} />
                 <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />

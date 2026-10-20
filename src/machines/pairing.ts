@@ -63,8 +63,7 @@ export type EasyConnectPairingFailure =
   | 'rejected';
 
 export type EasyConnectPairingResult =
-  | { ok: true; machine: MachineRecord }
-  | { ok: false; reason: EasyConnectPairingFailure; message: string };
+  { ok: true; machine: MachineRecord } | { ok: false; reason: EasyConnectPairingFailure; message: string };
 
 /** What this phone calls itself in the computer's Paired devices list. */
 export function pairingDeviceName(): string {
@@ -161,9 +160,7 @@ async function saveEasyConnectMachine(
 ): Promise<MachineRecord> {
   const store = useMachinesStore.getState();
   const existing =
-    rePairMachineId === null
-      ? null
-      : (store.machines.find((machine) => machine.id === rePairMachineId) ?? null);
+    rePairMachineId === null ? null : (store.machines.find((machine) => machine.id === rePairMachineId) ?? null);
   const reportedName = registration.computerName.length > 0 ? registration.computerName : code.name;
   // A re-pair keeps a name the user typed themselves; only a name that still
   // matches what the computer reported last time follows the new report.
@@ -186,9 +183,7 @@ async function saveEasyConnectMachine(
     gxserverPort: code.port,
   };
   const result =
-    rePairMachineId === null
-      ? await store.addMachine(input)
-      : await store.updateMachine(rePairMachineId, input);
+    rePairMachineId === null ? await store.addMachine(input) : await store.updateMachine(rePairMachineId, input);
   if (!result.ok) {
     const detail = Object.values(result.errors).join(' ');
     throw new PairDeviceError('rejected', `The pairing code could not be saved. ${detail}`);
@@ -229,11 +224,7 @@ export async function pairEasyConnect(
     const key = await GhostexNative.generateSshKey('ed25519', SSH_KEY_COMMENT);
     let localPort: number;
     try {
-      ({ localPort } = await GhostexNative.startTailcatForward(
-        PAIRING_FORWARD_ID,
-        code.address,
-        code.port,
-      ));
+      ({ localPort } = await GhostexNative.startTailcatForward(PAIRING_FORWARD_ID, code.address, code.port));
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       throw new PairDeviceError('unreachable', detail);

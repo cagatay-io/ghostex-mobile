@@ -115,7 +115,10 @@ export function recentDocsFiles(files: readonly DocsFileNode[], limit: number): 
 
 /** Every query word must appear in the file's shown path (case-insensitive). */
 export function searchDocsFiles(files: readonly DocsFileNode[], query: string): DocsFileNode[] {
-  const words = query.toLowerCase().split(/\s+/u).filter((word) => word.length > 0);
+  const words = query
+    .toLowerCase()
+    .split(/\s+/u)
+    .filter((word) => word.length > 0);
   if (words.length === 0) return [];
   return files.filter((file) => {
     const haystack = file.displayPath.toLowerCase();

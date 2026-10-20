@@ -20,11 +20,7 @@ import { openComputerForward, type ComputerForward } from './machineLinks';
  */
 type HandledCode = 'E_NOT_CONNECTED' | 'E_PORT_NOT_LISTENING' | 'E_FORWARDING_PROHIBITED';
 
-const HANDLED_CODES: readonly HandledCode[] = [
-  'E_NOT_CONNECTED',
-  'E_PORT_NOT_LISTENING',
-  'E_FORWARDING_PROHIBITED',
-];
+const HANDLED_CODES: readonly HandledCode[] = ['E_NOT_CONNECTED', 'E_PORT_NOT_LISTENING', 'E_FORWARDING_PROHIBITED'];
 
 export type WebPreviewFailure = {
   message: string;
@@ -48,7 +44,7 @@ function nativeErrorCode(error: unknown): HandledCode | null {
  */
 export function startWebPreviewForward(
   machine: MachineConnectionTarget,
-  address: { remotePort: number; host: string; path: string }
+  address: { remotePort: number; host: string; path: string },
 ): Promise<ComputerForward> {
   return openComputerForward(machine, address);
 }
@@ -67,7 +63,7 @@ export function startWebPreviewForward(
 export function describeForwardFailure(
   remotePort: number,
   error: unknown,
-  machineHasPassword: boolean
+  machineHasPassword: boolean,
 ): WebPreviewFailure {
   switch (nativeErrorCode(error)) {
     case 'E_PORT_NOT_LISTENING':

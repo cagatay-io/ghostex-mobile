@@ -58,7 +58,7 @@ export function useComposerMotion(requested: boolean, border: number, collapsedE
       target.current = value;
       height.value = withTiming(value, TWEEN);
     },
-    [height]
+    [height],
   );
 
   useEffect(() => {
@@ -77,8 +77,8 @@ export function useComposerMotion(requested: boolean, border: number, collapsedE
           withTiming(0, { duration: 0 }),
           withDelay(
             MOTION.durationMs * MOTION.arrivalDelayFraction,
-            withTiming(1, { duration: MOTION.durationMs * MOTION.arrivalDurationFraction, easing: EASING })
-          )
+            withTiming(1, { duration: MOTION.durationMs * MOTION.arrivalDurationFraction, easing: EASING }),
+          ),
         );
       }
       setCollapsed(false);
@@ -115,7 +115,7 @@ export function useComposerMotion(requested: boolean, border: number, collapsedE
       }
       walkTo(next);
     },
-    [border, height, reduceMotion, walkTo]
+    [border, height, reduceMotion, walkTo],
   );
 
   const cardStyle = useAnimatedStyle(() => (height.value < 0 ? {} : { height: height.value }));

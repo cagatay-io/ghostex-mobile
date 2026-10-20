@@ -7,7 +7,12 @@
  */
 
 import { createdSessionId, runGhostexCli } from '../../components/sessions/cli';
-import { createAgentCommand, exportSessionTranscriptCommand, shellQuote, wakeSessionCommand } from '../../commands/ghostexCli';
+import {
+  createAgentCommand,
+  exportSessionTranscriptCommand,
+  shellQuote,
+  wakeSessionCommand,
+} from '../../commands/ghostexCli';
 import { resolveAgentIconId, type GhostexAgentLauncher, type GhostexSession } from '../../contract/mobileSummary';
 import { SessionCopy } from '../../copy';
 import { useInventoryStore } from '../../inventory/store';
@@ -88,7 +93,11 @@ export function modelPickerProvider(icon: string | undefined): string | null {
 }
 
 /** Writes the session's transcript to a Markdown file on the machine and returns its path. */
-export async function exportTranscript(machine: MachineConnectionTarget, sessionId: string, projectId: string): Promise<string> {
+export async function exportTranscript(
+  machine: MachineConnectionTarget,
+  sessionId: string,
+  projectId: string,
+): Promise<string> {
   const result = await runGhostexCli(machine, exportSessionTranscriptCommand(sessionId, projectId));
   const path = typeof result.json?.path === 'string' ? result.json.path.trim() : '';
   if (path.length === 0) throw new Error('gxserver did not return the exported file.');
@@ -135,7 +144,7 @@ export async function createAgentWithFirstInputDraft(
     agent: Pick<GhostexAgentLauncher, 'agentId' | 'icon' | 'name'>;
     draft: string;
     model?: { model: string; effort: string } | null;
-  }
+  },
 ): Promise<string> {
   const { agent, projectId, model } = input;
   const agentName = agent.name !== undefined && agent.name.length > 0 ? agent.name : agent.agentId;
@@ -172,11 +181,13 @@ export async function startHandoffConversation(
     path: string;
     sessionTitle: string;
     target: { provider: string; model: string; effort: string } | null;
-  }
+  },
 ): Promise<void> {
   const { agent, target } = input;
   const launchModel =
-    target !== null && (target.provider === 'claude' || target.provider === 'codex') && modelPickerProvider(agent.icon) === target.provider
+    target !== null &&
+    (target.provider === 'claude' || target.provider === 'codex') &&
+    modelPickerProvider(agent.icon) === target.provider
       ? target
       : null;
   const sessionId = await createAgentWithFirstInputDraft(machine, {

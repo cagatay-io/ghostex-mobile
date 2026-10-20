@@ -12,7 +12,12 @@ import { footerLines } from './modelMenuState';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 
 /** The glyph beside each value (`render.rs`: brain, chart bars, bolt, person). */
-const BUTTON_GLYPHS: Record<string, GlyphName> = { reasoning: 'brain', context: 'chart-bar', fast: 'bolt', account: 'user' };
+const BUTTON_GLYPHS: Record<string, GlyphName> = {
+  reasoning: 'brain',
+  context: 'chart-bar',
+  fast: 'bolt',
+  account: 'user',
+};
 
 /** Fast mode reads as a switch: lit when on, dimmed when off (`render.rs`). */
 function fastOn(setting: JsonRecord): boolean {
@@ -155,7 +160,14 @@ const useStyles = themedStyles((P) => ({
   valueOn: { color: P.primary },
   valueMuted: { color: P.ink(0.64) },
   choices: { paddingHorizontal: 8, paddingBottom: 8, gap: 2 },
-  choice: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, paddingHorizontal: 12, borderRadius: 8 },
+  choice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 48,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
   choiceLabel: { flex: 1, minWidth: 0, color: P.menuForeground, fontSize: 15 },
   defaultTag: { color: P.ink(0.64), fontSize: 12, fontWeight: '600' },
 }));

@@ -118,7 +118,9 @@ export default function NativeChatScreen({
 
   // The session title the core names saved files after and shows in the context meter.
   const title = useInventoryStore(
-    (store) => store.inventoriesByMachineId[machine.id]?.summary?.sessions.find((entry) => entry.sessionId === sessionId)?.displayTitle ?? ''
+    (store) =>
+      store.inventoriesByMachineId[machine.id]?.summary?.sessions.find((entry) => entry.sessionId === sessionId)
+        ?.displayTitle ?? '',
   );
   const { setTitle } = chat;
   useEffect(() => {
@@ -137,8 +139,11 @@ export default function NativeChatScreen({
   // Armed Delayed Send / Close After Done on the working row; a tap opens Delayed Actions.
   const armed = useArmedActions(machine.id, sessionId);
   const openDelayedActions = useMemo(
-    () => (hostActions.includes('delayedActions') && onHostAction !== undefined ? () => onHostAction('delayedActions', {}) : undefined),
-    [hostActions, onHostAction]
+    () =>
+      hostActions.includes('delayedActions') && onHostAction !== undefined
+        ? () => onHostAction('delayedActions', {})
+        : undefined,
+    [hostActions, onHostAction],
   );
 
   // The notice card's Switch account opens the composer's Accounts & limits panel.
@@ -150,7 +155,8 @@ export default function NativeChatScreen({
   const hostAction = useCallback(
     (action: string, params: Record<string, unknown> = {}) => {
       if (action === 'terminalView' || action === 'switchToTerminal') onSwitchToTerminal();
-      else if (action === 'switchAccount' && Object.keys(params).length === 0) setAccountsRequestId((current) => current + 1);
+      else if (action === 'switchAccount' && Object.keys(params).length === 0)
+        setAccountsRequestId((current) => current + 1);
       else if (action === 'switchAccount') {
         // A switchable-agent row (agents without the Accounts panel): rewrite the session's agent,
         // then Full Reload so it resumes under the new one, as desktop's `switchSessionAgent` does.
@@ -163,8 +169,7 @@ export default function NativeChatScreen({
           }
           show(answer.error.message, true, 'Switch Account failed');
         });
-      }
-      else if (action === 'toast') show(String(params.message ?? ''), params.level === 'error');
+      } else if (action === 'toast') show(String(params.message ?? ''), params.level === 'error');
       else if (action === 'exportTranscript') {
         exportCount.current += 1;
         openHandoff({ id: -exportCount.current, target: null });
@@ -174,7 +179,7 @@ export default function NativeChatScreen({
         else setSavedPromptsOpen(true);
       } else if (hostActions.includes(action)) onHostAction?.(action, params);
     },
-    [hostActions, machine, onHostAction, onSwitchToTerminal, openHandoff, projectId, sessionId, show]
+    [hostActions, machine, onHostAction, onSwitchToTerminal, openHandoff, projectId, sessionId, show],
   );
   const composerHostActions = useMemo(
     () => [
@@ -182,7 +187,7 @@ export default function NativeChatScreen({
       ...(sessionId.length > 0 && projectId.length > 0 ? ['exportTranscript', 'stashedPrompts', 'switchAccount'] : []),
       ...hostActions.filter((action) => action !== 'exportTranscript'),
     ],
-    [hostActions, projectId, sessionId]
+    [hostActions, projectId, sessionId],
   );
 
   // The header's requests, one per new value (0 runs nothing).
@@ -230,10 +235,22 @@ export default function NativeChatScreen({
         </View>
         {/* The working card in its own row above the cards and the composer: the transcript ends above it. */}
         {document === null ? null : (
-          <WorkingCard chat={chat} document={document} armed={armed} {...(openDelayedActions !== undefined ? { onArmedPress: openDelayedActions } : {})} />
+          <WorkingCard
+            chat={chat}
+            document={document}
+            armed={armed}
+            {...(openDelayedActions !== undefined ? { onArmedPress: openDelayedActions } : {})}
+          />
         )}
         <NativeChatCards chat={chat} onHostAction={hostAction} />
-        {questionReplacesComposer(document) ? null : <NativeComposer chat={chat} onHostAction={hostAction} hostActions={composerHostActions} openAccountsRequestId={accountsRequestId} />}
+        {questionReplacesComposer(document) ? null : (
+          <NativeComposer
+            chat={chat}
+            onHostAction={hostAction}
+            hostActions={composerHostActions}
+            openAccountsRequestId={accountsRequestId}
+          />
+        )}
         <RewindDialog chat={chat} />
         <SaveMarkdownDialog chat={chat} />
         {gpui ? null : <TranscriptMenuSheet chat={chat} host={menuHost} enabled={!subagentOpen} />}
@@ -281,7 +298,7 @@ function useChatViewRequests(
   machine: MachineConnectionTarget,
   projectId: string,
   onSwitchToTerminal: () => void,
-  onHandoff: (request: HandoffRequest) => void
+  onHandoff: (request: HandoffRequest) => void,
 ): { toast: Toast; show: (message: string, error: boolean, title?: string) => void } {
   const machineId = machine.id;
   const openMachineLink = useOpenMachineLink();
@@ -328,22 +345,37 @@ function useChatViewRequests(
             if (request.action === 'switchToTerminal' || request.action === 'terminalView') onSwitchToTerminal();
             else if (request.action === 'selectForkBranch') {
               void openForkBranch(machine, request.params).catch(() =>
-                show('The session could not be resumed. Try again from the sessions list.', true, 'Could not open that branch')
+                show(
+                  'The session could not be resumed. Try again from the sessions list.',
+                  true,
+                  'Could not open that branch',
+                ),
               );
             } else if (request.action === 'openAgentSession') {
               // An agent message card's Go to session: the other session, as its tab.
               void openForkBranch(machine, request.params).catch(() =>
-                show('The session could not be opened. Try again from the sessions list.', true, 'Could not open that session')
+                show(
+                  'The session could not be opened. Try again from the sessions list.',
+                  true,
+                  'Could not open that session',
+                ),
               );
             } else if (request.action === 'openCoordinatorThread') {
               // A coordinator's thread opens like a fork branch, as its tab. gxserver already resumed it when it was
               // closed (`openCoordinatorThread`), so the action carries no lifecycleState and nothing is woken here.
               void openForkBranch(machine, request.params).catch(() =>
-                show('The thread could not be opened. Try again from the sessions list.', true, 'Could not open that thread')
+                show(
+                  'The thread could not be opened. Try again from the sessions list.',
+                  true,
+                  'Could not open that thread',
+                ),
               );
             } else if (request.action === 'handoffToModel') {
-              const params = (typeof request.params === 'object' && request.params !== null ? request.params : {}) as Record<string, unknown>;
-              const text = (key: string): string => (typeof params[key] === 'string' ? (params[key] as string).trim() : '');
+              const params = (
+                typeof request.params === 'object' && request.params !== null ? request.params : {}
+              ) as Record<string, unknown>;
+              const text = (key: string): string =>
+                typeof params[key] === 'string' ? (params[key] as string).trim() : '';
               if (text('provider').length === 0 || text('model').length === 0) return;
               handoffs.current += 1;
               const next: HandoffRequest = {
@@ -358,7 +390,17 @@ function useChatViewRequests(
             return;
         }
       }),
-    [chat.onViewRequest, machine, machineId, navigation, onHandoff, onSwitchToTerminal, openMachineLink, projectId, show] // eslint-disable-line react-hooks/exhaustive-deps
+    [
+      chat.onViewRequest,
+      machine,
+      machineId,
+      navigation,
+      onHandoff,
+      onSwitchToTerminal,
+      openMachineLink,
+      projectId,
+      show,
+    ], // eslint-disable-line react-hooks/exhaustive-deps
   );
   return { toast, show };
 }
@@ -371,8 +413,8 @@ function projectPathFor(machineId: string, projectId: string): string {
   return (
     useInventoryStore
       .getState()
-      .inventoriesByMachineId[machineId]?.summary?.projects.find((project) => project.projectId === projectId)
-      ?.path ?? ''
+      .inventoriesByMachineId[machineId]?.summary?.projects.find((project) => project.projectId === projectId)?.path ??
+    ''
   );
 }
 
@@ -385,14 +427,16 @@ function projectPathFor(machineId: string, projectId: string): string {
 function useTranscriptMenuHost(
   machineId: string,
   projectId: string,
-  show: (message: string, error: boolean, title?: string) => void
+  show: (message: string, error: boolean, title?: string) => void,
 ): TranscriptMenuHost {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const openMachineLink = useOpenMachineLink();
   return useMemo<TranscriptMenuHost>(() => {
     const filePath = (command: MenuRow): string | null => {
       const path =
-        typeof command.path === 'string' ? remotePathForChatFile(command.path, projectPathFor(machineId, projectId)) : null;
+        typeof command.path === 'string'
+          ? remotePathForChatFile(command.path, projectPathFor(machineId, projectId))
+          : null;
       return path !== null && phoneOpensFile(path) ? path : null;
     };
     return {
@@ -402,7 +446,8 @@ function useTranscriptMenuHost(
         if (type !== 'host') return false;
         if (command.action === 'openLink') return typeof command.url === 'string';
         // "Open in Files", and "Open Image" (no `view`: the host picks where a picture opens).
-        if (command.action === 'openFile') return (command.view === 'docs' || command.view === undefined) && filePath(command) !== null;
+        if (command.action === 'openFile')
+          return (command.view === 'docs' || command.view === undefined) && filePath(command) !== null;
         return false;
       },
       perform: (command) => {
@@ -455,10 +500,29 @@ function ChatToast({ toast }: { toast: Toast }) {
   }, [opacity, toast]);
   if (shown === null) return null;
   return (
-    <Animated.View pointerEvents='none' style={[styles.toastRow, { opacity }]} accessibilityLiveRegion='polite'>
-      <View style={[styles.toast, { backgroundColor: theme.light ? '#ffffff' : '#1f1f1f', borderColor: theme.light ? '#e5e5e5' : 'rgba(255,255,255,0.08)' }]}>
-        {shown.title !== undefined ? <Text style={[styles.toastTitle, { color: shown.error ? theme.error : theme.foreground }]}>{shown.title}</Text> : null}
-        <Text style={[styles.toastText, { color: shown.error && shown.title === undefined ? theme.error : theme.cardMuted }]}>{shown.message}</Text>
+    <Animated.View pointerEvents="none" style={[styles.toastRow, { opacity }]} accessibilityLiveRegion="polite">
+      <View
+        style={[
+          styles.toast,
+          {
+            backgroundColor: theme.light ? '#ffffff' : '#1f1f1f',
+            borderColor: theme.light ? '#e5e5e5' : 'rgba(255,255,255,0.08)',
+          },
+        ]}
+      >
+        {shown.title !== undefined ? (
+          <Text style={[styles.toastTitle, { color: shown.error ? theme.error : theme.foreground }]}>
+            {shown.title}
+          </Text>
+        ) : null}
+        <Text
+          style={[
+            styles.toastText,
+            { color: shown.error && shown.title === undefined ? theme.error : theme.cardMuted },
+          ]}
+        >
+          {shown.message}
+        </Text>
       </View>
     </Animated.View>
   );

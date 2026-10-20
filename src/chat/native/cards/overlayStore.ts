@@ -33,7 +33,9 @@ export const useChatOverlayStore = create<OverlayState>(() => ({ imageViewer: nu
 /** Opens the full-size viewer on `images[index]`; the rest of the list is next / previous. */
 export function openChatImageViewer(images: readonly ChatImage[], index: number): void {
   if (images.length === 0) return;
-  useChatOverlayStore.setState({ imageViewer: { images: [...images], index: Math.min(Math.max(0, index), images.length - 1) } });
+  useChatOverlayStore.setState({
+    imageViewer: { images: [...images], index: Math.min(Math.max(0, index), images.length - 1) },
+  });
 }
 
 /** Opens the larger preview of a Markdown table (its source, delimiter row included). */

@@ -23,13 +23,7 @@ export function ChevronLeftIcon(props: IconProps) {
   const { size, color, strokeWidth } = iconDefaults(props);
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M15 18l-6-6 6-6"
-        stroke={color}
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Path d="M15 18l-6-6 6-6" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -81,12 +75,7 @@ export function CloseIcon(props: IconProps) {
   const { size, color, strokeWidth } = iconDefaults(props);
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M18 6L6 18M6 6l12 12"
-        stroke={color}
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-      />
+      <Path d="M18 6L6 18M6 6l12 12" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
     </Svg>
   );
 }
@@ -95,19 +84,8 @@ export function RefreshIcon(props: IconProps) {
   const { size, color, strokeWidth } = iconDefaults(props);
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M20 12a8 8 0 1 1-2.34-5.66"
-        stroke={color}
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-      />
-      <Path
-        d="M20 3v4.5h-4.5"
-        stroke={color}
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Path d="M20 12a8 8 0 1 1-2.34-5.66" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+      <Path d="M20 3v4.5h-4.5" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -163,13 +141,7 @@ export function KeyboardDismissIcon(props: IconProps) {
         strokeWidth={strokeWidth}
         strokeLinecap="round"
       />
-      <Path
-        d="M9 17.5l3 3 3-3"
-        stroke={color}
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Path d="M9 17.5l3 3 3-3" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }

@@ -32,9 +32,7 @@ export default function WelcomeScreen({ navigation }: Props) {
           </View>
           <View>
             <Text style={styles.headline}>{WelcomeCopy.headline}</Text>
-            <Text style={[setupText.lede, setupText.center, styles.subheadline]}>
-              {WelcomeCopy.subheadline}
-            </Text>
+            <Text style={[setupText.lede, setupText.center, styles.subheadline]}>{WelcomeCopy.subheadline}</Text>
           </View>
         </View>
 

@@ -62,9 +62,7 @@ export default function FolderBrowser({
           ) : null}
         </ListSection>
       )}
-      {rows.length === 0 && showUpRow && !browse.pending ? (
-        <MutedText>{AddProjectCopy.browseEmpty}</MutedText>
-      ) : null}
+      {rows.length === 0 && showUpRow && !browse.pending ? <MutedText>{AddProjectCopy.browseEmpty}</MutedText> : null}
     </View>
   );
 }

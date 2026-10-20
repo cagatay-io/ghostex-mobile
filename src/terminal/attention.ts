@@ -20,9 +20,7 @@ import { useMachinesStore } from '../machines/store';
 export function acknowledgeSessionAttention(machineId: string, sessionId: string): void {
   const session = useInventoryStore
     .getState()
-    .inventoriesByMachineId[machineId]?.summary?.sessions.find(
-      (entry) => entry.sessionId === sessionId,
-    );
+    .inventoriesByMachineId[machineId]?.summary?.sessions.find((entry) => entry.sessionId === sessionId);
   if (session === undefined || displayStatus(session) !== 'attention') return;
   const machine = useMachinesStore.getState().machines.find((entry) => entry.id === machineId);
   if (machine === undefined) return;

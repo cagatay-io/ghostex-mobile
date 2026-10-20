@@ -38,7 +38,15 @@ export function ApprovalCard({ chat, document }: { chat: RustChat; document: Cha
       body={body}
       footerStart={
         summary.length > 0
-          ? [<ToneButton key="copy" kind="secondary" icon="copy" label="Copy" onPress={() => void Clipboard.setStringAsync(summary)} />]
+          ? [
+              <ToneButton
+                key="copy"
+                kind="secondary"
+                icon="copy"
+                label="Copy"
+                onPress={() => void Clipboard.setStringAsync(summary)}
+              />,
+            ]
           : []
       }
       footerEnd={[

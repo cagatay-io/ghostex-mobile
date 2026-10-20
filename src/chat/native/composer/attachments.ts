@@ -37,7 +37,10 @@ export async function pickAttachments(source: AttachSource): Promise<PickedFile[
     quality: 1,
     ...(source === 'library' ? { allowsMultipleSelection: true, selectionLimit: 10 } : {}),
   };
-  const result = source === 'camera' ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
+  const result =
+    source === 'camera'
+      ? await ImagePicker.launchCameraAsync(options)
+      : await ImagePicker.launchImageLibraryAsync(options);
   if (result.canceled) return [];
   return (result.assets ?? []).map((asset, index) => {
     const name = imageName(asset, index);

@@ -192,7 +192,7 @@ export function SettingsScreenLayout({ intro, children }: { intro?: string; chil
   const styles = useSettingsStyles();
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <KeyboardAwareScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps='handled'>
+      <KeyboardAwareScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
         {intro !== undefined ? <Text style={styles.intro}>{intro}</Text> : null}
         {children}
       </KeyboardAwareScrollView>
@@ -245,7 +245,7 @@ export function SettingToggle({ settingKey, label }: { settingKey: BooleanSettin
 export function ChoiceRow({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
   const styles = useSettingsStyles();
   return (
-    <Pressable accessibilityRole='radio' accessibilityState={{ selected }} style={styles.row} onPress={onPress}>
+    <Pressable accessibilityRole="radio" accessibilityState={{ selected }} style={styles.row} onPress={onPress}>
       <Text style={styles.rowLabel}>{label}</Text>
       <View style={[styles.radioOuter, selected && styles.radioOuterSelected]}>
         {selected && <View style={styles.radioInner} />}
@@ -275,7 +275,7 @@ export function StepperRow({
       <Text style={styles.rowLabel}>{label}</Text>
       <View style={styles.stepper}>
         <Pressable
-          accessibilityRole='button'
+          accessibilityRole="button"
           accessibilityLabel={`Decrease ${label.toLowerCase()}`}
           style={[styles.stepperButton, (disabled || !canDecrease) && styles.stepperButtonDisabled]}
           disabled={disabled || !canDecrease}
@@ -285,7 +285,7 @@ export function StepperRow({
         </Pressable>
         <Text style={styles.stepperValue}>{value}</Text>
         <Pressable
-          accessibilityRole='button'
+          accessibilityRole="button"
           accessibilityLabel={`Increase ${label.toLowerCase()}`}
           style={[styles.stepperButton, (disabled || !canIncrease) && styles.stepperButtonDisabled]}
           disabled={disabled || !canIncrease}
@@ -313,7 +313,7 @@ export function LinkRow({
   const styles = useSettingsStyles();
   return (
     <Pressable
-      accessibilityRole='button'
+      accessibilityRole="button"
       accessibilityHint={description}
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
       onPress={onPress}
@@ -321,9 +321,7 @@ export function LinkRow({
       <View style={styles.linkText}>
         <Text style={description !== undefined ? styles.linkTitle : styles.cardLabel}>{title}</Text>
         {description !== undefined ? (
-          <Text style={[styles.linkDescription, descriptionAccent && styles.linkDescriptionAccent]}>
-            {description}
-          </Text>
+          <Text style={[styles.linkDescription, descriptionAccent && styles.linkDescriptionAccent]}>{description}</Text>
         ) : null}
       </View>
       <Text style={styles.chevron}>›</Text>

@@ -60,8 +60,7 @@ function withAppProguardRules(config) {
       const contents = fs.readFileSync(file, 'utf8');
       const begin = contents.indexOf(RULES_BEGIN);
       const end = contents.indexOf(RULES_END);
-      const base =
-        begin === -1 ? contents : contents.slice(0, begin) + contents.slice(end + RULES_END.length + 1);
+      const base = begin === -1 ? contents : contents.slice(0, begin) + contents.slice(end + RULES_END.length + 1);
       fs.writeFileSync(file, `${base.trimEnd()}\n\n${APP_RULES}`);
       return cfg;
     },

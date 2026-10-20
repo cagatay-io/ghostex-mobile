@@ -21,7 +21,15 @@ import type { CardHostAction } from './types';
 /** How long the field trusts its own typing over the agent's repaint (`TYPING_GRACE` on desktop). */
 const TYPING_GRACE_MS = 1500;
 
-export function TerminalPickerCard({ chat, document, notice }: { chat: RustChat; document: ChatDocument; notice: Record<string, unknown> }) {
+export function TerminalPickerCard({
+  chat,
+  document,
+  notice,
+}: {
+  chat: RustChat;
+  document: ChatDocument;
+  notice: Record<string, unknown>;
+}) {
   const styles = useStyles();
   const P = useTranscriptTheme();
   const cardText = useCardText();
@@ -92,20 +100,21 @@ export function TerminalPickerCard({ chat, document, notice }: { chat: RustChat;
     body.push(
       <Text key="message" style={styles.hint}>
         {message}
-      </Text>
+      </Text>,
     );
   }
   const position = str(picker, 'position');
   body.push(
     <Text key="hint" style={styles.hint}>
-      {position ? `${position} · ` : ''}Tap a conversation to {str(picker, 'title').startsWith('Fork') ? 'fork' : 'resume'} it
-    </Text>
+      {position ? `${position} · ` : ''}Tap a conversation to{' '}
+      {str(picker, 'title').startsWith('Fork') ? 'fork' : 'resume'} it
+    </Text>,
   );
   if (typeof document.noticeError === 'string') {
     body.push(
       <Text key="error" accessibilityRole="alert" style={cardText.prose}>
         {document.noticeError}
-      </Text>
+      </Text>,
     );
   }
   const actions = [
@@ -113,7 +122,9 @@ export function TerminalPickerCard({ chat, document, notice }: { chat: RustChat;
     <ChatButton key="down" label="↓" onPress={() => send(keys?.down)} />,
     <ChatButton key="cancel" label="Cancel" onPress={() => send(keys?.escape)} />,
   ];
-  return <StatusCard header={<CardHeader icon="terminal-2" title={str(picker, 'title')} />} body={body} actions={actions} />;
+  return (
+    <StatusCard header={<CardHeader icon="terminal-2" title={str(picker, 'title')} />} body={body} actions={actions} />
+  );
 }
 
 export function PassthroughCard({
@@ -139,13 +150,17 @@ export function PassthroughCard({
     body.push(
       <Text key="detail" style={cardText.prose}>
         {notice.detail}
-      </Text>
+      </Text>,
     );
   }
   body.push(
     <View key="screen" style={[wellStyle, styles.screen]}>
       {/* The agent's picker is at the bottom of the tail, so the box keeps its end in view. */}
-      <ScrollView ref={screenScroll} nestedScrollEnabled onContentSizeChange={() => screenScroll.current?.scrollToEnd({ animated: false })}>
+      <ScrollView
+        ref={screenScroll}
+        nestedScrollEnabled
+        onContentSizeChange={() => screenScroll.current?.scrollToEnd({ animated: false })}
+      >
         <ScrollView horizontal nestedScrollEnabled>
           <Text style={styles.mono}>{str(passthrough, 'screen')}</Text>
         </ScrollView>
@@ -153,13 +168,13 @@ export function PassthroughCard({
     </View>,
     <Text key="hint" style={styles.hint}>
       The buttons below send keys to the agent's terminal.
-    </Text>
+    </Text>,
   );
   if (typeof document.noticeError === 'string') {
     body.push(
       <Text key="error" accessibilityRole="alert" style={cardText.prose}>
         {document.noticeError}
-      </Text>
+      </Text>,
     );
   }
   const actions: ReactNode[] = (
@@ -171,11 +186,22 @@ export function PassthroughCard({
       ['enter', 'Enter'],
       ['escape', 'Esc'],
     ] as const
-  ).map(([key, label]) => <ChatButton key={key} label={label} onPress={() => dispatch({ type: 'answer', answer: asJson(keys?.[key]) })} />);
+  ).map(([key, label]) => (
+    <ChatButton key={key} label={label} onPress={() => dispatch({ type: 'answer', answer: asJson(keys?.[key]) })} />
+  ));
   if (onHostAction) {
-    actions.push(<ChatButton key="terminal" icon="terminal-2" label="Terminal View" onPress={() => onHostAction('terminalView')} />);
+    actions.push(
+      <ChatButton
+        key="terminal"
+        icon="terminal-2"
+        label="Terminal View"
+        onPress={() => onHostAction('terminalView')}
+      />,
+    );
   }
-  return <StatusCard header={<CardHeader icon="terminal-2" title={str(notice, 'title')} />} body={body} actions={actions} />;
+  return (
+    <StatusCard header={<CardHeader icon="terminal-2" title={str(notice, 'title')} />} body={body} actions={actions} />
+  );
 }
 
 const useStyles = themedStyles((P) => ({

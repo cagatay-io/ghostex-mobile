@@ -43,7 +43,10 @@ export type ChatViewRequest =
    * reason). */
   | { kind: 'toast'; level: string; message: string; title?: string }
   /** Open a URL, or a machine file at an optional position. */
-  | { kind: 'open'; target: { kind: 'url'; url: string } | { kind: 'file'; path: string; line?: number; column?: number } }
+  | {
+      kind: 'open';
+      target: { kind: 'url'; url: string } | { kind: 'file'; path: string; line?: number; column?: number };
+    }
   /** A Save to Markdown finished on the machine: copy `path` and say "Saved to Markdown". */
   | { kind: 'markdownSaved'; path: string }
   /**

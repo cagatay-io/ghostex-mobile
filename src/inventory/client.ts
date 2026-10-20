@@ -183,7 +183,7 @@ function errorText(error: unknown): string {
 export function summarizeFailureDetailed(
   error: unknown,
   hasPassword: boolean,
-  lastReachedAt?: string | null
+  lastReachedAt?: string | null,
 ): FailureSummary {
   const classified = classifyFailure(error, hasPassword);
   return lastReachedAt === undefined || lastReachedAt === null ? classified : { ...classified, lastReachedAt };

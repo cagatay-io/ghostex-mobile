@@ -7,17 +7,9 @@
  * can never disagree about what a Space — or the built-in Other — contains.
  */
 
-import type {
-  GhostexMobileSummary,
-  GhostexSidebarSpace,
-  GhostexSidebarSpaces,
-} from '../contract/mobileSummary';
+import type { GhostexMobileSummary, GhostexSidebarSpace, GhostexSidebarSpaces } from '../contract/mobileSummary';
 import { countSessions, type SessionCounts } from '../contract/grouping';
-import {
-  isSidebarSpaceProject,
-  isUnassignedSidebarSpaceProject,
-  OTHER_SIDEBAR_SPACE_ID,
-} from './otherSpace';
+import { isSidebarSpaceProject, isUnassignedSidebarSpaceProject, OTHER_SIDEBAR_SPACE_ID } from './otherSpace';
 
 /** The Space row as rendered: the machine's Spaces in order, then Other last. */
 export type SpaceRowItem = {
@@ -43,16 +35,12 @@ export function orderedSpaces(spaces: GhostexSidebarSpaces): GhostexSidebarSpace
  * Other when the machine has no Spaces. Never a ghost Space, and never an
  * "unfiltered" view.
  */
-export function resolveSelectedSpaceId(
-  spaces: GhostexSidebarSpaces,
-  storedSpaceId: string | undefined,
-): string {
+export function resolveSelectedSpaceId(spaces: GhostexSidebarSpaces, storedSpaceId: string | undefined): string {
   if (storedSpaceId === OTHER_SIDEBAR_SPACE_ID) return OTHER_SIDEBAR_SPACE_ID;
   if (storedSpaceId !== undefined && spaces.spaces[storedSpaceId] !== undefined) {
     return storedSpaceId;
   }
-  return spaces.order.find((spaceId) => spaces.spaces[spaceId] !== undefined)
-    ?? OTHER_SIDEBAR_SPACE_ID;
+  return spaces.order.find((spaceId) => spaces.spaces[spaceId] !== undefined) ?? OTHER_SIDEBAR_SPACE_ID;
 }
 
 /**
@@ -83,23 +71,17 @@ function collectionIdByProjectId(summary: GhostexMobileSummary): Map<string, str
  * Returns the input unchanged when the machine has no Spaces at all — Other
  * alone would then be every project, and the row is hidden.
  */
-export function filterSummaryForSpace(
-  summary: GhostexMobileSummary,
-  selectedSpaceId: string,
-): GhostexMobileSummary {
+export function filterSummaryForSpace(summary: GhostexMobileSummary, selectedSpaceId: string): GhostexMobileSummary {
   const spaces = orderedSpaces(summary.sidebarSpaces);
   if (spaces.length === 0) return summary;
   const selectedSpace =
-    selectedSpaceId === OTHER_SIDEBAR_SPACE_ID
-      ? null
-      : (summary.sidebarSpaces.spaces[selectedSpaceId] ?? null);
+    selectedSpaceId === OTHER_SIDEBAR_SPACE_ID ? null : (summary.sidebarSpaces.spaces[selectedSpaceId] ?? null);
   const collectionByProjectId = collectionIdByProjectId(summary);
 
   const keepProject = (projectId: string, worktreeParentProjectId: string): boolean => {
     const membership = {
       collectionId: collectionByProjectId.get(projectId),
-      parentProjectId:
-        worktreeParentProjectId.length > 0 ? worktreeParentProjectId : undefined,
+      parentProjectId: worktreeParentProjectId.length > 0 ? worktreeParentProjectId : undefined,
       projectId,
     };
     return selectedSpace === null
@@ -109,8 +91,7 @@ export function filterSummaryForSpace(
 
   const knownProjectIds = new Set(summary.projects.map((project) => project.projectId));
   const projects = summary.projects.filter(
-    (project) =>
-      project.isChat === true || keepProject(project.projectId, project.worktreeParentProjectId),
+    (project) => project.isChat === true || keepProject(project.projectId, project.worktreeParentProjectId),
   );
   const keptProjectIds = new Set(projects.map((project) => project.projectId));
   /*
@@ -120,9 +101,7 @@ export function filterSummaryForSpace(
    * an unresolvable project id.
    */
   const sessions = summary.sessions.filter((session) =>
-    knownProjectIds.has(session.projectId)
-      ? keptProjectIds.has(session.projectId)
-      : selectedSpace === null,
+    knownProjectIds.has(session.projectId) ? keptProjectIds.has(session.projectId) : selectedSpace === null,
   );
 
   if (projects.length === summary.projects.length && sessions.length === summary.sessions.length) {

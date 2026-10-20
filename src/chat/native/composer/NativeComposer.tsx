@@ -29,7 +29,15 @@ import { ContextEditorSheet } from './ContextEditorSheet';
 import { Glyph, type GlyphName } from './icons';
 import { IncomingDraftBar } from './IncomingDraftBar';
 import { isTrue, obj, str, type JsonRecord } from './json';
-import { COMPOSER_CONTROLS, moreActionsRows, optionMenuRows, overflowed, sendChoiceRows, type ComposerActionId, type ComposerControlId } from './menus';
+import {
+  COMPOSER_CONTROLS,
+  moreActionsRows,
+  optionMenuRows,
+  overflowed,
+  sendChoiceRows,
+  type ComposerActionId,
+  type ComposerControlId,
+} from './menus';
 import { MenuSheet, type MenuRow } from './MenuSheet';
 import { ModelMenuSheet } from './ModelMenuSheet';
 import { NotePanel } from './NotePanel';
@@ -102,16 +110,18 @@ const CONTROL_GLYPHS: Record<ComposerControlId, GlyphName> = {
   terminal: 'terminal-2',
 };
 
-type OpenMenu =
-  | { kind: 'rows'; title?: string; rows: MenuRow[] }
-  | { kind: 'model' }
-  | null;
+type OpenMenu = { kind: 'rows'; title?: string; rows: MenuRow[] } | { kind: 'model' } | null;
 
-export function NativeComposer({ chat, onHostAction, hostActions = DEFAULT_HOST_ACTIONS, openAccountsRequestId = 0 }: NativeComposerProps) {
+export function NativeComposer({
+  chat,
+  onHostAction,
+  hostActions = DEFAULT_HOST_ACTIONS,
+  openAccountsRequestId = 0,
+}: NativeComposerProps) {
   const styles = useStyles();
   const serves = useCallback(
     (action: string) => onHostAction !== undefined && hostActions.includes(action),
-    [hostActions, onHostAction]
+    [hostActions, onHostAction],
   );
   const state = chat.state;
   const document = state?.document ?? null;
@@ -139,7 +149,7 @@ export function NativeComposer({ chat, onHostAction, hostActions = DEFAULT_HOST_
     // An unfocused field has no caret the reader chose: dictation goes after the draft.
     () => (fieldFocused.current ? draftAt.current : { text: draftAt.current.text, caret: draftAt.current.text.length }),
     (draft) => input?.replace(draft),
-    (message) => onHostAction?.('toast', { message, level: 'error' })
+    (message) => onHostAction?.('toast', { message, level: 'error' }),
   );
   const verboseSetting = useSettingsStore((store) => store.settings.sessionChatVerboseMode);
   const simpleSetting = useSettingsStore((store) => store.settings.sessionChatSimpleMode);
@@ -150,11 +160,14 @@ export function NativeComposer({ chat, onHostAction, hostActions = DEFAULT_HOST_
       chat.onViewRequest((request) => {
         if (request.kind === 'focusComposer') field.current?.focus();
       }),
-    [chat.onViewRequest]
+    [chat.onViewRequest],
   );
 
   // Pills: the core parses the draft (`composerReferences`) in the same turn the text changes.
-  const parseDraftReferences = useCallback((draft: string) => parseReferences(draft, chat.query('composerReferences', [draft])), [chat.query]);
+  const parseDraftReferences = useCallback(
+    (draft: string) => parseReferences(draft, chat.query('composerReferences', [draft])),
+    [chat.query],
+  );
   const references = useMemo(() => parseDraftReferences(text), [text, parseDraftReferences]);
   const activeImage = useMemo(() => {
     const reference = references.find((entry) => entry.kind === 'image' && caret >= entry.start && caret <= entry.end);
@@ -173,7 +186,7 @@ export function NativeComposer({ chat, onHostAction, hostActions = DEFAULT_HOST_
       if (id === 'terminal') return serves('terminalView');
       return true;
     },
-    [dictation.available, document, serves]
+    [dictation.available, document, serves],
   );
   const [footerWidth, setFooterWidth] = useState(0);
   const [optionsWidth, setOptionsWidth] = useState(0);
@@ -181,7 +194,10 @@ export function NativeComposer({ chat, onHostAction, hostActions = DEFAULT_HOST_
   const composerReady = model?.ready === true;
   useEffect(() => {
     if (document === null || !composerReady || footerWidth <= 0) return;
-    const controls = COMPOSER_CONTROLS.filter((control) => available(control.id)).map((control) => ({ id: control.id, width: CONTROL_WIDTH }));
+    const controls = COMPOSER_CONTROLS.filter((control) => available(control.id)).map((control) => ({
+      id: control.id,
+      width: CONTROL_WIDTH,
+    }));
     const labels = obj(document.optionLabels);
     const measurements = {
       available: footerWidth,
@@ -190,7 +206,8 @@ export function NativeComposer({ chat, onHostAction, hostActions = DEFAULT_HOST_
       footerGap: FOOTER_GAP,
       actionGap: ACTION_GAP,
       clearance: CLEARANCE,
-      hasOverflowOptions: (isTrue(labels, 'showOptions') && obj(document.modelMenu) === null) || obj(document.contextMeter) !== null,
+      hasOverflowOptions:
+        (isTrue(labels, 'showOptions') && obj(document.modelMenu) === null) || obj(document.contextMeter) !== null,
       controls,
     };
     const key = JSON.stringify(measurements);
@@ -205,7 +222,7 @@ export function NativeComposer({ chat, onHostAction, hostActions = DEFAULT_HOST_
     (action: string, params: JsonRecord = {}) => {
       onHostAction?.(action, params);
     },
-    [onHostAction]
+    [onHostAction],
   );
 
   const openAttach = useCallback(() => {
@@ -213,8 +230,16 @@ export function NativeComposer({ chat, onHostAction, hostActions = DEFAULT_HOST_
       kind: 'rows',
       title: 'Attach',
       rows: [
-        { label: 'Photo library', iconPath: 'titlebar/photo.svg', command: { type: 'pickAttachments', source: 'library' } },
-        { label: 'Take photo', iconPath: 'titlebar/camera.svg', command: { type: 'pickAttachments', source: 'camera' } },
+        {
+          label: 'Photo library',
+          iconPath: 'titlebar/photo.svg',
+          command: { type: 'pickAttachments', source: 'library' },
+        },
+        {
+          label: 'Take photo',
+          iconPath: 'titlebar/camera.svg',
+          command: { type: 'pickAttachments', source: 'camera' },
+        },
         { label: 'Files', iconPath: 'titlebar/folder.svg', command: { type: 'pickAttachments', source: 'files' } },
       ],
     });
@@ -243,7 +268,11 @@ export function NativeComposer({ chat, onHostAction, hostActions = DEFAULT_HOST_
           return;
         case 'stashPrompt':
           if (model !== null && model.text.trim().length > 0) {
-            dispatch({ type: 'stash', text: model.text, draftVersion: { draftId: model.draftId, revision: model.revision } });
+            dispatch({
+              type: 'stash',
+              text: model.text,
+              draftVersion: { draftId: model.draftId, revision: model.revision },
+            });
           } else if (serves('stashedPrompts')) {
             host('stashedPrompts');
           }
@@ -252,7 +281,7 @@ export function NativeComposer({ chat, onHostAction, hostActions = DEFAULT_HOST_
           host(action);
       }
     },
-    [dictation, dispatch, host, model, openAttach, serves]
+    [dictation, dispatch, host, model, openAttach, serves],
   );
 
   /** A menu row's command, routed the way desktop's `handle_action` routes it. */
@@ -279,17 +308,30 @@ export function NativeComposer({ chat, onHostAction, hostActions = DEFAULT_HOST_
           if (serves('openAccountsSettings')) host('openAccountsSettings');
           // Signing in to an account runs the agent's login on the computer, where desktop's Add
           // account leads (Settings > Accounts); the phone says where instead of doing nothing.
-          else Alert.alert('Add accounts on your computer', 'Open Ghostex on your computer and go to Settings > Accounts to sign in to another account.');
+          else
+            Alert.alert(
+              'Add accounts on your computer',
+              'Open Ghostex on your computer and go to Settings > Accounts to sign in to another account.',
+            );
           return false;
         case 'insertSkill':
           if (model !== null) {
-            dispatch({ type: 'insertSkill', name: str(command, 'name'), text: model.text, start: model.selection.start, end: model.selection.end });
+            dispatch({
+              type: 'insertSkill',
+              name: str(command, 'name'),
+              text: model.text,
+              start: model.selection.start,
+              end: model.selection.end,
+            });
           }
           return false;
         case 'openSkillsSettings':
           // Skills install on the computer the agents run on, where desktop's row leads
           // (Settings > Integrations > Agent skills); the phone says where, like Add account.
-          Alert.alert('Install skills on your computer', 'Open Ghostex on your computer and go to Settings > Integrations > Agent skills to install or remove Ghostex skills.');
+          Alert.alert(
+            'Install skills on your computer',
+            'Open Ghostex on your computer and go to Settings > Integrations > Agent skills to install or remove Ghostex skills.',
+          );
           return false;
         case 'copyText':
           void Clipboard.setStringAsync(str(command, 'text'));
@@ -306,7 +348,7 @@ export function NativeComposer({ chat, onHostAction, hostActions = DEFAULT_HOST_
           return false;
       }
     },
-    [dispatch, host, input, model, openAttach, performComposerAction, serves, setSetting]
+    [dispatch, host, input, model, openAttach, performComposerAction, serves, setSetting],
   );
 
   const launchPick = useCallback(
@@ -314,10 +356,13 @@ export function NativeComposer({ chat, onHostAction, hostActions = DEFAULT_HOST_
       pickAttachments(source)
         .then((files) => chat.attachFiles(files))
         .catch((error: unknown) => {
-          Alert.alert('Attachment failed', error instanceof Error ? error.message : 'The attachment could not be added.');
+          Alert.alert(
+            'Attachment failed',
+            error instanceof Error ? error.message : 'The attachment could not be added.',
+          );
         });
     },
-    [chat]
+    [chat],
   );
   /** A source picked in the sheet, launched once the sheet's modal is gone (iOS). */
   const pickAfterDismiss = useRef<AttachSource | null>(null);
@@ -351,7 +396,7 @@ export function NativeComposer({ chat, onHostAction, hostActions = DEFAULT_HOST_
       const rows = optionMenuRows(document, kind);
       if (rows.length > 0) setMenu({ kind: 'rows', rows });
     },
-    [document]
+    [document],
   );
 
   const handledAccountsRequest = useRef(openAccountsRequestId);
@@ -396,13 +441,29 @@ export function NativeComposer({ chat, onHostAction, hostActions = DEFAULT_HOST_
         : null;
     const interruptAndSend =
       model !== null && model.text.trim().length > 0 && document.working === true ? { disabled: !model.ready } : null;
-    setMenu({ kind: 'rows', rows: moreActionsRows({ document, simple: simpleSetting, verbose, available, serves, compactAndSend, interruptAndSend, draft: model?.text ?? '', dictating: dictation.listening }) });
+    setMenu({
+      kind: 'rows',
+      rows: moreActionsRows({
+        document,
+        simple: simpleSetting,
+        verbose,
+        available,
+        serves,
+        compactAndSend,
+        interruptAndSend,
+        draft: model?.text ?? '',
+        dictating: dictation.listening,
+      }),
+    });
   }, [available, dictation.listening, document, model, serves, simpleSetting, verboseSetting]);
 
   /** Send held while the agent works: Interrupt & Send or Queue. */
   const openSendChoices = useCallback(() => {
     if (document === null || model === null) return;
-    setMenu({ kind: 'rows', rows: sendChoiceRows({ ready: model.ready, canQueue: document.queue.capabilities.canQueue === true }) });
+    setMenu({
+      kind: 'rows',
+      rows: sendChoiceRows({ ready: model.ready, canQueue: document.queue.capabilities.canQueue === true }),
+    });
   }, [document, model]);
 
   /**
@@ -468,30 +529,30 @@ export function NativeComposer({ chat, onHostAction, hostActions = DEFAULT_HOST_
           <View style={collapsed ? styles.collapsedRow : null}>
             <View style={collapsed ? styles.grow : null}>
               <ComposerInput
-                  ref={field}
-                  model={model}
-                  input={{
-                    ...input,
-                    focused: () => {
-                      setFocused(true);
-                      input.focused();
-                      readTerminalTail();
-                    },
-                    blurred: () => {
-                      setFocused(false);
-                      input.blurred();
-                    },
-                  }}
-                  references={references}
-                  parsedFor={text}
-                  parse={parseDraftReferences}
-                  placeholder={placeholder}
-                  collapsed={collapsed}
-                  maxHeight={INPUT_MAX_HEIGHT}
-                  dispatch={dispatch}
-                  onTextChange={setText}
-                  onCaret={setCaret}
-                />
+                ref={field}
+                model={model}
+                input={{
+                  ...input,
+                  focused: () => {
+                    setFocused(true);
+                    input.focused();
+                    readTerminalTail();
+                  },
+                  blurred: () => {
+                    setFocused(false);
+                    input.blurred();
+                  },
+                }}
+                references={references}
+                parsedFor={text}
+                parse={parseDraftReferences}
+                placeholder={placeholder}
+                collapsed={collapsed}
+                maxHeight={INPUT_MAX_HEIGHT}
+                dispatch={dispatch}
+                onTextChange={setText}
+                onCaret={setCaret}
+              />
             </View>
             {collapsed ? (
               // Collapsed, desktop's toolbar keeps More actions beside Send (`render_toolbar`).
@@ -509,13 +570,21 @@ export function NativeComposer({ chat, onHostAction, hostActions = DEFAULT_HOST_
             ) : null}
           </View>
           {!collapsed ? (
-            <Animated.View style={[styles.footer, motion.controlsStyle]} onLayout={(event: LayoutChangeEvent) => setFooterWidth(Math.round(event.nativeEvent.layout.width))}>
-              <View style={styles.options}>{document !== null ? <OptionPills document={document} onOpen={openPill} /> : null}</View>
+            <Animated.View
+              style={[styles.footer, motion.controlsStyle]}
+              onLayout={(event: LayoutChangeEvent) => setFooterWidth(Math.round(event.nativeEvent.layout.width))}
+            >
+              <View style={styles.options}>
+                {document !== null ? <OptionPills document={document} onOpen={openPill} /> : null}
+              </View>
               <View style={styles.toolbar}>
                 <ToolbarButton glyph="dots" label="More actions" onPress={openMore} disabled={document === null} />
                 {document !== null
-                  ? COMPOSER_CONTROLS.filter((control) => available(control.id) && !overflowed(document, control.id)).map((control) => {
-                      const glyph = control.id === 'dictate' && dictation.listening ? 'player-stop' : CONTROL_GLYPHS[control.id];
+                  ? COMPOSER_CONTROLS.filter(
+                      (control) => available(control.id) && !overflowed(document, control.id),
+                    ).map((control) => {
+                      const glyph =
+                        control.id === 'dictate' && dictation.listening ? 'player-stop' : CONTROL_GLYPHS[control.id];
                       const pressed =
                         (control.id === 'note' && document.composerChrome.notePressed) ||
                         (control.id === 'dictate' && dictation.listening);
@@ -544,8 +613,17 @@ export function NativeComposer({ chat, onHostAction, hostActions = DEFAULT_HOST_
                 />
               </View>
               {document !== null ? (
-                <View style={styles.measure} pointerEvents="none" onLayout={(event) => setOptionsWidth(Math.round(event.nativeEvent.layout.width))}>
-                  <OptionPills document={{ ...document, composerOverflow: { overflowed: [], optionsOverflowed: false } } as ChatDocument} onOpen={() => undefined} />
+                <View
+                  style={styles.measure}
+                  pointerEvents="none"
+                  onLayout={(event) => setOptionsWidth(Math.round(event.nativeEvent.layout.width))}
+                >
+                  <OptionPills
+                    document={
+                      { ...document, composerOverflow: { overflowed: [], optionsOverflowed: false } } as ChatDocument
+                    }
+                    onOpen={() => undefined}
+                  />
                 </View>
               ) : null}
             </Animated.View>
@@ -633,14 +711,26 @@ const useStyles = themedStyles((P) => ({
     paddingBottom: 8,
     gap: 6,
   },
-  cardFocused: { borderColor: P.ring, shadowColor: P.ring, shadowOpacity: 0.25, shadowRadius: 3, shadowOffset: { width: 0, height: 0 } },
+  cardFocused: {
+    borderColor: P.ring,
+    shadowColor: P.ring,
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 0 },
+  },
   cardCollapsed: { paddingTop: 6, paddingBottom: 6 },
   collapsedRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   grow: { flex: 1, minWidth: 0 },
   footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: FOOTER_GAP },
   options: { flexShrink: 1, minWidth: 0, flexDirection: 'row' },
   toolbar: { flexDirection: 'row', alignItems: 'center', gap: ACTION_GAP, marginLeft: 'auto' },
-  control: { width: CONTROL_WIDTH, height: CONTROL_WIDTH, borderRadius: CONTROL_WIDTH / 2, alignItems: 'center', justifyContent: 'center' },
+  control: {
+    width: CONTROL_WIDTH,
+    height: CONTROL_WIDTH,
+    borderRadius: CONTROL_WIDTH / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   controlPressed: { backgroundColor: P.border },
   dot: { position: 'absolute', top: 3, right: 3, width: 6, height: 6, borderRadius: 3, backgroundColor: P.foreground },
   badge: {

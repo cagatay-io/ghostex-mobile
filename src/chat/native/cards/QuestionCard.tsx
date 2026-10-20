@@ -82,7 +82,7 @@ function QuestionPromptCard({ chat, document }: { chat: RustChat; document: Chat
       : header;
   const head = (
     <AskHead
-      lead={<SingleLineTile glyph='checklist' badge='ask' ring={P.cardPanel} />}
+      lead={<SingleLineTile glyph="checklist" badge="ask" ring={P.cardPanel} />}
       title="Needs your answer"
       detail={detail}
       trailing={count > 1 && !collapsed ? <ProgressDots index={index} count={count} /> : undefined}
@@ -116,7 +116,11 @@ function QuestionPromptCard({ chat, document }: { chat: RustChat; document: Chat
         <View style={styles.spacer} />
       )}
       <CardButton label="Cancel" disabled={busy} onPress={() => dispatch({ type: 'questionCancel' })} />
-      <PrimaryButton label={card.controls.label} disabled={busy || card.controls.disabled} onPress={() => dispatch({ type: 'questionNext' })} />
+      <PrimaryButton
+        label={card.controls.label}
+        disabled={busy || card.controls.disabled}
+        onPress={() => dispatch({ type: 'questionNext' })}
+      />
     </>
   );
 

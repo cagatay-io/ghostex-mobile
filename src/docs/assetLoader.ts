@@ -139,7 +139,10 @@ true;`;
  * Hands the page the viewer's answer to one {@link DocAssetsMessage}: for each URL it could place,
  * the URL to load instead (the same URL for a file now in the mirror).
  */
-export function assetLoaderAnswerScript(asked: readonly string[], replacements: Readonly<Record<string, string>>): string {
+export function assetLoaderAnswerScript(
+  asked: readonly string[],
+  replacements: Readonly<Record<string, string>>,
+): string {
   return `window.__GHOSTEX_DOCS_ASSETS__ && window.__GHOSTEX_DOCS_ASSETS__.answer(${JSON.stringify(asked)}, ${JSON.stringify(replacements)});
 true;`;
 }

@@ -57,7 +57,10 @@ function stateLook(state: ReturnType<typeof useVoiceStore.getState>): { label: s
     case 'speaking':
       return { label: 'Speaking', color: GhostexPalette.STATUS_ATTENTION };
     default:
-      return { label: state.muted ? 'Muted' : 'Listening', color: state.muted ? GhostexPalette.MUTED : GhostexPalette.ACCENT };
+      return {
+        label: state.muted ? 'Muted' : 'Listening',
+        color: state.muted ? GhostexPalette.MUTED : GhostexPalette.ACCENT,
+      };
   }
 }
 
@@ -96,7 +99,9 @@ function VoicePickerSheet({ visible, onClose }: { visible: boolean; onClose: () 
               pickVoice(voice);
             }}
           >
-            <View style={styles.sheetCheck}>{checked ? <CheckGlyph size={18} color={GhostexPalette.FOREGROUND} strokeWidth={2.4} /> : null}</View>
+            <View style={styles.sheetCheck}>
+              {checked ? <CheckGlyph size={18} color={GhostexPalette.FOREGROUND} strokeWidth={2.4} /> : null}
+            </View>
             <Text style={styles.sheetRowLabel}>{voiceName(voice)}</Text>
             {voice === next ? <Text style={styles.sheetRowDetail}>Next conversation</Text> : null}
           </Pressable>
@@ -126,7 +131,9 @@ function VoiceSpeedSheet({ visible, onClose }: { visible: boolean; onClose: () =
               setVoiceSpeed(speed);
             }}
           >
-            <View style={styles.sheetCheck}>{checked ? <CheckGlyph size={18} color={GhostexPalette.FOREGROUND} strokeWidth={2.4} /> : null}</View>
+            <View style={styles.sheetCheck}>
+              {checked ? <CheckGlyph size={18} color={GhostexPalette.FOREGROUND} strokeWidth={2.4} /> : null}
+            </View>
             <Text style={styles.sheetRowLabel}>{speedLabel(speed)}</Text>
           </Pressable>
         );
@@ -149,7 +156,18 @@ function Line({ line }: { line: VoiceLine }) {
     case 'tool':
       return (
         <View style={styles.toolRow}>
-          <Text style={[styles.toolDot, { color: line.finished ? (line.ok ? GhostexPalette.ACCENT : GhostexPalette.DANGER) : GhostexPalette.STATUS_WORKING }]}>
+          <Text
+            style={[
+              styles.toolDot,
+              {
+                color: line.finished
+                  ? line.ok
+                    ? GhostexPalette.ACCENT
+                    : GhostexPalette.DANGER
+                  : GhostexPalette.STATUS_WORKING,
+              },
+            ]}
+          >
             ●
           </Text>
           <Text style={styles.toolText} numberOfLines={2}>
@@ -203,7 +221,13 @@ export default function VoiceScreen({ navigation }: Props) {
   return (
     <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Close the voice screen" hitSlop={10} style={styles.headerButton} onPress={close}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close the voice screen"
+          hitSlop={10}
+          style={styles.headerButton}
+          onPress={close}
+        >
           <ChevronDown color={GhostexPalette.FOREGROUND} />
         </Pressable>
         <View style={styles.headerTitles}>
@@ -226,7 +250,13 @@ export default function VoiceScreen({ navigation }: Props) {
                 </Text>
                 {canPickVoice ? (
                   <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-                    <Path d="M 6 9 l 6 6 6 -6" stroke={GhostexPalette.MUTED} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+                    <Path
+                      d="M 6 9 l 6 6 6 -6"
+                      stroke={GhostexPalette.MUTED}
+                      strokeWidth={2.4}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </Svg>
                 ) : null}
               </Pressable>
@@ -241,7 +271,13 @@ export default function VoiceScreen({ navigation }: Props) {
               >
                 <Text style={styles.speedChipText}>{speedLabel(voice.speed)}</Text>
                 <Svg width={11} height={11} viewBox="0 0 24 24" fill="none">
-                  <Path d="M 6 9 l 6 6 6 -6" stroke={GhostexPalette.MUTED} strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
+                  <Path
+                    d="M 6 9 l 6 6 6 -6"
+                    stroke={GhostexPalette.MUTED}
+                    strokeWidth={2.6}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </Svg>
               </Pressable>
             ) : null}
@@ -268,7 +304,9 @@ export default function VoiceScreen({ navigation }: Props) {
 
       <ScrollView ref={scroll} style={styles.lines} contentContainerStyle={styles.linesContent}>
         {voice.phase === 'live' ? <VoiceMemoryCard /> : null}
-        {voice.lines.length === 0 && active ? <Text style={styles.hint}>Ask what your agents are doing, or tell one what to do next.</Text> : null}
+        {voice.lines.length === 0 && active ? (
+          <Text style={styles.hint}>Ask what your agents are doing, or tell one what to do next.</Text>
+        ) : null}
         {voice.lines.map((line) => (
           <Line key={line.key} line={line} />
         ))}
@@ -286,7 +324,13 @@ export default function VoiceScreen({ navigation }: Props) {
         >
           <Text style={styles.openSessionText} numberOfLines={1}>{`Open ${shown.title}`}</Text>
           <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-            <Path d="M 9 6 l 6 6 -6 6" stroke={GhostexPalette.MUTED} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+            <Path
+              d="M 9 6 l 6 6 -6 6"
+              stroke={GhostexPalette.MUTED}
+              strokeWidth={2.4}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </Svg>
         </Pressable>
       ) : null}
@@ -299,14 +343,24 @@ export default function VoiceScreen({ navigation }: Props) {
             style={({ pressed }) => [styles.control, voice.muted && styles.controlOn, pressed && styles.controlPressed]}
             onPress={() => setVoiceMuted(!voice.muted)}
           >
-            <MicrophoneGlyph size={30} color={voice.muted ? GhostexPalette.ACCENT_FOREGROUND : GhostexPalette.FOREGROUND} crossed={voice.muted} />
-            <Text style={[styles.controlLabel, voice.muted && styles.controlLabelOn]}>{voice.muted ? 'Unmute' : 'Mute'}</Text>
+            <MicrophoneGlyph
+              size={30}
+              color={voice.muted ? GhostexPalette.ACCENT_FOREGROUND : GhostexPalette.FOREGROUND}
+              crossed={voice.muted}
+            />
+            <Text style={[styles.controlLabel, voice.muted && styles.controlLabelOn]}>
+              {voice.muted ? 'Unmute' : 'Mute'}
+            </Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Stop the agent talking"
             disabled={voice.agentState !== 'speaking'}
-            style={({ pressed }) => [styles.control, voice.agentState !== 'speaking' && styles.controlDisabled, pressed && styles.controlPressed]}
+            style={({ pressed }) => [
+              styles.control,
+              voice.agentState !== 'speaking' && styles.controlDisabled,
+              pressed && styles.controlPressed,
+            ]}
             onPress={interruptVoice}
           >
             <Svg width={30} height={30} viewBox="0 0 24 24">

@@ -81,19 +81,22 @@ export default function DelayedSendDialog({
   const [closeAfterDoneEnabled, setCloseAfterDoneEnabled] = useState(closeAfterDoneActive);
   const [trigger, setTrigger] = useState<DelayedSendTrigger | 'specificTime'>('allAgentsStop');
   const dismissPicker = useCallback(() => setPickerMode(null), []);
-  const changePickerValue = useCallback((_: DateTimePickerChangeEvent, selected: Date) => {
-    setSpecificTime((previous) => {
-      const next = new Date(previous);
-      if (pickerMode === 'date') {
-        next.setFullYear(selected.getFullYear(), selected.getMonth(), selected.getDate());
-      } else {
-        next.setHours(selected.getHours(), selected.getMinutes());
-      }
-      next.setSeconds(0, 0);
-      return next;
-    });
-    if (Platform.OS === 'android') setPickerMode(null);
-  }, [pickerMode]);
+  const changePickerValue = useCallback(
+    (_: DateTimePickerChangeEvent, selected: Date) => {
+      setSpecificTime((previous) => {
+        const next = new Date(previous);
+        if (pickerMode === 'date') {
+          next.setFullYear(selected.getFullYear(), selected.getMonth(), selected.getDate());
+        } else {
+          next.setHours(selected.getHours(), selected.getMinutes());
+        }
+        next.setSeconds(0, 0);
+        return next;
+      });
+      if (Platform.OS === 'android') setPickerMode(null);
+    },
+    [pickerMode],
+  );
 
   useEffect(() => {
     if (visible) {
@@ -141,11 +144,14 @@ export default function DelayedSendDialog({
    * CDXC:DelayedSend 2026-09-16 DECISION:
    * User: add Specific time to the GPUI, React, and React Native Session Automations dialogs, converting the chosen local time to the existing After a delay wait on Save.
    */
-  const delayMs = trigger === 'specificTime'
-    ? specificTime.getTime() - nowMs
-    : parseDurationPart(hours) * 3_600_000 + parseDurationPart(minutes) * 60_000;
+  const delayMs =
+    trigger === 'specificTime'
+      ? specificTime.getTime() - nowMs
+      : parseDurationPart(hours) * 3_600_000 + parseDurationPart(minutes) * 60_000;
   const isValidDelay =
-    Number.isFinite(delayMs) && delayMs >= (trigger === 'specificTime' ? 1 : DELAYED_SEND_MIN_DELAY_MS) && delayMs <= DELAYED_SEND_MAX_DELAY_MS;
+    Number.isFinite(delayMs) &&
+    delayMs >= (trigger === 'specificTime' ? 1 : DELAYED_SEND_MIN_DELAY_MS) &&
+    delayMs <= DELAYED_SEND_MAX_DELAY_MS;
   const hasStatusTrigger = trigger !== 'afterDelay' && trigger !== 'specificTime';
   const hasActiveTimer =
     delayedSendDeadlineAt.length > 0 ||
@@ -153,9 +159,7 @@ export default function DelayedSendDialog({
     sendWhenAgentStopsActive ||
     sendWhenAllProjectSessionsStopActive;
   const closeAfterDoneChanged = closeAfterDoneEnabled !== closeAfterDoneActive;
-  const canSave = sendEnterEnabled
-    ? hasStatusTrigger || isValidDelay
-    : hasActiveTimer || closeAfterDoneChanged;
+  const canSave = sendEnterEnabled ? hasStatusTrigger || isValidDelay : hasActiveTimer || closeAfterDoneChanged;
   const trimmedTitle = sessionTitle.trim();
   const sessionTargetLabel = trimmedTitle.length > 0 ? trimmedTitle : 'Current agent session';
   const targetIconId = resolveAgentIconId(agentIcon, agentName);
@@ -180,7 +184,7 @@ export default function DelayedSendDialog({
   };
 
   return (
-    <Modal visible={visible} transparent animationType='fade' onRequestClose={onCancel}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <KeyboardAvoidingContainer safeAreaTop style={styles.keyboardFill}>
         <Pressable style={styles.backdrop} onPress={onCancel}>
           <Pressable style={styles.card} onPress={(event) => event.stopPropagation()}>
@@ -211,7 +215,7 @@ export default function DelayedSendDialog({
                       </Text>
                     </View>
                     <Switch
-                      accessibilityLabel='Send Enter automation'
+                      accessibilityLabel="Send Enter automation"
                       value={sendEnterEnabled}
                       onValueChange={setSendEnterEnabled}
                       trackColor={{ false: GhostexPalette.CARD_ACTIVE, true: GhostexPalette.ACCENT }}
@@ -221,21 +225,26 @@ export default function DelayedSendDialog({
                   {sendEnterEnabled ? (
                     <View style={styles.automationContent}>
                       <Text style={styles.fieldLabel}>Trigger</Text>
-                      <View accessibilityRole='radiogroup' style={styles.triggerOptions}>
-                        {([
-                          ['afterDelay', 'After a delay'],
-                          ['specificTime', 'Specific time'],
-                          ['agentStops', 'When this agent finishes'],
-                          ['allAgentsStop', 'When all agents finish'],
-                        ] as const).map(([value, label]) => {
+                      <View accessibilityRole="radiogroup" style={styles.triggerOptions}>
+                        {(
+                          [
+                            ['afterDelay', 'After a delay'],
+                            ['specificTime', 'Specific time'],
+                            ['agentStops', 'When this agent finishes'],
+                            ['allAgentsStop', 'When all agents finish'],
+                          ] as const
+                        ).map(([value, label]) => {
                           const selected = trigger === value;
                           return (
                             <Pressable
                               key={value}
-                              accessibilityRole='radio'
+                              accessibilityRole="radio"
                               accessibilityState={{ selected }}
                               style={[styles.triggerOption, selected ? styles.triggerOptionSelected : null]}
-                              onPress={() => { setTrigger(value); setPickerMode(null); }}
+                              onPress={() => {
+                                setTrigger(value);
+                                setPickerMode(null);
+                              }}
                             >
                               <View style={[styles.radio, selected ? styles.radioSelected : null]}>
                                 {selected ? <View style={styles.radioDot} /> : null}
@@ -253,9 +262,9 @@ export default function DelayedSendDialog({
                             <View style={styles.durationField}>
                               <Text style={styles.fieldLabel}>Hours</Text>
                               <TextInput
-                                accessibilityLabel='Hours'
+                                accessibilityLabel="Hours"
                                 style={styles.input}
-                                keyboardType='number-pad'
+                                keyboardType="number-pad"
                                 value={hours}
                                 onChangeText={setHours}
                                 selectTextOnFocus
@@ -264,10 +273,10 @@ export default function DelayedSendDialog({
                             <View style={styles.durationField}>
                               <Text style={styles.fieldLabel}>Minutes</Text>
                               <TextInput
-                                accessibilityLabel='Minutes'
+                                accessibilityLabel="Minutes"
                                 autoFocus
                                 style={styles.input}
-                                keyboardType='number-pad'
+                                keyboardType="number-pad"
                                 value={minutes}
                                 onChangeText={setMinutes}
                                 selectTextOnFocus
@@ -279,14 +288,26 @@ export default function DelayedSendDialog({
                             <View style={styles.durationRow}>
                               <View style={styles.durationField}>
                                 <Text style={styles.fieldLabel}>Date</Text>
-                                <Pressable accessibilityRole='button' accessibilityLabel='Choose date' style={styles.input} onPress={() => setPickerMode('date')}>
+                                <Pressable
+                                  accessibilityRole="button"
+                                  accessibilityLabel="Choose date"
+                                  style={styles.input}
+                                  onPress={() => setPickerMode('date')}
+                                >
                                   <Text style={styles.dateTimeValue}>{specificTime.toLocaleDateString()}</Text>
                                 </Pressable>
                               </View>
                               <View style={styles.durationField}>
                                 <Text style={styles.fieldLabel}>Time</Text>
-                                <Pressable accessibilityRole='button' accessibilityLabel='Choose time' style={styles.input} onPress={() => setPickerMode('time')}>
-                                  <Text style={styles.dateTimeValue}>{specificTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                                <Pressable
+                                  accessibilityRole="button"
+                                  accessibilityLabel="Choose time"
+                                  style={styles.input}
+                                  onPress={() => setPickerMode('time')}
+                                >
+                                  <Text style={styles.dateTimeValue}>
+                                    {specificTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </Text>
                                 </Pressable>
                               </View>
                             </View>
@@ -299,7 +320,9 @@ export default function DelayedSendDialog({
                                 mode={pickerMode}
                                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                                 minimumDate={pickerMode === 'date' ? new Date(nowMs) : undefined}
-                                maximumDate={pickerMode === 'date' ? new Date(nowMs + DELAYED_SEND_MAX_DELAY_MS) : undefined}
+                                maximumDate={
+                                  pickerMode === 'date' ? new Date(nowMs + DELAYED_SEND_MAX_DELAY_MS) : undefined
+                                }
                                 onDismiss={dismissPicker}
                                 onValueChange={changePickerValue}
                               />
@@ -325,7 +348,7 @@ export default function DelayedSendDialog({
                       </Text>
                     </View>
                     <Switch
-                      accessibilityLabel='Close session after Done'
+                      accessibilityLabel="Close session after Done"
                       value={closeAfterDoneEnabled}
                       onValueChange={setCloseAfterDoneEnabled}
                       trackColor={{ false: GhostexPalette.CARD_ACTIVE, true: GhostexPalette.ACCENT }}
@@ -336,14 +359,14 @@ export default function DelayedSendDialog({
               </View>
               <View style={styles.buttonRow}>
                 <Pressable
-                  accessibilityRole='button'
+                  accessibilityRole="button"
                   style={({ pressed }) => [styles.cancelButton, pressed && styles.cancelButtonPressed]}
                   onPress={onCancel}
                 >
                   <Text style={styles.cancelLabel}>Cancel</Text>
                 </Pressable>
                 <Pressable
-                  accessibilityRole='button'
+                  accessibilityRole="button"
                   disabled={!canSave}
                   style={[styles.primaryButton, !canSave ? styles.buttonDisabled : null]}
                   onPress={() => void saveChanges()}

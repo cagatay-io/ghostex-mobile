@@ -20,7 +20,16 @@ import { useNativeChatUi, useTranscriptEnv } from './context';
 import { Glyph, type GlyphName } from './icons';
 import { arr, obj, str, type JsonRecord } from './json';
 import { Markdown } from './markdown/Markdown';
-import { SINGLE_LINE_CARD, SINGLE_LINE_HEADER_HEIGHT, SINGLE_LINE_TITLE, SingleLineBadge, SingleLinePill, SingleLineTileBox, singleLinePressed, singleLineShell } from './singleLineCard';
+import {
+  SINGLE_LINE_CARD,
+  SINGLE_LINE_HEADER_HEIGHT,
+  SINGLE_LINE_TITLE,
+  SingleLineBadge,
+  SingleLinePill,
+  SingleLineTileBox,
+  singleLinePressed,
+  singleLineShell,
+} from './singleLineCard';
 import { useDisclosure } from './state';
 import type { TranscriptTheme } from './theme';
 
@@ -42,7 +51,7 @@ function Mark({ card }: { card: JsonRecord }) {
   if (direction === 'subagent') {
     return (
       <SingleLineTileBox>
-        <Glyph name='sparkles' size={size} color={theme.prose} />
+        <Glyph name="sparkles" size={size} color={theme.prose} />
       </SingleLineTileBox>
     );
   }
@@ -56,7 +65,12 @@ function Mark({ card }: { card: JsonRecord }) {
         <AgentMark icon={icon.length > 0 ? icon : null} size={size} />
       )}
       <SingleLineBadge fill={sent ? (theme.light ? '#0284c7' : '#7dd3fc') : theme.prose}>
-        <Glyph name={sent ? 'arrow-up-right' : 'arrow-down-left'} size={SINGLE_LINE_CARD.badge.glyphSize} color={theme.cardPanel} strokeWidth={2.8} />
+        <Glyph
+          name={sent ? 'arrow-up-right' : 'arrow-down-left'}
+          size={SINGLE_LINE_CARD.badge.glyphSize}
+          color={theme.cardPanel}
+          strokeWidth={2.8}
+        />
       </SingleLineBadge>
     </SingleLineTileBox>
   );
@@ -69,7 +83,7 @@ function Status({ status }: { status: JsonRecord }) {
   const icon = str(status, 'icon');
   const glyph: GlyphName = icon === 'alert' ? 'alert-triangle' : icon === 'clock' ? 'clock' : 'check';
   return (
-    <View accessibilityRole='text' accessibilityLabel={str(status, 'hint')}>
+    <View accessibilityRole="text" accessibilityLabel={str(status, 'hint')}>
       <SingleLinePill icon={glyph} label={str(status, 'label')} color={color} />
     </View>
   );
@@ -123,13 +137,19 @@ const AgentCard = memo(function AgentCard({
         <View style={[styles.opened, { borderTopColor: hairline }]}>
           {showSession && session !== null ? (
             <Pressable
-              onPress={() => dispatch({ type: 'openAgentSession', projectId: str(session, 'projectId'), sessionId: str(session, 'sessionId') })}
-              accessibilityRole='button'
-              accessibilityLabel='Go to session'
+              onPress={() =>
+                dispatch({
+                  type: 'openAgentSession',
+                  projectId: str(session, 'projectId'),
+                  sessionId: str(session, 'sessionId'),
+                })
+              }
+              accessibilityRole="button"
+              accessibilityLabel="Go to session"
               hitSlop={6}
               style={({ pressed }) => [styles.goto, pressed && { backgroundColor: theme.ink(0.08) }]}
             >
-              <Glyph name='arrow-up-right' size={12} color={theme.muted} />
+              <Glyph name="arrow-up-right" size={12} color={theme.muted} />
               <Text style={[styles.gotoText, { color: theme.muted }]}>Go to session</Text>
             </Pressable>
           ) : null}
@@ -144,12 +164,19 @@ const AgentCard = memo(function AgentCard({
                     disabled={target === null}
                     onPress={() => {
                       if (target === null) return;
-                      dispatch({ type: 'openAgentSession', projectId: str(target, 'projectId'), sessionId: str(target, 'sessionId') });
+                      dispatch({
+                        type: 'openAgentSession',
+                        projectId: str(target, 'projectId'),
+                        sessionId: str(target, 'sessionId'),
+                      });
                     }}
                     accessibilityRole={target !== null ? 'button' : undefined}
                     accessibilityLabel={target !== null ? `Go to ${str(recipient, 'name')}` : undefined}
                     hitSlop={4}
-                    style={({ pressed }) => [styles.recipient, pressed && target !== null && { backgroundColor: theme.ink(0.08) }]}
+                    style={({ pressed }) => [
+                      styles.recipient,
+                      pressed && target !== null && { backgroundColor: theme.ink(0.08) },
+                    ]}
                   >
                     <Mark card={recipient} />
                     <Text style={[styles.recipientName, { color: theme.foreground }]} numberOfLines={1}>
@@ -188,7 +215,14 @@ export const InterAgentCard = memo(function InterAgentCard({ message }: { messag
   const inter = obj(message.interAgentMessage);
   const card = obj(inter?.card);
   if (inter === null || card === null) return null;
-  return <AgentCard disclosureKey={`inter-agent:${message.id}`} card={card} body={str(inter, 'body')} references={message.markdownReferences} />;
+  return (
+    <AgentCard
+      disclosureKey={`inter-agent:${message.id}`}
+      card={card}
+      body={str(inter, 'body')}
+      references={message.markdownReferences}
+    />
+  );
 });
 
 /** A subagent's reply that arrived as a system turn (`Message from <agent>`). */
@@ -196,7 +230,14 @@ export function SubagentMessageCard({ id, card, references }: { id: string; card
   const shown = obj(card.card);
   if (shown === null) return null;
   const marked = str(card, 'markdown');
-  return <AgentCard disclosureKey={`agent-message:${id}`} card={shown} body={marked.length > 0 ? marked : str(card, 'body')} references={references} />;
+  return (
+    <AgentCard
+      disclosureKey={`agent-message:${id}`}
+      card={shown}
+      body={marked.length > 0 ? marked : str(card, 'body')}
+      references={references}
+    />
+  );
 }
 
 /** The messages this session's agent sent other agents, one row each. */
@@ -226,16 +267,48 @@ export function SentAgentMessageCards({ cards }: { cards: unknown }) {
 const styles = StyleSheet.create({
   column: { gap: 8, minWidth: 0 },
   card: { minWidth: 0 },
-  row: { height: SINGLE_LINE_HEADER_HEIGHT, paddingHorizontal: SINGLE_LINE_CARD.paddingX, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  row: {
+    height: SINGLE_LINE_HEADER_HEIGHT,
+    paddingHorizontal: SINGLE_LINE_CARD.paddingX,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   name: { flex: 1, minWidth: 0 },
   small: { fontSize: 12, lineHeight: 16 },
   opened: { borderTopWidth: 1, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10, gap: 6 },
-  goto: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 4, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, marginLeft: -6 },
+  goto: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: -6,
+  },
   gotoText: { fontSize: 12.5, lineHeight: 17 },
   recipients: { gap: 4, paddingBottom: 4 },
-  recipient: { flexDirection: 'row', alignItems: 'center', gap: 10, minWidth: 0, paddingVertical: 2, paddingHorizontal: 6, marginLeft: -6, borderRadius: 6 },
+  recipient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minWidth: 0,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    marginLeft: -6,
+    borderRadius: 6,
+  },
   recipientName: { flexShrink: 1, minWidth: 0, fontSize: 13 },
-  failure: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4, borderTopWidth: 1, paddingHorizontal: 12, paddingVertical: 8 },
+  failure: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 4,
+    borderTopWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
   failureText: { flex: 1, minWidth: 0 },
   action: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5 },
 });

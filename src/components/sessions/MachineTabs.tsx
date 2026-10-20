@@ -111,9 +111,7 @@ function ConnectionGlyph({ item }: { item: MachineTabItem }) {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={
-        item.connectionState === 'failed'
-          ? StripCopy.glyphAction.retry
-          : StripCopy.glyphAction.connect
+        item.connectionState === 'failed' ? StripCopy.glyphAction.retry : StripCopy.glyphAction.connect
       }
       hitSlop={6}
       onPress={item.onConnect}
@@ -129,12 +127,7 @@ function ConnectionGlyph({ item }: { item: MachineTabItem }) {
  * User: "Please make the indicators for sessions status in the RN session list match gpui one exactly". The desktop machine tab shows no status on the selected machine and the other machines' status as dots, not numbers, like its Spaces (apps/desktop/src/app/native_sidebar/machines.rs), so the phone draws the same overlapping dots on unselected tabs only. This supersedes the phone's numbered pills on every tab.
  */
 function StatusDots({ item }: { item: MachineTabItem }) {
-  if (
-    item.workingCount <= 0 &&
-    item.attentionCount <= 0 &&
-    item.backgroundWorkCount <= 0 &&
-    item.questionCount <= 0
-  ) {
+  if (item.workingCount <= 0 && item.attentionCount <= 0 && item.backgroundWorkCount <= 0 && item.questionCount <= 0) {
     return null;
   }
   return (
@@ -219,11 +212,7 @@ export default function MachineTabs({
             <Text
               ellipsizeMode="tail"
               numberOfLines={1}
-              style={[
-                styles.label,
-                selected ? styles.labelSelected : null,
-                failed ? styles.labelFailed : null,
-              ]}
+              style={[styles.label, selected ? styles.labelSelected : null, failed ? styles.labelFailed : null]}
             >
               {item.label}
             </Text>

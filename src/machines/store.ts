@@ -83,10 +83,7 @@ export type MachineRecord = {
 };
 
 /** Pairing metadata written by Easy Connect registration; never edited by hand. */
-export type MachinePairingFields = Pick<
-  MachineRecord,
-  'deviceId' | 'pairedAt' | 'computerName' | 'gxserverPort'
->;
+export type MachinePairingFields = Pick<MachineRecord, 'deviceId' | 'pairedAt' | 'computerName' | 'gxserverPort'>;
 
 export type MachineInput = MachinePairingFields & {
   name: string;
@@ -117,9 +114,7 @@ export type MachineValidationErrors = {
   general: string;
 };
 
-export type MachineSaveResult =
-  | { ok: true; machine: MachineRecord }
-  | { ok: false; errors: MachineValidationErrors };
+export type MachineSaveResult = { ok: true; machine: MachineRecord } | { ok: false; errors: MachineValidationErrors };
 
 /**
  * displayLabel = name or `user@host[:port]` (port shown when not 22). A tailcat
@@ -150,10 +145,7 @@ export function enabledMachines(state: Pick<MachinesState, 'machines'>): Machine
  * The selection the Sessions screen can actually render: the candidate when it
  * is still an enabled machine, else the first enabled one, else nothing.
  */
-function resolveSelectedMachineId(
-  machines: readonly MachineRecord[],
-  candidateId: string | null,
-): string | null {
+function resolveSelectedMachineId(machines: readonly MachineRecord[], candidateId: string | null): string | null {
   const enabled = machines.filter(isMachineEnabled);
   if (candidateId !== null && enabled.some((machine) => machine.id === candidateId)) {
     return candidateId;
@@ -227,8 +219,7 @@ async function validateInput(
   if (isTailcat) {
     // Editing keeps an already-saved token when the field stays blank.
     const storedToken = editingId === null ? null : await getTailcatToken(editingId);
-    const effectiveToken =
-      normalized.tailcatToken.length > 0 ? normalized.tailcatToken : (storedToken ?? '');
+    const effectiveToken = normalized.tailcatToken.length > 0 ? normalized.tailcatToken : (storedToken ?? '');
     if (effectiveToken.length === 0) errors.tailcatToken = MachineCopy.validation.tailcatTokenEmpty;
     else if (!effectiveToken.startsWith(TAILCAT_TOKEN_PREFIX)) {
       errors.tailcatToken = MachineCopy.validation.tailcatTokenPrefix;
@@ -276,11 +267,7 @@ async function persistPassword(machineId: string, savePassword: boolean, passwor
  * Tokens live in the secure store, never in the persisted record. A blank token
  * while editing a tailcat machine keeps the stored one; leaving tailcat drops it.
  */
-async function persistTailcatToken(
-  machineId: string,
-  transport: MachineTransport,
-  token: string,
-): Promise<void> {
+async function persistTailcatToken(machineId: string, transport: MachineTransport, token: string): Promise<void> {
   if (transport !== 'tailcat') {
     await setTailcatToken(machineId, '');
     return;
@@ -329,9 +316,7 @@ function isMachineRecord(value: unknown): value is MachineRecord {
     typeof record.username === 'string' &&
     typeof record.port === 'number' &&
     typeof record.savePassword === 'boolean' &&
-    (record.transport === undefined ||
-      record.transport === 'ssh' ||
-      record.transport === 'tailcat') &&
+    (record.transport === undefined || record.transport === 'ssh' || record.transport === 'tailcat') &&
     (record.disabled === undefined || typeof record.disabled === 'boolean') &&
     (record.lastConnectedAt === null || typeof record.lastConnectedAt === 'string') &&
     (record.deviceId === undefined || typeof record.deviceId === 'string') &&
@@ -418,8 +403,7 @@ export const useMachinesStore = create<MachinesState>()((set, get) => ({
       name: normalized.name,
       // The synthetic identity is derived from the id, so it survives edits and
       // is re-derived identically when an ssh machine is switched to tailcat.
-      host:
-        normalized.transport === 'tailcat' ? tailcatSyntheticHost(existing.id) : normalized.host,
+      host: normalized.transport === 'tailcat' ? tailcatSyntheticHost(existing.id) : normalized.host,
       username: normalized.username,
       port: normalized.port as number,
       savePassword: normalized.savePassword,
@@ -448,9 +432,7 @@ export const useMachinesStore = create<MachinesState>()((set, get) => ({
   },
 
   setMachineDisabled: (id, disabled) => {
-    const nextMachines = get().machines.map((machine) =>
-      machine.id === id ? { ...machine, disabled } : machine,
-    );
+    const nextMachines = get().machines.map((machine) => (machine.id === id ? { ...machine, disabled } : machine));
     // Hiding the machine the drawer is showing hands the drawer to the next
     // enabled one, so the Sessions screen never renders a hidden machine.
     const selectedMachineId = resolveSelectedMachineId(nextMachines, get().selectedMachineId);
@@ -479,10 +461,7 @@ export const useMachinesStore = create<MachinesState>()((set, get) => ({
 
   selectMachine: (id) => {
     // A hidden machine is not a Sessions target, so it can never be selected.
-    if (
-      id !== null &&
-      !get().machines.some((machine) => machine.id === id && isMachineEnabled(machine))
-    ) {
+    if (id !== null && !get().machines.some((machine) => machine.id === id && isMachineEnabled(machine))) {
       return;
     }
     set({ selectedMachineId: id });

@@ -39,7 +39,7 @@ function firstJsonObject(output: string): Record<string, unknown> | null {
 export async function runGhostexCli(
   machine: MachineConnectionTarget,
   command: string,
-  options?: { timeoutMs?: number }
+  options?: { timeoutMs?: number },
 ): Promise<CliJsonResult> {
   try {
     await ensureConnected(machine);

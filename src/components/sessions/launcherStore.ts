@@ -55,10 +55,7 @@ export const useLauncherStore = create<LauncherState>()((set, get) => {
           if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
             const record = parsed as PersistedLauncher;
             if (typeof record.primaryAgentId === 'string') primaryAgentId = record.primaryAgentId;
-            if (
-              typeof record.lastActionByProject === 'object' &&
-              record.lastActionByProject !== null
-            ) {
+            if (typeof record.lastActionByProject === 'object' && record.lastActionByProject !== null) {
               for (const [key, value] of Object.entries(record.lastActionByProject)) {
                 if (typeof value === 'string') lastActionByProject[key] = value;
               }

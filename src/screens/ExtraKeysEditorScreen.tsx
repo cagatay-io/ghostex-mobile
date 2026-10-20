@@ -8,17 +8,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import {
-  Alert,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -40,8 +30,7 @@ import KeyboardAvoidingContainer from '../components/common/keyboard/KeyboardAvo
 import KeyboardAwareScrollView from '../components/common/keyboard/KeyboardAwareScrollView';
 import { useAppearanceHeader } from './settings/useAppearanceHeader';
 
-const STATUS_LINE =
-  'Customize the two key rows shown above the keyboard. Tap a key to move or remove it.';
+const STATUS_LINE = 'Customize the two key rows shown above the keyboard. Tap a key to move or remove it.';
 const EXAMPLES_LINE =
   'Examples: a key that types "git status" and presses Enter, a key that inserts a long path, or Ctrl+C as a single tap.';
 
@@ -167,14 +156,9 @@ export default function ExtraKeysEditorScreen() {
     let item: ExtraKeyStored;
     if (customDraft.kind === 'shortcut') {
       const key = customDraft.shortcutKey.trim();
-      const normalized = SHORTCUT_KEY_NAMES.find(
-        (name) => name.toLowerCase() === key.toLowerCase(),
-      );
+      const normalized = SHORTCUT_KEY_NAMES.find((name) => name.toLowerCase() === key.toLowerCase());
       if (normalized === undefined && key.length !== 1) {
-        Alert.alert(
-          'Unsupported Key',
-          `Use a single character or one of: ${SHORTCUT_KEY_NAMES.join(', ')}.`,
-        );
+        Alert.alert('Unsupported Key', `Use a single character or one of: ${SHORTCUT_KEY_NAMES.join(', ')}.`);
         return;
       }
       if (!customDraft.ctrl && !customDraft.alt && !customDraft.shift) {
@@ -221,9 +205,7 @@ export default function ExtraKeysEditorScreen() {
               style={[styles.chip, isSelected && styles.chipSelected]}
               onPress={() => setSelected(isSelected ? null : { row, index })}
             >
-              <Text style={[styles.chipLabel, isSelected && styles.chipLabelSelected]}>
-                {storedItemLabel(item)}
-              </Text>
+              <Text style={[styles.chipLabel, isSelected && styles.chipLabelSelected]}>{storedItemLabel(item)}</Text>
             </Pressable>
           );
         })}
@@ -248,17 +230,30 @@ export default function ExtraKeysEditorScreen() {
 
         {selected !== null && (
           <View style={styles.selectionActions}>
-            <Pressable style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]} onPress={() => moveSelected(-1)}>
+            <Pressable
+              style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]}
+              onPress={() => moveSelected(-1)}
+            >
               <Text style={styles.actionLabel}>◀ Move</Text>
             </Pressable>
-            <Pressable style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]} onPress={() => moveSelected(1)}>
+            <Pressable
+              style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]}
+              onPress={() => moveSelected(1)}
+            >
               <Text style={styles.actionLabel}>Move ▶</Text>
             </Pressable>
-            <Pressable style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]} onPress={moveSelectedToOtherRow}>
+            <Pressable
+              style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]}
+              onPress={moveSelectedToOtherRow}
+            >
               <Text style={styles.actionLabel}>Other row</Text>
             </Pressable>
             <Pressable
-              style={({ pressed }) => [styles.actionButton, styles.actionButtonDestructive, pressed && styles.actionButtonDestructivePressed]}
+              style={({ pressed }) => [
+                styles.actionButton,
+                styles.actionButtonDestructive,
+                pressed && styles.actionButtonDestructivePressed,
+              ]}
               onPress={removeSelected}
             >
               <Text style={[styles.actionLabel, styles.actionLabelDestructive]}>Remove</Text>
@@ -383,9 +378,7 @@ export default function ExtraKeysEditorScreen() {
                           <Text style={styles.modalRowLabel}>{modifier.toUpperCase()}</Text>
                           <Switch
                             value={customDraft[modifier]}
-                            onValueChange={(value) =>
-                              setCustomDraft({ ...customDraft, [modifier]: value })
-                            }
+                            onValueChange={(value) => setCustomDraft({ ...customDraft, [modifier]: value })}
                             trackColor={{ false: appearance.control, true: GhostexPalette.ACCENT }}
                             thumbColor={customDraft[modifier] ? appearance.foreground : appearance.controlThumb}
                             ios_backgroundColor={appearance.control}

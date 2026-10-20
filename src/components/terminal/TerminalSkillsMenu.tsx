@@ -20,8 +20,21 @@ export type TerminalSkillsMenuProps = {
   onClose: () => void;
 };
 
-export default function TerminalSkillsMenu({ sessionTitle, rows, error, onPick, onConfigure, onClose }: TerminalSkillsMenuProps) {
-  const status = (key: string, label: string): ContextMenuItem => ({ kind: 'item', key, label, disabled: true, onPress: () => undefined });
+export default function TerminalSkillsMenu({
+  sessionTitle,
+  rows,
+  error,
+  onPick,
+  onConfigure,
+  onClose,
+}: TerminalSkillsMenuProps) {
+  const status = (key: string, label: string): ContextMenuItem => ({
+    kind: 'item',
+    key,
+    label,
+    disabled: true,
+    onPress: () => undefined,
+  });
   const items: ContextMenuItem[] = [];
   if (error !== null) items.push(status('error', error));
   else if (rows === null) items.push(status('loading', 'Loading skills…'));

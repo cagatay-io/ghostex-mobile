@@ -34,7 +34,10 @@ export function useRevealFocusedField(): () => void {
  * The reveal for one inverted transcript list. `offset` is the list's current scroll offset, which
  * for an inverted list is the distance from the bottom.
  */
-export function useTranscriptFieldReveal<T>(listRef: RefObject<FlatList<T> | null>, offset: RefObject<number>): () => void {
+export function useTranscriptFieldReveal<T>(
+  listRef: RefObject<FlatList<T> | null>,
+  offset: RefObject<number>,
+): () => void {
   const keyboardTop = useKeyboardTop();
   const keyboardTopRef = useRef(keyboardTop);
   keyboardTopRef.current = keyboardTop;
@@ -70,7 +73,7 @@ export function useTranscriptFieldReveal<T>(listRef: RefObject<FlatList<T> | nul
             });
           });
         },
-        noop
+        noop,
       );
     });
   };

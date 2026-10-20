@@ -71,12 +71,7 @@ export default function PromptEditorSheet({
   const title = sessionTitle.trim();
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={() => onCancel(text)}
-    >
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={() => onCancel(text)}>
       <KeyboardAvoidingContainer safeAreaTop style={styles.keyboardFill}>
         <Pressable style={styles.backdrop} onPress={() => onCancel(text)}>
           <Pressable style={styles.card} onPress={(event) => event.stopPropagation()}>
@@ -107,7 +102,11 @@ export default function PromptEditorSheet({
                 <Pressable
                   accessibilityRole="button"
                   disabled={busy}
-                  style={({ pressed }) => [styles.cancelButton, pressed && styles.cancelButtonPressed, busy ? styles.buttonDisabled : null]}
+                  style={({ pressed }) => [
+                    styles.cancelButton,
+                    pressed && styles.cancelButtonPressed,
+                    busy ? styles.buttonDisabled : null,
+                  ]}
                   onPress={() => onCancel(text)}
                 >
                   <Text style={styles.cancelLabel}>Cancel</Text>
@@ -120,9 +119,7 @@ export default function PromptEditorSheet({
                     if (canSubmit) onSubmit(trimmed);
                   }}
                 >
-                  <Text style={styles.confirmLabel}>
-                    {destination === 'chat' ? 'Send' : 'Insert'}
-                  </Text>
+                  <Text style={styles.confirmLabel}>{destination === 'chat' ? 'Send' : 'Insert'}</Text>
                 </Pressable>
               </View>
             </KeyboardAwareScrollView>

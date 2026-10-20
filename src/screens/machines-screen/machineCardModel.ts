@@ -6,12 +6,7 @@
 
 import { MachinesCopy } from '../../copy';
 import type { MachineInventory } from '../../inventory/store';
-import {
-  isMachineEnabled,
-  machineDisplayLabel,
-  machineTransportLabel,
-  type MachineRecord,
-} from '../../machines/store';
+import { isMachineEnabled, machineDisplayLabel, machineTransportLabel, type MachineRecord } from '../../machines/store';
 import { SetupPalette } from '../../theme/palette';
 
 export type MachineCardStatus = 'connected' | 'failed' | 'hidden' | 'notConnected';
@@ -20,10 +15,7 @@ export type MachineCardStatus = 'connected' | 'failed' | 'hidden' | 'notConnecte
  * Hidden wins over everything (a hidden machine is never connected to, so its
  * inventory is stale at best); then the inventory decides.
  */
-export function machineCardStatus(
-  machine: MachineRecord,
-  inventory: MachineInventory | undefined,
-): MachineCardStatus {
+export function machineCardStatus(machine: MachineRecord, inventory: MachineInventory | undefined): MachineCardStatus {
   if (!isMachineEnabled(machine)) return 'hidden';
   if (inventory === undefined || !inventory.hasLoaded) return 'notConnected';
   if (inventory.lastError !== null) return 'failed';

@@ -32,8 +32,25 @@ export const SINGLE_LINE_CARD = {
   titleWeight: '500' as TextStyle['fontWeight'],
   borderAlpha: 0.06,
   pill: { paddingX: 8, paddingY: 2, gap: 5, textSize: 11.5, lineHeight: 16, iconSize: 12, borderAlpha: 0.1 },
-  tile: { size: 28, radius: 8, glyphSize: 17, fillAlpha: 0.06, glyphAlpha: 0.8, numberSize: 13, numberWeight: '600' as TextStyle['fontWeight'] },
-  badge: { size: 12, ring: 2, offset: -4, glyphSize: 6, fill: '#16a34a', errorFill: '#dc2626', askFill: '#D2A024', askInk: '#161616' },
+  tile: {
+    size: 28,
+    radius: 8,
+    glyphSize: 17,
+    fillAlpha: 0.06,
+    glyphAlpha: 0.8,
+    numberSize: 13,
+    numberWeight: '600' as TextStyle['fontWeight'],
+  },
+  badge: {
+    size: 12,
+    ring: 2,
+    offset: -4,
+    glyphSize: 6,
+    fill: '#16a34a',
+    errorFill: '#dc2626',
+    askFill: '#D2A024',
+    askInk: '#161616',
+  },
 };
 
 /** The fold's border width, which the header inside a shell leaves room for. */
@@ -95,23 +112,28 @@ export function SingleLineTile({
   return (
     <SingleLineTileBox>
       {glyph === 'clock' || glyph === 'question' || glyph === 'checklist' ? (
-        <Svg width={tile.glyphSize} height={tile.glyphSize} viewBox='0 0 16 16' fill='none' stroke={ink}>
+        <Svg width={tile.glyphSize} height={tile.glyphSize} viewBox="0 0 16 16" fill="none" stroke={ink}>
           {glyph === 'clock' ? (
             <>
               <Circle cx={8} cy={8} r={5.8} strokeWidth={1.4} />
-              <Path d='M8 4.8V8l2.2 1.4' strokeWidth={1.4} strokeLinecap='round' />
+              <Path d="M8 4.8V8l2.2 1.4" strokeWidth={1.4} strokeLinecap="round" />
             </>
           ) : glyph === 'checklist' ? (
-            <Path d='M2.5 4.5 3.6 5.6 5.5 3.6M2.5 10.5l1.1 1.1 1.9-2M8 4.6h5.5M8 10.6h5.5' strokeWidth={1.4} strokeLinecap='round' strokeLinejoin='round' />
+            <Path
+              d="M2.5 4.5 3.6 5.6 5.5 3.6M2.5 10.5l1.1 1.1 1.9-2M8 4.6h5.5M8 10.6h5.5"
+              strokeWidth={1.4}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           ) : (
             <>
               <Path
-                d='M3 3.5h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5V11.5H3a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z'
+                d="M3 3.5h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5V11.5H3a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"
                 strokeWidth={1.3}
-                strokeLinejoin='round'
+                strokeLinejoin="round"
               />
-              <Path d='M6.6 6.2a1.5 1.5 0 1 1 2.1 1.4c-.5.2-.7.5-.7 1' strokeWidth={1.3} strokeLinecap='round' />
-              <Circle cx={8} cy={10} r={0.7} fill={ink} stroke='none' />
+              <Path d="M6.6 6.2a1.5 1.5 0 1 1 2.1 1.4c-.5.2-.7.5-.7 1" strokeWidth={1.3} strokeLinecap="round" />
+              <Circle cx={8} cy={10} r={0.7} fill={ink} stroke="none" />
             </>
           )}
         </Svg>
@@ -120,22 +142,38 @@ export function SingleLineTile({
       )}
       {badge !== undefined ? (
         <SingleLineBadge
-          fill={badge === 'error' ? SINGLE_LINE_CARD.badge.errorFill : badge === 'ask' ? SINGLE_LINE_CARD.badge.askFill : SINGLE_LINE_CARD.badge.fill}
+          fill={
+            badge === 'error'
+              ? SINGLE_LINE_CARD.badge.errorFill
+              : badge === 'ask'
+                ? SINGLE_LINE_CARD.badge.askFill
+                : SINGLE_LINE_CARD.badge.fill
+          }
           {...(ring !== undefined ? { ring } : {})}
         >
-          <Svg width={SINGLE_LINE_CARD.badge.glyphSize} height={SINGLE_LINE_CARD.badge.glyphSize} viewBox='0 0 10 10' fill='none'>
+          <Svg
+            width={SINGLE_LINE_CARD.badge.glyphSize}
+            height={SINGLE_LINE_CARD.badge.glyphSize}
+            viewBox="0 0 10 10"
+            fill="none"
+          >
             {badge === 'ask' ? (
               <>
-                <Path d='M3.4 3.6a1.7 1.7 0 1 1 2.4 1.5c-.5.25-.8.55-.8 1.1' stroke={SINGLE_LINE_CARD.badge.askInk} strokeWidth={1.6} strokeLinecap='round' />
+                <Path
+                  d="M3.4 3.6a1.7 1.7 0 1 1 2.4 1.5c-.5.25-.8.55-.8 1.1"
+                  stroke={SINGLE_LINE_CARD.badge.askInk}
+                  strokeWidth={1.6}
+                  strokeLinecap="round"
+                />
                 <Circle cx={5} cy={8.1} r={0.8} fill={SINGLE_LINE_CARD.badge.askInk} />
               </>
             ) : (
               <Path
                 d={badge === 'error' ? 'M3.2 3.2 6.8 6.8M6.8 3.2 3.2 6.8' : 'M2 5.2 4.2 7.4 8 2.8'}
-                stroke='#ffffff'
+                stroke="#ffffff"
                 strokeWidth={1.8}
-                strokeLinecap='round'
-                strokeLinejoin='round'
+                strokeLinecap="round"
+                strokeLinejoin="round"
               />
             )}
           </Svg>
@@ -160,7 +198,16 @@ export function SingleLineNumberTile({ number }: { number: number }) {
   const { tile } = SINGLE_LINE_CARD;
   return (
     <SingleLineTileBox>
-      <Text style={{ color: theme.ink(tile.glyphAlpha), fontSize: tile.numberSize, lineHeight: tile.size, fontWeight: tile.numberWeight }}>{number}</Text>
+      <Text
+        style={{
+          color: theme.ink(tile.glyphAlpha),
+          fontSize: tile.numberSize,
+          lineHeight: tile.size,
+          fontWeight: tile.numberWeight,
+        }}
+      >
+        {number}
+      </Text>
     </SingleLineTileBox>
   );
 }
@@ -175,13 +222,31 @@ export function singleLinePressed(theme: TranscriptTheme): ViewStyle {
  * mark's arrow on "Message from"), its ring in the card's own fill over the transcript so the
  * icon's corner never shows through it. Its parent is the icon's box.
  */
-export function SingleLineBadge({ fill, ring: ringColor, children }: { fill: string; ring?: string; children: ReactNode }) {
+export function SingleLineBadge({
+  fill,
+  ring: ringColor,
+  children,
+}: {
+  fill: string;
+  ring?: string;
+  children: ReactNode;
+}) {
   const theme = useTranscriptTheme();
   const { badge } = SINGLE_LINE_CARD;
   const ring = badge.size + 2 * badge.ring;
   return (
-    <View style={[styles.badge, { width: ring, height: ring, borderRadius: ring / 2, backgroundColor: ringColor ?? theme.background }]}>
-      <View style={[styles.badgeRing, { borderRadius: ring / 2, backgroundColor: ringColor !== undefined ? 'transparent' : theme.ink(0.025) }]}>
+    <View
+      style={[
+        styles.badge,
+        { width: ring, height: ring, borderRadius: ring / 2, backgroundColor: ringColor ?? theme.background },
+      ]}
+    >
+      <View
+        style={[
+          styles.badgeRing,
+          { borderRadius: ring / 2, backgroundColor: ringColor !== undefined ? 'transparent' : theme.ink(0.025) },
+        ]}
+      >
         <View style={[styles.badgeDot, { backgroundColor: fill }]}>{children}</View>
       </View>
     </View>

@@ -8,7 +8,17 @@
 
 import * as Clipboard from 'expo-clipboard';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { RustChat } from '../../rust/useRustChat';
@@ -28,7 +38,7 @@ export function ImageViewer({ chat }: { chat: RustChat }) {
   const scroll = useRef<ScrollView>(null);
   const lastTap = useRef(0);
   const [zoomed, setZoomed] = useState(false);
-  const image = viewer === null ? null : viewer.images[viewer.index] ?? null;
+  const image = viewer === null ? null : (viewer.images[viewer.index] ?? null);
   const source = useChatImage(chat, image);
   const [natural, setNatural] = useState<{ width: number; height: number } | null>(null);
   /**
@@ -57,7 +67,9 @@ export function ImageViewer({ chat }: { chat: RustChat }) {
   const close = () => useChatOverlayStore.setState({ imageViewer: null });
   const step = (delta: number) => {
     const count = viewer.images.length;
-    useChatOverlayStore.setState({ imageViewer: { images: viewer.images, index: (viewer.index + delta + count) % count } });
+    useChatOverlayStore.setState({
+      imageViewer: { images: viewer.images, index: (viewer.index + delta + count) % count },
+    });
   };
   const frameWidth = width - 32;
   const frameHeight = height - insets.top - insets.bottom - 120;
@@ -150,7 +162,8 @@ export function ImageViewer({ chat }: { chat: RustChat }) {
                   resizeMode="contain"
                   onLoad={(event) => {
                     const { width: w, height: h } = event.nativeEvent.source;
-                    if (w > 0 && h > 0 && (natural?.width !== w || natural?.height !== h)) setNatural({ width: w, height: h });
+                    if (w > 0 && h > 0 && (natural?.width !== w || natural?.height !== h))
+                      setNatural({ width: w, height: h });
                   }}
                   onError={() => setBroken(true)}
                 />

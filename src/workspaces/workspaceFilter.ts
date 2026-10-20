@@ -63,9 +63,7 @@ function projectWorkspaceId(
   project: GhostexProject,
 ): string {
   const parent =
-    project.worktreeParentProjectId.length > 0
-      ? projectsById.get(project.worktreeParentProjectId)
-      : undefined;
+    project.worktreeParentProjectId.length > 0 ? projectsById.get(project.worktreeParentProjectId) : undefined;
   return resolveWorkspaceId(workspaces, parent?.workspaceId ?? project.workspaceId);
 }
 
@@ -78,10 +76,7 @@ function projectsById(summary: GhostexMobileSummary): Map<string, GhostexProject
  * section, which no workspace scopes on the phone), their sessions, and its Spaces. Unchanged when
  * the computer has no workspaces.
  */
-export function filterSummaryForWorkspace(
-  summary: GhostexMobileSummary,
-  workspaceId: string,
-): GhostexMobileSummary {
+export function filterSummaryForWorkspace(summary: GhostexMobileSummary, workspaceId: string): GhostexMobileSummary {
   const workspaces = summary.workspaces;
   if (workspaces === null) return summary;
   const byId = projectsById(summary);
@@ -99,9 +94,7 @@ export function filterSummaryForWorkspace(
     const space = summary.sidebarSpaces.spaces[spaceId];
     return space !== undefined && resolveWorkspaceId(workspaces, space.workspaceId) === workspaceId;
   });
-  const spaces = Object.fromEntries(
-    spaceIds.map((spaceId) => [spaceId, summary.sidebarSpaces.spaces[spaceId]]),
-  );
+  const spaces = Object.fromEntries(spaceIds.map((spaceId) => [spaceId, summary.sidebarSpaces.spaces[spaceId]]));
   return { ...summary, projects, sessions, sidebarSpaces: { order: spaceIds, spaces } };
 }
 

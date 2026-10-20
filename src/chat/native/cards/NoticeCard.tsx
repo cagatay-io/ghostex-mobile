@@ -19,7 +19,14 @@ import type { ChatDocument } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
 import { arr, asJson, isTrue, num, obj, str } from './json';
 import { MONO_FONT, themedStyles, useTranscriptTheme } from '../transcript/theme';
-import { CARD_TEXT_SIZE, CHOICE_ROW_CHROME, ChoiceRow, ChoiceRowLabelMeasure, useCardText, useWellStyle } from './primitives';
+import {
+  CARD_TEXT_SIZE,
+  CHOICE_ROW_CHROME,
+  ChoiceRow,
+  ChoiceRowLabelMeasure,
+  useCardText,
+  useWellStyle,
+} from './primitives';
 import { Glyph } from './icons';
 import { ToneButton, ToneCard } from './ToneCard';
 import { PanelBlocks } from './PanelBlocks';
@@ -98,7 +105,7 @@ export function NoticeCard({
     body.push(
       <Text key="detail" style={cardText.prose}>
         {notice.detail}
-      </Text>
+      </Text>,
     );
   }
   // The command a collapsed approval card is asking to run (`collapsedDetail` in the chat core).
@@ -106,7 +113,7 @@ export function NoticeCard({
     body.push(
       <Text key="collapsed-detail" style={styles.monoText}>
         {notice.collapsedDetail}
-      </Text>
+      </Text>,
     );
   }
   // What a failed start printed (`errorLines` from gxserver), so the card says why without the terminal.
@@ -114,14 +121,19 @@ export function NoticeCard({
     body.push(
       <Text key="error-lines" style={styles.monoText}>
         {notice.errorLines}
-      </Text>
+      </Text>,
     );
   }
   if (answerable && numbered) {
     const moreOpen = moreKey === key;
     const more = obj(notice.more);
     body.push(
-      <ScrollView key="choices" style={{ maxHeight: height * (panel ? 0.3 : 0.45) }} contentContainerStyle={styles.choicesColumn} nestedScrollEnabled>
+      <ScrollView
+        key="choices"
+        style={{ maxHeight: height * (panel ? 0.3 : 0.45) }}
+        contentContainerStyle={styles.choicesColumn}
+        nestedScrollEnabled
+      >
         {choices
           .filter((choice) => moreOpen || obj(choice)?.folded !== true)
           .map((choice, index) => (
@@ -133,9 +145,13 @@ export function NoticeCard({
             />
           ))}
         {more !== null && !moreOpen ? (
-          <DialogChoiceRow key="more" choice={{ title: str(more, 'label'), detail: str(more, 'detail') }} onPress={() => setMoreKey(key)} />
+          <DialogChoiceRow
+            key="more"
+            choice={{ title: str(more, 'label'), detail: str(more, 'detail') }}
+            onPress={() => setMoreKey(key)}
+          />
         ) : null}
-      </ScrollView>
+      </ScrollView>,
     );
   } else if (answerable) {
     const shown = collapsed ? (num(notice, 'collapsedChoiceCount') ?? 2) : choices.length;
@@ -150,7 +166,12 @@ export function NoticeCard({
     const widths = labels.map((label) => choiceWidths[label]);
     const widest = collapsed && widths.every((width) => width !== undefined) ? Math.max(...(widths as number[])) : null;
     const stacked = widest !== null && !Number.isFinite(widest);
-    const choiceStyle = !collapsed || stacked ? null : widest === null ? styles.collapsedChoice : { flexGrow: 1, flexShrink: 1, flexBasis: widest + CHOICE_ROW_CHROME, minWidth: 0 };
+    const choiceStyle =
+      !collapsed || stacked
+        ? null
+        : widest === null
+          ? styles.collapsedChoice
+          : { flexGrow: 1, flexShrink: 1, flexBasis: widest + CHOICE_ROW_CHROME, minWidth: 0 };
     body.push(
       <ScrollView
         key="choices"
@@ -163,7 +184,11 @@ export function NoticeCard({
               <ChoiceRowLabelMeasure
                 key={`measure:${index}`}
                 label={label}
-                onWidth={(width) => setChoiceWidths((previous) => (previous[label] === width ? previous : { ...previous, [label]: width }))}
+                onWidth={(width) =>
+                  setChoiceWidths((previous) =>
+                    previous[label] === width ? previous : { ...previous, [label]: width },
+                  )
+                }
               />
             ))
           : null}
@@ -180,7 +205,7 @@ export function NoticeCard({
             />
           </View>
         ))}
-      </ScrollView>
+      </ScrollView>,
     );
   }
   if (!collapsed && !rateLimit && !panel && dialog !== null) {
@@ -190,9 +215,20 @@ export function NoticeCard({
   }
   // Only sign-in and usage-limit notices offer the account panel (notice.rs).
   const kind = str(notice, 'kind');
-  if (!collapsed && obj(document.accountPanel) !== null && (kind === 'loginExpired' || kind === 'usageLimit') && onHostAction) {
+  if (
+    !collapsed &&
+    obj(document.accountPanel) !== null &&
+    (kind === 'loginExpired' || kind === 'usageLimit') &&
+    onHostAction
+  ) {
     actions.push(
-      <ToneButton key="switch-account" kind="primary" icon="switch-horizontal" label="Switch account" onPress={() => onHostAction('switchAccount')} />
+      <ToneButton
+        key="switch-account"
+        kind="primary"
+        icon="switch-horizontal"
+        label="Switch account"
+        onPress={() => onHostAction('switchAccount')}
+      />,
     );
   }
   for (const action of arr(notice.actions)) {
@@ -200,7 +236,13 @@ export function NoticeCard({
     if (str(action, 'kind') === 'switchToTerminal') {
       if (onHostAction) {
         actions.push(
-          <ToneButton key={`action:${str(action, 'id')}`} kind="secondary" icon="terminal-2" label="Terminal view" onPress={() => onHostAction('terminalView')} />
+          <ToneButton
+            key={`action:${str(action, 'id')}`}
+            kind="secondary"
+            icon="terminal-2"
+            label="Terminal view"
+            onPress={() => onHostAction('terminalView')}
+          />,
         );
       }
       continue;
@@ -212,24 +254,33 @@ export function NoticeCard({
         kind={actions.length === 0 ? 'primary' : 'secondary'}
         label={str(action, 'label')}
         onPress={() => dispatch({ type: 'answer', answer: asJson(obj(action)?.answer) })}
-      />
+      />,
     );
   }
-  if ((notice.choices === null || notice.choices === undefined) && (notice.dialog === null || notice.dialog === undefined)) {
-    footerEnd.push(<ToneButton key="dismiss" kind="secondary" label="Dismiss" onPress={() => dispatch({ type: 'dismissNotice' })} />);
+  if (
+    (notice.choices === null || notice.choices === undefined) &&
+    (notice.dialog === null || notice.dialog === undefined)
+  ) {
+    footerEnd.push(
+      <ToneButton key="dismiss" kind="secondary" label="Dismiss" onPress={() => dispatch({ type: 'dismissNotice' })} />,
+    );
   }
   if (typeof document.noticeError === 'string') {
     body.push(
       <Text key="error" accessibilityRole="alert" style={cardText.prose}>
         {document.noticeError}
-      </Text>
+      </Text>,
     );
   }
   return (
     <ToneCard
       tone={str(notice, 'tone')}
       title={(panel && str(obj(dialog?.presentation), 'title')) || str(notice, 'title')}
-      trailing={foldable ? <Glyph name={collapsed ? 'chevron-right' : 'chevron-down'} size={14} color={look.P.muted} /> : undefined}
+      trailing={
+        foldable ? (
+          <Glyph name={collapsed ? 'chevron-right' : 'chevron-down'} size={14} color={look.P.muted} />
+        ) : undefined
+      }
       body={body}
       footerStart={
         numbered
@@ -261,7 +312,7 @@ function terminalDialogParts(
   dialog: Record<string, unknown>,
   busy: boolean,
   [inputValue, setInputValue]: DialogInput,
-  { styles, P, cardText, wellStyle }: DialogLook
+  { styles, P, cardText, wellStyle }: DialogLook,
 ): { body: ReactNode[]; actions: ReactNode[] } {
   const { dispatch } = chat;
   const dialogId = str(dialog, 'id');
@@ -271,15 +322,17 @@ function terminalDialogParts(
     body.push(
       <Text key="pager" style={cardText.prose}>
         {str(dialog, 'body')}
-      </Text>
+      </Text>,
     );
     actions.push(
       <ToneButton
         key="restore"
         kind="primary"
         label={busy ? 'Restoring chat…' : 'Restore chat'}
-        onPress={() => dispatch({ type: 'answer', answer: { kind: 'terminalDialog', dialogId, dialogAction: 'cancel' } })}
-      />
+        onPress={() =>
+          dispatch({ type: 'answer', answer: { kind: 'terminalDialog', dialogId, dialogAction: 'cancel' } })
+        }
+      />,
     );
     return { body, actions };
   }
@@ -292,7 +345,7 @@ function terminalDialogParts(
       body.push(
         <Text key={`copy:${index}`} style={cardText.prose}>
           {typeof paragraph === 'string' ? paragraph : ''}
-        </Text>
+        </Text>,
       );
     });
   } else if (arr(presentation?.blocks).length > 0) {
@@ -303,7 +356,7 @@ function terminalDialogParts(
         <ScrollView nestedScrollEnabled>
           <Text style={styles.monoText}>{str(dialog, 'body')}</Text>
         </ScrollView>
-      </View>
+      </View>,
     );
   }
   const input = str(dialog, 'input');
@@ -329,11 +382,16 @@ function terminalDialogParts(
         onSubmitEditing={submit}
         placeholder={search ? 'Search options…' : 'Enter text…'}
         placeholderTextColor={P.placeholder}
-      />
+      />,
     );
     // Beside numbered rows the labelled Confirm is the one filled button (terminal_dialog.rs).
     actions.push(
-      <ToneButton key="submit" kind={search && hasRows ? 'secondary' : 'primary'} label={search ? 'Search' : str(presentation, 'submitLabel')} onPress={submit} />
+      <ToneButton
+        key="submit"
+        kind={search && hasRows ? 'secondary' : 'primary'}
+        label={search ? 'Search' : str(presentation, 'submitLabel')}
+        onPress={submit}
+      />,
     );
   }
   if (input === 'key') {
@@ -348,9 +406,12 @@ function terminalDialogParts(
         onKeyPress={(event) => {
           const pressed = event.nativeEvent.key;
           const text = pressed === ' ' ? ' ' : pressed;
-          dispatch({ type: 'answer', answer: { kind: 'terminalDialog', dialogId, dialogAction: 'key', text, keyModifiers: 0 } });
+          dispatch({
+            type: 'answer',
+            answer: { kind: 'terminalDialog', dialogId, dialogAction: 'key', text, keyModifiers: 0 },
+          });
         }}
-      />
+      />,
     );
   }
   // Written copy and blocks come with buttons for everything the key-hint footer says, and numbered rows with their own hint.
@@ -358,7 +419,7 @@ function terminalDialogParts(
     body.push(
       <Text key="footer" style={cardText.prose}>
         {str(dialog, 'footer')}
-      </Text>
+      </Text>,
     );
   }
   for (const action of arr(presentation?.actions)) {
@@ -369,9 +430,12 @@ function terminalDialogParts(
         kind={hasRows && str(action, 'action') === 'confirm' ? 'primary' : 'secondary'}
         label={str(action, 'label')}
         onPress={() =>
-          dispatch({ type: 'answer', answer: { kind: 'terminalDialog', dialogId, dialogAction: asJson(obj(action)?.action) } })
+          dispatch({
+            type: 'answer',
+            answer: { kind: 'terminalDialog', dialogId, dialogAction: asJson(obj(action)?.action) },
+          })
         }
-      />
+      />,
     );
   }
   return { body, actions };
@@ -396,7 +460,15 @@ function useDialogInput(dialog: Record<string, unknown> | null): DialogInput {
  * question card's row sizes with the number at the start, filled on the row the terminal highlights, the name on one line
  * (whole while held), a muted suffix and detail, and the row's stats at the end. A row without a number is "More".
  */
-function DialogChoiceRow({ choice, disabled, onPress }: { choice: Record<string, unknown>; disabled?: boolean; onPress: () => void }) {
+function DialogChoiceRow({
+  choice,
+  disabled,
+  onPress,
+}: {
+  choice: Record<string, unknown>;
+  disabled?: boolean;
+  onPress: () => void;
+}) {
   const styles = useStyles();
   const P = useTranscriptTheme();
   const [revealed, setRevealed] = useState(false);
@@ -423,11 +495,16 @@ function DialogChoiceRow({ choice, disabled, onPress }: { choice: Record<string,
       ]}
     >
       <View style={[styles.dialogRowNumber, highlighted && styles.dialogRowNumberHighlighted]}>
-        <Text style={[styles.dialogRowNumberText, highlighted && { color: P.background }]}>{number === null ? '⋯' : String(number)}</Text>
+        <Text style={[styles.dialogRowNumberText, highlighted && { color: P.background }]}>
+          {number === null ? '⋯' : String(number)}
+        </Text>
       </View>
       <View style={styles.dialogRowText}>
         <View style={styles.dialogRowTitleLine}>
-          <Text style={styles.dialogRowTitle} {...(revealed ? {} : { numberOfLines: 1, ellipsizeMode: 'tail' as const })}>
+          <Text
+            style={styles.dialogRowTitle}
+            {...(revealed ? {} : { numberOfLines: 1, ellipsizeMode: 'tail' as const })}
+          >
             {str(choice, 'title')}
           </Text>
           {suffix.length > 0 ? <Text style={styles.dialogRowSuffix}>{suffix}</Text> : null}

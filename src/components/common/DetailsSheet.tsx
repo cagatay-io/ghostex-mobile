@@ -29,9 +29,7 @@ export default function DetailsSheet({ visible, title, subtitle, entries, onClos
           <Text style={styles.title} numberOfLines={1}>
             {title}
           </Text>
-          {subtitle !== undefined && subtitle.length > 0 ? (
-            <Text style={styles.subtitle}>{subtitle}</Text>
-          ) : null}
+          {subtitle !== undefined && subtitle.length > 0 ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
           <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
             {entries.map((entry) => (
               <View key={entry.label} style={styles.row}>

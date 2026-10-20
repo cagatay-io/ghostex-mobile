@@ -15,7 +15,13 @@ import { arr, isTrue, obj, str, type JsonRecord } from './json';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { Sheet } from './Sheet';
 
-export function ContextEditorSheet({ editor, dispatch }: { editor: JsonRecord | null; dispatch: (action: UserAction) => void }) {
+export function ContextEditorSheet({
+  editor,
+  dispatch,
+}: {
+  editor: JsonRecord | null;
+  dispatch: (action: UserAction) => void;
+}) {
   const styles = useStyles();
   const P = useTranscriptTheme();
   const [query, setQuery] = useState('');
@@ -46,83 +52,89 @@ export function ContextEditorSheet({ editor, dispatch }: { editor: JsonRecord | 
       </View>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content} scrollEnabled={!dragging}>
         <DragLockContext.Provider value={setDragging}>
-        <Text style={styles.description}>{str(editor, 'description')}</Text>
-        {arr(editor?.groups).map((group) => (
-          <View key={str(group, 'id')} style={styles.group}>
-            <Text style={styles.groupLabel}>{str(group, 'label').toUpperCase()}</Text>
+          <Text style={styles.description}>{str(editor, 'description')}</Text>
+          {arr(editor?.groups).map((group) => (
+            <View key={str(group, 'id')} style={styles.group}>
+              <Text style={styles.groupLabel}>{str(group, 'label').toUpperCase()}</Text>
+              <ReorderList
+                ids={arr(obj(group)?.rows).map((row) => str(row, 'id'))}
+                disabled={saving}
+                onMove={(from, to) => dispatch({ type: 'contextReorder', group: str(group, 'id'), from, to })}
+              >
+                {arr(obj(group)?.rows).map((row) => {
+                  const id = str(row, 'id');
+                  const label = str(row, 'label');
+                  const starredRow = isTrue(row, 'starred');
+                  const shown = isTrue(row, 'shown');
+                  return (
+                    <ReorderItem key={id} id={id} label={label} style={styles.row}>
+                      <View style={styles.rowText}>
+                        <Text style={styles.rowLabel} numberOfLines={1}>
+                          {label}
+                        </Text>
+                        <Text style={styles.rowDescription} numberOfLines={2}>
+                          {str(row, 'description')}
+                        </Text>
+                      </View>
+                      <Text style={styles.sample} numberOfLines={1}>
+                        {str(row, 'sample') || '—'}
+                      </Text>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`${starredRow ? 'Unstar' : 'Star'} ${label}`}
+                        disabled={saving}
+                        hitSlop={6}
+                        onPress={() => dispatch({ type: 'contextStar', id })}
+                        style={styles.star}
+                      >
+                        <Glyph
+                          name={starredRow ? 'star-filled' : 'star'}
+                          size={17}
+                          color={starredRow ? P.star : P.muted}
+                        />
+                      </Pressable>
+                      <Switch
+                        accessibilityLabel={`Show ${label}`}
+                        value={shown}
+                        disabled={saving}
+                        onValueChange={(next) => dispatch({ type: 'contextShown', id, shown: next })}
+                      />
+                    </ReorderItem>
+                  );
+                })}
+              </ReorderList>
+            </View>
+          ))}
+          <View style={styles.statusLine}>
+            <View style={styles.statusHeader}>
+              <Text style={styles.groupLabel}>STATUS LINE</Text>
+              <Text style={styles.rowDescription}>
+                {starred.length === 0 ? 'Star rows above to show them under the chat box.' : ''}
+              </Text>
+            </View>
             <ReorderList
-              ids={arr(obj(group)?.rows).map((row) => str(row, 'id'))}
+              ids={starred.map((row) => str(row, 'id'))}
               disabled={saving}
-              onMove={(from, to) => dispatch({ type: 'contextReorder', group: str(group, 'id'), from, to })}
+              onMove={(from, to) => dispatch({ type: 'contextReorder', group: 'starred', from, to })}
+              style={styles.chips}
             >
-            {arr(obj(group)?.rows).map((row) => {
-              const id = str(row, 'id');
-              const label = str(row, 'label');
-              const starredRow = isTrue(row, 'starred');
-              const shown = isTrue(row, 'shown');
-              return (
-                <ReorderItem key={id} id={id} label={label} style={styles.row}>
-                  <View style={styles.rowText}>
-                    <Text style={styles.rowLabel} numberOfLines={1}>
-                      {label}
-                    </Text>
-                    <Text style={styles.rowDescription} numberOfLines={2}>
-                      {str(row, 'description')}
-                    </Text>
-                  </View>
-                  <Text style={styles.sample} numberOfLines={1}>
-                    {str(row, 'sample') || '—'}
-                  </Text>
+              {starred.map((row) => (
+                <ReorderItem key={str(row, 'id')} id={str(row, 'id')} label={str(row, 'label')} style={styles.chip}>
+                  <Text style={styles.chipText}>{str(row, 'label')}</Text>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`${starredRow ? 'Unstar' : 'Star'} ${label}`}
+                    accessibilityLabel={`Unstar ${str(row, 'label')}`}
                     disabled={saving}
-                    hitSlop={6}
-                    onPress={() => dispatch({ type: 'contextStar', id })}
-                    style={styles.star}
+                    hitSlop={8}
+                    onPress={() => dispatch({ type: 'contextStar', id: str(row, 'id') })}
                   >
-                    <Glyph name={starredRow ? 'star-filled' : 'star'} size={17} color={starredRow ? P.star : P.muted} />
+                    <Glyph name="x" size={11} color={P.muted} />
                   </Pressable>
-                  <Switch
-                    accessibilityLabel={`Show ${label}`}
-                    value={shown}
-                    disabled={saving}
-                    onValueChange={(next) => dispatch({ type: 'contextShown', id, shown: next })}
-                  />
                 </ReorderItem>
-              );
-            })}
+              ))}
             </ReorderList>
           </View>
-        ))}
-        <View style={styles.statusLine}>
-          <View style={styles.statusHeader}>
-            <Text style={styles.groupLabel}>STATUS LINE</Text>
-            <Text style={styles.rowDescription}>{starred.length === 0 ? 'Star rows above to show them under the chat box.' : ''}</Text>
-          </View>
-          <ReorderList
-            ids={starred.map((row) => str(row, 'id'))}
-            disabled={saving}
-            onMove={(from, to) => dispatch({ type: 'contextReorder', group: 'starred', from, to })}
-            style={styles.chips}
-          >
-            {starred.map((row) => (
-              <ReorderItem key={str(row, 'id')} id={str(row, 'id')} label={str(row, 'label')} style={styles.chip}>
-                <Text style={styles.chipText}>{str(row, 'label')}</Text>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Unstar ${str(row, 'label')}`}
-                  disabled={saving}
-                  hitSlop={8}
-                  onPress={() => dispatch({ type: 'contextStar', id: str(row, 'id') })}
-                >
-                  <Glyph name="x" size={11} color={P.muted} />
-                </Pressable>
-              </ReorderItem>
-            ))}
-          </ReorderList>
-        </View>
-        {error.length > 0 ? <Text style={styles.error}>{error}</Text> : null}
+          {error.length > 0 ? <Text style={styles.error}>{error}</Text> : null}
         </DragLockContext.Provider>
       </ScrollView>
       <View style={styles.footer}>
@@ -142,7 +154,12 @@ export function ContextEditorSheet({ editor, dispatch }: { editor: JsonRecord | 
           >
             <Text style={styles.buttonText}>Cancel</Text>
           </Pressable>
-          <Pressable accessibilityRole="button" disabled={saving} onPress={() => dispatch({ type: 'contextSave' })} style={[styles.button, styles.primary, saving ? styles.dim : null]}>
+          <Pressable
+            accessibilityRole="button"
+            disabled={saving}
+            onPress={() => dispatch({ type: 'contextSave' })}
+            style={[styles.button, styles.primary, saving ? styles.dim : null]}
+          >
             <Text style={styles.primaryText}>Save</Text>
           </Pressable>
         </View>
@@ -194,7 +211,13 @@ function ReorderList({
       const y = from.y + from.height / 2 + dy;
       const target = latest.current.ids.find((candidate) => {
         const frame = frames.get(candidate);
-        return frame !== undefined && x >= frame.x && x <= frame.x + frame.width && y >= frame.y && y <= frame.y + frame.height;
+        return (
+          frame !== undefined &&
+          x >= frame.x &&
+          x <= frame.x + frame.width &&
+          y >= frame.y &&
+          y <= frame.y + frame.height
+        );
       });
       if (target !== undefined && target !== id) latest.current.onMove(id, target);
     },
@@ -207,7 +230,17 @@ function ReorderList({
   );
 }
 
-function ReorderItem({ id, label, style, children }: { id: string; label: string; style: object; children: ReactNode }) {
+function ReorderItem({
+  id,
+  label,
+  style,
+  children,
+}: {
+  id: string;
+  label: string;
+  style: object;
+  children: ReactNode;
+}) {
   const styles = useStyles();
   const P = useTranscriptTheme();
   const context = React.useContext(ReorderContext);
@@ -236,14 +269,23 @@ function ReorderItem({ id, label, style, children }: { id: string; label: string
         offset.setValue({ x: 0, y: 0 });
         setDragging(false);
       },
-    })
+    }),
   ).current;
   return (
     <Animated.View
       onLayout={(event) => context?.frames.set(id, event.nativeEvent.layout)}
-      style={[style, dragging ? styles.dragging : null, { transform: offset.getTranslateTransform(), zIndex: dragging ? 2 : 0 }]}
+      style={[
+        style,
+        dragging ? styles.dragging : null,
+        { transform: offset.getTranslateTransform(), zIndex: dragging ? 2 : 0 },
+      ]}
     >
-      <View {...responder.panHandlers} style={styles.grip} accessibilityRole="adjustable" accessibilityLabel={`Reorder ${label}`}>
+      <View
+        {...responder.panHandlers}
+        style={styles.grip}
+        accessibilityRole="adjustable"
+        accessibilityLabel={`Reorder ${label}`}
+      >
         <Glyph name="grip-vertical" size={14} color={P.muted} strokeWidth={1.8} />
       </View>
       {children}
@@ -279,7 +321,16 @@ const useStyles = themedStyles((P) => ({
   statusLine: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: P.menuBorder, paddingTop: 10, gap: 6 },
   statusHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, height: 30, borderRadius: 8, borderWidth: 1, borderColor: P.border },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    height: 30,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: P.border,
+  },
   chipText: { color: P.foreground, fontSize: 12.5 },
   grip: { width: 18, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center' },
   dragging: { backgroundColor: P.menu, opacity: 0.9 },
@@ -296,7 +347,13 @@ const useStyles = themedStyles((P) => ({
   },
   footerRight: { flexDirection: 'row', gap: 8 },
   // Every footer action is filled: the neutral fill, Save the primary (CDXC:AppModal 2026-10-14 on the desktop's `neutral_button_fills`).
-  button: { height: 38, paddingHorizontal: 14, borderRadius: 10, backgroundColor: P.neutralFill, justifyContent: 'center' },
+  button: {
+    height: 38,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: P.neutralFill,
+    justifyContent: 'center',
+  },
   buttonPressed: { backgroundColor: P.neutralFillPressed },
   buttonText: { color: P.foreground, fontSize: 14 },
   primary: { backgroundColor: P.send.fill, borderColor: P.send.fill },

@@ -55,10 +55,7 @@ export function useKeyboardMetrics(): KeyboardMetrics {
             Keyboard.addListener('keyboardWillChangeFrame', onShow),
             Keyboard.addListener('keyboardWillHide', onHide),
           ]
-        : [
-            Keyboard.addListener('keyboardDidShow', onShow),
-            Keyboard.addListener('keyboardDidHide', onHide),
-          ];
+        : [Keyboard.addListener('keyboardDidShow', onShow), Keyboard.addListener('keyboardDidHide', onHide)];
     return () => {
       for (const subscription of subscriptions) subscription.remove();
     };
@@ -72,10 +69,7 @@ export function useKeyboardMetrics(): KeyboardMetrics {
     return () => subscription.remove();
   }, []);
 
-  const viewportResize =
-    Platform.OS === 'android'
-      ? Math.max(0, restingViewport.current.height - viewportHeight)
-      : 0;
+  const viewportResize = Platform.OS === 'android' ? Math.max(0, restingViewport.current.height - viewportHeight) : 0;
 
   return {
     keyboardVisible: keyboard.keyboardVisible,

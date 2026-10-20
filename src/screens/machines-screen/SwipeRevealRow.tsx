@@ -11,12 +11,7 @@
 import { forwardRef, useImperativeHandle, useState, type ReactNode } from 'react';
 import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 export const SWIPE_REVEAL_WIDTH = 176;
 
@@ -60,10 +55,7 @@ const SwipeRevealRow = forwardRef<SwipeRevealRowMethods, Props>(function SwipeRe
       startReveal.value = reveal.value;
     })
     .onUpdate((event) => {
-      reveal.value = Math.min(
-        SWIPE_REVEAL_WIDTH,
-        Math.max(0, startReveal.value - event.translationX),
-      );
+      reveal.value = Math.min(SWIPE_REVEAL_WIDTH, Math.max(0, startReveal.value - event.translationX));
     })
     .onEnd((event) => {
       const nextOpen =

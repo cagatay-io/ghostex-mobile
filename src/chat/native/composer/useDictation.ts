@@ -73,7 +73,7 @@ export function useDictation(
   machine: MachineConnectionTarget | null,
   draft: () => { text: string; caret: number },
   replace: (text: string) => void,
-  onError: (message: string) => void
+  onError: (message: string) => void,
 ) {
   const [available, setAvailable] = useState(() => DICTATION_ENABLED && dictationSupported(machine));
   const [phase, setPhase] = useState<DictationPhase>('idle');
@@ -112,7 +112,7 @@ export function useDictation(
       if (phaseRef.current === 'recording' || phaseRef.current === 'starting') void stopRecording(true);
       run.current.cancelled = true;
     },
-    []
+    [],
   );
 
   const insert = useCallback((dictated: string) => {
@@ -140,7 +140,7 @@ export function useDictation(
         setPhase('failed');
       }
     },
-    [insert]
+    [insert],
   );
 
   const transcribeKept = useCallback(
@@ -153,10 +153,15 @@ export function useDictation(
       const result =
         kept === null
           ? await transcribeLatest(machine, () => current.cancelled)
-          : await saveAndTranscribe(machine, kept, () => current.cancelled, (id) => (current.serverId = id));
+          : await saveAndTranscribe(
+              machine,
+              kept,
+              () => current.cancelled,
+              (id) => (current.serverId = id),
+            );
       settle(current, result);
     },
-    [machine, settle]
+    [machine, settle],
   );
 
   const stop = useCallback(async () => {
@@ -190,7 +195,13 @@ export function useDictation(
     }
     if (current.cancelled) {
       const recording = await stopRecording(true);
-      if (recording !== null) void saveAndTranscribe(machine, { kind: 'local', recording }, () => true, () => undefined);
+      if (recording !== null)
+        void saveAndTranscribe(
+          machine,
+          { kind: 'local', recording },
+          () => true,
+          () => undefined,
+        );
       return;
     }
     setStartedAt(Date.now());
@@ -216,7 +227,12 @@ export function useDictation(
       const recording = await stopRecording(true);
       if (recording !== null) {
         const dismissed = await dismissLocal(recording);
-        void saveAndTranscribe(machine, { kind: 'local', recording: dismissed }, () => true, () => undefined);
+        void saveAndTranscribe(
+          machine,
+          { kind: 'local', recording: dismissed },
+          () => true,
+          () => undefined,
+        );
       }
     } else if (was === 'transcribing' && current.serverId !== null) {
       void dismissDictation(machine, current.serverId);
@@ -228,7 +244,8 @@ export function useDictation(
   }, [failure, transcribeKept]);
 
   const transcribePrevious = useCallback(async () => {
-    if (phaseRef.current === 'recording' || phaseRef.current === 'transcribing' || phaseRef.current === 'starting') return;
+    if (phaseRef.current === 'recording' || phaseRef.current === 'transcribing' || phaseRef.current === 'starting')
+      return;
     await transcribeKept(null);
   }, [transcribeKept]);
 

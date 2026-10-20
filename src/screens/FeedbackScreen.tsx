@@ -99,8 +99,7 @@ export default function FeedbackScreen() {
     async (source: 'library' | 'clipboard') => {
       setImageError(null);
       try {
-        const outcome =
-          source === 'library' ? await pickFeedbackImages(images) : await pasteFeedbackImage(images);
+        const outcome = source === 'library' ? await pickFeedbackImages(images) : await pasteFeedbackImage(images);
         setImages(outcome.images);
         setImageError(outcome.error);
       } catch (caught) {
@@ -198,7 +197,7 @@ export default function FeedbackScreen() {
           <SetupButton label={FeedbackCopy.done} onPress={() => navigation.goBack()} style={local.button} />
           <SetupButton
             label={FeedbackCopy.openIssue}
-            variant='primary'
+            variant="primary"
             onPress={() => void Linking.openURL(step.issueUrl)}
             style={local.button}
           />
@@ -226,7 +225,7 @@ export default function FeedbackScreen() {
           onChangeText={(body) => setStep({ ...step, body })}
           editable={!busy}
           multiline
-          textAlignVertical='top'
+          textAlignVertical="top"
           placeholderTextColor={appearance.muted}
         />
         <Caption>{FeedbackCopy.added(images.length, footer)}</Caption>
@@ -243,7 +242,7 @@ export default function FeedbackScreen() {
           />
           <SetupButton
             label={FeedbackCopy.send}
-            variant='primary'
+            variant="primary"
             busy={busy}
             disabled={!canSend}
             onPress={() => void send()}
@@ -263,7 +262,7 @@ export default function FeedbackScreen() {
         onChangeText={setUsername}
         placeholder={FeedbackCopy.usernamePlaceholder}
         placeholderTextColor={appearance.muted}
-        autoCapitalize='none'
+        autoCapitalize="none"
         autoCorrect={false}
         spellCheck={false}
         editable={!busy}
@@ -283,7 +282,7 @@ export default function FeedbackScreen() {
         placeholder={FeedbackCopy.messagePlaceholder}
         placeholderTextColor={appearance.muted}
         multiline
-        textAlignVertical='top'
+        textAlignVertical="top"
         editable={!busy}
         accessibilityLabel={FeedbackCopy.messageLabel}
       />
@@ -291,9 +290,9 @@ export default function FeedbackScreen() {
         <View style={local.thumbs}>
           {images.map((image) => (
             <View key={image.id} style={[local.thumb, { borderColor: appearance.border }]}>
-              <Image source={{ uri: image.previewUri }} style={local.thumbImage} resizeMode='cover' />
+              <Image source={{ uri: image.previewUri }} style={local.thumbImage} resizeMode="cover" />
               <Pressable
-                accessibilityRole='button'
+                accessibilityRole="button"
                 accessibilityLabel={FeedbackCopy.removeImage}
                 hitSlop={8}
                 disabled={busy}
@@ -332,10 +331,10 @@ export default function FeedbackScreen() {
 
       {error !== null ? <ErrorBanner message={error} /> : null}
       <View style={local.buttons}>
-        <SetupButton label='Cancel' disabled={busy} onPress={() => navigation.goBack()} style={local.button} />
+        <SetupButton label="Cancel" disabled={busy} onPress={() => navigation.goBack()} style={local.button} />
         <SetupButton
           label={withAgent ? FeedbackCopy.startAgent : FeedbackCopy.review}
-          variant='primary'
+          variant="primary"
           busy={busy}
           disabled={!canContinue}
           onPress={() => (withAgent ? void startAgent() : review())}

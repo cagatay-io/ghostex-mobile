@@ -83,13 +83,13 @@ export function FileChangeStack({ stackId, files, card }: { stackId: string; fil
     <View style={[styles.card, { backgroundColor: theme.input, borderColor: colors.border }]}>
       <View style={styles.header}>
         {/* The one-line cards' neutral tile (desktop `file_change_card.rs`); the counts and the bar are the colour. */}
-        <SingleLineTile glyph='pencil' />
+        <SingleLineTile glyph="pencil" />
         <View style={styles.titleColumn}>
           <Text numberOfLines={1} style={[styles.title, { color: theme.foreground }]}>
             {str(summary, 'title')}
           </Text>
           {folder !== '' ? (
-            <Text numberOfLines={1} ellipsizeMode='head' style={[styles.folder, { color: theme.muted }]}>
+            <Text numberOfLines={1} ellipsizeMode="head" style={[styles.folder, { color: theme.muted }]}>
               {folder}
             </Text>
           ) : null}
@@ -143,7 +143,13 @@ export function CompletedFilesFold({
   return (
     <View style={styles.fold}>
       <DisclosureHeading label={label} open={open} onToggle={toggle} />
-      {open ? unread ? (notice ?? null) : <FileChangeStack stackId={`work:${itemId}`} files={files} card={card} /> : null}
+      {open ? (
+        unread ? (
+          (notice ?? null)
+        ) : (
+          <FileChangeStack stackId={`work:${itemId}`} files={files} card={card} />
+        )
+      ) : null}
     </View>
   );
 }
@@ -175,16 +181,20 @@ const FileChangeRow = memo(function FileChangeRow({
       <Pressable
         onPress={toggle}
         {...(path.length > 0 ? { onLongPress: () => openTranscriptMenu({ href: path }) } : {})}
-        accessibilityRole='button'
+        accessibilityRole="button"
         accessibilityState={{ expanded: open }}
-        style={({ pressed }) => [styles.row, { borderTopColor: colors.hairline }, pressed && { backgroundColor: theme.pressed }]}
+        style={({ pressed }) => [
+          styles.row,
+          { borderTopColor: colors.hairline },
+          pressed && { backgroundColor: theme.pressed },
+        ]}
       >
         <Glyph name={open ? 'chevron-down' : 'chevron-right'} size={13} color={theme.muted} />
         <Glyph name={statusGlyph(status)} size={15} color={hue} />
         <Text numberOfLines={1} style={[styles.fileName, { color: theme.foreground }]}>
           {str(file, 'filename')}
         </Text>
-        <Text numberOfLines={1} ellipsizeMode='head' style={[styles.parent, { color: theme.muted }]}>
+        <Text numberOfLines={1} ellipsizeMode="head" style={[styles.parent, { color: theme.muted }]}>
           {str(file, 'parent')}
         </Text>
         {failed ? <Text style={[styles.failed, { color: theme.error }]}>Failed</Text> : null}
@@ -194,7 +204,10 @@ const FileChangeRow = memo(function FileChangeRow({
           {arr(file.bars).map((bar, block) => (
             <View
               key={block}
-              style={[styles.bar, { backgroundColor: bar === 'add' ? colors.barAdd : bar === 'del' ? colors.barDel : colors.barNone }]}
+              style={[
+                styles.bar,
+                { backgroundColor: bar === 'add' ? colors.barAdd : bar === 'del' ? colors.barDel : colors.barNone },
+              ]}
             />
           ))}
         </View>
@@ -223,7 +236,9 @@ function FileChangeDiff({ rowKey, file, colors }: { rowKey: string; file: JsonRe
   return (
     <View style={[styles.well, { backgroundColor: colors.well, borderTopColor: colors.hairline }]}>
       {shown.length === 0 ? (
-        <Text style={[styles.code, styles.pad, { color: theme.muted }]}>{status === 'deleted' ? 'File removed' : 'Empty file'}</Text>
+        <Text style={[styles.code, styles.pad, { color: theme.muted }]}>
+          {status === 'deleted' ? 'File removed' : 'Empty file'}
+        </Text>
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} nestedScrollEnabled>
           <View style={styles.lines}>
@@ -235,7 +250,11 @@ function FileChangeDiff({ rowKey, file, colors }: { rowKey: string; file: JsonRe
                 return (
                   <Text
                     key={lineIndex}
-                    style={[styles.hunk, { color: hunk ? colors.hunk : theme.muted }, hunk && { backgroundColor: colors.hunkRow }]}
+                    style={[
+                      styles.hunk,
+                      { color: hunk ? colors.hunk : theme.muted },
+                      hunk && { backgroundColor: colors.hunkRow },
+                    ]}
                   >
                     {text}
                   </Text>
@@ -245,14 +264,27 @@ function FileChangeDiff({ rowKey, file, colors }: { rowKey: string; file: JsonRe
               const signColor = kind === 'add' ? colors.barAdd : kind === 'del' ? colors.barDel : theme.muted;
               const background = kind === 'add' ? colors.addedRow : kind === 'del' ? colors.removedRow : undefined;
               return (
-                <View key={lineIndex} style={[styles.line, !numbered && styles.unnumbered, background !== undefined && { backgroundColor: background }]}>
+                <View
+                  key={lineIndex}
+                  style={[
+                    styles.line,
+                    !numbered && styles.unnumbered,
+                    background !== undefined && { backgroundColor: background },
+                  ]}
+                >
                   {numbered ? (
                     <>
-                      <Text style={[styles.code, styles.number, { color: colors.lineNumber }]}>{typeof line.old === 'number' ? String(line.old) : ''}</Text>
-                      <Text style={[styles.code, styles.number, { color: colors.lineNumber }]}>{typeof line.new === 'number' ? String(line.new) : ''}</Text>
+                      <Text style={[styles.code, styles.number, { color: colors.lineNumber }]}>
+                        {typeof line.old === 'number' ? String(line.old) : ''}
+                      </Text>
+                      <Text style={[styles.code, styles.number, { color: colors.lineNumber }]}>
+                        {typeof line.new === 'number' ? String(line.new) : ''}
+                      </Text>
                     </>
                   ) : null}
-                  <Text style={[styles.code, styles.sign, { color: signColor }]}>{kind === 'add' ? '+' : kind === 'del' ? '−' : ' '}</Text>
+                  <Text style={[styles.code, styles.sign, { color: signColor }]}>
+                    {kind === 'add' ? '+' : kind === 'del' ? '−' : ' '}
+                  </Text>
                   <Text style={[styles.code, { color }]}>{text}</Text>
                 </View>
               );
@@ -260,23 +292,37 @@ function FileChangeDiff({ rowKey, file, colors }: { rowKey: string; file: JsonRe
           </View>
         </ScrollView>
       )}
-      {failed && (showAll || !hasMore) ? <Text style={[styles.error, { color: theme.error }]}>{str(file, 'error')}</Text> : null}
+      {failed && (showAll || !hasMore) ? (
+        <Text style={[styles.error, { color: theme.error }]}>{str(file, 'error')}</Text>
+      ) : null}
       <View style={styles.footer}>
         {hasMore ? (
-          <Pressable onPress={toggleAll} accessibilityRole='button' style={({ pressed }) => [styles.ghost, { backgroundColor: pressed ? theme.neutralFillPressed : theme.neutralFill }]}>
+          <Pressable
+            onPress={toggleAll}
+            accessibilityRole="button"
+            style={({ pressed }) => [
+              styles.ghost,
+              { backgroundColor: pressed ? theme.neutralFillPressed : theme.neutralFill },
+            ]}
+          >
             <Glyph name={showAll ? 'chevron-up' : 'chevron-down'} size={13} color={theme.muted} />
-            <Text style={[styles.ghostText, { color: theme.muted }]}>{showAll ? 'Show fewer lines' : str(file, 'showAllLabel')}</Text>
+            <Text style={[styles.ghostText, { color: theme.muted }]}>
+              {showAll ? 'Show fewer lines' : str(file, 'showAllLabel')}
+            </Text>
           </Pressable>
         ) : null}
         <View style={styles.spacer} />
         {status !== 'deleted' ? (
           <Pressable
             onPress={() => dispatch({ type: 'openMarkdownLink', href: str(file, 'path'), external: false })}
-            accessibilityRole='link'
+            accessibilityRole="link"
             accessibilityLabel={`Open ${str(file, 'filename')}`}
-            style={({ pressed }) => [styles.ghost, { backgroundColor: pressed ? theme.neutralFillPressed : theme.neutralFill }]}
+            style={({ pressed }) => [
+              styles.ghost,
+              { backgroundColor: pressed ? theme.neutralFillPressed : theme.neutralFill },
+            ]}
           >
-            <Glyph name='external-link' size={13} color={theme.muted} />
+            <Glyph name="external-link" size={13} color={theme.muted} />
             <Text style={[styles.ghostText, { color: theme.muted }]}>Open file</Text>
           </Pressable>
         ) : null}
@@ -288,14 +334,29 @@ function FileChangeDiff({ rowKey, file, colors }: { rowKey: string; file: JsonRe
 const styles = StyleSheet.create({
   fold: { gap: 8, minWidth: 0 },
   card: { borderRadius: 14, borderWidth: 1, overflow: 'hidden', minWidth: 0 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 12, minWidth: 0 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    minWidth: 0,
+  },
   titleColumn: { flex: 1, minWidth: 0 },
   title: { fontSize: 13.5, lineHeight: 18, fontWeight: '600' },
   folder: { fontSize: 12, lineHeight: 16 },
   counts: { flexDirection: 'row', gap: 4 },
   count: { fontFamily: MONO_FONT, fontSize: 12 },
   ratio: { flexDirection: 'row', width: 56, height: 5, borderRadius: 3, overflow: 'hidden' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth, minWidth: 0 },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    minWidth: 0,
+  },
   fileName: { fontSize: 13.5, fontWeight: '500', flexShrink: 0, maxWidth: '45%' },
   parent: { fontSize: 12.5, flexShrink: 1, minWidth: 0 },
   failed: { fontSize: 12 },

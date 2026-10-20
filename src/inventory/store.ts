@@ -94,10 +94,7 @@ type InventoryState = {
   stopPolling: () => void;
   /** Drop cached inventory (e.g. when a machine is removed). */
   clearMachine: (machineId: string) => void;
-  beginOptimisticMutations: (
-    machineId: string,
-    changes: readonly OptimisticInventoryChange[],
-  ) => Array<string | null>;
+  beginOptimisticMutations: (machineId: string, changes: readonly OptimisticInventoryChange[]) => Array<string | null>;
   commitOptimisticMutations: (machineId: string, mutationIds: readonly string[]) => void;
   rollbackOptimisticMutations: (machineId: string, mutationIds: readonly string[]) => void;
   /**
@@ -156,11 +153,7 @@ export const useInventoryStore = create<InventoryState>()((set, get) => {
           if (refreshRevisions.get(machine.id) !== refreshRevision) return;
           const previous = get().inventoriesByMachineId[machine.id];
           const previousPending = get().pendingMutationsByMachineId[machine.id] ?? [];
-          const reconciled = reconcileOptimisticMutations(
-            serverSummary,
-            previousPending,
-            refreshRevision,
-          );
+          const reconciled = reconcileOptimisticMutations(serverSummary, previousPending, refreshRevision);
           notAnsweringSince.delete(machine.id);
           useMachinesStore.getState().markConnected(machine.id);
           reportClientHello(machine);
@@ -202,10 +195,7 @@ export const useInventoryStore = create<InventoryState>()((set, get) => {
                 lastErrorCode: null,
               },
             },
-            pendingMutationsByMachineId: setPendingMutations(
-              machine.id,
-              reconciled.pending,
-            ),
+            pendingMutationsByMachineId: setPendingMutations(machine.id, reconciled.pending),
           });
         } catch (error) {
           let machineHasPassword = false;
@@ -233,7 +223,11 @@ export const useInventoryStore = create<InventoryState>()((set, get) => {
             lastError: failure.message,
             lastErrorCode: failure.reasonCode,
           });
-          if (failure.reasonCode === 'ghostexNotAnswering' && pollTimer !== null && !notAnsweringRetries.has(machine.id)) {
+          if (
+            failure.reasonCode === 'ghostexNotAnswering' &&
+            pollTimer !== null &&
+            !notAnsweringRetries.has(machine.id)
+          ) {
             notAnsweringRetries.set(
               machine.id,
               setTimeout(() => {
@@ -354,11 +348,7 @@ export const useInventoryStore = create<InventoryState>()((set, get) => {
     beginOptimisticMutations: (machineId, changes) => {
       const inventory = get().inventoriesByMachineId[machineId];
       const serverSummary = inventory?.serverSummary ?? inventory?.summary;
-      if (
-        inventory === undefined ||
-        serverSummary === null ||
-        serverSummary === undefined
-      ) {
+      if (inventory === undefined || serverSummary === null || serverSummary === undefined) {
         return changes.map(() => null);
       }
       const usedMutationIds = new Set(
@@ -378,10 +368,7 @@ export const useInventoryStore = create<InventoryState>()((set, get) => {
           confirmationMisses: 0,
         };
       });
-      const pending = [
-        ...(get().pendingMutationsByMachineId[machineId] ?? []),
-        ...additions,
-      ];
+      const pending = [...(get().pendingMutationsByMachineId[machineId] ?? []), ...additions];
       set({
         inventoriesByMachineId: {
           ...get().inventoriesByMachineId,
@@ -424,11 +411,7 @@ export const useInventoryStore = create<InventoryState>()((set, get) => {
       if (pending.length === current.length) return;
       const inventory = get().inventoriesByMachineId[machineId];
       const serverSummary = inventory?.serverSummary ?? inventory?.summary;
-      if (
-        inventory === undefined ||
-        serverSummary === null ||
-        serverSummary === undefined
-      ) {
+      if (inventory === undefined || serverSummary === null || serverSummary === undefined) {
         set({ pendingMutationsByMachineId: setPendingMutations(machineId, pending) });
         return;
       }
@@ -448,11 +431,7 @@ export const useInventoryStore = create<InventoryState>()((set, get) => {
     acknowledgeAttentionLocally: (machineId, sessionId) => {
       const inventory = get().inventoriesByMachineId[machineId];
       const serverSummary = inventory?.serverSummary ?? inventory?.summary;
-      if (
-        inventory === undefined ||
-        serverSummary === null ||
-        serverSummary === undefined
-      ) {
+      if (inventory === undefined || serverSummary === null || serverSummary === undefined) {
         return;
       }
       const sessions = serverSummary.sessions.map((session) =>
