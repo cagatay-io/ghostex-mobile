@@ -21,8 +21,35 @@ import type { GhostexSession } from '../contract/mobileSummary';
 /** Agent icons whose sessions gxserver can fork (desktop sidebar parity). */
 export const FORK_AGENT_ICONS = ['codex', 'claude', 'pi', 'empryo'];
 
-/** Agent icons gxserver can make a coordinator (`COORDINATOR_AGENT_FAMILIES`, desktop sidebar parity). */
-export const COORDINATOR_AGENT_ICONS = ['claude', 'codex', 'zcode', 'empryo'];
+/**
+ * The agents an orchestrator can run on: a copy of `COORDINATOR_AGENT_FAMILIES` in
+ * packages/gx-protocol/src/coordinator.rs (gxserver and the desktop read that list; the phone cannot
+ * link the crate), so change both together.
+ */
+const COORDINATOR_AGENT_FAMILIES = [
+  'claude',
+  'codex',
+  'zcode',
+  'cursor',
+  'grok',
+  'copilot',
+  'antigravity',
+  'pi',
+  'omp',
+  'opencode',
+];
+
+/** The icons whose name is not their agent's id (gx-core `default_agent_id_for_icon`). */
+const COORDINATOR_ICON_FAMILIES: Record<string, string> = {
+  'cursor-cli': 'cursor',
+  'grok-build': 'grok',
+  'antigravity-cli': 'antigravity',
+};
+
+/** True when gxserver can make a session of this agent icon (or agent id) an orchestrator. */
+export function isCoordinatorAgent(agentIcon: string): boolean {
+  return COORDINATOR_AGENT_FAMILIES.includes(COORDINATOR_ICON_FAMILIES[agentIcon] ?? agentIcon);
+}
 
 const remoteMutationQueues = new Map<string, Promise<void>>();
 
