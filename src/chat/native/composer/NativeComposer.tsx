@@ -106,7 +106,6 @@ function terminalReadinessTint(document: ChatDocument): string | null {
 const CONTROL_GLYPHS: Record<ComposerControlId, GlyphName> = {
   note: 'note',
   attach: 'paperclip',
-  dictate: 'microphone',
   terminal: 'terminal-2',
 };
 
@@ -198,11 +197,13 @@ export function NativeComposer({
       id: control.id,
       width: CONTROL_WIDTH,
     }));
+    // More actions and Dictate never fold, so they are part of the fixed width with Send.
+    const fixed = 1 + (available('dictate') ? 1 : 0);
     const labels = obj(document.optionLabels);
     const measurements = {
       available: footerWidth,
       options: optionsWidth,
-      actions: CONTROL_WIDTH + controls.length * (CONTROL_WIDTH + ACTION_GAP) + ACTION_GAP + SEND_WIDTH,
+      actions: (fixed + controls.length) * (CONTROL_WIDTH + ACTION_GAP) + SEND_WIDTH,
       footerGap: FOOTER_GAP,
       actionGap: ACTION_GAP,
       clearance: CLEARANCE,
@@ -452,10 +453,9 @@ export function NativeComposer({
         compactAndSend,
         interruptAndSend,
         draft: model?.text ?? '',
-        dictating: dictation.listening,
       }),
     });
-  }, [available, dictation.listening, document, model, serves, simpleSetting, verboseSetting]);
+  }, [available, document, model, serves, simpleSetting, verboseSetting]);
 
   /** Send held while the agent works: Interrupt & Send or Queue. */
   const openSendChoices = useCallback(() => {
@@ -583,11 +583,8 @@ export function NativeComposer({
                   ? COMPOSER_CONTROLS.filter(
                       (control) => available(control.id) && !overflowed(document, control.id),
                     ).map((control) => {
-                      const glyph =
-                        control.id === 'dictate' && dictation.listening ? 'player-stop' : CONTROL_GLYPHS[control.id];
-                      const pressed =
-                        (control.id === 'note' && document.composerChrome.notePressed) ||
-                        (control.id === 'dictate' && dictation.listening);
+                      const glyph = CONTROL_GLYPHS[control.id];
+                      const pressed = control.id === 'note' && document.composerChrome.notePressed;
                       const badge = control.id === 'note' && document.composerChrome.notePresence ? '' : null;
                       return (
                         <ToolbarButton
@@ -598,11 +595,19 @@ export function NativeComposer({
                           badge={badge}
                           tint={control.id === 'terminal' ? terminalReadinessTint(document) : null}
                           onPress={() => performComposerAction(control.action)}
-                          {...(control.id === 'dictate' ? { onLongPress: openDictationMenu } : {})}
                         />
                       );
                     })
                   : null}
+                {available('dictate') ? (
+                  <ToolbarButton
+                    glyph={dictation.listening ? 'player-stop' : 'microphone'}
+                    label={dictation.listening ? 'Stop dictating' : 'Dictate'}
+                    pressed={dictation.listening}
+                    onPress={() => performComposerAction('dictate')}
+                    onLongPress={openDictationMenu}
+                  />
+                ) : null}
                 <SendControl
                   document={document}
                   hasDraft={hasDraft}

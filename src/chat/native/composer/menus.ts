@@ -10,17 +10,17 @@ import { rowsOf, type MenuRow } from './MenuSheet';
 
 /** The toolbar controls in desktop's order, which is also the order they fold into More actions
  * (`toolbar.rs`, `COMPOSER_CONTROLS`). Maximize is desktop-only. Files and links, Summary mode (under
- * View) and Stash prompt are always More actions rows (desktop CDXC:SessionChat 2026-10-20). */
+ * View) and Stash prompt are always More actions rows, and Dictate always shows right before Send and
+ * never folds (desktop CDXC:SessionChat 2026-10-20). */
 export const COMPOSER_CONTROLS = [
   { id: 'note', action: 'sessionNote', label: 'Session note', icon: 'titlebar/note.svg' },
   { id: 'attach', action: 'attachPath', label: 'Attach a file or folder', icon: 'titlebar/paperclip.svg' },
-  { id: 'dictate', action: 'dictate', label: 'Dictate', icon: 'titlebar/microphone.svg' },
   { id: 'terminal', action: 'terminalView', label: 'Terminal View', icon: 'titlebar/terminal-2.svg' },
 ] as const;
 
 export type ComposerControlId = (typeof COMPOSER_CONTROLS)[number]['id'];
 /** A host gate under `composerActions`: the toolbar controls plus the More actions rows they gate. */
-export type ComposerActionId = ComposerControlId | 'summary' | 'stash';
+export type ComposerActionId = ComposerControlId | 'summary' | 'stash' | 'dictate';
 
 const HOST_ACTION_ICONS: Record<string, string> = {
   closeAfterDone: 'titlebar/clock.svg',
@@ -48,8 +48,6 @@ export type MoreActionsInput = {
   available: (id: ComposerActionId) => boolean;
   /** Whether the screen performs this app-shell action (`NativeComposer`'s `hostActions`). */
   serves: (action: string) => boolean;
-  /** Dictate is listening: its folded row stops it, since no toolbar button shows the stop. */
-  dictating?: boolean;
   /**
    * Compact & Send, while there is a draft. Desktop offers it in Send's own right-click menu
    * (`show_send_actions` in `actions.rs`) and on Option+Enter; a phone has neither, and Send's hold
@@ -167,7 +165,6 @@ export function moreActionsRows({
   compactAndSend = null,
   interruptAndSend = null,
   draft = '',
-  dictating = false,
 }: MoreActionsInput): MenuRow[] {
   const rows: MenuRow[] = [];
   if (interruptAndSend !== null) {
@@ -248,8 +245,6 @@ export function moreActionsRows({
       command: { type: 'composerHost', action: control.action },
     };
     if (control.id === 'note') row.checked = document.note.open;
-    if (control.id === 'dictate' && dictating)
-      Object.assign(row, { label: 'Stop dictating', iconPath: 'titlebar/player-stop.svg' });
     rows.push(row);
   }
   // Files and links is always here, never a toolbar button (desktop `actions.rs`,
