@@ -67,7 +67,12 @@ type VoiceState = {
   speed: number;
   memory: VoiceMemory | null;
   memoryState: VoiceMemoryState;
+  /** The latest session the agent showed (worked with or was asked to show), for the voice screen's "Open <session>" chip. */
+  shownSession: VoiceShownSession | null;
 };
+
+/** A session the agent showed, as gxserver names it on the tool event (`server/src/voice_agent/show.rs`). */
+export type VoiceShownSession = { projectId: string; sessionId: string; title: string };
 
 const INITIAL: VoiceState = {
   phase: 'idle',
@@ -87,6 +92,7 @@ const INITIAL: VoiceState = {
   speed: 1,
   memory: null,
   memoryState: 'hidden',
+  shownSession: null,
 };
 
 /** Lines kept on screen; older ones scroll away for good. */
@@ -192,9 +198,24 @@ function notice(text: string): void {
   pushLine({ kind: 'notice', key: `notice-${noticeSeq}`, text });
 }
 
+function parseShownSession(value: unknown): VoiceShownSession | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const { projectId, sessionId, title } = value as Record<string, unknown>;
+  if (typeof projectId !== 'string' || typeof sessionId !== 'string' || typeof title !== 'string') return null;
+  if (projectId.length === 0 || sessionId.length === 0) return null;
+  return { projectId, sessionId, title };
+}
+
 function finish(message: string, problem?: VoiceProblem): void {
   nativeSessionId = null;
-  set({ phase: 'ended', endedMessage: message, toolLabel: null, paused: false, ...(problem ? { problem } : {}) });
+  set({
+    phase: 'ended',
+    endedMessage: message,
+    toolLabel: null,
+    paused: false,
+    shownSession: null,
+    ...(problem ? { problem } : {}),
+  });
 }
 
 let currentProvider: string | null = null;
@@ -280,6 +301,8 @@ function onFrame(json: string): void {
       const label = text('label') || text('name');
       pushLine({ kind: 'tool', key: `tool-${text('callId')}`, label, finished, ok: frame.ok !== false });
       set({ toolLabel: finished ? null : label });
+      const shown = finished ? parseShownSession(frame.session) : null;
+      if (shown !== null) set({ shownSession: shown });
       return;
     }
     case 'announcement':

@@ -17,6 +17,7 @@ import BottomSheet from '../components/common/BottomSheet';
 import { CheckGlyph } from '../components/onboarding/SetupIcons';
 import { useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
+import { useTerminalStore } from '../terminal/sessions';
 import { GhostexPalette, GhostexRadii } from '../theme/palette';
 import {
   dismissVoice,
@@ -178,6 +179,21 @@ export default function VoiceScreen({ navigation }: Props) {
     scroll.current?.scrollToEnd({ animated: true });
   }, [voice.lines]);
 
+  /**
+   * CDXC:VoiceMode 2026-10-20 DECISION:
+   * User: "Show an 'Open <session>' chip on the voice screen". It names the latest session the agent showed (server/src/voice_agent/show.rs), replaces the previous one and goes when the call ends; the phone never opens it on its own. Tapping it opens that session's chat the way the session list does, and the call keeps running behind it.
+   */
+  const shown = active && machine !== null ? voice.shownSession : null;
+  const openShown = () => {
+    if (shown === null || machine === null) return;
+    const sessionKey = useTerminalStore.getState().openChatTab(machine, {
+      sessionId: shown.sessionId,
+      projectId: shown.projectId,
+      title: shown.title,
+    });
+    navigation.navigate('Terminal', { sessionKey, machineId: machine.id, title: shown.title });
+  };
+
   const close = () => {
     if (!active) dismissVoice();
     if (navigation.canGoBack()) navigation.goBack();
@@ -260,6 +276,20 @@ export default function VoiceScreen({ navigation }: Props) {
           <Text style={styles.notice}>{voice.endedMessage}</Text>
         ) : null}
       </ScrollView>
+
+      {shown !== null ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Open ${shown.title}`}
+          style={({ pressed }) => [styles.openSession, pressed && styles.controlPressed]}
+          onPress={openShown}
+        >
+          <Text style={styles.openSessionText} numberOfLines={1}>{`Open ${shown.title}`}</Text>
+          <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+            <Path d="M 9 6 l 6 6 -6 6" stroke={GhostexPalette.MUTED} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+          </Svg>
+        </Pressable>
+      ) : null}
 
       {active ? (
         <View style={styles.controls}>
@@ -347,6 +377,19 @@ const styles = StyleSheet.create({
   },
   voiceChipText: { color: GhostexPalette.FOREGROUND, fontSize: 15, fontWeight: '600' },
   voiceChips: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  openSession: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: 6,
+    maxWidth: '90%',
+    marginTop: 4,
+    paddingHorizontal: 14,
+    minHeight: 36,
+    borderRadius: 18,
+    backgroundColor: GhostexPalette.CARD_ACTIVE,
+  },
+  openSessionText: { flexShrink: 1, color: GhostexPalette.FOREGROUND, fontSize: 15, fontWeight: '600' },
   speedChip: { paddingHorizontal: 8, minHeight: 26, borderRadius: 13 },
   speedChipText: { color: GhostexPalette.FOREGROUND, fontSize: 13, fontWeight: '600' },
   sheetTitle: { color: GhostexPalette.FOREGROUND, fontSize: 18, fontWeight: '700', marginBottom: 8 },
