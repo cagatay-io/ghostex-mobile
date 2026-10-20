@@ -10,13 +10,14 @@
  * together.
  */
 
-import { createContext, useContext, useEffect, useRef, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, type ReactNode } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
 
-/** `questionTone`, `pillGap` and `questionFlashMs` in `scroll-bottom.json`. */
+/** `questionTone`, `pillGap`, `questionFlashMs` and `questionJumpMargin` in `scroll-bottom.json`. */
 export const QUESTION_PILL = {
   gap: 8,
   flashMs: 1600,
+  jumpMargin: 12,
   tone: {
     dark: { background: '#1d1712', border: 'rgba(251,146,60,0.4)', text: '#fdba74', ring: '#fb923c' },
     light: { background: '#fff7ed', border: 'rgba(234,88,12,0.35)', text: '#c2410c', ring: '#ea580c' },
@@ -51,11 +52,51 @@ export const QUESTION_TAGS = {
 
 export type QuestionTagState = keyof typeof QUESTION_TAGS.tone.dark;
 
-/** The question a jump just landed on; `key` changes with every jump so a repeat flashes again. */
-export type QuestionFlash = { target: string; key: number };
+/**
+ * The question a jump just landed on; `key` changes with every jump so a repeat flashes again.
+ * `question` is the tag a Q-tag link named (`jump.question`), so the jump lands on that question.
+ */
+export type QuestionFlash = { target: string; question: string | null; key: number };
 
 const FlashContext = createContext<QuestionFlash | null>(null);
 export const QuestionFlashProvider = FlashContext.Provider;
+
+/**
+ * Where the jump's card and question are drawn, for Transcript.tsx to measure once the row is on
+ * screen: the card under its id, the named form question under `questionAnchorKey`.
+ */
+export type QuestionAnchors = Map<string, View>;
+const AnchorsContext = createContext<QuestionAnchors | null>(null);
+export const QuestionAnchorsProvider = AnchorsContext.Provider;
+
+export function questionAnchorKey(form: string, tag: string): string {
+  return `${form}#${tag.toUpperCase()}`;
+}
+
+/** A ref that files its view under `key` while `key` is set. */
+function useAnchorRef(key: string | null) {
+  const anchors = useContext(AnchorsContext);
+  return useCallback(
+    (view: View | null) => {
+      if (anchors === null || key === null) return;
+      if (view) anchors.set(key, view);
+      else anchors.delete(key);
+    },
+    [anchors, key]
+  );
+}
+
+/** The ref a form question puts on its own view: filed while a Q-tag jump names it. */
+export function useQuestionAnchor(form: string, tag: string) {
+  const flash = useContext(FlashContext);
+  const named =
+    flash !== null &&
+    flash.target === form &&
+    tag.length > 0 &&
+    flash.question !== null &&
+    flash.question.toUpperCase() === tag.toUpperCase();
+  return useAnchorRef(named ? questionAnchorKey(form, tag) : null);
+}
 
 /** A question form or page card, outlined for a moment when a jump lands on it. */
 export function QuestionFlashFrame({
@@ -86,9 +127,10 @@ export function QuestionFlashFrame({
     fade.start();
     return () => fade.stop();
   }, [key, opacity]);
+  const anchor = useAnchorRef(active ? target : null);
   const ring = (light ? QUESTION_PILL.tone.light : QUESTION_PILL.tone.dark).ring;
   return (
-    <View>
+    <View ref={anchor} collapsable={false}>
       {children}
       {active ? (
         <Animated.View

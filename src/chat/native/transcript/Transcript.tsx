@@ -37,7 +37,14 @@ import { useTranscriptTheme } from './theme';
 import { TranscriptItemView } from './TranscriptItemRow';
 import { QuestionFormsProvider } from './QuestionForm';
 import { RowFindContext, type RowFind } from './searchHighlight';
-import { QUESTION_PILL, QuestionFlashProvider, type QuestionFlash } from './OpenQuestions';
+import {
+  QUESTION_PILL,
+  QuestionAnchorsProvider,
+  QuestionFlashProvider,
+  questionAnchorKey,
+  type QuestionAnchors,
+  type QuestionFlash,
+} from './OpenQuestions';
 import { useTranscriptBottomStore } from './bottomStore';
 import { TranscriptFieldRevealContext, useTranscriptFieldReveal } from './fieldReveal';
 
@@ -155,6 +162,10 @@ export function useSubagentRowRenderer(chat: RustChat): (item: TranscriptItem, i
   );
 }
 
+/** How often, and how many times, a question jump looks for its drawn question before giving up. */
+const QUESTION_SETTLE_MS = 80;
+const QUESTION_SETTLE_TRIES = 15;
+
 export function NativeTranscript({ chat, items, main = true }: NativeTranscriptProps) {
   const theme = useTranscriptTheme();
   const state = chat.state;
@@ -217,14 +228,24 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
   }, [filesJumpItem, filesJumpRevision, rows.length]);
 
   // The Previous question pill and Q-tag links: scroll to the reply holding the question once per
-  // jump, with its end at the bottom of the screen since the form usually closes the reply, then
-  // outline the question for a moment (`questions/open_questions.rs`). A jump made before this
-  // list existed is not replayed.
+  // jump with its end at the bottom of the screen, then, when that leaves the question's top above
+  // the screen, bring the question's top a margin below the top (the rule on gx-chat-core's
+  // `OpenQuestionJump`; desktop's `settle_question_row` lands the same way), and outline it for a
+  // moment. A Q-tag jump lands on the form question it names. A jump made before this list existed
+  // is not replayed.
   const openQuestions = main ? (document?.openQuestions ?? null) : null;
   const questionJump = openQuestions?.jump ?? null;
   const questionJumpRevision = questionJump?.revision ?? 0;
   const questionJumped = useRef<number | null>(null);
   const [questionFlash, setQuestionFlash] = useState<QuestionFlash | null>(null);
+  const questionAnchors = useMemo<QuestionAnchors>(() => new Map(), []);
+  const rootRef = useRef<View>(null);
+  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // A question jump's row that was too far to scroll to at once lands the same way on its retry.
+  const questionRetry = useRef(false);
+  useEffect(() => () => {
+    if (settleTimer.current !== null) clearTimeout(settleTimer.current);
+  }, []);
   useEffect(() => {
     if (questionJumped.current === null) {
       questionJumped.current = questionJumpRevision;
@@ -233,13 +254,47 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
     if (questionJump === null || questionJumpRevision === questionJumped.current) return;
     questionJumped.current = questionJumpRevision;
     const position = rows.length - 1 - questionJump.item;
+    const question = questionJump.question ?? null;
     if (position >= 0 && position < rows.length) {
-      listRef.current?.scrollToIndex({ index: position, viewPosition: 0, animated: true });
+      // Not animated, so the row's place can be measured as soon as it is drawn; rows above it
+      // that were never measured do not matter, since the question is measured where it landed.
+      questionRetry.current = true;
+      listRef.current?.scrollToIndex({ index: position, viewPosition: 0, animated: false });
+      if (settleTimer.current !== null) clearTimeout(settleTimer.current);
+      const target = questionJump.target;
+      let tries = 0;
+      const settle = () => {
+        settleTimer.current = null;
+        questionRetry.current = false;
+        tries += 1;
+        const anchor =
+          (question !== null ? questionAnchors.get(questionAnchorKey(target, question)) : undefined) ??
+          questionAnchors.get(target);
+        const root = rootRef.current;
+        if (anchor === undefined || root === null) {
+          if (tries < QUESTION_SETTLE_TRIES) settleTimer.current = setTimeout(settle, QUESTION_SETTLE_MS);
+          return;
+        }
+        root.measureInWindow((_x, listTop, _width, listHeight) => {
+          anchor.measureInWindow((_ax, anchorTop) => {
+            const goal = listTop + QUESTION_PILL.jumpMargin;
+            if (anchorTop > listTop + listHeight && tries < QUESTION_SETTLE_TRIES) {
+              // The list has not landed on the row yet.
+              settleTimer.current = setTimeout(settle, QUESTION_SETTLE_MS);
+              return;
+            }
+            if (anchorTop >= goal - 1) return;
+            // Inverted: a larger offset moves the rows down the screen.
+            listRef.current?.scrollToOffset({ offset: listOffset.current + (goal - anchorTop), animated: false });
+          });
+        });
+      };
+      settleTimer.current = setTimeout(settle, QUESTION_SETTLE_MS);
     }
-    setQuestionFlash({ target: questionJump.target, key: questionJumpRevision });
+    setQuestionFlash({ target: questionJump.target, question, key: questionJumpRevision });
     const timer = setTimeout(() => setQuestionFlash(null), QUESTION_PILL.flashMs);
     return () => clearTimeout(timer);
-  }, [questionJump, questionJumpRevision, rows.length]);
+  }, [questionAnchors, questionJump, questionJumpRevision, rows.length]);
 
   const interruptToast = main ? (document?.interruptToast ?? null) : null;
   const errorTone = theme.light ? SCROLL_BOTTOM.errorTone.light : SCROLL_BOTTOM.errorTone.dark;
@@ -308,8 +363,18 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
   const keyExtractor = useCallback((row: Row) => transcriptItemKey(row.item), []);
 
   const onScrollToIndexFailed = useCallback((info: { index: number; averageItemLength: number }) => {
+    const question = questionRetry.current;
+    questionRetry.current = false;
     listRef.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: false });
-    setTimeout(() => listRef.current?.scrollToIndex({ index: info.index, viewPosition: 0.5, animated: true }), 120);
+    setTimeout(
+      () =>
+        listRef.current?.scrollToIndex(
+          question
+            ? { index: info.index, viewPosition: 0, animated: false }
+            : { index: info.index, viewPosition: 0.5, animated: true }
+        ),
+      120
+    );
   }, []);
 
   let body: ReactNode;
@@ -368,8 +433,13 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
   return (
     <TranscriptScope chat={chat} main={main}>
       <QuestionFlashProvider value={questionFlash}>
+      <QuestionAnchorsProvider value={questionAnchors}>
       <TranscriptFieldRevealContext.Provider value={revealFocusedField}>
-      <View style={[styles.root, { backgroundColor: theme.background }]} accessibilityLabel='Conversation'>
+      <View
+        ref={rootRef}
+        style={[styles.root, { backgroundColor: theme.background }]}
+        accessibilityLabel='Conversation'
+      >
         {body}
         {interruptToast ? (
           /*
@@ -406,6 +476,7 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
         ) : null}
       </View>
       </TranscriptFieldRevealContext.Provider>
+      </QuestionAnchorsProvider>
       </QuestionFlashProvider>
     </TranscriptScope>
   );

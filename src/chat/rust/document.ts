@@ -693,8 +693,11 @@ export type OpenQuestionsState = {
    * dropping means a new question arrived, which pings the pill (`ChatPills.tsx`).
    */
   newest?: string | null;
-  /** Scroll to `item` once per `revision`, then highlight `target` (a form's or page's id). */
-  jump: { revision: number; item: number; target: string } | null;
+  /**
+   * Scroll to `item` once per `revision`, then highlight `target` (a form's or page's id);
+   * `question` is the tag a Q-tag link named, the form question the jump lands on.
+   */
+  jump: { revision: number; item: number; target: string; question?: string | null } | null;
 };
 
 export type FilesLinksState = {

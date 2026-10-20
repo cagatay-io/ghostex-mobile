@@ -20,7 +20,7 @@ import { AskCard, AskHead, AskOption, PrimaryButton, SoftButton, answeredColor, 
 import { arr, obj, str, type JsonRecord } from './json';
 import { SingleLinePill, SingleLineTile } from './singleLineCard';
 import { MONO_FONT } from './theme';
-import { QuestionFlashFrame } from './OpenQuestions';
+import { QuestionFlashFrame, useQuestionAnchor } from './OpenQuestions';
 
 /** The document's `questionForms`, by form id. */
 const FormsContext = createContext<{ [id: string]: Json }>({});
@@ -236,8 +236,9 @@ function FormQuestion({
   const [text, setText] = useEchoedText(`${formId}:${index}`, written, report);
   const reveal = useRevealFocusedField();
   const skipped = draft?.skipped === true;
+  const anchor = useQuestionAnchor(formId, tag);
   return (
-    <View style={styles.question}>
+    <View ref={anchor} collapsable={false} style={styles.question}>
       <View style={styles.questionHead}>
         <Text style={[styles.questionTitle, { color: theme.foreground }]}>{str(question, 'title')}</Text>
         {tag.length > 0 ? (
