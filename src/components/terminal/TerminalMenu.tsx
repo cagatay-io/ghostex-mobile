@@ -32,6 +32,7 @@ import {
 } from '../sessions/icons';
 import { PaperclipIcon, PencilIcon } from './icons';
 import { GhostexPalette } from '../../theme/palette';
+import { DocsCopy } from '../../copy';
 
 export type TerminalMenuActionId =
   | 'rename'
@@ -212,7 +213,7 @@ export default function TerminalMenu({
     items.push({
       kind: 'item',
       key: 'docs',
-      label: 'Docs',
+      label: DocsCopy.menuLabel,
       icon: <NoteGlyph size={ICON_SIZE} color={iconColor} />,
       onPress: () => onSelect('docs'),
     });

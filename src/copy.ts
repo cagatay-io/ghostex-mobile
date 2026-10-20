@@ -813,23 +813,28 @@ export const CantReachCopy = {
 } as const;
 
 /**
- * Docs: the project's Markdown and HTML documents, listed from the computer and opened in a
+ * Files: the project's Markdown and HTML documents, listed from the computer and opened in a
  * viewer on the phone. HTML pages carry Agentation so they can be annotated.
+ *
+ * CDXC:Docs 2026-10-20 DECISION:
+ * User: "rename docs to files." The phone calls this screen Files everywhere it is shown (menu
+ * rows, title, search, empty and error text), matching the desktop's Files view; code names stay
+ * Docs. "Docs folders" and "Docs directory" are the computer's setting names, so they stay.
  */
 export const DocsCopy = {
-  menuLabel: 'Docs',
-  listTitle: 'Docs',
-  searchPlaceholder: 'Search docs',
+  menuLabel: 'Files',
+  listTitle: 'Files',
+  searchPlaceholder: 'Search files',
   recentSection: 'Recently changed',
   foldersSection: 'Folders',
   searchSection: (count: number) => (count === 1 ? '1 match' : `${count} matches`),
-  loading: 'Listing this project’s docs…',
-  empty: 'No Markdown or HTML files in this project’s Docs folders yet.',
+  loading: 'Listing this project’s files…',
+  empty: 'No Markdown or HTML files in this project yet.',
   emptyHint:
-    'Docs lists docs/, artifacts/, ai/ and tmp/, the Markdown and HTML files in the project folder, and any folders added under Settings > Projects > Docs on the computer.',
-  noMatches: 'No docs match that search.',
-  listFailed: 'Could not list this project’s docs',
-  oldCli: 'Update Ghostex on the computer to list its docs from the phone.',
+    'Files lists docs/, artifacts/, ai/ and tmp/, the Markdown and HTML files in the project folder, and any folders added under Settings > Projects > Docs folders on the computer.',
+  noMatches: 'No files match that search.',
+  listFailed: 'Could not list this project’s files',
+  oldCli: 'Update Ghostex on the computer to list its files from the phone.',
   retry: 'Retry',
   machineMissing: 'This machine is no longer saved on this device.',
   fileCount: (count: number) => (count === 1 ? '1 file' : `${count} files`),
