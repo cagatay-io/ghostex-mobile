@@ -491,6 +491,9 @@ export type ChatDocument = {
   accountSwitchCard: Json;
   /** The open API error card with gxserver's retry (`{messageId, kind, icon, tone, title, detail, status, actions}`), or null. Desktop: `api_error_card.rs`. */
   apiErrorCard?: Json;
+  /** Handover heading color strength, 0 to 99 percent; absent at full colour
+   * (gx-chat-core `transcript/marked_sections.rs` `heading_strength`). */
+  markedHeadingStrength?: number;
   /** The switch gxserver reports, or null. */
   accountSwitch: Json;
   /** A model selection waiting on the agent. */

@@ -137,6 +137,8 @@ export type TranscriptFlags = {
   deferredWork: { [itemId: string]: { loading: boolean; error?: string | null } };
   /** The open API error card (`apiErrorCard`); the row whose id it names draws it, other failed-call rows a quiet line. */
   apiErrorCard: Json;
+  /** Handover heading color strength, 0 to 1 (`markedHeadingStrength`; absent is full colour). */
+  markedHeadingStrength: number;
 };
 
 const EMPTY_FLAGS: TranscriptFlags = {
@@ -153,6 +155,7 @@ const EMPTY_FLAGS: TranscriptFlags = {
   takeBackBusy: null,
   deferredWork: {},
   apiErrorCard: null,
+  markedHeadingStrength: 1,
 };
 
 const FlagsContext = createContext<TranscriptFlags>(EMPTY_FLAGS);
@@ -177,6 +180,10 @@ export function transcriptFlags(document: ChatDocument | null): TranscriptFlags 
     takeBackBusy: typeof document.queueTakeBackBusy === 'string' ? document.queueTakeBackBusy : null,
     deferredWork: obj(document.deferredWork) === null ? {} : document.deferredWork,
     apiErrorCard: document.apiErrorCard ?? null,
+    markedHeadingStrength:
+      typeof document.markedHeadingStrength === 'number'
+        ? Math.min(Math.max(document.markedHeadingStrength / 100, 0), 1)
+        : 1,
   };
 }
 

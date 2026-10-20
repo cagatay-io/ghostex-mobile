@@ -9,12 +9,16 @@
  * CDXC:MarkedHandovers 2026-10-11 DECISION:
  * User: "add a toggle for emojis in the colorful handover please. and set it to off by default. and if enabled add emojis to all 3." Show marker emojis (Settings > Chat > Marked sections, off by default): off, no style shows the marker emoji and the colour and label carry the kind (a section with no label of its own shows the kind's name as its coloured label); on, all three show it, the badge style before its badge.
  * SEE-ALSO: apps/desktop/src/app/native_chat/marked_look.rs in the Ghostex repo (the desktop look and the same palette).
+ *
+ * The kind's colour is drawn at the computer's Handover heading color strength, which the chat core sends as the
+ * document's `markedHeadingStrength` (CDXC:MarkedHandovers 2026-10-20 in packages/gx-chat-core/src/transcript/marked_sections.rs in the Ghostex repo).
  */
 
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { useSettingsStore, type MarkedHandoversStyle } from '../../../../settings/store';
+import { useTranscriptFlags } from '../context';
 import { PROSE_LINE, PROSE_SIZE, type TranscriptTheme } from '../theme';
 import type { SectionMeta } from './parse';
 
@@ -36,6 +40,29 @@ export function kindColor(kind: string, light: boolean): string {
   const entry = PALETTE[kind];
   if (entry === undefined) return light ? '#71717b' : '#9e9e9e';
   return light ? entry.light : entry.dark;
+}
+
+/** Reads `#rrggbb` as channels 0 to 255; `null` for anything else. */
+function channels(hex: string): [number, number, number] | null {
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) return null;
+  const at = (index: number) => parseInt(hex.slice(index, index + 2), 16);
+  return [at(1), at(3), at(5)];
+}
+
+/**
+ * `palette` drawn at `strength` (0 to 1): blended in sRGB toward the text colour, so 1 is the palette itself and
+ * 0 the plain text colour; the same blend as `blend_strength` in the desktop's marked_look.rs. Both are opaque
+ * `#rrggbb`, so the result is too and `withAlpha` can tint it.
+ */
+export function blendStrength(palette: string, text: string, strength: number): string {
+  if (strength >= 1) return palette;
+  const to = channels(palette);
+  const from = channels(text);
+  if (to === null || from === null) return palette;
+  const t = Math.max(strength, 0);
+  const mix = (index: number) => from[index] + (to[index] - from[index]) * t;
+  const byte = (value: number) => Math.round(value).toString(16).padStart(2, '0');
+  return `#${byte(mix(0))}${byte(mix(1))}${byte(mix(2))}`;
 }
 
 /** `#rrggbb` at `alpha`, as `#rrggbbaa`. */
@@ -87,8 +114,10 @@ export function MarkedSection({
   first,
   selectable,
 }: SectionProps) {
+  const { markedHeadingStrength } = useTranscriptFlags();
   if (style === 'plain') return <View>{all}</View>;
-  const accent = kindColor(meta.kind, theme.light);
+  const text = channels(color) === null ? theme.prose : color;
+  const accent = blendStrength(kindColor(meta.kind, theme.light), text, markedHeadingStrength);
   if (style === 'rule') {
     return (
       <View style={[styles.rule, { borderLeftColor: accent }]}>

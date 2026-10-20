@@ -139,6 +139,7 @@ export function TranscriptScope({ chat, main, children }: { chat: RustChat; main
           document.queueTakeBackIds,
           document.queueTakeBackBusy,
           document.deferredWork,
+          document.markedHeadingStrength,
         ]);
   const flags = useMemo(() => transcriptFlags(document), [flagsSignature]); // eslint-disable-line react-hooks/exhaustive-deps
   // Only the forms read this, and it changes with every pick, so it rides apart from the flags.
