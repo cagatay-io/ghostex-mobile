@@ -2,7 +2,8 @@
  * The working card (`workingCard`, decided in packages/gx-chat-core/src/extras/working_card.rs). Port
  * of desktop `working_card.rs`: one line with the spark, the label and the pills, in its own row right
  * above the cards and the composer, so the transcript's visible area ends above it and nothing scrolls
- * under it. It never opens and a tap on it does nothing; each pill opens its own sheet
+ * under it. It never opens; while the scroll-to-bottom pill shows, a tap anywhere on the card
+ * scrolls to the bottom (otherwise a tap does nothing); each pill opens its own sheet
  * (`ChatPills.tsx`). The inverted transcript already keeps a short conversation at its bottom, right
  * above this row.
  *
@@ -43,6 +44,10 @@ const HEADER_PAD_Y = 6;
  * `WORKING_CARD_GAP` in apps/desktop/src/app/native_chat/working_card.rs.
  */
 const BOX_GAP = 9;
+/*
+ * CDXC:SessionChat 2026-10-20 DECISION:
+ * User: "i want clicking anywhere on the bar that's above the composer to scroll to the bottom (when the scroll to bottom button is shown) so i dont need to click specifically on that button". The card's own press scrolls to the bottom while the pill shows; the pills and timers on it keep their taps. Desktop: `render_working_card` in apps/desktop/src/app/native_chat/working_card.rs.
+ */
 const COMPOSER_TOP_PADDING = 6;
 
 /** Nothing stacks between the card and the chat box: no card band and nothing above the box in the composer. */
@@ -94,7 +99,8 @@ export function WorkingCard({
     <View style={styles.row}>
       <View style={[styles.column, sitsOnBox(document) && { paddingBottom: BOX_GAP - COMPOSER_TOP_PADDING }]}>
         <Pressable
-          disabled={label === null}
+          disabled={label === null && !showJump}
+          onPress={showJump ? () => jumpToBottom?.() : undefined}
           onLongPress={label !== null ? () => setHeld(true) : undefined}
           onPressOut={() => setHeld(false)}
           accessibilityRole='summary'
