@@ -267,7 +267,8 @@ const useStyles = themedStyles((P) => ({
     gap: VISUAL.gap,
     borderWidth: 1,
     borderColor: P.inputBorder,
-    borderRadius: 12,
+    // A capsule, like the pills it carries (desktop working_card.rs).
+    borderRadius: 999,
     backgroundColor: P.cardPanel,
   },
   /** The whole label while the card is held, above the card, so the card keeps its height. */
