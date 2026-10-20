@@ -167,7 +167,7 @@ function QuestionFormCard({ id, source }: { id: string; source: string }) {
         {status}
       </Text>
       {enabled ? (
-        // Skip all sends at once, every question not yet answered skipped (the core's `skip_all`; the
+        // Skip all sends at once, every question skipped whatever is picked (the core's `skip_all`; the
         // SessionChat 2026-10-16 DECISION on `SKIPPED` in packages/gx-visual/src/questions.rs).
         <SoftButton label="Skip all" onPress={() => dispatch({ type: 'formSkipAll', form: id })} />
       ) : null}
