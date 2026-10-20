@@ -775,15 +775,7 @@ export function useSessionsScreenMenus({
       icon: <TerminalGlyph size={14} color={menuIconColor} />,
       onPress: () => {
         setOverlay(NONE);
-        void runCreationFlow(
-          ctx.machine,
-          createSessionCommand({
-            projectId: header.projectId.length > 0 ? header.projectId : undefined,
-            groupId:
-              header.projectId.length === 0 && header.legacyGroupId.length > 0 ? header.legacyGroupId : undefined,
-          }),
-          ProgressCopy.creatingTerminal(header.title),
-        );
+        createProjectTerminal(ctx);
       },
     });
     const phoneRows: ContextMenuItem[] = [{ kind: 'separator', key: 'phone-sep' }];
@@ -1455,6 +1447,19 @@ export function useSessionsScreenMenus({
     ];
   };
 
+  /** A new terminal session in the project: the header's New Terminal button and the project menu's Create Terminal row. */
+  const createProjectTerminal = (ctx: ProjectContext): void => {
+    const { header } = ctx;
+    void runCreationFlow(
+      ctx.machine,
+      createSessionCommand({
+        projectId: header.projectId.length > 0 ? header.projectId : undefined,
+        groupId: header.projectId.length === 0 && header.legacyGroupId.length > 0 ? header.legacyGroupId : undefined,
+      }),
+      ProgressCopy.creatingTerminal(header.title),
+    );
+  };
+
   /** The New Coordinator form's Create: the coordinator opens in chat, where its reports read best (as on the desktop). */
   const createCoordinator = (
     ctx: ProjectContext,
@@ -1575,6 +1580,7 @@ export function useSessionsScreenMenus({
     sectionMenuItems,
     resolvePrimaryAgent,
     launchAgent,
+    createProjectTerminal,
     agentMenuItems,
     createCoordinator,
     loadCoordinatorOptions,

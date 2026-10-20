@@ -829,6 +829,7 @@ export default function SessionsScreen({ navigation }: Props) {
     sectionMenuItems,
     resolvePrimaryAgent,
     launchAgent,
+    createProjectTerminal,
     agentMenuItems,
     createCoordinator,
     loadCoordinatorOptions,
@@ -1009,6 +1010,10 @@ export default function SessionsScreen({ navigation }: Props) {
             onLaunchPrimary={() => {
               if (target === null || primaryAgent === null) return;
               launchAgent(target, header, primaryAgent);
+            }}
+            onCreateTerminal={() => {
+              if (target === null) return;
+              createProjectTerminal({ machine: target, header });
             }}
             onOpenAgentMenu={() => {
               if (target === null) return;

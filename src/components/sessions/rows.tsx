@@ -722,12 +722,14 @@ const collectionStyles = StyleSheet.create({
 // ---------------------------------------------------------------------------
 // PROJECT_HEADER (desktop project card .group-head): flat 30dp row at the top
 // of the card — project identity icon, 15.55dp/700 title, collapsed count pills,
-// and (expanded) only the agent split-button (New agent + agent picker). Show
-// fewer sessions, Actions and Create Terminal live in the project menu, which
+// and (expanded) New Terminal plus the agent split-button (New agent + agent
+// picker). Actions and Create Terminal also live in the project menu, which
 // the always-visible overflow button and a long-press both open.
 //
 // CDXC:Sessions 2026-10-08 DECISION:
 // User: "move almost all of the buttons that appear next to an expanded project into the 3 dots menu; just keep the agent picker one and the new agent one."
+// CDXC:Sessions 2026-10-20 DECISION:
+// User: "add to the left of the 'select agent' combined button a button to start a terminal in that project ... i want it back at top level for each project header", and the phone follows the desktop (confirmed Q356). New Terminal is a header button again, before the agent split; Create Terminal stays in the menu. This supersedes the 2026-10-08 decision for that one button.
 // ---------------------------------------------------------------------------
 
 export function ProjectHeaderRow({
@@ -741,6 +743,7 @@ export function ProjectHeaderRow({
   primaryAgent,
   onToggle,
   onLaunchPrimary,
+  onCreateTerminal,
   onOpenAgentMenu,
   onMenu,
 }: {
@@ -755,6 +758,7 @@ export function ProjectHeaderRow({
   primaryAgent: GhostexAgentLauncher | null;
   onToggle: () => void;
   onLaunchPrimary: () => void;
+  onCreateTerminal: () => void;
   onOpenAgentMenu: (anchor: MenuAnchor) => void;
   onMenu: (anchor: MenuAnchor) => void;
 }) {
@@ -783,6 +787,9 @@ export function ProjectHeaderRow({
           />
         ) : (
           <View style={projectHeaderStyles.actions}>
+            <HeaderButton accessibilityLabel={`New terminal in ${title}`} onPress={onCreateTerminal}>
+              <TerminalGlyph size={ds(14)} color={SidebarPalette.HEADER_BUTTON_ICON} />
+            </HeaderButton>
             {primaryAgent !== null ? (
               <AgentSplitButton
                 primaryAgent={primaryAgent}
