@@ -38,7 +38,7 @@ import { SessionCopy } from '../../copy';
 import { useSettingsStore } from '../../settings/store';
 import { mixHexColors, SidebarPalette } from '../../theme/palette';
 import type { MenuAnchor } from './ContextMenu';
-import { ds } from './rows';
+import { ds, STATUS_DOT_SIZE } from './rows';
 import { ChevronRightGlyph, ClockGlyph, CoordinatorGlyph, CrewGlyph, PencilGlyph } from './icons';
 import WorkChips, { WORK_SESSION_ROW_HEIGHT, type WorkChipActions } from './WorkChips';
 import { workChips } from './workChipModel';
@@ -250,7 +250,7 @@ export type SessionRowProps = {
 
 /**
  * CDXC:SessionStatus 2026-09-25 DECISION:
- * User: "Please make the indicators for sessions status in the RN session list match gpui one exactly". The row draws what the desktop sidebar row draws (apps/desktop/src/app/native_sidebar/sessions.rs, status.rs, icons.rs) in the same order and sizes: a static 8dp orange dot while working, a 7dp blue dot in attention, an 8dp grey dot for a background shell or monitor on an otherwise idle row, each centered in a 19x16 slot; a pending question replaces the dot and the time with a 6dp pink dot (after the orange one while working); then the timer countdown, or the relative time on a row with no dot, in #a6a6a6 (#686868 while sleeping); an 18dp yellow or pastel-red clock in the leading slot for Delayed Send and Close After Done; and the three-dip completion flash when a session enters attention with the completion sound on. Lifecycle (sleeping, stopped, error) draws no dot, as on the desktop. This supersedes the phone's spinning working ring and its red error and blue done dots.
+ * User: "Please make the indicators for sessions status in the RN session list match gpui one exactly". The row draws what the desktop sidebar row draws (apps/desktop/src/app/native_sidebar/sessions.rs, status.rs, icons.rs) in the same order and sizes: a static 8dp orange dot while working, a 7dp blue dot in attention, an 8dp grey dot for a background shell or monitor on an otherwise idle row, each centered in a 19x16 slot; a pending question replaces the dot and the time with a 6dp pink dot (after the orange one while working); then the timer countdown, or the relative time on a row with no dot, in #a6a6a6 (#686868 while sleeping); an 18dp yellow or pastel-red clock in the leading slot for Delayed Send and Close After Done; and the three-dip completion flash when a session enters attention with the completion sound on. Lifecycle (sleeping, stopped, error) draws no dot, as on the desktop. This supersedes the phone's spinning working ring and its red error and blue done dots. The 2026-10-20 decision in rows.tsx (`STATUS_DOT_SIZE`) supersedes the mixed sizes: every dot is 8dp.
  * The rules live in sessionStatus.ts; the fields they read reach the phone through `to_mobile_session_summary` in server/src/ghostex_cli/sessions.rs.
  */
 export default function SessionRow({
@@ -603,32 +603,32 @@ const styles = StyleSheet.create({
     gap: ds(4),
   },
   failedDot: {
-    width: ds(8),
-    height: ds(8),
+    width: ds(STATUS_DOT_SIZE),
+    height: ds(STATUS_DOT_SIZE),
     borderRadius: 999,
     backgroundColor: SidebarPalette.ROW_FAILED,
   },
   workingDot: {
-    width: ds(8),
-    height: ds(8),
+    width: ds(STATUS_DOT_SIZE),
+    height: ds(STATUS_DOT_SIZE),
     borderRadius: 999,
     backgroundColor: SidebarPalette.ROW_WORKING,
   },
   attentionDot: {
-    width: ds(7),
-    height: ds(7),
+    width: ds(STATUS_DOT_SIZE),
+    height: ds(STATUS_DOT_SIZE),
     borderRadius: 999,
     backgroundColor: SidebarPalette.ROW_ATTENTION,
   },
   backgroundWorkDot: {
-    width: ds(8),
-    height: ds(8),
+    width: ds(STATUS_DOT_SIZE),
+    height: ds(STATUS_DOT_SIZE),
     borderRadius: 999,
     backgroundColor: SidebarPalette.ROW_BACKGROUND_WORK,
   },
   questionDot: {
-    width: ds(6),
-    height: ds(6),
+    width: ds(STATUS_DOT_SIZE),
+    height: ds(STATUS_DOT_SIZE),
     borderRadius: 999,
     backgroundColor: SidebarPalette.ROW_QUESTION,
   },

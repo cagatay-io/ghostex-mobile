@@ -51,6 +51,12 @@ export function ds(value: number): number {
   return Math.round(value * DRAWER_SCALE * 2) / 2;
 }
 
+/**
+ * CDXC:SessionStatus 2026-10-20 DECISION:
+ * User: "make all the dots same size (pink one needs to be bigger a bit)". Every status dot is this size, the desktop's `STATUS_DOT_SIZE` (native_sidebar/status.rs): working, attention, question, background work and failed, on session rows, section headings and the overlapping tab stack. The project header's count badges (a 6dp legend dot beside a number) are not status dots.
+ */
+export const STATUS_DOT_SIZE = 8;
+
 /** Neutral expanded-group fill: mix(sidebar bg 96%, black 4%). */
 export function expandedGroupBackground(sidebarBackground: string): string {
   return mixHexColors(sidebarBackground, '#000000', 96);
@@ -342,8 +348,8 @@ const statusStyles = StyleSheet.create({
     gap: ds(4),
   },
   sectionDot: {
-    width: ds(8),
-    height: ds(8),
+    width: ds(STATUS_DOT_SIZE),
+    height: ds(STATUS_DOT_SIZE),
     borderRadius: 999,
   },
   /* sections.rs: 9px hollow ring, 1.5px #a3a3a3 border. */
