@@ -22,7 +22,7 @@ import {
   singleLinePressed,
   singleLineShell,
 } from '../transcript/singleLineCard';
-import { MONO_FONT, themedStyles, useTranscriptTheme, type TranscriptTheme } from '../transcript/theme';
+import { MONO_FONT, themedStyles, useTranscriptTheme } from '../transcript/theme';
 
 /** Whether an answered exchange got an answer. */
 export type AskTone = 'answered' | 'quiet';
@@ -268,7 +268,6 @@ export function PrimaryButton({
   disabled?: boolean;
 }) {
   const styles = useStyles();
-  const P = useTranscriptTheme();
   return (
     <Pressable
       accessibilityRole="button"

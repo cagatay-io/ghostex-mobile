@@ -16,7 +16,6 @@ import { execRemoteCommand } from '../remote/commands';
 import * as Application from 'expo-application';
 import { Platform } from 'react-native';
 
-import { GhostexNative } from '../../modules/ghostex-native/src';
 import { clientHelloCommand, type ClientHelloPlatform } from '../commands/ghostexCli';
 import type { MachineConnectionTarget } from '../machines/credentials';
 

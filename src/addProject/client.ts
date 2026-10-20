@@ -12,7 +12,6 @@ import { execRemoteCommand } from '../remote/commands';
  * error banners instead of a truncated blob of stdout.
  */
 
-import { GhostexNative } from '../../modules/ghostex-native/src';
 import {
   addProjectCommand,
   browseDirectoriesCommand,

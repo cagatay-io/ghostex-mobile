@@ -6,7 +6,6 @@ import { execRemoteCommand } from '../remote/commands';
  * one row per port, which is the only thing the phone can forward.
  */
 
-import { GhostexNative } from '../../modules/ghostex-native/src';
 import { portsListCommand } from '../commands/ghostexCli';
 import { scanJsonObjects } from '../contract/mobileSummary';
 import { FailureCopy, WebPreviewCopy } from '../copy';

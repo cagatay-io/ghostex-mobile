@@ -8,7 +8,7 @@
  */
 
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
 
 import type { ChatDocument } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
@@ -17,7 +17,7 @@ import { arr, isTrue, obj, str } from './json';
 import { MONO_FONT, themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { AskCard, AskHead, AskOption, PrimaryButton, ProgressDots } from './askCard';
 import { SingleLineTile } from '../transcript/singleLineCard';
-import { CARD_LINE_HEIGHT, CARD_TEXT_SIZE, CardButton, CardHeader, StatusCard, useCardText } from './primitives';
+import { CardButton, CardHeader, StatusCard, useCardText } from './primitives';
 import { ApprovalCard } from './ApprovalCard';
 import { useEchoedText } from './useEchoedText';
 

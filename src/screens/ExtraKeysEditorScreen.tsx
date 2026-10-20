@@ -20,7 +20,6 @@ import {
   extraKeyCatalog,
   storedItemLabel,
   useExtraKeysStore,
-  validateExtraKeysLayout,
   type ExtraKeyStored,
   type ExtraKeysLayout,
 } from '../settings/extraKeys';

@@ -9,7 +9,7 @@ import { useState } from 'react';
 import { Animated, Easing, Pressable, Text, View } from 'react-native';
 
 import { Glyph, Spark } from './icons';
-import { arr, isTrue, num, obj, str } from './json';
+import { arr, obj, str } from './json';
 import type { JsonRecord } from './json';
 import { MONO_FONT, themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { CARD_TEXT_SIZE, SWEEP_EASING, Spinner, useLoop } from './primitives';

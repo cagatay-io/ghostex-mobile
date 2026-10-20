@@ -11,10 +11,9 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { ProjectedMessage } from '../../rust/document';
 import { useNativeChatUi, useTranscriptEnv } from './context';
-import { Chevron, DisclosureHeading, LaneMarker } from './Disclosure';
+import { DisclosureHeading, LaneMarker } from './Disclosure';
 import { Glyph, type GlyphName } from './icons';
 import { arr, obj, str, type JsonRecord } from './json';
-import { Markdown } from './markdown/Markdown';
 import { useDisclosure } from './state';
 import { SubagentMessageCard } from './AgentMessageCards';
 import { SINGLE_LINE_CARD, SINGLE_LINE_TITLE, SingleLinePill, SingleLineTile, singleLineShell } from './singleLineCard';

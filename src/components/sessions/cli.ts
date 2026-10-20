@@ -6,7 +6,6 @@ import { execRemoteCommand } from '../../remote/commands';
  * summarized failure copy (sessions-drawer.md §5).
  */
 
-import { GhostexNative } from '../../../modules/ghostex-native/src';
 import { scanJsonObjects } from '../../contract/mobileSummary';
 import { ensureConnected, INVENTORY_EXEC_TIMEOUT_MS, summarizeFailure } from '../../inventory/client';
 import { hasPassword, type MachineConnectionTarget } from '../../machines/credentials';

@@ -18,12 +18,7 @@ import { SvgXml } from 'react-native-svg';
 
 import { AGENT_ICONS } from '../../assets/agentIcons.generated';
 import { COMMAND_ICONS, PROJECT_FALLBACK_ICONS } from '../../assets/tablerIcons.generated';
-import {
-  resolveAgentIconId,
-  type GhostexAgentLauncher,
-  type GhostexProjectIcon,
-  type GhostexQuickAction,
-} from '../../contract/mobileSummary';
+import { resolveAgentIconId, type GhostexAgentLauncher, type GhostexProjectIcon } from '../../contract/mobileSummary';
 import type { SectionStatusCounts } from '../../contract/grouping';
 import { decodeBase64Utf8 } from '../../docs/remoteFiles';
 import { GhostexPalette, mixHexColors, SidebarPalette } from '../../theme/palette';

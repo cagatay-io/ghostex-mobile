@@ -12,7 +12,6 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { GhostexNative } from '../../modules/ghostex-native/src';
 import { AlertTriangleGlyph, CheckGlyph, InfoGlyph, LoaderGlyph } from '../components/onboarding/SetupIcons';
 import {
   SetupButton,

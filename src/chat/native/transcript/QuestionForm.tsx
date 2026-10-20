@@ -10,7 +10,7 @@
  */
 
 import { createContext, useCallback, useContext } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import type { Json } from '../../rust/document';
 import { useTranscriptEnv } from './context';

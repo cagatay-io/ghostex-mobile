@@ -26,7 +26,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { GhostexNative } from '../../modules/ghostex-native/src';
 import { logAppEvent } from '../app/appLog';
 import { openTailscaleOrDownload } from '../app/tailscale';
-import ActionSheet, { type ActionSheetItem } from '../components/common/ActionSheet';
+import ActionSheet from '../components/common/ActionSheet';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import DetailsSheet from '../components/common/DetailsSheet';
 import LogsSheet from '../components/common/LogsSheet';
