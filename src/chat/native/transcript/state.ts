@@ -18,6 +18,7 @@ export class DisclosureStore {
   private readonly expanded = new Set<string>();
   private readonly collapsed = new Set<string>();
   private readonly listeners = new Map<string, Set<() => void>>();
+  private readonly anyListeners = new Set<() => void>();
 
   isOpen(key: string, openByDefault: boolean): boolean {
     return this.expanded.has(key) || (openByDefault && !this.collapsed.has(key));
@@ -33,6 +34,20 @@ export class DisclosureStore {
       this.expanded.add(key);
     }
     this.listeners.get(key)?.forEach((listener) => listener());
+    this.anyListeners.forEach((listener) => listener());
+  }
+
+  /** Every opened and closed key, sorted, for the find's `searchFolds` report. */
+  folds(): { expanded: string[]; collapsed: string[] } {
+    return { expanded: [...this.expanded].sort(), collapsed: [...this.collapsed].sort() };
+  }
+
+  /** Called after any row flips. */
+  subscribeAll(listener: () => void): () => void {
+    this.anyListeners.add(listener);
+    return () => {
+      this.anyListeners.delete(listener);
+    };
   }
 
   subscribe(key: string, listener: () => void): () => void {

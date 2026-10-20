@@ -14,6 +14,7 @@ import { useNativeChatUi, useRowDetail, useTranscriptEnv } from './context';
 import { DisclosureBody, DisclosureHeading, useFoldPlace } from './Disclosure';
 import { Glyph, toolGlyph } from './icons';
 import { arr, obj, str, type JsonRecord } from './json';
+import { highlightLabel, useRowFind } from './searchHighlight';
 import { useDisclosure } from './state';
 import { openTranscriptMenu } from './transcriptMenuStore';
 import { CODE_LINE, CODE_SIZE, MONO_FONT, PROSE_LINE, PROSE_SIZE } from './theme';
@@ -212,6 +213,9 @@ const ToolRow = memo(function ToolRow({
   const nameStyle = described ? [styles.name, styles.described] : styles.name;
   // Holding a call that names a file opens that file's menu (Copy Path; CDXC:SessionChat 2026-10-17 in desktop `native_chat/file_actions.rs`).
   const filePath = str(tool, 'filePath');
+  // The find's words in the name and the preview (core `visible_segments` searches both).
+  const find = useRowFind();
+  const nameText = highlightLabel(name, find, key);
   const trigger = (
     <Pressable
       disabled={!hasDetail && filePath.length === 0}
@@ -234,13 +238,13 @@ const ToolRow = memo(function ToolRow({
         // One line with two runs (desktop `name_and_preview`): side by side, the mono preview sat
         // below the name's baseline; nested runs share one.
         <Text numberOfLines={1} style={[styles.nameLine, styles.fill]}>
-          <Text style={[nameStyle, { color: heading }]}>{name}</Text>
+          <Text style={[nameStyle, { color: heading }]}>{nameText}</Text>
           {' '}
-          <Text style={[styles.preview, { color: theme.muted }]}>{preview}</Text>
+          <Text style={[styles.preview, { color: theme.muted }]}>{highlightLabel(preview, find, `tool-preview:${messageId}:${index}`)}</Text>
         </Text>
       ) : (
         <Text numberOfLines={1} style={[nameStyle, subagent.length === 0 && styles.fill, { color: heading }]}>
-          {name}
+          {nameText}
         </Text>
       )}
       {duration.length > 0 ? <Text style={[styles.duration, { color: theme.mutedInk(0.75) }]}>{duration}</Text> : null}

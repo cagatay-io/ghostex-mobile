@@ -42,6 +42,8 @@ export type ActionFields = {
   searchQuery: { query: string };
   searchNext: {};
   searchPrevious: {};
+  /** The open and closed folds, so find searches only what the reader can see (core `transcript_search.rs`). */
+  searchFolds: { expanded: string[]; collapsed: string[]; simple: boolean; workOpen: boolean };
   terminalTailHover: {};
   terminalTailToggle: {};
   /** Open a subagent's transcript from its tool row or fleet chip. Desktop: `subagent_view.rs`. */

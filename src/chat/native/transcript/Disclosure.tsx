@@ -45,12 +45,15 @@ export function LaneMarker({ color }: { color: string }) {
 /** A heading that opens and closes the rows below it. */
 export function DisclosureHeading({
   label,
+  highlighted,
   open,
   onToggle,
   color,
   medium = false,
 }: {
   label: ReactNode;
+  /** A string label's text with the find's words highlighted (`highlightLabel`). */
+  highlighted?: ReactNode;
   open: boolean;
   onToggle(): void;
   color?: string;
@@ -67,7 +70,7 @@ export function DisclosureHeading({
     >
       <Chevron open={open} color={tone} />
       {typeof label === 'string' ? (
-        <Text style={[styles.headingText, { color: tone }, medium && styles.medium]}>{label}</Text>
+        <Text style={[styles.headingText, { color: tone }, medium && styles.medium]}>{highlighted ?? label}</Text>
       ) : (
         <View style={styles.headingBody}>{label}</View>
       )}

@@ -5,7 +5,10 @@
  *
  * The row frame provides a fresh counter each time it renders, and the text of the row numbers its
  * occurrences against it in the order it renders, which is reading order, so the selected
- * occurrence is the same one desktop marks.
+ * occurrence is the same one desktop marks. The row's one-line labels (a tool row's name and
+ * preview, a thinking headline) are not Markdown: each numbers its own occurrences, and the core
+ * names the label the selected one is in (`activeLabel`), as desktop's `label_highlights` does.
+ * Only the matched words get a background, never the row around them.
  */
 
 import { createContext, useContext, useRef, type ReactNode } from 'react';
@@ -16,8 +19,10 @@ export type RowFind = {
   needle: string;
   background: string;
   activeBackground: string;
-  /** The selected occurrence within the row, or null when it is in another row. */
+  /** The selected occurrence within the row's Markdown, or null when it is elsewhere. */
   active: number | null;
+  /** The label the selected occurrence is in, by its key, and which occurrence of that label. */
+  activeLabel: { key: string; occurrence: number } | null;
   counter: { next: number };
 };
 
@@ -58,6 +63,36 @@ export function highlightText(text: string, find: RowFind | null, key: string, s
       {parts}
     </Text>
   );
+}
+
+/** The labels the core searches, by the prefix of their key (core `visible_segments`). */
+const SEARCHED_LABELS = ['tool:', 'tool-preview:', 'reasoning:'];
+
+/** A one-line label with each occurrence of the row's query highlighted; `key` is its fold key. */
+export function highlightLabel(text: string, find: RowFind | null, key: string): ReactNode {
+  if (find === null || find.needle.length === 0 || !SEARCHED_LABELS.some((prefix) => key.startsWith(prefix))) return text;
+  const lower = text.toLowerCase();
+  if (lower.length !== text.length) return text;
+  const active = find.activeLabel !== null && find.activeLabel.key === key ? find.activeLabel.occurrence : null;
+  const parts: ReactNode[] = [];
+  let at = 0;
+  let occurrence = 0;
+  let found = lower.indexOf(find.needle);
+  if (found < 0) return text;
+  while (found >= 0) {
+    if (found > at) parts.push(text.slice(at, found));
+    const end = found + find.needle.length;
+    parts.push(
+      <Text key={`${key}~${found}`} style={{ backgroundColor: occurrence === active ? find.activeBackground : find.background }}>
+        {text.slice(found, end)}
+      </Text>
+    );
+    occurrence += 1;
+    at = end;
+    found = lower.indexOf(find.needle, at);
+  }
+  if (at < text.length) parts.push(text.slice(at));
+  return parts;
 }
 
 /**

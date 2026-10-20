@@ -30,6 +30,8 @@ import {
   TranscriptEnvProvider,
   TranscriptFlagsProvider,
   transcriptFlags,
+  useNativeChatUi,
+  useTranscriptEnv,
   type TranscriptEnv,
 } from './context';
 import { arr, num, obj, str } from './json';
@@ -182,8 +184,8 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
     return reversed;
   }, [rows]);
 
-  // Transcript search: tint the rows that matched, and bring the selected one into view once per
-  // explicit navigation (`search.rs`).
+  // Transcript search: highlight the words that matched in the rows that hold them, and bring the
+  // selected one into view once per explicit navigation (`search.rs`).
   const search = main ? obj(document?.transcriptSearch) : null;
   const searchKey = JSON.stringify(search?.items ?? null);
   const searchItems = useMemo(
@@ -192,6 +194,8 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
   );
   const activeItem = num(search, 'activeItem');
   const activeInRow = num(search, 'activeInRow');
+  const activeLabelKey = str(obj(search?.activeLabel), 'key');
+  const activeLabelOccurrence = num(obj(search?.activeLabel), 'occurrence');
   const searchNeedle = str(search, 'query').trim().toLowerCase();
   const searchRevision = num(search, 'revision');
   const searchOpen = search !== null;
@@ -352,13 +356,14 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
       <TranscriptRowFrame
         item={row.item}
         first={row.index === 0}
-        tint={searchItems.has(row.index) ? (activeItem === row.index ? theme.searchActive : theme.searchHit) : null}
         findNeedle={searchItems.has(row.index) ? searchNeedle : ''}
         findActive={activeItem === row.index ? activeInRow : null}
+        findActiveLabel={activeItem === row.index && activeLabelKey.length > 0 ? activeLabelKey : null}
+        findActiveLabelOccurrence={activeLabelOccurrence ?? 0}
         widthPercent={rowWidth}
       />
     ),
-    [activeInRow, activeItem, rowWidth, searchItems, searchNeedle, theme]
+    [activeInRow, activeItem, activeLabelKey, activeLabelOccurrence, rowWidth, searchItems, searchNeedle]
   );
 
   const keyExtractor = useCallback((row: Row) => transcriptItemKey(row.item), []);
@@ -433,6 +438,7 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
 
   return (
     <TranscriptScope chat={chat} main={main}>
+      {main && searchOpen ? <SearchFoldsReport dispatch={dispatch} /> : null}
       <QuestionFlashProvider value={questionFlash}>
       <QuestionAnchorsProvider value={questionAnchors}>
       <TranscriptFieldRevealContext.Provider value={revealFocusedField}>
@@ -483,21 +489,46 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
   );
 }
 
+/**
+ * Reports the open and closed folds to the core while the find bar is open, so it searches only
+ * what the reader can see (core `transcript_search.rs`; desktop `sync_search_folds` in `search.rs`).
+ */
+function SearchFoldsReport({ dispatch }: { dispatch: RustChat['dispatch'] }) {
+  const { disclosures } = useNativeChatUi();
+  const { simple, workOpen } = useTranscriptEnv();
+  useEffect(() => {
+    let sent = '';
+    const report = () => {
+      const folds = { ...disclosures.folds(), simple, workOpen };
+      const signature = JSON.stringify(folds);
+      if (signature === sent) return;
+      sent = signature;
+      dispatch({ type: 'searchFolds', ...folds });
+    };
+    report();
+    return disclosures.subscribeAll(report);
+  }, [disclosures, dispatch, simple, workOpen]);
+  return null;
+}
+
 const TranscriptRowFrame = memo(function TranscriptRowFrame({
   item,
   first,
-  tint,
   findNeedle,
   findActive,
+  findActiveLabel,
+  findActiveLabelOccurrence,
   widthPercent,
 }: {
   item: TranscriptItem;
   first: boolean;
-  tint: string | null;
   /** Transcript search's query, lowercase, when this row holds a match; empty otherwise. */
   findNeedle: string;
-  /** Which occurrence in this row is the selected one (`activeInRow`), when it is here. */
+  /** Which occurrence of this row's Markdown is the selected one (`activeInRow`), when it is here. */
   findActive: number | null;
+  /** The label (by key) the selected occurrence is in, when it is in one of this row's labels (`activeLabel`). */
+  findActiveLabel: string | null;
+  findActiveLabelOccurrence: number;
   /** The custom transcript width, as a share of the pane; null keeps the 768pt column. */
   widthPercent: number | null;
 }) {
@@ -512,6 +543,7 @@ const TranscriptRowFrame = memo(function TranscriptRowFrame({
           background: theme.searchMatch,
           activeBackground: theme.searchMatchActive,
           active: findActive,
+          activeLabel: findActiveLabel === null ? null : { key: findActiveLabel, occurrence: findActiveLabelOccurrence },
           counter: { next: 0 },
         };
   return (
@@ -520,7 +552,6 @@ const TranscriptRowFrame = memo(function TranscriptRowFrame({
         style={[
           styles.rowInner,
           widthPercent !== null && { width: `${widthPercent}%`, maxWidth: '100%' },
-          tint !== null && { backgroundColor: tint, borderRadius: 8 },
         ]}
       >
         <RowFindContext.Provider value={find}>

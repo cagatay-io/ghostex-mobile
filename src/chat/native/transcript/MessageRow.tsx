@@ -27,6 +27,7 @@ import {
 } from './MessageActions';
 import { PageAnswersCard } from './PageAnswersCard';
 import { openTranscriptMenu, type MessageMenuAction } from './transcriptMenuStore';
+import { highlightLabel, useRowFind } from './searchHighlight';
 import { useDisclosure } from './state';
 import { InterAgentCard, SentAgentMessageCards } from './AgentMessageCards';
 import { estimatedLines, StartupDelivery, SuppressedRow, SystemCard } from './SystemRows';
@@ -161,6 +162,7 @@ function AgentMessage({ message, proseColor }: { message: ProjectedMessage; pros
   // A running summary turn's newest row opens its tools (gx-chat-core `summary_mode_turns`).
   const [toolsOpen, toggleTools] = useDisclosure(disclosures, toolsKey, workOpen || message.toolsOpen === true);
   const openMenu = useMessageMenu(message, useReplyMenuActions(message));
+  const find = useRowFind();
   let lead = null;
   let toolsRendered = false;
   if (body.length > 0) {
@@ -170,7 +172,13 @@ function AgentMessage({ message, proseColor }: { message: ProjectedMessage; pros
       const thought = mutedThinking ? theme.muted : undefined;
       lead = (
         <>
-          <DisclosureHeading label={str(message.reasoning, 'headline')} open={toolsOpen} onToggle={toggleTools} color={thought} />
+          <DisclosureHeading
+            label={str(message.reasoning, 'headline')}
+            highlighted={highlightLabel(str(message.reasoning, 'headline'), find, toolsKey)}
+            open={toolsOpen}
+            onToggle={toggleTools}
+            color={thought}
+          />
           {toolsOpen ? (
             <DisclosureBody onCollapse={toggleTools} label='Collapse thinking'>
               {detail.length > 0 ? (

@@ -41,9 +41,6 @@ export type TranscriptTheme = {
   diff: { added: string; removed: string; addedRow: string; removedRow: string; rail: string; border: string };
   /** A pressed row. */
   pressed: string;
-  /** Search hits: every matched row, and the selected one. */
-  searchHit: string;
-  searchActive: string;
   /** Behind each occurrence of the query in a matched row's text, and behind the selected one. */
   searchMatch: string;
   searchMatchActive: string;
@@ -153,8 +150,6 @@ const DARK: TranscriptTheme = {
     border: 'rgba(158,158,158,0.2)',
   },
   pressed: 'rgba(252,252,252,0.05)',
-  searchHit: 'rgba(229,229,229,0.06)',
-  searchActive: 'rgba(229,229,229,0.16)',
   searchMatch: 'rgba(250,204,21,0.3)',
   searchMatchActive: 'rgba(249,115,22,0.6)',
   controlBorder: 'rgba(255,255,255,0.06)',
@@ -224,8 +219,6 @@ const LIGHT: TranscriptTheme = {
     border: '#e5e5e5',
   },
   pressed: 'rgba(0,0,0,0.04)',
-  searchHit: 'rgba(24,24,27,0.06)',
-  searchActive: 'rgba(24,24,27,0.16)',
   searchMatch: 'rgba(250,204,21,0.45)',
   searchMatchActive: 'rgba(249,115,22,0.45)',
   controlBorder: '#e5e5e5',
