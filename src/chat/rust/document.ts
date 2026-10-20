@@ -372,6 +372,9 @@ export type ChatDocument = {
   finalIds: string[];
   /** Pages published with `ghostex show` whose answers arrived (gx-chat-core `page_answers.rs`). */
   answeredPages?: string[];
+  /** Question pages not answered whose questions were withdrawn, some or all, by page id
+   * (gx-chat-core `open_questions.rs` `withdrawn_pages`). */
+  withdrawnPages?: { [pageId: string]: { tags: string[]; total: number } };
   /** The question forms (```questions blocks) by id (`questions/forms.rs`). */
   questionForms?: { [id: string]: Json };
   /** The Previous question pill and the jumps to a question (`questions/open_questions.rs`).

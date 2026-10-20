@@ -1,7 +1,8 @@
 /**
  * The card a published HTML page (`ghostex show`) gets in the transcript: a window bar with three
  * dots and the file name, a scaled-down picture of the page fading out at its bottom, then the
- * title, "Interactive page · file.html", the Answered pill once the page's answers were sent, and
+ * title, "Interactive page · file.html", the Answered pill once the page's answers were sent (or a
+ * Withdrawn pill once a later block withdrew its questions), and
  * Open. Until the picture exists (the desktop app takes it the first time the page is opened in its
  * floating page window) the window shows a page icon and the file name. A touch screen has no hover, so the
  * desktop's "Open page" label over the picture is left out; the whole card opens the page.
@@ -58,6 +59,15 @@ function PageCardBody({ answer, onLayout }: { answer: JsonRecord | null; onLayou
   const title = str(answer, 'title') || 'Page';
   const pageId = str(answer, 'pageId');
   const answered = pageId.length > 0 && flags.answeredPages.has(pageId);
+  // Its questions a later block withdrew, some or all (desktop `page_card.rs`): the card says so
+  // where an answered page says Answered.
+  const withdrawnEntry = !answered && pageId.length > 0 ? flags.withdrawnPages[pageId] : undefined;
+  const withdrawn =
+    withdrawnEntry === undefined
+      ? null
+      : withdrawnEntry.tags.length >= withdrawnEntry.total
+        ? { label: 'Withdrawn', hint: 'Withdrawn, no answer needed' }
+        : { label: `${withdrawnEntry.tags.length} of ${withdrawnEntry.total} withdrawn`, hint: `${withdrawnEntry.tags.join(', ')}: withdrawn, no answer needed` };
   const entry = usePageThumbnailStore((state) => (pageId.length > 0 ? state.pages[pageId] : undefined));
 
   // Asked once per page and answered state (an answered page is pictured again), not per mount.
@@ -128,6 +138,11 @@ function PageCardBody({ answer, onLayout }: { answer: JsonRecord | null; onLayou
             {detail}
           </Text>
         </View>
+        {withdrawn !== null ? (
+          <View style={[styles.answered, { backgroundColor: `${theme.muted}24` }]} accessibilityRole='text' accessibilityLabel={withdrawn.hint}>
+            <Text style={[styles.answeredText, { color: theme.muted }]}>{withdrawn.label}</Text>
+          </View>
+        ) : null}
         {answered ? (
           <View style={[styles.answered, { backgroundColor: `${good}24` }]}>
             <Glyph name='check' size={11} color={good} />
