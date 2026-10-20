@@ -9,18 +9,18 @@ import { arr, isTrue, obj, str } from './json';
 import { rowsOf, type MenuRow } from './MenuSheet';
 
 /** The toolbar controls in desktop's order, which is also the order they fold into More actions
- * (`toolbar.rs`, `COMPOSER_CONTROLS`). Maximize is desktop-only. Files and links is always a More
- * actions row (`filesLinksRow`). */
+ * (`toolbar.rs`, `COMPOSER_CONTROLS`). Maximize is desktop-only. Files and links, Summary mode (under
+ * View) and Stash prompt are always More actions rows (desktop CDXC:SessionChat 2026-10-20). */
 export const COMPOSER_CONTROLS = [
-  { id: 'summary', action: 'summaryMode', label: 'Summary mode', icon: 'titlebar/list-details.svg' },
   { id: 'note', action: 'sessionNote', label: 'Session note', icon: 'titlebar/note.svg' },
-  { id: 'stash', action: 'stashPrompt', label: 'Stash prompt', icon: 'titlebar/stack-push.svg' },
   { id: 'attach', action: 'attachPath', label: 'Attach a file or folder', icon: 'titlebar/paperclip.svg' },
   { id: 'dictate', action: 'dictate', label: 'Dictate', icon: 'titlebar/microphone.svg' },
   { id: 'terminal', action: 'terminalView', label: 'Terminal View', icon: 'titlebar/terminal-2.svg' },
 ] as const;
 
 export type ComposerControlId = (typeof COMPOSER_CONTROLS)[number]['id'];
+/** A host gate under `composerActions`: the toolbar controls plus the More actions rows they gate. */
+export type ComposerActionId = ComposerControlId | 'summary' | 'stash';
 
 const HOST_ACTION_ICONS: Record<string, string> = {
   closeAfterDone: 'titlebar/clock.svg',
@@ -45,7 +45,7 @@ export type MoreActionsInput = {
   /** The phone's Simple mode setting (`sessionChatSimpleMode`). */
   simple: boolean;
   /** Controls this composer can draw (the host gates plus what the phone serves). */
-  available: (id: ComposerControlId) => boolean;
+  available: (id: ComposerActionId) => boolean;
   /** Whether the screen performs this app-shell action (`NativeComposer`'s `hostActions`). */
   serves: (action: string) => boolean;
   /** Dictate is listening: its folded row stops it, since no toolbar button shows the stop. */
@@ -198,7 +198,7 @@ export function moreActionsRows({ document, simple, verbose, available, serves, 
   });
   for (const action of actions) if (CHAT_GROUP_HOST_ACTIONS.has(action.id) && serves(action.id)) rows.push(hostRow(action));
   for (const control of COMPOSER_CONTROLS) {
-    if (control.id === 'summary' || !overflowed(document, control.id) || !available(control.id)) continue;
+    if (!overflowed(document, control.id) || !available(control.id)) continue;
     const row: MenuRow = { label: control.label, iconPath: control.icon, command: { type: 'composerHost', action: control.action } };
     if (control.id === 'note') row.checked = document.note.open;
     if (control.id === 'dictate' && dictating) Object.assign(row, { label: 'Stop dictating', iconPath: 'titlebar/player-stop.svg' });
@@ -242,6 +242,17 @@ export function moreActionsRows({ document, simple, verbose, available, serves, 
   if (other.length > 0) rows.push({ separator: true }, ...other.map(hostRow));
   // Second from the bottom, as on desktop (actions.rs `skills_row`).
   rows.splice(Math.max(rows.length - 1, 0), 0, skillsRow(document));
+  // Stash prompt then takes second from the bottom, below Skills (actions.rs `stash_menu_row`): it
+  // stashes the draft, or opens Saved prompts from an empty chat box.
+  if (available('stash')) {
+    const stashed = document.composerChrome.stashBadge;
+    rows.splice(Math.max(rows.length - 1, 0), 0, {
+      label: 'Stash prompt',
+      iconPath: 'titlebar/stack-push.svg',
+      ...(stashed !== null ? { description: `${stashed} stashed` } : {}),
+      command: { type: 'composerHost', action: 'stashPrompt' },
+    });
+  }
   return rows;
 }
 

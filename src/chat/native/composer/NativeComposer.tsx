@@ -29,7 +29,7 @@ import { ContextEditorSheet } from './ContextEditorSheet';
 import { Glyph, type GlyphName } from './icons';
 import { IncomingDraftBar } from './IncomingDraftBar';
 import { isTrue, obj, str, type JsonRecord } from './json';
-import { COMPOSER_CONTROLS, moreActionsRows, optionMenuRows, overflowed, sendChoiceRows, type ComposerControlId } from './menus';
+import { COMPOSER_CONTROLS, moreActionsRows, optionMenuRows, overflowed, sendChoiceRows, type ComposerActionId, type ComposerControlId } from './menus';
 import { MenuSheet, type MenuRow } from './MenuSheet';
 import { ModelMenuSheet } from './ModelMenuSheet';
 import { NotePanel } from './NotePanel';
@@ -96,9 +96,7 @@ function terminalReadinessTint(document: ChatDocument): string | null {
 }
 
 const CONTROL_GLYPHS: Record<ComposerControlId, GlyphName> = {
-  summary: 'list-details',
   note: 'note',
-  stash: 'stack-push',
   attach: 'paperclip',
   dictate: 'microphone',
   terminal: 'terminal-2',
@@ -166,7 +164,7 @@ export function NativeComposer({ chat, onHostAction, hostActions = DEFAULT_HOST_
   // ---- the toolbar's overflow fit, measured like desktop's `composer_measurement` ----------------
 
   const available = useCallback(
-    (id: ComposerControlId): boolean => {
+    (id: ComposerActionId): boolean => {
       if (document === null) return false;
       // Dictation is the phone's own (Grok through the computer's gxserver), so the core does not gate it.
       if (id === 'dictate') return dictation.available;
@@ -517,22 +515,11 @@ export function NativeComposer({ chat, onHostAction, hostActions = DEFAULT_HOST_
                 <ToolbarButton glyph="dots" label="More actions" onPress={openMore} disabled={document === null} />
                 {document !== null
                   ? COMPOSER_CONTROLS.filter((control) => available(control.id) && !overflowed(document, control.id)).map((control) => {
-                      const glyph =
-                        control.id === 'summary' && document.summaryMode
-                          ? 'list-check'
-                          : control.id === 'dictate' && dictation.listening
-                            ? 'player-stop'
-                            : CONTROL_GLYPHS[control.id];
+                      const glyph = control.id === 'dictate' && dictation.listening ? 'player-stop' : CONTROL_GLYPHS[control.id];
                       const pressed =
-                        (control.id === 'summary' && document.composerChrome.summaryPressed) ||
                         (control.id === 'note' && document.composerChrome.notePressed) ||
                         (control.id === 'dictate' && dictation.listening);
-                      const badge =
-                        control.id === 'stash'
-                          ? document.composerChrome.stashBadge
-                          : control.id === 'note' && document.composerChrome.notePresence
-                            ? ''
-                            : null;
+                      const badge = control.id === 'note' && document.composerChrome.notePresence ? '' : null;
                       return (
                         <ToolbarButton
                           key={control.id}
@@ -542,7 +529,6 @@ export function NativeComposer({ chat, onHostAction, hostActions = DEFAULT_HOST_
                           badge={badge}
                           tint={control.id === 'terminal' ? terminalReadinessTint(document) : null}
                           onPress={() => performComposerAction(control.action)}
-                          {...(control.id === 'stash' && serves('stashedPrompts') ? { onLongPress: () => host('stashedPrompts') } : {})}
                           {...(control.id === 'dictate' ? { onLongPress: openDictationMenu } : {})}
                         />
                       );
