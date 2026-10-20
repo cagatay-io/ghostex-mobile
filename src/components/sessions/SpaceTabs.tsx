@@ -23,7 +23,7 @@ import {
   OTHER_SIDEBAR_SPACE_ID,
   OTHER_SIDEBAR_SPACE_LABEL,
 } from '../../spaces/otherSpace';
-import type { SessionCounts } from '../../contract/grouping';
+import { tabStatusCounts, type SessionCounts } from '../../contract/grouping';
 import type { SpaceRowItem } from '../../spaces/spaceFilter';
 import { GhostexPalette, GhostexRadii, GhostexStrokeWidth, SidebarPalette } from '../../theme/palette';
 import StatusDotStack from './StatusDotStack';
@@ -62,10 +62,14 @@ export default function SpaceTabs({
       {items.map((item) => {
         const selected = item.spaceId === selectedSpaceId;
         const Icon = COMMAND_ICONS[item.icon] ?? COMMAND_ICONS.stack;
-        const counts = countsBySpaceId[item.spaceId];
+        const sessionCounts = countsBySpaceId[item.spaceId];
+        const counts = sessionCounts === undefined ? undefined : tabStatusCounts(sessionCounts);
         const hasStatus =
           counts !== undefined &&
-          (counts.workingCount > 0 || counts.attentionCount > 0 || counts.backgroundWorkCount > 0);
+          (counts.workingCount > 0 ||
+            counts.attentionCount > 0 ||
+            counts.backgroundWorkCount > 0 ||
+            counts.questionCount > 0);
         return (
           <Pressable
             accessibilityRole="tab"
@@ -93,6 +97,7 @@ export default function SpaceTabs({
                 workingCount={counts.workingCount}
                 attentionCount={counts.attentionCount}
                 backgroundWorkCount={counts.backgroundWorkCount}
+                questionCount={counts.questionCount}
                 ringColor={GhostexPalette.CARD_ACTIVE}
               />
             ) : null}

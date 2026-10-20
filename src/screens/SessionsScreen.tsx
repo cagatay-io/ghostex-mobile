@@ -92,6 +92,7 @@ import { stateWithCollectionTitle } from '../contract/collectionsState';
 import {
   CHATS_PROJECT_KEY,
   machineSessionCounts,
+  tabStatusCounts,
   projectKeyForSession,
   type DrawerItem,
   type ProjectHeaderItem,
@@ -440,7 +441,7 @@ export default function SessionsScreen({ navigation }: Props) {
             : inventory.summary === null
               ? 'disconnected'
               : 'connected';
-      const counts = machineSessionCounts(inventory?.summary ?? null);
+      const counts = tabStatusCounts(machineSessionCounts(inventory?.summary ?? null));
       const retryable = connectionState === 'failed' || connectionState === 'disconnected';
       return {
         id: entry.id,
@@ -454,6 +455,7 @@ export default function SessionsScreen({ navigation }: Props) {
         workingCount: counts.workingCount,
         attentionCount: counts.attentionCount,
         backgroundWorkCount: counts.backgroundWorkCount,
+        questionCount: counts.questionCount,
       };
     });
     return [...tabs, MACHINE_TAB_ADD];

@@ -4,7 +4,8 @@
  * is STATUS_DOT_SIZE inside a 1dp ring in the surface color (the 2026-10-20
  * decision: "1px border around the dots"), and each overlaps the one before it
  * by half; blue sits rightmost and on top, orange in the middle, the grey
- * background-work dot (never shown together with orange) behind them.
+ * background-work dot (never shown together with orange) behind them, and the
+ * pink question dot furthest left, covered by the others.
  */
 
 import { StyleSheet, View } from 'react-native';
@@ -36,30 +37,30 @@ export default function StatusDotStack({
   workingCount,
   attentionCount,
   backgroundWorkCount,
+  questionCount,
   ringColor,
 }: {
   workingCount: number;
+  /** In attention with no question pending (a question is the pink dot). */
   attentionCount: number;
   backgroundWorkCount: number;
+  questionCount: number;
   /** The surface the stack sits on, so each covered edge stays readable. */
   ringColor: string;
 }) {
   const background = workingCount === 0 && backgroundWorkCount > 0;
-  if (workingCount === 0 && attentionCount === 0 && !background) return null;
+  /* status.rs `status_dot_stack`: pink furthest left and underneath, then grey, orange, and blue on top. */
+  const dots: { key: string; color: string }[] = [];
+  if (questionCount > 0) dots.push({ key: 'question', color: SidebarPalette.ROW_QUESTION });
+  if (background) dots.push({ key: 'background', color: SidebarPalette.ROW_BACKGROUND_WORK });
+  if (workingCount > 0) dots.push({ key: 'working', color: SidebarPalette.ROW_WORKING });
+  if (attentionCount > 0) dots.push({ key: 'attention', color: SidebarPalette.ROW_ATTENTION });
+  if (dots.length === 0) return null;
   return (
     <View style={styles.stack}>
-      {background ? (
-        <Dot size={STATUS_DOT_SIZE} color={SidebarPalette.ROW_BACKGROUND_WORK} first ringColor={ringColor} />
-      ) : null}
-      {workingCount > 0 ? <Dot size={STATUS_DOT_SIZE} color={SidebarPalette.ROW_WORKING} first ringColor={ringColor} /> : null}
-      {attentionCount > 0 ? (
-        <Dot
-          size={STATUS_DOT_SIZE}
-          color={SidebarPalette.ROW_ATTENTION}
-          first={!background && workingCount === 0}
-          ringColor={ringColor}
-        />
-      ) : null}
+      {dots.map((dot, index) => (
+        <Dot key={dot.key} size={STATUS_DOT_SIZE} color={dot.color} first={index === 0} ringColor={ringColor} />
+      ))}
     </View>
   );
 }

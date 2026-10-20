@@ -415,9 +415,26 @@ export type SessionCounts = {
   attentionCount: number;
   /** Rows drawing the grey dot: idle with a background shell or monitor still running. */
   backgroundWorkCount: number;
+  /** Rows with an unanswered question card (`pendingQuestionCount > 0`); every one is also in `attentionCount`. */
+  questionCount: number;
   sleepingCount: number;
   awakeCount: number;
 };
+
+/**
+ * What a Space or machine tab's overlapping dots draw (packages/gx-core/src/sidebar_view/assemble.rs): a
+ * session with a pending question counts pink instead of blue, so the attention count leaves it out.
+ */
+export function tabStatusCounts(
+  counts: Pick<SessionCounts, 'workingCount' | 'attentionCount' | 'backgroundWorkCount' | 'questionCount'>,
+): { workingCount: number; attentionCount: number; backgroundWorkCount: number; questionCount: number } {
+  return {
+    workingCount: counts.workingCount,
+    attentionCount: counts.attentionCount - counts.questionCount,
+    backgroundWorkCount: counts.backgroundWorkCount,
+    questionCount: counts.questionCount,
+  };
+}
 
 /**
  * packages/gx-core/src/sidebar_view/view.rs `shows_background_work`: the row
@@ -441,6 +458,7 @@ export function countSessions(sessions: readonly GhostexSession[]): SessionCount
     workingCount: 0,
     attentionCount: 0,
     backgroundWorkCount: 0,
+    questionCount: 0,
     sleepingCount: 0,
     awakeCount: 0,
   };
@@ -449,6 +467,7 @@ export function countSessions(sessions: readonly GhostexSession[]): SessionCount
     if (session.activity === 'working') counts.workingCount++;
     if (session.activity === 'attention' || session.pendingQuestionCount > 0) counts.attentionCount++;
     if (showsBackgroundWork(session)) counts.backgroundWorkCount++;
+    if (session.pendingQuestionCount > 0) counts.questionCount++;
     if (status === 'sleep' || status === 'sleeping') counts.sleepingCount++;
     if (isAwakeSession(session)) counts.awakeCount++;
   }

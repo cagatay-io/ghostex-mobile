@@ -41,10 +41,11 @@ export type MachineTabItem = {
   connectionLabel?: string;
   /** Retries the connection from the glyph; absent while connected or busy. */
   onConnect?: () => void;
-  /** grouping.ts countSessions: the desktop machine tab's counts. */
+  /** grouping.ts tabStatusCounts: the desktop machine tab's counts. */
   workingCount: number;
   attentionCount: number;
   backgroundWorkCount: number;
+  questionCount: number;
 };
 
 /** The trailing "+" tab; the strip's `items` always end with it. */
@@ -128,12 +129,20 @@ function ConnectionGlyph({ item }: { item: MachineTabItem }) {
  * User: "Please make the indicators for sessions status in the RN session list match gpui one exactly". The desktop machine tab shows no status on the selected machine and the other machines' status as dots, not numbers, like its Spaces (apps/desktop/src/app/native_sidebar/machines.rs), so the phone draws the same overlapping dots on unselected tabs only. This supersedes the phone's numbered pills on every tab.
  */
 function StatusDots({ item }: { item: MachineTabItem }) {
-  if (item.workingCount <= 0 && item.attentionCount <= 0 && item.backgroundWorkCount <= 0) return null;
+  if (
+    item.workingCount <= 0 &&
+    item.attentionCount <= 0 &&
+    item.backgroundWorkCount <= 0 &&
+    item.questionCount <= 0
+  ) {
+    return null;
+  }
   return (
     <View
       accessibilityLabel={[
         item.workingCount > 0 ? `${item.workingCount} working` : '',
         item.attentionCount > 0 ? `${item.attentionCount} need attention` : '',
+        item.questionCount > 0 ? `${item.questionCount} waiting on an answer` : '',
         item.workingCount === 0 && item.backgroundWorkCount > 0
           ? `${item.backgroundWorkCount} running in the background`
           : '',
@@ -145,6 +154,7 @@ function StatusDots({ item }: { item: MachineTabItem }) {
         workingCount={item.workingCount}
         attentionCount={item.attentionCount}
         backgroundWorkCount={item.backgroundWorkCount}
+        questionCount={item.questionCount}
         ringColor={SetupPalette.PANEL}
       />
     </View>
