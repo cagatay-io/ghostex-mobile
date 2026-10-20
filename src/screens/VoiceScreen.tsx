@@ -2,7 +2,7 @@
  * The voice screen: one conversation with the manager voice agent, made to be glanced at while
  * walking or driving. A big state circle (listening, thinking, speaking, running a tool), live
  * captions of what you and the agent said with tool calls as short rows, the voice (tap it to pick
- * another), speed buttons from 1x to 2x, the remembered last conversation to continue
+ * another) with a small speed button beside it (a list from 1x to 2x), the remembered last conversation to continue
  * (`VoiceMemoryCard`), and large Mute, Stop talking and Hang up controls. Closing the screen keeps the conversation going; the top bar's
  * Voice button and the "Voice mode on" notification bring it back.
  */
@@ -105,6 +105,35 @@ function VoicePickerSheet({ visible, onClose }: { visible: boolean; onClose: () 
   );
 }
 
+/** The speed list: 1× to 2×, the current one checked; picking one plays faster at once and saves it. */
+function VoiceSpeedSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const current = useVoiceStore((state) => state.speed);
+  return (
+    <BottomSheet visible={visible} onClose={onClose}>
+      <Text style={styles.sheetTitle}>Speaking speed</Text>
+      {VOICE_SPEEDS.map((speed) => {
+        const checked = Math.abs(speed - current) < 0.01;
+        return (
+          <Pressable
+            key={speed}
+            accessibilityRole="radio"
+            accessibilityLabel={`${speedLabel(speed)} speed`}
+            accessibilityState={{ checked }}
+            style={({ pressed }) => [styles.sheetRow, pressed && styles.controlPressed]}
+            onPress={() => {
+              onClose();
+              setVoiceSpeed(speed);
+            }}
+          >
+            <View style={styles.sheetCheck}>{checked ? <CheckGlyph size={18} color={GhostexPalette.FOREGROUND} strokeWidth={2.4} /> : null}</View>
+            <Text style={styles.sheetRowLabel}>{speedLabel(speed)}</Text>
+          </Pressable>
+        );
+      })}
+    </BottomSheet>
+  );
+}
+
 function Line({ line }: { line: VoiceLine }) {
   switch (line.kind) {
     case 'caption':
@@ -142,6 +171,7 @@ export default function VoiceScreen({ navigation }: Props) {
   const compact = voice.lines.length > 0;
   const machine = useMachinesStore((state) => state.machines.find((entry) => entry.id === voice.machineId) ?? null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [speedOpen, setSpeedOpen] = useState(false);
   const canPickVoice = active && voice.voiceOptions.length > 0;
 
   useEffect(() => {
@@ -165,25 +195,41 @@ export default function VoiceScreen({ navigation }: Props) {
           <Text style={styles.subtitle} numberOfLines={1}>
             {voice.machineName}
           </Text>
-          {voice.voice !== null ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Voice: ${voiceName(voice.voice)}. Change the voice`}
-              disabled={!canPickVoice}
-              hitSlop={8}
-              style={({ pressed }) => [styles.voiceChip, pressed && styles.controlPressed]}
-              onPress={() => setPickerOpen(true)}
-            >
-              <Text style={styles.voiceChipText} numberOfLines={1}>
-                {`${voiceProviderName(voice.provider)} · ${voiceName(voice.voice)}`}
-              </Text>
-              {canPickVoice ? (
-                <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-                  <Path d="M 6 9 l 6 6 6 -6" stroke={GhostexPalette.MUTED} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+          <View style={styles.voiceChips}>
+            {voice.voice !== null ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Voice: ${voiceName(voice.voice)}. Change the voice`}
+                disabled={!canPickVoice}
+                hitSlop={8}
+                style={({ pressed }) => [styles.voiceChip, pressed && styles.controlPressed]}
+                onPress={() => setPickerOpen(true)}
+              >
+                <Text style={styles.voiceChipText} numberOfLines={1}>
+                  {`${voiceProviderName(voice.provider)} · ${voiceName(voice.voice)}`}
+                </Text>
+                {canPickVoice ? (
+                  <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+                    <Path d="M 6 9 l 6 6 6 -6" stroke={GhostexPalette.MUTED} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+                  </Svg>
+                ) : null}
+              </Pressable>
+            ) : null}
+            {active ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Speaking speed ${speedLabel(voice.speed)}. Change the speed`}
+                hitSlop={8}
+                style={({ pressed }) => [styles.voiceChip, styles.speedChip, pressed && styles.controlPressed]}
+                onPress={() => setSpeedOpen(true)}
+              >
+                <Text style={styles.speedChipText}>{speedLabel(voice.speed)}</Text>
+                <Svg width={11} height={11} viewBox="0 0 24 24" fill="none">
+                  <Path d="M 6 9 l 6 6 6 -6" stroke={GhostexPalette.MUTED} strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
                 </Svg>
-              ) : null}
-            </Pressable>
-          ) : null}
+              </Pressable>
+            ) : null}
+          </View>
         </View>
         <View style={styles.headerButton} />
       </View>
@@ -214,26 +260,6 @@ export default function VoiceScreen({ navigation }: Props) {
           <Text style={styles.notice}>{voice.endedMessage}</Text>
         ) : null}
       </ScrollView>
-
-      {active ? (
-        <View style={styles.speedRow} accessibilityRole="radiogroup" accessibilityLabel="Speaking speed">
-          {VOICE_SPEEDS.map((speed) => {
-            const selected = Math.abs(speed - voice.speed) < 0.01;
-            return (
-              <Pressable
-                key={speed}
-                accessibilityRole="radio"
-                accessibilityLabel={`${speedLabel(speed)} speed`}
-                accessibilityState={{ checked: selected }}
-                style={({ pressed }) => [styles.speed, selected && styles.speedOn, pressed && styles.controlPressed]}
-                onPress={() => setVoiceSpeed(speed)}
-              >
-                <Text style={[styles.speedLabel, selected && styles.speedLabelOn]}>{speedLabel(speed)}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      ) : null}
 
       {active ? (
         <View style={styles.controls}>
@@ -297,6 +323,7 @@ export default function VoiceScreen({ navigation }: Props) {
         </View>
       )}
       <VoicePickerSheet visible={pickerOpen && canPickVoice} onClose={() => setPickerOpen(false)} />
+      <VoiceSpeedSheet visible={speedOpen && active} onClose={() => setSpeedOpen(false)} />
     </SafeAreaView>
   );
 }
@@ -319,18 +346,9 @@ const styles = StyleSheet.create({
     backgroundColor: GhostexPalette.CARD_ACTIVE,
   },
   voiceChipText: { color: GhostexPalette.FOREGROUND, fontSize: 15, fontWeight: '600' },
-  speedRow: { flexDirection: 'row', gap: 6, paddingHorizontal: 16, paddingTop: 4 },
-  speed: {
-    flex: 1,
-    minHeight: 48,
-    borderRadius: GhostexRadii.section,
-    backgroundColor: GhostexPalette.CARD,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  speedOn: { backgroundColor: GhostexPalette.ACCENT },
-  speedLabel: { color: GhostexPalette.FOREGROUND, fontSize: 16, fontWeight: '600' },
-  speedLabelOn: { color: GhostexPalette.ACCENT_FOREGROUND },
+  voiceChips: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  speedChip: { paddingHorizontal: 8, minHeight: 26, borderRadius: 13 },
+  speedChipText: { color: GhostexPalette.FOREGROUND, fontSize: 13, fontWeight: '600' },
   sheetTitle: { color: GhostexPalette.FOREGROUND, fontSize: 18, fontWeight: '700', marginBottom: 8 },
   sheetRow: { flexDirection: 'row', alignItems: 'center', minHeight: 52, gap: 10 },
   sheetCheck: { width: 24, alignItems: 'center' },
