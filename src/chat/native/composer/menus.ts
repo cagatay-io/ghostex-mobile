@@ -293,13 +293,14 @@ export function moreActionsRows({
   // Second from the bottom, as on desktop (actions.rs `skills_row`).
   rows.splice(Math.max(rows.length - 1, 0), 0, skillsRow(document));
   // Stash prompt then takes second from the bottom, below Skills (actions.rs `stash_menu_row`): it
-  // stashes the draft, or opens Saved prompts from an empty chat box.
+  // stashes the draft, or opens Saved prompts from an empty chat box. The stash count is the row's
+  // `badge`, a circle after the label (user, 2026-10-22), as on desktop.
   if (available('stash')) {
     const stashed = document.composerChrome.stashBadge;
     rows.splice(Math.max(rows.length - 1, 0), 0, {
       label: 'Stash prompt',
       iconPath: 'titlebar/stack-push.svg',
-      ...(stashed !== null ? { description: `${stashed} stashed` } : {}),
+      ...(stashed !== null ? { badge: stashed } : {}),
       command: { type: 'composerHost', action: 'stashPrompt' },
     });
   }

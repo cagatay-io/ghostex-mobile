@@ -1,7 +1,7 @@
 /**
  * The chat's row menus on the phone: More actions, the option pills' menus, the attach sheet. Rows
  * have the shape desktop's `show_chat_menu` draws (`option_menu/render.rs`): `heading`,
- * `separator`, `label` + `description` / `detail`, `checked`, `disabled`, `iconPath`, `icon` (an
+ * `separator`, `label` + `description` / `detail` / `badge` (a count circle after the label), `checked`, `disabled`, `iconPath`, `icon` (an
  * agent mark), a `command` to run, `children` for a submenu (a pushed page here), and the two
  * panel rows `accounts` (the Accounts & limits panel) and `context` (the context window panel).
  */
@@ -179,6 +179,7 @@ function MenuRowView({
   const checked = row.checked === true;
   const description = str(row, 'description');
   const detail = typeof row.detail === 'string' ? row.detail : '';
+  const badge = str(row, 'badge');
   const glyph = glyphForIconPath(row.iconPath);
   const AgentIcon = typeof row.icon === 'string' ? AGENT_ICONS[row.icon] : undefined;
   // A lifecycle dot instead of a glyph (the fork branch list), tinted as `branch_dot_color` does.
@@ -202,9 +203,16 @@ function MenuRowView({
       ) : null}
       {dot !== null ? <View style={[styles.dot, { backgroundColor: branchDotColor(dot, P) }]} /> : null}
       <View style={styles.rowText}>
-        <Text style={styles.label} numberOfLines={2}>
-          {label}
-        </Text>
+        <View style={styles.labelLine}>
+          <Text style={[styles.label, styles.labelText]} numberOfLines={2}>
+            {label}
+          </Text>
+          {badge.length > 0 ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{badge}</Text>
+            </View>
+          ) : null}
+        </View>
         {description.length > 0 ? (
           <Text style={styles.description} numberOfLines={3}>
             {description}
@@ -258,6 +266,19 @@ const useStyles = themedStyles((P) => ({
   rowDisabled: { opacity: 0.45 },
   rowText: { flex: 1, minWidth: 0, gap: 2 },
   label: { color: P.foreground, fontSize: 15 },
+  labelLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  labelText: { flexShrink: 1 },
+  // The composer toolbar's count badge (NativeComposer `badge`), in line after the label.
+  badge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: P.foreground,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: { color: P.background, fontSize: 11, lineHeight: 13, fontWeight: '600' },
   description: { color: P.muted, fontSize: 12.5, lineHeight: 17 },
   detail: { color: P.muted, fontSize: 13, maxWidth: 140 },
   dot: { width: 7, height: 7, borderRadius: 3.5 },
