@@ -59,7 +59,8 @@ export default function SpaceTabs({
         const selected = item.spaceId === selectedSpaceId;
         const Icon = COMMAND_ICONS[item.icon] ?? COMMAND_ICONS.stack;
         const sessionCounts = countsBySpaceId[item.spaceId];
-        const counts = sessionCounts === undefined ? undefined : tabStatusCounts(sessionCounts);
+        // The Space being shown has its sessions on screen, so only the other tabs carry status dots (desktop `assemble.rs`).
+        const counts = sessionCounts === undefined || selected ? undefined : tabStatusCounts(sessionCounts);
         const hasStatus =
           counts !== undefined &&
           (counts.workingCount > 0 ||
