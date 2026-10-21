@@ -8,11 +8,21 @@
  */
 
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
+import { IconPill } from '../chat/native/cards/ChatPills';
+import { useTranscriptTheme } from '../chat/native/transcript/theme';
 import BottomSheet from '../components/common/BottomSheet';
 import { CheckGlyph } from '../components/onboarding/SetupIcons';
 import { useMachinesStore } from '../machines/store';
@@ -38,6 +48,65 @@ import { HeadsetGlyph, MicrophoneGlyph } from '../voice/VoiceButton';
 import { VoiceMemoryCard } from '../voice/VoiceMemoryCard';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Voice'>;
+
+/** At or under this many points from the end the reader is at the bottom (the chat's `edgeThreshold`, `Transcript.tsx`). */
+const BOTTOM_EDGE = 10;
+
+/** How far the captions are from their end, in points. */
+function distanceFromEnd(event: NativeSyntheticEvent<NativeScrollEvent>): number {
+  const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+  return contentSize.height - layoutMeasurement.height - contentOffset.y;
+}
+
+/**
+ * CDXC:VoiceMode 2026-10-21 DECISION:
+ * User: new messages must not scroll the voice screen to the bottom once the reader has scrolled up; at the bottom it keeps following them, like the chat. A scroll-to-bottom pill (the chat's ↓ `IconPill`, at the lone pill's place, `LoneScrollBottom` in `WorkingCard.tsx`) shows only after the reader scrolled up and hides once they are back at the bottom. Only the reader's own drag decides "scrolled up", so a follow scroll in flight never counts.
+ */
+function useFollowBottom() {
+  const scroll = useRef<ScrollView>(null);
+  const [away, setAway] = useState(false);
+  const awayRef = useRef(false);
+  const dragging = useRef(false);
+
+  const setAwayBoth = useCallback((next: boolean) => {
+    awayRef.current = next;
+    setAway(next);
+  }, []);
+  const measure = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (dragging.current) setAwayBoth(distanceFromEnd(event) > BOTTOM_EDGE);
+    },
+    [setAwayBoth],
+  );
+  const follow = useCallback(() => {
+    if (awayRef.current) return;
+    dragging.current = false;
+    scroll.current?.scrollToEnd({ animated: true });
+  }, []);
+  const jumpToBottom = useCallback(() => {
+    dragging.current = false;
+    setAwayBoth(false);
+    scroll.current?.scrollToEnd({ animated: true });
+  }, [setAwayBoth]);
+
+  const scrollProps = {
+    ref: scroll,
+    scrollEventThrottle: 32,
+    onScroll: measure,
+    onScrollBeginDrag: (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      dragging.current = true;
+      measure(event);
+    },
+    onScrollEndDrag: measure,
+    onMomentumScrollEnd: (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      measure(event);
+      dragging.current = false;
+    },
+    onContentSizeChange: follow,
+    onLayout: follow,
+  };
+  return { away, jumpToBottom, scrollProps };
+}
 
 /** The state circle's words and colour for what the agent is doing. */
 function stateLook(state: ReturnType<typeof useVoiceStore.getState>): { label: string; color: string } {
@@ -184,7 +253,8 @@ function Line({ line }: { line: VoiceLine }) {
 
 export default function VoiceScreen({ navigation }: Props) {
   const voice = useVoiceStore();
-  const scroll = useRef<ScrollView>(null);
+  const chatTheme = useTranscriptTheme();
+  const { away, jumpToBottom, scrollProps } = useFollowBottom();
   const look = stateLook(voice);
   const active = voiceActive(voice.phase);
   const compact = voice.lines.length > 0;
@@ -192,10 +262,6 @@ export default function VoiceScreen({ navigation }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [speedOpen, setSpeedOpen] = useState(false);
   const canPickVoice = active && voice.voiceOptions.length > 0;
-
-  useEffect(() => {
-    scroll.current?.scrollToEnd({ animated: true });
-  }, [voice.lines]);
 
   /**
    * CDXC:VoiceMode 2026-10-20 DECISION:
@@ -302,18 +368,30 @@ export default function VoiceScreen({ navigation }: Props) {
         </View>
       ) : null}
 
-      <ScrollView ref={scroll} style={styles.lines} contentContainerStyle={styles.linesContent}>
-        {voice.phase === 'live' ? <VoiceMemoryCard /> : null}
-        {voice.lines.length === 0 && active ? (
-          <Text style={styles.hint}>Ask what your agents are doing, or tell one what to do next.</Text>
+      <View style={styles.lines}>
+        <ScrollView {...scrollProps} style={styles.lines} contentContainerStyle={styles.linesContent}>
+          {voice.phase === 'live' ? <VoiceMemoryCard /> : null}
+          {voice.lines.length === 0 && active ? (
+            <Text style={styles.hint}>Ask what your agents are doing, or tell one what to do next.</Text>
+          ) : null}
+          {voice.lines.map((line) => (
+            <Line key={line.key} line={line} />
+          ))}
+          {voice.phase === 'ended' && voice.endedMessage !== null && voice.problem?.message !== voice.endedMessage ? (
+            <Text style={styles.notice}>{voice.endedMessage}</Text>
+          ) : null}
+        </ScrollView>
+        {away ? (
+          <View pointerEvents="box-none" style={styles.jumpRow}>
+            <IconPill
+              glyph="arrow-down"
+              accessibilityLabel="Scroll to bottom"
+              color={chatTheme.primary}
+              onPress={jumpToBottom}
+            />
+          </View>
         ) : null}
-        {voice.lines.map((line) => (
-          <Line key={line.key} line={line} />
-        ))}
-        {voice.phase === 'ended' && voice.endedMessage !== null && voice.problem?.message !== voice.endedMessage ? (
-          <Text style={styles.notice}>{voice.endedMessage}</Text>
-        ) : null}
-      </ScrollView>
+      </View>
 
       {shown !== null ? (
         <Pressable
@@ -468,6 +546,7 @@ const styles = StyleSheet.create({
   },
   problemText: { color: GhostexPalette.FOREGROUND, fontSize: 17, lineHeight: 24 },
   lines: { flex: 1 },
+  jumpRow: { position: 'absolute', right: 22, bottom: 16 },
   linesContent: { paddingHorizontal: 16, paddingBottom: 16, gap: 10 },
   hint: { color: GhostexPalette.MUTED, fontSize: 17, textAlign: 'center', marginTop: 8 },
   caption: { borderRadius: GhostexRadii.section, padding: 12, maxWidth: '92%' },
