@@ -8,11 +8,11 @@
  * Desktop opens this menu with a right press and reads the window's text selection. A phone has
  * neither: holding a message opens it with that whole message as the selection, and holding a link
  * opens the link's rows alone, as a right press on a link with nothing selected does on desktop.
- * On Android a hold on a message's words selects them instead and the menu opens from the
- * selection bar's More or from a hold beside the words; the native view gives each hold one owner
- * (`messageSelection.tsx`, `GhostexSelectionMenuView.kt`), which ends the race between a
- * selectable text's own hold and the sheet that kept prose unselectable since 2026-09-25 (iOS
- * keeps that unselectable prose). The bar's Add to Chat asks the core for the selection's row
+ * A hold on a message's words selects them instead and the menu opens from the selection menu's
+ * More or from a hold beside the words; the native view gives each hold one owner
+ * (`messageSelection.tsx`, `GhostexSelectionMenuView.kt` / `.swift`), which ends the race between
+ * a selectable text's own hold and the sheet that kept prose unselectable since 2026-09-25. The
+ * selection menu's Add to Chat asks the core for the selection's row
  * (`quote` below), so the quote reads exactly as this menu's Add to Chat. The subagent viewer opens
  * the same menu (user decision 2026-10-12), nested in its own modal.
  */

@@ -1,14 +1,12 @@
 import { requireNativeView } from 'expo';
 import * as React from 'react';
-import { Platform } from 'react-native';
 
 import type { GhostexSelectionMenuViewProps } from './GhostexNative.types';
 
-/** Android only: iOS has no such view (see `messageSelection.tsx` in the chat). */
+/** Required on first use, so a screen that never draws a message does not load it. */
 let NativeView: React.ComponentType<GhostexSelectionMenuViewProps> | null = null;
 
 export default function GhostexSelectionMenuView(props: GhostexSelectionMenuViewProps) {
-  if (Platform.OS !== 'android') throw new Error('GhostexSelectionMenuView is Android only');
   NativeView ??= requireNativeView('GhostexNative', 'GhostexSelectionMenuView');
   return <NativeView {...props} />;
 }

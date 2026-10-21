@@ -732,6 +732,11 @@ public class GhostexNativeModule: Module {
                 view.setSessionKey(sessionKey)
             }
         }
+
+        // A chat message's text: its selection menu and the hold that opens its menu.
+        View(GhostexSelectionMenuView.self) {
+            Events("onSelectionAction", "onHold")
+        }
     }
 
     // MARK: - Helpers

@@ -852,7 +852,7 @@ export type MarkdownProps = {
   headingColor?: string;
   /** Text somebody typed: single newlines are line breaks. */
   breaks?: boolean;
-  /** False where a hold on the message opens the transcript menu instead (iOS, `messageSelection.tsx`). */
+  /** False on iOS for a message with a menu, whose native view selects its words (`messageSelection.tsx`). */
   selectable?: boolean;
   /** False in a sent prompt, whose pictures keep their small thumbnails instead of a filmstrip. */
   strips?: boolean;
