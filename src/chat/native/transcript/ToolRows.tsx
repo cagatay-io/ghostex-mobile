@@ -83,6 +83,9 @@ export function ToolRows({ message }: { message: ProjectedMessage }) {
   }
   if (showAll || hidden === 0) return <View style={styles.column}>{rows(visible)}</View>;
   const keptFlags = arr(fold?.visible);
+  // The toggle sits right before the last call, open or closed, so what it reveals lands above it
+  // (gx-chat-core `tool_run_fold`, `toggleBefore`).
+  const before = typeof fold?.toggleBefore === 'number' ? fold.toggleBefore : Number.MAX_SAFE_INTEGER;
   const label = str(fold, runOpen ? 'expandedLabel' : 'collapsedLabel');
   const toggle = (
     <Pressable
@@ -101,15 +104,17 @@ export function ToolRows({ message }: { message: ProjectedMessage }) {
   if (runOpen) {
     return (
       <DisclosureBody onCollapse={toggleRun} label="Show fewer tool calls" gap={ROW_GAP}>
-        {rows(visible)}
+        {rows(visible.filter((index) => index < before))}
         {toggle}
+        {rows(visible.filter((index) => index >= before))}
       </DisclosureBody>
     );
   }
   return (
     <View style={styles.column}>
-      {rows(visible.filter((index) => keptFlags[index] === true))}
+      {rows(visible.filter((index) => keptFlags[index] === true && index < before))}
       {toggle}
+      {rows(visible.filter((index) => keptFlags[index] === true && index >= before))}
     </View>
   );
 }
