@@ -66,7 +66,15 @@ function useFollowBottom() {
   const scroll = useRef<ScrollView>(null);
   const [away, setAway] = useState(false);
   const awayRef = useRef(false);
-  const dragging = useRef(false);
+  /** The reader's finger is on the captions (begin drag to end drag). */
+  const fingerDown = useRef(false);
+  /** The fling that follows the reader's drag is still running. */
+  const momentum = useRef(false);
+  /**
+   * The finger just lifted, so a momentum begin that comes next is the reader's fling; a follow or
+   * jump scroll clears it, so momentum events Android sends for its own animated scrolls never count.
+   */
+  const released = useRef(false);
 
   const setAwayBoth = useCallback((next: boolean) => {
     awayRef.current = next;
@@ -74,17 +82,18 @@ function useFollowBottom() {
   }, []);
   const measure = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      if (dragging.current) setAwayBoth(distanceFromEnd(event) > BOTTOM_EDGE);
+      if (fingerDown.current || momentum.current) setAwayBoth(distanceFromEnd(event) > BOTTOM_EDGE);
     },
     [setAwayBoth],
   );
   const follow = useCallback(() => {
-    if (awayRef.current) return;
-    dragging.current = false;
+    if (awayRef.current || fingerDown.current || momentum.current) return;
+    released.current = false;
     scroll.current?.scrollToEnd({ animated: true });
   }, []);
   const jumpToBottom = useCallback(() => {
-    dragging.current = false;
+    momentum.current = false;
+    released.current = false;
     setAwayBoth(false);
     scroll.current?.scrollToEnd({ animated: true });
   }, [setAwayBoth]);
@@ -94,13 +103,25 @@ function useFollowBottom() {
     scrollEventThrottle: 32,
     onScroll: measure,
     onScrollBeginDrag: (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      dragging.current = true;
+      fingerDown.current = true;
+      momentum.current = false;
+      released.current = false;
       measure(event);
     },
-    onScrollEndDrag: measure,
+    onScrollEndDrag: (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      measure(event);
+      fingerDown.current = false;
+      // A drag with no fling never sends momentum end (Android); a fling sets it again on begin.
+      momentum.current = false;
+      released.current = true;
+    },
+    onMomentumScrollBegin: () => {
+      momentum.current = released.current;
+      released.current = false;
+    },
     onMomentumScrollEnd: (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       measure(event);
-      dragging.current = false;
+      momentum.current = false;
     },
     onContentSizeChange: follow,
     onLayout: follow,
