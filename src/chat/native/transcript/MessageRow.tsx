@@ -152,7 +152,9 @@ function AgentMessage({ message, proseColor }: { message: ProjectedMessage; pros
   const id = message.id;
   const body = typeof message.text === 'string' ? message.text : '';
   const reasoning = message.role === 'reasoning';
-  const hasTools = arr(message.tools).length > 0;
+  // Inside a turn fold the text owns none of its calls: they follow it at the same level
+  // (gx-chat-core `list_tools_in_work_fold`).
+  const hasTools = message.toolsFlat !== true && arr(message.tools).length > 0;
   const flush = isFlushReply(message, flags.finalIds);
   const toolsKey = reasoning ? `reasoning:${id}` : `tools:${id}`;
   // A running summary turn's newest row opens its tools (gx-chat-core `summary_mode_turns`).

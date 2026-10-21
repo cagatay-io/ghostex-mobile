@@ -295,6 +295,8 @@ export type ProjectedMessage = {
   toolFold?: Json;
   /** Whether every tool row shows without a "show more". */
   toolsShowAllRows?: boolean;
+  /** Inside a turn fold: the text owns none of its calls, which follow it at the same level. */
+  toolsFlat?: boolean;
   /** A running summary turn's newest row: its tool calls start open (gx-chat-core `summary_mode_turns` in `transcript/turns.rs`). */
   toolsOpen?: boolean;
   /** The live terminal tool row synthesized from the agent's screen. Desktop: `terminal_tool_row.rs`. */
