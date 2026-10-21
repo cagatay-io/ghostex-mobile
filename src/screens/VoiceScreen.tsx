@@ -3,7 +3,7 @@
  * walking or driving. A big state circle (listening, thinking, speaking, running a tool), live
  * captions of what you and the agent said with tool calls as short rows, the voice (tap it to pick
  * another) with a small speed button beside it (a list from 1x to 2x), the remembered last conversation to continue
- * (`VoiceMemoryCard`), and large Mute, Stop talking and Hang up controls. Closing the screen keeps the conversation going; the top bar's
+ * (`VoiceMemoryCard`), and large Mute, Stop and Hang up controls. Closing the screen keeps the conversation going; the top bar's
  * Voice button and the "Voice mode on" notification bring it back.
  */
 
@@ -272,7 +272,9 @@ function VoiceSettingsSheet({ visible, onClose }: { visible: boolean; onClose: (
           </Pressable>
         );
       })}
-      {provider === 'openai' ? <Text style={styles.sheetNote}>GPT Realtime bills only the audio sent, so muting it is already free.</Text> : null}
+      {provider === 'openai' ? (
+        <Text style={styles.sheetNote}>GPT Realtime bills only the audio sent, so muting it is already free.</Text>
+      ) : null}
     </BottomSheet>
   );
 }
@@ -523,7 +525,7 @@ export default function VoiceScreen({ navigation }: Props) {
             <Svg width={30} height={30} viewBox="0 0 24 24">
               <Path d="M 7 7 h 10 v 10 h -10 z" fill={GhostexPalette.FOREGROUND} />
             </Svg>
-            <Text style={styles.controlLabel}>Stop talking</Text>
+            <Text style={styles.controlLabel}>Stop</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -653,12 +655,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    paddingHorizontal: 10,
   },
   wide: { minHeight: 72 },
   controlOn: { backgroundColor: GhostexPalette.ACCENT },
   controlPressed: { opacity: 0.75 },
   controlDisabled: { opacity: 0.35 },
-  controlLabel: { color: GhostexPalette.FOREGROUND, fontSize: 17, fontWeight: '600' },
+  controlLabel: { color: GhostexPalette.FOREGROUND, fontSize: 17, fontWeight: '600', textAlign: 'center' },
   controlLabelOn: { color: GhostexPalette.ACCENT_FOREGROUND },
   hangUp: { backgroundColor: GhostexPalette.DANGER },
   hangUpPressed: { opacity: 0.8 },
