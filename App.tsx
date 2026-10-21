@@ -17,6 +17,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import type { RootStackParamList } from './src/navigation/types';
 import { initAlerts } from './src/app/alerts';
 import { initAutoReconnect } from './src/app/autoReconnect';
+import { checkForCrashReport, noteCrashRoute } from './src/app/crashReports';
 import { flushPendingDeepLink, initDeepLinks, navigationRef } from './src/app/deepLinks';
 import { initAppLifecycle } from './src/app/lifecycle';
 import { initPersistentNotification } from './src/app/persistentNotification';
@@ -32,6 +33,7 @@ import { initZmxDisplayPolicy } from './src/terminal/zmxDisplay';
 import { initAndroidSelfUpdate } from './src/updates/androidSelfUpdateStore';
 import { addProjectSourceLabel } from './src/addProject/sources';
 import { GhostexPalette } from './src/theme/palette';
+import CrashReportPrompt from './src/components/common/CrashReportPrompt';
 import ExtraKeysEditorScreen from './src/screens/ExtraKeysEditorScreen';
 import FeedbackScreen from './src/screens/FeedbackScreen';
 import AgentHotkeysEditorScreen from './src/screens/AgentHotkeysEditorScreen';
@@ -102,6 +104,7 @@ export default function App() {
     initChatGridClaim();
     initAndroidSelfUpdate();
     initVoice();
+    void checkForCrashReport().catch(() => undefined);
     void useMachinesStore.getState().hydrate();
     void useTerminalStore.getState().hydrate();
     void useExtraKeysStore.getState().hydrate();
@@ -121,7 +124,15 @@ export default function App() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
-        <NavigationContainer ref={navigationRef} theme={navigationTheme} onReady={flushPendingDeepLink}>
+        <NavigationContainer
+          ref={navigationRef}
+          theme={navigationTheme}
+          onReady={() => {
+            flushPendingDeepLink();
+            noteCrashRoute(navigationRef.getCurrentRoute()?.name);
+          }}
+          onStateChange={() => noteCrashRoute(navigationRef.getCurrentRoute()?.name)}
+        >
           <StatusBar style="light" />
           <Stack.Navigator
             screenOptions={{
@@ -238,6 +249,8 @@ export default function App() {
             ) : null}
           </Stack.Navigator>
         </NavigationContainer>
+        {/* Under the screens, not over them: the once-per-crash offer to send its report. */}
+        <CrashReportPrompt />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

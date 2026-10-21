@@ -903,4 +903,21 @@ export const FeedbackCopy = {
     }“${footer}”.`,
   agentUnsupported: 'Update Ghostex on this computer to start the feedback agent from the phone.',
   agentNoSession: 'The agent started, but Ghostex did not say which session it is in.',
+  crashAttached: 'Crash report attached',
+  crashAttachedHint:
+    'Saved on this phone when Ghostex closed. Personal details such as names, addresses, emails and keys are removed; you see the exact text in Review.',
+  crashAgentHint: 'The agent gets this report too and removes anything personal it still finds.',
+  attachCrash: (when: string) => `Attach Crash Report (${when})`,
+  removeCrash: 'Remove',
+  showCrash: 'Show Report',
+  hideCrash: 'Hide Report',
+} as const;
+
+/** The next-launch offer to send the crash report the last run left behind. */
+export const CrashReportCopy = {
+  title: 'Ghostex closed unexpectedly',
+  body: (when: string) =>
+    `It closed on ${when}. A crash report is saved on this phone; sending it helps us fix the cause. You review it first, and personal details are removed.`,
+  send: 'Send Report',
+  dismiss: 'Dismiss',
 } as const;

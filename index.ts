@@ -1,6 +1,10 @@
 import { registerRootComponent } from 'expo';
 
 import App from './App';
+import { installCrashReporting } from './src/app/crashReports';
+
+// Before the first render, so a crash while the app starts is kept too.
+installCrashReporting();
 
 // registerRootComponent calls AppRegistry.registerComponent('main', () => App);
 // It also ensures that whether you load the app in Expo Go or in a native build,

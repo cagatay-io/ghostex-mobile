@@ -68,8 +68,11 @@ export type RootStackParamList = {
     /** The session's project, whose file link streams a video or audio file (`docs/mediaStream.ts`). */
     projectId?: string;
   };
-  /** Send Bug / Feedback; `machineId` is the computer the "Collect more data with an agent" switch uses. */
-  Feedback: { machineId?: string } | undefined;
+  /**
+   * Send Bug / Feedback; `machineId` is the computer the "Collect more data with an agent" switch uses,
+   * `crashReportId` a stored crash report to attach (the next-launch crash prompt).
+   */
+  Feedback: { machineId?: string; crashReportId?: string } | undefined;
   /** Settings home: the list of Settings pages. */
   Settings: undefined;
   /** One Settings page (Theme, Chat, Terminal, Keyboard, Sounds, Connection, Updates, Advanced). */

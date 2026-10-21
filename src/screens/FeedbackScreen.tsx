@@ -21,12 +21,21 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, type RouteProp, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Image, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { chatMachineLink, UNREACHABLE_MESSAGE } from '../chat/rust/machine-link';
 import { ErrorBanner } from '../addProject/primitives';
 import { SetupButton } from '../components/onboarding/SetupPrimitives';
 import { FeedbackCopy } from '../copy';
+import {
+  crashReportText,
+  crashSummary,
+  crashTimeLabel,
+  deleteCrashReport,
+  listCrashReports,
+  messageWithCrashReport,
+  type StoredCrashReport,
+} from '../feedback/crashReports';
 import { draftBody, draftTitle, githubUsername } from '../feedback/feedbackDraft';
 import {
   FEEDBACK_MAX_IMAGES,
@@ -77,6 +86,12 @@ export default function FeedbackScreen() {
   const [collectWithAgent, setCollectWithAgent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** The crash report attached to this issue, as stored and as the cleaned text it adds. */
+  const [crash, setCrash] = useState<{ report: StoredCrashReport; text: string } | null>(null);
+  /** The newest stored report, offered as "Attach Crash Report" while none is attached. */
+  const [storedCrash, setStoredCrash] = useState<StoredCrashReport | null>(null);
+  const [showCrash, setShowCrash] = useState(false);
+  const crashReportId = route.params?.crashReportId;
 
   useEffect(() => {
     void AsyncStorage.getItem(GITHUB_USERNAME_KEY)
@@ -85,6 +100,27 @@ export default function FeedbackScreen() {
       })
       .catch(() => undefined);
   }, []);
+
+  const attachCrash = useCallback((report: StoredCrashReport) => {
+    setCrash({ report, text: crashReportText(report) });
+    setMessage((current) => (current.trim().length === 0 ? crashSummary(report) : current));
+  }, []);
+
+  useEffect(() => {
+    void listCrashReports()
+      .then((reports) => {
+        const requested = reports.find((report) => report.id === crashReportId);
+        if (requested !== undefined) attachCrash(requested);
+        setStoredCrash(reports[0] ?? null);
+      })
+      .catch(() => undefined);
+  }, [attachCrash, crashReportId]);
+
+  /** What the issue says after the reporter line: the message, then the cleaned crash report. */
+  const fullMessage = crash === null ? message : messageWithCrashReport(message, crash.text);
+  const forgetCrash = useCallback(() => {
+    if (crash !== null) void deleteCrashReport(crash.report.id).catch(() => undefined);
+  }, [crash]);
 
   const name = githubUsername(username);
   const withAgent = collectWithAgent && connected && machine !== undefined;
@@ -113,8 +149,8 @@ export default function FeedbackScreen() {
     if (!canContinue || typeof name !== 'string') return;
     remember();
     setError(null);
-    setStep({ kind: 'review', title: draftTitle(message), body: draftBody(message, name) });
-  }, [canContinue, message, name, remember]);
+    setStep({ kind: 'review', title: draftTitle(message), body: draftBody(fullMessage, name) });
+  }, [canContinue, fullMessage, message, name, remember]);
 
   const startAgent = useCallback(async () => {
     if (!canContinue || typeof name !== 'string' || machine === undefined) return;
@@ -131,7 +167,7 @@ export default function FeedbackScreen() {
         'startFeedbackAgent',
         {
           app: 'mobile',
-          message: message.trim(),
+          message: fullMessage.trim(),
           githubUsername: name,
           images: images.map((image) => ({ name: image.name, dataBase64: image.dataBase64 })),
         },
@@ -150,6 +186,7 @@ export default function FeedbackScreen() {
         setError(FeedbackCopy.agentNoSession);
         return;
       }
+      forgetCrash();
       const sessionKey = useTerminalStore.getState().openChatTab(machine, {
         sessionId: result.sessionId,
         projectId: result.projectId,
@@ -161,7 +198,7 @@ export default function FeedbackScreen() {
     } finally {
       setBusy(false);
     }
-  }, [canContinue, images, machine, message, name, navigation, remember]);
+  }, [canContinue, forgetCrash, fullMessage, images, machine, name, navigation, remember]);
 
   const send = useCallback(async () => {
     if (
@@ -176,13 +213,14 @@ export default function FeedbackScreen() {
     setError(null);
     try {
       const issue = await sendFeedback(feedbackRequest(step.title, step.body, images, name));
+      forgetCrash();
       setStep({ kind: 'sent', ...issue });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
     } finally {
       setBusy(false);
     }
-  }, [images, name, step]);
+  }, [forgetCrash, images, name, step]);
 
   const input = [styles.input, local.input];
   const multiline = [styles.input, local.input, local.multiline];
@@ -322,6 +360,51 @@ export default function FeedbackScreen() {
       <Caption>{FeedbackCopy.imagesHint}</Caption>
       {imageError !== null ? <Text style={[styles.caption, local.error]}>{imageError}</Text> : null}
 
+      {crash !== null ? (
+        <View style={local.spaced}>
+          <Text style={styles.cardLabel}>{FeedbackCopy.crashAttached}</Text>
+          <Caption>{`${crashTimeLabel(crash.report.at)} · ${FeedbackCopy.crashAttachedHint}`}</Caption>
+          {withAgent ? <Caption>{FeedbackCopy.crashAgentHint}</Caption> : null}
+          {showCrash ? (
+            <ScrollView
+              style={[local.crash, { borderColor: appearance.border }]}
+              nestedScrollEnabled
+              accessibilityLabel={FeedbackCopy.crashAttached}
+            >
+              <Text style={[local.crashText, { color: appearance.muted }]} selectable>
+                {crash.text}
+              </Text>
+            </ScrollView>
+          ) : null}
+          <View style={local.buttons}>
+            <SetupButton
+              label={showCrash ? FeedbackCopy.hideCrash : FeedbackCopy.showCrash}
+              small
+              disabled={busy}
+              onPress={() => setShowCrash((shown) => !shown)}
+            />
+            <SetupButton
+              label={FeedbackCopy.removeCrash}
+              small
+              disabled={busy}
+              onPress={() => {
+                setCrash(null);
+                setShowCrash(false);
+              }}
+            />
+          </View>
+        </View>
+      ) : storedCrash !== null ? (
+        <View style={local.buttons}>
+          <SetupButton
+            label={FeedbackCopy.attachCrash(crashTimeLabel(storedCrash.at))}
+            small
+            disabled={busy}
+            onPress={() => attachCrash(storedCrash)}
+          />
+        </View>
+      ) : null}
+
       {connected && machine !== undefined ? (
         <View style={local.spaced}>
           <ToggleRow label={FeedbackCopy.agentLabel} value={collectWithAgent} onValueChange={setCollectWithAgent} />
@@ -368,6 +451,17 @@ function createStyles() {
     },
     error: {
       color: GhostexPalette.DANGER,
+    },
+    crash: {
+      maxHeight: 220,
+      borderWidth: 1,
+      borderRadius: GhostexRadii.row,
+      padding: 8,
+    },
+    crashText: {
+      fontFamily: Platform.select({ ios: 'Menlo', default: 'monospace' }),
+      fontSize: 11,
+      lineHeight: 15,
     },
     thumbs: {
       flexDirection: 'row',

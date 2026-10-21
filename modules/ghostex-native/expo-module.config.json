@@ -1,9 +1,13 @@
 {
   "platforms": ["apple", "android"],
   "apple": {
-    "modules": ["GhostexNativeModule"]
+    "modules": ["GhostexNativeModule", "GhostexCrashReportsModule"],
+    "appDelegateSubscribers": ["GhostexCrashReportsAppDelegate"]
   },
   "android": {
-    "modules": ["expo.modules.ghostexnative.GhostexNativeModule"]
+    "modules": [
+      "expo.modules.ghostexnative.GhostexNativeModule",
+      "expo.modules.ghostexnative.GhostexCrashReportsModule"
+    ]
   }
 }
