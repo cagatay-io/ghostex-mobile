@@ -26,6 +26,10 @@ android {
 }
 
 dependencies {
+  // React Native's own view tags (the `nativeID` a chat message reads in GhostexSelectionMenuView.kt).
+  // The app already ships it; the version comes from React Native's Gradle plugin, as in expo-modules-core.
+  implementation 'com.facebook.react:react-android'
+
   // SSH transport: same coordinates as the Ghostex Android fork (app/build.gradle).
   // bcprov is declared directly because Ghostex replaces Android's stale platform "BC"
   // provider with the bundled BouncyCastle before SSHJ builds crypto primitives.

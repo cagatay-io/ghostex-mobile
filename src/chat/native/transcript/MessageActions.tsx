@@ -1,9 +1,9 @@
 /**
- * What sits under a message (desktop `message_actions.rs`, React `CopyFooter`) and the actions a
- * long press on it offers: the time under a final reply, starting at the prose column, and under a
- * prompt, right-aligned; the buttons desktop shows on hover are rows of the long-press menu.
+ * What sits under a message (desktop `message_actions.rs`, React `CopyFooter`) and the actions its
+ * menu offers: the time under a final reply, starting at the prose column, and under a prompt,
+ * right-aligned; the buttons desktop shows on hover are rows of the message's menu.
  *
- * CDXC:SessionChat 2026-10-12 DECISION: User: "hold on message to see options on the phone, we dont show buttons on any messages in the transcript without holding on it first (since these are shown on hover on desktop but there's no hover on mobile)". No message shows a button, in the main transcript or the subagent viewer: Copy, Edit, Back to composer, Delete, Rewind, Save prompt, Save to md and Send now are rows of the long-press menu (`TranscriptMenu.tsx`), built from `useUserActionItems` / `useReplyActionItems` here. Only the time, a queued message's play glyph and a "taking it back" spinner stay under a message. The user picked "Give it the same long-press menu and hide the buttons" for the subagent viewer. Supersedes the always-visible row of 2026-10-11 and the 2026-10-12 copy button under a `!` command.
+ * CDXC:SessionChat 2026-10-21 DECISION: User: "On mobile app i should be able to hold and select text in messages so i can copy or add to chat", and picked "Hold selects text": holding a message's words starts the phone's own text selection, whose bar offers Copy and Add to Chat for the selected words and More, which opens the message's menu (`TranscriptMenu.tsx`: Copy and Add to Chat for the whole message, then its actions). Kept from 2026-10-12 (User: "we dont show buttons on any messages in the transcript without holding on it first (since these are shown on hover on desktop but there's no hover on mobile)"): no message shows a button, in the main transcript or the subagent viewer; Copy, Edit, Back to composer, Delete, Rewind, Save prompt, Save to md and Send now are rows of that menu, built from `useUserActionItems` / `useReplyActionItems` here, and only the time, a queued message's play glyph and a "taking it back" spinner stay under a message. Supersedes the 2026-10-12 hold that opened the menu from anywhere on a message, which still holds on iOS, whose text cannot be partly selected (`messageSelection.tsx`).
  */
 
 import { memo } from 'react';
@@ -17,7 +17,7 @@ import { rememberSaveMarkdown } from './saveMarkdownStore';
 import { PROSE_COLUMN } from './theme';
 import type { MessageMenuAction } from './transcriptMenuStore';
 
-/** One action of a message: a row of its long-press menu. */
+/** One action of a message: a row of its menu. */
 type ActionItem = MessageMenuAction;
 
 function MessageTime({ message }: { message: ProjectedMessage }) {
@@ -56,7 +56,7 @@ export const ReplyActions = memo(function ReplyActions({
   message: ProjectedMessage;
   flush: boolean;
 }) {
-  // Only the time shows; Save to md is in the long-press menu (see the file doc).
+  // Only the time shows; Save to md is in the message's menu (see the file doc).
   if (str(message.time, 'label').length === 0) return null;
   return (
     <View style={[styles.row, { paddingLeft: flush ? 0 : PROSE_COLUMN }]}>
@@ -82,7 +82,7 @@ function useReplyActionItems(message: ProjectedMessage): ActionItem[] {
   ];
 }
 
-/** The actions a long press on a reply offers after Copy and Add to Chat. */
+/** The actions a reply's menu offers after Copy and Add to Chat. */
 export function useReplyMenuActions(message: ProjectedMessage): MessageMenuAction[] {
   return useReplyActionItems(message);
 }
@@ -110,10 +110,10 @@ export function DeliveryIndicator({ message }: { message: ProjectedMessage }) {
     );
   }
   if (!queued) return null;
-  // The play button's action ("Send now") is in the long-press menu; the glyph stays as the sign
+  // The play button's action ("Send now") is in the message's menu; the glyph stays as the sign
   // that the message is waiting.
   return (
-    <View style={[styles.button, styles.indicator]} accessibilityLabel="Queued. Hold the message to send it now">
+    <View style={[styles.button, styles.indicator]} accessibilityLabel="Queued. Send now is in the message's options">
       <Glyph name="player-play" size={13} color={theme.muted} />
     </View>
   );
@@ -207,7 +207,7 @@ function useUserActionItems(message: ProjectedMessage): ActionItem[] {
   return items;
 }
 
-/** The actions a long press on a prompt offers after Copy and Add to Chat. */
+/** The actions a prompt's menu offers after Copy and Add to Chat. */
 export function useUserMenuActions(message: ProjectedMessage): MessageMenuAction[] {
   return useUserActionItems(message);
 }

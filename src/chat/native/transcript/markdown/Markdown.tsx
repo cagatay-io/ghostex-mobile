@@ -235,7 +235,7 @@ function FlowParagraph({ inlines, context, color }: { inlines: Inline[]; context
         part.kind === 'image' ? (
           <InlineImage key={index} image={part.image} />
         ) : (
-          <Text key={index} style={[styles.prose, { color }]}>
+          <Text key={index} selectable={context.selectable} style={[styles.prose, { color }]}>
             {renderInlines(part.inlines, context, `f${index}`)}
           </Text>
         ),
@@ -497,7 +497,11 @@ function Table({ block, context: rowContext }: { block: Extract<Block, { t: 'tab
           <View style={[styles.tableRow, { borderBottomColor: theme.border }]}>
             {block.head.map((cell, column) => (
               <View key={column} style={cellStyle(column)}>
-                <Text numberOfLines={lines} style={[styles.tableText, styles.strong, { color: theme.foreground }]}>
+                <Text
+                  numberOfLines={lines}
+                  selectable={context.selectable}
+                  style={[styles.tableText, styles.strong, { color: theme.foreground }]}
+                >
                   {renderInlines(cell, context, `h${column}`)}
                 </Text>
               </View>
@@ -513,7 +517,11 @@ function Table({ block, context: rowContext }: { block: Extract<Block, { t: 'tab
             >
               {row.map((cell, column) => (
                 <View key={column} style={cellStyle(column)}>
-                  <Text numberOfLines={lines} style={[styles.tableText, { color: theme.prose }]}>
+                  <Text
+                    numberOfLines={lines}
+                    selectable={context.selectable}
+                    style={[styles.tableText, { color: theme.prose }]}
+                  >
                     {renderInlines(cell, context, `r${rowIndex}.${column}`)}
                   </Text>
                 </View>
@@ -844,7 +852,7 @@ export type MarkdownProps = {
   headingColor?: string;
   /** Text somebody typed: single newlines are line breaks. */
   breaks?: boolean;
-  /** False where a long press on the message opens the transcript menu instead. */
+  /** False where a hold on the message opens the transcript menu instead (iOS, `messageSelection.tsx`). */
   selectable?: boolean;
   /** False in a sent prompt, whose pictures keep their small thumbnails instead of a filmstrip. */
   strips?: boolean;

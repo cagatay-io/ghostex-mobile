@@ -671,6 +671,11 @@ class GhostexNativeModule : Module() {
       }
     }
 
+    // A chat message's text: its selection bar and the hold that opens its menu (Android only).
+    View(GhostexSelectionMenuView::class) {
+      Events("onSelectionAction", "onHold")
+    }
+
     OnDestroy {
       GhostexVoice.emitter = null
       GhostexVoiceRecorder.emitter = null

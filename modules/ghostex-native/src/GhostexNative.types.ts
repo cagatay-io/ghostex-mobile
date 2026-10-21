@@ -289,3 +289,10 @@ export type GhostexTerminalViewProps = {
   onSingleTap?: () => void;
   onOpenUrl: (event: { nativeEvent: { url: string } }) => void;
 };
+
+export type GhostexSelectionMenuViewProps = import('react-native').ViewProps & {
+  /** The selection bar's Add to Chat (`text`: the selected words) and More (`text` is empty). */
+  onSelectionAction?: (event: { nativeEvent: { action: 'addToChat' | 'more'; text: string } }) => void;
+  /** A hold on the message that is not on its words, a link or an element that owns its hold. */
+  onHold?: () => void;
+};

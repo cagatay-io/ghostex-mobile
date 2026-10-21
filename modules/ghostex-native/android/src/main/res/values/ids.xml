@@ -1,0 +1,4 @@
+<resources>
+  <item name="ghostex_selection_add_to_chat" type="id" />
+  <item name="ghostex_selection_more" type="id" />
+</resources>

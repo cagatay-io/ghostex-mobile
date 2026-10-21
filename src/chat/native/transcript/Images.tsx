@@ -22,6 +22,7 @@ import { fileNameOf, imageFailureCopy } from '../cards/ImageUnavailable';
 import { useImageDisplay, useTranscriptEnv, type ChatImageSource } from './context';
 import { Glyph } from './icons';
 import { arr, obj, str } from './json';
+import { OWNS_HOLD } from './messageSelection';
 import { openTranscriptMenu } from './transcriptMenuStore';
 
 /** A picture's file on the computer (`copyPath`, or the path it is read from); none for a web address or pasted bytes. */
@@ -36,9 +37,10 @@ function imageFilePath(image: ChatImageSource): string {
  * phone's share of the desktop's Copy Path and folder row (CDXC:SessionChat 2026-10-17 in desktop
  * `native_chat/file_actions.rs`; the phone cannot show a folder on the computer).
  */
-function fileMenuProps(image: ChatImageSource): { onLongPress?: () => void } {
+function fileMenuProps(image: ChatImageSource): { onLongPress?: () => void; nativeID?: string } {
   const path = imageFilePath(image);
-  return path.length > 0 ? { onLongPress: () => openTranscriptMenu({ href: path }) } : {};
+  // `OWNS_HOLD`: inside a message's text on Android the hold stays this picture's, not the message's menu.
+  return path.length > 0 ? { onLongPress: () => openTranscriptMenu({ href: path }), nativeID: OWNS_HOLD } : {};
 }
 
 const VISUAL = {

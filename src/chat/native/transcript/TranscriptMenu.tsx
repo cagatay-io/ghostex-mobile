@@ -4,14 +4,17 @@
  * in `packages/gx-chat-core/src/composer/transcript_menu.rs`); this file opens them in a sheet and
  * hands each row's command to the screen, which performs what only it can (`TranscriptMenuHost`).
  *
- * CDXC:SessionChat 2026-09-25 WHY:
+ * CDXC:SessionChat 2026-10-21 WHY:
  * Desktop opens this menu with a right press and reads the window's text selection. A phone has
- * neither, so a long press on a message opens it with that whole message as the selection, and a
- * long press on a link opens the link's rows alone, as a right press on a link with nothing
- * selected does on desktop. The prose those rows cover is not natively selectable: a selectable
- * text view claims the same long press for its own selection menu on both platforms, which
- * raced the sheet. The subagent viewer opens the same menu (user decision 2026-10-12), nested in
- * its own modal.
+ * neither: holding a message opens it with that whole message as the selection, and holding a link
+ * opens the link's rows alone, as a right press on a link with nothing selected does on desktop.
+ * On Android a hold on a message's words selects them instead and the menu opens from the
+ * selection bar's More or from a hold beside the words; the native view gives each hold one owner
+ * (`messageSelection.tsx`, `GhostexSelectionMenuView.kt`), which ends the race between a
+ * selectable text's own hold and the sheet that kept prose unselectable since 2026-09-25 (iOS
+ * keeps that unselectable prose). The bar's Add to Chat asks the core for the selection's row
+ * (`quote` below), so the quote reads exactly as this menu's Add to Chat. The subagent viewer opens
+ * the same menu (user decision 2026-10-12), nested in its own modal.
  */
 
 import { useCallback, useEffect, useMemo } from 'react';
@@ -77,6 +80,25 @@ export function TranscriptMenuSheet({
   // The menu belongs to the chat on screen; leaving it drops a request still pending.
   useEffect(() => closeTranscriptMenu, []);
   const composerText = chat.state?.composer.text ?? '';
+  // The selection bar's Add to Chat (`addSelectionToChat`): the core's Add to Chat row for those words.
+  const quote = useCallback(
+    (selection: string) => {
+      const row = arr(query('transcriptMenu', [{ href: null, selection, questionActive: active }]))
+        .map((entry) => obj(entry))
+        .find((entry) => str(obj(entry?.command), 'type') === 'appendToDraft');
+      const text = str(obj(row?.command), 'text');
+      if (row?.disabled === true || text.length === 0) return;
+      chat.dispatch({ type: 'appendToDraft', text, draft: composerText });
+    },
+    [active, chat, composerText, query],
+  );
+  useEffect(() => {
+    if (!enabled) return;
+    useTranscriptMenuStore.setState({ quote });
+    return () => {
+      if (useTranscriptMenuStore.getState().quote === quote) useTranscriptMenuStore.setState({ quote: null });
+    };
+  }, [enabled, quote]);
   const onCommand = useCallback(
     (command: MenuRow): boolean => {
       if (str(command, 'type') === 'messageAction') {

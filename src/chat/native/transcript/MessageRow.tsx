@@ -15,6 +15,13 @@ import { FileChangeStack } from './FileChanges';
 import { ImageRow } from './Images';
 import { arr, obj, str } from './json';
 import { MessageLongPressContext } from './markdown/blockLongPress';
+import {
+  HOLD_SELECTS_TEXT,
+  ignoreHold,
+  MESSAGE_MENU_HINT,
+  MessageSelection,
+  messageMenuAccessibility,
+} from './messageSelection';
 import { Markdown } from './markdown/Markdown';
 import {
   DeliveryIndicator,
@@ -79,16 +86,15 @@ function ApiErrorRow({ message }: { message: ProjectedMessage }) {
 }
 
 /**
- * The long press that opens the transcript menu on a message (desktop's right press), with the
- * message's own text as the selection and its own actions (`actions`) under Copy and Add to Chat.
- * The main transcript and the subagent viewer share the menu (`TranscriptMenu.tsx`).
+ * The transcript menu of a message (desktop's right press), with the message's own text as the
+ * selection and its own actions (`actions`) under Copy and Add to Chat: a hold opens it on iOS, and
+ * on Android a hold beside the words or the selection bar's More (`messageSelection.tsx`). The
+ * main transcript and the subagent viewer share the menu (`TranscriptMenu.tsx`).
  */
 function useMessageMenu(message: ProjectedMessage, actions: MessageMenuAction[] = []): (() => void) | undefined {
   const selection = typeof message.copyText === 'string' ? message.copyText : '';
   return selection.trim().length > 0 ? () => openTranscriptMenu({ selection, actions }) : undefined;
 }
-
-const MENU_HINT = 'Long press for Copy, Add to Chat and the message actions';
 
 function UserMessage({ message }: { message: ProjectedMessage }) {
   const { theme } = useTranscriptEnv();
@@ -105,7 +111,7 @@ function UserMessage({ message }: { message: ProjectedMessage }) {
       references={shortened ? message.collapsedReferences : message.markdownReferences}
       color={theme.primary}
       breaks
-      selectable={openMenu === undefined}
+      selectable={openMenu === undefined || HOLD_SELECTS_TEXT}
       strips={false}
     />
   );
@@ -129,16 +135,20 @@ function UserMessage({ message }: { message: ProjectedMessage }) {
         <View style={styles.bubbleRow}>
           <DeliveryIndicator message={message} />
           {body.length > 0 ? (
-            openMenu !== undefined ? (
+            openMenu === undefined ? (
+              <View style={[styles.bubble, { backgroundColor: theme.input }]}>{bubble}</View>
+            ) : HOLD_SELECTS_TEXT ? (
+              <MessageSelection openMenu={openMenu} style={[styles.bubble, { backgroundColor: theme.input }]}>
+                <MessageLongPressContext.Provider value={openMenu}>{bubble}</MessageLongPressContext.Provider>
+              </MessageSelection>
+            ) : (
               <Pressable
                 onLongPress={openMenu}
-                accessibilityHint={MENU_HINT}
+                accessibilityHint={MESSAGE_MENU_HINT}
                 style={({ pressed }) => [styles.bubble, { backgroundColor: theme.input }, pressed && { opacity: 0.85 }]}
               >
                 <MessageLongPressContext.Provider value={openMenu}>{bubble}</MessageLongPressContext.Provider>
               </Pressable>
-            ) : (
-              <View style={[styles.bubble, { backgroundColor: theme.input }]}>{bubble}</View>
             )
           ) : null}
         </View>
@@ -162,6 +172,7 @@ function AgentMessage({ message, proseColor }: { message: ProjectedMessage; pros
   // A running summary turn's newest row opens its tools (gx-chat-core `summary_mode_turns`).
   const [toolsOpen, toggleTools] = useDisclosure(disclosures, toolsKey, workOpen || message.toolsOpen === true);
   const openMenu = useMessageMenu(message, useReplyMenuActions(message));
+  const selects = HOLD_SELECTS_TEXT && openMenu !== undefined;
   const find = useRowFind();
   let lead = null;
   let toolsRendered = false;
@@ -199,31 +210,49 @@ function AgentMessage({ message, proseColor }: { message: ProjectedMessage; pros
       lead = <ThinkingRow id={id} body={body} references={message.markdownReferences} />;
     } else {
       // An agent's own words are the heading its tool calls hang from (React's AgentToolsDisclosure).
+      const headingContent = (
+        <>
+          {hasTools ? (
+            <Chevron open={toolsOpen} color={theme.primary} />
+          ) : flush ? null : (
+            <LaneMarker color={theme.primary} />
+          )}
+          <View style={styles.headingBody}>
+            <Markdown
+              text={body}
+              references={message.markdownReferences}
+              color={proseColor}
+              headingColor={mutedThinking ? theme.foreground : undefined}
+              selectable={openMenu === undefined || HOLD_SELECTS_TEXT}
+            />
+          </View>
+        </>
+      );
       const heading = (
         <MessageLongPressContext.Provider value={openMenu}>
-          <View style={styles.heading}>
-            {hasTools ? (
-              <Chevron open={toolsOpen} color={theme.primary} />
-            ) : flush ? null : (
-              <LaneMarker color={theme.primary} />
-            )}
-            <View style={styles.headingBody}>
-              <Markdown
-                text={body}
-                references={message.markdownReferences}
-                color={proseColor}
-                headingColor={mutedThinking ? theme.foreground : undefined}
-                selectable={openMenu === undefined}
-              />
-            </View>
-          </View>
+          {selects && openMenu !== undefined ? (
+            // Without tools no press wraps the heading, so it keeps that press's room on the right.
+            <MessageSelection
+              openMenu={openMenu}
+              style={[styles.heading, !hasTools && styles.headingPress]}
+              accessible={!hasTools}
+            >
+              {headingContent}
+            </MessageSelection>
+          ) : (
+            <View style={styles.heading}>{headingContent}</View>
+          )}
         </MessageLongPressContext.Provider>
       );
       lead = hasTools ? (
         <>
           <Pressable
             onPress={toggleTools}
-            {...(openMenu !== undefined ? { onLongPress: openMenu } : {})}
+            {...(openMenu === undefined
+              ? {}
+              : selects
+                ? { onLongPress: ignoreHold, ...messageMenuAccessibility(openMenu) }
+                : { onLongPress: openMenu })}
             accessibilityRole="button"
             accessibilityState={{ expanded: toolsOpen }}
             accessibilityHint={toolsOpen ? 'Hide tool calls for this message' : 'Show tool calls for this message'}
@@ -237,10 +266,10 @@ function AgentMessage({ message, proseColor }: { message: ProjectedMessage; pros
             </DisclosureBody>
           ) : null}
         </>
-      ) : openMenu !== undefined ? (
+      ) : openMenu !== undefined && !selects ? (
         <Pressable
           onLongPress={openMenu}
-          accessibilityHint={MENU_HINT}
+          accessibilityHint={MESSAGE_MENU_HINT}
           style={({ pressed }) => [styles.headingPress, pressed && { backgroundColor: theme.pressed }]}
         >
           {heading}

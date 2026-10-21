@@ -2,4 +2,6 @@
   <string name="paste_text">Paste</string>
   <string name="copy_text">Copy</string>
   <string name="text_selection_more">More…</string>
+  <string name="message_selection_add_to_chat">Add to Chat</string>
+  <string name="message_selection_more">More</string>
 </resources>
