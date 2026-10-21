@@ -93,6 +93,11 @@ internal object GhostexVoice {
     current("conversation")?.setMuted(muted)
   }
 
+  /** Push-to-talk: the voice screen's Talk button pressed or released. */
+  fun setTalking(talking: Boolean) {
+    current("conversation")?.setTalking(talking)
+  }
+
   fun interrupt() {
     current("conversation")?.sendJson(JSONObject().put("type", "interrupt"))
   }
@@ -182,6 +187,9 @@ internal object GhostexVoice {
     @Volatile private var muted = false
     @Volatile private var focusPaused = false
     @Volatile private var speed = 1f
+    /** A push-to-talk call (`ready` says so): the microphone streams only while Talk is held. */
+    @Volatile private var pushToTalk = false
+    @Volatile private var talking = false
     @Volatile private var conversationId: String? = null
     @Volatile private var state = "connecting"
     /** The server said `ended` or `done`, or the user hung up: a closed socket is final. */
@@ -223,7 +231,7 @@ internal object GhostexVoice {
     private fun onMicrophone(chunk: ByteArray) {
       val live = socket ?: return
       // Dictation may stream before `ready` (gxserver buffers it); a conversation starts at `ready`.
-      if (conversationMode && (!ready || muted || focusPaused)) return
+      if (conversationMode && (!ready || muted || focusPaused || (pushToTalk && !talking))) return
       live.send(chunk.toByteString())
     }
 
@@ -238,9 +246,6 @@ internal object GhostexVoice {
 
     fun setMuted(value: Boolean) {
       muted = value
-      // gxserver switches a muted Grok call to push-to-talk when `voiceAgentMuteBilling` says so; the
-      // notification's Mute comes through here too.
-      if (conversationMode && ready) sendMute()
       refreshNotice()
       status(if (value) "muted" else "unmuted", null)
     }
@@ -255,8 +260,15 @@ internal object GhostexVoice {
       if (ready) sendPlaybackRate()
     }
 
-    private fun sendMute() {
-      sendJson(JSONObject().put("type", "mute").put("muted", muted))
+    /**
+     * Push-to-talk: Talk pressed or released. gxserver cuts a reply the agent is speaking when Talk
+     * is pressed (it answers `interrupted`, as for Stop) and sends what was said when it is released.
+     */
+    fun setTalking(value: Boolean) {
+      if (!conversationMode || !pushToTalk || !ready || talking == value) return
+      talking = value
+      sendJson(JSONObject().put("type", if (value) "talkStart" else "talkEnd"))
+      refreshNotice()
     }
 
     /** gxserver times the reply's end and an interruption's estimate by this rate; it resets on every attach. */
@@ -353,8 +365,10 @@ internal object GhostexVoice {
           detachedAt = 0L
           attempts = 0
           if (conversationMode) {
+            pushToTalk = frame.optString("callMode") == "pushToTalk"
+            talking = false
             sendPlaybackRate()
-            sendMute()
+            refreshNotice()
           }
         }
         "state" -> {
@@ -426,11 +440,13 @@ internal object GhostexVoice {
         detachedAt > 0L -> "Reconnecting to $title…"
         focusPaused -> "Paused while another app uses audio"
         muted -> "Microphone muted · $title"
+        talking -> "Listening · $title"
         state == "speaking" -> "Speaking · $title"
         state == "thinking" || state == "toolRunning" -> "Thinking · $title"
+        pushToTalk -> "Push-to-talk · $title"
         else -> "Listening · $title"
       }
-      GhostexForegroundService.updateVoiceMode(line, muted)
+      GhostexForegroundService.updateVoiceMode(line, muted, pushToTalk)
     }
 
     @Suppress("DEPRECATION")

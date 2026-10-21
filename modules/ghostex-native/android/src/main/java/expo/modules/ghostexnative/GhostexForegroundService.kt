@@ -240,11 +240,16 @@ class GhostexForegroundService : Service() {
       .setCategory(NotificationCompat.CATEGORY_CALL)
       .setPriority(NotificationCompat.PRIORITY_HIGH)
       .setContentIntent(PendingIntent.getActivity(this, 3, open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
-      .addAction(
-        android.R.drawable.ic_btn_speak_now,
-        if (voiceMuted) "Unmute" else "Mute",
-        servicePendingIntent(ACTION_VOICE_MUTE, 4)
-      )
+      .apply {
+        // A push-to-talk call listens only while Talk is held in the app, so Mute has nothing to do.
+        if (!voicePushToTalk) {
+          addAction(
+            android.R.drawable.ic_btn_speak_now,
+            if (voiceMuted) "Unmute" else "Mute",
+            servicePendingIntent(ACTION_VOICE_MUTE, 4)
+          )
+        }
+      }
       .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Hang up", servicePendingIntent(ACTION_VOICE_HANG_UP, 5))
       .build()
   }
@@ -366,6 +371,9 @@ class GhostexForegroundService : Service() {
     private var voiceMuted = false
 
     @Volatile
+    private var voicePushToTalk = false
+
+    @Volatile
     private var instance: GhostexForegroundService? = null
 
     fun start(context: Context) {
@@ -389,6 +397,7 @@ class GhostexForegroundService : Service() {
     /** Switches the notification to "Voice mode on" and takes the microphone service type. */
     fun startVoiceMode(context: Context, title: String) {
       voiceMuted = false
+      voicePushToTalk = false
       voiceLine = "Connecting to $title…"
       ContextCompat.startForegroundService(
         context,
@@ -397,10 +406,11 @@ class GhostexForegroundService : Service() {
     }
 
     /** A new state line (Listening, Speaking, Reconnecting…) for the voice notification. */
-    fun updateVoiceMode(line: String, muted: Boolean) {
-      if (voiceLine == null || (voiceLine == line && voiceMuted == muted)) return
+    fun updateVoiceMode(line: String, muted: Boolean, pushToTalk: Boolean) {
+      if (voiceLine == null || (voiceLine == line && voiceMuted == muted && voicePushToTalk == pushToTalk)) return
       voiceLine = line
       voiceMuted = muted
+      voicePushToTalk = pushToTalk
       update()
     }
 

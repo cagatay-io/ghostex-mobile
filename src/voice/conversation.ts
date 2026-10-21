@@ -10,6 +10,7 @@
  *
  * CDXC:VoiceMode 2026-10-20 DECISION: User: "the one in the chat box just pastes whatever i say into the chat box, while the one above is more general and for discussing". The phone's top bar has a global Voice button that starts and ends a conversation with the manager voice agent; it keeps going while you move between screens and with the phone locked ("Voice mode on" notification with Hang up). The composer's Dictate microphone is the other entry point (`src/chat/native/composer/useDictation.ts`).
  * CDXC:VoiceMode 2026-10-20 DECISION: The API keys live on the computer; the phone never stores one. When the computer has none, the phone says so and points to Ghostex Settings › Voice agent on that computer.
+ * CDXC:VoiceMode 2026-10-21 SEE-ALSO: the call mode (`voiceAgentCallMode`, regular or push-to-talk) is the user's DECISION in server/src/voice_agent/conversation.rs (`talk_start`); the phone shows it in the gear sheet and Settings › Voice agent and holds Talk with `setVoiceTalking`.
  * CDXC:VoiceMode 2026-10-20 DECISION: User: "on the voice mode screen, the user should be able to click on Eve to change the voice, and click buttons to change the voice agent's speed, with options 1, 1.2, 1.4, 1.6, 1.8, and 2", and the phone's voice screen gets the same picker and speed control, reading and saving the computer's settings (`voiceAgentXaiVoice` / `voiceAgentOpenaiVoice`, `voiceAgentSpeed`) through gxserver's `setVoiceAgentSettings`. The speed is played on the phone (`AudioTrack` playback rate, pitch kept) like the desktop's time stretch. Later the same day: "Move the voice speed control from the bottom bar into the top-right picker. Add a smaller button to its right that opens a speed menu when clicked, so users can pick a different speed without the bottom bar." (phone confirmed): the speed is a small button right of the voice chip that opens a speed sheet, superseding the row of speed buttons above Mute and Hang up.
  */
 
@@ -65,18 +66,36 @@ type VoiceState = {
   nextVoice: string | null;
   /** How fast the agent's audio plays (`voiceAgentSpeed`). */
   speed: number;
-  /** `voiceAgentMuteBilling`: what muting a Grok call bills (the gear sheet). */
-  muteBilling: VoiceMuteBilling;
-  /** gxserver switched this muted Grok call to push-to-talk, so muted time is not billed. */
-  billingPaused: boolean;
+  /** `voiceAgentCallMode`: the kind of call the next one will be (the gear sheet's tick). */
+  callMode: VoiceCallMode;
+  /** This call is push-to-talk (`ready` said so), and whether Talk is held. */
+  pushToTalk: boolean;
+  talking: boolean;
   memory: VoiceMemory | null;
   memoryState: VoiceMemoryState;
   /** The latest session the agent showed (worked with or was asked to show), for the voice screen's "Open <session>" chip. */
   shownSession: VoiceShownSession | null;
 };
 
-/** `connected`: billed while connected; `pushToTalk`: push-to-talk while muted. */
-export type VoiceMuteBilling = 'connected' | 'pushToTalk';
+/** `regular`: hands-free; `pushToTalk`: the agent hears you only while you hold Talk. */
+export type VoiceCallMode = 'regular' | 'pushToTalk';
+
+/** The two call modes with their pricing lines, for the gear sheet and Settings › Voice agent. */
+export const VOICE_CALL_MODES: { mode: VoiceCallMode; label: string; detail: string }[] = [
+  {
+    mode: 'regular',
+    label: 'Regular',
+    detail: 'Hands-free. On Grok you pay for the whole time the call is connected, quiet and muted time included (about $0.08 a minute).',
+  },
+  {
+    mode: 'pushToTalk',
+    label: 'Push-to-talk',
+    detail: "Hold Talk to speak. On Grok you pay only for the audio you send and the agent's replies.",
+  },
+];
+
+/** Said once under the two modes: GPT Realtime bills by audio either way. */
+export const VOICE_CALL_MODE_NOTE = 'GPT Realtime bills only audio in both modes. A change applies to your next call.';
 
 /** A session the agent showed, as gxserver names it on the tool event (`server/src/voice_agent/show.rs`). */
 export type VoiceShownSession = { projectId: string; sessionId: string; title: string };
@@ -97,8 +116,9 @@ const INITIAL: VoiceState = {
   voiceOptions: [],
   nextVoice: null,
   speed: 1,
-  muteBilling: 'connected',
-  billingPaused: false,
+  callMode: 'regular',
+  pushToTalk: false,
+  talking: false,
   memory: null,
   memoryState: 'hidden',
   shownSession: null,
@@ -250,6 +270,8 @@ function onFrame(json: string): void {
         provider: currentProvider,
         voice: text('voice') || null,
         ...(options.length > 0 ? { voiceOptions: options } : {}),
+        pushToTalk: frame.callMode === 'pushToTalk',
+        talking: false,
         memory,
         memoryState: memory === null ? 'hidden' : frame.memoryContinued === true ? 'continued' : 'offered',
       });
@@ -266,10 +288,6 @@ function onFrame(json: string): void {
       }
       return;
     }
-    case 'billing':
-      set({ billingPaused: frame.pushToTalk === true });
-      if (frame.refused === true) notice("Grok didn't switch to push-to-talk, so this muted call is still billed while connected.");
-      return;
     case 'voice': {
       // gxserver's answer to a picked voice: switched now, or kept for the next conversation.
       const voice = text('voice');
@@ -472,7 +490,7 @@ export async function startVoice(machine: MachineConnectionTarget, machineName: 
       voices?: Record<string, string>;
       voiceOptions?: Record<string, string[]>;
       speed?: number;
-      muteBilling?: string;
+      callMode?: string;
     };
     const provider = result.provider === 'openai' ? 'openai' : 'xai';
     currentProvider = provider;
@@ -482,7 +500,7 @@ export async function startVoice(machine: MachineConnectionTarget, machineName: 
       voice: result.voices?.[provider] ?? null,
       voiceOptions: result.voiceOptions?.[provider] ?? [],
       speed,
-      muteBilling: result.muteBilling === 'pushToTalk' ? 'pushToTalk' : 'connected',
+      callMode: result.callMode === 'pushToTalk' ? 'pushToTalk' : 'regular',
     });
     if (result.keys?.[provider]?.configured !== true) {
       fail('noKey', problemMessage('noKey', '', provider));
@@ -523,7 +541,7 @@ export function interruptVoice(): void {
 
 /** Saves the computer's voice settings through gxserver (which saves them through the desktop app). */
 async function saveVoiceSettings(
-  params: { provider?: string; voice?: string; speed?: number; muteBilling?: VoiceMuteBilling },
+  params: { provider?: string; voice?: string; speed?: number; callMode?: VoiceCallMode },
   what: string,
   consequence = ', so it lasts for this conversation only',
 ): Promise<boolean> {
@@ -542,16 +560,50 @@ async function saveVoiceSettings(
 }
 
 /**
- * The gear sheet: what muting a Grok call bills. gxserver owns the switch: it reads the saved
- * setting and, when this call is muted, moves it to (or from) push-to-talk at once.
+ * The gear sheet and the voice settings page: saves the computer's `voiceAgentCallMode`, which
+ * gxserver reads when the next call starts (a call never changes mode midway).
  */
-export function setMuteBilling(mode: VoiceMuteBilling): void {
-  const previous = useVoiceStore.getState().muteBilling;
+export function setCallMode(mode: VoiceCallMode): void {
+  const previous = useVoiceStore.getState().callMode;
   if (mode === previous) return;
-  set({ muteBilling: mode });
-  void saveVoiceSettings({ muteBilling: mode }, 'billing choice', '').then((saved) => {
-    if (!saved) set({ muteBilling: previous });
+  set({ callMode: mode });
+  void saveVoiceSettings({ callMode: mode }, 'call mode', '').then((saved) => {
+    if (!saved) set({ callMode: previous });
   });
+}
+
+/** The call mode saved on `machine` (Settings › Voice agent), or an error sentence. */
+export async function readComputerCallMode(
+  machine: MachineConnectionTarget,
+): Promise<{ mode: VoiceCallMode } | { error: string }> {
+  try {
+    const answer = await chatMachineLink(machine).rpc('readVoiceAgent', {}, READ_TIMEOUT_MS);
+    if (answer.error !== null) return { error: answer.error.message };
+    const result = (answer.result ?? {}) as { callMode?: string };
+    return { mode: result.callMode === 'pushToTalk' ? 'pushToTalk' : 'regular' };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Couldn't reach your computer." };
+  }
+}
+
+/** Saves the call mode on `machine` through gxserver; answers an error sentence, or null when saved. */
+export async function saveComputerCallMode(machine: MachineConnectionTarget, mode: VoiceCallMode): Promise<string | null> {
+  try {
+    const answer = await chatMachineLink(machine).rpc('setVoiceAgentSettings', { callMode: mode }, READ_TIMEOUT_MS);
+    if (answer.error !== null) return answer.error.message;
+    if (target?.id === machine.id) set({ callMode: mode });
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : "Couldn't reach your computer.";
+  }
+}
+
+/** Push-to-talk's Talk button, pressed or released (pressing it while the agent speaks cuts the reply). */
+export function setVoiceTalking(talking: boolean): void {
+  const state = useVoiceStore.getState();
+  if (!state.pushToTalk || state.phase !== 'live' || state.talking === talking) return;
+  set({ talking });
+  void GhostexNative.voiceSetTalking(talking).catch(() => undefined);
 }
 
 /** The speed buttons: faster at once (on the phone), and saved as the computer's `voiceAgentSpeed`. */

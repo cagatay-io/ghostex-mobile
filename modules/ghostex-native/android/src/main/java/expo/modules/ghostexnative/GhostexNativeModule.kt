@@ -604,6 +604,10 @@ class GhostexNativeModule : Module() {
       GhostexVoice.sendText(text)
     }
 
+    AsyncFunction("voiceSetTalking") { talking: Boolean ->
+      GhostexVoice.setTalking(talking)
+    }
+
     AsyncFunction("voiceSetSpeed") { speed: Double ->
       GhostexVoice.setSpeed(speed)
     }

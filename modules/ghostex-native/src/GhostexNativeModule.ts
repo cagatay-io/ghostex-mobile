@@ -162,6 +162,8 @@ declare class GhostexNativeModule extends NativeModule<GhostexNativeEvents> {
   /** "Stop talking": the agent's reply is cut. */
   voiceInterrupt(): Promise<void>;
   voiceSendText(text: string): Promise<void>;
+  /** Push-to-talk: Talk pressed (`true`, cuts a reply being spoken) or released (sends the turn). */
+  voiceSetTalking(talking: boolean): Promise<void>;
   /** Plays the agent `speed` times as fast, pitch kept, and tells gxserver the rate (`playbackRate`). */
   voiceSetSpeed(speed: number): Promise<void>;
   /** Asks gxserver to switch the conversation to `voice`; it answers with a `voice` frame. */

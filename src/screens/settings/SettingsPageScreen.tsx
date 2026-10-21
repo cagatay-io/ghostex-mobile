@@ -9,6 +9,7 @@ import SoundsPage from './SoundsPage';
 import TerminalPage from './TerminalPage';
 import ThemePage from './ThemePage';
 import UpdatesPage from './UpdatesPage';
+import VoicePage from './VoicePage';
 
 /** One Settings page, chosen by the `SettingsPage` route's `page` param. */
 export default function SettingsPageScreen({ route }: NativeStackScreenProps<RootStackParamList, 'SettingsPage'>) {
@@ -19,6 +20,8 @@ export default function SettingsPageScreen({ route }: NativeStackScreenProps<Roo
       return <ThemePage />;
     case 'chat':
       return <ChatPage />;
+    case 'voice':
+      return <VoicePage />;
     case 'terminal':
       return <TerminalPage />;
     case 'keyboard':

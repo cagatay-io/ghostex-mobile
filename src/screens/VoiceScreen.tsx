@@ -35,7 +35,8 @@ import {
   hangUpVoice,
   interruptVoice,
   pickVoice,
-  setMuteBilling,
+  setCallMode,
+  setVoiceTalking,
   setVoiceMuted,
   setVoiceSpeed,
   startVoice,
@@ -45,7 +46,8 @@ import {
   voiceProviderName,
   VOICE_SPEEDS,
   type VoiceLine,
-  type VoiceMuteBilling,
+  VOICE_CALL_MODES,
+  VOICE_CALL_MODE_NOTE,
 } from '../voice/conversation';
 import { HeadsetGlyph, MicrophoneGlyph } from '../voice/VoiceButton';
 import { VoiceMemoryCard } from '../voice/VoiceMemoryCard';
@@ -151,7 +153,7 @@ function stateLook(state: ReturnType<typeof useVoiceStore.getState>): { label: s
       return { label: 'Speaking', color: GhostexPalette.STATUS_ATTENTION };
     default:
       return {
-        label: state.muted ? (state.billingPaused ? 'Muted, not billed' : 'Muted') : 'Listening',
+        label: state.talking ? 'Hearing you' : state.muted ? 'Muted' : state.pushToTalk ? 'Hold Talk to speak' : 'Listening',
         color: state.muted ? GhostexPalette.MUTED : GhostexPalette.ACCENT,
       };
   }
@@ -235,20 +237,13 @@ function VoiceSpeedSheet({ visible, onClose }: { visible: boolean; onClose: () =
   );
 }
 
-/** The two billing modes of a muted call, each with its one-line explanation. */
-const MUTE_BILLING_CHOICES: { mode: VoiceMuteBilling; label: string; detail: string }[] = [
-  { mode: 'connected', label: 'Billed while connected', detail: 'Grok listens all call; muted time is billed.' },
-  { mode: 'pushToTalk', label: 'Push-to-talk while muted', detail: "Muting stops listening, so it isn't billed." },
-];
-
-/** The gear's sheet: what muting a Grok call bills (the computer's `voiceAgentMuteBilling`). */
+/** The gear's sheet: the computer's call mode (`voiceAgentCallMode`), with each mode's pricing. */
 function VoiceSettingsSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  const current = useVoiceStore((state) => state.muteBilling);
-  const provider = useVoiceStore((state) => state.provider);
+  const current = useVoiceStore((state) => state.callMode);
   return (
     <BottomSheet visible={visible} onClose={onClose}>
-      <Text style={styles.sheetTitle}>While muted</Text>
-      {MUTE_BILLING_CHOICES.map((choice) => {
+      <Text style={styles.sheetTitle}>Call mode</Text>
+      {VOICE_CALL_MODES.map((choice) => {
         const checked = choice.mode === current;
         return (
           <Pressable
@@ -259,7 +254,7 @@ function VoiceSettingsSheet({ visible, onClose }: { visible: boolean; onClose: (
             style={({ pressed }) => [styles.sheetRow, styles.sheetRowTall, pressed && styles.controlPressed]}
             onPress={() => {
               onClose();
-              setMuteBilling(choice.mode);
+              setCallMode(choice.mode);
             }}
           >
             <View style={styles.sheetCheck}>
@@ -272,9 +267,7 @@ function VoiceSettingsSheet({ visible, onClose }: { visible: boolean; onClose: (
           </Pressable>
         );
       })}
-      {provider === 'openai' ? (
-        <Text style={styles.sheetNote}>GPT Realtime bills only the audio sent, so muting it is already free.</Text>
-      ) : null}
+      <Text style={styles.sheetNote}>{VOICE_CALL_MODE_NOTE}</Text>
     </BottomSheet>
   );
 }
@@ -511,22 +504,36 @@ export default function VoiceScreen({ navigation }: Props) {
               {voice.muted ? 'Unmute' : 'Mute'}
             </Text>
           </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Stop the agent talking"
-            disabled={voice.agentState !== 'speaking'}
-            style={({ pressed }) => [
-              styles.control,
-              voice.agentState !== 'speaking' && styles.controlDisabled,
-              pressed && styles.controlPressed,
-            ]}
-            onPress={interruptVoice}
-          >
-            <Svg width={30} height={30} viewBox="0 0 24 24">
-              <Path d="M 7 7 h 10 v 10 h -10 z" fill={GhostexPalette.FOREGROUND} />
-            </Svg>
-            <Text style={styles.controlLabel}>Stop</Text>
-          </Pressable>
+          {voice.pushToTalk && voice.phase === 'live' ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Hold to talk"
+              accessibilityHint="Speak while holding; release to send. Pressing it while the agent talks stops it."
+              style={[styles.control, styles.controlOn, voice.talking && styles.talkHeld]}
+              onPressIn={() => setVoiceTalking(true)}
+              onPressOut={() => setVoiceTalking(false)}
+            >
+              <MicrophoneGlyph size={30} color={GhostexPalette.ACCENT_FOREGROUND} />
+              <Text style={[styles.controlLabel, styles.controlLabelOn]}>{voice.talking ? 'Listening…' : 'Hold to talk'}</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Stop the agent talking"
+              disabled={voice.agentState !== 'speaking'}
+              style={({ pressed }) => [
+                styles.control,
+                voice.agentState !== 'speaking' && styles.controlDisabled,
+                pressed && styles.controlPressed,
+              ]}
+              onPress={interruptVoice}
+            >
+              <Svg width={30} height={30} viewBox="0 0 24 24">
+                <Path d="M 7 7 h 10 v 10 h -10 z" fill={GhostexPalette.FOREGROUND} />
+              </Svg>
+              <Text style={styles.controlLabel}>Stop</Text>
+            </Pressable>
+          )}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Hang up"
@@ -609,6 +616,7 @@ const styles = StyleSheet.create({
   sheetTitle: { color: GhostexPalette.FOREGROUND, fontSize: 18, fontWeight: '700', marginBottom: 8 },
   sheetRow: { flexDirection: 'row', alignItems: 'center', minHeight: 52, gap: 10 },
   sheetRowTall: { paddingVertical: 8 },
+  talkHeld: { opacity: 0.85 },
   sheetRowText: { flex: 1, gap: 2 },
   sheetChoiceLabel: { color: GhostexPalette.FOREGROUND, fontSize: 18 },
   sheetNote: { color: GhostexPalette.MUTED, fontSize: 14, marginTop: 8 },
