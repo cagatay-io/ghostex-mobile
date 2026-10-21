@@ -332,11 +332,7 @@ extension GhosttyTerminalView {
             bringSubviewToFront(touchSelectionOverlay)
         }
         touchSelectionOverlay.isHidden = false
-        touchSelectionOverlay.update(
-            rects: rects,
-            startAnchor: CGPoint(x: startFrame.minX, y: startFrame.minY),
-            endAnchor: CGPoint(x: endFrame.maxX, y: endFrame.maxY)
-        )
+        touchSelectionOverlay.update(rects: rects, startCell: startFrame, endCell: endFrame)
     }
 
     func isPointOnTouchSelectionHandle(_ point: CGPoint) -> Bool {
@@ -798,9 +794,21 @@ extension GhosttyTerminalView: UIGestureRecognizerDelegate {
         if gestureRecognizer == pinchRecognizer || otherGestureRecognizer == pinchRecognizer {
             return false
         }
+        if isTouchSelectionGesture(gestureRecognizer) || isTouchSelectionGesture(otherGestureRecognizer) {
+            return isTerminalOwnedGesture(gestureRecognizer) && isTerminalOwnedGesture(otherGestureRecognizer)
+        }
         // Allow pan and long press to recognize simultaneously;
         // the handlers check isSelecting/isScrolling to avoid conflicts.
         return true
+    }
+
+    /// CDXC:Clipboard 2026-10-21 WHY: every terminal gesture was allowed to run alongside every other one, including the navigation's swipe back, which on iOS 26 and later starts anywhere in the screen. A selection drag to the right then also went back to the session list (seen in the iOS 27 simulator). The hold that selects and the handle drags now run only with the terminal's own gestures, so once a selection starts nothing outside the terminal can take the drag; scrolling keeps its old behaviour.
+    private func isTouchSelectionGesture(_ recognizer: UIGestureRecognizer) -> Bool {
+        recognizer === selectionRecognizer || recognizer.view is TerminalTouchSelectionHandleView
+    }
+
+    private func isTerminalOwnedGesture(_ recognizer: UIGestureRecognizer) -> Bool {
+        recognizer.view === self || recognizer.view is TerminalTouchSelectionHandleView
     }
 
     func gestureRecognizer(

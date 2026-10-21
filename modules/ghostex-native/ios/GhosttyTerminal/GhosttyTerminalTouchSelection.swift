@@ -12,6 +12,8 @@ enum TerminalTouchSelectionHandleKind {
 }
 
 final class TerminalTouchSelectionHandleView: UIView {
+    static let knobDiameter: CGFloat = 12
+
     let kind: TerminalTouchSelectionHandleKind
 
     private let stemView = UIView()
@@ -46,9 +48,10 @@ final class TerminalTouchSelectionHandleView: UIView {
     override func layoutSubviews() {
         super.layoutSubviews()
 
-        let knobDiameter: CGFloat = 18
-        let stemWidth: CGFloat = 4
-        let stemHeight = max(bounds.height - knobDiameter, 10)
+        let knobDiameter = Self.knobDiameter
+        let stemWidth: CGFloat = 3
+        // The stem runs from the knob's centre through the whole selected row, like UIKit's handles.
+        let stemHeight = max(bounds.height - knobDiameter / 2, 10)
         let stemX = (bounds.width - stemWidth) / 2
         let knobX = (bounds.width - knobDiameter) / 2
 
@@ -75,7 +78,7 @@ final class TerminalTouchSelectionHandleView: UIView {
             )
             knobView.frame = CGRect(
                 x: knobX,
-                y: stemHeight,
+                y: bounds.height - knobDiameter,
                 width: knobDiameter,
                 height: knobDiameter
             )
@@ -146,8 +149,9 @@ final class TerminalTouchSelectionOverlayView: UIView {
         endHandle.isHidden = true
     }
 
-    func update(rects: [CGRect], startAnchor: CGPoint?, endAnchor: CGPoint?) {
-        guard !rects.isEmpty, let startAnchor, let endAnchor else {
+    /// `startCell` and `endCell` are the frames of the first and last selected cells; each handle's stem covers its cell's row.
+    func update(rects: [CGRect], startCell: CGRect?, endCell: CGRect?) {
+        guard !rects.isEmpty, let startCell, let endCell else {
             clear()
             return
         }
@@ -160,11 +164,22 @@ final class TerminalTouchSelectionOverlayView: UIView {
         }
         highlightLayer.path = path.cgPath
 
-        let handleSize = CGSize(width: 34, height: 34)
-        startHandle.bounds = CGRect(origin: .zero, size: handleSize)
-        endHandle.bounds = CGRect(origin: .zero, size: handleSize)
-        startHandle.center = CGPoint(x: startAnchor.x, y: startAnchor.y - handleSize.height / 2)
-        endHandle.center = CGPoint(x: endAnchor.x, y: endAnchor.y + handleSize.height / 2)
+        let knob = TerminalTouchSelectionHandleView.knobDiameter
+        let handleWidth: CGFloat = 34
+        startHandle.frame = CGRect(
+            x: startCell.minX - handleWidth / 2,
+            y: startCell.minY - knob,
+            width: handleWidth,
+            height: startCell.height + knob
+        )
+        endHandle.frame = CGRect(
+            x: endCell.maxX - handleWidth / 2,
+            y: endCell.minY,
+            width: handleWidth,
+            height: endCell.height + knob
+        )
+        startHandle.setNeedsLayout()
+        endHandle.setNeedsLayout()
         startHandle.isHidden = false
         endHandle.isHidden = false
     }
