@@ -995,6 +995,7 @@ export default function SessionsScreen({ navigation }: Props) {
             collapsed={header.collapsed}
             workingCount={header.workingCount}
             attentionCount={header.attentionCount}
+            questionCount={header.questionCount}
             backgroundWorkCount={header.backgroundWorkCount}
             awakeCount={header.awakeCount}
             primaryAgent={primaryAgent}
@@ -1077,6 +1078,7 @@ export default function SessionsScreen({ navigation }: Props) {
               collapsed={header.collapsed}
               workingCount={header.workingCount}
               attentionCount={header.attentionCount}
+              questionCount={header.questionCount}
               backgroundWorkCount={header.backgroundWorkCount}
               awakeCount={header.awakeCount}
               onPress={() => collapse.toggleCollection(block.machineId, header.collectionId)}
@@ -1131,6 +1133,7 @@ export default function SessionsScreen({ navigation }: Props) {
             collapsed={item.collapsed}
             workingCount={item.workingCount}
             attentionCount={item.attentionCount}
+            questionCount={item.questionCount}
             backgroundWorkCount={item.backgroundWorkCount}
             awakeCount={item.awakeCount}
             first={item.section === 'quick'}

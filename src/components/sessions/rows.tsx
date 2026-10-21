@@ -182,6 +182,7 @@ const HEADER_STATUS_TEXT = '#B4B8C0';
 export type HeaderStatusCounts = {
   workingCount: number;
   attentionCount: number;
+  questionCount: number;
   backgroundWorkCount: number;
   awakeCount: number;
 };
@@ -199,25 +200,27 @@ function ProjectStatusBadge({ count, dotColor }: { count: number; dotColor: stri
  * apps/desktop/src/app/native_sidebar/project_status.rs `project_status`, collapsed branch.
  *
  * CDXC:SessionStatus 2026-09-25 DECISION:
- * User: "Please make the indicators for sessions status in the RN session list match gpui one exactly". A collapsed header shows the desktop header's status in its order and sizes: project, user-made group and Quick headers use project_status.rs (a 6dp dot and the number in the sidebar text color: orange working, blue attention or question, grey background work when nothing works, then a dotless awake count when nothing works or waits); collection headers use collections.rs (the numbers alone, in those colors); in-project section headings use sections.rs (8dp dots: orange, blue, grey, pink question, a hollow ring when the selected session is inside, then the section's count at the right edge). The orange is the desktop's one working color. This supersedes the phone's haloed #F8AD07 and #95D7F6 count pills and the named group's "(count)".
+ * User: "Please make the indicators for sessions status in the RN session list match gpui one exactly". A collapsed header shows the desktop header's status in its order and sizes: project, user-made group and Quick headers use project_status.rs (a 6dp dot and the number in the sidebar text color: orange working, blue attention, pink question, grey background work when nothing works, then a dotless awake count when nothing works or waits); collection headers use collections.rs (the numbers alone, in those colors); in-project section headings use sections.rs (8dp dots: orange, blue, grey, pink question, a hollow ring when the selected session is inside, then the section's count at the right edge). The orange is the desktop's one working color. This supersedes the phone's haloed #F8AD07 and #95D7F6 count pills and the named group's "(count)".
  */
 export function ProjectStatusCounts({
   workingCount,
   attentionCount,
+  questionCount,
   backgroundWorkCount,
   awakeCount,
 }: HeaderStatusCounts) {
-  if (workingCount === 0 && attentionCount === 0 && awakeCount === 0) return null;
+  if (workingCount === 0 && attentionCount === 0 && questionCount === 0 && awakeCount === 0) return null;
   return (
     <View style={statusStyles.projectCluster}>
       {workingCount > 0 ? <ProjectStatusBadge count={workingCount} dotColor={SidebarPalette.ROW_WORKING} /> : null}
       {attentionCount > 0 ? (
         <ProjectStatusBadge count={attentionCount} dotColor={SidebarPalette.ROW_ATTENTION} />
       ) : null}
+      {questionCount > 0 ? <ProjectStatusBadge count={questionCount} dotColor={SidebarPalette.ROW_QUESTION} /> : null}
       {workingCount === 0 && backgroundWorkCount > 0 ? (
         <ProjectStatusBadge count={backgroundWorkCount} dotColor={SidebarPalette.ROW_BACKGROUND_WORK} />
       ) : null}
-      {workingCount === 0 && attentionCount === 0 && awakeCount > 0 ? (
+      {workingCount === 0 && attentionCount === 0 && questionCount === 0 && awakeCount > 0 ? (
         <ProjectStatusBadge count={awakeCount} dotColor={null} />
       ) : null}
     </View>
@@ -225,16 +228,23 @@ export function ProjectStatusCounts({
 }
 
 /** apps/desktop/src/app/native_sidebar/collections.rs: a collapsed collection's colored numbers. */
-function CollectionStatusCounts({ workingCount, attentionCount, backgroundWorkCount, awakeCount }: HeaderStatusCounts) {
+function CollectionStatusCounts({
+  workingCount,
+  attentionCount,
+  questionCount,
+  backgroundWorkCount,
+  awakeCount,
+}: HeaderStatusCounts) {
   const counts: { key: string; count: number; color: string }[] = [];
   if (workingCount > 0) counts.push({ key: 'working', count: workingCount, color: SidebarPalette.ROW_WORKING });
   if (attentionCount > 0) {
     counts.push({ key: 'attention', count: attentionCount, color: SidebarPalette.ROW_ATTENTION });
   }
+  if (questionCount > 0) counts.push({ key: 'question', count: questionCount, color: SidebarPalette.ROW_QUESTION });
   if (workingCount === 0 && backgroundWorkCount > 0) {
     counts.push({ key: 'background', count: backgroundWorkCount, color: SidebarPalette.ROW_BACKGROUND_WORK });
   }
-  if (workingCount === 0 && attentionCount === 0 && awakeCount > 0) {
+  if (workingCount === 0 && attentionCount === 0 && questionCount === 0 && awakeCount > 0) {
     counts.push({ key: 'awake', count: awakeCount, color: HEADER_STATUS_TEXT });
   }
   if (counts.length === 0) return null;
@@ -455,6 +465,7 @@ export function MachineHeaderRow({
   collapsed,
   workingCount,
   attentionCount,
+  questionCount,
   backgroundWorkCount,
   awakeCount,
   onPress,
@@ -464,6 +475,7 @@ export function MachineHeaderRow({
   collapsed: boolean;
   workingCount: number;
   attentionCount: number;
+  questionCount: number;
   backgroundWorkCount: number;
   awakeCount: number;
   onPress: () => void;
@@ -486,6 +498,7 @@ export function MachineHeaderRow({
           <ProjectStatusCounts
             workingCount={workingCount}
             attentionCount={attentionCount}
+            questionCount={questionCount}
             backgroundWorkCount={backgroundWorkCount}
             awakeCount={awakeCount}
           />
@@ -536,6 +549,7 @@ export function SectionLabelRow({
   collapsed,
   workingCount,
   attentionCount,
+  questionCount,
   backgroundWorkCount,
   awakeCount,
   first,
@@ -548,6 +562,7 @@ export function SectionLabelRow({
   collapsed: boolean;
   workingCount: number;
   attentionCount: number;
+  questionCount: number;
   backgroundWorkCount: number;
   awakeCount: number;
   /** First section after the status header uses the tighter top margin. */
@@ -577,6 +592,7 @@ export function SectionLabelRow({
           <ProjectStatusCounts
             workingCount={workingCount}
             attentionCount={attentionCount}
+            questionCount={questionCount}
             backgroundWorkCount={backgroundWorkCount}
             awakeCount={awakeCount}
           />
@@ -647,6 +663,7 @@ export function CollectionHeaderRow({
   collapsed,
   workingCount,
   attentionCount,
+  questionCount,
   backgroundWorkCount,
   awakeCount,
   onPress,
@@ -656,6 +673,7 @@ export function CollectionHeaderRow({
   collapsed: boolean;
   workingCount: number;
   attentionCount: number;
+  questionCount: number;
   backgroundWorkCount: number;
   awakeCount: number;
   onPress: () => void;
@@ -681,6 +699,7 @@ export function CollectionHeaderRow({
         <CollectionStatusCounts
           workingCount={workingCount}
           attentionCount={attentionCount}
+          questionCount={questionCount}
           backgroundWorkCount={backgroundWorkCount}
           awakeCount={awakeCount}
         />
@@ -738,6 +757,7 @@ export function ProjectHeaderRow({
   collapsed,
   workingCount,
   attentionCount,
+  questionCount,
   backgroundWorkCount,
   awakeCount,
   primaryAgent,
@@ -753,6 +773,7 @@ export function ProjectHeaderRow({
   collapsed: boolean;
   workingCount: number;
   attentionCount: number;
+  questionCount: number;
   backgroundWorkCount: number;
   awakeCount: number;
   primaryAgent: GhostexAgentLauncher | null;
@@ -782,6 +803,7 @@ export function ProjectHeaderRow({
           <ProjectStatusCounts
             workingCount={workingCount}
             attentionCount={attentionCount}
+            questionCount={questionCount}
             backgroundWorkCount={backgroundWorkCount}
             awakeCount={awakeCount}
           />
@@ -938,6 +960,7 @@ export function GroupHeaderRow({
           <ProjectStatusCounts
             workingCount={status.workingCount}
             attentionCount={status.attentionCount}
+            questionCount={status.questionCount}
             backgroundWorkCount={status.backgroundWorkCount}
             awakeCount={status.awakeCount}
           />

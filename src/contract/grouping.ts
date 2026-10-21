@@ -58,6 +58,7 @@ export type MachineHeaderItem = {
   collapsed: boolean;
   workingCount: number;
   attentionCount: number;
+  questionCount: number;
   backgroundWorkCount: number;
   awakeCount: number;
 };
@@ -75,6 +76,7 @@ export type SectionLabelItem = {
   collapsed: boolean;
   workingCount: number;
   attentionCount: number;
+  questionCount: number;
   backgroundWorkCount: number;
   awakeCount: number;
 };
@@ -92,6 +94,7 @@ export type CollectionHeaderItem = {
   sessionCount: number;
   workingCount: number;
   attentionCount: number;
+  questionCount: number;
   backgroundWorkCount: number;
   awakeCount: number;
 };
@@ -111,6 +114,7 @@ export type ProjectHeaderItem = {
   sessionCount: number;
   workingCount: number;
   attentionCount: number;
+  questionCount: number;
   backgroundWorkCount: number;
   sleepingCount: number;
   /** Awake (running terminal/browser) count for the collapsed count pills. */
@@ -152,7 +156,10 @@ export type GroupHeaderItem = {
   count: number;
   collapsed: boolean;
   /** The group's header counts; a user-made group draws a project header's counts on the desktop. */
-  status: Pick<SessionCounts, 'workingCount' | 'attentionCount' | 'backgroundWorkCount' | 'awakeCount'>;
+  status: Pick<
+    SessionCounts,
+    'workingCount' | 'attentionCount' | 'backgroundWorkCount' | 'questionCount' | 'awakeCount'
+  >;
   collectionColor?: string;
 };
 
@@ -278,7 +285,10 @@ export function machineHeaderItem(
   machineId: string,
   title: string,
   collapsed: boolean,
-  counts: Pick<SessionCounts, 'workingCount' | 'attentionCount' | 'backgroundWorkCount' | 'awakeCount'>,
+  counts: Pick<
+    SessionCounts,
+    'workingCount' | 'attentionCount' | 'backgroundWorkCount' | 'questionCount' | 'awakeCount'
+  >,
 ): MachineHeaderItem {
   return {
     type: 'MACHINE_HEADER',
@@ -287,7 +297,8 @@ export function machineHeaderItem(
     title,
     collapsed,
     workingCount: counts.workingCount,
-    attentionCount: counts.attentionCount,
+    attentionCount: counts.attentionCount - counts.questionCount,
+    questionCount: counts.questionCount,
     backgroundWorkCount: counts.backgroundWorkCount,
     awakeCount: counts.awakeCount,
   };
@@ -412,7 +423,7 @@ function isAwakeSession(session: GhostexSession): boolean {
 
 export type SessionCounts = {
   workingCount: number;
-  /** In attention or waiting on an answer (the desktop counts both as attention on project, collection, Space and machine headers). */
+  /** In attention or waiting on an answer; the header and tab views (`headerStatusCounts`, `tabStatusCounts`) leave the question rows out of the blue count and draw them pink. */
   attentionCount: number;
   /** Rows drawing the grey dot: idle with a background shell or monitor still running. */
   backgroundWorkCount: number;
@@ -445,6 +456,19 @@ export function showsBackgroundWork(session: GhostexSession): boolean {
   return (
     session.backgroundWorkDetectedAt.length > 0 && session.activity !== 'working' && session.activity !== 'attention'
   );
+}
+
+/**
+ * What a project, collection, section or group header's collapsed counts draw (packages/gx-core/src/sidebar_view/groups.rs
+ * `group_summary`): a session with a pending question counts pink instead of blue, so the attention count leaves it out.
+ */
+export function headerStatusCounts(
+  counts: Pick<
+    SessionCounts,
+    'workingCount' | 'attentionCount' | 'backgroundWorkCount' | 'questionCount' | 'awakeCount'
+  >,
+): Pick<SessionCounts, 'workingCount' | 'attentionCount' | 'backgroundWorkCount' | 'questionCount' | 'awakeCount'> {
+  return { ...counts, attentionCount: counts.attentionCount - counts.questionCount };
 }
 
 /**
@@ -705,7 +729,8 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
       collapsed,
       sessionCount: allProjectSessions.length,
       workingCount: counts.workingCount,
-      attentionCount: counts.attentionCount,
+      attentionCount: counts.attentionCount - counts.questionCount,
+      questionCount: counts.questionCount,
       backgroundWorkCount: counts.backgroundWorkCount,
       sleepingCount: counts.sleepingCount,
       awakeCount: counts.awakeCount,
@@ -856,7 +881,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
         title: group.title,
         count: groupSessions.length,
         collapsed: groupCollapsed,
-        status: countSessions(groupSessions),
+        status: headerStatusCounts(countSessions(groupSessions)),
         collectionColor,
       });
       if (groupCollapsed) continue;
@@ -892,7 +917,8 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
     title: SessionCopy.quickSectionTitle,
     collapsed: quickCollapsed,
     workingCount: quickCounts.workingCount,
-    attentionCount: quickCounts.attentionCount,
+    attentionCount: quickCounts.attentionCount - quickCounts.questionCount,
+    questionCount: quickCounts.questionCount,
     backgroundWorkCount: quickCounts.backgroundWorkCount,
     awakeCount: quickCounts.awakeCount,
   });
@@ -969,7 +995,8 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
     title: SessionCopy.projectsSectionTitle,
     collapsed: false,
     workingCount: projectCounts.workingCount,
-    attentionCount: projectCounts.attentionCount,
+    attentionCount: projectCounts.attentionCount - projectCounts.questionCount,
+    questionCount: projectCounts.questionCount,
     backgroundWorkCount: projectCounts.backgroundWorkCount,
     awakeCount: projectCounts.awakeCount,
   });
@@ -996,7 +1023,8 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
       projectCount: memberKeys.length,
       sessionCount: collectionSessions.length,
       workingCount: counts.workingCount,
-      attentionCount: counts.attentionCount,
+      attentionCount: counts.attentionCount - counts.questionCount,
+      questionCount: counts.questionCount,
       backgroundWorkCount: counts.backgroundWorkCount,
       awakeCount: counts.awakeCount,
     });
