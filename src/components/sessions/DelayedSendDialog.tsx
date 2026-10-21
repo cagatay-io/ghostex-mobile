@@ -24,6 +24,8 @@ export type DelayedSendDialogProps = {
   agentIcon: string;
   agentName: string;
   closeAfterDoneActive: boolean;
+  /** False for an orchestrator, which never takes Close After Done: the switch is hidden. */
+  supportsCloseAfterDone?: boolean;
   visible: boolean;
   sessionTitle: string;
   /** Countdown label of the armed timer, '' when none is known. */
@@ -62,6 +64,7 @@ export default function DelayedSendDialog({
   agentIcon,
   agentName,
   closeAfterDoneActive,
+  supportsCloseAfterDone = true,
   visible,
   sessionTitle,
   remainingLabel,
@@ -339,23 +342,25 @@ export default function DelayedSendDialog({
                     </View>
                   ) : null}
                 </View>
-                <View style={styles.automationCard}>
-                  <View style={styles.automationHeader}>
-                    <View style={styles.automationCopy}>
-                      <Text style={styles.automationTitle}>Close session after Done</Text>
-                      <Text numberOfLines={1} style={styles.automationDescription}>
-                        Closes this terminal 3 minutes after Done.
-                      </Text>
+                {supportsCloseAfterDone ? (
+                  <View style={styles.automationCard}>
+                    <View style={styles.automationHeader}>
+                      <View style={styles.automationCopy}>
+                        <Text style={styles.automationTitle}>Close session after Done</Text>
+                        <Text numberOfLines={1} style={styles.automationDescription}>
+                          Closes this terminal 3 minutes after Done.
+                        </Text>
+                      </View>
+                      <Switch
+                        accessibilityLabel="Close session after Done"
+                        value={closeAfterDoneEnabled}
+                        onValueChange={setCloseAfterDoneEnabled}
+                        trackColor={{ false: GhostexPalette.CARD_ACTIVE, true: GhostexPalette.ACCENT }}
+                        thumbColor={GhostexPalette.FOREGROUND}
+                      />
                     </View>
-                    <Switch
-                      accessibilityLabel="Close session after Done"
-                      value={closeAfterDoneEnabled}
-                      onValueChange={setCloseAfterDoneEnabled}
-                      trackColor={{ false: GhostexPalette.CARD_ACTIVE, true: GhostexPalette.ACCENT }}
-                      thumbColor={GhostexPalette.FOREGROUND}
-                    />
                   </View>
-                </View>
+                ) : null}
               </View>
               <View style={styles.buttonRow}>
                 <Pressable

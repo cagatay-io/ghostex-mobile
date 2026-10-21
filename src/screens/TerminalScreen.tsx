@@ -713,6 +713,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
               agentIcon={activeSession.agentIcon}
               agentName={activeSession.agentName.length > 0 ? activeSession.agentName : activeSession.agent}
               closeAfterDoneActive={activeSession.closeAfterDone}
+              supportsCloseAfterDone={!activeSession.isCoordinator}
               visible
               sessionTitle={agentSessionTitle}
               remainingLabel={activeSession.delayedSendRemainingLabel}

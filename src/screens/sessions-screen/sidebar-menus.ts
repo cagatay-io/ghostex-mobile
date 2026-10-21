@@ -276,7 +276,9 @@ function sessionCapabilities(session: GhostexSession): SessionCapabilities {
   const hasProject = session.projectId.length > 0;
   return {
     isBrowser,
-    canCloseAfterDone: terminal,
+    // gxserver refuses Close After Done for an orchestrator (CDXC:Sessions 2026-10-21 in
+    // server/src/close_after_done.rs), so its menu offers none, like gx-core's `can_close_after_done`.
+    canCloseAfterDone: terminal && !session.isCoordinator,
     canDelayedSend: terminal,
     canExportTranscript:
       terminal &&

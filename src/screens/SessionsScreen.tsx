@@ -1481,6 +1481,7 @@ export default function SessionsScreen({ navigation }: Props) {
               : overlay.ctx.item.session.agent
           }
           closeAfterDoneActive={overlay.ctx.item.session.closeAfterDone}
+          supportsCloseAfterDone={!overlay.ctx.item.session.isCoordinator}
           visible
           sessionTitle={sessionTitle(overlay.ctx.item.session)}
           remainingLabel={overlay.ctx.item.session.delayedSendRemainingLabel}
