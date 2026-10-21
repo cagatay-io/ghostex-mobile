@@ -15,7 +15,7 @@
  * Sections live in ./machine-form/; this file owns the state and the save.
  */
 
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Keyboard, Pressable, Switch, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -126,6 +126,10 @@ export default function MachineFormScreen({ navigation, route }: Props) {
    * tick as the store update may not exist yet.
    */
   const [removed, setRemoved] = useState<'no' | 'someRemain' | 'noneRemain'>('no');
+  /** Set once Save succeeded or the route is being removed: the header is left as it is from then on. */
+  const leaving = useRef(false);
+  /** The header title is the name the form opened with; a rename lands with Save, which closes the form. */
+  const [headerName] = useState(existing?.name ?? '');
 
   // The Scan code screen hands a bare pairing address back through this
   // route's params (merge navigate), so a later scan updates the open form.
@@ -162,9 +166,16 @@ export default function MachineFormScreen({ navigation, route }: Props) {
 
   /**
    * CDXC:Mobile 2026-10-21 WHY:
-   * Edit machine crashed the Android app on Save. The header Save (and the header back arrow) pop this screen while a field still has focus and the keyboard is up; the system back button never does, because it closes the keyboard first. Popping with a focused field closes the keyboard during the pop, and that relayout reaches fields React has already unmounted, the likeliest cause of the crash (no device log was available). So the field is blurred before the route goes, whatever removes it.
+   * Edit machine crashed the Android app on Save. The header Save (and the header back arrow) pop this screen while a field still has focus and the keyboard is up; the system back button never does, because it closes the keyboard first. Popping with a focused field closes the keyboard during the pop, and that relayout reaches fields React has already unmounted, one likely cause of the crash (no device log was available; the header below covers the other). So the field is blurred before the route goes, whatever removes it.
    */
-  useEffect(() => navigation.addListener('beforeRemove', () => Keyboard.dismiss()), [navigation]);
+  useEffect(
+    () =>
+      navigation.addListener('beforeRemove', () => {
+        leaving.current = true;
+        Keyboard.dismiss();
+      }),
+    [navigation],
+  );
 
   const editField =
     <T,>(setter: (value: T) => void) =>
@@ -271,8 +282,13 @@ export default function MachineFormScreen({ navigation, route }: Props) {
       navigation.navigate('Connected', { machineId: id });
       return;
     }
+    leaving.current = true;
     navigation.goBack();
   };
+  const saveRef = useRef(save);
+  useLayoutEffect(() => {
+    saveRef.current = save;
+  });
 
   const remove = async (typedName: string): Promise<void> => {
     if (existing === null) return;
@@ -314,23 +330,28 @@ export default function MachineFormScreen({ navigation, route }: Props) {
     if (reachable && existing !== null) refreshAppUpdate(existing, { ifOlderThanMs: APP_UPDATE_FRESH_MS });
   }, [reachable, existing]);
 
+  /**
+   * CDXC:Mobile 2026-10-21 WHY:
+   * react-native-screens on Android crashes ("View already has a parent") when views inside a screen's header or content are re-parented while that screen's removal transition runs (react-native-screens #4677, #3249). This header was set again on every render, and Save re-renders right around goBack() (saving, the store update, a renamed title). So it is set only when what it shows changes, never once the form is leaving, and the title stays the name the form opened with.
+   */
+  const saveDisabled = !canSave || saving;
   useLayoutEffect(() => {
-    if (removed !== 'no') return;
+    if (removed !== 'no' || leaving.current) return;
     if (!editing) {
       navigation.setOptions({ title: easyConnect ? MachineCopy.editor.addTitle : TailscaleFormCopy.navTitle });
       return;
     }
     navigation.setOptions({
-      title: existing.name.length > 0 ? existing.name : MachineCopy.editor.editTitle,
+      title: headerName.length > 0 ? headerName : MachineCopy.editor.editTitle,
       headerRight: () => (
-        <Pressable accessibilityRole="button" disabled={!canSave || saving} onPress={() => void save()}>
-          <Text style={[setupText.accent, styles.headerAction, !canSave || saving ? setupText.dim : null]}>
+        <Pressable accessibilityRole="button" disabled={saveDisabled} onPress={() => void saveRef.current()}>
+          <Text style={[setupText.accent, styles.headerAction, saveDisabled ? setupText.dim : null]}>
             {EditMachineCopy.save}
           </Text>
         </Pressable>
       ),
     });
-  });
+  }, [navigation, removed, editing, easyConnect, headerName, saveDisabled]);
 
   const connectedNow =
     existing !== null &&
