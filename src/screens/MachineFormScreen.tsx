@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useLayoutEffect, useState } from 'react';
-import { Pressable, Switch, Text, View } from 'react-native';
+import { Keyboard, Pressable, Switch, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -159,6 +159,12 @@ export default function MachineFormScreen({ navigation, route }: Props) {
       cancelled = true;
     };
   }, [machineId]);
+
+  /**
+   * CDXC:Mobile 2026-10-21 WHY:
+   * Edit machine crashed the Android app on Save. The header Save (and the header back arrow) pop this screen while a field still has focus and the keyboard is up; the system back button never does, because it closes the keyboard first. Popping with a focused field closes the keyboard during the pop, and that relayout reaches fields React has already unmounted, the likeliest cause of the crash (no device log was available). So the field is blurred before the route goes, whatever removes it.
+   */
+  useEffect(() => navigation.addListener('beforeRemove', () => Keyboard.dismiss()), [navigation]);
 
   const editField =
     <T,>(setter: (value: T) => void) =>
