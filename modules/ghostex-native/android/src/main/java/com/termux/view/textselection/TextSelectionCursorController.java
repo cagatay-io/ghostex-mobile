@@ -29,10 +29,14 @@ public class TextSelectionCursorController implements CursorController {
     private final int mHandleHeight;
     private int mSelX1 = -1, mSelX2 = -1, mSelY1 = -1, mSelY2 = -1;
 
+    // Ghostex: the word a long press selected, so a drag before the finger lifts extends from it.
+    private int mDragAnchorX1 = -1, mDragAnchorX2 = -1, mDragAnchorY = -1;
+    private boolean mIsDragSelecting = false;
+
     private ActionMode mActionMode;
     public final int ACTION_COPY = 1;
     public final int ACTION_PASTE = 2;
-    public final int ACTION_MORE = 3;
+    public final int ACTION_SELECT_ALL = 3;
 
     public TextSelectionCursorController(TerminalView terminalView) {
         this.terminalView = terminalView;
@@ -74,6 +78,7 @@ public class TextSelectionCursorController implements CursorController {
 
         mSelX1 = mSelY1 = mSelX2 = mSelY2 = -1;
         mIsSelectingText = false;
+        mIsDragSelecting = false;
 
         return true;
     }
@@ -116,7 +121,7 @@ public class TextSelectionCursorController implements CursorController {
                 ClipboardManager clipboard = (ClipboardManager) terminalView.getContext().getSystemService(Context.CLIPBOARD_SERVICE);
                 menu.add(Menu.NONE, ACTION_COPY, Menu.NONE, R.string.copy_text).setShowAsAction(show);
                 menu.add(Menu.NONE, ACTION_PASTE, Menu.NONE, R.string.paste_text).setEnabled(clipboard != null && clipboard.hasPrimaryClip()).setShowAsAction(show);
-                menu.add(Menu.NONE, ACTION_MORE, Menu.NONE, R.string.text_selection_more);
+                menu.add(Menu.NONE, ACTION_SELECT_ALL, Menu.NONE, android.R.string.selectAll).setShowAsAction(show);
                 return true;
             }
 
@@ -142,15 +147,8 @@ public class TextSelectionCursorController implements CursorController {
                         terminalView.stopTextSelectionMode();
                         terminalView.mTermSession.onPasteTextFromClipboard();
                         break;
-                    case ACTION_MORE:
-                        // We first store the selected text in case TerminalViewClient needs the
-                        // selected text before MORE button was pressed since we are going to
-                        // stop selection mode
-                        mStoredSelectedText = getSelectedText();
-                        // The text selection needs to be stopped before showing context menu,
-                        // otherwise handles will show above popup
-                        terminalView.stopTextSelectionMode();
-                        terminalView.showContextMenu();
+                    case ACTION_SELECT_ALL:
+                        selectAllVisibleText();
                         break;
                 }
 
@@ -302,6 +300,86 @@ public class TextSelectionCursorController implements CursorController {
         }
 
         terminalView.invalidate();
+    }
+
+    /**
+     * CDXC:Clipboard 2026-10-21 WHY: a long press selected only the word under the finger, and moving
+     * the finger before lifting it did nothing (GestureDetector ignores moves after a long press), so
+     * selecting more than one word meant finding and dragging the small handles. Like a text field,
+     * the drag that follows the long press now extends the selection from that word to the cell
+     * under the finger, in either direction, and scrolls the history when it reaches the top or
+     * bottom row. Select All replaces Termux's More…, which opened an app menu Ghostex never had.
+     */
+    public void beginDragSelection() {
+        if (!isActive()) return;
+        mDragAnchorX1 = mSelX1;
+        mDragAnchorX2 = mSelX2;
+        mDragAnchorY = mSelY1;
+        mIsDragSelecting = true;
+    }
+
+    public boolean isDragSelecting() {
+        return mIsDragSelecting;
+    }
+
+    public void updateDragSelection(MotionEvent event) {
+        if (!isActive() || !mIsDragSelecting) return;
+        TerminalBuffer screen = terminalView.mEmulator.getScreen();
+        final int rows = terminalView.mEmulator.mRows;
+        final int scrollRows = screen.getActiveRows() - rows;
+        int[] columnAndRow = terminalView.getColumnAndRow(event, true);
+        int column = Math.max(0, Math.min(columnAndRow[0], terminalView.mEmulator.mColumns - 1));
+        int row = Math.max(-scrollRows, Math.min(columnAndRow[1], rows - 1));
+
+        if (!terminalView.mEmulator.isAlternateBufferActive()) {
+            int topRow = terminalView.getTopRow();
+            if (row <= topRow && topRow > -scrollRows) {
+                terminalView.setTopRow(topRow - 1);
+            } else if (row >= topRow + rows - 1 && topRow < 0) {
+                terminalView.setTopRow(topRow + 1);
+            }
+        }
+
+        if (row < mDragAnchorY || (row == mDragAnchorY && column < mDragAnchorX1)) {
+            mSelX1 = getValidCurX(screen, row, column);
+            mSelY1 = row;
+            mSelX2 = mDragAnchorX2;
+            mSelY2 = mDragAnchorY;
+        } else if (row > mDragAnchorY || column > mDragAnchorX2) {
+            mSelX1 = mDragAnchorX1;
+            mSelY1 = mDragAnchorY;
+            mSelX2 = getValidCurX(screen, row, column);
+            mSelY2 = row;
+        } else {
+            mSelX1 = mDragAnchorX1;
+            mSelX2 = mDragAnchorX2;
+            mSelY1 = mSelY2 = mDragAnchorY;
+        }
+        render();
+        terminalView.invalidate();
+    }
+
+    public void endDragSelection() {
+        mIsDragSelecting = false;
+        refreshActionModeContentRect();
+    }
+
+    /** Select All in the selection bar: everything on the screen as it is scrolled now. */
+    private void selectAllVisibleText() {
+        int topRow = terminalView.getTopRow();
+        mSelX1 = 0;
+        mSelY1 = topRow;
+        mSelX2 = terminalView.mEmulator.mColumns - 1;
+        mSelY2 = topRow + terminalView.mEmulator.mRows - 1;
+        render();
+        refreshActionModeContentRect();
+        terminalView.invalidate();
+    }
+
+    private void refreshActionModeContentRect() {
+        if (mActionMode != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            mActionMode.invalidateContentRect();
+        }
     }
 
     private int getValidCurX(TerminalBuffer screen, int cy, int cx) {

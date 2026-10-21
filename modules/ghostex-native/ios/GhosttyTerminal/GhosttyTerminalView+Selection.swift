@@ -13,12 +13,13 @@ import GhosttyKit
 extension GhosttyTerminalView {
     // MARK: - Native Text Selection (UITextInteraction, iPhone)
 
+    /// CDXC:Clipboard 2026-10-21 WHY: the iPhone used UIKit's editable `UITextInteraction` for selection, but on an editable text input a long press only moves a caret (which the terminal never draws) and dragging moves that caret, so a customer reported that press and drag "does nothing" and there was no way to copy terminal text; iPad had no selection at all. Every iOS device now uses the terminal's own touch selection: a long press selects the word under the finger, the drag that follows extends it, the handles adjust it, and the edit menu offers Copy, Paste and Select All. Do not switch back to the UIKit interaction without a long press that selects.
     var usesNativeTouchSelection: Bool {
-        UIDevice.current.userInterfaceIdiom == .phone
+        false
     }
 
     var usesAppOwnedTouchSelection: Bool {
-        UIDevice.current.userInterfaceIdiom == .phone && !usesNativeTouchSelection
+        true
     }
 
     func setupNativeTextSelectionInteractions() {
@@ -326,6 +327,10 @@ extension GhosttyTerminalView {
         let rects = selectionRects(for: normalized, metrics: metrics)
         let startFrame = cellFrame(for: normalized.start, metrics: metrics)
         let endFrame = cellFrame(for: normalized.end, metrics: metrics)
+        if touchSelectionOverlay.isHidden {
+            // Ghostty's render layers are siblings of the overlay's layer; keep the highlight above them.
+            bringSubviewToFront(touchSelectionOverlay)
+        }
         touchSelectionOverlay.isHidden = false
         touchSelectionOverlay.update(
             rects: rects,
@@ -508,47 +513,30 @@ extension GhosttyTerminalView {
 
     // MARK: - Selection Gestures
 
-    /// Double-tap to select word
+    /// Double-tap selects the word under the finger, with handles, like the long press.
+    /// It no longer sends double clicks: a program that reads the mouse took them as its own clicks.
     @objc func handleDoubleTap(_ recognizer: UITapGestureRecognizer) {
-        guard let surface = surface else { return }
         let location = recognizer.location(in: self)
-        let pos = ghosttyPoint(location)
-
+        dismissEditMenuIfNeeded()
         clearTouchSelection()
-        requestKeyboardFocus(for: .selectionGesture)
-
-        // Double-click to select word (no modifiers)
-        surface.sendMousePos(.init(x: pos.x, y: pos.y, mods: []))
-        surface.sendMouseButton(.init(action: .press, button: .left, mods: []))
-        surface.sendMouseButton(.init(action: .release, button: .left, mods: []))
-        surface.sendMouseButton(.init(action: .press, button: .left, mods: []))
-        surface.sendMouseButton(.init(action: .release, button: .left, mods: []))
-        requestRender()
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            self?.showEditMenu(at: location)
-        }
+        guard let word = quickLookWordSelection(at: location) else { return }
+        _ = focusForEditMenu()
+        touchSelection = word.normalized
+        finishTouchSelection()
     }
 
-    /// Triple-tap to select line
+    /// Triple-tap selects the screen row under the finger.
     @objc func handleTripleTap(_ recognizer: UITapGestureRecognizer) {
-        guard let surface = surface else { return }
         let location = recognizer.location(in: self)
-        let pos = ghosttyPoint(location)
-
+        dismissEditMenuIfNeeded()
         clearTouchSelection()
-        requestKeyboardFocus(for: .selectionGesture)
-
-        surface.sendMousePos(.init(x: pos.x, y: pos.y, mods: []))
-        for _ in 0..<3 {
-            surface.sendMouseButton(.init(action: .press, button: .left, mods: []))
-            surface.sendMouseButton(.init(action: .release, button: .left, mods: []))
-        }
-        requestRender()
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            self?.showEditMenu(at: location)
-        }
+        guard let point = gridPoint(for: location), let metrics = selectionGridMetrics() else { return }
+        _ = focusForEditMenu()
+        touchSelection = TerminalGridSelection(
+            start: TerminalGridPoint(row: point.row, column: 0),
+            end: TerminalGridPoint(row: point.row, column: metrics.cols - 1)
+        )
+        finishTouchSelection()
     }
 
     /// Long press + drag for custom selection
@@ -560,7 +548,8 @@ extension GhosttyTerminalView {
             case .began:
                 dismissEditMenuIfNeeded()
                 startTouchSelection(at: location)
-                requestKeyboardFocus(for: .selectionGesture)
+                // The edit menu's Paste goes to the first responder; take it without raising the keyboard.
+                _ = focusForEditMenu()
                 updateTouchSelectionLoupe(at: location)
             case .changed:
                 updateTouchSelection(at: location)
@@ -630,20 +619,6 @@ extension GhosttyTerminalView {
             touchSelectionLoupe.hideLoupe()
         default:
             break
-        }
-    }
-
-    /// Long press that ended without a text selection: open the edit menu with Paste.
-    /// A press that selected text already has UIKit's own menu (`editMenu(for:suggestedActions:)`).
-    @objc func handlePasteMenuPress(_ recognizer: UILongPressGestureRecognizer) {
-        guard recognizer.state == .ended else { return }
-        let location = recognizer.location(in: self)
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            if let nativeSelectedRange, nativeSelectedRange.length > 0 { return }
-            guard self.focusForEditMenu() else { return }
-            let config = UIEditMenuConfiguration(identifier: nil, sourcePoint: location)
-            self.editMenuInteraction?.presentEditMenu(with: config)
         }
     }
 

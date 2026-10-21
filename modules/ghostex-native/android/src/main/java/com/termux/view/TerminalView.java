@@ -264,6 +264,11 @@ public final class TerminalView extends View {
                 if (!isSelectingText()) {
                     performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
                     startTextSelectionMode(event);
+                    // Ghostex: the drag that follows extends the selection (TextSelectionCursorController#beginDragSelection).
+                    if (isSelectingText()) {
+                        getTextSelectionCursorController().beginDragSelection();
+                        if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
+                    }
                 }
             }
         });
@@ -629,6 +634,17 @@ public final class TerminalView extends View {
         final int action = event.getAction();
 
         if (isSelectingText()) {
+            if (mTextSelectionCursorController.isDragSelecting()) {
+                switch (event.getActionMasked()) {
+                    case MotionEvent.ACTION_MOVE:
+                        mTextSelectionCursorController.updateDragSelection(event);
+                        break;
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        mTextSelectionCursorController.endDragSelection();
+                        break;
+                }
+            }
             updateFloatingToolbarVisibility(event);
             mGestureRecognizer.onTouchEvent(event);
             return true;

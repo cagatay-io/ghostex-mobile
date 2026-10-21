@@ -129,12 +129,13 @@ class GhosttyTerminalView: UIView {
     let touchSelectionOverlay = TerminalTouchSelectionOverlayView()
     let touchSelectionLoupe = TerminalTouchSelectionLoupeView()
 
+    /// CDXC:Clipboard 2026-10-21 WHY: a long press is how an iOS user asks for Paste, so the press always ends in the edit menu, also on an empty part of the screen (Paste, plus Copy when the press selected text, and Select All). It takes first responder through `focusForEditMenu` because the menu's Paste is sent to the first responder. The hold is shorter than UIKit's 0.5s so selecting feels immediate, but long enough that a slow start of a scroll stays a scroll. Supersedes the 2026-10-16 separate Paste-menu long press that ran beside UIKit's caret-only text interaction.
     lazy var selectionRecognizer: UILongPressGestureRecognizer = {
         let recognizer = UILongPressGestureRecognizer(
             target: self,
             action: #selector(handleSelectionPress(_:))
         )
-        recognizer.minimumPressDuration = 0.2
+        recognizer.minimumPressDuration = 0.35
         recognizer.allowableMovement = 8
         recognizer.cancelsTouchesInView = true
         return recognizer
@@ -204,17 +205,6 @@ class GhosttyTerminalView: UIView {
     private lazy var selectionEndHandleRecognizer: UIPanGestureRecognizer = {
         let recognizer = UIPanGestureRecognizer(target: self, action: #selector(handleSelectionHandlePan(_:)))
         recognizer.maximumNumberOfTouches = 1
-        return recognizer
-    }()
-
-    /// CDXC:Clipboard 2026-10-16 WHY: a long press is how an iOS user asks for Paste, but on iPhone the terminal hands long presses to UIKit's editable text interaction, which on current iOS only moves a caret and never opens the edit menu, and an empty screen does not start it at all; iPad had no long-press handling. Paste was reachable only by double-tapping a word first, so a customer reported they could not paste. This recognizer runs beside UIKit's and opens the edit menu (Paste, plus Copy when text is selected) when the press ends.
-    lazy var pasteMenuRecognizer: UILongPressGestureRecognizer = {
-        let recognizer = UILongPressGestureRecognizer(
-            target: self,
-            action: #selector(handlePasteMenuPress(_:))
-        )
-        recognizer.minimumPressDuration = 0.5
-        recognizer.cancelsTouchesInView = false
         return recognizer
     }()
 
@@ -358,9 +348,6 @@ class GhosttyTerminalView: UIView {
             addGestureRecognizer(selectionRecognizer)
             addGestureRecognizer(doubleTapRecognizer)
             addGestureRecognizer(tripleTapRecognizer)
-        } else {
-            pasteMenuRecognizer.delegate = self
-            addGestureRecognizer(pasteMenuRecognizer)
         }
         isUserInteractionEnabled = true
 
