@@ -238,6 +238,9 @@ internal object GhostexVoice {
 
     fun setMuted(value: Boolean) {
       muted = value
+      // gxserver switches a muted Grok call to push-to-talk when `voiceAgentMuteBilling` says so; the
+      // notification's Mute comes through here too.
+      if (conversationMode && ready) sendMute()
       refreshNotice()
       status(if (value) "muted" else "unmuted", null)
     }
@@ -250,6 +253,10 @@ internal object GhostexVoice {
       speed = value
       player?.setSpeed(value)
       if (ready) sendPlaybackRate()
+    }
+
+    private fun sendMute() {
+      sendJson(JSONObject().put("type", "mute").put("muted", muted))
     }
 
     /** gxserver times the reply's end and an interruption's estimate by this rate; it resets on every attach. */
@@ -345,7 +352,10 @@ internal object GhostexVoice {
           frame.optString("conversationId").takeIf { it.isNotEmpty() }?.let { conversationId = it }
           detachedAt = 0L
           attempts = 0
-          if (conversationMode) sendPlaybackRate()
+          if (conversationMode) {
+            sendPlaybackRate()
+            sendMute()
+          }
         }
         "state" -> {
           state = frame.optString("state", state)

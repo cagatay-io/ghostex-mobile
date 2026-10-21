@@ -25,6 +25,7 @@ import { IconPill } from '../chat/native/cards/ChatPills';
 import { useTranscriptTheme } from '../chat/native/transcript/theme';
 import BottomSheet from '../components/common/BottomSheet';
 import { CheckGlyph } from '../components/onboarding/SetupIcons';
+import { SettingsGlyph } from '../components/sessions/icons';
 import { useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
 import { useTerminalStore } from '../terminal/sessions';
@@ -34,6 +35,7 @@ import {
   hangUpVoice,
   interruptVoice,
   pickVoice,
+  setMuteBilling,
   setVoiceMuted,
   setVoiceSpeed,
   startVoice,
@@ -43,6 +45,7 @@ import {
   voiceProviderName,
   VOICE_SPEEDS,
   type VoiceLine,
+  type VoiceMuteBilling,
 } from '../voice/conversation';
 import { HeadsetGlyph, MicrophoneGlyph } from '../voice/VoiceButton';
 import { VoiceMemoryCard } from '../voice/VoiceMemoryCard';
@@ -148,7 +151,7 @@ function stateLook(state: ReturnType<typeof useVoiceStore.getState>): { label: s
       return { label: 'Speaking', color: GhostexPalette.STATUS_ATTENTION };
     default:
       return {
-        label: state.muted ? 'Muted' : 'Listening',
+        label: state.muted ? (state.billingPaused ? 'Muted, not billed' : 'Muted') : 'Listening',
         color: state.muted ? GhostexPalette.MUTED : GhostexPalette.ACCENT,
       };
   }
@@ -232,6 +235,48 @@ function VoiceSpeedSheet({ visible, onClose }: { visible: boolean; onClose: () =
   );
 }
 
+/** The two billing modes of a muted call, each with its one-line explanation. */
+const MUTE_BILLING_CHOICES: { mode: VoiceMuteBilling; label: string; detail: string }[] = [
+  { mode: 'connected', label: 'Billed while connected', detail: 'Grok listens all call; muted time is billed.' },
+  { mode: 'pushToTalk', label: 'Push-to-talk while muted', detail: "Muting stops listening, so it isn't billed." },
+];
+
+/** The gear's sheet: what muting a Grok call bills (the computer's `voiceAgentMuteBilling`). */
+function VoiceSettingsSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const current = useVoiceStore((state) => state.muteBilling);
+  const provider = useVoiceStore((state) => state.provider);
+  return (
+    <BottomSheet visible={visible} onClose={onClose}>
+      <Text style={styles.sheetTitle}>While muted</Text>
+      {MUTE_BILLING_CHOICES.map((choice) => {
+        const checked = choice.mode === current;
+        return (
+          <Pressable
+            key={choice.mode}
+            accessibilityRole="radio"
+            accessibilityLabel={`${choice.label}. ${choice.detail}`}
+            accessibilityState={{ checked }}
+            style={({ pressed }) => [styles.sheetRow, styles.sheetRowTall, pressed && styles.controlPressed]}
+            onPress={() => {
+              onClose();
+              setMuteBilling(choice.mode);
+            }}
+          >
+            <View style={styles.sheetCheck}>
+              {checked ? <CheckGlyph size={18} color={GhostexPalette.FOREGROUND} strokeWidth={2.4} /> : null}
+            </View>
+            <View style={styles.sheetRowText}>
+              <Text style={styles.sheetChoiceLabel}>{choice.label}</Text>
+              <Text style={styles.sheetRowDetail}>{choice.detail}</Text>
+            </View>
+          </Pressable>
+        );
+      })}
+      {provider === 'openai' ? <Text style={styles.sheetNote}>GPT Realtime bills only the audio sent, so muting it is already free.</Text> : null}
+    </BottomSheet>
+  );
+}
+
 function Line({ line }: { line: VoiceLine }) {
   switch (line.kind) {
     case 'caption':
@@ -282,6 +327,7 @@ export default function VoiceScreen({ navigation }: Props) {
   const machine = useMachinesStore((state) => state.machines.find((entry) => entry.id === voice.machineId) ?? null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [speedOpen, setSpeedOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const canPickVoice = active && voice.voiceOptions.length > 0;
 
   /**
@@ -370,7 +416,19 @@ export default function VoiceScreen({ navigation }: Props) {
             ) : null}
           </View>
         </View>
-        <View style={styles.headerButton} />
+        {active ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Voice settings"
+            hitSlop={10}
+            style={({ pressed }) => [styles.headerButton, pressed && styles.controlPressed]}
+            onPress={() => setSettingsOpen(true)}
+          >
+            <SettingsGlyph size={22} color={GhostexPalette.MUTED} />
+          </Pressable>
+        ) : (
+          <View style={styles.headerButton} />
+        )}
       </View>
 
       {/* Big while nothing has been said yet; once captions arrive it shrinks so they get the room. */}
@@ -507,6 +565,7 @@ export default function VoiceScreen({ navigation }: Props) {
       )}
       <VoicePickerSheet visible={pickerOpen && canPickVoice} onClose={() => setPickerOpen(false)} />
       <VoiceSpeedSheet visible={speedOpen && active} onClose={() => setSpeedOpen(false)} />
+      <VoiceSettingsSheet visible={settingsOpen && active} onClose={() => setSettingsOpen(false)} />
     </SafeAreaView>
   );
 }
@@ -547,6 +606,10 @@ const styles = StyleSheet.create({
   speedChipText: { color: GhostexPalette.FOREGROUND, fontSize: 13, fontWeight: '600' },
   sheetTitle: { color: GhostexPalette.FOREGROUND, fontSize: 18, fontWeight: '700', marginBottom: 8 },
   sheetRow: { flexDirection: 'row', alignItems: 'center', minHeight: 52, gap: 10 },
+  sheetRowTall: { paddingVertical: 8 },
+  sheetRowText: { flex: 1, gap: 2 },
+  sheetChoiceLabel: { color: GhostexPalette.FOREGROUND, fontSize: 18 },
+  sheetNote: { color: GhostexPalette.MUTED, fontSize: 14, marginTop: 8 },
   sheetCheck: { width: 24, alignItems: 'center' },
   sheetRowLabel: { flex: 1, color: GhostexPalette.FOREGROUND, fontSize: 18 },
   sheetRowDetail: { color: GhostexPalette.MUTED, fontSize: 14 },

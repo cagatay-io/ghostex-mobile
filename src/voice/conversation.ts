@@ -65,11 +65,18 @@ type VoiceState = {
   nextVoice: string | null;
   /** How fast the agent's audio plays (`voiceAgentSpeed`). */
   speed: number;
+  /** `voiceAgentMuteBilling`: what muting a Grok call bills (the gear sheet). */
+  muteBilling: VoiceMuteBilling;
+  /** gxserver switched this muted Grok call to push-to-talk, so muted time is not billed. */
+  billingPaused: boolean;
   memory: VoiceMemory | null;
   memoryState: VoiceMemoryState;
   /** The latest session the agent showed (worked with or was asked to show), for the voice screen's "Open <session>" chip. */
   shownSession: VoiceShownSession | null;
 };
+
+/** `connected`: billed while connected; `pushToTalk`: push-to-talk while muted. */
+export type VoiceMuteBilling = 'connected' | 'pushToTalk';
 
 /** A session the agent showed, as gxserver names it on the tool event (`server/src/voice_agent/show.rs`). */
 export type VoiceShownSession = { projectId: string; sessionId: string; title: string };
@@ -90,6 +97,8 @@ const INITIAL: VoiceState = {
   voiceOptions: [],
   nextVoice: null,
   speed: 1,
+  muteBilling: 'connected',
+  billingPaused: false,
   memory: null,
   memoryState: 'hidden',
   shownSession: null,
@@ -257,6 +266,10 @@ function onFrame(json: string): void {
       }
       return;
     }
+    case 'billing':
+      set({ billingPaused: frame.pushToTalk === true });
+      if (frame.refused === true) notice("Grok didn't switch to push-to-talk, so this muted call is still billed while connected.");
+      return;
     case 'voice': {
       // gxserver's answer to a picked voice: switched now, or kept for the next conversation.
       const voice = text('voice');
@@ -459,6 +472,7 @@ export async function startVoice(machine: MachineConnectionTarget, machineName: 
       voices?: Record<string, string>;
       voiceOptions?: Record<string, string[]>;
       speed?: number;
+      muteBilling?: string;
     };
     const provider = result.provider === 'openai' ? 'openai' : 'xai';
     currentProvider = provider;
@@ -468,6 +482,7 @@ export async function startVoice(machine: MachineConnectionTarget, machineName: 
       voice: result.voices?.[provider] ?? null,
       voiceOptions: result.voiceOptions?.[provider] ?? [],
       speed,
+      muteBilling: result.muteBilling === 'pushToTalk' ? 'pushToTalk' : 'connected',
     });
     if (result.keys?.[provider]?.configured !== true) {
       fail('noKey', problemMessage('noKey', '', provider));
@@ -508,22 +523,35 @@ export function interruptVoice(): void {
 
 /** Saves the computer's voice settings through gxserver (which saves them through the desktop app). */
 async function saveVoiceSettings(
-  params: { provider?: string; voice?: string; speed?: number },
+  params: { provider?: string; voice?: string; speed?: number; muteBilling?: VoiceMuteBilling },
   what: string,
-): Promise<void> {
-  if (target === null) return;
+  consequence = ', so it lasts for this conversation only',
+): Promise<boolean> {
+  if (target === null) return false;
   try {
     const answer = await chatMachineLink(target).rpc('setVoiceAgentSettings', params, READ_TIMEOUT_MS);
     if (answer.error !== null) {
-      notice(
-        `Couldn't save the ${what} on ${useVoiceStore.getState().machineName} (${answer.error.message}), so it lasts for this conversation only.`,
-      );
+      notice(`Couldn't save the ${what} on ${useVoiceStore.getState().machineName} (${answer.error.message})${consequence}.`);
+      return false;
     }
+    return true;
   } catch {
-    notice(
-      `Couldn't save the ${what} on ${useVoiceStore.getState().machineName}, so it lasts for this conversation only.`,
-    );
+    notice(`Couldn't save the ${what} on ${useVoiceStore.getState().machineName}${consequence}.`);
+    return false;
   }
+}
+
+/**
+ * The gear sheet: what muting a Grok call bills. gxserver owns the switch: it reads the saved
+ * setting and, when this call is muted, moves it to (or from) push-to-talk at once.
+ */
+export function setMuteBilling(mode: VoiceMuteBilling): void {
+  const previous = useVoiceStore.getState().muteBilling;
+  if (mode === previous) return;
+  set({ muteBilling: mode });
+  void saveVoiceSettings({ muteBilling: mode }, 'billing choice', '').then((saved) => {
+    if (!saved) set({ muteBilling: previous });
+  });
 }
 
 /** The speed buttons: faster at once (on the phone), and saved as the computer's `voiceAgentSpeed`. */
