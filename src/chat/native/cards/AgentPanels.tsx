@@ -131,7 +131,7 @@ export function CoordinatorThreadsMenu({
         {arr(panel.rows).map((row, index) => (
           <ThreadRow key={str(row, 'key') || String(index)} row={row} chat={chat} onDone={onDone} />
         ))}
-        {emptyLabel.length > 0 ? <Text style={styles.stale}>{emptyLabel}</Text> : null}
+        {emptyLabel.length > 0 ? <Text style={styles.threadsEmpty}>{emptyLabel}</Text> : null}
       </ScrollView>
       {moreLabel.length > 0 ? (
         <Text
@@ -139,7 +139,7 @@ export function CoordinatorThreadsMenu({
           accessibilityLabel={
             moreStep === 0 ? 'Show fewer threads' : moreStep === 1 ? 'Show recent threads' : `Show ${moreLabel} threads`
           }
-          style={styles.fold}
+          style={styles.threadsFold}
           onPress={() => chat.dispatch({ type: 'toggleCoordinatorThreadsMore', step: moreStep })}
         >
           {moreLabel}
@@ -184,7 +184,7 @@ function ThreadRow({ row, chat, onDone }: { row: unknown; chat: RustChat; onDone
           {isTrue(row, 'needsApproval') ? <Text style={styles.approvalTag}>{NEEDS_APPROVAL_LABEL}</Text> : null}
         </View>
         {detail.length > 0 || branch.length > 0 ? (
-          <Text style={styles.blocked} numberOfLines={1}>
+          <Text style={styles.threadDetail} numberOfLines={1}>
             {[detail, branch].filter((part) => part.length > 0).join(' · ')}
           </Text>
         ) : null}
@@ -439,7 +439,7 @@ const useStyles = themedStyles((P) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingVertical: 3,
+    paddingVertical: 5,
   },
   threadDot: {
     width: 8,
@@ -458,7 +458,21 @@ const useStyles = themedStyles((P) => ({
   threadTitle: {
     flexShrink: 1,
     color: P.foreground,
-    fontSize: 12,
+    fontSize: CARD_TEXT_SIZE,
+  },
+  /** One line under the title: muted, a step under it so the title still leads. */
+  threadDetail: {
+    color: P.cardMuted,
+    fontSize: CARD_TEXT_SIZE - 1,
+  },
+  /** The Threads sheet's "N more" step and empty line, the summary line's size. */
+  threadsFold: {
+    color: P.cardMuted,
+    fontSize: CARD_TEXT_SIZE,
+  },
+  threadsEmpty: {
+    color: P.cardMuted,
+    fontSize: CARD_TEXT_SIZE,
   },
   approvalTag: {
     paddingHorizontal: 5,
@@ -466,6 +480,6 @@ const useStyles = themedStyles((P) => ({
     overflow: 'hidden',
     backgroundColor: 'rgba(245, 165, 36, 0.16)',
     color: THREAD_APPROVAL,
-    fontSize: 11,
+    fontSize: 12,
   },
 }));
