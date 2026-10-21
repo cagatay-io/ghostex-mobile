@@ -200,7 +200,11 @@ function sessionAgentIcon(session: GhostexSession): string {
   return (session.agentIcon.length > 0 ? session.agentIcon : session.agent).trim().toLowerCase();
 }
 
-/** gx-core `transcript_agent`: which transcript family an agent belongs to, or null. */
+/**
+ * gx-core `transcript_agent`: which transcript family an agent belongs to, or null. A copy of
+ * `SESSION_CHAT_AGENTS` in the main repo's packages/gx-protocol/src/session_chat_agents.rs, which
+ * this app cannot link; change both together.
+ */
 function transcriptAgent(candidates: readonly string[]): string | null {
   for (const candidate of candidates) {
     switch (candidate.trim().toLowerCase()) {
@@ -214,8 +218,13 @@ function transcriptAgent(candidates: readonly string[]): string | null {
         return 'claude';
       case 'codex':
         return 'codex';
+      case 'copilot':
+      case 'github copilot':
+      case 'github-copilot':
+        return 'copilot';
       case 'cursor':
       case 'cursor-agent':
+      case 'cursor-cli':
       case 'cursor cli':
         return 'cursor';
       case 'empryo':
@@ -227,6 +236,8 @@ function transcriptAgent(candidates: readonly string[]): string | null {
       case 'hermes-agent':
       case 'hermes agent':
         return 'hermes';
+      case 'opencode':
+        return 'opencode';
       case 'pi':
       case 'omp':
         return 'pi';
