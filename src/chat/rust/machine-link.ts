@@ -423,8 +423,28 @@ class ChatMachineLink {
     return { error: { code: 'unreachable', message: UNREACHABLE_MESSAGE, endpoint: `/api/${method}` } };
   }
 
-  /** One HTTP attempt through the forward. */
+  /**
+   * One HTTP attempt through the forward, sent again while gxserver answers that it is still
+   * starting (HTTP 503 `serverStarting`), after the delay it advises and within `timeoutMs`: such a
+   * request used to wait in the starting gxserver's listen backlog, and nothing ran behind that
+   * answer, so a resend cannot run it twice (the rule: packages/gx-protocol/src/starting.rs).
+   */
   private async attempt(endpointInfo: Endpoint, method: string, params: unknown, timeoutMs: number): Promise<Attempt> {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      const result = await this.attemptOnce(endpointInfo, method, params, Math.max(1, deadline - Date.now()));
+      const retryAfterMs = result.kind === 'answered' ? result.startingRetryAfterMs : undefined;
+      if (retryAfterMs === undefined || Date.now() + retryAfterMs >= deadline) return result;
+      await new Promise((resolve) => setTimeout(resolve, retryAfterMs));
+    }
+  }
+
+  private async attemptOnce(
+    endpointInfo: Endpoint,
+    method: string,
+    params: unknown,
+    timeoutMs: number,
+  ): Promise<Attempt & { startingRetryAfterMs?: number }> {
     const endpoint = `/api/${method}`;
     let localPort: number;
     try {
@@ -465,7 +485,11 @@ class ChatMachineLink {
           message: typeof envelope.message === 'string' ? envelope.message : 'Request failed.',
           endpoint,
         };
-        return { kind: 'answered', answer: { error } };
+        const startingRetryAfterMs =
+          response.status === 503 && envelope.product === 'gxserver' && envelope.error === 'serverStarting'
+            ? Math.min(2_000, Math.max(50, typeof envelope.retryAfterMs === 'number' ? envelope.retryAfterMs : 250))
+            : undefined;
+        return { kind: 'answered', answer: { error }, startingRetryAfterMs };
       }
       if (!response.ok || envelope.ok !== true) {
         const message = `gxserver request failed with HTTP ${response.status}.`;
