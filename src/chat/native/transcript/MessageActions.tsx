@@ -3,11 +3,13 @@
  * menu offers: the time under a final reply, starting at the prose column, and under a prompt,
  * right-aligned; the buttons desktop shows on hover are rows of the message's menu.
  *
- * CDXC:SessionChat 2026-10-21 DECISION: User: "On mobile app i should be able to hold and select text in messages so i can copy or add to chat", and picked "Hold selects text": holding a message's words starts the phone's own text selection, whose bar offers Copy and Add to Chat for the selected words and More, which opens the message's menu (`TranscriptMenu.tsx`: Copy and Add to Chat for the whole message, then its actions). Kept from 2026-10-12 (User: "we dont show buttons on any messages in the transcript without holding on it first (since these are shown on hover on desktop but there's no hover on mobile)"): no message shows a button, in the main transcript or the subagent viewer; Copy, Edit, Back to composer, Delete, Rewind, Save prompt, Save to md and Send now are rows of that menu, built from `useUserActionItems` / `useReplyActionItems` here, and only the time, a queued message's play glyph and a "taking it back" spinner stay under a message. For iPhone the user answered "Yes, build it on iPhone" (Q373), so both platforms select the same way (`messageSelection.tsx`). Supersedes the 2026-10-12 hold that opened the menu from anywhere on a message.
+ * CDXC:SessionChat 2026-10-21 DECISION: User: "On mobile app i should be able to hold and select text in messages so i can copy or add to chat", and picked "Hold selects text": holding a message's words starts the phone's own text selection, whose bar offers Copy and Add to Chat for the selected words and More, which opens the message's menu (`TranscriptMenu.tsx`: Copy and Add to Chat for the whole message, then its actions). For iPhone the user answered "Yes, build it on iPhone" (Q373), so both platforms select the same way (`messageSelection.tsx`). Supersedes the 2026-10-12 hold that opened the menu from anywhere on a message.
+ *
+ * CDXC:SessionChat 2026-10-22 DECISION: User: "Yes, make both icons tappable". A queued message's play icon (Interrupt and send) and its Back to composer icon (`DeliveryIndicator` below) are buttons on the phone too, the one exception to the 2026-10-12 rule (User: "we dont show buttons on any messages in the transcript without holding on it first (since these are shown on hover on desktop but there's no hover on mobile)"). Everything else stays in the message's menu: Copy, Edit, Back to composer, Delete, Rewind, Save prompt, Save to md and Send now are its rows, built from `useUserActionItems` / `useReplyActionItems` here, in the main transcript and the subagent viewer, and only the time and those two icons stay beside a message. Supersedes the 2026-10-21 decision's "no message shows a button".
  */
 
 import { memo } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { ProjectedMessage } from '../../rust/document';
 import { useTranscriptEnv, useTranscriptFlags } from './context';
@@ -104,11 +106,13 @@ export function useReplyMenuActions(message: ProjectedMessage): MessageMenuActio
 /**
  * Desktop's `delivery_indicator` (`startup_delivery.rs`): a spinner while the send waits for the
  * agent's terminal, a play button while the agent holds it queued behind its running turn, drawn
- * left of the bubble level with its last line. A tap on play sends one Escape so the agent takes
- * the queued prompt now.
+ * left of the bubble level with its last line. A tap on play interrupts the turn so the agent takes
+ * the queued prompt now; Back to composer, left of it where the agent can give the message back,
+ * takes it out of the agent's queue into the composer and spins while it does.
  */
 export function DeliveryIndicator({ message }: { message: ProjectedMessage }) {
-  const { theme } = useTranscriptEnv();
+  const { dispatch, main, theme } = useTranscriptEnv();
+  const flags = useTranscriptFlags();
   const delivery = message.startupDelivery;
   const waiting = delivery !== undefined && delivery !== null && delivery.state !== 'failed';
   const queued = message.queued === true && (delivery === undefined || delivery === null);
@@ -124,32 +128,48 @@ export function DeliveryIndicator({ message }: { message: ProjectedMessage }) {
     );
   }
   if (!queued) return null;
-  // The play button's action ("Send now") is in the message's menu; the glyph stays as the sign
-  // that the message is waiting.
+  const takeable = main && flags.takeBackIds.has(message.id);
+  const takingBack = takeable && flags.takeBackBusy === message.id;
+  // The icons keep their 26pt look; the hit slop makes each a finger-sized target without moving
+  // the bubble, and stops short of the neighbour's.
   return (
-    <View style={[styles.button, styles.indicator]} accessibilityLabel="Queued. Send now is in the message's options">
-      <Glyph name="player-play" size={13} color={theme.muted} />
+    <View style={[styles.indicatorRow, styles.indicator]}>
+      {takingBack ? (
+        <View style={styles.button} accessibilityRole="progressbar" accessibilityLabel="Taking the message back">
+          <ActivityIndicator size={13} color={theme.muted} />
+        </View>
+      ) : takeable ? (
+        <Pressable
+          style={styles.button}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 1 }}
+          accessibilityRole="button"
+          accessibilityLabel="Back to composer"
+          onPress={() => dispatch({ type: 'takeBackQueued', messageId: message.id })}
+        >
+          <Glyph name="arrow-back-up" size={13} color={theme.muted} />
+        </Pressable>
+      ) : null}
+      <Pressable
+        style={styles.button}
+        hitSlop={{ top: 10, bottom: 10, left: takeable ? 1 : 10, right: 2 }}
+        accessibilityRole="button"
+        accessibilityLabel="Queued. Interrupt and send"
+        onPress={() => dispatch({ type: 'sendKey', key: 'escape' })}
+      >
+        <Glyph name="player-play" size={13} color={theme.muted} />
+      </Pressable>
     </View>
   );
 }
 
 export const UserActions = memo(function UserActions({ message }: { message: ProjectedMessage }) {
-  const { main, theme } = useTranscriptEnv();
-  const flags = useTranscriptFlags();
   const prompt = typeof message.copyText === 'string' ? message.copyText : '';
-  if (prompt.length === 0) return null;
   // A message the agent itself queued comes back to the composer (CDXC:SessionChat 2026-10-11 in
-  // packages/gx-chat-core/src/composer/queue_take_back.rs); the menu row starts it, the spinner shows it.
-  const takingBack = main && flags.takeBackIds.has(message.id) && flags.takeBackBusy === message.id;
-  if (str(message.time, 'label').length === 0 && !takingBack) return null;
+  // packages/gx-chat-core/src/composer/queue_take_back.rs); `DeliveryIndicator` spins while it does.
+  if (prompt.length === 0 || str(message.time, 'label').length === 0) return null;
   return (
     <View style={[styles.row, styles.userRow]}>
       <MessageTime message={message} />
-      {takingBack ? (
-        <View style={styles.button} accessibilityRole="progressbar" accessibilityLabel="Taking the message back">
-          <ActivityIndicator size={13} color={theme.muted} />
-        </View>
-      ) : null}
     </View>
   );
 });
@@ -230,6 +250,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   userRow: { justifyContent: 'flex-end', paddingRight: 4 },
   indicator: { marginBottom: 10 },
+  indicatorRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   button: { width: 26, height: 26, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
   time: { fontSize: 12 },
 });
