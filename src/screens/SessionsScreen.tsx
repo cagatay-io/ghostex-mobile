@@ -359,6 +359,7 @@ export default function SessionsScreen({ navigation }: Props) {
     () =>
       buildDrawerList({
         nowMs: sessionListNowMs,
+        selectedSessionKey,
         machines,
         selectedMachineId: machine === null ? null : machine.id,
         inventoriesByMachineId,
@@ -392,6 +393,7 @@ export default function SessionsScreen({ navigation }: Props) {
       collapse.expandedParkedSessionKeysByMachine,
       collapse.expandedDraftSessionKeysByMachine,
       sessionListNowMs,
+      selectedSessionKey,
     ],
   );
 
@@ -889,7 +891,7 @@ export default function SessionsScreen({ navigation }: Props) {
         );
       case 'SESSION': {
         const sessionKey = attachSessionKey(machineId, child.session.sessionId);
-        const active = selectedSessionKey === sessionKey;
+        const active = selectedSessionKey === sessionKey || child.nesting?.containsActive === true;
         return (
           <SessionRow
             key={child.key}

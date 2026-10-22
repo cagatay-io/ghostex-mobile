@@ -357,6 +357,8 @@ export default function SessionRow({
               <TagIcon size={ds(15)} color={tagColor} strokeWidth={1.9} />
             ) : draftPencil ? (
               <PencilGlyph size={ds(15)} color={sidebarForeground} />
+            ) : session.isCoordinator && nesting?.containsActive === true ? (
+              <View style={styles.containsActiveRing} />
             ) : session.isCoordinator ? (
               <CoordinatorGlyph size={ds(13)} color={SidebarPalette.ROW_COORDINATOR_CROWN} />
             ) : (
@@ -503,6 +505,14 @@ const styles = StyleSheet.create({
     height: ds(14),
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  /** The hollow ring a collapsed section heading shows for the selected session inside it (rows.tsx `activeRing`). */
+  containsActiveRing: {
+    width: ds(9),
+    height: ds(9),
+    borderRadius: 999,
+    borderWidth: ds(1.5),
+    borderColor: '#A3A3A3',
   },
   coordinatorBadge: {
     flexDirection: 'row',

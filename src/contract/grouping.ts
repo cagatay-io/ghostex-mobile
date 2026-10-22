@@ -540,6 +540,8 @@ export function machineSessionCounts(summary: GhostexMobileSummary | null): Sess
 
 export type DrawerBuildInput = {
   nowMs?: number;
+  /** The session the phone has open on this machine, if any; a folded coordinator above it carries its highlight. */
+  activeSessionId?: string | null;
   expandedDraftSessionKeys?: ReadonlySet<string>;
   machineId: string;
   summary: GhostexMobileSummary;
@@ -612,7 +614,9 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
     collapsedCoordinatorKeys = new Set<string>(),
     expandedCoordinatorOlderKeys = new Set<string>(),
     nowMs = Date.now(),
+    activeSessionId = null,
   } = input;
+  const isActive = (session: GhostexSession): boolean => session.sessionId === activeSessionId;
   const badges = coordinatorBadges(summary.sessions, nowMs);
 
   const projectById = new Map<string, GhostexProject>();
@@ -696,6 +700,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
       kindSection,
       expandedCoordinatorOlderKeys,
       nowMs,
+      isActive,
     );
     const nesting = new Map(tree.nesting);
     const sectionOf = (session: GhostexSession): SessionKindSection =>
@@ -866,6 +871,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
         kindSection,
         expandedCoordinatorOlderKeys,
         nowMs,
+        isActive,
       );
       for (const [key, value] of groupTree.nesting) nesting.set(key, value);
       const collapseKey = groupCollapseKey(projectKey, group.groupId);

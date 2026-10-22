@@ -42,6 +42,12 @@ export type RowNesting = {
   olderThreads: number;
   /** On a coordinator row: the user listed its older threads. */
   olderShown: boolean;
+  /**
+   * On a coordinator row: the selected session is one of its threads that a fold hides, so this row
+   * carries the active highlight and the hollow ring in the crown's place (gx-core
+   * `RowNesting::contains_active_session`, the user's 2026-10-22 decision there).
+   */
+  containsActive: boolean;
 };
 
 export type CoordinatorBadgeTone = 'idle' | 'working' | 'waiting';
@@ -138,6 +144,7 @@ export function nestCoordinatorThreads<S>(
   sectionOf: (session: GhostexSession) => S,
   olderShown: ReadonlySet<string> = new Set<string>(),
   nowMs: number = Date.now(),
+  isActive: (session: GhostexSession) => boolean = () => false,
 ): NestedSessions<S> {
   const keys = sessions.map(coordinatorRowKey);
   const baseSections = sessions.map(sectionOf);
@@ -188,11 +195,13 @@ export function nestCoordinatorThreads<S>(
   }
   const isCollapsed = sessions.map((_, index) => children.has(index) && collapsedCoordinators.has(keys[index]));
   const result: NestedSessions<S> = { sessions: [], sections: new Map(), nesting: new Map() };
+  const foldedOf = sessions.map(() => false);
   const emit = (index: number, depth: number, last: boolean, section: S, folded: boolean): void => {
     const list = children.get(index) ?? [];
     const showsOlder = olderShown.has(keys[index]);
     const hidden = (child: number): boolean => !showsOlder && isOlder[child];
     const drawn = list.filter((child) => !hidden(child)).length;
+    foldedOf[index] = folded;
     result.sessions.push(sessions[index]);
     result.sections.set(keys[index], section);
     if (depth > 0 || list.length > 0) {
@@ -204,6 +213,7 @@ export function nestCoordinatorThreads<S>(
         folded,
         olderThreads: list.filter((child) => isOlder[child]).length,
         olderShown: showsOlder,
+        containsActive: false,
       });
     }
     list.forEach((child, position) =>
@@ -218,6 +228,14 @@ export function nestCoordinatorThreads<S>(
   };
   for (let index = 0; index < sessions.length; index += 1) {
     if (parentOf[index] === null) emit(index, 0, false, baseSections[index], false);
+  }
+  // The drawn row that stands for the selected thread when a folded coordinator hides it: its nearest drawn ancestor.
+  const focused = sessions.findIndex(isActive);
+  if (focused !== -1 && foldedOf[focused]) {
+    let ancestor = parentOf[focused];
+    while (ancestor !== null && foldedOf[ancestor]) ancestor = parentOf[ancestor];
+    const holder = ancestor === null ? undefined : result.nesting.get(keys[ancestor]);
+    if (holder !== undefined) holder.containsActive = true;
   }
   return result;
 }

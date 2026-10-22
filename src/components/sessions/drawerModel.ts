@@ -54,6 +54,8 @@ export type DrawerCollapseInput = {
 
 export type DrawerListInput = {
   nowMs?: number;
+  /** The open session's attachSessionKey (`<machineId>:<sessionId>`), if any. */
+  selectedSessionKey?: string | null;
   /** Enabled machines only; empty means the "no machines" state card. */
   machines: MachineRecord[];
   /** The machine whose content the drawer renders; null falls back to the first. */
@@ -155,6 +157,7 @@ function machineBlocks(
   selectedWorkspaceId: string | null,
   collapse: DrawerCollapseInput,
   nowMs: number,
+  selectedSessionKey: string | null,
 ): DrawerBlock[] {
   const label = machineDisplayLabel(machine);
   if (inventory === undefined || (inventory.summary === null && !inventory.hasLoaded)) {
@@ -187,6 +190,9 @@ function machineBlocks(
     buildDrawerItems({
       machineId: machine.id,
       nowMs,
+      activeSessionId: selectedSessionKey?.startsWith(`${machine.id}:`)
+        ? selectedSessionKey.slice(machine.id.length + 1)
+        : null,
       expandedDraftSessionKeys: new Set(collapse.expandedDraftSessionKeysByMachine?.[machine.id] ?? []),
       summary: filterSummaryForSpace(
         selectedWorkspaceId === null
@@ -238,6 +244,7 @@ export function buildDrawerList(input: DrawerListInput): DrawerBlock[] {
     selectedWorkspaceId,
     collapse,
     input.nowMs ?? Date.now(),
+    input.selectedSessionKey ?? null,
   );
 }
 
