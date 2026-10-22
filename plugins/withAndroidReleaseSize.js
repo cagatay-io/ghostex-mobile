@@ -11,6 +11,10 @@
  * takes about the uncompressed library size on top of the APK; that trades a
  * smaller download for a slightly slower install.
  *
+ * CDXC:Release 2026-10-22 DECISION: the user chose to drop BouncyCastle's Picnic
+ * tables (lowmcL1/L3/L5.bin.properties, 1.2 MB in the APK). Only a Picnic signature
+ * reads them; sshj and the replaced "BC" provider never ask for Picnic.
+ *
  * The keep rules for the libraries our own modules link (JNA/UniFFI, sshj,
  * BouncyCastle, the gomobile bridge, the GPUI JNI host) are consumer rules of
  * those modules (modules/ghostex-native and modules/gx-chat-core,
@@ -26,6 +30,7 @@ const RELEASE_GRADLE_PROPERTIES = {
   'android.enableMinifyInReleaseBuilds': 'true',
   'android.enableShrinkResourcesInReleaseBuilds': 'false',
   'expo.useLegacyPackaging': 'true',
+  'android.packagingOptions.excludes': '/org/bouncycastle/pqc/crypto/picnic/**',
 };
 
 const RULES_BEGIN = '# BEGIN plugins/withAndroidReleaseSize.js';
