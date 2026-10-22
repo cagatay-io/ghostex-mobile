@@ -72,7 +72,28 @@ export type ChatCoreEvent =
   | { type: 'draftChanged'; text: string }
   /** Every session the phone's inventory knows, which names the other session on a message
    * between agents. */
-  | { type: 'sessionDirectoryChanged'; sessions: ChatKnownSession[] };
+  | { type: 'sessionDirectoryChanged'; sessions: ChatKnownSession[] }
+  /** What only the app knows about Read aloud, and the speech engine's answers
+   * (docs/2026-10-20/voice-mode/read-aloud-client-contract.md in the main repo). */
+  | { type: 'readAloud'; event: ChatReadAloudEvent };
+
+/** One Read aloud input (`ReadAloudEvent` in `packages/gx-chat-core/src/read_aloud/events.rs`). */
+export type ChatReadAloudEvent =
+  /** The computer lists `readAloud` in `builtInFeatures` AND this phone has a working voice. */
+  | { kind: 'setAvailable'; on: boolean }
+  /** Auto-read for this run of the app; every chat hears the same value. */
+  | { kind: 'setAuto'; on: boolean }
+  /** This chat is the one on screen. */
+  | { kind: 'setOnScreen'; on: boolean }
+  /** A voice agent conversation is open. */
+  | { kind: 'setVoiceConversation'; open: boolean }
+  /** The microphone is recording (Dictate). */
+  | { kind: 'setDictating'; on: boolean }
+  /** The engine finished utterance `id` (from `speak`), or cut it off. */
+  | { kind: 'speechEnded'; id: string; interrupted?: boolean };
+
+/** One utterance of a `speak` effect. */
+export type ChatSpeechSegment = { text: string; kind: 'prose' | 'note' };
 
 /** `KnownSession`: one session of the host's session list. */
 export type ChatKnownSession = {
@@ -158,15 +179,33 @@ export type ChatCoreEffect =
   | { type: 'restoreReturnedPrompt'; text: string }
   | { type: 'markdownSaved'; path: string }
   | { type: 'hostAction'; action: string; params: unknown }
+  /** Read aloud: speak `segments` in order with this phone's Voice and Speed, replacing anything
+   * speaking; answer with `readAloud` `speechEnded` carrying `id`. `messageId` is null for a
+   * question line. */
+  | { type: 'speak'; id: string; messageId: string | null; segments: ChatSpeechSegment[] }
+  /** Read aloud: stop utterance `id` if it is still speaking. */
+  | { type: 'stopSpeaking'; id: string }
+  /** Read aloud: Auto-read was switched in this chat's ⋯ menu; keep it for this run and send
+   * `readAloud` `setAuto` to every chat. */
+  | { type: 'setReadAloudAuto'; on: boolean }
   /** An effect newer than this binding; `name` is the Rust variant name. */
   | { type: 'unknown'; name: string };
 
 /**
  * The pure helpers `query()` answers (same arguments as desktop's `nativeChat.<name>`).
  * `renderVisual(source, width, theme, fontFamily)` lays out one ```visual block and answers its SVG.
+ * `speakableSegments(messageId)` answers what Read aloud says for one agent message (or `null`), and
+ * `speakableMarkdown(markdown)` the same for any Markdown, as {@link ChatSpeechSegment}s.
  */
 export type ChatCoreQuery =
-  'composerReferences' | 'composerKeyIntent' | 'referenceMenu' | 'transcriptMenu' | 'sendBlockedToast' | 'renderVisual';
+  | 'composerReferences'
+  | 'composerKeyIntent'
+  | 'referenceMenu'
+  | 'transcriptMenu'
+  | 'sendBlockedToast'
+  | 'renderVisual'
+  | 'speakableSegments'
+  | 'speakableMarkdown';
 
 // ---------------------------------------------------------------------------------------------
 // The handle
