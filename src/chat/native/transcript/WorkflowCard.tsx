@@ -104,6 +104,7 @@ const WorkflowCard = memo(function WorkflowCard({ id, card }: { id: string; card
 function Phase({ phase }: { phase: JsonRecord }) {
   const { theme } = useTranscriptEnv();
   const title = str(phase, 'title');
+  const detail = str(phase, 'detail');
   return (
     <View style={styles.phase}>
       {title.length > 0 ? (
@@ -111,6 +112,10 @@ function Phase({ phase }: { phase: JsonRecord }) {
           <Text style={[styles.phaseTitle, { color: theme.cardMuted }]}>{title}</Text>
           <Text style={[styles.phaseCount, { color: theme.cardMuted }]}>{str(phase, 'countLabel')}</Text>
         </View>
+      ) : null}
+      {/* The phase's description from the script, in full under its heading. */}
+      {title.length > 0 && detail.length > 0 ? (
+        <Text style={[styles.phaseDetail, { color: theme.muted }]}>{detail}</Text>
       ) : null}
       {arr(phase.agents).map((agent, index) => {
         const value = obj(agent);
@@ -213,6 +218,7 @@ const styles = StyleSheet.create({
   phaseHeading: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingBottom: 2 },
   phaseTitle: { fontSize: 12, fontWeight: '500' },
   phaseCount: { fontSize: 12, fontVariant: ['tabular-nums'] },
+  phaseDetail: { fontSize: 12, lineHeight: 16, paddingBottom: 2 },
   agent: {
     flexDirection: 'row',
     alignItems: 'center',
