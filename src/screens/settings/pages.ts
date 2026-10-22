@@ -7,7 +7,16 @@ import { ANDROID_SELF_UPDATE_ENABLED } from '../../config/featureFlags';
 import { VOICE_SUPPORTED } from '../../voice/conversation';
 
 export type SettingsPageId =
-  'updates' | 'theme' | 'chat' | 'voice' | 'terminal' | 'keyboard' | 'sounds' | 'connection' | 'advanced';
+  | 'updates'
+  | 'theme'
+  | 'chat'
+  | 'voice'
+  | 'terminal'
+  | 'keyboard'
+  | 'sounds'
+  | 'connection'
+  | 'advanced'
+  | 'readAloudVoice';
 
 export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, { title: string; description: string }>> = {
   updates: { title: 'Updates', description: 'Check for a newer Ghostex release.' },
@@ -19,6 +28,8 @@ export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, { title: string; de
   sounds: { title: 'Sounds', description: 'A sound when an agent needs you.' },
   connection: { title: 'Connection', description: 'Reconnecting to your computer.' },
   advanced: { title: 'Advanced', description: 'Older settings most people never change.' },
+  // Opened from Settings › Chat's Read aloud rows, not listed on the Settings home.
+  readAloudVoice: { title: 'Read aloud voice', description: "Which of this phone's voices reads replies aloud." },
 };
 
 export const SETTINGS_PAGE_ORDER: readonly SettingsPageId[] = [

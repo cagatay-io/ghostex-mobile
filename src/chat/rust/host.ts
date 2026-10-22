@@ -60,6 +60,7 @@ import { chatMachineLink } from './machine-link';
 import { SessionChatStream, sessionChatRpc, type RpcAnswer } from './transport';
 import { markSessionOpen } from '../../terminal/openTiming';
 import { receivePageThumbnail } from '../native/transcript/pageThumbnails';
+import { readAloudSetAuto, readAloudSpeak, readAloudStopSpeaking, registerReadAloudChat } from '../../voice/readAloud';
 
 /** Which chat a host serves. */
 export type RustChatTarget = { machine: MachineConnectionTarget; projectId: string; sessionId: string };
@@ -176,6 +177,7 @@ export class RustChatHost {
   private appStateSubscription: NativeEventSubscription | null = null;
   private unsubscribeSessionDirectory: (() => void) | null = null;
   private unsubscribeModelCatalog: (() => void) | null = null;
+  private unregisterReadAloud: (() => void) | null = null;
   /** Session-open timing (`terminal/openTiming.ts`): the phone tab's `${machineId}:${sessionId}`. */
   private readonly openTraceKey: string;
   private retainedTranscriptLoaded = false;
@@ -252,6 +254,14 @@ export class RustChatHost {
     this.unsubscribeModelCatalog = chatMachineLink(this.target.machine).onModelCatalog((catalog) =>
       this.enqueue({ type: 'modelCatalogChanged', catalog }),
     );
+    // Read aloud: what only the app knows (Auto-read, the chat on screen, the voice call), and
+    // the one speaker every chat shares (`src/voice/readAloud.ts`).
+    this.unregisterReadAloud = registerReadAloudChat({
+      key: this.retainedKey,
+      machine: this.target.machine,
+      send: (event) => this.enqueue({ type: 'readAloud', event }),
+      toast: (message) => this.view({ kind: 'toast', level: 'info', message }),
+    });
     // `replayDraftSaves`: a save an earlier run could not deliver is still in the outbox.
     this.scheduleDraftRetry(0);
     // Only `background` pauses: `inactive` is a pulled-down notification centre or an app switcher
@@ -272,6 +282,8 @@ export class RustChatHost {
     this.unsubscribeSessionDirectory = null;
     this.unsubscribeModelCatalog?.();
     this.unsubscribeModelCatalog = null;
+    this.unregisterReadAloud?.();
+    this.unregisterReadAloud = null;
     this.poll.stop();
     if (this.timer !== null) clearTimeout(this.timer);
     if (this.draftRetryTimer !== null) clearTimeout(this.draftRetryTimer);
@@ -552,6 +564,15 @@ export class RustChatHost {
         return;
       case 'hostAction':
         this.hostAction(effect.action, effect.params, answers);
+        return;
+      case 'speak':
+        readAloudSpeak(this.retainedKey, effect.id, effect.segments);
+        return;
+      case 'stopSpeaking':
+        readAloudStopSpeaking(this.retainedKey, effect.id);
+        return;
+      case 'setReadAloudAuto':
+        readAloudSetAuto(this.retainedKey, effect.on);
         return;
       case 'unknown':
         this.unknownEffect(effect.name);

@@ -5,6 +5,7 @@ import AdvancedPage from './AdvancedPage';
 import ChatPage from './ChatPage';
 import ConnectionPage from './ConnectionPage';
 import KeyboardPage from './KeyboardPage';
+import ReadAloudVoicePage from './ReadAloudVoicePage';
 import SoundsPage from './SoundsPage';
 import TerminalPage from './TerminalPage';
 import ThemePage from './ThemePage';
@@ -32,5 +33,7 @@ export default function SettingsPageScreen({ route }: NativeStackScreenProps<Roo
       return <ConnectionPage />;
     case 'advanced':
       return <AdvancedPage />;
+    case 'readAloudVoice':
+      return <ReadAloudVoicePage />;
   }
 }

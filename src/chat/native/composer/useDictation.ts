@@ -34,6 +34,7 @@ import {
   type Transcription,
 } from '../../../voice/dictation';
 import { chatMachineLink } from '../../rust/machine-link';
+import { setReadAloudDictating } from '../../../voice/readAloud';
 
 type Subscription = { remove(): void };
 type SpeechNative = {
@@ -98,6 +99,15 @@ export function useDictation(
     void link.route().then(refresh, refresh);
     return link.onRouteChange(refresh);
   }, [machine]);
+
+  // Read aloud keeps quiet while the microphone records (the core's `setDictating`), so the
+  // recording never takes in the phone's own voice; transcribing no longer listens.
+  const recording = phase === 'starting' || phase === 'recording';
+  useEffect(() => {
+    if (!recording) return undefined;
+    setReadAloudDictating(true);
+    return () => setReadAloudDictating(false);
+  }, [recording]);
 
   // The recording row's clock.
   useEffect(() => {

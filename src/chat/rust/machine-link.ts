@@ -38,6 +38,8 @@ const PROTOCOL_VERSION = 1;
 const PROTOCOL_HEADER = 'x-gxserver-protocol-version';
 /** `RECONNECT_DELAYS_MS` in `packages/gx-chat-client/src/wire.rs`; the last step repeats. */
 const RECONNECT_DELAYS_MS = [500, 1_000, 2_000];
+/** The ladder in the background, for Voice mode's computer only: the SSH reconnect's steps. */
+const BACKGROUND_RECONNECT_DELAYS_MS = [2_000, 5_000, 15_000, 30_000];
 /** Opens that failed in a row before the endpoint is asked for again (port or token may have moved). */
 const FAILED_OPENS_BEFORE_RECHECK = 3;
 /** How long an older Ghostex is taken at its word before the handshake runs again (it may update). */
@@ -141,6 +143,27 @@ function foreground(): boolean {
   return AppState.currentState !== 'background';
 }
 
+/** The computer whose chat link keeps reconnecting in the background (Read aloud's Voice mode). */
+let backgroundMachineId: string | null = null;
+
+/**
+ * Lets one computer's chat link reconnect while the app is in the background, or none (`null`).
+ *
+ * CDXC:VoiceMode 2026-10-22 WHY: in the background nothing reconnects, so a cell handover while driving would end Auto-read without a word. While Voice mode reads a chat, its computer alone keeps retrying (SSH on its own ladder in `src/app/autoReconnect.ts`, the socket here on the same slower steps), and only until Voice mode stops.
+ */
+export function keepChatLinkInBackground(machineId: string | null): void {
+  backgroundMachineId = machineId;
+}
+
+/** Whether `machineId` is the computer Voice mode keeps reconnecting in the background. */
+export function chatLinkKeptInBackground(machineId: string): boolean {
+  return backgroundMachineId === machineId;
+}
+
+function mayReconnect(machineId: string): boolean {
+  return foreground() || chatLinkKeptInBackground(machineId);
+}
+
 class ChatMachineLink {
   private state: LinkState = { kind: 'unknown' };
   /** The route the last handshake settled on, so listeners hear only real changes. */
@@ -164,6 +187,7 @@ class ChatMachineLink {
   private wasBackgrounded = false;
   /** Armed while a socket that survived the background owes an answer (`checkResumedSocket`). */
   private resumeTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly socketListeners = new Set<(open: boolean) => void>();
 
   constructor(private machine: MachineConnectionTarget) {
     AppState.addEventListener('change', (next: AppStateStatus) => {
@@ -239,6 +263,23 @@ class ChatMachineLink {
   onRouteChange(listener: (route: ChatRoute) => void): () => void {
     this.routeListeners.add(listener);
     return () => this.routeListeners.delete(listener);
+  }
+
+  /** Whether the chat socket is open now (Voice mode's "reconnecting" line and 5-minute rule). */
+  socketUp(): boolean {
+    return this.socketOpen;
+  }
+
+  /** Hears the chat socket open and close. */
+  onSocketChange(listener: (open: boolean) => void): () => void {
+    this.socketListeners.add(listener);
+    return () => this.socketListeners.delete(listener);
+  }
+
+  private setSocketOpen(open: boolean): void {
+    if (this.socketOpen === open) return;
+    this.socketOpen = open;
+    for (const listener of this.socketListeners) listener(open);
   }
 
   /** What this computer's gxserver advertised, once a handshake settled on the socket route. */
@@ -545,7 +586,7 @@ class ChatMachineLink {
   }
 
   private async connect(): Promise<void> {
-    if (this.connecting || !foreground()) return;
+    if (this.connecting || !mayReconnect(this.machine.id)) return;
     this.connecting = true;
     try {
       const route = await this.route();
@@ -580,7 +621,7 @@ class ChatMachineLink {
     this.socket = socket;
     socket.onopen = () => {
       if (generation !== this.socketGeneration) return;
-      this.socketOpen = true;
+      this.setSocketOpen(true);
       this.failedOpens = 0;
       // gxserver has no replay: every open subscribes every follower, and each answers with a
       // fresh snapshot that replaces whatever a dropped socket lost.
@@ -601,7 +642,7 @@ class ChatMachineLink {
       if (generation !== this.socketGeneration) return;
       const wasOpen = this.socketOpen;
       this.socket = null;
-      this.socketOpen = false;
+      this.setSocketOpen(false);
       if (this.followers.size === 0) return;
       if (wasOpen) this.scheduleReconnect();
       else this.openFailed();
@@ -619,10 +660,14 @@ class ChatMachineLink {
     this.scheduleReconnect();
   }
 
-  /** The next ladder step. In the background nothing is scheduled; `active` reconnects at once. */
+  /**
+   * The next ladder step. In the background nothing is scheduled (`active` reconnects at once),
+   * except for Voice mode's computer, on the slower background steps.
+   */
   private scheduleReconnect(): void {
-    if (this.retryTimer !== null || this.followers.size === 0 || !foreground()) return;
-    const delay = RECONNECT_DELAYS_MS[Math.min(this.failedOpens, RECONNECT_DELAYS_MS.length - 1)];
+    if (this.retryTimer !== null || this.followers.size === 0 || !mayReconnect(this.machine.id)) return;
+    const ladder = foreground() ? RECONNECT_DELAYS_MS : BACKGROUND_RECONNECT_DELAYS_MS;
+    const delay = ladder[Math.min(this.failedOpens, ladder.length - 1)];
     this.retryTimer = setTimeout(() => {
       this.retryTimer = null;
       void this.connect();
@@ -633,7 +678,7 @@ class ChatMachineLink {
     this.socketGeneration += 1;
     const socket = this.socket;
     this.socket = null;
-    this.socketOpen = false;
+    this.setSocketOpen(false);
     if (this.resumeTimer !== null) {
       clearTimeout(this.resumeTimer);
       this.resumeTimer = null;

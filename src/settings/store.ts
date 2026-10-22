@@ -88,6 +88,13 @@ export type GhostexSettings = {
   markedHandoversStyle: MarkedHandoversStyle;
   /** Show the marker emoji in coloured marked sections (desktop `markedHandoversEmoji`, off by default). */
   markedHandoversEmoji: boolean;
+  /**
+   * Read aloud's voice on this phone: a voice name of the phone's text-to-speech engine, or `''`
+   * for its default. The phone's own, never the computer's `readAloudVoice` (spec 6.4).
+   */
+  readAloudVoice: string;
+  /** Read aloud's speed on this phone, a multiple of the engine's normal rate ({@link READ_ALOUD_RATES}). */
+  readAloudRate: number;
   // SSH connection (appended group).
   autoReconnect: boolean;
   keepAliveEnabled: boolean;
@@ -107,6 +114,9 @@ export const BELL_BEHAVIOR_OPTIONS: BellBehavior[] = ['vibrate', 'beep', 'ignore
 export const KEEP_ALIVE_INTERVAL_MIN_SEC = 10;
 export const KEEP_ALIVE_INTERVAL_MAX_SEC = 120;
 export const KEEP_ALIVE_INTERVAL_STEP_SEC = 10;
+
+/** The Speed choices, the same as the desktop's `readAloudRate` row. */
+export const READ_ALOUD_RATES = [0.75, 1, 1.25, 1.5, 2] as const;
 
 export const SIDEBAR_SURFACE_OPACITY_MIN = 0;
 export const SIDEBAR_SURFACE_OPACITY_MAX = 100;
@@ -162,6 +172,8 @@ export function defaultSettings(): GhostexSettings {
     sessionChatGpuiTranscript: false,
     markedHandoversStyle: 'labels',
     markedHandoversEmoji: false,
+    readAloudVoice: '',
+    readAloudRate: 1,
     autoReconnect: true,
     keepAliveEnabled: true,
     keepAliveIntervalSec: 30,
@@ -272,6 +284,10 @@ function sanitizeSettings(value: unknown): GhostexSettings {
         ? record.markedHandoversStyle
         : defaults.markedHandoversStyle,
     markedHandoversEmoji: bool('markedHandoversEmoji', defaults.markedHandoversEmoji),
+    readAloudVoice: typeof record.readAloudVoice === 'string' ? record.readAloudVoice : defaults.readAloudVoice,
+    readAloudRate: (READ_ALOUD_RATES as readonly number[]).includes(record.readAloudRate as number)
+      ? (record.readAloudRate as number)
+      : defaults.readAloudRate,
     autoReconnect: bool('autoReconnect', defaults.autoReconnect),
     keepAliveEnabled: bool('keepAliveEnabled', defaults.keepAliveEnabled),
     keepAliveIntervalSec,

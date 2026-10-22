@@ -1,11 +1,20 @@
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useEffect, useState } from 'react';
+
 import { isGpuiAvailable } from '../../../modules/gx-chat-core/src/gpui';
+import type { RootStackParamList } from '../../navigation/types';
 import {
+  READ_ALOUD_RATES,
   useSettingsStore,
   type MarkedHandoversStyle,
   type PreferredAgentInterface,
   type SessionChatTheme,
 } from '../../settings/store';
-import { Caption, ChoiceRow, SectionHeader, SettingsScreenLayout, SettingToggle } from './SettingsControls';
+import { VOICE_SUPPORTED } from '../../voice/conversation';
+import { readAloudVoices, useReadAloudOnAnywhere } from '../../voice/readAloud';
+import { voiceLabel } from './ReadAloudVoicePage';
+import { Caption, ChoiceRow, LinkRow, SectionHeader, SettingsScreenLayout, SettingToggle } from './SettingsControls';
 
 /** Same option order as the desktop app's Default Agent View control. */
 const PREFERRED_AGENT_INTERFACE_ROWS: { value: PreferredAgentInterface; label: string }[] = [
@@ -91,6 +100,8 @@ export default function ChatPage() {
         each coloured section; while it is off the colour and the label show the kind.
       </Caption>
 
+      <ReadAloudRows />
+
       {isGpuiAvailable() ? (
         <>
           <SectionHeader title="Developer" />
@@ -101,5 +112,61 @@ export default function ChatPage() {
         </>
       ) : null}
     </SettingsScreenLayout>
+  );
+}
+
+/**
+ * Read aloud's Voice and Speed on this phone, shown while a configured computer has Read aloud on.
+ *
+ * CDXC:VoiceMode 2026-10-22 WHY: the phone's voices are not the computer's, so Voice and Speed are the phone's own settings and never synced (spec 6.4). They are two rows on Settings › Chat like the desktop's (the user's Q26 for the desktop), and Speed offers the desktop's choices, 0.75x to 2x.
+ */
+function ReadAloudRows() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const onAnywhere = useReadAloudOnAnywhere();
+  const shown = VOICE_SUPPORTED && onAnywhere;
+  const voice = useSettingsStore((state) => state.settings.readAloudVoice);
+  const rate = useSettingsStore((state) => state.settings.readAloudRate);
+  const setSetting = useSettingsStore((state) => state.setSetting);
+  const [voiceName, setVoiceName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!shown || voice === '') {
+      setVoiceName(null);
+      return undefined;
+    }
+    let live = true;
+    void readAloudVoices()
+      .catch(() => null)
+      .then((answer) => {
+        const match = answer?.voices.find((entry) => entry.name === voice);
+        if (live) setVoiceName(match === undefined ? voice : `${match.localeLabel}, ${voiceLabel(match)}`);
+      });
+    return () => {
+      live = false;
+    };
+  }, [shown, voice]);
+
+  if (!shown) return null;
+  return (
+    <>
+      <SectionHeader title="Read aloud" />
+      <LinkRow
+        title="Voice"
+        description={voice === '' ? "Phone's default voice" : (voiceName ?? voice)}
+        onPress={() => navigation.navigate('SettingsPage', { page: 'readAloudVoice' })}
+      />
+      {READ_ALOUD_RATES.map((value) => (
+        <ChoiceRow
+          key={value}
+          label={`Speed ${value}x`}
+          selected={rate === value}
+          onPress={() => setSetting('readAloudRate', value)}
+        />
+      ))}
+      <Caption>
+        The voice and speed this phone reads agents' replies with, from Read aloud on a reply or Auto-read in a chat's ⋯
+        menu.
+      </Caption>
+    </>
   );
 }

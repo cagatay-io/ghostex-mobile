@@ -118,6 +118,35 @@ function branchesRow(document: ChatDocument): MenuRow | null {
 }
 
 /**
+ * Read aloud's rows, below View: Stop reading while this chat is being read, then the Auto-read
+ * check, which says why it is quiet during a voice call or dictation.
+ *
+ * CDXC:VoiceMode 2026-10-20 DECISION: User: the Auto-read switch lives in the composer's ⋯ (More actions) menu on both apps; it reads each finished reply of the chat on screen. Its rows show only while the chat's computer has Read aloud on and the phone has a voice (`readAloud.available`).
+ */
+function readAloudRows(document: ChatDocument): MenuRow[] {
+  const state = document.readAloud;
+  if (state?.available !== true) return [];
+  const rows: MenuRow[] = [];
+  if (state.speaking) {
+    rows.push({ label: 'Stop reading', iconPath: 'titlebar/player-stop.svg', command: { type: 'readAloudStop' } });
+  }
+  const held =
+    state.autoReadHeld === 'voiceConversation'
+      ? 'Quiet during the voice call'
+      : state.autoReadHeld === 'dictation'
+        ? 'Quiet while you dictate'
+        : null;
+  rows.push({
+    label: 'Auto-read',
+    iconPath: 'titlebar/volume.svg',
+    checked: state.autoRead,
+    ...(held !== null ? { description: held } : {}),
+    command: { type: 'readAloudAuto' },
+  });
+  return rows;
+}
+
+/**
  * The Skills row: the Ghostex skills the agent has installed, each putting its pill in the chat box
  * (core `composer/ghostex_skills.rs`, a user decision there), then Configure / Install more.
  */
@@ -209,6 +238,7 @@ export function moreActionsRows({
   const branches = branchesRow(document);
   if (branches !== null) rows.push(branches);
   rows.push(viewModesRow(document, simple, verbose, available('summary')));
+  rows.push(...readAloudRows(document));
   /**
    * CDXC:SessionChat 2026-10-17 DECISION:
    * User: "Move catch me up on mobile to be inside the 3 dots menu above side chat". The phone has no Catch me up button on the composer; this row sends the same action (it opens the card, or closes it when open) whenever the button would have shown. Desktop keeps its button.

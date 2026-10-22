@@ -1,7 +1,8 @@
 /**
  * SSH auto-reconnect (Settings › SSH connection).
  * - Watches native onConnectionState. When a machine's shared SSH connection
- *   drops for an enabled machine, reconnects in the foreground with capped backoff.
+ *   drops for an enabled machine, reconnects in the foreground with capped backoff
+ *   (in the background only Read aloud's Voice mode computer does, see `canRecover`).
  *   Manual disconnects and credential/host-key failures wait for explicit action.
  * - After a successful reconnect, re-attaches closed/failed zmx attach tabs
  *   (their sessionKeys are stable, so re-attaching cannot duplicate sessions).
@@ -15,6 +16,7 @@ import { AppState } from 'react-native';
 import { GhostexNative } from '../../modules/ghostex-native/src';
 import type { FailureReasonCode } from '../inventory/client';
 import { useInventoryStore } from '../inventory/store';
+import { chatLinkKeptInBackground } from '../chat/rust/machine-link';
 import { enabledMachines, useMachinesStore } from '../machines/store';
 import { cancelConnectionAttempt, ensureConnected } from '../remote/connection';
 import { useSettingsStore } from '../settings/store';
@@ -49,9 +51,14 @@ function machineTarget(machineId: string) {
   return enabledMachines(useMachinesStore.getState()).find((machine) => machine.id === machineId);
 }
 
+/**
+ * In front every enabled computer recovers; in the background only the one Read aloud's Voice mode
+ * reads a chat of (`keepChatLinkInBackground`), and only its SSH connection: tabs and the session
+ * list wait for the foreground.
+ */
 function canRecover(machineId: string): boolean {
   return (
-    foreground() &&
+    (foreground() || chatLinkKeptInBackground(machineId)) &&
     useSettingsStore.getState().settings.autoReconnect &&
     !manualDisconnects.has(machineId) &&
     !permanentFailures.has(machineId) &&
@@ -83,6 +90,11 @@ function recoverMachine(machineId: string, verify = false): Promise<void> {
     try {
       await ensureConnected(target, { verify });
       if (!canRecover(machineId)) return;
+      if (!foreground()) {
+        // Voice mode: the chat link reconnects on `connected`; the rest waits for the foreground.
+        attemptsByMachineId.delete(machineId);
+        return;
+      }
       // A slow/offline second computer must not delay restoring this one's tabs.
       await restoreAttachTabs(machineId);
       await useInventoryStore.getState().refreshMachine(target);
@@ -138,7 +150,8 @@ export function initAutoReconnect(): void {
     scheduleReconnect(event.machineId);
   });
   AppState.addEventListener('change', () => {
-    if (!foreground()) for (const machineId of retryTimers.keys()) cancelRetry(machineId);
+    if (foreground()) return;
+    for (const machineId of retryTimers.keys()) if (!chatLinkKeptInBackground(machineId)) cancelRetry(machineId);
   });
   /**
    * CDXC:RemoteMachines 2026-10-16 WHY:

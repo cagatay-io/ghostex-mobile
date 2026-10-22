@@ -81,6 +81,7 @@ const KNOWN_GLYPHS = new Set<string>([
   'share',
   'microphone',
   'player-stop',
+  'volume',
 ]);
 
 function isGlyph(name: string): name is GlyphName {

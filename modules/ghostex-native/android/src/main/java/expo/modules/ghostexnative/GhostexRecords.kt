@@ -79,3 +79,12 @@ class VoiceStartOptionsRecord : Record {
   @Field var provider: String? = null
   @Field var language: String? = null
 }
+
+/** Mirrors `ReadAloudMode` in GhostexNative.types.ts: the chat Voice mode reads (GhostexForegroundService). */
+class ReadAloudModeRecord : Record {
+  @Field var title: String = ""
+  @Field var machineId: String = ""
+  @Field var sessionId: String = ""
+  /** The computer's name while its link is down, else null. */
+  @Field var reconnecting: String? = null
+}

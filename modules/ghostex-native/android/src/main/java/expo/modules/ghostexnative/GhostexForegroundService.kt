@@ -33,6 +33,9 @@ import kotlin.math.abs
  * service or notification (docs/2026-10-20/voice-mode/read-aloud-extension-spec.md, section 6.3,
  * which Read aloud reuses for its `mediaPlayback` type). Android only lets a service take the
  * microphone type while the app is in front, which it is: the user just tapped the Voice button.
+ *
+ * CDXC:VoiceMode 2026-10-20 DECISION: User: on the phone, auto-read keeps working while the phone is locked or Ghostex is in the background, through an Android foreground service with a "Voice mode on" notification.
+ * CDXC:VoiceMode 2026-10-22 WHY: Auto-read reuses this service and notification (spec 6.3): turning it on adds the `mediaPlayback` type, from the ⋯ menu while the app is in front as Android requires; the notification reads "Reading <session> aloud" with Pause / Resume while a reply plays and Stop, which stops the speech and turns Auto-read off, and tapping it opens that chat. A voice agent call and Auto-read share the one notification: the call's line wins while both run and the service keeps both types. The expanded view keeps the session rows.
  */
 class GhostexForegroundService : Service() {
 
@@ -60,11 +63,15 @@ class GhostexForegroundService : Service() {
     ) {
       types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
     }
+    if (readAloud != null && android.os.Build.VERSION.SDK_INT >= 29) {
+      types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+    }
     try {
       ServiceCompat.startForeground(this, NOTIFICATION_ID, buildNotification(), types)
     } catch (error: RuntimeException) {
-      // The microphone type is refused from the background; keep the session notification.
-      ServiceCompat.startForeground(this, NOTIFICATION_ID, buildNotification(), types and ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE.inv())
+      // The microphone and media types are refused from the background; keep the notification.
+      val background = ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+      ServiceCompat.startForeground(this, NOTIFICATION_ID, buildNotification(), types and background.inv())
     }
   }
 
@@ -77,17 +84,29 @@ class GhostexForegroundService : Service() {
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     when (intent?.action) {
       ACTION_STOP -> {
-        // Exit ends everything, a voice conversation included.
+        // Exit ends everything, a voice conversation and Auto-read included.
         if (voiceLine != null) GhostexVoice.end("conversation")
         voiceLine = null
+        if (readAloud != null) GhostexSpeech.stopVoiceMode()
+        readAloud = null
         persistentWanted = false
         return shutDown()
       }
       ACTION_PERSISTENT_OFF -> {
         persistentWanted = false
-        if (voiceLine == null) return shutDown()
+        if (voiceLine == null && readAloud == null) return shutDown()
       }
-      ACTION_VOICE_OFF -> if (!persistentWanted) return shutDown()
+      ACTION_VOICE_OFF -> if (!persistentWanted && readAloud == null) return shutDown()
+      ACTION_READ_ALOUD_OFF -> if (!persistentWanted && voiceLine == null) return shutDown()
+      ACTION_READ_ALOUD_STOP -> {
+        GhostexSpeech.stopVoiceMode()
+        readAloud = null
+        if (!persistentWanted && voiceLine == null) return shutDown()
+      }
+      ACTION_READ_ALOUD_PAUSE -> {
+        GhostexSpeech.togglePauseByUser()
+        return START_NOT_STICKY
+      }
       ACTION_VOICE_HANG_UP -> {
         GhostexVoice.end("conversation")
         return START_NOT_STICKY
@@ -254,8 +273,63 @@ class GhostexForegroundService : Service() {
       .build()
   }
 
+  /**
+   * Read aloud's "Voice mode on": the reading line, Pause / Resume while a reply plays, and Stop;
+   * tapping it opens the chat being read. The expanded view keeps the session rows.
+   */
+  private fun buildReadAloudNotification(state: ReadAloudMode): Notification {
+    val open = Intent(Intent.ACTION_VIEW, Uri.Builder()
+      .scheme("ghostex")
+      .authority("session")
+      .appendQueryParameter("machineId", state.machineId)
+      .appendQueryParameter("sessionId", state.sessionId)
+      .appendQueryParameter("title", state.title)
+      .build())
+      .setPackage(packageName)
+      .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    val line = when {
+      state.reconnecting != null -> "Reconnecting to ${state.reconnecting}…"
+      readAloudPaused -> "Paused · ${state.title}"
+      else -> "Reading ${state.title} aloud"
+    }
+    val builder = NotificationCompat.Builder(this, VOICE_CHANNEL_ID)
+      .setSmallIcon(R.drawable.ic_ghostex_service)
+      .setColor(0xFF607D8B.toInt())
+      .setContentTitle("Voice mode on")
+      .setContentText(line)
+      .setOngoing(true)
+      .setShowWhen(false)
+      .setSilent(true)
+      .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
+      .setContentIntent(PendingIntent.getActivity(this, 6, open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
+    val rows = sessionRows
+    if (rows.isNotEmpty()) {
+      val expanded = RemoteViews(packageName, R.layout.notification_ghostex_expanded)
+      expanded.setTextViewText(R.id.ghostex_summary, "Voice mode on · $line")
+      bindRows(expanded, rows, MAX_NOTIFICATION_ROWS)
+      if (rows.size > MAX_NOTIFICATION_ROWS) {
+        expanded.setViewVisibility(R.id.ghostex_more, android.view.View.VISIBLE)
+        expanded.setTextViewText(R.id.ghostex_more, "+${rows.size - MAX_NOTIFICATION_ROWS} more")
+      } else {
+        expanded.setViewVisibility(R.id.ghostex_more, android.view.View.GONE)
+      }
+      builder.setStyle(NotificationCompat.DecoratedCustomViewStyle())
+      builder.setCustomBigContentView(expanded)
+    }
+    if (readAloudSpeaking) {
+      builder.addAction(
+        if (readAloudPaused) android.R.drawable.ic_media_play else android.R.drawable.ic_media_pause,
+        if (readAloudPaused) "Resume" else "Pause",
+        servicePendingIntent(ACTION_READ_ALOUD_PAUSE, 7)
+      )
+    }
+    builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", servicePendingIntent(ACTION_READ_ALOUD_STOP, 8))
+    return builder.build()
+  }
+
   private fun buildNotification(): Notification {
     voiceLine?.let { return buildVoiceNotification(it) }
+    readAloud?.let { return buildReadAloudNotification(it) }
     val rows = sessionRows
     val builder = NotificationCompat.Builder(this, CHANNEL_ID)
       .setSmallIcon(R.drawable.ic_ghostex_service)
@@ -329,6 +403,12 @@ class GhostexForegroundService : Service() {
     const val ACTION_VOICE_OFF = "expo.modules.ghostexnative.service.VOICE_OFF"
     const val ACTION_VOICE_HANG_UP = "expo.modules.ghostexnative.service.VOICE_HANG_UP"
     const val ACTION_VOICE_MUTE = "expo.modules.ghostexnative.service.VOICE_MUTE"
+    const val ACTION_READ_ALOUD_ON = "expo.modules.ghostexnative.service.READ_ALOUD_ON"
+    const val ACTION_READ_ALOUD_OFF = "expo.modules.ghostexnative.service.READ_ALOUD_OFF"
+    const val ACTION_READ_ALOUD_STOP = "expo.modules.ghostexnative.service.READ_ALOUD_STOP"
+    const val ACTION_READ_ALOUD_PAUSE = "expo.modules.ghostexnative.service.READ_ALOUD_PAUSE"
+    /** The one-off "Voice mode turned off" notice (its own id, so it outlives the service's). */
+    const val READ_ALOUD_ENDED_NOTIFICATION_ID = 1338
     const val MAX_NOTIFICATION_ROWS = 5
     const val COLLAPSED_ROW_COUNT = 2
 
@@ -372,6 +452,25 @@ class GhostexForegroundService : Service() {
 
     @Volatile
     private var voicePushToTalk = false
+
+    /** The chat Auto-read reads while Voice mode is on for Read aloud, and the computer it waits for. */
+    data class ReadAloudMode(
+      val title: String,
+      val machineId: String,
+      val sessionId: String,
+      /** The computer's name while its link is down, else null. */
+      val reconnecting: String? = null,
+    )
+
+    @Volatile
+    private var readAloud: ReadAloudMode? = null
+
+    /** A reply is being read (Pause shows), and whether it is paused. */
+    @Volatile
+    private var readAloudSpeaking = false
+
+    @Volatile
+    private var readAloudPaused = false
 
     @Volatile
     private var instance: GhostexForegroundService? = null
@@ -426,6 +525,68 @@ class GhostexForegroundService : Service() {
         // In the background a plain start is refused; the running service just redraws.
         update()
       }
+    }
+
+    /**
+     * Read aloud's Voice mode on or updated: `mediaPlayback` joins the service types. Called from
+     * the ⋯ menu's Auto-read, while the app is in front; a later call only redraws.
+     */
+    fun startReadAloudMode(context: Context, mode: ReadAloudMode) {
+      val wasOn = readAloud != null
+      readAloud = mode
+      if (wasOn && isRunning) {
+        update()
+        return
+      }
+      try {
+        ContextCompat.startForegroundService(
+          context,
+          Intent(context, GhostexForegroundService::class.java).setAction(ACTION_READ_ALOUD_ON)
+        )
+      } catch (_: IllegalStateException) {
+        // In the background a start is refused; a running service just redraws.
+        update()
+      }
+    }
+
+    /** Back to the session notification (or no service at all when none is wanted). */
+    fun stopReadAloudMode(context: Context) {
+      if (readAloud == null) return
+      readAloud = null
+      readAloudSpeaking = false
+      readAloudPaused = false
+      if (!isRunning) return
+      try {
+        context.startService(Intent(context, GhostexForegroundService::class.java).setAction(ACTION_READ_ALOUD_OFF))
+      } catch (_: IllegalStateException) {
+        update()
+      }
+    }
+
+    /** What the speaker is doing, for Pause / Resume and the line. */
+    fun setReadAloudPlayback(speaking: Boolean, paused: Boolean) {
+      if (readAloudSpeaking == speaking && readAloudPaused == paused) return
+      readAloudSpeaking = speaking
+      readAloudPaused = paused
+      if (readAloud != null) update()
+    }
+
+    /** Says that Voice mode turned itself off, in a notification of its own that outlives it. */
+    fun postReadAloudEnded(context: Context, title: String, text: String) {
+      val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+      val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
+      val notification = NotificationCompat.Builder(context, VOICE_CHANNEL_ID)
+        .setSmallIcon(R.drawable.ic_ghostex_service)
+        .setColor(0xFF607D8B.toInt())
+        .setContentTitle(title)
+        .setContentText(text)
+        .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+        .setAutoCancel(true)
+        .apply {
+          if (launch != null) setContentIntent(PendingIntent.getActivity(context, 9, launch, PendingIntent.FLAG_IMMUTABLE))
+        }
+        .build()
+      manager.notify(READ_ALOUD_ENDED_NOTIFICATION_ID, notification)
     }
 
     /** Re-render the notification in place if the service is running. */

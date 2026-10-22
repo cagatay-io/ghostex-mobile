@@ -18,6 +18,7 @@
  * | `setComposerText` / `clearComposerIfUnchanged` / `restoreReturnedPrompt` | the host's composer model (`composer.ts`) |
  * | `hostAction` | `selectOption` fed back to the core, `suggestionSend` ignored (desktop ignores it too), the composer-owned ones (`draftSubmitted`, `submissionFailed`, `draftReceived`, `attachmentReferences`, `chatImage`) handled in the host, the rest handed to the screen |
  * | `open` / `copy` / `toast` / `markdownSaved` | handed to the screen as a {@link ChatViewRequest} |
+ * | `speak` / `stopSpeaking` / `setReadAloudAuto` | Read aloud's one speaker and its run flag (`src/voice/readAloud.ts`) |
  *
  * Nothing is dropped silently: an effect the host does not know is counted and logged once.
  */

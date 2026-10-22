@@ -530,6 +530,11 @@ export type GhostexMobileSummary = {
    * be re-sorted on device.
    */
   preserveSessionOrder: boolean;
+  /**
+   * The computer's switched-on built-in features (`builtInFeatures`, such as `readAloud`); empty
+   * from a computer too old to send the list, which means every one is off.
+   */
+  builtInFeatures: string[];
 };
 
 // ---------------------------------------------------------------------------
@@ -1493,6 +1498,9 @@ function normalizeRoot(root: JsonObject): GhostexMobileSummary {
     customSessionTags: parseCustomSessionTags(root.customSessionTags),
     workspaces: parseWorkspaces(root.sidebarWorkspaces),
     preserveSessionOrder: workspaceGroups !== null || anySortOrder,
+    builtInFeatures: Array.isArray(root.builtInFeatures)
+      ? root.builtInFeatures.filter((id): id is string => typeof id === 'string')
+      : [],
   };
 }
 

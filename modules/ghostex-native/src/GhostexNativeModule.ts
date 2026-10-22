@@ -18,6 +18,8 @@ import type {
   VoiceStartOptions,
   VoiceStatus,
   LocalDictation,
+  SpeechVoices,
+  ReadAloudMode,
 } from './GhostexNative.types';
 
 declare class GhostexNativeModule extends NativeModule<GhostexNativeEvents> {
@@ -187,6 +189,29 @@ declare class GhostexNativeModule extends NativeModule<GhostexNativeEvents> {
   dictationDismissLocal(path: string): Promise<void>;
   /** The computer has it: the phone's copy goes. */
   dictationForget(path: string): Promise<void>;
+  // Read aloud's speaker, Android only (GhostexSpeech.kt): one utterance at a time for the whole app.
+  /** Starts the phone's text-to-speech engine once; false when the phone has none that works. */
+  speechInit(): Promise<boolean>;
+  speechVoices(): Promise<SpeechVoices>;
+  /**
+   * Speaks `segments` in order as utterance `token`, replacing anything speaking, with voice `voice`
+   * (`''` for the engine's default) at `rate` times the normal speed. Every token ends with one
+   * `onSpeechEvent`, natural or interrupted.
+   */
+  speechSpeak(token: string, segments: string[], voice: string, rate: number): Promise<void>;
+  /** Stops utterance `token` if it is still speaking; otherwise nothing. */
+  speechStop(token: string): Promise<void>;
+  /**
+   * Read aloud's Voice mode: the service takes the `mediaPlayback` type and shows "Voice mode on"
+   * for `mode`, and the `GhostexVoiceMode` headless task starts (JavaScript ends it). Call it while
+   * the app is in front. Answers whether this phone shows Ghostex notifications.
+   */
+  readAloudModeStart(mode: ReadAloudMode): Promise<boolean>;
+  /** A new chat or reconnecting line for the running Voice mode. */
+  readAloudModeUpdate(mode: ReadAloudMode): Promise<void>;
+  readAloudModeStop(): Promise<void>;
+  /** A notification of its own saying Voice mode turned itself off, and why. */
+  readAloudModeEnded(title: string, text: string): Promise<void>;
 }
 
 export default requireNativeModule<GhostexNativeModule>('GhostexNative');

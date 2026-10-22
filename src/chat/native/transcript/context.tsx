@@ -141,6 +141,10 @@ export type TranscriptFlags = {
   markedHeadingStrength: number;
   /** Claude Code workflow runs drawn as cards, by Workflow call id (`workflowCards`). */
   workflowCards: { [callId: string]: Json };
+  /** Read aloud's reply row shows (`readAloud.available`). */
+  readAloudAvailable: boolean;
+  /** The reply being read, whose row reads Stop reading (`readAloud.speakingId`). */
+  readAloudSpeakingId: string | null;
 };
 
 const EMPTY_FLAGS: TranscriptFlags = {
@@ -159,6 +163,8 @@ const EMPTY_FLAGS: TranscriptFlags = {
   apiErrorCard: null,
   markedHeadingStrength: 0.6,
   workflowCards: {},
+  readAloudAvailable: false,
+  readAloudSpeakingId: null,
 };
 
 const FlagsContext = createContext<TranscriptFlags>(EMPTY_FLAGS);
@@ -188,6 +194,8 @@ export function transcriptFlags(document: ChatDocument | null): TranscriptFlags 
         ? Math.min(Math.max(document.markedHeadingStrength / 100, 0), 1)
         : 0.6,
     workflowCards: obj(document.workflowCards) === null ? {} : (document.workflowCards ?? {}),
+    readAloudAvailable: document.readAloud?.available === true,
+    readAloudSpeakingId: typeof document.readAloud?.speakingId === 'string' ? document.readAloud.speakingId : null,
   };
 }
 

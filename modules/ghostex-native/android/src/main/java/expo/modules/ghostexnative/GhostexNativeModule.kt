@@ -8,12 +8,18 @@ import android.media.RingtoneManager
 import android.media.ToneGenerator
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.View
 import android.view.ViewTreeObserver
 import android.view.WindowManager
 import com.termux.terminal.TerminalEmulator
 import dev.ghostex.tailcatbridge.Tailcatbridge
 import com.termux.terminal.TerminalSession
+import androidx.core.app.NotificationManagerCompat
+import com.facebook.react.bridge.Arguments
+import com.facebook.react.bridge.ReactContext
+import com.facebook.react.jstasks.HeadlessJsTaskConfig
+import com.facebook.react.jstasks.HeadlessJsTaskContext
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.modules.Module
@@ -107,6 +113,7 @@ class GhostexNativeModule : Module() {
       GhostexTailcatInterfaces.register()
       GhostexVoice.emitter = { event -> sendEvent("onVoiceEvent", event) }
       GhostexVoiceRecorder.emitter = { event -> sendEvent("onVoiceEvent", event) }
+      GhostexSpeech.emitter = { event -> sendEvent("onSpeechEvent", event) }
     }
 
     Events(
@@ -119,7 +126,8 @@ class GhostexNativeModule : Module() {
       "onTerminalGridChange",
       "onConnectionState",
       "onNetworkChanged",
-      "onVoiceEvent"
+      "onVoiceEvent",
+      "onSpeechEvent"
     )
 
     OnStartObserving("onNetworkChanged") {
@@ -659,6 +667,48 @@ class GhostexNativeModule : Module() {
 
     // endregion
 
+    // region speech (Read aloud, GhostexSpeech.kt)
+
+    AsyncFunction("speechInit") { promise: Promise ->
+      GhostexSpeech.init(requireAndroidContext()) { ok -> promise.resolve(ok) }
+    }
+
+    AsyncFunction("speechVoices") { promise: Promise ->
+      GhostexSpeech.voices { answer -> promise.resolve(answer) }
+    }
+
+    AsyncFunction("speechSpeak") { token: String, segments: List<String>, voice: String, rate: Double ->
+      GhostexSpeech.speak(token, segments, voice, rate)
+    }
+
+    AsyncFunction("speechStop") { token: String ->
+      GhostexSpeech.stop(token)
+    }
+
+    // Read aloud's Voice mode (GhostexForegroundService): answers whether notifications can show.
+    AsyncFunction("readAloudModeStart") { mode: ReadAloudModeRecord, promise: Promise ->
+      val context = requireAndroidContext()
+      GhostexForegroundService.startReadAloudMode(context, mode.toMode())
+      mainHandler.post {
+        startVoiceModeTask()
+        promise.resolve(NotificationManagerCompat.from(context).areNotificationsEnabled())
+      }
+    }
+
+    AsyncFunction("readAloudModeUpdate") { mode: ReadAloudModeRecord ->
+      GhostexForegroundService.startReadAloudMode(requireAndroidContext(), mode.toMode())
+    }
+
+    AsyncFunction("readAloudModeStop") {
+      GhostexForegroundService.stopReadAloudMode(requireAndroidContext())
+    }
+
+    AsyncFunction("readAloudModeEnded") { title: String, text: String ->
+      GhostexForegroundService.postReadAloudEnded(requireAndroidContext(), title, text)
+    }
+
+    // endregion
+
     View(GhostexTerminalView::class) {
       Events("onSingleTap", "onOpenUrl")
 
@@ -679,6 +729,7 @@ class GhostexNativeModule : Module() {
     OnDestroy {
       GhostexVoice.emitter = null
       GhostexVoiceRecorder.emitter = null
+      GhostexSpeech.emitter = null
       networkObserver?.close()
       networkObserver = null
       stopVisibleWindowFrameObserver()
@@ -696,6 +747,34 @@ class GhostexNativeModule : Module() {
       }
     }
   }
+
+  private fun ReadAloudModeRecord.toMode() = GhostexForegroundService.Companion.ReadAloudMode(
+    title = title.ifBlank { "this chat" },
+    machineId = machineId,
+    sessionId = sessionId,
+    reconnecting = reconnecting?.takeIf { it.isNotBlank() },
+  )
+
+  /**
+   * Starts the `GhostexVoiceMode` headless JS task unless one runs; JavaScript ends it by settling
+   * its promise when Voice mode stops (`src/voice/readAloud.ts`).
+   *
+   * CDXC:VoiceMode 2026-10-22 WHY: React Native stops JavaScript timers while the activity is paused (`JavaTimerManager`), so with the phone locked the chat core's 1.5 s wait before auto-read speaks, the chat socket's reconnect ladder and the 5-minute rule would all stall until the screen came back on. A running headless task is the one thing that keeps those timers firing, so Voice mode holds one for as long as it is on. Only JavaScript finishes it: finishing it here as well would make React Native finish a task twice and throw.
+   */
+  private fun startVoiceModeTask() {
+    val react = appContext.reactContext as? ReactContext ?: return
+    val tasks = HeadlessJsTaskContext.getInstance(react)
+    val running = voiceModeTaskId
+    if (running != null && tasks.isTaskRunning(running)) return
+    voiceModeTaskId = try {
+      tasks.startTask(HeadlessJsTaskConfig("GhostexVoiceMode", Arguments.createMap(), 0, true))
+    } catch (error: Exception) {
+      Log.w("GhostexSpeech", "Voice mode's background task did not start: ${error.message}")
+      null
+    }
+  }
+
+  private var voiceModeTaskId: Int? = null
 
   // region connection helpers
 

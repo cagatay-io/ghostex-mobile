@@ -47,6 +47,7 @@ import { setMountedSessionKeys } from '../terminal/zmxDisplay';
 import { GhostexPalette } from '../theme/palette';
 import { useMachinesStore } from '../machines/store';
 import { VoiceButton } from '../voice/VoiceButton';
+import { readAloudChatKey, setReadAloudOnScreen } from '../voice/readAloud';
 import { useOpenMachineLink } from '../webPreview/useOpenMachineLink';
 import {
   AGENT_OVERLAY_NONE,
@@ -176,10 +177,33 @@ export default function TerminalScreen({ navigation, route }: Props) {
       void useTerminalStore.getState().ensureTerminalAttached(mountedTerminalSessionKey);
     }
   }, [mountedTerminalSessionKey, activeTabDetached]);
+  // Read aloud speaks only the chat on screen, locked or not; leaving this screen leaves the chat.
+  const readAloudKey =
+    mountedChatSessionKey !== null && activeTab !== null && activeTab.ghostexSessionId !== undefined
+      ? readAloudChatKey(activeTab.machineId, activeProjectId, activeTab.ghostexSessionId)
+      : null;
+  const readAloudTitle =
+    activeSession !== null && activeSession.displayTitle.length > 0
+      ? activeSession.displayTitle
+      : (activeTab?.title ?? '');
+  useEffect(() => {
+    setReadAloudOnScreen(
+      readAloudKey === null || activeTab === null
+        ? null
+        : {
+            key: readAloudKey,
+            title: readAloudTitle,
+            machineId: activeTab.machineId,
+            sessionId: activeTab.ghostexSessionId ?? '',
+          },
+    );
+    // The tab object changes on every store update; the key and the title are what matter.
+  }, [readAloudKey, readAloudTitle]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(
     () => () => {
       setMountedSessionKeys(null, null);
       setChatGridSessionKey(null);
+      setReadAloudOnScreen(null);
     },
     [],
   );

@@ -552,6 +552,8 @@ export type ChatDocument = {
   rewindEnabled: boolean;
   /** Message ids that already have a saved prompt. Desktop: `message_actions.rs`. */
   savedPrompts: { [messageId: string]: Json };
+  /** Read aloud's controls (core `read_aloud/document.rs`): the reply row and the ⋯ menu rows. */
+  readAloud?: ReadAloudState;
 
   // ---- modes and loading ------------------------------------------------------------------
 
@@ -577,6 +579,20 @@ export type ChatDocument = {
   previewSettings?: JsonObject;
 
   [key: string]: unknown;
+};
+
+/** The document's `readAloud` key. */
+export type ReadAloudState = {
+  /** Draw the controls at all: the computer has Read aloud on and the phone has a voice. */
+  available: boolean;
+  /** The ⋯ menu's Auto-read row is checked. */
+  autoRead: boolean;
+  /** Something of this chat is being read: the ⋯ menu shows Stop reading. */
+  speaking: boolean;
+  /** The reply being read, whose row reads Stop reading. */
+  speakingId: string | null;
+  /** Why Auto-read is quiet for now, or null. */
+  autoReadHeld: 'voiceConversation' | 'dictation' | null;
 };
 
 export type ViewState = {

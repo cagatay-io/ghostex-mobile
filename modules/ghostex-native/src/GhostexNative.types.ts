@@ -199,7 +199,43 @@ export type GhostexNativeEvents = {
   onTerminalGridChange: (event: TerminalGridChangeEvent) => void;
   onConnectionState: (event: ConnectionStateEvent) => void;
   onVoiceEvent: (event: VoiceEvent) => void;
+  onSpeechEvent: (event: SpeechEvent) => void;
 };
+
+/**
+ * Android only (GhostexSpeech.kt): utterance `token` of `speechSpeak` ended, played to its end or
+ * cut off; or `voiceModeStop`, the "Voice mode on" notification's Stop (or Exit), which turns
+ * Auto-read off.
+ */
+export type SpeechEvent = { token: string; kind: 'ended' | 'voiceModeStop'; interrupted: boolean };
+
+/** Android only: the chat Read aloud's Voice mode reads, for its notification (GhostexForegroundService.kt). */
+export type ReadAloudMode = {
+  title: string;
+  machineId: string;
+  /** The Ghostex session id the notification's tap opens. */
+  sessionId: string;
+  /** The computer's name while its link is down; the notification says it is reconnecting. */
+  reconnecting?: string | null;
+};
+
+/** One voice of the phone's text-to-speech engine (`speechVoices`). */
+export type SpeechVoice = {
+  name: string;
+  /** ISO 639 language, such as `en`. */
+  language: string;
+  /** BCP 47 tag, such as `en-US`. */
+  locale: string;
+  /** The locale's name in the phone's language, such as "English (United States)". */
+  localeLabel: string;
+  /** Speaks only with a network connection. */
+  network: boolean;
+  /** Needs a download first (the engine fetches it on first use). */
+  notInstalled: boolean;
+};
+
+/** The engine's voices, the one it uses by default, and the phone's language. */
+export type SpeechVoices = { voices: SpeechVoice[]; defaultVoice: string | null; language: string };
 
 /** Android only: what `voiceStart` opens (gxserver's `/api/voice`, see GhostexVoice.kt). */
 export type VoiceStartOptions = {

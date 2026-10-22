@@ -221,6 +221,16 @@ export type ActionFields = {
   rewindSubmit: {};
   savePrompt: { messageId: string; prompt: string };
 
+  // ---- Read aloud (core `read_aloud/actions.rs`) ---------------------------------------------
+  /** A reply's Read aloud row; on the reply already speaking it stops instead. */
+  readAloudMessage: { messageId: string };
+  /** The ⋯ menu's Auto-read row; `on` left out toggles. */
+  readAloudAuto: { on?: boolean };
+  /** The ⋯ menu's Stop reading row. */
+  readAloudStop: {};
+  /** Reads the newest final reply from the start (the desktop's hotkey). */
+  readAloudLastReply: {};
+
   // ---- modes and loading --------------------------------------------------------------------
   toggleSummary: {};
   setVerbose: { enabled: boolean };

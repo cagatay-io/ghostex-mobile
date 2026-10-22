@@ -14,17 +14,23 @@
   <uses-permission android:name="android.permission.RECORD_AUDIO" />
   <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+  <!-- Read aloud's Voice mode: Auto-read keeps speaking replies with the screen locked. -->
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
-  <!-- Android 11+ package visibility for opening the installed Tailscale app. -->
+  <!-- Android 11+ package visibility for opening the installed Tailscale app, and for Read aloud
+       to bind the phone's text-to-speech engine (GhostexSpeech.kt), whichever app provides it. -->
   <queries>
     <package android:name="com.tailscale.ipn" />
+    <intent>
+      <action android:name="android.intent.action.TTS_SERVICE" />
+    </intent>
   </queries>
 
   <application>
     <service
         android:name="expo.modules.ghostexnative.GhostexForegroundService"
         android:exported="false"
-        android:foregroundServiceType="specialUse|microphone">
+        android:foregroundServiceType="specialUse|microphone|mediaPlayback">
       <property
           android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
           android:value="Keeps user-started Ghostex remote terminal sessions and SSH attach processes visible while the user switches between persistent ZMX sessions." />

@@ -67,19 +67,33 @@ export const ReplyActions = memo(function ReplyActions({
 
 /** A reply's own actions besides Copy, which the menu's core row covers. */
 function useReplyActionItems(message: ProjectedMessage): ActionItem[] {
-  const { dispatch } = useTranscriptEnv();
+  const { dispatch, main } = useTranscriptEnv();
+  const flags = useTranscriptFlags();
   const markdown = typeof message.copyText === 'string' ? message.copyText : '';
-  if (obj(message.actionContent)?.canSaveMarkdown !== true) return [];
-  return [
-    {
+  const items: ActionItem[] = [];
+  if (obj(message.actionContent)?.canSaveMarkdown === true) {
+    items.push({
       label: 'Save message to Markdown',
       icon: 'file-export',
       run: () => {
         rememberSaveMarkdown(markdown);
         dispatch({ type: 'markdownSaveOpen', markdown });
       },
-    },
-  ];
+    });
+  }
+  /*
+   * CDXC:VoiceMode 2026-10-20 DECISION: User: a per-message Read aloud action; on the phone it is a row of the message's long-press menu, never a button on the message (CDXC:SessionChat 2026-10-12). On the reply being read it reads Stop reading.
+   * CDXC:VoiceMode 2026-10-22 WHY: it shows where the reply actions show (a final reply, `finalIds`) and comes last, as the desktop's hover row has it last before the time (Q24). The subagent viewer never offers it: Read aloud reads only the session's own transcript.
+   */
+  if (main && flags.readAloudAvailable && hasReplyActions(message, flags.finalIds)) {
+    const speaking = flags.readAloudSpeakingId === message.id;
+    items.push({
+      label: speaking ? 'Stop reading' : 'Read aloud',
+      icon: speaking ? 'player-stop' : 'volume',
+      run: () => dispatch({ type: 'readAloudMessage', messageId: message.id }),
+    });
+  }
+  return items;
 }
 
 /** The actions a reply's menu offers after Copy and Add to Chat. */
