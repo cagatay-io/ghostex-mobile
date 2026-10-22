@@ -31,6 +31,7 @@ import { openTranscriptMenu, type MessageMenuAction } from './transcriptMenuStor
 import { highlightLabel, useRowFind } from './searchHighlight';
 import { useDisclosure } from './state';
 import { InterAgentCard, SentAgentMessageCards } from './AgentMessageCards';
+import { WorkflowCards } from './WorkflowCard';
 import { estimatedLines, StartupDelivery, SuppressedRow, SystemCard } from './SystemRows';
 import { PROSE_LINE, PROSE_SIZE, type TranscriptTheme } from './theme';
 import { SideQuestionRow } from './SideQuestionRow';
@@ -264,6 +265,7 @@ function AgentMessage({ message, proseColor }: { message: ProjectedMessage; pros
       {/* Inside a turn's work fold the answered cards are hoisted onto the turn instead. */}
       {!inWorkFold ? <QuestionExchangeCards exchanges={message.questions} /> : null}
       {!inWorkFold ? <SentAgentMessageCards cards={message.sentMessages} /> : null}
+      {!inWorkFold ? <WorkflowCards ids={message.workflows} /> : null}
       {hasReplyActions(message, flags.finalIds) ? <ReplyActions message={message} flush={flush} /> : null}
     </View>
   );

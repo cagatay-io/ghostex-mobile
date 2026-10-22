@@ -200,6 +200,9 @@ export type CompletedWorkItem = {
   /** Cards for the messages the turn's work sent other agents, hoisted out of the fold (same
    * shape as {@link ProjectedMessage.sentMessages}); omitted when there are none. */
   sentMessages?: Json[];
+  /** The folded rows' Workflow call ids, whose cards (`document.workflowCards`) are drawn outside
+   * the fold; omitted when there are none. */
+  workflows?: Json[];
   /** Rows that stay outside the fold (images and similar artifacts). */
   artifacts: ProjectedMessage[];
   /** The turn's reply; omitted (not null) when the turn has none. */
@@ -265,6 +268,9 @@ export type ProjectedMessage = {
   /** Messages this row's tool calls sent other agents: `{key, title, detail, body, markdown,
    * markdownReferences, failed}`. Desktop: `inter_agent_message.rs`. */
   sentMessages?: Json;
+  /** The Workflow calls this row made, by call id; each one's card is `document.workflowCards[id]`.
+   * Desktop: `workflow_card.rs`. */
+  workflows?: Json;
   /** Image sources on the row (machine paths). Load bytes with `{type: 'loadImage', path}`.
    * Desktop: `images.rs`. */
   images?: Json[];
@@ -390,6 +396,9 @@ export type ChatDocument = {
   /** Per completed-work row id: its on-demand read is loading, or failed with a retry.
    * Desktop: `deferred_work.rs`. */
   deferredWork: { [itemId: string]: DeferredWorkRow };
+  /** Claude Code workflow runs drawn as cards, by Workflow call id (gx-chat-core
+   * `transcript/workflow_card.rs`); a tool row's `workflow` names its card. Omitted when none. */
+  workflowCards?: { [callId: string]: Json };
 
   // ---- composer ---------------------------------------------------------------------------
 

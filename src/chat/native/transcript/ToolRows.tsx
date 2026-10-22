@@ -10,7 +10,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { ProjectedMessage } from '../../rust/document';
 import { subagentOpenAction } from '../cards';
-import { useNativeChatUi, useRowDetail, useTranscriptEnv } from './context';
+import { useNativeChatUi, useRowDetail, useTranscriptEnv, useTranscriptFlags } from './context';
 import { DisclosureBody, DisclosureHeading, useFoldPlace } from './Disclosure';
 import { Glyph, toolGlyph } from './icons';
 import { arr, obj, str, type JsonRecord } from './json';
@@ -44,6 +44,7 @@ function dimmed(hex: string, alpha: number): string {
  */
 export function ToolRows({ message }: { message: ProjectedMessage }) {
   const { theme, simple } = useTranscriptEnv();
+  const { workflowCards } = useTranscriptFlags();
   const { disclosures } = useNativeChatUi();
   const { inWorkFold } = useFoldPlace();
   const tools = arr(message.tools)
@@ -63,7 +64,14 @@ export function ToolRows({ message }: { message: ProjectedMessage }) {
   const cardsAsRows = showAll || inWorkFold;
   const visible = tools
     .map((_, index) => index)
-    .filter((index) => cardsAsRows || (tools[index]!.exchange !== true && tools[index]!.sentMessage !== true));
+    .filter(
+      (index) =>
+        cardsAsRows ||
+        (tools[index]!.exchange !== true &&
+          tools[index]!.sentMessage !== true &&
+          // A Workflow call with a run to show is drawn as its card (`WorkflowCard.tsx`).
+          obj(workflowCards[str(tools[index]!, 'workflow')]) === null),
+    );
   if (visible.length === 0) return null;
   const fold = obj(message.toolFold);
   const hidden = typeof fold?.hiddenCount === 'number' ? fold.hiddenCount : 0;

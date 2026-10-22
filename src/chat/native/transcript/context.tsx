@@ -139,6 +139,8 @@ export type TranscriptFlags = {
   apiErrorCard: Json;
   /** Handover heading color strength, 0 to 1 (`markedHeadingStrength`; absent is 60%). */
   markedHeadingStrength: number;
+  /** Claude Code workflow runs drawn as cards, by Workflow call id (`workflowCards`). */
+  workflowCards: { [callId: string]: Json };
 };
 
 const EMPTY_FLAGS: TranscriptFlags = {
@@ -156,6 +158,7 @@ const EMPTY_FLAGS: TranscriptFlags = {
   deferredWork: {},
   apiErrorCard: null,
   markedHeadingStrength: 0.6,
+  workflowCards: {},
 };
 
 const FlagsContext = createContext<TranscriptFlags>(EMPTY_FLAGS);
@@ -184,6 +187,7 @@ export function transcriptFlags(document: ChatDocument | null): TranscriptFlags 
       typeof document.markedHeadingStrength === 'number'
         ? Math.min(Math.max(document.markedHeadingStrength / 100, 0), 1)
         : 0.6,
+    workflowCards: obj(document.workflowCards) === null ? {} : (document.workflowCards ?? {}),
   };
 }
 

@@ -15,6 +15,7 @@ import { CompletedFilesFold } from './FileChanges';
 import { obj } from './json';
 import { MessageRow } from './MessageRow';
 import { SentAgentMessageCards } from './AgentMessageCards';
+import { WorkflowCards } from './WorkflowCard';
 import { useDisclosure } from './state';
 import {
   SINGLE_LINE_CARD,
@@ -116,6 +117,7 @@ function CompletedWorkRow({ item }: { item: CompletedWorkItem }) {
         ))}
         <QuestionExchangeCards exchanges={item.questions} />
         <SentAgentMessageCards cards={item.sentMessages} />
+        <WorkflowCards ids={item.workflows} />
         {item.final !== undefined && item.final !== null ? <MessageRow message={item.final} /> : null}
       </FoldPlaceProvider>
     </View>
