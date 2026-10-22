@@ -30,6 +30,7 @@ import {
 import { Glyph } from './icons';
 import { ToneButton, ToneCard } from './ToneCard';
 import { PanelBlocks } from './PanelBlocks';
+import { PermissionDetails } from './PermissionDetails';
 import { SideQuestionCard } from './SideQuestionCard';
 import { PassthroughCard, TerminalPickerCard } from './TerminalPickerCard';
 import type { CardHostAction } from './types';
@@ -101,7 +102,19 @@ export function NoticeCard({
     body.push(...parts.body);
     footerEnd.push(...parts.actions);
   }
-  if (!collapsed && !panel && typeof notice.detail === 'string') {
+  // A permission prompt read whole (`approval` in the chat core) says what it asks itself (notice.rs).
+  const approval = obj(notice.approval);
+  if (approval !== null) {
+    body.push(
+      <PermissionDetails
+        key="permission"
+        approval={approval}
+        collapsed={collapsed}
+        onExpand={() => setExpandedKey(key)}
+      />,
+    );
+  }
+  if (!collapsed && !panel && approval === null && typeof notice.detail === 'string') {
     body.push(
       <Text key="detail" style={cardText.prose}>
         {notice.detail}
@@ -275,7 +288,12 @@ export function NoticeCard({
   return (
     <ToneCard
       tone={str(notice, 'tone')}
-      title={(panel && str(obj(dialog?.presentation), 'title')) || str(notice, 'title')}
+      title={
+        approval !== null
+          ? str(approval, 'title')
+          : (panel && str(obj(dialog?.presentation), 'title')) || str(notice, 'title')
+      }
+      detail={approval !== null ? str(approval, 'source') : undefined}
       trailing={
         foldable ? (
           <Glyph name={collapsed ? 'chevron-right' : 'chevron-down'} size={14} color={look.P.muted} />
