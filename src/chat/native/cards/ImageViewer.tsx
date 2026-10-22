@@ -1,9 +1,9 @@
 /**
  * The full-size image preview over the whole chat. Port of desktop `image_viewer/` (React's
  * `session-chat-image-viewer.tsx`): the picture fitted to the screen, pinch or double tap to zoom,
- * a tap outside it closes, next / previous across the message's pictures, and Copy path / Copy
- * image with a tick once done. Desktop's Save image goes through the app shell's Downloads
- * writer, which the phone does not have, so it is not offered.
+ * a tap outside it closes, next / previous (the arrows, or a sideways swipe while not zoomed) across
+ * the message's pictures, and Copy path / Copy image with a tick once done. Desktop's Save image goes
+ * through the app shell's Downloads writer, which the phone does not have, so it is not offered.
  */
 
 import * as Clipboard from 'expo-clipboard';
@@ -18,12 +18,38 @@ import { Glyph, type GlyphName } from './icons';
 import { ImageUnavailable } from './ImageUnavailable';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { useChatImage, type ChatImageFailure } from './useChatImage';
-import { useChatOverlayStore } from './overlayStore';
+import { useChatOverlayStore, type ChatImage } from './overlayStore';
 
+/** The viewer the transcript and the composer's thumbnails open (`openChatImageViewer`). */
 export function ImageViewer({ chat }: { chat: RustChat }) {
+  const viewer = useChatOverlayStore((state) => state.imageViewer);
+  return (
+    <ImageViewerModal
+      chat={chat}
+      viewer={viewer}
+      onChange={(next) => useChatOverlayStore.setState({ imageViewer: next })}
+    />
+  );
+}
+
+/** The pictures a viewer shows and the one on screen. */
+export type ImageViewerList = { images: ChatImage[]; index: number };
+
+/**
+ * The viewer itself, for a list its opener keeps: the page sheet (`PageSheet.tsx`) opens it over the
+ * page with the page's pictures, without touching the transcript's viewer.
+ */
+export function ImageViewerModal({
+  chat,
+  viewer,
+  onChange,
+}: {
+  chat: RustChat;
+  viewer: ImageViewerList | null;
+  onChange: (next: ImageViewerList | null) => void;
+}) {
   const styles = useStyles();
   const P = useTranscriptTheme();
-  const viewer = useChatOverlayStore((state) => state.imageViewer);
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const [completed, setCompleted] = useState<string | null>(null);
@@ -65,13 +91,12 @@ export function ImageViewer({ chat }: { chat: RustChat }) {
   }, [readyUri]);
 
   if (viewer === null || image === null) return null;
-  const close = () => useChatOverlayStore.setState({ imageViewer: null });
+  const close = () => onChange(null);
   const step = (delta: number) => {
     const count = viewer.images.length;
-    useChatOverlayStore.setState({
-      imageViewer: { images: viewer.images, index: (viewer.index + delta + count) % count },
-    });
+    onChange({ images: viewer.images, index: (viewer.index + delta + count) % count });
   };
+  const several = viewer.images.length > 1;
   const frameWidth = width - 32;
   const frameHeight = height - insets.top - insets.bottom - 120;
   const fitted = fit(natural, frameWidth, frameHeight);
@@ -138,6 +163,16 @@ export function ImageViewer({ chat }: { chat: RustChat }) {
       offsetY.value = clamp(start.value.y + event.translationY, limit.y);
     })
     .onEnd((event) => {
+      // A sideways swipe over a picture that is not zoomed steps to the next or previous one.
+      if (
+        several &&
+        scale.value <= 1.01 &&
+        Math.abs(event.translationX) > SWIPE_STEP &&
+        Math.abs(event.translationX) > Math.abs(event.translationY)
+      ) {
+        runOnJS(step)(event.translationX < 0 ? 1 : -1);
+        return;
+      }
       const limit = maxOffset(scale.value);
       if (limit.x > 0) offsetX.value = withDecay({ velocity: event.velocityX, clamp: [-limit.x, limit.x] });
       if (limit.y > 0) offsetY.value = withDecay({ velocity: event.velocityY, clamp: [-limit.y, limit.y] });
@@ -172,9 +207,7 @@ export function ImageViewer({ chat }: { chat: RustChat }) {
       <GestureHandlerRootView style={styles.backdrop}>
         <Pressable accessibilityLabel="Close image preview" style={StyleSheet.absoluteFill} onPress={close} />
         <View style={[styles.toolbar, { top: insets.top + 8 }]}>
-          {viewer.images.length > 1 ? (
-            <Text style={styles.counter}>{`${viewer.index + 1} / ${viewer.images.length}`}</Text>
-          ) : null}
+          {several ? <Text style={styles.counter}>{`${viewer.index + 1} / ${viewer.images.length}`}</Text> : null}
           <View style={styles.toolbarSpacer} />
           <View style={styles.actions}>
             {copyPath.length > 0 ? (
@@ -241,7 +274,7 @@ export function ImageViewer({ chat }: { chat: RustChat }) {
             </GestureDetector>
           )}
         </View>
-        {viewer.images.length > 1 ? (
+        {several ? (
           <View style={[styles.stepRow, { bottom: insets.bottom + 16 }]} pointerEvents="box-none">
             <ToolbarButton label="Previous image" icon="chevron-left" onPress={() => step(-1)} />
             <ToolbarButton label="Next image" icon="chevron-right" onPress={() => step(1)} />
@@ -254,6 +287,8 @@ export function ImageViewer({ chat }: { chat: RustChat }) {
 
 const MAX_ZOOM = 4;
 const DOUBLE_TAP_ZOOM = 2.5;
+/** How far a finger travels sideways before a swipe steps to another picture. */
+const SWIPE_STEP = 60;
 
 /** The picture's size inside the frame at its own aspect ratio, never enlarged past its pixels. */
 function fit(natural: { width: number; height: number } | null, maxWidth: number, maxHeight: number) {

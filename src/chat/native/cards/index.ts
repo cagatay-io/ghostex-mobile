@@ -10,6 +10,7 @@
 
 export { NativeChatCards, type NativeChatCardsProps } from './NativeChatCards';
 export { NativeChatOverlays, type NativeChatOverlaysProps } from './NativeChatOverlays';
+export { PageSheet, type PageSheetProps } from './PageSheet';
 export { questionReplacesComposer } from './QuestionCard';
 export { composerNotReady } from './ComposerNotReadyCard';
 export type { CardHostAction } from './types';

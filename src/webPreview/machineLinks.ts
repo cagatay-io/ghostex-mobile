@@ -67,6 +67,15 @@ const GXSERVER_ROUTE = /^\/(?:visual|open-file|project-view-report|ext)\//u;
 const VISUAL_PAGE_PATH = /^\/visual\/[0-9a-f]{32}(?=[/?#]|$)/u;
 
 /**
+ * The address of a published page (`ghostex show`) on the computer, when `url` names one: the chat
+ * opens it in its page sheet (`chat/native/cards/PageSheet.tsx`) rather than the Web preview.
+ */
+export function visualPageAddress(url: string): ComputerAddress | null {
+  const link = classifyMachineLink(url);
+  return link.kind === 'computer' && VISUAL_PAGE_PATH.test(link.address.path) ? link.address : null;
+}
+
+/**
  * Whether `remotePort` on the computer is its gxserver. A port some handshake already learned
  * decides at once; otherwise the computer is asked only for a path gxserver alone serves, so opening
  * a dev server never waits on an extra SSH exec.

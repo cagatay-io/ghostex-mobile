@@ -31,7 +31,7 @@ import { isGpuiAvailable } from '../../../modules/gx-chat-core/src/gpui';
 import { useInventoryStore } from '../../inventory/store';
 import type { MachineConnectionTarget } from '../../machines/credentials';
 import type { RootStackParamList } from '../../navigation/types';
-import { classifyMachineLink } from '../../webPreview/machineLinks';
+import { classifyMachineLink, visualPageAddress, type ComputerAddress } from '../../webPreview/machineLinks';
 import { useOpenMachineLink } from '../../webPreview/useOpenMachineLink';
 import type { ChatViewRequest } from '../rust/effects';
 import { sessionChatRpc } from '../rust/transport';
@@ -40,7 +40,7 @@ import GpuiTranscript from '../gpui/GpuiTranscript';
 import { useGpuiChat } from '../gpui/useGpuiChat';
 import { useSettingsStore } from '../../settings/store';
 import { useArmedActions } from './armedActions';
-import { NativeChatCards, NativeChatOverlays, questionReplacesComposer } from './cards';
+import { NativeChatCards, NativeChatOverlays, PageSheet, questionReplacesComposer } from './cards';
 import { LoneScrollBottom, WorkingCard } from './cards/WorkingCard';
 import { NativeComposer } from './composer';
 import { HandoffSheet, type HandoffRequest } from './composer/HandoffSheet';
@@ -113,7 +113,32 @@ export default function NativeChatScreen({
     if (Platform.OS === 'ios') setTimeout(() => setHandoff(next), HANDOFF_OPEN_DELAY_MS);
     else setHandoff(next);
   }, []);
-  const { toast, show } = useChatViewRequests(chat, machine, projectId, onSwitchToTerminal, openHandoff);
+  // The published page a page card (or a link to one) opened, shown in the chat's page sheet.
+  const [page, setPage] = useState<ComputerAddress | null>(null);
+  const { toast, show } = useChatViewRequests(chat, machine, projectId, onSwitchToTerminal, openHandoff, setPage);
+  const openMachineLink = useOpenMachineLink();
+  /**
+   * A link the page followed: another page replaces it, a web address goes to the phone's browser
+   * with the page left open, and an address or file on the computer closes the sheet and opens
+   * where the chat would open it (the desktop's page window does the same).
+   */
+  const openPageLink = useCallback(
+    (url: string) => {
+      const next = visualPageAddress(url);
+      if (next !== null) {
+        setPage(next);
+        return;
+      }
+      if (classifyMachineLink(url).kind === 'web') {
+        void Linking.openURL(url).catch(() => undefined);
+        return;
+      }
+      setPage(null);
+      openMachineLink(machine.id, url, { projectId, notify: show });
+    },
+    [machine.id, openMachineLink, projectId, show],
+  );
+  const closePage = useCallback(() => setPage(null), []);
   const menuHost = useTranscriptMenuHost(machine.id, projectId, show);
 
   // The session title the core names saved files after and shows in the context meter.
@@ -278,6 +303,7 @@ export default function NativeChatScreen({
             subagentMenu={<TranscriptMenuSheet chat={chat} host={menuHost} />}
           />
         )}
+        <PageSheet chat={chat} machine={machine} page={page} onClose={closePage} onOpenLink={openPageLink} />
         <ChatToast toast={toast} />
       </View>
     </NativeChatUiProvider>
@@ -299,6 +325,7 @@ function useChatViewRequests(
   projectId: string,
   onSwitchToTerminal: () => void,
   onHandoff: (request: HandoffRequest) => void,
+  onOpenPage: (page: ComputerAddress) => void,
 ): { toast: Toast; show: (message: string, error: boolean, title?: string) => void } {
   const machineId = machine.id;
   const openMachineLink = useOpenMachineLink();
@@ -323,6 +350,12 @@ function useChatViewRequests(
             return;
           case 'open':
             if (request.target.kind === 'url') {
+              // A page card's Open (or a link to a published page) opens the chat's page sheet.
+              const page = visualPageAddress(request.target.url);
+              if (page !== null) {
+                onOpenPage(page);
+                return;
+              }
               // An address the session printed is the computer's (`webPreview/machineLinks.ts`).
               openMachineLink(machineId, request.target.url, { projectId, notify: show });
             } else {
@@ -396,6 +429,7 @@ function useChatViewRequests(
       machineId,
       navigation,
       onHandoff,
+      onOpenPage,
       onSwitchToTerminal,
       openMachineLink,
       projectId,

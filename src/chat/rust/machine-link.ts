@@ -62,6 +62,7 @@ const READ_ONLY_METHODS = new Set([
   'readSessionFilesLinks',
   'readSessionChatImage',
   'readVisualPageThumbnail',
+  'readVisualPageSource',
   'readSessionTerminalTail',
   'readSessionAgentNote',
   'readCoordinatorThreads',
