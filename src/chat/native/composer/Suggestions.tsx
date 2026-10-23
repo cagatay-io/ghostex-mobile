@@ -50,7 +50,7 @@ export function Suggestions({ data, dispatch }: { data: unknown; dispatch: (acti
             style={({ pressed }) => [styles.row, index === selected || pressed ? styles.rowSelected : null]}
           >
             {files ? <Glyph name="file" size={16} color={P.muted} strokeWidth={1.6} /> : null}
-            <Text style={[styles.label, files ? styles.fileLabel : null]} numberOfLines={1}>
+            <Text style={styles.label} numberOfLines={1}>
               {str(row, 'label')}
             </Text>
             <Text style={styles.detail} numberOfLines={1}>
@@ -102,6 +102,5 @@ const useStyles = themedStyles((P) => ({
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 40, paddingHorizontal: 12, borderRadius: 10 },
   rowSelected: { backgroundColor: P.border },
   label: { color: P.foreground, fontSize: 14, flexShrink: 0, maxWidth: '60%' },
-  fileLabel: { fontWeight: '600' },
   detail: { flex: 1, color: P.muted, fontSize: 13 },
 }));
