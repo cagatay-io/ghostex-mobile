@@ -23,12 +23,14 @@ import type {
   SessionItem,
   SessionKindLabelItem,
 } from '../../contract/grouping';
+import { claudeCloudCloseSleeps } from '../../contract/claudeCloud';
 import type { GhostexQuickAction, GhostexSession } from '../../contract/mobileSummary';
 import { SessionCopy } from '../../copy';
 import type { OptimisticInventoryChange } from '../../inventory/optimistic';
 import { lifecycleMutation, parkMutation, pinMutation, tagMutation } from '../../sessions/sessionCommands';
 import type { MachineRecord } from '../../machines/store';
 import type { ExportedTranscript } from '../terminal-screen/session-lookups';
+import { isRunningSession } from './sidebar-menus';
 
 export type SessionContext = { machine: MachineRecord; item: SessionItem };
 export type ProjectContext = { machine: MachineRecord; header: ProjectHeaderItem };
@@ -103,7 +105,21 @@ export function lifecycleSessionAction(session: GhostexSession, sleeping: boolea
   };
 }
 
+/**
+ * Close: an awake Claude cloud row is put to sleep instead and stays listed ("Keep it listed,
+ * asleep", `claudeCloudCloseSleeps`); every other row is killed.
+ */
 export function closeSessionAction(session: GhostexSession): BulkSessionAction {
+  return closePutsSessionToSleep(session) ? lifecycleSessionAction(session, true) : killSessionAction(session);
+}
+
+/** Whether Close puts this row to sleep instead of closing it (an awake Claude cloud row). */
+export function closePutsSessionToSleep(session: GhostexSession): boolean {
+  return claudeCloudCloseSleeps(session.claudeCloud) && isRunningSession(session);
+}
+
+/** Kill: the session's row leaves the list, Claude cloud rows included. */
+export function killSessionAction(session: GhostexSession): BulkSessionAction {
   return {
     sessionId: session.sessionId,
     command: killSessionCommand(session.sessionId, session.projectId.length > 0 ? session.projectId : undefined),

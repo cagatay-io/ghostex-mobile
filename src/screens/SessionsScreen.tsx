@@ -81,7 +81,6 @@ import {
   cancelDelayedSendCommand,
   closeAfterDoneCommand,
   delayedSendCommand,
-  killSessionCommand,
   renameCommandCommand,
   restoreRecentProjectCommand,
   runActionCommand,
@@ -142,8 +141,9 @@ import { colorWithOpacity, GhostexPalette } from '../theme/palette';
 import { resolveSidebarAppearance } from '../theme/sidebarAppearance';
 import { webPreviewTargetForUrl } from '../webPreview/routing';
 import {
-  closeMutation,
+  closePutsSessionToSleep,
   closeSessionAction,
+  killSessionAction,
   lifecycleSessionAction,
   NONE,
   quickActionDisplayName,
@@ -803,7 +803,7 @@ export default function SessionsScreen({ navigation }: Props) {
       await runBulkSessionActions(
         ctx.machine,
         sessions.map((session) =>
-          action === 'kill' ? closeSessionAction(session) : lifecycleSessionAction(session, action === 'sleep'),
+          action === 'kill' ? killSessionAction(session) : lifecycleSessionAction(session, action === 'sleep'),
         ),
       );
     },
@@ -1497,23 +1497,21 @@ export default function SessionsScreen({ navigation }: Props) {
         <ConfirmDialog
           visible
           title="Close session?"
-          body="This closes the selected Ghostex session on the connected machine."
+          body={
+            closePutsSessionToSleep(overlay.ctx.item.session)
+              ? SessionCopy.claudeCloudCloseSleeps
+              : 'This closes the selected Ghostex session on the connected machine.'
+          }
           targetLine={`${overlay.ctx.item.session.alias} · ${sessionTitle(overlay.ctx.item.session)}`}
           confirmLabel="Close Session"
           destructive
-          onConfirm={() =>
-            void runSessionCommand(
-              overlay.ctx.machine,
-              killSessionCommand(
-                overlay.ctx.item.session.sessionId,
-                overlay.ctx.item.session.projectId.length > 0 ? overlay.ctx.item.session.projectId : undefined,
-              ),
-              {
-                closeWarmSessionId: overlay.ctx.item.session.sessionId,
-                optimisticChange: closeMutation(overlay.ctx.item.session.sessionId),
-              },
-            )
-          }
+          onConfirm={() => {
+            const action = closeSessionAction(overlay.ctx.item.session);
+            void runSessionCommand(overlay.ctx.machine, action.command, {
+              closeWarmSessionId: action.sessionId,
+              optimisticChange: action.optimisticChange,
+            });
+          }}
           onCancel={() => setOverlay(NONE)}
         />
       ) : null}

@@ -55,3 +55,13 @@ export function claudeCloudPageUrl(cloud: GhostexClaudeCloud | undefined): strin
   if (cloud === undefined || cloud.state !== 'running' || cloud.attach === 'live') return null;
   return cloud.url.startsWith('https://claude.ai/code/') ? cloud.url : null;
 }
+
+/**
+ * Whether Close on the row puts the session to sleep instead of closing it: the session exists (or
+ * is being created) on claude.ai, so the row stays listed, asleep ("Keep it listed, asleep"). The
+ * caller adds that the session is awake; Close on an asleep row closes it as before. gxserver's rule
+ * (server/src/claude_cloud/record.rs `close_keeps_session_asleep`, which holds the DECISION).
+ */
+export function claudeCloudCloseSleeps(cloud: GhostexClaudeCloud | undefined): boolean {
+  return cloud !== undefined && (cloud.state === 'starting' || cloud.state === 'running');
+}

@@ -181,6 +181,9 @@ export const SessionCopy = {
   claudeCloud: "Runs in Claude's cloud",
   /** Tapping a cloud row when the phone could not open its claude.ai page. */
   claudeCloudOpenFailed: "Couldn't open Claude's page for this session",
+  /** Close confirm body for an awake cloud row, which Close puts to sleep ("Keep it listed, asleep"). */
+  claudeCloudCloseSleeps:
+    'This puts the session to sleep on the connected machine. It keeps running on claude.ai, so its row stays listed.',
   /** Desktop parity: project cards say exactly "No sessions". */
   emptyProjectRow: 'No sessions',
   olderThreads: (count: number) => (count === 1 ? '1 older thread' : `${count} older threads`),
