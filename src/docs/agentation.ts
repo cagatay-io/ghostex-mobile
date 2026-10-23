@@ -40,6 +40,10 @@ export function parseDocPageMessage(data: string): DocPageMessage | null {
   return null;
 }
 
+/**
+ * CDXC:Docs 2026-10-23 DECISION: User (issue #280, confirmed for the phone): Annotate on an HTML page goes straight into annotating mode and stays in it across reloads, as on the desktop. agentation@3.0.2 mounts collapsed (`isActive` is component state that starts false, is never persisted, and has no prop or handle), so the bootstrap clicks Agentation's own collapsed toolbar once it renders. It looks for the "Start feedback mode" control, which exists only while collapsed, so it can never switch an active toolbar off; its Cmd/Ctrl+Shift+F shortcut was rejected because it toggles and the synthetic key would also reach the page's own listeners. Every load remounts the WebView and re-runs this bootstrap, which is what keeps it active.
+ * SEE-ALSO: apps/desktop/views/manage/preview/html-viewer.tsx (the same start in the desktop's Files view, CDXC:Docs 2026-10-23).
+ */
 function bootstrapModule(): string {
   return `
 const post = (message) => { try { window.ReactNativeWebView?.postMessage(JSON.stringify(message)); } catch {} };
@@ -56,6 +60,21 @@ rootEl.id = rootId;
 rootEl.setAttribute("data-agentation-html-root", "true");
 rootEl.setAttribute("data-agentation-root", "true");
 (document.body || document.documentElement).appendChild(rootEl);
+const startFeedbackMode = () => {
+  const startSelector = '[data-agentation-toolbar] [title="Start feedback mode"][role="button"]';
+  const tryStart = () => {
+    const startButton = document.querySelector(startSelector);
+    if (!startButton) return false;
+    startButton.click();
+    return true;
+  };
+  if (tryStart()) return;
+  const observer = new MutationObserver(() => {
+    if (tryStart()) observer.disconnect();
+  });
+  observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
+  setTimeout(() => observer.disconnect(), 5000);
+};
 Promise.all([
   import(${JSON.stringify(AGENTATION_REACT_URL)}),
   import(${JSON.stringify(AGENTATION_REACT_DOM_CLIENT_URL)}),
@@ -81,6 +100,7 @@ Promise.all([
     copyToClipboard: false,
     onCopy: (markdown) => post({ type: "agentationCopy", markdown: String(markdown ?? "") })
   }));
+  startFeedbackMode();
   post({ type: "agentationReady" });
 }).catch((error) => {
   post({ type: "agentationFailed", message: error instanceof Error ? error.message : String(error) });
