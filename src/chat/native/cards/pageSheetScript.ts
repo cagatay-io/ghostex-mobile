@@ -1,13 +1,18 @@
 /**
  * What the page sheet adds to a published page and reads back from it: a tap on a picture opens the
- * chat's image viewer over the sheet with every picture of the page, and the page's scroll offset is
- * remembered so closing and reopening the page goes back to where the reader was.
+ * chat's image viewer over the sheet with every picture of the page, and the page keeps its own scroll
+ * position on its gxserver so reopening the page goes back to where the reader was.
  *
- * CDXC:SessionChat 2026-10-23 SEE-ALSO:
- * The desktop's page window does the same through a DevTools binding instead of
- * `ReactNativeWebView.postMessage`: apps/desktop/src/app/window/visual_page_modal/page.rs. Which
- * pictures count, the message shapes and the scroll memory match it (only SVG pictures differ, turned
- * into PNGs here); change them together.
+ * CDXC:SessionChat 2026-10-23 DECISION:
+ * Asked whether the phone's page sheet should keep its scroll position through the desktop's new
+ * gxserver route instead of an in-memory map, the user answered "Yes"; asked whether the phone should
+ * also take the desktop's in-page picture viewer, "No, keep the phone's own viewer". So the page's
+ * script saves and restores its position through `/visual/<id>/scroll` exactly like the desktop's
+ * (server/src/visual_pages/scroll.rs): the position is shared with the computer's page window and
+ * outlasts app restarts, and a page from a computer whose gxserver predates the route (404) just
+ * opens at the top. Pictures still go to the phone's own viewer through `ReactNativeWebView.postMessage`.
+ * SEE-ALSO: apps/desktop/src/app/window/visual_page_modal/page_script.js (the desktop's page script).
+ * Which pictures count and the scroll memory match it; change the two together.
  */
 
 import type { ChatImage } from './overlayStore';
@@ -15,7 +20,7 @@ import type { ChatImage } from './overlayStore';
 /**
  * Added to every document the sheet loads (before the content where the WebView can, and again once
  * it has loaded; the flag keeps it to one copy). The WebView's own scroll restoration on reload is
- * turned off: the sheet puts the offset back itself (`restoreScrollScript`). Pictures inside links,
+ * turned off: the page goes back to its saved position itself, after a Refresh too. Pictures inside links,
  * buttons, form controls and the question kit's choices keep doing what the page made them do; so
  * does a tap the page handled itself (`defaultPrevented`). `blob:` pictures and data URIs that are
  * not base64 are turned into base64 data URIs here, where they can still be read, and SVG pictures
@@ -82,31 +87,69 @@ export const PAGE_SCRIPT = `(() => {
     }
     if (index >= 0) send({ type: 'images', index, images });
   });
-  let timer = 0;
+  // Scroll memory: the page keeps its position on its gxserver, the desktop page window's route.
+  // A gxserver older than the route answers 404, and the page simply opens at the top.
+  const pagePath = location.pathname.replace(/\\/+$/, '');
+  const scrollUrl = /^\\/visual\\/[0-9a-f]{32}$/.test(pagePath) ? pagePath + '/scroll' : null;
+  if (!scrollUrl) return;
+  let savedY = null, saveTimer = 0, restoring = null, readerMoved = false;
+  const saveScroll = (leaving) => {
+    clearTimeout(saveTimer);
+    saveTimer = 0;
+    if (restoring) return;
+    const y = Math.round(scrollY);
+    if (y === savedY) return;
+    savedY = y;
+    const body = JSON.stringify({ y });
+    if (leaving && navigator.sendBeacon && navigator.sendBeacon(scrollUrl, body)) return;
+    fetch(scrollUrl, { method: 'POST', body, keepalive: true }).catch(() => {});
+  };
+  // Tried again for a few seconds while pictures and fonts still grow the page.
+  const scrollBack = (y) => {
+    let tries = 0, timer = 0;
+    restoring = () => { clearTimeout(timer); restoring = null; };
+    const go = () => {
+      scrollTo({ left: scrollX, top: y, behavior: 'instant' });
+      if (Math.abs(scrollY - y) > 1 && ++tries < 30) timer = setTimeout(go, 100);
+      else if (restoring) restoring();
+    };
+    go();
+  };
+  for (const kind of ['wheel', 'keydown', 'pointerdown', 'touchstart']) {
+    addEventListener(kind, () => { readerMoved = true; if (restoring) restoring(); }, { passive: true, capture: true });
+  }
   addEventListener('scroll', () => {
-    if (timer) return;
-    timer = setTimeout(() => { timer = 0; send({ type: 'scroll', x: scrollX, y: scrollY }); }, 150);
+    if (restoring) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveScroll, 400);
   }, { passive: true });
+  addEventListener('pagehide', () => saveScroll(true));
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveScroll(true); });
+  fetch(scrollUrl)
+    .then((response) => (response.ok ? response.json() : null))
+    .then((answer) => {
+      const y = answer && Number.isFinite(answer.y) ? Math.max(0, answer.y) : 0;
+      if (savedY === null) savedY = y;
+      if (y <= 0 || readerMoved) return;
+      const start = () => { if (!readerMoved) scrollBack(y); };
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
+      else start();
+    })
+    .catch(() => {});
 })();
 true;`;
 
 /** The most pictures one tap hands the viewer. */
 const IMAGES_MAX = 200;
-/** The most pages whose scroll offset is remembered. */
-const SCROLL_MEMORY_MAX = 500;
 
 export type PageMessage =
   /** The reader tapped picture `index` of `images` (image values the chat's viewer reads). */
   | { type: 'images'; images: ChatImage[]; index: number }
-  | { type: 'scroll'; x: number; y: number }
   /** The page asked to close (`window.close()`). */
   | { type: 'close' };
 
 const record = (value: unknown): Record<string, unknown> | null =>
   typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
-
-const offset = (value: unknown): number | null =>
-  typeof value === 'number' && Number.isFinite(value) ? Math.max(0, value) : null;
 
 /** One message from the page's script; anything else the page sends is ignored. */
 export function readPageMessage(payload: string): PageMessage | null {
@@ -132,47 +175,7 @@ export function readPageMessage(payload: string): PageMessage | null {
     });
     return index === null ? null : { type: 'images', images, index };
   }
-  if (message.type === 'close') return { type: 'close' };
-  if (message.type === 'scroll') {
-    const x = offset(message.x);
-    const y = offset(message.y);
-    return x === null || y === null ? null : { type: 'scroll', x, y };
-  }
-  return null;
-}
-
-/** Kept for as long as the app runs, like the desktop's. */
-const scrollMemory = new Map<string, { x: number; y: number }>();
-
-export function rememberScroll(page: string, at: { x: number; y: number }): void {
-  if (scrollMemory.size >= SCROLL_MEMORY_MAX && !scrollMemory.has(page)) scrollMemory.clear();
-  scrollMemory.set(page, at);
-}
-
-export function rememberedScroll(page: string): { x: number; y: number } | null {
-  const at = scrollMemory.get(page);
-  return at !== undefined && (at.x > 0 || at.y > 0) ? at : null;
-}
-
-/**
- * Scrolls the loaded page back to `at`, trying again for a few seconds while its pictures and fonts
- * are still growing it, and giving up as soon as the reader touches the page.
- */
-export function restoreScrollScript(at: { x: number; y: number }): string {
-  const x = Math.round(at.x);
-  const y = Math.round(at.y);
-  return `(() => {
-  let tries = 0, stopped = false;
-  const stop = () => { stopped = true; };
-  for (const kind of ['wheel', 'keydown', 'mousedown', 'touchstart']) addEventListener(kind, stop, { once: true, passive: true, capture: true });
-  const go = () => {
-    if (stopped) return;
-    scrollTo({ left: ${x}, top: ${y}, behavior: 'instant' });
-    if ((Math.abs(scrollY - ${y}) > 1 || Math.abs(scrollX - ${x}) > 1) && ++tries < 30) setTimeout(go, 100);
-  };
-  go();
-})();
-true;`;
+  return message.type === 'close' ? { type: 'close' } : null;
 }
 
 /** The page's id when `path` is a page gxserver serves (`/visual/<32 hex>`). */

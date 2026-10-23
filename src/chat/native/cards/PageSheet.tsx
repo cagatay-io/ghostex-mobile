@@ -37,14 +37,7 @@ import type { RustChat } from '../../rust/useRustChat';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { Glyph } from './icons';
 import { ImageViewerModal, type ImageViewerList } from './ImageViewer';
-import {
-  PAGE_SCRIPT,
-  pageIdOfPath,
-  readPageMessage,
-  rememberScroll,
-  rememberedScroll,
-  restoreScrollScript,
-} from './pageSheetScript';
+import { PAGE_SCRIPT, pageIdOfPath, readPageMessage } from './pageSheetScript';
 
 /** How long the first back press keeps the sheet armed for a second one to close it. */
 const CLOSE_ARMED_FOR_MS = 2_000;
@@ -246,17 +239,10 @@ export function PageSheet({ chat, machine, page, onClose, onOpenLink }: PageShee
       const message = readPageMessage(event.nativeEvent.data);
       if (message === null) return;
       if (message.type === 'images') setPictures({ images: message.images, index: message.index });
-      else if (message.type === 'close') close();
-      else if (pageId !== null) rememberScroll(pageId, { x: message.x, y: message.y });
+      else close();
     },
-    [close, pageId],
+    [close],
   );
-
-  const loaded = useCallback(() => {
-    setLoading(false);
-    const at = pageId === null ? null : rememberedScroll(pageId);
-    if (at !== null) webviewRef.current?.injectJavaScript(restoreScrollScript(at));
-  }, [pageId]);
 
   if (page === null) return null;
   const retry = () => setAttempt((current) => current + 1);
@@ -319,7 +305,7 @@ export function PageSheet({ chat, machine, page, onClose, onOpenLink }: PageShee
               onMessage={received}
               onShouldStartLoadWithRequest={shouldStartLoad}
               onLoadStart={() => setFailure(null)}
-              onLoadEnd={loaded}
+              onLoadEnd={() => setLoading(false)}
               onNavigationStateChange={(state) => setTitle(state.title?.startsWith('http') ? '' : (state.title ?? ''))}
               onError={(event) => {
                 event.preventDefault();
