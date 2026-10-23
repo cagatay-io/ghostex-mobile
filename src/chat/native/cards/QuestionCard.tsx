@@ -21,6 +21,16 @@ import { CardButton, CardHeader, StatusCard, useCardText } from './primitives';
 import { ApprovalCard } from './ApprovalCard';
 import { useEchoedText } from './useEchoedText';
 
+/** The share of the window the cards band above the composer may take (`NativeChatCards`). */
+export const CARD_BAND_SHARE = 0.6;
+
+/**
+ * CDXC:SessionChat 2026-10-23 DECISION: User: "please make the height of this limited and the text in the middle scrollable. right now it sometimes becomes super tall and i can't click on the buttons at the bottom." The card stands in for the composer at the foot of the cards band, so it is no taller than that band (less its top padding): its head, options and footer keep their height and only the question text scrolls. The options keep their own scroll at under half the card. Desktop caps its card the same way (`question_card_max_height` in apps/desktop/src/app/native_chat/question.rs).
+ */
+function questionCardMaxHeight(windowHeight: number): number {
+  return windowHeight * CARD_BAND_SHARE - 8;
+}
+
 /** Desktop returns the question card instead of the composer for a `question` prompt. */
 export function questionReplacesComposer(document: ChatDocument | null | undefined): boolean {
   return document?.questionCard?.visible === true && str(document.prompt, 'kind') === 'question';
@@ -53,7 +63,7 @@ function QuestionPromptCard({ chat, document }: { chat: RustChat; document: Chat
   const styles = useStyles();
   const P = useTranscriptTheme();
   const { dispatch } = chat;
-  const { height } = useWindowDimensions();
+  const maxHeight = questionCardMaxHeight(useWindowDimensions().height);
   const card = document.questionCard;
   const prompt = document.prompt;
   const questions = arr(obj(prompt)?.questions);
@@ -125,12 +135,18 @@ function QuestionPromptCard({ chat, document }: { chat: RustChat; document: Chat
   );
 
   return (
-    <AskCard head={head} footer={footer}>
+    <AskCard head={head} footer={footer} style={{ maxHeight }} bodyStyle={styles.shrinks}>
       {collapsed ? null : (
-        <View style={styles.body}>
-          <Text style={styles.question}>{str(question, 'question')}</Text>
+        <View style={[styles.body, styles.shrinks]}>
+          <ScrollView style={styles.questionScroll} nestedScrollEnabled>
+            <Text style={styles.question}>{str(question, 'question')}</Text>
+          </ScrollView>
           {multi ? <Text style={[cardText.hint, styles.multiHint]}>Select one or more options.</Text> : null}
-          <ScrollView style={{ maxHeight: height * 0.45 }} contentContainerStyle={styles.options} nestedScrollEnabled>
+          <ScrollView
+            style={{ maxHeight: maxHeight * 0.45 }}
+            contentContainerStyle={styles.options}
+            nestedScrollEnabled
+          >
             {arr(obj(question)?.options).map((option, optionIndex) => {
               // A multi-select note is sent beside the picks, so they stay visible while it is typed.
               const selected = (multi || draft.other.trim().length === 0) && draft.indices.includes(optionIndex);
@@ -166,6 +182,14 @@ function QuestionPromptCard({ chat, document }: { chat: RustChat; document: Chat
 const useStyles = themedStyles((P) => ({
   body: {
     gap: 12,
+  },
+  shrinks: {
+    flexShrink: 1,
+    minHeight: 0,
+  },
+  questionScroll: {
+    flexGrow: 0,
+    flexShrink: 1,
   },
   question: {
     color: P.foreground,

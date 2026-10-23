@@ -54,6 +54,7 @@ export function AskCard({
   children,
   footer,
   style,
+  bodyStyle,
   singleLine,
   lined,
 }: {
@@ -61,6 +62,8 @@ export function AskCard({
   children?: ReactNode;
   footer?: ReactNode;
   style?: StyleProp<ViewStyle>;
+  /** Added to the body's padded box (the question card lets it shrink under its height cap). */
+  bodyStyle?: StyleProp<ViewStyle>;
   singleLine?: boolean;
   /** The body on the one-line cards' edge, under a `lined` head (the page answers). */
   lined?: boolean;
@@ -72,7 +75,9 @@ export function AskCard({
     <View style={[styles.card, singleLine === true && singleLineShell(P), style]}>
       {head}
       {hasBody ? (
-        <View style={[styles.body, (singleLine === true || lined === true) && styles.singleLineBody]}>{children}</View>
+        <View style={[styles.body, (singleLine === true || lined === true) && styles.singleLineBody, bodyStyle]}>
+          {children}
+        </View>
       ) : null}
       {footer !== undefined && footer !== null ? <View style={styles.footer}>{footer}</View> : null}
     </View>

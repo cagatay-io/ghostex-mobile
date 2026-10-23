@@ -25,7 +25,7 @@ import { AsyncQuestionsCard } from './AsyncQuestionsCard';
 import { ComposerNotReadyCard } from './ComposerNotReadyCard';
 import { obj } from './json';
 import { NoticeCard } from './NoticeCard';
-import { QuestionCard } from './QuestionCard';
+import { CARD_BAND_SHARE, QuestionCard } from './QuestionCard';
 import type { CardHostAction } from './types';
 
 /** A failure the agent keeps no record of (Codex shows it only on screen): its card sits here, where its screen notice would have been. */
@@ -63,7 +63,7 @@ export function NativeChatCards({ chat, onHostAction }: NativeChatCardsProps) {
     <ScrollView
       ref={band}
       onContentSizeChange={() => band.current?.scrollToEnd({ animated: false })}
-      style={[styles.band, { maxHeight: height * 0.6 }]}
+      style={[styles.band, { maxHeight: height * CARD_BAND_SHARE }]}
       contentContainerStyle={styles.stack}
       keyboardShouldPersistTaps="handled"
       nestedScrollEnabled
