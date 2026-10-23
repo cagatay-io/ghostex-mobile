@@ -107,7 +107,7 @@ export function AskHead({
   title: string;
   detail?: string;
   trailing?: ReactNode;
-  /** `open` / `closed` draws the fold chevron. */
+  /** `open` / `closed` draws the fold chevron: down while open, up while folded, since the card it heads is docked on the composer (desktop `chevron` in ask_card.rs, CDXC:SessionChat 2026-10-23). */
   chevron?: 'open' | 'closed';
   onPress?: () => void;
   accessibilityLabel?: string;
@@ -144,7 +144,7 @@ export function AskHead({
       </View>
       {trailing}
       {chevron !== undefined ? (
-        <Glyph name={chevron === 'open' ? 'chevron-up' : 'chevron-down'} size={14} color={P.muted} />
+        <Glyph name={chevron === 'open' ? 'chevron-down' : 'chevron-up'} size={14} color={P.muted} />
       ) : null}
     </>
   );
