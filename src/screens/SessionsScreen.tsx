@@ -956,6 +956,43 @@ export default function SessionsScreen({ navigation }: Props) {
     }
   };
 
+  /**
+   * A card's rows, with each session group's rows held in one view so a single tree line runs down
+   * them; a line drawn per row showed a seam where two rows met.
+   */
+  const renderCardChildren = (
+    target: MachineRecord | null,
+    machineId: string,
+    children: DrawerItem[],
+    expandedGroupSurface: string,
+  ): (ReactElement | null)[] => {
+    const elements: (ReactElement | null)[] = [];
+    let groupRows: (ReactElement | null)[] = [];
+    let groupId = '';
+    const closeGroup = (): void => {
+      if (groupRows.length === 0) return;
+      elements.push(
+        <View key={`group-rows:${groupId}`} style={styles.sessionGroupRows}>
+          {groupRows}
+        </View>,
+      );
+      groupRows = [];
+    };
+    for (const child of children) {
+      const element = renderChildItem(target, machineId, child, expandedGroupSurface);
+      if (child.type === 'SESSION' && child.inSessionGroup === true) {
+        if (child.groupId !== groupId) closeGroup();
+        groupId = child.groupId;
+        groupRows.push(element);
+      } else {
+        closeGroup();
+        elements.push(element);
+      }
+    }
+    closeGroup();
+    return elements;
+  };
+
   /** One desktop-style project card: header row + child rows. */
   const renderProjectCard = (
     target: MachineRecord | null,
@@ -1027,7 +1064,7 @@ export default function SessionsScreen({ navigation }: Props) {
           />
           {!header.collapsed && card.children.length > 0 ? (
             <View style={styles.cardSessions}>
-              {card.children.map((child) => renderChildItem(target, machineId, child, expandedGroupSurface))}
+              {renderCardChildren(target, machineId, card.children, expandedGroupSurface)}
             </View>
           ) : null}
         </View>
