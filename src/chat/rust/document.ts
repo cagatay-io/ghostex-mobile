@@ -305,6 +305,9 @@ export type ProjectedMessage = {
   toolsFlat?: boolean;
   /** A running summary turn's newest row: its tool calls start open (gx-chat-core `summary_mode_turns` in `transcript/turns.rs`). */
   toolsOpen?: boolean;
+  /** A thought of the running turn, drawn as a one-line card (gx-chat-core `transcript/thinking_card.rs`):
+   * `live` while it is the row being written, `preview` its newest finished line. */
+  thinkingCard?: { live: boolean; preview: string };
   /** The live terminal tool row synthesized from the agent's screen. Desktop: `terminal_tool_row.rs`. */
   terminalTool?: Json;
   /** A `!` command the user ran, drawn as its tool card in the user's place. Desktop: `shell_command_card` in `tool_run.rs`. */

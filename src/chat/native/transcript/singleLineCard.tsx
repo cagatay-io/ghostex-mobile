@@ -2,7 +2,7 @@
  * Every transcript card that folds to one line: the "Worked for 12s" / "Previous turn" fold
  * (`TranscriptItemRow.tsx`), the Message from / Message to / subagent reply cards
  * (`AgentMessageCards.tsx`), the answered question form (`QuestionForm.tsx`) and the "You answered"
- * receipts (`cards/QuestionExchangeCards.tsx`). They are 44pt tall with their border, wear the fold's
+ * receipts (`cards/QuestionExchangeCards.tsx`), and the running turn's "Thinking…" card (`MessageRow.tsx`). They are 44pt tall with their border, wear the fold's
  * fill and hairline, and title in the fold's type. None draws a chevron (the whole card opens and
  * closes), and every status on the right is a `SingleLinePill` shaped like the fold's "1 tool call",
  * in its own colour. The fold leads with a clock `SingleLineTile` wearing a green check badge, the

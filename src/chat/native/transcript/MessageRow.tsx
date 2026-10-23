@@ -4,8 +4,8 @@
  * a system or harness turn becomes. What each row is and says comes from the core's projection.
  */
 
-import { memo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { memo, useRef } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { ProjectedMessage } from '../../rust/document';
 import { ApiErrorCard, ApiErrorNote, QuestionExchangeCards } from '../cards';
@@ -36,6 +36,14 @@ import { estimatedLines, StartupDelivery, SuppressedRow, SystemCard } from './Sy
 import { PROSE_LINE, PROSE_SIZE, type TranscriptTheme } from './theme';
 import { SideQuestionRow } from './SideQuestionRow';
 import { ShellCommandCard, ToolRows } from './ToolRows';
+import {
+  SINGLE_LINE_CARD,
+  SINGLE_LINE_HEADER_HEIGHT,
+  SINGLE_LINE_TITLE,
+  SingleLineTile,
+  singleLinePressed,
+  singleLineShell,
+} from './singleLineCard';
 
 /** React caps a secondary block at 18rem (`.ghostex-chat-scroll-cap`). */
 const THINKING_CAP = 288;
@@ -165,7 +173,12 @@ function AgentMessage({ message, proseColor }: { message: ProjectedMessage; pros
   let lead = null;
   let toolsRendered = false;
   if (body.length > 0) {
-    if (reasoning && hasTools) {
+    const card = reasoning ? message.thinkingCard : undefined;
+    if (card !== undefined) {
+      // The running turn's thinking is a card; the calls it made stay in view below it, drawn by
+      // the run below as a reply's flat calls are (desktop `thinking_card.rs`).
+      lead = <ThinkingCard id={id} body={body} references={message.markdownReferences} card={card} />;
+    } else if (reasoning && hasTools) {
       // A reasoning headline owns the tools that followed it (React's ReasoningRow).
       const detail = str(message.reasoning, 'body');
       const thought = mutedThinking ? theme.muted : undefined;
@@ -313,6 +326,66 @@ function ThinkingRow({ id, body, references }: { id: string; body: string; refer
   );
 }
 
+/**
+ * The running turn's thought as a one-line card (desktop `thinking_card.rs`; the user's decision is
+ * in gx-chat-core `transcript/thinking_card.rs`): "Thinking…" and the newest finished line while it
+ * is closed, and a press opens the thought below the header. Open while it is being written, it
+ * keeps the newest lines in view until the reader scrolls up.
+ */
+function ThinkingCard({
+  id,
+  body,
+  references,
+  card,
+}: {
+  id: string;
+  body: string;
+  references: unknown;
+  card: NonNullable<ProjectedMessage['thinkingCard']>;
+}) {
+  const { theme, mutedThinking } = useTranscriptEnv();
+  const { disclosures } = useNativeChatUi();
+  const [open, toggle] = useDisclosure(disclosures, `thinking-card:${id}`);
+  const scroll = useRef<ScrollView>(null);
+  const atEnd = useRef(true);
+  const lane = thinkingTone(theme, mutedThinking);
+  const title = card.live ? 'Thinking…' : 'Thought';
+  return (
+    <View style={[styles.thinkingCard, singleLineShell(theme)]}>
+      <Pressable
+        onPress={toggle}
+        accessibilityRole="button"
+        accessibilityLabel={card.preview.length > 0 ? `${title} ${card.preview}` : title}
+        accessibilityState={{ expanded: open }}
+        style={({ pressed }) => [styles.thinkingHeader, pressed && singleLinePressed(theme)]}
+      >
+        <SingleLineTile glyph="brain" />
+        <Text style={[SINGLE_LINE_TITLE, { color: theme.foreground }]}>{title}</Text>
+        <Text style={[styles.thinkingPreview, { color: theme.muted }]} numberOfLines={1}>
+          {open ? '' : card.preview}
+        </Text>
+      </Pressable>
+      {open ? (
+        <ScrollView
+          ref={scroll}
+          style={styles.thinkingScroll}
+          contentContainerStyle={styles.thinkingBody}
+          nestedScrollEnabled
+          scrollEventThrottle={32}
+          onScroll={({ nativeEvent: { contentOffset, contentSize, layoutMeasurement } }) => {
+            atEnd.current = contentOffset.y + layoutMeasurement.height >= contentSize.height - 2;
+          }}
+          onContentSizeChange={() => {
+            if (card.live && atEnd.current) scroll.current?.scrollToEnd({ animated: false });
+          }}
+        >
+          <Markdown text={body} references={references} color={lane} headingColor={mutedThinking ? lane : undefined} />
+        </ScrollView>
+      ) : null}
+    </View>
+  );
+}
+
 /** A row the core has not projected yet: a skeleton of its role (`transcript-skeleton.json`). */
 function PendingRow({ user }: { user: boolean }) {
   const { theme } = useTranscriptEnv();
@@ -339,6 +412,17 @@ const styles = StyleSheet.create({
   thinking: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, paddingBottom: 13 },
   thinkingColumn: { flex: 1, minWidth: 0, gap: 4 },
   capped: { maxHeight: THINKING_CAP, overflow: 'hidden' },
+  thinkingCard: { marginBottom: 13 },
+  thinkingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    height: SINGLE_LINE_HEADER_HEIGHT,
+    paddingHorizontal: SINGLE_LINE_CARD.paddingX,
+  },
+  thinkingPreview: { flex: 1, minWidth: 0, fontSize: 13 },
+  thinkingScroll: { maxHeight: THINKING_CAP },
+  thinkingBody: { paddingHorizontal: SINGLE_LINE_CARD.paddingX, paddingBottom: 12 },
   promptColumn: { gap: 8 },
   showMore: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   showMoreText: { fontSize: PROSE_SIZE },
