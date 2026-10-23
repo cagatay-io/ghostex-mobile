@@ -40,7 +40,7 @@ import { mixHexColors, SidebarPalette } from '../../theme/palette';
 import type { MenuAnchor } from './ContextMenu';
 import { ds, STATUS_DOT_SIZE } from './rows';
 import StatusDotStack from './StatusDotStack';
-import { ChevronRightGlyph, ClockGlyph, CoordinatorGlyph, CrewGlyph, PencilGlyph } from './icons';
+import { ChevronRightGlyph, ClockGlyph, CloudGlyph, CoordinatorGlyph, CrewGlyph, PencilGlyph } from './icons';
 import WorkChips, { WORK_SESSION_ROW_HEIGHT, type WorkChipActions } from './WorkChips';
 import { workChips } from './workChipModel';
 import {
@@ -442,9 +442,19 @@ export default function SessionRow({
             {title}
           </Animated.Text>
           {/* sessions.rs: the status dot, then the time, each 6dp after the one before; or the question indicator alone. */}
-          {question || indicator !== null || timeLabel !== null || coordinatorBadge !== undefined ? (
+          {question ||
+          indicator !== null ||
+          timeLabel !== null ||
+          coordinatorBadge !== undefined ||
+          session.claudeCloud !== undefined ? (
             <View style={styles.trailing}>
               {coordinatorBadge !== undefined ? <CoordinatorBadgeView badge={coordinatorBadge} /> : null}
+              {/* A Claude cloud session: the desktop's plain 12dp muted cloud before the status (claudeCloud.ts). */}
+              {session.claudeCloud !== undefined ? (
+                <View accessible accessibilityLabel={SessionCopy.claudeCloud}>
+                  <CloudGlyph size={ds(12)} color={SidebarPalette.MUTED} />
+                </View>
+              ) : null}
               {question ? (
                 <QuestionIndicator
                   activity={session.activity}

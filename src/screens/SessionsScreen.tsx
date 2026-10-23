@@ -96,10 +96,12 @@ import {
   type ProjectHeaderItem,
 } from '../contract/grouping';
 import { coordinatorRowKey } from '../contract/coordinatorTree';
+import { claudeCloudPageUrl } from '../contract/claudeCloud';
 import { EMPTY_SIDEBAR_SPACES, type GhostexQuickAction, type GhostexSession } from '../contract/mobileSummary';
 import {
   ProgressCopy,
   RenameCopy,
+  SessionCopy,
   SessionNoteCopy,
   SessionSearchCopy,
   StateCardCopy,
@@ -477,6 +479,12 @@ export default function SessionsScreen({ navigation }: Props) {
       // Desktop parity: opening a session from the list acknowledges its
       // attention status.
       acknowledgeSessionAttention(target.id, session.sessionId);
+      // A Claude cloud session running on claude.ai opens its page there (claudeCloud.ts).
+      const cloudPage = claudeCloudPageUrl(session.claudeCloud);
+      if (cloudPage !== null) {
+        void Linking.openURL(cloudPage).catch(() => setTransientStatus(SessionCopy.claudeCloudOpenFailed));
+        return;
+      }
       const openKey = attachSessionKey(target.id, session.sessionId);
       markSessionOpenTap(openKey);
       if (sessionOpensInChatView(openKey, session)) {

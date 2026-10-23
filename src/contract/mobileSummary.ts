@@ -4,6 +4,7 @@
  * reference implementation (GhostexRemoteSession / GhostexWorkspaceInventory).
  */
 
+import { type GhostexClaudeCloud, parseClaudeCloud } from './claudeCloud';
 import { programStatusFailed, programStatusLine } from './programStatus';
 
 // ---------------------------------------------------------------------------
@@ -91,6 +92,8 @@ export type MobileSummaryWireSession = {
   gitStatus?: { branch?: string | null };
   /** What a work-mode session is linked to (`GxserverPresentationSessionWork`); absent outside work mode. */
   work?: unknown;
+  /** A Claude cloud session's record (`PresentationClaudeCloud`); absent for every other session. */
+  claudeCloud?: unknown;
   /** When an armed Close After Done closes the session, while it counts down. */
   closeAfterDoneDeadlineAt?: string;
   actions?: Partial<GhostexSessionActions>;
@@ -409,6 +412,8 @@ export type GhostexSession = {
   gitBranch?: string;
   /** Present only for a session of a project with work mode on. */
   work?: GhostexSessionWork;
+  /** Present only for a Claude cloud session (claudeCloud.ts). */
+  claudeCloud?: GhostexClaudeCloud;
   /**
    * Current session tag ('' when untagged): a built-in SIDEBAR_SESSION_TAGS
    * value or a `custom-…` id resolved against the machine's `customSessionTags`.
@@ -772,6 +777,9 @@ const AGENT_NAME_ALIASES: Record<string, AgentIconId> = {
   'codex cli': 'codex',
   claude: 'claude',
   'claude code': 'claude',
+  // The "Claude (cloud)" agent (gx-core agent_logos.rs draws Claude's logo for it too).
+  'claude-cloud': 'claude',
+  'claude (cloud)': 'claude',
   openclaude: 'openclaude',
   'open claude': 'openclaude',
   cursor: 'cursor-cli',
@@ -1078,6 +1086,7 @@ export function parseSession(value: unknown): GhostexSession | null {
     isParked: boolValue(value, 'isParked', false),
     gitBranch: isObject(value.gitStatus) ? trimmedValue(value.gitStatus, 'branch') : '',
     work: parseSessionWork(value.work) ?? undefined,
+    claudeCloud: parseClaudeCloud(value.claudeCloud),
     sessionTag: trimmedValue(value, 'sessionTag'),
     delayedSendRemainingLabel: trimmedValue(value, 'delayedSendRemainingLabel'),
     delayedSendDeadlineAt: trimmedValue(value, 'delayedSendDeadlineAt'),
