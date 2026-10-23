@@ -41,6 +41,7 @@ import { useGpuiChat } from '../gpui/useGpuiChat';
 import { useSettingsStore } from '../../settings/store';
 import { useArmedActions } from './armedActions';
 import { NativeChatCards, NativeChatOverlays, PageSheet, questionReplacesComposer } from './cards';
+import { ConnectionLostNotice } from './cards/ConnectionLostNotice';
 import { LoneScrollBottom, WorkingCard } from './cards/WorkingCard';
 import { NativeComposer } from './composer';
 import { HandoffSheet, type HandoffRequest } from './composer/HandoffSheet';
@@ -258,6 +259,8 @@ export default function NativeChatScreen({
           {/* Scroll-to-bottom alone while no card carries it; the GPUI transcript draws its own. */}
           {gpui || document === null ? null : <LoneScrollBottom document={document} armed={armed} />}
         </View>
+        {/* The GPUI transcript reaches its computer its own way and has no chat link to watch. */}
+        {gpui ? null : <ConnectionLostNotice machine={machine} active={visible} />}
         {/* The working card in its own row above the cards and the composer: the transcript ends above it. */}
         {document === null ? null : (
           <WorkingCard

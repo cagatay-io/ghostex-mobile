@@ -54,6 +54,12 @@ const RESUME_ANSWER_MS = 5_000;
 const FRAME_TYPES = new Set(['sessionChatSnapshot', 'sessionChatReplaced', 'sessionChatAppended', 'sessionChatState']);
 /** A forward is rebuilt at most this often; failures in between go straight to the exec route. */
 const REPAIR_MIN_INTERVAL_MS = 5_000;
+/** A watched socket that heard nothing from gxserver this long asks it whether it is still there. */
+const QUIET_MS = 5_000;
+/** How long that question (`GET /api/health`) may go unanswered before the chat counts as cut off. */
+const PROBE_TIMEOUT_MS = 5_000;
+/** How often a watched link looks at how long it has been quiet. */
+const QUIET_CHECK_MS = 2_500;
 /** Requests that only read, so a lost one may simply be asked again. */
 const READ_ONLY_METHODS = new Set([
   'readSessionChat',
@@ -189,6 +195,13 @@ class ChatMachineLink {
   /** Armed while a socket that survived the background owes an answer (`checkResumedSocket`). */
   private resumeTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly socketListeners = new Set<(open: boolean) => void>();
+  /** When gxserver was last heard: the socket opened or sent something, or a request was answered. */
+  private lastHeardAt = 0;
+  /** `silentSince`. */
+  private silence: number | null = null;
+  private readonly silenceListeners = new Set<() => void>();
+  private quietTimer: ReturnType<typeof setInterval> | null = null;
+  private probing = false;
 
   constructor(private machine: MachineConnectionTarget) {
     AppState.addEventListener('change', (next: AppStateStatus) => {
@@ -280,7 +293,101 @@ class ChatMachineLink {
   private setSocketOpen(open: boolean): void {
     if (this.socketOpen === open) return;
     this.socketOpen = open;
+    if (open) this.heard();
+    else if (this.followers.size > 0) this.setSilence(this.silence ?? Date.now());
     for (const listener of this.socketListeners) listener(open);
+  }
+
+  /**
+   * Since when this computer's open chats have heard nothing from gxserver (a `Date.now()` time),
+   * or null while they do: their socket is down (closed, or not open yet), or it went quiet and
+   * gxserver did not answer `GET /api/health` in time (`watchSilence`). A chat on the exec route
+   * follows no socket and is never silent here.
+   */
+  silentSince(): number | null {
+    return this.silence;
+  }
+
+  /**
+   * Hears every change of `silentSince` while a chat on this computer is on screen. While anyone
+   * watches, a socket that has heard nothing for `QUIET_MS` asks gxserver whether it is still there.
+   *
+   * CDXC:SessionChat 2026-10-23 WHY: the socket rides an SSH port forward, so when the network stops
+   * carrying packets (Wi-Fi gone dead, a stalled tunnel) nothing closes: SSH notices only once its
+   * keepalives go unanswered, minutes later at the default 30-second interval, and until then the
+   * chat looked live. An iPhone test cut the network for 20 seconds and the chat said nothing; the
+   * user asked for that to be fixed. The question is gxserver's open `GET /api/health`, which every
+   * version answers without a token.
+   */
+  watchSilence(listener: () => void): () => void {
+    this.silenceListeners.add(listener);
+    this.quietTimer ??= setInterval(() => this.checkQuiet(), QUIET_CHECK_MS);
+    return () => {
+      this.silenceListeners.delete(listener);
+      if (this.silenceListeners.size > 0 || this.quietTimer === null) return;
+      clearInterval(this.quietTimer);
+      this.quietTimer = null;
+    };
+  }
+
+  private setSilence(since: number | null): void {
+    if (this.silence === since) return;
+    this.silence = since;
+    for (const listener of this.silenceListeners) listener();
+  }
+
+  /** gxserver answered something. Until the socket is open the chat is not live, so it stays silent. */
+  private heard(): void {
+    this.lastHeardAt = Date.now();
+    if (this.socketOpen) this.setSilence(null);
+  }
+
+  private checkQuiet(): void {
+    const state = this.state;
+    if (this.probing || !this.socketOpen || state.kind !== 'socket' || !foreground()) return;
+    if (Date.now() - this.lastHeardAt < QUIET_MS) return;
+    this.probing = true;
+    const askedAt = Date.now();
+    const generation = this.socketGeneration;
+    void this.probe(state.endpoint).then((answered) => {
+      this.probing = false;
+      if (answered) this.heard();
+      // A socket replaced meanwhile, or a frame that came in while the question hung, says nothing about now.
+      else if (
+        generation === this.socketGeneration &&
+        this.lastHeardAt < askedAt &&
+        this.socketOpen &&
+        this.followers.size > 0
+      ) {
+        this.setSilence(this.silence ?? this.lastHeardAt);
+      }
+    });
+  }
+
+  /**
+   * Whether gxserver answers `GET /api/health` over the forward within `PROBE_TIMEOUT_MS`. Any answer
+   * counts. It asks the forward as it is and never dials: that is the reconnect's job.
+   */
+  private async probe(endpoint: Endpoint): Promise<boolean> {
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timedOut = new Promise<false>((resolve) => {
+      timer = setTimeout(() => {
+        controller.abort();
+        resolve(false);
+      }, PROBE_TIMEOUT_MS);
+    });
+    const asked = (async () => {
+      const { localPort } = await GhostexNative.startPortForward(this.machine.id, endpoint.port, GXSERVER_FORWARD_HOST);
+      const response = await fetch(`http://127.0.0.1:${localPort}/api/health`, { signal: controller.signal });
+      await response.text();
+      return true;
+    })().catch(() => false);
+    try {
+      return await Promise.race([asked, timedOut]);
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   /** What this computer's gxserver advertised, once a handshake settled on the socket route. */
@@ -467,6 +574,7 @@ class ChatMachineLink {
         signal: controller.signal,
       });
       const text = await response.text();
+      this.heard();
       // A refused token means gxserver issued a new one; the next request asks for it.
       if (response.status === 401) this.recheck();
       let envelope: Record<string, unknown> | null = null;
@@ -522,6 +630,8 @@ class ChatMachineLink {
       return;
     }
     this.followers.set(key, { projectId, sessionId, limit, onFrame });
+    // The chat is not live until the socket opens (`silentSince`).
+    if (!this.socketOpen) this.setSilence(this.silence ?? Date.now());
     if (this.idleTimer !== null) {
       clearTimeout(this.idleTimer);
       this.idleTimer = null;
@@ -540,6 +650,7 @@ class ChatMachineLink {
   unfollow(projectId: string, sessionId: string): void {
     const key = followerKey(projectId, sessionId);
     if (!this.followers.delete(key)) return;
+    if (this.followers.size === 0) this.setSilence(null);
     if (this.socketOpen) this.send(JSON.stringify({ type: 'unsubscribeSessionChat', projectId, sessionId }));
     if (this.followers.size > 0 || this.idleTimer !== null) return;
     this.idleTimer = setTimeout(() => {
@@ -658,6 +769,7 @@ class ChatMachineLink {
         clearTimeout(this.resumeTimer);
         this.resumeTimer = null;
       }
+      this.heard();
       this.receive(event.data);
     };
     socket.onerror = () => {
