@@ -39,6 +39,7 @@ import { useSettingsStore } from '../../settings/store';
 import { mixHexColors, SidebarPalette } from '../../theme/palette';
 import type { MenuAnchor } from './ContextMenu';
 import { ds, STATUS_DOT_SIZE } from './rows';
+import StatusDotStack from './StatusDotStack';
 import { ChevronRightGlyph, ClockGlyph, CoordinatorGlyph, CrewGlyph, PencilGlyph } from './icons';
 import WorkChips, { WORK_SESSION_ROW_HEIGHT, type WorkChipActions } from './WorkChips';
 import { workChips } from './workChipModel';
@@ -208,13 +209,24 @@ function CoordinatorBadgeView({ badge }: { badge: CoordinatorBadge }) {
 
 /**
  * apps/desktop/src/app/native_sidebar/status.rs `question_indicator`: the pink
- * question dot, after the orange working dot while the agent still works.
+ * question dot in the same 19x16 slot as every other indicator. CDXC:SessionStatus 2026-10-23 DECISION:
+ * User: "also 1 more thing if there's question + working or question + done then show those 2 dots overlapping like we show it at the bottom of the space button". While the session is also working (orange) or done (blue), the pair overlaps through StatusDotStack, the same stack the Space buttons draw, with the pink dot behind and a ring in the row's surface between them; the pair is centered in the slot.
  */
-function QuestionIndicator({ working }: { working: boolean }) {
+function QuestionIndicator({ activity, ringColor }: { activity: string; ringColor: string }) {
+  const pair = activity === 'working' || activity === 'attention';
   return (
-    <View style={styles.questionSlot}>
-      {working ? <View style={styles.workingDot} /> : null}
-      <View style={styles.questionDot} />
+    <View style={styles.indicatorSlot}>
+      {pair ? (
+        <StatusDotStack
+          questionCount={1}
+          workingCount={activity === 'working' ? 1 : 0}
+          attentionCount={activity === 'attention' ? 1 : 0}
+          backgroundWorkCount={0}
+          ringColor={ringColor}
+        />
+      ) : (
+        <View style={styles.questionDot} />
+      )}
     </View>
   );
 }
@@ -433,7 +445,12 @@ export default function SessionRow({
           {question || indicator !== null || timeLabel !== null || coordinatorBadge !== undefined ? (
             <View style={styles.trailing}>
               {coordinatorBadge !== undefined ? <CoordinatorBadgeView badge={coordinatorBadge} /> : null}
-              {question ? <QuestionIndicator working={session.activity === 'working'} /> : null}
+              {question ? (
+                <QuestionIndicator
+                  activity={session.activity}
+                  ringColor={active ? activeBackground : expandedGroupSurface}
+                />
+              ) : null}
               {indicator !== null ? <ActivityDot kind={indicator} /> : null}
               {timeLabel !== null ? (
                 <Text style={[styles.trailingText, session.isSleeping ? styles.trailingTextSleeping : null]}>
@@ -597,14 +614,6 @@ const styles = StyleSheet.create({
     height: ds(16),
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  questionSlot: {
-    height: ds(16),
-    minWidth: ds(16),
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: ds(4),
   },
   failedDot: {
     width: ds(STATUS_DOT_SIZE),
