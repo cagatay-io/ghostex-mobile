@@ -35,6 +35,7 @@ import { initOverTheAirUpdates } from './src/updates/overTheAir';
 import { addProjectSourceLabel } from './src/addProject/sources';
 import { GhostexPalette } from './src/theme/palette';
 import CrashReportPrompt from './src/components/common/CrashReportPrompt';
+import { ChatCoreWebViewHost } from './src/chat/rust/wasm-core/ChatCoreWebView';
 import ExtraKeysEditorScreen from './src/screens/ExtraKeysEditorScreen';
 import FeedbackScreen from './src/screens/FeedbackScreen';
 import AgentHotkeysEditorScreen from './src/screens/AgentHotkeysEditorScreen';
@@ -126,6 +127,9 @@ export default function App() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
+        {/* The chat core's hidden WebView while Settings › Chat › Chat brain is Browser view: 1×1,
+            under the screens, never touched. */}
+        <ChatCoreWebViewHost />
         <NavigationContainer
           ref={navigationRef}
           theme={navigationTheme}

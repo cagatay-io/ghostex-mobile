@@ -3,6 +3,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
 
 import { isGpuiAvailable } from '../../../modules/gx-chat-core/src/gpui';
+import type { ChatBrain } from '../../chat/rust/core-backend';
 import type { RootStackParamList } from '../../navigation/types';
 import {
   READ_ALOUD_RATES,
@@ -35,10 +36,19 @@ const MARKED_HANDOVERS_STYLE_ROWS: { value: MarkedHandoversStyle; label: string 
   { value: 'plain', label: 'Plain text' },
 ];
 
+/**
+ * CDXC:SessionChat 2026-10-23 DECISION: one app release carries both chat brains behind this switch, Built-in by default; the built-in one leaves in the release after (the user's Q27). See src/chat/rust/wasm-core/bridge.ts.
+ */
+const CHAT_BRAIN_ROWS: readonly { value: ChatBrain; label: string }[] = [
+  { value: 'builtIn', label: 'Chat brain: Built-in' },
+  { value: 'browserView', label: 'Chat brain: Browser view' },
+];
+
 export default function ChatPage() {
   const preferredAgentInterface = useSettingsStore((state) => state.settings.preferredAgentInterface);
   const sessionChatTheme = useSettingsStore((state) => state.settings.sessionChatTheme);
   const markedHandoversStyle = useSettingsStore((state) => state.settings.markedHandoversStyle);
+  const sessionChatBrain = useSettingsStore((state) => state.settings.sessionChatBrain);
   const setSetting = useSettingsStore((state) => state.setSetting);
 
   return (
@@ -102,9 +112,22 @@ export default function ChatPage() {
 
       <ReadAloudRows />
 
+      <SectionHeader title="Developer" />
+      {CHAT_BRAIN_ROWS.map((row) => (
+        <ChoiceRow
+          key={row.value}
+          label={row.label}
+          selected={sessionChatBrain === row.value}
+          onPress={() => setSetting('sessionChatBrain', row.value)}
+        />
+      ))}
+      <Caption>
+        Chat brain: the part that turns an agent's output into the chat. Built-in runs the one inside this app. Browser
+        view runs the same brain in a hidden browser view, so chat fixes arrive with app updates without a new install.
+        Takes effect the next time a chat opens.
+      </Caption>
       {isGpuiAvailable() ? (
         <>
-          <SectionHeader title="Developer" />
           <SettingToggle settingKey="sessionChatGpuiTranscript" label="GPUI transcript (beta)" />
           <Caption>
             Draws the conversation with the desktop app's own chat renderer. Takes effect the next time a chat opens.

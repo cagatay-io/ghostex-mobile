@@ -51,6 +51,8 @@ export function useGpuiChat(target: RustChatTarget | null): RustChat {
       attachFiles: (files: Parameters<RustChat['attachFiles']>[0]) => host?.attachFiles(files) ?? Promise.resolve(),
       query: (name: Parameters<RustChat['query']>[0], args: readonly unknown[]) =>
         host ? host.query(name, args) : null,
+      queryAsync: (name: Parameters<RustChat['query']>[0], args: readonly unknown[]) =>
+        Promise.resolve(host ? host.query(name, args) : null),
       onViewRequest: (listener: Parameters<RustChat['onViewRequest']>[0]) =>
         host ? host.onViewRequest(listener) : noop,
     }),

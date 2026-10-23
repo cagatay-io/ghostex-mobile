@@ -146,6 +146,13 @@ declare class GhostexNativeModule extends NativeModule<GhostexNativeEvents> {
   /** Whether this device currently owns an active Tailscale IPv4 or IPv6 address. */
   isTailscaleConnected(): Promise<boolean>;
 
+  /**
+   * Evaluates `script` in the react-native-webview WebView whose view tag is `viewTag`, on the UI
+   * thread right away (the chat core's hidden WebView; `src/chat/rust/wasm-core/bridge.ts`).
+   * react-native-webview's own `postMessage` waits for the next frame, about 16 ms a call.
+   */
+  postToWebView(viewTag: number, script: string): void;
+
   /** Fully stop the Android app, including its foreground service and process. */
   quitApp(): Promise<void>;
 

@@ -98,6 +98,7 @@ function emptyState(): RustChatState {
       settleRoundsExhausted: 0,
       storageRefused: 0,
     },
+    queryRevision: 0,
   };
 }
 

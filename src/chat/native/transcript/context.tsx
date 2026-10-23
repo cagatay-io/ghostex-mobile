@@ -28,6 +28,8 @@ export type NativeChatUi = {
    * tooltip regions, a page card, or an error; null when the core could not answer.
    */
   renderVisual(source: string, width: number, theme: JsonRecord, progress?: number): JsonRecord | null;
+  /** The same layout, awaited: the Browser view brain answers a moment later (draw-in frames). */
+  renderVisualAsync(source: string, width: number, theme: JsonRecord, progress?: number): Promise<JsonRecord | null>;
 };
 
 const UiContext = createContext<NativeChatUi | null>(null);
@@ -36,8 +38,8 @@ export function NativeChatUiProvider({ chat, children }: { chat: RustChat; child
   const disclosures = useMemo(() => new DisclosureStore(), []);
   const dispatchRef = useRef(chat.dispatch);
   dispatchRef.current = chat.dispatch;
-  const queryRef = useRef(chat.query);
-  queryRef.current = chat.query;
+  const queryAsyncRef = useRef(chat.queryAsync);
+  queryAsyncRef.current = chat.queryAsync;
   const demand = useMemo(() => new RowDetailDemand((action) => dispatchRef.current(action)), []);
   useEffect(() => () => demand.dispose(), [demand]);
   // A new core (the host changed) has forgotten which rows are open and which images it read.
@@ -51,10 +53,23 @@ export function NativeChatUiProvider({ chat, children }: { chat: RustChat; child
     requested.current.add(path);
     dispatchRef.current({ type: 'loadImage', path });
   }, []);
+  // Keyed on `chat.query`, which changes when a late Browser view answer arrives, so a chart drawn
+  // before its layout came back draws again; it never changes on the Built-in brain.
+  const { query } = chat;
   const renderVisual = useCallback(
     (source: string, width: number, theme: JsonRecord, progress?: number): JsonRecord | null =>
       obj(
-        queryRef.current(
+        query(
+          'renderVisual',
+          progress === undefined ? [source, width, theme, 'System'] : [source, width, theme, 'System', progress],
+        ),
+      ),
+    [query],
+  );
+  const renderVisualAsync = useCallback(
+    async (source: string, width: number, theme: JsonRecord, progress?: number): Promise<JsonRecord | null> =>
+      obj(
+        await queryAsyncRef.current(
           'renderVisual',
           progress === undefined ? [source, width, theme, 'System'] : [source, width, theme, 'System', progress],
         ),
@@ -62,8 +77,8 @@ export function NativeChatUiProvider({ chat, children }: { chat: RustChat; child
     [],
   );
   const value = useMemo<NativeChatUi>(
-    () => ({ disclosures, demand, requestImage, renderVisual }),
-    [demand, disclosures, requestImage, renderVisual],
+    () => ({ disclosures, demand, requestImage, renderVisual, renderVisualAsync }),
+    [demand, disclosures, requestImage, renderVisual, renderVisualAsync],
   );
   return <UiContext.Provider value={value}>{children}</UiContext.Provider>;
 }

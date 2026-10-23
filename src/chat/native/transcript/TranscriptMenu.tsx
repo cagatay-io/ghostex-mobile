@@ -55,7 +55,7 @@ export function TranscriptMenuSheet({
   const request = useTranscriptMenuStore((state) => state.request);
   const document = chat.state?.document ?? null;
   const active = questionActive(document);
-  const { query } = chat;
+  const { query, queryAsync } = chat;
   const rows = useMemo<MenuRow[] | null>(() => {
     if (request === null || !enabled) return null;
     const answer = arr(
@@ -81,16 +81,19 @@ export function TranscriptMenuSheet({
   useEffect(() => closeTranscriptMenu, []);
   const composerText = chat.state?.composer.text ?? '';
   // The selection bar's Add to Chat (`addSelectionToChat`): the core's Add to Chat row for those words.
+  // Awaited: on the Browser view brain the core answers a moment later.
   const quote = useCallback(
     (selection: string) => {
-      const row = arr(query('transcriptMenu', [{ href: null, selection, questionActive: active }]))
-        .map((entry) => obj(entry))
-        .find((entry) => str(obj(entry?.command), 'type') === 'appendToDraft');
-      const text = str(obj(row?.command), 'text');
-      if (row?.disabled === true || text.length === 0) return;
-      chat.dispatch({ type: 'appendToDraft', text, draft: composerText });
+      void queryAsync('transcriptMenu', [{ href: null, selection, questionActive: active }]).then((answer) => {
+        const row = arr(answer)
+          .map((entry) => obj(entry))
+          .find((entry) => str(obj(entry?.command), 'type') === 'appendToDraft');
+        const text = str(obj(row?.command), 'text');
+        if (row?.disabled === true || text.length === 0) return;
+        chat.dispatch({ type: 'appendToDraft', text, draft: composerText });
+      });
     },
-    [active, chat, composerText, query],
+    [active, chat, composerText, queryAsync],
   );
   useEffect(() => {
     if (!enabled) return;

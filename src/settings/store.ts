@@ -11,6 +11,7 @@ import { Platform } from 'react-native';
 import { create } from 'zustand';
 
 import type { CursorStyle } from '../../modules/ghostex-native/src/GhostexNative.types';
+import type { ChatBrain } from '../chat/rust/core-backend';
 import {
   clampSidebarContrast,
   DEFAULT_SIDEBAR_BACKGROUND_CONTRAST,
@@ -85,6 +86,13 @@ export type GhostexSettings = {
    * `build.sh --gpui` can; the switch is hidden otherwise.
    */
   sessionChatGpuiTranscript: boolean;
+  /**
+   * Which chat brain runs a chat: the Rust chat core built into the app, or the same core as
+   * WebAssembly in a hidden WebView, which updates over the air (`src/chat/rust/core-backend.ts`,
+   * CDXC:SessionChat 2026-10-23 DECISION in `src/chat/rust/wasm-core/bridge.ts`). Read when a chat
+   * opens. Built-in until the user makes the WebView the default.
+   */
+  sessionChatBrain: ChatBrain;
   markedHandoversStyle: MarkedHandoversStyle;
   /** Show the marker emoji in coloured marked sections (desktop `markedHandoversEmoji`, off by default). */
   markedHandoversEmoji: boolean;
@@ -170,6 +178,7 @@ export function defaultSettings(): GhostexSettings {
     sessionChatFileEditPreviews: false,
     sessionChatMutedThinking: false,
     sessionChatGpuiTranscript: false,
+    sessionChatBrain: 'builtIn',
     markedHandoversStyle: 'labels',
     markedHandoversEmoji: false,
     readAloudVoice: '',
@@ -276,6 +285,10 @@ function sanitizeSettings(value: unknown): GhostexSettings {
     sessionChatSimpleMode: bool('sessionChatSimpleMode', defaults.sessionChatSimpleMode),
     sessionChatVerboseMode: bool('sessionChatVerboseMode', defaults.sessionChatVerboseMode),
     sessionChatGpuiTranscript: bool('sessionChatGpuiTranscript', defaults.sessionChatGpuiTranscript),
+    sessionChatBrain:
+      record.sessionChatBrain === 'builtIn' || record.sessionChatBrain === 'browserView'
+        ? record.sessionChatBrain
+        : defaults.sessionChatBrain,
     markedHandoversStyle:
       record.markedHandoversStyle === 'labels' ||
       record.markedHandoversStyle === 'rule' ||

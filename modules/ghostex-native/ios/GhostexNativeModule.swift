@@ -80,6 +80,12 @@ public class GhostexNativeModule: Module {
             "onConnectionState"
         )
 
+        // The chat core's hidden WebView: post a script without waiting for the next frame
+        // (GhostexWebViewPost).
+        Function("postToWebView") { (viewTag: Int, script: String) in
+            GhostexWebViewPost.post(appContext: self.appContext, viewTag: viewTag, script: script)
+        }
+
         // MARK: Connection lifecycle
 
         AsyncFunction("connect") { (machineId: String, config: SshConfigRecord) async throws in

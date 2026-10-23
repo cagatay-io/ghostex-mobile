@@ -32,8 +32,14 @@ export type RustChat = {
   setTitle(title: string | null): void;
   composer: RustChatHost['composerInput'] | null;
   attachFiles(files: readonly { uri: string; name?: string }[]): Promise<void>;
-  /** One of the core's pure helpers (see `RustChatHost.query`); null while no core runs. */
+  /**
+   * One of the core's pure helpers (see `RustChatHost.query`); null while no core runs. On the
+   * Browser view brain the answer can arrive a moment later: the function changes identity when it
+   * does, so a memo that depends on it computes again.
+   */
   query(name: ChatCoreQuery, args: readonly unknown[]): unknown;
+  /** The same helper, awaited (for an action that needs the answer to go on). */
+  queryAsync(name: ChatCoreQuery, args: readonly unknown[]): Promise<unknown>;
   /** Subscribe to view requests; returns the unsubscribe. Stable per chat. */
   onViewRequest(listener: (request: ChatViewRequest) => void): () => void;
   /** The computer this chat lives on (stable per chat), or null while no target is set. */
@@ -81,8 +87,14 @@ export function useRustChat(target: RustChatTarget | null): RustChat {
     (listener: (request: ChatViewRequest) => void) => (host ? host.onViewRequest(listener) : noop),
     [host],
   );
+  const queryRevision = state?.queryRevision ?? 0;
   const query = useCallback(
     (name: ChatCoreQuery, args: readonly unknown[]) => (host ? host.query(name, args) : null),
+    // `queryRevision` moves when a late answer arrives, so callers memoizing on `query` ask again.
+    [host, queryRevision], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const queryAsync = useCallback(
+    (name: ChatCoreQuery, args: readonly unknown[]) => (host ? host.queryAsync(name, args) : Promise.resolve(null)),
     [host],
   );
   const machine = latestTarget?.machine ?? null;
@@ -95,9 +107,10 @@ export function useRustChat(target: RustChatTarget | null): RustChat {
       composer: host?.composerInput ?? null,
       attachFiles,
       query,
+      queryAsync,
       onViewRequest,
       machine,
     }),
-    [host, state, dispatch, measure, setTitle, attachFiles, query, onViewRequest, machine],
+    [host, state, dispatch, measure, setTitle, attachFiles, query, queryAsync, onViewRequest, machine],
   );
 }

@@ -148,6 +148,12 @@ class GhostexNativeModule : Module() {
       mainHandler.post { stopVisibleWindowFrameObserver() }
     }
 
+    // The chat core's hidden WebView: post a script without waiting for the next frame
+    // (GhostexWebViewPost).
+    Function("postToWebView") { viewTag: Int, script: String ->
+      GhostexWebViewPost.post(appContext, viewTag, script)
+    }
+
     // region connection lifecycle
 
     AsyncFunction("connect") { machineId: String, config: SshConfigRecord, promise: Promise ->

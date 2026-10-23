@@ -45,7 +45,7 @@ Pod::Spec.new do |s|
   s.preserve_paths = 'Vendor/**/*'
 
   # Network is NWListener/NWConnection, the loopback side of SSH local port forwarding.
-  s.frameworks = 'Metal', 'QuartzCore', 'UIKit', 'IOSurface', 'Security', 'AudioToolbox', 'Network'
+  s.frameworks = 'Metal', 'QuartzCore', 'UIKit', 'IOSurface', 'Security', 'AudioToolbox', 'Network', 'WebKit'
   s.libraries = 'z', 'c++'
 
   s.pod_target_xcconfig = {

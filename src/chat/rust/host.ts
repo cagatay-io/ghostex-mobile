@@ -18,20 +18,19 @@ import { AppState, type AppStateStatus, type NativeEventSubscription } from 'rea
 
 import {
   ChatCoreError,
-  createChatCore,
-  isChatCoreAvailable,
   type ChatCoreEffect,
   type ChatCoreEvent,
-  type ChatCoreHandle,
   type ChatCoreQuery,
   type ChatMeasurement,
 } from '../../../modules/gx-chat-core/src';
 
 import type { MachineConnectionTarget } from '../../machines/credentials';
+import { useSettingsStore } from '../../settings/store';
 import { uploadSessionChatLocalFile } from '../session-chat-helpers';
 import type { UserAction } from './actions';
 import { readComposerBoot } from './boot';
 import { ComposerModel, type ComposerModelState, type SubmitMode } from './composer';
+import { createChatCoreBackend, type ChatBrain, type ChatCoreBackend } from './core-backend';
 import {
   applyItemsSplice,
   type ChatDocument,
@@ -103,11 +102,22 @@ export type RustChatState = {
   /** A host-level failure drawn instead of the chat (the core is missing or disabled). */
   error: string | null;
   stats: RustChatStats;
+  /**
+   * Moves when an answer the Browser view brain computes after the call (a `query`) arrives, so a
+   * paint that asked for it draws again. Never moves on the Built-in brain, which answers at once.
+   */
+  queryRevision: number;
 };
 
 /** What a chat whose core failed draws. A constant sentence: a panic payload can hold chat text. */
 const CORE_FAILURE_MESSAGE = 'Chat could not be shown with the new chat engine. Turn it off in Settings.';
 const CORE_UNAVAILABLE_MESSAGE = 'This build does not include the new chat engine.';
+const BROWSER_VIEW_UNAVAILABLE_MESSAGE =
+  'The Browser view chat brain could not start. Switch Settings › Chat › Chat brain back to Built-in.';
+/** Helpers whose answer depends only on their arguments; the Browser view brain keeps those. */
+const PURE_QUERIES: ReadonlySet<ChatCoreQuery> = new Set(['composerReferences', 'renderVisual', 'speakableMarkdown']);
+/** Answers the Browser view brain keeps for paint-time callers (drafts, chart layouts). */
+const MAX_CACHED_QUERIES = 64;
 /** What a chat whose storage answered none of its boot read draws (desktop's sentence). */
 const BOOT_READ_FAILURE = 'Chat could not read its saved drafts and settings on this phone.';
 /** How deep an immediate answer may feed back into the core in one burst (desktop's cap). */
@@ -155,7 +165,11 @@ export class RustChatHost {
   /** `remote-<machineId>:<projectId>:<sessionId>`: every per-session storage suffix. */
   readonly sessionKey: string;
 
-  private core: ChatCoreHandle | null = null;
+  private core: ChatCoreBackend | null = null;
+  private unsubscribeCoreLost: (() => void) | null = null;
+  /** The Browser view brain's answers to paint-time queries, by name and arguments (LRU). */
+  private readonly queryCache = new Map<string, unknown>();
+  private readonly queryInflight = new Set<string>();
   private readonly poll: SessionChatStream;
   private readonly composer: ComposerModel;
   private state: RustChatState;
@@ -192,7 +206,7 @@ export class RustChatHost {
       dispatch: (action) => this.dispatch(action),
       document: () => this.state.document,
       onChange: () => this.update({ composer: this.composer.state }),
-      onSendBlocked: (reason) => this.view(this.sendBlockedToast(reason)),
+      onSendBlocked: (reason) => void this.sendBlockedToast(reason).then((request) => this.view(request)),
       onFocusRequested: () => this.view({ kind: 'focusComposer' }),
     });
     this.state = {
@@ -207,6 +221,7 @@ export class RustChatHost {
       images: {},
       error: null,
       stats: emptyStats(),
+      queryRevision: 0,
     };
     this.poll = new SessionChatStream(machine, projectId, sessionId, {
       onFrame: (frame) => {
@@ -222,16 +237,20 @@ export class RustChatHost {
   /** Creates the core and opens the chat. Safe to call once; later calls do nothing. */
   start(): void {
     if (this.core !== null || this.disposed || this.state.status === 'failed') return;
-    if (!isChatCoreAvailable()) {
-      this.fail(CORE_UNAVAILABLE_MESSAGE);
-      return;
-    }
+    const brain: ChatBrain = useSettingsStore.getState().settings.sessionChatBrain;
+    let core: ChatCoreBackend;
     try {
-      this.core = createChatCore();
-    } catch {
-      this.fail(CORE_FAILURE_MESSAGE);
+      core = createChatCoreBackend(brain);
+    } catch (error) {
+      this.fail(
+        error instanceof ChatCoreError && error.code === 'unavailable'
+          ? CORE_UNAVAILABLE_MESSAGE
+          : CORE_FAILURE_MESSAGE,
+      );
       return;
     }
+    this.core = core;
+    this.unsubscribeCoreLost = core.onLost(() => this.restartCore(core));
     const initialPresentation = presentationCache.get(this.retainedKey);
     this.enqueue({
       type: 'start',
@@ -276,6 +295,14 @@ export class RustChatHost {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.teardownCore();
+    if (this.draftRetryTimer !== null) clearTimeout(this.draftRetryTimer);
+    this.listeners.clear();
+    this.viewListeners.clear();
+  }
+
+  /** Stops everything `start` began and frees the core; the host can `start` again. */
+  private teardownCore(): void {
     this.appStateSubscription?.remove();
     this.appStateSubscription = null;
     this.unsubscribeSessionDirectory?.();
@@ -286,12 +313,33 @@ export class RustChatHost {
     this.unregisterReadAloud = null;
     this.poll.stop();
     if (this.timer !== null) clearTimeout(this.timer);
-    if (this.draftRetryTimer !== null) clearTimeout(this.draftRetryTimer);
+    this.timer = null;
     this.queue = [];
-    this.core?.dispose();
+    this.unsubscribeCoreLost?.();
+    this.unsubscribeCoreLost = null;
+    try {
+      this.core?.dispose();
+    } catch {
+      // Already gone.
+    }
     this.core = null;
-    this.listeners.clear();
-    this.viewListeners.clear();
+    this.queryCache.clear();
+    this.queryInflight.clear();
+  }
+
+  /**
+   * The Browser view brain lost its cores (the page crashed, reloaded, or the brain was switched):
+   * this chat starts over on a fresh core, the way it does when it opens, keeping the screen and
+   * its subscribers. The retained transcript and a resnapshot from the computer refill it.
+   */
+  private restartCore(lost: ChatCoreBackend): void {
+    if (this.disposed || this.core !== lost) return;
+    this.teardownCore();
+    this.lastRevision = null;
+    this.retainedTranscriptLoaded = false;
+    this.liveReadArrived = false;
+    this.update({ status: 'starting', items: [], subagentItems: [], minimap: [], rowDetails: {} });
+    this.start();
   }
 
   // ---- what the screen calls ---------------------------------------------------------------------
@@ -350,8 +398,48 @@ export class RustChatHost {
   query(name: ChatCoreQuery, args: readonly unknown[]): unknown {
     const core = this.core;
     if (core === null) return null;
+    if (core.brain === 'builtIn') {
+      try {
+        return core.querySync(name, args);
+      } catch {
+        return null;
+      }
+    }
+    // The Browser view brain answers on a later turn: hand back the answer kept for these
+    // arguments, or ask now and paint again (`queryRevision`) once it arrives.
+    const key = `${name}\u0000${JSON.stringify(args)}`;
+    if (this.queryCache.has(key)) {
+      const answer = this.queryCache.get(key);
+      this.queryCache.delete(key);
+      this.queryCache.set(key, answer);
+      return answer;
+    }
+    if (!this.queryInflight.has(key)) {
+      this.queryInflight.add(key);
+      core
+        .query(name, args)
+        .catch(() => null)
+        .then((answer) => {
+          if (this.core !== core) return;
+          this.queryInflight.delete(key);
+          this.queryCache.set(key, answer);
+          while (this.queryCache.size > MAX_CACHED_QUERIES) {
+            const oldest = this.queryCache.keys().next().value;
+            if (oldest === undefined) break;
+            this.queryCache.delete(oldest);
+          }
+          this.update({ queryRevision: this.state.queryRevision + 1 });
+        });
+    }
+    return null;
+  }
+
+  /** The same helpers, answered once the core has (an action that needs the answer to proceed). */
+  async queryAsync(name: ChatCoreQuery, args: readonly unknown[]): Promise<unknown> {
+    const core = this.core;
+    if (core === null) return null;
     try {
-      return JSON.parse(core.query(name, JSON.stringify(args))) as unknown;
+      return await core.query(name, args);
     } catch {
       return null;
     }
@@ -400,46 +488,79 @@ export class RustChatHost {
     this.driving = true;
     try {
       while (this.queue.length > 0 && !this.disposed && this.core !== null) {
+        const core: ChatCoreBackend = this.core;
         let pending = this.queue.splice(0);
         let rounds = 0;
-        while (pending.length > 0 && rounds < MAX_SETTLE_ROUNDS && this.core !== null) {
+        while (pending.length > 0 && rounds < MAX_SETTLE_ROUNDS && this.core === core) {
           rounds += 1;
           const answers: ChatCoreEvent[] = [];
-          for (const event of pending) {
-            const effects = this.handle(event);
-            if (effects === null) return;
+          // A round's events go to the core together (one message on the Browser view brain); the
+          // events are already built, so the effects are performed in the same order as before.
+          const handled = await this.handleRound(core, pending);
+          if (handled === null) return;
+          for (const effects of handled) {
             for (const effect of effects) {
               await this.perform(effect, answers);
             }
           }
           pending = answers;
         }
+        if (this.core !== core) continue;
         if (pending.length > 0) this.state.stats.settleRoundsExhausted += 1;
-        this.publish();
+        await this.publish(core);
       }
     } finally {
       this.driving = false;
+      // A rebuilt core (`restartCore`) queued its start while this loop was finishing the old one.
+      if (this.queue.length > 0 && this.core !== null && !this.disposed) void this.drive();
     }
   }
 
-  private handle(event: ChatCoreEvent): ChatCoreEffect[] | null {
-    const core = this.core;
-    if (core === null) return null;
+  /** One settle round through the core; null when the chat stopped (failed, or rebuilt meanwhile). */
+  private async handleRound(
+    core: ChatCoreBackend,
+    events: readonly ChatCoreEvent[],
+  ): Promise<ChatCoreEffect[][] | null> {
+    let handled;
     try {
-      const raw = core.handle(JSON.stringify(event), JSON.stringify(this.context()));
-      this.state.stats.eventsHandled += 1;
-      return JSON.parse(raw) as ChatCoreEffect[];
+      handled = await core.handleBatch(
+        events.map((event) => ({ eventJson: JSON.stringify(event), contextJson: JSON.stringify(this.context()) })),
+      );
     } catch (error) {
-      // A malformed event is the host's own bug; the chat keeps running. Anything else (a panic
-      // inside the core) disables this one chat, as desktop's worker does.
-      if (error instanceof ChatCoreError && (error.code === 'badEvent' || error.code === 'badContext')) {
-        console.warn(`[rust-chat] the core refused an event (${error.code})`);
-        return [];
-      }
-      console.warn(`[rust-chat] the core failed (${error instanceof ChatCoreError ? error.code : 'unknown'})`);
-      this.fail(CORE_FAILURE_MESSAGE);
+      if (this.core !== core) return null;
+      this.coreFailed(core, error);
       return null;
     }
+    if (this.core !== core) return null;
+    const out: ChatCoreEffect[][] = [];
+    for (const answer of handled) {
+      if (answer.ok) {
+        this.state.stats.eventsHandled += 1;
+        out.push(answer.effects);
+        continue;
+      }
+      // A malformed event is the host's own bug; the chat keeps running. Anything else (a panic
+      // inside the core) disables this one chat, as desktop's worker does.
+      if (answer.error.code === 'badEvent' || answer.error.code === 'badContext') {
+        console.warn(`[rust-chat] the core refused an event (${answer.error.code})`);
+        out.push([]);
+        continue;
+      }
+      // The Browser view page went away: `restartCore` rebuilds this chat.
+      if (answer.error.code === 'lost') return null;
+      this.coreFailed(core, answer.error);
+      return null;
+    }
+    return out;
+  }
+
+  private coreFailed(core: ChatCoreBackend, error: unknown): void {
+    const code = error instanceof ChatCoreError ? error.code : 'unknown';
+    if (code === 'lost') return;
+    console.warn(`[rust-chat] the core failed (${code})`);
+    this.fail(
+      code === 'unavailable' && core.brain === 'browserView' ? BROWSER_VIEW_UNAVAILABLE_MESSAGE : CORE_FAILURE_MESSAGE,
+    );
   }
 
   /**
@@ -846,17 +967,20 @@ export class RustChatHost {
   }
 
   /** Drains one frame and publishes whatever it changed. */
-  private publish(): void {
-    const core = this.core;
-    if (core === null) return;
+  private async publish(core: ChatCoreBackend): Promise<void> {
     let frame: ChatFrame;
     try {
-      frame = JSON.parse(core.frame(this.lastRevision, Date.now())) as ChatFrame;
-    } catch {
-      this.fail(CORE_FAILURE_MESSAGE);
+      frame = await core.frame(this.lastRevision, Date.now());
+    } catch (error) {
+      if (this.core === core) this.coreFailed(core, error);
       return;
     }
+    if (this.core !== core) return;
     this.lastRevision = frame.revision;
+    // Answers that read the core's state may have changed with it; argument-only ones stay.
+    for (const key of [...this.queryCache.keys()]) {
+      if (!PURE_QUERIES.has(key.slice(0, key.indexOf('\u0000')) as ChatCoreQuery)) this.queryCache.delete(key);
+    }
     const next: Partial<RustChatState> = {};
     if (frame.itemsSplice) next.items = applyItemsSplice(this.state.items, frame.itemsSplice);
     if (frame.subagentSplice) next.subagentItems = applyItemsSplice(this.state.subagentItems, frame.subagentSplice);
@@ -888,9 +1012,9 @@ export class RustChatHost {
   }
 
   /** `report_send_blocked` in `native_chat/send_control.rs`: the core's toast for the reason. */
-  private sendBlockedToast(reason: string): ChatViewRequest {
+  private async sendBlockedToast(reason: string): Promise<ChatViewRequest> {
     try {
-      const answer = JSON.parse(this.core?.query('sendBlockedToast', JSON.stringify([reason])) ?? 'null') as {
+      const answer = (await this.queryAsync('sendBlockedToast', [reason])) as {
         title?: unknown;
         description?: unknown;
         level?: unknown;
@@ -913,6 +1037,8 @@ export class RustChatHost {
     this.poll.stop();
     if (this.timer !== null) clearTimeout(this.timer);
     this.queue = [];
+    this.unsubscribeCoreLost?.();
+    this.unsubscribeCoreLost = null;
     try {
       this.core?.dispose();
     } catch {

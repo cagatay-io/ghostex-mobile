@@ -49,6 +49,7 @@ const APP_PLATFORM = {
 /** Pathspecs in the Ghostex main repo: the Rust chat core and the Go tailcat bridge. */
 const MAIN_SHARED = [
   'packages/gx-chat-mobile',
+  'packages/gx-chat-json',
   'packages/gx-chat-core',
   'packages/gx-protocol',
   'packages/gx-visual',

@@ -9,7 +9,7 @@
  */
 
 import * as Clipboard from 'expo-clipboard';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 import { SvgXml } from 'react-native-svg';
@@ -23,6 +23,10 @@ import { MONO_FONT, type TranscriptTheme } from './theme';
 const PADDING = 12;
 /** `packages/gx-chat-core/visual/chart-motion.json`: how long a chart takes to draw in. */
 const DRAW_IN_MS = 1000;
+/** Frames the Browser view brain lays out ahead for a draw-in, played back by time. */
+const DRAW_IN_FRAMES = 24;
+/** Draw-in frames that arrive later than this would read as a glitch: the chart stays finished. */
+const DRAW_IN_LATE_MS = 250;
 
 /**
  * The charts (by source) already drawn in during this run of the app. A chart draws in the first
@@ -111,27 +115,50 @@ export function VisualBlock({ source }: { source: string }) {
   const reduceMotion = useReducedMotion();
   const moves = kind === 'drawing' && answer?.motion === true;
   const [frame, setFrame] = useState<string | null>(null);
+  // Read through a ref: `ui` changes whenever a late Browser view answer arrives, and that must not
+  // end a draw-in that is running.
+  const uiRef = useRef(ui);
+  uiRef.current = ui;
   useEffect(() => {
+    const current = uiRef.current;
     // Checked here rather than in the dependencies: marking the chart drawn must not end its own run.
-    if (!moves || reduceMotion || ui === null || DRAWN_IN.has(source)) return;
+    if (!moves || reduceMotion || current === null || DRAWN_IN.has(source)) return;
     DRAWN_IN.add(source);
     const started = Date.now();
     let request = 0;
-    const step = () => {
-      const progress = (Date.now() - started) / DRAW_IN_MS;
-      if (progress >= 1) {
-        setFrame(null);
-        return;
-      }
-      setFrame(str(ui.renderVisual(source, width, scheme, progress), 'svg') || null);
-      request = requestAnimationFrame(step);
+    let cancelled = false;
+    const play = (frameAt: (progress: number) => string | null) => {
+      const step = () => {
+        const progress = (Date.now() - started) / DRAW_IN_MS;
+        if (progress >= 1) {
+          setFrame(null);
+          return;
+        }
+        setFrame(frameAt(progress));
+        request = requestAnimationFrame(step);
+      };
+      step();
     };
-    step();
+    // The Built-in brain lays each animation frame out in the same turn. The Browser view brain
+    // answers a moment later, so its frames are asked for together and played back by time.
+    if (current.renderVisual(source, width, scheme, 0) !== null) {
+      play((progress) => str(current.renderVisual(source, width, scheme, progress), 'svg') || null);
+    } else {
+      const steps = Array.from({ length: DRAW_IN_FRAMES }, (_, index) => index / DRAW_IN_FRAMES);
+      void Promise.all(steps.map((progress) => current.renderVisualAsync(source, width, scheme, progress))).then(
+        (answers) => {
+          if (cancelled || Date.now() - started > DRAW_IN_LATE_MS) return;
+          const frames = answers.map((answer) => str(answer, 'svg') || null);
+          play((progress) => frames[Math.min(frames.length - 1, Math.floor(progress * frames.length))] ?? null);
+        },
+      );
+    }
     return () => {
+      cancelled = true;
       cancelAnimationFrame(request);
       setFrame(null);
     };
-  }, [moves, reduceMotion, scheme, source, ui, width]);
+  }, [moves, reduceMotion, scheme, source, width]);
   const onLayout = useCallback((event: LayoutChangeEvent) => {
     const inner = Math.round(event.nativeEvent.layout.width - PADDING * 2);
     setWidth((current) => (Math.abs(current - inner) >= 4 ? inner : current));
