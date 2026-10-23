@@ -4,9 +4,11 @@
  *
  * CDXC:ClaudeCloud 2026-10-23 DECISION:
  * User (Q411): the phone shows cloud sessions' rows too, after the computer. A cloud row carries
- * the desktop's plain cloud glyph, and tapping it opens Claude's page for the session while the
- * session runs on claude.ai, the same rule as the desktop's row click (gx-core
- * `session_claude_cloud_page`); in any other state the row opens like every row.
+ * the desktop's plain cloud glyph, kept in every state the row is listed in ("please make the cloud
+ * keep shown when that session goes asleep"), and tapping it opens Claude's page for the session
+ * while the session runs on claude.ai, the same rule as the desktop's row click (gx-core
+ * `session_claude_cloud_page`); in any other state the row opens like every row. A tap is all the
+ * phone does with it ("No, tap is enough": no long-press cloud actions).
  *
  * CDXC:ClaudeCloud 2026-10-23 WHY:
  * The page opens through Android's own link handling (the Claude app when it takes claude.ai links,
