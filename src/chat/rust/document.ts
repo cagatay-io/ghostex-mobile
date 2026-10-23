@@ -839,6 +839,8 @@ export type ChatPill = {
   count: string;
   /** Something in the sheet needs the user (a thread waiting on an approval): an amber dot. */
   attention: boolean;
+  /** A subagent or thread in the sheet is working: a pulsing yellow dot before the icon. */
+  running: boolean;
   /** The panel's muted detail ("2 working · 212 threads"). */
   meta: string;
   ariaLabel: string;

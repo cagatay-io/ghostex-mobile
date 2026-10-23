@@ -29,9 +29,13 @@ import { Glyph } from './icons';
 import { obj } from './json';
 import { BackgroundTasksMenu } from './WorkingStrip';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
+import { SidebarPalette } from '../../../theme/palette';
 
 /** The amber of a thread waiting on the user's approval (`AgentPanels.tsx`). */
 const ATTENTION_COLOR = '#f5a524';
+
+/** The running dot's fade: the Subagents menu's 1.6 s beat (desktop `chat_pills.rs` `running_dot`). */
+const RUNNING_PULSE_MS = 1600;
 
 /** `questionPing` in packages/gx-chat-core/visual/scroll-bottom.json (desktop `question_ping.rs`). */
 const QUESTION_PING = { durationMs: 800, everyMs: 30000, dotSize: 6, scale: 2.8, alpha: 0.8 };
@@ -172,6 +176,7 @@ export function Pill({ pill, open, onPress }: { pill: ChatPill; open: boolean; o
       hitSlop={4}
       style={({ pressed }) => [styles.pill, (pressed || open) && styles.pillPressed]}
     >
+      {pill.running ? <RunningDot /> : null}
       <Glyph
         name={pill.id === 'tasks' ? 'list-check' : pill.id === 'background' ? 'terminal-2' : 'users'}
         size={12}
@@ -182,6 +187,33 @@ export function Pill({ pill, open, onPress }: { pill: ChatPill; open: boolean; o
       {pill.attention ? <View style={styles.attention} /> : null}
     </Pressable>
   );
+}
+
+/**
+ * The yellow dot before a running pill's icon (`running`, gx-chat-core `extras/chat_pills.rs`, where
+ * the user's decision lives): the sidebar's working colour, fading to 35% and back every 1.6 s, and
+ * still with the phone's reduce-motion setting on.
+ */
+function RunningDot() {
+  const styles = useStyles();
+  const reduceMotion = useReducedMotion();
+  const opacity = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (reduceMotion) return undefined;
+    const half = { duration: RUNNING_PULSE_MS / 2, easing: Easing.linear, useNativeDriver: true };
+    const beat = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { ...half, toValue: 0.35 }),
+        Animated.timing(opacity, { ...half, toValue: 1 }),
+      ]),
+    );
+    beat.start();
+    return () => {
+      beat.stop();
+      opacity.setValue(1);
+    };
+  }, [reduceMotion, opacity]);
+  return <Animated.View style={[styles.running, { opacity }]} />;
 }
 
 /** The sheet a pill opens: that panel's rows, titled by the pill. `open` is the pill's id, or null. */
@@ -266,6 +298,12 @@ const useStyles = themedStyles((P) => ({
     height: QUESTION_PING.dotSize,
     borderRadius: QUESTION_PING.dotSize / 2,
     backgroundColor: ATTENTION_COLOR,
+  },
+  running: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: SidebarPalette.ROW_WORKING,
   },
   attention: {
     width: 6,
