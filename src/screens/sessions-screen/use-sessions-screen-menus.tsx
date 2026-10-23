@@ -50,7 +50,6 @@ import { useLauncherStore, lastActionKey } from '../../components/sessions/launc
 import {
   coordinatorOptionsCommand,
   createAgentCommand,
-  createChatCommand,
   createCoordinatorCommand,
   type CreateCoordinatorInput,
   createSessionCommand,
@@ -1110,9 +1109,7 @@ export function useSessionsScreenMenus({
   const projectListMenuItems = (target: MachineRecord): ContextMenuItem[] => {
     const summary = summaryFor(target.id);
     const projectKeys: string[] = [];
-    for (const project of summary?.projects ?? []) {
-      if (project.isChat !== true) projectKeys.push(`id:${project.projectId}`);
-    }
+    for (const project of summary?.projects ?? []) projectKeys.push(`id:${project.projectId}`);
     const collectionIds = (summary?.projectCollections ?? []).map((entry) => entry.collectionId);
     return [
       { kind: 'separator', key: 'sep-project-list' },
@@ -1146,19 +1143,8 @@ export function useSessionsScreenMenus({
     ];
   };
 
-  /** Quick/Projects section-label menus — desktop section hover actions. */
-  const sectionMenuItems = (target: MachineRecord, section: 'quick' | 'projects'): ContextMenuItem[] => {
-    if (section === 'quick') {
-      return [
-        {
-          kind: 'item',
-          key: 'new-terminal',
-          label: 'Quick Terminal',
-          icon: <TerminalGlyph size={14} color={menuIconColor} />,
-          onPress: () => void runCreationFlow(target, createChatCommand(), ProgressCopy.creatingQuickSession),
-        },
-      ];
-    }
+  /** Projects section-label menu — desktop section hover actions. */
+  const sectionMenuItems = (target: MachineRecord): ContextMenuItem[] => {
     return [
       {
         kind: 'item',

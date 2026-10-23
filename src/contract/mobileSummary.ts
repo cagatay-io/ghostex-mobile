@@ -140,7 +140,6 @@ export type GhostexProject = {
   projectId: string;
   name?: string;
   path?: string;
-  isChat?: boolean;
   icon: GhostexProjectIcon;
   /** Workspace theme color ("#rrggbb"), or "" — tints the project rail. */
   themeColor: string;
@@ -1120,19 +1119,6 @@ export function parseSession(value: unknown): GhostexSession | null {
   };
 }
 
-/** Chat storage detection mirror: `.../{ghostex|.active|.ghostex|.ghostex-*}/chats/...`. */
-function isChatStoragePath(path: string): boolean {
-  const segments = path.replace(/\\/g, '/').split('/');
-  for (let i = 1; i < segments.length; i++) {
-    if (segments[i] !== 'chats') continue;
-    const owner = segments[i - 1];
-    if (owner === 'ghostex' || owner === '.active' || owner === '.ghostex' || owner.startsWith('.ghostex-')) {
-      return true;
-    }
-  }
-  return false;
-}
-
 function parseProjects(value: unknown): GhostexProject[] {
   if (!Array.isArray(value)) return [];
   const projects: GhostexProject[] = [];
@@ -1145,7 +1131,6 @@ function parseProjects(value: unknown): GhostexProject[] {
       projectId,
       name: trimmedValue(entry, 'name'),
       path,
-      isChat: boolValue(entry, 'isChat', false) || isChatStoragePath(path),
       icon: parseProjectIcon(entry),
       themeColor: normalizedHexColor(trimmedValue(entry, 'themeColor')),
       worktreeParentProjectId: isObject(entry.worktree) ? trimmedValue(entry.worktree, 'parentProjectId') : '',

@@ -66,7 +66,7 @@ export type Overlay =
   | { kind: 'machineMenu'; ctx: MachineContext }
   /** Header hamburger: Search Prompts, Settings, Logout. */
   | { kind: 'appMenu' }
-  | { kind: 'sectionMenu'; machine: MachineRecord; section: 'quick' | 'projects' }
+  | { kind: 'sectionMenu'; machine: MachineRecord; section: 'projects' }
   | {
       kind: 'confirmAction';
       title: string;

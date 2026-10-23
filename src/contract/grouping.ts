@@ -25,9 +25,6 @@ import {
   type GhostexSessionGroup,
 } from './mobileSummary';
 
-/** Synthetic project key for the merged chat-projects collection. */
-export const CHATS_PROJECT_KEY = 'chats';
-
 // ---------------------------------------------------------------------------
 // Item types.
 // ---------------------------------------------------------------------------
@@ -64,14 +61,14 @@ export type MachineHeaderItem = {
 };
 
 /**
- * Desktop reference-sidebar section label ("Quick" above the chat sessions,
- * "Projects" above collections + project cards).
+ * Desktop reference-sidebar section label ("Projects" above collections +
+ * project cards).
  */
 export type SectionLabelItem = {
   type: 'SECTION_LABEL';
   key: string;
   machineId: string;
-  section: 'quick' | 'projects';
+  section: 'projects';
   title: string;
   collapsed: boolean;
   workingCount: number;
@@ -109,7 +106,6 @@ export type ProjectHeaderItem = {
   legacyGroupId: string;
   title: string;
   projectPath: string;
-  isChatCollection: boolean;
   collapsed: boolean;
   sessionCount: number;
   workingCount: number;
@@ -555,11 +551,6 @@ export type DrawerBuildInput = {
   /** Named-group expansion, keyed by groupCollapseKey(). */
   expandedGroupKeys: ReadonlySet<string>;
   /**
-   * Collapsed top-level sections ('quick' | 'projects'). Presence = collapsed;
-   * both sections default expanded like the desktop reference sidebar.
-   */
-  collapsedSectionKeys: ReadonlySet<string>;
-  /**
    * Collapsed in-project Browser / Pinned / Sessions disclosures, keyed by
    * sessionKindCollapseKey(). Presence = collapsed; all three default expanded
    * like the desktop sidebar's EXPANDED_PROJECT_SESSION_SECTIONS.
@@ -607,7 +598,6 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
     expandedProjectKeys,
     expandedCollectionIds,
     expandedGroupKeys,
-    collapsedSectionKeys,
     collapsedSessionKindKeys,
     expandedParkedSessionKeys = new Set<string>(),
     expandedDraftSessionKeys = new Set<string>(),
@@ -622,19 +612,17 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
   const projectById = new Map<string, GhostexProject>();
   for (const project of summary.projects) projectById.set(project.projectId, project);
 
-  // Bucket sessions by project key; chat projects merge into the synthetic
-  // "chats" key. Insertion order preserves the wire session order.
+  // Bucket sessions by project key. Insertion order preserves the wire session order.
   const sessionsByProjectKey = new Map<string, GhostexSession[]>();
   for (const session of summary.sessions) {
-    const project = projectById.get(session.projectId);
-    const key = project !== undefined && project.isChat === true ? CHATS_PROJECT_KEY : projectKeyForSession(session);
+    const key = projectKeyForSession(session);
     const bucket = sessionsByProjectKey.get(key);
     if (bucket === undefined) sessionsByProjectKey.set(key, [session]);
     else bucket.push(session);
   }
   // Active projects stay visible even with zero sessions.
   for (const project of summary.projects) {
-    const key = project.isChat === true ? CHATS_PROJECT_KEY : `id:${project.projectId}`;
+    const key = `id:${project.projectId}`;
     if (!sessionsByProjectKey.has(key)) sessionsByProjectKey.set(key, []);
   }
 
@@ -648,19 +636,16 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
     );
   }
 
-  // Project order: chats → workspaceGroups.projectOrder → projects array order
-  // → leftovers in bucket insertion order.
+  // Project order: workspaceGroups.projectOrder → projects array order →
+  // leftovers in bucket insertion order.
   const orderedProjectKeys: string[] = [];
   const pushKey = (key: string): void => {
     if (sessionsByProjectKey.has(key) && !orderedProjectKeys.includes(key)) {
       orderedProjectKeys.push(key);
     }
   };
-  pushKey(CHATS_PROJECT_KEY);
   for (const projectId of summary.workspaceGroups?.projectOrder ?? []) pushKey(`id:${projectId}`);
-  for (const project of summary.projects) {
-    pushKey(project.isChat === true ? CHATS_PROJECT_KEY : `id:${project.projectId}`);
-  }
+  for (const project of summary.projects) pushKey(`id:${project.projectId}`);
   for (const key of sessionsByProjectKey.keys()) pushKey(key);
 
   const items: DrawerItem[] = [];
@@ -730,7 +715,6 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
       legacyGroupId,
       title: projectTitle,
       projectPath,
-      isChatCollection: false,
       collapsed,
       sessionCount: allProjectSessions.length,
       workingCount: counts.workingCount,
@@ -900,93 +884,15 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
   };
 
   /*
-   * Top-level layout mirrors the desktop reference sidebar: a "Quick" section
-   * label with the chat sessions as bare rows, then a "Projects" section label
-   * with colored collection panels (members in project order) followed by
-   * ungrouped project cards.
+   * Top-level layout mirrors the desktop reference sidebar: a "Projects"
+   * section label with colored collection panels (members in project order)
+   * followed by ungrouped project cards.
    */
   if (summary.sessions.length === 0 && summary.projects.length === 0) return items;
 
   const emittedProjectKeys = new Set<string>();
-  emittedProjectKeys.add(CHATS_PROJECT_KEY);
 
-  const allChatSessions = sessionsByProjectKey.get(CHATS_PROJECT_KEY) ?? [];
-  const chatSessions = allChatSessions.filter((session) => sessionKindSection(session, nowMs) !== 'parked');
-  const parkedChatSessions = allChatSessions.filter((session) => sessionKindSection(session, nowMs) === 'parked');
-  const quickCounts = countSessions(allChatSessions);
-  const quickCollapsed = collapsedSectionKeys.has('quick');
-  items.push({
-    type: 'SECTION_LABEL',
-    key: 'section:quick',
-    machineId,
-    section: 'quick',
-    title: SessionCopy.quickSectionTitle,
-    collapsed: quickCollapsed,
-    workingCount: quickCounts.workingCount,
-    attentionCount: quickCounts.attentionCount - quickCounts.questionCount,
-    questionCount: quickCounts.questionCount,
-    backgroundWorkCount: quickCounts.backgroundWorkCount,
-    awakeCount: quickCounts.awakeCount,
-  });
-  if (!quickCollapsed) {
-    if (allChatSessions.length === 0) {
-      items.push({
-        type: 'PROJECT_EMPTY',
-        key: `empty:${CHATS_PROJECT_KEY}`,
-        machineId,
-        projectKey: CHATS_PROJECT_KEY,
-        text: SessionCopy.emptyQuickRow,
-      });
-    } else {
-      for (const session of chatSessions) {
-        items.push({
-          type: 'SESSION',
-          key: `session:${CHATS_PROJECT_KEY}:${session.sessionId}`,
-          machineId,
-          projectKey: CHATS_PROJECT_KEY,
-          projectId: session.projectId,
-          groupId: session.groupId,
-          projectTitle: SessionCopy.chatsTitle,
-          projectPath: '',
-          session,
-        });
-      }
-      if (parkedChatSessions.length > 0) {
-        const kindCollapseKey = sessionKindCollapseKey(CHATS_PROJECT_KEY, 'parked');
-        const collapsed = !expandedParkedSessionKeys.has(kindCollapseKey);
-        items.push({
-          type: 'SESSION_KIND_LABEL',
-          key: `kind:${kindCollapseKey}`,
-          machineId,
-          projectKey: CHATS_PROJECT_KEY,
-          section: 'parked',
-          kindCollapseKey,
-          label: SessionCopy.parkedKindLabel,
-          collapsed,
-          status: countSectionSessions(parkedChatSessions),
-        });
-        if (!collapsed) {
-          for (const session of parkedChatSessions) {
-            items.push({
-              type: 'SESSION',
-              key: `session:${CHATS_PROJECT_KEY}:${session.sessionId}`,
-              machineId,
-              projectKey: CHATS_PROJECT_KEY,
-              projectId: session.projectId,
-              groupId: session.groupId,
-              projectTitle: SessionCopy.chatsTitle,
-              projectPath: '',
-              session,
-            });
-          }
-        }
-      }
-    }
-  }
-
-  const projectSessions = orderedProjectKeys
-    .filter((projectKey) => projectKey !== CHATS_PROJECT_KEY)
-    .flatMap((projectKey) => sessionsByProjectKey.get(projectKey) ?? []);
+  const projectSessions = orderedProjectKeys.flatMap((projectKey) => sessionsByProjectKey.get(projectKey) ?? []);
   const projectCounts = countSessions(projectSessions);
   /*
    * Projects is the page itself, not a disclosure: collapsing it would leave

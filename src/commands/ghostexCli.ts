@@ -172,11 +172,6 @@ export function quickTerminalCommand(cwd: string, options?: { command?: string; 
   return parts.join(' ');
 }
 
-/** Quick chat workspace + first terminal: `ghostex create-chat --json`. */
-export function createChatCommand(): string {
-  return 'ghostex create-chat --json';
-}
-
 /**
  * Agent launch: `ghostex create-agent <agentId> --project-id <id> --json`.
  *

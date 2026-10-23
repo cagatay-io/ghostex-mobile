@@ -121,7 +121,7 @@ Rendered in **RN** (shared component `components/TerminalKeyBar.tsx`), pinned ab
 Same as both existing apps — JSON over SSH, no gxserver wire protocol:
 - Inventory: `"$SHELL" -lc 'ghostex sessions --json --mobile-summary'` (5s poll while sessions screen visible; scan stdout for first JSON object containing `sessions`; keep provider=="zmx" only).
 - Attach: `openTerminal` with the `ghostex attach --session-id …` command wrapped in a login shell; after first render send `\x1b]1337;ZMX_REFRESH\x07` once (~2s).
-- Actions: `create-session`, `create-agent`, `create-chat`, `run-action`, `move-project`, `restore-recent-project`, `rename-session`, wake/sleep/kill/focus via `ghostex` CLI; machine health: `ghostex android-check --json` (works for any mobile client).
+- Actions: `create-session`, `create-agent`, `run-action`, `move-project`, `restore-recent-project`, `rename-session`, wake/sleep/kill/focus via `ghostex` CLI; machine health: `ghostex android-check --json` (works for any mobile client).
 - Quoting: single-quote with `'"'"'` escaping; login-shell wrapper `"$SHELL" -lc '<cmd>'`.
 
 ## Defaults (from the Android app)

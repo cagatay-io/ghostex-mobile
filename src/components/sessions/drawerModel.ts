@@ -44,7 +44,6 @@ export type DrawerCollapseInput = {
   expandedProjectsByMachine: Record<string, string[]>;
   expandedCollectionsByMachine: Record<string, string[]>;
   expandedGroupsByMachine: Record<string, string[]>;
-  collapsedSectionsByMachine: Record<string, string[]>;
   collapsedSessionKindsByMachine: Record<string, string[]>;
   collapsedCoordinatorsByMachine?: Record<string, string[]>;
   expandedCoordinatorOlderByMachine?: Record<string, string[]>;
@@ -83,21 +82,13 @@ function isProjectChild(item: DrawerItem): boolean {
 }
 
 /**
- * The mobile Sessions page starts at the project list: Quick sessions live in Chat, and the
- * "Projects" header row is gone.
+ * The mobile Sessions page starts at the project list: the "Projects" header row is gone.
  *
  * CDXC:Sessions 2026-10-08 DECISION:
  * User: "Please remove the 'Projects' header in the sessions list and instead make holding on the machine itself at the top do what the 3 dots button next to Projects does." The list draws no section header rows; the machine menu (long press on the machine tab or the page title) carries the actions the header's ⋮ button had.
  */
 function withoutSectionLabels(items: DrawerItem[]): DrawerItem[] {
-  let insideQuickSection = false;
-  return items.filter((item) => {
-    if (item.type === 'SECTION_LABEL') {
-      insideQuickSection = item.section === 'quick';
-      return false;
-    }
-    return !insideQuickSection;
-  });
+  return items.filter((item) => item.type !== 'SECTION_LABEL');
 }
 
 /** Group the flat builder output into card/panel blocks. */
@@ -203,7 +194,6 @@ function machineBlocks(
       expandedProjectKeys: new Set(collapse.expandedProjectsByMachine[machine.id] ?? []),
       expandedCollectionIds: new Set(collapse.expandedCollectionsByMachine[machine.id] ?? []),
       expandedGroupKeys: new Set(collapse.expandedGroupsByMachine[machine.id] ?? []),
-      collapsedSectionKeys: new Set(collapse.collapsedSectionsByMachine[machine.id] ?? []),
       collapsedSessionKindKeys: new Set(collapse.collapsedSessionKindsByMachine[machine.id] ?? []),
       expandedParkedSessionKeys: new Set(collapse.expandedParkedSessionKeysByMachine?.[machine.id] ?? []),
       collapsedCoordinatorKeys: new Set(collapse.collapsedCoordinatorsByMachine?.[machine.id] ?? []),

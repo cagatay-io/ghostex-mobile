@@ -1,7 +1,7 @@
 /**
  * Non-session drawer row renderers, cloned from the desktop gpui reference
  * sidebar (packages/core-ui/styles/hierarchy-panels.css + group-panels.css branched
- * skin): SECTION_LABEL ("Quick"/"Projects"), collection headers and their
+ * skin): SECTION_LABEL ("Projects"), collection headers and their
  * colored rails, project headers with the identity icon plus the terminal /
  * agent split / actions buttons, empty rows, named-group headers, the
  * in-project Browser / Pinned / Sessions kind disclosures, and MACHINE_HEADER.
@@ -538,9 +538,8 @@ const machineHeaderStyles = StyleSheet.create({
 });
 
 // ---------------------------------------------------------------------------
-// SECTION_LABEL (desktop .reference-sidebar-section-row): "Quick"/"Projects",
-// 15.5dp light label at fg 52%, filled caret that rotates when expanded. The
-// Quick row carries a trailing create-terminal button (desktop hover action).
+// SECTION_LABEL (desktop .reference-sidebar-section-row): "Projects",
+// 15.5dp light label at fg 52%, filled caret that rotates when expanded.
 // Long-press opens the section menu (desktop right-click).
 // ---------------------------------------------------------------------------
 
@@ -554,7 +553,6 @@ export function SectionLabelRow({
   awakeCount,
   first,
   onToggle,
-  onCreate,
   onMenu,
   onMoreMenu,
 }: {
@@ -569,7 +567,6 @@ export function SectionLabelRow({
   first: boolean;
   /** Omitted by sections that are always open, which then draw no caret. */
   onToggle?: () => void;
-  onCreate?: () => void;
   onMenu?: (anchor: MenuAnchor) => void;
   /** Trailing "⋮" button; the section's discoverable action menu. */
   onMoreMenu?: (anchor: MenuAnchor) => void;
@@ -598,11 +595,6 @@ export function SectionLabelRow({
           />
         ) : null}
         <View style={sectionStyles.actions}>
-          {onCreate !== undefined ? (
-            <HeaderButton accessibilityLabel={`Create a session in ${title}`} onPress={onCreate}>
-              <TerminalGlyph size={ds(14)} color={SidebarPalette.HEADER_BUTTON_ICON} />
-            </HeaderButton>
-          ) : null}
           {onMoreMenu !== undefined ? (
             <HeaderButton accessibilityLabel={`${title} options`} onAnchorPress={onMoreMenu}>
               <MoreGlyph size={ds(14)} color={SidebarPalette.HEADER_BUTTON_ICON} />
@@ -875,18 +867,10 @@ const projectHeaderStyles = StyleSheet.create({
 });
 
 // ---------------------------------------------------------------------------
-// PROJECT_EMPTY: card variant is the desktop dashed "No sessions" box; the
-// Quick variant is the bare dark-gray "No Quick Sessions" line.
+// PROJECT_EMPTY: the desktop dashed "No sessions" box inside a project card.
 // ---------------------------------------------------------------------------
 
-export function ProjectEmptyRow({ text, quick }: { text: string; quick: boolean }) {
-  if (quick) {
-    return (
-      <View style={emptyStyles.quickRow}>
-        <Text style={emptyStyles.quickText}>{text}</Text>
-      </View>
-    );
-  }
+export function ProjectEmptyRow({ text }: { text: string }) {
   return (
     <View style={emptyStyles.cardRow}>
       <Text style={emptyStyles.cardText}>{text}</Text>
@@ -908,16 +892,6 @@ const emptyStyles = StyleSheet.create({
     fontSize: ds(12),
     fontWeight: '300',
     letterSpacing: 0.45,
-  },
-  quickRow: {
-    marginTop: ds(8),
-    paddingLeft: ds(18),
-  },
-  quickText: {
-    color: '#444444',
-    fontSize: ds(15.5),
-    fontWeight: '300',
-    lineHeight: ds(18),
   },
 });
 
@@ -1094,13 +1068,10 @@ const kindLabelStyles = StyleSheet.create({
 
 export function SessionListToggleRow({
   label,
-  quick,
   threadDepth,
   onPress,
 }: {
   label: string;
-  /** Quick rows use the flat title inset; card rows use the card inset. */
-  quick: boolean;
   /**
    * A coordinator's "N older threads" row: the tree level its title lines up with (the thread
    * rows' THREAD_INDENT in SessionRow.tsx), drawn smaller and quieter than "Show N more".
@@ -1114,7 +1085,7 @@ export function SessionListToggleRow({
       accessibilityRole="button"
       style={({ pressed }) => [
         toggleStyles.row,
-        quick ? toggleStyles.rowQuick : toggleStyles.rowCard,
+        toggleStyles.rowCard,
         threadDepth !== undefined ? [toggleStyles.rowThread, { paddingLeft: ds(26) + ds(threadDepth * 16) }] : null,
         pressed ? toggleStyles.rowPressed : null,
       ]}
@@ -1136,9 +1107,6 @@ const toggleStyles = StyleSheet.create({
   },
   rowCard: {
     paddingLeft: ds(26),
-  },
-  rowQuick: {
-    paddingLeft: ds(47),
   },
   rowPressed: {
     backgroundColor: 'rgba(200,205,213,0.06)',

@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AGENT_ICONS } from '../../assets/agentIcons.generated';
 import { agentIconTint, resolveAgentIconId, type GhostexSession } from '../../contract/mobileSummary';
 import { resolveSessionTag } from '../../contract/sessionTags';
-import { SessionCopy, SessionSearchCopy } from '../../copy';
+import { SessionSearchCopy } from '../../copy';
 import { useInventoryStore } from '../../inventory/store';
 import { machineDisplayLabel, type MachineRecord } from '../../machines/store';
 import { fetchClosedSessions } from '../../sessions/closedSessions';
@@ -117,9 +117,6 @@ export default function SessionSearchSheet({ visible, machines, onOpen, onRestor
     return reporting.flatMap((machine) => {
       const summary = inventoriesByMachineId[machine.id]?.summary;
       if (summary == null) return [];
-      const chatProjectIds = new Set(
-        summary.projects.filter((project) => project.isChat === true).map((project) => project.projectId),
-      );
       return [
         {
           machineId: machine.id,
@@ -127,7 +124,7 @@ export default function SessionSearchSheet({ visible, machines, onOpen, onRestor
           customSessionTags: summary.customSessionTags,
           open: summary.sessions.map((session) => ({
             session,
-            projectLabel: chatProjectIds.has(session.projectId) ? SessionCopy.chatsTitle : session.projectName.trim(),
+            projectLabel: session.projectName.trim(),
           })),
           closed: closedByMachine[machine.id] ?? [],
         },

@@ -80,7 +80,6 @@ import {
   answerWorkCleanupCommand,
   cancelDelayedSendCommand,
   closeAfterDoneCommand,
-  createChatCommand,
   delayedSendCommand,
   killSessionCommand,
   renameCommandCommand,
@@ -90,7 +89,6 @@ import {
 } from '../commands/ghostexCli';
 import { stateWithCollectionTitle } from '../contract/collectionsState';
 import {
-  CHATS_PROJECT_KEY,
   machineSessionCounts,
   tabStatusCounts,
   projectKeyForSession,
@@ -369,7 +367,6 @@ export default function SessionsScreen({ navigation }: Props) {
           expandedProjectsByMachine: collapse.expandedProjectsByMachine,
           expandedCollectionsByMachine: collapse.expandedCollectionsByMachine,
           expandedGroupsByMachine: collapse.expandedGroupsByMachine,
-          collapsedSectionsByMachine: collapse.collapsedSectionsByMachine,
           collapsedSessionKindsByMachine: collapse.collapsedSessionKindsByMachine,
           collapsedCoordinatorsByMachine: collapse.collapsedCoordinatorsByMachine,
           expandedCoordinatorOlderByMachine: collapse.expandedCoordinatorOlderByMachine,
@@ -386,7 +383,6 @@ export default function SessionsScreen({ navigation }: Props) {
       collapse.expandedProjectsByMachine,
       collapse.expandedCollectionsByMachine,
       collapse.expandedGroupsByMachine,
-      collapse.collapsedSectionsByMachine,
       collapse.collapsedSessionKindsByMachine,
       collapse.collapsedCoordinatorsByMachine,
       collapse.expandedCoordinatorOlderByMachine,
@@ -790,11 +786,7 @@ export default function SessionsScreen({ navigation }: Props) {
   const sessionsForProject = useCallback((target: MachineRecord, header: ProjectHeaderItem): GhostexSession[] => {
     const summary = useInventoryStore.getState().inventoriesByMachineId[target.id]?.summary;
     if (summary === null || summary === undefined) return [];
-    return summary.sessions.filter((session) => {
-      const project = summary.projects.find((entry) => entry.projectId === session.projectId);
-      const key = project !== undefined && project.isChat === true ? CHATS_PROJECT_KEY : projectKeyForSession(session);
-      return key === header.projectKey;
-    });
+    return summary.sessions.filter((session) => projectKeyForSession(session) === header.projectKey);
   }, []);
 
   const runProjectSessionsAction = useCallback(
@@ -871,7 +863,7 @@ export default function SessionsScreen({ navigation }: Props) {
   ): ReactElement | null => {
     switch (child.type) {
       case 'PROJECT_EMPTY':
-        return <ProjectEmptyRow key={child.key} text={child.text} quick={false} />;
+        return <ProjectEmptyRow key={child.key} text={child.text} />;
       case 'GROUP_HEADER':
         return (
           <GroupHeaderRow
@@ -947,7 +939,6 @@ export default function SessionsScreen({ navigation }: Props) {
           <SessionListToggleRow
             key={child.key}
             label={child.label}
-            quick={false}
             threadDepth={child.depth + 1}
             onPress={() => collapse.toggleCoordinatorOlder(machineId, child.coordinatorKey)}
           />
@@ -1138,30 +1129,15 @@ export default function SessionsScreen({ navigation }: Props) {
             questionCount={item.questionCount}
             backgroundWorkCount={item.backgroundWorkCount}
             awakeCount={item.awakeCount}
-            first={item.section === 'quick'}
+            first
             /* Projects is always open (grouping.ts), so it draws no caret. */
-            onToggle={
-              item.section === 'projects' ? undefined : () => collapse.toggleSection(block.machineId, item.section)
-            }
-            onMoreMenu={
-              item.section === 'projects'
-                ? () => {
-                    if (target === null) return;
-                    setOverlay({
-                      kind: 'machineMenu',
-                      ctx: { machine: target },
-                    });
-                  }
-                : undefined
-            }
-            onCreate={
-              item.section === 'quick'
-                ? () => {
-                    if (target === null) return;
-                    void runCreationFlow(target, createChatCommand(), ProgressCopy.creatingQuickSession);
-                  }
-                : undefined
-            }
+            onMoreMenu={() => {
+              if (target === null) return;
+              setOverlay({
+                kind: 'machineMenu',
+                ctx: { machine: target },
+              });
+            }}
             onMenu={() => {
               if (target === null) return;
               setOverlay({
@@ -1173,7 +1149,7 @@ export default function SessionsScreen({ navigation }: Props) {
           />
         );
       case 'PROJECT_EMPTY':
-        return <ProjectEmptyRow text={item.text} quick />;
+        return <ProjectEmptyRow text={item.text} />;
       case 'SESSION': {
         const sessionKey = attachSessionKey(block.machineId, item.session.sessionId);
         const active = selectedSessionKey === sessionKey;
@@ -1609,9 +1585,9 @@ export default function SessionsScreen({ navigation }: Props) {
       {overlay.kind === 'sectionMenu' ? (
         <ContextMenu
           visible
-          title={overlay.section === 'quick' ? 'Quick Actions' : 'Projects'}
+          title="Projects"
           subtitle={machineDisplayLabel(overlay.machine)}
-          items={sectionMenuItems(overlay.machine, overlay.section)}
+          items={sectionMenuItems(overlay.machine)}
           onClose={() => setOverlay(NONE)}
         />
       ) : null}

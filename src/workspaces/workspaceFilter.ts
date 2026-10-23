@@ -72,19 +72,15 @@ function projectsById(summary: GhostexMobileSummary): Map<string, GhostexProject
 }
 
 /**
- * The summary the drawer renders for one workspace: its projects (chat projects are the Quick
- * section, which no workspace scopes on the phone), their sessions, and its Spaces. Unchanged when
- * the computer has no workspaces.
+ * The summary the drawer renders for one workspace: its projects, their sessions, and its Spaces.
+ * Unchanged when the computer has no workspaces.
  */
 export function filterSummaryForWorkspace(summary: GhostexMobileSummary, workspaceId: string): GhostexMobileSummary {
   const workspaces = summary.workspaces;
   if (workspaces === null) return summary;
   const byId = projectsById(summary);
   const projects = summary.projects.filter(
-    (project) =>
-      project.isChat === true ||
-      project.everyWorkspace === true ||
-      projectWorkspaceId(workspaces, byId, project) === workspaceId,
+    (project) => project.everyWorkspace === true || projectWorkspaceId(workspaces, byId, project) === workspaceId,
   );
   const keptProjectIds = new Set(projects.map((project) => project.projectId));
   const sessions = summary.sessions.filter(
@@ -109,6 +105,6 @@ export function sessionWorkspaceId(summary: GhostexMobileSummary, sessionId: str
   if (session === undefined) return null;
   const byId = projectsById(summary);
   const project = byId.get(session.projectId);
-  if (project === undefined || project.everyWorkspace === true || project.isChat === true) return null;
+  if (project === undefined || project.everyWorkspace === true) return null;
   return projectWorkspaceId(workspaces, byId, project);
 }

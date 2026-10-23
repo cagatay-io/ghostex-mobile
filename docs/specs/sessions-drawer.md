@@ -91,11 +91,11 @@ inventory converges; repeated authoritative disagreement restores server truth.
 
 ### PROJECT_HEADER
 
-Padding 6/14/6/6, minHeight 52. Title 15sp bold #FAFAFA weight 1. "+" button 32×32 pill (bg #181818, stroke BORDER) — create session, cd "Create a session in {title}". Overflow ⋮ 32×32 pill (hidden for Chats) — project menu. Row tap toggles expand/collapse. No session-count pill.
+Padding 6/14/6/6, minHeight 52. Title 15sp bold #FAFAFA weight 1. "+" button 32×32 pill (bg #181818, stroke BORDER) — create session, cd "Create a session in {title}". Overflow ⋮ 32×32 pill — project menu. Row tap toggles expand/collapse. No session-count pill.
 
 ### PROJECT_AGENTS_ROW ("agents isle")
 
-Horizontal scroll chips under project header (not for Chats; needs stable projectId; only if agents or quickActions exist). Global agent chips first, then project quick actions. Chip: pill, padding 10/6/10/6, minHeight 32, optional 15×15 icon + label 12sp #FAFAFA. Agent chip → create agent session. Quick action: browser type opens URL on device; terminal type runs `ghostex run-action '<commandId>' --project-id '<projectId>'` then attach.
+Horizontal scroll chips under project header (needs stable projectId; only if agents or quickActions exist). Global agent chips first, then project quick actions. Chip: pill, padding 10/6/10/6, minHeight 32, optional 15×15 icon + label 12sp #FAFAFA. Agent chip → create agent session. Quick action: browser type opens URL on device; terminal type runs `ghostex run-action '<commandId>' --project-id '<projectId>'` then attach.
 
 ### PROJECT_EMPTY: muted 12sp, "No sessions yet. Tap + to create one."
 
@@ -105,8 +105,8 @@ Horizontal scroll chips under project header (not for Chats; needs stable projec
 
 ## 3. Grouping & ordering
 
-- Project key: `id:` → `path:` → `name:` → `session:` fallback. Chat projects merge into synthetic "chats" key titled "Chats", ordered first.
-- Project order: chats → workspaceGroups.projectOrder ids → remaining projects array order → leftovers.
+- Project key: `id:` → `path:` → `name:` → `session:` fallback. There is no Chats collection: a project under `~/ghostex/chats` is listed like any other project (an older computer's `isChat` flag is ignored).
+- Project order: workspaceGroups.projectOrder ids → remaining projects array order → leftovers.
 - preserveSessionOrder when workspaceGroups present OR any sortOrder present; else sort: browser-kind first → pinned (saved order) → attention(2)>working(1)>idle(0) → most recent lastInteractionAt → stable.
 - Per project: HEADER → (collapsed? stop) → AGENTS_ROW → (empty? PROJECT_EMPTY) → grouped (ungrouped "main" sessions first, then GROUP_HEADER + members per group in sessionIds order, skip empty groups) or flat (every session).
 - Collapse persistence: project + session-list collapse persisted per machine; group + machine collapse in-memory.
@@ -148,7 +148,7 @@ Recovery matching: message contains "SSH needs a key or password" or "SSH reject
 
 All: close drawer → progress dialog (spinner + message) → run command → refresh inventory → auto-attach created session (`{ok:true, session:{sessionId}}`). Failure: dismiss, error, reopen drawer.
 
-- Project "+": `ghostex create-session --json [--project-id '<id>'] [--group-id '<id>']` — "Creating a terminal in {project}…". Chats "+": `ghostex create-chat --json` — "Creating a Quick session…".
+- Project "+": `ghostex create-session --json [--project-id '<id>'] [--group-id '<id>']` — "Creating a terminal in {project}…".
 - Agent chip: `ghostex create-agent '<agentId>' --project-id '<projectId>' --json` — "Starting {agent} in {project}…". No stable projectId → "This project has no stable project id, so agent sessions cannot be started here."
 - Quick action: terminal → `ghostex run-action '<commandId>' --project-id '<projectId>'`; browser → open URL on device, status "Opened {name} in the browser."
 
@@ -156,7 +156,7 @@ All: close drawer → progress dialog (spinner + message) → run command → re
 
 Root: `{ sessions: Session[], projects?, recentProjects?, agents?, quickActionsByProject? (Record<projectId, QuickAction[]>), workspaceGroups? { projectOrder?: string[], projects?: Record<projectId, {groups?: {groupId, title?, sessionIds?}[]}> } }`.
 
-Project: `{projectId (req), name?, path?, isChat?}`. RecentProject: `{projectId, title?, path?, sessionCount?}`. AgentLauncher: `{agentId (req), icon?, name?}`. QuickAction: `{actionType ("browser"|"terminal"), commandId?, url?, icon?, name?}`.
+Project: `{projectId (req), name?, path?}`. RecentProject: `{projectId, title?, path?, sessionCount?}`. AgentLauncher: `{agentId (req), icon?, name?}`. QuickAction: `{actionType ("browser"|"terminal"), commandId?, url?, icon?, name?}`.
 
 Session (sessionId required; provider must normalize to "zmx"): alias (derives from first 4 chars of id), projectId|groupId, title|primaryTitle|terminalTitle, displayTitle, displayTitleTooltip, projectName|groupTitle, projectPath, activity|activityState|activityStatus, status|lifecycleState, provider|sessionPersistenceProvider, providerSessionName|sessionPersistenceName, agent, agentIcon, agentName, globalRef, kind, surface ("browser" sorts first), lastInteractionAt, lastActiveAt, titleSource, trustedResumeTitle, updatedAt, zmxName, nativePaneState, providerSessionState, sortOrder?, isFocused, isFavorite, isPinned, isSleeping, isLive, isPrimaryTitleTerminalTitle, isTemporaryTitle, visibleInSidebarByDefault, shouldSubmitStagedFirstPromptTitleCommand, attention?{enteredAt, acknowledged}, actions?{acknowledgeAttention, attach, focus, kill, readText, sendMessage, sendText, sleep, wake}.
 
@@ -174,16 +174,14 @@ older groups.css look); where this section conflicts with §§0-7, it wins.
 Second pass on 2026-07-22 replaced the agent/action chips with header menus
 and recloned every surface from the live CSS cascade.
 
-- **Structure**: "Quick" section label → chat sessions as bare rows →
-  "Projects" section label → colored collection PANELS (tinted bg mix(color
+- **Structure**: "Projects" section label → colored collection PANELS (tinted bg mix(color
   5%, mix(bg 96%, black 4%)), border mix(color 28%, mix(fg 14%, bg)), radius
   5; the fg-14% base keeps a visible outline for the transparent color)
   containing member project CARDS → ungrouped project cards (translucent bg
   fg-4.5%, 1dp translucent border fg-13%, radius 5). This is the current gpui
   hierarchy: darker group panels with lighter project cards. No colored left
-  rail, no uppercase titles, no folder icons. Section labels are 15.5dp
-  weight-300 at fg-52% with a filled caret; both sections persist collapse per
-  machine (`collapsedSections` in `drawer.disclosure.v2`, default expanded).
+  rail, no uppercase titles, no folder icons. The section label is 15.5dp
+  weight-300 at fg-52% and never collapses.
   Top-level groups and projects always have a 10dp gap. Collapsed groups use
   the same translucent fg-4.5% background as collapsed ungrouped projects.
 - **Headers**: collection + project headers are flat 30dp rows with 13dp
@@ -216,7 +214,7 @@ and recloned every surface from the live CSS cascade.
   surfaced rows start with 30% foreground over their expanded-group background
   (including collection tint); active rows mix that base 10% toward black,
   while surfaced-but-inactive rows mix the same base 40% toward black,
-  leading icon absolute at 5dp (in-card) / 26dp (Quick) with 48% opacity
+  leading icon absolute at 5dp (in-card) with 48% opacity
   (80% active; 13dp agent masks, 15dp terminal/browser glyphs), relative
   time 13.5dp #4F5359 right-aligned (hidden while working/attention), and a
   flat 7dp right-edge dot matching desktop .session-status-dot activity
@@ -226,7 +224,7 @@ and recloned every surface from the live CSS cascade.
   as the collapsed project/group count pills. Pinned rows show a mirrored
   13dp pin at 50% opacity.
   Empty projects render the dashed "No sessions"
-  38dp box; empty Quick renders bare "No Quick Sessions" (#444444).
+  38dp box.
 - **Ordering** (unchanged): browser-kind first → pinned in saved order →
   attention > working > idle → newest lastInteractionAt → stable wire order;
   the CLI forwards isPinned/isFavorite/kind/surface/agentName.
@@ -267,7 +265,7 @@ anchors to the long-pressed row):
   Rename group (prompt), Group color › (desktop 9-color swatch submenu),
   Delete group, Close all sessions.
 - **Named group header**: Full reload, Sleep⇄Wake, Close (confirm).
-- **Section labels**: Quick → Quick Terminal; Projects → Add Project
+- **Section label**: Projects → Add Project
   (path prompt → `add-project`), Recent Projects, Collapse All / Expand All.
 
 The Rust mobile emitter now also forwards `sessionTag`; menus needing it

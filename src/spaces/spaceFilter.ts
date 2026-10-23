@@ -63,9 +63,7 @@ function collectionIdByProjectId(summary: GhostexMobileSummary): Map<string, str
 }
 
 /**
- * The summary the drawer renders for one Space. Chat projects and their
- * sessions are never filtered: they are the Quick section, which is not part of
- * the Projects list a Space scopes. Collections are left verbatim because
+ * The summary the drawer renders for one Space. Collections are left verbatim because
  * `buildDrawerItems` already drops a collection whose member projects are gone.
  *
  * Returns the input unchanged when the machine has no Spaces at all — Other
@@ -90,8 +88,8 @@ export function filterSummaryForSpace(summary: GhostexMobileSummary, selectedSpa
   };
 
   const knownProjectIds = new Set(summary.projects.map((project) => project.projectId));
-  const projects = summary.projects.filter(
-    (project) => project.isChat === true || keepProject(project.projectId, project.worktreeParentProjectId),
+  const projects = summary.projects.filter((project) =>
+    keepProject(project.projectId, project.worktreeParentProjectId),
   );
   const keptProjectIds = new Set(projects.map((project) => project.projectId));
   /*

@@ -179,13 +179,9 @@ export const SessionCopy = {
   fallbackTitle: 'Ghostex Session',
   /** Desktop parity: project cards say exactly "No sessions". */
   emptyProjectRow: 'No sessions',
-  /** Desktop parity: empty Quick section body. */
-  emptyQuickRow: 'No Quick Sessions',
   olderThreads: (count: number) => (count === 1 ? '1 older thread' : `${count} older threads`),
   hideOlderThreads: 'Hide older threads',
-  chatsTitle: 'Chats',
-  /** Desktop reference sidebar section labels. */
-  quickSectionTitle: 'Quick',
+  /** Desktop reference sidebar section label. */
   projectsSectionTitle: 'Projects',
   /**
    * Desktop in-project kind disclosures (session-group-section.tsx renders
@@ -359,7 +355,6 @@ export const ProgressCopy = {
   preparingAttach: (alias: string) => `Preparing SSH attach for ${alias}...`,
   attached: (alias: string, label: string) => `Attached to ${alias} on ${label}...`,
   creatingTerminal: (project: string) => `Creating a terminal in ${project}…`,
-  creatingQuickSession: 'Creating a Quick session…',
   startingAgent: (agent: string, project: string) => `Starting ${agent} in ${project}…`,
   startingCoordinator: (project: string) => `Starting an orchestrator in ${project}…`,
   noStableProjectId: 'This project has no stable project id, so agent sessions cannot be started here.',
