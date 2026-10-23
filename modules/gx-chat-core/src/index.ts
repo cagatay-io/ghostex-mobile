@@ -75,7 +75,11 @@ export type ChatCoreEvent =
   | { type: 'sessionDirectoryChanged'; sessions: ChatKnownSession[] }
   /** What only the app knows about Read aloud, and the speech engine's answers
    * (docs/2026-10-20/voice-mode/read-aloud-client-contract.md in the main repo). */
-  | { type: 'readAloud'; event: ChatReadAloudEvent };
+  | { type: 'readAloud'; event: ChatReadAloudEvent }
+  /** Whether anything shows the chat: while it is not, its clocks and accounts poll wait, and
+   * showing it again catches them up. A core older than this event refuses it (`badEvent`) and
+   * keeps every timer running, as before. */
+  | { type: 'visibility'; shown: boolean };
 
 /** One Read aloud input (`ReadAloudEvent` in `packages/gx-chat-core/src/read_aloud/events.rs`). */
 export type ChatReadAloudEvent =

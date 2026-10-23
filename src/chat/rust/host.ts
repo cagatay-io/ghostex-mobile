@@ -285,10 +285,22 @@ export class RustChatHost {
     this.scheduleDraftRetry(0);
     // Only `background` pauses: `inactive` is a pulled-down notification centre or an app switcher
     // glance, and dropping the poll for those would cost a full re-read on every glance.
-    if (AppState.currentState === 'background') this.poll.pause();
+    // CDXC:SessionChat 2026-10-23 WHY:
+    // The core also holds the chat's clocks, context meter and accounts poll while nothing shows
+    // the chat, as the desktop does for a chat off screen; Android keeps running them in the
+    // background otherwise.
+    if (AppState.currentState === 'background') {
+      this.poll.pause();
+      this.enqueue({ type: 'visibility', shown: false });
+    }
     this.appStateSubscription = AppState.addEventListener('change', (next: AppStateStatus) => {
-      if (next === 'background') this.poll.pause();
-      else if (next === 'active') this.poll.resume();
+      if (next === 'background') {
+        this.poll.pause();
+        this.enqueue({ type: 'visibility', shown: false });
+      } else if (next === 'active') {
+        this.poll.resume();
+        this.enqueue({ type: 'visibility', shown: true });
+      }
     });
   }
 
