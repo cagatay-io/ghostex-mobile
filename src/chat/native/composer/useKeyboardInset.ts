@@ -39,8 +39,10 @@ export function useKeyboardInset(anchor: RefObject<View | null>): number {
         return;
       }
       view.measureInWindow((_x, y, _width, height) => {
-        // The view's bottom without the lift it already has.
-        const bottom = y + height - insetRef.current;
+        // The lift is padding inside the view, so its bottom edge stays put. Taking the lift off
+        // again hid the composer when the keyboard changed height while open (its suggestion row
+        // returning after a menu sheet closed, or a switch to the emoji keyboard).
+        const bottom = y + height;
         apply(Math.max(0, bottom - keyboardTop), event.duration);
       });
     });
