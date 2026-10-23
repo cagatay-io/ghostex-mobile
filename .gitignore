@@ -29,6 +29,9 @@ yarn-error.*
 # macOS
 .DS_Store
 *.pem
+# The over-the-air update certificate is public and ships inside the app; its private key
+# lives only in the release secrets (tooling/release-mobile/ota-server/README.md).
+!certs/certificate.pem
 
 # local env files
 .env*.local

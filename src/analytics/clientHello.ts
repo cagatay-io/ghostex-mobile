@@ -13,11 +13,11 @@ import { execRemoteCommand } from '../remote/commands';
  * Ghostex predates the verb answers with a usage dump, and that is ignored.
  */
 
-import * as Application from 'expo-application';
 import { Platform } from 'react-native';
 
 import { clientHelloCommand, type ClientHelloPlatform } from '../commands/ghostexCli';
 import type { MachineConnectionTarget } from '../machines/credentials';
+import { runningAppVersion } from '../updates/overTheAir';
 
 /** The daemon dedupes to one attach per client kind per hour; match it. */
 const HELLO_INTERVAL_MS = 60 * 60 * 1000;
@@ -30,14 +30,14 @@ function currentPlatform(): ClientHelloPlatform | null {
     return {
       os: 'ios',
       osVersion: Platform.constants.osVersion,
-      appVersion: Application.nativeApplicationVersion ?? undefined,
+      appVersion: runningAppVersion() ?? undefined,
     };
   }
   if (Platform.OS === 'android') {
     return {
       os: 'android',
       osVersion: Platform.constants.Release,
-      appVersion: Application.nativeApplicationVersion ?? undefined,
+      appVersion: runningAppVersion() ?? undefined,
     };
   }
   return null;

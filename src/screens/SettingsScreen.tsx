@@ -10,26 +10,24 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import type { RootStackParamList } from '../navigation/types';
-import { availableUpdate, useAndroidSelfUpdateStore } from '../updates/androidSelfUpdateStore';
+import { useUpdateNotice } from '../updates/updateNotice';
 import { SETTINGS_PAGE_ORDER, SETTINGS_PAGES } from './settings/pages';
 import { LinkRow, SettingsScreenLayout } from './settings/SettingsControls';
 
 export default function SettingsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const updateVersion = useAndroidSelfUpdateStore((state) => availableUpdate(state.check)?.version ?? null);
+  const updateNotice = useUpdateNotice();
 
   return (
     <SettingsScreenLayout>
       {SETTINGS_PAGE_ORDER.map((page) => {
-        const updateAvailable = page === 'updates' && updateVersion !== null;
+        const notice = page === 'updates' ? updateNotice : null;
         return (
           <LinkRow
             key={page}
             title={SETTINGS_PAGES[page].title}
-            description={
-              updateAvailable ? `Update available: Ghostex ${updateVersion}` : SETTINGS_PAGES[page].description
-            }
-            descriptionAccent={updateAvailable}
+            description={notice ?? SETTINGS_PAGES[page].description}
+            descriptionAccent={notice !== null}
             onPress={() => navigation.navigate('SettingsPage', { page })}
           />
         );

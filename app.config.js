@@ -1,4 +1,18 @@
 const app = require('./app.json');
+const { otaRuntimeVersion } = require('./scripts/ota-runtime-version');
+
+/**
+ * CDXC:Release 2026-10-23 DECISION: the phone app updates its JavaScript over the air from our own
+ * server, a Cloudflare Worker with R2 at ota.ghostex.dev (user picked "Self-hosted (R2 + a small
+ * Worker)" over EAS Update, gxserver and hot-updater). Every update is signed in CI with a key that
+ * never leaves the release secrets; the binary carries only the certificate (certs/certificate.pem).
+ * Release builds and update exports (GHOSTEX_RELEASE_VERSION set) turn updates on; local and dev
+ * builds keep them off so Metro always wins.
+ * SEE-ALSO: tooling/release-mobile/ota-server/ (the Worker), tooling/release-mobile/ota-publish.mjs.
+ */
+// GHOSTEX_OTA_SERVER points a test build at another server (a local `wrangler dev`, for example),
+// as it does for tooling/release-mobile/ota-publish.mjs.
+const OTA_MANIFEST_URL = `${(process.env.GHOSTEX_OTA_SERVER || 'https://ota.ghostex.dev').replace(/\/+$/, '')}/v1/manifest/production`;
 
 function releaseBuildNumber(version) {
   const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
@@ -35,6 +49,7 @@ module.exports = () => {
   const androidSelfUpdate = androidSelfUpdateEnabled();
   const basePermissions = app.expo.android.permissions ?? [];
   const baseBlockedPermissions = app.expo.android.blockedPermissions ?? [];
+  const overTheAir = Boolean(process.env.GHOSTEX_RELEASE_VERSION);
 
   return {
     ...app.expo,
@@ -43,12 +58,28 @@ module.exports = () => {
       ...app.expo.extra,
       androidSelfUpdate,
     },
+    updates: overTheAir
+      ? {
+          enabled: true,
+          url: OTA_MANIFEST_URL,
+          // Check at every launch without waiting: the app starts on what it has, the download
+          // runs in the background, and the update applies at the next launch or on Restart.
+          checkAutomatically: 'ON_LOAD',
+          fallbackToCacheTimeout: 0,
+          codeSigningCertificate: './certs/certificate.pem',
+          codeSigningMetadata: { keyid: 'main', alg: 'rsa-v1_5-sha256' },
+          // The server sends whole bundles; there is no patch to ask for.
+          enableBsdiffPatchSupport: false,
+        }
+      : { enabled: false },
     ios: {
       ...app.expo.ios,
       buildNumber,
+      runtimeVersion: overTheAir ? otaRuntimeVersion('ios', { androidSelfUpdate }) : 'dev',
     },
     android: {
       ...app.expo.android,
+      runtimeVersion: overTheAir ? otaRuntimeVersion('android', { androidSelfUpdate }) : 'dev',
       versionCode: Number(buildNumber),
       permissions: androidSelfUpdate ? [...basePermissions, ANDROID_SELF_UPDATE_PERMISSION] : basePermissions,
       blockedPermissions: androidSelfUpdate

@@ -95,7 +95,7 @@ import { isMachineEnabled, useMachinesStore, type MachineRecord } from '../../ma
 import { useSettingsStore } from '../../settings/store';
 import type { RootStackParamList } from '../../navigation/types';
 import { GhostexPalette, SidebarPalette } from '../../theme/palette';
-import { availableUpdate, useAndroidSelfUpdateStore } from '../../updates/androidSelfUpdateStore';
+import { useUpdateNotice } from '../../updates/updateNotice';
 import { transcriptMentionDraft, type ExportedTranscript } from '../terminal-screen/session-lookups';
 import {
   cancelDelayedSendSessionAction,
@@ -193,9 +193,9 @@ export function useSessionsScreenMenus({
 }: SessionsScreenMenusDeps) {
   // Desktop-parity context menus ---------------------------------------------
 
-  // Newer Android release known from the last self-update check; the Settings
-  // menu item carries it as a one-line notice.
-  const availableUpdateVersion = useAndroidSelfUpdateStore((state) => availableUpdate(state.check)?.version ?? null);
+  // A newer APK to install or a downloaded update waiting for a restart; the
+  // Settings menu item carries it as a one-line notice.
+  const updateNotice = useUpdateNotice();
 
   const summaryFor = (machineId: string) =>
     useInventoryStore.getState().inventoriesByMachineId[machineId]?.summary ?? null;
@@ -1328,8 +1328,7 @@ export function useSessionsScreenMenus({
     items.push({
       kind: 'item',
       key: 'settings',
-      label:
-        availableUpdateVersion === null ? 'Settings' : `Settings · Update available: Ghostex ${availableUpdateVersion}`,
+      label: updateNotice === null ? 'Settings' : `Settings · ${updateNotice}`,
       icon: <SettingsGlyph size={14} color={menuIconColor} />,
       onPress: () => {
         setOverlay(NONE);

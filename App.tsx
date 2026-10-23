@@ -31,6 +31,7 @@ import { initTerminalKeepAwake } from './src/terminal/keepAwake';
 import { initTerminalEvents, useTerminalStore } from './src/terminal/sessions';
 import { initZmxDisplayPolicy } from './src/terminal/zmxDisplay';
 import { initAndroidSelfUpdate } from './src/updates/androidSelfUpdateStore';
+import { initOverTheAirUpdates } from './src/updates/overTheAir';
 import { addProjectSourceLabel } from './src/addProject/sources';
 import { GhostexPalette } from './src/theme/palette';
 import CrashReportPrompt from './src/components/common/CrashReportPrompt';
@@ -103,6 +104,7 @@ export default function App() {
     initTerminalKeepAwake();
     initChatGridClaim();
     initAndroidSelfUpdate();
+    initOverTheAirUpdates();
     initVoice();
     void checkForCrashReport().catch(() => undefined);
     void useMachinesStore.getState().hydrate();

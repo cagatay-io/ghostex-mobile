@@ -13,9 +13,9 @@
  * sentences mirrored here), the relay checkout's src/validate.ts (the limits).
  */
 
-import * as Application from 'expo-application';
 import { Platform } from 'react-native';
 
+import { runningAppVersion } from '../updates/overTheAir';
 import type { FeedbackImage } from './feedbackImages';
 
 /** `EXPO_PUBLIC_GHOSTEX_FEEDBACK_RELAY_URL` points a development build at a local mock relay,
@@ -33,9 +33,10 @@ export interface FeedbackClient {
   os: string;
 }
 
-/** The phone as the relay's `client`: the app's version and `iOS 18.1` / `Android 15 (API 35)`. */
+/** The phone as the relay's `client`: the running release (an update's, when one applied) and
+ * `iOS 18.1` / `Android 15 (API 35)`. */
 export function feedbackClient(): FeedbackClient {
-  const version = (Application.nativeApplicationVersion ?? '').replace(/[^0-9A-Za-z.+_-]/g, '').slice(0, 64);
+  const version = (runningAppVersion() ?? '').replace(/[^0-9A-Za-z.+_-]/g, '').slice(0, 64);
   const release =
     Platform.OS === 'android'
       ? `Android ${String((Platform.constants as { Release?: string }).Release ?? '')} (API ${Platform.Version})`

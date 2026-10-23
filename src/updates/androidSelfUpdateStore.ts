@@ -21,6 +21,7 @@ import {
   UPDATE_CHECK_INTERVAL_MS,
   type LatestRelease,
 } from './androidSelfUpdate';
+import { releaseArrivesOverTheAir } from './overTheAir';
 
 const LAST_CHECKED_STORAGE_KEY = 'androidSelfUpdate.lastCheckedAt.v1';
 
@@ -72,7 +73,10 @@ export const useAndroidSelfUpdateStore = create<AndroidSelfUpdateState>()((set, 
       const checkedAt = Date.now();
       try {
         const latest = await fetchLatestRelease();
-        const updateAvailable = isNewerVersion(latest.version, installedAppVersion());
+        // A newer release whose JavaScript reaches this binary over the air needs no APK; only a
+        // release with new native code does.
+        const updateAvailable =
+          isNewerVersion(latest.version, installedAppVersion()) && !(await releaseArrivesOverTheAir(latest.version));
         set({ check: { phase: 'checked', latest, updateAvailable, checkedAt } });
         // A previously downloaded copy of this same release is still
         // installable, so offer Install directly instead of a second 190 MB

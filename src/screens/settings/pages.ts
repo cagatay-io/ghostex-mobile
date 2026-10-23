@@ -4,6 +4,7 @@
  */
 
 import { ANDROID_SELF_UPDATE_ENABLED } from '../../config/featureFlags';
+import { OTA_ENABLED } from '../../updates/overTheAir';
 import { VOICE_SUPPORTED } from '../../voice/conversation';
 
 export type SettingsPageId =
@@ -19,7 +20,7 @@ export type SettingsPageId =
   | 'readAloudVoice';
 
 export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, { title: string; description: string }>> = {
-  updates: { title: 'Updates', description: 'Check for a newer Ghostex release.' },
+  updates: { title: 'Updates', description: 'Your Ghostex version, and newer releases.' },
   theme: { title: 'Theme', description: 'Background contrast and tint.' },
   chat: { title: 'Chat', description: 'Default agent view, chat theme and detail.' },
   voice: { title: 'Voice agent', description: 'Regular or push-to-talk calls, and what each costs.' },
@@ -33,7 +34,7 @@ export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, { title: string; de
 };
 
 export const SETTINGS_PAGE_ORDER: readonly SettingsPageId[] = [
-  ...(ANDROID_SELF_UPDATE_ENABLED ? (['updates'] as const) : []),
+  ...(ANDROID_SELF_UPDATE_ENABLED || OTA_ENABLED ? (['updates'] as const) : []),
   'theme',
   'chat',
   ...(VOICE_SUPPORTED ? (['voice'] as const) : []),
