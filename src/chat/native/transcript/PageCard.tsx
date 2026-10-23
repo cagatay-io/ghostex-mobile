@@ -16,7 +16,6 @@
 
 import { useEffect } from 'react';
 import { Image, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
-import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 import { useTranscriptEnv, useTranscriptFlags } from './context';
 import { Glyph } from './icons';
@@ -24,6 +23,7 @@ import { str, type JsonRecord } from './json';
 import { answeredColor } from './PageAnswersCard';
 import { askedPageThumbnail, usePageThumbnailStore } from './pageThumbnails';
 import { QuestionFlashFrame } from './OpenQuestions';
+import { VerticalFade } from './verticalFade';
 
 /** `packages/gx-chat-core/visual/page-card.json`. */
 const VISUAL = {
@@ -142,15 +142,7 @@ function PageCardBody({
             </Text>
           </View>
         )}
-        <Svg style={styles.fade} width="100%" height={VISUAL.fadeHeight} pointerEvents="none">
-          <Defs>
-            <LinearGradient id="page-card-fade" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={theme.input} stopOpacity={0} />
-              <Stop offset="1" stopColor={theme.input} stopOpacity={1} />
-            </LinearGradient>
-          </Defs>
-          <Rect x="0" y="0" width="100%" height="100%" fill="url(#page-card-fade)" />
-        </Svg>
+        <VerticalFade id="page-card-fade" color={theme.input} from={0} to={1} style={styles.fade} />
       </View>
       <View style={styles.footer}>
         <View style={styles.text}>
@@ -215,7 +207,7 @@ const styles = StyleSheet.create({
   },
   placeholder: { alignItems: 'center', gap: 6, maxWidth: '80%' },
   placeholderLabel: { fontSize: 11.5 },
-  fade: { position: 'absolute', left: 0, right: 0, bottom: 0 },
+  fade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: VISUAL.fadeHeight },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',

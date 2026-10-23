@@ -8,10 +8,10 @@
 
 import type { ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 import { Glyph, type GlyphName } from './icons';
 import { MONO_FONT, themedStyles, useTranscriptTheme } from '../transcript/theme';
+import { VerticalFade } from '../transcript/verticalFade';
 
 /** `packages/gx-chat-core/visual/notice-tone.json`. */
 const TONES: Record<string, { icon: GlyphName; dark: string | null; light: string | null }> = {
@@ -91,7 +91,7 @@ export function ToneCard({
   const start = (footerStart ?? []).filter(Boolean);
   const end = (footerEnd ?? []).filter(Boolean);
   const hasFooter = start.length > 0 || end.length > 0;
-  const wash = look.hue === null ? null : withAlpha(look.hue, P.light ? SHELL.washLight : SHELL.washDark);
+  const washOpacity = P.light ? SHELL.washLight : SHELL.washDark;
   const headerContent = (
     <>
       <View
@@ -120,16 +120,8 @@ export function ToneCard({
   );
   return (
     <View style={[styles.card, { backgroundColor: P.cardPanel }]}>
-      {wash !== null ? (
-        <Svg style={styles.wash} width="100%" height="100%" pointerEvents="none">
-          <Defs>
-            <LinearGradient id="tone-wash" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={wash} stopOpacity={1} />
-              <Stop offset="1" stopColor={wash} stopOpacity={0} />
-            </LinearGradient>
-          </Defs>
-          <Rect x="0" y="0" width="100%" height="100%" fill="url(#tone-wash)" />
-        </Svg>
+      {look.hue !== null ? (
+        <VerticalFade id="tone-wash" color={look.hue} from={washOpacity} to={0} style={styles.wash} />
       ) : null}
       {onPressHeader === undefined ? (
         <View style={styles.header}>{headerContent}</View>
