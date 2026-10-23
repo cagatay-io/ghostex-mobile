@@ -24,7 +24,7 @@ import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { IconPill, Pill, PillMenuSheet, QuestionPill } from './ChatPills';
 import { Glyph } from './icons';
 import { isTrue, num, obj, str } from './json';
-import { chatCardsShown } from './NativeChatCards';
+import { chatCardsShown, COMPOSER_TOP_PADDING, STACK_GAP } from './NativeChatCards';
 import { PulseDot, Spinner } from './primitives';
 import { ProgressTrack, VISUAL, WorkingSpark, type ArmedAction } from './WorkingStrip';
 
@@ -40,15 +40,15 @@ const HEADER_PAD_Y = 6;
  *
  * CDXC:SessionChat 2026-10-18 DECISION:
  * User, pointing at the gap between the working card and the chat box: "reduce the margin here to
- * 9px". Only that gap changes; a card or panel stacked between them keeps the usual spacing. Desktop:
- * `WORKING_CARD_GAP` in apps/desktop/src/app/native_chat/working_card.rs.
+ * 9px". A card stacked under the working card sits `STACK_GAP` below it instead (the 2026-10-23
+ * decision in `NativeChatCards.tsx`). Desktop: `WORKING_CARD_GAP` in
+ * apps/desktop/src/app/native_chat/working_card.rs.
  */
 const BOX_GAP = 9;
 /*
  * CDXC:SessionChat 2026-10-20 DECISION:
  * User: "i want clicking anywhere on the bar that's above the composer to scroll to the bottom (when the scroll to bottom button is shown) so i dont need to click specifically on that button". The card's own press scrolls to the bottom while the pill shows; the pills and timers on it keep their taps. Desktop: `render_working_card` in apps/desktop/src/app/native_chat/working_card.rs.
  */
-const COMPOSER_TOP_PADDING = 6;
 
 /** Nothing stacks between the card and the chat box: no card band and nothing above the box in the composer. */
 function sitsOnBox(document: ChatDocument): boolean {
@@ -60,6 +60,12 @@ function sitsOnBox(document: ChatDocument): boolean {
     obj(document.suggestions) === null &&
     document.runLocation === undefined
   );
+}
+
+/** The card's share of the gap under it: the card band brings its own top padding, the composer 6. */
+function cardGap(document: ChatDocument): number {
+  if (sitsOnBox(document)) return BOX_GAP - COMPOSER_TOP_PADDING;
+  return chatCardsShown(document) ? 0 : STACK_GAP - COMPOSER_TOP_PADDING;
 }
 
 /** Whether the card shows: the core has something for it, or a timer is armed. */
@@ -97,7 +103,7 @@ export function WorkingCard({
   const label = card.label;
   return (
     <View style={styles.row}>
-      <View style={[styles.column, sitsOnBox(document) && { paddingBottom: BOX_GAP - COMPOSER_TOP_PADDING }]}>
+      <View style={[styles.column, { paddingBottom: cardGap(document) }]}>
         <Pressable
           disabled={label === null && !showJump}
           onPress={showJump ? () => jumpToBottom?.() : undefined}

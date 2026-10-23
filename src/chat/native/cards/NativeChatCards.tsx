@@ -79,6 +79,13 @@ export function NativeChatCards({ chat, onHostAction }: NativeChatCardsProps) {
   );
 }
 
+/**
+ * CDXC:SessionChat 2026-10-23 DECISION:
+ * User: "please make the gap at B match the gap at A (for all similar cases also for cards that appear above the chat view composer": every gap in the stack above the composer is the stack's 8px gap. The composer brings 6 of the gap under the band (`NativeComposer.tsx` `root.paddingTop`), the band the rest. Desktop: `WORKING_CARD_GAP` in apps/desktop/src/app/native_chat/working_card.rs.
+ */
+export const STACK_GAP = 8;
+export const COMPOSER_TOP_PADDING = 6;
+
 const styles = StyleSheet.create({
   band: {
     flexGrow: 0,
@@ -86,8 +93,9 @@ const styles = StyleSheet.create({
   },
   stack: {
     width: '100%',
-    gap: 8,
+    gap: STACK_GAP,
     paddingHorizontal: 12,
-    paddingTop: 8,
+    paddingTop: STACK_GAP,
+    paddingBottom: STACK_GAP - COMPOSER_TOP_PADDING,
   },
 });
