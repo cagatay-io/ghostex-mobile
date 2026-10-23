@@ -102,7 +102,9 @@ async function transition(sessionKey: string): Promise<void> {
     if (last?.state === desired && pin !== undefined) return;
     const current = await GhostexNative.getTerminalGrid(sessionKey);
     if (stale() || current === null) return;
-    const grid: TerminalGrid = { cols: ZMX_HIDDEN_COLUMNS, rows: current.rows };
+    // Chat widens to 200 but never narrows, matching the daemon grid (CDXC:Zmx 2026-10-23 WHY in apps/desktop/src/app/terminal_sync/gpui_engine_terminal_visibility.rs).
+    const cols = desired === 'chat' ? Math.max(current.cols, ZMX_HIDDEN_COLUMNS) : ZMX_HIDDEN_COLUMNS;
+    const grid: TerminalGrid = { cols, rows: current.rows };
     await GhostexNative.setTerminalGrid(sessionKey, grid.cols, grid.rows);
     if (stale()) return;
     pinned.set(sessionKey, grid);
