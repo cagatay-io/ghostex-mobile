@@ -156,7 +156,9 @@ function QuestionFormCard({ id, source }: { id: string; source: string }) {
       : phase === 'queued'
         ? "Queued: it goes to the agent once it's ready."
         : phase === 'sending'
-          ? 'Sending…'
+          ? form.reconnecting === true
+            ? "Reconnecting to Ghostex… your answers go out as soon as it's back."
+            : 'Sending…'
           : sendError.length > 0
             ? sendError
             : 'Questions you leave blank are sent as skipped.';

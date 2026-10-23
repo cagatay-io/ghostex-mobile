@@ -18,7 +18,7 @@ import { MONO_FONT, themedStyles, useTranscriptTheme } from '../transcript/theme
 import { AskCard, AskHead, AskOption, PrimaryButton, ProgressDots } from './askCard';
 import { SingleLineTile } from '../transcript/singleLineCard';
 import { CardButton, CardHeader, StatusCard, useCardText } from './primitives';
-import { ApprovalCard } from './ApprovalCard';
+import { ApprovalCard, RECONNECTING_NOTE } from './ApprovalCard';
 import { useEchoedText } from './useEchoedText';
 
 /** The share of the window the cards band above the composer may take (`NativeChatCards`). */
@@ -173,6 +173,7 @@ function QuestionPromptCard({ chat, document }: { chat: RustChat; document: Chat
               );
             })}
           </ScrollView>
+          {card.reconnecting === true ? <Text style={cardText.hint}>{RECONNECTING_NOTE}</Text> : null}
         </View>
       )}
     </AskCard>

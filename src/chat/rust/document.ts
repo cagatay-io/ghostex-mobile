@@ -237,7 +237,7 @@ export type ProjectedMessage = {
   /** A prompt sitting in the agent CLI's own queue, not handed to the model yet. */
   queued?: boolean;
   /** A client echo of an accepted send still waiting for the terminal: `{promptId, state:
-   * 'queued' | 'sending' | 'failed', errorMessage?}`. Desktop: `startup_delivery.rs`. */
+   * 'queued' | 'sending' | 'reconnecting' | 'failed', errorMessage?}`. Desktop: `startup_delivery.rs`. */
   startupDelivery?: { promptId: string; state: string; errorMessage?: string };
   /** Markdown body with the native marks (code block headers, alerts, typed file paths).
    * Desktop: `rich_markdown.rs`, `markdown_style.rs`, `code_block.rs`. */
@@ -793,6 +793,8 @@ export type QuestionCard = {
   approvalTitle?: string;
   /** The muted line under it: the tool, and the folder it runs in when known. */
   approvalDetail?: string;
+  /** The answer went out while gxserver was away and goes again once it is back. */
+  reconnecting?: boolean;
 };
 
 export type QuestionDraft = { indices: number[]; other: string };

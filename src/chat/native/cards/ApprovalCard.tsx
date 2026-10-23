@@ -13,6 +13,9 @@ import { str } from './json';
 import { useCardText } from './primitives';
 import { CommandBox, ToneButton, ToneCard, ToneDismiss, isShellTool } from './ToneCard';
 
+/** Shown while the card's answer waits for gxserver to come back (gx-chat-core `questions/unreachable_retry.rs`). */
+export const RECONNECTING_NOTE = "Reconnecting to Ghostex… your answer goes out as soon as it's back.";
+
 export function ApprovalCard({ chat, document }: { chat: RustChat; document: ChatDocument }) {
   const cardText = useCardText();
   const { dispatch } = chat;
@@ -29,6 +32,13 @@ export function ApprovalCard({ chat, document }: { chat: RustChat; document: Cha
             {card.approvalAsk || 'Allow this tool?'}
           </Text>,
         ];
+  if (card.reconnecting === true) {
+    body.push(
+      <Text key="reconnecting" style={cardText.hint}>
+        {RECONNECTING_NOTE}
+      </Text>,
+    );
+  }
   return (
     <ToneCard
       tone="approval"
