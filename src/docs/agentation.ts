@@ -12,7 +12,7 @@
  * bootstrap), apps/desktop/src/app/consts.rs (BROWSER_FEEDBACK_AGENTATION_*).
  */
 
-const AGENTATION_VERSION = '3.0.2';
+const AGENTATION_VERSION = '3.1.2';
 const AGENTATION_REACT_VERSION = '18.2.0';
 const AGENTATION_PACKAGE_URL = `https://esm.sh/agentation@${AGENTATION_VERSION}?bundle&deps=react@${AGENTATION_REACT_VERSION},react-dom@${AGENTATION_REACT_VERSION}`;
 const AGENTATION_REACT_URL = `https://esm.sh/react@${AGENTATION_REACT_VERSION}`;
@@ -41,7 +41,7 @@ export function parseDocPageMessage(data: string): DocPageMessage | null {
 }
 
 /**
- * CDXC:Docs 2026-10-23 DECISION: User (issue #280, confirmed for the phone): Annotate on an HTML page goes straight into annotating mode and stays in it across reloads, as on the desktop. agentation@3.0.2 mounts collapsed (`isActive` is component state that starts false, is never persisted, and has no prop or handle), so the bootstrap clicks Agentation's own collapsed toolbar once it renders. It looks for the "Start feedback mode" control, which exists only while collapsed, so it can never switch an active toolbar off; its Cmd/Ctrl+Shift+F shortcut was rejected because it toggles and the synthetic key would also reach the page's own listeners. Every load remounts the WebView and re-runs this bootstrap, which is what keeps it active.
+ * CDXC:Docs 2026-10-23 DECISION: User (issue #280, confirmed for the phone): Annotate on an HTML page goes straight into annotating mode and stays in it across reloads, as on the desktop. agentation@3.1.2 mounts collapsed (`isActive` is component state that starts false, is never persisted, and has no prop or handle), so the bootstrap clicks Agentation's own launcher once it renders. It matches the launcher only while it reads `aria-expanded="false"` and `aria-label="Start feedback mode"` inside the open shadow root of its `<agentation-toolbar>` host (3.1.2 put the shortcut into the title, so the title is not matched, and a MutationObserver on the page cannot see into the shadow root, so it polls every 50ms for up to 5s), so it can never switch an active toolbar off; its Cmd/Ctrl+Shift+F shortcut was rejected because it toggles and the synthetic key would also reach the page's own listeners. Every load remounts the WebView and re-runs this bootstrap, which is what keeps it active.
  * SEE-ALSO: apps/desktop/views/manage/preview/html-viewer.tsx (the same start in the desktop's Files view, CDXC:Docs 2026-10-23).
  */
 function bootstrapModule(): string {
@@ -61,19 +61,18 @@ rootEl.setAttribute("data-agentation-html-root", "true");
 rootEl.setAttribute("data-agentation-root", "true");
 (document.body || document.documentElement).appendChild(rootEl);
 const startFeedbackMode = () => {
-  const startSelector = '[data-agentation-toolbar] [title="Start feedback mode"][role="button"]';
+  const startSelector = '[data-agentation-toolbar] button[aria-expanded="false"][aria-label="Start feedback mode"]';
+  let attempts = 0;
   const tryStart = () => {
-    const startButton = document.querySelector(startSelector);
-    if (!startButton) return false;
-    startButton.click();
-    return true;
+    const startButton = document.querySelector("agentation-toolbar")?.shadowRoot?.querySelector(startSelector);
+    if (startButton) {
+      startButton.click();
+      return;
+    }
+    attempts += 1;
+    if (attempts < 100) setTimeout(tryStart, 50);
   };
-  if (tryStart()) return;
-  const observer = new MutationObserver(() => {
-    if (tryStart()) observer.disconnect();
-  });
-  observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
-  setTimeout(() => observer.disconnect(), 5000);
+  tryStart();
 };
 Promise.all([
   import(${JSON.stringify(AGENTATION_REACT_URL)}),
