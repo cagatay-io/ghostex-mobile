@@ -285,7 +285,8 @@ const useStyles = themedStyles((P) => ({
     borderColor: P.inputBorder,
     // A capsule, like the pills it carries (desktop working_card.rs).
     borderRadius: 999,
-    backgroundColor: P.cardPanel,
+    // The composer's own fill, so the card and the chat box under it always match.
+    backgroundColor: P.composerBackground,
   },
   /** The whole label while the card is held, above the card, so the card keeps its height. */
   bubble: {
