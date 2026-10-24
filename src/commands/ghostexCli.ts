@@ -520,6 +520,14 @@ export function addSessionLinkCommand(sessionId: string, projectId: string, link
   );
 }
 
+/** Bring back a link removed from a session (`ghostex link restore <key>`); it can join by itself again. */
+export function restoreSessionLinkCommand(sessionId: string, projectId: string, key: string): string {
+  return (
+    `ghostex link restore ${shellQuote(key)} --session-id ${shellQuote(requireId(sessionId, 'session id'))}` +
+    ` --project-id ${shellQuote(requireId(projectId, 'project id'))} --json`
+  );
+}
+
 /** Remove a link from a session (`ghostex link remove <key>`); it never joins the session again by itself. */
 export function removeSessionLinkCommand(sessionId: string, projectId: string, key: string): string {
   return (

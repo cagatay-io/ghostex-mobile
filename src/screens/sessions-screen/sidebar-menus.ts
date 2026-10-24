@@ -792,7 +792,7 @@ export function buildSessionMenu(input: SessionMenuInput): SidebarMenuItem[] {
    * User: "also didn't we agree to have a way to see these floating on the right of the sidebar when i hover somewhere?". The desktop shows a hovered row's links in a card beside the sidebar; the phone has no hover, so its long-press menu gets a Links row that opens the same sheet the chat strip's "+N" opens.
    */
   const linkCount = session.links?.items.length ?? 0;
-  if (linkCount > 0) {
+  if (linkCount > 0 || (session.links?.removed.length ?? 0) > 0) {
     menu.push({ ...row('Links', 'link', { type: 'sessionLinks', sessionId: id }), suffix: String(linkCount) });
   }
   const link = linkSubmenu(session, project);

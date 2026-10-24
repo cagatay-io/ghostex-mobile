@@ -335,6 +335,8 @@ export type GhostexSessionLink = {
 export type GhostexSessionLinks = {
   items: GhostexSessionLink[];
   suggested: { key: string; kind: 'pullRequest' | 'issue'; label: string; url: string; title: string }[];
+  /** Links a person removed, newest first, which the sheet offers to restore. */
+  removed: { key: string; kind: GhostexSessionLink['kind']; label: string; url: string; title: string }[];
 };
 
 /**
@@ -1028,7 +1030,20 @@ function parseSessionLinks(value: unknown): GhostexSessionLinks | undefined {
       title: trimmedValue(item, 'title'),
     });
   }
-  return items.length > 0 || suggested.length > 0 ? { items, suggested } : undefined;
+  const removed: GhostexSessionLinks['removed'] = [];
+  for (const item of Array.isArray(value.removed) ? value.removed : []) {
+    if (!isObject(item)) continue;
+    const key = trimmedValue(item, 'key');
+    if (key.length === 0) continue;
+    removed.push({
+      key,
+      kind: linkKind(trimmedValue(item, 'kind')),
+      label: trimmedValue(item, 'label'),
+      url: trimmedValue(item, 'url'),
+      title: trimmedValue(item, 'title'),
+    });
+  }
+  return items.length > 0 || suggested.length > 0 || removed.length > 0 ? { items, suggested, removed } : undefined;
 }
 
 function parseSessionWork(value: unknown): GhostexSessionWork | null {
