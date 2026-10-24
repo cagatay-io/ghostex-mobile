@@ -544,7 +544,7 @@ export function BoxGlyph({ size, color }: GlyphProps) {
   );
 }
 
-/** Tabler briefcase (the project menu's Work Mode row). */
+/** Tabler briefcase (a Work workspace's tile). */
 export function BriefcaseGlyph({ size, color }: GlyphProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">

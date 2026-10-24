@@ -155,14 +155,23 @@ export type GhostexProject = {
    */
   worktreeParentProjectId: string;
   /**
-   * Work mode is on for this project (`workMode: true` on the wire, absent when off). The project
-   * menu's Work Mode row ticks from it.
+   * Issues Workflow (formerly Work mode) is on for this project: a Linear key applies to it or `gh`
+   * is signed in on the computer (`workMode: true` on the wire, absent when off). Its sessions get
+   * Link to.
    */
   workMode?: boolean;
+  /** Issues Workflow's Linear parts are on: a Linear key applies (`workLinear: true` on the wire). */
+  workLinear?: boolean;
   /**
-   * The primary tracker of the project's workspace while work mode is on (gx-protocol
+   * Issues Workflow's GitHub parts are off: `gh` is not signed in on the computer
+   * (`workGithubOff: true` on the wire). A computer too old to send it had no such rule, so its
+   * absence means they are on.
+   */
+  workGithubOff?: boolean;
+  /**
+   * The primary tracker of the project's workspace while Issues Workflow is on (gx-protocol
    * `PresentationProject.work_tracker`): `github` makes Link to offer GitHub issues and projects
-   * instead of Linear's. Absent when work mode is off or the computer does not send it (Linear).
+   * instead of Linear's. Absent when it is off or the computer does not send it (Linear).
    */
   workTracker?: 'linear' | 'github';
   /** The worktree's name and branch, which Copy Details quotes; absent for a plain project. */
@@ -1225,6 +1234,8 @@ function parseProjects(value: unknown): GhostexProject[] {
       themeColor: normalizedHexColor(trimmedValue(entry, 'themeColor')),
       worktreeParentProjectId: isObject(entry.worktree) ? trimmedValue(entry.worktree, 'parentProjectId') : '',
       workMode: entry.workMode === true,
+      workLinear: entry.workLinear === true,
+      workGithubOff: entry.workGithubOff === true,
       workTracker: entry.workTracker === 'github' || entry.workTracker === 'linear' ? entry.workTracker : undefined,
       worktree: isObject(entry.worktree)
         ? { name: trimmedValue(entry.worktree, 'name'), branch: trimmedValue(entry.worktree, 'branch') }

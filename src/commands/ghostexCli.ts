@@ -578,14 +578,12 @@ export function setSessionWorkLinksCommand(sessionId: string, projectId: string,
   return `ghostex link-session ${sessionChatSelector(sessionId, projectId)} ${flags.join(' ')} --json`;
 }
 
-/** The merged-PR offer's answer: `ghostex work-mode cleanup --session-id … --project-id … clean-up|keep --json`. */
+/**
+ * The merged-PR offer's answer: `ghostex work-mode cleanup --session-id … --project-id … clean-up|keep --json`.
+ * `work-mode` is the old name of `ghostex issues`; the phone keeps it so computers too old for `issues` still answer.
+ */
 export function answerWorkCleanupCommand(sessionId: string, projectId: string, answer: 'cleanUp' | 'keep'): string {
   return `ghostex work-mode cleanup ${sessionChatSelector(sessionId, projectId)} ${answer === 'cleanUp' ? 'clean-up' : 'keep'} --json`;
-}
-
-/** Work Mode: `ghostex work-mode on|off --project-id <id> --json`. */
-export function setProjectWorkModeCommand(projectId: string, enabled: boolean): string {
-  return `ghostex work-mode ${enabled ? 'on' : 'off'} --project-id ${shellQuote(requireId(projectId, 'project id'))} --json`;
 }
 
 /**

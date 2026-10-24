@@ -62,7 +62,6 @@ import {
   sleepInactiveCoordinatorThreadsCommand,
   moveProjectCommand,
   removeProjectCommand,
-  setProjectWorkModeCommand,
   setSessionWorkLinksCommand,
   workLinkCandidatesCommand,
   type WorkLinkKind,
@@ -540,10 +539,6 @@ export function useSessionsScreenMenus({
         );
         return;
       }
-      case 'setProjectWorkMode':
-        setOverlay(NONE);
-        void runSessionCommand(machine, setProjectWorkModeCommand(message.projectId, message.enabled));
-        return;
       case 'removeWorkspaceProjectForGroup': {
         const { header } = requireProject();
         setOverlay({
@@ -739,8 +734,6 @@ export function useSessionsScreenMenus({
       sessions: sessionsForProject(ctx.machine, header),
       collectionId: collectionIdForProject(summary?.projectCollectionsState ?? null, header.projectId),
       collections: summary?.projectCollections ?? [],
-      workMode: summary?.projects.find((project) => project.projectId === header.projectId)?.workMode === true,
-      workspacesPublished: summary !== null && summary !== undefined && summary.workspaces !== null,
     });
     const view = sidebarMenuView(menu, menuPath, {
       openPath: (next) => setOverlay({ kind: 'projectMenu', ctx, menuPath: next }),
