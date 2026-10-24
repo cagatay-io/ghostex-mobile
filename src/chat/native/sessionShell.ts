@@ -73,9 +73,10 @@ export async function openForkBranch(machine: MachineConnectionTarget, params: u
 }
 
 /**
- * A chat's Run in terminal (`runInTerminal`): a new plain terminal of the project on the computer,
- * in the chat session's own folder, that types the command and presses Enter (`paste`: only types
- * it); then its tab opens.
+ * A chat's Run in terminal (`runInTerminal`): the command typed into the project's idle Commands
+ * panel terminal on the computer (the desktop's choice too), or a new plain terminal in the chat
+ * session's own folder when there is none, and Enter pressed (`paste`: only typed); then that
+ * terminal opens as a tab.
  * SEE-ALSO: server/src/ghostex_cli/run_in_terminal.rs, and the desktop's
  * apps/desktop/src/app/session_chat/run_in_terminal.rs.
  */

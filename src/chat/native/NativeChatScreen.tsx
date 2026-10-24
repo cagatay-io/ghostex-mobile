@@ -454,9 +454,9 @@ function useChatViewRequests(
                 ),
               );
             } else if (request.action === 'runInTerminal' || request.action === 'pasteInTerminal') {
-              // A command in a reply: a new terminal on the computer, in this session's folder, that
-              // runs it (or, for Paste, only types it), opened as its tab so the user can answer what
-              // it asks (`ghostex run-in-terminal`).
+              // A command in a reply: the project's Commands panel terminal on the computer (or a new
+              // terminal in this session's folder) runs it (or, for Paste, only types it), opened as
+              // its tab so the user can answer what it asks (`ghostex run-in-terminal`).
               const params = (
                 typeof request.params === 'object' && request.params !== null ? request.params : {}
               ) as Record<string, unknown>;

@@ -146,7 +146,8 @@ export function requestSessionRenameCommand(
 
 /**
  * A chat's Run in terminal: `ghostex run-in-terminal --json [--paste] --project-id <id> --session-id <id> --command <text>`,
- * a new terminal in that session's folder that runs the command (`--paste`: only types it).
+ * the command typed into the project's idle Commands panel terminal, or a new terminal in that session's folder
+ * when there is none, and run (`--paste`: only typed).
  */
 export function runInTerminalCommand(projectId: string, sessionId: string, command: string, paste = false): string {
   return (
