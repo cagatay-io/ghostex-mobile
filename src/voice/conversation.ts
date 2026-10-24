@@ -11,6 +11,7 @@
  * CDXC:VoiceMode 2026-10-20 DECISION: User: "the one in the chat box just pastes whatever i say into the chat box, while the one above is more general and for discussing". The phone's top bar has a global Voice button that starts and ends a conversation with the manager voice agent; it keeps going while you move between screens and with the phone locked ("Voice mode on" notification with Hang up). The composer's Dictate microphone is the other entry point (`src/chat/native/composer/useDictation.ts`).
  * CDXC:VoiceMode 2026-10-20 DECISION: The API keys live on the computer; the phone never stores one. When the computer has none, the phone says so and points to Ghostex Settings › Voice agent on that computer.
  * CDXC:VoiceMode 2026-10-21 SEE-ALSO: the call mode (`voiceAgentCallMode`, regular or push-to-talk) is the user's DECISION in server/src/voice_agent/conversation.rs (`talk_start`); the phone shows it in the gear sheet and Settings › Voice agent and holds Talk with `setVoiceTalking`.
+ * CDXC:VoiceMode 2026-10-24 SEE-ALSO: what a hold does (push-to-talk, hold to unmute in a muted Regular call, Mute wins, a tap's hint, a dropped link) is the user's DECISION in server/src/voice_agent/talk.rs; the phone's hold button and its slide-off cancel are `src/voice/VoiceHoldButton.tsx`.
  * CDXC:VoiceMode 2026-10-20 DECISION: User: "on the voice mode screen, the user should be able to click on Eve to change the voice, and click buttons to change the voice agent's speed, with options 1, 1.2, 1.4, 1.6, 1.8, and 2", and the phone's voice screen gets the same picker and speed control, reading and saving the computer's settings (`voiceAgentXaiVoice` / `voiceAgentOpenaiVoice`, `voiceAgentSpeed`) through gxserver's `setVoiceAgentSettings`. The speed is played on the phone (`AudioTrack` playback rate, pitch kept) like the desktop's time stretch. Later the same day: "Move the voice speed control from the bottom bar into the top-right picker. Add a smaller button to its right that opens a speed menu when clicked, so users can pick a different speed without the bottom bar." (phone confirmed): the speed is a small button right of the voice chip that opens a speed sheet, superseding the row of speed buttons above Mute and Hang up.
  */
 
@@ -83,6 +84,8 @@ type VoiceState = {
   /** This call is push-to-talk (`ready` said so), and whether Talk is held. */
   pushToTalk: boolean;
   talking: boolean;
+  /** A short note above the buttons ("Unmute to talk", "Hold to talk, then let go to send"). */
+  hint: string | null;
   memory: VoiceMemory | null;
   memoryState: VoiceMemoryState;
   /** The latest session the agent showed (worked with or was asked to show), for the voice screen's "Open <session>" chip. */
@@ -93,7 +96,7 @@ type VoiceState = {
   requestedFocus: VoiceFocusTarget | null;
 };
 
-/** `regular`: hands-free; `pushToTalk`: the agent hears you only while you hold Talk. */
+/** `regular`: hands-free; `pushToTalk`: the agent hears you only while you hold the talk button. */
 export type VoiceCallMode = 'regular' | 'pushToTalk';
 
 /** The two call modes with their pricing lines, for the gear sheet and Settings › Voice agent. */
@@ -106,7 +109,7 @@ export const VOICE_CALL_MODES: { mode: VoiceCallMode; label: string; detail: str
   {
     mode: 'pushToTalk',
     label: 'Push-to-talk',
-    detail: "Hold Talk to speak. On Grok you pay only for the audio you send and the agent's replies.",
+    detail: "Hold the talk button to speak. On Grok you pay only for the audio you send and the agent's replies.",
   },
 ];
 
@@ -135,6 +138,7 @@ const INITIAL: VoiceState = {
   callMode: 'regular',
   pushToTalk: false,
   talking: false,
+  hint: null,
   memory: null,
   memoryState: 'hidden',
   shownSession: null,
@@ -156,6 +160,25 @@ let noticeSeq = 0;
 let installed = false;
 /** The call being started asked for a focus: its first `ready` must carry the `focus` key. */
 let askedForFocus = false;
+
+/** How long a hint stays above the voice screen's buttons. */
+const HINT_MS = 2_500;
+let hintTimer: ReturnType<typeof setTimeout> | null = null;
+
+export const HINT_TOO_SHORT = 'Hold to talk, then let go to send';
+export const HINT_UNMUTE = 'Unmute to talk';
+export const HINT_ALREADY_HEARD = 'Mute first, then hold to talk';
+export const HINT_CANCELLED = 'Talk cancelled';
+
+/** Shows a short note above the buttons for a moment. */
+export function flashVoiceHint(text: string): void {
+  if (hintTimer !== null) clearTimeout(hintTimer);
+  set({ hint: text });
+  hintTimer = setTimeout(() => {
+    hintTimer = null;
+    set({ hint: null });
+  }, HINT_MS);
+}
 
 /** Voice mode needs the Android voice engine; the iOS module has none yet. */
 export const VOICE_SUPPORTED = Platform.OS === 'android';
@@ -357,6 +380,14 @@ function onFrame(json: string): void {
       if (note !== null) notice(note);
       return;
     }
+    case 'talk':
+      // gxserver's word on a hold (server/src/voice_agent/talk.rs).
+      if (frame.event === 'tooShort') flashVoiceHint(HINT_TOO_SHORT);
+      else if (frame.event === 'refused') {
+        set({ talking: false });
+        flashVoiceHint(HINT_UNMUTE);
+      } else if (frame.event === 'cancelled') flashVoiceHint(HINT_CANCELLED);
+      return;
     case 'state':
       set({
         agentState: (text('state') || 'listening') as VoiceAgentState,
@@ -450,6 +481,15 @@ function onStatus(event: Extract<VoiceEvent, { kind: 'status' }>): void {
     case 'unmuted':
       set({ muted: false });
       return;
+    case 'talking':
+      set({ talking: true });
+      return;
+    case 'notTalking':
+      set({ talking: false });
+      return;
+    case 'talkRefused':
+      flashVoiceHint(event.message === 'heard' ? HINT_ALREADY_HEARD : HINT_UNMUTE);
+      return;
     case 'micError':
       notice(event.message ?? 'The microphone stopped.');
       return;
@@ -489,6 +529,7 @@ export function initVoice(): void {
         phase: status.reattaching ? 'reattaching' : 'live',
         machineName: status.title,
         muted: status.muted,
+        talking: status.talking === true,
       });
     })
     .catch(() => undefined);
@@ -675,12 +716,38 @@ export async function saveComputerCallMode(machine: MachineConnectionTarget, mod
   }
 }
 
-/** Push-to-talk's Talk button, pressed or released (pressing it while the agent speaks cuts the reply). */
+/** What holding the talk button does now (server/src/voice_agent/talk.rs decides the turn). */
+export type VoiceHoldMode = 'talk' | 'unmute' | 'mutedLock' | 'alreadyHeard' | 'none';
+
+export function voiceHoldMode(state: { phase: VoicePhase; pushToTalk: boolean; muted: boolean }): VoiceHoldMode {
+  if (state.phase !== 'live') return 'none';
+  if (state.pushToTalk) return state.muted ? 'mutedLock' : 'talk';
+  return state.muted ? 'unmute' : 'alreadyHeard';
+}
+
+/**
+ * The hold button pressed or released: a push-to-talk turn (pressing cuts a reply the agent is
+ * speaking, releasing sends it), or a muted Regular call unmuted while held. A press that means
+ * nothing now says why instead.
+ */
 export function setVoiceTalking(talking: boolean): void {
   const state = useVoiceStore.getState();
-  if (!state.pushToTalk || state.phase !== 'live' || state.talking === talking) return;
-  set({ talking });
+  if (state.talking === talking) return;
+  if (talking) {
+    const mode = voiceHoldMode(state);
+    if (mode === 'mutedLock') return flashVoiceHint(HINT_UNMUTE);
+    if (mode === 'alreadyHeard') return flashVoiceHint(HINT_ALREADY_HEARD);
+    if (mode === 'none') return;
+  }
+  set({ talking, hint: null });
   void GhostexNative.voiceSetTalking(talking).catch(() => undefined);
+}
+
+/** The finger slid off the hold button and let go there: the hold ends with nothing sent. */
+export function cancelVoiceTalking(): void {
+  if (!useVoiceStore.getState().talking) return;
+  set({ talking: false });
+  void GhostexNative.voiceCancelTalking().catch(() => undefined);
 }
 
 /** The speed buttons: faster at once (on the phone), and saved as the computer's `voiceAgentSpeed`. */

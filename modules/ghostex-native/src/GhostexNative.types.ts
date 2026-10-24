@@ -275,7 +275,11 @@ export type VoiceEvent =
         | 'focusPaused'
         | 'focusResumed'
         | 'muted'
-        | 'unmuted';
+        | 'unmuted'
+        | 'talking'
+        | 'notTalking'
+        /** A hold that means nothing now: `message` is `muted` (push-to-talk) or `heard` (Regular, unmuted). */
+        | 'talkRefused';
       message: string | null;
     };
 
@@ -296,6 +300,8 @@ export type VoiceStatus = {
   conversationId: string | null;
   state: string;
   muted: boolean;
+  /** The hold is on (the voice screen's button or the notification's Talk). */
+  talking?: boolean;
   title: string;
   reattaching: boolean;
 };

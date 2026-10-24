@@ -171,8 +171,13 @@ declare class GhostexNativeModule extends NativeModule<GhostexNativeEvents> {
   /** "Stop talking": the agent's reply is cut. */
   voiceInterrupt(): Promise<void>;
   voiceSendText(text: string): Promise<void>;
-  /** Push-to-talk: Talk pressed (`true`, cuts a reply being spoken) or released (sends the turn). */
+  /**
+   * The hold button pressed (`true`) or released: a push-to-talk turn (pressing cuts a reply being
+   * spoken, releasing sends it), or a muted Regular call unmuted for as long as it is held.
+   */
   voiceSetTalking(talking: boolean): Promise<void>;
+  /** The finger slid off the hold button before letting go: the hold ends and nothing is sent. */
+  voiceCancelTalking(): Promise<void>;
   /** Plays the agent `speed` times as fast, pitch kept, and tells gxserver the rate (`playbackRate`). */
   voiceSetSpeed(speed: number): Promise<void>;
   /** Asks gxserver to switch the conversation to `voice`; it answers with a `voice` frame. */

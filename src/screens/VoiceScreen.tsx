@@ -3,7 +3,8 @@
  * walking or driving. A big state circle (listening, thinking, speaking, running a tool), live
  * captions of what you and the agent said with tool calls as short rows, the voice (tap it to pick
  * another) with a small speed button beside it (a list from 1x to 2x), the remembered last conversation to continue
- * (`VoiceMemoryCard`), and large Mute, Stop and Hang up controls. Closing the screen keeps the conversation going; the top bar's
+ * (`VoiceMemoryCard`), and large Mute, hold-to-talk and Hang up controls with a Stop talking pill above them
+ * (`VoiceStopPill`). Closing the screen keeps the conversation going; the top bar's
  * Voice button and the "Voice mode on" notification bring it back.
  */
 
@@ -34,10 +35,8 @@ import {
   dismissVoice,
   focusVoiceOn,
   hangUpVoice,
-  interruptVoice,
   pickVoice,
   setCallMode,
-  setVoiceTalking,
   setVoiceMuted,
   setVoiceSpeed,
   startVoice,
@@ -52,6 +51,8 @@ import {
 } from '../voice/conversation';
 import { focusBannerDetail } from '../voice/focus';
 import { HeadsetGlyph, MicrophoneGlyph } from '../voice/VoiceButton';
+import { VoiceHoldButton } from '../voice/VoiceHoldButton';
+import { VoiceStopPill } from '../voice/VoiceStopPill';
 import { VoiceMemoryCard } from '../voice/VoiceMemoryCard';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Voice'>;
@@ -155,8 +156,8 @@ function stateLook(state: ReturnType<typeof useVoiceStore.getState>): { label: s
       return { label: 'Speaking', color: GhostexPalette.STATUS_ATTENTION };
     default:
       return {
-        label: state.talking ? 'Hearing you' : state.muted ? 'Muted' : state.pushToTalk ? 'Hold Talk to speak' : 'Listening',
-        color: state.muted ? GhostexPalette.MUTED : GhostexPalette.ACCENT,
+        label: state.talking ? 'Hearing you' : state.muted ? 'Muted' : state.pushToTalk ? 'Hold to talk' : 'Listening',
+        color: state.muted && !state.talking ? GhostexPalette.MUTED : GhostexPalette.ACCENT,
       };
   }
 }
@@ -369,6 +370,8 @@ export default function VoiceScreen({ navigation }: Props) {
   const compact = voice.lines.length > 0;
   const machine = useMachinesStore((state) => state.machines.find((entry) => entry.id === voice.machineId) ?? null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  /** The hold button's finger is off the button: the strip says "Release to cancel". */
+  const [holdSlidOff, setHoldSlidOff] = useState(false);
   const [speedOpen, setSpeedOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const canPickVoice = active && voice.voiceOptions.length > 0;
@@ -541,6 +544,7 @@ export default function VoiceScreen({ navigation }: Props) {
         </Pressable>
       ) : null}
 
+      {active ? <VoiceStopPill slidOff={holdSlidOff} /> : null}
       {active ? (
         <View style={styles.controls}>
           <Pressable
@@ -558,36 +562,7 @@ export default function VoiceScreen({ navigation }: Props) {
               {voice.muted ? 'Unmute' : 'Mute'}
             </Text>
           </Pressable>
-          {voice.pushToTalk && voice.phase === 'live' ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Hold to talk"
-              accessibilityHint="Speak while holding; release to send. Pressing it while the agent talks stops it."
-              style={[styles.control, styles.controlOn, voice.talking && styles.talkHeld]}
-              onPressIn={() => setVoiceTalking(true)}
-              onPressOut={() => setVoiceTalking(false)}
-            >
-              <MicrophoneGlyph size={30} color={GhostexPalette.ACCENT_FOREGROUND} />
-              <Text style={[styles.controlLabel, styles.controlLabelOn]}>{voice.talking ? 'Listening…' : 'Hold to talk'}</Text>
-            </Pressable>
-          ) : (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Stop the agent talking"
-              disabled={voice.agentState !== 'speaking'}
-              style={({ pressed }) => [
-                styles.control,
-                voice.agentState !== 'speaking' && styles.controlDisabled,
-                pressed && styles.controlPressed,
-              ]}
-              onPress={interruptVoice}
-            >
-              <Svg width={30} height={30} viewBox="0 0 24 24">
-                <Path d="M 7 7 h 10 v 10 h -10 z" fill={GhostexPalette.FOREGROUND} />
-              </Svg>
-              <Text style={styles.controlLabel}>Stop</Text>
-            </Pressable>
-          )}
+          <VoiceHoldButton style={styles.control} onSlide={setHoldSlidOff} />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Hang up"
@@ -701,7 +676,6 @@ const styles = StyleSheet.create({
   sheetTitle: { color: GhostexPalette.FOREGROUND, fontSize: 18, fontWeight: '700', marginBottom: 8 },
   sheetRow: { flexDirection: 'row', alignItems: 'center', minHeight: 52, gap: 10 },
   sheetRowTall: { paddingVertical: 8 },
-  talkHeld: { opacity: 0.85 },
   sheetRowText: { flex: 1, gap: 2 },
   sheetChoiceLabel: { color: GhostexPalette.FOREGROUND, fontSize: 18 },
   sheetNote: { color: GhostexPalette.MUTED, fontSize: 14, marginTop: 8 },

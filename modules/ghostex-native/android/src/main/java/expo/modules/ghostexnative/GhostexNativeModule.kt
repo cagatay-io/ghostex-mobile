@@ -627,6 +627,10 @@ class GhostexNativeModule : Module() {
       GhostexVoice.setTalking(talking)
     }
 
+    AsyncFunction("voiceCancelTalking") {
+      GhostexVoice.cancelTalking()
+    }
+
     AsyncFunction("voiceSetSpeed") { speed: Double ->
       GhostexVoice.setSpeed(speed)
     }

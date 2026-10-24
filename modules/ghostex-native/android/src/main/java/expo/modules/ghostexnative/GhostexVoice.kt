@@ -95,9 +95,19 @@ internal object GhostexVoice {
     current("conversation")?.setMuted(muted)
   }
 
-  /** Push-to-talk: the voice screen's Talk button pressed or released. */
+  /** The voice screen's hold button pressed or released (gxserver's talk.rs decides the turn). */
   fun setTalking(talking: Boolean) {
     current("conversation")?.setTalking(talking)
+  }
+
+  /** The finger slid off the hold button before letting go: nothing said is sent. */
+  fun cancelTalking() {
+    current("conversation")?.cancelTalking()
+  }
+
+  /** The notification's Talk / Send: starts a push-to-talk turn, or sends the one in progress. */
+  fun toggleTalking() {
+    current("conversation")?.toggleTalking()
   }
 
   fun interrupt() {
@@ -222,6 +232,7 @@ internal object GhostexVoice {
       "conversationId" to conversationId,
       "state" to state,
       "muted" to muted,
+      "talking" to talking,
       "title" to title,
       "reattaching" to (detachedAt > 0L),
     )
@@ -242,7 +253,8 @@ internal object GhostexVoice {
     private fun onMicrophone(chunk: ByteArray) {
       val live = socket ?: return
       // Dictation may stream before `ready` (gxserver buffers it); a conversation starts at `ready`.
-      if (conversationMode && (!ready || muted || focusPaused || (pushToTalk && !talking))) return
+      // A hold unmutes a muted Regular call; a push-to-talk call listens only while held.
+      if (conversationMode && (!ready || (muted && !talking) || focusPaused || (pushToTalk && !talking))) return
       live.send(chunk.toByteString())
     }
 
@@ -255,8 +267,18 @@ internal object GhostexVoice {
       refreshNotice()
     }
 
+    /**
+     * Mute, told to gxserver too: it drops the microphone's audio and refuses a push-to-talk hold
+     * while muted (Mute wins, server/src/voice_agent/talk.rs). Muting mid-hold in a push-to-talk
+     * call ends the hold with nothing sent.
+     */
     fun setMuted(value: Boolean) {
       muted = value
+      if (ready) sendJson(JSONObject().put("type", "mute").put("muted", value))
+      if (value && pushToTalk && talking) {
+        talking = false
+        status("notTalking", null)
+      }
       refreshNotice()
       status(if (value) "muted" else "unmuted", null)
     }
@@ -276,10 +298,28 @@ internal object GhostexVoice {
      * is pressed (it answers `interrupted`, as for Stop) and sends what was said when it is released.
      */
     fun setTalking(value: Boolean) {
-      if (!conversationMode || !pushToTalk || !ready || talking == value) return
+      if (!conversationMode || !ready || talking == value) return
+      // A push-to-talk call talks while unmuted (Mute wins); a Regular call holds to unmute.
+      if (value && muted == pushToTalk) {
+        status("talkRefused", if (muted) "muted" else "heard")
+        return
+      }
       talking = value
       sendJson(JSONObject().put("type", if (value) "talkStart" else "talkEnd"))
+      status(if (value) "talking" else "notTalking", null)
       refreshNotice()
+    }
+
+    fun cancelTalking() {
+      if (!conversationMode || !talking) return
+      talking = false
+      sendJson(JSONObject().put("type", "talkCancel"))
+      status("notTalking", null)
+      refreshNotice()
+    }
+
+    fun toggleTalking() {
+      if (pushToTalk) setTalking(!talking)
     }
 
     /** gxserver times the reply's end and an interruption's estimate by this rate; it resets on every attach. */
@@ -380,6 +420,9 @@ internal object GhostexVoice {
             focusTitle = focusTitleOf(frame.opt("focus"))
             pushToTalk = frame.optString("callMode") == "pushToTalk"
             talking = false
+            status("notTalking", null)
+            // gxserver starts every client unmuted; a reattach carries this phone's Mute over.
+            if (muted) sendJson(JSONObject().put("type", "mute").put("muted", true))
             sendPlaybackRate()
             refreshNotice()
           }
@@ -462,14 +505,14 @@ internal object GhostexVoice {
       val line = when {
         detachedAt > 0L -> "Reconnecting to $title…"
         focusPaused -> "Paused while another app uses audio"
-        muted -> "Microphone muted · $title"
+        muted && !talking -> "Microphone muted · $title"
         talking -> "Listening · $title"
         state == "speaking" -> "Speaking · $title"
         state == "thinking" || state == "toolRunning" -> "Thinking · $title"
         pushToTalk -> "Push-to-talk · $title"
         else -> "Listening · $title"
       }
-      GhostexForegroundService.updateVoiceMode(line, muted, pushToTalk)
+      GhostexForegroundService.updateVoiceMode(line, muted, pushToTalk, talking)
     }
 
     @Suppress("DEPRECATION")

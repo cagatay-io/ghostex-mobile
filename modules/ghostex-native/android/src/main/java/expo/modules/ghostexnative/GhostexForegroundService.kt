@@ -115,6 +115,10 @@ class GhostexForegroundService : Service() {
         GhostexVoice.setMuted(!voiceMuted)
         return START_NOT_STICKY
       }
+      ACTION_VOICE_TALK -> {
+        GhostexVoice.toggleTalking()
+        return START_NOT_STICKY
+      }
       ACTION_WAKE_LOCK -> acquireLocks()
       ACTION_WAKE_UNLOCK -> releaseLocks()
     }
@@ -243,7 +247,12 @@ class GhostexForegroundService : Service() {
     return parts.joinToString(" · ")
   }
 
-  /** "Voice mode on": the state line, Mute / Unmute and Hang up; tapping it opens the voice screen. */
+  /**
+   * "Voice mode on": the state line, Mute / Unmute (Regular) or Talk / Send (push-to-talk) and Hang
+   * up; tapping it opens the voice screen.
+   *
+   * CDXC:VoiceMode 2026-10-24 DECISION: User, asked "What can you do from the phone's notification and lock screen in a Push-to-talk call?", picked "Add a Talk button: tap to start, tap again to send" (not the recommended Hang up only). Notification buttons only take taps, so Talk starts the turn and the same button, now Send, sends it; a muted call shows no Talk (Mute wins).
+   */
   private fun buildVoiceNotification(line: String): Notification {
     val open = Intent(Intent.ACTION_VIEW, Uri.parse("ghostex://voice"))
       .setPackage(packageName)
@@ -260,12 +269,18 @@ class GhostexForegroundService : Service() {
       .setPriority(NotificationCompat.PRIORITY_HIGH)
       .setContentIntent(PendingIntent.getActivity(this, 3, open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
       .apply {
-        // A push-to-talk call listens only while Talk is held in the app, so Mute has nothing to do.
+        // A push-to-talk call listens only while Talk is held, so Mute gives way to Talk / Send there.
         if (!voicePushToTalk) {
           addAction(
             android.R.drawable.ic_btn_speak_now,
             if (voiceMuted) "Unmute" else "Mute",
             servicePendingIntent(ACTION_VOICE_MUTE, 4)
+          )
+        } else if (!voiceMuted) {
+          addAction(
+            android.R.drawable.ic_btn_speak_now,
+            if (voiceTalking) "Send" else "Talk",
+            servicePendingIntent(ACTION_VOICE_TALK, 9)
           )
         }
       }
@@ -403,6 +418,7 @@ class GhostexForegroundService : Service() {
     const val ACTION_VOICE_OFF = "expo.modules.ghostexnative.service.VOICE_OFF"
     const val ACTION_VOICE_HANG_UP = "expo.modules.ghostexnative.service.VOICE_HANG_UP"
     const val ACTION_VOICE_MUTE = "expo.modules.ghostexnative.service.VOICE_MUTE"
+    const val ACTION_VOICE_TALK = "expo.modules.ghostexnative.service.VOICE_TALK"
     const val ACTION_READ_ALOUD_ON = "expo.modules.ghostexnative.service.READ_ALOUD_ON"
     const val ACTION_READ_ALOUD_OFF = "expo.modules.ghostexnative.service.READ_ALOUD_OFF"
     const val ACTION_READ_ALOUD_STOP = "expo.modules.ghostexnative.service.READ_ALOUD_STOP"
@@ -452,6 +468,9 @@ class GhostexForegroundService : Service() {
 
     @Volatile
     private var voicePushToTalk = false
+
+    @Volatile
+    private var voiceTalking = false
 
     /** The chat Auto-read reads while Voice mode is on for Read aloud, and the computer it waits for. */
     data class ReadAloudMode(
@@ -505,11 +524,14 @@ class GhostexForegroundService : Service() {
     }
 
     /** A new state line (Listening, Speaking, Reconnecting…) for the voice notification. */
-    fun updateVoiceMode(line: String, muted: Boolean, pushToTalk: Boolean) {
-      if (voiceLine == null || (voiceLine == line && voiceMuted == muted && voicePushToTalk == pushToTalk)) return
+    fun updateVoiceMode(line: String, muted: Boolean, pushToTalk: Boolean, talking: Boolean) {
+      if (voiceLine == null ||
+        (voiceLine == line && voiceMuted == muted && voicePushToTalk == pushToTalk && voiceTalking == talking)
+      ) return
       voiceLine = line
       voiceMuted = muted
       voicePushToTalk = pushToTalk
+      voiceTalking = talking
       update()
     }
 
@@ -518,6 +540,7 @@ class GhostexForegroundService : Service() {
       if (voiceLine == null) return
       voiceLine = null
       voiceMuted = false
+      voiceTalking = false
       if (!isRunning) return
       try {
         context.startService(Intent(context, GhostexForegroundService::class.java).setAction(ACTION_VOICE_OFF))
