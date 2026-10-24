@@ -78,11 +78,11 @@ export type GhostexSettings = {
   /** Reveal thinking-owned tool calls by default. */
   sessionChatVerboseMode: boolean;
   /**
-   * The session links sheet's folded sections (`pullRequests`, `issues`, `linear`, `suggested`,
-   * `removed`), one choice per section kind for every session; the desktop's
-   * `sessionLinksFoldedSections` (SessionLinksSheet.tsx).
+   * The session links sheet's folded groups (`open`, `finished`, `suggested`, `removed`), one
+   * choice per group for every session; the desktop's `sessionLinksFoldedGroups`
+   * (SessionLinksSheet.tsx).
    */
-  sessionLinksFoldedSections: string[];
+  sessionLinksFoldedGroups: string[];
   sessionChatFileEditPreviews: boolean;
   /** Grey thinking: the agent's thinking in the muted tone, its replies in the full foreground. */
   sessionChatMutedThinking: boolean;
@@ -181,7 +181,7 @@ export function defaultSettings(): GhostexSettings {
     sessionChatTranscriptWidthPercent: DEFAULT_SESSION_CHAT_TRANSCRIPT_WIDTH_PERCENT,
     sessionChatSimpleMode: true,
     sessionChatVerboseMode: false,
-    sessionLinksFoldedSections: ['removed'],
+    sessionLinksFoldedGroups: ['finished', 'removed'],
     sessionChatFileEditPreviews: false,
     sessionChatMutedThinking: false,
     sessionChatGpuiTranscript: false,
@@ -291,9 +291,9 @@ function sanitizeSettings(value: unknown): GhostexSettings {
     sessionChatMutedThinking: bool('sessionChatMutedThinking', defaults.sessionChatMutedThinking),
     sessionChatSimpleMode: bool('sessionChatSimpleMode', defaults.sessionChatSimpleMode),
     sessionChatVerboseMode: bool('sessionChatVerboseMode', defaults.sessionChatVerboseMode),
-    sessionLinksFoldedSections: Array.isArray(record.sessionLinksFoldedSections)
-      ? record.sessionLinksFoldedSections.filter((section): section is string => typeof section === 'string')
-      : defaults.sessionLinksFoldedSections,
+    sessionLinksFoldedGroups: Array.isArray(record.sessionLinksFoldedGroups)
+      ? record.sessionLinksFoldedGroups.filter((group): group is string => typeof group === 'string')
+      : defaults.sessionLinksFoldedGroups,
     sessionChatGpuiTranscript: bool('sessionChatGpuiTranscript', defaults.sessionChatGpuiTranscript),
     sessionChatBrain:
       record.sessionChatBrain === 'builtIn' || record.sessionChatBrain === 'browserView'

@@ -17,10 +17,22 @@
  *
  * CDXC:SessionLinks 2026-10-24 DECISION:
  * User: "can u pls make all the sections in these cards colapsible with chevron? please add this for
- * pr and github issues etc (the headers there". Every section header (Pull requests, GitHub issues,
- * Linear, Suggested, Removed) has the same chevron, folds on a tap and keeps its count; which
- * sections are folded is one choice per section kind for every session, kept across restarts
- * (`sessionLinksFoldedSections`, Removed folded until opened), as on the desktop.
+ * pr and github issues etc (the headers there". Every group header has the same chevron, folds on
+ * a tap and keeps its count; which groups are folded is one choice per group for every session,
+ * kept across restarts (`sessionLinksFoldedGroups`), as on the desktop.
+ *
+ * CDXC:SessionLinks 2026-10-24 DECISION:
+ * User picked "B. Open work first, finished work folded" for the links list: it leads with an
+ * "Open N" group of the links that still need something, merged and closed links sit in one
+ * "Merged or closed N" group folded until opened, then Suggested and Removed (folded), replacing
+ * the Pull requests / GitHub issues / Linear sections here as on the desktop's card and "+N"
+ * dropdown.
+ *
+ * CDXC:SessionLinks 2026-10-24 DECISION:
+ * User: "make suggested and removed also have the same look as other ones (2 rows)". Suggested and
+ * Removed entries use the same two-line row as linked ones (number, title and state, then "Mentioned
+ * in the chat" or where a removed link came from), with Link or Restore where the × sits and no
+ * dashed box.
  */
 
 import { useEffect, useRef, useState, type ReactElement } from 'react';
@@ -89,7 +101,7 @@ export default function SessionLinksSheet({
 }: SessionLinksSheetProps): ReactElement | null {
   const [armed, setArmed] = useState<string | null>(null);
   const [undo, setUndo] = useState<GhostexSessionLink | null>(null);
-  const folded = useSettingsStore((store) => store.settings.sessionLinksFoldedSections);
+  const folded = useSettingsStore((store) => store.settings.sessionLinksFoldedGroups);
   const setSetting = useSettingsStore((store) => store.setSetting);
   const [status, setStatus] = useState<string | null>(null);
   const armTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -146,10 +158,7 @@ export default function SessionLinksSheet({
 
   const isFolded = (id: string) => folded.includes(id);
   const toggleSection = (id: string) =>
-    setSetting(
-      'sessionLinksFoldedSections',
-      isFolded(id) ? folded.filter((section) => section !== id) : [...folded, id],
-    );
+    setSetting('sessionLinksFoldedGroups', isFolded(id) ? folded.filter((section) => section !== id) : [...folded, id]);
   const sectionHeader = (id: string, title: string, count: number) => {
     const open = !isFolded(id);
     return (
@@ -169,9 +178,80 @@ export default function SessionLinksSheet({
     );
   };
 
-  const section = (id: string, title: string, kind: GhostexSessionLink['kind']) => {
-    const undone = undo !== null && undo.kind === kind ? undo : null;
-    const items = links.items.filter((link) => link.kind === kind && link.key !== undone?.key);
+  /** Every entry's two lines (a linked link, a suggestion, a removed link) with its own action on the right. */
+  const entryRow = (link: GhostexSessionLink, action: ReactElement) => {
+    const look = sessionLinkLook(link);
+    const state = sessionLinkStateLabel(link);
+    return (
+      <Pressable
+        key={link.key}
+        accessibilityRole="link"
+        accessibilityLabel={sessionLinkSummary(link)}
+        onPress={() => open(link.url)}
+        onLongPress={() => copy(link.url)}
+        style={({ pressed }) => [
+          styles.row,
+          link.finished && styles.finished,
+          pressed && { backgroundColor: P.pressedFill },
+        ]}
+      >
+        <View style={styles.rowGlyph}>
+          <ChipGlyph glyph={look.glyph} color={look.color} size={15} />
+        </View>
+        <View style={styles.rowText}>
+          <View style={styles.rowLine}>
+            <Text style={styles.rowLabel}>{link.label}</Text>
+            <Text style={styles.rowTitle} numberOfLines={1}>
+              {link.title}
+            </Text>
+            {state.length > 0 ? <Text style={[styles.rowState, { color: look.color }]}>{state}</Text> : null}
+          </View>
+          <Text
+            style={[styles.rowDetail, link.checks === 'failing' && { color: SidebarPalette.WORK_CLOSED }]}
+            numberOfLines={1}
+          >
+            {sessionLinkDetailLine(link)}
+          </Text>
+        </View>
+        {action}
+      </Pressable>
+    );
+  };
+  /** A linked entry's ×: the first tap arms it ("Remove?"), the second removes the link. */
+  const removeButton = (link: GhostexSessionLink) => {
+    const isArmed = armed === link.key;
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={isArmed ? 'Tap again to remove the link' : 'Remove from this session'}
+        hitSlop={8}
+        onPress={() => remove(link.key)}
+        style={[styles.remove, isArmed && { backgroundColor: P.destructiveFill }]}
+      >
+        {isArmed ? (
+          <Text style={[styles.removeText, { color: P.error }]}>Remove?</Text>
+        ) : (
+          <Text style={styles.removeGlyph}>×</Text>
+        )}
+      </Pressable>
+    );
+  };
+  /** Link or Restore, where a linked entry's × sits. */
+  const textButton = (label: string, accessibilityLabel: string, onPress: () => void) => (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      hitSlop={6}
+      onPress={onPress}
+      style={({ pressed }) => [styles.linkButton, { backgroundColor: pressed ? P.neutralFillPressed : P.neutralFill }]}
+    >
+      <Text style={styles.linkButtonText}>{label}</Text>
+    </Pressable>
+  );
+
+  const section = (id: string, title: string, finished: boolean) => {
+    const undone = undo !== null && undo.finished === finished ? undo : null;
+    const items = links.items.filter((link) => link.finished === finished && link.key !== undone?.key);
     if (items.length === 0 && undone === null) return null;
     return (
       <View key={id}>
@@ -195,57 +275,7 @@ export default function SessionLinksSheet({
             </Pressable>
           </View>
         ) : null}
-        {(isFolded(id) ? [] : items).map((link) => {
-          const look = sessionLinkLook(link);
-          const state = sessionLinkStateLabel(link);
-          const isArmed = armed === link.key;
-          return (
-            <Pressable
-              key={link.key}
-              accessibilityRole="link"
-              accessibilityLabel={sessionLinkSummary(link)}
-              onPress={() => open(link.url)}
-              onLongPress={() => copy(link.url)}
-              style={({ pressed }) => [
-                styles.row,
-                link.finished && styles.finished,
-                pressed && { backgroundColor: P.pressedFill },
-              ]}
-            >
-              <View style={styles.rowGlyph}>
-                <ChipGlyph glyph={look.glyph} color={look.color} size={15} />
-              </View>
-              <View style={styles.rowText}>
-                <View style={styles.rowLine}>
-                  <Text style={styles.rowLabel}>{link.label}</Text>
-                  <Text style={styles.rowTitle} numberOfLines={1}>
-                    {link.title}
-                  </Text>
-                  {state.length > 0 ? <Text style={[styles.rowState, { color: look.color }]}>{state}</Text> : null}
-                </View>
-                <Text
-                  style={[styles.rowDetail, link.checks === 'failing' && { color: SidebarPalette.WORK_CLOSED }]}
-                  numberOfLines={1}
-                >
-                  {sessionLinkDetailLine(link)}
-                </Text>
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={isArmed ? 'Tap again to remove the link' : 'Remove from this session'}
-                hitSlop={8}
-                onPress={() => remove(link.key)}
-                style={[styles.remove, isArmed && { backgroundColor: P.destructiveFill }]}
-              >
-                {isArmed ? (
-                  <Text style={[styles.removeText, { color: P.error }]}>Remove?</Text>
-                ) : (
-                  <Text style={styles.removeGlyph}>×</Text>
-                )}
-              </Pressable>
-            </Pressable>
-          );
-        })}
+        {(isFolded(id) ? [] : items).map((link) => entryRow(link, removeButton(link)))}
       </View>
     );
   };
@@ -254,64 +284,28 @@ export default function SessionLinksSheet({
   return (
     <Sheet visible={visible} onClose={onClose} title={`Links · ${summary}`}>
       <ScrollView contentContainerStyle={styles.sheetBody}>
-        {section('pullRequests', 'Pull requests', 'pullRequest')}
-        {section('issues', 'GitHub issues', 'issue')}
-        {section('linear', 'Linear', 'linear')}
+        {section('open', 'Open', false)}
+        {section('finished', 'Merged or closed', true)}
         {links.suggested.length > 0 ? (
           <View>
             {sectionHeader('suggested', 'Suggested', links.suggested.length)}
-            {(isFolded('suggested') ? [] : links.suggested).map((suggestion) => (
-              <View key={suggestion.key} style={styles.suggested}>
-                <ChipGlyph
-                  glyph={suggestion.kind === 'issue' ? 'issueOpen' : 'pullRequest'}
-                  color={SidebarPalette.WORK_DRAFT}
-                  size={15}
-                />
-                <Text style={styles.rowLabel}>{suggestion.label}</Text>
-                <Text style={styles.suggestedTitle} numberOfLines={1}>
-                  {suggestion.title.length > 0
-                    ? `${suggestion.title} · Mentioned in the chat`
-                    : 'Mentioned in the chat'}
-                </Text>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Link ${suggestion.label}`}
-                  onPress={() => add(suggestion.url)}
-                  style={({ pressed }) => [
-                    styles.linkButton,
-                    { backgroundColor: pressed ? P.neutralFillPressed : P.neutralFill },
-                  ]}
-                >
-                  <Text style={styles.linkButtonText}>Link</Text>
-                </Pressable>
-              </View>
-            ))}
+            {(isFolded('suggested') ? [] : links.suggested).map((suggestion) =>
+              entryRow(
+                suggestion,
+                textButton('Link', `Link ${suggestion.label}`, () => add(suggestion.url)),
+              ),
+            )}
           </View>
         ) : null}
         {removed.length > 0 ? (
           <View>
             {sectionHeader('removed', 'Removed', removed.length)}
-            {!isFolded('removed')
-              ? removed.map((link) => (
-                  <View key={link.key} style={styles.removedRow}>
-                    <Text style={styles.rowLabel}>{link.label}</Text>
-                    <Text style={styles.suggestedTitle} numberOfLines={1}>
-                      {link.title}
-                    </Text>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`Restore ${link.label}`}
-                      onPress={() => restore(link.key)}
-                      style={({ pressed }) => [
-                        styles.linkButton,
-                        { backgroundColor: pressed ? P.neutralFillPressed : P.neutralFill },
-                      ]}
-                    >
-                      <Text style={styles.linkButtonText}>Restore</Text>
-                    </Pressable>
-                  </View>
-                ))
-              : null}
+            {(isFolded('removed') ? [] : removed).map((link) =>
+              entryRow(
+                link,
+                textButton('Restore', `Restore ${link.label}`, () => restore(link.key)),
+              ),
+            )}
           </View>
         ) : null}
         {status !== null ? <Text style={styles.status}>{status}</Text> : null}
@@ -352,18 +346,6 @@ const useStyles = themedStyles((P) => ({
   },
   removeGlyph: { color: P.muted, fontSize: 18, lineHeight: 20 },
   removeText: { fontSize: 12.5 },
-  suggested: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    marginBottom: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: P.border,
-  },
   suggestedTitle: { color: P.muted, fontSize: 13, flex: 1, minWidth: 0 },
   linkButton: { paddingHorizontal: 12, height: 28, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
   linkButtonText: { color: P.foreground, fontSize: 13 },
@@ -378,5 +360,4 @@ const useStyles = themedStyles((P) => ({
     backgroundColor: P.cardRow,
   },
   undoLabel: { color: P.muted, fontSize: 13 },
-  removedRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, paddingHorizontal: 8 },
 }));

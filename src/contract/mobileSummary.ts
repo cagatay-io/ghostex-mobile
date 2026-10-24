@@ -334,9 +334,11 @@ export type GhostexSessionLink = {
 /** A session's links, open work first, and the PR and issue URLs its chat only mentioned. */
 export type GhostexSessionLinks = {
   items: GhostexSessionLink[];
-  suggested: { key: string; kind: 'pullRequest' | 'issue'; label: string; url: string; title: string }[];
-  /** Links a person removed, newest first, which the sheet offers to restore. */
-  removed: { key: string; kind: GhostexSessionLink['kind']; label: string; url: string; title: string }[];
+  /** Drawn like linked ones: `sourceLabel` is "Mentioned in the chat"; no checks or review. */
+  suggested: GhostexSessionLink[];
+  /** Links a person removed, newest first, which the sheet offers to restore; `sourceLabel` says
+   * where each came from (or "Removed"). */
+  removed: GhostexSessionLink[];
 };
 
 /**
@@ -995,54 +997,34 @@ function linkKind(value: string): GhostexSessionLink['kind'] {
   return value === 'pullRequest' || value === 'issue' ? value : 'linear';
 }
 
+/** One entry of `items`, `suggested` or `removed`; null without a key. */
+function parseSessionLink(item: unknown): GhostexSessionLink | null {
+  if (!isObject(item)) return null;
+  const key = trimmedValue(item, 'key');
+  if (key.length === 0) return null;
+  return {
+    key,
+    kind: linkKind(trimmedValue(item, 'kind')),
+    label: trimmedValue(item, 'label'),
+    title: trimmedValue(item, 'title'),
+    state: trimmedValue(item, 'state'),
+    stateName: trimmedValue(item, 'stateName'),
+    checks: trimmedValue(item, 'checks'),
+    review: trimmedValue(item, 'review'),
+    url: trimmedValue(item, 'url'),
+    sourceLabel: trimmedValue(item, 'sourceLabel'),
+    finished: item.finished === true,
+  };
+}
+
 /** `PresentationSessionLinks` as the summary forwards it; undefined when it lists nothing. */
 function parseSessionLinks(value: unknown): GhostexSessionLinks | undefined {
   if (!isObject(value)) return undefined;
-  const items: GhostexSessionLink[] = [];
-  for (const item of Array.isArray(value.items) ? value.items : []) {
-    if (!isObject(item)) continue;
-    const key = trimmedValue(item, 'key');
-    if (key.length === 0) continue;
-    items.push({
-      key,
-      kind: linkKind(trimmedValue(item, 'kind')),
-      label: trimmedValue(item, 'label'),
-      title: trimmedValue(item, 'title'),
-      state: trimmedValue(item, 'state'),
-      stateName: trimmedValue(item, 'stateName'),
-      checks: trimmedValue(item, 'checks'),
-      review: trimmedValue(item, 'review'),
-      url: trimmedValue(item, 'url'),
-      sourceLabel: trimmedValue(item, 'sourceLabel'),
-      finished: item.finished === true,
-    });
-  }
-  const suggested: GhostexSessionLinks['suggested'] = [];
-  for (const item of Array.isArray(value.suggested) ? value.suggested : []) {
-    if (!isObject(item)) continue;
-    const key = trimmedValue(item, 'key');
-    if (key.length === 0) continue;
-    suggested.push({
-      key,
-      kind: trimmedValue(item, 'kind') === 'issue' ? 'issue' : 'pullRequest',
-      label: trimmedValue(item, 'label'),
-      url: trimmedValue(item, 'url'),
-      title: trimmedValue(item, 'title'),
-    });
-  }
-  const removed: GhostexSessionLinks['removed'] = [];
-  for (const item of Array.isArray(value.removed) ? value.removed : []) {
-    if (!isObject(item)) continue;
-    const key = trimmedValue(item, 'key');
-    if (key.length === 0) continue;
-    removed.push({
-      key,
-      kind: linkKind(trimmedValue(item, 'kind')),
-      label: trimmedValue(item, 'label'),
-      url: trimmedValue(item, 'url'),
-      title: trimmedValue(item, 'title'),
-    });
-  }
+  const parse = (list: unknown): GhostexSessionLink[] =>
+    (Array.isArray(list) ? list : []).map(parseSessionLink).filter((link): link is GhostexSessionLink => link !== null);
+  const items = parse(value.items);
+  const suggested = parse(value.suggested);
+  const removed = parse(value.removed);
   return items.length > 0 || suggested.length > 0 || removed.length > 0 ? { items, suggested, removed } : undefined;
 }
 
