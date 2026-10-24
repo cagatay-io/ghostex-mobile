@@ -28,7 +28,7 @@
  * CDXC:SessionLinks 2026-10-24 DECISION:
  * User picked "B. Open work first, finished work folded" for the links list: it leads with an
  * "Open N" group of the links that still need something, merged and closed links sit in one
- * "Merged or closed N" group folded until opened, then Suggested and Removed (folded), replacing
+ * "Merged / Closed N" group folded until opened, then Suggested and Removed (folded), replacing
  * the Pull requests / GitHub issues / Linear sections here as on the desktop's card and "+N"
  * dropdown.
  *
@@ -259,14 +259,17 @@ export default function SessionLinksSheet({
             setHeld(null);
             pin(link);
           })}
-          {menuButton(
-            isArmed ? 'Remove?' : 'Remove',
-            () => {
-              if (isArmed) setHeld(null);
-              remove(link.key);
-            },
-            isArmed,
-          )}
+          {/* User: "please don't show x to remove link that's pinned": unpin it first. */}
+          {link.pinned
+            ? null
+            : menuButton(
+                isArmed ? 'Remove?' : 'Remove',
+                () => {
+                  if (isArmed) setHeld(null);
+                  remove(link.key);
+                },
+                isArmed,
+              )}
         </View>
       </View>
     );
@@ -295,9 +298,9 @@ export default function SessionLinksSheet({
    * CDXC:SessionLinks 2026-10-24 DECISION:
    * User: "for suggested i want the row to look just like the regular rows we have there".
    * Suggested and Removed rows are drawn like linked ones; only their action differs, an icon
-   * button (link-plus, arrow-back) instead of a bordered text button.
+   * button (link, arrow-back) instead of a bordered text button.
    */
-  const iconButton = (glyph: 'linkPlus' | 'restore', accessibilityLabel: string, onPress: () => void) => (
+  const iconButton = (glyph: 'link' | 'restore', accessibilityLabel: string, onPress: () => void) => (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
@@ -326,7 +329,7 @@ export default function SessionLinksSheet({
       </View>
     ) : null;
   /**
-   * Pinned leads, then Open and Merged or closed hold the rest.
+   * Pinned leads, then Open and Merged / Closed hold the rest.
    *
    * CDXC:SessionLinks 2026-10-24 DECISION:
    * User: "for the linked issues/prs/linear i want to be able to pin a few so they appear on top
@@ -379,14 +382,14 @@ export default function SessionLinksSheet({
         {section('pinned', 'Pinned')}
         {section('open', 'Open')}
         {section('loading', 'Loading')}
-        {section('finished', 'Merged or closed')}
+        {section('finished', 'Merged / Closed')}
         {links.suggested.length > 0 ? (
           <View>
             {sectionHeader('suggested', 'Suggested', links.suggested.length)}
             {(isFolded('suggested') ? [] : links.suggested).map((suggestion) =>
               entryRow(
                 suggestion,
-                iconButton('linkPlus', `Link ${suggestion.label}`, () => add(suggestion.url)),
+                iconButton('link', `Link ${suggestion.label}`, () => add(suggestion.url)),
               ),
             )}
           </View>

@@ -17,7 +17,6 @@ export type WorkChipGlyph =
   | 'branch'
   | 'github'
   | 'linearLogo'
-  | 'linkPlus'
   | 'pin'
   | 'pinFilled'
   | 'restore'
