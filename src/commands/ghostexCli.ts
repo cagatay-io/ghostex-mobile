@@ -528,6 +528,14 @@ export function restoreSessionLinkCommand(sessionId: string, projectId: string, 
   );
 }
 
+/** Read a session's links now (`ghostex link refresh`): what opening its links sheet asks for. */
+export function refreshSessionLinksCommand(sessionId: string, projectId: string): string {
+  return (
+    `ghostex link refresh --session-id ${shellQuote(requireId(sessionId, 'session id'))}` +
+    ` --project-id ${shellQuote(requireId(projectId, 'project id'))} --json`
+  );
+}
+
 /** Pin or unpin one of a session's links (`ghostex link pin|unpin <key>`): pinned links lead every list. */
 export function pinSessionLinkCommand(sessionId: string, projectId: string, key: string, pinned: boolean): string {
   return (

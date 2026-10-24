@@ -47,6 +47,7 @@ import * as Haptics from 'expo-haptics';
 import {
   addSessionLinkCommand,
   pinSessionLinkCommand,
+  refreshSessionLinksCommand,
   removeSessionLinkCommand,
   restoreSessionLinkCommand,
 } from '../../commands/ghostexCli';
@@ -126,6 +127,14 @@ export default function SessionLinksSheet({
     },
     [],
   );
+  // Opening the sheet reads the session's links now rather than on their usual schedule
+  // (server/src/server/session_links_sync.rs `want_session_links_now`).
+  useEffect(() => {
+    if (!visible) return;
+    void runSessionCommand(machine, refreshSessionLinksCommand(session.sessionId, session.projectId), {
+      onError: () => {},
+    });
+  }, [visible, machine, session.sessionId, session.projectId]);
   const links = session.links;
   if (links === undefined) return null;
 
