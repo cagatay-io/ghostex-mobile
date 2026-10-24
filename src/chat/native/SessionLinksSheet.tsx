@@ -323,7 +323,9 @@ export default function SessionLinksSheet({
 const useStyles = themedStyles((P) => ({
   sheetBody: { paddingHorizontal: 12, paddingBottom: 8 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 10, marginBottom: 4 },
-  section: { color: P.muted, fontSize: 12 },
+  // A tight line without Android's font padding, so the chevron centres on the letters rather than
+  // on a box whose padding sits above them.
+  section: { color: P.muted, fontSize: 12, lineHeight: 16, includeFontPadding: false, textAlignVertical: 'center' },
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
