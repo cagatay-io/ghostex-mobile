@@ -6,8 +6,12 @@
  *
  * CDXC:SessionLinks 2026-10-24 DECISION:
  * User: a tap opens a link (in the phone's browser view, or its default browser when the
- * computer's Settings > Browser > Open session links in says so), a long press copies it, and an
- * entry's × removes it after a second tap ("click on an x icon button (twice to confirm)").
+ * computer's Settings > Browser > Open session links in says so), and removing one takes a second
+ * tap ("click on an x icon button (twice to confirm)"). Per the phone's long-press rule, holding a
+ * linked entry opens its actions under it: Copy link, Pin or Unpin, and Remove (which asks
+ * "Remove?" first); the row shows no pin or × of its own, except a pinned row's filled pin. This
+ * supersedes the same day's long press that copied and the always-visible pin and ×. A suggestion
+ * or a removed link keeps its Link or Restore button, and a long press on it copies.
  *
  * CDXC:SessionLinks 2026-10-24 DECISION:
  * User: "when a link is gone i see that i can't bring it back why not?", "i mean when i hit x button
@@ -105,6 +109,8 @@ export default function SessionLinksSheet({
   openInApp,
 }: SessionLinksSheetProps): ReactElement | null {
   const [armed, setArmed] = useState<string | null>(null);
+  /** The linked entry whose actions a long press opened under it. */
+  const [held, setHeld] = useState<string | null>(null);
   const [undo, setUndo] = useState<GhostexSessionLink | null>(null);
   const folded = useSettingsStore((store) => store.settings.sessionLinksFoldedGroups);
   const setSetting = useSettingsStore((store) => store.setSetting);
@@ -184,7 +190,7 @@ export default function SessionLinksSheet({
   };
 
   /** Every entry's two lines (a linked link, a suggestion, a removed link) with its own action on the right. */
-  const entryRow = (link: GhostexSessionLink, action: ReactElement) => {
+  const entryRow = (link: GhostexSessionLink, action: ReactElement | null, holdMenu = false) => {
     const look = sessionLinkLook(link);
     /*
      * CDXC:SessionLinks 2026-10-24 DECISION:
@@ -193,13 +199,21 @@ export default function SessionLinksSheet({
      * accessibility label (`sessionLinkSummary`) still names it; the phone has no hover.
      */
     const detail = sessionLinkDetailLine(link);
-    return (
+    const row = (
       <Pressable
         key={link.key}
         accessibilityRole="link"
         accessibilityLabel={sessionLinkSummary(link)}
+        accessibilityHint={holdMenu ? 'Touch and hold for Copy link, Pin and Remove' : undefined}
         onPress={() => open(link.url)}
-        onLongPress={() => copy(link.url)}
+        onLongPress={() => {
+          if (!holdMenu) {
+            copy(link.url);
+            return;
+          }
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+          setHeld((current) => (current === link.key ? null : link.key));
+        }}
         style={({ pressed }) => [
           styles.row,
           link.finished && styles.finished,
@@ -231,26 +245,49 @@ export default function SessionLinksSheet({
         {action}
       </Pressable>
     );
-  };
-  /** A linked entry's ×: the first tap arms it ("Remove?"), the second removes the link. */
-  const removeButton = (link: GhostexSessionLink) => {
+    if (held !== link.key) return row;
     const isArmed = armed === link.key;
     return (
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={isArmed ? 'Tap again to remove the link' : 'Remove from this session'}
-        hitSlop={8}
-        onPress={() => remove(link.key)}
-        style={[styles.remove, isArmed && { backgroundColor: P.destructiveFill }]}
-      >
-        {isArmed ? (
-          <Text style={[styles.removeText, { color: P.error }]}>Remove?</Text>
-        ) : (
-          <Text style={styles.removeGlyph}>×</Text>
-        )}
-      </Pressable>
+      <View key={link.key}>
+        {row}
+        <View style={styles.heldMenu}>
+          {menuButton('Copy link', () => {
+            setHeld(null);
+            copy(link.url);
+          })}
+          {menuButton(link.pinned ? 'Unpin' : 'Pin', () => {
+            setHeld(null);
+            pin(link);
+          })}
+          {menuButton(
+            isArmed ? 'Remove?' : 'Remove',
+            () => {
+              if (isArmed) setHeld(null);
+              remove(link.key);
+            },
+            isArmed,
+          )}
+        </View>
+      </View>
     );
   };
+  /** One action of a held entry's menu. */
+  const menuButton = (label: string, onPress: () => void, destructive = false) => (
+    <Pressable
+      key={label}
+      accessibilityRole="button"
+      accessibilityLabel={label === 'Remove?' ? 'Tap again to remove the link' : label}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.linkButton,
+        {
+          backgroundColor: destructive ? P.destructiveFill : pressed ? P.neutralFillPressed : P.neutralFill,
+        },
+      ]}
+    >
+      <Text style={[styles.linkButtonText, destructive && { color: P.error }]}>{label}</Text>
+    </Pressable>
+  );
   /**
    * A suggestion's Link or a removed link's Restore: a small icon button where a linked entry's ×
    * sits.
@@ -260,11 +297,7 @@ export default function SessionLinksSheet({
    * Suggested and Removed rows are drawn like linked ones; only their action differs, an icon
    * button (link-plus, arrow-back) instead of a bordered text button.
    */
-  const iconButton = (
-    glyph: 'linkPlus' | 'restore' | 'pin' | 'pinFilled',
-    accessibilityLabel: string,
-    onPress: () => void,
-  ) => (
+  const iconButton = (glyph: 'linkPlus' | 'restore', accessibilityLabel: string, onPress: () => void) => (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
@@ -285,21 +318,20 @@ export default function SessionLinksSheet({
       },
     );
   /** A linked entry's pin and ×. */
-  const linkedActions = (link: GhostexSessionLink) => (
-    <View style={styles.actions}>
-      {iconButton(link.pinned ? 'pinFilled' : 'pin', link.pinned ? `Unpin ${link.label}` : `Pin ${link.label}`, () =>
-        pin(link),
-      )}
-      {removeButton(link)}
-    </View>
-  );
+  /** A pinned entry's filled pin; its actions are in the long-press menu. */
+  const linkedActions = (link: GhostexSessionLink) =>
+    link.pinned ? (
+      <View style={styles.remove} accessible accessibilityLabel="Pinned">
+        <ChipGlyph glyph="pinFilled" color={P.muted} size={14} />
+      </View>
+    ) : null;
   /**
    * Pinned leads, then Open and Merged or closed hold the rest.
    *
    * CDXC:SessionLinks 2026-10-24 DECISION:
    * User: "for the linked issues/prs/linear i want to be able to pin a few so they appear on top
-   * under "pinned" and they always appear in the sidebar". A pin button beside each entry's × pins
-   * or unpins it (`ghostex link pin|unpin`), and a Pinned group leads the sheet, as on the desktop.
+   * under "pinned" and they always appear in the sidebar". The long-press menu's Pin or Unpin
+   * (`ghostex link pin|unpin`) pins an entry, and a Pinned group leads the sheet, as on the desktop.
    */
   const inGroup = (link: GhostexSessionLink, id: string) =>
     id === 'pinned'
@@ -335,7 +367,7 @@ export default function SessionLinksSheet({
             </Pressable>
           </View>
         ) : null}
-        {(isFolded(id) ? [] : items).map((link) => entryRow(link, linkedActions(link)))}
+        {(isFolded(id) ? [] : items).map((link) => entryRow(link, linkedActions(link), true))}
       </View>
     );
   };
@@ -377,7 +409,7 @@ export default function SessionLinksSheet({
 }
 
 const useStyles = themedStyles((P) => ({
-  actions: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  heldMenu: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 6, paddingBottom: 8 },
   sheetBody: { paddingHorizontal: 12, paddingBottom: 8 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 10, marginBottom: 4 },
   // A tight line without Android's font padding, so the chevron centres on the letters rather than
@@ -406,8 +438,6 @@ const useStyles = themedStyles((P) => ({
     justifyContent: 'center',
     paddingHorizontal: 6,
   },
-  removeGlyph: { color: P.muted, fontSize: 18, lineHeight: 20 },
-  removeText: { fontSize: 12.5 },
   suggestedTitle: { color: P.muted, fontSize: 13, flex: 1, minWidth: 0 },
   linkButton: { paddingHorizontal: 12, height: 28, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
   linkButtonText: { color: P.foreground, fontSize: 13 },
