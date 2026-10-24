@@ -9,7 +9,7 @@
 
 import type { ReactElement } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle, G, Path } from 'react-native-svg';
 
 import { SidebarPalette } from '../../theme/palette';
 import { ds } from './rows';
@@ -40,27 +40,53 @@ export function ChipGlyph({ glyph, color, size }: { glyph: WorkChipGlyph; color:
         </>
       );
       break;
-    case 'pullRequestClosed':
+    case 'branch':
       body = (
         <>
-          <Path d="M4 18a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" {...stroke} />
-          <Path d="M4 6a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" {...stroke} />
-          <Path d="M16 18a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" {...stroke} />
-          <Path d="M6 8v8" {...stroke} />
-          <Path d="M18 11v5" {...stroke} />
-          <Path d="M16 4l4 4m0 -4l-4 4" {...stroke} />
+          <Path d="M5 18a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" {...stroke} />
+          <Path d="M5 6a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" {...stroke} />
+          <Path d="M15 6a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" {...stroke} />
+          <Path d="M7 8l0 8" {...stroke} />
+          <Path d="M9 18h6a2 2 0 0 0 2 -2v-5" {...stroke} />
+          <Path d="M14 14l3 -3l3 3" {...stroke} />
         </>
       );
       break;
-    case 'pullRequestDraft':
+    case 'github':
+      body = (
+        <Path
+          d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5"
+          {...stroke}
+        />
+      );
+      break;
+    case 'linearLogo':
+      // The Linear mark (apps/desktop/assets/titlebar/brand-linear.svg), drawn in its -2..26 box.
+      body = (
+        <G transform="translate(1.714 1.714) scale(0.857)">
+          <Path
+            d="M2.886 4.18A11.982 11.982 0 0 1 11.99 0C18.624 0 24 5.376 24 12.009c0 3.64-1.62 6.903-4.18 9.105L2.887 4.18ZM1.817 5.626l16.556 16.556c-.524.33-1.075.62-1.65.866L.951 7.277c.247-.575.537-1.126.866-1.65ZM.322 9.163l14.515 14.515c-.71.172-1.443.282-2.195.322L0 11.358a12 12 0 0 1 .322-2.195Zm-.17 4.862 9.823 9.824a12.02 12.02 0 0 1-9.824-9.824Z"
+            fill={color}
+          />
+        </G>
+      );
+      break;
+    case 'linkPlus':
       body = (
         <>
-          <Path d="M4 18a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" {...stroke} />
-          <Path d="M4 6a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" {...stroke} />
-          <Path d="M16 18a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" {...stroke} />
-          <Path d="M6 8v8" {...stroke} />
-          <Path d="M18 11h.01" {...stroke} />
-          <Path d="M18 6h.01" {...stroke} />
+          <Path d="M9 15l6 -6" {...stroke} />
+          <Path d="M11 6l.463 -.536a5 5 0 0 1 7.072 7.072l-.534 .464" {...stroke} />
+          <Path d="M13 18l-.397 .534a5.068 5.068 0 0 1 -7.127 0a4.972 4.972 0 0 1 0 -7.071l.524 -.463" {...stroke} />
+          <Path d="M16 19h6" {...stroke} />
+          <Path d="M19 16v6" {...stroke} />
+        </>
+      );
+      break;
+    case 'restore':
+      body = (
+        <>
+          <Path d="M9 14l-4 -4l4 -4" {...stroke} />
+          <Path d="M5 10h11a4 4 0 1 1 0 8h-1" {...stroke} />
         </>
       );
       break;

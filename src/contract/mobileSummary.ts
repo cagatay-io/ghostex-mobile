@@ -327,6 +327,8 @@ export type GhostexSessionLink = {
   checks: string;
   review: string;
   url: string;
+  /** Where it came from (`branch`, `closes`, `user`…); only `closes` shows, as `sourceLabel`. */
+  source: string;
   sourceLabel: string;
   finished: boolean;
 };
@@ -1012,6 +1014,7 @@ function parseSessionLink(item: unknown): GhostexSessionLink | null {
     checks: trimmedValue(item, 'checks'),
     review: trimmedValue(item, 'review'),
     url: trimmedValue(item, 'url'),
+    source: trimmedValue(item, 'source'),
     sourceLabel: trimmedValue(item, 'sourceLabel'),
     finished: item.finished === true,
   };

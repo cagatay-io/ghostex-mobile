@@ -14,45 +14,50 @@ import { SidebarPalette } from '../../theme/palette';
 
 export type SessionLinkLook = { glyph: WorkChipGlyph; color: string };
 
+/**
+ * The icon says the kind (a branch for a PR, the GitHub mark for an issue, the Linear logo for a
+ * ticket) and its colour the state (gx-core `SessionLink::glyph`).
+ *
+ * CDXC:SessionLinks 2026-10-24 DECISION:
+ * User: "Let's please not show text for issue and for Pull Request I think it's better to just show
+ * branch icon for PRs and show github icon for issues and a linear icon for linear issues." Each
+ * icon keeps its state colour. This supersedes the same day's kind word on the second line and the
+ * per-state PR and issue icons.
+ */
 export function sessionLinkLook(link: GhostexSessionLink): SessionLinkLook {
   switch (link.kind) {
     case 'pullRequest':
       switch (link.state) {
         case 'open':
-          return { glyph: 'pullRequest', color: SidebarPalette.WORK_OPEN };
+          return { glyph: 'branch', color: SidebarPalette.WORK_OPEN };
         case 'merged':
-          return { glyph: 'merged', color: SidebarPalette.WORK_MERGED };
+          return { glyph: 'branch', color: SidebarPalette.WORK_MERGED };
         case 'closed':
-          return { glyph: 'pullRequestClosed', color: SidebarPalette.WORK_CLOSED };
-        case 'draft':
-          return { glyph: 'pullRequestDraft', color: SidebarPalette.WORK_DRAFT };
+          return { glyph: 'branch', color: SidebarPalette.WORK_CLOSED };
         default:
-          return { glyph: 'pullRequest', color: SidebarPalette.WORK_DRAFT };
+          return { glyph: 'branch', color: SidebarPalette.WORK_DRAFT };
       }
     case 'issue':
-      if (link.state === 'closed') return { glyph: 'issueClosed', color: SidebarPalette.WORK_MERGED };
       return {
-        glyph: 'issueOpen',
-        color: link.state === 'open' ? SidebarPalette.WORK_OPEN : SidebarPalette.WORK_DRAFT,
+        glyph: 'github',
+        color:
+          link.state === 'closed'
+            ? SidebarPalette.WORK_MERGED
+            : link.state === 'open'
+              ? SidebarPalette.WORK_OPEN
+              : SidebarPalette.WORK_DRAFT,
       };
     case 'linear': {
       const inReview = link.stateName.toLowerCase().includes('review');
       switch (link.state) {
         case 'started':
-          return inReview
-            ? { glyph: 'linearReview', color: SidebarPalette.WORK_REVIEW }
-            : { glyph: 'linearStarted', color: SidebarPalette.WORK_STARTED };
+          return { glyph: 'linearLogo', color: inReview ? SidebarPalette.WORK_REVIEW : SidebarPalette.WORK_STARTED };
         case 'completed':
-          return { glyph: 'linearDone', color: SidebarPalette.WORK_DONE };
-        case 'canceled':
-          return { glyph: 'linearCanceled', color: SidebarPalette.WORK_DRAFT };
-        case 'backlog':
-        case 'triage':
-          return { glyph: 'linearBacklog', color: SidebarPalette.WORK_DRAFT };
+          return { glyph: 'linearLogo', color: SidebarPalette.WORK_DONE };
         case '':
-          return { glyph: 'linearCircle', color: SidebarPalette.WORK_LINEAR };
+          return { glyph: 'linearLogo', color: SidebarPalette.WORK_LINEAR };
         default:
-          return { glyph: 'linearCircle', color: SidebarPalette.WORK_DRAFT };
+          return { glyph: 'linearLogo', color: SidebarPalette.WORK_DRAFT };
       }
     }
   }
@@ -78,19 +83,13 @@ export function sessionLinkStateLabel(link: GhostexSessionLink): string {
   return link.state.length > 0 ? link.state[0].toUpperCase() + link.state.slice(1) : '';
 }
 
-/** The second line: checks, review and where the link came from. */
-/** What kind of link it is, in words: the start of its second line (gx-core `kind_label`). */
-export function sessionLinkKindLabel(link: GhostexSessionLink): string {
-  return link.kind === 'pullRequest' ? 'Pull request' : link.kind === 'issue' ? 'Issue' : 'Linear';
-}
-
 /**
- * The second line: the kind, checks, review and where the link came from (gx-core `detail_line`).
+ * The second line: only what is worth acting on, an open PR's checks and review and the PR that
+ * closes an issue ("Closed by #284"); empty draws a one-line row (gx-core `detail_line`).
  *
  * CDXC:SessionLinks 2026-10-24 DECISION:
- * User: "i don't like that i can't diffrentiate issues vs prs anymore". Every entry's second line
- * starts with its kind ("Pull request · Mentioned in the chat", "Issue · Closed by #284", "Linear ·
- * You added"), and closed and draft PRs get GitHub's closed and draft PR icons, as on the desktop.
+ * User: "i dont like the "You added"/"mentioned in chat" text there i think no need for that". Where
+ * a link came from is not shown; only "Closed by #284" stays.
  */
 export function sessionLinkDetailLine(link: GhostexSessionLink): string {
   const checks =
@@ -109,7 +108,8 @@ export function sessionLinkDetailLine(link: GhostexSessionLink): string {
         : link.review === 'changesRequested'
           ? 'Changes requested'
           : '';
-  return [sessionLinkKindLabel(link), checks, review, link.sourceLabel].filter((part) => part.length > 0).join(' · ');
+  const closedBy = link.source === 'closes' ? link.sourceLabel : '';
+  return [checks, review, closedBy].filter((part) => part.length > 0).join(' · ');
 }
 
 /** `#318 · Port the Find screen · Open`, what a chip reads out. */

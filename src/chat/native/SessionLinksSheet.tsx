@@ -182,6 +182,7 @@ export default function SessionLinksSheet({
   const entryRow = (link: GhostexSessionLink, action: ReactElement) => {
     const look = sessionLinkLook(link);
     const state = sessionLinkStateLabel(link);
+    const detail = sessionLinkDetailLine(link);
     return (
       <Pressable
         key={link.key}
@@ -206,12 +207,14 @@ export default function SessionLinksSheet({
             </Text>
             {state.length > 0 ? <Text style={[styles.rowState, { color: look.color }]}>{state}</Text> : null}
           </View>
-          <Text
-            style={[styles.rowDetail, link.checks === 'failing' && { color: SidebarPalette.WORK_CLOSED }]}
-            numberOfLines={1}
-          >
-            {sessionLinkDetailLine(link)}
-          </Text>
+          {detail.length > 0 ? (
+            <Text
+              style={[styles.rowDetail, link.checks === 'failing' && { color: SidebarPalette.WORK_CLOSED }]}
+              numberOfLines={1}
+            >
+              {detail}
+            </Text>
+          ) : null}
         </View>
         {action}
       </Pressable>
@@ -236,16 +239,24 @@ export default function SessionLinksSheet({
       </Pressable>
     );
   };
-  /** Link or Restore, where a linked entry's × sits. */
-  const textButton = (label: string, accessibilityLabel: string, onPress: () => void) => (
+  /**
+   * A suggestion's Link or a removed link's Restore: a small icon button where a linked entry's ×
+   * sits.
+   *
+   * CDXC:SessionLinks 2026-10-24 DECISION:
+   * User: "for suggested i want the row to look just like the regular rows we have there".
+   * Suggested and Removed rows are drawn like linked ones; only their action differs, an icon
+   * button (link-plus, arrow-back) instead of a bordered text button.
+   */
+  const iconButton = (glyph: 'linkPlus' | 'restore', accessibilityLabel: string, onPress: () => void) => (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      hitSlop={6}
+      hitSlop={8}
       onPress={onPress}
-      style={({ pressed }) => [styles.linkButton, { backgroundColor: pressed ? P.neutralFillPressed : P.neutralFill }]}
+      style={({ pressed }) => [styles.remove, pressed && { backgroundColor: P.neutralFillPressed }]}
     >
-      <Text style={styles.linkButtonText}>{label}</Text>
+      <ChipGlyph glyph={glyph} color={P.muted} size={16} />
     </Pressable>
   );
 
@@ -292,7 +303,7 @@ export default function SessionLinksSheet({
             {(isFolded('suggested') ? [] : links.suggested).map((suggestion) =>
               entryRow(
                 suggestion,
-                textButton('Link', `Link ${suggestion.label}`, () => add(suggestion.url)),
+                iconButton('linkPlus', `Link ${suggestion.label}`, () => add(suggestion.url)),
               ),
             )}
           </View>
@@ -303,7 +314,7 @@ export default function SessionLinksSheet({
             {(isFolded('removed') ? [] : removed).map((link) =>
               entryRow(
                 link,
-                textButton('Restore', `Restore ${link.label}`, () => restore(link.key)),
+                iconButton('restore', `Restore ${link.label}`, () => restore(link.key)),
               ),
             )}
           </View>
