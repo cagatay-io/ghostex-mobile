@@ -23,7 +23,9 @@ export function sessionLinkLook(link: GhostexSessionLink): SessionLinkLook {
         case 'merged':
           return { glyph: 'merged', color: SidebarPalette.WORK_MERGED };
         case 'closed':
-          return { glyph: 'pullRequest', color: SidebarPalette.WORK_CLOSED };
+          return { glyph: 'pullRequestClosed', color: SidebarPalette.WORK_CLOSED };
+        case 'draft':
+          return { glyph: 'pullRequestDraft', color: SidebarPalette.WORK_DRAFT };
         default:
           return { glyph: 'pullRequest', color: SidebarPalette.WORK_DRAFT };
       }
@@ -77,6 +79,19 @@ export function sessionLinkStateLabel(link: GhostexSessionLink): string {
 }
 
 /** The second line: checks, review and where the link came from. */
+/** What kind of link it is, in words: the start of its second line (gx-core `kind_label`). */
+export function sessionLinkKindLabel(link: GhostexSessionLink): string {
+  return link.kind === 'pullRequest' ? 'Pull request' : link.kind === 'issue' ? 'Issue' : 'Linear';
+}
+
+/**
+ * The second line: the kind, checks, review and where the link came from (gx-core `detail_line`).
+ *
+ * CDXC:SessionLinks 2026-10-24 DECISION:
+ * User: "i don't like that i can't diffrentiate issues vs prs anymore". Every entry's second line
+ * starts with its kind ("Pull request · Mentioned in the chat", "Issue · Closed by #284", "Linear ·
+ * You added"), and closed and draft PRs get GitHub's closed and draft PR icons, as on the desktop.
+ */
 export function sessionLinkDetailLine(link: GhostexSessionLink): string {
   const checks =
     link.checks === 'passing'
@@ -94,7 +109,7 @@ export function sessionLinkDetailLine(link: GhostexSessionLink): string {
         : link.review === 'changesRequested'
           ? 'Changes requested'
           : '';
-  return [checks, review, link.sourceLabel].filter((part) => part.length > 0).join(' · ');
+  return [sessionLinkKindLabel(link), checks, review, link.sourceLabel].filter((part) => part.length > 0).join(' · ');
 }
 
 /** `#318 · Port the Find screen · Open`, what a chip reads out. */

@@ -40,6 +40,30 @@ export function ChipGlyph({ glyph, color, size }: { glyph: WorkChipGlyph; color:
         </>
       );
       break;
+    case 'pullRequestClosed':
+      body = (
+        <>
+          <Path d="M4 18a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" {...stroke} />
+          <Path d="M4 6a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" {...stroke} />
+          <Path d="M16 18a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" {...stroke} />
+          <Path d="M6 8v8" {...stroke} />
+          <Path d="M18 11v5" {...stroke} />
+          <Path d="M16 4l4 4m0 -4l-4 4" {...stroke} />
+        </>
+      );
+      break;
+    case 'pullRequestDraft':
+      body = (
+        <>
+          <Path d="M4 18a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" {...stroke} />
+          <Path d="M4 6a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" {...stroke} />
+          <Path d="M16 18a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" {...stroke} />
+          <Path d="M6 8v8" {...stroke} />
+          <Path d="M18 11h.01" {...stroke} />
+          <Path d="M18 6h.01" {...stroke} />
+        </>
+      );
+      break;
     case 'merged':
       body = (
         <>

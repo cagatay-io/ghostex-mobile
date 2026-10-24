@@ -14,6 +14,8 @@ import { SidebarPalette } from '../../theme/palette';
 
 export type WorkChipGlyph =
   | 'pullRequest'
+  | 'pullRequestDraft'
+  | 'pullRequestClosed'
   | 'merged'
   | 'checksPassing'
   | 'checksFailing'
