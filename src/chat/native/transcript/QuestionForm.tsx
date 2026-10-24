@@ -9,8 +9,8 @@
  * packages/gx-chat-core/src/transcript/question_forms.rs. Change them together.
  */
 
-import { createContext, useCallback, useContext } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { createContext, useCallback, useContext, useRef, useState } from 'react';
+import { Modal, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 import type { Json } from '../../rust/document';
 import { useTranscriptEnv } from './context';
@@ -18,6 +18,7 @@ import { useRevealFocusedField } from './fieldReveal';
 import { useEchoedText } from '../cards/useEchoedText';
 import { AskCard, AskHead, AskOption, PrimaryButton, SoftButton, answeredColor, askColor } from '../cards/askCard';
 import { arr, obj, str, type JsonRecord } from './json';
+import { Glyph } from './icons';
 import { SingleLinePill, SingleLineTile } from './singleLineCard';
 import { MONO_FONT } from './theme';
 import { QuestionFlashFrame, useQuestionAnchor } from './OpenQuestions';
@@ -25,6 +26,60 @@ import { QuestionFlashFrame, useQuestionAnchor } from './OpenQuestions';
 /** The document's `questionForms`, by form id. */
 const FormsContext = createContext<{ [id: string]: Json }>({});
 export const QuestionFormsProvider = FormsContext.Provider;
+
+/** What the footer says about the questions left blank, behind the (i) icon; desktop `SKIPPED_HINT` (ask_card.rs) says the same. */
+const SKIPPED_HINT = 'Questions you leave blank are sent as skipped.';
+
+const HINT_WIDTH = 236;
+
+/**
+ * A small (i) icon that shows `hint` in a bubble above it on a tap; a tap anywhere else closes it.
+ *
+ * CDXC:SessionChat 2026-10-24 DECISION: User: "remove the text about skipped (add i icon there for that)". The footer's sentence wrapped into five lines beside the buttons on the phone, so the icon takes its place and the sentence shows on a tap (a hover tooltip on the computer, desktop `ask_info_hint` in ask_card.rs). Skip all and Send answers keep their size and place.
+ */
+function InfoHint({ hint }: { hint: string }) {
+  const { theme } = useTranscriptEnv();
+  const icon = useRef<View>(null);
+  const [anchor, setAnchor] = useState<{ x: number; y: number; width: number } | null>(null);
+  const screen = useWindowDimensions();
+  const close = () => setAnchor(null);
+  const left =
+    anchor === null ? 0 : Math.max(12, Math.min(anchor.x + anchor.width / 2 - 24, screen.width - HINT_WIDTH - 12));
+  return (
+    <>
+      <Pressable
+        ref={icon}
+        collapsable={false}
+        accessibilityRole="button"
+        accessibilityLabel={hint}
+        hitSlop={12}
+        onPress={() => icon.current?.measureInWindow((x, y, width) => setAnchor({ x, y, width }))}
+        style={styles.info}
+      >
+        <Glyph name="info-circle" size={17} color={theme.muted} />
+      </Pressable>
+      {anchor === null ? null : (
+        <Modal visible transparent animationType="fade" onRequestClose={close} statusBarTranslucent>
+          <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="Close the hint" />
+          <View
+            pointerEvents="none"
+            style={[
+              styles.bubble,
+              {
+                left,
+                bottom: screen.height - anchor.y + 8,
+                backgroundColor: theme.light ? '#fefefe' : '#1d1d1d',
+                borderColor: theme.light ? '#e5e5e5' : 'rgba(255,255,255,0.1)',
+              },
+            ]}
+          >
+            <Text style={[styles.bubbleText, { color: theme.foreground }]}>{hint}</Text>
+          </View>
+        </Modal>
+      )}
+    </>
+  );
+}
 
 function letter(index: number): string {
   return index < 26 ? String.fromCharCode(97 + index) : String(index + 1);
@@ -161,13 +216,20 @@ function QuestionFormCard({ id, source }: { id: string; source: string }) {
             : 'Sending…'
           : sendError.length > 0
             ? sendError
-            : 'Questions you leave blank are sent as skipped.';
+            : '';
   const sendLabel = phase === 'answered' ? 'Sent' : phase === 'queued' ? 'Queued' : str(form, 'submit');
   const footer = (
     <>
-      <Text style={[styles.status, { color: enabled && sendError.length > 0 ? theme.error : theme.muted }]}>
-        {status}
-      </Text>
+      {status.length > 0 ? (
+        <Text style={[styles.status, { color: enabled && sendError.length > 0 ? theme.error : theme.muted }]}>
+          {status}
+        </Text>
+      ) : (
+        // Nothing to report: the (i) icon holds the sentence about blank questions, in the status' place.
+        <View style={styles.status}>
+          <InfoHint hint={SKIPPED_HINT} />
+        </View>
+      )}
       {enabled ? (
         // Skip all sends at once, every question skipped whatever is picked (the core's `skip_all`; the
         // SessionChat 2026-10-16 DECISION on `SKIPPED` in packages/gx-visual/src/questions.rs).
@@ -352,5 +414,15 @@ const styles = StyleSheet.create({
   },
   textAnswer: { minHeight: 70 },
   status: { flex: 1, fontSize: 12.5 },
+  info: { alignSelf: 'flex-start', width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
+  bubble: {
+    position: 'absolute',
+    width: HINT_WIDTH,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  bubbleText: { fontSize: 13, lineHeight: 18 },
   source: { fontFamily: MONO_FONT, fontSize: 12 },
 });
