@@ -170,15 +170,23 @@ export function sessionLinksRow(
       ? { line: [], badge: { count: suggested, color: SidebarPalette.MUTED, suggested: true } }
       : { line: [], badge: null };
   }
+  // Pinned links lead `items` (gxserver sorts them first) and show under every option but Off;
+  // under Badge the title row's badge counts the rest (gx-core `SessionLinks::row`).
+  const pinned = links.filter((link) => link.pinned);
   switch (display) {
     case 'always':
       return { line: [...links], badge: null };
     case 'selected':
-      return { line: selected ? [...links] : [], badge: null };
+      return { line: selected ? [...links] : pinned, badge: null };
     case 'open':
-      return { line: links.filter((link) => !link.finished), badge: null };
-    case 'badge':
-      return { line: [], badge: { count: links.length, color: mostPressingLinkColor(links), suggested: false } };
+      return { line: links.filter((link) => link.pinned || !link.finished), badge: null };
+    case 'badge': {
+      const rest = links.filter((link) => !link.pinned);
+      return {
+        line: pinned,
+        badge: rest.length > 0 ? { count: rest.length, color: mostPressingLinkColor(rest), suggested: false } : null,
+      };
+    }
   }
 }
 

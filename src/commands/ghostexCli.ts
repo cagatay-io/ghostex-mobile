@@ -528,6 +528,14 @@ export function restoreSessionLinkCommand(sessionId: string, projectId: string, 
   );
 }
 
+/** Pin or unpin one of a session's links (`ghostex link pin|unpin <key>`): pinned links lead every list. */
+export function pinSessionLinkCommand(sessionId: string, projectId: string, key: string, pinned: boolean): string {
+  return (
+    `ghostex link ${pinned ? 'pin' : 'unpin'} ${shellQuote(key)} --session-id ${shellQuote(requireId(sessionId, 'session id'))}` +
+    ` --project-id ${shellQuote(requireId(projectId, 'project id'))} --json`
+  );
+}
+
 /** Remove a link from a session (`ghostex link remove <key>`); it never joins the session again by itself. */
 export function removeSessionLinkCommand(sessionId: string, projectId: string, key: string): string {
   return (

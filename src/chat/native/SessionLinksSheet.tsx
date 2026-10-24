@@ -40,7 +40,12 @@ import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 
-import { addSessionLinkCommand, removeSessionLinkCommand, restoreSessionLinkCommand } from '../../commands/ghostexCli';
+import {
+  addSessionLinkCommand,
+  pinSessionLinkCommand,
+  removeSessionLinkCommand,
+  restoreSessionLinkCommand,
+} from '../../commands/ghostexCli';
 import { ChipGlyph } from '../../components/sessions/WorkChips';
 import type { GhostexSession, GhostexSessionLink } from '../../contract/mobileSummary';
 import type { MachineRecord } from '../../machines/store';
@@ -49,7 +54,7 @@ import { useSettingsStore } from '../../settings/store';
 import { SidebarPalette } from '../../theme/palette';
 import { Glyph } from './composer/icons';
 import { Sheet } from './composer/Sheet';
-import { sessionLinkDetailLine, sessionLinkLook, sessionLinkStateLabel, sessionLinkSummary } from './sessionLinks';
+import { sessionLinkDetailLine, sessionLinkLook, sessionLinkSummary } from './sessionLinks';
 import { themedStyles, useTranscriptTheme } from './transcript/theme';
 
 /** How long a × waits for its confirming tap. */
@@ -181,7 +186,12 @@ export default function SessionLinksSheet({
   /** Every entry's two lines (a linked link, a suggestion, a removed link) with its own action on the right. */
   const entryRow = (link: GhostexSessionLink, action: ReactElement) => {
     const look = sessionLinkLook(link);
-    const state = sessionLinkStateLabel(link);
+    /*
+     * CDXC:SessionLinks 2026-10-24 DECISION:
+     * User: "no need for the word merged and closed i should be able to hover their icon to get that
+     * word instead in tooltip". No state word on the row: the icon's colour says it, and the row's
+     * accessibility label (`sessionLinkSummary`) still names it; the phone has no hover.
+     */
     const detail = sessionLinkDetailLine(link);
     return (
       <Pressable
@@ -202,10 +212,12 @@ export default function SessionLinksSheet({
         <View style={styles.rowText}>
           <View style={styles.rowLine}>
             <Text style={styles.rowLabel}>{link.label}</Text>
-            <Text style={styles.rowTitle} numberOfLines={1}>
-              {link.title}
+            <Text
+              style={[styles.rowTitle, link.loading && link.title.length === 0 && { color: P.muted }]}
+              numberOfLines={1}
+            >
+              {link.loading && link.title.length === 0 ? 'Loading…' : link.title}
             </Text>
-            {state.length > 0 ? <Text style={[styles.rowState, { color: look.color }]}>{state}</Text> : null}
           </View>
           {detail.length > 0 ? (
             <Text
@@ -248,7 +260,11 @@ export default function SessionLinksSheet({
    * Suggested and Removed rows are drawn like linked ones; only their action differs, an icon
    * button (link-plus, arrow-back) instead of a bordered text button.
    */
-  const iconButton = (glyph: 'linkPlus' | 'restore', accessibilityLabel: string, onPress: () => void) => (
+  const iconButton = (
+    glyph: 'linkPlus' | 'restore' | 'pin' | 'pinFilled',
+    accessibilityLabel: string,
+    onPress: () => void,
+  ) => (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
@@ -260,9 +276,42 @@ export default function SessionLinksSheet({
     </Pressable>
   );
 
-  const section = (id: string, title: string, finished: boolean) => {
-    const undone = undo !== null && undo.finished === finished ? undo : null;
-    const items = links.items.filter((link) => link.finished === finished && link.key !== undone?.key);
+  const pin = (link: GhostexSessionLink) =>
+    void runSessionCommand(
+      machine,
+      pinSessionLinkCommand(session.sessionId, session.projectId, link.key, !link.pinned),
+      {
+        onError: (message: string) => setStatus(message),
+      },
+    );
+  /** A linked entry's pin and ×. */
+  const linkedActions = (link: GhostexSessionLink) => (
+    <View style={styles.actions}>
+      {iconButton(link.pinned ? 'pinFilled' : 'pin', link.pinned ? `Unpin ${link.label}` : `Pin ${link.label}`, () =>
+        pin(link),
+      )}
+      {removeButton(link)}
+    </View>
+  );
+  /**
+   * Pinned leads, then Open and Merged or closed hold the rest.
+   *
+   * CDXC:SessionLinks 2026-10-24 DECISION:
+   * User: "for the linked issues/prs/linear i want to be able to pin a few so they appear on top
+   * under "pinned" and they always appear in the sidebar". A pin button beside each entry's × pins
+   * or unpins it (`ghostex link pin|unpin`), and a Pinned group leads the sheet, as on the desktop.
+   */
+  const inGroup = (link: GhostexSessionLink, id: string) =>
+    id === 'pinned'
+      ? link.pinned
+      : id === 'loading'
+        ? !link.pinned && link.loading
+        : id === 'open'
+          ? !link.pinned && !link.loading && !link.finished
+          : !link.pinned && !link.loading && link.finished;
+  const section = (id: string, title: string) => {
+    const undone = undo !== null && inGroup(undo, id) ? undo : null;
+    const items = links.items.filter((link) => inGroup(link, id) && link.key !== undone?.key);
     if (items.length === 0 && undone === null) return null;
     return (
       <View key={id}>
@@ -286,7 +335,7 @@ export default function SessionLinksSheet({
             </Pressable>
           </View>
         ) : null}
-        {(isFolded(id) ? [] : items).map((link) => entryRow(link, removeButton(link)))}
+        {(isFolded(id) ? [] : items).map((link) => entryRow(link, linkedActions(link)))}
       </View>
     );
   };
@@ -295,8 +344,10 @@ export default function SessionLinksSheet({
   return (
     <Sheet visible={visible} onClose={onClose} title={`Links · ${summary}`}>
       <ScrollView contentContainerStyle={styles.sheetBody}>
-        {section('open', 'Open', false)}
-        {section('finished', 'Merged or closed', true)}
+        {section('pinned', 'Pinned')}
+        {section('open', 'Open')}
+        {section('loading', 'Loading')}
+        {section('finished', 'Merged or closed')}
         {links.suggested.length > 0 ? (
           <View>
             {sectionHeader('suggested', 'Suggested', links.suggested.length)}
@@ -326,6 +377,7 @@ export default function SessionLinksSheet({
 }
 
 const useStyles = themedStyles((P) => ({
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   sheetBody: { paddingHorizontal: 12, paddingBottom: 8 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 10, marginBottom: 4 },
   // A tight line without Android's font padding, so the chevron centres on the letters rather than
@@ -345,7 +397,6 @@ const useStyles = themedStyles((P) => ({
   rowLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   rowLabel: { color: P.foreground, fontSize: 14 },
   rowTitle: { color: P.foreground, fontSize: 14, flex: 1, minWidth: 0, opacity: 0.86 },
-  rowState: { fontSize: 12.5 },
   rowDetail: { color: P.muted, fontSize: 12.5 },
   remove: {
     minWidth: 28,

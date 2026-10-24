@@ -18,6 +18,8 @@ export type WorkChipGlyph =
   | 'github'
   | 'linearLogo'
   | 'linkPlus'
+  | 'pin'
+  | 'pinFilled'
   | 'restore'
   | 'merged'
   | 'checksPassing'

@@ -41,7 +41,12 @@ import type { MenuAnchor } from './ContextMenu';
 import { ds, STATUS_DOT_SIZE } from './rows';
 import StatusDotStack from './StatusDotStack';
 import { ChevronRightGlyph, ClockGlyph, CloudGlyph, CoordinatorGlyph, CrewGlyph, PencilGlyph } from './icons';
-import WorkChips, { ChipGlyph, WORK_SESSION_ROW_HEIGHT, type WorkChipActions } from './WorkChips';
+import WorkChips, {
+  ChipGlyph,
+  WORK_CHIP_LINE_HEIGHT,
+  WORK_SESSION_ROW_HEIGHT,
+  type WorkChipActions,
+} from './WorkChips';
 import { workChips, type WorkChip } from './workChipModel';
 import {
   sessionLinkChecksMark,
@@ -380,10 +385,25 @@ export default function SessionRow({
     });
   }, [offerCleanup, session.work, linksRow]);
   // The line fits what it can to its width (WorkChips); the links it never lists count into "+N".
-  const linksNeverShown = offerCleanup ? null : (session.links?.items.length ?? 0) - linksRow.line.length;
+  // Under Badge the title row's badge counts what the pinned chips leave out.
+  const linksNeverShown = offerCleanup
+    ? null
+    : linksRow.badge !== null && !linksRow.badge.suggested
+      ? 0
+      : (session.links?.items.length ?? 0) - linksRow.line.length;
   const showChips = chips.length > 0 && workActions !== undefined;
-  const linksBadge = offerCleanup ? null : linksRow.badge;
-  const rowHeight = ds(showChips ? WORK_SESSION_ROW_HEIGHT : 34);
+  /*
+   * CDXC:SessionLinks 2026-10-24 DECISION:
+   * User: "show the option to link a thread with issues/prs etc under the name of the thread instead
+   * of on the same thread title row", narrowed to "i said that for the case where it's showing me
+   * the link icon and telling me there's suggested links". The quiet suggestions badge sits on a line
+   * under the session's name; the regular Badge stays on the title row (gx-core `SessionLinks::row`).
+   */
+  const suggestedBadge =
+    !offerCleanup && linksRow.line.length === 0 && linksRow.badge?.suggested === true ? linksRow.badge : null;
+  const showLinkLine = showChips || suggestedBadge !== null;
+  const linksBadge = offerCleanup || linksRow.badge?.suggested === true ? null : linksRow.badge;
+  const rowHeight = ds(showLinkLine ? WORK_SESSION_ROW_HEIGHT : 34);
   const linePaddingLeft = (inCard ? ds(26) : ds(47)) + titleIndent;
 
   const openMenuFromRow = (): void => {
@@ -564,6 +584,17 @@ export default function SessionRow({
             actions={workActions}
             fitLinks={linksNeverShown === null ? undefined : { neverShown: linksNeverShown }}
           />
+        ) : suggestedBadge !== null ? (
+          <View style={[styles.suggestedLine, { paddingLeft: linePaddingLeft }]}>
+            <View
+              accessible
+              accessibilityLabel={`${suggestedBadge.count} suggested links`}
+              style={[styles.linksBadge, styles.linksBadgeSuggested, { borderColor: suggestedBadge.color }]}
+            >
+              <ChipGlyph glyph="link" color={suggestedBadge.color} size={ds(10)} />
+              <Text style={[styles.linksBadgeText, { color: suggestedBadge.color }]}>{suggestedBadge.count}</Text>
+            </View>
+          </View>
         ) : null}
       </Pressable>
     </Animated.View>
@@ -579,6 +610,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: ds(5),
     borderRadius: ds(8),
     borderWidth: 1,
+  },
+  suggestedLine: {
+    height: ds(WORK_CHIP_LINE_HEIGHT),
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   linksBadgeSuggested: {
     borderStyle: 'dashed',

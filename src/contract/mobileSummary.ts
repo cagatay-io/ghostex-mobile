@@ -331,6 +331,10 @@ export type GhostexSessionLink = {
   source: string;
   sourceLabel: string;
   finished: boolean;
+  /** A person pinned it: gxserver lists it first and every sidebar option but Off shows it. */
+  pinned: boolean;
+  /** Never read yet, with a read on its way: the sheet says "Loading…" and keeps it out of Open. */
+  loading: boolean;
 };
 
 /** A session's links, open work first, and the PR and issue URLs its chat only mentioned. */
@@ -1017,6 +1021,8 @@ function parseSessionLink(item: unknown): GhostexSessionLink | null {
     source: trimmedValue(item, 'source'),
     sourceLabel: trimmedValue(item, 'sourceLabel'),
     finished: item.finished === true,
+    pinned: item.pinned === true,
+    loading: item.loading === true,
   };
 }
 
