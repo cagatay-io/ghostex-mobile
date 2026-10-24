@@ -121,21 +121,11 @@ export function sessionLinkDetailLine(link: GhostexSessionLink): string {
 export function sessionLinkCardLines(link: GhostexSessionLink): string[] {
   const loading = link.loading && link.title.length === 0;
   const title = link.title.length > 0 ? link.title : loading ? 'Loading…' : link.label;
-  const kind = link.kind === 'pullRequest' ? 'Pull request' : link.kind === 'issue' ? 'GitHub issue' : 'Linear';
-  const stateLabel = sessionLinkStateLabel(link);
-  const state = stateLabel.length > 0 ? stateLabel : loading ? 'Loading…' : '';
-  // A GitHub link's label is `#318` in the session's own repo and `repo#318` elsewhere; its key
-  // names the whole `owner/repo`.
-  const rest = link.key.slice(link.key.indexOf(':') + 1);
-  const hash = rest.lastIndexOf('#');
-  const repo = link.kind !== 'linear' && !link.label.startsWith('#') && hash > 0 ? `Repo: ${rest.slice(0, hash)}` : '';
-  return [
-    title,
-    `${link.label} · ${kind}`,
-    state.length > 0 ? `State: ${state}` : '',
-    sessionLinkDetailLine(link),
-    repo,
-  ].filter((line) => line.trim().length > 0);
+  // CDXC:SessionLinks 2026-10-25 DECISION: User: "please make the tooltip just show the title and
+  // branch, nothing else, no need to show the #123 again or show the state 'merged' thing". The
+  // title, then a pull request's branch; as gx-core `hover_card_text`.
+  const branch = link.kind === 'pullRequest' ? link.branch : '';
+  return [title, branch].filter((line) => line.trim().length > 0);
 }
 
 /** `#318 · Port the Find screen · Open`, what a chip reads out. */

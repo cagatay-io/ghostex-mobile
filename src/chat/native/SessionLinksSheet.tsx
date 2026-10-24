@@ -261,7 +261,7 @@ export default function SessionLinksSheet({
         {row}
         {/*
          * CDXC:SessionLinks 2026-10-24 DECISION:
-         * User: "when i hover over the title of a link in the floating thingy pls make it show the full title of that link (issue/pr/etc)", "also please make the tooltip look like this one which we have in the sidebar". The phone has no hover, so the card the desktop shows over a link opens at the top of its long-press menu: the full title in bold, wrapping, then the muted lines (`sessionLinkCardLines`).
+         * User: "when i hover over the title of a link in the floating thingy pls make it show the full title of that link (issue/pr/etc)", "also please make the tooltip look like this one which we have in the sidebar". The phone has no hover, so the card the desktop shows over a link opens at the top of its long-press menu: the full title in bold, wrapping, then a pull request's branch muted (`sessionLinkCardLines`).
          */}
         <View style={styles.heldCard}>
           {sessionLinkCardLines(link).map((line, index) => (

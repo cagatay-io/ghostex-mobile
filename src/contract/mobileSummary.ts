@@ -335,6 +335,8 @@ export type GhostexSessionLink = {
   pinned: boolean;
   /** Never read yet, with a read on its way: the sheet says "Loading…" and keeps it out of Open. */
   loading: boolean;
+  /** A pull request's branch (`headRefName`); '' otherwise or until read. */
+  branch: string;
 };
 
 /** A session's links, open work first, and the PR and issue URLs its chat only mentioned. */
@@ -1023,6 +1025,7 @@ function parseSessionLink(item: unknown): GhostexSessionLink | null {
     finished: item.finished === true,
     pinned: item.pinned === true,
     loading: item.loading === true,
+    branch: trimmedValue(item, 'branch'),
   };
 }
 
