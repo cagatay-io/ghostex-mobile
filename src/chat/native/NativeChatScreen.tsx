@@ -51,7 +51,7 @@ import { HandoffSheet, type HandoffRequest } from './composer/HandoffSheet';
 import type { MenuRow } from './composer/MenuSheet';
 import { attachIntakeImages } from './composer/imageIntake';
 import { SavedPromptsSheet } from './composer/SavedPromptsSheet';
-import { openForkBranch, takeLaunchDraft } from './sessionShell';
+import { openForkBranch, runCommandInTerminal, takeLaunchDraft } from './sessionShell';
 import {
   NativeChatUiProvider,
   NativeTranscript,
@@ -120,7 +120,15 @@ export default function NativeChatScreen({
   }, []);
   // The published page a page card (or a link to one) opened, shown in the chat's page sheet.
   const [page, setPage] = useState<ComputerAddress | null>(null);
-  const { toast, show } = useChatViewRequests(chat, machine, projectId, onSwitchToTerminal, openHandoff, setPage);
+  const { toast, show } = useChatViewRequests(
+    chat,
+    machine,
+    projectId,
+    sessionId,
+    onSwitchToTerminal,
+    openHandoff,
+    setPage,
+  );
   const openMachineLink = useOpenMachineLink();
   /**
    * A link the page followed: another page replaces it, a web address goes to the phone's browser
@@ -364,6 +372,7 @@ function useChatViewRequests(
   chat: RustChat,
   machine: MachineConnectionTarget,
   projectId: string,
+  sessionId: string,
   onSwitchToTerminal: () => void,
   onHandoff: (request: HandoffRequest) => void,
   onOpenPage: (page: ComputerAddress) => void,
@@ -444,6 +453,25 @@ function useChatViewRequests(
                   'Could not open that thread',
                 ),
               );
+            } else if (request.action === 'runInTerminal' || request.action === 'pasteInTerminal') {
+              // A command in a reply: a new terminal on the computer, in this session's folder, that
+              // runs it (or, for Paste, only types it), opened as its tab so the user can answer what
+              // it asks (`ghostex run-in-terminal`).
+              const params = (
+                typeof request.params === 'object' && request.params !== null ? request.params : {}
+              ) as Record<string, unknown>;
+              const command = typeof params.command === 'string' ? params.command : '';
+              if (command.trim().length === 0) return;
+              const paste = request.action === 'pasteInTerminal';
+              void runCommandInTerminal(machine, projectId, sessionId, command, paste).catch((error: unknown) =>
+                show(
+                  error instanceof Error && /unknown command|run-in-terminal/i.test(error.message)
+                    ? 'Update Ghostex on the computer to run commands from the chat.'
+                    : 'The terminal could not be started. Try again.',
+                  true,
+                  'Could not run the command',
+                ),
+              );
             } else if (request.action === 'handoffToModel') {
               const params = (
                 typeof request.params === 'object' && request.params !== null ? request.params : {}
@@ -474,6 +502,7 @@ function useChatViewRequests(
       onSwitchToTerminal,
       openMachineLink,
       projectId,
+      sessionId,
       show,
     ], // eslint-disable-line react-hooks/exhaustive-deps
   );

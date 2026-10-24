@@ -61,7 +61,8 @@ export type ListItem = { checked: boolean | null; c: Block[] };
 export type Block =
   | { t: 'p'; c: Inline[] }
   | { t: 'h'; level: number; c: Inline[] }
-  | { t: 'code'; lang: string; header: FenceHeader | null; text: string }
+  /** `run`: the command the block's Run button runs, decided by the core (`run_command.rs`). */
+  | { t: 'code'; lang: string; header: FenceHeader | null; run: string | null; text: string }
   | { t: 'list'; ordered: boolean; start: number; items: ListItem[] }
   | { t: 'quote'; c: Block[] }
   | { t: 'alert'; kind: string; c: Block[] }
@@ -83,6 +84,16 @@ export type ParseOptions = {
   /** Text somebody typed: a single newline is a line break (React's `chatText` mode). */
   breaks?: boolean;
 };
+
+/** A command the core percent-encoded into a fence header (`decode_command` in `run_command.rs`). */
+function decodeCommand(encoded: string): string | null {
+  try {
+    const command = decodeURIComponent(encoded);
+    return command.trim().length > 0 ? command : null;
+  } catch {
+    return null;
+  }
+}
 
 /** A marked fence's text: its lines without the opening and closing runs (desktop `mermaid.rs` `fence_source`). */
 function fenceSource(fence: readonly string[]): string {
@@ -386,9 +397,12 @@ class BlockParser {
     const markAt = info.indexOf(MARK);
     const plainInfo = (markAt >= 0 ? info.slice(0, markAt) : info).trim();
     let header: FenceHeader | null = null;
+    let runCommand: string | null = null;
     if (markAt >= 0) {
       try {
         const parsed = obj(JSON.parse(info.slice(markAt + 1)));
+        // The core percent-encodes the command (`encode_command` in `run_command.rs`).
+        if (parsed !== null && typeof parsed.run === 'string') runCommand = decodeCommand(parsed.run);
         if (parsed !== null && typeof parsed.label === 'string') {
           header = {
             label: parsed.label,
@@ -408,7 +422,7 @@ class BlockParser {
       body.push(line.slice(Math.min(indent, indentOf(line))));
       index += 1;
     }
-    out.push({ t: 'code', lang: plainInfo.split(/\s+/)[0] ?? '', header, text: body.join('\n') });
+    out.push({ t: 'code', lang: plainInfo.split(/\s+/)[0] ?? '', header, run: runCommand, text: body.join('\n') });
     return index + 1;
   }
 

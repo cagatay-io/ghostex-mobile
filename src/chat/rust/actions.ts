@@ -79,6 +79,10 @@ export type ActionFields = {
   previousQuestion: {};
   /** An agent message card's Go to session: the other session, focused. Desktop: `inter_agent_message.rs`. */
   openAgentSession: { projectId: string; sessionId: string };
+  /** A command in a reply, run in a new terminal of the session's folder (gx-chat-core `run_command.rs`). */
+  runInTerminal: { command: string };
+  /** The same, typed into the new terminal without pressing Enter. */
+  pasteInTerminal: { command: string };
   /** Re-read the stash badge and note dot. The host sends it once the composer is ready. */
   refreshComposerChrome: { sessionId: string };
   /** Stash the draft into Saved Prompts. */

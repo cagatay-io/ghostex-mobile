@@ -144,6 +144,19 @@ export function requestSessionRenameCommand(
   );
 }
 
+/**
+ * A chat's Run in terminal: `ghostex run-in-terminal --json [--paste] --project-id <id> --session-id <id> --command <text>`,
+ * a new terminal in that session's folder that runs the command (`--paste`: only types it).
+ */
+export function runInTerminalCommand(projectId: string, sessionId: string, command: string, paste = false): string {
+  return (
+    `ghostex run-in-terminal --json${paste ? ' --paste' : ''}` +
+    ` --project-id ${shellQuote(requireId(projectId, 'project id'))}` +
+    ` --session-id ${shellQuote(requireId(sessionId, 'session id'))}` +
+    ` --command ${shellQuote(command)}`
+  );
+}
+
 /** Create terminal session: `ghostex create-session --json [--project-id <id>] [--group-id <id>]`. */
 export function createSessionCommand(options?: { projectId?: string; groupId?: string }): string {
   const parts = ['ghostex create-session --json'];

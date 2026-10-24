@@ -8,6 +8,7 @@
  * CDXC:SessionChat 2026-10-22 DECISION: User: "Yes, make both icons tappable". A queued message's play icon (Interrupt and send) and its Back to composer icon (`DeliveryIndicator` below) are buttons on the phone too, the one exception to the 2026-10-12 rule (User: "we dont show buttons on any messages in the transcript without holding on it first (since these are shown on hover on desktop but there's no hover on mobile)"). Everything else stays in the message's menu: Copy, Edit, Back to composer, Delete, Rewind, Save prompt, Save to md and Send now are its rows, built from `useUserActionItems` / `useReplyActionItems` here, in the main transcript and the subagent viewer, and only the time and those two icons stay beside a message. Supersedes the 2026-10-21 decision's "no message shows a button".
  */
 
+import * as Clipboard from 'expo-clipboard';
 import { memo } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -15,6 +16,7 @@ import type { ProjectedMessage } from '../../rust/document';
 import { useTranscriptEnv, useTranscriptFlags } from './context';
 import { Glyph } from './icons';
 import { arr, obj, str } from './json';
+import { messageCommands } from './markdown/runCommands';
 import { rememberSaveMarkdown } from './saveMarkdownStore';
 import { PROSE_COLUMN } from './theme';
 import type { MessageMenuAction } from './transcriptMenuStore';
@@ -82,6 +84,28 @@ function useReplyActionItems(message: ProjectedMessage): ActionItem[] {
         dispatch({ type: 'markdownSaveOpen', markdown });
       },
     });
+  }
+  /*
+   * CDXC:SessionChat 2026-10-24 DECISION: User: "for inline it shouldn't be showing overlapping the command text. instead we should have 2 buttons (copy and paste in terminal (just pastes it doesn't run it)". On the phone, a reply holding one inline command offers Copy command and Paste in terminal (typed into a new terminal, Enter left to the user) in its menu; one holding one command block offers Run in terminal, which the block's own Run button beside its copy button does too.
+   */
+  const commands =
+    message.role === 'assistant' && typeof message.text === 'string' ? messageCommands(message.text) : [];
+  if (commands.length === 1) {
+    const { command, inline } = commands[0]!;
+    if (inline) {
+      items.push({ label: 'Copy command', icon: 'copy', run: () => void Clipboard.setStringAsync(command) });
+      items.push({
+        label: 'Paste in terminal',
+        icon: 'terminal-2',
+        run: () => dispatch({ type: 'pasteInTerminal', command }),
+      });
+    } else {
+      items.push({
+        label: 'Run in terminal',
+        icon: 'terminal-2',
+        run: () => dispatch({ type: 'runInTerminal', command }),
+      });
+    }
   }
   /*
    * CDXC:VoiceMode 2026-10-20 DECISION: User: a per-message Read aloud action; on the phone it is a row of the message's long-press menu, never a button on the message (CDXC:SessionChat 2026-10-12). On the reply being read it reads Stop reading.

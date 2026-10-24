@@ -22,6 +22,7 @@ import { openTranscriptMenu } from '../transcriptMenuStore';
 import { highlightText, useOwnFind, useRowFind, type RowFind } from '../searchHighlight';
 import { inlineText, parseMarkdown, type Block, type FenceHeader, type Inline } from './parse';
 import { BlockLongPress } from './blockLongPress';
+import { isRunCommandHref } from './runCommands';
 import { fitTableColumns } from './tableLayout';
 import { MarkedSection, useMarkedEmoji, useMarkedStyle } from './MarkedSections';
 
@@ -127,6 +128,15 @@ function renderInlines(
         // Pictures are split out of their paragraph before this runs (`FlowParagraph`).
         return str(inline.image, 'label');
       case 'link': {
+        // An inline command stays the code it was written as; the phone runs it from the message's
+        // long-press menu (`runCommands.ts`), never from a button on the message.
+        if (isRunCommandHref(inline.href)) {
+          return (
+            <Text key={key} style={style}>
+              {renderInlines(inline.c, context, key)}
+            </Text>
+          );
+        }
         const reference = context.references.get(`${inline.href}\u0000${inline.label}`);
         if (reference?.kind === 'question')
           return <QuestionTagPill key={key} reference={reference} href={inline.href} context={context} />;
@@ -359,6 +369,18 @@ function CodeBlock({
           >
             <Glyph name="text-wrap" size={14} color={wrapped ? theme.foreground : theme.muted} />
           </Pressable>
+          {block.run !== null ? (
+            <Pressable
+              hitSlop={6}
+              style={[styles.codeAction, styles.codeRunAction]}
+              onPress={() => block.run !== null && dispatch({ type: 'runInTerminal', command: block.run })}
+              accessibilityRole="button"
+              accessibilityLabel="Run in terminal"
+            >
+              <Glyph name="terminal-2" size={14} color={theme.muted} />
+              <Text style={[styles.codeRunLabel, { color: theme.muted }]}>Run</Text>
+            </Pressable>
+          ) : null}
           <Pressable
             hitSlop={6}
             style={styles.codeAction}
@@ -958,6 +980,8 @@ const styles = StyleSheet.create({
   codeHeaderText: { fontFamily: MONO_FONT, fontSize: 11 },
   codeActions: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   codeAction: { width: 26, height: 26, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  codeRunAction: { width: 'auto', flexDirection: 'row', gap: 3, paddingHorizontal: 6 },
+  codeRunLabel: { fontSize: 11, fontWeight: '500' },
   codeBody: { paddingHorizontal: 14, paddingVertical: 12 },
   codeText: { fontFamily: MONO_FONT, fontSize: CODE_SIZE, lineHeight: 17.5 },
   table: { gap: 2 },

@@ -10,6 +10,7 @@ import { createdSessionId, runGhostexCli } from '../../components/sessions/cli';
 import {
   createAgentCommand,
   exportSessionTranscriptCommand,
+  runInTerminalCommand,
   shellQuote,
   wakeSessionCommand,
 } from '../../commands/ghostexCli';
@@ -69,6 +70,26 @@ export async function openForkBranch(machine: MachineConnectionTarget, params: u
   if (projectId.length === 0 || sessionId.length === 0) throw new Error('The branch has no session.');
   if (text('lifecycleState') === 'stopped') await runGhostexCli(machine, wakeSessionCommand(sessionId, projectId));
   await openSessionTab(machine, sessionId, projectId);
+}
+
+/**
+ * A chat's Run in terminal (`runInTerminal`): a new plain terminal of the project on the computer,
+ * in the chat session's own folder, that types the command and presses Enter (`paste`: only types
+ * it); then its tab opens.
+ * SEE-ALSO: server/src/ghostex_cli/run_in_terminal.rs, and the desktop's
+ * apps/desktop/src/app/session_chat/run_in_terminal.rs.
+ */
+export async function runCommandInTerminal(
+  machine: MachineConnectionTarget,
+  projectId: string,
+  sessionId: string,
+  command: string,
+  paste: boolean,
+): Promise<void> {
+  const result = await runGhostexCli(machine, runInTerminalCommand(projectId, sessionId, command, paste));
+  const created = typeof result.json?.sessionId === 'string' ? result.json.sessionId.trim() : '';
+  if (created.length === 0) throw new Error('gxserver did not return the terminal.');
+  await openSessionTab(machine, created, projectId);
 }
 
 /** `modelPickerProvider`: the model family an agent's logo belongs to. */
