@@ -125,6 +125,8 @@ function ConnectionGlyph({ item }: { item: MachineTabItem }) {
 /**
  * CDXC:SessionStatus 2026-09-25 DECISION:
  * User: "Please make the indicators for sessions status in the RN session list match gpui one exactly". The desktop machine tab shows no status on the selected machine and the other machines' status as dots, not numbers, like its Spaces (apps/desktop/src/app/native_sidebar/machines.rs), so the phone draws the same overlapping dots on unselected tabs only. This supersedes the phone's numbered pills on every tab.
+ * CDXC:SessionStatus 2026-10-24 DECISION:
+ * User: "when we show those colored circles on remote machines let's make those circles appear below the remote machine tab instead of showing in a way that pushes the icon and name of the remote/local machine", and "Yes, same as the desktop" for the phone. The dots are drawn absolutely at the bottom of the tab, centred, so the glyph and label stay centred where they sit without dots and the tab keeps its height. Supersedes the dots sitting inline after the name.
  */
 function StatusDots({ item }: { item: MachineTabItem }) {
   if (item.workingCount <= 0 && item.attentionCount <= 0 && item.backgroundWorkCount <= 0 && item.questionCount <= 0) {
@@ -132,6 +134,8 @@ function StatusDots({ item }: { item: MachineTabItem }) {
   }
   return (
     <View
+      pointerEvents="none"
+      style={styles.dots}
       accessibilityLabel={[
         item.workingCount > 0 ? `${item.workingCount} working` : '',
         item.attentionCount > 0 ? `${item.attentionCount} need attention` : '',
@@ -249,6 +253,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     paddingHorizontal: 8,
+  },
+  /** Below the label, centred, out of the tab's row so nothing shifts when it appears. */
+  dots: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
   },
   addTab: {
     width: 40,
