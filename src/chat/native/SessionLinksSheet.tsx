@@ -14,6 +14,13 @@
  * twice on it". Right after the second tap the row reads "Removed · Undo" for a few seconds, and a
  * collapsed "Removed (N)" group at the bottom lists every removed link with Restore, as on the
  * desktop (apps/desktop/src/app/native_sidebar/links_list.rs).
+ *
+ * CDXC:SessionLinks 2026-10-24 DECISION:
+ * User: "can u pls make all the sections in these cards colapsible with chevron? please add this for
+ * pr and github issues etc (the headers there". Every section header (Pull requests, GitHub issues,
+ * Linear, Suggested, Removed) has the same chevron, folds on a tap and keeps its count; which
+ * sections are folded is one choice per section kind for every session, kept across restarts
+ * (`sessionLinksFoldedSections`, Removed folded until opened), as on the desktop.
  */
 
 import { useEffect, useRef, useState, type ReactElement } from 'react';
@@ -26,7 +33,9 @@ import { ChipGlyph } from '../../components/sessions/WorkChips';
 import type { GhostexSession, GhostexSessionLink } from '../../contract/mobileSummary';
 import type { MachineRecord } from '../../machines/store';
 import { runSessionCommand } from '../../sessions/sessionCommands';
+import { useSettingsStore } from '../../settings/store';
 import { SidebarPalette } from '../../theme/palette';
+import { Glyph } from './composer/icons';
 import { Sheet } from './composer/Sheet';
 import { sessionLinkDetailLine, sessionLinkLook, sessionLinkStateLabel, sessionLinkSummary } from './sessionLinks';
 import { themedStyles, useTranscriptTheme } from './transcript/theme';
@@ -80,7 +89,8 @@ export default function SessionLinksSheet({
 }: SessionLinksSheetProps): ReactElement | null {
   const [armed, setArmed] = useState<string | null>(null);
   const [undo, setUndo] = useState<GhostexSessionLink | null>(null);
-  const [removedOpen, setRemovedOpen] = useState(false);
+  const folded = useSettingsStore((store) => store.settings.sessionLinksFoldedSections);
+  const setSetting = useSettingsStore((store) => store.setSetting);
   const [status, setStatus] = useState<string | null>(null);
   const armTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -134,15 +144,38 @@ export default function SessionLinksSheet({
     .filter((part) => part.length > 0)
     .join(' · ');
 
-  const section = (title: string, kind: GhostexSessionLink['kind']) => {
+  const isFolded = (id: string) => folded.includes(id);
+  const toggleSection = (id: string) =>
+    setSetting(
+      'sessionLinksFoldedSections',
+      isFolded(id) ? folded.filter((section) => section !== id) : [...folded, id],
+    );
+  const sectionHeader = (id: string, title: string, count: number) => {
+    const open = !isFolded(id);
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${title} ${count}`}
+        accessibilityState={{ expanded: open }}
+        hitSlop={4}
+        onPress={() => toggleSection(id)}
+        style={styles.sectionHeader}
+      >
+        <Glyph name={open ? 'chevron-down' : 'chevron-right'} size={13} color={P.muted} />
+        <Text style={styles.section}>
+          {title} {count}
+        </Text>
+      </Pressable>
+    );
+  };
+
+  const section = (id: string, title: string, kind: GhostexSessionLink['kind']) => {
     const undone = undo !== null && undo.kind === kind ? undo : null;
     const items = links.items.filter((link) => link.kind === kind && link.key !== undone?.key);
     if (items.length === 0 && undone === null) return null;
     return (
-      <View key={title}>
-        <Text style={styles.section}>
-          {title} {items.length}
-        </Text>
+      <View key={id}>
+        {sectionHeader(id, title, items.length)}
         {undone !== null ? (
           <View style={styles.undoRow}>
             <Text style={styles.undoLabel}>Removed ·</Text>
@@ -162,7 +195,7 @@ export default function SessionLinksSheet({
             </Pressable>
           </View>
         ) : null}
-        {items.map((link) => {
+        {(isFolded(id) ? [] : items).map((link) => {
           const look = sessionLinkLook(link);
           const state = sessionLinkStateLabel(link);
           const isArmed = armed === link.key;
@@ -221,13 +254,13 @@ export default function SessionLinksSheet({
   return (
     <Sheet visible={visible} onClose={onClose} title={`Links · ${summary}`}>
       <ScrollView contentContainerStyle={styles.sheetBody}>
-        {section('Pull requests', 'pullRequest')}
-        {section('GitHub issues', 'issue')}
-        {section('Linear', 'linear')}
+        {section('pullRequests', 'Pull requests', 'pullRequest')}
+        {section('issues', 'GitHub issues', 'issue')}
+        {section('linear', 'Linear', 'linear')}
         {links.suggested.length > 0 ? (
           <View>
-            <Text style={styles.section}>Suggested {links.suggested.length}</Text>
-            {links.suggested.map((suggestion) => (
+            {sectionHeader('suggested', 'Suggested', links.suggested.length)}
+            {(isFolded('suggested') ? [] : links.suggested).map((suggestion) => (
               <View key={suggestion.key} style={styles.suggested}>
                 <ChipGlyph
                   glyph={suggestion.kind === 'issue' ? 'issueOpen' : 'pullRequest'}
@@ -257,16 +290,8 @@ export default function SessionLinksSheet({
         ) : null}
         {removed.length > 0 ? (
           <View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ expanded: removedOpen }}
-              onPress={() => setRemovedOpen((open) => !open)}
-            >
-              <Text style={styles.section}>
-                {removedOpen ? '▾' : '▸'} Removed ({removed.length})
-              </Text>
-            </Pressable>
-            {removedOpen
+            {sectionHeader('removed', 'Removed', removed.length)}
+            {!isFolded('removed')
               ? removed.map((link) => (
                   <View key={link.key} style={styles.removedRow}>
                     <Text style={styles.rowLabel}>{link.label}</Text>
@@ -297,7 +322,8 @@ export default function SessionLinksSheet({
 
 const useStyles = themedStyles((P) => ({
   sheetBody: { paddingHorizontal: 12, paddingBottom: 8 },
-  section: { color: P.muted, fontSize: 12, marginTop: 10, marginBottom: 4 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 10, marginBottom: 4 },
+  section: { color: P.muted, fontSize: 12 },
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',

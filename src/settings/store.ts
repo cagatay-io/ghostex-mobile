@@ -77,6 +77,12 @@ export type GhostexSettings = {
   sessionChatSimpleMode: boolean;
   /** Reveal thinking-owned tool calls by default. */
   sessionChatVerboseMode: boolean;
+  /**
+   * The session links sheet's folded sections (`pullRequests`, `issues`, `linear`, `suggested`,
+   * `removed`), one choice per section kind for every session; the desktop's
+   * `sessionLinksFoldedSections` (SessionLinksSheet.tsx).
+   */
+  sessionLinksFoldedSections: string[];
   sessionChatFileEditPreviews: boolean;
   /** Grey thinking: the agent's thinking in the muted tone, its replies in the full foreground. */
   sessionChatMutedThinking: boolean;
@@ -175,6 +181,7 @@ export function defaultSettings(): GhostexSettings {
     sessionChatTranscriptWidthPercent: DEFAULT_SESSION_CHAT_TRANSCRIPT_WIDTH_PERCENT,
     sessionChatSimpleMode: true,
     sessionChatVerboseMode: false,
+    sessionLinksFoldedSections: ['removed'],
     sessionChatFileEditPreviews: false,
     sessionChatMutedThinking: false,
     sessionChatGpuiTranscript: false,
@@ -284,6 +291,9 @@ function sanitizeSettings(value: unknown): GhostexSettings {
     sessionChatMutedThinking: bool('sessionChatMutedThinking', defaults.sessionChatMutedThinking),
     sessionChatSimpleMode: bool('sessionChatSimpleMode', defaults.sessionChatSimpleMode),
     sessionChatVerboseMode: bool('sessionChatVerboseMode', defaults.sessionChatVerboseMode),
+    sessionLinksFoldedSections: Array.isArray(record.sessionLinksFoldedSections)
+      ? record.sessionLinksFoldedSections.filter((section): section is string => typeof section === 'string')
+      : defaults.sessionLinksFoldedSections,
     sessionChatGpuiTranscript: bool('sessionChatGpuiTranscript', defaults.sessionChatGpuiTranscript),
     sessionChatBrain:
       record.sessionChatBrain === 'builtIn' || record.sessionChatBrain === 'browserView'
