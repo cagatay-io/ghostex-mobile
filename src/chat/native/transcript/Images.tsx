@@ -19,7 +19,7 @@ import {
 
 import { openChatImageViewer } from '../cards';
 import { fileNameOf, imageFailureCopy } from '../cards/ImageUnavailable';
-import { useImageDisplay, useTranscriptEnv, type ChatImageSource } from './context';
+import { useImageDisplay, useOptionalNativeChatUi, useTranscriptEnv, type ChatImageSource } from './context';
 import { Glyph } from './icons';
 import { arr, obj, str } from './json';
 import { OWNS_HOLD } from './messageSelection';
@@ -41,6 +41,15 @@ function fileMenuProps(image: ChatImageSource): { onLongPress?: () => void; nati
   const path = imageFilePath(image);
   // `OWNS_HOLD`: inside a message's text on Android the hold stays this picture's, not the message's menu.
   return path.length > 0 ? { onLongPress: () => openTranscriptMenu({ href: path }), nativeID: OWNS_HOLD } : {};
+}
+
+/**
+ * Opens the viewer on a tapped picture with the transcript's pictures to step through; a picture
+ * drawn outside the chat screen (Markdown in a card) opens on its own list.
+ */
+function useOpenPicture(): (image: ChatImageSource, list: readonly ChatImageSource[], index: number) => void {
+  const ui = useOptionalNativeChatUi();
+  return ui === null ? (_image, list, index) => openChatImageViewer(list, index) : ui.openPicture;
 }
 
 const VISUAL = {
@@ -82,6 +91,7 @@ function Thumbnail({ image }: { image: ChatImageSource }) {
 /** A picture written into prose, where its author wrote it (`inline_image` in `images.rs`). */
 export const InlineImage = memo(function InlineImage({ image }: { image: ChatImageSource }) {
   const { theme } = useTranscriptEnv();
+  const openPicture = useOpenPicture();
   const display = useImageDisplay(image);
   const label = str(image, 'label');
   const alt = str(image, 'alt');
@@ -93,7 +103,7 @@ export const InlineImage = memo(function InlineImage({ image }: { image: ChatIma
       <Pressable
         {...fileMenuProps(image)}
         style={[styles.inlineMissing, { borderColor: theme.border }]}
-        onPress={() => openChatImageViewer([image], 0)}
+        onPress={() => openPicture(image, [image], 0)}
         accessibilityRole="button"
         accessibilityLabel={`${imageFailureCopy({ reason: display.reason, error: '' }).title}: ${named}`}
       >
@@ -106,7 +116,7 @@ export const InlineImage = memo(function InlineImage({ image }: { image: ChatIma
     <Pressable
       {...fileMenuProps(image)}
       style={styles.inline}
-      onPress={() => openChatImageViewer([image], 0)}
+      onPress={() => openPicture(image, [image], 0)}
       accessibilityRole="imagebutton"
       accessibilityLabel={`View ${alt.length > 0 ? alt : label}`}
     >
@@ -132,6 +142,7 @@ export const InlineImage = memo(function InlineImage({ image }: { image: ChatIma
 export const PictureStrip = memo(function PictureStrip({ images }: { images: ChatImageSource[] }) {
   const single = images.length === 1;
   const { width: screenWidth } = useWindowDimensions();
+  const openPicture = useOpenPicture();
   const height = single ? VISUAL.singleHeight : VISUAL.stripHeight;
   // A lone picture is never wider than the screen it is read on; a row of them scrolls instead.
   const maxWidth = single ? Math.min(VISUAL.singleMaxWidth, screenWidth - 48) : VISUAL.stripMaxWidth;
@@ -144,7 +155,7 @@ export const PictureStrip = memo(function PictureStrip({ images }: { images: Cha
           index={index}
           height={height}
           maxWidth={maxWidth}
-          onOpen={() => openChatImageViewer(images, index)}
+          onOpen={() => openPicture(image, images, index)}
         />
       ))}
     </ScrollView>
@@ -238,6 +249,7 @@ function StripTile({
 /** A message's own pictures: right-aligned above a prompt, left-aligned above an agent's prose. */
 export const ImageRow = memo(function ImageRow({ images, user }: { images: unknown; user: boolean }) {
   const { theme } = useTranscriptEnv();
+  const openPicture = useOpenPicture();
   const list = arr(images)
     .map((entry) => obj(entry))
     .filter((entry): entry is ChatImageSource => entry !== null);
@@ -250,7 +262,7 @@ export const ImageRow = memo(function ImageRow({ images, user }: { images: unkno
           image={image}
           index={index}
           user={user}
-          onOpen={() => openChatImageViewer(list, index)}
+          onOpen={() => openPicture(image, list, index)}
           themeMuted={theme.muted}
         />
       ))}

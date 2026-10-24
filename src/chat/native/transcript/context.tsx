@@ -12,6 +12,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, typ
 import type { RustChat } from '../../rust/useRustChat';
 import type { ChatDocument, Json } from '../../rust/document';
 import { arr, obj, str, type JsonRecord } from './json';
+import { openChatImageViewer } from '../cards/overlayStore';
 import { DisclosureStore, RowDetailDemand } from './state';
 import type { TranscriptTheme } from './theme';
 
@@ -30,6 +31,12 @@ export type NativeChatUi = {
   renderVisual(source: string, width: number, theme: JsonRecord, progress?: number): JsonRecord | null;
   /** The same layout, awaited: the Browser view brain answers a moment later (draw-in frames). */
   renderVisualAsync(source: string, width: number, theme: JsonRecord, progress?: number): Promise<JsonRecord | null>;
+  /**
+   * Opens the image viewer on a picture the transcript shows, with every picture the transcript
+   * shows to step through (the core's `transcriptPictures`, CDXC:SessionChat 2026-10-24 in
+   * gx-chat-core `transcript/pictures.rs`); `fallback` is the list it opens on when the core cannot answer.
+   */
+  openPicture(image: ChatImageSource, fallback: readonly ChatImageSource[], index: number): void;
 };
 
 const UiContext = createContext<NativeChatUi | null>(null);
@@ -76,9 +83,23 @@ export function NativeChatUiProvider({ chat, children }: { chat: RustChat; child
       ),
     [],
   );
+  const openPicture = useCallback((image: ChatImageSource, fallback: readonly ChatImageSource[], index: number) => {
+    void queryAsyncRef
+      .current('transcriptPictures', [image])
+      .catch(() => null)
+      .then((answer) => {
+        const gallery = obj(answer);
+        const images = arr(gallery?.images)
+          .map((entry) => obj(entry))
+          .filter((entry): entry is ChatImageSource => entry !== null);
+        const at = typeof gallery?.index === 'number' ? gallery.index : -1;
+        if (images.length > 0 && at >= 0) openChatImageViewer(images, at);
+        else openChatImageViewer(fallback, index);
+      });
+  }, []);
   const value = useMemo<NativeChatUi>(
-    () => ({ disclosures, demand, requestImage, renderVisual, renderVisualAsync }),
-    [demand, disclosures, requestImage, renderVisual, renderVisualAsync],
+    () => ({ disclosures, demand, requestImage, renderVisual, renderVisualAsync, openPicture }),
+    [demand, disclosures, requestImage, renderVisual, renderVisualAsync, openPicture],
   );
   return <UiContext.Provider value={value}>{children}</UiContext.Provider>;
 }

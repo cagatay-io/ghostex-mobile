@@ -200,6 +200,8 @@ export type ChatCoreEffect =
  * `renderVisual(source, width, theme, fontFamily)` lays out one ```visual block and answers its SVG.
  * `speakableSegments(messageId)` answers what Read aloud says for one agent message (or `null`), and
  * `speakableMarkdown(markdown)` the same for any Markdown, as {@link ChatSpeechSegment}s.
+ * `transcriptPictures(picture)` answers `{images, index}`: every picture the transcript shows, opened
+ * on that one, for the image viewer's next and previous.
  */
 export type ChatCoreQuery =
   | 'composerReferences'
@@ -209,7 +211,8 @@ export type ChatCoreQuery =
   | 'sendBlockedToast'
   | 'renderVisual'
   | 'speakableSegments'
-  | 'speakableMarkdown';
+  | 'speakableMarkdown'
+  | 'transcriptPictures';
 
 // ---------------------------------------------------------------------------------------------
 // The handle

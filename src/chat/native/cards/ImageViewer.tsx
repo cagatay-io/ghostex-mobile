@@ -1,8 +1,15 @@
 /**
  * The full-size image preview over the whole chat. Port of desktop `image_viewer/` (React's
  * `session-chat-image-viewer.tsx`): the picture fitted to the screen, pinch or double tap to zoom,
- * a tap outside it closes, next / previous (the arrows, or a sideways swipe while not zoomed) across
- * the message's pictures, and Copy path / Copy image with a tick once done. Desktop's Save image goes
+ * a tap outside it closes, next / previous (the round buttons at the sides, or a sideways swipe while
+ * not zoomed) across the transcript's pictures with a "3 / 6" counter under them, and Copy path / Copy
+ * image with a tick once done.
+ *
+ * CDXC:SessionChat 2026-10-24 SEE-ALSO:
+ * The list is every picture the transcript shows, in order (gx-chat-core `transcript/pictures.rs`, with
+ * the user's words, asked through `openPicture` in `../transcript/context.tsx`). It stops at its ends,
+ * where that side's button is not drawn, as desktop's `image_viewer/step_arrows.rs` does; a phone has
+ * no pointer to bring them near, so they show whenever there is a picture that way. Desktop's Save image goes
  * through the app shell's Downloads writer, which the phone does not have, so it is not offered.
  */
 
@@ -93,10 +100,13 @@ export function ImageViewerModal({
   if (viewer === null || image === null) return null;
   const close = () => onChange(null);
   const step = (delta: number) => {
-    const count = viewer.images.length;
-    onChange({ images: viewer.images, index: (viewer.index + delta + count) % count });
+    const next = viewer.index + delta;
+    if (next < 0 || next >= viewer.images.length) return;
+    onChange({ images: viewer.images, index: next });
   };
   const several = viewer.images.length > 1;
+  const hasPrevious = viewer.index > 0;
+  const hasNext = viewer.index < viewer.images.length - 1;
   const frameWidth = width - 32;
   const frameHeight = height - insets.top - insets.bottom - 120;
   const fitted = fit(natural, frameWidth, frameHeight);
@@ -207,7 +217,6 @@ export function ImageViewerModal({
       <GestureHandlerRootView style={styles.backdrop}>
         <Pressable accessibilityLabel="Close image preview" style={StyleSheet.absoluteFill} onPress={close} />
         <View style={[styles.toolbar, { top: insets.top + 8 }]}>
-          {several ? <Text style={styles.counter}>{`${viewer.index + 1} / ${viewer.images.length}`}</Text> : null}
           <View style={styles.toolbarSpacer} />
           <View style={styles.actions}>
             {copyPath.length > 0 ? (
@@ -274,10 +283,11 @@ export function ImageViewerModal({
             </GestureDetector>
           )}
         </View>
+        {hasPrevious ? <EdgeButton side="left" onPress={() => step(-1)} /> : null}
+        {hasNext ? <EdgeButton side="right" onPress={() => step(1)} /> : null}
         {several ? (
-          <View style={[styles.stepRow, { bottom: insets.bottom + 16 }]} pointerEvents="box-none">
-            <ToolbarButton label="Previous image" icon="chevron-left" onPress={() => step(-1)} />
-            <ToolbarButton label="Next image" icon="chevron-right" onPress={() => step(1)} />
+          <View style={[styles.counterRow, { bottom: insets.bottom + 16 }]} pointerEvents="none">
+            <Text style={styles.counter}>{`${viewer.index + 1} / ${viewer.images.length}`}</Text>
           </View>
         ) : null}
       </GestureHandlerRootView>
@@ -313,6 +323,25 @@ function ToolbarButton({ label, icon, onPress }: { label: string; icon: GlyphNam
   );
 }
 
+/** The round previous / next button at one side, centred on the screen's height. */
+function EdgeButton({ side, onPress }: { side: 'left' | 'right'; onPress: () => void }) {
+  const styles = useStyles();
+  const P = useTranscriptTheme();
+  return (
+    <View style={[styles.edge, side === 'left' ? styles.edgeLeft : styles.edgeRight]} pointerEvents="box-none">
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={side === 'left' ? 'Previous image' : 'Next image'}
+        onPress={onPress}
+        hitSlop={8}
+        style={({ pressed }) => [styles.edgeButton, pressed && { backgroundColor: P.input }]}
+      >
+        <Glyph name={side === 'left' ? 'chevron-left' : 'chevron-right'} size={22} color={P.primary} />
+      </Pressable>
+    </View>
+  );
+}
+
 const useStyles = themedStyles((P) => ({
   backdrop: {
     flex: 1,
@@ -329,10 +358,43 @@ const useStyles = themedStyles((P) => ({
   toolbarSpacer: {
     flex: 1,
   },
+  counterRow: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 2,
+    alignItems: 'center',
+  },
   counter: {
-    color: P.muted,
-    fontSize: 13,
+    color: P.primary,
+    fontSize: 12,
     fontVariant: ['tabular-nums'],
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 999,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  edge: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    zIndex: 2,
+    justifyContent: 'center',
+  },
+  edgeLeft: {
+    left: 12,
+  },
+  edgeRight: {
+    right: 12,
+  },
+  edgeButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   actions: {
     flexDirection: 'row',
@@ -361,13 +423,5 @@ const useStyles = themedStyles((P) => ({
     width: '100%',
     paddingHorizontal: 20,
     alignItems: 'center',
-  },
-  stepRow: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 24,
   },
 }));
