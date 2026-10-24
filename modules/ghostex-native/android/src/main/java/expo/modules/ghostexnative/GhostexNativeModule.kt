@@ -737,6 +737,15 @@ class GhostexNativeModule : Module() {
       Events("onSelectionAction", "onHold")
     }
 
+    // The chat's images from the keyboard, Paste and a drop (Android only, `imageIntake.ts`).
+    View(GhostexImageIntakeView::class) {
+      Events("onImages", "onDropActive")
+
+      Prop("dropTarget") { view: GhostexImageIntakeView, dropTarget: Boolean ->
+        view.dropTarget = dropTarget
+      }
+    }
+
     OnDestroy {
       GhostexVoice.emitter = null
       GhostexVoiceRecorder.emitter = null

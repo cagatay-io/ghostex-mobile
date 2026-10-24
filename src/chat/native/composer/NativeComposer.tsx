@@ -27,6 +27,7 @@ import { pickAttachments, type AttachSource } from './attachments';
 import { COLLAPSED_INPUT_HEIGHT, ComposerInput, type ComposerInputHandle } from './ComposerInput';
 import { ContextEditorSheet } from './ContextEditorSheet';
 import { Glyph, type GlyphName } from './icons';
+import { attachIntakeImages } from './imageIntake';
 import { IncomingDraftBar } from './IncomingDraftBar';
 import { isTrue, obj, str, type JsonRecord } from './json';
 import {
@@ -47,7 +48,7 @@ import { OptionPills, type PillKind } from './OptionPills';
 import { RunLocationRow } from './RunLocationRow';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { QueueList } from './QueueList';
-import { parseReferences } from './references';
+import { createDraftReferenceParser } from './references';
 import { SendControl } from './SendControl';
 import { StatusLine, statusLineReserved } from './StatusLine';
 import { Suggestions } from './Suggestions';
@@ -165,10 +166,13 @@ export function NativeComposer({
     [chat.onViewRequest],
   );
 
-  // Pills: the core parses the draft (`composerReferences`) in the same turn the text changes.
+  // Pills: the core parses the draft (`composerReferences`). The Built-in brain answers in the same
+  // turn the text changes; until the Browser view brain's answer arrives, the last pills carry over
+  // the edit (`rebaseReferences`), so typing never unfolds them.
+  const [draftParser] = useState(createDraftReferenceParser);
   const parseDraftReferences = useCallback(
-    (draft: string) => parseReferences(draft, chat.query('composerReferences', [draft])),
-    [chat.query],
+    (draft: string) => draftParser(draft, chat.query('composerReferences', [draft])),
+    [chat.query, draftParser],
   );
   const references = useMemo(() => parseDraftReferences(text), [text, parseDraftReferences]);
   const activeImage = useMemo(() => {
@@ -368,6 +372,12 @@ export function NativeComposer({
     },
     [chat],
   );
+  // The keyboard's images and Paste's join the draft the way a picked photo does.
+  const receiveImages = useCallback(
+    (event: { nativeEvent: unknown }) =>
+      attachIntakeImages(chat, event.nativeEvent, (message) => onHostAction?.('toast', { message, level: 'error' })),
+    [chat, onHostAction],
+  );
   /** A source picked in the sheet, launched once the sheet's modal is gone (iOS). */
   const pickAfterDismiss = useRef<AttachSource | null>(null);
   const closeMenu = useCallback(() => {
@@ -556,6 +566,7 @@ export function NativeComposer({
                 dispatch={dispatch}
                 onTextChange={setText}
                 onCaret={setCaret}
+                onImages={receiveImages}
               />
             </View>
             {collapsed ? (

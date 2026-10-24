@@ -334,3 +334,17 @@ export type GhostexSelectionMenuViewProps = import('react-native').ViewProps & {
   /** A hold on the message that is not on its words, a link or an element that owns its hold. */
   onHold?: () => void;
 };
+
+/** One image copied into the app's cache, as `GhostexImageIntakeView` reports it. */
+export type IntakeImageFile = { uri: string; name: string; mimeType: string };
+
+export type GhostexImageIntakeViewProps = import('react-native').ViewProps & {
+  /** Images dropped on this view are taken (the chat view while its composer shows). */
+  dropTarget?: boolean;
+  /** Images the keyboard inserted, Paste put in, or a drop brought, copied into the cache. */
+  onImages?: (event: {
+    nativeEvent: { via: 'keyboard' | 'paste' | 'drop'; files: IntakeImageFile[]; failed: number };
+  }) => void;
+  /** An image is held over the drop target (`dropTarget`). */
+  onDropActive?: (event: { nativeEvent: { active: boolean } }) => void;
+};

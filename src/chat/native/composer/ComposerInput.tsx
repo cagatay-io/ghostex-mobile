@@ -19,6 +19,7 @@ import {
   type TextInputSelectionChangeEventData,
 } from 'react-native';
 
+import GhostexImageIntakeView from '../../../../modules/ghostex-native/src/GhostexImageIntakeView';
 import type { UserAction } from '../../rust/actions';
 import type { ComposerModelState } from '../../rust/composer';
 import type { RustChat } from '../../rust/useRustChat';
@@ -43,6 +44,12 @@ export const COLLAPSED_INPUT_HEIGHT = 21 + 2 + 2;
  */
 const HIDDEN_GLYPH_ADVANCE_PX = 0.55;
 
+/**
+ * The field takes dragged text only (React Native's Android drag filter, which `TextInput.js` passes
+ * on but its typings leave out), so an image held over it stays the chat view's drop.
+ */
+const TEXT_DROPS: Record<string, unknown> = { experimental_acceptDragAndDropTypes: ['text/*'] };
+
 export const ComposerInput = forwardRef<
   ComposerInputHandle,
   {
@@ -59,9 +66,24 @@ export const ComposerInput = forwardRef<
     dispatch: (action: UserAction) => void;
     onTextChange: (text: string) => void;
     onCaret: (caret: number) => void;
+    /** Images the keyboard inserted or Paste put in (`GhostexImageIntakeView`, Android). */
+    onImages: (event: { nativeEvent: unknown }) => void;
   }
 >(function ComposerInput(
-  { model, input, references, parsedFor, parse, placeholder, collapsed, maxHeight, dispatch, onTextChange, onCaret },
+  {
+    model,
+    input,
+    references,
+    parsedFor,
+    parse,
+    placeholder,
+    collapsed,
+    maxHeight,
+    dispatch,
+    onTextChange,
+    onCaret,
+    onImages,
+  },
   ref,
 ) {
   const styles = useStyles();
@@ -165,26 +187,29 @@ export const ComposerInput = forwardRef<
   // placeholder's first line itself, cut to one line with an ellipsis.
   const collapsedHint = collapsed && text.length === 0 ? (placeholder.split('\n')[0] ?? '') : null;
   const field_ = (
-    <TextInput
-      ref={field}
-      accessibilityLabel="Message composer"
-      multiline
-      scrollEnabled
-      {...(children === null ? { value: text } : {})}
-      {...(forced !== undefined ? { selection: forced } : {})}
-      onChangeText={onChangeText}
-      onSelectionChange={onSelectionChange}
-      onFocus={() => input.focused()}
-      onBlur={() => input.blurred()}
-      placeholder={collapsed ? '' : placeholder}
-      placeholderTextColor={P.placeholder}
-      keyboardAppearance={P.light ? 'light' : 'dark'}
-      autoCapitalize="sentences"
-      textAlignVertical="top"
-      style={[styles.input, collapsed ? styles.collapsed : { maxHeight }]}
-    >
-      {children}
-    </TextInput>
+    <GhostexImageIntakeView onImages={onImages}>
+      <TextInput
+        ref={field}
+        accessibilityLabel="Message composer"
+        multiline
+        scrollEnabled
+        {...(children === null ? { value: text } : {})}
+        {...(forced !== undefined ? { selection: forced } : {})}
+        onChangeText={onChangeText}
+        onSelectionChange={onSelectionChange}
+        onFocus={() => input.focused()}
+        onBlur={() => input.blurred()}
+        placeholder={collapsed ? '' : placeholder}
+        placeholderTextColor={P.placeholder}
+        keyboardAppearance={P.light ? 'light' : 'dark'}
+        autoCapitalize="sentences"
+        textAlignVertical="top"
+        style={[styles.input, collapsed ? styles.collapsed : { maxHeight }]}
+        {...TEXT_DROPS}
+      >
+        {children}
+      </TextInput>
+    </GhostexImageIntakeView>
   );
   if (collapsedHint === null) return field_;
   return (

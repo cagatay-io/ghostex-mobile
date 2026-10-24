@@ -83,6 +83,55 @@ export function guardEdit(before: string, after: string, references: readonly Co
   return { kind: 'accept' };
 }
 
+/**
+ * `references`, parsed from `before`, carried over the edit that made `after`: the pills before the
+ * edit stay, the ones after it move by its length, and one the edit touched is dropped (the core's
+ * own answer for `after` settles it).
+ *
+ * CDXC:SessionChat 2026-10-24 DECISION:
+ * User: "Typing in the chat on the phone when there's an image or another pill like that doesn't work well because it keeps expanding that pill text then collapsing it. Please fix this (i have browser brain now and I'm on android)". The Browser view brain answers `composerReferences` a turn after the keystroke, and the field drew the new draft with no pills until then: the raw `[label](path)` showed, the image tile left, and both came back with the answer. Typing never changes a pill it does not touch, so the phone carries the last pills over the edit until the core answers; the core stays the only parser.
+ */
+export function rebaseReferences(
+  before: string,
+  references: readonly ComposerReference[],
+  after: string,
+): ComposerReference[] {
+  if (before === after) return [...references];
+  const edit = diffEdit(before, after);
+  const shift = edit.inserted.length - (edit.removedEnd - edit.start);
+  const kept: ComposerReference[] = [];
+  for (const reference of references) {
+    if (reference.end <= edit.start) kept.push(reference);
+    else if (reference.start >= edit.removedEnd) {
+      kept.push({
+        ...reference,
+        start: reference.start + shift,
+        end: reference.end + shift,
+        labelStart: reference.labelStart + shift,
+        labelEnd: reference.labelEnd + shift,
+      });
+    }
+  }
+  return kept;
+}
+
+/**
+ * The composer's pill parser: the core's answer for a draft when it has one (`answer`), else the
+ * last draft's pills carried over the edit ({@link rebaseReferences}). The Built-in brain always
+ * answers; the Browser view brain answers a draft a turn after it is asked.
+ */
+export function createDraftReferenceParser(): (draft: string, answer: unknown) => ComposerReference[] {
+  let last: { draft: string; references: readonly ComposerReference[] } = { draft: '', references: [] };
+  return (draft, answer) => {
+    const parsed =
+      answer !== null && answer !== undefined
+        ? parseReferences(draft, answer)
+        : rebaseReferences(last.draft, last.references, draft);
+    last = { draft, references: parsed };
+    return parsed;
+  };
+}
+
 /** A caret strictly inside a pill snaps to its end, so the next keystroke lands after it. */
 export function snapCaret(caret: number, references: readonly ComposerReference[]): number | null {
   for (const reference of references) {

@@ -27,6 +27,7 @@ import { Animated, Linking, Platform, StyleSheet, Text, View, type StyleProp, ty
 import { DocsCopy } from '../../copy';
 import { openComputerFile, phoneOpensFile } from '../../docs/openComputerFile';
 import { remotePathForChatFile } from '../../docs/openDoc';
+import GhostexImageIntakeView from '../../../modules/ghostex-native/src/GhostexImageIntakeView';
 import { isGpuiAvailable } from '../../../modules/gx-chat-core/src/gpui';
 import { useInventoryStore } from '../../inventory/store';
 import type { MachineConnectionTarget } from '../../machines/credentials';
@@ -48,6 +49,7 @@ import { LoneScrollBottom, WorkingCard } from './cards/WorkingCard';
 import { NativeComposer } from './composer';
 import { HandoffSheet, type HandoffRequest } from './composer/HandoffSheet';
 import type { MenuRow } from './composer/MenuSheet';
+import { attachIntakeImages } from './composer/imageIntake';
 import { SavedPromptsSheet } from './composer/SavedPromptsSheet';
 import { openForkBranch, takeLaunchDraft } from './sessionShell';
 import {
@@ -248,80 +250,103 @@ export default function NativeChatScreen({
     if (queueSupported) onQueueCountChange?.(queueCount);
   }, [onQueueCountChange, queueCount, queueSupported]);
 
+  // An image dropped anywhere on the chat view joins the draft, as the attach button adds one.
+  const composerShown = !questionReplacesComposer(document);
+  const [dropActive, setDropActive] = useState(false);
+  const receiveImages = useCallback(
+    (event: { nativeEvent: unknown }) => attachIntakeImages(chat, event.nativeEvent, (message) => show(message, true)),
+    [chat, show],
+  );
+
   const renderSubagentRow = useSubagentRowRenderer(chat);
   // While the subagent viewer is open its modal carries the transcript menu (see `TranscriptMenuSheet`).
   const subagentOpen = document?.subagent !== undefined && document.subagent !== null;
 
   return (
     <NativeChatUiProvider chat={chat}>
-      <View
-        style={[styles.root, { backgroundColor: theme.background }, style, !visible && styles.preloading]}
-        pointerEvents={visible ? 'auto' : 'none'}
+      {/* An Expo view takes no `pointerEvents`, so the preloading chat's stays on the view inside. */}
+      <GhostexImageIntakeView
+        style={[styles.root, style, !visible && styles.preloading]}
+        dropTarget={visible && composerShown}
+        onImages={receiveImages}
+        onDropActive={(event) => setDropActive(event.nativeEvent.active)}
       >
-        {chat.state?.error ? <Text style={[styles.error, { color: theme.error }]}>{chat.state.error}</Text> : null}
-        {gpui ? null : <TranscriptSearchBar chat={chat} />}
-        <View style={styles.transcript}>
-          {gpui ? (
-            // GPUI draws the whole transcript region itself: search, the subagent viewer and the
-            // account switch card included.
-            <GpuiTranscript style={StyleSheet.absoluteFill} />
-          ) : (
-            <NativeTranscript chat={chat} />
+        <View style={[styles.root, { backgroundColor: theme.background }]} pointerEvents={visible ? 'auto' : 'none'}>
+          {chat.state?.error ? <Text style={[styles.error, { color: theme.error }]}>{chat.state.error}</Text> : null}
+          {gpui ? null : <TranscriptSearchBar chat={chat} />}
+          <View style={styles.transcript}>
+            {gpui ? (
+              // GPUI draws the whole transcript region itself: search, the subagent viewer and the
+              // account switch card included.
+              <GpuiTranscript style={StyleSheet.absoluteFill} />
+            ) : (
+              <NativeTranscript chat={chat} />
+            )}
+            {/* Scroll-to-bottom alone while no card carries it; the GPUI transcript draws its own. */}
+            {gpui || document === null ? null : <LoneScrollBottom document={document} armed={armed} />}
+          </View>
+          {/* The GPUI transcript reaches its computer its own way and has no chat link to watch. */}
+          {gpui ? null : <ConnectionLostNotice machine={machine} active={visible} />}
+          {/* The working card in its own row above the cards and the composer: the transcript ends above it. */}
+          {document === null ? null : (
+            <WorkingCard
+              chat={chat}
+              document={document}
+              armed={armed}
+              {...(openDelayedActions !== undefined ? { onArmedPress: openDelayedActions } : {})}
+            />
           )}
-          {/* Scroll-to-bottom alone while no card carries it; the GPUI transcript draws its own. */}
-          {gpui || document === null ? null : <LoneScrollBottom document={document} armed={armed} />}
+          <NativeChatCards chat={chat} onHostAction={hostAction} />
+          {!composerShown ? null : (
+            <NativeComposer
+              chat={chat}
+              onHostAction={hostAction}
+              hostActions={composerHostActions}
+              openAccountsRequestId={accountsRequestId}
+              voiceCallTitle={title}
+            />
+          )}
+          <RewindDialog chat={chat} />
+          <SaveMarkdownDialog chat={chat} />
+          {gpui ? null : <TranscriptMenuSheet chat={chat} host={menuHost} enabled={!subagentOpen} />}
+          <SavedPromptsSheet
+            visible={savedPromptsOpen}
+            machine={machine}
+            projectId={projectId}
+            sessionId={sessionId}
+            onClose={() => setSavedPromptsOpen(false)}
+            onInsert={(content) => chat.composer?.replace(content)}
+            onChanged={() => chat.dispatch({ type: 'refreshComposerChrome', sessionId })}
+          />
+          <HandoffSheet
+            request={handoff}
+            machine={machine}
+            projectId={projectId}
+            sessionId={sessionId}
+            onClose={() => setHandoff(null)}
+            onFailure={(failure, message) => show(message, true, failure)}
+          />
+          {gpui ? null : (
+            <NativeChatOverlays
+              chat={chat}
+              renderTranscriptItem={renderSubagentRow}
+              subagentMenu={<TranscriptMenuSheet chat={chat} host={menuHost} />}
+            />
+          )}
+          <PageSheet chat={chat} machine={machine} page={page} onClose={closePage} onOpenLink={openPageLink} />
+          <ChatToast toast={toast} />
+          {dropActive ? (
+            <View
+              pointerEvents="none"
+              style={[styles.dropHighlight, { borderColor: theme.ring, backgroundColor: theme.ringGlow }]}
+            >
+              <Text style={[styles.dropLabel, { color: theme.foreground, backgroundColor: theme.cardBackground }]}>
+                Drop to attach
+              </Text>
+            </View>
+          ) : null}
         </View>
-        {/* The GPUI transcript reaches its computer its own way and has no chat link to watch. */}
-        {gpui ? null : <ConnectionLostNotice machine={machine} active={visible} />}
-        {/* The working card in its own row above the cards and the composer: the transcript ends above it. */}
-        {document === null ? null : (
-          <WorkingCard
-            chat={chat}
-            document={document}
-            armed={armed}
-            {...(openDelayedActions !== undefined ? { onArmedPress: openDelayedActions } : {})}
-          />
-        )}
-        <NativeChatCards chat={chat} onHostAction={hostAction} />
-        {questionReplacesComposer(document) ? null : (
-          <NativeComposer
-            chat={chat}
-            onHostAction={hostAction}
-            hostActions={composerHostActions}
-            openAccountsRequestId={accountsRequestId}
-            voiceCallTitle={title}
-          />
-        )}
-        <RewindDialog chat={chat} />
-        <SaveMarkdownDialog chat={chat} />
-        {gpui ? null : <TranscriptMenuSheet chat={chat} host={menuHost} enabled={!subagentOpen} />}
-        <SavedPromptsSheet
-          visible={savedPromptsOpen}
-          machine={machine}
-          projectId={projectId}
-          sessionId={sessionId}
-          onClose={() => setSavedPromptsOpen(false)}
-          onInsert={(content) => chat.composer?.replace(content)}
-          onChanged={() => chat.dispatch({ type: 'refreshComposerChrome', sessionId })}
-        />
-        <HandoffSheet
-          request={handoff}
-          machine={machine}
-          projectId={projectId}
-          sessionId={sessionId}
-          onClose={() => setHandoff(null)}
-          onFailure={(failure, message) => show(message, true, failure)}
-        />
-        {gpui ? null : (
-          <NativeChatOverlays
-            chat={chat}
-            renderTranscriptItem={renderSubagentRow}
-            subagentMenu={<TranscriptMenuSheet chat={chat} host={menuHost} />}
-          />
-        )}
-        <PageSheet chat={chat} machine={machine} page={page} onClose={closePage} onOpenLink={openPageLink} />
-        <ChatToast toast={toast} />
-      </View>
+      </GhostexImageIntakeView>
     </NativeChatUiProvider>
   );
 }
@@ -587,4 +612,23 @@ const styles = StyleSheet.create({
   toast: { maxWidth: 420, borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, gap: 2 },
   toastTitle: { fontSize: 13, fontWeight: '600' },
   toastText: { fontSize: 13, lineHeight: 18 },
+  dropHighlight: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    right: 6,
+    bottom: 6,
+    borderWidth: 2,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dropLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
 });
