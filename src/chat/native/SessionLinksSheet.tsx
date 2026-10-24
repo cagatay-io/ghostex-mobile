@@ -58,7 +58,7 @@ import { useSettingsStore } from '../../settings/store';
 import { SidebarPalette } from '../../theme/palette';
 import { Glyph } from './composer/icons';
 import { Sheet } from './composer/Sheet';
-import { sessionLinkDetailLine, sessionLinkLook, sessionLinkSummary } from './sessionLinks';
+import { sessionLinkCardLines, sessionLinkDetailLine, sessionLinkLook, sessionLinkSummary } from './sessionLinks';
 import { themedStyles, useTranscriptTheme } from './transcript/theme';
 
 /** How long a × waits for its confirming tap. */
@@ -250,6 +250,17 @@ export default function SessionLinksSheet({
     return (
       <View key={link.key}>
         {row}
+        {/*
+         * CDXC:SessionLinks 2026-10-24 DECISION:
+         * User: "when i hover over the title of a link in the floating thingy pls make it show the full title of that link (issue/pr/etc)", "also please make the tooltip look like this one which we have in the sidebar". The phone has no hover, so the card the desktop shows over a link opens at the top of its long-press menu: the full title in bold, wrapping, then the muted lines (`sessionLinkCardLines`).
+         */}
+        <View style={styles.heldCard}>
+          {sessionLinkCardLines(link).map((line, index) => (
+            <Text key={line} style={index === 0 ? styles.heldCardTitle : styles.heldCardLine}>
+              {line}
+            </Text>
+          ))}
+        </View>
         <View style={styles.heldMenu}>
           {menuButton('Copy link', () => {
             setHeld(null);
@@ -412,6 +423,19 @@ export default function SessionLinksSheet({
 }
 
 const useStyles = themedStyles((P) => ({
+  heldCard: {
+    marginHorizontal: 6,
+    marginBottom: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    gap: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: P.menuBorder,
+    backgroundColor: P.neutralFill,
+  },
+  heldCardTitle: { color: P.foreground, fontSize: 14, lineHeight: 19, fontWeight: '600' },
+  heldCardLine: { color: P.muted, fontSize: 12.5, lineHeight: 17 },
   heldMenu: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 6, paddingBottom: 8 },
   sheetBody: { paddingHorizontal: 12, paddingBottom: 8 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 10, marginBottom: 4 },

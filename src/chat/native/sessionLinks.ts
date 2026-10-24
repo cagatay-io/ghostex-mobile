@@ -112,6 +112,32 @@ export function sessionLinkDetailLine(link: GhostexSessionLink): string {
   return [checks, review, closedBy].filter((part) => part.length > 0).join(' · ');
 }
 
+/**
+ * What hovering a link says on the desktop, as the lines of the long-press menu's card: the full
+ * title, then `#283 · GitHub issue`, `State: Open`, an open PR's checks and review (or the PR that
+ * closes an issue), and `Repo: owner/repo` when the link is not in the session's own repo (gx-core
+ * `SessionLink::hover_card_text`; the two must agree).
+ */
+export function sessionLinkCardLines(link: GhostexSessionLink): string[] {
+  const loading = link.loading && link.title.length === 0;
+  const title = link.title.length > 0 ? link.title : loading ? 'Loading…' : link.label;
+  const kind = link.kind === 'pullRequest' ? 'Pull request' : link.kind === 'issue' ? 'GitHub issue' : 'Linear';
+  const stateLabel = sessionLinkStateLabel(link);
+  const state = stateLabel.length > 0 ? stateLabel : loading ? 'Loading…' : '';
+  // A GitHub link's label is `#318` in the session's own repo and `repo#318` elsewhere; its key
+  // names the whole `owner/repo`.
+  const rest = link.key.slice(link.key.indexOf(':') + 1);
+  const hash = rest.lastIndexOf('#');
+  const repo = link.kind !== 'linear' && !link.label.startsWith('#') && hash > 0 ? `Repo: ${rest.slice(0, hash)}` : '';
+  return [
+    title,
+    `${link.label} · ${kind}`,
+    state.length > 0 ? `State: ${state}` : '',
+    sessionLinkDetailLine(link),
+    repo,
+  ].filter((line) => line.trim().length > 0);
+}
+
 /** `#318 · Port the Find screen · Open`, what a chip reads out. */
 export function sessionLinkSummary(link: GhostexSessionLink): string {
   return [link.label, link.title, sessionLinkStateLabel(link)].filter((part) => part.length > 0).join(' · ');
