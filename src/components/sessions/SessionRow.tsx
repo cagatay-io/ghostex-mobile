@@ -2,7 +2,7 @@
  * SESSION row renderer, cloned from the desktop gpui reference sidebar
  * (packages/core-ui/styles/session-cards.css reference-layout skin +
  * session-card-content.tsx): 34dp flat row, absolutely-placed leading agent
- * icon at 48% opacity (13dp brand masks, 15dp terminal/browser glyphs) that an
+ * icon at 70% opacity, 48% on a sleeping row (13dp brand masks, 15dp terminal/browser glyphs) that an
  * active Delayed Send (yellow clock) or Close After Done (pastel-red clock)
  * timer replaces at full opacity, 15.5dp weight-300 title (#b4b8c0), and ONE
  * shared trailing slot flush at the row's right edge. A tagged session paints
@@ -286,9 +286,6 @@ export type SessionRowProps = {
   sessionLinksDisplay?: SessionLinksDisplay;
 };
 
-/** Chips a row's links line shows before its "+N". */
-const ROW_LINK_CHIPS = 3;
-
 /**
  * CDXC:SessionStatus 2026-09-25 DECISION:
  * User: "Please make the indicators for sessions status in the RN session list match gpui one exactly". The row draws what the desktop sidebar row draws (apps/desktop/src/app/native_sidebar/sessions.rs, status.rs, icons.rs) in the same order and sizes: a static 8dp orange dot while working, a 7dp blue dot in attention, an 8dp grey dot for a background shell or monitor on an otherwise idle row, each centered in a 19x16 slot; a pending question replaces the dot and the time with a 6dp pink dot (after the orange one while working); then the timer countdown, or the relative time on a row with no dot, in #a6a6a6 (#686868 while sleeping); an 18dp yellow or pastel-red clock in the leading slot for Delayed Send and Close After Done; and the three-dip completion flash when a session enters attention with the completion sound on. Lifecycle (sleeping, stopped, error) draws no dot, as on the desktop. This supersedes the phone's spinning working ring and its red error and blue done dots. The 2026-10-20 decision in rows.tsx (`STATUS_DOT_SIZE`) supersedes the mixed sizes: every dot is 8dp.
@@ -368,7 +365,7 @@ export default function SessionRow({
         .filter((chip) => chip.key === 'pr' || chip.key === 'cleanup' || chip.key === 'keep')
         .map((chip) => (chip.key === 'pr' ? { ...chip, trailing: undefined } : chip));
     }
-    return linksRow.line.slice(0, ROW_LINK_CHIPS).map((link) => {
+    return linksRow.line.map((link) => {
       const look = sessionLinkLook(link);
       const checks = sessionLinkChecksMark(link);
       return {
@@ -382,7 +379,8 @@ export default function SessionRow({
       };
     });
   }, [offerCleanup, session.work, linksRow]);
-  const linksOverflow = offerCleanup ? 0 : Math.max(0, (session.links?.items.length ?? 0) - chips.length);
+  // The line fits what it can to its width (WorkChips); the links it never lists count into "+N".
+  const linksNeverShown = offerCleanup ? null : (session.links?.items.length ?? 0) - linksRow.line.length;
   const showChips = chips.length > 0 && workActions !== undefined;
   const linksBadge = offerCleanup ? null : linksRow.badge;
   const rowHeight = ds(showChips ? WORK_SESSION_ROW_HEIGHT : 34);
@@ -422,7 +420,9 @@ export default function SessionRow({
                 ? styles.iconTimer
                 : active && !draftPencil
                   ? styles.iconActive
-                  : null,
+                  : session.isSleeping || draftPencil
+                    ? null
+                    : styles.iconAwake,
             ]}
           >
             {/* The clock is 18dp inside the 15dp slot, overhanging it evenly, as on the desktop. */}
@@ -558,7 +558,12 @@ export default function SessionRow({
           ) : null}
         </View>
         {showChips ? (
-          <WorkChips chips={chips} paddingLeft={linePaddingLeft} actions={workActions} overflow={linksOverflow} />
+          <WorkChips
+            chips={chips}
+            paddingLeft={linePaddingLeft}
+            actions={workActions}
+            fitLinks={linksNeverShown === null ? undefined : { neverShown: linksNeverShown }}
+          />
         ) : null}
       </Pressable>
     </Animated.View>
@@ -612,6 +617,12 @@ const styles = StyleSheet.create({
   },
   iconActive: {
     opacity: 0.8,
+  },
+  /**
+   * CDXC:Sidebar 2026-10-24 DECISION: User: "ok do 70% for non sleeping basically for now (for agent icons)". An awake row that is not the open session rests its icon at 70%; a sleeping row keeps the base 48%. The desktop's `native_sidebar/icons.rs` uses the same two values.
+   */
+  iconAwake: {
+    opacity: 0.7,
   },
   iconTimer: {
     opacity: 1,

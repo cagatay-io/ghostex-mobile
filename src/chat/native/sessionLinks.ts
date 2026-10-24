@@ -181,3 +181,24 @@ export function sessionLinksRow(
       return { line: [], badge: { count: links.length, color: mostPressingLinkColor(links), suggested: false } };
   }
 }
+
+/**
+ * How many of a links line's chips fit in `available`, in order: the most that fit together with
+ * the "+N" pill (`pillWidth` for its count) whenever any link is left out; `neverShown` links (the
+ * finished ones under Open work only) count into "+N" too. gx-core `link_chips_that_fit`.
+ */
+export function linkChipsThatFit(
+  chipWidths: readonly number[],
+  neverShown: number,
+  available: number,
+  gap: number,
+  pillWidth: (hidden: number) => number,
+): number {
+  for (let shown = chipWidths.length; shown >= 0; shown--) {
+    const chips = chipWidths.slice(0, shown).reduce((sum, width) => sum + width, 0) + gap * Math.max(0, shown - 1);
+    const hidden = chipWidths.length - shown + neverShown;
+    const pill = hidden === 0 ? 0 : pillWidth(hidden) + (shown > 0 ? gap : 0);
+    if (chips + pill <= available) return shown;
+  }
+  return 0;
+}

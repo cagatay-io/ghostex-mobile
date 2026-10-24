@@ -7,10 +7,11 @@
  * User: in work mode a session linked to a PR, issue or Linear project gets a second line of borderless chips (PR with state and checks, issue with status); clicking one opens it; sessions with no links stay one line. On the phone a tap opens the link, a long press copies it (the phone has no hover, so a pressed chip underlines instead), and the merged-PR offer's Clean up / Keep chips answer it.
  */
 
-import type { ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, G, Path } from 'react-native-svg';
 
+import { linkChipsThatFit } from '../../chat/native/sessionLinks';
 import { SidebarPalette } from '../../theme/palette';
 import { ds } from './rows';
 import type { WorkChip, WorkChipGlyph } from './workChipModel';
@@ -224,6 +225,7 @@ export default function WorkChips({
   paddingLeft,
   actions,
   overflow = 0,
+  fitLinks,
 }: {
   chips: readonly WorkChip[];
   /** Lines the chips up under the title. */
@@ -231,10 +233,39 @@ export default function WorkChips({
   actions: WorkChipActions;
   /** Links left out of a session links line: drawn as "+N" after the chips. */
   overflow?: number;
+  /**
+   * A session links line: the chips that fit the line's width show, the rest (and `neverShown`)
+   * go into "+N". The chips, the pill and the line are measured as they lay out.
+   *
+   * CDXC:SessionLinks 2026-10-24 WHY: The desktop line's "+N" ran past the card's edge ("stuff is
+   * cut off here fam"); the phone showed a fixed three chips the same way, so it measures too.
+   */
+  fitLinks?: { neverShown: number };
 }) {
+  const [lineWidth, setLineWidth] = useState(0);
+  const [chipWidths, setChipWidths] = useState<Record<string, number>>({});
+  const [pillWidth, setPillWidth] = useState(0);
+  let shown = chips.length;
+  let more = overflow;
+  if (fitLinks !== undefined) {
+    const widths = chips.map((chip) => chipWidths[chip.key]);
+    if (lineWidth > 0 && pillWidth > 0 && widths.every((width) => width !== undefined)) {
+      shown = linkChipsThatFit(
+        widths as number[],
+        fitLinks.neverShown,
+        lineWidth - paddingLeft - ds(6),
+        ds(10),
+        () => pillWidth,
+      );
+    }
+    more = chips.length - shown + fitLinks.neverShown;
+  }
   return (
-    <View style={[styles.line, { paddingLeft }]}>
-      {chips.map((chip) => {
+    <View
+      style={[styles.line, { paddingLeft }]}
+      onLayout={fitLinks !== undefined ? (event) => setLineWidth(event.nativeEvent.layout.width) : undefined}
+    >
+      {chips.map((chip, index) => {
         const answer = chip.cleanupAnswer;
         const url = chip.url;
         const pressable = answer !== undefined || url.length > 0;
@@ -251,7 +282,17 @@ export default function WorkChips({
               else if (url.length > 0) actions.openLink(url);
             }}
             onLongPress={url.length > 0 ? () => actions.copyLink(url) : undefined}
-            style={styles.chip}
+            onLayout={
+              fitLinks !== undefined
+                ? (event) => {
+                    const width = event.nativeEvent.layout.width;
+                    setChipWidths((known) => (known[chip.key] === width ? known : { ...known, [chip.key]: width }));
+                  }
+                : undefined
+            }
+            // A chip that does not fit is still laid out, out of sight, so its width stays known.
+            style={[styles.chip, index >= shown && styles.measureOnly]}
+            importantForAccessibility={index >= shown ? 'no-hide-descendants' : 'auto'}
           >
             {({ pressed }) => (
               <>
@@ -267,7 +308,17 @@ export default function WorkChips({
           </Pressable>
         );
       })}
-      {overflow > 0 ? <Text style={styles.overflow}>{`+${overflow}`}</Text> : null}
+      {more > 0 ? <Text style={styles.overflow}>{`+${more}`}</Text> : null}
+      {fitLinks !== undefined ? (
+        // The pill's room, sized for the widest count it can show.
+        <Text
+          style={[styles.overflow, styles.measureOnly]}
+          onLayout={(event) => setPillWidth(event.nativeEvent.layout.width)}
+          importantForAccessibility="no-hide-descendants"
+        >
+          {`+${chips.length + fitLinks.neverShown}`}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -297,6 +348,11 @@ const styles = StyleSheet.create({
     fontSize: ds(11),
     lineHeight: ds(WORK_CHIP_LINE_HEIGHT),
     flexShrink: 0,
+  },
+  measureOnly: {
+    position: 'absolute',
+    opacity: 0,
+    pointerEvents: 'none',
   },
   labelPressed: {
     color: SidebarPalette.FOREGROUND,
