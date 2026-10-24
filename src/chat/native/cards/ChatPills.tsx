@@ -15,6 +15,13 @@
  * unanswered; a new question restarts the 30 s and the pings stop once nothing waits. With the
  * phone's reduce-motion setting on, the dot stays and never pings. Desktop: `question_ping.rs`, with
  * the timings of `questionPing` in packages/gx-chat-core/visual/scroll-bottom.json.
+ *
+ * CDXC:SessionChat 2026-10-24 DECISION:
+ * User: "for questions if there's 2 or more questions i want to go between showing ? and showing the
+ * number pls (every x seconds)". With two or more unanswered questions the ? pill shows the ? for 2 s,
+ * then the count for 2 s (`countSwapMs`), as a plain cut like the desktop, whose GPUI fade would
+ * redraw the whole chat every frame; with one it stays a ?. One interval, cleared when fewer than two
+ * wait, and the slot keeps the wider of the two so the row never moves. Desktop: `chat_pills.rs`.
  */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -29,17 +36,16 @@ import { Glyph } from './icons';
 import { obj } from './json';
 import { BackgroundTasksMenu } from './WorkingStrip';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
-import { SidebarPalette } from '../../../theme/palette';
 
 /** The amber of a thread waiting on the user's approval (`AgentPanels.tsx`). */
 const ATTENTION_COLOR = '#f5a524';
 
-/** The running dot's fade: the Subagents menu's 1.6 s beat (desktop `chat_pills.rs` `running_dot`). */
+/** The running corner dot's fade: the Subagents menu's 1.6 s beat (desktop `chat_pills.rs` `running_dot`). */
 const RUNNING_PULSE_MS = 1600;
 
 /** `questionPing` in packages/gx-chat-core/visual/scroll-bottom.json (desktop `question_ping.rs`). */
-const QUESTION_PING = { durationMs: 800, everyMs: 30000, dotSize: 6, scale: 2.8, alpha: 0.8 };
-/** The dot's corner offsets inside the ? pill's edge. */
+const QUESTION_PING = { durationMs: 800, everyMs: 30000, dotSize: 6, scale: 2.8, alpha: 0.8, countSwapMs: 2000 };
+/** The corner dot's offsets inside a pill's edge (the ? pill's and a running pill's, desktop `corner_dot`). */
 const DOT_TOP = 1;
 const DOT_RIGHT = 2;
 
@@ -49,12 +55,15 @@ export function IconPill({
   accessibilityLabel,
   color,
   onPress,
+  count,
   children,
 }: {
   glyph: 'question-mark' | 'arrow-down';
   accessibilityLabel: string;
   color: string;
   onPress: () => void;
+  /** Shown instead of the glyph (the ? pill's count); both stay laid out, so the pill keeps the wider. */
+  count?: { text: string; shown: boolean };
   children?: ReactNode;
 }) {
   const styles = useStyles();
@@ -66,7 +75,16 @@ export function IconPill({
       hitSlop={4}
       style={({ pressed }) => [styles.pill, styles.iconPill, pressed && styles.pillPressed]}
     >
-      <Glyph name={glyph} size={14} color={color} />
+      {count === undefined ? (
+        <Glyph name={glyph} size={14} color={color} />
+      ) : (
+        <View style={styles.glyphSlot}>
+          <Text style={[styles.slotCount, { color, opacity: count.shown ? 1 : 0 }]}>{count.text}</Text>
+          <View style={[styles.slotGlyph, { opacity: count.shown ? 0 : 1 }]}>
+            <Glyph name={glyph} size={14} color={color} />
+          </View>
+        </View>
+      )}
       {children}
     </Pressable>
   );
@@ -87,12 +105,34 @@ export function QuestionPill({
   const styles = useStyles();
   const P = useTranscriptTheme();
   const ping = useQuestionPing(count, newest);
+  const showingCount = useCountSwap(count);
   return (
-    <IconPill glyph="question-mark" accessibilityLabel={accessibilityLabel} color={P.cardMuted} onPress={onPress}>
+    <IconPill
+      glyph="question-mark"
+      accessibilityLabel={accessibilityLabel}
+      color={P.cardMuted}
+      onPress={onPress}
+      count={{ text: String(count), shown: showingCount }}
+    >
       <PingRing progress={ping} />
-      <View pointerEvents="none" style={styles.questionDot} />
+      <View pointerEvents="none" style={styles.cornerDot} />
     </IconPill>
   );
+}
+
+/** True while the ? pill shows its count: every other `countSwapMs` while two or more questions wait. */
+function useCountSwap(count: number): boolean {
+  const [shown, setShown] = useState(false);
+  const swapping = count >= 2;
+  useEffect(() => {
+    if (!swapping) return undefined;
+    const swap = setInterval(() => setShown((was) => !was), QUESTION_PING.countSwapMs);
+    return () => {
+      clearInterval(swap);
+      setShown(false);
+    };
+  }, [swapping]);
+  return shown;
 }
 
 /**
@@ -190,9 +230,9 @@ export function Pill({ pill, open, onPress }: { pill: ChatPill; open: boolean; o
 }
 
 /**
- * The yellow dot before a running pill's icon (`running`, gx-chat-core `extras/chat_pills.rs`, where
- * the user's decision lives): the sidebar's working colour, fading to 35% and back every 1.6 s, and
- * still with the phone's reduce-motion setting on.
+ * A running pill's corner dot (`running`, gx-chat-core `extras/chat_pills.rs`, where the user's
+ * decision lives): the ? pill's own dot (`cornerDot`), fading to 35% and back every 1.6 s, and still
+ * with the phone's reduce-motion setting on.
  */
 function RunningDot() {
   const styles = useStyles();
@@ -213,7 +253,7 @@ function RunningDot() {
       opacity.setValue(1);
     };
   }, [reduceMotion, opacity]);
-  return <Animated.View style={[styles.running, { opacity }]} />;
+  return <Animated.View pointerEvents="none" style={[styles.cornerDot, { opacity }]} />;
 }
 
 /** The sheet a pill opens: that panel's rows, titled by the pill. `open` is the pill's id, or null. */
@@ -289,8 +329,8 @@ const useStyles = themedStyles((P) => ({
     lineHeight: 16,
     fontVariant: ['tabular-nums'],
   },
-  /** The ? pill's amber attention dot, inside its edge in the top right corner. */
-  questionDot: {
+  /** The ? pill's and a running pill's amber dot, inside the pill's edge in the top right corner. */
+  cornerDot: {
     position: 'absolute',
     top: DOT_TOP,
     right: DOT_RIGHT,
@@ -299,11 +339,21 @@ const useStyles = themedStyles((P) => ({
     borderRadius: QUESTION_PING.dotSize / 2,
     backgroundColor: ATTENTION_COLOR,
   },
-  running: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: SidebarPalette.ROW_WORKING,
+  /** The ? pill's glyph and count share this slot; the count sets its width once wider than the glyph. */
+  glyphSlot: {
+    height: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  slotCount: {
+    minWidth: 14,
+    textAlign: 'center',
+    fontSize: 11.5,
+    lineHeight: 14,
+    fontVariant: ['tabular-nums'],
+  },
+  slotGlyph: {
+    position: 'absolute',
   },
   attention: {
     width: 6,
