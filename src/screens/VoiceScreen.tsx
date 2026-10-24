@@ -318,15 +318,19 @@ function FocusBanner() {
 
 function Line({ line }: { line: VoiceLine }) {
   switch (line.kind) {
-    case 'caption':
+    case 'caption': {
+      const parts = line.paragraphs.length > 1 ? line.paragraphs : [line.text];
       return (
         <View style={[styles.caption, line.role === 'user' ? styles.captionUser : styles.captionAgent]}>
           <Text style={styles.captionWho}>{line.role === 'user' ? 'You' : 'Agent'}</Text>
-          <Text style={[styles.captionText, !line.final && styles.captionDraft]}>
-            {line.cut ? (line.text.trim().length > 0 ? `${line.text} …` : '…') : line.text}
-          </Text>
+          {parts.map((part, at) => (
+            <Text key={at} style={[styles.captionText, at > 0 && styles.captionParagraph, !line.final && styles.captionDraft]}>
+              {line.cut && at === parts.length - 1 ? (part.trim().length > 0 ? `${part} …` : '…') : part}
+            </Text>
+          ))}
         </View>
       );
+    }
     case 'tool':
       return (
         <View style={styles.toolRow}>
@@ -722,13 +726,15 @@ const styles = StyleSheet.create({
   problemText: { color: GhostexPalette.FOREGROUND, fontSize: 17, lineHeight: 24 },
   lines: { flex: 1 },
   jumpRow: { position: 'absolute', right: 22, bottom: 16 },
-  linesContent: { paddingHorizontal: 16, paddingBottom: 16, gap: 10 },
+  // CDXC:VoiceMode 2026-10-24 WHY: more room between lines so a reply, its tool line and an announcement read apart; the user's decision is in gxserver's paragraphs.rs.
+  linesContent: { paddingHorizontal: 16, paddingBottom: 16, gap: 16 },
   hint: { color: GhostexPalette.MUTED, fontSize: 17, textAlign: 'center', marginTop: 8 },
   caption: { borderRadius: GhostexRadii.section, padding: 12, maxWidth: '92%' },
   captionUser: { alignSelf: 'flex-end', backgroundColor: GhostexPalette.CARD_ACTIVE },
   captionAgent: { alignSelf: 'flex-start', backgroundColor: GhostexPalette.CARD },
   captionWho: { color: GhostexPalette.MUTED, fontSize: 13, marginBottom: 4 },
   captionText: { color: GhostexPalette.FOREGROUND, fontSize: 19, lineHeight: 26 },
+  captionParagraph: { marginTop: 10 },
   captionDraft: { opacity: 0.7 },
   toolRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 4 },
   toolDot: { fontSize: 12 },

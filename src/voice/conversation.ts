@@ -30,6 +30,7 @@ import {
   type VoiceFocus,
   type VoiceFocusTarget,
 } from './focus';
+import { captionParagraphs, toolLineFrame } from './lines';
 
 /** Where the conversation is: not running, opening, talking, reconnecting after a dropped link, over. */
 export type VoicePhase = 'idle' | 'starting' | 'live' | 'reattaching' | 'ended';
@@ -38,7 +39,8 @@ export type VoicePhase = 'idle' | 'starting' | 'live' | 'reattaching' | 'ended';
 export type VoiceAgentState = 'connecting' | 'listening' | 'userSpeaking' | 'thinking' | 'speaking' | 'toolRunning';
 
 export type VoiceLine =
-  | { kind: 'caption'; key: string; role: 'user' | 'agent'; text: string; final: boolean; cut: boolean }
+  /** `paragraphs`: gxserver's paragraphs of a long agent reply (`lines.ts`); empty: `text` is one. */
+  | { kind: 'caption'; key: string; role: 'user' | 'agent'; text: string; paragraphs: string[]; final: boolean; cut: boolean }
   | { kind: 'tool'; key: string; label: string; finished: boolean; ok: boolean }
   | { kind: 'announcement'; key: string; text: string }
   | { kind: 'notice'; key: string; text: string };
@@ -374,6 +376,7 @@ function onFrame(json: string): void {
         key: `caption-${text('itemId')}`,
         role,
         text: text('text'),
+        paragraphs: captionParagraphs(frame),
         final: frame.final === true,
         cut: frame.cut === true,
       });
@@ -382,7 +385,7 @@ function onFrame(json: string): void {
     case 'tool': {
       const finished = frame.phase === 'finished';
       const label = text('label') || text('name');
-      pushLine({ kind: 'tool', key: `tool-${text('callId')}`, label, finished, ok: frame.ok !== false });
+      pushLine({ kind: 'tool', ...toolLineFrame(frame) });
       set({ toolLabel: finished ? null : label });
       // In a call about one session the Open chip stays on that session (`shownFromFocus`).
       const shown = finished && useVoiceStore.getState().focus === null ? parseShownSession(frame.session) : null;
