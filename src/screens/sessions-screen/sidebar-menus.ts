@@ -72,6 +72,8 @@ export type SidebarMenuCommand =
   | { type: 'sessionAction'; sessionId: string; action: 'linkWork'; kind: WorkLinkKind }
   /** The phone's own row: a voice call about this session (`src/voice/callAbout.ts`). */
   | { type: 'voiceCall'; sessionId: string }
+  /** The phone's own row: the session's links sheet (`src/chat/native/SessionLinksSheet.tsx`). */
+  | { type: 'sessionLinks'; sessionId: string }
   /** gx-core `MenuCommand::coordinator_session`: an orchestrator's Goal & Instructions / Memory, a thread's Mark Thread Done / Reopen Thread. */
   | { type: 'coordinatorSessionAction'; sessionId: string; action: 'goal' | 'memory' | 'markDone' | 'reopen' }
   | {
@@ -776,6 +778,14 @@ export function buildSessionMenu(input: SessionMenuInput): SidebarMenuItem[] {
     );
   }
   if (menu.length > 0) menu.push(separator());
+  /*
+   * CDXC:SessionLinks 2026-10-24 DECISION:
+   * User: "also didn't we agree to have a way to see these floating on the right of the sidebar when i hover somewhere?". The desktop shows a hovered row's links in a card beside the sidebar; the phone has no hover, so its long-press menu gets a Links row that opens the same sheet the chat strip's "+N" opens.
+   */
+  const linkCount = session.links?.items.length ?? 0;
+  if (linkCount > 0) {
+    menu.push({ ...row('Links', 'link', { type: 'sessionLinks', sessionId: id }), suffix: String(linkCount) });
+  }
   const link = linkSubmenu(session, project);
   if (link !== null) menu.push(link);
   menu.push(copySubmenu(session, project));

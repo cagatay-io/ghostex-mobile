@@ -50,6 +50,8 @@ export type Overlay =
   /** The Link to picker for one kind of work link. */
   | { kind: 'workLinkPicker'; ctx: SessionContext; linkKind: WorkLinkKind }
   | { kind: 'delayedSend'; ctx: SessionContext }
+  /** A session's links sheet, from its long-press menu's Links row. */
+  | { kind: 'sessionLinks'; ctx: SessionContext }
   /** An orchestrator's Goal & Instructions or Memory editor (./CoordinatorDetailsSheet.tsx). */
   | { kind: 'coordinatorDetails'; ctx: SessionContext; mode: 'goal' | 'memory' }
   | { kind: 'closeConfirm'; ctx: SessionContext }

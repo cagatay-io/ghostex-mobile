@@ -41,8 +41,15 @@ import type { MenuAnchor } from './ContextMenu';
 import { ds, STATUS_DOT_SIZE } from './rows';
 import StatusDotStack from './StatusDotStack';
 import { ChevronRightGlyph, ClockGlyph, CloudGlyph, CoordinatorGlyph, CrewGlyph, PencilGlyph } from './icons';
-import WorkChips, { WORK_SESSION_ROW_HEIGHT, type WorkChipActions } from './WorkChips';
-import { workChips } from './workChipModel';
+import WorkChips, { ChipGlyph, WORK_SESSION_ROW_HEIGHT, type WorkChipActions } from './WorkChips';
+import { workChips, type WorkChip } from './workChipModel';
+import {
+  sessionLinkChecksMark,
+  sessionLinkLook,
+  sessionLinkSummary,
+  sessionLinksRow,
+  type SessionLinksDisplay,
+} from '../../chat/native/sessionLinks';
 import {
   COMPLETION_FLASH_MS,
   COMPLETION_FLASH_OPACITY,
@@ -273,9 +280,14 @@ export type SessionRowProps = {
   coordinatorBadge?: CoordinatorBadge;
   /** Folds or unfolds a coordinator's threads; the chevron shows while threads are drawn under it. */
   onToggleThreads?: () => void;
-  /** What a work-mode card's chips do; the card draws its chip line only when it has chips. */
+  /** What a card's chips do (its links line and a Work mode card's Clean up / Keep offer). */
   workActions?: WorkChipActions;
+  /** The computer's "Session links in the sidebar" setting (sessionLinks.ts). */
+  sessionLinksDisplay?: SessionLinksDisplay;
 };
+
+/** Chips a row's links line shows before its "+N". */
+const ROW_LINK_CHIPS = 3;
 
 /**
  * CDXC:SessionStatus 2026-09-25 DECISION:
@@ -296,6 +308,7 @@ export default function SessionRow({
   coordinatorBadge,
   onToggleThreads,
   workActions,
+  sessionLinksDisplay = 'badge',
 }: SessionRowProps) {
   const rowRef = useRef<View | null>(null);
   const iconId = resolveAgentIconId(
@@ -341,8 +354,37 @@ export default function SessionRow({
   const lightActiveBackground = mixHexColors(sidebarForeground, expandedGroupSurface, 30);
   const activeBackground = mixHexColors('#000000', lightActiveBackground, ACTIVE_DARKEN_PERCENT);
   const pressedBackground = mixHexColors(sidebarBackground, '#000000', 90);
-  const chips = useMemo(() => workChips(session.work), [session.work]);
+  /*
+   * CDXC:SessionLinks 2026-10-24 SEE-ALSO: `SessionLinks::row` in packages/gx-core/src/sidebar_view/links.rs. A row draws its links as the computer's "Session links in the sidebar" says (a line, a badge or nothing); a Work mode card's own chip line is gone except for the merged-PR Clean up / Keep offer, which takes the line while it waits.
+   */
+  const offerCleanup = session.work?.offerCleanup === true;
+  const linksRow = useMemo(
+    () => sessionLinksRow(session.links?.items, sessionLinksDisplay, session.isFocused),
+    [session.links, sessionLinksDisplay, session.isFocused],
+  );
+  const chips = useMemo((): WorkChip[] => {
+    if (offerCleanup) {
+      return workChips(session.work)
+        .filter((chip) => chip.key === 'pr' || chip.key === 'cleanup' || chip.key === 'keep')
+        .map((chip) => (chip.key === 'pr' ? { ...chip, trailing: undefined } : chip));
+    }
+    return linksRow.line.slice(0, ROW_LINK_CHIPS).map((link) => {
+      const look = sessionLinkLook(link);
+      const checks = sessionLinkChecksMark(link);
+      return {
+        key: link.key,
+        glyph: look.glyph,
+        glyphColor: look.color,
+        label: link.label,
+        trailing: checks ?? undefined,
+        url: link.url,
+        description: sessionLinkSummary(link),
+      };
+    });
+  }, [offerCleanup, session.work, linksRow]);
+  const linksOverflow = offerCleanup ? 0 : Math.max(0, (session.links?.items.length ?? 0) - chips.length);
   const showChips = chips.length > 0 && workActions !== undefined;
+  const linksBadge = offerCleanup ? null : linksRow.badge;
   const rowHeight = ds(showChips ? WORK_SESSION_ROW_HEIGHT : 34);
   const linePaddingLeft = (inCard ? ds(26) : ds(47)) + titleIndent;
 
@@ -468,9 +510,20 @@ export default function SessionRow({
           indicator !== null ||
           timeLabel !== null ||
           coordinatorBadge !== undefined ||
+          linksBadge !== null ||
           session.claudeCloud !== undefined ? (
             <View style={styles.trailing}>
               {coordinatorBadge !== undefined ? <CoordinatorBadgeView badge={coordinatorBadge} /> : null}
+              {linksBadge !== null ? (
+                <View
+                  accessible
+                  accessibilityLabel={`${linksBadge.count} links`}
+                  style={[styles.linksBadge, { borderColor: linksBadge.color }]}
+                >
+                  <ChipGlyph glyph="link" color={linksBadge.color} size={ds(10)} />
+                  <Text style={[styles.linksBadgeText, { color: linksBadge.color }]}>{linksBadge.count}</Text>
+                </View>
+              ) : null}
               {/* A Claude cloud session: the desktop's plain 12dp muted cloud before the status (claudeCloud.ts). */}
               {session.claudeCloud !== undefined ? (
                 <View accessible accessibilityLabel={SessionCopy.claudeCloud}>
@@ -498,13 +551,27 @@ export default function SessionRow({
             </View>
           ) : null}
         </View>
-        {showChips ? <WorkChips chips={chips} paddingLeft={linePaddingLeft} actions={workActions} /> : null}
+        {showChips ? (
+          <WorkChips chips={chips} paddingLeft={linePaddingLeft} actions={workActions} overflow={linksOverflow} />
+        ) : null}
       </Pressable>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
+  linksBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ds(3),
+    height: ds(16),
+    paddingHorizontal: ds(5),
+    borderRadius: ds(8),
+    borderWidth: 1,
+  },
+  linksBadgeText: {
+    fontSize: ds(10.5),
+  },
   rowBox: {
     borderRadius: ds(4),
   },

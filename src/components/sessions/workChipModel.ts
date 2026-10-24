@@ -28,7 +28,8 @@ export type WorkChipGlyph =
   | 'linearCircle'
   | 'linearProject'
   | 'cleanUp'
-  | 'keep';
+  | 'keep'
+  | 'link';
 
 export type WorkChip = {
   key: string;

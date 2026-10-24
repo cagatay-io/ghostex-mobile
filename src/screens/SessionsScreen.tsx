@@ -37,6 +37,8 @@ import { createdSessionId, runGhostexCli } from '../components/sessions/cli';
 import { useCollapseStore } from '../components/sessions/collapseStore';
 import { useSessionListClock } from '../components/sessions/useSessionListClock';
 import ContextMenu from '../components/sessions/ContextMenu';
+import SessionLinksSheet from '../chat/native/SessionLinksSheet';
+import { sessionLinksDisplay } from '../chat/native/sessionLinks';
 import {
   buildDrawerList,
   drawerStatusLine,
@@ -906,6 +908,7 @@ export default function SessionsScreen({ navigation }: Props) {
             coordinatorBadge={child.coordinatorBadge}
             onToggleThreads={() => collapse.toggleCoordinator(machineId, coordinatorRowKey(child.session))}
             workActions={workChipActions(target, child.session)}
+            sessionLinksDisplay={sessionLinksDisplay(inventoriesByMachineId[machineId]?.summary?.sidebarSessionLinks)}
             onPress={() => {
               if (target !== null) void attach(target, child.session);
             }}
@@ -1171,6 +1174,9 @@ export default function SessionsScreen({ navigation }: Props) {
             inCard={false}
             customSessionTags={inventoriesByMachineId[block.machineId]?.summary?.customSessionTags}
             workActions={workChipActions(target, item.session)}
+            sessionLinksDisplay={sessionLinksDisplay(
+              inventoriesByMachineId[block.machineId]?.summary?.sidebarSessionLinks,
+            )}
             onPress={() => {
               if (target !== null) void attach(target, item.session);
             }}
@@ -1461,6 +1467,20 @@ export default function SessionsScreen({ navigation }: Props) {
         />
       ) : null}
 
+      {overlay.kind === 'sessionLinks' ? (
+        <SessionLinksSheet
+          visible
+          onClose={() => setOverlay(NONE)}
+          machine={overlay.ctx.machine}
+          session={overlay.ctx.item.session}
+          openTarget={inventoriesByMachineId[overlay.ctx.machine.id]?.summary?.sessionLinkOpenTarget ?? 'embedded'}
+          openInApp={(url) => {
+            const machineId = overlay.ctx.machine.id;
+            setOverlay(NONE);
+            navigation.navigate('WebPreview', { machineId, url });
+          }}
+        />
+      ) : null}
       {overlay.kind === 'delayedSend' ? (
         <DelayedSendDialog
           agentIcon={overlay.ctx.item.session.agentIcon}

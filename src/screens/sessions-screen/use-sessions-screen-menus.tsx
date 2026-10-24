@@ -628,6 +628,12 @@ export function useSessionsScreenMenus({
           } else setOverlay({ kind: 'delayedSend', ctx });
           return;
         }
+        case 'sessionLinks': {
+          const ctx = scope.session;
+          if (ctx === undefined) throw new Error('Links need a session.');
+          setOverlay({ kind: 'sessionLinks', ctx });
+          return;
+        }
         case 'voiceCall': {
           const ctx = scope.session;
           if (ctx === undefined) throw new Error('A voice call needs a session.');

@@ -572,6 +572,11 @@ export type GhostexMobileSummary = {
    * `embedded` (the phone's own browser view, the default) or `external` (its default browser).
    */
   sessionLinkOpenTarget?: 'embedded' | 'external';
+  /**
+   * The computer's Settings > Session Cards > Session links in the sidebar
+   * (`always`, `selected`, `badge`, `open` or `off`; `badge` when absent).
+   */
+  sidebarSessionLinks?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -1572,6 +1577,7 @@ function normalizeRoot(root: JsonObject): GhostexMobileSummary {
       ? root.builtInFeatures.filter((id): id is string => typeof id === 'string')
       : [],
     sessionLinkOpenTarget: root.sessionLinkOpenTarget === 'external' ? 'external' : 'embedded',
+    sidebarSessionLinks: typeof root.sidebarSessionLinks === 'string' ? root.sidebarSessionLinks : 'badge',
   };
 }
 

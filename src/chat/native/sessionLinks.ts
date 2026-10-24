@@ -101,3 +101,59 @@ export function sessionLinkDetailLine(link: GhostexSessionLink): string {
 export function sessionLinkSummary(link: GhostexSessionLink): string {
   return [link.label, link.title, sessionLinkStateLabel(link)].filter((part) => part.length > 0).join(' · ');
 }
+
+/**
+ * What a session row shows of its links, from the computer's Settings > Session Cards > Session
+ * links in the sidebar (`sidebarSessionLinks`). The phone's copy of gx-core's
+ * `SessionLinksDisplay` and `SessionLinks::row` (packages/gx-core/src/sidebar_view/links.rs); the
+ * two must agree. The phone has no hover, so its long-press menu's Links row opens the full list.
+ */
+export type SessionLinksDisplay = 'always' | 'selected' | 'badge' | 'open' | 'off';
+
+export function sessionLinksDisplay(value: unknown): SessionLinksDisplay {
+  return value === 'always' || value === 'selected' || value === 'open' || value === 'off' ? value : 'badge';
+}
+
+export type SessionLinksRow = {
+  /** The links the row's second line shows, in order; empty draws no line. */
+  line: GhostexSessionLink[];
+  /** The Badge option's count, coloured by the most pressing link. */
+  badge: { count: number; color: string } | null;
+};
+
+/** The colour of the most pressing link (gx-core `most_pressing_tone`). */
+export function mostPressingLinkColor(links: readonly GhostexSessionLink[]): string {
+  let best = { rank: 5, color: SidebarPalette.WORK_DRAFT as string };
+  for (const link of links) {
+    const candidate =
+      link.checks === 'failing' || link.review === 'changesRequested'
+        ? { rank: 0, color: SidebarPalette.WORK_CLOSED }
+        : link.review === 'reviewRequired' || link.checks === 'pending'
+          ? { rank: 1, color: SidebarPalette.WORK_PENDING }
+          : !link.finished && link.state !== 'draft'
+            ? { rank: 2, color: sessionLinkLook(link).color }
+            : !link.finished
+              ? { rank: 3, color: SidebarPalette.WORK_DRAFT }
+              : { rank: 4, color: SidebarPalette.WORK_MERGED };
+    if (candidate.rank < best.rank) best = candidate;
+  }
+  return best.color;
+}
+
+export function sessionLinksRow(
+  links: readonly GhostexSessionLink[] | undefined,
+  display: SessionLinksDisplay,
+  selected: boolean,
+): SessionLinksRow {
+  if (links === undefined || links.length === 0 || display === 'off') return { line: [], badge: null };
+  switch (display) {
+    case 'always':
+      return { line: [...links], badge: null };
+    case 'selected':
+      return { line: selected ? [...links] : [], badge: null };
+    case 'open':
+      return { line: links.filter((link) => !link.finished), badge: null };
+    case 'badge':
+      return { line: [], badge: { count: links.length, color: mostPressingLinkColor(links) } };
+  }
+}
