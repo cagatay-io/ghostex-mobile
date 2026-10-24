@@ -36,14 +36,7 @@ import { estimatedLines, StartupDelivery, SuppressedRow, SystemCard } from './Sy
 import { PROSE_LINE, PROSE_SIZE, type TranscriptTheme } from './theme';
 import { SideQuestionRow } from './SideQuestionRow';
 import { ShellCommandCard, ToolRows } from './ToolRows';
-import {
-  SINGLE_LINE_CARD,
-  SINGLE_LINE_HEADER_HEIGHT,
-  SINGLE_LINE_TITLE,
-  SingleLineTile,
-  singleLinePressed,
-  singleLineShell,
-} from './singleLineCard';
+import { Glyph } from './icons';
 
 /** React caps a secondary block at 18rem (`.ghostex-chat-scroll-cap`). */
 const THINKING_CAP = 288;
@@ -154,7 +147,7 @@ function UserMessage({ message }: { message: ProjectedMessage }) {
 }
 
 function AgentMessage({ message, proseColor }: { message: ProjectedMessage; proseColor: string }) {
-  const { theme, workOpen, mutedThinking } = useTranscriptEnv();
+  const { theme, workOpen, mutedThinking, simple } = useTranscriptEnv();
   const { disclosures } = useNativeChatUi();
   const flags = useTranscriptFlags();
   const { inWorkFold, hideFileChanges } = useFoldPlace();
@@ -173,11 +166,11 @@ function AgentMessage({ message, proseColor }: { message: ProjectedMessage; pros
   let lead = null;
   let toolsRendered = false;
   if (body.length > 0) {
-    const card = reasoning ? message.thinkingCard : undefined;
-    if (card !== undefined) {
-      // The running turn's thinking is a card; the calls it made stay in view below it, drawn by
-      // the run below as a reply's flat calls are (desktop `thinking_card.rs`).
-      lead = <ThinkingCard id={id} body={body} references={message.markdownReferences} card={card} />;
+    // The running turn's thought is one closed line, and so is every thought in Simple mode that
+    // owns no calls; the calls a running thought made stay in view below it, drawn by the run below
+    // as a reply's flat calls are (desktop `thinking_card.rs`, gx-chat-core `thinking_card.rs`).
+    if (reasoning && (message.thinkingCard !== undefined || (simple && !hasTools))) {
+      lead = <ThinkingLine id={id} body={body} message={message} />;
     } else if (reasoning && hasTools) {
       // A reasoning headline owns the tools that followed it (React's ReasoningRow).
       const detail = str(message.reasoning, 'body');
@@ -327,60 +320,67 @@ function ThinkingRow({ id, body, references }: { id: string; body: string; refer
 }
 
 /**
- * The running turn's thought as a one-line card (desktop `thinking_card.rs`; the user's decision is
- * in gx-chat-core `transcript/thinking_card.rs`): "Thinking…" and the newest finished line while it
- * is closed, and a press opens the thought below the header. Open while it is being written, it
- * keeps the newest lines in view until the reader scrolls up.
+ * A thought as one slim line shaped like a tool row (desktop `thinking_card.rs`; the user's decision
+ * is in gx-chat-core `transcript/thinking_card.rs`): a brain tile, "Thinking…" while it is written or
+ * "Thought" after, and its line (the newest finished one while it streams). A press opens the full
+ * thought below it; open while it is being written, it keeps the newest lines in view until the
+ * reader scrolls up.
  */
-function ThinkingCard({
-  id,
-  body,
-  references,
-  card,
-}: {
-  id: string;
-  body: string;
-  references: unknown;
-  card: NonNullable<ProjectedMessage['thinkingCard']>;
-}) {
+function ThinkingLine({ id, body, message }: { id: string; body: string; message: ProjectedMessage }) {
   const { theme, mutedThinking } = useTranscriptEnv();
   const { disclosures } = useNativeChatUi();
   const [open, toggle] = useDisclosure(disclosures, `thinking-card:${id}`);
   const scroll = useRef<ScrollView>(null);
   const atEnd = useRef(true);
   const lane = thinkingTone(theme, mutedThinking);
-  const title = card.live ? 'Thinking…' : 'Thought';
+  const card = message.thinkingCard;
+  const live = card?.live === true;
+  const preview = (card?.preview ?? '') || (message.thinkingRow?.preview ?? '');
+  // A Codex reasoning summary is often its headline alone: there is nothing to open.
+  const expandable = card !== undefined || message.thinkingRow?.expandable !== false;
+  const title = live ? 'Thinking\u2026' : 'Thought';
   return (
-    <View style={[styles.thinkingCard, singleLineShell(theme)]}>
+    <View style={styles.thinkingLine}>
       <Pressable
+        disabled={!expandable}
         onPress={toggle}
         accessibilityRole="button"
-        accessibilityLabel={card.preview.length > 0 ? `${title} ${card.preview}` : title}
-        accessibilityState={{ expanded: open }}
-        style={({ pressed }) => [styles.thinkingHeader, pressed && singleLinePressed(theme)]}
+        accessibilityLabel={preview.length > 0 ? `${title} ${preview}` : title}
+        accessibilityState={expandable ? { expanded: open } : undefined}
+        style={({ pressed }) => [styles.thinkingTrigger, pressed && { backgroundColor: theme.pressed }]}
       >
-        <SingleLineTile glyph="brain" />
-        <Text style={[SINGLE_LINE_TITLE, { color: theme.foreground }]}>{title}</Text>
-        <Text style={[styles.thinkingPreview, { color: theme.muted }]} numberOfLines={1}>
-          {open ? '' : card.preview}
+        <View style={[styles.thinkingTile, { backgroundColor: theme.ink(0.05) }]}>
+          <Glyph name="brain" size={13} color={theme.muted} />
+        </View>
+        <Text style={[styles.thinkingTitle, { color: theme.muted }]}>{title}</Text>
+        <Text style={[styles.thinkingPreview, { color: theme.prose, opacity: 0.8 }]} numberOfLines={1}>
+          {open ? '' : preview}
         </Text>
       </Pressable>
-      {open ? (
-        <ScrollView
-          ref={scroll}
-          style={styles.thinkingScroll}
-          contentContainerStyle={styles.thinkingBody}
-          nestedScrollEnabled
-          scrollEventThrottle={32}
-          onScroll={({ nativeEvent: { contentOffset, contentSize, layoutMeasurement } }) => {
-            atEnd.current = contentOffset.y + layoutMeasurement.height >= contentSize.height - 2;
-          }}
-          onContentSizeChange={() => {
-            if (card.live && atEnd.current) scroll.current?.scrollToEnd({ animated: false });
-          }}
-        >
-          <Markdown text={body} references={references} color={lane} headingColor={mutedThinking ? lane : undefined} />
-        </ScrollView>
+      {open && expandable ? (
+        <View style={styles.thinkingInset}>
+          <DisclosureBody onCollapse={toggle} label="Collapse thinking" gap={4}>
+            <ScrollView
+              ref={scroll}
+              style={styles.thinkingScroll}
+              nestedScrollEnabled
+              scrollEventThrottle={32}
+              onScroll={({ nativeEvent: { contentOffset, contentSize, layoutMeasurement } }) => {
+                atEnd.current = contentOffset.y + layoutMeasurement.height >= contentSize.height - 2;
+              }}
+              onContentSizeChange={() => {
+                if (live && atEnd.current) scroll.current?.scrollToEnd({ animated: false });
+              }}
+            >
+              <Markdown
+                text={body}
+                references={message.markdownReferences}
+                color={lane}
+                headingColor={mutedThinking ? lane : undefined}
+              />
+            </ScrollView>
+          </DisclosureBody>
+        </View>
       ) : null}
     </View>
   );
@@ -412,17 +412,22 @@ const styles = StyleSheet.create({
   thinking: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, paddingBottom: 13 },
   thinkingColumn: { flex: 1, minWidth: 0, gap: 4 },
   capped: { maxHeight: THINKING_CAP, overflow: 'hidden' },
-  thinkingCard: { marginBottom: 13 },
-  thinkingHeader: {
+  // The tool row's shape (`ToolRows.tsx`: ROW_PAD_X 8, TILE 22).
+  thinkingLine: { gap: 4, minWidth: 0, marginBottom: 6 },
+  thinkingTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    height: SINGLE_LINE_HEADER_HEIGHT,
-    paddingHorizontal: SINGLE_LINE_CARD.paddingX,
+    gap: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    minWidth: 0,
   },
-  thinkingPreview: { flex: 1, minWidth: 0, fontSize: 13 },
+  thinkingTile: { width: 22, height: 22, borderRadius: 6, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  thinkingTitle: { fontSize: 13.5, lineHeight: 20, fontWeight: '500', flexShrink: 0 },
+  thinkingPreview: { flex: 1, minWidth: 0, fontSize: PROSE_SIZE, lineHeight: 20 },
+  thinkingInset: { paddingLeft: 8 },
   thinkingScroll: { maxHeight: THINKING_CAP },
-  thinkingBody: { paddingHorizontal: SINGLE_LINE_CARD.paddingX, paddingBottom: 12 },
   promptColumn: { gap: 8 },
   showMore: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   showMoreText: { fontSize: PROSE_SIZE },
