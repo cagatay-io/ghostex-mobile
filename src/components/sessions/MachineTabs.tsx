@@ -11,7 +11,8 @@
  *
  * The cloud glyph is the connection control, exactly like the desktop tab:
  * it spins while the machine is busy (the whole tab dims to 0.72), turns red
- * together with the label when the connection failed, and is dim while not
+ * when the connection failed (the icon only, never the label: "tint just the
+ * icon not the whole tab", CDXC:RemoteMachines 2026-10-25), and is dim while not
  * connected. Pressing the glyph on a failed or not-connected machine retries
  * through `onConnect` WITHOUT selecting the tab; pressing the label selects.
  * Unselected tabs show their machine's status as the desktop's overlapping
@@ -68,7 +69,7 @@ const GLYPH_COLOR: Record<MachineTabConnectionState, string> = {
 };
 
 /** The loader spins with the native driver for as long as the tab is busy. */
-function SpinningLoader({ color }: { color: string }) {
+export function SpinningLoader({ color, size = GLYPH_SIZE }: { color: string; size?: number }) {
   const turn = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const loop = Animated.loop(
@@ -85,7 +86,7 @@ function SpinningLoader({ color }: { color: string }) {
   const rotate = turn.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
   return (
     <Animated.View style={{ transform: [{ rotate }] }}>
-      <LoaderGlyph size={GLYPH_SIZE} color={color} />
+      <LoaderGlyph size={size} color={color} />
     </Animated.View>
   );
 }
@@ -193,7 +194,6 @@ export default function MachineTabs({
           );
         }
         const selected = item.id === selectedMachineId;
-        const failed = item.connectionState === 'failed';
         const stateLabel = item.connectionLabel ?? StripCopy.connection[item.connectionState];
         return (
           <Pressable
@@ -213,11 +213,7 @@ export default function MachineTabs({
             ]}
           >
             <ConnectionGlyph item={item} />
-            <Text
-              ellipsizeMode="tail"
-              numberOfLines={1}
-              style={[styles.label, selected ? styles.labelSelected : null, failed ? styles.labelFailed : null]}
-            >
+            <Text ellipsizeMode="tail" numberOfLines={1} style={[styles.label, selected ? styles.labelSelected : null]}>
               {item.label}
             </Text>
             {selected ? null : <StatusDots item={item} />}
@@ -305,8 +301,5 @@ const styles = StyleSheet.create({
   },
   labelSelected: {
     color: SetupPalette.FOREGROUND,
-  },
-  labelFailed: {
-    color: SetupPalette.ERROR,
   },
 });

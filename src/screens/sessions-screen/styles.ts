@@ -88,9 +88,13 @@ export const styles = StyleSheet.create({
    * the difference back out of its shrinkable siblings — which is what used to
    * squeeze the Space row flat.
    */
-  list: {
+  /** The list and the machine notice floating over its top. */
+  listArea: {
     flex: 1,
     marginTop: 12,
+  },
+  list: {
+    flex: 1,
   },
   /** The workspace tile, then the Space row; fixed height so the list cannot squeeze it. */
   workspaceRow: {

@@ -519,18 +519,25 @@ export const StripCopy = {
     allMachines: 'All machines',
     addProject: 'Add Project',
   },
-  failedCard: {
-    title: (name: string) => `Can't reach ${name}`,
-    /** The computer answered over SSH but its Ghostex did not: the app keeps trying on its own. */
-    waitingTitle: (name: string) => `Loading sessions on ${name}…`,
-    retry: 'Retry',
-    tryNow: 'Try now',
-    whatCanICheck: 'What can I check?',
-  },
-  connectionWarning: {
-    title: (name: string) => `No connection to ${name}`,
-    body: 'Showing saved sessions. Reconnect to open sessions and get updates.',
-  },
+} as const;
+
+/**
+ * The notice floating over the top of a machine's session list while it is not connected. The
+ * titles are gx-core's `machine_state_copy` (packages/gx-core/src/sidebar_view/machine_connection.rs),
+ * so the phone and the desktop sidebar say the same thing about one machine.
+ */
+export const MachineNoticeCopy = {
+  connecting: (name: string) => `Connecting to ${name}…`,
+  cannotReach: 'Cannot reach machine',
+  cannotSignIn: 'Cannot sign in to machine',
+  setupNeeded: 'Remote setup needed',
+  reconnecting: 'Reconnecting to machine…',
+  reconnect: 'Reconnect',
+  remoteSettings: 'Remote Settings',
+  /** The ×: shrinks the card to its one-line pill. */
+  shrink: 'Shrink',
+  /** The shrunk pill's hint: a tap opens the card again. */
+  expandHint: 'Shows the reason and the Reconnect and Remote Settings buttons',
 } as const;
 
 /** Machines list (docs/2026-09-03/mobile-setup/mobile-07-machines.html). */

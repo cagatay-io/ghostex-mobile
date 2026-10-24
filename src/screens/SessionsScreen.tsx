@@ -5,7 +5,7 @@
  * recovery sheet, and focus-scoped 5s inventory polling.
  */
 
-import { useCallback, useMemo, useRef, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import {
   AppState,
   BackHandler,
@@ -109,8 +109,9 @@ import {
   StripCopy,
   WebPreviewCopy,
 } from '../copy';
-import MachineFailedCard from './sessions-screen/MachineFailedCard';
-import ConnectionWarning from './sessions-screen/ConnectionWarning';
+import MachineNotice from './sessions-screen/MachineNotice';
+import { machineNotice } from '../components/sessions/machineNotice';
+import type { FailureReasonCode } from '../inventory/client';
 import type { OptimisticInventoryChange } from '../inventory/optimistic';
 import {
   enqueueRemoteMutation,
@@ -467,6 +468,26 @@ export default function SessionsScreen({ navigation }: Props) {
     },
     [machineTabs],
   );
+
+  /** Per machine, the failure the user shrank to its pill with the card's ×. */
+  const [shrunkNotices, setShrunkNotices] = useState<Readonly<Record<string, FailureReasonCode>>>({});
+  // A shrink holds for that failure only: once the machine loads again or fails for another
+  // reason, the next failure opens the full card (gx-core `retain_machine_notice_collapses`).
+  useEffect(() => {
+    setShrunkNotices((current) => {
+      const kept = Object.entries(current).filter(
+        ([machineId, failureKey]) =>
+          inventoriesByMachineId[machineId]?.lastError != null &&
+          (inventoriesByMachineId[machineId]?.lastErrorCode ?? 'unknown') === failureKey,
+      );
+      return kept.length === Object.keys(current).length ? current : Object.fromEntries(kept);
+    });
+  }, [inventoriesByMachineId]);
+  const selectedNotice = useMemo(() => {
+    if (machine === null) return null;
+    const tab = machineTabs.find((item): item is MachineTabItem => !('kind' in item) && item.id === machine.id);
+    return machineNotice(machineDisplayLabel(machine), selectedInventory, tab?.connectionState ?? 'disconnected');
+  }, [machine, machineTabs, selectedInventory]);
 
   const statusLine = statusOverride ?? drawerStatusLine(machine, selectedInventory);
   const recentProjects = selectedInventory?.summary?.recentProjects ?? [];
@@ -1146,19 +1167,8 @@ export default function SessionsScreen({ navigation }: Props) {
     const { item } = block;
     switch (item.type) {
       case 'STATE_CARD':
-        if (item.variant === 'failure' && target !== null) {
-          const inventory = inventoriesByMachineId[target.id];
-          return (
-            <MachineFailedCard
-              machineName={target.name.length > 0 ? target.name : machineDisplayLabel(target)}
-              reason={item.body}
-              retrying={inventory?.retrying === true}
-              waiting={inventory?.lastErrorCode === 'ghostexNotAnswering'}
-              onRetry={() => retryMachineWithStatus(target)}
-              onWhatCanICheck={() => navigation.navigate('CantReach', { machineId: target.id })}
-            />
-          );
-        }
+        // The floating MachineNotice over the list says these two.
+        if ((item.variant === 'failure' || item.variant === 'connecting') && target !== null) return null;
         return (
           <StateCard
             title={item.title}
@@ -1346,13 +1356,6 @@ export default function SessionsScreen({ navigation }: Props) {
           </View>
         </Pressable>
       ) : null}
-      {machine !== null ? (
-        <ConnectionWarning
-          machineName={machineDisplayLabel(machine)}
-          inventory={selectedInventory}
-          onRetry={() => retryMachineWithStatus(machine)}
-        />
-      ) : null}
       <View style={styles.statusRow}>
         <Pressable
           accessibilityRole="button"
@@ -1420,27 +1423,47 @@ export default function SessionsScreen({ navigation }: Props) {
           onClose={() => setWorkspaceMenuOpen(false)}
         />
       ) : null}
-      <FlatList
-        data={entries}
-        keyExtractor={(entry) => entry.listKey}
-        renderItem={renderBlock}
-        style={styles.list}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl
-            colors={[GhostexPalette.ACCENT]}
-            tintColor={sidebarAppearance.muted}
-            progressBackgroundColor={sidebarAppearance.background}
-            refreshing={pullRefreshing}
-            onRefresh={pullRefresh}
+      <View style={styles.listArea}>
+        <FlatList
+          data={entries}
+          keyExtractor={(entry) => entry.listKey}
+          renderItem={renderBlock}
+          style={styles.list}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl
+              colors={[GhostexPalette.ACCENT]}
+              tintColor={sidebarAppearance.muted}
+              progressBackgroundColor={sidebarAppearance.background}
+              refreshing={pullRefreshing}
+              onRefresh={pullRefresh}
+            />
+          }
+          ListFooterComponent={
+            <Text style={styles.longPressHint} numberOfLines={1}>
+              Long-press any item for more options.
+            </Text>
+          }
+        />
+        {machine !== null && selectedNotice !== null ? (
+          <MachineNotice
+            notice={selectedNotice}
+            collapsed={selectedNotice.kind === 'failure' && shrunkNotices[machine.id] === selectedNotice.failureKey}
+            appearance={sidebarAppearance}
+            onShrink={() => {
+              if (selectedNotice.kind !== 'failure') return;
+              setShrunkNotices((current) => ({ ...current, [machine.id]: selectedNotice.failureKey }));
+            }}
+            onExpand={() =>
+              setShrunkNotices((current) =>
+                Object.fromEntries(Object.entries(current).filter(([id]) => id !== machine.id)),
+              )
+            }
+            onReconnect={() => retryMachineWithStatus(machine)}
+            onRemoteSettings={() => navigation.navigate('MachineForm', { machineId: machine.id })}
           />
-        }
-        ListFooterComponent={
-          <Text style={styles.longPressHint} numberOfLines={1}>
-            Long-press any item for more options.
-          </Text>
-        }
-      />
+        ) : null}
+      </View>
       <ProgressOverlay visible={progress !== null} message={progress ?? ''} />
 
       <SessionSearchSheet
