@@ -152,7 +152,7 @@ export function sessionLinkSummary(link: GhostexSessionLink): string {
 export type SessionLinksDisplay = 'always' | 'selected' | 'badge' | 'open' | 'off';
 
 export function sessionLinksDisplay(value: unknown): SessionLinksDisplay {
-  return value === 'always' || value === 'selected' || value === 'open' || value === 'off' ? value : 'badge';
+  return value === 'selected' || value === 'badge' || value === 'open' || value === 'off' ? value : 'always';
 }
 
 export type SessionLinksRow = {
