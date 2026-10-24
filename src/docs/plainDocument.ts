@@ -1,7 +1,8 @@
 /**
  * The file viewer's pages for files that are not documents: plain text and source code as wrapped
- * monospace, and a picture fitted to the screen (pinch to zoom). Both are written beside the
- * mirrored file like the Markdown page, so the picture loads by its own relative name.
+ * monospace, and a picture at the screen's width (pinch to zoom, double-tap for its actual size).
+ * Both are written beside the mirrored file like the Markdown page, so the picture loads by its
+ * own relative name.
  */
 
 import { GhostexPalette } from '../theme/palette';
@@ -31,14 +32,59 @@ export function renderTextDocument(text: string, title: string): string {
   return shell(title, TEXT_STYLES, `<pre class="plain-text">${escapeHtml(text)}</pre>`);
 }
 
-/** A page holding one picture; `fileName` is its name in the same folder. */
+/**
+ * A page holding one picture; `fileName` is its name in the same folder.
+ *
+ * CDXC:Docs 2026-10-24 DECISION:
+ * User: "i can't zoom in here into this png this is very annoying", and "pinch" for the phone too. The picture opens at the screen's width (never past its own size) and scrolls down like a document, pinch zooms (the page allows up to 8x), and a double-tap switches between that and the picture's actual size around the tapped spot, as a double-click does in the desktop's Files.
+ * SEE-ALSO: apps/desktop/src/app/native_docs/picture_zoom.rs (the desktop's picture zoom).
+ */
 export function renderImageDocument(fileName: string, title: string): string {
   return shell(
     title,
     IMAGE_STYLES,
-    `<main class="picture"><img src="${escapeHtml(encodeURIComponent(fileName))}" alt="${escapeHtml(title)}"></main>`,
+    `<main class="picture"><img src="${escapeHtml(encodeURIComponent(fileName))}" alt="${escapeHtml(title)}"></main>` +
+      `<script>${IMAGE_SCRIPT}</script>`,
   );
 }
+
+/**
+ * The double-tap: the page's own double-tap zoom is off (`touch-action: manipulation`, pinch still
+ * works), so two quick taps near each other switch the picture between fitted and actual size and
+ * scroll the tapped spot back under the finger.
+ */
+const IMAGE_SCRIPT = `(function () {
+  var main = document.querySelector('.picture');
+  var img = main.querySelector('img');
+  var lastTap = 0, lastX = 0, lastY = 0, lastTouch = 0;
+  function toggle(x, y) {
+    var before = img.getBoundingClientRect();
+    if (!before.width || !before.height) return;
+    var fx = Math.min(Math.max((x - before.left) / before.width, 0), 1);
+    var fy = Math.min(Math.max((y - before.top) / before.height, 0), 1);
+    main.classList.toggle('actual');
+    var after = img.getBoundingClientRect();
+    window.scrollTo(window.scrollX + after.left + fx * after.width - x, window.scrollY + after.top + fy * after.height - y);
+  }
+  document.addEventListener('touchend', function (event) {
+    if (event.touches.length || event.changedTouches.length !== 1) return;
+    var touch = event.changedTouches[0];
+    var now = Date.now();
+    lastTouch = now;
+    if (now - lastTap < 300 && Math.hypot(touch.clientX - lastX, touch.clientY - lastY) < 30) {
+      event.preventDefault();
+      lastTap = 0;
+      toggle(touch.clientX, touch.clientY);
+      return;
+    }
+    lastTap = now;
+    lastX = touch.clientX;
+    lastY = touch.clientY;
+  }, { passive: false });
+  document.addEventListener('dblclick', function (event) {
+    if (Date.now() - lastTouch > 800) toggle(event.clientX, event.clientY);
+  });
+})();`;
 
 /**
  * A page that plays one video or audio file from `src` (the computer's stream, `mediaStream.ts`).
@@ -86,6 +132,9 @@ const IMAGE_STYLES = `
   justify-content: center;
   padding: 16px;
 }
+.picture { touch-action: manipulation; }
+.picture.actual { display: block; }
+.picture.actual img { display: block; max-width: none; margin: 0 auto; }
 .picture img {
   max-width: 100%;
   height: auto;
