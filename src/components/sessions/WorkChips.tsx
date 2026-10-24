@@ -23,7 +23,7 @@ export const WORK_SESSION_ROW_HEIGHT = 52;
 const GLYPH_SIZE = 12;
 
 /** The desktop's chip glyphs (apps/desktop/assets/titlebar/*.svg), 24-unit Tabler artwork. */
-function ChipGlyph({ glyph, color, size }: { glyph: WorkChipGlyph; color: string; size: number }): ReactElement {
+export function ChipGlyph({ glyph, color, size }: { glyph: WorkChipGlyph; color: string; size: number }): ReactElement {
   const stroke = { stroke: color, strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
   const ring = <Path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" {...stroke} />;
   let body: ReactElement;

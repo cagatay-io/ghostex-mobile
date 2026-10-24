@@ -495,6 +495,25 @@ export function removeProjectCommand(projectId: string): string {
   return `ghostex remove-project --project-id ${shellQuote(requireId(projectId, 'project id'))} --json`;
 }
 
+/**
+ * Add a link to a session (`ghostex link add`): a GitHub PR or issue URL, `#123`, `owner/repo#123`
+ * or a Linear ID; the Links sheet's Link button sends a suggestion's URL.
+ */
+export function addSessionLinkCommand(sessionId: string, projectId: string, link: string): string {
+  return (
+    `ghostex link add ${shellQuote(link)} --session-id ${shellQuote(requireId(sessionId, 'session id'))}` +
+    ` --project-id ${shellQuote(requireId(projectId, 'project id'))} --json`
+  );
+}
+
+/** Remove a link from a session (`ghostex link remove <key>`); it never joins the session again by itself. */
+export function removeSessionLinkCommand(sessionId: string, projectId: string, key: string): string {
+  return (
+    `ghostex link remove ${shellQuote(key)} --session-id ${shellQuote(requireId(sessionId, 'session id'))}` +
+    ` --project-id ${shellQuote(requireId(projectId, 'project id'))} --json`
+  );
+}
+
 /** The things a session's work links name (`WorkLinkKind` in server/src/work_mode/candidates.rs). */
 export type WorkLinkKind = 'pullRequest' | 'linearIssue' | 'linearProject' | 'githubIssue' | 'githubProject';
 

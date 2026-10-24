@@ -94,6 +94,8 @@ export type MobileSummaryWireSession = {
   work?: unknown;
   /** A Claude cloud session's record (`PresentationClaudeCloud`); absent for every other session. */
   claudeCloud?: unknown;
+  /** Every PR, issue and Linear link of the session (`GxserverPresentationSessionLinks`). */
+  links?: unknown;
   /** When an armed Close After Done closes the session, while it counts down. */
   closeAfterDoneDeadlineAt?: string;
   actions?: Partial<GhostexSessionActions>;
@@ -302,6 +304,30 @@ export type GhostexSessionActions = {
   wake: boolean;
 };
 
+/** One PR, GitHub issue or Linear ticket a session is linked to (`GxserverPresentationSessionLink`). */
+export type GhostexSessionLink = {
+  /** `pr:owner/repo#318`, `issue:owner/repo#305` or `linear:GHX-142`: what removing it sends. */
+  key: string;
+  kind: 'pullRequest' | 'issue' | 'linear';
+  /** `#318`, `repo#12` or `GHX-142`. */
+  label: string;
+  title: string;
+  /** A PR's `open|draft|merged|closed`, an issue's `open|closed`, a Linear state type; '' until read. */
+  state: string;
+  stateName: string;
+  checks: string;
+  review: string;
+  url: string;
+  sourceLabel: string;
+  finished: boolean;
+};
+
+/** A session's links, open work first, and the PR and issue URLs its chat only mentioned. */
+export type GhostexSessionLinks = {
+  items: GhostexSessionLink[];
+  suggested: { key: string; kind: 'pullRequest' | 'issue'; label: string; url: string; title: string }[];
+};
+
 /**
  * The links of a work-mode session that the Copy submenu copies (gx-core `SessionWork`); every
  * field is empty when the session has no such link.
@@ -414,6 +440,8 @@ export type GhostexSession = {
   work?: GhostexSessionWork;
   /** Present only for a Claude cloud session (claudeCloud.ts). */
   claudeCloud?: GhostexClaudeCloud;
+  /** Every PR, issue and Linear link of the session; absent when it has none and nothing to suggest. */
+  links?: GhostexSessionLinks;
   /**
    * Current session tag ('' when untagged): a built-in SIDEBAR_SESSION_TAGS
    * value or a `custom-…` id resolved against the machine's `customSessionTags`.
@@ -539,6 +567,11 @@ export type GhostexMobileSummary = {
    * from a computer too old to send the list, which means every one is off.
    */
   builtInFeatures: string[];
+  /**
+   * Where a session link opens, from the computer's Settings > Browser > Open session links in:
+   * `embedded` (the phone's own browser view, the default) or `external` (its default browser).
+   */
+  sessionLinkOpenTarget?: 'embedded' | 'external';
 };
 
 // ---------------------------------------------------------------------------
@@ -942,6 +975,48 @@ function aliasFromSessionId(sessionId: string): string {
 }
 
 /** `work` on the wire (`GxserverPresentationSessionWork`); null when the session has none. */
+function linkKind(value: string): GhostexSessionLink['kind'] {
+  return value === 'pullRequest' || value === 'issue' ? value : 'linear';
+}
+
+/** `PresentationSessionLinks` as the summary forwards it; undefined when it lists nothing. */
+function parseSessionLinks(value: unknown): GhostexSessionLinks | undefined {
+  if (!isObject(value)) return undefined;
+  const items: GhostexSessionLink[] = [];
+  for (const item of Array.isArray(value.items) ? value.items : []) {
+    if (!isObject(item)) continue;
+    const key = trimmedValue(item, 'key');
+    if (key.length === 0) continue;
+    items.push({
+      key,
+      kind: linkKind(trimmedValue(item, 'kind')),
+      label: trimmedValue(item, 'label'),
+      title: trimmedValue(item, 'title'),
+      state: trimmedValue(item, 'state'),
+      stateName: trimmedValue(item, 'stateName'),
+      checks: trimmedValue(item, 'checks'),
+      review: trimmedValue(item, 'review'),
+      url: trimmedValue(item, 'url'),
+      sourceLabel: trimmedValue(item, 'sourceLabel'),
+      finished: item.finished === true,
+    });
+  }
+  const suggested: GhostexSessionLinks['suggested'] = [];
+  for (const item of Array.isArray(value.suggested) ? value.suggested : []) {
+    if (!isObject(item)) continue;
+    const key = trimmedValue(item, 'key');
+    if (key.length === 0) continue;
+    suggested.push({
+      key,
+      kind: trimmedValue(item, 'kind') === 'issue' ? 'issue' : 'pullRequest',
+      label: trimmedValue(item, 'label'),
+      url: trimmedValue(item, 'url'),
+      title: trimmedValue(item, 'title'),
+    });
+  }
+  return items.length > 0 || suggested.length > 0 ? { items, suggested } : undefined;
+}
+
 function parseSessionWork(value: unknown): GhostexSessionWork | null {
   if (!isObject(value)) return null;
   const linearIssues: GhostexSessionWork['linearIssues'] = [];
@@ -1087,6 +1162,7 @@ export function parseSession(value: unknown): GhostexSession | null {
     gitBranch: isObject(value.gitStatus) ? trimmedValue(value.gitStatus, 'branch') : '',
     work: parseSessionWork(value.work) ?? undefined,
     claudeCloud: parseClaudeCloud(value.claudeCloud),
+    links: parseSessionLinks(value.links),
     sessionTag: trimmedValue(value, 'sessionTag'),
     delayedSendRemainingLabel: trimmedValue(value, 'delayedSendRemainingLabel'),
     delayedSendDeadlineAt: trimmedValue(value, 'delayedSendDeadlineAt'),
@@ -1495,6 +1571,7 @@ function normalizeRoot(root: JsonObject): GhostexMobileSummary {
     builtInFeatures: Array.isArray(root.builtInFeatures)
       ? root.builtInFeatures.filter((id): id is string => typeof id === 'string')
       : [],
+    sessionLinkOpenTarget: root.sessionLinkOpenTarget === 'external' ? 'external' : 'embedded',
   };
 }
 

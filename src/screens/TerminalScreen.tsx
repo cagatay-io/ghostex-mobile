@@ -34,6 +34,7 @@ import { ChatBubbleIcon, ChevronLeftIcon, EllipsisIcon, TerminalPromptIcon } fro
 import { useKeyboardMetrics } from '../components/terminal/useKeyboardMetrics';
 import { isSessionChatSupportedAgent } from '../chat/session-chat-helpers';
 import NativeChatScreen from '../chat/native/NativeChatScreen';
+import SessionLinksStrip from '../chat/native/SessionLinksStrip';
 import { RenameCopy, SessionCopy } from '../copy';
 import { summarizeFailure } from '../inventory/client';
 import { useInventoryStore } from '../inventory/store';
@@ -137,6 +138,11 @@ export default function TerminalScreen({ navigation, route }: Props) {
     ),
   );
   const sessionViewModeBySessionKey = useTerminalStore((state) => state.sessionViewModeBySessionKey);
+  const sessionLinkOpenTarget = useInventoryStore((state) =>
+    activeTab === null
+      ? 'embedded'
+      : (state.inventoriesByMachineId[activeTab.machineId]?.summary?.sessionLinkOpenTarget ?? 'embedded'),
+  );
 
   // Agent Actions apply to a gxserver session, so shell tabs and tabs whose
   // session identity has not resolved yet do not get the button at all.
@@ -562,6 +568,14 @@ export default function TerminalScreen({ navigation, route }: Props) {
         </Pressable>
       </View>
 
+      {chatModeActive && activeTab !== null ? (
+        <SessionLinksStrip
+          machine={activeMachine}
+          session={activeSession}
+          openTarget={sessionLinkOpenTarget}
+          openInApp={(url) => navigation.navigate('WebPreview', { machineId: activeTab.machineId, url })}
+        />
+      ) : null}
       {/*
         Only a session this phone launched into chat (it carries the launcher's agent id) starts
         its agent through the attach, so only there is a failed attach an agent startup failure.
