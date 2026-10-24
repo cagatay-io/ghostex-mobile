@@ -20,6 +20,16 @@ import { create } from 'zustand';
 import { GhostexNative, type VoiceEvent } from '../../modules/ghostex-native/src';
 import { chatMachineLink } from '../chat/rust/machine-link';
 import type { MachineConnectionTarget } from '../machines/credentials';
+import {
+  focusChangeNotice,
+  focusRef,
+  outdatedFocusMessage,
+  parseFocus,
+  readyFocus,
+  readyFromOlderServer,
+  type VoiceFocus,
+  type VoiceFocusTarget,
+} from './focus';
 
 /** Where the conversation is: not running, opening, talking, reconnecting after a dropped link, over. */
 export type VoicePhase = 'idle' | 'starting' | 'live' | 'reattaching' | 'ended';
@@ -75,6 +85,10 @@ type VoiceState = {
   memoryState: VoiceMemoryState;
   /** The latest session the agent showed (worked with or was asked to show), for the voice screen's "Open <session>" chip. */
   shownSession: VoiceShownSession | null;
+  /** The session the call is about (gxserver's `ready.focus` / `focus` frames), or null for all sessions. */
+  focus: VoiceFocus | null;
+  /** The session a call being started was asked to be about, until gxserver's `ready` names it. */
+  requestedFocus: VoiceFocusTarget | null;
 };
 
 /** `regular`: hands-free; `pushToTalk`: the agent hears you only while you hold Talk. */
@@ -122,6 +136,8 @@ const INITIAL: VoiceState = {
   memory: null,
   memoryState: 'hidden',
   shownSession: null,
+  focus: null,
+  requestedFocus: null,
 };
 
 /** Lines kept on screen; older ones scroll away for good. */
@@ -136,6 +152,8 @@ let target: MachineConnectionTarget | null = null;
 let relinking = false;
 let noticeSeq = 0;
 let installed = false;
+/** The call being started asked for a focus: its first `ready` must carry the `focus` key. */
+let askedForFocus = false;
 
 /** Voice mode needs the Android voice engine; the iOS module has none yet. */
 export const VOICE_SUPPORTED = Platform.OS === 'android';
@@ -235,6 +253,13 @@ function parseShownSession(value: unknown): VoiceShownSession | null {
   return { projectId, sessionId, title };
 }
 
+/**
+ * CDXC:VoiceMode 2026-10-23 DECISION: User, asked "How does the phone's voice screen show which session the call is about?", picked "The screen stays as it is, with a line "Only about Voice mode" above the captions". The voice screen keeps its "Voice agent" title and gets an "Only about <title> (<project>)" line above the captions; the "Open <title>" chip stays on the focused session for the whole call instead of following the sessions the agent touched.
+ */
+function shownFromFocus(focus: VoiceFocus): VoiceShownSession {
+  return { projectId: focus.projectId, sessionId: focus.sessionId, title: focus.title };
+}
+
 function finish(message: string, problem?: VoiceProblem): void {
   nativeSessionId = null;
   set({
@@ -259,6 +284,23 @@ function onFrame(json: string): void {
   const text = (key: string): string => (typeof frame[key] === 'string' ? (frame[key] as string) : '');
   switch (frame.type) {
     case 'ready': {
+      if (readyFromOlderServer(askedForFocus, frame)) {
+        // An older gxserver ignored the focus and opened an all-sessions call: hang it up.
+        askedForFocus = false;
+        void GhostexNative.voiceEnd('conversation').catch(() => undefined);
+        const message = outdatedFocusMessage(useVoiceStore.getState().machineName);
+        finish(message, { code: 'outdated', message });
+        return;
+      }
+      askedForFocus = false;
+      const scope = readyFocus(frame);
+      // A reattach redraws the banner from `ready.focus`; an older gxserver's all-sessions call has none.
+      const focus = scope.kind === 'focus' ? scope.focus : null;
+      set({
+        focus,
+        requestedFocus: null,
+        ...(focus !== null ? { shownSession: shownFromFocus(focus) } : {}),
+      });
       currentProvider = text('provider') || currentProvider;
       const options = Array.isArray(frame.voiceOptions)
         ? frame.voiceOptions.filter((voice): voice is string => typeof voice === 'string')
@@ -305,6 +347,14 @@ function onFrame(json: string): void {
       );
       return;
     }
+    case 'focus': {
+      // The scope changed: one the phone asked for, the agent widening it by voice, or the session closing.
+      const next = parseFocus(frame.focus);
+      const note = focusChangeNotice(useVoiceStore.getState().focus, next);
+      set({ focus: next, ...(next !== null ? { shownSession: shownFromFocus(next) } : {}) });
+      if (note !== null) notice(note);
+      return;
+    }
     case 'state':
       set({
         agentState: (text('state') || 'listening') as VoiceAgentState,
@@ -334,7 +384,8 @@ function onFrame(json: string): void {
       const label = text('label') || text('name');
       pushLine({ kind: 'tool', key: `tool-${text('callId')}`, label, finished, ok: frame.ok !== false });
       set({ toolLabel: finished ? null : label });
-      const shown = finished ? parseShownSession(frame.session) : null;
+      // In a call about one session the Open chip stays on that session (`shownFromFocus`).
+      const shown = finished && useVoiceStore.getState().focus === null ? parseShownSession(frame.session) : null;
       if (shown !== null) set({ shownSession: shown });
       return;
     }
@@ -452,14 +503,19 @@ async function microphoneAllowed(): Promise<boolean> {
 }
 
 /**
- * Starts a conversation with the voice agent on `machine`. Never throws: every failure lands in
- * the store as a problem the voice screen shows.
+ * Starts a conversation with the voice agent on `machine`, about all sessions or, with `about`, about
+ * one session. Never throws: every failure lands in the store as a problem the voice screen shows.
  */
-export async function startVoice(machine: MachineConnectionTarget, machineName: string): Promise<void> {
+export async function startVoice(
+  machine: MachineConnectionTarget,
+  machineName: string,
+  about?: VoiceFocusTarget,
+): Promise<void> {
   if (!VOICE_SUPPORTED || voiceActive(useVoiceStore.getState().phase)) return;
   target = machine;
   currentProvider = null;
-  set({ ...INITIAL, phase: 'starting', machineId: machine.id, machineName });
+  askedForFocus = false;
+  set({ ...INITIAL, phase: 'starting', machineId: machine.id, machineName, requestedFocus: about ?? null });
   const fail = (code: string, message: string) => finish(message, { code, message });
   try {
     if (!(await microphoneAllowed())) {
@@ -491,6 +547,7 @@ export async function startVoice(machine: MachineConnectionTarget, machineName: 
       voiceOptions?: Record<string, string[]>;
       speed?: number;
       callMode?: string;
+      focusedCalls?: boolean;
     };
     const provider = result.provider === 'openai' ? 'openai' : 'xai';
     currentProvider = provider;
@@ -506,12 +563,18 @@ export async function startVoice(machine: MachineConnectionTarget, machineName: 
       fail('noKey', problemMessage('noKey', '', provider));
       return;
     }
+    if (about !== undefined && result.focusedCalls !== true) {
+      fail('outdated', outdatedFocusMessage(machineName));
+      return;
+    }
     if (useVoiceStore.getState().phase !== 'starting') return;
+    askedForFocus = about !== undefined;
     nativeSessionId = await GhostexNative.voiceStart({
       mode: 'conversation',
       localPort: forward.localPort,
       authToken: forward.authToken,
       title: machineName,
+      ...(about !== undefined ? { focus: focusRef(about) } : {}),
     });
     if (speed !== 1) await GhostexNative.voiceSetSpeed(speed);
   } catch (error) {
@@ -520,6 +583,17 @@ export async function startVoice(machine: MachineConnectionTarget, machineName: 
       `Couldn't reach Ghostex on ${machineName}. ${error instanceof Error ? error.message : ''}`.trim(),
     );
   }
+}
+
+/**
+ * Moves the open call to one session, or with null to all sessions (the banner's All sessions).
+ * gxserver answers with a `focus` frame, which is what changes the screen.
+ *
+ * CDXC:VoiceMode 2026-10-23 WHY: The banner the user picked has no way to widen, and "Yes, both ways" needs one on the phone, so the banner gets a small All sessions button at its right end (the desktop strip's button, same word).
+ */
+export function focusVoiceOn(about: VoiceFocusTarget | null): void {
+  if (nativeSessionId === null || !voiceActive(useVoiceStore.getState().phase)) return;
+  void GhostexNative.voiceSetFocus(about !== null ? focusRef(about) : null).catch(() => undefined);
 }
 
 /** Hangs up (or abandons a conversation still opening). */

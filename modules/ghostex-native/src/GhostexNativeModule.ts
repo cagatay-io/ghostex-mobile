@@ -179,6 +179,8 @@ declare class GhostexNativeModule extends NativeModule<GhostexNativeEvents> {
   voiceSetVoice(voice: string): Promise<void>;
   /** The memory card: Continue hands the last conversation's summary to the agent; Forget deletes it. */
   voiceSendControl(type: 'continueMemory' | 'forgetMemory'): Promise<void>;
+  /** Moves the open call to one session (`<projectId>:<sessionId>`), or to all sessions with null. */
+  voiceSetFocus(session: string | null): Promise<void>;
   /** Conversation: hang up. Dictation: stop and wait for the final text. */
   voiceEnd(mode: VoiceMode): Promise<void>;
   /** Drops a dictation without its final text. */

@@ -78,6 +78,8 @@ class VoiceStartOptionsRecord : Record {
   @Field var title: String = ""
   @Field var provider: String? = null
   @Field var language: String? = null
+  /** Conversation only: `<projectId>:<sessionId>` for a call about one session. */
+  @Field var focus: String? = null
 }
 
 /** Mirrors `ReadAloudMode` in GhostexNative.types.ts: the chat Voice mode reads (GhostexForegroundService). */

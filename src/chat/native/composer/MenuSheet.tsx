@@ -34,6 +34,7 @@ export function glyphForIconPath(iconPath: unknown): GlyphName | null {
 }
 
 const KNOWN_GLYPHS = new Set<string>([
+  'headset',
   'dots',
   'list-details',
   'list-check',

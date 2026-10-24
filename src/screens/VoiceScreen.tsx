@@ -32,6 +32,7 @@ import { useTerminalStore } from '../terminal/sessions';
 import { GhostexPalette, GhostexRadii } from '../theme/palette';
 import {
   dismissVoice,
+  focusVoiceOn,
   hangUpVoice,
   interruptVoice,
   pickVoice,
@@ -49,6 +50,7 @@ import {
   VOICE_CALL_MODES,
   VOICE_CALL_MODE_NOTE,
 } from '../voice/conversation';
+import { focusBannerDetail } from '../voice/focus';
 import { HeadsetGlyph, MicrophoneGlyph } from '../voice/VoiceButton';
 import { VoiceMemoryCard } from '../voice/VoiceMemoryCard';
 
@@ -272,6 +274,48 @@ function VoiceSettingsSheet({ visible, onClose }: { visible: boolean; onClose: (
   );
 }
 
+/**
+ * The line above the captions in a call about one session: "Only about <title> (<project>)", or
+ * "<title> was closed", with All sessions at its right end (the WHY on `focusVoiceOn`).
+ */
+function FocusBanner() {
+  const focus = useVoiceStore((state) => state.focus);
+  const requested = useVoiceStore((state) => state.requestedFocus);
+  const phase = useVoiceStore((state) => state.phase);
+  if (!voiceActive(phase)) return null;
+  const title = focus?.title ?? requested?.title ?? null;
+  if (title === null) return null;
+  const detail = focus !== null ? focusBannerDetail(focus) : '';
+  return (
+    <View style={styles.focusBanner}>
+      <Text style={styles.focusText} numberOfLines={2}>
+        {focus?.closed === true ? (
+          <>
+            <Text style={styles.focusTitle}>{title}</Text>
+            {' was closed'}
+          </>
+        ) : (
+          <>
+            {'Only about '}
+            <Text style={styles.focusTitle}>{title}</Text>
+            {detail.length > 0 ? ` ${detail}` : ''}
+          </>
+        )}
+      </Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="All sessions: talk about every session"
+        disabled={phase !== 'live'}
+        hitSlop={8}
+        style={({ pressed }) => [styles.allSessions, phase !== 'live' && styles.controlDisabled, pressed && styles.controlPressed]}
+        onPress={() => focusVoiceOn(null)}
+      >
+        <Text style={styles.allSessionsText}>All sessions</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 function Line({ line }: { line: VoiceLine }) {
   switch (line.kind) {
     case 'caption':
@@ -442,11 +486,17 @@ export default function VoiceScreen({ navigation }: Props) {
         </View>
       ) : null}
 
+      <FocusBanner />
+
       <View style={styles.lines}>
         <ScrollView {...scrollProps} style={styles.lines} contentContainerStyle={styles.linesContent}>
           {voice.phase === 'live' ? <VoiceMemoryCard /> : null}
           {voice.lines.length === 0 && active ? (
-            <Text style={styles.hint}>Ask what your agents are doing, or tell one what to do next.</Text>
+            <Text style={styles.hint}>
+              {voice.focus !== null && !voice.focus.closed
+                ? `Ask what ${voice.focus.title} is doing, or tell it what to do next.`
+                : 'Ask what your agents are doing, or tell one what to do next.'}
+            </Text>
           ) : null}
           {voice.lines.map((line) => (
             <Line key={line.key} line={line} />
@@ -556,7 +606,16 @@ export default function VoiceScreen({ navigation }: Props) {
               accessibilityRole="button"
               accessibilityLabel="Start a new conversation"
               style={({ pressed }) => [styles.control, styles.wide, styles.controlOn, pressed && styles.controlPressed]}
-              onPress={() => void startVoice(machine, voice.machineName)}
+              onPress={() =>
+                // Talk again keeps the call's scope: about the same session, unless it was closed.
+                void startVoice(
+                  machine,
+                  voice.machineName,
+                  voice.focus !== null && !voice.focus.closed
+                    ? { projectId: voice.focus.projectId, sessionId: voice.focus.sessionId, title: voice.focus.title }
+                    : undefined,
+                )
+              }
             >
               <HeadsetGlyph size={30} color={GhostexPalette.ACCENT_FOREGROUND} />
               <Text style={[styles.controlLabel, styles.controlLabelOn]}>Talk again</Text>
@@ -598,6 +657,28 @@ const styles = StyleSheet.create({
   },
   voiceChipText: { color: GhostexPalette.FOREGROUND, fontSize: 15, fontWeight: '600' },
   voiceChips: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  focusBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingLeft: 14,
+    paddingRight: 6,
+    paddingVertical: 6,
+    borderRadius: GhostexRadii.section,
+    backgroundColor: GhostexPalette.CARD,
+  },
+  focusText: { flex: 1, color: GhostexPalette.MUTED, fontSize: 16, lineHeight: 22 },
+  focusTitle: { color: GhostexPalette.FOREGROUND, fontWeight: '700' },
+  allSessions: {
+    paddingHorizontal: 12,
+    minHeight: 36,
+    justifyContent: 'center',
+    borderRadius: 18,
+    backgroundColor: GhostexPalette.CARD_ACTIVE,
+  },
+  allSessionsText: { color: GhostexPalette.FOREGROUND, fontSize: 14, fontWeight: '600' },
   openSession: {
     flexDirection: 'row',
     alignItems: 'center',

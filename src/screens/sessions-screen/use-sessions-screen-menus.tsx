@@ -124,6 +124,9 @@ import {
 } from './CoordinatorDetailsSheet';
 import { parseWorkLinkCandidates, type WorkLinkCandidates } from './work-link-picker';
 import { sidebarMenuView } from './sidebar-menu-view';
+import { chatMachineLink } from '../../chat/rust/machine-link';
+import { callVoiceAbout } from '../../voice/callAbout';
+import { VOICE_SUPPORTED } from '../../voice/conversation';
 import {
   buildProjectMenu,
   buildSessionMenu,
@@ -625,6 +628,22 @@ export function useSessionsScreenMenus({
           } else setOverlay({ kind: 'delayedSend', ctx });
           return;
         }
+        case 'voiceCall': {
+          const ctx = scope.session;
+          if (ctx === undefined) throw new Error('A voice call needs a session.');
+          const { session } = ctx.item;
+          setOverlay(NONE);
+          callVoiceAbout(
+            machine,
+            {
+              projectId: session.projectId,
+              sessionId: session.sessionId,
+              title: session.displayTitle.length > 0 ? session.displayTitle : session.sessionId,
+            },
+            () => navigation.navigate('Voice'),
+          );
+          return;
+        }
         case 'coordinatorSessionAction': {
           const ctx = scope.session;
           if (ctx === undefined) throw new Error('An orchestrator action needs a session.');
@@ -678,6 +697,7 @@ export function useSessionsScreenMenus({
       project:
         summaryFor(ctx.machine.id)?.projects.find((project) => project.projectId === ctx.item.session.projectId) ??
         null,
+      voiceCall: VOICE_SUPPORTED && chatMachineLink(ctx.machine).capabilities()?.includes('voiceAgent') === true,
     });
     const view = sidebarMenuView(menu, menuPath, {
       openPath: (next) => setOverlay({ kind: 'sessionMenu', ctx, menuPath: next }),

@@ -74,6 +74,8 @@ export type NativeComposerProps = {
    * (the notice card's Switch account). Each new value opens it; 0 opens nothing.
    */
   openAccountsRequestId?: number;
+  /** The session's title, for the More actions row "Voice call about this chat" (shown when `voiceCall` is served). */
+  voiceCallTitle?: string;
 };
 
 const DEFAULT_HOST_ACTIONS: readonly string[] = ['terminalView'];
@@ -116,6 +118,7 @@ export function NativeComposer({
   onHostAction,
   hostActions = DEFAULT_HOST_ACTIONS,
   openAccountsRequestId = 0,
+  voiceCallTitle = '',
 }: NativeComposerProps) {
   const styles = useStyles();
   const serves = useCallback(
@@ -453,9 +456,10 @@ export function NativeComposer({
         compactAndSend,
         interruptAndSend,
         draft: model?.text ?? '',
+        voiceCallTitle,
       }),
     });
-  }, [available, document, model, serves, simpleSetting, verboseSetting]);
+  }, [available, document, model, serves, simpleSetting, verboseSetting, voiceCallTitle]);
 
   /** Send held while the agent works: Interrupt & Send or Queue. */
   const openSendChoices = useCallback(() => {

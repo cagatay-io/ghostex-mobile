@@ -248,6 +248,8 @@ export type VoiceStartOptions = {
   provider?: 'xai' | 'openai';
   /** Dictation only: a BCP-47 hint for the recognizer. */
   language?: string;
+  /** Conversation only: `<projectId>:<sessionId>` for a call about one session (gxserver's `focus` query). */
+  focus?: string;
 };
 
 export type VoiceMode = 'conversation' | 'dictation';

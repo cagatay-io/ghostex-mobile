@@ -45,6 +45,7 @@ import {
   type GlyphProps,
 } from '../../components/sessions/icons';
 import { GhostexPalette } from '../../theme/palette';
+import { HeadsetGlyph } from '../../voice/VoiceButton';
 import { BUILTIN_TAG_ICON_IDS, type SidebarMenuCommand, type SidebarMenuItem } from './sidebar-menus';
 
 const MENU_ICON_SIZE = 14;
@@ -68,6 +69,7 @@ const MENU_GLYPHS: Readonly<Record<string, (props: GlyphProps) => ReactElement>>
   'git-fork': GitForkGlyph,
   'git-pull-request': GitPullRequestGlyph,
   hash: HashGlyph,
+  headset: HeadsetGlyph,
   link: LinkGlyph,
   moon: SleepGlyph,
   note: NoteGlyph,

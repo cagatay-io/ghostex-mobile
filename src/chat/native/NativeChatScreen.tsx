@@ -39,6 +39,8 @@ import { useRustChat, type RustChat } from '../rust/useRustChat';
 import GpuiTranscript from '../gpui/GpuiTranscript';
 import { useGpuiChat } from '../gpui/useGpuiChat';
 import { useSettingsStore } from '../../settings/store';
+import { callVoiceAbout } from '../../voice/callAbout';
+import { useVoiceCapability } from '../../voice/VoiceButton';
 import { useArmedActions } from './armedActions';
 import { NativeChatCards, NativeChatOverlays, PageSheet, questionReplacesComposer } from './cards';
 import { ConnectionLostNotice } from './cards/ConnectionLostNotice';
@@ -153,6 +155,10 @@ export default function NativeChatScreen({
     setTitle(title.length > 0 ? title : null);
   }, [setTitle, title]);
 
+  // More actions' "Voice call about this chat", on a computer whose gxserver has the voice agent.
+  const voiceNavigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const voiceCallable = useVoiceCapability(machine) && sessionId.length > 0 && projectId.length > 0;
+
   // A Handoff's new conversation opens with the handover link gxserver staged for it.
   const composerReady = chat.state?.composer.ready === true;
   const composerInput = chat.composer;
@@ -196,6 +202,11 @@ export default function NativeChatScreen({
           show(answer.error.message, true, 'Switch Account failed');
         });
       } else if (action === 'toast') show(String(params.message ?? ''), params.level === 'error');
+      else if (action === 'voiceCall') {
+        callVoiceAbout(machine, { projectId, sessionId, title: title.length > 0 ? title : 'this chat' }, () =>
+          voiceNavigation.navigate('Voice'),
+        );
+      }
       else if (action === 'exportTranscript') {
         exportCount.current += 1;
         openHandoff({ id: -exportCount.current, target: null });
@@ -205,15 +216,16 @@ export default function NativeChatScreen({
         else setSavedPromptsOpen(true);
       } else if (hostActions.includes(action)) onHostAction?.(action, params);
     },
-    [hostActions, machine, onHostAction, onSwitchToTerminal, openHandoff, projectId, sessionId, show],
+    [hostActions, machine, onHostAction, onSwitchToTerminal, openHandoff, projectId, sessionId, show, title, voiceNavigation],
   );
   const composerHostActions = useMemo(
     () => [
       'terminalView',
       ...(sessionId.length > 0 && projectId.length > 0 ? ['exportTranscript', 'stashedPrompts', 'switchAccount'] : []),
+      ...(voiceCallable ? ['voiceCall'] : []),
       ...hostActions.filter((action) => action !== 'exportTranscript'),
     ],
-    [hostActions, projectId, sessionId],
+    [hostActions, projectId, sessionId, voiceCallable],
   );
 
   // The header's requests, one per new value (0 runs nothing).
@@ -277,6 +289,7 @@ export default function NativeChatScreen({
             onHostAction={hostAction}
             hostActions={composerHostActions}
             openAccountsRequestId={accountsRequestId}
+            voiceCallTitle={title}
           />
         )}
         <RewindDialog chat={chat} />

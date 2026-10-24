@@ -68,6 +68,8 @@ internal object GhostexVoice {
     val title: String,
     val provider: String?,
     val language: String?,
+    /** Conversation only: `<projectId>:<sessionId>` for a call about one session, else null. */
+    val focus: String? = null,
   )
 
   /** Starts a conversation or a dictation, replacing one of the same mode that is still running. */
@@ -114,6 +116,11 @@ internal object GhostexVoice {
   /** The voice screen's voice picker: gxserver switches when the provider can and answers `voice`. */
   fun setVoice(voice: String) {
     current("conversation")?.sendJson(JSONObject().put("type", "voice").put("voice", voice))
+  }
+
+  /** Moves the open call to one session (`<projectId>:<sessionId>`) or, with null, to all sessions. */
+  fun setFocus(session: String?) {
+    current("conversation")?.sendJson(JSONObject().put("type", "focus").put("session", session ?: JSONObject.NULL))
   }
 
   /** The voice screen's memory card: `continueMemory` or `forgetMemory`, frames without a payload. */
@@ -178,6 +185,10 @@ internal object GhostexVoice {
     private val title = options.title
     private val provider = options.provider
     private val language = options.language
+    /** The session the call was started about; sent only on the first open (a reattach keeps gxserver's). */
+    private val startFocus = options.focus
+    /** The title of the session the call is about now (`ready.focus` / `focus` frames), for the notification. */
+    @Volatile private var focusTitle: String? = null
     @Volatile private var localPort = options.localPort
     @Volatile private var authToken = options.authToken
 
@@ -312,6 +323,7 @@ internal object GhostexVoice {
       val query = StringBuilder("protocolVersion=$PROTOCOL_VERSION&client=phone&mode=").append(if (conversationMode) "conversation" else "dictation")
       conversationId?.let { query.append("&conversationId=").append(Uri.encode(it)) }
       if (conversationMode) provider?.let { query.append("&provider=").append(Uri.encode(it)) }
+      if (conversationMode && conversationId == null) startFocus?.let { query.append("&focus=").append(Uri.encode(it)) }
       if (!conversationMode) language?.let { query.append("&language=").append(Uri.encode(it)) }
       val request = Request.Builder()
         .url("ws://127.0.0.1:$localPort/api/voice?$query")
@@ -365,6 +377,7 @@ internal object GhostexVoice {
           detachedAt = 0L
           attempts = 0
           if (conversationMode) {
+            focusTitle = focusTitleOf(frame.opt("focus"))
             pushToTalk = frame.optString("callMode") == "pushToTalk"
             talking = false
             sendPlaybackRate()
@@ -373,6 +386,10 @@ internal object GhostexVoice {
         }
         "state" -> {
           state = frame.optString("state", state)
+          refreshNotice()
+        }
+        "focus" -> if (conversationMode) {
+          focusTitle = focusTitleOf(frame.opt("focus"))
           refreshNotice()
         }
         "audioStart" -> player?.beginItem(frame.optString("itemId"))
@@ -434,8 +451,14 @@ internal object GhostexVoice {
       emit(mapOf("sessionId" to id, "mode" to mode, "kind" to "status", "status" to status, "message" to message))
     }
 
+    /** A focus object's session title, or null for all sessions (or an older gxserver's missing key). */
+    private fun focusTitleOf(value: Any?): String? =
+      (value as? JSONObject)?.optString("title")?.takeIf { it.isNotBlank() }
+
     private fun refreshNotice() {
       if (!conversationMode || disposed) return
+      // A call about one session names it ("Listening · About Voice mode"); else the computer.
+      val title = focusTitle?.let { "About $it" } ?: this.title
       val line = when {
         detachedAt > 0L -> "Reconnecting to $title…"
         focusPaused -> "Paused while another app uses audio"

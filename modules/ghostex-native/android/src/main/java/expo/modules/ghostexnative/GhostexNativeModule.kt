@@ -598,8 +598,13 @@ class GhostexNativeModule : Module() {
           title = options.title.ifBlank { "your computer" },
           provider = options.provider?.takeIf { it.isNotBlank() },
           language = options.language?.takeIf { it.isNotBlank() },
+          focus = options.focus?.takeIf { it.isNotBlank() },
         )
       )
+    }
+
+    AsyncFunction("voiceSetFocus") { session: String? ->
+      GhostexVoice.setFocus(session?.takeIf { it.isNotBlank() })
     }
 
     AsyncFunction("voiceUpdateLink") { mode: String, localPort: Int, authToken: String ->

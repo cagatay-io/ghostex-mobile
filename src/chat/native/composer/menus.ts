@@ -61,6 +61,8 @@ export type MoreActionsInput = {
   interruptAndSend?: { disabled: boolean } | null;
   /** The chat box's text, which Side chat toggles its `/btw ` prefix on. */
   draft?: string;
+  /** The session's title, for Voice call about this chat's hint (the row shows when `serves('voiceCall')`). */
+  voiceCallTitle?: string;
 };
 
 /**
@@ -194,6 +196,7 @@ export function moreActionsRows({
   compactAndSend = null,
   interruptAndSend = null,
   draft = '',
+  voiceCallTitle = '',
 }: MoreActionsInput): MenuRow[] {
   const rows: MenuRow[] = [];
   if (interruptAndSend !== null) {
@@ -239,6 +242,15 @@ export function moreActionsRows({
   if (branches !== null) rows.push(branches);
   rows.push(viewModesRow(document, simple, verbose, available('summary')));
   rows.push(...readAloudRows(document));
+  // Under Auto-read: a voice call about this session (`src/voice/callAbout.ts` has the DECISION).
+  if (serves('voiceCall')) {
+    rows.push({
+      label: 'Voice call about this chat',
+      iconPath: 'titlebar/headset.svg',
+      description: `Talk only about ${voiceCallTitle.length > 0 ? voiceCallTitle : 'this chat'}`,
+      command: { type: 'host', action: 'voiceCall' },
+    });
+  }
   /**
    * CDXC:SessionChat 2026-10-17 DECISION:
    * User: "Move catch me up on mobile to be inside the 3 dots menu above side chat". The phone has no Catch me up button on the composer; this row sends the same action (it opens the card, or closes it when open) whenever the button would have shown. Desktop keeps its button.

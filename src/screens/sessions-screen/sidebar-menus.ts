@@ -70,6 +70,8 @@ export type SidebarMenuCommand =
   | { type: 'sessionAction'; sessionId: string; action: 'rename' | 'note' | 'delayedSend' }
   /** Opens the Link to picker for one kind (gx-core `MenuCommand::link_work`). */
   | { type: 'sessionAction'; sessionId: string; action: 'linkWork'; kind: WorkLinkKind }
+  /** The phone's own row: a voice call about this session (`src/voice/callAbout.ts`). */
+  | { type: 'voiceCall'; sessionId: string }
   /** gx-core `MenuCommand::coordinator_session`: an orchestrator's Goal & Instructions / Memory, a thread's Mark Thread Done / Reopen Thread. */
   | { type: 'coordinatorSessionAction'; sessionId: string; action: 'goal' | 'memory' | 'markDone' | 'reopen' }
   | {
@@ -412,6 +414,8 @@ export type SessionMenuInput = {
   threads: readonly GhostexSession[];
   /** The session's project, whose title and worktree Copy Details quotes; null when unknown. */
   project: Pick<GhostexProject, 'name' | 'path' | 'worktree' | 'workMode' | 'workTracker'> | null;
+  /** The computer's gxserver has the voice agent, so the menu offers Voice Call. */
+  voiceCall?: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -620,7 +624,7 @@ function coordinatorRows(session: GhostexSession): SidebarMenuItem[] {
  * computer's own panes.
  */
 export function buildSessionMenu(input: SessionMenuInput): SidebarMenuItem[] {
-  const { session, customTags, below, threads, project } = input;
+  const { session, customTags, below, threads, project, voiceCall = false } = input;
   const settings = PHONE_MENU_SETTINGS;
   const caps = sessionCapabilities(session);
   const id = session.sessionId;
@@ -756,6 +760,11 @@ export function buildSessionMenu(input: SessionMenuInput): SidebarMenuItem[] {
       ...row('Close Below', 'x', command({ type: 'closeSessions', sessionIds: below.map((entry) => entry.sessionId) })),
       danger: true,
     });
+  }
+
+  // Voice Call, Title Case like its neighbours.
+  if (voiceCall && !caps.isBrowser && session.isDraft !== true) {
+    menu.push(row('Voice Call', 'headset', { type: 'voiceCall', sessionId: id }));
   }
 
   if (caps.canDelayedSend && session.delayedSendDeadlineAt.length > 0) {
