@@ -5,7 +5,7 @@
 import { StyleSheet } from 'react-native';
 
 import { ds, PROJECT_RAIL_WIDTH, SIDEBAR_BACKGROUND } from '../../components/sessions/rows';
-import { GhostexPalette, GhostexRadii } from '../../theme/palette';
+import { GhostexPalette, GhostexRadii, SidebarPalette } from '../../theme/palette';
 
 export const styles = StyleSheet.create({
   container: {
@@ -169,6 +169,17 @@ export const styles = StyleSheet.create({
   cardSessions: {
     paddingHorizontal: ds(3),
     paddingBottom: ds(3),
+  },
+  /**
+   * The rows of a user-made session group: indented under the group, with a coordinator's tree
+   * line (SessionRow `threadLine`) down their left edge, under the group header's caret (8dp
+   * padding + half the 12dp caret), as the desktop draws a project's groups.
+   */
+  sessionGroupRows: {
+    marginLeft: ds(14),
+    paddingLeft: ds(4),
+    borderLeftWidth: ds(1),
+    borderLeftColor: SidebarPalette.ROW_THREAD_LINE,
   },
   /*
    * Desktop collection in branched mode (section.project-collection): no panel

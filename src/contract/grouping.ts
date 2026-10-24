@@ -174,6 +174,8 @@ export type SessionItem = {
   nesting?: RowNesting;
   /** On a coordinator row: its crew badge. */
   coordinatorBadge?: CoordinatorBadge;
+  /** A row of a user-made session group, drawn indented under the group with a tree line. */
+  inSessionGroup?: boolean;
 };
 
 /**
@@ -877,7 +879,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
       if (groupCollapsed) continue;
       for (const session of groupTree.sessions) {
         if (isFolded(session)) continue;
-        items.push(sessionItem(session, group.groupId));
+        items.push({ ...sessionItem(session, group.groupId), inSessionGroup: true });
       }
     }
     emitSessionsWithKindLabels(parkedSessions, '');
