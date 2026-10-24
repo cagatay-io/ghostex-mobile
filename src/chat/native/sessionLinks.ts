@@ -8,7 +8,7 @@
  * (server/src/session_links/) through the mobile summary's `links`.
  */
 
-import type { GhostexSessionLink } from '../../contract/mobileSummary';
+import type { GhostexSessionLink, GhostexSessionLinks } from '../../contract/mobileSummary';
 import type { WorkChipGlyph } from '../../components/sessions/workChipModel';
 import { SidebarPalette } from '../../theme/palette';
 
@@ -117,8 +117,9 @@ export function sessionLinksDisplay(value: unknown): SessionLinksDisplay {
 export type SessionLinksRow = {
   /** The links the row's second line shows, in order; empty draws no line. */
   line: GhostexSessionLink[];
-  /** The Badge option's count, coloured by the most pressing link. */
-  badge: { count: number; color: string } | null;
+  /** The Badge option's count, coloured by the most pressing link; with `suggested`, the count of
+   * a session's suggestions while it has no links, drawn muted and dashed. */
+  badge: { count: number; color: string; suggested: boolean } | null;
 };
 
 /** The colour of the most pressing link (gx-core `most_pressing_tone`). */
@@ -141,11 +142,19 @@ export function mostPressingLinkColor(links: readonly GhostexSessionLink[]): str
 }
 
 export function sessionLinksRow(
-  links: readonly GhostexSessionLink[] | undefined,
+  sessionLinks: GhostexSessionLinks | undefined,
   display: SessionLinksDisplay,
   selected: boolean,
 ): SessionLinksRow {
-  if (links === undefined || links.length === 0 || display === 'off') return { line: [], badge: null };
+  if (sessionLinks === undefined || display === 'off') return { line: [], badge: null };
+  const links = sessionLinks.items;
+  if (links.length === 0) {
+    // CDXC:SessionLinks 2026-10-24 DECISION: User: "why didn't we suggest #263 here for this session?" A session whose only links are suggestions shows a quiet badge counting them, under every option but Off (gx-core `SessionLinks::row`).
+    const suggested = sessionLinks.suggested.length;
+    return suggested > 0
+      ? { line: [], badge: { count: suggested, color: SidebarPalette.MUTED, suggested: true } }
+      : { line: [], badge: null };
+  }
   switch (display) {
     case 'always':
       return { line: [...links], badge: null };
@@ -154,6 +163,6 @@ export function sessionLinksRow(
     case 'open':
       return { line: links.filter((link) => !link.finished), badge: null };
     case 'badge':
-      return { line: [], badge: { count: links.length, color: mostPressingLinkColor(links) } };
+      return { line: [], badge: { count: links.length, color: mostPressingLinkColor(links), suggested: false } };
   }
 }

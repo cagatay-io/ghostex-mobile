@@ -359,7 +359,7 @@ export default function SessionRow({
    */
   const offerCleanup = session.work?.offerCleanup === true;
   const linksRow = useMemo(
-    () => sessionLinksRow(session.links?.items, sessionLinksDisplay, session.isFocused),
+    () => sessionLinksRow(session.links, sessionLinksDisplay, session.isFocused),
     [session.links, sessionLinksDisplay, session.isFocused],
   );
   const chips = useMemo((): WorkChip[] => {
@@ -517,8 +517,14 @@ export default function SessionRow({
               {linksBadge !== null ? (
                 <View
                   accessible
-                  accessibilityLabel={`${linksBadge.count} links`}
-                  style={[styles.linksBadge, { borderColor: linksBadge.color }]}
+                  accessibilityLabel={
+                    linksBadge.suggested ? `${linksBadge.count} suggested links` : `${linksBadge.count} links`
+                  }
+                  style={[
+                    styles.linksBadge,
+                    { borderColor: linksBadge.color },
+                    linksBadge.suggested && styles.linksBadgeSuggested,
+                  ]}
                 >
                   <ChipGlyph glyph="link" color={linksBadge.color} size={ds(10)} />
                   <Text style={[styles.linksBadgeText, { color: linksBadge.color }]}>{linksBadge.count}</Text>
@@ -568,6 +574,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: ds(5),
     borderRadius: ds(8),
     borderWidth: 1,
+  },
+  linksBadgeSuggested: {
+    borderStyle: 'dashed',
   },
   linksBadgeText: {
     fontSize: ds(10.5),
