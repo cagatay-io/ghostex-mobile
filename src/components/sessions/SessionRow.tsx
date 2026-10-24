@@ -26,7 +26,7 @@ import { useEffect, useMemo, useReducer, useRef } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AGENT_ICONS } from '../../assets/agentIcons.generated';
-import type { CoordinatorBadge, RowNesting } from '../../contract/coordinatorTree';
+import type { CoordinatorBadge, FoldedStatus, RowNesting } from '../../contract/coordinatorTree';
 import {
   agentIconTint,
   resolveAgentIconId,
@@ -231,6 +231,25 @@ function QuestionIndicator({ activity, ringColor }: { activity: string; ringColo
   );
 }
 
+/**
+ * A folded coordinator's stack (coordinatorTree.ts `foldedStatus`): the dots of the threads its fold
+ * hides plus its own, overlapping as the machine tabs draw them, in the same 19x16 slot.
+ * CDXC:Coordinators 2026-10-24 SEE-ALSO: the user's decision on gx-core `RowNesting::folded_status`; the desktop draws it in apps/desktop/src/app/native_sidebar/threads.rs `folded_status_indicator`.
+ */
+function FoldedStatusIndicator({ status, ringColor }: { status: FoldedStatus; ringColor: string }) {
+  return (
+    <View style={[styles.indicatorSlot, styles.foldedSlot]}>
+      <StatusDotStack
+        questionCount={status.question ? 1 : 0}
+        workingCount={status.working ? 1 : 0}
+        attentionCount={status.attention ? 1 : 0}
+        backgroundWorkCount={status.backgroundWork ? 1 : 0}
+        ringColor={ringColor}
+      />
+    </View>
+  );
+}
+
 export type SessionRowProps = {
   session: GhostexSession;
   /** Warm-attached session key matches the current terminal. */
@@ -289,9 +308,11 @@ export default function SessionRow({
   const nowMs = useRowLabelClock(session);
   const flashOpacity = useCompletionFlash(session);
   const renameShake = useRenameShake(session);
-  const question = hasPendingQuestion(session);
-  const indicator = question ? null : rowActivityIndicator(session);
-  const timeLabel = rowTimeLabel(session, nowMs);
+  const foldedStatus =
+    session.programStatusFailed && session.activity === 'attention' ? undefined : nesting?.foldedStatus;
+  const question = hasPendingQuestion(session) && foldedStatus === undefined;
+  const indicator = question || foldedStatus !== undefined ? null : rowActivityIndicator(session);
+  const timeLabel = foldedStatus !== undefined ? null : rowTimeLabel(session, nowMs);
   /*
    * Desktop leading-slot order (icons.rs render_session_icon): an armed Delayed
    * Send clock, then a Close After Done clock, then the session tag, then the
@@ -443,6 +464,7 @@ export default function SessionRow({
           </Animated.Text>
           {/* sessions.rs: the status dot, then the time, each 6dp after the one before; or the question indicator alone. */}
           {question ||
+          foldedStatus !== undefined ||
           indicator !== null ||
           timeLabel !== null ||
           coordinatorBadge !== undefined ||
@@ -458,6 +480,12 @@ export default function SessionRow({
               {question ? (
                 <QuestionIndicator
                   activity={session.activity}
+                  ringColor={active ? activeBackground : expandedGroupSurface}
+                />
+              ) : null}
+              {foldedStatus !== undefined ? (
+                <FoldedStatusIndicator
+                  status={foldedStatus}
                   ringColor={active ? activeBackground : expandedGroupSurface}
                 />
               ) : null}
@@ -624,6 +652,11 @@ const styles = StyleSheet.create({
     height: ds(16),
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  /* status.rs `folded_status_indicator`: a stack of three or four dots is wider than the slot, which it grows to fit. */
+  foldedSlot: {
+    width: undefined,
+    minWidth: ds(19),
   },
   failedDot: {
     width: ds(STATUS_DOT_SIZE),

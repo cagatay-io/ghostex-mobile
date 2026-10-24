@@ -48,7 +48,26 @@ export type RowNesting = {
    * `RowNesting::contains_active_session`, the user's 2026-10-22 decision there).
    */
   containsActive: boolean;
+  /**
+   * On a coordinator row whose threads are folded: the status dots of the threads the fold hides,
+   * with the coordinator's own, drawn as one overlapping stack in the trailing slot (gx-core
+   * `RowNesting::folded_status`, the user's 2026-10-24 decision there: "show 2 dots (yellow and
+   * blue) in this case (they need to be overlapping dots pls)"). Absent when nothing has a dot.
+   */
+  foldedStatus?: FoldedStatus;
 };
+
+/** Which dots a folded coordinator's stack draws, counted as the machine tabs count them: a row with a pending question is pink, not blue. */
+export type FoldedStatus = { working: boolean; attention: boolean; backgroundWork: boolean; question: boolean };
+
+function addFoldedStatus(status: FoldedStatus, session: GhostexSession): void {
+  const question = session.pendingQuestionCount > 0;
+  status.working ||= session.activity === 'working';
+  status.question ||= question;
+  status.attention ||= !question && session.activity === 'attention';
+  status.backgroundWork ||=
+    session.backgroundWorkDetectedAt.length > 0 && session.activity !== 'working' && session.activity !== 'attention';
+}
 
 export type CoordinatorBadgeTone = 'idle' | 'working' | 'waiting';
 
@@ -194,6 +213,16 @@ export function nestCoordinatorThreads<S>(
     children.set(parent, [...list.filter((child) => !isOlder[child]), ...list.filter((child) => isOlder[child])]);
   }
   const isCollapsed = sessions.map((_, index) => children.has(index) && collapsedCoordinators.has(keys[index]));
+  const foldedStatus = (index: number): FoldedStatus | undefined => {
+    if (!isCollapsed[index]) return undefined;
+    const status: FoldedStatus = { working: false, attention: false, backgroundWork: false, question: false };
+    const stack = [index];
+    for (let next = stack.pop(); next !== undefined; next = stack.pop()) {
+      addFoldedStatus(status, sessions[next]);
+      stack.push(...(children.get(next) ?? []));
+    }
+    return status.working || status.attention || status.backgroundWork || status.question ? status : undefined;
+  };
   const result: NestedSessions<S> = { sessions: [], sections: new Map(), nesting: new Map() };
   const foldedOf = sessions.map(() => false);
   const emit = (index: number, depth: number, last: boolean, section: S, folded: boolean): void => {
@@ -214,6 +243,7 @@ export function nestCoordinatorThreads<S>(
         olderThreads: list.filter((child) => isOlder[child]).length,
         olderShown: showsOlder,
         containsActive: false,
+        foldedStatus: foldedStatus(index),
       });
     }
     list.forEach((child, position) =>

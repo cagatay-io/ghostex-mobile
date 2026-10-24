@@ -258,6 +258,15 @@ export function sleepInactiveCoordinatorThreadsCommand(globalRef: string): strin
   return `ghostex coordinator sleep-inactive-threads ${shellQuote(requireId(globalRef, 'session reference'))} --json`;
 }
 
+/**
+ * `ghostex coordinator acknowledge-threads`: viewing an orchestrator marks its finished threads seen
+ * (their blue dot clears; a thread waiting on a question or approval keeps its dot). gxserver picks
+ * the threads (server/src/coordinators/seen_threads.rs), the same set the desktop clears.
+ */
+export function acknowledgeCoordinatorThreadsCommand(globalRef: string): string {
+  return `ghostex coordinator acknowledge-threads ${shellQuote(requireId(globalRef, 'session reference'))} --json`;
+}
+
 /** An orchestrator's goal, instructions, memory and threads: `ghostex coordinator status --coordinator <ref> --json`. */
 export function coordinatorStatusCommand(globalRef: string): string {
   return `ghostex coordinator status --coordinator ${shellQuote(requireId(globalRef, 'orchestrator'))} --json`;
