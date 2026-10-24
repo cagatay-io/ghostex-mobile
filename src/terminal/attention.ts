@@ -42,7 +42,8 @@ export function acknowledgeSessionAttention(machineId: string, sessionId: string
 
 /**
  * Whether the session is an orchestrator with a thread under it (at any depth) that may hold a
- * finished turn the user has not seen: in attention without a question card. gxserver decides
+ * finished turn the user has not seen: in attention, no question card, and not gxserver's `waiting` (a permission
+ * prompt or a bell). gxserver decides
  * which really finished, since only it knows why a session is in attention.
  * CDXC:Coordinators 2026-10-24 SEE-ALSO: the user's decision on `acknowledge_coordinator_threads` in server/src/coordinators/seen_threads.rs ("when i see the main thread itself then that should clear the blue dot on all the sub threads below it"); the desktop's twin is gx-core `attention::has_finished_thread`.
  */
@@ -58,7 +59,12 @@ function hasFinishedThread(sessions: readonly GhostexSession[], coordinator: Gho
       const threadKey = key(thread.projectId, thread.sessionId);
       if (visited.has(threadKey)) continue;
       visited.add(threadKey);
-      if (thread.activity === 'attention' && thread.pendingQuestionCount === 0) return true;
+      if (
+        thread.activity === 'attention' &&
+        thread.pendingQuestionCount === 0 &&
+        thread.coordinatorThreadState !== 'waiting'
+      )
+        return true;
       pending.push(thread);
     }
   }

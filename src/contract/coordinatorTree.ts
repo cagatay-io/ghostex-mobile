@@ -57,14 +57,18 @@ export type RowNesting = {
   foldedStatus?: FoldedStatus;
 };
 
-/** Which dots a folded coordinator's stack draws, counted as the machine tabs count them: a row with a pending question is pink, not blue. */
+/** Which dots a folded coordinator's stack draws, counted as the machine tabs count them: a row with a pending question, or a thread waiting on the user, is pink, not blue. */
 export type FoldedStatus = { working: boolean; attention: boolean; backgroundWork: boolean; question: boolean };
 
 function addFoldedStatus(status: FoldedStatus, session: GhostexSession): void {
   const question = session.pendingQuestionCount > 0;
+  // A thread waiting on the user (gxserver's `waiting`: a permission prompt, a bell) is the pink needs-you dot (the
+  // user's choice, gx-core `FoldedStatus::add`); only a finished turn is the stack's blue, so the blue is exactly what
+  // opening the orchestrator clears.
+  const waiting = session.activity === 'attention' && session.coordinatorThreadState === 'waiting';
   status.working ||= session.activity === 'working';
-  status.question ||= question;
-  status.attention ||= !question && session.activity === 'attention';
+  status.question ||= question || waiting;
+  status.attention ||= !question && session.activity === 'attention' && !waiting;
   status.backgroundWork ||=
     session.backgroundWorkDetectedAt.length > 0 && session.activity !== 'working' && session.activity !== 'attention';
 }
