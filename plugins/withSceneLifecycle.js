@@ -4,6 +4,12 @@
 //  - SceneDelegate.swift that creates the window and starts React Native
 //  - AppDelegate patched to cache launchOptions and not create the window
 //  - UIApplicationSceneManifest in Info.plist
+//
+// With scenes, UIKit hands links to the scene delegate instead of the AppDelegate, so the
+// SceneDelegate forwards them: custom-scheme URLs to application(_:open:), Universal Links (the
+// https://ghostex.dev/pair pairing link a system camera opens) to application(_:continue:). On a
+// cold start a Universal Link also goes into the launch options React Native reads for
+// Linking.getInitialURL(), because the "url" event fires before JavaScript listens.
 const { withDangerousMod, withInfoPlist, withXcodeProject, IOSConfig } = require('expo/config-plugins');
 const fs = require('fs');
 const path = require('path');
@@ -23,10 +29,19 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     guard let appDelegate = UIApplication.shared.delegate as? AppDelegate,
           let factory = appDelegate.reactNativeFactory else { return }
     let window = UIWindow(windowScene: windowScene)
+    var launchOptions = appDelegate.cachedLaunchOptions ?? [:]
+    if let activity = connectionOptions.userActivities.first(where: {
+      $0.activityType == NSUserActivityTypeBrowsingWeb && $0.webpageURL != nil
+    }) {
+      launchOptions[.userActivityDictionary] = [
+        UIApplication.LaunchOptionsKey.userActivityType.rawValue: activity.activityType,
+        "UIApplicationLaunchOptionsUserActivityKey": activity,
+      ] as [String: Any]
+    }
     factory.startReactNative(
       withModuleName: "main",
       in: window,
-      launchOptions: appDelegate.cachedLaunchOptions)
+      launchOptions: launchOptions)
     appDelegate.window = window
     self.window = window
 
@@ -35,6 +50,11 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
   func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
     open(URLContexts)
+  }
+
+  func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+    guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { return }
+    _ = appDelegate.application(UIApplication.shared, continue: userActivity, restorationHandler: { _ in })
   }
 
   private func open(_ URLContexts: Set<UIOpenURLContext>) {

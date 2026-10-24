@@ -17,8 +17,10 @@ export type RootStackParamList = {
   /**
    * One scanner for both pairing codes. `rePairMachineId` makes an Easy Connect
    * code replace that machine's address and key instead of adding a machine.
+   * `incomingCode` is a pairing link the system camera opened the app with
+   * (src/app/deepLinks.ts); `at` tells two openings of the same link apart.
    */
-  ScanCode: { rePairMachineId?: string } | undefined;
+  ScanCode: { rePairMachineId?: string; incomingCode?: { payload: string; at: number } } | undefined;
   /** The Tailscale (plain SSH over the tailnet) form: the manual "type the details" path. */
   TailscaleForm: MachineFormParams;
   /** End of setup: names the computer, the user and the live session count. */

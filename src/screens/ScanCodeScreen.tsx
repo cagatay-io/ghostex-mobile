@@ -31,6 +31,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ScanCode'>;
 
 export default function ScanCodeScreen({ navigation, route }: Props) {
   const rePairMachineId = route.params?.rePairMachineId ?? null;
+  const incomingCode = route.params?.incomingCode;
   const [permission, requestPermission] = useCameraPermissions();
   const askedRef = useRef(false);
   const [cameraDenied, setCameraDenied] = useState(false);
@@ -50,10 +51,18 @@ export default function ScanCodeScreen({ navigation, route }: Props) {
   const granted = permission?.granted === true;
   const pairing = phase.kind === 'pairing';
 
+  // A pairing link the system camera opened the app with pairs like a scanned QR.
+  useEffect(() => {
+    if (incomingCode !== undefined) handlePayload(incomingCode.payload);
+    // Only a new opening (a new `at`) routes again; the payload alone repeats for the same QR.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [incomingCode?.at]);
+
   // Ask once; a refusal (or a permanently denied permission) opens the paste
   // sheet with the explanation line, which is the designed camera-less path.
+  // Not while a link is pairing: the camera is only needed if it fails.
   useEffect(() => {
-    if (permission === null || permission.granted) return;
+    if (permission === null || permission.granted || phase.kind !== 'scanning') return;
     if (!permission.canAskAgain) {
       setCameraDenied(true);
       setSheet('paste');
@@ -66,7 +75,7 @@ export default function ScanCodeScreen({ navigation, route }: Props) {
       setCameraDenied(true);
       setSheet('paste');
     });
-  }, [permission, requestPermission, setSheet]);
+  }, [permission, requestPermission, setSheet, phase.kind]);
 
   useLayoutEffect(() => {
     navigation.setOptions({

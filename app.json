@@ -7,7 +7,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#181818",
-    "scheme": "ghostex",
+    "scheme": ["ghostex", "ghostex-ec1", "ghostex-ts1"],
     "newArchEnabled": true,
     "plugins": [
       "./plugins/withPodfileMinDeploymentTarget.js",
@@ -36,6 +36,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.maddada.ghostex.ios",
       "appleTeamId": "KTKP595G3B",
+      "associatedDomains": ["applinks:ghostex.dev"],
       "entitlements": {
         "application-identifier": "$(AppIdentifierPrefix)com.maddada.ghostex.ios",
         "keychain-access-groups": ["$(AppIdentifierPrefix)com.maddada.ghostex.ios"]
@@ -81,6 +82,14 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "blockedPermissions": ["android.permission.SYSTEM_ALERT_WINDOW"],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [{ "scheme": "https", "host": "ghostex.dev", "path": "/pair" }],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
       "predictiveBackGestureEnabled": false
     },
     "web": {

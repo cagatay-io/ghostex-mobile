@@ -4,12 +4,18 @@
  * session (reusing the warm tab when it exists) and navigates to the
  * Terminal screen — including from a cold start, where handling waits for
  * store hydration and navigation readiness.
+ *
+ * Pairing links: the computer's QR is `https://ghostex.dev/pair#ghostex-ec1:…`
+ * (an Android App Link and iOS Universal Link this app claims in app.json), so
+ * scanning it with the phone's own camera opens the app here; the Scan code
+ * screen then pairs exactly as if its scanner had read the QR.
  */
 
 import { createNavigationContainerRef } from '@react-navigation/native';
 import { Linking } from 'react-native';
 
 import { useInventoryStore } from '../inventory/store';
+import { readPairingCode } from '../machines/pairingCodes';
 import { useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
 import { useTerminalStore } from '../terminal/sessions';
@@ -54,6 +60,17 @@ function handleUrl(url: string | null): void {
   // The "Voice mode on" notification opens the voice screen.
   if (url !== null && url.startsWith('ghostex://voice')) {
     navigateWhenReady(() => navigationRef.navigate('Voice'));
+    return;
+  }
+  const pairing = url === null ? null : readPairingCode(url);
+  if (url !== null && pairing !== null && pairing.kind !== 'legacyAddress') {
+    navigateWhenReady(() =>
+      navigationRef.navigate({
+        name: 'ScanCode',
+        params: { incomingCode: { payload: url, at: Date.now() } },
+        merge: true,
+      }),
+    );
     return;
   }
   if (url === null || !url.startsWith('ghostex://session')) return;
