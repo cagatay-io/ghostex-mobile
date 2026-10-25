@@ -68,6 +68,7 @@ const REFERENCE_GLYPHS: { [kind: string]: GlyphName } = {
   image: 'photo',
   skill: 'skill',
   url: 'link',
+  comment: 'comment',
 };
 
 function linkColor(theme: TranscriptTheme, kind: string): string {
