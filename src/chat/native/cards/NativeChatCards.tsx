@@ -16,7 +16,7 @@
  */
 
 import { useRef } from 'react';
-import { ScrollView, StyleSheet, useWindowDimensions } from 'react-native';
+import { ScrollView, StyleSheet, useWindowDimensions, type ScrollViewInstance } from 'react-native';
 
 import type { ChatDocument } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
@@ -53,7 +53,7 @@ export type NativeChatCardsProps = {
 
 export function NativeChatCards({ chat, onHostAction }: NativeChatCardsProps) {
   const { height } = useWindowDimensions();
-  const band = useRef<ScrollView>(null);
+  const band = useRef<ScrollViewInstance>(null);
   const document = chat.state?.document ?? null;
   if (document === null) return null;
   if (!chatCardsShown(document)) return null;

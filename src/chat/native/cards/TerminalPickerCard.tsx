@@ -9,7 +9,15 @@
  */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+  useWindowDimensions,
+  type ScrollViewInstance,
+} from 'react-native';
 
 import type { ChatDocument } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
@@ -142,7 +150,7 @@ export function PassthroughCard({
   const cardText = useCardText();
   const wellStyle = useWellStyle();
   const { dispatch } = chat;
-  const screenScroll = useRef<ScrollView>(null);
+  const screenScroll = useRef<ScrollViewInstance>(null);
   const passthrough = obj(notice.passthrough) ?? {};
   const keys = obj(passthrough.keys);
   const body: ReactNode[] = [];

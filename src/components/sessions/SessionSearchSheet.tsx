@@ -12,7 +12,17 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, SectionList, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  SectionList,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type TextInputInstance,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AGENT_ICONS } from '../../assets/agentIcons.generated';
@@ -54,7 +64,7 @@ const CLOSED_QUERY_DEBOUNCE_MS = 300;
 
 export default function SessionSearchSheet({ visible, machines, onOpen, onRestore, onClose }: SessionSearchSheetProps) {
   const insets = useSafeAreaInsets();
-  const inputRef = useRef<TextInput | null>(null);
+  const inputRef = useRef<TextInputInstance | null>(null);
   const [query, setQuery] = useState('');
   const inventoriesByMachineId = useInventoryStore((state) => state.inventoriesByMachineId);
   // The navigation bar's inset is under the keyboard while it is open; the panel ends right on top of it.
@@ -252,7 +262,7 @@ export default function SessionSearchSheet({ visible, machines, onOpen, onRestor
           ? SessionSearchCopy.loadingClosed
           : SessionSearchCopy.closedUnavailable(closedFailures.join(', '))}
       </Text>
-    ) : null;
+    ) : undefined;
 
   return (
     <Modal
@@ -340,7 +350,7 @@ export default function SessionSearchSheet({ visible, machines, onOpen, onRestor
             style={styles.list}
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={
-              closedLoading ? null : (
+              closedLoading ? undefined : (
                 <Text style={styles.empty}>
                   {query.trim().length > 0 ? SessionSearchCopy.noMatches : SessionSearchCopy.noSessions}
                 </Text>

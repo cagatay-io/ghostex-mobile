@@ -12,7 +12,15 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+  type ScrollViewInstance,
+} from 'react-native';
 
 import { AGENT_ICONS } from '../../../assets/agentIcons.generated';
 import type { UserAction } from '../../rust/actions';
@@ -68,7 +76,7 @@ export function ModelMenuSheet({
   const [openButton, setOpenButton] = useState<number | null>(null);
   /** The row whose description the info button opened. */
   const [about, setAbout] = useState<string | null>(null);
-  const list = useRef<ScrollView>(null);
+  const list = useRef<ScrollViewInstance>(null);
   const scrollUntil = useRef(0);
 
   useEffect(() => {

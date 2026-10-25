@@ -35,6 +35,7 @@ import {
   Text,
   TextInput,
   View,
+  type TextInputInstance,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, type WebViewNavigation } from 'react-native-webview';
@@ -187,7 +188,13 @@ function buildLinkRewriteScript(forwarded: ReadonlyArray<readonly [number, numbe
 
 export default function WebPreviewScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
-  const webviewRef = useRef<WebView>(null);
+  /**
+   * CDXC:Mobile 2026-10-25 WHY: react-native-webview 14.0.1 declares `class WebView<P = undefined>`,
+   * so its props become `WebViewProps & undefined`, which TypeScript reduces to `never` and every
+   * prop fails to type. `WebView<object>` restores the 13.x default (`P = {}`); drop it here, in
+   * DocViewerScreen.tsx and in chat/native/cards/PageSheet.tsx once the package fixes its default.
+   */
+  const webviewRef = useRef<WebView<object>>(null);
   const machine = useMachinesStore((state) =>
     state.machines.find((candidate) => candidate.id === route.params.machineId),
   );
@@ -259,7 +266,7 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
   );
   const [addressDraft, setAddressDraft] = useState(() => addressText(address));
   const editingAddressRef = useRef(false);
-  const addressInputRef = useRef<TextInput>(null);
+  const addressInputRef = useRef<TextInputInstance>(null);
   const [addressError, setAddressError] = useState<string | null>(null);
   useEffect(() => {
     if (!editingAddressRef.current) setAddressDraft(addressText(address));
@@ -794,7 +801,7 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
 
       <View style={styles.contentArea}>
         {source !== null ? (
-          <WebView
+          <WebView<object>
             ref={webviewRef}
             key={`${source.nonce}:${desktopMode ? 'desktop' : 'phone'}`}
             source={{ uri: source.uri }}

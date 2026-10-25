@@ -94,7 +94,7 @@ export function SubagentViewer({
                       onPress={() => dispatch({ type: 'subagentLoadEarlier' })}
                     />
                   </View>
-                ) : null
+                ) : undefined
               }
             />
           ) : null}

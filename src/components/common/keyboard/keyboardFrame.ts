@@ -33,7 +33,7 @@ function ensureSubscribed(): void {
   if (subscribed) return;
   subscribed = true;
   const metrics = Keyboard.metrics();
-  if (metrics !== undefined && metrics.height > 0) keyboardTop = metrics.screenY;
+  if (metrics != null && metrics.height > 0) keyboardTop = metrics.screenY;
   if (Platform.OS === 'ios') {
     // iOS reports the frame before it animates, so containers move with the keyboard.
     const animate = (duration: number): void => {

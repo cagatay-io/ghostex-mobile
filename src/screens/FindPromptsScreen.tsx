@@ -15,7 +15,16 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { ActivityIndicator, Pressable, RefreshControl, SectionList, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  SectionList,
+  Text,
+  TextInput,
+  View,
+  type TextInputInstance,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -125,7 +134,7 @@ export default function FindPromptsScreen({ navigation, route }: Props) {
   const machine = useMachinesStore((state) => state.machines.find((candidate) => candidate.id === machineId));
   const machineRef = useRef(machine);
   machineRef.current = machine;
-  const inputRef = useRef<TextInput | null>(null);
+  const inputRef = useRef<TextInputInstance | null>(null);
   const [sheet, setSheet] = useState<'agent' | 'project' | null>(null);
   const now = useNowSeconds();
 
@@ -324,7 +333,9 @@ export default function FindPromptsScreen({ navigation, route }: Props) {
             )
           }
           ListFooterComponent={
-            find.loadingMore ? <ActivityIndicator style={{ paddingVertical: 12 }} color={appearance.muted} /> : null
+            find.loadingMore ? (
+              <ActivityIndicator style={{ paddingVertical: 12 }} color={appearance.muted} />
+            ) : undefined
           }
         />
         {/* CDXC:PromptSearch 2026-09-08 DECISION: Hide the result counter while loading so Find does not display provisional 0/0 counts. */}

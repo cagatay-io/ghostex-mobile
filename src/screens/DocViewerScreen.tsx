@@ -73,7 +73,7 @@ export default function DocViewerScreen({ navigation, route }: Props) {
   const [notice, setNotice] = useState<Notice | null>(null);
   const noticeCounter = useRef(0);
   const generation = useRef(0);
-  const webViewRef = useRef<WebView>(null);
+  const webViewRef = useRef<WebView<object>>(null);
   // The machine record is rebuilt on every inventory poll; only its id picks what is loaded.
   const machineRef = useRef(machine);
   machineRef.current = machine;
@@ -278,7 +278,7 @@ export default function DocViewerScreen({ navigation, route }: Props) {
   return (
     <View style={[styles.screen, { paddingBottom: insets.bottom }]}>
       {load.kind === 'ready' && source !== null ? (
-        <WebView
+        <WebView<object>
           // A new read, or annotation tools turned on or off, loads the page afresh.
           key={`${load.nonce}:${injectAgentation ? 'a' : 'p'}`}
           ref={webViewRef}

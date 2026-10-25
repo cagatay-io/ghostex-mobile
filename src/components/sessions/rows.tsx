@@ -13,7 +13,7 @@
  */
 
 import { useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View, type ViewInstance } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 
 import { AGENT_ICONS } from '../../assets/agentIcons.generated';
@@ -333,7 +333,7 @@ const statusStyles = StyleSheet.create({
 // card fill and 14dp icon. The agent split-button is a 24+17 joined pair.
 // ---------------------------------------------------------------------------
 
-function measurePress(ref: RefObject<View | null>, onAnchor: (anchor: MenuAnchor) => void): void {
+function measurePress(ref: RefObject<ViewInstance | null>, onAnchor: (anchor: MenuAnchor) => void): void {
   const node = ref.current;
   if (node === null) return;
   node.measureInWindow((x, y, width, height) => onAnchor({ x, y, width, height }));
@@ -351,7 +351,7 @@ function HeaderButton({
   onAnchorPress?: (anchor: MenuAnchor) => void;
   children: ReactNode;
 }) {
-  const ref = useRef<View | null>(null);
+  const ref = useRef<ViewInstance | null>(null);
   return (
     <Pressable
       ref={ref}
@@ -378,7 +378,7 @@ function AgentSplitButton({
   onLaunchPrimary: () => void;
   onOpenMenu: (anchor: MenuAnchor) => void;
 }) {
-  const ref = useRef<View | null>(null);
+  const ref = useRef<ViewInstance | null>(null);
   const iconId =
     primaryAgent === null
       ? 'terminal'
@@ -481,7 +481,7 @@ export function MachineHeaderRow({
   onPress: () => void;
   onMenu: (anchor: MenuAnchor) => void;
 }) {
-  const rowRef = useRef<View | null>(null);
+  const rowRef = useRef<ViewInstance | null>(null);
   return (
     <Pressable
       ref={rowRef}
@@ -571,7 +571,7 @@ export function SectionLabelRow({
   /** Trailing "⋮" button; the section's discoverable action menu. */
   onMoreMenu?: (anchor: MenuAnchor) => void;
 }) {
-  const rowRef = useRef<View | null>(null);
+  const rowRef = useRef<ViewInstance | null>(null);
   return (
     <View ref={rowRef} style={[sectionStyles.row, first ? sectionStyles.rowFirst : null]}>
       <Pressable
@@ -671,7 +671,7 @@ export function CollectionHeaderRow({
   onPress: () => void;
   onMenu: (anchor: MenuAnchor) => void;
 }) {
-  const rowRef = useRef<View | null>(null);
+  const rowRef = useRef<ViewInstance | null>(null);
   return (
     <Pressable
       ref={rowRef}
@@ -775,7 +775,7 @@ export function ProjectHeaderRow({
   onOpenAgentMenu: (anchor: MenuAnchor) => void;
   onMenu: (anchor: MenuAnchor) => void;
 }) {
-  const rowRef = useRef<View | null>(null);
+  const rowRef = useRef<ViewInstance | null>(null);
   return (
     <Pressable
       ref={rowRef}
@@ -916,7 +916,7 @@ export function GroupHeaderRow({
   onPress: () => void;
   onMenu: (anchor: MenuAnchor) => void;
 }) {
-  const rowRef = useRef<View | null>(null);
+  const rowRef = useRef<ViewInstance | null>(null);
   return (
     <Pressable
       ref={rowRef}

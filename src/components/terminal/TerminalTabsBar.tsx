@@ -9,7 +9,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewInstance } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
 
 import type { TerminalTab, TerminalTabState } from '../../terminal/sessions';
@@ -86,7 +86,7 @@ export type TerminalTabsBarProps = {
 
 export default function TerminalTabsBar({ tabs, selectedSessionKey, onSelect, onClose }: TerminalTabsBarProps) {
   const [trackWidth, setTrackWidth] = useState(0);
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const tabLayouts = useRef(new Map<string, { x: number; width: number }>());
   const contentWidth = useRef(0);
 

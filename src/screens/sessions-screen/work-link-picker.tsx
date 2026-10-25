@@ -200,7 +200,7 @@ export default function WorkLinkPicker({ kind, sessionTitle, load, onPick, onCan
           ListEmptyComponent={
             !loading && error === null && result !== null && result.notice.length === 0 ? (
               <Text style={styles.empty}>Nothing found{query.length > 0 ? ` for "${query}"` : ''}.</Text>
-            ) : null
+            ) : undefined
           }
           renderItem={({ item }) => {
             const isTicked = multiSelect && ticked.includes(item.value);

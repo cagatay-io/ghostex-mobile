@@ -101,7 +101,7 @@ function mirrorUri(rootUri: string, remotePath: string): string | null {
 function writeMirrorFile(uri: string, content: string, encoding: 'base64' | 'utf8'): void {
   const file = new File(uri);
   file.create({ intermediates: true, overwrite: true });
-  file.write(content, { encoding });
+  file.writeSync(content, { encoding });
 }
 
 /**

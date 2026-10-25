@@ -24,7 +24,7 @@ export function handleAppBecameActive(): void {
 export function initAppLifecycle(): void {
   if (installed) return;
   installed = true;
-  let last: AppStateStatus = AppState.currentState;
+  let last: AppStateStatus = AppState.currentState as AppStateStatus;
   AppState.addEventListener('change', (next) => {
     const cameFromBackground = last === 'background' || last === 'inactive';
     last = next;

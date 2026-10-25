@@ -551,7 +551,7 @@ export default function ChangesScreen({ navigation, route }: Props) {
         stickyHeaderIndices={empty === null ? stickyIndices : undefined}
         getItemLayout={getItemLayout}
         contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
-        ListEmptyComponent={empty}
+        ListEmptyComponent={empty ?? undefined}
         refreshControl={
           <RefreshControl refreshing={loading && answer !== null} onRefresh={refresh} tintColor={theme.muted} />
         }

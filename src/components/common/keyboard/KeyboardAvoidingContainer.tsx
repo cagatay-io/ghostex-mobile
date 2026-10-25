@@ -9,20 +9,20 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { StyleSheet, View, type ViewProps } from 'react-native';
+import { StyleSheet, View, type ViewInstance, type ViewProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useKeyboardTop } from './keyboardFrame';
 
 /** How far below the keyboard's top edge the view's frame reaches; 0 while the keyboard is hidden. */
 export function useKeyboardOverlap(): {
-  ref: React.RefObject<View | null>;
+  ref: React.RefObject<ViewInstance | null>;
   onLayout: () => void;
   overlap: number;
   keyboardTop: number | null;
   frame: { top: number; bottom: number } | null;
 } {
-  const ref = useRef<View | null>(null);
+  const ref = useRef<ViewInstance | null>(null);
   const keyboardTop = useKeyboardTop();
   const [frame, setFrame] = useState<{ top: number; bottom: number } | null>(null);
   const onLayout = useCallback(() => {

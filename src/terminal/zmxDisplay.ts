@@ -24,7 +24,7 @@ type Announced = { state: DisplayState; cols: number; rows: number };
 /** Session key whose GhostexTerminalView is mounted on the focused Terminal screen. */
 let mountedTerminalSessionKey: string | null = null;
 let mountedChatSessionKey: string | null = null;
-let appState: AppStateStatus = AppState.currentState;
+let appState: AppStateStatus = AppState.currentState as AppStateStatus;
 let installed = false;
 
 /** Attach entries whose client has had time to start reading stdin. */

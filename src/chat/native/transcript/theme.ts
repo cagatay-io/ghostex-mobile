@@ -8,7 +8,7 @@
  * WebView chat used), so a row here reads like the same row in the GPUI chat.
  */
 
-import { Platform, StyleSheet } from 'react-native';
+import { type ImageStyle, Platform, StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
 import { destructiveButtonFills, neutralButtonFills } from '../../../theme/palette';
 import { useSettingsStore } from '../../../settings/store';
@@ -297,7 +297,9 @@ export function useTranscriptTheme(): TranscriptTheme {
  * A style sheet built from the chat theme, created once per theme: `const useStyles =
  * themedStyles((t) => ({ ... }))` at module scope, then `const styles = useStyles()` in a component.
  */
-export function themedStyles<T extends StyleSheet.NamedStyles<T>>(build: (theme: TranscriptTheme) => T): () => T {
+export function themedStyles<T extends { [P in keyof T]: ViewStyle | TextStyle | ImageStyle }>(
+  build: (theme: TranscriptTheme) => T,
+): () => T {
   const sheets = new Map<TranscriptTheme, T>();
   const sheetFor = (theme: TranscriptTheme): T => {
     let sheet = sheets.get(theme);

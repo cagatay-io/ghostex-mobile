@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Alert, BackHandler, Keyboard, Platform, Pressable, Text, View } from 'react-native';
+import { Alert, BackHandler, Keyboard, Platform, Pressable, Text, View, type ViewInstance } from 'react-native';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Haptics from 'expo-haptics';
@@ -102,7 +102,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
   const [exportedTranscriptError, setExportedTranscriptError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [keyboardOcclusionCorrection, setKeyboardOcclusionCorrection] = useState(0);
-  const bottomEdgeFrameRef = useRef<View>(null);
+  const bottomEdgeFrameRef = useRef<ViewInstance>(null);
   /** Session keys already auto-focused this visit (hide-keyboard-on-startup off). */
   const autoFocusedSessionsRef = useRef<Set<string>>(new Set());
 

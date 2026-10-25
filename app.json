@@ -8,7 +8,6 @@
     "userInterfaceStyle": "dark",
     "backgroundColor": "#181818",
     "scheme": ["ghostex", "ghostex-ec1", "ghostex-ts1"],
-    "newArchEnabled": true,
     "plugins": [
       "./plugins/withPodfileMinDeploymentTarget.js",
       "./plugins/withSceneLifecycle.js",

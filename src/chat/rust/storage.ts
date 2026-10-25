@@ -314,7 +314,7 @@ export async function writeRetainedSnapshot(retainedKey: string, value: string |
   } else {
     file.create({ intermediates: true, overwrite: true });
   }
-  file.write(value);
+  await file.write(value);
   pruneSnapshots(directory, nowMs);
 }
 

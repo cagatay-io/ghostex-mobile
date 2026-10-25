@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View, type TextInputInstance } from 'react-native';
 
 import type { RustChat } from '../../rust/useRustChat';
 import { Glyph } from './icons';
@@ -18,7 +18,7 @@ export function TranscriptSearchBar({ chat }: { chat: RustChat }) {
   const search = obj(chat.state?.document?.transcriptSearch);
   const open = search?.open === true;
   const [query, setQuery] = useState('');
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<TextInputInstance>(null);
   useEffect(() => {
     if (!open) setQuery('');
     else inputRef.current?.focus();

@@ -23,7 +23,7 @@
  */
 
 import { useEffect, useMemo, useReducer, useRef } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Pressable, StyleSheet, Text, View, type ViewInstance } from 'react-native';
 
 import { AGENT_ICONS } from '../../assets/agentIcons.generated';
 import type { CoordinatorBadge, FoldedStatus, RowNesting } from '../../contract/coordinatorTree';
@@ -312,7 +312,7 @@ export default function SessionRow({
   workActions,
   sessionLinksDisplay = 'badge',
 }: SessionRowProps) {
-  const rowRef = useRef<View | null>(null);
+  const rowRef = useRef<ViewInstance | null>(null);
   const iconId = resolveAgentIconId(
     session.agentIcon,
     session.agentName.length > 0 ? session.agentName : session.agent,

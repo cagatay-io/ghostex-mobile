@@ -15,8 +15,8 @@ import {
   TextInput,
   useWindowDimensions,
   View,
-  type NativeSyntheticEvent,
-  type TextInputSelectionChangeEventData,
+  type TextInputInstance,
+  type TextInputSelectionChangeEvent,
 } from 'react-native';
 
 import GhostexImageIntakeView from '../../../../modules/ghostex-native/src/GhostexImageIntakeView';
@@ -93,7 +93,7 @@ export const ComposerInput = forwardRef<
     () => [styles.hidden, { letterSpacing: -HIDDEN_GLYPH_ADVANCE_PX / (scale * fontScale) }],
     [styles.hidden, scale, fontScale],
   );
-  const field = useRef<TextInput>(null);
+  const field = useRef<TextInputInstance>(null);
   const [text, setText] = useState(model.text);
   const [forced, setForced] = useState<Selection | undefined>(undefined);
   const [, setNonce] = useState(0);
@@ -141,7 +141,7 @@ export const ComposerInput = forwardRef<
     onCaret(caret);
   };
 
-  const onSelectionChange = (event: NativeSyntheticEvent<TextInputSelectionChangeEventData>): void => {
+  const onSelectionChange = (event: TextInputSelectionChangeEvent): void => {
     const selection = event.nativeEvent.selection;
     if (forced !== undefined) setForced(undefined);
     if (selection.start === selection.end) {

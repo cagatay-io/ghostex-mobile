@@ -346,11 +346,11 @@ export default function DocsScreen({ navigation, route }: Props) {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 24 }]}
-        ListEmptyComponent={error === null ? empty : null}
+        ListEmptyComponent={error === null ? (empty ?? undefined) : undefined}
         ListFooterComponent={
           query.trim().length > 0 && rows.length <= 1 ? (
             <Text style={[styles.muted, styles.noMatches]}>{DocsCopy.noMatches}</Text>
-          ) : null
+          ) : undefined
         }
         refreshControl={
           <RefreshControl

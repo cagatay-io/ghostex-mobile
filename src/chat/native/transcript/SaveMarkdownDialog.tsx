@@ -40,7 +40,7 @@ async function shareMarkdown(markdown: string, fileName: string): Promise<void> 
   if (Platform.OS === 'ios') {
     const file = new File(Paths.cache, name);
     file.create({ intermediates: true, overwrite: true });
-    file.write(markdown);
+    await file.write(markdown);
     await Share.share({ url: file.uri, title: name });
     return;
   }

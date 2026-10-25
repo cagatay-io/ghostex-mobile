@@ -13,7 +13,7 @@
 
 import * as Clipboard from 'expo-clipboard';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Platform, Pressable, Text, View, type LayoutChangeEvent } from 'react-native';
+import { Alert, Platform, Pressable, Text, View, type LayoutChangeEvent, type ViewInstance } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -137,7 +137,7 @@ export function NativeComposer({
   const model = state?.composer ?? null;
   const dispatch = chat.dispatch;
   const insets = useSafeAreaInsets();
-  const anchor = useRef<View>(null);
+  const anchor = useRef<ViewInstance>(null);
   const keyboard = useKeyboardInset(anchor);
   const requestedCollapsed = document?.composerCollapsed === true;
   const motion = useComposerMotion(requestedCollapsed, CARD_BORDER, COLLAPSED_CARD_ESTIMATE);

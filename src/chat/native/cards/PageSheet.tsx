@@ -75,7 +75,7 @@ export function PageSheet({ chat, machine, page, onClose, onOpenLink }: PageShee
   const styles = useStyles();
   const P = useTranscriptTheme();
   const insets = useSafeAreaInsets();
-  const webviewRef = useRef<WebView>(null);
+  const webviewRef = useRef<WebView<object>>(null);
   // The machine record is rebuilt on every connection the inventory records; only its id matters.
   const machineRef = useRef(machine);
   machineRef.current = machine;
@@ -295,7 +295,7 @@ export function PageSheet({ chat, machine, page, onClose, onOpenLink }: PageShee
         </View>
         <View style={styles.page}>
           {uri !== null ? (
-            <WebView
+            <WebView<object>
               ref={webviewRef}
               source={{ uri }}
               originWhitelist={['http://*', 'https://*']}

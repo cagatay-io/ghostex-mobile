@@ -18,6 +18,7 @@ import {
   type ListRenderItemInfo,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  type ViewInstance,
 } from 'react-native';
 
 import { useSettingsStore } from '../../../settings/store';
@@ -256,7 +257,7 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
   const questionJumped = useRef<number | null>(null);
   const [questionFlash, setQuestionFlash] = useState<QuestionFlash | null>(null);
   const questionAnchors = useMemo<QuestionAnchors>(() => new Map(), []);
-  const rootRef = useRef<View>(null);
+  const rootRef = useRef<ViewInstance>(null);
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // A question jump's row that was too far to scroll to at once lands the same way on its retry.
   const questionRetry = useRef(false);
@@ -452,7 +453,7 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
             <View style={styles.pageSpinner}>
               <ActivityIndicator size="small" color={theme.muted} />
             </View>
-          ) : null
+          ) : undefined
         }
         style={styles.list}
       />

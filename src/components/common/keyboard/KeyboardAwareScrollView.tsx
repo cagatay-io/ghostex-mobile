@@ -13,7 +13,9 @@ import {
   View,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  type ScrollViewInstance,
   type ScrollViewProps,
+  type ViewInstance,
 } from 'react-native';
 
 import { useKeyboardOverlap } from './KeyboardAvoidingContainer';
@@ -21,14 +23,14 @@ import { useKeyboardOverlap } from './KeyboardAvoidingContainer';
 /** Space kept between the focused field and the keyboard (or the scroll view's edge). */
 const REVEAL_MARGIN = 16;
 
-const KeyboardAwareScrollView = forwardRef<ScrollView, ScrollViewProps>(function KeyboardAwareScrollView(
+const KeyboardAwareScrollView = forwardRef<ScrollViewInstance, ScrollViewProps>(function KeyboardAwareScrollView(
   { children, onScroll, onLayout, scrollEventThrottle, keyboardShouldPersistTaps = 'handled', ...props },
   forwardedRef,
 ) {
-  const scrollRef = useRef<ScrollView | null>(null);
+  const scrollRef = useRef<ScrollViewInstance | null>(null);
   const offset = useRef(0);
   const keyboard = useKeyboardOverlap();
-  useImperativeHandle(forwardedRef, () => scrollRef.current as ScrollView, []);
+  useImperativeHandle(forwardedRef, () => scrollRef.current as ScrollViewInstance, []);
 
   const { keyboardTop, frame } = keyboard;
   const reveal = useCallback(() => {
@@ -69,7 +71,7 @@ const KeyboardAwareScrollView = forwardRef<ScrollView, ScrollViewProps>(function
       {...props}
       ref={(node) => {
         scrollRef.current = node;
-        (keyboard.ref as { current: View | null }).current = node as unknown as View | null;
+        (keyboard.ref as { current: ViewInstance | null }).current = node;
       }}
       keyboardShouldPersistTaps={keyboardShouldPersistTaps}
       scrollEventThrottle={scrollEventThrottle ?? 16}

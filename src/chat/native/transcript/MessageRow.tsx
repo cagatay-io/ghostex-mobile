@@ -5,7 +5,7 @@
  */
 
 import { memo, useRef } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewInstance } from 'react-native';
 
 import type { ProjectedMessage } from '../../rust/document';
 import { ApiErrorCard, ApiErrorNote, QuestionExchangeCards } from '../cards';
@@ -330,7 +330,7 @@ function ThinkingLine({ id, body, message }: { id: string; body: string; message
   const { theme, mutedThinking } = useTranscriptEnv();
   const { disclosures } = useNativeChatUi();
   const [open, toggle] = useDisclosure(disclosures, `thinking-card:${id}`);
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const atEnd = useRef(true);
   const lane = thinkingTone(theme, mutedThinking);
   const card = message.thinkingCard;

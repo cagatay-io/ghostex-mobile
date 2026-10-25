@@ -10,7 +10,16 @@
  */
 
 import { createContext, useCallback, useContext, useRef, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import {
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  useWindowDimensions,
+  View,
+  type ViewInstance,
+} from 'react-native';
 
 import type { Json } from '../../rust/document';
 import { useTranscriptEnv } from './context';
@@ -39,7 +48,7 @@ const HINT_WIDTH = 236;
  */
 function InfoHint({ hint }: { hint: string }) {
   const { theme } = useTranscriptEnv();
-  const icon = useRef<View>(null);
+  const icon = useRef<ViewInstance>(null);
   const [anchor, setAnchor] = useState<{ x: number; y: number; width: number } | null>(null);
   const screen = useWindowDimensions();
   const close = () => setAnchor(null);

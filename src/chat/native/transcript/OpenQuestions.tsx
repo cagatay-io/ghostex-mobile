@@ -11,7 +11,7 @@
  */
 
 import { createContext, useCallback, useContext, useEffect, useRef, type ReactNode } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
+import { Animated, StyleSheet, View, type ViewInstance } from 'react-native';
 
 /** `questionTone`, `pillGap`, `questionFlashMs` and `questionJumpMargin` in `scroll-bottom.json`. */
 export const QUESTION_PILL = {
@@ -65,7 +65,7 @@ export const QuestionFlashProvider = FlashContext.Provider;
  * Where the jump's card and question are drawn, for Transcript.tsx to measure once the row is on
  * screen: the card under its id, the named form question under `questionAnchorKey`.
  */
-export type QuestionAnchors = Map<string, View>;
+export type QuestionAnchors = Map<string, ViewInstance>;
 const AnchorsContext = createContext<QuestionAnchors | null>(null);
 export const QuestionAnchorsProvider = AnchorsContext.Provider;
 
@@ -77,7 +77,7 @@ export function questionAnchorKey(form: string, tag: string): string {
 function useAnchorRef(key: string | null) {
   const anchors = useContext(AnchorsContext);
   return useCallback(
-    (view: View | null) => {
+    (view: ViewInstance | null) => {
       if (anchors === null || key === null) return;
       if (view) anchors.set(key, view);
       else anchors.delete(key);

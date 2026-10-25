@@ -248,10 +248,10 @@ export function initTerminalKeepAwake(): void {
     lastDesired = next;
     // A tab opened or died: register the new hold (or release the old one) now
     // instead of leaving the session unprotected until the next tick.
-    if (isForeground(AppState.currentState)) void renewKeepAwakeHolds();
+    if (isForeground(AppState.currentState as AppStateStatus)) void renewKeepAwakeHolds();
   });
 
-  let last: AppStateStatus = AppState.currentState;
+  let last: AppStateStatus = AppState.currentState as AppStateStatus;
   AppState.addEventListener('change', (next) => {
     const wasForeground = isForeground(last);
     last = next;
@@ -265,5 +265,5 @@ export function initTerminalKeepAwake(): void {
     }
   });
 
-  if (isForeground(AppState.currentState)) startRenewing();
+  if (isForeground(AppState.currentState as AppStateStatus)) startRenewing();
 }

@@ -8,9 +8,9 @@
  */
 
 import { useEffect, useRef, useState, type RefObject } from 'react';
-import { Dimensions, Keyboard, LayoutAnimation, Platform, type View } from 'react-native';
+import { Dimensions, Keyboard, LayoutAnimation, Platform, type View, type ViewInstance } from 'react-native';
 
-export function useKeyboardInset(anchor: RefObject<View | null>): number {
+export function useKeyboardInset(anchor: RefObject<ViewInstance | null>): number {
   const [inset, setInset] = useState(0);
   const insetRef = useRef(0);
   useEffect(() => {

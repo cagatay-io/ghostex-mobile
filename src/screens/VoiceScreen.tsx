@@ -18,6 +18,7 @@ import {
   View,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  type ScrollViewInstance,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
@@ -71,7 +72,7 @@ function distanceFromEnd(event: NativeSyntheticEvent<NativeScrollEvent>): number
  * User: new messages must not scroll the voice screen to the bottom once the reader has scrolled up; at the bottom it keeps following them, like the chat. A scroll-to-bottom pill (the chat's ↓ `IconPill`, at the lone pill's place, `LoneScrollBottom` in `WorkingCard.tsx`) shows only after the reader scrolled up and hides once they are back at the bottom. Only the reader's own drag decides "scrolled up", so a follow scroll in flight never counts.
  */
 function useFollowBottom() {
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const [away, setAway] = useState(false);
   const awayRef = useRef(false);
   /** The reader's finger is on the captions (begin drag to end drag). */

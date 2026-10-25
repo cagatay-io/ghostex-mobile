@@ -121,6 +121,6 @@ function handleUrl(url: string | null): void {
 export function initDeepLinks(): void {
   if (installed) return;
   installed = true;
-  void Linking.getInitialURL().then(handleUrl);
+  void Linking.getInitialURL().then((url) => handleUrl(url ?? null));
   Linking.addEventListener('url', (event) => handleUrl(event.url));
 }

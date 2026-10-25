@@ -31,7 +31,7 @@ type Held = { machineId: string; projectId: string; sessionId: string };
 
 let installed = false;
 let chatSessionKey: string | null = null;
-let appState: AppStateStatus = AppState.currentState;
+let appState: AppStateStatus = AppState.currentState as AppStateStatus;
 let held: Held | null = null;
 let renewTimer: ReturnType<typeof setInterval> | undefined;
 let holderId: string | null = null;
