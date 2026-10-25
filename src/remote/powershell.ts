@@ -1,5 +1,13 @@
+/**
+ * `value` as one PowerShell single-quoted literal. PowerShell also ends a single-quoted string at
+ * the typographic quotes U+2018, U+2019, U+201A and U+201B, so every one of the five is doubled.
+ *
+ * CDXC:PlatformSupport 2026-10-25 SEE-ALSO: server/src/platform/shell.rs
+ * `powershell_single_quoted_content` (gxserver) and apps/desktop/src/app/helpers/remote/windows.rs
+ * (desktop) double the same five characters.
+ */
 export function powershellQuote(value: string): string {
-  return `'${value.replace(/'/g, "''")}'`;
+  return `'${value.replace(/['\u2018\u2019\u201A\u201B]/g, (quote) => quote + quote)}'`;
 }
 
 export function powershellCommand(script: string, interactive = false): string {

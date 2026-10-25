@@ -48,6 +48,7 @@ import { GhostexPalette } from '../theme/palette';
 import {
   classifyMachineLink,
   holdComputerForward,
+  isGxserverAddress,
   openComputerForward,
   releaseComputerForward,
 } from '../webPreview/machineLinks';
@@ -257,28 +258,35 @@ export default function DocViewerScreen({ navigation, route }: Props) {
 
   /**
    * The phone URLs for loopback addresses a page failed to load (`http://localhost:3000/a.png`):
-   * the same path through a forward to that port on the computer.
+   * the same path through a forward to that port on the computer. Only ports the page's own markup
+   * names are forwarded, and never gxserver's (CDXC:Docs 2026-10-25 in docs/page.ts).
    */
-  const forwardRequestedAddresses = useCallback(async (urls: readonly string[]): Promise<Record<string, string>> => {
-    const target = machineRef.current;
-    const replacements: Record<string, string> = {};
-    if (target === undefined) return replacements;
-    for (const url of urls) {
-      const link = classifyMachineLink(url);
-      if (link.kind !== 'computer') continue;
-      try {
-        const { localPort, gxserver } = await openComputerForward(target, link.address);
-        if (!gxserver && !heldPortsRef.current.has(link.address.remotePort)) {
-          holdComputerForward(target.id, link.address.remotePort);
-          heldPortsRef.current.add(link.address.remotePort);
+  const forwardRequestedAddresses = useCallback(
+    async (requestingPage: DocPage, urls: readonly string[]): Promise<Record<string, string>> => {
+      const target = machineRef.current;
+      const replacements: Record<string, string> = {};
+      if (target === undefined) return replacements;
+      for (const url of urls) {
+        const link = classifyMachineLink(url);
+        if (link.kind !== 'computer') continue;
+        if (!requestingPage.loopbackPorts.has(link.address.remotePort)) continue;
+        // `/visual/` makes the check ask the computer for gxserver's port when it is not known yet.
+        if (await isGxserverAddress(target, link.address.remotePort, '/visual/')) continue;
+        try {
+          const { localPort, gxserver } = await openComputerForward(target, link.address);
+          if (!gxserver && !heldPortsRef.current.has(link.address.remotePort)) {
+            holdComputerForward(target.id, link.address.remotePort);
+            heldPortsRef.current.add(link.address.remotePort);
+          }
+          replacements[url] = `${link.address.scheme}://127.0.0.1:${localPort}${link.address.path}`;
+        } catch {
+          // Nothing listens there on the computer either; the picture stays broken, as it would there.
         }
-        replacements[url] = `${link.address.scheme}://127.0.0.1:${localPort}${link.address.path}`;
-      } catch {
-        // Nothing listens there on the computer either; the picture stays broken, as it would there.
       }
-    }
-    return replacements;
-  }, []);
+      return replacements;
+    },
+    [],
+  );
 
   const handleMessage = useCallback(
     (event: WebViewMessageEvent) => {
@@ -292,7 +300,7 @@ export default function DocViewerScreen({ navigation, route }: Props) {
         };
         void Promise.all([
           mirrorRequestedAssets(page, assets.urls).catch(() => ({})),
-          forwardRequestedAddresses(assets.urls),
+          forwardRequestedAddresses(page, assets.urls),
         ]).then(([mirrored, forwarded]) => answer({ ...mirrored, ...forwarded }));
         return;
       }

@@ -21,6 +21,7 @@ import { computerFileUrl, type ViewerProject } from './mediaStream';
 import { remotePathFromFileUrl } from './openDoc';
 import {
   baseName,
+  dirName,
   extensionOf,
   mirrorSegments,
   normalizeRemotePath,
@@ -54,12 +55,16 @@ export type DocPage = {
   skippedAssets: number;
   /** What this page has already copied or tried, for the files it asks for while it runs. */
   mirror: DocMirror;
+  /** Computer loopback ports the document's own markup names: the only ones the viewer forwards. */
+  loopbackPorts: ReadonlySet<number>;
 };
 
 /** One opened page's mirror bookkeeping. */
 type DocMirror = {
   machine: MachineConnectionTarget;
   rootUri: string;
+  /** The computer folder every copied file must sit in (`mirrorScopeFor`). */
+  scope: string;
   /** Remote paths already copied, found missing, or refused; never read twice. */
   settled: Set<string>;
   /** Remote paths now in the mirror. */
@@ -249,6 +254,53 @@ function isScannable(remotePath: string): boolean {
   return ['css', 'js', 'mjs', 'html', 'htm', 'svg'].includes(extensionOf(remotePath));
 }
 
+// Scope -----------------------------------------------------------------------------------------
+
+/**
+ * The computer folder a page may copy files from: its project when it sits in one, otherwise its
+ * own folder.
+ *
+ * CDXC:Docs 2026-10-25 WHY:
+ * A page's own script can name any computer path or loopback address for the viewer to fetch, and it runs with file access in the WebView, so a Markdown or HTML file from a cloned repository could copy ~/.ssh keys or the gxserver token into the mirror, read them and send them out, or get a forward to the computer's gxserver (security audit 2026-10-25, user decision Q6). Copies now stay inside the page's project (or folder) and skip hidden files and folders, and forwards go only to loopback ports the page's own markup names, never gxserver's (DocViewerScreen.tsx).
+ */
+export function mirrorScopeFor(documentPath: string, project: ViewerProject | null): string {
+  const document = normalizeRemotePath(documentPath);
+  const projectPath = project === null ? null : normalizeRemotePath(project.projectPath).replace(/\/+$/u, '');
+  if (projectPath !== null && projectPath.length > 0 && isWithin(projectPath, document)) return projectPath;
+  return dirName(document);
+}
+
+function samePathText(path: string): string {
+  // Windows drive and UNC paths are case-insensitive.
+  return /^(?:[a-z]:\/|\/\/)/iu.test(path) ? path.toLowerCase() : path;
+}
+
+function isWithin(folder: string, path: string): boolean {
+  const base = samePathText(folder.replace(/\/+$/u, ''));
+  const candidate = samePathText(path);
+  return candidate === base || candidate.startsWith(`${base}/`);
+}
+
+/** Whether a resolved computer path may be copied for this page: inside its scope, not hidden. */
+function inMirrorScope(mirror: DocMirror, path: string): boolean {
+  if (!isWithin(mirror.scope, path)) return false;
+  const rest = path.slice(mirror.scope.replace(/\/+$/u, '').length);
+  return !rest.split('/').some((segment) => segment.startsWith('.'));
+}
+
+const LOOPBACK_URL =
+  /\b(https?):\/\/(?:[^\s\/?#@"'<>]*@)?(?:localhost|[^\s\/?#:"'<>]+\.localhost|127(?:\.\d{1,3}){3}|0\.0\.0\.0|\[::1\])(?::(\d{1,5}))?(?=[\/?#"'\s<>)]|$)/giu;
+
+/** The computer loopback ports a page's text names (`http://localhost:3000/…`), with scheme defaults. */
+function loopbackPortsIn(text: string): Set<number> {
+  const ports = new Set<number>();
+  for (const match of text.matchAll(LOOPBACK_URL)) {
+    const port = match[2] === undefined ? (match[1]?.toLowerCase() === 'https' ? 443 : 80) : Number(match[2]);
+    if (Number.isInteger(port) && port > 0 && port < 65536) ports.add(port);
+  }
+  return ports;
+}
+
 // Building --------------------------------------------------------------------------------------
 
 /**
@@ -271,9 +323,11 @@ async function mirrorAssets(
       return true;
     });
     pending = [];
-    for (let start = 0; start < level.length; start += ASSET_BATCH_SIZE) {
+    // Left settled, so a page that keeps asking for an out-of-scope file is not asked about again.
+    const allowed = level.filter((path) => inMirrorScope(mirror, path));
+    for (let start = 0; start < allowed.length; start += ASSET_BATCH_SIZE) {
       if (isCancelled()) return skipped;
-      const batch = level.slice(start, start + ASSET_BATCH_SIZE);
+      const batch = allowed.slice(start, start + ASSET_BATCH_SIZE);
       if (limitTotals && (mirror.copiedCount >= ASSETS_MAX_COUNT || mirror.copiedBytes >= ASSETS_MAX_TOTAL_BYTES)) {
         // Left unsettled, so the page can still ask for them once it runs.
         batch.forEach((path) => mirror.settled.delete(path));
@@ -389,6 +443,7 @@ export async function buildDocPage(
   const documentUri = mirrorUri(rootUri, documentPath);
   if (documentUri === null) throw new Error(`Not a full path on the computer: ${remotePath}`);
   const title = baseName(documentPath);
+  const scope = mirrorScopeFor(documentPath, project);
   // Beside the file, so a Markdown page's relative images and a picture's own name resolve there.
   const pageUri = `${documentUri}.ghostex-view.html`;
 
@@ -402,7 +457,8 @@ export async function buildDocPage(
       rootUri,
       title,
       skippedAssets: 0,
-      mirror: emptyMirror(machine, rootUri, documentPath),
+      mirror: emptyMirror(machine, rootUri, documentPath, scope),
+      loopbackPorts: new Set(),
     };
   }
 
@@ -420,7 +476,8 @@ export async function buildDocPage(
       rootUri,
       title,
       skippedAssets: 0,
-      mirror: emptyMirror(machine, rootUri, documentPath),
+      mirror: emptyMirror(machine, rootUri, documentPath, scope),
+      loopbackPorts: new Set(),
     };
   }
   const text = decodeBase64Utf8(read.base64);
@@ -433,30 +490,37 @@ export async function buildDocPage(
       rootUri,
       title,
       skippedAssets: 0,
-      mirror: emptyMirror(machine, rootUri, documentPath),
+      mirror: emptyMirror(machine, rootUri, documentPath, scope),
+      loopbackPorts: new Set(),
     };
   }
 
-  const mirror = emptyMirror(machine, rootUri, documentPath);
+  const mirror = emptyMirror(machine, rootUri, documentPath, scope);
   const referencedPaths = (references: Set<string>) =>
     [...references].map((reference) => resolveRemoteReference(documentPath, reference));
 
   if (kind === 'html') {
     writeMirrorFile(documentUri, read.base64, 'base64');
     const skippedAssets = await mirrorAssets(mirror, referencedPaths(htmlReferences(text)), isCancelled, true);
-    return { kind, uri: documentUri, rootUri, title, skippedAssets, mirror };
+    return { kind, uri: documentUri, rootUri, title, skippedAssets, mirror, loopbackPorts: loopbackPortsIn(text) };
   }
 
   const html = renderMarkdownDocument(text, title);
   writeMirrorFile(pageUri, html, 'utf8');
   const skippedAssets = await mirrorAssets(mirror, referencedPaths(htmlReferences(html)), isCancelled, true);
-  return { kind, uri: pageUri, rootUri, title, skippedAssets, mirror };
+  return { kind, uri: pageUri, rootUri, title, skippedAssets, mirror, loopbackPorts: loopbackPortsIn(html) };
 }
 
-function emptyMirror(machine: MachineConnectionTarget, rootUri: string, documentPath: string): DocMirror {
+function emptyMirror(
+  machine: MachineConnectionTarget,
+  rootUri: string,
+  documentPath: string,
+  scope: string,
+): DocMirror {
   return {
     machine,
     rootUri,
+    scope,
     settled: new Set([documentPath]),
     copied: new Set(),
     requests: Promise.resolve(),
