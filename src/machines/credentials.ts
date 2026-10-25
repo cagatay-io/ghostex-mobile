@@ -2,7 +2,7 @@
  * Machine credential storage.
  * - Saved credentials live in the platform secure store (Keychain/Keystore via
  *   expo-secure-store), keyed `machine.<id>.password` / `.sshkey` /
- *   `.passphrase` / `.publickey` / `.tailcattoken`.
+ *   `.passphrase` / `.publickey` / `.tailcattoken` / `.apitoken`.
  * - Passwords entered with savePassword=false live only in an in-memory map
  *   for this app run.
  */
@@ -12,7 +12,7 @@ import * as SecureStore from 'expo-secure-store';
 import type { SshConfig } from '../../modules/ghostex-native/src';
 import { useSettingsStore } from '../settings/store';
 
-type CredentialKind = 'password' | 'sshkey' | 'passphrase' | 'publickey' | 'tailcattoken';
+type CredentialKind = 'password' | 'sshkey' | 'passphrase' | 'publickey' | 'tailcattoken' | 'apitoken';
 
 /**
  * How the phone reaches a machine. `ssh` (or absent) dials host:port directly;
@@ -113,6 +113,19 @@ export function setTailcatToken(machineId: string, token: string): Promise<void>
   return setCredential(machineId, 'tailcattoken', token);
 }
 
+/**
+ * The phone's own gxserver API token for an Easy Connect machine, from `/api/pairDevice`. Removing
+ * the phone from the computer's Paired devices revokes it (CDXC:RemotePairing 2026-10-25 in
+ * server/src/auth.rs). Machines paired before it, and SSH or Tailscale machines, have none.
+ */
+export function getDeviceApiToken(machineId: string): Promise<string | null> {
+  return getCredential(machineId, 'apitoken');
+}
+
+export function setDeviceApiToken(machineId: string, token: string): Promise<void> {
+  return setCredential(machineId, 'apitoken', token);
+}
+
 /** Remove every stored credential for a machine (used when deleting it). */
 export async function deleteAllCredentials(machineId: string): Promise<void> {
   clearSessionPassword(machineId);
@@ -122,6 +135,7 @@ export async function deleteAllCredentials(machineId: string): Promise<void> {
     deleteCredential(machineId, 'passphrase'),
     deleteCredential(machineId, 'publickey'),
     deleteCredential(machineId, 'tailcattoken'),
+    deleteCredential(machineId, 'apitoken'),
   ]);
 }
 

@@ -24,6 +24,7 @@ import expo.modules.kotlin.Promise
 import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import java.io.File
 import java.net.NetworkInterface
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
@@ -102,6 +103,12 @@ class GhostexNativeModule : Module() {
     }
   }
 
+  /** Loads (or creates) this phone's Easy Connect client key; see `tailcatClientPublicKey`. */
+  private fun useTailcatClientKey(): String {
+    val dir = File(requireAndroidContext().filesDir, "tailcat")
+    return Tailcatbridge.useClientKeyFile(File(dir, "client.key").absolutePath)
+  }
+
   override fun definition() = ModuleDefinition {
     Name("GhostexNative")
 
@@ -111,6 +118,12 @@ class GhostexNativeModule : Module() {
     // so every tailcat entry point below is guaranteed to find the lister already installed.
     OnCreate {
       GhostexTailcatInterfaces.register()
+      // Before any tunnel exists, so every one uses this phone's saved key, not a throwaway one.
+      try {
+        useTailcatClientKey()
+      } catch (error: Exception) {
+        Log.w("GhostexNative", "Could not load the Easy Connect client key: ${error.message}")
+      }
       GhostexVoice.emitter = { event -> sendEvent("onVoiceEvent", event) }
       GhostexVoiceRecorder.emitter = { event -> sendEvent("onVoiceEvent", event) }
       GhostexSpeech.emitter = { event -> sendEvent("onSpeechEvent", event) }
@@ -207,6 +220,16 @@ class GhostexNativeModule : Module() {
               error
             )
           )
+        }
+      }
+    }
+
+    AsyncFunction("tailcatClientPublicKey") { promise: Promise ->
+      backgroundExecutor.execute {
+        try {
+          promise.resolve(useTailcatClientKey())
+        } catch (error: Exception) {
+          promise.reject(CodedException("Could not load the Easy Connect client key: ${error.message}", error))
         }
       }
     }

@@ -19,7 +19,7 @@
 import { Platform } from 'react-native';
 
 import { GhostexNative } from '../../modules/ghostex-native/src';
-import { setPassphrase, setPublicKey, setSshKey } from './credentials';
+import { setDeviceApiToken, setPassphrase, setPublicKey, setSshKey } from './credentials';
 import type { EasyConnectCode } from './pairingCodes';
 import { tailcatSyntheticHost, useMachinesStore, type MachineRecord } from './store';
 
@@ -44,12 +44,16 @@ export type PairDeviceRequest = {
   deviceName: string;
   platform: 'ios' | 'android';
   sshPublicKey: string;
+  /** This phone's Easy Connect client key, so the computer can allow-list it. */
+  tailcatClientKey?: string;
 };
 
 export type PairDeviceResponse = {
   deviceId: string;
   user: string;
   computerName: string;
+  /** The phone's own API token; absent from a computer whose Ghostex predates device tokens. */
+  deviceApiToken: string | null;
 };
 
 export type EasyConnectPairingFailure =
@@ -114,7 +118,12 @@ function parsePairDeviceResponse(body: unknown): PairDeviceResponse {
   ) {
     throw new PairDeviceError('rejected', 'The computer sent an incomplete pairing reply.');
   }
-  return { deviceId: result.deviceId, user: result.user, computerName: result.computerName };
+  return {
+    deviceId: result.deviceId,
+    user: result.user,
+    computerName: result.computerName,
+    deviceApiToken: typeof result.deviceApiToken === 'string' ? result.deviceApiToken : null,
+  };
 }
 
 async function postPairDevice(localPort: number, request: PairDeviceRequest): Promise<PairDeviceResponse> {
@@ -222,6 +231,8 @@ export async function pairEasyConnect(
 
   try {
     const key = await GhostexNative.generateSshKey('ed25519', SSH_KEY_COMMENT);
+    // An app build without the saved key still pairs; the computer just cannot allow-list it.
+    const tailcatClientKey = await GhostexNative.tailcatClientPublicKey().catch(() => undefined);
     let localPort: number;
     try {
       ({ localPort } = await GhostexNative.startTailcatForward(PAIRING_FORWARD_ID, code.address, code.port));
@@ -235,12 +246,15 @@ export async function pairEasyConnect(
         deviceName: pairingDeviceName(),
         platform: pairingPlatform(),
         sshPublicKey: key.publicKey,
+        tailcatClientKey,
       });
       const machine = await saveEasyConnectMachine(code, registration, rePairMachineId);
       await Promise.all([
         setSshKey(machine.id, key.privateKey),
         setPublicKey(machine.id, key.publicKey),
         setPassphrase(machine.id, ''),
+        // A re-pair with a computer that sent none drops the old one, which that computer revoked.
+        setDeviceApiToken(machine.id, registration.deviceApiToken ?? ''),
       ]);
       return { ok: true, machine };
     } finally {

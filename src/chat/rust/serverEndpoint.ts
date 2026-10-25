@@ -9,7 +9,7 @@
  */
 import { execRemoteCommand } from '../../remote/commands';
 import { ensureConnected } from '../../inventory/client';
-import type { MachineConnectionTarget } from '../../machines/credentials';
+import { getDeviceApiToken, type MachineConnectionTarget } from '../../machines/credentials';
 
 const ENDPOINT_TIMEOUT_MS = 20_000;
 
@@ -47,10 +47,20 @@ export type ServerEndpointAnswer =
  */
 export async function readServerEndpoint(machine: MachineConnectionTarget): Promise<ServerEndpointAnswer> {
   await ensureConnected(machine);
-  const exec = await execRemoteCommand(machine.id, 'ghostex server endpoint', ENDPOINT_TIMEOUT_MS);
+  /*
+  CDXC:RemotePairing 2026-10-25 DECISION:
+  User (security audit, Q4 "per-device tokens and a tunnel allow-list"): a phone paired through Easy
+  Connect calls gxserver with its own token from `/api/pairDevice` and asks for the endpoint with
+  `--no-token`, so the computer's main token never reaches it and removing the phone from Paired
+  devices cuts it off. A computer whose Ghostex predates the flag ignores it and still prints its
+  token, which this then leaves unused. Machines without a device token keep using the main token.
+  */
+  const deviceToken = await getDeviceApiToken(machine.id);
+  const command = deviceToken ? 'ghostex server endpoint --no-token' : 'ghostex server endpoint';
+  const exec = await execRemoteCommand(machine.id, command, ENDPOINT_TIMEOUT_MS);
   const answer = lastJsonObject(exec.stdout);
   const port = typeof answer?.port === 'number' ? answer.port : null;
-  const authToken = typeof answer?.authToken === 'string' ? answer.authToken : null;
+  const authToken = deviceToken ?? (typeof answer?.authToken === 'string' ? answer.authToken : null);
   if (port !== null && authToken !== null) {
     reportedPorts.set(machine.id, port);
     const protocolVersion = typeof answer?.protocolVersion === 'number' ? answer.protocolVersion : null;

@@ -48,6 +48,13 @@ declare class GhostexNativeModule extends NativeModule<GhostexNativeEvents> {
    */
   startTailcatForward(forwardId: string, address: string, remotePort: number): Promise<{ localPort: number }>;
 
+  /**
+   * This phone's Easy Connect client key (`nodekey:…`), created on first use and kept in the
+   * app's private storage. Every tunnel uses it, and pairing sends it so the computer can
+   * allow-list this phone (CDXC:RemotePairing 2026-10-25 in apps/mobile/tailcat-bridge/bridge.go).
+   */
+  tailcatClientPublicKey(): Promise<string>;
+
   // Non-interactive command in its own channel (inventory + ghostex CLI actions).
   exec(machineId: string, command: string, timeoutMs?: number): Promise<ExecResult>;
   /** `exec` with `input` written to the command's stdin, then EOF (Windows scripts; both platforms). */

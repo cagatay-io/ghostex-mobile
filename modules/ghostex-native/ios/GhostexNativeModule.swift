@@ -89,6 +89,10 @@ private func eventPayload(_ event: [String: Any?]) -> [String: Any] {
     event.mapValues { $0 ?? NSNull() }
 }
 
+final class TailcatClientKeyException: GenericException<String> {
+    override var reason: String { "Could not load the Easy Connect client key. (\(param))" }
+}
+
 // MARK: - Module
 
 public class GhostexNativeModule: Module {
@@ -108,8 +112,36 @@ public class GhostexNativeModule: Module {
         barWindowObservers = listening ? GhostexVerticalBar.windowChangeObservers() : []
     }
 
+    /// Loads (or creates) this phone's Easy Connect client key; see `tailcatClientPublicKey`.
+    /// Application Support is private to the app, and the key stays out of backups: a restored
+    /// phone pairs again, as it must for its SSH key.
+    static func useTailcatClientKey() throws -> String {
+        guard let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            throw TailcatClientKeyException("Application Support is unavailable.")
+        }
+        var dir = support.appendingPathComponent("tailcat", isDirectory: true)
+        var bridgeError: NSError?
+        let publicKey = TailcatbridgeUseClientKeyFile(dir.appendingPathComponent("client.key").path, &bridgeError)
+        if let bridgeError {
+            throw TailcatClientKeyException(bridgeError.localizedDescription)
+        }
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        try? dir.setResourceValues(values)
+        return publicKey
+    }
+
     public func definition() -> ModuleDefinition {
         Name("GhostexNative")
+
+        // Before any tunnel exists, so every one uses this phone's saved key, not a throwaway one.
+        OnCreate {
+            do {
+                _ = try GhostexNativeModule.useTailcatClientKey()
+            } catch {
+                NSLog("GhostexNative: could not load the Easy Connect client key: %@", "\(error)")
+            }
+        }
 
         Events(
             "onTerminalState",
@@ -229,6 +261,10 @@ public class GhostexNativeModule: Module {
                 )
             }
             return ["localPort": localPort]
+        }
+
+        AsyncFunction("tailcatClientPublicKey") { () throws -> String in
+            try GhostexNativeModule.useTailcatClientKey()
         }
 
         AsyncFunction("isTailscaleConnected") { () -> Bool in
