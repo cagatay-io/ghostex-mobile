@@ -233,7 +233,6 @@ const TONE_COLORS: { [tone: string]: string | null } = { ok: '#34d399', error: '
 
 /** What a status card's tile shows (`subject` from the core's `suppressed_turn_presentation`). */
 function subjectGlyph(subject: string): GlyphName {
-  if (subject === 'task') return 'terminal-2';
   if (subject === 'compaction') return 'arrows-diagonal-minimize';
   return 'adjustments-horizontal';
 }
