@@ -173,7 +173,7 @@ function outcome(answer: { result: Record<string, unknown> } | { error: string }
       : {
           kind: 'nothing',
           message:
-            'No words were heard in the recording. It is kept on your computer in Settings › Voice agent › Dictation history.',
+            'No words were heard in the recording. It is kept on your computer in Settings › Extensions › Voice agent › Dictation history.',
         };
   }
   return { kind: 'failed', kept, message: dictation?.error?.message ?? 'The transcription failed.' };
