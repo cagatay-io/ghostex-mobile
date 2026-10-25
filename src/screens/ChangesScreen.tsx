@@ -42,6 +42,7 @@ import {
 } from '../changes/model';
 import { RefreshIcon } from '../components/terminal/icons';
 import { ChangesCopy } from '../copy';
+import { FILE_LIST_DETAIL_SIZE, FILE_LIST_NAME_SIZE, FILE_VIEWER_CODE_SIZE } from '../docs/textSizes';
 import { useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -51,8 +52,11 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Changes'>;
 const answerCache = new Map<string, ChangesAnswer>();
 
 const COPIED_NOTICE_MS = 1_400;
-/** The diff text's size, and everything left of and right of the code on a line row. */
-const CODE_SIZE = 12;
+/**
+ * The diff text's size, and everything left of and right of the code on a line row. The diff uses
+ * the file viewer's code size and its file headers the Files list's sizes (`docs/textSizes.ts`).
+ */
+const CODE_SIZE = FILE_VIEWER_CODE_SIZE;
 const NUMBER_WIDTH = 34;
 const SIGN_WIDTH = 16;
 const LINE_END_PADDING = 10;
@@ -66,6 +70,8 @@ function palette(theme: TranscriptTheme) {
   return {
     hairline: theme.ink(theme.light ? 0.08 : 0.06),
     header: theme.light ? '#f4f4f5' : '#151515',
+    /** A held file header: opaque, since it may be pinned over the lines scrolling under it. */
+    headerPressed: theme.light ? '#e4e4e7' : '#222222',
     addedRow: rgba(0x16a34a, theme.light ? 0.12 : 0.14),
     addedGutter: rgba(0x16a34a, theme.light ? 0.2 : 0.22),
     addedWord: rgba(0x22c55e, theme.light ? 0.3 : 0.34),
@@ -425,7 +431,7 @@ export default function ChangesScreen({ navigation, route }: Props) {
               onPress={() => toggleFold(file.path)}
               style={({ pressed }) => [
                 styles.fileHeader,
-                { backgroundColor: pressed ? theme.pressed : colors.header, borderColor: colors.hairline },
+                { backgroundColor: pressed ? colors.headerPressed : colors.header, borderColor: colors.hairline },
               ]}
             >
               <Glyph name={item.folded ? 'chevron-right' : 'chevron-down'} size={13} color={theme.muted} />
@@ -597,12 +603,12 @@ const useStyles = themedStyles((t) => ({
     height: ROW_HEIGHTS.listItem,
     minWidth: 0,
   },
-  listName: { color: t.foreground, fontSize: 13.5, flexShrink: 0, maxWidth: '50%' },
-  listFolder: { color: t.muted, fontSize: 12, flexShrink: 1, minWidth: 0 },
+  listName: { color: t.foreground, fontSize: FILE_LIST_NAME_SIZE, flexShrink: 0, maxWidth: '50%' },
+  listFolder: { color: t.muted, fontSize: FILE_LIST_DETAIL_SIZE, flexShrink: 1, minWidth: 0 },
   badge: { fontFamily: MONO_FONT, fontSize: 12, fontWeight: '700', width: 12, textAlign: 'center' },
   spacer: { flex: 1 },
   counts: { flexDirection: 'row', gap: 5 },
-  count: { fontFamily: MONO_FONT, fontSize: 12 },
+  count: { fontFamily: MONO_FONT, fontSize: FILE_LIST_DETAIL_SIZE },
   fileHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -613,15 +619,15 @@ const useStyles = themedStyles((t) => ({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   fileTitle: { flex: 1, minWidth: 0 },
-  fileName: { color: t.foreground, fontSize: 14, fontWeight: '600' },
-  fileFolder: { color: t.muted, fontSize: 11.5, marginTop: 1 },
+  fileName: { color: t.foreground, fontSize: FILE_LIST_NAME_SIZE, fontWeight: '600' },
+  fileFolder: { color: t.muted, fontSize: FILE_LIST_DETAIL_SIZE, marginTop: 1 },
   gap: { paddingHorizontal: 14, height: ROW_HEIGHTS.gap, justifyContent: 'center' },
-  gapText: { fontFamily: MONO_FONT, fontSize: 11.5, lineHeight: 18 },
+  gapText: { fontFamily: MONO_FONT, fontSize: CODE_SIZE - 0.5, lineHeight: 18 },
   line: { flexDirection: 'row', alignItems: 'stretch', height: ROW_HEIGHTS.line, paddingRight: LINE_END_PADDING },
   gutter: { flexDirection: 'row' },
   number: {
     fontFamily: MONO_FONT,
-    fontSize: 11,
+    fontSize: CODE_SIZE - 1,
     lineHeight: 19,
     width: NUMBER_WIDTH,
     paddingRight: 5,

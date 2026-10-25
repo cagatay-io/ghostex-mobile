@@ -6,6 +6,7 @@
  */
 
 import { GhostexPalette } from '../theme/palette';
+import { FILE_VIEWER_CODE_SIZE } from './textSizes';
 
 function escapeHtml(text: string): string {
   return text.replace(/[&<>"']/gu, (character) => `&#${character.charCodeAt(0)};`);
@@ -116,7 +117,7 @@ const TEXT_STYLES = `
   box-sizing: border-box;
   margin: 0;
   padding: 16px 14px calc(48px + env(safe-area-inset-bottom));
-  font: 12.5px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font: ${FILE_VIEWER_CODE_SIZE}px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   tab-size: 4;

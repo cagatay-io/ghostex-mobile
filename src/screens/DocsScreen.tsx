@@ -45,6 +45,7 @@ import {
 } from '../docs/tree';
 import { useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
+import { FILE_LIST_DETAIL_SIZE, FILE_LIST_NAME_SIZE } from '../docs/textSizes';
 import { GhostexPalette } from '../theme/palette';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Docs'>;
@@ -399,9 +400,9 @@ const styles = StyleSheet.create({
   rowPressed: { backgroundColor: GhostexPalette.CARD_ACTIVE },
   folderName: { flex: 1, color: GhostexPalette.FOREGROUND, fontSize: 15, fontWeight: '500' },
   fileText: { flex: 1, minWidth: 0 },
-  fileName: { color: GhostexPalette.FOREGROUND, fontSize: 15 },
-  location: { color: GhostexPalette.MUTED, fontSize: 12, marginTop: 1 },
-  meta: { color: GhostexPalette.MUTED, fontSize: 12 },
+  fileName: { color: GhostexPalette.FOREGROUND, fontSize: FILE_LIST_NAME_SIZE },
+  location: { color: GhostexPalette.MUTED, fontSize: FILE_LIST_DETAIL_SIZE, marginTop: 1 },
+  meta: { color: GhostexPalette.MUTED, fontSize: FILE_LIST_DETAIL_SIZE },
   centered: { alignItems: 'center', gap: 10, paddingHorizontal: 28, paddingTop: 56 },
   emptyTitle: { color: GhostexPalette.FOREGROUND, fontSize: 15, fontWeight: '600', textAlign: 'center' },
   muted: { color: GhostexPalette.MUTED, fontSize: 13, lineHeight: 19, textAlign: 'center' },
