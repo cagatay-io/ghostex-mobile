@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
 
+import { GhostexNative } from '../../../../modules/ghostex-native/src';
 import { WebPreviewCopy } from '../../../copy';
 import type { MachineConnectionTarget } from '../../../machines/credentials';
 import { useSettingsStore } from '../../../settings/store';
@@ -37,7 +38,8 @@ import type { RustChat } from '../../rust/useRustChat';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { Glyph } from './icons';
 import { ImageViewerModal, type ImageViewerList } from './ImageViewer';
-import { PAGE_SCRIPT, pageIdOfPath, readPageMessage } from './pageSheetScript';
+import { keepUnsavedDraft, sendUnsavedDraft } from './pageDrafts';
+import { PAGE_SCRIPT, PENDING_DRAFT_SCRIPT, pageIdOfPath, readPageMessage } from './pageSheetScript';
 
 /** How long the first back press keeps the sheet armed for a second one to close it. */
 const CLOSE_ARMED_FOR_MS = 2_000;
@@ -45,6 +47,8 @@ const CLOSE_ARMED_FOR_MS = 2_000;
 const SOURCE_CHECK_EVERY_MS = 2_000;
 const SOURCE_CHECK_TIMEOUT_MS = 10_000;
 const REFRESH_TIMEOUT_MS = 30_000;
+/** How long the page has to hand over the draft it had not saved, when it closes or moves port. */
+const PENDING_DRAFT_TIMEOUT_MS = 800;
 
 /**
  * Whether a navigation replaces the page rather than loading into a sub-frame: Android reports no
@@ -56,6 +60,15 @@ function isTopNavigation(request: ShouldStartLoadRequest & { hasTargetFrame?: bo
 }
 
 const withoutFragment = (url: string): string => url.split('#')[0] ?? url;
+
+/**
+ * The page through the phone's forward on `localPort`, in the chat's theme. `gx-floating=1`: the
+ * page closes itself once its answers are sent, as in the desktop's window.
+ */
+function sheetUri(page: ComputerAddress, localPort: number): string {
+  const themed = withPageTheme(page.path, useSettingsStore.getState().settings.sessionChatTheme);
+  return localPreviewUrl(page.scheme, localPort, `${themed}${themed.includes('#') ? '&' : '#'}gx-floating=1`);
+}
 
 export type PageSheetProps = {
   chat: RustChat;
@@ -93,6 +106,8 @@ export function PageSheet({ chat, machine, page, onClose, onOpenLink }: PageShee
   const [changed, setChanged] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const refreshingRef = useRef(false);
+  /** Takes the page's answer to {@link PENDING_DRAFT_SCRIPT} while one is awaited. */
+  const draftReplyRef = useRef<((draft: Record<string, unknown> | null) => void) | null>(null);
 
   // Opening (or reopening) a page: the forward first, then the page through it.
   useEffect(() => {
@@ -108,9 +123,8 @@ export function PageSheet({ chat, machine, page, onClose, onOpenLink }: PageShee
     let live = true;
     let held = false;
     const target = machineRef.current;
-    const theme = useSettingsStore.getState().settings.sessionChatTheme;
     openComputerForward(target, page)
-      .then(({ localPort, gxserver }) => {
+      .then(async ({ localPort, gxserver }) => {
         // The computer's gxserver rides the chat's own forward, which nothing here may close.
         if (!gxserver) {
           holdComputerForward(target.id, page.remotePort);
@@ -121,13 +135,10 @@ export function PageSheet({ chat, machine, page, onClose, onOpenLink }: PageShee
           held = true;
         }
         if (!live) return;
-        // `gx-floating=1`: the page closes itself once its answers are sent, as in the desktop's window.
-        const themed = withPageTheme(page.path, theme);
-        const next = localPreviewUrl(
-          page.scheme,
-          localPort,
-          `${themed}${themed.includes('#') ? '&' : '#'}gx-floating=1`,
-        );
+        // What this page typed but could not save when it last closed goes first, so it opens with it.
+        if (pageId !== null) await sendUnsavedDraft(target.id, pageId);
+        if (!live) return;
+        const next = sheetUri(page, localPort);
         localPortRef.current = localPort;
         uriRef.current = next;
         setUri(next);
@@ -139,7 +150,7 @@ export function PageSheet({ chat, machine, page, onClose, onOpenLink }: PageShee
       live = false;
       if (held) void releaseComputerForward(target.id, page.remotePort);
     };
-  }, [attempt, page]);
+  }, [attempt, page, pageId]);
 
   // Asks the page's gxserver whether the file it was published from changed, while the app is in front.
   useEffect(() => {
@@ -177,16 +188,73 @@ export function PageSheet({ chat, machine, page, onClose, onOpenLink }: PageShee
     };
   }, [page, pageId]);
 
+  /**
+   * Keeps what the page typed but has not saved on its computer yet (pageDrafts.ts), asking the page
+   * for it (`ghostex.__pending()`); a page that does not answer in time keeps nothing.
+   */
+  const keepPendingDraft = useCallback(async (): Promise<void> => {
+    const webview = webviewRef.current;
+    if (webview === null || page === null || pageId === null) return;
+    const draft = await new Promise<Record<string, unknown> | null>((resolve) => {
+      const timer = setTimeout(() => {
+        draftReplyRef.current = null;
+        resolve(null);
+      }, PENDING_DRAFT_TIMEOUT_MS);
+      draftReplyRef.current = (reply) => {
+        clearTimeout(timer);
+        draftReplyRef.current = null;
+        resolve(reply);
+      };
+      webview.injectJavaScript(PENDING_DRAFT_SCRIPT);
+    });
+    if (draft !== null) keepUnsavedDraft(machineRef.current, page, pageId, draft);
+  }, [page, pageId]);
+
+  /**
+   * The link to the computer came back. The page's forward is opened again (nothing else may have yet)
+   * on the phone port it had (GhostexPortForward.kt), so the page carries on and sends the drafts and
+   * answers it kept trying (server/src/visual_pages/theme.rs). When that port was taken meanwhile, the
+   * page moves to the new one, taking along what it had typed but not saved.
+   */
+  useEffect(() => {
+    if (page === null || pageId === null) return undefined;
+    let live = true;
+    const target = machineRef.current;
+    const subscription = GhostexNative.addListener('onConnectionState', (event) => {
+      if (event.machineId !== target.id || event.state !== 'connected') return;
+      void (async () => {
+        const { localPort } = await openComputerForward(target, page);
+        if (!live || localPortRef.current === null || localPortRef.current === localPort) return;
+        localPortRef.current = localPort;
+        await keepPendingDraft();
+        await sendUnsavedDraft(target.id, pageId);
+        if (!live || localPortRef.current !== localPort) return;
+        const next = sheetUri(page, localPort);
+        uriRef.current = next;
+        setUri(next);
+      })().catch(() => undefined);
+    });
+    return () => {
+      live = false;
+      subscription.remove();
+    };
+  }, [page, pageId, keepPendingDraft]);
+
   useEffect(() => {
     if (!armed) return undefined;
     const timer = setTimeout(() => setArmed(false), CLOSE_ARMED_FOR_MS);
     return () => clearTimeout(timer);
   }, [armed]);
 
+  /** Closes once the page handed over what it has not saved yet, which is then sent on its own. */
   const close = useCallback(() => {
     setPictures(null);
-    onClose();
-  }, [onClose]);
+    const target = machineRef.current;
+    void keepPendingDraft().then(() => {
+      onClose();
+      if (pageId !== null) void sendUnsavedDraft(target.id, pageId);
+    });
+  }, [keepPendingDraft, onClose, pageId]);
 
   /** Android's back: the first one arms, a second within `CLOSE_ARMED_FOR_MS` closes. */
   const backPressed = useCallback(() => {
@@ -239,6 +307,7 @@ export function PageSheet({ chat, machine, page, onClose, onOpenLink }: PageShee
       const message = readPageMessage(event.nativeEvent.data);
       if (message === null) return;
       if (message.type === 'images') setPictures({ images: message.images, index: message.index });
+      else if (message.type === 'draft') draftReplyRef.current?.(message.draft);
       else close();
     },
     [close],

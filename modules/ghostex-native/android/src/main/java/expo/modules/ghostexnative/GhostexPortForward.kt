@@ -6,6 +6,7 @@ import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.InetAddress
+import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.util.Collections
@@ -34,10 +35,9 @@ internal class GhostexPortForward(
   private val clientProvider: () -> SSHClient?
 ) {
 
-  private val serverSocket =
-    ServerSocket(ANY_LOCAL_PORT, ACCEPT_BACKLOG, InetAddress.getByName(LOOPBACK_HOST))
+  private val serverSocket = openListener(machineId, remotePort, remoteHost)
 
-  /** OS-assigned loopback port the app connects to. */
+  /** Loopback port the app connects to: the one this target had before, or one the OS assigns. */
   val localPort: Int = serverSocket.localPort
 
   private val closed = AtomicBoolean(false)
@@ -206,6 +206,35 @@ internal class GhostexPortForward(
     private const val ANY_LOCAL_PORT = 0
     private const val ACCEPT_BACKLOG = 32
     private const val PUMP_BUFFER_BYTES = 32 * 1024
+
+    /** The phone port each machine target was last forwarded on, for this app run. */
+    private val lastLocalPorts = ConcurrentHashMap<String, Int>()
+
+    /**
+     * The listener for one machine target, on the port that target had before when it is still free.
+     *
+     * CDXC:Mobile 2026-10-26 WHY: every forward dies with its SSH transport, and the chat link's repair closes and reopens gxserver's on purpose, so each reconnect used to move the target to a new random phone port. A page already open on the old one (a `ghostex show` page in the page sheet, a Web preview) then reached nothing: the user typed answers to every question of a page over Tailscale while the link reconnected, the page's drafts stopped landing, Send said "Failed to fetch", and closing the page lost the text. Binding the target's earlier port again keeps the page's address working once the link is back, so its pending drafts and send go through (server/src/visual_pages/theme.rs keeps trying them). A port another app took meanwhile is the one case that gets a new port.
+     * SEE-ALSO: apps/mobile/app/src/chat/native/cards/PageSheet.tsx (moves an open page when its port changed anyway).
+     */
+    private fun openListener(machineId: String, remotePort: Int, remoteHost: String): ServerSocket {
+      val key = "$machineId\u0000$remoteHost\u0000$remotePort"
+      val loopback = InetAddress.getByName(LOOPBACK_HOST)
+      val socket = lastLocalPorts[key]?.let { port ->
+        val candidate = ServerSocket()
+        try {
+          // The old listener's accepted sockets may still be in TIME_WAIT on that port.
+          candidate.reuseAddress = true
+          candidate.bind(InetSocketAddress(loopback, port), ACCEPT_BACKLOG)
+          candidate
+        } catch (error: IOException) {
+          Log.i(LOG_TAG, "portForward $machineId:$remotePort could not take back $LOOPBACK_HOST:$port: ${error.message}")
+          closeQuietly(candidate)
+          null
+        }
+      } ?: ServerSocket(ANY_LOCAL_PORT, ACCEPT_BACKLOG, loopback)
+      lastLocalPorts[key] = socket.localPort
+      return socket
+    }
 
     private fun pump(input: InputStream, output: OutputStream) {
       val buffer = ByteArray(PUMP_BUFFER_BYTES)

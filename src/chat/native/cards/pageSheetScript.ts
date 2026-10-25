@@ -146,7 +146,22 @@ export type PageMessage =
   /** The reader tapped picture `index` of `images` (image values the chat's viewer reads). */
   | { type: 'images'; images: ChatImage[]; index: number }
   /** The page asked to close (`window.close()`). */
-  | { type: 'close' };
+  | { type: 'close' }
+  /** What the page had not saved yet ({@link PENDING_DRAFT_SCRIPT}), `null` when nothing. */
+  | { type: 'draft'; draft: Record<string, unknown> | null };
+
+/**
+ * Asks the page for its draft that has not reached gxserver yet (`ghostex.__pending()`,
+ * server/src/visual_pages/theme.rs), when the sheet closes or the page moves to a new phone port, so
+ * nothing typed during a dropped link goes with the WebView (pageDrafts.ts keeps it).
+ * A page from an older gxserver has no such call and answers `null`.
+ */
+export const PENDING_DRAFT_SCRIPT = `(() => {
+  let draft = null;
+  try { draft = window.ghostex && typeof ghostex.__pending === 'function' ? ghostex.__pending() : null; } catch (_) {}
+  try { window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'draft', draft })); } catch (_) {}
+})();
+true;`;
 
 const record = (value: unknown): Record<string, unknown> | null =>
   typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
@@ -175,6 +190,7 @@ export function readPageMessage(payload: string): PageMessage | null {
     });
     return index === null ? null : { type: 'images', images, index };
   }
+  if (message.type === 'draft') return { type: 'draft', draft: record(message.draft) };
   return message.type === 'close' ? { type: 'close' } : null;
 }
 
