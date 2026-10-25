@@ -14,7 +14,7 @@
  */
 
 import { useCallback, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import type { ChatDocument, WorkingCard as WorkingCardValue } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
@@ -128,7 +128,16 @@ export function WorkingCard({
           </View>
           {/* Right to left from the card's edge: panel pills, question, timers, then scroll-to-bottom
               leftmost, so one appearing moves none of the others. */}
-          <View style={styles.pills}>
+          <ScrollView
+            horizontal
+            style={styles.pillsScroll}
+            contentContainerStyle={styles.pills}
+            showsHorizontalScrollIndicator={false}
+            alwaysBounceHorizontal={false}
+            overScrollMode="never"
+            directionalLockEnabled
+            keyboardShouldPersistTaps="handled"
+          >
             {showJump ? (
               <IconPill
                 glyph="arrow-down"
@@ -168,7 +177,7 @@ export function WorkingCard({
             {pills.map((pill) => (
               <Pill key={pill.id} pill={pill} open={pill.id === menu} onPress={() => setMenu(pill.id)} />
             ))}
-          </View>
+          </ScrollView>
         </Pressable>
         {held && label !== null ? (
           <View pointerEvents="none" style={styles.bubble}>
@@ -281,7 +290,9 @@ const useStyles = themedStyles((P) => ({
   card: {
     minHeight: VISUAL.minHeight + HEADER_PAD_Y * 2,
     paddingLeft: 12,
-    paddingRight: 10,
+    // The pills' scroll row reaches the capsule's right edge (its content brings the 10 of padding),
+    // so a scrolled pill is cut by the rounded edge, not by a straight line inside it.
+    paddingRight: 0,
     paddingTop: HEADER_PAD_Y,
     paddingBottom: HEADER_PAD_Y,
     flexDirection: 'row',
@@ -291,6 +302,8 @@ const useStyles = themedStyles((P) => ({
     borderColor: P.inputBorder,
     // A capsule, like the pills it carries (desktop working_card.rs).
     borderRadius: 999,
+    // The pills scroll sideways when they don't fit; nothing may spill past the rounded edge.
+    overflow: 'hidden',
     // The composer's own fill, so the card and the chat box under it always match.
     backgroundColor: P.composerBackground,
   },
@@ -348,11 +361,21 @@ const useStyles = themedStyles((P) => ({
     width: 48,
     flexShrink: 0,
   },
+  /**
+   * The pills' scroll row. A horizontal ScrollView grows by default; here it takes only its content's
+   * width (so the label keeps the rest while everything fits) and shrinks, then scrolls, when the
+   * pills outgrow the card.
+   */
+  pillsScroll: {
+    flexGrow: 0,
+    flexShrink: 1,
+    minWidth: 0,
+  },
   pills: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexShrink: 0,
     gap: 6,
+    paddingRight: 10,
   },
   armed: {
     flexDirection: 'row',
