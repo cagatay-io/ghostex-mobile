@@ -46,6 +46,8 @@ export type ActionFields = {
   searchFolds: { expanded: string[]; collapsed: string[]; simple: boolean; workOpen: boolean };
   terminalTailHover: {};
   terminalTailToggle: {};
+  /** Copy Report (gx-chat-core `extras/report.rs`). */
+  copyReport: {};
   /** Open a subagent's transcript from its tool row or fleet chip. Desktop: `subagent_view.rs`. */
   openSubagent: { selector: Json; name?: string; task?: string; agentType?: string; model?: string; effort?: string };
   subagentBack: {};

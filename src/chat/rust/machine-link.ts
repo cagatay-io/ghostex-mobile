@@ -70,6 +70,7 @@ const READ_ONLY_METHODS = new Set([
   'readVisualPageThumbnail',
   'readVisualPageSource',
   'readSessionTerminalTail',
+  'readSessionChatReport',
   'readSessionAgentNote',
   'readCoordinatorThreads',
   'sessionForkBranches',

@@ -79,6 +79,8 @@ export function ComposerNotReadyCard({
     onHostAction ? (
       <ChatButton key="terminal" icon="terminal-2" label="Terminal View" onPress={() => onHostAction('terminalView')} />
     ) : null,
+    // Copy Report (gx-chat-core `extras/report.rs`).
+    <ChatButton key="report" icon="copy" label="Copy Report" onPress={() => chat.dispatch({ type: 'copyReport' })} />,
   ];
   const header = (
     <View style={styles.header}>

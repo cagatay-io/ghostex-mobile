@@ -216,8 +216,7 @@ export default function NativeChatScreen({
         callVoiceAbout(machine, { projectId, sessionId, title: title.length > 0 ? title : 'this chat' }, () =>
           voiceNavigation.navigate('Voice'),
         );
-      }
-      else if (action === 'exportTranscript') {
+      } else if (action === 'exportTranscript') {
         exportCount.current += 1;
         openHandoff({ id: -exportCount.current, target: null });
       } else if (action === 'stashedPrompts') {
@@ -226,7 +225,18 @@ export default function NativeChatScreen({
         else setSavedPromptsOpen(true);
       } else if (hostActions.includes(action)) onHostAction?.(action, params);
     },
-    [hostActions, machine, onHostAction, onSwitchToTerminal, openHandoff, projectId, sessionId, show, title, voiceNavigation],
+    [
+      hostActions,
+      machine,
+      onHostAction,
+      onSwitchToTerminal,
+      openHandoff,
+      projectId,
+      sessionId,
+      show,
+      title,
+      voiceNavigation,
+    ],
   );
   const composerHostActions = useMemo(
     () => [
@@ -426,6 +436,9 @@ function useChatViewRequests(
             return;
           case 'hostAction': {
             if (request.action === 'switchToTerminal' || request.action === 'terminalView') onSwitchToTerminal();
+            // Copy Report's last step (gx-chat-core `extras/report.rs`): Send Bug / Feedback with its agent switch on.
+            else if (request.action === 'sendFeedback')
+              navigation.navigate('Feedback', { machineId, collectWithAgent: true });
             else if (request.action === 'selectForkBranch') {
               void openForkBranch(machine, request.params).catch(() =>
                 show(

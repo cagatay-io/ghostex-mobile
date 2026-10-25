@@ -27,6 +27,7 @@ import { pickAttachments, type AttachSource } from './attachments';
 import { COLLAPSED_INPUT_HEIGHT, ComposerInput, type ComposerInputHandle } from './ComposerInput';
 import { ContextEditorSheet } from './ContextEditorSheet';
 import { Glyph, type GlyphName } from './icons';
+import { Glyph as CardGlyph } from '../cards/icons';
 import { attachIntakeImages } from './imageIntake';
 import { IncomingDraftBar } from './IncomingDraftBar';
 import { isTrue, obj, str, type JsonRecord } from './json';
@@ -84,6 +85,10 @@ const DEFAULT_HOST_ACTIONS: readonly string[] = ['terminalView'];
 /** Toolbar geometry the overflow fit is computed from (`toolbar.rs`, `composer_measurement`). */
 const CONTROL_WIDTH = 32;
 const ACTION_GAP = 4;
+/** The Copy Report pill's width (icon, gap, label and padding), reserved while it shows. */
+const COPY_REPORT_PILL_WIDTH = 104;
+/** The not-ready readiness colour, which the Copy Report pill shares with the Terminal View glyph. */
+const NOT_READY_TINT = '#f0a3a3';
 const SEND_WIDTH = 30;
 const FOOTER_GAP = 8;
 const CLEARANCE = 8;
@@ -102,7 +107,7 @@ const TAIL_READ_INTERVAL_MS = 15_000;
 function terminalReadinessTint(document: ChatDocument): string | null {
   const readiness = document.terminalTail?.readiness;
   if (readiness === 'ready') return '#a6e3b1';
-  if (readiness === 'notReady') return '#f0a3a3';
+  if (readiness === 'notReady') return NOT_READY_TINT;
   return null;
 }
 
@@ -210,7 +215,10 @@ export function NativeComposer({
     const measurements = {
       available: footerWidth,
       options: optionsWidth,
-      actions: (fixed + controls.length) * (CONTROL_WIDTH + ACTION_GAP) + SEND_WIDTH,
+      actions:
+        (fixed + controls.length) * (CONTROL_WIDTH + ACTION_GAP) +
+        SEND_WIDTH +
+        (document.terminalTail?.readiness === 'notReady' ? COPY_REPORT_PILL_WIDTH + ACTION_GAP : 0),
       footerGap: FOOTER_GAP,
       actionGap: ACTION_GAP,
       clearance: CLEARANCE,
@@ -601,7 +609,14 @@ export function NativeComposer({
                       const glyph = CONTROL_GLYPHS[control.id];
                       const pressed = control.id === 'note' && document.composerChrome.notePressed;
                       const badge = control.id === 'note' && document.composerChrome.notePresence ? '' : null;
-                      return (
+                      // Copy Report sits right before the Terminal View glyph while it reads not ready
+                      // (desktop `toolbar.rs`, CDXC:SessionChat 2026-10-25).
+                      const report =
+                        control.id === 'terminal' && document.terminalTail?.readiness === 'notReady' ? (
+                          <CopyReportPill key="copyReport" onPress={() => dispatch({ type: 'copyReport' })} />
+                        ) : null;
+                      return [
+                        report,
                         <ToolbarButton
                           key={control.id}
                           glyph={glyph}
@@ -610,8 +625,8 @@ export function NativeComposer({
                           badge={badge}
                           tint={control.id === 'terminal' ? terminalReadinessTint(document) : null}
                           onPress={() => performComposerAction(control.action)}
-                        />
-                      );
+                        />,
+                      ];
                     })
                   : null}
                 {available('dictate') ? (
@@ -667,6 +682,23 @@ export function NativeComposer({
       />
       <ContextEditorSheet editor={obj(document?.contextEditor)} dispatch={dispatch} />
     </View>
+  );
+}
+
+/** Copy Report (gx-chat-core `extras/report.rs`): the report goes to the clipboard, then Send Bug / Feedback opens. */
+function CopyReportPill({ onPress }: { onPress: () => void }) {
+  const styles = useStyles();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Copy Report"
+      hitSlop={4}
+      onPress={onPress}
+      style={({ pressed }) => [styles.reportPill, pressed ? styles.controlPressed : null]}
+    >
+      <CardGlyph name="copy" size={14} color={NOT_READY_TINT} />
+      <Text style={styles.reportPillLabel}>Copy Report</Text>
+    </Pressable>
   );
 }
 
@@ -752,6 +784,17 @@ const useStyles = themedStyles((P) => ({
     justifyContent: 'center',
   },
   controlPressed: { backgroundColor: P.border },
+  reportPill: {
+    height: CONTROL_WIDTH,
+    paddingHorizontal: 10,
+    borderRadius: CONTROL_WIDTH / 2,
+    borderWidth: 1,
+    borderColor: P.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  reportPillLabel: { color: NOT_READY_TINT, fontSize: 12 },
   dot: { position: 'absolute', top: 3, right: 3, width: 6, height: 6, borderRadius: 3, backgroundColor: P.foreground },
   badge: {
     position: 'absolute',

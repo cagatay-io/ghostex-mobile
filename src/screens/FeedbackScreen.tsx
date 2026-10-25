@@ -83,7 +83,7 @@ export default function FeedbackScreen() {
   const [message, setMessage] = useState('');
   const [images, setImages] = useState<FeedbackImage[]>([]);
   const [imageError, setImageError] = useState<string | null>(null);
-  const [collectWithAgent, setCollectWithAgent] = useState(false);
+  const [collectWithAgent, setCollectWithAgent] = useState(route.params?.collectWithAgent === true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** The crash report attached to this issue, as stored and as the cleaned text it adds. */

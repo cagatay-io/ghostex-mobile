@@ -74,9 +74,10 @@ export type RootStackParamList = {
   };
   /**
    * Send Bug / Feedback; `machineId` is the computer the "Collect more data with an agent" switch uses,
-   * `crashReportId` a stored crash report to attach (the next-launch crash prompt).
+   * `crashReportId` a stored crash report to attach (the next-launch crash prompt), `collectWithAgent`
+   * starts with that switch on (the chat's Copy Report).
    */
-  Feedback: { machineId?: string; crashReportId?: string } | undefined;
+  Feedback: { machineId?: string; crashReportId?: string; collectWithAgent?: boolean } | undefined;
   /** Settings home: the list of Settings pages. */
   Settings: undefined;
   /** One Settings page (Theme, Chat, Terminal, Keyboard, Sounds, Connection, Updates, Advanced). */

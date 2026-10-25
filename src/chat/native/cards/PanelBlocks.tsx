@@ -102,9 +102,10 @@ const useStyles = themedStyles((P) => ({
   column: { gap: 10 },
   tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
   tab: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
-  tabActive: { backgroundColor: P.foreground },
+  // The hover look kept on, readable under any theme (desktop `panel_blocks.rs`, CDXC:SessionChat 2026-10-25).
+  tabActive: { backgroundColor: P.border },
   tabLabel: { color: P.muted, fontSize: 13 },
-  tabLabelActive: { color: P.cardPanel },
+  tabLabelActive: { color: P.foreground, fontWeight: '500' },
   heading: { color: P.foreground, fontSize: 13, fontWeight: '600' },
   table: { borderWidth: 1, borderColor: P.border, borderRadius: 8, overflow: 'hidden' },
   tableRow: { flexDirection: 'row', gap: 12, paddingHorizontal: 10, paddingVertical: 5 },
