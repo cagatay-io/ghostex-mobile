@@ -11,8 +11,8 @@ import { Animated, Easing, Pressable, Text, View } from 'react-native';
 import { Glyph, Spark } from './icons';
 import { arr, obj, str } from './json';
 import type { JsonRecord } from './json';
-import { MONO_FONT, themedStyles, useTranscriptTheme } from '../transcript/theme';
-import { CARD_TEXT_SIZE, SWEEP_EASING, Spinner, useLoop } from './primitives';
+import { CODE_LINE, CODE_SIZE, MONO_FONT, PROSE_SIZE, themedStyles, useTranscriptTheme } from '../transcript/theme';
+import { SWEEP_EASING, Spinner, useLoop } from './primitives';
 
 /** `packages/gx-chat-core/visual/working-strip.json`. */
 export const VISUAL = {
@@ -247,8 +247,8 @@ const useStyles = themedStyles((P) => ({
   },
   backgroundMuted: {
     color: P.muted,
-    fontSize: 13,
-    lineHeight: 19.5,
+    fontSize: PROSE_SIZE,
+    lineHeight: PROSE_SIZE * 1.5,
   },
   backgroundRows: {
     gap: 6,
@@ -262,7 +262,7 @@ const useStyles = themedStyles((P) => ({
   /** The running count, the other sheets' muted detail (`AgentPanels.tsx` `meta`). */
   backgroundMeta: {
     color: P.cardMuted,
-    fontSize: CARD_TEXT_SIZE,
+    fontSize: PROSE_SIZE,
   },
   backgroundIndent: {
     paddingLeft: 22,
@@ -287,8 +287,8 @@ const useStyles = themedStyles((P) => ({
     flex: 1,
     minWidth: 0,
     color: P.foreground,
-    fontSize: 14,
-    lineHeight: 21,
+    fontSize: PROSE_SIZE,
+    lineHeight: PROSE_SIZE * 1.5,
   },
   /** The Threads header title's weight (`CardHeader` `headerTitle`), not bold. */
   backgroundTitleStrong: {
@@ -299,8 +299,8 @@ const useStyles = themedStyles((P) => ({
     marginLeft: 22,
     color: P.muted,
     fontFamily: MONO_FONT,
-    fontSize: 11.5,
-    lineHeight: 16,
+    fontSize: CODE_SIZE,
+    lineHeight: CODE_LINE,
   },
   track: {
     height: 4,

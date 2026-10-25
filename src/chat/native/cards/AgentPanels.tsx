@@ -14,8 +14,8 @@ import type { UserAction } from '../../rust/actions';
 import type { RustChat } from '../../rust/useRustChat';
 import { Glyph } from './icons';
 import { arr, asJson, isTrue, num, obj, str } from './json';
-import { themedStyles, useTranscriptTheme } from '../transcript/theme';
-import { CARD_TEXT_SIZE, PulseDot, Spinner } from './primitives';
+import { PROSE_SIZE, themedStyles, useTranscriptTheme } from '../transcript/theme';
+import { PulseDot, Spinner } from './primitives';
 
 /** A sheet's first line under its title: the panel's muted detail and an optional ornament. */
 function MenuMeta({ meta, trailing }: { meta: string; trailing?: ReactNode }) {
@@ -226,8 +226,12 @@ export function AgentFleetMenu({
   const stale = isTrue(strip, 'stale');
   const rows = arr(strip.rows);
   // Every task starts at the same x whatever the names above it are (desktop measures the widest
-  // label; this estimates it from the 12pt medium glyph width), capped at 140pt.
-  const nameWidth = Math.min(140, Math.max(...rows.map((row) => str(row, 'modelLabel').length), 1) * 7 + 2);
+  // label; this estimates it from the medium glyph width, 7pt at 12pt scaled to the chat's text size),
+  // capped at 140pt at that size.
+  const nameWidth = Math.min(
+    140 * (PROSE_SIZE / 12),
+    Math.max(...rows.map((row) => str(row, 'modelLabel').length), 1) * 7 * (PROSE_SIZE / 12) + 2,
+  );
   return (
     <View accessibilityLabel="Subagents" style={styles.menu}>
       <MenuMeta meta={str(strip, 'countLabel')} />
@@ -333,7 +337,7 @@ const useStyles = themedStyles((P) => ({
     flex: 1,
     minWidth: 0,
     color: P.cardMuted,
-    fontSize: CARD_TEXT_SIZE,
+    fontSize: PROSE_SIZE,
   },
   bar: {
     alignSelf: 'center',
@@ -372,7 +376,7 @@ const useStyles = themedStyles((P) => ({
   taskSubject: {
     flexShrink: 1,
     color: P.prose,
-    fontSize: 12,
+    fontSize: PROSE_SIZE,
   },
   taskDone: {
     color: P.cardMuted,
@@ -380,15 +384,15 @@ const useStyles = themedStyles((P) => ({
   },
   blocked: {
     color: P.cardMuted,
-    fontSize: 11,
+    fontSize: PROSE_SIZE - 1,
   },
   fold: {
     color: P.cardMuted,
-    fontSize: 12,
+    fontSize: PROSE_SIZE,
   },
   stale: {
     color: P.cardMuted,
-    fontSize: 12,
+    fontSize: PROSE_SIZE,
   },
   fleetRow: {
     flexDirection: 'row',
@@ -397,7 +401,7 @@ const useStyles = themedStyles((P) => ({
   },
   fleetName: {
     color: P.foreground,
-    fontSize: 12,
+    fontSize: PROSE_SIZE,
     fontWeight: '500',
   },
   fleetWork: {
@@ -409,16 +413,16 @@ const useStyles = themedStyles((P) => ({
   },
   fleetMarker: {
     color: P.prose,
-    fontSize: 12,
+    fontSize: PROSE_SIZE,
   },
   fleetIdle: {
     color: P.cardMuted,
-    fontSize: 12,
+    fontSize: PROSE_SIZE,
   },
   fleetStatus: {
     flexShrink: 1,
     color: P.prose,
-    fontSize: 12,
+    fontSize: PROSE_SIZE,
   },
   nested: {
     paddingHorizontal: 5,
@@ -427,12 +431,12 @@ const useStyles = themedStyles((P) => ({
     overflow: 'hidden',
     backgroundColor: P.ink(0.08),
     color: P.cardMuted,
-    fontSize: 10,
+    fontSize: PROSE_SIZE - 2,
     fontVariant: ['tabular-nums'],
   },
   hint: {
     color: P.cardMuted,
-    fontSize: 11,
+    fontSize: PROSE_SIZE - 1,
     fontVariant: ['tabular-nums'],
   },
   threadRow: {
@@ -458,21 +462,21 @@ const useStyles = themedStyles((P) => ({
   threadTitle: {
     flexShrink: 1,
     color: P.foreground,
-    fontSize: CARD_TEXT_SIZE,
+    fontSize: PROSE_SIZE,
   },
   /** One line under the title: muted, a step under it so the title still leads. */
   threadDetail: {
     color: P.cardMuted,
-    fontSize: CARD_TEXT_SIZE - 1,
+    fontSize: PROSE_SIZE - 1,
   },
   /** The Threads sheet's "N more" step and empty line, the summary line's size. */
   threadsFold: {
     color: P.cardMuted,
-    fontSize: CARD_TEXT_SIZE,
+    fontSize: PROSE_SIZE,
   },
   threadsEmpty: {
     color: P.cardMuted,
-    fontSize: CARD_TEXT_SIZE,
+    fontSize: PROSE_SIZE,
   },
   approvalTag: {
     paddingHorizontal: 5,
@@ -480,6 +484,6 @@ const useStyles = themedStyles((P) => ({
     overflow: 'hidden',
     backgroundColor: 'rgba(245, 165, 36, 0.16)',
     color: THREAD_APPROVAL,
-    fontSize: 12,
+    fontSize: PROSE_SIZE - 2,
   },
 }));
