@@ -38,7 +38,7 @@ import { SessionCopy } from '../../copy';
 import { useSettingsStore } from '../../settings/store';
 import { mixHexColors, SidebarPalette } from '../../theme/palette';
 import type { MenuAnchor } from './ContextMenu';
-import { ds, STATUS_DOT_SIZE } from './rows';
+import { ds, PassingThreadLines, STATUS_DOT_SIZE } from './rows';
 import StatusDotStack from './StatusDotStack';
 import { ChevronRightGlyph, ClockGlyph, CloudGlyph, CoordinatorGlyph, CrewGlyph, PencilGlyph } from './icons';
 import WorkChips, {
@@ -182,21 +182,45 @@ function ActivityDot({ kind }: { kind: 'failed' | 'working' | 'attention' | 'bac
 }
 
 /**
- * threads.rs `thread_connector`: from under the parent's icon in the row above,
+ * threads.rs `thread_tree_lines`: from under the parent's icon in the row above,
  * down to this row's icon (the last thread) or on through the row (a thread with
- * siblings below it), then across to the icon.
+ * siblings below it), then across to the icon; and the lines of the outer levels
+ * that run on past it.
  */
-function ThreadConnector({ iconLeft, last, rowHeight }: { iconLeft: number; last: boolean; rowHeight: number }) {
+function ThreadConnector({
+  iconLeft,
+  depth,
+  last,
+  passingLines,
+  rowHeight,
+}: {
+  iconLeft: number;
+  depth: number;
+  last: boolean;
+  passingLines: number;
+  rowHeight: number;
+}) {
   const mid = ds(17);
   const rise = mid - ds(7.5);
   const left = iconLeft - ds(THREAD_INDENT) + ds(7);
+  // Past the depth limit a row is drawn at its parent's level, so a line passing it at that level
+  // is its own line, drawn on through the row.
+  const ownLevel = 1 << depth;
+  const through = !last || (passingLines & ownLevel) !== 0;
   return (
-    <View
-      pointerEvents="none"
-      style={[styles.threadLine, { left, top: -rise, height: last ? rise + mid : rise + rowHeight }]}
-    >
-      <View style={[styles.threadLineAcross, { top: rise + mid - 0.5, width: ds(THREAD_INDENT - 6) }]} />
-    </View>
+    <>
+      <View
+        pointerEvents="none"
+        style={[styles.threadLine, { left, top: -rise, height: through ? rise + rowHeight : rise + mid }]}
+      >
+        <View style={[styles.threadLineAcross, { top: rise + mid - 0.5, width: ds(THREAD_INDENT - 6) }]} />
+      </View>
+      <PassingThreadLines
+        lines={passingLines & ~ownLevel}
+        levelLeft={(level) => left - ds(depth * THREAD_INDENT) + ds(level * THREAD_INDENT)}
+        height={rowHeight}
+      />
+    </>
   );
 }
 
@@ -428,7 +452,13 @@ export default function SessionRow({
       >
         {active ? <View pointerEvents="none" style={styles.activeOutline} /> : null}
         {depth > 0 ? (
-          <ThreadConnector iconLeft={iconLeft} last={nesting?.lastChild === true} rowHeight={rowHeight} />
+          <ThreadConnector
+            iconLeft={iconLeft}
+            depth={depth}
+            last={nesting?.lastChild === true}
+            passingLines={nesting?.passingLines ?? 0}
+            rowHeight={rowHeight}
+          />
         ) : null}
         {/* Line 1: the row as it always was. A work card adds its chip line under it. */}
         <View style={[styles.row, { paddingLeft: linePaddingLeft }]}>
