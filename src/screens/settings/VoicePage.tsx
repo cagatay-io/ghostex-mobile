@@ -6,6 +6,7 @@
 
 import { useEffect, useState } from 'react';
 
+import { useInventoryStore } from '../../inventory/store';
 import { useMachinesStore } from '../../machines/store';
 import {
   readComputerCallMode,
@@ -14,11 +15,16 @@ import {
   VOICE_CALL_MODES,
   type VoiceCallMode,
 } from '../../voice/conversation';
+import { voiceAgentOnIn } from '../../voice/featureSwitch';
 import { Caption, ChoiceRow, SectionHeader, SettingsScreenLayout } from './SettingsControls';
 
 export default function VoicePage() {
   const machine = useMachinesStore(
     (state) => state.machines.find((entry) => entry.id === state.selectedMachineId) ?? null,
+  );
+  // The computer's voice agent switch (Settings > Extensions there); its call mode means nothing while it is off.
+  const switchedOn = useInventoryStore((state) =>
+    machine === null ? true : voiceAgentOnIn(state.inventoriesByMachineId[machine.id]?.summary),
   );
   const [mode, setMode] = useState<VoiceCallMode | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -54,6 +60,16 @@ export default function VoicePage() {
     return (
       <SettingsScreenLayout>
         <Caption>Connect a computer first: the voice agent and its settings live on your computer.</Caption>
+      </SettingsScreenLayout>
+    );
+  }
+  if (!switchedOn) {
+    return (
+      <SettingsScreenLayout>
+        <Caption>
+          The voice agent is turned off on your computer. Turn it on in Ghostex Settings › Extensions there to change
+          how calls work.
+        </Caption>
       </SettingsScreenLayout>
     );
   }

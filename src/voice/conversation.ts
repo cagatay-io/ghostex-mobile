@@ -208,6 +208,8 @@ function problemMessage(code: string, serverMessage: string, provider: string | 
       return `Couldn't reach the voice service from your computer. Check its internet connection and try again.`;
     case 'notFound':
       return 'That conversation already ended. Start a new one.';
+    case 'turnedOff':
+      return 'The voice agent is turned off on your computer. Turn it on in Ghostex Settings › Extensions there.';
     default:
       return serverMessage || 'The voice agent ran into a problem.';
   }
@@ -229,6 +231,8 @@ function endedMessage(reason: string, serverMessage: string): string {
       return 'The conversation moved to another device.';
     case 'serverShutdown':
       return 'Ghostex on the computer restarted, so the conversation ended.';
+    case 'turnedOff':
+      return 'The voice agent was turned off on your computer, so the conversation ended.';
     default:
       return serverMessage || 'The conversation ended.';
   }

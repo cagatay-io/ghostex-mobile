@@ -126,6 +126,7 @@ import { sidebarMenuView } from './sidebar-menu-view';
 import { chatMachineLink } from '../../chat/rust/machine-link';
 import { callVoiceAbout } from '../../voice/callAbout';
 import { VOICE_SUPPORTED } from '../../voice/conversation';
+import { voiceAgentOnFor } from '../../voice/VoiceButton';
 import {
   buildProjectMenu,
   buildSessionMenu,
@@ -698,7 +699,10 @@ export function useSessionsScreenMenus({
       project:
         summaryFor(ctx.machine.id)?.projects.find((project) => project.projectId === ctx.item.session.projectId) ??
         null,
-      voiceCall: VOICE_SUPPORTED && chatMachineLink(ctx.machine).capabilities()?.includes('voiceAgent') === true,
+      voiceCall:
+        VOICE_SUPPORTED &&
+        chatMachineLink(ctx.machine).capabilities()?.includes('voiceAgent') === true &&
+        voiceAgentOnFor(ctx.machine.id),
     });
     const view = sidebarMenuView(menu, menuPath, {
       openPath: (next) => setOverlay({ kind: 'sessionMenu', ctx, menuPath: next }),

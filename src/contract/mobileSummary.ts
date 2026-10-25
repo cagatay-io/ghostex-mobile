@@ -589,6 +589,12 @@ export type GhostexMobileSummary = {
    */
   builtInFeatures: string[];
   /**
+   * The computer's switched-off built-in features (`builtInFeaturesOff`, such as `voiceAgent`);
+   * absent from a computer too old to send it, which leaves features that are on by default on
+   * (`src/voice/featureSwitch.ts`).
+   */
+  builtInFeaturesOff?: string[];
+  /**
    * Where a session link opens, from the computer's Settings > Browser > Open session links in:
    * `embedded` (the phone's own browser view, the default) or `external` (its default browser).
    */
@@ -1596,6 +1602,9 @@ function normalizeRoot(root: JsonObject): GhostexMobileSummary {
     builtInFeatures: Array.isArray(root.builtInFeatures)
       ? root.builtInFeatures.filter((id): id is string => typeof id === 'string')
       : [],
+    builtInFeaturesOff: Array.isArray(root.builtInFeaturesOff)
+      ? root.builtInFeaturesOff.filter((id): id is string => typeof id === 'string')
+      : undefined,
     sessionLinkOpenTarget: root.sessionLinkOpenTarget === 'external' ? 'external' : 'embedded',
     sidebarSessionLinks: typeof root.sidebarSessionLinks === 'string' ? root.sidebarSessionLinks : 'always',
   };

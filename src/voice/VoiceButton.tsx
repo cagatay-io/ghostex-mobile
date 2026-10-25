@@ -1,7 +1,8 @@
 /**
  * The top bar's Voice button: starts a conversation with the manager voice agent on the computer
  * on screen, or opens the voice screen while one is running (it keeps running across screens).
- * Shown only when that computer's gxserver lists the `voiceAgent` capability.
+ * Shown only when that computer's gxserver lists the `voiceAgent` capability and has the voice
+ * agent switched on (`featureSwitch.ts`).
  */
 
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
@@ -16,6 +17,7 @@ import type { MachineConnectionTarget } from '../machines/credentials';
 import type { RootStackParamList } from '../navigation/types';
 import { GhostexPalette } from '../theme/palette';
 import { startVoice, useVoiceStore, voiceActive, VOICE_SUPPORTED } from './conversation';
+import { voiceAgentOnIn } from './featureSwitch';
 
 /**
  * A headset (Tabler `headset`): the voice agent's glyph, the same icon the desktop's work area
@@ -44,9 +46,20 @@ export function MicrophoneGlyph({ size, color, crossed = false }: { size: number
   );
 }
 
-/** Whether `machine`'s gxserver can run the voice agent; asks the computer once if nobody has yet. */
+/** Whether `machineId`'s computer has the voice agent switched on (its last session summary says). */
+export function voiceAgentOnFor(machineId: string): boolean {
+  return voiceAgentOnIn(useInventoryStore.getState().inventoriesByMachineId[machineId]?.summary);
+}
+
+/**
+ * Whether `machine`'s gxserver can run the voice agent and has it switched on; asks the computer
+ * once if nobody has yet.
+ */
 export function useVoiceCapability(machine: MachineConnectionTarget | null): boolean {
   const machineId = machine?.id ?? null;
+  const switchedOn = useInventoryStore(
+    (state) => machineId === null || voiceAgentOnIn(state.inventoriesByMachineId[machineId]?.summary),
+  );
   const [capable, setCapable] = useState(false);
   useEffect(() => {
     if (!VOICE_SUPPORTED || machine === null) {
@@ -88,7 +101,7 @@ export function useVoiceCapability(machine: MachineConnectionTarget | null): boo
     };
     // The machine object changes identity on every store update; only its id matters.
   }, [machineId]); // eslint-disable-line react-hooks/exhaustive-deps
-  return capable;
+  return capable && switchedOn;
 }
 
 type Props = {
