@@ -18,12 +18,18 @@ export function isRunCommandHref(href: string): boolean {
   return href.startsWith(RUN_COMMAND_HREF_PREFIX);
 }
 
-/** The command a `ghostex-run:` href carries, or null. */
+/**
+ * The command a `ghostex-run:` href carries, or null. The core writes only one-line commands there,
+ * so one holding a line break or other control character is not the core's and is refused, as
+ * `command_from_href` in packages/gx-chat-core/src/transcript/run_command.rs does.
+ */
 export function commandFromHref(href: string): string | null {
   if (!isRunCommandHref(href)) return null;
   try {
     const command = decodeURIComponent(href.slice(RUN_COMMAND_HREF_PREFIX.length));
-    return command.trim().length > 0 ? command : null;
+    if (command.trim().length === 0) return null;
+    // eslint-disable-next-line no-control-regex
+    return /[\u0000-\u001f\u007f-\u009f]/.test(command) ? null : command;
   } catch {
     return null;
   }
