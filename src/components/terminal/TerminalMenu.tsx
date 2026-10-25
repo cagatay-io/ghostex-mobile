@@ -4,7 +4,7 @@
  * desktop terminal-overlay action strip and the shared chat view's "Agent
  * Actions" cluster — same ids and same order: rename, sleep, delayedActions,
  * fork, fullReload, promptEditor, Session Note, exportTranscript) and the screen's overflow menu (search conversation,
- * the project's Docs, attach, new terminal, settings, disconnect, kill session).
+ * the project's Docs and Changes, attach, new terminal, settings, disconnect, kill session).
  *
  * The Agent Actions section is present only for a resolved gxserver session;
  * the screen section is always present, so shell tabs still get the menu.
@@ -32,7 +32,8 @@ import {
 } from '../sessions/icons';
 import { PaperclipIcon, PencilIcon } from './icons';
 import { GhostexPalette } from '../../theme/palette';
-import { DocsCopy } from '../../copy';
+import { ChangesCopy, DocsCopy } from '../../copy';
+import { COMMAND_ICONS } from '../../assets/tablerIcons.generated';
 
 export type TerminalMenuActionId =
   | 'rename'
@@ -45,6 +46,7 @@ export type TerminalMenuActionId =
   | 'exportTranscript'
   | 'searchConversation'
   | 'docs'
+  | 'changes'
   | 'attachPath'
   | 'newTerminal'
   | 'settings'
@@ -68,7 +70,7 @@ export type TerminalMenuProps = {
   sessionNoteEnabled: boolean;
   /** Searching the transcript only means anything while chat mode is showing. */
   searchConversationEnabled: boolean;
-  /** Docs needs the session's project (its id and folder on the computer). */
+  /** Docs and Changes need the session's project (its id and folder on the computer). */
   docsEnabled: boolean;
   /** Attach needs an open terminal (or, in chat mode, a chat-capable session). */
   attachEnabled: boolean;
@@ -216,6 +218,14 @@ export default function TerminalMenu({
       label: DocsCopy.menuLabel,
       icon: <NoteGlyph size={ICON_SIZE} color={iconColor} />,
       onPress: () => onSelect('docs'),
+    });
+    // The same project the Docs row needs; CDXC:Changes 2026-10-25 in src/screens/ChangesScreen.tsx.
+    items.push({
+      kind: 'item',
+      key: 'changes',
+      label: ChangesCopy.menuLabel,
+      icon: <COMMAND_ICONS.fileDiff size={ICON_SIZE} color={iconColor} />,
+      onPress: () => onSelect('changes'),
     });
   }
   items.push(

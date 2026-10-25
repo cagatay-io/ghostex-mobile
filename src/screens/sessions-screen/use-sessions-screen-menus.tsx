@@ -630,6 +630,19 @@ export function useSessionsScreenMenus({
           setOverlay({ kind: 'sessionLinks', ctx });
           return;
         }
+        case 'changes': {
+          const ctx = scope.session;
+          if (ctx === undefined) throw new Error('Changes need a session.');
+          const { session } = ctx.item;
+          const project = summaryFor(machine.id)?.projects.find((entry) => entry.projectId === session.projectId);
+          setOverlay(NONE);
+          navigation.navigate('Changes', {
+            machineId: machine.id,
+            projectId: session.projectId,
+            projectName: project?.name ?? session.projectName,
+          });
+          return;
+        }
         case 'voiceCall': {
           const ctx = scope.session;
           if (ctx === undefined) throw new Error('A voice call needs a session.');

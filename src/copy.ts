@@ -830,6 +830,30 @@ export const CantReachCopy = {
  * rows, title, search, empty and error text), matching the desktop's Files view; code names stay
  * Docs. "Docs folders" and "Docs directory" are the computer's setting names, so they stay.
  */
+/** The read-only Changes screen (a project's diff against main or HEAD, like the desktop Changes tab). */
+export const ChangesCopy = {
+  menuLabel: 'Changes',
+  title: 'Changes',
+  scopeMain: 'Against main',
+  scopeUncommitted: 'Uncommitted',
+  loading: 'Reading this project’s changes…',
+  loadFailed: 'Could not read this project’s changes',
+  oldCli: 'Update Ghostex on the computer to see a project’s changes from the phone.',
+  notRepo: 'This project is not a Git repository.',
+  noChangesAgainstBase: 'This branch has no changes against its base.',
+  noUncommitted: 'No uncommitted changes.',
+  truncated: 'The diff is too large to show completely (over 4 MB); some files are left out.',
+  machineMissing: 'This machine is no longer saved on this device.',
+  retry: 'Retry',
+  reload: 'Reload',
+  filesChanged: (count: number) => (count === 1 ? '1 file changed' : `${count} files changed`),
+  against: (base: string) => `against ${base}`,
+  unchangedLines: (count: number) => (count === 1 ? '1 unchanged line' : `${count} unchanged lines`),
+  lineCopied: 'Line copied',
+  foldFile: 'Fold file',
+  unfoldFile: 'Unfold file',
+};
+
 export const DocsCopy = {
   menuLabel: 'Files',
   listTitle: 'Files',

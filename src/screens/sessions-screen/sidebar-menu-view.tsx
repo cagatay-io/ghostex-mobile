@@ -64,6 +64,7 @@ const MENU_GLYPHS: Readonly<Record<string, (props: GlyphProps) => ReactElement>>
   clock: ClockGlyph,
   copy: CopyGlyph,
   dots: DotsGlyph,
+  'file-diff': COMMAND_ICONS.fileDiff,
   'file-export': FileExportGlyph,
   'git-branch': GitBranchGlyph,
   'git-fork': GitForkGlyph,

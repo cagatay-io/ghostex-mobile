@@ -73,6 +73,8 @@ export type SidebarMenuCommand =
   | { type: 'voiceCall'; sessionId: string }
   /** The phone's own row: the session's links sheet (`src/chat/native/SessionLinksSheet.tsx`). */
   | { type: 'sessionLinks'; sessionId: string }
+  /** The phone's own row: the session's project's Changes screen (`src/screens/ChangesScreen.tsx`). */
+  | { type: 'changes'; sessionId: string }
   /** gx-core `MenuCommand::coordinator_session`: an orchestrator's Goal & Instructions / Memory, a thread's Mark Thread Done / Reopen Thread. */
   | { type: 'coordinatorSessionAction'; sessionId: string; action: 'goal' | 'memory' | 'markDone' | 'reopen' }
   | {
@@ -798,6 +800,10 @@ export function buildSessionMenu(input: SessionMenuInput): SidebarMenuItem[] {
       ...row('Links', 'link', { type: 'sessionLinks', sessionId: id }),
       suffix: linkCount === 0 && suggestedCount > 0 ? `${suggestedCount} suggested` : String(linkCount),
     });
+  }
+  // CDXC:Changes 2026-10-25 SEE-ALSO: the user's decision in src/screens/ChangesScreen.tsx (the phone's read-only Changes, opened from this menu too).
+  if (session.projectId.length > 0) {
+    menu.push(row('Changes', 'file-diff', { type: 'changes', sessionId: id }));
   }
   const link = linkSubmenu(session, project);
   if (link !== null) menu.push(link);

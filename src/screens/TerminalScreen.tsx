@@ -473,6 +473,17 @@ export default function TerminalScreen({ navigation, route }: Props) {
         }
         return;
       }
+      if (id === 'changes') {
+        setMenuVisible(false);
+        if (activeTab !== null && activeProject !== null && activeProject.projectId.length > 0) {
+          navigation.navigate('Changes', {
+            machineId: activeTab.machineId,
+            projectId: activeProject.projectId,
+            projectName: activeProject.name ?? '',
+          });
+        }
+        return;
+      }
       if (id === 'sessionNote') {
         setMenuVisible(false);
         if (!chatModeActive) {
