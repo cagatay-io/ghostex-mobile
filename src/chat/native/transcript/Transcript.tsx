@@ -50,6 +50,7 @@ import {
 } from './OpenQuestions';
 import { useTranscriptBottomStore } from './bottomStore';
 import { TranscriptFieldRevealContext, useTranscriptFieldReveal } from './fieldReveal';
+import { ROW_GAP } from './cardSpacing';
 
 /**
  * `scroll-bottom.json`: the pill's look and how far from the bottom it appears.
@@ -587,7 +588,7 @@ const styles = StyleSheet.create({
   list: { flex: 1 },
   rowOuter: { width: '100%', alignItems: 'center' },
   rowFirst: { paddingTop: TOP_PADDING },
-  rowInner: { width: '100%', maxWidth: ROW_MAX_WIDTH, paddingHorizontal: 16, paddingBottom: 16 },
+  rowInner: { width: '100%', maxWidth: ROW_MAX_WIDTH, paddingHorizontal: 16, paddingBottom: ROW_GAP },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
   subagentRow: { paddingHorizontal: 4, paddingBottom: 16 },
   button: { borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 },

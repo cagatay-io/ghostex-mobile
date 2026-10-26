@@ -17,13 +17,14 @@ import { Glyph } from './icons';
 import { arr, isTrue, obj, str } from './json';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { ChoiceRow } from './primitives';
+import { ROW_GAP, cardStackMargin } from '../transcript/cardSpacing';
 
-export function QuestionExchangeCards({ exchanges }: { exchanges: unknown }) {
+export function QuestionExchangeCards({ exchanges, aboveIsCard = false, columnGap = 0 }: { exchanges: unknown; aboveIsCard?: boolean; columnGap?: number }) {
   const styles = useStyles();
   const list = arr(exchanges);
   if (list.length === 0) return null;
   return (
-    <View style={styles.column}>
+    <View style={[styles.column, { marginTop: cardStackMargin(aboveIsCard, columnGap) }]}>
       {list.map((exchange, index) => (
         <ExchangeCard key={index} exchange={exchange} />
       ))}
@@ -184,8 +185,7 @@ function ExchangeRow({
 const useStyles = themedStyles((P) => ({
   column: {
     width: '100%',
-    gap: 12,
-    paddingVertical: 6,
+    gap: ROW_GAP,
   },
   disclosure: {
     flexDirection: 'row',

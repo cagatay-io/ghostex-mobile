@@ -11,8 +11,8 @@ import type { CompletedWorkItem, ProjectedMessage, SummaryItem, TranscriptItem }
 import { QuestionExchangeCards } from '../cards';
 import { useNativeChatUi, useTranscriptEnv, useTranscriptFlags } from './context';
 import { DisclosureBody, DisclosureHeading, FoldPlaceProvider } from './Disclosure';
-import { CompletedFilesFold } from './FileChanges';
-import { obj } from './json';
+import { CompletedFilesFold, hasCompletedFiles } from './FileChanges';
+import { arr, obj } from './json';
 import { MessageRow } from './MessageRow';
 import { SentAgentMessageCards } from './AgentMessageCards';
 import { WorkflowCards } from './WorkflowCard';
@@ -27,6 +27,8 @@ import {
 } from './singleLineCard';
 import { PROSE_SIZE } from './theme';
 
+/** The space between the parts of a finished turn (desktop `PART_GAP` in completed_work_row.rs). */
+const COMPLETED_PART_GAP = 10;
 const IN_WORK_FOLD = { inWorkFold: true, hideFileChanges: true };
 const HIDE_FILES = { inWorkFold: false, hideFileChanges: true };
 
@@ -90,6 +92,11 @@ function CompletedWorkRow({ item }: { item: CompletedWorkItem }) {
     toggleRaw();
   };
   const deferredState = flags.deferredWork[item.id];
+  // Two one-line cards in a row are a row gap apart (`cardSpacing.ts`): the answered-question and
+  // sent-message stacks sit that far under the "Worked for" fold, or under each other, when nothing
+  // else comes between.
+  const foldAbove = !open && !hasCompletedFiles(item.files, item.deferred) && item.artifacts.length === 0;
+  const hasQuestions = arr(item.questions).length > 0;
   return (
     <View style={styles.completedColumn}>
       <WorkSummary item={item} open={open} onToggle={toggle} />
@@ -115,8 +122,8 @@ function CompletedWorkRow({ item }: { item: CompletedWorkItem }) {
         {item.artifacts.map((message) => (
           <MessageRow key={message.id} message={message} />
         ))}
-        <QuestionExchangeCards exchanges={item.questions} />
-        <SentAgentMessageCards cards={item.sentMessages} />
+        <QuestionExchangeCards exchanges={item.questions} aboveIsCard={foldAbove} columnGap={COMPLETED_PART_GAP} />
+        <SentAgentMessageCards cards={item.sentMessages} aboveIsCard={foldAbove || hasQuestions} columnGap={COMPLETED_PART_GAP} />
         <WorkflowCards ids={item.workflows} />
         {item.final !== undefined && item.final !== null ? <MessageRow message={item.final} /> : null}
       </FoldPlaceProvider>
@@ -187,7 +194,7 @@ function DeferredNotice({ item, error }: { item: CompletedWorkItem; error: strin
 
 const styles = StyleSheet.create({
   column: { gap: 8, minWidth: 0 },
-  completedColumn: { gap: 10, minWidth: 0 },
+  completedColumn: { gap: COMPLETED_PART_GAP, minWidth: 0 },
   // Every one-line card's height and padding (`singleLineCard.ts`).
   summary: {
     flexDirection: 'row',

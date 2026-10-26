@@ -32,6 +32,7 @@ import {
 } from './singleLineCard';
 import { useDisclosure } from './state';
 import type { TranscriptTheme } from './theme';
+import { ROW_GAP, cardStackMargin } from './cardSpacing';
 
 function toneColor(tone: string, theme: TranscriptTheme): string {
   if (tone === 'failed') return theme.light ? '#e11d48' : '#fb7185';
@@ -241,13 +242,13 @@ export function SubagentMessageCard({ id, card, references }: { id: string; card
 }
 
 /** The messages this session's agent sent other agents, one row each. */
-export function SentAgentMessageCards({ cards }: { cards: unknown }) {
+export function SentAgentMessageCards({ cards, aboveIsCard = false, columnGap = 0 }: { cards: unknown; aboveIsCard?: boolean; columnGap?: number }) {
   const list = arr(cards)
     .map((card) => obj(card))
     .filter((card): card is JsonRecord => card !== null && obj(card.card) !== null);
   if (list.length === 0) return null;
   return (
-    <View style={styles.column}>
+    <View style={[styles.column, { marginTop: cardStackMargin(aboveIsCard, columnGap) }]}>
       {list.map((sent) => {
         const marked = str(sent, 'markdown');
         return (
@@ -265,7 +266,7 @@ export function SentAgentMessageCards({ cards }: { cards: unknown }) {
 }
 
 const styles = StyleSheet.create({
-  column: { gap: 8, minWidth: 0 },
+  column: { gap: ROW_GAP, minWidth: 0 },
   card: { minWidth: 0 },
   row: {
     height: SINGLE_LINE_HEADER_HEIGHT,

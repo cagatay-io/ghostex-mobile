@@ -40,6 +40,8 @@ import { ShellCommandCard, ToolRows } from './ToolRows';
 import { Glyph } from './icons';
 
 /** React caps a secondary block at 18rem (`.ghostex-chat-scroll-cap`). */
+/** The space between the parts of one message row (desktop `MESSAGE_PART_GAP` in transcript.rs). */
+const MESSAGE_PART_GAP = 8;
 const THINKING_CAP = 288;
 
 /**
@@ -271,7 +273,10 @@ function AgentMessage({ message, proseColor }: { message: ProjectedMessage; pros
       {!toolsRendered ? <ToolRows message={message} /> : null}
       {/* Inside a turn's work fold the answered cards are hoisted onto the turn instead. */}
       {!inWorkFold ? <QuestionExchangeCards exchanges={message.questions} /> : null}
-      {!inWorkFold ? <SentAgentMessageCards cards={message.sentMessages} /> : null}
+      {!inWorkFold ? (
+        // Right under the answered-question cards it is a row gap away (`cardSpacing.ts`).
+        <SentAgentMessageCards cards={message.sentMessages} aboveIsCard={arr(message.questions).length > 0} columnGap={MESSAGE_PART_GAP} />
+      ) : null}
       {!inWorkFold ? <WorkflowCards ids={message.workflows} /> : null}
       {hasReplyActions(message, flags.finalIds) ? <ReplyActions message={message} flush={flush} /> : null}
     </View>
@@ -403,7 +408,7 @@ function PendingRow({ user }: { user: boolean }) {
 
 const styles = StyleSheet.create({
   answersWithText: { gap: 8 },
-  message: { gap: 8, minWidth: 0 },
+  message: { gap: MESSAGE_PART_GAP, minWidth: 0 },
   userColumn: { alignItems: 'flex-end', gap: 4 },
   bubbleRow: { alignSelf: 'stretch', flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'flex-end', gap: 6 },
   bubble: { maxWidth: '80%', flexShrink: 1, borderRadius: 16, padding: 12 },

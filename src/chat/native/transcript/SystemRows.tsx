@@ -18,6 +18,7 @@ import { useDisclosure } from './state';
 import { SubagentMessageCard } from './AgentMessageCards';
 import { SINGLE_LINE_CARD, SINGLE_LINE_TITLE, SingleLinePill, SingleLineTile, singleLineShell } from './singleLineCard';
 import { MONO_FONT, PROSE_LINE, PROSE_SIZE } from './theme';
+import { ROW_GAP } from './cardSpacing';
 
 /** Collapsed, a goal shows this many lines of its objective. */
 const GOAL_PREVIEW_LINES = 3;
@@ -452,7 +453,7 @@ const styles = StyleSheet.create({
   commandBody: { maxHeight: 384, paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 1 },
   commandText: { fontFamily: MONO_FONT, fontSize: 12, lineHeight: 19.5 },
   markerRow: { paddingBottom: 8 },
-  statusColumn: { gap: 8, minWidth: 0 },
+  statusColumn: { gap: ROW_GAP, minWidth: 0 },
   statusCard: {
     flexDirection: 'row',
     alignItems: 'center',

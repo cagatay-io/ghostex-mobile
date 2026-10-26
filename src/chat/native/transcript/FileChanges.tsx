@@ -110,6 +110,11 @@ export function FileChangeStack({ stackId, files, card }: { stackId: string; fil
 }
 
 /** A finished turn's writes, folded behind "N files changed". */
+/** Whether a finished turn shows its "N files changed" fold: files it changed, or the paths its unread work changed. */
+export function hasCompletedFiles(files: unknown, deferred?: unknown): boolean {
+  return fileRows(files).length > 0 || arr(obj(deferred)?.filePaths).length > 0;
+}
+
 export function CompletedFilesFold({
   itemId,
   files,
@@ -135,7 +140,7 @@ export function CompletedFilesFold({
   // An older turn arrives collapsed with only the paths its unread work changed: the row stays and
   // reads that work on open (desktop `file_change_card.rs`, React `list.tsx`).
   const unread = fileRows(files).length === 0 && arr(work?.filePaths).length > 0;
-  if (fileRows(files).length === 0 && !unread) return null;
+  if (!hasCompletedFiles(files, deferred)) return null;
   const toggle = () => {
     if (!open && unread) dispatch({ type: 'loadWork', id: itemId, work: work as never });
     toggleRaw();
