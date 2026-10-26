@@ -5,6 +5,7 @@
 
 import { resolveAgentIconId, type GhostexMobileSummary, type GhostexSession } from '../../contract/mobileSummary';
 import { isSessionChatSupportedAgent } from '../../chat/session-chat-helpers';
+import { claudeCloudTakesTask } from '../../contract/claudeCloud';
 import { useInventoryStore } from '../../inventory/store';
 import type { MachineConnectionTarget } from '../../machines/credentials';
 import { useMachinesStore, type MachineRecord } from '../../machines/store';
@@ -133,6 +134,11 @@ export function sessionAgentIdFor(tab: TerminalTab | null, summary: GhostexMobil
  */
 export function sessionOpensInChatView(sessionKey: string, session: GhostexSession): boolean {
   if (session.projectId.length === 0) return false;
+  // A Claude cloud session waiting for its task takes it in Chat View, unless this session was
+  // switched to its terminal (CDXC:ClaudeCloud in contract/claudeCloud.ts).
+  if (claudeCloudTakesTask(session.claudeCloud)) {
+    return useTerminalStore.getState().sessionViewModeBySessionKey[sessionKey] !== 'terminal';
+  }
   const agentId = resolveAgentIconId(
     session.agentIcon,
     session.agentName.length > 0 ? session.agentName : session.agent,

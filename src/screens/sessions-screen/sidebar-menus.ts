@@ -28,6 +28,7 @@ import {
   type GhostexSession,
 } from '../../contract/mobileSummary';
 import { COMMAND_ICONS } from '../../assets/tablerIcons.generated';
+import { claudeCloudPageUrl } from '../../contract/claudeCloud';
 import { hasBackgroundWork, hasPendingQuestion } from '../../components/sessions/sessionStatus';
 import type { SessionWorkLinks, WorkLinkKind } from '../../commands/ghostexCli';
 import { effectiveSessionTag, SESSION_TAG_SECTIONS } from '../../contract/sessionTags';
@@ -75,6 +76,8 @@ export type SidebarMenuCommand =
   | { type: 'sessionLinks'; sessionId: string }
   /** The phone's own row: the session's project's Changes screen (`src/screens/ChangesScreen.tsx`). */
   | { type: 'changes'; sessionId: string }
+  /** The phone's own row: a Claude cloud session's terminal, whose tap opens claude.ai (`contract/claudeCloud.ts`). */
+  | { type: 'claudeCloudTerminal'; sessionId: string }
   /** gx-core `MenuCommand::coordinator_session`: an orchestrator's Goal & Instructions / Memory, a thread's Mark Thread Done / Reopen Thread. */
   | { type: 'coordinatorSessionAction'; sessionId: string; action: 'goal' | 'memory' | 'markDone' | 'reopen' }
   | {
@@ -593,6 +596,8 @@ function copySubmenu(session: GhostexSession, project: SessionMenuInput['project
   copyRow('Copy PR Link', 'git-pull-request', work?.pullRequestUrl ?? '');
   copyRow('Copy Issue Link', 'circle-dot', lines(work?.githubIssueUrls ?? []));
   copyRow('Copy Linear Project Link', 'box', work?.linearProjectUrl ?? '');
+  // The claude.ai conversation a Claude cloud session's row is linked to (gx-core copy.rs).
+  copyRow('Copy claude.ai Link', 'link', session.claudeCloud?.url ?? '');
   return submenu('Copy', 'copy', children);
 }
 
@@ -773,6 +778,12 @@ export function buildSessionMenu(input: SessionMenuInput): SidebarMenuItem[] {
       ...row('Close Below', 'x', command({ type: 'closeSessions', sessionIds: below.map((entry) => entry.sessionId) })),
       danger: true,
     });
+  }
+
+  // A Claude cloud session's tap opens claude.ai, so its terminal is here (CDXC:ClaudeCloud in
+  // contract/claudeCloud.ts).
+  if (claudeCloudPageUrl(session.claudeCloud) !== null) {
+    menu.push(row('Open Terminal', 'terminal', { type: 'claudeCloudTerminal', sessionId: id }));
   }
 
   // Voice Call, Title Case like its neighbours.

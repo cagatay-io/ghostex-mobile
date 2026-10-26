@@ -147,6 +147,8 @@ export type SessionsScreenMenusDeps = {
   };
   lastActionByProject: Record<string, string>;
   navigation: SessionsNavigation;
+  /** Opens a session on its terminal, whatever a tap on its row opens (a Claude cloud session's page). */
+  openSessionTerminal: (target: MachineRecord, session: GhostexSession) => Promise<void>;
   primaryAgentId: string;
   /** Full-screen progress line (null hides it). */
   setProgress: (message: string | null) => void;
@@ -180,6 +182,7 @@ export function useSessionsScreenMenus({
   collapse,
   lastActionByProject,
   navigation,
+  openSessionTerminal,
   primaryAgentId,
   setProgress,
   reconnectMachine,
@@ -641,6 +644,12 @@ export function useSessionsScreenMenus({
             projectId: session.projectId,
             projectName: project?.name ?? session.projectName,
           });
+          return;
+        }
+        case 'claudeCloudTerminal': {
+          const ctx = scope.session;
+          if (ctx === undefined) throw new Error('Open Terminal needs a session.');
+          void openSessionTerminal(machine, ctx.item.session);
           return;
         }
         case 'voiceCall': {

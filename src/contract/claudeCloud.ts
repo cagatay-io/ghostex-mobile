@@ -7,8 +7,10 @@
  * the desktop's plain cloud glyph, kept in every state the row is listed in ("please make the cloud
  * keep shown when that session goes asleep"), and tapping it opens Claude's page for the session
  * while the session runs on claude.ai, the same rule as the desktop's row click (gx-core
- * `session_claude_cloud_page`); in any other state the row opens like every row. A tap is all the
- * phone does with it ("No, tap is enough": no long-press cloud actions).
+ * `session_claude_cloud_page`); in any other state the row opens like every row.
+ *
+ * CDXC:ClaudeCloud 2026-10-26 DECISION:
+ * User, asked how the phone follows the computer's cloud chat (the first message typed in Chat View starts the session, then the computer's chat pane shows its claude.ai page): "Swap A (long press to see terminal, tap to open claude.ai)". A cloud session waiting for its task (or whose start failed) opens its chat, whatever the Default Agent View, and the first message sent there starts it (gxserver routes the send, server/src/claude_cloud/chat.rs). Once it exists on claude.ai, a tap opens its page and the long-press menu's Open Terminal shows its terminal, where Ghostex's cloud client shows the conversation and sends follow-ups. Supersedes "No, tap is enough" (no long-press cloud actions) from 2026-10-23.
  *
  * CDXC:ClaudeCloud 2026-10-23 WHY:
  * The page opens through Android's own link handling (the Claude app when it takes claude.ai links,
@@ -54,6 +56,11 @@ export function parseClaudeCloud(value: unknown): GhostexClaudeCloud | undefined
 export function claudeCloudPageUrl(cloud: GhostexClaudeCloud | undefined): string | null {
   if (cloud === undefined || cloud.state !== 'running' || cloud.attach === 'live') return null;
   return cloud.url.startsWith('https://claude.ai/code/') ? cloud.url : null;
+}
+
+/** Whether the session's chat takes its task: it waits for one, or its start failed. */
+export function claudeCloudTakesTask(cloud: GhostexClaudeCloud | undefined): boolean {
+  return cloud !== undefined && (cloud.state === 'draft' || cloud.state === 'failed');
 }
 
 /**

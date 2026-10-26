@@ -497,20 +497,25 @@ export default function SessionsScreen({ navigation }: Props) {
   // -------------------------------------------------------------------------
 
   const attach = useCallback(
-    async (target: MachineRecord, session: GhostexSession): Promise<void> => {
+    async (target: MachineRecord, session: GhostexSession, options?: { terminal?: boolean }): Promise<void> => {
       setOverlay(NONE);
       // Desktop parity: opening a session from the list acknowledges its
       // attention status.
       acknowledgeSessionAttention(target.id, session.sessionId);
-      // A Claude cloud session running on claude.ai opens its page there (claudeCloud.ts).
-      const cloudPage = claudeCloudPageUrl(session.claudeCloud);
-      if (cloudPage !== null) {
-        void Linking.openURL(cloudPage).catch(() => setTransientStatus(SessionCopy.claudeCloudOpenFailed));
-        return;
-      }
       const openKey = attachSessionKey(target.id, session.sessionId);
+      if (options?.terminal === true) {
+        // Long-press Open Terminal: the terminal, even where a tap opens claude.ai or the chat.
+        useTerminalStore.getState().setSessionViewMode(openKey, 'terminal');
+      } else {
+        // A Claude cloud session running on claude.ai opens its page there (claudeCloud.ts).
+        const cloudPage = claudeCloudPageUrl(session.claudeCloud);
+        if (cloudPage !== null) {
+          void Linking.openURL(cloudPage).catch(() => setTransientStatus(SessionCopy.claudeCloudOpenFailed));
+          return;
+        }
+      }
       markSessionOpenTap(openKey);
-      if (sessionOpensInChatView(openKey, session)) {
+      if (options?.terminal !== true && sessionOpensInChatView(openKey, session)) {
         /**
          * CDXC:SessionChat 2026-10-08 DECISION:
          * User: "Clicking on a chat on the Android app to show takes a long time … Terminal is much less useful on phone", picking "Phone opens chat first", with the rule "pls dont break things for users who set default to terminal at all". A session that opens in Chat View navigates at once and paints its cached transcript. Since 2026-10-08 ("Chat-only, no terminal", `openChatTab` in terminal/sessions.ts) it attaches no terminal at all until the user switches to Terminal, where the Terminal view's own overlay shows the attach and its errors. A session that opens in Terminal View still waits for the attach before navigating, exactly as before.
@@ -837,6 +842,10 @@ export default function SessionsScreen({ navigation }: Props) {
   // Menus.
   // -------------------------------------------------------------------------
 
+  const openSessionTerminal = useCallback(
+    (target: MachineRecord, session: GhostexSession): Promise<void> => attach(target, session, { terminal: true }),
+    [attach],
+  );
   const {
     summaryFor,
     runCollectionsUpdate,
@@ -867,6 +876,7 @@ export default function SessionsScreen({ navigation }: Props) {
     collapse,
     lastActionByProject,
     navigation,
+    openSessionTerminal,
     primaryAgentId,
     setProgress,
     reconnectMachine,
