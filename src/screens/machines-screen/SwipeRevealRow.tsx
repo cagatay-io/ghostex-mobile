@@ -70,6 +70,12 @@ const SwipeRevealRow = forwardRef<SwipeRevealRowMethods, Props>(function SwipeRe
 
   /* The card shrinks from the right; the panel underneath is exposed as it goes. */
   const cardStyle = useAnimatedStyle(() => ({ marginRight: reveal.value }));
+  /**
+   * CDXC:Mobile 2026-10-26 WHY: the panel is drawn only once the card starts to move. Under a closed
+   * card its red Remove half showed through the card's anti-aliased rounded corners and border as a
+   * thin red line at the card's right edge.
+   */
+  const actionsStyle = useAnimatedStyle(() => ({ opacity: reveal.value > 0 ? 1 : 0 }));
 
   return (
     <GestureDetector gesture={pan}>
@@ -78,7 +84,7 @@ const SwipeRevealRow = forwardRef<SwipeRevealRowMethods, Props>(function SwipeRe
           accessibilityElementsHidden={!open}
           importantForAccessibility={open ? 'auto' : 'no-hide-descendants'}
           pointerEvents={open ? 'auto' : 'none'}
-          style={styles.actions}
+          style={[styles.actions, actionsStyle]}
         >
           {actions}
         </Animated.View>
