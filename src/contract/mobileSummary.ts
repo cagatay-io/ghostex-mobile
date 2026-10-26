@@ -77,6 +77,8 @@ export type MobileSummaryWireSession = {
   attention?: { enteredAt?: string; acknowledged?: boolean; eventId?: string };
   /** Questions the agent is waiting on an answer to; absent at zero. */
   pendingQuestionCount?: number;
+  /** Stuck on a permission prompt or approval card only the user can grant; absent when not (server/src/session_approval.rs). */
+  awaitingApproval?: boolean;
   /** Present while a background shell or monitor the agent started still runs after its turn. */
   backgroundWorkDetectedAt?: string;
   /** The session's OSC 7501 program status (server/src/program_status/presentation.rs). */
@@ -528,6 +530,11 @@ export type GhostexSession = {
   closeAfterDoneDeadlineAt: string;
   /** Questions the agent is waiting on an answer to (0 when none, or from a computer that predates the field). */
   pendingQuestionCount: number;
+  /**
+   * Stuck on a permission prompt or approval card only the user can grant: the red approval dot
+   * (false when not, or from a computer that predates the field).
+   */
+  awaitingApproval: boolean;
   /**
    * Set while a background shell or monitor the agent started is still running
    * after its turn ('' when none, or from a computer that predates the field).
@@ -1218,6 +1225,7 @@ export function parseSession(value: unknown): GhostexSession | null {
         ? Math.max(0, Math.floor(value.pendingQuestionCount))
         : 0,
     backgroundWorkDetectedAt: trimmedValue(value, 'backgroundWorkDetectedAt'),
+    awaitingApproval: boolValue(value, 'awaitingApproval', false),
     programStatusLine: programStatusLine(value.programStatus),
     programStatusFailed: programStatusFailed(value.programStatus),
     isSleeping: legacySleeping && !isLive,

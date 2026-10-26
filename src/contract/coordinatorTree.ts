@@ -79,9 +79,20 @@ export type RowNesting = {
 };
 
 /** Which dots a folded coordinator's stack draws, counted as the machine tabs count them: a row with a pending question, or a thread waiting on the user, is pink, not blue. */
-export type FoldedStatus = { working: boolean; attention: boolean; backgroundWork: boolean; question: boolean };
+export type FoldedStatus = {
+  working: boolean;
+  attention: boolean;
+  backgroundWork: boolean;
+  question: boolean;
+  /** A row waiting for approval: the red dot, in place of that row's other dots (gx-core `FoldedStatus::add`). */
+  approval: boolean;
+};
 
 function addFoldedStatus(status: FoldedStatus, session: GhostexSession): void {
+  if (session.awaitingApproval) {
+    status.approval = true;
+    return;
+  }
   const question = session.pendingQuestionCount > 0;
   // A thread waiting on the user (gxserver's `waiting`: a permission prompt, a bell) is the pink needs-you dot (the
   // user's choice, gx-core `FoldedStatus::add`); only a finished turn is the stack's blue, so the blue is exactly what
@@ -94,13 +105,15 @@ function addFoldedStatus(status: FoldedStatus, session: GhostexSession): void {
     session.backgroundWorkDetectedAt.length > 0 && session.activity !== 'working' && session.activity !== 'attention';
 }
 
-export type CoordinatorBadgeTone = 'idle' | 'working' | 'waiting';
+export type CoordinatorBadgeTone = 'idle' | 'working' | 'waiting' | 'approval';
 
 /**
- * The coordinator row's badge: the crew icon and one number: the threads working, else the threads
- * waiting on the user, else the threads it lists by default (working, waiting or active in the last
- * two hours). The tint follows the number: orange for the working count, light blue for the waiting
- * count, neutral otherwise (gx-core `coordinator_badge`, the user's 2026-10-04 decision there).
+ * The coordinator row's badge: the crew icon and one number: the sessions under it (at any depth)
+ * waiting for approval, else the threads waiting on the user, else the threads working, else the
+ * threads it lists by default (working, waiting or active in the last two hours). The tint follows
+ * the number: red for approval, light blue for waiting, orange for working, neutral otherwise
+ * (gx-core `coordinator_badge`, the user's 2026-10-27 decision there: "Light blue (waiting), then
+ * orange (working)" under the red).
  */
 export type CoordinatorBadge = { count: number; tone: CoordinatorBadgeTone };
 
@@ -144,25 +157,50 @@ export function coordinatorBadges(
   nowMs: number = Date.now(),
 ): Map<string, CoordinatorBadge> {
   const seen = new Set<string>();
-  const tallies = new Map<string, { total: number; waiting: number; working: number }>();
+  type Tally = { total: number; waiting: number; working: number; approval: number };
+  const tallies = new Map<string, Tally>();
+  const tallyOf = (key: string): Tally => {
+    const tally = tallies.get(key) ?? { total: 0, waiting: 0, working: 0, approval: 0 };
+    tallies.set(key, tally);
+    return tally;
+  };
+  const parents = new Map<string, string>();
+  const approvals: string[] = [];
   for (const session of sessions) {
     const parent = parentKey(session);
     if (parent === null || isBrowser(session)) continue;
     const key = coordinatorRowKey(session);
     if (seen.has(key)) continue;
     seen.add(key);
-    const tally = tallies.get(parent) ?? { total: 0, waiting: 0, working: 0 };
+    parents.set(key, parent);
+    if (session.awaitingApproval) approvals.push(parent);
+    const tally = tallyOf(parent);
     if (isRecentThread(session, nowMs)) tally.total += 1;
     if (session.coordinatorThreadState === 'waiting') tally.waiting += 1;
     if (session.coordinatorThreadState === 'working') tally.working += 1;
-    tallies.set(parent, tally);
+  }
+  // A session waiting for approval counts on every orchestrator above it (gx-core `tally_threads`); the walk stops at
+  // a loop or past any real depth.
+  for (const parent of approvals) {
+    const visited = new Set<string>();
+    for (let ancestor: string | undefined = parent; ancestor !== undefined; ancestor = parents.get(ancestor)) {
+      if (visited.has(ancestor) || visited.size >= 32) break;
+      visited.add(ancestor);
+      tallyOf(ancestor).approval += 1;
+    }
   }
   const badges = new Map<string, CoordinatorBadge>();
   for (const [key, tally] of tallies) {
-    badges.set(key, {
-      count: tally.working > 0 ? tally.working : tally.waiting > 0 ? tally.waiting : tally.total,
-      tone: tally.working > 0 ? 'working' : tally.waiting > 0 ? 'waiting' : 'idle',
-    });
+    badges.set(
+      key,
+      tally.approval > 0
+        ? { count: tally.approval, tone: 'approval' }
+        : tally.waiting > 0
+          ? { count: tally.waiting, tone: 'waiting' }
+          : tally.working > 0
+            ? { count: tally.working, tone: 'working' }
+            : { count: tally.total, tone: 'idle' },
+    );
   }
   return badges;
 }
@@ -240,13 +278,21 @@ export function nestCoordinatorThreads<S>(
   const isCollapsed = sessions.map((_, index) => children.has(index) && collapsedCoordinators.has(keys[index]));
   const foldedStatus = (index: number): FoldedStatus | undefined => {
     if (!isCollapsed[index]) return undefined;
-    const status: FoldedStatus = { working: false, attention: false, backgroundWork: false, question: false };
+    const status: FoldedStatus = {
+      working: false,
+      attention: false,
+      backgroundWork: false,
+      question: false,
+      approval: false,
+    };
     const stack = [index];
     for (let next = stack.pop(); next !== undefined; next = stack.pop()) {
       addFoldedStatus(status, sessions[next]);
       stack.push(...(children.get(next) ?? []));
     }
-    return status.working || status.attention || status.backgroundWork || status.question ? status : undefined;
+    return status.working || status.attention || status.backgroundWork || status.question || status.approval
+      ? status
+      : undefined;
   };
   const result: NestedSessions<S> = { sessions: [], sections: new Map(), nesting: new Map() };
   const foldedOf = sessions.map(() => false);

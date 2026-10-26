@@ -17,6 +17,7 @@ type RowSession = Pick<
   | 'sessionId'
   | 'activity'
   | 'pendingQuestionCount'
+  | 'awaitingApproval'
   | 'backgroundWorkDetectedAt'
   | 'programStatusFailed'
   | 'lastInteractionAt'
@@ -32,7 +33,15 @@ type RowSession = Pick<
 >;
 
 /** The dot in the row's status slot (apps/desktop/src/app/native_sidebar/status.rs `activity_indicator`). */
-export type RowActivityIndicator = 'failed' | 'working' | 'attention' | 'backgroundWork' | null;
+export type RowActivityIndicator = 'approval' | 'failed' | 'working' | 'attention' | 'backgroundWork' | null;
+
+/**
+ * CDXC:SessionStatus 2026-10-27 DECISION:
+ * User: "Please for permissions let's show a new red dot so user knows stuff is stuck and waiting on him to approve", and (Q3) "Yes, phone too". A session waiting for approval (gxserver's `awaitingApproval`) draws the red approval dot ahead of every other status, the question dot and the time included, as the desktop row does (apps/desktop/src/app/native_sidebar/sessions.rs).
+ */
+export function isAwaitingApproval(session: RowSession): boolean {
+  return session.awaitingApproval;
+}
 
 /** apps/desktop/src/app/native_sidebar/sessions.rs `question`: the row draws the question indicator. */
 export function hasPendingQuestion(session: RowSession): boolean {
@@ -50,6 +59,7 @@ export function hasBackgroundWork(session: RowSession): boolean {
  * Lifecycle (sleeping, stopped, error) draws no dot.
  */
 export function rowActivityIndicator(session: RowSession): RowActivityIndicator {
+  if (isAwaitingApproval(session)) return 'approval';
   // CDXC:SessionStatus 2026-10-15 DECISION: User (Q118): the phone shows the same red dot as the desktop when a session's program reports an error (OSC 7501, while its reports drive the status); it wins over the other dots and lasts until the user has seen it (the session leaves attention).
   if (session.programStatusFailed && session.activity === 'attention') return 'failed';
   if (session.activity === 'working') return 'working';
@@ -131,7 +141,7 @@ export function lastInteractionLabel(session: RowSession, nowMs: number): string
  * background work, which draw their own dot instead.
  */
 export function rowTimeLabel(session: RowSession, nowMs: number): string | null {
-  if (hasPendingQuestion(session)) return null;
+  if (isAwaitingApproval(session) || hasPendingQuestion(session)) return null;
   const timer = timerTrailingLabel(session, nowMs);
   if (timer !== null) return timer;
   if (session.activity === 'working' || session.activity === 'attention' || hasBackgroundWork(session)) {

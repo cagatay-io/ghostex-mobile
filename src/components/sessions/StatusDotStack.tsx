@@ -60,6 +60,7 @@ export default function StatusDotStack({
   attentionCount,
   backgroundWorkCount,
   questionCount,
+  approvalCount = 0,
   ringColor,
 }: {
   workingCount: number;
@@ -67,6 +68,8 @@ export default function StatusDotStack({
   attentionCount: number;
   backgroundWorkCount: number;
   questionCount: number;
+  /** Sessions waiting for approval: the red dot, rightmost and on top (status.rs `stack_colors`). */
+  approvalCount?: number;
   /** The surface the stack sits on, so each covered edge stays readable. */
   ringColor: string;
 }) {
@@ -77,6 +80,7 @@ export default function StatusDotStack({
   if (background) dots.push({ key: 'background', color: SidebarPalette.ROW_BACKGROUND_WORK });
   if (workingCount > 0) dots.push({ key: 'working', color: SidebarPalette.ROW_WORKING });
   if (attentionCount > 0) dots.push({ key: 'attention', color: SidebarPalette.ROW_ATTENTION });
+  if (approvalCount > 0) dots.push({ key: 'approval', color: SidebarPalette.ROW_APPROVAL });
   return <OverlappedDots colors={dots.map((dot) => dot.color)} size={STATUS_DOT_SIZE} ringColor={ringColor} />;
 }
 

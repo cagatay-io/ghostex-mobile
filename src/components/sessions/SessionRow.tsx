@@ -60,6 +60,7 @@ import {
   COMPLETION_FLASH_OPACITY,
   COMPLETION_FLASH_PROGRESS,
   hasPendingQuestion,
+  isAwaitingApproval,
   nextLabelDeadline,
   rowActivityIndicator,
   rowClockKind,
@@ -163,12 +164,14 @@ function useRenameShake(session: GhostexSession): Animated.Value {
  * apps/desktop/src/app/native_sidebar/status.rs `activity_indicator`: one dot
  * centered in a 19x16 slot.
  */
-function ActivityDot({ kind }: { kind: 'failed' | 'working' | 'attention' | 'backgroundWork' }) {
+function ActivityDot({ kind }: { kind: 'approval' | 'failed' | 'working' | 'attention' | 'backgroundWork' }) {
   return (
     <View style={styles.indicatorSlot}>
       <View
         style={
-          kind === 'failed'
+          kind === 'approval'
+            ? styles.approvalDot
+            : kind === 'failed'
             ? styles.failedDot
             : kind === 'working'
               ? styles.workingDot
@@ -225,12 +228,15 @@ function ThreadConnector({
 }
 
 /**
- * threads.rs `coordinator_badge`: the crew icon and one number (threads working, else waiting,
- * else all of them), tinted to match: orange for working, light blue for waiting, neutral for all.
+ * threads.rs `coordinator_badge`: the crew icon and one number (sessions waiting for approval, else
+ * threads waiting, else working, else all of them), tinted to match: red for approval, light blue for
+ * waiting, orange for working, neutral for all.
  */
 function CoordinatorBadgeView({ badge }: { badge: CoordinatorBadge }) {
   const tint =
-    badge.tone === 'waiting'
+    badge.tone === 'approval'
+      ? SidebarPalette.ROW_APPROVAL
+      : badge.tone === 'waiting'
       ? SidebarPalette.ROW_ATTENTION
       : badge.tone === 'working'
         ? SidebarPalette.ROW_WORKING
@@ -280,6 +286,7 @@ function FoldedStatusIndicator({ status, ringColor }: { status: FoldedStatus; ri
         workingCount={status.working ? 1 : 0}
         attentionCount={status.attention ? 1 : 0}
         backgroundWorkCount={status.backgroundWork ? 1 : 0}
+        approvalCount={status.approval ? 1 : 0}
         ringColor={ringColor}
       />
     </View>
@@ -347,9 +354,11 @@ export default function SessionRow({
   const nowMs = useRowLabelClock(session);
   const flashOpacity = useCompletionFlash(session);
   const renameShake = useRenameShake(session);
+  // The red approval dot wins over every other status (sessionStatus.ts `isAwaitingApproval`).
+  const approval = isAwaitingApproval(session);
   const foldedStatus =
-    session.programStatusFailed && session.activity === 'attention' ? undefined : nesting?.foldedStatus;
-  const question = hasPendingQuestion(session) && foldedStatus === undefined;
+    approval || (session.programStatusFailed && session.activity === 'attention') ? undefined : nesting?.foldedStatus;
+  const question = hasPendingQuestion(session) && foldedStatus === undefined && !approval;
   const indicator = question || foldedStatus !== undefined ? null : rowActivityIndicator(session);
   const timeLabel = foldedStatus !== undefined ? null : rowTimeLabel(session, nowMs);
   /*
@@ -810,6 +819,13 @@ const styles = StyleSheet.create({
   foldedSlot: {
     width: undefined,
     minWidth: ds(19),
+  },
+  /** The red approval dot (status.rs APPROVAL_COLOR). */
+  approvalDot: {
+    width: ds(STATUS_DOT_SIZE),
+    height: ds(STATUS_DOT_SIZE),
+    borderRadius: 999,
+    backgroundColor: SidebarPalette.ROW_APPROVAL,
   },
   failedDot: {
     width: ds(STATUS_DOT_SIZE),

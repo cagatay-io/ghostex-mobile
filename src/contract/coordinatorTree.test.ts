@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
-import { coordinatorRowKey, nestCoordinatorThreads } from './coordinatorTree';
+import { coordinatorBadges, coordinatorRowKey, nestCoordinatorThreads } from './coordinatorTree';
 import type { GhostexSession } from './mobileSummary';
 
 function row(sessionId: string, parent: string | null, isCoordinator: boolean): GhostexSession {
@@ -55,5 +55,54 @@ describe('coordinator tree lines', () => {
 
   test('folded, it ends the line itself', () => {
     assert.equal(nestingOf(['l1xx'], 'l1xx').lastChild, true);
+  });
+});
+
+describe('approval waits', () => {
+  const thread = (sessionId: string, parent: string, state: string, approval = false) =>
+    ({
+      ...row(sessionId, parent, false),
+      coordinatorThreadState: state,
+      activity: state === 'working' ? 'working' : 'attention',
+      awaitingApproval: approval,
+    }) as GhostexSession;
+  const badgeOf = (sessions: GhostexSession[], id: string) =>
+    coordinatorBadges(sessions, 0).get(coordinatorRowKey({ projectId: 'p1', sessionId: id }));
+
+  test('the badge is red > light blue > orange, its number following the tone (gx-core coordinator_badge)', () => {
+    const lead = row('lead', null, true);
+    assert.deepEqual(
+      badgeOf([lead, thread('a', 'lead', 'working'), thread('b', 'lead', 'working'), thread('c', 'lead', 'waiting')], 'lead'),
+      { count: 1, tone: 'waiting' },
+    );
+    assert.deepEqual(badgeOf([lead, thread('a', 'lead', 'working'), thread('b', 'lead', 'working')], 'lead'), {
+      count: 2,
+      tone: 'working',
+    });
+    assert.deepEqual(
+      badgeOf([lead, thread('a', 'lead', 'working'), thread('c', 'lead', 'waiting', true)], 'lead'),
+      { count: 1, tone: 'approval' },
+    );
+  });
+
+  test('an approval counts on every orchestrator above it', () => {
+    const sessions = [
+      row('lead', null, true),
+      { ...thread('sub', 'lead', 'working'), isCoordinator: true } as GhostexSession,
+      thread('stuck', 'sub', 'waiting', true),
+    ];
+    assert.deepEqual(badgeOf(sessions, 'sub'), { count: 1, tone: 'approval' });
+    assert.deepEqual(badgeOf(sessions, 'lead'), { count: 1, tone: 'approval' });
+  });
+
+  test('a folded orchestrator shows a stuck thread as the red dot, not the pink one', () => {
+    const sessions = [{ ...row('lead', null, true), activity: 'idle' } as GhostexSession, thread('stuck', 'lead', 'waiting', true)];
+    const lead = nestCoordinatorThreads(
+      sessions,
+      new Set([coordinatorRowKey({ projectId: 'p1', sessionId: 'lead' })]),
+      () => 'main',
+    ).nesting.get(coordinatorRowKey({ projectId: 'p1', sessionId: 'lead' }))!;
+    assert.equal(lead.foldedStatus?.approval, true);
+    assert.equal(lead.foldedStatus?.question, false);
   });
 });
