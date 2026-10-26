@@ -31,14 +31,16 @@ import { useReducedMotion } from 'react-native-reanimated';
 import type { ChatDocument, ChatPill } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
 import { Sheet } from '../composer/Sheet';
-import { AgentFleetMenu, AgentTasksMenu, CoordinatorThreadsMenu } from './AgentPanels';
+import { AgentFleetMenu, AgentTasksMenu, CoordinatorThreadsMenu, waitingColor } from './AgentPanels';
 import { Glyph } from './icons';
 import { obj } from './json';
 import { BackgroundTasksMenu } from './WorkingStrip';
+import { OverlappedDots } from '../../../components/sessions/StatusDotStack';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 
-/** The amber of a thread waiting on the user's approval (`AgentPanels.tsx`). */
+/** The amber of the ? pill's corner dot and a running pill's. */
 const ATTENTION_COLOR = '#f5a524';
+
 
 /** The running corner dot's fade: the Subagents menu's 1.6 s beat (desktop `chat_pills.rs` `running_dot`). */
 const RUNNING_PULSE_MS = 1600;
@@ -48,6 +50,8 @@ const QUESTION_PING = { durationMs: 800, everyMs: 30000, dotSize: 6, scale: 2.8,
 /** The corner dot's offsets inside a pill's edge (the ? pill's and a running pill's, desktop `corner_dot`). */
 const DOT_TOP = 1;
 const DOT_RIGHT = 2;
+/** A label pill's side padding (desktop `chat_pill`, 8px). */
+const PILL_PADDING_X = 8;
 
 /** An icon-only pill (Previous question, Scroll to bottom): the chip's shape around one glyph. */
 export function IconPill({
@@ -214,9 +218,14 @@ export function Pill({ pill, open, onPress }: { pill: ChatPill; open: boolean; o
       accessibilityState={{ expanded: open }}
       onPress={onPress}
       hitSlop={4}
-      style={({ pressed }) => [styles.pill, (pressed || open) && styles.pillPressed]}
+      style={({ pressed }) => [
+        styles.pill,
+        // Two overlapping corner dots reach half a dot further in than one: room for them, not over the count.
+        pill.running && waitingColor(pill.waiting) !== null && { paddingRight: PILL_PADDING_X + QUESTION_PING.dotSize / 2 },
+        (pressed || open) && styles.pillPressed,
+      ]}
     >
-      {pill.running ? <RunningDot /> : null}
+      <CornerIndicator pill={pill} />
       <Glyph
         name={pill.id === 'tasks' ? 'list-check' : pill.id === 'background' ? 'terminal-2' : 'users'}
         size={12}
@@ -224,9 +233,35 @@ export function Pill({ pill, open, onPress }: { pill: ChatPill; open: boolean; o
       />
       <Text style={styles.label}>{pill.label}</Text>
       {pill.count.length > 0 ? <Text style={styles.count}>{pill.count}</Text> : null}
-      {pill.attention ? <View style={styles.attention} /> : null}
     </Pressable>
   );
+}
+
+/**
+ * A pill's corner (CDXC:SessionChat 2026-10-27 in gx-chat-core extras/chat_pills.rs, desktop
+ * `corner_indicator`): the pulsing amber dot while something runs, the sidebar's red or pink dot
+ * while something waits on the user, and both overlapping with the sidebar's 1px ring
+ * (`OverlappedDots`) when both hold, the waiting one in front.
+ */
+function CornerIndicator({ pill }: { pill: ChatPill }) {
+  const styles = useStyles();
+  const P = useTranscriptTheme();
+  const waiting = waitingColor(pill.waiting);
+  if (pill.running && waiting !== null) {
+    return (
+      <View pointerEvents="none" style={styles.cornerStack}>
+        <OverlappedDots
+          colors={[ATTENTION_COLOR, waiting]}
+          size={QUESTION_PING.dotSize}
+          ringColor={P.composerBackground}
+          unit={(value) => value}
+        />
+      </View>
+    );
+  }
+  if (pill.running) return <RunningDot />;
+  if (waiting !== null) return <View pointerEvents="none" style={[styles.cornerDot, { backgroundColor: waiting }]} />;
+  return null;
 }
 
 /**
@@ -300,7 +335,7 @@ const useStyles = themedStyles((P) => ({
     alignItems: 'center',
     flexShrink: 0,
     gap: 5,
-    paddingHorizontal: 8,
+    paddingHorizontal: PILL_PADDING_X,
     paddingVertical: 2,
     borderRadius: 999,
     borderWidth: 1,
@@ -355,10 +390,10 @@ const useStyles = themedStyles((P) => ({
   slotGlyph: {
     position: 'absolute',
   },
-  attention: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: ATTENTION_COLOR,
+  /** The running and waiting dots overlapping: one ring further out, so the front dot sits where a lone dot does. */
+  cornerStack: {
+    position: 'absolute',
+    top: DOT_TOP - 1,
+    right: DOT_RIGHT - 1,
   },
 }));

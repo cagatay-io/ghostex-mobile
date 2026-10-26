@@ -839,8 +839,11 @@ export type ChatPill = {
   label: string;
   /** The number after the label ("3", "4/9"), or "" for none. */
   count: string;
-  /** Something in the sheet needs the user (a thread waiting on an approval): an amber dot. */
-  attention: boolean;
+  /**
+   * What in the sheet waits on the user: `approval` (the sidebar's red approval dot), `question`
+   * (its pink question dot), or '' for nothing.
+   */
+  waiting: string;
   /** A subagent or thread in the sheet is working: the ? pill's amber corner dot, pulsing. */
   running: boolean;
   /** The panel's muted detail ("2 working · 212 threads"). */

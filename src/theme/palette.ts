@@ -93,6 +93,8 @@ export const SidebarPalette = {
   ROW_FAILED: '#EF4444',
   /** Pending question dot, 6dp (status.rs question_indicator). */
   ROW_QUESTION: '#F472B6',
+  /** Waiting-for-approval dot (status.rs APPROVAL_COLOR, the failed red): an agent stuck on a permission prompt. */
+  ROW_APPROVAL: '#EF4444',
   /** Relative time and timer countdown. */
   ROW_TIME: '#A6A6A6',
   /** The same text on a sleeping session. */

@@ -13,23 +13,45 @@ import { StyleSheet, View } from 'react-native';
 import { SidebarPalette } from '../../theme/palette';
 import { ds, STATUS_DOT_SIZE } from './rows';
 
-const RING = ds(1);
-
-function Dot({ size, color, first, ringColor }: { size: number; color: string; first: boolean; ringColor: string }) {
-  const box = ds(size) + 2 * RING;
+/**
+ * The overlapping dots themselves (desktop status.rs `sized_overlapped_dots`): `colors` back to
+ * front, each `size` across inside a 1px ring in `ringColor`, overlapping the one before it by
+ * half. `unit` turns design pixels into this surface's (the drawer's `ds`, or as-is in the chat),
+ * so the chat's pill corner (ChatPills.tsx) draws the very same stack.
+ */
+export function OverlappedDots({
+  colors,
+  size,
+  ringColor,
+  unit = ds,
+}: {
+  colors: string[];
+  size: number;
+  ringColor: string;
+  unit?: (value: number) => number;
+}) {
+  if (colors.length === 0) return null;
+  const ring = unit(1);
+  const box = unit(size) + 2 * ring;
   return (
-    <View
-      style={[
-        styles.dot,
-        {
-          width: box,
-          height: box,
-          borderColor: ringColor,
-          backgroundColor: color,
-          marginLeft: first ? 0 : -(ds(4) + 2 * RING),
-        },
-      ]}
-    />
+    <View style={styles.stack}>
+      {colors.map((color, index) => (
+        <View
+          key={`${index}-${color}`}
+          style={[
+            styles.dot,
+            {
+              width: box,
+              height: box,
+              borderWidth: ring,
+              borderColor: ringColor,
+              backgroundColor: color,
+              marginLeft: index === 0 ? 0 : -(unit(size / 2) + 2 * ring),
+            },
+          ]}
+        />
+      ))}
+    </View>
   );
 }
 
@@ -55,14 +77,7 @@ export default function StatusDotStack({
   if (background) dots.push({ key: 'background', color: SidebarPalette.ROW_BACKGROUND_WORK });
   if (workingCount > 0) dots.push({ key: 'working', color: SidebarPalette.ROW_WORKING });
   if (attentionCount > 0) dots.push({ key: 'attention', color: SidebarPalette.ROW_ATTENTION });
-  if (dots.length === 0) return null;
-  return (
-    <View style={styles.stack}>
-      {dots.map((dot, index) => (
-        <Dot key={dot.key} size={STATUS_DOT_SIZE} color={dot.color} first={index === 0} ringColor={ringColor} />
-      ))}
-    </View>
-  );
+  return <OverlappedDots colors={dots.map((dot) => dot.color)} size={STATUS_DOT_SIZE} ringColor={ringColor} />;
 }
 
 const styles = StyleSheet.create({
@@ -74,6 +89,5 @@ const styles = StyleSheet.create({
   },
   dot: {
     borderRadius: 999,
-    borderWidth: RING,
   },
 });

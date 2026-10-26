@@ -12,6 +12,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import type { ChatDocument } from '../../rust/document';
 import type { UserAction } from '../../rust/actions';
 import type { RustChat } from '../../rust/useRustChat';
+import { SidebarPalette } from '../../../theme/palette';
 import { Glyph } from './icons';
 import { arr, asJson, isTrue, num, obj, str } from './json';
 import { PROSE_SIZE, themedStyles, useTranscriptTheme } from '../transcript/theme';
@@ -94,6 +95,18 @@ function TaskRow({ row }: { row: unknown }) {
 /** The sidebar's working colour and the amber of the "Needs your approval" tag (desktop `coordinator_threads.rs`). */
 const THREAD_WORKING = '#c68a06';
 const THREAD_APPROVAL = '#f5a524';
+
+/**
+ * The sidebar's colour for what a pill's sheet waits on (gx-chat-core `ChatPill.waiting`; the
+ * Threads pill and this sheet's header): its red approval dot or its pink question dot (desktop
+ * `chat_pills.rs` `waiting_color`).
+ */
+export function waitingColor(waiting: string): string | null {
+  if (waiting === 'approval') return SidebarPalette.ROW_APPROVAL;
+  if (waiting === 'question') return SidebarPalette.ROW_QUESTION;
+  return null;
+}
+
 const NEEDS_APPROVAL_LABEL = 'Needs your approval';
 
 /**
@@ -117,14 +130,16 @@ export function CoordinatorThreadsMenu({
   const moreLabel = str(panel, 'moreLabel');
   const moreStep = typeof panel.moreStep === 'number' ? panel.moreStep : 0;
   const emptyLabel = str(panel, 'emptyLabel');
+  // The pill's waiting colour (ChatPills.tsx `waitingColor`): red for an approval, pink for a question.
+  const headerWaiting = waitingColor(
+    isTrue(panel, 'attention') ? 'approval' : isTrue(panel, 'question') ? 'question' : '',
+  );
   return (
     <View accessibilityLabel="Orchestrator threads" style={styles.menu}>
       <MenuMeta
         meta={str(panel, 'meta')}
         trailing={
-          isTrue(panel, 'attention') ? (
-            <View style={[styles.threadDot, { backgroundColor: THREAD_APPROVAL }]} />
-          ) : undefined
+          headerWaiting !== null ? <View style={[styles.threadDot, { backgroundColor: headerWaiting }]} /> : undefined
         }
       />
       <ScrollView style={styles.menuRows} contentContainerStyle={styles.rows} nestedScrollEnabled>
