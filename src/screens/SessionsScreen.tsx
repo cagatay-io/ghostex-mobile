@@ -972,6 +972,7 @@ export default function SessionsScreen({ navigation }: Props) {
             key={child.key}
             label={child.label}
             threadDepth={child.depth + 1}
+            passingLines={child.passingLines}
             onPress={() => collapse.toggleCoordinatorOlder(machineId, child.coordinatorKey)}
           />
         );
@@ -1004,7 +1005,7 @@ export default function SessionsScreen({ navigation }: Props) {
     };
     for (const child of children) {
       const element = renderChildItem(target, machineId, child, expandedGroupSurface);
-      if (child.type === 'SESSION' && child.inSessionGroup === true) {
+      if ((child.type === 'SESSION' || child.type === 'COORDINATOR_OLDER') && child.inSessionGroup === true) {
         if (child.groupId !== groupId) closeGroup();
         groupId = child.groupId;
         groupRows.push(element);

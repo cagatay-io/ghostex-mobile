@@ -10,6 +10,7 @@ import {
   coordinatorBadges,
   coordinatorRowKey,
   nestCoordinatorThreads,
+  passingLinesBelow,
   type CoordinatorBadge,
   type RowNesting,
 } from './coordinatorTree';
@@ -211,8 +212,13 @@ export type CoordinatorOlderItem = {
   coordinatorKey: string;
   /** The coordinator's own depth; the row sits one level in. */
   depth: number;
+  /** The tree lines that run past the row, toward the coordinator's next sibling or an ancestor's. */
+  passingLines: number;
   label: string;
   collectionColor?: string;
+  /** The coordinator's session group, so a row of a user-made group stays among that group's indented rows. */
+  groupId: string;
+  inSessionGroup?: boolean;
 };
 
 export type DrawerItem =
@@ -585,8 +591,11 @@ function withOlderThreadRows(items: DrawerItem[]): DrawerItem[] {
       projectKey: item.projectKey,
       coordinatorKey: coordinatorRowKey(item.session),
       depth: nesting.depth,
+      passingLines: passingLinesBelow(nesting.passingLines, nesting.depth, nesting.lastChild),
       label: nesting.olderShown ? SessionCopy.hideOlderThreads : SessionCopy.olderThreads(nesting.olderThreads),
       collectionColor: item.collectionColor,
+      groupId: item.groupId,
+      inSessionGroup: item.inSessionGroup,
     });
   }
   close(-1);

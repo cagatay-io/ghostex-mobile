@@ -1066,9 +1066,52 @@ const kindLabelStyles = StyleSheet.create({
 // light title at 0.8 opacity, same 34dp geometry, no chevron.
 // ---------------------------------------------------------------------------
 
+/**
+ * The pieces of the tree lines that run past a row (coordinatorTree.ts `RowNesting.passingLines`, one
+ * bit per level), each straight down beside the row `height` tall; desktop
+ * `native_sidebar/threads.rs` `passing_lines`. `levelLeft` places a level's line in the row.
+ *
+ * CDXC:Coordinators 2026-10-25 WHY: the row a line starts from can be far above the rows it passes, so
+ * each row draws its own piece of every line passing it; a piece starts 1dp up inside the row above,
+ * which draws the same line there, so two pieces meet without the seam rows drawn apart showed.
+ */
+export function PassingThreadLines({
+  lines,
+  levelLeft,
+  height,
+}: {
+  lines: number;
+  levelLeft: (level: number) => number;
+  height: number;
+}) {
+  if (lines === 0) return null;
+  const pieces: ReactNode[] = [];
+  for (let level = 1; 1 << level <= lines; level += 1) {
+    if ((lines & (1 << level)) === 0) continue;
+    pieces.push(
+      <View
+        key={level}
+        pointerEvents="none"
+        style={[passingStyles.piece, { left: levelLeft(level), height: height + ds(1) }]}
+      />,
+    );
+  }
+  return <>{pieces}</>;
+}
+
+const passingStyles = StyleSheet.create({
+  piece: {
+    position: 'absolute',
+    top: -ds(1),
+    width: ds(1),
+    backgroundColor: SidebarPalette.ROW_THREAD_LINE,
+  },
+});
+
 export function SessionListToggleRow({
   label,
   threadDepth,
+  passingLines = 0,
   onPress,
 }: {
   label: string;
@@ -1077,6 +1120,8 @@ export function SessionListToggleRow({
    * rows' THREAD_INDENT in SessionRow.tsx), drawn smaller and quieter than "Show N more".
    */
   threadDepth?: number;
+  /** On a coordinator's "N older threads" row: the tree lines that run past it. */
+  passingLines?: number;
   onPress: () => void;
 }) {
   const thread = threadDepth !== undefined;
@@ -1091,6 +1136,12 @@ export function SessionListToggleRow({
       ]}
       onPress={onPress}
     >
+      {/* Where a thread row in a card places its line (SessionRow.tsx `ThreadConnector`), term by term. */}
+      <PassingThreadLines
+        lines={passingLines}
+        levelLeft={(level) => ds(5) + ds(level * 16) - ds(16) + ds(7)}
+        height={ds(26)}
+      />
       <Text style={[toggleStyles.label, thread ? toggleStyles.labelThread : null]} numberOfLines={1}>
         {label}
       </Text>

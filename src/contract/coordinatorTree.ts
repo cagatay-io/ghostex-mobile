@@ -23,12 +23,27 @@ const MAX_THREAD_DEPTH = 3;
 /** How long after its last activity a thread that neither works nor waits is still listed. */
 const RECENT_THREAD_MS = 2 * 60 * 60 * 1000;
 
+/**
+ * The `passingLines` a row at `depth` hands to the rows directly under it: the ones that run past the
+ * row itself, plus its own level's line while a sibling of it follows (gx-core `passing_lines_below`).
+ */
+export function passingLinesBelow(passingLines: number, depth: number, last: boolean): number {
+  return depth > 0 && !last ? passingLines | (1 << depth) : passingLines;
+}
+
 /** Where a row sits in its coordinator's tree. */
 export type RowNesting = {
   /** How deep under a coordinator the row is drawn; 0 for a top-level row. */
   depth: number;
   /** The last thread directly under its coordinator, where the tree line ends. */
   lastChild: boolean;
+  /**
+   * The tree lines that run on past this row: bit `k` is set when the row's ancestor drawn at depth
+   * `k` has a sibling drawn further down, so the line of that level goes on beside this row to reach
+   * it. Past the depth limit a row is drawn at its parent's depth, so a bit can be the row's own
+   * depth (gx-core `RowNesting::passing_lines`).
+   */
+  passingLines: number;
   /** On a coordinator row: the open threads drawn under it (the fold chevron shows when > 0). */
   threadCount: number;
   /** On a coordinator row with threads under it: the user folded them away. */
@@ -229,11 +244,19 @@ export function nestCoordinatorThreads<S>(
   };
   const result: NestedSessions<S> = { sessions: [], sections: new Map(), nesting: new Map() };
   const foldedOf = sessions.map(() => false);
-  const emit = (index: number, depth: number, last: boolean, section: S, folded: boolean): void => {
+  const emit = (
+    index: number,
+    depth: number,
+    last: boolean,
+    passingLines: number,
+    section: S,
+    folded: boolean,
+  ): void => {
     const list = children.get(index) ?? [];
     const showsOlder = olderShown.has(keys[index]);
     const hidden = (child: number): boolean => !showsOlder && isOlder[child];
     const drawn = list.filter((child) => !hidden(child)).length;
+    const below = passingLinesBelow(passingLines, depth, last);
     foldedOf[index] = folded;
     result.sessions.push(sessions[index]);
     result.sections.set(keys[index], section);
@@ -241,6 +264,7 @@ export function nestCoordinatorThreads<S>(
       result.nesting.set(keys[index], {
         depth,
         lastChild: depth > 0 && last,
+        passingLines,
         threadCount: list.length,
         collapsed: isCollapsed[index],
         folded,
@@ -255,13 +279,14 @@ export function nestCoordinatorThreads<S>(
         child,
         Math.min(depth + 1, MAX_THREAD_DEPTH),
         position + 1 === drawn,
+        below,
         section,
         folded || isCollapsed[index] || hidden(child),
       ),
     );
   };
   for (let index = 0; index < sessions.length; index += 1) {
-    if (parentOf[index] === null) emit(index, 0, false, baseSections[index], false);
+    if (parentOf[index] === null) emit(index, 0, false, 0, baseSections[index], false);
   }
   // The drawn row that stands for the selected thread when a folded coordinator hides it: its nearest drawn ancestor.
   const focused = sessions.findIndex(isActive);
