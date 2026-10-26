@@ -10,7 +10,7 @@ import { useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { ScanCopy } from '../../copy';
-import { readPairingCode, type ReadPairingCodeResult } from '../../machines/pairingCodes';
+import { isGhostexPairingPayload, readPairingCode, type ReadPairingCodeResult } from '../../machines/pairingCodes';
 import { GhostexRadii, GhostexStrokeWidth, SetupPalette } from '../../theme/palette';
 import BottomSheet from '../common/BottomSheet';
 import { CheckGlyph } from './SetupIcons';
@@ -25,8 +25,8 @@ export type PasteCodeSheetProps = {
   onCode: (code: Exclude<ReadPairingCodeResult, null>) => void;
 };
 
-function validityLine(parsed: ReadPairingCodeResult): string {
-  if (parsed === null) return ScanCopy.paste.invalid;
+function validityLine(parsed: ReadPairingCodeResult, text: string): string {
+  if (parsed === null) return isGhostexPairingPayload(text) ? ScanCopy.paste.outdated : ScanCopy.paste.invalid;
   if (parsed.kind === 'easyConnect') {
     return ScanCopy.paste.validEasyConnect(parsed.code.user, parsed.code.name);
   }
@@ -80,7 +80,7 @@ export default function PasteCodeSheet({ visible, cameraDenied, onClose, onCode 
           <View style={styles.hintRow}>
             {parsed !== null ? <CheckGlyph size={14} color={SetupPalette.OK} /> : null}
             <Text style={[styles.hint, parsed !== null ? styles.hintOk : styles.hintError]}>
-              {validityLine(parsed)}
+              {validityLine(parsed, text)}
             </Text>
           </View>
         ) : null}

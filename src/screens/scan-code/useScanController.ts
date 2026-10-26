@@ -18,6 +18,7 @@ import * as Haptics from 'expo-haptics';
 import { ScanCopy } from '../../copy';
 import { pairEasyConnect, type EasyConnectPairingResult } from '../../machines/pairing';
 import {
+  isGhostexPairingPayload,
   readPairingCode,
   tailscaleCodeAddress,
   type EasyConnectCode,
@@ -137,18 +138,26 @@ export function useScanController(navigation: ScanNavigation, rePairMachineId: s
     [movePhase, navigation, runEasyConnect],
   );
 
-  /** Route a raw barcode payload; a non-Ghostex code shows the red toast and scanning continues. */
+  /**
+   * Route a barcode's payloads (the scanner's raw text first, then its display text); a code
+   * none of them reads as shows the red toast and scanning continues.
+   */
   const handlePayload = useCallback(
-    (payload: string): void => {
+    (...payloads: (string | undefined)[]): void => {
       if (phaseRef.current.kind !== 'scanning') return;
-      const parsed = readPairingCode(payload);
+      const candidates = payloads.filter((text): text is string => text !== undefined && text.length > 0);
+      const parsed = candidates.map(readPairingCode).find((result) => result !== null) ?? null;
       if (parsed === null) {
+        const payload = candidates[0] ?? '';
         const now = Date.now();
         const last = lastRejected.current;
         if (last === null || last.payload !== payload || now - last.at > REPEAT_REJECT_MS) {
           lastRejected.current = { payload, at: now };
           haptic(Haptics.NotificationFeedbackType.Warning);
-          showToast({ tone: 'error', ...ScanCopy.rejected });
+          // A Ghostex code this build cannot read comes from a newer computer: say to update,
+          // not that it is foreign (a 10.32 phone said "not a Ghostex code" to 10.33's link).
+          const outdated = candidates.some(isGhostexPairingPayload);
+          showToast({ tone: 'error', ...(outdated ? ScanCopy.outdated : ScanCopy.rejected) });
         }
         return;
       }

@@ -98,7 +98,9 @@ export default function ScanCodeScreen({ navigation, route }: Props) {
 
   const onBarcode = (result: BarcodeScanningResult): void => {
     if (sheet !== 'none') return;
-    handlePayload(result.data);
+    // On Android `data` is ML Kit's display value, which can differ from the encoded text for a
+    // link; `raw` is the text exactly as the computer encoded it.
+    handlePayload(result.raw, result.data);
   };
 
   const status =

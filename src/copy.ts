@@ -84,6 +84,10 @@ export const ScanCopy = {
     title: "That's not a Ghostex code",
     detail: 'Point at the code in Ghostex → Mobile & Remote on the computer.',
   },
+  outdated: {
+    title: 'This code needs a newer Ghostex app',
+    detail: 'Update Ghostex on this phone, or click Copy as text on the computer and paste the code here.',
+  },
   expired: {
     title: 'This code has expired',
     detail: 'Click New code on the computer and scan again.',
@@ -99,9 +103,9 @@ export const ScanCopy = {
   cameraDeniedSettingsLink: 'Allow the camera in Settings',
   paste: {
     title: 'Paste a pairing code',
-    ledePrefix: 'On the computer, click ',
+    ledePrefix: 'On the computer, open Settings → Remote, click ',
     ledeStrong: 'Copy as text',
-    ledeSuffix: ' next to the QR code and send it to this phone.',
+    ledeSuffix: ' under Show QR, and send the text to this phone.',
     placeholder: 'ghostex-ec1:…',
     validEasyConnect: (user: string, computer: string) =>
       `Looks like a Ghostex pairing code for ${user} on ${computer}`,
@@ -109,6 +113,7 @@ export const ScanCopy = {
       `Looks like a Ghostex Tailscale code for ${user} on ${computer}`,
     validLegacy: 'Looks like a pairing address. You will be asked for the computer name and user next.',
     invalid: "That doesn't look like a Ghostex code.",
+    outdated: 'This code is from a newer Ghostex. Update Ghostex on this phone to pair with it.',
     button: 'Pair',
   },
   whereIsCode: {
