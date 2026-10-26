@@ -10,8 +10,9 @@ import {
   StepperRow,
   useSettingsStyles,
 } from './SettingsControls';
+import { SettingsSection } from './SectionBoundary';
 
-export default function TerminalPage() {
+function FontSizeSection() {
   const styles = useSettingsStyles();
   const fontSize = useSettingsStore((state) => state.settings.fontSize);
   const setSetting = useSettingsStore((state) => state.setSetting);
@@ -22,7 +23,7 @@ export default function TerminalPage() {
   };
 
   return (
-    <SettingsScreenLayout>
+    <>
       <SectionHeader title="Font size" />
       <StepperRow
         label="Font size"
@@ -41,11 +42,30 @@ export default function TerminalPage() {
           <Text style={styles.rowLabel}>Reset pinch-zoom sizes to default</Text>
         </Pressable>
       )}
+    </>
+  );
+}
 
+function BehaviorSection() {
+  return (
+    <>
       <SectionHeader title="Behavior" />
       <SettingToggle settingKey="keepScreenOn" label="Keep screen on" />
       <Caption>Keeps the screen awake while a terminal is open.</Caption>
       <SettingToggle settingKey="confirmTabClose" label="Confirm before closing tabs" />
+    </>
+  );
+}
+
+export default function TerminalPage() {
+  return (
+    <SettingsScreenLayout>
+      <SettingsSection name="settings:terminal:font-size">
+        <FontSizeSection />
+      </SettingsSection>
+      <SettingsSection name="settings:terminal:behavior">
+        <BehaviorSection />
+      </SettingsSection>
     </SettingsScreenLayout>
   );
 }

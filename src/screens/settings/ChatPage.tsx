@@ -14,6 +14,7 @@ import {
 import { VOICE_SUPPORTED } from '../../voice/conversation';
 import { readAloudVoices, useReadAloudOnAnywhere } from '../../voice/readAloud';
 import { voiceLabel } from './ReadAloudVoicePage';
+import { SettingsSection } from './SectionBoundary';
 import { Caption, ChoiceRow, LinkRow, SectionHeader, SettingsScreenLayout, SettingToggle } from './SettingsControls';
 
 /** Same option order as the desktop app's Default Agent View control. */
@@ -52,79 +53,86 @@ export default function ChatPage() {
 
   return (
     <SettingsScreenLayout>
-      <SectionHeader title="Default agent view" />
-      {PREFERRED_AGENT_INTERFACE_ROWS.map((row) => (
-        <ChoiceRow
-          key={row.value}
-          label={row.label}
-          selected={preferredAgentInterface === row.value}
-          onPress={() => setSetting('preferredAgentInterface', row.value)}
-        />
-      ))}
-      <Caption>
-        Agent sessions that support chat open in this view. Each tab can still be switched between chat and terminal at
-        any time, and a switched tab remembers its own choice.
-      </Caption>
-
-      <SectionHeader title="Chat theme" />
-      {SESSION_CHAT_THEME_ROWS.map((row) => (
-        <ChoiceRow
-          key={row.value}
-          label={row.label}
-          selected={sessionChatTheme === row.value}
-          onPress={() => setSetting('sessionChatTheme', row.value)}
-        />
-      ))}
-      <Caption>Changes chat content only; the rest of the app keeps its dark theme.</Caption>
-
-      <SectionHeader title="Messages" />
-      <SettingToggle settingKey="sessionChatSimpleMode" label="Simple mode" />
-      <Caption>
-        Simplify all chats: hide tool command previews and group file edits behind an expandable file count.
-      </Caption>
-      <SettingToggle settingKey="sessionChatFileEditPreviews" label="Show file edit previews" />
-      <Caption>Show the first seven code lines instead of only the path and change counts.</Caption>
-      <SettingToggle settingKey="sessionChatMutedThinking" label="Grey thinking" />
-      <Caption>
-        Show the agent's thinking in grey and its replies in the full text colour, so the two are easy to tell apart.
-      </Caption>
-      <SettingToggle settingKey="sessionChatVerboseMode" label="Verbose Mode" />
-      <Caption>Expands thinking blocks to show their tool calls by default.</Caption>
-
-      <SectionHeader title="Marked sections" />
-      {MARKED_HANDOVERS_STYLE_ROWS.map((row) => (
-        <ChoiceRow
-          key={row.value}
-          label={row.label}
-          selected={markedHandoversStyle === row.value}
-          onPress={() => setSetting('markedHandoversStyle', row.value)}
-        />
-      ))}
-      {markedHandoversStyle !== 'plain' ? (
-        <SettingToggle settingKey="markedHandoversEmoji" label="Show marker emojis" />
-      ) : null}
-      <Caption>
-        How the chat colours the sections an agent marks with ❓ Needs you, ✅ Done, ⚠️ Read this and the other markers
-        (Marked handovers in the desktop app's Settings &gt; Chat). Show marker emojis puts the marker emoji in front of
-        each coloured section; while it is off the colour and the label show the kind.
-      </Caption>
-
-      <ReadAloudRows />
-
-      <SectionHeader title="Developer" />
-      {CHAT_BRAIN_ROWS.map((row) => (
-        <ChoiceRow
-          key={row.value}
-          label={row.label}
-          selected={sessionChatBrain === row.value}
-          onPress={() => setSetting('sessionChatBrain', row.value)}
-        />
-      ))}
-      <Caption>
-        Chat brain: the part that turns an agent's output into the chat. Built-in runs the one inside this app. Browser
-        view runs the same brain in a hidden browser view, so chat fixes arrive with app updates without a new install.
-        Takes effect the next time a chat opens.
-      </Caption>
+      <SettingsSection name="settings:chat:default-agent-view">
+        <SectionHeader title="Default agent view" />
+        {PREFERRED_AGENT_INTERFACE_ROWS.map((row) => (
+          <ChoiceRow
+            key={row.value}
+            label={row.label}
+            selected={preferredAgentInterface === row.value}
+            onPress={() => setSetting('preferredAgentInterface', row.value)}
+          />
+        ))}
+        <Caption>
+          Agent sessions that support chat open in this view. Each tab can still be switched between chat and terminal
+          at any time, and a switched tab remembers its own choice.
+        </Caption>
+      </SettingsSection>
+      <SettingsSection name="settings:chat:chat-theme">
+        <SectionHeader title="Chat theme" />
+        {SESSION_CHAT_THEME_ROWS.map((row) => (
+          <ChoiceRow
+            key={row.value}
+            label={row.label}
+            selected={sessionChatTheme === row.value}
+            onPress={() => setSetting('sessionChatTheme', row.value)}
+          />
+        ))}
+        <Caption>Changes chat content only; the rest of the app keeps its dark theme.</Caption>
+      </SettingsSection>
+      <SettingsSection name="settings:chat:messages">
+        <SectionHeader title="Messages" />
+        <SettingToggle settingKey="sessionChatSimpleMode" label="Simple mode" />
+        <Caption>
+          Simplify all chats: hide tool command previews and group file edits behind an expandable file count.
+        </Caption>
+        <SettingToggle settingKey="sessionChatFileEditPreviews" label="Show file edit previews" />
+        <Caption>Show the first seven code lines instead of only the path and change counts.</Caption>
+        <SettingToggle settingKey="sessionChatMutedThinking" label="Grey thinking" />
+        <Caption>
+          Show the agent's thinking in grey and its replies in the full text colour, so the two are easy to tell apart.
+        </Caption>
+        <SettingToggle settingKey="sessionChatVerboseMode" label="Verbose Mode" />
+        <Caption>Expands thinking blocks to show their tool calls by default.</Caption>
+      </SettingsSection>
+      <SettingsSection name="settings:chat:marked-sections">
+        <SectionHeader title="Marked sections" />
+        {MARKED_HANDOVERS_STYLE_ROWS.map((row) => (
+          <ChoiceRow
+            key={row.value}
+            label={row.label}
+            selected={markedHandoversStyle === row.value}
+            onPress={() => setSetting('markedHandoversStyle', row.value)}
+          />
+        ))}
+        {markedHandoversStyle !== 'plain' ? (
+          <SettingToggle settingKey="markedHandoversEmoji" label="Show marker emojis" />
+        ) : null}
+        <Caption>
+          How the chat colours the sections an agent marks with ❓ Needs you, ✅ Done, ⚠️ Read this and the other
+          markers (Marked handovers in the desktop app's Settings &gt; Chat). Show marker emojis puts the marker emoji
+          in front of each coloured section; while it is off the colour and the label show the kind.
+        </Caption>
+      </SettingsSection>
+      <SettingsSection name="settings:chat:read-aloud">
+        <ReadAloudRows />
+      </SettingsSection>
+      <SettingsSection name="settings:chat:developer">
+        <SectionHeader title="Developer" />
+        {CHAT_BRAIN_ROWS.map((row) => (
+          <ChoiceRow
+            key={row.value}
+            label={row.label}
+            selected={sessionChatBrain === row.value}
+            onPress={() => setSetting('sessionChatBrain', row.value)}
+          />
+        ))}
+        <Caption>
+          Chat brain: the part that turns an agent's output into the chat. Built-in runs the one inside this app.
+          Browser view runs the same brain in a hidden browser view, so chat fixes arrive with app updates without a new
+          install. Takes effect the next time a chat opens.
+        </Caption>
+      </SettingsSection>
     </SettingsScreenLayout>
   );
 }

@@ -29,6 +29,7 @@ import {
   runningAppVersion,
   useReadyUpdate,
 } from '../../updates/overTheAir';
+import { SettingsSection } from './SectionBoundary';
 import { SettingsScreenLayout, ValueRow } from './SettingsControls';
 
 const UpdatesCopy = {
@@ -170,38 +171,57 @@ function ApkSection() {
   );
 }
 
-export default function UpdatesPage() {
-  const apkChecking = useAndroidSelfUpdateStore((state) => state.check.phase === 'checking');
-  const checkForApk = useAndroidSelfUpdateStore((state) => state.checkForUpdates);
-  const { isChecking } = useUpdates();
-
+/** The running version rows; the over-the-air part reads expo-updates and can throw. */
+function VersionSection() {
   const installedVersion = installedAppVersion();
   const buildNumber = Application.nativeBuildVersion;
   const installed = buildNumber === null ? installedVersion : `${installedVersion} (${buildNumber})`;
 
+  return OTA_ENABLED ? (
+    <>
+      <ValueRow label={UpdatesCopy.versionLabel} value={runningAppVersion() ?? installedVersion} />
+      <ValueRow label={UpdatesCopy.appBuildLabel} value={installed} />
+      <OverTheAirSection />
+    </>
+  ) : (
+    <ValueRow label={UpdatesCopy.installedLabel} value={installed} />
+  );
+}
+
+function CheckForUpdatesButton() {
+  const apkChecking = useAndroidSelfUpdateStore((state) => state.check.phase === 'checking');
+  const checkForApk = useAndroidSelfUpdateStore((state) => state.checkForUpdates);
+  const { isChecking } = useUpdates();
+
+  return (
+    <SetupButton
+      label={UpdatesCopy.checkButton}
+      accessibilityLabel={UpdatesCopy.checkButton}
+      busy={apkChecking || isChecking}
+      onPress={() => {
+        void checkForAppUpdate();
+        if (ANDROID_SELF_UPDATE_ENABLED) void checkForApk();
+      }}
+    />
+  );
+}
+
+export default function UpdatesPage() {
   return (
     <SettingsScreenLayout>
-      {OTA_ENABLED ? (
-        <>
-          <ValueRow label={UpdatesCopy.versionLabel} value={runningAppVersion() ?? installedVersion} />
-          <ValueRow label={UpdatesCopy.appBuildLabel} value={installed} />
-          <OverTheAirSection />
-        </>
-      ) : (
-        <ValueRow label={UpdatesCopy.installedLabel} value={installed} />
-      )}
+      <SettingsSection name="settings:updates:version">
+        <VersionSection />
+      </SettingsSection>
 
-      {ANDROID_SELF_UPDATE_ENABLED ? <ApkSection /> : null}
+      {ANDROID_SELF_UPDATE_ENABLED ? (
+        <SettingsSection name="settings:updates:apk">
+          <ApkSection />
+        </SettingsSection>
+      ) : null}
 
-      <SetupButton
-        label={UpdatesCopy.checkButton}
-        accessibilityLabel={UpdatesCopy.checkButton}
-        busy={apkChecking || isChecking}
-        onPress={() => {
-          void checkForAppUpdate();
-          if (ANDROID_SELF_UPDATE_ENABLED) void checkForApk();
-        }}
-      />
+      <SettingsSection name="settings:updates:check">
+        <CheckForUpdatesButton />
+      </SettingsSection>
     </SettingsScreenLayout>
   );
 }

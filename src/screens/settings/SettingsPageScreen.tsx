@@ -8,13 +8,24 @@ import KeyboardPage from './KeyboardPage';
 import ReadAloudVoicePage from './ReadAloudVoicePage';
 import SoundsPage from './SoundsPage';
 import TerminalPage from './TerminalPage';
+import type { SettingsPageId } from './pages';
+import { SettingsPageBoundary } from './SectionBoundary';
 import ThemePage from './ThemePage';
 import UpdatesPage from './UpdatesPage';
 import VoicePage from './VoicePage';
 
 /** One Settings page, chosen by the `SettingsPage` route's `page` param. */
 export default function SettingsPageScreen({ route }: NativeStackScreenProps<RootStackParamList, 'SettingsPage'>) {
-  switch (route.params.page) {
+  const page = route.params.page;
+  return (
+    <SettingsPageBoundary key={page} name={`settings:${page}`}>
+      <SettingsPageContent page={page} />
+    </SettingsPageBoundary>
+  );
+}
+
+function SettingsPageContent({ page }: { page: SettingsPageId }) {
+  switch (page) {
     case 'updates':
       return <UpdatesPage />;
     case 'theme':

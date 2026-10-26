@@ -9,26 +9,56 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
+import ErrorBoundary from '../components/common/ErrorBoundary';
 import type { RootStackParamList } from '../navigation/types';
 import { useUpdateNotice } from '../updates/updateNotice';
 import { SETTINGS_PAGE_ORDER, SETTINGS_PAGES } from './settings/pages';
 import { LinkRow, SettingsScreenLayout } from './settings/SettingsControls';
 
+/** The Updates row with its "update ready" summary, which reads the update state and can throw. */
+function UpdatesNoticeRow({ onPress }: { onPress: () => void }) {
+  const notice = useUpdateNotice();
+  return (
+    <LinkRow
+      title={SETTINGS_PAGES.updates.title}
+      description={notice ?? SETTINGS_PAGES.updates.description}
+      descriptionAccent={notice !== null}
+      onPress={onPress}
+    />
+  );
+}
+
 export default function SettingsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const updateNotice = useUpdateNotice();
 
   return (
     <SettingsScreenLayout>
       {SETTINGS_PAGE_ORDER.map((page) => {
-        const notice = page === 'updates' ? updateNotice : null;
+        const open = () => navigation.navigate('SettingsPage', { page });
+        if (page === 'updates') {
+          // A throwing summary falls back to the plain row, so the list and the Updates page stay reachable.
+          return (
+            <ErrorBoundary
+              key={page}
+              name="settings:home:updates-notice"
+              renderFallback={() => (
+                <LinkRow
+                  title={SETTINGS_PAGES[page].title}
+                  description={SETTINGS_PAGES[page].description}
+                  onPress={open}
+                />
+              )}
+            >
+              <UpdatesNoticeRow onPress={open} />
+            </ErrorBoundary>
+          );
+        }
         return (
           <LinkRow
             key={page}
             title={SETTINGS_PAGES[page].title}
-            description={notice ?? SETTINGS_PAGES[page].description}
-            descriptionAccent={notice !== null}
-            onPress={() => navigation.navigate('SettingsPage', { page })}
+            description={SETTINGS_PAGES[page].description}
+            onPress={open}
           />
         );
       })}

@@ -16,6 +16,7 @@ import {
   type VoiceCallMode,
 } from '../../voice/conversation';
 import { voiceAgentOnIn } from '../../voice/featureSwitch';
+import { SettingsSection } from './SectionBoundary';
 import { Caption, ChoiceRow, SectionHeader, SettingsScreenLayout } from './SettingsControls';
 
 export default function VoicePage() {
@@ -75,21 +76,23 @@ export default function VoicePage() {
   }
   return (
     <SettingsScreenLayout>
-      <SectionHeader title="Call mode" />
-      {VOICE_CALL_MODES.map((choice) => (
-        <ChoiceRow
-          key={choice.mode}
-          label={choice.label}
-          selected={mode === choice.mode}
-          onPress={() => choose(choice.mode)}
-        />
-      ))}
-      {VOICE_CALL_MODES.map((choice) => (
-        <Caption key={choice.mode}>{`${choice.label}: ${choice.detail}`}</Caption>
-      ))}
-      <Caption>{VOICE_CALL_MODE_NOTE}</Caption>
-      {mode === null && problem === null ? <Caption>Reading the setting from your computer…</Caption> : null}
-      {problem !== null ? <Caption>{problem}</Caption> : null}
+      <SettingsSection name="settings:voice:call-mode">
+        <SectionHeader title="Call mode" />
+        {VOICE_CALL_MODES.map((choice) => (
+          <ChoiceRow
+            key={choice.mode}
+            label={choice.label}
+            selected={mode === choice.mode}
+            onPress={() => choose(choice.mode)}
+          />
+        ))}
+        {VOICE_CALL_MODES.map((choice) => (
+          <Caption key={choice.mode}>{`${choice.label}: ${choice.detail}`}</Caption>
+        ))}
+        <Caption>{VOICE_CALL_MODE_NOTE}</Caption>
+        {mode === null && problem === null ? <Caption>Reading the setting from your computer…</Caption> : null}
+        {problem !== null ? <Caption>{problem}</Caption> : null}
+      </SettingsSection>
     </SettingsScreenLayout>
   );
 }

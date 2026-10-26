@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import type { SpeechVoice, SpeechVoices } from '../../../modules/ghostex-native/src';
 import { useSettingsStore } from '../../settings/store';
 import { previewReadAloudVoice, readAloudVoices } from '../../voice/readAloud';
+import { SettingsSection } from './SectionBoundary';
 import { Caption, ChoiceRow, SectionHeader, SettingsScreenLayout } from './SettingsControls';
 
 /** The short name a voice goes by within its language: Google's `en-us-x-iob-local` is "iob". */
@@ -77,10 +78,14 @@ export default function ReadAloudVoicePage() {
   }
   return (
     <SettingsScreenLayout>
-      <ChoiceRow label="Phone's default voice" selected={selected === ''} onPress={() => choose('')} />
-      <Caption>The voice set in Android Settings › Text-to-speech output.</Caption>
+      <SettingsSection name="settings:readAloudVoice:default">
+        <ChoiceRow label="Phone's default voice" selected={selected === ''} onPress={() => choose('')} />
+        <Caption>The voice set in Android Settings › Text-to-speech output.</Caption>
+      </SettingsSection>
       {[...byLocale.entries()].map(([locale, voices]) => (
-        <VoiceGroup key={locale} title={locale} voices={voices} selected={selected} onChoose={choose} />
+        <SettingsSection key={locale} name={`settings:readAloudVoice:${locale}`}>
+          <VoiceGroup title={locale} voices={voices} selected={selected} onChoose={choose} />
+        </SettingsSection>
       ))}
       <Caption>
         Picking a voice says a sentence with it. A voice marked online needs a connection; one that needs a download is

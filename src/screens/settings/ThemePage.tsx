@@ -11,6 +11,7 @@ import {
   SIDEBAR_BACKGROUND_TINT_OPTIONS,
 } from '../../theme/sidebarAppearance';
 import { useAppearance } from '../../theme/useAppearance';
+import { SettingsSection } from './SectionBoundary';
 import { Caption, SettingsScreenLayout, SettingsSlider, useSettingsStyles } from './SettingsControls';
 
 function TintControl({
@@ -93,13 +94,12 @@ function TintControl({
   );
 }
 
-export default function ThemePage() {
+function ContrastSection() {
   const contrast = useSettingsStore((state) => state.settings.sidebarBackgroundContrast);
-  const tint = useSettingsStore((state) => state.settings.sidebarBackgroundTint);
   const setSetting = useSettingsStore((state) => state.setSetting);
 
   return (
-    <SettingsScreenLayout>
+    <>
       <SettingsSlider
         label="Background Contrast"
         maximumValue={SIDEBAR_BACKGROUND_CONTRAST_MAX}
@@ -110,12 +110,36 @@ export default function ThemePage() {
         onValueChange={(value) => setSetting('sidebarBackgroundContrast', value)}
       />
       <Caption>85 is softer gray; 100 is black. Drawer and Settings surfaces adjust automatically.</Caption>
+    </>
+  );
+}
+
+function TintSection() {
+  const contrast = useSettingsStore((state) => state.settings.sidebarBackgroundContrast);
+  const tint = useSettingsStore((state) => state.settings.sidebarBackgroundTint);
+  const setSetting = useSettingsStore((state) => state.setSetting);
+
+  return (
+    <>
       <TintControl
         value={tint}
         resolvedBackground={sidebarBackgroundForSettings(tint, contrast)}
         onChange={(value) => setSetting('sidebarBackgroundTint', value)}
       />
       <Caption>Uses the same tint colors as the desktop sidebar.</Caption>
+    </>
+  );
+}
+
+export default function ThemePage() {
+  return (
+    <SettingsScreenLayout>
+      <SettingsSection name="settings:theme:contrast">
+        <ContrastSection />
+      </SettingsSection>
+      <SettingsSection name="settings:theme:tint">
+        <TintSection />
+      </SettingsSection>
     </SettingsScreenLayout>
   );
 }

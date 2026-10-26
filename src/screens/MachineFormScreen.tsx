@@ -58,6 +58,7 @@ import { SetupPalette } from '../theme/palette';
 import AdvancedSection from './machine-form/AdvancedSection';
 import AppUpdateSection from './machine-form/AppUpdateSection';
 import MachineToolsSection from './machine-form/MachineToolsSection';
+import { FormSection } from './machine-form/SectionBoundary';
 import EasyConnectSummary from './machine-form/EasyConnectSummary';
 import PrecheckList from './machine-form/PrecheckList';
 import { formStyles } from './machine-form/styles';
@@ -365,36 +366,40 @@ export default function MachineFormScreen({ navigation, route }: Props) {
     Date.now() - new Date(existing.lastConnectedAt).getTime() < CONNECTED_NOW_WINDOW_MS;
 
   const advanced = (
-    <AdvancedSection
-      transport={transport}
-      editing={editing}
-      sshPort={sshPort}
-      onSshPortChange={editField(setSshPort)}
-      sshPortError={errors?.port}
-      publicKey={publicKey}
-      keyPassphrase={keyPassphrase}
-      onKeyPassphraseChange={editField(setKeyPassphrase)}
-      onGenerateKey={() => void generateKey()}
-      generatingKey={generatingKey}
-      tailscaleSsh={tailscaleSsh}
-      onTailscaleSshChange={editField(setTailscaleSsh)}
-      onResetHostKey={resetHostKey}
-      pairingAddress={easyConnect ? trimmedToken : null}
-      gxserverPort={gxserverPort}
-      onGxserverPortChange={setGxserverPort}
-      webPreviewPorts={webPreviewPort === undefined ? null : String(webPreviewPort)}
-    />
+    <FormSection name="machine-form:advanced">
+      <AdvancedSection
+        transport={transport}
+        editing={editing}
+        sshPort={sshPort}
+        onSshPortChange={editField(setSshPort)}
+        sshPortError={errors?.port}
+        publicKey={publicKey}
+        keyPassphrase={keyPassphrase}
+        onKeyPassphraseChange={editField(setKeyPassphrase)}
+        onGenerateKey={() => void generateKey()}
+        generatingKey={generatingKey}
+        tailscaleSsh={tailscaleSsh}
+        onTailscaleSshChange={editField(setTailscaleSsh)}
+        onResetHostKey={resetHostKey}
+        pairingAddress={easyConnect ? trimmedToken : null}
+        gxserverPort={gxserverPort}
+        onGxserverPortChange={setGxserverPort}
+        webPreviewPorts={webPreviewPort === undefined ? null : String(webPreviewPort)}
+      />
+    </FormSection>
   );
 
   const test = (
-    <TestConnectionButton
-      disabled={!canSave || saving}
-      buildPlan={buildPlan}
-      computerName={computerName}
-      username={username.trim()}
-      state={testState}
-      onStateChange={setTestState}
-    />
+    <FormSection name="machine-form:test-connection">
+      <TestConnectionButton
+        disabled={!canSave || saving}
+        buildPlan={buildPlan}
+        computerName={computerName}
+        username={username.trim()}
+        state={testState}
+        onStateChange={setTestState}
+      />
+    </FormSection>
   );
 
   const showInSessionsRow =
@@ -414,20 +419,22 @@ export default function MachineFormScreen({ navigation, route }: Props) {
     );
 
   const tailscaleFields = (
-    <TailscaleFields
-      address={address}
-      onAddressChange={editField(setAddress)}
-      addressError={errors?.host ?? errors?.duplicate}
-      username={username}
-      onUsernameChange={editField(setUsername)}
-      usernameError={errors?.username}
-      password={password}
-      onPasswordChange={editField(setPassword)}
-      passwordError={errors?.password}
-      editing={editing}
-      passwordDisabled={tailscaleSsh}
-      focusPassword={route.params?.focus === 'password'}
-    />
+    <FormSection name="machine-form:tailscale-fields">
+      <TailscaleFields
+        address={address}
+        onAddressChange={editField(setAddress)}
+        addressError={errors?.host ?? errors?.duplicate}
+        username={username}
+        onUsernameChange={editField(setUsername)}
+        usernameError={errors?.username}
+        password={password}
+        onPasswordChange={editField(setPassword)}
+        passwordError={errors?.password}
+        editing={editing}
+        passwordDisabled={tailscaleSsh}
+        focusPassword={route.params?.focus === 'password'}
+      />
+    </FormSection>
   );
 
   const errorBanner =
@@ -473,11 +480,13 @@ export default function MachineFormScreen({ navigation, route }: Props) {
               </Text>
               {easyConnect ? (
                 <View style={formStyles.rowsCard}>
-                  <EasyConnectSummary
-                    machine={existing}
-                    connectedNow={connectedNow}
-                    onRePair={() => navigation.navigate('ScanCode', { rePairMachineId: existing.id })}
-                  />
+                  <FormSection name="machine-form:easy-connect-summary">
+                    <EasyConnectSummary
+                      machine={existing}
+                      connectedNow={connectedNow}
+                      onRePair={() => navigation.navigate('ScanCode', { rePairMachineId: existing.id })}
+                    />
+                  </FormSection>
                   {showInSessionsRow}
                 </View>
               ) : (
@@ -486,8 +495,12 @@ export default function MachineFormScreen({ navigation, route }: Props) {
                   <View style={formStyles.rowsCard}>{showInSessionsRow}</View>
                 </>
               )}
-              <AppUpdateSection machine={existing} />
-              <MachineToolsSection machine={existing} reachable={reachable} />
+              <FormSection name="machine-form:app-update">
+                <AppUpdateSection machine={existing} />
+              </FormSection>
+              <FormSection name="machine-form:tools">
+                <MachineToolsSection machine={existing} reachable={reachable} />
+              </FormSection>
               {advanced}
               {test}
               {errorBanner}
