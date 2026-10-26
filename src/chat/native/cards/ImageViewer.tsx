@@ -14,10 +14,24 @@
  */
 
 import * as Clipboard from 'expo-clipboard';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Image, Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withDecay, withTiming } from 'react-native-reanimated';
+import {
+  GestureDetector,
+  GestureHandlerRootView,
+  usePanGesture,
+  usePinchGesture,
+  useSimultaneousGestures,
+  useTapGesture,
+} from 'react-native-gesture-handler';
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withDecay,
+  withTiming,
+  type SharedValue,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { RustChat } from '../../rust/useRustChat';
@@ -60,16 +74,10 @@ export function ImageViewerModal({
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const [completed, setCompleted] = useState<string | null>(null);
-  /** The zoom: scale and offset of the picture's centre from the stage's centre, in stage points. */
+  /** The zoom (`Zoom`), kept here so a new picture starts unzoomed. */
   const scale = useSharedValue(1);
   const offsetX = useSharedValue(0);
   const offsetY = useSharedValue(0);
-  const stageWidth = useSharedValue(0);
-  const stageHeight = useSharedValue(0);
-  const start = useSharedValue({ scale: 1, x: 0, y: 0, focalX: 0, focalY: 0 });
-  const zoomStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: offsetX.value }, { translateY: offsetY.value }, { scale: scale.value }],
-  }));
   const image = viewer === null ? null : (viewer.images[viewer.index] ?? null);
   const source = useChatImage(chat, image);
   const [natural, setNatural] = useState<{ width: number; height: number } | null>(null);
@@ -115,102 +123,6 @@ export function ImageViewerModal({
   const copyPath = failure === null && typeof image.copyPath === 'string' ? image.copyPath : '';
   const base64 = uri !== null && uri.startsWith('data:') ? uri.slice(uri.indexOf(',') + 1) : null;
 
-  /**
-   * CDXC:SessionChat 2026-10-21 WHY:
-   * The zoom used to be a `ScrollView` with `maximumZoomScale` and `scrollResponderZoomTo`, which only
-   * iOS implements: on Android pinch did nothing and a double tap threw "zoomToRect is not
-   * implemented" and crashed the app. Pinch, pan and double tap are now gesture-handler gestures on a
-   * surface covering the stage, driving a reanimated transform, the same on both platforms. The
-   * surface also takes the tap outside the picture that closes the viewer, because it sits over the
-   * backdrop.
-   */
-  const maxOffset = (s: number) => {
-    'worklet';
-    return {
-      x: Math.max(0, (fitted.width * s - stageWidth.value) / 2),
-      y: Math.max(0, (fitted.height * s - stageHeight.value) / 2),
-    };
-  };
-  const clamp = (value: number, limit: number) => {
-    'worklet';
-    return Math.min(limit, Math.max(-limit, value));
-  };
-  const insidePicture = (x: number, y: number) => {
-    'worklet';
-    const dx = x - stageWidth.value / 2 - offsetX.value;
-    const dy = y - stageHeight.value / 2 - offsetY.value;
-    return Math.abs(dx) <= (fitted.width * scale.value) / 2 && Math.abs(dy) <= (fitted.height * scale.value) / 2;
-  };
-  const pinch = Gesture.Pinch()
-    .onStart((event) => {
-      start.value = {
-        scale: scale.value,
-        x: offsetX.value,
-        y: offsetY.value,
-        focalX: event.focalX,
-        focalY: event.focalY,
-      };
-    })
-    .onUpdate((event) => {
-      const from = start.value;
-      const next = Math.min(MAX_ZOOM, Math.max(1, from.scale * event.scale));
-      // Keep the point of the picture that was under the fingers under them as they move.
-      const pointX = (from.focalX - stageWidth.value / 2 - from.x) / from.scale;
-      const pointY = (from.focalY - stageHeight.value / 2 - from.y) / from.scale;
-      const limit = maxOffset(next);
-      scale.value = next;
-      offsetX.value = clamp(event.focalX - stageWidth.value / 2 - next * pointX, limit.x);
-      offsetY.value = clamp(event.focalY - stageHeight.value / 2 - next * pointY, limit.y);
-    });
-  const pan = Gesture.Pan()
-    .maxPointers(1)
-    .onStart(() => {
-      start.value = { ...start.value, x: offsetX.value, y: offsetY.value };
-    })
-    .onUpdate((event) => {
-      const limit = maxOffset(scale.value);
-      offsetX.value = clamp(start.value.x + event.translationX, limit.x);
-      offsetY.value = clamp(start.value.y + event.translationY, limit.y);
-    })
-    .onEnd((event) => {
-      // A sideways swipe over a picture that is not zoomed steps to the next or previous one.
-      if (
-        several &&
-        scale.value <= 1.01 &&
-        Math.abs(event.translationX) > SWIPE_STEP &&
-        Math.abs(event.translationX) > Math.abs(event.translationY)
-      ) {
-        runOnJS(step)(event.translationX < 0 ? 1 : -1);
-        return;
-      }
-      const limit = maxOffset(scale.value);
-      if (limit.x > 0) offsetX.value = withDecay({ velocity: event.velocityX, clamp: [-limit.x, limit.x] });
-      if (limit.y > 0) offsetY.value = withDecay({ velocity: event.velocityY, clamp: [-limit.y, limit.y] });
-    });
-  const doubleTap = Gesture.Tap()
-    .numberOfTaps(2)
-    .onEnd((event, success) => {
-      if (!success) return;
-      if (scale.value > 1.01) {
-        scale.value = withTiming(1);
-        offsetX.value = withTiming(0);
-        offsetY.value = withTiming(0);
-        return;
-      }
-      if (!insidePicture(event.x, event.y)) return;
-      // Zoom in around the tapped point.
-      const limit = maxOffset(DOUBLE_TAP_ZOOM);
-      const pointX = event.x - stageWidth.value / 2 - offsetX.value;
-      const pointY = event.y - stageHeight.value / 2 - offsetY.value;
-      scale.value = withTiming(DOUBLE_TAP_ZOOM);
-      offsetX.value = withTiming(clamp(offsetX.value - (DOUBLE_TAP_ZOOM - 1) * pointX, limit.x));
-      offsetY.value = withTiming(clamp(offsetY.value - (DOUBLE_TAP_ZOOM - 1) * pointY, limit.y));
-    });
-  const tapOutside = Gesture.Tap().onEnd((event, success) => {
-    if (success && !insidePicture(event.x, event.y)) runOnJS(close)();
-  });
-  const gestures = Gesture.Simultaneous(pinch, pan, doubleTap, tapOutside);
-
   return (
     <Modal visible transparent animationType="fade" onRequestClose={close} statusBarTranslucent>
       {/* A Modal is its own native root on Android, so its gestures need their own root view. */}
@@ -255,32 +167,26 @@ export function ImageViewerModal({
               <ActivityIndicator color={P.muted} />
             )
           ) : (
-            <GestureDetector gesture={gestures}>
-              <View
-                collapsable={false}
-                accessible
-                accessibilityLabel={image.alt || image.label || 'Image'}
-                style={[StyleSheet.absoluteFill, styles.zoomSurface]}
-                onLayout={(event) => {
-                  stageWidth.value = event.nativeEvent.layout.width;
-                  stageHeight.value = event.nativeEvent.layout.height;
+            <ZoomSurface
+              zoom={{ scale, offsetX, offsetY }}
+              fitted={fitted}
+              several={several}
+              label={image.alt || image.label || 'Image'}
+              onStep={step}
+              onClose={close}
+            >
+              <Image
+                source={{ uri }}
+                style={{ width: fitted.width, height: fitted.height }}
+                resizeMode="contain"
+                onLoad={(event) => {
+                  const { width: w, height: h } = event.nativeEvent.source;
+                  if (w > 0 && h > 0 && (natural?.width !== w || natural?.height !== h))
+                    setNatural({ width: w, height: h });
                 }}
-              >
-                <Animated.View pointerEvents="none" style={zoomStyle}>
-                  <Image
-                    source={{ uri }}
-                    style={{ width: fitted.width, height: fitted.height }}
-                    resizeMode="contain"
-                    onLoad={(event) => {
-                      const { width: w, height: h } = event.nativeEvent.source;
-                      if (w > 0 && h > 0 && (natural?.width !== w || natural?.height !== h))
-                        setNatural({ width: w, height: h });
-                    }}
-                    onError={() => setBroken(true)}
-                  />
-                </Animated.View>
-              </View>
-            </GestureDetector>
+                onError={() => setBroken(true)}
+              />
+            </ZoomSurface>
           )}
         </View>
         {hasPrevious ? <EdgeButton side="left" onPress={() => step(-1)} /> : null}
@@ -292,6 +198,159 @@ export function ImageViewerModal({
         ) : null}
       </GestureHandlerRootView>
     </Modal>
+  );
+}
+
+/** The picture's zoom: scale and offset of its centre from the stage's centre, in stage points. */
+type Zoom = { scale: SharedValue<number>; offsetX: SharedValue<number>; offsetY: SharedValue<number> };
+
+/**
+ * The surface over the whole stage that pinches, pans and double taps the picture it holds, steps on a
+ * sideways swipe and closes on a tap outside the picture. Its own component so the gesture hooks run
+ * only while a picture is on screen.
+ *
+ * CDXC:SessionChat 2026-10-21 WHY:
+ * The zoom used to be a `ScrollView` with `maximumZoomScale` and `scrollResponderZoomTo`, which only
+ * iOS implements: on Android pinch did nothing and a double tap threw "zoomToRect is not
+ * implemented" and crashed the app. Pinch, pan and double tap are now gesture-handler gestures on a
+ * surface covering the stage, driving a reanimated transform, the same on both platforms. The
+ * surface also takes the tap outside the picture that closes the viewer, because it sits over the
+ * backdrop.
+ */
+function ZoomSurface({
+  zoom,
+  fitted,
+  several,
+  label,
+  onStep,
+  onClose,
+  children,
+}: {
+  zoom: Zoom;
+  fitted: { width: number; height: number };
+  several: boolean;
+  label: string;
+  onStep: (delta: number) => void;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const styles = useStyles();
+  const { scale, offsetX, offsetY } = zoom;
+  const stageWidth = useSharedValue(0);
+  const stageHeight = useSharedValue(0);
+  const start = useSharedValue({ scale: 1, x: 0, y: 0, focalX: 0, focalY: 0 });
+  const zoomStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: offsetX.value }, { translateY: offsetY.value }, { scale: scale.value }],
+  }));
+  const maxOffset = (s: number) => {
+    'worklet';
+    return {
+      x: Math.max(0, (fitted.width * s - stageWidth.value) / 2),
+      y: Math.max(0, (fitted.height * s - stageHeight.value) / 2),
+    };
+  };
+  const clamp = (value: number, limit: number) => {
+    'worklet';
+    return Math.min(limit, Math.max(-limit, value));
+  };
+  const insidePicture = (x: number, y: number) => {
+    'worklet';
+    const dx = x - stageWidth.value / 2 - offsetX.value;
+    const dy = y - stageHeight.value / 2 - offsetY.value;
+    return Math.abs(dx) <= (fitted.width * scale.value) / 2 && Math.abs(dy) <= (fitted.height * scale.value) / 2;
+  };
+  const pinch = usePinchGesture({
+    onActivate: (event) => {
+      start.value = {
+        scale: scale.value,
+        x: offsetX.value,
+        y: offsetY.value,
+        focalX: event.focalX,
+        focalY: event.focalY,
+      };
+    },
+    onUpdate: (event) => {
+      const from = start.value;
+      const next = Math.min(MAX_ZOOM, Math.max(1, from.scale * event.scale));
+      // Keep the point of the picture that was under the fingers under them as they move.
+      const pointX = (from.focalX - stageWidth.value / 2 - from.x) / from.scale;
+      const pointY = (from.focalY - stageHeight.value / 2 - from.y) / from.scale;
+      const limit = maxOffset(next);
+      scale.value = next;
+      offsetX.value = clamp(event.focalX - stageWidth.value / 2 - next * pointX, limit.x);
+      offsetY.value = clamp(event.focalY - stageHeight.value / 2 - next * pointY, limit.y);
+    },
+  });
+  const pan = usePanGesture({
+    maxPointers: 1,
+    onActivate: () => {
+      start.value = { ...start.value, x: offsetX.value, y: offsetY.value };
+    },
+    onUpdate: (event) => {
+      const limit = maxOffset(scale.value);
+      offsetX.value = clamp(start.value.x + event.translationX, limit.x);
+      offsetY.value = clamp(start.value.y + event.translationY, limit.y);
+    },
+    onDeactivate: (event) => {
+      // A sideways swipe over a picture that is not zoomed steps to the next or previous one.
+      if (
+        several &&
+        scale.value <= 1.01 &&
+        Math.abs(event.translationX) > SWIPE_STEP &&
+        Math.abs(event.translationX) > Math.abs(event.translationY)
+      ) {
+        runOnJS(onStep)(event.translationX < 0 ? 1 : -1);
+        return;
+      }
+      const limit = maxOffset(scale.value);
+      if (limit.x > 0) offsetX.value = withDecay({ velocity: event.velocityX, clamp: [-limit.x, limit.x] });
+      if (limit.y > 0) offsetY.value = withDecay({ velocity: event.velocityY, clamp: [-limit.y, limit.y] });
+    },
+  });
+  const doubleTap = useTapGesture({
+    numberOfTaps: 2,
+    onDeactivate: (event) => {
+      if (event.canceled) return;
+      if (scale.value > 1.01) {
+        scale.value = withTiming(1);
+        offsetX.value = withTiming(0);
+        offsetY.value = withTiming(0);
+        return;
+      }
+      if (!insidePicture(event.x, event.y)) return;
+      // Zoom in around the tapped point.
+      const limit = maxOffset(DOUBLE_TAP_ZOOM);
+      const pointX = event.x - stageWidth.value / 2 - offsetX.value;
+      const pointY = event.y - stageHeight.value / 2 - offsetY.value;
+      scale.value = withTiming(DOUBLE_TAP_ZOOM);
+      offsetX.value = withTiming(clamp(offsetX.value - (DOUBLE_TAP_ZOOM - 1) * pointX, limit.x));
+      offsetY.value = withTiming(clamp(offsetY.value - (DOUBLE_TAP_ZOOM - 1) * pointY, limit.y));
+    },
+  });
+  const tapOutside = useTapGesture({
+    onDeactivate: (event) => {
+      if (!event.canceled && !insidePicture(event.x, event.y)) runOnJS(onClose)();
+    },
+  });
+  const gestures = useSimultaneousGestures(pinch, pan, doubleTap, tapOutside);
+
+  return (
+    <GestureDetector gesture={gestures}>
+      <View
+        collapsable={false}
+        accessible
+        accessibilityLabel={label}
+        style={[StyleSheet.absoluteFill, styles.zoomSurface]}
+        onLayout={(event) => {
+          stageWidth.value = event.nativeEvent.layout.width;
+          stageHeight.value = event.nativeEvent.layout.height;
+        }}
+      >
+        <Animated.View pointerEvents="none" style={zoomStyle}>
+          {children}
+        </Animated.View>
+      </View>
+    </GestureDetector>
   );
 }
 

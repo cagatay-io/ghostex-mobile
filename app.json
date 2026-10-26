@@ -10,7 +10,6 @@
     "scheme": ["ghostex", "ghostex-ec1", "ghostex-ts1"],
     "plugins": [
       "./plugins/withPodfileMinDeploymentTarget.js",
-      "./plugins/withSceneLifecycle.js",
       "./plugins/withAndroidReleaseSigning.js",
       "./plugins/withAndroidReleaseSize.js",
       "./plugins/withLoopbackCleartext.js",

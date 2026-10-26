@@ -178,8 +178,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    overflow: 'hidden',
   },
-  /** Keeps the name readable when the row is swiped open: the badge yields first. */
+  /**
+   * Keeps the name readable when the row is swiped open: the name shrinks to its minimum and the badge
+   * past it is clipped by the row.
+   *
+   * CDXC:Mobile 2026-10-26 WHY: the badge must not shrink too. With both the name and the badge
+   * shrinkable, Yoga gave them widths in the millions once the swiped-open row was narrower than
+   * their minimums, so the name was laid out at full length and painted across the Edit button.
+   */
   title: {
     flexShrink: 1,
     minWidth: 72,
@@ -219,8 +227,7 @@ const styles = StyleSheet.create({
     backgroundColor: SetupPalette.MUTED_BG,
     borderWidth: GhostexStrokeWidth,
     borderColor: SetupPalette.BORDER,
-    flexShrink: 1,
-    minWidth: 0,
+    flexShrink: 0,
   },
   badgeDot: {
     width: 6,

@@ -10,7 +10,7 @@
 
 import { forwardRef, useImperativeHandle, useState, type ReactNode } from 'react';
 import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 export const SWIPE_REVEAL_WIDTH = 176;
@@ -47,17 +47,17 @@ const SwipeRevealRow = forwardRef<SwipeRevealRowMethods, Props>(function SwipeRe
 
   useImperativeHandle(ref, () => ({ close: () => settle(false) }), [settle]);
 
-  const pan = Gesture.Pan()
+  const pan = usePanGesture({
     // A mostly-horizontal drag; vertical movement stays with the ScrollView.
-    .activeOffsetX([-12, 12])
-    .failOffsetY([-10, 10])
-    .onStart(() => {
+    activeOffsetX: [-12, 12],
+    failOffsetY: [-10, 10],
+    onActivate: () => {
       startReveal.value = reveal.value;
-    })
-    .onUpdate((event) => {
+    },
+    onUpdate: (event) => {
       reveal.value = Math.min(SWIPE_REVEAL_WIDTH, Math.max(0, startReveal.value - event.translationX));
-    })
-    .onEnd((event) => {
+    },
+    onDeactivate: (event) => {
       const nextOpen =
         event.velocityX < -FLICK_VELOCITY
           ? true
@@ -65,7 +65,8 @@ const SwipeRevealRow = forwardRef<SwipeRevealRowMethods, Props>(function SwipeRe
             ? false
             : reveal.value > SWIPE_REVEAL_WIDTH / 2;
       settle(nextOpen);
-    });
+    },
+  });
 
   /* The card shrinks from the right; the panel underneath is exposed as it goes. */
   const cardStyle = useAnimatedStyle(() => ({ marginRight: reveal.value }));
