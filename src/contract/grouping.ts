@@ -10,7 +10,6 @@ import {
   coordinatorBadges,
   coordinatorRowKey,
   nestCoordinatorThreads,
-  passingLinesBelow,
   type CoordinatorBadge,
   type RowNesting,
 } from './coordinatorTree';
@@ -591,7 +590,7 @@ function withOlderThreadRows(items: DrawerItem[]): DrawerItem[] {
       projectKey: item.projectKey,
       coordinatorKey: coordinatorRowKey(item.session),
       depth: nesting.depth,
-      passingLines: passingLinesBelow(nesting.passingLines, nesting.depth, nesting.lastChild),
+      passingLines: nesting.passingLinesBelow,
       label: nesting.olderShown ? SessionCopy.hideOlderThreads : SessionCopy.olderThreads(nesting.olderThreads),
       collectionColor: item.collectionColor,
       groupId: item.groupId,

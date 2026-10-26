@@ -35,7 +35,11 @@ export function passingLinesBelow(passingLines: number, depth: number, last: boo
 export type RowNesting = {
   /** How deep under a coordinator the row is drawn; 0 for a top-level row. */
   depth: number;
-  /** The last thread directly under its coordinator, where the tree line ends. */
+  /**
+   * The last thread directly under its coordinator, where the tree line ends. Not set on a last
+   * thread at the depth limit whose own threads are drawn flat under it: its line runs on to them
+   * (gx-core `RowNesting::last_child`).
+   */
   lastChild: boolean;
   /**
    * The tree lines that run on past this row: bit `k` is set when the row's ancestor drawn at depth
@@ -44,6 +48,8 @@ export type RowNesting = {
    * depth (gx-core `RowNesting::passing_lines`).
    */
   passingLines: number;
+  /** The `passingLines` this row hands to its threads and to its "N older threads" row (gx-core `RowNesting::passing_lines_below`). */
+  passingLinesBelow: number;
   /** On a coordinator row: the open threads drawn under it (the fold chevron shows when > 0). */
   threadCount: number;
   /** On a coordinator row with threads under it: the user folded them away. */
@@ -263,8 +269,11 @@ export function nestCoordinatorThreads<S>(
     if (depth > 0 || list.length > 0) {
       result.nesting.set(keys[index], {
         depth,
-        lastChild: depth > 0 && last,
+        // Past the depth limit the row's threads are drawn at its own level, so the line it would end runs on to
+        // them; the line the threads take is still the one handed down in `below`.
+        lastChild: depth > 0 && last && !(depth === MAX_THREAD_DEPTH && !isCollapsed[index] && drawn > 0),
         passingLines,
+        passingLinesBelow: below,
         threadCount: list.length,
         collapsed: isCollapsed[index],
         folded,
