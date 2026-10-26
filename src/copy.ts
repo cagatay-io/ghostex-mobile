@@ -726,6 +726,20 @@ export const EditMachineCopy = {
     autoUpdateDetail:
       'Installs Ghostex updates on that computer by itself while none of its agents is working. Sessions keep running through the restart.',
   },
+  /** Agent CLIs and Skills and tools of the computer; row wording lives in src/machines/machineToolsView.ts. */
+  machineTools: {
+    agentsLabel: 'Agent CLIs',
+    toolsLabel: 'Skills and tools',
+    reading: 'Reading what is installed there…',
+    notConnected: 'Connect to this computer to see and update its agent CLIs, skills and tools.',
+    retry: 'Read again',
+    skills: 'Skills',
+    desktopControl: 'Desktop control',
+    tools: 'Tools',
+    ghostexCli: 'Ghostex CLI',
+    cliFound: (path: string) => `New terminals there run ${path}`,
+    cliMissing: "New terminals there don't find a ghostex command",
+  },
   errorPrefix: (name: string) => `Can't reach ${name}. `,
   whatCanICheck: 'What can I check?',
   remove: {
