@@ -31,7 +31,7 @@ import { Glyph } from './icons';
 import { ToneButton, ToneCard } from './ToneCard';
 import { PanelBlocks } from './PanelBlocks';
 import { PermissionDetails } from './PermissionDetails';
-import { SideQuestionCard } from './SideQuestionCard';
+import { SideAnswer, SideQuestionCard } from './SideQuestionCard';
 import { PassthroughCard, TerminalPickerCard } from './TerminalPickerCard';
 import type { CardHostAction } from './types';
 
@@ -83,11 +83,26 @@ export function NoticeCard({
     const copyTitle = str(obj(obj(dialog.presentation)?.copy), 'title');
     const panelTitle = str(obj(dialog.presentation), 'title');
     const parts = terminalDialogParts(chat, dialog, busy, dialogInput, look);
+    // "Ready to code?" with "Tell Claude what to change" highlighted: the plan the feedback is about stays readable
+    // above the field (notice.rs).
+    const feedbackPlan = obj(notice.plan);
     return (
       <ToneCard
         tone={str(notice, 'tone')}
         title={copyTitle || panelTitle || str(dialog, 'title')}
-        body={parts.body}
+        body={
+          feedbackPlan === null
+            ? parts.body
+            : [
+                <SideAnswer
+                  key={`plan:${key}`}
+                  dispatch={dispatch}
+                  markdown={str(feedbackPlan, 'markdown')}
+                  references={asJson(feedbackPlan.references)}
+                />,
+                ...parts.body,
+              ]
+        }
         footerEnd={parts.actions}
       />
     );
@@ -111,6 +126,19 @@ export function NoticeCard({
         approval={approval}
         collapsed={collapsed}
         onExpand={() => setExpandedKey(key)}
+      />,
+    );
+  }
+  // The plan "Ready to code?" asks to approve, whole: Claude's pane shows only a screenful of it (`plan` in the chat core's
+  // questions/document.rs; desktop notice.rs).
+  const plan = obj(notice.plan);
+  if (!collapsed && plan !== null) {
+    body.push(
+      <SideAnswer
+        key={`plan:${key}`}
+        dispatch={dispatch}
+        markdown={str(plan, 'markdown')}
+        references={asJson(plan.references)}
       />,
     );
   }
