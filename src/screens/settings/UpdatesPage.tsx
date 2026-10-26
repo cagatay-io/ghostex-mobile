@@ -21,6 +21,7 @@ import {
   type UpdateCheckState,
   type UpdateDownloadState,
 } from '../../updates/androidSelfUpdateStore';
+import { otaStatusLine } from '../../updates/otaStatus';
 import {
   checkForAppUpdate,
   OTA_ENABLED,
@@ -35,12 +36,6 @@ const UpdatesCopy = {
   appBuildLabel: 'App build',
   installedLabel: 'Installed',
   latestLabel: 'Latest release',
-  otaAutomatic: 'Updates download on their own and apply the next time Ghostex starts.',
-  otaChecking: 'Checking for an update…',
-  otaDownloading: (percent: number | null) =>
-    percent === null ? 'Downloading an update…' : `Downloading an update… ${percent}%`,
-  otaReady: (version: string | null) => (version === null ? 'An update is ready.' : `Ghostex ${version} is ready.`),
-  otaError: (message: string) => `The last update check failed: ${message}`,
   restartButton: 'Restart to update',
   notChecked: 'Ghostex has not checked GitHub for a newer release yet.',
   checking: 'Checking GitHub…',
@@ -105,22 +100,7 @@ function StatusText({ line }: { line: StatusLine }) {
 function OverTheAirSection() {
   const { isChecking, isDownloading, downloadProgress, checkError, downloadError } = useUpdates();
   const ready = useReadyUpdate();
-  const error = downloadError ?? checkError;
-  const line: StatusLine =
-    ready !== null
-      ? { text: UpdatesCopy.otaReady(ready.version), tone: 'accent' }
-      : isDownloading
-        ? {
-            text: UpdatesCopy.otaDownloading(
-              downloadProgress === undefined ? null : Math.round(downloadProgress * 100),
-            ),
-            tone: 'muted',
-          }
-        : isChecking
-          ? { text: UpdatesCopy.otaChecking, tone: 'muted' }
-          : error !== undefined
-            ? { text: UpdatesCopy.otaError(error.message), tone: 'error' }
-            : { text: UpdatesCopy.otaAutomatic, tone: 'muted' };
+  const line = otaStatusLine({ ready, isChecking, isDownloading, downloadProgress, checkError, downloadError });
   return (
     <View style={styles.actions}>
       <StatusText line={line} />
