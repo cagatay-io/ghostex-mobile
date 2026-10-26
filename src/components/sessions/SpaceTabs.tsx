@@ -66,7 +66,8 @@ export default function SpaceTabs({
           (counts.workingCount > 0 ||
             counts.attentionCount > 0 ||
             counts.backgroundWorkCount > 0 ||
-            counts.questionCount > 0);
+            counts.questionCount > 0 ||
+            counts.approvalCount > 0);
         return (
           <Pressable
             accessibilityRole="tab"
@@ -88,6 +89,7 @@ export default function SpaceTabs({
                 attentionCount={counts.attentionCount}
                 backgroundWorkCount={counts.backgroundWorkCount}
                 questionCount={counts.questionCount}
+                approvalCount={counts.approvalCount}
                 ringColor={GhostexPalette.CARD_ACTIVE}
               />
             ) : null}

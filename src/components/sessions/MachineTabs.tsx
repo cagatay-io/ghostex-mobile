@@ -47,6 +47,8 @@ export type MachineTabItem = {
   attentionCount: number;
   backgroundWorkCount: number;
   questionCount: number;
+  /** Sessions waiting for approval: the red dot. */
+  approvalCount: number;
 };
 
 /** The trailing "+" tab; the strip's `items` always end with it. */
@@ -130,7 +132,13 @@ function ConnectionGlyph({ item }: { item: MachineTabItem }) {
  * User: "when we show those colored circles on remote machines let's make those circles appear below the remote machine tab instead of showing in a way that pushes the icon and name of the remote/local machine", and "Yes, same as the desktop" for the phone. The dots are drawn absolutely at the bottom of the tab, centred, so the glyph and label stay centred where they sit without dots and the tab keeps its height. Supersedes the dots sitting inline after the name.
  */
 function StatusDots({ item }: { item: MachineTabItem }) {
-  if (item.workingCount <= 0 && item.attentionCount <= 0 && item.backgroundWorkCount <= 0 && item.questionCount <= 0) {
+  if (
+    item.workingCount <= 0 &&
+    item.attentionCount <= 0 &&
+    item.backgroundWorkCount <= 0 &&
+    item.questionCount <= 0 &&
+    item.approvalCount <= 0
+  ) {
     return null;
   }
   return (
@@ -141,6 +149,7 @@ function StatusDots({ item }: { item: MachineTabItem }) {
         item.workingCount > 0 ? `${item.workingCount} working` : '',
         item.attentionCount > 0 ? `${item.attentionCount} need attention` : '',
         item.questionCount > 0 ? `${item.questionCount} waiting on an answer` : '',
+        item.approvalCount > 0 ? `${item.approvalCount} waiting for approval` : '',
         item.workingCount === 0 && item.backgroundWorkCount > 0
           ? `${item.backgroundWorkCount} running in the background`
           : '',
@@ -153,6 +162,7 @@ function StatusDots({ item }: { item: MachineTabItem }) {
         attentionCount={item.attentionCount}
         backgroundWorkCount={item.backgroundWorkCount}
         questionCount={item.questionCount}
+        approvalCount={item.approvalCount}
         ringColor={SetupPalette.PANEL}
       />
     </View>

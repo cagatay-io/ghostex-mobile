@@ -56,6 +56,8 @@ export type MachineHeaderItem = {
   workingCount: number;
   attentionCount: number;
   questionCount: number;
+  /** Sessions waiting for approval (the red dot); never also in the attention or question counts. */
+  approvalCount: number;
   backgroundWorkCount: number;
   awakeCount: number;
 };
@@ -74,6 +76,8 @@ export type SectionLabelItem = {
   workingCount: number;
   attentionCount: number;
   questionCount: number;
+  /** Sessions waiting for approval (the red dot); never also in the attention or question counts. */
+  approvalCount: number;
   backgroundWorkCount: number;
   awakeCount: number;
 };
@@ -92,6 +96,8 @@ export type CollectionHeaderItem = {
   workingCount: number;
   attentionCount: number;
   questionCount: number;
+  /** Sessions waiting for approval (the red dot); never also in the attention or question counts. */
+  approvalCount: number;
   backgroundWorkCount: number;
   awakeCount: number;
 };
@@ -111,6 +117,8 @@ export type ProjectHeaderItem = {
   workingCount: number;
   attentionCount: number;
   questionCount: number;
+  /** Sessions waiting for approval (the red dot); never also in the attention or question counts. */
+  approvalCount: number;
   backgroundWorkCount: number;
   sleepingCount: number;
   /** Awake (running terminal/browser) count for the collapsed count pills. */
@@ -154,7 +162,7 @@ export type GroupHeaderItem = {
   /** The group's header counts; a user-made group draws a project header's counts on the desktop. */
   status: Pick<
     SessionCounts,
-    'workingCount' | 'attentionCount' | 'backgroundWorkCount' | 'questionCount' | 'awakeCount'
+    'workingCount' | 'attentionCount' | 'backgroundWorkCount' | 'questionCount' | 'approvalCount' | 'awakeCount'
   >;
   collectionColor?: string;
 };
@@ -290,7 +298,7 @@ export function machineHeaderItem(
   collapsed: boolean,
   counts: Pick<
     SessionCounts,
-    'workingCount' | 'attentionCount' | 'backgroundWorkCount' | 'questionCount' | 'awakeCount'
+    'workingCount' | 'attentionCount' | 'backgroundWorkCount' | 'questionCount' | 'approvalCount' | 'awakeCount'
   >,
 ): MachineHeaderItem {
   return {
@@ -302,6 +310,7 @@ export function machineHeaderItem(
     workingCount: counts.workingCount,
     attentionCount: counts.attentionCount - counts.questionCount,
     questionCount: counts.questionCount,
+    approvalCount: counts.approvalCount,
     backgroundWorkCount: counts.backgroundWorkCount,
     awakeCount: counts.awakeCount,
   };
@@ -430,8 +439,10 @@ export type SessionCounts = {
   attentionCount: number;
   /** Rows drawing the grey dot: idle with a background shell or monitor still running. */
   backgroundWorkCount: number;
-  /** Rows with an unanswered question card (`pendingQuestionCount > 0`); every one is also in `attentionCount`. */
+  /** Rows with an unanswered question card (`pendingQuestionCount > 0`); every one is also in `attentionCount`, unless it waits for approval (then it is in `approvalCount` alone). */
   questionCount: number;
+  /** Sessions waiting for approval (the red dot); never also in the attention or question counts. */
+  approvalCount: number;
   sleepingCount: number;
   awakeCount: number;
 };
@@ -441,13 +452,20 @@ export type SessionCounts = {
  * session with a pending question counts pink instead of blue, so the attention count leaves it out.
  */
 export function tabStatusCounts(
-  counts: Pick<SessionCounts, 'workingCount' | 'attentionCount' | 'backgroundWorkCount' | 'questionCount'>,
-): { workingCount: number; attentionCount: number; backgroundWorkCount: number; questionCount: number } {
+  counts: Pick<SessionCounts, 'workingCount' | 'attentionCount' | 'backgroundWorkCount' | 'questionCount' | 'approvalCount'>,
+): {
+  workingCount: number;
+  attentionCount: number;
+  backgroundWorkCount: number;
+  questionCount: number;
+  approvalCount: number;
+} {
   return {
     workingCount: counts.workingCount,
     attentionCount: counts.attentionCount - counts.questionCount,
     backgroundWorkCount: counts.backgroundWorkCount,
     questionCount: counts.questionCount,
+    approvalCount: counts.approvalCount,
   };
 }
 
@@ -457,7 +475,10 @@ export function tabStatusCounts(
  */
 export function showsBackgroundWork(session: GhostexSession): boolean {
   return (
-    session.backgroundWorkDetectedAt.length > 0 && session.activity !== 'working' && session.activity !== 'attention'
+    session.backgroundWorkDetectedAt.length > 0 &&
+    session.activity !== 'working' &&
+    session.activity !== 'attention' &&
+    !session.awaitingApproval
   );
 }
 
@@ -468,9 +489,9 @@ export function showsBackgroundWork(session: GhostexSession): boolean {
 export function headerStatusCounts(
   counts: Pick<
     SessionCounts,
-    'workingCount' | 'attentionCount' | 'backgroundWorkCount' | 'questionCount' | 'awakeCount'
+    'workingCount' | 'attentionCount' | 'backgroundWorkCount' | 'questionCount' | 'approvalCount' | 'awakeCount'
   >,
-): Pick<SessionCounts, 'workingCount' | 'attentionCount' | 'backgroundWorkCount' | 'questionCount' | 'awakeCount'> {
+): Pick<SessionCounts, 'workingCount' | 'attentionCount' | 'backgroundWorkCount' | 'questionCount' | 'approvalCount' | 'awakeCount'> {
   return { ...counts, attentionCount: counts.attentionCount - counts.questionCount };
 }
 
@@ -485,15 +506,18 @@ export function countSessions(sessions: readonly GhostexSession[]): SessionCount
     attentionCount: 0,
     backgroundWorkCount: 0,
     questionCount: 0,
+    approvalCount: 0,
     sleepingCount: 0,
     awakeCount: 0,
   };
   for (const session of sessions) {
     const status = displayStatus(session);
     if (session.activity === 'working') counts.workingCount++;
-    if (session.activity === 'attention' || session.pendingQuestionCount > 0) counts.attentionCount++;
+    // A session waiting for approval counts in red only (gx-core `SessionRow::needs_you`).
+    if (session.awaitingApproval) counts.approvalCount++;
+    else if (session.activity === 'attention' || session.pendingQuestionCount > 0) counts.attentionCount++;
     if (showsBackgroundWork(session)) counts.backgroundWorkCount++;
-    if (session.pendingQuestionCount > 0) counts.questionCount++;
+    if (session.pendingQuestionCount > 0 && !session.awaitingApproval) counts.questionCount++;
     if (status === 'sleep' || status === 'sleeping') counts.sleepingCount++;
     if (isAwakeSession(session)) counts.awakeCount++;
   }
@@ -509,6 +533,8 @@ export type SectionStatusCounts = {
   attentionCount: number;
   backgroundWorkCount: number;
   questionCount: number;
+  /** Sessions waiting for approval (the red dot); never also in the attention or question counts. */
+  approvalCount: number;
   /** The section's session ids, so the renderer can ring a collapsed section holding the selected session. */
   sessionIds: string[];
 };
@@ -521,13 +547,16 @@ export function countSectionSessions(sessions: readonly GhostexSession[]): Secti
     attentionCount: 0,
     backgroundWorkCount: 0,
     questionCount: 0,
+    approvalCount: 0,
     sessionIds: sessions.map((session) => session.sessionId),
   };
   for (const session of sessions) {
     if (session.activity === 'working') counts.workingCount++;
-    if (session.activity === 'attention' && session.pendingQuestionCount === 0) counts.attentionCount++;
     if (showsBackgroundWork(session)) counts.backgroundWorkCount++;
-    if (session.pendingQuestionCount > 0) counts.questionCount++;
+    // gx-core `SessionRow::needs_you`: red, else pink, else blue, each row in one count.
+    if (session.awaitingApproval) counts.approvalCount++;
+    else if (session.pendingQuestionCount > 0) counts.questionCount++;
+    else if (session.activity === 'attention') counts.attentionCount++;
   }
   return counts;
 }
@@ -730,6 +759,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
       workingCount: counts.workingCount,
       attentionCount: counts.attentionCount - counts.questionCount,
       questionCount: counts.questionCount,
+      approvalCount: counts.approvalCount,
       backgroundWorkCount: counts.backgroundWorkCount,
       sleepingCount: counts.sleepingCount,
       awakeCount: counts.awakeCount,
@@ -919,6 +949,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
     workingCount: projectCounts.workingCount,
     attentionCount: projectCounts.attentionCount - projectCounts.questionCount,
     questionCount: projectCounts.questionCount,
+    approvalCount: projectCounts.approvalCount,
     backgroundWorkCount: projectCounts.backgroundWorkCount,
     awakeCount: projectCounts.awakeCount,
   });
@@ -947,6 +978,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
       workingCount: counts.workingCount,
       attentionCount: counts.attentionCount - counts.questionCount,
       questionCount: counts.questionCount,
+      approvalCount: counts.approvalCount,
       backgroundWorkCount: counts.backgroundWorkCount,
       awakeCount: counts.awakeCount,
     });

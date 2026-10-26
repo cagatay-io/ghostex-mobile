@@ -183,6 +183,8 @@ export type HeaderStatusCounts = {
   workingCount: number;
   attentionCount: number;
   questionCount: number;
+  /** Sessions waiting for approval: the red count (project_status.rs). */
+  approvalCount: number;
   backgroundWorkCount: number;
   awakeCount: number;
 };
@@ -206,10 +208,13 @@ export function ProjectStatusCounts({
   workingCount,
   attentionCount,
   questionCount,
+  approvalCount,
   backgroundWorkCount,
   awakeCount,
 }: HeaderStatusCounts) {
-  if (workingCount === 0 && attentionCount === 0 && questionCount === 0 && awakeCount === 0) return null;
+  if (workingCount === 0 && attentionCount === 0 && questionCount === 0 && approvalCount === 0 && awakeCount === 0) {
+    return null;
+  }
   return (
     <View style={statusStyles.projectCluster}>
       {workingCount > 0 ? <ProjectStatusBadge count={workingCount} dotColor={SidebarPalette.ROW_WORKING} /> : null}
@@ -217,10 +222,11 @@ export function ProjectStatusCounts({
         <ProjectStatusBadge count={attentionCount} dotColor={SidebarPalette.ROW_ATTENTION} />
       ) : null}
       {questionCount > 0 ? <ProjectStatusBadge count={questionCount} dotColor={SidebarPalette.ROW_QUESTION} /> : null}
+      {approvalCount > 0 ? <ProjectStatusBadge count={approvalCount} dotColor={SidebarPalette.ROW_APPROVAL} /> : null}
       {workingCount === 0 && backgroundWorkCount > 0 ? (
         <ProjectStatusBadge count={backgroundWorkCount} dotColor={SidebarPalette.ROW_BACKGROUND_WORK} />
       ) : null}
-      {workingCount === 0 && attentionCount === 0 && questionCount === 0 && awakeCount > 0 ? (
+      {workingCount === 0 && attentionCount === 0 && questionCount === 0 && approvalCount === 0 && awakeCount > 0 ? (
         <ProjectStatusBadge count={awakeCount} dotColor={null} />
       ) : null}
     </View>
@@ -232,6 +238,7 @@ function CollectionStatusCounts({
   workingCount,
   attentionCount,
   questionCount,
+  approvalCount,
   backgroundWorkCount,
   awakeCount,
 }: HeaderStatusCounts) {
@@ -241,10 +248,11 @@ function CollectionStatusCounts({
     counts.push({ key: 'attention', count: attentionCount, color: SidebarPalette.ROW_ATTENTION });
   }
   if (questionCount > 0) counts.push({ key: 'question', count: questionCount, color: SidebarPalette.ROW_QUESTION });
+  if (approvalCount > 0) counts.push({ key: 'approval', count: approvalCount, color: SidebarPalette.ROW_APPROVAL });
   if (workingCount === 0 && backgroundWorkCount > 0) {
     counts.push({ key: 'background', count: backgroundWorkCount, color: SidebarPalette.ROW_BACKGROUND_WORK });
   }
-  if (workingCount === 0 && attentionCount === 0 && questionCount === 0 && awakeCount > 0) {
+  if (workingCount === 0 && attentionCount === 0 && questionCount === 0 && approvalCount === 0 && awakeCount > 0) {
     counts.push({ key: 'awake', count: awakeCount, color: HEADER_STATUS_TEXT });
   }
   if (counts.length === 0) return null;
@@ -268,6 +276,7 @@ function SectionStatusDots({ status, active }: { status: SectionStatusCounts; ac
     dots.push({ key: 'background', color: SidebarPalette.ROW_BACKGROUND_WORK });
   }
   if (status.questionCount > 0) dots.push({ key: 'question', color: SidebarPalette.ROW_QUESTION });
+  if (status.approvalCount > 0) dots.push({ key: 'approval', color: SidebarPalette.ROW_APPROVAL });
   if (dots.length === 0 && !active) return null;
   return (
     <View style={statusStyles.sectionDots}>
@@ -466,6 +475,7 @@ export function MachineHeaderRow({
   workingCount,
   attentionCount,
   questionCount,
+  approvalCount,
   backgroundWorkCount,
   awakeCount,
   onPress,
@@ -476,6 +486,7 @@ export function MachineHeaderRow({
   workingCount: number;
   attentionCount: number;
   questionCount: number;
+  approvalCount: number;
   backgroundWorkCount: number;
   awakeCount: number;
   onPress: () => void;
@@ -499,6 +510,7 @@ export function MachineHeaderRow({
             workingCount={workingCount}
             attentionCount={attentionCount}
             questionCount={questionCount}
+            approvalCount={approvalCount}
             backgroundWorkCount={backgroundWorkCount}
             awakeCount={awakeCount}
           />
@@ -549,6 +561,7 @@ export function SectionLabelRow({
   workingCount,
   attentionCount,
   questionCount,
+  approvalCount,
   backgroundWorkCount,
   awakeCount,
   first,
@@ -561,6 +574,7 @@ export function SectionLabelRow({
   workingCount: number;
   attentionCount: number;
   questionCount: number;
+  approvalCount: number;
   backgroundWorkCount: number;
   awakeCount: number;
   /** First section after the status header uses the tighter top margin. */
@@ -590,6 +604,7 @@ export function SectionLabelRow({
             workingCount={workingCount}
             attentionCount={attentionCount}
             questionCount={questionCount}
+            approvalCount={approvalCount}
             backgroundWorkCount={backgroundWorkCount}
             awakeCount={awakeCount}
           />
@@ -656,6 +671,7 @@ export function CollectionHeaderRow({
   workingCount,
   attentionCount,
   questionCount,
+  approvalCount,
   backgroundWorkCount,
   awakeCount,
   onPress,
@@ -666,6 +682,7 @@ export function CollectionHeaderRow({
   workingCount: number;
   attentionCount: number;
   questionCount: number;
+  approvalCount: number;
   backgroundWorkCount: number;
   awakeCount: number;
   onPress: () => void;
@@ -692,6 +709,7 @@ export function CollectionHeaderRow({
           workingCount={workingCount}
           attentionCount={attentionCount}
           questionCount={questionCount}
+          approvalCount={approvalCount}
           backgroundWorkCount={backgroundWorkCount}
           awakeCount={awakeCount}
         />
@@ -750,6 +768,7 @@ export function ProjectHeaderRow({
   workingCount,
   attentionCount,
   questionCount,
+  approvalCount,
   backgroundWorkCount,
   awakeCount,
   primaryAgent,
@@ -766,6 +785,7 @@ export function ProjectHeaderRow({
   workingCount: number;
   attentionCount: number;
   questionCount: number;
+  approvalCount: number;
   backgroundWorkCount: number;
   awakeCount: number;
   primaryAgent: GhostexAgentLauncher | null;
@@ -796,6 +816,7 @@ export function ProjectHeaderRow({
             workingCount={workingCount}
             attentionCount={attentionCount}
             questionCount={questionCount}
+            approvalCount={approvalCount}
             backgroundWorkCount={backgroundWorkCount}
             awakeCount={awakeCount}
           />
@@ -935,6 +956,7 @@ export function GroupHeaderRow({
             workingCount={status.workingCount}
             attentionCount={status.attentionCount}
             questionCount={status.questionCount}
+            approvalCount={status.approvalCount}
             backgroundWorkCount={status.backgroundWorkCount}
             awakeCount={status.awakeCount}
           />

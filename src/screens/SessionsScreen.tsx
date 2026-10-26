@@ -455,6 +455,7 @@ export default function SessionsScreen({ navigation }: Props) {
         attentionCount: counts.attentionCount,
         backgroundWorkCount: counts.backgroundWorkCount,
         questionCount: counts.questionCount,
+        approvalCount: counts.approvalCount,
       };
     });
     return [...tabs, MACHINE_TAB_ADD];
@@ -1069,6 +1070,7 @@ export default function SessionsScreen({ navigation }: Props) {
             workingCount={header.workingCount}
             attentionCount={header.attentionCount}
             questionCount={header.questionCount}
+            approvalCount={header.approvalCount}
             backgroundWorkCount={header.backgroundWorkCount}
             awakeCount={header.awakeCount}
             primaryAgent={primaryAgent}
@@ -1152,6 +1154,7 @@ export default function SessionsScreen({ navigation }: Props) {
               workingCount={header.workingCount}
               attentionCount={header.attentionCount}
               questionCount={header.questionCount}
+              approvalCount={header.approvalCount}
               backgroundWorkCount={header.backgroundWorkCount}
               awakeCount={header.awakeCount}
               onPress={() => collapse.toggleCollection(block.machineId, header.collectionId)}
@@ -1196,6 +1199,7 @@ export default function SessionsScreen({ navigation }: Props) {
             workingCount={item.workingCount}
             attentionCount={item.attentionCount}
             questionCount={item.questionCount}
+            approvalCount={item.approvalCount}
             backgroundWorkCount={item.backgroundWorkCount}
             awakeCount={item.awakeCount}
             first
