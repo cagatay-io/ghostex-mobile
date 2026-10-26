@@ -15,6 +15,7 @@ import { FileChangeStack } from './FileChanges';
 import { ImageRow } from './Images';
 import { arr, obj, str } from './json';
 import { MessageLongPressContext } from './markdown/blockLongPress';
+import { messageMenuSelection } from './messageCopy';
 import { ignoreHold, MESSAGE_TEXT_SELECTABLE, MessageSelection, messageMenuAccessibility } from './messageSelection';
 import { Markdown } from './markdown/Markdown';
 import {
@@ -88,8 +89,8 @@ function ApiErrorRow({ message }: { message: ProjectedMessage }) {
  * main transcript and the subagent viewer share the menu (`TranscriptMenu.tsx`).
  */
 function useMessageMenu(message: ProjectedMessage, actions: MessageMenuAction[] = []): (() => void) | undefined {
-  const selection = typeof message.copyText === 'string' ? message.copyText : '';
-  return selection.trim().length > 0 ? () => openTranscriptMenu({ selection, actions }) : undefined;
+  const selection = messageMenuSelection(message);
+  return selection !== null ? () => openTranscriptMenu({ selection, actions }) : undefined;
 }
 
 function UserMessage({ message }: { message: ProjectedMessage }) {
