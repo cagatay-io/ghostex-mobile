@@ -452,7 +452,7 @@ class GhostexSshConnection(
    * leaving the app with a listener that can never carry a byte. A live forward for the same
    * port that dials another host is replaced.
    *
-   * CDXC:Mobile 2026-10-09 WHY: the target host is the caller's. gxserver binds `127.0.0.1` only, and Windows OpenSSH resolves `localhost` to `::1` first, reports the refused connect as connected, and never tries `127.0.0.1`: every request the phone sent through a `localhost` forward to a Windows computer's gxserver ended empty after about 2 seconds, while the probe still passed. The chat link and the GPUI transcript name `127.0.0.1` (the desktop's tunnels already do); Web Preview keeps `localhost` so a dev server bound only to `::1` is still reached.
+   * CDXC:Mobile 2026-10-09 WHY: the target host is the caller's. gxserver binds `127.0.0.1` only, and Windows OpenSSH resolves `localhost` to `::1` first, reports the refused connect as connected, and never tries `127.0.0.1`: every request the phone sent through a `localhost` forward to a Windows computer's gxserver ended empty after about 2 seconds, while the probe still passed. The chat link names `127.0.0.1` (the desktop's tunnels already do); Web Preview keeps `localhost` so a dev server bound only to `::1` is still reached.
    */
   fun startPortForward(remotePort: Int, remoteHost: String = GhostexPortForward.DEFAULT_REMOTE_HOST): Int {
     if (remotePort !in MIN_TCP_PORT..MAX_TCP_PORT) {

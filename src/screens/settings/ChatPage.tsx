@@ -2,7 +2,6 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
 
-import { isGpuiAvailable } from '../../../modules/gx-chat-core/src/gpui';
 import type { ChatBrain } from '../../chat/rust/core-backend';
 import type { RootStackParamList } from '../../navigation/types';
 import {
@@ -126,14 +125,6 @@ export default function ChatPage() {
         view runs the same brain in a hidden browser view, so chat fixes arrive with app updates without a new install.
         Takes effect the next time a chat opens.
       </Caption>
-      {isGpuiAvailable() ? (
-        <>
-          <SettingToggle settingKey="sessionChatGpuiTranscript" label="GPUI transcript (beta)" />
-          <Caption>
-            Draws the conversation with the desktop app's own chat renderer. Takes effect the next time a chat opens.
-          </Caption>
-        </>
-      ) : null}
     </SettingsScreenLayout>
   );
 }

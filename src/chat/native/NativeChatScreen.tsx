@@ -28,7 +28,6 @@ import { DocsCopy } from '../../copy';
 import { openComputerFile, phoneOpensFile } from '../../docs/openComputerFile';
 import { remotePathForChatFile } from '../../docs/openDoc';
 import GhostexImageIntakeView from '../../../modules/ghostex-native/src/GhostexImageIntakeView';
-import { isGpuiAvailable } from '../../../modules/gx-chat-core/src/gpui';
 import { useInventoryStore } from '../../inventory/store';
 import type { MachineConnectionTarget } from '../../machines/credentials';
 import type { RootStackParamList } from '../../navigation/types';
@@ -37,9 +36,6 @@ import { useOpenMachineLink } from '../../webPreview/useOpenMachineLink';
 import type { ChatViewRequest } from '../rust/effects';
 import { sessionChatRpc } from '../rust/transport';
 import { useRustChat, type RustChat } from '../rust/useRustChat';
-import GpuiTranscript from '../gpui/GpuiTranscript';
-import { useGpuiChat } from '../gpui/useGpuiChat';
-import { useSettingsStore } from '../../settings/store';
 import { callVoiceAbout } from '../../voice/callAbout';
 import { useVoiceCapability } from '../../voice/VoiceButton';
 import { useArmedActions } from './armedActions';
@@ -101,14 +97,7 @@ export default function NativeChatScreen({
   onQueueCountChange,
   style,
 }: NativeChatScreenProps) {
-  // The transcript's engine is picked once per chat screen: the GPUI one runs the chat in the Rust
-  // host inside the phone library, the React Native one in the TypeScript host, and one chat must
-  // not run in both.
-  const gpuiSetting = useSettingsStore((state) => state.settings.sessionChatGpuiTranscript);
-  const [gpui] = useState(() => gpuiSetting && isGpuiAvailable());
-  const rustChat = useRustChat(gpui ? null : { machine, projectId, sessionId });
-  const gpuiChat = useGpuiChat(gpui ? { machine, projectId, sessionId } : null);
-  const chat = gpui ? gpuiChat : rustChat;
+  const chat = useRustChat({ machine, projectId, sessionId });
   const theme = useTranscriptTheme();
   const document = chat.state?.document ?? null;
   const [handoff, setHandoff] = useState<HandoffRequest | null>(null);
@@ -291,20 +280,13 @@ export default function NativeChatScreen({
       >
         <View style={[styles.root, { backgroundColor: theme.background }]} pointerEvents={visible ? 'auto' : 'none'}>
           {chat.state?.error ? <Text style={[styles.error, { color: theme.error }]}>{chat.state.error}</Text> : null}
-          {gpui ? null : <TranscriptSearchBar chat={chat} />}
+          <TranscriptSearchBar chat={chat} />
           <View style={styles.transcript}>
-            {gpui ? (
-              // GPUI draws the whole transcript region itself: search, the subagent viewer and the
-              // account switch card included.
-              <GpuiTranscript style={StyleSheet.absoluteFill} />
-            ) : (
-              <NativeTranscript chat={chat} />
-            )}
-            {/* Scroll-to-bottom alone while no card carries it; the GPUI transcript draws its own. */}
-            {gpui || document === null ? null : <LoneScrollBottom document={document} armed={armed} />}
+            <NativeTranscript chat={chat} />
+            {/* Scroll-to-bottom alone while no card carries it. */}
+            {document === null ? null : <LoneScrollBottom document={document} armed={armed} />}
           </View>
-          {/* The GPUI transcript reaches its computer its own way and has no chat link to watch. */}
-          {gpui ? null : <ConnectionLostNotice machine={machine} active={visible} />}
+          <ConnectionLostNotice machine={machine} active={visible} />
           {/* The working card in its own row above the cards and the composer: the transcript ends above it. */}
           {document === null ? null : (
             <WorkingCard
@@ -326,7 +308,7 @@ export default function NativeChatScreen({
           )}
           <RewindDialog chat={chat} />
           <SaveMarkdownDialog chat={chat} />
-          {gpui ? null : <TranscriptMenuSheet chat={chat} host={menuHost} enabled={!subagentOpen} />}
+          <TranscriptMenuSheet chat={chat} host={menuHost} enabled={!subagentOpen} />
           <SavedPromptsSheet
             visible={savedPromptsOpen}
             machine={machine}
@@ -344,13 +326,11 @@ export default function NativeChatScreen({
             onClose={() => setHandoff(null)}
             onFailure={(failure, message) => show(message, true, failure)}
           />
-          {gpui ? null : (
-            <NativeChatOverlays
-              chat={chat}
-              renderTranscriptItem={renderSubagentRow}
-              subagentMenu={<TranscriptMenuSheet chat={chat} host={menuHost} />}
-            />
-          )}
+          <NativeChatOverlays
+            chat={chat}
+            renderTranscriptItem={renderSubagentRow}
+            subagentMenu={<TranscriptMenuSheet chat={chat} host={menuHost} />}
+          />
           <PageSheet chat={chat} machine={machine} page={page} onClose={closePage} onOpenLink={openPageLink} />
           <ChatToast toast={toast} />
           {dropActive ? (

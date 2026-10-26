@@ -16,7 +16,7 @@
  * reads them; sshj and the replaced "BC" provider never ask for Picnic.
  *
  * The keep rules for the libraries our own modules link (JNA/UniFFI, sshj,
- * BouncyCastle, the gomobile bridge, the GPUI JNI host) are consumer rules of
+ * BouncyCastle, the gomobile bridge) are consumer rules of
  * those modules (modules/ghostex-native and modules/gx-chat-core,
  * android/proguard-rules.pro). React Native, Expo modules, ML Kit and Play
  * services ship their own consumer rules; this plugin adds only the app-level

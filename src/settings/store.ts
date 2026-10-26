@@ -87,12 +87,6 @@ export type GhostexSettings = {
   /** Grey thinking: the agent's thinking in the muted tone, its replies in the full foreground. */
   sessionChatMutedThinking: boolean;
   /**
-   * Draw the chat transcript with the desktop's own GPUI renderer (`packages/gpui-mobile` in the
-   * main repo) instead of the React Native one. Only builds of the phone library made with
-   * `build.sh --gpui` can; the switch is hidden otherwise.
-   */
-  sessionChatGpuiTranscript: boolean;
-  /**
    * Which chat brain runs a chat: the Rust chat core built into the app, or the same core as
    * WebAssembly in a hidden WebView, which updates over the air (`src/chat/rust/core-backend.ts`,
    * CDXC:SessionChat 2026-10-23 DECISION in `src/chat/rust/wasm-core/bridge.ts`). Read when a chat
@@ -184,7 +178,6 @@ export function defaultSettings(): GhostexSettings {
     sessionLinksFoldedGroups: ['finished', 'removed'],
     sessionChatFileEditPreviews: false,
     sessionChatMutedThinking: false,
-    sessionChatGpuiTranscript: false,
     sessionChatBrain: 'builtIn',
     markedHandoversStyle: 'labels',
     markedHandoversEmoji: false,
@@ -294,7 +287,6 @@ function sanitizeSettings(value: unknown): GhostexSettings {
     sessionLinksFoldedGroups: Array.isArray(record.sessionLinksFoldedGroups)
       ? record.sessionLinksFoldedGroups.filter((group): group is string => typeof group === 'string')
       : defaults.sessionLinksFoldedGroups,
-    sessionChatGpuiTranscript: bool('sessionChatGpuiTranscript', defaults.sessionChatGpuiTranscript),
     sessionChatBrain:
       record.sessionChatBrain === 'builtIn' || record.sessionChatBrain === 'browserView'
         ? record.sessionChatBrain

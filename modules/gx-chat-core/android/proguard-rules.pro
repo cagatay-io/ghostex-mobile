@@ -8,7 +8,3 @@
 -keep class * implements com.sun.jna.** { *; }
 -dontwarn java.awt.**
 -keep class dev.ghostex.gxchatcore.uniffi.** { *; }
-
-# The GPUI transcript host (libgx_mobile.so, packages/gpui-mobile/host) calls
-# GpuiNative's static methods (onRustEvent, onRedrawDone) through JNI by name.
--keep class dev.ghostex.gpui.** { *; }

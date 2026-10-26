@@ -1,24 +1,15 @@
 /**
- * Where a computer's gxserver is for the GPUI chat: the Rust chat host inside the phone library
- * (the desktop's own `gx_chat`) opens its chat socket and direct calls to it, the way the desktop's
- * remote chats reach a computer through their tunnel.
+ * Where a computer's gxserver is: the chat link (`machine-link.ts`) and the link opener
+ * (`webPreview/machineLinks.ts`) reach it the way the desktop's remote chats reach a computer
+ * through their tunnel.
  *
  * The computer tells its port and bearer token over SSH (`ghostex server endpoint`), and the phone
  * forwards its loopback to that port through the SSH session it already holds (the Web Preview's
- * `startPortForward`). The answer is cached per computer; a failed chat drops it so the next open
- * resolves again.
+ * `startPortForward`).
  */
-import { GhostexNative } from '../../../modules/ghostex-native/src';
 import { execRemoteCommand } from '../../remote/commands';
 import { ensureConnected } from '../../inventory/client';
 import type { MachineConnectionTarget } from '../../machines/credentials';
-
-export type GpuiMachineEndpoint = {
-  machineId: string;
-  /** `http://127.0.0.1:<local forward port>` on the phone. */
-  baseUrl: string;
-  authToken: string;
-};
 
 const ENDPOINT_TIMEOUT_MS = 20_000;
 
@@ -29,9 +20,7 @@ const ENDPOINT_TIMEOUT_MS = 20_000;
  */
 export const GXSERVER_FORWARD_HOST = '127.0.0.1';
 
-const resolved = new Map<string, Promise<GpuiMachineEndpoint>>();
-
-/** The gxserver port each computer last reported, whoever asked (the chat link, the GPUI chat, a link opener). */
+/** The gxserver port each computer last reported, whoever asked (the chat link, a link opener). */
 const reportedPorts = new Map<string, number>();
 
 /**
@@ -41,22 +30,6 @@ const reportedPorts = new Map<string, number>();
  */
 export function knownGxserverPort(machineId: string): number | null {
   return reportedPorts.get(machineId) ?? null;
-}
-
-/** The forward and token for `machine`, resolving them on first use. */
-export function gpuiMachineEndpoint(machine: MachineConnectionTarget): Promise<GpuiMachineEndpoint> {
-  let pending = resolved.get(machine.id);
-  if (!pending) {
-    pending = resolveEndpoint(machine);
-    resolved.set(machine.id, pending);
-    pending.catch(() => resolved.delete(machine.id));
-  }
-  return pending;
-}
-
-/** Drops a cached endpoint (the forward died, the computer's gxserver restarted on a new port). */
-export function forgetGpuiMachineEndpoint(machineId: string): void {
-  resolved.delete(machineId);
 }
 
 /**
@@ -70,7 +43,7 @@ export type ServerEndpointAnswer =
 
 /**
  * Asks the computer where its gxserver is, over one SSH exec. Throws only when SSH itself fails;
- * the phone's chat link (`../rust/machine-link.ts`) uses the answer as its handshake.
+ * the phone's chat link (`machine-link.ts`) uses the answer as its handshake.
  */
 export async function readServerEndpoint(machine: MachineConnectionTarget): Promise<ServerEndpointAnswer> {
   await ensureConnected(machine);
@@ -91,21 +64,13 @@ export async function readServerEndpoint(machine: MachineConnectionTarget): Prom
   if (/Unknown gxserver command: endpoint|Unknown command/u.test(detail)) {
     return {
       kind: 'unsupported',
-      message:
-        'The computer runs an older Ghostex without `ghostex server endpoint`; update it to use the GPUI transcript.',
+      message: 'The computer runs an older Ghostex without `ghostex server endpoint`; update it.',
     };
   }
   return {
     kind: 'failed',
     message: `Could not read the computer's gxserver endpoint${detail ? `: ${detail.slice(0, 200)}` : '.'}`,
   };
-}
-
-async function resolveEndpoint(machine: MachineConnectionTarget): Promise<GpuiMachineEndpoint> {
-  const answer = await readServerEndpoint(machine);
-  if (answer.kind !== 'endpoint') throw new Error(answer.message);
-  const { localPort } = await GhostexNative.startPortForward(machine.id, answer.port, GXSERVER_FORWARD_HOST);
-  return { machineId: machine.id, baseUrl: `http://127.0.0.1:${localPort}`, authToken: answer.authToken };
 }
 
 function lastJsonObject(stdout: string): Record<string, unknown> | null {

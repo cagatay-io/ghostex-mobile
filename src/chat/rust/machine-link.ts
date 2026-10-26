@@ -11,7 +11,7 @@
  * own SSH exec + login shell + `ghostex` CLI + HTTP call, with only 3 SSH command slots per
  * computer. Hard rule: "pls dont break things for users who set default to terminal at all". So
  * chat traffic (reads, the live stream, sends, prompt answers) rides one socket and plain HTTP over
- * the port forward the GPUI transcript already uses, which leaves the SSH command slots to
+ * an SSH port forward, which leaves the SSH command slots to
  * inventory and terminals; the terminal attach path is untouched. Old computers keep the exec path
  * (`transport.ts`): the handshake is `ghostex server endpoint` (missing verb or another wire
  * protocol means old) plus the forward's own probe (an sshd that refuses forwarding), decided
@@ -22,7 +22,7 @@
  * loopback forward directly, and a Rust socket would need a thread calling back into JS through new
  * Kotlin and Swift event plumbing plus an HTTP client, and a native rebuild for every change.
  * SEE-ALSO: packages/gx-chat-client/src/wire.rs, apps/desktop/src/app/native_chat/rpc.rs,
- * server/src/server/ws.rs (`handle_events`), apps/mobile/app/src/chat/gpui/endpoint.ts
+ * server/src/server/ws.rs (`handle_events`), apps/mobile/app/src/chat/rust/serverEndpoint.ts
  */
 
 import { AppState, type AppStateStatus } from 'react-native';
@@ -30,7 +30,7 @@ import { AppState, type AppStateStatus } from 'react-native';
 import { GhostexNative } from '../../../modules/ghostex-native/src';
 import { ensureConnected } from '../../inventory/client';
 import type { MachineConnectionTarget } from '../../machines/credentials';
-import { GXSERVER_FORWARD_HOST, readServerEndpoint } from '../gpui/endpoint';
+import { GXSERVER_FORWARD_HOST, readServerEndpoint } from './serverEndpoint';
 import type { RpcAnswer } from './transport';
 
 /** `GXSERVER_PROTOCOL_VERSION`: the only wire this client speaks. */

@@ -4,6 +4,6 @@
     "modules": ["GxChatCoreModule"]
   },
   "android": {
-    "modules": ["expo.modules.gxchatcore.GxChatCoreModule", "expo.modules.gxchatcore.gpui.GpuiViewModule"]
+    "modules": ["expo.modules.gxchatcore.GxChatCoreModule"]
   }
 }

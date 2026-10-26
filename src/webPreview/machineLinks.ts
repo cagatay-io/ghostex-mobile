@@ -15,7 +15,7 @@
  */
 
 import { GhostexNative } from '../../modules/ghostex-native/src';
-import { GXSERVER_FORWARD_HOST, knownGxserverPort, readServerEndpoint } from '../chat/gpui/endpoint';
+import { GXSERVER_FORWARD_HOST, knownGxserverPort, readServerEndpoint } from '../chat/rust/serverEndpoint';
 import { remotePathFromFileUrl } from '../docs/openDoc';
 import { ensureConnected } from '../inventory/client';
 import type { MachineConnectionTarget } from '../machines/credentials';
