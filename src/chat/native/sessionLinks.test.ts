@@ -6,7 +6,13 @@ import { describe, test } from 'node:test';
 
 import type { GhostexSessionLink, GhostexSessionLinks } from '../../contract/mobileSummary';
 import { SidebarPalette } from '../../theme/palette';
-import { sessionLinksDisplay, sessionLinksRow, sessionLinksWithoutRemoved } from './sessionLinks';
+import {
+  SUGGESTED_SHOWN_FIRST,
+  sessionLinksDisplay,
+  sessionLinksRow,
+  sessionLinksWithoutRemoved,
+  suggestionsShown,
+} from './sessionLinks';
 
 function link(key: string, state: string, finished: boolean, pinned = false): GhostexSessionLink {
   return {
@@ -81,5 +87,15 @@ describe('a removed link', () => {
     const published = links([link('#1', 'open', false)], [link('#2', 'open', false)]);
     assert.equal(sessionLinksWithoutRemoved(published, ['#2']), published);
     assert.equal(sessionLinksWithoutRemoved(published, []), published);
+  });
+});
+
+describe('suggestionsShown', () => {
+  test('shows the first five until Show all, then every one', () => {
+    const suggested = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+    assert.equal(SUGGESTED_SHOWN_FIRST, 5);
+    assert.deepEqual(suggestionsShown(suggested, false), ['a', 'b', 'c', 'd', 'e']);
+    assert.deepEqual(suggestionsShown(suggested, true), suggested);
+    assert.deepEqual(suggestionsShown(['a'], false), ['a']);
   });
 });

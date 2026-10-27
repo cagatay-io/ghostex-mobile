@@ -71,6 +71,8 @@ import {
   sessionLinkLook,
   sessionLinkSummary,
   sessionLinksWithoutRemoved,
+  SUGGESTED_SHOWN_FIRST,
+  suggestionsShown,
 } from './sessionLinks';
 import { themedStyles, useTranscriptTheme } from './transcript/theme';
 
@@ -132,6 +134,8 @@ export default function SessionLinksSheet({
   const [held, setHeld] = useState<string | null>(null);
   /** Links removed here whose removal the computer has not published yet. */
   const [removing, setRemoving] = useState<string[]>([]);
+  /** "Show all" was tapped under Suggested: every suggestion shows until "Show fewer". */
+  const [allSuggested, setAllSuggested] = useState(false);
   const folded = useSettingsStore((store) => store.settings.sessionLinksFoldedGroups);
   const setSetting = useSettingsStore((store) => store.setSetting);
   const [status, setStatus] = useState<string | null>(null);
@@ -410,12 +414,25 @@ export default function SessionLinksSheet({
         {links.suggested.length > 0 ? (
           <View>
             {sectionHeader('suggested', 'Suggested', links.suggested.length)}
-            {(isFolded('suggested') ? [] : links.suggested).map((suggestion) =>
+            {(isFolded('suggested') ? [] : suggestionsShown(links.suggested, allSuggested)).map((suggestion) =>
               entryRow(
                 suggestion,
                 iconButton('link', `Link ${suggestion.label}`, () => add(suggestion.url)),
               ),
             )}
+            {!isFolded('suggested') && links.suggested.length > SUGGESTED_SHOWN_FIRST ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ expanded: allSuggested }}
+                hitSlop={4}
+                onPress={() => setAllSuggested((all) => !all)}
+                style={styles.showAll}
+              >
+                <Text style={styles.section}>
+                  {allSuggested ? 'Show fewer' : `Show all ${links.suggested.length}`}
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
         ) : null}
         {removed.length > 0 ? (
@@ -452,6 +469,8 @@ const useStyles = themedStyles((P) => ({
   heldMenu: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 6, paddingBottom: 8 },
   sheetBody: { paddingHorizontal: 12, paddingBottom: 8 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 10, marginBottom: 4 },
+  // Suggested's "Show all N" / "Show fewer": the section header's words, under the rows.
+  showAll: { paddingVertical: 6, paddingHorizontal: 6 },
   // A tight line without Android's font padding, so the chevron centres on the letters rather than
   // on a box whose padding sits above them.
   section: { color: P.muted, fontSize: 12, lineHeight: 16, includeFontPadding: false, textAlignVertical: 'center' },

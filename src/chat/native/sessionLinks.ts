@@ -184,6 +184,17 @@ export function mostPressingLinkColor(links: readonly GhostexSessionLink[]): str
 }
 
 /**
+ * Suggestions the sheet shows before its "Show all" row (gx-core `SUGGESTED_SHOWN_FIRST`, whose
+ * CDXC:SessionLinks 2026-10-27 DECISION holds the user's words: "5, then a Show all row").
+ */
+export const SUGGESTED_SHOWN_FIRST = 5;
+
+/** The suggestions the sheet draws: every one with `all`, else the first `SUGGESTED_SHOWN_FIRST`. */
+export function suggestionsShown<T>(suggested: readonly T[], all: boolean): readonly T[] {
+  return all ? suggested : suggested.slice(0, SUGGESTED_SHOWN_FIRST);
+}
+
+/**
  * The list once `keys` are removed, before the computer publishes it: each leaves its group at once
  * and leads Removed, where Restore brings it back (gx-core `SessionLinks::without_removed`).
  *
