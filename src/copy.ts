@@ -854,8 +854,11 @@ export const CantReachCopy = {
 export const ChangesCopy = {
   menuLabel: 'Changes',
   title: 'Changes',
-  scopeMain: 'Against main',
-  scopeUncommitted: 'Uncommitted',
+  scopeMain: 'Whole branch',
+  scopeUncommitted: 'Uncommitted only',
+  scopeMainDetail: (base: string) => `Everything this branch changed against ${base}, committed or not`,
+  scopeUncommittedDetail: 'Only what is not committed yet',
+  scopeMenu: 'Choose which changes to show',
   loading: 'Reading this project’s changes…',
   loadFailed: 'Could not read this project’s changes',
   oldCli: 'Update Ghostex on the computer to see a project’s changes from the phone.',

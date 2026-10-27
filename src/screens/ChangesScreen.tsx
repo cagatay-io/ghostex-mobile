@@ -6,9 +6,11 @@
  *
  * CDXC:Changes 2026-10-25 DECISION:
  * The user chose "phone read-only" for the Changes view: the phone shows the diff, switches between
- * Against main and Uncommitted, and copies a held line, but has no line comments, revert or commit
+ * Whole branch and Uncommitted only, and copies a held line, but has no line comments, revert or commit
  * bar. It opens from the session screen's ⋯ menu and a session row's long-press menu, for that
  * session's project.
+ *
+ * CDXC:Changes 2026-10-27 DECISION: User: "i don't like "Uncommited" and "Against main" being shown as 2 buttons, should just be a toggle button on the right side that toggles these 2 states and should be clearer name". They picked the dropdown-style button (Q650 "dropdown") named "Whole branch & Uncommitted only" (Q651), and the phone gets the same as the desktop (Q652 "same").
  * SEE-ALSO: apps/desktop/src/app/native_changes/view.rs, src/changes/model.ts
  */
 
@@ -18,6 +20,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Path } from 'react-native-svg';
 
 import { Glyph } from '../chat/native/transcript/icons';
 import { MONO_FONT, themedStyles, useTranscriptTheme, type TranscriptTheme } from '../chat/native/transcript/theme';
@@ -40,6 +43,7 @@ import {
   type LineSegment,
   type TokenKind,
 } from '../changes/model';
+import { GitBranchGlyph, PencilGlyph } from '../components/sessions/icons';
 import { RefreshIcon } from '../components/terminal/icons';
 import { ChangesCopy } from '../copy';
 import { FILE_LIST_DETAIL_SIZE, FILE_LIST_NAME_SIZE, FILE_VIEWER_CODE_SIZE } from '../docs/textSizes';
@@ -193,30 +197,89 @@ const DiffLine = memo(function DiffLine({
   );
 });
 
-/** Against main / Uncommitted, the desktop's segmented pick-one (one highlighted segment). */
-function ScopeSwitch({ scope, onChange }: { scope: ChangesScope; onChange: (scope: ChangesScope) => void }) {
+const SCOPES: ChangesScope[] = ['main', 'uncommitted'];
+const scopeLabel = (scope: ChangesScope) => (scope === 'main' ? ChangesCopy.scopeMain : ChangesCopy.scopeUncommitted);
+
+/** The scope's dropdown button at the right of the toolbar (the desktop's scope button). */
+function ScopeButton({ scope, open, onPress }: { scope: ChangesScope; open: boolean; onPress: () => void }) {
   const styles = useStyles();
-  const options: [ChangesScope, string][] = [
-    ['main', ChangesCopy.scopeMain],
-    ['uncommitted', ChangesCopy.scopeUncommitted],
-  ];
+  const theme = useTranscriptTheme();
   return (
-    <View style={styles.segmented} accessibilityRole="tablist">
-      {options.map(([value, label]) => {
-        const selected = value === scope;
-        return (
-          <Pressable
-            key={value}
-            accessibilityRole="tab"
-            accessibilityState={{ selected }}
-            onPress={() => onChange(value)}
-            style={({ pressed }) => [styles.segment, selected && styles.segmentSelected, pressed && styles.pressed]}
-          >
-            <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>{label}</Text>
-          </Pressable>
-        );
-      })}
-    </View>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${ChangesCopy.scopeMenu}: ${scopeLabel(scope)}`}
+      accessibilityState={{ expanded: open }}
+      onPress={onPress}
+      style={({ pressed }) => [styles.scopeButton, (open || pressed) && { backgroundColor: theme.selectedFill }]}
+    >
+      {scope === 'main' ? (
+        <GitBranchGlyph size={15} color={theme.muted} />
+      ) : (
+        <PencilGlyph size={15} color={theme.muted} />
+      )}
+      <Text style={styles.scopeButtonText}>{scopeLabel(scope)}</Text>
+      <Glyph name="chevron-down" size={13} color={theme.muted} />
+    </Pressable>
+  );
+}
+
+/** The scope button's menu: both scopes with a line on what each shows, the current one ticked. */
+function ScopeMenu({
+  scope,
+  base,
+  top,
+  onPick,
+  onClose,
+}: {
+  scope: ChangesScope;
+  base: string;
+  top: number;
+  onPick: (scope: ChangesScope) => void;
+  onClose: () => void;
+}) {
+  const styles = useStyles();
+  const theme = useTranscriptTheme();
+  return (
+    <>
+      <Pressable accessibilityLabel={ChangesCopy.scopeMenu} onPress={onClose} style={StyleSheet.absoluteFill} />
+      <View style={[styles.scopeMenu, { top }]} accessibilityRole="menu">
+        {SCOPES.map((value) => {
+          const selected = value === scope;
+          return (
+            <Pressable
+              key={value}
+              accessibilityRole="menuitem"
+              accessibilityState={{ selected }}
+              onPress={() => onPick(value)}
+              style={({ pressed }) => [
+                styles.scopeItem,
+                (selected || pressed) && { backgroundColor: pressed ? theme.controlPressed : theme.selectedFill },
+              ]}
+            >
+              <View style={styles.scopeCheck}>
+                {selected ? (
+                  <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="M5 12l5 5l10 -10"
+                      stroke={theme.accent}
+                      strokeWidth={2.4}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                ) : null}
+              </View>
+              <View style={styles.scopeItemText}>
+                <Text style={styles.scopeItemTitle}>{scopeLabel(value)}</Text>
+                <Text style={styles.scopeItemDetail}>
+                  {value === 'main' ? ChangesCopy.scopeMainDetail(base) : ChangesCopy.scopeUncommittedDetail}
+                </Text>
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
+    </>
   );
 }
 
@@ -230,6 +293,8 @@ export default function ChangesScreen({ navigation, route }: Props) {
   const machineRef = useRef(machine);
   machineRef.current = machine;
   const [scope, setScope] = useState<ChangesScope>('main');
+  const [scopeOpen, setScopeOpen] = useState(false);
+  const [toolbarBottom, setToolbarBottom] = useState(50);
   const cacheKey = `${machineId}\u0000${projectId}\u0000${scope}`;
   const [answer, setAnswer] = useState<ChangesAnswer | null>(() => answerCache.get(cacheKey) ?? null);
   const [error, setError] = useState<string | null>(null);
@@ -526,8 +591,11 @@ export default function ChangesScreen({ navigation, route }: Props) {
       >
         {MEASURE_SAMPLE}
       </Text>
-      <View style={styles.toolbar}>
-        <ScopeSwitch scope={scope} onChange={changeScope} />
+      <View
+        style={styles.toolbar}
+        onLayout={(event) => setToolbarBottom(event.nativeEvent.layout.y + event.nativeEvent.layout.height)}
+      >
+        <ScopeButton scope={scope} open={scopeOpen} onPress={() => setScopeOpen((open) => !open)} />
       </View>
       {error !== null ? (
         <View style={styles.errorCard}>
@@ -559,6 +627,18 @@ export default function ChangesScreen({ navigation, route }: Props) {
         maxToRenderPerBatch={40}
         windowSize={15}
       />
+      {scopeOpen ? (
+        <ScopeMenu
+          scope={scope}
+          base={data?.baseLabel ?? 'main'}
+          top={toolbarBottom}
+          onPick={(next) => {
+            setScopeOpen(false);
+            changeScope(next);
+          }}
+          onClose={() => setScopeOpen(false)}
+        />
+      ) : null}
       {copied ? (
         <View pointerEvents="none" style={[styles.toast, { bottom: insets.bottom + 24 }]}>
           <Text style={styles.toastText}>{ChangesCopy.lineCopied}</Text>
@@ -572,18 +652,47 @@ const useStyles = themedStyles((t) => ({
   screen: { flex: 1, backgroundColor: t.background },
   headerButton: { width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   pressed: { opacity: 0.6 },
-  toolbar: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 8 },
-  segmented: {
+  toolbar: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 12, paddingTop: 8, paddingBottom: 8 },
+  scopeButton: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 34,
+    paddingLeft: 11,
+    paddingRight: 9,
     borderRadius: 9,
     borderWidth: 1,
     borderColor: t.controlBorder,
-    overflow: 'hidden',
   },
-  segment: { flex: 1, height: 34, alignItems: 'center', justifyContent: 'center' },
-  segmentSelected: { backgroundColor: t.selectedFill },
-  segmentText: { color: t.muted, fontSize: 13.5, fontWeight: '500' },
-  segmentTextSelected: { color: t.foreground, fontWeight: '600' },
+  scopeButtonText: { color: t.foreground, fontSize: 13.5, fontWeight: '500' },
+  scopeMenu: {
+    position: 'absolute',
+    right: 12,
+    width: 290,
+    maxWidth: '92%',
+    padding: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: t.menuBorder,
+    backgroundColor: t.menu,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+  },
+  scopeItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    borderRadius: 8,
+  },
+  scopeCheck: { width: 14, paddingTop: 2 },
+  scopeItemText: { flex: 1, minWidth: 0, gap: 2 },
+  scopeItemTitle: { color: t.menuForeground, fontSize: 14, fontWeight: '500' },
+  scopeItemDetail: { color: t.muted, fontSize: 12.5, lineHeight: 17 },
   listHeading: {
     flexDirection: 'row',
     alignItems: 'center',
