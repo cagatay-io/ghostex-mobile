@@ -64,7 +64,6 @@ import {
 } from './icons';
 import WorkChips, {
   ChipGlyph,
-  WORK_CHIP_LINE_HEIGHT,
   WORK_SESSION_ROW_HEIGHT,
   type WorkChipActions,
 } from './WorkChips';
@@ -486,16 +485,14 @@ export default function SessionRow({
       : (session.links?.items.length ?? 0) - linksRow.line.length;
   const showChips = chips.length > 0 && workActions !== undefined;
   /*
-   * CDXC:SessionLinks 2026-10-24 DECISION:
-   * User: "show the option to link a thread with issues/prs etc under the name of the thread instead
-   * of on the same thread title row", narrowed to "i said that for the case where it's showing me
-   * the link icon and telling me there's suggested links". The quiet suggestions badge sits on a line
-   * under the session's name; the regular Badge stays on the title row (gx-core `SessionLinks::row`).
+   * CDXC:SessionLinks 2026-10-27 DECISION:
+   * User: "i see the links tag is shown on 2nd row, this is wrong it should always be on same row as
+   * header please (so all are singly row in sidebar)". The quiet suggestions badge sits on the title
+   * row like the linked badge, so a row without chips stays one line high (the desktop's
+   * `render_native_session_links_badge`). Supersedes the 2026-10-24 line under the name.
    */
-  const suggestedBadge =
-    !offerCleanup && linksRow.line.length === 0 && linksRow.badge?.suggested === true ? linksRow.badge : null;
-  const showLinkLine = showChips || suggestedBadge !== null;
-  const linksBadge = offerCleanup || linksRow.badge?.suggested === true ? null : linksRow.badge;
+  const showLinkLine = showChips;
+  const linksBadge = offerCleanup ? null : linksRow.badge;
   const rowHeight = TOUCH_ROW_HEIGHT + (showLinkLine ? ds(WORK_SESSION_ROW_HEIGHT - 34) : 0);
   const linePaddingLeft = (inCard ? ds(26) : ds(47)) + titleIndent;
 
@@ -688,17 +685,6 @@ export default function SessionRow({
             actions={workActions}
             fitLinks={linksNeverShown === null ? undefined : { neverShown: linksNeverShown }}
           />
-        ) : suggestedBadge !== null ? (
-          <View style={[styles.suggestedLine, { paddingLeft: linePaddingLeft }]}>
-            <View
-              accessible
-              accessibilityLabel={`${suggestedBadge.count} suggested links`}
-              style={[styles.linksBadge, styles.linksBadgeSuggested, { borderColor: suggestedBadge.color }]}
-            >
-              <ChipGlyph glyph="link" color={suggestedBadge.color} size={ds(10)} />
-              <Text style={[styles.linksBadgeText, { color: suggestedBadge.color }]}>{suggestedBadge.count}</Text>
-            </View>
-          </View>
         ) : null}
       </Pressable>
     </Animated.View>
@@ -714,11 +700,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: ds(5),
     borderRadius: ds(8),
     borderWidth: 1,
-  },
-  suggestedLine: {
-    height: ds(WORK_CHIP_LINE_HEIGHT),
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   linksBadgeSuggested: {
     borderStyle: 'dashed',

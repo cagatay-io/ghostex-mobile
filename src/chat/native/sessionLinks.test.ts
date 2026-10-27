@@ -99,3 +99,18 @@ describe('suggestionsShown', () => {
     assert.deepEqual(suggestionsShown(['a'], false), ['a']);
   });
 });
+
+describe('sessionLinksWithoutRemoved with suggestions', () => {
+  test('a dismissed suggestion leaves Suggested at once and leads Removed', () => {
+    const links: GhostexSessionLinks = { items: [], suggested: [link('#1', '', false), link('#2', '', false)], removed: [] };
+    const after = sessionLinksWithoutRemoved(links, ['#2']);
+    assert.deepEqual(
+      after.suggested.map((entry) => entry.key),
+      ['#1'],
+    );
+    assert.deepEqual(
+      after.removed.map((entry) => entry.key),
+      ['#2'],
+    );
+  });
+});

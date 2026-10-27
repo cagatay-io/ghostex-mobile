@@ -46,7 +46,7 @@
  */
 
 import { useEffect, useRef, useState, type ReactElement } from 'react';
-import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 
@@ -134,6 +134,11 @@ export default function SessionLinksSheet({
   const [held, setHeld] = useState<string | null>(null);
   /** Links removed here whose removal the computer has not published yet. */
   const [removing, setRemoving] = useState<string[]>([]);
+  /** The "Add a link" field under the title, its text, and what the computer refused. */
+  const [adding, setAdding] = useState(false);
+  const [addText, setAddText] = useState('');
+  const [addError, setAddError] = useState<string | null>(null);
+  const [addBusy, setAddBusy] = useState(false);
   /** "Show all" was tapped under Suggested: every suggestion shows until "Show fewer". */
   const [allSuggested, setAllSuggested] = useState(false);
   const folded = useSettingsStore((store) => store.settings.sessionLinksFoldedGroups);
@@ -197,6 +202,54 @@ export default function SessionLinksSheet({
       onError: (message: string) => setStatus(message),
     });
   };
+  /**
+   * Links what the field holds (`ghostex link add`): SPX-123, #123, owner/repo#123 or a URL. The
+   * field closes once it is linked and shows what the computer refused otherwise.
+   *
+   * CDXC:SessionLinks 2026-10-27 DECISION:
+   * User: "also i need a button to add 1 manually (just write SPX-123 or #123 or paste a link to
+   * link it)". Add in the sheet's title row opens the field, as the desktop list's + opens its
+   * "Add a link" dialog (apps/desktop/src/app/window/add_session_link_modal.rs).
+   */
+  const submitAdd = async () => {
+    const text = addText.trim();
+    if (text.length === 0 || addBusy) return;
+    setAddBusy(true);
+    setAddError(null);
+    const result = await runSessionCommand(machine, addSessionLinkCommand(session.sessionId, session.projectId, text), {
+      onError: (message: string) => setAddError(message),
+    });
+    setAddBusy(false);
+    if (result !== null) {
+      setAdding(false);
+      setAddText('');
+    }
+  };
+  const toggleAdd = () => {
+    setAdding((open) => !open);
+    setAddError(null);
+  };
+  /**
+   * A suggestion's ×: tap it, then Remove? to dismiss it for good (it goes under Removed).
+   *
+   * CDXC:SessionLinks 2026-10-27 DECISION:
+   * User: "i should be able to press x on suggested ones to remove them also please" (gxserver's
+   * `dismiss_suggestion` in server/src/session_links/store.rs).
+   */
+  const dismissButton = (key: string, label: string) =>
+    armed === key ? (
+      menuButton('Remove?', () => remove(key), true)
+    ) : (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Remove ${label}`}
+        hitSlop={ROW_BUTTON_HIT_SLOP}
+        onPress={() => remove(key)}
+        style={({ pressed }) => [styles.remove, pressed && { backgroundColor: P.neutralFillPressed }]}
+      >
+        <Glyph name="x" size={14} color={P.muted} />
+      </Pressable>
+    );
   // Only links read as open count: one not read yet is neither open nor finished.
   const openCount = links.items.filter((link) => !link.finished && link.state.length > 0).length;
   const failingCount = links.items.filter((link) => link.checks === 'failing').length;
@@ -405,8 +458,47 @@ export default function SessionLinksSheet({
   const removed = links.removed;
 
   return (
-    <Sheet visible={visible} onClose={onClose} title={`Links · ${summary}`}>
-      <ScrollView contentContainerStyle={styles.sheetBody}>
+    <Sheet
+      visible={visible}
+      onClose={onClose}
+      title={`Links · ${summary}`}
+      accessory={
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={adding ? 'Close the add field' : 'Add a link'}
+          accessibilityState={{ expanded: adding }}
+          hitSlop={8}
+          onPress={toggleAdd}
+          style={({ pressed }) => [styles.addButton, pressed && { backgroundColor: P.neutralFillPressed }]}
+        >
+          <Glyph name={adding ? 'x' : 'link'} size={14} color={P.muted} />
+          <Text style={styles.section}>{adding ? 'Cancel' : 'Add'}</Text>
+        </Pressable>
+      }
+    >
+      <ScrollView contentContainerStyle={styles.sheetBody} keyboardShouldPersistTaps="handled">
+        {adding ? (
+          <View style={styles.addField}>
+            <TextInput
+              autoFocus
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!addBusy}
+              placeholder="SPX-123, #123, owner/repo#123 or a link"
+              placeholderTextColor={P.muted}
+              returnKeyType="go"
+              value={addText}
+              onChangeText={(text) => {
+                setAddText(text);
+                setAddError(null);
+              }}
+              onSubmitEditing={() => void submitAdd()}
+              style={styles.addInput}
+            />
+            {addBusy ? <Text style={styles.status}>Linking…</Text> : null}
+            {addError !== null ? <Text style={[styles.status, { color: P.error }]}>{addError}</Text> : null}
+          </View>
+        ) : null}
         {section('pinned', 'Pinned')}
         {section('open', 'Open')}
         {section('loading', 'Loading')}
@@ -417,7 +509,13 @@ export default function SessionLinksSheet({
             {(isFolded('suggested') ? [] : suggestionsShown(links.suggested, allSuggested)).map((suggestion) =>
               entryRow(
                 suggestion,
-                iconButton('link', `Link ${suggestion.label}`, () => add(suggestion.url)),
+                <View style={styles.rowActions}>
+                  {/* A Linear ticket not read yet has no URL; its ID links it as well. */}
+                  {iconButton('link', `Link ${suggestion.label}`, () =>
+                    add(suggestion.url.length > 0 ? suggestion.url : suggestion.label),
+                  )}
+                  {dismissButton(suggestion.key, suggestion.label)}
+                </View>,
               ),
             )}
             {!isFolded('suggested') && links.suggested.length > SUGGESTED_SHOWN_FIRST ? (
@@ -502,4 +600,17 @@ const useStyles = themedStyles((P) => ({
   linkButton: { paddingHorizontal: 12, height: 28, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
   linkButtonText: { color: P.foreground, fontSize: 13 },
   status: { color: P.muted, fontSize: 12.5, marginTop: 10 },
+  rowActions: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  addButton: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, height: 28, borderRadius: 7 },
+  addField: { marginTop: 6, marginBottom: 4 },
+  addInput: {
+    height: 38,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: P.menuBorder,
+    backgroundColor: P.neutralFill,
+    color: P.foreground,
+    fontSize: 14,
+  },
 }));

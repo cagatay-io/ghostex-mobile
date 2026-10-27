@@ -206,12 +206,14 @@ export function suggestionsShown<T>(suggested: readonly T[], all: boolean): read
 export function sessionLinksWithoutRemoved(links: GhostexSessionLinks, keys: readonly string[]): GhostexSessionLinks {
   if (keys.length === 0) return links;
   const gone = links.items.filter((link) => keys.includes(link.key));
-  if (gone.length === 0) return links;
+  // A suggestion's × dismisses it, which also lands it under Removed.
+  const dismissed = links.suggested.filter((link) => keys.includes(link.key));
+  if (gone.length === 0 && dismissed.length === 0) return links;
   const known = new Set(links.removed.map((link) => link.key));
   return {
     items: links.items.filter((link) => !keys.includes(link.key)),
-    suggested: links.suggested,
-    removed: [...gone.filter((link) => !known.has(link.key)), ...links.removed],
+    suggested: links.suggested.filter((link) => !keys.includes(link.key)),
+    removed: [...[...gone, ...dismissed].filter((link) => !known.has(link.key)), ...links.removed],
   };
 }
 
