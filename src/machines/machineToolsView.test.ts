@@ -74,6 +74,20 @@ describe('tool rows', () => {
     assert.equal(row.detail, `0.37.0. ${note}`);
   });
 
+  test('a tool whose check is not answering says so and offers Retry', () => {
+    const row = toolRow({
+      id: 'gh',
+      label: 'GitHub CLI',
+      supported: true,
+      installed: true,
+      actions: ['update'],
+      notAnswering: "`gh --version` didn't answer within 5 seconds, so Ghostex stopped it.",
+    });
+    assert.equal(row.tone, 'warning');
+    assert.equal(row.detail, "Not answering. `gh --version` didn't answer within 5 seconds, so Ghostex stopped it.");
+    assert.deepEqual(row.action, { label: 'Retry', operation: 'retry' });
+  });
+
   test('a terminal install is not started from the phone', () => {
     const row = toolRow({
       id: 'systemTools',

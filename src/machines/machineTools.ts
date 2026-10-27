@@ -160,6 +160,9 @@ export async function runRowAction(machine: MachineConnectionTarget, key: string
       operation: action.operation,
       methodId: action.methodId,
     });
+  } else if (kind === 'tool' && action.operation === 'retry') {
+    // A tool that wasn't answering is checked again; the list below shows the result.
+    answer = await call(machine, 'managedTools', { action: 'read', tool: id, fresh: true });
   } else if (kind === 'tool') {
     answer = await call(machine, 'managedTools', { action: 'start', tool: id, operation: action.operation });
   } else {

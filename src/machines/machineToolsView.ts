@@ -41,6 +41,8 @@ export type ManagedTool = {
   unavailableReason?: string | null;
   terminalCommand?: string | null;
   permissionNote?: string | null;
+  /** Its check ran past the time limit on the computer (GitHub #336): why. */
+  notAnswering?: string | null;
   job?: ToolJob | null;
 };
 
@@ -160,6 +162,17 @@ export function toolRow(tool: ManagedTool): ToolRowView {
       tone: 'muted',
       busy: true,
       action: null,
+    };
+  }
+  const notAnswering = tool.notAnswering?.trim();
+  if (notAnswering) {
+    return {
+      key,
+      title,
+      detail: `Not answering. ${notAnswering}`,
+      tone: 'warning',
+      busy: false,
+      action: { label: 'Retry', operation: 'retry' },
     };
   }
   const failure = failedJob(tool.job);
