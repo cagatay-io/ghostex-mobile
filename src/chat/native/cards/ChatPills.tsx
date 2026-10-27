@@ -137,20 +137,26 @@ export function QuestionPill({
 const FOLDED_BY_DEFAULT: ReadonlySet<string> = new Set(['withdrawn']);
 
 /**
- * The ? pill's list: every question form and question page in the chat in the core's sections
- * (Unanswered, For later, Answered, Withdrawn), each folding under its chevron, rows newest first. A
- * row scrolls the transcript to its card and flashes it. Desktop: `questions_list.rs`.
+ * The ? pill's list (Chat Resources): every question form, page and chart in the chat, under the
+ * filter the header's dropdown picks, in the core's sections, each folding under its chevron, rows
+ * newest first. A row scrolls the transcript to it and flashes it. Desktop: `questions_list.rs`.
  */
 export function QuestionsMenu({
   chat,
   document,
   onDone,
+  filtersOpen,
+  onFiltersClose,
 }: {
   chat: RustChat;
   document: ChatDocument;
   onDone: () => void;
+  /** The filter dropdown (`QuestionsFilterTrigger` in the sheet's header) is open. */
+  filtersOpen: boolean;
+  onFiltersClose: () => void;
 }) {
   const styles = useStyles();
+  const P = useTranscriptTheme();
   const [toggled, setToggled] = useState<ReadonlySet<string>>(new Set());
   const sections = document.openQuestions?.sections ?? [];
   const filters = document.openQuestions?.filters ?? [];
@@ -165,26 +171,6 @@ export function QuestionsMenu({
   return (
     <View accessibilityLabel="Chat Resources" style={styles.questionsMenu}>
       <Text style={styles.questionsSummary}>{document.openQuestions?.summary ?? ''}</Text>
-      {/* All, Html, Q&A and Charts: the core picks the rows (desktop `question_list_filters`). */}
-      <View style={styles.filters} accessibilityRole="tablist">
-        {filters.map((filter, index) => {
-          const on = filter.id === picked;
-          return (
-            <Pressable
-              key={filter.id}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: on }}
-              accessibilityLabel={`${filter.label} ${filter.count}`}
-              onPress={() => chat.dispatch({ type: 'questionListFilter', filter: filter.id })}
-              style={[styles.filter, index > 0 && styles.filterDivider, on && styles.filterOn]}
-            >
-              <Text numberOfLines={1} style={[styles.filterLabel, on && styles.filterLabelOn]}>
-                {filter.label} <Text style={styles.filterCount}>{String(filter.count)}</Text>
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
       <ScrollView nestedScrollEnabled>
         {sections.length === 0 ? (
           <Text style={styles.questionsSummary}>Nothing of this kind in this chat yet.</Text>
@@ -202,7 +188,57 @@ export function QuestionsMenu({
           />
         ))}
       </ScrollView>
+      {filtersOpen ? (
+        // The filter's pick list, under its trigger at the sheet header's right end.
+        <View style={styles.filterMenu} accessibilityRole="menu">
+          {filters.map((filter) => (
+            <Pressable
+              key={filter.id}
+              accessibilityRole="menuitem"
+              accessibilityState={{ selected: filter.id === picked }}
+              accessibilityLabel={`${filter.label} ${filter.count}`}
+              onPress={() => {
+                chat.dispatch({ type: 'questionListFilter', filter: filter.id });
+                onFiltersClose();
+              }}
+              style={({ pressed }) => [styles.filterRow, pressed && styles.pillPressed]}
+            >
+              <View style={styles.filterCheck}>
+                {filter.id === picked ? <Glyph name="check" size={13} color={P.foreground} /> : null}
+              </View>
+              <Text style={styles.filterLabel}>{filter.label}</Text>
+              <Text style={styles.filterCount}>{String(filter.count)}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
     </View>
+  );
+}
+
+/**
+ * The filter's small dropdown at the right of the sheet's header: the current pick and a chevron.
+ *
+ * CDXC:SessionChat 2026-10-27 SEE-ALSO:
+ * The user's words (no row label pills, a small dropdown on the header's line instead of tabs) are on
+ * desktop `questions_list.rs` `question_list_filter_trigger`.
+ */
+function QuestionsFilterTrigger({ document, onPress }: { document: ChatDocument; onPress: () => void }) {
+  const styles = useStyles();
+  const P = useTranscriptTheme();
+  const picked = document.openQuestions?.filter ?? 'all';
+  const label = (document.openQuestions?.filters ?? []).find((filter) => filter.id === picked)?.label ?? 'All';
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Show: ${label}`}
+      onPress={onPress}
+      hitSlop={6}
+      style={({ pressed }) => [styles.filterTrigger, pressed && styles.pillPressed]}
+    >
+      <Text style={styles.filterLabel}>{label}</Text>
+      <Glyph name="chevron-down" size={12} color={P.cardMuted} />
+    </Pressable>
   );
 }
 
@@ -261,10 +297,6 @@ function QuestionsSection({
                   ]}
                 >
                   {row.title}
-                </Text>
-                {/* What the row is, so pages, forms and charts read apart in any section. */}
-                <Text style={styles.kindLabel}>
-                  {row.kind === 'page' ? 'HTML' : row.kind === 'chart' ? 'Chart' : 'Q&A'}
                 </Text>
                 {row.tags.length > 0 ? (
                   <Text numberOfLines={1} style={styles.questionsMeta}>
@@ -460,6 +492,10 @@ export function PillMenuSheet({
   onClose: () => void;
 }) {
   const questions = open === 'questions' && (document.openQuestions?.total ?? 0) > 0;
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  useEffect(() => {
+    if (!questions) setFiltersOpen(false);
+  }, [questions]);
   const shown = questions
     ? ({ id: 'questions', label: 'Chat Resources' } as ChatPill)
     : (document.chatPills ?? []).find((pill) => pill.id === open);
@@ -474,7 +510,16 @@ export function PillMenuSheet({
   };
   const background = obj(document.backgroundTasksPanel);
   return (
-    <Sheet visible={shown !== undefined} onClose={close} title={shown?.label ?? ''}>
+    <Sheet
+      visible={shown !== undefined}
+      onClose={close}
+      title={shown?.label ?? ''}
+      accessory={
+        questions ? (
+          <QuestionsFilterTrigger document={document} onPress={() => setFiltersOpen((was) => !was)} />
+        ) : undefined
+      }
+    >
       {open === 'threads' ? (
         <CoordinatorThreadsMenu chat={chat} document={document} onDone={close} />
       ) : open === 'tasks' ? (
@@ -484,7 +529,13 @@ export function PillMenuSheet({
       ) : open === 'background' && background !== null ? (
         <BackgroundTasksMenu tasks={background} />
       ) : questions ? (
-        <QuestionsMenu chat={chat} document={document} onDone={close} />
+        <QuestionsMenu
+          chat={chat}
+          document={document}
+          onDone={close}
+          filtersOpen={filtersOpen}
+          onFiltersClose={() => setFiltersOpen(false)}
+        />
       ) : null}
     </Sheet>
   );
@@ -566,29 +617,39 @@ const useStyles = themedStyles((P) => ({
     borderRadius: 6,
   },
   questionsTitle: { flex: 1, minWidth: 0, color: P.foreground, fontSize: 14 },
-  filters: {
+  filterTrigger: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  /**
+   * The pick list, floating under the header's trigger with its right edge on the trigger's, so it
+   * opens leftwards inside the sheet: the sheet's title row is inset 16 (`Sheet.tsx` `titleRow`),
+   * this list's container is not (desktop `open_select_list_right_aligned`).
+   */
+  filterMenu: {
+    position: 'absolute',
+    top: 0,
+    right: 16,
+    minWidth: 160,
+    paddingVertical: 4,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: P.ink(0.14),
-    borderRadius: 8,
-    overflow: 'hidden',
-    marginBottom: 4,
+    borderColor: P.ink(0.12),
+    backgroundColor: P.composerBackground,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
   },
-  filter: { flex: 1, minHeight: 34, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
-  filterDivider: { borderLeftWidth: 1, borderLeftColor: P.ink(0.14) },
-  filterOn: { backgroundColor: P.ink(0.14) },
-  filterLabel: { color: P.cardMuted, fontSize: 13 },
-  filterLabelOn: { color: P.foreground },
-  filterCount: { color: P.cardMuted, fontVariant: ['tabular-nums'] },
-  kindLabel: {
-    flexShrink: 0,
-    color: P.cardMuted,
-    fontSize: 10.5,
-    paddingHorizontal: 5,
-    borderRadius: 4,
-    overflow: 'hidden',
-    backgroundColor: P.ink(0.07),
-  },
+  filterRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 40, paddingHorizontal: 10 },
+  filterCheck: { width: 14, alignItems: 'center' },
+  filterLabel: { color: P.foreground, fontSize: 13 },
+  filterCount: { marginLeft: 'auto', color: P.cardMuted, fontSize: 12, fontVariant: ['tabular-nums'] },
   questionsMeta: { flexShrink: 0, maxWidth: 110, color: P.cardMuted, fontSize: 12, fontVariant: ['tabular-nums'] },
   /** The running and waiting dots overlapping: one ring further out, so the front dot sits where a lone dot does. */
   cornerStack: {
