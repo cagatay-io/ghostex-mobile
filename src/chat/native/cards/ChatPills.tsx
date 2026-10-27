@@ -163,7 +163,7 @@ export function QuestionsMenu({
       return next;
     });
   return (
-    <View accessibilityLabel="Generated content" style={styles.questionsMenu}>
+    <View accessibilityLabel="Chat Resources" style={styles.questionsMenu}>
       <Text style={styles.questionsSummary}>{document.openQuestions?.summary ?? ''}</Text>
       {/* All, Html, Q&A and Charts: the core picks the rows (desktop `question_list_filters`). */}
       <View style={styles.filters} accessibilityRole="tablist">
@@ -461,7 +461,7 @@ export function PillMenuSheet({
 }) {
   const questions = open === 'questions' && (document.openQuestions?.total ?? 0) > 0;
   const shown = questions
-    ? ({ id: 'questions', label: 'Content' } as ChatPill)
+    ? ({ id: 'questions', label: 'Chat Resources' } as ChatPill)
     : (document.chatPills ?? []).find((pill) => pill.id === open);
   // A panel that went away (the subagents finished) takes its sheet with it.
   useEffect(() => {
