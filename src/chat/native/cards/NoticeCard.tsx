@@ -17,6 +17,7 @@ import { Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } fro
 
 import type { ChatDocument } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
+import { phoneKeepsCancel } from './dialogCancel';
 import { arr, asJson, isTrue, num, obj, str } from './json';
 import { MONO_FONT, themedStyles, useTranscriptTheme } from '../transcript/theme';
 import {
@@ -253,6 +254,20 @@ export function NoticeCard({
     const parts = terminalDialogParts(chat, dialog, busy, dialogInput, look);
     body.push(...parts.body);
     footerEnd.push(...parts.actions);
+    // No Esc key on a phone: a numbered dialog with no "No" row keeps a way out (dialogCancel.ts).
+    if (phoneKeepsCancel(notice)) {
+      const dialogId = str(dialog, 'id');
+      footerEnd.push(
+        <ToneButton
+          key="dialog-action:cancel"
+          kind="secondary"
+          label="Cancel"
+          onPress={() =>
+            dispatch({ type: 'answer', answer: { kind: 'terminalDialog', dialogId, dialogAction: 'cancel' } })
+          }
+        />,
+      );
+    }
   }
   // Only sign-in and usage-limit notices offer the account panel (notice.rs).
   const kind = str(notice, 'kind');
