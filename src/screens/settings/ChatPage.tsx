@@ -94,6 +94,11 @@ export default function ChatPage() {
         </Caption>
         <SettingToggle settingKey="sessionChatVerboseMode" label="Verbose Mode" />
         <Caption>Expands thinking blocks to show their tool calls by default.</Caption>
+        <SettingToggle settingKey="sessionChatHeaderLinks" label="Show session links in the chat's top bar" />
+        <Caption>
+          Show the session's pull requests, issues and Linear tickets under the chat's header. Turn off to keep the
+          header to the title; the session list still shows them.
+        </Caption>
       </SettingsSection>
       <SettingsSection name="settings:chat:marked-sections">
         <SectionHeader title="Marked sections" />

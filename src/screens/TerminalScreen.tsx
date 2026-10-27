@@ -86,6 +86,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
   const closeTab = useTerminalStore((state) => state.closeTab);
   const openShellTab = useTerminalStore((state) => state.openShellTab);
   const settings = useSettingsStore((state) => state.settings);
+  const showHeaderLinks = settings.sessionChatHeaderLinks;
 
   const { keyboardVisible, bottomInset, visibleWindowBottom } = useKeyboardMetrics();
   const isFocused = useIsFocused();
@@ -579,7 +580,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
         </Pressable>
       </View>
 
-      {chatModeActive && activeTab !== null ? (
+      {chatModeActive && activeTab !== null && showHeaderLinks ? (
         <SessionLinksStrip
           machine={activeMachine}
           session={activeSession}

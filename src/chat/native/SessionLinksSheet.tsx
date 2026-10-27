@@ -15,9 +15,15 @@
  *
  * CDXC:SessionLinks 2026-10-24 DECISION:
  * User: "when a link is gone i see that i can't bring it back why not?", "i mean when i hit x button
- * twice on it". Right after the second tap the row reads "Removed · Undo" for a few seconds, and a
- * collapsed "Removed (N)" group at the bottom lists every removed link with Restore, as on the
- * desktop (apps/desktop/src/app/native_sidebar/links_list.rs).
+ * twice on it". A collapsed "Removed (N)" group at the bottom lists every removed link with Restore,
+ * as on the desktop (apps/desktop/src/app/native_sidebar/links_list.rs). The "Removed · Undo" row
+ * that stood in for a just-removed link is gone (CDXC:SessionLinks 2026-10-27 in sessionLinks.ts,
+ * `sessionLinksWithoutRemoved`): the link leaves its group at once and leads Removed.
+ *
+ * CDXC:SessionLinks 2026-10-27 DECISION:
+ * User: "also the height of the row that has "undo" is bigger than the other rows, just wanted to
+ * note this is wrong". A row's button (Link, Restore, a pinned row's pin) is sized to the row's text
+ * line, with a wider touch area, so it never makes its row taller than a plain one.
  *
  * CDXC:SessionLinks 2026-10-24 DECISION:
  * User: "can u pls make all the sections in these cards colapsible with chevron? please add this for
@@ -59,13 +65,25 @@ import { useSettingsStore } from '../../settings/store';
 import { SidebarPalette } from '../../theme/palette';
 import { Glyph } from './composer/icons';
 import { Sheet } from './composer/Sheet';
-import { sessionLinkCardLines, sessionLinkDetailLine, sessionLinkLook, sessionLinkSummary } from './sessionLinks';
+import {
+  sessionLinkCardLines,
+  sessionLinkDetailLine,
+  sessionLinkLook,
+  sessionLinkSummary,
+  sessionLinksWithoutRemoved,
+} from './sessionLinks';
 import { themedStyles, useTranscriptTheme } from './transcript/theme';
 
 /** How long a × waits for its confirming tap. */
 const REMOVE_ARMED_FOR_MS = 3000;
-/** How long a removed row offers Undo. */
-const UNDO_FOR_MS = 6000;
+/**
+ * How long a removed link stays out of the list without the computer publishing its removal; past
+ * it the sheet shows what the computer says again (the removal failed, and said so).
+ */
+const REMOVAL_PENDING_FOR_MS = 10_000;
+/** A row button's height: no taller than the row's first text line. */
+const ROW_BUTTON_HEIGHT = 20;
+const ROW_BUTTON_HIT_SLOP = { top: 12, bottom: 12, left: 8, right: 8 };
 
 /** Opens a link where the computer's setting says: the phone's browser view, or its default browser. */
 export function openSessionLink(
@@ -112,18 +130,19 @@ export default function SessionLinksSheet({
   const [armed, setArmed] = useState<string | null>(null);
   /** The linked entry whose actions a long press opened under it. */
   const [held, setHeld] = useState<string | null>(null);
-  const [undo, setUndo] = useState<GhostexSessionLink | null>(null);
+  /** Links removed here whose removal the computer has not published yet. */
+  const [removing, setRemoving] = useState<string[]>([]);
   const folded = useSettingsStore((store) => store.settings.sessionLinksFoldedGroups);
   const setSetting = useSettingsStore((store) => store.setSetting);
   const [status, setStatus] = useState<string | null>(null);
   const armTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const removalTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const styles = useStyles();
   const P = useTranscriptTheme();
   useEffect(
     () => () => {
       if (armTimer.current !== null) clearTimeout(armTimer.current);
-      if (undoTimer.current !== null) clearTimeout(undoTimer.current);
+      removalTimers.current.forEach(clearTimeout);
     },
     [],
   );
@@ -135,8 +154,9 @@ export default function SessionLinksSheet({
       onError: () => {},
     });
   }, [visible, machine, session.sessionId, session.projectId]);
-  const links = session.links;
-  if (links === undefined) return null;
+  const published = session.links;
+  if (published === undefined) return null;
+  const links = sessionLinksWithoutRemoved(published, removing);
 
   const open = (url: string) => {
     if (openTarget !== 'external') onClose();
@@ -146,9 +166,13 @@ export default function SessionLinksSheet({
   const remove = (key: string) => {
     if (armed === key) {
       setArmed(null);
-      setUndo(links.items.find((link) => link.key === key) ?? null);
-      if (undoTimer.current !== null) clearTimeout(undoTimer.current);
-      undoTimer.current = setTimeout(() => setUndo((current) => (current?.key === key ? null : current)), UNDO_FOR_MS);
+      setRemoving((current) => (current.includes(key) ? current : [...current, key]));
+      removalTimers.current.push(
+        setTimeout(
+          () => setRemoving((current) => current.filter((pending) => pending !== key)),
+          REMOVAL_PENDING_FOR_MS,
+        ),
+      );
       void runSessionCommand(machine, removeSessionLinkCommand(session.sessionId, session.projectId, key), {
         onError: (message: string) => setStatus(message),
       });
@@ -159,7 +183,7 @@ export default function SessionLinksSheet({
     armTimer.current = setTimeout(() => setArmed((current) => (current === key ? null : current)), REMOVE_ARMED_FOR_MS);
   };
   const restore = (key: string) => {
-    setUndo((current) => (current?.key === key ? null : current));
+    setRemoving((current) => current.filter((pending) => pending !== key));
     void runSessionCommand(machine, restoreSessionLinkCommand(session.sessionId, session.projectId, key), {
       onError: (message: string) => setStatus(message),
     });
@@ -324,7 +348,7 @@ export default function SessionLinksSheet({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      hitSlop={8}
+      hitSlop={ROW_BUTTON_HIT_SLOP}
       onPress={onPress}
       style={({ pressed }) => [styles.remove, pressed && { backgroundColor: P.neutralFillPressed }]}
     >
@@ -365,36 +389,16 @@ export default function SessionLinksSheet({
           ? !link.pinned && !link.loading && !link.finished
           : !link.pinned && !link.loading && link.finished;
   const section = (id: string, title: string) => {
-    const undone = undo !== null && inGroup(undo, id) ? undo : null;
-    const items = links.items.filter((link) => inGroup(link, id) && link.key !== undone?.key);
-    if (items.length === 0 && undone === null) return null;
+    const items = links.items.filter((link) => inGroup(link, id));
+    if (items.length === 0) return null;
     return (
       <View key={id}>
         {sectionHeader(id, title, items.length)}
-        {undone !== null ? (
-          <View style={styles.undoRow}>
-            <Text style={styles.undoLabel}>Removed ·</Text>
-            <Text style={styles.suggestedTitle} numberOfLines={1}>
-              {undone.title.length > 0 ? `${undone.label} ${undone.title}` : undone.label}
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Undo removing ${undone.label}`}
-              onPress={() => restore(undone.key)}
-              style={({ pressed }) => [
-                styles.linkButton,
-                { backgroundColor: pressed ? P.neutralFillPressed : P.neutralFill },
-              ]}
-            >
-              <Text style={styles.linkButtonText}>Undo</Text>
-            </Pressable>
-          </View>
-        ) : null}
         {(isFolded(id) ? [] : items).map((link) => entryRow(link, linkedActions(link), true))}
       </View>
     );
   };
-  const removed = links.removed.filter((link) => link.key !== undo?.key);
+  const removed = links.removed;
 
   return (
     <Sheet visible={visible} onClose={onClose} title={`Links · ${summary}`}>
@@ -466,26 +470,17 @@ const useStyles = themedStyles((P) => ({
   rowLabel: { color: P.foreground, fontSize: 14 },
   rowTitle: { color: P.foreground, fontSize: 14, flex: 1, minWidth: 0, opacity: 0.86 },
   rowDetail: { color: P.muted, fontSize: 12.5 },
+  // As tall as a row's text line (14px text), so a row with a button is as tall as one without;
+  // ROW_BUTTON_HIT_SLOP keeps the touch area.
   remove: {
     minWidth: 28,
-    height: 26,
+    height: ROW_BUTTON_HEIGHT,
     borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 6,
   },
-  suggestedTitle: { color: P.muted, fontSize: 13, flex: 1, minWidth: 0 },
   linkButton: { paddingHorizontal: 12, height: 28, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
   linkButtonText: { color: P.foreground, fontSize: 13 },
   status: { color: P.muted, fontSize: 12.5, marginTop: 10 },
-  undoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    backgroundColor: P.cardRow,
-  },
-  undoLabel: { color: P.muted, fontSize: 13 },
 }));

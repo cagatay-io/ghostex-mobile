@@ -87,6 +87,11 @@ export type GhostexSettings = {
   /** Grey thinking: the agent's thinking in the muted tone, its replies in the full foreground. */
   sessionChatMutedThinking: boolean;
   /**
+   * The links strip under the chat's header (SessionLinksStrip.tsx); the desktop's
+   * `sessionChatHeaderLinks` (CDXC:SessionLinks 2026-10-27 in packages/gx-core/src/sidebar_view/links.rs).
+   */
+  sessionChatHeaderLinks: boolean;
+  /**
    * Which chat brain runs a chat: the Rust chat core built into the app, or the same core as
    * WebAssembly in a hidden WebView, which updates over the air (`src/chat/rust/core-backend.ts`,
    * CDXC:SessionChat 2026-10-23 DECISION in `src/chat/rust/wasm-core/bridge.ts`). Read when a chat
@@ -178,6 +183,7 @@ export function defaultSettings(): GhostexSettings {
     sessionLinksFoldedGroups: ['finished', 'removed'],
     sessionChatFileEditPreviews: false,
     sessionChatMutedThinking: false,
+    sessionChatHeaderLinks: true,
     sessionChatBrain: 'builtIn',
     markedHandoversStyle: 'labels',
     markedHandoversEmoji: false,
@@ -282,6 +288,7 @@ function sanitizeSettings(value: unknown): GhostexSettings {
     sessionChatTranscriptWidthPercent,
     sessionChatFileEditPreviews: bool('sessionChatFileEditPreviews', defaults.sessionChatFileEditPreviews),
     sessionChatMutedThinking: bool('sessionChatMutedThinking', defaults.sessionChatMutedThinking),
+    sessionChatHeaderLinks: bool('sessionChatHeaderLinks', defaults.sessionChatHeaderLinks),
     sessionChatSimpleMode: bool('sessionChatSimpleMode', defaults.sessionChatSimpleMode),
     sessionChatVerboseMode: bool('sessionChatVerboseMode', defaults.sessionChatVerboseMode),
     sessionLinksFoldedGroups: Array.isArray(record.sessionLinksFoldedGroups)

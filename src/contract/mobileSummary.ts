@@ -1616,7 +1616,7 @@ function normalizeRoot(root: JsonObject): GhostexMobileSummary {
       ? root.builtInFeaturesOff.filter((id): id is string => typeof id === 'string')
       : undefined,
     sessionLinkOpenTarget: root.sessionLinkOpenTarget === 'external' ? 'external' : 'embedded',
-    sidebarSessionLinks: typeof root.sidebarSessionLinks === 'string' ? root.sidebarSessionLinks : 'always',
+    sidebarSessionLinks: typeof root.sidebarSessionLinks === 'string' ? root.sidebarSessionLinks : 'badge',
     dimSleepingSessions: root.dimSleepingSessions === true,
   };
 }

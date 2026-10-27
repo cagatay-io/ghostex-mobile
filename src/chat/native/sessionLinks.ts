@@ -141,8 +141,13 @@ export function sessionLinkSummary(link: GhostexSessionLink): string {
  */
 export type SessionLinksDisplay = 'always' | 'selected' | 'badge' | 'open' | 'off';
 
+/**
+ * CDXC:SessionLinks 2026-10-27 DECISION:
+ * User: "and also please make the sidebar show as badge by default". Badge is the default (the
+ * computer's summary leaves the key out then); a computer set to another option sends it.
+ */
 export function sessionLinksDisplay(value: unknown): SessionLinksDisplay {
-  return value === 'selected' || value === 'badge' || value === 'open' || value === 'off' ? value : 'always';
+  return value === 'always' || value === 'selected' || value === 'open' || value === 'off' ? value : 'badge';
 }
 
 export type SessionLinksRow = {
@@ -153,23 +158,50 @@ export type SessionLinksRow = {
   badge: { count: number; color: string; suggested: boolean } | null;
 };
 
-/** The colour of the most pressing link (gx-core `most_pressing_tone`). */
+/**
+ * The colour of the most pressing link (gx-core `most_pressing_tone`): only open links colour it;
+ * grey once every link is merged or closed.
+ *
+ * CDXC:SessionLinks 2026-10-27 DECISION:
+ * User: "make the badge gray if it's merged (not open)". As gx-core's rule: a badge whose links are
+ * all merged or closed is grey, not merged purple.
+ */
 export function mostPressingLinkColor(links: readonly GhostexSessionLink[]): string {
-  let best = { rank: 5, color: SidebarPalette.WORK_DRAFT as string };
+  let best = { rank: 4, color: SidebarPalette.WORK_DRAFT as string };
   for (const link of links) {
+    if (link.finished) continue;
     const candidate =
       link.checks === 'failing' || link.review === 'changesRequested'
         ? { rank: 0, color: SidebarPalette.WORK_CLOSED }
         : link.review === 'reviewRequired' || link.checks === 'pending'
           ? { rank: 1, color: SidebarPalette.WORK_PENDING }
-          : !link.finished && link.state !== 'draft'
+          : link.state !== 'draft'
             ? { rank: 2, color: sessionLinkLook(link).color }
-            : !link.finished
-              ? { rank: 3, color: SidebarPalette.WORK_DRAFT }
-              : { rank: 4, color: SidebarPalette.WORK_MERGED };
+            : { rank: 3, color: SidebarPalette.WORK_DRAFT };
     if (candidate.rank < best.rank) best = candidate;
   }
   return best.color;
+}
+
+/**
+ * The list once `keys` are removed, before the computer publishes it: each leaves its group at once
+ * and leads Removed, where Restore brings it back (gx-core `SessionLinks::without_removed`).
+ *
+ * CDXC:SessionLinks 2026-10-27 DECISION:
+ * User: "please don't show undo here right away after i remove one. ther'es no need. i clicked twice
+ * and confiremd already man". No "Removed · Undo" row; the removed link stays restorable under
+ * Removed.
+ */
+export function sessionLinksWithoutRemoved(links: GhostexSessionLinks, keys: readonly string[]): GhostexSessionLinks {
+  if (keys.length === 0) return links;
+  const gone = links.items.filter((link) => keys.includes(link.key));
+  if (gone.length === 0) return links;
+  const known = new Set(links.removed.map((link) => link.key));
+  return {
+    items: links.items.filter((link) => !keys.includes(link.key)),
+    suggested: links.suggested,
+    removed: [...gone.filter((link) => !known.has(link.key)), ...links.removed],
+  };
 }
 
 export function sessionLinksRow(
