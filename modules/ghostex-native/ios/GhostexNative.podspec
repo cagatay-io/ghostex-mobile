@@ -67,7 +67,13 @@ Pod::Spec.new do |s|
   # NOTE: SDK-conditional xcconfig keys REPLACE the unconditional value for
   # that SDK, so they must carry $(inherited) or they wipe every other pod's
   # library search path at the app link step.
+  #
+  # GhostexNative's swiftmodule imports libssh2, so with Swift explicit modules
+  # (on since React Native 0.88 dropped its Xcode 26 opt-out) the app target
+  # must find the libssh2 module map too, or the archive fails with
+  # "Unable to resolve module dependency: 'libssh2'".
   s.user_target_xcconfig = {
+    'SWIFT_INCLUDE_PATHS' => "$(inherited) \"#{ghostex_native_vendor}/libssh2\"",
     'LIBRARY_SEARCH_PATHS[sdk=iphoneos*]' => "$(inherited) \"#{ghostex_native_vendor}/libssh2/ios/lib\"",
     'LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]' => "$(inherited) \"#{ghostex_native_vendor}/libssh2/ios-simulator/lib\"",
     'OTHER_LDFLAGS' => '$(inherited) -lssh2 -lssl -lcrypto -lz',
