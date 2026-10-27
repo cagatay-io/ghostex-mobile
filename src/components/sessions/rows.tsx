@@ -17,13 +17,37 @@ import { Image, Pressable, StyleSheet, Text, View, type ViewInstance } from 'rea
 import { SvgXml } from 'react-native-svg';
 
 import { AGENT_ICONS } from '../../assets/agentIcons.generated';
-import { COMMAND_ICONS, PROJECT_FALLBACK_ICONS } from '../../assets/tablerIcons.generated';
-import { resolveAgentIconId, type GhostexAgentLauncher, type GhostexProjectIcon } from '../../contract/mobileSummary';
+import { COMMAND_ICONS } from '../../assets/tablerIcons.generated';
+import {
+  agentIconTint,
+  resolveAgentIconId,
+  type GhostexAgentLauncher,
+  type GhostexProjectIcon,
+} from '../../contract/mobileSummary';
 import type { SectionStatusCounts } from '../../contract/grouping';
 import { decodeBase64Utf8 } from '../../docs/remoteFiles';
 import { GhostexPalette, mixHexColors, SidebarPalette } from '../../theme/palette';
 import type { MenuAnchor } from './ContextMenu';
-import { CaretRightGlyph, ChevronDownGlyph, ChevronRightGlyph, MoreGlyph, TerminalGlyph } from './icons';
+import {
+  CaretRightGlyph,
+  ChevronDownGlyph,
+  ChevronRightGlyph,
+  FolderGlyph,
+  MoreGlyph,
+  PlusGlyph,
+  TerminalGlyph,
+} from './icons';
+
+/** The desktop sidebar's text and muted colors (appearance.rs, dark), which the phone's list draws with. */
+export const SIDEBAR_TEXT = '#B4B8C0';
+export const SIDEBAR_MUTED = '#7C828C';
+
+/**
+ * The phone's touch height for a session row and a project or group header: the desktop's 34 and 30
+ * times DRAWER_SCALE fall under the 44pt a finger needs, so both are raised to it (approved design
+ * docs/2026-10-21/phone-sessions-screen/sessions-like-sidebar.html).
+ */
+export const TOUCH_ROW_HEIGHT = 44;
 
 /** Sessions page base surface (the resolved sidebar appearance paints over it). */
 export const SIDEBAR_BACKGROUND = '#0B0B0B';
@@ -129,7 +153,46 @@ function svgXmlFromDataUrl(uri: string): string | null {
 /** Default glyph tint: the same muted header color the desktop glyph uses. */
 const PROJECT_GLYPH_COLOR = mixHexColors(SidebarPalette.FOREGROUND, SidebarPalette.MUTED, 72);
 
-export function ProjectIcon({ icon, size = ds(16) }: { icon: GhostexProjectIcon; size?: number }) {
+/**
+ * The first letter of a name on a muted square, in the project icon's slot (desktop project_header.rs `letter_tile`: muted at 12%, the muted letter, 10px semibold, 3px corners).
+ */
+export function LetterTile({ title, size = ds(16) }: { title: string; size?: number }) {
+  const letter = title.trim().charAt(0).toUpperCase() || '?';
+  return (
+    <View style={[letterStyles.tile, { width: size, height: size }]}>
+      <Text style={letterStyles.letter}>{letter}</Text>
+    </View>
+  );
+}
+
+const letterStyles = StyleSheet.create({
+  tile: {
+    borderRadius: ds(3),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(124,130,140,0.12)',
+  },
+  letter: {
+    color: SIDEBAR_MUTED,
+    fontSize: ds(10),
+    lineHeight: ds(16),
+    fontWeight: '600',
+  },
+});
+
+/**
+ * A project's icon: its image, the icon its repository ships, a typed glyph, else the first letter of
+ * its name (desktop CDXC:Icons 2026-09-24, which replaced the folder for a project with no icon).
+ */
+export function ProjectIcon({
+  icon,
+  title,
+  size = ds(16),
+}: {
+  icon: GhostexProjectIcon;
+  title: string;
+  size?: number;
+}) {
   const imageUri =
     icon.imageDataUrl.length > 0
       ? icon.imageDataUrl
@@ -155,21 +218,14 @@ export function ProjectIcon({ icon, size = ds(16) }: { icon: GhostexProjectIcon;
       />
     );
   }
-  const Glyph =
-    (icon.glyph.length > 0 ? COMMAND_ICONS[icon.glyph] : undefined) ??
-    PROJECT_FALLBACK_ICONS[icon.isWorktree ? 'worktree' : 'folder'];
+  const Glyph = icon.glyph.length > 0 ? COMMAND_ICONS[icon.glyph] : undefined;
+  if (Glyph === undefined) return <LetterTile title={title} size={size} />;
   const color = icon.glyphColor.length > 0 ? icon.glyphColor : PROJECT_GLYPH_COLOR;
   return <Glyph size={size} color={color} strokeWidth={1.8} />;
 }
 
-/** Header/collection title color: mix(fg 92%, white 8%). */
-const TITLE_COLOR = mixHexColors(SidebarPalette.FOREGROUND, '#FFFFFF', 92);
-
 /** Section label color: fg at 52%. */
 const SECTION_LABEL_COLOR = 'rgba(200,205,213,0.52)';
-
-/** Agent-launcher glyph base color: mix(fg 62%, muted 38%). */
-const AGENT_LAUNCHER_ICON_COLOR = mixHexColors(SidebarPalette.FOREGROUND, SidebarPalette.MUTED, 62);
 
 // ---------------------------------------------------------------------------
 // Collapsed header status, drawn as the desktop sidebar draws it
@@ -338,8 +394,11 @@ const statusStyles = StyleSheet.create({
 });
 
 // ---------------------------------------------------------------------------
-// Header square buttons (desktop .group-add-button): 22×22, radius 6, neutral
-// card fill and 14dp icon. The agent split-button is a 24+17 joined pair.
+// Header buttons (desktop project_header.rs actions, times DRAWER_SCALE): 22×22
+// faces 2px apart with 4px corners and 14px muted glyphs, no fill at rest; the
+// desktop's hover fill (#808080 at 12%) is the phone's pressed state. The agent
+// split is 24 + 17 with the chevron pulled 2px left so the halves touch. Each
+// touch area is the header's full 44pt height but only as wide as its button.
 // ---------------------------------------------------------------------------
 
 function measurePress(ref: RefObject<ViewInstance | null>, onAnchor: (anchor: MenuAnchor) => void): void {
@@ -348,16 +407,26 @@ function measurePress(ref: RefObject<ViewInstance | null>, onAnchor: (anchor: Me
   node.measureInWindow((x, y, width, height) => onAnchor({ x, y, width, height }));
 }
 
+type FaceShape = 'whole' | 'start' | 'end';
+
+function faceRadius(shape: FaceShape) {
+  return shape === 'start' ? buttonStyles.faceStart : shape === 'end' ? buttonStyles.faceEnd : buttonStyles.faceWhole;
+}
+
 function HeaderButton({
   accessibilityLabel,
   onPress,
   onAnchorPress,
+  width = ds(22),
+  shape = 'whole',
   children,
 }: {
   accessibilityLabel: string;
   onPress?: () => void;
   /** When set, the press measures the button and reports its window frame. */
   onAnchorPress?: (anchor: MenuAnchor) => void;
+  width?: number;
+  shape?: FaceShape;
   children: ReactNode;
 }) {
   const ref = useRef<ViewInstance | null>(null);
@@ -366,14 +435,17 @@ function HeaderButton({
       ref={ref}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      hitSlop={5}
-      style={({ pressed }) => [buttonStyles.button, pressed ? buttonStyles.buttonPressed : null]}
+      style={[buttonStyles.touch, { width }, shape === 'end' ? buttonStyles.touchEnd : null]}
       onPress={() => {
         if (onAnchorPress !== undefined) measurePress(ref, onAnchorPress);
         else onPress?.();
       }}
     >
-      {children}
+      {({ pressed }) => (
+        <View style={[buttonStyles.face, faceRadius(shape), pressed ? buttonStyles.facePressed : null]}>
+          {children}
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -387,79 +459,65 @@ function AgentSplitButton({
   onLaunchPrimary: () => void;
   onOpenMenu: (anchor: MenuAnchor) => void;
 }) {
-  const ref = useRef<ViewInstance | null>(null);
   const iconId =
     primaryAgent === null
       ? 'terminal'
       : resolveAgentIconId(primaryAgent.icon, primaryAgent.name ?? primaryAgent.agentId);
   const Icon = AGENT_ICONS[iconId] ?? AGENT_ICONS.terminal;
   return (
-    <View ref={ref} style={buttonStyles.split}>
-      <Pressable
-        accessibilityRole="button"
+    <>
+      <HeaderButton
         accessibilityLabel={
           primaryAgent !== null ? `Create ${primaryAgent.name ?? primaryAgent.agentId}` : 'Create agent'
         }
-        hitSlop={{ top: 5, bottom: 5, left: 5, right: 0 }}
-        style={({ pressed }) => [buttonStyles.splitMain, pressed ? buttonStyles.buttonPressed : null]}
+        width={ds(24)}
+        shape="start"
         onPress={onLaunchPrimary}
       >
-        <Icon size={ds(14)} color={AGENT_LAUNCHER_ICON_COLOR} />
-      </Pressable>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Select agent"
-        hitSlop={{ top: 5, bottom: 5, left: 0, right: 5 }}
-        style={({ pressed }) => [buttonStyles.splitToggle, pressed ? buttonStyles.buttonPressed : null]}
-        onPress={() => measurePress(ref, onOpenMenu)}
-      >
-        <ChevronDownGlyph size={ds(13)} color={SidebarPalette.HEADER_BUTTON_ICON} />
-      </Pressable>
-    </View>
+        {/* The agent's own colored logo, as gx-core `colored_agent_logo` gives the desktop's split. */}
+        <Icon size={ds(14)} color={agentIconTint(iconId)} />
+      </HeaderButton>
+      <HeaderButton accessibilityLabel="Select agent" width={ds(17)} shape="end" onAnchorPress={onOpenMenu}>
+        <ChevronDownGlyph size={ds(14)} color={SIDEBAR_MUTED} />
+      </HeaderButton>
+    </>
   );
 }
 
 const buttonStyles = StyleSheet.create({
-  button: {
-    width: ds(22),
+  touch: {
+    height: TOUCH_ROW_HEIGHT,
+    alignItems: 'stretch',
+    justifyContent: 'center',
+  },
+  /* The chevron half reaches 2px back under the agent half so the two faces touch. */
+  touchEnd: {
+    marginLeft: -ds(2),
+  },
+  face: {
     height: ds(22),
-    borderRadius: ds(6),
-    backgroundColor: SidebarPalette.HEADER_BUTTON_BG,
-    borderWidth: 1,
-    borderColor: SidebarPalette.HEADER_BUTTON_BORDER,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  buttonPressed: {
-    backgroundColor: 'rgba(200,205,213,0.10)',
-    borderColor: 'rgba(200,205,213,0.28)',
+  faceWhole: {
+    borderRadius: ds(4),
   },
-  split: {
+  faceStart: {
+    borderTopLeftRadius: ds(4),
+    borderBottomLeftRadius: ds(4),
+  },
+  faceEnd: {
+    borderTopRightRadius: ds(4),
+    borderBottomRightRadius: ds(4),
+  },
+  facePressed: {
+    backgroundColor: 'rgba(128,128,128,0.12)',
+  },
+  actions: {
     flexDirection: 'row',
-    height: ds(22),
-  },
-  splitMain: {
-    width: ds(24),
-    height: ds(22),
-    borderTopLeftRadius: ds(6),
-    borderBottomLeftRadius: ds(6),
-    backgroundColor: SidebarPalette.HEADER_BUTTON_BG,
-    borderWidth: 1,
-    borderColor: SidebarPalette.HEADER_BUTTON_BORDER,
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  splitToggle: {
-    width: ds(17),
-    height: ds(22),
-    borderTopRightRadius: ds(6),
-    borderBottomRightRadius: ds(6),
-    backgroundColor: SidebarPalette.HEADER_BUTTON_BG,
-    borderWidth: 1,
-    borderLeftWidth: 0,
-    borderColor: SidebarPalette.HEADER_BUTTON_BORDER,
-    alignItems: 'center',
-    justifyContent: 'center',
+    gap: ds(2),
+    flexShrink: 0,
   },
 });
 
@@ -660,14 +718,62 @@ const sectionStyles = StyleSheet.create({
 });
 
 // ---------------------------------------------------------------------------
-// COLLECTION_HEADER (desktop layered-panel .project-collection-header): flat
-// 30dp row inside the tinted panel — 20×24 caret slot with a 14dp filled
-// caret, 13dp light title, collapsed count pills.
+// The selected card (desktop appearance.rs `session_selected` and decorations.rs
+// `session_outline`): a 12% white fill, a 1px white-8% hairline and a faint 1px
+// highlight 5px in from each side at the top. A session row, and a collapsed
+// project, group or project group holding the open session, carry it.
+// ---------------------------------------------------------------------------
+
+/** The selected fill over `surface`, solid so a dot's ring can match it. */
+export function selectedFill(surface: string): string {
+  return mixHexColors('#FFFFFF', surface, 12);
+}
+
+/** The hairline and top highlight drawn over a selected card; `radius` is the card's own. */
+export function SelectedCardOutline({ radius = ds(5) }: { radius?: number }) {
+  return (
+    <>
+      <View pointerEvents="none" style={[selectedStyles.outline, { borderRadius: radius }]} />
+      <View pointerEvents="none" style={selectedStyles.highlight} />
+    </>
+  );
+}
+
+const selectedStyles = StyleSheet.create({
+  outline: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  highlight: {
+    position: 'absolute',
+    top: 1,
+    left: ds(5),
+    right: ds(5),
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+});
+
+/** Selected text (sessions.rs: #D8D8D8 on a focused or visible row). */
+export const SELECTED_TEXT = '#D8D8D8';
+
+// ---------------------------------------------------------------------------
+// COLLECTION_HEADER (desktop native_sidebar/collections.rs): a full-width band
+// in the project group's color at 18% (drawn by the screen with the rail), the
+// light name and no chevron; closed, its numbers in their status colors.
+//
+// CDXC:Projects 2026-10-27 SEE-ALSO: the 2026-09-19 decision in apps/desktop/src/app/native_sidebar/collections.rs (no chevron on a project group's header); the phone follows it in the approved design docs/2026-10-21/phone-sessions-screen/sessions-like-sidebar.html.
 // ---------------------------------------------------------------------------
 
 export function CollectionHeaderRow({
   title,
   collapsed,
+  containsActive,
   workingCount,
   attentionCount,
   questionCount,
@@ -679,6 +785,7 @@ export function CollectionHeaderRow({
 }: {
   title: string;
   collapsed: boolean;
+  containsActive: boolean;
   workingCount: number;
   attentionCount: number;
   questionCount: number;
@@ -693,14 +800,17 @@ export function CollectionHeaderRow({
     <Pressable
       ref={rowRef}
       accessibilityRole="button"
-      accessibilityLabel={`${collapsed ? 'Expand' : 'Collapse'} ${title}`}
-      style={({ pressed }) => [collectionStyles.header, pressed ? collectionStyles.headerPressed : null]}
+      accessibilityState={{ expanded: !collapsed }}
+      accessibilityLabel={title}
+      style={({ pressed }) => [
+        collectionStyles.header,
+        containsActive ? collectionStyles.headerActive : null,
+        pressed ? collectionStyles.headerPressed : null,
+      ]}
       onPress={onPress}
       onLongPress={() => measurePress(rowRef, onMenu)}
     >
-      <View style={collectionStyles.caret}>
-        <CaretRightGlyph size={ds(14)} color={TITLE_COLOR} rotated={!collapsed} />
-      </View>
+      {containsActive ? <SelectedCardOutline /> : null}
       <Text style={collectionStyles.title} numberOfLines={1}>
         {title}
       </Text>
@@ -723,48 +833,143 @@ const collectionStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: ds(5),
-    minHeight: ds(30),
-    paddingLeft: ds(2),
-    paddingRight: ds(8),
-    borderTopLeftRadius: ds(4),
-    borderTopRightRadius: ds(4),
+    height: TOUCH_ROW_HEIGHT,
+    paddingHorizontal: ds(8),
+  },
+  headerActive: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: ds(5),
   },
   headerPressed: {
-    backgroundColor: 'rgba(200,205,213,0.05)',
-  },
-  caret: {
-    width: ds(20),
-    height: ds(24),
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.04)',
   },
   title: {
     flex: 1,
-    color: TITLE_COLOR,
+    minWidth: 0,
+    color: SIDEBAR_TEXT,
     fontSize: ds(15.55),
-    fontWeight: '800',
-    letterSpacing: 0.2,
+    fontWeight: '300',
     lineHeight: ds(20),
   },
 });
 
 // ---------------------------------------------------------------------------
-// PROJECT_HEADER (desktop project card .group-head): flat 30dp row at the top
-// of the card — project identity icon, 15.55dp/700 title, collapsed count pills,
-// and (expanded) New Terminal plus the agent split-button (New agent + agent
-// picker). Actions and Create Terminal also live in the project menu, which
-// the always-visible overflow button and a long-press both open.
+// The header box a project and a user-made session group share (desktop
+// project_header.rs): 30px tall (44pt here), 5px corners, the chevron in an
+// 18px slot inside the box's left edge (a tap on it is the row's tap), a 16px
+// icon, a 10px gap and the light name. The box reaches 15px left of where its
+// parent places rows, so its icon lines up with the rows' agent icons.
+// ---------------------------------------------------------------------------
+
+/** How far a header box reaches left of its block (desktop `PROJECT_HEADER_CHEVRON_INSET`). */
+export const HEADER_CHEVRON_INSET = ds(15);
+
+function SidebarHeaderBox({
+  title,
+  leading,
+  collapsed,
+  containsActive,
+  onToggle,
+  onMenu,
+  children,
+}: {
+  title: string;
+  leading: ReactNode;
+  collapsed: boolean;
+  containsActive: boolean;
+  onToggle: () => void;
+  onMenu: (anchor: MenuAnchor) => void;
+  /** What sits after the name: closed, the counts; open, the buttons. */
+  children: ReactNode;
+}) {
+  const rowRef = useRef<ViewInstance | null>(null);
+  return (
+    <Pressable
+      ref={rowRef}
+      accessibilityRole="button"
+      accessibilityState={{ expanded: !collapsed }}
+      accessibilityLabel={title}
+      style={({ pressed }) => [
+        headerBoxStyles.row,
+        containsActive ? headerBoxStyles.rowActive : null,
+        pressed && !containsActive ? headerBoxStyles.rowPressed : null,
+      ]}
+      onPress={onToggle}
+      onLongPress={() => measurePress(rowRef, onMenu)}
+    >
+      {containsActive ? <SelectedCardOutline /> : null}
+      <View pointerEvents="none" style={headerBoxStyles.chevron}>
+        <ChevronRightGlyph size={ds(16)} color={SIDEBAR_MUTED} rotated={!collapsed} />
+      </View>
+      <View style={headerBoxStyles.icon}>{leading}</View>
+      <Text style={headerBoxStyles.title} numberOfLines={1}>
+        {title}
+      </Text>
+      {children}
+    </Pressable>
+  );
+}
+
+const headerBoxStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: TOUCH_ROW_HEIGHT,
+    marginLeft: -HEADER_CHEVRON_INSET,
+    marginRight: ds(3),
+    paddingLeft: ds(5 + 18),
+    paddingRight: ds(6),
+    gap: ds(10),
+    borderRadius: ds(5),
+  },
+  rowActive: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  rowPressed: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  chevron: {
+    position: 'absolute',
+    left: 0,
+    top: (TOUCH_ROW_HEIGHT - ds(16)) / 2,
+  },
+  icon: {
+    width: ds(16),
+    height: ds(16),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    flex: 1,
+    minWidth: 0,
+    color: SIDEBAR_TEXT,
+    fontSize: ds(15.55),
+    fontWeight: '300',
+    lineHeight: ds(20),
+  },
+});
+
+// ---------------------------------------------------------------------------
+// PROJECT_HEADER (desktop native_sidebar/project_header.rs, gx-core
+// sidebar_menu/header.rs). A phone can't hover, so an open project always
+// shows the buttons the desktop shows on hover, in its order: ⋯ menu, New
+// terminal, and the agent split (last-used agent plus its picker). A closed
+// project shows only its counts, as the desktop does at rest; a long press
+// opens the menu either way.
 //
 // CDXC:Sessions 2026-10-08 DECISION:
 // User: "move almost all of the buttons that appear next to an expanded project into the 3 dots menu; just keep the agent picker one and the new agent one."
 // CDXC:Sessions 2026-10-20 DECISION:
 // User: "add to the left of the 'select agent' combined button a button to start a terminal in that project ... i want it back at top level for each project header", and the phone follows the desktop (confirmed Q356). New Terminal is a header button again, before the agent split; Create Terminal stays in the menu. This supersedes the 2026-10-08 decision for that one button.
+// CDXC:Sessions 2026-10-27 DECISION:
+// User approved the phone Sessions screen "drawn like the desktop sidebar" (design A, docs/2026-10-21/phone-sessions-screen/sessions-like-sidebar.html): the project name is light like a row, the header buttons have no fill or border at rest, and the ⋯ button shows only while the project is open, since a closed project shows its counts there.
 // ---------------------------------------------------------------------------
 
 export function ProjectHeaderRow({
   title,
   icon,
   collapsed,
+  containsActive,
   workingCount,
   attentionCount,
   questionCount,
@@ -782,6 +987,8 @@ export function ProjectHeaderRow({
   /** Project identity, ranked by ProjectIcon like the desktop header does. */
   icon: GhostexProjectIcon;
   collapsed: boolean;
+  /** Collapsed with the open session inside. */
+  containsActive: boolean;
   workingCount: number;
   attentionCount: number;
   questionCount: number;
@@ -795,214 +1002,149 @@ export function ProjectHeaderRow({
   onOpenAgentMenu: (anchor: MenuAnchor) => void;
   onMenu: (anchor: MenuAnchor) => void;
 }) {
-  const rowRef = useRef<ViewInstance | null>(null);
+  return (
+    <SidebarHeaderBox
+      title={title}
+      leading={<ProjectIcon icon={icon} title={title} />}
+      collapsed={collapsed}
+      containsActive={containsActive}
+      onToggle={onToggle}
+      onMenu={onMenu}
+    >
+      {collapsed ? (
+        <ProjectStatusCounts
+          workingCount={workingCount}
+          attentionCount={attentionCount}
+          questionCount={questionCount}
+          approvalCount={approvalCount}
+          backgroundWorkCount={backgroundWorkCount}
+          awakeCount={awakeCount}
+        />
+      ) : (
+        <View style={buttonStyles.actions}>
+          <HeaderButton accessibilityLabel={`${title} options`} onAnchorPress={onMenu}>
+            <MoreGlyph size={ds(14)} color={SIDEBAR_MUTED} />
+          </HeaderButton>
+          <HeaderButton accessibilityLabel={`New terminal in ${title}`} onPress={onCreateTerminal}>
+            <TerminalGlyph size={ds(14)} color={SIDEBAR_MUTED} />
+          </HeaderButton>
+          {primaryAgent !== null ? (
+            <AgentSplitButton
+              primaryAgent={primaryAgent}
+              onLaunchPrimary={onLaunchPrimary}
+              onOpenMenu={onOpenAgentMenu}
+            />
+          ) : null}
+        </View>
+      )}
+    </SidebarHeaderBox>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// PROJECT_EMPTY: an open project with no sessions (desktop native_sidebar/rows.rs):
+// a "New Session" row in the session-row geometry whose tap opens a terminal.
+// ---------------------------------------------------------------------------
+
+export function ProjectEmptyRow({ text, onPress }: { text: string; onPress?: () => void }) {
   return (
     <Pressable
-      ref={rowRef}
       accessibilityRole="button"
-      style={({ pressed }) => [projectHeaderStyles.row, pressed ? projectHeaderStyles.rowPressed : null]}
-      onPress={onToggle}
-      onLongPress={() => measurePress(rowRef, onMenu)}
+      style={({ pressed }) => [emptyStyles.row, pressed ? emptyStyles.rowPressed : null]}
+      onPress={onPress}
     >
-      <View style={projectHeaderStyles.icon}>
-        <ProjectIcon icon={icon} />
-      </View>
-      <Text style={projectHeaderStyles.title} numberOfLines={1}>
-        {title}
+      <Text style={emptyStyles.text} numberOfLines={1}>
+        {text}
       </Text>
-      <View style={projectHeaderStyles.trailing}>
-        {collapsed ? (
-          <ProjectStatusCounts
-            workingCount={workingCount}
-            attentionCount={attentionCount}
-            questionCount={questionCount}
-            approvalCount={approvalCount}
-            backgroundWorkCount={backgroundWorkCount}
-            awakeCount={awakeCount}
-          />
-        ) : (
-          <View style={projectHeaderStyles.actions}>
-            <HeaderButton accessibilityLabel={`New terminal in ${title}`} onPress={onCreateTerminal}>
-              <TerminalGlyph size={ds(14)} color={SidebarPalette.HEADER_BUTTON_ICON} />
-            </HeaderButton>
-            {primaryAgent !== null ? (
-              <AgentSplitButton
-                primaryAgent={primaryAgent}
-                onLaunchPrimary={onLaunchPrimary}
-                onOpenMenu={onOpenAgentMenu}
-              />
-            ) : null}
-          </View>
-        )}
-        <HeaderButton accessibilityLabel={`${title} options`} onAnchorPress={onMenu}>
-          <MoreGlyph size={ds(14)} color={SidebarPalette.HEADER_BUTTON_ICON} />
-        </HeaderButton>
-      </View>
     </Pressable>
   );
 }
 
-const projectHeaderStyles = StyleSheet.create({
+const emptyStyles = StyleSheet.create({
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minHeight: ds(30),
-    paddingHorizontal: ds(8),
-    paddingVertical: ds(2),
+    height: TOUCH_ROW_HEIGHT,
+    justifyContent: 'center',
+    paddingLeft: ds(26),
     borderRadius: ds(5),
-    gap: ds(10),
   },
   rowPressed: {
-    backgroundColor: 'rgba(200,205,213,0.06)',
+    backgroundColor: 'rgba(128,128,128,0.12)',
   },
-  icon: {
-    width: ds(16),
-    height: ds(16),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  /*
-   * Desktop project titles share the session row's type size and differ only in
-   * weight (hierarchy-panels.css: 15.55px / 700, letter-spacing 0.01em), so the
-   * hierarchy never relies on smaller text.
-   */
-  title: {
-    flexShrink: 1,
-    color: TITLE_COLOR,
+  text: {
+    color: SIDEBAR_TEXT,
     fontSize: ds(15.55),
-    fontWeight: '700',
-    letterSpacing: 0.2,
+    fontWeight: '300',
     lineHeight: ds(20),
   },
-  trailing: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginStart: 'auto',
-    gap: ds(4),
-  },
-  actions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: ds(4),
-  },
 });
 
 // ---------------------------------------------------------------------------
-// PROJECT_EMPTY: the desktop dashed "No sessions" box inside a project card.
-// ---------------------------------------------------------------------------
-
-export function ProjectEmptyRow({ text }: { text: string }) {
-  return (
-    <View style={emptyStyles.cardRow}>
-      <Text style={emptyStyles.cardText}>{text}</Text>
-    </View>
-  );
-}
-
-const emptyStyles = StyleSheet.create({
-  cardRow: {
-    height: ds(38),
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: 'rgba(125,164,248,0.44)',
-  },
-  cardText: {
-    color: mixHexColors(SidebarPalette.MUTED, SidebarPalette.FOREGROUND, 82),
-    fontSize: ds(12),
-    fontWeight: '300',
-    letterSpacing: 0.45,
-  },
-});
-
-// ---------------------------------------------------------------------------
-// GROUP_HEADER (named workspace session group inside a project card): caret +
-// light muted title, the desktop project header's status counts when collapsed
-// (a user-made group is drawn with a project header there), and an
-// always-visible overflow button. Long-press also opens the group menu
-// (desktop right-click).
+// GROUP_HEADER: a user-made session group, drawn with the project header box
+// (desktop project_header.rs for a group with an owner): a folder in the icon
+// slot, the light name, closed its counts, open its ⋯ menu and a "+" that opens
+// a terminal in the group (gx-core header.rs "Create a Terminal").
+//
+// CDXC:Icons 2026-10-27 SEE-ALSO: the 2026-10-24 decision in apps/desktop/src/app/native_sidebar/project_header.rs ("Keep the folder" for a session group's header); the phone draws the same folder.
 // ---------------------------------------------------------------------------
 
 export function GroupHeaderRow({
   title,
   collapsed,
+  containsActive,
   status,
   onPress,
   onMenu,
+  onCreateTerminal,
 }: {
   title: string;
   collapsed: boolean;
+  containsActive: boolean;
   status: HeaderStatusCounts;
   onPress: () => void;
   onMenu: (anchor: MenuAnchor) => void;
+  onCreateTerminal?: () => void;
 }) {
-  const rowRef = useRef<ViewInstance | null>(null);
   return (
-    <Pressable
-      ref={rowRef}
-      accessibilityRole="button"
-      style={({ pressed }) => [groupHeaderStyles.row, pressed ? groupHeaderStyles.rowPressed : null]}
-      onPress={onPress}
-      onLongPress={() => measurePress(rowRef, onMenu)}
+    <SidebarHeaderBox
+      title={title}
+      leading={<FolderGlyph size={ds(16)} color={SIDEBAR_MUTED} />}
+      collapsed={collapsed}
+      containsActive={containsActive}
+      onToggle={onPress}
+      onMenu={onMenu}
     >
-      <CaretRightGlyph size={ds(12)} color={SidebarPalette.MUTED} rotated={!collapsed} />
-      <Text style={groupHeaderStyles.title} numberOfLines={1}>
-        {title}
-      </Text>
-      <View style={groupHeaderStyles.trailing}>
-        {collapsed ? (
-          <ProjectStatusCounts
-            workingCount={status.workingCount}
-            attentionCount={status.attentionCount}
-            questionCount={status.questionCount}
-            approvalCount={status.approvalCount}
-            backgroundWorkCount={status.backgroundWorkCount}
-            awakeCount={status.awakeCount}
-          />
-        ) : null}
-        <HeaderButton accessibilityLabel={`${title} options`} onAnchorPress={onMenu}>
-          <MoreGlyph size={ds(14)} color={SidebarPalette.HEADER_BUTTON_ICON} />
-        </HeaderButton>
-      </View>
-    </Pressable>
+      {collapsed ? (
+        <ProjectStatusCounts
+          workingCount={status.workingCount}
+          attentionCount={status.attentionCount}
+          questionCount={status.questionCount}
+          approvalCount={status.approvalCount}
+          backgroundWorkCount={status.backgroundWorkCount}
+          awakeCount={status.awakeCount}
+        />
+      ) : (
+        <View style={buttonStyles.actions}>
+          <HeaderButton accessibilityLabel={`${title} options`} onAnchorPress={onMenu}>
+            <MoreGlyph size={ds(14)} color={SIDEBAR_MUTED} />
+          </HeaderButton>
+          {onCreateTerminal !== undefined ? (
+            <HeaderButton accessibilityLabel={`New terminal in ${title}`} onPress={onCreateTerminal}>
+              <PlusGlyph size={ds(14)} color={SIDEBAR_MUTED} />
+            </HeaderButton>
+          ) : null}
+        </View>
+      )}
+    </SidebarHeaderBox>
   );
 }
 
-const groupHeaderStyles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: ds(5),
-    paddingLeft: ds(8),
-    paddingRight: ds(8),
-    minHeight: ds(28),
-    borderRadius: ds(4),
-  },
-  rowPressed: {
-    backgroundColor: 'rgba(200,205,213,0.06)',
-  },
-  title: {
-    flexShrink: 1,
-    color: SidebarPalette.MUTED,
-    fontSize: ds(13),
-    fontWeight: '300',
-    letterSpacing: 0.16,
-  },
-  trailing: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: ds(6),
-    marginStart: 'auto',
-  },
-});
-
 // ---------------------------------------------------------------------------
-// SESSION_KIND_LABEL: desktop .session-kind-toggle — an uppercase 8dp/500
-// label at 34% foreground with a trailing chevron that rotates to 90deg when
-// its kind is expanded. The desktop hit target is limited to the label's own
-// content width (`width: max-content`); the phone keeps that but pads the
-// touch area vertically so the 10dp text is still tappable.
+// SESSION_KIND_LABEL (desktop native_sidebar/sections.rs): PINNED, SESSIONS,
+// DRAFTS, PARKED or BROWSER in 12px light caps at #D8D8D8 34%, 20px tall (25pt
+// here), as wide as a session card with its 5px/6px side padding. The desktop
+// shows a chevron only on hover; at rest a collapsed heading shows its status
+// dots (and a ring when the open session is inside) and its count at the right.
+// A tap folds it; the Parked heading's long press opens its menu.
 // ---------------------------------------------------------------------------
 
 export function SessionKindLabelRow({
@@ -1024,21 +1166,18 @@ export function SessionKindLabelRow({
   onMenu?: () => void;
 }) {
   return (
-    <View style={kindLabelStyles.row}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ expanded: !collapsed }}
-        accessibilityLabel={`${collapsed ? 'Expand' : 'Collapse'} ${label}`}
-        hitSlop={{ top: ds(4), bottom: ds(4), left: ds(6), right: ds(10) }}
-        style={({ pressed }) => [kindLabelStyles.button, pressed ? kindLabelStyles.buttonPressed : null]}
-        onPress={onPress}
-        onLongPress={onMenu}
-      >
-        <Text style={kindLabelStyles.label} numberOfLines={1}>
-          {label.toUpperCase()}
-        </Text>
-        <ChevronRightGlyph size={ds(12)} color={KIND_LABEL_COLOR} rotated={!collapsed} />
-      </Pressable>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ expanded: !collapsed }}
+      accessibilityLabel={`${label} section`}
+      hitSlop={{ top: ds(4), bottom: ds(4) }}
+      style={({ pressed }) => [kindLabelStyles.row, pressed ? kindLabelStyles.rowPressed : null]}
+      onPress={onPress}
+      onLongPress={onMenu}
+    >
+      <Text style={kindLabelStyles.label} numberOfLines={1}>
+        {label.toUpperCase()}
+      </Text>
       {collapsed ? (
         <>
           <SectionStatusDots status={status} active={active} />
@@ -1046,40 +1185,32 @@ export function SessionKindLabelRow({
           <Text style={kindLabelStyles.label}>{status.count}</Text>
         </>
       ) : null}
-    </View>
+    </Pressable>
   );
 }
-
-/** Desktop color-mix(fg 34%, transparent) for the kind label + chevron. */
-const KIND_LABEL_COLOR = 'rgba(200,205,213,0.34)';
 
 const kindLabelStyles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: ds(5),
-    paddingTop: ds(3),
+    height: ds(20),
     paddingLeft: ds(5),
-    paddingRight: ds(10),
+    paddingRight: ds(6),
+    borderRadius: ds(5),
+  },
+  rowPressed: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
   },
   spacer: {
     flex: 1,
   },
-  button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: ds(5),
-    borderRadius: ds(3),
-  },
-  buttonPressed: {
-    opacity: 0.6,
-  },
   label: {
-    color: KIND_LABEL_COLOR,
-    fontSize: ds(8),
-    fontWeight: '500',
-    letterSpacing: ds(8) * 0.04,
-    lineHeight: ds(14),
+    color: 'rgba(216,216,216,0.34)',
+    fontSize: ds(12),
+    fontWeight: '300',
+    letterSpacing: ds(12) * 0.02,
+    lineHeight: ds(16),
   },
 });
 

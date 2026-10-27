@@ -611,6 +611,8 @@ export type GhostexMobileSummary = {
    * (`always`, `selected`, `badge`, `open` or `off`; `badge` when absent).
    */
   sidebarSessionLinks?: string;
+  /** The computer's Advanced > Dim sleeping sessions: a sleeping row fades to half strength. Off when absent. */
+  dimSleepingSessions?: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -1615,6 +1617,7 @@ function normalizeRoot(root: JsonObject): GhostexMobileSummary {
       : undefined,
     sessionLinkOpenTarget: root.sessionLinkOpenTarget === 'external' ? 'external' : 'embedded',
     sidebarSessionLinks: typeof root.sidebarSessionLinks === 'string' ? root.sidebarSessionLinks : 'always',
+    dimSleepingSessions: root.dimSleepingSessions === true,
   };
 }
 

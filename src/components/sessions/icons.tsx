@@ -544,6 +544,33 @@ export function BoxGlyph({ size, color }: GlyphProps) {
   );
 }
 
+/** Tabler server (a session in an agentbox on a remote Docker host, desktop agentbox.rs). */
+export function ServerGlyph({ size, color }: GlyphProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x={3} y={4} width={18} height={8} rx={3} stroke={color} strokeWidth={2} />
+      <Rect x={3} y={12} width={18} height={8} rx={3} stroke={color} strokeWidth={2} />
+      <Path d="M 7 8 v .01 M 7 16 v .01" stroke={color} strokeWidth={2} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+/**
+ * A headset (Tabler `headset`): the voice agent's glyph, the same icon the desktop's work area
+ * header uses (`apps/desktop/assets/titlebar/headset.svg`), so the microphone stays Dictate's.
+ */
+export function HeadsetGlyph({ size, color }: GlyphProps) {
+  const stroke = { stroke: color, strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 14v-3a8 8 0 1 1 16 0v3" {...stroke} />
+      <Path d="M18 19c0 1.657 -2.686 3 -6 3" {...stroke} />
+      <Path d="M4 14a2 2 0 0 1 2 -2h1a2 2 0 0 1 2 2v3a2 2 0 0 1 -2 2h-1a2 2 0 0 1 -2 -2v-3z" {...stroke} />
+      <Path d="M15 14a2 2 0 0 1 2 -2h1a2 2 0 0 1 2 2v3a2 2 0 0 1 -2 2h-1a2 2 0 0 1 -2 -2v-3z" {...stroke} />
+    </Svg>
+  );
+}
+
 /** Tabler briefcase (a Work workspace's tile). */
 export function BriefcaseGlyph({ size, color }: GlyphProps) {
   return (

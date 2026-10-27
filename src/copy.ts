@@ -190,7 +190,8 @@ export const SessionCopy = {
   claudeCloudCloseSleeps:
     'This puts the session to sleep on the connected machine. It keeps running on claude.ai, so its row stays listed.',
   /** Desktop parity: project cards say exactly "No sessions". */
-  emptyProjectRow: 'No sessions',
+  /** The row an open project with no sessions shows; a tap opens a terminal there (desktop rows.rs "New Session"). */
+  emptyProjectRow: 'New Session',
   olderThreads: (count: number) => (count === 1 ? '1 older thread' : `${count} older threads`),
   hideOlderThreads: 'Hide older threads',
   /** Desktop reference sidebar section label. */

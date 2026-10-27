@@ -4,8 +4,8 @@
 
 import { StyleSheet } from 'react-native';
 
-import { ds, PROJECT_RAIL_WIDTH, SIDEBAR_BACKGROUND } from '../../components/sessions/rows';
-import { GhostexPalette, GhostexRadii, SidebarPalette } from '../../theme/palette';
+import { SIDEBAR_BACKGROUND } from '../../components/sessions/rows';
+import { GhostexPalette, GhostexRadii } from '../../theme/palette';
 
 export const styles = StyleSheet.create({
   container: {
@@ -30,13 +30,46 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
+  /* Option E keeps only the menu up top, a ghost button with no fill (top-bar-buttons.html `.tb-ghost`). */
   headerButton: {
-    width: 48,
+    width: 44,
     height: 48,
-    backgroundColor: GhostexPalette.CARD_ACTIVE,
+    marginRight: -6,
     borderRadius: GhostexRadii.card,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  /*
+   * Option E's bottom bar (top-bar-buttons.html `.tb-bottom-bar`): 58pt, a hairline on top, #121212,
+   * edge to edge under the list (it reaches through the screen's 12pt padding).
+   */
+  bottomBar: {
+    flexDirection: 'row',
+    height: 58,
+    marginHorizontal: -12,
+    marginBottom: -12,
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#121212',
+  },
+  bottomItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+  },
+  bottomItemPressed: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  bottomIconColor: {
+    color: '#C8CDD5',
+  },
+  bottomLabel: {
+    color: '#9BA1A9',
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '500',
   },
   statusRow: {
     flexDirection: 'row',
@@ -89,9 +122,11 @@ export const styles = StyleSheet.create({
    * squeeze the Space row flat.
    */
   /** The list and the machine notice floating over its top. */
+  /* The list reaches 6pt closer to the screen's edges than the rest of the body (sessions-like-sidebar.html `.sb-list`). */
   listArea: {
     flex: 1,
     marginTop: 12,
+    marginHorizontal: -6,
   },
   list: {
     flex: 1,
@@ -139,80 +174,5 @@ export const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 14,
     fontWeight: '600',
-  },
-  /*
-   * Desktop project group in branched mode (hierarchy-panels.css
-   * .group[data-project-group]): transparent, borderless, and preceded by its
-   * branch column instead of being drawn as a card.
-   */
-  projectCard: {
-    flexDirection: 'row',
-    /*
-     * The branch column stretches to the whole card so its absolutely placed
-     * line stays inside its parent's box. A zero-height column would leave the
-     * line painting outside its bounds, which Android does not guarantee.
-     */
-    alignItems: 'stretch',
-  },
-  projectCardBody: {
-    flex: 1,
-  },
-  /** No left inset: a top-level card starts at the page's edge, like the Space row above it. */
-  projectCardTopLevel: {
-    marginRight: ds(5),
-    marginBottom: ds(10),
-  },
-  projectCardInPanel: {
-    marginRight: ds(5),
-    marginBottom: ds(5),
-  },
-  projectCardExpanded: {
-    marginBottom: ds(7),
-  },
-  /** Card session area (.group-sessions): 3dp inner inset. */
-  cardSessions: {
-    paddingHorizontal: ds(3),
-    paddingBottom: ds(3),
-  },
-  /**
-   * The rows of a user-made session group: indented under the group, with a coordinator's tree
-   * line (SessionRow `threadLine`) down their left edge, under the group header's caret (8dp
-   * padding + half the 12dp caret), as the desktop draws a project's groups.
-   */
-  sessionGroupRows: {
-    marginLeft: ds(14),
-    paddingLeft: ds(4),
-    borderLeftWidth: ds(1),
-    borderLeftColor: SidebarPalette.ROW_THREAD_LINE,
-  },
-  /*
-   * Desktop collection in branched mode (section.project-collection): no panel
-   * border or fill, a 2dp colored rail down its left edge, and a tinted header
-   * chip. `margin: 0 5px 10px 3px` with the rail sitting at the panel's left.
-   */
-  collectionPanel: {
-    position: 'relative',
-    marginLeft: ds(3),
-    marginRight: ds(5),
-    marginBottom: ds(10),
-    paddingBottom: ds(5),
-  },
-  collectionRail: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: ds(5),
-    width: PROJECT_RAIL_WIDTH,
-  },
-  collectionHeaderChip: {
-    borderRadius: ds(5),
-    minHeight: ds(30),
-    justifyContent: 'center',
-  },
-  /** Panel member area (.project-collection-projects): starts at the rail. */
-  collectionProjects: {
-    paddingLeft: PROJECT_RAIL_WIDTH,
-    paddingTop: ds(5),
-    paddingBottom: ds(3),
   },
 });

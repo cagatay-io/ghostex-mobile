@@ -100,6 +100,8 @@ export type CollectionHeaderItem = {
   approvalCount: number;
   backgroundWorkCount: number;
   awakeCount: number;
+  /** Collapsed with the open session inside: the header carries the selected card look (desktop collections.rs `active`). */
+  containsActive: boolean;
 };
 
 export type ProjectHeaderItem = {
@@ -123,6 +125,8 @@ export type ProjectHeaderItem = {
   sleepingCount: number;
   /** Awake (running terminal/browser) count for the collapsed count pills. */
   awakeCount: number;
+  /** Collapsed with the open session inside, its session groups included: the header carries the selected card look (desktop project_header.rs `collapsed_active`). */
+  containsActive: boolean;
   /** Set when the project renders inside a colored collection panel. */
   collectionColor?: string;
   /** Identity icon inputs, ranked by the row renderer like the desktop does. */
@@ -159,6 +163,8 @@ export type GroupHeaderItem = {
   title: string;
   count: number;
   collapsed: boolean;
+  /** Collapsed with the open session inside: drawn like a collapsed project holding it. */
+  containsActive: boolean;
   /** The group's header counts; a user-made group draws a project header's counts on the desktop. */
   status: Pick<
     SessionCounts,
@@ -742,6 +748,11 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
      * the desktop draws as groups of their own.
      */
     const sectionPool = tree.sessions;
+    /*
+     * CDXC:Sidebar 2026-10-27 SEE-ALSO: the 2026-09-24 decision in apps/desktop/src/app/native_sidebar/rows.rs (`hide_lone_sessions_heading`). A project whose own rows are all ordinary sessions (no browser, pinned, draft or parked rows; its session groups are drawn apart) shows no Sessions heading, so nothing can fold those rows away either.
+     */
+    const ownSections = new Set(tree.sessions.map(sectionOf));
+    const loneSessionsSection = ownSections.size === 1 && ownSections.has('sessions');
     const shownProjectSessions = projectSessions.filter((session) => !isFolded(session));
 
     const collapsed = !expandedProjectKeys.has(projectKey);
@@ -763,6 +774,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
       backgroundWorkCount: counts.backgroundWorkCount,
       sleepingCount: counts.sleepingCount,
       awakeCount: counts.awakeCount,
+      containsActive: collapsed && allProjectSessions.some(isActive),
       collectionColor,
       icon,
       themeColor: project !== null ? project.themeColor : '',
@@ -815,13 +827,15 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
         const section = sectionOf(session);
         if (section === 'sessions') emitDraftSection();
         const kindCollapseKey = sessionKindCollapseKey(projectKey, section);
-        const kindCollapsed =
-          section === 'drafts'
+        const unlabelled = section === 'sessions' && loneSessionsSection;
+        const kindCollapsed = unlabelled
+          ? false
+          : section === 'drafts'
             ? !expandedDraftSessionKeys.has(kindCollapseKey)
             : section === 'parked'
               ? !expandedParkedSessionKeys.has(kindCollapseKey)
               : collapsedSessionKindKeys.has(kindCollapseKey);
-        if (!labelledSections.has(section)) {
+        if (!labelledSections.has(section) && !unlabelled) {
           labelledSections.add(section);
           items.push({
             type: 'SESSION_KIND_LABEL',
@@ -911,6 +925,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
         title: group.title,
         count: groupSessions.length,
         collapsed: groupCollapsed,
+        containsActive: groupCollapsed && groupSessions.some(isActive),
         status: headerStatusCounts(countSessions(groupSessions)),
         collectionColor,
       });
@@ -981,6 +996,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
       approvalCount: counts.approvalCount,
       backgroundWorkCount: counts.backgroundWorkCount,
       awakeCount: counts.awakeCount,
+      containsActive: collectionCollapsed && collectionSessions.some(isActive),
     });
     for (const key of memberKeys) emittedProjectKeys.add(key);
     if (collectionCollapsed) continue;

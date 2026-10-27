@@ -169,6 +169,15 @@ export function createSessionCommand(options?: { projectId?: string; groupId?: s
 }
 
 /**
+ * A terminal inside a project's user-made session group (the group header's "+", gx-core
+ * header.rs "Create a Terminal"). The CLI starts it right away, since a terminal that has not
+ * started is not in the sidebar yet and so cannot sit in a group.
+ */
+export function createSessionInGroupCommand(projectId: string, groupId: string): string {
+  return `ghostex create-session --json --start --project-id ${shellQuote(projectId)} --group-id ${shellQuote(groupId)}`;
+}
+
+/**
  * Quick terminal in a folder, optionally running a command:
  * `ghostex terminal --cwd <dir> [--title <t>] -- <command...>`.
  *

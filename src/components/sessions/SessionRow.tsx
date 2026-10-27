@@ -10,8 +10,9 @@
  * in the tag's color (desktop .session-tag-agent-icon, which owns the slot at
  * rest and only yields to the agent identity on pointer hover — a state the
  * phone has no equivalent for). The status slot after the title follows the
- * desktop row (sessionStatus.ts holds the rules). The active row gets the
- * translucent rounded fill plus a solid-white outline.
+ * desktop row (sessionStatus.ts holds the rules). The open session is a raised
+ * card: a 12% white fill, a hairline and a faint top highlight (rows.tsx
+ * `SelectedCardOutline`, desktop decorations.rs `session_outline`).
  *
  * CDXC:Sessions 2026-09-24 DECISION: "don't show multiple sessions as selected
  * in the list, just show last active one as highlighted", so warm terminal
@@ -20,6 +21,7 @@
  * same, just make the last active time bit dimmed for sleeping ones": a
  * sleeping row keeps the normal title and shows no sleep dot, only its Last
  * Active time is dimmer.
+ * CDXC:SessionSleep 2026-10-27 DECISION: The user approved the phone Sessions screen drawn like the desktop sidebar (design A, docs/2026-10-21/phone-sessions-screen/sessions-like-sidebar.html), whose note says the phone follows the computer's Advanced > Dim sleeping sessions. With that setting off (the default) the 2026-09-24 rule above holds; with it on, a sleeping row fades to 50% as on the desktop (`dim_sleeping` in apps/desktop/src/app/native_sidebar/sessions.rs). The summary carries the setting (`dimSleepingSessions`).
  */
 
 import { useEffect, useMemo, useReducer, useRef } from 'react';
@@ -38,9 +40,28 @@ import { SessionCopy } from '../../copy';
 import { useSettingsStore } from '../../settings/store';
 import { mixHexColors, SidebarPalette } from '../../theme/palette';
 import type { MenuAnchor } from './ContextMenu';
-import { ds, PassingThreadLines, STATUS_DOT_SIZE } from './rows';
+import {
+  ds,
+  PassingThreadLines,
+  SELECTED_TEXT,
+  SelectedCardOutline,
+  selectedFill,
+  SIDEBAR_MUTED,
+  STATUS_DOT_SIZE,
+  TOUCH_ROW_HEIGHT,
+} from './rows';
 import StatusDotStack from './StatusDotStack';
-import { ChevronRightGlyph, ClockGlyph, CloudGlyph, CoordinatorGlyph, CrewGlyph, PencilGlyph } from './icons';
+import {
+  BoxGlyph,
+  ChevronRightGlyph,
+  ClockGlyph,
+  CloudGlyph,
+  CoordinatorGlyph,
+  CrewGlyph,
+  PencilGlyph,
+  HeadsetGlyph,
+  ServerGlyph,
+} from './icons';
 import WorkChips, {
   ChipGlyph,
   WORK_CHIP_LINE_HEIGHT,
@@ -68,7 +89,10 @@ import {
   shouldStartCompletionFlash,
 } from './sessionStatus';
 
-const ACTIVE_DARKEN_PERCENT = 10;
+/** session_list.rs SESSION_SPACING: the gap under every row. */
+const ROW_SPACING = ds(1);
+/** How much lower the first line's middle sits than on a desktop-height row (the decorations are placed from it). */
+const LINE_SHIFT = (TOUCH_ROW_HEIGHT - ds(34)) / 2;
 /** Indent per tree level (threads.rs THREAD_INDENT): one icon plus the row gap. */
 const THREAD_INDENT = 16;
 /** The fold chevron and its gaps push a coordinator's title right (sessions.rs: icon, chevron, title). */
@@ -203,8 +227,9 @@ function ThreadConnector({
   passingLines: number;
   rowHeight: number;
 }) {
-  const mid = ds(17);
-  const rise = mid - ds(7.5);
+  const mid = TOUCH_ROW_HEIGHT / 2;
+  // From under the icon of the row above: the rest of that row below its icon, and the gap between.
+  const rise = mid - ds(7.5) + ROW_SPACING;
   const left = iconLeft - ds(THREAD_INDENT) + ds(7);
   // Past the depth limit a row is drawn at its parent's level, so a line passing it at that level
   // is its own line, drawn on through the row.
@@ -221,7 +246,7 @@ function ThreadConnector({
       <PassingThreadLines
         lines={passingLines & ~ownLevel}
         levelLeft={(level) => left - ds(depth * THREAD_INDENT) + ds(level * THREAD_INDENT)}
-        height={rowHeight}
+        height={rowHeight + ROW_SPACING}
       />
     </>
   );
@@ -245,6 +270,36 @@ function CoordinatorBadgeView({ badge }: { badge: CoordinatorBadge }) {
     <View style={styles.coordinatorBadge}>
       <CrewGlyph size={ds(13.55)} color={tint} />
       {badge.count > 0 ? <Text style={[styles.coordinatorBadgeCount, { color: tint }]}>{badge.count}</Text> : null}
+    </View>
+  );
+}
+
+/**
+ * native_sidebar/agentbox.rs `agentbox_badge`: where a box session's agent runs, the provider's glyph
+ * (a box for local Docker, a server for a remote Docker host, else a cloud) and its label.
+ */
+function AgentboxBadge({ agentbox }: { agentbox: NonNullable<GhostexSession['agentbox']> }) {
+  const label = agentbox.providerLabel.trim().length > 0 ? agentbox.providerLabel : agentbox.provider;
+  const Glyph =
+    agentbox.provider === 'docker' ? BoxGlyph : agentbox.provider.startsWith('docker:') ? ServerGlyph : CloudGlyph;
+  return (
+    <View accessible accessibilityLabel={`Runs in agentbox ${agentbox.boxName} (${label})`} style={styles.agentbox}>
+      <Glyph size={ds(12)} color={SIDEBAR_MUTED} />
+      <Text style={styles.agentboxLabel} numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+/**
+ * apps/desktop/src/app/voice_agent/sidebar_badge.rs: a small green headset on the row of the session
+ * a voice call is about, while the call connects or runs (the phone's own call, src/voice/).
+ */
+function VoiceCallBadge() {
+  return (
+    <View accessible accessibilityLabel="Voice call about this session">
+      <HeadsetGlyph size={ds(12)} color="#4ADE80" />
     </View>
   );
 }
@@ -320,6 +375,10 @@ export type SessionRowProps = {
   workActions?: WorkChipActions;
   /** The computer's "Session links in the sidebar" setting (sessionLinks.ts). */
   sessionLinksDisplay?: SessionLinksDisplay;
+  /** The computer's Advanced > Dim sleeping sessions. */
+  dimSleeping?: boolean;
+  /** A voice call on the phone is about this session. */
+  voiceCall?: boolean;
 };
 
 /**
@@ -331,7 +390,6 @@ export default function SessionRow({
   session,
   active,
   expandedGroupSurface,
-  sidebarBackground,
   sidebarForeground,
   inCard,
   customSessionTags,
@@ -342,6 +400,8 @@ export default function SessionRow({
   onToggleThreads,
   workActions,
   sessionLinksDisplay = 'badge',
+  dimSleeping = false,
+  voiceCall = false,
 }: SessionRowProps) {
   const rowRef = useRef<ViewInstance | null>(null);
   const iconId = resolveAgentIconId(
@@ -386,9 +446,9 @@ export default function SessionRow({
   const iconLeft = (inCard ? ds(5) : ds(26)) + indent;
   const showChevron = onToggleThreads !== undefined && (nesting?.threadCount ?? 0) > 0;
   const titleIndent = indent + (showChevron ? ds(CHEVRON_EXTRA) : 0);
-  const lightActiveBackground = mixHexColors(sidebarForeground, expandedGroupSurface, 30);
-  const activeBackground = mixHexColors('#000000', lightActiveBackground, ACTIVE_DARKEN_PERCENT);
-  const pressedBackground = mixHexColors(sidebarBackground, '#000000', 90);
+  const activeBackground = selectedFill(expandedGroupSurface);
+  // The desktop's hover fill (appearance.rs `session_hover`) is the phone's pressed state.
+  const pressedBackground = mixHexColors('#FFFFFF', expandedGroupSurface, 6);
   /*
    * CDXC:SessionLinks 2026-10-24 SEE-ALSO: `SessionLinks::row` in packages/gx-core/src/sidebar_view/links.rs. A row draws its links as the computer's "Session links in the sidebar" says (a line, a badge or nothing); a Work mode card's own chip line is gone except for the merged-PR Clean up / Keep offer, which takes the line while it waits.
    */
@@ -436,7 +496,7 @@ export default function SessionRow({
     !offerCleanup && linksRow.line.length === 0 && linksRow.badge?.suggested === true ? linksRow.badge : null;
   const showLinkLine = showChips || suggestedBadge !== null;
   const linksBadge = offerCleanup || linksRow.badge?.suggested === true ? null : linksRow.badge;
-  const rowHeight = ds(showLinkLine ? WORK_SESSION_ROW_HEIGHT : 34);
+  const rowHeight = TOUCH_ROW_HEIGHT + (showLinkLine ? ds(WORK_SESSION_ROW_HEIGHT - 34) : 0);
   const linePaddingLeft = (inCard ? ds(26) : ds(47)) + titleIndent;
 
   const openMenuFromRow = (): void => {
@@ -446,7 +506,7 @@ export default function SessionRow({
   };
 
   return (
-    <Animated.View style={{ opacity: flashOpacity }}>
+    <Animated.View style={[styles.rowGap, { opacity: flashOpacity }, dimSleeping && session.isSleeping ? styles.dimmed : null]}>
       <Pressable
         ref={rowRef}
         accessibilityRole="button"
@@ -459,7 +519,7 @@ export default function SessionRow({
         onPress={onPress}
         onLongPress={openMenuFromRow}
       >
-        {active ? <View pointerEvents="none" style={styles.activeOutline} /> : null}
+        {active ? <SelectedCardOutline /> : null}
         {depth > 0 ? (
           <ThreadConnector
             iconLeft={iconLeft}
@@ -533,8 +593,8 @@ export default function SessionRow({
               style={[
                 styles.composerDraftDot,
                 session.queuedPromptCount > 0
-                  ? { left: iconLeft + ds(14), top: ds(4.5) }
-                  : { left: iconLeft + ds(10), top: ds(8.5) },
+                  ? { left: iconLeft + ds(14), top: ds(4.5) + LINE_SHIFT }
+                  : { left: iconLeft + ds(10), top: ds(8.5) + LINE_SHIFT },
               ]}
             />
           ) : null}
@@ -570,9 +630,20 @@ export default function SessionRow({
           timeLabel !== null ||
           coordinatorBadge !== undefined ||
           linksBadge !== null ||
+          voiceCall ||
+          session.agentbox !== undefined ||
           session.claudeCloud !== undefined ? (
             <View style={styles.trailing}>
+              {/* sessions.rs: the crew badge, the voice headset, the box, the cloud and the links badge, then the status. */}
               {coordinatorBadge !== undefined ? <CoordinatorBadgeView badge={coordinatorBadge} /> : null}
+              {voiceCall ? <VoiceCallBadge /> : null}
+              {session.agentbox !== undefined ? <AgentboxBadge agentbox={session.agentbox} /> : null}
+              {/* A Claude cloud session: the desktop's plain 12dp muted cloud before the status (claudeCloud.ts). */}
+              {session.claudeCloud !== undefined ? (
+                <View accessible accessibilityLabel={SessionCopy.claudeCloud}>
+                  <CloudGlyph size={ds(12)} color={SidebarPalette.MUTED} />
+                </View>
+              ) : null}
               {linksBadge !== null ? (
                 <View
                   accessible
@@ -587,12 +658,6 @@ export default function SessionRow({
                 >
                   <ChipGlyph glyph="link" color={linksBadge.color} size={ds(10)} />
                   <Text style={[styles.linksBadgeText, { color: linksBadge.color }]}>{linksBadge.count}</Text>
-                </View>
-              ) : null}
-              {/* A Claude cloud session: the desktop's plain 12dp muted cloud before the status (claudeCloud.ts). */}
-              {session.claudeCloud !== undefined ? (
-                <View accessible accessibilityLabel={SessionCopy.claudeCloud}>
-                  <CloudGlyph size={ds(12)} color={SidebarPalette.MUTED} />
                 </View>
               ) : null}
               {question ? (
@@ -661,24 +726,34 @@ const styles = StyleSheet.create({
   linksBadgeText: {
     fontSize: ds(10.5),
   },
+  rowGap: {
+    marginBottom: ROW_SPACING,
+  },
+  /* sessions.rs `dim_sleeping`. */
+  dimmed: {
+    opacity: 0.5,
+  },
+  agentbox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ds(3),
+    maxWidth: ds(96),
+    flexShrink: 1,
+  },
+  agentboxLabel: {
+    color: SIDEBAR_MUTED,
+    fontSize: ds(11.5),
+    fontWeight: '300',
+    flexShrink: 1,
+  },
   rowBox: {
-    borderRadius: ds(4),
+    borderRadius: ds(5),
   },
   row: {
-    height: ds(34),
+    height: TOUCH_ROW_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     paddingRight: ds(6),
-  },
-  activeOutline: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    borderColor: '#FFFFFF',
-    borderRadius: ds(4),
-    borderWidth: ds(2),
   },
   icon: {
     position: 'absolute',
@@ -742,7 +817,7 @@ const styles = StyleSheet.create({
   },
   noteDot: {
     position: 'absolute',
-    top: ds(15),
+    top: ds(15) + LINE_SHIFT,
     width: ds(4),
     height: ds(4),
     borderRadius: ds(2),
@@ -758,7 +833,7 @@ const styles = StyleSheet.create({
   },
   queueBadge: {
     position: 'absolute',
-    top: ds(6.5),
+    top: ds(6.5) + LINE_SHIFT,
     minWidth: ds(10),
     height: ds(10),
     paddingHorizontal: ds(2),
@@ -790,7 +865,7 @@ const styles = StyleSheet.create({
     lineHeight: ds(20),
   },
   titleActive: {
-    color: '#D8D8D8',
+    color: SELECTED_TEXT,
   },
   /* The desktop row lays its title, status slot and time out with a 6px gap. */
   trailing: {

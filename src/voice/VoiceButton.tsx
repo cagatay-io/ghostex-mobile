@@ -7,7 +7,7 @@
 
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useEffect, useState } from 'react';
-import { Pressable, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, Text, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 
 import { GhostexNative } from '../../modules/ghostex-native/src';
@@ -19,21 +19,8 @@ import { GhostexPalette } from '../theme/palette';
 import { startVoice, useVoiceStore, voiceActive, VOICE_SUPPORTED } from './conversation';
 import { voiceAgentOnIn } from './featureSwitch';
 
-/**
- * A headset (Tabler `headset`): the voice agent's glyph, the same icon the desktop's work area
- * header uses (`apps/desktop/assets/titlebar/headset.svg`), so the microphone stays Dictate's.
- */
-export function HeadsetGlyph({ size, color }: { size: number; color: string }) {
-  const stroke = { stroke: color, strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 14v-3a8 8 0 1 1 16 0v3" {...stroke} />
-      <Path d="M18 19c0 1.657 -2.686 3 -6 3" {...stroke} />
-      <Path d="M4 14a2 2 0 0 1 2 -2h1a2 2 0 0 1 2 2v3a2 2 0 0 1 -2 2h-1a2 2 0 0 1 -2 -2v-3z" {...stroke} />
-      <Path d="M15 14a2 2 0 0 1 2 -2h1a2 2 0 0 1 2 2v3a2 2 0 0 1 -2 2h-1a2 2 0 0 1 -2 -2v-3z" {...stroke} />
-    </Svg>
-  );
-}
+export { HeadsetGlyph } from '../components/sessions/icons';
+import { HeadsetGlyph } from '../components/sessions/icons';
 
 /** A microphone: the voice screen's mute control. */
 export function MicrophoneGlyph({ size, color, crossed = false }: { size: number; color: string; crossed?: boolean }) {
@@ -111,9 +98,12 @@ type Props = {
   size?: number;
   /** While a conversation runs: fill the button with the accent (filled top bars), else tint the glyph. */
   activeFill?: boolean;
+  /** A label under the glyph (the Sessions screen's bottom bar). */
+  label?: string;
+  labelStyle?: StyleProp<TextStyle>;
 };
 
-export function VoiceButton({ machine, style, color, size = 22, activeFill = true }: Props) {
+export function VoiceButton({ machine, style, color, size = 22, activeFill = true, label, labelStyle }: Props) {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const capable = useVoiceCapability(machine);
   const phase = useVoiceStore((state) => state.phase);
@@ -138,6 +128,9 @@ export function VoiceButton({ machine, style, color, size = 22, activeFill = tru
         size={size}
         color={active ? (activeFill ? GhostexPalette.ACCENT_FOREGROUND : GhostexPalette.ACCENT) : color}
       />
+      {label !== undefined ? (
+        <Text style={[labelStyle, active && !activeFill ? { color: GhostexPalette.ACCENT } : null]}>{label}</Text>
+      ) : null}
     </Pressable>
   );
 }

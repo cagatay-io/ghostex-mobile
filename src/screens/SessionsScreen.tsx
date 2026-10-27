@@ -5,7 +5,7 @@
  * recovery sheet, and focus-scoped 5s inventory polling.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AppState,
   BackHandler,
@@ -32,21 +32,15 @@ import DetailsSheet from '../components/common/DetailsSheet';
 import LogsSheet from '../components/common/LogsSheet';
 import ProgressOverlay from '../components/common/ProgressOverlay';
 import PromptDialog from '../components/common/PromptDialog';
-import StateCard from '../components/common/StateCard';
 import { createdSessionId, runGhostexCli } from '../components/sessions/cli';
 import { useCollapseStore } from '../components/sessions/collapseStore';
 import { useSessionListClock } from '../components/sessions/useSessionListClock';
 import ContextMenu from '../components/sessions/ContextMenu';
 import SessionLinksSheet from '../chat/native/SessionLinksSheet';
-import { sessionLinksDisplay } from '../chat/native/sessionLinks';
-import {
-  buildDrawerList,
-  drawerStatusLine,
-  type DrawerBlock,
-  type ProjectCardBlock,
-} from '../components/sessions/drawerModel';
+import { buildDrawerList, drawerStatusLine, type DrawerBlock } from '../components/sessions/drawerModel';
 import { MachinesGlyph, MenuGlyph, SearchGlyph, WorldGlyph } from '../components/sessions/icons';
 import { VoiceButton } from '../voice/VoiceButton';
+import { useVoiceStore, voiceActive } from '../voice/conversation';
 import MachineTabs, {
   MACHINE_TAB_ADD,
   type MachineTabItem,
@@ -56,32 +50,20 @@ import SpaceTabs from '../components/sessions/SpaceTabs';
 import type { WorkChipActions } from '../components/sessions/WorkChips';
 import WorkspaceTile, { workspaceMenuItems } from '../components/sessions/WorkspaceTile';
 import { useLauncherStore } from '../components/sessions/launcherStore';
-import {
-  CollectionHeaderRow,
-  collectionHeaderTint,
-  COLLECTION_BRANCH_WIDTH,
-  expandedGroupBackground,
-  GroupHeaderRow,
-  ProjectBranch,
-  ProjectEmptyRow,
-  ProjectHeaderRow,
-  projectRailColor,
-  SectionLabelRow,
-  SessionKindLabelRow,
-  SessionListToggleRow,
-} from '../components/sessions/rows';
-import SessionRow from '../components/sessions/SessionRow';
+import { expandedGroupBackground } from '../components/sessions/rows';
 import SessionSearchSheet from '../components/sessions/SessionSearchSheet';
 import DelayedSendDialog from '../components/sessions/DelayedSendDialog';
 import NewCoordinatorSheet from './sessions-screen/NewCoordinatorSheet';
 import CoordinatorDetailsSheet from './sessions-screen/CoordinatorDetailsSheet';
 import WorkLinkPicker from './sessions-screen/work-link-picker';
+import DrawerBlockView, { type DrawerBlockActions } from './sessions-screen/DrawerBlockView';
 import ExportTranscriptSheet from '../components/terminal/ExportTranscriptSheet';
 import { WarningTriangleIcon } from '../components/terminal/icons';
 import {
   answerWorkCleanupCommand,
   cancelDelayedSendCommand,
   closeAfterDoneCommand,
+  createSessionInGroupCommand,
   delayedSendCommand,
   renameCommandCommand,
   restoreRecentProjectCommand,
@@ -93,7 +75,6 @@ import {
   machineSessionCounts,
   tabStatusCounts,
   projectKeyForSession,
-  type DrawerItem,
   type ProjectHeaderItem,
 } from '../contract/grouping';
 import { coordinatorRowKey } from '../contract/coordinatorTree';
@@ -140,7 +121,7 @@ import { acknowledgeSessionAttention } from '../terminal/attention';
 import { markSessionOpen, markSessionOpenTap } from '../terminal/openTiming';
 import { attachSessionKey, useTerminalStore } from '../terminal/sessions';
 import { sessionOpensInChatView } from './terminal-screen/session-lookups';
-import { colorWithOpacity, GhostexPalette } from '../theme/palette';
+import { GhostexPalette } from '../theme/palette';
 import { resolveSidebarAppearance } from '../theme/sidebarAppearance';
 import { webPreviewTargetForUrl } from '../webPreview/routing';
 import {
@@ -896,368 +877,85 @@ export default function SessionsScreen({ navigation }: Props) {
   // Rendering.
   // -------------------------------------------------------------------------
 
-  /** Rows nested inside a project card (sessions, groups, empty, older threads). */
-  const renderChildItem = (
-    target: MachineRecord | null,
-    machineId: string,
-    child: DrawerItem,
-    expandedGroupSurface: string,
-  ): ReactElement | null => {
-    switch (child.type) {
-      case 'PROJECT_EMPTY':
-        return <ProjectEmptyRow key={child.key} text={child.text} />;
-      case 'GROUP_HEADER':
-        return (
-          <GroupHeaderRow
-            key={child.key}
-            title={child.title}
-            collapsed={child.collapsed}
-            status={child.status}
-            onPress={() => collapse.toggleGroup(machineId, child.groupCollapseKey)}
-            onMenu={() => {
-              if (target === null) return;
-              setOverlay({
-                kind: 'groupMenu',
-                ctx: { machine: target, item: child },
-              });
-            }}
-          />
+  /** A long press or a button on a list row: haptics, then the overlay, for a machine that is still saved. */
+  const withMachine = useCallback(
+    (machineId: string, open: (target: MachineRecord) => void, haptic = false): void => {
+      const target = machineById(machineId);
+      if (target === null) return;
+      if (haptic) void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      open(target);
+    },
+    [machineById],
+  );
+
+  /** The session a voice call on the phone is about, as an attachSessionKey (the row's green headset). */
+  const voiceCallSessionKey = useVoiceStore((state) =>
+    voiceActive(state.phase) && state.machineId !== null && (state.focus ?? state.requestedFocus) !== null
+      ? attachSessionKey(state.machineId, (state.focus ?? state.requestedFocus)!.sessionId)
+      : null,
+  );
+
+  const blockActions: DrawerBlockActions = {
+    toggleProject: (machineId, header) => collapse.toggleProject(machineId, header.projectKey),
+    toggleCollection: (machineId, header) => collapse.toggleCollection(machineId, header.collectionId),
+    toggleGroup: (machineId, item) => collapse.toggleGroup(machineId, item.groupCollapseKey),
+    toggleSessionKind: (machineId, item) => collapse.toggleSessionKind(machineId, item.kindCollapseKey),
+    toggleCoordinator: (machineId, item) => collapse.toggleCoordinator(machineId, coordinatorRowKey(item.session)),
+    toggleCoordinatorOlder: (machineId, coordinatorKey) => collapse.toggleCoordinatorOlder(machineId, coordinatorKey),
+    openSession: (machineId, item) => withMachine(machineId, (target) => void attach(target, item.session)),
+    sessionMenu: (machineId, item) =>
+      withMachine(
+        machineId,
+        (target) => setOverlay({ kind: 'sessionMenu', ctx: { machine: target, item }, menuPath: [] }),
+        true,
+      ),
+    projectMenu: (machineId, header) =>
+      withMachine(machineId, (target) =>
+        setOverlay({ kind: 'projectMenu', ctx: { machine: target, header }, menuPath: [] }),
+      ),
+    collectionMenu: (machineId, header) =>
+      withMachine(machineId, (target) =>
+        setOverlay({ kind: 'collectionMenu', ctx: { machine: target, header }, view: 'root' }),
+      ),
+    groupMenu: (machineId, item) =>
+      withMachine(machineId, (target) => setOverlay({ kind: 'groupMenu', ctx: { machine: target, item } })),
+    parkedMenu: (machineId, item) =>
+      withMachine(machineId, (target) => setOverlay({ kind: 'parkedMenu', ctx: { machine: target, item } }), true),
+    launchPrimary: (machineId, header, agent) => withMachine(machineId, (target) => launchAgent(target, header, agent)),
+    createProjectTerminal: (machineId, header) =>
+      withMachine(machineId, (target) => createProjectTerminal({ machine: target, header })),
+    createGroupTerminal: (machineId, item) =>
+      withMachine(machineId, (target) => {
+        if (item.projectId.length === 0) return;
+        void runCreationFlow(
+          target,
+          createSessionInGroupCommand(item.projectId, item.groupId),
+          ProgressCopy.creatingTerminal(item.title),
         );
-      case 'SESSION': {
-        const sessionKey = attachSessionKey(machineId, child.session.sessionId);
-        const active = selectedSessionKey === sessionKey || child.nesting?.containsActive === true;
-        return (
-          <SessionRow
-            key={child.key}
-            session={child.session}
-            active={active}
-            expandedGroupSurface={expandedGroupSurface}
-            sidebarBackground={sidebarAppearance.background}
-            sidebarForeground={sidebarAppearance.foreground}
-            inCard
-            customSessionTags={inventoriesByMachineId[machineId]?.summary?.customSessionTags}
-            nesting={child.nesting}
-            coordinatorBadge={child.coordinatorBadge}
-            onToggleThreads={() => collapse.toggleCoordinator(machineId, coordinatorRowKey(child.session))}
-            workActions={workChipActions(target, child.session)}
-            sessionLinksDisplay={sessionLinksDisplay(inventoriesByMachineId[machineId]?.summary?.sidebarSessionLinks)}
-            onPress={() => {
-              if (target !== null) void attach(target, child.session);
-            }}
-            onMenu={() => {
-              if (target === null) return;
-              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-              setOverlay({
-                kind: 'sessionMenu',
-                ctx: { machine: target, item: child },
-                menuPath: [],
-              });
-            }}
-          />
-        );
-      }
-      case 'SESSION_KIND_LABEL':
-        return (
-          <SessionKindLabelRow
-            key={child.key}
-            label={child.label}
-            collapsed={child.collapsed}
-            status={child.status}
-            active={child.status.sessionIds.some(
-              (sessionId) => attachSessionKey(machineId, sessionId) === selectedSessionKey,
-            )}
-            onPress={() => collapse.toggleSessionKind(machineId, child.kindCollapseKey)}
-            onMenu={
-              child.section === 'parked' && target !== null
-                ? () => {
-                    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-                    setOverlay({ kind: 'parkedMenu', ctx: { machine: target, item: child } });
-                  }
-                : undefined
-            }
-          />
-        );
-      case 'COORDINATOR_OLDER':
-        return (
-          <SessionListToggleRow
-            key={child.key}
-            label={child.label}
-            threadDepth={child.depth + 1}
-            passingLines={child.passingLines}
-            onPress={() => collapse.toggleCoordinatorOlder(machineId, child.coordinatorKey)}
-          />
-        );
-      default:
-        return null;
-    }
+      }),
+    agentMenu: (machineId, header) =>
+      withMachine(machineId, (target) => setOverlay({ kind: 'agentMenu', ctx: { machine: target, header } })),
+    stateCard: (machineId) => setOverlay({ kind: 'recovery', machine: machineById(machineId) }),
+    workChipActions: (machineId, item) => workChipActions(machineById(machineId), item.session),
   };
 
-  /**
-   * A card's rows, with each session group's rows held in one view so a single tree line runs down
-   * them; a line drawn per row showed a seam where two rows met.
-   */
-  const renderCardChildren = (
-    target: MachineRecord | null,
-    machineId: string,
-    children: DrawerItem[],
-    expandedGroupSurface: string,
-  ): (ReactElement | null)[] => {
-    const elements: (ReactElement | null)[] = [];
-    let groupRows: (ReactElement | null)[] = [];
-    let groupId = '';
-    const closeGroup = (): void => {
-      if (groupRows.length === 0) return;
-      elements.push(
-        <View key={`group-rows:${groupId}`} style={styles.sessionGroupRows}>
-          {groupRows}
-        </View>,
-      );
-      groupRows = [];
-    };
-    for (const child of children) {
-      const element = renderChildItem(target, machineId, child, expandedGroupSurface);
-      if ((child.type === 'SESSION' || child.type === 'COORDINATOR_OLDER') && child.inSessionGroup === true) {
-        if (child.groupId !== groupId) closeGroup();
-        groupId = child.groupId;
-        groupRows.push(element);
-      } else {
-        closeGroup();
-        elements.push(element);
+  const renderBlock = ({ item: block }: { item: DrawerBlock }) => (
+    <DrawerBlockView
+      block={block}
+      selectedSessionKey={selectedSessionKey}
+      appearance={sidebarAppearance}
+      rowSurface={neutralExpandedGroupSurface}
+      groupsOpacityPercent={sidebarGroupsOpacityPercent}
+      summary={inventoriesByMachineId[block.machineId]?.summary ?? null}
+      voiceCallSessionKey={voiceCallSessionKey}
+      primaryAgent={(header) => resolvePrimaryAgent(header.agents)}
+      // The floating MachineNotice over the list says these two.
+      hideStateCard={(item) =>
+        (item.variant === 'failure' || item.variant === 'connecting') && machineById(block.machineId) !== null
       }
-    }
-    closeGroup();
-    return elements;
-  };
-
-  /** One desktop-style project card: header row + child rows. */
-  const renderProjectCard = (
-    target: MachineRecord | null,
-    machineId: string,
-    card: ProjectCardBlock,
-    inCollection: boolean,
-    expandedGroupSurface: string,
-  ): ReactElement => {
-    const header = card.header;
-    const primaryAgent = resolvePrimaryAgent(header.agents);
-    /*
-     * A project in a collection is marked by a short branch reaching in from the collection's rail
-     * (desktop `native_sidebar/collections.rs`); the card itself carries no border or fill.
-     *
-     * CDXC:Projects 2026-10-10 WHY:
-     * A top-level project draws no branch column: the desktop's native sidebar has none for it, and
-     * the phone's old one (a leftover of the deleted React `hierarchy-panels.css`) pushed every
-     * project header and row ~20dp right of the Space row and the rest of the screen.
-     */
-    const branchColor = colorWithOpacity(
-      projectRailColor(header.collectionColor ?? 'transparent', sidebarAppearance.background),
-      sidebarGroupsOpacityPercent,
-    );
-    return (
-      <View
-        key={`card:${header.key}`}
-        style={[
-          styles.projectCard,
-          inCollection ? styles.projectCardInPanel : styles.projectCardTopLevel,
-          inCollection && !header.collapsed ? styles.projectCardExpanded : null,
-        ]}
-      >
-        {inCollection ? <ProjectBranch color={branchColor} width={COLLECTION_BRANCH_WIDTH} /> : null}
-        <View style={styles.projectCardBody}>
-          <ProjectHeaderRow
-            title={header.title}
-            icon={header.icon}
-            collapsed={header.collapsed}
-            workingCount={header.workingCount}
-            attentionCount={header.attentionCount}
-            questionCount={header.questionCount}
-            approvalCount={header.approvalCount}
-            backgroundWorkCount={header.backgroundWorkCount}
-            awakeCount={header.awakeCount}
-            primaryAgent={primaryAgent}
-            onToggle={() => collapse.toggleProject(machineId, header.projectKey)}
-            onMenu={() => {
-              if (target === null) return;
-              setOverlay({
-                kind: 'projectMenu',
-                ctx: { machine: target, header },
-                menuPath: [],
-              });
-            }}
-            onLaunchPrimary={() => {
-              if (target === null || primaryAgent === null) return;
-              launchAgent(target, header, primaryAgent);
-            }}
-            onCreateTerminal={() => {
-              if (target === null) return;
-              createProjectTerminal({ machine: target, header });
-            }}
-            onOpenAgentMenu={() => {
-              if (target === null) return;
-              setOverlay({
-                kind: 'agentMenu',
-                ctx: { machine: target, header },
-              });
-            }}
-          />
-          {!header.collapsed && card.children.length > 0 ? (
-            <View style={styles.cardSessions}>
-              {renderCardChildren(target, machineId, card.children, expandedGroupSurface)}
-            </View>
-          ) : null}
-        </View>
-      </View>
-    );
-  };
-
-  const renderBlock = ({ item: block }: { item: DrawerBlock }) => {
-    const target = machineById(block.machineId);
-    if (block.kind === 'project') {
-      return renderProjectCard(target, block.machineId, block.card, false, neutralExpandedGroupSurface);
-    }
-    if (block.kind === 'collection') {
-      const header = block.header;
-      /*
-       * The branched panel paints no fill of its own any more, so the active
-       * session row inside it sits on the same neutral expanded-group surface
-       * as one in a top-level project. Mixing the collection tint in here would
-       * describe a backing that is no longer drawn.
-       */
-      const expandedGroupSurface = neutralExpandedGroupSurface;
-      const railColor = colorWithOpacity(
-        projectRailColor(header.color, sidebarAppearance.background),
-        sidebarGroupsOpacityPercent,
-      );
-      return (
-        <View style={styles.collectionPanel}>
-          {/*
-            Desktop section.project-collection::after: a 2dp rail in the
-            collection's own color running the height of the panel, replacing
-            the bordered card the panel used to be.
-          */}
-          {!header.collapsed ? (
-            <View pointerEvents="none" style={[styles.collectionRail, { backgroundColor: railColor }]} />
-          ) : null}
-          <View
-            style={[
-              styles.collectionHeaderChip,
-              {
-                backgroundColor: colorWithOpacity(
-                  collectionHeaderTint(header.color, sidebarAppearance.background),
-                  sidebarGroupsOpacityPercent,
-                ),
-              },
-            ]}
-          >
-            <CollectionHeaderRow
-              title={header.title}
-              collapsed={header.collapsed}
-              workingCount={header.workingCount}
-              attentionCount={header.attentionCount}
-              questionCount={header.questionCount}
-              approvalCount={header.approvalCount}
-              backgroundWorkCount={header.backgroundWorkCount}
-              awakeCount={header.awakeCount}
-              onPress={() => collapse.toggleCollection(block.machineId, header.collectionId)}
-              onMenu={() => {
-                if (target === null) return;
-                setOverlay({
-                  kind: 'collectionMenu',
-                  ctx: { machine: target, header },
-                  view: 'root',
-                });
-              }}
-            />
-          </View>
-          {!header.collapsed && block.projects.length > 0 ? (
-            <View style={styles.collectionProjects}>
-              {block.projects.map((card) =>
-                renderProjectCard(target, block.machineId, card, true, expandedGroupSurface),
-              )}
-            </View>
-          ) : null}
-        </View>
-      );
-    }
-    const { item } = block;
-    switch (item.type) {
-      case 'STATE_CARD':
-        // The floating MachineNotice over the list says these two.
-        if ((item.variant === 'failure' || item.variant === 'connecting') && target !== null) return null;
-        return (
-          <StateCard
-            title={item.title}
-            body={item.body}
-            actionHint={item.actionHint}
-            onPress={() => setOverlay({ kind: 'recovery', machine: target })}
-          />
-        );
-      case 'SECTION_LABEL':
-        return (
-          <SectionLabelRow
-            title={item.title}
-            collapsed={item.collapsed}
-            workingCount={item.workingCount}
-            attentionCount={item.attentionCount}
-            questionCount={item.questionCount}
-            approvalCount={item.approvalCount}
-            backgroundWorkCount={item.backgroundWorkCount}
-            awakeCount={item.awakeCount}
-            first
-            /* Projects is always open (grouping.ts), so it draws no caret. */
-            onMoreMenu={() => {
-              if (target === null) return;
-              setOverlay({
-                kind: 'machineMenu',
-                ctx: { machine: target },
-              });
-            }}
-            onMenu={() => {
-              if (target === null) return;
-              setOverlay({
-                kind: 'sectionMenu',
-                machine: target,
-                section: item.section,
-              });
-            }}
-          />
-        );
-      case 'PROJECT_EMPTY':
-        return <ProjectEmptyRow text={item.text} />;
-      case 'SESSION': {
-        const sessionKey = attachSessionKey(block.machineId, item.session.sessionId);
-        const active = selectedSessionKey === sessionKey;
-        return (
-          <SessionRow
-            session={item.session}
-            active={active}
-            expandedGroupSurface={neutralExpandedGroupSurface}
-            sidebarBackground={sidebarAppearance.background}
-            sidebarForeground={sidebarAppearance.foreground}
-            inCard={false}
-            customSessionTags={inventoriesByMachineId[block.machineId]?.summary?.customSessionTags}
-            workActions={workChipActions(target, item.session)}
-            sessionLinksDisplay={sessionLinksDisplay(
-              inventoriesByMachineId[block.machineId]?.summary?.sidebarSessionLinks,
-            )}
-            onPress={() => {
-              if (target !== null) void attach(target, item.session);
-            }}
-            onMenu={() => {
-              if (target === null) return;
-              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-              setOverlay({
-                kind: 'sessionMenu',
-                ctx: { machine: target, item },
-                menuPath: [],
-              });
-            }}
-          />
-        );
-      }
-      default:
-        return null;
-    }
-  };
+      actions={blockActions}
+    />
+  );
 
   /**
    * Tailcat machines reach the computer through the in-app bridge, so the
@@ -1291,44 +989,6 @@ export default function SessionsScreen({ navigation }: Props) {
           <Text style={[styles.title, { color: sidebarAppearance.foreground }]}>Ghostex</Text>
         </Pressable>
         {/*
-          CDXC:Sessions 2026-10-01 DECISION:
-          User: "add the ability to search for a session, exactly like the modal we have in the app ... add it to the top right as a search icon button", and then chose that the search also finds closed sessions and restores one when tapped, as the desktop's does. The first button of the header's right-hand group opens SessionSearchSheet, which searches every visible computer's open and closed sessions with the desktop's Sessions search rules; this supersedes the 2026-09-30 open-sessions-only search.
-        */}
-        {/* Voice mode: talk with the manager voice agent on this computer (src/voice/). */}
-        <VoiceButton machine={machine} style={styles.headerButton} color={sidebarAppearance.foreground} />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={SessionSearchCopy.buttonLabel}
-          style={styles.headerButton}
-          onPress={() => setSessionSearchOpen(true)}
-        >
-          <SearchGlyph size={22} color={sidebarAppearance.foreground} />
-        </Pressable>
-        {/*
-          Web Preview forwards a port from the selected machine, so it is
-          offered whenever a machine is chosen. It is also in the machine menu,
-          but that is a long press on a machine tab (or on the page title), so
-          this button is the entry point that is always visible.
-        */}
-        {machine !== null ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={WebPreviewCopy.menuLabel}
-            style={styles.headerButton}
-            onPress={() => navigation.navigate('WebPreviewPorts', { machineId: machine.id })}
-          >
-            <WorldGlyph size={22} color={sidebarAppearance.foreground} />
-          </Pressable>
-        ) : null}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Machines"
-          style={styles.headerButton}
-          onPress={() => navigation.navigate('Machines')}
-        >
-          <MachinesGlyph size={22} color={sidebarAppearance.foreground} />
-        </Pressable>
-        {/*
           Search Prompts, Settings and Logout each used to own a header button.
           They are one-off destinations rather than things the list is read
           against, so they live behind this menu and give the header back to
@@ -1340,7 +1000,7 @@ export default function SessionsScreen({ navigation }: Props) {
           style={styles.headerButton}
           onPress={() => setOverlay({ kind: 'appMenu' })}
         >
-          <MenuGlyph size={22} color={sidebarAppearance.foreground} />
+          <MenuGlyph size={20} color={sidebarAppearance.foreground} />
         </Pressable>
       </View>
       {machines.length > 0 ? (
@@ -1478,6 +1138,56 @@ export default function SessionsScreen({ navigation }: Props) {
             onRemoteSettings={() => navigation.navigate('MachineForm', { machineId: machine.id })}
           />
         ) : null}
+      </View>
+      {/*
+        CDXC:Sessions 2026-10-27 DECISION:
+        User picked option E for the Sessions screen's top bar buttons (Q362, docs/2026-10-21/phone-sessions-screen/top-bar-buttons.html): "Voice, Search, Web and Machines move to a labelled bar at the bottom; the top keeps only the title and the menu." The bottom bar holds the four, labelled, within thumb reach. Search still opens SessionSearchSheet, which searches every visible computer's open and closed sessions with the desktop's Sessions search rules and restores a closed one when tapped (the 2026-10-01 decision); only its place moves from the top right to the bar. Voice shows only where the computer runs the voice agent, and Web only once a computer is chosen.
+      */}
+      <View style={styles.bottomBar}>
+        <VoiceButton
+          machine={machine}
+          style={styles.bottomItem}
+          color={styles.bottomIconColor.color}
+          size={20}
+          activeFill={false}
+          label="Voice"
+          labelStyle={styles.bottomLabel}
+        />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={SessionSearchCopy.buttonLabel}
+          style={({ pressed }) => [styles.bottomItem, pressed ? styles.bottomItemPressed : null]}
+          onPress={() => setSessionSearchOpen(true)}
+        >
+          <SearchGlyph size={20} color={styles.bottomIconColor.color} />
+          <Text style={styles.bottomLabel}>Search</Text>
+        </Pressable>
+        {/*
+          Web Preview forwards a port from the selected machine, so it is
+          offered whenever a machine is chosen. It is also in the machine menu,
+          but that is a long press on a machine tab (or on the page title), so
+          this button is the entry point that is always visible.
+        */}
+        {machine !== null ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={WebPreviewCopy.menuLabel}
+            style={({ pressed }) => [styles.bottomItem, pressed ? styles.bottomItemPressed : null]}
+            onPress={() => navigation.navigate('WebPreviewPorts', { machineId: machine.id })}
+          >
+            <WorldGlyph size={20} color={styles.bottomIconColor.color} />
+            <Text style={styles.bottomLabel}>Web</Text>
+          </Pressable>
+        ) : null}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Machines"
+          style={({ pressed }) => [styles.bottomItem, pressed ? styles.bottomItemPressed : null]}
+          onPress={() => navigation.navigate('Machines')}
+        >
+          <MachinesGlyph size={20} color={styles.bottomIconColor.color} />
+          <Text style={styles.bottomLabel}>Machines</Text>
+        </Pressable>
       </View>
       <ProgressOverlay visible={progress !== null} message={progress ?? ''} />
 
