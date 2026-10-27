@@ -31,9 +31,11 @@
         android:name="expo.modules.ghostexnative.GhostexForegroundService"
         android:exported="false"
         android:foregroundServiceType="specialUse|microphone|mediaPlayback">
+      <!-- Google Play's review reads this subtype next to the special use declaration in Play
+           Console, so the two must describe the same thing. -->
       <property
           android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-          android:value="Keeps user-started Ghostex remote terminal sessions and SSH attach processes visible while the user switches between persistent ZMX sessions." />
+          android:value="Shows a live list of the user's coding agent sessions on their own computers, with each session's status, and keeps the SSH connections that feed it open while the app is in the background. Tapping a session opens it; Exit in the notification stops the service." />
     </service>
   </application>
 </manifest>
