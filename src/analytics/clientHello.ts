@@ -24,6 +24,12 @@ const HELLO_INTERVAL_MS = 60 * 60 * 1000;
 const HELLO_EXEC_TIMEOUT_MS = 10_000;
 
 const lastHelloAtByMachineId = new Map<string, number>();
+let lastMachineId: string | null = null;
+
+/** The computer that most recently got a hello: where a screen without its own computer is reported. */
+export function lastHelloMachineId(): string | null {
+  return lastMachineId;
+}
 
 function currentPlatform(): ClientHelloPlatform | null {
   if (Platform.OS === 'ios') {
@@ -51,6 +57,7 @@ function currentPlatform(): ClientHelloPlatform | null {
 export function reportClientHello(machine: MachineConnectionTarget): void {
   const platform = currentPlatform();
   if (platform === null) return;
+  lastMachineId = machine.id;
   const now = Date.now();
   const last = lastHelloAtByMachineId.get(machine.id);
   if (last !== undefined && now - last < HELLO_INTERVAL_MS) return;

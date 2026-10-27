@@ -18,6 +18,7 @@ import type { RootStackParamList } from './src/navigation/types';
 import { initAlerts } from './src/app/alerts';
 import { initAutoReconnect } from './src/app/autoReconnect';
 import { checkForCrashReport, noteCrashRoute } from './src/app/crashReports';
+import { reportMobileView } from './src/analytics/clientView';
 import { flushPendingDeepLink, initDeepLinks, navigationRef } from './src/app/deepLinks';
 import { initAppLifecycle } from './src/app/lifecycle';
 import { initPersistentNotification } from './src/app/persistentNotification';
@@ -139,7 +140,10 @@ export default function App() {
             flushPendingDeepLink();
             noteCrashRoute(navigationRef.getCurrentRoute()?.name);
           }}
-          onStateChange={() => noteCrashRoute(navigationRef.getCurrentRoute()?.name)}
+          onStateChange={() => {
+            noteCrashRoute(navigationRef.getCurrentRoute()?.name);
+            reportMobileView(navigationRef.getCurrentRoute());
+          }}
         >
           <StatusBar style="light" />
           <Stack.Navigator
