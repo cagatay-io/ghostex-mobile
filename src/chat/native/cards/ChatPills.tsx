@@ -22,15 +22,22 @@
  * then the count for 2 s (`countSwapMs`), as a plain cut like the desktop, whose GPUI fade would
  * redraw the whole chat every frame; with one it stays a ?. One interval, cleared when fewer than two
  * wait, and the slot keeps the wider of the two so the row never moves. Desktop: `chat_pills.rs`.
+ *
+ * CDXC:SessionChat 2026-10-27 SEE-ALSO:
+ * The ? pill holds the chat's question list (the user's decision is on gx-chat-core
+ * questions/open_questions.rs): it shows while the chat has any question form or page, keeps its dot,
+ * ping and count only while one is unanswered, and a tap opens the list (`QuestionsMenu`) in the
+ * pill sheet. Desktop: `questions_list.rs`, where hovering opens it.
  */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Animated, Easing, Pressable, Text, View } from 'react-native';
+import { Animated, Easing, Pressable, ScrollView, Text, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
-import type { ChatDocument, ChatPill } from '../../rust/document';
+import type { ChatDocument, ChatPill, QuestionListRow, QuestionListSection } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
 import { Sheet } from '../composer/Sheet';
+import { answeredColor } from './askCard';
 import { AgentFleetMenu, AgentTasksMenu, CoordinatorThreadsMenu, waitingColor } from './AgentPanels';
 import { Glyph } from './icons';
 import { obj } from './json';
@@ -110,6 +117,8 @@ export function QuestionPill({
   const P = useTranscriptTheme();
   const ping = useQuestionPing(count, newest);
   const showingCount = useCountSwap(count);
+  // Only unanswered questions get the attention look; answered and For later ones keep the pill
+  // so the list stays reachable.
   return (
     <IconPill
       glyph="question-mark"
@@ -118,9 +127,115 @@ export function QuestionPill({
       onPress={onPress}
       count={{ text: String(count), shown: showingCount }}
     >
-      <PingRing progress={ping} />
-      <View pointerEvents="none" style={styles.cornerDot} />
+      {count > 0 ? <PingRing progress={ping} /> : null}
+      {count > 0 ? <View pointerEvents="none" style={styles.cornerDot} /> : null}
     </IconPill>
+  );
+}
+
+/** The sections that start folded: the withdrawn ones need nothing (desktop `questions_list.rs`). */
+const FOLDED_BY_DEFAULT: ReadonlySet<string> = new Set(['withdrawn']);
+
+/**
+ * The ? pill's list: every question form and question page in the chat in the core's sections
+ * (Unanswered, For later, Answered, Withdrawn), each folding under its chevron, rows newest first. A
+ * row scrolls the transcript to its card and flashes it. Desktop: `questions_list.rs`.
+ */
+export function QuestionsMenu({ chat, document, onDone }: { chat: RustChat; document: ChatDocument; onDone: () => void }) {
+  const styles = useStyles();
+  const [toggled, setToggled] = useState<ReadonlySet<string>>(new Set());
+  const sections = document.openQuestions?.sections ?? [];
+  const folded = (id: string) => FOLDED_BY_DEFAULT.has(id) !== toggled.has(id);
+  const toggle = (id: string) =>
+    setToggled((was) => {
+      const next = new Set(was);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  return (
+    <View accessibilityLabel="Questions" style={styles.questionsMenu}>
+      <Text style={styles.questionsSummary}>{document.openQuestions?.summary ?? ''}</Text>
+      <ScrollView nestedScrollEnabled>
+        {sections.map((section) => (
+          <QuestionsSection
+            key={section.id}
+            section={section}
+            folded={folded(section.id)}
+            onToggle={() => toggle(section.id)}
+            onPick={(row) => {
+              chat.dispatch({ type: 'jumpToQuestion', id: row.id });
+              onDone();
+            }}
+          />
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+function QuestionsSection({
+  section,
+  folded,
+  onToggle,
+  onPick,
+}: {
+  section: QuestionListSection;
+  folded: boolean;
+  onToggle: () => void;
+  onPick: (row: QuestionListRow) => void;
+}) {
+  const styles = useStyles();
+  const P = useTranscriptTheme();
+  return (
+    <View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${section.title} ${section.count}`}
+        accessibilityState={{ expanded: !folded }}
+        onPress={onToggle}
+        style={styles.questionsSection}
+      >
+        <Glyph name={folded ? 'chevron-right' : 'chevron-down'} size={12} color={P.cardMuted} />
+        <Text style={styles.questionsSectionLabel}>{section.title}</Text>
+        <Text style={styles.questionsSectionLabel}>{String(section.count)}</Text>
+      </Pressable>
+      {folded
+        ? null
+        : section.rows.map((row) => {
+            const answered = section.id === 'answered';
+            const withdrawn = section.id === 'withdrawn';
+            return (
+              <Pressable
+                key={row.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Go to ${row.title}`}
+                onPress={() => onPick(row)}
+                style={({ pressed }) => [styles.questionsRow, pressed && styles.pillPressed]}
+              >
+                <Glyph
+                  name={answered ? 'check' : row.kind === 'page' ? 'photo' : 'list-check'}
+                  size={13}
+                  color={answered ? answeredColor(P.light) : P.cardMuted}
+                />
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.questionsTitle,
+                    withdrawn && { color: P.cardMuted, textDecorationLine: 'line-through' },
+                  ]}
+                >
+                  {row.title}
+                </Text>
+                {row.tags.length > 0 ? (
+                  <Text numberOfLines={1} style={styles.questionsMeta}>
+                    {row.tags.join(' ')}
+                  </Text>
+                ) : null}
+                {row.time.length > 0 ? <Text style={styles.questionsMeta}>{row.time}</Text> : null}
+              </Pressable>
+            );
+          })}
+    </View>
   );
 }
 
@@ -303,7 +418,10 @@ export function PillMenuSheet({
   open: string | null;
   onClose: () => void;
 }) {
-  const shown = (document.chatPills ?? []).find((pill) => pill.id === open);
+  const questions = open === 'questions' && (document.openQuestions?.total ?? 0) > 0;
+  const shown = questions
+    ? ({ id: 'questions', label: 'Questions' } as ChatPill)
+    : (document.chatPills ?? []).find((pill) => pill.id === open);
   // A panel that went away (the subagents finished) takes its sheet with it.
   useEffect(() => {
     if (open !== null && shown === undefined) onClose();
@@ -324,6 +442,8 @@ export function PillMenuSheet({
         <AgentFleetMenu chat={chat} document={document} onDone={close} />
       ) : open === 'background' && background !== null ? (
         <BackgroundTasksMenu tasks={background} />
+      ) : questions ? (
+        <QuestionsMenu chat={chat} document={document} onDone={close} />
       ) : null}
     </Sheet>
   );
@@ -390,6 +510,22 @@ const useStyles = themedStyles((P) => ({
   slotGlyph: {
     position: 'absolute',
   },
+  questionsMenu: { gap: 4, maxHeight: 520 },
+  questionsSummary: { color: P.cardMuted, fontSize: 12.5, paddingHorizontal: 4, paddingBottom: 4 },
+  /** A section header in the Links card's look: chevron, title and count (desktop `question_section_header`). */
+  questionsSection: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 4 },
+  questionsSectionLabel: { color: P.cardMuted, fontSize: 12.5 },
+  questionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minHeight: 40,
+    paddingLeft: 22,
+    paddingRight: 4,
+    borderRadius: 6,
+  },
+  questionsTitle: { flex: 1, minWidth: 0, color: P.foreground, fontSize: 14 },
+  questionsMeta: { flexShrink: 0, maxWidth: 110, color: P.cardMuted, fontSize: 12, fontVariant: ['tabular-nums'] },
   /** The running and waiting dots overlapping: one ring further out, so the front dot sits where a lone dot does. */
   cornerStack: {
     position: 'absolute',

@@ -83,6 +83,10 @@ function PageCardBody({
             label: `${withdrawnEntry.tags.length} of ${withdrawnEntry.total} withdrawn`,
             hint: `${withdrawnEntry.tags.join(', ')}: withdrawn, no answer needed`,
           };
+  // A page still waiting offers For later; one put off says so and offers Back to unanswered
+  // (gx-chat-core `questions/later.rs`, desktop `page_card.rs`).
+  const later = !answered && flags.laterQuestions.has(pageId);
+  const waiting = later || (!answered && flags.unansweredQuestions.has(pageId));
   const entry = usePageThumbnailStore((state) => (pageId.length > 0 ? state.pages[pageId] : undefined));
 
   // Asked once per page and answered state (an answered page is pictured again), not per mount.
@@ -178,6 +182,25 @@ function PageCardBody({
           <Glyph name="arrow-up-right" size={13} color={theme.background} />
         </Pressable>
       </View>
+      {waiting ? (
+        <View style={styles.laterRow}>
+          {later ? (
+            <View style={[styles.answered, { backgroundColor: `${theme.muted}24` }]}>
+              <Glyph name="clock" size={11} color={theme.muted} />
+              <Text style={[styles.answeredText, { color: theme.muted }]}>For later</Text>
+            </View>
+          ) : null}
+          <Pressable
+            style={({ pressed }) => [styles.later, { backgroundColor: `${theme.foreground}${pressed ? '26' : '1a'}` }]}
+            onPress={() => dispatch({ type: 'questionForLater', id: pageId, later: !later })}
+            accessibilityRole="button"
+            accessibilityLabel={later ? 'Back to unanswered' : 'For later'}
+            hitSlop={4}
+          >
+            <Text style={[styles.laterText, { color: theme.foreground }]}>{later ? 'Back to unanswered' : 'For later'}</Text>
+          </Pressable>
+        </View>
+      ) : null}
     </Pressable>
   );
 }
@@ -229,4 +252,15 @@ const styles = StyleSheet.create({
   answeredText: { fontSize: 11, fontWeight: '600' },
   open: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 28, paddingHorizontal: 11, borderRadius: 8 },
   openText: { fontSize: 12.5, fontWeight: '600' },
+  /** For later / Back to unanswered, under the footer: the phone's card is too narrow for a third button beside Open. */
+  laterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 8,
+    paddingHorizontal: VISUAL.footerPaddingX,
+    paddingBottom: VISUAL.footerPaddingY,
+  },
+  later: { height: 28, paddingHorizontal: 11, borderRadius: 8, justifyContent: 'center' },
+  laterText: { fontSize: 12.5, fontWeight: '500' },
 });

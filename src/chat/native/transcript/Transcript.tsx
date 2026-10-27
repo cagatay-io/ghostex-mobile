@@ -133,6 +133,8 @@ export function TranscriptScope({ chat, main, children }: { chat: RustChat; main
           document.finalIds,
           document.answeredPages,
           document.withdrawnPages,
+          document.laterQuestions,
+          document.openQuestions?.sections,
           document.savedPrompts,
           document.rewindAvailable,
           document.rewindEnabled,

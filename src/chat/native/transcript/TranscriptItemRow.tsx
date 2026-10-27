@@ -55,11 +55,24 @@ function SummaryRow({ item }: { item: SummaryItem }) {
     hasFinal ? `summary:${item.id}` : `active-work:${item.id}`,
     item.latestReply === true || item.workOpen === true,
   );
+  // The turn's page cards and question forms, except those of a message the open fold below draws
+  // itself (gx-chat-core `card_rows`, where the user's decision lives; desktop `transcript.rs`).
+  const inOpenFold: string[] = !open
+    ? []
+    : hasFinal
+      ? [...(item.earlierReplies ?? []), item.final!].map((message) => message.id)
+      : item.active
+        ? item.work.map((message) => message.id)
+        : [];
+  const cards = (item.cards ?? []).filter((card) => !inOpenFold.includes(card.id.replace(/#cards$/, '')));
   return (
     <View style={styles.column}>
       <MessageRow message={item.user} />
       {(item.outcome ?? []).map((message) => (
         <MessageRow key={message.id} message={message} />
+      ))}
+      {cards.map((card) => (
+        <MessageRow key={card.id} message={card} />
       ))}
       {hasFinal || item.active ? (
         <>

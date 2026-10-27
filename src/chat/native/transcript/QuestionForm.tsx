@@ -120,6 +120,9 @@ function QuestionFormCard({ id, source }: { id: string; source: string }) {
   }
   const phase = str(form, 'state');
   const enabled = phase === 'open';
+  // Put off For later (gx-chat-core `questions/later.rs`): grey instead of the amber Waiting, and
+  // still answerable; desktop question_form.rs.
+  const later = form.later === true;
   const error = str(form, 'error');
   const questions = arr(form.questions);
   // The form's state is a pill on the right, as "Answered" is once it folds (desktop question_form.rs).
@@ -135,8 +138,8 @@ function QuestionFormCard({ id, source }: { id: string; source: string }) {
     ) : (
       <SingleLinePill
         {...(phase === 'sending' ? {} : { icon: 'clock' as const })}
-        label={phase === 'sending' ? 'Sending…' : phase === 'queued' ? 'Queued' : 'Waiting'}
-        color={askColor(theme.light)}
+        label={phase === 'sending' ? 'Sending…' : phase === 'queued' ? 'Queued' : later ? 'For later' : 'Waiting'}
+        color={later ? theme.muted : askColor(theme.light)}
       />
     );
   const drafts = arr(form.drafts);
@@ -239,6 +242,12 @@ function QuestionFormCard({ id, source }: { id: string; source: string }) {
           <InfoHint hint={SKIPPED_HINT} />
         </View>
       )}
+      {enabled ? (
+        <SoftButton
+          label={later ? 'Back to unanswered' : 'For later'}
+          onPress={() => dispatch({ type: 'questionForLater', id, later: !later })}
+        />
+      ) : null}
       {enabled ? (
         // Skip all sends at once, every question skipped whatever is picked (the core's `skip_all`; the
         // SessionChat 2026-10-16 DECISION on `SKIPPED` in packages/gx-visual/src/questions.rs).

@@ -162,6 +162,10 @@ export type SummaryItem = {
   outcome?: ProjectedMessage[];
   /** The newest turn that has a reply: its "Agent reply" fold starts open. */
   latestReply?: boolean;
+  /** The turn's page cards and question forms, one row per message that holds any (its id plus
+   * `#cards`), drawn under the prompt unless that message is drawn in an open fold
+   * (gx-chat-core `card_rows`). */
+  cards?: ProjectedMessage[];
 };
 
 /** One count beside a finished turn's "Worked for 2m 5s" (gx-chat-core `work_summary.rs`). */
@@ -393,6 +397,8 @@ export type ChatDocument = {
   /** Question pages not answered whose questions were withdrawn, some or all, by page id
    * (gx-chat-core `open_questions.rs` `withdrawn_pages`). */
   withdrawnPages?: { [pageId: string]: { tags: string[]; total: number } };
+  /** Question pages and forms put off "For later" that still wait (gx-chat-core `questions/later.rs`). */
+  laterQuestions?: string[];
   /** The question forms (```questions blocks) by id (`questions/forms.rs`). */
   questionForms?: { [id: string]: Json };
   /** The Previous question pill and the jumps to a question (`questions/open_questions.rs`).
@@ -747,6 +753,31 @@ export type OpenQuestionsState = {
    * `question` is the tag a Q-tag link named, the form question the jump lands on.
    */
   jump: { revision: number; item: number; target: string; question?: string | null } | null;
+  /** Every form and question page in the list; the pill shows while this is above zero. */
+  total?: number;
+  /** The list's header detail: "2 unanswered · 1 for later". */
+  summary?: string;
+  /** The ? pill's list, in order, each only when it has rows (newest first). */
+  sections?: QuestionListSection[];
+};
+
+/** One folding section of the ? pill's list (gx-chat-core `questions/open_questions.rs`). */
+export type QuestionListSection = {
+  id: 'unanswered' | 'later' | 'answered' | 'withdrawn';
+  title: string;
+  count: number;
+  rows: QuestionListRow[];
+};
+
+/** One form or question page in the list; a tap sends `jumpToQuestion`. */
+export type QuestionListRow = {
+  id: string;
+  kind: 'form' | 'page';
+  title: string;
+  tags: string[];
+  /** "14:03", "yesterday at 09:12"; empty when unknown. */
+  time: string;
+  timeTitle: string;
 };
 
 export type FilesLinksState = {

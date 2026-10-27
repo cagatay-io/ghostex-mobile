@@ -79,6 +79,10 @@ export type ActionFields = {
   openMarkdownLink: { href: string; external?: boolean };
   /** The Previous question pill: the next older unanswered question, wrapping to the newest. */
   previousQuestion: {};
+  /** A row of the ? pill's list: scroll to that form or page and flash it, answered or not. */
+  jumpToQuestion: { id: string };
+  /** "For later" (`later: true`) or "Back to unanswered" on a question form or page (gx-chat-core `questions/later.rs`). */
+  questionForLater: { id: string; later: boolean };
   /** An agent message card's Go to session: the other session, focused. Desktop: `inter_agent_message.rs`. */
   openAgentSession: { projectId: string; sessionId: string };
   /** A command in a reply, run in the project's Commands panel terminal (gx-chat-core `run_command.rs`). */

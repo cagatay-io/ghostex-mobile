@@ -158,6 +158,10 @@ export type TranscriptFlags = {
   answeredPages: ReadonlySet<string>;
   /** Question pages whose questions were withdrawn, some or all (desktop `page_card.rs`). */
   withdrawnPages: { [pageId: string]: { tags: string[]; total: number } };
+  /** Question pages and forms still unanswered, which offer For later (gx-chat-core `questions/later.rs`). */
+  unansweredQuestions: ReadonlySet<string>;
+  /** Question pages and forms put off For later, which offer Back to unanswered. */
+  laterQuestions: ReadonlySet<string>;
   savedPrompts: { [messageId: string]: Json };
   rewindAvailable: boolean;
   rewindEnabled: boolean;
@@ -187,6 +191,8 @@ const EMPTY_FLAGS: TranscriptFlags = {
   finalIds: new Set(),
   answeredPages: new Set(),
   withdrawnPages: {},
+  unansweredQuestions: new Set(),
+  laterQuestions: new Set(),
   savedPrompts: {},
   rewindAvailable: false,
   rewindEnabled: false,
@@ -215,6 +221,12 @@ export function transcriptFlags(document: ChatDocument | null): TranscriptFlags 
     finalIds: new Set(arr(document.finalIds).filter((id): id is string => typeof id === 'string')),
     answeredPages: new Set(arr(document.answeredPages).filter((id): id is string => typeof id === 'string')),
     withdrawnPages: obj(document.withdrawnPages) === null ? {} : (document.withdrawnPages ?? {}),
+    unansweredQuestions: new Set(
+      (document.openQuestions?.sections ?? [])
+        .filter((section) => section.id === 'unanswered')
+        .flatMap((section) => section.rows.map((row) => row.id)),
+    ),
+    laterQuestions: new Set(arr(document.laterQuestions).filter((id): id is string => typeof id === 'string')),
     savedPrompts: obj(document.savedPrompts) === null ? {} : document.savedPrompts,
     rewindAvailable: document.rewindAvailable === true,
     rewindEnabled: document.rewindEnabled === true,

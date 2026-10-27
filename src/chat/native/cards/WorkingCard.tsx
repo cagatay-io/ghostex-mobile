@@ -96,7 +96,12 @@ export function WorkingCard({
   if (!cardShown(document, armed) || card === undefined) return null;
   const showJump = awayFromBottom && jumpToBottom !== null;
   const questions = document.openQuestions;
-  const question = questions !== undefined && questions !== null && questions.count > 0 ? questions : null;
+  // The ? pill shows while the chat has any question form or page; a tap opens their list
+  // (`QuestionsMenu`, gx-chat-core questions/open_questions.rs).
+  const question =
+    questions !== undefined && questions !== null && (questions.count > 0 || (questions.total ?? 0) > 0)
+      ? questions
+      : null;
   const pills = card.pills
     .map((id) => (document.chatPills ?? []).find((pill) => pill.id === id))
     .filter((pill) => pill !== undefined);
@@ -171,7 +176,7 @@ export function WorkingCard({
                 count={question.count}
                 newest={question.newest ?? null}
                 accessibilityLabel={question.accessibilityLabel}
-                onPress={() => chat.dispatch({ type: 'previousQuestion' })}
+                onPress={() => setMenu('questions')}
               />
             ) : null}
             {pills.map((pill) => (
