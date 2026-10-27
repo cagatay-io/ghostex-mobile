@@ -365,7 +365,7 @@ function CodeBlock({
             style={[styles.codeAction, wrapped && { backgroundColor: theme.pressed }]}
             onPress={() => setWrapped((value) => !value)}
             accessibilityRole="button"
-            accessibilityLabel={wrapped ? 'Turn off line wrap' : 'Wrap lines'}
+            accessibilityLabel={wrapped ? "Don't wrap lines" : 'Wrap lines'}
             accessibilityState={{ selected: wrapped }}
           >
             <Glyph name="text-wrap" size={14} color={wrapped ? theme.foreground : theme.muted} />
@@ -373,13 +373,12 @@ function CodeBlock({
           {block.run !== null ? (
             <Pressable
               hitSlop={6}
-              style={[styles.codeAction, styles.codeRunAction]}
+              style={styles.codeAction}
               onPress={() => block.run !== null && dispatch({ type: 'runInTerminal', command: block.run })}
               accessibilityRole="button"
               accessibilityLabel="Run in terminal"
             >
               <Glyph name="terminal-2" size={14} color={theme.muted} />
-              <Text style={[styles.codeRunLabel, { color: theme.muted }]}>Run</Text>
             </Pressable>
           ) : null}
           <Pressable
@@ -387,7 +386,7 @@ function CodeBlock({
             style={styles.codeAction}
             onPress={copy}
             accessibilityRole="button"
-            accessibilityLabel="Copy code"
+            accessibilityLabel="Copy"
           >
             <Glyph name={copied ? 'check' : 'copy'} size={14} color={theme.muted} />
           </Pressable>
@@ -981,8 +980,6 @@ const styles = StyleSheet.create({
   codeHeaderText: { fontFamily: MONO_FONT, fontSize: 11 },
   codeActions: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   codeAction: { width: 26, height: 26, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-  codeRunAction: { width: 'auto', flexDirection: 'row', gap: 3, paddingHorizontal: 6 },
-  codeRunLabel: { fontSize: 11, fontWeight: '500' },
   codeBody: { paddingHorizontal: 14, paddingVertical: 12 },
   codeText: { fontFamily: MONO_FONT, fontSize: CODE_SIZE, lineHeight: 17.5 },
   table: { gap: 2 },
