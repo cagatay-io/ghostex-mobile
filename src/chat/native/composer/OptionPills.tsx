@@ -17,12 +17,17 @@ import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 
 export type PillKind = 'model' | 'options' | 'mode' | 'context';
 
+/** Codex's permission modes take the colour of the Claude mode closest to them (`option_pills.rs`). */
 const MODE_COLORS: Record<string, [mode: 'advance' | 'pause', color: string]> = {
   'accept-edits': ['advance', '#d3bff8'],
   auto: ['advance', '#f6daa0'],
+  'approve-for-me': ['advance', '#f6daa0'],
   bypass: ['advance', '#ffb6c5'],
+  'full-access': ['advance', '#ffb6c5'],
   manual: ['pause', '#d2d4dc'],
+  'ask-for-approval': ['pause', '#d2d4dc'],
   plan: ['pause', '#a6ddd8'],
+  'read-only': ['pause', '#a6ddd8'],
 };
 
 /** The pastel mode glyphs darkened for the light chat, as `option_pills.rs` does (x0.525). */
@@ -136,7 +141,7 @@ export function OptionPills({ document, onOpen }: { document: ChatDocument; onOp
       {hasMode ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Mode: ${str(labels, 'mode')}`}
+          accessibilityLabel={str(labels, 'mode') ? `Mode: ${str(labels, 'mode')}` : 'Mode'}
           onPress={() => onOpen('mode')}
           style={({ pressed }) => [styles.pill, styles.modePill, pressed ? styles.pressed : null]}
         >
