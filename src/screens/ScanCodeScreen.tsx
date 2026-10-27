@@ -7,6 +7,10 @@
  *
  * Camera permission denied → the paste sheet opens directly with a line that
  * says why. Back is disabled while pairing is in flight.
+ *
+ * On iOS the camera is Apple's scanner (scan-code/systemScanner.ts): it opens
+ * over this screen once the camera is allowed, and "Open the scanner" brings it
+ * back after it was closed or a code failed to pair.
  */
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -26,6 +30,7 @@ import type { RootStackParamList } from '../navigation/types';
 import { SetupPalette } from '../theme/palette';
 import ScannerOverlay from './scan-code/ScannerOverlay';
 import { useScanController } from './scan-code/useScanController';
+import { useSystemScanner } from './scan-code/useSystemScanner';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ScanCode'>;
 
@@ -50,6 +55,16 @@ export default function ScanCodeScreen({ navigation, route }: Props) {
 
   const granted = permission?.granted === true;
   const pairing = phase.kind === 'pairing';
+  const systemScanner = useSystemScanner(handlePayload);
+  const systemScannerOpenedRef = useRef(false);
+
+  // Apple's scanner opens by itself once, when the camera is allowed and nothing else is on screen.
+  useEffect(() => {
+    if (!systemScanner.active || systemScannerOpenedRef.current) return;
+    if (!granted || phase.kind !== 'scanning' || sheet !== 'none' || incomingCode !== undefined) return;
+    systemScannerOpenedRef.current = true;
+    systemScanner.open();
+  }, [systemScanner, granted, phase.kind, sheet, incomingCode]);
 
   // A pairing link the system camera opened the app with pairs like a scanned QR.
   useEffect(() => {
@@ -121,7 +136,7 @@ export default function ScanCodeScreen({ navigation, route }: Props) {
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <View style={styles.viewfinder}>
-        {granted ? (
+        {granted && !systemScanner.active ? (
           <CameraView
             style={StyleSheet.absoluteFill}
             facing="back"
@@ -129,7 +144,12 @@ export default function ScanCodeScreen({ navigation, route }: Props) {
             onBarcodeScanned={phase.kind === 'scanning' ? onBarcode : undefined}
           />
         ) : null}
-        <ScannerOverlay frozen={phase.kind !== 'scanning'} status={status} toast={toast} showHint={granted} />
+        <ScannerOverlay
+          frozen={phase.kind !== 'scanning'}
+          status={status}
+          toast={toast}
+          showHint={granted && !systemScanner.active}
+        />
       </View>
 
       <View style={styles.footer}>
@@ -141,6 +161,14 @@ export default function ScanCodeScreen({ navigation, route }: Props) {
           </SetupRows>
         ) : (
           <>
+            {granted && systemScanner.active ? (
+              <SetupButton
+                variant="primary"
+                label={ScanCopy.openScanner}
+                onPress={systemScanner.open}
+                disabled={phase.kind !== 'scanning'}
+              />
+            ) : null}
             <SetupButton
               label={ScanCopy.pasteButton}
               icon={<PasteGlyph size={16} color={SetupPalette.FOREGROUND} />}

@@ -69,6 +69,7 @@ export const ScanCopy = {
   helpAccessibilityLabel: 'Where is the code?',
   hint: 'Point at the code in Ghostex → Settings → Remote',
   pasteButton: 'Paste a code instead',
+  openScanner: 'Open the scanner',
   cantFindPrefix: "Can't find the code? ",
   cantFindLink: 'Show me where it is',
   found: (computer: string) => `Found ${computer}`,
@@ -752,9 +753,7 @@ export const EditMachineCopy = {
     button: 'Remove this computer from the phone',
     title: 'Remove this computer?',
     body: (name: string) =>
-      `Type ${name} to confirm. It is removed from this phone, along with its saved password and pairing key. Nothing changes on the computer.`,
-    placeholder: 'Computer name',
-    mismatch: 'The name does not match.',
+      `${name} is removed from this phone, along with its saved password and pairing key. Nothing changes on the computer.`,
     confirm: 'Remove',
   },
 } as const;

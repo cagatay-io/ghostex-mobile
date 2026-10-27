@@ -22,7 +22,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GhostexNative, type SshConfig } from '../../modules/ghostex-native/src';
 import { markManualDisconnect } from '../app/autoReconnect';
-import PromptDialog from '../components/common/PromptDialog';
+import ConfirmDialog from '../components/common/ConfirmDialog';
 import KeyboardAvoidingContainer from '../components/common/keyboard/KeyboardAvoidingContainer';
 import KeyboardAwareScrollView from '../components/common/keyboard/KeyboardAwareScrollView';
 import { SetupButton, setupText } from '../components/onboarding/SetupPrimitives';
@@ -121,7 +121,6 @@ export default function MachineFormScreen({ navigation, route }: Props) {
   const [errors, setErrors] = useState<MachineValidationErrors | null>(null);
   const [helpOs, setHelpOs] = useState<SshOs | null>(null);
   const [removeOpen, setRemoveOpen] = useState(false);
-  const [removeError, setRemoveError] = useState<string | null>(null);
   /**
    * Set once the machine is gone. Navigation waits for the next commit because
    * App.tsx swaps the navigator's route set when the last machine is removed
@@ -293,13 +292,8 @@ export default function MachineFormScreen({ navigation, route }: Props) {
     saveRef.current = save;
   });
 
-  const remove = async (typedName: string): Promise<void> => {
+  const remove = async (): Promise<void> => {
     if (existing === null) return;
-    const expected = existing.name.length > 0 ? existing.name : existing.username;
-    if (typedName.trim() !== expected) {
-      setRemoveError(EditMachineCopy.remove.mismatch);
-      return;
-    }
     setRemoveOpen(false);
     clearMachineInventory(existing.id);
     clearMachineSpace(existing.id);
@@ -505,14 +499,7 @@ export default function MachineFormScreen({ navigation, route }: Props) {
               {test}
               {errorBanner}
               <View style={formStyles.divider} />
-              <Pressable
-                accessibilityRole="button"
-                style={styles.removeButton}
-                onPress={() => {
-                  setRemoveError(null);
-                  setRemoveOpen(true);
-                }}
-              >
+              <Pressable accessibilityRole="button" style={styles.removeButton} onPress={() => setRemoveOpen(true)}>
                 <Text style={[styles.removeLabel, formStyles.danger]}>{EditMachineCopy.remove.button}</Text>
               </Pressable>
             </>
@@ -573,14 +560,13 @@ export default function MachineFormScreen({ navigation, route }: Props) {
       <SshAccessHelpSheet os={helpOs} onClose={() => setHelpOs(null)} />
 
       {existing !== null ? (
-        <PromptDialog
+        <ConfirmDialog
           visible={removeOpen}
           title={EditMachineCopy.remove.title}
           body={EditMachineCopy.remove.body(existing.name.length > 0 ? existing.name : existing.username)}
-          placeholder={EditMachineCopy.remove.placeholder}
-          error={removeError}
           confirmLabel={EditMachineCopy.remove.confirm}
-          onSubmit={(value) => void remove(value)}
+          destructive
+          onConfirm={() => void remove()}
           onCancel={() => setRemoveOpen(false)}
         />
       ) : null}
