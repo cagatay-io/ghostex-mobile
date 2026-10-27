@@ -38,6 +38,7 @@ import type { ChatDocument, ChatPill, QuestionListRow, QuestionListSection } fro
 import type { RustChat } from '../../rust/useRustChat';
 import { Sheet } from '../composer/Sheet';
 import { answeredColor } from './askCard';
+import { Glyph as TranscriptGlyph } from '../transcript/icons';
 import { AgentFleetMenu, AgentTasksMenu, CoordinatorThreadsMenu, waitingColor } from './AgentPanels';
 import { Glyph } from './icons';
 import { obj } from './json';
@@ -47,7 +48,6 @@ import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 
 /** The amber of the ? pill's corner dot and a running pill's. */
 const ATTENTION_COLOR = '#f5a524';
-
 
 /** The running corner dot's fade: the Subagents menu's 1.6 s beat (desktop `chat_pills.rs` `running_dot`). */
 const RUNNING_PULSE_MS = 1600;
@@ -141,10 +141,20 @@ const FOLDED_BY_DEFAULT: ReadonlySet<string> = new Set(['withdrawn']);
  * (Unanswered, For later, Answered, Withdrawn), each folding under its chevron, rows newest first. A
  * row scrolls the transcript to its card and flashes it. Desktop: `questions_list.rs`.
  */
-export function QuestionsMenu({ chat, document, onDone }: { chat: RustChat; document: ChatDocument; onDone: () => void }) {
+export function QuestionsMenu({
+  chat,
+  document,
+  onDone,
+}: {
+  chat: RustChat;
+  document: ChatDocument;
+  onDone: () => void;
+}) {
   const styles = useStyles();
   const [toggled, setToggled] = useState<ReadonlySet<string>>(new Set());
   const sections = document.openQuestions?.sections ?? [];
+  const filters = document.openQuestions?.filters ?? [];
+  const picked = document.openQuestions?.filter ?? 'all';
   const folded = (id: string) => FOLDED_BY_DEFAULT.has(id) !== toggled.has(id);
   const toggle = (id: string) =>
     setToggled((was) => {
@@ -153,9 +163,32 @@ export function QuestionsMenu({ chat, document, onDone }: { chat: RustChat; docu
       return next;
     });
   return (
-    <View accessibilityLabel="Questions" style={styles.questionsMenu}>
+    <View accessibilityLabel="Generated content" style={styles.questionsMenu}>
       <Text style={styles.questionsSummary}>{document.openQuestions?.summary ?? ''}</Text>
+      {/* All, Html, Q&A and Charts: the core picks the rows (desktop `question_list_filters`). */}
+      <View style={styles.filters} accessibilityRole="tablist">
+        {filters.map((filter, index) => {
+          const on = filter.id === picked;
+          return (
+            <Pressable
+              key={filter.id}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: on }}
+              accessibilityLabel={`${filter.label} ${filter.count}`}
+              onPress={() => chat.dispatch({ type: 'questionListFilter', filter: filter.id })}
+              style={[styles.filter, index > 0 && styles.filterDivider, on && styles.filterOn]}
+            >
+              <Text numberOfLines={1} style={[styles.filterLabel, on && styles.filterLabelOn]}>
+                {filter.label} <Text style={styles.filterCount}>{String(filter.count)}</Text>
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
       <ScrollView nestedScrollEnabled>
+        {sections.length === 0 ? (
+          <Text style={styles.questionsSummary}>Nothing of this kind in this chat yet.</Text>
+        ) : null}
         {sections.map((section) => (
           <QuestionsSection
             key={section.id}
@@ -171,6 +204,13 @@ export function QuestionsMenu({ chat, document, onDone }: { chat: RustChat; docu
       </ScrollView>
     </View>
   );
+}
+
+/** A row's icon by what it is: an HTML page, a chart or a Q&A form (desktop `kind_look`). */
+function KindIcon({ kind, color }: { kind: QuestionListRow['kind']; color: string }) {
+  if (kind === 'page') return <TranscriptGlyph name="file-code" size={13} color={color} />;
+  if (kind === 'chart') return <TranscriptGlyph name="chart-bar" size={13} color={color} />;
+  return <Glyph name="list-check" size={13} color={color} />;
 }
 
 function QuestionsSection({
@@ -212,11 +252,7 @@ function QuestionsSection({
                 onPress={() => onPick(row)}
                 style={({ pressed }) => [styles.questionsRow, pressed && styles.pillPressed]}
               >
-                <Glyph
-                  name={answered ? 'check' : row.kind === 'page' ? 'photo' : 'list-check'}
-                  size={13}
-                  color={answered ? answeredColor(P.light) : P.cardMuted}
-                />
+                <KindIcon kind={row.kind} color={answered ? answeredColor(P.light) : P.cardMuted} />
                 <Text
                   numberOfLines={1}
                   style={[
@@ -225,6 +261,10 @@ function QuestionsSection({
                   ]}
                 >
                   {row.title}
+                </Text>
+                {/* What the row is, so pages, forms and charts read apart in any section. */}
+                <Text style={styles.kindLabel}>
+                  {row.kind === 'page' ? 'HTML' : row.kind === 'chart' ? 'Chart' : 'Q&A'}
                 </Text>
                 {row.tags.length > 0 ? (
                   <Text numberOfLines={1} style={styles.questionsMeta}>
@@ -336,7 +376,8 @@ export function Pill({ pill, open, onPress }: { pill: ChatPill; open: boolean; o
       style={({ pressed }) => [
         styles.pill,
         // Two overlapping corner dots reach half a dot further in than one: room for them, not over the count.
-        pill.running && waitingColor(pill.waiting) !== null && { paddingRight: PILL_PADDING_X + QUESTION_PING.dotSize / 2 },
+        pill.running &&
+          waitingColor(pill.waiting) !== null && { paddingRight: PILL_PADDING_X + QUESTION_PING.dotSize / 2 },
         (pressed || open) && styles.pillPressed,
       ]}
     >
@@ -420,7 +461,7 @@ export function PillMenuSheet({
 }) {
   const questions = open === 'questions' && (document.openQuestions?.total ?? 0) > 0;
   const shown = questions
-    ? ({ id: 'questions', label: 'Questions' } as ChatPill)
+    ? ({ id: 'questions', label: 'Content' } as ChatPill)
     : (document.chatPills ?? []).find((pill) => pill.id === open);
   // A panel that went away (the subagents finished) takes its sheet with it.
   useEffect(() => {
@@ -525,6 +566,29 @@ const useStyles = themedStyles((P) => ({
     borderRadius: 6,
   },
   questionsTitle: { flex: 1, minWidth: 0, color: P.foreground, fontSize: 14 },
+  filters: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderColor: P.ink(0.14),
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginBottom: 4,
+  },
+  filter: { flex: 1, minHeight: 34, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  filterDivider: { borderLeftWidth: 1, borderLeftColor: P.ink(0.14) },
+  filterOn: { backgroundColor: P.ink(0.14) },
+  filterLabel: { color: P.cardMuted, fontSize: 13 },
+  filterLabelOn: { color: P.foreground },
+  filterCount: { color: P.cardMuted, fontVariant: ['tabular-nums'] },
+  kindLabel: {
+    flexShrink: 0,
+    color: P.cardMuted,
+    fontSize: 10.5,
+    paddingHorizontal: 5,
+    borderRadius: 4,
+    overflow: 'hidden',
+    backgroundColor: P.ink(0.07),
+  },
   questionsMeta: { flexShrink: 0, maxWidth: 110, color: P.cardMuted, fontSize: 12, fontVariant: ['tabular-nums'] },
   /** The running and waiting dots overlapping: one ring further out, so the front dot sits where a lone dot does. */
   cornerStack: {

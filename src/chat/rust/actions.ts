@@ -83,6 +83,8 @@ export type ActionFields = {
   jumpToQuestion: { id: string };
   /** "For later" (`later: true`) or "Back to unanswered" on a question form or page (gx-chat-core `questions/later.rs`). */
   questionForLater: { id: string; later: boolean };
+  /** The ? pill's list shows what the filter picks: `all`, `html`, `qa` or `charts`. */
+  questionListFilter: { filter: string };
   /** An agent message card's Go to session: the other session, focused. Desktop: `inter_agent_message.rs`. */
   openAgentSession: { projectId: string; sessionId: string };
   /** A command in a reply, run in the project's Commands panel terminal (gx-chat-core `run_command.rs`). */

@@ -17,6 +17,8 @@ import { SvgXml } from 'react-native-svg';
 import { useOptionalNativeChatUi, useTranscriptEnv } from './context';
 import { Glyph } from './icons';
 import { PageCard } from './PageCard';
+import { chartId } from './chartId';
+import { QuestionFlashFrame } from './OpenQuestions';
 import { arr, num, obj, str, type JsonRecord } from './json';
 import { MONO_FONT, type TranscriptTheme } from './theme';
 
@@ -201,73 +203,76 @@ export function VisualBlock({ source }: { source: string }) {
         : Math.max(0, active.x - 12 - TOOLTIP_WIDTH);
   const tipTop =
     active === null ? 0 : active.y + 12 + tipHeight <= height ? active.y + 12 : Math.max(0, active.y - 12 - tipHeight);
+  // A jump from the ? pill's list flashes the chart it named (`chartId`).
   return (
-    <View style={[styles.card, { backgroundColor: theme.input, borderColor: theme.border }]}>
-      <View style={[styles.header, { borderBottomColor: theme.border }]}>
-        <View style={styles.title}>
-          <Glyph name="chart-bar" size={13} color={theme.muted} />
-          <Text numberOfLines={1} style={[styles.headerText, { color: theme.muted }]}>
-            {str(answer, 'title') || 'visual'}
-          </Text>
-        </View>
-        <View style={styles.actions}>
-          {kind === 'drawing' ? (
-            <Pressable
-              style={styles.action}
-              onPress={() => setShowSource((value) => !value)}
-              accessibilityRole="button"
-            >
-              <Text style={[styles.actionText, { color: theme.muted }]}>{showSource ? 'Chart' : 'Source'}</Text>
-            </Pressable>
-          ) : null}
-          <Pressable style={styles.action} onPress={copy} accessibilityRole="button" accessibilityLabel="Copy source">
-            <Glyph name={copied ? 'check' : 'copy'} size={14} color={theme.muted} />
-          </Pressable>
-        </View>
-      </View>
-      <View style={styles.body} onLayout={onLayout}>
-        {drawing ? (
-          <Pressable onPress={onPress} style={{ width, height }}>
-            <SvgXml xml={frame ?? str(answer, 'svg')} width={width} height={height} />
-            {tip !== undefined && tip.lines.length > 0 ? (
-              <View
-                pointerEvents="none"
-                style={[
-                  styles.tooltip,
-                  {
-                    left: tipLeft,
-                    top: tipTop,
-                    backgroundColor: theme.light ? '#ffffff' : '#1f1f23',
-                    borderColor: theme.border,
-                  },
-                ]}
-              >
-                {tip.lines.map((line, index) => (
-                  <View key={index} style={styles.tooltipLine}>
-                    {line.color.length > 0 ? <View style={[styles.swatch, { backgroundColor: line.color }]} /> : null}
-                    {line.label.length > 0 ? (
-                      <Text style={[styles.tooltipText, { color: theme.muted }]}>{line.label}</Text>
-                    ) : null}
-                    <Text numberOfLines={1} style={[styles.tooltipText, styles.tooltipValue, { color: theme.prose }]}>
-                      {line.value}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            ) : null}
-          </Pressable>
-        ) : (
-          <View>
-            {kind === 'error' ? (
-              <Text style={[styles.note, { color: theme.muted }]}>{str(answer, 'message')}</Text>
-            ) : null}
-            <Text selectable style={[styles.source, { color: theme.prose }]}>
-              {source}
+    <QuestionFlashFrame target={chartId(source)} light={theme.light}>
+      <View style={[styles.card, { backgroundColor: theme.input, borderColor: theme.border }]}>
+        <View style={[styles.header, { borderBottomColor: theme.border }]}>
+          <View style={styles.title}>
+            <Glyph name="chart-bar" size={13} color={theme.muted} />
+            <Text numberOfLines={1} style={[styles.headerText, { color: theme.muted }]}>
+              {str(answer, 'title') || 'visual'}
             </Text>
           </View>
-        )}
+          <View style={styles.actions}>
+            {kind === 'drawing' ? (
+              <Pressable
+                style={styles.action}
+                onPress={() => setShowSource((value) => !value)}
+                accessibilityRole="button"
+              >
+                <Text style={[styles.actionText, { color: theme.muted }]}>{showSource ? 'Chart' : 'Source'}</Text>
+              </Pressable>
+            ) : null}
+            <Pressable style={styles.action} onPress={copy} accessibilityRole="button" accessibilityLabel="Copy source">
+              <Glyph name={copied ? 'check' : 'copy'} size={14} color={theme.muted} />
+            </Pressable>
+          </View>
+        </View>
+        <View style={styles.body} onLayout={onLayout}>
+          {drawing ? (
+            <Pressable onPress={onPress} style={{ width, height }}>
+              <SvgXml xml={frame ?? str(answer, 'svg')} width={width} height={height} />
+              {tip !== undefined && tip.lines.length > 0 ? (
+                <View
+                  pointerEvents="none"
+                  style={[
+                    styles.tooltip,
+                    {
+                      left: tipLeft,
+                      top: tipTop,
+                      backgroundColor: theme.light ? '#ffffff' : '#1f1f23',
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  {tip.lines.map((line, index) => (
+                    <View key={index} style={styles.tooltipLine}>
+                      {line.color.length > 0 ? <View style={[styles.swatch, { backgroundColor: line.color }]} /> : null}
+                      {line.label.length > 0 ? (
+                        <Text style={[styles.tooltipText, { color: theme.muted }]}>{line.label}</Text>
+                      ) : null}
+                      <Text numberOfLines={1} style={[styles.tooltipText, styles.tooltipValue, { color: theme.prose }]}>
+                        {line.value}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </Pressable>
+          ) : (
+            <View>
+              {kind === 'error' ? (
+                <Text style={[styles.note, { color: theme.muted }]}>{str(answer, 'message')}</Text>
+              ) : null}
+              <Text selectable style={[styles.source, { color: theme.prose }]}>
+                {source}
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
-    </View>
+    </QuestionFlashFrame>
   );
 }
 

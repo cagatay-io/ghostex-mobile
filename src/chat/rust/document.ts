@@ -162,9 +162,8 @@ export type SummaryItem = {
   outcome?: ProjectedMessage[];
   /** The newest turn that has a reply: its "Agent reply" fold starts open. */
   latestReply?: boolean;
-  /** The turn's page cards and question forms, one row per message that holds any (its id plus
-   * `#cards`), drawn under the prompt unless that message is drawn in an open fold
-   * (gx-chat-core `card_rows`). */
+  /** The agent's messages in the turn that hold a page card, a question form or a chart, drawn in
+   * full under the prompt; the folds leave them out (gx-chat-core `content_rows`). */
   cards?: ProjectedMessage[];
 };
 
@@ -757,13 +756,17 @@ export type OpenQuestionsState = {
   total?: number;
   /** The list's header detail: "2 unanswered · 1 for later". */
   summary?: string;
-  /** The ? pill's list, in order, each only when it has rows (newest first). */
+  /** The ? pill's list for the picked filter, in order, each only when it has rows (newest first). */
   sections?: QuestionListSection[];
+  /** All, Html, Q&A and Charts over the list, each with its count. */
+  filters?: { id: 'all' | 'html' | 'qa' | 'charts'; label: string; count: number }[];
+  /** The picked filter's id; `questionListFilter` picks one. */
+  filter?: string;
 };
 
 /** One folding section of the ? pill's list (gx-chat-core `questions/open_questions.rs`). */
 export type QuestionListSection = {
-  id: 'unanswered' | 'later' | 'answered' | 'withdrawn';
+  id: 'unanswered' | 'later' | 'answered' | 'withdrawn' | 'pages' | 'charts';
   title: string;
   count: number;
   rows: QuestionListRow[];
@@ -772,7 +775,8 @@ export type QuestionListSection = {
 /** One form or question page in the list; a tap sends `jumpToQuestion`. */
 export type QuestionListRow = {
   id: string;
-  kind: 'form' | 'page';
+  /** `form` (Q&A), `page` (HTML) or `chart`. */
+  kind: 'form' | 'page' | 'chart';
   title: string;
   tags: string[];
   /** "14:03", "yesterday at 09:12"; empty when unknown. */

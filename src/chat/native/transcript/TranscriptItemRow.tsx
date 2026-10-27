@@ -55,16 +55,14 @@ function SummaryRow({ item }: { item: SummaryItem }) {
     hasFinal ? `summary:${item.id}` : `active-work:${item.id}`,
     item.latestReply === true || item.workOpen === true,
   );
-  // The turn's page cards and question forms, except those of a message the open fold below draws
-  // itself (gx-chat-core `card_rows`, where the user's decision lives; desktop `transcript.rs`).
-  const inOpenFold: string[] = !open
-    ? []
-    : hasFinal
-      ? [...(item.earlierReplies ?? []), item.final!].map((message) => message.id)
-      : item.active
-        ? item.work.map((message) => message.id)
-        : [];
-  const cards = (item.cards ?? []).filter((card) => !inOpenFold.includes(card.id.replace(/#cards$/, '')));
+  // The turn's messages holding a page card, a question form or a chart, drawn in full and never
+  // folded; the folds below leave them out (gx-chat-core `content_rows`, where the user's decision
+  // lives; desktop `transcript.rs`).
+  const cards = item.cards ?? [];
+  const content = new Set(cards.map((card) => card.id));
+  const foldRows = (hasFinal ? [...(item.earlierReplies ?? []), item.final!] : item.work).filter(
+    (message) => !content.has(message.id),
+  );
   return (
     <View style={styles.column}>
       <MessageRow message={item.user} />
@@ -74,16 +72,14 @@ function SummaryRow({ item }: { item: SummaryItem }) {
       {cards.map((card) => (
         <MessageRow key={card.id} message={card} />
       ))}
-      {hasFinal || item.active ? (
+      {(hasFinal || item.active) && foldRows.length > 0 ? (
         <>
           <DisclosureHeading label={hasFinal ? 'Agent reply' : 'Active work'} open={open} onToggle={toggle} />
           {open ? (
             <View style={styles.column}>
-              {hasFinal
-                ? [...(item.earlierReplies ?? []), item.final!].map((message) => (
-                    <MessageRow key={message.id} message={message} />
-                  ))
-                : item.work.map((message) => <MessageRow key={message.id} message={message} />)}
+              {foldRows.map((message) => (
+                <MessageRow key={message.id} message={message} />
+              ))}
             </View>
           ) : null}
         </>
@@ -136,7 +132,11 @@ function CompletedWorkRow({ item }: { item: CompletedWorkItem }) {
           <MessageRow key={message.id} message={message} />
         ))}
         <QuestionExchangeCards exchanges={item.questions} aboveIsCard={foldAbove} columnGap={COMPLETED_PART_GAP} />
-        <SentAgentMessageCards cards={item.sentMessages} aboveIsCard={foldAbove || hasQuestions} columnGap={COMPLETED_PART_GAP} />
+        <SentAgentMessageCards
+          cards={item.sentMessages}
+          aboveIsCard={foldAbove || hasQuestions}
+          columnGap={COMPLETED_PART_GAP}
+        />
         <WorkflowCards ids={item.workflows} />
         {item.final !== undefined && item.final !== null ? <MessageRow message={item.final} /> : null}
       </FoldPlaceProvider>
