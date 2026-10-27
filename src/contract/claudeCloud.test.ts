@@ -23,7 +23,5 @@ describe('a Claude cloud row on the phone', () => {
     assert.equal(claudeCloudPageUrl(cloud('running')), 'https://claude.ai/code/session_01Test');
     assert.equal(claudeCloudPageUrl(cloud('draft', '')), null);
     assert.equal(claudeCloudPageUrl(cloud('starting', '')), null);
-    const live = parseClaudeCloud({ state: 'running', url: 'https://claude.ai/code/session_01Test', attach: 'live' });
-    assert.equal(claudeCloudPageUrl(live), null);
   });
 });

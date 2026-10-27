@@ -28,8 +28,6 @@ export type GhostexClaudeCloud = {
   url: string;
   branch: string;
   statusText: string;
-  /** `live` once the session's terminal shows the cloud session itself, else ''. */
-  attach: string;
   accountName: string;
   limitNotice: string;
 };
@@ -46,7 +44,6 @@ export function parseClaudeCloud(value: unknown): GhostexClaudeCloud | undefined
     url: text('url'),
     branch: text('branch'),
     statusText: text('statusText'),
-    attach: text('attach'),
     accountName: text('accountName'),
     limitNotice: text('limitNotice'),
   };
@@ -54,7 +51,7 @@ export function parseClaudeCloud(value: unknown): GhostexClaudeCloud | undefined
 
 /** The claude.ai page a tap on the row opens, or null when the row opens like any other. */
 export function claudeCloudPageUrl(cloud: GhostexClaudeCloud | undefined): string | null {
-  if (cloud === undefined || cloud.state !== 'running' || cloud.attach === 'live') return null;
+  if (cloud === undefined || cloud.state !== 'running') return null;
   return cloud.url.startsWith('https://claude.ai/code/') ? cloud.url : null;
 }
 
