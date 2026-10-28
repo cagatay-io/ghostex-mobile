@@ -2,7 +2,7 @@
  * The pills on the working card (`WorkingCard.tsx`) and the sheet each one opens. Port of desktop
  * `chat_pills.rs`. Always leftmost, two icon pills: "Scroll to bottom" (a down arrow, while the
  * reader is away from the bottom, published by the transcript in `bottomStore.ts`), then "Previous
- * question" (a ?, while the chat has unanswered questions, from the core's `openQuestions`). Then
+ * question" (a ?, while a question is unanswered and not For later, from the core's `openQuestions`). Then
  * Threads, Tasks, Subagents and Background, whose labels, counts and order come from the core
  * (`chatPills`, packages/gx-chat-core/src/extras/chat_pills.rs, where the user's decision lives). A
  * pill opens the chat's bottom sheet (`Sheet`, the phone form of desktop's floating menus) with that
@@ -36,9 +36,9 @@
  * later / Back to open button (`laterAction`).
  *
  * CDXC:SessionChat 2026-10-28 SEE-ALSO:
- * The ? pill steps only through the questions still waiting (the core's `steps`); with none waiting a
- * tap opens the Resources sheet and never jumps to an answered one (`WorkingCard.tsx`). The user's
- * words are on gx-chat-core questions/open_questions.rs.
+ * The ? pill shows only while a question is unanswered and not put off For later (`count`), and a tap
+ * steps only through those; answered, withdrawn and For later ones are reached from the Resources
+ * pill. The user's words are on gx-chat-core questions/open_questions.rs.
  */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';

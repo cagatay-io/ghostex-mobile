@@ -126,15 +126,10 @@ export function WorkingCard({
   if (!cardShown(document, armed) || card === undefined) return null;
   const showJump = awayFromBottom && jumpToBottom !== null;
   const questions = document.openQuestions;
-  // The ? pill shows while the chat has a question form or page; a tap goes to the previous one still
-  // waiting (`previousQuestion`), and with none waiting (`steps` is zero) opens the Resources list
-  // instead of jumping to an answered one (same rule as desktop `question_pill_clicked`).
-  const question =
-    questions !== undefined &&
-    questions !== null &&
-    (questions.count > 0 || (questions.questionTotal ?? questions.total ?? 0) > 0)
-      ? questions
-      : null;
+  // The ? pill shows only while a question form or page is unanswered and not put off For later
+  // (`count`); a tap goes to the previous one (`previousQuestion`). The rest are in the Resources
+  // pill's list (`chatPills`).
+  const question = questions !== undefined && questions !== null && questions.count > 0 ? questions : null;
   const pills = card.pills
     .map((id) => (document.chatPills ?? []).find((pill) => pill.id === id))
     .filter((pill) => pill !== undefined);
@@ -203,10 +198,7 @@ export function WorkingCard({
           count={question.count}
           newest={question.newest ?? null}
           accessibilityLabel={question.accessibilityLabel}
-          onPress={() => {
-            if ((question.steps ?? question.count) > 0) chat.dispatch({ type: 'previousQuestion' });
-            else setMenu('resources');
-          }}
+          onPress={() => chat.dispatch({ type: 'previousQuestion' })}
         />
       ) : null}
       {panelPills}
