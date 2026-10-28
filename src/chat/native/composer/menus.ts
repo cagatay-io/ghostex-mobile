@@ -279,6 +279,21 @@ export function moreActionsRows({
   });
   for (const action of actions)
     if (CHAT_GROUP_HOST_ACTIONS.has(action.id) && serves(action.id)) rows.push(hostRow(action));
+  /**
+   * CDXC:SessionChat 2026-10-29 DECISION:
+   * User, on the terminal view's More actions menu matching the chat's (Q729, "Yes, add it"): the chat's More actions menu gets a Session note row after Close After Done, with the same "1" badge when a note exists, on the computer and the phone. The note toolbar button is never offered (the core's `composerActions.note` is off), so this row is the only way in unless the control folded here itself.
+   * Here it opens the chat's own note panel, the one the terminal view's menu opens on the phone; the computer opens the same note dialog the terminal row opens (desktop `actions.rs`).
+   */
+  const noteFolded = overflowed(document, 'note') && available('note');
+  if (!noteFolded && document.composerActions?.files !== false) {
+    rows.push({
+      label: 'Session note',
+      iconPath: 'titlebar/note.svg',
+      ...(document.composerChrome.notePresence ? { badge: '1' } : {}),
+      checked: document.note.open,
+      command: { type: 'composerHost', action: 'sessionNote' },
+    });
+  }
   for (const control of COMPOSER_CONTROLS) {
     if (!overflowed(document, control.id) || !available(control.id)) continue;
     const row: MenuRow = {
