@@ -105,7 +105,7 @@ export default function CoordinatorDetailsSheet({ mode, load, onSave, onCancel }
     });
   };
 
-  const name = details !== null && details.title.length > 0 ? details.title : 'this orchestrator';
+  const name = details !== null && details.title.length > 0 ? details.title : 'this coordinator';
   const canSave = details !== null && !busy;
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onCancel}>
@@ -156,7 +156,7 @@ export default function CoordinatorDetailsSheet({ mode, load, onSave, onCancel }
                 <>
                   {notes.length === 0 ? (
                     <Text style={styles.empty}>
-                      No notes yet. The orchestrator saves the lasting preferences you confirm, and you can add one
+                      No notes yet. The coordinator saves the lasting preferences you confirm, and you can add one
                       below.
                     </Text>
                   ) : null}

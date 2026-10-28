@@ -443,7 +443,7 @@ function useChatViewRequests(
                 show(
                   'The thread could not be opened. Try again from the sessions list.',
                   true,
-                  'Could not open that thread',
+                  'Could not open that worker',
                 ),
               );
             } else if (request.action === 'runInTerminal' || request.action === 'pasteInTerminal') {

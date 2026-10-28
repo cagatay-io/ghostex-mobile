@@ -189,7 +189,7 @@ export default function NewCoordinatorSheet({
         <Pressable style={styles.backdrop} onPress={onCancel}>
           <Pressable style={styles.card} onPress={(event) => event.stopPropagation()}>
             <KeyboardAwareScrollView contentContainerStyle={styles.cardContent}>
-              <Text style={styles.title}>New Orchestrator</Text>
+              <Text style={styles.title}>New Coordinator</Text>
               <Text style={styles.body}>
                 {`One agent you talk to about ${projectTitle}. It plans the work, hands each task to a thread (its own agent session, optionally in its own worktree), and reports back when threads finish or need you.`}
               </Text>
@@ -204,7 +204,7 @@ export default function NewCoordinatorSheet({
                   placeholderTextColor={GhostexPalette.MUTED}
                 />
                 <Text style={styles.hint}>
-                  Shown in the sidebar so you can find this orchestrator later. It keeps this name.
+                  Shown in the sidebar so you can find this coordinator later. It keeps this name.
                 </Text>
               </View>
               {options === null ? (
@@ -215,7 +215,7 @@ export default function NewCoordinatorSheet({
                 )
               ) : options.agents.length === 0 ? (
                 <Text style={styles.error}>
-                  No agent an orchestrator can run on is set up on this computer: Claude, Codex, ZCode, Cursor, Grok,
+                  No agent a coordinator can run on is set up on this computer: Claude, Codex, ZCode, Cursor, Grok,
                   Copilot, Antigravity, Pi or OMP.
                 </Text>
               ) : (
@@ -256,7 +256,7 @@ export default function NewCoordinatorSheet({
                     </Text>
                   </View>
                   <Text style={styles.hint}>
-                    Every orchestrator starts with this line, which loads its playbook. Write your first request in its
+                    Every coordinator starts with this line, which loads its playbook. Write your first request in its
                     chat.
                   </Text>
                 </View>

@@ -135,7 +135,7 @@ export function CoordinatorThreadsMenu({
     isTrue(panel, 'attention') ? 'approval' : isTrue(panel, 'question') ? 'question' : '',
   );
   return (
-    <View accessibilityLabel="Orchestrator threads" style={styles.menu}>
+    <View accessibilityLabel="Coordinator workers" style={styles.menu}>
       <MenuMeta
         meta={str(panel, 'meta')}
         trailing={
@@ -152,7 +152,7 @@ export function CoordinatorThreadsMenu({
         <Text
           accessibilityRole="button"
           accessibilityLabel={
-            moreStep === 0 ? 'Show fewer threads' : moreStep === 1 ? 'Show recent threads' : `Show ${moreLabel} threads`
+            moreStep === 0 ? 'Show fewer workers' : moreStep === 1 ? 'Show recent workers' : `Show ${moreLabel} workers`
           }
           style={styles.threadsFold}
           onPress={() => chat.dispatch({ type: 'toggleCoordinatorThreadsMore', step: moreStep })}
@@ -180,7 +180,7 @@ function ThreadRow({ row, chat, onDone }: { row: unknown; chat: RustChat; onDone
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Open thread ${title}`}
+      accessibilityLabel={`Open worker ${title}`}
       onPress={openThread}
       style={styles.threadRow}
     >

@@ -352,10 +352,10 @@ export function useSessionsScreenMenus({
 
   /** Make Coordinator: gxserver promotes the session in place; its running turn is never touched. */
   const makeCoordinator = async (machine: MachineRecord, session: GhostexSession): Promise<void> => {
-    setProgress('Making it an orchestrator…');
+    setProgress('Making it a coordinator…');
     try {
       await runGhostexCli(machine, promoteCoordinatorCommand(session.globalRef));
-      setTransientStatus('Now an orchestrator');
+      setTransientStatus('Now a coordinator');
     } catch (error) {
       setTransientStatus(error instanceof Error ? error.message : String(error));
     } finally {
@@ -406,7 +406,7 @@ export function useSessionsScreenMenus({
   const saveCoordinatorDetails = async (ctx: SessionContext, edit: CoordinatorDetailsEdit): Promise<void> => {
     await runGhostexCli(ctx.machine, coordinatorEditCommand(ctx.item.session.globalRef, edit));
     setOverlay(NONE);
-    setTransientStatus('Orchestrator updated');
+    setTransientStatus('Coordinator updated');
   };
 
   /** The Link to picker's suggestions for `query` (`ghostex link-session --candidates`). */
@@ -513,9 +513,9 @@ export function useSessionsScreenMenus({
         const { session } = requireSession().item;
         setOverlay({
           kind: 'confirmAction',
-          title: 'Make orchestrator?',
-          body: `${sessionTitle(session)} keeps its conversation and keeps running: nothing restarts or interrupts it. It gets the crown now, and its orchestrator playbook arrives once its current turn is over.`,
-          confirmLabel: 'Make Orchestrator',
+          title: 'Make coordinator?',
+          body: `${sessionTitle(session)} keeps its conversation and keeps running: nothing restarts or interrupts it. It gets the crown now, and its coordinator playbook arrives once its current turn is over.`,
+          confirmLabel: 'Make Coordinator',
           run: () => void makeCoordinator(machine, session),
         });
         return;
@@ -670,7 +670,7 @@ export function useSessionsScreenMenus({
         }
         case 'coordinatorSessionAction': {
           const ctx = scope.session;
-          if (ctx === undefined) throw new Error('An orchestrator action needs a session.');
+          if (ctx === undefined) throw new Error('A coordinator action needs a session.');
           if (menuCommand.action === 'goal' || menuCommand.action === 'memory') {
             setOverlay({ kind: 'coordinatorDetails', ctx, mode: menuCommand.action });
             return;
@@ -1443,7 +1443,7 @@ export function useSessionsScreenMenus({
             {
               kind: 'item',
               key: 'new-coordinator',
-              label: 'New Orchestrator…',
+              label: 'New Coordinator…',
               icon: <CrewGlyph size={14} color={SidebarPalette.MUTED} />,
               info: NEW_ORCHESTRATOR_BENEFITS,
               onPress: () => setOverlay({ kind: 'newCoordinator', ctx }),
@@ -1497,7 +1497,7 @@ export function useSessionsScreenMenus({
   ): void => {
     const launcher = ctx.header.agents.find((agent) => agent.agentId === input.agentId);
     const iconId = resolveAgentIconId(launcher?.icon, input.agentName);
-    const title = input.title.trim().length > 0 ? input.title.trim() : 'Orchestrator';
+    const title = input.title.trim().length > 0 ? input.title.trim() : 'Coordinator';
     void runCreationFlow(
       ctx.machine,
       createCoordinatorCommand({ ...input, projectId: ctx.header.projectId }),

@@ -85,7 +85,7 @@ describe('approval waits', () => {
     );
   });
 
-  test('an approval counts on every orchestrator above it', () => {
+  test('an approval counts on every coordinator above it', () => {
     const sessions = [
       row('lead', null, true),
       { ...thread('sub', 'lead', 'working'), isCoordinator: true } as GhostexSession,
@@ -95,7 +95,7 @@ describe('approval waits', () => {
     assert.deepEqual(badgeOf(sessions, 'lead'), { count: 1, tone: 'approval' });
   });
 
-  test('a folded orchestrator shows a stuck thread as the red dot, not the pink one', () => {
+  test('a folded coordinator shows a stuck thread as the red dot, not the pink one', () => {
     const sessions = [{ ...row('lead', null, true), activity: 'idle' } as GhostexSession, thread('stuck', 'lead', 'waiting', true)];
     const lead = nestCoordinatorThreads(
       sessions,

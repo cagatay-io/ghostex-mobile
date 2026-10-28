@@ -887,7 +887,7 @@ export type ChatPill = {
   waiting: string;
   /** A subagent or thread in the sheet is working: the ? pill's amber corner dot, pulsing. */
   running: boolean;
-  /** The panel's muted detail ("2 working · 212 threads"). */
+  /** The panel's muted detail ("2 working · 212 workers"). */
   meta: string;
   ariaLabel: string;
 };
