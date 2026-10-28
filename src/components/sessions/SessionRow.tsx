@@ -477,7 +477,7 @@ export default function SessionRow({
     });
   }, [offerCleanup, session.work, linksRow]);
   // The line fits what it can to its width (WorkChips); the links it never lists count into "+N".
-  // Under Badge the title row's badge counts what the pinned chips leave out.
+  // Under Badge there is no line: the title row's badge names a link and counts the rest.
   const linksNeverShown = offerCleanup
     ? null
     : linksRow.badge !== null && !linksRow.badge.suggested
@@ -645,7 +645,11 @@ export default function SessionRow({
                 <View
                   accessible
                   accessibilityLabel={
-                    linksBadge.suggested ? `${linksBadge.count} suggested links` : `${linksBadge.count} links`
+                    linksBadge.suggested
+                      ? `${linksBadge.count} suggested links`
+                      : linksBadge.more > 0
+                        ? `Links: ${linksBadge.label} and ${linksBadge.more} more`
+                        : `Link: ${linksBadge.label}`
                   }
                   style={[
                     styles.linksBadge,
@@ -654,7 +658,20 @@ export default function SessionRow({
                   ]}
                 >
                   <ChipGlyph glyph="link" color={linksBadge.color} size={ds(10)} />
-                  <Text style={[styles.linksBadgeText, { color: linksBadge.color }]}>{linksBadge.count}</Text>
+                  <Text
+                    style={[
+                      styles.linksBadgeText,
+                      !linksBadge.suggested && styles.linksBadgeId,
+                      { color: linksBadge.color },
+                    ]}
+                  >
+                    {linksBadge.label}
+                  </Text>
+                  {linksBadge.more > 0 ? (
+                    <Text style={[styles.linksBadgeText, styles.linksBadgeMore, { color: linksBadge.color }]}>
+                      {`+${linksBadge.more}`}
+                    </Text>
+                  ) : null}
                 </View>
               ) : null}
               {question ? (
@@ -706,6 +723,13 @@ const styles = StyleSheet.create({
   },
   linksBadgeText: {
     fontSize: ds(10.5),
+  },
+  /** The named link's ID, heavier than the "+N" after it (desktop `session_links_badge_body`). */
+  linksBadgeId: {
+    fontWeight: '600',
+  },
+  linksBadgeMore: {
+    opacity: 0.75,
   },
   rowGap: {
     marginBottom: ROW_SPACING,

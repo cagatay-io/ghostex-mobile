@@ -218,7 +218,9 @@ export type ChatCoreQuery =
   | 'renderVisual'
   | 'speakableSegments'
   | 'speakableMarkdown'
-  | 'transcriptPictures';
+  | 'transcriptPictures'
+  /** `workingCardRows(memo, measured)`: one or two rows for the working card (gx-chat-core `extras/working_card_rows.rs`). */
+  | 'workingCardRows';
 
 // ---------------------------------------------------------------------------------------------
 // The handle

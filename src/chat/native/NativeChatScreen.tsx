@@ -41,7 +41,7 @@ import { useVoiceCapability } from '../../voice/VoiceButton';
 import { useArmedActions } from './armedActions';
 import { NativeChatCards, NativeChatOverlays, PageSheet, questionReplacesComposer } from './cards';
 import { ConnectionLostNotice } from './cards/ConnectionLostNotice';
-import { LoneScrollBottom, WorkingCard } from './cards/WorkingCard';
+import { LoneScrollBottom, WorkingCard, type WorkingCardLinks } from './cards/WorkingCard';
 import { NativeComposer } from './composer';
 import { HandoffSheet, type HandoffRequest } from './composer/HandoffSheet';
 import type { MenuRow } from './composer/MenuSheet';
@@ -81,6 +81,8 @@ export type NativeChatScreenProps = {
   /** The Ghostex queue's length, for the terminal view's "Queued: N" button. Never called before
    * the machine reports a queue at all. */
   onQueueCountChange?: (count: number) => void;
+  /** The session's links for the working card's Links pill and the tap that opens their sheet. */
+  links?: WorkingCardLinks | null;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -95,6 +97,7 @@ export default function NativeChatScreen({
   openSearchRequestId = 0,
   openSessionNoteRequestId = 0,
   onQueueCountChange,
+  links = null,
   style,
 }: NativeChatScreenProps) {
   const chat = useRustChat({ machine, projectId, sessionId });
@@ -328,6 +331,7 @@ export default function NativeChatScreen({
               chat={chat}
               document={document}
               armed={armed}
+              links={links}
               {...(openDelayedActions !== undefined ? { onArmedPress: openDelayedActions } : {})}
             />
           )}

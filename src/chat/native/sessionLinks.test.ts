@@ -9,6 +9,8 @@ import { SidebarPalette } from '../../theme/palette';
 import {
   SUGGESTED_OPEN_UP_TO_LINKED,
   SUGGESTED_SHOWN_FIRST,
+  sessionLinksBadgeLabel,
+  sessionLinksChatPill,
   sessionLinksDisplay,
   sessionLinksRow,
   sessionLinksWithoutRemoved,
@@ -53,7 +55,7 @@ describe('session links in the sidebar', () => {
 describe('the badge colour', () => {
   test('is grey once every link is merged or closed', () => {
     const row = sessionLinksRow(links([link('#3', 'merged', true), link('#4', 'closed', true)]), 'badge', false);
-    assert.deepEqual(row.badge, { count: 2, color: SidebarPalette.WORK_DRAFT, suggested: false });
+    assert.deepEqual(row.badge, { count: 2, color: SidebarPalette.WORK_DRAFT, suggested: false, label: '#3', more: 1 });
   });
 
   test('keeps the open colour while any link is open', () => {
@@ -61,13 +63,10 @@ describe('the badge colour', () => {
     assert.equal(row.badge?.color, SidebarPalette.WORK_OPEN);
   });
 
-  test('counts only the unpinned links: a pinned open one leaves it grey', () => {
-    const row = sessionLinksRow(links([link('#2', 'open', false, true), link('#3', 'merged', true)]), 'badge', false);
-    assert.deepEqual(
-      row.line.map((item) => item.key),
-      ['#2'],
-    );
-    assert.equal(row.badge?.color, SidebarPalette.WORK_DRAFT);
+  test('names a pinned link with no line of its own; the pinned open one colours it', () => {
+    const row = sessionLinksRow(links([link('#3', 'merged', true), link('#2', 'open', false, true)]), 'badge', false);
+    assert.deepEqual(row.line, []);
+    assert.deepEqual([row.badge?.label, row.badge?.more, row.badge?.color], ['#2', 1, SidebarPalette.WORK_OPEN]);
   });
 });
 
@@ -125,5 +124,38 @@ describe('Suggested on opening the sheet', () => {
     assert.equal(suggestedOpensUnfolded(2), true);
     assert.equal(suggestedOpensUnfolded(3), false);
     assert.equal(suggestedOpensUnfolded(12), false);
+  });
+});
+
+describe('sessionLinksChatPill', () => {
+  test('reads like the badge (ID and +N) and says suggested quietly', () => {
+    const failing = { ...link('#1', 'open', false), checks: 'failing' };
+    const three = sessionLinksChatPill(links([link('#2', 'open', false), failing, link('#3', 'merged', true)]), 'muted');
+    assert.deepEqual([three?.label, three?.more, three?.color, three?.suggested], ['#1', 2, SidebarPalette.WORK_CLOSED, false]);
+
+    const one = sessionLinksChatPill(links([{ ...link('SPX-123', 'open', false), kind: 'linear' }]), 'muted');
+    assert.deepEqual([one?.label, one?.more], ['SPX-123', 0]);
+
+    const suggested = sessionLinksChatPill(
+      { items: [], suggested: [link('#4', 'open', false), link('#5', 'open', false)], removed: [] },
+      'muted',
+    );
+    assert.deepEqual([suggested?.label, suggested?.color, suggested?.suggested], ['2 suggested', 'muted', true]);
+
+    assert.equal(sessionLinksChatPill(links([], [link('#6', 'open', false)]), 'muted'), null);
+    assert.equal(sessionLinksChatPill(undefined, 'muted'), null);
+  });
+});
+
+describe('sessionLinksBadgeLabel', () => {
+  test('one link, a pinned one, ties and every link finished', () => {
+    assert.deepEqual(sessionLinksBadgeLabel([link('SPX-123', 'open', false)]), { label: 'SPX-123', more: 0 });
+    const failing = { ...link('#1', 'open', false), checks: 'failing' };
+    assert.deepEqual(sessionLinksBadgeLabel([failing, link('#3', 'merged', true, true)]), { label: '#3', more: 1 });
+    assert.deepEqual(sessionLinksBadgeLabel([link('#7', 'open', false), link('#8', 'open', false)]), { label: '#7', more: 1 });
+    const review = { ...link('#9', 'open', false), review: 'reviewRequired' };
+    assert.deepEqual(sessionLinksBadgeLabel([link('#7', 'open', false), review]), { label: '#9', more: 1 });
+    assert.deepEqual(sessionLinksBadgeLabel([link('#3', 'merged', true), link('#4', 'merged', true)]), { label: '#3', more: 1 });
+    assert.equal(sessionLinksBadgeLabel([]), null);
   });
 });

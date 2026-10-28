@@ -1,5 +1,5 @@
 /**
- * One colour fading from top to bottom over its whole box, which `style` places: the tone cards'
+ * One colour fading from top to bottom (or, `HorizontalFade`, left to right) over its whole box, which `style` places: the tone cards'
  * wash (`cards/ToneCard.tsx`) and the page card's fade over its picture (`PageCard.tsx`).
  *
  * The fade is drawn in a 1×1 viewBox stretched to the box. react-native-svg keeps a shape's path
@@ -33,6 +33,34 @@ export function VerticalFade({
     <Svg style={style} viewBox="0 0 1 1" preserveAspectRatio="none" pointerEvents="none">
       <Defs>
         <LinearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={color} stopOpacity={from} />
+          <Stop offset="1" stopColor={color} stopOpacity={to} />
+        </LinearGradient>
+      </Defs>
+      <Rect x="0" y="0" width="1" height="1" fill={`url(#${id})`} />
+    </Svg>
+  );
+}
+
+/** The same fade from left to right (the working card's scrolling pills, `cards/WorkingCard.tsx`). */
+export function HorizontalFade({
+  id,
+  color,
+  from,
+  to,
+  style,
+}: {
+  id: string;
+  color: string;
+  /** The colour's opacity at the left and at the right. */
+  from: number;
+  to: number;
+  style: StyleProp<ViewStyle>;
+}) {
+  return (
+    <Svg style={style} viewBox="0 0 1 1" preserveAspectRatio="none" pointerEvents="none">
+      <Defs>
+        <LinearGradient id={id} x1="0" y1="0" x2="1" y2="0">
           <Stop offset="0" stopColor={color} stopOpacity={from} />
           <Stop offset="1" stopColor={color} stopOpacity={to} />
         </LinearGradient>

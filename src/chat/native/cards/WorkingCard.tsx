@@ -7,21 +7,26 @@
  * (`ChatPills.tsx`). The inverted transcript already keeps a short conversation at its bottom, right
  * above this row.
  *
- * The label stays on one line, cut with an ellipsis at its end so the pills keep their full width;
- * pressing and holding the card shows the whole label in a bubble above it, as hovering does on the
- * desktop, without changing the card's height. The armed Delayed Send / Close After Done timers come
+ * One line while the label and the pills fit, else two: the label's line on top, the pills under
+ * it (gx-chat-core `extras/working_card_rows.rs` decides, with hysteresis, from what this measures;
+ * `useCardRows`). A label longer than the whole card is cut with an ellipsis; pressing and holding
+ * the card shows the whole label in a bubble above it, as hovering does on the desktop. The armed Delayed Send / Close After Done timers come
  * from the app shell, not the document (desktop's `armed_actions`); a tap opens Delayed Actions.
  */
 
-import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Animated, Easing, Pressable, ScrollView, Text, View } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import type { ChatDocument, WorkingCard as WorkingCardValue } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
 import { Glyph as ComposerGlyph } from '../composer/icons';
 import { useTranscriptBottomStore } from '../transcript/bottomStore';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
-import { IconPill, Pill, PillMenuSheet, QuestionPill } from './ChatPills';
+import type { GhostexSessionLinks } from '../../../contract/mobileSummary';
+import { sessionLinksChatPill } from '../sessionLinks';
+import { HorizontalFade } from '../transcript/verticalFade';
+import { IconPill, LinksPill, Pill, PillMenuSheet, QuestionPill } from './ChatPills';
 import { Glyph } from './icons';
 import { isTrue, num, obj, str } from './json';
 import { chatCardsShown, COMPOSER_TOP_PADDING, STACK_GAP } from './NativeChatCards';
@@ -73,17 +78,41 @@ function cardShown(document: ChatDocument, armed: readonly ArmedAction[]): boole
   return document.workingCard?.visible === true || armed.length > 0;
 }
 
+/** The session's links and the Links pill's tap, from the screen that knows the session (`TerminalScreen`). */
+export type WorkingCardLinks = { links: GhostexSessionLinks | undefined; onOpen: () => void };
+
+/** The decision gx-chat-core's `workingCardRows` hands back (`extras/working_card_rows.rs`). */
+type RowsMemo = { rows: number; sinceMs: number; recheckAtMs: number | null };
+
+/** `working_card_rows::ANIMATION_MS`: the card grows into two rows or shrinks back this fast. */
+const ROWS_ANIMATION_MS = 200;
+/** The label's own row above the pills (desktop `TOP_ROW_HEIGHT`). */
+const TOP_ROW = VISUAL.minHeight + 2;
+/** How far the label rises into its row while the card grows (desktop `LABEL_RISE`). */
+const LABEL_RISE = 6;
+/** The card's side paddings: the label 12 in from the left, the pills 10 in from the right. */
+const PAD_LEFT = 12;
+const PAD_RIGHT = 10;
+/** The width of the fade at a scrolling pill row's edge (desktop `PILLS_FADE`). */
+const PILLS_FADE = 24;
+
+/** The Links pill goes before the first of these, after Resources and Workers (desktop `links_pill_index`). */
+const AFTER_LINKS: ReadonlySet<string> = new Set(['tasks', 'subagents', 'background']);
+
 export function WorkingCard({
   chat,
   document,
   armed,
   onArmedPress,
+  links,
 }: {
   chat: RustChat;
   document: ChatDocument;
   armed: readonly ArmedAction[];
   /** Opens Delayed Actions; without it the timers are drawn but not pressable. */
   onArmedPress?: () => void;
+  /** The session's links for the Links pill (none with no links and no suggestions). */
+  links?: WorkingCardLinks | null;
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
@@ -93,6 +122,7 @@ export function WorkingCard({
   const [menu, setMenu] = useState<string | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
   const card = document.workingCard;
+  const rows = useCardRows(chat, card ?? null);
   if (!cardShown(document, armed) || card === undefined) return null;
   const showJump = awayFromBottom && jumpToBottom !== null;
   const questions = document.openQuestions;
@@ -107,7 +137,78 @@ export function WorkingCard({
   const pills = card.pills
     .map((id) => (document.chatPills ?? []).find((pill) => pill.id === id))
     .filter((pill) => pill !== undefined);
+  const linksPill = links ? sessionLinksChatPill(links.links, P.cardMuted) : null;
+  const linksAt = pills.findIndex((pill) => AFTER_LINKS.has(pill.id));
+  const panelPills = pills.map((pill) => (
+    <Pill key={pill.id} pill={pill} open={pill.id === menu} onPress={() => setMenu(pill.id)} />
+  ));
+  if (links && linksPill !== null) {
+    panelPills.splice(
+      linksAt === -1 ? panelPills.length : linksAt,
+      0,
+      <LinksPill key="links" pill={linksPill} onPress={links.onOpen} />,
+    );
+  }
   const label = card.label;
+  const labelText =
+    label !== null ? (
+      <Text
+        style={card.labelKind === 'tool' || card.labelKind === 'activity' ? styles.labelStrong : styles.label}
+        numberOfLines={1}
+        ellipsizeMode="tail"
+      >
+        {label}
+      </Text>
+    ) : null;
+  const labelSlot = (
+    <View style={styles.labelSlot}>
+      {labelText}
+      {card.labelKind === 'activity' ? (
+        <View style={styles.trailing} onLayout={(event) => rows.measure('trailing', event.nativeEvent.layout.width)}>
+          <ActivityTrailing activity={obj(card.activity)} />
+        </View>
+      ) : null}
+    </View>
+  );
+  const pillRow = (
+    <View style={styles.pills} onLayout={(event) => rows.measure('pills', event.nativeEvent.layout.width)}>
+      {/* Right to left from the card's edge: panel pills, question, timers, then scroll-to-bottom
+          leftmost, so one appearing moves none of the others. */}
+      {showJump ? (
+        <IconPill glyph="arrow-down" accessibilityLabel="Scroll to bottom" color={P.primary} onPress={() => jumpToBottom?.()} />
+      ) : null}
+      {armed.map((action) => (
+        <Pressable
+          key={action.id}
+          disabled={onArmedPress === undefined}
+          onPress={onArmedPress}
+          accessibilityRole="button"
+          accessibilityLabel={`${action.label}. Manage delayed actions`}
+          hitSlop={6}
+          style={({ pressed }) => [styles.armed, pressed ? styles.armedPressed : null]}
+        >
+          <ComposerGlyph
+            name="clock"
+            size={VISUAL.sparkSize}
+            color={action.id === 'delayedSend' ? VISUAL.delayedSendColor : VISUAL.closeAfterDoneColor}
+          />
+          <Text style={styles.armedLabel} numberOfLines={1}>
+            {action.label}
+          </Text>
+        </Pressable>
+      ))}
+      {question !== null ? (
+        <QuestionPill
+          count={question.count}
+          newest={question.newest ?? null}
+          accessibilityLabel={question.accessibilityLabel}
+          onPress={() => chat.dispatch({ type: 'previousQuestion' })}
+        />
+      ) : null}
+      {panelPills}
+    </View>
+  );
+  const twoRows = label !== null && rows.layoutTwo;
   return (
     <View style={styles.row}>
       <View style={[styles.column, { paddingBottom: cardGap(document) }]}>
@@ -116,76 +217,48 @@ export function WorkingCard({
           onPress={showJump ? () => jumpToBottom?.() : undefined}
           onLongPress={label !== null ? () => setHeld(true) : undefined}
           onPressOut={() => setHeld(false)}
+          onLayout={(event) => rows.measure('card', event.nativeEvent.layout.width)}
           accessibilityRole="summary"
           accessibilityLabel={card.ariaLabel}
           style={styles.card}
         >
-          <Lead card={card} />
-          <View style={styles.labelSlot}>
-            {label !== null ? (
-              <Text
-                style={card.labelKind === 'tool' || card.labelKind === 'activity' ? styles.labelStrong : styles.label}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {label}
-              </Text>
-            ) : null}
-            {card.labelKind === 'activity' ? <ActivityTrailing activity={obj(card.activity)} /> : null}
+          {twoRows ? (
+            // The lead and the whole label on their own row; it grows in (or shrinks away) while
+            // the pills keep their place at the bottom.
+            <Animated.View
+              style={[
+                styles.topRow,
+                {
+                  height: rows.grow.interpolate({ inputRange: [0, 1], outputRange: [0, TOP_ROW] }),
+                  opacity: rows.grow,
+                  transform: [{ translateY: rows.grow.interpolate({ inputRange: [0, 1], outputRange: [LABEL_RISE, 0] }) }],
+                },
+              ]}
+            >
+              <Lead card={card} />
+              {labelSlot}
+            </Animated.View>
+          ) : null}
+          <View style={styles.line}>
+            {twoRows ? null : <Lead card={card} />}
+            {twoRows || label === null ? null : (
+              <Animated.View style={[styles.labelLine, { opacity: rows.labelIn }]}>{labelSlot}</Animated.View>
+            )}
+            <PillsArea fill={twoRows || label === null}>{pillRow}</PillsArea>
           </View>
-          {/* Right to left from the card's edge: panel pills, question, timers, then scroll-to-bottom
-              leftmost, so one appearing moves none of the others. */}
-          <ScrollView
-            horizontal
-            style={styles.pillsScroll}
-            contentContainerStyle={styles.pills}
-            showsHorizontalScrollIndicator={false}
-            alwaysBounceHorizontal={false}
-            overScrollMode="never"
-            directionalLockEnabled
-            keyboardShouldPersistTaps="handled"
-          >
-            {showJump ? (
-              <IconPill
-                glyph="arrow-down"
-                accessibilityLabel="Scroll to bottom"
-                color={P.primary}
-                onPress={() => jumpToBottom?.()}
-              />
-            ) : null}
-            {armed.map((action) => (
-              <Pressable
-                key={action.id}
-                disabled={onArmedPress === undefined}
-                onPress={onArmedPress}
-                accessibilityRole="button"
-                accessibilityLabel={`${action.label}. Manage delayed actions`}
-                hitSlop={6}
-                style={({ pressed }) => [styles.armed, pressed ? styles.armedPressed : null]}
-              >
-                <ComposerGlyph
-                  name="clock"
-                  size={VISUAL.sparkSize}
-                  color={action.id === 'delayedSend' ? VISUAL.delayedSendColor : VISUAL.closeAfterDoneColor}
-                />
-                <Text style={styles.armedLabel} numberOfLines={1}>
-                  {action.label}
-                </Text>
-              </Pressable>
-            ))}
-            {question !== null ? (
-              <QuestionPill
-                count={question.count}
-                newest={question.newest ?? null}
-                accessibilityLabel={question.accessibilityLabel}
-                onPress={() => chat.dispatch({ type: 'previousQuestion' })}
-              />
-            ) : null}
-            {pills.map((pill) => (
-              <Pill key={pill.id} pill={pill} open={pill.id === menu} onPress={() => setMenu(pill.id)} />
-            ))}
-          </ScrollView>
         </Pressable>
+        {label !== null ? (
+          // The label at its natural width on one line, uncut, for the row rule.
+          <View pointerEvents="none" style={styles.measure}>
+            <Text
+              style={card.labelKind === 'tool' || card.labelKind === 'activity' ? styles.labelStrong : styles.label}
+              numberOfLines={1}
+              onLayout={(event) => rows.measure('label', event.nativeEvent.layout.width)}
+            >
+              {label}
+            </Text>
+          </View>
+        ) : null}
         {held && label !== null ? (
           <View pointerEvents="none" style={styles.bubble}>
             <Text style={styles.bubbleText}>{label}</Text>
@@ -193,6 +266,149 @@ export function WorkingCard({
         ) : null}
       </View>
       <PillMenuSheet chat={chat} document={document} open={menu} onClose={closeMenu} />
+    </View>
+  );
+}
+
+/**
+ * One row or two for the card: measures its parts, asks gx-chat-core's `workingCardRows` (the rule
+ * and its hysteresis, CDXC:SessionChat 2026-10-28 in `extras/working_card_rows.rs`) and animates the
+ * change. A core too old to know the query answers null, which leaves the card on one row.
+ */
+function useCardRows(chat: RustChat, card: WorkingCardValue | null) {
+  const reduceMotion = useReducedMotion();
+  const widths = useRef({ card: 0, label: 0, trailing: 0, pills: 0 });
+  const memo = useRef<RowsMemo | null>(null);
+  const asked = useRef(0);
+  const [two, setTwo] = useState(false);
+  const [layoutTwo, setLayoutTwo] = useState(false);
+  const grow = useRef(new Animated.Value(0)).current;
+  const labelIn = useRef(new Animated.Value(1)).current;
+  const [tick, setTick] = useState(0);
+  const label = card?.label ?? null;
+  const kind = card?.labelKind ?? null;
+  const working = card?.working === true;
+  const phase = card?.phase ?? 'idle';
+  if (label === null) widths.current.label = 0;
+  if (kind !== 'activity') widths.current.trailing = 0;
+  const decide = useCallback(() => {
+    const w = widths.current;
+    const hasLead = kind === 'activity' || kind === 'worked' || (kind !== null && working);
+    const input = {
+      width: w.card - 2 - PAD_LEFT - PAD_RIGHT,
+      lead: hasLead ? VISUAL.sparkBox + VISUAL.gap : 0,
+      label: w.label > 0 && w.trailing > 0 ? w.label + VISUAL.gap + w.trailing : w.label,
+      pills: w.pills,
+      gap: VISUAL.gap,
+      phase,
+      nowMs: Date.now(),
+    };
+    const ask = ++asked.current;
+    void chat.queryAsync('workingCardRows', [memo.current, input]).then((answer) => {
+      if (ask !== asked.current) return;
+      const next = answer !== null && typeof answer === 'object' ? (answer as RowsMemo) : null;
+      memo.current = next;
+      setTwo(next?.rows === 2);
+    });
+  }, [chat, kind, working, phase]);
+  // Ask again whenever the label, the phase or the hold's end (`recheckAtMs`) may change the answer.
+  useEffect(() => decide(), [decide, label, tick]);
+  useEffect(() => {
+    const at = memo.current?.recheckAtMs;
+    if (at === null || at === undefined) return undefined;
+    const wait = setTimeout(() => setTick((n) => n + 1), Math.max(0, at - Date.now()));
+    return () => clearTimeout(wait);
+  });
+  useEffect(() => {
+    if (reduceMotion) {
+      grow.setValue(two ? 1 : 0);
+      labelIn.setValue(1);
+      setLayoutTwo(two);
+      return undefined;
+    }
+    const timing = (value: Animated.Value, toValue: number) =>
+      Animated.timing(value, { toValue, duration: ROWS_ANIMATION_MS, easing: Easing.out(Easing.cubic), useNativeDriver: false });
+    if (two) {
+      setLayoutTwo(true);
+      const run = timing(grow, 1);
+      run.start();
+      return () => run.stop();
+    }
+    // Shrink the top row away, then put the label back on the pills' line and fade it in.
+    const run = timing(grow, 0);
+    run.start(({ finished }) => {
+      if (!finished) return;
+      setLayoutTwo(false);
+      labelIn.setValue(0);
+      timing(labelIn, 1).start();
+    });
+    return () => run.stop();
+  }, [two, reduceMotion, grow, labelIn]);
+  const measure = useCallback(
+    (part: 'card' | 'label' | 'trailing' | 'pills', width: number) => {
+      // Sub-pixel jitter from a re-layout is not a change.
+      if (Math.abs(widths.current[part] - width) < 0.5) return;
+      widths.current[part] = width;
+      decide();
+    },
+    [decide],
+  );
+  return { layoutTwo, grow, labelIn, measure };
+}
+
+/**
+ * The pills' area. With room of its own (`fill`: no label beside it, or the bottom of two rows) it
+ * takes the line's width, keeps the pills at its right end while they fit and scrolls sideways when
+ * they don't; beside a label on one line it takes the pills' own width. An edge that hides more pills
+ * fades them into the card's fill; the card's rounded edge stays whole.
+ *
+ * CDXC:SessionChat 2026-10-28 SEE-ALSO:
+ * The user's words (no cut background, no inner shadow) are on desktop `working_card_pills_area` in
+ * apps/desktop/src/app/native_chat/working_card.rs.
+ */
+function PillsArea({ fill, children }: { fill: boolean; children: ReactNode }) {
+  const styles = useStyles();
+  const P = useTranscriptTheme();
+  const [edges, setEdges] = useState({ left: false, right: false });
+  const metrics = useRef({ x: 0, width: 0, content: 0 });
+  const update = () => {
+    const { x, width, content } = metrics.current;
+    const next = { left: x > 0.5, right: content - width - x > 0.5 };
+    setEdges((was) => (was.left === next.left && was.right === next.right ? was : next));
+  };
+  return (
+    <View style={fill ? styles.pillsFill : styles.pillsFit}>
+      <ScrollView
+        horizontal
+        style={fill ? styles.pillsScrollFill : styles.pillsScroll}
+        contentContainerStyle={fill ? styles.pillsContentFill : null}
+        showsHorizontalScrollIndicator={false}
+        alwaysBounceHorizontal={false}
+        overScrollMode="never"
+        directionalLockEnabled
+        keyboardShouldPersistTaps="handled"
+        scrollEventThrottle={16}
+        onScroll={(event) => {
+          metrics.current.x = event.nativeEvent.contentOffset.x;
+          update();
+        }}
+        onLayout={(event) => {
+          metrics.current.width = event.nativeEvent.layout.width;
+          update();
+        }}
+        onContentSizeChange={(width) => {
+          metrics.current.content = width;
+          update();
+        }}
+      >
+        {children}
+      </ScrollView>
+      {edges.left ? (
+        <HorizontalFade id="pills-fade-left" color={P.composerBackground} from={1} to={0} style={[styles.fade, styles.fadeLeft]} />
+      ) : null}
+      {edges.right ? (
+        <HorizontalFade id="pills-fade-right" color={P.composerBackground} from={0} to={1} style={[styles.fade, styles.fadeRight]} />
+      ) : null}
     </View>
   );
 }
@@ -296,20 +512,19 @@ const useStyles = themedStyles((P) => ({
   },
   card: {
     minHeight: VISUAL.minHeight + HEADER_PAD_Y * 2,
-    paddingLeft: 12,
-    // The pills' scroll row reaches the capsule's right edge (its content brings the 10 of padding),
-    // so a scrolled pill is cut by the rounded edge, not by a straight line inside it.
-    paddingRight: 0,
+    // The pills scroll inside these paddings, so the rounded edge is never cut by a pill; an edge
+    // that hides pills fades them out (`PillsArea`).
+    paddingLeft: PAD_LEFT,
+    paddingRight: PAD_RIGHT,
     paddingTop: HEADER_PAD_Y,
     paddingBottom: HEADER_PAD_Y,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: VISUAL.gap,
+    flexDirection: 'column',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: P.inputBorder,
-    // A capsule, like the pills it carries (desktop working_card.rs).
-    borderRadius: 999,
-    // The pills scroll sideways when they don't fit; nothing may spill past the rounded edge.
+    // A capsule, like the pills it carries (desktop working_card.rs); with two rows its corners
+    // keep the one-row capsule's radius.
+    borderRadius: VISUAL.minHeight / 2 + HEADER_PAD_Y + 1,
     overflow: 'hidden',
     // The composer's own fill, so the card and the chat box under it always match.
     backgroundColor: P.composerBackground,
@@ -338,6 +553,41 @@ const useStyles = themedStyles((P) => ({
     height: VISUAL.sparkBox,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  /** The pills' line: the bottom row with two rows, the whole card with one. */
+  line: {
+    minHeight: VISUAL.minHeight,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: VISUAL.gap,
+  },
+  /** The label's own row on top, two pixels above the pills. */
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: VISUAL.gap,
+    overflow: 'hidden',
+    paddingBottom: 2,
+  },
+  labelLine: {
+    flex: 1,
+    minWidth: 0,
+  },
+  trailing: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: VISUAL.gap,
+    flexShrink: 0,
+  },
+  /** Off-screen, unbounded: the label laid out at its natural width for the row rule. */
+  measure: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    width: 4000,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    opacity: 0,
   },
   labelSlot: {
     flex: 1,
@@ -378,11 +628,34 @@ const useStyles = themedStyles((P) => ({
     flexShrink: 1,
     minWidth: 0,
   },
+  pillsFit: {
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  /** With room of its own the area takes the line and keeps the pills at its right end. */
+  pillsFill: {
+    flex: 1,
+    minWidth: 0,
+  },
+  pillsScrollFill: {
+    flexGrow: 1,
+  },
+  pillsContentFill: {
+    flexGrow: 1,
+    justifyContent: 'flex-end',
+  },
+  fade: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: PILLS_FADE,
+  },
+  fadeLeft: { left: 0 },
+  fadeRight: { right: 0 },
   pills: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingRight: 10,
   },
   armed: {
     flexDirection: 'row',

@@ -45,6 +45,7 @@ import type { RustChat } from '../../rust/useRustChat';
 import { Sheet } from '../composer/Sheet';
 import { answeredColor } from './askCard';
 import { laterAction, rowAge } from './questionAge';
+import type { SessionLinksChatPill } from '../sessionLinks';
 import { Glyph as TranscriptGlyph } from '../transcript/icons';
 import { AgentFleetMenu, AgentTasksMenu, CoordinatorThreadsMenu, waitingColor } from './AgentPanels';
 import { Glyph } from './icons';
@@ -262,7 +263,7 @@ function QuestionsFilterTrigger({ document, onPress }: { document: ChatDocument;
 
 /** A row's icon by what it is: an HTML page, a chart or a Q&A form (desktop `kind_look`). */
 function KindIcon({ kind, color }: { kind: QuestionListRow['kind']; color: string }) {
-  if (kind === 'page') return <TranscriptGlyph name="file-code" size={13} color={color} />;
+  if (kind === 'page') return <TranscriptGlyph name="file-type-html" size={13} color={color} />;
   if (kind === 'chart') return <TranscriptGlyph name="chart-bar" size={13} color={color} />;
   return <Glyph name="list-check" size={13} color={color} />;
 }
@@ -312,7 +313,7 @@ function QuestionsSection({
                 onPress={() => onPick(row)}
                 style={({ pressed }) => [styles.questionsRow, pressed && styles.pillPressed]}
               >
-                <KindIcon kind={row.kind} color={answered ? answeredColor(P.light) : P.cardMuted} />
+                <KindIcon kind={row.kind} color={answered ? answeredColor(P.light) : withdrawn ? P.muted : P.cardMuted} />
                 <Text
                   numberOfLines={1}
                   style={[
@@ -465,6 +466,43 @@ export function Pill({ pill, open, onPress }: { pill: ChatPill; open: boolean; o
 }
 
 /**
+ * The Links pill, between Workers and Tasks: the sidebar badge's text and colours (one link's ID and
+ * "+N" for the others in the most pressing link's colour; muted and dashed, "3 suggested", while the
+ * session only has suggestions). A tap opens the session's links sheet. Desktop: `links_pill.rs`;
+ * the user's words are on gx-core `SessionLinks::chat_pill`.
+ */
+export function LinksPill({ pill, onPress }: { pill: SessionLinksChatPill; onPress: () => void }) {
+  const styles = useStyles();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={pill.accessibilityLabel}
+      onPress={onPress}
+      hitSlop={4}
+      style={({ pressed }) => [
+        styles.pill,
+        styles.linksPill,
+        { borderColor: withAlpha(pill.color, 0.45) },
+        pill.suggested && styles.linksPillSuggested,
+        pressed && styles.pillPressed,
+      ]}
+    >
+      <TranscriptGlyph name="link" size={12} color={pill.color} />
+      <Text style={[styles.label, !pill.suggested && styles.linksId, { color: pill.color }]}>{pill.label}</Text>
+      {pill.more > 0 ? <Text style={[styles.label, styles.linksMore, { color: pill.color }]}>{`+${pill.more}`}</Text> : null}
+    </Pressable>
+  );
+}
+
+/** `#rrggbb` at `alpha`, as `#rrggbbaa`; any other colour as it is. */
+function withAlpha(color: string, alpha: number): string {
+  if (!/^#[0-9a-f]{6}$/i.test(color)) return color;
+  return `${color}${Math.round(alpha * 255)
+    .toString(16)
+    .padStart(2, '0')}`;
+}
+
+/**
  * A pill's corner (CDXC:SessionChat 2026-10-27 in gx-chat-core extras/chat_pills.rs, desktop
  * `corner_indicator`): the pulsing amber dot while something runs, the sidebar's red or pink dot
  * while something waits on the user, and both overlapping with the sidebar's 1px ring
@@ -604,6 +642,18 @@ const useStyles = themedStyles((P) => ({
   pillPressed: {
     backgroundColor: P.ink(0.08),
   },
+  linksPill: {
+    gap: 4,
+  },
+  linksPillSuggested: {
+    borderStyle: 'dashed',
+  },
+  linksId: {
+    fontWeight: '600',
+  },
+  linksMore: {
+    opacity: 0.75,
+  },
   label: {
     color: P.cardMuted,
     fontSize: 11.5,
@@ -641,7 +691,15 @@ const useStyles = themedStyles((P) => ({
   slotGlyph: {
     position: 'absolute',
   },
-  questionsMenu: { gap: 4, maxHeight: 520 },
+  /**
+   * The sheet's body: 12 in from both edges, plus each line's own 4, puts the summary, the section
+   * titles and the rows' trailing age and button 16 in, where the sheet's title row sits
+   * (`Sheet.tsx` `titleRow`); the 4 left inside a row keeps its pressed fill off the text.
+   *
+   * CDXC:SessionChat 2026-10-28 DECISION:
+   * User, of the phone's Chat Resources sheet: "0 unanswered is touching the edge. There's no padding there", and "From the right side, there is no padding, and things are touching": the sheet's lines get the same inset on both sides as its title.
+   */
+  questionsMenu: { gap: 4, maxHeight: 520, paddingHorizontal: 12 },
   questionsSummary: { color: P.cardMuted, fontSize: 12.5, paddingHorizontal: 4, paddingBottom: 4 },
   /** A section header in the Links card's look: chevron, title and count (desktop `question_section_header`). */
   questionsSection: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 4 },
@@ -690,7 +748,7 @@ const useStyles = themedStyles((P) => ({
   filterCheck: { width: 14, alignItems: 'center' },
   filterLabel: { color: P.foreground, fontSize: 13 },
   filterCount: { marginLeft: 'auto', color: P.cardMuted, fontSize: 12, fontVariant: ['tabular-nums'] },
-  questionsMeta: { flexShrink: 0, maxWidth: 110, color: P.cardMuted, fontSize: 12, fontVariant: ['tabular-nums'] },
+  questionsMeta: { flexShrink: 0, maxWidth: 110, color: P.muted, fontSize: 12, fontVariant: ['tabular-nums'] },
   /** The running and waiting dots overlapping: one ring further out, so the front dot sits where a lone dot does. */
   cornerStack: {
     position: 'absolute',

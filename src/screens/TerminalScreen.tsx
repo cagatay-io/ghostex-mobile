@@ -34,7 +34,8 @@ import { ChatBubbleIcon, ChevronLeftIcon, EllipsisIcon, TerminalPromptIcon } fro
 import { useKeyboardMetrics } from '../components/terminal/useKeyboardMetrics';
 import { isSessionChatSupportedAgent } from '../chat/session-chat-helpers';
 import NativeChatScreen from '../chat/native/NativeChatScreen';
-import SessionLinksStrip from '../chat/native/SessionLinksStrip';
+import SessionLinksSheet from '../chat/native/SessionLinksSheet';
+import { useSessionLinksRefresh } from '../chat/native/useSessionLinksRefresh';
 import { RenameCopy, SessionCopy } from '../copy';
 import { summarizeFailure } from '../inventory/client';
 import { useInventoryStore } from '../inventory/store';
@@ -86,7 +87,6 @@ export default function TerminalScreen({ navigation, route }: Props) {
   const closeTab = useTerminalStore((state) => state.closeTab);
   const openShellTab = useTerminalStore((state) => state.openShellTab);
   const settings = useSettingsStore((state) => state.settings);
-  const showHeaderLinks = settings.sessionChatHeaderLinks;
 
   const { keyboardVisible, bottomInset, visibleWindowBottom } = useKeyboardMetrics();
   const isFocused = useIsFocused();
@@ -144,6 +144,9 @@ export default function TerminalScreen({ navigation, route }: Props) {
       ? 'embedded'
       : (state.inventoriesByMachineId[activeTab.machineId]?.summary?.sessionLinkOpenTarget ?? 'embedded'),
   );
+  // The session's links sheet, which the chat's Links pill opens (CDXC:SessionLinks 2026-10-28 in
+  // gx-core `sidebar_view/links.rs`: the pill replaced the strip under the chat's header).
+  const [linksSheetVisible, setLinksSheetVisible] = useState(false);
 
   // Agent Actions apply to a gxserver session, so shell tabs and tabs whose
   // session identity has not resolved yet do not get the button at all.
@@ -168,6 +171,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
     activeTab !== null &&
     (sessionViewModeBySessionKey[activeTab.sessionKey] ?? settings.preferredAgentInterface) === 'chat';
   const chatMachineTarget = chatCapable && activeTab !== null ? machineTargetFor(activeTab.machineId) : null;
+  useSessionLinksRefresh(activeMachine, activeSession?.sessionId, chatModeActive);
 
   // zmx display policy: the terminal view is on screen for exactly one session
   // key (or none, in chat view / when another screen is on top).
@@ -580,14 +584,6 @@ export default function TerminalScreen({ navigation, route }: Props) {
         </Pressable>
       </View>
 
-      {chatModeActive && activeTab !== null && showHeaderLinks ? (
-        <SessionLinksStrip
-          machine={activeMachine}
-          session={activeSession}
-          openTarget={sessionLinkOpenTarget}
-          openInApp={(url) => navigation.navigate('WebPreview', { machineId: activeTab.machineId, url })}
-        />
-      ) : null}
       {/*
         Only a session this phone launched into chat (it carries the launcher's agent id) starts
         its agent through the attach, so only there is a failed attach an agent startup failure.
@@ -647,6 +643,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
             openSearchRequestId={chatSearchRequestId}
             openSessionNoteRequestId={chatSessionNoteRequestId}
             onQueueCountChange={handleChatQueueCount}
+            links={{ links: activeSession?.links, onOpen: () => setLinksSheetVisible(true) }}
             style={styles.terminal}
           />
         ) : null}
@@ -805,6 +802,16 @@ export default function TerminalScreen({ navigation, route }: Props) {
         </>
       ) : null}
 
+      {activeMachine !== null && activeSession !== null && activeTab !== null ? (
+        <SessionLinksSheet
+          visible={linksSheetVisible}
+          onClose={() => setLinksSheetVisible(false)}
+          machine={activeMachine}
+          session={activeSession}
+          openTarget={sessionLinkOpenTarget}
+          openInApp={(url) => navigation.navigate('WebPreview', { machineId: activeTab.machineId, url })}
+        />
+      ) : null}
       {exportedTranscript !== null ? (
         <ExportTranscriptSheet
           visible

@@ -153,9 +153,10 @@ export function sessionLinksDisplay(value: unknown): SessionLinksDisplay {
 export type SessionLinksRow = {
   /** The links the row's second line shows, in order; empty draws no line. */
   line: GhostexSessionLink[];
-  /** The Badge option's count, coloured by the most pressing link; with `suggested`, the count of
-   * a session's suggestions while it has no links, drawn muted and dashed. */
-  badge: { count: number; color: string; suggested: boolean } | null;
+  /** The Badge option's badge: one link's ID (`label`) and "+N" (`more`) for the others, coloured by
+   * the most pressing link; with `suggested`, the count of a session's suggestions while it has no
+   * links, drawn muted and dashed. */
+  badge: { count: number; color: string; suggested: boolean; label: string; more: number } | null;
 };
 
 /**
@@ -170,17 +171,92 @@ export function mostPressingLinkColor(links: readonly GhostexSessionLink[]): str
   let best = { rank: 4, color: SidebarPalette.WORK_DRAFT as string };
   for (const link of links) {
     if (link.finished) continue;
-    const candidate =
-      link.checks === 'failing' || link.review === 'changesRequested'
-        ? { rank: 0, color: SidebarPalette.WORK_CLOSED }
-        : link.review === 'reviewRequired' || link.checks === 'pending'
-          ? { rank: 1, color: SidebarPalette.WORK_PENDING }
-          : link.state !== 'draft'
-            ? { rank: 2, color: sessionLinkLook(link).color }
-            : { rank: 3, color: SidebarPalette.WORK_DRAFT };
+    const candidate = pressingRank(link);
     if (candidate.rank < best.rank) best = candidate;
   }
   return best.color;
+}
+
+/** How pressing an open link is, lowest first, and its colour (gx-core `SessionLink::pressing_rank`). */
+function pressingRank(link: GhostexSessionLink): { rank: number; color: string } {
+  return link.checks === 'failing' || link.review === 'changesRequested'
+    ? { rank: 0, color: SidebarPalette.WORK_CLOSED }
+    : link.review === 'reviewRequired' || link.checks === 'pending'
+      ? { rank: 1, color: SidebarPalette.WORK_PENDING }
+      : link.state !== 'draft'
+        ? { rank: 2, color: sessionLinkLook(link).color }
+        : { rank: 3, color: SidebarPalette.WORK_DRAFT };
+}
+
+/**
+ * The link the badge and the chat's Links pill name (gx-core `SessionLinks::badge_link`): the first
+ * pinned one; else the most pressing open one, the first in the list on a tie; else the first.
+ */
+export function sessionLinksBadgeLink(links: readonly GhostexSessionLink[]): GhostexSessionLink | undefined {
+  const pinned = links.find((link) => link.pinned);
+  if (pinned !== undefined) return pinned;
+  let best: { rank: number; link: GhostexSessionLink } | undefined;
+  for (const link of links) {
+    if (link.finished) continue;
+    const rank = pressingRank(link).rank;
+    if (best === undefined || rank < best.rank) best = { rank, link };
+  }
+  return best?.link ?? links[0];
+}
+
+/**
+ * The badge's text: the named link's ID and how many others follow it as "+N" (gx-core
+ * `SessionLinks::badge_label`, whose CDXC:SessionLinks 2026-10-28 DECISION holds the user's words:
+ * "If we pin one link, or if it's just one link, we should show the ID for that link instead of just
+ * showing the number of total links. Then we can put +3").
+ */
+export function sessionLinksBadgeLabel(links: readonly GhostexSessionLink[]): { label: string; more: number } | null {
+  const link = sessionLinksBadgeLink(links);
+  return link === undefined ? null : { label: link.label, more: links.length - 1 };
+}
+
+/** The Links pill on the chat's bar above the composer (gx-core `SessionLinks::chat_pill`). */
+export type SessionLinksChatPill = {
+  /** The named link's ID (the badge's), or "3 suggested". */
+  label: string;
+  /** The other linked links, drawn "+N" in a lighter weight. */
+  more: number;
+  color: string;
+  /** Only suggestions: drawn quietly (muted, dashed), like the sidebar's suggestions badge. */
+  suggested: boolean;
+  accessibilityLabel: string;
+};
+
+/**
+ * The Links pill, or null with nothing to show (gx-core `SessionLinks::chat_pill`, whose
+ * CDXC:SessionLinks 2026-10-28 DECISION holds the user's words: "move the links to always be in the
+ * bar above the composer ... between Tasks and Threads ... The look of the pill needs to look like the
+ * one we have in the sidebar"). The badge's text and colour; `muted` colours a suggestions-only pill.
+ */
+export function sessionLinksChatPill(links: GhostexSessionLinks | undefined, muted: string): SessionLinksChatPill | null {
+  if (links === undefined) return null;
+  const { items, suggested } = links;
+  if (items.length === 0) {
+    if (suggested.length === 0) return null;
+    return {
+      label: `${suggested.length} suggested`,
+      more: 0,
+      color: muted,
+      suggested: true,
+      accessibilityLabel: `Links, ${suggested.length} suggested`,
+    };
+  }
+  const text = sessionLinksBadgeLabel(items);
+  const named = sessionLinksBadgeLink(items);
+  if (text === null || named === undefined) return null;
+  const summary = sessionLinkSummary(named);
+  return {
+    label: text.label,
+    more: text.more,
+    color: mostPressingLinkColor(items),
+    suggested: false,
+    accessibilityLabel: text.more > 0 ? `Links, ${summary} and ${text.more} more` : `Links, ${summary}`,
+  };
 }
 
 /**
@@ -240,11 +316,11 @@ export function sessionLinksRow(
     // CDXC:SessionLinks 2026-10-24 DECISION: User: "why didn't we suggest #263 here for this session?" A session whose only links are suggestions shows a quiet badge counting them, under every option but Off (gx-core `SessionLinks::row`).
     const suggested = sessionLinks.suggested.length;
     return suggested > 0
-      ? { line: [], badge: { count: suggested, color: SidebarPalette.MUTED, suggested: true } }
+      ? { line: [], badge: { count: suggested, color: SidebarPalette.MUTED, suggested: true, label: String(suggested), more: 0 } }
       : { line: [], badge: null };
   }
-  // Pinned links lead `items` (gxserver sorts them first) and show under every option but Off;
-  // under Badge the title row's badge counts the rest (gx-core `SessionLinks::row`).
+  // Pinned links lead `items` (gxserver sorts them first) and show under every option but Off and
+  // Badge, whose badge names one and counts the rest (gx-core `SessionLinks::row`).
   const pinned = links.filter((link) => link.pinned);
   switch (display) {
     case 'always':
@@ -254,10 +330,13 @@ export function sessionLinksRow(
     case 'open':
       return { line: links.filter((link) => link.pinned || !link.finished), badge: null };
     case 'badge': {
-      const rest = links.filter((link) => !link.pinned);
+      const text = sessionLinksBadgeLabel(links);
       return {
-        line: pinned,
-        badge: rest.length > 0 ? { count: rest.length, color: mostPressingLinkColor(rest), suggested: false } : null,
+        line: [],
+        badge:
+          text === null
+            ? null
+            : { count: links.length, color: mostPressingLinkColor(links), suggested: false, label: text.label, more: text.more },
       };
     }
   }
