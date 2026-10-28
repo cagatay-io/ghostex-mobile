@@ -41,6 +41,9 @@ const SKIPPED_HINT = 'Questions you leave blank are sent as skipped.';
 
 const HINT_WIDTH = 236;
 
+/** The (i) icon's width (`styles.info`). */
+const INFO_ICON_ROOM = 20;
+
 /**
  * A small (i) icon that shows `hint` in a bubble above it on a tap; a tap anywhere else closes it.
  *
@@ -87,6 +90,20 @@ function InfoHint({ hint }: { hint: string }) {
         </Modal>
       )}
     </>
+  );
+}
+
+/**
+ * The footer's leftover room, where the (i) icon sits. The buttons take their size first; when less than the icon's
+ * width is left the icon goes, so the buttons stay on one line whatever the phone's width (it wraps only when the
+ * buttons alone do not fit, as with the large-text setting).
+ */
+function InfoSlot() {
+  const [room, setRoom] = useState<number | null>(null);
+  return (
+    <View style={styles.status} onLayout={(event) => setRoom(event.nativeEvent.layout.width)}>
+      {room !== null && room >= INFO_ICON_ROOM ? <InfoHint hint={SKIPPED_HINT} /> : null}
+    </View>
   );
 }
 
@@ -238,12 +255,11 @@ function QuestionFormCard({ id, source }: { id: string; source: string }) {
         </Text>
       ) : (
         // Nothing to report: the (i) icon holds the sentence about blank questions, in the status' place.
-        <View style={styles.status}>
-          <InfoHint hint={SKIPPED_HINT} />
-        </View>
+        <InfoSlot />
       )}
       {enabled ? (
         <SoftButton
+          tight
           label={later ? 'Back to unanswered' : 'For later'}
           onPress={() => dispatch({ type: 'questionForLater', id, later: !later })}
         />
@@ -251,13 +267,13 @@ function QuestionFormCard({ id, source }: { id: string; source: string }) {
       {enabled ? (
         // Skip all sends at once, every question skipped whatever is picked (the core's `skip_all`; the
         // SessionChat 2026-10-16 DECISION on `SKIPPED` in packages/gx-visual/src/questions.rs).
-        <SoftButton label="Skip all" onPress={() => dispatch({ type: 'formSkipAll', form: id })} />
+        <SoftButton tight label="Skip all" onPress={() => dispatch({ type: 'formSkipAll', form: id })} />
       ) : null}
-      <PrimaryButton label={sendLabel} disabled={!canSend} onPress={() => dispatch({ type: 'formSend', form: id })} />
+      <PrimaryButton tight label={sendLabel} disabled={!canSend} onPress={() => dispatch({ type: 'formSend', form: id })} />
     </>
   );
   return (
-    <AskCard head={head} footer={footer}>
+    <AskCard head={head} footer={footer} tightFooter>
       {body}
     </AskCard>
   );
@@ -431,7 +447,7 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   textAnswer: { minHeight: 70 },
-  status: { flex: 1, fontSize: 12.5 },
+  status: { flex: 1, minWidth: 0, fontSize: 12.5 },
   info: { alignSelf: 'flex-start', width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
   bubble: {
     position: 'absolute',

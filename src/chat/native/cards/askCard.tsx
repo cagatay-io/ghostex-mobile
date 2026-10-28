@@ -57,6 +57,7 @@ export function AskCard({
   bodyStyle,
   singleLine,
   lined,
+  tightFooter,
 }: {
   head: ReactNode;
   children?: ReactNode;
@@ -67,6 +68,11 @@ export function AskCard({
   singleLine?: boolean;
   /** The body on the one-line cards' edge, under a `lined` head (the page answers). */
   lined?: boolean;
+  /**
+   * The footer's padding and gaps tightened (12 and 6, not 14 and 8) so a row of a few buttons fits one line on a
+   * 360dp phone (the question form's: the (i) icon, For later, Skip all, Send answers).
+   */
+  tightFooter?: boolean;
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
@@ -79,7 +85,9 @@ export function AskCard({
           {children}
         </View>
       ) : null}
-      {footer !== undefined && footer !== null ? <View style={styles.footer}>{footer}</View> : null}
+      {footer !== undefined && footer !== null ? (
+        <View style={[styles.footer, tightFooter === true && styles.footerTight]}>{footer}</View>
+      ) : null}
     </View>
   );
 }
@@ -267,10 +275,13 @@ export function PrimaryButton({
   label,
   onPress,
   disabled,
+  tight,
 }: {
   label: string;
   onPress: () => void;
   disabled?: boolean;
+  /** 10dp of side padding, not 12 (a footer row that must stay on one line). */
+  tight?: boolean;
 }) {
   const styles = useStyles();
   return (
@@ -281,7 +292,12 @@ export function PrimaryButton({
       disabled={disabled === true}
       onPress={onPress}
       hitSlop={6}
-      style={({ pressed }) => [styles.primary, pressed && styles.primaryPressed, disabled === true && styles.disabled]}
+      style={({ pressed }) => [
+        styles.primary,
+        tight === true && styles.buttonTight,
+        pressed && styles.primaryPressed,
+        disabled === true && styles.disabled,
+      ]}
     >
       <Text style={styles.primaryLabel}>{label}</Text>
     </Pressable>
@@ -294,7 +310,7 @@ export function PrimaryButton({
  *
  * CDXC:SessionChat 2026-10-16 DECISION: User: "skip all looks disabled cuz it's darker color"; shown a mockup of options, they picked "soft fill": the foreground at 10% on the dark theme and 7% on the light one, normal text colour, no border. Send answers keeps the solid fill. Matches the desktop `ask_soft_button` (apps/desktop/src/app/native_chat/ask_card.rs) and the page kit's `.gx-skip-all`.
  */
-export function SoftButton({ label, onPress }: { label: string; onPress: () => void }) {
+export function SoftButton({ label, onPress, tight }: { label: string; onPress: () => void; tight?: boolean }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
   return (
@@ -305,6 +321,7 @@ export function SoftButton({ label, onPress }: { label: string; onPress: () => v
       hitSlop={6}
       style={({ pressed }) => [
         styles.soft,
+        tight === true && styles.buttonTight,
         { backgroundColor: P.ink(P.light ? (pressed ? 0.11 : 0.07) : pressed ? 0.15 : 0.1) },
       ]}
     >
@@ -419,6 +436,10 @@ const useStyles = themedStyles((P) => ({
     borderTopColor: P.light ? P.border : 'rgba(255,255,255,0.04)',
     backgroundColor: P.cardFooter,
   },
+  footerTight: {
+    gap: 6,
+    paddingHorizontal: 12,
+  },
   dots: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -517,6 +538,9 @@ const useStyles = themedStyles((P) => ({
     backgroundColor: P.controlPrimary,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  buttonTight: {
+    paddingHorizontal: 10,
   },
   primaryPressed: {
     opacity: 0.85,

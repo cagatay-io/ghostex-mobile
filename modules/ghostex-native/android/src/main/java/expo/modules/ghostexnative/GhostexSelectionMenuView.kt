@@ -56,7 +56,11 @@ class GhostexSelectionMenuView(context: Context, appContext: AppContext) : ExpoV
 
   init {
     // Drawn like a React Native view, whose children may overflow it unless it says otherwise.
+    // `ExpoView.dispatchDraw` clips the canvas to the view's own box while `clipToPadding` is on, which
+    // `clipChildren = false` does not undo: a question form's or page card's outline, drawn 4dp outside
+    // its card, lost its left side to the message view's edge (2026-10-28).
     clipChildren = false
+    clipToPadding = false
   }
 
   // Yoga lays the children out; LinearLayout must not measure or place them again.
