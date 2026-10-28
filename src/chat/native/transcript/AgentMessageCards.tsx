@@ -20,6 +20,7 @@ import { useNativeChatUi, useTranscriptEnv } from './context';
 import { Glyph, type GlyphName } from './icons';
 import { arr, obj, str, type JsonRecord } from './json';
 import { Markdown } from './markdown/Markdown';
+import { SessionPill } from './SessionPill';
 import {
   SINGLE_LINE_CARD,
   SINGLE_LINE_HEADER_HEIGHT,
@@ -116,6 +117,7 @@ const AgentCard = memo(function AgentCard({
     .map((recipient) => obj(recipient))
     .filter((recipient): recipient is JsonRecord => recipient !== null);
   const showSession = failure.length === 0 && session !== null;
+  const pill = obj(card.pill);
 
   return (
     <View style={[styles.card, singleLineShell(theme)]}>
@@ -128,9 +130,19 @@ const AgentCard = memo(function AgentCard({
         style={({ pressed }) => [styles.row, pressed && expandable && singleLinePressed(theme)]}
       >
         <Mark card={card} />
-        <Text style={[SINGLE_LINE_TITLE, styles.name, { color: theme.foreground }]} numberOfLines={1}>
-          {str(card, 'name')}
-        </Text>
+        {pill !== null ? (
+          // `Message from` / `Message to`, then the other session's pill (`session_mentions.rs`).
+          <View style={[styles.name, styles.pillTitle]}>
+            <Text style={[SINGLE_LINE_TITLE, { color: theme.foreground }]} numberOfLines={1}>
+              {str(pill, 'prefix')}
+            </Text>
+            <SessionPill pill={pill} />
+          </View>
+        ) : (
+          <Text style={[SINGLE_LINE_TITLE, styles.name, { color: theme.foreground }]} numberOfLines={1}>
+            {str(card, 'name')}
+          </Text>
+        )}
         {time.length > 0 ? <Text style={[styles.small, { color: theme.muted }]}>{time}</Text> : null}
         {status !== null ? <Status status={status} /> : null}
       </Pressable>
@@ -180,9 +192,15 @@ const AgentCard = memo(function AgentCard({
                     ]}
                   >
                     <Mark card={recipient} />
-                    <Text style={[styles.recipientName, { color: theme.foreground }]} numberOfLines={1}>
-                      {str(recipient, 'name')}
-                    </Text>
+                    {obj(recipient.pill) !== null ? (
+                      <View style={styles.recipientName}>
+                        <SessionPill pill={obj(recipient.pill) ?? {}} />
+                      </View>
+                    ) : (
+                      <Text style={[styles.recipientName, { color: theme.foreground }]} numberOfLines={1}>
+                        {str(recipient, 'name')}
+                      </Text>
+                    )}
                     {shown !== null ? <Status status={shown} /> : null}
                   </Pressable>
                 );
@@ -276,6 +294,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   name: { flex: 1, minWidth: 0 },
+  pillTitle: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   small: { fontSize: 12, lineHeight: 16 },
   opened: { borderTopWidth: 1, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10, gap: 6 },
   goto: {

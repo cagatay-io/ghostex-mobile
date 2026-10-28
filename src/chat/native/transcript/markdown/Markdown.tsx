@@ -25,8 +25,10 @@ import { BlockLongPress } from './blockLongPress';
 import { isRunCommandHref } from './runCommands';
 import { fitTableColumns } from './tableLayout';
 import { MarkedSection, useMarkedEmoji, useMarkedStyle } from './MarkedSections';
+import { SessionPill } from '../SessionPill';
 
-type Reference = { label: string; kind: string; state: string; title: string };
+/** One `markdownReferences` entry; `record` is the whole entry (a `session` pill reads its logo and state). */
+type Reference = { label: string; kind: string; state: string; title: string; record: JsonRecord };
 
 type InlineContext = {
   theme: TranscriptTheme;
@@ -57,6 +59,7 @@ function referenceMap(references: unknown): Map<string, Reference> {
       kind: str(reference, 'kind'),
       state: str(reference, 'state'),
       title: str(reference, 'title'),
+      record: reference,
     });
   }
   return map;
@@ -141,6 +144,20 @@ function renderInlines(
         const reference = context.references.get(`${inline.href}\u0000${inline.label}`);
         if (reference?.kind === 'question')
           return <QuestionTagPill key={key} reference={reference} href={inline.href} context={context} />;
+        // A mention of another session (`[<title>](<Global Ref>)`) is its agent pill; a tap goes
+        // to the core as any link does, which switches to it (`session_mentions.rs`).
+        if (reference?.kind === 'session')
+          return (
+            <Text key={key}>
+              <SessionPill
+                pill={reference.record}
+                onOpen={() => context.openLink(inline.href)}
+                {...(context.longPressLink !== undefined
+                  ? { onLongPress: () => context.longPressLink?.(inline.href) }
+                  : {})}
+              />
+            </Text>
+          );
         const kind = reference?.kind ?? (isExternal(inline.href) ? 'url' : 'file');
         const color = linkColor(context.theme, kind);
         const glyph = reference !== undefined ? REFERENCE_GLYPHS[kind] : undefined;

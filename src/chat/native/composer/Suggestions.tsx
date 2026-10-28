@@ -1,5 +1,6 @@
 /**
- * The `@` files, `$` skills and `/` commands popup above the composer (`suggestions/render.rs`).
+ * The `@` files, `$` skills, `+` sessions and `/` commands popup above the composer
+ * (`suggestions/render.rs`).
  * Trigger detection, filtering, the rows and their order all come from the core's `suggestions`;
  * this draws them and reports a pick (`suggestionPick`) or a retry (`suggestionRetry`).
  */
@@ -10,6 +11,12 @@ import type { UserAction } from '../../rust/actions';
 import { Glyph } from './icons';
 import { arr, isTrue, num, obj, str } from './json';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
+import { AgentMark } from '../cards/agentMark';
+import { CoordinatorGlyph } from '../../../components/sessions/icons';
+import { SidebarPalette } from '../../../theme/palette';
+
+/** A working session's state in the `+` list: the working amber of the chat's pills. */
+const WORKING_COLOR = '#f5a524';
 
 export function Suggestions({ data, dispatch }: { data: unknown; dispatch: (action: UserAction) => void }) {
   const styles = useStyles();
@@ -18,6 +25,8 @@ export function Suggestions({ data, dispatch }: { data: unknown; dispatch: (acti
   if (popup === null) return null;
   const rows = arr(popup.rows);
   const files = str(popup, 'kind') === 'file';
+  // The `+` list (gx-chat-core `session_mentions.rs`): each row leads with its agent's logo.
+  const sessions = str(popup, 'kind') === 'session';
   const selected = num(popup, 'selected') ?? -1;
   const status = str(popup, 'status');
   const heading = str(popup, 'heading');
@@ -50,10 +59,20 @@ export function Suggestions({ data, dispatch }: { data: unknown; dispatch: (acti
             style={({ pressed }) => [styles.row, index === selected || pressed ? styles.rowSelected : null]}
           >
             {files ? <Glyph name="file" size={16} color={P.muted} strokeWidth={1.6} /> : null}
-            <Text style={styles.label} numberOfLines={1}>
+            {sessions ? (
+              isTrue(row, 'coordinator') ? (
+                <CoordinatorGlyph size={16} color={P.light ? '#000000' : SidebarPalette.ROW_COORDINATOR_CROWN} />
+              ) : (
+                <AgentMark icon={str(row, 'agentIcon') || null} size={16} />
+              )
+            ) : null}
+            <Text style={[styles.label, sessions ? styles.sessionLabel : null]} numberOfLines={1}>
               {str(row, 'label')}
             </Text>
-            <Text style={styles.detail} numberOfLines={1}>
+            <Text
+              style={[styles.detail, sessions && isTrue(row, 'working') ? { color: WORKING_COLOR } : null]}
+              numberOfLines={1}
+            >
               {str(row, 'detail')}
             </Text>
           </Pressable>
@@ -102,5 +121,6 @@ const useStyles = themedStyles((P) => ({
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 40, paddingHorizontal: 12, borderRadius: 10 },
   rowSelected: { backgroundColor: P.border },
   label: { color: P.foreground, fontSize: 14, flexShrink: 0, maxWidth: '60%' },
+  sessionLabel: { flexShrink: 1, maxWidth: '70%' },
   detail: { flex: 1, color: P.muted, fontSize: 13 },
 }));

@@ -28,6 +28,7 @@ import {
   type GhostexSession,
 } from '../../contract/mobileSummary';
 import { COMMAND_ICONS } from '../../assets/tablerIcons.generated';
+import { MORE_DETAILS_LINE, sessionMentionText } from './sessionMention';
 import { claudeCloudPageUrl } from '../../contract/claudeCloud';
 import { hasBackgroundWork, hasPendingQuestion } from '../../components/sessions/sessionStatus';
 import type { SessionWorkLinks, WorkLinkKind } from '../../commands/ghostexCli';
@@ -453,21 +454,28 @@ function formatIdentifier(value: string): string {
 }
 
 /**
- * gx-core `session_details_text`: what another agent needs to reach this session through
- * `$ghostex-agents`. The phone sees every session as one on the computer the menu is about, which
+ * gx-core `session_details_text`: what another agent needs to reach this session, ending with a
+ * line that tells it to run `ghostex agents` (CDXC:ContextMenus 2026-10-28 in gx-core
+ * clipboard.rs). The phone sees every session as one on the computer the menu is about, which
  * is how that computer's own sidebar copies it, so there is no Remote Machine line.
  */
+/** The stored title Copy Details and Copy ID quote. */
+function sessionTitle(session: GhostexSession): string {
+  return (
+    [session.title, session.primaryTitle, session.displayTitle]
+      .map((value) => value.trim())
+      .find((value) => value.length > 0) ?? 'Session'
+  );
+}
+
 function sessionDetailsText(session: GhostexSession, project: SessionMenuInput['project']): string {
   const lines = ['Ghostex Session'];
   const line = (label: string, value: string | undefined): void => {
     const text = (value ?? '').trim();
     if (text.length > 0) lines.push(`${label}: ${text}`);
   };
-  const title = [session.title, session.primaryTitle, session.displayTitle]
-    .map((value) => value.trim())
-    .find((value) => value.length > 0);
   line('Agent', session.agentIcon.length > 0 ? formatIdentifier(session.agentIcon) : undefined);
-  line('Title', title ?? 'Session');
+  line('Title', sessionTitle(session));
   line('Global Ref', session.globalRef);
   line('Agent Session ID', session.agentSessionId);
   line(session.provider.length > 0 ? session.provider : 'zmx', session.providerSessionName || session.zmxName);
@@ -475,7 +483,7 @@ function sessionDetailsText(session: GhostexSession, project: SessionMenuInput['
   line('Project Path', project?.path ?? session.projectPath);
   line('Worktree', project?.worktree?.name);
   line('Worktree Branch', project?.worktree?.branch);
-  lines.push('More details: use $ghostex-agents');
+  lines.push(MORE_DETAILS_LINE);
   return lines.join('\n');
 }
 
@@ -562,6 +570,9 @@ function linkSubmenu(session: GhostexSession, project: SessionMenuInput['project
  *
  * CDXC:ContextMenus 2026-10-09 DECISION:
  * User: Copy Details moves into a Copy submenu next to Copy Branch, Copy Linear ID, Copy PR Link and the like, for normal and work-mode sessions; it stays always available so anyone can hand a session to another agent. The phone's session menu matches the desktop's (2026-10-01), so it has the same submenu.
+ *
+ * CDXC:ContextMenus 2026-10-28 DECISION:
+ * User: "i want a new Copy ID that let's me just copy the id and name of an agent so i can mention it in other chats". Copy ID, right under Copy Details, copies `[<session title>](<Global Ref>)`, as on the desktop (gx-core copy.rs).
  */
 function copySubmenu(session: GhostexSession, project: SessionMenuInput['project']): SidebarMenuItem {
   const children: SidebarMenuItem[] = [
@@ -578,6 +589,9 @@ function copySubmenu(session: GhostexSession, project: SessionMenuInput['project
   const copyRow = (label: string, icon: string, text: string): void => {
     if (text.trim().length > 0) children.push(row(label, icon, command({ type: 'copyText', text })));
   };
+  if (session.globalRef.trim().length > 0) {
+    copyRow('Copy ID', 'hash', sessionMentionText(sessionTitle(session), session.globalRef.trim()));
+  }
   const work = session.work;
   const linearIssues = work?.linearIssues ?? [];
   const lines = (values: readonly string[]): string =>

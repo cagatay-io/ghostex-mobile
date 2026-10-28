@@ -109,6 +109,12 @@ export type ChatKnownSession = {
   agentName: string;
   /** A coordinator (orchestrator): its message cards draw the crown, as its row does. */
   coordinator: boolean;
+  /** `working`, `idle` or `attention`, for the composer's `+` picker. */
+  activity?: string;
+  /** `running`, `sleeping` or `stopped`, for the `+` picker. */
+  lifecycleState?: string;
+  /** When the session last did something (ISO time), the `+` picker's newest-first order. */
+  activeAt?: string;
 };
 
 export type ChatMeasurement =

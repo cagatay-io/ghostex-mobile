@@ -25,6 +25,10 @@ export function currentSessionDirectory(): ChatKnownSession[] {
         agentId: session.agent,
         agentName: session.agentName,
         coordinator: session.isCoordinator === true,
+        // The composer's `+` picker shows each session's state, newest first.
+        activity: session.activity,
+        lifecycleState: session.isSleeping ? 'sleeping' : session.status,
+        activeAt: session.lastInteractionAt || session.lastActiveAt,
       });
     }
   }
