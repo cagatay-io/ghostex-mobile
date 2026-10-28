@@ -86,8 +86,12 @@ type RowsMemo = { rows: number; sinceMs: number; recheckAtMs: number | null };
 
 /** `working_card_rows::ANIMATION_MS`: the card grows into two rows or shrinks back this fast. */
 const ROWS_ANIMATION_MS = 200;
-/** The label's own row above the pills (desktop `TOP_ROW_HEIGHT`). */
-const TOP_ROW = VISUAL.minHeight + 2;
+/** The label's own row above the divider with two rows, and the room above and below it and above
+ * and below the pills under it (desktop `TOP_ROW_HEIGHT`, `TOP_ROW_PAD`, `PILLS_ROW_PAD`). */
+const TOP_ROW = 22;
+const ROW_PAD = 7;
+/** The top row, its padding and the divider: what grows in when the card takes two rows. */
+const LANE = TOP_ROW + ROW_PAD * 2 + 1;
 /** How far the label rises into its row while the card grows (desktop `LABEL_RISE`). */
 const LABEL_RISE = 6;
 /** The card's side paddings: the label 12 in from the left, the pills 10 in from the right. */
@@ -205,6 +209,22 @@ export function WorkingCard({
     </View>
   );
   const twoRows = label !== null && rows.layoutTwo;
+  // Option C's top row (gx-chat-core `extras/working_card_label.rs` has the user's words): the
+  // label with its paths' folders dimmed and shortened, then how long the action has run.
+  const parts = card.labelParts ?? [];
+  const topLabel =
+    label !== null && parts.length > 0 ? (
+      <Text style={styles.labelStrong} numberOfLines={1} ellipsizeMode="tail">
+        {parts.map((part, index) => (
+          <Text key={index} style={part.dim === true ? styles.dim : null}>
+            {part.text}
+          </Text>
+        ))}
+      </Text>
+    ) : (
+      labelText
+    );
+  const elapsed = card.elapsed ?? null;
   return (
     <View style={styles.row}>
       <View style={[styles.column, { paddingBottom: cardGap(document) }]}>
@@ -216,31 +236,44 @@ export function WorkingCard({
           onLayout={(event) => rows.measure('card', event.nativeEvent.layout.width)}
           accessibilityRole="summary"
           accessibilityLabel={card.ariaLabel}
-          style={styles.card}
+          style={[styles.card, twoRows ? styles.cardTwo : null]}
         >
           {twoRows ? (
-            // The lead and the whole label on their own row; it grows in (or shrinks away) while
-            // the pills keep their place at the bottom.
+            // The lead, the label and its time on their own row over a hairline; they grow in (or
+            // shrink away) while the pills keep their place at the bottom.
             <Animated.View
               style={[
-                styles.topRow,
+                styles.lane,
                 {
-                  height: rows.grow.interpolate({ inputRange: [0, 1], outputRange: [0, TOP_ROW] }),
+                  height: rows.grow.interpolate({ inputRange: [0, 1], outputRange: [0, LANE] }),
                   opacity: rows.grow,
                   transform: [{ translateY: rows.grow.interpolate({ inputRange: [0, 1], outputRange: [LABEL_RISE, 0] }) }],
                 },
               ]}
             >
-              <Lead card={card} />
-              {labelSlot}
+              <View style={styles.topRow}>
+                <Lead card={card} />
+                <View style={styles.labelSlot}>
+                  {topLabel}
+                  {card.labelKind === 'activity' ? (
+                    <View style={styles.trailing}>
+                      <ActivityTrailing activity={obj(card.activity)} />
+                    </View>
+                  ) : null}
+                </View>
+                {elapsed !== null ? <Text style={styles.elapsed}>{elapsed}</Text> : null}
+              </View>
+              <View style={styles.divider} />
             </Animated.View>
           ) : null}
-          <View style={styles.line}>
+          <View style={[styles.line, twoRows ? styles.lineTwo : null]}>
             {twoRows ? null : <Lead card={card} />}
             {twoRows || label === null ? null : (
               <Animated.View style={[styles.labelLine, { opacity: rows.labelIn }]}>{labelSlot}</Animated.View>
             )}
-            <PillsArea fill={twoRows || label === null}>{pillRow}</PillsArea>
+            <PillsArea fill={twoRows || label === null} fromLeft={twoRows}>
+              {pillRow}
+            </PillsArea>
           </View>
         </Pressable>
         {label !== null ? (
@@ -362,7 +395,7 @@ function useCardRows(chat: RustChat, card: WorkingCardValue | null) {
  * The user's words (no cut background, no inner shadow) are on desktop `working_card_pills_area` in
  * apps/desktop/src/app/native_chat/working_card.rs.
  */
-function PillsArea({ fill, children }: { fill: boolean; children: ReactNode }) {
+function PillsArea({ fill, fromLeft, children }: { fill: boolean; fromLeft: boolean; children: ReactNode }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
   const [edges, setEdges] = useState({ left: false, right: false });
@@ -377,7 +410,7 @@ function PillsArea({ fill, children }: { fill: boolean; children: ReactNode }) {
       <ScrollView
         horizontal
         style={fill ? styles.pillsScrollFill : styles.pillsScroll}
-        contentContainerStyle={fill ? styles.pillsContentFill : null}
+        contentContainerStyle={fill ? (fromLeft ? styles.pillsContentLeft : styles.pillsContentFill) : null}
         showsHorizontalScrollIndicator={false}
         alwaysBounceHorizontal={false}
         overScrollMode="never"
@@ -557,13 +590,43 @@ const useStyles = themedStyles((P) => ({
     alignItems: 'center',
     gap: VISUAL.gap,
   },
-  /** The label's own row on top, two pixels above the pills. */
+  /** Two rows: the rows bring their own padding above and below. */
+  cardTwo: {
+    paddingTop: 0,
+    paddingBottom: 0,
+  },
+  /** The top row and the divider under it, which grow in together. */
+  lane: {
+    overflow: 'hidden',
+  },
   topRow: {
+    height: TOP_ROW + ROW_PAD * 2,
+    paddingVertical: ROW_PAD,
     flexDirection: 'row',
     alignItems: 'center',
     gap: VISUAL.gap,
-    overflow: 'hidden',
-    paddingBottom: 2,
+  },
+  /** The hairline between the rows, the card's border colour, across the card. */
+  divider: {
+    height: 1,
+    marginLeft: -(PAD_LEFT - 2),
+    marginRight: -(PAD_RIGHT - 2),
+    backgroundColor: P.inputBorder,
+  },
+  /** The pills' row under the divider: the same room above and below. */
+  lineTwo: {
+    minHeight: TOP_ROW + ROW_PAD * 2,
+    paddingVertical: ROW_PAD,
+  },
+  dim: {
+    color: P.muted,
+  },
+  /** The action's elapsed time at the top row's right end. */
+  elapsed: {
+    flexShrink: 0,
+    color: P.muted,
+    fontSize: 12,
+    fontVariant: ['tabular-nums'],
   },
   labelLine: {
     flex: 1,
@@ -639,6 +702,11 @@ const useStyles = themedStyles((P) => ({
   pillsContentFill: {
     flexGrow: 1,
     justifyContent: 'flex-end',
+  },
+  /** Under the divider the pills start at the left, under the label. */
+  pillsContentLeft: {
+    flexGrow: 1,
+    justifyContent: 'flex-start',
   },
   fade: {
     position: 'absolute',

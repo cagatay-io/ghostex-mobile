@@ -913,6 +913,11 @@ export type WorkingCard = {
   /** The pill ids (`chatPills`) on the card, in order. */
   pills: string[];
   ariaLabel: string;
+  /** A tool label in runs for the two-row top row, file paths shortened (`dim` folders); empty
+   * otherwise (gx-chat-core `extras/working_card_label.rs`). Absent from an older core. */
+  labelParts?: { text: string; dim?: boolean }[];
+  /** How long the running tool has run ("14s"); null when unknown or under a second. */
+  elapsed?: string | null;
 };
 
 export type WorkingStrip = {
