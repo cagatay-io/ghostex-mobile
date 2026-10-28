@@ -210,7 +210,7 @@ export function WorkingCard({
   );
   const twoRows = label !== null && rows.layoutTwo;
   // Option C's top row (gx-chat-core `extras/working_card_label.rs` has the user's words): the
-  // label with its paths' folders dimmed and shortened, then how long the action has run.
+  // label with its paths' folders dimmed and shortened.
   const parts = card.labelParts ?? [];
   const topLabel =
     label !== null && parts.length > 0 ? (
@@ -224,7 +224,6 @@ export function WorkingCard({
     ) : (
       labelText
     );
-  const elapsed = card.elapsed ?? null;
   return (
     <View style={styles.row}>
       <View style={[styles.column, { paddingBottom: cardGap(document) }]}>
@@ -239,7 +238,7 @@ export function WorkingCard({
           style={[styles.card, twoRows ? styles.cardTwo : null]}
         >
           {twoRows ? (
-            // The lead, the label and its time on their own row over a hairline; they grow in (or
+            // The lead and the label on their own row over a hairline; they grow in (or
             // shrink away) while the pills keep their place at the bottom.
             <Animated.View
               style={[
@@ -261,7 +260,6 @@ export function WorkingCard({
                     </View>
                   ) : null}
                 </View>
-                {elapsed !== null ? <Text style={styles.elapsed}>{elapsed}</Text> : null}
               </View>
               <View style={styles.divider} />
             </Animated.View>
@@ -620,13 +618,6 @@ const useStyles = themedStyles((P) => ({
   },
   dim: {
     color: P.muted,
-  },
-  /** The action's elapsed time at the top row's right end. */
-  elapsed: {
-    flexShrink: 0,
-    color: P.muted,
-    fontSize: 12,
-    fontVariant: ['tabular-nums'],
   },
   labelLine: {
     flex: 1,
