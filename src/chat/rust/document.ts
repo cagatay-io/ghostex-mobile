@@ -754,6 +754,8 @@ export type OpenQuestionsState = {
   jump: { revision: number; item: number; target: string; question?: string | null } | null;
   /** Every form and question page in the list; the pill shows while this is above zero. */
   total?: number;
+  /** The forms and pages the ? pill steps through; it shows while this is above zero. */
+  questionTotal?: number;
   /** The list's header detail: "2 unanswered · 1 for later". */
   summary?: string;
   /** The ? pill's list for the picked filter, in order, each only when it has rows (newest first). */
@@ -781,6 +783,10 @@ export type QuestionListRow = {
   tags: string[];
   /** "14:03", "yesterday at 09:12"; empty when unknown. */
   time: string;
+  /** How long ago ("now", "4m", "yesterday", "3d") as of the document; `atMs` lets the list keep it current. */
+  age?: string;
+  /** Epoch milliseconds it was asked at, when the transcript says. */
+  atMs?: number | null;
   timeTitle: string;
 };
 

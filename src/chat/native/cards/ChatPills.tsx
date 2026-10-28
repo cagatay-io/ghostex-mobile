@@ -28,6 +28,12 @@
  * questions/open_questions.rs): it shows while the chat has any question form or page, keeps its dot,
  * ping and count only while one is unanswered, and a tap opens the list (`QuestionsMenu`) in the
  * pill sheet. Desktop: `questions_list.rs`, where hovering opens it.
+ *
+ * CDXC:SessionChat 2026-10-28 SEE-ALSO:
+ * The list now opens from the Resources pill (`chatPills`, right after the ? pill, with its own stack
+ * glyph) and the ? pill only steps through the questions (`previousQuestion`); the user's words are on
+ * gx-chat-core questions/open_questions.rs. Rows say how long ago (`questionAge.ts`) and offer a For
+ * later / Back to open button (`laterAction`).
  */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -38,6 +44,7 @@ import type { ChatDocument, ChatPill, QuestionListRow, QuestionListSection } fro
 import type { RustChat } from '../../rust/useRustChat';
 import { Sheet } from '../composer/Sheet';
 import { answeredColor } from './askCard';
+import { laterAction, rowAge } from './questionAge';
 import { Glyph as TranscriptGlyph } from '../transcript/icons';
 import { AgentFleetMenu, AgentTasksMenu, CoordinatorThreadsMenu, waitingColor } from './AgentPanels';
 import { Glyph } from './icons';
@@ -45,6 +52,9 @@ import { obj } from './json';
 import { BackgroundTasksMenu } from './WorkingStrip';
 import { OverlappedDots } from '../../../components/sessions/StatusDotStack';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
+
+/** How often the open Chat Resources list redraws so its ages stay current (desktop `AGE_REFRESH`). */
+const AGE_REFRESH_MS = 30_000;
 
 /** The amber of the ? pill's corner dot and a running pill's. */
 const ATTENTION_COLOR = '#f5a524';
@@ -158,6 +168,12 @@ export function QuestionsMenu({
   const styles = useStyles();
   const P = useTranscriptTheme();
   const [toggled, setToggled] = useState<ReadonlySet<string>>(new Set());
+  // The rows' ages are worded from the clock: redraw every 30 s while the list is open.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const tick = setInterval(() => setNow(Date.now()), AGE_REFRESH_MS);
+    return () => clearInterval(tick);
+  }, []);
   const sections = document.openQuestions?.sections ?? [];
   const filters = document.openQuestions?.filters ?? [];
   const picked = document.openQuestions?.filter ?? 'all';
@@ -180,7 +196,9 @@ export function QuestionsMenu({
             key={section.id}
             section={section}
             folded={folded(section.id)}
+            now={now}
             onToggle={() => toggle(section.id)}
+            onLater={(action) => chat.dispatch(action)}
             onPick={(row) => {
               chat.dispatch({ type: 'jumpToQuestion', id: row.id });
               onDone();
@@ -252,12 +270,16 @@ function KindIcon({ kind, color }: { kind: QuestionListRow['kind']; color: strin
 function QuestionsSection({
   section,
   folded,
+  now,
   onToggle,
+  onLater,
   onPick,
 }: {
   section: QuestionListSection;
   folded: boolean;
+  now: number;
   onToggle: () => void;
+  onLater: (action: { type: 'questionForLater'; id: string; later: boolean }) => void;
   onPick: (row: QuestionListRow) => void;
 }) {
   const styles = useStyles();
@@ -280,6 +302,8 @@ function QuestionsSection({
         : section.rows.map((row) => {
             const answered = section.id === 'answered';
             const withdrawn = section.id === 'withdrawn';
+            const age = rowAge(row, now);
+            const later = laterAction(section.id, row.kind, row.id);
             return (
               <Pressable
                 key={row.id}
@@ -298,7 +322,19 @@ function QuestionsSection({
                 >
                   {row.title}
                 </Text>
-                {row.time.length > 0 ? <Text style={styles.questionsMeta}>{row.time}</Text> : null}
+                {age.length > 0 ? <Text style={styles.questionsMeta}>{age}</Text> : null}
+                {later !== null ? (
+                  // Its own press: it never also jumps to the question.
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={later.label}
+                    onPress={() => onLater(later.action)}
+                    hitSlop={6}
+                    style={({ pressed }) => [styles.questionsLater, pressed && styles.pillPressed]}
+                  >
+                    <Glyph name={later.glyph} size={14} color={P.cardMuted} />
+                  </Pressable>
+                ) : null}
               </Pressable>
             );
           })}
@@ -410,7 +446,15 @@ export function Pill({ pill, open, onPress }: { pill: ChatPill; open: boolean; o
     >
       <CornerIndicator pill={pill} />
       <Glyph
-        name={pill.id === 'tasks' ? 'list-check' : pill.id === 'background' ? 'terminal-2' : 'users'}
+        name={
+          pill.id === 'tasks'
+            ? 'list-check'
+            : pill.id === 'background'
+              ? 'terminal-2'
+              : pill.id === 'resources'
+                ? 'stack'
+                : 'users'
+        }
         size={12}
         color={P.cardMuted}
       />
@@ -486,13 +530,13 @@ export function PillMenuSheet({
   open: string | null;
   onClose: () => void;
 }) {
-  const questions = open === 'questions' && (document.openQuestions?.total ?? 0) > 0;
+  const questions = open === 'resources' && (document.openQuestions?.total ?? 0) > 0;
   const [filtersOpen, setFiltersOpen] = useState(false);
   useEffect(() => {
     if (!questions) setFiltersOpen(false);
   }, [questions]);
   const shown = questions
-    ? ({ id: 'questions', label: 'Chat Resources' } as ChatPill)
+    ? ({ id: 'resources', label: 'Chat Resources' } as ChatPill)
     : (document.chatPills ?? []).find((pill) => pill.id === open);
   // A panel that went away (the subagents finished) takes its sheet with it.
   useEffect(() => {
@@ -611,6 +655,7 @@ const useStyles = themedStyles((P) => ({
     paddingRight: 4,
     borderRadius: 6,
   },
+  questionsLater: { flexShrink: 0, width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 6 },
   questionsTitle: { flex: 1, minWidth: 0, color: P.foreground, fontSize: 14 },
   filterTrigger: {
     flexDirection: 'row',
