@@ -1,10 +1,12 @@
 /**
  * Another session's agent pill (gx-chat-core `transcript/session_mentions.rs`, where the user's
- * decision lives): a hairline rounded frame around the agent's logo and `+<title>`, the same look
- * desktop draws (`session_pill` in inter_agent_message.rs, `session_pill_link` in
- * markdown_links.rs). A pill the core marks `logo: false` sits beside the card's own agent tile
- * and leaves the logo to it (CDXC:SessionChat 2026-10-28 on `card_pill`). A tap switches to that
- * session; a session that is gone draws muted and does nothing.
+ * decision lives): a hairline rounded frame around the agent's logo and the session's title, the
+ * same look desktop draws (`session_pill_link` in markdown_links.rs). A card's pill (the core marks
+ * it `logo: false`) sits beside the card's own agent tile, leaves the logo to it
+ * (CDXC:SessionChat 2026-10-28 on `card_pill`) and draws as a session reference in the chat box:
+ * no frame, the title in the reference colour (CDXC:SessionChat 2026-10-28 on desktop
+ * `session_pill` in inter_agent_message.rs). A tap switches to that session; a session that is gone
+ * draws muted and does nothing.
  */
 
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -51,11 +53,9 @@ export function SessionPill({
       hitSlop={4}
       style={({ pressed }) => [
         styles.pill,
-        showsLogo ? null : styles.textOnly,
-        {
-          borderColor: theme.ink(0.14),
-          backgroundColor: pressed && !missing ? theme.ink(0.08) : theme.ink(0.03),
-        },
+        showsLogo
+          ? { borderColor: theme.ink(0.14), backgroundColor: pressed && !missing ? theme.ink(0.08) : theme.ink(0.03) }
+          : [styles.cardPill, pressed && !missing ? { backgroundColor: theme.ink(0.08) } : null],
       ]}
     >
       {showsLogo ? (
@@ -67,7 +67,20 @@ export function SessionPill({
           )}
         </View>
       ) : null}
-      <Text style={[styles.label, { color: missing ? theme.cardMuted : theme.foreground }]} numberOfLines={1}>
+      <Text
+        style={[
+          styles.label,
+          !showsLogo && styles.cardLabel,
+          {
+            color: missing
+              ? theme.cardMuted
+              : showsLogo
+                ? theme.foreground
+                : (theme.reference.session ?? theme.foreground),
+          },
+        ]}
+        numberOfLines={1}
+      >
         {str(pill, 'label')}
       </Text>
     </Pressable>
@@ -87,7 +100,8 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth * 2,
   },
-  textOnly: { paddingHorizontal: 8 },
+  cardPill: { paddingHorizontal: 4, borderWidth: 0, borderRadius: 5 },
+  cardLabel: { fontSize: 13 },
   faded: { opacity: 0.45 },
   label: { fontSize: 12.5, lineHeight: 16, fontWeight: '500', flexShrink: 1 },
 });

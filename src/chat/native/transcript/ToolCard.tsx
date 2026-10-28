@@ -20,7 +20,7 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, { Defs, LinearGradient, Rect, Stop, SvgXml } from 'react-native-svg';
+import Svg, { Defs, RadialGradient, Rect, Stop, SvgXml } from 'react-native-svg';
 
 import type { ProjectedMessage } from '../../rust/document';
 import { useNativeChatUi, useRowDetail, useTranscriptEnv } from './context';
@@ -30,7 +30,7 @@ import { Glyph, toolGlyph } from './icons';
 import { arr, num, obj, str, type JsonRecord } from './json';
 import { useDisclosure } from './state';
 import type { TranscriptTheme } from './theme';
-import { ToolBody } from './ToolRows';
+import { ToolBody } from './ToolBody';
 
 /** How long a row takes to grow in and the header's words to settle (desktop `ENTER`). */
 const ENTER_MS = 320;
@@ -229,11 +229,11 @@ function Shimmer({ color }: { color: string }) {
         <Animated.View style={[styles.shimmerBand, { width: band }, style]}>
           <Svg width={band} height="100%">
             <Defs>
-              <LinearGradient id="toolCardShimmer" x1="0" y1="0" x2="1" y2="0">
-                <Stop offset="0" stopColor={color} stopOpacity={0} />
-                <Stop offset="0.5" stopColor={color} stopOpacity={0.2} />
+              {/* Radial, so the band fades out at its top and bottom too and never shows as a box. */}
+              <RadialGradient id="toolCardShimmer" cx="0.5" cy="0.5" rx="0.5" ry="0.5">
+                <Stop offset="0" stopColor={color} stopOpacity={0.22} />
                 <Stop offset="1" stopColor={color} stopOpacity={0} />
-              </LinearGradient>
+              </RadialGradient>
             </Defs>
             <Rect x="0" y="0" width={band} height="100%" fill="url(#toolCardShimmer)" />
           </Svg>
@@ -318,11 +318,12 @@ const CardRow = memo(function CardRow({
       >
         <ToolIcon icon={entry} size={ROW_ICON} round={false} />
         <View style={styles.body}>
-          <View>
+          {/* The band is as wide as the words, so it sweeps the text and not the empty row. */}
+          <View style={styles.labelBox}>
             <Text numberOfLines={1} style={[styles.label, { color: labelColor }]}>
               {label}
             </Text>
-            {running && animate ? <Shimmer color={theme.foreground} /> : null}
+            {running && animate ? <Shimmer color={theme.light ? '#000000' : '#ffffff'} /> : null}
           </View>
           {reason.length > 0 ? (
             <Text numberOfLines={1} style={[styles.reason, { color: theme.muted }]}>
@@ -428,6 +429,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   body: { flex: 1, minWidth: 0 },
+  labelBox: { alignSelf: 'flex-start', maxWidth: '100%', overflow: 'hidden' },
   label: { fontSize: 13.5, lineHeight: 19 },
   reason: { fontSize: 12, lineHeight: 16 },
   metaLine: { flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 0 },

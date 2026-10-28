@@ -4,21 +4,21 @@
  * and each row's arguments and result, which the core ships only while the row is open.
  */
 
-import * as Clipboard from 'expo-clipboard';
-import { memo, useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { memo } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { ProjectedMessage } from '../../rust/document';
 import { subagentOpenAction } from '../cards';
 import { useNativeChatUi, useRowDetail, useTranscriptEnv, useTranscriptFlags } from './context';
 import { DisclosureBody, DisclosureHeading, useFoldPlace } from './Disclosure';
 import { Glyph, toolGlyph } from './icons';
+import { ToolBody } from './ToolBody';
 import { ToolCard } from './ToolCard';
 import { arr, obj, str, type JsonRecord } from './json';
 import { highlightLabel, useRowFind } from './searchHighlight';
 import { useDisclosure } from './state';
 import { openTranscriptMenu } from './transcriptMenuStore';
-import { CODE_LINE, CODE_SIZE, MONO_FONT, PROSE_LINE, PROSE_SIZE } from './theme';
+import { CODE_SIZE, MONO_FONT, PROSE_LINE, PROSE_SIZE } from './theme';
 
 /** Each row carries its own padding (the 2026-10-11 work look), so the gap between rows is small. */
 const ROW_GAP = 2;
@@ -370,62 +370,6 @@ function errorWash(error: string): string {
   return `${error}0f`;
 }
 
-/**
- * One labelled block of a tool's detail: verbatim monospaced text in a height-capped box, selectable
- * with a long press. A non-empty `copyText` puts the copy button for the whole call on its label row
- * (desktop `tool_run.rs`).
- */
-export function ToolBody({
-  label,
-  content,
-  failed,
-  copyText,
-}: {
-  label: string | null;
-  content: string;
-  failed: boolean;
-  copyText: string;
-}) {
-  const { theme } = useTranscriptEnv();
-  const [copied, setCopied] = useState(false);
-  const copy = useCallback(() => {
-    void Clipboard.setStringAsync(copyText);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  }, [copyText]);
-  return (
-    <View style={styles.bodyGroup}>
-      {label !== null || copyText.length > 0 ? (
-        <View style={styles.bodyHeader}>
-          <Text numberOfLines={1} style={[styles.bodyLabel, { color: theme.muted }]}>
-            {label ?? ''}
-          </Text>
-          {copyText.length > 0 ? (
-            <Pressable
-              hitSlop={6}
-              onPress={copy}
-              accessibilityRole="button"
-              accessibilityLabel={copied ? 'Copied' : 'Copy tool call'}
-              style={({ pressed }) => [styles.copyAction, pressed && { backgroundColor: theme.pressed }]}
-            >
-              <Glyph name={copied ? 'check' : 'copy'} size={14} color={theme.muted} />
-            </Pressable>
-          ) : null}
-        </View>
-      ) : null}
-      <ScrollView
-        nestedScrollEnabled
-        style={[styles.bodyBox, { backgroundColor: theme.input }]}
-        contentContainerStyle={styles.bodyContent}
-      >
-        <Text selectable style={[styles.bodyText, { color: failed ? theme.error : theme.muted }]}>
-          {content}
-        </Text>
-      </ScrollView>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   column: { gap: ROW_GAP, minWidth: 0 },
   shellColumn: { alignItems: 'flex-end', gap: 6 },
@@ -471,11 +415,4 @@ const styles = StyleSheet.create({
   },
   foldSlot: { width: TILE, height: PROSE_LINE, alignItems: 'center', justifyContent: 'center' },
   foldLabel: { fontSize: 13.5, lineHeight: PROSE_LINE },
-  bodyGroup: { gap: 4, minWidth: 0 },
-  bodyHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, minWidth: 0 },
-  bodyLabel: { fontSize: 12.25, flexShrink: 1 },
-  copyAction: { width: 22, height: 22, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-  bodyBox: { maxHeight: 220.75, borderRadius: 6 },
-  bodyContent: { paddingHorizontal: 10, paddingVertical: 8 },
-  bodyText: { fontFamily: MONO_FONT, fontSize: CODE_SIZE, lineHeight: CODE_LINE },
 });
