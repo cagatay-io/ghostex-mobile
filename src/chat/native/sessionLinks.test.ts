@@ -7,10 +7,12 @@ import { describe, test } from 'node:test';
 import type { GhostexSessionLink, GhostexSessionLinks } from '../../contract/mobileSummary';
 import { SidebarPalette } from '../../theme/palette';
 import {
+  SUGGESTED_OPEN_UP_TO_LINKED,
   SUGGESTED_SHOWN_FIRST,
   sessionLinksDisplay,
   sessionLinksRow,
   sessionLinksWithoutRemoved,
+  suggestedOpensUnfolded,
   suggestionsShown,
 } from './sessionLinks';
 
@@ -112,5 +114,16 @@ describe('sessionLinksWithoutRemoved with suggestions', () => {
       after.removed.map((entry) => entry.key),
       ['#2'],
     );
+  });
+});
+
+describe('Suggested on opening the sheet', () => {
+  test('opens unfolded with 2 or fewer linked links and keeps the saved fold from 3', () => {
+    assert.equal(SUGGESTED_OPEN_UP_TO_LINKED, 2);
+    assert.equal(suggestedOpensUnfolded(0), true);
+    assert.equal(suggestedOpensUnfolded(1), true);
+    assert.equal(suggestedOpensUnfolded(2), true);
+    assert.equal(suggestedOpensUnfolded(3), false);
+    assert.equal(suggestedOpensUnfolded(12), false);
   });
 });

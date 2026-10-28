@@ -72,6 +72,7 @@ import {
   sessionLinkSummary,
   sessionLinksWithoutRemoved,
   SUGGESTED_SHOWN_FIRST,
+  suggestedOpensUnfolded,
   suggestionsShown,
 } from './sessionLinks';
 import { themedStyles, useTranscriptTheme } from './transcript/theme';
@@ -142,6 +143,22 @@ export default function SessionLinksSheet({
   /** "Show all" was tapped under Suggested: every suggestion shows until "Show fewer". */
   const [allSuggested, setAllSuggested] = useState(false);
   const folded = useSettingsStore((store) => store.settings.sessionLinksFoldedGroups);
+  /**
+   * Suggested's fold for this open of the sheet, over the saved one: `null` until the sheet has
+   * opened on known links, then `true` when it opened on 2 or fewer linked links
+   * (`suggestedOpensUnfolded`), `'saved'` to follow the saved fold, or the person's own fold or
+   * unfold, until the sheet closes (gx-core CDXC:SessionLinks 2026-10-28 DECISION).
+   */
+  const [suggestedOpen, setSuggestedOpen] = useState<boolean | 'saved' | null>(null);
+  const linkedCount = session.links?.items.length;
+  useEffect(() => {
+    if (!visible) {
+      setSuggestedOpen(null);
+      return;
+    }
+    if (linkedCount === undefined) return;
+    setSuggestedOpen((open) => open ?? (suggestedOpensUnfolded(linkedCount) ? true : 'saved'));
+  }, [visible, linkedCount]);
   const setSetting = useSettingsStore((store) => store.setSetting);
   const [status, setStatus] = useState<string | null>(null);
   const armTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -257,9 +274,16 @@ export default function SessionLinksSheet({
     .filter((part) => part.length > 0)
     .join(' · ');
 
-  const isFolded = (id: string) => folded.includes(id);
-  const toggleSection = (id: string) =>
-    setSetting('sessionLinksFoldedGroups', isFolded(id) ? folded.filter((section) => section !== id) : [...folded, id]);
+  const isFolded = (id: string) => {
+    if (id !== 'suggested') return folded.includes(id);
+    const open = suggestedOpen ?? (suggestedOpensUnfolded(published.items.length) ? true : 'saved');
+    return open === 'saved' ? folded.includes(id) : !open;
+  };
+  const toggleSection = (id: string) => {
+    const fold = !isFolded(id);
+    if (id === 'suggested') setSuggestedOpen(!fold);
+    setSetting('sessionLinksFoldedGroups', fold ? [...folded, id] : folded.filter((section) => section !== id));
+  };
   const sectionHeader = (id: string, title: string, count: number) => {
     const open = !isFolded(id);
     return (

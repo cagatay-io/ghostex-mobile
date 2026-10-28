@@ -265,6 +265,28 @@ export default function NativeChatScreen({
     [chat, show],
   );
 
+  /**
+   * Where the transcript and the composer sit in the chat column, for the composer's `room`: the
+   * column's height less what sits above the transcript, a strip of transcript kept in view and the
+   * rows between the transcript and the composer (the working card, the cards, the pills). None of
+   * these move while the composer's card tweens its height, so the room does not chase it.
+   */
+  const [composerFrame, setComposerFrame] = useState({
+    height: -1,
+    transcriptTop: -1,
+    transcriptBottom: -1,
+    composerTop: -1,
+  });
+  const composerRoom =
+    composerFrame.height < 0 || composerFrame.transcriptTop < 0 || composerFrame.composerTop < 0
+      ? undefined
+      : Math.round(
+          composerFrame.height -
+            composerFrame.transcriptTop -
+            TRANSCRIPT_KEPT_IN_VIEW -
+            (composerFrame.composerTop - composerFrame.transcriptBottom),
+        );
+
   const renderSubagentRow = useSubagentRowRenderer(chat);
   // While the subagent viewer is open its modal carries the transcript menu (see `TranscriptMenuSheet`).
   const subagentOpen = document?.subagent !== undefined && document.subagent !== null;
@@ -278,10 +300,23 @@ export default function NativeChatScreen({
         onImages={receiveImages}
         onDropActive={(event) => setDropActive(event.nativeEvent.active)}
       >
-        <View style={[styles.root, { backgroundColor: theme.background }]} pointerEvents={visible ? 'auto' : 'none'}>
+        <View
+          style={[styles.root, { backgroundColor: theme.background }]}
+          pointerEvents={visible ? 'auto' : 'none'}
+          onLayout={(event) => {
+            const height = event.nativeEvent.layout.height;
+            setComposerFrame((now) => ({ ...now, height }));
+          }}
+        >
           {chat.state?.error ? <Text style={[styles.error, { color: theme.error }]}>{chat.state.error}</Text> : null}
           <TranscriptSearchBar chat={chat} />
-          <View style={styles.transcript}>
+          <View
+            style={styles.transcript}
+            onLayout={(event) => {
+              const { y, height } = event.nativeEvent.layout;
+              setComposerFrame((now) => ({ ...now, transcriptTop: y, transcriptBottom: y + height }));
+            }}
+          >
             <NativeTranscript chat={chat} />
             {/* Scroll-to-bottom alone while no card carries it. */}
             {document === null ? null : <LoneScrollBottom document={document} armed={armed} />}
@@ -298,13 +333,21 @@ export default function NativeChatScreen({
           )}
           <NativeChatCards chat={chat} onHostAction={hostAction} />
           {!composerShown ? null : (
-            <NativeComposer
-              chat={chat}
-              onHostAction={hostAction}
-              hostActions={composerHostActions}
-              openAccountsRequestId={accountsRequestId}
-              voiceCallTitle={title}
-            />
+            <View
+              onLayout={(event) => {
+                const composerTop = event.nativeEvent.layout.y;
+                setComposerFrame((now) => ({ ...now, composerTop }));
+              }}
+            >
+              <NativeComposer
+                chat={chat}
+                onHostAction={hostAction}
+                hostActions={composerHostActions}
+                openAccountsRequestId={accountsRequestId}
+                voiceCallTitle={title}
+                {...(composerRoom !== undefined ? { room: composerRoom } : {})}
+              />
+            </View>
           )}
           <RewindDialog chat={chat} />
           <SaveMarkdownDialog chat={chat} />
@@ -624,6 +667,9 @@ function ChatToast({ toast }: { toast: Toast }) {
     </Animated.View>
   );
 }
+
+/** The transcript strip the composer leaves in view when its field has to give up lines. */
+const TRANSCRIPT_KEPT_IN_VIEW = 48;
 
 const styles = StyleSheet.create({
   root: { flex: 1, minHeight: 0 },

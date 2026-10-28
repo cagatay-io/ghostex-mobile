@@ -189,6 +189,18 @@ export function mostPressingLinkColor(links: readonly GhostexSessionLink[]): str
  */
 export const SUGGESTED_SHOWN_FIRST = 5;
 
+/**
+ * Linked links up to which the sheet opens with Suggested unfolded, whatever the saved fold says
+ * (gx-core `SUGGESTED_OPEN_UP_TO_LINKED`, whose CDXC:SessionLinks 2026-10-28 DECISION holds the
+ * user's words: "if there are 2 or fewer links, then expand Suggested in any case").
+ */
+export const SUGGESTED_OPEN_UP_TO_LINKED = 2;
+
+/** Whether a sheet opening on `linkedCount` linked links shows Suggested unfolded. */
+export function suggestedOpensUnfolded(linkedCount: number): boolean {
+  return linkedCount <= SUGGESTED_OPEN_UP_TO_LINKED;
+}
+
 /** The suggestions the sheet draws: every one with `all`, else the first `SUGGESTED_SHOWN_FIRST`. */
 export function suggestionsShown<T>(suggested: readonly T[], all: boolean): readonly T[] {
   return all ? suggested : suggested.slice(0, SUGGESTED_SHOWN_FIRST);

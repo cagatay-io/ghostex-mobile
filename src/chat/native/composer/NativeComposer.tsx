@@ -78,6 +78,12 @@ export type NativeComposerProps = {
   openAccountsRequestId?: number;
   /** The session's title, for the More actions row "Voice call about this chat" (shown when `voiceCall` is served). */
   voiceCallTitle?: string;
+  /**
+   * The most height the composer may take, measured by the screen (`NativeChatScreen`). The field
+   * gives up lines to stay inside it, so the footer row with Send never ends up under the keyboard;
+   * absent, the field grows to `INPUT_MAX_HEIGHT`.
+   */
+  room?: number;
 };
 
 const DEFAULT_HOST_ACTIONS: readonly string[] = ['terminalView'];
@@ -93,6 +99,8 @@ const SEND_WIDTH = 30;
 const FOOTER_GAP = 8;
 const CLEARANCE = 8;
 const INPUT_MAX_HEIGHT = 168;
+/** The fewest the field shrinks to when the room is short: two lines, which scroll inside it. */
+const INPUT_MIN_HEIGHT = 44;
 const CARD_BORDER = 1;
 /** The collapsed card before its first collapse is measured: the row (field or Send) inside `cardCollapsed`. */
 const COLLAPSED_CARD_ESTIMATE = 6 + Math.max(COLLAPSED_INPUT_HEIGHT, SEND_WIDTH) + 6 + CARD_BORDER * 2;
@@ -125,6 +133,7 @@ export function NativeComposer({
   hostActions = DEFAULT_HOST_ACTIONS,
   openAccountsRequestId = 0,
   voiceCallTitle = '',
+  room,
 }: NativeComposerProps) {
   const styles = useStyles();
   const serves = useCallback(
@@ -139,6 +148,16 @@ export function NativeComposer({
   const insets = useSafeAreaInsets();
   const anchor = useRef<ViewInstance>(null);
   const keyboard = useKeyboardInset(anchor);
+  /**
+   * What the expanded composer measures around its field: the card's top inside the composer, the
+   * card's content at its natural height and the field's own height. The room left for the field is
+   * `room` minus everything else (`inputMaxHeight` below).
+   */
+  const [frame, setFrame] = useState({ cardTop: -1, content: -1, field: -1 });
+  const measureFrame = useCallback((part: 'cardTop' | 'content' | 'field', value: number) => {
+    const next = Math.round(value);
+    setFrame((now) => (now[part] === next ? now : { ...now, [part]: next }));
+  }, []);
   const requestedCollapsed = document?.composerCollapsed === true;
   const motion = useComposerMotion(requestedCollapsed, CARD_BORDER, COLLAPSED_CARD_ESTIMATE);
   const field = useRef<ComposerInputHandle>(null);
@@ -510,6 +529,23 @@ export function NativeComposer({
   const placeholder = document?.composerPlaceholder ?? '';
   const statusLine = document !== null && statusLineReserved(document);
   const bottom = keyboard > 0 ? keyboard + 8 : Math.max(insets.bottom, 12);
+  /*
+   * CDXC:SessionChat 2026-10-28 DECISION:
+   * User: "I should always be able to click on the send for the composer in all cases". With the
+   * keyboard open, an attachment and a long draft, the field grew until the footer (model, Send)
+   * sat under the keyboard on Android. The field now takes only the room the screen has left
+   * (`room`, which keeps a strip of the transcript) after the composer's other rows, the card's
+   * attachments and footer and the keyboard's padding, between two lines and `INPUT_MAX_HEIGHT`,
+   * and scrolls the rest of the draft inside itself.
+   */
+  const measured = frame.cardTop >= 0 && frame.content >= 0 && frame.field >= 0;
+  const inputMaxHeight =
+    room === undefined || !measured
+      ? INPUT_MAX_HEIGHT
+      : Math.max(
+          INPUT_MIN_HEIGHT,
+          Math.min(INPUT_MAX_HEIGHT, room - (frame.cardTop + CARD_BORDER * 2 + (frame.content - frame.field) + bottom)),
+        );
 
   return (
     <View ref={anchor} style={[styles.root, { paddingBottom: bottom }]}>
@@ -527,14 +563,20 @@ export function NativeComposer({
         onCancel={() => void dictation.cancel()}
         onRetry={() => void dictation.retry()}
       />
-      <Animated.View style={[styles.card, focused ? styles.cardFocused : null, motion.cardStyle]}>
+      <Animated.View
+        style={[styles.card, focused ? styles.cardFocused : null, motion.cardStyle]}
+        onLayout={(event: LayoutChangeEvent) => measureFrame('cardTop', event.nativeEvent.layout.y)}
+      >
         <Pressable
           accessible={false}
           onPress={() => {
             if (requestedCollapsed) dispatch({ type: 'composerExpand', editor: true });
             field.current?.focus();
           }}
-          onLayout={motion.onContentLayout}
+          onLayout={(event: LayoutChangeEvent) => {
+            motion.onContentLayout(event);
+            if (!collapsed) measureFrame('content', event.nativeEvent.layout.height);
+          }}
           style={[styles.cardBody, collapsed ? styles.cardCollapsed : null]}
         >
           {!collapsed && document !== null ? (
@@ -549,7 +591,12 @@ export function NativeComposer({
           ) : null}
           {document !== null ? <QueueList document={document} dispatch={dispatch} /> : null}
           <View style={collapsed ? styles.collapsedRow : null}>
-            <View style={collapsed ? styles.grow : null}>
+            <View
+              style={collapsed ? styles.grow : null}
+              onLayout={(event: LayoutChangeEvent) => {
+                if (!collapsed) measureFrame('field', event.nativeEvent.layout.height);
+              }}
+            >
               <ComposerInput
                 ref={field}
                 model={model}
@@ -570,7 +617,7 @@ export function NativeComposer({
                 parse={parseDraftReferences}
                 placeholder={placeholder}
                 collapsed={collapsed}
-                maxHeight={INPUT_MAX_HEIGHT}
+                maxHeight={inputMaxHeight}
                 dispatch={dispatch}
                 onTextChange={setText}
                 onCaret={setCaret}
