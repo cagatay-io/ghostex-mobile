@@ -37,7 +37,8 @@ import { useCollapseStore } from '../components/sessions/collapseStore';
 import { useSessionListClock } from '../components/sessions/useSessionListClock';
 import ContextMenu from '../components/sessions/ContextMenu';
 import SessionLinksSheet from '../chat/native/SessionLinksSheet';
-import { buildDrawerList, drawerStatusLine, type DrawerBlock } from '../components/sessions/drawerModel';
+import { buildDrawerList, type DrawerBlock } from '../components/sessions/drawerModel';
+import { drawerStatusLine } from '../components/sessions/drawerStatusLine';
 import { MachinesGlyph, MenuGlyph, SearchGlyph, WorldGlyph } from '../components/sessions/icons';
 import { VoiceButton } from '../voice/VoiceButton';
 import { useVoiceStore, voiceActive } from '../voice/conversation';
@@ -471,7 +472,11 @@ export default function SessionsScreen({ navigation }: Props) {
     return machineNotice(machineDisplayLabel(machine), selectedInventory, tab?.connectionState ?? 'disconnected');
   }, [machine, machineTabs, selectedInventory]);
 
-  const statusLine = statusOverride ?? drawerStatusLine(machine, selectedInventory);
+  const statusLine = statusOverride ?? drawerStatusLine(
+    machine === null ? null : machineDisplayLabel(machine),
+    selectedInventory,
+    selectedNotice,
+  );
   const recentProjects = selectedInventory?.summary?.recentProjects ?? [];
 
   // -------------------------------------------------------------------------

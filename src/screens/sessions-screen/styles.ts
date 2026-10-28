@@ -108,6 +108,8 @@ export const styles = StyleSheet.create({
   statusPressable: {
     flex: 1,
     minWidth: 0,
+    // Keeps the Show logs tap target while the notice says the state and the line is empty.
+    minHeight: 16,
   },
   statusLine: {
     color: GhostexPalette.MUTED,

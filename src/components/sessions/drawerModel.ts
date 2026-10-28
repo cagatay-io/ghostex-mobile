@@ -237,25 +237,3 @@ export function buildDrawerList(input: DrawerListInput): DrawerBlock[] {
     input.selectedSessionKey ?? null,
   );
 }
-
-/** Status line per sessions-drawer.md §5 for the selected machine. */
-export function drawerStatusLine(machine: MachineRecord | null, inventory: MachineInventory | undefined): string {
-  if (machine === null) return StateCardCopy.noMachines.status;
-  const label = machineDisplayLabel(machine);
-  if (inventory === undefined || (!inventory.hasLoaded && inventory.summary === null)) {
-    return StateCardCopy.connecting.status(label);
-  }
-  if (inventory.refreshing && inventory.summary !== null) {
-    return StateCardCopy.connecting.refreshingStatus(label);
-  }
-  if (inventory.lastError !== null) {
-    return StateCardCopy.failure.refreshFailedStatus(inventory.lastError);
-  }
-  if (inventory.summary !== null) {
-    if (inventory.summary.sessions.length === 0 && inventory.summary.projects.length > 0) {
-      return StateCardCopy.success.emptyProjectsStatus;
-    }
-    return StateCardCopy.success.status(label);
-  }
-  return StateCardCopy.initialStatus;
-}
