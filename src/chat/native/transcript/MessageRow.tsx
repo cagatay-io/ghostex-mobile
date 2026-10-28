@@ -159,7 +159,10 @@ function AgentMessage({ message, proseColor }: { message: ProjectedMessage; pros
   const reasoning = message.role === 'reasoning';
   // Inside a turn fold the text owns none of its calls: they follow it at the same level
   // (gx-chat-core `list_tools_in_work_fold`).
-  const hasTools = message.toolsFlat !== true && arr(message.tools).length > 0;
+  // Settings > Chat > Tool call cards: the calls and edits are one card after the text, which owns
+  // none of them (`ToolCard.tsx`).
+  const toolCard = obj(message.toolCard) !== null;
+  const hasTools = message.toolsFlat !== true && !toolCard && arr(message.tools).length > 0;
   const flush = isFlushReply(message, flags.finalIds);
   const toolsKey = reasoning ? `reasoning:${id}` : `tools:${id}`;
   // A running summary turn's newest row opens its tools (gx-chat-core `summary_mode_turns`).
@@ -269,7 +272,7 @@ function AgentMessage({ message, proseColor }: { message: ProjectedMessage; pros
     <View style={styles.message} accessibilityLabel={`${message.role} message: ${body.slice(0, 2000)}`}>
       <ImageRow images={message.images} user={false} />
       {lead}
-      {!hideFileChanges && arr(message.files).length > 0 ? <MessageFiles message={message} /> : null}
+      {!hideFileChanges && !toolCard && arr(message.files).length > 0 ? <MessageFiles message={message} /> : null}
       {!toolsRendered ? <ToolRows message={message} /> : null}
       {/* Inside a turn's work fold the answered cards are hoisted onto the turn instead. */}
       {!inWorkFold ? <QuestionExchangeCards exchanges={message.questions} /> : null}

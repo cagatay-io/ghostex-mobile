@@ -82,6 +82,11 @@ export default function ChatPage() {
         <Caption>
           Show the agent's thinking in grey and its replies in the full text colour, so the two are easy to tell apart.
         </Caption>
+        <SettingToggle settingKey="chatToolCallCards" label="Tool call cards (preview)" />
+        <Caption>
+          Show each run of tool calls as one card: it counts the calls, says what each one is doing and then did, with
+          its result and time, explains a failure, and folds to one line once the agent writes again.
+        </Caption>
         <SettingToggle settingKey="sessionChatVerboseMode" label="Verbose Mode" />
         <Caption>Expands thinking blocks to show their tool calls by default.</Caption>
         <Caption>

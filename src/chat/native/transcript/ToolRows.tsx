@@ -13,6 +13,7 @@ import { subagentOpenAction } from '../cards';
 import { useNativeChatUi, useRowDetail, useTranscriptEnv, useTranscriptFlags } from './context';
 import { DisclosureBody, DisclosureHeading, useFoldPlace } from './Disclosure';
 import { Glyph, toolGlyph } from './icons';
+import { ToolCard } from './ToolCard';
 import { arr, obj, str, type JsonRecord } from './json';
 import { highlightLabel, useRowFind } from './searchHighlight';
 import { useDisclosure } from './state';
@@ -43,6 +44,12 @@ function dimmed(hex: string, alpha: number): string {
  * behind one "N tool calls" heading (desktop `tool_run.rs`).
  */
 export function ToolRows({ message }: { message: ProjectedMessage }) {
+  // Settings > Chat > Tool call cards: the calls and edits are one card (`ToolCard.tsx`).
+  if (obj(message.toolCard) !== null) return <ToolCard message={message} />;
+  return <ToolRunRows message={message} />;
+}
+
+function ToolRunRows({ message }: { message: ProjectedMessage }) {
   const { theme, simple } = useTranscriptEnv();
   const { workflowCards } = useTranscriptFlags();
   const { disclosures } = useNativeChatUi();
@@ -368,7 +375,7 @@ function errorWash(error: string): string {
  * with a long press. A non-empty `copyText` puts the copy button for the whole call on its label row
  * (desktop `tool_run.rs`).
  */
-function ToolBody({
+export function ToolBody({
   label,
   content,
   failed,

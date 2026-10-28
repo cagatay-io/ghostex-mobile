@@ -85,6 +85,8 @@ export type GhostexSettings = {
   sessionChatFileEditPreviews: boolean;
   /** Grey thinking: the agent's thinking in the muted tone, its replies in the full foreground. */
   sessionChatMutedThinking: boolean;
+  /** Tool call cards (preview): a message's tool calls drawn as one card (desktop `chatToolCallCards`). */
+  chatToolCallCards: boolean;
   markedHandoversStyle: MarkedHandoversStyle;
   /** Show the marker emoji in coloured marked sections (desktop `markedHandoversEmoji`, off by default). */
   markedHandoversEmoji: boolean;
@@ -170,6 +172,7 @@ export function defaultSettings(): GhostexSettings {
     sessionLinksFoldedGroups: ['finished', 'removed'],
     sessionChatFileEditPreviews: false,
     sessionChatMutedThinking: false,
+    chatToolCallCards: false,
     markedHandoversStyle: 'labels',
     markedHandoversEmoji: false,
     readAloudVoice: '',
@@ -273,6 +276,7 @@ function sanitizeSettings(value: unknown): GhostexSettings {
     sessionChatTranscriptWidthPercent,
     sessionChatFileEditPreviews: bool('sessionChatFileEditPreviews', defaults.sessionChatFileEditPreviews),
     sessionChatMutedThinking: bool('sessionChatMutedThinking', defaults.sessionChatMutedThinking),
+    chatToolCallCards: bool('chatToolCallCards', defaults.chatToolCallCards),
     sessionChatSimpleMode: bool('sessionChatSimpleMode', defaults.sessionChatSimpleMode),
     sessionChatVerboseMode: bool('sessionChatVerboseMode', defaults.sessionChatVerboseMode),
     sessionLinksFoldedGroups: Array.isArray(record.sessionLinksFoldedGroups)

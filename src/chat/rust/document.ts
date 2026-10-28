@@ -308,6 +308,12 @@ export type ProjectedMessage = {
   toolsFlat?: boolean;
   /** A running summary turn's newest row: its tool calls start open (gx-chat-core `summary_mode_turns` in `transcript/turns.rs`). */
   toolsOpen?: boolean;
+  /** Settings > Chat > Tool call cards: the message's calls and edits as one card (gx-chat-core
+   * `transcript/tool_card.rs`): `{entries, icons, moreIcons, count, running, stopped, title, failed,
+   * failedLabel, time, foldedLabel}`. Absent with the switch off. Phone: `ToolCard.tsx`. */
+  toolCard?: Json;
+  /** The card the agent is still adding to, which stays open (gx-chat-core `live_card_id`). */
+  toolCardLive?: boolean;
   /** A thought of the running turn, drawn as one closed line (gx-chat-core `transcript/thinking_card.rs`):
    * `live` while it is the row being written, `preview` its newest finished line. */
   thinkingCard?: { live: boolean; preview: string };

@@ -37,6 +37,11 @@ export type NativeChatUi = {
    * gx-chat-core `transcript/pictures.rs`); `fallback` is the list it opens on when the core cannot answer.
    */
   openPicture(image: ChatImageSource, fallback: readonly ChatImageSource[], index: number): void;
+  /**
+   * An MCP app's logo for a tool-call card (the core's `toolAppLogo`, gx-chat-core
+   * `transcript/tool_apps.rs`), as SVG text; null until the core answers or for an unknown app.
+   */
+  toolAppLogo(key: string): string | null;
 };
 
 const UiContext = createContext<NativeChatUi | null>(null);
@@ -83,6 +88,10 @@ export function NativeChatUiProvider({ chat, children }: { chat: RustChat; child
       ),
     [],
   );
+  const toolAppLogo = useCallback((key: string): string | null => {
+    const svg = query('toolAppLogo', [key]);
+    return typeof svg === 'string' ? svg : null;
+  }, [query]);
   const openPicture = useCallback((image: ChatImageSource, fallback: readonly ChatImageSource[], index: number) => {
     void queryAsyncRef
       .current('transcriptPictures', [image])
@@ -98,8 +107,8 @@ export function NativeChatUiProvider({ chat, children }: { chat: RustChat; child
       });
   }, []);
   const value = useMemo<NativeChatUi>(
-    () => ({ disclosures, demand, requestImage, renderVisual, renderVisualAsync, openPicture }),
-    [demand, disclosures, requestImage, renderVisual, renderVisualAsync, openPicture],
+    () => ({ disclosures, demand, requestImage, renderVisual, renderVisualAsync, openPicture, toolAppLogo }),
+    [demand, disclosures, requestImage, renderVisual, renderVisualAsync, openPicture, toolAppLogo],
   );
   return <UiContext.Provider value={value}>{children}</UiContext.Provider>;
 }

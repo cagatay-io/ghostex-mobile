@@ -6,6 +6,7 @@
 import type { ChatStorageKey } from './events';
 import { decodeStoredDraft, nextDraftVersion, type StoredDraft } from './host-records';
 import { readRecords, scanRecords, writeRecord } from './storage';
+import { useSettingsStore } from '../../settings/store';
 
 /** `ComposerBootRead` in `packages/gx-chat-core/src/event.rs`. */
 export type ComposerBootRead = {
@@ -16,7 +17,7 @@ export type ComposerBootRead = {
   optionStates: Record<string, unknown>;
   modelOutboxes: Record<string, unknown>;
   modelCatalog: unknown;
-  chatSettings: { hideAccountEmails: boolean; title: string | null };
+  chatSettings: { hideAccountEmails: boolean; title: string | null; toolCards: boolean };
   contextPreferences: {
     claude: unknown;
     codex: unknown;
@@ -194,7 +195,12 @@ export async function readComposerBoot(sessionKey: string, nowMs: number): Promi
     // The phone has no "Hide account emails" setting and no session title lookup, which is the
     // same pair of answers the desktop brain reached through its boot read before that setting
     // existed; both stay the boot read's so a future phone setting lands in one place.
-    chatSettings: { hideAccountEmails: false, title: null },
+    // Settings > Chat > Tool call cards (`chatToolCallCards`) is the phone's own switch.
+    chatSettings: {
+      hideAccountEmails: false,
+      title: null,
+      toolCards: useSettingsStore.getState().settings.chatToolCallCards,
+    },
     contextPreferences: { claude, codex, cursor, hermes, pi, basic },
     dismissedNotice,
     summaryMode,

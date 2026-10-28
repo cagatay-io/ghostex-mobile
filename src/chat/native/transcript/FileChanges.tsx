@@ -27,7 +27,7 @@ function fileRows(files: unknown): JsonRecord[] {
 }
 
 /** The card's hues, the desktop palette's (`file_change_card.rs`). */
-function palette(theme: TranscriptTheme) {
+export function palette(theme: TranscriptTheme) {
   const pick = (dark: string, light: string) => (theme.light ? light : dark);
   return {
     border: theme.light ? theme.border : 'rgba(255,255,255,0.075)',
@@ -48,7 +48,7 @@ function palette(theme: TranscriptTheme) {
     lineNumber: theme.mutedInk(0.5),
   };
 }
-type Palette = ReturnType<typeof palette>;
+export type Palette = ReturnType<typeof palette>;
 
 function statusHue(colors: Palette, status: string): string {
   return status === 'new' ? colors.new : status === 'deleted' ? colors.deleted : colors.edited;
@@ -58,7 +58,7 @@ function statusGlyph(status: string): GlyphName {
   return status === 'new' ? 'file-plus' : status === 'deleted' ? 'file-minus' : 'file-text';
 }
 
-function Counts({ added, removed }: { added: number; removed: number }) {
+export function Counts({ added, removed }: { added: number; removed: number }) {
   const { theme } = useTranscriptEnv();
   return (
     <View style={styles.counts}>
@@ -223,7 +223,7 @@ const FileChangeRow = memo(function FileChangeRow({
 });
 
 /** An open row's diff on its darker well, with the buttons under it. */
-function FileChangeDiff({ rowKey, file, colors }: { rowKey: string; file: JsonRecord; colors: Palette }) {
+export function FileChangeDiff({ rowKey, file, colors }: { rowKey: string; file: JsonRecord; colors: Palette }) {
   const { theme, dispatch } = useTranscriptEnv();
   const { disclosures } = useNativeChatUi();
   const [showAll, toggleAll] = useDisclosure(disclosures, `file-all:${rowKey}`);

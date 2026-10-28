@@ -27,6 +27,7 @@ import {
 import type { MachineConnectionTarget } from '../../machines/credentials';
 import { uploadSessionChatLocalFile } from '../session-chat-helpers';
 import type { UserAction } from './actions';
+import { useSettingsStore } from '../../settings/store';
 import { readComposerBoot } from './boot';
 import { ComposerModel, type ComposerModelState, type SubmitMode } from './composer';
 import { createChatCoreBackend, type ChatCoreBackend } from './core-backend';
@@ -189,6 +190,7 @@ export class RustChatHost {
   private appStateSubscription: NativeEventSubscription | null = null;
   private unsubscribeSessionDirectory: (() => void) | null = null;
   private unsubscribeModelCatalog: (() => void) | null = null;
+  private unsubscribeToolCards: (() => void) | null = null;
   private unregisterReadAloud: (() => void) | null = null;
   /** Session-open timing (`terminal/openTiming.ts`): the phone tab's `${machineId}:${sessionId}`. */
   private readonly openTraceKey: string;
@@ -255,6 +257,15 @@ export class RustChatHost {
     this.unsubscribeSessionDirectory = subscribeSessionDirectory((sessions) =>
       this.enqueue({ type: 'sessionDirectoryChanged', sessions }),
     );
+    // Settings > Chat > Tool call cards is a phone setting: the boot read carries it in
+    // (`boot.ts`), and a change while the chat is open goes in here (gx-chat-core `tool_card.rs`).
+    let toolCards = useSettingsStore.getState().settings.chatToolCallCards;
+    this.unsubscribeToolCards = useSettingsStore.subscribe((store) => {
+      const next = store.settings.chatToolCallCards;
+      if (next === toolCards) return;
+      toolCards = next;
+      this.enqueue({ type: 'settingsChanged', settings: { hideAccountEmails: false, title: this.title, toolCards: next } });
+    });
     // This computer's model lineup, pushed on its chat socket; the `subscribe` effect hands over
     // the one already known.
     this.unsubscribeModelCatalog = chatMachineLink(this.target.machine).onModelCatalog((catalog) =>
@@ -308,6 +319,8 @@ export class RustChatHost {
     this.unsubscribeSessionDirectory = null;
     this.unsubscribeModelCatalog?.();
     this.unsubscribeModelCatalog = null;
+    this.unsubscribeToolCards?.();
+    this.unsubscribeToolCards = null;
     this.unregisterReadAloud?.();
     this.unregisterReadAloud = null;
     this.poll.stop();

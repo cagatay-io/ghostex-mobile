@@ -57,7 +57,11 @@ export type ChatCoreEvent =
    * dismissedNotice, summaryMode, verboseOverride}`). */
   | { type: 'composerBootRead'; read: Record<string, unknown> }
   | { type: 'composerBootFailed'; error: string }
-  | { type: 'settingsChanged'; settings: { hideAccountEmails: boolean; title: string | null } }
+  | {
+      type: 'settingsChanged';
+      /** `toolCards`: Settings > Chat > Tool call cards; left out, the core keeps what it has. */
+      settings: { hideAccountEmails: boolean; title: string | null; toolCards?: boolean };
+    }
   | { type: 'contextPreferencesChanged'; provider: string; preferences: unknown }
   | { type: 'modelCatalogChanged'; catalog: unknown }
   | { type: 'measured'; measurement: ChatMeasurement }
@@ -213,7 +217,9 @@ export type ChatCoreQuery =
   | 'speakableMarkdown'
   | 'transcriptPictures'
   /** `workingCardRows(memo, measured)`: one or two rows for the working card (gx-chat-core `extras/working_card_rows.rs`). */
-  | 'workingCardRows';
+  | 'workingCardRows'
+  /** `toolAppLogo(key)`: an MCP app's logo SVG for a tool-call card (gx-chat-core `transcript/tool_apps.rs`). */
+  | 'toolAppLogo';
 
 export class ChatCoreError extends Error {
   readonly code: string;
