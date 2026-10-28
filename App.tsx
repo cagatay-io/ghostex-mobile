@@ -130,8 +130,7 @@ export default function App() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
-        {/* The chat core's hidden WebView while Settings › Chat › Chat brain is Browser view: 1×1,
-            under the screens, never touched. */}
+        {/* The chat core's hidden WebView, the phone's chat brain: 1×1, under the screens, never touched. */}
         <ChatCoreWebViewHost />
         <NavigationContainer
           ref={navigationRef}

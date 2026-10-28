@@ -106,13 +106,13 @@ function answer(draft: string, markdown: string, kind = 'image'): unknown[] {
 }
 
 describe('createDraftReferenceParser', () => {
-  test('uses the core answer when there is one (the Built-in brain, every time)', () => {
+  test('uses the core answer when there is one', () => {
     const parse = createDraftReferenceParser();
     const draft = `${IMAGE} hi`;
     assert.deepEqual(parse(draft, answer(draft, IMAGE)), [pill(draft, IMAGE)]);
   });
 
-  test('keeps the pill drawn while the Browser view brain has not answered the new draft', () => {
+  test('keeps the pill drawn while the core has not answered the new draft', () => {
     const parse = createDraftReferenceParser();
     let draft = `${IMAGE} `;
     parse(draft, answer(draft, IMAGE));

@@ -9,14 +9,19 @@
  * it (and, with --explain, how many files each input contributed).
  *
  * CDXC:Release 2026-10-23 WHY: an explicit list of git-tracked sources, hashed from disk, instead
- * of Expo's automatic fingerprint. The Rust chat core and the Go tailcat bridge are built from the
- * Ghostex main repo around this submodule and land in gitignored folders (jniLibs, xcframeworks),
- * so the fingerprint would hash whatever build output happens to be on the machine, or nothing.
- * Hashing their sources gives the same answer on the Linux runner that exports the update and the
- * macOS runner that archives the iOS app. Until the chat-core spike decides where the core runs,
- * every core source change is a new runtime version (docs/2026-10-23/mobile-ota/).
+ * of Expo's automatic fingerprint. The Go tailcat bridge is built from the Ghostex main repo around
+ * this submodule and lands in gitignored folders (jniLibs, xcframeworks), so the fingerprint would
+ * hash whatever build output happens to be on the machine, or nothing. Hashing its sources gives
+ * the same answer on the Linux runner that exports the update and the macOS runner that archives
+ * the iOS app.
+ *
+ * CDXC:Release 2026-10-28 WHY: the Rust chat core is not a runtime input. The phone runs it as
+ * WebAssembly in a hidden WebView, from a page Metro bundles like any other asset
+ * (`assets/chat-core/chat-core.html`, built from packages/gx-chat-wasm), so a core change travels
+ * in the over-the-air update. The user chose to remove the native UniFFI core on 2026-10-28
+ * (src/chat/rust/wasm-core/bridge.ts); until then every core change needed a new app.
  * SEE-ALSO: tooling/release-mobile/ota-export.sh, tooling/release-gpui/product-inputs.mjs (the
- * Android product's input list).
+ * Android product's input list, which keeps the core as an input of the bundled page).
  */
 
 const { execFileSync } = require('child_process');
@@ -46,17 +51,8 @@ const APP_PLATFORM = {
   ios: [':(glob)modules/*/ios/**'],
 };
 
-/** Pathspecs in the Ghostex main repo: the Rust chat core and the Go tailcat bridge. */
-const MAIN_SHARED = [
-  'packages/gx-chat-mobile',
-  'packages/gx-chat-json',
-  'packages/gx-chat-core',
-  'packages/gx-protocol',
-  'packages/gx-visual',
-  'apps/mobile/tailcat-bridge',
-  ':(exclude,glob)packages/*/examples/**',
-  ':(exclude,glob)packages/*/tests/**',
-];
+/** Pathspecs in the Ghostex main repo: the Go tailcat bridge. */
+const MAIN_SHARED = ['apps/mobile/tailcat-bridge'];
 
 function trackedFiles(root, pathspecs) {
   const output = execFileSync('git', ['-C', root, 'ls-files', '-z', '--', ...pathspecs], {
@@ -73,9 +69,9 @@ function fileDigest(file) {
 }
 
 function assertMainRepo() {
-  if (!fs.existsSync(path.join(MAIN_ROOT, 'packages/gx-chat-core/Cargo.toml'))) {
+  if (!fs.existsSync(path.join(MAIN_ROOT, 'apps/mobile/tailcat-bridge/go.mod'))) {
     throw new Error(
-      `The OTA runtime version hashes the Rust chat core, but ${MAIN_ROOT} is not the Ghostex main repo. ` +
+      `The OTA runtime version hashes the tailcat bridge, but ${MAIN_ROOT} is not the Ghostex main repo. ` +
         'Release builds and update exports run from the main repo with this app checked out at apps/mobile/app.',
     );
   }

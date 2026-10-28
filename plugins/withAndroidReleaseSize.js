@@ -15,10 +15,9 @@
  * tables (lowmcL1/L3/L5.bin.properties, 1.2 MB in the APK). Only a Picnic signature
  * reads them; sshj and the replaced "BC" provider never ask for Picnic.
  *
- * The keep rules for the libraries our own modules link (JNA/UniFFI, sshj,
- * BouncyCastle, the gomobile bridge) are consumer rules of
- * those modules (modules/ghostex-native and modules/gx-chat-core,
- * android/proguard-rules.pro). React Native, Expo modules, ML Kit and Play
+ * The keep rules for the libraries our own module links (sshj, BouncyCastle,
+ * the gomobile bridge) are consumer rules of that module
+ * (modules/ghostex-native/android/proguard-rules.pro). React Native, Expo modules, ML Kit and Play
  * services ship their own consumer rules; this plugin adds only the app-level
  * rules for libraries whose rules are not wired as consumer files.
  */

@@ -190,9 +190,9 @@ export function NativeComposer({
     [chat.onViewRequest],
   );
 
-  // Pills: the core parses the draft (`composerReferences`). The Built-in brain answers in the same
-  // turn the text changes; until the Browser view brain's answer arrives, the last pills carry over
-  // the edit (`rebaseReferences`), so typing never unfolds them.
+  // Pills: the core parses the draft (`composerReferences`) and answers a moment after the text
+  // changes; until it does, the last pills carry over the edit (`rebaseReferences`), so typing never
+  // unfolds them.
   const [draftParser] = useState(createDraftReferenceParser);
   const parseDraftReferences = useCallback(
     (draft: string) => draftParser(draft, chat.query('composerReferences', [draft])),

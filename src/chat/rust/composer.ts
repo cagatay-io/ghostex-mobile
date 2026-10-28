@@ -162,10 +162,14 @@ export class ComposerModel {
   init(read: { clientId?: unknown; entry?: unknown }, sessionId: string): void {
     const entry = (read.entry ?? {}) as { text?: unknown; parked?: unknown; submitted?: unknown; version?: unknown };
     const version = (entry.version ?? {}) as { draftId?: unknown; revision?: unknown };
-    const typedBeforeReady = this.state.revision > 0 ? this.state.text : null;
+    // A core that restarted (its page crashed or reloaded) finds the field already ready: what it
+    // shows is the draft, however far the last save got, and adding it to the restored copy doubled
+    // it. Only text typed before the first boot read answered goes after the restored draft.
+    const restarted = this.state.ready;
+    const typedBeforeReady = !restarted && this.state.revision > 0 ? this.state.text : null;
     const restored =
       entry.parked === true || entry.submitted === true ? '' : typeof entry.text === 'string' ? entry.text : '';
-    const text = typedBeforeReady === null ? restored : `${restored}${typedBeforeReady}`;
+    const text = restarted ? this.state.text : typedBeforeReady === null ? restored : `${restored}${typedBeforeReady}`;
     this.set({
       clientId: typeof read.clientId === 'string' ? read.clientId : '',
       draftId: typeof version.draftId === 'string' ? version.draftId : nextDraftVersion().draftId,
@@ -175,7 +179,8 @@ export class ComposerModel {
       caret: null,
       replaceSequence: text === this.state.text ? this.state.replaceSequence : this.state.replaceSequence + 1,
     });
-    if (typedBeforeReady !== null) {
+    // The new core gets what the field shows when it is not what the store held.
+    if (typedBeforeReady !== null || (restarted && text !== restored)) {
       this.set({ revision: this.state.revision + 1 });
       this.persist();
       this.save();
