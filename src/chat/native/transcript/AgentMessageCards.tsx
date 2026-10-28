@@ -136,7 +136,7 @@ const AgentCard = memo(function AgentCard({
             <Text style={[SINGLE_LINE_TITLE, { color: theme.foreground }]} numberOfLines={1}>
               {str(pill, 'prefix')}
             </Text>
-            <SessionPill pill={pill} />
+            <SessionPill pill={pill} textStyle={[SINGLE_LINE_TITLE, { color: theme.foreground }]} />
           </View>
         ) : (
           <Text style={[SINGLE_LINE_TITLE, styles.name, { color: theme.foreground }]} numberOfLines={1}>
@@ -194,7 +194,10 @@ const AgentCard = memo(function AgentCard({
                     <Mark card={recipient} />
                     {obj(recipient.pill) !== null ? (
                       <View style={styles.recipientName}>
-                        <SessionPill pill={obj(recipient.pill) ?? {}} />
+                        <SessionPill
+                          pill={obj(recipient.pill) ?? {}}
+                          textStyle={[styles.recipientText, { color: theme.foreground }]}
+                        />
                       </View>
                     ) : (
                       <Text style={[styles.recipientName, { color: theme.foreground }]} numberOfLines={1}>
@@ -294,7 +297,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   name: { flex: 1, minWidth: 0 },
-  pillTitle: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  // An ordinary word space between `Message to` and the session's name.
+  pillTitle: { flexDirection: 'row', alignItems: 'center', gap: Math.round(SINGLE_LINE_CARD.titleSize * 0.27) },
   small: { fontSize: 12, lineHeight: 16 },
   opened: { borderTopWidth: 1, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10, gap: 6 },
   goto: {
@@ -320,6 +324,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   recipientName: { flexShrink: 1, minWidth: 0, fontSize: 13 },
+  recipientText: { fontSize: 13 },
   failure: {
     flexDirection: 'row',
     flexWrap: 'wrap',

@@ -3,13 +3,13 @@
  * decision lives): a hairline rounded frame around the agent's logo and the session's title, the
  * same look desktop draws (`session_pill_link` in markdown_links.rs). A card's pill (the core marks
  * it `logo: false`) sits beside the card's own agent tile, leaves the logo to it
- * (CDXC:SessionChat 2026-10-28 on `card_pill`) and draws as a session reference in the chat box:
- * no frame, the title in the reference colour (CDXC:SessionChat 2026-10-28 on desktop
- * `session_pill` in inter_agent_message.rs). A tap switches to that session; a session that is gone
+ * (CDXC:SessionChat 2026-10-28 on `card_pill`) and reads as part of the card's title: no frame,
+ * the line's own type and colour (`textStyle`), a fill only while pressed (CDXC:SessionChat
+ * 2026-10-29 DECISION on desktop `session_pill` in inter_agent_message.rs). A tap switches to that session; a session that is gone
  * draws muted and does nothing.
  */
 
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type StyleProp, type TextStyle } from 'react-native';
 
 import { CoordinatorGlyph } from '../../../components/sessions/icons';
 import { SidebarPalette } from '../../../theme/palette';
@@ -17,16 +17,26 @@ import { AgentMark } from '../cards/agentMark';
 import { useTranscriptEnv } from './context';
 import { obj, str, type JsonRecord } from './json';
 
+/** How far a card name's pressed fill reaches past the name (desktop `CARD_PILL_PAD`). */
+const CARD_PILL_PAD = 3;
+
 export function SessionPill({
   pill,
   onOpen,
   onLongPress,
+  textStyle,
 }: {
   /** The card's `pill`, or a `session` reference: `label`, `agentIcon`, `coordinator`, `missing`, `logo`. */
   pill: JsonRecord;
   /** A mention link opens through the core like any link; a card's pill names its session. */
   onOpen?: () => void;
   onLongPress?: () => void;
+  /**
+   * A card's session name: the type and colour of the words before it (`Message to`), so the two
+   * read as one title (CDXC:SessionChat 2026-10-29 DECISION on desktop `session_pill` in
+   * inter_agent_message.rs).
+   */
+  textStyle?: StyleProp<TextStyle>;
 }) {
   const { theme, dispatch } = useTranscriptEnv();
   const missing = pill.missing === true;
@@ -68,17 +78,11 @@ export function SessionPill({
         </View>
       ) : null}
       <Text
-        style={[
-          styles.label,
-          !showsLogo && styles.cardLabel,
-          {
-            color: missing
-              ? theme.cardMuted
-              : showsLogo
-                ? theme.foreground
-                : (theme.reference.session ?? theme.foreground),
-          },
-        ]}
+        style={
+          showsLogo
+            ? [styles.label, { color: missing ? theme.cardMuted : theme.foreground }]
+            : [styles.cardLabel, textStyle, missing ? { color: theme.cardMuted } : null]
+        }
         numberOfLines={1}
       >
         {str(pill, 'label')}
@@ -100,8 +104,9 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth * 2,
   },
-  cardPill: { paddingHorizontal: 4, borderWidth: 0, borderRadius: 5 },
-  cardLabel: { fontSize: 13 },
+  // The fill reaches past the name on each side and the margin takes it back: no space at rest.
+  cardPill: { paddingHorizontal: CARD_PILL_PAD, marginHorizontal: -CARD_PILL_PAD, height: 'auto', borderWidth: 0, borderRadius: 5 },
+  cardLabel: { flexShrink: 1 },
   faded: { opacity: 0.45 },
   label: { fontSize: 12.5, lineHeight: 16, fontWeight: '500', flexShrink: 1 },
 });
