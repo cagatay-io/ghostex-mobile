@@ -2,12 +2,18 @@
  * The Accounts & limits panel (More actions > Switch Account), drawn from the document's
  * `accountPanel` the way desktop's `option_menu/accounts.rs` draws it: the current login with its
  * usage meters, the accounts the session can switch to, and the keep-going policy.
+ *
+ * CDXC:AgentProviders 2026-10-28 DECISION: User: "this menu is too huge please make it smaller".
+ * Each account is a name line over one row of compact 5h / 7d / Fable columns, and the context is
+ * one line. A phone has no hover, so the current account's columns keep their reset countdown in
+ * small text under the bar; the switch rows drop it to stay short.
  */
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { AGENT_ICONS } from '../../../assets/agentIcons.generated';
+import { contextText, usageColumns, usageLines } from './accountUsage';
 import { Glyph } from './icons';
 import { arr, isTrue, num, obj, str, type JsonRecord } from './json';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
@@ -97,7 +103,7 @@ function SessionBlocks({
   const styles = useStyles();
   const P = useTranscriptTheme();
   const recovery = obj(session.recovery);
-  const usage = arr(session.usage);
+  const usage = usageColumns(session.usage);
   const context = obj(session.context);
   const policyState = obj(session.policy);
   const policy = obj(policyState?.value);
@@ -121,41 +127,26 @@ function SessionBlocks({
           />
         </View>
       ) : null}
-      <View style={styles.current}>
-        {obj(session.current) !== null ? <Identity value={obj(session.current)!} /> : null}
-        <View style={styles.grow}>
-          <Text style={styles.strong} numberOfLines={1}>
-            {str(session, 'name')}
-          </Text>
-          {email.length > 0 ? (
-            <Text style={styles.paragraph} numberOfLines={1}>
-              {email}
-            </Text>
-          ) : null}
-        </View>
-      </View>
+      <NameLine account={obj(session.current)} name={str(session, 'name')} email={email} />
       {usageError.length > 0 ? <Text style={styles.paragraph}>{usageError}</Text> : null}
-      {usage.length === 0 ? <Text style={styles.paragraph}>Usage is unavailable for this login.</Text> : null}
-      {usage.map((window, index) => (
-        <Meter
-          key={index}
-          label={str(window, 'label')}
-          percent={num(window, 'percent') ?? 0}
-          left={str(window, 'reset')}
-        />
-      ))}
+      {usage.length === 0 ? (
+        <Text style={styles.paragraph}>Usage is unavailable for this login.</Text>
+      ) : (
+        <UsageRow session={session} resets />
+      )}
       {context !== null ? (
-        <Meter
-          label="Conversation context"
-          percent={num(context, 'percent') ?? 0}
-          left={str(context, 'value')}
-          right={str(context, 'tokens')}
-        />
+        <View style={styles.contextLine}>
+          <Text style={styles.columnLabel}>Context</Text>
+          <View style={[styles.track, styles.grow]}>
+            <View style={[styles.fill, { width: `${Math.min(100, Math.max(0, num(context, 'percent') ?? 0))}%` }]} />
+          </View>
+          <Text style={styles.columnLabel}>{contextText(context)}</Text>
+        </View>
       ) : null}
       <Text style={styles.sectionHeading}>{str(session, 'switchHeading')}</Text>
       {arr(session.others).map((row, index) => {
         const ready = isTrue(row, 'ready');
-        const detail = str(row, 'detail');
+        const rowError = str(row, 'usageError');
         const record = obj(row) ?? {};
         return (
           <Pressable
@@ -173,18 +164,16 @@ function SessionBlocks({
             }
             style={({ pressed }) => [styles.account, pressed ? styles.pressed : null, busy ? styles.dim : null]}
           >
-            <Identity value={record} />
-            <View style={styles.grow}>
-              <Text style={styles.accountName} numberOfLines={1}>
-                {str(row, 'name')}
+            <NameLine account={record} name={str(row, 'name')} email={str(row, 'email')}>
+              <Text style={styles.accountAction}>{str(row, 'action')}</Text>
+            </NameLine>
+            {rowError.length > 0 ? (
+              <Text style={styles.paragraph} numberOfLines={1}>
+                {rowError}
               </Text>
-              {detail.length > 0 ? (
-                <Text style={styles.paragraph} numberOfLines={1}>
-                  {detail}
-                </Text>
-              ) : null}
-            </View>
-            <Text style={styles.accountAction}>{str(row, 'action')}</Text>
+            ) : (
+              <UsageRow session={record} resets={false} />
+            )}
           </Pressable>
         );
       })}
@@ -288,38 +277,78 @@ function SessionBlocks({
   );
 }
 
-function Identity({ value }: { value: JsonRecord }) {
+/** The account's name line: logo, bold name, the muted email, then any trailing control. */
+function NameLine({
+  account,
+  name,
+  email,
+  children,
+}: {
+  account: JsonRecord | null;
+  name: string;
+  email: string;
+  children?: ReactNode;
+}) {
   const styles = useStyles();
   const P = useTranscriptTheme();
-  const provider = str(value, 'provider') || 'claude';
-  const Icon = AGENT_ICONS[provider];
-  const figures = arr(value.figures).filter((figure): figure is string => typeof figure === 'string');
+  const provider = str(account, 'provider') || 'claude';
+  const Icon = account !== null ? AGENT_ICONS[provider] : undefined;
   return (
-    <View style={styles.identity}>
-      {Icon !== undefined ? <Icon size={21} color={P.foreground} /> : null}
-      <View>
-        {figures.map((figure, index) => (
-          <Text key={index} style={[styles.figure, index > 0 ? styles.figureDim : null]}>
-            {figure}
-          </Text>
-        ))}
-      </View>
+    <View style={styles.nameLine}>
+      {Icon !== undefined ? <Icon size={16} color={P.foreground} /> : null}
+      <Text style={styles.name} numberOfLines={1}>
+        {name}
+      </Text>
+      {email.length > 0 ? (
+        <Text style={[styles.email, styles.grow]} numberOfLines={1}>
+          {email}
+        </Text>
+      ) : (
+        <View style={styles.grow} />
+      )}
+      {children}
     </View>
   );
 }
 
-function Meter({ label, percent, left, right }: { label: string; percent: number; left: string; right?: string }) {
+/** The account's limits: label and percent over a thin bar, three columns a line. */
+function UsageRow({ session, resets }: { session: JsonRecord; resets: boolean }) {
   const styles = useStyles();
+  const lines = usageLines(usageColumns(session.usage));
+  if (lines.length === 0) return null;
   return (
-    <View style={styles.meter}>
-      <Text style={styles.meterLabel}>{label}</Text>
-      <View style={styles.track}>
-        <View style={[styles.fill, { width: `${Math.min(100, Math.max(0, percent))}%` }]} />
-      </View>
-      <View style={styles.header}>
-        <Text style={styles.paragraph}>{left}</Text>
-        {right !== undefined ? <Text style={styles.paragraph}>{right}</Text> : null}
-      </View>
+    <View style={styles.usage}>
+      {lines.map((line, lineIndex) => (
+        <View key={lineIndex} style={styles.usageLine}>
+          {line.map((column, index) =>
+            column === null ? (
+              <View key={index} style={styles.column} />
+            ) : (
+              <View
+                key={index}
+                style={styles.column}
+                accessible
+                accessibilityLabel={`${column.name} ${column.value}${column.resetIn ? `, resets in ${column.resetIn}` : ''}`}
+              >
+                <View style={styles.columnHead}>
+                  <Text style={styles.columnLabel} numberOfLines={1}>
+                    {column.name}
+                  </Text>
+                  <Text style={styles.columnValue}>{column.value}</Text>
+                </View>
+                <View style={styles.track}>
+                  <View style={[styles.fill, { width: `${column.percent}%` }]} />
+                </View>
+                {resets && column.resetIn.length > 0 ? (
+                  <Text style={styles.columnReset} numberOfLines={1}>
+                    {`↻ ${column.resetIn}`}
+                  </Text>
+                ) : null}
+              </View>
+            ),
+          )}
+        </View>
+      ))}
     </View>
   );
 }
@@ -373,7 +402,7 @@ function FilledButton({
 }
 
 const useStyles = themedStyles((P) => ({
-  panel: { gap: 12, paddingTop: 4 },
+  panel: { gap: 8, paddingTop: 4 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   headerTitle: { color: P.foreground, fontSize: 16, fontWeight: '600' },
   iconButton: { width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
@@ -382,17 +411,12 @@ const useStyles = themedStyles((P) => ({
   alert: { gap: 8, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: P.menuBorder },
   strong: { color: P.foreground, fontSize: 14, fontWeight: '600' },
   paragraph: { color: P.muted, fontSize: 13, lineHeight: 18 },
-  current: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   grow: { flex: 1, minWidth: 0 },
   sectionHeading: { color: P.muted, fontSize: 12, fontWeight: '600', marginTop: 4 },
-  account: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-    borderRadius: 10,
-  },
+  account: { gap: 5, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 10 },
+  nameLine: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 20 },
+  name: { color: P.foreground, fontSize: 14, fontWeight: '600', flexShrink: 1 },
+  email: { color: P.muted, fontSize: 12 },
   accountName: { color: P.foreground, fontSize: 14 },
   accountAction: { color: P.primary, fontSize: 13 },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: P.menuBorder },
@@ -426,13 +450,16 @@ const useStyles = themedStyles((P) => ({
     paddingHorizontal: 8,
     borderRadius: 8,
   },
-  identity: { flexDirection: 'row', alignItems: 'center', gap: 7, minWidth: 40 },
-  figure: { color: P.foreground, fontFamily: 'Menlo', fontSize: 10, lineHeight: 13 },
-  figureDim: { opacity: 0.6 },
-  meter: { gap: 6 },
-  meterLabel: { color: P.foreground, fontSize: 13 },
-  track: { height: 6, borderRadius: 3, overflow: 'hidden', backgroundColor: P.meterTrack },
-  fill: { height: '100%', borderRadius: 3, backgroundColor: P.meterFill },
+  usage: { gap: 6 },
+  usageLine: { flexDirection: 'row', gap: 14 },
+  column: { flex: 1, minWidth: 0, gap: 4 },
+  columnHead: { flexDirection: 'row', justifyContent: 'space-between', gap: 6 },
+  columnLabel: { color: P.muted, fontSize: 12, lineHeight: 15, fontWeight: '500', flexShrink: 1 },
+  columnValue: { color: P.foreground, fontSize: 12, lineHeight: 15, fontWeight: '600' },
+  columnReset: { color: P.muted, fontSize: 10, lineHeight: 12 },
+  contextLine: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  track: { height: 3, borderRadius: 2, overflow: 'hidden', backgroundColor: P.meterTrack },
+  fill: { height: '100%', borderRadius: 2, backgroundColor: P.meterFill },
   filledWide: { height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   filled: { backgroundColor: P.neutralFill },
   filledPressed: { backgroundColor: P.neutralFillPressed },
