@@ -298,11 +298,6 @@ function QuestionsSection({
                 >
                   {row.title}
                 </Text>
-                {row.tags.length > 0 ? (
-                  <Text numberOfLines={1} style={styles.questionsMeta}>
-                    {row.tags.join(' ')}
-                  </Text>
-                ) : null}
                 {row.time.length > 0 ? <Text style={styles.questionsMeta}>{row.time}</Text> : null}
               </Pressable>
             );
