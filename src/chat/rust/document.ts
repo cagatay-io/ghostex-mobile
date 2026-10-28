@@ -754,8 +754,10 @@ export type OpenQuestionsState = {
   jump: { revision: number; item: number; target: string; question?: string | null } | null;
   /** Every form and question page in the list; the pill shows while this is above zero. */
   total?: number;
-  /** The forms and pages the ? pill steps through; it shows while this is above zero. */
+  /** Every question form and page in the chat, answered or not; the ? pill shows while this is above zero. */
   questionTotal?: number;
+  /** The questions a tap on the ? pill steps through (those still waiting); zero opens the Resources list. */
+  steps?: number;
   /** The list's header detail: "2 unanswered · 1 for later". */
   summary?: string;
   /** The ? pill's list for the picked filter, in order, each only when it has rows (newest first). */

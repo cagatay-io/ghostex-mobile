@@ -34,6 +34,11 @@
  * glyph) and the ? pill only steps through the questions (`previousQuestion`); the user's words are on
  * gx-chat-core questions/open_questions.rs. Rows say how long ago (`questionAge.ts`) and offer a For
  * later / Back to open button (`laterAction`).
+ *
+ * CDXC:SessionChat 2026-10-28 SEE-ALSO:
+ * The ? pill steps only through the questions still waiting (the core's `steps`); with none waiting a
+ * tap opens the Resources sheet and never jumps to an answered one (`WorkingCard.tsx`). The user's
+ * words are on gx-chat-core questions/open_questions.rs.
  */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
