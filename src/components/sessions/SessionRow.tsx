@@ -631,16 +631,7 @@ export default function SessionRow({
           session.agentbox !== undefined ||
           session.claudeCloud !== undefined ? (
             <View style={styles.trailing}>
-              {/* sessions.rs: the crew badge, the voice headset, the box, the cloud and the links badge, then the status. */}
-              {coordinatorBadge !== undefined ? <CoordinatorBadgeView badge={coordinatorBadge} /> : null}
-              {voiceCall ? <VoiceCallBadge /> : null}
-              {session.agentbox !== undefined ? <AgentboxBadge agentbox={session.agentbox} /> : null}
-              {/* A Claude cloud session: the desktop's plain 12dp muted cloud before the status (claudeCloud.ts). */}
-              {session.claudeCloud !== undefined ? (
-                <View accessible accessibilityLabel={SessionCopy.claudeCloud}>
-                  <CloudGlyph size={ds(12)} color={SidebarPalette.MUTED} />
-                </View>
-              ) : null}
+              {/* sessions.rs: the links badge, the crew badge, the voice headset, the box and the cloud, then the status (CDXC:Sidebar 2026-10-29: the user swapped the links badge before the crew badge). */}
               {linksBadge !== null ? (
                 <View
                   accessible
@@ -672,6 +663,15 @@ export default function SessionRow({
                       {`+${linksBadge.more}`}
                     </Text>
                   ) : null}
+                </View>
+              ) : null}
+              {coordinatorBadge !== undefined ? <CoordinatorBadgeView badge={coordinatorBadge} /> : null}
+              {voiceCall ? <VoiceCallBadge /> : null}
+              {session.agentbox !== undefined ? <AgentboxBadge agentbox={session.agentbox} /> : null}
+              {/* A Claude cloud session: the desktop's plain 12dp muted cloud before the status (claudeCloud.ts). */}
+              {session.claudeCloud !== undefined ? (
+                <View accessible accessibilityLabel={SessionCopy.claudeCloud}>
+                  <CloudGlyph size={ds(12)} color={SidebarPalette.MUTED} />
                 </View>
               ) : null}
               {question ? (
