@@ -196,8 +196,19 @@ export function NoticeCard({
       </ScrollView>,
     );
   } else if (answerable) {
-    const shown = collapsed ? (num(notice, 'collapsedChoiceCount') ?? 2) : choices.length;
-    const labels = choices.slice(0, shown).map((choice) => str(choice, collapsed ? 'collapsedLabel' : 'label'));
+    /*
+     * CDXC:SessionChat 2026-10-28 DECISION: a folded card shows the rows the chat core names in `collapsedChoices` (the Cmd+Enter
+     * row and the No, Q706), so a permission prompt folds to Yes and No; each row keeps its own answer. A native core from before
+     * that field (an over-the-air update on an older build) still sends `collapsedChoiceCount`, the first rows.
+     * SEE-ALSO: packages/gx-chat-core/src/questions/notice_choices.rs (collapsed_choice_positions)
+     */
+    const positions = Array.isArray(notice.collapsedChoices) ? notice.collapsedChoices : null;
+    const shownChoices = !collapsed
+      ? choices
+      : positions !== null
+        ? positions.flatMap((position) => (typeof position === 'number' && choices[position] !== undefined ? [choices[position]] : []))
+        : choices.slice(0, num(notice, 'collapsedChoiceCount') ?? 2);
+    const labels = shownChoices.map((choice) => str(choice, collapsed ? 'collapsedLabel' : 'label'));
     /*
      * CDXC:SessionChat 2026-09-27 DECISION: User: when a notice card's choices do not fit side by side, "make buttons appear full
      * width and on top of each other", for every card like the model switch confirmation. Each collapsed button starts at the width
@@ -234,7 +245,7 @@ export function NoticeCard({
               />
             ))
           : null}
-        {choices.slice(0, shown).map((choice, index) => (
+        {shownChoices.map((choice, index) => (
           <View key={`${num(choice, 'index') ?? index}`} style={choiceStyle}>
             {/* CDXC:SessionChat 2026-09-26 DECISION: User: a notice card's choice must never wrap onto 2 lines; truncate it with "..." and show the whole label on hover. The phone has no hover, so pressing and holding shows it. SEE-ALSO: apps/desktop/src/app/native_chat/notice.rs */}
             <ChoiceRow
