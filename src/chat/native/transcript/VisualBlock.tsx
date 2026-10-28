@@ -25,7 +25,7 @@ import { MONO_FONT, type TranscriptTheme } from './theme';
 const PADDING = 12;
 /** `packages/gx-chat-core/visual/chart-motion.json`: how long a chart takes to draw in. */
 const DRAW_IN_MS = 1000;
-/** Frames the Browser view brain lays out ahead for a draw-in, played back by time. */
+/** Frames the core lays out ahead for a draw-in, played back by time. */
 const DRAW_IN_FRAMES = 24;
 /** Draw-in frames that arrive later than this would read as a glitch: the chart stays finished. */
 const DRAW_IN_LATE_MS = 250;
@@ -117,7 +117,7 @@ export function VisualBlock({ source }: { source: string }) {
   const reduceMotion = useReducedMotion();
   const moves = kind === 'drawing' && answer?.motion === true;
   const [frame, setFrame] = useState<string | null>(null);
-  // Read through a ref: `ui` changes whenever a late Browser view answer arrives, and that must not
+  // Read through a ref: `ui` changes whenever a late core answer arrives, and that must not
   // end a draw-in that is running.
   const uiRef = useRef(ui);
   uiRef.current = ui;
@@ -141,20 +141,15 @@ export function VisualBlock({ source }: { source: string }) {
       };
       step();
     };
-    // The Built-in brain lays each animation frame out in the same turn. The Browser view brain
-    // answers a moment later, so its frames are asked for together and played back by time.
-    if (current.renderVisual(source, width, scheme, 0) !== null) {
-      play((progress) => str(current.renderVisual(source, width, scheme, progress), 'svg') || null);
-    } else {
-      const steps = Array.from({ length: DRAW_IN_FRAMES }, (_, index) => index / DRAW_IN_FRAMES);
-      void Promise.all(steps.map((progress) => current.renderVisualAsync(source, width, scheme, progress))).then(
-        (answers) => {
-          if (cancelled || Date.now() - started > DRAW_IN_LATE_MS) return;
-          const frames = answers.map((answer) => str(answer, 'svg') || null);
-          play((progress) => frames[Math.min(frames.length - 1, Math.floor(progress * frames.length))] ?? null);
-        },
-      );
-    }
+    // The core answers a moment later, so the frames are asked for together and played back by time.
+    const steps = Array.from({ length: DRAW_IN_FRAMES }, (_, index) => index / DRAW_IN_FRAMES);
+    void Promise.all(steps.map((progress) => current.renderVisualAsync(source, width, scheme, progress))).then(
+      (answers) => {
+        if (cancelled || Date.now() - started > DRAW_IN_LATE_MS) return;
+        const frames = answers.map((answer) => str(answer, 'svg') || null);
+        play((progress) => frames[Math.min(frames.length - 1, Math.floor(progress * frames.length))] ?? null);
+      },
+    );
     return () => {
       cancelled = true;
       cancelAnimationFrame(request);

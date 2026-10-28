@@ -19,7 +19,7 @@
 import { AppRegistry } from 'react-native';
 
 import { GhostexNative, type SpeechEvent, type SpeechVoices } from '../../modules/ghostex-native/src';
-import type { ChatReadAloudEvent, ChatSpeechSegment } from '../../modules/gx-chat-core/src';
+import type { ChatReadAloudEvent, ChatSpeechSegment } from '../chat/rust/core-types';
 import { chatMachineLink, keepChatLinkInBackground } from '../chat/rust/machine-link';
 import { useInventoryStore } from '../inventory/store';
 import type { MachineConnectionTarget } from '../machines/credentials';

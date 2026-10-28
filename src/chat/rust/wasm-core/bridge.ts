@@ -1,7 +1,7 @@
 /**
  * The bridge to the chat core's hidden WebView: one page (`assets/chat-core/chat-core.html`, built
  * by `cargo xtask build-mobile-chat-wasm` in the main repo) holds the Rust chat core as
- * WebAssembly, and every chat that runs the "Browser view" brain calls it through here.
+ * WebAssembly, and every chat calls it through here.
  *
  * Requests go in through `GhostexNative.postToWebView` (evaluated on the UI thread at once, not on
  * the next frame), answers come back through react-native-webview's `onMessage`. The protocol is
@@ -12,15 +12,20 @@
  * docs/2026-10-23/mobile-ota/: the phone runs the same Rust chat core as WebAssembly in one hidden
  * WebView, shipped in the over-the-air update, so chat-core changes reach phones without a new
  * app. It supersedes the 2026-09-21 DECISION that the phone runs the core through UniFFI
- * (packages/gx-chat-mobile/Cargo.toml); the native views are unchanged. One app release carries
- * both brains behind Settings › Chat › Chat brain, Built-in by default, and the built-in one
- * leaves in the release after (Q27).
+ * (packages/gx-chat-mobile); the native views are unchanged.
+ *
+ * CDXC:SessionChat 2026-10-28 DECISION:
+ * The user tried the Browser view brain on a real phone ("Yes, it feels fine") and chose "Remove
+ * the native core now", with no fallback. The 2026-10-23 release carried both brains behind a
+ * Settings switch; the built-in UniFFI core (`modules/gx-chat-core`, `packages/gx-chat-mobile`)
+ * and the switch are gone, so this WebView is the phone's only chat brain and the OTA runtime
+ * version no longer hashes the Rust core (`scripts/ota-runtime-version.js`).
  * SEE-ALSO: ChatCoreWebView.tsx (the WebView), wasmChatCore.ts (one chat's core over this bridge),
- * ../core-backend.ts (the interface both brains implement), modules/ghostex-native
+ * ../core-backend.ts (the interface the host drives), ../core-types.ts (the JSON), modules/ghostex-native
  * GhostexWebViewPost (Kotlin and Swift).
  */
 
-import { ChatCoreError } from '../../../../modules/gx-chat-core/src';
+import { ChatCoreError } from '../core-types';
 import { GhostexNative } from '../../../../modules/ghostex-native/src';
 
 /** One request the page answers (`{id, op, handle?, args?}` in the page's protocol). */
@@ -65,11 +70,11 @@ class WasmCoreBridge {
     this.pageReady = false;
   }
 
-  /** The WebView unmounted (the brain was switched back to Built-in): every core in it is gone. */
+  /** The WebView unmounted (a reload remounts it): every core in it is gone. */
   unmounted(): void {
     this.phase = 'unmounted';
     this.viewTag = null;
-    this.lose('The chat brain was switched.');
+    this.lose('The chat core page was closed.');
   }
 
   /** The page finished loading; this is the view tag `postToWebView` finds it by. */
@@ -140,13 +145,15 @@ class WasmCoreBridge {
     if (this.phase === 'failed') {
       return Promise.reject(new ChatCoreError('unavailable', this.failure ?? 'The chat core could not start.'));
     }
-    if (this.phase === 'unmounted') {
-      return Promise.reject(new ChatCoreError('unavailable', 'The Browser view chat brain is not running.'));
-    }
     if (this.readyTimer === null) {
+      // A slow start turns away the chats waiting now but leaves the page loading, so the next chat
+      // that opens gets it once it is up. Android holds the page back while the app is in the
+      // background, and this timer fires the moment the app returns; failing for good there left
+      // every chat broken until the app was restarted, with no other brain to switch to.
       this.readyTimer = setTimeout(() => {
         this.readyTimer = null;
-        if (this.phase !== 'ready') this.fail('The chat core did not start in time.');
+        if (this.phase !== 'ready')
+          this.rejectWaiting(new ChatCoreError('unavailable', 'The chat core did not start in time.'));
       }, READY_TIMEOUT_MS);
     }
     return new Promise((resolve, reject) => {
@@ -154,7 +161,7 @@ class WasmCoreBridge {
     });
   }
 
-  /** Every core in the page is gone (crash, reload, switch): the chats rebuild. */
+  /** Every core in the page is gone (crash, reload): the chats rebuild. */
   onLost(listener: () => void): () => void {
     this.lostListeners.add(listener);
     return () => {

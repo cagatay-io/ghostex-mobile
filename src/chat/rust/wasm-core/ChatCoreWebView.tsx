@@ -1,7 +1,6 @@
 /**
- * The chat core's hidden WebView, mounted once at the app's root while Settings › Chat › Chat brain
- * is "Browser view". It loads the page that carries the Rust chat core as WebAssembly and hands
- * everything the page posts to {@link wasmCoreBridge}. Nothing in it is ever drawn: it is a 1×1
+ * The chat core's hidden WebView, mounted once at the app's root. It loads the page that carries
+ * the Rust chat core as WebAssembly and hands everything the page posts to {@link wasmCoreBridge}. Nothing in it is ever drawn: it is a 1×1
  * view behind the app.
  */
 
@@ -10,22 +9,14 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
-import { useSettingsStore } from '../../../settings/store';
 import { wasmCoreBridge } from './bridge';
 
-// Built by `cargo xtask build-mobile-chat-wasm` in the main repo (gitignored, like the native
-// core's outputs); Metro bundles it as an asset, so it ships in every over-the-air update.
+// Built by `cargo xtask build-mobile-chat-wasm` in the main repo (gitignored); Metro bundles it as
+// an asset, so it ships in every over-the-air update.
 const CHAT_CORE_PAGE = require('../../../../assets/chat-core/chat-core.html') as number;
 
-/** Mounts the WebView while the Browser view brain is chosen. */
+/** Mounted as soon as the app shows, so the page starts while SSH connects; a chat waits for it (`wasmCoreBridge.ready`). */
 export function ChatCoreWebViewHost() {
-  const brain = useSettingsStore((store) => store.settings.sessionChatBrain);
-  const hydrated = useSettingsStore((store) => store.hydrated);
-  if (!hydrated || brain !== 'browserView') return null;
-  return <ChatCoreWebView />;
-}
-
-function ChatCoreWebView() {
   const reloadKey = useSyncExternalStore(wasmCoreBridge.subscribeView, wasmCoreBridge.reloadKey);
   const [uri, setUri] = useState<string | null>(null);
 

@@ -81,7 +81,7 @@ export function TranscriptMenuSheet({
   useEffect(() => closeTranscriptMenu, []);
   const composerText = chat.state?.composer.text ?? '';
   // The selection bar's Add to Chat (`addSelectionToChat`): the core's Add to Chat row for those words.
-  // Awaited: on the Browser view brain the core answers a moment later.
+  // Awaited: the core answers a moment later.
   const quote = useCallback(
     (selection: string) => {
       void queryAsync('transcriptMenu', [{ href: null, selection, questionActive: active }]).then((answer) => {

@@ -22,15 +22,14 @@ import {
   type ChatCoreEvent,
   type ChatCoreQuery,
   type ChatMeasurement,
-} from '../../../modules/gx-chat-core/src';
+} from './core-types';
 
 import type { MachineConnectionTarget } from '../../machines/credentials';
-import { useSettingsStore } from '../../settings/store';
 import { uploadSessionChatLocalFile } from '../session-chat-helpers';
 import type { UserAction } from './actions';
 import { readComposerBoot } from './boot';
 import { ComposerModel, type ComposerModelState, type SubmitMode } from './composer';
-import { createChatCoreBackend, type ChatBrain, type ChatCoreBackend } from './core-backend';
+import { createChatCoreBackend, type ChatCoreBackend } from './core-backend';
 import {
   applyItemsSplice,
   type ChatDocument,
@@ -103,20 +102,19 @@ export type RustChatState = {
   error: string | null;
   stats: RustChatStats;
   /**
-   * Moves when an answer the Browser view brain computes after the call (a `query`) arrives, so a
-   * paint that asked for it draws again. Never moves on the Built-in brain, which answers at once.
+   * Moves when an answer the core computes after the call (a `query`) arrives, so a paint that
+   * asked for it draws again.
    */
   queryRevision: number;
 };
 
 /** What a chat whose core failed draws. A constant sentence: a panic payload can hold chat text. */
-const CORE_FAILURE_MESSAGE = 'Chat could not be shown with the new chat engine. Turn it off in Settings.';
-const CORE_UNAVAILABLE_MESSAGE = 'This build does not include the new chat engine.';
-const BROWSER_VIEW_UNAVAILABLE_MESSAGE =
-  'The Browser view chat brain could not start. Switch Settings › Chat › Chat brain back to Built-in.';
-/** Helpers whose answer depends only on their arguments; the Browser view brain keeps those. */
+const CORE_FAILURE_MESSAGE = 'Chat could not be shown. Close it and open it again.';
+/** What a chat draws when the chat core's page could not start (`unavailable`). */
+const CORE_UNAVAILABLE_MESSAGE = "The chat engine couldn't start. Close the chat and open it again.";
+/** Helpers whose answer depends only on their arguments; the host keeps those. */
 const PURE_QUERIES: ReadonlySet<ChatCoreQuery> = new Set(['composerReferences', 'renderVisual', 'speakableMarkdown']);
-/** Answers the Browser view brain keeps for paint-time callers (drafts, chart layouts). */
+/** Answers the host keeps for paint-time callers (drafts, chart layouts). */
 const MAX_CACHED_QUERIES = 64;
 /** What a chat whose storage answered none of its boot read draws (desktop's sentence). */
 const BOOT_READ_FAILURE = 'Chat could not read its saved drafts and settings on this phone.';
@@ -167,7 +165,7 @@ export class RustChatHost {
 
   private core: ChatCoreBackend | null = null;
   private unsubscribeCoreLost: (() => void) | null = null;
-  /** The Browser view brain's answers to paint-time queries, by name and arguments (LRU). */
+  /** The core's answers to paint-time queries, by name and arguments (LRU). */
   private readonly queryCache = new Map<string, unknown>();
   private readonly queryInflight = new Set<string>();
   private readonly poll: SessionChatStream;
@@ -237,18 +235,7 @@ export class RustChatHost {
   /** Creates the core and opens the chat. Safe to call once; later calls do nothing. */
   start(): void {
     if (this.core !== null || this.disposed || this.state.status === 'failed') return;
-    const brain: ChatBrain = useSettingsStore.getState().settings.sessionChatBrain;
-    let core: ChatCoreBackend;
-    try {
-      core = createChatCoreBackend(brain);
-    } catch (error) {
-      this.fail(
-        error instanceof ChatCoreError && error.code === 'unavailable'
-          ? CORE_UNAVAILABLE_MESSAGE
-          : CORE_FAILURE_MESSAGE,
-      );
-      return;
-    }
+    const core = createChatCoreBackend();
     this.core = core;
     this.unsubscribeCoreLost = core.onLost(() => this.restartCore(core));
     const initialPresentation = presentationCache.get(this.retainedKey);
@@ -340,7 +327,7 @@ export class RustChatHost {
   }
 
   /**
-   * The Browser view brain lost its cores (the page crashed, reloaded, or the brain was switched):
+   * The chat core's page lost its cores (it crashed or reloaded):
    * this chat starts over on a fresh core, the way it does when it opens, keeping the screen and
    * its subscribers. The retained transcript and a resnapshot from the computer refill it.
    */
@@ -410,15 +397,8 @@ export class RustChatHost {
   query(name: ChatCoreQuery, args: readonly unknown[]): unknown {
     const core = this.core;
     if (core === null) return null;
-    if (core.brain === 'builtIn') {
-      try {
-        return core.querySync(name, args);
-      } catch {
-        return null;
-      }
-    }
-    // The Browser view brain answers on a later turn: hand back the answer kept for these
-    // arguments, or ask now and paint again (`queryRevision`) once it arrives.
+    // The core answers on a later turn: hand back the answer kept for these arguments, or ask now
+    // and paint again (`queryRevision`) once it arrives.
     const key = `${name}\u0000${JSON.stringify(args)}`;
     if (this.queryCache.has(key)) {
       const answer = this.queryCache.get(key);
@@ -506,7 +486,7 @@ export class RustChatHost {
         while (pending.length > 0 && rounds < MAX_SETTLE_ROUNDS && this.core === core) {
           rounds += 1;
           const answers: ChatCoreEvent[] = [];
-          // A round's events go to the core together (one message on the Browser view brain); the
+          // A round's events go to the core together (one message to the page); the
           // events are already built, so the effects are performed in the same order as before.
           const handled = await this.handleRound(core, pending);
           if (handled === null) return;
@@ -540,7 +520,7 @@ export class RustChatHost {
       );
     } catch (error) {
       if (this.core !== core) return null;
-      this.coreFailed(core, error);
+      this.coreFailed(error);
       return null;
     }
     if (this.core !== core) return null;
@@ -558,26 +538,24 @@ export class RustChatHost {
         out.push([]);
         continue;
       }
-      // The Browser view page went away: `restartCore` rebuilds this chat.
+      // The chat core's page went away: `restartCore` rebuilds this chat.
       if (answer.error.code === 'lost') return null;
-      this.coreFailed(core, answer.error);
+      this.coreFailed(answer.error);
       return null;
     }
     return out;
   }
 
-  private coreFailed(core: ChatCoreBackend, error: unknown): void {
+  private coreFailed(error: unknown): void {
     const code = error instanceof ChatCoreError ? error.code : 'unknown';
     if (code === 'lost') return;
     console.warn(`[rust-chat] the core failed (${code})`);
-    this.fail(
-      code === 'unavailable' && core.brain === 'browserView' ? BROWSER_VIEW_UNAVAILABLE_MESSAGE : CORE_FAILURE_MESSAGE,
-    );
+    this.fail(code === 'unavailable' ? CORE_UNAVAILABLE_MESSAGE : CORE_FAILURE_MESSAGE);
   }
 
   /**
    * The host's clock and locale for this turn. The two random draws and ids are left to the
-   * native side, which fills them from the OS source a v4 UUID uses.
+   * core, which the page seeds from `crypto.getRandomValues`.
    */
   private context(): { nowMs: number; utcOffsetMinutes: number } {
     return { nowMs: Date.now(), utcOffsetMinutes: -new Date().getTimezoneOffset() };
@@ -984,7 +962,7 @@ export class RustChatHost {
     try {
       frame = await core.frame(this.lastRevision, Date.now());
     } catch (error) {
-      if (this.core === core) this.coreFailed(core, error);
+      if (this.core === core) this.coreFailed(error);
       return;
     }
     if (this.core !== core) return;

@@ -29,7 +29,7 @@ export type NativeChatUi = {
    * tooltip regions, a page card, or an error; null when the core could not answer.
    */
   renderVisual(source: string, width: number, theme: JsonRecord, progress?: number): JsonRecord | null;
-  /** The same layout, awaited: the Browser view brain answers a moment later (draw-in frames). */
+  /** The same layout, awaited: the core answers a moment later (draw-in frames). */
   renderVisualAsync(source: string, width: number, theme: JsonRecord, progress?: number): Promise<JsonRecord | null>;
   /**
    * Opens the image viewer on a picture the transcript shows, with every picture the transcript
@@ -60,8 +60,8 @@ export function NativeChatUiProvider({ chat, children }: { chat: RustChat; child
     requested.current.add(path);
     dispatchRef.current({ type: 'loadImage', path });
   }, []);
-  // Keyed on `chat.query`, which changes when a late Browser view answer arrives, so a chart drawn
-  // before its layout came back draws again; it never changes on the Built-in brain.
+  // Keyed on `chat.query`, which changes when a late core answer arrives, so a chart drawn before
+  // its layout came back draws again.
   const { query } = chat;
   const renderVisual = useCallback(
     (source: string, width: number, theme: JsonRecord, progress?: number): JsonRecord | null =>

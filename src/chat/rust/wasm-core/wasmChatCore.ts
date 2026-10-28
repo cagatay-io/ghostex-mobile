@@ -4,9 +4,8 @@
  * once by the bridge.
  */
 
-import { ChatCoreError, type ChatCoreEffect } from '../../../../modules/gx-chat-core/src';
-
 import type { ChatCoreBackend, HandledEvent } from '../core-backend';
+import { ChatCoreError, type ChatCoreEffect } from '../core-types';
 import type { ChatFrame } from '../document';
 import { wasmCoreBridge } from './bridge';
 
@@ -33,7 +32,6 @@ export function createWasmChatCore(): ChatCoreBackend {
   };
 
   return {
-    brain: 'browserView',
     async handleBatch(events) {
       const id = await live();
       const answers = await wasmCoreBridge.batch(
@@ -51,7 +49,6 @@ export function createWasmChatCore(): ChatCoreBackend {
       const id = await live();
       return wasmCoreBridge.call({ op: 'query', handle: id, args: [name, JSON.stringify(args)] });
     },
-    querySync: () => undefined,
     onLost(listener) {
       lostListeners.add(listener);
       return () => {

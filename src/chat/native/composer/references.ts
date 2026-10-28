@@ -117,8 +117,8 @@ export function rebaseReferences(
 
 /**
  * The composer's pill parser: the core's answer for a draft when it has one (`answer`), else the
- * last draft's pills carried over the edit ({@link rebaseReferences}). The Built-in brain always
- * answers; the Browser view brain answers a draft a turn after it is asked.
+ * last draft's pills carried over the edit ({@link rebaseReferences}). The core answers a draft a
+ * turn after it is asked.
  */
 export function createDraftReferenceParser(): (draft: string, answer: unknown) => ComposerReference[] {
   let last: { draft: string; references: readonly ComposerReference[] } = { draft: '', references: [] };

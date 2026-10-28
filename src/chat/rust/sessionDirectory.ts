@@ -5,7 +5,7 @@
  * sidebar store (`apps/desktop/src/app/gx_chat/session_directory.rs`).
  */
 
-import type { ChatKnownSession } from '../../../modules/gx-chat-core/src';
+import type { ChatKnownSession } from './core-types';
 import { useInventoryStore } from '../../inventory/store';
 
 type Directory = { key: string; sessions: ChatKnownSession[] };

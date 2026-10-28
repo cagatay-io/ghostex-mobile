@@ -2,7 +2,7 @@
  * Everything the Rust chat core asks the phone host to do (`Effect` in
  * `packages/gx-chat-core/src/effect.rs`), and the view requests the host hands the screen.
  *
- * The effect JSON is owned by the binding (`modules/gx-chat-core/src/index.ts`) and re-exported
+ * The effect JSON is spelled in `core-types.ts` and re-exported
  * here. How the phone performs each one (`host.ts`, `performEffect`):
  *
  * | effect | phone |
@@ -23,9 +23,9 @@
  * Nothing is dropped silently: an effect the host does not know is counted and logged once.
  */
 
-import type { ChatCoreEffect } from '../../../modules/gx-chat-core/src';
+import type { ChatCoreEffect } from './core-types';
 
-export type { ChatCoreEffect } from '../../../modules/gx-chat-core/src';
+export type { ChatCoreEffect } from './core-types';
 
 /** The `type` of every effect variant, for the counters. */
 export type EffectType = ChatCoreEffect['type'];

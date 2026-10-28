@@ -20,7 +20,7 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import type { UserAction } from './actions';
 import type { ChatViewRequest } from './effects';
 import type { ChatMeasurement } from './events';
-import type { ChatCoreQuery } from '../../../modules/gx-chat-core/src';
+import type { ChatCoreQuery } from './core-types';
 import { acquireRustChatHost, type RustChatHost, type RustChatState, type RustChatTarget } from './host';
 
 export type RustChat = {
@@ -33,9 +33,9 @@ export type RustChat = {
   composer: RustChatHost['composerInput'] | null;
   attachFiles(files: readonly { uri: string; name?: string }[]): Promise<void>;
   /**
-   * One of the core's pure helpers (see `RustChatHost.query`); null while no core runs. On the
-   * Browser view brain the answer can arrive a moment later: the function changes identity when it
-   * does, so a memo that depends on it computes again.
+   * One of the core's pure helpers (see `RustChatHost.query`); null while no core runs. The answer
+   * can arrive a moment later: the function changes identity when it does, so a memo that depends
+   * on it computes again.
    */
   query(name: ChatCoreQuery, args: readonly unknown[]): unknown;
   /** The same helper, awaited (for an action that needs the answer to go on). */
