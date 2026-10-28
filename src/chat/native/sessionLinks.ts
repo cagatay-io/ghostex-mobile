@@ -208,11 +208,21 @@ export function sessionLinksBadgeLink(links: readonly GhostexSessionLink[]): Gho
  * The badge's text: the named link's ID and how many others follow it as "+N" (gx-core
  * `SessionLinks::badge_label`, whose CDXC:SessionLinks 2026-10-28 DECISION holds the user's words:
  * "If we pin one link, or if it's just one link, we should show the ID for that link instead of just
- * showing the number of total links. Then we can put +3").
+ * showing the number of total links. Then we can put +3"; and its 2026-10-28 line "let's not show the
+ * repo name here": a PR from another repo reads `#151`, not `maestro_ed#151`).
  */
 export function sessionLinksBadgeLabel(links: readonly GhostexSessionLink[]): { label: string; more: number } | null {
   const link = sessionLinksBadgeLink(links);
-  return link === undefined ? null : { label: link.label, more: links.length - 1 };
+  return link === undefined ? null : { label: sessionLinkBadgeId(link), more: links.length - 1 };
+}
+
+/**
+ * The label without its repo name (gx-core `SessionLink::badge_id`): `maestro_ed#151` is `#151`;
+ * `#151` and a Linear ID stay. The user: "let's not show the repo name here".
+ */
+export function sessionLinkBadgeId(link: GhostexSessionLink): string {
+  const at = link.label.indexOf('#');
+  return link.kind !== 'linear' && at >= 0 ? link.label.slice(at) : link.label;
 }
 
 /** The Links pill on the chat's bar above the composer (gx-core `SessionLinks::chat_pill`). */

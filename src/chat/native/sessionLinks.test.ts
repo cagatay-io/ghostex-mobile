@@ -158,4 +158,16 @@ describe('sessionLinksBadgeLabel', () => {
     assert.deepEqual(sessionLinksBadgeLabel([link('#3', 'merged', true), link('#4', 'merged', true)]), { label: '#3', more: 1 });
     assert.equal(sessionLinksBadgeLabel([]), null);
   });
+
+  test('drops the repo name, a Linear ID stays, the full label is untouched', () => {
+    const pr = { ...link('pr:acme/maestro_ed#151', 'open', false), label: 'maestro_ed#151' };
+    const issue = { ...link('issue:rust-lang/rust#57563', 'open', false), kind: 'issue' as const, label: 'rust#57563' };
+    const linear = { ...link('linear:SPX-123', 'open', false), kind: 'linear' as const, label: 'SPX-123' };
+    assert.deepEqual(sessionLinksBadgeLabel([pr]), { label: '#151', more: 0 });
+    assert.deepEqual(sessionLinksBadgeLabel([pr, issue, linear]), { label: '#151', more: 2 });
+    assert.deepEqual(sessionLinksBadgeLabel([{ ...issue, pinned: true }, pr]), { label: '#57563', more: 1 });
+    assert.deepEqual(sessionLinksBadgeLabel([linear]), { label: 'SPX-123', more: 0 });
+    assert.equal(sessionLinksChatPill(links([pr, issue, linear]), 'muted')?.label, '#151');
+    assert.equal(pr.label, 'maestro_ed#151');
+  });
 });
