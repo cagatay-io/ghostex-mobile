@@ -255,6 +255,11 @@ function transcriptAgent(candidates: readonly string[]): string | null {
         return 'zcode';
       case 'freebuff':
         return 'freebuff';
+      case 'dsh':
+      case 'dsh-tui':
+      case 'deepseek':
+      case 'deepseek harness':
+        return 'dsh';
       default:
         break;
     }

@@ -802,6 +802,7 @@ export type AgentIconId =
   | 'cursor-cli'
   | 'codex'
   | 'copilot'
+  | 'dsh'
   | 'empryo'
   | 'factory-droid'
   | 'freebuff'
@@ -828,6 +829,7 @@ const AGENT_ICON_TINTS: Record<AgentIconId, string> = {
   'cursor-cli': '#EDECEC',
   codex: '#FFFFFF',
   copilot: '#FFFFFF',
+  dsh: '#4D6BFE',
   empryo: '#1FA31D',
   'factory-droid': '#FF7A1A',
   freebuff: '#FFFFFF',
@@ -892,6 +894,10 @@ const AGENT_NAME_ALIASES: Record<string, AgentIconId> = {
   'zcode-cli': 'zcode',
   'z code': 'zcode',
   freebuff: 'freebuff',
+  dsh: 'dsh',
+  'dsh-tui': 'dsh',
+  deepseek: 'dsh',
+  'deepseek harness': 'dsh',
   browser: 'browser',
 };
 
