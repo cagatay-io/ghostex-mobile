@@ -4,7 +4,7 @@
  * side list opens as a page of the sheet, so it stays on screen on a narrow phone.
  */
 
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Glyph, type GlyphName } from './icons';
 import { arr, isTrue, obj, str, type JsonRecord } from './json';
@@ -52,6 +52,8 @@ export function ModelMenuTray({
             const on = fast && fastOn(setting);
             const label = str(setting, 'label');
             const value = str(setting, 'valueLabel');
+            // The core's note behind an ⓘ (Codex keeps Fast for new sessions), so the row stays short (`render.rs`).
+            const hint = str(setting, 'hint');
             const off = disabled || isTrue(setting, 'disabled');
             // Reasoning, Context Window and Fast keep their full width; other buttons give way (the user's decision in render.rs).
             const keepsWidth = icon === 'reasoning' || icon === 'context' || fast;
@@ -83,6 +85,16 @@ export function ModelMenuTray({
                 <Text style={[styles.value, on ? styles.valueOn : fast ? styles.valueMuted : null]} numberOfLines={1}>
                   {value}
                 </Text>
+                {hint.length > 0 ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={hint}
+                    hitSlop={8}
+                    onPress={() => Alert.alert(label, hint)}
+                  >
+                    <Glyph name="info-circle" size={14} color={P.ink(0.64)} />
+                  </Pressable>
+                ) : null}
               </Pressable>
             );
           })}
