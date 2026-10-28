@@ -183,6 +183,27 @@ export function QuestionsMenu({
   const sections = document.openQuestions?.sections ?? [];
   const filters = document.openQuestions?.filters ?? [];
   const picked = document.openQuestions?.filter ?? 'all';
+  const remaining = document.openQuestions?.remaining ?? 0;
+  // The list pages (gx-chat-core `page_sections`): one page, a Show more row, and once it has been
+  // tapped, scrolling to the end adds the next page by itself. Closing the list or picking another
+  // filter starts again from one page (desktop `questions_list.rs`).
+  const autoMore = useRef(false);
+  const askedAt = useRef<number | null>(null);
+  useEffect(() => {
+    autoMore.current = false;
+    askedAt.current = null;
+  }, [picked]);
+  useEffect(
+    () => () => {
+      chat.dispatch({ type: 'questionListReset' });
+    },
+    [],
+  );
+  const showMore = () => {
+    autoMore.current = true;
+    askedAt.current = null;
+    chat.dispatch({ type: 'questionListMore' });
+  };
   const folded = (id: string) => FOLDED_BY_DEFAULT.has(id) !== toggled.has(id);
   const toggle = (id: string) =>
     setToggled((was) => {
@@ -193,7 +214,17 @@ export function QuestionsMenu({
   return (
     <View accessibilityLabel="Chat Resources" style={styles.questionsMenu}>
       <Text style={styles.questionsSummary}>{document.openQuestions?.summary ?? ''}</Text>
-      <ScrollView nestedScrollEnabled>
+      <ScrollView
+        nestedScrollEnabled
+        scrollEventThrottle={64}
+        onScroll={({ nativeEvent }) => {
+          const { contentOffset, contentSize, layoutMeasurement } = nativeEvent;
+          const atEnd = contentOffset.y + layoutMeasurement.height >= contentSize.height - 24;
+          if (!autoMore.current || remaining === 0 || !atEnd || askedAt.current === remaining) return;
+          askedAt.current = remaining;
+          chat.dispatch({ type: 'questionListMore' });
+        }}
+      >
         {sections.length === 0 ? (
           <Text style={styles.questionsSummary}>Nothing of this kind in this chat yet.</Text>
         ) : null}
@@ -211,6 +242,17 @@ export function QuestionsMenu({
             }}
           />
         ))}
+        {remaining > 0 ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Show more, ${remaining} left`}
+            onPress={showMore}
+            style={({ pressed }) => [styles.questionsMore, pressed && styles.pillPressed]}
+          >
+            <Text style={styles.questionsSectionLabel}>Show more</Text>
+            <Text style={styles.questionsMeta}>{String(remaining)}</Text>
+          </Pressable>
+        ) : null}
       </ScrollView>
       {filtersOpen ? (
         // The filter's pick list, under its trigger at the sheet header's right end.
@@ -719,6 +761,7 @@ const useStyles = themedStyles((P) => ({
     borderRadius: 6,
   },
   questionsLater: { flexShrink: 0, width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 6 },
+  questionsMore: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 40, borderRadius: 6 },
   questionsTitle: { flex: 1, minWidth: 0, color: P.foreground, fontSize: 14 },
   filterTrigger: {
     flexDirection: 'row',
