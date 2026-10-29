@@ -20,6 +20,7 @@ import type {
   LocalDictation,
   SpeechVoices,
   ReadAloudMode,
+  BarLayout,
 } from './GhostexNative.types';
 
 declare class GhostexNativeModule extends NativeModule<GhostexNativeEvents> {
@@ -125,6 +126,20 @@ declare class GhostexNativeModule extends NativeModule<GhostexNativeEvents> {
 
   /** Keep the display awake (terminal screen active) or release the request. */
   setKeepScreenOn(enabled: boolean): Promise<void>;
+
+  /**
+   * Where the system's bars sit in the app's window: the side bar region `sideExtent` wide while the
+   * status bar stands on a side (iPhone Duo folded, or unfolded in landscape), the bar region
+   * `topExtent` high along the top, and the fold's division regions. Resolves with the layout now and
+   * the observation's `id`; from then on `onBarLayoutChange` carries each new one (status items moving,
+   * rotation, the side changing, the fold's divisions changing, and, while a listener for
+   * `onBarLayoutChange` is registered, the app moving to another window). A new call replaces the
+   * running observation. iOS only: guard with Platform.OS before calling.
+   */
+  observeBarLayout(sideExtent: number, topExtent: number): Promise<{ id: number; layout: BarLayout }>;
+
+  /** Ends observation `id` from `observeBarLayout` (a newer one keeps running). iOS only. */
+  stopObservingBarLayout(id: number): Promise<void>;
 
   /** Play a short native alert sound (terminal bell beep or attention alert). */
   playAlertSound(kind: TerminalAlertSoundKind): Promise<void>;
