@@ -20,7 +20,7 @@ const TRACK_HEIGHT = 36;
 const TAB_HEIGHT = 28;
 const TRACK_INNER_PAD = 4;
 const TAB_SPACING = 4;
-const MIN_TAB_WIDTH = 120;
+export const MIN_TAB_WIDTH = 120;
 
 /** opening → orange; failed → red; closed → gray; open and detached (chat only) → no dot. */
 function statusDotColor(state: TerminalTabState): string | null {

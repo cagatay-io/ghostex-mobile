@@ -10,8 +10,19 @@
  *   the terminal and accessory keys above the IME on both platforms.
  */
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Alert, BackHandler, Keyboard, Platform, Pressable, Text, View, type ViewInstance } from 'react-native';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  Alert,
+  BackHandler,
+  Keyboard,
+  Platform,
+  Pressable,
+  Text,
+  View,
+  type StyleProp,
+  type ViewInstance,
+  type ViewStyle,
+} from 'react-native';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Haptics from 'expo-haptics';
@@ -20,6 +31,20 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GhostexNative, GhostexTerminalView } from '../../modules/ghostex-native/src';
 import ProgressOverlay from '../components/common/ProgressOverlay';
 import PromptDialog from '../components/common/PromptDialog';
+import { measureInWindow } from '../components/common/measureInWindow';
+import { bandRowFrame } from '../components/common/verticalBar/layout';
+import {
+  barBackgroundToEdges,
+  railMenuItems,
+  useContentTop,
+  useHeaderPlacement,
+  useHeaderMenu,
+  useBandOverflow,
+  useRailButtons,
+  useRailOverflow,
+  useVerticalBarSpace,
+  type RailButtons,
+} from '../components/common/verticalBar/VerticalBarArea';
 import DelayedSendDialog from '../components/sessions/DelayedSendDialog';
 import EdgeSwipeZones from '../components/terminal/EdgeSwipeZones';
 import ExportTranscriptSheet from '../components/terminal/ExportTranscriptSheet';
@@ -29,14 +54,15 @@ import TerminalKeyBar from '../components/terminal/TerminalKeyBar';
 import TerminalMenu, { type TerminalMenuActionId } from '../components/terminal/TerminalMenu';
 import TerminalSkillsMenu from '../components/terminal/TerminalSkillsMenu';
 import TerminalStateOverlay from '../components/terminal/TerminalStateOverlay';
-import TerminalTabsBar from '../components/terminal/TerminalTabsBar';
+import TerminalTabsBar, { MIN_TAB_WIDTH } from '../components/terminal/TerminalTabsBar';
 import { ChatBubbleIcon, ChevronLeftIcon, EllipsisIcon, TerminalPromptIcon } from '../components/terminal/icons';
 import { useKeyboardMetrics } from '../components/terminal/useKeyboardMetrics';
 import { isSessionChatSupportedAgent } from '../chat/session-chat-helpers';
 import NativeChatScreen from '../chat/native/NativeChatScreen';
 import SessionLinksSheet from '../chat/native/SessionLinksSheet';
 import { useSessionLinksRefresh } from '../chat/native/useSessionLinksRefresh';
-import { RenameCopy, SessionCopy } from '../copy';
+import { useTranscriptTheme } from '../chat/native/transcript/theme';
+import { DuoChromeCopy, RenameCopy, SessionCopy, TerminalHeaderCopy } from '../copy';
 import { summarizeFailure } from '../inventory/client';
 import { useInventoryStore } from '../inventory/store';
 import type { RootStackParamList } from '../navigation/types';
@@ -54,6 +80,8 @@ import { useOpenMachineLink } from '../webPreview/useOpenMachineLink';
 import {
   AGENT_OVERLAY_NONE,
   ANDROID_KEYBOARD_GAP,
+  HEADER_HEIGHT,
+  HEADER_PADDING,
   machineTargetFor,
   sessionAgentIdFor,
   sessionProjectIdFor,
@@ -66,6 +94,9 @@ import { styles } from './terminal-screen/styles';
 import { useTerminalAgentActions } from './terminal-screen/use-agent-actions';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Terminal'>;
+
+/** The header buttons of the status band's row: 44 pt wide, side by side (`headerButton`). */
+const TERMINAL_BAND_BUTTONS = { size: 44, gap: 0 } as const;
 
 /** The native chat's More actions rows this screen performs (the terminal menu's own actions). */
 const NATIVE_CHAT_HOST_ACTIONS: readonly string[] = [
@@ -81,6 +112,7 @@ const NO_NATIVE_CHAT_HOST_ACTIONS: readonly string[] = [];
 
 export default function TerminalScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
+  const headerPlacement = useHeaderPlacement();
   const tabs = useTerminalStore((state) => state.tabs);
   const selectedSessionKey = useTerminalStore((state) => state.selectedSessionKey);
   const selectTab = useTerminalStore((state) => state.selectTab);
@@ -91,7 +123,16 @@ export default function TerminalScreen({ navigation, route }: Props) {
   const { keyboardVisible, bottomInset, visibleWindowBottom } = useKeyboardMetrics();
   const isFocused = useIsFocused();
   const [tapKeyboardHint, setTapKeyboardHint] = useState(false);
-  const [menuVisible, setMenuVisible] = useState(false);
+  // The "More options" menu; on the iPhone Duo at its button as it is now (F3, S1-5).
+  const {
+    visible: menuVisible,
+    setVisible: setMenuVisible,
+    open: openMenu,
+    buttonRef: moreButtonRef,
+    anchor: menuAnchor,
+  } = useHeaderMenu();
+  const contentTop = useContentTop();
+  const bar = useVerticalBarSpace();
   // Each pick of the menu's Search Conversation row opens the chat screen's own
   // search box; the screen has no search button of its own.
   const [chatSearchRequestId, setChatSearchRequestId] = useState(0);
@@ -516,12 +557,123 @@ export default function TerminalScreen({ navigation, route }: Props) {
         ? activeTab.title
         : SessionCopy.fallbackTitle;
 
+  // The header's buttons on top, or in the iPhone Duo's status band (band); in the rail they are
+  // `railButtons` below.
+  const headerButtons = (buttonStyle: StyleProp<ViewStyle>) => (
+    <>
+      <VoiceButton
+        machine={activeMachine}
+        style={buttonStyle}
+        color={GhostexPalette.FOREGROUND}
+        size={20}
+        activeFill={false}
+      />
+      {chatCapable && bandOverflow.shows('view') && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={chatModeActive ? TerminalHeaderCopy.terminalView : TerminalHeaderCopy.chatView}
+          hitSlop={8}
+          style={buttonStyle}
+          onPress={toggleChatView}
+        >
+          {chatModeActive ? (
+            <TerminalPromptIcon size={19} color={GhostexPalette.FOREGROUND} />
+          ) : (
+            <ChatBubbleIcon size={19} color={GhostexPalette.FOREGROUND} />
+          )}
+        </Pressable>
+      )}
+      <Pressable
+        ref={moreButtonRef}
+        accessibilityRole="button"
+        accessibilityLabel={DuoChromeCopy.more}
+        hitSlop={8}
+        style={buttonStyle}
+        // In the iPhone Duo's status band the menu opens below this button (F3).
+        onPress={() => (headerPlacement.kind === 'top' ? openMenu() : measureInWindow(moreButtonRef, openMenu))}
+      >
+        <EllipsisIcon size={22} color={GhostexPalette.FOREGROUND} />
+      </Pressable>
+    </>
+  );
+  const backButton = (buttonStyle: StyleProp<ViewStyle>) => (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={DuoChromeCopy.back}
+      hitSlop={8}
+      style={buttonStyle}
+      onPress={showSessions}
+    >
+      <ChevronLeftIcon size={22} color={GhostexPalette.FOREGROUND} />
+    </Pressable>
+  );
+  const inRail = headerPlacement.kind === 'rail';
+  // The screen reaches the window edges: the strip under the iPhone Duo's rail shows what the screen
+  // shows (the chat theme's page in chat view, black in the terminal).
+  const chatBackground = useTranscriptTheme().background;
+  const surfaceBackground = chatModeActive ? chatBackground : GhostexPalette.TERMINAL_BACKGROUND;
+  // The same buttons standing in the iPhone Duo's side bar below the status items (rail): Back never
+  // moves into the menu. The voice button has no rail entry: the rail exists only on iOS, where it does
+  // not render (VOICE_SUPPORTED). Memoized on the header's inputs, so terminal output and tab updates
+  // do not republish the side bar.
+  const railButtons = useMemo<RailButtons>(
+    () => ({
+      pinned: 1,
+      moreMenu: 'always',
+      // The terminal and the chat composer both take the keyboard.
+      reserveKeyboard: true,
+      entries: [
+        {
+          key: 'back',
+          label: DuoChromeCopy.back,
+          icon: (size) => <ChevronLeftIcon size={size} color={GhostexPalette.FOREGROUND} />,
+          onPress: showSessions,
+        },
+        ...(chatCapable
+          ? [
+              {
+                key: 'view',
+                label: chatModeActive ? TerminalHeaderCopy.terminalView : TerminalHeaderCopy.chatView,
+                icon: (size: number) =>
+                  chatModeActive ? (
+                    <TerminalPromptIcon size={size - 3} color={GhostexPalette.FOREGROUND} />
+                  ) : (
+                    <ChatBubbleIcon size={size - 3} color={GhostexPalette.FOREGROUND} />
+                  ),
+                onPress: toggleChatView,
+              },
+            ]
+          : []),
+        {
+          key: 'more',
+          label: DuoChromeCopy.more,
+          icon: (size) => <EllipsisIcon size={size} color={GhostexPalette.FOREGROUND} />,
+          onPress: openMenu,
+        },
+      ],
+    }),
+    [chatCapable, chatModeActive, toggleChatView, showSessions, openMenu],
+  );
+  useRailButtons(railButtons, surfaceBackground, inRail && isFocused);
+  const railOverflow = useRailOverflow(railButtons, inRail && isFocused);
+  // The status band's row (§12 "1b"): Back, the tab strip (one tab wide at least, it scrolls), the chat
+  // toggle and "…"; the toggle moves into the "…" menu when the band is too narrow for all of them.
+  const inBand = headerPlacement.kind === 'band';
+  const bandOverflow = useBandOverflow(
+    railButtons,
+    inBand ? headerPlacement.frame.width - 2 * HEADER_PADDING - MIN_TAB_WIDTH : 0,
+    TERMINAL_BAND_BUTTONS,
+    inBand,
+  );
+  const overflowEntries = inBand ? bandOverflow.menu : railOverflow;
+
   return (
     <View
       style={[
         styles.container,
         {
-          paddingTop: insets.top,
+          // In the side bar's poses the header row takes the top itself (below).
+          paddingTop: inRail ? 0 : insets.top,
           // WKWebView already contracts its visual viewport around the iOS
           // keyboard. Applying the native keyboard inset to its parent as
           // well moves the chat composer twice (all the way to the top).
@@ -532,16 +684,23 @@ export default function TerminalScreen({ navigation, route }: Props) {
         },
       ]}
     >
-      <View style={styles.header}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          hitSlop={8}
-          style={styles.headerButton}
-          onPress={showSessions}
-        >
-          <ChevronLeftIcon size={22} color={GhostexPalette.FOREGROUND} />
-        </Pressable>
+      <View
+        style={[
+          styles.header,
+          headerPlacement.kind === 'band'
+            ? [styles.bandHeader, bandRowFrame(headerPlacement.frame, HEADER_HEIGHT)]
+            : null,
+          // In the side bar's poses: below the system's top margin (F1), and its background runs to the
+          // window edge under the side bar, as an iOS bar's does (F4).
+          inRail
+            ? [
+                { paddingTop: contentTop, height: contentTop + HEADER_HEIGHT },
+                barBackgroundToEdges(bar, HEADER_PADDING),
+              ]
+            : null,
+        ]}
+      >
+        {inRail ? null : backButton(styles.headerButton)}
         <TerminalTabsBar
           tabs={tabs}
           selectedSessionKey={selectedSessionKey}
@@ -551,37 +710,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
             if (tab !== undefined) requestCloseTab(tab);
           }}
         />
-        <VoiceButton
-          machine={activeMachine}
-          style={styles.headerButton}
-          color={GhostexPalette.FOREGROUND}
-          size={20}
-          activeFill={false}
-        />
-        {chatCapable && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={chatModeActive ? 'Terminal view' : 'Chat view'}
-            hitSlop={8}
-            style={styles.headerButton}
-            onPress={toggleChatView}
-          >
-            {chatModeActive ? (
-              <TerminalPromptIcon size={19} color={GhostexPalette.FOREGROUND} />
-            ) : (
-              <ChatBubbleIcon size={19} color={GhostexPalette.FOREGROUND} />
-            )}
-          </Pressable>
-        )}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="More options"
-          hitSlop={8}
-          style={styles.headerButton}
-          onPress={() => setMenuVisible(true)}
-        >
-          <EllipsisIcon size={22} color={GhostexPalette.FOREGROUND} />
-        </Pressable>
+        {inRail ? null : headerButtons(styles.headerButton)}
       </View>
 
       {/*
@@ -711,10 +840,10 @@ export default function TerminalScreen({ navigation, route }: Props) {
           // With the keyboard up the container's bottom padding already clears
           // the IME, so the terminal surface takes all of it and only adds the
           // home-indicator inset while the keyboard is down. The chat composer
-          // is a control rather than a full-bleed surface: it keeps the margin
-          // it has with the keyboard down so its bottom row never sits flush
-          // against the keyboard.
-          <View style={{ height: !keyboardVisible || chatModeActive ? insets.bottom : 0 }} />
+          // keeps its own bottom margin in both states (the home-indicator inset,
+          // at least 12 pt, with the keyboard down; 8 pt above the keyboard), so
+          // the inset is not added here a second time.
+          <View style={{ height: !keyboardVisible && !chatModeActive ? insets.bottom : 0 }} />
         )}
       </View>
 
@@ -736,8 +865,11 @@ export default function TerminalScreen({ navigation, route }: Props) {
         // The terminal's own input; chat mode has the composer's More actions > Skills.
         skillsEnabled={agentActionsCapable && activeSession !== null && !chatModeActive}
         onSelect={handleTerminalMenuAction}
+        // Rail buttons with no room above the keyboard (iPhone Duo), first.
+        leadingItems={railMenuItems(overflowEntries, () => setMenuVisible(false))}
         onClose={() => setMenuVisible(false)}
         onDismissed={handleMenuDismissed}
+        anchor={menuAnchor}
       />
 
       {activeSession !== null ? (

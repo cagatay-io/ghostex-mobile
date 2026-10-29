@@ -39,7 +39,7 @@ mobile/
 
 ## Native module contract (`modules/ghostex-native`)
 
-Both platforms implement EXACTLY this API. TS bindings in `modules/ghostex-native/src/index.ts`.
+Both platforms implement this API, except the iOS-only bar layout functions and event (`observeBarLayout`, `stopObservingBarLayout`, `onBarLayoutChange`), which the shared layer calls only behind `Platform.OS === 'ios'`. TS bindings in `modules/ghostex-native/src/index.ts`.
 
 ### Concepts
 
@@ -77,6 +77,15 @@ uploadFile(machineId: string, localPath: string, remotePath: string): Promise<vo
 generateSshKey(type: 'ed25519' | 'rsa4096', comment: string, passphrase?: string):
   Promise<{ privateKey: string; publicKey: string; fingerprint: string }>;
 resetHostKey(host: string, port: number): Promise<void>;
+
+// Terminal keyboard focus. Resolves true when the terminal holds the keyboard focus afterwards; false when no view is
+// attached or the platform refused the focus (iOS: `requestKeyboardFocus`; Android: `View.requestFocus()`).
+focusTerminal(sessionKey: string): Promise<boolean>;
+
+// iOS only (iOS 27.1 SDK; before iOS 27.1 the layout carries only size and insets). Where the system's bars sit in the
+// app's window, now and from then on through `onBarLayoutChange`. A new call replaces the running observation.
+observeBarLayout(sideExtent: number, topExtent: number): Promise<{ id: number; layout: BarLayout }>;
+stopObservingBarLayout(id: number): Promise<void>;
 ```
 
 `TerminalKey`: `'escape'|'tab'|'enter'|'backspace'|'delete'|'insert'|'home'|'end'|'pageUp'|'pageDown'|'up'|'down'|'left'|'right'|'f1'..'f12'` or a single character (e.g. `'c'` with `{ctrl:true}` → ^C).
@@ -89,7 +98,18 @@ onTerminalTitle: { sessionKey: string; title: string };     // OSC title
 onTerminalBell:  { sessionKey: string };
 onFontSizeChange:{ sessionKey: string; fontSize: number };  // from native pinch-to-zoom
 onConnectionState: { machineId: string; state: 'connecting'|'connected'|'disconnected'|'failed'; error?: string; errorCode?: GhostexErrorCode };
+onBarLayoutChange: BarLayout;   // iOS only: bar regions, window size and insets, size classes, fold divisions (types in GhostexNative.types.ts)
 ```
+
+### iPhone Duo chrome (iOS, built with the iOS 27.1 SDK)
+
+The app uses the whole window on the Duo and draws its own header controls next to the status items.
+
+- **Vertical bar disabled app-wide.** `GhostexRootViewController` (`modules/ghostex-native/ios/`, supplied to Expo through the public `ExpoReactDelegateHandler`, registered under `reactDelegateHandlers` in `expo-module.config.json`) answers `preferredVerticalBarBehavior = .disabled` from the first frame, so the status items stand in one row along the top in every pose. Controllers presented over the root (React Native `Modal`, `Alert.alert`) would otherwise flip the status items into a column while shown; `StatusBar.setVerticalBarBehaviorIOS('disabled')` in `index.ts` is Expo's own switch for them (it swizzles `UIViewController.preferredVerticalBarBehavior` inside `expo-status-bar` 58.0.4; owner exception to floor FL-NAT-09 for exactly this mechanism). Both are no-ops before iOS 27.1.
+- **Placement.** `headerPlacement` (`src/components/common/verticalBar/layout.ts`) reads the reported bar layout: `band` where the system's top bar region lies inside the top safe-area inset (beside the status items), otherwise `top` (the screen's own header under the status bar, as on every other iPhone). The side bar placement (`rail`) stays compiled for a system that stands a vertical bar, but with the bar disabled it is unreachable on the Duo.
+- **Band overflow.** Header buttons that do not fit the band row move, last first, into the screen's "More options" menu (`bandSplit`, `useBandOverflow`); Back and "More options" stay. Terminal, Web Preview and the stack header (`StackHeader`) use it.
+- **Settings** show two columns when the chrome is in place and the content width holds a 320 pt list and a 375 pt page (`twoColumnWindow`); otherwise one column, at most 640 pt wide.
+- **Fold.** Divisions are read natively with `reservedRegions(kind: .division, options: .includeInactive)` and delivered in `BarLayout.divisions`. The band and anchored menus keep off them (menus off the active ones only).
 
 ### Error codes (rejections carry `code`)
 
