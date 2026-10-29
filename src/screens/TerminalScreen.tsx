@@ -570,7 +570,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
       }
       handleMenuAction(id);
     },
-    [activeProject, activeTab, chatModeActive, handleMenuAction, navigation, toggleChatView],
+    [activeProject, activeTab, chatModeActive, handleMenuAction, navigation, setMenuVisible, toggleChatView],
   );
 
   const uploadEnabled = activeTab !== null && (chatModeActive ? agentActionsCapable : activeTab.state === 'open');

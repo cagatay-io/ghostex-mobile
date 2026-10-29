@@ -10,7 +10,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useMemo } from 'react';
-import { DeviceEventEmitter, Dimensions, Pressable, StyleSheet, Text } from 'react-native';
+import { Dimensions, Pressable, StyleSheet, Text } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import type { BarLayout, WindowRect } from '../../../../modules/ghostex-native/src/GhostexNative.types';

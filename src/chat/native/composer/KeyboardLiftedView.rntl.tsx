@@ -8,7 +8,7 @@
  * the keyboard's top at 413 (owner's device session), the home indicator inset 20.
  */
 
-import { DeviceEventEmitter, Dimensions, StyleSheet, Text } from 'react-native';
+import { Dimensions, StyleSheet, Text } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import { keyboardFixture } from '../../../components/common/keyboard/keyboardEventFixtures';

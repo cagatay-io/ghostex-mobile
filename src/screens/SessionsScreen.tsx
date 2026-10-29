@@ -33,7 +33,6 @@ import DetailsSheet from '../components/common/DetailsSheet';
 import LogsSheet from '../components/common/LogsSheet';
 import ProgressOverlay from '../components/common/ProgressOverlay';
 import PromptDialog from '../components/common/PromptDialog';
-import StateCard from '../components/common/StateCard';
 import { measureInWindow } from '../components/common/measureInWindow';
 import { bandRowFrame } from '../components/common/verticalBar/layout';
 import {

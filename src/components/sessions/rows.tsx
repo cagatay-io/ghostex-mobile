@@ -12,7 +12,7 @@
  * is the only thing separating them from a session title of the same size.
  */
 
-import { useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { Image, Pressable, StyleSheet, Text, View, type ViewInstance } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 
