@@ -793,6 +793,11 @@ export type QuestionListRow = {
   age?: string;
   /** Epoch milliseconds it was asked at, when the transcript says. */
   atMs?: number | null;
+  /**
+   * Where it stands: `waiting`, `later` (put off For later, still unanswered), `answered`,
+   * `withdrawn`, or `other` for a page or chart that asks nothing.
+   */
+  status?: 'waiting' | 'later' | 'answered' | 'withdrawn' | 'other';
   timeTitle: string;
 };
 

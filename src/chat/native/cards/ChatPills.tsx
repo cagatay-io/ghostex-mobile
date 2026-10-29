@@ -149,8 +149,8 @@ export function QuestionPill({
   );
 }
 
-/** The sections that start folded: the withdrawn ones need nothing (desktop `questions_list.rs`). */
-const FOLDED_BY_DEFAULT: ReadonlySet<string> = new Set(['withdrawn']);
+/** The groups that start folded: none (the list has two, Unanswered and Earlier; desktop `questions_list.rs`). */
+const FOLDED_BY_DEFAULT: ReadonlySet<string> = new Set();
 
 /**
  * The ? pill's list (Chat Resources): every question form, page and chart in the chat, under the
@@ -334,24 +334,27 @@ function QuestionsSection({
   const P = useTranscriptTheme();
   return (
     <View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`${section.title} ${section.count}`}
-        accessibilityState={{ expanded: !folded }}
-        onPress={onToggle}
-        style={styles.questionsSection}
-      >
-        <Glyph name={folded ? 'chevron-right' : 'chevron-down'} size={12} color={P.cardMuted} />
-        <Text style={styles.questionsSectionLabel}>{section.title}</Text>
-        <Text style={styles.questionsSectionLabel}>{String(section.count)}</Text>
-      </Pressable>
+      {section.title.length > 0 ? (
+        // "Earlier" has no header while nothing is unanswered (gx-chat-core blanks its title).
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${section.title} ${section.count}`}
+          accessibilityState={{ expanded: !folded }}
+          onPress={onToggle}
+          style={styles.questionsSection}
+        >
+          <Glyph name={folded ? 'chevron-right' : 'chevron-down'} size={12} color={P.cardMuted} />
+          <Text style={styles.questionsSectionLabel}>{section.title}</Text>
+          <Text style={styles.questionsSectionLabel}>{String(section.count)}</Text>
+        </Pressable>
+      ) : null}
       {folded
         ? null
         : section.rows.map((row) => {
-            const answered = section.id === 'answered';
-            const withdrawn = section.id === 'withdrawn';
+            const answered = row.status === 'answered';
+            const withdrawn = row.status === 'withdrawn';
             const age = rowAge(row, now);
-            const later = laterAction(section.id, row.kind, row.id);
+            const later = laterAction(row.status, row.kind, row.id);
             return (
               <Pressable
                 key={row.id}
@@ -360,16 +363,17 @@ function QuestionsSection({
                 onPress={() => onPick(row)}
                 style={({ pressed }) => [styles.questionsRow, pressed && styles.pillPressed]}
               >
-                <KindIcon kind={row.kind} color={answered ? answeredColor(P.light) : withdrawn ? P.muted : P.cardMuted} />
+                <KindIcon kind={row.kind} color={answered ? answeredColor(P.light) : withdrawn ? P.ink(0.35) : P.cardMuted} />
                 <Text
                   numberOfLines={1}
                   style={[
                     styles.questionsTitle,
-                    withdrawn && { color: P.cardMuted, textDecorationLine: 'line-through' },
+                    withdrawn && { color: P.cardMuted },
                   ]}
                 >
                   {row.title}
                 </Text>
+                {row.status === 'later' ? <Text style={styles.questionsMeta}>For later</Text> : null}
                 {age.length > 0 ? <Text style={styles.questionsMeta}>{age}</Text> : null}
                 {later !== null ? (
                   // Its own press: it never also jumps to the question.

@@ -21,19 +21,19 @@ export function rowAge(row: Pick<QuestionListRow, 'atMs' | 'age'>, nowMs: number
 
 /**
  * The action a row's For later button sends (the question cards' own `questionForLater`, so cards
- * and list agree): "For later" on an unanswered form or page, "Back to open" on one put off; none
- * for any other row. Desktop: `questions_list.rs` `later_action`.
+ * and list agree): "For later" on a waiting form or page, "Back to open" on one put off (the row's
+ * `status`, gx-chat-core `QuestionListRow`); none for any other row. Desktop: `questions_list.rs` `later_action`.
  */
 export function laterAction(
-  sectionId: string,
+  status: string | undefined,
   kind: string,
   id: string,
 ): { label: string; glyph: 'clock' | 'arrow-back-up'; action: { type: 'questionForLater'; id: string; later: boolean } } | null {
   if (kind === 'chart') return null;
-  if (sectionId === 'unanswered') {
+  if (status === 'waiting') {
     return { label: 'For later', glyph: 'clock', action: { type: 'questionForLater', id, later: true } };
   }
-  if (sectionId === 'later') {
+  if (status === 'later') {
     return { label: 'Back to open', glyph: 'arrow-back-up', action: { type: 'questionForLater', id, later: false } };
   }
   return null;

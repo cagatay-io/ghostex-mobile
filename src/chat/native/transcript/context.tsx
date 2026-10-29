@@ -233,7 +233,8 @@ export function transcriptFlags(document: ChatDocument | null): TranscriptFlags 
     unansweredQuestions: new Set(
       (document.openQuestions?.sections ?? [])
         .filter((section) => section.id === 'unanswered')
-        .flatMap((section) => section.rows.map((row) => row.id)),
+        // The Unanswered group also lists the For later ones (marked `later`); only the waiting offer For later.
+        .flatMap((section) => section.rows.filter((row) => row.status !== 'later').map((row) => row.id)),
     ),
     laterQuestions: new Set(arr(document.laterQuestions).filter((id): id is string => typeof id === 'string')),
     savedPrompts: obj(document.savedPrompts) === null ? {} : document.savedPrompts,

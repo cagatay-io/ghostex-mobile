@@ -34,7 +34,7 @@ describe('ageLabel', () => {
 
 describe('laterAction', () => {
   test('toggles For later and Back to open by section', () => {
-    assert.deepEqual(laterAction('unanswered', 'form', 'f1'), {
+    assert.deepEqual(laterAction('waiting', 'form', 'f1'), {
       label: 'For later',
       glyph: 'clock',
       action: { type: 'questionForLater', id: 'f1', later: true },
@@ -46,10 +46,10 @@ describe('laterAction', () => {
     });
   });
 
-  test('offers nothing on answered, withdrawn, pages, charts', () => {
-    for (const section of ['answered', 'withdrawn', 'pages', 'charts']) {
-      assert.equal(laterAction(section, 'form', 'x'), null);
+  test('offers nothing on answered, withdrawn, other rows or a missing status', () => {
+    for (const status of ['answered', 'withdrawn', 'other', undefined]) {
+      assert.equal(laterAction(status, 'form', 'x'), null);
     }
-    assert.equal(laterAction('unanswered', 'chart', 'c'), null);
+    assert.equal(laterAction('waiting', 'chart', 'c'), null);
   });
 });
