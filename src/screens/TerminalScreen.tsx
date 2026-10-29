@@ -702,6 +702,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
       >
         {inRail ? null : backButton(styles.headerButton)}
         <TerminalTabsBar
+          headerColor={GhostexPalette.TERMINAL_BACKGROUND}
           tabs={tabs}
           selectedSessionKey={selectedSessionKey}
           onSelect={handleSelectTab}
