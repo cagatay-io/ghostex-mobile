@@ -142,9 +142,7 @@ export default function AgentHotkeysEditorScreen() {
     <SettingsColumnsFrame title={SettingsCopy.agentHotkeysTitle}>
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <SettingsPageScrollView keyboardAware contentContainerStyle={styles.list}>
-          <Text style={styles.status}>
-            Configure the exact terminal shortcuts shown on each agent's key page. These keys never type slash commands.
-          </Text>
+          <Text style={styles.status}>{SettingsCopy.agentHotkeysIntro}</Text>
 
           <Text style={styles.fieldLabel}>Agent</Text>
           <Pressable

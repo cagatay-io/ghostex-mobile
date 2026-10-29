@@ -47,6 +47,13 @@ export const styles = StyleSheet.create({
   terminal: {
     flex: 1,
   },
+  /** iOS: a Befehlspad layer in the software keyboard's place, from the window's bottom edge up. */
+  padLayerDock: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
   queuedPill: {
     position: 'absolute',
     top: 8,

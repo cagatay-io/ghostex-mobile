@@ -632,6 +632,18 @@ public class GhostexNativeModule: Module {
             }
         }
 
+        // The command pad's Paste key (REQ-KEY-004): the terminal's own Paste, the one its edit menu runs, so
+        // iOS's paste permission, the unsafe-paste question and the clean-up after a paste stay the same.
+        AsyncFunction("pasteFromClipboard") { (sessionKey: String) async throws in
+            try await MainActor.run {
+                guard let entry = GhostexTerminalRegistry.shared.entry(for: sessionKey),
+                      let view = entry.view else {
+                    throw GhostexException(code: .notConnected, reason: "No terminal for session \(sessionKey)")
+                }
+                view.paste(nil)
+            }
+        }
+
         AsyncFunction("focusTerminal") { (sessionKey: String) async -> Bool in
             await MainActor.run {
                 guard let entry = GhostexTerminalRegistry.shared.entry(for: sessionKey),

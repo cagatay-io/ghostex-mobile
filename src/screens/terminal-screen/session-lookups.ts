@@ -66,8 +66,6 @@ export const HEADER_HEIGHT = 44;
 export const HEADER_PADDING = 4;
 /** Deliberate separation between the Android IME boundary and the screen's bottom edge. */
 export const ANDROID_KEYBOARD_GAP = 3;
-/** How long an onSingleTap keeps the key bar optimistic before keyboard events decide. */
-export const TAP_KEYBOARD_HINT_TIMEOUT_MS = 1500;
 
 /** A saved computer, or a Cloud Box's hidden machine (`cloudbox:<boxId>`, cloudBoxes/store.ts). */
 export function machineRecordFor(machineId: string): MachineRecord | null {
@@ -134,8 +132,8 @@ export function sessionFolderFor(tab: TerminalTab | null): string {
 
 /**
  * Resolved agent icon id of the session shown in `tab` ('terminal' when it is
- * a shell tab or the session is unknown) — drives the key bar's agent-hotkey
- * page. Pure so the screen can subscribe to it as an inventory selector.
+ * a shell tab or the session is unknown) — drives the Befehlspad's Agent
+ * layer. Pure so the screen can subscribe to it as an inventory selector.
  */
 export function sessionAgentIdFor(tab: TerminalTab | null, summary: GhostexMobileSummary | null | undefined): string {
   if (tab === null || tab.ghostexSessionId === undefined) return 'terminal';

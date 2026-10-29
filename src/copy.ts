@@ -1008,4 +1008,106 @@ export const SettingsCopy = {
   title: 'Settings',
   extraKeysTitle: 'Extra Keys',
   agentHotkeysTitle: 'Agent Hotkeys',
+  padKeysTitle: 'Pad Keys',
+  /** Settings > Keyboard > Extra keys layout: the rows feed the command pad's Keys layer. */
+  extraKeysStatus: "Customize the two key rows of the command pad's Keys layer. Tap a key to move or remove it.",
+  /** Settings > Keyboard > Agent hotkeys. */
+  agentHotkeysIntro:
+    "Configure the exact terminal shortcuts shown on the command pad's Agent layer for each agent. These keys never type slash commands.",
+} as const;
+
+/**
+ * The Befehlspad (command pad) in the terminal, its Keys and Agent layers and the text editor, and its rows in
+ * Settings > Keyboard (REQ-KEY-001..010; wording of the approved mockups `mockups/befehlspad`, D-034, D-037).
+ */
+export const CommandPadCopy = {
+  toggle: 'Command pad',
+  keysLayer: 'Keys',
+  agentLayer: 'Agent hotkeys',
+  editor: 'Text editor',
+  showKeyboard: 'Show keyboard',
+  hideKeyboard: 'Hide keyboard',
+  extraKeys: 'Extra keys',
+  moreKeys: 'More keys',
+  padSettings: 'Pad settings',
+  holdHintIdle: 'Hold a key to see what it does',
+  holdHint: 'Hold to see what this key does',
+  modifierHint: 'Tap for one key, or hold to lock until tapped again',
+  /** The chip beside the toggle while a modifier is armed. */
+  modifierLocked: (label: string) => `${label} locked`,
+  editorField: 'Terminal text editor',
+  editorPlaceholder: 'Type text to send to the terminal',
+  sendEnter: 'Send Enter to terminal',
+  insertText: 'Insert text into terminal',
+  paste: 'Paste',
+  upload: 'Upload',
+  newLine: 'New line',
+  /** A pad position whose custom action or agent hotkey was deleted (owner D-062); it sends nothing. */
+  unavailable: 'Not available',
+  /** Spoken and shown names of keys by terminal key name. */
+  keyNames: {
+    escape: 'Esc',
+    tab: 'Tab',
+    enter: 'Enter',
+    backspace: 'Backspace',
+    delete: 'Delete',
+    insert: 'Insert',
+    home: 'Home',
+    end: 'End',
+    pageUp: 'Page Up',
+    pageDown: 'Page Down',
+    up: 'Up',
+    down: 'Down',
+    left: 'Left',
+    right: 'Right',
+  } as Readonly<Record<string, string>>,
+  /** Shorter faces where the name does not fit a pad key. */
+  keyFaces: {
+    backspace: 'Bksp',
+    delete: 'Del',
+    insert: 'Ins',
+    pageUp: 'PgUp',
+    pageDown: 'PgDn',
+  } as Readonly<Record<string, string>>,
+  modifierNames: { ctrl: 'Ctrl', alt: 'Alt', shift: 'Shift' },
+  agentKey: (agent: string, label: string) => `${agent}: ${label}`,
+  // Settings > Keyboard
+  settingsSection: 'Command pad',
+  settingsCaption:
+    'Shows the pad button in terminals. The pad holds the arrow keys, Enter, Esc, Tab, Ctrl+C and Upload.',
+  vibration: 'Key vibration',
+  padKeys: 'Pad keys',
+  padKeysDescription: 'Choose what the nine pad keys do.',
+  layersSection: 'Pad layers',
+  extraKeysLayout: 'Extra keys layout',
+  extraKeysLayoutDescription: 'Keys layer: your two rows of keys and custom actions.',
+  agentHotkeys: 'Agent hotkeys',
+  agentHotkeysDescription: 'Agent layer: hotkeys for Codex, Claude Code and Pi.',
+  // Settings > Keyboard > Pad keys
+  editorIntro: 'Tap a key to change it. Arrow keys repeat while you hold them.',
+  positions: {
+    topLeft: 'Top left',
+    top: 'Top',
+    topRight: 'Top right',
+    left: 'Left',
+    centre: 'Centre',
+    right: 'Right',
+    bottomLeft: 'Bottom left',
+    bottom: 'Bottom',
+    bottomRight: 'Bottom right',
+  },
+  positionKey: (position: string, key: string) => `${position}: ${key}`,
+  pickerTitle: (position: string) => `${position} key`,
+  done: 'Done',
+  sectionKeys: 'Keys',
+  sectionModifiers: 'Modifiers',
+  sectionShortcuts: 'Shortcuts',
+  sectionAgent: (agent: string) => `Agent hotkeys · ${agent}`,
+  sectionOther: 'Other',
+  sectionCustom: 'Custom actions',
+  customEmpty: 'None yet. Add text or shortcut keys in Extra keys layout; they appear here.',
+  reset: 'Reset',
+  resetTitle: 'Reset Pad Keys?',
+  resetBody: 'This puts the default nine keys back.',
+  cancel: 'Cancel',
 } as const;

@@ -18,6 +18,7 @@ import {
   EXTRA_KEY_TEXT_MAX_LENGTH,
   SHORTCUT_KEY_NAMES,
   extraKeyCatalog,
+  makeCustomActionId,
   storedItemLabel,
   useExtraKeysStore,
   type ExtraKeyStored,
@@ -32,7 +33,7 @@ import { SettingsColumnsFrame } from './settings/SettingsColumns';
 import { SettingsPageScrollView } from './settings/SettingsControls';
 import { useAppearanceHeader } from './settings/useAppearanceHeader';
 
-const STATUS_LINE = 'Customize the two key rows shown above the keyboard. Tap a key to move or remove it.';
+const STATUS_LINE = SettingsCopy.extraKeysStatus;
 const EXAMPLES_LINE =
   'Examples: a key that types "git status" and presses Enter, a key that inserts a long path, or Ctrl+C as a single tap.';
 
@@ -169,6 +170,7 @@ export default function ExtraKeysEditorScreen() {
       }
       item = {
         type: 'shortcut',
+        id: makeCustomActionId(),
         label,
         key: normalized ?? key,
         ctrl: customDraft.ctrl,
@@ -182,6 +184,7 @@ export default function ExtraKeysEditorScreen() {
       }
       item = {
         type: 'text',
+        id: makeCustomActionId(),
         label,
         text: customDraft.text,
         sendEnter: customDraft.kind === 'textEnter',

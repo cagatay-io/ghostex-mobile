@@ -3,10 +3,11 @@
  * - Refresh button (settings.refreshButtonVisible, zmx attach tabs only):
  *   explicit native ZMX viewport refresh.
  * - Upload button (settings.fileUploadButtonVisible, hourglass while
- *   uploading).
+ *   uploading); only while the Befehlspad is switched off, whose Upload key
+ *   replaces it.
  * - Keyboard button (settings.keyboardButtonVisible). While the soft keyboard
- *   is up (extra-keys toolbar hidden), it becomes the dismiss control so a
- *   keyboard-dismiss path always exists without the accessory bar.
+ *   is up (with the pad switched off), it becomes the dismiss control so a
+ *   keyboard-dismiss path always exists without the pad.
  */
 
 import { Pressable, StyleSheet, View } from 'react-native';

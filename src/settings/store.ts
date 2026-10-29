@@ -17,6 +17,7 @@ import {
   DEFAULT_SIDEBAR_BACKGROUND_TINT,
   normalizeSidebarTint,
 } from '../theme/sidebarAppearance';
+import { DEFAULT_COMMAND_PAD_KEYS, sanitizeCommandPadKeys } from './commandPad';
 
 const SETTINGS_STORAGE_KEY = 'settings.v1';
 
@@ -35,6 +36,7 @@ export type SessionsListLayout = 'unified' | 'project';
 export type GhostexSettings = {
   // Terminal behavior (legacy Android row order).
   autoScroll: boolean;
+  /** The Befehlspad's toggle in terminals (the key bar's switch before the pad replaced the bar; same meaning). */
   extraKeysToolbarVisible: boolean;
   softKeyboardEnabled: boolean;
   keepScreenOn: boolean;
@@ -47,8 +49,10 @@ export type GhostexSettings = {
   hideKeyboardOnStartup: boolean;
   openUrlsOnTap: boolean;
   confirmTabClose: boolean;
-  /** Haptic tick on key-bar presses + lock-in buzz on held modifiers. */
+  /** Haptic tick on pad and layer key presses + lock-in buzz on held modifiers. */
   keyBarHapticsEnabled: boolean;
+  /** The Befehlspad's nine keys, row by row from the top left (`settings/commandPad.ts`). */
+  commandPadKeys: string[];
   /** Terminal font size in pt (iOS) / sp (Android). Range 4-32. */
   fontSize: number;
   /** Scrollback rows for newly created terminal buffers. */
@@ -176,6 +180,7 @@ export function defaultSettings(): GhostexSettings {
     openUrlsOnTap: true,
     confirmTabClose: false,
     keyBarHapticsEnabled: true,
+    commandPadKeys: [...DEFAULT_COMMAND_PAD_KEYS],
     fontSize: defaultFontSize(),
     scrollbackRows: 2_000,
     cursorStyle: 'bar',
@@ -284,6 +289,7 @@ function sanitizeSettings(value: unknown): GhostexSettings {
     openUrlsOnTap: bool('openUrlsOnTap', defaults.openUrlsOnTap),
     confirmTabClose: bool('confirmTabClose', defaults.confirmTabClose),
     keyBarHapticsEnabled: bool('keyBarHapticsEnabled', defaults.keyBarHapticsEnabled),
+    commandPadKeys: sanitizeCommandPadKeys(record.commandPadKeys) ?? defaults.commandPadKeys,
     fontSize,
     scrollbackRows,
     cursorStyle,

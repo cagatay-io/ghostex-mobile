@@ -4,12 +4,14 @@
  *   between the back and overflow buttons (no title text),
  *   native terminal surface for the SELECTED tab only (the native registry
  *   keeps other warm entries alive across view detach), state overlays,
- *   key accessory/editor bar above the soft keyboard, floating keyboard/upload
- *   controls when the keyboard is hidden, and edge-swipe tab switching.
- * - Keyboard tracking: RN Keyboard events keep the terminal and accessory keys
- *   above the IME. Android resizes the container by the measured overlap; on iOS
+ *   the floating Befehlspad (command pad) with its Keys/Agent layers in the
+ *   keyboard's place and the text editor above the soft keyboard (or, with the
+ *   pad switched off, the round upload button), and edge-swipe tab switching.
+ * - Keyboard tracking: RN Keyboard events keep the terminal and the pad above
+ *   the IME. Android resizes the container by the measured overlap; on iOS
  *   the terminal keeps its size (so its grid and the pty stay put) and slides
- *   with the keyboard: the bottom row above the key bar, the cursor row wins (`slidesWithKeyboard`).
+ *   with the keyboard: the bottom row above what covers it (keyboard, editor or layer), the cursor row wins
+ *   (`slidesWithKeyboard`).
  */
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -21,6 +23,7 @@ import {
   Pressable,
   Text,
   View,
+  useWindowDimensions,
   type StyleProp,
   type ViewInstance,
   type ViewStyle,
@@ -48,18 +51,22 @@ import {
   type RailButtons,
 } from '../components/common/verticalBar/VerticalBarArea';
 import DelayedSendDialog from '../components/sessions/DelayedSendDialog';
+import CommandPad from '../components/terminal/CommandPad';
+import CommandPadLayer from '../components/terminal/CommandPadLayer';
 import EdgeSwipeZones from '../components/terminal/EdgeSwipeZones';
 import ExportTranscriptSheet from '../components/terminal/ExportTranscriptSheet';
 import KeyBarDock from '../components/terminal/KeyBarDock';
 import PromptEditorSheet from '../components/terminal/PromptEditorSheet';
 import TerminalFloatingControls from '../components/terminal/TerminalFloatingControls';
-import TerminalKeyBar, { KEY_BAR_HEIGHT } from '../components/terminal/TerminalKeyBar';
 import TerminalMenu, { type TerminalMenuActionId } from '../components/terminal/TerminalMenu';
 import TerminalSkillsMenu from '../components/terminal/TerminalSkillsMenu';
 import TerminalStateOverlay from '../components/terminal/TerminalStateOverlay';
 import TerminalTabsBar, { MIN_TAB_WIDTH } from '../components/terminal/TerminalTabsBar';
+import TerminalTextEditor, { TEXT_EDITOR_HEIGHT } from '../components/terminal/TerminalTextEditor';
 import { ChatBubbleIcon, ChevronLeftIcon, EllipsisIcon, TerminalPromptIcon } from '../components/terminal/icons';
+import { PAD_TOGGLE, padAnchorBottom } from '../components/terminal/commandPadLayout';
 import { terminalObstruction, terminalSlideOffset } from '../components/terminal/terminalKeyboardSlide';
+import { useCommandPad } from '../components/terminal/useCommandPad';
 import { useKeyboardMetrics } from '../components/terminal/useKeyboardMetrics';
 import { isSessionChatSupportedAgent } from '../chat/session-chat-helpers';
 import NativeChatScreen from '../chat/native/NativeChatScreen';
@@ -91,7 +98,6 @@ import {
   sessionAgentIdFor,
   sessionProjectIdFor,
   sessionRecordFor,
-  TAP_KEYBOARD_HINT_TIMEOUT_MS,
   useMachineTarget,
   type AgentOverlay,
   type ExportedTranscript,
@@ -130,7 +136,6 @@ export default function TerminalScreen({ navigation, route }: Props) {
   const settings = useSettingsStore((state) => state.settings);
 
   const isFocused = useIsFocused();
-  const [tapKeyboardHint, setTapKeyboardHint] = useState(false);
   // The "More options" menu; on the iPhone Duo at its button as it is now.
   const {
     visible: menuVisible,
@@ -156,7 +161,9 @@ export default function TerminalScreen({ navigation, route }: Props) {
   // The iOS terminal's cursor row and size, which decide how far it slides with the keyboard (below).
   const [caretTop, setCaretTop] = useState<number | null>(null);
   const [terminalHeight, setTerminalHeight] = useState(0);
-  const [keyBarHeight, setKeyBarHeight] = useState(0);
+  // What covers the terminal's bottom besides the keyboard: the text editor on it, or a pad layer in its place.
+  const [editorHeight, setEditorHeight] = useState(0);
+  const [layerHeight, setLayerHeight] = useState(0);
   /** Session keys already auto-focused this visit (hide-keyboard-on-startup off). */
   const autoFocusedSessionsRef = useRef<Set<string>>(new Set());
 
@@ -355,26 +362,6 @@ export default function TerminalScreen({ navigation, route }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Optimistic key-bar visibility from onSingleTap until keyboard events land.
-  useEffect(() => {
-    if (!tapKeyboardHint) return;
-    if (keyboardVisible) {
-      setTapKeyboardHint(false);
-      return;
-    }
-    const timer = setTimeout(() => setTapKeyboardHint(false), TAP_KEYBOARD_HINT_TIMEOUT_MS);
-    return () => clearTimeout(timer);
-  }, [tapKeyboardHint, keyboardVisible]);
-
-  const keyBarVisible = (keyboardVisible || tapKeyboardHint) && settings.extraKeysToolbarVisible;
-  const keyBarDocked = slidesWithKeyboard && keyBarVisible && activeTab !== null;
-  const obstruction = slidesWithKeyboard
-    ? terminalObstruction(bottomInset, keyBarDocked ? keyBarHeight || KEY_BAR_HEIGHT : 0, insets.bottom)
-    : 0;
-  const terminalOffset = terminalSlideOffset(caretTop, terminalHeight, obstruction);
-  // Without a key bar the floating controls stay above the keyboard: the terminal area no longer shrinks.
-  const floatingLift = slidesWithKeyboard ? Math.max(0, bottomInset - insets.bottom) : 0;
-
   // Keep the display awake only while this terminal screen is active.
   useEffect(() => {
     const keepAwake = isFocused && settings.keepScreenOn;
@@ -391,17 +378,16 @@ export default function TerminalScreen({ navigation, route }: Props) {
     if (activeTab === null || activeTab.state !== 'open') return;
     if (autoFocusedSessionsRef.current.has(activeTab.sessionKey)) return;
     autoFocusedSessionsRef.current.add(activeTab.sessionKey);
-    setTapKeyboardHint(true);
-    void GhostexNative.focusTerminal(activeTab.sessionKey).catch(() => setTapKeyboardHint(false));
+    void GhostexNative.focusTerminal(activeTab.sessionKey).catch(() => undefined);
   }, [settings.hideKeyboardOnStartup, isFocused, activeTab]);
 
   /*
    * Android's reported keyboard height can fall short of what actually covers
    * the window (IME candidate/tool rows, gesture bar), so measure the screen's
-   * own bottom edge — the extra-keys toolbar when it is up, the bottom spacer
-   * otherwise — and fold the residual overlap into the container's padding.
-   * Chat mode has no toolbar, which is why this measures the wrapper rather
-   * than the toolbar itself: without it the composer's last few pixels sit
+   * own bottom edge — the text editor or a pad layer when one is up, the bottom
+   * spacer otherwise — and fold the residual overlap into the container's padding.
+   * Chat mode has neither, which is why this measures the wrapper rather
+   * than the editor itself: without it the composer's last few pixels sit
    * under the keyboard.
    */
   const reconcileBottomEdgeWithVisibleWindow = useCallback((): void => {
@@ -427,7 +413,6 @@ export default function TerminalScreen({ navigation, route }: Props) {
   }, [keyboardVisible, reconcileBottomEdgeWithVisibleWindow, visibleWindowBottom]);
 
   const dismissKeyboard = useCallback((): void => {
-    setTapKeyboardHint(false);
     const sessionKey = useTerminalStore.getState().selectedSessionKey;
     if (sessionKey !== null) void GhostexNative.blurTerminal(sessionKey).catch(() => undefined);
     Keyboard.dismiss();
@@ -459,9 +444,38 @@ export default function TerminalScreen({ navigation, route }: Props) {
   const showKeyboard = useCallback((): void => {
     const sessionKey = useTerminalStore.getState().selectedSessionKey;
     if (sessionKey === null) return;
-    setTapKeyboardHint(true);
-    void GhostexNative.focusTerminal(sessionKey).catch(() => setTapKeyboardHint(false));
+    void GhostexNative.focusTerminal(sessionKey).catch(() => undefined);
   }, []);
+
+  // The Befehlspad (REQ-KEY-001): over the shown terminal while it is switched on, never in chat view.
+  const padSessionKey =
+    settings.extraKeysToolbarVisible && activeTab !== null && !chatModeActive ? activeTab.sessionKey : null;
+  const { width: windowWidth } = useWindowDimensions();
+  const pad = useCommandPad({
+    sessionKey: padSessionKey,
+    agentId: activeAgentId,
+    keyboardVisible,
+    keyboardOverlap: slidesWithKeyboard ? bottomInset : 0,
+    windowWidth,
+    showKeyboard,
+    dismissKeyboard,
+  });
+  const editorShown = padSessionKey !== null && pad.editorVisible;
+  const layerShown = padSessionKey !== null && pad.layer !== null;
+  // iOS: the covered part of the terminal's bottom, the keyboard with the editor on it or a layer in its place. A
+  // layer has exactly the keyboard's last height once that is known (it scrolls inside), so the pad stays put
+  // (owner D-037); before any keyboard was seen, its own height.
+  const layerCover = pad.layerMinHeight ?? layerHeight;
+  const obstruction = slidesWithKeyboard
+    ? Math.max(
+        terminalObstruction(bottomInset, editorShown ? editorHeight || TEXT_EDITOR_HEIGHT : 0, insets.bottom),
+        layerShown ? layerCover - insets.bottom : 0,
+      )
+    : 0;
+  const terminalOffset = terminalSlideOffset(caretTop, terminalHeight, obstruction);
+  // The pad and the floating controls stay above what covers the terminal: the terminal area does not shrink.
+  const padBottom = padAnchorBottom(obstruction);
+  const floatingLift = slidesWithKeyboard ? Math.max(0, bottomInset - insets.bottom) : 0;
 
   const toggleChatView = useCallback((): void => {
     const store = useTerminalStore.getState();
@@ -610,6 +624,25 @@ export default function TerminalScreen({ navigation, route }: Props) {
   );
 
   const uploadEnabled = activeTab !== null && (chatModeActive ? agentActionsCapable : activeTab.state === 'open');
+  // The pad's Upload key starts the upload the round button started (REQ-KEY-009).
+  const padUpload = useMemo(
+    () => ({ available: uploadEnabled && !uploading, uploading, start: () => void handleUpload('file') }),
+    [uploadEnabled, uploading, handleUpload],
+  );
+  const openPadSettings = useCallback(() => navigation.navigate('SettingsPage', { page: 'keyboard' }), [navigation]);
+  const padLayer =
+    padSessionKey !== null && pad.layer !== null ? (
+      <CommandPadLayer
+        kind={pad.layer}
+        input={pad.input}
+        modifiers={pad.modifiers}
+        agentId={activeAgentId}
+        onOpenSettings={openPadSettings}
+        height={slidesWithKeyboard ? pad.layerMinHeight : undefined}
+        bottomInset={insets.bottom}
+        onHeightChange={setLayerHeight}
+      />
+    ) : null;
   const agentSessionTitle =
     activeSession === null || activeSession.displayTitle.length === 0
       ? SessionCopy.fallbackTitle
@@ -820,7 +853,6 @@ export default function TerminalScreen({ navigation, route }: Props) {
             sessionKey={activeTab.sessionKey}
             style={slidesWithKeyboard ? [styles.terminal, { top: -terminalOffset }] : styles.terminal}
             onCaretChange={slidesWithKeyboard ? ({ nativeEvent }) => setCaretTop(nativeEvent.top) : undefined}
-            onSingleTap={() => setTapKeyboardHint(true)}
             onOpenUrl={({ nativeEvent }) =>
               openMachineLink(activeTab.machineId, nativeEvent.url, { projectId: activeProjectId })
             }
@@ -890,16 +922,39 @@ export default function TerminalScreen({ navigation, route }: Props) {
           </Pressable>
         ) : null}
         {tabs.length > 1 && <EdgeSwipeZones onPrev={() => switchTabBy(-1)} onNext={() => switchTabBy(1)} />}
-        {!keyBarVisible && !chatModeActive && (
+        {padSessionKey !== null ? (
+          <CommandPad
+            open={pad.open}
+            onToggle={pad.toggle}
+            keys={pad.keys}
+            input={pad.input}
+            modifiers={pad.modifiers}
+            upload={padUpload}
+            bottom={padBottom}
+            layer={pad.layer}
+            onLayer={pad.selectLayer}
+            agentAvailable={pad.agentAvailable}
+            editorOpen={pad.editorVisible}
+            onEditor={pad.toggleEditor}
+            keyboardVisible={keyboardVisible}
+            onKeyboard={pad.toggleKeyboard}
+          />
+        ) : null}
+        {/*
+          With the pad switched off: the round buttons as before the pad (U1, owner 2026-10-25). With it on,
+          Upload is a pad key (REQ-KEY-001 AC3) and the optional keyboard and refresh buttons stand above the
+          closed pad's toggle while nothing covers the terminal.
+        */}
+        {!chatModeActive && (padSessionKey === null || (!keyboardVisible && !pad.open && !layerShown)) && (
           <TerminalFloatingControls
             showKeyboardButton={settings.keyboardButtonVisible}
-            showUploadButton={settings.fileUploadButtonVisible}
+            showUploadButton={padSessionKey === null && settings.fileUploadButtonVisible}
             showRefreshButton={settings.refreshButtonVisible && activeTab?.kind === 'attach'}
             uploadEnabled={uploadEnabled}
             uploading={uploading}
             refreshEnabled={activeTab?.state === 'open'}
             keyboardShown={keyboardVisible}
-            bottomOffset={16 + floatingLift}
+            bottomOffset={padSessionKey === null ? 16 + floatingLift : padBottom + PAD_TOGGLE + 12}
             onKeyboard={showKeyboard}
             onDismissKeyboard={dismissKeyboard}
             onUpload={() => void handleUpload('file')}
@@ -909,20 +964,19 @@ export default function TerminalScreen({ navigation, route }: Props) {
       </View>
 
       {/*
-        The screen's bottom edge, always mounted and measurable: the extra-keys
-        toolbar while it is up, otherwise the bottom margin.
+        The screen's bottom edge, always mounted and measurable: on Android the text editor or a pad layer
+        while one is up, otherwise the bottom margin.
       */}
       <View ref={bottomEdgeFrameRef} collapsable={false} onLayout={reconcileBottomEdgeWithVisibleWindow}>
         {slidesWithKeyboard ? (
-          // The terminal view ends above the home-indicator inset, with or without the keyboard; the key
-          // bar rides over the keyboard (the dock below), not in this flow.
+          // The terminal view ends above the home-indicator inset, with or without the keyboard; the text editor
+          // rides over the keyboard (the dock below) and a pad layer stands in the keyboard's place, not in this flow.
           <View style={{ height: insets.bottom }} />
-        ) : keyBarVisible && activeTab !== null && !chatModeActive ? (
-          <TerminalKeyBar
-            sessionKey={activeTab.sessionKey}
-            agentId={activeAgentId}
-            onDismissKeyboard={dismissKeyboard}
-          />
+        ) : padLayer !== null ? (
+          padLayer
+        ) : editorShown && padSessionKey !== null ? (
+          // Keyed by session: a draft never moves to another session's terminal.
+          <TerminalTextEditor key={padSessionKey} sessionKey={padSessionKey} />
         ) : (
           // With the keyboard up the container's bottom padding already clears
           // the IME, so the terminal surface takes all of it and only adds the
@@ -938,15 +992,12 @@ export default function TerminalScreen({ navigation, route }: Props) {
         )}
       </View>
       {slidesWithKeyboard ? (
-        <KeyBarDock shown={keyBarDocked} inset={bottomInset} hideMs={hideMotionMs} onHeightChange={setKeyBarHeight}>
-          {activeTab !== null ? (
-            <TerminalKeyBar
-              sessionKey={activeTab.sessionKey}
-              agentId={activeAgentId}
-              onDismissKeyboard={dismissKeyboard}
-            />
-          ) : null}
-        </KeyBarDock>
+        <>
+          <KeyBarDock shown={editorShown} inset={bottomInset} hideMs={hideMotionMs} onHeightChange={setEditorHeight}>
+            {padSessionKey !== null ? <TerminalTextEditor key={padSessionKey} sessionKey={padSessionKey} /> : null}
+          </KeyBarDock>
+          {padLayer !== null ? <View style={styles.padLayerDock}>{padLayer}</View> : null}
+        </>
       ) : null}
 
       <TerminalMenu
