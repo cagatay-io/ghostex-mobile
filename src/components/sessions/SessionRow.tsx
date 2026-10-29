@@ -254,8 +254,8 @@ function ThreadConnector({
 
 /**
  * threads.rs `coordinator_badge`: the crew icon and one number (sessions waiting for approval, else
- * threads waiting, else working, else all of them), tinted to match: red for approval, light blue for
- * waiting, orange for working, neutral for all.
+ * threads waiting, else working), tinted to match: red for approval, light blue for waiting, orange
+ * for working. An idle coordinator draws no badge (CDXC:Coordinators 2026-10-29 in threads.rs).
  */
 function CoordinatorBadgeView({ badge }: { badge: CoordinatorBadge }) {
   const tint =
@@ -495,6 +495,8 @@ export default function SessionRow({
    */
   const showLinkLine = showChips;
   const linksBadge = offerCleanup ? null : linksRow.badge;
+  // An idle coordinator draws no crew badge (threads.rs `coordinator_badge`).
+  const shownCoordinatorBadge = coordinatorBadge?.tone === 'idle' ? undefined : coordinatorBadge;
   const rowHeight = TOUCH_ROW_HEIGHT + (showLinkLine ? ds(WORK_SESSION_ROW_HEIGHT - 34) : 0);
   const linePaddingLeft = (inCard ? ds(26) : ds(47)) + titleIndent;
 
@@ -627,7 +629,7 @@ export default function SessionRow({
           foldedStatus !== undefined ||
           indicator !== null ||
           timeLabel !== null ||
-          coordinatorBadge !== undefined ||
+          shownCoordinatorBadge !== undefined ||
           linksBadge !== null ||
           voiceCall ||
           session.agentbox !== undefined ||
@@ -663,7 +665,7 @@ export default function SessionRow({
                   </Text>
                 </View>
               ) : null}
-              {coordinatorBadge !== undefined ? <CoordinatorBadgeView badge={coordinatorBadge} /> : null}
+              {shownCoordinatorBadge !== undefined ? <CoordinatorBadgeView badge={shownCoordinatorBadge} /> : null}
               {voiceCall ? <VoiceCallBadge /> : null}
               {session.agentbox !== undefined ? <AgentboxBadge agentbox={session.agentbox} /> : null}
               {/* A Claude cloud session: the desktop's plain 12dp muted cloud before the status (claudeCloud.ts). */}
