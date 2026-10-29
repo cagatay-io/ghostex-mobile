@@ -41,7 +41,8 @@ import { useVoiceCapability } from '../../voice/VoiceButton';
 import { useArmedActions } from './armedActions';
 import { NativeChatCards, NativeChatOverlays, PageSheet, questionReplacesComposer } from './cards';
 import { ConnectionLostNotice } from './cards/ConnectionLostNotice';
-import { LoneScrollBottom, WorkingCard, type WorkingCardLinks } from './cards/WorkingCard';
+import { PillsStrip, type PillsStripLinks } from './cards/PillsStrip';
+import { LoneScrollBottom, WorkingCard } from './cards/WorkingCard';
 import { NativeComposer } from './composer';
 import { HandoffSheet, type HandoffRequest } from './composer/HandoffSheet';
 import type { MenuRow } from './composer/MenuSheet';
@@ -82,7 +83,7 @@ export type NativeChatScreenProps = {
    * the machine reports a queue at all. */
   onQueueCountChange?: (count: number) => void;
   /** The session's links for the working card's Links pill and the tap that opens their sheet. */
-  links?: WorkingCardLinks | null;
+  links?: PillsStripLinks | null;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -322,18 +323,12 @@ export default function NativeChatScreen({
           >
             <NativeTranscript chat={chat} />
             {/* Scroll-to-bottom alone while no card carries it. */}
-            {document === null ? null : <LoneScrollBottom document={document} armed={armed} />}
+            {document === null ? null : <LoneScrollBottom document={document} armed={armed} links={links} />}
           </View>
           <ConnectionLostNotice machine={machine} active={visible} />
           {/* The working card in its own row above the cards and the composer: the transcript ends above it. */}
           {document === null ? null : (
-            <WorkingCard
-              chat={chat}
-              document={document}
-              armed={armed}
-              links={links}
-              {...(openDelayedActions !== undefined ? { onArmedPress: openDelayedActions } : {})}
-            />
+            <WorkingCard document={document} />
           )}
           <NativeChatCards chat={chat} onHostAction={hostAction} />
           {!composerShown ? null : (
@@ -350,6 +345,19 @@ export default function NativeChatScreen({
                 openAccountsRequestId={accountsRequestId}
                 voiceCallTitle={title}
                 {...(composerRoom !== undefined ? { room: composerRoom } : {})}
+                {...(document !== null
+                  ? {
+                      strip: (
+                        <PillsStrip
+                          chat={chat}
+                          document={document}
+                          armed={armed}
+                          links={links}
+                          {...(openDelayedActions !== undefined ? { onArmedPress: openDelayedActions } : {})}
+                        />
+                      ),
+                    }
+                  : {})}
               />
             </View>
           )}

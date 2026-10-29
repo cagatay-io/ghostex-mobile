@@ -216,8 +216,6 @@ export type ChatCoreQuery =
   | 'speakableSegments'
   | 'speakableMarkdown'
   | 'transcriptPictures'
-  /** `workingCardRows(memo, measured)`: one or two rows for the working card (gx-chat-core `extras/working_card_rows.rs`). */
-  | 'workingCardRows'
   /** `toolAppLogo(key)`: an MCP app's logo SVG for a tool-call card (gx-chat-core `transcript/tool_apps.rs`). */
   | 'toolAppLogo';
 

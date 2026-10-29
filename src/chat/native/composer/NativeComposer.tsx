@@ -12,7 +12,7 @@
  */
 
 import * as Clipboard from 'expo-clipboard';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Alert, Platform, Pressable, Text, View, type LayoutChangeEvent, type ViewInstance } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -84,6 +84,8 @@ export type NativeComposerProps = {
    * absent, the field grows to `INPUT_MAX_HEIGHT`.
    */
   room?: number;
+  /** The chat's pill strip (`PillsStrip.tsx`), drawn along the box's top edge inside its border. */
+  strip?: ReactNode;
 };
 
 const DEFAULT_HOST_ACTIONS: readonly string[] = ['terminalView'];
@@ -134,6 +136,7 @@ export function NativeComposer({
   openAccountsRequestId = 0,
   voiceCallTitle = '',
   room,
+  strip,
 }: NativeComposerProps) {
   const styles = useStyles();
   const serves = useCallback(
@@ -154,6 +157,8 @@ export function NativeComposer({
    * `room` minus everything else (`inputMaxHeight` below).
    */
   const [frame, setFrame] = useState({ cardTop: -1, content: -1, field: -1 });
+  /** The pill strip's height at the box's top, which the field gives up too. */
+  const [stripHeight, setStripHeight] = useState(0);
   const measureFrame = useCallback((part: 'cardTop' | 'content' | 'field', value: number) => {
     const next = Math.round(value);
     setFrame((now) => (now[part] === next ? now : { ...now, [part]: next }));
@@ -544,7 +549,7 @@ export function NativeComposer({
       ? INPUT_MAX_HEIGHT
       : Math.max(
           INPUT_MIN_HEIGHT,
-          Math.min(INPUT_MAX_HEIGHT, room - (frame.cardTop + CARD_BORDER * 2 + (frame.content - frame.field) + bottom)),
+          Math.min(INPUT_MAX_HEIGHT, room - (frame.cardTop + stripHeight + CARD_BORDER * 2 + (frame.content - frame.field) + bottom)),
         );
 
   return (
@@ -563,128 +568,79 @@ export function NativeComposer({
         onCancel={() => void dictation.cancel()}
         onRetry={() => void dictation.retry()}
       />
-      <Animated.View
-        style={[styles.card, focused ? styles.cardFocused : null, motion.cardStyle]}
+      <View
+        style={[styles.card, focused ? styles.cardFocused : null]}
         onLayout={(event: LayoutChangeEvent) => measureFrame('cardTop', event.nativeEvent.layout.y)}
       >
-        <Pressable
-          accessible={false}
-          onPress={() => {
-            if (requestedCollapsed) dispatch({ type: 'composerExpand', editor: true });
-            field.current?.focus();
-          }}
-          onLayout={(event: LayoutChangeEvent) => {
-            motion.onContentLayout(event);
-            if (!collapsed) measureFrame('content', event.nativeEvent.layout.height);
-          }}
-          style={[styles.cardBody, collapsed ? styles.cardCollapsed : null]}
-        >
-          {!collapsed && document !== null ? (
-            <AttachmentPreviews
-              references={references}
-              pending={document.pendingAttachments}
-              images={state.images}
-              draft={text}
-              active={activeImage}
-              dispatch={dispatch}
-            />
-          ) : null}
-          {document !== null ? <QueueList document={document} dispatch={dispatch} /> : null}
-          <View style={collapsed ? styles.collapsedRow : null}>
-            <View
-              style={collapsed ? styles.grow : null}
-              onLayout={(event: LayoutChangeEvent) => {
-                if (!collapsed) measureFrame('field', event.nativeEvent.layout.height);
-              }}
-            >
-              <ComposerInput
-                ref={field}
-                model={model}
-                input={{
-                  ...input,
-                  focused: () => {
-                    setFocused(true);
-                    input.focused();
-                    readTerminalTail();
-                  },
-                  blurred: () => {
-                    setFocused(false);
-                    input.blurred();
-                  },
-                }}
-                references={references}
-                parsedFor={text}
-                parse={parseDraftReferences}
-                placeholder={placeholder}
-                collapsed={collapsed}
-                maxHeight={inputMaxHeight}
-                dispatch={dispatch}
-                onTextChange={setText}
-                onCaret={setCaret}
-                onImages={receiveImages}
-              />
-            </View>
-            {collapsed ? (
-              // Collapsed, desktop's toolbar keeps More actions beside Send (`render_toolbar`).
-              <ToolbarButton glyph="dots" label="More actions" onPress={openMore} disabled={document === null} />
-            ) : null}
-            {collapsed ? (
-              <SendControl
-                document={document}
-                hasDraft={hasDraft}
-                ready={model.ready}
-                submit={input.submit}
-                dispatch={dispatch}
-                onHoldWhileWorking={openSendChoices}
-              />
-            ) : null}
+        {/* The chat's pills ride in a strip along the box's top edge, inside its border (`PillsStrip.tsx`); what the box holds under it is unchanged. */}
+        {strip !== undefined ? (
+          <View onLayout={(event: LayoutChangeEvent) => setStripHeight(Math.round(event.nativeEvent.layout.height))}>
+            {strip}
           </View>
-          {!collapsed ? (
-            <Animated.View
-              style={[styles.footer, motion.controlsStyle]}
-              onLayout={(event: LayoutChangeEvent) => setFooterWidth(Math.round(event.nativeEvent.layout.width))}
-            >
-              <View style={styles.options}>
-                {document !== null ? <OptionPills document={document} onOpen={openPill} /> : null}
+        ) : null}
+        <Animated.View style={[styles.cardInner, motion.cardStyle]}>
+          <Pressable
+            accessible={false}
+            onPress={() => {
+              if (requestedCollapsed) dispatch({ type: 'composerExpand', editor: true });
+              field.current?.focus();
+            }}
+            onLayout={(event: LayoutChangeEvent) => {
+              motion.onContentLayout(event);
+              if (!collapsed) measureFrame('content', event.nativeEvent.layout.height);
+            }}
+            style={[styles.cardBody, collapsed ? styles.cardCollapsed : null]}
+          >
+            {!collapsed && document !== null ? (
+              <AttachmentPreviews
+                references={references}
+                pending={document.pendingAttachments}
+                images={state.images}
+                draft={text}
+                active={activeImage}
+                dispatch={dispatch}
+              />
+            ) : null}
+            {document !== null ? <QueueList document={document} dispatch={dispatch} /> : null}
+            <View style={collapsed ? styles.collapsedRow : null}>
+              <View
+                style={collapsed ? styles.grow : null}
+                onLayout={(event: LayoutChangeEvent) => {
+                  if (!collapsed) measureFrame('field', event.nativeEvent.layout.height);
+                }}
+              >
+                <ComposerInput
+                  ref={field}
+                  model={model}
+                  input={{
+                    ...input,
+                    focused: () => {
+                      setFocused(true);
+                      input.focused();
+                      readTerminalTail();
+                    },
+                    blurred: () => {
+                      setFocused(false);
+                      input.blurred();
+                    },
+                  }}
+                  references={references}
+                  parsedFor={text}
+                  parse={parseDraftReferences}
+                  placeholder={placeholder}
+                  collapsed={collapsed}
+                  maxHeight={inputMaxHeight}
+                  dispatch={dispatch}
+                  onTextChange={setText}
+                  onCaret={setCaret}
+                  onImages={receiveImages}
+                />
               </View>
-              <View style={styles.toolbar}>
+              {collapsed ? (
+                // Collapsed, desktop's toolbar keeps More actions beside Send (`render_toolbar`).
                 <ToolbarButton glyph="dots" label="More actions" onPress={openMore} disabled={document === null} />
-                {document !== null
-                  ? COMPOSER_CONTROLS.filter(
-                      (control) => available(control.id) && !overflowed(document, control.id),
-                    ).map((control) => {
-                      const glyph = CONTROL_GLYPHS[control.id];
-                      const pressed = control.id === 'note' && document.composerChrome.notePressed;
-                      const badge = control.id === 'note' && document.composerChrome.notePresence ? '' : null;
-                      // Copy Report sits right before the Terminal View glyph while it reads not ready
-                      // (desktop `toolbar.rs`, CDXC:SessionChat 2026-10-25).
-                      const report =
-                        control.id === 'terminal' && document.terminalTail?.readiness === 'notReady' ? (
-                          <CopyReportPill key="copyReport" onPress={() => dispatch({ type: 'copyReport' })} />
-                        ) : null;
-                      return [
-                        report,
-                        <ToolbarButton
-                          key={control.id}
-                          glyph={glyph}
-                          label={control.label}
-                          pressed={pressed}
-                          badge={badge}
-                          tint={control.id === 'terminal' ? terminalReadinessTint(document) : null}
-                          onPress={() => performComposerAction(control.action)}
-                        />,
-                      ];
-                    })
-                  : null}
-                {available('dictate') ? (
-                  <ToolbarButton
-                    glyph={dictation.listening ? 'player-stop' : 'microphone'}
-                    label={dictation.listening ? 'Stop dictating' : 'Dictate'}
-                    pressed={dictation.listening}
-                    onPress={() => performComposerAction('dictate')}
-                    onLongPress={openDictationMenu}
-                  />
-                ) : null}
+              ) : null}
+              {collapsed ? (
                 <SendControl
                   document={document}
                   hasDraft={hasDraft}
@@ -693,25 +649,82 @@ export function NativeComposer({
                   dispatch={dispatch}
                   onHoldWhileWorking={openSendChoices}
                 />
-              </View>
-              {document !== null ? (
-                <View
-                  style={styles.measure}
-                  pointerEvents="none"
-                  onLayout={(event) => setOptionsWidth(Math.round(event.nativeEvent.layout.width))}
-                >
-                  <OptionPills
-                    document={
-                      { ...document, composerOverflow: { overflowed: [], optionsOverflowed: false } } as ChatDocument
-                    }
-                    onOpen={() => undefined}
+              ) : null}
+            </View>
+            {!collapsed ? (
+              <Animated.View
+                style={[styles.footer, motion.controlsStyle]}
+                onLayout={(event: LayoutChangeEvent) => setFooterWidth(Math.round(event.nativeEvent.layout.width))}
+              >
+                <View style={styles.options}>
+                  {document !== null ? <OptionPills document={document} onOpen={openPill} /> : null}
+                </View>
+                <View style={styles.toolbar}>
+                  <ToolbarButton glyph="dots" label="More actions" onPress={openMore} disabled={document === null} />
+                  {document !== null
+                    ? COMPOSER_CONTROLS.filter(
+                        (control) => available(control.id) && !overflowed(document, control.id),
+                      ).map((control) => {
+                        const glyph = CONTROL_GLYPHS[control.id];
+                        const pressed = control.id === 'note' && document.composerChrome.notePressed;
+                        const badge = control.id === 'note' && document.composerChrome.notePresence ? '' : null;
+                        // Copy Report sits right before the Terminal View glyph while it reads not ready
+                        // (desktop `toolbar.rs`, CDXC:SessionChat 2026-10-25).
+                        const report =
+                          control.id === 'terminal' && document.terminalTail?.readiness === 'notReady' ? (
+                            <CopyReportPill key="copyReport" onPress={() => dispatch({ type: 'copyReport' })} />
+                          ) : null;
+                        return [
+                          report,
+                          <ToolbarButton
+                            key={control.id}
+                            glyph={glyph}
+                            label={control.label}
+                            pressed={pressed}
+                            badge={badge}
+                            tint={control.id === 'terminal' ? terminalReadinessTint(document) : null}
+                            onPress={() => performComposerAction(control.action)}
+                          />,
+                        ];
+                      })
+                    : null}
+                  {available('dictate') ? (
+                    <ToolbarButton
+                      glyph={dictation.listening ? 'player-stop' : 'microphone'}
+                      label={dictation.listening ? 'Stop dictating' : 'Dictate'}
+                      pressed={dictation.listening}
+                      onPress={() => performComposerAction('dictate')}
+                      onLongPress={openDictationMenu}
+                    />
+                  ) : null}
+                  <SendControl
+                    document={document}
+                    hasDraft={hasDraft}
+                    ready={model.ready}
+                    submit={input.submit}
+                    dispatch={dispatch}
+                    onHoldWhileWorking={openSendChoices}
                   />
                 </View>
-              ) : null}
-            </Animated.View>
-          ) : null}
-        </Pressable>
-      </Animated.View>
+                {document !== null ? (
+                  <View
+                    style={styles.measure}
+                    pointerEvents="none"
+                    onLayout={(event) => setOptionsWidth(Math.round(event.nativeEvent.layout.width))}
+                  >
+                    <OptionPills
+                      document={
+                        { ...document, composerOverflow: { overflowed: [], optionsOverflowed: false } } as ChatDocument
+                      }
+                      onOpen={() => undefined}
+                    />
+                  </View>
+                ) : null}
+              </Animated.View>
+            ) : null}
+          </Pressable>
+        </Animated.View>
+      </View>
       {statusLine && document !== null ? <StatusLine document={document} dispatch={dispatch} /> : null}
       <MenuSheet
         rows={menu?.kind === 'rows' ? menu.rows : null}
@@ -801,6 +814,10 @@ const useStyles = themedStyles((P) => ({
     borderWidth: CARD_BORDER,
     borderColor: P.composerBorder,
     backgroundColor: P.composerBackground,
+    overflow: 'hidden',
+  },
+  /** The box's content under the strip; it clips it while its height tweens. */
+  cardInner: {
     overflow: 'hidden',
   },
   /** The card's content at its natural height; the card clips it while its height tweens. */
