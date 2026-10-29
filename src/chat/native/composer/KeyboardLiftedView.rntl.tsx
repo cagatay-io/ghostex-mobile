@@ -11,6 +11,7 @@
 import { DeviceEventEmitter, Dimensions, StyleSheet, Text } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
+import { keyboardFixture } from '../../../components/common/keyboard/keyboardEventFixtures';
 import { KeyboardLiftedView } from './KeyboardLiftedView';
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -34,14 +35,11 @@ async function setWindow(width: number, height: number): Promise<void> {
   });
 }
 
+/** The notifications iOS posts, with their start and end frames (keyboardEventFixtures.ts). */
+const keyboard = keyboardFixture({ width: 466, height: 678 });
+
 async function keyboardAt(top: number, height: number): Promise<void> {
-  await act(() => {
-    DeviceEventEmitter.emit('keyboardWillChangeFrame', {
-      duration: 0,
-      easing: 'keyboard',
-      endCoordinates: { screenX: 0, screenY: top, width: 466, height },
-    });
-  });
+  await act(() => keyboard.show(top, height, 0));
 }
 
 /** The space below the composer's content: the lift above the keyboard, or the bottom inset. */
@@ -57,9 +55,7 @@ beforeEach(async () => {
       onFrame(0, composer.y, 466, composer.height),
   );
   await setWindow(466, 678);
-  await act(() => {
-    DeviceEventEmitter.emit('keyboardWillHide', { duration: 0, easing: 'keyboard', endCoordinates: {} });
-  });
+  await act(() => keyboard.hide(0));
   await render(
     <KeyboardLiftedView>
       <Text>composer</Text>

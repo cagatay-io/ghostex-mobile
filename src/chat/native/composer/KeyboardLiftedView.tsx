@@ -1,8 +1,10 @@
 /**
  * The chat composer's frame at the bottom of the chat view: it lifts what it holds above the software
  * keyboard and keeps the home indicator's inset without one (owner S1-8: the bottom inset counted
- * once). It measures itself for the overlap, again whenever its own layout changes (`onLayout`) and the
- * window's height does (`useKeyboardInset`, FL-LAY-11), so the composer cannot lose either hookup.
+ * once). It follows the shared keyboard store synchronously, so its lift is expected to land in the commit the
+ * keyboard's motion is requested for (basis and limit: `keyboardMotion.ts`; the device decides), and it measures
+ * its resting bottom edge when its own layout changes (`onLayout`) and the window's height does
+ * (`useKeyboardInset`, FL-LAY-11), so the composer cannot lose either hookup.
  */
 
 import { useRef, type ReactNode } from 'react';

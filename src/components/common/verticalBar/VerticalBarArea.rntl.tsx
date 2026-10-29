@@ -16,6 +16,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import type { BarLayout, WindowRect } from '../../../../modules/ghostex-native/src/GhostexNative.types';
 import { useAppLogStore } from '../../../app/appLog';
 import ContextMenu from '../../sessions/ContextMenu';
+import { keyboardFixture } from '../keyboard/keyboardEventFixtures';
 import { measureInWindow } from '../measureInWindow';
 import { useBarGeometryStore } from './barGeometry';
 import type { RailButtons, RailEntry } from './railSlot';
@@ -91,8 +92,12 @@ const FOLDED: BarLayout = {
   divisions: [],
 };
 
+/** The notifications iOS posts, with their start and end frames (keyboardEventFixtures.ts). */
+const keyboardEvents = keyboardFixture({ width: 466, height: 678 });
+
 async function setWindow(width: number, height: number): Promise<void> {
   await act(() => {
+    keyboardEvents.setScreen(width, height);
     Dimensions.set({
       window: { width, height, scale: 3, fontScale: 1 },
       screen: { width, height, scale: 3, fontScale: 1 },
@@ -143,9 +148,7 @@ beforeEach(async () => {
   useAppLogStore.setState({ entries: [] });
   // Each test starts from nothing stored and no keyboard.
   await AsyncStorage.clear();
-  await act(() => {
-    DeviceEventEmitter.emit('keyboardWillHide', { duration: 0, easing: 'keyboard', endCoordinates: {} });
-  });
+  await act(() => keyboardEvents.hide(0));
   useBarGeometryStore.setState({ hydrated: false, keyboardHeights: {}, layouts: {} });
   await useBarGeometryStore.getState().hydrate();
   await setWindow(669, 951);
@@ -394,22 +397,8 @@ describe("the side bar keeps off the fold's division (FL-DUO-03, owner B1, 2026-
 });
 
 describe('the keyboard reserve only grows (REQ-DUO-005 AC2, owner A1, 2026-10-27)', () => {
-  const keyboard = (top: number, height: number, width = 466) =>
-    act(() => {
-      DeviceEventEmitter.emit('keyboardWillChangeFrame', {
-        duration: 0,
-        easing: 'keyboard',
-        endCoordinates: { screenX: 0, screenY: top, width, height },
-      });
-    });
-  const hide = () =>
-    act(() => {
-      DeviceEventEmitter.emit('keyboardWillHide', {
-        duration: 0,
-        easing: 'keyboard',
-        endCoordinates: { screenX: 0, screenY: 678, width: 466, height: 0 },
-      });
-    });
+  const keyboard = (top: number, height: number) => act(() => keyboardEvents.show(top, height, 0));
+  const hide = () => act(() => keyboardEvents.hide(0));
   const sizeOf = (label: string) => StyleSheet.flatten(screen.getByLabelText(label).props.style).width;
 
   test('owner A1: the first keyboard rearranges the rail once, a lower one never moves it back, a taller one once more', async () => {
@@ -452,7 +441,7 @@ describe('the keyboard reserve only grows (REQ-DUO-005 AC2, owner A1, 2026-10-27
       </VerticalBarArea>,
     );
     await firstReport({ ...FOLDED, windowWidth: 678, windowHeight: 466 });
-    await keyboard(266, 200, 678);
+    await keyboard(266, 200);
     // React Native reports the turned window before the keyboard reports its frame there.
     await setWindow(466, 678);
     await report(FOLDED);
