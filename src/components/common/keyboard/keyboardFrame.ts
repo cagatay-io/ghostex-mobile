@@ -1,5 +1,7 @@
 /**
- * Where the software keyboard's top edge is on screen, shared by every keyboard-aware container.
+ * Where the software keyboard's top edge is in the app's window, shared by every keyboard-aware container,
+ * and the keyboard's last reported frame, from which the iPhone Duo's side bar learns the keyboard
+ * height of a window (`useKeyboardFrame`).
  *
  * Android: a React Native `Modal` is its own edge-to-edge dialog window, which the system does not
  * resize for the keyboard (the activity's `adjustResize` only covers the main window, and not on
@@ -11,29 +13,31 @@
  */
 
 import { useSyncExternalStore } from 'react';
-import { Dimensions, Keyboard, LayoutAnimation, Platform, type KeyboardEvent } from 'react-native';
+import { Keyboard, LayoutAnimation, Platform, useWindowDimensions, type KeyboardEvent } from 'react-native';
 
-let keyboardTop: number | null = null;
+import { keyboardFrameOf, keyboardTopInWindow, type KeyboardFrame } from './keyboardTop';
+
+/** The keyboard's last reported frame; whether it reaches into the window is the hooks' call. */
+let frame: KeyboardFrame | null = null;
 const listeners = new Set<() => void>();
 let subscribed = false;
 
-function publish(next: number | null): void {
-  if (next === keyboardTop) return;
-  keyboardTop = next;
+function publish(next: KeyboardFrame | null): void {
+  if (next?.top === frame?.top && next?.height === frame?.height && next?.width === frame?.width) return;
+  frame = next;
   for (const listener of listeners) listener();
 }
 
-function topFromEvent(event: KeyboardEvent): number | null {
-  const { screenY, height } = event.endCoordinates;
-  if (height <= 0 || screenY >= Dimensions.get('screen').height) return null;
-  return screenY;
+function frameFromEvent(event: KeyboardEvent): KeyboardFrame | null {
+  const { screenY, height, width } = event.endCoordinates;
+  return keyboardFrameOf(screenY, height, width);
 }
 
 function ensureSubscribed(): void {
   if (subscribed) return;
   subscribed = true;
   const metrics = Keyboard.metrics();
-  if (metrics != null && metrics.height > 0) keyboardTop = metrics.screenY;
+  if (metrics != null) frame = keyboardFrameOf(metrics.screenY, metrics.height, metrics.width);
   if (Platform.OS === 'ios') {
     // iOS reports the frame before it animates, so containers move with the keyboard.
     const animate = (duration: number): void => {
@@ -42,17 +46,17 @@ function ensureSubscribed(): void {
       }
     };
     Keyboard.addListener('keyboardWillChangeFrame', (event) => {
-      const next = topFromEvent(event);
-      if (next !== keyboardTop) animate(event.duration);
+      const next = frameFromEvent(event);
+      if (next?.top !== frame?.top) animate(event.duration);
       publish(next);
     });
     Keyboard.addListener('keyboardWillHide', (event) => {
-      if (keyboardTop !== null) animate(event.duration);
+      if (frame !== null) animate(event.duration);
       publish(null);
     });
   } else {
     // Android only reports after the fact; keyboardDidShow re-fires when the keyboard's height changes.
-    Keyboard.addListener('keyboardDidShow', (event) => publish(topFromEvent(event)));
+    Keyboard.addListener('keyboardDidShow', (event) => publish(frameFromEvent(event)));
     Keyboard.addListener('keyboardDidHide', () => publish(null));
   }
 }
@@ -65,11 +69,21 @@ function subscribe(listener: () => void): () => void {
   };
 }
 
-function snapshot(): number | null {
-  return keyboardTop;
+function snapshot(): KeyboardFrame | null {
+  return frame;
+}
+
+function topSnapshot(): number | null {
+  return frame?.top ?? null;
+}
+
+/** The keyboard's last reported frame, or null while it is hidden; the same object until it changes. */
+export function useKeyboardFrame(): KeyboardFrame | null {
+  return useSyncExternalStore(subscribe, snapshot, snapshot);
 }
 
 /** The keyboard's top edge in window points, or null while it is hidden. */
 export function useKeyboardTop(): number | null {
-  return useSyncExternalStore(subscribe, snapshot, snapshot);
+  const top = useSyncExternalStore(subscribe, topSnapshot, topSnapshot);
+  return keyboardTopInWindow(top, useWindowDimensions().height);
 }

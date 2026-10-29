@@ -18,6 +18,7 @@
 //  ConnectionSessionManager integration, macOS paths.
 //
 
+import ExpoModulesCore
 import UIKit
 import OSLog
 import GhosttyKit
@@ -303,8 +304,10 @@ class GhosttyTerminalView: UIView {
 
         backgroundColor = .black
 
-        // Set content scale factor for retina rendering (important before surface creation)
-        self.contentScaleFactor = UIScreen.main.scale
+        // Set content scale factor for retina rendering (important before surface creation). The view
+        // has no window yet, so the foreground window scene gives the scale of the display it will be
+        // shown on (Expo's `SceneGeometry`); `didMoveToWindow` then follows the window's own.
+        self.contentScaleFactor = SceneGeometry.displayScale()
 
         setupSurface()
 
