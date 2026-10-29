@@ -644,17 +644,17 @@ export default function SessionRow({
                         ? `Links: ${linksBadge.label} and ${linksBadge.more} more`
                         : `Link: ${linksBadge.label}`
                   }
-                  style={[
-                    styles.linksBadge,
-                    { borderColor: linksBadge.color },
-                    linksBadge.suggested && styles.linksBadgeSuggested,
-                  ]}
+                  style={
+                    linksBadge.suggested
+                      ? [styles.linksBadgeSuggested, { borderColor: linksBadge.color }]
+                      : styles.linksBadge
+                  }
                 >
-                  <ChipGlyph glyph="link" color={linksBadge.color} size={ds(10)} />
+                  {/* CDXC:SessionLinks 2026-10-29: a linked badge is bare text like the crew count beside it; suggestions keep the icon and dashed pill (desktop link_chips.rs has the user's words). */}
+                  {linksBadge.suggested ? <ChipGlyph glyph="link" color={linksBadge.color} size={ds(10)} /> : null}
                   <Text
                     style={[
-                      styles.linksBadgeText,
-                      !linksBadge.suggested && styles.linksBadgeId,
+                      linksBadge.suggested ? styles.linksBadgeSuggestedText : styles.linksBadgeText,
                       { color: linksBadge.color },
                     ]}
                   >
@@ -707,7 +707,17 @@ export default function SessionRow({
 }
 
 const styles = StyleSheet.create({
+  /** A linked badge: bare text in the crew count's size (`coordinatorBadgeCount`, desktop `session_links_badge_body`). */
   linksBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  linksBadgeText: {
+    fontSize: ds(13.55),
+    lineHeight: ds(20),
+  },
+  /** The suggestions badge: the link icon and the count in a dashed pill. */
+  linksBadgeSuggested: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: ds(3),
@@ -715,16 +725,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: ds(5),
     borderRadius: ds(8),
     borderWidth: 1,
-  },
-  linksBadgeSuggested: {
     borderStyle: 'dashed',
   },
-  linksBadgeText: {
+  linksBadgeSuggestedText: {
     fontSize: ds(10.5),
-  },
-  /** The named link's ID, heavier than the "+N" after it (desktop `session_links_badge_body`). */
-  linksBadgeId: {
-    fontWeight: '600',
   },
   rowGap: {
     marginBottom: ROW_SPACING,
