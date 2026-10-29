@@ -189,6 +189,33 @@ function pressingRank(link: GhostexSessionLink): { rank: number; color: string }
 }
 
 /**
+ * A link badge's colour (the session row's badge and the chat's Links pill): the state's colour
+ * muted to the desktop project header's diff numbers (desktop `session_link_badge_color` in
+ * native_sidebar/link_chips.rs, whose CDXC:SessionLinks 2026-10-29 DECISION holds the user's words:
+ * "make it match the color of the + lines that we have there in project header ... also please same
+ * for the purple we have for merged or closed"). Open work takes the header's "+N" green, failing
+ * checks or changes asked for its "-N" red, every other state its own hue at that softness; all at
+ * the header's 70%. `light` picks the header's light values (the chat's light theme).
+ */
+export function linkBadgeColor(vivid: string, light = false): string {
+  const [dark, lightValue] = LINK_BADGE_COLORS[vivid.toUpperCase()] ?? LINK_BADGE_COLORS[SidebarPalette.WORK_DRAFT]!;
+  return `${light ? lightValue : dark}B3`;
+}
+
+/** Each state colour's muted badge colour, dark and light (the desktop's values). */
+const LINK_BADGE_COLORS: Record<string, readonly [string, string]> = {
+  [SidebarPalette.WORK_OPEN]: ['#9CC894', '#2A7A3A'],
+  [SidebarPalette.WORK_CLOSED]: ['#DCA8A4', '#C43A42'],
+  [SidebarPalette.WORK_MERGED]: ['#AA94C8', '#4B2A7A'],
+  [SidebarPalette.WORK_DRAFT]: ['#AEAEAE', '#525252'],
+  [SidebarPalette.WORK_PENDING]: ['#C8B794', '#7A5F2A'],
+  [SidebarPalette.WORK_STARTED]: ['#C8BE94', '#7A6A2A'],
+  [SidebarPalette.WORK_REVIEW]: ['#94C8AE', '#2A7A52'],
+  [SidebarPalette.WORK_DONE]: ['#9497C8', '#2A2F7A'],
+  [SidebarPalette.WORK_LINEAR]: ['#9497C8', '#2A2F7A'],
+};
+
+/**
  * The link the badge and the chat's Links pill name (gx-core `SessionLinks::badge_link`): the first
  * pinned one; else the most pressing open one, the first in the list on a tie; else the first.
  */
@@ -243,7 +270,11 @@ export type SessionLinksChatPill = {
  * bar above the composer ... between Tasks and Threads ... The look of the pill needs to look like the
  * one we have in the sidebar"). The badge's text and colour; `muted` colours a suggestions-only pill.
  */
-export function sessionLinksChatPill(links: GhostexSessionLinks | undefined, muted: string): SessionLinksChatPill | null {
+export function sessionLinksChatPill(
+  links: GhostexSessionLinks | undefined,
+  muted: string,
+  light = false,
+): SessionLinksChatPill | null {
   if (links === undefined) return null;
   const { items, suggested } = links;
   if (items.length === 0) {
@@ -263,7 +294,7 @@ export function sessionLinksChatPill(links: GhostexSessionLinks | undefined, mut
   return {
     label: text.label,
     more: text.more,
-    color: mostPressingLinkColor(items),
+    color: linkBadgeColor(mostPressingLinkColor(items), light),
     suggested: false,
     accessibilityLabel: text.more > 0 ? `Links, ${summary} and ${text.more} more` : `Links, ${summary}`,
   };
@@ -346,7 +377,13 @@ export function sessionLinksRow(
         badge:
           text === null
             ? null
-            : { count: links.length, color: mostPressingLinkColor(links), suggested: false, label: text.label, more: text.more },
+            : {
+                count: links.length,
+                color: linkBadgeColor(mostPressingLinkColor(links)),
+                suggested: false,
+                label: text.label,
+                more: text.more,
+              },
       };
     }
   }

@@ -517,13 +517,16 @@ export function Pill({ pill, open, onPress }: { pill: ChatPill; open: boolean; o
 }
 
 /**
- * The Links pill, between Workers and Tasks: the sidebar badge's text and colours (one link's ID and
- * "+N" for the others in the most pressing link's colour; muted and dashed, "3 suggested", while the
- * session only has suggestions). A tap opens the session's links sheet. Desktop: `links_pill.rs`;
+ * The Links pill, the strip's last: the sidebar badge's text and colours, much fainter (one link's ID
+ * and "+N" for the others in the most pressing link's colour at 60%, its edge at 18%; muted and
+ * dashed, "3 suggested", while the session only has suggestions). A tap opens the session's links sheet. Desktop: `links_pill.rs`;
  * the user's words are on gx-core `SessionLinks::chat_pill`.
  */
 export function LinksPill({ pill, onPress }: { pill: SessionLinksChatPill; onPress: () => void }) {
   const styles = useStyles();
+  // The badge's colour, muted to the project header's diff numbers (`linkBadgeColor`; desktop
+  // link_chips.rs has the user's words), its edge at 45% of it.
+  const color = pill.color;
   return (
     <Pressable
       accessibilityRole="button"
@@ -533,14 +536,15 @@ export function LinksPill({ pill, onPress }: { pill: SessionLinksChatPill; onPre
       style={({ pressed }) => [
         styles.pill,
         styles.linksPill,
-        { borderColor: withAlpha(pill.color, 0.45) },
+        { borderColor: withAlpha(pill.color.slice(0, 7), pill.suggested ? 0.45 : 0.32) },
         pill.suggested && styles.linksPillSuggested,
         pressed && styles.pillPressed,
       ]}
     >
-      <TranscriptGlyph name="link" size={12} color={pill.color} />
-      <Text style={[styles.label, !pill.suggested && styles.linksId, { color: pill.color }]}>{pill.label}</Text>
-      {pill.more > 0 ? <Text style={[styles.label, styles.linksMore, { color: pill.color }]}>{`+${pill.more}`}</Text> : null}
+      <TranscriptGlyph name="link" size={12} color={color} />
+      <Text style={[styles.label, !pill.suggested && styles.linksId, { color }]}>
+        {pill.more > 0 ? `${pill.label}+` : pill.label}
+      </Text>
     </Pressable>
   );
 }
@@ -702,10 +706,7 @@ const useStyles = themedStyles((P) => ({
     borderStyle: 'dashed',
   },
   linksId: {
-    fontWeight: '600',
-  },
-  linksMore: {
-    opacity: 0.75,
+    fontWeight: '500',
   },
   label: {
     color: P.cardMuted,

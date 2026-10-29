@@ -53,8 +53,6 @@ export function mixHex(base: string, over: string, alpha: number): string {
     .join('')}`;
 }
 
-/** The Links pill goes before the first of these, after Resources and Workers (desktop `links_pill_index`). */
-const AFTER_LINKS: ReadonlySet<string> = new Set(['tasks', 'subagents', 'background']);
 
 /** Whether the question pill shows: a question form or page waits (the core's `openQuestions.count`). */
 function questionWaiting(document: ChatDocument): boolean {
@@ -114,7 +112,7 @@ export function PillsStrip({
     });
     return () => run.stop();
   }, [shown, reduceMotion, open]);
-  const linksPill = links ? sessionLinksChatPill(links.links, P.cardMuted) : null;
+  const linksPill = links ? sessionLinksChatPill(links.links, P.cardMuted, P.light) : null;
   const card = document.workingCard;
   const pills = (card?.pills ?? [])
     .map((id) => (document.chatPills ?? []).find((pill) => pill.id === id))
@@ -122,10 +120,8 @@ export function PillsStrip({
   const panelPills = pills.map((pill) => (
     <Pill key={pill.id} pill={pill} open={pill.id === menu} onPress={() => setMenu(pill.id)} />
   ));
-  if (links && linksPill !== null) {
-    const at = pills.findIndex((pill) => AFTER_LINKS.has(pill.id));
-    panelPills.splice(at === -1 ? panelPills.length : at, 0, <LinksPill key="links" pill={linksPill} onPress={links.onOpen} />);
-  }
+  // The Links pill is the last one (desktop `links_pill.rs` has the user's words).
+  if (links && linksPill !== null) panelPills.push(<LinksPill key="links" pill={linksPill} onPress={links.onOpen} />);
   const questions = document.openQuestions;
   const showJump = awayFromBottom && jumpToBottom !== null;
   return (

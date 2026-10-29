@@ -9,6 +9,7 @@ import { SidebarPalette } from '../../theme/palette';
 import {
   SUGGESTED_OPEN_UP_TO_LINKED,
   SUGGESTED_SHOWN_FIRST,
+  linkBadgeColor,
   sessionLinksBadgeLabel,
   sessionLinksChatPill,
   sessionLinksDisplay,
@@ -55,18 +56,18 @@ describe('session links in the sidebar', () => {
 describe('the badge colour', () => {
   test('is grey once every link is merged or closed', () => {
     const row = sessionLinksRow(links([link('#3', 'merged', true), link('#4', 'closed', true)]), 'badge', false);
-    assert.deepEqual(row.badge, { count: 2, color: SidebarPalette.WORK_DRAFT, suggested: false, label: '#3', more: 1 });
+    assert.deepEqual(row.badge, { count: 2, color: '#AEAEAEB3', suggested: false, label: '#3', more: 1 });
   });
 
   test('keeps the open colour while any link is open', () => {
     const row = sessionLinksRow(links([link('#3', 'merged', true), link('#2', 'open', false)]), 'badge', false);
-    assert.equal(row.badge?.color, SidebarPalette.WORK_OPEN);
+    assert.equal(row.badge?.color, '#9CC894B3');
   });
 
   test('names a pinned link with no line of its own; the pinned open one colours it', () => {
     const row = sessionLinksRow(links([link('#3', 'merged', true), link('#2', 'open', false, true)]), 'badge', false);
     assert.deepEqual(row.line, []);
-    assert.deepEqual([row.badge?.label, row.badge?.more, row.badge?.color], ['#2', 1, SidebarPalette.WORK_OPEN]);
+    assert.deepEqual([row.badge?.label, row.badge?.more, row.badge?.color], ['#2', 1, '#9CC894B3']);
   });
 });
 
@@ -131,7 +132,7 @@ describe('sessionLinksChatPill', () => {
   test('reads like the badge (ID and +N) and says suggested quietly', () => {
     const failing = { ...link('#1', 'open', false), checks: 'failing' };
     const three = sessionLinksChatPill(links([link('#2', 'open', false), failing, link('#3', 'merged', true)]), 'muted');
-    assert.deepEqual([three?.label, three?.more, three?.color, three?.suggested], ['#1', 2, SidebarPalette.WORK_CLOSED, false]);
+    assert.deepEqual([three?.label, three?.more, three?.color, three?.suggested], ['#1', 2, '#DCA8A4B3', false]);
 
     const one = sessionLinksChatPill(links([{ ...link('SPX-123', 'open', false), kind: 'linear' }]), 'muted');
     assert.deepEqual([one?.label, one?.more], ['SPX-123', 0]);
@@ -169,5 +170,14 @@ describe('sessionLinksBadgeLabel', () => {
     assert.deepEqual(sessionLinksBadgeLabel([linear]), { label: 'SPX-123', more: 0 });
     assert.equal(sessionLinksChatPill(links([pr, issue, linear]), 'muted')?.label, '#151');
     assert.equal(pr.label, 'maestro_ed#151');
+  });
+});
+
+describe('linkBadgeColor', () => {
+  test('mutes a state colour to the project header\'s diff tones at 70%', () => {
+    assert.equal(linkBadgeColor(SidebarPalette.WORK_OPEN), '#9CC894B3');
+    assert.equal(linkBadgeColor(SidebarPalette.WORK_OPEN, true), '#2A7A3AB3');
+    assert.equal(linkBadgeColor(SidebarPalette.WORK_MERGED), '#AA94C8B3');
+    assert.equal(linkBadgeColor('#123456'), '#AEAEAEB3');
   });
 });

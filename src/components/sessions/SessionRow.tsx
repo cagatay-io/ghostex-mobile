@@ -69,6 +69,7 @@ import WorkChips, {
 } from './WorkChips';
 import { workChips, type WorkChip } from './workChipModel';
 import {
+  linkBadgeColor,
   sessionLinkChecksMark,
   sessionLinkLook,
   sessionLinkSummary,
@@ -468,9 +469,10 @@ export default function SessionRow({
       return {
         key: link.key,
         glyph: look.glyph,
-        glyphColor: look.color,
+        // The badge's muted colours (`linkBadgeColor`; desktop link_chips.rs has the user's words).
+        glyphColor: linkBadgeColor(look.color),
         label: link.label,
-        trailing: checks ?? undefined,
+        trailing: checks !== null ? { ...checks, color: linkBadgeColor(checks.color) } : undefined,
         url: link.url,
         description: sessionLinkSummary(link),
       };
@@ -656,13 +658,9 @@ export default function SessionRow({
                       { color: linksBadge.color },
                     ]}
                   >
-                    {linksBadge.label}
+                    {/* "#270+" with more links (desktop link_chips.rs has the user's words). */}
+                    {linksBadge.more > 0 ? `${linksBadge.label}+` : linksBadge.label}
                   </Text>
-                  {linksBadge.more > 0 ? (
-                    <Text style={[styles.linksBadgeText, styles.linksBadgeMore, { color: linksBadge.color }]}>
-                      {`+${linksBadge.more}`}
-                    </Text>
-                  ) : null}
                 </View>
               ) : null}
               {coordinatorBadge !== undefined ? <CoordinatorBadgeView badge={coordinatorBadge} /> : null}
@@ -727,9 +725,6 @@ const styles = StyleSheet.create({
   /** The named link's ID, heavier than the "+N" after it (desktop `session_links_badge_body`). */
   linksBadgeId: {
     fontWeight: '600',
-  },
-  linksBadgeMore: {
-    opacity: 0.75,
   },
   rowGap: {
     marginBottom: ROW_SPACING,
