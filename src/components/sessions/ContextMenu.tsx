@@ -141,6 +141,13 @@ const checkStyles = StyleSheet.create({
   },
 });
 
+function sameFrame(a: MenuAnchor | undefined, b: MenuAnchor | undefined): boolean {
+  return (
+    a === b ||
+    (a !== undefined && b !== undefined && a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height)
+  );
+}
+
 export default function ContextMenu({
   visible,
   title,
@@ -148,7 +155,7 @@ export default function ContextMenu({
   items,
   onClose,
   onDismissed,
-  anchor,
+  anchor: liveAnchor,
 }: ContextMenuProps) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const safeArea = useSafeAreaInsets();
@@ -160,6 +167,12 @@ export default function ContextMenu({
   // The card's height once laid out, for an anchored menu to stay inside the window.
   const [cardHeight, setCardHeight] = useState<number | null>(null);
 
+  // The card stays where it was shown until the Modal is gone: once `visible` turns false the owner of the
+  // menu stops passing an anchor (its open menu is gone), which would put the still fading card in the
+  // centre for its last frames (owner finding 2026-10-28). So the last anchor of the open menu is held.
+  const [heldAnchor, setHeldAnchor] = useState(liveAnchor);
+  if (visible && !sameFrame(liveAnchor, heldAnchor)) setHeldAnchor(liveAnchor);
+  const anchor = visible ? liveAnchor : heldAnchor;
   const anchoredFrom = anchor !== undefined && placement.kind !== 'top' ? placement.kind : null;
   const windowRoom: MenuRoom = {
     left: Math.max(safeArea.left, bar.left) + ANCHORED_MARGIN,

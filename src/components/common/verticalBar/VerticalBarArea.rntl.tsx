@@ -344,6 +344,108 @@ test("REQ-DUO-001 AC5, owner S1-5: Terminal's menu, opened at its band button, s
   expect(anchors.at(-1)).toEqual({ x: 880, y: 116 + 2 * 58, width: 46, height: 46 });
 });
 
+/**
+ * Terminal's "More options" menu as it is drawn: a card at its band button. React Native's native Modal keeps
+ * its content on screen while it fades out after `visible` turns false; this stand-in does the same (the
+ * Jest preset's mock drops it at once, which would hide exactly the frames the owner saw).
+ */
+jest.mock('react-native/Libraries/Modal/Modal', () => {
+  const { View: MockView } = jest.requireActual('react-native');
+  const React = jest.requireActual('react');
+  return {
+    __esModule: true,
+    default: (props: { children?: unknown }) => React.createElement(MockView, null, props.children),
+  };
+});
+
+function MenuCloseScreen() {
+  const placement = useHeaderPlacement();
+  const menu = useHeaderMenu();
+  anchors.push(menu.anchor);
+  return (
+    <>
+      {placement.kind === 'band' ? (
+        <Pressable
+          ref={menu.buttonRef}
+          accessibilityLabel="band more"
+          onPress={() => measureInWindow(menu.buttonRef, menu.open)}
+        />
+      ) : null}
+      <Pressable accessibilityLabel="close menu" onPress={() => menu.setVisible(false)} />
+      <ContextMenu
+        visible={menu.visible}
+        title="Menu"
+        items={[{ kind: 'item', key: 'one', label: 'One', onPress: () => undefined }]}
+        onClose={() => menu.setVisible(false)}
+        anchor={menu.anchor}
+      />
+    </>
+  );
+}
+
+describe('REQ-DUO-001 AC5, owner finding 2026-10-28: the menu card stays where it is while the menu fades out', () => {
+  /** The card's position style: the title's nearest container with a width. */
+  const cardPosition = () => {
+    let card = screen.getByText('Menu').parent;
+    while (card !== null && StyleSheet.flatten(card.props.style)?.maxHeight === undefined) card = card.parent;
+    const { position, left, top } = StyleSheet.flatten(card?.props.style) ?? {};
+    return { position, left, top };
+  };
+
+  /** The folded display in landscape with the camera on the right: the header row is in the status band. */
+  const LANDSCAPE_BAND: BarLayout = {
+    windowWidth: 678,
+    windowHeight: 466,
+    safeTop: 82,
+    topBar: { x: 84, y: 26, width: 576.7, height: 44 },
+    divisions: [],
+  };
+
+  test.each([
+    {
+      name: 'portrait',
+      layout: PORTRAIT,
+      window: [669, 951],
+      button: { x: 380, y: 26, width: 44, height: 44 },
+      left: 64,
+      top: 88,
+    },
+    {
+      name: 'landscape',
+      layout: LANDSCAPE_BAND,
+      window: [678, 466],
+      button: { x: 560, y: 26, width: 44, height: 44 },
+      left: 244,
+      top: 88,
+    },
+  ])(
+    'closing the menu does not move the card ($name): the live anchor is the pressed button and the card keeps its place until the Modal is gone',
+    async ({ layout, window, button, left, top }) => {
+      anchors.length = 0;
+      await setWindow(window[0], window[1]);
+      mockNativeMethods.measureInWindow.mockImplementation(
+        (onFrame: (x: number, y: number, width: number, height: number) => void) =>
+          onFrame(button.x, button.y, button.width, button.height),
+      );
+      await render(
+        <VerticalBarArea>
+          <MenuCloseScreen />
+        </VerticalBarArea>,
+      );
+      await firstReport(layout);
+      await fireEvent.press(screen.getByLabelText('band more'));
+      // The anchor the card stands at is the button as pressed (the live measurement agrees with the press).
+      expect(anchors.at(-1)).toEqual(button);
+      const open = cardPosition();
+      // At its button, not centred: absolutely positioned below the button, kept inside the room.
+      expect(open).toEqual({ position: 'absolute', left, top });
+      await fireEvent.press(screen.getByLabelText('close menu'));
+      // The first frames of the fade-out: the same card at the same place.
+      expect(cardPosition()).toEqual(open);
+    },
+  );
+});
+
 describe("the side bar keeps off the fold's division (FL-DUO-03, owner B1, 2026-10-27)", () => {
   const ACROSS_RAIL = { x: 0, y: 330, width: 951, height: 18, active: true };
   const LAPTOP_DIVISION = { x: 0, y: 466, width: 669, height: 18, active: true };
