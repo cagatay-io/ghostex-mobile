@@ -129,8 +129,11 @@ declare class GhostexNativeModule extends NativeModule<GhostexNativeEvents> {
   /** Play a short native alert sound (terminal bell beep or attention alert). */
   playAlertSound(kind: TerminalAlertSoundKind): Promise<void>;
 
-  /** Make the attached view first responder and show the soft keyboard. No-op if no view attached. */
-  focusTerminal(sessionKey: string): Promise<void>;
+  /**
+   * Make the attached view first responder and show the soft keyboard. Resolves true when the terminal holds
+   * the keyboard focus afterwards; false when no view is attached or the platform refused the focus.
+   */
+  focusTerminal(sessionKey: string): Promise<boolean>;
   /** Resign first responder / hide the soft keyboard for the attached view. */
   blurTerminal(sessionKey: string): Promise<void>;
 

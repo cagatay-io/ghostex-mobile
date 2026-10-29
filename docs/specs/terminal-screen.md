@@ -87,7 +87,7 @@ Real `inputAccessoryView` riding above the software keyboard. Hidden when: hardw
 - While the editor is open, the dismiss-keyboard button becomes the editor action. A non-empty buffer shows an up-arrow and inserts the entire buffer into the selected terminal before clearing it. An empty buffer shows the Send glyph and sends the terminal Enter key.
 - Return in the software keyboard inserts a newline into the draft instead of sending it.
 - Backspace or Delete on an empty draft is forwarded to the terminal, including repeated events while the key is held.
-- Switching back to the key grid restores terminal keyboard focus.
+- Switching back to the key grid restores terminal keyboard focus. The terminal is asked for focus (`focusTerminal`, which resolves whether it took it) while the editor still holds it, and the editor is removed only after the answer; the aim is that the keyboard stays up and the key rows come back in place instead of the keyboard hiding and showing again. The component test (`TerminalKeyBar.rntl.tsx`) proves that order: the focus request is made while the editor is still mounted, and the editor closes after the answer. That the keyboard does not hide and show again on the device is not yet verified. A refusal or an error is logged and the key grid comes back anyway; further presses while the hand-over is pending are ignored.
 
 ### Two rows, 7 equal columns each (fixed grid, no scroll). Empty slots invisible placeholders. Max 14 items, min 1.
 

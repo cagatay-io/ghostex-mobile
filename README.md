@@ -18,6 +18,8 @@ bunx expo prebuild            # generates ios/ + android/ (gitignored, CNG)
 bunx expo run:ios             # or: xcodebuild against ios/Ghostex.xcworkspace
 bunx expo run:android         # or: cd android && ./gradlew :app:assembleDebug
 bunx tsc --noEmit             # typecheck
+bun test src                  # logic tests (*.test.ts, node:test)
+bun run test:jest             # component and lifecycle tests (*.rntl.tsx, Jest + jest-expo + React Native Testing Library)
 ```
 
 Notes:
@@ -25,6 +27,7 @@ Notes:
 - `plugins/withPodfileMinDeploymentTarget.js` clamps pod deployment targets to 15.0 for new Xcode versions.
 - `ios.entitlements` in `app.json` (`application-identifier` + `keychain-access-groups`) is required: iOS 26 simulators reject expo-secure-store (`KeyChainException: A required entitlement isn't present`) when the app carries no keychain entitlement. Prebuild writes it into `ios/Ghostex/Ghostex.entitlements`; do not hand-edit that file. Keep the default simulator ad-hoc signing (`CODE_SIGN_IDENTITY=-`, what `expo run:ios` does): passing `CODE_SIGNING_ALLOWED=NO` to `xcodebuild` skips entitlement processing entirely, so the app ends up with no entitlements no matter what the file says.
 - `bunfig.toml` relaxes bun's minimum-release-age gate (Expo SDK point releases are often newer than 10 days).
+- Two test runners, each with its own files: `bun test src` runs the logic tests (`*.test.ts`), `bun run test:jest` the component and lifecycle tests (`*.rntl.tsx`: a hook wired into a screen, state kept across a fold or a column switch), which need React Native's runtime under Jest (`jest-expo` preset, `jest` block in `package.json`; `testTimeout` 30 s because a cold first run spends longer than Jest's default 5 s transforming React Native). Neither picks up the other's files. A component test file starts with `/// <reference types="jest" />`, as the logic tests reference `node` (TypeScript 6 includes no `@types` package by default).
 - Native module layout and the exact JS↔native contract: `docs/ARCHITECTURE.md`.
 - `assets/chat-core/chat-core.html` is the Rust chat brain (`packages/gx-chat-core` in the Ghostex main repo) as WebAssembly, run by a hidden WebView (`src/chat/rust/wasm-core/`); the JSON it takes and answers is in `src/chat/rust/core-types.ts`. It ships with over-the-air updates, so chat-core changes reach phones without a new app. The app imports it, so Metro and `expo export` fail until `cargo xtask build-mobile-chat-wasm` has written it; rerun that after `packages/gx-chat-core` changes.
 

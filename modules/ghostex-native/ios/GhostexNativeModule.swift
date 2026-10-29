@@ -546,15 +546,15 @@ public class GhostexNativeModule: Module {
             }
         }
 
-        AsyncFunction("focusTerminal") { (sessionKey: String) async in
+        AsyncFunction("focusTerminal") { (sessionKey: String) async -> Bool in
             await MainActor.run {
                 guard let entry = GhostexTerminalRegistry.shared.entry(for: sessionKey),
                       let view = entry.view,
                       view.window != nil else {
-                    // No-op when the terminal view is not attached anywhere.
-                    return
+                    // No view attached anywhere: nothing took the focus.
+                    return false
                 }
-                _ = view.requestKeyboardFocus(for: .explicitUserRequest)
+                return view.requestKeyboardFocus(for: .explicitUserRequest)
             }
         }
 
