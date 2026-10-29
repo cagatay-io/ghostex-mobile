@@ -39,20 +39,6 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  /*
-   * Option E's bottom bar (top-bar-buttons.html `.tb-bottom-bar`): 58pt, a hairline on top, #121212,
-   * edge to edge under the list (it reaches through the screen's 12pt padding).
-   */
-  bottomBar: {
-    flexDirection: 'row',
-    height: 58,
-    marginHorizontal: -12,
-    marginBottom: -12,
-    marginTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: '#121212',
-  },
   bottomItem: {
     flex: 1,
     alignItems: 'center',

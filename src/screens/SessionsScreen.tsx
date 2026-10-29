@@ -138,6 +138,7 @@ import {
   type ProjectContext,
   type SessionContext,
 } from './sessions-screen/session-actions';
+import { SessionsBottomBar } from './sessions-screen/BottomBar';
 import { styles } from './sessions-screen/styles';
 import { useSessionsScreenMenus } from './sessions-screen/use-sessions-screen-menus';
 
@@ -973,7 +974,7 @@ export default function SessionsScreen({ navigation }: Props) {
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: sidebarAppearance.background }]}
-      edges={['top', 'bottom']}
+      edges={['top']}
     >
       <View style={styles.headerRow}>
         {/*
@@ -1148,7 +1149,11 @@ export default function SessionsScreen({ navigation }: Props) {
         CDXC:Sessions 2026-10-27 DECISION:
         User picked option E for the Sessions screen's top bar buttons (Q362, docs/2026-10-21/phone-sessions-screen/top-bar-buttons.html): "Voice, Search, Web and Machines move to a labelled bar at the bottom; the top keeps only the title and the menu." The bottom bar holds the four, labelled, within thumb reach. Search still opens SessionSearchSheet, which searches every visible computer's open and closed sessions with the desktop's Sessions search rules and restores a closed one when tapped (the 2026-10-01 decision); only its place moves from the top right to the bar. Voice shows only where the computer runs the voice agent, and Web only once a computer is chosen.
       */}
-      <View style={styles.bottomBar}>
+      {/*
+        S1 2026-10-28: the bar's background runs to the bottom screen edge as iOS tab bars do; this screen
+        leaves the bottom safe area to it (SafeAreaView edges), and its items stay above the home indicator.
+      */}
+      <SessionsBottomBar>
         <VoiceButton
           machine={machine}
           style={styles.bottomItem}
@@ -1193,7 +1198,7 @@ export default function SessionsScreen({ navigation }: Props) {
           <MachinesGlyph size={20} color={styles.bottomIconColor.color} />
           <Text style={styles.bottomLabel}>Machines</Text>
         </Pressable>
-      </View>
+      </SessionsBottomBar>
       <ProgressOverlay visible={progress !== null} message={progress ?? ''} />
 
       <SessionSearchSheet
