@@ -6,8 +6,10 @@
  *   keeps other warm entries alive across view detach), state overlays,
  *   key accessory/editor bar above the soft keyboard, floating keyboard/upload
  *   controls when the keyboard is hidden, and edge-swipe tab switching.
- * - Keyboard tracking: RN Keyboard events plus measured viewport overlap keep
- *   the terminal and accessory keys above the IME on both platforms.
+ * - Keyboard tracking: RN Keyboard events keep the terminal and accessory keys
+ *   above the IME. Android resizes the container by the measured overlap; on iOS
+ *   the terminal keeps its size (so its grid and the pty stay put) and slides
+ *   with the keyboard: the bottom row above the key bar, the cursor row wins (`slidesWithKeyboard`).
  */
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -48,14 +50,16 @@ import {
 import DelayedSendDialog from '../components/sessions/DelayedSendDialog';
 import EdgeSwipeZones from '../components/terminal/EdgeSwipeZones';
 import ExportTranscriptSheet from '../components/terminal/ExportTranscriptSheet';
+import KeyBarDock from '../components/terminal/KeyBarDock';
 import PromptEditorSheet from '../components/terminal/PromptEditorSheet';
 import TerminalFloatingControls from '../components/terminal/TerminalFloatingControls';
-import TerminalKeyBar from '../components/terminal/TerminalKeyBar';
+import TerminalKeyBar, { KEY_BAR_HEIGHT } from '../components/terminal/TerminalKeyBar';
 import TerminalMenu, { type TerminalMenuActionId } from '../components/terminal/TerminalMenu';
 import TerminalSkillsMenu from '../components/terminal/TerminalSkillsMenu';
 import TerminalStateOverlay from '../components/terminal/TerminalStateOverlay';
 import TerminalTabsBar, { MIN_TAB_WIDTH } from '../components/terminal/TerminalTabsBar';
 import { ChatBubbleIcon, ChevronLeftIcon, EllipsisIcon, TerminalPromptIcon } from '../components/terminal/icons';
+import { terminalObstruction, terminalSlideOffset } from '../components/terminal/terminalKeyboardSlide';
 import { useKeyboardMetrics } from '../components/terminal/useKeyboardMetrics';
 import { isSessionChatSupportedAgent } from '../chat/session-chat-helpers';
 import NativeChatScreen from '../chat/native/NativeChatScreen';
@@ -120,7 +124,6 @@ export default function TerminalScreen({ navigation, route }: Props) {
   const openShellTab = useTerminalStore((state) => state.openShellTab);
   const settings = useSettingsStore((state) => state.settings);
 
-  const { keyboardVisible, bottomInset, visibleWindowBottom } = useKeyboardMetrics();
   const isFocused = useIsFocused();
   const [tapKeyboardHint, setTapKeyboardHint] = useState(false);
   // The "More options" menu; on the iPhone Duo at its button as it is now (F3, S1-5).
@@ -145,6 +148,10 @@ export default function TerminalScreen({ navigation, route }: Props) {
   const [uploading, setUploading] = useState(false);
   const [keyboardOcclusionCorrection, setKeyboardOcclusionCorrection] = useState(0);
   const bottomEdgeFrameRef = useRef<ViewInstance>(null);
+  // The iOS terminal's cursor row and size, which decide how far it slides with the keyboard (below).
+  const [caretTop, setCaretTop] = useState<number | null>(null);
+  const [terminalHeight, setTerminalHeight] = useState(0);
+  const [keyBarHeight, setKeyBarHeight] = useState(0);
   /** Session keys already auto-focused this visit (hide-keyboard-on-startup off). */
   const autoFocusedSessionsRef = useRef<Set<string>>(new Set());
 
@@ -213,10 +220,26 @@ export default function TerminalScreen({ navigation, route }: Props) {
     (sessionViewModeBySessionKey[activeTab.sessionKey] ?? settings.preferredAgentInterface) === 'chat';
   const chatMachineTarget = chatCapable && activeTab !== null ? machineTargetFor(activeTab.machineId) : null;
   useSessionLinksRefresh(activeMachine, activeSession?.sessionId, chatModeActive);
+  // iOS terminal mode: the terminal view keeps its size, so its grid and the pty stay put, and slides with
+  // the keyboard instead (terminal-screen.md §2). The one place that decides it.
+  const slidesWithKeyboard = Platform.OS === 'ios' && !chatModeActive;
+  const mountedTerminalSessionKey = activeTab !== null && !chatModeActive && isFocused ? activeTab.sessionKey : null;
+  const { keyboardVisible, bottomInset, visibleWindowBottom, hideMotionMs } = useKeyboardMetrics({
+    slides: slidesWithKeyboard,
+    // Summoned while scrolled back (keyboard button, tap, focus): show the input area, with the keyboard.
+    // Not on a frame change while it is up: a user who scrolls back with the keyboard open stays there.
+    onAppear: () => {
+      // Only the terminal on screen: a retained terminal behind another screen keeps its scrollback.
+      const sessionKey = mountedTerminalSessionKey;
+      if (sessionKey === null) return;
+      void GhostexNative.scrollToBottom(sessionKey).catch((error: unknown) => {
+        console.warn(`Terminal: scrolling to the input area failed for session ${sessionKey}.`, error);
+      });
+    },
+  });
 
   // zmx display policy: the terminal view is on screen for exactly one session
   // key (or none, in chat view / when another screen is on top).
-  const mountedTerminalSessionKey = activeTab !== null && !chatModeActive && isFocused ? activeTab.sessionKey : null;
   const mountedChatSessionKey = activeTab !== null && chatModeActive && isFocused ? activeTab.sessionKey : null;
   useEffect(() => {
     setMountedSessionKeys(mountedTerminalSessionKey, mountedChatSessionKey);
@@ -308,6 +331,13 @@ export default function TerminalScreen({ navigation, route }: Props) {
   }, [tapKeyboardHint, keyboardVisible]);
 
   const keyBarVisible = (keyboardVisible || tapKeyboardHint) && settings.extraKeysToolbarVisible;
+  const keyBarDocked = slidesWithKeyboard && keyBarVisible && activeTab !== null;
+  const obstruction = slidesWithKeyboard
+    ? terminalObstruction(bottomInset, keyBarDocked ? keyBarHeight || KEY_BAR_HEIGHT : 0, insets.bottom)
+    : 0;
+  const terminalOffset = terminalSlideOffset(caretTop, terminalHeight, obstruction);
+  // Without a key bar the floating controls stay above the keyboard: the terminal area no longer shrinks.
+  const floatingLift = slidesWithKeyboard ? Math.max(0, bottomInset - insets.bottom) : 0;
 
   // Keep the display awake only while this terminal screen is active.
   useEffect(() => {
@@ -677,8 +707,9 @@ export default function TerminalScreen({ navigation, route }: Props) {
           // WKWebView already contracts its visual viewport around the iOS
           // keyboard. Applying the native keyboard inset to its parent as
           // well moves the chat composer twice (all the way to the top).
+          // The iOS terminal is not resized at all: it slides (`terminalOffset`).
           paddingBottom:
-            keyboardVisible && (!chatModeActive || Platform.OS === 'android')
+            keyboardVisible && !slidesWithKeyboard && (!chatModeActive || Platform.OS === 'android')
               ? bottomInset + keyboardOcclusionCorrection
               : 0,
         },
@@ -731,13 +762,17 @@ export default function TerminalScreen({ navigation, route }: Props) {
           </Text>
         </Pressable>
       ) : null}
-      <View style={styles.terminalArea}>
+      <View
+        style={slidesWithKeyboard ? [styles.terminalArea, styles.terminalAreaSliding] : styles.terminalArea}
+        onLayout={slidesWithKeyboard ? (event) => setTerminalHeight(event.nativeEvent.layout.height) : undefined}
+      >
         {activeTab !== null && !chatModeActive ? (
           // Only the selected tab's terminal is mounted; the native registry
           // keeps other entries warm across view detach.
           <GhostexTerminalView
             sessionKey={activeTab.sessionKey}
-            style={styles.terminal}
+            style={slidesWithKeyboard ? [styles.terminal, { top: -terminalOffset }] : styles.terminal}
+            onCaretChange={slidesWithKeyboard ? ({ nativeEvent }) => setCaretTop(nativeEvent.top) : undefined}
             onSingleTap={() => setTapKeyboardHint(true)}
             onOpenUrl={({ nativeEvent }) =>
               openMachineLink(activeTab.machineId, nativeEvent.url, { projectId: activeProjectId })
@@ -817,7 +852,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
             uploading={uploading}
             refreshEnabled={activeTab?.state === 'open'}
             keyboardShown={keyboardVisible}
-            bottomOffset={16}
+            bottomOffset={16 + floatingLift}
             onKeyboard={showKeyboard}
             onDismissKeyboard={dismissKeyboard}
             onUpload={() => void handleUpload('file')}
@@ -831,7 +866,11 @@ export default function TerminalScreen({ navigation, route }: Props) {
         toolbar while it is up, otherwise the bottom margin.
       */}
       <View ref={bottomEdgeFrameRef} collapsable={false} onLayout={reconcileBottomEdgeWithVisibleWindow}>
-        {keyBarVisible && activeTab !== null && !chatModeActive ? (
+        {slidesWithKeyboard ? (
+          // The terminal view ends above the home-indicator inset, with or without the keyboard; the key
+          // bar rides over the keyboard (the dock below), not in this flow.
+          <View style={{ height: insets.bottom }} />
+        ) : keyBarVisible && activeTab !== null && !chatModeActive ? (
           <TerminalKeyBar
             sessionKey={activeTab.sessionKey}
             agentId={activeAgentId}
@@ -847,6 +886,17 @@ export default function TerminalScreen({ navigation, route }: Props) {
           <View style={{ height: !keyboardVisible && !chatModeActive ? insets.bottom : 0 }} />
         )}
       </View>
+      {slidesWithKeyboard ? (
+        <KeyBarDock shown={keyBarDocked} inset={bottomInset} hideMs={hideMotionMs} onHeightChange={setKeyBarHeight}>
+          {activeTab !== null ? (
+            <TerminalKeyBar
+              sessionKey={activeTab.sessionKey}
+              agentId={activeAgentId}
+              onDismissKeyboard={dismissKeyboard}
+            />
+          ) : null}
+        </KeyBarDock>
+      ) : null}
 
       <TerminalMenu
         visible={menuVisible}

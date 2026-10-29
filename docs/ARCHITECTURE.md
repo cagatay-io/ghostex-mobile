@@ -122,6 +122,7 @@ The app uses the whole window on the Duo and draws its own header controls next 
   sessionKey={key}
   style={...}
   onSingleTap={() => ...}   // optional: show keyboard
+  onCaretChange={({ nativeEvent }) => ...}   // iOS only: { top } of the cursor row, points from the view's top
 />
 ```
 
@@ -131,10 +132,11 @@ Native view responsibilities (per platform, matching current apps):
 - Pinch-to-zoom → font size ratchet (±1pt at 1.12/0.89 thresholds) + native HUD ("N pt" / "Font Size") per spec §3, then emit `onFontSizeChange` for JS persistence. Range 4–32, default 13 on every platform.
 - Touch text selection (both platforms keep their existing native implementations).
 - Scroll-to-bottom on output/keypress (engine behavior; respect autoScroll setting via prop later).
+- Cursor row (iOS): `onCaretChange` fires with the top edge of the cursor row (`y - height` of Ghostty v1.3.1 `imePoint`, whose `y` is the cell's bottom) after a draw when its whole-point value changed, and once when the view is attached to the host (`GhosttyTerminalView.reportCaretIfNeeded`). The terminal screen slides the view by it with the keyboard (`docs/specs/terminal-screen.md` §2 "Keyboard: the terminal slides"); the view's own size, and so the grid, does not change with the keyboard. Declared in the iOS module's `Events(...)` and typed in `GhostexTerminalViewProps`; the Android view declares none and JS does not pass the prop there (REQ-NFR-005 AC2).
 
 ### Keyboard accessory ("2 rows of keys")
 
-Rendered in **RN** (shared component `components/TerminalKeyBar.tsx`), pinned above the keyboard via keyboard-height tracking (not a UIKit inputAccessoryView — keeps it cross-platform). Discrete keys go through `sendKey` (low rate, bridge OK). Layout/behavior per `docs/specs/terminal-screen.md` §2: 2×7 grid, default rows [Esc, Shift, NEWLN(Ctrl-J), Home, ↑, End, PGUP] / [Tab, Ctrl, Alt, ←, ↓, →, PGDN], one-shot modifier latching, repeat-on-hold (350ms then 50ms) for arrows/backspace/home/end/page keys, height 88, theme background.
+Rendered in **RN** (shared component `components/TerminalKeyBar.tsx`), pinned above the keyboard via keyboard-height tracking (not a UIKit inputAccessoryView — keeps it cross-platform). On iOS it stands in `KeyBarDock`, which moves with the keyboard (`useKeyboardMetrics`: a layout animation approximating the keyboard's measured motion (spring on show, ease-out on hide; `keyboardMotion.ts`; Fabric has no keyboard curve) and at once with Reduce Motion on) instead of appearing at once; on Android it stays in the layout flow. Discrete keys go through `sendKey` (low rate, bridge OK). Layout/behavior per `docs/specs/terminal-screen.md` §2: 2×7 grid, default rows [Esc, Shift, NEWLN(Ctrl-J), Home, ↑, End, PGUP] / [Tab, Ctrl, Alt, ←, ↓, →, PGDN], one-shot modifier latching, repeat-on-hold (350ms then 50ms) for arrows/backspace/home/end/page keys, height 88, theme background.
 
 ## Ghostex CLI contract
 

@@ -32,6 +32,10 @@ export const styles = StyleSheet.create({
   terminalArea: {
     flex: 1,
   },
+  /** The iOS terminal slides up with the keyboard: rows moved above this area are cut off, under the header. */
+  terminalAreaSliding: {
+    overflow: 'hidden',
+  },
   chatStartupError: {
     paddingHorizontal: 12,
     paddingVertical: 8,

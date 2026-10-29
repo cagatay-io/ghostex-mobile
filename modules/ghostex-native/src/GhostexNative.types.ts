@@ -375,6 +375,13 @@ export type GhostexTerminalViewProps = {
   /** Fired on a single tap that did not interact with a selection. */
   onSingleTap?: () => void;
   onOpenUrl: (event: { nativeEvent: { url: string } }) => void;
+  /**
+   * iOS only (REQ-NFR-005 AC2; the Android view declares no such event): the top edge of the cursor row in
+   * this view's own points, from its top edge (Ghostty v1.3.1 `imePoint`: `y` is the cell's bottom, `height`
+   * the cell's height, so the top is `y - height`), whenever it changes and once when the terminal is
+   * attached. The terminal screen slides the view with the keyboard by it.
+   */
+  onCaretChange?: (event: { nativeEvent: { top: number } }) => void;
 };
 
 export type GhostexSelectionMenuViewProps = import('react-native').ViewProps & {
