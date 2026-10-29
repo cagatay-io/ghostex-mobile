@@ -30,7 +30,8 @@ export type ActionFields = {
   composerExpand: { editor?: boolean };
   toggleAgentFleet: { open: boolean };
   toggleAgentTasks: { open: boolean };
-  toggleAgentTasksCompleted: { expanded: boolean };
+  /** The Tasks pill's done list: how many "Show more" presses it has had (0 is the short form). Desktop: `agent_tasks.rs`. */
+  toggleAgentTasksCompleted: { step: number };
   /** A coordinator's Threads panel fold, and the step its list is at (0 in flight, 1 recent, 2+ 30 more each). Desktop: `coordinator_threads.rs`. */
   toggleCoordinatorThreadsMore: { step: number };
   /** The grouped background-task row's fold. Desktop: `background_tasks.rs`. */

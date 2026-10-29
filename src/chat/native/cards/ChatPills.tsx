@@ -634,6 +634,8 @@ export function PillMenuSheet({
   const close = () => {
     // The Threads list goes back to its first step, as folding the panel did (desktop `pill_menu_closed`).
     if (open === 'threads') chat.dispatch({ type: 'toggleCoordinatorThreadsMore', step: 0 });
+    // The done tasks come back in their short form the next time the sheet opens.
+    if (open === 'tasks') chat.dispatch({ type: 'toggleAgentTasksCompleted', step: 0 });
     onClose();
   };
   const background = obj(document.backgroundTasksPanel);

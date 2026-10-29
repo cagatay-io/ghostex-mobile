@@ -37,7 +37,7 @@ export function AgentTasksMenu({ chat, document }: { chat: RustChat; document: C
   const panel = obj(document.agentTasksPanel);
   if (panel === null) return null;
   const percent = Math.max(0, Math.min(100, num(panel, 'percent') ?? 0));
-  const expanded = isTrue(panel, 'showCompleted');
+  const nextStep = (num(panel, 'doneStep') ?? 0) + 1;
   const fold = str(panel, 'foldLabel');
   return (
     <View accessibilityLabel="Agent tasks" style={styles.menu}>
@@ -59,7 +59,7 @@ export function AgentTasksMenu({ chat, document }: { chat: RustChat; document: C
         <Text
           accessibilityRole="button"
           style={styles.fold}
-          onPress={() => chat.dispatch({ type: 'toggleAgentTasksCompleted', expanded: !expanded })}
+          onPress={() => chat.dispatch({ type: 'toggleAgentTasksCompleted', step: nextStep })}
         >
           {fold}
         </Text>
