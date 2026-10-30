@@ -8,6 +8,7 @@ import DictateDictionaryPage from './DictateDictionaryPage';
 import DictateLanguagePage from './DictateLanguagePage';
 import KeyboardPage from './KeyboardPage';
 import NotificationsPage from './NotificationsPage';
+import LiveActivityPage from './LiveActivityPage';
 import { SETTINGS_PAGES, type SettingsPageId } from './pages';
 import ReadAloudVoicePage from './ReadAloudVoicePage';
 import { SettingsColumnsFrame } from './SettingsColumns';
@@ -56,6 +57,8 @@ function SettingsPageBody({ page }: { page: SettingsPageId }) {
       return <KeyboardPage />;
     case 'notifications':
       return <NotificationsPage />;
+    case 'liveActivity':
+      return <LiveActivityPage />;
     case 'connection':
       return <ConnectionPage />;
     case 'sync':

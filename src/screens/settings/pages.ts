@@ -5,8 +5,9 @@
  */
 
 import { ANDROID_SELF_UPDATE_ENABLED } from '../../config/featureFlags';
-import { NotificationsCopy } from '../../copy';
+import { LiveActivityCopy, NotificationsCopy } from '../../copy';
 import { OTA_ENABLED } from '../../updates/overTheAir';
+import { LIVE_ACTIVITY_SUPPORTED } from '../../notifications/liveActivity';
 import { VOICE_SUPPORTED } from '../../voice/conversation';
 
 export type SettingsPageId =
@@ -18,6 +19,7 @@ export type SettingsPageId =
   | 'terminal'
   | 'keyboard'
   | 'notifications'
+  | 'liveActivity'
   | 'connection'
   | 'sync'
   | 'advanced'
@@ -34,6 +36,7 @@ export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, { title: string; de
   terminal: { title: 'Terminal', description: 'Font size, screen and tab behavior.' },
   keyboard: { title: 'Keyboard', description: 'Extra keys row and agent hotkeys.' },
   notifications: { title: NotificationsCopy.title, description: NotificationsCopy.settings.pageDescription },
+  liveActivity: { title: LiveActivityCopy.pageTitle, description: LiveActivityCopy.pageDescription },
   connection: { title: 'Connection', description: 'Reconnecting to your computer.' },
   sync: { title: 'Sync', description: 'Carrying Spaces and settings between your computers.' },
   advanced: { title: 'Advanced', description: 'Older settings most people never change.' },
@@ -53,6 +56,7 @@ export const SETTINGS_PAGE_ORDER: readonly SettingsPageId[] = [
   'terminal',
   'keyboard',
   'notifications',
+  ...(LIVE_ACTIVITY_SUPPORTED ? (['liveActivity'] as const) : []),
   'connection',
   'sync',
   'advanced',

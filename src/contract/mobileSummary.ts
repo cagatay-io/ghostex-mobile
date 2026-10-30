@@ -74,8 +74,8 @@ export type MobileSummaryWireSession = {
   isTemporaryTitle?: boolean;
   visibleInSidebarByDefault?: boolean;
   shouldSubmitStagedFirstPromptTitleCommand?: boolean;
-  /** Sent only while `activity` is attention; `notificationId` only with the `attentionNotificationId` capability. */
-  attention?: { enteredAt?: string; acknowledged?: boolean; eventId?: string; notificationId?: string };
+  /** Sent only while `activity` is attention; kind identifies its reason, notificationId requires its capability. */
+  attention?: { enteredAt?: string; acknowledged?: boolean; eventId?: string; notificationId?: string; kind?: string };
   /** Questions the agent is waiting on an answer to; absent at zero. */
   pendingQuestionCount?: number;
   /** An open question card waits for an answer; sent by a computer with the `awaitingAnswer` capability. */
@@ -614,7 +614,7 @@ export type GhostexSession = {
    * When the agent's current working stint began ('' when it is not working, or from a computer
    * that predates the field): the Unified list's "came back" moment and Working timer.
    */
-  workingStartedAt?: string;
+  workingStartedAt: string;
   /** The last model change failed (the Unified list's Failed status); false from an older computer. */
   modelSelectionFailed?: boolean;
   /** When a snoozed session wakes ('' when it is not snoozed): the Unified list's Snoozed shelf. */
@@ -636,6 +636,11 @@ export type GhostexSession = {
    * `capabilities.attentionNotificationId` is set.
    */
   attentionNotificationId: string;
+  /**
+   * Why the session is in attention: `finished`, `needsInput` or `bell` ('' outside attention, and from a
+   * computer without host change H1b, which cannot tell a finished turn from a wait for the user).
+   */
+  attentionKind: string;
   actions: GhostexSessionActions;
 };
 
@@ -975,8 +980,8 @@ const AGENT_ICON_TINTS: Record<AgentIconId, string> = {
   terminal: '#FAFAFA',
 };
 
-/** Lowercased name/icon aliases → icon id (spec §2). */
-const AGENT_NAME_ALIASES: Record<string, AgentIconId> = {
+/** Lowercased name/icon aliases → icon id (spec §2); the Live Activity extension mirrors it (GhostexAgentMarks.swift). */
+export const AGENT_NAME_ALIASES: Readonly<Record<string, AgentIconId>> = {
   codex: 'codex',
   'codex cli': 'codex',
   claude: 'claude',
@@ -1403,6 +1408,7 @@ export function parseSession(value: unknown): GhostexSession | null {
     attentionAcknowledged: attention === null ? false : boolValue(attention, 'acknowledged', false),
     attentionEventId: attention === null ? '' : trimmedValue(attention, 'eventId'),
     attentionNotificationId: attention === null ? '' : trimmedValue(attention, 'notificationId'),
+    attentionKind: attention === null ? '' : trimmedValue(attention, 'kind'),
     actions: parseActions(value.actions),
   };
 }

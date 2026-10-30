@@ -49,6 +49,11 @@ export type GhostexSettings = {
   doneNotificationSound: boolean;
   /** This phone carries settings sync between the computers it connects to (src/settingsSync/). */
   settingsSyncThroughPhone: boolean;
+  /**
+   * The automatic Live Activity (D-016 F2, REQ-LIVEACT-005; `settings-additions.schema.json`): off ends a
+   * running one and starts no other. iOS only.
+   */
+  liveActivityEnabled: boolean;
   hideKeyboardOnStartup: boolean;
   openUrlsOnTap: boolean;
   confirmTabClose: boolean;
@@ -179,6 +184,7 @@ export function defaultSettings(): GhostexSettings {
     keyboardButtonVisible: false,
     doneNotificationSound: true,
     settingsSyncThroughPhone: true,
+    liveActivityEnabled: true,
     hideKeyboardOnStartup: true,
     openUrlsOnTap: true,
     confirmTabClose: false,
@@ -288,6 +294,7 @@ function sanitizeSettings(value: unknown): GhostexSettings {
     keyboardButtonVisible: bool('keyboardButtonVisible', defaults.keyboardButtonVisible),
     doneNotificationSound: bool('doneNotificationSound', defaults.doneNotificationSound),
     settingsSyncThroughPhone: bool('settingsSyncThroughPhone', defaults.settingsSyncThroughPhone),
+    liveActivityEnabled: bool('liveActivityEnabled', defaults.liveActivityEnabled),
     hideKeyboardOnStartup: bool('hideKeyboardOnStartup', defaults.hideKeyboardOnStartup),
     openUrlsOnTap: bool('openUrlsOnTap', defaults.openUrlsOnTap),
     confirmTabClose: bool('confirmTabClose', defaults.confirmTabClose),

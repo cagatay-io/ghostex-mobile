@@ -16,7 +16,8 @@ mobile/
     theme/                    # GhostexPalette tokens (docs/specs/sessions-drawer.md §0)
     contract/                 # mobile-summary TS types + parser + displayStatus()
     machines/                 # machine store (AsyncStorage) + credentials (expo-secure-store)
-    inventory/                # inventory client (exec over native ssh), 5s polling, per-machine fan-out
+    inventory/                # inventory client (exec over native ssh), 5s polling on every screen (summaryRefresh.ts), per-machine fan-out
+    notifications/            # Live Activity: content state from the summaries, start/update/end controller (modules/ghostex-live-activity)
     terminal/                 # tab/session state, warm-session policy (max 7, within a scrollback-row budget), attach orchestration
     commands/                 # ghostex CLI command builders (login-shell wrapping, quoting)
     notifications/            # agent notifications + attention list (see "Agent notifications" below)
@@ -143,8 +144,7 @@ Rendered in **RN** (shared component `components/TerminalKeyBar.tsx`), pinned ab
 ## Ghostex CLI contract
 
 Same as both existing apps — JSON over SSH, no gxserver wire protocol:
-
-- Inventory: `"$SHELL" -lc 'ghostex sessions --json --mobile-summary'` (5s poll while sessions screen visible; scan stdout for first JSON object containing `sessions`; keep provider=="zmx" only).
+- Inventory: `"$SHELL" -lc 'ghostex sessions --json --mobile-summary'` (5s poll on every screen while the app is in the foreground and a machine is selected, `src/inventory/summaryRefresh.ts`; scan stdout for first JSON object containing `sessions`; keep provider=="zmx" only).
 - Attach: `openTerminal` with the `ghostex attach --session-id …` command wrapped in a login shell; after first render send `\x1b]1337;ZMX_REFRESH\x07` once (~2s).
 - Actions: `create-session`, `create-agent`, `run-action`, `move-project`, `restore-recent-project`, `rename-session`, wake/sleep/kill/focus via `ghostex` CLI; machine health: `ghostex android-check --json` (works for any mobile client).
 - Quoting: single-quote with `'"'"'` escaping; login-shell wrapper `"$SHELL" -lc '<cmd>'`.

@@ -54,3 +54,6 @@ modules/ghostex-native/ios/Vendor/Tailcatbridge.xcframework/
 # The chat core as WebAssembly in one page (cargo xtask build-mobile-chat-wasm in the main repo,
 # from packages/gx-chat-wasm), for the hidden WebView core. Reproducible; the page is ~5.5 MB.
 assets/chat-core/
+
+# Xcode's state for the Live Activity model test package (`xcodebuild test` in modules/ghostex-live-activity/ios).
+modules/ghostex-live-activity/ios/.swiftpm/

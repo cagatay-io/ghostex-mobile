@@ -167,8 +167,6 @@ export default function SessionsScreen({ navigation }: Props) {
   const refreshMachineFresh = useInventoryStore((state) => state.refreshMachineFresh);
   const retryMachine = useInventoryStore((state) => state.retryMachine);
   const refreshAll = useInventoryStore((state) => state.refreshAll);
-  const startPolling = useInventoryStore((state) => state.startPolling);
-  const stopPolling = useInventoryStore((state) => state.stopPolling);
   const unreadNotifications = useAttentionUnreadCount();
   const selectedSpaceIdByMachine = useSpacesStore((state) => state.selectedSpaceIdByMachine);
   const selectSpace = useSpacesStore((state) => state.selectSpace);
@@ -242,16 +240,15 @@ export default function SessionsScreen({ navigation }: Props) {
     }
   }, []);
 
-  // Poll every 5s only while this screen is focused AND a machine is selected.
+  // The summary poll is the app's own (src/app/lifecycle.ts, REQ-LIVEACT-010): it runs on every screen while
+  // the app is in the foreground and a machine is selected, so this screen only hydrates its own stores.
   useFocusEffect(
     useCallback(() => {
       void useCollapseStore.getState().hydrate();
       void useLauncherStore.getState().hydrate();
       void useSpacesStore.getState().hydrate();
       void useWorkspacesStore.getState().hydrate();
-      if (machine !== null) startPolling();
-      return () => stopPolling();
-    }, [machine !== null, startPolling, stopPolling]),
+    }, []),
   );
 
   useFocusEffect(

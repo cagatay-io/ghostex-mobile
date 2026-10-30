@@ -1094,3 +1094,45 @@ export const NotificationsCopy = {
     openSettings: 'Open iOS Settings',
   },
 } as const;
+
+/**
+ * Settings › Live Activity (S8, mockups/live-activity, D-037 item 3). The activity's own words (working,
+ * waiting, has a question, finished, "+N more", "Not current") are drawn by the widget extension
+ * (modules/ghostex-live-activity/ios/Extension); the preview here repeats them.
+ */
+export const LiveActivityCopy = {
+  /** The page's row on the Settings home and its title (`src/screens/settings/pages.ts`). */
+  pageTitle: 'Live Activity',
+  pageDescription: 'Agents on the Lock Screen and in the Dynamic Island.',
+  toggle: 'Show Live Activity',
+  onCaption:
+    'Shows working and waiting agents on the Lock Screen and in the Dynamic Island. It starts when an agent starts working and ends 15 minutes after the last one stops.',
+  // The approved mockup also says "or briefly in the background": that needs the silent pushes of the push
+  // slice, so this build claims only what it does (updates while the app is open).
+  freshnessCaption: 'Ghostex updates it while the app is open. Later it can show an older state and then says so.',
+  offCaption: 'Off. Ghostex ends the current Live Activity and starts no new one.',
+  /**
+   * D-063: the Live Activity starts only when every computer with agents sends their start times and whether
+   * they finished or wait (host changes H1a and H1b).
+   */
+  needsUpdate: (names: readonly string[]) =>
+    names.length === 1
+      ? `${names[0]} needs a newer Ghostex for the Live Activity. Update Ghostex on that Mac; until then no Live Activity starts.`
+      : `${names.join(', ')} need a newer Ghostex for the Live Activity. Update Ghostex on those Macs; until then no Live Activity starts.`,
+  previewTitle: 'Preview',
+  previewLabel:
+    'Preview of the Live Activity: 1 working, 2 waiting, one more agent. Claude Code in ghostex-mobile has a question, Codex in homeserver is waiting, Codex in ghostex-mobile is working, omp in Ghostex finished.',
+  working: 'working',
+  waiting: 'waiting',
+  question: 'has a question',
+  finished: 'finished',
+  count: (count: number, word: string) => `${count} ${word}`,
+  more: (count: number) => `+${count} more`,
+  /** Sample rows of the preview: agent, project, state and time, as the mockup's Lock Screen. */
+  previewRows: [
+    { agent: 'Claude Code', project: 'ghostex-mobile', state: 'question', time: '4m' },
+    { agent: 'Codex', project: 'homeserver', state: 'waiting', time: '1m' },
+    { agent: 'Codex', project: 'ghostex-mobile', state: 'working', time: '12m' },
+    { agent: 'omp', project: 'Ghostex', state: 'finished', time: '18m' },
+  ],
+} as const;

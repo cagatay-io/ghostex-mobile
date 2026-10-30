@@ -1,0 +1,231 @@
+/**
+ * The Live Activity's content state (REQ-LIVEACT-001..003, -011; `schemas/live-activity-content-state.schema.json`),
+ * built from the mobile summaries the app already polls (D-026), never from the notification feed. A row
+ * carries the agent, the project, the state, when that state began and the session's identifiers; no prompt,
+ * reply or title text (D-010, D-016).
+ *
+ * Which host data a row needs (research/spike-host-data.md §1 with Main's H1a addendum of 2026-10-29):
+ * `startedAt` of a working row is `workingStartedAt` (host change H1a); of a waiting row `attention.enteredAt`;
+ * of a finished row the `workingStartedAt` the summary keeps for the stint that ended, so the row shows how long
+ * the agent worked (`attention.enteredAt` − `workingStartedAt`, as the approved mockup), while the 2-minute window
+ * runs from `attention.enteredAt`; finished vs waiting is `attention.kind` (H1b). The Live Activity runs only when
+ * every computer with agents sends H1a and H1b (D-063, REQ-LIVEACT-004); `computersNeedingUpdate` names the ones
+ * that do not. A waiting agent without `attention.enteredAt` is counted but gets no row (Main's derivation of
+ * 2026-10-29): no row without its time.
+ *
+ * Kept free of React Native so the rules are testable under `bun test`.
+ */
+
+import type { GhostexMobileSummary, GhostexSession } from '../contract/mobileSummary';
+
+export type LiveActivityAgentState = 'working' | 'waiting' | 'finished';
+
+export type LiveActivityTarget = { machineId: string; sessionId: string };
+
+export type LiveActivityRow = {
+  target: LiveActivityTarget;
+  agentName: string;
+  project: string;
+  state: LiveActivityAgentState;
+  /** Working: since the stint began (H1a); waiting: since the agent waits; finished: when its last stint began. */
+  startedAt: string;
+  finishedAt?: string;
+  expiresAt?: string;
+  /** Only on waiting rows with a pending question (REQ-LIVEACT-011). */
+  hasQuestion?: true;
+};
+
+export type LiveActivityContentState = {
+  /** The data time: when the oldest summary used was read from its computer. */
+  updatedAt: string;
+  counts: { working: number; waiting: number };
+  agents: LiveActivityRow[];
+  moreCount: number;
+};
+
+/** One computer's summary as the inventory store holds it. */
+export type ActivitySource = {
+  machineId: string;
+  summary: GhostexMobileSummary;
+  /** When the summary was read (epoch ms). */
+  loadedAt: number;
+};
+
+/** Four rows plus "+N more" (D-020 item 5). */
+export const MAX_ACTIVITY_ROWS = 4;
+/** A finished agent stays a row candidate this long (D-020 item 5, REQ-LIVEACT-003). */
+export const FINISHED_ROW_MS = 120_000;
+/** `agentName` and `project` are cut to this many characters (REQ-LIVEACT-001, schema `maxLength`). */
+export const MAX_NAME_CHARACTERS = 64;
+
+/** The schema's pattern for `target.machineId` and `target.sessionId`: printable ASCII, 1 to 64 characters. */
+const TARGET_ID = /^[\x21-\x7e]{1,64}$/;
+
+const STATE_RANK: Record<LiveActivityAgentState, number> = { waiting: 0, working: 1, finished: 2 };
+
+/** A row and the time it sorts by (working, waiting: its start; finished: when it finished). */
+type Shown = { row: LiveActivityRow; sortTime: number };
+
+/** A working, waiting or recently finished agent; `shown` is null when it cannot have a row (see buildContentState). */
+type Candidate = { state: LiveActivityAgentState; shown: Shown | null };
+
+/** Cuts by code points, so a four-byte character is never split into half a surrogate pair. */
+function truncateName(value: string): string {
+  const characters = Array.from(value);
+  return characters.length <= MAX_NAME_CHARACTERS ? value : characters.slice(0, MAX_NAME_CHARACTERS).join('');
+}
+
+/** Epoch ms of an ISO time from the host, or null when it is missing or unreadable. */
+function hostTime(value: string): number | null {
+  if (value.length === 0) return null;
+  const time = Date.parse(value);
+  return Number.isNaN(time) ? null : time;
+}
+
+function isoTime(time: number): string {
+  return new Date(time).toISOString();
+}
+
+/** A session's agent name ('' for a plain terminal, which is not an agent and never a row). */
+function agentNameOf(session: GhostexSession): string {
+  return truncateName(session.agentName.length > 0 ? session.agentName : session.agent);
+}
+
+/**
+ * The computers that do not send host changes H1a and H1b (D-063): a working agent without `workingStartedAt`,
+ * an agent in attention without `attention.kind`, or a finished agent without the `workingStartedAt` of its last
+ * stint (H1a addendum). A summary without working or attention agents proves nothing and is not listed. While
+ * any computer is listed, no Live Activity runs (REQ-LIVEACT-004).
+ */
+export function computersNeedingUpdate(sources: readonly ActivitySource[]): string[] {
+  return sources
+    .filter((source) =>
+      source.summary.sessions.some(
+        (session) =>
+          agentNameOf(session).length > 0 &&
+          ((session.activity === 'working' && session.workingStartedAt.length === 0) ||
+            (session.activity === 'attention' && session.attentionKind.length === 0) ||
+            (session.activity === 'attention' &&
+              session.attentionKind === 'finished' &&
+              session.workingStartedAt.length === 0)),
+      ),
+    )
+    .map((source) => source.machineId);
+}
+
+function candidateFor(machineId: string, session: GhostexSession, now: number): Candidate | null {
+  const agentName = agentNameOf(session);
+  // A row names its agent (schema `minLength` 1); a session without one is a plain terminal, not an agent.
+  if (agentName.length === 0) return null;
+  const attention = session.activity === 'attention';
+  const waitsOnUser = session.awaitingApproval || session.pendingQuestionCount > 0;
+  const base = {
+    target: { machineId, sessionId: session.sessionId },
+    agentName,
+    project: truncateName(session.projectName),
+  };
+  const routable = TARGET_ID.test(machineId) && TARGET_ID.test(session.sessionId);
+
+  if (attention && session.attentionKind === 'finished' && !waitsOnUser) {
+    const finishedAt = hostTime(session.attentionEnteredAt);
+    // Only agents that finished less than 2 minutes ago are candidates (REQ-LIVEACT-003).
+    if (finishedAt === null || now - finishedAt >= FINISHED_ROW_MS) return null;
+    const workStart = hostTime(session.workingStartedAt);
+    if (!routable || workStart === null || workStart > finishedAt) return { state: 'finished', shown: null };
+    const row: LiveActivityRow = {
+      ...base,
+      state: 'finished',
+      startedAt: isoTime(workStart),
+      finishedAt: isoTime(finishedAt),
+      expiresAt: isoTime(finishedAt + FINISHED_ROW_MS),
+    };
+    return { state: 'finished', shown: { row, sortTime: finishedAt } };
+  }
+
+  if (attention || session.awaitingApproval) {
+    const since = hostTime(session.attentionEnteredAt);
+    if (!routable || since === null) return { state: 'waiting', shown: null };
+    const row: LiveActivityRow = { ...base, state: 'waiting', startedAt: isoTime(since) };
+    if (session.pendingQuestionCount > 0) row.hasQuestion = true;
+    return { state: 'waiting', shown: { row, sortTime: since } };
+  }
+
+  if (session.activity === 'working') {
+    const since = hostTime(session.workingStartedAt);
+    if (!routable || since === null) return { state: 'working', shown: null };
+    return {
+      state: 'working',
+      shown: { row: { ...base, state: 'working', startedAt: isoTime(since) }, sortTime: since },
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Display priority waiting > working > finished; inside a class the oldest start first (finished: the newest
+ * finish first); ties by session id, then machine id.
+ */
+function compareShown(a: Shown, b: Shown): number {
+  const rank = STATE_RANK[a.row.state] - STATE_RANK[b.row.state];
+  if (rank !== 0) return rank;
+  if (a.sortTime !== b.sortTime) {
+    return a.row.state === 'finished' ? b.sortTime - a.sortTime : a.sortTime - b.sortTime;
+  }
+  if (a.row.target.sessionId !== b.row.target.sessionId)
+    return a.row.target.sessionId < b.row.target.sessionId ? -1 : 1;
+  if (a.row.target.machineId === b.row.target.machineId) return 0;
+  return a.row.target.machineId < b.row.target.machineId ? -1 : 1;
+}
+
+/**
+ * The content state at `now` (epoch ms) for every working and waiting agent plus every agent that finished
+ * less than 2 minutes ago, over all given computers. `counts` hold every working and waiting agent (finished
+ * excluded); `moreCount` the candidates without a row, including a candidate whose identifiers cannot be
+ * routed (outside the schema's id pattern) or whose start the summary does not give, which is counted but
+ * never given a row.
+ */
+export function buildContentState(sources: readonly ActivitySource[], now: number): LiveActivityContentState {
+  const candidates: Candidate[] = [];
+  const counts = { working: 0, waiting: 0 };
+  let dataTime: number | null = null;
+  for (const source of sources) {
+    dataTime = dataTime === null ? source.loadedAt : Math.min(dataTime, source.loadedAt);
+    for (const session of source.summary.sessions) {
+      const candidate = candidateFor(source.machineId, session, now);
+      if (candidate === null) continue;
+      if (candidate.state === 'working') counts.working += 1;
+      if (candidate.state === 'waiting') counts.waiting += 1;
+      candidates.push(candidate);
+    }
+  }
+  const agents = candidates
+    .flatMap((candidate) => (candidate.shown === null ? [] : [candidate.shown]))
+    .sort(compareShown)
+    .slice(0, MAX_ACTIVITY_ROWS)
+    .map((shown) => shown.row);
+  return {
+    updatedAt: new Date(dataTime ?? now).toISOString(),
+    counts,
+    agents,
+    moreCount: candidates.length - agents.length,
+  };
+}
+
+/**
+ * One key per working agent over all given computers: its computer, its session and the start of its current
+ * stint (`workingStartedAt`, H1a). A key that was not there before is a working stint that began (REQ-LIVEACT-004):
+ * an agent that starts working, also the same session starting its next turn between two refreshes (a new
+ * `workingStartedAt`), and also an agent without a row (behind four rows, in `moreCount`). Not part of the
+ * content state: the activity never shows it.
+ */
+export function workingStints(sources: readonly ActivitySource[], now: number): string[] {
+  const stints: string[] = [];
+  for (const source of sources) {
+    for (const session of source.summary.sessions) {
+      if (candidateFor(source.machineId, session, now)?.state !== 'working') continue;
+      stints.push(`${source.machineId}\n${session.sessionId}\n${session.workingStartedAt}`);
+    }
+  }
+  return stints;
+}
