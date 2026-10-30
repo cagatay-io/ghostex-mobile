@@ -5,13 +5,33 @@
  * place), the text editor, and the keyboard. The pad stays open until the toggle is tapped again; it floats with
  * and without the software keyboard and takes no room from the terminal. Armed modifiers show as a chip beside
  * the toggle. Opening fades and grows the pad out of the toggle, at once with Reduce Motion on.
+ *
+ * Moving it: holding the toggle for 0.3 s picks the whole pad up (toggle, field, ring);
+ * it follows the finger and, let go, snaps to the nearer side edge at the released height inside the allowed area
+ * (`padPlacementAt`), at once with Reduce Motion on (also when that is turned on during the snap). Only a drag
+ * stores a new place: a hold let go without one (the finger never more than 10 pt from where it went down) puts
+ * the pad back where it stood, so a place that only a cover pushed it to never becomes its resting place. A
+ * shorter tap still opens and closes it. VoiceOver gets the same through the toggle's actions "Move to the left
+ * side" and "Move to the right side". On the left edge the pad is drawn mirrored: the toggle at that edge, the ring
+ * and the modifier chip on the field's other side; the field keeps its order, so every arrow still points its way.
+ * Where the terminal area is too short for the open pad, it is drawn reaching over the header (`reach`).
  */
 
-import { memo, useEffect, useState, type ReactNode } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import { memo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  Animated,
+  Easing,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type AccessibilityActionEvent,
+  type GestureResponderEvent,
+} from 'react-native';
 import { BlurView } from 'expo-blur';
 
 import { CommandPadCopy } from '../../copy';
+import type { CommandPadPlacement } from '../../settings/commandPad';
 import type { ExtraKeyModifier } from '../../settings/extraKeys';
 import { CommandPadPalette, GhostexPalette } from '../../theme/palette';
 import { useReduceMotion } from '../common/reduceMotion';
@@ -19,6 +39,7 @@ import { useReduceTransparency } from '../common/reduceTransparency';
 import CommandPadKeyFace from './CommandPadKeyFace';
 import type { CommandPadLayerKind } from './CommandPadLayer';
 import {
+  DEFAULT_PAD_PLACEMENT,
   PAD_CHIP_OFFSET,
   PAD_FIELD_OFFSET,
   PAD_KEY,
@@ -27,6 +48,12 @@ import {
   PAD_RING_BUTTON,
   PAD_RING_OFFSETS,
   PAD_TOGGLE,
+  padAnchor,
+  padPlacementAt,
+  padToggleLeft,
+  type PadAnchor,
+  type PadArea,
+  type PadOffset,
 } from './commandPadLayout';
 import type { CommandPadKey } from './commandPadKeys';
 import { AgentSparkIcon, HashIcon, KeyboardDismissIcon, KeyboardIcon, PadIcon, PencilIcon } from './icons';
@@ -34,9 +61,21 @@ import { pressFromTouch, TerminalKeyInput, type ModifierState, type PadUpload } 
 
 /** Holding a modifier this long locks it (the key bar's value). */
 const MODIFIER_LONG_PRESS_MS = 450;
+/** Holding the toggle this long picks the pad up to move it (about 0.3 s: long enough not to be a tap). */
+const PAD_MOVE_HOLD_MS = 300;
+/**
+ * How far a lifted pad's finger may stray from where it went down and still count as held, not dragged: the
+ * distance Pressability allows a held finger before it gives up the long press (its 10 pt default).
+ */
+const PAD_DRAG_MIN_DISTANCE = 10;
 const OPEN_MOTION_MS = 140;
 const PAD_KEY_RADIUS = 16;
 const MODIFIER_ORDER: readonly ExtraKeyModifier[] = ['ctrl', 'alt', 'shift'];
+/** The toggle's accessibility actions besides activating it. */
+const MOVE_ACTIONS = [
+  { name: 'moveLeft', label: CommandPadCopy.moveLeft },
+  { name: 'moveRight', label: CommandPadCopy.moveRight },
+];
 
 export type CommandPadProps = {
   open: boolean;
@@ -45,8 +84,21 @@ export type CommandPadProps = {
   input: TerminalKeyInput;
   modifiers: ModifierState;
   upload: PadUpload & { uploading: boolean };
-  /** The toggle's bottom edge above the terminal area's bottom (`padAnchorBottom`). */
-  bottom: number;
+  /** Where the toggle stands in the terminal area (`padAnchor` of the user's place). */
+  anchor: PadAnchor;
+  /**
+   * The pad's room once measured (the terminal area within the window's safe area across); a drag needs it to find
+   * the place it snaps to.
+   */
+  area: PadArea | null;
+  /** How far the pad's room reaches above the terminal area, over the header (0 when it fits in the area). */
+  reach: number;
+  /** How much of the area's bottom is covered (keyboard, text editor, layer); the pad stays above it. */
+  cover: number;
+  /** The user's place in this layout (undefined: the default); the accessibility moves keep its height. */
+  placement: CommandPadPlacement | undefined;
+  /** Stores a new place. */
+  onMove: (placement: CommandPadPlacement) => void;
   layer: CommandPadLayerKind | null;
   onLayer: (layer: CommandPadLayerKind) => void;
   /** The session's agent has hotkeys (otherwise the Agent button is unavailable). */
@@ -64,7 +116,12 @@ function CommandPad({
   input,
   modifiers,
   upload,
-  bottom,
+  anchor,
+  area,
+  reach,
+  cover,
+  placement,
+  onMove,
   layer,
   onLayer,
   agentAvailable,
@@ -96,6 +153,88 @@ function CommandPad({
     motion.start();
     return () => motion.stop();
   }, [open, reduceMotion, reveal]);
+
+  // The whole pad's offset from its anchor: the finger's while it is lifted, then the snap back to zero.
+  const [{ drag, dragTransform }] = useState(() => {
+    const value = new Animated.ValueXY({ x: 0, y: 0 });
+    return { drag: value, dragTransform: value.getTranslateTransform() };
+  });
+  const [lifted, setLifted] = useState(false);
+  const gesture = useRef<{ startX: number; startY: number; dx: number; dy: number; dragged: boolean } | null>(null);
+  // Where a dropped pad's toggle was let go (its left and bottom edge in the area), until its new anchor is rendered;
+  // the snap starts there.
+  const released = useRef<{ left: number; bottom: number } | null>(null);
+
+  // Before paint, with the new anchor: the pad stays where the finger let it go and snaps from there.
+  useLayoutEffect(() => {
+    const at = released.current;
+    if (at === null || area === null) return;
+    released.current = null;
+    springHome(
+      drag,
+      { x: at.left - padToggleLeft(anchor.side, area.width), y: anchor.bottom - at.bottom },
+      reduceMotion,
+    );
+  }, [anchor, area, drag, reduceMotion]);
+
+  // Reduce Motion turned on while the pad springs home: it stands there at once, as Reduce Motion asks of every
+  // motion, also one already running. A lifted pad stays under the finger; its drop places it at once.
+  useEffect(() => {
+    if (!reduceMotion || gesture.current !== null) return;
+    drag.stopAnimation();
+    drag.setValue({ x: 0, y: 0 });
+  }, [drag, reduceMotion]);
+
+  const pickUp = (event: GestureResponderEvent): void => {
+    drag.stopAnimation();
+    drag.setValue({ x: 0, y: 0 });
+    released.current = null;
+    gesture.current = {
+      startX: event.nativeEvent.pageX,
+      startY: event.nativeEvent.pageY,
+      dx: 0,
+      dy: 0,
+      dragged: false,
+    };
+    setLifted(true);
+    input.pickUpFeedback();
+  };
+
+  const follow = (event: GestureResponderEvent): void => {
+    const current = gesture.current;
+    if (current === null) return;
+    current.dx = event.nativeEvent.pageX - current.startX;
+    current.dy = event.nativeEvent.pageY - current.startY;
+    drag.setValue({ x: current.dx, y: current.dy });
+    if (Math.hypot(current.dx, current.dy) > PAD_DRAG_MIN_DISTANCE) current.dragged = true;
+  };
+
+  const drop = (): void => {
+    const current = gesture.current;
+    if (current === null) return;
+    gesture.current = null;
+    setLifted(false);
+    input.selectionFeedback();
+    const from = { x: current.dx, y: current.dy };
+    if (area === null || !current.dragged) {
+      // Not measured yet (nowhere to snap to), or held without a drag: back to where it was, nothing stored.
+      springHome(drag, from, reduceMotion);
+      return;
+    }
+    const at = { left: padToggleLeft(anchor.side, area.width) + current.dx, bottom: anchor.bottom - current.dy };
+    const next = padPlacementAt({ side: anchor.side, ...at }, area, cover);
+    const target = padAnchor(next, area, cover);
+    onMove(next);
+    if (target.side === anchor.side && target.bottom === anchor.bottom) springHome(drag, from, reduceMotion);
+    else released.current = at;
+  };
+
+  const moveBy = (event: AccessibilityActionEvent): void => {
+    const { actionName } = event.nativeEvent;
+    if (actionName !== 'moveLeft' && actionName !== 'moveRight') return;
+    const height = (placement ?? DEFAULT_PAD_PLACEMENT).height;
+    onMove({ side: actionName === 'moveLeft' ? 'left' : 'right', height });
+  };
 
   const ring: {
     key: string;
@@ -153,18 +292,25 @@ function CommandPad({
   const armed = MODIFIER_ORDER.filter((modifier) => modifiers[modifier] !== 'off');
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+    <Animated.View style={[StyleSheet.absoluteFill, { transform: dragTransform }]} pointerEvents="box-none">
       {open ? (
         <Animated.View
-          style={[StyleSheet.absoluteFill, styles.reveal, { opacity: reveal, transform: [{ scale }] }]}
+          style={[
+            StyleSheet.absoluteFill,
+            styles.reveal,
+            // Grow out of the toggle's corner, wherever the pad is (its room reaches `reach` above the area).
+            area !== null && {
+              transformOrigin: [
+                anchor.side === 'left' ? PAD_MARGIN : area.width - PAD_MARGIN,
+                area.height + reach - anchor.bottom,
+                0,
+              ],
+            },
+            { opacity: reveal, transform: [{ scale }] },
+          ]}
           pointerEvents="box-none"
         >
-          <View
-            style={[
-              styles.field,
-              { right: PAD_MARGIN + PAD_FIELD_OFFSET.right, bottom: bottom + PAD_FIELD_OFFSET.bottom },
-            ]}
-          >
+          <View style={[styles.field, placeAt(anchor, PAD_FIELD_OFFSET)]}>
             {keys.map((padKey, position) => (
               <PadKey
                 // Positions are fixed; the same key may sit in two of them.
@@ -186,10 +332,7 @@ function CommandPad({
               disabled={button.disabled}
               style={({ pressed }) => [
                 styles.ringButton,
-                {
-                  right: PAD_MARGIN + PAD_RING_OFFSETS[index].right,
-                  bottom: bottom + PAD_RING_OFFSETS[index].bottom,
-                },
+                placeAt(anchor, PAD_RING_OFFSETS[index]),
                 button.selected && styles.active,
                 opaque && styles.opaque,
                 pressed && (opaque ? styles.opaquePressed : styles.pressed),
@@ -205,10 +348,7 @@ function CommandPad({
         </Animated.View>
       ) : null}
       {armed.length > 0 ? (
-        <View
-          accessibilityLiveRegion="polite"
-          style={[styles.chips, { right: PAD_MARGIN + PAD_CHIP_OFFSET.right, bottom: bottom + PAD_CHIP_OFFSET.bottom }]}
-        >
+        <View accessibilityLiveRegion="polite" style={[styles.chips, placeAt(anchor, PAD_CHIP_OFFSET)]}>
           {armed.map((modifier) => {
             const name = CommandPadCopy.modifierNames[modifier];
             const locked = modifiers[modifier] === 'locked';
@@ -224,24 +364,59 @@ function CommandPad({
         accessibilityRole="button"
         accessibilityLabel={CommandPadCopy.toggle}
         accessibilityState={{ expanded: open }}
+        accessibilityActions={MOVE_ACTIONS}
+        onAccessibilityAction={moveBy}
+        delayLongPress={PAD_MOVE_HOLD_MS}
+        // Lifted, the finger may go anywhere without cancelling the drag.
+        pressRetentionOffset={lifted ? Number.POSITIVE_INFINITY : undefined}
         style={({ pressed }) => [
           styles.toggle,
-          { right: PAD_MARGIN, bottom },
+          placeAt(anchor, AT_TOGGLE),
           open && styles.active,
           opaque && styles.opaque,
           pressed && (opaque ? styles.opaquePressed : styles.pressed),
+          lifted && styles.lifted,
         ]}
         onPress={onToggle}
+        onLongPress={pickUp}
+        onPressMove={follow}
+        onPressOut={drop}
       >
         <Frost radius={PAD_TOGGLE / 2} opaque={opaque} />
         <PadIcon size={20} color={open ? GhostexPalette.ACCENT : GhostexPalette.FOREGROUND} />
       </Pressable>
-    </View>
+    </Animated.View>
   );
 }
 
 /** Re-renders only when its own inputs change, not with every terminal screen update. */
 export default memo(CommandPad);
+
+/** The toggle's own place among the offsets. */
+const AT_TOGGLE: PadOffset = { right: 0, bottom: 0 };
+
+/**
+ * Where a control `offset` from the toggle at `anchor` is drawn: measured from the side edge the pad stands at, so
+ * on the left edge everything beside the toggle lies mirrored, towards the area's middle.
+ */
+function placeAt(
+  anchor: PadAnchor,
+  offset: PadOffset,
+): { left: number; bottom: number } | { right: number; bottom: number } {
+  const inset = PAD_MARGIN + offset.right;
+  const bottom = anchor.bottom + offset.bottom;
+  return anchor.side === 'left' ? { left: inset, bottom } : { right: inset, bottom };
+}
+
+/** Springs the pad home from `from` (its offset from its anchor); with Reduce Motion it is placed at once. */
+function springHome(drag: Animated.ValueXY, from: { x: number; y: number }, reduceMotion: boolean): void {
+  if (reduceMotion) {
+    drag.setValue({ x: 0, y: 0 });
+    return;
+  }
+  drag.setValue(from);
+  Animated.spring(drag, { toValue: { x: 0, y: 0 }, stiffness: 300, damping: 30, useNativeDriver: false }).start();
+}
 
 /** Intensity of the blur behind the glass (the mockup's `blur(12px)` under a light fill). */
 const FROST_INTENSITY = 30;
@@ -319,7 +494,7 @@ const glass = {
 } as const;
 
 const styles = StyleSheet.create({
-  // Grow out of the toggle's corner.
+  // Grow out of the toggle's corner (before the terminal area is measured: the area's corner, near it).
   reveal: {
     transformOrigin: 'bottom right',
   },
@@ -384,6 +559,11 @@ const styles = StyleSheet.create({
   opaquePressed: {
     backgroundColor: CommandPadPalette.GLASS_OPAQUE_PRESSED,
     transform: [{ scale: 0.94 }],
+  },
+  // Picked up to move: a little larger, edged in the accent.
+  lifted: {
+    borderColor: GhostexPalette.ACCENT,
+    transform: [{ scale: 1.12 }],
   },
   disabled: {
     opacity: 0.4,

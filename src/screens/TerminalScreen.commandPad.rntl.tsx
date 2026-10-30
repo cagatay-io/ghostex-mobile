@@ -13,172 +13,45 @@
  * on the iPhone (D-057, D-059). Mocked are the boundaries only: the native module, haptics, storage, the safe area,
  * navigation focus, the chat screen, the voice button and the file picker. Frames of an iPhone 17: 402x874, home
  * indicator inset 34, keyboard 336 pt tall (top 538).
+ *
+ * The mocks, frames and helpers are shared with the pad's other screen tests in
+ * `TerminalScreen.commandPadHarness.tsx`: moving the pad, too little room for it, turns and folds, and the transition
+ * matrix have their own `TerminalScreen.commandPad*.rntl.tsx` files.
  */
 
-import { AccessibilityInfo, Dimensions, Platform, StyleSheet } from 'react-native';
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import {
+  ACCESSIBILITY_ACTIVATION,
+  AGENT_TAB,
+  DEFAULT_LABELS,
+  EDITOR,
+  HIDDEN_TOO,
+  KEYBOARD,
+  KEY_BAR_LABELS,
+  NO_MODS,
+  SHELL_TAB,
+  TOGGLE,
+  WINDOW,
+  bottomOf,
+  keyboardWillHide,
+  keyboardWillShow,
+  mockNative,
+  mockPickAndSend,
+  mockSelectionHaptic,
+  navigation,
+  openPad,
+  renderScreen,
+  setSettings,
+  tapKey,
+  terminalTop,
+} from './TerminalScreen.commandPadHarness';
+
+import { AccessibilityInfo, Platform, StyleSheet } from 'react-native';
+import { act, fireEvent, screen } from '@testing-library/react-native';
 import type { TestInstance } from 'test-renderer';
 
-import { keyboardFixture } from '../components/common/keyboard/keyboardEventFixtures';
 import { DEFAULT_COMMAND_PAD_KEYS } from '../settings/commandPad';
 import { useExtraKeysStore } from '../settings/extraKeys';
-import { useSettingsStore } from '../settings/store';
 import { useTerminalStore, type TerminalTab } from '../terminal/sessions';
-import TerminalScreen from './TerminalScreen';
-
-const mockNative = {
-  sendKey: jest.fn((_sessionKey: string, _key: string, _mods?: object) => Promise.resolve()),
-  sendText: jest.fn((_sessionKey: string, _text: string) => Promise.resolve()),
-  setKeyModifiers: jest.fn((_sessionKey: string, _mods: object) => Promise.resolve()),
-  pasteFromClipboard: jest.fn((_sessionKey: string) => Promise.resolve()),
-  focusTerminal: jest.fn((_sessionKey: string): Promise<boolean> => Promise.resolve(true)),
-  blurTerminal: jest.fn((_sessionKey: string) => Promise.resolve()),
-};
-const mockPickAndSend = jest.fn((_machineId: string, _sessionKey: string, _sink?: unknown) => Promise.resolve('sent'));
-const mockSelectionHaptic = jest.fn(() => Promise.resolve());
-
-jest.mock('../../modules/ghostex-native/src', () => {
-  const { View: MockView } = jest.requireActual('react-native');
-  const React = jest.requireActual('react');
-  return {
-    GhostexNative: {
-      addListener: () => ({ remove: () => undefined }),
-      setKeepScreenOn: () => Promise.resolve(),
-      scrollToBottom: () => Promise.resolve(),
-      sendKey: (...args: [string, string, object?]) => mockNative.sendKey(...args),
-      sendText: (...args: [string, string]) => mockNative.sendText(...args),
-      setKeyModifiers: (...args: [string, object]) => mockNative.setKeyModifiers(...args),
-      pasteFromClipboard: (sessionKey: string) => mockNative.pasteFromClipboard(sessionKey),
-      focusTerminal: (sessionKey: string) => mockNative.focusTerminal(sessionKey),
-      blurTerminal: (sessionKey: string) => mockNative.blurTerminal(sessionKey),
-      observeBarLayout: () =>
-        Promise.resolve({
-          id: 1,
-          layout: { windowWidth: 402, windowHeight: 874, safeTop: 59, safeLeft: 0, safeRight: 0, marginTop: 59 },
-        }),
-      stopObservingBarLayout: () => Promise.resolve(),
-    },
-    GhostexTerminalView: (props: object) => React.createElement(MockView, { testID: 'terminal-view', ...props }),
-  };
-});
-jest.mock('../components/terminal/uploads', () => ({
-  ...jest.requireActual('../components/terminal/uploads'),
-  pickAndSendAttachment: (...args: [string, string, unknown?]) => mockPickAndSend(...args),
-}));
-jest.mock('@react-native-async-storage/async-storage', () =>
-  jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'),
-);
-jest.mock('expo-haptics', () => ({
-  impactAsync: () => Promise.resolve(),
-  notificationAsync: () => Promise.resolve(),
-  selectionAsync: () => mockSelectionHaptic(),
-  performAndroidHapticsAsync: () => Promise.resolve(),
-  AndroidHaptics: { Keyboard_Tap: 'keyboard-tap', Context_Click: 'context-click' },
-  ImpactFeedbackStyle: { Light: 'light', Medium: 'medium', Heavy: 'heavy', Rigid: 'rigid' },
-  NotificationFeedbackType: { Success: 'success', Warning: 'warning', Error: 'error' },
-}));
-jest.mock('react-native-safe-area-context', () => ({
-  useSafeAreaInsets: () => ({ top: 59, bottom: 34, left: 0, right: 0 }),
-}));
-jest.mock('../chat/native/NativeChatScreen', () => ({ __esModule: true, default: () => null }));
-jest.mock('../voice/VoiceButton', () => ({ VoiceButton: () => null }));
-jest.mock('@react-navigation/native', () => ({
-  useIsFocused: () => true,
-  useFocusEffect: () => undefined,
-  useNavigation: () => ({ navigate: () => undefined }),
-}));
-
-const WINDOW = { width: 402, height: 874 };
-const KEYBOARD = { top: 538, height: 336 };
-const HIDDEN_TOO = { hidden: true };
-const TOGGLE = 'Command pad';
-const EDITOR = 'Terminal text editor';
-/** The nine default keys by the names REQ-KEY-003 AC2 lists. */
-const DEFAULT_LABELS = ['Esc', 'Up', 'Ctrl+C', 'Left', 'Enter', 'Right', 'Tab', 'Down', 'Upload'];
-/** Accessibility labels of the former key bar's own controls (TerminalKeyBar.tsx at 7acb819). */
-const KEY_BAR_LABELS = ['Extra keys', 'Open text editor', 'Dismiss keyboard', 'ESC', 'SHIFT', 'NEWLN', 'PGUP'];
-const NO_MODS = { ctrl: false, alt: false, shift: false };
-
-const navigation = { setOptions: () => undefined, popTo: () => undefined, navigate: jest.fn() };
-
-const SHELL_TAB: TerminalTab = { sessionKey: 'shell-1', machineId: 'm1', title: 'shell', kind: 'shell', state: 'open' };
-const AGENT_TAB: TerminalTab = {
-  sessionKey: 'agent-1',
-  machineId: 'm1',
-  title: 'agent',
-  kind: 'attach',
-  ghostexSessionId: 's1',
-  ghostexProjectId: 'p1',
-  ghostexAgentId: 'claude',
-  state: 'open',
-};
-
-const keyboard = keyboardFixture({ width: WINDOW.width, height: WINDOW.height });
-const initialSettings = useSettingsStore.getState().settings;
-
-async function renderScreen(tab: TerminalTab = SHELL_TAB): Promise<void> {
-  await act(() => {
-    Dimensions.set({ window: { ...WINDOW, scale: 3, fontScale: 1 }, screen: { ...WINDOW, scale: 3, fontScale: 1 } });
-  });
-  useTerminalStore.setState({ tabs: [tab], selectedSessionKey: tab.sessionKey });
-  await render(
-    <TerminalScreen
-      navigation={navigation as never}
-      route={{ key: 'terminal', name: 'Terminal', params: { sessionKey: tab.sessionKey, machineId: 'm1' } }}
-    />,
-  );
-  await act(async () => undefined);
-}
-
-async function setSettings(patch: Partial<typeof initialSettings>): Promise<void> {
-  await act(() => useSettingsStore.setState({ settings: { ...useSettingsStore.getState().settings, ...patch } }));
-}
-
-async function keyboardWillShow(): Promise<void> {
-  await act(() => keyboard.show(KEYBOARD.top, KEYBOARD.height, 250));
-}
-
-async function keyboardWillHide(): Promise<void> {
-  await act(() => keyboard.hide(250));
-}
-
-async function openPad(): Promise<void> {
-  await fireEvent.press(screen.getByLabelText(TOGGLE));
-}
-
-/** A pad key's touch: down, up, and the press that completes it. */
-async function tapKey(label: string): Promise<void> {
-  const key = screen.getByLabelText(label);
-  await fireEvent(key, 'pressIn');
-  await fireEvent(key, 'pressOut');
-  await fireEvent.press(key);
-}
-
-function bottomOf(instance: TestInstance): number | undefined {
-  return StyleSheet.flatten(instance.props.style)?.bottom;
-}
-
-function terminalTop(): number {
-  return (StyleSheet.flatten(screen.getByTestId('terminal-view').props.style)?.top ?? 0) + 0;
-}
-
-beforeEach(() => {
-  jest.useFakeTimers();
-  Object.values(mockNative).forEach((mock) => mock.mockClear());
-  mockNative.focusTerminal.mockImplementation(() => Promise.resolve(true));
-  mockPickAndSend.mockClear();
-  mockSelectionHaptic.mockClear();
-  navigation.navigate.mockClear();
-  useSettingsStore.setState({ settings: { ...initialSettings, commandPadKeys: [...DEFAULT_COMMAND_PAD_KEYS] } });
-  useTerminalStore.setState({ sessionViewModeBySessionKey: {} });
-  jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockImplementation(() => Promise.resolve(false));
-});
-
-afterEach(async () => {
-  await act(() => keyboard.hide(0));
-  jest.restoreAllMocks();
-  jest.useRealTimers();
-});
 
 describe('REQ-KEY-001: the floating pad replaces the key bar and the upload button', () => {
   test('REQ-KEY-001 AC1: with the keyboard dismissed the pad toggle exists', async () => {
@@ -559,9 +432,6 @@ describe('REQ-KEY-004: Paste on iOS uses the terminal edit-menu paste', () => {
     expect(mockNative.pasteFromClipboard.mock.calls).toEqual([['shell-1']]);
   });
 });
-
-/** The press event of an accessibility activation: no touches (Pressability's non-pointer click). */
-const ACCESSIBILITY_ACTIVATION = { nativeEvent: { target: 1 } };
 
 describe('review r1 regressions (K-1, K-2, K-4)', () => {
   test('REQ-KEY-004 AC1 / REQ-KEY-001 AC4: a pad key activated without a touch-down (VoiceOver, Switch Control) sends once', async () => {

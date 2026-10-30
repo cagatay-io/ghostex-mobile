@@ -24,6 +24,8 @@ import {
   Text,
   View,
   useWindowDimensions,
+  type LayoutChangeEvent,
+  type LayoutRectangle,
   type StyleProp,
   type ViewInstance,
   type ViewStyle,
@@ -36,6 +38,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GhostexNative, GhostexTerminalView } from '../../modules/ghostex-native/src';
 import ProgressOverlay from '../components/common/ProgressOverlay';
 import PromptDialog from '../components/common/PromptDialog';
+import { useKeyboardState } from '../components/common/keyboard/keyboardFrame';
 import { measureInWindow } from '../components/common/measureInWindow';
 import { bandRowFrame } from '../components/common/verticalBar/layout';
 import {
@@ -64,7 +67,7 @@ import TerminalStateOverlay from '../components/terminal/TerminalStateOverlay';
 import TerminalTabsBar, { MIN_TAB_WIDTH } from '../components/terminal/TerminalTabsBar';
 import TerminalTextEditor, { TEXT_EDITOR_HEIGHT } from '../components/terminal/TerminalTextEditor';
 import { ChatBubbleIcon, ChevronLeftIcon, EllipsisIcon, TerminalPromptIcon } from '../components/terminal/icons';
-import { PAD_TOGGLE, padAnchorBottom } from '../components/terminal/commandPadLayout';
+import { PAD_TOGGLE, padAnchor, padHeaderReach } from '../components/terminal/commandPadLayout';
 import { terminalObstruction, terminalSlideOffset } from '../components/terminal/terminalKeyboardSlide';
 import { useCommandPad } from '../components/terminal/useCommandPad';
 import { useKeyboardMetrics } from '../components/terminal/useKeyboardMetrics';
@@ -158,9 +161,16 @@ export default function TerminalScreen({ navigation, route }: Props) {
   const [uploading, setUploading] = useState(false);
   const [keyboardOcclusionCorrection, setKeyboardOcclusionCorrection] = useState(0);
   const bottomEdgeFrameRef = useRef<ViewInstance>(null);
-  // The iOS terminal's cursor row and size, which decide how far it slides with the keyboard (below).
+  // The iOS terminal's cursor row, which decides how far it slides with the keyboard (below), and the terminal
+  // area's frame (its height for the slide; its size for where the pad may stand, its top for the header above it).
   const [caretTop, setCaretTop] = useState<number | null>(null);
-  const [terminalHeight, setTerminalHeight] = useState(0);
+  const [terminalArea, setTerminalArea] = useState<LayoutRectangle | null>(null);
+  const onTerminalAreaLayout = useCallback((event: LayoutChangeEvent): void => {
+    const { x, y, width, height } = event.nativeEvent.layout;
+    setTerminalArea((area) =>
+      area?.x === x && area.y === y && area.width === width && area.height === height ? area : { x, y, width, height },
+    );
+  }, []);
   // What covers the terminal's bottom besides the keyboard: the text editor on it, or a pad layer in its place.
   const [editorHeight, setEditorHeight] = useState(0);
   const [layerHeight, setLayerHeight] = useState(0);
@@ -450,15 +460,58 @@ export default function TerminalScreen({ navigation, route }: Props) {
   // The Befehlspad (REQ-KEY-001): over the shown terminal while it is switched on, never in chat view.
   const padSessionKey =
     settings.extraKeysToolbarVisible && activeTab !== null && !chatModeActive ? activeTab.sessionKey : null;
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  // The pad's room: the terminal area within the window's safe area across (in landscape the area runs under the
+  // screen's rounded corners and the camera), and the header above it where the open pad needs that (`padReach`).
+  const padArea = useMemo(() => {
+    if (terminalArea === null) return null;
+    const left = Math.max(terminalArea.x, insets.left);
+    const right = Math.min(terminalArea.x + terminalArea.width, windowWidth - insets.right);
+    return { x: left, y: terminalArea.y, width: Math.max(0, right - left), height: terminalArea.height };
+  }, [terminalArea, insets.left, insets.right, windowWidth]);
+  // The header between the terminal area and the window's safe area: the open pad reaches over it where the area
+  // alone is too short for it.
+  const headerRoom = padArea === null ? 0 : Math.max(0, padArea.y - insets.top);
+  // iOS: how much of the terminal's bottom the keyboard covers, with the text editor on it when `editorOpen`.
+  const keyboardCover = (editorOpen: boolean): number =>
+    terminalObstruction(bottomInset, editorOpen ? editorHeight || TEXT_EDITOR_HEIGHT : 0, insets.bottom);
+  // Whether the last render drew the open pad closed for a layer (`padGivesWay` below); the pad's state needs it
+  // when the keyboard comes back, and the room it is read from depends on that state.
+  const [padGaveWay, setPadGaveWay] = useState(false);
+  // Each time the keyboard comes up from hidden (iOS; a turn or fold of a keyboard that is up is none): the person
+  // asked for it, so the pad's room is judged at once then, also while a turn, fold or resize settles.
+  const { appearances: keyboardAppearances } = useKeyboardState();
   const pad = useCommandPad({
     sessionKey: padSessionKey,
     agentId: activeAgentId,
+    // Laptop mode passes 'laptop' with its own area.
+    layout: 'flat',
     keyboardVisible,
     keyboardOverlap: slidesWithKeyboard ? bottomInset : 0,
     windowWidth,
     showKeyboard,
     dismissKeyboard,
+    padGaveWay,
+    openPadFitsAboveKeyboard: (editorOpen) =>
+      padArea === null ||
+      padHeaderReach(padArea, slidesWithKeyboard ? keyboardCover(editorOpen) : 0, headerRoom) !== null,
+    // A turn, fold or resize reports these one by one; the pad's room is judged once they have settled. On Android
+    // the keyboard's room is made in the screen's layout, so its height there counts with them (iOS:
+    // `keyboardOverlap`, which a keyboard coming up does not move).
+    roomInputs: [
+      windowWidth,
+      windowHeight,
+      insets.top,
+      insets.bottom,
+      insets.left,
+      insets.right,
+      terminalArea?.x ?? -1,
+      terminalArea?.y ?? -1,
+      terminalArea?.width ?? -1,
+      terminalArea?.height ?? -1,
+      slidesWithKeyboard ? 0 : bottomInset,
+    ],
+    keyboardAppearances,
   });
   const editorShown = padSessionKey !== null && pad.editorVisible;
   const layerShown = padSessionKey !== null && pad.layer !== null;
@@ -467,14 +520,28 @@ export default function TerminalScreen({ navigation, route }: Props) {
   // (owner D-037); before any keyboard was seen, its own height.
   const layerCover = pad.layerMinHeight ?? layerHeight;
   const obstruction = slidesWithKeyboard
-    ? Math.max(
-        terminalObstruction(bottomInset, editorShown ? editorHeight || TEXT_EDITOR_HEIGHT : 0, insets.bottom),
-        layerShown ? layerCover - insets.bottom : 0,
-      )
+    ? Math.max(keyboardCover(editorShown), layerShown ? layerCover - insets.bottom : 0)
     : 0;
-  const terminalOffset = terminalSlideOffset(caretTop, terminalHeight, obstruction);
-  // The pad and the floating controls stay above what covers the terminal: the terminal area does not shrink.
-  const padBottom = padAnchorBottom(obstruction);
+  const terminalOffset = terminalSlideOffset(caretTop, terminalArea?.height ?? 0, obstruction);
+  // The pad and the floating controls stay above what covers the terminal: the terminal area does not shrink. The
+  // pad keeps the user's place unless it would stand under that.
+  const padAt = useMemo(() => padAnchor(pad.placement, padArea, obstruction), [pad.placement, padArea, obstruction]);
+  // How far the open pad reaches over the header (null: it does not fit even then).
+  const padReach = padArea === null ? 0 : padHeaderReach(padArea, obstruction, headerRoom);
+  // Where a Keys or Agent layer leaves the open pad no room above it, even over the header (the pad holding the
+  // keyboard down, or a phone in landscape whose keyboard was down when the pad opened), the pad is drawn closed and
+  // the layer gets its own close button, so neither is cut off. Closing the layer, or tapping the toggle, shows the
+  // pad again with the keyboard still down. Read from the room on every render, so a rotation or window change that
+  // makes room shows the pad above the layer again.
+  const padGivesWay = pad.open && layerShown && padReach === null;
+  if (padGivesWay !== padGaveWay) setPadGaveWay(padGivesWay);
+  // Opening the pad where it does not fit above the keyboard even over the header lowers the keyboard.
+  const togglePadOpen = pad.toggle;
+  const closePadLayer = pad.closeLayer;
+  const togglePad = useCallback(
+    (): void => (padGivesWay ? closePadLayer() : togglePadOpen(padReach !== null)),
+    [padGivesWay, closePadLayer, togglePadOpen, padReach],
+  );
   const floatingLift = slidesWithKeyboard ? Math.max(0, bottomInset - insets.bottom) : 0;
 
   const toggleChatView = useCallback((): void => {
@@ -641,6 +708,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
         height={slidesWithKeyboard ? pad.layerMinHeight : undefined}
         bottomInset={insets.bottom}
         onHeightChange={setLayerHeight}
+        onClose={padGivesWay ? closePadLayer : undefined}
       />
     ) : null;
   const agentSessionTitle =
@@ -844,7 +912,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
       ) : null}
       <View
         style={slidesWithKeyboard ? [styles.terminalArea, styles.terminalAreaSliding] : styles.terminalArea}
-        onLayout={slidesWithKeyboard ? (event) => setTerminalHeight(event.nativeEvent.layout.height) : undefined}
+        onLayout={onTerminalAreaLayout}
       >
         {activeTab !== null && !chatModeActive ? (
           // Only the selected tab's terminal is mounted; the native registry
@@ -922,28 +990,11 @@ export default function TerminalScreen({ navigation, route }: Props) {
           </Pressable>
         ) : null}
         {tabs.length > 1 && <EdgeSwipeZones onPrev={() => switchTabBy(-1)} onNext={() => switchTabBy(1)} />}
-        {padSessionKey !== null ? (
-          <CommandPad
-            open={pad.open}
-            onToggle={pad.toggle}
-            keys={pad.keys}
-            input={pad.input}
-            modifiers={pad.modifiers}
-            upload={padUpload}
-            bottom={padBottom}
-            layer={pad.layer}
-            onLayer={pad.selectLayer}
-            agentAvailable={pad.agentAvailable}
-            editorOpen={pad.editorVisible}
-            onEditor={pad.toggleEditor}
-            keyboardVisible={keyboardVisible}
-            onKeyboard={pad.toggleKeyboard}
-          />
-        ) : null}
         {/*
           With the pad switched off: the round buttons as before the pad (U1, owner 2026-10-25). With it on,
           Upload is a pad key (REQ-KEY-001 AC3) and the optional keyboard and refresh buttons stand above the
-          closed pad's toggle while nothing covers the terminal.
+          closed pad's toggle while nothing covers the terminal; when the user moved the pad away from the right
+          edge they keep their own corner.
         */}
         {!chatModeActive && (padSessionKey === null || (!keyboardVisible && !pad.open && !layerShown)) && (
           <TerminalFloatingControls
@@ -954,7 +1005,9 @@ export default function TerminalScreen({ navigation, route }: Props) {
             uploading={uploading}
             refreshEnabled={activeTab?.state === 'open'}
             keyboardShown={keyboardVisible}
-            bottomOffset={padSessionKey === null ? 16 + floatingLift : padBottom + PAD_TOGGLE + 12}
+            bottomOffset={
+              padSessionKey !== null && padAt.side === 'right' ? padAt.bottom + PAD_TOGGLE + 12 : 16 + floatingLift
+            }
             onKeyboard={showKeyboard}
             onDismissKeyboard={dismissKeyboard}
             onUpload={() => void handleUpload('file')}
@@ -962,6 +1015,52 @@ export default function TerminalScreen({ navigation, route }: Props) {
           />
         )}
       </View>
+      {/*
+        The pad's room (`padArea`): the terminal area within the window's safe area across, and the header above it
+        while the open pad needs that (`padReach`). Its own view, after the header, because the terminal area clips
+        what slides out of it. Until the area is measured, the pad has no place and is not shown.
+      */}
+      {padSessionKey !== null ? (
+        <View
+          pointerEvents="box-none"
+          style={
+            padArea === null
+              ? styles.padRoomUnmeasured
+              : [
+                  styles.padRoom,
+                  slidesWithKeyboard && styles.padRoomClipped,
+                  {
+                    left: padArea.x,
+                    top: padArea.y - (padReach ?? 0),
+                    width: padArea.width,
+                    height: padArea.height + (padReach ?? 0),
+                  },
+                ]
+          }
+        >
+          <CommandPad
+            open={pad.open && !padGivesWay}
+            onToggle={togglePad}
+            keys={pad.keys}
+            input={pad.input}
+            modifiers={pad.modifiers}
+            upload={padUpload}
+            anchor={padAt}
+            area={padArea}
+            reach={padReach ?? 0}
+            cover={obstruction}
+            placement={pad.placement}
+            onMove={pad.movePad}
+            layer={pad.layer}
+            onLayer={pad.selectLayer}
+            agentAvailable={pad.agentAvailable}
+            editorOpen={pad.editorVisible}
+            onEditor={pad.toggleEditor}
+            keyboardVisible={keyboardVisible}
+            onKeyboard={pad.toggleKeyboard}
+          />
+        </View>
+      ) : null}
 
       {/*
         The screen's bottom edge, always mounted and measurable: on Android the text editor or a pad layer

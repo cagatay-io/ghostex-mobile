@@ -264,6 +264,11 @@ export class TerminalKeyInput {
     this.tick();
   }
 
+  /** The firmer tick of picking the pad up to move it; the drop ticks `selectionFeedback` (`keyBarHapticsEnabled`). */
+  pickUpFeedback(): void {
+    this.tick('lock');
+  }
+
   private tick(kind: 'click' | 'lock' = 'click'): void {
     if (this.options.hapticsEnabled()) this.options.haptics[kind]();
   }

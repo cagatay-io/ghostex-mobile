@@ -54,6 +54,19 @@ export const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
+  /** The Befehlspad's room over the terminal area (and over the header when the open pad needs it). */
+  padRoom: {
+    position: 'absolute',
+  },
+  /** iOS: like the terminal area, the room cuts off what is moved out of it. */
+  padRoomClipped: {
+    overflow: 'hidden',
+  },
+  /** Before the terminal area is measured (the first layout pass) the pad has no place yet, so it is not seen. */
+  padRoomUnmeasured: {
+    ...StyleSheet.absoluteFill,
+    opacity: 0,
+  },
   queuedPill: {
     position: 'absolute',
     top: 8,

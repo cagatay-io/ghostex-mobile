@@ -2,6 +2,7 @@
  * Run with `bun test src`. REQ-KEY-006 AC3: a changed pad key survives a store reload (in-memory AsyncStorage);
  * the `commandPadKeys` fallback of the schema (absent or invalid = the default nine); REQ-KEY-002: a stored
  * `extraKeysToolbarVisible` keeps its meaning for the pad.
+ * The pad position per layout (`commandPadPosition`; absent or invalid = the default position).
  */
 
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
@@ -109,6 +110,51 @@ describe('review r2: a failed id migration write loses nothing', () => {
     } finally {
       storage.setItem = setItem;
       console.warn = warn;
+    }
+  });
+});
+
+describe('the pad position is stored per layout as commandPadPosition', () => {
+  test('a pad moved in the flat and in the laptop layout reloads with its own position for each', async () => {
+    await reload();
+    expect(useSettingsStore.getState().settings.commandPadPosition).toEqual({});
+    useSettingsStore.getState().setSetting('commandPadPosition', { flat: { side: 'left', height: 0.25 } });
+    useSettingsStore.getState().setSetting('commandPadPosition', {
+      ...useSettingsStore.getState().settings.commandPadPosition,
+      laptop: { side: 'right', height: 0 },
+    });
+    await reload();
+    const both = { flat: { side: 'left', height: 0.25 }, laptop: { side: 'right', height: 0 } };
+    expect(useSettingsStore.getState().settings.commandPadPosition).toEqual(both);
+    expect(JSON.parse(memory.get('settings.v1') ?? '{}').commandPadPosition).toEqual(both);
+  });
+
+  test('an invalid stored position gives its layout the default position, the other layout keeps its own', async () => {
+    memory.set(
+      'settings.v1',
+      JSON.stringify({
+        commandPadPosition: { flat: { side: 'middle', height: 2 }, laptop: { side: 'left', height: 0.5 } },
+      }),
+    );
+    await reload();
+    expect(useSettingsStore.getState().settings.commandPadPosition).toEqual({ laptop: { side: 'left', height: 0.5 } });
+
+    const invalid: unknown[] = [
+      'left',
+      null,
+      [],
+      { flat: { side: 'left' } },
+      { flat: { side: 'left', height: -0.1 } },
+      { flat: { side: 'right', height: 1.5 } },
+      { flat: { side: 'left', height: null } },
+      { flat: { side: 'left', height: '0.5' } },
+      { flat: { side: 'left', height: 0.5, extra: true } },
+      { sideways: { side: 'left', height: 0.5 } },
+    ];
+    for (const commandPadPosition of invalid) {
+      memory.set('settings.v1', JSON.stringify({ commandPadPosition }));
+      await reload();
+      expect(useSettingsStore.getState().settings.commandPadPosition).toEqual({});
     }
   });
 });

@@ -17,7 +17,12 @@ import {
   DEFAULT_SIDEBAR_BACKGROUND_TINT,
   normalizeSidebarTint,
 } from '../theme/sidebarAppearance';
-import { DEFAULT_COMMAND_PAD_KEYS, sanitizeCommandPadKeys } from './commandPad';
+import {
+  DEFAULT_COMMAND_PAD_KEYS,
+  sanitizeCommandPadKeys,
+  sanitizeCommandPadPosition,
+  type CommandPadPositions,
+} from './commandPad';
 
 const SETTINGS_STORAGE_KEY = 'settings.v1';
 
@@ -53,6 +58,8 @@ export type GhostexSettings = {
   keyBarHapticsEnabled: boolean;
   /** The Befehlspad's nine keys, row by row from the top left (`settings/commandPad.ts`). */
   commandPadKeys: string[];
+  /** Where the user moved the Befehlspad, per layout (`settings/commandPad.ts`); `{}` = the default position. */
+  commandPadPosition: CommandPadPositions;
   /** Terminal font size in pt (iOS) / sp (Android). Range 4-32. */
   fontSize: number;
   /** Scrollback rows for newly created terminal buffers. */
@@ -181,6 +188,7 @@ export function defaultSettings(): GhostexSettings {
     confirmTabClose: false,
     keyBarHapticsEnabled: true,
     commandPadKeys: [...DEFAULT_COMMAND_PAD_KEYS],
+    commandPadPosition: {},
     fontSize: defaultFontSize(),
     scrollbackRows: 2_000,
     cursorStyle: 'bar',
@@ -290,6 +298,7 @@ function sanitizeSettings(value: unknown): GhostexSettings {
     confirmTabClose: bool('confirmTabClose', defaults.confirmTabClose),
     keyBarHapticsEnabled: bool('keyBarHapticsEnabled', defaults.keyBarHapticsEnabled),
     commandPadKeys: sanitizeCommandPadKeys(record.commandPadKeys) ?? defaults.commandPadKeys,
+    commandPadPosition: sanitizeCommandPadPosition(record.commandPadPosition),
     fontSize,
     scrollbackRows,
     cursorStyle,

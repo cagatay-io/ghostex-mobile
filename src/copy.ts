@@ -1022,6 +1022,9 @@ export const SettingsCopy = {
  */
 export const CommandPadCopy = {
   toggle: 'Command pad',
+  /** The toggle's accessibility actions that move the pad; a held toggle drags it. */
+  moveLeft: 'Move to the left side',
+  moveRight: 'Move to the right side',
   keysLayer: 'Keys',
   agentLayer: 'Agent hotkeys',
   editor: 'Text editor',
@@ -1030,6 +1033,9 @@ export const CommandPadCopy = {
   extraKeys: 'Extra keys',
   moreKeys: 'More keys',
   padSettings: 'Pad settings',
+  /** A layer's own close button, shown while it stands in for the open pad (too little room for both). */
+  closeLayer: 'Close',
+  closeLayerHint: 'Opens the command pad again',
   holdHintIdle: 'Hold a key to see what it does',
   holdHint: 'Hold to see what this key does',
   modifierHint: 'Tap for one key, or hold to lock until tapped again',

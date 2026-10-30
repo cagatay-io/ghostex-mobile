@@ -7,7 +7,8 @@
  * - Agent: the hotkeys of the session's agent (Codex, Claude Code, Pi), sent as their sequences.
  * Page keys and agent hotkeys send on release and explain themselves while held, in the hint line, as the key
  * bar's pages did. Sections stand side by side where the panel is wide enough (the iPhone Duo unfolded in
- * landscape) and one under the other elsewhere.
+ * landscape) and one under the other elsewhere. A layer that stands in for the open pad (it leaves the open pad no
+ * room above it, even over the header) has its own close button at the head's end, a 44 pt target.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -17,7 +18,7 @@ import { CommandPadCopy } from '../../copy';
 import { AGENT_NAMES, useAgentHotkeysStore, type ConfigurableAgentId } from '../../settings/agentHotkeys';
 import { resolveExtraKeysLayout, useExtraKeysStore, type ResolvedExtraKey } from '../../settings/extraKeys';
 import { CommandPadPalette, GhostexPalette } from '../../theme/palette';
-import { ArrowIcon, GearIcon, ReturnIcon } from './icons';
+import { ArrowIcon, CloseIcon, GearIcon, ReturnIcon } from './icons';
 import { agentKeyPage, EXTRA_KEYS_PAGE, type KeyPageItem } from './keyBarPages';
 import { pressFromTouch, type ModifierState, type TerminalKeyInput } from './terminalKeyInput';
 
@@ -42,6 +43,11 @@ export type CommandPadLayerProps = {
   /** Space kept free at the bottom (the home indicator on iOS). */
   bottomInset: number;
   onHeightChange: (height: number) => void;
+  /**
+   * Given only while the layer stands in for the open pad because the two do not fit together: its own close
+   * button, since the pad's ring is not shown then. Without it the layer closes from the ring as always.
+   */
+  onClose?: () => void;
 };
 
 export default function CommandPadLayer({
@@ -53,6 +59,7 @@ export default function CommandPadLayer({
   height,
   bottomInset,
   onHeightChange,
+  onClose,
 }: CommandPadLayerProps) {
   const layout = useExtraKeysStore((state) => state.layout);
   const profiles = useAgentHotkeysStore((state) => state.profiles);
@@ -190,6 +197,21 @@ export default function CommandPadLayer({
             <Text style={styles.settingsLabel}>{CommandPadCopy.padSettings}</Text>
           </Pressable>
         ) : null}
+        {onClose !== undefined ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={CommandPadCopy.closeLayer}
+            accessibilityHint={CommandPadCopy.closeLayerHint}
+            style={styles.close}
+            onPress={onClose}
+          >
+            {({ pressed }) => (
+              <View style={[styles.closeFace, pressed && styles.pillPressed]}>
+                <CloseIcon size={14} color={GhostexPalette.MUTED} strokeWidth={1.8} />
+              </View>
+            )}
+          </Pressable>
+        ) : null}
       </View>
       <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} bounces={false}>
         {kind === 'keys' ? (
@@ -276,6 +298,24 @@ const styles = StyleSheet.create({
   settingsLabel: {
     fontSize: 12,
     color: GhostexPalette.MUTED,
+  },
+  // A 44 pt target whose extra height lies over the panel's top padding and the gap below the head, so the head
+  // keeps its height and the keys keep their room; the face matches the Pad settings chip.
+  close: {
+    width: 44,
+    height: 44,
+    marginTop: -10,
+    marginBottom: -6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeFace: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: CommandPadPalette.CHIP_FILL,
   },
   // Side by side once two sections of seven pills fit with their labels whole.
   sections: {
