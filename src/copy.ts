@@ -214,6 +214,12 @@ export const SessionCopy = {
   attachCommandCopied: 'Attach command copied',
 } as const;
 
+/** The floating context menu (`ContextMenu.tsx`). */
+export const ContextMenuCopy = {
+  /** The dimmed screen around the menu, as VoiceOver names it: a tap on it closes the menu. */
+  close: 'Close menu',
+} as const;
+
 /** Session search (the Sessions header's search button), worded as the desktop's Sessions search. */
 export const SessionSearchCopy = {
   buttonLabel: 'Search sessions',
@@ -886,28 +892,84 @@ export const ChangesCopy = {
   unfoldFile: 'Unfold file',
 };
 
+/**
+ * Files: the project file browser (`DocsScreen`, `ProjectFileScreen`) and the Docs viewer. The browser's labels
+ * and status lines are the desktop files list's where the phone has the same thing (REQ-FILES-008:
+ * apps/desktop/src/app/native_docs/files_list.rs, type_filter.rs, actions.rs).
+ */
 export const DocsCopy = {
   menuLabel: 'Files',
   listTitle: 'Files',
   searchPlaceholder: 'Search files',
   recentSection: 'Recently changed',
-  foldersSection: 'Folders',
+  foldersSection: 'Project Docs',
   searchSection: (count: number) => (count === 1 ? '1 match' : `${count} matches`),
   loading: 'Listing this project’s files…',
-  empty: 'No Markdown or HTML files in this project yet.',
-  emptyHint:
-    'Files lists docs/, artifacts/, ai/ and tmp/, the Markdown and HTML files in the project folder, and any folders added under Settings > Projects > Docs folders on the computer.',
-  noMatches: 'No files match that search.',
+  noFiles: 'No files found',
+  noMatches: 'No matching files',
+  searching: 'Searching…',
+  searchIncomplete: 'No matching files. This project is large, so search covers its first 200,000 files and folders.',
+  searchTruncated: 'Showing the best matches. Type more to narrow them.',
+  filterTruncated: 'Showing the first 3,000 files of these types. Type a name to narrow them.',
+  clearSearch: 'Clear search',
+  filterByType: 'Filter by file type',
+  filterShowing: (types: readonly string[]) => `Showing ${types.join(', ')} files`,
+  allFiles: 'All files',
+  typeFilterLabels: { markdown: 'Markdown', html: 'HTML', excalidraw: 'Excalidraw', image: 'Image', video: 'Video' },
+  filesMenu: 'Files menu',
+  refresh: 'Refresh',
+  showHiddenFiles: 'Show Hidden Files',
+  open: 'Open',
+  openFile: (name: string) => `Open ${name}`,
+  copyFullPath: 'Copy Full Path',
+  // REQ-FILES-010: the desktop's row label and its messages (native_docs/actions.rs, gpui_engine_terminal_attachment.rs),
+  // in the row menu and a text preview's header; the notices are the approved mockup's (mockups/files/files.js
+  // `contextToast`).
+  addToSessionContext: 'Add to Session Context',
+  contextAdded: (session: string) => `Added to ${session}`,
+  contextNotSent: 'Not sent yet. Write your message there and send it.',
+  contextFailed: (name: string) => `Can't add ${name}`,
+  contextNoSession: 'No active agent session is available.',
+  contextNoText: 'The computer sent no text for this file. Update Ghostex on the computer and try again.',
+  // REQ-FILES-009: Share… in the row menu and on the name-and-size view, Share in a text preview's header (mockup).
+  share: 'Share…',
+  shareButton: 'Share',
+  shareFetching: (name: string) => `Getting ${name}…`,
+  shareFetchingDetail: (size: string | null) => (size === null ? 'From the computer' : `${size} from the computer`),
+  shareFailed: (name: string) => `Can't share ${name}`,
+  shareNoData: 'The computer sent no file. Update Ghostex on the computer and try again.',
+  // Why a share failed, could not open or was interrupted (`shareSheet.ts`); a plain cancel shows nothing.
+  shareSheetUnavailable: 'The share sheet could not open. Try again.',
+  shareActivityFailed: 'The app you picked could not share the file.',
+  shareSheetInterrupted: 'The share sheet closed before it finished. Try again.',
+  shareFallbackName: 'File',
+  folderLoading: 'Folder not loaded yet',
+  folderFailed: (message: string) => `This folder could not load: ${message}`,
   listFailed: 'Could not list this project’s files',
   oldCli: 'Update Ghostex on the computer to list its files from the phone.',
   retry: 'Retry',
   machineMissing: 'This machine is no longer saved on this device.',
-  fileCount: (count: number) => (count === 1 ? '1 file' : `${count} files`),
   opening: 'Opening…',
   readingFile: 'Reading the file from the computer…',
   openFailed: 'Could not open this file',
+  fileMissing: 'This file is no longer on the computer.',
   reload: 'Reload',
   copyPath: 'Copy path',
+  copyFailed: 'Could not copy the path',
+  sourceView: (name: string) => `Source of ${name}`,
+  infoWhy: {
+    image: 'Images are not shown on the phone.',
+    binary: 'Binary files are not shown on the phone.',
+    large: 'Files over 2 MB are not shown on the phone.',
+  },
+  infoKind: (extension: string, image: boolean) =>
+    extension.length === 0 ? 'File' : `${extension.toUpperCase()} ${image ? 'image' : 'file'}`,
+  infoMeta: (size: string, kind: string) => `${size} · ${kind}`,
+  sizeUnknown: 'Size unknown',
+  justNow: 'just now',
+  minutesAgo: (minutes: number) => `${minutes}m ago`,
+  hoursAgo: (hours: number) => `${hours}h ago`,
+  daysAgo: (days: number) => `${days}d ago`,
   pathCopied: 'Path copied',
   annotateOn: 'Hide annotation tools',
   annotateOff: 'Annotate with Agentation',

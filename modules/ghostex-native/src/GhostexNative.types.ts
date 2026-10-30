@@ -166,7 +166,13 @@ export type GhostexErrorCode =
   /** startPortForward: the remote accepted the channel request but nothing listens on that port. */
   | 'E_PORT_NOT_LISTENING'
   /** startPortForward: the remote sshd refuses direct-tcpip channels (AllowTcpForwarding no). */
-  | 'E_FORWARDING_PROHIBITED';
+  | 'E_FORWARDING_PROHIBITED'
+  /** shareFile (iOS only): no share sheet could be shown (no screen, UIKit refused it, not a local file). */
+  | 'E_SHARE_UNAVAILABLE'
+  /** shareFile (iOS only): the activity the person picked reported an error. */
+  | 'E_SHARE_FAILED'
+  /** shareFile (iOS only): the sheet ended before it reported a result (its presenter went away, or a reload). */
+  | 'E_SHARE_INTERRUPTED';
 
 /**
  * One live SSH local port forward: a loopback listener on the phone whose

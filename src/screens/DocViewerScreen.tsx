@@ -14,19 +14,24 @@
  * picture from `http://localhost:3000/…`) is the computer's too: links open it from there, and
  * embedded files are copied into the mirror or loaded through a forward
  * (CDXC:RemoteMachines 2026-10-16 in `webPreview/machineLinks.ts`). Video and audio play from the
- * computer's gxserver (`docs/mediaStream.ts`).
+ * computer's gxserver (`docs/mediaStream.ts`). Opened from Files, its header is the approved mockup's preview
+ * header (`previewButtons`): Copy Full Path, Add to Session Context (REQ-FILES-010, only when Files was opened from
+ * an agent session), Share (REQ-FILES-009) and Reload.
  */
 
 import * as Clipboard from 'expo-clipboard';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { ActivityIndicator, Animated, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
 
+import HeaderButton from '../components/common/HeaderButton';
+import NoticeToast, { type Notice } from '../components/common/NoticeToast';
 import { useStackScreenRail } from '../components/common/verticalBar/stackRail';
-import { CopyGlyph, PencilGlyph } from '../components/sessions/icons';
+import type { RailEntry } from '../components/common/verticalBar/VerticalBarArea';
+import { CopyGlyph, MessagePlusGlyph, PencilGlyph, ShareGlyph } from '../components/sessions/icons';
 import { RefreshIcon } from '../components/terminal/icons';
 import { DocsCopy } from '../copy';
 import { agentationInjectionScript, parseDocPageMessage } from '../docs/agentation';
@@ -42,6 +47,11 @@ import { viewerProject } from '../docs/mediaStream';
 import { remotePathFromFileUrl } from '../docs/openDoc';
 import { openComputerFile } from '../docs/openComputerFile';
 import { baseName, docKindForPath, normalizeRemotePath } from '../docs/paths';
+import { useProjectDocsRpc } from '../files/machine';
+import { previewActions, type PreviewAction } from '../files/rowMenu';
+import { canShareFiles } from '../files/shareSheet';
+import { useShareFile } from '../files/useShareFile';
+import { useAddToSessionContext } from '../files/useSessionContext';
 import { useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
 import { GhostexPalette } from '../theme/palette';
@@ -59,14 +69,12 @@ type Props = NativeStackScreenProps<RootStackParamList, 'DocViewer'>;
 type LoadState =
   { kind: 'loading' } | { kind: 'ready'; page: DocPage; nonce: number } | { kind: 'failed'; message: string };
 
-type Notice = { id: number; title?: string; message: string; error: boolean };
-
 /** Annotation tools stay as the user last left them for the rest of the app run. */
 let annotationsEnabled = true;
 
 export default function DocViewerScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
-  const { machineId, fragment, projectId } = route.params;
+  const { machineId, fragment, projectId, entryPath, session } = route.params;
   const remotePath = normalizeRemotePath(route.params.path);
   const machine = useMachinesStore((state) => state.machines.find((candidate) => candidate.id === machineId));
   const openMachineLink = useOpenMachineLink();
@@ -80,10 +88,43 @@ export default function DocViewerScreen({ navigation, route }: Props) {
   const machineRef = useRef(machine);
   machineRef.current = machine;
 
-  const showNotice = useCallback((message: string, error = false, title?: string) => {
+  const showNotice = useCallback((message: string, error = false, title?: string, lasting = false) => {
     noticeCounter.current += 1;
-    setNotice({ id: noticeCounter.current, message, error, ...(title !== undefined ? { title } : {}) });
+    setNotice({
+      id: noticeCounter.current,
+      message,
+      error,
+      ...(title !== undefined ? { title } : {}),
+      ...(lasting ? { lasting } : {}),
+    });
   }, []);
+  // Ends a lasting notice (the file being fetched for Share…); a notice shown meanwhile stays.
+  const clearNotice = useCallback(() => setNotice((current) => (current?.lasting === true ? null : current)), []);
+  // Opened from Files: gxserver reads the file by its path in that project, for Share… and Add to Session Context.
+  const rpc = useProjectDocsRpc(machineId);
+  const { share, sharing } = useShareFile(rpc, projectId ?? '', { show: showNotice, clear: clearNotice });
+  const fromFiles = entryPath !== undefined && projectId !== undefined ? entryPath : null;
+  const shareFile = useMemo(
+    () =>
+      canShareFiles && fromFiles !== null
+        ? () => share({ path: fromFiles, name: baseName(remotePath), size: null })
+        : null,
+    [fromFiles, remotePath, share],
+  );
+  const addToContext = useAddToSessionContext(
+    rpc,
+    machineId,
+    projectId ?? '',
+    fromFiles !== null ? session : undefined,
+    showNotice,
+  );
+  const addFileToContext = useMemo(
+    () =>
+      addToContext === null || fromFiles === null
+        ? null
+        : () => addToContext({ path: fromFiles, name: baseName(remotePath) }),
+    [addToContext, fromFiles, remotePath],
+  );
 
   const reload = useCallback(() => {
     const target = machineRef.current;
@@ -125,6 +166,60 @@ export default function DocViewerScreen({ navigation, route }: Props) {
     showNotice(remotePath, false, DocsCopy.pathCopied);
   }, [remotePath, showNotice]);
 
+  // The file's buttons: from Files the approved mockup's preview header, else Copy path and Reload as before.
+  const fileButtons = useMemo(() => {
+    const actions: PreviewAction[] =
+      fromFiles !== null
+        ? previewActions({ sessionContext: addFileToContext !== null, share: shareFile !== null })
+        : ['copyPath', 'reload'];
+    return actions.flatMap((action): RailEntry[] => {
+      switch (action) {
+        case 'copyPath':
+          return [
+            {
+              key: 'copy-path',
+              label: fromFiles !== null ? DocsCopy.copyFullPath : DocsCopy.copyPath,
+              icon: (size: number) => <CopyGlyph size={size} color={GhostexPalette.FOREGROUND} />,
+              onPress: copyPath,
+            },
+          ];
+        case 'addToSessionContext':
+          return addFileToContext === null
+            ? []
+            : [
+                {
+                  key: 'context',
+                  label: DocsCopy.addToSessionContext,
+                  icon: (size: number) => <MessagePlusGlyph size={size} color={GhostexPalette.FOREGROUND} />,
+                  onPress: addFileToContext,
+                },
+              ];
+        case 'share':
+          return shareFile === null
+            ? []
+            : [
+                {
+                  key: 'share',
+                  label: DocsCopy.shareButton,
+                  icon: (size: number) => <ShareGlyph size={size} color={GhostexPalette.FOREGROUND} />,
+                  onPress: shareFile,
+                  // One share at a time for the whole app: dimmed while any share runs, this screen's or another's.
+                  disabled: sharing,
+                },
+              ];
+        case 'reload':
+          return [
+            {
+              key: 'reload',
+              label: DocsCopy.reload,
+              icon: (size: number) => <RefreshIcon size={size} color={GhostexPalette.FOREGROUND} />,
+              onPress: reload,
+            },
+          ];
+      }
+    });
+  }, [addFileToContext, copyPath, fromFiles, reload, shareFile, sharing]);
+
   useLayoutEffect(() => {
     navigation.setOptions({
       title: baseName(remotePath),
@@ -138,20 +233,19 @@ export default function DocViewerScreen({ navigation, route }: Props) {
               icon={<PencilGlyph size={17} color={annotate ? GhostexPalette.ACCENT : GhostexPalette.FOREGROUND} />}
             />
           ) : null}
-          <HeaderButton
-            label={DocsCopy.copyPath}
-            onPress={copyPath}
-            icon={<CopyGlyph size={17} color={GhostexPalette.FOREGROUND} />}
-          />
-          <HeaderButton
-            label={DocsCopy.reload}
-            onPress={reload}
-            icon={<RefreshIcon size={18} color={GhostexPalette.FOREGROUND} />}
-          />
+          {fileButtons.map((button) => (
+            <HeaderButton
+              key={button.key}
+              label={button.label}
+              onPress={button.onPress}
+              disabled={button.disabled}
+              icon={button.icon(button.key === 'reload' ? 18 : 17)}
+            />
+          ))}
         </View>
       ),
     });
-  }, [annotate, copyPath, isHtml, navigation, reload, remotePath, toggleAnnotate]);
+  }, [annotate, fileButtons, isHtml, navigation, remotePath, toggleAnnotate]);
   // On the iPhone Duo the same buttons stand in the side bar under Back. An HTML page's annotation tool
   // has text fields, so there the rail keeps clear of the keyboard, annotating or not (it never moves
   // when the switch flips).
@@ -172,22 +266,11 @@ export default function DocViewerScreen({ navigation, route }: Props) {
                 },
               ]
             : []),
-          {
-            key: 'copy-path',
-            label: DocsCopy.copyPath,
-            icon: (size: number) => <CopyGlyph size={size} color={GhostexPalette.FOREGROUND} />,
-            onPress: copyPath,
-          },
-          {
-            key: 'reload',
-            label: DocsCopy.reload,
-            icon: (size: number) => <RefreshIcon size={size} color={GhostexPalette.FOREGROUND} />,
-            onPress: reload,
-          },
+          ...fileButtons,
         ],
         reserveKeyboard: isHtml,
       }),
-      [annotate, copyPath, isHtml, reload, toggleAnnotate],
+      [annotate, fileButtons, isHtml, toggleAnnotate],
     ),
   );
 
@@ -381,35 +464,6 @@ function decodeFragment(fragment: string): string {
   }
 }
 
-function HeaderButton({
-  label,
-  icon,
-  onPress,
-  active = false,
-}: {
-  label: string;
-  icon: ReactNode;
-  onPress: () => void;
-  active?: boolean;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ selected: active }}
-      hitSlop={6}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.headerButton,
-        active && styles.headerButtonActive,
-        pressed && styles.headerButtonPressed,
-      ]}
-    >
-      {icon}
-    </Pressable>
-  );
-}
-
 function LoadingSurface({ message }: { message: string }) {
   return (
     <View style={[styles.centered, StyleSheet.absoluteFill]}>
@@ -419,39 +473,10 @@ function LoadingSurface({ message }: { message: string }) {
   );
 }
 
-function NoticeToast({ notice, bottom }: { notice: Notice | null; bottom: number }) {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const [shown, setShown] = useState<Notice | null>(null);
-  useEffect(() => {
-    if (notice === null) return undefined;
-    setShown(notice);
-    opacity.setValue(0);
-    Animated.timing(opacity, { toValue: 1, duration: 150, useNativeDriver: true }).start();
-    const timer = setTimeout(() => {
-      Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => setShown(null));
-    }, 3200);
-    return () => clearTimeout(timer);
-  }, [notice, opacity]);
-  if (shown === null) return null;
-  return (
-    <Animated.View pointerEvents="none" style={[styles.toastRow, { bottom, opacity }]} accessibilityLiveRegion="polite">
-      <View style={styles.toast}>
-        {shown.title !== undefined ? <Text style={styles.toastTitle}>{shown.title}</Text> : null}
-        <Text style={[styles.toastText, shown.error && styles.toastError]} numberOfLines={3}>
-          {shown.message}
-        </Text>
-      </View>
-    </Animated.View>
-  );
-}
-
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: GhostexPalette.BACKGROUND },
   webview: { flex: 1, backgroundColor: GhostexPalette.BACKGROUND },
   headerButtons: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  headerButton: { width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  headerButtonActive: { backgroundColor: 'rgba(125,211,252,0.12)' },
-  headerButtonPressed: { opacity: 0.6 },
   centered: {
     flex: 1,
     alignItems: 'center',
@@ -473,18 +498,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   retryText: { color: GhostexPalette.ACCENT_FOREGROUND, fontSize: 14, fontWeight: '600' },
-  toastRow: { position: 'absolute', left: 16, right: 16, alignItems: 'center' },
-  toast: {
-    maxWidth: 420,
-    borderWidth: 1,
-    borderColor: GhostexPalette.BORDER,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 2,
-    backgroundColor: '#1f1f1f',
-  },
-  toastTitle: { color: GhostexPalette.FOREGROUND, fontSize: 13, fontWeight: '600' },
-  toastText: { color: GhostexPalette.MUTED, fontSize: 13, lineHeight: 18 },
-  toastError: { color: GhostexPalette.DANGER },
 });

@@ -1,4 +1,5 @@
 import type { AddProjectSourceId } from '../addProject/client';
+import type { ContextSession } from '../files/sessionContext';
 import type { SettingsPageId } from '../screens/settings/pages';
 
 /**
@@ -57,8 +58,32 @@ export type RootStackParamList = {
       }
     | { url: string; remotePort?: never; path?: never; scheme?: never; host?: never }
   );
-  /** A project's Docs: its Markdown and HTML files, by folder, as the desktop Docs view lists them. */
-  Docs: { machineId: string; projectId: string; projectName: string; projectPath: string };
+  /**
+   * Files: a project's file browser, the whole project folder by folder with search, Recently changed on top.
+   * `session`: the agent session it was opened from (the terminal screen's menu), which Add to Session Context
+   * fills (REQ-FILES-010); absent when opened from a project's menu.
+   */
+  Docs: {
+    machineId: string;
+    projectId: string;
+    projectName: string;
+    projectPath: string;
+    session?: ContextSession;
+  };
+  /**
+   * One file the file browser opened that is not Markdown or HTML: as source, or its name and size only
+   * (REQ-FILES-002, -006). `entryPath` is its path in the project as gxserver lists it, `path` its full path on
+   * the computer, `size` its size in bytes when known, `session` the agent session the browser was opened from,
+   * which the source view's Add to Session Context fills (REQ-FILES-010).
+   */
+  ProjectFile: {
+    machineId: string;
+    projectId: string;
+    entryPath: string;
+    path: string;
+    size: number | null;
+    session?: ContextSession;
+  };
   /** A project's Changes, read-only: its diff against main or HEAD, as the desktop Changes tab shows it. */
   Changes: { machineId: string; projectId: string; projectName: string };
   /**
@@ -71,6 +96,10 @@ export type RootStackParamList = {
     fragment?: string;
     /** The session's project, whose file link streams a video or audio file (`docs/mediaStream.ts`). */
     projectId?: string;
+    /** Opened from Files: the file's path in the project, which Share… fetches (REQ-FILES-009). */
+    entryPath?: string;
+    /** Opened from Files from an agent session: the session Add to Session Context fills (REQ-FILES-010). */
+    session?: ContextSession;
   };
   /**
    * Send Bug / Feedback; `machineId` is the computer the "Collect more data with an agent" switch uses,

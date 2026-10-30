@@ -39,7 +39,7 @@ mobile/
 
 ## Native module contract (`modules/ghostex-native`)
 
-Both platforms implement this API, except the iOS-only bar layout functions and event (`observeBarLayout`, `stopObservingBarLayout`, `onBarLayoutChange`), which the shared layer calls only behind `Platform.OS === 'ios'`. TS bindings in `modules/ghostex-native/src/index.ts`.
+Both platforms implement this API, except the iOS-only bar layout functions and event (`observeBarLayout`, `stopObservingBarLayout`, `onBarLayoutChange`) and the iOS-only file share sheet (`shareFile`), which the shared layer calls only behind `Platform.OS === 'ios'`. TS bindings in `modules/ghostex-native/src/index.ts`.
 
 ### Concepts
 
@@ -86,6 +86,15 @@ focusTerminal(sessionKey: string): Promise<boolean>;
 // app's window, now and from then on through `onBarLayoutChange`. A new call replaces the running observation.
 observeBarLayout(sideExtent: number, topExtent: number): Promise<{ id: number; layout: BarLayout }>;
 stopObservingBarLayout(id: number): Promise<void>;
+
+// iOS only. Share… in the project file browser: the share sheet for one `file://` copy in the app's temporary storage.
+// Settles once, when the share is over: the sheet has left the screen and UIKit has reported its last activity's final
+// result (an activity cancelled while the sheet stayed open is no end; React Native 0.88's `Share` ignores that
+// completion). Resolves when that activity reported no error (shared or cancelled); rejects with `E_SHARE_FAILED` when it
+// failed, `E_SHARE_UNAVAILABLE` when no sheet could be shown, `E_SHARE_INTERRUPTED` when its presenting screen went away
+// before a result or the module was torn down (reload; OnDestroy ends and dismisses the module's open sheets). Nothing
+// settles from a released controller. The caller deletes the copy and releases its one-share lock on either answer.
+shareFile(fileUri: string): Promise<void>;
 ```
 
 `TerminalKey`: `'escape'|'tab'|'enter'|'backspace'|'delete'|'insert'|'home'|'end'|'pageUp'|'pageDown'|'up'|'down'|'left'|'right'|'f1'..'f12'` or a single character (e.g. `'c'` with `{ctrl:true}` → ^C).
@@ -113,7 +122,7 @@ The app uses the whole window on the Duo and draws its own header controls next 
 
 ### Error codes (rejections carry `code`)
 
-`E_AUTH_FAILED` · `E_HOST_KEY_MISMATCH` · `E_UNREACHABLE` · `E_REFUSED` · `E_TIMEOUT` · `E_NOT_CONNECTED` · `E_CHANNEL_FAILED` · `E_SFTP_FAILED`. JS maps these to the human copy in `docs/specs/sessions-drawer.md` §5.
+`E_AUTH_FAILED` · `E_HOST_KEY_MISMATCH` · `E_UNREACHABLE` · `E_REFUSED` · `E_TIMEOUT` · `E_NOT_CONNECTED` · `E_CHANNEL_FAILED` · `E_SFTP_FAILED`. JS maps these to the human copy in `docs/specs/sessions-drawer.md` §5. iOS-only `shareFile`: `E_SHARE_UNAVAILABLE` · `E_SHARE_FAILED` · `E_SHARE_INTERRUPTED`, which `src/files/shareSheet.ts` maps to one notice each (`DocsCopy`); any other rejection counts as interrupted.
 
 ### View
 

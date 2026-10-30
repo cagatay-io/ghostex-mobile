@@ -4,7 +4,7 @@
  * Docs folders), folders that end up empty dropped, and a short "recently changed" list.
  */
 
-import type { DocsEntry } from './client';
+import { entryTimestamp, type DocsEntry } from './entries';
 import { docKindForPath, type DocKind } from './paths';
 
 export type DocsFileNode = {
@@ -33,12 +33,6 @@ export type DocsNode = DocsFileNode | DocsFolderNode;
 function parentPath(path: string): string | null {
   const slash = path.lastIndexOf('/');
   return slash <= 0 ? null : path.slice(0, slash);
-}
-
-function timestamp(value: string | null): number | null {
-  if (value === null) return null;
-  const parsed = Date.parse(value);
-  return Number.isFinite(parsed) ? parsed : null;
 }
 
 /** Builds the tree in gxserver's order (folders first, then names), keeping only documents. */
@@ -72,7 +66,7 @@ export function buildDocsTree(entries: readonly DocsEntry[]): DocsNode[] {
       path: entry.path,
       name: entry.name,
       docKind,
-      modifiedAt: timestamp(entry.modifiedAt),
+      modifiedAt: entryTimestamp(entry.modifiedAt),
       size: entry.size,
       displayPath,
     });

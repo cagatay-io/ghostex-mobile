@@ -117,6 +117,11 @@ export type GhostexSettings = {
    * the computer cannot be reached (Settings > Connection; the notice's close button turns it off).
    */
   tailscaleReminder: boolean;
+  /**
+   * The project file browser lists hidden files and folders (names starting with a dot): its Files menu's
+   * Show Hidden Files, off until switched on (REQ-FILES-007, D-020 item 9).
+   */
+  showHiddenFiles: boolean;
   // SSH connection (appended group).
   autoReconnect: boolean;
   keepAliveEnabled: boolean;
@@ -201,6 +206,7 @@ export function defaultSettings(): GhostexSettings {
     sessionsListGroupByProject: false,
     sessionsListWorkingSection: true,
     tailscaleReminder: true,
+    showHiddenFiles: false,
     autoReconnect: true,
     keepAliveEnabled: true,
     keepAliveIntervalSec: 30,
@@ -330,6 +336,7 @@ function sanitizeSettings(value: unknown): GhostexSettings {
     sessionsListGroupByProject: bool('sessionsListGroupByProject', defaults.sessionsListGroupByProject),
     sessionsListWorkingSection: bool('sessionsListWorkingSection', defaults.sessionsListWorkingSection),
     tailscaleReminder: bool('tailscaleReminder', defaults.tailscaleReminder),
+    showHiddenFiles: bool('showHiddenFiles', defaults.showHiddenFiles),
     autoReconnect: bool('autoReconnect', defaults.autoReconnect),
     keepAliveEnabled: bool('keepAliveEnabled', defaults.keepAliveEnabled),
     keepAliveIntervalSec,
