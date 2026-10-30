@@ -138,6 +138,19 @@ export function setMountedSessionKeys(terminalKey: string | null, chatKey: strin
   reconcile();
 }
 
+/**
+ * Whether a session is open on screen: the app is active and the focused Terminal screen shows this
+ * session's terminal or its Chat View (the keys the screen reports above). Owner decision D-063: no
+ * notification banner and no attention sound for it; its attention-list row stays.
+ */
+export function sessionOnScreen(machineId: string, sessionId: string): boolean {
+  if (AppState.currentState !== 'active') return false;
+  const sessionKey = mountedTerminalSessionKey ?? mountedChatSessionKey;
+  if (sessionKey === null) return false;
+  const tab = useTerminalStore.getState().tabs.find((entry) => entry.sessionKey === sessionKey);
+  return tab !== undefined && tab.machineId === machineId && tab.ghostexSessionId === sessionId;
+}
+
 /** An attach entry reported `open`; announce once its client can read stdin. */
 export function noteAttachOpened(sessionKey: string): void {
   forgetAttach(sessionKey);

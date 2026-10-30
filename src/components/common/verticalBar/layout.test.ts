@@ -34,6 +34,7 @@ import {
   layoutsAfterReport,
   liveMenuAnchor,
   menuRoomBeside,
+  rowMenuOrigin,
   mergedKeyboardHeights,
   railButtonFrame,
   railContentTop,
@@ -976,5 +977,51 @@ describe('menus keep off only an active division', () => {
     // A bar that moved still drops them (a Live Activity).
     const lowered = { ...folded, topBar: { x: 0, y: 26, width: 400, height: 44 } };
     assert.deepEqual(layoutsAfterReport(kept, lowered), { '669x951:none': lowered });
+  });
+});
+
+/*
+ * D-037 (owner 2026-10-25): row context menus (Files, notifications, theme choices) open anchored at their row,
+ * falling back above or below when space is short; the approved mockup kit places them under the row, leading
+ * edges aligned, scrolling inside at the roomier side when neither side holds them.
+ */
+describe('menus at their row (D-037; REQ-FILES-005 AC2: the long-press menu of a Files row)', () => {
+  // iPhone 17 portrait: safe area 62 top, 34 bottom, an 8 pt margin.
+  const ROOM = { left: 8, top: 70, right: 394, bottom: 832 };
+  const MENU = { width: 320, height: 160 };
+
+  test('REQ-FILES-005 AC2: under the row, its leading edge at the row card', () => {
+    const row = { x: 8, y: 300, width: 386, height: 44 };
+    assert.deepEqual(rowMenuOrigin(row, MENU, ROOM), { left: 8, top: 352, maxHeight: null });
+  });
+
+  test('D-037: above the row when the room under it is short', () => {
+    const row = { x: 8, y: 720, width: 386, height: 44 };
+    assert.deepEqual(rowMenuOrigin(row, MENU, ROOM), { left: 8, top: 552, maxHeight: null });
+  });
+
+  test('D-037: neither side holds it: at the roomier side, scrolling inside', () => {
+    const tall = { width: 320, height: 500 };
+    const row = { x: 8, y: 420, width: 386, height: 44 };
+    // Under: 832 - 472 = 360; above: 420 - 8 - 70 = 342.
+    assert.deepEqual(rowMenuOrigin(row, tall, ROOM), { left: 8, top: 472, maxHeight: 360 });
+    const higher = { ...row, y: 460 };
+    // Under: 832 - 512 = 320; above: 382, so above, its top at the room's.
+    assert.deepEqual(rowMenuOrigin(higher, tall, ROOM), { left: 8, top: 70, maxHeight: 382 });
+  });
+
+  test('D-037: inside the window: a row at the trailing side keeps the menu in, a control in the content too', () => {
+    const filterButton = { x: 300, y: 120, width: 34, height: 34 };
+    assert.equal(rowMenuOrigin(filterButton, MENU, ROOM).left, 74);
+  });
+
+  test('FL-DUO-03 with D-037: half folded, a row above the fold keeps its menu above the fold', () => {
+    const LAPTOP_DIVISION = { x: 0, y: 466, width: 669, height: 18, active: true };
+    const row = { x: 8, y: 380, width: 653, height: 44 };
+    const room = menuRoomBeside({ left: 8, top: 88, right: 661, bottom: 923 }, row, [LAPTOP_DIVISION]);
+    const origin = rowMenuOrigin(row, MENU, room);
+    // Under the row is 466 - 432 = 34 pt only, so it stands above the row, clear of the division.
+    assert.deepEqual(origin, { left: 8, top: 212, maxHeight: null });
+    assert.ok(origin.top + MENU.height <= LAPTOP_DIVISION.y);
   });
 });

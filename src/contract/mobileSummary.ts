@@ -74,10 +74,12 @@ export type MobileSummaryWireSession = {
   isTemporaryTitle?: boolean;
   visibleInSidebarByDefault?: boolean;
   shouldSubmitStagedFirstPromptTitleCommand?: boolean;
-  /** Sent only while `activity` is attention. */
-  attention?: { enteredAt?: string; acknowledged?: boolean; eventId?: string };
+  /** Sent only while `activity` is attention; `notificationId` only with the `attentionNotificationId` capability. */
+  attention?: { enteredAt?: string; acknowledged?: boolean; eventId?: string; notificationId?: string };
   /** Questions the agent is waiting on an answer to; absent at zero. */
   pendingQuestionCount?: number;
+  /** An open question card waits for an answer; sent by a computer with the `awaitingAnswer` capability. */
+  awaitingAnswer?: boolean;
   /** Stuck on a permission prompt or approval card only the user can grant; absent when not (server/src/session_approval.rs). */
   awaitingApproval?: boolean;
   /** Present while a background shell or monitor the agent started still runs after its turn. */
@@ -127,6 +129,8 @@ export type MobileSummaryWireRoot = {
   customSessionTags?: unknown;
   /** This computer's workspaces (`SidebarWorkspacesState`); absent on a daemon without workspaces. */
   sidebarWorkspaces?: unknown;
+  /** Booleans naming the summary fields this computer sends (such as `awaitingAnswer`); absent from an older one. */
+  capabilities?: unknown;
 };
 
 // ---------------------------------------------------------------------------
@@ -584,6 +588,11 @@ export type GhostexSession = {
   /** Questions the agent is waiting on an answer to (0 when none, or from a computer that predates the field). */
   pendingQuestionCount: number;
   /**
+   * An open question card waits for an answer (false when not, or when the computer does not send the field: only
+   * with the summary's `capabilities.awaitingAnswer` does false mean "no open question card").
+   */
+  awaitingAnswer: boolean;
+  /**
    * Stuck on a permission prompt or approval card only the user can grant: the red approval dot
    * (false when not, or from a computer that predates the field).
    */
@@ -621,7 +630,24 @@ export type GhostexSession = {
   attentionAcknowledged: boolean;
   /** The attention event id ('' outside attention, or from a computer that predates it). */
   attentionEventId: string;
+  /**
+   * The feed row written for that attention event (`attention.notificationId`, optional: '' outside attention,
+   * without a feed row, or from a computer that does not send it). Used only when the summary's
+   * `capabilities.attentionNotificationId` is set.
+   */
+  attentionNotificationId: string;
   actions: GhostexSessionActions;
+};
+
+/**
+ * The summary fields a computer announces in its `capabilities` object. A flag that is not `true`, or an absent
+ * object, marks a computer whose summary lacks the field: there, the field's absence says nothing.
+ */
+export type GhostexSummaryCapabilities = {
+  /** Sessions carry `awaitingAnswer` (an open question card). */
+  awaitingAnswer: boolean;
+  /** A session's `attention` carries `notificationId`, the feed row written for it, once that row exists. */
+  attentionNotificationId: boolean;
 };
 
 export type GhostexMobileSummary = {
@@ -702,6 +728,8 @@ export type GhostexMobileSummary = {
    * worktree's sessions under its parent project (contract/grouping.ts). On unless the computer sends `false`.
    */
   worktreeSessionsInProject?: boolean;
+  /** The capability flags the phone uses; all off from a computer that sends none. */
+  capabilities: GhostexSummaryCapabilities;
 };
 
 // ---------------------------------------------------------------------------
@@ -1347,6 +1375,7 @@ export function parseSession(value: unknown): GhostexSession | null {
         : 0,
     backgroundWorkDetectedAt: trimmedValue(value, 'backgroundWorkDetectedAt'),
     awaitingApproval: boolValue(value, 'awaitingApproval', false),
+    awaitingAnswer: boolValue(value, 'awaitingAnswer', false),
     programStatusLine: programStatusLine(value.programStatus),
     programStatusFailed: programStatusFailed(value.programStatus),
     workingStartedAt: trimmedValue(value, 'workingStartedAt'),
@@ -1362,6 +1391,7 @@ export function parseSession(value: unknown): GhostexSession | null {
     attentionEnteredAt: attention === null ? '' : trimmedValue(attention, 'enteredAt'),
     attentionAcknowledged: attention === null ? false : boolValue(attention, 'acknowledged', false),
     attentionEventId: attention === null ? '' : trimmedValue(attention, 'eventId'),
+    attentionNotificationId: attention === null ? '' : trimmedValue(attention, 'notificationId'),
     actions: parseActions(value.actions),
   };
 }
@@ -1763,6 +1793,16 @@ function normalizeRoot(root: JsonObject): GhostexMobileSummary {
     sidebarHideProjectsWithoutSessions: root.sidebarHideProjectsWithoutSessions === true,
     enableSessionParking: root.enableSessionParking !== false,
     worktreeSessionsInProject: root.worktreeSessionsInProject !== false,
+    capabilities: parseCapabilities(root.capabilities),
+  };
+}
+
+/** The capability flags the phone uses; other keys are ignored, and only a boolean `true` sets a flag. */
+function parseCapabilities(value: unknown): GhostexSummaryCapabilities {
+  const flags: JsonObject = isObject(value) ? value : {};
+  return {
+    awaitingAnswer: boolValue(flags, 'awaitingAnswer', false),
+    attentionNotificationId: boolValue(flags, 'attentionNotificationId', false),
   };
 }
 

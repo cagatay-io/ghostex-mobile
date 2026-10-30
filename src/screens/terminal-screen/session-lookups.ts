@@ -145,23 +145,33 @@ export function sessionAgentIdFor(tab: TerminalTab | null, summary: GhostexMobil
 }
 
 /**
- * Whether tapping `session` opens it in Chat View: the same rule as the Terminal screen's
- * `chatCapable` and `chatModeActive` (a chat-supported agent with a project, not running in an
- * agentbox box, and Chat View chosen for the tab or by the Default Agent View setting).
+ * Whether `session` has a Chat View at all: a chat-supported agent with a project, not running in an
+ * agentbox box, or a Claude cloud session waiting for its task (CDXC:ClaudeCloud in
+ * contract/claudeCloud.ts). The Terminal screen's `chatCapable` rule.
  */
-export function sessionOpensInChatView(sessionKey: string, session: GhostexSession): boolean {
+export function sessionHasChatView(session: GhostexSession): boolean {
   if (session.projectId.length === 0) return false;
-  // A Claude cloud session waiting for its task takes it in Chat View, unless this session was
-  // switched to its terminal (CDXC:ClaudeCloud in contract/claudeCloud.ts).
-  if (claudeCloudTakesTask(session.claudeCloud)) {
-    return useTerminalStore.getState().sessionViewModeBySessionKey[sessionKey] !== 'terminal';
-  }
+  if (claudeCloudTakesTask(session.claudeCloud)) return true;
   const agentId = resolveAgentIconId(
     session.agentIcon,
     session.agentName.length > 0 ? session.agentName : session.agent,
   );
   if (!isSessionChatSupportedAgent(agentId)) return false;
-  if (session.agentbox !== undefined && session.agentbox.pending !== true) return false;
+  return session.agentbox === undefined || session.agentbox.pending === true;
+}
+
+/**
+ * Whether tapping `session` opens it in Chat View: the same rule as the Terminal screen's
+ * `chatCapable` and `chatModeActive` (`sessionHasChatView`, and Chat View chosen for the tab or by the
+ * Default Agent View setting).
+ */
+export function sessionOpensInChatView(sessionKey: string, session: GhostexSession): boolean {
+  if (!sessionHasChatView(session)) return false;
+  // A Claude cloud session waiting for its task takes it in Chat View, unless this session was
+  // switched to its terminal.
+  if (claudeCloudTakesTask(session.claudeCloud)) {
+    return useTerminalStore.getState().sessionViewModeBySessionKey[sessionKey] !== 'terminal';
+  }
   return useTerminalStore.getState().chatModeArmed(sessionKey);
 }
 

@@ -28,6 +28,12 @@
           "microphonePermission": "Ghostex uses the microphone when you talk with the voice agent, dictate a message in the chat or record a video to attach to a session.",
           "speechRecognitionPermission": "Ghostex turns what you dictate in the chat into text."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "enableRemoteNotifications": false
+        }
       ]
     ],
     "ios": {

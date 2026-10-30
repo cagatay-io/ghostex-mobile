@@ -1,0 +1,147 @@
+/**
+ * Agent events: what the computer reported (`HostEvent`), the session it belongs to as the phone's
+ * session list knows it (`SessionFacts`), and the event the phone notifies about (`AttentionEvent`,
+ * schema `attention-event`, ADR-0003).
+ *
+ * The owner's events (D-015, D-060, D-037 wording): finished, waiting for you (approvals such as bash or
+ * rm included), has a question, ended with an error. Nothing else notifies: no session start or end
+ * (REQ-NOTIF-005), no "agent runs" (REQ-NOTIF-006, D-016), no user abort (REQ-NOTIF-004 AC3, D-020
+ * item 4). Those reach the phone only as summary changes, never as one of the notifying host kinds.
+ *
+ * Top-level sessions only (REQ-NOTIF-007): an event notifies only when its session is in that
+ * computer's session list, the sessions the user sees. Coordinator threads are listed sessions and
+ * notify (D-061); the host drops true subagents before they reach its feed or summary (spike
+ * `spike-host-data.md` §3), so a subagent event that ever arrived would name no listed session.
+ * Kept free of React Native so it is testable under `bun test`.
+ */
+
+import { resolveAgentIconId, type AgentIconId, type GhostexMobileSummary } from '../contract/mobileSummary';
+import { isAccountRow, type FeedRow } from './feedContract';
+
+export type AttentionKind = 'finished' | 'waiting' | 'question' | 'failed';
+
+/**
+ * The host kinds that can notify. An Expo push message (S15, schema `expo-push-message`) names its event
+ * with the same three values, so a push and a feed row of one event map through the same code.
+ */
+export const HOST_EVENT_KINDS = ['finished', 'needsInput', 'failed'] as const;
+
+export type HostEventKind = (typeof HOST_EVENT_KINDS)[number];
+
+/** One event the computer reported, from a feed row (and, with S15, from a push message's data). */
+export type HostEvent = {
+  machineId: string;
+  sessionId: string;
+  /** Any host kind; only `HostEventKind` values can notify. */
+  kind: string;
+  /**
+   * The feed row id. With S15 a push carries it as `data.notificationId` (the identity contract in
+   * `eventIdentity.ts`); '' when the source has none.
+   */
+  eventId: string;
+  /** ISO time of the event. */
+  occurredAt: string;
+};
+
+/** What the phone's session list says about the event's session. */
+export type SessionFacts = {
+  projectId: string;
+  /** The agent's name as the session list shows it (the launcher's name, else the session's agent). */
+  agentLabel: string;
+  agentIconId: AgentIconId;
+  projectName: string;
+  /** The session's title in the list ('' when it has none). */
+  title: string;
+  /** Questions the agent waits on that the computer counts (Codex questions and question forms). */
+  pendingQuestionCount: number;
+  /**
+   * An open question card waits for an answer; false also when the computer's summary does not announce the field
+   * (`capabilities.awaitingAnswer`), so it is read only where the computer sends it.
+   */
+  awaitingAnswer: boolean;
+  /** The session's current attention event (`attention.eventId`); '' outside attention or from an older computer. */
+  attentionId: string;
+  /** When that attention began (`attention.enteredAt`, ISO); '' outside attention or when the computer omits it. */
+  attentionEnteredAt: string;
+};
+
+/** The normalised event (schema `attention-event`): event kind plus session identity and names, no text. */
+export type AttentionEvent = {
+  eventId: string;
+  kind: AttentionKind;
+  hostKind: HostEventKind;
+  machineId: string;
+  projectId: string;
+  sessionId: string;
+  agentName: string;
+  projectName: string;
+  occurredAt: string;
+};
+
+/** The session as the computer's session list has it, or undefined when it does not list it. */
+export function sessionFacts(
+  summary: GhostexMobileSummary | null | undefined,
+  sessionId: string,
+): SessionFacts | undefined {
+  const session = summary?.sessions.find((entry) => entry.sessionId === sessionId);
+  if (summary === null || summary === undefined || session === undefined) return undefined;
+  const launcher = summary.agents.find((agent) => agent.agentId === session.agent);
+  const agentLabel = [launcher?.name, session.agentName, session.agent].find(
+    (name): name is string => name !== undefined && name.trim().length > 0,
+  );
+  return {
+    projectId: session.projectId,
+    agentLabel: agentLabel?.trim() ?? '',
+    agentIconId: resolveAgentIconId(
+      session.agentIcon,
+      session.agentName.length > 0 ? session.agentName : session.agent,
+    ),
+    projectName: session.projectName,
+    title: session.displayTitle,
+    pendingQuestionCount: session.pendingQuestionCount,
+    awaitingAnswer: summary.capabilities.awaitingAnswer && session.awaitingAnswer,
+    attentionId: session.attentionEventId,
+    attentionEnteredAt: session.attentionEnteredAt,
+  };
+}
+
+/** A feed row as a host event; account rows are no agent events (D-015) and give none. */
+export function hostEventFromFeedRow(machineId: string, row: FeedRow): HostEvent | null {
+  if (isAccountRow(row)) return null;
+  return {
+    machineId,
+    sessionId: row.sessionId,
+    kind: row.kind,
+    eventId: row.id,
+    occurredAt: row.createdAt,
+  };
+}
+
+/**
+ * A wait is announced as "has a question" when the session has an open question card or a counted pending
+ * question. The question itself never leaves the app.
+ */
+export function waitsOnQuestion(facts: SessionFacts | undefined): boolean {
+  return facts !== undefined && (facts.awaitingAnswer || facts.pendingQuestionCount > 0);
+}
+
+/** The event to notify about, or null when this event never notifies. */
+export function mapEvent(event: HostEvent, facts: SessionFacts | undefined): AttentionEvent | null {
+  if (facts === undefined) return null;
+  let kind: AttentionKind;
+  if (event.kind === 'finished') kind = 'finished';
+  else if (event.kind === 'failed') kind = 'failed';
+  else if (event.kind === 'needsInput') kind = waitsOnQuestion(facts) ? 'question' : 'waiting';
+  else return null;
+  return {
+    eventId: event.eventId,
+    kind,
+    hostKind: event.kind,
+    machineId: event.machineId,
+    projectId: facts.projectId,
+    sessionId: event.sessionId,
+    agentName: facts.agentLabel,
+    projectName: facts.projectName,
+    occurredAt: event.occurredAt,
+  };
+}

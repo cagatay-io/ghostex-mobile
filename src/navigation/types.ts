@@ -80,8 +80,10 @@ export type RootStackParamList = {
   Feedback: { machineId?: string; crashReportId?: string; collectWithAgent?: boolean } | undefined;
   /** Settings home: the list of Settings pages. */
   Settings: undefined;
-  /** One Settings page (Interface, Chat, Terminal, Keyboard, Sounds, Connection, Updates, Advanced). */
+  /** One Settings page (Interface, Chat, Terminal, Keyboard, Notifications, Connection, Updates, Advanced). */
   SettingsPage: { page: SettingsPageId };
+  /** Notifications: the attention list, the computers' notification feeds (the bell on the Sessions screen). */
+  AttentionList: undefined;
   ExtraKeysEditor: undefined;
   AgentHotkeysEditor: undefined;
   /** Add Project step 1: pick a source on an already-chosen machine. */
