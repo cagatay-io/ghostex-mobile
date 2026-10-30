@@ -9,7 +9,7 @@
  * REQ-LIVEACT-010 AC1/AC2 through the app's wiring (a refresh every 5 seconds reaches the activity; in the
  * background no refresh runs and the store's polling flag is off) and REQ-LIVEACT-004 AC1 (an agent starting to
  * work starts exactly one activity; after the user removed it, the same session's next working stint starts a
- * new one).
+ * new one). A finished row stays after the computer stops sending its attention, until 2 minutes after the finish.
  */
 
 import { AppState, type AppStateStatus } from 'react-native';
@@ -88,13 +88,25 @@ const waiting = (sessionId: string, since: number) =>
     attention: { enteredAt: new Date(since).toISOString(), kind: 'needsInput' },
   });
 
+const finished = (sessionId: string, at: number, workedSince: number) =>
+  session(sessionId, {
+    activity: 'attention',
+    attention: {
+      enteredAt: new Date(at).toISOString(),
+      kind: 'finished',
+      workingStartedAt: new Date(workedSince).toISOString(),
+    },
+  });
+
 const native = jest.mocked(GhostexLiveActivity!);
 const listCalls = () =>
   jest
     .mocked(execRemoteCommand)
     .mock.calls.filter(([, command]) => command === 'ghostex sessions --json --mobile-summary').length;
 const sentState = (call: unknown[] | undefined) =>
-  JSON.parse(String(call?.[0])) as { counts: object; agents: { target: { sessionId: string } }[] };
+  JSON.parse(String(call?.[0])) as { counts: object; agents: { target: { sessionId: string }; state: string }[] };
+const lastRows = () =>
+  sentState(native.update.mock.calls.at(-1)).agents.map((row) => [row.target.sessionId, row.state]);
 
 let appState: AppStateStatus = 'active';
 const appStateListeners: Array<(state: AppStateStatus) => void> = [];
@@ -160,4 +172,21 @@ test('REQ-LIVEACT-010 AC1/AC2 and REQ-LIVEACT-004 AC1 through the app wiring: re
   mockWire = { sessions: [working('s1', T0 + 30_000), waiting('s2', T0 + 2_000)] };
   await jest.advanceTimersByTimeAsync(5_000);
   expect(native.start).toHaveBeenCalledTimes(2);
+});
+
+// Continues the app run of the test above (the activity runs, the clock stands at T0 + 25 s).
+test('through the app wiring a finished row stays after the computer stops sending its attention, until 2 minutes after the finish', async () => {
+  mockWire = {
+    sessions: [working('s1', T0 + 30_000), waiting('s2', T0 + 2_000), finished('s3', T0 + 24_000, T0 + 10_000)],
+  };
+  await jest.advanceTimersByTimeAsync(5_000);
+  expect(lastRows()).toContainEqual(['s3', 'finished']);
+
+  // The finish was acknowledged on another device: the computer no longer sends the session's attention.
+  mockWire = { sessions: [working('s1', T0 + 30_000), waiting('s2', T0 + 2_000), session('s3', { activity: 'idle' })] };
+  await jest.advanceTimersByTimeAsync(5_000);
+  expect(lastRows()).toContainEqual(['s3', 'finished']);
+
+  await jest.advanceTimersByTimeAsync(120_000);
+  expect(lastRows()).not.toContainEqual(['s3', 'finished']);
 });

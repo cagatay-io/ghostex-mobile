@@ -5,8 +5,9 @@
  * summary parser, with an injected clock. The schema checks of REQ-LIVEACT-001 AC15 and REQ-LIVEACT-002 AC1
  * run `python3 -m jsonschema` on these outputs (PR text).
  *
- * The fixtures come from a computer with host changes H1a (`workingStartedAt`) and H1b (`attention.kind`),
- * except `summary-older-host.json`, which has neither (research/spike-host-data.md §1).
+ * The fixtures come from a computer with host changes H1a (`workingStartedAt` while working, and
+ * `attention.workingStartedAt` for a finished agent) and H1b (`attention.kind`), except `summary-older-host.json`,
+ * which has neither (research/spike-host-data.md §1).
  */
 
 import assert from 'node:assert/strict';
@@ -14,7 +15,13 @@ import { describe, test } from 'node:test';
 
 import { parseMobileSummary, type GhostexMobileSummary } from '../contract/mobileSummary';
 import { parseSessionLink } from '../app/deepLinkHandler';
-import { buildContentState, computersNeedingUpdate, workingStints, type ActivitySource } from './contentState';
+import {
+  buildContentState,
+  computersNeedingUpdate,
+  workingStints,
+  type ActivitySource,
+  type FinishedMemory,
+} from './contentState';
 import oneFinished from './fixtures/summary-1fin.json';
 import oneWaiting from './fixtures/summary-1wait.json';
 import oneWaitingQuestion from './fixtures/summary-1wait-question.json';
@@ -173,10 +180,96 @@ describe('finished agents', () => {
     assert.equal(state.moreCount, 1);
   });
 
-  test('REQ-LIVEACT-002 AC1 (H1a addendum): a finished row runs from its last workingStartedAt to attention.enteredAt, also on a cold start', () => {
+  test('a finished row runs from attention.workingStartedAt to attention.enteredAt, also on a cold start', () => {
     const [row] = buildContentState(sources(oneFinished), t0 + 30_000).agents;
     assert.equal(row?.startedAt, '2026-10-24T10:22:00.000Z');
     assert.equal(row?.finishedAt, '2026-10-24T10:40:00.000Z');
+  });
+
+  test('a finished row takes its start from attention.workingStartedAt, not from a top-level workingStartedAt', () => {
+    const [row] = buildContentState(
+      sources({
+        sessions: [
+          {
+            sessionId: 'f',
+            provider: 'zmx',
+            agent: 'claude',
+            projectName: 'p',
+            activity: 'attention',
+            attention: {
+              enteredAt: '2026-10-24T10:40:00Z',
+              kind: 'finished',
+              workingStartedAt: '2026-10-24T10:22:00Z',
+            },
+            workingStartedAt: '2026-10-24T10:35:00Z',
+          },
+        ],
+      }),
+      t0 + 30_000,
+    ).agents;
+    assert.equal(row?.state, 'finished');
+    assert.equal(row?.startedAt, '2026-10-24T10:22:00.000Z');
+  });
+});
+
+describe('finished events the app has seen', () => {
+  const t0 = Date.parse('2026-10-24T10:40:00Z');
+  const agent = { sessionId: 'f', provider: 'zmx', agent: 'claude', projectName: 'p' };
+  const finished = {
+    ...agent,
+    activity: 'attention',
+    attention: { enteredAt: '2026-10-24T10:40:00Z', kind: 'finished', workingStartedAt: '2026-10-24T10:22:00Z' },
+  };
+  /** The same session once its finish was acknowledged on some device: the computer no longer sends `attention`. */
+  const acknowledged = { ...agent, activity: 'idle' };
+  const rowsAt = (memory: FinishedMemory, session: object, at: number) =>
+    buildContentState(sources({ sessions: [session] }), at, memory);
+
+  test('a finished row stays when its attention disappears, until 2 minutes after the finish', () => {
+    const memory: FinishedMemory = new Map();
+    rowsAt(memory, finished, t0 + 5_000);
+    const at30 = rowsAt(memory, acknowledged, t0 + 30_000);
+    assert.deepEqual(
+      at30.agents.map((row) => [row.target.sessionId, row.state, row.startedAt, row.expiresAt]),
+      [['f', 'finished', '2026-10-24T10:22:00.000Z', '2026-10-24T10:42:00.000Z']],
+    );
+    assert.deepEqual(at30.counts, { working: 0, waiting: 0 });
+    const at120 = rowsAt(memory, acknowledged, t0 + 120_000);
+    assert.deepEqual(at120.agents, []);
+    assert.equal(at120.moreCount, 0);
+  });
+
+  test('a remembered finish is dropped at once when the session starts working', () => {
+    const memory: FinishedMemory = new Map();
+    rowsAt(memory, finished, t0 + 5_000);
+    const working = { ...agent, activity: 'working', workingStartedAt: '2026-10-24T10:40:20Z' };
+    assert.deepEqual(
+      rowsAt(memory, working, t0 + 25_000).agents.map((row) => row.state),
+      ['working'],
+    );
+    assert.deepEqual(rowsAt(memory, acknowledged, t0 + 30_000).agents, []);
+  });
+
+  test('a remembered finish is dropped at once when the session enters a new attention', () => {
+    const memory: FinishedMemory = new Map();
+    rowsAt(memory, finished, t0 + 5_000);
+    const waits = {
+      ...agent,
+      activity: 'attention',
+      attention: { enteredAt: '2026-10-24T10:40:20Z', kind: 'needsInput' },
+    };
+    assert.deepEqual(
+      rowsAt(memory, waits, t0 + 25_000).agents.map((row) => row.state),
+      ['waiting'],
+    );
+    assert.deepEqual(rowsAt(memory, acknowledged, t0 + 30_000).agents, []);
+  });
+
+  test('a remembered finish is offered only while its computer is among the summaries read', () => {
+    const memory: FinishedMemory = new Map();
+    rowsAt(memory, finished, t0 + 5_000);
+    const other = [{ machineId: 'other-mac', summary: summary({ sessions: [acknowledged] }), loadedAt: t0 + 30_000 }];
+    assert.deepEqual(buildContentState(other, t0 + 30_000, memory).agents, []);
   });
 });
 
@@ -192,6 +285,56 @@ describe('pending question', () => {
     const [row] = buildContentState(sources(oneWaiting), NOW).agents;
     assert.ok(row !== undefined);
     assert.equal('hasQuestion' in row, false);
+  });
+
+  const waitingWith = (fields: object, capabilities?: object) => ({
+    ...(capabilities === undefined ? {} : { capabilities }),
+    sessions: [
+      {
+        sessionId: 'q',
+        provider: 'zmx',
+        agent: 'claude',
+        projectName: 'p',
+        activity: 'attention',
+        attention: { enteredAt: '2026-10-24T10:40:00Z', kind: 'needsInput' },
+        ...fields,
+      },
+    ],
+  });
+  const questionFlag = (fixture: unknown) => buildContentState(sources(fixture), NOW).agents[0]?.hasQuestion;
+
+  test('an open question card counts only from a computer that announces awaitingAnswer', () => {
+    assert.equal(questionFlag(waitingWith({ awaitingAnswer: true }, { awaitingAnswer: true })), true);
+    assert.equal(questionFlag(waitingWith({ awaitingAnswer: true })), undefined);
+    assert.equal(questionFlag(waitingWith({ awaitingAnswer: true }, { awaitingAnswer: false })), undefined);
+  });
+
+  test('a counted pending question alone gives hasQuestion, with or without the capability', () => {
+    assert.equal(questionFlag(waitingWith({ pendingQuestionCount: 2 })), true);
+    assert.equal(questionFlag(waitingWith({ pendingQuestionCount: 1 }, { awaitingAnswer: true })), true);
+  });
+
+  test('with neither source the waiting row has no hasQuestion', () => {
+    assert.equal(
+      questionFlag(waitingWith({ awaitingAnswer: false, pendingQuestionCount: 0 }, { awaitingAnswer: true })),
+      undefined,
+    );
+  });
+
+  test('a finished session with an open question card waits on the user: a waiting row with hasQuestion', () => {
+    const finishedWithCard = waitingWith(
+      {
+        attention: { enteredAt: '2026-10-24T10:40:00Z', kind: 'finished', workingStartedAt: '2026-10-24T10:22:00Z' },
+        awaitingAnswer: true,
+      },
+      { awaitingAnswer: true },
+    );
+    const state = buildContentState(sources(finishedWithCard), NOW);
+    assert.deepEqual(
+      state.agents.map((row) => [row.state, row.hasQuestion]),
+      [['waiting', true]],
+    );
+    assert.deepEqual(state.counts, { working: 0, waiting: 1 });
   });
 });
 
@@ -259,7 +402,7 @@ describe('computers without host changes H1a and H1b (D-063, REQ-LIVEACT-004)', 
     assert.deepEqual(computersNeedingUpdate(sources(attentionOnly)), [MACHINE]);
   });
 
-  test('a finished agent without the workingStartedAt of its last stint is enough (H1a addendum)', () => {
+  test('a finished agent without attention.workingStartedAt is enough, also with a top-level workingStartedAt', () => {
     const finishedWithoutStart = {
       sessions: [
         {
@@ -269,10 +412,27 @@ describe('computers without host changes H1a and H1b (D-063, REQ-LIVEACT-004)', 
           projectName: 'p',
           activity: 'attention',
           attention: { enteredAt: '2026-10-24T10:41:00Z', kind: 'finished' },
+          workingStartedAt: '2026-10-24T10:22:00Z',
         },
       ],
     };
     assert.deepEqual(computersNeedingUpdate(sources(finishedWithoutStart)), [MACHINE]);
+  });
+
+  test('attention.kind is finished or needsInput only: another value, such as bell, counts as no kind', () => {
+    const otherKind = {
+      sessions: [
+        {
+          sessionId: 'b',
+          provider: 'zmx',
+          agent: 'claude',
+          projectName: 'p',
+          activity: 'attention',
+          attention: { enteredAt: '2026-10-24T10:41:00Z', kind: 'bell' },
+        },
+      ],
+    };
+    assert.deepEqual(computersNeedingUpdate(sources(otherKind)), [MACHINE]);
   });
 
   test('the fixtures of a current host need no update', () => {

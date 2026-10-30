@@ -60,9 +60,9 @@
         "enteredAt": "2026-10-24T10:41:30Z",
         "acknowledged": false,
         "eventId": "ev-d-fin30",
-        "kind": "finished"
+        "kind": "finished",
+        "workingStartedAt": "2026-10-24T10:23:30Z"
       },
-      "workingStartedAt": "2026-10-24T10:23:30Z",
       "provider": "zmx"
     },
     {
@@ -78,9 +78,9 @@
         "enteredAt": "2026-10-24T10:41:00Z",
         "acknowledged": false,
         "eventId": "ev-e-fin60",
-        "kind": "finished"
+        "kind": "finished",
+        "workingStartedAt": "2026-10-24T10:32:00Z"
       },
-      "workingStartedAt": "2026-10-24T10:32:00Z",
       "provider": "zmx"
     }
   ]

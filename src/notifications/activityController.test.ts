@@ -55,12 +55,15 @@ const waiting = (id: string, since = T0): WireSession => ({
   activity: 'attention',
   attention: { enteredAt: new Date(since).toISOString(), kind: 'needsInput' },
 });
-/** A finished agent as a current host sends it: the start of its last stint stays (H1a addendum). */
+/** A finished agent as a current host sends it: the start of the stint that ended is `attention.workingStartedAt`. */
 const finished = (id: string, at: number, workedSince = T0): WireSession => ({
   sessionId: id,
   activity: 'attention',
-  attention: { enteredAt: new Date(at).toISOString(), kind: 'finished' },
-  workingStartedAt: new Date(workedSince).toISOString(),
+  attention: {
+    enteredAt: new Date(at).toISOString(),
+    kind: 'finished',
+    workingStartedAt: new Date(workedSince).toISOString(),
+  },
 });
 
 /** Records every call the controller makes and lets a test end the activity "outside the app". */

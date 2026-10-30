@@ -13,9 +13,9 @@
         "enteredAt": "2026-10-24T10:40:00Z",
         "acknowledged": false,
         "eventId": "ev-f1",
-        "kind": "finished"
+        "kind": "finished",
+        "workingStartedAt": "2026-10-24T10:22:00Z"
       },
-      "workingStartedAt": "2026-10-24T10:22:00Z",
       "provider": "zmx"
     }
   ]

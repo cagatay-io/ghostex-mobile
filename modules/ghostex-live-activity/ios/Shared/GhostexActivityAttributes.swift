@@ -61,8 +61,9 @@ public struct GhostexActivityRow: Codable, Hashable, Sendable {
   public var agentName: String
   public var project: String
   public var state: GhostexAgentState
-  /// Working and finished: when the (last) stint began (`workingStartedAt`; a finished row shows `finishedAt` −
-  /// `startedAt`); waiting: since the agent waits (`attention.enteredAt`). Required (schema), so every row has its
+  /// Working: when the current stint began (`workingStartedAt`); finished: when the stint that ended began
+  /// (`attention.workingStartedAt`; the row shows `finishedAt` − `startedAt`); waiting: since the agent waits
+  /// (`attention.enteredAt`). Required (schema), so every row has its
   /// time (REQ-LIVEACT-002).
   public var startedAt: Date
   public var finishedAt: Date?

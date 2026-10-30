@@ -74,8 +74,15 @@ export type MobileSummaryWireSession = {
   isTemporaryTitle?: boolean;
   visibleInSidebarByDefault?: boolean;
   shouldSubmitStagedFirstPromptTitleCommand?: boolean;
-  /** Sent only while `activity` is attention; kind identifies its reason, notificationId requires its capability. */
-  attention?: { enteredAt?: string; acknowledged?: boolean; eventId?: string; notificationId?: string; kind?: string };
+  /** Sent only while `activity` is attention; kind and workingStartedAt describe the ended stint, notificationId requires its capability. */
+  attention?: {
+    enteredAt?: string;
+    acknowledged?: boolean;
+    eventId?: string;
+    notificationId?: string;
+    kind?: string;
+    workingStartedAt?: string;
+  };
   /** Questions the agent is waiting on an answer to; absent at zero. */
   pendingQuestionCount?: number;
   /** An open question card waits for an answer; sent by a computer with the `awaitingAnswer` capability. */
@@ -637,13 +644,20 @@ export type GhostexSession = {
    */
   attentionNotificationId: string;
   /**
-   * Why the session is in attention: `finished`, `needsInput` or `bell` ('' outside attention, and from a
-   * computer without host change H1b, which cannot tell a finished turn from a wait for the user).
+   * Why the session is in attention ('' outside attention, and from a computer without host change H1b, which
+   * cannot tell a finished turn from a wait for the user).
    */
-  attentionKind: string;
+  attentionKind: GhostexAttentionKind;
+  /**
+   * When the stint that ended began, sent while the session is in attention (`attention.workingStartedAt`; '' outside
+   * attention, and from a computer without host change H1a).
+   */
+  attentionWorkingStartedAt: string;
   actions: GhostexSessionActions;
 };
 
+/** `attention.kind`: a finished turn or a wait for the user; a bell counts as `needsInput`. */
+export type GhostexAttentionKind = '' | 'finished' | 'needsInput';
 /**
  * The summary fields a computer announces in its `capabilities` object. A flag that is not `true`, or an absent
  * object, marks a computer whose summary lacks the field: there, the field's absence says nothing.
@@ -1408,9 +1422,16 @@ export function parseSession(value: unknown): GhostexSession | null {
     attentionAcknowledged: attention === null ? false : boolValue(attention, 'acknowledged', false),
     attentionEventId: attention === null ? '' : trimmedValue(attention, 'eventId'),
     attentionNotificationId: attention === null ? '' : trimmedValue(attention, 'notificationId'),
-    attentionKind: attention === null ? '' : trimmedValue(attention, 'kind'),
+    attentionKind: attention === null ? '' : attentionKindOf(attention),
+    attentionWorkingStartedAt: attention === null ? '' : trimmedValue(attention, 'workingStartedAt'),
     actions: parseActions(value.actions),
   };
+}
+
+/** `attention.kind` as H1b defines it; any other value reads as no kind. */
+function attentionKindOf(attention: JsonObject): GhostexAttentionKind {
+  const kind = trimmedValue(attention, 'kind');
+  return kind === 'finished' || kind === 'needsInput' ? kind : '';
 }
 
 function parseProjects(value: unknown): GhostexProject[] {

@@ -17,7 +17,13 @@ import { useInventoryStore, type MachineInventory } from '../inventory/store';
 import { enabledMachines, machineDisplayLabel, useMachinesStore, type MachineRecord } from '../machines/store';
 import { useSettingsStore } from '../settings/store';
 import { createActivityController, type ActivityController, type LiveActivityAdapter } from './activityController';
-import { buildContentState, computersNeedingUpdate, workingStints, type ActivitySource } from './contentState';
+import {
+  buildContentState,
+  computersNeedingUpdate,
+  workingStints,
+  type ActivitySource,
+  type FinishedMemory,
+} from './contentState';
 
 type NativeLiveActivity = NonNullable<typeof GhostexLiveActivity>;
 
@@ -31,6 +37,8 @@ let queue: Promise<void> = Promise.resolve();
 let pendingCalls = 0;
 /** The inputs of the last pass, so the store updates of a poll that changed nothing cost nothing. */
 let lastInputs: { sources: readonly ActivitySource[]; enabled: boolean } | null = null;
+/** The finished events seen while the app runs (in memory: a restart forgets them). */
+const finishedMemory: FinishedMemory = new Map();
 
 function enqueue(call: () => Promise<void>): Promise<void> {
   pendingCalls += 1;
@@ -113,7 +121,7 @@ function syncLiveActivity(): void {
   lastInputs = { sources, enabled };
   const now = Date.now();
   controller.process(
-    buildContentState(sources, now),
+    buildContentState(sources, now, finishedMemory),
     workingStints(sources, now),
     enabled,
     computersNeedingUpdate(sources).length === 0,

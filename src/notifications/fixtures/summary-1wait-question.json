@@ -1,4 +1,5 @@
 {
+  "capabilities": { "awaitingAnswer": true },
   "sessions": [
     {
       "sessionId": "q",
@@ -15,7 +16,7 @@
         "eventId": "ev-q",
         "kind": "needsInput"
       },
-      "pendingQuestionCount": 1,
+      "awaitingAnswer": true,
       "provider": "zmx"
     }
   ]
