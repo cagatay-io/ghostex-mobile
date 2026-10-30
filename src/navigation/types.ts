@@ -98,7 +98,7 @@ export type RootStackParamList = {
   /** Settings home: the list of Settings pages. */
   Settings: undefined;
   /**
-   * One Settings page (Interface, Chat, Terminal, Keyboard, Notifications, Connection, Updates, Advanced).
+   * One Settings page, including Notifications, Live Activity, Short replies and Licences.
    * `listOffset`: in two columns, where the Settings list stood when a row opened this page, so the
    * list this screen draws starts there.
    */
@@ -114,6 +114,8 @@ export type RootStackParamList = {
   AgentHotkeysEditor: undefined;
   /** Settings > Keyboard > Pad keys: what the Befehlspad's nine positions do. */
   CommandPadKeysEditor: undefined;
+  /** Settings › Licences: one component's licence texts, by the `name` and `version` of its notices entry. */
+  LicenceNotice: { name: string; version: string };
   /** Add Project step 1: pick a source on an already-chosen machine. */
   AddProjectSource: { machineId: string };
   /** Add Project local branch: type or browse a folder, then register it. */

@@ -1497,3 +1497,19 @@ export const LiveActivityCopy = {
     { agent: 'omp', project: 'Ghostex', state: 'finished', time: '18m' },
   ],
 } as const;
+
+/** Settings › Licences: the third-party notices bundled with the app (THIRD_PARTY_NOTICES.md). */
+export const LicencesCopy = {
+  pageTitle: 'Licences',
+  pageDescription: 'Open-source software in this app.',
+  searchPlaceholder: 'Search licences',
+  clearSearch: 'Clear search',
+  componentCount: (count: number) => (count === 1 ? '1 component' : `${count} components`),
+  noMatches: 'No component matches that search.',
+  loading: 'Reading the licence notices…',
+  loadFailed: 'Could not read the licence notices',
+  retry: 'Retry',
+  missingEntry: 'This component is not in the licence notices of this version.',
+  entryLine: (version: string, licence: string | undefined) =>
+    licence === undefined ? version : `${version} · ${licence}`,
+} as const;

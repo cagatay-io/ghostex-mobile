@@ -17,6 +17,7 @@ const SETTINGS_ROUTES: ReadonlySet<string> = new Set([
   'ExtraKeysEditor',
   'AgentHotkeysEditor',
   'CommandPadKeysEditor',
+  'LicenceNotice',
 ]);
 
 /** The page selected while none was opened yet: the first of the list (Interface). */

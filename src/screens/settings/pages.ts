@@ -5,7 +5,7 @@
  */
 
 import { ANDROID_SELF_UPDATE_ENABLED } from '../../config/featureFlags';
-import { LiveActivityCopy, NotificationsCopy, ShortRepliesCopy } from '../../copy';
+import { LicencesCopy, LiveActivityCopy, NotificationsCopy, ShortRepliesCopy } from '../../copy';
 import { OTA_ENABLED } from '../../updates/overTheAir';
 import { LIVE_ACTIVITY_SUPPORTED } from '../../notifications/liveActivity';
 import { VOICE_SUPPORTED } from '../../voice/conversation';
@@ -26,7 +26,8 @@ export type SettingsPageId =
   | 'advanced'
   | 'readAloudVoice'
   | 'dictateLanguage'
-  | 'dictateDictionary';
+  | 'dictateDictionary'
+  | 'licences';
 
 export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, { title: string; description: string }>> = {
   updates: { title: 'Updates', description: 'Your Ghostex version, and newer releases.' },
@@ -42,6 +43,7 @@ export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, { title: string; de
   connection: { title: 'Connection', description: 'Reconnecting to your computer.' },
   sync: { title: 'Sync', description: 'Carrying Spaces and settings between your computers.' },
   advanced: { title: 'Advanced', description: 'Older settings most people never change.' },
+  licences: { title: LicencesCopy.pageTitle, description: LicencesCopy.pageDescription },
   // Opened from Settings › Chat's Read aloud rows, not listed on the Settings home.
   readAloudVoice: { title: 'Read aloud voice', description: "Which of this phone's voices reads replies aloud." },
   // Opened from Settings › Voice, for the computer picked there; not listed on the Settings home.
@@ -63,4 +65,5 @@ export const SETTINGS_PAGE_ORDER: readonly SettingsPageId[] = [
   'connection',
   'sync',
   'advanced',
+  'licences',
 ];

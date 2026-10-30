@@ -50,6 +50,7 @@ import ExtraKeysEditorScreen from './src/screens/ExtraKeysEditorScreen';
 import FeedbackScreen from './src/screens/FeedbackScreen';
 import AgentHotkeysEditorScreen from './src/screens/AgentHotkeysEditorScreen';
 import CommandPadKeysEditorScreen from './src/screens/CommandPadKeysEditorScreen';
+import LicenceNoticeScreen from './src/screens/LicenceNoticeScreen';
 import AddProjectDestinationScreen from './src/screens/AddProjectDestinationScreen';
 import AddProjectLocalScreen from './src/screens/AddProjectLocalScreen';
 import AddProjectRepositoryScreen from './src/screens/AddProjectRepositoryScreen';
@@ -300,6 +301,11 @@ export default function App() {
                     name="CommandPadKeysEditor"
                     component={CommandPadKeysEditorScreen}
                     options={{ title: SettingsCopy.padKeysTitle }}
+                  />
+                  <Stack.Screen
+                    name="LicenceNotice"
+                    component={LicenceNoticeScreen}
+                    options={({ route }) => ({ title: route.params.name })}
                   />
                   <Stack.Screen
                     name="AddProjectSource"

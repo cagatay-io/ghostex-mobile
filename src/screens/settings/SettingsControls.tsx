@@ -232,7 +232,7 @@ export function useSettingsStyles(): ReturnType<typeof createSettingsStyles> {
  * stands beside the Settings list instead (`SettingsColumnsFrame`), in a
  * column narrower than this one. The 640 pt is this fallback, not the Settings layout.
  */
-const READABLE_COLUMN = { width: '100%', maxWidth: 640, alignSelf: 'center' } as const;
+export const READABLE_COLUMN = { width: '100%', maxWidth: 640, alignSelf: 'center' } as const;
 
 /**
  * The side bar's insets a Settings page's scroll view reaches over: both of them, or in two

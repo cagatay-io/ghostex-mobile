@@ -61,7 +61,8 @@
     "sim:reload": "./scripts/sim-reload.sh",
     "sim:tap": "./scripts/sim-tap.sh",
     "generate:chat-agents": "node scripts/generate-chat-agents.mjs",
-    "generate:tabler-icons": "node scripts/generate-tabler-icons.mjs"
+    "generate:tabler-icons": "node scripts/generate-tabler-icons.mjs",
+    "notices": "bun scripts/notices/generate.ts"
   },
   "jest": {
     "preset": "jest-expo",

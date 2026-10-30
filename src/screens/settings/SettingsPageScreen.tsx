@@ -9,6 +9,7 @@ import DictateLanguagePage from './DictateLanguagePage';
 import KeyboardPage from './KeyboardPage';
 import NotificationsPage from './NotificationsPage';
 import LiveActivityPage from './LiveActivityPage';
+import LicencesPage from './LicencesPage';
 import { SETTINGS_PAGES, type SettingsPageId } from './pages';
 import ReadAloudVoicePage from './ReadAloudVoicePage';
 import { SettingsColumnsFrame } from './SettingsColumns';
@@ -74,5 +75,7 @@ function SettingsPageBody({ page }: { page: SettingsPageId }) {
       return <DictateLanguagePage />;
     case 'dictateDictionary':
       return <DictateDictionaryPage />;
+    case 'licences':
+      return <LicencesPage />;
   }
 }

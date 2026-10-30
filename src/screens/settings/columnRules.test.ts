@@ -46,6 +46,11 @@ describe('Settings in two columns', () => {
     assert.deepEqual(settingsColumnsFor(routes, 3), { settingsIndex: 1, selected: 'chat', subPage: true });
   });
 
+  test('a licence entry opens beside the list with its own Back, Licences selected', () => {
+    const routes = [SESSIONS, SETTINGS, { name: 'SettingsPage', page: 'licences' as const }, { name: 'LicenceNotice' }];
+    assert.deepEqual(settingsColumnsFor(routes, 3), { settingsIndex: 1, selected: 'licences', subPage: true });
+  });
+
   test('no columns without the Settings list under the page, or outside Settings', () => {
     assert.equal(settingsColumnsFor([SESSIONS, { name: 'SettingsPage', page: 'theme' }], 1), null);
     assert.equal(settingsColumnsFor([SESSIONS, SETTINGS, { name: 'Terminal' }], 2), null);
