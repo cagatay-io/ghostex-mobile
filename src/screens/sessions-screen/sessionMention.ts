@@ -15,3 +15,11 @@ export function sessionMentionText(title: string, globalRef: string): string {
   const label = title.split(/\s+/).filter((part) => part.length > 0).join(' ') || 'Session';
   return `[${label.replace(/[\\[\]]/g, (character) => `\\${character}`)}](${globalRef})`;
 }
+
+/**
+ * gx-protocol `session_page_url`, what Copy Link copies: the https page that opens this session in
+ * Ghostex from anywhere a link can be pasted.
+ */
+export function sessionLinkText(globalRef: string): string {
+  return `https://ghostex.dev/open/session#${globalRef}`;
+}

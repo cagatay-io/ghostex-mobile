@@ -4,9 +4,13 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
-import { MORE_DETAILS_LINE, sessionMentionText } from './sessionMention';
+import { MORE_DETAILS_LINE, sessionLinkText, sessionMentionText } from './sessionMention';
 
 describe('Copy ID and Copy Details text', () => {
+  test('Copy Link copies the page gx-protocol session_page_url builds', () => {
+    assert.equal(sessionLinkText('S90:P3lv0:G7hgi'), 'https://ghostex.dev/open/session#S90:P3lv0:G7hgi');
+  });
+
   test('Copy ID copies the title linked to the Global Ref, like gx-protocol session_mention', () => {
     assert.equal(
       sessionMentionText('Model and effort inventory for agent CLIs', 'S90:P3lv0:G7hgi'),

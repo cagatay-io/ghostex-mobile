@@ -29,7 +29,7 @@ import {
   type GhostexSession,
 } from '../../contract/mobileSummary';
 import { COMMAND_ICONS } from '../../assets/tablerIcons.generated';
-import { MORE_DETAILS_LINE, sessionMentionText } from './sessionMention';
+import { MORE_DETAILS_LINE, sessionLinkText, sessionMentionText } from './sessionMention';
 import { claudeCloudPageUrl } from '../../contract/claudeCloud';
 import { hasBackgroundWork, hasPendingQuestion } from '../../components/sessions/sessionStatus';
 import type { SessionWorkLinks, WorkLinkKind } from '../../commands/ghostexCli';
@@ -590,6 +590,9 @@ function linkSubmenu(session: GhostexSession, project: SessionMenuInput['project
  *
  * CDXC:ContextMenus 2026-10-28 DECISION:
  * User: "i want a new Copy ID that let's me just copy the id and name of an agent so i can mention it in other chats". Copy ID, right under Copy Details, copies `[<session title>](<Global Ref>)`, as on the desktop (gx-core copy.rs).
+ *
+ * CDXC:ContextMenus 2026-10-31 DECISION:
+ * User (GitHub issue #373): a Copy Link row next to Copy Details and Copy ID copies the https page that opens the session (`https://ghostex.dev/open/session#<Global Ref>`), as on the desktop. A link opens on a computer; the phone only copies it for now.
  */
 function copySubmenu(session: GhostexSession, project: SessionMenuInput['project']): SidebarMenuItem {
   const children: SidebarMenuItem[] = [
@@ -608,6 +611,7 @@ function copySubmenu(session: GhostexSession, project: SessionMenuInput['project
   };
   if (session.globalRef.trim().length > 0) {
     copyRow('Copy ID', 'hash', sessionMentionText(sessionTitle(session), session.globalRef.trim()));
+    copyRow('Copy Link', 'link', sessionLinkText(session.globalRef.trim()));
   }
   const work = session.work;
   const linearIssues = work?.linearIssues ?? [];
