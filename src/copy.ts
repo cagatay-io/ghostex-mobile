@@ -1064,6 +1064,36 @@ export const TerminalHeaderCopy = {
   terminalView: 'Terminal view',
 } as const;
 
+/** Two panes on the unfolded iPhone Duo: the header's Panes button, the panes' title bars, divider and chooser. */
+export const PanesCopy = {
+  addPane: 'Panes: add a pane',
+  closeSecondPane: 'Panes: close the second pane',
+  move: (title: string) => `Move ${title} pane`,
+  /** The title opens the pane type menu. */
+  title: (title: string, typeLabel: string) => `${title}, ${typeLabel} pane`,
+  close: (title: string) => `Close ${title} pane`,
+  typeMenuTitle: 'Pane type',
+  typeMenuSubtitle: 'Shown in this pane',
+  sessionType: 'Session',
+  newPane: 'New pane',
+  chooserLead: 'Open a session here',
+  chooserEmpty: 'No other session on this computer.',
+  chooserLoading: 'Loading sessions',
+  resize: 'Resize panes',
+  /** While the divider is dragged: both shares, and "limit" at 25 or 75 percent. */
+  shares: (first: number, second: number, atLimit: boolean) => `${first} % · ${second} %${atLimit ? ' · limit' : ''}`,
+  releaseToSwap: 'Release to swap',
+  status: {
+    question: 'Has a question',
+    approval: 'Waiting for approval',
+    working: 'Working',
+    done: 'Done',
+    failed: 'Failed',
+    backgroundWork: 'Background work',
+    idle: 'Idle',
+  },
+} as const;
+
 /** Titles of the Settings screens that are not pages of their own (the pages' are in screens/settings/pages.ts). */
 export const SettingsCopy = {
   title: 'Settings',

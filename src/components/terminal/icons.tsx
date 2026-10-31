@@ -96,6 +96,63 @@ export function CloseIcon(props: IconProps) {
   );
 }
 
+/** Panes: the window split in two, one above the other (`across: false`) or side by side (`across: true`). */
+export function PanesIcon({ across, ...props }: IconProps & { across: boolean }) {
+  const { size, color, strokeWidth } = iconDefaults(props);
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d={across ? 'M4 4h16v16H4zM12 4v16' : 'M4 4h16v16H4zM4 12h16'}
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+/** A pane's grip: six dots, two rows. */
+export function GripIcon(props: IconProps) {
+  const { size, color, strokeWidth } = iconDefaults(props);
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M6 9h.01M12 9h.01M18 9h.01M6 15h.01M12 15h.01M18 15h.01"
+        stroke={color}
+        strokeWidth={strokeWidth + 1}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+/** A pull-down title: its menu opens below. */
+export function ChevronDownIcon(props: IconProps) {
+  const { size, color, strokeWidth } = iconDefaults(props);
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+/** A terminal window: the session pane type. */
+export function TerminalWindowIcon(props: IconProps) {
+  const { size, color, strokeWidth } = iconDefaults(props);
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 5h16v14H4zM7.5 9.5l3 2.5-3 2.5M12.5 15h4"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 export function RefreshIcon(props: IconProps) {
   const { size, color, strokeWidth } = iconDefaults(props);
   return (

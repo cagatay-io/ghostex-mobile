@@ -17,6 +17,8 @@ final class GhostexTerminalHostView: ExpoView {
 
     private(set) var sessionKey: String?
     private weak var attachedTerminalView: GhosttyTerminalView?
+    /// Two panes on screen: whether this host's terminal is the active pane; nil with one terminal (`paneFocus` prop).
+    private var paneFocus: Bool?
 
     required init(appContext: AppContext? = nil) {
         super.init(appContext: appContext)
@@ -39,6 +41,11 @@ final class GhostexTerminalHostView: ExpoView {
         // Tracking outlives the current entry: a reconnect registers a NEW entry
         // under this key, and the registry moves this host onto it.
         GhostexTerminalRegistry.shared.trackHost(self, for: newKey)
+    }
+
+    func setPaneFocus(_ focus: Bool?) {
+        paneFocus = focus
+        attachedTerminalView?.paneFocus = focus
     }
 
     func attachIfNeeded() {
@@ -73,6 +80,7 @@ final class GhostexTerminalHostView: ExpoView {
             self?.onCaretChange(["top": Double(top)])
         }
 
+        terminalView.paneFocus = paneFocus
         terminalView.resumeRendering()
         terminalView.sizeDidChange(bounds.size)
         // A view that was shown just now has not told React where its cursor row ends.
@@ -85,6 +93,8 @@ final class GhostexTerminalHostView: ExpoView {
         terminalView.onCaretTopChange = nil
         terminalView.onOpenUrl = nil
         terminalView.pauseRendering()
+        // Paused, so the surface keeps the unfocused state the pause gave it.
+        terminalView.paneFocus = nil
         terminalView.removeFromSuperview()
         attachedTerminalView = nil
         if let sessionKey, let entry = GhostexTerminalRegistry.shared.entry(for: sessionKey), entry.hostView === self {

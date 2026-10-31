@@ -18,6 +18,8 @@ import { MAX_WARM_SESSIONS } from '../../terminal/sessions';
 import { warmTerminalsFor } from '../../terminal/warmBudget';
 import { foldDivisionsSummary } from '../../components/common/verticalBar/layout';
 import { useFoldDivisions } from '../../components/common/verticalBar/VerticalBarArea';
+import { paneLayoutSummary } from '../../panes/layout';
+import { usePaneStore } from '../../panes/store';
 import { SettingsSection } from './SectionBoundary';
 import {
   Caption,
@@ -47,6 +49,15 @@ function warmTerminalsCaption(scrollbackRows: number): string | null {
 function FoldDivisionsDebugRow() {
   const divisions = useFoldDivisions();
   return <ValueRow label="Fold divisions (debug)" value={foldDivisionsSummary(divisions)} />;
+}
+
+/**
+ * Development builds only: the pane layout stored for the upright window (each slot's type and session, the divider),
+ * so a UI inspector can read after a restart that the layout came back as set. Release builds never show it.
+ */
+function PaneLayoutDebugRow() {
+  const stacked = usePaneStore((state) => state.document.layouts.stacked);
+  return <ValueRow label="Pane layout, upright (debug)" value={paneLayoutSummary(stacked)} />;
 }
 
 /** Terminal toggles carried over from the older Android app, in its order. */
@@ -190,6 +201,7 @@ export default function AdvancedPage() {
         <SettingsSection name="settings:advanced:debug">
           <SectionHeader title="Debug" />
           <FoldDivisionsDebugRow />
+          <PaneLayoutDebugRow />
         </SettingsSection>
       ) : null}
     </SettingsScreenLayout>

@@ -391,6 +391,12 @@ export type GhostexTerminalViewProps = {
    * attached. The terminal screen slides the view with the keyboard by it.
    */
   onCaretChange?: (event: { nativeEvent: { top: number } }) => void;
+  /**
+   * iOS only (the Android view declares no such prop, and panes exist only on the iPhone Duo): with two panes on
+   * screen, true for the active pane's terminal (its cursor drawn filled) and false for the other (hollow), whichever
+   * holds the keyboard. Left out with one terminal: its focus follows the keyboard as before.
+   */
+  paneFocus?: boolean;
 };
 
 export type GhostexSelectionMenuViewProps = import('react-native').ViewProps & {

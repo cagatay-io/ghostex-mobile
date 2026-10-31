@@ -1011,6 +1011,11 @@ public class GhostexNativeModule: Module {
             Prop("sessionKey") { (view: GhostexTerminalHostView, sessionKey: String) in
                 view.setSessionKey(sessionKey)
             }
+
+            // Two panes on screen: the active pane's terminal draws its cursor filled, the other's hollow.
+            Prop("paneFocus") { (view: GhostexTerminalHostView, paneFocus: Bool?) in
+                view.setPaneFocus(paneFocus)
+            }
         }
 
         // A chat message's text: its selection menu and the hold that opens its menu.

@@ -20,10 +20,12 @@ export type KeyBarDockProps = {
   hideMs: number;
   /** The dock's own height as laid out: the carried view's, 0 while it is unmounted. */
   onHeightChange: (height: number) => void;
+  /** With two panes side by side: the active pane's left edge and width in the window; across the window otherwise. */
+  frame?: { left: number; width: number };
   children: ReactNode;
 };
 
-export default function KeyBarDock({ shown, inset, hideMs, onHeightChange, children }: KeyBarDockProps) {
+export default function KeyBarDock({ shown, inset, hideMs, onHeightChange, frame, children }: KeyBarDockProps) {
   const [lastShown, setLastShown] = useState(shown);
   const [lingering, setLingering] = useState(false);
   const [height, setHeight] = useState(0);
@@ -44,7 +46,11 @@ export default function KeyBarDock({ shown, inset, hideMs, onHeightChange, child
       pointerEvents={shown ? 'box-none' : 'none'}
       accessibilityElementsHidden={!shown}
       importantForAccessibility={shown ? 'auto' : 'no-hide-descendants'}
-      style={[styles.dock, { bottom: shown ? inset : -height }]}
+      style={[
+        styles.dock,
+        frame !== undefined && { left: frame.left, right: undefined, width: frame.width },
+        { bottom: shown ? inset : -height },
+      ]}
       onLayout={(event) => {
         const next = event.nativeEvent.layout.height;
         setHeight(next);

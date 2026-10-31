@@ -26,6 +26,7 @@ import { initLiveActivity } from './src/notifications/liveActivity';
 import { initPersistentNotification } from './src/app/persistentNotification';
 import { useMachinesStore } from './src/machines/store';
 import { initAttentionNotifications } from './src/notifications/feedStore';
+import { initPaneLayouts } from './src/panes/store';
 import { useAgentHotkeysStore } from './src/settings/agentHotkeys';
 import { useExtraKeysStore } from './src/settings/extraKeys';
 import { initSettingsNativeSync } from './src/settings/nativeSync';
@@ -143,6 +144,7 @@ export default function App() {
     initSettingsSync();
     initTerminalKeepAwake();
     initChatGridClaim();
+    initPaneLayouts();
     initAndroidSelfUpdate();
     initOverTheAirUpdates();
     initVoice();

@@ -19,6 +19,7 @@ mobile/
     inventory/                # inventory client (exec over native ssh), 5s polling on every screen (summaryRefresh.ts), per-machine fan-out
     notifications/            # Live Activity: content state from the summaries, start/update/end controller (modules/ghostex-live-activity)
     terminal/                 # tab/session state, warm-session policy (max 7, within a scrollback-row budget), attach orchestration
+    panes/                    # two panes on the iPhone Duo's inner display: layout store, geometry, pane host (see "Two panes" below)
     commands/                 # ghostex CLI command builders (login-shell wrapping, quoting)
     docs/                     # document page builder, remote-file mirror and renderers
     files/                    # project browser policy, listing, search, share and session-context actions
@@ -62,7 +63,7 @@ Both platforms implement this API, except the iOS-only bar layout functions and 
 
 - **machineId** (string): key for one SSH client connection (multiplexed channels). Reconnecting with new config replaces it.
 - **sessionKey** (string, JS-chosen, e.g. `${machineId}:${sessionId}` or `${machineId}:tab:${uuid}`): key for one _terminal entry_ in the native registry. An entry owns: terminal engine instance + SSH PTY shell channel. Entries survive view unmount (warm sessions); JS enforces the max-7 warm policy by calling `closeTerminal`.
-- **GhostexTerminalView**: native view with prop `sessionKey`; mounting attaches the view to the registry entry (rendering + touch + IME input). Unmounting detaches without killing the entry.
+- **GhostexTerminalView**: native view with prop `sessionKey`; mounting attaches the view to the registry entry (rendering + touch + IME input). Unmounting detaches without killing the entry. One entry is shown in one view at a time (a second view for the same key takes it over), so two panes always show two different sessions.
 
 ### Module functions (all Promises)
 
@@ -150,6 +151,7 @@ The app uses the whole window on the Duo and draws its own header controls next 
   style={...}
   onSingleTap={() => ...}   // optional: show keyboard
   onCaretChange={({ nativeEvent }) => ...}   // iOS only: { top } of the cursor row, points from the view's top
+  paneFocus={true}          // iOS only, two panes only: the active pane's terminal (cursor filled) or not (hollow)
 />
 ```
 
@@ -161,6 +163,7 @@ Native view responsibilities (per platform, matching current apps):
 - Touch text selection (both platforms keep their existing native implementations).
 - Scroll-to-bottom on output/keypress (engine behavior; respect autoScroll setting via prop later).
 - Cursor row (iOS): `onCaretChange` fires with the top edge of the cursor row (`y - height` of Ghostty v1.3.1 `imePoint`, whose `y` is the cell's bottom) after a draw when its whole-point value changed, and once when the view is attached to the host (`GhosttyTerminalView.reportCaretIfNeeded`). The terminal screen slides the view by it with the keyboard (`docs/specs/terminal-screen.md` §2 "Keyboard: the terminal slides"); the view's own size, and so the grid, does not change with the keyboard. Declared in the iOS module's `Events(...)` and typed in `GhostexTerminalViewProps`; the Android view declares none and JS does not pass the prop there.
+- Pane focus (iOS): `paneFocus` sets the Ghostty surface's focus for a terminal in a pane, `true` for the active pane (Ghostty draws its cursor filled) and `false` for the other (hollow), whichever view holds the keyboard; a pause takes the focus as before and resuming gives the pane's back. Left out (one terminal on screen) the surface's focus follows the first responder as before (`GhosttyTerminalView.paneFocus`, `GhostexTerminalHostView.setPaneFocus`). JS passes it only on iOS and only with two panes.
 
 ### Keyboard accessory: the Befehlspad on iOS, the "2 rows of keys" bar on Android
 
@@ -169,6 +172,16 @@ On iOS the floating pad (`components/terminal/CommandPad.tsx`, state in `useComm
 Both renderers use the same input machine (`terminalKeyInput.ts`, wired to native events, platform haptics and the key haptics setting by `useTerminalKeyInput.ts`), extracted from the key bar. Modifier latching and native sync, repeat timers, custom text actions and agent sequences live there; the bar, pad and layers keep their rendering and gestures. Text actions, sequences and Paste spend one-shot modifiers in both the rendered state and the native keyboard while keeping locks, so the following software-keyboard character cannot inherit a spent modifier.
 
 Rendered in **RN** (the rows in `components/terminal/TerminalKeyBar.tsx` and `CommandPadLayer.tsx`), not a UIKit inputAccessoryView, which keeps it cross-platform. On iOS the pad's text editor stands in `KeyBarDock`, which moves with the keyboard (`useKeyboardMetrics`: a layout animation approximating the keyboard's measured motion (spring on show, ease-out on hide; `keyboardMotion.ts`; Fabric has no keyboard curve) and at once with Reduce Motion on) instead of appearing at once; on Android the key bar stays in the layout flow. Discrete keys go through `sendKey` (low rate, bridge OK). Layout/behavior of the rows per `docs/specs/terminal-screen.md` §2: default rows [Esc, Shift, NEWLN(Ctrl-J), Home, ↑, End, PGUP] / [Tab, Ctrl, Alt, ←, ↓, →, PGDN], one-shot modifier latching, repeat-on-hold (350ms then 50ms) for arrows/home/end/page keys.
+
+## Two panes (iPhone Duo inner display, `src/panes/`)
+
+Two agent sessions on the terminal screen at once; behaviour per `docs/specs/terminal-screen.md` §7. This build has the session pane type only.
+
+- **When.** Only where the window has the fold's divisions (the Duo's inner display; read from `BarLayout.divisions`, so the window decides, not the screen), on iOS, with an agent session (attach tab) selected and shown as a terminal. Folded, on other iPhones, on Android, in the chat view and for a shell tab the screen is unchanged: one content area, and the stored layout waits. Side by side (`sideBySide`) when wider than tall and in the laptop pose, one above the other (`stacked`) otherwise.
+- **Selection is the active pane.** The pane tapped last holds the terminal store's `selectedSessionKey`, so the keyboard, the pad, the text editor, Upload and the menus reach it through their existing paths. The keyboard follows the active pane however it changes, and goes to the terminal left alone on screen when the active pane or the selected tab closes: `TerminalScreen` hands it to that terminal (`focusTerminal`) once it is open, while the keyboard is up and the text editor closed. The other pane's session is `paneSessionKey` in `src/terminal/sessions.ts`: the warm-session policy never evicts it (nor the selected one), closing the selected tab hands it the selection, and foreground restore attaches the selected terminal first, then it. A pick in the chooser marks the session on screen as `paneSessionKey` before it selects, so the eviction the pick may cause never closes it; `usePaneHost` sets the key again on every selection change. `zmxDisplay.ts` counts both as visible (each announces its own grid; neither is pinned to the off-screen width) and `sessionOnScreen` checks both.
+- **Modules.** `layout.ts` reads and writes the stored layout (`panes.layout.v1` in AsyncStorage, exactly `pane-layout.schema.json` v1; anything else is discarded and one pane is used), `divider.ts` clamps the divider to 25-75 %, `geometry.ts` places the two cards, the divider handle and the title bars and applies the keyboard rules (nothing of them is stored) and, half folded like a book (an active division down the window, from `BarLayout.divisions`), keeps the handle, the title bars and the active pane's queued-prompts pill off the fold without moving the cards, `resolve.ts` decides what each slot shows from the stored layout, the chooser, the panes that came along when the window turned and the selection, `store.ts` keeps the layouts, the pane tapped last and the panes last on screen, `usePaneHost.ts` keeps it in step with the terminal store, `PaneHost.tsx` draws the cards, title bars, divider and swap, `PaneContentView.tsx`, `SessionPane.tsx` and `SessionChooser.tsx` the bodies, and `paneTypes.tsx` lists the pane types this build shows (the chooser and the title menu read it). `initPaneLayouts()` (from `App.tsx`) loads the layouts and ends a pane whose tab closes.
+- **Gestures.** Only a pane's title bar (swap drag) and the divider handle (resize) take a touch; a pane's content never does, so the terminal's own selection, scrolling and pinch stay as they are. A swap changes only the cards' frames; the terminal views keep their place in the view tree and are not mounted again.
+- **Tests.** `bun test src/panes` (layout, divider, geometry, resolver), `src/terminal/panes.rntl.ts` (store and display policy with two terminals) and `src/screens/TerminalScreen.panes.rntl.tsx` (the real screen under `VerticalBarArea`).
 
 ## Ghostex CLI contract
 

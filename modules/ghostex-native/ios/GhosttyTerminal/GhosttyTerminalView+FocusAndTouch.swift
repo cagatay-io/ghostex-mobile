@@ -96,7 +96,8 @@ extension GhosttyTerminalView {
     override func becomeFirstResponder() -> Bool {
         let became = super.becomeFirstResponder()
         if became, let surface = surface?.unsafeCValue {
-            ghostty_surface_set_focus(surface, true)
+            // With two panes the pane's own focus stands (`paneFocus`); with one the keyboard's holder is focused.
+            ghostty_surface_set_focus(surface, paneFocus ?? true)
         }
         return became
     }
@@ -106,7 +107,7 @@ extension GhosttyTerminalView {
         if resigned {
             editMenuFocusHidesKeyboard = false
             if let surface = surface?.unsafeCValue {
-                ghostty_surface_set_focus(surface, false)
+                ghostty_surface_set_focus(surface, paneFocus ?? false)
             }
             invalidateLocalTextInputSession()
             stopKeyRepeat()

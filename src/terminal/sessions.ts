@@ -5,7 +5,7 @@ import { remoteTerminalCommand, remoteShellCommand } from '../remote/commands';
  *   `${machineId}:tab:${uuid}` for plain shells (docs/ARCHITECTURE.md).
  * - Warm-session policy: up to 7 native terminal entries stay alive, fewer when
  *   their scrollback would pass the shared budget (./warmBudget.ts); the least
- *   recently used non-selected entry is evicted via closeTerminal.
+ *   recently used entry that is not on screen (the selected one, the pane beside it) is evicted via closeTerminal.
  * - Attach flow (sessions-drawer.md §5 / terminal-screen.md §6): connect if
  *   needed → openTerminal with the login-shell-wrapped attach command → ~2s
  *   after the entry first opens, refresh the native viewport once.
@@ -138,6 +138,13 @@ type TerminalState = {
   hydrated: boolean;
   tabs: TerminalTab[];
   selectedSessionKey: string | null;
+  /**
+   * The session the second pane shows beside the selected one (the active pane's), while two session panes are on
+   * the terminal screen, and the session beside the chooser from a pick until the pick is selected; null otherwise.
+   * Its terminal is as protected from eviction as the selected one's, and when the selected tab closes it takes over
+   * the selection.
+   */
+  paneSessionKey: string | null;
   /** LRU of warm native entries, most recently used last. */
   warmOrder: string[];
   /** Per-session font size overrides, persisted. */
@@ -160,10 +167,14 @@ type TerminalState = {
   textEditorDraftBySessionKey: Record<string, string>;
 
   hydrate: () => Promise<void>;
-  /** Open (or re-select) an attach tab for a remote Ghostex session. */
+  /**
+   * Open (or re-select) an attach tab for a remote Ghostex session. `select: false` opens it without changing the
+   * selection (a stored pane's session coming back beside the selected one).
+   */
   attachSession: (
     machine: MachineConnectionTarget,
     session: { sessionId: string; projectId?: string; title?: string; agentId?: string },
+    options?: { select?: boolean },
   ) => Promise<string>;
   /**
    * Open (or re-select) a session's tab for its Chat View without attaching its terminal. A tab
@@ -177,7 +188,9 @@ type TerminalState = {
   ensureTerminalAttached: (sessionKey: string) => Promise<void>;
   /** Open an interactive login-shell tab on a machine (in `cwd` when given). */
   openShellTab: (machine: MachineConnectionTarget, options?: { title?: string; cwd?: string }) => Promise<string>;
-  selectTab: (sessionKey: string) => void;
+  /** `scrollToBottom: false` keeps the terminal where it is scrolled (a pane already on screen taking the focus). */
+  selectTab: (sessionKey: string, options?: { scrollToBottom?: boolean }) => void;
+  setPaneSessionKey: (sessionKey: string | null) => void;
   /** Close a tab and its warm native entry. */
   closeTab: (sessionKey: string) => Promise<void>;
   /** Kill/sleep actions must also drop the warm surface for that session. */
@@ -229,24 +242,34 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
     set({ warmOrder: get().warmOrder.filter((key) => key !== sessionKey) });
   };
 
-  /** Enforce the warm policy (max 7, within the scrollback budget) by closing least recently used entries. */
+  /**
+   * Enforce the warm policy (max 7, within the scrollback budget) by closing least recently used entries; the
+   * terminals on screen (the selected one and the pane beside it) are never the victim, so with two panes both may
+   * stay above the budget.
+   */
   const evictExcessWarmEntries = async (): Promise<void> => {
     const rowsOf = (key: string): number =>
       warmScrollbackRows.get(key) ?? useSettingsStore.getState().settings.scrollbackRows;
     while (warmPoolOverBudget(get().warmOrder.map(rowsOf), MAX_WARM_SESSIONS)) {
-      const { warmOrder, selectedSessionKey } = get();
-      const victim = warmOrder.find((key) => key !== selectedSessionKey) ?? warmOrder[0];
+      const { warmOrder, selectedSessionKey, paneSessionKey } = get();
+      const offScreen = warmOrder.find((key) => key !== selectedSessionKey && key !== paneSessionKey);
+      // Only the two terminals on screen are left: like a single one (warmBudget.ts), neither is closed to make room.
+      if (offScreen === undefined && paneSessionKey !== null) break;
+      const victim = offScreen ?? warmOrder[0];
       await get().closeTab(victim);
     }
   };
 
   const removeTab = (sessionKey: string): void => {
     const tabs = get().tabs.filter((tab) => tab.sessionKey !== sessionKey);
-    let selectedSessionKey = get().selectedSessionKey;
+    let { selectedSessionKey, paneSessionKey } = get();
+    if (paneSessionKey === sessionKey) paneSessionKey = null;
     if (selectedSessionKey === sessionKey) {
-      selectedSessionKey = tabs.length > 0 ? tabs[tabs.length - 1].sessionKey : null;
+      // The pane beside the closed one stays on screen and takes the selection; otherwise the last tab, as before.
+      selectedSessionKey = paneSessionKey ?? (tabs.length > 0 ? tabs[tabs.length - 1].sessionKey : null);
+      paneSessionKey = null;
     }
-    set({ tabs, selectedSessionKey });
+    set({ tabs, selectedSessionKey, paneSessionKey });
   };
 
   const patchTab = (sessionKey: string, patch: Partial<TerminalTab>): void => {
@@ -261,9 +284,14 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
     return useSettingsStore.getState().settings.fontSize;
   };
 
-  const openTab = (machine: MachineConnectionTarget, tab: TerminalTab, command: string | null): Promise<string> =>
+  const openTab = (
+    machine: MachineConnectionTarget,
+    tab: TerminalTab,
+    command: string | null,
+    select = true,
+  ): Promise<string> =>
     trackTabOpen(tab.sessionKey, async () => {
-      set({ tabs: [...get().tabs, tab], selectedSessionKey: tab.sessionKey });
+      set({ tabs: [...get().tabs, tab], selectedSessionKey: select ? tab.sessionKey : get().selectedSessionKey });
       touchWarm(tab.sessionKey);
       await evictExcessWarmEntries();
       let connected = false;
@@ -301,6 +329,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
     hydrated: false,
     tabs: [],
     selectedSessionKey: null,
+    paneSessionKey: null,
     warmOrder: [],
     fontSizeBySessionKey: {},
     sessionViewModeBySessionKey: {},
@@ -343,7 +372,8 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
       set({ hydrated: true, fontSizeBySessionKey, sessionViewModeBySessionKey });
     },
 
-    attachSession: async (machine, session) => {
+    attachSession: async (machine, session, options) => {
+      const select = options?.select ?? true;
       const sessionKey = attachSessionKey(machine.id, session.sessionId);
       const pending = tabOpenRequests.get(sessionKey);
       if (pending) await pending;
@@ -362,7 +392,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
         ) {
           patchTab(sessionKey, { title: session.title });
         }
-        set({ selectedSessionKey: sessionKey });
+        if (select) set({ selectedSessionKey: sessionKey });
         touchWarm(sessionKey);
         await ensureConnected(machine, { verify: true });
         const opening = tabOpenRequests.get(sessionKey);
@@ -388,7 +418,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
         state: 'opening',
       };
       const command = attachCommand(session.sessionId, session.projectId);
-      return openTab(machine, tab, command);
+      return openTab(machine, tab, command, select);
     },
 
     /**
@@ -448,14 +478,19 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
       return openTab(machine, tab, null);
     },
 
-    selectTab: (sessionKey) => {
+    selectTab: (sessionKey, options) => {
       if (!get().tabs.some((tab) => tab.sessionKey === sessionKey)) return;
       set({ selectedSessionKey: sessionKey });
       touchWarm(sessionKey);
-      // Auto scroll: land at the live bottom when returning to a warm tab.
-      if (useSettingsStore.getState().settings.autoScroll) {
+      // Auto scroll: land at the live bottom when returning to a warm tab. A pane that was on screen all along is
+      // not returned to: it keeps the place its reader scrolled it to.
+      if (useSettingsStore.getState().settings.autoScroll && options?.scrollToBottom !== false) {
         void GhostexNative.scrollToBottom(sessionKey).catch(() => undefined);
       }
+    },
+
+    setPaneSessionKey: (paneSessionKey) => {
+      if (get().paneSessionKey !== paneSessionKey) set({ paneSessionKey });
     },
 
     closeTab: async (sessionKey) => {
@@ -597,16 +632,17 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
 
 const restoring = new Map<string, Promise<void>>();
 
-/** Reattach serially, selected first, without respawning ordinary shell processes. */
+/** Reattach serially, selected first, then the pane beside it, without respawning ordinary shell processes. */
 export function restoreAttachTabs(machineId: string): Promise<void> {
   const existing = restoring.get(machineId);
   if (existing) return existing;
   const request = (async () => {
     const store = useTerminalStore.getState();
     const tabs = store.tabs.filter((tab) => tab.machineId === machineId && tab.kind === 'attach');
-    tabs.sort(
-      (a, b) => Number(b.sessionKey === store.selectedSessionKey) - Number(a.sessionKey === store.selectedSessionKey),
-    );
+    // What is on screen first: the selected terminal (2), the pane beside it (1), then the rest in tab order.
+    const rank = (sessionKey: string): number =>
+      sessionKey === store.selectedSessionKey ? 2 : sessionKey === store.paneSessionKey ? 1 : 0;
+    tabs.sort((a, b) => rank(b.sessionKey) - rank(a.sessionKey));
     for (const tab of tabs) {
       if (AppState.currentState === 'background' || AppState.currentState === 'inactive') break;
       const current = useTerminalStore.getState().tabs.find((entry) => entry.sessionKey === tab.sessionKey);
