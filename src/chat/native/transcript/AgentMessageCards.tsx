@@ -112,6 +112,7 @@ const AgentCard = memo(function AgentCard({
   // A message still waiting says why in the same footer, once gxserver has held it a minute.
   const footer = failure.length > 0 ? failure : str(card, 'waitReason');
   const retry = typeof card.retryPromptId === 'string' ? card.retryPromptId : null;
+  const remove = typeof card.removePromptId === 'string' ? card.removePromptId : null;
   const session = obj(card.session);
   const time = str(card, 'time');
   const hairline = theme.ink(theme.light ? 0.08 : 0.05);
@@ -227,6 +228,11 @@ const AgentCard = memo(function AgentCard({
                 <Text style={[styles.small, { color: theme.primary }]}>Remove</Text>
               </Pressable>
             </>
+          ) : null}
+          {remove !== null ? (
+            <Pressable style={styles.action} onPress={() => dispatch({ type: 'removeQueue', promptId: remove })}>
+              <Text style={[styles.small, { color: theme.primary }]}>Remove</Text>
+            </Pressable>
           ) : null}
         </View>
       ) : null}

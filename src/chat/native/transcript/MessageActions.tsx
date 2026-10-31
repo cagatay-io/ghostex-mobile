@@ -138,7 +138,9 @@ export function DeliveryIndicator({ message }: { message: ProjectedMessage }) {
   const { dispatch, main, theme } = useTranscriptEnv();
   const flags = useTranscriptFlags();
   const delivery = message.startupDelivery;
-  const waiting = delivery !== undefined && delivery !== null && delivery.state !== 'failed';
+  // An unconfirmed send is no longer waiting on anything: its line says so, with no spinner (desktop: startup_delivery.rs).
+  const waiting =
+    delivery !== undefined && delivery !== null && delivery.state !== 'failed' && delivery.state !== 'unconfirmed';
   const queued = message.queued === true && (delivery === undefined || delivery === null);
   if (waiting) {
     return (

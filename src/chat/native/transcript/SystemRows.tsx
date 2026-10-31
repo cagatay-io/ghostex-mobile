@@ -10,7 +10,7 @@ import { memo, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { ProjectedMessage } from '../../rust/document';
-import { useNativeChatUi, useTranscriptEnv } from './context';
+import { useNativeChatUi, useTranscriptEnv, useTranscriptFlags } from './context';
 import { DisclosureHeading, LaneMarker } from './Disclosure';
 import { Glyph, type GlyphName } from './icons';
 import { arr, obj, str, type JsonRecord } from './json';
@@ -370,12 +370,16 @@ function CollapsedSuppressed({ id, suppressed }: { id: string; suppressed: JsonR
  */
 export function StartupDelivery({ message, waitingLine = true }: { message: ProjectedMessage; waitingLine?: boolean }) {
   const { theme, dispatch } = useTranscriptEnv();
+  const { canRemoveQueued } = useTranscriptFlags();
   const delivery = message.startupDelivery;
   if (delivery === undefined || delivery === null) return null;
   const failed = delivery.state === 'failed';
   // Why gxserver still holds it, once it has waited about a minute (desktop: startup_delivery.rs).
   const reason = delivery.waitReason ?? '';
   if (!failed && !waitingLine && reason.length === 0) return null;
+  // A held row that says why can go from here too, and a send that left the queue unconfirmed has only this line (desktop: startup_delivery.rs).
+  const removable =
+    delivery.state === 'unconfirmed' || (delivery.state === 'queued' && reason.length > 0 && canRemoveQueued);
   const status = failed
     ? delivery.errorMessage?.length
       ? delivery.errorMessage
@@ -407,6 +411,17 @@ export function StartupDelivery({ message, waitingLine = true }: { message: Proj
             <Text style={[styles.small, { color: theme.primary }]}>Remove</Text>
           </Pressable>
         </>
+      ) : null}
+      {removable ? (
+        <Pressable
+          style={({ pressed }) => [
+            styles.deliveryAction,
+            { backgroundColor: pressed ? theme.neutralFillPressed : theme.neutralFill },
+          ]}
+          onPress={() => dispatch({ type: 'removeQueue', promptId: delivery.promptId })}
+        >
+          <Text style={[styles.small, { color: theme.primary }]}>Remove</Text>
+        </Pressable>
       ) : null}
     </View>
   );

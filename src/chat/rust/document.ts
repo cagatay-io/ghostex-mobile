@@ -260,8 +260,9 @@ export type ProjectedMessage = {
   /** A prompt sitting in the agent CLI's own queue, not handed to the model yet. */
   queued?: boolean;
   /** A client echo of an accepted send still waiting for the terminal: `{promptId, state:
-   * 'queued' | 'sending' | 'reconnecting' | 'failed', errorMessage?, waitReason?}`; `waitReason` says why
-   * gxserver still holds it once it has waited about a minute. Desktop: `startup_delivery.rs`. */
+   * 'queued' | 'sending' | 'reconnecting' | 'failed' | 'unconfirmed', errorMessage?, waitReason?}`; `waitReason`
+   * says why gxserver still holds it once it has waited about a minute, or, when `unconfirmed`, that it left the
+   * queue and the conversation doesn't show it. Desktop: `startup_delivery.rs`. */
   startupDelivery?: { promptId: string; state: string; errorMessage?: string; waitReason?: string };
   /** Markdown body with the native marks (code block headers, alerts, typed file paths).
    * Desktop: `rich_markdown.rs`, `markdown_style.rs`, `code_block.rs`. */

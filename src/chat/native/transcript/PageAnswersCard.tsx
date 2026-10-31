@@ -11,7 +11,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 
 import type { ProjectedMessage } from '../../rust/document';
 import { AnswerAside, AskCard, AskHead, PlainAnswer, ReceiptRow } from '../cards/askCard';
-import { useTranscriptEnv } from './context';
+import { useTranscriptEnv, useTranscriptFlags } from './context';
 import { SingleLineTile } from './singleLineCard';
 import { arr, num, obj, str } from './json';
 
@@ -20,11 +20,21 @@ export { answeredColor } from '../cards/askCard';
 
 export function PageAnswersCard({ message }: { message: ProjectedMessage }) {
   const { theme, dispatch } = useTranscriptEnv();
+  const { canRemoveQueued } = useTranscriptFlags();
   // Answers on their way to the agent (gx-chat-core `session/answer_echoes.rs`): the card shows at
   // once with a spinner at its bottom left, or why they could not be delivered with Retry and Remove.
   const delivery = message.startupDelivery ?? null;
   const failed = delivery?.state === 'failed';
+  // Left the queue and the conversation never showed it: the fact and Remove, no spinner (CDXC:SessionChat 2026-10-31 in packages/gx-chat-core/src/session/startup_sends.rs).
+  const unconfirmed = delivery?.state === 'unconfirmed';
   const promptId = delivery?.promptId ?? '';
+  const removable =
+    promptId.length > 0 && (unconfirmed || (delivery?.state === 'queued' && canRemoveQueued));
+  const removeAction = (
+    <Pressable hitSlop={6} accessibilityRole="button" onPress={() => dispatch({ type: 'removeQueue', promptId })}>
+      <Text style={[styles.deliveryAction, { color: theme.primary }]}>Remove</Text>
+    </Pressable>
+  );
   const errorColor = theme.light ? '#b91c1c' : '#fb7185';
   const answers = obj(message.pageAnswers);
   const more = num(answers, 'more') ?? 0;
@@ -59,7 +69,13 @@ export function PageAnswersCard({ message }: { message: ProjectedMessage }) {
           );
         })}
         {more > 0 ? <Text style={[styles.more, { color: theme.muted }]}>and {more} more</Text> : null}
-        {delivery !== null && !failed ? (
+        {unconfirmed ? (
+          <View style={styles.delivery} accessibilityRole="text">
+            <Text style={[styles.deliveryText, { color: theme.muted }]}>{delivery?.waitReason ?? ''}</Text>
+            {removable ? removeAction : null}
+          </View>
+        ) : null}
+        {delivery !== null && !failed && !unconfirmed ? (
           <View style={styles.delivery} accessibilityRole="progressbar">
             <ActivityIndicator size={12} color={theme.muted} />
             <Text style={[styles.deliveryText, { color: theme.muted }]}>
@@ -71,6 +87,7 @@ export function PageAnswersCard({ message }: { message: ProjectedMessage }) {
                   ? "Reconnecting to Ghostex… your answers go out as soon as it's back."
                   : 'Sending to the agent…'}
             </Text>
+            {removable ? removeAction : null}
           </View>
         ) : null}
         {failed ? (
@@ -89,13 +106,7 @@ export function PageAnswersCard({ message }: { message: ProjectedMessage }) {
                 >
                   <Text style={[styles.deliveryAction, { color: theme.primary }]}>Retry</Text>
                 </Pressable>
-                <Pressable
-                  hitSlop={6}
-                  accessibilityRole="button"
-                  onPress={() => dispatch({ type: 'removeQueue', promptId })}
-                >
-                  <Text style={[styles.deliveryAction, { color: theme.primary }]}>Remove</Text>
-                </Pressable>
+                {removeAction}
               </>
             ) : null}
           </View>
