@@ -82,7 +82,7 @@ export function PageAnswersCard({ message }: { message: ProjectedMessage }) {
               {delivery.state === 'queued'
                 ? delivery.waitReason?.length
                   ? delivery.waitReason
-                  : 'Waiting for the agent to be free…'
+                  : 'Waiting for the agent to finish its turn…'
                 : delivery.state === 'reconnecting'
                   ? "Reconnecting to Ghostex… your answers go out as soon as it's back."
                   : 'Sending to the agent…'}

@@ -255,7 +255,7 @@ export function QuestionFormCard({ id, source }: { id: string; source: string })
     phase === 'answered'
       ? 'Sent to the agent.'
       : phase === 'queued'
-        ? "Queued: it goes to the agent once it's ready."
+        ? 'Queued: it goes to the agent after this turn ends.'
         : phase === 'sending'
           ? form.reconnecting === true
             ? "Reconnecting to Ghostex… your answers go out as soon as it's back."
