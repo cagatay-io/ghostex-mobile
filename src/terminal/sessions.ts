@@ -21,7 +21,7 @@ import { ensureConnected } from '../inventory/client';
 import type { MachineConnectionTarget } from '../machines/credentials';
 import { useMachinesStore } from '../machines/store';
 import { useSettingsStore, type PreferredAgentInterface } from '../settings/store';
-import { WARM_SCROLLBACK_ROW_BUDGET, warmPoolOverBudget } from './warmBudget';
+import { warmPoolOverBudget } from './warmBudget';
 import { forgetAttach, noteAttachOpened } from './zmxDisplay';
 
 const tabOpenRequests = new Map<string, Promise<unknown>>();
@@ -225,8 +225,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
   const evictExcessWarmEntries = async (): Promise<void> => {
     const rowsOf = (key: string): number =>
       warmScrollbackRows.get(key) ?? useSettingsStore.getState().settings.scrollbackRows;
-    const rowBudget = Platform.OS === 'android' ? WARM_SCROLLBACK_ROW_BUDGET : Number.POSITIVE_INFINITY;
-    while (warmPoolOverBudget(get().warmOrder.map(rowsOf), MAX_WARM_SESSIONS, rowBudget)) {
+    while (warmPoolOverBudget(get().warmOrder.map(rowsOf), MAX_WARM_SESSIONS)) {
       const { warmOrder, selectedSessionKey } = get();
       const victim = warmOrder.find((key) => key !== selectedSessionKey) ?? warmOrder[0];
       await get().closeTab(victim);

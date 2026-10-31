@@ -66,8 +66,9 @@ extension Ghostty {
             # Disable audible bell (the app surfaces bells itself)
             audible-bell = false
 
-            # Limit scrollback to prevent unbounded memory growth
-            scrollback-limit = \(scrollbackRows)
+            # Scrollback in bytes (this libghostty has no row limit): the
+            # setting's rows at about 2 KiB each, see ScrollbackLimit.swift.
+            scrollback-limit = \(ScrollbackLimit.bytes(forRows: scrollbackRows))
 
             # Faster scroll speed for iOS touch
             mouse-scroll-multiplier = 3

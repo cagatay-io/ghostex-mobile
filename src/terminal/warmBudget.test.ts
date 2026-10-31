@@ -54,11 +54,6 @@ describe('the warm terminal scrollback budget', () => {
     assert.equal(warmPoolOverBudget([], MAX), false);
   });
 
-  test('without a row budget (iOS) only the seven-terminal cap applies', () => {
-    assert.equal(warmPoolOverBudget(Array(7).fill(20_000), MAX, Number.POSITIVE_INFINITY), false);
-    assert.equal(warmPoolOverBudget(Array(8).fill(20_000), MAX, Number.POSITIVE_INFINITY), true);
-  });
-
   test('the seven-terminal cap still applies to small scrollback', () => {
     assert.equal(warmPoolOverBudget(Array(8).fill(500), MAX), true);
     assert.equal(warmPoolOverBudget(Array(7).fill(500), MAX), false);

@@ -7,7 +7,8 @@
  * 20,000-row maximum held 303 MB measured on a JVM; at the 2,000-row default they hold 30 MB.
  * 28,000 rows (about 62 MB) keeps all seven warm up to 4,000 rows each, so the default changes
  * nothing; a bigger setting keeps fewer terminals warm instead of shortening anyone's scrollback.
- * Android only: iOS's Ghostty reads the setting as a byte limit (`scrollback-limit`) in native memory.
+ * iOS shares the budget: its Ghostty turns each row into about 2 KiB of scrollback limit
+ * (modules/ghostex-native/ios/GhosttyTerminal/ScrollbackLimit.swift), so a row costs about the same there.
  * SEE-ALSO: MAX_WARM_SESSIONS and evictExcessWarmEntries in ./sessions.ts, TerminalBuffer.resize in
  * modules/ghostex-native/android/src/main/java/com/termux/terminal/TerminalBuffer.java.
  */
@@ -17,16 +18,12 @@ export const WARM_SCROLLBACK_ROW_BUDGET = 28_000;
  * Whether the warm terminals (scrollback rows each was opened with) hold more than the phone can
  * keep. A single terminal always fits: the one on screen is never closed to make room.
  */
-export function warmPoolOverBudget(
-  rows: readonly number[],
-  maxEntries: number,
-  rowBudget: number = WARM_SCROLLBACK_ROW_BUDGET,
-): boolean {
+export function warmPoolOverBudget(rows: readonly number[], maxEntries: number): boolean {
   if (rows.length <= 1) return false;
   if (rows.length > maxEntries) return true;
   let total = 0;
   for (const count of rows) total += count;
-  return total > rowBudget;
+  return total > WARM_SCROLLBACK_ROW_BUDGET;
 }
 
 /** How many terminals stay warm when each is opened with `scrollbackRows`. */
