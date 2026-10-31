@@ -38,6 +38,7 @@ export function QueueList({ document, dispatch }: { document: ChatDocument; disp
           canDrag={canDrag}
           blocked={blocked}
           capabilities={capabilities}
+          onCard={document.sendFailureCardPromptId === prompt.id}
           onMove={(to) => {
             const target = prompts[to];
             if (target !== undefined && to !== index)
@@ -62,6 +63,7 @@ function QueueRow({
   canDrag,
   blocked,
   capabilities,
+  onCard,
   onMove,
   dispatch,
 }: {
@@ -71,6 +73,8 @@ function QueueRow({
   canDrag: boolean;
   blocked: boolean;
   capabilities: ChatDocument['queue']['capabilities'];
+  /** The card that stands for this failed row is showing, with its own Retry. */
+  onCard: boolean;
   onMove: (to: number) => void;
   dispatch: (action: UserAction) => void;
 }) {
@@ -109,7 +113,7 @@ function QueueRow({
       glyph: 'refresh',
       label: 'Retry',
       action: { type: 'retryQueue', promptId: prompt.id },
-      show: capabilities.canRetry && failed,
+      show: capabilities.canRetry && failed && !onCard,
       disabled: blocked,
     },
     {

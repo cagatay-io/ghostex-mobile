@@ -511,6 +511,8 @@ export type ChatDocument = {
   asyncQuestions: AsyncQuestions;
   /** Whether the terminal notice card shows. Desktop: `notice.rs`. */
   noticeVisible: boolean;
+  /** The failed queue row the visible card stands for, whose own line then gives way to the card. */
+  sendFailureCardPromptId?: string | null;
   noticeError?: string | null;
   /** The last refused operation's message. Desktop: `composer_not_ready.rs`, `composer.rs`. */
   operationError?: string | null;

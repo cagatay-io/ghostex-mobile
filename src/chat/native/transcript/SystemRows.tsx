@@ -370,17 +370,21 @@ function CollapsedSuppressed({ id, suppressed }: { id: string; suppressed: JsonR
  */
 export function StartupDelivery({ message, waitingLine = true }: { message: ProjectedMessage; waitingLine?: boolean }) {
   const { theme, dispatch } = useTranscriptEnv();
-  const { canRemoveQueued } = useTranscriptFlags();
+  const { canRemoveQueued, sendFailureCardPromptId } = useTranscriptFlags();
   const delivery = message.startupDelivery;
   if (delivery === undefined || delivery === null) return null;
   const failed = delivery.state === 'failed';
+  // The card that stands for this row has the reason and Retry (desktop: startup_delivery.rs).
+  const onCard = failed && delivery.promptId === sendFailureCardPromptId;
   // Why gxserver still holds it, once it has waited about a minute (desktop: startup_delivery.rs).
   const reason = delivery.waitReason ?? '';
   if (!failed && !waitingLine && reason.length === 0) return null;
   // A held row that says why can go from here too, and a send that left the queue unconfirmed has only this line (desktop: startup_delivery.rs).
   const removable =
     delivery.state === 'unconfirmed' || (delivery.state === 'queued' && reason.length > 0 && canRemoveQueued);
-  const status = failed
+  const status = onCard
+    ? 'Not sent'
+    : failed
     ? delivery.errorMessage?.length
       ? delivery.errorMessage
       : 'Message could not be delivered.'
@@ -392,15 +396,17 @@ export function StartupDelivery({ message, waitingLine = true }: { message: Proj
       <Text style={[styles.small, { color: theme.muted }]}>{status}</Text>
       {failed ? (
         <>
-          <Pressable
-            style={({ pressed }) => [
-              styles.deliveryAction,
-              { backgroundColor: pressed ? theme.neutralFillPressed : theme.neutralFill },
-            ]}
-            onPress={() => dispatch({ type: 'retryQueue', promptId: delivery.promptId })}
-          >
-            <Text style={[styles.small, { color: theme.primary }]}>Retry</Text>
-          </Pressable>
+          {onCard ? null : (
+            <Pressable
+              style={({ pressed }) => [
+                styles.deliveryAction,
+                { backgroundColor: pressed ? theme.neutralFillPressed : theme.neutralFill },
+              ]}
+              onPress={() => dispatch({ type: 'retryQueue', promptId: delivery.promptId })}
+            >
+              <Text style={[styles.small, { color: theme.primary }]}>Retry</Text>
+            </Pressable>
+          )}
           <Pressable
             style={({ pressed }) => [
               styles.deliveryAction,

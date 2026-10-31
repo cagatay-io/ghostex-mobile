@@ -105,6 +105,8 @@ export type MobileSummaryWireSession = {
   workingStartedAt?: string;
   /** Why the last model change failed; absent when it did not. */
   modelSelectionFailure?: string;
+  /** A chat message that could not be sent or waits on a closed session: the same red dot. */
+  sendFailure?: string;
   /** When a snoozed session wakes; absent when it is not snoozed. */
   snoozedUntil?: string;
   actions?: Partial<GhostexSessionActions>;
@@ -1299,7 +1301,8 @@ export function parseSession(value: unknown): GhostexSession | null {
     programStatusLine: programStatusLine(value.programStatus),
     programStatusFailed: programStatusFailed(value.programStatus),
     workingStartedAt: trimmedValue(value, 'workingStartedAt'),
-    modelSelectionFailed: trimmedValue(value, 'modelSelectionFailure').length > 0,
+    modelSelectionFailed:
+      trimmedValue(value, 'modelSelectionFailure').length > 0 || trimmedValue(value, 'sendFailure').length > 0,
     snoozedUntil: trimmedValue(value, 'snoozedUntil'),
     isSleeping: legacySleeping && !isLive,
     isLive,

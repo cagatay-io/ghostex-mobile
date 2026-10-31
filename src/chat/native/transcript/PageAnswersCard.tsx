@@ -20,7 +20,7 @@ export { answeredColor } from '../cards/askCard';
 
 export function PageAnswersCard({ message }: { message: ProjectedMessage }) {
   const { theme, dispatch } = useTranscriptEnv();
-  const { canRemoveQueued } = useTranscriptFlags();
+  const { canRemoveQueued, sendFailureCardPromptId } = useTranscriptFlags();
   // Answers on their way to the agent (gx-chat-core `session/answer_echoes.rs`): the card shows at
   // once with a spinner at its bottom left, or why they could not be delivered with Retry and Remove.
   const delivery = message.startupDelivery ?? null;
@@ -99,13 +99,15 @@ export function PageAnswersCard({ message }: { message: ProjectedMessage }) {
             </Text>
             {promptId.length > 0 ? (
               <>
-                <Pressable
-                  hitSlop={6}
-                  accessibilityRole="button"
-                  onPress={() => dispatch({ type: 'retryQueue', promptId })}
-                >
-                  <Text style={[styles.deliveryAction, { color: theme.primary }]}>Retry</Text>
-                </Pressable>
+                {promptId === sendFailureCardPromptId ? null : (
+                  <Pressable
+                    hitSlop={6}
+                    accessibilityRole="button"
+                    onPress={() => dispatch({ type: 'retryQueue', promptId })}
+                  >
+                    <Text style={[styles.deliveryAction, { color: theme.primary }]}>Retry</Text>
+                  </Pressable>
+                )}
                 {removeAction}
               </>
             ) : null}

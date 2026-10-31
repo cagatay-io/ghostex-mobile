@@ -44,6 +44,8 @@ const POLL_ERROR_RETRY_MS = 2_000;
 const NO_FINGERPRINT_POLL_DELAY_MS = 3_000;
 /** The desktop chat's own request timeout (`native_chat/rpc.rs`), plus room for the SSH exec. */
 const RPC_EXEC_TIMEOUT_MS = 75_000;
+/** gxserver answers a send once it has typed it, up to five minutes per attempt (desktop `native_chat/rpc.rs`). */
+const SEND_RPC_TIMEOUT_MS = 16 * 60_000;
 /** Room above a long poll's `waitMs` for the SSH exec itself. */
 const LONG_POLL_EXEC_MARGIN_MS = 25_000;
 
@@ -114,7 +116,7 @@ export async function sessionChatRpc(
   machine: MachineConnectionTarget,
   method: string,
   params: unknown,
-  timeoutMs = RPC_EXEC_TIMEOUT_MS,
+  timeoutMs = method === 'sendSessionChatMessage' ? SEND_RPC_TIMEOUT_MS : RPC_EXEC_TIMEOUT_MS,
 ): Promise<RpcAnswer> {
   if (!METHOD_PATTERN.test(method)) {
     return { error: { code: null, message: `Invalid chat request method: ${method}`, endpoint: `/api/${method}` } };
