@@ -1,7 +1,8 @@
 /**
  * The app-level source of agent events: it reads every enabled computer's notification
- * feed while the app can run, on every screen, not only on the Sessions screen (whose inventory poll
- * stops when it loses focus). An unread row is a new event when its id was not there before (the host
+ * feed while the app can run, on every screen. The computers' session summaries have their own refresh,
+ * app-wide while the app is in the foreground and separate from this source (`src/inventory/summaryRefresh.ts`,
+ * started in `src/app/lifecycle.ts`). An unread row is a new event when its id was not there before (the host
  * writes a new row for a session's new attention and drops its older unread one) or when its kind
  * changed since the last read: the host turns a session's unread `finished` row into `needsInput` in
  * place when the finished turn left open questions (`mark_unread_session_notification_needs_input`,

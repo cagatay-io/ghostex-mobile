@@ -5,6 +5,8 @@
  * Open and Copy Full Path, and for files Share… and, in a browser opened from an agent session, Add to Session
  * Context. Markdown and HTML open rendered in the Docs viewer, other text as source, and pictures, binary and
  * large files by name and size in that same viewer. Nothing here changes the project.
+ * Half folded like a laptop the list ends above the fold, so no row or section title is drawn on the knick, at rest or
+ * while scrolling: it keeps the fold gap of the app's lists (`components/common/foldGap.tsx`).
  *
  * CDXC:Docs 2026-09-24 DECISION:
  * User: "i want also docs list in the app for folders and the docs and mds in them. implement this
@@ -35,9 +37,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { FoldListFrame } from '../components/common/foldGap';
 import HeaderButton from '../components/common/HeaderButton';
 import { measureInWindow } from '../components/common/measureInWindow';
 import NoticeToast, { type Notice } from '../components/common/NoticeToast';
+import { useLaptopFold } from '../components/common/verticalBar/laptopFold';
 import { useStackScreenRail } from '../components/common/verticalBar/stackRail';
 import { useHeaderMenu, useScrollToBarEdges } from '../components/common/verticalBar/VerticalBarArea';
 import ContextMenu, { type ContextMenuItem, type MenuAnchor } from '../components/sessions/ContextMenu';
@@ -142,6 +146,7 @@ export default function DocsScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   // The list reaches under the iPhone Duo's side bar, its rows keep clear of it.
   const listEdges = useScrollToBarEdges(styles.listContent);
+  const fold = useLaptopFold();
   const { machineId, projectId, projectName, projectPath, session } = route.params;
   const rpc = useProjectDocsRpc(machineId);
   const cacheKey = `${machineId}\u0000${projectId}`;
@@ -678,29 +683,31 @@ export default function DocsScreen({ navigation, route }: Props) {
           </View>
         </View>
       ) : null}
-      <FlatList
-        data={rows}
-        keyExtractor={(row) => row.key}
-        renderItem={renderRow}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        style={listEdges.scroll}
-        contentContainerStyle={[
-          styles.listContent,
-          styles.column,
-          listEdges.content,
-          { paddingBottom: insets.bottom + 24 },
-        ]}
-        refreshControl={
-          <RefreshControl
-            refreshing={rootLoading && rootEntries !== null}
-            onRefresh={refresh}
-            tintColor={GhostexPalette.MUTED}
-          />
-        }
-        initialNumToRender={30}
-        windowSize={11}
-      />
+      <FoldListFrame fold={fold}>
+        <FlatList
+          data={rows}
+          keyExtractor={(row) => row.key}
+          renderItem={renderRow}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          style={listEdges.scroll}
+          contentContainerStyle={[
+            styles.listContent,
+            styles.column,
+            listEdges.content,
+            { paddingBottom: insets.bottom + 24 },
+          ]}
+          refreshControl={
+            <RefreshControl
+              refreshing={rootLoading && rootEntries !== null}
+              onRefresh={refresh}
+              tintColor={GhostexPalette.MUTED}
+            />
+          }
+          initialNumToRender={30}
+          windowSize={11}
+        />
+      </FoldListFrame>
       <ContextMenu
         visible={headerMenu.visible}
         title={DocsCopy.listTitle}

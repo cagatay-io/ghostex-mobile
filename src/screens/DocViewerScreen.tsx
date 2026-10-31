@@ -17,17 +17,23 @@
  * computer's gxserver (`docs/mediaStream.ts`). Opened from Files, its header is the design's preview
  * header: Copy Full Path, Add to Session Context (only when Files was opened from
  * an agent session), Share and Reload. Metadata keeps Reload in the header, Copy and Share below the file name.
+ * Half folded like a laptop the page, with its loading and failure states (Retry), ends 8 pt above the fold, as the
+ * Web Preview's does: the page is the computer's content with controls of its own (links, an HTML page's buttons and
+ * fields, the annotation tool) that the app cannot move off the knick.
  */
 
 import * as Clipboard from 'expo-clipboard';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View, type ViewInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
 
+import { measureInWindow } from '../components/common/measureInWindow';
 import NoticeToast, { type Notice } from '../components/common/NoticeToast';
+import { useLaptopFold } from '../components/common/verticalBar/laptopFold';
+import { foldUpperHalfInset } from '../components/common/verticalBar/layout';
 import { useStackScreenRail } from '../components/common/verticalBar/stackRail';
 import { useScrollToBarEdges, type RailEntry } from '../components/common/verticalBar/VerticalBarArea';
 import { CopyGlyph, PencilGlyph, ShareGlyph } from '../components/sessions/icons';
@@ -83,6 +89,11 @@ export default function DocViewerScreen({ navigation, route }: Props) {
   const [load, setLoad] = useState<LoadState>({ kind: 'loading' });
   const [annotate, setAnnotate] = useState(annotationsEnabled);
   const [notice, setNotice] = useState<Notice | null>(null);
+  // Laptop pose: the content area's bottom edge in the window (a stack screen stands below its header, so it is
+  // measured there), so the page ends above the fold.
+  const fold = useLaptopFold();
+  const areaRef = useRef<ViewInstance | null>(null);
+  const [areaBottom, setAreaBottom] = useState<number | null>(null);
   const noticeCounter = useRef(0);
   const generation = useRef(0);
   const webViewRef = useRef<WebView<object>>(null);
@@ -373,9 +384,17 @@ export default function DocViewerScreen({ navigation, route }: Props) {
     () => (injectAgentation ? agentationInjectionScript() : undefined),
     [injectAgentation],
   );
+  // What the page leaves free above the area's bottom in the laptop pose; 0 elsewhere.
+  const contentInset = areaBottom === null ? 0 : foldUpperHalfInset(fold, areaBottom);
 
   return (
     <View style={[styles.screen, { paddingBottom: insets.bottom }]}>
+      <View
+        ref={areaRef}
+        style={styles.area}
+        onLayout={() => measureInWindow(areaRef, (frame) => setAreaBottom(frame.y + frame.height))}
+      >
+        <View testID="doc-content" style={[styles.area, contentInset > 0 && { marginBottom: contentInset }]}>
       {info !== null ? (
         <ScrollView style={infoEdges.scroll} contentContainerStyle={[styles.infoContent, infoEdges.content]}>
           <View style={styles.info}>
@@ -463,6 +482,8 @@ export default function DocViewerScreen({ navigation, route }: Props) {
       ) : (
         <LoadingSurface message={DocsCopy.readingFile} />
       )}
+        </View>
+      </View>
       <NoticeToast notice={notice} bottom={insets.bottom + 16} />
     </View>
   );
@@ -489,6 +510,7 @@ function LoadingSurface({ message }: { message: string }) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: GhostexPalette.BACKGROUND },
+  area: { flex: 1 },
   webview: { flex: 1, backgroundColor: GhostexPalette.BACKGROUND },
   pressed: { opacity: 0.6 },
   infoContent: { paddingHorizontal: 28, paddingTop: 56, paddingBottom: 32 },

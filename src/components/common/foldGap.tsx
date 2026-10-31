@@ -24,8 +24,9 @@
  * iPhone and in a pane (its screen passes no fold) the frame adds nothing and nothing is measured.
  *
  * Adopting it in a list (done here: Settings pages, the Sessions screen's classic and Unified lists, the work-link
- * picker): wrap the list's scroll view in `<FoldListFrame fold={useLaptopFold()}>`. The frame takes the room the
- * scroll view took (it grows and shrinks as a scroll view does), so the scroll view keeps its own style. This file
+ * picker, the Files browser and the attention list): wrap the list's scroll view in
+ * `<FoldListFrame fold={useLaptopFold()}>`. The frame takes the room the scroll view took (it grows and shrinks as a
+ * scroll view does), so the scroll view keeps its own style. This file
  * takes the fold as an argument and imports no chrome, so a screen that shows a list in a pane passes null.
  */
 

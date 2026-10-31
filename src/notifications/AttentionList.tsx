@@ -4,6 +4,8 @@
  * event as word and glyph; never anything the agent wrote. A tap opens the session and marks the row read on the
  * computer; an account row is only marked read. A long press opens the row's menu at the row (Open Session, Mark as
  * Read/Unread, Clear).
+ * Half folded like a laptop the list ends above the fold, so no row, group title, notice or empty state is drawn on
+ * the knick, at rest or while scrolling: it keeps the fold gap of the app's lists (`components/common/foldGap.tsx`).
  *
  * One component for the full screen (`AttentionListScreen`) and, later, the attention-list pane: the caller decides
  * what opening a session means (`onOpenSession`: navigate to it, or open it in the pane beside).
@@ -14,7 +16,9 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, type Vie
 
 import { AGENT_ICONS } from '../assets/agentIcons.generated';
 import ContextMenu, { type ContextMenuItem, type MenuAnchor } from '../components/sessions/ContextMenu';
+import { FoldListFrame } from '../components/common/foldGap';
 import { measureInWindow } from '../components/common/measureInWindow';
+import { useLaptopFold } from '../components/common/verticalBar/laptopFold';
 import { useScrollToBarEdges } from '../components/common/verticalBar/VerticalBarArea';
 import { agentIconTint, formatLastActive } from '../contract/mobileSummary';
 import { NotificationsCopy } from '../copy';
@@ -178,6 +182,7 @@ export default function AttentionList({ onOpenSession }: { onOpenSession: (targe
   const appearance = useAppearance();
   // The list reaches under the iPhone Duo's side bar, its rows keep clear of it.
   const edges = useScrollToBarEdges(styles.content);
+  const fold = useLaptopFold();
   const { rows, notices, loading, unreachable } = useAttentionRows();
   const [now, setNow] = useState(() => new Date());
   const [menu, setMenu] = useState<{ row: AttentionRow; frame: MenuAnchor } | null>(null);
@@ -300,28 +305,30 @@ export default function AttentionList({ onOpenSession }: { onOpenSession: (targe
 
   return (
     <>
-      <ScrollView
-        style={[styles.scroll, edges.scroll]}
-        contentContainerStyle={[styles.content, edges.content]}
-        refreshControl={<RefreshControl refreshing={pulling} onRefresh={pull} tintColor={appearance.muted} />}
-      >
-        {notices.map((notice) => (
-          <View
-            key={notice.key}
-            accessibilityRole="alert"
-            style={[styles.notice, { backgroundColor: appearance.card }]}
-          >
-            <CloudOffGlyph size={16} color={appearance.muted} />
-            <Text style={[styles.noticeText, { color: appearance.muted }]}>{notice.text}</Text>
-          </View>
-        ))}
-        {failed ? (
-          <Text accessibilityRole="alert" style={styles.failed}>
-            {NotificationsCopy.actionFailed}
-          </Text>
-        ) : null}
-        {body}
-      </ScrollView>
+      <FoldListFrame fold={fold}>
+        <ScrollView
+          style={[styles.scroll, edges.scroll]}
+          contentContainerStyle={[styles.content, edges.content]}
+          refreshControl={<RefreshControl refreshing={pulling} onRefresh={pull} tintColor={appearance.muted} />}
+        >
+          {notices.map((notice) => (
+            <View
+              key={notice.key}
+              accessibilityRole="alert"
+              style={[styles.notice, { backgroundColor: appearance.card }]}
+            >
+              <CloudOffGlyph size={16} color={appearance.muted} />
+              <Text style={[styles.noticeText, { color: appearance.muted }]}>{notice.text}</Text>
+            </View>
+          ))}
+          {failed ? (
+            <Text accessibilityRole="alert" style={styles.failed}>
+              {NotificationsCopy.actionFailed}
+            </Text>
+          ) : null}
+          {body}
+        </ScrollView>
+      </FoldListFrame>
       <ContextMenu
         visible={menu !== null}
         title={menu?.row.who ?? ''}
