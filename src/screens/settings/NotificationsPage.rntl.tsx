@@ -12,6 +12,7 @@ import { Linking, StyleSheet } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { TestInstance } from 'test-renderer';
 
+import { useMachinesStore, type MachineRecord } from '../../machines/store';
 import { useAttentionFeedStore } from '../../notifications/feedStore';
 import type { NotificationSettings } from '../../notifications/settings';
 import { useSettingsStore } from '../../settings/store';
@@ -112,4 +113,55 @@ test.each(['granted', 'undetermined'] as const)('no blocked card while the permi
   await render(<NotificationsPage />);
   expect(screen.queryByText('Blocked in iOS Settings')).toBeNull();
   expect(screen.queryByRole('button', { name: 'Open iOS Settings' })).toBeNull();
+});
+
+describe('the delivery text', () => {
+  const ON: NotificationSettings = { enabled: true, finished: true, waiting: true, error: true, askedAt: ASKED };
+  const computer = (id: string, disabled = false): MachineRecord => ({
+    id,
+    name: id,
+    host: `${id}.local`,
+    username: 'owner',
+    port: 22,
+    savePassword: false,
+    lastConnectedAt: null,
+    ...(disabled ? { disabled: true } : {}),
+  });
+  const RUNNING_ONLY = /nothing arrives until you open Ghostex again/;
+
+  test('with an enabled computer that took the push registration, it says that computer can also notify while Ghostex is closed, promising nothing', async () => {
+    seed(ON, 'granted');
+    useMachinesStore.setState({ machines: [computer('m1')] });
+    useAttentionFeedStore.setState({ pushComputers: ['m1'] });
+    await render(<NotificationsPage />);
+    expect(screen.getByText(/can also notify you while Ghostex is closed/)).toBeTruthy();
+    expect(screen.getByText(/iOS decides when a push arrives, and one can come late or not at all/)).toBeTruthy();
+    expect(screen.queryByText(RUNNING_ONLY)).toBeNull();
+  });
+
+  test('without one, it keeps the text for a running app', async () => {
+    seed(ON, 'granted');
+    useMachinesStore.setState({ machines: [computer('m1')] });
+    useAttentionFeedStore.setState({ pushComputers: [] });
+    await render(<NotificationsPage />);
+    expect(screen.getByText(RUNNING_ONLY)).toBeTruthy();
+    expect(screen.queryByText(/while Ghostex is closed/)).toBeNull();
+  });
+
+  test('a computer that took it but is hidden does not count', async () => {
+    seed(ON, 'granted');
+    useMachinesStore.setState({ machines: [computer('m1'), computer('m2', true)] });
+    useAttentionFeedStore.setState({ pushComputers: ['m2'] });
+    await render(<NotificationsPage />);
+    expect(screen.getByText(RUNNING_ONLY)).toBeTruthy();
+  });
+
+  test('while the stored record that names those computers is still read, it does not say that nothing arrives', async () => {
+    seed(ON, 'granted');
+    useMachinesStore.setState({ machines: [computer('m1')] });
+    useAttentionFeedStore.setState({ pushComputers: null });
+    await render(<NotificationsPage />);
+    expect(screen.queryByText(RUNNING_ONLY)).toBeNull();
+    expect(screen.getByText(/iOS decides when a push arrives, and one can come late or not at all/)).toBeTruthy();
+  });
 });

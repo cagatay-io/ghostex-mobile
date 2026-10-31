@@ -146,4 +146,34 @@ describe('the app-level event source', () => {
     assert.equal(reads, 4);
     assert.deepEqual(fresh, []);
   });
+
+  test('reading a computer again drops the read under way and reports the rows new since the last read', async () => {
+    let reads = 0;
+    const held = Promise.withResolvers<FeedSnapshot>();
+    const fresh: string[] = [];
+    const source = new FeedEventSource({
+      machines: () => [{ id: 'm1', label: 'Mac mini' }],
+      read: async () => {
+        reads += 1;
+        if (reads === 1) return { rows: [feedRow('old')] };
+        if (reads === 2) return held.promise;
+        return { rows: [feedRow('meanwhile'), feedRow('old')] };
+      },
+      onRead: () => undefined,
+      onNewRows: (_machine, rows) => fresh.push(...rows.map((row) => row.id)),
+      log: () => undefined,
+      now: () => 0,
+      setInterval: () => 1,
+      clearInterval: () => undefined,
+    });
+    await source.refresh('m1');
+    // A read from before still under way: its answer would hold neither the new row nor count.
+    const underWay = source.refresh('m1');
+    const again = source.readAgain('m1');
+    held.resolve({ rows: [feedRow('stale'), feedRow('old')] });
+    await Promise.all([underWay, again]);
+    assert.equal(reads, 3);
+    // Not a baseline: what the earlier reads saw stays old, the row written since is new.
+    assert.deepEqual(fresh, ['meanwhile']);
+  });
 });

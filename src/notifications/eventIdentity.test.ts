@@ -12,7 +12,12 @@
  * own bound, and no later copy announces it, while a seen copy covers no other row; what is remembered is
  * every announced event of a row in the computer's feed plus every event within two hours of its first
  * announcement, judged at a copy's arrival; the bound is checked and, when passed, reported without
- * forgetting anything; deliveries wait until the stored record is read.
+ * forgetting anything; deliveries wait until the stored record is read; a push iOS showed is its event's
+ * notification whatever the limit says, with the channels it used, counted once against the overall limit and its
+ * session's slot (a banner within 20 s after its event's linked sound is part of that sound), also for an event seen
+ * on screen, every such push kept within the bound the computer's send rate and the push's lifetime allow; which
+ * computers confirmed they accepted this phone's push registration is kept across launches, and a stored record
+ * that could not be read names none.
  */
 
 import assert from 'node:assert/strict';
@@ -22,6 +27,8 @@ import {
   ANNOUNCED_WINDOW_MS,
   ANNOUNCED_WITHIN_WINDOW,
   AnnouncedEvents,
+  PUSH_RECORDING_MS,
+  PUSH_TIME_TO_LIVE_MS,
   SEEN_ON_SCREEN_IDS,
   type AnnouncedEventsStorage,
   type EventIdentity,
@@ -1063,5 +1070,288 @@ describe('deliveries wait until the stored record is read', () => {
     announced.whenLoaded(() => handled.push('next'));
     await assert.rejects(announced.load(memoryStorage()), /broken delivery/);
     assert.deepEqual(handled, ['next']);
+  });
+});
+
+describe('a notification the system presented itself (a push iOS showed)', () => {
+  const SILENT = false;
+
+  test('is its event’s notification whatever the rate limit says: no later copy announces it', () => {
+    const r = record();
+    for (let i = 1; i <= OVERALL_MAX; i += 1) r.notify({ ...feedRow(`n${i}`), sessionId: `s${i}` });
+    assert.equal(r.notify(feedRow('n0')).rateLimited, true);
+    r.announced.shownBySystem(feedRow('n0', 'finished', 'a1'), SILENT);
+    r.clock.now = OVERALL_WINDOW_MS + PER_SESSION_INTERVAL_MS;
+    assert.equal(r.notify(feedRow('n0', 'finished', 'a1'), true).notification, false);
+    assert.equal(r.notify(pushWithoutRowId('finished', 'a1')).notification, false);
+  });
+
+  test('takes its session’s slot: within 20 s neither another event of the session nor its attention sound comes', () => {
+    const r = record();
+    r.announced.shownBySystem(feedRow('n1', 'finished', 'a1'), SILENT);
+    r.clock.now = 1_000;
+    assert.equal(r.notify(feedRow('n2', 'needsInput')).rateLimited, true);
+    assert.deepEqual(r.sound(sessionsList('a1', 'n1')), { notification: false, sound: false, rateLimited: true });
+  });
+
+  test('a silent one leaves its event’s attention sound to come after its session’s 20 s', () => {
+    const r = record();
+    r.announced.shownBySystem(feedRow('n1', 'finished', 'a1'), SILENT);
+    r.step();
+    assert.deepEqual(r.sound(sessionsList('a1', 'n1')), { notification: false, sound: true, rateLimited: false });
+  });
+
+  test('within 20 s after its event’s sound (the Sessions list named its row) it is part of that sound', () => {
+    const r = record();
+    assert.equal(r.sound(sessionsList('a1', 'n1')).sound, true);
+    r.clock.now = 1_000;
+    r.announced.shownBySystem(feedRow('n1', 'finished', 'a1'), SILENT);
+    // The sound and its banner took one count: seven more sessions notify, the next one waits.
+    for (let i = 2; i <= OVERALL_MAX; i += 1) {
+      assert.equal(r.notify({ ...feedRow(`o${i}`), sessionId: `s${i}` }).notification, true);
+    }
+    assert.equal(r.notify({ ...feedRow('over'), sessionId: 'over' }).rateLimited, true);
+  });
+
+  test('later than 20 s after its event’s sound it takes a count of its own', () => {
+    const r = record();
+    assert.equal(r.sound(sessionsList('a1', 'n1')).sound, true);
+    r.step();
+    r.announced.shownBySystem(feedRow('n1', 'finished', 'a1'), SILENT);
+    for (let i = 3; i <= OVERALL_MAX; i += 1) {
+      assert.equal(r.notify({ ...feedRow(`o${i}`), sessionId: `s${i}` }).notification, true);
+    }
+    assert.equal(r.notify({ ...feedRow('over'), sessionId: 'over' }).rateLimited, true);
+  });
+
+  test('of an event seen on screen it still counts, once', () => {
+    const r = record();
+    const seenEvents = OVERALL_MAX / 2;
+    for (let i = 0; i < seenEvents; i += 1) {
+      const seen = { ...feedRow(`seen${i}`), sessionId: `s${i}` };
+      r.announced.seenOnScreen(seen);
+      r.announced.shownBySystem(seen, SILENT);
+      r.announced.shownBySystem(seen, SILENT);
+    }
+    // Each presentation took one count: as many other sessions notify, the next one waits.
+    for (let i = 0; i < OVERALL_MAX - seenEvents; i += 1) {
+      assert.equal(r.notify({ ...feedRow(`o${i}`), sessionId: `o${i}` }).notification, true);
+    }
+    assert.equal(r.notify({ ...feedRow('extra'), sessionId: 'extra' }).rateLimited, true);
+    r.clock.now = OVERALL_WINDOW_MS;
+    assert.equal(r.notify({ ...feedRow('seen0'), sessionId: 's0' }).notification, false);
+  });
+
+  test('of an event the app announced itself it counts too: iOS showed its push as well', () => {
+    const r = record();
+    assert.equal(r.notify(feedRow('n1')).notification, true);
+    r.step();
+    r.announced.shownBySystem(feedRow('n1'), SILENT);
+    r.announced.shownBySystem(feedRow('n1'), SILENT);
+    for (let i = 3; i <= OVERALL_MAX; i += 1) {
+      assert.equal(r.notify({ ...feedRow(`o${i}`), sessionId: `s${i}` }).notification, true);
+    }
+    assert.equal(r.notify({ ...feedRow('over'), sessionId: 'over' }).rateLimited, true);
+  });
+
+  test('recorded again by the same background run, also without a row id, it counts nothing more', () => {
+    const r = record();
+    // Before the run read the session list, nothing tied the push to an attention; after it, its attention.
+    r.announced.shownBySystem(pushWithoutRowId('finished', null), SILENT);
+    r.announced.shownBySystem(pushWithoutRowId('finished', 'a1'), SILENT, { again: true });
+    for (let i = 2; i <= OVERALL_MAX; i += 1) {
+      assert.equal(r.notify({ ...feedRow(`o${i}`), sessionId: `s${i}` }).notification, true);
+    }
+    assert.equal(r.notify({ ...feedRow('over'), sessionId: 'over' }).rateLimited, true);
+    r.clock.now = 2 * OVERALL_WINDOW_MS;
+    assert.equal(r.notify(pushWithoutRowId('finished', 'a1')).notification, false);
+  });
+
+  test('one that sounded is also its event’s sound', () => {
+    const r = record();
+    r.announced.shownBySystem(feedRow('n1', 'finished', 'a1'), true);
+    assert.equal(r.sound(sessionsList('a1', 'n1')).sound, false);
+  });
+
+  test('counts against the overall limit, once per presentation however often it is recorded', () => {
+    const r = record();
+    for (let i = 1; i < OVERALL_MAX; i += 1) {
+      r.announced.shownBySystem({ ...feedRow(`n${i}`), sessionId: `s${i}` }, SILENT);
+    }
+    // The background run records its push twice (before and after it reads the session list).
+    r.announced.shownBySystem({ ...feedRow('n1'), sessionId: 's1' }, SILENT);
+    assert.equal(r.notify({ ...feedRow('own'), sessionId: 'own' }).notification, true);
+    assert.equal(r.notify({ ...feedRow('next'), sessionId: 'next' }).rateLimited, true);
+  });
+
+  test('is kept across launches', async () => {
+    const clock = { now: 0 };
+    const storage = memoryStorage();
+    const before = new AnnouncedEvents(() => clock.now);
+    await before.load(storage);
+    before.shownBySystem(feedRow('n1', 'finished', 'a1'), SILENT);
+    await storage.written();
+    clock.now = PER_SESSION_INTERVAL_MS + 1_000;
+    const after = new AnnouncedEvents(() => clock.now);
+    await after.load(storage);
+    assert.equal(after.announce(feedRow('n1'), ASK).notification, false);
+    // Silent: its event's sound is still to come.
+    assert.equal(after.announce(sessionsList('a1', 'n1'), { notification: false, sound: true }).sound, true);
+    assert.deepEqual(storage.failures, []);
+  });
+
+  test('its count is kept across launches with the rest of the limit, once however often it was recorded', async () => {
+    const clock = { now: 0 };
+    const storage = memoryStorage();
+    const before = new AnnouncedEvents(() => clock.now);
+    await before.load(storage);
+    for (let i = 1; i < OVERALL_MAX; i += 1) {
+      before.shownBySystem({ ...feedRow(`p${i}`), sessionId: `s${i}` }, SILENT);
+    }
+    before.shownBySystem({ ...feedRow('p1'), sessionId: 's1' }, SILENT);
+    await storage.written();
+    clock.now = PER_SESSION_INTERVAL_MS + 1_000;
+    const after = new AnnouncedEvents(() => clock.now);
+    await after.load(storage);
+    assert.equal(after.announce({ ...feedRow('p1'), sessionId: 's1' }, ASK).notification, false);
+    assert.equal(after.announce({ ...feedRow('own'), sessionId: 'own' }, ASK).notification, true);
+    assert.equal(after.announce({ ...feedRow('next'), sessionId: 'next' }, ASK).rateLimited, true);
+    clock.now = OVERALL_WINDOW_MS;
+    assert.equal(after.announce({ ...feedRow('next'), sessionId: 'next' }, ASK).notification, true);
+    assert.deepEqual(storage.failures, []);
+  });
+
+  test('delivered bunched within the computer’s send rate, every one is recorded and no later copy announces it', () => {
+    const r = record();
+    // Sent once each within the computer's rate (eight at once, one a minute later), delivered together.
+    for (let i = 0; i <= OVERALL_MAX; i += 1) {
+      r.clock.now = i * 100;
+      r.announced.shownBySystem({ ...feedRow(`p${i}`), sessionId: `s${i}` }, SILENT);
+    }
+    r.clock.now = 2 * OVERALL_WINDOW_MS;
+    for (let i = 0; i <= OVERALL_MAX; i += 1) {
+      assert.equal(r.notify({ ...feedRow(`p${i}`), sessionId: `s${i}` }).notification, false);
+    }
+  });
+
+  test('sent at the computer’s rate and delivered as late as the push lives, all kept within the bound', async () => {
+    const r = record();
+    const storage = memoryStorage();
+    await r.announced.load(storage);
+    const shown: EventIdentity[] = [];
+    // Eight sent every minute for three hours; those of the first hour arrive only at the end of their lifetime
+    // (an hour, and the half minute a background run takes to record them), the rest as they are sent.
+    for (let minute = 0; minute <= 180; minute += 1) {
+      r.clock.now = Math.max(minute * OVERALL_WINDOW_MS, PUSH_TIME_TO_LIVE_MS + PUSH_RECORDING_MS);
+      for (let i = 0; i < OVERALL_MAX; i += 1) {
+        const event = { ...feedRow(`p${minute}-${i}`), sessionId: `s${i}` };
+        r.announced.shownBySystem(event, SILENT);
+        shown.push(event);
+      }
+    }
+    assert.deepEqual(storage.failures, []);
+    for (const event of shown) assert.equal(r.notify(event).notification, false);
+    // One more than the computer could have sent within that stretch is past the bound: reported, still kept.
+    r.announced.shownBySystem({ ...feedRow('beyond'), sessionId: 'beyond' }, SILENT);
+    assert.deepEqual(storage.failures, ['bound']);
+    assert.equal(r.notify({ ...feedRow('beyond'), sessionId: 'beyond' }).notification, false);
+  });
+
+  test('at two computers’ push rate for three hours, every one in its window stays and the record keeps its bound', async () => {
+    const r = record();
+    const storage = memoryStorage();
+    await r.announced.load(storage);
+    const shown: { event: EventIdentity; at: number }[] = [];
+    for (let minute = 0; minute < 180; minute += 1) {
+      for (const machineId of ['m1', 'm2']) {
+        for (let i = 0; i < OVERALL_MAX; i += 1) {
+          r.clock.now = minute * OVERALL_WINDOW_MS + i * 1_000;
+          const event = { ...feedRow(`p${minute}-${i}`), machineId, sessionId: `s${i}` };
+          r.announced.shownBySystem(event, SILENT);
+          shown.push({ event, at: r.clock.now });
+        }
+      }
+      assert.ok(r.announced.size() <= 2 * ANNOUNCED_WITHIN_WINDOW, `${r.announced.size()} events`);
+    }
+    r.clock.now += 1;
+    const inWindow = shown.filter(({ at }) => r.clock.now - at <= ANNOUNCED_WINDOW_MS);
+    assert.ok(inWindow.length > 2 * (ANNOUNCED_WITHIN_WINDOW - 2 * OVERALL_MAX), `${inWindow.length} in the window`);
+    for (const { event } of inWindow) assert.equal(r.notify(event).notification, false);
+    assert.deepEqual(storage.failures, []);
+  });
+});
+
+describe('the computers that accepted this phone’s push registration', () => {
+  test('are kept across launches, as computer ids only, until each confirms it holds none', async () => {
+    const storage = memoryStorage();
+    const before = new AnnouncedEvents(() => 0);
+    await before.load(storage);
+    before.setPushAccepted('m1', true);
+    before.setPushAccepted('m2', true);
+    await storage.written();
+    before.setPushAccepted('m2', false);
+    await storage.written();
+    const after = new AnnouncedEvents(() => 0);
+    await after.load(storage);
+    assert.deepEqual(after.pushAcceptedBy(), ['m1']);
+    assert.equal(after.acceptsPush('m1'), true);
+    assert.equal(after.acceptsPush('m2'), false);
+    assert.deepEqual(JSON.parse(storage.record ?? 'null').pushComputers, ['m1']);
+    assert.deepEqual(storage.failures, []);
+  });
+
+  test('a record written before they were kept names none, and loads without a problem', async () => {
+    const storage = memoryStorage(JSON.stringify({ version: 1, grants: [], computers: {} }));
+    const announced = new AnnouncedEvents(() => 0);
+    await announced.load(storage);
+    assert.deepEqual(announced.pushAcceptedBy(), []);
+    assert.deepEqual(storage.failures, []);
+  });
+
+  test('an entry that is no computer id is left out and reported; the others stay', async () => {
+    const storage = memoryStorage(JSON.stringify({ version: 1, grants: [], computers: {}, pushComputers: ['m1', 7] }));
+    const announced = new AnnouncedEvents(() => 0);
+    await announced.load(storage);
+    assert.deepEqual(announced.pushAcceptedBy(), ['m1']);
+    assert.deepEqual(storage.failures, ['read']);
+  });
+
+  test('a removed computer’s goes with it (added again it is a new computer)', async () => {
+    const announced = new AnnouncedEvents(() => 0);
+    await announced.load(memoryStorage());
+    announced.setPushAccepted('m1', true);
+    announced.setPushAccepted('m2', true);
+    announced.keepComputers(new Set(['m2']));
+    assert.deepEqual(announced.pushAcceptedBy(), ['m2']);
+  });
+
+  test('a stored record that could not be read names none; a confirmation afterwards counts again', async () => {
+    const storage = memoryStorage('{"version":1,');
+    const announced = new AnnouncedEvents(() => 0);
+    await announced.load(storage);
+    assert.deepEqual(storage.failures, ['read']);
+    assert.deepEqual(announced.pushAcceptedBy(), []);
+    assert.equal(announced.acceptsPush('m1'), false);
+    announced.setPushAccepted('m1', true);
+    assert.equal(announced.acceptsPush('m1'), true);
+    await storage.written();
+    assert.deepEqual(JSON.parse(storage.record ?? 'null').pushComputers, ['m1']);
+  });
+
+  test('a confirmation that waited for the stored record wins over what that record says', async () => {
+    const storage = memoryStorage(JSON.stringify({ version: 1, grants: [], computers: {}, pushComputers: ['m1'] }));
+    const stored = Promise.withResolvers<void>();
+    const announced = new AnnouncedEvents(() => 0);
+    const loading = announced.load({
+      ...storage,
+      read: async () => {
+        await stored.promise;
+        return storage.record;
+      },
+    });
+    announced.whenLoaded(() => announced.setPushAccepted('m1', false));
+    stored.resolve();
+    await loading;
+    assert.deepEqual(announced.pushAcceptedBy(), []);
   });
 });

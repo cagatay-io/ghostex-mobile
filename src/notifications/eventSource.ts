@@ -95,6 +95,15 @@ export class FeedEventSource {
     }
   }
 
+  /**
+   * Reads one computer's feed now in a read that starts now: a read under way answers with the feed from before and
+   * is dropped. Unlike `rebaseline`, the rows new since the last read are reported (back from inactive).
+   */
+  readAgain(machineId: string): Promise<void> {
+    this.stateFor(machineId).generation += 1;
+    return this.refresh(machineId);
+  }
+
   /** A live channel for this computer's feed opened (true) or closed (false). */
   setStreamed(machineId: string, streamed: boolean): void {
     this.stateFor(machineId).streamed = streamed;

@@ -14,6 +14,8 @@
  *   attached, and once the list shows it (during the attach, or read anew right after it) a question link
  *   switches to its Chat View when it has one. An ordinary link forces no view: the Terminal screen picks it
  *   with the rule a tap in the Sessions list uses (`chatModeArmed`) as soon as the list is there.
+ *   A link that opens a tapped notification carries its opening's check (`current`): once a later tap came
+ *   or the person left, no step of the opening selects, switches the view or navigates any more.
  */
 
 import { readPairingCode } from '../machines/pairingCodes';
@@ -104,17 +106,37 @@ export type DeepLinkDeps = {
    * screen, the panes waiting until the person brings them back (`usePaneStore`'s `questionHold`).
    */
   showChatView(sessionKey: string): void;
-  attachSession(machine: DeepLinkMachine, session: { sessionId: string; title?: string }): Promise<string>;
+  /**
+   * Attaches the session's terminal and selects its tab. `current`, when the link opens a tapped notification, is
+   * that opening's check: an attach that waited for an opening under way selects nothing once it fails.
+   */
+  attachSession(
+    machine: DeepLinkMachine,
+    session: { sessionId: string; title?: string },
+    current?: () => boolean,
+  ): Promise<string>;
+  /**
+   * `current`, when the link opens a tapped notification, is that opening's check; a navigation that waits until
+   * the screens are ready checks it again before it runs.
+   */
   navigate(
     route: { name: 'Terminal'; params: TerminalRoute } | { name: 'Voice' } | { name: 'ScanCode'; url: string },
+    current?: () => boolean,
   ): void;
   /** Runs `retry` again shortly (stores hydrate within moments of launch). */
   later(retry: () => void): void;
 };
 
-function openSession(link: SessionLink, deps: DeepLinkDeps): void {
+/**
+ * `current` is the check of a tapped notification's opening: false once a later tap came or the person left (the
+ * caller decides). It is checked at the start, at every retry while the stores load, inside the attach once an
+ * opening of the same tab under way finished (before it selects), once the attach is done and once the session list
+ * is read, so a superseded opening never selects, switches the view or navigates.
+ */
+function openSession(link: SessionLink, deps: DeepLinkDeps, current: (() => boolean) | undefined): void {
+  if (current?.() === false) return;
   if (!deps.storesReady()) {
-    deps.later(() => openSession(link, deps));
+    deps.later(() => openSession(link, deps, current));
     return;
   }
   const machine = deps.machine(link.machineId);
@@ -131,30 +153,35 @@ function openSession(link: SessionLink, deps: DeepLinkDeps): void {
       title,
     });
     if (link.view === 'question') deps.showChatView(sessionKey);
-    deps.navigate({ name: 'Terminal', params: { sessionKey, machineId: machine.id, title } });
+    deps.navigate({ name: 'Terminal', params: { sessionKey, machineId: machine.id, title } }, current);
     return;
   }
   void deps
-    .attachSession(machine, { sessionId: link.sessionId, title })
+    .attachSession(machine, { sessionId: link.sessionId, title }, current)
     .then(async (sessionKey) => {
+      // The attach can take long: a later tap or the person may have moved on meanwhile.
+      if (current?.() === false) return;
       // On a cold start the summary may only have arrived during the attach.
       deps.revealWorkspace(link.machineId, link.sessionId);
       const question = link.view === 'question' && session === undefined;
       const arrived = question ? deps.session(link.machineId, link.sessionId) : undefined;
       if (arrived?.hasChatView === true) deps.showChatView(sessionKey);
-      deps.navigate({ name: 'Terminal', params: { sessionKey, machineId: machine.id, title } });
+      deps.navigate({ name: 'Terminal', params: { sessionKey, machineId: machine.id, title } }, current);
       if (!question || arrived !== undefined) return;
       // Not there yet: read it, then show the question card when the session has a Chat View.
       const loaded = await deps.loadSession(link.machineId, link.sessionId);
-      if (loaded?.hasChatView === true) deps.showChatView(sessionKey);
+      if (loaded?.hasChatView === true && current?.() !== false) deps.showChatView(sessionKey);
     })
     .catch(() => {
       // Connection failures surface on the Sessions screen as usual.
     });
 }
 
-/** Handles one incoming link (cold start or while running); links the app does not own are ignored. */
-export function handleDeepLink(url: string | null, deps: DeepLinkDeps): void {
+/**
+ * Handles one incoming link (cold start or while running); links the app does not own are ignored. `current`: see
+ * `openSession` (a tapped notification's opening); links from outside the app and attention-list rows have none.
+ */
+export function handleDeepLink(url: string | null, deps: DeepLinkDeps, current?: () => boolean): void {
   if (url === null) return;
   if (url.startsWith('ghostex://voice')) {
     deps.navigate({ name: 'Voice' });
@@ -166,5 +193,5 @@ export function handleDeepLink(url: string | null, deps: DeepLinkDeps): void {
     return;
   }
   const link = parseSessionLink(url);
-  if (link !== null) openSession(link, deps);
+  if (link !== null) openSession(link, deps, current);
 }

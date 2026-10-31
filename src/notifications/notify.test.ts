@@ -681,3 +681,27 @@ describe("the Sessions list's attention sound goes through the same gate and rat
     );
   });
 });
+
+describe('the record and its rate limit across a restart, through the real mapping', () => {
+  test('eight notifications and their events are kept in the one stored record: a copy stays silent, a ninth waits for the minute', async () => {
+    const listed = Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`s${i}`, facts(`s${i}`)]));
+    const h = await harness(ALL_ON, listed);
+    const event = (i: number): HostEvent => ({
+      machineId: 'm1',
+      sessionId: `s${i}`,
+      kind: 'finished',
+      eventId: `n${i}`,
+      occurredAt: new Date(0).toISOString(),
+    });
+    h.run([0, 1, 2, 3, 4, 5, 6, 7].map(event));
+    assert.equal(h.posted.length, 8);
+    h.advance(21_000);
+    await h.restart();
+    h.run([event(0), event(8)]);
+    assert.equal(h.posted.length, 8);
+    assert.ok(h.logs.some((line) => line.includes('rate limit')));
+    h.advance(40_000);
+    h.run([event(8)]);
+    assert.equal(h.posted.length, 9);
+  });
+});

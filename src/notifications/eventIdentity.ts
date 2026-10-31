@@ -8,8 +8,17 @@
  *   a session entering attention; the list names the attention (`attention.eventId`, else
  *   `attention.enteredAt`) and, from a computer that sends it, the feed row written for it
  *   (`attention.notificationId`, optional), never its kind;
- * - the push route, once it exists: a push handled while the app runs, through `processHostEvents` like a
- *   feed row.
+ * - the push route (`feedStore.ts`): a push the app takes while it is in front, through `processHostEvents`
+ *   like a feed row; and a push iOS showed itself (`shownBySystem`), which is no request but a fact: the event
+ *   gets its notification, and its sound when the push carried one, whatever the switches, the session open on
+ *   screen or the rate limit would say now, so that no later copy announces it again. It is an output the person
+ *   got, so it counts like one: against its session's slot and the overall eight a minute (also past them), once.
+ *
+ * The record also keeps which computers confirmed that they accepted this phone's push registration
+ * (`setPushAccepted`), so that while the app is out of front it leaves their events to their pushes (`feedStore.ts`)
+ * from the first moment of a launch, before this launch's registration is answered. Only such a confirmation counts:
+ * a registration without an answer, and acceptance lost with a stored record that could not be read or is missing,
+ * leave the computer's events to the app's own notifications (a push of an older registration can then come too).
  *
  * An event is announced once any of these made it seen or heard: its notification or the attention sound.
  * A later copy then gets only what the event has not had yet (its notification, which carries the sound
@@ -18,11 +27,11 @@
  * gets: every notification and every attention sound takes one of its grants. The one exception: a feed
  * row's notification that comes within `PER_SESSION_INTERVAL_MS` (20 s) after the attention sound of the
  * same event, which the row the computer named for the attention links to it (rule 2), is part of that sound
- * and takes no grant. Later than that, in the other order (the sound after a notification that came without
- * it) and without that link, every part takes a grant of its own. A delivery that the switches or the rate
- * limit hold back announces nothing and adds nothing here (an event that already had one part keeps it); one
- * that the session open on screen holds back announces nothing either, and its event counts as seen ("Seen on
- * screen" below).
+ * and takes no grant; so is a banner iOS showed of that event within those 20 s. Later than that, in the other
+ * order (the sound after a notification that came without it) and without that link, every part takes a grant of
+ * its own. A delivery that the switches or the rate limit hold back announces nothing and adds nothing here (an
+ * event that already had one part keeps it); one that the session open on screen holds back announces nothing
+ * either, and its event counts as seen ("Seen on screen" below).
  *
  * Invariants, within the host contract of rule 4 and the two exceptions below:
  *
@@ -37,10 +46,11 @@
  *   deliveries to `whenLoaded`: what arrives before the stored record is read waits for it and is then
  *   handled in the order it came.
  * - I3. The record stays bounded: it holds announced events only, at most `ANNOUNCED_WITHIN_WINDOW` plus, per
- *   computer, the events of its feed's rows and one per session in attention (the bound below). It checks that
- *   after every change that adds; should it ever hold more, it keeps every event and reports it
- *   (`failed('bound')`), it never forgets one early. The ids of events seen on screen are kept apart, at most
- *   `SEEN_ON_SCREEN_IDS` per computer; past that the oldest go first.
+ *   computer, the pushes iOS showed that the computer could have sent in time to arrive within the window, the
+ *   events of its feed's rows and one per session in attention (the bound below). It checks that after every
+ *   change that adds; should it ever hold more, it keeps every event and reports it (`failed('bound')`), it never
+ *   forgets one early. The ids of events seen on screen are kept apart, at most `SEEN_ON_SCREEN_IDS` per computer;
+ *   past that the oldest go first.
  *
  * Two exceptions, which the phone alone cannot avoid:
  *
@@ -114,7 +124,9 @@
  *    (held back by the switches or the rate limit) is not remembered: a later copy of it is its first
  *    announcement, never a second one; one held back for the session open on screen is remembered as seen
  *    (below). A copy sent outside the contract (pushed again, or arriving more than an hour after the event)
- *    can be announced a second time.
+ *    can be announced a second time. A push iOS showed is kept from when the app learned of it, which is after
+ *    iOS showed it, so every later copy of its event (within the push's hour, or while its row is in the feed)
+ *    finds it, however many pushes arrive together.
  *
  * Seen on screen. A copy that the session open on screen holds back (`seenOnScreen`) makes its event seen:
  * the person was looking at that session, so no later copy announces it, by notification or sound, also
@@ -135,19 +147,27 @@
  * apart from these ids. Events held back by the switches or the rate limit are not remembered.
  *
  * The bound. Every event here was announced, and every announcement (but a notification that is part of its
- * event's sound) took one grant of the rate limit, the first announcement of each event among them; two
- * records later found to be one event are merged, which only makes them fewer (the merged event counts at the
- * later of their grants and is kept from the later of their windows). The limiter grants at most
- * `OVERALL_MAX` within any `OVERALL_WINDOW_MS`, also across launches (its grants are stored and restored with
- * the events, in one write), so the events first announced within a stretch of `span` ms number at most
- * `announcementsWithin(span)`. An event outside its row's feed is kept for `ANNOUNCED_WINDOW_MS` from its
- * first announcement (or a takeover, below), measured at the horizon: now, or the arrival of the oldest copy
- * still waiting to be handled. With no copy waiting the record therefore holds at most
- * `ANNOUNCED_WITHIN_WINDOW` = 8 × 121 = 968 events from the window, plus the events of rows kept only for
- * their feed: at most `FEED_RETENTION_ROWS` rows per computer, each with its `HOST_EVENT_KINDS.length` kinds
- * (120 events). While a copy waits, the window reaches back from its arrival, and the first term is
- * `announcementsWithin(now - horizon + ANNOUNCED_WINDOW_MS)`. Beyond these, each session's current attention
- * keeps its first event: at most one per session the phone sees in attention. And an event kept from a
+ * event's sound, and a push iOS showed) took one grant of the rate limit, the first announcement of each event
+ * among them; two records later found to be one event are merged, which only makes them fewer (the merged
+ * event counts at the later of their grants, at the grant when only one of them took one, and is kept from the
+ * later of their windows). The limiter grants at most `OVERALL_MAX` within any `OVERALL_WINDOW_MS`, also across
+ * launches (its grants are stored and restored with the events, in one write), so the events first announced
+ * within a stretch of `span` ms number at most `announcementsWithin(span)`. A push iOS showed starts an event
+ * without a grant (`presented`), and the record keeps every one; they are counted apart, per computer, and
+ * bounded by the computer's sending instead: it sends each alert push once, at most `OVERALL_MAX` within any
+ * `OVERALL_WINDOW_MS`, and the push lives at most `PUSH_TIME_TO_LIVE_MS`; the record learns of it within
+ * `PUSH_RECORDING_MS` after iOS showed it and keeps it from then (`at`). A push recorded at `at` was therefore
+ * sent no earlier than `at - PUSH_TIME_TO_LIVE_MS - PUSH_RECORDING_MS`, so those recorded within a stretch of
+ * `span` ms number at most `announcementsWithin(span + PUSH_TIME_TO_LIVE_MS + PUSH_RECORDING_MS)` per computer.
+ * The bound holds within the host's contract and with iOS recording the push within its background run; a push
+ * recorded later is still kept, only reported. An event outside its row's feed is kept for `ANNOUNCED_WINDOW_MS`
+ * from its first announcement (or a takeover, below), measured at the horizon: now, or the arrival of the oldest
+ * copy still waiting to be handled. With no copy waiting the record therefore holds at most
+ * `ANNOUNCED_WITHIN_WINDOW` = 8 × 121 = 968 events from the window, and per computer at most 8 × 181 = 1448 of
+ * pushes iOS showed, plus the events of rows kept only for their feed: at most `FEED_RETENTION_ROWS` rows per
+ * computer, each with its `HOST_EVENT_KINDS.length` kinds (120 events). While a copy waits, the window reaches back
+ * from its arrival, and `span` is `now - horizon + ANNOUNCED_WINDOW_MS`. Beyond these, each session's current
+ * attention keeps its first event: at most one per session the phone sees in attention. And an event kept from a
  * takeover within the window whose first announcement came before it: the first event of the session's
  * current attention at the window's start (at most one per session), or the Sessions-list copy of a row that
  * was kept beyond its window only by the feed, so a row in the feed at the window's start (at most
@@ -156,12 +176,13 @@
  * back moves every time back alike (above), which keeps the spacing of the grants, so the bound holds on the
  * moved times.
  *
- * The record is kept in storage across launches (`load`) and holds ids, kinds, channels and times, never text,
- * also for the events seen on screen. It is written right after the task that changed it (the first
- * exception above). A computer that is hidden keeps its record; a removed one (`keepComputers`) keeps its
- * events and the rows and kinds it saw on screen until their window ends, because its feed and session list
- * are no longer read (added again, it is a new computer to the phone). Deliveries that wait for the stored
- * record are held in memory until the storage read settles.
+ * The record is kept in storage across launches (`load`) and holds ids, kinds, channels, times and whether a
+ * push iOS showed started the event, never text, also for the events seen on screen, and the ids of the computers
+ * that accepted this phone's push registration (never the token). It is written right after the task that
+ * changed it (the first exception above). A computer that is hidden keeps its record; a removed one
+ * (`keepComputers`) keeps its events and the rows and kinds it saw on screen until their window ends, because its
+ * feed and session list are no longer read (added again, it is a new computer to the phone).
+ * Deliveries that wait for the stored record are held in memory until the storage read settles.
  *
  * Kept free of React Native so it is testable under `bun test`.
  */
@@ -177,7 +198,14 @@ import {
 } from './rateLimit';
 
 /** The longest an alert push of the computer lives on its way to the phone (rule 4). */
-const PUSH_TIME_TO_LIVE_MS = 60 * 60 * 1000;
+export const PUSH_TIME_TO_LIVE_MS = 60 * 60 * 1000;
+
+/**
+ * The longest from iOS showing a push to the record learning of it: the background run iOS starts for the push
+ * records it, and iOS ends such a run after about 30 s (`backgroundPush.ts` completes within 25 s). An assumption
+ * about iOS, used only to check the bound (I3): a later record is still kept, only reported.
+ */
+export const PUSH_RECORDING_MS = 30_000;
 
 /** How long an announced event is kept outside its row's feed (rule 4): the push's hour and an hour of margin. */
 export const ANNOUNCED_WINDOW_MS = 2 * PUSH_TIME_TO_LIVE_MS;
@@ -223,6 +251,13 @@ export type Announcement = { notification: boolean; sound: boolean; rateLimited:
 
 const NOTHING: Announcement = { notification: false, sound: false, rateLimited: false };
 
+/**
+ * A push iOS showed as the record learns of it: when the app learned of it (`at`, an arrival's time; now when
+ * absent), and whether this is the same presentation recorded once more (`again`: the background run records its
+ * push before and after it reads the session list), which counts nothing more.
+ */
+export type SystemPresentation = { at?: number; again?: boolean };
+
 /** A copy as it arrived (`arrive`): until it is handled, the record forgets nothing that was kept then. */
 export type Arrival = { readonly at: number };
 
@@ -261,15 +296,29 @@ export function provenAttention(
 }
 
 /**
- * An announced event: what it was announced with, when first (`at`, its grant; ms, the phone's clock), and
- * from when it is kept (`keptFrom`: `at`, or later when a kind took over the Sessions list's copy, rule 4).
+ * An announced event: what it was announced with, when first (`at`, its grant; ms, the phone's clock), from
+ * when it is kept (`keptFrom`: `at`, or later when a kind took over the Sessions list's copy, rule 4), whether a
+ * push iOS showed started it without a grant (`presented`, counted apart in the bound), and whether iOS's showing
+ * of its push was counted (`pushShown`; in memory only, a stored `presented` event has it).
  */
-type Announced = { channels: Set<AnnounceChannel>; at: number; keptFrom: number };
+type Announced = {
+  channels: Set<AnnounceChannel>;
+  at: number;
+  keptFrom: number;
+  presented: boolean;
+  pushShown: boolean;
+};
 
-/** Adds what `from` knows of the same event to `into`: the later grant counts, and the later window. */
+/**
+ * Adds what `from` knows of the same event to `into`: the later window, and the later grant, or the grant when
+ * only one of them took one (the other was a push iOS showed).
+ */
 function merge(into: Announced, from: Announced): void {
   for (const channel of from.channels) into.channels.add(channel);
-  into.at = Math.max(into.at, from.at);
+  if (into.presented === from.presented) into.at = Math.max(into.at, from.at);
+  else if (into.presented) into.at = from.at;
+  into.presented &&= from.presented;
+  into.pushShown ||= from.pushShown;
   into.keptFrom = Math.max(into.keptFrom, from.keptFrom);
 }
 
@@ -354,8 +403,8 @@ function trimSeen(seen: Map<string, Seen>): void {
  * One stored event: its session, its row and kind (rowId '' without a row; kind null for a Sessions-list copy
  * no kind has taken over), the session's attention it belongs to (null when none) and whether it is that
  * attention's first event (a Sessions-list copy without a row always is), whether its row is in the feed as
- * last read, when it was first announced, from when it is kept and with what. Ids, kinds, channels and times
- * only, never text.
+ * last read, when it was first announced, from when it is kept, with what, and (`presented`, written only when
+ * true) whether a push iOS showed started it. Ids, kinds, channels and times only, never text.
  */
 type StoredEvent = {
   sessionId: string;
@@ -367,16 +416,22 @@ type StoredEvent = {
   at: number;
   keptFrom: number;
   channels: AnnounceChannel[];
+  presented?: true;
 };
 
 /** One stored id of an event seen on screen, and whether its row is in the feed as last read. */
 type StoredSeen = Seen & { inFeed: boolean };
 
-/** The stored record, version 1: the rate limit's grants of the last minute, each computer's events and seen ids. */
+/**
+ * The stored record, version 1: the rate limit's grants of the last minute, each computer's events and seen ids, and
+ * (`pushComputers`, absent in a record written before they were kept) the ids of the computers that accepted this
+ * phone's push registration.
+ */
 type StoredRecord = {
   version: 1;
   grants: RateGrant[];
   computers: Record<string, { events: StoredEvent[]; seen: StoredSeen[] }>;
+  pushComputers?: string[];
 };
 
 const rowKey = (sessionId: string, rowId: string): string => `${sessionId}\n${rowId}`;
@@ -411,7 +466,7 @@ function parseGrant(value: unknown): RateGrant | null {
 function parseEvent(value: unknown): StoredEvent | null {
   const fields = jsonFields(value);
   if (fields === null) return null;
-  const { sessionId, rowId, attention, first, inFeed, at } = fields;
+  const { sessionId, rowId, attention, first, inFeed, at, presented } = fields;
   // A record written before events were kept from a takeover keeps each from its first announcement.
   const keptFrom = fields.keptFrom === undefined ? at : fields.keptFrom;
   const kind = fields.kind === null ? null : HOST_EVENT_KINDS.find((known) => known === fields.kind);
@@ -421,10 +476,23 @@ function parseEvent(value: unknown): StoredEvent | null {
   }
   if ((attention !== null && typeof attention !== 'string') || typeof first !== 'boolean') return null;
   if (typeof inFeed !== 'boolean' || !isTime(at) || !isTime(keptFrom) || channels.length === 0) return null;
+  // Absent in a record written before pushes iOS showed were kept, and for every other event.
+  if (presented !== undefined && presented !== true) return null;
   // An entry is a row's event or an attention's: one without a row has an attention, and as the Sessions list's
   // copy it is that attention's first event.
   if (rowId.length === 0 && (attention === null || (kind === null && !first))) return null;
-  return { sessionId, rowId, kind, attention, first, inFeed, at, keptFrom, channels };
+  return {
+    sessionId,
+    rowId,
+    kind,
+    attention,
+    first,
+    inFeed,
+    at,
+    keptFrom,
+    channels,
+    ...(presented === true ? { presented } : {}),
+  };
 }
 
 function parseSeen(value: unknown): StoredSeen | null {
@@ -476,7 +544,26 @@ function parseRecord(serialized: string): { record: StoredRecord; complete: bool
     complete &&= events.complete && seen.complete;
     record.computers[machineId] = { events: events.entries, seen: seen.entries };
   }
+  if (fields.pushComputers !== undefined) {
+    const pushComputers = parseEntries(fields.pushComputers, (id) => (typeof id === 'string' ? id : null));
+    complete &&= pushComputers.complete;
+    record.pushComputers = pushComputers.entries;
+  }
   return { record, complete };
+}
+
+/** Every announced event of one computer, once each. */
+function machineAnnounced(machine: MachineEvents): Set<Announced> {
+  const events = new Set<Announced>();
+  for (const row of machine.rows.values()) {
+    for (const announced of row.kinds.values()) events.add(announced);
+    if (row.listCopy !== null) events.add(row.listCopy);
+  }
+  for (const attention of machine.attentions.values()) {
+    for (const slot of attention.kinds.values()) events.add(slot.event);
+    if (attention.first !== null) events.add(attention.first);
+  }
+  return events;
 }
 
 export class AnnouncedEvents {
@@ -494,6 +581,8 @@ export class AnnouncedEvents {
   private readonly waiting: (() => void)[] = [];
   /** Copies that arrived and are not handled yet: the oldest holds back what the record forgets. */
   private readonly arrivals = new Set<{ at: number }>();
+  /** The computers that accepted this phone's push registration, by id; kept with the record across launches. */
+  private readonly pushComputers = new Set<string>();
 
   constructor(private readonly now: () => number = Date.now) {}
 
@@ -555,12 +644,68 @@ export class AnnouncedEvents {
       this.checkBound(now);
       return { notification: false, sound: false, rateLimited: true };
     }
-    announced ??= this.attach(machine, event, now);
+    announced ??= this.attach(machine, event, now, false);
     if (notification) announced.channels.add('notification');
     if (sound) announced.channels.add('sound');
     this.changed();
     this.checkBound(now);
     return { notification, sound, rateLimited: false };
+  }
+
+  /**
+   * iOS showed this push itself: no request, a fact. Its event gets its notification, and its sound when the push
+   * carried one, whatever the switches, the session open on screen or the rate limit say now, so no later copy
+   * announces it again; that holds for an event seen on screen too. What iOS showed is an output the person got: the
+   * first time the record learns of it, it counts against its session's slot and the overall limit, also past them
+   * (`NotificationRateLimiter.count`), unless it is a banner within `PER_SESSION_INTERVAL_MS` after its event's
+   * sound, which the row the Sessions list named links to it (rule 2): that banner is part of the sound. The same
+   * presentation recorded again (`again`, or an event whose push was counted already) counts nothing more. Every
+   * such push is kept, however they bunch: its computer sends each once and within its rate, which bounds them
+   * (I3, the bound below).
+   */
+  shownBySystem(event: EventIdentity, sound: boolean, presentation: SystemPresentation = {}): void {
+    const now = this.now();
+    if (this.prune(now)) this.changed();
+    // When the app learned of it; a clock set back meanwhile moved the arrival with the record's other times.
+    const at = Math.min(presentation.at ?? now, now);
+    const machine = this.machineEvents(event.machineId);
+    let announced = this.find(machine, event, now);
+    if (presentation.again !== true && announced?.pushShown !== true) {
+      const partOfSound =
+        event.rowId.length > 0 &&
+        announced !== null &&
+        !announced.channels.has('notification') &&
+        announced.channels.has('sound') &&
+        at - announced.at < PER_SESSION_INTERVAL_MS;
+      if (!partOfSound) this.limiter.count(`${event.machineId}\n${event.sessionId}`, now);
+    }
+    announced ??= this.attach(machine, event, at, true);
+    announced.pushShown = true;
+    announced.channels.add('notification');
+    if (sound) announced.channels.add('sound');
+    this.changed();
+    this.checkBound(now);
+  }
+
+  /**
+   * A computer confirmed that it holds this phone's push token (`accepted`), or that it holds none (it removed the
+   * token, or has no push route). Kept across launches with the record, ids only.
+   */
+  setPushAccepted(machineId: string, accepted: boolean): void {
+    if (this.pushComputers.has(machineId) === accepted) return;
+    if (accepted) this.pushComputers.add(machineId);
+    else this.pushComputers.delete(machineId);
+    this.changed();
+  }
+
+  /** Whether the computer accepted this phone's push registration, as far as the record knows. */
+  acceptsPush(machineId: string): boolean {
+    return this.pushComputers.has(machineId);
+  }
+
+  /** The computers that accepted this phone's push registration, as far as the record knows. */
+  pushAcceptedBy(): string[] {
+    return [...this.pushComputers];
   }
 
   /**
@@ -625,10 +770,16 @@ export class AnnouncedEvents {
 
   /**
    * The computers on the phone (hidden ones included): a removed one's feed and session list are read no
-   * more, so only the window keeps its events and what it saw on screen (rule 4).
+   * more, so only the window keeps its events and what it saw on screen (rule 4). Its push acceptance goes: added
+   * again, it is a new computer with a new id, so nothing asks for the old one.
    */
   keepComputers(machineIds: ReadonlySet<string>): void {
     let changed = false;
+    for (const machineId of this.pushComputers) {
+      if (machineIds.has(machineId)) continue;
+      this.pushComputers.delete(machineId);
+      changed = true;
+    }
     for (const [machineId, machine] of this.machines) {
       if (machineIds.has(machineId)) continue;
       changed ||= machine.feed.size > 0 || machine.attentions.size > 0;
@@ -789,11 +940,12 @@ export class AnnouncedEvents {
   }
 
   /**
-   * Records `event`'s first announcement (it was granted); `find` found no event for it. A delivery without a
-   * row id outside any established attention is a new event every time (rule 2): nothing is kept for it.
+   * Records `event`'s first announcement at `at` (it was granted, or `presented`: a push iOS showed); `find` found
+   * no event for it. A delivery without a row id outside any established attention is a new event every time
+   * (rule 2): nothing is kept for it.
    */
-  private attach(machine: MachineEvents, event: EventIdentity, now: number): Announced {
-    const announced: Announced = { channels: new Set(), at: now, keptFrom: now };
+  private attach(machine: MachineEvents, event: EventIdentity, at: number, presented: boolean): Announced {
+    const announced: Announced = { channels: new Set(), at, keptFrom: at, presented, pushShown: false };
     const attention = event.episode === null ? undefined : this.attentionFor(machine, event.sessionId, event.episode);
     if (event.kind === null) {
       // The Sessions list's copy: the named row's first event, else the attention's own; its attention's first.
@@ -1021,30 +1173,33 @@ export class AnnouncedEvents {
   /** Every announced event, once each. */
   private events(): Set<Announced> {
     const events = new Set<Announced>();
-    for (const machine of this.machines.values()) {
-      for (const row of machine.rows.values()) {
-        for (const announced of row.kinds.values()) events.add(announced);
-        if (row.listCopy !== null) events.add(row.listCopy);
-      }
-      for (const attention of machine.attentions.values()) {
-        for (const slot of attention.kinds.values()) events.add(slot.event);
-        if (attention.first !== null) events.add(attention.first);
-      }
-    }
+    for (const machine of this.machines.values())
+      for (const announced of machineAnnounced(machine)) events.add(announced);
     return events;
   }
 
   /**
-   * Invariant I3: the events within the window at the horizon are at most what the rate limit lets out from
-   * the window's start to now; per computer at most `FEED_RETENTION_ROWS` rows are kept only for their feed;
-   * and the events kept from a takeover within the window whose first announcement came before it are at most
-   * one per session plus `FEED_RETENTION_ROWS`. Past the bound nothing is forgotten; it is reported once, when
-   * the record passes it.
+   * Invariant I3: the events within the window at the horizon that took a grant are at most what the rate limit
+   * lets out from the window's start to now; per computer, those a push iOS showed started are at most what the
+   * computer can send from `PUSH_TIME_TO_LIVE_MS + PUSH_RECORDING_MS` before the window's start to now; per
+   * computer at most `FEED_RETENTION_ROWS` rows are kept only for their feed; and the events kept from a takeover
+   * within the window whose first announcement came before it are at most one per session plus
+   * `FEED_RETENTION_ROWS`. Past the bound nothing is forgotten; it is reported once, when the record passes it.
    */
   private checkBound(now: number): void {
     const windowStart = this.horizon(now) - ANNOUNCED_WINDOW_MS;
     let over = false;
+    const allowed = announcementsWithin(now - windowStart);
+    const sent = announcementsWithin(now - windowStart + PUSH_TIME_TO_LIVE_MS + PUSH_RECORDING_MS);
+    let granted = 0;
     for (const machine of this.machines.values()) {
+      let presented = 0;
+      for (const announced of machineAnnounced(machine)) {
+        if (announced.at < windowStart) continue;
+        if (announced.presented) presented += 1;
+        else granted += 1;
+      }
+      over ||= presented > sent;
       let keptForFeed = 0;
       for (const row of machine.rows.values()) {
         const events = row.listCopy === null ? [...row.kinds.values()] : [...row.kinds.values(), row.listCopy];
@@ -1063,9 +1218,7 @@ export class AnnouncedEvents {
       }
       over ||= takenOver.size > new Set(takenOver.values()).size + FEED_RETENTION_ROWS;
     }
-    let inWindow = 0;
-    for (const announced of this.events()) if (announced.at >= windowStart) inWindow += 1;
-    over ||= inWindow > announcementsWithin(now - windowStart);
+    over ||= granted > allowed;
     if (over && !this.overBound) this.storage?.failed('bound');
     this.overBound = over;
   }
@@ -1095,7 +1248,13 @@ export class AnnouncedEvents {
   private serialize(): string {
     const now = this.now();
     this.prune(now);
-    const record: StoredRecord = { version: 1, grants: [...this.limiter.saved(now)], computers: {} };
+    const record: StoredRecord = {
+      version: 1,
+      grants: [...this.limiter.saved(now)],
+      computers: {},
+      // Written only while there are any: absent reads as none, as in a record written before they were kept.
+      ...(this.pushComputers.size > 0 ? { pushComputers: [...this.pushComputers] } : {}),
+    };
     for (const [machineId, machine] of this.machines) {
       const entries = new Map<Announced, StoredEvent>();
       const entry = (sessionId: string, rowId: string, kind: HostEventKind | null, announced: Announced) => {
@@ -1111,6 +1270,7 @@ export class AnnouncedEvents {
             at: announced.at,
             keptFrom: announced.keptFrom,
             channels: [...announced.channels],
+            ...(announced.presented ? { presented: true as const } : {}),
           };
           entries.set(announced, stored);
         }
@@ -1145,6 +1305,7 @@ export class AnnouncedEvents {
     const parsed = parseRecord(serialized);
     if (parsed === null) return false;
     this.limiter.restore(parsed.record.grants);
+    for (const machineId of parsed.record.pushComputers ?? []) this.pushComputers.add(machineId);
     for (const [machineId, computer] of Object.entries(parsed.record.computers)) {
       const machine = this.machineEvents(machineId);
       for (const stored of computer.events) this.restoreEvent(machine, stored);
@@ -1154,7 +1315,14 @@ export class AnnouncedEvents {
   }
 
   private restoreEvent(machine: MachineEvents, stored: StoredEvent): void {
-    let announced: Announced = { channels: new Set(stored.channels), at: stored.at, keptFrom: stored.keptFrom };
+    let announced: Announced = {
+      channels: new Set(stored.channels),
+      at: stored.at,
+      keptFrom: stored.keptFrom,
+      presented: stored.presented === true,
+      // The same push is not presented twice; a stored event a push started had its presentation counted.
+      pushShown: stored.presented === true,
+    };
     if (stored.rowId.length > 0) {
       const row = this.rowEvent(machine, stored.sessionId, stored.rowId);
       const current =

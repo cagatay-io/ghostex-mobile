@@ -1,20 +1,22 @@
 /**
  * The notification rate of the desktop: at most one notification per session every 20 seconds and at most 8
  * per 60 seconds overall. It counts what the person gets from every route that announces an agent event (a
- * notification, the Sessions list's attention sound, a push handled while the app runs); the record of
- * announced events (`eventIdentity.ts`) owns the app's one limiter, asks it for a grant before each
+ * notification, the Sessions list's attention sound, a push handled while the app runs, a push iOS showed); the
+ * record of announced events (`eventIdentity.ts`) owns the app's one limiter, asks it for a grant before each
  * announcement (a row's notification within 20 s after the attention sound of the same event, which the
  * computer links by naming the row, counts as part of that sound) and keeps its grants across launches, so a
- * restart does not start the count anew. What the limit holds back still shows in the attention list. Only
- * granted announcements count against the limit. The clock is the caller's (`now`), so the rule is testable
- * with an injected clock; a clock set back is the record's to notice (`moveBack`).
+ * restart does not start the count anew. A push iOS showed itself was not the app's to grant: once the app learns
+ * of it, it is counted against its session and the overall limit like any notification (`count`), also past the
+ * limit, so the app's own announcements hold back as they would after one of its own. What the limit holds back
+ * still shows in the attention list. The clock is the caller's (`now`), so the rule is testable with an injected
+ * clock; a clock set back is the record's to notice (`moveBack`).
  */
 
 export const PER_SESSION_INTERVAL_MS = 20_000;
 export const OVERALL_WINDOW_MS = 60_000;
 export const OVERALL_MAX = 8;
 
-/** One granted announcement: the session (`machineId\nsessionId`) and when (ms). */
+/** One counted announcement: the session (`machineId\nsessionId`) and when (ms). */
 export type RateGrant = { session: string; at: number };
 
 export class NotificationRateLimiter {
@@ -30,6 +32,12 @@ export class NotificationRateLimiter {
     }
     this.grants.push({ session, at: now });
     return true;
+  }
+
+  /** Counts an announcement the app did not grant (a push iOS showed) for `session`, past the limit too. */
+  count(session: string, now: number): void {
+    this.forgetBefore(now);
+    this.grants.push({ session, at: now });
   }
 
   /** The grants that still count at `now`, to be kept across launches. */

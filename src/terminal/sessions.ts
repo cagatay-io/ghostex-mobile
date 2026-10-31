@@ -169,12 +169,13 @@ type TerminalState = {
   hydrate: () => Promise<void>;
   /**
    * Open (or re-select) an attach tab for a remote Ghostex session. `select: false` opens it without changing the
-   * selection (a stored pane's session coming back beside the selected one).
+   * selection (a stored pane's session coming back beside the selected one). `current`, when given, is checked
+   * after any existing opening finishes so an obsolete notification tap selects nothing.
    */
   attachSession: (
     machine: MachineConnectionTarget,
     session: { sessionId: string; projectId?: string; title?: string; agentId?: string },
-    options?: { select?: boolean },
+    options?: { select?: boolean; current?: () => boolean },
   ) => Promise<string>;
   /**
    * Open (or re-select) a session's tab for its Chat View without attaching its terminal. A tab
@@ -374,9 +375,12 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
 
     attachSession: async (machine, session, options) => {
       const select = options?.select ?? true;
+      const current = options?.current;
       const sessionKey = attachSessionKey(machine.id, session.sessionId);
       const pending = tabOpenRequests.get(sessionKey);
       if (pending) await pending;
+      // A later tap or the person moved on while that opening ran: the obsolete request selects nothing.
+      if (current?.() === false) return sessionKey;
       const existing = get().tabs.find((tab) => tab.sessionKey === sessionKey);
       if (existing !== undefined) {
         if (session.agentId) patchTab(sessionKey, { ghostexAgentId: session.agentId });

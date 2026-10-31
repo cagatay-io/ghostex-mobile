@@ -33,9 +33,11 @@
       [
         "expo-notifications",
         {
-          "enableRemoteNotifications": false
+          "enableRemoteNotifications": true,
+          "enableBackgroundRemoteNotifications": true
         }
-      ]
+      ],
+      "./plugins/withoutBackgroundFetch.js"
     ],
     "ios": {
       "supportsTablet": true,

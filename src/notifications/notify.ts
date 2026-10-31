@@ -2,7 +2,8 @@
  * The routes that announce agent events, both through the one gate of the record of announced events
  * (`eventIdentity.ts`), which also holds the app's one rate limit:
  *
- * - `processHostEvents`: from host events (feed rows, and later pushes handled while the app runs) to
+ * - `processHostEvents`: from host events (feed rows, and pushes the app takes in front or while inactive; a push
+ *   iOS showed itself goes to the record as a fact, `shownBySystem` in `eventIdentity.ts`) to
  *   notification requests: the settings gate, none for the session open on screen (whose event then counts
  *   as seen, so no later copy announces it), one notification and one sound per event, the rate limit, and
  *   the request's text, which is the event and the session only: "agent · project" as the title and the event

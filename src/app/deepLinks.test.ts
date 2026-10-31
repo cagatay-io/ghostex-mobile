@@ -188,3 +188,81 @@ describe('session links from Live Activity rows', () => {
     assert.deepEqual(f.calls, ['attach:sess&1']);
   });
 });
+
+describe('a tapped notification whose opening stops being current (a later tap, or the person left)', () => {
+  const withChat: DeepLinkSession = { projectId: 'p1', title: 'fix build', hasChatView: true, opensInChatView: true };
+  const link = sessionDeepLink({ machineId: 'm1', sessionId: 's1' });
+  const questionLink = sessionDeepLink({ machineId: 'm1', sessionId: 's1', view: 'question' });
+
+  test('one that stopped being current before the stores were loaded opens nothing once they are', () => {
+    const f = fake(withChat);
+    let ready = false;
+    const waiting: { retry?: () => void } = {};
+    f.deps.storesReady = () => ready;
+    f.deps.later = (retry) => {
+      waiting.retry = retry;
+    };
+    let current = true;
+    handleDeepLink(link, f.deps, () => current);
+    current = false;
+    ready = true;
+    waiting.retry?.();
+    assert.deepEqual(f.calls, []);
+    assert.deepEqual(f.routes, []);
+  });
+
+  test('one that stopped being current while its terminal attached neither shows nor navigates to it', async () => {
+    const f = fake(undefined);
+    const attached = Promise.withResolvers<string>();
+    f.deps.attachSession = (_m, s) => {
+      f.calls.push(`attach:${s.sessionId}`);
+      return attached.promise;
+    };
+    let current = true;
+    handleDeepLink(questionLink, f.deps, () => current);
+    current = false;
+    attached.resolve('m1:s1');
+    await settle();
+    assert.deepEqual(f.calls, ['attach:s1']);
+    assert.deepEqual(f.routes, []);
+  });
+
+  test('one that stopped being current while the session list was read after the attach shows no Chat View', async () => {
+    const f = coldStart(withChat, 'whenAsked');
+    let current = true;
+    f.deps.loadSession = async () => {
+      f.calls.push('sessionList');
+      current = false;
+      return withChat;
+    };
+    handleDeepLink(questionLink, f.deps, () => current);
+    await settle();
+    assert.deepEqual(f.calls, ['attach:s1', 'sessionList']);
+    assert.equal(f.routes.length, 1);
+  });
+
+  test('its navigation carries the check along, for a navigation that waits until the screens are ready', () => {
+    const f = fake(withChat);
+    const checks: (() => boolean)[] = [];
+    f.deps.navigate = (route, current) => {
+      f.routes.push(route);
+      if (current !== undefined) checks.push(current);
+    };
+    let current = true;
+    handleDeepLink(link, f.deps, () => current);
+    current = false;
+    assert.equal(f.routes.length, 1);
+    assert.deepEqual(
+      checks.map((check) => check()),
+      [false],
+    );
+  });
+
+  test('a link opened without a check (a link from outside the app, an attention-list row) opens as before', async () => {
+    const f = fake(undefined);
+    handleDeepLink(link, f.deps);
+    await settle();
+    assert.deepEqual(f.calls, ['attach:s1']);
+    assert.equal(f.routes.length, 1);
+  });
+});

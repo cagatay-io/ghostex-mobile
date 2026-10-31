@@ -29,6 +29,44 @@ export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 let installed = false;
 let pendingNavigation: (() => void) | null = null;
 
+/**
+ * The person's navigation so far: every change of the navigation's state and every change of the Terminal screen's
+ * selected tab, except the app's own: the first screen at launch, and going to (or selecting) the session the latest
+ * tapped notification opens (`tapOpens`). A tapped notification's opening counts it at the tap and stops once it
+ * changed: the person left for another screen or session (`feedStore.ts`).
+ */
+let personNavigationCount = 0;
+let firstScreenShown = false;
+/** The session (its tab key) the latest tapped notification opens; null before any tap. */
+let tapTarget: string | null = null;
+
+navigationRef.addListener('state', () => {
+  if (!firstScreenShown) {
+    firstScreenShown = true;
+    return;
+  }
+  const route = navigationRef.getCurrentRoute();
+  const params = route?.name === 'Terminal' ? route.params : undefined;
+  const sessionKey = params !== undefined && 'sessionKey' in params ? params.sessionKey : undefined;
+  if (tapTarget !== null && sessionKey === tapTarget) return;
+  personNavigationCount += 1;
+});
+useTerminalStore.subscribe((state, previous) => {
+  if (state.selectedSessionKey === previous.selectedSessionKey) return;
+  if (tapTarget !== null && state.selectedSessionKey === tapTarget) return;
+  personNavigationCount += 1;
+});
+
+/** How often the person navigated so far (see above); a caller that kept a count can tell whether it moved since. */
+export function personNavigations(): number {
+  return personNavigationCount;
+}
+
+/** A tapped notification opens this session: going there, or selecting its tab, is the app's doing. */
+export function tapOpens(machineId: string, sessionId: string): void {
+  tapTarget = attachSessionKey(machineId, sessionId);
+}
+
 /** Flush a navigation deferred until NavigationContainer became ready. */
 export function flushPendingDeepLink(): void {
   const run = pendingNavigation;
@@ -89,9 +127,11 @@ const appDeps: DeepLinkDeps = {
     useTerminalStore.getState().setSessionViewMode(sessionKey, 'chat');
     usePaneStore.getState().setQuestionHold(sessionKey);
   },
-  attachSession: (machine, session) => useTerminalStore.getState().attachSession(machine, session),
-  navigate: (route) =>
+  attachSession: (machine, session, current) => useTerminalStore.getState().attachSession(machine, session, { current }),
+  navigate: (route, current) =>
     navigateWhenReady(() => {
+      // A tapped notification's opening that was superseded while the screens got ready navigates nothing.
+      if (current?.() === false) return;
       if (route.name === 'Terminal') navigationRef.navigate('Terminal', route.params);
       else if (route.name === 'Voice') navigationRef.navigate('Voice');
       else
@@ -104,9 +144,12 @@ const appDeps: DeepLinkDeps = {
   later: (retry) => setTimeout(retry, 250),
 };
 
-/** Opens a ghostex:// link from inside the app (an agent notification's tap). */
-export function openDeepLink(url: string): void {
-  handleDeepLink(url, appDeps);
+/**
+ * Opens a ghostex:// link from inside the app: an agent notification's tap (with its opening's check `current`, see
+ * `handleDeepLink`) or an attention-list row.
+ */
+export function openDeepLink(url: string, current?: () => boolean): void {
+  handleDeepLink(url, appDeps, current);
 }
 
 /** Install once at app startup; handles both cold-start and warm URLs. */

@@ -6,6 +6,11 @@
  * three stay visible and keep their values, dimmed. When iOS blocks notifications the page says so
  * and leads to iOS Settings, because iOS asks only once.
  * Agent notifications are iOS only; on Android the page keeps the sound.
+ *
+ * The delivery text follows what the app knows: while an enabled computer confirmed it accepted this phone's push
+ * registration, and while the stored record that says so is not read yet, it says a computer that accepted this
+ * iPhone can also notify while Ghostex is closed, with no promise that a push arrives; otherwise the text for a
+ * running app.
  */
 
 import { useCallback } from 'react';
@@ -14,6 +19,7 @@ import { Linking, Pressable, StyleSheet, Switch, Text, View } from 'react-native
 
 import { SwitchRow as RowToggle } from '../../components/common/SwitchRow';
 import { NotificationsCopy } from '../../copy';
+import { enabledMachines, useMachinesStore } from '../../machines/store';
 import {
   askForNotificationsOnce,
   refreshNotificationPermission,
@@ -99,6 +105,10 @@ function AgentNotifications() {
   const notifications = useSettingsStore((state) => state.settings.notifications);
   const setSetting = useSettingsStore((state) => state.setSetting);
   const permission = useAttentionFeedStore((state) => state.permission);
+  const pushComputers = useAttentionFeedStore((state) => state.pushComputers);
+  const machines = useMachinesStore((state) => state.machines);
+  const pushing =
+    pushComputers === null || enabledMachines({ machines }).some((machine) => pushComputers.includes(machine.id));
   const copy = NotificationsCopy.settings;
 
   useFocusEffect(
@@ -128,7 +138,7 @@ function AgentNotifications() {
       {permission === 'denied' ? <BlockedCard /> : null}
       <SectionHeader title={copy.sectionAgents} />
       <SwitchRow label={copy.master} value={notifications.enabled} onValueChange={setMaster} />
-      <Caption>{copy.limit}</Caption>
+      <Caption>{pushing ? copy.limitWithPush : copy.limit}</Caption>
       {kind('finished', copy.finished, copy.finishedDetail)}
       {kind('waiting', copy.waiting, copy.waitingDetail)}
       {kind('error', copy.error, copy.errorDetail)}
