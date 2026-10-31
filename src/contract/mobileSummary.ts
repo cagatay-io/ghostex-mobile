@@ -118,6 +118,10 @@ export type MobileSummaryWireRoot = {
   recentProjects?: GhostexRecentProject[];
   agents?: GhostexAgentLauncher[];
   quickActionsByProject?: Record<string, GhostexQuickAction[]>;
+  /** The computer's Global Actions, in its saved order; absent from a computer that predates them. */
+  globalQuickActions?: GhostexQuickAction[];
+  /** Features of the answering `ghostex`; `globalQuickActions: true` means it lists and runs Global Actions. */
+  capabilities?: Record<string, unknown>;
   workspaceGroups?: GhostexWorkspaceGroups;
   /** Server-normalized colored "Group N" overlay: {order, collections}. */
   sidebarProjectCollections?: unknown;
@@ -224,6 +228,13 @@ export type GhostexQuickAction = {
   icon?: string;
   name?: string;
 };
+
+/**
+ * Which list an action comes from: the project's own (`quickActionsByProject`) or the computer's Global Actions
+ * (`globalQuickActions`). A project action and a Global Action can share a commandId, so the scope and the
+ * commandId together identify an action.
+ */
+export type QuickActionScope = 'project' | 'global';
 
 export type GhostexSessionGroup = {
   groupId: string;
@@ -631,6 +642,16 @@ export type GhostexMobileSummary = {
   recentProjects: GhostexRecentProject[];
   agents: GhostexAgentLauncher[];
   quickActionsByProject: Record<string, GhostexQuickAction[]>;
+  /**
+   * The computer's Global Actions (`globalQuickActions`), listed in every project's Actions… menu after the
+   * project's own. Empty unless `globalQuickActionsSupported`; a missing key is an empty list.
+   */
+  globalQuickActions: GhostexQuickAction[];
+  /**
+   * `capabilities.globalQuickActions === true`: the answering `ghostex` lists Global Actions and runs them with
+   * `run-action --scope global`. Without it no Global Action is shown or run.
+   */
+  globalQuickActionsSupported: boolean;
   workspaceGroups: GhostexWorkspaceGroups | null;
   /** Ordered colored project collections; empty when the overlay is absent. */
   projectCollections: GhostexProjectCollection[];
@@ -1455,30 +1476,43 @@ function parseAgents(value: unknown): GhostexAgentLauncher[] {
   return agents;
 }
 
+/** One action list, project or global: the runnable types only, with the fields the computer sends. */
+function parseQuickActions(value: unknown): GhostexQuickAction[] {
+  if (!Array.isArray(value)) return [];
+  const actions: GhostexQuickAction[] = [];
+  for (const entry of value) {
+    if (!isObject(entry)) continue;
+    const actionType = trimmedValue(entry, 'actionType').toLowerCase();
+    if (actionType !== 'browser' && actionType !== 'terminal') continue;
+    actions.push({
+      actionType,
+      commandId: trimmedValue(entry, 'commandId'),
+      url: trimmedValue(entry, 'url'),
+      icon: trimmedValue(entry, 'icon'),
+      name: trimmedValue(entry, 'name'),
+    });
+  }
+  return actions;
+}
+
 function parseQuickActionsByProject(value: unknown): Record<string, GhostexQuickAction[]> {
   if (!isObject(value)) return {};
   const byProject: Record<string, GhostexQuickAction[]> = {};
   for (const rawProjectId of Object.keys(value)) {
     const projectId = rawProjectId.trim();
     if (projectId.length === 0) continue;
-    const actionsValue = value[rawProjectId];
-    if (!Array.isArray(actionsValue)) continue;
-    const actions: GhostexQuickAction[] = [];
-    for (const entry of actionsValue) {
-      if (!isObject(entry)) continue;
-      const actionType = trimmedValue(entry, 'actionType').toLowerCase();
-      if (actionType !== 'browser' && actionType !== 'terminal') continue;
-      actions.push({
-        actionType,
-        commandId: trimmedValue(entry, 'commandId'),
-        url: trimmedValue(entry, 'url'),
-        icon: trimmedValue(entry, 'icon'),
-        name: trimmedValue(entry, 'name'),
-      });
-    }
+    const actions = parseQuickActions(value[rawProjectId]);
     if (actions.length > 0) byProject[projectId] = actions;
   }
   return byProject;
+}
+
+/**
+ * The summary without Global Actions: what the phone keeps of a computer whose connection failed or is being
+ * re-established, so a Global Action is only ever shown or run from a summary read over the current connection.
+ */
+export function withoutGlobalQuickActions(summary: GhostexMobileSummary): GhostexMobileSummary {
+  return { ...summary, globalQuickActions: [], globalQuickActionsSupported: false };
 }
 
 function parseWorkspaceGroups(value: unknown): GhostexWorkspaceGroups | null {
@@ -1727,12 +1761,15 @@ function normalizeRoot(root: JsonObject): GhostexMobileSummary {
     if (session !== null && session.provider === 'zmx') sessions.push(session);
   }
   const workspaceGroups = parseWorkspaceGroups(root.workspaceGroups);
+  const globalQuickActionsSupported = isObject(root.capabilities) && root.capabilities.globalQuickActions === true;
   return {
     sessions,
     projects: parseProjects(root.projects),
     recentProjects: parseRecentProjects(root.recentProjects),
     agents: parseAgents(root.agents),
     quickActionsByProject: parseQuickActionsByProject(root.quickActionsByProject),
+    globalQuickActions: globalQuickActionsSupported ? parseQuickActions(root.globalQuickActions) : [],
+    globalQuickActionsSupported,
     workspaceGroups,
     projectCollections: parseProjectCollections(root.sidebarProjectCollections),
     projectCollectionsState: isObject(root.sidebarProjectCollections) ? root.sidebarProjectCollections : null,

@@ -168,6 +168,7 @@ Same as both existing apps — JSON over SSH, no gxserver wire protocol:
 - Inventory: `"$SHELL" -lc 'ghostex sessions --json --mobile-summary'` (5s poll while sessions screen visible; scan stdout for first JSON object containing `sessions`; keep provider=="zmx" only).
 - Attach: `openTerminal` with the `ghostex attach --session-id …` command wrapped in a login shell; after first render send `\x1b]1337;ZMX_REFRESH\x07` once (~2s).
 - Actions: `create-session`, `create-agent`, `run-action`, `move-project`, `restore-recent-project`, `rename-session`, wake/sleep/kill/focus via `ghostex` CLI; machine health: `ghostex android-check --json` (works for any mobile client).
+- Quick actions (the project header's Actions…): the project's `quickActionsByProject` entries, then the summary's `globalQuickActions` while `capabilities.globalQuickActions` is `true`; an action is identified by scope and commandId. A terminal action runs `ghostex run-action '<commandId>' --project-id '<projectId>'`, with ` --scope global` for a Global Action (in the tapped project; checked against the current summary at the tap); browser actions open the summary URL on the phone (loopback → Web Preview). Runner: `src/actions/runAction.ts`; list model: `src/actions/quickActions.ts`.
 - Quoting: single-quote with `'"'"'` escaping; login-shell wrapper `"$SHELL" -lc '<cmd>'`.
 
 ## Defaults (from the Android app)

@@ -85,6 +85,14 @@ import {
   stateWithoutProject,
   stateWithProjectInCollection,
 } from '../../contract/collectionsState';
+import {
+  lastRunEntry,
+  quickActionDisplayName,
+  quickActionEntries,
+  quickActionListRows,
+  type QuickActionEntry,
+  type QuickActionRef,
+} from '../../actions/quickActions';
 import type { ProjectHeaderItem } from '../../contract/grouping';
 import {
   agentIconTint,
@@ -93,7 +101,6 @@ import {
   resolveAgentArtId,
   resolveAgentIconId,
   type GhostexAgentLauncher,
-  type GhostexQuickAction,
   type GhostexSession,
 } from '../../contract/mobileSummary';
 import { DocsCopy, FeedbackCopy, ProgressCopy, StripCopy, WebPreviewCopy } from '../../copy';
@@ -116,7 +123,6 @@ import {
   NONE,
   parkSessionAction,
   pinSessionAction,
-  quickActionDisplayName,
   reloadSessionAction,
   sessionTitle,
   tagSessionAction,
@@ -160,7 +166,7 @@ export type SessionsScreenMenusDeps = {
     collapseAllProjects: (machineId: string) => void;
     expandAllProjects: (machineId: string, projectKeys: string[], collectionIds: string[]) => void;
   };
-  lastActionByProject: Record<string, string>;
+  lastActionByProject: Record<string, QuickActionRef>;
   navigation: SessionsNavigation;
   /** Opens a session on its terminal, whatever a tap on its row opens (a Claude cloud session's page). */
   openSessionTerminal: (target: MachineRecord, session: GhostexSession) => Promise<void>;
@@ -181,7 +187,7 @@ export type SessionsScreenMenusDeps = {
     message: string,
     chatLaunch?: { agentId: string; projectId: string; title: string },
   ) => Promise<void>;
-  runQuickAction: (target: MachineRecord, projectId: string, projectTitle: string, action: GhostexQuickAction) => void;
+  runQuickAction: (target: MachineRecord, projectId: string, projectTitle: string, entry: QuickActionEntry) => void;
   runSessionCommand: (
     target: MachineRecord,
     command: string,
@@ -226,6 +232,17 @@ export function useSessionsScreenMenus({
 
   const summaryFor = (machineId: string) =>
     useInventoryStore.getState().inventoriesByMachineId[machineId]?.summary ?? null;
+
+  /**
+   * A project menu's actions: the project's own from the header it was opened from, the Global Actions from the
+   * computer's current summary, so an open menu loses them as soon as the computer no longer offers them (the screen
+   * renders open menus again on every list change).
+   */
+  const currentQuickActionEntries = (ctx: ProjectContext): QuickActionEntry[] =>
+    quickActionEntries(
+      ctx.header.quickActions,
+      ctx.header.projectId.length > 0 ? (summaryFor(ctx.machine.id)?.globalQuickActions ?? []) : [],
+    );
 
   const isBrowserSession = (session: GhostexSession): boolean =>
     session.kind === 'browser' || session.surface === 'browser';
@@ -836,18 +853,17 @@ export function useSessionsScreenMenus({
      * User: "move almost all of the buttons that appear next to an expanded project into the 3 dots menu; just keep the agent picker one and the new agent one." The project's quick actions and Create Terminal used to be header buttons; they lead this menu, each with the icon it had as a button. (Its Show fewer sessions row went with the compact list on 2026-10-13, CDXC:Projects in contract/grouping.ts.)
      */
     const headerRows: ContextMenuItem[] = [];
-    if (header.quickActions.length > 0) {
-      const lastAction =
-        header.quickActions.find(
-          (action) =>
-            (action.commandId ?? '') === (lastActionByProject[lastActionKey(ctx.machine.id, header.projectId)] ?? ''),
-        ) ?? header.quickActions[0];
+    const lastAction = lastRunEntry(
+      currentQuickActionEntries(ctx),
+      lastActionByProject[lastActionKey(ctx.machine.id, header.projectId)],
+    );
+    if (lastAction !== null) {
       headerRows.push({
         kind: 'item',
         key: 'quick-actions',
         label: 'Actions…',
         icon:
-          lastAction.actionType === 'browser' ? (
+          lastAction.action.actionType === 'browser' ? (
             <WorldGlyph size={14} color={menuIconColor} />
           ) : (
             <PlayGlyph size={14} color={menuIconColor} />
@@ -1616,17 +1632,21 @@ export function useSessionsScreenMenus({
     return parseCoordinatorOptions(result.json);
   };
 
-  /** Actions menu: one row per project quick action, check on the last run. */
-  const actionsMenuItems = (ctx: ProjectContext): ContextMenuItem[] => {
-    const selectedCommandId = lastActionByProject[lastActionKey(ctx.machine.id, ctx.header.projectId)] ?? '';
-    return ctx.header.quickActions.map((action, index) => {
-      const name = quickActionDisplayName(action);
-      const commandId = action.commandId ?? '';
-      const iconId = resolveAgentIconId(action.icon, action.actionType === 'browser' ? 'browser' : name);
+  /** Actions menu: the project's actions, then the computer's Global Actions, check on the last run. */
+  const actionsMenuItems = (ctx: ProjectContext): ContextMenuItem[] =>
+    quickActionListRows(
+      currentQuickActionEntries(ctx),
+      lastActionByProject[lastActionKey(ctx.machine.id, ctx.header.projectId)],
+    ).map((row): ContextMenuItem => {
+      if (row.kind !== 'action') return row;
+      const { entry } = row;
+      const name = quickActionDisplayName(entry.action);
+      const commandId = entry.action.commandId ?? '';
+      const iconId = resolveAgentIconId(entry.action.icon, entry.action.actionType === 'browser' ? 'browser' : name);
       const Icon = AGENT_ICONS[iconId];
       return {
-        kind: 'item' as const,
-        key: commandId.length > 0 ? commandId : `action-${index}`,
+        kind: 'item',
+        key: row.key,
         label: name,
         icon:
           Icon !== undefined ? (
@@ -1634,17 +1654,19 @@ export function useSessionsScreenMenus({
           ) : (
             <WorldGlyph size={14} color={agentIconTint('browser')} />
           ),
-        selected: commandId.length > 0 && commandId === selectedCommandId,
+        selected: row.selected,
         onPress: () => {
           setOverlay(NONE);
           if (commandId.length > 0) {
-            useLauncherStore.getState().setLastAction(ctx.machine.id, ctx.header.projectId, commandId);
+            useLauncherStore.getState().setLastAction(ctx.machine.id, ctx.header.projectId, {
+              scope: entry.scope,
+              commandId,
+            });
           }
-          runQuickAction(ctx.machine, ctx.header.projectId, ctx.header.title, action);
+          runQuickAction(ctx.machine, ctx.header.projectId, ctx.header.title, entry);
         },
       };
     });
-  };
 
   const recoveryItems = (target: MachineRecord | null): ActionSheetItem[] => [
     {

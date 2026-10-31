@@ -10,7 +10,7 @@ import { create } from 'zustand';
 
 import { reportClientHello } from '../analytics/clientHello';
 import { logAppEvent } from '../app/appLog';
-import type { GhostexMobileSummary } from '../contract/mobileSummary';
+import { withoutGlobalQuickActions, type GhostexMobileSummary } from '../contract/mobileSummary';
 import { hasPassword } from '../machines/credentials';
 import { reconnectMachine } from '../remote/connection';
 import { restoreAttachTabs } from '../terminal/sessions';
@@ -99,6 +99,11 @@ type InventoryState = {
   commitOptimisticMutations: (machineId: string, mutationIds: readonly string[]) => void;
   rollbackOptimisticMutations: (machineId: string, mutationIds: readonly string[]) => void;
   /**
+   * Forget the computer's cached Global Actions and capability, keeping everything else on screen; for a connection
+   * that is recovered outside this store (the automatic reconnect, the check on returning to the foreground).
+   */
+  dropGlobalQuickActions: (machineId: string) => void;
+  /**
    * Optimistically clear a session's attention state (desktop-parity instant
    * dot clear on tap). Drops the fingerprint so the next poll always swaps the
    * summary back to server truth, covering a failed acknowledge CLI call.
@@ -120,6 +125,25 @@ export const useInventoryStore = create<InventoryState>()((set, get) => {
         ...get().inventoriesByMachineId,
         [machineId]: { ...current, ...patch },
       },
+    });
+  };
+
+  /**
+   * A lost or re-established connection keeps the list on screen but not the computer's Global Actions: they are
+   * shown and run only from a summary read over the current connection, since the computer that answers next may
+   * no longer offer them. The fingerprint goes too, so the next answer is applied even when its text is unchanged.
+   */
+  const dropGlobalQuickActions = (machineId: string): void => {
+    const current = get().inventoriesByMachineId[machineId];
+    if (current === undefined) return;
+    const cached =
+      current.summary?.globalQuickActionsSupported === true ||
+      current.serverSummary?.globalQuickActionsSupported === true;
+    if (!cached) return;
+    patchMachine(machineId, {
+      summary: current.summary === null ? null : withoutGlobalQuickActions(current.summary),
+      serverSummary: current.serverSummary === null ? null : withoutGlobalQuickActions(current.serverSummary),
+      fingerprint: null,
     });
   };
 
@@ -228,6 +252,7 @@ export const useInventoryStore = create<InventoryState>()((set, get) => {
             lastError: failure.message,
             lastErrorCode: failure.reasonCode,
           });
+          dropGlobalQuickActions(machine.id);
           if (
             failure.reasonCode === 'ghostexNotAnswering' &&
             pollTimer !== null &&
@@ -274,6 +299,7 @@ export const useInventoryStore = create<InventoryState>()((set, get) => {
       refreshRevisions.set(machineId, (refreshRevisions.get(machineId) ?? 0) + 1);
       inFlightRefreshes.delete(machineId);
       patchMachine(machine.id, { retrying: true });
+      dropGlobalQuickActions(machine.id);
       const request = Promise.resolve().then(async () => {
         try {
           await reconnectMachine(machine);
@@ -303,6 +329,8 @@ export const useInventoryStore = create<InventoryState>()((set, get) => {
       retryRequests.set(machineId, request);
       return request;
     },
+
+    dropGlobalQuickActions,
 
     refreshAll: async () => {
       // Machines hidden from the Sessions screen are never connected to, so a

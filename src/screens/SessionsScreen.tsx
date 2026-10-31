@@ -44,6 +44,7 @@ import {
   type RailButtons,
   type RailEntry,
 } from '../components/common/verticalBar/VerticalBarArea';
+import { ActionFailureCard, type ShownActionFailure } from '../components/sessions/ActionFailureCard';
 import { useCollapseStore } from '../components/sessions/collapseStore';
 import { useOpenProjectDraftsOnArrival } from '../components/sessions/useDraftArrivals';
 import { useSessionListClock } from '../components/sessions/useSessionListClock';
@@ -217,6 +218,8 @@ export default function SessionsScreen({ navigation }: Props) {
    */
   const [pullRefreshing, setPullRefreshing] = useState(false);
   const [statusOverride, setStatusOverride] = useState<string | null>(null);
+  /** The latest action the computer did not start, for the start-failure card (a new id shows it again). */
+  const [actionFailure, setActionFailure] = useState<ShownActionFailure | null>(null);
   const [tailscaleConnected, setTailscaleConnected] = useState<boolean | null>(null);
   const statusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Last logged Tailscale state, so the 5s probe logs only transitions. */
@@ -542,6 +545,7 @@ export default function SessionsScreen({ navigation }: Props) {
     setTransientStatus,
     refreshMachine,
     retryMachine,
+    setActionFailure,
   });
 
   // -------------------------------------------------------------------------
@@ -1024,6 +1028,7 @@ export default function SessionsScreen({ navigation }: Props) {
             onRemoteSettings={() => navigation.navigate('MachineForm', { machineId: noticeTarget.id })}
           />
         ) : null}
+        <ActionFailureCard failure={actionFailure} />
       </View>
       {/*
         CDXC:Sessions 2026-10-27 DECISION:

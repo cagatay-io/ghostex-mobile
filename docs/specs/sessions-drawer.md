@@ -150,11 +150,13 @@ All: close drawer → progress dialog (spinner + message) → run command → re
 
 - Project "+": `ghostex create-session --json [--project-id '<id>'] [--group-id '<id>']` — "Creating a terminal in {project}…".
 - Agent chip: `ghostex create-agent '<agentId>' --project-id '<projectId>' --json` — "Starting {agent} in {project}…". No stable projectId → "This project has no stable project id, so agent sessions cannot be started here."
-- Quick action: terminal → `ghostex run-action '<commandId>' --project-id '<projectId>'`; browser → open URL on device, status "Opened {name} in the browser."
+- Quick action: terminal → `ghostex run-action '<commandId>' --project-id '<projectId>'`, plus ` --scope global` for a Global Action (run in the project whose menu it was chosen from, and only while the current summary has `capabilities.globalQuickActions: true`); browser → open URL on device (loopback address → Web Preview, otherwise the phone's browser, status "Opened {name} in the browser."). A start the computer refuses closes the progress dialog and shows "Couldn't start {name}" with the §5 failure copy in a card at the bottom of the list for 6 s (a refusal the phone does not recognise reads as a plain sentence; the computer's own words go to the app log); a failure after the start (list read, attach) goes to the status line. The card is an accessible alert; on iOS it also asks VoiceOver once to announce its title and message (whether VoiceOver speaks it is not yet checked on a device).
 
 ## 7. mobile-summary contract (build TS types from this)
 
-Root: `{ sessions: Session[], projects?, recentProjects?, agents?, quickActionsByProject? (Record<projectId, QuickAction[]>), workspaceGroups? { projectOrder?: string[], projects?: Record<projectId, {groups?: {groupId, title?, sessionIds?}[]}> } }`.
+Root: `{ sessions: Session[], projects?, recentProjects?, agents?, quickActionsByProject? (Record<projectId, QuickAction[]>), globalQuickActions? (QuickAction[], the computer's Global Actions in its saved order), capabilities? ({globalQuickActions?: true, …}), workspaceGroups? { projectOrder?: string[], projects?: Record<projectId, {groups?: {groupId, title?, sessionIds?}[]}> } }`.
+
+Global Actions count only while `capabilities.globalQuickActions` is `true`; a missing `globalQuickActions` (an older computer, or a summary whose action read failed) is an empty list. The phone drops the cached Global Actions and the capability, until the computer answers again, when a list read fails, when an explicit retry of the connection starts, and when the automatic reconnect or the connection check on returning to the foreground starts. Sessions, projects and project actions stay on screen meanwhile.
 
 Project: `{projectId (req), name?, path?}`. RecentProject: `{projectId, title?, path?, sessionCount?}`. AgentLauncher: `{agentId (req), icon?, name?}`. QuickAction: `{actionType ("browser"|"terminal"), commandId?, url?, icon?, name?}`.
 
@@ -204,8 +206,15 @@ and recloned every surface from the live CSS cascade.
   with brand-tinted icons and a check on the selected primary agent; selecting
   launches the agent AND persists it globally (`drawer.launcher.v1`,
   mirroring the desktop's ghostex-sidebar-project-terminal-launcher). The
-  actions menu lists the project's quick actions with a check on the last-run
-  action (persisted per machine+project). The old PROJECT_AGENTS_ROW chip row
+  actions menu lists the project's quick actions under "Project Actions", then
+  the computer's Global Actions under "Global Actions" (each heading only when
+  its part is non-empty), with a check on the last-run action, identified by
+  scope and commandId (persisted per machine+project; a project action as its
+  bare commandId, a Global Action as `{scope:"global", commandId}`). Actions…
+  is in the project menu only while at least one action is listed. An open project
+  menu or actions menu takes the Global Actions from the current summary, so they
+  leave it as soon as the computer no longer offers them; the project's own actions
+  stay as they were when the menu opened. The old PROJECT_AGENTS_ROW chip row
   is gone.
 - **Session rows**: 34dp flat rows, radius 4 fills, title 15.5dp weight-300
   #B4B8C0 (active #D8D8D8; sleeping dims ONLY the title to #5F646B at 0.42),

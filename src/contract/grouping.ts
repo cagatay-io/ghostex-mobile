@@ -137,7 +137,8 @@ export type ProjectHeaderItem = {
   /**
    * Header launcher data (desktop agent split-button + actions menu): the
    * global agent launcher rows and this project's quick actions. Empty for
-   * projects without a stable projectId.
+   * projects without a stable projectId. The computer's Global Actions are not
+   * carried here; the menu reads them from the current summary.
    */
   agents: GhostexAgentLauncher[];
   quickActions: GhostexQuickAction[];

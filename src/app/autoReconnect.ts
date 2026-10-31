@@ -86,6 +86,9 @@ function recoverMachine(machineId: string, verify = false): Promise<void> {
   const target = machineTarget(machineId);
   if (!target || !canRecover(machineId)) return Promise.resolve();
   cancelRetry(machineId);
+  // Global Actions are shown and run only from a summary read over the recovered connection; the list read that
+  // follows in the foreground brings them back.
+  useInventoryStore.getState().dropGlobalQuickActions(machineId);
   const request = (async () => {
     try {
       await ensureConnected(target, { verify });
