@@ -234,7 +234,16 @@ public final class TerminalBuffer {
             // Copy away old state and update new:
             TerminalRow[] oldLines = mLines;
             mLines = new TerminalRow[newTotalRows];
-            for (int i = 0; i < newTotalRows; i++)
+            /*
+             * CDXC:Terminal 2026-10-31 WHY: only the screen rows are allocated here, as the constructor
+             * does; scrollDownOneLine allocates each row the reflow pushes into the transcript. Termux
+             * allocated every row of the scrollback on the first width change, so a quiet terminal held
+             * its whole scrollback (about 2.2 KB a row at the 200-column parked width) and seven warm
+             * terminals ran the Android app out of memory (GitHub #356). Rows outside the transcript and
+             * the screen are null until used, which the rest of this class already allows.
+             * SEE-ALSO: src/terminal/warmBudget.ts (the warm terminals' shared scrollback budget).
+             */
+            for (int i = 0; i < newRows; i++)
                 mLines[i] = new TerminalRow(newColumns, currentStyle);
 
             final int oldActiveTranscriptRows = mActiveTranscriptRows;
