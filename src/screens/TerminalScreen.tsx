@@ -14,6 +14,10 @@
  *   the terminal keeps its size (so its grid and the pty stay put) and slides
  *   with the keyboard: the bottom row above what covers it (keyboard, editor or layer), the cursor row wins
  *   (`slidesWithKeyboard`).
+ * - Laptop pose (iPhone Duo half folded, `laptopMode.ts`): with the keyboard or a pad layer up the terminal's
+ *   visible part ends at the fold and the lower half is covered; the keyboard and the layers lie below the fold, the
+ *   pad and the text editor above it (the open pad reaches below it only where the upper half is too short for it
+ *   even reaching over the header).
  */
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -42,6 +46,7 @@ import ProgressOverlay from '../components/common/ProgressOverlay';
 import PromptDialog from '../components/common/PromptDialog';
 import { useKeyboardState } from '../components/common/keyboard/keyboardFrame';
 import { measureInWindow } from '../components/common/measureInWindow';
+import { useLaptopFold } from '../components/common/verticalBar/laptopFold';
 import { bandRowFrame } from '../components/common/verticalBar/layout';
 import {
   barBackgroundToEdges,
@@ -71,6 +76,15 @@ import TerminalTabsBar, { MIN_TAB_WIDTH } from '../components/terminal/TerminalT
 import TerminalTextEditor, { TEXT_EDITOR_HEIGHT } from '../components/terminal/TerminalTextEditor';
 import { ChatBubbleIcon, ChevronLeftIcon, EllipsisIcon, TerminalPromptIcon } from '../components/terminal/icons';
 import { PAD_TOGGLE, padAnchor, padHeaderReach } from '../components/terminal/commandPadLayout';
+import {
+  laptopEditorInset,
+  laptopLayerHeight,
+  laptopObstruction,
+  laptopPadArea,
+  laptopPadCover,
+  laptopPadReachBelowFold,
+  laptopPadRoomBelowFold,
+} from '../components/terminal/laptopMode';
 import { terminalObstruction, terminalSlideOffset } from '../components/terminal/terminalKeyboardSlide';
 import { useCommandPad } from '../components/terminal/useCommandPad';
 import { useKeyboardMetrics } from '../components/terminal/useKeyboardMetrics';
@@ -490,20 +504,40 @@ export default function TerminalScreen({ navigation, route }: Props) {
   const padSessionKey =
     settings.extraKeysToolbarVisible && activeTab !== null && slidesWithKeyboard ? activeTab.sessionKey : null;
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  // The iPhone Duo half folded like a laptop (`laptopMode.ts`): the output above the fold, the keyboard and the pad's
+  // layers below it, the pad in the upper half. Null in every other pose, on every other iPhone, in chat view (the
+  // composer keeps itself above the fold) and on Android.
+  const foldShown = useLaptopFold();
+  const laptopFold = slidesWithKeyboard ? foldShown : null;
   // The pad's room: the terminal area within the window's safe area across (in landscape the area runs under the
   // screen's rounded corners and the camera), and the header above it where the open pad needs that (`padReach`).
+  // In the laptop pose only the part above the fold.
   const padArea = useMemo(() => {
     if (terminalArea === null) return null;
     const left = Math.max(terminalArea.x, insets.left);
     const right = Math.min(terminalArea.x + terminalArea.width, windowWidth - insets.right);
-    return { x: left, y: terminalArea.y, width: Math.max(0, right - left), height: terminalArea.height };
-  }, [terminalArea, insets.left, insets.right, windowWidth]);
+    const area = { x: left, y: terminalArea.y, width: Math.max(0, right - left), height: terminalArea.height };
+    return laptopFold === null ? area : laptopPadArea(area, laptopFold);
+  }, [terminalArea, insets.left, insets.right, windowWidth, laptopFold]);
   // The header between the terminal area and the window's safe area: the open pad reaches over it where the area
   // alone is too short for it.
   const headerRoom = padArea === null ? 0 : Math.max(0, padArea.y - insets.top);
   // iOS: how much of the terminal's bottom the keyboard covers, with the text editor on it when `editorOpen`.
   const keyboardCover = (editorOpen: boolean): number =>
     terminalObstruction(bottomInset, editorOpen ? editorHeight || TEXT_EDITOR_HEIGHT : 0, insets.bottom);
+  // How much of the pad room's bottom is covered while the keyboard is up, with the text editor when `editorOpen`:
+  // in the laptop pose only the editor above the fold, as the keyboard lies below it.
+  const padCoverWithKeyboard = (editorOpen: boolean): number =>
+    laptopFold !== null
+      ? laptopPadCover(editorOpen ? editorHeight || TEXT_EDITOR_HEIGHT : 0)
+      : keyboardCover(editorOpen);
+  // Whether the open pad has room above the keyboard (and the editor when `editorOpen`), reaching over the header if
+  // it must. In the laptop pose without the editor it always has: where the upper half is too short even over the
+  // header, its room reaches below the fold (`padRoomBelowFold`), as lowering the keyboard below the fold adds none.
+  const openPadFits = (editorOpen: boolean): boolean =>
+    padArea === null ||
+    (laptopFold !== null && !editorOpen) ||
+    padHeaderReach(padArea, padCoverWithKeyboard(editorOpen), headerRoom) !== null;
   // Whether the last render drew the open pad closed for a layer (`padGivesWay` below); the pad's state needs it
   // when the keyboard comes back, and the room it is read from depends on that state.
   const [padGaveWay, setPadGaveWay] = useState(false);
@@ -513,18 +547,18 @@ export default function TerminalScreen({ navigation, route }: Props) {
   const pad = useCommandPad({
     sessionKey: padSessionKey,
     agentId: activeAgentId,
-    // Laptop mode passes 'laptop' with its own area.
-    layout: 'flat',
+    // The laptop pose has a place of its own.
+    layout: laptopFold !== null ? 'laptop' : 'flat',
     keyboardVisible,
     keyboardOverlap: slidesWithKeyboard ? bottomInset : 0,
     windowWidth,
     showKeyboard,
     dismissKeyboard,
     padGaveWay,
-    openPadFitsAboveKeyboard: (editorOpen) =>
-      padArea === null || padHeaderReach(padArea, keyboardCover(editorOpen), headerRoom) !== null,
+    openPadFitsAboveKeyboard: openPadFits,
     // A turn, fold or resize reports these one by one; the pad's room is judged once they have settled (the
-    // keyboard: `keyboardOverlap`, which a keyboard coming up does not move).
+    // keyboard: `keyboardOverlap`, which a keyboard coming up does not move). Folding to or from the laptop pose
+    // reports the fold.
     roomInputs: [
       windowWidth,
       windowHeight,
@@ -536,37 +570,82 @@ export default function TerminalScreen({ navigation, route }: Props) {
       terminalArea?.y ?? -1,
       terminalArea?.width ?? -1,
       terminalArea?.height ?? -1,
+      laptopFold?.top ?? -1,
+      laptopFold?.bottom ?? -1,
     ],
     keyboardAppearances,
   });
   const editorShown = padSessionKey !== null && pad.editorVisible;
   const layerShown = padSessionKey !== null && pad.layer !== null;
-  // iOS: the covered part of the terminal's bottom, the keyboard with the editor on it or a layer in its place. A
-  // layer has exactly the keyboard's last height once that is known (it scrolls inside), so the pad stays put;
-  // before any keyboard was seen, its own height.
-  const layerCover = pad.layerMinHeight ?? layerHeight;
-  const obstruction = slidesWithKeyboard
-    ? Math.max(keyboardCover(editorShown), layerShown ? layerCover - insets.bottom : 0)
-    : 0;
+  // A layer in the keyboard's place: the keyboard's last height in this window (it scrolls inside), so the pad stays
+  // put; before any keyboard was seen, its own height. In the laptop pose it never reaches the fold.
+  const layerFrameHeight =
+    laptopFold !== null ? laptopLayerHeight(laptopFold, windowHeight, pad.layerMinHeight) : pad.layerMinHeight;
+  // iOS: the covered part of the terminal's bottom, the keyboard with the editor on it or a layer in its place. In
+  // the laptop pose with the keyboard or a layer up: everything below the fold (and the editor above it).
+  const layerCover = layerShown ? (layerFrameHeight ?? layerHeight) - insets.bottom : 0;
+  // The terminal area's bottom edge in the window: the home indicator's inset above the window's bottom until measured.
+  const terminalAreaBottom =
+    terminalArea === null ? windowHeight - insets.bottom : terminalArea.y + terminalArea.height;
+  // In the laptop pose: how far the fold's top stands above the terminal area's bottom (0 in every other pose).
+  const foldAboveAreaBottom = laptopFold === null ? 0 : Math.max(0, terminalAreaBottom - laptopFold.top);
+  const obstruction =
+    laptopFold !== null
+      ? laptopObstruction({
+          fold: laptopFold,
+          areaBottom: terminalAreaBottom,
+          keyboardCover: keyboardCover(false),
+          layerCover,
+          editorHeight: editorShown ? editorHeight || TEXT_EDITOR_HEIGHT : 0,
+        })
+      : slidesWithKeyboard
+        ? Math.max(keyboardCover(editorShown), layerCover)
+        : 0;
   const terminalOffset = terminalSlideOffset(caretTop, terminalArea?.height ?? 0, obstruction);
-  // The pad and the floating controls stay above what covers the terminal: the terminal area does not shrink. The
-  // pad keeps the user's place unless it would stand under that.
-  const padAt = useMemo(() => padAnchor(pad.placement, padArea, obstruction), [pad.placement, padArea, obstruction]);
-  // How far the open pad reaches over the header (null: it does not fit even then).
-  const padReach = padArea === null ? 0 : padHeaderReach(padArea, obstruction, headerRoom);
+  // What covers the pad room's bottom: the pad and the floating controls stay above it, the terminal area does not
+  // shrink. In the laptop pose the room ends at the fold and only the editor lies in it.
+  const padCover = laptopFold !== null ? padCoverWithKeyboard(editorShown) : obstruction;
+  // The pad keeps the user's place unless it would stand under what covers its room.
+  const padAt = useMemo(() => padAnchor(pad.placement, padArea, padCover), [pad.placement, padArea, padCover]);
+  // In the laptop pose without the text editor, where the upper half is too short for the open pad even over the
+  // header: the open pad's room, reaching below the fold by what is missing. With the editor open the pad is closed
+  // instead (`padYieldsToEditor`).
+  const padRoomBelowFold = useMemo(
+    () =>
+      laptopFold !== null && padArea !== null && !editorShown ? laptopPadRoomBelowFold(padArea, headerRoom) : null,
+    [laptopFold, padArea, editorShown, headerRoom],
+  );
+  // How far the open pad reaches over the header (null: it does not fit even then). Below the fold it reaches over all
+  // of the header and fits unless a layer below the fold comes up into its room.
+  const padReach =
+    padArea === null
+      ? 0
+      : padRoomBelowFold !== null
+        ? laptopPadReachBelowFold(padRoomBelowFold, headerRoom, layerShown ? terminalAreaBottom - layerCover : null)
+        : padHeaderReach(padArea, padCover, headerRoom);
   // Where a Keys or Agent layer leaves the open pad no room above it, even over the header (the pad holding the
-  // keyboard down, or a phone in landscape whose keyboard was down when the pad opened), the pad is drawn closed and
-  // the layer gets its own close button, so neither is cut off. Closing the layer, or tapping the toggle, shows the
-  // pad again with the keyboard still down. Read from the room on every render, so a rotation or window change that
-  // makes room shows the pad above the layer again.
+  // keyboard down, a phone in landscape whose keyboard was down when the pad opened, or in the laptop pose a layer
+  // coming up into the open pad's room below the fold), the pad is drawn closed and the layer gets its own close
+  // button, so neither is cut off. Closing the layer, or tapping the toggle, shows the pad again with the keyboard
+  // still down. Read from the room on every render, so a rotation or window change that makes room shows the pad
+  // above the layer again.
   const padGivesWay = pad.open && layerShown && padReach === null;
+  // The room the pad is drawn in: below the fold only while it is drawn open there; closed, its toggle stays in the
+  // upper half.
+  const padRoom = padRoomBelowFold !== null && pad.open && !padGivesWay ? padRoomBelowFold : padArea;
   if (padGivesWay !== padGaveWay) setPadGaveWay(padGivesWay);
+  // The laptop pose with the text editor open where the upper half has no room for the open pad above it: the pad is
+  // closed while the editor is open; Send or a tap on the toggle closes the editor and opens the pad, the keyboard
+  // staying up below the fold.
+  const padYieldsToEditor = laptopFold !== null && editorShown && !openPadFits(true);
   // Opening the pad where it does not fit above the keyboard even over the header lowers the keyboard.
   const togglePadOpen = pad.toggle;
   const closePadLayer = pad.closeLayer;
+  const openPadOverEditor = pad.openOverEditor;
   const togglePad = useCallback(
-    (): void => (padGivesWay ? closePadLayer() : togglePadOpen(padReach !== null)),
-    [padGivesWay, closePadLayer, togglePadOpen, padReach],
+    (): void =>
+      padYieldsToEditor ? openPadOverEditor() : padGivesWay ? closePadLayer() : togglePadOpen(padReach !== null),
+    [padYieldsToEditor, openPadOverEditor, padGivesWay, closePadLayer, togglePadOpen, padReach],
   );
   // The text editor open while the pad is closed and the open pad has no room above the keyboard and the editor, even
   // over the header (a phone in landscape): the pen is out of reach, so the editor gets its own close button, which
@@ -594,12 +673,16 @@ export default function TerminalScreen({ navigation, route }: Props) {
     navigation.setOptions({ gestureEnabled: false, gestureResponseDistance: NO_SWIPE_BACK_START });
     return () => navigation.setOptions({ gestureEnabled: undefined, gestureResponseDistance: undefined });
   }, [navigation, padHeld]);
-  const floatingLift = slidesWithKeyboard ? Math.max(0, bottomInset - insets.bottom) : 0;
+  // The round buttons with the pad switched off stand above what covers the terminal (in the laptop pose: the fold).
+  const floatingLift =
+    laptopFold !== null ? obstruction : slidesWithKeyboard ? Math.max(0, bottomInset - insets.bottom) : 0;
   // The round buttons' bottom edge in the terminal area: above the closed pad's toggle at the right edge, else in the
   // corner above what covers the area. On iOS, where the area does not shrink with the keyboard, the height left for
   // them above it, 16 pt below the area's top.
   const floatingBottom =
-    padSessionKey !== null && padAt.side === 'right' ? padAt.bottom + PAD_TOGGLE + 12 : 16 + floatingLift;
+    padSessionKey !== null && padAt.side === 'right'
+      ? foldAboveAreaBottom + padAt.bottom + PAD_TOGGLE + 12
+      : 16 + floatingLift;
   const floatingRoom =
     slidesWithKeyboard && terminalArea !== null ? terminalArea.height - floatingBottom - 16 : undefined;
 
@@ -764,7 +847,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
         modifiers={pad.modifiers}
         agentId={activeAgentId}
         onOpenSettings={openPadSettings}
-        height={pad.layerMinHeight}
+        height={layerFrameHeight}
         bottomInset={insets.bottom}
         onHeightChange={setLayerHeight}
         onClose={padGivesWay ? closePadLayer : undefined}
@@ -1025,6 +1108,8 @@ export default function TerminalScreen({ navigation, route }: Props) {
             errorCaption={activeTab.error !== undefined ? summarizeFailure(activeTab.error, activeMachineHasPassword) : null}
             onRetry={() => void reopenTab(activeTab)}
             onReconnect={() => void reopenTab(activeTab)}
+            // Laptop pose: Retry and Reconnect above the fold, never on it.
+            contentBottom={foldAboveAreaBottom}
           />
         )}
         {/*
@@ -1050,6 +1135,12 @@ export default function TerminalScreen({ navigation, route }: Props) {
           </Pressable>
         ) : null}
         {tabs.length > 1 && <EdgeSwipeZones onPrev={() => switchTabBy(-1)} onNext={() => switchTabBy(1)} />}
+        {laptopFold !== null && obstruction > 0 ? (
+          // Laptop pose with the keyboard or a layer up: the output ends at the fold. The view keeps its size and
+          // slides; what it still has below the fold's top (the cursor row won and it slid less) is covered, and
+          // touches there reach no terminal.
+          <View testID="laptop-cover" style={[styles.laptopCover, { height: obstruction }]} />
+        ) : null}
         {/*
           Without the pad (switched off, or Android): the round buttons as before the pad, hidden while the key bar
           is up. With it on, Upload is a pad key and the optional keyboard and refresh buttons stand above the
@@ -1080,23 +1171,24 @@ export default function TerminalScreen({ navigation, route }: Props) {
         )}
       </View>
       {/*
-        The pad's room (`padArea`): the terminal area within the window's safe area across, and the header above it
-        while the open pad needs that (`padReach`). Its own view, after the header, because the terminal area clips
+        The pad's room (`padRoom`): the terminal area within the window's safe area across, and the header above it
+        while the open pad needs that (`padReach`); in the laptop pose the upper half, reaching below the fold while
+        the open pad needs that (`padRoomBelowFold`). Its own view, after the header, because the terminal area clips
         what slides out of it. Until the area is measured, the pad has no place and is not shown.
       */}
       {padSessionKey !== null ? (
         <View
           pointerEvents="box-none"
           style={
-            padArea === null
+            padRoom === null
               ? styles.padRoomUnmeasured
               : [
                   styles.padRoom,
                   {
-                    left: padArea.x,
-                    top: padArea.y - (padReach ?? 0),
-                    width: padArea.width,
-                    height: padArea.height + (padReach ?? 0),
+                    left: padRoom.x,
+                    top: padRoom.y - (padReach ?? 0),
+                    width: padRoom.width,
+                    height: padRoom.height + (padReach ?? 0),
                   },
                 ]
           }
@@ -1109,9 +1201,9 @@ export default function TerminalScreen({ navigation, route }: Props) {
             modifiers={pad.modifiers}
             upload={padUpload}
             anchor={padAt}
-            area={padArea}
+            area={padRoom}
             reach={padReach ?? 0}
-            cover={obstruction}
+            cover={padCover}
             placement={pad.placement}
             onMove={pad.movePad}
             onHold={setPadHeld}
@@ -1157,12 +1249,19 @@ export default function TerminalScreen({ navigation, route }: Props) {
       </View>
       {slidesWithKeyboard ? (
         <>
-          <KeyBarDock shown={editorShown} inset={bottomInset} hideMs={hideMotionMs} onHeightChange={setEditorHeight}>
+          <KeyBarDock
+            shown={editorShown}
+            // Laptop pose: above the fold, at the bottom of the upper half.
+            inset={laptopFold !== null ? laptopEditorInset(laptopFold, windowHeight) : bottomInset}
+            hideMs={hideMotionMs}
+            onHeightChange={setEditorHeight}
+          >
             {padSessionKey !== null ? (
               <TerminalTextEditor
                 key={padSessionKey}
                 sessionKey={padSessionKey}
                 onClose={editorStandsAlone ? pad.toggleEditor : undefined}
+                onSent={padYieldsToEditor ? openPadOverEditor : undefined}
               />
             ) : null}
           </KeyBarDock>

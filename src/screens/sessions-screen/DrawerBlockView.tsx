@@ -6,13 +6,16 @@
  * docs/2026-10-21/phone-sessions-screen/sessions-like-sidebar.html.
  *
  * Pure rendering: every action goes back to SessionsScreen through `DrawerBlockActions`, which
- * also keeps this file renderable in the web harness the screenshots come from.
+ * also keeps this file renderable in the web harness the screenshots come from. Blocks, headers and rows are
+ * fold-gap units (`FoldGapView`, a plain View outside the Sessions list's provider), so half folded like a laptop
+ * nothing rests on the knick.
  */
 
 import type { ReactElement } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import StateCard from '../../components/common/StateCard';
+import { FoldGapView } from '../../components/common/foldGap';
 import type { MenuAnchor } from '../../components/sessions/ContextMenu';
 import type { DrawerBlock, ProjectCardBlock } from '../../components/sessions/drawerModel';
 import {
@@ -177,8 +180,13 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
         groups.push({ header: child, rows: [] });
         continue;
       }
-      const element = childRow(child, card.header);
-      if (element === null) continue;
+      const row = childRow(child, card.header);
+      if (row === null) continue;
+      const element = (
+        <FoldGapView key={row.key} kind="row">
+          {row}
+        </FoldGapView>
+      );
       const group = groups[groups.length - 1];
       const inGroup =
         (child.type === 'SESSION' || child.type === 'COORDINATOR_OLDER') &&
@@ -188,27 +196,41 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
       if (inGroup) group.rows.push(element);
       else own.push(element);
     }
-    if (groups.length === 0) return <View style={styles.rows}>{own}</View>;
+    if (groups.length === 0) {
+      return (
+        <FoldGapView kind="group" style={styles.rows}>
+          {own}
+        </FoldGapView>
+      );
+    }
     return (
-      <View style={styles.fold}>
+      <FoldGapView kind="group" style={styles.fold}>
         <View style={styles.foldPart}>
-          <View style={styles.rows}>{own}</View>
+          <FoldGapView kind="group" style={styles.rows}>
+            {own}
+          </FoldGapView>
           <View pointerEvents="none" style={[styles.treeLine, { top: 0, bottom: 0 }]} />
         </View>
         {groups.map(({ header, rows }, index) => {
           const last = index === groups.length - 1;
           return (
-            <View key={header.key} style={[styles.foldPart, styles.groupPart]}>
-              <GroupHeaderRow
-                title={header.title}
-                collapsed={header.collapsed}
-                containsActive={header.containsActive}
-                status={header.status}
-                onPress={() => actions.toggleGroup(machineId, header)}
-                onMenu={() => actions.groupMenu(machineId, header)}
-                onCreateTerminal={() => actions.createGroupTerminal(machineId, header)}
-              />
-              {!header.collapsed && rows.length > 0 ? <View style={styles.rows}>{rows}</View> : null}
+            <FoldGapView kind="group" key={header.key} style={[styles.foldPart, styles.groupPart]}>
+              <FoldGapView kind="heading">
+                <GroupHeaderRow
+                  title={header.title}
+                  collapsed={header.collapsed}
+                  containsActive={header.containsActive}
+                  status={header.status}
+                  onPress={() => actions.toggleGroup(machineId, header)}
+                  onMenu={() => actions.groupMenu(machineId, header)}
+                  onCreateTerminal={() => actions.createGroupTerminal(machineId, header)}
+                />
+              </FoldGapView>
+              {!header.collapsed && rows.length > 0 ? (
+                <FoldGapView kind="group" style={styles.rows}>
+                  {rows}
+                </FoldGapView>
+              ) : null}
               <View
                 pointerEvents="none"
                 style={[
@@ -217,10 +239,10 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
                 ]}
               />
               <View pointerEvents="none" style={styles.treeBranch} />
-            </View>
+            </FoldGapView>
           );
         })}
-      </View>
+      </FoldGapView>
     );
   };
 
@@ -229,35 +251,38 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
     const header = card.header;
     const primaryAgent = props.primaryAgent(header);
     return (
-      <View
+      <FoldGapView
+        kind="group"
         key={`card:${header.key}`}
         style={[
           inCollection ? styles.projectInCollection : styles.projectTopLevel,
           inCollection && !header.collapsed ? styles.projectInCollectionOpen : null,
         ]}
       >
-        <ProjectHeaderRow
-          title={header.title}
-          icon={header.icon}
-          collapsed={header.collapsed}
-          containsActive={header.containsActive}
-          workingCount={header.workingCount}
-          attentionCount={header.attentionCount}
-          questionCount={header.questionCount}
-          approvalCount={header.approvalCount}
-          backgroundWorkCount={header.backgroundWorkCount}
-          awakeCount={header.awakeCount}
-          primaryAgent={primaryAgent}
-          onToggle={() => actions.toggleProject(machineId, header)}
-          onMenu={() => actions.projectMenu(machineId, header)}
-          onLaunchPrimary={() => {
-            if (primaryAgent !== null) actions.launchPrimary(machineId, header, primaryAgent);
-          }}
-          onCreateTerminal={() => actions.createProjectTerminal(machineId, header)}
-          onOpenAgentMenu={() => actions.agentMenu(machineId, header)}
-        />
+        <FoldGapView kind="heading">
+          <ProjectHeaderRow
+            title={header.title}
+            icon={header.icon}
+            collapsed={header.collapsed}
+            containsActive={header.containsActive}
+            workingCount={header.workingCount}
+            attentionCount={header.attentionCount}
+            questionCount={header.questionCount}
+            approvalCount={header.approvalCount}
+            backgroundWorkCount={header.backgroundWorkCount}
+            awakeCount={header.awakeCount}
+            primaryAgent={primaryAgent}
+            onToggle={() => actions.toggleProject(machineId, header)}
+            onMenu={() => actions.projectMenu(machineId, header)}
+            onLaunchPrimary={() => {
+              if (primaryAgent !== null) actions.launchPrimary(machineId, header, primaryAgent);
+            }}
+            onCreateTerminal={() => actions.createProjectTerminal(machineId, header)}
+            onOpenAgentMenu={() => actions.agentMenu(machineId, header)}
+          />
+        </FoldGapView>
         {!header.collapsed && card.children.length > 0 ? projectFold(card) : null}
-      </View>
+      </FoldGapView>
     );
   };
 
@@ -274,7 +299,7 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
       props.groupsOpacityPercent,
     );
     return (
-      <View style={[styles.collection, header.collapsed ? styles.collectionClosed : null]}>
+      <FoldGapView kind="group" style={[styles.collection, header.collapsed ? styles.collectionClosed : null]}>
         <View
           pointerEvents="none"
           style={[
@@ -283,7 +308,7 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
             { backgroundColor: rail },
           ]}
         />
-        <View style={[styles.collectionBand, { backgroundColor: tint }]}>
+        <FoldGapView kind="heading" style={[styles.collectionBand, { backgroundColor: tint }]}>
           <CollectionHeaderRow
             title={header.title}
             collapsed={header.collapsed}
@@ -297,27 +322,37 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
             onPress={() => actions.toggleCollection(machineId, header)}
             onMenu={() => actions.collectionMenu(machineId, header)}
           />
-        </View>
+        </FoldGapView>
         {!header.collapsed && block.projects.length > 0 ? (
-          <View style={styles.collectionBody}>{block.projects.map((card) => projectCard(card, true))}</View>
+          <FoldGapView kind="group" style={styles.collectionBody}>
+            {block.projects.map((card) => projectCard(card, true))}
+          </FoldGapView>
         ) : null}
-      </View>
+      </FoldGapView>
     );
   }
   const { item } = block;
   if (item.type === 'STATE_CARD') {
     if (props.hideStateCard(item)) return null;
     return (
-      <StateCard
-        title={item.title}
-        body={item.body}
-        actionHint={item.actionHint}
-        onPress={() => actions.stateCard(machineId, item)}
-      />
+      <FoldGapView kind="row">
+        <StateCard
+          title={item.title}
+          body={item.body}
+          actionHint={item.actionHint}
+          onPress={() => actions.stateCard(machineId, item)}
+        />
+      </FoldGapView>
     );
   }
-  if (item.type === 'PROJECT_EMPTY') return <ProjectEmptyRow text={item.text} />;
-  if (item.type === 'SESSION') return sessionRow(item);
+  if (item.type === 'PROJECT_EMPTY') {
+    return (
+      <FoldGapView kind="row">
+        <ProjectEmptyRow text={item.text} />
+      </FoldGapView>
+    );
+  }
+  if (item.type === 'SESSION') return <FoldGapView kind="row">{sessionRow(item)}</FoldGapView>;
   return null;
 }
 

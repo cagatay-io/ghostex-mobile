@@ -12,6 +12,9 @@
  * User: Link to → Pull request…, Linear issue…, Linear project…, GitHub issue… opens a picker whose suggestions come from the session's repo first, then everything else as you type; Linear issues are a list, the other kinds one each. The phone has the same picker as a simple searchable list.
  *
  * SEE-ALSO: apps/desktop/src/app/window/work_link_picker_modal.rs (the desktop's picker).
+ *
+ * Half folded like a laptop, no row rests on the knick: the list keeps the fold gap of the app's lists
+ * (`components/common/foldGap.tsx`). The header and the search field stand above the fold.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -19,6 +22,8 @@ import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, TextIn
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { WorkLinkKind } from '../../commands/ghostexCli';
+import { FoldGapProvider, FoldGapView, useFoldGapList } from '../../components/common/foldGap';
+import { useLaptopFold } from '../../components/common/verticalBar/laptopFold';
 import { useScrollToBarEdges, useVerticalBarSpace } from '../../components/common/verticalBar/VerticalBarArea';
 import { GhostexPalette, GhostexStrokeWidth } from '../../theme/palette';
 
@@ -105,6 +110,7 @@ export default function WorkLinkPicker({ kind, sessionTitle, load, onPick, onCan
   const bar = useVerticalBarSpace();
   // The list reaches under the side bar, its rows keep clear of it.
   const listEdges = useScrollToBarEdges();
+  const foldGap = useFoldGapList(useLaptopFold());
   const [query, setQuery] = useState('');
   const [result, setResult] = useState<WorkLinkCandidates | null>(null);
   const [loading, setLoading] = useState(true);
@@ -197,47 +203,53 @@ export default function WorkLinkPicker({ kind, sessionTitle, load, onPick, onCan
         {loading ? <ActivityIndicator style={styles.spinner} color={GhostexPalette.MUTED} /> : null}
         {error !== null ? <Text style={styles.error}>{error}</Text> : null}
         {result !== null && result.notice.length > 0 ? <Text style={styles.notice}>{result.notice}</Text> : null}
-        <FlatList
-          style={listEdges.scroll}
-          contentContainerStyle={listEdges.content}
-          data={result?.candidates ?? []}
-          keyExtractor={(item) => item.value}
-          keyboardShouldPersistTaps="handled"
-          ListEmptyComponent={
-            !loading && error === null && result !== null && result.notice.length === 0 ? (
-              <Text style={styles.empty}>Nothing found{query.length > 0 ? ` for "${query}"` : ''}.</Text>
-            ) : undefined
-          }
-          renderItem={({ item }) => {
-            const isTicked = multiSelect && ticked.includes(item.value);
-            return (
-              <Pressable
-                accessibilityRole={multiSelect ? 'checkbox' : 'button'}
-                accessibilityState={multiSelect ? { checked: isTicked } : undefined}
-                style={({ pressed }) => [styles.row, pressed ? styles.rowPressed : null]}
-                onPress={() => (multiSelect ? toggle(item.value) : onPick([item.value]))}
-              >
-                {multiSelect ? (
-                  <View style={[styles.box, isTicked ? styles.boxTicked : null]}>
-                    {isTicked ? <Text style={styles.boxMark}>✓</Text> : null}
-                  </View>
-                ) : null}
-                <View style={styles.rowBody}>
-                  <Text style={styles.rowTitle} numberOfLines={2}>
-                    <Text style={styles.rowLabel}>{item.label}</Text>
-                    {item.title.length > 0 ? `  ${item.title}` : ''}
-                  </Text>
-                  {item.detail.length > 0 ? (
-                    <Text style={styles.rowDetail} numberOfLines={1}>
-                      {item.detail}
-                    </Text>
-                  ) : null}
-                </View>
-                {!multiSelect && item.linked ? <Text style={styles.linkedTag}>Linked</Text> : null}
-              </Pressable>
-            );
-          }}
-        />
+        <FoldGapProvider value={foldGap}>
+          <FlatList
+            style={listEdges.scroll}
+            contentContainerStyle={listEdges.content}
+            data={result?.candidates ?? []}
+            keyExtractor={(item) => item.value}
+            keyboardShouldPersistTaps="handled"
+            onScroll={foldGap.onScroll}
+            scrollEventThrottle={16}
+            ListEmptyComponent={
+              !loading && error === null && result !== null && result.notice.length === 0 ? (
+                <Text style={styles.empty}>Nothing found{query.length > 0 ? ` for "${query}"` : ''}.</Text>
+              ) : undefined
+            }
+            renderItem={({ item }) => {
+              const isTicked = multiSelect && ticked.includes(item.value);
+              return (
+                <FoldGapView kind="row">
+                  <Pressable
+                    accessibilityRole={multiSelect ? 'checkbox' : 'button'}
+                    accessibilityState={multiSelect ? { checked: isTicked } : undefined}
+                    style={({ pressed }) => [styles.row, pressed ? styles.rowPressed : null]}
+                    onPress={() => (multiSelect ? toggle(item.value) : onPick([item.value]))}
+                  >
+                    {multiSelect ? (
+                      <View style={[styles.box, isTicked ? styles.boxTicked : null]}>
+                        {isTicked ? <Text style={styles.boxMark}>✓</Text> : null}
+                      </View>
+                    ) : null}
+                    <View style={styles.rowBody}>
+                      <Text style={styles.rowTitle} numberOfLines={2}>
+                        <Text style={styles.rowLabel}>{item.label}</Text>
+                        {item.title.length > 0 ? `  ${item.title}` : ''}
+                      </Text>
+                      {item.detail.length > 0 ? (
+                        <Text style={styles.rowDetail} numberOfLines={1}>
+                          {item.detail}
+                        </Text>
+                      ) : null}
+                    </View>
+                    {!multiSelect && item.linked ? <Text style={styles.linkedTag}>Linked</Text> : null}
+                  </Pressable>
+                </FoldGapView>
+              );
+            }}
+          />
+        </FoldGapProvider>
       </View>
     </Modal>
   );

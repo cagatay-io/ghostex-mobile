@@ -14,6 +14,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, Vi
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GhostexPalette, SidebarPalette } from '../../theme/palette';
+import { useFoldCardPlacement } from '../common/foldAvoidance';
 import { anchoredMenuOrigin, menuRoomBeside, type MenuRoom } from '../common/verticalBar/layout';
 import {
   useFoldDivisions,
@@ -179,6 +180,8 @@ export default function ContextMenu({
   const [openInfo, setOpenInfo] = useState<string | null>(null);
   // The card's height once laid out, for an anchored menu to stay inside the window.
   const [cardHeight, setCardHeight] = useState<number | null>(null);
+  // A centred menu (no anchor) half folded like a laptop: below the fold when it fits, else above.
+  const foldPlacement = useFoldCardPlacement({ avoidsKeyboard: false });
 
   // The card stays where it was shown until the Modal is gone: once `visible` turns false the component that
   // owns the menu stops passing an anchor (its open menu is gone), which would put the still fading card in the
@@ -203,7 +206,12 @@ export default function ContextMenu({
   const verticalRoom = screenHeight - Math.max(EDGE_MARGIN, safeArea.top) - Math.max(EDGE_MARGIN, safeArea.bottom);
   const maxHeight = Math.min(
     cap ?? Number.POSITIVE_INFINITY,
-    Math.max(1, anchoredFrom === null ? verticalRoom * MAX_HEIGHT_RATIO : room.bottom - room.top),
+    Math.max(
+      1,
+      anchoredFrom === null
+        ? Math.min(verticalRoom * MAX_HEIGHT_RATIO, foldPlacement.maxHeight ?? Number.POSITIVE_INFINITY)
+        : room.bottom - room.top,
+    ),
   );
   const anchoredStyle =
     anchor === undefined || anchoredFrom === null
@@ -220,11 +228,15 @@ export default function ContextMenu({
   // close instead of being unmounted out from under the dismissal.
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} onDismiss={onDismissed}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
+      <Pressable style={[styles.backdrop, anchoredFrom === null ? foldPlacement.style : null]} onPress={onClose}>
         {/* Swallows presses on the card itself so only the backdrop closes. */}
         <Pressable
           style={[styles.menu, { width: menuWidth, maxHeight }, anchoredStyle]}
-          onLayout={anchoredFrom === null ? undefined : (event) => setCardHeight(event.nativeEvent.layout.height)}
+          onLayout={
+            anchoredFrom === null
+              ? foldPlacement.onCardLayout
+              : (event) => setCardHeight(event.nativeEvent.layout.height)
+          }
           onPress={() => {
             /* card body is not a dismiss target */
           }}

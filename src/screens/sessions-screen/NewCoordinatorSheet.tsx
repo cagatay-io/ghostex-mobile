@@ -7,7 +7,7 @@
  * created by `ghostex coordinator create`, so the agent list, the Claude-on-Opus-5.5 default, the
  * Low/Medium/High/XHigh efforts with High first choice and each agent's skill line are gxserver's
  * (server/src/ghostex_cli/coordinator/command.rs), and an unnamed orchestrator gets gxserver's
- * placeholder title.
+ * placeholder title. Half folded like a laptop the card keeps off the fold (`useFoldCardPlacement`).
  *
  * CDXC:Coordinators 2026-10-17 DECISION:
  * User: "let's please allow picking more cli agents here ... we should just include a line that can't be removed saying: "Read and adhere to this skill: /ghostex-orchestrator" ... also remove this [First request] and this [Goal]", and for the phone: "phone too". No Goal or First request field; the first message is shown locked.
@@ -17,6 +17,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import type { CreateCoordinatorInput } from '../../commands/ghostexCli';
+import { useFoldCardPlacement } from '../../components/common/foldAvoidance';
 import KeyboardAvoidingContainer from '../../components/common/keyboard/KeyboardAvoidingContainer';
 import { LockGlyph } from '../../components/onboarding/SetupIcons';
 import KeyboardAwareScrollView from '../../components/common/keyboard/KeyboardAwareScrollView';
@@ -217,11 +218,12 @@ export default function NewCoordinatorSheet({
     </View>
   );
 
+  const placement = useFoldCardPlacement({ avoidsKeyboard: true, belowSafeAreaTop: true });
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onCancel}>
       <KeyboardAvoidingContainer safeAreaTop style={styles.keyboardFill}>
-        <Pressable style={styles.backdrop} onPress={onCancel}>
-          <Pressable style={styles.card} onPress={(event) => event.stopPropagation()}>
+        <Pressable style={[styles.backdrop, placement.style]} onPress={onCancel}>
+          <Pressable style={styles.card} onLayout={placement.onCardLayout} onPress={(event) => event.stopPropagation()}>
             <KeyboardAwareScrollView contentContainerStyle={styles.cardContent}>
               <Text style={styles.title}>New Coordinator</Text>
               <Text style={styles.body}>

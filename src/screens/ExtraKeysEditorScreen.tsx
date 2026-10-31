@@ -26,6 +26,7 @@ import {
 } from '../settings/extraKeys';
 import { destructiveButtonFills, GhostexPalette, GhostexRadii, GhostexStrokeWidth } from '../theme/palette';
 import type { Appearance } from '../theme/useAppearance';
+import { useFoldCardPlacement } from '../components/common/foldAvoidance';
 import KeyboardAvoidingContainer from '../components/common/keyboard/KeyboardAvoidingContainer';
 import KeyboardAwareScrollView from '../components/common/keyboard/KeyboardAwareScrollView';
 import { SettingsCopy } from '../copy';
@@ -69,6 +70,10 @@ export default function ExtraKeysEditorScreen() {
   const [selected, setSelected] = useState<{ row: number; index: number } | null>(null);
   const [addTargetRow, setAddTargetRow] = useState<number | null>(null);
   const [customDraft, setCustomDraft] = useState<CustomDraft | null>(null);
+  // Half folded like a laptop each card stands off the fold: above it with the keyboard up (the keyboard-avoiding
+  // layer), else below it when it fits.
+  const addPlacement = useFoldCardPlacement({ avoidsKeyboard: true, belowSafeAreaTop: true });
+  const customPlacement = useFoldCardPlacement({ avoidsKeyboard: true, belowSafeAreaTop: true });
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(savedLayout);
 
@@ -294,8 +299,8 @@ export default function ExtraKeysEditorScreen() {
           onRequestClose={() => setAddTargetRow(null)}
         >
           <KeyboardAvoidingContainer safeAreaTop style={styles.modalKeyboardFill}>
-            <Pressable style={styles.modalBackdrop} onPress={() => setAddTargetRow(null)}>
-              <Pressable style={styles.modalCard} onPress={() => undefined}>
+            <Pressable style={[styles.modalBackdrop, addPlacement.style]} onPress={() => setAddTargetRow(null)}>
+              <Pressable style={styles.modalCard} onLayout={addPlacement.onCardLayout} onPress={() => undefined}>
                 <Text style={styles.modalTitle}>Add key</Text>
                 <ScrollView style={styles.modalScroll}>
                   <Text style={styles.modalSection}>Custom actions</Text>
@@ -345,8 +350,8 @@ export default function ExtraKeysEditorScreen() {
           onRequestClose={() => setCustomDraft(null)}
         >
           <KeyboardAvoidingContainer safeAreaTop style={styles.modalKeyboardFill}>
-            <Pressable style={styles.modalBackdrop} onPress={() => setCustomDraft(null)}>
-              <Pressable style={styles.modalCard} onPress={() => undefined}>
+            <Pressable style={[styles.modalBackdrop, customPlacement.style]} onPress={() => setCustomDraft(null)}>
+              <Pressable style={styles.modalCard} onLayout={customPlacement.onCardLayout} onPress={() => undefined}>
                 {customDraft !== null && (
                   <KeyboardAwareScrollView style={styles.modalScroll} contentContainerStyle={styles.modalForm}>
                     <Text style={styles.modalTitle}>

@@ -1,7 +1,8 @@
 /**
  * Session Automations dialog, mirroring the shared gpui/web automation-card
  * design for terminal sessions. All Enter triggers dispatch through gxserver
- * to the connected desktop renderer that owns the automation runtime.
+ * to the connected desktop renderer that owns the automation runtime. Half folded like a laptop the card keeps
+ * off the fold (`useFoldCardPlacement`).
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -12,6 +13,7 @@ import { AGENT_ICONS } from '../../assets/agentIcons.generated';
 import type { DelayedSendTrigger } from '../../commands/ghostexCli';
 import { agentIconTint, resolveAgentArtId } from '../../contract/mobileSummary';
 import { GhostexPalette, GhostexStrokeWidth } from '../../theme/palette';
+import { useFoldCardPlacement } from '../common/foldAvoidance';
 import KeyboardAvoidingContainer from '../common/keyboard/KeyboardAvoidingContainer';
 import KeyboardAwareScrollView from '../common/keyboard/KeyboardAwareScrollView';
 import { SwitchRow } from '../common/SwitchRow';
@@ -187,11 +189,12 @@ export default function DelayedSendDialog({
     onCancel();
   };
 
+  const placement = useFoldCardPlacement({ avoidsKeyboard: true, belowSafeAreaTop: true });
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <KeyboardAvoidingContainer safeAreaTop style={styles.keyboardFill}>
-        <Pressable style={styles.backdrop} onPress={onCancel}>
-          <Pressable style={styles.card} onPress={(event) => event.stopPropagation()}>
+        <Pressable style={[styles.backdrop, placement.style]} onPress={onCancel}>
+          <Pressable style={styles.card} onLayout={placement.onCardLayout} onPress={(event) => event.stopPropagation()}>
             <KeyboardAwareScrollView contentContainerStyle={styles.cardContent}>
               <Text style={styles.title}>Session Automations</Text>
               <Text style={styles.body}>Configure automations for this agent session.</Text>

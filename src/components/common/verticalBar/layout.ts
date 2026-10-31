@@ -319,6 +319,100 @@ export function menuRoomBeside(
   return beside;
 }
 
+/** The fold's band while the iPhone Duo is half folded like a laptop: its top and bottom edge in window points. */
+export type LaptopFold = { readonly top: number; readonly bottom: number };
+
+/** Space a control keeps from the knick in the laptop pose, as in the approved mockup (`laptop-mode.js` CLEAR). */
+export const LAPTOP_CLEAR = 12;
+
+/**
+ * The laptop pose: an active division that runs across the window, so the window is split into an upper and a
+ * lower half. The pose comes from the division's shape only, never from the hinge. A division along the window's
+ * height is the book pose, which has no layout of its own, and an inactive one (the device lies flat) divides
+ * nothing: both give null, as does a window without divisions (every other iPhone, Android).
+ */
+export function laptopFoldOf(divisions: readonly FoldDivision[] | undefined): LaptopFold | null {
+  const across = divisions?.find((division) => division.active && division.width > division.height);
+  return across === undefined ? null : { top: across.y, bottom: across.y + across.height };
+}
+
+/**
+ * The top edge of what covers the window from below while the software keyboard is up (`keyboardTop`, null
+ * while it is down). In the laptop pose the keyboard lies in the lower half and the knick above it is no
+ * place for content either, so the cover starts at the fold's top: text fields, dialogs and sheets that keep
+ * clear of the keyboard stand in the upper half (the text editor sits on the upper screen as well).
+ */
+export function laptopCoverTop(keyboardTop: number | null, fold: LaptopFold | null): number | null {
+  return keyboardTop === null || fold === null ? keyboardTop : Math.min(keyboardTop, fold.top);
+}
+/** Space kept between a sheet or a card and the fold's band (the mockup kit's 8 pt). */
+export const FOLD_CLEARANCE = 8;
+/** The centred cards' own margin from the window's edges (the dialogs' backdrop padding). */
+const CARD_MARGIN = 24;
+
+/**
+ * The tallest a bottom sheet may be so that it starts `FOLD_CLEARANCE` below the fold (it stands on the window's
+ * bottom edge); undefined outside the laptop pose, where the sheet keeps its own limit.
+ */
+export function foldSheetMaxHeight(fold: LaptopFold | null, windowHeight: number): number | undefined {
+  return fold === null ? undefined : Math.max(0, windowHeight - fold.bottom - FOLD_CLEARANCE);
+}
+
+/**
+ * How far a full-screen view's content area must end above its own bottom edge (`areaBottom`, window points) to stand
+ * in the laptop pose's upper half, `FOLD_CLEARANCE` over the fold: for content with controls of its own that the app
+ * cannot move off the knick (a web page), on the upper screen, where the keyboard never comes. 0 outside the laptop
+ * pose.
+ */
+export function foldUpperHalfInset(fold: LaptopFold | null, areaBottom: number): number {
+  return fold === null ? 0 : Math.max(0, areaBottom - (fold.top - FOLD_CLEARANCE));
+}
+
+export type CardRegion = { readonly top: number; readonly bottom: number; readonly above: boolean };
+
+/**
+ * Where a centred card stands in the laptop pose, as the window band it is centred in: below the fold when a card
+ * `cardHeight` tall fits there (or its height is not known yet), otherwise above it. `keyboardUp`: the lower half
+ * is the keyboard's, so above. `wasAbove`: the card stood above for not fitting below; it stays there while it
+ * still does not fit, and a card held to the band above (it measures that band) counts as not fitting, so a card
+ * taller than both bands does not swap between them. Null outside the laptop pose.
+ */
+export function foldCardRegion(
+  fold: LaptopFold | null,
+  window: { height: number; topInset: number },
+  cardHeight: number | null,
+  keyboardUp: boolean,
+  wasAbove = false,
+): CardRegion | null {
+  if (fold === null) return null;
+  const below = { top: fold.bottom + FOLD_CLEARANCE, bottom: window.height - CARD_MARGIN, above: false };
+  const above = {
+    top: Math.max(CARD_MARGIN, window.topInset + FOLD_CLEARANCE),
+    bottom: fold.top - FOLD_CLEARANCE,
+    above: true,
+  };
+  if (keyboardUp) return above;
+  if (cardHeight === null) return below;
+  // A card held to a band measures that band's height: it does not fit there.
+  const fitsBelow = cardHeight < below.bottom - below.top - 0.5;
+  const heldAbove = wasAbove && cardHeight >= above.bottom - above.top - 0.5;
+  return fitsBelow && !heldAbove ? below : above;
+}
+
+/**
+ * The fold's division regions as the layout layer has them, in one line for the dev-only debug row (read with a UI
+ * inspector on the device): "none", or per region whether it is active and its window frame.
+ */
+export function foldDivisionsSummary(divisions: readonly FoldDivision[] | undefined): string {
+  if (divisions === undefined || divisions.length === 0) return 'none';
+  return divisions
+    .map(
+      (division) =>
+        `${division.active ? 'active' : 'inactive'} x ${division.x} y ${division.y} w ${division.width} h ${division.height}`,
+    )
+    .join('; ');
+}
+
 /** The window frame of a side bar button standing at `top` (`railLayoutFor`'s `tops`), centred across it. */
 export function railButtonFrame(frame: WindowRect, fit: RailFit, top: number): WindowRect {
   return { x: frame.x + (frame.width - fit.size) / 2, y: top, width: fit.size, height: fit.size };

@@ -6,17 +6,21 @@
  * menu is centred (no Effect closes it on a pose
  * change). The page's connection is a stand-in that never connects; the chrome is the real
  * `VerticalBarArea`.
+ * Half folded like a laptop, the page area (the page, its connecting and its failure surface with Retry) ends 8 pt
+ * above the fold, as the chat's page sheet does; flat and in the book pose it fills the screen below the toolbar.
  */
 
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Dimensions } from 'react-native';
+import { Dimensions, StyleSheet } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import type { TestInstance } from 'test-renderer';
 
 import type { BarLayout } from '../../modules/ghostex-native/src/GhostexNative.types';
 import { useBarGeometryStore } from '../components/common/verticalBar/barGeometry';
 import VerticalBarArea from '../components/common/verticalBar/VerticalBarArea';
 import { DuoChromeCopy, WebPreviewCopy } from '../copy';
 import type { RootStackParamList } from '../navigation/types';
+import { useMachinesStore } from '../machines/store';
 import WebPreviewScreen from './WebPreviewScreen';
 
 let mockReport: ((layout: BarLayout) => void) | null = null;
@@ -128,4 +132,83 @@ test('the side bar "…" menu stays open when the Duo turns to portrait', async 
   });
   expect(screen.getByText(WebPreviewCopy.forwardLabel)).toBeTruthy();
   expect(screen.getByText(WebPreviewCopy.openInBrowserLabel)).toBeTruthy();
+});
+
+describe('half folded like a laptop the page area ends above the fold', () => {
+  const LAPTOP_WINDOW = { width: 669, height: 951 };
+  const FOLD = { top: 455.5, bottom: 495.5 };
+  /** The page area's frame in the window: below the toolbar and the address bar, above the home indicator. */
+  const CONTENT = { top: 190, bottom: 931 };
+  const laptopLayout = (divisions: BarLayout['divisions']): BarLayout => ({ ...PORTRAIT, divisions });
+  const LAPTOP_DIVISION = { x: 0, y: FOLD.top, width: 669, height: FOLD.bottom - FOLD.top, active: true };
+
+  async function renderPreview(layout: BarLayout, window = LAPTOP_WINDOW): Promise<void> {
+    useBarGeometryStore.setState({ hydrated: false, keyboardHeights: {}, layouts: {} });
+    await useBarGeometryStore.getState().hydrate();
+    mockInsets = { top: 80, bottom: 20, left: 0, right: 0 };
+    await setWindow(window.width, window.height);
+    type Props = NativeStackScreenProps<RootStackParamList, 'WebPreview'>;
+    const route: Props['route'] = {
+      key: 'preview',
+      name: 'WebPreview',
+      params: { machineId: 'machine', remotePort: 3000 },
+    };
+    const navigation = { goBack: jest.fn() } as unknown as Props['navigation'];
+    await render(
+      <VerticalBarArea>
+        <WebPreviewScreen navigation={navigation} route={route} />
+      </VerticalBarArea>,
+    );
+    await act(async () => {
+      mockFirstLayout?.({ id: 1, layout });
+    });
+    const content = screen.getByTestId('preview-content');
+    await fireEvent(content.parent as TestInstance, 'layout', {
+      nativeEvent: { layout: { x: 0, y: CONTENT.top, width: window.width, height: CONTENT.bottom - CONTENT.top } },
+    });
+  }
+
+  function marginBottom(): unknown {
+    return StyleSheet.flatten(screen.getByTestId('preview-content').props.style)?.marginBottom;
+  }
+
+  function inContent(element: TestInstance): boolean {
+    const content = screen.getByTestId('preview-content');
+    for (let node: TestInstance | null = element; node !== null; node = node.parent) if (node === content) return true;
+    return false;
+  }
+
+  afterEach(async () => {
+    await act(() => useMachinesStore.setState({ machines: [] }));
+  });
+
+  test('the failure surface with Retry ends 8 pt above the fold', async () => {
+    // No saved machine of that id: the forward fails at once.
+    await renderPreview(laptopLayout([LAPTOP_DIVISION]));
+    expect(inContent(screen.getByText(WebPreviewCopy.retryButton))).toBe(true);
+    expect(marginBottom()).toBe(CONTENT.bottom - (FOLD.top - 8));
+  });
+
+  test('the connecting surface ends 8 pt above the fold', async () => {
+    useMachinesStore.setState({
+      machines: [
+        { id: 'machine', name: 'synthetic', host: 'synthetic.invalid', port: 22, username: 'synthetic' },
+      ] as never,
+    });
+    await renderPreview(laptopLayout([LAPTOP_DIVISION]));
+    expect(inContent(screen.getByText(WebPreviewCopy.connecting(3000)))).toBe(true);
+    expect(marginBottom()).toBe(CONTENT.bottom - (FOLD.top - 8));
+  });
+
+  test.each([
+    ['flat', laptopLayout([{ ...LAPTOP_DIVISION, active: false }]), LAPTOP_WINDOW],
+    [
+      'book pose',
+      { ...LANDSCAPE, divisions: [{ x: 455.5, y: 0, width: 40, height: 669, active: true }] },
+      { width: 951, height: 669 },
+    ],
+  ])('%s: the page area fills the screen below the toolbar as before', async (_pose, layout, window) => {
+    await renderPreview(layout, window);
+    expect(marginBottom()).toBeUndefined();
+  });
 });

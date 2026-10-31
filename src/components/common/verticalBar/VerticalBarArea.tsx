@@ -49,6 +49,7 @@ import type { ContextMenuItem } from '../../sessions/ContextMenu';
 import { useKeyboardFrame } from '../keyboard/keyboardFrame';
 import { keyboardHeightForWindow } from '../keyboard/keyboardTop';
 import { measureInWindow } from '../measureInWindow';
+import { LaptopFoldProvider } from './laptopFold';
 import { useBarGeometryStore } from './barGeometry';
 import {
   NO_BAR_INSETS,
@@ -58,6 +59,7 @@ import {
   chromeLayout,
   headerPlacement,
   keyboardHeightFor,
+  laptopFoldOf,
   liveMenuAnchor,
   provisionalLayout,
   railButtonFrame,
@@ -446,6 +448,7 @@ export default function VerticalBarArea({ children }: { children: ReactNode }) {
   const railTop = railContentTop(layout, top);
   const twoColumns = twoColumnWindow(layout);
   const divisions = layout?.divisions;
+  const laptopFold = useMemo(() => laptopFoldOf(divisions), [divisions]);
   const chrome = useMemo<WindowChrome>(
     () => ({ railContentTop: railTop, twoColumns, edge: layout?.edge, divisions }),
     [railTop, twoColumns, layout?.edge, divisions],
@@ -492,41 +495,43 @@ export default function VerticalBarArea({ children }: { children: ReactNode }) {
   return (
     <SpaceContext.Provider value={space}>
       <ChromeContext.Provider value={chrome}>
-        <PlacementContext.Provider value={placement}>
-          <RailShownContext.Provider value={shown}>
-            <RailFrameContext.Provider value={railFrameOf}>
-              <RailContext.Provider value={setRail}>
-                <View style={[styles.fill, { backgroundColor: rail?.background ?? page }]}>
-                  <View style={[styles.fill, space.padding]}>{children}</View>
-                  {railShown && placement.kind === 'rail' ? (
-                    <View
-                      style={[
-                        styles.rail,
-                        {
-                          left: placement.frame.x,
-                          top: placement.frame.y,
-                          width: placement.frame.width,
-                          height: placement.frame.height,
-                          gap,
-                        },
-                      ]}
-                    >
-                      {railEntries.map((entry, index) => (
-                        <RoundBarButton
-                          key={entry.key}
-                          entry={entry}
-                          size={size}
-                          glyphSize={RAIL_ICON_SIZE}
-                          offset={railOffsets[index]}
-                        />
-                      ))}
-                    </View>
-                  ) : null}
-                </View>
-              </RailContext.Provider>
-            </RailFrameContext.Provider>
-          </RailShownContext.Provider>
-        </PlacementContext.Provider>
+        <LaptopFoldProvider value={laptopFold}>
+          <PlacementContext.Provider value={placement}>
+            <RailShownContext.Provider value={shown}>
+              <RailFrameContext.Provider value={railFrameOf}>
+                <RailContext.Provider value={setRail}>
+                  <View style={[styles.fill, { backgroundColor: rail?.background ?? page }]}>
+                    <View style={[styles.fill, space.padding]}>{children}</View>
+                    {railShown && placement.kind === 'rail' ? (
+                      <View
+                        style={[
+                          styles.rail,
+                          {
+                            left: placement.frame.x,
+                            top: placement.frame.y,
+                            width: placement.frame.width,
+                            height: placement.frame.height,
+                            gap,
+                          },
+                        ]}
+                      >
+                        {railEntries.map((entry, index) => (
+                          <RoundBarButton
+                            key={entry.key}
+                            entry={entry}
+                            size={size}
+                            glyphSize={RAIL_ICON_SIZE}
+                            offset={railOffsets[index]}
+                          />
+                        ))}
+                      </View>
+                    ) : null}
+                  </View>
+                </RailContext.Provider>
+              </RailFrameContext.Provider>
+            </RailShownContext.Provider>
+          </PlacementContext.Provider>
+        </LaptopFoldProvider>
       </ChromeContext.Provider>
     </SpaceContext.Provider>
   );

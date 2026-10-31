@@ -41,6 +41,10 @@
  *   the pad ends the layer and closes the pad. Whether the pad fits is the screen's to say, each render
  *   (`padGaveWay`), so a rotation or window change that makes room shows the pad above the layer again (and the
  *   layer behaves as any other), and one that takes the room away hands the place back to the layer.
+ * - Laptop mode where the upper half has no room for the open pad above the text editor (the screen says so, each
+ *   render): the pad closes as the editor opens, by the rule above, and stays closed while the editor is open. Send
+ *   in the editor, or a tap on the toggle, closes the editor (the keyboard goes back to the terminal and stays up)
+ *   and opens the pad once the editor has gone (`openOverEditor`).
  * The geometry (how far the pad stands above the covered part, where a place lies in the area) stays with the
  * screen and `commandPadLayout.ts`.
  */
@@ -150,6 +154,11 @@ export type CommandPadState = {
   placement: CommandPadPlacement | undefined;
   /** Stores a new place for this layout. */
   movePad: (placement: CommandPadPlacement) => void;
+  /**
+   * Closes the text editor, handing the keyboard back to the terminal, and opens the pad once the editor has gone:
+   * laptop mode, where the open pad has no room above the editor.
+   */
+  openOverEditor: () => void;
 };
 
 export function useCommandPad({
@@ -187,13 +196,18 @@ export function useCommandPad({
   const [heldKeyboard, setHeldKeyboard] = useState(false);
   // How often the keyboard came back while the pad held it down and so closed the pad; what closing drops goes too.
   const [keyboardClosings, setKeyboardClosings] = useState(0);
+  // The pad opens once the text editor has gone (`openOverEditor`).
+  const [openAfterEditor, setOpenAfterEditor] = useState(false);
 
   // Adjusted while rendering, so no frame shows a stale layer or editor.
   let keyboardClosesPad = false;
   const [seen, setSeen] = useState({ sessionKey, keyboardVisible });
   if (seen.sessionKey !== sessionKey || seen.keyboardVisible !== keyboardVisible) {
     setSeen({ sessionKey, keyboardVisible });
-    if (seen.sessionKey !== sessionKey) setLayer(null);
+    if (seen.sessionKey !== sessionKey) {
+      setLayer(null);
+      setOpenAfterEditor(false);
+    }
     // No pad shown any more (switched off, chat view): it starts closed next time.
     if (sessionKey === null) {
       setOpen(false);
@@ -207,6 +221,10 @@ export function useCommandPad({
       if (heldKeyboard || (open && padGaveWay)) keyboardClosesPad = true;
     }
     if (!keyboardVisible && seen.keyboardVisible) dismissEditor();
+  }
+  if (openAfterEditor && !editorVisible && seen.sessionKey === sessionKey) {
+    setOpenAfterEditor(false);
+    if (sessionKey !== null) setOpen(true);
   }
   // The room the open pad is judged in, and whether it has stood still for PAD_ROOM_SETTLE_MS since it last moved. A
   // keyboard that comes up or goes down is the person's doing and does not move it; a keyboard that changes its frame
@@ -339,6 +357,12 @@ export function useCommandPad({
     toggleEditorOpen();
   }, [input, editorVisible, toggleEditorOpen]);
 
+  const openOverEditor = useCallback((): void => {
+    if (!editorVisible) return;
+    setOpenAfterEditor(true);
+    toggleEditor();
+  }, [editorVisible, toggleEditor]);
+
   const toggleKeyboard = useCallback((): void => {
     if (keyboardVisible) {
       dismissKeyboard();
@@ -377,5 +401,6 @@ export function useCommandPad({
     toggleKeyboard,
     placement,
     movePad,
+    openOverEditor,
   };
 }

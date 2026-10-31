@@ -2,7 +2,8 @@
  * Bottom sheet with free-form content: dimmed backdrop, #161616 panel with a
  * grabber and 20px top corners, keyboard-avoiding so inputs inside stay
  * visible. `ActionSheet` stays the list-only variant; this one hosts the setup
- * flow's paste, help and password sheets.
+ * flow's paste, help and password sheets. Half folded like a laptop it starts below the fold (with the
+ * keyboard up, above it: the keyboard-avoiding layer).
  */
 
 import type { ReactNode } from 'react';
@@ -10,6 +11,7 @@ import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GhostexStrokeWidth, SetupPalette } from '../../theme/palette';
+import { useFoldSheetMaxHeight } from './foldAvoidance';
 import { useKeyboardTop } from './keyboard/keyboardFrame';
 import { useVerticalBarSpace } from './verticalBar/VerticalBarArea';
 import KeyboardAvoidingContainer from './keyboard/KeyboardAvoidingContainer';
@@ -26,11 +28,19 @@ export default function BottomSheet({ visible, onClose, children }: BottomSheetP
   const bar = useVerticalBarSpace();
   // The navigation bar's inset is under the keyboard while it is open; the sheet sits right on top of it.
   const bottomInset = useKeyboardTop() === null ? insets.bottom : 0;
+  const foldMaxHeight = useFoldSheetMaxHeight({ avoidsKeyboard: true });
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingContainer style={styles.fill}>
         <Pressable style={styles.backdrop} onPress={onClose} accessibilityRole="button" />
-        <View style={[styles.sheet, bar.margin, { paddingBottom: Math.max(bottomInset, 16) + 12 }]}>
+        <View
+          style={[
+            styles.sheet,
+            bar.margin,
+            { paddingBottom: Math.max(bottomInset, 16) + 12 },
+            foldMaxHeight !== undefined && { maxHeight: foldMaxHeight },
+          ]}
+        >
           <View style={styles.grabber} />
           <KeyboardAwareScrollView bounces={false} contentContainerStyle={styles.content}>
             {children}

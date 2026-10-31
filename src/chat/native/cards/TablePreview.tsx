@@ -2,7 +2,8 @@
  * The larger table preview over the chat. Port of desktop `table_preview/`: a full-screen "Table"
  * sheet whose columns share the screen's width and wrap (`fitTableColumns`, the transcript's rule),
  * scrolling sideways only when even their floors are wider than the screen, and Copy as Markdown / CSV. The table source is the Markdown the
- * transcript's table carried; `tableCsv` is desktop's `table_csv` (React's `sessionChatTableToCsv`).
+ * transcript's table carried; `tableCsv` is desktop's `table_csv` (React's `sessionChatTableToCsv`). Half folded
+ * like a laptop the sheet starts below the fold and the table scrolls inside (`useFoldSheetTop`).
  */
 
 import * as Clipboard from 'expo-clipboard';
@@ -10,6 +11,7 @@ import { useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useFoldSheetTop } from '../../../components/common/foldAvoidance';
 import { useVerticalBarSpace } from '../../../components/common/verticalBar/VerticalBarArea';
 import { Glyph } from './icons';
 import { useChatOverlayStore } from './overlayStore';
@@ -30,6 +32,7 @@ export function TablePreview() {
   const insets = useSafeAreaInsets();
   const bar = useVerticalBarSpace();
   const { width: screenWidth } = useWindowDimensions();
+  const foldTop = useFoldSheetTop();
   const [copied, setCopied] = useState<string | null>(null);
   if (preview === null) return null;
   const close = () => {
@@ -55,7 +58,7 @@ export function TablePreview() {
   };
   return (
     <Modal visible transparent animationType="fade" onRequestClose={close} statusBarTranslucent>
-      <View style={[styles.backdrop, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 12 }]}>
+      <View style={[styles.backdrop, { paddingTop: foldTop ?? insets.top + 12, paddingBottom: insets.bottom + 12 }]}>
         <View style={[styles.card, bar.margin]}>
           <View style={styles.header}>
             <Text style={styles.title}>Table</Text>

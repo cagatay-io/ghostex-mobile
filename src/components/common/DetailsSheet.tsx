@@ -1,11 +1,12 @@
 /**
  * Key-value details panel (sessions-drawer.md §§2-4): modal bottom sheet with
  * a title, muted subtitle, and label/value rows ("-" for blanks is the
- * caller's responsibility).
+ * caller's responsibility). Half folded like a laptop it starts below the fold and its rows scroll inside.
  */
 
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { useFoldSheetMaxHeight } from './foldAvoidance';
 import { useVerticalBarSpace } from './verticalBar/VerticalBarArea';
 
 import { GhostexPalette, GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
@@ -25,10 +26,14 @@ export type DetailsSheetProps = {
 
 export default function DetailsSheet({ visible, title, subtitle, entries, onClose }: DetailsSheetProps) {
   const bar = useVerticalBarSpace();
+  const foldMaxHeight = useFoldSheetMaxHeight({ avoidsKeyboard: false });
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={[styles.backdrop, bar.padding]} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}>
+        <Pressable
+          style={[styles.sheet, foldMaxHeight !== undefined && { maxHeight: foldMaxHeight }]}
+          onPress={(event) => event.stopPropagation()}
+        >
           <Text style={styles.title} numberOfLines={1}>
             {title}
           </Text>

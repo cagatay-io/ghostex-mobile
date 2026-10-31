@@ -16,6 +16,8 @@ import {
 } from '../../settings/store';
 import { MAX_WARM_SESSIONS } from '../../terminal/sessions';
 import { warmTerminalsFor } from '../../terminal/warmBudget';
+import { foldDivisionsSummary } from '../../components/common/verticalBar/layout';
+import { useFoldDivisions } from '../../components/common/verticalBar/VerticalBarArea';
 import { SettingsSection } from './SectionBoundary';
 import {
   Caption,
@@ -25,6 +27,7 @@ import {
   SettingsSlider,
   SettingToggle,
   StepperRow,
+  ValueRow,
   type BooleanSettingKey,
 } from './SettingsControls';
 
@@ -34,6 +37,16 @@ function warmTerminalsCaption(scrollbackRows: number): string | null {
   if (count >= MAX_WARM_SESSIONS) return null;
   const kept = count === 1 ? 'only the terminal you are using stays open' : `${count} terminals stay open`;
   return `At this size ${kept}; others reconnect when you open them again, so the phone does not run out of memory.`;
+}
+
+/**
+ * Development builds only: the fold's division regions as the layout layer gets them from
+ * `reservedRegions(kind: .division)`, so a UI inspector can read them half folded and flat. Release builds never show
+ * it.
+ */
+function FoldDivisionsDebugRow() {
+  const divisions = useFoldDivisions();
+  return <ValueRow label="Fold divisions (debug)" value={foldDivisionsSummary(divisions)} />;
 }
 
 /** Terminal toggles carried over from the older Android app, in its order. */
@@ -173,6 +186,12 @@ export default function AdvancedPage() {
         />
         <Caption>Applies the next time a machine connects.</Caption>
       </SettingsSection>
+      {__DEV__ ? (
+        <SettingsSection name="settings:advanced:debug">
+          <SectionHeader title="Debug" />
+          <FoldDivisionsDebugRow />
+        </SettingsSection>
+      ) : null}
     </SettingsScreenLayout>
   );
 }

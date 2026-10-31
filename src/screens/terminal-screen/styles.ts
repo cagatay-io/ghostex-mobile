@@ -67,6 +67,14 @@ export const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     opacity: 0,
   },
+  /** Laptop pose: the terminal area below the fold while the keyboard or a layer is up. */
+  laptopCover: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: GhostexPalette.TERMINAL_BACKGROUND,
+  },
   queuedPill: {
     position: 'absolute',
     top: 8,

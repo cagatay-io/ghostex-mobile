@@ -5,11 +5,15 @@
  * tiles, and numbered steps with a moving line under the active one, or the failure with Retry
  * and a close X that dismisses the failed switch in gxserver.
  * A switch in flight blocks the chat behind it; a failed one lets touches through.
+ * Half folded like a laptop the card stands below the fold when it fits there, otherwise above it, and with the
+ * keyboard up above it; a card taller than its band scrolls inside the band (`useFoldCardPlacement` with the
+ * chat's own frame).
  */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { useFoldCardPlacement } from '../../../components/common/foldAvoidance';
 import type { RustChat } from '../../rust/useRustChat';
 import { AgentMark } from './agentMark';
 import { Glyph } from './icons';
@@ -21,6 +25,8 @@ import { ChatButton, SWEEP_EASING, useLoop } from './primitives';
 export function AccountSwitchCard({ chat }: { chat: RustChat }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
+  // The card covers the chat, not the window: its bands are taken inside the chat's frame.
+  const placement = useFoldCardPlacement({ avoidsKeyboard: false, measuresLayer: true });
   const card = obj(chat.state?.document?.accountSwitchCard);
   const appear = useRef(new Animated.Value(0)).current;
   const id = str(card, 'id');
@@ -80,34 +86,45 @@ export function AccountSwitchCard({ chat }: { chat: RustChat }) {
       pointerEvents={failed ? 'box-none' : 'auto'}
       style={[StyleSheet.absoluteFill, styles.backdrop, { opacity: appear }]}
     >
-      <ScrollView contentContainerStyle={styles.scroll} pointerEvents="box-none">
-        <Animated.View
-          accessibilityLabel="Account switch status"
-          style={[
-            styles.card,
-            { transform: [{ translateY: appear.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }] },
-          ]}
+      <View
+        ref={placement.layerRef}
+        onLayout={placement.onLayerLayout}
+        style={[styles.layer, placement.style]}
+        pointerEvents="box-none"
+      >
+        <ScrollView
+          contentContainerStyle={[styles.scroll, placement.style !== null && styles.scrollInBand]}
+          pointerEvents="box-none"
         >
-          <View accessibilityRole="text" style={dismissible ? styles.headerWithClose : undefined}>
-            <Text style={styles.heading}>{str(card, 'heading')}</Text>
-            <Text style={styles.lede}>{str(card, 'lede')}</Text>
-          </View>
-          {dismissible ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-              hitSlop={8}
-              onPress={() => chat.dispatch({ type: 'accounts', request: { operation: 'dismissSwitch' } })}
-              style={({ pressed }) => [styles.close, pressed && { backgroundColor: P.floatingTile }]}
-            >
-              <Glyph name="x" size={14} color={P.muted} />
-            </Pressable>
-          ) : null}
-          <Account value={card.from} provider={provider} verified={verified} />
-          <Account value={card.to} provider={provider} verified={verified} />
-          {footer}
-        </Animated.View>
-      </ScrollView>
+          <Animated.View
+            accessibilityLabel="Account switch status"
+            onLayout={placement.onCardLayout}
+            style={[
+              styles.card,
+              { transform: [{ translateY: appear.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }] },
+            ]}
+          >
+            <View accessibilityRole="text" style={dismissible ? styles.headerWithClose : undefined}>
+              <Text style={styles.heading}>{str(card, 'heading')}</Text>
+              <Text style={styles.lede}>{str(card, 'lede')}</Text>
+            </View>
+            {dismissible ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+                hitSlop={8}
+                onPress={() => chat.dispatch({ type: 'accounts', request: { operation: 'dismissSwitch' } })}
+                style={({ pressed }) => [styles.close, pressed && { backgroundColor: P.floatingTile }]}
+              >
+                <Glyph name="x" size={14} color={P.muted} />
+              </Pressable>
+            ) : null}
+            <Account value={card.from} provider={provider} verified={verified} />
+            <Account value={card.to} provider={provider} verified={verified} />
+            {footer}
+          </Animated.View>
+        </ScrollView>
+      </View>
     </Animated.View>
   );
 }
@@ -220,6 +237,7 @@ const useStyles = themedStyles((P) => ({
     backgroundColor: P.modalBackdrop,
     zIndex: 20,
   },
+  layer: { flex: 1 },
   scroll: {
     flexGrow: 1,
     justifyContent: 'center',
@@ -227,6 +245,8 @@ const useStyles = themedStyles((P) => ({
     paddingVertical: 24,
     paddingHorizontal: 16,
   },
+  // Half folded the band already keeps its margins from the fold and the chat's edges.
+  scrollInBand: { paddingVertical: 0 },
   card: {
     width: '100%',
     maxWidth: 430,

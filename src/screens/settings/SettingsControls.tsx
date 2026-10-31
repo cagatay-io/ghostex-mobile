@@ -1,6 +1,8 @@
 /**
  * Building blocks shared by the Settings home and every Settings page. Colors
- * come from the current appearance (Settings > Interface), never the static palette.
+ * come from the current appearance (Settings > Interface), never the static palette. Every row, caption and section
+ * title is a fold-gap unit of its page's scroll view, so half folded like a laptop nothing rests on the knick
+ * (`components/common/foldGap.tsx`).
  */
 
 import { createContext, useContext, type ReactNode } from 'react';
@@ -9,8 +11,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SwitchRow } from '../../components/common/SwitchRow';
 import SteppedSlider from '../../components/common/SteppedSlider';
+import { FoldGapProvider, FoldGapView, useFoldGapList } from '../../components/common/foldGap';
 import KeyboardAwareScrollView from '../../components/common/keyboard/KeyboardAwareScrollView';
 import type { HorizontalInsets } from '../../components/common/verticalBar/layout';
+import { useLaptopFold } from '../../components/common/verticalBar/laptopFold';
 import { useHeaderPlacement, useScrollToBarEdges } from '../../components/common/verticalBar/VerticalBarArea';
 import { useSettingsStore, type GhostexSettings } from '../../settings/store';
 import { GhostexPalette, GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
@@ -242,21 +246,35 @@ export const SettingsPageEdgesContext = createContext<HorizontalInsets | null>(n
 /**
  * A Settings page's scroll view (the pages' and the editors'): it spans the window under the side bar
  * and its content keeps its own padding clear of it; unchanged without a side bar.
- * `keyboardAware` for a page with text fields.
+ * `keyboardAware` for a page with text fields. Its rows keep off the knick at rest in the laptop pose (fold gap).
  */
 export function SettingsPageScrollView({
   keyboardAware = false,
   style,
   contentContainerStyle,
+  onScroll,
+  scrollEventThrottle = 16,
   children,
   ...props
 }: ScrollViewProps & { keyboardAware?: boolean }) {
   const edges = useScrollToBarEdges(contentContainerStyle, useContext(SettingsPageEdgesContext));
+  const foldGap = useFoldGapList(useLaptopFold());
   const Scroll = keyboardAware ? KeyboardAwareScrollView : ScrollView;
   return (
-    <Scroll {...props} style={[style, edges.scroll]} contentContainerStyle={[contentContainerStyle, edges.content]}>
-      {children}
-    </Scroll>
+    <FoldGapProvider value={foldGap}>
+      <Scroll
+        {...props}
+        style={[style, edges.scroll]}
+        contentContainerStyle={[contentContainerStyle, edges.content]}
+        scrollEventThrottle={scrollEventThrottle}
+        onScroll={(event) => {
+          foldGap.onScroll(event);
+          onScroll?.(event);
+        }}
+      >
+        {children}
+      </Scroll>
+    </FoldGapProvider>
   );
 }
 
@@ -274,7 +292,11 @@ export function SettingsScreenLayout({ intro, children }: { intro?: string; chil
         contentContainerStyle={[styles.list, readable ? READABLE_COLUMN : null]}
         keyboardShouldPersistTaps="handled"
       >
-        {intro !== undefined ? <Text style={styles.intro}>{intro}</Text> : null}
+        {intro !== undefined ? (
+          <FoldGapView kind="row">
+            <Text style={styles.intro}>{intro}</Text>
+          </FoldGapView>
+        ) : null}
         {children}
       </SettingsPageScrollView>
     </SafeAreaView>
@@ -283,12 +305,20 @@ export function SettingsScreenLayout({ intro, children }: { intro?: string; chil
 
 export function SectionHeader({ title }: { title: string }) {
   const styles = useSettingsStyles();
-  return <Text style={styles.sectionHeader}>{title}</Text>;
+  return (
+    <FoldGapView kind="heading">
+      <Text style={styles.sectionHeader}>{title}</Text>
+    </FoldGapView>
+  );
 }
 
 export function Caption({ children }: { children: ReactNode }) {
   const styles = useSettingsStyles();
-  return <Text style={styles.caption}>{children}</Text>;
+  return (
+    <FoldGapView kind="row">
+      <Text style={styles.caption}>{children}</Text>
+    </FoldGapView>
+  );
 }
 
 export function ToggleRow({
@@ -306,29 +336,31 @@ export function ToggleRow({
   const styles = useSettingsStyles();
   const appearance = useAppearance();
   return (
-    <SwitchRow
-      value={value}
-      onValueChange={onValueChange}
-      label={label}
-      style={styles.row}
-      pressedStyle={styles.rowPressed}
-    >
-      {detail === undefined ? (
-        <Text style={styles.rowLabel}>{label}</Text>
-      ) : (
-        <View style={styles.rowText}>
-          <Text style={styles.cardLabel}>{label}</Text>
-          <Text style={styles.linkDescription}>{detail}</Text>
-        </View>
-      )}
-      <Switch
+    <FoldGapView kind="row">
+      <SwitchRow
         value={value}
         onValueChange={onValueChange}
-        trackColor={{ false: appearance.control, true: GhostexPalette.ACCENT }}
-        thumbColor={value ? appearance.foreground : appearance.controlThumb}
-        ios_backgroundColor={appearance.control}
-      />
-    </SwitchRow>
+        label={label}
+        style={styles.row}
+        pressedStyle={styles.rowPressed}
+      >
+        {detail === undefined ? (
+          <Text style={styles.rowLabel}>{label}</Text>
+        ) : (
+          <View style={styles.rowText}>
+            <Text style={styles.cardLabel}>{label}</Text>
+            <Text style={styles.linkDescription}>{detail}</Text>
+          </View>
+        )}
+        <Switch
+          value={value}
+          onValueChange={onValueChange}
+          trackColor={{ false: appearance.control, true: GhostexPalette.ACCENT }}
+          thumbColor={value ? appearance.foreground : appearance.controlThumb}
+          ios_backgroundColor={appearance.control}
+        />
+      </SwitchRow>
+    </FoldGapView>
   );
 }
 
@@ -380,12 +412,14 @@ export function SettingToggle({ settingKey, label }: { settingKey: BooleanSettin
 export function ChoiceRow({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
   const styles = useSettingsStyles();
   return (
-    <Pressable accessibilityRole="radio" accessibilityState={{ selected }} style={styles.row} onPress={onPress}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <View style={[styles.radioOuter, selected && styles.radioOuterSelected]}>
-        {selected && <View style={styles.radioInner} />}
-      </View>
-    </Pressable>
+    <FoldGapView kind="row">
+      <Pressable accessibilityRole="radio" accessibilityState={{ selected }} style={styles.row} onPress={onPress}>
+        <Text style={styles.rowLabel}>{label}</Text>
+        <View style={[styles.radioOuter, selected && styles.radioOuterSelected]}>
+          {selected && <View style={styles.radioInner} />}
+        </View>
+      </Pressable>
+    </FoldGapView>
   );
 }
 
@@ -406,7 +440,7 @@ export function StepperRow({
 }) {
   const styles = useSettingsStyles();
   return (
-    <View style={[styles.row, disabled && styles.rowDisabled]}>
+    <FoldGapView kind="row" style={[styles.row, disabled && styles.rowDisabled]}>
       <Text style={styles.rowLabel}>{label}</Text>
       <View style={styles.stepper}>
         <Pressable
@@ -429,7 +463,7 @@ export function StepperRow({
           <Text style={styles.stepperGlyph}>+</Text>
         </Pressable>
       </View>
-    </View>
+    </FoldGapView>
   );
 }
 
@@ -450,22 +484,26 @@ export function LinkRow({
 }) {
   const styles = useSettingsStyles();
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityHint={description}
-      // Only a list beside its page (two columns) has a selected row; a plain list reports no selection.
-      accessibilityState={selected === undefined ? undefined : { selected }}
-      style={({ pressed }) => [styles.row, (pressed || selected === true) && styles.rowPressed]}
-      onPress={onPress}
-    >
-      <View style={styles.linkText}>
-        <Text style={description !== undefined ? styles.linkTitle : styles.cardLabel}>{title}</Text>
-        {description !== undefined ? (
-          <Text style={[styles.linkDescription, descriptionAccent && styles.linkDescriptionAccent]}>{description}</Text>
-        ) : null}
-      </View>
-      <Text style={styles.chevron}>›</Text>
-    </Pressable>
+    <FoldGapView kind="row">
+      <Pressable
+        accessibilityRole="button"
+        accessibilityHint={description}
+        // Only a list beside its page (two columns) has a selected row; a plain list reports no selection.
+        accessibilityState={selected === undefined ? undefined : { selected }}
+        style={({ pressed }) => [styles.row, (pressed || selected === true) && styles.rowPressed]}
+        onPress={onPress}
+      >
+        <View style={styles.linkText}>
+          <Text style={description !== undefined ? styles.linkTitle : styles.cardLabel}>{title}</Text>
+          {description !== undefined ? (
+            <Text style={[styles.linkDescription, descriptionAccent && styles.linkDescriptionAccent]}>
+              {description}
+            </Text>
+          ) : null}
+        </View>
+        <Text style={styles.chevron}>›</Text>
+      </Pressable>
+    </FoldGapView>
   );
 }
 
@@ -473,15 +511,19 @@ export function LinkRow({
 export function ValueRow({ label, value }: { label: string; value: string }) {
   const styles = useSettingsStyles();
   return (
-    <View style={styles.row}>
+    <FoldGapView kind="row" style={styles.row}>
       <Text style={styles.rowLabel}>{label}</Text>
       <Text style={styles.value}>{value}</Text>
-    </View>
+    </FoldGapView>
   );
 }
 
 /** SteppedSlider in the current appearance. */
 export function SettingsSlider(props: Omit<Parameters<typeof SteppedSlider>[0], 'appearance'>) {
   const appearance = useAppearance();
-  return <SteppedSlider {...props} appearance={appearance} />;
+  return (
+    <FoldGapView kind="row">
+      <SteppedSlider {...props} appearance={appearance} />
+    </FoldGapView>
+  );
 }

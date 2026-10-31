@@ -7,6 +7,7 @@
  * (`textEditorDraftBySessionKey`), in memory only: however the editor closes (the pen, the keyboard going away, the pad
  * lowering the keyboard, a layer taking its place, a session switch, leaving the terminal screen), that session's
  * next opening shows it again; only Send empties it.
+ * Half folded like a laptop the screen docks it above the fold instead (`laptopMode.ts`).
  *
  * Closing it with the pen hands the keyboard back to the terminal: the terminal is asked for first responder
  * while the editor, which holds it, is still mounted, so UIKit moves the responder straight over and the
@@ -82,6 +83,8 @@ export type TerminalTextEditorProps = {
    * since the pen in the pad's ring is not shown then. It closes the editor as the pen does.
    */
   onClose?: () => void;
+  /** Called after Send has sent the draft (laptop mode: the pad that gave way to the editor opens again). */
+  onSent?: () => void;
 };
 
 /** The editor's height with one line of text: the dock's height until it has laid out. */
@@ -90,7 +93,7 @@ export const TEXT_EDITOR_HEIGHT = 56;
 // A failed call means the terminal entry closed or failed; the terminal's state overlay shows that.
 const ignoreClosedTerminal = (): void => undefined;
 
-export default function TerminalTextEditor({ sessionKey, onClose }: TerminalTextEditorProps) {
+export default function TerminalTextEditor({ sessionKey, onClose, onSent }: TerminalTextEditorProps) {
   // The session's draft (`textEditorDraftBySessionKey`): the editor starts with it and keeps it up to date. Only the
   // editor reads it, and only as it opens, so typing redraws the editor alone.
   const [text, setShownText] = useState(
@@ -105,6 +108,7 @@ export default function TerminalTextEditor({ sessionKey, onClose }: TerminalText
     if (text.length === 0) void GhostexNative.sendKey(sessionKey, 'enter', {}).catch(ignoreClosedTerminal);
     else void GhostexNative.sendText(sessionKey, text).catch(ignoreClosedTerminal);
     setText('');
+    onSent?.();
   };
 
   const forwardEditingKey = (key: string): void => {
