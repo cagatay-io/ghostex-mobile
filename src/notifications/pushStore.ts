@@ -8,11 +8,12 @@
  *
  * The token goes to every enabled computer over its warm link (`POST /api/registerPushToken` on the
  * computer's gxserver, with the link's bearer token like every other request of that link), and nowhere else.
- * The registration runs at the app's start, when the app comes back to the front, when the master switch or the
- * first ask's answer changes, when a computer is added or shown again, and when iOS issues a new token. A
- * computer on the exec route (no gxserver API for the phone) and one whose gxserver does not know the route are not
- * asked again until the app starts again or the token changes; only the second is known to hold no token. When the
- * person removes a computer, the screen that removes it first asks it to remove the token
+ * The registration (with the finished, waiting and error switches and a QR-paired computer's pairing device id) runs
+ * at the app's start, when the app comes back to the front, when the master switch, the finished, waiting or error
+ * switch or the first ask's answer changes, when a computer is added, shown again or paired anew, and when iOS issues
+ * a new token. A computer on the exec route (no gxserver API for the phone) and one whose gxserver does not know the
+ * route are not asked again until the app starts again or the token changes; only the second is known to hold no
+ * token. When the person removes a computer, the screen that removes it first asks it to remove this phone's token
  * (`unregisterBeforeRemoval`, bounded by `REMOVAL_WAIT_MS` in `pushToken.ts`), before its link is closed.
  *
  * The background task is defined when this module loads: iOS can start the app in the background for a push,
@@ -87,6 +88,7 @@ const registration = new PushTokenRegistration({
     enabledMachines(useMachinesStore.getState()).map((machine) => ({
       id: machine.id,
       label: machineDisplayLabel(machine),
+      ...(machine.deviceId === undefined ? {} : { deviceId: machine.deviceId }),
     })),
   send: sendPushToken,
   accepted: pushAccepted,
@@ -149,13 +151,22 @@ export function initPushNotifications(): void {
   let switches = useSettingsStore.getState().settings.notifications;
   useSettingsStore.subscribe((state) => {
     const next = state.settings.notifications;
-    if (next.enabled === switches.enabled && next.askedAt === switches.askedAt) return;
+    if (
+      next.enabled === switches.enabled &&
+      next.finished === switches.finished &&
+      next.waiting === switches.waiting &&
+      next.error === switches.error &&
+      next.askedAt === switches.askedAt
+    ) {
+      return;
+    }
     switches = next;
     sync();
   });
+  // The enabled computers and their pairing device ids: a re-pair sends the new id with a new registration.
   const enabledIds = (): string =>
     enabledMachines(useMachinesStore.getState())
-      .map((machine) => machine.id)
+      .map((machine) => `${machine.id}\t${machine.deviceId ?? ''}`)
       .join('\n');
   let computers = enabledIds();
   useMachinesStore.subscribe(() => {

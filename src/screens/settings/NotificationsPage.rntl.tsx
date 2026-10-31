@@ -137,6 +137,10 @@ describe('the delivery text', () => {
     expect(screen.getByText(/can also notify you while Ghostex is closed/)).toBeTruthy();
     expect(screen.getByText(/iOS decides when a push arrives, and one can come late or not at all/)).toBeTruthy();
     expect(screen.queryByText(RUNNING_ONLY)).toBeNull();
+    // The three switches reach the computers; a change one does not get yet waits for its next registration.
+    expect(screen.getByText(/Finished, Waiting for you and Ended with an error also apply to pushes/)).toBeTruthy();
+    expect(screen.getByText(/keeps the earlier choice until it next accepts this iPhone/)).toBeTruthy();
+    expect(screen.queryByText(/apply only while Ghostex is running/)).toBeNull();
   });
 
   test('without one, it keeps the text for a running app', async () => {

@@ -38,12 +38,15 @@
  *   handler's navigation (the real handler here, its stores and navigator stood in for); what counts as the person
  *   leaving is tested on the real `deepLinks.ts`.
  * - The push token: registered with each enabled computer over the warm link, with the phone's own id for that
- *   computer, which a push carries back to be the app's (any other computer id is left to iOS); removed by the
- *   master switch, registered again when it is turned on; a registration the master switch or a new token overtook
- *   while its computer's route was looked up is not sent; a computer that does not know the route is not asked
- *   again until the token changes; no log line carries the token, and storage keeps none. Removing a computer
- *   (hidden or not, master switch on or off) asks it once to remove the token once the first ask was answered,
- *   waits for that at most the bounded wait and never asks again; hiding asks nothing. On Android none of it runs.
+ *   computer, which a push carries back to be the app's (any other computer id is left to iOS), the finished,
+ *   waiting and error switches, and the pairing device id of a computer paired by QR code; a change of those
+ *   switches registers again once with each enabled computer, other settings and the master switch off send none;
+ *   removed by the master switch, registered again when it is turned on; every removal names the computer; a
+ *   registration the master switch or a new token overtook while its computer's route was looked up is not sent; a
+ *   computer that does not know the route is not asked again until the token changes; no log line carries the
+ *   token, and storage keeps none. Removing a computer (hidden or not, master switch on or off) asks it once to
+ *   remove the token once the first ask was answered, waits for that at most the bounded wait and never asks again;
+ *   hiding asks nothing. On Android none of it runs.
  */
 
 import type * as ReactNative from 'react-native';
@@ -774,6 +777,9 @@ describe('a tapped push', () => {
 
 describe('the push token', () => {
   const twoComputers = [machine('m1', 'Mac mini'), machine('m2', 'MacBook')];
+  /** The body of each registration request, as the computer's route gets it. */
+  const registrationBodies = () =>
+    mockHost.requests.filter((request) => request.method === 'registerPushToken').map((request) => request.params);
 
   test('goes to each enabled computer over the warm link, and only there', async () => {
     const app = await startApp({ machines: twoComputers });
@@ -802,6 +808,53 @@ describe('the push token', () => {
     app.settings.getState().setSetting('notifications', ALL_ON);
     await settle();
     expect(app.pushRequests().slice(4)).toEqual([`m1:register:${TOKEN}`, `m2:register:${TOKEN}`]);
+  });
+
+  test('each registration carries the three switches, and the pairing device id only for a computer paired by QR code', async () => {
+    const app = await startApp({
+      settings: { ...ALL_ON, error: false },
+      machines: [{ ...machine('m1', 'Mac mini'), deviceId: 'device-7' }, machine('m2', 'MacBook')],
+    });
+    expect(app.pushRequests()).toHaveLength(2);
+    const kinds = { finished: true, waiting: true, error: false };
+    expect(registrationBodies()).toStrictEqual([
+      { action: 'register', token: TOKEN, machineId: 'm1', kinds, deviceId: 'device-7' },
+      { action: 'register', token: TOKEN, machineId: 'm2', kinds },
+    ]);
+  });
+
+  test('a change of finished, waiting or error goes to each enabled computer once; other settings send nothing', async () => {
+    const app = await startApp({ machines: twoComputers });
+    app.settings.getState().setSetting('notifications', { ...ALL_ON, finished: false });
+    await settle();
+    app.settings.getState().setSetting('doneNotificationSound', false);
+    await settle();
+    await app.appStateChange('background');
+    await app.appStateChange('active');
+    const kinds = { finished: false, waiting: true, error: true };
+    expect(registrationBodies().slice(2)).toStrictEqual([
+      { action: 'register', token: TOKEN, machineId: 'm1', kinds },
+      { action: 'register', token: TOKEN, machineId: 'm2', kinds },
+    ]);
+  });
+
+  test('with the master switch off a change of the three sends nothing', async () => {
+    const app = await startApp({ settings: { ...ALL_ON, enabled: false } });
+    app.settings.getState().setSetting('notifications', { ...ALL_ON, enabled: false, waiting: false });
+    await settle();
+    expect(app.pushRequests()).toEqual(['m1:unregister']);
+  });
+
+  test('every removal names the computer: the master switch off and removing the computer', async () => {
+    const app = await startApp({ machines: twoComputers });
+    app.settings.getState().setSetting('notifications', { ...ALL_ON, enabled: false });
+    await settle();
+    await app.pushStore.unregisterBeforeRemoval('m1');
+    expect(registrationBodies().filter((body) => body.action === 'unregister')).toStrictEqual([
+      { action: 'unregister', machineId: 'm1' },
+      { action: 'unregister', machineId: 'm2' },
+      { action: 'unregister', machineId: 'm1' },
+    ]);
   });
 
   test.each(['the master switch is turned off', 'iOS issues a new token'] as const)(
@@ -860,6 +913,8 @@ describe('the push token', () => {
       const app = await startApp({ machines: [machine('m1', 'Mac mini'), machine('m2', 'MacBook')] });
       mockHost.errors = {};
       await app.tokenChanges(NEW_TOKEN);
+      app.settings.getState().setSetting('notifications', { ...ALL_ON, waiting: false });
+      await settle();
       app.settings.getState().setSetting('notifications', { ...ALL_ON, enabled: false });
       await settle();
       expect(app.pushRequests().length).toBeGreaterThan(0);

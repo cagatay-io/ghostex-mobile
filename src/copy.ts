@@ -1426,7 +1426,7 @@ export const NotificationsCopy = {
       'Ghostex can notify you only while it is running: open, or briefly in the background. Once iOS pauses it, for example a while after you lock the phone, nothing arrives until you open Ghostex again. The bell on the Sessions screen then lists what happened.',
     /** Instead of `limit` while an enabled computer accepted this phone's push registration, or that is not read yet. */
     limitWithPush:
-      'Ghostex notifies you while it is running. A computer that accepted this iPhone for push can also notify you while Ghostex is closed or paused: iOS decides when a push arrives, and one can come late or not at all. Finished, Waiting for you and Ended with an error apply only while Ghostex is running; to stop pushes too, turn Notifications off. The bell on the Sessions screen lists what happened.',
+      'Ghostex notifies you while it is running. A computer that accepted this iPhone for push can also notify you while Ghostex is closed or paused: iOS decides when a push arrives, and one can come late or not at all. Finished, Waiting for you and Ended with an error also apply to pushes. A computer that Ghostex cannot reach when you change one keeps the earlier choice until it next accepts this iPhone, for example when you open Ghostex again. The bell on the Sessions screen lists what happened.',
     finished: 'Finished',
     finishedDetail: 'An agent finished its turn.',
     waiting: 'Waiting for you',

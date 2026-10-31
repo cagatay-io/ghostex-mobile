@@ -24,6 +24,33 @@ const ON: NotificationSettings = {
   askedAt: '2031-05-04T10:00:00.000Z',
 };
 
+const KINDS_ON = { finished: true, waiting: true, error: true };
+
+/** A registration as the route takes it: the token, the phone's own id for the computer and its three switches. */
+const register = (machineId: string, token = TOKEN, kinds = KINDS_ON): PushTokenParams => ({
+  action: 'register',
+  token,
+  machineId,
+  kinds,
+});
+/** A removal as the route takes it: it names the computer by the phone's own id for it. */
+const unregister = (machineId: string): PushTokenParams => ({ action: 'unregister', machineId });
+
+/**
+ * A registration as the route's request schema takes it (`registerPushToken`, `params`): the named fields only,
+ * each in its pattern, and a `deviceId`, when there is one, of 1 to 128 visible ASCII characters.
+ */
+function assertRouteTakes(params: PushTokenParams): void {
+  if (params.action !== 'register') assert.fail(`not a registration: ${params.action}`);
+  const { action, token, machineId, kinds, deviceId, ...extra } = params;
+  assert.equal(action, 'register');
+  assert.deepEqual(extra, {});
+  assert.match(token, /^Expo(nent)?PushToken\[[A-Za-z0-9_-]{8,64}\]$/u);
+  assert.match(machineId, /^[\x21-\x7e]{1,64}$/u);
+  assert.deepEqual(Object.keys(kinds).sort(), ['error', 'finished', 'waiting']);
+  if (deviceId !== undefined) assert.match(deviceId, /^[\x21-\x7e]{1,128}$/u);
+}
+
 type Sent = { machineId: string; params: PushTokenParams };
 
 type HarnessOptions = {
@@ -31,6 +58,8 @@ type HarnessOptions = {
   settings?: NotificationSettings;
   projectId?: string | null;
   machines?: string[];
+  /** The pairing device id of a computer paired by QR code; none for the others (added by SSH). */
+  deviceIds?: Record<string, string>;
   /** How each computer answers; 'done' when not named. */
   answers?: Record<string, PushTokenSendOutcome | Error>;
   token?: () => Promise<string>;
@@ -42,6 +71,7 @@ function harness(options: HarnessOptions = {}) {
     settings: options.settings ?? ON,
     projectId: options.projectId === undefined ? 'project-1' : options.projectId,
     machines: options.machines ?? ['m1', 'm2'],
+    deviceIds: options.deviceIds ?? ({} as Record<string, string>),
     answers: options.answers ?? {},
     token: options.token ?? (async () => TOKEN),
     /** What a computer waits for after it got a request and before it answers. */
@@ -64,7 +94,11 @@ function harness(options: HarnessOptions = {}) {
       tokenRequests.push(projectId);
       return state.token();
     },
-    machines: () => state.machines.map((id) => ({ id, label: `Mac ${id}` })),
+    machines: () =>
+      state.machines.map((id) => {
+        const deviceId = state.deviceIds[id];
+        return { id, label: `Mac ${id}`, ...(deviceId === undefined ? {} : { deviceId }) };
+      }),
     send: async (machineId, params, current) => {
       await state.preparing(machineId);
       // As `sendPushToken` does once the route is known: nothing goes out when the pass no longer wants it.
@@ -98,8 +132,8 @@ describe('the push token goes to the computers over the warm link', () => {
     await app.registration.sync();
     assert.deepEqual(app.tokenRequests, ['project-1']);
     assert.deepEqual(app.sent, [
-      { machineId: 'm1', params: { action: 'register', token: TOKEN, machineId: 'm1' } },
-      { machineId: 'm2', params: { action: 'register', token: TOKEN, machineId: 'm2' } },
+      { machineId: 'm1', params: register('m1') },
+      { machineId: 'm2', params: register('m2') },
     ]);
   });
 
@@ -151,8 +185,8 @@ describe('the push token goes to the computers over the warm link', () => {
     app.state.machines = ['m1'];
     await app.registration.sync();
     assert.deepEqual(app.sent, [
-      { machineId: 'm1', params: { action: 'register', token: TOKEN, machineId: 'm1' } },
-      { machineId: 'm1', params: { action: 'register', token: TOKEN, machineId: 'm1' } },
+      { machineId: 'm1', params: register('m1') },
+      { machineId: 'm1', params: register('m1') },
     ]);
   });
 
@@ -164,10 +198,7 @@ describe('the push token goes to the computers over the warm link', () => {
     await app.registration.tokenChanged();
     assert.deepEqual(
       app.sent.slice(2).map((entry) => entry.params),
-      [
-        { action: 'register', token: NEW_TOKEN, machineId: 'm1' },
-        { action: 'register', token: NEW_TOKEN, machineId: 'm2' },
-      ],
+      [register('m1', NEW_TOKEN), register('m2', NEW_TOKEN)],
     );
   });
 
@@ -258,14 +289,14 @@ describe('the master switch', () => {
     app.state.settings = { ...ON, enabled: false };
     await app.registration.sync();
     assert.deepEqual(app.sent.slice(2), [
-      { machineId: 'm1', params: { action: 'unregister' } },
-      { machineId: 'm2', params: { action: 'unregister' } },
+      { machineId: 'm1', params: unregister('m1') },
+      { machineId: 'm2', params: unregister('m2') },
     ]);
     app.state.settings = ON;
     await app.registration.sync();
     assert.deepEqual(app.sent.slice(4), [
-      { machineId: 'm1', params: { action: 'register', token: TOKEN, machineId: 'm1' } },
-      { machineId: 'm2', params: { action: 'register', token: TOKEN, machineId: 'm2' } },
+      { machineId: 'm1', params: register('m1') },
+      { machineId: 'm2', params: register('m2') },
     ]);
   });
 
@@ -274,8 +305,8 @@ describe('the master switch', () => {
     await app.registration.sync();
     await app.registration.sync();
     assert.deepEqual(app.sent, [
-      { machineId: 'm1', params: { action: 'unregister' } },
-      { machineId: 'm2', params: { action: 'unregister' } },
+      { machineId: 'm1', params: unregister('m1') },
+      { machineId: 'm2', params: unregister('m2') },
     ]);
   });
 
@@ -294,6 +325,159 @@ describe('the master switch', () => {
   });
 });
 
+describe('what a registration carries', () => {
+  test('the three switches, and the pairing device id only for a computer paired by QR code', async () => {
+    const app = harness({ settings: { ...ON, waiting: false }, deviceIds: { m1: 'device-7' } });
+    await app.registration.sync();
+    const kinds = { finished: true, waiting: false, error: true };
+    assert.deepEqual(app.sent, [
+      { machineId: 'm1', params: { ...register('m1', TOKEN, kinds), deviceId: 'device-7' } },
+      { machineId: 'm2', params: register('m2', TOKEN, kinds) },
+    ]);
+  });
+
+  test('an empty pairing device id counts as none', async () => {
+    const app = harness({ machines: ['m1'], deviceIds: { m1: '' } });
+    await app.registration.sync();
+    assert.deepEqual(app.sent, [{ machineId: 'm1', params: register('m1') }]);
+  });
+
+  test('a pairing device id the route does not take is left out of the registration, logged without the id', async () => {
+    const spaces = 'pairing id with spaces';
+    const tooLong = 'd'.repeat(129);
+    const app = harness({ machines: ['m1', 'm2', 'm3'], deviceIds: { m1: spaces, m2: tooLong, m3: '' } });
+    await app.registration.sync();
+    await app.registration.sync();
+    // The computer still takes the token and the switches: the registration goes once, only without the id.
+    assert.deepEqual(app.sent, [
+      { machineId: 'm1', params: register('m1') },
+      { machineId: 'm2', params: register('m2') },
+      { machineId: 'm3', params: register('m3') },
+    ]);
+    for (const { params } of app.sent) assertRouteTakes(params);
+    const leftOut = app.logs.filter((line) => line.includes('pairing id'));
+    assert.deepEqual(leftOut, [
+      'Mac m1: pairing id left out of the push token registration (not one the computer takes)',
+      'Mac m2: pairing id left out of the push token registration (not one the computer takes)',
+    ]);
+    for (const line of app.logs) assert.ok(!line.includes(spaces) && !line.includes(tooLong), line);
+  });
+
+  test('a pairing device id the route takes goes unchanged, also at its longest and with any visible character', async () => {
+    const longest = 'd'.repeat(128);
+    const visible = '!device~7';
+    const app = harness({ deviceIds: { m1: longest, m2: visible } });
+    await app.registration.sync();
+    assert.deepEqual(app.sent, [
+      { machineId: 'm1', params: { ...register('m1'), deviceId: longest } },
+      { machineId: 'm2', params: { ...register('m2'), deviceId: visible } },
+    ]);
+    for (const { params } of app.sent) assertRouteTakes(params);
+    assert.ok(!app.logs.some((line) => line.includes('pairing id')));
+  });
+
+  test('a new pairing device id of an enabled computer goes to it once, with a new registration', async () => {
+    const app = harness({ machines: ['m1'], deviceIds: { m1: 'device-1' } });
+    await app.registration.sync();
+    app.state.deviceIds = { m1: 'device-2' };
+    await app.registration.sync();
+    await app.registration.sync();
+    assert.deepEqual(app.sent.slice(1), [{ machineId: 'm1', params: { ...register('m1'), deviceId: 'device-2' } }]);
+  });
+});
+
+describe('the finished, waiting and error switches reach the computers', () => {
+  test('a change goes to each enabled computer once, as a new registration with the switches as they are now', async () => {
+    const app = harness({ deviceIds: { m2: 'device-9' } });
+    await app.registration.sync();
+    app.state.settings = { ...ON, error: false };
+    await app.registration.sync();
+    await app.registration.sync();
+    const kinds = { finished: true, waiting: true, error: false };
+    assert.deepEqual(app.sent.slice(2), [
+      { machineId: 'm1', params: register('m1', TOKEN, kinds) },
+      { machineId: 'm2', params: { ...register('m2', TOKEN, kinds), deviceId: 'device-9' } },
+    ]);
+    assert.deepEqual(app.accepted, ['m1:true', 'm2:true', 'm1:true', 'm2:true']);
+    for (const line of app.logs) assert.ok(!line.includes('abcdefgh12345678'), line);
+  });
+
+  test('a change sends nothing while no computer should hold the token', async () => {
+    const cases: [string, HarnessOptions][] = [
+      ['master switch off', { settings: { ...ON, enabled: false } }],
+      ['no iOS permission', { permission: 'denied' }],
+      ['no push project', { projectId: null }],
+      ['first ask not answered', { settings: { enabled: false, finished: false, waiting: false, error: false } }],
+    ];
+    for (const [name, options] of cases) {
+      const app = harness(options);
+      await app.registration.sync();
+      const before = app.sent.length;
+      app.state.settings = { ...app.state.settings, finished: !app.state.settings.finished };
+      await app.registration.sync();
+      assert.deepEqual(app.sent.slice(before), [], name);
+    }
+  });
+
+  test('a computer without the push route and one being removed are not asked on a change', async () => {
+    const app = harness({ machines: ['m1', 'm2', 'm3'], answers: { m2: 'unsupported' } });
+    await app.registration.sync();
+    await app.registration.removing({ id: 'm3', label: 'Mac m3' });
+    const before = app.sent.length;
+    app.state.settings = { ...ON, finished: false };
+    await app.registration.sync();
+    assert.deepEqual(app.sent.slice(before), [
+      { machineId: 'm1', params: register('m1', TOKEN, { finished: false, waiting: true, error: true }) },
+    ]);
+  });
+
+  test('a change that does not reach a computer is not sent again on its own; its next registration carries it', async () => {
+    const app = harness();
+    await app.registration.sync();
+    app.state.answers = { m2: 'unreachable' };
+    app.state.settings = { ...ON, error: false };
+    await app.registration.sync();
+    const errorSwitch = () =>
+      app.sent.slice(2).map((entry) => {
+        const { params } = entry;
+        return `${entry.machineId}:${params.action === 'register' ? params.kinds.error : '-'}`;
+      });
+    assert.deepEqual(errorSwitch(), ['m1:false', 'm2:false']);
+    // The next occasion (the app comes back to the front, say) reaches it.
+    app.state.answers = {};
+    await app.registration.sync();
+    await app.registration.sync();
+    assert.deepEqual(errorSwitch(), ['m1:false', 'm2:false', 'm2:false']);
+    assert.ok(
+      app.logs.includes('Mac m2: push token registration not taken (unreachable); asked again at the next occasion'),
+    );
+  });
+
+  test('a change while a registration is on its way: each computer ends with the switches as they are now', async () => {
+    const requested = Promise.withResolvers<void>();
+    const answer = Promise.withResolvers<void>();
+    const app = harness();
+    app.state.answering = (machineId) => {
+      if (machineId !== 'm1') return Promise.resolve();
+      requested.resolve();
+      return answer.promise;
+    };
+    const started = app.registration.sync();
+    await requested.promise;
+    app.state.answering = () => Promise.resolve();
+    app.state.settings = { ...ON, waiting: false };
+    const changed = app.registration.sync();
+    answer.resolve();
+    await Promise.all([started, changed]);
+    const kinds = { finished: true, waiting: false, error: true };
+    assert.deepEqual(app.sent, [
+      { machineId: 'm1', params: register('m1') },
+      { machineId: 'm2', params: register('m2', TOKEN, kinds) },
+      { machineId: 'm1', params: register('m1', TOKEN, kinds) },
+    ]);
+  });
+});
+
 describe('a computer whose Ghostex does not know the route', () => {
   test('counts as without push: not asked again at later occasions, also not by the master switch', async () => {
     const app = harness({ answers: { m2: 'unsupported' } });
@@ -305,7 +489,7 @@ describe('a computer whose Ghostex does not know the route', () => {
     await app.registration.sync();
     assert.deepEqual(
       app.sent.filter((entry) => entry.machineId === 'm2'),
-      [{ machineId: 'm2', params: { action: 'register', token: TOKEN, machineId: 'm2' } }],
+      [{ machineId: 'm2', params: register('m2') }],
     );
     assert.ok(app.logs.includes('Mac m2: this computer has no push yet; not asked again until the app starts again'));
   });
@@ -319,10 +503,7 @@ describe('a computer whose Ghostex does not know the route', () => {
     await app.registration.tokenChanged();
     assert.deepEqual(
       app.sent.filter((entry) => entry.machineId === 'm2').map((entry) => entry.params),
-      [
-        { action: 'register', token: TOKEN, machineId: 'm2' },
-        { action: 'register', token: NEW_TOKEN, machineId: 'm2' },
-      ],
+      [register('m2'), register('m2', NEW_TOKEN)],
     );
   });
 
@@ -336,10 +517,7 @@ describe('a computer whose Ghostex does not know the route', () => {
     await app.registration.tokenChanged();
     assert.deepEqual(
       app.sent.filter((entry) => entry.machineId === 'm2').map((entry) => entry.params),
-      [
-        { action: 'register', token: TOKEN, machineId: 'm2' },
-        { action: 'register', token: NEW_TOKEN, machineId: 'm2' },
-      ],
+      [register('m2'), register('m2', NEW_TOKEN)],
     );
   });
 });
@@ -386,9 +564,7 @@ describe('a fetch or a registration that the person or iOS overtook', () => {
     const changed = app.registration.tokenChanged();
     first.resolve(TOKEN);
     await Promise.all([old, changed]);
-    assert.deepEqual(app.sent, [
-      { machineId: 'm1', params: { action: 'register', token: NEW_TOKEN, machineId: 'm1' } },
-    ]);
+    assert.deepEqual(app.sent, [{ machineId: 'm1', params: register('m1', NEW_TOKEN) }]);
     assert.equal(fetches, 2);
   });
 
@@ -409,7 +585,7 @@ describe('a fetch or a registration that the person or iOS overtook', () => {
     const off = app.registration.sync();
     token.resolve(TOKEN);
     await Promise.all([started, off]);
-    assert.deepEqual(app.sent, [{ machineId: 'm1', params: { action: 'unregister' } }]);
+    assert.deepEqual(app.sent, [{ machineId: 'm1', params: unregister('m1') }]);
   });
 
   test('the master switch turned off while a registration is on its way: no later computer gets one, each the removal', async () => {
@@ -484,9 +660,7 @@ describe('a fetch or a registration that the person or iOS overtook', () => {
       prepared.resolve();
       await Promise.all([started, next]);
       assert.deepEqual(app.sent, [
-        off
-          ? { machineId: 'm1', params: { action: 'unregister' } }
-          : { machineId: 'm1', params: { action: 'register', token: NEW_TOKEN, machineId: 'm1' } },
+        off ? { machineId: 'm1', params: unregister('m1') } : { machineId: 'm1', params: register('m1', NEW_TOKEN) },
       ]);
       assert.deepEqual(app.accepted, [off ? 'm1:false' : 'm1:true']);
     });
@@ -560,7 +734,7 @@ describe('removing a computer', () => {
     const app = harness();
     await app.registration.sync();
     await removing(app.registration, 'm1');
-    assert.deepEqual(app.sent.slice(2), [{ machineId: 'm1', params: { action: 'unregister' } }]);
+    assert.deepEqual(app.sent.slice(2), [{ machineId: 'm1', params: unregister('m1') }]);
     assert.deepEqual(app.accepted.slice(2), ['m1:false']);
     assert.equal(app.timers[0]?.ms, REMOVAL_WAIT_MS);
     assert.equal(app.timers[0]?.cancelled, true);
@@ -586,7 +760,7 @@ describe('removing a computer', () => {
       await removing(app.registration, 'm1');
       assert.deepEqual(
         app.sent.slice(before),
-        [{ machineId: 'm1', params: { action: 'unregister' } }],
+        [{ machineId: 'm1', params: unregister('m1') }],
         JSON.stringify(options),
       );
     }
@@ -605,7 +779,7 @@ describe('removing a computer', () => {
     await removing(app.registration, 'm1');
     assert.deepEqual(
       app.sent.filter((entry) => entry.machineId === 'm1'),
-      [{ machineId: 'm1', params: { action: 'unregister' } }],
+      [{ machineId: 'm1', params: unregister('m1') }],
     );
   });
 
