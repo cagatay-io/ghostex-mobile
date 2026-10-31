@@ -18,7 +18,7 @@ const SETTINGS_ROUTES: ReadonlySet<string> = new Set([
   'AgentHotkeysEditor',
 ]);
 
-/** The page selected while none was opened yet: the first of the list (Theme). */
+/** The page selected while none was opened yet: the first of the list (Interface). */
 export const DEFAULT_SETTINGS_PAGE: SettingsPageId = 'theme';
 
 export function isSettingsRoute(name: string): boolean {

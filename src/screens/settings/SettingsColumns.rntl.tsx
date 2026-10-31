@@ -47,7 +47,7 @@ jest.mock('./SettingsControls', () => ({
   SettingsPageEdgesContext: jest.requireActual('react').createContext(null),
 }));
 jest.mock('./pages', () => ({
-  SETTINGS_PAGES: { chat: { title: 'Chat' }, theme: { title: 'Theme' } },
+  SETTINGS_PAGES: { chat: { title: 'Chat' }, theme: { title: 'Interface' } },
   SETTINGS_PAGE_ORDER: ['theme', 'chat'],
 }));
 
@@ -65,7 +65,7 @@ describe('in two columns the stack holds one list', () => {
   test('the top Settings screen draws the list beside its page', async () => {
     mockTwoColumns = true;
     const top = await render(frame());
-    expect(top.getAllByText(/^row:/).map((row) => row.props.children)).toEqual(['row:Theme', 'row:Chat']);
+    expect(top.getAllByText(/^row:/).map((row) => row.props.children)).toEqual(['row:Interface', 'row:Chat']);
   });
 
   test('the Settings screen under it draws no list, only its page', async () => {

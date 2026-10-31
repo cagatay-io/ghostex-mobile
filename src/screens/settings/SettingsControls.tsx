@@ -1,6 +1,6 @@
 /**
  * Building blocks shared by the Settings home and every Settings page. Colors
- * come from the current appearance (Settings > Theme), never the static palette.
+ * come from the current appearance (Settings > Interface), never the static palette.
  */
 
 import { createContext, useContext, type ReactNode } from 'react';

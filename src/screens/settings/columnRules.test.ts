@@ -12,7 +12,7 @@ const SESSIONS: ColumnRoute = { name: 'Sessions' };
 const SETTINGS: ColumnRoute = { name: 'Settings' };
 
 describe('Settings in two columns', () => {
-  test('Settings alone selects Theme, the first page', () => {
+  test('Settings alone selects Interface, the first page', () => {
     assert.equal(DEFAULT_SETTINGS_PAGE, 'theme');
     assert.deepEqual(settingsColumnsFor([SESSIONS, SETTINGS], 1), {
       settingsIndex: 1,

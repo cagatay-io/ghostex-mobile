@@ -80,7 +80,7 @@ export type RootStackParamList = {
   Feedback: { machineId?: string; crashReportId?: string; collectWithAgent?: boolean } | undefined;
   /** Settings home: the list of Settings pages. */
   Settings: undefined;
-  /** One Settings page (Theme, Chat, Terminal, Keyboard, Sounds, Connection, Updates, Advanced). */
+  /** One Settings page (Interface, Chat, Terminal, Keyboard, Sounds, Connection, Updates, Advanced). */
   SettingsPage: { page: SettingsPageId };
   ExtraKeysEditor: undefined;
   AgentHotkeysEditor: undefined;

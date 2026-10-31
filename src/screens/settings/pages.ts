@@ -1,6 +1,6 @@
 /**
  * The Settings pages listed on the Settings home, in order. Names follow the
- * desktop Settings where one exists (Theme, Chat, Terminal, Sounds).
+ * desktop Settings where one exists (Interface, Chat, Terminal, Sounds).
  */
 
 import { ANDROID_SELF_UPDATE_ENABLED } from '../../config/featureFlags';
@@ -21,7 +21,7 @@ export type SettingsPageId =
 
 export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, { title: string; description: string }>> = {
   updates: { title: 'Updates', description: 'Your Ghostex version, and newer releases.' },
-  theme: { title: 'Theme', description: 'Background contrast and tint.' },
+  theme: { title: 'Interface', description: 'Background contrast and tint.' },
   chat: { title: 'Chat', description: 'Default agent view, chat theme and detail.' },
   voice: { title: 'Voice agent', description: 'Regular or push-to-talk calls, and what each costs.' },
   terminal: { title: 'Terminal', description: 'Font size, screen and tab behavior.' },

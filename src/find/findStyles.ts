@@ -1,6 +1,6 @@
 /**
  * Find colors and styles. The page colors come from the current appearance
- * (Settings > Theme) like Settings; the match and star colors are the desktop
+ * (Settings > Interface) like Settings; the match and star colors are the desktop
  * Find window's, so a highlighted match or a star looks the same everywhere.
  */
 
