@@ -41,8 +41,9 @@
  *   computer, which a push carries back to be the app's (any other computer id is left to iOS); removed by the
  *   master switch, registered again when it is turned on; a registration the master switch or a new token overtook
  *   while its computer's route was looked up is not sent; a computer that does not know the route is not asked
- *   again until the token changes; no log line carries the token, and storage keeps none. On Android none of it
- *   runs.
+ *   again until the token changes; no log line carries the token, and storage keeps none. Removing a computer
+ *   (hidden or not, master switch on or off) asks it once to remove the token once the first ask was answered,
+ *   waits for that at most the bounded wait and never asks again; hiding asks nothing. On Android none of it runs.
  */
 
 import type * as ReactNative from 'react-native';
@@ -68,6 +69,7 @@ import type * as ZmxDisplayModule from '../terminal/zmxDisplay';
 import type * as EventIdentityModule from './eventIdentity';
 import type * as FeedStoreModule from './feedStore';
 import type * as PushStoreModule from './pushStore';
+import type * as PushTokenModule from './pushToken';
 import type { NotificationSettings } from './settings';
 
 /** The phone's Expo push token as iOS and Expo hand it out (a send credential). */
@@ -326,6 +328,8 @@ async function startApp(
     recordWritesFail?: boolean;
     /** The app runs on Android, where agent notifications and push are not offered. */
     android?: boolean;
+    /** The first notification ask is still on screen: the person has not answered it. */
+    firstAskOpen?: boolean;
   } = {},
 ) {
   jest.resetModules();
@@ -383,6 +387,9 @@ async function startApp(
     jest.mocked(notifications.getPermissionsAsync).mockResolvedValue(denied);
     jest.mocked(notifications.requestPermissionsAsync).mockResolvedValue(denied);
   }
+  if (options.firstAskOpen === true) {
+    jest.mocked(notifications.requestPermissionsAsync).mockReturnValue(Promise.withResolvers<never>().promise);
+  }
 
   const computers = options.machines ?? [machine('m1', 'Mac mini')];
   useMachinesStore.setState(
@@ -434,6 +441,7 @@ async function startApp(
 
   return {
     feedStore,
+    pushStore,
     notifications,
     posted,
     openDeepLink: jest.mocked(openDeepLink),
@@ -860,6 +868,112 @@ describe('the push token', () => {
     } finally {
       for (const spy of spies) spy.mockRestore();
     }
+  });
+});
+
+describe('removing a computer', () => {
+  const twoComputers = [machine('m1', 'Mac mini'), machine('m2', 'MacBook')];
+  /**
+   * Whether `removal` finished within `ms` of real time (the test clock is faked; `setTimeout` is not). Polls in
+   * steps of 50 ms, so it returns soon after the removal finished.
+   */
+  async function finishesWithin(removal: Promise<void>, ms: number): Promise<boolean> {
+    let done = false;
+    void removal.then(() => {
+      done = true;
+    });
+    for (let waited = 0; waited <= ms && !done; waited += 50) {
+      const step = Promise.withResolvers<void>();
+      setTimeout(step.resolve, 50);
+      await step.promise;
+    }
+    return done;
+  }
+
+  test('a computer that can be reached is asked once to remove the token while its record is there; then nothing more', async () => {
+    const app = await startApp({ machines: twoComputers });
+    expect(app.pushStore.removalAsksComputer()).toBe(true);
+    await app.pushStore.unregisterBeforeRemoval('m1');
+    expect(app.pushRequests().slice(2)).toEqual(['m1:unregister']);
+    expect(app.machines.getState().machines.map((entry) => entry.id)).toEqual(['m1', 'm2']);
+    await app.machines.getState().removeMachine('m1');
+    await settle();
+    expect(app.feedStore.useAttentionFeedStore.getState().pushComputers).toEqual(['m2']);
+    await app.appStateChange('background');
+    await app.appStateChange('active');
+    await app.tokenChanges(NEW_TOKEN);
+    app.settings.getState().setSetting('notifications', { ...ALL_ON, enabled: false });
+    await settle();
+    expect(app.pushRequests().filter((request) => request.startsWith('m1:'))).toEqual([
+      `m1:register:${TOKEN}`,
+      'm1:unregister',
+    ]);
+    expect(app.logs().filter((line) => line.includes('PushToken['))).toEqual([]);
+  });
+
+  test('with the master switch off it is asked as well: it may hold the token of an earlier registration', async () => {
+    const app = await startApp({ settings: { ...ALL_ON, enabled: false } });
+    expect(app.pushRequests()).toEqual(['m1:unregister']);
+    await app.pushStore.unregisterBeforeRemoval('m1');
+    expect(app.pushRequests()).toEqual(['m1:unregister', 'm1:unregister']);
+  });
+
+  test('a hidden computer is asked as well', async () => {
+    const app = await startApp({ machines: twoComputers });
+    app.machines.getState().setMachineDisabled('m1', true);
+    await settle();
+    await app.pushStore.unregisterBeforeRemoval('m1');
+    expect(app.pushRequests().slice(2)).toEqual(['m1:unregister']);
+  });
+
+  test('before the first ask was answered nothing is sent and nothing waits', async () => {
+    const app = await startApp({
+      settings: { enabled: false, finished: false, waiting: false, error: false },
+      firstAskOpen: true,
+    });
+    expect(app.pushStore.removalAsksComputer()).toBe(false);
+    mockHost.routeGate = Promise.withResolvers<void>().promise;
+    expect(await finishesWithin(app.pushStore.unregisterBeforeRemoval('m1'), 200)).toBe(true);
+    expect(app.pushRequests()).toEqual([]);
+  });
+
+  test('a computer that does not answer is removed after the bounded wait; nothing goes out after it', async () => {
+    const { REMOVAL_WAIT_MS } = jest.requireActual<typeof PushTokenModule>('./pushToken');
+    const app = await startApp({ machines: twoComputers });
+    const route = Promise.withResolvers<void>();
+    mockHost.routeGate = route.promise;
+    const removal = app.pushStore.unregisterBeforeRemoval('m1');
+    expect(await finishesWithin(removal, REMOVAL_WAIT_MS - 300)).toBe(false);
+    expect(await finishesWithin(removal, 800)).toBe(true);
+    expect(app.logs()).toContain('Mac mini: no answer to the push token removal within 2 s; the computer may keep it');
+    await app.machines.getState().removeMachine('m1');
+    mockHost.routeGate = null;
+    route.resolve();
+    await settle();
+    await app.appStateChange('background');
+    await app.appStateChange('active');
+    expect(app.pushRequests().filter((request) => request.startsWith('m1:'))).toEqual([`m1:register:${TOKEN}`]);
+  });
+
+  test('a computer out of reach is removed at once, asked once, never again; it keeps the token', async () => {
+    const app = await startApp({ machines: twoComputers });
+    mockHost.registrationUnreachable.add('m1');
+    expect(await finishesWithin(app.pushStore.unregisterBeforeRemoval('m1'), 200)).toBe(true);
+    await app.machines.getState().removeMachine('m1');
+    await app.appStateChange('background');
+    await app.appStateChange('active');
+    expect(app.pushRequests().filter((request) => request.startsWith('m1:'))).toEqual([
+      `m1:register:${TOKEN}`,
+      'm1:unregister',
+    ]);
+    expect(app.logs()).toContain('Mac mini: push token removal not taken (unreachable); the computer may keep it');
+  });
+
+  test('hiding a computer asks it nothing', async () => {
+    const app = await startApp({ machines: twoComputers });
+    app.machines.getState().setMachineDisabled('m1', true);
+    await settle();
+    expect(app.pushRequests()).toEqual([`m1:register:${TOKEN}`, `m2:register:${TOKEN}`]);
   });
 });
 
@@ -1701,6 +1815,9 @@ describe('on Android', () => {
     expect(app.notifications.registerTaskAsync).not.toHaveBeenCalled();
     expect(app.notifications.getExpoPushTokenAsync).not.toHaveBeenCalled();
     expect(app.notifications.setNotificationHandler).not.toHaveBeenCalled();
+    expect(app.pushRequests()).toEqual([]);
+    expect(app.pushStore.removalAsksComputer()).toBe(false);
+    await app.pushStore.unregisterBeforeRemoval('m1');
     expect(app.pushRequests()).toEqual([]);
   });
 });

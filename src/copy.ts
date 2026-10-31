@@ -663,8 +663,9 @@ export const MachinesCopy = {
   update: 'Update',
   remove: {
     title: 'Remove this computer?',
-    body: (name: string) =>
-      `${name} is removed from this phone, along with its saved password and pairing key. Nothing changes on the computer.`,
+    /** `asksComputer`: the removal first asks the computer to stop its push notifications. */
+    body: (name: string, asksComputer: boolean) =>
+      `${name} is removed from this phone, along with its saved password and pairing key. ${asksComputer ? `If ${name} can be reached, it also stops sending push notifications. Nothing else changes on the computer.` : 'Nothing changes on the computer.'}`,
     confirm: 'Remove',
   },
   add: {
@@ -845,8 +846,9 @@ export const EditMachineCopy = {
   remove: {
     button: 'Remove this computer from the phone',
     title: 'Remove this computer?',
-    body: (name: string) =>
-      `${name} is removed from this phone, along with its saved password and pairing key. Nothing changes on the computer.`,
+    /** `asksComputer`: the removal first asks the computer to stop its push notifications. */
+    body: (name: string, asksComputer: boolean) =>
+      `${name} is removed from this phone, along with its saved password and pairing key. ${asksComputer ? `If ${name} can be reached, it also stops sending push notifications. Nothing else changes on the computer.` : 'Nothing changes on the computer.'}`,
     confirm: 'Remove',
   },
 } as const;

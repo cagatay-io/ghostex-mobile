@@ -19,7 +19,18 @@
  * request the pass checks that the master switch and the token still ask for it, once more when the computer's
  * route is known, right before the request is handed to the link (`send`, `superseded`); if not, it stops and the
  * pass that follows sends what is wanted now. A request already handed to the link is not called back: what the
- * computer answered is kept, and the following pass corrects it.
+ * computer answered is kept, and the following pass corrects it, except for a computer whose removal started (below).
+ *
+ * Removing a computer (`removing`, while its saved record still exists): once the first ask was answered (before it
+ * this phone never registered), the app first asks that computer, hidden or not, to remove the token, whatever the
+ * master switch and the phone's token say now, because an earlier registration may still be there. A computer keeps
+ * one token, so this ends its pushes whichever phone registered last. The removal waits for the answer at most
+ * `REMOVAL_WAIT_MS`; then the computer is removed anyway: one that did not take the removal keeps the token, and
+ * nothing asks it again on its own (a second Remove the person confirms during the wait asks again, and the screen
+ * removes it again). From the start of its removal, for the rest of the launch, no pass sends that computer anything
+ * and none corrects it: a registration a pass handed to the link before can still reach it after the removal, and
+ * then it keeps the token. When removing it on the phone fails after the removal went out, it stays saved but gets
+ * no registration until the app starts again.
  *
  * The app learns what each computer confirmed (`accepted`): it took the token (true), or it holds none (false: it
  * removed the token, or its Ghostex has no push route). Anything else confirms nothing, because a computer keeps the
@@ -63,7 +74,12 @@ export type PushTokenDeps = {
   /** A computer confirmed that it holds this phone's token (true) or that it holds none (false). */
   accepted(machineId: string, holds: boolean): void;
   log(message: string): void;
+  /** A timer of `ms`: `expired` resolves when it ran out; `cancel` stops it. */
+  startTimer(ms: number): { expired: Promise<void>; cancel(): void };
 };
+
+/** How long removing a computer waits for its answer to the removal of the token. */
+export const REMOVAL_WAIT_MS = 2_000;
 
 /** An Expo push token as the computer accepts it (the registration's schema). */
 const EXPO_PUSH_TOKEN = /^Expo(nent)?PushToken\[[A-Za-z0-9_-]{8,64}\]$/u;
@@ -79,6 +95,8 @@ export class PushTokenRegistration {
   private readonly taken = new Map<string, Taken>();
   /** Computers that have no push or cannot be asked, until the app starts again or the token changes. */
   private readonly unsupported = new Set<string>();
+  /** Computers the person removes in this launch, from the start of their removal: no pass sends them anything. */
+  private readonly removed = new Set<string>();
   private toldNoProject = false;
   private running: Promise<void> | null = null;
   private again: Promise<void> | null = null;
@@ -108,6 +126,43 @@ export class PushTokenRegistration {
     return this.sync();
   }
 
+  /** Whether removing a computer asks it to remove the token: once the first ask was answered, as `removing` does. */
+  asksOnRemoval(): boolean {
+    // Before the first ask was answered this phone never registered.
+    return this.deps.settings().askedAt !== undefined;
+  }
+
+  /**
+   * The person removes `machine` (hidden or not) and its saved record still exists: when `asksOnRemoval`, the
+   * computer is asked once to remove the token. Resolves with its answer, or when `REMOVAL_WAIT_MS` ran out; never
+   * throws. Nothing asks it again unless the person removes it again, and no pass sends it anything for the rest of
+   * the launch.
+   */
+  async removing(machine: { id: string; label: string }): Promise<void> {
+    this.removed.add(machine.id);
+    if (!this.asksOnRemoval()) return;
+    const timer = this.deps.startTimer(REMOVAL_WAIT_MS);
+    let waiting = true;
+    const answer = this.deps
+      .send(machine.id, { action: 'unregister' }, () => waiting)
+      .catch((): PushTokenSendOutcome => 'unreachable');
+    const outcome = await Promise.race([answer, timer.expired.then(() => null)]);
+    // A request not yet handed to the link is not sent once the removal stopped waiting; a later answer is moot.
+    waiting = false;
+    timer.cancel();
+    if (outcome === null) {
+      const seconds = REMOVAL_WAIT_MS / 1000;
+      this.deps.log(
+        `${machine.label}: no answer to the push token removal within ${seconds} s; the computer may keep it`,
+      );
+    } else if (outcome === 'done' || outcome === 'unsupported') {
+      this.deps.accepted(machine.id, false);
+      this.deps.log(`${machine.label}: push token ${outcome === 'done' ? 'removed' : 'removal not needed (no push)'}`);
+    } else {
+      this.deps.log(`${machine.label}: push token removal not taken (${outcome}); the computer may keep it`);
+    }
+  }
+
   private async pass(): Promise<void> {
     const machines = this.deps.machines();
     const enabled = new Set(machines.map((machine) => machine.id));
@@ -116,7 +171,8 @@ export class PushTokenRegistration {
     const wanted = await this.wantedToken();
     if (wanted === undefined) return;
     for (const machine of machines) {
-      if (this.unsupported.has(machine.id) || this.taken.get(machine.id)?.token === wanted) continue;
+      if (this.removed.has(machine.id) || this.unsupported.has(machine.id)) continue;
+      if (this.taken.get(machine.id)?.token === wanted) continue;
       if (!this.deps.machines().some((entry) => entry.id === machine.id)) continue;
       if (!this.stillWanted(wanted)) {
         // The master switch or the token changed meanwhile: the pass that follows sends what is wanted now.
@@ -126,12 +182,14 @@ export class PushTokenRegistration {
       const params: PushTokenParams =
         wanted === null ? { action: 'unregister' } : { action: 'register', token: wanted, machineId: machine.id };
       const outcome = await this.deps
-        .send(machine.id, params, () => this.stillWanted(wanted))
+        .send(machine.id, params, () => this.stillWanted(wanted) && !this.removed.has(machine.id))
         .catch((): PushTokenSendOutcome => 'unreachable');
       if (outcome === 'superseded') {
         void this.sync();
         return;
       }
+      // Its removal started meanwhile: what it answered to this request goes with it.
+      if (this.removed.has(machine.id)) continue;
       const what = wanted === null ? 'removal' : 'registration';
       if (outcome === 'done') {
         this.taken.set(machine.id, { token: wanted });

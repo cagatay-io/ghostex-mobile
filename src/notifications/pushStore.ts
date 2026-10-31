@@ -11,7 +11,9 @@
  * The registration runs at the app's start, when the app comes back to the front, when the master switch or the
  * first ask's answer changes, when a computer is added or shown again, and when iOS issues a new token. A
  * computer on the exec route (no gxserver API for the phone) and one whose gxserver does not know the route are not
- * asked again until the app starts again or the token changes; only the second is known to hold no token.
+ * asked again until the app starts again or the token changes; only the second is known to hold no token. When the
+ * person removes a computer, the screen that removes it first asks it to remove the token
+ * (`unregisterBeforeRemoval`, bounded by `REMOVAL_WAIT_MS` in `pushToken.ts`), before its link is closed.
  *
  * The background task is defined when this module loads: iOS can start the app in the background for a push,
  * and then no screen is mounted and `initPushNotifications` does not run. iOS only; on Android nothing here
@@ -43,17 +45,24 @@ import { PushTokenRegistration, type PushTokenParams, type PushTokenSendOutcome 
 
 const PUSH_TOKEN_REQUEST_TIMEOUT_MS = 10_000;
 
+function startTimer(ms: number): { expired: Promise<void>; cancel(): void } {
+  const timer = Promise.withResolvers<void>();
+  const handle = setTimeout(timer.resolve, ms);
+  return { expired: timer.promise, cancel: () => clearTimeout(handle) };
+}
+
 /**
  * One registration request to a computer's gxserver over its warm link. `current` is the pass's check that the
  * master switch and the token still ask for it: looking up the link's route can take a handshake, so it is checked
- * again once the route is known, and nothing is sent when it no longer holds (`superseded`).
+ * again once the route is known, and nothing is sent when it no longer holds (`superseded`). Any saved computer
+ * can be asked: a pass asks only enabled ones (it checks that right before), a removal also a hidden one.
  */
 async function sendPushToken(
   machineId: string,
   params: PushTokenParams,
   current: () => boolean,
 ): Promise<PushTokenSendOutcome> {
-  const machine = enabledMachines(useMachinesStore.getState()).find((entry) => entry.id === machineId);
+  const machine = useMachinesStore.getState().machines.find((entry) => entry.id === machineId);
   if (machine === undefined) return 'unreachable';
   const link = chatMachineLink(machine);
   const route = await link.route();
@@ -82,6 +91,7 @@ const registration = new PushTokenRegistration({
   send: sendPushToken,
   accepted: pushAccepted,
   log: logAppEvent,
+  startTimer,
 });
 
 if (NOTIFICATIONS_SUPPORTED) {
@@ -95,15 +105,37 @@ if (NOTIFICATIONS_SUPPORTED) {
         refreshSessions: () => useInventoryStore.getState().refreshAll(),
         inBackground: () => (executionInfo.appState ?? AppState.currentState) === 'background',
         shownByIos: recordPushShownByIos,
-        startTimer: (ms) => {
-          const timer = Promise.withResolvers<void>();
-          const handle = setTimeout(timer.resolve, ms);
-          return { expired: timer.promise, cancel: () => clearTimeout(handle) };
-        },
+        startTimer,
         log: logAppEvent,
       }),
     ),
   );
+}
+
+/** Whether removing a computer now asks it to remove this phone's push token (`unregisterBeforeRemoval`). */
+export function removalAsksComputer(): boolean {
+  return NOTIFICATIONS_SUPPORTED && registration.asksOnRemoval();
+}
+
+/**
+ * `removalAsksComputer` for a screen: it renders again when the answer changes (the first ask's answer arrives), so
+ * an open Remove confirm says what confirming does then.
+ */
+export function useRemovalAsksComputer(): boolean {
+  // `asksOnRemoval` reads the settings store's state, which the store's selector runs against.
+  return useSettingsStore(() => removalAsksComputer());
+}
+
+/**
+ * The person removes computer `machineId`; call it while its saved record and link still exist, before the link is
+ * closed. Asks the computer to remove this phone's push token (when `removalAsksComputer`) and resolves with its
+ * answer or after the removal's wait at the latest; never throws. iOS only; on Android it resolves at once.
+ */
+export async function unregisterBeforeRemoval(machineId: string): Promise<void> {
+  if (!NOTIFICATIONS_SUPPORTED) return;
+  const machine = useMachinesStore.getState().machines.find((entry) => entry.id === machineId);
+  if (machine === undefined) return;
+  await registration.removing({ id: machine.id, label: machineDisplayLabel(machine) });
 }
 
 let installed = false;

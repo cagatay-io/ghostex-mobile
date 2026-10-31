@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
 import type { PermissionState } from './firstAsk';
-import { PushTokenRegistration, type PushTokenParams, type PushTokenSendOutcome } from './pushToken';
+import { PushTokenRegistration, REMOVAL_WAIT_MS, type PushTokenParams, type PushTokenSendOutcome } from './pushToken';
 import type { NotificationSettings } from './settings';
 
 const TOKEN = 'ExponentPushToken[abcdefgh12345678]';
@@ -26,17 +26,17 @@ const ON: NotificationSettings = {
 
 type Sent = { machineId: string; params: PushTokenParams };
 
-function harness(
-  options: {
-    permission?: PermissionState;
-    settings?: NotificationSettings;
-    projectId?: string | null;
-    machines?: string[];
-    /** How each computer answers; 'done' when not named. */
-    answers?: Record<string, PushTokenSendOutcome | Error>;
-    token?: () => Promise<string>;
-  } = {},
-) {
+type HarnessOptions = {
+  permission?: PermissionState;
+  settings?: NotificationSettings;
+  projectId?: string | null;
+  machines?: string[];
+  /** How each computer answers; 'done' when not named. */
+  answers?: Record<string, PushTokenSendOutcome | Error>;
+  token?: () => Promise<string>;
+};
+
+function harness(options: HarnessOptions = {}) {
   const state = {
     permission: options.permission ?? ('granted' as PermissionState),
     settings: options.settings ?? ON,
@@ -54,6 +54,8 @@ function harness(
   const sent: Sent[] = [];
   const logs: string[] = [];
   const tokenRequests: string[] = [];
+  /** Each timer the registration started, by its length; it expires only when the test lets it. */
+  const timers: { ms: number; expire(): void; cancelled: boolean }[] = [];
   const registration = new PushTokenRegistration({
     permission: async () => state.permission,
     settings: () => state.settings,
@@ -75,8 +77,19 @@ function harness(
     },
     accepted: (machineId, holds) => void accepted.push(`${machineId}:${holds}`),
     log: (line) => void logs.push(line),
+    startTimer: (ms) => {
+      const expired = Promise.withResolvers<void>();
+      const timer = { ms, expire: () => expired.resolve(), cancelled: false };
+      timers.push(timer);
+      return {
+        expired: expired.promise,
+        cancel: () => {
+          timer.cancelled = true;
+        },
+      };
+    },
   });
-  return { registration, state, sent, logs, tokenRequests, accepted };
+  return { registration, state, sent, logs, tokenRequests, accepted, timers };
 }
 
 describe('the push token goes to the computers over the warm link', () => {
@@ -527,5 +540,163 @@ describe('which computers hold the token', () => {
     app.state.machines = ['m1'];
     await app.registration.sync();
     assert.deepEqual(app.accepted, ['m1:true', 'm2:true']);
+  });
+});
+
+describe('removing a computer', () => {
+  /** The person removes computer `id`; its saved record is still there while the removal is asked. */
+  const removing = (registration: PushTokenRegistration, id: string) =>
+    registration.removing({ id, label: `Mac ${id}` });
+  const unregistersTo = (sent: readonly Sent[], id: string) =>
+    sent.filter((entry) => entry.machineId === id && entry.params.action === 'unregister').length;
+  /** Lets what the last step started run on. */
+  const tick = () => {
+    const { promise, resolve } = Promise.withResolvers<void>();
+    setImmediate(resolve);
+    return promise;
+  };
+
+  test('a computer that can be reached is asked once to remove the token, and confirms it holds none', async () => {
+    const app = harness();
+    await app.registration.sync();
+    await removing(app.registration, 'm1');
+    assert.deepEqual(app.sent.slice(2), [{ machineId: 'm1', params: { action: 'unregister' } }]);
+    assert.deepEqual(app.accepted.slice(2), ['m1:false']);
+    assert.equal(app.timers[0]?.ms, REMOVAL_WAIT_MS);
+    assert.equal(app.timers[0]?.cancelled, true);
+    // Gone from the phone: later occasions send it nothing more.
+    app.state.machines = ['m2'];
+    await app.registration.sync();
+    await app.registration.tokenChanged();
+    assert.equal(unregistersTo(app.sent, 'm1'), 1);
+    assert.equal(app.sent.filter((entry) => entry.machineId === 'm1').length, 2);
+  });
+
+  test('it is asked also with the master switch off, without iOS permission, without push project or token', async () => {
+    const cases: HarnessOptions[] = [
+      { settings: { ...ON, enabled: false } },
+      { permission: 'denied' },
+      { projectId: null },
+      { token: async () => Promise.reject(new Error('no token')) },
+    ];
+    for (const options of cases) {
+      const app = harness(options);
+      await app.registration.sync();
+      const before = app.sent.length;
+      await removing(app.registration, 'm1');
+      assert.deepEqual(
+        app.sent.slice(before),
+        [{ machineId: 'm1', params: { action: 'unregister' } }],
+        JSON.stringify(options),
+      );
+    }
+  });
+
+  test('before the first ask was answered nothing is sent and nothing waits', async () => {
+    const app = harness({ settings: { enabled: false, finished: false, waiting: false, error: false } });
+    await app.registration.sync();
+    await removing(app.registration, 'm1');
+    assert.deepEqual(app.sent, []);
+    assert.deepEqual(app.timers, []);
+  });
+
+  test('a hidden computer is asked as well', async () => {
+    const app = harness({ machines: ['m2'] });
+    await removing(app.registration, 'm1');
+    assert.deepEqual(
+      app.sent.filter((entry) => entry.machineId === 'm1'),
+      [{ machineId: 'm1', params: { action: 'unregister' } }],
+    );
+  });
+
+  test('a computer whose Ghostex has no push route confirms it holds none', async () => {
+    const app = harness({ machines: ['m1'] });
+    await app.registration.sync();
+    app.state.answers = { m1: 'unsupported' };
+    await removing(app.registration, 'm1');
+    assert.deepEqual(app.accepted, ['m1:true', 'm1:false']);
+    assert.ok(app.logs.includes('Mac m1: push token removal not needed (no push)'));
+  });
+
+  test('a computer that cannot be reached is removed anyway, asked once, never again', async () => {
+    for (const outcome of ['unreachable', 'refused', 'legacy'] as const) {
+      const app = harness({ answers: { m1: outcome } });
+      await app.registration.sync();
+      await removing(app.registration, 'm1');
+      app.state.machines = ['m2'];
+      await app.registration.sync();
+      app.state.settings = { ...ON, enabled: false };
+      await app.registration.sync();
+      assert.equal(unregistersTo(app.sent, 'm1'), 1, outcome);
+      assert.ok(
+        app.logs.includes(`Mac m1: push token removal not taken (${outcome}); the computer may keep it`),
+        outcome,
+      );
+    }
+  });
+
+  test('a computer that does not answer holds the removal at most for the wait, and nothing goes out after it', async () => {
+    const app = harness();
+    await app.registration.sync();
+    const prepared = Promise.withResolvers<void>();
+    app.state.preparing = (machineId) => (machineId === 'm1' ? prepared.promise : Promise.resolve());
+    let done = false;
+    const removal = removing(app.registration, 'm1').then(() => {
+      done = true;
+    });
+    await tick();
+    assert.equal(done, false);
+    assert.equal(app.timers[0]?.ms, REMOVAL_WAIT_MS);
+    app.timers[0]?.expire();
+    await removal;
+    assert.ok(
+      app.logs.includes(
+        `Mac m1: no answer to the push token removal within ${REMOVAL_WAIT_MS / 1000} s; the computer may keep it`,
+      ),
+    );
+    // The route lookup answers after the wait: the removal is no longer sent, and no later occasion sends it.
+    prepared.resolve();
+    await tick();
+    app.state.machines = ['m2'];
+    await app.registration.sync();
+    assert.equal(unregistersTo(app.sent, 'm1'), 0);
+  });
+
+  test('a registration prepared for the computer when its removal starts is not sent, and no later pass registers it', async () => {
+    const preparing = Promise.withResolvers<void>();
+    const prepared = Promise.withResolvers<void>();
+    const app = harness();
+    app.state.preparing = (machineId) => {
+      if (machineId !== 'm1') return Promise.resolve();
+      app.state.preparing = () => Promise.resolve();
+      preparing.resolve();
+      return prepared.promise;
+    };
+    const pass = app.registration.sync();
+    await preparing.promise;
+    const removal = removing(app.registration, 'm1');
+    await removal;
+    prepared.resolve();
+    await pass;
+    await app.registration.sync();
+    assert.deepEqual(
+      app.sent.map((entry) => `${entry.machineId}:${entry.params.action}`),
+      ['m1:unregister', 'm2:register'],
+    );
+    assert.deepEqual(app.accepted, ['m1:false', 'm2:true']);
+  });
+
+  test('no log line of a removal carries the token', async () => {
+    const app = harness({
+      machines: ['m1', 'm2', 'm3'],
+      answers: { m2: 'unreachable', m3: new Error(`refused ${TOKEN}`) },
+    });
+    await app.registration.sync();
+    for (const id of ['m1', 'm2', 'm3']) await removing(app.registration, id);
+    assert.ok(app.logs.length > 0);
+    for (const line of app.logs) {
+      assert.ok(!line.includes(TOKEN), line);
+      assert.ok(!line.includes('abcdefgh12345678'), line);
+    }
   });
 });
