@@ -34,6 +34,7 @@ import { CommandPadCopy } from '../../copy';
 import type { CommandPadPlacement } from '../../settings/commandPad';
 import type { ExtraKeyModifier } from '../../settings/extraKeys';
 import { CommandPadPalette, GhostexPalette } from '../../theme/palette';
+import { KEYBOARD_HIDE_MOTION, KEYBOARD_SHOW_MOTION } from '../common/keyboard/keyboardMotion';
 import { useReduceMotion } from '../common/reduceMotion';
 import { useReduceTransparency } from '../common/reduceTransparency';
 import CommandPadKeyFace from './CommandPadKeyFace';
@@ -153,6 +154,32 @@ function CommandPad({
     motion.start();
     return () => motion.stop();
   }, [open, reduceMotion, reveal]);
+
+  // The keyboard button's symbol crossfades over the keyboard's own motion (`keyboardMotion.ts`), so it changes as
+  // the keyboard moves rather than at its start; at once with Reduce Motion on (also when that is turned on during
+  // the fade). 1: the keyboard is up.
+  const [{ keyboardUp, keyboardDown }] = useState(() => {
+    const value = new Animated.Value(keyboardVisible ? 1 : 0);
+    return { keyboardUp: value, keyboardDown: value.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) };
+  });
+  const symbolShownFor = useRef(keyboardVisible);
+  useEffect(() => {
+    const toValue = keyboardVisible ? 1 : 0;
+    const keyboardMoved = symbolShownFor.current !== keyboardVisible;
+    symbolShownFor.current = keyboardVisible;
+    if (!keyboardMoved || reduceMotion) {
+      keyboardUp.setValue(toValue);
+      return;
+    }
+    const motion = Animated.timing(keyboardUp, {
+      toValue,
+      duration: (keyboardVisible ? KEYBOARD_SHOW_MOTION : KEYBOARD_HIDE_MOTION).duration,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    });
+    motion.start();
+    return () => motion.stop();
+  }, [keyboardVisible, reduceMotion, keyboardUp]);
 
   // The whole pad's offset from its anchor: the finger's while it is lifted, then the snap back to zero.
   const [{ drag, dragTransform }] = useState(() => {
@@ -281,10 +308,15 @@ function CommandPad({
       key: 'keyboard',
       label: keyboardVisible ? CommandPadCopy.hideKeyboard : CommandPadCopy.showKeyboard,
       selected: false,
-      icon: keyboardVisible ? (
-        <KeyboardDismissIcon size={18} color={GhostexPalette.FOREGROUND} />
-      ) : (
-        <KeyboardIcon size={18} color={GhostexPalette.FOREGROUND} />
+      icon: (
+        <View style={styles.symbols}>
+          <Animated.View style={[StyleSheet.absoluteFill, { opacity: keyboardDown }]}>
+            <KeyboardIcon size={18} color={GhostexPalette.FOREGROUND} />
+          </Animated.View>
+          <Animated.View style={[StyleSheet.absoluteFill, { opacity: keyboardUp }]}>
+            <KeyboardDismissIcon size={18} color={GhostexPalette.FOREGROUND} />
+          </Animated.View>
+        </View>
       ),
       onPress: onKeyboard,
     },
@@ -590,5 +622,10 @@ const styles = StyleSheet.create({
     backgroundColor: CommandPadPalette.MODIFIER_LOCKED,
     borderWidth: 1,
     borderColor: CommandPadPalette.MODIFIER_LOCKED_LINE,
+  },
+  // The keyboard button's two symbols, one over the other.
+  symbols: {
+    width: 18,
+    height: 18,
   },
 });

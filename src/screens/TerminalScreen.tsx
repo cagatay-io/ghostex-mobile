@@ -563,6 +563,13 @@ export default function TerminalScreen({ navigation, route }: Props) {
     [padGivesWay, closePadLayer, togglePadOpen, padReach],
   );
   const floatingLift = slidesWithKeyboard ? Math.max(0, bottomInset - insets.bottom) : 0;
+  // The round buttons' bottom edge in the terminal area: above the closed pad's toggle at the right edge, else in the
+  // corner above what covers the area. On iOS, where the area does not shrink with the keyboard, the height left for
+  // them above it, 16 pt below the area's top.
+  const floatingBottom =
+    padSessionKey !== null && padAt.side === 'right' ? padAt.bottom + PAD_TOGGLE + 12 : 16 + floatingLift;
+  const floatingRoom =
+    slidesWithKeyboard && terminalArea !== null ? terminalArea.height - floatingBottom - 16 : undefined;
 
   const toggleChatView = useCallback((): void => {
     const store = useTerminalStore.getState();
@@ -1014,28 +1021,31 @@ export default function TerminalScreen({ navigation, route }: Props) {
         {/*
           Without the pad (switched off, or Android): the round buttons as before the pad, hidden while the key bar
           is up. With it on, Upload is a pad key and the optional keyboard and refresh buttons stand above the
-          closed pad's toggle while nothing covers the terminal; when the user moved the pad away from the right
-          edge they keep their own corner.
+          closed pad's toggle; when the user moved the pad away from the right edge they keep their own corner.
+          iOS: while the keyboard is up and the pad is off or closed, the keyboard button shows as its dismiss
+          whatever its setting, so one tap hides the keyboard; with the pad on it is then the only one there.
         */}
-        {!chatModeActive &&
-          (padSessionKey !== null ? !keyboardVisible && !pad.open && !layerShown : !keyBarVisible) && (
-            <TerminalFloatingControls
-              showKeyboardButton={settings.keyboardButtonVisible}
-              showUploadButton={padSessionKey === null && settings.fileUploadButtonVisible}
-              showRefreshButton={settings.refreshButtonVisible && activeTab?.kind === 'attach'}
-              uploadEnabled={uploadEnabled}
-              uploading={uploading}
-              refreshEnabled={activeTab?.state === 'open'}
-              keyboardShown={keyboardVisible}
-              bottomOffset={
-                padSessionKey !== null && padAt.side === 'right' ? padAt.bottom + PAD_TOGGLE + 12 : 16 + floatingLift
-              }
-              onKeyboard={showKeyboard}
-              onDismissKeyboard={dismissKeyboard}
-              onUpload={() => void handleUpload('file')}
-              onRefresh={handleRefresh}
-            />
-          )}
+        {!chatModeActive && (padSessionKey !== null ? !pad.open && !layerShown : !keyBarVisible) && (
+          <TerminalFloatingControls
+            showKeyboardButton={settings.keyboardButtonVisible || (slidesWithKeyboard && keyboardVisible)}
+            showUploadButton={padSessionKey === null && settings.fileUploadButtonVisible}
+            showRefreshButton={
+              settings.refreshButtonVisible &&
+              activeTab?.kind === 'attach' &&
+              (padSessionKey === null || !keyboardVisible)
+            }
+            uploadEnabled={uploadEnabled}
+            uploading={uploading}
+            refreshEnabled={activeTab?.state === 'open'}
+            keyboardShown={keyboardVisible}
+            bottomOffset={floatingBottom}
+            maxHeight={floatingRoom}
+            onKeyboard={showKeyboard}
+            onDismissKeyboard={dismissKeyboard}
+            onUpload={() => void handleUpload('file')}
+            onRefresh={handleRefresh}
+          />
+        )}
       </View>
       {/*
         The pad's room (`padArea`): the terminal area within the window's safe area across, and the header above it

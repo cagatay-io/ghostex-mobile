@@ -24,6 +24,7 @@ import {
   DEFAULT_LABELS,
   EDITOR,
   HIDDEN_TOO,
+  IPHONE_TURNED,
   KEYBOARD,
   KEY_BAR_LABELS,
   NO_MODS,
@@ -31,6 +32,7 @@ import {
   TOGGLE,
   WINDOW,
   bottomOf,
+  keyboardComesUp,
   keyboardWillHide,
   keyboardWillShow,
   mockNative,
@@ -38,13 +40,15 @@ import {
   mockSelectionHaptic,
   navigation,
   openPad,
+  parentOf,
+  renderPose,
   renderScreen,
   setSettings,
   tapKey,
   terminalTop,
 } from './TerminalScreen.commandPadHarness';
 
-import { AccessibilityInfo, StyleSheet } from 'react-native';
+import { AccessibilityInfo, Animated, StyleSheet } from 'react-native';
 import { act, fireEvent, screen } from '@testing-library/react-native';
 import type { TestInstance } from 'test-renderer';
 
@@ -61,7 +65,11 @@ describe('the floating pad replaces the key bar and the upload button', () => {
   test('with the keyboard shown no key bar element exists, the pad toggle does', async () => {
     await renderScreen();
     await keyboardWillShow();
-    for (const label of KEY_BAR_LABELS) expect(screen.queryByLabelText(label, HIDDEN_TOO)).toBeNull();
+    for (const label of KEY_BAR_LABELS.filter((name) => name !== 'Dismiss keyboard')) {
+      expect(screen.queryByLabelText(label, HIDDEN_TOO)).toBeNull();
+    }
+    // The one Dismiss keyboard is the round button beside the closed pad (one tap hides the keyboard, below).
+    expect(screen.getAllByLabelText('Dismiss keyboard', HIDDEN_TOO)).toHaveLength(1);
     expect(screen.getByLabelText(TOGGLE)).toBeTruthy();
   });
 
@@ -394,6 +402,124 @@ describe('the text editor with Send, and the pen hand-over', () => {
     await act(() => jest.advanceTimersByTime(300));
     expect(screen.queryByLabelText(EDITOR, HIDDEN_TOO)).toBeNull();
     expect(warnSpy.mock.calls).toEqual([[expect.stringMatching(/failed for session shell-1/), failure]]);
+  });
+});
+
+/*
+ * The fade itself runs on the native animation driver, which the test renderer does not run: what is shown here is
+ * the two symbols, the moment the keyboard starts (no change yet) and the fade asked for (its target and length);
+ * how it looks next to the keyboard stays with the device.
+ */
+describe('the ring keyboard symbol crossfades over the keyboard motion', () => {
+  /** The opacities of the keyboard button's two symbols: [show keyboard, hide keyboard]. */
+  function keyboardSymbols(): number[] {
+    return screen
+      .getByLabelText(/^(Show|Hide) keyboard$/)
+      .queryAll((node) => typeof node.type === 'string' && StyleSheet.flatten(node.props.style)?.opacity !== undefined)
+      .map((node) => StyleSheet.flatten(node.props.style).opacity);
+  }
+
+  /** The fades started since `timing` was last cleared: their target and length. */
+  function fades(timing: jest.SpyInstance<Animated.CompositeAnimation, Parameters<typeof Animated.timing>>) {
+    return timing.mock.calls.map(([, config]) => ({ toValue: config.toValue, duration: config.duration }));
+  }
+
+  test('the keyboard coming up fades from the show symbol to the hide symbol over its 580 ms motion, and back over the 250 ms hide', async () => {
+    const timing = jest.spyOn(Animated, 'timing');
+    await renderScreen();
+    await openPad();
+    expect(keyboardSymbols()).toEqual([1, 0]);
+    timing.mockClear();
+
+    await keyboardWillShow();
+    // Where the keyboard starts its motion, the symbol has not changed yet; it fades over the motion.
+    expect(keyboardSymbols()).toEqual([1, 0]);
+    expect(fades(timing)).toEqual([{ toValue: 1, duration: 580 }]);
+    timing.mockClear();
+
+    await keyboardWillHide();
+    expect(fades(timing)).toEqual([{ toValue: 0, duration: 250 }]);
+  });
+
+  test('with Reduce Motion on the symbol changes at once, without a fade', async () => {
+    jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockImplementation(() => Promise.resolve(true));
+    const timing = jest.spyOn(Animated, 'timing');
+    await renderScreen();
+    await openPad();
+    timing.mockClear();
+    await keyboardWillShow();
+    expect(keyboardSymbols()).toEqual([0, 1]);
+    await keyboardWillHide();
+    expect(keyboardSymbols()).toEqual([1, 0]);
+    expect(fades(timing)).toEqual([]);
+  });
+});
+
+describe('one tap hides the keyboard while the pad is off or closed', () => {
+  const DISMISS = 'Dismiss keyboard';
+
+  test('pad closed, keyboard up: a dismiss button stands above the toggle and hides the keyboard', async () => {
+    await renderScreen();
+    expect(screen.queryByLabelText(DISMISS)).toBeNull();
+    await keyboardWillShow();
+    const dismiss = screen.getByLabelText(DISMISS);
+    // The toggle stands 314 pt up (above the keyboard); the button 12 pt above its 46 pt.
+    expect(bottomOf(parentOf(dismiss))).toBe(314 + 46 + 12);
+    await fireEvent.press(dismiss);
+    expect(mockNative.blurTerminal).toHaveBeenCalledWith('shell-1');
+    await keyboardWillHide();
+    expect(screen.queryByLabelText(DISMISS)).toBeNull();
+  });
+
+  test('pad open, keyboard up: the ring keyboard button hides it, no second dismiss button', async () => {
+    await renderScreen();
+    await keyboardWillShow();
+    await openPad();
+    expect(screen.queryByLabelText(DISMISS)).toBeNull();
+    expect(screen.getByLabelText('Hide keyboard')).toBeTruthy();
+  });
+
+  test('pad closed, keyboard up: only the dismiss button joins the pad, the optional refresh button stays hidden', async () => {
+    useTerminalStore.setState({ sessionViewModeBySessionKey: { 'agent-1': 'terminal' } });
+    await setSettings({ refreshButtonVisible: true });
+    await renderScreen(AGENT_TAB);
+    expect(screen.getByLabelText('Refresh terminal')).toBeTruthy();
+    await keyboardWillShow();
+    expect(screen.getByLabelText(DISMISS)).toBeTruthy();
+    expect(screen.queryByLabelText('Refresh terminal')).toBeNull();
+  });
+
+  test('pad switched off, keyboard up: the dismiss button shows without the keyboard button setting and hides the keyboard', async () => {
+    await setSettings({ extraKeysToolbarVisible: false, keyboardButtonVisible: false });
+    await renderScreen();
+    expect(screen.queryByLabelText(DISMISS)).toBeNull();
+    expect(screen.queryByLabelText('Show keyboard')).toBeNull();
+    await keyboardWillShow();
+    await fireEvent.press(screen.getByLabelText(DISMISS));
+    expect(mockNative.blurTerminal).toHaveBeenCalledWith('shell-1');
+  });
+
+  test('pad switched off, an iPhone in landscape with the keyboard up: Refresh, Upload and the dismiss button all stand whole in the terminal area above the keyboard', async () => {
+    await setSettings({
+      extraKeysToolbarVisible: false,
+      keyboardButtonVisible: false,
+      fileUploadButtonVisible: true,
+      refreshButtonVisible: true,
+    });
+    await renderPose(IPHONE_TURNED);
+    await keyboardComesUp();
+    const buttons = ['Refresh terminal', 'Upload Image or File', DISMISS].map((label) => screen.getByLabelText(label));
+    const stack = parentOf(buttons[2]);
+    for (const button of buttons) expect(parentOf(button)).toBe(stack);
+    const style = StyleSheet.flatten(stack.props.style);
+    const across = style.flexDirection === 'row';
+    const sizes = buttons.map((button) => StyleSheet.flatten(button.props.style));
+    const length = sizes.reduce((sum, size) => sum + (across ? size.width : size.height), 0) + 2 * style.gap;
+    const { width, height } = IPHONE_TURNED.area;
+    // 200 pt keyboard less the 21 pt home inset cover the area's bottom 179 pt.
+    expect(style.bottom).toBeGreaterThanOrEqual(179);
+    expect(height - style.bottom - (across ? 44 : length)).toBeGreaterThanOrEqual(0);
+    expect(width - style.right - (across ? length : 44)).toBeGreaterThanOrEqual(0);
   });
 });
 
