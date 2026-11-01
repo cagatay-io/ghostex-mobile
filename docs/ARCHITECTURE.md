@@ -264,7 +264,7 @@ Small, medium and large widgets (StandBy shows the small one) from a snapshot th
 
 ## Defaults (from the Android app)
 
-autoScroll=true · doneNotificationSound=true · refreshButton=false · fileUploadButton=true · keyboardButton=false · hideKeyboardOnStartup=true · terminal dark-only theme, background `#000000` fallback ("Aizen Dark" port later).
+autoScroll=true · doneNotificationSound=true · refreshButton=false · fileUploadButton=true · keyboardButton=false · hideKeyboardOnStartup=true · Android terminal dark-only, background `#000000`. iOS terminal colours come from the theme settings (the desktop's defaults: GitHub Dark / GitHub Light Default palettes on Black / white): `src/theme/terminalColours.ts` resolves them and `setTerminalSettings` writes them into every terminal's Ghostty config.
 
 ## Licensing
 

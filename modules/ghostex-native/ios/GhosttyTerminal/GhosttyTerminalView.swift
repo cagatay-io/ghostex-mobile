@@ -254,6 +254,8 @@ class GhosttyTerminalView: UIView {
     var acceptsTerminalInput = true
     var keyboardFocusPolicy = TerminalKeyboardFocusPolicy()
     var hasHardwareKeyboardAttached = false
+    /// The keyboard appearance of the terminal's colours (`applyTerminalColors`): light terminals get the light keyboard.
+    var shownKeyboardAppearance: UIKeyboardAppearance = .dark
 
     // MARK: - Rendering Components
 
@@ -317,7 +319,7 @@ class GhosttyTerminalView: UIView {
         let initialFrame = frame.width > 0 && frame.height > 0 ? frame : CGRect(x: 0, y: 0, width: 800, height: 600)
         super.init(frame: initialFrame)
 
-        backgroundColor = .black
+        applyTerminalColors()
 
         // Set content scale factor for retina rendering (important before surface creation). The view
         // has no window yet, so the foreground window scene gives the scale of the display it will be

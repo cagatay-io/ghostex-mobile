@@ -2,14 +2,15 @@
  * Connection-state overlays over the terminal area (terminal-screen.md §1):
  * opening → spinner + "Connecting...", failed → triangle + "Connection
  * Failed" + error caption + Retry, closed → "Disconnected" + Reconnect.
- * Returns null while the tab is open. In the iPhone Duo's laptop pose its content stands in the part above the
- * fold (`contentBottom`), so Retry and Reconnect never lie on the knick.
+ * Returns null while the tab is open. It uses the terminal's background and readable ink. In the iPhone Duo's
+ * laptop pose its content stands above the fold (`contentBottom`), so Retry and Reconnect stay clear of it.
  */
 
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { TerminalTab } from '../../terminal/sessions';
-import { GhostexPalette, GhostexRadii } from '../../theme/palette';
+import { GhostexPalette, GhostexRadii, neutralButtonFills } from '../../theme/palette';
+import { useTerminalColours } from '../../theme/useTerminalColours';
 import { WarningTriangleIcon } from './icons';
 
 export type TerminalStateOverlayProps = {
@@ -29,39 +30,48 @@ export default function TerminalStateOverlay({
   onReconnect,
   contentBottom = 0,
 }: TerminalStateOverlayProps) {
+  const { chrome } = useTerminalColours();
   if (tab.state === 'open') return null;
+  const fills = neutralButtonFills(chrome.light);
+  const muted = { color: chrome.muted };
+  const ink = { color: chrome.foreground };
 
   return (
-    <View style={[styles.overlay, contentBottom > 0 && { paddingBottom: contentBottom }]} pointerEvents="auto">
+    <View
+      style={[styles.overlay, { backgroundColor: chrome.background }, contentBottom > 0 && { paddingBottom: contentBottom }]}
+      pointerEvents="auto"
+    >
       {(tab.state === 'opening' || tab.state === 'detached') && (
         <View style={styles.stack}>
-          <ActivityIndicator size="small" color={GhostexPalette.MUTED} />
-          <Text style={styles.secondaryText}>Connecting...</Text>
+          <ActivityIndicator size="small" color={chrome.muted} />
+          <Text style={[styles.secondaryText, muted]}>Connecting...</Text>
         </View>
       )}
       {tab.state === 'failed' && (
         <View style={styles.stack}>
           <WarningTriangleIcon size={40} color={GhostexPalette.DANGER} />
-          <Text style={styles.headline}>Connection Failed</Text>
-          {errorCaption !== null && errorCaption.length > 0 && <Text style={styles.caption}>{errorCaption}</Text>}
+          <Text style={[styles.headline, ink]}>Connection Failed</Text>
+          {errorCaption !== null && errorCaption.length > 0 && (
+            <Text style={[styles.caption, muted]}>{errorCaption}</Text>
+          )}
           <Pressable
             accessibilityRole="button"
-            style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+            style={({ pressed }) => [styles.button, { backgroundColor: pressed ? fills.pressed : fills.rest }]}
             onPress={onRetry}
           >
-            <Text style={styles.buttonLabel}>Retry</Text>
+            <Text style={[styles.buttonLabel, ink]}>Retry</Text>
           </Pressable>
         </View>
       )}
       {tab.state === 'closed' && (
         <View style={styles.stack}>
-          <Text style={styles.headline}>Disconnected</Text>
+          <Text style={[styles.headline, ink]}>Disconnected</Text>
           <Pressable
             accessibilityRole="button"
-            style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+            style={({ pressed }) => [styles.button, { backgroundColor: pressed ? fills.pressed : fills.rest }]}
             onPress={onReconnect}
           >
-            <Text style={styles.buttonLabel}>Reconnect</Text>
+            <Text style={[styles.buttonLabel, ink]}>Reconnect</Text>
           </Pressable>
         </View>
       )}
@@ -78,7 +88,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: GhostexPalette.TERMINAL_BACKGROUND,
   },
   stack: {
     alignItems: 'center',
@@ -86,16 +95,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   secondaryText: {
-    color: GhostexPalette.MUTED,
     fontSize: 15,
   },
   headline: {
-    color: GhostexPalette.FOREGROUND,
     fontSize: 17,
     fontWeight: '600',
   },
   caption: {
-    color: GhostexPalette.MUTED,
     fontSize: 13,
     textAlign: 'center',
   },
@@ -104,13 +110,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 10,
     borderRadius: GhostexRadii.card,
-    backgroundColor: GhostexPalette.NEUTRAL_FILL,
-  },
-  buttonPressed: {
-    backgroundColor: GhostexPalette.NEUTRAL_FILL_PRESSED,
   },
   buttonLabel: {
-    color: GhostexPalette.FOREGROUND,
     fontSize: 15,
     fontWeight: '600',
   },

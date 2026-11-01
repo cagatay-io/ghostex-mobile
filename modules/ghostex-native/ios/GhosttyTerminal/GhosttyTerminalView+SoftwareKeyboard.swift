@@ -551,7 +551,7 @@ extension GhosttyTerminalView: UIKeyInput, UITextInputTraits {
     }
 
     var keyboardAppearance: UIKeyboardAppearance {
-        get { .dark }
+        get { shownKeyboardAppearance }
         set { }
     }
 

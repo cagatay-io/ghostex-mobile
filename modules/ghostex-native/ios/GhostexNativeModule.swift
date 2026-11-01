@@ -54,6 +54,18 @@ struct TerminalRuntimeSettingsRecord: Record {
     @Field var cursorBlink: Bool = true
     @Field var softKeyboardEnabled: Bool = true
     @Field var openUrlsOnTap: Bool = true
+    /// The resolved terminal colours (`TerminalColors` in GhostexNative.types.ts); absent keeps the unthemed look.
+    @Field var colors: TerminalColorsRecord?
+}
+
+struct TerminalColorsRecord: Record {
+    @Field var light: Bool = false
+    @Field var background: String = "#000000"
+    @Field var foreground: String?
+    @Field var cursor: String?
+    @Field var cursorText: String?
+    @Field var selectionBackground: String?
+    @Field var palette: [String] = []
 }
 
 struct KeyModifiersRecord: Record {
@@ -731,17 +743,36 @@ public class GhostexNativeModule: Module {
             guard let cursorStyle = TerminalRuntimeSettings.CursorStyle(rawValue: settings.cursorStyle) else {
                 throw GhostexException(code: .channelFailed, reason: "Unknown cursor style: \(settings.cursorStyle)")
             }
+            var colors = TerminalColors.unthemed
+            if let record = settings.colors {
+                guard let validated = TerminalColors.validated(
+                    light: record.light,
+                    background: record.background,
+                    foreground: record.foreground,
+                    cursor: record.cursor,
+                    cursorText: record.cursorText,
+                    selectionBackground: record.selectionBackground,
+                    palette: record.palette
+                ) else {
+                    throw GhostexException(code: .channelFailed, reason: "Terminal colours must be #rrggbb with 0 or 16 palette entries")
+                }
+                colors = validated
+            }
             await MainActor.run {
-                Ghostty.App.runtimeSettings = TerminalRuntimeSettings(
+                let next = TerminalRuntimeSettings(
                     autoScroll: settings.autoScroll,
                     cursorStyle: cursorStyle,
                     cursorBlink: settings.cursorBlink,
                     softKeyboardEnabled: settings.softKeyboardEnabled,
-                    openUrlsOnTap: settings.openUrlsOnTap
+                    openUrlsOnTap: settings.openUrlsOnTap,
+                    colors: colors
                 )
-                // Push the regenerated config (cursor style/blink) to every
-                // live surface; warm entries share the same views.
-                for entry in GhostexTerminalRegistry.shared.entries.values {
+                Ghostty.App.runtimeSettings = next
+                // Push the regenerated config (cursor, colours) to every live surface;
+                // warm entries share the same views. Only the current settings stay cached.
+                let registry = GhostexTerminalRegistry.shared
+                registry.discardCachedSurfaceConfigs()
+                for entry in registry.entries.values {
                     entry.view?.reapplySurfaceConfig()
                 }
             }

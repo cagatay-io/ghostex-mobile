@@ -1,6 +1,6 @@
 # Ghostex iOS Terminal Screen — Implementation Spec (for React Native reimplementation)
 
-Extracted from `/Users/madda/dev/_active/Ghostex/iOS` (VVTerm fork). The app is **dark-only on iOS** (even a light theme keeps the terminal host `.dark`). Terminal surface = native view; everything else described here is chrome to rebuild in RN.
+Extracted from `/Users/madda/dev/_active/Ghostex/iOS` (VVTerm fork). The terminal's colours follow the theme settings (palette, Terminal background, Terminal theme; see Backgrounds), and its keyboard follows the terminal's appearance. Terminal surface = native view; everything else described here is chrome to rebuild in RN.
 
 ---
 
@@ -19,12 +19,12 @@ Screen sits in a nav stack with a native nav bar; back button hidden/custom. Zen
 
 ### Backgrounds
 
-- Terminal view: theme terminal background color, ignores all safe areas. Default dark theme "Aizen Dark", fallback `#000000`. Cached hex in prefs key `terminalBackgroundColor`.
+- Terminal view: ignores all safe areas. Its colours are the desktop's: the palette of the terminal's appearance (Terminal theme: Follow app, System, Light, Dark; palettes `terminalGhosttyTheme` / `terminalGhosttyLightTheme`, defaults GitHub Dark / GitHub Light Default), painted on the Terminal background (Black / white, Follow theme = the theme's work area, Custom colour `workspaceBackgroundColor` in both appearances). `src/theme/terminalColours.ts` resolves them; `setTerminalSettings` sends them to every open, warm and new terminal as Ghostty config lines (`Ghostty.ConfigBuilder`), with no reconnect and each session's font size kept. Light terminals use Ghostty's own selection colours (the desktop's adaptive selection); dark ones keep each cell's text colour on the palette's selection colour.
 - Sessions view: system grouped background. Other: system background.
 
 ### Safe area
 
-`NavBarBackdrop`: paints terminal background color behind status/nav bar. Height = top safe inset (fallback 44). Non-interactive overlay.
+The screen (status bar area, header, the strip under the iPhone Duo's rail) paints the colour of what it shows: the terminal's background in the terminal, the chat's page in chat view; header ink, tabs and the status bar text follow that colour (dark ink over a light one). Height = top safe inset (fallback 44).
 
 ### Tab bar metrics (`ServerViewTopTabBarMetrics`)
 
@@ -128,7 +128,7 @@ Decided on the report that the terminal jumped when the software keyboard came a
 
 On iOS the rows are the Keys layer's "Extra keys" section (pills 34 pt, in the keyboard's place), the pen is the pad ring's Text editor button and Dismiss keyboard is the ring's keyboard button; there the bar, its trailing cluster and its separator do not exist. Android keeps the bar as below, in the layout flow.
 
-- **88pt** total height. Background opaque = theme terminal background color. Dark style always. On Android, position the entire bar 3pt above the native visible-window boundary so IME candidate, clipboard, and extended-layout rows cannot cover it; do not compensate with internal bar padding.
+- **88pt** total height. Background opaque = the terminal's background colour; pills, separator, editor and labels take the ink that reads on it (white washes over a dark terminal, black over a light one). On Android, position the entire bar 3pt above the native visible-window boundary so IME candidate, clipboard, and extended-layout rows cannot cover it; do not compensate with internal bar padding.
 - Trailing cluster (spacing 8, trailing inset 12): text-editor toggle above Dismiss-keyboard `keyboard.chevron.compact.down` (default **shown**), preceded by a separator (`separator` α0.4).
 - Rows stack: vertical, spacing 6, fillEqually; insets top 7 / bottom 7 / trailing 10 / leading 10 (after separator) or 12.
 
@@ -261,4 +261,4 @@ Approved panes mockup (its laptop key row is superseded by the laptop-mode mocku
 
 - Haptics: only light impact on tab switch.
 - Animations: tab select easeInOut 0.12; floating controls & zen spring (0.28, 0.84); modifier latch 0.2; zoom HUD fades as above; tab bar/session container animations disabled.
-- Theming: dark-only; terminal bg color drives accessory bar + nav backdrop.
+- Theming: the terminal's background colour drives the accessory bar, the state overlay and the screen's header/status-bar backdrop; their ink follows it.

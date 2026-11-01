@@ -14,6 +14,7 @@
       "./plugins/withLoopbackCleartext.js",
       "./plugins/withVoiceLiveActivity.js",
       "./plugins/withWidgets.js",
+      "./plugins/withGhostexNativeTests.js",
       "expo-status-bar",
       "@react-native-community/datetimepicker",
       [

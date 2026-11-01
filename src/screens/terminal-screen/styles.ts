@@ -8,16 +8,15 @@ import { GhostexPalette, SidebarPalette } from '../../theme/palette';
 import { HEADER_HEIGHT, HEADER_PADDING } from './session-lookups';
 
 export const styles = StyleSheet.create({
+  /** Its background is the surface it shows (TerminalScreen): the terminal's background, or the chat's page. */
   container: {
     flex: 1,
-    backgroundColor: GhostexPalette.TERMINAL_BACKGROUND,
   },
   header: {
     height: HEADER_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: HEADER_PADDING,
-    backgroundColor: GhostexPalette.TERMINAL_BACKGROUND,
   },
   /** In the iPhone Duo's status band the header floats there (VerticalBarArea). */
   bandHeader: {

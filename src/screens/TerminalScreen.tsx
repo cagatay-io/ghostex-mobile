@@ -116,6 +116,9 @@ import { useTerminalStore, type TerminalTab } from '../terminal/sessions';
 import { setChatGridSessionKey } from '../terminal/chatGridClaim';
 import { setMountedSessionKeys } from '../terminal/zmxDisplay';
 import { GhostexPalette } from '../theme/palette';
+import { useStatusBarStyle } from '../theme/statusBar';
+import { terminalChrome } from '../theme/terminalColours';
+import { useTerminalColours } from '../theme/useTerminalColours';
 import { useMachinesStore } from '../machines/store';
 import { VoiceButton } from '../voice/VoiceButton';
 import { readAloudChatKey, setReadAloudOnScreen } from '../voice/readAloud';
@@ -1069,6 +1072,15 @@ export default function TerminalScreen({ navigation, route }: Props) {
         ? activeTab.title
         : SessionCopy.fallbackTitle;
 
+  // The screen reaches the window edges in the colour of what it shows: the chat theme's page in chat view, the
+  // terminal's own background (palette, Terminal background, its appearance) in the terminal, so the header, the
+  // strip under the iPhone Duo's rail and the status bar sit on the same surface; their ink follows it.
+  const chatBackground = useTranscriptTheme().background;
+  const terminalSurface = useTerminalColours().chrome;
+  const surfaceBackground = chatModeActive ? chatBackground : terminalSurface.background;
+  const headerChrome = chatModeActive ? terminalChrome(chatBackground) : terminalSurface;
+  const ink = headerChrome.foreground;
+  useStatusBarStyle(headerChrome.light);
 
   // The header's buttons on top, or in the iPhone Duo's status band (band); in the rail they are
   // `railButtons` below.
@@ -1077,7 +1089,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
       <VoiceButton
         machine={activeMachine}
         style={buttonStyle}
-        color={GhostexPalette.FOREGROUND}
+        color={ink}
         size={20}
         activeFill={false}
       />
@@ -1093,7 +1105,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
           <PanesIcon
             across={!panesUpright}
             size={20}
-            color={showsTwoPanes ? GhostexPalette.ACCENT : GhostexPalette.FOREGROUND}
+            color={showsTwoPanes ? GhostexPalette.ACCENT : ink}
           />
         </Pressable>
       )}
@@ -1105,11 +1117,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
           style={buttonStyle}
           onPress={toggleChatView}
         >
-          {chatModeActive ? (
-            <TerminalPromptIcon size={19} color={GhostexPalette.FOREGROUND} />
-          ) : (
-            <ChatBubbleIcon size={19} color={GhostexPalette.FOREGROUND} />
-          )}
+          {chatModeActive ? <TerminalPromptIcon size={19} color={ink} /> : <ChatBubbleIcon size={19} color={ink} />}
         </Pressable>
       )}
       <Pressable
@@ -1121,7 +1129,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
         // In the iPhone Duo's status band the menu opens below this button.
         onPress={() => (headerPlacement.kind === 'top' ? openMenu() : measureInWindow(moreButtonRef, openMenu))}
       >
-        <EllipsisIcon size={22} color={GhostexPalette.FOREGROUND} />
+        <EllipsisIcon size={22} color={ink} />
       </Pressable>
     </>
   );
@@ -1133,7 +1141,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
       style={buttonStyle}
       onPress={goBack}
     >
-      <ChevronLeftIcon size={22} color={GhostexPalette.FOREGROUND} />
+      <ChevronLeftIcon size={22} color={ink} />
     </Pressable>
   );
   const inRail = headerPlacement.kind === 'rail';
@@ -1145,14 +1153,12 @@ export default function TerminalScreen({ navigation, route }: Props) {
    * bar, leaves the composer's own bottom margin alone below it.
    */
   const chatBottomSpacer = headerPlacement.kind === 'top';
-  // The screen reaches the window edges: the strip under the iPhone Duo's rail shows what the screen
-  // shows (the chat theme's page in chat view, black in the terminal).
-  const chatBackground = useTranscriptTheme().background;
-  const surfaceBackground = chatModeActive ? chatBackground : GhostexPalette.TERMINAL_BACKGROUND;
   // The same buttons standing in the iPhone Duo's side bar below the status items (rail): Back never
   // moves into the menu. The voice button has no rail entry: the rail exists only on iOS, where it does
   // not render (VOICE_SUPPORTED). Memoized on the header's inputs, so terminal output and tab updates
-  // do not republish the side bar.
+  // do not republish the side bar. Their glyphs sit on the side bar's dark round capsules
+  // (`RoundBarButton`) or in the dark "…" menu, never on the page, so they keep the light ink whatever
+  // the page's colour (the header row's own buttons take `ink`).
   const railButtons = useMemo<RailButtons>(
     () => ({
       pinned: 1,
@@ -1295,6 +1301,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
       style={[
         styles.container,
         {
+          backgroundColor: surfaceBackground,
           // In the side bar's poses the header row takes the top itself (below).
           paddingTop: inRail ? 0 : insets.top,
           // WKWebView already contracts its visual viewport around the iOS
@@ -1311,6 +1318,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
       <View
         style={[
           styles.header,
+          { backgroundColor: surfaceBackground },
           headerPlacement.kind === 'band'
             ? [styles.bandHeader, bandRowFrame(headerPlacement.frame, HEADER_HEIGHT)]
             : null,
@@ -1326,7 +1334,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
       >
         {inRail ? null : backButton(styles.headerButton)}
         <TerminalTabsBar
-          headerColor={GhostexPalette.TERMINAL_BACKGROUND}
+          headerColor={surfaceBackground}
           tabs={tabs}
           selectedSessionKey={selectedSessionKey}
           onSelect={handleSelectTab}

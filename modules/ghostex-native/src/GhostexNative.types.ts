@@ -67,6 +67,27 @@ export type TerminalRuntimeSettings = {
   softKeyboardEnabled: boolean;
   /** When true, tapping a URL rendered in the terminal opens it in the system browser. */
   openUrlsOnTap: boolean;
+  /** The colours terminals paint with (iOS; Android keeps its own). */
+  colors: TerminalColors;
+};
+
+/**
+ * A terminal's colours as `#rrggbb` values, resolved from the theme settings (src/theme/terminalColours.ts): the
+ * native side writes them as Ghostty config lines, because the phone has no Ghostty themes to look a name up in.
+ * A role left out keeps Ghostty's default.
+ */
+export type TerminalColors = {
+  /** The terminal's appearance is light (the keyboard follows it). */
+  light: boolean;
+  /** Painted behind the cells: the Terminal background choice, or the theme's work area. */
+  background: string;
+  foreground?: string;
+  cursor?: string;
+  cursorText?: string;
+  /** Dark terminals only: light terminals use Ghostty's own selection, as the Mac uses its adaptive one. */
+  selectionBackground?: string;
+  /** ANSI 0-15, or empty for Ghostty's default palette. */
+  palette: string[];
 };
 
 /** Short app alert sounds played natively (no bundled JS audio dependency). */

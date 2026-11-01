@@ -57,7 +57,7 @@ export function stripFades(
   return { left: offset > 1, right: offset + trackWidth < contentWidth - 1 };
 }
 
-/** The track's own tint over the header (the capsule around the tabs): white at this opacity. */
+/** The track's own tint over the header (the capsule around the tabs): the header's ink at this opacity. */
 export const TRACK_TINT_ALPHA = 0.08;
 
 /** `#rgb`, `#rrggbb`, `rgb(r,g,b)` or `rgba(r,g,b,a)` as 0-255 channels, or null for anything else. */
@@ -72,14 +72,15 @@ function parseColor(color: string): [number, number, number] | null {
 }
 
 /**
- * The colour of a tab strip's edge fade for a header of colour `header`: the track is a translucent white
- * over the header, so the fade is that blended colour (what the track looks like there), opaque as the
- * shared `HorizontalFade` needs (the chat's pill rows fade the same way, from the card's own fill). A colour
- * that cannot be read falls back to the header colour itself.
+ * The colour of a tab strip's edge fade for a header of colour `header`: the track is a translucent wash of the
+ * header's ink (white over a dark header, black over a light one) over the header, so the fade is that blended colour
+ * (what the track looks like there), opaque as the shared `HorizontalFade` needs (the chat's pill rows fade the same
+ * way, from the card's own fill). A colour that cannot be read falls back to the header colour itself.
  */
-export function stripFadeColor(header: string): string {
+export function stripFadeColor(header: string, ink: '#ffffff' | '#000000'): string {
   const base = parseColor(header);
   if (base === null) return header;
-  const [r, g, b] = base.map((channel) => Math.round(channel + (255 - channel) * TRACK_TINT_ALPHA));
+  const target = ink === '#ffffff' ? 255 : 0;
+  const [r, g, b] = base.map((channel) => Math.round(channel + (target - channel) * TRACK_TINT_ALPHA));
   return `rgb(${r},${g},${b})`;
 }

@@ -106,14 +106,29 @@ test('the fade takes its colour from the header it stands in, in a dark and a li
       .getAllByTestId('tab-fade')
       .map((node) => String(node.props.accessibilityHint))
       .join('|');
+  // Over a dark header the track is a white wash, over a light one a black wash (8%), so it shows on both.
   for (const [header, solid] of [
     ['#000000', 'rgb(20,20,20)'],
-    ['#ffffff', 'rgb(255,255,255)'],
+    ['#ffffff', 'rgb(235,235,235)'],
   ] as const) {
     await show(['one', 'two', 'three'], 116, header);
     const scroll = up(screen.getAllByRole('tab')[0], (node) => node.props.onContentSizeChange !== undefined);
     await fireEvent(scroll, 'contentSizeChange', 300, 28);
     expect(gradient()).toContain(solid);
+    await screen.unmount();
+  }
+});
+
+test('tab titles and the capsule take dark ink over a light header (light presets) and light ink over a dark one', async () => {
+  for (const [header, title, track] of [
+    ['#000000', '#FAFAFA', 'rgba(255,255,255,0.08)'],
+    // Catppuccin Latte's terminal background: the drawer's ink for light pages.
+    ['#eff1f5', '#262626', 'rgba(0,0,0,0.08)'],
+  ] as const) {
+    await show(['one', 'two'], 600, header);
+    expect(flat(screen.getByText('one')).color).toBe(title);
+    const capsule = up(screen.getAllByRole('tab')[0], (node) => node.props.onLayout !== undefined);
+    expect(flat(capsule).backgroundColor).toBe(track);
     await screen.unmount();
   }
 });

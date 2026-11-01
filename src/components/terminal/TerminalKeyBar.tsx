@@ -9,14 +9,16 @@
  *   the modifiers captured on the initial press.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { GhostexNative, type KeyModifiers, type TerminalKey } from '../../../modules/ghostex-native/src';
 import { useAgentHotkeysStore } from '../../settings/agentHotkeys';
 import { resolveExtraKeysLayout, useExtraKeysStore, type ResolvedExtraKey } from '../../settings/extraKeys';
 import { agentKeyPage, EXTRA_KEYS_PAGE, type KeyPageItem } from './keyBarPages';
-import { GhostexPalette } from '../../theme/palette';
+import { colorWithOpacity } from '../../theme/palette';
+import type { TerminalChrome } from '../../theme/terminalColours';
+import { useTerminalColours } from '../../theme/useTerminalColours';
 import { ArrowIcon, KeyboardDismissIcon, PencilIcon, ReturnIcon, SendIcon } from './icons';
 import { useTerminalKeyInput } from './useTerminalKeyInput';
 
@@ -35,6 +37,27 @@ type KeyBarItem = ResolvedExtraKey;
 /** Toggle pages opened by the base bar's PGUP/PGDN pills (keyBarPages.ts). */
 type KeyBarPage = 'none' | 'extra' | 'agent';
 
+/**
+ * The bar's colours over the terminal's background: its fill is the terminal background, and the pills, separator,
+ * editor and labels take the ink that reads on it (white washes over a dark terminal, black over a light one).
+ */
+function keyBarInk(chrome: TerminalChrome) {
+  const wash = (percent: number): string => colorWithOpacity(chrome.ink, percent);
+  return {
+    surface: { backgroundColor: chrome.background },
+    pagePanel: { backgroundColor: chrome.background, borderBottomColor: wash(12) },
+    pageHint: { color: chrome.foreground },
+    // Told apart from a hint by the muted ink alone: faded further, it would drop under 4.5:1 (`terminalChrome`).
+    pageHintPlaceholder: { color: chrome.muted },
+    trailingButton: { backgroundColor: wash(12) },
+    separator: { backgroundColor: wash(25) },
+    pill: { backgroundColor: wash(8), borderColor: wash(30) },
+    pillPressed: { backgroundColor: wash(18) },
+    pillLabel: { color: chrome.muted },
+    editor: { borderColor: wash(30), backgroundColor: wash(8), color: chrome.foreground },
+  };
+}
+
 export type TerminalKeyBarProps = {
   sessionKey: string;
   /** Resolved agent icon id of the shown session ('' / 'terminal' when none). */
@@ -44,6 +67,8 @@ export type TerminalKeyBarProps = {
 
 export default function TerminalKeyBar({ sessionKey, agentId, onDismissKeyboard }: TerminalKeyBarProps) {
   const layout = useExtraKeysStore((state) => state.layout);
+  const { chrome } = useTerminalColours();
+  const ink = useMemo(() => keyBarInk(chrome), [chrome]);
   const agentHotkeyProfiles = useAgentHotkeysStore((state) => state.profiles);
   const [row1 = [], row2 = []] = resolveExtraKeysLayout(layout);
   const { input, modifiers } = useTerminalKeyInput(sessionKey);
@@ -152,7 +177,7 @@ export default function TerminalKeyBar({ sessionKey, agentId, onDismissKeyboard 
             accessibilityRole="button"
             accessibilityLabel={target === 'extra' ? 'Extra keys' : 'Agent hotkeys'}
             accessibilityState={{ selected: active }}
-            style={[styles.pill, active && styles.pillActive]}
+            style={[styles.pill, ink.pill, active && styles.pillActive]}
             onPress={() => {
               input.stopRepeat();
               input.selectionFeedback();
@@ -160,7 +185,7 @@ export default function TerminalKeyBar({ sessionKey, agentId, onDismissKeyboard 
               setPage(active ? 'none' : target);
             }}
           >
-            <Text style={[styles.pillLabel, active && styles.pillLabelActive]} numberOfLines={1}>
+            <Text style={[styles.pillLabel, ink.pillLabel, active && styles.pillLabelActive]} numberOfLines={1}>
               {target === 'extra' ? 'MORE' : 'AGENT'}
             </Text>
           </Pressable>
@@ -178,11 +203,17 @@ export default function TerminalKeyBar({ sessionKey, agentId, onDismissKeyboard 
             accessibilityState={{ selected: active }}
             accessibilityHint="Tap for one key, or hold to lock until tapped again"
             delayLongPress={MODIFIER_LONG_PRESS_MS}
-            style={[styles.pill, styles.modifierPill, active && styles.pillActive, locked && styles.pillLocked]}
+            style={[
+              styles.pill,
+              ink.pill,
+              styles.modifierPill,
+              active && styles.pillActive,
+              locked && styles.pillLocked,
+            ]}
             onPress={() => input.toggleModifier(item.modifier, false)}
             onLongPress={() => input.toggleModifier(item.modifier, true)}
           >
-            <Text style={[styles.pillLabel, active && styles.pillLabelActive]} numberOfLines={1}>
+            <Text style={[styles.pillLabel, ink.pillLabel, active && styles.pillLabelActive]} numberOfLines={1}>
               {item.label}
             </Text>
           </Pressable>
@@ -195,10 +226,10 @@ export default function TerminalKeyBar({ sessionKey, agentId, onDismissKeyboard 
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={item.label}
-            style={({ pressed }) => [styles.pill, pressed && styles.pillPressed]}
+            style={({ pressed }) => [styles.pill, ink.pill, pressed && ink.pillPressed]}
             onPress={() => input.insertText(item.text, item.sendEnter)}
           >
-            <Text style={styles.pillLabel} numberOfLines={1}>
+            <Text style={[styles.pillLabel, ink.pillLabel]} numberOfLines={1}>
               {item.label}
             </Text>
           </Pressable>
@@ -210,16 +241,16 @@ export default function TerminalKeyBar({ sessionKey, agentId, onDismissKeyboard 
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={item.returnGlyph === true ? 'New line' : item.label}
-          style={({ pressed }) => [styles.pill, pressed && styles.pillPressed]}
+          style={({ pressed }) => [styles.pill, ink.pill, pressed && ink.pillPressed]}
           onPressIn={() => input.pressKey(item.key, item.mods, item.repeatable === true)}
           onPressOut={() => input.stopRepeat()}
         >
           {item.arrow !== undefined ? (
-            <ArrowIcon direction={item.arrow} size={14} color={GhostexPalette.MUTED} />
+            <ArrowIcon direction={item.arrow} size={14} color={chrome.muted} />
           ) : item.returnGlyph === true ? (
-            <ReturnIcon size={15} color={GhostexPalette.MUTED} />
+            <ReturnIcon size={15} color={chrome.muted} />
           ) : (
-            <Text style={styles.pillLabel} numberOfLines={1}>
+            <Text style={[styles.pillLabel, ink.pillLabel]} numberOfLines={1}>
               {item.label}
             </Text>
           )}
@@ -241,7 +272,7 @@ export default function TerminalKeyBar({ sessionKey, agentId, onDismissKeyboard 
           accessibilityLabel={item.description}
           accessibilityHint="Hold to see what this key does"
           delayLongPress={PAGE_HINT_LONG_PRESS_MS}
-          style={({ pressed }) => [styles.pill, pressed && styles.pillPressed]}
+          style={({ pressed }) => [styles.pill, ink.pill, pressed && ink.pillPressed]}
           onPress={() => {
             if (item.kind === 'sequence') input.sendSequence(item.steps);
             else if (item.kind === 'text') input.insertText(item.text, item.sendEnter);
@@ -249,7 +280,7 @@ export default function TerminalKeyBar({ sessionKey, agentId, onDismissKeyboard 
           }}
           onLongPress={() => showPageHint(`${item.label}: ${item.description}`)}
         >
-          <Text style={styles.pillLabel} numberOfLines={1}>
+          <Text style={[styles.pillLabel, ink.pillLabel]} numberOfLines={1}>
             {item.label}
           </Text>
         </Pressable>
@@ -260,8 +291,8 @@ export default function TerminalKeyBar({ sessionKey, agentId, onDismissKeyboard 
   return (
     <View>
       {!editorVisible && pageRows !== null ? (
-        <View style={styles.pagePanel}>
-          <Text style={[styles.pageHint, pageHint === null && styles.pageHintPlaceholder]} numberOfLines={1}>
+        <View style={[styles.pagePanel, ink.pagePanel]}>
+          <Text style={[styles.pageHint, ink.pageHint, pageHint === null && ink.pageHintPlaceholder]} numberOfLines={1}>
             {pageHint ?? PAGE_HINT_PLACEHOLDER}
           </Text>
           {pageRows.map((row, rowIndex) => (
@@ -271,7 +302,7 @@ export default function TerminalKeyBar({ sessionKey, agentId, onDismissKeyboard 
           ))}
         </View>
       ) : null}
-      <View style={styles.bar}>
+      <View style={[styles.bar, ink.surface]}>
         {editorVisible ? (
           <View style={styles.editorContainer}>
             <TextInput
@@ -282,10 +313,10 @@ export default function TerminalKeyBar({ sessionKey, agentId, onDismissKeyboard 
               keyboardType="default"
               multiline
               placeholder="Type text to send to the terminal"
-              placeholderTextColor={GhostexPalette.MUTED}
+              placeholderTextColor={chrome.muted}
               selectionColor="rgba(125,211,252,0.45)"
               spellCheck
-              style={styles.editor}
+              style={[styles.editor, ink.editor]}
               submitBehavior="newline"
               value={editorText}
               onChangeText={setEditorText}
@@ -299,38 +330,38 @@ export default function TerminalKeyBar({ sessionKey, agentId, onDismissKeyboard 
           </View>
         )}
         <View style={styles.trailingCluster}>
-          <View style={styles.separator} />
+          <View style={[styles.separator, ink.separator]} />
           <View style={styles.trailingButtons}>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={editorVisible ? 'Show terminal keys' : 'Open text editor'}
               accessibilityState={{ selected: editorVisible }}
-              style={[styles.trailingButton, editorVisible && styles.trailingButtonActive]}
+              style={[styles.trailingButton, ink.trailingButton, editorVisible && styles.trailingButtonActive]}
               onPress={toggleEditor}
             >
-              <PencilIcon size={16} color={editorVisible ? '#FFFFFF' : GhostexPalette.FOREGROUND} />
+              <PencilIcon size={16} color={editorVisible ? '#FFFFFF' : chrome.foreground} />
             </Pressable>
             {editorVisible ? (
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={editorText.length === 0 ? 'Send Enter to terminal' : 'Insert text into terminal'}
-                style={styles.trailingButton}
+                style={[styles.trailingButton, ink.trailingButton]}
                 onPress={submitEditor}
               >
                 {editorText.length === 0 ? (
-                  <SendIcon size={16} color={GhostexPalette.FOREGROUND} />
+                  <SendIcon size={16} color={chrome.foreground} />
                 ) : (
-                  <ArrowIcon direction="up" size={16} color={GhostexPalette.FOREGROUND} />
+                  <ArrowIcon direction="up" size={16} color={chrome.foreground} />
                 )}
               </Pressable>
             ) : (
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Dismiss keyboard"
-                style={styles.trailingButton}
+                style={[styles.trailingButton, ink.trailingButton]}
                 onPress={onDismissKeyboard}
               >
-                <KeyboardDismissIcon size={16} color={GhostexPalette.FOREGROUND} />
+                <KeyboardDismissIcon size={16} color={chrome.foreground} />
               </Pressable>
             )}
           </View>
@@ -345,16 +376,13 @@ const styles = StyleSheet.create({
     height: KEY_BAR_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: GhostexPalette.TERMINAL_BACKGROUND,
   },
   /** Toggle page above the bar (fixed-height rows, same pill styling). */
   pagePanel: {
-    backgroundColor: GhostexPalette.TERMINAL_BACKGROUND,
     paddingTop: 7,
     paddingHorizontal: 10,
     gap: 6,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.12)',
     paddingBottom: 7,
   },
   pageRow: {
@@ -368,12 +396,7 @@ const styles = StyleSheet.create({
     height: 16,
     fontSize: 11,
     lineHeight: 15,
-    color: GhostexPalette.FOREGROUND,
     paddingHorizontal: 2,
-  },
-  pageHintPlaceholder: {
-    color: GhostexPalette.MUTED,
-    opacity: 0.55,
   },
   trailingCluster: {
     flexDirection: 'row',
@@ -392,7 +415,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.12)',
   },
   trailingButtonActive: {
     backgroundColor: MODIFIER_ACTIVE_BG,
@@ -400,7 +422,6 @@ const styles = StyleSheet.create({
   separator: {
     width: 1,
     height: 60,
-    backgroundColor: 'rgba(255,255,255,0.25)',
   },
   rows: {
     flex: 1,
@@ -425,15 +446,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 2,
-    backgroundColor: 'rgba(255,255,255,0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
   },
   modifierPill: {
     paddingHorizontal: 2,
-  },
-  pillPressed: {
-    backgroundColor: 'rgba(255,255,255,0.18)',
   },
   pillActive: {
     backgroundColor: MODIFIER_ACTIVE_BG,
@@ -447,7 +463,6 @@ const styles = StyleSheet.create({
     fontSize: 9,
     lineHeight: 12,
     fontWeight: '600',
-    color: GhostexPalette.MUTED,
   },
   pillLabelActive: {
     color: '#FFFFFF',
@@ -464,9 +479,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    color: GhostexPalette.FOREGROUND,
     fontSize: 15,
     textAlignVertical: 'top',
   },

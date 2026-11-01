@@ -23,7 +23,9 @@ final class GhostexTerminalHostView: ExpoView {
     required init(appContext: AppContext? = nil) {
         super.init(appContext: appContext)
         clipsToBounds = true
-        backgroundColor = .black
+        // React's terminal area paints the terminal's background behind this view (TerminalScreen),
+        // so there is no second backing colour to keep in step with the theme.
+        backgroundColor = .clear
     }
 
     @available(*, unavailable)

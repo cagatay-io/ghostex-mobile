@@ -76,16 +76,17 @@ describe('edge fades', () => {
 });
 
 describe('fade colour follows the header (no hard-coded colour)', () => {
-  test('a black header gives the track colour over black; a light header gives the one over white-ish', () => {
-    assert.deepEqual(stripFadeColor('#000000'), 'rgb(20,20,20)');
-    assert.deepEqual(stripFadeColor('#ffffff'), 'rgb(255,255,255)');
-    assert.deepEqual(stripFadeColor('#f0e6d2'), 'rgb(241,232,214)');
+  test('a black header gives the white track colour over black; a light header the black track over it', () => {
+    assert.deepEqual(stripFadeColor('#000000', '#ffffff'), 'rgb(20,20,20)');
+    // Over a light header the track is a black wash (8%), so it still shows: 255 × 0.92, 240/230/210 × 0.92.
+    assert.deepEqual(stripFadeColor('#ffffff', '#000000'), 'rgb(235,235,235)');
+    assert.deepEqual(stripFadeColor('#f0e6d2', '#000000'), 'rgb(221,212,193)');
   });
 
   test('short hex and rgb() headers read the same; an unreadable colour falls back to itself', () => {
-    assert.deepEqual(stripFadeColor('#000'), stripFadeColor('#000000'));
-    assert.deepEqual(stripFadeColor('rgb(0, 0, 0)'), stripFadeColor('#000000'));
-    assert.equal(stripFadeColor('transparent'), 'transparent');
+    assert.deepEqual(stripFadeColor('#000', '#ffffff'), stripFadeColor('#000000', '#ffffff'));
+    assert.deepEqual(stripFadeColor('rgb(0, 0, 0)', '#ffffff'), stripFadeColor('#000000', '#ffffff'));
+    assert.equal(stripFadeColor('transparent', '#ffffff'), 'transparent');
   });
 });
 
