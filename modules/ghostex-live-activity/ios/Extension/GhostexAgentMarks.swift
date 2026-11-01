@@ -3,7 +3,7 @@ import SwiftUI
 /// The agent's logo at the start of a row, as the app's session list draws it (`SessionRow.tsx`:
 /// `resolveAgentArtId` plus `agentIconTint`), so a row shows the same mark as the session it opens.
 ///
-/// The row carries only the agent's name (schema `live-activity-content-state`), so the extension resolves the
+/// The row carries only the agent's name (the content state), so the extension resolves the
 /// mark from that name with the app's name table; a name the table does not know gets the neutral terminal mark,
 /// as in the app. The logos are the asset catalog's `AgentMarks/AgentMark-<id>` image sets, drawn as template
 /// images in the tint below, except omp's fixed gradient, which is drawn as is. The tables mirror

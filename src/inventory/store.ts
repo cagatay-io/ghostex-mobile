@@ -1,7 +1,7 @@
 /**
  * Per-machine session inventory store.
  * - 5s polling loop on every screen while the app is in the foreground AND a
- *   machine is selected; `summaryRefresh.ts` owns the timer (REQ-LIVEACT-010)
+ *   machine is selected; `summaryRefresh.ts` owns the timer
  *   and reports it through `setPolling`.
  * - Multi-machine refreshes run concurrently.
  * - Fingerprint change-skip avoids re-rendering identical summaries.
@@ -59,8 +59,8 @@ export type MachineInventory = {
   retrying: boolean;
   fingerprint: string | null;
   /**
-   * When `summary` was last read from the computer (epoch ms), the data time the Live Activity shows
-   * (REQ-LIVEACT-007); null before the first successful read. Failed reads keep the old time.
+   * When `summary` was last read from the computer (epoch ms), the data time the Live Activity shows;
+   * null before the first successful read. Failed reads keep the old time.
    */
   loadedAt: number | null;
 };

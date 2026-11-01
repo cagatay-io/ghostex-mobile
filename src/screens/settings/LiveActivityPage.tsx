@@ -5,10 +5,10 @@ import LiveActivityPreview from './LiveActivityPreview';
 import { Caption, SectionHeader, SettingsScreenLayout, SettingToggle } from './SettingsControls';
 
 /**
- * Settings › Live Activity (REQ-LIVEACT-005, mockups/live-activity "Einstellungen"; its own page, D-037 item 3):
+ * Settings › Live Activity (the approved mockup's settings; its own page):
  * one switch, on by default (`liveActivityEnabled`). Off ends a running activity at once and starts none.
- * While a computer with agents lacks host changes H1a and H1b, it says which Mac needs an update (D-063,
- * REQ-LIVEACT-004). iOS only (pages.ts).
+ * While a computer with agents sends no start times or attention kind, it says which Mac needs an update. iOS only
+ * (pages.ts).
  */
 export default function LiveActivityPage() {
   const enabled = useSettingsStore((state) => state.settings.liveActivityEnabled);

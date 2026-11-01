@@ -2,9 +2,9 @@ import XCTest
 
 @testable import GhostexLiveActivityModel
 
-/// REQ-LIVEACT-001 AC12/AC13 (the 4 KB budget of attributes plus content state, measured on the real types
-/// with JSON escaping), REQ-LIVEACT-009 AC1 (the row link, the same literals as `src/app/deepLinks.test.ts`)
-/// and REQ-LIVEACT-002 AC1/AC2 / REQ-LIVEACT-011 AC6 on the decoding side (schema instances).
+/// The 4 KB budget of attributes plus content state, measured on the real types with JSON escaping; the row link
+/// (the same literals as `src/app/deepLinks.test.ts`); and the rows' fields and the question flag on the decoding
+/// side (valid and invalid content states).
 final class GhostexActivityContentTests: XCTestCase {
   /// 64 characters cycling through the worst encodings: a quote (2 bytes escaped), a backslash (2), a control
   /// character (6 as `\u0001`) and a four-byte character (4).
@@ -13,7 +13,7 @@ final class GhostexActivityContentTests: XCTestCase {
     return (0..<64).map { pieces[$0 % pieces.count] }.joined()
   }()
 
-  /// 64 bytes of printable ASCII (the schema's id pattern) that JSON escapes: quote, backslash, slash.
+  /// 64 bytes of printable ASCII (the id pattern) that JSON escapes: quote, backslash, slash.
   private static let worstId: String = {
     let pieces = ["\"", "\\", "/"]
     return (0..<64).map { pieces[$0 % pieces.count] }.joined()
@@ -38,14 +38,14 @@ final class GhostexActivityContentTests: XCTestCase {
       agents: rows, moreCount: 9_999)
   }
 
-  func testWorstCaseFitsTheBudget_REQ_LIVEACT_001_AC12() throws {
+  func testWorstCaseFitsTheBudget() throws {
     let content = Self.worstCase()
     XCTAssertEqual(Self.worstName.count, 64)
     XCTAssertEqual(Self.worstId.utf8.count, 64)
     let raw = try GhostexActivityContent.encodedSize(content, with: GhostexActivityAttributes())
     let fitted = try content.fitted(with: GhostexActivityAttributes())
     let size = try GhostexActivityContent.encodedSize(fitted, with: GhostexActivityAttributes())
-    print("REQ-LIVEACT-001 AC12: worst case \(raw) bytes with 4 rows; fitted \(size) bytes with \(fitted.agents.count) rows")
+    print("Worst case \(raw) bytes with 4 rows; fitted \(size) bytes with \(fitted.agents.count) rows")
     XCTAssertLessThanOrEqual(size, 4096)
     // What the fitter keeps is the front of the list; what it drops is counted.
     XCTAssertEqual(fitted.agents, Array(content.agents.prefix(fitted.agents.count)))
@@ -57,7 +57,7 @@ final class GhostexActivityContentTests: XCTestCase {
     let padding = String(repeating: "a", count: 3_200)
   }
 
-  func testOverBudgetDropsRowsFromTheEndAndRaisesMoreCount_REQ_LIVEACT_001_AC13() throws {
+  func testOverBudgetDropsRowsFromTheEndAndRaisesMoreCount() throws {
     let start = Date(timeIntervalSince1970: 1_793_000_000)
     let rows = (0..<4).map { index in
       GhostexActivityRow(
@@ -82,7 +82,7 @@ final class GhostexActivityContentTests: XCTestCase {
     XCTAssertGreaterThan(try GhostexActivityContent.encodedSize(oneMore, with: attributes), 4096)
   }
 
-  func testRowLinkNamesExactlyItsSession_REQ_LIVEACT_009_AC1() {
+  func testRowLinkNamesExactlyItsSession() {
     let second = GhostexActivityTarget(machineId: "f3b2c1d0-1111-4222-8333-944445555666", sessionId: "sess&2")
     XCTAssertEqual(
       second.deepLink?.absoluteString,
@@ -95,7 +95,7 @@ final class GhostexActivityContentTests: XCTestCase {
       "ghostex://session?machineId=a%23b%3Dc&sessionId=x%2By%25z%3Fw%2F")
   }
 
-  /// `schemas/instances/live-activity-content-state.valid-6.json` (a question, a working and a finished row).
+  /// A valid content state (a question, a working and a finished row).
   private static let schemaInstance = """
     {"updatedAt":"2026-10-24T10:42:00Z","counts":{"working":1,"waiting":1},"agents":[\
     {"target":{"machineId":"m1","sessionId":"s1"},"agentName":"a","project":"p1","state":"waiting",\
@@ -107,7 +107,7 @@ final class GhostexActivityContentTests: XCTestCase {
     "moreCount":0}
     """
 
-  func testSchemaInstanceDecodesAndRoundTrips_REQ_LIVEACT_002_AC1() throws {
+  func testSchemaInstanceDecodesAndRoundTrips() throws {
     let content = try JSONDecoder().decode(GhostexActivityContent.self, from: Data(Self.schemaInstance.utf8))
     XCTAssertEqual(content.agents.map(\.state), [.waiting, .working, .finished])
     XCTAssertTrue(content.agents[0].asksQuestion)
@@ -117,8 +117,8 @@ final class GhostexActivityContentTests: XCTestCase {
     XCTAssertEqual(again, content)
   }
 
-  /// The schema requires `startedAt` on every row (REQ-LIVEACT-002: elapsed time per row; D-063 keeps it).
-  func testRowWithoutStartIsRejected_REQ_LIVEACT_002_AC1() {
+  /// Every row requires `startedAt` (elapsed time per row).
+  func testRowWithoutStartIsRejected() {
     let json = """
       {"updatedAt":"2026-10-24T10:42:00.000Z","counts":{"working":1,"waiting":0},"agents":[\
       {"target":{"machineId":"m1","sessionId":"s1"},"agentName":"a","project":"p","state":"working"}],"moreCount":0}
@@ -126,7 +126,7 @@ final class GhostexActivityContentTests: XCTestCase {
     XCTAssertThrowsError(try JSONDecoder().decode(GhostexActivityContent.self, from: Data(json.utf8)))
   }
 
-  func testQuestionFlagThatIsNotABooleanIsRejected_REQ_LIVEACT_011_AC6() {
+  func testQuestionFlagThatIsNotABooleanIsRejected() {
     let json = Self.schemaInstance.replacingOccurrences(of: "\"hasQuestion\":true", with: "\"hasQuestion\":\"yes\"")
     XCTAssertThrowsError(try JSONDecoder().decode(GhostexActivityContent.self, from: Data(json.utf8)))
   }

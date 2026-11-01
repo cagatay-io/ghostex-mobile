@@ -1,13 +1,11 @@
 /**
- * REQ-LIVEACT-001 AC1-AC11 and AC14, REQ-LIVEACT-002 AC1 and AC3, REQ-LIVEACT-003 AC1-AC6, REQ-LIVEACT-004's
- * condition from D-063, REQ-LIVEACT-009 AC1 (content side) and REQ-LIVEACT-011 AC1-AC3: the real
- * `buildContentState` and `computersNeedingUpdate` on summary fixtures in the CLI's wire form, read by the real
- * summary parser, with an injected clock. The schema checks of REQ-LIVEACT-001 AC15 and REQ-LIVEACT-002 AC1
- * run `python3 -m jsonschema` on these outputs (PR text).
+ * The Live Activity's rows, counts and "+N more", finished rows, the condition on current computers, the row link
+ * (content side) and "has a question": the real `buildContentState` and `computersNeedingUpdate` on summary fixtures
+ * in the CLI's wire form, read by the real summary parser, with an injected clock.
  *
- * The fixtures come from a computer with host changes H1a (`workingStartedAt` while working, and
- * `attention.workingStartedAt` for a finished agent) and H1b (`attention.kind`), except `summary-older-host.json`,
- * which has neither (research/spike-host-data.md §1).
+ * The fixtures come from a computer that sends start times (`workingStartedAt` while working, and
+ * `attention.workingStartedAt` for a finished agent) and the attention kind (`attention.kind`), except
+ * `summary-older-host.json`, which has neither.
  */
 
 import assert from 'node:assert/strict';
@@ -50,39 +48,39 @@ const sessionIds = (fixture: unknown, now = NOW) =>
   buildContentState(sources(fixture), now).agents.map((row) => row.target.sessionId);
 
 describe('rows, order and counts', () => {
-  test('REQ-LIVEACT-001 AC1: two working and one waiting: the waiting agent first, then the working ones', () => {
+  test('two working and one waiting: the waiting agent first, then the working ones', () => {
     assert.deepEqual(sessionIds(twoWorkingOneWaiting), ['s-omp', 's-claude', 's-codex']);
     const states = buildContentState(sources(twoWorkingOneWaiting), NOW).agents.map((row) => row.state);
     assert.deepEqual(states, ['waiting', 'working', 'working']);
   });
 
-  test('REQ-LIVEACT-001 AC2, AC3: counts are working 2 and waiting 1, moreCount 0', () => {
+  test('counts are working 2 and waiting 1, moreCount 0', () => {
     const state = buildContentState(sources(twoWorkingOneWaiting), NOW);
     assert.deepEqual(state.counts, { working: 2, waiting: 1 });
     assert.equal(state.moreCount, 0);
   });
 
-  test('REQ-LIVEACT-001 AC4: four working and two waiting: four rows, the two waiting first (oldest first)', () => {
+  test('four working and two waiting: four rows, the two waiting first (oldest first)', () => {
     assert.deepEqual(sessionIds(fourWorkingTwoWaiting), ['q2', 'q1', 'w1', 'w2']);
   });
 
-  test('REQ-LIVEACT-001 AC5, AC6: moreCount 2, counts working 4 and waiting 2', () => {
+  test('moreCount 2, counts working 4 and waiting 2', () => {
     const state = buildContentState(sources(fourWorkingTwoWaiting), NOW);
     assert.equal(state.moreCount, 2);
     assert.deepEqual(state.counts, { working: 4, waiting: 2 });
   });
 
-  test('REQ-LIVEACT-001 AC7: two waiting, one working, two finished: the newest finished takes the free row', () => {
+  test('two waiting, one working, two finished: the newest finished takes the free row', () => {
     assert.deepEqual(sessionIds(twoWaitingOneWorkingTwoFinished), ['a-wait', 'b-wait', 'c-work', 'd-fin30']);
   });
 
-  test('REQ-LIVEACT-001 AC8, AC9: moreCount 1, counts exclude the finished agents', () => {
+  test('moreCount 1, counts exclude the finished agents', () => {
     const state = buildContentState(sources(twoWaitingOneWorkingTwoFinished), NOW);
     assert.equal(state.moreCount, 1);
     assert.deepEqual(state.counts, { working: 1, waiting: 2 });
   });
 
-  test('REQ-LIVEACT-001 AC10, AC11: four working and one finished 30 s ago: four working rows, moreCount 1', () => {
+  test('four working and one finished 30 s ago: four working rows, moreCount 1', () => {
     const state = buildContentState(sources(fourWorkingOneFinished), NOW);
     assert.deepEqual(
       state.agents.map((row) => [row.target.sessionId, row.state]),
@@ -96,7 +94,7 @@ describe('rows, order and counts', () => {
     assert.equal(state.moreCount, 1);
   });
 
-  test('REQ-LIVEACT-001 AC14: names over 64 characters are cut to 64 characters, four-byte characters whole', () => {
+  test('names over 64 characters are cut to 64 characters, four-byte characters whole', () => {
     const [row] = buildContentState(sources(longNames), NOW).agents;
     assert.ok(row !== undefined);
     assert.equal(Array.from(row.agentName).length, 64);
@@ -107,7 +105,7 @@ describe('rows, order and counts', () => {
 });
 
 describe('row content', () => {
-  test('REQ-LIVEACT-002 AC1: a row carries name, project, state, start and target, and no title or message text', () => {
+  test('a row carries name, project, state, start and target, and no title or message text', () => {
     const [row] = buildContentState(sources(twoWorkingOneWaiting), NOW).agents;
     assert.deepEqual(row, {
       target: { machineId: MACHINE, sessionId: 's-omp' },
@@ -120,7 +118,7 @@ describe('row content', () => {
     assert.ok(!text.includes('must not leak'), 'the session titles of the fixture never reach the state');
   });
 
-  test('REQ-LIVEACT-002 AC3: two sessions of the same agent and project keep their own session ids', () => {
+  test('two sessions of the same agent and project keep their own session ids', () => {
     const rows = buildContentState(sources(sameAgentProject), NOW).agents;
     assert.equal(rows.length, 2);
     assert.equal(rows[0]?.agentName, rows[1]?.agentName);
@@ -131,7 +129,7 @@ describe('row content', () => {
     );
   });
 
-  test('REQ-LIVEACT-009 AC1: the deep link of one same-named row opens exactly that session', () => {
+  test('the deep link of one same-named row opens exactly that session', () => {
     const rows = buildContentState(sources(sameAgentProject), NOW).agents;
     const second = rows[1];
     assert.ok(second !== undefined);
@@ -147,7 +145,7 @@ describe('row content', () => {
     assert.notEqual(parseSessionLink(url)?.sessionId, rows[0]?.target.sessionId);
   });
 
-  test('REQ-LIVEACT-002 AC1: the data time is the oldest read of the summaries used', () => {
+  test('the data time is the oldest read of the summaries used', () => {
     const fresh = sources(twoWorkingOneWaiting, NOW - 5_000);
     const older = [{ machineId: 'second-machine', summary: summary(oneWaiting), loadedAt: NOW - 90_000 }];
     const state = buildContentState([...fresh, ...older], NOW);
@@ -159,7 +157,7 @@ describe('row content', () => {
 describe('finished agents', () => {
   const t0 = Date.parse('2026-10-24T10:40:00Z');
 
-  test('REQ-LIVEACT-003 AC1, AC2: 119 s after finishing it is a finished row that expires at t0 + 120 s', () => {
+  test('119 s after finishing it is a finished row that expires at t0 + 120 s', () => {
     const state = buildContentState(sources(oneFinished), t0 + 119_000);
     assert.equal(state.agents.length, 1);
     assert.equal(state.agents[0]?.state, 'finished');
@@ -167,14 +165,14 @@ describe('finished agents', () => {
     assert.equal(state.agents[0]?.expiresAt, new Date(t0 + 120_000).toISOString());
   });
 
-  test('REQ-LIVEACT-003 AC3, AC4: 121 s after finishing it is neither a row nor counted in moreCount', () => {
+  test('121 s after finishing it is neither a row nor counted in moreCount', () => {
     const state = buildContentState(sources(oneFinished), t0 + 121_000);
     assert.deepEqual(state.agents, []);
     assert.equal(state.moreCount, 0);
     assert.deepEqual(state.counts, { working: 0, waiting: 0 });
   });
 
-  test('REQ-LIVEACT-003 AC5, AC6: with four working agents the agent finished 30 s ago gets no row, moreCount counts it', () => {
+  test('with four working agents the agent finished 30 s ago gets no row, moreCount counts it', () => {
     const state = buildContentState(sources(fourWorkingOneFinished), NOW);
     assert.ok(state.agents.every((row) => row.target.sessionId !== 'f1'));
     assert.equal(state.moreCount, 1);
@@ -274,14 +272,14 @@ describe('finished events the app has seen', () => {
 });
 
 describe('pending question', () => {
-  test('REQ-LIVEACT-011 AC1, AC3: a waiting agent with a pending question has hasQuestion, state waiting, counted as waiting', () => {
+  test('a waiting agent with a pending question has hasQuestion, state waiting, counted as waiting', () => {
     const state = buildContentState(sources(oneWaitingQuestion), NOW);
     assert.equal(state.agents[0]?.hasQuestion, true);
     assert.equal(state.agents[0]?.state, 'waiting');
     assert.equal(state.counts.waiting, 1);
   });
 
-  test('REQ-LIVEACT-011 AC2: without a pending question the row has no hasQuestion', () => {
+  test('without a pending question the row has no hasQuestion', () => {
     const [row] = buildContentState(sources(oneWaiting), NOW).agents;
     assert.ok(row !== undefined);
     assert.equal('hasQuestion' in row, false);
@@ -338,8 +336,8 @@ describe('pending question', () => {
   });
 });
 
-describe('every row has its time (REQ-LIVEACT-002, schema startedAt)', () => {
-  test('REQ-LIVEACT-002 AC1: working rows start at workingStartedAt, waiting rows at attention.enteredAt', () => {
+describe('every row has its time (startedAt)', () => {
+  test('working rows start at workingStartedAt, waiting rows at attention.enteredAt', () => {
     const state = buildContentState(sources(twoWorkingOneWaiting), NOW);
     assert.deepEqual(
       state.agents.map((row) => [row.target.sessionId, row.state, row.startedAt]),
@@ -351,7 +349,7 @@ describe('every row has its time (REQ-LIVEACT-002, schema startedAt)', () => {
     );
   });
 
-  test("Main's derivation 2026-10-29: a wait without attention.enteredAt is counted, in moreCount, without a row", () => {
+  test('a wait without attention.enteredAt is counted, in moreCount, without a row', () => {
     const state = buildContentState(
       sources({
         sessions: [
@@ -374,7 +372,7 @@ describe('every row has its time (REQ-LIVEACT-002, schema startedAt)', () => {
   });
 });
 
-describe('computers without host changes H1a and H1b (D-063, REQ-LIVEACT-004)', () => {
+describe('computers that send no start times or attention kind', () => {
   test('a summary with a working agent without workingStartedAt and an agent in attention without kind needs an update', () => {
     assert.deepEqual(computersNeedingUpdate(sources(olderHost)), [MACHINE]);
   });
@@ -474,8 +472,8 @@ describe('computers without host changes H1a and H1b (D-063, REQ-LIVEACT-004)', 
   });
 });
 
-describe('working stints, which start the activity again (REQ-LIVEACT-004 AC1)', () => {
-  test('REQ-LIVEACT-004 AC1: every working agent with its session and stint start, also those without a row', () => {
+describe('working stints, which start the activity again', () => {
+  test('every working agent with its session and stint start, also those without a row', () => {
     const state = buildContentState(sources(fourWorkingTwoWaiting), NOW);
     assert.deepEqual(
       state.agents.filter((row) => row.state === 'working').map((row) => row.target.sessionId),
@@ -490,7 +488,7 @@ describe('working stints, which start the activity again (REQ-LIVEACT-004 AC1)',
     ]);
   });
 
-  test('REQ-LIVEACT-004 AC1: waiting and finished agents have no working stint', () => {
+  test('waiting and finished agents have no working stint', () => {
     assert.deepEqual(workingStints(sources(oneWaiting), NOW), []);
     assert.deepEqual(workingStints(sources(oneFinished), NOW), []);
   });

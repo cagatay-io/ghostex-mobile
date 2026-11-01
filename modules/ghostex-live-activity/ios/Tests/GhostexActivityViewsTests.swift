@@ -4,14 +4,14 @@ import XCTest
 @testable import GhostexLiveActivityModel
 @testable import GhostexLiveActivityViews
 
-/// REQ-LIVEACT-008 AC2 (the minimal island shows the counts of working and waiting agents, also in the 28 pt
-/// width-limited circle of its condition), and the agent mark at the start of a row (approved mockup, D-037 item 2;
-/// Main's decision (d) of 2026-10-29): resolved by name as the app's session list does, unknown names neutral.
+/// The minimal island shows the counts of working and waiting agents, also in the 28 pt width-limited circle, and
+/// the agent mark at the start of a row (approved mockup): resolved by name as the app's session list does, unknown
+/// names neutral.
 @MainActor
 final class GhostexActivityViewsTests: XCTestCase {
   private typealias Line = MinimalLayout.Line
 
-  /// REQ-LIVEACT-008 AC2: both counts, in both widths, also when one of them is 0.
+  /// Both counts, in both widths, also when one of them is 0.
   func testMinimalShowsBothCountsInBothWidths() {
     for (working, waiting) in [(4, 2), (4, 0), (0, 2), (12, 7)] {
       let counts = GhostexActivityCounts(working: working, waiting: waiting)
@@ -24,7 +24,7 @@ final class GhostexActivityViewsTests: XCTestCase {
     }
   }
 
-  /// REQ-LIVEACT-008 AC2 and its condition (28 pt circle): two-digit counts fit the circle's 28 pt frame at their
+  /// In the 28 pt circle: two-digit counts fit the circle's 28 pt frame at their
   /// own size, without being scaled down.
   func testLimitedWidthMinimalFitsItsFrame() throws {
     let layout = MinimalLayout.of(GhostexActivityCounts(working: 88, waiting: 88), limitedWidth: true)
@@ -35,7 +35,7 @@ final class GhostexActivityViewsTests: XCTestCase {
     XCTAssertLessThanOrEqual(image.size.height, 28, "height \(image.size.height)")
   }
 
-  /// The row's agent mark (D-037 item 2): the name branch of the app's `resolveAgentArtId`.
+  /// The row's agent mark: the name branch of the app's `resolveAgentArtId`.
   func testAgentMarkResolvesNamesAsTheApp() {
     XCTAssertEqual(AgentMark.id(forAgentName: "Claude Code"), "claude", "alias, any case")
     XCTAssertEqual(AgentMark.id(forAgentName: "Claude (cloud)"), "claude-cloud", "the Claude (cloud) agent's cloud")

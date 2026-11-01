@@ -6,10 +6,10 @@
  * the native module. Fakes only at the boundaries: the SSH exec answers with a summary in the CLI's wire form,
  * the native module is a fake ActivityKit that the user can "remove" the activity from, and the clock is Jest's.
  *
- * REQ-LIVEACT-010 AC1/AC2 through the app's wiring (a refresh every 5 seconds reaches the activity; in the
- * background no refresh runs and the store's polling flag is off) and REQ-LIVEACT-004 AC1 (an agent starting to
- * work starts exactly one activity; after the user removed it, the same session's next working stint starts a
- * new one). A finished row stays after the computer stops sending its attention, until 2 minutes after the finish.
+ * The summary refresh through the app's wiring (a refresh every 5 seconds reaches the activity; in the background no
+ * refresh runs and the store's polling flag is off) and the start (an agent starting to work starts exactly one
+ * activity; after the user removed it, the same session's next working stint starts a new one). A finished row stays
+ * after the computer stops sending its attention, until 2 minutes after the finish.
  */
 
 import { AppState, type AppStateStatus } from 'react-native';
@@ -128,7 +128,7 @@ afterAll(() => {
   jest.useRealTimers();
 });
 
-test('REQ-LIVEACT-010 AC1/AC2 and REQ-LIVEACT-004 AC1 through the app wiring: refresh → activity, background stops, next stint restarts', async () => {
+test('through the app wiring: refresh → activity, background stops, next stint restarts', async () => {
   useMachinesStore.setState({ machines: [MACHINE], selectedMachineId: MACHINE.id, hydrated: true });
   useSettingsStore.setState({ hydrated: true });
   mockWire = { sessions: [working('s1', T0 - 60_000)] };
@@ -138,13 +138,13 @@ test('REQ-LIVEACT-010 AC1/AC2 and REQ-LIVEACT-004 AC1 through the app wiring: re
   initLiveActivity();
   await jest.advanceTimersByTimeAsync(0);
 
-  // REQ-LIVEACT-004 AC1: the first refresh shows an agent working, so exactly one activity starts with its row.
+  // The first refresh shows an agent working, so exactly one activity starts with its row.
   expect(listCalls()).toBe(1);
   expect(useInventoryStore.getState().polling).toBe(true);
   expect(native.start).toHaveBeenCalledTimes(1);
   expect(sentState(native.start.mock.calls[0]).agents.map((row) => row.target.sessionId)).toEqual(['s1']);
 
-  // REQ-LIVEACT-010 AC1: every 5 seconds the refresh runs and its change reaches the activity.
+  // Every 5 seconds the refresh runs and its change reaches the activity.
   mockWire = { sessions: [working('s1', T0 - 60_000), waiting('s2', T0 + 2_000)] };
   await jest.advanceTimersByTimeAsync(5_000);
   expect(listCalls()).toBe(2);
@@ -152,7 +152,7 @@ test('REQ-LIVEACT-010 AC1/AC2 and REQ-LIVEACT-004 AC1 through the app wiring: re
   expect(sentState(native.update.mock.calls[0]).counts).toEqual({ working: 1, waiting: 1 });
   expect(native.start).toHaveBeenCalledTimes(1);
 
-  // REQ-LIVEACT-010 AC2: in the background no refresh runs, and the store's poll flag is off.
+  // In the background no refresh runs, and the store's poll flag is off.
   moveApp('background');
   await jest.advanceTimersByTimeAsync(10_000);
   expect(listCalls()).toBe(2);
@@ -168,7 +168,7 @@ test('REQ-LIVEACT-010 AC1/AC2 and REQ-LIVEACT-004 AC1 through the app wiring: re
   expect(listCalls()).toBe(4);
   expect(native.start).toHaveBeenCalledTimes(1);
 
-  // REQ-LIVEACT-004 AC1: the same session starts its next working stint (a new workingStartedAt): a new activity.
+  // The same session starts its next working stint (a new workingStartedAt): a new activity.
   mockWire = { sessions: [working('s1', T0 + 30_000), waiting('s2', T0 + 2_000)] };
   await jest.advanceTimersByTimeAsync(5_000);
   expect(native.start).toHaveBeenCalledTimes(2);

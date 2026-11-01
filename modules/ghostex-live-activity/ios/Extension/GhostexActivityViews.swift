@@ -7,9 +7,9 @@ import WidgetKit
   import GhostexLiveActivityModel
 #endif
 
-// The approved mockup `mockups/live-activity` (D-037): state colours of the session list (orange works, blue
+// The approved mockup: state colours of the session list (orange works, blue
 // waits, pink asks, muted finished), always with a glyph and a word so colour never carries meaning alone;
-// rows of the agent's mark, agent + project (D-037 item 2); four rows within Apple's 160 pt Lock Screen height.
+// rows of the agent's mark, agent + project; four rows within Apple's 160 pt Lock Screen height.
 
 enum ActivityStyle {
   static let working = Color(red: 0xC6 / 255, green: 0x8A / 255, blue: 0x06 / 255)
@@ -122,7 +122,7 @@ struct CountLabel: View {
 /// Time in the row's state, in minutes as the approved mockup shows it ("4m", "1h 2m"). A working or waiting row
 /// counts on from `startedAt` by itself while the content is current (iOS 18: the system's `TimeDataSource`;
 /// iOS 16.4–17 have no live minute format, so they count as a `m:ss` timer) and stops at the data time once the
-/// content is not current (REQ-LIVEACT-007). A finished row says how long the agent worked, from `startedAt` to
+/// content is not current. A finished row says how long the agent worked, from `startedAt` to
 /// `finishedAt`, and does not change.
 struct ElapsedText: View {
   let row: GhostexActivityRow
@@ -184,7 +184,7 @@ struct ActivityRowView: View {
   }
 }
 
-/// A row that opens its session (REQ-LIVEACT-009): the target's ids, never the name.
+/// A row that opens its session: the target's ids, never the name.
 struct ActivityRowLink: View {
   let row: GhostexActivityRow
   let frozenAt: Date?
@@ -243,8 +243,8 @@ struct GhostexMark: View {
   }
 }
 
-/// The Lock Screen presentation (REQ-LIVEACT-008 AC4/AC5): counts, then up to four rows; past its stale date
-/// it says how old it is and dims the rows (REQ-LIVEACT-007).
+/// The Lock Screen presentation: counts, then up to four rows; past its stale date
+/// it says how old it is and dims the rows.
 struct LockScreenCard: View {
   let content: GhostexActivityContent
   let isStale: Bool
@@ -291,7 +291,7 @@ struct LockScreenCard: View {
   }
 }
 
-/// The expanded Dynamic Island's bottom (REQ-LIVEACT-008 AC3): the first two rows and how many more there are.
+/// The expanded Dynamic Island's bottom: the first two rows and how many more there are.
 struct ExpandedRows: View {
   let content: GhostexActivityContent
   let isStale: Bool
@@ -325,7 +325,7 @@ struct ExpandedRows: View {
   }
 }
 
-/// Count inside a 28 pt circle for a width-limited island (iOS 27, iPhone Duo; FL-DUO-10): an open arc for
+/// Count inside a 28 pt circle for a width-limited island (iOS 27, iPhone Duo): an open arc for
 /// working, a closed ring for waiting, so the shape tells them apart, not only the colour.
 struct RingCount: View {
   let kind: ActivityStatus
@@ -378,7 +378,7 @@ struct IslandWidthReader<Content: View>: View {
   }
 #endif
 
-/// One side of the compact island (REQ-LIVEACT-008 AC1): working on the leading side, waiting on the trailing.
+/// One side of the compact island: working on the leading side, waiting on the trailing.
 struct CompactCount: View {
   let kind: ActivityStatus
   let count: Int
@@ -403,7 +403,7 @@ struct CompactCount: View {
 }
 
 /// What the minimal island draws: both counts, working above waiting, each line its state's glyph and number
-/// (REQ-LIVEACT-008 AC2; the approved mockup's minimal circle). In the 28 pt circle of a width-limited island
+/// (the approved mockup's minimal circle). In the 28 pt circle of a width-limited island
 /// (iOS 27, iPhone Duo) the same two lines are drawn smaller, so neither count is dropped there.
 struct MinimalLayout: Equatable {
   struct Line: Equatable {
@@ -441,7 +441,7 @@ struct StackedCounts: View {
   }
 }
 
-/// The minimal island (REQ-LIVEACT-008 AC2): both counts stacked, each with its glyph.
+/// The minimal island: both counts stacked, each with its glyph.
 struct MinimalCounts: View {
   let counts: GhostexActivityCounts
   let isStale: Bool

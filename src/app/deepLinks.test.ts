@@ -135,7 +135,7 @@ describe('a question notification tapped at a cold start', () => {
 });
 
 /**
- * REQ-LIVEACT-009 AC1 (parser side): a Live Activity row opens the session its target names, through the
+ * Parser side: a Live Activity row opens the session its target names, through the
  * same parser the deep-link handler uses (`deepLinkHandler.ts`). The URLs are the literal form
  * the extension builds (`GhostexActivityTarget.deepLink`, asserted against the same literals by the Swift
  * test in modules/ghostex-live-activity/ios/Tests): every id character outside RFC 3986's unreserved set
@@ -144,24 +144,24 @@ describe('a question notification tapped at a cold start', () => {
 
 
 describe('session links from Live Activity rows', () => {
-  test('REQ-LIVEACT-009 AC1: of two same-named sessions, each link opens its own session', () => {
+  test('of two same-named sessions, each link opens its own session', () => {
     const first = parseSessionLink('ghostex://session?machineId=m1&sessionId=sess%261');
     const second = parseSessionLink('ghostex://session?machineId=m1&sessionId=sess%262');
     assert.deepEqual(first, { machineId: 'm1', sessionId: 'sess&1', title: '', view: null });
     assert.deepEqual(second, { machineId: 'm1', sessionId: 'sess&2', title: '', view: null });
   });
 
-  test('REQ-LIVEACT-009 AC1: reserved characters inside an id stay part of that id', () => {
+  test('reserved characters inside an id stay part of that id', () => {
     const link = parseSessionLink('ghostex://session?machineId=a%23b%3Dc&sessionId=x%2By%25z%3Fw%2F');
     assert.deepEqual(link, { machineId: 'a#b=c', sessionId: 'x+y%z?w/', title: '', view: null });
   });
 
-  test('REQ-LIVEACT-009 AC1: a link without both ids opens nothing', () => {
+  test('a link without both ids opens nothing', () => {
     assert.equal(parseSessionLink('ghostex://session?machineId=m1'), null);
     assert.equal(parseSessionLink('ghostex://voice'), null);
   });
 
-  test('REQ-LIVEACT-009 AC1: the existing notification link with a title still parses the same way', () => {
+  test('the existing notification link with a title still parses the same way', () => {
     assert.deepEqual(parseSessionLink('ghostex://session?machineId=m1&sessionId=s1&title=Fix%20tests'), {
       machineId: 'm1',
       sessionId: 's1',

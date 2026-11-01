@@ -1,13 +1,12 @@
 /**
- * REQ-LIVEACT-008 AC5 (the Lock Screen lists the agents), as the approved mockup draws a row: the agent's mark
- * first (D-037 item 2). The Live Activity extension cannot run the app's React Native logo components, so it
- * carries copies (S8 open point 3, Main's decision (d) of 2026-10-29): the tint and name tables in
+ * The Lock Screen lists the agents as the approved mockup draws a row: the agent's mark first. The Live Activity
+ * extension cannot run the app's React Native logo components, so it carries copies: the tint and name tables in
  * `modules/ghostex-live-activity/ios/Extension/GhostexAgentMarks.swift` and one vector image set per logo in
  * `Extension/Assets.xcassets/AgentMarks/`. This test fails when a copy disagrees with what the app draws:
  * `AGENT_ICON_TINTS` / `AGENT_NAME_ALIASES` in `src/contract/mobileSummary.ts` and the components of
  * `src/assets/agentIcons.generated.tsx` (same ids; the same elements with the same geometry: viewBox, path data,
- * transforms, fill rules, strokes, gradient and stops; template unless the component ignores `color`). The
- * owner's judgement of AC5 on the device stays; this checks only that the extension draws the app's marks.
+ * transforms, fill rules, strokes, gradient and stops; template unless the component ignores `color`). The judgement
+ * of the marks on the device stays; this checks only that the extension draws the app's marks.
  */
 
 import assert from 'node:assert/strict';

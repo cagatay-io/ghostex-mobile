@@ -86,6 +86,7 @@ export type MobileSummaryWireSession = {
     kind?: string;
     workingStartedAt?: string;
   };
+
   /** Questions the agent is waiting on an answer to; absent at zero. */
   pendingQuestionCount?: number;
   /** An open question card waits for an answer; sent by a computer with the `awaitingAnswer` capability. */
@@ -647,15 +648,17 @@ export type GhostexSession = {
    */
   attentionNotificationId: string;
   /**
-   * Why the session is in attention ('' outside attention, and from a computer without host change H1b, which
-   * cannot tell a finished turn from a wait for the user).
+   * Why the session is in attention ('' outside attention, and from a computer that sends no attention kind,
+   * which cannot tell a finished turn from a wait for the user).
    */
   attentionKind: GhostexAttentionKind;
   /**
    * When the stint that ended began, sent while the session is in attention (`attention.workingStartedAt`; '' outside
-   * attention, from a computer without host change H1a, and when the attention came from idle or its start is unknown).
+   * attention, from a computer that sends no start times, and when the attention came from idle or its start is
+   * unknown).
    */
   attentionWorkingStartedAt: string;
+
   actions: GhostexSessionActions;
 };
 
@@ -1431,7 +1434,7 @@ export function parseSession(value: unknown): GhostexSession | null {
   };
 }
 
-/** `attention.kind` as H1b defines it; any other value reads as no kind. */
+/** `attention.kind` as the host defines it; any other value reads as no kind. */
 function attentionKindOf(attention: JsonObject): GhostexAttentionKind {
   const kind = trimmedValue(attention, 'kind');
   return kind === 'finished' || kind === 'needsInput' ? kind : '';

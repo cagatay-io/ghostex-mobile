@@ -1,12 +1,10 @@
 /// <reference types="jest" />
 /**
- * Run with `bun run test:jest`. The condition of REQ-LIVEACT-004 from D-063 (`bedingungen`: without host
- * changes H1a and H1b no activity starts and Settings, REQ-LIVEACT-005's page, says that the Mac needs an
- * update; the requirement has no criterion of its own for that sentence): while a computer with agents does not
- * send them, Settings › Live Activity says which Mac needs an update; with every computer current it says
- * nothing of the kind. The real page, the real machines and inventory stores and the real summary parser; only
- * the layout primitives and the preview are stubbed. And REQ-NFR-010 AC3 for the page's own entry on the
- * Settings home: its words live in `src/copy.ts`.
+ * Run with `bun run test:jest`. Without the agents' start times and attention kind no activity starts, and Settings ›
+ * Live Activity says that the Mac needs an update: while a computer with agents does not send them, Settings › Live
+ * Activity says which Mac needs an update; with every computer current it says nothing of the kind. The real page,
+ * the real machines and inventory stores and the real summary parser; only the layout primitives and the preview are
+ * stubbed. And the page's own entry on the Settings home: its words live in `src/copy.ts`.
  */
 
 import { render, type RenderResult } from '@testing-library/react-native';
@@ -66,7 +64,7 @@ beforeEach(() => {
   useMachinesStore.setState({ machines: [machine('m1', 'Mac mini'), machine('m2', 'MacBook Air')] });
 });
 
-test('D-063: a Mac whose summary lacks workingStartedAt is named as needing an update', async () => {
+test('a Mac whose summary lacks workingStartedAt is named as needing an update', async () => {
   useInventoryStore.setState({ inventoriesByMachineId: { m1: currentHost, m2: olderHost } });
   const screen = await render(<LiveActivityPage />);
   expect(captions(screen)).toContain(
@@ -75,13 +73,13 @@ test('D-063: a Mac whose summary lacks workingStartedAt is named as needing an u
   expect(captions(screen).some((text) => text.includes('Mac mini'))).toBe(false);
 });
 
-test('D-063: with every Mac current the page asks for no update', async () => {
+test('with every Mac current the page asks for no update', async () => {
   useInventoryStore.setState({ inventoriesByMachineId: { m1: currentHost, m2: currentHost } });
   const screen = await render(<LiveActivityPage />);
   expect(captions(screen).some((text) => text.includes('newer Ghostex'))).toBe(false);
 });
 
-test('D-063: a disabled Mac is not named', async () => {
+test('a disabled Mac is not named', async () => {
   useMachinesStore.setState({
     machines: [machine('m1', 'Mac mini'), { ...machine('m2', 'MacBook Air'), disabled: true }],
   });
@@ -90,7 +88,7 @@ test('D-063: a disabled Mac is not named', async () => {
   expect(captions(screen).some((text) => text.includes('newer Ghostex'))).toBe(false);
 });
 
-test('REQ-NFR-010 AC3: the title and description of the page on the Settings home come from src/copy.ts', () => {
+test('the title and description of the page on the Settings home come from src/copy.ts', () => {
   expect(SETTINGS_PAGES.liveActivity).toEqual({
     title: LiveActivityCopy.pageTitle,
     description: LiveActivityCopy.pageDescription,

@@ -1,5 +1,5 @@
 /**
- * The one summary refresh of the app (REQ-LIVEACT-010). While the app is in the foreground and a machine is
+ * The one summary refresh of the app. While the app is in the foreground and a machine is
  * selected, every enabled machine's mobile summary is read again every `intervalMs` on whatever screen is in
  * front, the terminal included, so the Live Activity (and later the widgets) see state changes while the user
  * works in a session. The Sessions screen shares this refresh instead of running its own poll.

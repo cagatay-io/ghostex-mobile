@@ -1,11 +1,11 @@
 import ActivityKit
 import ExpoModulesCore
 
-/// Starts, updates and ends the one Ghostex Live Activity for `src/notifications/liveActivity.ts` (S8). The
+/// Starts, updates and ends the one Ghostex Live Activity for `src/notifications/liveActivity.ts`. The
 /// views live in the widget extension (`Extension/`); both sides share `Shared/GhostexActivityAttributes.swift`.
 ///
-/// No call passes an `AlertConfiguration`: the activity updates silently, the notification carries the sound
-/// (REQ-LIVEACT-006). No push token is requested: the app updates the activity itself (stage 1, KP-003).
+/// No call passes an `AlertConfiguration`: the activity updates silently, the notification carries the sound.
+/// No push token is requested: the app updates the activity itself.
 public final class GhostexLiveActivityModule: Module {
   public func definition() -> ModuleDefinition {
     Name("GhostexLiveActivity")
@@ -30,7 +30,7 @@ public final class GhostexLiveActivityModule: Module {
 
     AsyncFunction("update") { (stateJson: String, staleDateMs: Double) async throws in
       let content = try Self.content(stateJson, staleDateMs)
-      // One activity per phone (REQ-LIVEACT-001): any other one, left from an earlier run, is ended.
+      // One activity per phone: any other one, left from an earlier run, is ended.
       for (index, activity) in Self.liveActivities().enumerated() {
         if index == 0 {
           await activity.update(content)

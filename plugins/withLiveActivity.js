@@ -1,4 +1,4 @@
-// Adds the Live Activity widget extension (S8, REQ-LIVEACT-008) to the generated iOS project. `ios/` is
+// Adds the Live Activity widget extension to the generated iOS project. `ios/` is
 // Expo prebuild output and never edited by hand, so this plugin is where the extension target lives:
 //
 // - the target `GhostexLiveActivityExtension` (an app extension, WidgetKit extension point), bundle id
@@ -10,7 +10,7 @@
 // - the app embeds the `.appex` (PlugIns) and depends on the target.
 //
 // The extension needs no entitlement: no App Group (the content state comes through ActivityKit) and no push
-// (`aps-environment`), so a free Personal Team can sign it (research/spike-native.md §1). `NSSupportsLiveActivities`
+// (`aps-environment`), so a free Personal Team can sign it. `NSSupportsLiveActivities`
 // is set in app.json's `ios.infoPlist`.
 const { withDangerousMod, withXcodeProject } = require('expo/config-plugins');
 const fs = require('fs');

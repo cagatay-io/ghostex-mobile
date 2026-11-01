@@ -1,12 +1,12 @@
 import ActivityKit
 import Foundation
 
-/// The one Ghostex Live Activity (S8, REQ-LIVEACT-001..011). This file is compiled into the app (the Expo
+/// The one Ghostex Live Activity. This file is compiled into the app (the Expo
 /// module that starts and updates the activity) and into the widget extension (the views); ActivityKit matches
 /// the two by this type.
 ///
-/// The content state follows `schemas/live-activity-content-state.schema.json`: per row the agent, the project,
-/// the state, when that state began and the session's identifiers, and no prompt, reply or title text (D-010).
+/// The content state carries per row the agent, the project, the state, when that state began and the session's
+/// identifiers, and no prompt, reply or title text.
 /// The app builds it in `src/notifications/contentState.ts`; this side decodes it, fits it into ActivityKit's
 /// 4 KB and renders it.
 public struct GhostexActivityAttributes: ActivityAttributes {
@@ -25,7 +25,7 @@ public struct GhostexActivityCounts: Codable, Hashable, Sendable {
   }
 }
 
-/// The session a row opens (REQ-LIVEACT-009); identifiers only, never a name.
+/// The session a row opens; identifiers only, never a name.
 public struct GhostexActivityTarget: Codable, Hashable, Sendable {
   public var machineId: String
   public var sessionId: String
@@ -63,12 +63,11 @@ public struct GhostexActivityRow: Codable, Hashable, Sendable {
   public var state: GhostexAgentState
   /// Working: when the current stint began (`workingStartedAt`); finished: when the stint that ended began
   /// (`attention.workingStartedAt`; the row shows `finishedAt` − `startedAt`); waiting: since the agent waits
-  /// (`attention.enteredAt`). Required (schema), so every row has its
-  /// time (REQ-LIVEACT-002).
+  /// (`attention.enteredAt`). Required, so every row has its time.
   public var startedAt: Date
   public var finishedAt: Date?
   public var expiresAt: Date?
-  /// True on a waiting row with a pending question: it says "has a question" (REQ-LIVEACT-011).
+  /// True on a waiting row with a pending question: it says "has a question".
   public var hasQuestion: Bool?
 
   public init(
@@ -171,7 +170,7 @@ public struct GhostexActivityContent: Codable, Hashable, Sendable {
   }
 
   /// This content within `budget`: rows are dropped from the end and counted in `moreCount` until attributes
-  /// plus content fit (REQ-LIVEACT-001). Throws only if even no rows do not fit.
+  /// plus content fit. Throws only if even no rows do not fit.
   public func fitted<Attributes: Encodable>(with attributes: Attributes, budget: Int = byteBudget) throws -> Self {
     var content = self
     while try Self.encodedSize(content, with: attributes) > budget {
@@ -188,7 +187,7 @@ public struct ActivityContentTooLarge: Error, CustomStringConvertible {
   public var description: String { "The Live Activity content does not fit \(budget) bytes even without rows" }
 }
 
-/// Times travel as ISO 8601 text, as in the schema; the app writes them with milliseconds (`toISOString`).
+/// Times travel as ISO 8601 text; the app writes them with milliseconds (`toISOString`).
 enum ActivityTime {
   // ISO8601DateFormatter is thread safe; one instance per format is shared.
   private static let withFraction: ISO8601DateFormatter = {

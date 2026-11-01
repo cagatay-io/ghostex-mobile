@@ -50,7 +50,7 @@ export type GhostexSettings = {
   /** This phone carries settings sync between the computers it connects to (src/settingsSync/). */
   settingsSyncThroughPhone: boolean;
   /**
-   * The automatic Live Activity (D-016 F2, REQ-LIVEACT-005; `settings-additions.schema.json`): off ends a
+   * The automatic Live Activity: off ends a
    * running one and starts no other. iOS only.
    */
   liveActivityEnabled: boolean;

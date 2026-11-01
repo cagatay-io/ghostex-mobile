@@ -1,8 +1,8 @@
 /**
- * REQ-LIVEACT-004 AC1-AC3 and its condition from D-063 (no activity while a computer lacks H1a or H1b),
- * REQ-LIVEACT-005 AC1-AC2, REQ-LIVEACT-006 AC1 and REQ-LIVEACT-007 AC1: the real `ActivityController` with a
- * fake ActivityKit adapter and an injected clock and timers. Content states and the host check come from the
- * real `buildContentState` and `computersNeedingUpdate` on summaries in the CLI's wire form.
+ * When the activity starts and ends (none while a computer sends no start times or attention kind), the switch,
+ * silent updates and the stale date: the real `ActivityController` with a fake ActivityKit adapter and an injected
+ * clock and timers. Content states and the host check come from the real `buildContentState` and
+ * `computersNeedingUpdate` on summaries in the CLI's wire form.
  */
 
 import assert from 'node:assert/strict';
@@ -156,7 +156,7 @@ function setup() {
 }
 
 describe('start and end', () => {
-  test('REQ-LIVEACT-004 AC1: an agent starting to work while the app runs starts exactly one activity', () => {
+  test('an agent starting to work while the app runs starts exactly one activity', () => {
     const { process, kinds } = setup();
     process(T0, [idle('s1')]);
     assert.deepEqual(kinds(), []);
@@ -166,7 +166,7 @@ describe('start and end', () => {
     assert.equal(kinds().filter((kind) => kind === 'request').length, 1);
   });
 
-  test('REQ-LIVEACT-004 AC2, AC3: 15 minutes without a working or waiting agent end it, not a second earlier', () => {
+  test('15 minutes without a working or waiting agent end it, not a second earlier', () => {
     const { process, time, kinds } = setup();
     process(T0, [working('s1')]);
     const stopped = T0 + 60_000;
@@ -180,7 +180,7 @@ describe('start and end', () => {
     );
   });
 
-  test('REQ-LIVEACT-004 AC2: a refresh after the app was suspended past the 15 minutes ends it then', () => {
+  test('a refresh after the app was suspended past the 15 minutes ends it then', () => {
     const { process, processAfterSuspension, kinds } = setup();
     process(T0, [working('s1')]);
     process(T0 + 60_000, [idle('s1')]);
@@ -189,7 +189,7 @@ describe('start and end', () => {
     assert.deepEqual(kinds(), ['request', 'update', 'end']);
   });
 
-  test('REQ-LIVEACT-004 AC2: an agent that starts again within the 15 minutes keeps the activity', () => {
+  test('an agent that starts again within the 15 minutes keeps the activity', () => {
     const { process, time, kinds } = setup();
     process(T0, [working('s1')]);
     process(T0 + 60_000, [idle('s1')]);
@@ -198,7 +198,7 @@ describe('start and end', () => {
     assert.ok(!kinds().includes('end'));
   });
 
-  test('REQ-LIVEACT-004 AC1: removed by the user, it starts again only when an agent starts working', () => {
+  test('removed by the user, it starts again only when an agent starts working', () => {
     const { process, kinds, dismissByUser } = setup();
     process(T0, [working('s1')]);
     dismissByUser();
@@ -209,9 +209,9 @@ describe('start and end', () => {
     assert.equal(kinds().filter((kind) => kind === 'request').length, 2);
   });
 
-  // The reviewer's restart probe (S8 review r1, K-1): the user removed the activity, then the same session began
+  // A restart probe: the user removed the activity, then the same session began
   // its next turn between two 5-second refreshes, with a new `workingStartedAt` and nothing else changed.
-  test('REQ-LIVEACT-004 AC1: removed by the user, the same session starting its next working stint starts a new one', () => {
+  test('removed by the user, the same session starting its next working stint starts a new one', () => {
     const { process, kinds, dismissByUser } = setup();
     process(T0, [working('s1', T0)]);
     dismissByUser();
@@ -221,7 +221,7 @@ describe('start and end', () => {
     assert.equal(kinds().filter((kind) => kind === 'request').length, 2);
   });
 
-  test('REQ-LIVEACT-004 AC1: removed by the user, an agent starting to work without a row (in "+N more") starts a new one', () => {
+  test('removed by the user, an agent starting to work without a row (in "+N more") starts a new one', () => {
     const { process, kinds, dismissByUser, calls } = setup();
     const fourWaiting = [waiting('q1'), waiting('q2'), waiting('q3'), waiting('q4')];
     process(T0, [...fourWaiting, working('a', T0)]);
@@ -234,17 +234,17 @@ describe('start and end', () => {
   });
 });
 
-describe('a computer without host changes H1a and H1b (D-063)', () => {
-  /** An agent working on a Mac that does not send `workingStartedAt` (H1a). */
+describe('a computer that sends no start times or attention kind', () => {
+  /** An agent working on a Mac that does not send `workingStartedAt`. */
   const workingOnOlderMac = (id: string): WireSession => ({ sessionId: id, activity: 'working' });
-  /** An agent in attention on a Mac that does not send `attention.kind` (H1b). */
+  /** An agent in attention on a Mac that does not send `attention.kind`. */
   const attentionOnOlderMac = (id: string): WireSession => ({
     sessionId: id,
     activity: 'attention',
     attention: { enteredAt: new Date(T0).toISOString() },
   });
 
-  test('REQ-LIVEACT-004 (D-063): an agent starting to work on a Mac without H1a starts no activity', () => {
+  test('an agent starting to work on a Mac without workingStartedAt starts no activity', () => {
     const { process, kinds } = setup();
     process(T0, [idle('s1')]);
     process(T0 + 5_000, [workingOnOlderMac('s1')]);
@@ -252,14 +252,14 @@ describe('a computer without host changes H1a and H1b (D-063)', () => {
     assert.deepEqual(kinds(), []);
   });
 
-  test('REQ-LIVEACT-004 (D-063): a running activity ends at the next refresh that shows an agent without H1b', () => {
+  test('a running activity ends at the next refresh that shows an agent without attention.kind', () => {
     const { process, kinds } = setup();
     process(T0, [working('s1')]);
     process(T0 + 5_000, [working('s1'), attentionOnOlderMac('s2')]);
     assert.deepEqual(kinds(), ['request', 'end']);
   });
 
-  test('REQ-LIVEACT-004 (D-063): once the Mac sends both, a working agent starts the activity', () => {
+  test('once the Mac sends both, a working agent starts the activity', () => {
     const { process, kinds } = setup();
     process(T0, [workingOnOlderMac('s1')]);
     process(T0 + 5_000, [working('s1', T0)]);
@@ -281,14 +281,14 @@ describe('a computer without host changes H1a and H1b (D-063)', () => {
 });
 
 describe('Settings switch', () => {
-  test('REQ-LIVEACT-005 AC1: switching it off ends the running activity', () => {
+  test('switching it off ends the running activity', () => {
     const { process, kinds } = setup();
     process(T0, [working('s1')]);
     process(T0 + 5_000, [working('s1')], false);
     assert.deepEqual(kinds(), ['request', 'end']);
   });
 
-  test('REQ-LIVEACT-005 AC2: while it is off an agent starting to work starts nothing', () => {
+  test('while it is off an agent starting to work starts nothing', () => {
     const { process, kinds } = setup();
     process(T0, [idle('s1')], false);
     process(T0 + 5_000, [working('s1')], false);
@@ -307,7 +307,7 @@ describe('updates', () => {
     return fake.calls.filter((call) => call.content !== undefined);
   }
 
-  test('REQ-LIVEACT-006 AC1: no update across working, waiting and finished carries an alert configuration', () => {
+  test('no update across working, waiting and finished carries an alert configuration', () => {
     const sent = updatesAcrossTransitions();
     assert.deepEqual(
       sent.map((call) => call.kind),
@@ -316,7 +316,7 @@ describe('updates', () => {
     for (const call of sent) assert.deepEqual(Object.keys(call.content ?? {}).sort(), ['staleDate', 'state']);
   });
 
-  test('REQ-LIVEACT-007 AC1: every content sent carries a stale date one stale interval after its data time', () => {
+  test('every content sent carries a stale date one stale interval after its data time', () => {
     for (const call of updatesAcrossTransitions()) {
       const content = call.content;
       assert.ok(content !== undefined);
@@ -325,7 +325,7 @@ describe('updates', () => {
     }
   });
 
-  test('REQ-LIVEACT-007 AC1: unchanged content is sent again once a minute so the stale date moves on', () => {
+  test('unchanged content is sent again once a minute so the stale date moves on', () => {
     const { process, kinds } = setup();
     process(T0, [working('s1')]);
     process(T0 + 5_000, [working('s1')]);

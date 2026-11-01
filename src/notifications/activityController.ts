@@ -1,17 +1,17 @@
 /**
- * When the one Live Activity starts, updates and ends (REQ-LIVEACT-004..007), from the content state the app
+ * When the one Live Activity starts, updates and ends, from the content state the app
  * builds on every summary refresh (`contentState.ts`). The adapter is ActivityKit behind the native module in
  * the app, and a fake in the tests.
  *
- * - Start: while the setting is on, every computer with agents sends host changes H1a and H1b, and an agent
- *   works or waits and none runs (REQ-LIVEACT-001, -004, D-063). An activity that ended outside the app (the
+ * - Start: while the setting is on, every computer with agents sends start times and the attention kind, and an agent
+ *   works or waits and none runs. An activity that ended outside the app (the
  *   user removed it, or iOS ended it after 8 hours) is not started again on the next refresh; the next working
- *   stint that begins starts a new one: a working agent whose session or `workingStartedAt` (H1a) the last
+ *   stint that begins starts a new one: a working agent whose session or `workingStartedAt` the last
  *   refresh did not have, among all working agents, also those without a row and the same session's next turn.
  * - Update: when the content changed, and once a minute while the data stays fresh, so its stale date moves
- *   on while the app runs (REQ-LIVEACT-007). No update carries an alert or a sound (REQ-LIVEACT-006).
- * - End: 15 minutes after the last agent stopped working or waiting (REQ-LIVEACT-004), and at once when the
- *   setting is switched off (REQ-LIVEACT-005) or a computer with agents lacks H1a or H1b (D-063: no wrong
+ *   on while the app runs. No update carries an alert or a sound.
+ * - End: 15 minutes after the last agent stopped working or waiting, and at once when the
+ *   setting is switched off or a computer with agents sends no start times or attention kind (no wrong
  *   values, so no activity until that Mac is updated).
  *
  * Kept free of React Native so it is testable under `bun test`.
@@ -19,7 +19,7 @@
 
 import type { LiveActivityContentState } from './contentState';
 
-/** What reaches ActivityKit. There is deliberately no alert configuration: the notification carries it (D-020 item 5). */
+/** What reaches ActivityKit. There is deliberately no alert configuration: the notification carries it. */
 export type ActivityContent = {
   state: LiveActivityContentState;
   /** Epoch ms after which the system marks the content as outdated. */
@@ -43,7 +43,7 @@ export type ActivityControllerDeps<Handle> = {
   readonly adapter: LiveActivityAdapter;
   readonly now: () => number;
   readonly timers: ActivityTimers<Handle>;
-  /** A failed ActivityKit call, for the app log (FL-SML-02). */
+  /** A failed ActivityKit call, for the app log. */
   readonly onError: (message: string) => void;
 };
 
@@ -51,7 +51,7 @@ export type ActivityController = {
   /**
    * Applies the latest content; `workingStints` the keys of every working agent (`workingStints` in
    * `contentState.ts`), `enabled` the Settings switch (`liveActivityEnabled`), `hostsCurrent` false while any
-   * computer with agents lacks H1a or H1b (`computersNeedingUpdate`).
+   * computer with agents sends no start times or attention kind (`computersNeedingUpdate`).
    */
   process: (
     state: LiveActivityContentState,
@@ -61,10 +61,10 @@ export type ActivityController = {
   ) => void;
 };
 
-/** The activity ends this long after the last agent stopped working or waiting (D-020 item 5). */
+/** The activity ends this long after the last agent stopped working or waiting. */
 export const END_AFTER_IDLE_MS = 15 * 60_000;
 /**
- * The content counts as outdated this long after its data time (freiheitsgrad of REQ-LIVEACT-007): long enough
+ * The content counts as outdated this long after its data time: long enough
  * that a refresh or two that fail on the way do not flag it, short enough that a suspended app is visible.
  */
 export const STALE_AFTER_MS = 2 * 60_000;

@@ -4,8 +4,8 @@
  * agent tabs whose native entries died while backgrounded, so the user should never
  * have to tap "Reconnect" after simply reopening the app.
  *
- * The same lifecycle runs the app's one mobile-summary poll (`src/inventory/summaryRefresh.ts`,
- * REQ-LIVEACT-010): in the foreground with a machine selected, on every screen.
+ * The same lifecycle runs the app's one mobile-summary poll (`src/inventory/summaryRefresh.ts`):
+ * in the foreground with a machine selected, on every screen.
  *
  * Foreground/background is also what flips attach tabs between the zmx
  * visible and hidden client states; that policy lives in

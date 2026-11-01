@@ -1,6 +1,6 @@
 /**
- * What the Live Activity switch controls, drawn once with sample agents (mockups/live-activity, "Live
- * Activity an": "eine Vorschau, damit klar ist, was der Schalter steuert", approved with D-037). A picture of
+ * What the Live Activity switch controls, drawn once with sample agents (the approved
+ * mockup's preview, so that it is clear what the switch controls). A picture of
  * the Lock Screen card, not live data: the real one is rendered by the widget extension
  * (modules/ghostex-live-activity/ios/Extension/GhostexActivityViews.swift), whose colours and words it repeats.
  */

@@ -240,7 +240,7 @@ export default function SessionsScreen({ navigation }: Props) {
     }
   }, []);
 
-  // The summary poll is the app's own (src/app/lifecycle.ts, REQ-LIVEACT-010): it runs on every screen while
+  // The summary poll is the app's own (src/app/lifecycle.ts): it runs on every screen while
   // the app is in the foreground and a machine is selected, so this screen only hydrates its own stores.
   useFocusEffect(
     useCallback(() => {

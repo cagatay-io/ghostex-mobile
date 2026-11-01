@@ -1,23 +1,19 @@
 /**
- * The Live Activity's content state (REQ-LIVEACT-001..003, -011; `schemas/live-activity-content-state.schema.json`),
- * built from the mobile summaries the app already polls (D-026), never from the notification feed. A row
- * carries the agent, the project, the state, when that state began and the session's identifiers; no prompt,
- * reply or title text (D-010, D-016).
+ * The Live Activity's content state, built from the mobile summaries the app already polls, never from the
+ * notification feed. A row carries the agent, the project, the state, when that state began and the session's
+ * identifiers; no prompt, reply or title text.
  *
- * Which host data a row needs (research/spike-host-data.md §1): `startedAt` of a working row is the top-level
- * `workingStartedAt` (host change H1a), which means only the current run; of a waiting row `attention.enteredAt`; of
- * a finished row `attention.workingStartedAt` (H1a), when the stint that ended began, so the row shows how long the
- * agent worked (`attention.enteredAt` − `attention.workingStartedAt`, as the approved mockup), while the 2-minute
- * window runs from `attention.enteredAt`. Finished vs waiting is `attention.kind` (H1b: `finished` or `needsInput`).
- * A waiting row says "has a question" when the session has an open question card (`awaitingAnswer`, read only
- * from a computer whose summary announces it in `capabilities`) or a counted pending question
- * (`pendingQuestionCount`). The Live Activity runs only when
- * every computer with agents sends H1a and H1b (D-063, REQ-LIVEACT-004); `computersNeedingUpdate` names the ones
- * that do not. A waiting agent without `attention.enteredAt` is counted but gets no row (Main's derivation of
- * 2026-10-29): no row without its time.
- * Likewise a finished agent without `attention.workingStartedAt`, which a current computer leaves out when the
- * attention came from idle (also after an acknowledgement): no row, since its duration is unknown, but its computer
- * is current.
+ * Which host data a row needs: `startedAt` of a working row is the top-level `workingStartedAt`, which means only the
+ * current run; of a waiting row `attention.enteredAt`; of a finished row `attention.workingStartedAt`, when the stint
+ * that ended began, so the row shows how long the agent worked (`attention.enteredAt` − `attention.workingStartedAt`,
+ * as the approved mockup), while the 2-minute window runs from `attention.enteredAt`. Finished vs waiting is
+ * `attention.kind` (`finished` or `needsInput`). A waiting row says "has a question" when the session has an open
+ * question card (`awaitingAnswer`, read only from a computer whose summary announces it in `capabilities`) or a
+ * counted pending question (`pendingQuestionCount`). The Live Activity runs only when every computer with agents
+ * sends these start times and `attention.kind`; `computersNeedingUpdate` names the ones that do not. A waiting agent
+ * without `attention.enteredAt` is counted but gets no row: no row without its time. Likewise a finished agent
+ * without `attention.workingStartedAt`, which a current computer leaves out when the attention came from idle (also
+ * after an acknowledgement): no row, since its duration is unknown, but its computer is current.
  *
  * The computer drops `attention` once a finished session is acknowledged on any device, so the app remembers every
  * finished event it has seen (`FinishedMemory`) and keeps it a row candidate for its 2 minutes. The memory lives
@@ -37,11 +33,11 @@ export type LiveActivityRow = {
   agentName: string;
   project: string;
   state: LiveActivityAgentState;
-  /** Working: since the stint began (H1a); waiting: since the agent waits; finished: when its last stint began. */
+  /** Working: since the stint began; waiting: since the agent waits; finished: when its last stint began. */
   startedAt: string;
   finishedAt?: string;
   expiresAt?: string;
-  /** Only on waiting rows with a pending question (REQ-LIVEACT-011). */
+  /** Only on waiting rows with a pending question. */
   hasQuestion?: true;
 };
 
@@ -61,14 +57,14 @@ export type ActivitySource = {
   loadedAt: number;
 };
 
-/** Four rows plus "+N more" (D-020 item 5). */
+/** Four rows plus "+N more". */
 export const MAX_ACTIVITY_ROWS = 4;
-/** A finished agent stays a row candidate this long (D-020 item 5, REQ-LIVEACT-003). */
+/** A finished agent stays a row candidate this long. */
 export const FINISHED_ROW_MS = 120_000;
-/** `agentName` and `project` are cut to this many characters (REQ-LIVEACT-001, schema `maxLength`). */
+/** `agentName` and `project` are cut to this many characters. */
 export const MAX_NAME_CHARACTERS = 64;
 
-/** The schema's pattern for `target.machineId` and `target.sessionId`: printable ASCII, 1 to 64 characters. */
+/** The pattern for `target.machineId` and `target.sessionId`: printable ASCII, 1 to 64 characters. */
 const TARGET_ID = /^[\x21-\x7e]{1,64}$/;
 
 const STATE_RANK: Record<LiveActivityAgentState, number> = { waiting: 0, working: 1, finished: 2 };
@@ -118,11 +114,11 @@ function agentNameOf(session: GhostexSession): string {
 }
 
 /**
- * The computers that do not send host changes H1a and H1b (D-063): a working agent without `workingStartedAt`,
- * or an agent in attention without `attention.kind`. A finished agent without `attention.workingStartedAt` does
- * not count: a current computer leaves it out when the attention came from idle. A summary without working or
- * attention agents proves nothing and is not listed. While
- * any computer is listed, no Live Activity runs (REQ-LIVEACT-004).
+ * The computers that do not send the start times and the attention kind yet: a working agent without
+ * `workingStartedAt`, or an agent in attention without `attention.kind`. A finished agent without
+ * `attention.workingStartedAt` does not count: a current computer leaves it out when the attention came from idle. A
+ * summary without working or attention agents proves nothing and is not listed. While any computer is listed, no Live
+ * Activity runs.
  */
 export function computersNeedingUpdate(sources: readonly ActivitySource[]): string[] {
   return sources
@@ -144,7 +140,7 @@ function candidateFor(
   now: number,
 ): Candidate | null {
   const agentName = agentNameOf(session);
-  // A row names its agent (schema `minLength` 1); a session without one is a plain terminal, not an agent.
+  // A row names its agent (never empty); a session without one is a plain terminal, not an agent.
   if (agentName.length === 0) return null;
   const attention = session.activity === 'attention';
   // An open question card counts only from a computer that announces the field; the counted questions always.
@@ -159,7 +155,7 @@ function candidateFor(
 
   if (attention && session.attentionKind === 'finished' && !waitsOnUser) {
     const finishedAt = hostTime(session.attentionEnteredAt);
-    // Only agents that finished less than 2 minutes ago are candidates (REQ-LIVEACT-003).
+    // Only agents that finished less than 2 minutes ago are candidates.
     if (finishedAt === null || now - finishedAt >= FINISHED_ROW_MS) return null;
     const workStart = hostTime(session.attentionWorkingStartedAt);
     if (!routable || workStart === null || workStart > finishedAt)
@@ -214,7 +210,7 @@ function compareShown(a: Shown, b: Shown): number {
  * The content state at `now` (epoch ms) for every working and waiting agent plus every agent that finished
  * less than 2 minutes ago, over all given computers. `counts` hold every working and waiting agent (finished
  * excluded); `moreCount` the candidates without a row, including a candidate whose identifiers cannot be
- * routed (outside the schema's id pattern) or whose start the summary does not give, which is counted but
+ * routed (outside the id pattern) or whose start the summary does not give, which is counted but
  * never given a row. The finished agents come from `memory`, which this call updates with what the summaries
  * show; without one, only the finishes the summaries still show count.
  */
@@ -264,7 +260,7 @@ export function buildContentState(
 
 /**
  * One key per working agent over all given computers: its computer, its session and the start of its current
- * stint (`workingStartedAt`, H1a). A key that was not there before is a working stint that began (REQ-LIVEACT-004):
+ * stint (`workingStartedAt`). A key that was not there before is a working stint that began:
  * an agent that starts working, also the same session starting its next turn between two refreshes (a new
  * `workingStartedAt`), and also an agent without a row (behind four rows, in `moreCount`). Not part of the
  * content state: the activity never shows it.

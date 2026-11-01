@@ -3,7 +3,7 @@ import SwiftUI
 import WidgetKit
 
 /// The widget extension `plugins/withLiveActivity.js` adds to the app: the presentations of the one Ghostex
-/// Live Activity (REQ-LIVEACT-008). The app starts and updates it (`GhostexLiveActivityModule.swift`); the
+/// Live Activity. The app starts and updates it (`GhostexLiveActivityModule.swift`); the
 /// extension only renders the content state it is given and never reaches the network.
 @main
 struct GhostexLiveActivityBundle: WidgetBundle {

@@ -1,11 +1,11 @@
 /**
- * Runs the Live Activity for the app's lifetime (S8): every change of the inventory, the machines or the
+ * Runs the Live Activity for the app's lifetime: every change of the inventory, the machines or the
  * settings rebuilds the content state from the polled summaries and hands it to the controller, which starts,
  * updates or ends the activity through ActivityKit. iOS only; on Android the native module does not exist and
- * nothing is installed (REQ-NFR-005).
+ * nothing is installed.
  *
- * `refreshLiveActivity` is the local update entry point for a short background wake (D-060: the push slice's
- * silent-push handler calls it); it reads every summary again and resolves once ActivityKit has the result.
+ * `refreshLiveActivity` is the local update entry point for a short background wake (a silent-push handler calls it);
+ * it reads every summary again and resolves once ActivityKit has the result.
  */
 
 import { useMemo } from 'react';
@@ -27,7 +27,7 @@ import {
 
 type NativeLiveActivity = NonNullable<typeof GhostexLiveActivity>;
 
-/** iOS with the native module in the build (REQ-NFR-005: Android and older builds have none). */
+/** iOS with the native module in the build (Android and older builds have none). */
 export const LIVE_ACTIVITY_SUPPORTED = Platform.OS === 'ios' && GhostexLiveActivity !== null;
 
 let installed = false;
@@ -82,8 +82,8 @@ function currentSources(): ActivitySource[] {
 }
 
 /**
- * The names of the enabled computers whose Ghostex is too old for the Live Activity (D-063), for Settings
- * (REQ-LIVEACT-004, -005); empty while every computer with agents sends what the activity needs.
+ * The names of the enabled computers whose Ghostex is too old for the Live Activity, for Settings;
+ * empty while every computer with agents sends what the activity needs.
  */
 export function useComputersNeedingUpdate(): string[] {
   const machines = useMachinesStore((state) => state.machines);
@@ -113,7 +113,7 @@ function sameInputs(sources: readonly ActivitySource[], enabled: boolean): boole
 /** Brings the activity in line with the latest summaries and the setting. */
 function syncLiveActivity(): void {
   const settings = useSettingsStore.getState();
-  // The switch is a stored setting: nothing starts or ends before it is read (FL-STA-04).
+  // The switch is a stored setting: nothing starts or ends before it is read.
   if (controller === null || !settings.hydrated) return;
   const enabled = settings.settings.liveActivityEnabled;
   const sources = currentSources();
@@ -150,7 +150,7 @@ export function initLiveActivity(): void {
 
 /**
  * Reads every summary again and applies it to the activity; resolves once ActivityKit has the update. For a
- * short background wake, where the foreground poll does not run (D-060).
+ * short background wake, where the foreground poll does not run.
  */
 export async function refreshLiveActivity(): Promise<void> {
   await useInventoryStore.getState().refreshAll();
