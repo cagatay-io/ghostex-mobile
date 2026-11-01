@@ -4,9 +4,12 @@
  * thumbnail, the newest lines of its screen at a size that stays readable instead of the whole screen shrunk. A tap
  * opens the session and a long press opens its menu, through the same actions as its list row. When the badge changes
  * while the tile is on screen, a ring in the new status colour marks the tile for a moment.
+ *
+ * In the Unified list (`UnifiedSessionTile`) the badge is the Unified card's own status (its icon, word and working
+ * timer, or its age), which the Unified list draws and hands over, so a tile says what its card says.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View, type ViewInstance } from 'react-native';
 
 import { AGENT_ICONS } from '../../assets/agentIcons.generated';
@@ -16,7 +19,7 @@ import { useRowLabelClock } from '../../components/sessions/SessionRow';
 import { COMPLETION_FLASH_MS, rowTimeLabel, shownFoldedStatus } from '../../components/sessions/sessionStatus';
 import { OverlappedDots } from '../../components/sessions/StatusDotStack';
 import type { SessionItem } from '../../contract/grouping';
-import { agentIconTint, resolveAgentIconId } from '../../contract/mobileSummary';
+import { agentIconTint, resolveAgentIconId, type GhostexSession } from '../../contract/mobileSummary';
 import { SessionCopy, WallCopy } from '../../copy';
 import { GhostexPalette, GhostexRadii, SidebarPalette } from '../../theme/palette';
 import type { SidebarAppearance } from '../../theme/sidebarAppearance';
@@ -39,8 +42,6 @@ export type SessionTileProps = {
 
 export default function SessionTile({ item, sessionKey, appearance, onPress, onMenu }: SessionTileProps) {
   const { session } = item;
-  const tileRef = useRef<ViewInstance | null>(null);
-  const preview = useWallPreviewStore((state) => state.previews[sessionKey]);
   const nowMs = useRowLabelClock(session);
   // A coordinator whose threads are folded shows its row's stack in place of its own dot and time.
   const foldedStatus = shownFoldedStatus(session, item.nesting?.foldedStatus);
@@ -48,6 +49,72 @@ export default function SessionTile({ item, sessionKey, appearance, onPress, onM
   const timeLabel = foldedStatus !== undefined ? null : rowTimeLabel(session, nowMs);
   // The ring takes the colour of the badge's front dot (the status the session changed to).
   const ring = useChangeRing(badge?.kind ?? null, badge?.dots.at(-1) ?? null);
+  return (
+    <TileFrame
+      session={session}
+      sessionKey={sessionKey}
+      appearance={appearance}
+      statusWord={badge?.label ?? timeLabel}
+      ring={ring}
+      onPress={onPress}
+      onMenu={onMenu}
+    >
+      {badge !== null || timeLabel !== null ? (
+        <View style={styles.status}>
+          {badge !== null ? (
+            <View style={styles.badge}>
+              <OverlappedDots colors={badge.dots} size={STATUS_DOT_SIZE} ringColor={appearance.card} />
+              <Text style={[styles.badgeLabel, { color: appearance.foreground }]}>{badge.label}</Text>
+            </View>
+          ) : null}
+          {timeLabel !== null ? <Text style={styles.time}>{timeLabel}</Text> : null}
+        </View>
+      ) : null}
+    </TileFrame>
+  );
+}
+
+export type UnifiedSessionTileProps = {
+  session: GhostexSession;
+  /** `machineId:sessionId`, under which the thumbnail is kept. */
+  sessionKey: string;
+  appearance: SidebarAppearance;
+  /** The Unified card's status slot, drawn by the Unified list. */
+  slot: ReactElement;
+  /** The card's status word, else its age, for VoiceOver. */
+  statusWord: string | null;
+  /** The card's status, whose change rings the tile in `statusColor`; null without one. */
+  status: string | null;
+  statusColor: string | null;
+  onPress: () => void;
+  onMenu: (anchor: MenuAnchor) => void;
+};
+
+export function UnifiedSessionTile({ slot, statusWord, status, statusColor, ...frame }: UnifiedSessionTileProps) {
+  const ring = useChangeRing(status, statusColor);
+  return (
+    <TileFrame {...frame} statusWord={statusWord} ring={ring}>
+      <View style={styles.status}>{slot}</View>
+    </TileFrame>
+  );
+}
+
+type TileFrameProps = {
+  session: GhostexSession;
+  sessionKey: string;
+  appearance: SidebarAppearance;
+  statusWord: string | null;
+  ring: string | null;
+  onPress: () => void;
+  onMenu: (anchor: MenuAnchor) => void;
+  /** The status line under the title. */
+  children: ReactNode;
+};
+
+/** The tile around its status line: icon, title, thumbnail, the change ring, the tap and the long press. */
+function TileFrame({ session, sessionKey, appearance, statusWord, ring, onPress, onMenu, children }: TileFrameProps) {
+  const tileRef = useRef<ViewInstance | null>(null);
+  const preview = useWallPreviewStore((state) => state.previews[sessionKey]);
   const iconId = resolveAgentIconId(
     session.agentIcon,
     session.agentName.length > 0 ? session.agentName : session.agent,
@@ -59,7 +126,7 @@ export default function SessionTile({ item, sessionKey, appearance, onPress, onM
     <Pressable
       ref={tileRef}
       accessibilityRole="button"
-      accessibilityLabel={WallCopy.tile(title, badge?.label ?? timeLabel)}
+      accessibilityLabel={WallCopy.tile(title, statusWord)}
       style={({ pressed }) => [
         styles.tile,
         { backgroundColor: pressed ? appearance.cardActive : appearance.card, borderColor: appearance.border },
@@ -73,17 +140,7 @@ export default function SessionTile({ item, sessionKey, appearance, onPress, onM
           <Text style={[styles.title, { color: appearance.foreground }]} numberOfLines={1}>
             {title}
           </Text>
-          {badge !== null || timeLabel !== null ? (
-            <View style={styles.status}>
-              {badge !== null ? (
-                <View style={styles.badge}>
-                  <OverlappedDots colors={badge.dots} size={STATUS_DOT_SIZE} ringColor={appearance.card} />
-                  <Text style={[styles.badgeLabel, { color: appearance.foreground }]}>{badge.label}</Text>
-                </View>
-              ) : null}
-              {timeLabel !== null ? <Text style={styles.time}>{timeLabel}</Text> : null}
-            </View>
-          ) : null}
+          {children}
         </View>
       </View>
       <View style={[styles.thumb, { borderTopColor: appearance.border }]}>

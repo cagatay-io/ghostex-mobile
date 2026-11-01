@@ -11,6 +11,10 @@
  * Workspace tiles give way to the filter, which narrows by computer, Space and project as on the
  * desktop. Parking, the project groups' order and the swipe buttons still come from the selected
  * computer. Supersedes the 2026-10-30 decision that the phone follows the computer.
+ *
+ * The session wall (`wall`, the iPhone Duo's inner display with tiles chosen): each run of cards and shelf rows is
+ * drawn as rows of tiles (`screens/wall/`) in the list's order, its group and shelf headers keeping their place; a
+ * tile's badge is its card's status, a tap and a long press do what the card's do.
  */
 
 import { useEffect, useMemo, useReducer, useRef, useState, type ReactElement } from 'react';
@@ -48,14 +52,20 @@ import { SNOOZE_PRESETS, snoozeWakeAt } from '../../contract/unified/snooze';
 import { chatMachineLink } from '../../chat/rust/machine-link';
 import ContextMenu, { type ContextMenuItem, type MenuAnchor } from '../../components/sessions/ContextMenu';
 import { ds, SIDEBAR_MUTED, SIDEBAR_TEXT } from '../../components/sessions/rows';
+import { lastInteractionLabel } from '../../components/sessions/sessionStatus';
 import { EditGlyph, FilterGlyph, FolderPlusGlyph, AlarmGlyph } from '../../components/sessions/unified/glyphs';
 import { PlusGlyph } from '../../components/sessions/icons';
-import { UnifiedCard, UnifiedGroupHeader, UnifiedShelfHeader, UnifiedSlimRow } from '../../components/sessions/unified/UnifiedCard';
+import { StatusSlot, statusLook, UnifiedCard, UnifiedGroupHeader, UnifiedShelfHeader, UnifiedSlimRow } from '../../components/sessions/unified/UnifiedCard';
 import type { MachineInventory } from '../../inventory/store';
 import { useSettingsStore } from '../../settings/store';
 import { machineDisplayLabel, type MachineRecord } from '../../machines/store';
 import { attachSessionKey } from '../../terminal/sessions';
+import type { SidebarAppearance } from '../../theme/sidebarAppearance';
 import { resolveWorkspaceId } from '../../workspaces/workspaceFilter';
+import { tileRunsOf } from '../wall/layout';
+import { sessionTarget, type PreviewTarget } from '../wall/previews';
+import { UnifiedSessionTile } from '../wall/SessionTile';
+import WallTileRow from '../wall/WallTileRow';
 import { lifecycleSessionAction, parkSessionAction, type BulkSessionAction, type Overlay } from './session-actions';
 import { shelfOpen, useUnifiedListStore } from './unified-list-store';
 
@@ -100,7 +110,11 @@ type UnifiedListItem =
   | { kind: 'slim'; key: string; shelf: UnifiedShelf; row: UnifiedRow<GhostexSession> }
   | { kind: 'gap'; key: string }
   | { kind: 'divider'; key: string }
-  | { kind: 'empty'; key: string; text: string };
+  | { kind: 'empty'; key: string; text: string }
+  | { kind: 'tiles'; key: string; rows: UnifiedRow<GhostexSession>[] };
+
+/** The items the session wall draws as tiles: every session the list shows. */
+type TileItem = Extract<UnifiedListItem, { kind: 'card' | 'slim' }>;
 
 export type UnifiedListDeps = {
   machines: MachineRecord[];
@@ -114,6 +128,8 @@ export type UnifiedListDeps = {
   runBulkSessionActions: (target: MachineRecord, actions: readonly BulkSessionAction[]) => Promise<void>;
   snoozeSession: (target: MachineRecord, session: GhostexSession, wakeAt: Date | null) => Promise<void>;
   openAddProject: (machineId: string) => void;
+  /** The session wall: tiles this many side by side, drawn in `appearance`; absent or null, the list's cards. */
+  wall?: { columns: number; appearance: SidebarAppearance } | null;
 };
 
 /** A session's row as the long-press menu and the Project list know it. */
@@ -183,6 +199,7 @@ export function useUnifiedList(deps: UnifiedListDeps) {
     runBulkSessionActions,
     snoozeSession,
     openAddProject,
+    wall = null,
   } = deps;
   const selectedSummary = selectedMachine === null ? null : (inventoriesByMachineId[selectedMachine.id]?.summary ?? null);
   const settingsHydrated = useSettingsStore((state) => state.hydrated);
@@ -345,6 +362,24 @@ export function useUnifiedList(deps: UnifiedListDeps) {
     return list;
   }, [view, toggledShelves, computers, groups, foldedGroups, layout.groupByProject]);
 
+  // The session wall: each run of cards and shelf rows as rows of tiles; every other item keeps its place.
+  const wallColumns = wall?.columns ?? null;
+  const shownItems = useMemo((): UnifiedListItem[] => {
+    if (wallColumns === null) return items;
+    return tileRunsOf(items, wallColumns, (item): item is TileItem => item.kind === 'card' || item.kind === 'slim').map(
+      (run): UnifiedListItem =>
+        run.kind === 'row' ? run.item : { kind: 'tiles', key: run.key, rows: run.items.map((item) => item.row) },
+    );
+  }, [items, wallColumns]);
+  /** The sessions drawn as tiles, whose thumbnails the wall reads. */
+  const wallTargets = useMemo(
+    (): PreviewTarget[] =>
+      shownItems.flatMap((item) =>
+        item.kind === 'tiles' ? item.rows.map((row) => sessionTarget(row.machine, row.session.source!)) : [],
+      ),
+    [shownItems],
+  );
+
   const machineById = (machineId: string): MachineRecord | null =>
     machines.find((machine) => machine.id === machineId) ?? null;
   const summaryOf = (machineId: string) => inventoriesByMachineId[machineId]?.summary ?? null;
@@ -403,6 +438,31 @@ export function useUnifiedList(deps: UnifiedListDeps) {
           onToggle={() => toggleGroup(item.repoKey)}
           onNew={() => openGroupNewSession(item.repoKey)}
         />
+      );
+    }
+    if (item.kind === 'tiles') {
+      if (wall === null) return null;
+      return (
+        <WallTileRow firstKey={item.rows[0].id} columns={wall.columns} style={styles.tiles}>
+          {item.rows.map((row) => {
+            const tileTarget = machineById(row.machine);
+            const tileSession = row.session.source!;
+            return (
+              <UnifiedSessionTile
+                key={row.id}
+                session={tileSession}
+                sessionKey={attachSessionKey(row.machine, tileSession.sessionId)}
+                appearance={wall.appearance}
+                slot={<StatusSlot row={row} nowMs={nowMs} />}
+                statusWord={row.status ?? lastInteractionLabel(tileSession, nowMs)}
+                status={row.status}
+                statusColor={row.status === null ? null : statusLook(row.status).color}
+                onPress={() => tileTarget !== null && void attach(tileTarget, tileSession)}
+                onMenu={() => openMenu(row)}
+              />
+            );
+          })}
+        </WallTileRow>
       );
     }
     const { row } = item;
@@ -593,7 +653,7 @@ export function useUnifiedList(deps: UnifiedListDeps) {
   );
 
   const keyExtractor = (item: UnifiedListItem): string => item.key;
-  return { on, header, overlays, items, renderItem, keyExtractor, view };
+  return { on, header, overlays, items: shownItems, renderItem, keyExtractor, view, wallTargets };
 }
 
 const styles = StyleSheet.create({
@@ -626,6 +686,8 @@ const styles = StyleSheet.create({
   },
   gap: { height: ds(10) },
   divider: { height: StyleSheet.hairlineWidth, marginVertical: ds(6), marginHorizontal: ds(9), backgroundColor: 'rgba(255,255,255,0.12)' },
+  /* A row of tiles keeps the cards' side inset. */
+  tiles: { paddingHorizontal: ds(3) },
   empty: {
     paddingVertical: ds(26),
     textAlign: 'center',

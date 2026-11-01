@@ -448,8 +448,9 @@ export default function SessionsScreen({ navigation }: Props) {
   /*
    * The session wall: where the window has the fold's divisions (the iPhone Duo's inner display, flat or half
    * folded; the panes' rule in TerminalScreen) the list switches between rows and tiles. Folded, on other iPhones
-   * and on Android it is the list, and the stored choice waits. The tiles' thumbnails are read only while the tiles
-   * are shown on this screen in front (`useWallPreviews` adds the app being in the foreground).
+   * and on Android it is the list, and the stored choice waits. The classic list draws its tiles in `DrawerBlockView`,
+   * the Unified list in `useUnifiedList` (`wall`). The tiles' thumbnails are read only while the tiles are shown on
+   * this screen in front (`useWallPreviews` adds the app being in the foreground), for the list that draws them.
    */
   const foldDivisions = useFoldDivisions();
   const wallOffered = Platform.OS === 'ios' && (foldDivisions?.length ?? 0) > 0;
@@ -462,8 +463,7 @@ export default function SessionsScreen({ navigation }: Props) {
   const [listWidth, setListWidth] = useState(0);
   const barSpace = useVerticalBarSpace();
   const tileColumns = tilesShown ? wallColumns(listWidth - barSpace.left - barSpace.right) : null;
-  const wallTargetList = useMemo(() => (tilesShown ? wallTargets(entries) : []), [tilesShown, entries]);
-  useWallPreviews(tilesShown && isFocused, wallTargetList);
+  const classicWallTargets = useMemo(() => (tilesShown ? wallTargets(entries) : []), [tilesShown, entries]);
   /*
    * Glyph / failed-card retry. The store flips `retrying` synchronously before
    * its first await, so the tab spins for as long as the attempt really takes;
@@ -608,6 +608,7 @@ export default function SessionsScreen({ navigation }: Props) {
       machines.length > 1
         ? setOverlay({ kind: 'machinePicker', purpose: 'addProject' })
         : navigation.navigate('AddProjectSource', { machineId }),
+    wall: tileColumns === null ? null : { columns: tileColumns, appearance: sidebarAppearance },
   });
   useOpenProjectDraftsOnArrival(inventoriesByMachineId, !unified.on);
   const pullRefresh = useCallback((): void => {
@@ -638,6 +639,7 @@ export default function SessionsScreen({ navigation }: Props) {
     selectedInventory,
     unified.on ? null : selectedNotice,
   );
+  useWallPreviews(tilesShown && isFocused, unified.on ? unified.wallTargets : classicWallTargets);
 
   const {
     summaryFor,

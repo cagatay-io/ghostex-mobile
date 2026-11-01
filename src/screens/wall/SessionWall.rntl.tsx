@@ -25,14 +25,17 @@ import { parseMobileSummary } from '../../contract/mobileSummary';
 import { useInventoryStore, type MachineInventory } from '../../inventory/store';
 import { useMachinesStore, type MachineRecord } from '../../machines/store';
 import { useSettingsStore } from '../../settings/store';
+import { useUnifiedListStore } from '../sessions-screen/use-unified-list';
+import { EMPTY_UNIFIED_FILTER } from '../../contract/unified/build';
 import { attachSessionKey, useTerminalStore } from '../../terminal/sessions';
 import SessionsScreen from '../SessionsScreen';
 import type { Preview } from './previews';
 import { useWallPreviewStore } from './previews';
 
-const mockRead = jest.fn((_machine: { id: string }, _projectId: string, sessionId: string): Promise<Preview> =>
-  Promise.resolve({ kind: 'lines', lines: [`${sessionId} first line`, `${sessionId} newest line`] }),
-);
+/** The computer's screen read: two lines naming the session. */
+const readLines = (_machine: { id: string }, _projectId: string, sessionId: string): Promise<Preview> =>
+  Promise.resolve({ kind: 'lines', lines: [`${sessionId} first line`, `${sessionId} newest line`] });
+const mockRead = jest.fn(readLines);
 let mockBarLayout: BarLayout | null = null;
 let mockReport: ((layout: BarLayout) => void) | null = null;
 let mockFocused = true;
@@ -62,7 +65,8 @@ jest.mock('expo-haptics', () => ({
   ImpactFeedbackStyle: { Light: 'light', Medium: 'medium', Heavy: 'heavy' },
 }));
 jest.mock('expo-notifications', () => ({}));
-// The screen also holds the Unified list (off here), whose swipe rows need Reanimated's native runtime: a plain row.
+// The screen also holds the Unified list (on in the Unified tests below), whose swipe rows need Reanimated's native
+// runtime: a plain row.
 jest.mock('../machines-screen/SwipeRevealRow', () => {
   const { View } = jest.requireActual('react-native');
   return { __esModule: true, default: View, SWIPE_REVEAL_WIDTH: 176 };
@@ -473,5 +477,153 @@ describe('half folded like a laptop', () => {
     await scrollList(row('a'));
     expect(visibleBottomOf(row('a'), UPRIGHT)).toBe(ABOVE_FOLD);
     expect(marginTops()).toEqual([undefined, undefined, undefined]);
+  });
+});
+
+describe("in the Unified list (the computer's Sidebar set to Unified)", () => {
+  /** The same three sessions, with the computer asking for the Unified sidebar. */
+  function useUnified(groupByProject: boolean): void {
+    const summary = parseMobileSummary(
+      JSON.stringify({
+        ok: true,
+        sidebarView: 'unified',
+        unifiedGroupByProject: groupByProject,
+        projects: [{ projectId: 'p1', name: 'ghostex-mobile', path: '/work/ghostex-mobile' }],
+        sessions: [
+          wireSession('a', 'Alpha', { activity: 'working' }),
+          wireSession('b', 'Beta', { activity: 'attention' }),
+          wireSession('c', 'Gamma', { pendingQuestionCount: 1 }),
+        ],
+      }),
+    );
+    const inventory = useInventoryStore.getState().inventoriesByMachineId.m1;
+    useInventoryStore.setState({ inventoriesByMachineId: { m1: { ...inventory, summary, serverSummary: summary } } });
+    useUnifiedListStore.setState({
+      hydrated: true,
+      filter: EMPTY_UNIFIED_FILTER,
+      toggledShelves: [],
+      foldedGroups: [],
+    });
+  }
+
+  beforeEach(() => {
+    // A test above makes every read refused and keeps it so (`mockClear` keeps implementations): read lines again.
+    mockRead.mockImplementation(readLines);
+  });
+
+  /** The Unified cards (named by their title alone) in the order the list draws them. */
+  const cardTitles = () =>
+    screen.queryAllByLabelText(/^(Alpha|Beta|Gamma)$/).map((node) => node.props.accessibilityLabel);
+  /** The tiles (named by title and status) in the order the wall draws them. */
+  const tileTitles = () =>
+    screen.queryAllByLabelText(/^(Alpha|Beta|Gamma), /).map((node) => node.props.accessibilityLabel.split(',')[0]);
+
+  test("tiles chosen: the Unified list's sessions become tiles in its order, under its group and shelf headers", async () => {
+    useUnified(true);
+    await renderScreen(UPRIGHT, [FLAT_UPRIGHT]);
+    // The Moving shelf starts folded (upstream's default); opened, every session has its card.
+    await press('Moving (1)');
+    const listOrder = cardTitles();
+    expect(listOrder.slice().sort()).toEqual(['Alpha', 'Beta', 'Gamma']);
+    await press('Show as tiles');
+    expect(cardTitles()).toEqual([]);
+    expect(tileTitles()).toEqual(listOrder);
+    // The project group's header and the Moving shelf's header stay above their tiles.
+    expect(screen.getByLabelText('ghostex-mobile (3)')).toBeTruthy();
+    expect(screen.getByLabelText('Moving (1)')).toBeTruthy();
+    // Each tile shows its session's newest lines, as in the classic list.
+    expect(screen.getByText('a newest line')).toBeTruthy();
+    expect(screen.getByText('b first line')).toBeTruthy();
+  });
+
+  test("a tile's status is the Unified card's word, so it matches the list", async () => {
+    useUnified(false);
+    await renderScreen(UPRIGHT, [FLAT_UPRIGHT]);
+    await press('Moving (1)');
+    await press('Show as tiles');
+    expect(tile(/^Alpha, Working$/)).toBeTruthy();
+    expect(tile(/^Beta, Done$/)).toBeTruthy();
+    expect(tile(/^Gamma, Question$/)).toBeTruthy();
+    // The card's status slot carries the word as its label and draws only the icon (no status word in the sidebar).
+    expect(screen.getByLabelText('Done')).toBeTruthy();
+    expect(screen.getByLabelText('Question')).toBeTruthy();
+  });
+
+  test('only the tiles on screen are read: a folded shelf or group is not, the list is not', async () => {
+    useUnified(true);
+    await renderScreen(UPRIGHT, [FLAT_UPRIGHT]);
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(20_000);
+    });
+    expect(mockRead).not.toHaveBeenCalled();
+    await press('Show as tiles');
+    // The Moving shelf starts folded: Alpha, working, has no tile and is not read.
+    expect(readSessions().sort()).toEqual(['b', 'c']);
+    expect(tile(/^Alpha, /)).toBeNull();
+    mockRead.mockClear();
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(20_000);
+    });
+    expect(mockRead).not.toHaveBeenCalled();
+    // The shelf opened: Alpha's tile is read, and again every 5 s while it works.
+    await press('Moving (1)');
+    expect(readSessions()).toEqual(['a']);
+    mockRead.mockClear();
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(5_000);
+    });
+    expect(readSessions()).toEqual(['a']);
+    // The shelf folded again: no more reads.
+    await press('Moving (1)');
+    mockRead.mockClear();
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(20_000);
+    });
+    expect(mockRead).not.toHaveBeenCalled();
+    // The group folded: no tile, no read.
+    await press('ghostex-mobile (3)');
+    expect(tileTitles()).toEqual([]);
+    mockRead.mockClear();
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(20_000);
+    });
+    expect(mockRead).not.toHaveBeenCalled();
+    // Back to the list (group open): nothing is read.
+    await press('ghostex-mobile (3)');
+    await press('Show as list');
+    mockRead.mockClear();
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(20_000);
+    });
+    expect(mockRead).not.toHaveBeenCalled();
+  });
+
+  test('a tap opens the session as its Unified card does; a long press opens the Unified menu', async () => {
+    useUnified(false);
+    await renderScreen(UPRIGHT, [FLAT_UPRIGHT]);
+    await press('Beta');
+    const fromCard = navigation.navigate.mock.calls.slice();
+    const tabsFromCard = useTerminalStore.getState().tabs;
+    expect(fromCard).toEqual([
+      ['Terminal', { sessionKey: attachSessionKey('m1', 'b'), machineId: 'm1', title: 'Beta' }],
+    ]);
+
+    useTerminalStore.setState({ tabs: [], selectedSessionKey: null });
+    navigation.navigate.mockClear();
+    await press('Show as tiles');
+    // Opened, Beta no longer waits, so its tile is named by its title and whatever its card now says.
+    await press(/^Beta(, |$)/);
+    expect(navigation.navigate.mock.calls).toEqual(fromCard);
+    expect(useTerminalStore.getState().tabs).toEqual(tabsFromCard);
+
+    measureInWindow.mockImplementation((onFrame: (...frame: number[]) => void) => onFrame(12, 300, 300, 260));
+    await act(async () => {
+      fireEvent(screen.getByLabelText(/^Beta(, |$)/), 'longPress');
+    });
+    await settle();
+    // The Unified card's menu: Rename, and Snooze, which only the Unified list's menu offers.
+    expect(screen.getByLabelText('Close menu')).toBeTruthy();
+    expect(screen.getByText('Rename')).toBeTruthy();
+    expect(screen.getByText('Snooze')).toBeTruthy();
   });
 });

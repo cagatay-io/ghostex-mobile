@@ -47,8 +47,9 @@ import type {
 import type { GhostexAgentLauncher, GhostexMobileSummary } from '../../contract/mobileSummary';
 import { colorWithOpacity, SidebarPalette } from '../../theme/palette';
 import type { SidebarAppearance } from '../../theme/sidebarAppearance';
-import { tileRuns, WALL_TILE_GAP } from '../wall/layout';
+import { tileRuns } from '../wall/layout';
 import SessionTile from '../wall/SessionTile';
+import WallTileRow from '../wall/WallTileRow';
 
 export type DrawerBlockActions = {
   toggleProject: (machineId: string, header: ProjectHeaderItem) => void;
@@ -175,9 +176,9 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
     }
   };
 
-  /** One grid row of the session wall: its tiles, then empty places so every tile keeps the column's width. */
+  /** One grid row of the session wall (`WallTileRow`). */
   const tileRow = (key: string, items: readonly SessionItem[], columns: number): ReactElement => (
-    <View key={key} testID={`wall-row-${items[0].key}`} style={styles.tileRow}>
+    <WallTileRow key={key} firstKey={items[0].key} columns={columns}>
       {items.map((item) => (
         <SessionTile
           key={item.key}
@@ -188,10 +189,7 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
           onMenu={(anchor) => actions.sessionMenu(machineId, item, anchor)}
         />
       ))}
-      {Array.from({ length: columns - items.length }, (_, index) => (
-        <View key={`place:${index}`} style={styles.tilePlace} />
-      ))}
-    </View>
+    </WallTileRow>
   );
 
   /** A fold's rows as units: each a row, or on the session wall each run of sessions as rows of tiles. */
@@ -428,14 +426,5 @@ const styles = StyleSheet.create({
   collectionBand: {},
   collectionBody: {
     paddingTop: ds(5),
-  },
-  /* The session wall: one row of tiles, the mockup's gap between tiles and below the row. */
-  tileRow: {
-    flexDirection: 'row',
-    gap: WALL_TILE_GAP,
-    marginBottom: WALL_TILE_GAP,
-  },
-  tilePlace: {
-    flex: 1,
   },
 });
