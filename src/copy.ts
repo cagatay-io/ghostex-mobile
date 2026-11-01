@@ -1080,7 +1080,8 @@ export const NotificationsCopy = {
     waiting: 'Waiting for you',
     waitingDetail: 'Also when an agent has a question.',
     error: 'Ended with an error',
-    errorDetail: 'Crashes and API errors. Stopping an agent yourself doesn’t notify.',
+    errorDetail:
+      'When an agent’s run ends with an error, such as an API error. Stopping an agent yourself doesn’t notify.',
     rules:
       'Only main sessions notify, not their subagents. Starting, ending or working never notifies. At most one notification per session every 20 seconds, and 8 per minute.',
     sectionSound: 'Sound',
