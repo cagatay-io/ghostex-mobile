@@ -8,6 +8,8 @@
  * Half folded like a laptop the list runs across the fold (`components/common/foldGap.tsx`): its rows, which take
  * their state from this screen, continue below the fold's band, and no row or section title is drawn on the knick, at
  * rest or while scrolling.
+ * The same browser (`DocsBrowser`) fills a files pane on the iPhone Duo (`src/panes/PaneContentView.tsx`), without the
+ * screen's header; a file opened there opens in the same full-screen viewer.
  *
  * CDXC:Docs 2026-09-24 DECISION:
  * User: "i want also docs list in the app for folders and the docs and mds in them. implement this
@@ -24,7 +26,7 @@
 
 import * as Clipboard from 'expo-clipboard';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   FlatList,
   Pressable,
@@ -43,6 +45,7 @@ import HeaderButton from '../components/common/HeaderButton';
 import { measureInWindow } from '../components/common/measureInWindow';
 import NoticeToast, { type Notice } from '../components/common/NoticeToast';
 import { useLaptopFold } from '../components/common/verticalBar/laptopFold';
+import { NO_BAR_INSETS } from '../components/common/verticalBar/layout';
 import { useStackScreenRail } from '../components/common/verticalBar/stackRail';
 import { useHeaderMenu, useScrollToBarEdges } from '../components/common/verticalBar/VerticalBarArea';
 import ContextMenu, { type ContextMenuItem, type MenuAnchor } from '../components/sessions/ContextMenu';
@@ -87,6 +90,7 @@ import { useProjectTree } from '../files/useProjectTree';
 import { useAddToSessionContext } from '../files/useSessionContext';
 import { useShareFile } from '../files/useShareFile';
 import type { RootStackParamList } from '../navigation/types';
+import type { PaneBarInset } from '../panes/geometry';
 import { useSettingsStore } from '../settings/store';
 import { GhostexPalette } from '../theme/palette';
 
@@ -144,19 +148,45 @@ function fileListRow(row: Extract<TreeRow, { kind: 'file' }>): FileListRow {
 }
 
 export default function DocsScreen({ navigation, route }: Props) {
-  const insets = useSafeAreaInsets();
-  // The list reaches under the iPhone Duo's side bar, its rows keep clear of it.
-  const listEdges = useScrollToBarEdges(styles.listContent);
-  const fold = useLaptopFold();
-  const { machineId, projectId, projectName, projectPath, session } = route.params;
+  return <DocsBrowser {...route.params} placement={{ kind: 'screen', navigation }} />;
+}
+
+export type DocsBrowserProps = RootStackParamList['Docs'] & {
+  /**
+   * The Files screen, whose header and side bar take Refresh and the Files menu, or a files pane on the iPhone Duo
+   *, which pulls to refresh. Both open a file in the full-screen viewer, and a Ghostex page in the Web preview
+   * (`openComputerPage`). A pane's search row and its failure card
+   * keep off a book fold by `controlInset`; the file list may run across it.
+   */
+  placement:
+    | { kind: 'screen'; navigation: Props['navigation'] }
+    | {
+        kind: 'pane';
+        navigation: Pick<NativeStackNavigationProp<RootStackParamList>, 'push' | 'navigate'>;
+        controlInset: PaneBarInset;
+      };
+};
+
+/** The file browser: the Files screen's body, and a files pane's without the screen's chrome. */
+export function DocsBrowser({ machineId, projectId, projectName, projectPath, session, placement }: DocsBrowserProps) {
+  const inPane = placement.kind === 'pane';
+  const { navigation } = placement;
+  const controlColumn =
+    placement.kind === 'pane'
+      ? [styles.column, { paddingLeft: placement.controlInset.left, paddingRight: placement.controlInset.right }]
+      : styles.column;
+  const safeArea = useSafeAreaInsets();
+  const bottomInset = inPane ? 0 : safeArea.bottom;
+  // The list reaches under the iPhone Duo's side bar, its rows keep clear of it. A pane is clear of the
+  // side bar, and half folded like a laptop it ends above the fold, so its rows need no fold gap.
+  const listEdges = useScrollToBarEdges(styles.listContent, inPane ? NO_BAR_INSETS : null);
+  const laptopFold = useLaptopFold();
   const rpc = useProjectDocsRpc(machineId);
   const cacheKey = `${machineId}\u0000${projectId}`;
   const [cached] = useState(() => browserCache.get(cacheKey) ?? null);
   const tree = useProjectTree(rpc, projectId, cached?.root ?? null);
   const { folders, expanded } = tree;
   const showHidden = useSettingsStore((state) => state.settings.showHiddenFiles);
-  const settingsHydrated = useSettingsStore((state) => state.hydrated);
-  const setSetting = useSettingsStore((state) => state.setSetting);
   const [recent, setRecent] = useState<readonly BrowserFile[]>(cached?.recent ?? []);
   const [recentError, setRecentError] = useState<string | null>(null);
   const [recentRun, setRecentRun] = useState(0);
@@ -169,7 +199,6 @@ export default function DocsScreen({ navigation, route }: Props) {
   const [rowMenu, setRowMenu] = useState<{ menu: RowMenu; open: boolean } | null>(null);
   const [filterMenu, setFilterMenu] = useState<{ anchor: MenuAnchor; open: boolean } | null>(null);
   const filterButtonRef = useRef<ViewInstance | null>(null);
-  const headerMenu = useHeaderMenu();
   const [notice, setNotice] = useState<Notice | null>(null);
   const noticeCounter = useRef(0);
 
@@ -442,81 +471,6 @@ export default function DocsScreen({ navigation, route }: Props) {
     [copyPath, followRowMenu, heldPath, openFile, openFileMenu, openFolderMenu, opening, toggleFolder],
   );
 
-  const openHeaderMenu = headerMenu.open;
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      title: projectName.length > 0 ? `${DocsCopy.listTitle} · ${projectName}` : DocsCopy.listTitle,
-      headerRight: () => (
-        <View style={styles.headerButtons}>
-          <HeaderButton
-            label={DocsCopy.refresh}
-            onPress={refresh}
-            icon={<RefreshIcon size={18} color={GhostexPalette.FOREGROUND} />}
-          />
-          <HeaderButton
-            label={DocsCopy.filesMenu}
-            onPress={() => openHeaderMenu()}
-            buttonRef={headerMenu.buttonRef}
-            icon={<EllipsisIcon size={18} color={GhostexPalette.FOREGROUND} />}
-          />
-        </View>
-      ),
-    });
-  }, [headerMenu.buttonRef, navigation, openHeaderMenu, projectName, refresh]);
-  // On the iPhone Duo the same buttons stand in the side bar under Back; the search field takes the keyboard.
-  useStackScreenRail(
-    useMemo(
-      () => ({
-        entries: [
-          {
-            key: 'refresh',
-            label: DocsCopy.refresh,
-            icon: (size: number) => <RefreshIcon size={size} color={GhostexPalette.FOREGROUND} />,
-            onPress: refresh,
-          },
-          {
-            key: 'files-menu',
-            label: DocsCopy.filesMenu,
-            icon: (size: number) => <EllipsisIcon size={size} color={GhostexPalette.FOREGROUND} />,
-            onPress: openHeaderMenu,
-          },
-        ],
-        reserveKeyboard: true,
-      }),
-      [openHeaderMenu, refresh],
-    ),
-  );
-
-  const closeHeaderMenu = () => headerMenu.setVisible(false);
-  const headerMenuItems: ContextMenuItem[] = [
-    {
-      kind: 'item',
-      key: 'refresh',
-      label: DocsCopy.refresh,
-      icon: <RefreshIcon size={MENU_ICON_SIZE} color={GhostexPalette.FOREGROUND} />,
-      onPress: () => {
-        closeHeaderMenu();
-        refresh();
-      },
-    },
-    {
-      kind: 'item',
-      key: 'hidden',
-      label: DocsCopy.showHiddenFiles,
-      icon: showHidden ? (
-        <EyeGlyph size={MENU_ICON_SIZE} color={GhostexPalette.FOREGROUND} />
-      ) : (
-        <EyeOffGlyph size={MENU_ICON_SIZE} color={GhostexPalette.FOREGROUND} />
-      ),
-      selected: showHidden,
-      disabled: !settingsHydrated,
-      onPress: () => {
-        closeHeaderMenu();
-        setSetting('showHiddenFiles', !showHidden);
-      },
-    },
-  ];
-
   const pickType = (type: TypeFilter | null) => {
     setTypes((current) =>
       type === null ? [] : current.includes(type) ? current.filter((id) => id !== type) : [...current, type],
@@ -627,7 +581,7 @@ export default function DocsScreen({ navigation, route }: Props) {
 
   return (
     <View style={styles.screen}>
-      <View style={styles.column}>
+      <View style={controlColumn}>
         <View style={styles.searchBar}>
           <Pressable
             ref={filterButtonRef}
@@ -672,7 +626,7 @@ export default function DocsScreen({ navigation, route }: Props) {
         </View>
       </View>
       {rootError !== null && searchKey === null ? (
-        <View style={styles.column}>
+        <View style={controlColumn}>
           <View style={styles.errorCard}>
             <Text style={styles.errorTitle}>{DocsCopy.listFailed}</Text>
             <Text style={styles.errorBody} selectable>
@@ -684,7 +638,7 @@ export default function DocsScreen({ navigation, route }: Props) {
           </View>
         </View>
       ) : null}
-      <FoldListFrame fold={fold}>
+      <FoldListFrame fold={inPane ? null : laptopFold}>
         <FlatList
           data={rows}
           keyExtractor={(row) => row.key}
@@ -696,7 +650,7 @@ export default function DocsScreen({ navigation, route }: Props) {
             styles.listContent,
             styles.column,
             listEdges.content,
-            { paddingBottom: insets.bottom + 24 },
+            { paddingBottom: bottomInset + 24 },
           ]}
           refreshControl={
             <RefreshControl
@@ -709,14 +663,9 @@ export default function DocsScreen({ navigation, route }: Props) {
           windowSize={11}
         />
       </FoldListFrame>
-      <ContextMenu
-        visible={headerMenu.visible}
-        title={DocsCopy.listTitle}
-        subtitle={projectName}
-        items={headerMenuItems}
-        onClose={closeHeaderMenu}
-        anchor={headerMenu.anchor}
-      />
+      {placement.kind === 'screen' ? (
+        <DocsScreenChrome navigation={placement.navigation} projectName={projectName} refresh={refresh} />
+      ) : null}
       <ContextMenu
         visible={filterMenu?.open === true}
         title={DocsCopy.filterByType}
@@ -733,8 +682,109 @@ export default function DocsScreen({ navigation, route }: Props) {
         rowAnchor={menu?.anchor}
         lifted={liftedRow}
       />
-      <NoticeToast notice={notice} bottom={insets.bottom + 16} />
+      <NoticeToast notice={notice} bottom={bottomInset + 16} />
     </View>
+  );
+}
+
+/** The Files screen's title, Refresh and the Files menu, in its header or, on the iPhone Duo, in the side bar. */
+function DocsScreenChrome({
+  navigation,
+  projectName,
+  refresh,
+}: {
+  navigation: Props['navigation'];
+  projectName: string;
+  refresh: () => void;
+}) {
+  const showHidden = useSettingsStore((state) => state.settings.showHiddenFiles);
+  const settingsHydrated = useSettingsStore((state) => state.hydrated);
+  const setSetting = useSettingsStore((state) => state.setSetting);
+  const headerMenu = useHeaderMenu();
+  const openHeaderMenu = headerMenu.open;
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: projectName.length > 0 ? `${DocsCopy.listTitle} · ${projectName}` : DocsCopy.listTitle,
+      headerRight: () => (
+        <View style={styles.headerButtons}>
+          <HeaderButton
+            label={DocsCopy.refresh}
+            onPress={refresh}
+            icon={<RefreshIcon size={18} color={GhostexPalette.FOREGROUND} />}
+          />
+          <HeaderButton
+            label={DocsCopy.filesMenu}
+            onPress={() => openHeaderMenu()}
+            buttonRef={headerMenu.buttonRef}
+            icon={<EllipsisIcon size={18} color={GhostexPalette.FOREGROUND} />}
+          />
+        </View>
+      ),
+    });
+  }, [headerMenu.buttonRef, navigation, openHeaderMenu, projectName, refresh]);
+  // On the iPhone Duo the same buttons stand in the side bar under Back; the search field takes the keyboard.
+  useStackScreenRail(
+    useMemo(
+      () => ({
+        entries: [
+          {
+            key: 'refresh',
+            label: DocsCopy.refresh,
+            icon: (size: number) => <RefreshIcon size={size} color={GhostexPalette.FOREGROUND} />,
+            onPress: refresh,
+          },
+          {
+            key: 'files-menu',
+            label: DocsCopy.filesMenu,
+            icon: (size: number) => <EllipsisIcon size={size} color={GhostexPalette.FOREGROUND} />,
+            onPress: openHeaderMenu,
+          },
+        ],
+        reserveKeyboard: true,
+      }),
+      [openHeaderMenu, refresh],
+    ),
+  );
+
+  const closeHeaderMenu = () => headerMenu.setVisible(false);
+  const headerMenuItems: ContextMenuItem[] = [
+    {
+      kind: 'item',
+      key: 'refresh',
+      label: DocsCopy.refresh,
+      icon: <RefreshIcon size={MENU_ICON_SIZE} color={GhostexPalette.FOREGROUND} />,
+      onPress: () => {
+        closeHeaderMenu();
+        refresh();
+      },
+    },
+    {
+      kind: 'item',
+      key: 'hidden',
+      label: DocsCopy.showHiddenFiles,
+      icon: showHidden ? (
+        <EyeGlyph size={MENU_ICON_SIZE} color={GhostexPalette.FOREGROUND} />
+      ) : (
+        <EyeOffGlyph size={MENU_ICON_SIZE} color={GhostexPalette.FOREGROUND} />
+      ),
+      selected: showHidden,
+      disabled: !settingsHydrated,
+      onPress: () => {
+        closeHeaderMenu();
+        setSetting('showHiddenFiles', !showHidden);
+      },
+    },
+  ];
+
+  return (
+    <ContextMenu
+      visible={headerMenu.visible}
+      title={DocsCopy.listTitle}
+      subtitle={projectName}
+      items={headerMenuItems}
+      onClose={closeHeaderMenu}
+      anchor={headerMenu.anchor}
+    />
   );
 }
 

@@ -1,9 +1,11 @@
 /**
  * The stored pane layout, version 1: per window shape (`stacked` upright, `sideBySide` across and half folded like a
- * laptop) the pane type of each slot, the session a session pane shows and the divider's position. Only a manual
- * divider drag writes the position; the layout the keyboard rules give is never stored. The reader is the trust
- * boundary for what storage hands back: anything that is not exactly this shape, or that would show one session in
- * both slots (a terminal can be shown in one place only), is discarded as a whole and one pane is used.
+ * laptop) the pane type of each slot, the session a pane is bound to and the divider's position. A session pane's
+ * session is the one it shows; a files or Git changes pane's is the session it was opened from, whose project it keeps
+ *; a browser pane has none. Only a manual divider drag writes the position; the layout the keyboard
+ * rules give is never stored. The reader is the trust boundary for what storage hands back: anything that is not
+ * exactly this shape, or that would show one session in two session panes (a terminal can be shown in one place
+ * only), is discarded as a whole and one pane is used.
  * Free of React Native, so it loads in a plain `bun test`.
  */
 
@@ -20,7 +22,7 @@ export type PaneArrangement = 'stacked' | 'sideBySide';
 
 export type PaneSlot = {
   readonly paneType: PaneType;
-  /** `machineId:sessionId`; set for session panes. */
+  /** `machineId:sessionId`; set for session panes, and for files and Git changes panes the session they came from. */
   readonly sessionKey?: string;
 };
 
@@ -67,7 +69,9 @@ function parseLayout(value: unknown): PaneLayout | null {
   if (typeof dividerRatio !== 'number' || dividerRatio < MIN_DIVIDER_RATIO || dividerRatio > MAX_DIVIDER_RATIO) {
     return null;
   }
-  if (first.sessionKey !== undefined && first.sessionKey === second.sessionKey) return null;
+  if (first.paneType === 'session' && second.paneType === 'session' && first.sessionKey === second.sessionKey) {
+    return null;
+  }
   return { first, second, dividerRatio };
 }
 

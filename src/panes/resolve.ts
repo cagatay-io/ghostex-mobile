@@ -1,21 +1,34 @@
 /**
  * What the pane host shows now, from the stored layout of the window's shape, the chooser and the selection. The
- * selected session is the active pane's: the keyboard, the pad keys, the text editor and Upload already go to the
- * selected terminal, so they reach the pane tapped last without a routing of their own.
- * - Selecting the session of the other pane moves the focus there; one session is never shown in two panes (its
- *   terminal can be in one place only).
- * - Selecting any other session puts it into the active pane, as the tab strip does with one pane.
- * - While the chooser is open, the session selected next fills the second pane.
- * - When the window turns into a shape with nothing stored for it, the two session panes on screen before come along
- *   into its slots (the divider in the middle) and are stored for it, rather than one pane.
+ * selected session is a session pane's: the keyboard, the pad keys, the text editor and Upload already go to the
+ * selected terminal, so they reach it without a routing of their own. Two panes always include a session pane.
+ * - Selecting the session of the other session pane moves the focus there; one session is never shown in two panes
+ *   (its terminal can be in one place only).
+ * - Selecting any other session puts it into the active pane when that is a session pane, else into the session pane,
+ *   as the tab strip does with one pane; that pane becomes the active one.
+ * - A browser, files or Git changes pane tapped last stays the active one while the selection stays in the session pane
+ *   beside it. Selecting sessions never changes what such a pane shows: files and Git changes keep the project of the
+ *   session they were opened from, the browser the computer's Web Preview.
+ * - While the chooser is open, the session selected next fills its slot.
+ * - When the window turns into a shape with nothing stored for it, the two panes on screen before come along into its
+ *   slots (the divider in the middle) and are stored for it, rather than one pane.
  * Free of React Native, so it loads in a plain `bun test`.
  */
 
 import type { PaneIndex } from './geometry';
-import type { PaneArrangement, PaneLayout } from './layout';
+import type { PaneArrangement, PaneLayout, PaneSlot } from './layout';
 import type { PaneChooser } from './store';
 
-export type PaneContent = { readonly kind: 'session'; readonly sessionKey: string } | { readonly kind: 'chooser' };
+export type PaneContent =
+  | { readonly kind: 'session'; readonly sessionKey: string }
+  | { readonly kind: 'chooser' }
+  | { readonly kind: 'browser' }
+  /** `origin`: the session the pane was opened from (`machineId:sessionId`), whose project it shows. */
+  | { readonly kind: 'files'; readonly origin: string }
+  | { readonly kind: 'git'; readonly origin: string };
+
+/** What a slot stores: a session pane by its session's key, any other pane as its stored slot. */
+export type PaneEntry = string | PaneSlot;
 
 export type PaneDisplay =
   | { readonly kind: 'single' }
@@ -27,8 +40,8 @@ export type PaneDisplay =
 
 export type PaneResolution = {
   readonly display: PaneDisplay;
-  /** Two session panes the stored layout must now hold (first, second), or null when it holds them already. */
-  readonly store: readonly [string, string] | null;
+  /** The two panes the stored layout must now hold (first, second), or null when it holds them already. */
+  readonly store: readonly [PaneEntry, PaneEntry] | null;
 };
 
 export type PaneResolveInput = {
@@ -38,34 +51,78 @@ export type PaneResolveInput = {
   readonly selectedSessionKey: string | null;
   readonly layout: PaneLayout | undefined;
   readonly chooser: PaneChooser | null;
-  /** The two session panes (first, second) on screen in the other window shape just before the window turned. */
-  readonly carried: readonly [string, string] | null;
-  /** The pane tapped last. */
-  readonly activeSlot: PaneIndex;
+  /** The two panes (first, second) on screen in the other window shape just before the window turned. */
+  readonly carried: readonly [PaneEntry, PaneEntry] | null;
+  /** The pane tapped last; null before any was since the app started. */
+  readonly activeSlot: PaneIndex | null;
   /** A tab is open for the session. */
   readonly isOpen: (sessionKey: string) => boolean;
   /** The session's computer is one the app knows, so a stored pane can be attached again. */
   readonly isKnown: (sessionKey: string) => boolean;
 };
 
+type Slots = readonly [PaneContent, PaneContent];
+
 const SINGLE: PaneResolution = { display: { kind: 'single' }, store: null };
+const BROWSER: PaneContent = { kind: 'browser' };
+const CHOOSER: PaneContent = { kind: 'chooser' };
 
 function session(sessionKey: string): PaneContent {
   return { kind: 'session', sessionKey };
+}
+
+/** A stored slot's content, or null for one this build cannot show (agents, attention, usage, or no origin). */
+export function paneContentOf(entry: PaneEntry): PaneContent | null {
+  if (typeof entry === 'string') return session(entry);
+  switch (entry.paneType) {
+    case 'session':
+      return entry.sessionKey === undefined ? null : session(entry.sessionKey);
+    case 'browser':
+      return BROWSER;
+    case 'files':
+    case 'git':
+      return entry.sessionKey === undefined ? null : { kind: entry.paneType, origin: entry.sessionKey };
+    default:
+      return null;
+  }
+}
+
+/** What a slot's content is stored as; null for the chooser, which is never stored. */
+export function paneEntryOf(content: PaneContent): PaneEntry | null {
+  switch (content.kind) {
+    case 'session':
+      return content.sessionKey;
+    case 'browser':
+      return { paneType: 'browser' };
+    case 'files':
+    case 'git':
+      return { paneType: content.kind, sessionKey: content.origin };
+    case 'chooser':
+      return null;
+  }
+}
+
+/** The stored slot an entry stands for. */
+export function paneSlotOf(entry: PaneEntry): PaneSlot {
+  return typeof entry === 'string' ? { paneType: 'session', sessionKey: entry } : entry;
 }
 
 export function resolvePanes(input: PaneResolveInput): PaneResolution {
   const { offered, arrangement, selectedSessionKey: selected, layout, chooser, carried } = input;
   if (!offered || selected === null) return SINGLE;
 
-  if (layout === undefined && carried !== null) return showSessions(input, selected, carried, true);
+  if (layout === undefined && carried !== null) {
+    const contents = carried.map(paneContentOf);
+    if (contents[0] === null || contents[1] === null) return SINGLE;
+    return showSlots(input, selected, [contents[0], contents[1]], true);
+  }
 
   if (layout === undefined) {
     if (chooser === null || chooser.arrangement !== arrangement || !input.isOpen(chooser.firstSessionKey)) {
       return SINGLE;
     }
     if (selected === chooser.firstSessionKey) {
-      return { display: { kind: 'panes', slots: [session(selected), { kind: 'chooser' }], active: 0 }, store: null };
+      return { display: { kind: 'panes', slots: [session(selected), CHOOSER], active: 0 }, store: null };
     }
     return {
       display: { kind: 'panes', slots: [session(chooser.firstSessionKey), session(selected)], active: 1 },
@@ -73,29 +130,71 @@ export function resolvePanes(input: PaneResolveInput): PaneResolution {
     };
   }
 
-  const first = layout.first.paneType === 'session' ? layout.first.sessionKey : undefined;
-  const second = layout.second.paneType === 'session' ? layout.second.sessionKey : undefined;
-  // This build shows session panes only; a stored pane it cannot show, or cannot attach, leaves one pane.
-  if (first === undefined || second === undefined) return SINGLE;
-  return showSessions(input, selected, [first, second], false);
+  const first = paneContentOf(layout.first);
+  const second = paneContentOf(layout.second);
+  // A stored pane this build cannot show leaves one pane.
+  if (first === null || second === null) return SINGLE;
+  if (chooser?.slot !== undefined && chooser.arrangement === arrangement) {
+    return chooserInSlot(input, selected, [first, second], chooser.slot);
+  }
+  return showSlots(input, selected, [first, second], false);
 }
 
-/** Two session panes, the selected session in the active one; `unstored` stores them even when nothing changed. */
-function showSessions(
-  input: PaneResolveInput,
-  selected: string,
-  [first, second]: readonly [string, string],
-  unstored: boolean,
-): PaneResolution {
-  const { activeSlot } = input;
-  if (![first, second].every((key) => input.isOpen(key) || input.isKnown(key))) return SINGLE;
+function showable(input: PaneResolveInput, content: PaneContent): boolean {
+  switch (content.kind) {
+    case 'session':
+      return input.isOpen(content.sessionKey) || input.isKnown(content.sessionKey);
+    case 'files':
+    case 'git':
+      return input.isKnown(content.origin);
+    case 'browser':
+    case 'chooser':
+      return true;
+  }
+}
 
-  if (selected === first || selected === second) {
+/** What the stored layout holds for these slots; the chooser is never among them. */
+function entries([first, second]: Slots): readonly [PaneEntry, PaneEntry] {
+  const stored = [paneEntryOf(first), paneEntryOf(second)] as const;
+  if (stored[0] === null || stored[1] === null) throw new Error('The chooser is never stored as a pane.');
+  return [stored[0], stored[1]];
+}
+
+function replaced(slots: Slots, slot: PaneIndex, content: PaneContent): Slots {
+  return slot === 0 ? [content, slots[1]] : [slots[0], content];
+}
+
+/** Two panes, the selected session in a session pane; `unstored` stores them even when nothing changed. */
+function showSlots(input: PaneResolveInput, selected: string, slots: Slots, unstored: boolean): PaneResolution {
+  if (!slots.every((content) => showable(input, content))) return SINGLE;
+  const sessionSlots = ([0, 1] as const).filter((slot) => slots[slot].kind === 'session');
+  if (sessionSlots.length === 0) return SINGLE;
+  const { activeSlot } = input;
+  const tappedOther = activeSlot !== null && slots[activeSlot].kind !== 'session';
+
+  const showing = sessionSlots.find((slot) => {
+    const content = slots[slot];
+    return content.kind === 'session' && content.sessionKey === selected;
+  });
+  if (showing !== undefined) {
     return {
-      display: { kind: 'panes', slots: [session(first), session(second)], active: selected === first ? 0 : 1 },
-      store: unstored ? [first, second] : null,
+      display: { kind: 'panes', slots, active: tappedOther ? activeSlot : showing },
+      store: unstored ? entries(slots) : null,
     };
   }
-  const keys: [string, string] = activeSlot === 0 ? [selected, second] : [first, selected];
-  return { display: { kind: 'panes', slots: [session(keys[0]), session(keys[1])], active: activeSlot }, store: keys };
+  const target = activeSlot !== null && !tappedOther ? activeSlot : sessionSlots[0];
+  const next = replaced(slots, target, session(selected));
+  return { display: { kind: 'panes', slots: next, active: target }, store: entries(next) };
+}
+
+/** The chooser in place of a stored pane, beside the session pane, which keeps the selection until a pick. */
+function chooserInSlot(input: PaneResolveInput, selected: string, slots: Slots, slot: PaneIndex): PaneResolution {
+  const beside: PaneIndex = slot === 0 ? 1 : 0;
+  const besideContent = slots[beside];
+  if (besideContent.kind !== 'session' || !showable(input, besideContent)) return SINGLE;
+  if (selected === besideContent.sessionKey) {
+    return { display: { kind: 'panes', slots: replaced(slots, slot, CHOOSER), active: beside }, store: null };
+  }
+  const next = replaced(slots, slot, session(selected));
+  return { display: { kind: 'panes', slots: next, active: slot }, store: entries(next) };
 }

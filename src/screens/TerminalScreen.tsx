@@ -123,8 +123,11 @@ import { readAloudChatKey, setReadAloudOnScreen } from '../voice/readAloud';
 import { useOpenMachineLink } from '../webPreview/useOpenMachineLink';
 import { PANE_FOLD_CLEARANCE, paneGeometry, type PaneGeometryInput, type PaneIndex } from '../panes/geometry';
 import type { PaneArrangement } from '../panes/layout';
+import { openPaneFullScreen } from '../panes/openFullScreen';
 import PaneContentView from '../panes/PaneContentView';
 import PaneHost from '../panes/PaneHost';
+import type { PaneContent } from '../panes/resolve';
+import { usePaneStore } from '../panes/store';
 import { usePaneHost } from '../panes/usePaneHost';
 import {
   AGENT_OVERLAY_NONE,
@@ -510,10 +513,6 @@ export default function TerminalScreen({ navigation, route }: Props) {
 
   const keyBarVisible = (keyboardVisible || tapKeyboardHint) && settings.extraKeysToolbarVisible;
 
-  // The Befehlspad: over the shown terminal while it is switched on, where the terminal slides with the keyboard
-  // (iOS; never in chat view).
-  const padSessionKey =
-    settings.extraKeysToolbarVisible && activeTab !== null && slidesWithKeyboard ? activeTab.sessionKey : null;
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   // The iPhone Duo half folded like a laptop (`laptopMode.ts`): the output above the fold, the keyboard and the pad's
   // layers below it, the pad in the upper half. Null in every other pose, on every other iPhone, in chat view (the
@@ -523,14 +522,23 @@ export default function TerminalScreen({ navigation, route }: Props) {
   const chatKeyboardUp = useKeyboardTop() !== null;
   // Two panes (`src/panes/`): where the window has pane slots (the iPhone Duo's inner display, whose window has the
   // fold's divisions; folded, on other iPhones and on Android it has none) and the selected tab is an agent session
-  // shown as a terminal. Side by side across and half folded like a laptop, one above the other upright. The active
-  // pane's session is the selected one, so the keyboard, the pad, the editor and Upload go to it unchanged.
+  // shown as a terminal. Side by side across and half folded like a laptop, one above the other upright. The selected
+  // session is a pane's, so the keyboard, the pad, the editor and Upload go to its terminal unchanged.
   const foldDivisions = useFoldDivisions();
   const panesOffered =
     Platform.OS === 'ios' && (foldDivisions?.length ?? 0) > 0 && activeTab?.kind === 'attach' && !chatModeActive;
   const paneArrangement: PaneArrangement = foldShown !== null || windowWidth > windowHeight ? 'sideBySide' : 'stacked';
   const panes = usePaneHost({ offered: panesOffered, arrangement: paneArrangement });
   const twoPanes = panes.display.kind === 'panes' ? panes.display : null;
+  // A browser, files or Git changes pane tapped last is the active one: the pad's keys, the text editor and Upload
+  // would reach no terminal there, so they are not shown (the approved panes mockup).
+  const terminalPaneActive = twoPanes === null || twoPanes.slots[twoPanes.active].kind === 'session';
+  // The Befehlspad: over the shown terminal while it is switched on, where the terminal slides with the keyboard
+  // (iOS; never in chat view).
+  const padSessionKey =
+    settings.extraKeysToolbarVisible && activeTab !== null && slidesWithKeyboard && terminalPaneActive
+      ? activeTab.sessionKey
+      : null;
   // zmx display policy: the terminals on screen own their real grid (with two panes both), the chat view its own;
   // none while another screen is on top.
   const mountedPaneSessionKey = twoPanes !== null && isFocused ? panes.paneSessionKey : null;
@@ -842,13 +850,16 @@ export default function TerminalScreen({ navigation, route }: Props) {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, []);
 
-  // A touch in a pane makes it the active one (the pane tapped last): its session is selected where it stands, not
-  // scrolled, and its attention acknowledged as a tap on its tab does. The keyboard follows below.
+  // A touch in a pane makes it the active one (the pane tapped last): a session pane's session is selected where it
+  // stands, not scrolled, and its attention acknowledged as a tap on its tab does; a browser, files or Git changes pane
+  // only becomes the active one. The keyboard follows below.
   const activatePane = useCallback(
     (slot: PaneIndex): void => {
       const content = twoPanes?.slots[slot];
       const store = useTerminalStore.getState();
-      if (content?.kind !== 'session' || content.sessionKey === store.selectedSessionKey) return;
+      if (content === undefined || content.kind === 'chooser') return;
+      usePaneStore.getState().setActiveSlot(slot);
+      if (content.kind !== 'session' || content.sessionKey === store.selectedSessionKey) return;
       const tab = store.tabs.find((entry) => entry.sessionKey === content.sessionKey);
       if (tab?.ghostexSessionId !== undefined) acknowledgeSessionAttention(tab.machineId, tab.ghostexSessionId);
       store.selectTab(content.sessionKey, { scrollToBottom: false });
@@ -860,37 +871,69 @@ export default function TerminalScreen({ navigation, route }: Props) {
   // notification, a pick in the chooser, the selected tab or the active pane closing, which leaves the other terminal
   // alone on screen), while the keyboard is up the new active terminal takes it, once that terminal is open, so typing
   // never goes to the other pane. The text editor keeps the keyboard while it is open, and a keyboard the person
-  // lowered stays down. With one pane a change of tab moves no keyboard, as before.
+  // lowered stays down. With one pane a change of tab moves no keyboard, as before. A browser, files or Git changes
+  // pane becoming the active one takes the keyboard from the terminal: typing goes to the active pane, into a field of
+  // its own once one is tapped. From such a pane the keyboard comes back the same way: up in one of its fields, it
+  // goes to the terminal that becomes active (a touch in the session pane, the tab strip, a pick in the chooser), or
+  // to the session left alone on screen when either pane closes.
   const activePaneContent = twoPanes === null || !isFocused ? null : twoPanes.slots[twoPanes.active];
   const activePaneSessionKey = activePaneContent?.kind === 'session' ? activePaneContent.sessionKey : null;
-  // The terminal typing goes to: the active pane's, or with one pane the terminal on screen; and the pane beside it.
+  const otherPaneActive = activePaneContent !== null && activePaneContent.kind !== 'session';
+  // The terminal typing goes to: the active pane's, or with one pane the terminal on screen; and the terminal beside
+  // it: the other session pane's, or beside a browser, files or Git changes pane the session pane's.
   const typingInPanes = twoPanes !== null;
   const typingSessionKey = typingInPanes ? activePaneSessionKey : mountedTerminalSessionKey;
-  const besideSessionKey = typingInPanes ? panes.paneSessionKey : null;
+  const besideContent = otherPaneActive ? twoPanes?.slots.find((content) => content.kind === 'session') : undefined;
+  const besideSessionKey = !typingInPanes
+    ? null
+    : besideContent?.kind === 'session'
+      ? besideContent.sessionKey
+      : panes.paneSessionKey;
   const typingTerminalOpen = tabs.some((tab) => tab.sessionKey === typingSessionKey && tab.state === 'open');
-  const lastTyping = useRef<{ sessionKey: string | null; inPanes: boolean; beside: string | null }>({
+  const lastTyping = useRef<{ sessionKey: string | null; other: boolean; inPanes: boolean; beside: string | null }>({
     sessionKey: null,
+    other: false,
     inPanes: false,
     beside: null,
   });
   const keyboardFollows = useRef<string | null>(null);
   useEffect(() => {
     const previous = lastTyping.current;
-    lastTyping.current = { sessionKey: typingSessionKey, inPanes: typingInPanes, beside: besideSessionKey };
+    lastTyping.current = {
+      sessionKey: typingSessionKey,
+      other: otherPaneActive,
+      inPanes: typingInPanes,
+      beside: besideSessionKey,
+    };
     if (typingSessionKey !== previous.sessionKey || typingInPanes !== previous.inPanes) {
-      // From one pane to the other, or to the pane left alone on screen when the active one closed.
+      // From one pane to the other, or to the pane left alone on screen when the active one closed; from a browser,
+      // files or Git changes pane the same way, except when the Duo folds (its content then opens full screen).
+      const fromPane = previous.sessionKey !== null || (previous.other && (typingInPanes || panesOffered));
       const follows =
-        previous.sessionKey !== null &&
+        fromPane &&
         typingSessionKey !== null &&
         (typingInPanes ? previous.inPanes : typingSessionKey === previous.beside);
       keyboardFollows.current = follows ? typingSessionKey : null;
+    }
+    // From a terminal pane to a browser, files or Git changes pane: the terminal lets the keyboard go.
+    if (otherPaneActive && previous.inPanes && previous.sessionKey !== null && keyboardVisible) {
+      void GhostexNative.blurTerminal(previous.sessionKey).catch(() => undefined);
     }
     if (!keyboardVisible || editorShown) keyboardFollows.current = null;
     const sessionKey = keyboardFollows.current;
     if (sessionKey === null || !typingTerminalOpen) return;
     keyboardFollows.current = null;
     void GhostexNative.focusTerminal(sessionKey).catch(() => undefined);
-  }, [typingSessionKey, typingInPanes, besideSessionKey, typingTerminalOpen, keyboardVisible, editorShown]);
+  }, [
+    typingSessionKey,
+    typingInPanes,
+    besideSessionKey,
+    typingTerminalOpen,
+    keyboardVisible,
+    editorShown,
+    otherPaneActive,
+    panesOffered,
+  ]);
 
   // The chooser's pick opens the session beside the one on screen, as a terminal: a pane shows no chat.
   const activeMachineId = activeTab?.machineId ?? null;
@@ -924,6 +967,32 @@ export default function TerminalScreen({ navigation, route }: Props) {
     (): void => (showsTwoPanes ? closePaneSlot(1) : openPaneChooser()),
     [showsTwoPanes, closePaneSlot, openPaneChooser],
   );
+
+  // The slot of the chooser, and of the selected session's pane.
+  const chooserSlot =
+    twoPanes === null ? null : (([0, 1] as const).find((slot) => twoPanes.slots[slot].kind === 'chooser') ?? null);
+  const selectedPaneSlot: PaneIndex =
+    ([0, 1] as const).find((slot) => {
+      const content = twoPanes?.slots[slot];
+      return content?.kind === 'session' && content.sessionKey === selectedSessionKey;
+    }) ??
+    twoPanes?.active ??
+    0;
+
+  // Folded while a browser, files or Git changes pane is the active one: its content opens full screen, as the Web
+  // Preview, Files or Changes screen (`openPaneFullScreen`). The layout waits for the unfolded window.
+  const hasPaneSlots = (foldDivisions?.length ?? 0) > 0;
+  const lastActivePane = useRef<PaneContent | null>(null);
+  useEffect(() => {
+    if (twoPanes !== null) {
+      lastActivePane.current = twoPanes.slots[twoPanes.active];
+      return;
+    }
+    const content = lastActivePane.current;
+    lastActivePane.current = null;
+    if (content === null || hasPaneSlots || !isFocused || activeMachineId === null) return;
+    openPaneFullScreen(content, navigation, activeMachineId);
+  }, [twoPanes, hasPaneSlots, isFocused, navigation, activeMachineId]);
 
   // ---------------------------------------------------------------------
   // Agent Actions (desktop terminal-overlay parity, minus the stash entries
@@ -1340,10 +1409,19 @@ export default function TerminalScreen({ navigation, route }: Props) {
                 frame={frame}
                 machineId={activeTab.machineId}
                 besideSessionId={activeTab.ghostexSessionId}
+                projectOffered={chooserSlot !== null && panes.typeOffered(chooserSlot, 'files')}
                 onPickSession={pickPaneSession}
+                onPickType={(type) => {
+                  if (chooserSlot !== null) panes.setSlotType(chooserSlot, type);
+                }}
+                navigation={navigation}
               />
             )}
-            activeAccessory={queuedPill}
+            // The queued prompts of the selected session stand in its pane.
+            accessory={queuedPill}
+            accessorySlot={selectedPaneSlot}
+            typeOffered={panes.typeOffered}
+            onSetType={panes.setSlotType}
             onActivate={activatePane}
             onClose={panes.closeSlot}
             onSwap={panes.swap}
@@ -1409,29 +1487,32 @@ export default function TerminalScreen({ navigation, route }: Props) {
           is up. With it on, Upload is a pad key and the optional keyboard and refresh buttons stand above the
           closed pad's toggle; when the user moved the pad away from the right edge they keep their own corner.
           iOS: while the keyboard is up and the pad is off or closed, the keyboard button shows as its dismiss
-          whatever its setting, so one tap hides the keyboard; with the pad on it is then the only one there.
+          whatever its setting, so one tap hides the keyboard; with the pad on it is then the only one there. Not
+          while a browser, files or Git changes pane is the active one: they act on a terminal.
         */}
-        {!chatModeActive && (padSessionKey !== null ? !pad.open && !layerShown : !keyBarVisible) && (
-          <TerminalFloatingControls
-            showKeyboardButton={settings.keyboardButtonVisible || (slidesWithKeyboard && keyboardVisible)}
-            showUploadButton={padSessionKey === null && settings.fileUploadButtonVisible}
-            showRefreshButton={
-              settings.refreshButtonVisible &&
-              activeTab?.kind === 'attach' &&
-              (padSessionKey === null || !keyboardVisible)
-            }
-            uploadEnabled={uploadEnabled}
-            uploading={uploading}
-            refreshEnabled={activeTab?.state === 'open'}
-            keyboardShown={keyboardVisible}
-            bottomOffset={floatingBottom}
-            maxHeight={floatingRoom}
-            onKeyboard={showKeyboard}
-            onDismissKeyboard={dismissKeyboard}
-            onUpload={promptAttachmentSource}
-            onRefresh={handleRefresh}
-          />
-        )}
+        {!chatModeActive &&
+          terminalPaneActive &&
+          (padSessionKey !== null ? !pad.open && !layerShown : !keyBarVisible) && (
+            <TerminalFloatingControls
+              showKeyboardButton={settings.keyboardButtonVisible || (slidesWithKeyboard && keyboardVisible)}
+              showUploadButton={padSessionKey === null && settings.fileUploadButtonVisible}
+              showRefreshButton={
+                settings.refreshButtonVisible &&
+                activeTab?.kind === 'attach' &&
+                (padSessionKey === null || !keyboardVisible)
+              }
+              uploadEnabled={uploadEnabled}
+              uploading={uploading}
+              refreshEnabled={activeTab?.state === 'open'}
+              keyboardShown={keyboardVisible}
+              bottomOffset={floatingBottom}
+              maxHeight={floatingRoom}
+              onKeyboard={showKeyboard}
+              onDismissKeyboard={dismissKeyboard}
+              onUpload={promptAttachmentSource}
+              onRefresh={handleRefresh}
+            />
+          )}
       </View>
       {/*
         The pad's room (`padRoom`): the terminal area within the window's safe area across, and the header above it

@@ -9,20 +9,25 @@ Extracted from `/Users/madda/dev/_active/Ghostex/iOS` (VVTerm fork). The app is 
 Source: `VVTerm/App/iOS/iOSContentView.swift` (`iOSTerminalView` @814, `iOSTerminalTabsBar` @2475, `iOSTerminalTabButton` @2547, `NavBarBackdrop` @2458), `Features/TerminalSessions/UI/Terminal/TerminalContainerView.swift`, `Core/UI/ServerTabChrome.swift`.
 
 ### Top-to-bottom structure
+
 `VStack(spacing: 0)`:
+
 1. **headerTabsBar** — merged into the header row: back button + tabs capsule track (fills the remaining width; no title text) + overflow button. Shown whenever ≥1 tab, including a single tab.
 2. **sessionContent** — `TerminalEmptyStateView` (no sessions) or the active terminal container.
 
 Screen sits in a nav stack with a native nav bar; back button hidden/custom. Zen mode hides tab bar + nav bar.
 
 ### Backgrounds
+
 - Terminal view: theme terminal background color, ignores all safe areas. Default dark theme "Aizen Dark", fallback `#000000`. Cached hex in prefs key `terminalBackgroundColor`.
 - Sessions view: system grouped background. Other: system background.
 
 ### Safe area
+
 `NavBarBackdrop`: paints terminal background color behind status/nav bar. Height = top safe inset (fallback 44). Non-interactive overlay.
 
 ### Tab bar metrics (`ServerViewTopTabBarMetrics`)
+
 - tabHeight 28, trackHeight 36 (fits inside the 44 header row), tabSpacing 4, trackInnerPad 4.
 - Track: capsule background `primary.opacity(0.08)` + 1pt stroke `primary.opacity(0.12)`, clipped; flexes to fill the header between back and overflow buttons. Animations disabled.
 - Layout: minTabWidth 120. itemWidth = (available - spacing)/count; ≥120 → equal-width row filling width. One tab, or a track not yet measured, also fills the width: a lone tab in a track narrower than 120 pt now fills it, its title ending in an ellipsis, where the earlier fixed 120 pt scrolling tab was clipped (a deliberate change, not "unchanged"). Otherwise a horizontal ScrollView (no indicators) whose tabs are sized so the next tab always peeks in (`tabStripLayout`, `src/components/terminal/tabStrip.ts`; so it is clear that the strip scrolls): as many whole tabs as still leave 25 % of the next tab showing, none narrower than 80 pt.
@@ -30,6 +35,7 @@ Screen sits in a nav stack with a native nav bar; back button hidden/custom. Zen
 - Scroll mode rests the active tab at the strip's start so the next tab always peeks in (`stripScrollOffset`); the last tab rests at the strip's end, where the previous tab peeks in instead. This replaces centring, which left a middle tab's neighbour only about 15 % visible. It happens on tap, on selection change, and after a close/content resize the offset re-clamps immediately (no stale gap at the end). The centering is owed again only when the active tab, the tab count or the track width changes; a manual drag ends it, and a re-render or reflow with the same active tab never undoes the user's scroll.
 
 ### Tab button
+
 - HStack(spacing 8): status dot Circle 6×6 `statusColor` + title `.callout`, 1 line, primary.
 - Padding: leading 14, trailing 36, vertical 7; height 36.
 - Selected bg: `primary.opacity(0.18)` capsule; unselected clear.
@@ -38,6 +44,7 @@ Screen sits in a nav stack with a native nav bar; back button hidden/custom. Zen
 - statusColor: connected/open → NO dot; connecting/reconnecting → orange; disconnected/idle → secondary; failed → red.
 
 ### Nav bar toolbar
+
 - Leading: back chevron (`chevron.left`) → dismiss keyboard, then back.
 - Principal: segmented view switcher (Terminal / Files / Stats / Sessions). For the RN v1 we have Terminal + Sessions.
 - Trailing: one overflow menu (`ellipsis.circle`) holding both sections — the Agent Actions section (Rename, Sleep/Wake, Delayed Actions, Fork, Full Reload, Prompt Editor, Export Transcript) for resolved gxserver sessions, then the Session section:
@@ -46,7 +53,9 @@ Screen sits in a nav stack with a native nav bar; back button hidden/custom. Zen
   - divider, "Settings" — `gear`, "Find" — `magnifyingglass`, "Edit Server" — `pencil`, "Zen Mode", "Disconnect" (destructive) — `xmark.circle`.
 
 ### Connection status overlays (terminal area)
+
 ZStack: bg color → terminal surface (hit-testing only when connected) → state overlay. States:
+
 - Connecting: spinner + "Connecting..." (secondary).
 - Reconnecting: spinner + "Reconnecting..." (orange).
 - Disconnected: `bolt.slash` largeTitle secondary + "Disconnected"; optional caption "tmux session is still running on the server." or "Without tmux, app backgrounding can interrupt running commands."; Button "Reconnect" (bordered).
@@ -54,19 +63,23 @@ ZStack: bg color → terminal surface (hit-testing only when connected) → stat
 - Initializing: spinner + "Initializing terminal..." ; init failed: "Terminal initialization failed" red.
 
 ### Banners
+
 - Top warning: "Reconnecting…" / "Reconnecting (attempt N)…".
 - Top warning (mosh→ssh fallback): "Using SSH fallback for this session." auto-dismiss 8s.
 - Bottom info: "Installing tmux" / "Preparing persistent shell support." (v1: skip tmux/mosh installers)
 
 ### Empty state
+
 Centered VStack(24): `terminal` icon 56 secondary; server name title2 semibold; "No terminals open" body secondary; button "New Terminal" (plus + text, pad H24/V12, tint bg, radius 10, white text).
 
 ### Alerts
+
 - Closing a tab disconnects immediately by default. When "Confirm before closing tabs" is enabled, show "Close Tab?" → destructive "Close" / "Cancel"; message: `This will disconnect "<title>".`
 - "Replace Trusted Host?" → "Cancel" / "Replace and Reconnect" (destructive); message includes host:port.
 - "Upload Failed" → "OK".
 
 ### Floating controls (browse mode, phone)
+
 Keyboard (`keyboard`), Upload (`paperclip`/`hourglass`), Enter (`arrow.turn.down.left`) buttons; spring response 0.28 damping 0.84.
 
 ---
@@ -75,6 +88,7 @@ Keyboard (`keyboard`), Upload (`paperclip`/`hourglass`), Enter (`arrow.turn.down
 
 ### Befehlspad (from the designs)
 On iOS the floating Befehlspad replaces the "2 rows of keys" bar and the floating Upload button; Android keeps the bar ("Bar" below) as before the pad. Setting: Settings > Keyboard > "Command pad" (stored as `extraKeysToolbarVisible`, same meaning: on = pad toggle (Android: the bar), off = no pad and the round Upload / Keyboard / Refresh buttons as before).
+
 - **Toggle** (four squares) by default bottom right of the terminal area, 16 pt in, 12 pt above whatever covers the bottom (keyboard, text editor, layer); with and without the keyboard; never in chat view. The pad stays open until the toggle is tapped again; closing it ends a layer and clears armed modifiers.
 - **Moving it**: holding the toggle for 0.3 s picks up the whole pad (toggle, field, ring and modifier chip; a firm haptic, and a tick on the drop, both only with Key vibration on); it follows the finger and, let go, snaps to the side edge nearer to the pad's middle at the released height (a spring on the native animation driver, so it keeps going while the app's JavaScript is busy; the next drag takes the pad over from it; at once with Reduce Motion on, also when that is turned on while the spring runs). From the first touch on the toggle until that finger is up or its touch is cancelled, before and after the lift, the toggle keeps its touch: no other control of the screen takes it over (a pad key, a ring button, the edge swipe between tabs or a sheet's grabber under another finger do nothing meanwhile; React Native asks only the views above the toggle, and none of them claims a touch; the toggle also refuses React Native's responder hand-over, `cancelable`), and the swipe back to Sessions is kept from starting (both through `navigation.setOptions`: `gestureEnabled` off, which the native stack reads only as a touch begins, so it holds every touch that begins meanwhile but not the toggle's own, which began before; and an empty `gestureResponseDistance`, which the stack's full-width swipe reads as it is about to begin, after the finger has moved, so the toggle's own touch does not start that swipe; a tap turns the swipe off and on again at its release; a session switch or leaving the screen turns it back on as well; at every other time it works as before). UIKit's swipe from the screen's very left edge reads neither option once the touch is down; it starts only from a touch that begins in a band along that edge whose width the system does not publish, so the toggle on the left side stands 32 pt in from the pad room's left edge (16 pt on the right), which very likely keeps a finger on it out of that band; that it does cannot be shown from the code, only on a device. Lifted, only the finger that lifted it moves it, from where that finger was as the pad came up, so the up to 10 pt it drifted during the hold do not make the pad jump; a second finger neither moves nor drops it. A touch the system cancels puts the pad back where it stood and stores nothing, without the drop's tick: the lift ends with its own finger's end or cancel (`onTouchEnd`, `onTouchCancel` of the toggle), because the press's end does not tell the two apart. On the left edge the pad is drawn mirrored: the toggle sits 32 pt from the left edge (`PAD_LEFT_MARGIN`) with the field above it, and the four ring buttons and the modifier chip lie on the field's other side, towards the middle. The 3x3 field itself keeps its order (Esc, Up, Ctrl+C on top; every arrow points its own way). A tap shorter than the hold still opens and closes the pad. Only a drag stores a new place: a hold let go without one (the finger never more than 10 pt from where it went down, React Native Pressability's allowance for a held finger) puts the pad back where it stood, opens nothing and stores nothing, so a height a cover pushed it to never becomes its resting place. VoiceOver: the toggle's actions "Move to the left side" and "Move to the right side" (height kept). Allowed area (flat): the terminal area (below the header, above the home-indicator inset, and across only as far as the window's safe area: in landscape the terminal area runs under the screen's rounded corners and the camera, so the pad's side edges are 16 pt inside the safe area there, 32 pt for the toggle on the left) with 16 pt margins (32 pt from the left edge while the pad stands there), and only the part above whatever covers its bottom (+12 pt); the stored height is a fraction of the resting free range (`commandPadPosition.flat` in `settings.v1`, `{ side, height }`, 0 = top, 1 = bottom; absent or invalid = the default place), so the keyboard, the text editor and a layer never move the pad except to keep it above them, and it goes back when they leave. Geometry in `commandPadLayout.ts` (`padAnchor`, `padPlacementAt`, `padHeaderReach`, `padSideMargin`); the screen's `padArea` is the room it is given; the store and the hook are keyed by layout, `laptop` belongs to laptop mode.
 - **Too little room for the open pad.** The open pad is 252 × 308 pt; with its margins it needs 340 pt of height with nothing covering the terminal area and 336 pt above a cover. Its keys never shrink to fit (52 pt keys, 44 pt ring buttons, 46 pt toggle). Where the area offers less:
@@ -92,10 +106,13 @@ On iOS the floating Befehlspad replaces the "2 rows of keys" bar and the floatin
 Source: `GhosttyTerminal/GhosttyTerminalView+iOS.swift` (`TerminalInputAccessoryView` @4626), `Features/TerminalAccessories/Domain/TerminalAccessoryModels.swift`.
 
 ### Attachment
+
 Real `inputAccessoryView` riding above the software keyboard. Hidden when: hardware keyboard attached, find navigator active, or browse mode.
 
 ### Keyboard: the terminal slides, the grid stays (iOS, terminal view)
+
 Decided on the report that the terminal jumped when the software keyboard came and went; the slide rule below replaced an earlier one, on the report that the keyboard covered the question card omp draws in the terminal below the cursor. Cause, as found in the code: the screen shrank the terminal container by the keyboard height at once (`TerminalScreen` bottom padding), so the native view's bounds changed, `sizeDidChange` set a new surface size and `onResize` announced a new grid to the host, whose pty resize made the remote program redraw; the keyboard's own animation was not used (`useKeyboardMetrics` read only `endCoordinates`). Not reproduced on a device; the redraw part is an inference.
+
 - **The grid stays.** On iOS in terminal mode the terminal view keeps the size it has with the keyboard hidden (the area above the home-indicator inset), whatever the keyboard, QuickType, the pad's text editor or a pad layer do: no surface size change, no `onResize`, no grid announcement caused by them. Rotation, fold and window-size changes still resize it as before. Chat view and Android keep their paths (Android: container padding, key bar in the flow).
 - **The view slides.** The terminal area clips its content (`overflow: hidden`); the view moves up by `terminalSlideOffset` (`terminalKeyboardSlide.ts`): always as far as the bottom row stands directly above what covers the view's bottom (the keyboard, the text editor riding on it, or a pad layer in the keyboard's place), so what the program draws below the cursor (an omp question card with its options) is visible; only when the cursor row would then leave the top of the visible part, as far as it stays visible. With `caretTop` the cursor row's top edge and `obstruction` the covered height: `offset = clamp(min(obstruction, caretTop), 0, obstruction)`; cursor row in the lower part: the whole covered height; cursor row near the top (`caretTop < obstruction`): `caretTop`, the cursor row at the visible area's top edge; nothing covering (keyboard hidden and no layer) or view not laid out: 0; no cursor row reported yet: the covered height (the bottom is visible, no known cursor can be lost). The covered height is the larger of the keyboard's overlap (window height less the reported frame's top) plus the open text editor's height, and the frame of an open pad layer (the keyboard's last height in this window, or the layer's own height before any keyboard was seen), less the home-indicator inset below the view; with a layer and the keyboard hidden it is therefore not 0. No extra gap is added on iOS (the 3 pt gap is Android's). Rows moved above the area are hidden behind the header while something covers the bottom; scrollback still works.
 - **The cursor row** comes from the native view's `onCaretChange` (`{ top }`: the cursor row's top edge in whole points from the view's top, `y - height` of `ghostty_surface_ime_point`, where Ghostty's `imePoint` (v1.3.1) sets `y` to the bottom of the cursor cell with the padding included and `height` to the cell's height; sent after a draw when the whole-point value changed, and once when the view is attached), so the offset follows new output and a growing prompt. iOS only; the Android view declares no such event and the prop is not passed there.
@@ -107,13 +124,17 @@ Decided on the report that the terminal jumped when the software keyboard came a
 - **Verified** by component tests on the real screen (`TerminalScreen.rntl.tsx` and `TerminalScreen.commandPad.rntl.tsx`, with the helper's `terminalKeyboardSlide.test.ts`): nothing that decides the terminal view's height changes with the keyboard, the offsets above (keyboard, keyboard and editor, a layer in the keyboard's place), the animation requests (show spring 1.8 / 580 ms, hide ease-out / 250 ms, one request per keyboard move from the store, none from the terminal hook, nothing for duration 0), the store's visibility model against notifications with start and end frames (both turn directions, both hide orderings, a frame-only hide, a late mount; `keyboardFrame.rntl.tsx`), Reduce Motion, the scroll-to-bottom on appearance (also: not for a frame-only hide's end frame, not while the screen is not focused), Reduce Motion through the real app chrome (`VerticalBarArea`) around the screen, the text editor's dock lifecycle, the pad's position above the keyboard, the Android path. **Not verified (device only):** the real start/end frames iOS posts on a turn or fold with the keyboard up (the frame-only-hide rule reads them; a start frame in the old orientation's space could misread a legitimate turn as a hide), that the native grid and pty really stay put, smoothness, the clip under the header and in the Duo's band/rail poses, hit-testing of taps, selection handles and scrollback while the view is moved, the caret row's exact top edge on the device (taken from Ghostty's source, not measured), that the scroll-to-bottom lands the cursor row where the offset expects it, and the scrolled-back case with the keyboard already up (the offset follows the active area's cursor row).
 
 ### Bar (Android; on iOS the rows' styling for the Keys layer)
+
 On iOS the rows are the Keys layer's "Extra keys" section (pills 34 pt, in the keyboard's place), the pen is the pad ring's Text editor button and Dismiss keyboard is the ring's keyboard button; there the bar, its trailing cluster and its separator do not exist. Android keeps the bar as below, in the layout flow.
+
 - **88pt** total height. Background opaque = theme terminal background color. Dark style always. On Android, position the entire bar 3pt above the native visible-window boundary so IME candidate, clipboard, and extended-layout rows cannot cover it; do not compensate with internal bar padding.
 - Trailing cluster (spacing 8, trailing inset 12): text-editor toggle above Dismiss-keyboard `keyboard.chevron.compact.down` (default **shown**), preceded by a separator (`separator` α0.4).
 - Rows stack: vertical, spacing 6, fillEqually; insets top 7 / bottom 7 / trailing 10 / leading 10 (after separator) or 12.
 
 ### Text editor page
+
 On iOS the editor opens from the pad ring's Text editor button and is docked above the keyboard (field and a round Send on its right); the behaviour below holds there, with "the dismiss-keyboard button" and "the key grid" read as the editor's Send button and the closed editor. Android keeps the bar's editor page.
+
 - The text-editor button opens a focused multiline composer using the full text keyboard, including emoji, clipboard, composition, and suggestion affordances.
 - While the editor is open, the dismiss-keyboard button becomes the editor action. A non-empty buffer shows an up-arrow and inserts the entire buffer into the selected terminal before clearing it. An empty buffer shows the Send glyph and sends the terminal Enter key.
 - Return in the software keyboard inserts a newline into the draft instead of sending it.
@@ -124,34 +145,40 @@ On iOS the editor opens from the pad ring's Text editor button and is docked abo
 ### Two rows, 7 equal columns each (fixed grid, no scroll). Empty slots invisible placeholders. Max 14 items, min 1.
 
 ### Default layout (VERBATIM)
+
 - Row 1: `Esc`, `Shift`, `Ctrl-J` (return glyph), `Home`, `↑`, `End`, `PGUP`
 - Row 2: `Tab`, `Ctrl`, `Alt`, `←`, `↓`, `→`, `PGDN`
 
 Labels (fixed ASCII): CTRL, ALT, Cmd, SHIFT, ESC, TAB, S-Tab, Enter, Bksp, Del, Ins, HOME, END, PGUP, PGDN; arrows and Ctrl-J use icons; F1..F12; ^C ^D ^Z ^L ^A ^E ^K ^U.
 
 ### Button styling
+
 - Pill: height 28, radius 14, 1pt border `separator` α0.3, bg dark `white α0.08`, font system 10 semibold for every text key, color secondaryLabel.
 - Modifier: same dimensions and font size as every other text key.
 - Icon: symbol 14 semibold, tint label, height 32, width 36, radius 16, bg dark `white α0.12`.
 - Buttons fill columns without per-label font shrinking.
 
 ### Modifier latching
+
 - Tapping Ctrl/Alt/Cmd/Shift activates it for the next input only. One-shot look: system blue background with white text.
 - Long-pressing a modifier for 450ms locks it until the modifier is tapped again. Locked look: purple background, white text, and a brighter border so it is visually distinct from one-shot activation.
 - The next non-modifier input clears only one-shot modifiers. Locked modifiers remain applied to accessory keys and software-keyboard input.
 - The bar and pad share their input machine (`terminalKeyInput.ts`, `useTerminalKeyInput.ts`); their renderers keep their own gestures. Custom text actions, agent sequences and Paste clear spent one-shot modifiers in the native keyboard too, keeping locks, so the following software-keyboard character does not inherit a spent modifier.
 
 ### Repeat-on-hold
+
 - Repeatable: arrows, backspace, home, end, pageUp, pageDown.
 - Fires once on touch-down, then after 350ms repeats every 50ms until touch up/cancel/drag-exit. Modifiers consumed each repeat.
 
 ### Key semantics
+
 - Esc: cancels local IME composition if active, then sends Escape.
 - Backspace with no mods + IME session → deleteBackward on proxy; else send key.
 - Ctrl shortcuts (^C etc.) send letter with ctrl mod.
 - Custom actions: send text, optionally + Enter.
 
 ### Customization (later milestone; keep model shape)
+
 Profile: 2 rows × 7 columns, drag reorder, custom actions (≤100, title ≤24 chars, content ≤2048), reset-to-default. Persisted profile, live-rebuild on change. RN v1: ship default layout + persistence hook.
 
 ---
@@ -200,23 +227,29 @@ Profile: 2 rows × 7 columns, drag reorder, custom actions (≤100, title ≤24 
 
 ## 7. Two panes (iPhone Duo inner display)
 
-Approved mockup `mockups/panes/` (its laptop key row is superseded by `mockups/laptop-mode/` and the movable pad of §2). Code in `src/panes/` (`docs/ARCHITECTURE.md` "Two panes"). This build has one pane type, Session: a second agent session beside the first.
+Approved mockup `mockups/panes/` (its laptop key row is superseded by `mockups/laptop-mode/` and the movable pad of §2). Code in `src/panes/` (`docs/ARCHITECTURE.md` "Two panes"). This build has four pane types: Session (a second agent session beside the first), Web Preview, Files and Git Changes. Agents, attention and usage panes are not shown yet: a stored one leaves one pane.
 
 - **Where.** Only where the window has the fold's divisions (the Duo's inner display), with an agent session selected and shown as a terminal. Folded, on other iPhones, on Android, in the chat view and for a shell tab there is one content area, as before, and nothing of the panes shows; the stored layout waits and comes back when panes are offered again. Upright (taller than wide) the second pane stands below the first; across (wider than tall) and half folded like a laptop, right of it.
 - **Panes button** in the header (in the band, or in "More options" when the band is too narrow): "Panes: add a pane" opens the chooser in the second slot beside the session on screen; with two panes it reads "Panes: close the second pane", drawn in the accent colour. Its icon shows the split of the window's shape.
 - **Chooser.** The computer's agent sessions except the one on screen, each with its agent icon, title, and agent, project and status in words ("Has a question", "Waiting for approval", "Working", "Done", "Failed", "Background work", "Idle"); a spinner while the session list is read; "No other session on this computer." when there is none. Picking one opens it in the second pane as a terminal (a pane shows no chat view) and makes that pane the active one; the session on screen beside it is kept even where the pick makes room at the warm-terminal limit. Its close button, or a change of the window's shape, closes the chooser.
 - **Pane card.** A 44 pt title bar: the grip, the type icon and the session's title (a tap opens the pane type menu, which lists the types this build shows, with a check at the pane's own), and a close button. The active pane's title bar is in the accent colour, the other's grey; with one pane there is no title bar and no marking. The cards stand 6 pt off the divider (a 12 pt gap).
-- **Active pane.** The pane tapped last (any touch in it) is active: its session is the selected one, so the keyboard, the pad's keys, the text editor, Upload and the menus act on it; its attention is acknowledged as a tab tap does. Its terminal draws its cursor filled, the other's hollow (`paneFocus`). Selecting the other pane's session (tab strip, link, notification) moves the focus there; selecting any other session puts it into the active pane. One session is never shown in both panes. The queued-prompts pill stands in the active pane.
-- **Keyboard follows the active pane.** However the active pane changes (a touch in a pane, the tab strip, a link or notification, a pick in the chooser), while the keyboard is up the new active terminal takes it, once that terminal is open; when the active pane or the selected tab closes, the terminal left alone on screen takes it the same way. The text editor keeps the keyboard while it is open (it belongs to its pane and closes when the active pane changes), and a keyboard the person lowered stays down.
+- **Active pane.** The pane tapped last (any touch in it) is active. A session pane becoming active makes its session the selected one, so the keyboard, the pad's keys, the text editor, Upload and the menus act on it; its attention is acknowledged as a tab tap does. A Web Preview, Files or Git Changes pane becomes active without changing the selection, which stays in the session pane beside it. The active pane's terminal draws its cursor filled, a terminal in a pane that is not active hollow (`paneFocus`). With two session panes, selecting the other pane's session (tab strip, link, notification) moves the focus there and selecting any other session puts it into the active pane; beside a Web Preview, Files or Git Changes pane, selecting another session puts it into the session pane, which becomes the active one. One session is never shown in two session panes (a session pane and a Files or Git Changes pane opened from that session may stand side by side). The queued-prompts pill stands in the selected session's pane.
+- **Keyboard follows the active pane.** However the active pane changes (a touch in a pane, the tab strip, a link or notification, a pick in the chooser), while the keyboard is up the new active terminal takes it, once that terminal is open; when the active pane or the selected tab closes, the terminal left alone on screen takes it the same way. The same holds from a field of a Web Preview, Files or Git Changes pane: while the keyboard is up there, the terminal that becomes active takes it, and when either pane closes, the session left alone on screen; not when the Duo folds (that pane's content then opens full screen), and not a session that was not on screen (the session pane's tab closing ends the layout). The text editor keeps the keyboard while it is open (it belongs to its pane and closes when the active pane changes), and a keyboard the person lowered stays down.
 - **Swap.** A finger moved more than 8 pt on a title bar drags it: a copy of the title bar follows the finger and the other pane shows "Release to swap" while the finger is over its slot; letting go there swaps the two panes, elsewhere nothing changes. The active pane moves with its content. The terminals keep their place in the view tree and are not mounted again. VoiceOver: the grip's activate action swaps.
 - **Divider.** Its 44 pt handle stands in the gap only while the keyboard is down. Dragging it resizes both panes, clamped so each keeps 25 to 75 % of the pane container (the terminal area below the header); while dragged it shows both shares ("60 % · 40 %", with "limit" at a bound). VoiceOver: adjustable in 5 % steps. Only the user's drag or adjustment of the handle is stored, per window shape.
-- **Half folded like a book** (the fold down the turned inner display) the panes have no layout of their own: the slots, the cards, the terminals' sizes and the stored divider stay as they are, and the content may run across the fold, but nothing to touch stands on it. A handle that would stand on the fold stands beside it, on the divider's side, in the title bars' row (no terminal's content there); each title bar keeps off the fold and the handle, giving up the side of its card nearer to them, so its grip, title and close button stay together. The queued-prompts pill in the active pane starts past the fold when the fold lies in the leading half of that pane's body, where the pill stands.
+- **Half folded like a book** (the fold down the turned inner display) the panes have no layout of their own: the slots, the cards, the terminals' sizes and the stored divider stay as they are, and the content may run across the fold, but nothing to touch stands on it. A handle that would stand on the fold stands beside it, on the divider's side, in the title bars' row (no terminal's content there); each title bar keeps off the fold and the handle, giving up the side of its card nearer to them, so its grip, title and close button stay together. The controls in a Web Preview, Files, Git Changes or chooser body keep off the fold the same way, giving up the side of the body nearer to it, wherever the divider stands: the Web Preview's start and its page's toolbar and Retry, the Files search row and failure card, the Changes scope row, scope menu and failure card, and every row of the chooser; the page, the file tree and the changes may run across it. The queued-prompts pill in the selected session's pane starts past the fold when the fold lies in the leading half of that pane's body, where the pill stands.
 - **Keyboard** (nothing of it is stored): upright with the top pane active, both keep their slots and the bottom pane ends at the keyboard, down to its title bar (a top pane that does not fit above the keyboard ends there and the bottom pane is its title bar); upright with the bottom pane active, the divider moves up as far as the bottom pane needs to keep 240 pt above the keyboard; across, both panes end at the keyboard; half folded like a laptop, both panes end 6 pt above the fold, where the keyboard and the layers below it do not reach them. When the keyboard hides, the divider is back where the user set it. Each terminal keeps the size its pane has without the keyboard (its grid stays) and slides over what the rules take from it, as the full-screen terminal does (§2).
 - **Text editor and pad.** Upright the text editor rides on the keyboard across the window and counts as part of the cover; across and half folded it stands over the active pane only, as wide as it. The pad keeps its place and its room over the whole pane container, as with one pane (§2, also its laptop-pose rules), and acts on the active pane.
-- **Closing.** A pane's close button leaves the other pane alone on the full screen (it takes the selection when the active one closed). A session's tab closing (closed, killed, slept, evicted) ends every layout that shows it.
-- **Window shapes and restart.** Upright and across each keep their own layout. Turning into a shape with nothing stored for it brings the two panes on screen along, the divider in the middle, and stores them for that shape. The layouts are stored in `panes.layout.v1` (AsyncStorage, exactly the pane-layout schema version 1); a stored value that is not exactly that, or shows one session in both slots, is discarded and one pane is used. After a restart the stored second session is attached again without changing the selection; one whose computer is no longer known leaves one pane. Development builds show the stored upright layout in Settings › Advanced ("Pane layout, upright (debug)").
+- **Closing.** A pane's close button leaves the other pane alone on the full screen (it takes the selection when the active one closed); with a session pane beside a Web Preview, Files or Git Changes pane, either close button leaves the session. A session's tab closing (closed, killed, slept, evicted) ends every layout whose session pane shows it; a Files or Git Changes pane opened from that session stays.
+- **Window shapes and restart.** Upright and across each keep their own layout. Turning into a shape with nothing stored for it brings the two panes on screen along, the divider in the middle, and stores them for that shape. The layouts are stored in `panes.layout.v1` (AsyncStorage, exactly the pane-layout schema version 1); a stored value that is not exactly that, or shows one session in two session panes, is discarded and one pane is used. After a restart the stored second session is attached again without changing the selection; one whose computer is no longer known leaves one pane. Development builds show the stored upright layout in Settings › Advanced ("Pane layout, upright (debug)").
 - **Gestures.** Only the title bars and the divider handle take a drag; a gesture that starts in a pane's content is the terminal's (selection, scrolling, pinch) and never moves or resizes a pane. The panes' bodies keep clear of the handle's touch area.
-- **Verified** by `src/screens/TerminalScreen.panes.rntl.tsx` (the real screen under `VerticalBarArea`), `src/terminal/panes.rntl.ts` and `bun test src/panes`. Device-only, not shown there: the frames the device reports, the filled and hollow cursors, the native touch selection and its edit menu in a pane, and how a swap or a divider drag feels.
+- **Web Preview, Files, Git Changes.** The chooser lists them under "Show in this pane" above its sessions; the title's pane type menu lists Session, Web Preview, Files and Git Changes and sets the pane's type, the other pane keeping its content (and its terminal). Files and Git Changes are offered only for a session with a project folder (as the ⋯ menu's Files and Changes); the only session pane offers no other type (the selected session is always a pane's); Session on another pane opens the chooser there. A picked pane becomes the active one.
+  - _Web Preview_: the existing Web Preview of the selected session's computer, its start (address, listening ports) and then the page, with one row of Back, Forward, the address, Reload and "…" (Desktop Site, Open in Browser; Forward then Reload move into "…" below 340 and 240 pt). Back at the first page returns to the start. Its title is the page's address.
+  - _Files_: the Files browser (`DocsBrowser`) of the project; a file opens in the full-screen viewer; Add to Session Context fills the session the pane was opened from.
+  - _Git Changes_: the read-only Changes view (`ChangesView`, `runGitAction changesDiff`); a tap on a changed file shows its diff in the pane; no stage, commit or revert.
+  - Files and Git Changes stay with the project of the session they were opened from: the slot's own session when a session pane is switched, else the selected session; selecting other sessions never changes them, and that session's tab closing leaves them. Their title is the project's name. Stored as `{paneType, sessionKey: <origin session>}`; the browser as `{paneType: "browser"}` (its page is not stored: after a restart it shows the start). A stored files or Git Changes pane whose session the computer no longer lists says so.
+  - With such a pane active there is no pad, no floating terminal buttons and no text editor (their keys would reach no terminal); it becoming active takes the keyboard from the terminal. The queued-prompts pill stands in the selected session's pane. Closing either pane of a session and such a pane leaves the session alone. Folding while such a pane is active opens its content full screen (Web Preview at its page or start, Files, Changes); unfolded the layout is back on the terminal screen.
+- **Verified** by `src/screens/TerminalScreen.panes.rntl.tsx` and `src/screens/TerminalScreen.paneTypes.rntl.tsx` (the real screen under `VerticalBarArea`), `src/terminal/panes.rntl.ts` and `bun test src/panes`. Device-only, not shown there: the frames the device reports, the filled and hollow cursors, the native touch selection and its edit menu in a pane, and how a swap or a divider drag feels.
 
 ## Cross-cutting
 

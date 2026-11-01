@@ -76,7 +76,7 @@ describe('two session panes', () => {
   });
 
   test('a stored pane type this build cannot show leaves one pane', () => {
-    const layout: PaneLayout = { ...STACKED, second: { paneType: 'browser' } };
+    const layout: PaneLayout = { ...STACKED, second: { paneType: 'usage' } };
     assert.deepEqual(resolvePanes(input({ layout })), { display: { kind: 'single' }, store: null });
   });
 });

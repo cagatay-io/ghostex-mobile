@@ -20,6 +20,9 @@
  * port directly. Form posts to an already-forwarded port are rewritten in the
  * page instead (see `buildLinkRewriteScript`), because a cancelled-and-reissued
  * navigation would lose the request body.
+ *
+ * The same preview (`WebPreviewView`) fills a browser pane on the iPhone Duo (`src/panes/BrowserPane.tsx`) with a
+ * compact toolbar of its own; its forwards are its own and go when the pane does.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
@@ -73,6 +76,7 @@ import { ensureConnected } from '../inventory/client';
 import { hasPassword } from '../machines/credentials';
 import { useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
+import type { PaneBarInset } from '../panes/geometry';
 import { GhostexPalette } from '../theme/palette';
 import { describeForwardFailure, startWebPreviewForward, type WebPreviewFailure } from '../webPreview/forwards';
 import { holdComputerForward, releaseComputerForward } from '../webPreview/machineLinks';
@@ -215,6 +219,32 @@ function buildLinkRewriteScript(forwarded: ReadonlyArray<readonly [number, numbe
 const WEB_BAND_BUTTONS = { size: TOOLBAR_BUTTON_SIZE, gap: 0 } as const;
 
 export default function WebPreviewScreen({ navigation, route }: Props) {
+  const close = useCallback(() => navigation.goBack(), [navigation]);
+  return <WebPreviewView page={route.params} placement="screen" onClose={close} />;
+}
+
+export type WebPreviewViewProps = {
+  /** The page to open; a new one (a followed link) opens it in the same preview. */
+  page: RootStackParamList['WebPreview'];
+  /**
+   * `screen`: the Web Preview screen, its buttons in the toolbar, the status band or the side bar. `pane`: a browser
+   * pane on the iPhone Duo, one compact row of Back, Forward, the address, Reload and "…".
+   */
+  placement: 'screen' | 'pane';
+  /** Close: the screen goes back to where it was opened from; a pane goes back to the Web Preview's start. */
+  onClose: () => void;
+  /** The page on screen, whenever it changes (a pane keeps it for its title and for opening it full screen). */
+  onPage?: (page: RootStackParamList['WebPreview']) => void;
+  /** In a pane: how far its toolbar and Retry stay off the body's edges to keep off a book fold; the page may cross. */
+  controlInset?: PaneBarInset;
+};
+
+/** The pane's row moves Forward, then Reload into "…" below these widths (the approved panes mockup). */
+const PANE_FORWARD_MIN_WIDTH = 340;
+const PANE_RELOAD_MIN_WIDTH = 240;
+
+export function WebPreviewView({ page, placement, onClose, onPage, controlInset }: WebPreviewViewProps) {
+  const inPane = placement === 'pane';
   const insets = useSafeAreaInsets();
   const headerPlacement = useHeaderPlacement();
   /**
@@ -224,9 +254,7 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
    * DocViewerScreen.tsx and in chat/native/cards/PageSheet.tsx once the package fixes its default.
    */
   const webviewRef = useRef<WebView<object>>(null);
-  const machine = useMachinesStore((state) =>
-    state.machines.find((candidate) => candidate.id === route.params.machineId),
-  );
+  const machine = useMachinesStore((state) => state.machines.find((candidate) => candidate.id === page.machineId));
   const setLastPort = useWebPreviewStore((state) => state.setLastPort);
   const hydrateWebPreview = useWebPreviewStore((state) => state.hydrate);
   const previewHydrated = useWebPreviewStore((state) => state.hydrated);
@@ -240,7 +268,7 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
   const machineRef = useRef(machine);
   machineRef.current = machine;
   const mountedRef = useRef(true);
-  const machineId = route.params.machineId;
+  const machineId = page.machineId;
 
   /*
    * Resolved while the screen is idle, because the failure copy needs it from a
@@ -269,10 +297,10 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
 
   /** Where Retry goes: the port that was last asked for, failed or not. */
   const intendedRef = useRef<RemoteTarget>({
-    scheme: route.params.scheme ?? 'http',
-    remotePort: route.params.remotePort ?? 80,
-    path: route.params.path ?? '/',
-    host: route.params.host ?? 'localhost',
+    scheme: page.scheme ?? 'http',
+    remotePort: page.remotePort ?? 80,
+    path: page.path ?? '/',
+    host: page.host ?? 'localhost',
   });
   /**
    * Ports whose forward this screen holds (`holdComputerForward`), released when it goes. The
@@ -291,11 +319,20 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
   const seqRef = useRef(0);
 
   const [address, setAddress] = useState<PreviewAddress>(() =>
-    route.params.url ? { kind: 'external', url: route.params.url } : { kind: 'remote', ...intendedRef.current },
+    page.url ? { kind: 'external', url: page.url } : { kind: 'remote', ...intendedRef.current },
   );
   const [addressDraft, setAddressDraft] = useState(() => addressText(address));
   const editingAddressRef = useRef(false);
   const addressInputRef = useRef<TextInputInstance>(null);
+  // A pane remembers the page on screen (its title, and the full-screen preview it opens folded).
+  const addressPage = JSON.stringify(
+    address.kind === 'external'
+      ? { machineId, url: address.url }
+      : { machineId, scheme: address.scheme, remotePort: address.remotePort, path: address.path, host: address.host },
+  );
+  useEffect(() => {
+    onPage?.(JSON.parse(addressPage) as RootStackParamList['WebPreview']);
+  }, [addressPage, onPage]);
   const [addressError, setAddressError] = useState<string | null>(null);
   useEffect(() => {
     if (!editingAddressRef.current) setAddressDraft(addressText(address));
@@ -517,27 +554,14 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
     })();
   }, [address, machineId, openAddress, openRemotePort]);
 
-  // Opening the screen, and re-opening it with new params from a followed link.
+  // Opening the preview, and opening another page in it (a followed link).
   useEffect(() => {
-    if (route.params.url !== undefined) {
-      openAddress(route.params.url);
+    if (page.url !== undefined) {
+      openAddress(page.url);
       return;
     }
-    void openRemotePort(
-      route.params.scheme ?? 'http',
-      route.params.remotePort ?? 80,
-      route.params.path ?? '/',
-      route.params.host ?? 'localhost',
-    );
-  }, [
-    openAddress,
-    openRemotePort,
-    route.params.url,
-    route.params.path,
-    route.params.remotePort,
-    route.params.scheme,
-    route.params.host,
-  ]);
+    void openRemotePort(page.scheme ?? 'http', page.remotePort ?? 80, page.path ?? '/', page.host ?? 'localhost');
+  }, [openAddress, openRemotePort, page.url, page.path, page.remotePort, page.scheme, page.host]);
 
   /** Whether the page on screen is one the computer's gxserver serves (a `ghostex show` page). */
   const onGxserverPage = useCallback((): boolean => {
@@ -734,7 +758,8 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
   // too while the side bar has no room for it. Same labels, actions and states as the toolbar. The
   // address field takes the keyboard.
   const isFocused = useIsFocused();
-  const inRail = headerPlacement.kind === 'rail' && isFocused;
+  // A pane's buttons stand in its own row, never in the side bar or the status band.
+  const inRail = !inPane && headerPlacement.kind === 'rail' && isFocused;
   // The "…" menu while open, at its button. It stays open when the pose changes,
   // following its button, or centred while the toolbar holds its items instead (status band, top).
   const [railMenu, setRailMenu] = useState<{ anchor?: MenuAnchor } | null>(null);
@@ -750,7 +775,12 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
   // page sheet does. The content area's bottom edge in the window (the screen covers the window from its top).
   const fold = useLaptopFold();
   const [contentBottom, setContentBottom] = useState<number | null>(null);
-  const contentInset = contentBottom === null ? 0 : foldUpperHalfInset(fold, contentBottom);
+  // A pane already ends above the fold.
+  const contentInset = inPane || contentBottom === null ? 0 : foldUpperHalfInset(fold, contentBottom);
+  // The pane's row: Forward, then Reload move into "…" when the pane is narrow; shown until it is measured.
+  const [paneWidth, setPaneWidth] = useState<number | null>(null);
+  const paneShowsForward = paneWidth === null || paneWidth >= PANE_FORWARD_MIN_WIDTH;
+  const paneShowsReload = paneWidth === null || paneWidth >= PANE_RELOAD_MIN_WIDTH;
   const reloadDisabled = source === null || failure !== null;
   const railButtons = useMemo<RailButtons>(
     () => ({
@@ -762,7 +792,7 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
           key: 'close',
           label: WebPreviewCopy.closeLabel,
           icon: (size) => <CloseIcon size={size} color={GhostexPalette.FOREGROUND} />,
-          onPress: () => navigation.goBack(),
+          onPress: onClose,
         },
         {
           key: 'back',
@@ -786,13 +816,13 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
         },
       ],
     }),
-    [canGoBack, goBack, navigation, reload, reloadDisabled],
+    [canGoBack, goBack, onClose, reload, reloadDisabled],
   );
   useRailButtons(railButtons, GhostexPalette.BACKGROUND, inRail);
   const railOverflow = useRailOverflow(railButtons, inRail);
   // The status band's row: the rail's buttons (Close, Back, Reload, "…"), those that do not
   // fit moving into the "…" menu, last first.
-  const inBand = headerPlacement.kind === 'band';
+  const inBand = !inPane && headerPlacement.kind === 'band';
   const bandOverflow = useBandOverflow(
     railButtons,
     inBand ? headerPlacement.frame.width - 2 * BAND_ROW_PADDING : 0,
@@ -800,16 +830,22 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
     inBand,
   );
   const overflowEntries = inBand ? bandOverflow.menu : railOverflow;
+  const reloadEntry = railButtons.entries.find((entry) => entry.key === 'reload');
   const railMenuEntries = useMemo<RailEntry[]>(
     () => [
       ...overflowEntries,
-      {
-        key: 'forward',
-        label: WebPreviewCopy.forwardLabel,
-        icon: (size) => <ArrowIcon direction="right" size={size} color={GhostexPalette.FOREGROUND} />,
-        onPress: goForward,
-        disabled: !canGoForward,
-      },
+      ...(inPane && !paneShowsReload && reloadEntry !== undefined ? [reloadEntry] : []),
+      ...(inPane && paneShowsForward
+        ? []
+        : [
+            {
+              key: 'forward',
+              label: WebPreviewCopy.forwardLabel,
+              icon: (size: number) => <ArrowIcon direction="right" size={size} color={GhostexPalette.FOREGROUND} />,
+              onPress: goForward,
+              disabled: !canGoForward,
+            },
+          ]),
       {
         key: 'desktop-site',
         label: WebPreviewCopy.desktopSiteLabel,
@@ -835,8 +871,12 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
       desktopMode,
       failure,
       goForward,
+      inPane,
       openInBrowser,
       overflowEntries,
+      paneShowsForward,
+      paneShowsReload,
+      reloadEntry,
       siteKey,
       toggleDesktopSite,
     ],
@@ -851,131 +891,183 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
   const renderLoadFailure = useCallback(
     () =>
       failure !== null && failure.origin === 'load' ? (
-        <PreviewFailure failure={failure} onRetry={retry} />
+        <PreviewFailure failure={failure} onRetry={retry} controlInset={controlInset} />
       ) : (
         <ConnectingSurface address={address} />
       ),
-    [address, failure, retry],
+    [address, controlInset, failure, retry],
   );
 
+  const addressBar = (
+    <View style={[styles.addressBar, inPane && styles.paneAddressBar]}>
+      <TextInput
+        ref={addressInputRef}
+        style={styles.addressText}
+        value={addressDraft}
+        onFocus={() => {
+          editingAddressRef.current = true;
+        }}
+        onBlur={() => {
+          editingAddressRef.current = false;
+        }}
+        onChangeText={(value) => {
+          setAddressDraft(value);
+          setAddressError(null);
+        }}
+        onSubmitEditing={submitAddress}
+        accessibilityLabel={WebPreviewCopy.manualSection}
+        placeholder={WebPreviewCopy.manualPlaceholder}
+        placeholderTextColor={GhostexPalette.MUTED}
+        keyboardType="url"
+        returnKeyType="go"
+        submitBehavior="submit"
+        autoCapitalize="none"
+        autoCorrect={false}
+        spellCheck={false}
+        selectTextOnFocus
+      />
+      <ToolbarButton
+        label={WebPreviewCopy.openButton}
+        onPress={submitAddress}
+        icon={<ArrowIcon direction="right" size={18} color={GhostexPalette.FOREGROUND} />}
+      />
+    </View>
+  );
+  const addressAlert =
+    addressError !== null ? (
+      <Text accessibilityRole="alert" style={styles.errorBannerBody}>
+        {addressError}
+      </Text>
+    ) : null;
+
   return (
-    <View style={[styles.screen, { paddingBottom: insets.bottom }]}>
-      <View
-        style={[
-          styles.toolbar,
-          // In the side bar's poses the address row is the top row: below the system's top margin,
-          // its background running on under the side bar.
-          headerPlacement.kind === 'rail'
-            ? [{ paddingTop: contentTop }, barBackgroundToEdges(bar, TOOLBAR_PADDING)]
-            : { paddingTop: insets.top + 6 },
-        ]}
-      >
-        {/* On the iPhone Duo unfolded in portrait the buttons stand in the status band; the address row stays below it.
-            In the side bar's poses they stand there instead (railButtons). */}
-        {headerPlacement.kind === 'band' ? (
-          <View
-            style={[
-              styles.toolbarButtons,
-              styles.bandToolbarButtons,
-              bandRowFrame(headerPlacement.frame, BAND_ROW_HEIGHT),
-            ]}
-          >
-            {railButtons.entries
-              .filter((entry) => bandOverflow.shows(entry.key))
-              .map((entry) => (
-                <ToolbarButton
-                  key={entry.key}
-                  buttonRef={entry.key === 'more' ? moreButtonRef : undefined}
-                  label={entry.label}
-                  disabled={entry.disabled}
-                  onPress={() =>
-                    entry.key === 'more' ? measureInWindow(moreButtonRef, entry.onPress) : entry.onPress()
-                  }
-                  icon={entry.icon(18)}
-                />
-              ))}
-          </View>
-        ) : headerPlacement.kind === 'rail' ? null : (
-          <View style={[styles.toolbarButtons]}>
+    <View style={[styles.screen, { paddingBottom: inPane ? 0 : insets.bottom }]}>
+      {inPane ? (
+        // A pane: one row as the approved panes mockup draws it; Close is the pane's own, Back at the first page
+        // returns to the Web Preview's start.
+        <View
+          style={[
+            styles.paneToolbar,
+            controlInset !== undefined && {
+              paddingLeft: styles.paneToolbar.paddingHorizontal + controlInset.left,
+              paddingRight: styles.paneToolbar.paddingHorizontal + controlInset.right,
+            },
+          ]}
+        >
+          <View style={styles.paneToolbarRow} onLayout={(event) => setPaneWidth(event.nativeEvent.layout.width)}>
             <ToolbarButton
-              label={WebPreviewCopy.closeLabel}
-              onPress={() => navigation.goBack()}
-              icon={<CloseIcon size={18} color={GhostexPalette.FOREGROUND} />}
+              label={WebPreviewCopy.backLabel}
+              onPress={canGoBack ? goBack : onClose}
+              icon={<ArrowIcon direction="left" size={18} color={GhostexPalette.FOREGROUND} />}
             />
-            <View style={styles.toolbarNavGroup}>
-              <ToolbarButton
-                label={WebPreviewCopy.backLabel}
-                disabled={!canGoBack}
-                onPress={goBack}
-                icon={<ArrowIcon direction="left" size={18} color={GhostexPalette.FOREGROUND} />}
-              />
+            {paneShowsForward ? (
               <ToolbarButton
                 label={WebPreviewCopy.forwardLabel}
                 disabled={!canGoForward}
                 onPress={goForward}
                 icon={<ArrowIcon direction="right" size={18} color={GhostexPalette.FOREGROUND} />}
               />
+            ) : null}
+            {addressBar}
+            {paneShowsReload ? (
               <ToolbarButton
                 label={WebPreviewCopy.reloadLabel}
-                disabled={source === null || failure !== null}
+                disabled={reloadDisabled}
                 onPress={reload}
                 icon={<RefreshIcon size={18} color={GhostexPalette.FOREGROUND} />}
               />
-            </View>
+            ) : null}
             <ToolbarButton
-              label={WebPreviewCopy.desktopSiteLabel}
-              disabled={siteKey === null || failure !== null}
-              active={desktopMode}
-              onPress={toggleDesktopSite}
-              icon={<DesktopIcon size={18} color={desktopMode ? GhostexPalette.ACCENT : GhostexPalette.FOREGROUND} />}
-            />
-            <ToolbarButton
-              label={WebPreviewCopy.openInBrowserLabel}
-              disabled={currentUrl === null || address.kind === 'remote'}
-              onPress={openInBrowser}
-              icon={<ExternalLinkIcon size={18} color={GhostexPalette.FOREGROUND} />}
+              buttonRef={moreButtonRef}
+              label={DuoChromeCopy.more}
+              onPress={() => measureInWindow(moreButtonRef, (anchor) => setRailMenu({ anchor }))}
+              icon={<EllipsisIcon size={18} color={GhostexPalette.FOREGROUND} />}
             />
           </View>
-        )}
-        <View style={styles.addressBar}>
-          <TextInput
-            ref={addressInputRef}
-            style={styles.addressText}
-            value={addressDraft}
-            onFocus={() => {
-              editingAddressRef.current = true;
-            }}
-            onBlur={() => {
-              editingAddressRef.current = false;
-            }}
-            onChangeText={(value) => {
-              setAddressDraft(value);
-              setAddressError(null);
-            }}
-            onSubmitEditing={submitAddress}
-            accessibilityLabel={WebPreviewCopy.manualSection}
-            placeholder={WebPreviewCopy.manualPlaceholder}
-            placeholderTextColor={GhostexPalette.MUTED}
-            keyboardType="url"
-            returnKeyType="go"
-            submitBehavior="submit"
-            autoCapitalize="none"
-            autoCorrect={false}
-            spellCheck={false}
-            selectTextOnFocus
-          />
-          <ToolbarButton
-            label={WebPreviewCopy.openButton}
-            onPress={submitAddress}
-            icon={<ArrowIcon direction="right" size={18} color={GhostexPalette.FOREGROUND} />}
-          />
+          {addressAlert}
         </View>
-        {addressError !== null ? (
-          <Text accessibilityRole="alert" style={styles.errorBannerBody}>
-            {addressError}
-          </Text>
-        ) : null}
-      </View>
+      ) : (
+        <View
+          style={[
+            styles.toolbar,
+            // In the side bar's poses the address row is the top row: below the system's top margin,
+            // its background running on under the side bar.
+            headerPlacement.kind === 'rail'
+              ? [{ paddingTop: contentTop }, barBackgroundToEdges(bar, TOOLBAR_PADDING)]
+              : { paddingTop: insets.top + 6 },
+          ]}
+        >
+          {/* On the iPhone Duo unfolded in portrait the buttons stand in the status band; the address row stays below it.
+            In the side bar's poses they stand there instead (railButtons). */}
+          {headerPlacement.kind === 'band' ? (
+            <View
+              style={[
+                styles.toolbarButtons,
+                styles.bandToolbarButtons,
+                bandRowFrame(headerPlacement.frame, BAND_ROW_HEIGHT),
+              ]}
+            >
+              {railButtons.entries
+                .filter((entry) => bandOverflow.shows(entry.key))
+                .map((entry) => (
+                  <ToolbarButton
+                    key={entry.key}
+                    buttonRef={entry.key === 'more' ? moreButtonRef : undefined}
+                    label={entry.label}
+                    disabled={entry.disabled}
+                    onPress={() =>
+                      entry.key === 'more' ? measureInWindow(moreButtonRef, entry.onPress) : entry.onPress()
+                    }
+                    icon={entry.icon(18)}
+                  />
+                ))}
+            </View>
+          ) : headerPlacement.kind === 'rail' ? null : (
+            <View style={[styles.toolbarButtons]}>
+              <ToolbarButton
+                label={WebPreviewCopy.closeLabel}
+                onPress={onClose}
+                icon={<CloseIcon size={18} color={GhostexPalette.FOREGROUND} />}
+              />
+              <View style={styles.toolbarNavGroup}>
+                <ToolbarButton
+                  label={WebPreviewCopy.backLabel}
+                  disabled={!canGoBack}
+                  onPress={goBack}
+                  icon={<ArrowIcon direction="left" size={18} color={GhostexPalette.FOREGROUND} />}
+                />
+                <ToolbarButton
+                  label={WebPreviewCopy.forwardLabel}
+                  disabled={!canGoForward}
+                  onPress={goForward}
+                  icon={<ArrowIcon direction="right" size={18} color={GhostexPalette.FOREGROUND} />}
+                />
+                <ToolbarButton
+                  label={WebPreviewCopy.reloadLabel}
+                  disabled={source === null || failure !== null}
+                  onPress={reload}
+                  icon={<RefreshIcon size={18} color={GhostexPalette.FOREGROUND} />}
+                />
+              </View>
+              <ToolbarButton
+                label={WebPreviewCopy.desktopSiteLabel}
+                disabled={siteKey === null || failure !== null}
+                active={desktopMode}
+                onPress={toggleDesktopSite}
+                icon={<DesktopIcon size={18} color={desktopMode ? GhostexPalette.ACCENT : GhostexPalette.FOREGROUND} />}
+              />
+              <ToolbarButton
+                label={WebPreviewCopy.openInBrowserLabel}
+                disabled={currentUrl === null || address.kind === 'remote'}
+                onPress={openInBrowser}
+                icon={<ExternalLinkIcon size={18} color={GhostexPalette.FOREGROUND} />}
+              />
+            </View>
+          )}
+          {addressBar}
+          {addressAlert}
+        </View>
+      )}
 
       <View
         style={styles.contentArea}
@@ -1022,7 +1114,7 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
             RNCWebView never enters its error state; that surface is drawn here.
           */}
           {failure !== null && failure.origin === 'forward' ? (
-            <PreviewFailure failure={failure} onRetry={retry} />
+            <PreviewFailure failure={failure} onRetry={retry} controlInset={controlInset} />
           ) : null}
           {source === null && failure === null ? <ConnectingSurface address={address} /> : null}
 
@@ -1086,9 +1178,27 @@ function ConnectingSurface({ address }: { address: PreviewAddress }) {
   );
 }
 
-function PreviewFailure({ failure, onRetry }: { failure: WebPreviewFailure; onRetry: () => void }) {
+function PreviewFailure({
+  failure,
+  onRetry,
+  controlInset,
+}: {
+  failure: WebPreviewFailure;
+  onRetry: () => void;
+  /** In a pane: Retry and the words around it keep off a book fold. */
+  controlInset: PaneBarInset | undefined;
+}) {
   return (
-    <View style={[styles.stateSurface, styles.failureOverlay]}>
+    <View
+      style={[
+        styles.stateSurface,
+        styles.failureOverlay,
+        controlInset !== undefined && {
+          paddingLeft: styles.stateSurface.padding + controlInset.left,
+          paddingRight: styles.stateSurface.padding + controlInset.right,
+        },
+      ]}
+    >
       <Text style={styles.stateTitle}>{WebPreviewCopy.errorTitle}</Text>
       <Text style={styles.stateBody}>{failure.message}</Text>
       {failure.hint.length > 0 ? <Text style={styles.stateBody}>{failure.hint}</Text> : null}

@@ -1,9 +1,10 @@
 /**
  * The pane host's state for the terminal screen: what it shows (`resolve.ts`), kept in step with the stores. It
  * stores a layout the selection changed, remembers the pane tapped last and the panes on screen (they come along when
- * the window turns into a shape with nothing stored), tells the terminal store which session the second pane shows
- * (eviction keeps it, a closing selected tab hands it the selection), attaches a stored pane's session again after a
- * restart without changing the selection, and closes the chooser when the window changes.
+ * the window turns into a shape with nothing stored), tells the terminal store which session the second session pane
+ * shows (eviction keeps it, a closing selected tab hands it the selection), attaches a stored pane's session again after
+ * a restart without changing the selection, closes the chooser when the window changes, and sets a slot's pane type
+ * (the chooser's types and the title's pane type menu).
  */
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
@@ -14,8 +15,10 @@ import { useMachinesStore } from '../machines/store';
 import { useTerminalStore } from '../terminal/sessions';
 import type { PaneIndex } from './geometry';
 import type { PaneArrangement } from './layout';
+import { usePaneProjectOffered } from './paneProject';
+import { AVAILABLE_PANE_TYPES } from './paneTypes';
 import { DEFAULT_DIVIDER_RATIO } from './divider';
-import { resolvePanes, type PaneDisplay } from './resolve';
+import { paneEntryOf, resolvePanes, type PaneContent, type PaneDisplay, type PaneEntry } from './resolve';
 import { usePaneStore } from './store';
 
 export type PaneHostInput = {
@@ -24,23 +27,39 @@ export type PaneHostInput = {
   arrangement: PaneArrangement;
 };
 
+/** The pane types a slot can be set to; Session opens the chooser there. */
+export type SettablePaneType = 'session' | 'browser' | 'files' | 'git';
+
 export type PaneHost = {
   display: PaneDisplay;
   /** The divider's stored position for the window's shape. */
   ratio: number;
-  /** The session the second pane shows beside the active one, or null. */
+  /** The session the second session pane shows beside the selected one, or null. */
   paneSessionKey: string | null;
   /** Panes in the header: the chooser in a second slot beside the selected session. */
   openChooser: () => void;
-  /** A pane's close button (the Panes button closes the second): one pane again, the other one staying. */
+  /** A pane's close button (the Panes button closes the second): one pane again, a session staying. */
   closeSlot: (slot: PaneIndex) => void;
   swap: () => void;
   setRatio: (ratio: number) => void;
+  /**
+   * Sets what a slot shows, the other slot keeping its content; the slot becomes the active one. Files and Git changes
+   * keep the project of the session the slot showed, or else of the selected session. The only session
+   * pane keeps its session: the selected session is always a pane's.
+   */
+  setSlotType: (slot: PaneIndex, type: SettablePaneType) => void;
+  /**
+   * Whether a slot can be set to this type now: the only session pane keeps its session, and Files and Git changes
+   * need a project with a folder for the session they would come from.
+   */
+  typeOffered: (slot: PaneIndex, type: SettablePaneType) => boolean;
 };
 
 function machineOf(sessionKey: string): string {
   return sessionKey.slice(0, sessionKey.indexOf(':'));
 }
+
+type SessionContent = Extract<PaneContent, { kind: 'session' }>;
 
 export function usePaneHost({ offered, arrangement }: PaneHostInput): PaneHost {
   const tabs = useTerminalStore((state) => state.tabs);
@@ -52,7 +71,7 @@ export function usePaneHost({ offered, arrangement }: PaneHostInput): PaneHost {
   const hydrated = usePaneStore((state) => state.hydrated);
   const shown = usePaneStore((state) => state.shown);
   // The window turned: the panes last on screen in the other shape come along where nothing is stored for this one.
-  const carried = shown !== null && shown.arrangement !== arrangement ? shown.sessions : null;
+  const carried = shown !== null && shown.arrangement !== arrangement ? shown.slots : null;
 
   const resolution = useMemo(
     () =>
@@ -71,35 +90,38 @@ export function usePaneHost({ offered, arrangement }: PaneHostInput): PaneHost {
   );
   const { display, store } = resolution;
   const active = display.kind === 'panes' ? display.active : null;
-  const other = display.kind === 'panes' ? display.slots[active === 0 ? 1 : 0] : null;
-  const paneSessionKey = other?.kind === 'session' ? other.sessionKey : null;
+  // The session pane beside the selected session's, when both slots are session panes.
+  const paneSessionKey =
+    display.kind === 'panes'
+      ? (display.slots.find(
+          (content): content is SessionContent =>
+            content.kind === 'session' && content.sessionKey !== selectedSessionKey,
+        )?.sessionKey ?? null)
+      : null;
 
-  // What the selection changed is the layout from now on; the pane tapped last is remembered.
-  const storeFirst = store?.[0] ?? null;
-  const storeSecond = store?.[1] ?? null;
+  // What the selection changed is the layout from now on; the pane tapped last is remembered. Keyed by value: the
+  // resolver builds new slot objects on every render.
+  const storeKey = store === null ? null : JSON.stringify(store);
   useEffect(() => {
-    if (storeFirst !== null && storeSecond !== null) {
-      usePaneStore.getState().showSessions(arrangement, storeFirst, storeSecond);
-    }
-  }, [arrangement, storeFirst, storeSecond]);
+    if (storeKey === null) return;
+    const [first, second] = JSON.parse(storeKey) as [PaneEntry, PaneEntry];
+    usePaneStore.getState().showSlots(arrangement, first, second);
+  }, [arrangement, storeKey]);
   useEffect(() => {
     if (active !== null) usePaneStore.getState().setActiveSlot(active);
   }, [active]);
 
   // What is on screen comes along when the window turns; while the panes are hidden it waits as the layout does.
-  const shownFirst =
-    display.kind === 'panes' && display.slots[0].kind === 'session' ? display.slots[0].sessionKey : null;
-  const shownSecond =
-    display.kind === 'panes' && display.slots[1].kind === 'session' ? display.slots[1].sessionKey : null;
+  const shownFirst = display.kind === 'panes' ? paneEntryOf(display.slots[0]) : null;
+  const shownSecond = display.kind === 'panes' ? paneEntryOf(display.slots[1]) : null;
+  const shownKey = shownFirst !== null && shownSecond !== null ? JSON.stringify([shownFirst, shownSecond]) : null;
   const showing = offered && hydrated;
   useEffect(() => {
     if (!showing) return;
     usePaneStore
       .getState()
-      .setShown(
-        shownFirst !== null && shownSecond !== null ? { arrangement, sessions: [shownFirst, shownSecond] } : null,
-      );
-  }, [showing, arrangement, shownFirst, shownSecond]);
+      .setShown(shownKey === null ? null : { arrangement, slots: JSON.parse(shownKey) as [PaneEntry, PaneEntry] });
+  }, [showing, arrangement, shownKey]);
 
   // The terminal store keeps the second pane's terminal warm and gives it the selection when the selected tab closes.
   // Set again on every selection change too: a pick in the chooser marks the first pane's session before it selects
@@ -156,6 +178,8 @@ export function usePaneHost({ offered, arrangement }: PaneHostInput): PaneHost {
         panes.closeChooser();
         return;
       }
+      // One pane again: the screen shows the selected session, so beside a browser, files or Git changes pane the
+      // session pane stays whichever of the two closes.
       panes.closePanes(arrangement);
       // The pane that stays takes the keyboard and the pad.
       const staying = display.slots[slot === 0 ? 1 : 0];
@@ -164,6 +188,58 @@ export function usePaneHost({ offered, arrangement }: PaneHostInput): PaneHost {
       }
     },
     [arrangement, display],
+  );
+
+  const setSlotType = useCallback(
+    (slot: PaneIndex, type: SettablePaneType) => {
+      const terminal = useTerminalStore.getState();
+      const selected = terminal.selectedSessionKey;
+      if (display.kind !== 'panes' || selected === null) return;
+      const current = display.slots[slot];
+      const beside = display.slots[slot === 0 ? 1 : 0];
+      if (current.kind === type || beside.kind === 'chooser') return;
+      const panes = usePaneStore.getState();
+      if (type === 'session') {
+        // The chooser in this slot, beside the session pane; the session picked there fills it.
+        if (current.kind !== 'chooser' && beside.kind === 'session') {
+          panes.openChooser({ arrangement, firstSessionKey: beside.sessionKey, slot });
+        }
+        return;
+      }
+      if (current.kind === 'session' && beside.kind !== 'session') return;
+      const origin = current.kind === 'session' ? current.sessionKey : selected;
+      const content: PaneContent = type === 'browser' ? { kind: 'browser' } : { kind: type, origin };
+      const entry = paneEntryOf(content);
+      const besideEntry = paneEntryOf(beside);
+      if (entry === null || besideEntry === null) return;
+      // The selection stays a shown session's: it moves to the session pane beside before this one changes.
+      if (current.kind === 'session' && current.sessionKey === selected && beside.kind === 'session') {
+        terminal.selectTab(beside.sessionKey, { scrollToBottom: false });
+      }
+      if (slot === 0) panes.showSlots(arrangement, entry, besideEntry);
+      else panes.showSlots(arrangement, besideEntry, entry);
+      panes.setActiveSlot(slot);
+    },
+    [arrangement, display],
+  );
+
+  // Files and Git changes come from the slot's own session, or else the selected one (`setSlotType`).
+  const selectedProjectOffered = usePaneProjectOffered(selectedSessionKey);
+  const besideProjectOffered = usePaneProjectOffered(paneSessionKey);
+  const typeOffered = useCallback(
+    (slot: PaneIndex, type: SettablePaneType): boolean => {
+      if (display.kind !== 'panes') return false;
+      const current = display.slots[slot];
+      const beside = display.slots[slot === 0 ? 1 : 0];
+      if (current.kind === type) return true;
+      if (beside.kind === 'chooser') return false;
+      if (current.kind === 'session' && beside.kind !== 'session') return false;
+      if (type === 'session') return current.kind !== 'chooser' && beside.kind === 'session';
+      if (!AVAILABLE_PANE_TYPES.some((definition) => definition.type === type && definition.needsProject)) return true;
+      const origin = current.kind === 'session' ? current.sessionKey : selectedSessionKey;
+      return origin === selectedSessionKey ? selectedProjectOffered : besideProjectOffered;
+    },
+    [besideProjectOffered, display, selectedProjectOffered, selectedSessionKey],
   );
 
   const swap = useCallback(() => usePaneStore.getState().swap(arrangement), [arrangement]);
@@ -180,5 +256,7 @@ export function usePaneHost({ offered, arrangement }: PaneHostInput): PaneHost {
     closeSlot,
     swap,
     setRatio,
+    setSlotType,
+    typeOffered,
   };
 }

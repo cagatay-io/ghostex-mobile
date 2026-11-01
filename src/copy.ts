@@ -1064,7 +1064,10 @@ export const TerminalHeaderCopy = {
   terminalView: 'Terminal view',
 } as const;
 
-/** Two panes on the unfolded iPhone Duo: the header's Panes button, the panes' title bars, divider and chooser. */
+/**
+ * Panes on the unfolded iPhone Duo: the header's Panes button, the panes' title bars, divider and chooser, and the
+ * pane types (the approved panes mockup's labels and descriptions).
+ */
 export const PanesCopy = {
   addPane: 'Panes: add a pane',
   closeSecondPane: 'Panes: close the second pane',
@@ -1075,10 +1078,23 @@ export const PanesCopy = {
   typeMenuTitle: 'Pane type',
   typeMenuSubtitle: 'Shown in this pane',
   sessionType: 'Session',
+  sessionTypeDescription: 'Another agent session next to this one',
+  browserType: 'Web Preview',
+  browserTypeDescription: 'A page from your computer',
+  filesType: 'Files',
+  filesTypeDescription: 'The project’s files',
+  gitType: 'Git Changes',
+  gitTypeDescription: 'Changed files and their diff',
   newPane: 'New pane',
+  /** The chooser's pane types, above its sessions. */
+  chooserTypesLead: 'Show in this pane',
   chooserLead: 'Open a session here',
   chooserEmpty: 'No other session on this computer.',
   chooserLoading: 'Loading sessions',
+  /** A files or Git changes pane while the computer's session list is read. */
+  projectLoading: 'Loading the project',
+  /** A files or Git changes pane whose session (its project's) the computer no longer lists. */
+  projectGone: 'The session this pane was opened from is no longer on this computer, so its project is not known.',
   resize: 'Resize panes',
   /** While the divider is dragged: both shares, and "limit" at 25 or 75 percent. */
   shares: (first: number, second: number, atLimit: boolean) => `${first} % · ${second} %${atLimit ? ' · limit' : ''}`,

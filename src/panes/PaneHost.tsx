@@ -2,8 +2,9 @@
  * The pane host: two panes in the pane container (the area below the terminal screen's header), the divider between
  * them and their title bars. Where they stand is `paneGeometry`'s; what they show is the caller's (`renderContent`).
  *
- * - Each pane has a title bar: the grip, the type icon and title (a tap opens the pane type menu), the close button.
- *   The pane tapped last is active: its title bar in the accent colour; the other's grey.
+ * - Each pane has a title bar: the grip, the type icon and title (a tap opens the pane type menu, which sets what the
+ *   pane shows), the close button. The pane tapped last is active: its title bar in the accent colour; the other's
+ *   grey.
  * - Dragging a pane by its title bar (the grip is part of it) onto the other slot swaps the two. While the finger
  *   moves, a copy of the title bar follows it and the other pane shows where a release swaps; the panes themselves
  *   stay put, so their terminals are never moved or remounted (a terminal can be in one place only).
@@ -11,7 +12,8 @@
  * - A gesture that starts in a pane's content is never a pane gesture: nothing here takes a touch there, so the
  *   terminal's own selection, scrolling and pinch stay as they are.
  * - Half folded like a book the content may run across the fold, but nothing to touch stands on it: the handle moves
- *   beside the fold, the title bars and the active pane's accessory keep off it.
+ *   beside the fold, the title bars and the selected session's accessory keep off it, and a body other than a
+ *   terminal gets where its own controls keep off it (`PaneFrame.controlInset`).
  * The cards are drawn in the order of what they show, never of their slot: a swap only changes their frames, and
  * their native views keep their place in the view tree.
  */
@@ -35,11 +37,13 @@ import { PanesCopy, SessionCopy } from '../copy';
 import { useInventoryStore } from '../inventory/store';
 import { useTerminalStore } from '../terminal/sessions';
 import { colorWithOpacity, GhostexPalette, GhostexRadii } from '../theme/palette';
+import { remoteDisplayAddress } from '../webPreview/urls';
 import { clampDividerRatio, MAX_DIVIDER_RATIO, MIN_DIVIDER_RATIO } from './divider';
 import {
   PANE_HANDLE_SIZE,
   PANE_TITLE_HEIGHT,
   paneGeometry,
+  type PaneBarInset,
   type PaneGeometry,
   type PaneGeometryInput,
   type PaneIndex,
@@ -47,8 +51,11 @@ import {
   type PaneSize,
 } from './geometry';
 import type { PaneArrangement } from './layout';
+import { usePaneProject } from './paneProject';
 import { AVAILABLE_PANE_TYPES } from './paneTypes';
 import type { PaneContent } from './resolve';
+import { usePaneStore } from './store';
+import type { SettablePaneType } from './usePaneHost';
 
 /** How far a finger moves on a title bar before it drags the pane (a shorter touch is a tap). */
 const DRAG_SLOP = 8;
@@ -57,7 +64,11 @@ const ACCESSIBLE_STEP = 0.05;
 const DIVIDER_ACTIONS = [{ name: 'increment' }, { name: 'decrement' }] as const;
 const GRIP_ACTIONS = [{ name: 'activate' }] as const;
 
-export type PaneFrame = { view: PaneSize; covered: number; active: boolean };
+/**
+ * What a body is given: its terminal's size and what the keyboard rules hide of it, whether its pane is active, and
+ * how far its own controls stay off its edges to keep off a book fold (`paneGeometry`'s `controlInsets`).
+ */
+export type PaneFrame = { view: PaneSize; covered: number; active: boolean; controlInset: PaneBarInset };
 
 export type PaneHostProps = {
   /** Where the panes stand (`paneGeometry`'s input: the window's shape, the container, the stored divider, the
@@ -65,8 +76,13 @@ export type PaneHostProps = {
   layout: PaneGeometryInput;
   slots: readonly [PaneContent, PaneContent];
   renderContent: (content: PaneContent, frame: PaneFrame) => ReactNode;
-  /** Shown in the active pane's body (the queued prompts of its session). */
-  activeAccessory?: ReactNode;
+  /** Shown in the body of the pane in `accessorySlot` (the queued prompts of the selected session, in its pane). */
+  accessory?: ReactNode;
+  accessorySlot: PaneIndex;
+  /** Whether the pane type menu offers this type for the slot now (`usePaneHost`'s `typeOffered`). */
+  typeOffered: (slot: PaneIndex, type: SettablePaneType) => boolean;
+  /** A type picked in a pane's type menu. */
+  onSetType: (slot: PaneIndex, type: SettablePaneType) => void;
   onActivate: (slot: PaneIndex) => void;
   onClose: (slot: PaneIndex) => void;
   onSwap: () => void;
@@ -75,10 +91,21 @@ export type PaneHostProps = {
 };
 
 function contentKey(content: PaneContent): string {
-  return content.kind === 'session' ? content.sessionKey : content.kind;
+  switch (content.kind) {
+    case 'session':
+      return content.sessionKey;
+    case 'files':
+    case 'git':
+      return `${content.kind}:${content.origin}`;
+    default:
+      return content.kind;
+  }
 }
 
-/** The title a pane's bar shows: the session's name as the session list has it, else its tab's. */
+/**
+ * The title a pane's bar shows: a session's name as the session list has it, else its tab's; a browser pane's page
+ * (the type's name at the Web Preview's start); a files or Git changes pane's project.
+ */
 function usePaneTitle(content: PaneContent): string {
   const sessionKey = content.kind === 'session' ? content.sessionKey : null;
   const tab = useTerminalStore((state) =>
@@ -91,9 +118,28 @@ function usePaneTitle(content: PaneContent): string {
           (session) => session.sessionId === tab.ghostexSessionId,
         )?.displayTitle ?? ''),
   );
-  if (content.kind === 'chooser') return PanesCopy.newPane;
-  if (displayTitle.length > 0) return displayTitle;
-  return tab !== null && tab.title.length > 0 ? tab.title : SessionCopy.fallbackTitle;
+  const project = usePaneProject(content.kind === 'files' || content.kind === 'git' ? content.origin : '');
+  const page = usePaneStore((state) => (content.kind === 'browser' ? (state.browserPage?.page ?? null) : null));
+  switch (content.kind) {
+    case 'chooser':
+      return PanesCopy.newPane;
+    case 'browser':
+      if (page === null) return PanesCopy.browserType;
+      if (page.url !== undefined) return page.url;
+      return page.path === undefined || page.path === '/'
+        ? `localhost:${page.remotePort}`
+        : remoteDisplayAddress(page.remotePort, page.path);
+    case 'files':
+    case 'git':
+      return project.kind === 'project' && project.project.projectName.length > 0
+        ? project.project.projectName
+        : content.kind === 'files'
+          ? PanesCopy.filesType
+          : PanesCopy.gitType;
+    case 'session':
+      if (displayTitle.length > 0) return displayTitle;
+      return tab !== null && tab.title.length > 0 ? tab.title : SessionCopy.fallbackTitle;
+  }
 }
 
 type SwapDrag = { slot: PaneIndex; dx: number; dy: number };
@@ -136,7 +182,7 @@ export default function PaneHost(props: PaneHostProps) {
           menuOpen={menu?.slot === slot}
           onMenu={(anchor) => setMenu({ slot, anchor })}
           renderContent={props.renderContent}
-          accessory={slot === active ? props.activeAccessory : undefined}
+          accessory={slot === props.accessorySlot ? props.accessory : undefined}
           onActivate={props.onActivate}
           onClose={props.onClose}
           onSwap={props.onSwap}
@@ -165,8 +211,11 @@ export default function PaneHost(props: PaneHostProps) {
           icon: definition.icon(18, GhostexPalette.FOREGROUND),
           selected: menu !== null && slots[menu.slot].kind === definition.type,
           selectedPresentation: 'check' as const,
-          // The pane already shows the only type this build has.
-          onPress: () => setMenu(null),
+          disabled: menu === null || !props.typeOffered(menu.slot, definition.type),
+          onPress: () => {
+            setMenu(null);
+            if (menu !== null && slots[menu.slot].kind !== definition.type) props.onSetType(menu.slot, definition.type);
+          },
         }))}
         onClose={() => setMenu(null)}
         rowAnchor={menu?.anchor}
@@ -279,7 +328,12 @@ function PaneCard(props: PaneCardProps) {
         </Pressable>
       </View>
       <View style={[styles.body, { left: inset.left, right: inset.right, bottom: inset.bottom }]}>
-        {props.renderContent(content, { view: geometry.views[slot], covered: geometry.covered[slot], active })}
+        {props.renderContent(content, {
+          view: geometry.views[slot],
+          covered: geometry.covered[slot],
+          active,
+          controlInset: geometry.controlInsets[slot],
+        })}
         {props.accessory !== undefined && props.accessory !== null ? (
           // Half folded like a book it starts past a fold in the body's leading half (`paneGeometry`).
           <View style={[StyleSheet.absoluteFill, { left: geometry.accessoryLeft[slot] }]} pointerEvents="box-none">

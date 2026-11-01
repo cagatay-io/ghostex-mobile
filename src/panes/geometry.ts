@@ -14,7 +14,8 @@
  * Half folded like a book (the fold down the container) the panes stay as they are and their content may run across
  * the fold, but nothing to touch stands on it: where the divider handle would, it moves beside the fold into the
  * title bars' row (no terminal's content is there, and the terminals keep their size), each title bar keeps off
- * the fold and the handle, and the active pane's accessory (the queued prompts) stands past a fold in its body's
+ * the fold and the handle, the controls in a body other than a terminal (a toolbar, a search row, a chooser) keep off
+ * the fold the same way, and the active pane's accessory (the queued prompts) stands past a fold in its body's
  * leading half.
  * A terminal keeps the size its pane has without the keyboard (its grid stays, as on the full screen); what the
  * keyboard rules take from the pane's body is what the terminal slides over (`covered`). Free of React Native.
@@ -41,7 +42,10 @@ export type PaneRect = { x: number; y: number; width: number; height: number };
 export type PaneSize = { width: number; height: number };
 /** The body's distance from its card's edges besides the title bar: the side facing the divider handle. */
 export type PaneBodyInset = { left: number; right: number; bottom: number };
-/** A title bar's distance from its card's left and right edge: it keeps off the fold and the handle beside it. */
+/**
+ * A title bar's, or the controls' in a body, distance from the card's or the body's left and right edge: they keep off
+ * the fold (a title bar also off the handle beside it).
+ */
 export type PaneBarInset = { left: number; right: number };
 /** A stretch across the pane container, from `start` to `end` in container points. */
 export type PaneSpan = { start: number; end: number };
@@ -81,6 +85,11 @@ export type PaneGeometry = {
   handleShown: boolean;
   bodyInsets: [PaneBodyInset, PaneBodyInset];
   barInsets: [PaneBarInset, PaneBarInset];
+  /**
+   * Where the controls in each body keep off the fold, from the body's edges (`bodyInsets` aside); its content may run
+   * across the fold. Nothing without the fold.
+   */
+  controlInsets: [PaneBarInset, PaneBarInset];
   /** Where the active pane's accessory (the queued prompts) starts, from its body's left edge. */
   accessoryLeft: [number, number];
   /** Each terminal's size: its pane's body without the keyboard. */
@@ -165,6 +174,7 @@ function stackedGeometry({ width, height, ratio, active, coverTop }: PaneGeometr
     handleShown: coverTop === null,
     bodyInsets,
     barInsets: [NO_BAR_INSET, NO_BAR_INSET],
+    controlInsets: [NO_BAR_INSET, NO_BAR_INSET],
     accessoryLeft: [0, 0],
     views,
     covered: [0, 1].map((index) => {
@@ -218,6 +228,12 @@ function sideBySideGeometry({
     division === null || handle === centred
       ? division
       : { start: Math.min(division.start, handle.x), end: Math.max(division.end, handle.x + PANE_HANDLE_SIZE) };
+  // A body's controls give up its side nearer the fold, as a title bar does; the handle stands in the bars' row.
+  const body = (index: PaneIndex): PaneRect => ({
+    ...cards[index],
+    x: cards[index].x + bodyInsets[index].left,
+    width: cards[index].width - bodyInsets[index].left - bodyInsets[index].right,
+  });
   return {
     slots: [
       { x: 0, y: 0, width: at, height: bottom },
@@ -229,6 +245,7 @@ function sideBySideGeometry({
     handleShown: coverTop === null,
     bodyInsets,
     barInsets: [barInset(cards[0], keepOff), barInset(cards[1], keepOff)],
+    controlInsets: [barInset(body(0), division), barInset(body(1), division)],
     accessoryLeft: [accessoryLeft(cards[0], bodyInsets[0], division), accessoryLeft(cards[1], bodyInsets[1], division)],
     views,
     covered: [0, 1].map((index) => {

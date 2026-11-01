@@ -280,6 +280,26 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: MONOSPACE,
   },
+  /** A browser pane's toolbar: one row under the pane's title bar, the address error below it. */
+  paneToolbar: {
+    backgroundColor: GhostexPalette.BACKGROUND,
+    borderBottomWidth: GhostexStrokeWidth,
+    borderBottomColor: GhostexPalette.BORDER,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    gap: 2,
+  },
+  paneToolbarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  /** The address field between the pane's buttons: it takes the room they leave. */
+  paneAddressBar: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: TOOLBAR_BUTTON_SIZE,
+    paddingHorizontal: 8,
+  },
   webview: {
     flex: 1,
     backgroundColor: GhostexPalette.BACKGROUND,
