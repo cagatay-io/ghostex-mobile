@@ -74,7 +74,10 @@ export type MobileSummaryWireSession = {
   isTemporaryTitle?: boolean;
   visibleInSidebarByDefault?: boolean;
   shouldSubmitStagedFirstPromptTitleCommand?: boolean;
-  /** Sent only while `activity` is attention; kind and workingStartedAt describe the ended stint, notificationId requires its capability. */
+  /**
+   * Sent only while `activity` is attention. `kind` identifies a finished turn or a wait; an unknown or idle
+   * start leaves `workingStartedAt` out even on a current computer. `notificationId` requires its capability.
+   */
   attention?: {
     enteredAt?: string;
     acknowledged?: boolean;
@@ -650,7 +653,7 @@ export type GhostexSession = {
   attentionKind: GhostexAttentionKind;
   /**
    * When the stint that ended began, sent while the session is in attention (`attention.workingStartedAt`; '' outside
-   * attention, and from a computer without host change H1a).
+   * attention, from a computer without host change H1a, and when the attention came from idle or its start is unknown).
    */
   attentionWorkingStartedAt: string;
   actions: GhostexSessionActions;

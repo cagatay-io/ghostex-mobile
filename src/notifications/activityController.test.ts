@@ -265,6 +265,19 @@ describe('a computer without host changes H1a and H1b (D-063)', () => {
     process(T0 + 5_000, [working('s1', T0)]);
     assert.deepEqual(kinds(), ['request']);
   });
+
+  test('a finished agent without attention.workingStartedAt on a current Mac keeps the activity', () => {
+    const { process, kinds } = setup();
+    // A current Mac leaves the start out when the attention came from idle: the Mac is current, the row has no time.
+    const finishedFromIdle: WireSession = {
+      sessionId: 's2',
+      activity: 'attention',
+      attention: { enteredAt: new Date(T0 + 4_000).toISOString(), kind: 'finished' },
+    };
+    process(T0, [working('s1')]);
+    process(T0 + 5_000, [working('s1'), finishedFromIdle]);
+    assert.deepEqual(kinds(), ['request', 'update']);
+  });
 });
 
 describe('Settings switch', () => {

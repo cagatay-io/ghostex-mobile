@@ -15,6 +15,9 @@
  * every computer with agents sends H1a and H1b (D-063, REQ-LIVEACT-004); `computersNeedingUpdate` names the ones
  * that do not. A waiting agent without `attention.enteredAt` is counted but gets no row (Main's derivation of
  * 2026-10-29): no row without its time.
+ * Likewise a finished agent without `attention.workingStartedAt`, which a current computer leaves out when the
+ * attention came from idle (also after an acknowledgement): no row, since its duration is unknown, but its computer
+ * is current.
  *
  * The computer drops `attention` once a finished session is acknowledged on any device, so the app remembers every
  * finished event it has seen (`FinishedMemory`) and keeps it a row candidate for its 2 minutes. The memory lives
@@ -116,8 +119,9 @@ function agentNameOf(session: GhostexSession): string {
 
 /**
  * The computers that do not send host changes H1a and H1b (D-063): a working agent without `workingStartedAt`,
- * an agent in attention without `attention.kind`, or a finished agent without `attention.workingStartedAt`, the
- * start of the stint that ended. A summary without working or attention agents proves nothing and is not listed. While
+ * or an agent in attention without `attention.kind`. A finished agent without `attention.workingStartedAt` does
+ * not count: a current computer leaves it out when the attention came from idle. A summary without working or
+ * attention agents proves nothing and is not listed. While
  * any computer is listed, no Live Activity runs (REQ-LIVEACT-004).
  */
 export function computersNeedingUpdate(sources: readonly ActivitySource[]): string[] {
@@ -127,10 +131,7 @@ export function computersNeedingUpdate(sources: readonly ActivitySource[]): stri
         (session) =>
           agentNameOf(session).length > 0 &&
           ((session.activity === 'working' && session.workingStartedAt.length === 0) ||
-            (session.activity === 'attention' && session.attentionKind.length === 0) ||
-            (session.activity === 'attention' &&
-              session.attentionKind === 'finished' &&
-              session.attentionWorkingStartedAt.length === 0)),
+            (session.activity === 'attention' && session.attentionKind.length === 0)),
       ),
     )
     .map((source) => source.machineId);

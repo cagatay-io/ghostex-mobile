@@ -402,21 +402,31 @@ describe('computers without host changes H1a and H1b (D-063, REQ-LIVEACT-004)', 
     assert.deepEqual(computersNeedingUpdate(sources(attentionOnly)), [MACHINE]);
   });
 
-  test('a finished agent without attention.workingStartedAt is enough, also with a top-level workingStartedAt', () => {
-    const finishedWithoutStart = {
-      sessions: [
-        {
-          sessionId: 'f',
-          provider: 'zmx',
-          agent: 'claude',
-          projectName: 'p',
-          activity: 'attention',
-          attention: { enteredAt: '2026-10-24T10:41:00Z', kind: 'finished' },
-          workingStartedAt: '2026-10-24T10:22:00Z',
-        },
-      ],
+  // A current computer leaves `attention.workingStartedAt` out when the attention came from idle, also after an
+  // acknowledgement: the row has no duration, so it gets no row, but its computer is current.
+  test('a finished agent without attention.workingStartedAt (from idle on a current Mac) needs no update and gets no row', () => {
+    const finishedFromIdle = {
+      sessionId: 'f',
+      provider: 'zmx',
+      agent: 'claude',
+      projectName: 'p',
+      activity: 'attention',
+      attention: { enteredAt: '2026-10-24T10:41:00Z', kind: 'finished' },
+      workingStartedAt: '2026-10-24T10:22:00Z',
     };
-    assert.deepEqual(computersNeedingUpdate(sources(finishedWithoutStart)), [MACHINE]);
+    const withWorking = { sessions: [finishedFromIdle, ...twoWorkingOneWaiting.sessions] };
+    assert.deepEqual(computersNeedingUpdate(sources({ sessions: [finishedFromIdle] })), []);
+    assert.deepEqual(computersNeedingUpdate(sources(withWorking)), []);
+    const state = buildContentState(sources(withWorking), NOW);
+    assert.ok(
+      state.agents.every((row) => row.target.sessionId !== 'f'),
+      'no row without its duration',
+    );
+    assert.deepEqual(state.counts, { working: 2, waiting: 1 });
+    assert.equal(state.moreCount, 1);
+    // The same row without `attention.kind` comes from a computer without the host changes: still listed.
+    const olderRow = { ...finishedFromIdle, attention: { enteredAt: '2026-10-24T10:41:00Z' } };
+    assert.deepEqual(computersNeedingUpdate(sources({ sessions: [olderRow] })), [MACHINE]);
   });
 
   test('attention.kind is finished or needsInput only: another value, such as bell, counts as no kind', () => {
