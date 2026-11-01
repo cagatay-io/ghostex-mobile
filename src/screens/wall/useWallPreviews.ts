@@ -28,8 +28,7 @@ export function useWallPreviews(visible: boolean, targets: readonly PreviewTarge
         if (machine === undefined) return Promise.resolve({ kind: 'unavailable' });
         return readSessionTail(machine, target.projectId, target.sessionId);
       },
-      publish: (key, preview) =>
-        useWallPreviewStore.setState((state) => ({ previews: { ...state.previews, [key]: preview } })),
+      publish: (previews) => useWallPreviewStore.setState({ previews }),
       timers: {
         setInterval: (run, ms) => setInterval(run, ms),
         clearInterval: (handle) => clearInterval(handle),

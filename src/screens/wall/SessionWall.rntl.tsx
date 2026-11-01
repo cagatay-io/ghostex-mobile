@@ -241,11 +241,13 @@ async function press(label: string | RegExp): Promise<void> {
 
 const tile = (label: RegExp) => screen.queryByLabelText(label);
 const readSessions = () => mockRead.mock.calls.map(([, , sessionId]) => sessionId);
+/** The sessions that hold a thumbnail. */
+const previewKeys = () => Object.keys(useWallPreviewStore.getState().previews).sort();
 const storedView = async () => JSON.parse((await AsyncStorage.getItem('settings.v1')) ?? '{}').sessionListView;
 
 beforeEach(async () => {
   jest.useFakeTimers();
-  mockRead.mockClear();
+  mockRead.mockReset().mockImplementation(readLines);
   navigation.navigate.mockClear();
   mockFocused = true;
   mockReport = null;
@@ -380,6 +382,42 @@ describe('the live thumbnails', () => {
     expect(screen.getAllByText('No preview')).toHaveLength(3);
   });
 
+  test('a thumbnail goes with its tile: a closed session, the list shown again, the screen gone', async () => {
+    await renderScreen(UPRIGHT, [FLAT_UPRIGHT]);
+    await press('Show as tiles');
+    expect(previewKeys()).toEqual(['m1:a', 'm1:b', 'm1:c']);
+    // Gamma closed on the computer.
+    const summary = parseMobileSummary(
+      JSON.stringify({
+        ok: true,
+        projects: [{ projectId: 'p1', name: 'ghostex-mobile', path: '/work/ghostex-mobile' }],
+        sessions: [
+          wireSession('a', 'Alpha', { activity: 'working' }),
+          wireSession('b', 'Beta', { activity: 'attention' }),
+        ],
+      }),
+    );
+    const inventory = useInventoryStore.getState().inventoriesByMachineId.m1;
+    await act(async () => {
+      useInventoryStore.setState({ inventoriesByMachineId: { m1: { ...inventory, summary, serverSummary: summary } } });
+    });
+    await settle();
+    expect(previewKeys()).toEqual(['m1:a', 'm1:b']);
+    // Another screen in front keeps the thumbnails of the tiles it will show again.
+    mockFocused = false;
+    await changeWindow(UPRIGHT, [FLAT_UPRIGHT]);
+    expect(previewKeys()).toEqual(['m1:a', 'm1:b']);
+    mockFocused = true;
+    await changeWindow(UPRIGHT, [FLAT_UPRIGHT]);
+    // Back to the list: no tile, no thumbnail.
+    await press('Show as list');
+    expect(previewKeys()).toEqual([]);
+    await press('Show as tiles');
+    expect(previewKeys()).toEqual(['m1:a', 'm1:b']);
+    await act(async () => screen.unmount());
+    expect(previewKeys()).toEqual([]);
+  });
+
   test('another screen in front, or the app in the background, stops the reads; back in front they resume', async () => {
     await renderScreen(UPRIGHT, [FLAT_UPRIGHT]);
     await press('Show as tiles');
@@ -505,11 +543,6 @@ describe("in the Unified list (the computer's Sidebar set to Unified)", () => {
       foldedGroups: [],
     });
   }
-
-  beforeEach(() => {
-    // A test above makes every read refused and keeps it so (`mockClear` keeps implementations): read lines again.
-    mockRead.mockImplementation(readLines);
-  });
 
   /** The Unified cards (named by their title alone) in the order the list draws them. */
   const cardTitles = () =>

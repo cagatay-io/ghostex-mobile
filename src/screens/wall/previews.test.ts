@@ -67,11 +67,11 @@ async function settle(): Promise<void> {
   for (let index = 0; index < 5; index += 1) await Promise.resolve();
 }
 
-/** A read of the computer that answers at once (or when released) and records each request. */
+/** A read of the computer that answers at once (or when released) and records each request and each publication. */
 function fakeComputer({ hold = false }: { hold?: boolean } = {}) {
   const requests: string[] = [];
   const pending: (() => void)[] = [];
-  const published: [string, Preview][] = [];
+  const published: Readonly<Record<string, Preview>>[] = [];
   return {
     requests,
     published,
@@ -87,8 +87,8 @@ function fakeComputer({ hold = false }: { hold?: boolean } = {}) {
       pending.push(() => answer.resolve(preview));
       return answer.promise;
     },
-    publish: (key: string, preview: Preview) => {
-      published.push([key, preview]);
+    publish: (previews: Readonly<Record<string, Preview>>) => {
+      published.push(previews);
     },
   };
 }
@@ -161,7 +161,7 @@ describe('while the tiles view is visible', () => {
     expect(computer.requests).toEqual(['m1:a', 'm1:b', 'm1:a']);
     await clock.advance(WALL_REFRESH_MS * 2);
     expect(computer.requests).toEqual(['m1:a', 'm1:b', 'm1:a', 'm1:a', 'm1:a']);
-    expect(computer.published.at(-1)).toEqual(['m1:a', { kind: 'lines', lines: ['m1:a screen'] }]);
+    expect(computer.published.at(-1)?.['m1:a']).toEqual({ kind: 'lines', lines: ['m1:a screen'] });
   });
 
   test('a status change reads the tile at once, an unchanged list does not read again', async () => {
@@ -210,15 +210,64 @@ describe('while the tiles view is visible', () => {
 
   test('a failed read shows the tile as unavailable', async () => {
     const clock = fakeClock();
-    const published: [string, Preview][] = [];
+    const published: Readonly<Record<string, Preview>>[] = [];
     const scheduler = createPreviewScheduler({
       read: () => Promise.reject(new Error('lost')),
-      publish: (key, preview) => published.push([key, preview]),
+      publish: (previews) => published.push(previews),
       timers: clock.timers,
     });
     scheduler.update(true, [target('a')]);
     await settle();
-    expect(published).toEqual([['m1:a', { kind: 'unavailable' }]]);
+    expect(published).toEqual([{ 'm1:a': { kind: 'unavailable' } }]);
+  });
+});
+
+describe('the thumbnails kept', () => {
+  const screenOf = (key: string): Preview => ({ kind: 'lines', lines: [`${key} screen`] });
+
+  test('a tile that left the list loses its thumbnail; a read still on its way for it brings nothing', async () => {
+    const { computer, scheduler } = setup({ hold: true });
+    scheduler.update(true, [target('a'), target('b')]);
+    await computer.release();
+    expect(computer.published.at(-1)).toEqual({ 'm1:a': screenOf('m1:a') });
+    // Both leave the list while b's read is on its way: what it brings is dropped.
+    scheduler.update(true, [target('c')]);
+    expect(computer.published.at(-1)).toEqual({});
+    await computer.release();
+    expect(computer.published.at(-1)).toEqual({});
+    expect(computer.requests).toEqual(['m1:a', 'm1:b', 'm1:c']);
+    await computer.release();
+    expect(computer.published.at(-1)).toEqual({ 'm1:c': screenOf('m1:c') });
+  });
+
+  test('a tile back in the list is read again, its old thumbnail being gone', async () => {
+    const { computer, scheduler } = setup();
+    scheduler.update(true, [target('a')]);
+    await settle();
+    scheduler.update(true, []);
+    scheduler.update(true, [target('a')]);
+    await settle();
+    expect(computer.requests).toEqual(['m1:a', 'm1:a']);
+    expect(computer.published.at(-1)).toEqual({ 'm1:a': screenOf('m1:a') });
+  });
+
+  test('hidden, the listed tiles keep their thumbnails and a removed one loses its own', async () => {
+    const { computer, scheduler } = setup();
+    scheduler.update(true, [target('a'), target('b')]);
+    await settle();
+    const count = computer.published.length;
+    scheduler.update(false, [target('a'), target('b')]);
+    expect(computer.published).toHaveLength(count);
+    scheduler.update(false, [target('a')]);
+    expect(computer.published.at(-1)).toEqual({ 'm1:a': screenOf('m1:a') });
+  });
+
+  test('stop gives up every thumbnail', async () => {
+    const { computer, scheduler } = setup();
+    scheduler.update(true, [target('a')]);
+    await settle();
+    scheduler.stop();
+    expect(computer.published.at(-1)).toEqual({});
   });
 });
 

@@ -11,6 +11,10 @@
  * background work; at most `WALL_MAX_READS` reads at a time, since they share the computer's SSH connection with the
  * terminals, and never two for one session. Hidden, nothing is read; shown again, every tile is read once.
  *
+ * A thumbnail lives as long as its tile is in the list: one that leaves it (a closed session, a folded project, the
+ * tiles view switched off) loses its thumbnail, as do all when the scheduler stops, and a read that comes back for it
+ * later is dropped. Hidden, the listed tiles keep theirs, so they show again at once while they are read again.
+ *
  * Free of React Native, so the rule is testable under `bun test`; `useWallPreviews.ts` wires it to the screen.
  */
 
@@ -48,7 +52,7 @@ export type PreviewTarget = {
   signature: string;
 };
 
-/** The thumbnails by session key, for each tile to pick its own (only that tile draws again). */
+/** The scheduler's thumbnails by session key, for each tile to pick its own (only that tile draws again). */
 export const useWallPreviewStore = create<{ previews: Readonly<Record<string, Preview>> }>(() => ({ previews: {} }));
 
 /**
@@ -106,14 +110,15 @@ export function wallTargets(blocks: readonly DrawerBlock[]): PreviewTarget[] {
 
 export type PreviewSchedulerDeps<Handle> = {
   read: (target: PreviewTarget) => Promise<Preview>;
-  publish: (key: string, preview: Preview) => void;
+  /** Every thumbnail of the listed tiles, each time one comes or goes. */
+  publish: (previews: Readonly<Record<string, Preview>>) => void;
   timers: IntervalTimers<Handle>;
 };
 
 export type PreviewScheduler = {
   /** The tiles on screen, and whether the tiles view is visible. */
   update: (visible: boolean, targets: readonly PreviewTarget[]) => void;
-  /** Ends every refresh; reads still on their way publish nothing. */
+  /** Ends every refresh and gives up every thumbnail; reads still on their way publish nothing. */
   stop: () => void;
 };
 
@@ -127,6 +132,13 @@ export function createPreviewScheduler<Handle>(deps: PreviewSchedulerDeps<Handle
   const inFlight = new Map<string, string>();
   const queue: string[] = [];
   let handle: Handle | null = null;
+  /** The listed tiles' thumbnails, as last published. */
+  let previews: Readonly<Record<string, Preview>> = {};
+
+  const show = (next: Readonly<Record<string, Preview>>): void => {
+    previews = next;
+    deps.publish(next);
+  };
 
   const enqueue = (key: string): void => {
     if (!inFlight.has(key) && !queue.includes(key)) queue.push(key);
@@ -145,10 +157,13 @@ export function createPreviewScheduler<Handle>(deps: PreviewSchedulerDeps<Handle
           const asked = inFlight.get(key);
           inFlight.delete(key);
           if (stopped) return;
-          deps.publish(key, preview);
-          // The status changed while this read was on its way: what it brought may be from before.
+          // A tile that left the list while this read was on its way keeps nothing of it.
           const current = targets.get(key);
-          if (visible && current !== undefined && current.signature !== asked) enqueue(key);
+          if (current !== undefined) {
+            show({ ...previews, [key]: preview });
+            // The status changed while this read was on its way: what it brought may be from before.
+            if (visible && current.signature !== asked) enqueue(key);
+          }
           pump();
         });
     }
@@ -172,6 +187,9 @@ export function createPreviewScheduler<Handle>(deps: PreviewSchedulerDeps<Handle
       for (let index = queue.length - 1; index >= 0; index -= 1) {
         if (!targets.has(queue[index])) queue.splice(index, 1);
       }
+      for (const key of readFor.keys()) if (!targets.has(key)) readFor.delete(key);
+      const kept = Object.entries(previews).filter(([key]) => targets.has(key));
+      if (kept.length < Object.keys(previews).length) show(Object.fromEntries(kept));
       if (!nextVisible) {
         visible = false;
         queue.length = 0;
@@ -193,6 +211,7 @@ export function createPreviewScheduler<Handle>(deps: PreviewSchedulerDeps<Handle
       visible = false;
       queue.length = 0;
       stopInterval();
+      if (Object.keys(previews).length > 0) show({});
     },
   };
 }
