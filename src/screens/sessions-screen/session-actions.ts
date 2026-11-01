@@ -33,7 +33,7 @@ import type { MachineRecord } from '../../machines/store';
 import type { ExportedTranscript } from '../terminal-screen/session-lookups';
 import { isRunningSession } from './sidebar-menus';
 
-/** `unified`: opened from the Unified list, whose menu also offers Snooze. */
+/** `unified`: opened from the Unified list, whose menu also offers Snooze and the project's Actions…. */
 export type SessionContext = { machine: MachineRecord; item: SessionItem; unified?: boolean };
 export type ProjectContext = { machine: MachineRecord; header: ProjectHeaderItem };
 

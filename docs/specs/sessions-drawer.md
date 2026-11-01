@@ -214,8 +214,12 @@ and recloned every surface from the live CSS cascade.
   is in the project menu only while at least one action is listed. An open project
   menu or actions menu takes the Global Actions from the current summary, so they
   leave it as soon as the computer no longer offers them; the project's own actions
-  stay as they were when the menu opened. The old PROJECT_AGENTS_ROW chip row
-  is gone.
+  stay as they were when the menu opened. The Unified list has no project menu, so
+  under the same condition a Unified session's long-press menu offers Actions… (after
+  Changes) for that session's computer and project, read from that computer's current
+  summary (also for a project in a saved collection, however it is folded); it opens
+  the same actions menu, which runs on that computer. The old PROJECT_AGENTS_ROW chip
+  row is gone.
 - **Session rows**: 34dp flat rows, radius 4 fills, title 15.5dp weight-300
   #B4B8C0 (active #D8D8D8; sleeping dims ONLY the title to #5F646B at 0.42),
   with the gpui surface chain driven by warm terminal state: unsurfaced rows

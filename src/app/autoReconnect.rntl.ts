@@ -27,6 +27,7 @@ jest.mock('../../modules/ghostex-native/src', () => ({
   },
 }));
 jest.mock('../analytics/clientHello', () => ({ reportClientHello: jest.fn() }));
+jest.mock('../cloudBoxes/sync', () => ({ refreshCloudBoxes: async () => undefined }));
 jest.mock('./appLog', () => ({ logAppEvent: jest.fn() }));
 jest.mock('../chat/rust/machine-link', () => ({ chatLinkKeptInBackground: () => false }));
 jest.mock('../machines/credentials', () => ({ hasPassword: async () => false }));

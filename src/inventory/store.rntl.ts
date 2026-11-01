@@ -23,6 +23,7 @@ const machine: MachineRecord = {
 };
 
 jest.mock('../analytics/clientHello', () => ({ reportClientHello: jest.fn() }));
+jest.mock('../cloudBoxes/sync', () => ({ refreshCloudBoxes: async () => undefined }));
 jest.mock('../app/appLog', () => ({ logAppEvent: jest.fn() }));
 jest.mock('../machines/credentials', () => ({ hasPassword: jest.fn(async () => false) }));
 jest.mock('../remote/connection', () => ({ reconnectMachine: jest.fn(async () => undefined) }));

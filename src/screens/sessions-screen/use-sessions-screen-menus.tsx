@@ -23,7 +23,6 @@ import { runGhostexCli } from '../../components/sessions/cli';
 import { type ContextMenuItem } from '../../components/sessions/ContextMenu';
 import { NewSessionProjectRow } from '../../components/sessions/NewSessionPlace';
 import { noteNewSessionIn, projectChoicesNow, repoKeyOfProject } from './new-session-place';
-import { projectHeaderOf } from './use-unified-list';
 import { type DrawerBlock } from '../../components/sessions/drawerModel';
 import {
   ArrowGlyph,
@@ -93,7 +92,7 @@ import {
   type QuickActionEntry,
   type QuickActionRef,
 } from '../../actions/quickActions';
-import type { ProjectHeaderItem } from '../../contract/grouping';
+import { projectHeaderOf, type ProjectHeaderItem } from '../../contract/grouping';
 import {
   agentIconTint,
   displayStatus,
@@ -243,6 +242,26 @@ export function useSessionsScreenMenus({
       ctx.header.quickActions,
       ctx.header.projectId.length > 0 ? (summaryFor(ctx.machine.id)?.globalQuickActions ?? []) : [],
     );
+
+  /** The entry an Actions… row (the project menu's, a Unified row's) takes its icon from; null hides the row. */
+  const actionsEntryOf = (ctx: ProjectContext): QuickActionEntry | null =>
+    lastRunEntry(
+      currentQuickActionEntries(ctx),
+      lastActionByProject[lastActionKey(ctx.machine.id, ctx.header.projectId)],
+    );
+
+  /**
+   * A Unified row's project, for its menu's Actions…: the row's own computer and the project's header as the Project
+   * list draws it from the computer's current summary, also when the project sits in a saved collection. Null without
+   * a stable project id, which lists no action.
+   */
+  const sessionProjectContext = (ctx: SessionContext): ProjectContext | null => {
+    const { projectId } = ctx.item.session;
+    const summary = summaryFor(ctx.machine.id);
+    if (projectId.length === 0 || summary === null) return null;
+    const header = projectHeaderOf(ctx.machine.id, summary, projectId, { throughCollections: true });
+    return header === null ? null : { machine: ctx.machine, header };
+  };
 
   const isBrowserSession = (session: GhostexSession): boolean =>
     session.kind === 'browser' || session.surface === 'browser';
@@ -704,6 +723,14 @@ export function useSessionsScreenMenus({
           });
           return;
         }
+        case 'projectActions': {
+          const ctx = scope.session;
+          if (ctx === undefined) throw new Error('Actions… needs a session.');
+          const project = sessionProjectContext(ctx);
+          if (project === null) throw new Error('That project is no longer on the computer.');
+          setOverlay({ kind: 'actionsMenu', ctx: project });
+          return;
+        }
         case 'claudeCloudTerminal': {
           const ctx = scope.session;
           if (ctx === undefined) throw new Error('Open Terminal needs a session.');
@@ -765,6 +792,8 @@ export function useSessionsScreenMenus({
     ctx: SessionContext,
     menuPath: readonly string[],
   ): { subtitle: string; items: ContextMenuItem[] } => {
+    const actionsProject = ctx.unified === true ? sessionProjectContext(ctx) : null;
+    const actionsEntry = actionsProject === null ? null : actionsEntryOf(actionsProject);
     const menu = buildSessionMenu({
       session: ctx.item.session,
       customTags: summaryFor(ctx.machine.id)?.customSessionTags ?? EMPTY_CUSTOM_SESSION_TAGS,
@@ -785,6 +814,8 @@ export function useSessionsScreenMenus({
         voiceAgentOnFor(ctx.machine.id),
       sessionNotes: sessionNotesOnIn(summaryFor(ctx.machine.id)),
       snooze: ctx.unified === true,
+      actionsIcon:
+        actionsEntry === null ? undefined : actionsEntry.action.actionType === 'browser' ? 'world' : 'player-play',
     });
     const view = sidebarMenuView(menu, menuPath, {
       openPath: (next) => setOverlay({ kind: 'sessionMenu', ctx, menuPath: next }),
@@ -853,10 +884,7 @@ export function useSessionsScreenMenus({
      * User: "move almost all of the buttons that appear next to an expanded project into the 3 dots menu; just keep the agent picker one and the new agent one." The project's quick actions and Create Terminal used to be header buttons; they lead this menu, each with the icon it had as a button. (Its Show fewer sessions row went with the compact list on 2026-10-13, CDXC:Projects in contract/grouping.ts.)
      */
     const headerRows: ContextMenuItem[] = [];
-    const lastAction = lastRunEntry(
-      currentQuickActionEntries(ctx),
-      lastActionByProject[lastActionKey(ctx.machine.id, header.projectId)],
-    );
+    const lastAction = actionsEntryOf(ctx);
     if (lastAction !== null) {
       headerRows.push({
         kind: 'item',

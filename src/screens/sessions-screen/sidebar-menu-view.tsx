@@ -42,6 +42,7 @@ import {
   TagGlyph,
   TagOffGlyph,
   UnlinkGlyph,
+  WorldGlyph,
   XGlyph,
   type GlyphProps,
 } from '../../components/sessions/icons';
@@ -87,6 +88,7 @@ const MENU_GLYPHS: Readonly<Record<string, (props: GlyphProps) => ReactElement>>
   tag: TagGlyph,
   'tag-off': TagOffGlyph,
   unlink: UnlinkGlyph,
+  world: WorldGlyph,
   x: XGlyph,
 };
 
