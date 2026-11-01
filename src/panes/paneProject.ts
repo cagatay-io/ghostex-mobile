@@ -1,7 +1,7 @@
 /**
  * The project a files or Git changes pane shows: the project of the session it was opened from (its `origin`), as the
  * computer's session list has them, and that session for Add to Session Context (the session Files was
- * opened from). The pane stays (owner decision) with that project; selecting other sessions never changes it. Once found it
+ * opened from). The pane stays with that project; selecting other sessions never changes it. Once found it
  * is remembered while the app runs, so the pane keeps its project when that session later ends. The rule for offering
  * Files and Git changes is the terminal screen menu's: the session has a project with a folder on the computer.
  */

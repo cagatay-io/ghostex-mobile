@@ -567,13 +567,13 @@ describe('Git changes, read only', () => {
     expect(gitPane.getByText(ChangesCopy.filesChanged(1))).toBeTruthy();
     expect(gitPane.getAllByText('divider.ts').length).toBeGreaterThan(0);
 
-    // AC2: the file's row in the list jumps to its diff, whose lines the pane shows.
+    // The file's row in the list jumps to its diff, whose lines the pane shows.
     await fireEvent.press(gitPane.getAllByText('divider.ts')[0]);
     await act(() => jest.runOnlyPendingTimers());
     expect(scrolled).toHaveBeenCalledWith(expect.objectContaining({ viewPosition: 0 }));
     expect(gitPane.getByText(/MIN_DIVIDER_RATIO = 0\.25/)).toBeTruthy();
 
-    // AC3: nothing in the pane stages, commits or reverts, also not on a long press.
+    // Nothing in the pane stages, commits or reverts, also not on a long press.
     const line = gitPane.getByText(/MIN_DIVIDER_RATIO = 0\.25/);
     await fireEvent(line, 'longPress');
     await settle();
