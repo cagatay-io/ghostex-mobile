@@ -546,8 +546,13 @@ export default function SessionsScreen({ navigation }: Props) {
     if (machine === null) return;
     setPullRefreshing(true);
     const done = (): void => setPullRefreshing(false);
-    void (unified.on ? refreshAll() : refreshMachineFresh(machine)).then(done, done);
-  }, [machine, unified.on, refreshAll, refreshMachineFresh]);
+    // Fresh on every computer: `refreshAll` would join a poll already under way and settle on
+    // what it read before the pull.
+    const refreshed = unified.on
+      ? Promise.all(machines.map((entry) => refreshMachineFresh(entry)))
+      : refreshMachineFresh(machine);
+    void refreshed.then(done, done);
+  }, [machine, machines, unified.on, refreshMachineFresh]);
   const notices = machines.flatMap((entry) => {
     const tab = machineTabs.find((item): item is MachineTabItem => !('kind' in item) && item.id === entry.id);
     const notice = machineNotice(machineDisplayLabel(entry), inventoriesByMachineId[entry.id], tab?.connectionState ?? 'disconnected');

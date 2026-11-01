@@ -27,6 +27,7 @@ import {
 } from '../../contract/unified/build';
 import { unifiedProjectChoices, type UnifiedProjectChoice } from '../../contract/unified/choices';
 import { toggleUnifiedFilter, unifiedFilterLabel, unifiedFilterMenu } from '../../contract/unified/filterMenu';
+import { newSessionStartsInOpen } from './machineStripPolicy';
 import {
   sessionsListSeedOf,
   unifiedLayoutOf,
@@ -342,17 +343,18 @@ export function useUnifiedList(deps: UnifiedListDeps) {
     if (projectHeader !== null) setOverlay({ kind: 'agentMenu', ctx: { machine: target, header: projectHeader } });
   };
 
-  /** A group's "+": its one reachable machine, or a menu of its reachable machines. */
-  const openGroupNewSession = (repoKey: string): void => {
+  /** A group's "+": its one reachable machine, or a menu of its reachable machines; false when none is reachable. */
+  const openGroupNewSession = (repoKey: string): boolean => {
     const choice = choices.find((entry) => entry.repoKey === repoKey);
-    if (choice === undefined) return;
+    if (choice === undefined) return false;
     const reachable = choice.machines.filter(
       (machine) => machine.connected && (view.filter.machines.length === 0 || view.filter.machines.includes(machine.machineId)),
     );
     const first = reachable[0];
-    if (first === undefined) return;
+    if (first === undefined) return false;
     if (reachable.length === 1) openPickerIn(first.machineId, first.projectId);
     else setGroupNewFor({ ...choice, machines: reachable });
+    return true;
   };
 
   const renderItem: FlatListProps<UnifiedListItem>['renderItem'] = ({ item }) => {
@@ -416,14 +418,22 @@ export function useUnifiedList(deps: UnifiedListDeps) {
     );
   };
 
-  /** A picked project asks for a computer when needed; otherwise the open or top card supplies both. */
+  /**
+   * A picked project starts where its open session is, else asks for one of its reachable computers;
+   * otherwise (or when none is reachable) the open or top card supplies both.
+   */
   const openNewSession = (): void => {
-    if (view.filter.repos.length === 1 && choices.some((choice) => choice.repoKey === view.filter.repos[0])) {
-      openGroupNewSession(view.filter.repos[0]);
-      return;
-    }
     const all = [...view.drafts, ...view.pinned, ...view.active, ...view.working, ...view.snoozed, ...view.parked];
-    const fallback = all.find((row) => selectedSessionKey === attachSessionKey(row.machine, row.session.sessionId)) ?? all[0];
+    const open = all.find((row) => selectedSessionKey === attachSessionKey(row.machine, row.session.sessionId));
+    const picked = view.filter.repos.length === 1 ? choices.find((choice) => choice.repoKey === view.filter.repos[0]) : undefined;
+    if (picked !== undefined) {
+      if (open !== undefined && newSessionStartsInOpen(picked.machines, { machineId: open.machine, projectId: open.session.projectId })) {
+        openPickerIn(open.machine, open.session.projectId);
+        return;
+      }
+      if (openGroupNewSession(picked.repoKey)) return;
+    }
+    const fallback = open ?? all[0];
     if (fallback === undefined) {
       if (selectedMachine !== null) openAddProject(selectedMachine.id);
       return;

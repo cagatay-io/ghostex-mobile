@@ -22,3 +22,18 @@ export function noticeMachineId(
     notices[0]
   )?.machineId ?? null;
 }
+
+/**
+ * Whether the header's New session, with the filter narrowed to one project, starts where the open
+ * session is: only when that session belongs to the project on that computer. Otherwise it asks for
+ * one of the project's reachable computers, since Unified has no computer tab to imply one.
+ */
+export function newSessionStartsInOpen(
+  projectMachines: readonly { machineId: string; projectId: string }[],
+  open: { machineId: string; projectId: string } | null,
+): boolean {
+  return (
+    open !== null &&
+    projectMachines.some((machine) => machine.machineId === open.machineId && machine.projectId === open.projectId)
+  );
+}

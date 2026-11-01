@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
-import { machineTabsVisible, noticeMachineId } from './machineStripPolicy';
+import { machineTabsVisible, newSessionStartsInOpen, noticeMachineId } from './machineStripPolicy';
 
 describe('computer controls for the Sessions list layouts', () => {
   test('Project keeps tabs, Unified hides them even with several computers', () => {
@@ -25,5 +25,15 @@ describe('computer controls for the Sessions list layouts', () => {
     assert.equal(noticeMachineId(true, 'current', notices), 'other');
     assert.equal(noticeMachineId(true, 'other', notices), 'other');
     assert.equal(noticeMachineId(true, 'current', [{ machineId: 'current', kind: 'connecting' }]), 'current');
+  });
+
+  test('a picked project starts where its open session is, and asks otherwise', () => {
+    const project = [
+      { machineId: 'laptop', projectId: 'p1' },
+      { machineId: 'desktop', projectId: 'p9' },
+    ];
+    assert.equal(newSessionStartsInOpen(project, { machineId: 'desktop', projectId: 'p9' }), true);
+    assert.equal(newSessionStartsInOpen(project, { machineId: 'desktop', projectId: 'p1' }), false);
+    assert.equal(newSessionStartsInOpen(project, null), false);
   });
 });
