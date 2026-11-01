@@ -14,10 +14,9 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { MachineConnectionTarget } from '../../../machines/credentials';
 import { useMachinesStore } from '../../../machines/store';
 import { chatMachineLink } from '../../rust/machine-link';
-import { SINGLE_LINE_CARD, SINGLE_LINE_TITLE, SingleLineTileBox, singleLineShell } from '../transcript/singleLineCard';
+import { SINGLE_LINE_CARD, SINGLE_LINE_TITLE, singleLineShell } from '../transcript/singleLineCard';
 import { useTranscriptTheme } from '../transcript/theme';
-import { Glyph } from './icons';
-import { toneLook } from './ToneCard';
+import { Spinner } from './primitives';
 
 /** A quick reconnect stays quiet; Voice mode waits as long before its "Reconnecting to …" line (`voice/readAloud.ts`). */
 const NOTICE_AFTER_MS = 5_000;
@@ -34,13 +33,9 @@ export function ConnectionLostNotice({ machine, active }: { machine: MachineConn
   return (
     <View style={styles.row} accessibilityLiveRegion="polite">
       <View style={[singleLineShell(theme), styles.card]} accessible accessibilityLabel={title}>
-        <SingleLineTileBox>
-          <Glyph
-            name="wifi-off"
-            size={SINGLE_LINE_CARD.tile.glyphSize}
-            color={toneLook('warning', theme.light).hue ?? theme.muted}
-          />
-        </SingleLineTileBox>
+        <View style={styles.spinner}>
+          <Spinner size={SINGLE_LINE_CARD.tile.glyphSize} color={theme.muted} />
+        </View>
         <Text style={[SINGLE_LINE_TITLE, styles.title, { color: theme.foreground }]} numberOfLines={1}>
           {title}
         </Text>
@@ -90,6 +85,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     paddingHorizontal: SINGLE_LINE_CARD.paddingX,
+  },
+  spinner: {
+    width: SINGLE_LINE_CARD.tile.size,
+    height: SINGLE_LINE_CARD.tile.size,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     flex: 1,
