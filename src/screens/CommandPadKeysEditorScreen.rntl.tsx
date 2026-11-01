@@ -1,11 +1,10 @@
 /// <reference types="jest" />
 /**
- * Run with `bun run test:jest`. Settings > Keyboard > Pad keys with the real picker and the real settings store:
- * REQ-KEY-006 AC1 up to the stored key (a position changed through the picker holds the chosen key, which the pad
- * then shows: TerminalScreen.commandPad.rntl.tsx), and Reset in the header as in the approved mockup
- * (`mockups/befehlspad/befehlspad.js` Pad keys). Mocked are the boundaries only: navigation (its header options
- * are captured), storage, the safe area, the Settings columns frame and scroll view (layout chrome), and the
- * system alert.
+ * Run with `bun run test:jest`. Settings > Keyboard > Pad keys with the real picker and the real settings store: a
+ * key changed in Settings, up to the stored key (a position changed through the picker holds the chosen key, which
+ * the pad then shows: TerminalScreen.commandPad.rntl.tsx), and Reset in the header as in the approved Pad keys
+ * mockup. Mocked are the boundaries only: navigation (its header options are captured), storage, the safe area, the
+ * Settings columns frame and scroll view (layout chrome), and the system alert.
  */
 
 import type { ReactNode } from 'react';
@@ -57,8 +56,8 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-describe('REQ-KEY-006: every pad key is changeable in Settings', () => {
-  test('REQ-KEY-006 AC1: the centre changed to Home through the picker is stored and shown in that position', async () => {
+describe('every pad key is changeable in Settings', () => {
+  test('the centre changed to Home through the picker is stored and shown in that position', async () => {
     await render(<CommandPadKeysEditorScreen />);
     await fireEvent.press(screen.getByLabelText('Centre: Enter'));
     expect(screen.getByText('Centre key')).toBeTruthy();
@@ -70,7 +69,7 @@ describe('REQ-KEY-006: every pad key is changeable in Settings', () => {
     expect(screen.getByLabelText('Centre: Home')).toBeTruthy();
   });
 
-  test('REQ-KEY-006: the picker offers Paste and Upload and the agent hotkeys (REQ-KEY-010 items)', async () => {
+  test('the picker offers Paste and Upload and the agent hotkeys', async () => {
     await render(<CommandPadKeysEditorScreen />);
     await fireEvent.press(screen.getByLabelText('Top left: Esc'));
     for (const label of ['Paste', 'Upload', 'Ctrl', 'Claude Code: EXIT', 'Codex: HISTORY', 'Pi: EDITOR']) {

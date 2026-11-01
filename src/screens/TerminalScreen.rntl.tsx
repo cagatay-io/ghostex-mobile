@@ -1,11 +1,10 @@
 /// <reference types="jest" />
 /**
- * Run with `bun run test:jest`. REQ-NFR-001 AC1 (the terminal keeps working as before) and REQ-DUO-003
- * AC1/AC2 (what rides on the keyboard stays within the window width, over the keyboard) for the owner report
- * "springt das terminal wenn die tastatur hochgeht + wenn ich die tastatur wegmache, scrollt es super seltsam
- * runter und springt wieder hoch" (2026-10-28) with the owner's decision A, "Raster bleibt, Terminal gleitet"
- * (the terminal grid stays, the terminal slides with the keyboard so the cursor row stays visible).
- * Since S3 the Befehlspad replaces the key bar (owner D-026, REQ-KEY-001): the terminal slides by the keyboard,
+ * Run with `bun run test:jest`. The terminal keeps working as before and what rides on the keyboard stays within
+ * the window width, over the keyboard, on the report that the terminal jumped when the keyboard went up and, when
+ * the keyboard went away, scrolled down oddly and jumped back up (the terminal grid stays, the terminal slides
+ * with the keyboard so the cursor row stays visible).
+ * The Befehlspad replaces the key bar: the terminal slides by the keyboard,
  * or by the keyboard and the pad's text editor riding on it in `KeyBarDock`; the pad itself floats and covers
  * nothing of the grid. The pad's own criteria are in `TerminalScreen.commandPad.rntl.tsx`.
  *
@@ -298,7 +297,7 @@ describe('the terminal slides with the keyboard, the cursor row stays visible', 
     await caretAt(680);
     expect(terminalTop()).toBe(0);
     await keyboardWillShow();
-    // 336 - 34: the pad floats over the terminal and covers nothing of it (REQ-KEY-001).
+    // 336 - 34: the pad floats over the terminal and covers nothing of it.
     expect(terminalTop()).toBe(-302);
   });
 
@@ -438,7 +437,7 @@ describe('the terminal slides with the keyboard, the cursor row stays visible', 
   });
 });
 
-describe('REQ-DUO-003 AC1/AC2, owner decision A: the text editor rides on top of the keyboard, as the key bar did', () => {
+describe('the text editor rides on top of the keyboard, as the key bar did', () => {
   test("the editor stands on the keyboard across the window width, in the keyboard's animation", async () => {
     await renderScreen();
     await layoutTerminalArea(700);
@@ -513,7 +512,7 @@ describe('REQ-DUO-003 AC1/AC2, owner decision A: the text editor rides on top of
   });
 });
 
-describe('owner decision A, the pad: it floats above the keyboard and moves in its commit', () => {
+describe('the pad: it floats above the keyboard and moves in its commit', () => {
   test("the pad's toggle stands 12 pt above the keyboard while it is up, 16 pt above the bottom while it is down", async () => {
     await renderScreen();
     expect(padBottom()).toBe(16);
@@ -525,7 +524,7 @@ describe('owner decision A, the pad: it floats above the keyboard and moves in i
   });
 });
 
-describe('owner decision A, the pad switched off: the keyboard alone decides', () => {
+describe('the pad switched off: the keyboard alone decides', () => {
   test('with the pad off the view moves up the keyboard less the home inset', async () => {
     const before = useSettingsStore.getState().settings;
     useSettingsStore.setState({ settings: { ...before, extraKeysToolbarVisible: false } });

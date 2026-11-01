@@ -1,9 +1,8 @@
 /**
  * Run with `bun test src`. The Befehlspad's key logic, real (`terminalKeyInput.ts`, `commandPadKeys.ts`) with a fake
- * `GhostexNative` and fake timers: REQ-KEY-004 AC1, REQ-KEY-006 AC2, REQ-KEY-008 AC1, REQ-KEY-009 AC1-AC3,
- * REQ-KEY-010 AC1-AC4. The expected payloads are the key bar's (TerminalKeyBar.tsx at 7acb819): a key is sent with
- * `{ ctrl, alt, shift }`, each its own modifier or an armed one; modifier state goes to `setKeyModifiers` with the
- * locked flags; agent hotkey steps go 120 ms apart.
+ * `GhostexNative` and fake timers. The expected payloads are the key bar's (TerminalKeyBar.tsx at 7acb819): a key is
+ * sent with `{ ctrl, alt, shift }`, each its own modifier or an armed one; modifier state goes to `setKeyModifiers`
+ * with the locked flags; agent hotkey steps go 120 ms apart.
  */
 
 import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
@@ -80,15 +79,15 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-describe('REQ-KEY-004: pad keys use the terminal key input path', () => {
-  test('REQ-KEY-004 AC1: Up tapped sends up once for the open session', () => {
+describe('pad keys use the terminal key input path', () => {
+  test('Up tapped sends up once for the open session', () => {
     const { input, sent } = setup();
     const up = resolveCommandPadKeys(DEFAULT_COMMAND_PAD_KEYS, sources)[1];
     tap(input, up);
     expect(sent()).toEqual([[SESSION, 'up', { ctrl: false, alt: false, shift: false }]]);
   });
 
-  test('REQ-KEY-004 AC1: Ctrl+C is c with Ctrl; Paste goes to the native paste', () => {
+  test('Ctrl+C is c with Ctrl; Paste goes to the native paste', () => {
     const { input, sent, calls } = setup();
     tap(input, resolveCommandPadKeys(DEFAULT_COMMAND_PAD_KEYS, sources)[2]);
     tap(input, key('paste'));
@@ -96,7 +95,7 @@ describe('REQ-KEY-004: pad keys use the terminal key input path', () => {
     expect(calls.filter((call) => call[0] === 'paste')).toEqual([['paste', SESSION]]);
   });
 
-  test('REQ-KEY-003: the default nine keys in the approved order', () => {
+  test('the default nine keys in the approved order', () => {
     expect(resolveCommandPadKeys(DEFAULT_COMMAND_PAD_KEYS, sources).map((entry) => entry.label)).toEqual([
       'Esc',
       'Up',
@@ -111,8 +110,8 @@ describe('REQ-KEY-004: pad keys use the terminal key input path', () => {
   });
 });
 
-describe('REQ-KEY-006: every pad key is changeable', () => {
-  test('REQ-KEY-006 AC2: Up position set to Home sends home once', () => {
+describe('every pad key is changeable', () => {
+  test('Up position set to Home sends home once', () => {
     const { input, sent } = setup();
     const ids = [...DEFAULT_COMMAND_PAD_KEYS];
     ids[1] = 'key:home';
@@ -122,7 +121,7 @@ describe('REQ-KEY-006: every pad key is changeable', () => {
     expect(sent()).toEqual([[SESSION, 'home', { ctrl: false, alt: false, shift: false }]]);
   });
 
-  test('REQ-KEY-006 (owner D-062): a custom action on a pad position follows later edits of that action', () => {
+  test('a custom action on a pad position follows later edits of that action', () => {
     const layout = (text: string): ExtraKeysLayout => [
       [{ type: 'text', id: 'custom-1', label: 'GS', text, sendEnter: true }],
       [{ type: 'builtin', id: 'esc' }],
@@ -135,7 +134,7 @@ describe('REQ-KEY-006: every pad key is changeable', () => {
     expect(after.action).toEqual({ kind: 'text', text: 'git diff', sendEnter: true });
   });
 
-  test('REQ-KEY-006 (owner D-062): a deleted custom action or agent hotkey leaves its position "Not available", sending nothing', () => {
+  test('a deleted custom action or agent hotkey leaves its position "Not available", sending nothing', () => {
     const { input, calls, haptics } = setup();
     const ids = [...DEFAULT_COMMAND_PAD_KEYS];
     ids[0] = 'custom:custom-gone';
@@ -151,7 +150,7 @@ describe('REQ-KEY-006: every pad key is changeable', () => {
     expect(haptics.clicks).toBe(0);
   });
 
-  test('REQ-KEY-006 fehlerfall: a malformed id shows the default key of its position; Paste without its native path too', () => {
+  test('a malformed id shows the default key of its position; Paste without its native path too', () => {
     const ids = ['foo:bar', 'key:nope', 'agent:unknown:x', 'custom:', ...DEFAULT_COMMAND_PAD_KEYS.slice(4, 8), 'paste'];
     const keys = resolveCommandPadKeys(ids, { ...sources, pasteSupported: false });
     expect(keys.map((entry) => entry.label)).toEqual([
@@ -168,8 +167,8 @@ describe('REQ-KEY-006: every pad key is changeable', () => {
   });
 });
 
-describe('REQ-KEY-008: held keys repeat', () => {
-  test('REQ-KEY-008 AC1: Up held for one second sends more than one up; release stops it', () => {
+describe('held keys repeat', () => {
+  test('Up held for one second sends more than one up; release stops it', () => {
     const { input, sent } = setup();
     input.padKeyDown(key('key:up'));
     jest.advanceTimersByTime(1000);
@@ -181,15 +180,15 @@ describe('REQ-KEY-008: held keys repeat', () => {
   });
 });
 
-describe('REQ-KEY-009: Upload from the pad', () => {
-  test('REQ-KEY-009 AC1: Upload tapped once starts the upload exactly once', () => {
+describe('Upload from the pad', () => {
+  test('Upload tapped once starts the upload exactly once', () => {
     const { input } = setup();
     let starts = 0;
     tap(input, key('upload'), { available: true, start: () => (starts += 1) });
     expect(starts).toBe(1);
   });
 
-  test('REQ-KEY-009 AC2/AC3: no open session: Upload disabled and starts nothing', () => {
+  test('no open session: Upload disabled and starts nothing', () => {
     const { input } = setup();
     let starts = 0;
     const upload = { available: false, start: () => (starts += 1) };
@@ -199,8 +198,8 @@ describe('REQ-KEY-009: Upload from the pad', () => {
   });
 });
 
-describe('REQ-KEY-010: every function of the key bar stays reachable', () => {
-  test('REQ-KEY-010 AC1: every built-in key and every KEYS page item sends the key bar payload', () => {
+describe('every function of the key bar stays reachable', () => {
+  test('every built-in key and every KEYS page item sends the key bar payload', () => {
     const builtins = extraKeyCatalog().filter((entry) => !entry.isModifier);
     for (const entry of builtins) {
       const { input, sent } = setup();
@@ -229,7 +228,7 @@ describe('REQ-KEY-010: every function of the key bar stays reachable', () => {
     }
   });
 
-  test('REQ-KEY-010 AC1: every modifier and every agent page item is accepted', async () => {
+  test('every modifier and every agent page item is accepted', async () => {
     for (const entry of extraKeyCatalog().filter((candidate) => candidate.isModifier)) {
       const { input, calls } = setup();
       tap(input, key(`key:${entry.id}`));
@@ -250,7 +249,7 @@ describe('REQ-KEY-010: every function of the key bar stays reachable', () => {
     }
   });
 
-  test('REQ-KEY-010 AC2: Ctrl one-shot then keys, Ctrl locked then keys: the key bar modifier payloads', () => {
+  test('Ctrl one-shot then keys, Ctrl locked then keys: the key bar modifier payloads', () => {
     const { input, sent, calls } = setup();
     const ctrl = key('key:ctrl');
     const up = key('key:up');
@@ -285,7 +284,7 @@ describe('REQ-KEY-010: every function of the key bar stays reachable', () => {
     expect(locked.input.getModifiers().ctrl).toBe('locked');
   });
 
-  test('REQ-KEY-010 AC3: an agent hotkey of two steps sends them in order, 120 ms apart', async () => {
+  test('an agent hotkey of two steps sends them in order, 120 ms apart', async () => {
     const { input, sent } = setup();
     tap(input, key('agent:claude:claude-exit'));
     await flush();
@@ -301,7 +300,7 @@ describe('REQ-KEY-010: every function of the key bar stays reachable', () => {
     ]);
   });
 
-  test('REQ-KEY-010 AC4: haptics fire only while the key haptics setting is on', () => {
+  test('haptics fire only while the key haptics setting is on', () => {
     const off = setup(false);
     tap(off.input, key('key:up'));
     expect(off.haptics.clicks).toBe(0);
@@ -311,8 +310,8 @@ describe('REQ-KEY-010: every function of the key bar stays reachable', () => {
   });
 });
 
-describe('review r1 regressions (K-1, K-2)', () => {
-  test('REQ-KEY-004 AC1: an activation without a touch-down (VoiceOver) sends the key once; a touch then its press, once', () => {
+describe('fixed regressions', () => {
+  test('an activation without a touch-down (VoiceOver) sends the key once; a touch then its press, once', () => {
     const { input, sent } = setup();
     const up = key('key:up');
     input.padKeyTap(up, NO_UPLOAD, false);
@@ -323,7 +322,7 @@ describe('review r1 regressions (K-1, K-2)', () => {
     ]);
   });
 
-  test('REQ-KEY-008 AC1: the activation path does not break hold-repeat', () => {
+  test('the activation path does not break hold-repeat', () => {
     const { input, sent } = setup();
     input.padKeyDown(key('key:up'));
     jest.advanceTimersByTime(1000);
@@ -334,7 +333,7 @@ describe('review r1 regressions (K-1, K-2)', () => {
     expect(sent().length).toBe(held);
   });
 
-  test('REQ-KEY-004 AC1: a cancelled touch leaves nothing behind: a later VoiceOver activation still sends once', () => {
+  test('a cancelled touch leaves nothing behind: a later VoiceOver activation still sends once', () => {
     const { input, sent } = setup();
     const up = key('key:up');
     input.padKeyDown(up);
@@ -343,13 +342,13 @@ describe('review r1 regressions (K-1, K-2)', () => {
     expect(sent()).toHaveLength(2);
   });
 
-  test('REQ-KEY-004 AC1: a touch release carries changedTouches, an accessibility activation does not', () => {
+  test('a touch release carries changedTouches, an accessibility activation does not', () => {
     expect(pressFromTouch({ nativeEvent: { changedTouches: [], touches: [] } })).toBe(true);
     expect(pressFromTouch({ nativeEvent: { target: 12 } })).toBe(false);
     expect(pressFromTouch(undefined)).toBe(false);
   });
 
-  test('REQ-KEY-010 AC4: the layer-selection tick follows the key haptics setting', () => {
+  test('the layer-selection tick follows the key haptics setting', () => {
     const on = setup(true);
     on.input.selectionFeedback();
     const off = setup(false);
@@ -358,8 +357,8 @@ describe('review r1 regressions (K-1, K-2)', () => {
   });
 });
 
-describe('review r2: the empty hotkey id is malformed, not deleted', () => {
-  test('REQ-KEY-006 fehlerfall: agent:claude: (no hotkey id) shows the default key of its position', () => {
+describe('the empty hotkey id is malformed, not deleted', () => {
+  test('agent:claude: (no hotkey id) shows the default key of its position', () => {
     const ids = [...DEFAULT_COMMAND_PAD_KEYS];
     ids[4] = 'agent:claude:';
     expect(resolveCommandPadKeys(ids, sources)[4].label).toBe('Enter');

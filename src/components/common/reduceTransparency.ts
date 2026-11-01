@@ -2,7 +2,7 @@
  * The system's Reduce Transparency setting (iOS Accessibility > Display & Text Size), read from React. It follows
  * `AccessibilityInfo.isReduceTransparencyEnabled()` and `reduceTransparencyChanged` while at least one subscriber
  * is mounted, like `reduceMotion.ts`; until the first read resolves, and on platforms without the setting, the
- * value is false. Frosted surfaces (the Befehlspad's keys) turn opaque while it is on (owner D-062).
+ * value is false. Frosted surfaces (the Befehlspad's keys) turn opaque while it is on.
  */
 
 import { useSyncExternalStore } from 'react';

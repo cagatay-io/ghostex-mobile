@@ -134,7 +134,7 @@ Native view responsibilities (per platform, matching current apps):
 - Scroll-to-bottom on output/keypress (engine behavior; respect autoScroll setting via prop later).
 - Cursor row (iOS): `onCaretChange` fires with the top edge of the cursor row (`y - height` of Ghostty v1.3.1 `imePoint`, whose `y` is the cell's bottom) after a draw when its whole-point value changed, and once when the view is attached to the host (`GhosttyTerminalView.reportCaretIfNeeded`). The terminal screen slides the view by it with the keyboard (`docs/specs/terminal-screen.md` §2 "Keyboard: the terminal slides"); the view's own size, and so the grid, does not change with the keyboard. Declared in the iOS module's `Events(...)` and typed in `GhostexTerminalViewProps`; the Android view declares none and JS does not pass the prop there.
 
-### Keyboard accessory: the Befehlspad (since S3; replaces the "2 rows of keys" bar)
+### Keyboard accessory: the Befehlspad (replaces the "2 rows of keys" bar)
 
 The floating pad (`components/terminal/CommandPad.tsx`, state in `useCommandPad.ts`, key logic in `terminalKeyInput.ts`, keys in `commandPadKeys.ts`, geometry and the user's place in `commandPadLayout.ts` (stored per layout as `commandPadPosition`, `settings/commandPad.ts`), layers in `CommandPadLayer.tsx`, editor in `TerminalTextEditor.tsx`) replaces `TerminalKeyBar.tsx` and the floating Upload button; behaviour per `docs/specs/terminal-screen.md` §2 "Befehlspad". The paragraph below describes the rows that now fill the pad's Keys layer and the editor that now rides in `KeyBarDock`.
 

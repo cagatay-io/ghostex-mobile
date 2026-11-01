@@ -1,18 +1,18 @@
 /**
  * What the Befehlspad's stored key ids (`settings/commandPad.ts`) mean: the key each position sends, its name
- * (accessibility label, REQ-KEY-003 AC2) and its face, and the choices Settings > Keyboard > Pad keys offers
- * (REQ-KEY-006: every function of the former key bar, REQ-KEY-010, plus Paste and Upload). The keys come from
+ * (accessibility label) and its face, and the choices Settings > Keyboard > Pad keys offers
+ * (every function of the former key bar, plus Paste and Upload). The keys come from
  * the same catalogues the key bar used (`extraKeys.ts`, `keyBarPages.ts`, `agentHotkeys.ts`), so a pad key
  * sends the payload the bar sent for it.
  *
- * A stored id resolves three ways (owner D-062 for references):
+ * A stored id resolves three ways:
  * - a key: built-ins, KEYS-page items, Paste, Upload, and the custom action or agent hotkey it refers to, as it is
  *   now (later edits of the action follow);
  * - "not available": a well-formed reference whose custom action or agent hotkey has been deleted since; the
  *   position shows that and sends nothing until it is reassigned;
  * - nothing (`null`, malformed): an id outside the vocabulary (unknown scheme, built-in, page item or agent), and
  *   Paste where it has no native path (Android, iOS-only scope). That position shows its default key, as an
- *   invalid stored list loads the default nine (schema `fehlerfall`).
+ *   invalid stored list loads the default nine.
  */
 
 import type { KeyModifiers, TerminalKey } from '../../../modules/ghostex-native/src/GhostexNative.types';
@@ -50,7 +50,7 @@ export type CommandPadAction =
   | { kind: 'modifier'; modifier: ExtraKeyModifier }
   | { kind: 'paste' }
   | { kind: 'upload' }
-  /** Its custom action or agent hotkey was deleted: shown as "not available", sends nothing (D-062). */
+  /** Its custom action or agent hotkey was deleted: shown as "not available", sends nothing. */
   | { kind: 'unavailable' };
 
 /** Keys drawn as an icon instead of text. */
@@ -65,7 +65,7 @@ export type CommandPadKey = {
   face: string;
   glyph?: CommandPadGlyph;
   action: CommandPadAction;
-  /** Held, it repeats (REQ-KEY-008: arrows, Home, End, PgUp, PgDn). */
+  /** Held, it repeats (arrows, Home, End, PgUp, PgDn). */
   repeats: boolean;
 };
 
@@ -254,7 +254,7 @@ function choice(id: string, sources: CommandPadSources, chip?: string): CommandP
 }
 
 /**
- * What a pad position can be set to, in the sections of the approved picker (`mockups/befehlspad`, Pad keys):
+ * What a pad position can be set to, in the sections of the approved Pad keys picker:
  * keys, modifiers, the KEYS page shortcuts, each agent's hotkeys, Paste and Upload, and the layout's custom
  * actions (an empty section when there are none).
  */

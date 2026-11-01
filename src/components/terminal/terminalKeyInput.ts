@@ -1,5 +1,5 @@
 /**
- * Key input of the Befehlspad and its Keys and Agent layers (REQ-KEY-004, -008, -010), the key bar's behaviour
+ * Key input of the Befehlspad and its Keys and Agent layers, the key bar's behaviour
  * unchanged (terminal-screen.md §2):
  * - Modifier latching: a tap arms Ctrl/Alt/Shift for the next key (one-shot), a long press locks it until it is
  *   tapped again; the next key keeps only the locked ones. The state is mirrored to the native view, which
@@ -61,7 +61,7 @@ export type TerminalKeyInputOptions = {
   hapticsEnabled: () => boolean;
 };
 
-/** The screen's upload as the pad's Upload key sees it (REQ-KEY-009). */
+/** The screen's upload as the pad's Upload key sees it. */
 export type PadUpload = {
   /** An open session and no upload running. */
   available: boolean;
@@ -199,7 +199,7 @@ export class TerminalKeyInput {
     this.clearModifiers();
   }
 
-  /** Whether a pad position can act now: Upload only with an open session and no upload running (REQ-KEY-009). */
+  /** Whether a pad position can act now: Upload only with an open session and no upload running. */
   static isPadKeyEnabled(key: CommandPadKey, upload: PadUpload): boolean {
     if (key.action.kind === 'unavailable') return false;
     return key.action.kind !== 'upload' || upload.available;

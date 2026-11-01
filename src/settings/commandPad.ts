@@ -1,17 +1,16 @@
 /**
  * The Befehlspad's stored settings: its nine keys and where the user moved it.
  *
- * `commandPadKeys` in `settings.v1`, one string per position, row by row from the top left (schema
- * `settings-additions.schema.json`; absent or invalid = the default nine). What a string means is resolved by the
- * pad (`components/terminal/commandPadKeys.ts`); this file only owns the id vocabulary, the default and the shape
- * check, so the settings store needs nothing from the pad.
+ * `commandPadKeys` in `settings.v1`, one string per position, row by row from the top left (absent or invalid = the
+ * default nine). What a string means is resolved by the pad (`components/terminal/commandPadKeys.ts`); this file only
+ * owns the id vocabulary, the default and the shape check, so the settings store needs nothing from the pad.
  *
  * Ids:
  * - `key:<id>`: a built-in key or modifier of the extra-keys catalogue (`extraKeys.ts`), e.g. `key:esc`, `key:ctrl`.
  * - `page:<id>`: an item of the former KEYS page (`keyBarPages.ts`), e.g. `page:page-ctrl-c`.
  * - `agent:<agent>:<hotkey id>`: an agent hotkey by reference (`agentHotkeys.ts`), so its edits follow.
  * - `custom:<action id>`: a custom action of the extra-keys layout by reference (insert text, text and Enter,
- *   shortcut), so its edits follow (owner D-062). A deleted action or hotkey leaves the position "not available".
+ *   shortcut), so its edits follow. A deleted action or hotkey leaves the position "not available".
  * - `paste`, `upload`.
  */
 
@@ -51,9 +50,8 @@ export function customActionId(actionId: string): string {
 }
 
 /**
- * The default set (D-026: arrows, Enter, Esc, Upload, Tab, Ctrl+C) in the approved layout (D-034,
- * `mockups/befehlspad`): arrows around Enter in the centre, Esc top left, Ctrl+C top right, Tab bottom left,
- * Upload bottom right.
+ * The default set (arrows, Enter, Esc, Upload, Tab, Ctrl+C) in the approved layout: arrows around Enter in the
+ * centre, Esc top left, Ctrl+C top right, Tab bottom left, Upload bottom right.
  */
 export const DEFAULT_COMMAND_PAD_KEYS: readonly string[] = [
   catalogKeyId('esc'),
@@ -98,7 +96,7 @@ function sanitizePlacement(value: unknown): CommandPadPlacement | null {
 }
 
 /**
- * The stored positions as the schema allows them: a layout with an invalid value, and any unknown key, is dropped,
+ * The stored positions as the settings allow them: a layout with an invalid value, and any unknown key, is dropped,
  * so that layout uses the default position; nothing is thrown.
  */
 export function sanitizeCommandPadPosition(value: unknown): CommandPadPositions {

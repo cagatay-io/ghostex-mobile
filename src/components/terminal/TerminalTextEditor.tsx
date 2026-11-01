@@ -1,5 +1,5 @@
 /**
- * The terminal's text editor (REQ-KEY-010 item 5), opened by the pen in the Befehlspad's ring and docked above
+ * The terminal's text editor, opened by the pen in the Befehlspad's ring and docked above
  * the software keyboard (`KeyBarDock`): a multiline draft with the full text keyboard (emoji, dictation,
  * suggestions) and Send. Send inserts the draft into the terminal and clears it; with an empty draft it sends
  * Enter. Return in the keyboard adds a newline to the draft. Backspace or Delete on an empty draft go to the

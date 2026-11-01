@@ -1,9 +1,9 @@
 /**
- * Settings > Keyboard > Pad keys (REQ-KEY-006): the Befehlspad's nine positions as the pad shows them; a tap on a
+ * Settings > Keyboard > Pad keys: the Befehlspad's nine positions as the pad shows them; a tap on a
  * position opens a sheet that offers every function of the former key bar (keys, modifiers, the KEYS page
  * shortcuts, each agent's hotkeys, custom actions of the extra-keys layout) plus Paste and Upload
  * (`commandPadChoices`). A choice is saved at once (`commandPadKeys`); Reset in the header puts the default nine
- * back. Layout of the approved mockup (`mockups/befehlspad`, Pad keys).
+ * back. Layout of the approved Pad keys mockup.
  */
 
 import { useCallback, useLayoutEffect, useMemo, useState } from 'react';

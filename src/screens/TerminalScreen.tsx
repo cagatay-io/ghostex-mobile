@@ -457,7 +457,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
     void GhostexNative.focusTerminal(sessionKey).catch(() => undefined);
   }, []);
 
-  // The Befehlspad (REQ-KEY-001): over the shown terminal while it is switched on, never in chat view.
+  // The Befehlspad: over the shown terminal while it is switched on, never in chat view.
   const padSessionKey =
     settings.extraKeysToolbarVisible && activeTab !== null && !chatModeActive ? activeTab.sessionKey : null;
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
@@ -516,8 +516,8 @@ export default function TerminalScreen({ navigation, route }: Props) {
   const editorShown = padSessionKey !== null && pad.editorVisible;
   const layerShown = padSessionKey !== null && pad.layer !== null;
   // iOS: the covered part of the terminal's bottom, the keyboard with the editor on it or a layer in its place. A
-  // layer has exactly the keyboard's last height once that is known (it scrolls inside), so the pad stays put
-  // (owner D-037); before any keyboard was seen, its own height.
+  // layer has exactly the keyboard's last height once that is known (it scrolls inside), so the pad stays put;
+  // before any keyboard was seen, its own height.
   const layerCover = pad.layerMinHeight ?? layerHeight;
   const obstruction = slidesWithKeyboard
     ? Math.max(keyboardCover(editorShown), layerShown ? layerCover - insets.bottom : 0)
@@ -691,7 +691,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
   );
 
   const uploadEnabled = activeTab !== null && (chatModeActive ? agentActionsCapable : activeTab.state === 'open');
-  // The pad's Upload key starts the upload the round button started (REQ-KEY-009).
+  // The pad's Upload key starts the upload the round button started.
   const padUpload = useMemo(
     () => ({ available: uploadEnabled && !uploading, uploading, start: () => void handleUpload('file') }),
     [uploadEnabled, uploading, handleUpload],
@@ -991,8 +991,8 @@ export default function TerminalScreen({ navigation, route }: Props) {
         ) : null}
         {tabs.length > 1 && <EdgeSwipeZones onPrev={() => switchTabBy(-1)} onNext={() => switchTabBy(1)} />}
         {/*
-          With the pad switched off: the round buttons as before the pad (U1, owner 2026-10-25). With it on,
-          Upload is a pad key (REQ-KEY-001 AC3) and the optional keyboard and refresh buttons stand above the
+          With the pad switched off: the round buttons as before the pad. With it on,
+          Upload is a pad key and the optional keyboard and refresh buttons stand above the
           closed pad's toggle while nothing covers the terminal; when the user moved the pad away from the right
           edge they keep their own corner.
         */}

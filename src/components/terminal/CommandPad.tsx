@@ -1,5 +1,5 @@
 /**
- * The Befehlspad over the terminal (REQ-KEY-001, -003, -007, -010; approved form D-034, D-037): a round toggle
+ * The Befehlspad over the terminal, in its approved form: a round toggle
  * in the bottom right corner, and while it is open the 3x3 field of the user's nine keys above it with the four
  * function buttons on an arc around the field's upper left corner: Keys and Agent (the layers in the keyboard's
  * place), the text editor, and the keyboard. The pad stays open until the toggle is tapped again; it floats with
@@ -131,7 +131,7 @@ function CommandPad({
   onKeyboard,
 }: CommandPadProps) {
   const reduceMotion = useReduceMotion();
-  // Frosted glass as in the approved mockup (owner D-062); opaque with Reduce Transparency on.
+  // Frosted glass as in the approved mockup; opaque with Reduce Transparency on.
   const opaque = useReduceTransparency();
   // One value and its interpolation for the pad's life: nothing animated is rebuilt per render.
   const [{ reveal, scale }] = useState(() => {
@@ -443,7 +443,7 @@ type PadKeyProps = {
 };
 
 /**
- * One position. A key sends on touch-down (and repeats while held when it repeats, REQ-KEY-008); text, agent
+ * One position. A key sends on touch-down (and repeats while held when it repeats); text, agent
  * hotkeys, Paste, Upload and modifier taps act on release; a held modifier locks.
  */
 function PadKey({ padKey, input, modifiers, upload, opaque }: PadKeyProps) {

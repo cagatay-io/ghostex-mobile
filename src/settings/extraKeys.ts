@@ -24,7 +24,7 @@ export type ArrowDirection = 'up' | 'down' | 'left' | 'right';
 
 /**
  * One saved slot of the layout (what goes to AsyncStorage). A custom action carries a stable `id`, so a Befehlspad
- * position can refer to it and follow its later edits (owner D-062); layouts saved before it had one get theirs on
+ * position can refer to it and follow its later edits; layouts saved before it had one get theirs on
  * load (`sanitizeLayout`).
  */
 export type ExtraKeyStored =

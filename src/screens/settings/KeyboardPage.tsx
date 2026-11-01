@@ -8,7 +8,7 @@ import { Caption, LinkRow, SectionHeader, SettingsScreenLayout, SettingToggle } 
 
 /**
  * The Befehlspad's switch (the key bar's `extraKeysToolbarVisible`, same meaning), key vibration and its nine
- * keys, then the editors whose keys fill its Keys and Agent layers (approved mockup `mockups/befehlspad`).
+ * keys, then the editors whose keys fill its Keys and Agent layers (approved mockup).
  */
 function CommandPadSection() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();

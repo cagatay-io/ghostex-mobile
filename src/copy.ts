@@ -1018,7 +1018,7 @@ export const SettingsCopy = {
 
 /**
  * The Befehlspad (command pad) in the terminal, its Keys and Agent layers and the text editor, and its rows in
- * Settings > Keyboard (REQ-KEY-001..010; wording of the approved mockups `mockups/befehlspad`, D-034, D-037).
+ * Settings > Keyboard (wording of the approved mockups).
  */
 export const CommandPadCopy = {
   toggle: 'Command pad',
@@ -1048,7 +1048,7 @@ export const CommandPadCopy = {
   paste: 'Paste',
   upload: 'Upload',
   newLine: 'New line',
-  /** A pad position whose custom action or agent hotkey was deleted (owner D-062); it sends nothing. */
+  /** A pad position whose custom action or agent hotkey was deleted; it sends nothing. */
   unavailable: 'Not available',
   /** Spoken and shown names of keys by terminal key name. */
   keyNames: {

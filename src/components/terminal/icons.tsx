@@ -240,7 +240,7 @@ export function HourglassIcon(props: IconProps) {
   );
 }
 
-/** Command pad (Befehlspad) toggle: four squares, the glyph the owner named the pad by (F8). */
+/** Command pad (Befehlspad) toggle: four squares, the glyph the pad was named by. */
 export function PadIcon(props: IconProps) {
   const { size, color, strokeWidth } = iconDefaults(props);
   return (

@@ -632,7 +632,7 @@ public class GhostexNativeModule: Module {
             }
         }
 
-        // The command pad's Paste key (REQ-KEY-004): the terminal's own Paste, the one its edit menu runs, so
+        // The command pad's Paste key: the terminal's own Paste, the one its edit menu runs, so
         // iOS's paste permission, the unsafe-paste question and the clean-up after a paste stay the same.
         AsyncFunction("pasteFromClipboard") { (sessionKey: String) async throws in
             try await MainActor.run {

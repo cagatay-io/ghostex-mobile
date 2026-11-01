@@ -1,6 +1,6 @@
 /**
- * Run with `bun test src`. REQ-KEY-006 AC3: a changed pad key survives a store reload (in-memory AsyncStorage);
- * the `commandPadKeys` fallback of the schema (absent or invalid = the default nine); REQ-KEY-002: a stored
+ * Run with `bun test src`. A changed pad key survives a store reload (in-memory AsyncStorage);
+ * the `commandPadKeys` fallback (absent or invalid = the default nine); a stored
  * `extraKeysToolbarVisible` keeps its meaning for the pad.
  * The pad position per layout (`commandPadPosition`; absent or invalid = the default position).
  */
@@ -32,8 +32,8 @@ beforeEach(() => {
   memory.clear();
 });
 
-describe('REQ-KEY-006 AC3: the pad keys are stored as commandPadKeys', () => {
-  test('REQ-KEY-006 AC3: the centre changed to Home still holds Home after a reload', async () => {
+describe('the pad keys are stored as commandPadKeys', () => {
+  test('the centre changed to Home still holds Home after a reload', async () => {
     await reload();
     const keys = [...useSettingsStore.getState().settings.commandPadKeys];
     keys[4] = 'key:home';
@@ -43,7 +43,7 @@ describe('REQ-KEY-006 AC3: the pad keys are stored as commandPadKeys', () => {
     expect(JSON.parse(memory.get('settings.v1') ?? '{}').commandPadKeys).toHaveLength(9);
   });
 
-  test('REQ-KEY-006 AC5 (fehlerfall): eight entries, or none, load as the default nine', async () => {
+  test('eight entries, or none, load as the default nine', async () => {
     memory.set('settings.v1', JSON.stringify({ commandPadKeys: DEFAULT_COMMAND_PAD_KEYS.slice(0, 8) }));
     await reload();
     expect(useSettingsStore.getState().settings.commandPadKeys).toEqual([...DEFAULT_COMMAND_PAD_KEYS]);
@@ -53,16 +53,16 @@ describe('REQ-KEY-006 AC3: the pad keys are stored as commandPadKeys', () => {
   });
 });
 
-describe('REQ-KEY-002: the stored switch keeps its meaning', () => {
-  test('REQ-KEY-002 AC1: a stored extraKeysToolbarVisible false stays off (no pad)', async () => {
+describe('the stored switch keeps its meaning', () => {
+  test('a stored extraKeysToolbarVisible false stays off (no pad)', async () => {
     memory.set('settings.v1', JSON.stringify({ extraKeysToolbarVisible: false }));
     await reload();
     expect(useSettingsStore.getState().settings.extraKeysToolbarVisible).toBe(false);
   });
 });
 
-describe('owner D-062: custom actions get a stable id, so pad positions can follow them', () => {
-  test('REQ-KEY-006: a layout saved without ids gets them on load, and keeps them across reloads', async () => {
+describe('custom actions get a stable id, so pad positions can follow them', () => {
+  test('a layout saved without ids gets them on load, and keeps them across reloads', async () => {
     const { useExtraKeysStore } = await import('./extraKeys');
     memory.set(
       'extraKeys.v1',
@@ -81,8 +81,8 @@ describe('owner D-062: custom actions get a stable id, so pad positions can foll
   });
 });
 
-describe('review r2: a failed id migration write loses nothing', () => {
-  test('REQ-KEY-006 (D-062): when saving the migrated ids fails, the next load gives the same ids, and the failure is handled', async () => {
+describe('a failed id migration write loses nothing', () => {
+  test('when saving the migrated ids fails, the next load gives the same ids, and the failure is handled', async () => {
     const { useExtraKeysStore } = await import('./extraKeys');
     const legacy = JSON.stringify([
       [{ type: 'shortcut', label: 'CC', key: 'c', ctrl: true }],

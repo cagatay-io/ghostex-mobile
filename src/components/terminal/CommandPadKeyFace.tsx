@@ -29,7 +29,7 @@ export default function CommandPadKeyFace({ padKey, color, size, busy = false }:
     case 'upload':
       return busy ? <HourglassIcon size={size} color={color} /> : <PaperclipIcon size={size} color={color} />;
     case undefined:
-      // "Not available" (a deleted custom action or hotkey, D-062) takes two small lines.
+      // "Not available" (a deleted custom action or hotkey) takes two small lines.
       return padKey.action.kind === 'unavailable' ? (
         <Text style={[styles.unavailable, { color }]} numberOfLines={2}>
           {padKey.face}

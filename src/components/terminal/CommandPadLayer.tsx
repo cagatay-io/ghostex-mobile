@@ -1,5 +1,5 @@
 /**
- * A Befehlspad layer in the software keyboard's place (REQ-KEY-010 items 1-4; owner D-037: cross and ring stay
+ * A Befehlspad layer in the software keyboard's place (cross and ring stay
  * where they are while a layer takes the keyboard's place, like iOS switching keyboards):
  * - Keys: "Extra keys", the user's two rows of the extra-keys layout (built-in keys with repeat on hold,
  *   Ctrl/Alt/Shift one-shot or locked, custom actions), and "More keys", the former KEYS page (terminal hotkeys,
@@ -37,7 +37,7 @@ export type CommandPadLayerProps = {
   onOpenSettings: () => void;
   /**
    * The keyboard's last height in this window: the layer takes exactly that frame, so cross and ring stay where
-   * they stood (owner D-037), and its keys scroll when they need more; its own height while none is known.
+   * they stood, and its keys scroll when they need more; its own height while none is known.
    */
   height?: number;
   /** Space kept free at the bottom (the home indicator on iOS). */
