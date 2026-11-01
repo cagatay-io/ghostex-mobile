@@ -6,18 +6,21 @@
  * and page, the Files browser, the Changes view), the pane, terminal, settings and inventory stores; mocked are the
  * boundaries only: the native module (its terminal view a stand-in that shows its props), the WebView (a stand-in that
  * shows the page it is given), gxserver's answers (`sessionChatRpc`: the project's files and its Changes diff), the
- * computer's listening ports and the port forward, haptics, storage, the safe area, navigation and the chat screen.
+ * computer's listening ports and the port forward, the ghostex CLI (`runGhostexCli`), haptics, storage, the safe area,
+ * navigation and the chat screen.
  *
- * Covered: each type's entry from the chooser and from the title's pane type menu; what each shows (
- * web preview, files, Git changes read only); the other slot keeping its content and its terminal; files and Git changes keeping the
- * project they were opened from when the selection changes; the layout stored within version 1 and
- * brought back after a restart, also with the origin session gone; closing either pane; the only session pane keeping
- * its session; the pad and the keyboard with a non-terminal pane active, flat and half folded like a laptop; the
- * keyboard coming back from a pane's field to the terminal that becomes active or is left alone, and staying away
- * when it was lowered, when the Duo folds or when the session that takes the screen was not on it; half folded like
- * a book, the controls of a browser, files, Git changes or chooser body beside the fold wherever the divider stands;
- * folding with such a pane active opening its content full screen; the existing full-screen screens' chrome
- * left alone.
+ * Covered: each type's entry from the chooser and from the title's pane type menu; what each shows (web preview,
+ * files, Git changes read only); the other slot keeping its content and its terminal; files and Git changes keeping the
+ * project they were opened from when the selection changes; the layout stored within version 1 and brought back after
+ * a restart, also with the origin session gone; closing either pane; the only session pane keeping its session; the
+ * chooser's Close row, its list not springing back, neither pane moving while it is one of them, Panes in the header
+ * and in "More options" naming and closing it in either slot, a new terminal in the project of the session beside it
+ * opening in its pane, and Add project; the pad and the keyboard with a non-terminal pane active, flat and half folded
+ * like a laptop; the keyboard coming back from a pane's field to the terminal that becomes active or is left alone,
+ * and staying away when it was lowered, when the Duo folds or when the session that takes the screen was not on it;
+ * half folded like a book, the controls of a browser, files, Git changes or chooser body beside the fold wherever the
+ * divider stands; folding with such a pane active opening its content full screen; the existing full-screen screens'
+ * chrome left alone.
  *
  * Device-only, not shown here: a real page in the WebView, the native keyboard leaving the terminal and coming back
  * in a pane's field, and how the panes look.
@@ -29,6 +32,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react-n
 import type { TestInstance } from 'test-renderer';
 
 import type { BarLayout, FoldDivision } from '../../modules/ghostex-native/src/GhostexNative.types';
+import { createSessionCommand } from '../commands/ghostexCli';
 import { keyboardFixture } from '../components/common/keyboard/keyboardEventFixtures';
 import { FoldListFrame } from '../components/common/foldGap';
 import { useBarGeometryStore } from '../components/common/verticalBar/barGeometry';
@@ -162,9 +166,13 @@ jest.mock('../chat/rust/transport', () => ({
     return Promise.resolve({ result: { entries: [] }, error: null });
   },
 }));
+/** The ghostex CLI on the computer: refused unless a test answers it (a new terminal's `create-session`). */
+const mockRunCli = jest.fn((_machine: unknown, _command: string): Promise<unknown> =>
+  Promise.reject(new Error('no cli')),
+);
 jest.mock('../components/sessions/cli', () => ({
   ...jest.requireActual('../components/sessions/cli'),
-  runGhostexCli: () => Promise.reject(new Error('no cli')),
+  runGhostexCli: (machine: unknown, command: string) => mockRunCli(machine, command),
 }));
 jest.mock('@react-native-async-storage/async-storage', () =>
   jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'),
@@ -288,7 +296,8 @@ const keyboard = keyboardFixture(UPRIGHT);
 const initialSettings = useSettingsStore.getState().settings;
 let areaView: TestInstance | null = null;
 
-function barLayout(window: Window, divisions: FoldDivision[]): BarLayout {
+/** The window's bars; `bandWidth`: the status band's row for the header buttons (narrow: some go to "More options"). */
+function barLayout(window: Window, divisions: FoldDivision[], bandWidth = 466): BarLayout {
   return {
     windowWidth: window.width,
     windowHeight: window.height,
@@ -296,12 +305,18 @@ function barLayout(window: Window, divisions: FoldDivision[]): BarLayout {
     safeLeft: 0,
     safeRight: 0,
     marginTop: 88,
-    topBar: { x: 0, y: 26, width: 466, height: 44 },
+    topBar: { x: 0, y: 26, width: bandWidth, height: 44 },
     divisions,
   };
 }
 
-type Setup = { divisions?: FoldDivision[]; tabs?: TerminalTab[]; selected?: string; stored?: PaneLayoutDocument };
+type Setup = {
+  divisions?: FoldDivision[];
+  tabs?: TerminalTab[];
+  selected?: string;
+  stored?: PaneLayoutDocument;
+  bandWidth?: number;
+};
 
 /** The app starting with `stored` in storage, as `TerminalScreen.panes.rntl.tsx` renders it. */
 async function renderScreen({
@@ -309,8 +324,9 @@ async function renderScreen({
   tabs = [ALPHA, BETA, GAMMA],
   selected = A,
   stored,
+  bandWidth,
 }: Setup = {}): Promise<void> {
-  mockBarLayout = barLayout(UPRIGHT, divisions);
+  mockBarLayout = barLayout(UPRIGHT, divisions, bandWidth);
   await act(() => {
     keyboard.setScreen(UPRIGHT.width, UPRIGHT.height);
     Dimensions.set({ window: { ...UPRIGHT, scale: 3, fontScale: 1 }, screen: { ...UPRIGHT, scale: 3, fontScale: 1 } });
@@ -473,6 +489,8 @@ beforeEach(async () => {
   mockNative.focusTerminal.mockImplementation(() => Promise.resolve(true));
   mockMounts.length = 0;
   mockRpcCalls.length = 0;
+  mockRunCli.mockReset();
+  mockRunCli.mockImplementation(() => Promise.reject(new Error('no cli')));
   mockReport = null;
   areaView = null;
   navigation.navigate.mockClear();
@@ -753,6 +771,140 @@ describe('closing, and the only session pane', () => {
     await press(/^Beta, Codex/);
     expect(storedStacked()).toEqual({ first: session(A), second: session(B), dividerRatio: 0.5 });
     expect(shownSessions().sort()).toEqual([A, B]);
+  });
+});
+
+describe('the chooser: not movable, no rubber-band, Close, a new terminal or project', () => {
+  /** The chooser's list: the scroll view its rows stand in. */
+  const chooserList = (): TestInstance => {
+    for (let node: TestInstance | null = screen.getByText(PanesCopy.chooserLead); node !== null; node = node.parent) {
+      if (node.type === 'RCTScrollView') return node;
+    }
+    throw new Error('no chooser list');
+  };
+
+  test('its list does not spring back when pulled past its ends', async () => {
+    await renderScreen({ stored: undefined });
+    await press(PanesCopy.addPane);
+    expect(chooserList().props).toEqual(expect.objectContaining({ bounces: false, alwaysBounceVertical: false }));
+  });
+
+  test('a Close row at its top closes it as its close button does; the session stays alone on screen', async () => {
+    await renderScreen({ stored: undefined });
+    await press(PanesCopy.addPane);
+    const rows = within(chooserList()).getAllByRole('button');
+    expect(rows[0].props.accessibilityLabel).toBe(PanesCopy.chooserClose);
+    await press(PanesCopy.chooserClose);
+    expect(screen.queryByText(PanesCopy.chooserLead)).toBeNull();
+    expect(screen.queryByTestId('pane:chooser')).toBeNull();
+    expect(shownSessions()).toEqual([A]);
+    expect(storedStacked()).toBeUndefined();
+  });
+
+  /** Session picked in the browser pane's type menu: the chooser in the first pane, the session pane beside it. */
+  async function chooserInFirstPane(): Promise<void> {
+    const restore = measuredTitles();
+    try {
+      await renderScreen({ stored: layout(BROWSER, session(A)) });
+      await press(PanesCopy.title(PanesCopy.browserType, PanesCopy.browserType));
+      await fireEvent.press(menuItem(PanesCopy.sessionType));
+      await settle();
+    } finally {
+      restore();
+    }
+    expect(screen.getByText(PanesCopy.chooserLead)).toBeTruthy();
+  }
+
+  test('in a stored layout too, neither pane moves while the chooser is one of them', async () => {
+    await chooserInFirstPane();
+    const point = { pageX: 100, pageY: 100, locationX: 0, locationY: 0, identifier: 0, target: 1, timestamp: 0 };
+    const moved = { nativeEvent: { ...point, pageY: 600, touches: [point], changedTouches: [point] } };
+    for (const key of ['chooser', A]) {
+      const bar = screen.getByTestId(`pane-bar:${key}`);
+      await fireEvent(bar, 'touchStart', { nativeEvent: { ...point, touches: [point], changedTouches: [point] } });
+      expect(bar.props.onMoveShouldSetResponder(moved)).toBe(false);
+    }
+    expect(screen.queryByLabelText(PanesCopy.move(PanesCopy.newPane))).toBeNull();
+  });
+
+  test('in the first pane, Panes in the header closes the chooser and the browser comes back', async () => {
+    await chooserInFirstPane();
+    // The button names what it closes: the chooser ("New pane"), not the session pane beside it.
+    expect(screen.queryByLabelText(PanesCopy.closeSecondPane)).toBeNull();
+    await press(PanesCopy.closeNewPane);
+    expect(screen.queryByTestId('pane:chooser')).toBeNull();
+    expect(pane('browser')).toBeTruthy();
+    expect(shownSessions()).toEqual([A]);
+    expect(storedStacked()).toEqual({ first: BROWSER, second: session(A), dividerRatio: 0.5 });
+  });
+
+  test('in the second pane too, and in "More options" when the band is narrow, Panes names the chooser it closes', async () => {
+    // The "…" button's window frame anchors its menu (the test renderer measures nothing by itself).
+    const restore = measuredTitles();
+    try {
+      await renderScreen({ stored: undefined, bandWidth: 140 });
+      expect(screen.queryByLabelText(PanesCopy.addPane)).toBeNull();
+      await press(DuoChromeCopy.more);
+      await fireEvent.press(screen.getByText(PanesCopy.addPane));
+      await settle();
+      expect(screen.getByText(PanesCopy.chooserLead)).toBeTruthy();
+      await press(DuoChromeCopy.more);
+      expect(screen.queryByText(PanesCopy.closeSecondPane)).toBeNull();
+      await fireEvent.press(screen.getByText(PanesCopy.closeNewPane));
+      await settle();
+    } finally {
+      restore();
+    }
+    expect(screen.queryByTestId('pane:chooser')).toBeNull();
+    expect(shownSessions()).toEqual([A]);
+  });
+
+  test('New terminal in the project of the session beside it: created on the computer, opened in this pane', async () => {
+    const refreshMachine = useInventoryStore.getState().refreshMachine;
+    // The computer's list read again after the creation names the new terminal session.
+    useInventoryStore.setState({
+      refreshMachine: () => {
+        useInventoryStore.setState({
+          inventoriesByMachineId: {
+            m1: inventory(
+              mobileSummary({
+                projects: PROJECTS,
+                sessions: [...SESSIONS, summarySession('n', 'Shell', 'p1', 'ghostex-mobile')],
+              }),
+            ),
+          },
+        });
+        return Promise.resolve();
+      },
+    });
+    mockRunCli.mockImplementation(() =>
+      Promise.resolve({ json: { ok: true, session: { sessionId: 'n' } }, stdout: '' }),
+    );
+    const N = attachSessionKey('m1', 'n');
+    try {
+      await renderScreen({ stored: undefined });
+      await press(PanesCopy.addPane);
+      await press(PanesCopy.newTerminalIn('ghostex-mobile'));
+    } finally {
+      useInventoryStore.setState({ refreshMachine });
+    }
+    expect(mockRunCli).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'm1' }),
+      createSessionCommand({ projectId: 'p1' }),
+    );
+    expect(mockNative.openTerminal).toHaveBeenCalledWith(N, 'm1', expect.anything());
+    expect(shownSessions().sort()).toEqual([A, N]);
+    expect(useTerminalStore.getState().selectedSessionKey).toBe(N);
+    expect(storedStacked()).toEqual({ first: session(A), second: session(N), dividerRatio: 0.5 });
+    // In the pane, never the full-screen Terminal route.
+    expect(navigation.navigate).not.toHaveBeenCalled();
+  });
+
+  test('Add project opens the computer’s Add Project flow', async () => {
+    await renderScreen({ stored: undefined });
+    await press(PanesCopy.addPane);
+    await press(PanesCopy.addProject);
+    expect(navigation.push).toHaveBeenCalledWith('AddProjectSource', { machineId: 'm1' });
   });
 });
 

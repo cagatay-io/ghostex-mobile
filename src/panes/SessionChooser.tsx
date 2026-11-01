@@ -1,16 +1,21 @@
 /**
- * The chooser in a new pane (the approved panes mockup's): first what else the pane can show (the pane types, Files
- * and Git Changes only for a session with a project folder, as the ⋯ menu offers them), then the computer's agent
- * sessions to open there, each with its agent, project and status in words (a status dot alone would carry it by
- * colour only). The session on screen beside it is not listed. The list is the computer's session list as the
- * Sessions screen has it; while it is being read, a spinner. Every row is a control: half folded like a book they all
- * keep off the fold. The agents pane (`AgentsPane.tsx`) lists the sessions with the same row.
+ * The chooser in a new pane (the approved panes mockup's): a Close row at its top (as its close button), then what
+ * else the pane can show (the pane types, Files and Git Changes only for a session with a project folder, as the ⋯
+ * menu offers them), then a new terminal in the project of the session beside it, the computer's Add Project flow,
+ * and the computer's agent sessions to open there, each with its agent, project and status in words (a status dot
+ * alone would carry it by colour only). The session on screen beside it is not listed. The list is the computer's
+ * session list as the Sessions screen has it; while it is being read, a spinner. The list does not spring back past
+ * its ends. Every row is a control: half folded like a book they all keep off the fold. The agents pane
+ * (`AgentsPane.tsx`) lists the sessions with the same row.
  */
 
+import type { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AGENT_ICONS } from '../assets/agentIcons.generated';
+import { PlusGlyph, TerminalGlyph } from '../components/sessions/icons';
 import { hasPendingQuestion, rowActivityIndicator } from '../components/sessions/sessionStatus';
+import { CloseIcon } from '../components/terminal/icons';
 import { agentIconTint, resolveAgentIconId, type GhostexSession } from '../contract/mobileSummary';
 import { PanesCopy, SessionCopy } from '../copy';
 import { useInventoryStore } from '../inventory/store';
@@ -29,6 +34,11 @@ export type SessionChooserProps = {
   controlInset: PaneBarInset;
   onPick: (session: GhostexSession) => void;
   onPickType: (type: Exclude<SettablePaneType, 'session'>) => void;
+  /** The Close row: as the pane's close button. */
+  onClose: () => void;
+  /** A new terminal in the project of the session beside the chooser (`beside`), opened in this pane. */
+  onNewTerminal: (beside: GhostexSession) => void;
+  onAddProject: () => void;
 };
 
 /** A session's status as the pane rows say it (`PanesCopy.status`). */
@@ -92,6 +102,40 @@ export function PaneSessionRow({
   );
 }
 
+/** A row that acts rather than opens a session: its icon, its label and, where it has one, a line under it. */
+function ActionRow({
+  label,
+  detail,
+  icon,
+  onPress,
+}: {
+  label: string;
+  detail?: string;
+  icon: ReactNode;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={detail === undefined ? label : `${label}, ${detail}`}
+      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+      onPress={onPress}
+    >
+      <View style={styles.typeIcon}>{icon}</View>
+      <View style={styles.text}>
+        <Text style={styles.title} numberOfLines={1}>
+          {label}
+        </Text>
+        {detail !== undefined ? (
+          <Text style={styles.detail} numberOfLines={1}>
+            {detail}
+          </Text>
+        ) : null}
+      </View>
+    </Pressable>
+  );
+}
+
 export default function SessionChooser({
   machineId,
   besideSessionId,
@@ -99,9 +143,15 @@ export default function SessionChooser({
   controlInset,
   onPick,
   onPickType,
+  onClose,
+  onNewTerminal,
+  onAddProject,
 }: SessionChooserProps) {
   const summary = useInventoryStore((state) => state.inventoriesByMachineId[machineId]?.summary ?? null);
   const sessions = summary?.sessions.filter((session) => session.sessionId !== besideSessionId) ?? [];
+  // A new terminal goes into the project of the session beside the chooser, where it has one.
+  const beside = summary?.sessions.find((session) => session.sessionId === besideSessionId) ?? null;
+  const besideProject = beside !== null && beside.projectId.length > 0 && beside.projectName.length > 0 ? beside : null;
   const types = AVAILABLE_PANE_TYPES.filter(
     (definition): definition is typeof definition & { type: Exclude<SettablePaneType, 'session'> } =>
       definition.type !== 'session' && (projectOffered || !definition.needsProject),
@@ -109,6 +159,8 @@ export default function SessionChooser({
   return (
     <ScrollView
       style={styles.list}
+      bounces={false}
+      alwaysBounceVertical={false}
       contentContainerStyle={[
         styles.content,
         {
@@ -117,31 +169,38 @@ export default function SessionChooser({
         },
       ]}
     >
-      <Text style={styles.lead} accessibilityRole="header">
+      <ActionRow
+        label={PanesCopy.chooserClose}
+        icon={<CloseIcon size={16} color={GhostexPalette.ACCENT} />}
+        onPress={onClose}
+      />
+      <Text style={[styles.lead, styles.leadAfter]} accessibilityRole="header">
         {PanesCopy.chooserTypesLead}
       </Text>
       {types.map((definition) => (
-        <Pressable
+        <ActionRow
           key={definition.type}
-          accessibilityRole="button"
-          accessibilityLabel={`${definition.label}, ${definition.description}`}
-          style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+          label={definition.label}
+          detail={definition.description}
+          icon={definition.icon(20, GhostexPalette.ACCENT)}
           onPress={() => onPickType(definition.type)}
-        >
-          <View style={styles.typeIcon}>{definition.icon(20, GhostexPalette.ACCENT)}</View>
-          <View style={styles.text}>
-            <Text style={styles.title} numberOfLines={1}>
-              {definition.label}
-            </Text>
-            <Text style={styles.detail} numberOfLines={1}>
-              {definition.description}
-            </Text>
-          </View>
-        </Pressable>
+        />
       ))}
       <Text style={[styles.lead, styles.leadAfter]} accessibilityRole="header">
         {PanesCopy.chooserLead}
       </Text>
+      {besideProject !== null ? (
+        <ActionRow
+          label={PanesCopy.newTerminalIn(besideProject.projectName)}
+          icon={<TerminalGlyph size={20} color={GhostexPalette.ACCENT} />}
+          onPress={() => onNewTerminal(besideProject)}
+        />
+      ) : null}
+      <ActionRow
+        label={PanesCopy.addProject}
+        icon={<PlusGlyph size={20} color={GhostexPalette.ACCENT} />}
+        onPress={onAddProject}
+      />
       {summary === null ? (
         <View style={styles.pending}>
           <ActivityIndicator size="small" color={GhostexPalette.MUTED} accessibilityLabel={PanesCopy.chooserLoading} />

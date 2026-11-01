@@ -13,12 +13,12 @@
  * pick in the chooser once its terminal is open) and going to the terminal left alone when the active pane or the
  * selected tab closes, but never raised again once lowered nor taken from the text editor;
  * the active pane marked (accent title, `paneFocus`) only while two panes show; Panes, the chooser and closing;
- * swapping by the title bar without a terminal mounted again; the divider drag and its 25-75 % clamp; the keyboard
- * rules and the divider coming back; one content area folded; the laptop pose with the pad's rules; half folded like a
- * book, nothing to touch on the fold; a restart bringing the layout back; the window turning into a shape with nothing
- * stored; a session selected outside the panes and the chat view; the session beside the chooser kept at the
- * warm-terminal limit; and that only the title bars and the divider handle take a drag (nothing in a pane's content
- * does).
+ * swapping by the title bar without a terminal mounted again, and no swap while the chooser is one of the two; the
+ * divider drag and its 25-75 % clamp; the keyboard rules and the divider coming back; one content area folded; the
+ * laptop pose with the pad's rules; half folded like a book, nothing to touch on the fold; a restart bringing the
+ * layout back; the window turning into a shape with nothing stored; a session selected outside the panes and the chat
+ * view; the session beside the chooser kept at the warm-terminal limit; and that only the title bars and the divider
+ * handle take a drag (nothing in a pane's content does).
  *
  * Frames in window points of the iPhone Duo's inner display as the laptop test (`TerminalScreen.laptop.rntl.tsx`)
  * has them: upright 669 x 951, turned 951 x 669, the fold's division across at y 455.5 (40 pt) upright and down the
@@ -807,6 +807,22 @@ describe('swapping by the title bar', () => {
     await renderScreen({ stored: stacked(A, B) });
     await fireEvent(titleBar(A), 'touchStart', touch(100, 100));
     expect(titleBar(A).props.onMoveShouldSetResponder(touch(104, 104))).toBe(false);
+  });
+
+  test('while the chooser is one of the two panes, neither moves: no grip, no drag, no drop target', async () => {
+    await renderScreen({ tabs: [ALPHA], stored: undefined });
+    await press(PanesCopy.addPane);
+    const before = [card(A), card('chooser')];
+    expect(screen.queryByLabelText(PanesCopy.move(PanesCopy.newPane))).toBeNull();
+    expect(screen.queryByLabelText(PanesCopy.move('Alpha'))).toBeNull();
+    for (const key of ['chooser', A]) {
+      await fireEvent(titleBar(key), 'touchStart', touch(100, 100));
+      // Dragged from its title bar well into the other slot.
+      expect(titleBar(key).props.onMoveShouldSetResponder(touch(100, 600))).toBe(false);
+    }
+    expect(screen.queryByText(PanesCopy.releaseToSwap)).toBeNull();
+    expect([card(A), card('chooser')]).toEqual(before);
+    expect(storedLayouts().stacked).toBeUndefined();
   });
 });
 

@@ -1,27 +1,31 @@
 /**
  * The terminal screen's pane controller, beside the pane state of `usePaneHost`: what a touch in a pane, a pick in the
- * chooser, a row of the agents or attention list pane and the header's Panes button do, the keyboard following the
- * active pane, Back from a question opened in the attention list pane, and the active pane's content opening full
- * screen when the Duo folds. `paneLayoutInput` places the two panes in the terminal area from the keyboard, the text
- * editor and the fold. `TerminalScreen` calls the hook once its keyboard and editor state are known.
+ * chooser (also its Close row and its new terminal), a row of the agents or attention list pane and the header's Panes
+ * button do, the keyboard following the active pane, Back from a question opened in the attention list pane, and the
+ * active pane's content opening full screen when the Duo folds. `paneLayoutInput` places the two panes in the terminal
+ * area from the keyboard, the text editor and the fold. `TerminalScreen` calls the hook once its keyboard and editor
+ * state are known.
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { LayoutRectangle } from 'react-native';
+import { Alert, type LayoutRectangle } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { GhostexNative } from '../../modules/ghostex-native/src';
 import type { FoldDivision } from '../../modules/ghostex-native/src/GhostexNative.types';
 import { sessionDeepLink } from '../app/deepLinkHandler';
 import type * as DeepLinksModule from '../app/deepLinks';
+import { createSessionCommand } from '../commands/ghostexCli';
 import type { LaptopFold } from '../components/common/verticalBar/layout';
+import { createdSessionId, runGhostexCli } from '../components/sessions/cli';
 import { laptopEditorInset, laptopObstruction } from '../components/terminal/laptopMode';
 import { TEXT_EDITOR_HEIGHT } from '../components/terminal/TerminalTextEditor';
 import type { GhostexSession } from '../contract/mobileSummary';
+import { PanesCopy, ProgressCopy } from '../copy';
 import { useInventoryStore } from '../inventory/store';
 import type { RootStackParamList } from '../navigation/types';
 import type { OpenSessionTarget } from '../notifications/AttentionList';
-import { machineTargetFor } from '../screens/terminal-screen/session-lookups';
+import { machineRecordFor, machineTargetFor } from '../screens/terminal-screen/session-lookups';
 import { acknowledgeSessionAttention } from '../terminal/attention';
 import { attachSessionKey, useTerminalStore, type TerminalTab } from '../terminal/sessions';
 import { PANE_FOLD_CLEARANCE, paneGeometry, type PaneGeometryInput, type PaneIndex } from './geometry';
@@ -62,6 +66,8 @@ export type TerminalPanesInput = {
   dismissKeyboard: () => void;
   /** The screen's way back to Sessions. */
   showSessions: () => void;
+  /** The screen's progress overlay (a new terminal being created), or null to hide it. */
+  setProgress: (progress: string | null) => void;
   /**
    * A finger is on the command pad's toggle (`CommandPad`'s `onHold`): the stack's swipe back does not start
    * meanwhile, not even for that finger's own touch.
@@ -80,6 +86,12 @@ export type TerminalPanes = {
   openAttentionTarget: (target: OpenSessionTarget) => void;
   /** The header's Panes button. */
   togglePanes: () => void;
+  /** The Panes button's label (header and "More options"). */
+  panesLabel: string;
+  /** The chooser's Close row: as its close button. */
+  closeChooser: () => void;
+  /** The chooser's new terminal in the project of the session beside it, opened in the chooser's pane. */
+  newPaneTerminal: (beside: GhostexSession) => void;
   showsTwoPanes: boolean;
   /** The slot of the chooser, or null. */
   chooserSlot: PaneIndex | null;
@@ -102,6 +114,7 @@ export function useTerminalPanes({
   editorShown,
   dismissKeyboard,
   showSessions,
+  setProgress,
   padHeld,
 }: TerminalPanesInput): TerminalPanes {
   const twoPanes: TwoPanes | null = panes.display.kind === 'panes' ? panes.display : null;
@@ -295,17 +308,55 @@ export function useTerminalPanes({
     [openPaneSession],
   );
 
-  // The header's Panes button: the chooser in a second slot, or with two panes the second one closed.
-  const showsTwoPanes = twoPanes !== null;
-  const { openChooser: openPaneChooser, closeSlot: closePaneSlot } = panes;
-  const togglePanes = useCallback(
-    (): void => (showsTwoPanes ? closePaneSlot(1) : openPaneChooser()),
-    [showsTwoPanes, closePaneSlot, openPaneChooser],
+  // A new terminal in the project of the session beside the chooser (the Sessions screen's New terminal): created on
+  // the computer, then opened in the chooser's pane as a pick is (`openPaneSession`), never full screen.
+  const newPaneTerminal = useCallback(
+    (beside: GhostexSession): void => {
+      const machine = activeMachineId === null ? null : machineRecordFor(activeMachineId);
+      if (machine === null) return;
+      setProgress(ProgressCopy.creatingTerminal(beside.projectName));
+      void (async () => {
+        try {
+          const result = await runGhostexCli(machine, createSessionCommand({ projectId: beside.projectId }));
+          await useInventoryStore.getState().refreshMachine(machine);
+          setProgress(null);
+          const sessionId = createdSessionId(result);
+          if (sessionId !== null) openPaneSession(machine.id, sessionId);
+        } catch (error) {
+          setProgress(null);
+          Alert.alert(PanesCopy.newTerminalFailed, error instanceof Error ? error.message : String(error), [
+            { text: 'OK' },
+          ]);
+        }
+      })();
+    },
+    [activeMachineId, openPaneSession, setProgress],
   );
 
-  // The slot of the chooser, and of the selected session's pane.
+  // The slot of the chooser.
   const chooserSlot =
     twoPanes === null ? null : (([0, 1] as const).find((slot) => twoPanes.slots[slot].kind === 'chooser') ?? null);
+  const { openChooser: openPaneChooser, closeSlot: closePaneSlot } = panes;
+  // The chooser's Close row: as its close button.
+  const closeChooser = useCallback((): void => {
+    if (chooserSlot !== null) closePaneSlot(chooserSlot);
+  }, [chooserSlot, closePaneSlot]);
+
+  // The header's Panes button: the chooser in a second slot; with two panes the chooser closed where one is on
+  // screen (in either slot), else the second pane.
+  const showsTwoPanes = twoPanes !== null;
+  const togglePanes = useCallback(
+    (): void => (showsTwoPanes ? closePaneSlot(chooserSlot ?? 1) : openPaneChooser()),
+    [showsTwoPanes, chooserSlot, closePaneSlot, openPaneChooser],
+  );
+  // What the button and its "More options" entry say: what a press does now.
+  const panesLabel = !showsTwoPanes
+    ? PanesCopy.addPane
+    : chooserSlot !== null
+      ? PanesCopy.closeNewPane
+      : PanesCopy.closeSecondPane;
+
+  // The slot of the selected session's pane.
   const selectedPaneSlot: PaneIndex =
     ([0, 1] as const).find((slot) => {
       const content = twoPanes?.slots[slot];
@@ -334,6 +385,9 @@ export function useTerminalPanes({
     pickPaneSession,
     openAttentionTarget,
     togglePanes,
+    panesLabel,
+    closeChooser,
+    newPaneTerminal,
     showsTwoPanes,
     chooserSlot,
     selectedPaneSlot,

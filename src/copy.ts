@@ -1071,6 +1071,8 @@ export const TerminalHeaderCopy = {
 export const PanesCopy = {
   addPane: 'Panes: add a pane',
   closeSecondPane: 'Panes: close the second pane',
+  /** While the chooser (titled "New pane") is on screen the Panes button closes it, the other pane staying. */
+  closeNewPane: 'Panes: close the new pane',
   move: (title: string) => `Move ${title} pane`,
   /** The title opens the pane type menu. */
   title: (title: string, typeLabel: string) => `${title}, ${typeLabel} pane`,
@@ -1106,6 +1108,13 @@ export const PanesCopy = {
   chooserLead: 'Open a session here',
   chooserEmpty: 'No other session on this computer.',
   chooserLoading: 'Loading sessions',
+  /** The chooser's first row: closes it, as its close button does. */
+  chooserClose: 'Close',
+  /** A new terminal session in the project of the session beside the chooser, opened in the chooser's pane. */
+  newTerminalIn: (project: string) => `New terminal in ${project}`,
+  /** The computer's Add Project flow, full screen. */
+  addProject: 'Add project',
+  newTerminalFailed: 'New Terminal Failed',
   /** A files or Git changes pane while the computer's session list is read. */
   projectLoading: 'Loading the project',
   /** A files or Git changes pane whose session (its project's) the computer no longer lists. */

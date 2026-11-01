@@ -811,6 +811,9 @@ export default function TerminalScreen({ navigation, route }: Props) {
     pickPaneSession,
     openAttentionTarget,
     togglePanes,
+    panesLabel,
+    closeChooser,
+    newPaneTerminal,
     showsTwoPanes,
     chooserSlot,
     selectedPaneSlot,
@@ -829,6 +832,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
     editorShown,
     dismissKeyboard,
     showSessions,
+    setProgress: setAgentProgress,
     padHeld,
   });
 
@@ -981,7 +985,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
       {panesOffered && bandOverflow.shows('panes') && (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={showsTwoPanes ? PanesCopy.closeSecondPane : PanesCopy.addPane}
+          accessibilityLabel={panesLabel}
           accessibilityState={{ selected: showsTwoPanes }}
           hitSlop={8}
           style={buttonStyle}
@@ -1067,7 +1071,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
           ? [
               {
                 key: 'panes',
-                label: showsTwoPanes ? PanesCopy.closeSecondPane : PanesCopy.addPane,
+                label: panesLabel,
                 icon: (size: number) => (
                   <PanesIcon
                     across={!panesUpright}
@@ -1110,6 +1114,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
       openMenu,
       panesOffered,
       showsTwoPanes,
+      panesLabel,
       panesUpright,
       togglePanes,
     ],
@@ -1252,6 +1257,8 @@ export default function TerminalScreen({ navigation, route }: Props) {
                 onPickType={(type) => {
                   if (chooserSlot !== null) panes.setSlotType(chooserSlot, type);
                 }}
+                onCloseChooser={closeChooser}
+                onNewTerminal={newPaneTerminal}
                 onOpenAttention={openAttentionTarget}
                 navigation={navigation}
               />

@@ -44,9 +44,16 @@ export type PaneContentViewProps = {
   /** A session picked in the chooser or the agents pane, on `machineId`. */
   onPickSession: (session: GhostexSession) => void;
   onPickType: (type: Exclude<SettablePaneType, 'session'>) => void;
+  /** The chooser's Close row: as its pane's close button. */
+  onCloseChooser: () => void;
+  /** The chooser's new terminal in the project of the session beside it (`beside`), opened in the chooser's pane. */
+  onNewTerminal: (beside: GhostexSession) => void;
   /** A row opened in the attention list pane. */
   onOpenAttention: (target: OpenSessionTarget) => void;
-  /** Opens a file from a files pane in the full-screen viewer, and a Ghostex page in the Web preview. */
+  /**
+   * Opens a file from a files pane in the full-screen viewer (a Ghostex page in the Web preview), and the chooser's
+   * Add Project flow.
+   */
   navigation: Pick<NativeStackNavigationProp<RootStackParamList>, 'push' | 'navigate'>;
 };
 
@@ -58,6 +65,8 @@ export default function PaneContentView({
   projectOffered,
   onPickSession,
   onPickType,
+  onCloseChooser,
+  onNewTerminal,
   onOpenAttention,
   navigation,
 }: PaneContentViewProps) {
@@ -127,6 +136,9 @@ export default function PaneContentView({
           controlInset={frame.controlInset}
           onPick={onPickSession}
           onPickType={onPickType}
+          onClose={onCloseChooser}
+          onNewTerminal={onNewTerminal}
+          onAddProject={() => navigation.push('AddProjectSource', { machineId })}
         />
       );
   }

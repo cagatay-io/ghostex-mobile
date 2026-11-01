@@ -7,7 +7,9 @@
  *   grey.
  * - Dragging a pane by its title bar (the grip is part of it) onto the other slot swaps the two. While the finger
  *   moves, a copy of the title bar follows it and the other pane shows where a release swaps; the panes themselves
- *   stay put, so their terminals are never moved or remounted (a terminal can be in one place only).
+ *   stay put, so their terminals are never moved or remounted (a terminal can be in one place only). While the
+ *   chooser is one of the two, neither moves (the chooser is a picker, never stored): no grip, no drag, the grip's
+ *   space kept.
  * - Dragging the divider handle resizes both panes, 25-75 %; the handle is there only while the keyboard is down.
  * - A gesture that starts in a pane's content is never a pane gesture: nothing here takes a touch there, so the
  *   terminal's own selection, scrolling and pinch stay as they are.
@@ -181,6 +183,7 @@ export default function PaneHost(props: PaneHostProps) {
   const geometry = paneGeometry({ ...layout, ratio });
   const hovering = swapDrag !== null && overOtherSlot(geometry, swapDrag);
   const order: PaneIndex[] = contentKey(slots[0]) < contentKey(slots[1]) ? [0, 1] : [1, 0];
+  const swappable = slots.every((content) => content.kind !== 'chooser');
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
@@ -191,6 +194,7 @@ export default function PaneHost(props: PaneHostProps) {
           content={slots[slot]}
           geometry={geometry}
           active={slot === active}
+          swappable={swappable}
           dropTarget={hovering && swapDrag.slot !== slot}
           onSwapDrag={setSwapDrag}
           menuOpen={menu?.slot === slot}
@@ -243,6 +247,8 @@ type PaneCardProps = {
   content: PaneContent;
   geometry: PaneGeometry;
   active: boolean;
+  /** Its title bar drags it onto the other slot (`PaneHost`: not while the chooser is one of the two). */
+  swappable: boolean;
   dropTarget: boolean;
   onSwapDrag: (drag: SwapDrag | null) => void;
   menuOpen: boolean;
@@ -290,7 +296,7 @@ function PaneCard(props: PaneCardProps) {
         }}
         onMoveShouldSetResponder={(event) => {
           const { dx, dy } = delta(event);
-          return start.current !== null && Math.hypot(dx, dy) > DRAG_SLOP;
+          return props.swappable && start.current !== null && Math.hypot(dx, dy) > DRAG_SLOP;
         }}
         onResponderGrant={(event) => props.onSwapDrag({ slot, ...delta(event) })}
         onResponderMove={(event) => props.onSwapDrag({ slot, ...delta(event) })}
@@ -306,16 +312,20 @@ function PaneCard(props: PaneCardProps) {
         }}
         onResponderTerminationRequest={() => false}
       >
-        <View
-          accessible
-          accessibilityRole="button"
-          accessibilityLabel={PanesCopy.move(title)}
-          accessibilityActions={GRIP_ACTIONS}
-          onAccessibilityAction={props.onSwap}
-          style={styles.barButton}
-        >
-          <GripIcon size={18} color={active ? GhostexPalette.FOREGROUND : GhostexPalette.MUTED} />
-        </View>
+        {props.swappable ? (
+          <View
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel={PanesCopy.move(title)}
+            accessibilityActions={GRIP_ACTIONS}
+            onAccessibilityAction={props.onSwap}
+            style={styles.barButton}
+          >
+            <GripIcon size={18} color={active ? GhostexPalette.FOREGROUND : GhostexPalette.MUTED} />
+          </View>
+        ) : (
+          <View style={styles.barButton} />
+        )}
         <Pressable
           ref={titleRef}
           accessibilityRole="button"
