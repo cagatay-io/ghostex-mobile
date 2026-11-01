@@ -12,6 +12,7 @@ import { readdirSync, readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 
 import {
+  browsableUrl,
   fail,
   isDirectory,
   isFile,
@@ -113,7 +114,7 @@ function thirdPartyCrates(metadata: Metadata, ids: ReadonlySet<string>): Record<
   });
 }
 
-function crateEntry(crate: Record<string, unknown>, dir: string, about: string): Collected {
+export function crateEntry(crate: Record<string, unknown>, dir: string, about: string): Collected {
   const name = stringField(crate, 'name');
   const version = stringField(crate, 'version');
   if (name === undefined || version === undefined) fail(`A crate in ${dir} has no name or version.`);
@@ -123,7 +124,7 @@ function crateEntry(crate: Record<string, unknown>, dir: string, about: string):
     name,
     version,
     about,
-    url: stringField(crate, 'repository') ?? `https://crates.io/crates/${name}/${version}`,
+    url: browsableUrl(stringField(crate, 'repository')) ?? `https://crates.io/crates/${name}/${version}`,
     ...(licence === undefined ? {} : { licence }),
     texts: licenceTexts(dir, `crate ${name}@${version}`),
   };

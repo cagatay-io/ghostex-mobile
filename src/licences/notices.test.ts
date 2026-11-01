@@ -5,9 +5,12 @@
  */
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { describe, test } from 'node:test';
 
+import { crateEntry } from '../../scripts/notices/rust';
 import {
   entryHeading,
   filterEntries,
@@ -66,6 +69,25 @@ describe('notices file format', () => {
   test('a file that is not a notices file is reported, not read as empty', () => {
     assert.throws(() => parseNotices('# Something else\n'));
     assert.throws(() => parseNotices(`# Third-party notices\n\n## broken heading\n`));
+  });
+
+  test("a crate's Cargo repository is written as a URL the page reads, else its crates.io page", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'notices-crate-'));
+    try {
+      writeFileSync(path.join(dir, 'LICENSE'), 'MIT License');
+      const about = 'Rust crate compiled into the chat core (WebAssembly).';
+      const crates = [
+        { name: 'dep', version: '1.0.0', repository: 'git+https://github.com/example/dep.git' },
+        { name: 'other', version: '0.2.0', repository: 'not a url' },
+      ].map((crate) => crateEntry(crate, dir, about));
+      const { entries } = parseNotices(renderNotices(crates, 'note'));
+      assert.deepEqual(
+        entries.map((entry) => entry.url),
+        ['https://github.com/example/dep', 'https://crates.io/crates/other/0.2.0'],
+      );
+    } finally {
+      rmSync(dir, { recursive: true });
+    }
   });
 
   test('the committed THIRD_PARTY_NOTICES.md parses and lists Ghostty, libssh2, OpenSSL and the terminal font', () => {
