@@ -33,11 +33,17 @@ import {
   type BooleanSettingKey,
 } from './SettingsControls';
 
-/** Why fewer terminals stay open with a large scrollback (they share one memory budget), or null. */
+/**
+ * Why fewer terminals stay open with a large scrollback (they share one memory budget), or null. The terminals on
+ * screen are never closed to make room (evictExcessWarmEntries in terminal/sessions.ts), so two panes keep both.
+ */
 function warmTerminalsCaption(scrollbackRows: number): string | null {
   const count = warmTerminalsFor(scrollbackRows, MAX_WARM_SESSIONS);
   if (count >= MAX_WARM_SESSIONS) return null;
-  const kept = count === 1 ? 'only the terminal you are using stays open' : `${count} terminals stay open`;
+  const kept =
+    count === 1
+      ? 'only the terminal you are using stays open, or the two on screen when you use two panes'
+      : `${count} terminals stay open`;
   return `At this size ${kept}; others reconnect when you open them again, so the phone does not run out of memory.`;
 }
 
