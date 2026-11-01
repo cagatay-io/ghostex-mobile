@@ -13,6 +13,7 @@ import { SETTINGS_PAGES, type SettingsPageId } from './pages';
 import ReadAloudVoicePage from './ReadAloudVoicePage';
 import { SettingsColumnsFrame } from './SettingsColumns';
 import SessionsListPage from './SessionsListPage';
+import ShortRepliesPage from './ShortRepliesPage';
 import SyncPage from './SyncPage';
 import TerminalPage from './TerminalPage';
 import { SettingsPageBoundary } from './SectionBoundary';
@@ -55,6 +56,8 @@ function SettingsPageBody({ page }: { page: SettingsPageId }) {
       return <TerminalPage />;
     case 'keyboard':
       return <KeyboardPage />;
+    case 'shortReplies':
+      return <ShortRepliesPage />;
     case 'notifications':
       return <NotificationsPage />;
     case 'liveActivity':

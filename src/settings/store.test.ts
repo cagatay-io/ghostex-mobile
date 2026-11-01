@@ -8,6 +8,8 @@
  * existed read it as off.
  * The Sessions list's view (`sessionListView`, list or tiles on the unfolded iPhone Duo): the list until tiles are
  * chosen, the choice kept across a reload, anything else stored read as the list.
+ * The short replies of the folded triage (`shortReplies`): "continue" and "yes" on a fresh install; added, edited and
+ * removed entries are what a reload reads back; empty entries are not kept; an emptied list stays empty.
  */
 
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
@@ -208,5 +210,46 @@ describe('the Sessions list view (list or tiles) is kept as sessionListView', ()
       await reload();
       expect(useSettingsStore.getState().settings.sessionListView).toBe('list');
     }
+  });
+});
+
+describe('the short replies are kept as shortReplies', () => {
+  test('a fresh install, and settings saved before the list existed, start with "continue" and "yes"', async () => {
+    await reload();
+    expect(useSettingsStore.getState().settings.shortReplies).toEqual(['continue', 'yes']);
+    memory.set('settings.v1', JSON.stringify({ fontSize: 12 }));
+    await reload();
+    expect(useSettingsStore.getState().settings.shortReplies).toEqual(['continue', 'yes']);
+  });
+
+  test('after adding, editing and removing entries the stored list is the shown list', async () => {
+    await reload();
+    const shown = [...useSettingsStore.getState().settings.shortReplies];
+    shown.push('passt');
+    useSettingsStore.getState().setSetting('shortReplies', [...shown]);
+    shown[0] = 'mach weiter';
+    useSettingsStore.getState().setSetting('shortReplies', [...shown]);
+    shown.splice(1, 1);
+    useSettingsStore.getState().setSetting('shortReplies', [...shown]);
+    await reload();
+    expect(shown).toEqual(['mach weiter', 'passt']);
+    expect(useSettingsStore.getState().settings.shortReplies).toEqual(shown);
+    expect(JSON.parse(memory.get('settings.v1') ?? '{}').shortReplies).toEqual(shown);
+  });
+
+  test('every entry removed stays an empty list after a reload', async () => {
+    await reload();
+    useSettingsStore.getState().setSetting('shortReplies', []);
+    await reload();
+    expect(useSettingsStore.getState().settings.shortReplies).toEqual([]);
+  });
+
+  test('empty and blank entries, and anything but text, are not kept', async () => {
+    memory.set('settings.v1', JSON.stringify({ shortReplies: ['ja', '', '   ', 3, null, ' weiter '] }));
+    await reload();
+    expect(useSettingsStore.getState().settings.shortReplies).toEqual(['ja', 'weiter']);
+    memory.set('settings.v1', JSON.stringify({ shortReplies: 'ja' }));
+    await reload();
+    expect(useSettingsStore.getState().settings.shortReplies).toEqual(['continue', 'yes']);
   });
 });

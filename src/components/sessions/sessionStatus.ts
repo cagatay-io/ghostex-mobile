@@ -148,8 +148,13 @@ export function timerTrailingLabel(session: RowSession, nowMs: number): string |
 
 /** packages/gx-core/src/sidebar_view/session_text.rs `last_interaction_label`: 32s / 5m / 3h / 2d. */
 export function lastInteractionLabel(session: RowSession, nowMs: number): string | null {
-  if (session.lastInteractionAt.length === 0) return null;
-  const atMs = Date.parse(session.lastInteractionAt);
+  return elapsedLabel(session.lastInteractionAt, nowMs);
+}
+
+/** The time since an ISO instant in the row's words (32s / 5m / 3h / 2d); null when the instant is unknown. */
+export function elapsedLabel(atIso: string, nowMs: number): string | null {
+  if (atIso.length === 0) return null;
+  const atMs = Date.parse(atIso);
   if (Number.isNaN(atMs)) return null;
   const seconds = Math.floor(Math.max(0, nowMs - atMs) / 1000);
   if (seconds < 60) return `${seconds}s`;

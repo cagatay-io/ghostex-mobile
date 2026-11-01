@@ -13,13 +13,14 @@ import { ScrollView, Text, TextInput, View } from 'react-native';
 import type { ChatDocument } from '../../rust/document';
 import { useChatViewSize } from '../chatPlacement';
 import type { RustChat } from '../../rust/useRustChat';
+import { RECONNECTING_NOTE, questionOptionAnswer } from './answers';
 import { Glyph } from './icons';
 import { arr, isTrue, obj, str } from './json';
 import { MONO_FONT, themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { AskCard, AskHead, AskOption, PrimaryButton, ProgressDots } from './askCard';
 import { SingleLineTile } from '../transcript/singleLineCard';
 import { CardButton, CardHeader, StatusCard, useCardText } from './primitives';
-import { ApprovalCard, RECONNECTING_NOTE } from './ApprovalCard';
+import { ApprovalCard } from './ApprovalCard';
 import { useEchoedText } from './useEchoedText';
 
 /**
@@ -163,7 +164,7 @@ function QuestionPromptCard({ chat, document }: { chat: RustChat; document: Chat
                     picked={selected}
                     multiple={multi}
                     enabled={!busy}
-                    onPress={() => dispatch({ type: 'questionOption', index: optionIndex })}
+                    onPress={() => dispatch(questionOptionAnswer(optionIndex))}
                   />
                   {/* The mockup Claude shows beside the option, under the row that picks it (desktop question.rs). */}
                   {preview.length > 0 ? (

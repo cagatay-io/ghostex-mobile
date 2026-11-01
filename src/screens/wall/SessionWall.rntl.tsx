@@ -427,7 +427,10 @@ describe('the switch between list and tiles', () => {
     await act(async () => {
       await jest.advanceTimersByTimeAsync(20_000);
     });
-    expect(mockRead).not.toHaveBeenCalled();
+    // No tile read: every read of the wall's own lands in its preview store. The folded triage reads the two
+    // screen lines of the waiting "Beta" for its short-reply card through the same read; that one is not the wall's.
+    expect(useWallPreviewStore.getState().previews).toEqual({});
+    expect(readSessions()).toEqual(['b']);
     await changeWindow(UPRIGHT, [FLAT_UPRIGHT]);
     expect(tile(/^Alpha, Working$/)).toBeTruthy();
   });

@@ -150,6 +150,11 @@ export type GhostexSettings = {
    * iPhone Duo; kept while folded, where the list always shows rows.
    */
   sessionListView: SessionListView;
+  /**
+   * The short replies the folded triage offers on a waiting session (Settings › Short Replies), in their order on the
+   * cards; a tap sends the text to that session. Only non-empty entries are kept.
+   */
+  shortReplies: string[];
   // SSH connection (appended group).
   autoReconnect: boolean;
   keepAliveEnabled: boolean;
@@ -241,6 +246,7 @@ export function defaultSettings(): GhostexSettings {
     tailscaleReminder: true,
     showHiddenFiles: false,
     sessionListView: 'list',
+    shortReplies: [...DEFAULT_SHORT_REPLIES],
     autoReconnect: true,
     keepAliveEnabled: true,
     keepAliveIntervalSec: 30,
@@ -261,6 +267,14 @@ function clampSidebarSurfaceOpacity(value: number, fallback: number): number {
 export function clampScrollbackRows(value: number): number {
   const stepped = Math.round(value / SCROLLBACK_ROWS_STEP) * SCROLLBACK_ROWS_STEP;
   return Math.min(SCROLLBACK_ROWS_MAX, Math.max(SCROLLBACK_ROWS_MIN, stepped));
+}
+
+/** The short replies of a fresh install. */
+export const DEFAULT_SHORT_REPLIES: readonly string[] = ['continue', 'yes'];
+
+/** The entries as they are kept: text only, trimmed, empty ones dropped. */
+export function keptShortReplies(entries: readonly unknown[]): string[] {
+  return entries.flatMap((entry) => (typeof entry === 'string' && entry.trim().length > 0 ? [entry.trim()] : []));
 }
 
 function sanitizeSettings(value: unknown): GhostexSettings {
@@ -376,6 +390,7 @@ function sanitizeSettings(value: unknown): GhostexSettings {
     tailscaleReminder: bool('tailscaleReminder', defaults.tailscaleReminder),
     showHiddenFiles: bool('showHiddenFiles', defaults.showHiddenFiles),
     sessionListView: record.sessionListView === 'tiles' ? 'tiles' : defaults.sessionListView,
+    shortReplies: Array.isArray(record.shortReplies) ? keptShortReplies(record.shortReplies) : defaults.shortReplies,
     autoReconnect: bool('autoReconnect', defaults.autoReconnect),
     keepAliveEnabled: bool('keepAliveEnabled', defaults.keepAliveEnabled),
     keepAliveIntervalSec,

@@ -9,12 +9,10 @@ import { Text } from 'react-native';
 
 import type { ChatDocument } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
+import { APPROVAL_ASK_FALLBACK, APPROVAL_TITLE_FALLBACK, RECONNECTING_NOTE, approvalAnswer } from './answers';
 import { str } from './json';
 import { useCardText } from './primitives';
 import { CommandBox, ToneButton, ToneCard, ToneDismiss, isShellTool } from './ToneCard';
-
-/** Shown while the card's answer waits for gxserver to come back (gx-chat-core `questions/unreachable_retry.rs`). */
-export const RECONNECTING_NOTE = "Reconnecting to Ghostex… your answer goes out as soon as it's back.";
 
 export function ApprovalCard({ chat, document }: { chat: RustChat; document: ChatDocument }) {
   const cardText = useCardText();
@@ -29,7 +27,7 @@ export function ApprovalCard({ chat, document }: { chat: RustChat; document: Cha
       ? [<CommandBox key="command" command={summary} shell={isShellTool(tool)} />]
       : [
           <Text key="ask" style={cardText.prose}>
-            {card.approvalAsk || 'Allow this tool?'}
+            {card.approvalAsk || APPROVAL_ASK_FALLBACK}
           </Text>,
         ];
   if (card.reconnecting === true) {
@@ -42,7 +40,7 @@ export function ApprovalCard({ chat, document }: { chat: RustChat; document: Cha
   return (
     <ToneCard
       tone="approval"
-      title={card.approvalTitle || 'Approval request'}
+      title={card.approvalTitle || APPROVAL_TITLE_FALLBACK}
       detail={card.approvalDetail}
       trailing={<ToneDismiss onPress={() => dispatch({ type: 'questionCancel' })} />}
       body={body}
@@ -65,14 +63,14 @@ export function ApprovalCard({ chat, document }: { chat: RustChat; document: Cha
           kind="secondary"
           label="Deny"
           disabled={busy}
-          onPress={() => dispatch({ type: 'answer', answer: { kind: 'approval', approvalSend: '' } })}
+          onPress={() => dispatch(approvalAnswer(false))}
         />,
         <ToneButton
           key="allow"
           kind="primary"
           label="Allow"
           disabled={busy}
-          onPress={() => dispatch({ type: 'answer', answer: { kind: 'approval', approvalSend: '1' } })}
+          onPress={() => dispatch(approvalAnswer(true))}
         />,
       ]}
     />

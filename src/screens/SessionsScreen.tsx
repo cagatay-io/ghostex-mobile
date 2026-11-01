@@ -2,7 +2,8 @@
  * Sessions drawer as the app's home page (docs/specs/sessions-drawer.md §§1-6):
  * header + status line + flat drawer list built from
  * buildDrawerItems, with session/project context menus, creation flows,
- * recovery sheet, and focus-scoped 5s inventory polling.
+ * recovery sheet, and focus-scoped 5s inventory polling. Folded on the iPhone
+ * Duo the list starts with the sessions that wait for the user (`triage/`).
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -30,6 +31,7 @@ import ActionSheet from '../components/common/ActionSheet';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import DetailsSheet from '../components/common/DetailsSheet';
 import LogsSheet from '../components/common/LogsSheet';
+import NoticeToast, { type Notice } from '../components/common/NoticeToast';
 import ProgressOverlay from '../components/common/ProgressOverlay';
 import PromptDialog from '../components/common/PromptDialog';
 import { measureInWindow } from '../components/common/measureInWindow';
@@ -109,7 +111,12 @@ import {
   type MachineRecord,
 } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
-import { resolveSelectedSpaceId, spaceRowItems, spaceSessionCounts } from '../spaces/spaceFilter';
+import {
+  filterSummaryForSpace,
+  resolveSelectedSpaceId,
+  spaceRowItems,
+  spaceSessionCounts,
+} from '../spaces/spaceFilter';
 import { useSpacesStore } from '../spaces/store';
 import { revealSessionWorkspace, useWorkspacesStore } from '../workspaces/store';
 import { restoreClosedSession } from '../sessions/closedSessions';
@@ -142,6 +149,8 @@ import { wallColumns } from './wall/layout';
 import { wallTargets } from './wall/previews';
 import { useWallPreviews } from './wall/useWallPreviews';
 import WallSwitch from './wall/WallSwitch';
+import { foldedOuterDisplay } from './triage/model';
+import TriageSection from './triage/TriageSection';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Sessions'>;
 
@@ -464,6 +473,25 @@ export default function SessionsScreen({ navigation }: Props) {
   const barSpace = useVerticalBarSpace();
   const tileColumns = tilesShown ? wallColumns(listWidth - barSpace.left - barSpace.right) : null;
   const classicWallTargets = useMemo(() => (tilesShown ? wallTargets(entries) : []), [tilesShown, entries]);
+
+  /*
+   * The folded triage: on the iPhone Duo's outer display (the header in the status band, no fold divisions) the list
+   * starts with the sessions that wait for the user, from the list's own scope (computer, workspace and Space). Only
+   * while the screen is in front: it holds the waiting sessions' chats open (`triage/useTriageData.ts`).
+   */
+  const triageSummary = useMemo(
+    () =>
+      selectedSummary === null || !foldedOuterDisplay(headerPlacement.kind, foldDivisions)
+        ? null
+        : filterSummaryForSpace(selectedSummary, selectedSpaceId),
+    [selectedSummary, selectedSpaceId, headerPlacement.kind, foldDivisions],
+  );
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const noticeCounter = useRef(0);
+  const showNotice = useCallback((next: Omit<Notice, 'id'>): void => {
+    noticeCounter.current += 1;
+    setNotice({ ...next, id: noticeCounter.current });
+  }, []);
   /*
    * Glyph / failed-card retry. The store flips `retrying` synchronously before
    * its first await, so the tab spins for as long as the attempt really takes;
@@ -1057,6 +1085,16 @@ export default function SessionsScreen({ navigation }: Props) {
             style: [styles.list, listEdges.scroll],
             contentContainerStyle: [styles.listContent, listEdges.content],
             refreshControl: listRefreshControl,
+            ListHeaderComponent:
+              machine !== null && triageSummary !== null && isFocused ? (
+                <TriageSection
+                  machine={machine}
+                  summary={triageSummary}
+                  appearance={sidebarAppearance}
+                  onOpen={(session) => withMachine(machine.id, (target) => void attach(target, session))}
+                  onNotice={showNotice}
+                />
+              ) : undefined,
             ListFooterComponent: (
               <>
                 {visibleEntries.emptyProjects > 0 ? (
@@ -1097,6 +1135,7 @@ export default function SessionsScreen({ navigation }: Props) {
             onRemoteSettings={() => navigation.navigate('MachineForm', { machineId: noticeTarget.id })}
           />
         ) : null}
+        <NoticeToast notice={notice} bottom={12} />
       </View>
       {/*
         CDXC:Sessions 2026-10-27 DECISION:

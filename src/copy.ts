@@ -244,6 +244,53 @@ export const WallCopy = {
       .join(', '),
 } as const;
 
+/**
+ * The folded triage: the waiting sessions above the Sessions list on the iPhone Duo's outer display (the approved
+ * triage mockup's words). Allow and Deny are the chat's approval card's labels.
+ */
+export const TriageCopy = {
+  /** The section for VoiceOver. */
+  section: 'Waiting for you',
+  heading: (count: number) => `Waiting for you · ${count}`,
+  /** The quiet row when nothing waits. */
+  nothingWaiting: 'Nothing is waiting for you',
+  /** A card's head, which opens the session: its title and, when known, how long it has waited. */
+  open: (title: string, waited: string | null) =>
+    waited === null ? `Open ${title}` : `Open ${title}, waiting ${waited}`,
+  deny: 'Deny',
+  allow: 'Allow',
+  sending: 'Sending…',
+  /** An approval the chat does not show (the agent asks on its screen only). */
+  approvalInSession: 'Answer it in the session.',
+  answers: 'Answers',
+  /** The header of the first of several questions in a row. */
+  stepHeader: (header: string, steps: number) => (header.length > 0 ? `${header} · 1 of ${steps}` : `1 of ${steps}`),
+  openQuestion: 'Open Question',
+  hint: {
+    multiSelect: 'You can pick several options. Choose them in the session.',
+    steps: (steps: number) => `${steps} questions in a row. Answer them in the session.`,
+    text: 'Needs a written answer.',
+  },
+  lastOutput: 'Last output',
+  shortReplies: 'Short replies',
+  /** The message after an answer went out: what, and to which session. */
+  sent: (label: string) => `Sent “${label}”`,
+  answered: (label: string) => `Answered “${label}”`,
+  sessionLine: (title: string, project: string) => (project.length > 0 ? `${title} · ${project}` : title),
+  notSent: 'Not sent',
+} as const;
+
+/** Settings › Short Replies: the replies the folded triage offers on a waiting session. */
+export const ShortRepliesCopy = {
+  pageTitle: 'Short Replies',
+  pageDescription: 'Quick answers for waiting agents when folded.',
+  intro: 'Shown on a waiting session when the phone is folded. A tap sends the text to that session.',
+  entry: (position: number) => `Short reply ${position}`,
+  remove: (text: string) => `Remove “${text}”`,
+  add: 'Add Reply',
+  footer: 'Replies appear on the cards in this order. Empty entries are not kept.',
+} as const;
+
 /** The floating context menu (`ContextMenu.tsx`). */
 export const ContextMenuCopy = {
   /** The dimmed screen around the menu, as VoiceOver names it: a tap on it closes the menu. */
