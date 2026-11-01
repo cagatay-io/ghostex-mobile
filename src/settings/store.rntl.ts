@@ -34,7 +34,7 @@ async function saved(): Promise<Record<string, unknown>> {
 
 /** A record the previous version stored: every key it had, with the theme set away from the defaults. */
 function legacyRecord(overrides: object): Record<string, unknown> {
-  const { sidebarBackgroundContrast, sidebarBackgroundTint, sessionChatTheme, fontSize, scrollbackRows } = {
+  const { sidebarBackgroundContrast, sidebarBackgroundTint, fontSize, scrollbackRows } = {
     ...defaultSettings(),
     fontSize: 14,
     scrollbackRows: 5_000,
@@ -42,7 +42,8 @@ function legacyRecord(overrides: object): Record<string, unknown> {
   return {
     sidebarBackgroundContrast,
     sidebarBackgroundTint,
-    sessionChatTheme,
+    // The previous version knew only Dark and Light, and saved its default Dark.
+    sessionChatTheme: 'dark',
     fontSize,
     scrollbackRows,
     keepAliveIntervalSec: 60,
@@ -182,5 +183,22 @@ describe('settings store colour keys', () => {
       terminalColorScheme: 'app',
       terminalGhosttyTheme: 'GitHub Dark',
     });
+  });
+
+  test('chat theme: a saved Dark or Light stays, a new install follows the app, unknown values follow the app', async () => {
+    expect((await load(legacyRecord({}))).sessionChatTheme).toBe('dark');
+    expect((await load(legacyRecord({ sessionChatTheme: 'light' }))).sessionChatTheme).toBe('light');
+    expect((await load(legacyRecord({ sessionChatTheme: 'system' }))).sessionChatTheme).toBe('system');
+    expect((await load(legacyRecord({ sessionChatTheme: 'sepia' }))).sessionChatTheme).toBe('app');
+    expect((await load(null)).sessionChatTheme).toBe('app');
+  });
+
+  test('the custom terminal background colour keeps a valid hex and is unset otherwise', async () => {
+    expect((await load(null)).workspaceBackgroundColor).toBe('');
+    expect((await load(legacyRecord({ workspaceBackgroundColor: '336699' }))).workspaceBackgroundColor).toBe('#336699');
+    expect((await load(legacyRecord({ workspaceBackgroundColor: '#010101' }))).workspaceBackgroundColor).toBe(
+      '#010101',
+    );
+    expect((await load(legacyRecord({ workspaceBackgroundColor: 'teal' }))).workspaceBackgroundColor).toBe('');
   });
 });

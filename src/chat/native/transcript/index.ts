@@ -15,4 +15,4 @@ export {
   type NativeTranscriptProps,
 } from './Transcript';
 export { TranscriptItemView } from './TranscriptItemRow';
-export { transcriptTheme, type TranscriptTheme } from './theme';
+export type { TranscriptTheme } from './theme';

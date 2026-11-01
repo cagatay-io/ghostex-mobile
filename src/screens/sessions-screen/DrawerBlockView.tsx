@@ -25,12 +25,14 @@ import {
   ds,
   GroupHeaderRow,
   HEADER_CHEVRON_INSET,
+  inkStyleSheets,
   ProjectEmptyRow,
   ProjectHeaderRow,
   projectRailColor,
   SessionKindLabelRow,
   SessionListToggleRow,
   TOUCH_ROW_HEIGHT,
+  useSidebarInk,
 } from '../../components/sessions/rows';
 import SessionRow from '../../components/sessions/SessionRow';
 import type { WorkChipActions } from '../../components/sessions/WorkChips';
@@ -45,7 +47,7 @@ import type {
   StateCardItem,
 } from '../../contract/grouping';
 import type { GhostexAgentLauncher, GhostexMobileSummary } from '../../contract/mobileSummary';
-import { colorWithOpacity, SidebarPalette } from '../../theme/palette';
+import { colorWithOpacity } from '../../theme/palette';
 import type { SidebarAppearance } from '../../theme/sidebarAppearance';
 import { tileRuns } from '../wall/layout';
 import SessionTile from '../wall/SessionTile';
@@ -104,6 +106,7 @@ const GROUP_GAP = ds(2);
 
 export default function DrawerBlockView(props: DrawerBlockViewProps): ReactElement | null {
   const { block, actions, summary, selectedSessionKey } = props;
+  const tree = treeInkStyles(useSidebarInk());
   const machineId = block.machineId;
   const linksDisplay = sessionLinksDisplay(summary?.sidebarSessionLinks);
   const dimSleeping = summary?.dimSleepingSessions === true;
@@ -218,7 +221,7 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
       <View style={styles.fold}>
         <View style={styles.foldPart}>
           <View style={styles.rows}>{own}</View>
-          <View pointerEvents="none" style={[styles.treeLine, { top: 0, bottom: 0 }]} />
+          <View pointerEvents="none" style={[styles.treeLine, tree.line, { top: 0, bottom: 0 }]} />
         </View>
         {groups.map(({ header, rows }, index) => {
           const last = index === groups.length - 1;
@@ -238,10 +241,11 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
                 pointerEvents="none"
                 style={[
                   styles.treeLine,
+                  tree.line,
                   last ? { top: 0, height: GROUP_GAP + TOUCH_ROW_HEIGHT / 2 } : { top: 0, bottom: 0 },
                 ]}
               />
-              <View pointerEvents="none" style={styles.treeBranch} />
+              <View pointerEvents="none" style={[styles.treeBranch, tree.line]} />
             </View>
           );
         })}
@@ -390,7 +394,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: TREE_LINE_X,
     width: ds(1),
-    backgroundColor: SidebarPalette.ROW_THREAD_LINE,
   },
   /* The turn towards a group's header, ending just short of its chevron. */
   treeBranch: {
@@ -399,7 +402,6 @@ const styles = StyleSheet.create({
     top: GROUP_GAP + TOUCH_ROW_HEIGHT / 2 - ds(0.5),
     width: ds(6),
     height: ds(1),
-    backgroundColor: SidebarPalette.ROW_THREAD_LINE,
   },
   /* collections.rs: 3px left and 5px right of the list, 10px below, after the 2px rail. */
   collection: {
@@ -428,3 +430,6 @@ const styles = StyleSheet.create({
     paddingTop: ds(5),
   },
 });
+
+/** The tree line in the list's ink (session_group_tree.rs `line_color`). */
+const treeInkStyles = inkStyleSheets((ink) => StyleSheet.create({ line: { backgroundColor: ink.threadLine } }));

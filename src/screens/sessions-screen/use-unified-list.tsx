@@ -51,7 +51,7 @@ import { unifiedSwipeActions } from '../../contract/unified/strip';
 import { SNOOZE_PRESETS, snoozeWakeAt } from '../../contract/unified/snooze';
 import { chatMachineLink } from '../../chat/rust/machine-link';
 import ContextMenu, { type ContextMenuItem, type MenuAnchor } from '../../components/sessions/ContextMenu';
-import { ds, SIDEBAR_MUTED, SIDEBAR_TEXT } from '../../components/sessions/rows';
+import { ds, inkStyleSheets, inkWash, sidebarInk, useSidebarInk } from '../../components/sessions/rows';
 import { lastInteractionLabel } from '../../components/sessions/sessionStatus';
 import { EditGlyph, FilterGlyph, FolderPlusGlyph, AlarmGlyph } from '../../components/sessions/unified/glyphs';
 import { PlusGlyph } from '../../components/sessions/icons';
@@ -199,6 +199,8 @@ export function useUnifiedList(deps: UnifiedListDeps) {
     const fromComputer = unifiedSettingsOf(selectedSummary);
     return seeded ? { ...fromComputer, workingSection: phoneWorkingSection } : fromComputer;
   }, [selectedSummary, seeded, phoneWorkingSection]);
+  const ink = useSidebarInk();
+  const styles = unifiedListStyles(ink);
   const filter = useUnifiedListStore((state) => state.filter);
   const setFilter = useUnifiedListStore((state) => state.setFilter);
   const toggledShelves = useUnifiedListStore((state) => state.toggledShelves);
@@ -448,7 +450,7 @@ export function useUnifiedList(deps: UnifiedListDeps) {
                 slot={<StatusSlot row={row} nowMs={nowMs} />}
                 statusWord={row.status ?? lastInteractionLabel(tileSession, nowMs)}
                 status={row.status}
-                statusColor={row.status === null ? null : statusLook(row.status).color}
+                statusColor={row.status === null ? null : statusLook(row.status, ink).color}
                 onPress={() => tileTarget !== null && void attach(tileTarget, tileSession)}
                 onMenu={() => openMenu(row)}
               />
@@ -525,7 +527,7 @@ export function useUnifiedList(deps: UnifiedListDeps) {
       <TextInput
         accessibilityLabel="Search sessions"
         placeholder="Search sessions"
-        placeholderTextColor={SIDEBAR_MUTED}
+        placeholderTextColor={ink.muted}
         value={filter.query ?? ''}
         onChangeText={setQuery}
         autoCorrect={false}
@@ -541,7 +543,7 @@ export function useUnifiedList(deps: UnifiedListDeps) {
         onPress={() => setFilterMenuOpen(true)}
         style={({ pressed }) => [styles.iconButton, filtered || pressed ? styles.filterOn : null]}
       >
-        <FilterGlyph size={ds(15)} color={SIDEBAR_TEXT} />
+        <FilterGlyph size={ds(15)} color={ink.text} />
       </Pressable>
       <Pressable
         accessibilityRole="button"
@@ -549,10 +551,10 @@ export function useUnifiedList(deps: UnifiedListDeps) {
         style={styles.iconButton}
         onPress={() => selectedMachine !== null && openAddProject(selectedMachine.id)}
       >
-        <FolderPlusGlyph size={ds(15)} color={SIDEBAR_TEXT} />
+        <FolderPlusGlyph size={ds(15)} color={ink.text} />
       </Pressable>
       <Pressable accessibilityRole="button" accessibilityLabel="New session" style={styles.iconButton} onPress={openNewSession}>
-        <EditGlyph size={ds(15)} color={SIDEBAR_TEXT} />
+        <EditGlyph size={ds(15)} color={ink.text} />
       </Pressable>
     </View>
   ) : null;
@@ -631,7 +633,8 @@ export function useUnifiedList(deps: UnifiedListDeps) {
             kind: 'item' as const,
             key: preset,
             label,
-            icon: <AlarmGlyph size={14} color={SIDEBAR_TEXT} />,
+            // The menu's surface is dark in both appearances (ContextMenu `MENU_BG`).
+            icon: <AlarmGlyph size={14} color={sidebarInk(false).text} />,
             onPress: () => {
               const { machine, session } = snoozeFor;
               setSnoozeFor(null);
@@ -648,42 +651,44 @@ export function useUnifiedList(deps: UnifiedListDeps) {
   return { on, header, overlays, items: shownItems, renderItem, keyExtractor, view, wallTargets };
 }
 
-const styles = StyleSheet.create({
-  header: {
-    height: ds(36),
-    paddingHorizontal: ds(8),
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: ds(2),
-  },
-  search: {
-    flex: 1,
-    minWidth: 0,
-    height: ds(28),
-    paddingHorizontal: ds(8),
-    paddingVertical: 0,
-    borderRadius: ds(6),
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.12)',
-    color: SIDEBAR_TEXT,
-    fontSize: ds(13),
-  },
-  filterOn: { backgroundColor: 'rgba(255,255,255,0.07)' },
-  iconButton: {
-    width: ds(26),
-    height: ds(26),
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: ds(5),
-  },
-  gap: { height: ds(10) },
-  divider: { height: StyleSheet.hairlineWidth, marginVertical: ds(6), marginHorizontal: ds(9), backgroundColor: 'rgba(255,255,255,0.12)' },
-  /* A row of tiles keeps the cards' side inset. */
-  tiles: { paddingHorizontal: ds(3) },
-  empty: {
-    paddingVertical: ds(26),
-    textAlign: 'center',
-    color: SIDEBAR_MUTED,
-    fontSize: ds(13),
-  },
-});
+const unifiedListStyles = inkStyleSheets((ink) =>
+  StyleSheet.create({
+    header: {
+      height: ds(36),
+      paddingHorizontal: ds(8),
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: ds(2),
+    },
+    search: {
+      flex: 1,
+      minWidth: 0,
+      height: ds(28),
+      paddingHorizontal: ds(8),
+      paddingVertical: 0,
+      borderRadius: ds(6),
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: inkWash(ink, 0.12),
+      color: ink.text,
+      fontSize: ds(13),
+    },
+    filterOn: { backgroundColor: inkWash(ink, 0.07) },
+    iconButton: {
+      width: ds(26),
+      height: ds(26),
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: ds(5),
+    },
+    gap: { height: ds(10) },
+      divider: { height: StyleSheet.hairlineWidth, marginVertical: ds(6), marginHorizontal: ds(9), backgroundColor: inkWash(ink, 0.12) },
+    /* A row of tiles keeps the cards' side inset. */
+    tiles: { paddingHorizontal: ds(3) },
+    empty: {
+      paddingVertical: ds(26),
+      textAlign: 'center',
+      color: ink.muted,
+      fontSize: ds(13),
+    },
+  }),
+);

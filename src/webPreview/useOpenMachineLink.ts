@@ -3,10 +3,10 @@ import { Alert, Linking } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
+import { chatIsLightNow } from '../chat/native/transcript/theme';
 import { DocsCopy } from '../copy';
 import { openComputerFile } from '../docs/openComputerFile';
 import type { RootStackParamList } from '../navigation/types';
-import { useSettingsStore } from '../settings/store';
 import { classifyMachineLink, withPageTheme } from './machineLinks';
 
 export type OpenMachineLinkOptions = {
@@ -46,7 +46,7 @@ export function useOpenMachineLink() {
       }
       if (link.kind === 'computer') {
         const { scheme, remotePort, host, path } = link.address;
-        const theme = useSettingsStore.getState().settings.sessionChatTheme;
+        const theme = chatIsLightNow() ? 'light' : 'dark';
         navigation.navigate('WebPreview', { machineId, scheme, remotePort, host, path: withPageTheme(path, theme) });
         return;
       }

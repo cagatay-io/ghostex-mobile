@@ -5,7 +5,7 @@
     "version": "10.3.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "backgroundColor": "#181818",
     "scheme": ["ghostex", "ghostex-ec1", "ghostex-ts1"],
     "plugins": [
@@ -50,7 +50,6 @@
         "com.apple.security.application-groups": ["group.com.maddada.ghostex.ios"]
       },
       "infoPlist": {
-        "UIUserInterfaceStyle": "Dark",
         "ITSAppUsesNonExemptEncryption": false,
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": false,

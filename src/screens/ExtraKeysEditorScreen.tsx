@@ -401,8 +401,14 @@ export default function ExtraKeysEditorScreen() {
                             <Switch
                               value={customDraft[modifier]}
                               onValueChange={(value) => setCustomDraft({ ...customDraft, [modifier]: value })}
-                              trackColor={{ false: appearance.control, true: GhostexPalette.ACCENT }}
-                              thumbColor={customDraft[modifier] ? appearance.foreground : appearance.controlThumb}
+                              trackColor={{ false: appearance.control, true: appearance.accent }}
+                              thumbColor={
+                                customDraft[modifier]
+                                  ? appearance.light
+                                    ? '#ffffff'
+                                    : appearance.foreground
+                                  : appearance.controlThumb
+                              }
                               ios_backgroundColor={appearance.control}
                             />
                           </View>

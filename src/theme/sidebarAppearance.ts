@@ -355,16 +355,18 @@ function rawControls(settings: ThemeColourSettings, light: boolean): { depth: nu
   return { depth: square[1] + depthPoints(settings.themeSidebarContrast), tint: square[2] };
 }
 
-/** The depth and tint one appearance's sidebar paints with (`dark_chrome_controls` / `light_chrome_controls`). */
-export function themeChromeControls(settings: ThemeColourSettings, light: boolean): { depth: number; tint: string } {
-  const { depth, tint } = rawControls(settings, light);
-  return { depth: light ? clampLightThemeDepth(depth) : clampDarkThemeDepth(depth), tint: hexOf(tint) };
+/**
+ * Each channel `amount` of the way to `target` (255 white, 0 black) in the host's f32, packed
+ * (`sidebar_titlebar_blend_toward_white` toward white).
+ */
+function stepToward(rgb: number, target: 0 | 255, amount: number): number {
+  const step = f32(amount);
+  return pack(channels(rgb).map((value) => f32(value + f32(f32(target - value) * step))) as Channels);
 }
 
-/** `sidebar_titlebar_blend_toward_white` with the host's f32 amount. */
-function blendTowardWhite(rgb: number, amount: number): number {
-  const step = f32(amount);
-  return pack(channels(rgb).map((value) => f32(value + f32(f32(255 - value) * step))) as Channels);
+/** `toward` in the desktop's chat appearance (`ChatAppearance::resolve`): `color` stepped toward white or black. */
+export function stepTowardHex(color: string, toWhite: boolean, amount: number): string {
+  return hexOf(stepToward(rgbOf(color), toWhite ? 255 : 0, amount));
 }
 
 /** The desktop's light/dark split on encoded RGB (`sidebar_titlebar_background_is_light`). */
@@ -404,8 +406,8 @@ export function resolveThemeAreas(settings: ThemeColourSettings, light: boolean)
   return {
     sidebar: hexOf(sidebar),
     workChrome: hexOf(workChrome),
-    workArea: hexOf(blendTowardWhite(workChrome, chromeIsLight(workChrome) ? 0.25 : 0.01)),
-    menu: hexOf(blendTowardWhite(sidebar, chromeIsLight(sidebar) ? 0.7 : 0.05)),
+    workArea: hexOf(stepToward(workChrome, 255, chromeIsLight(workChrome) ? 0.25 : 0.01)),
+    menu: hexOf(stepToward(sidebar, 255, chromeIsLight(sidebar) ? 0.7 : 0.05)),
   };
 }
 
@@ -415,9 +417,125 @@ export function appearanceIsLight(sidebarTheme: SidebarThemeSetting, systemIsLig
   return sidebarTheme === 'plain-light';
 }
 
+/** A content area's own appearance (desktop `sessionChatTheme`, `terminalColorScheme`): follow the app, or its own. */
+export type ContentColorScheme = 'app' | 'light' | 'dark' | 'system';
+/** In the desktop's order (`SESSION_CHAT_THEME_OPTIONS`). */
+export const CONTENT_COLOR_SCHEMES: readonly ContentColorScheme[] = ['app', 'system', 'light', 'dark'];
+export type ContentColorSchemeKey = 'sessionChatTheme' | 'terminalColorScheme';
+
+/**
+ * `effective_content_color_scheme` (apps/desktop/src/shared_settings/appearance.rs): the area's own Light, Dark or
+ * System, or under Follow app the app's appearance (System stays System).
+ */
+export function effectiveContentColorScheme<K extends ContentColorSchemeKey>(
+  settings: { sidebarTheme: SidebarThemeSetting } & Record<K, ContentColorScheme>,
+  key: K,
+): 'light' | 'dark' | 'system' {
+  const own = settings[key];
+  if (own !== 'app') return own;
+  if (settings.sidebarTheme === 'plain-light') return 'light';
+  return settings.sidebarTheme === 'system' ? 'system' : 'dark';
+}
+
+/** Whether a content area draws light (`gpui_session_chat_uses_light_theme`): System follows the device. */
+export function contentIsLight<K extends ContentColorSchemeKey>(
+  settings: { sidebarTheme: SidebarThemeSetting } & Record<K, ContentColorScheme>,
+  key: K,
+  systemIsLight: boolean,
+): boolean {
+  const scheme = effectiveContentColorScheme(settings, key);
+  return scheme === 'system' ? systemIsLight : scheme === 'light';
+}
+
+export type ThemeSquare = { id: DarkThemeSquare | LightThemeSquare; label: string; tint: string };
+
+/** The sixteen squares of one appearance as Settings offers them (`DARK_THEME_PRESET_OPTIONS` / `LIGHT_...`). */
+export function themeSquares(light: boolean): readonly ThemeSquare[] {
+  return (light ? LIGHT_SQUARES : DARK_SQUARES).map(([id, , tint]) => ({
+    id,
+    label: id === 'gray' ? 'Graphite' : `${id[0]!.toUpperCase()}${id.slice(1)}`,
+    tint: hexOf(tint),
+  }));
+}
+
+/** `paired_preset`: the matching square in the other appearance (Black and White swap); Custom has none. */
+export function pairedThemeSquare(fromDark: boolean, preset: string): string | null {
+  if (preset === 'custom') return null;
+  if (fromDark && preset === 'black') return 'white';
+  if (!fromDark && preset === 'white') return 'black';
+  return preset;
+}
+
+/** Whether the other appearance still shows the matching square of this one's. */
+export function themeColoursPaired(settings: ThemeColourSettings, dark: boolean): boolean {
+  const own = dark ? settings.darkThemePreset : settings.lightThemePreset;
+  const other = dark ? settings.lightThemePreset : settings.darkThemePreset;
+  return own !== 'custom' && pairedThemeSquare(dark, own) === other;
+}
+
+/**
+ * `select_preset`: picking `preset` (a square or `custom`) for one appearance, and the matching square for the other
+ * while it still follows: it matched, and its colour was not picked on purpose on the page (`otherPicked`).
+ */
+export function themeColourPatch(
+  settings: ThemeColourSettings,
+  dark: boolean,
+  preset: DarkThemePreset | LightThemePreset,
+  otherPicked: boolean,
+): Pick<Partial<ThemeColourSettings>, 'darkThemePreset' | 'lightThemePreset'> {
+  const follow = !otherPicked && themeColoursPaired(settings, dark) ? pairedThemeSquare(dark, preset) : null;
+  if (dark) {
+    return {
+      darkThemePreset: preset as DarkThemePreset,
+      ...(follow !== null ? { lightThemePreset: follow as LightThemePreset } : {}),
+    };
+  }
+  return {
+    lightThemePreset: preset as LightThemePreset,
+    ...(follow !== null ? { darkThemePreset: follow as DarkThemePreset } : {}),
+  };
+}
+
 /** The contrast points Colourfulness position `position` sets (0 Subtle ... 56 Full). */
 export function colourfulnessPoints(position: number): number {
   return THEME_CONTRAST_MAX_POINTS - clamp(Math.round(position), 0, COLOURFULNESS_LAST_POSITION) * 0.5;
+}
+
+/** `colourfulnessStepForPoints`: the position that sets exactly `points`, if any. */
+export function colourfulnessStepForPoints(points: number): number | null {
+  const position = (THEME_CONTRAST_MAX_POINTS - points) / 0.5;
+  return Number.isInteger(position) && position >= 0 && position <= COLOURFULNESS_LAST_POSITION ? position : null;
+}
+
+/** `colourfulnessDisplayStep`: the position nearest to `points`. */
+export function colourfulnessDisplayStep(points: number): number {
+  if (!Number.isFinite(points)) return colourfulnessDisplayStep(0);
+  return clamp(roundAway((THEME_CONTRAST_MAX_POINTS - points) / 0.5), 0, COLOURFULNESS_LAST_POSITION);
+}
+
+/** `colourfulnessStepIndex`: the one position both areas share, or null once they are set apart. */
+export function colourfulnessStepIndex(settings: ThemeColourSettings): number | null {
+  if (settings.themeSidebarContrast !== settings.themeWorkAreaContrast) return null;
+  return colourfulnessStepForPoints(settings.themeSidebarContrast);
+}
+
+/** The named points (`COLOURFULNESS`). */
+const COLOURFULNESS_NAMES: ReadonlyArray<readonly [string, number]> = [
+  ['Subtle', 4],
+  ['Soft', 0],
+  ['Balanced', -4],
+  ['Rich', -8],
+  ['Vivid', -12],
+  ['Full', THEME_CONTRAST_FULL_POINTS],
+];
+
+/** `colourfulness_name`: the named point nearest to `points` (the first of two equally near). */
+export function colourfulnessName(points: number): string {
+  let best = COLOURFULNESS_NAMES[0]!;
+  for (const entry of COLOURFULNESS_NAMES) {
+    if (Math.abs(entry[1] - points) < Math.abs(best[1] - points)) best = entry;
+  }
+  return best[0];
 }
 
 export type ColourfulnessPatch = {
@@ -453,26 +571,6 @@ export function areaColourfulnessPatch(
   return sidebar;
 }
 
-/** The legacy swatches of the phone's earlier Background Tint control; all have calibrated entries above. */
-export const SIDEBAR_BACKGROUND_TINT_OPTIONS: ReadonlyArray<{ label: string; value: string }> = [
-  { label: 'White', value: '#FFFFFF' },
-  { label: 'Neutral Gray', value: '#808080' },
-  { label: 'Black', value: '#000000' },
-  { label: 'Steel', value: '#4F6672' },
-  { label: 'Red', value: '#884444' },
-  { label: 'Orange', value: '#8A5330' },
-  { label: 'Amber', value: '#8A6A2F' },
-  { label: 'Olive', value: '#657A3F' },
-  { label: 'Green', value: '#3F7A5F' },
-  { label: 'Teal', value: '#2F7D66' },
-  { label: 'Cyan', value: '#287C7F' },
-  { label: 'Blue', value: '#336699' },
-  { label: 'Indigo', value: '#4F5F96' },
-  { label: 'Violet', value: '#6C4F8F' },
-  { label: 'Pink', value: '#854F7A' },
-  { label: 'Rose', value: '#8A4F5F' },
-] as const;
-
 const LIGHT_FOREGROUND = '#D8D8D8';
 const DARK_FOREGROUND = '#262626';
 
@@ -489,10 +587,13 @@ export type SidebarAppearance = {
   projectBorder: string;
 };
 
-function foregroundForBackground(background: string): string {
+/**
+ * Whether `background` takes dark ink: the desktop's split on encoded RGB (`getSidebarTitlebarForegroundForBackground`),
+ * which the drawer's text, the preset cards and the terminal palettes' light/dark grouping share.
+ */
+export function isLightBackground(background: string): boolean {
   const [red, green, blue] = channels(rgbOf(background));
-  const luminance = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
-  return luminance > 0.54 ? DARK_FOREGROUND : LIGHT_FOREGROUND;
+  return (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255 > 0.54;
 }
 
 function hexWithAlpha(color: string, alpha: number): string {
@@ -527,7 +628,7 @@ export function readableSecondaryText(designed: string, foreground: string, surf
 
 /** The drawer's tokens over a resolved sidebar colour. */
 export function sidebarAppearanceFor(background: string): SidebarAppearance {
-  const foreground = foregroundForBackground(background);
+  const foreground = isLightBackground(background) ? DARK_FOREGROUND : LIGHT_FOREGROUND;
   const mutedGlyph = mixHexColors(foreground, background, 56);
   const card = mixHexColors(foreground, background, 4);
   const cardActive = mixHexColors(foreground, background, 7);

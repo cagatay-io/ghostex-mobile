@@ -20,6 +20,7 @@ import {
 import {
   clampDarkThemeDepth,
   clampLightThemeDepth,
+  CONTENT_COLOR_SCHEMES,
   DARK_THEME_PRESETS,
   DEFAULT_THEME_DEPTH,
   DEFAULT_THEME_TINT,
@@ -27,6 +28,7 @@ import {
   normalizeHexColor,
   roundThemeContrastPoints,
   SIDEBAR_THEME_OPTIONS,
+  type ContentColorScheme,
   type DarkThemePreset,
   type LightThemePreset,
   type SidebarThemeSetting,
@@ -42,13 +44,11 @@ import {
 const SETTINGS_STORAGE_KEY = 'settings.v1';
 
 export type BellBehavior = 'vibrate' | 'beep' | 'ignore';
-export type SessionChatTheme = 'dark' | 'light';
 /** Terminal background (desktop `terminalBackgroundMode`): pure black/white, the theme's work area, or a custom colour. */
 export type TerminalBackgroundMode = 'pure' | 'theme' | 'custom';
 export const TERMINAL_BACKGROUND_MODES: readonly TerminalBackgroundMode[] = ['pure', 'theme', 'custom'];
-/** A content area's appearance (desktop `terminalColorScheme`): follow the app, or light, dark or the device. */
-export type ContentColorScheme = 'app' | 'light' | 'dark' | 'system';
-export const CONTENT_COLOR_SCHEMES: readonly ContentColorScheme[] = ['app', 'light', 'dark', 'system'];
+/** The colour choosing Custom terminal background seeds while none is set (desktop `TERMINAL_BACKGROUND_STARTING_COLOR`). */
+export const TERMINAL_BACKGROUND_STARTING_COLOR = '#111111';
 /**
  * How the chat colours the sections an agent marks: the desktop's `markedHandoversStyle` values, plus
  * `plain` because the phone cannot see whether the computer's Marked handovers is on.
@@ -111,6 +111,11 @@ export type GhostexSettings = ThemeColourSettings & {
   terminalGhosttyTheme: string;
   terminalGhosttyLightTheme: string;
   terminalBackgroundMode: TerminalBackgroundMode;
+  /**
+   * The Custom terminal background (desktop `workspaceBackgroundColor`): `#rrggbb`, or `''` while none is set. The
+   * terminal treats `''` and `#010101` as unset, so Custom without a colour paints as Follow theme.
+   */
+  workspaceBackgroundColor: string;
   /** The terminal's own appearance override (desktop `terminalColorScheme`). */
   terminalColorScheme: ContentColorScheme;
   /** Opacity percentage for sidebar collection-panel backgrounds and borders. */
@@ -120,8 +125,8 @@ export type GhostexSettings = ThemeColourSettings & {
    * flipped that session's own toggle yet (desktop-parity Default Agent View).
    */
   preferredAgentInterface: PreferredAgentInterface;
-  /** Theme for chat content only; the surrounding mobile app remains dark. */
-  sessionChatTheme: SessionChatTheme;
+  /** The chat's own appearance (desktop `sessionChatTheme`): Follow app by default, or Light, Dark or System. */
+  sessionChatTheme: ContentColorScheme;
   /** Whether the transcript uses a custom width instead of the composer column. */
   sessionChatCustomTranscriptWidthEnabled: boolean;
   /** Width of the message transcript; the prompt composer keeps its full width. */
@@ -272,10 +277,11 @@ export function defaultSettings(): GhostexSettings {
     terminalGhosttyTheme: 'GitHub Dark',
     terminalGhosttyLightTheme: 'GitHub Light Default',
     terminalBackgroundMode: 'pure',
+    workspaceBackgroundColor: '',
     terminalColorScheme: 'app',
     sidebarGroupsOpacityPercent: SIDEBAR_SURFACE_OPACITY_MIN,
     preferredAgentInterface: 'chat',
-    sessionChatTheme: 'dark',
+    sessionChatTheme: 'app',
     sessionChatCustomTranscriptWidthEnabled: false,
     sessionChatTranscriptWidthPercent: DEFAULT_SESSION_CHAT_TRANSCRIPT_WIDTH_PERCENT,
     sessionChatDetailedView: false,
@@ -347,6 +353,7 @@ function themeSettingsFromRecord(
   | 'terminalGhosttyTheme'
   | 'terminalGhosttyLightTheme'
   | 'terminalBackgroundMode'
+  | 'workspaceBackgroundColor'
   | 'terminalColorScheme'
 > {
   const number = (key: string): number | undefined => {
@@ -389,6 +396,7 @@ function themeSettingsFromRecord(
     terminalGhosttyLightTheme: name('terminalGhosttyLightTheme', defaults.terminalGhosttyLightTheme),
     terminalBackgroundMode:
       oneOf('terminalBackgroundMode', TERMINAL_BACKGROUND_MODES) ?? defaults.terminalBackgroundMode,
+    workspaceBackgroundColor: normalizeHexColor(record.workspaceBackgroundColor, defaults.workspaceBackgroundColor),
     terminalColorScheme: oneOf('terminalColorScheme', CONTENT_COLOR_SCHEMES) ?? defaults.terminalColorScheme,
   };
 }
@@ -433,10 +441,10 @@ function sanitizeSettings(value: unknown): GhostexSettings {
     record.preferredAgentInterface === 'terminal' || record.preferredAgentInterface === 'chat'
       ? record.preferredAgentInterface
       : defaults.preferredAgentInterface;
-  const sessionChatTheme =
-    record.sessionChatTheme === 'dark' || record.sessionChatTheme === 'light'
-      ? record.sessionChatTheme
-      : defaults.sessionChatTheme;
+  // A saved Dark or Light stays the chat's own appearance; a missing or unknown value follows the app.
+  const sessionChatTheme = CONTENT_COLOR_SCHEMES.includes(record.sessionChatTheme as ContentColorScheme)
+    ? (record.sessionChatTheme as ContentColorScheme)
+    : defaults.sessionChatTheme;
   const sessionChatTranscriptWidthPercent =
     typeof record.sessionChatTranscriptWidthPercent === 'number'
       ? clampSessionChatTranscriptWidthPercent(record.sessionChatTranscriptWidthPercent)

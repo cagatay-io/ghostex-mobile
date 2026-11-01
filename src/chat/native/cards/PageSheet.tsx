@@ -28,7 +28,6 @@ import { useLaptopFold } from '../../../components/common/verticalBar/laptopFold
 import { useVerticalBarSpace } from '../../../components/common/verticalBar/VerticalBarArea';
 import { WebPreviewCopy } from '../../../copy';
 import type { MachineConnectionTarget } from '../../../machines/credentials';
-import { useSettingsStore } from '../../../settings/store';
 import { describeForwardFailure, type WebPreviewFailure } from '../../../webPreview/forwards';
 import {
   holdComputerForward,
@@ -40,7 +39,7 @@ import {
 import { LOOPBACK_HOST, localPreviewUrl, parseHttpUrl } from '../../../webPreview/urls';
 import { chatMachineLink } from '../../rust/machine-link';
 import type { RustChat } from '../../rust/useRustChat';
-import { themedStyles, useTranscriptTheme } from '../transcript/theme';
+import { chatIsLightNow, themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { Glyph } from './icons';
 import { ImageViewerModal, type ImageViewerList } from './ImageViewer';
 import { keepUnsavedDraft, sendUnsavedDraft } from './pageDrafts';
@@ -71,7 +70,7 @@ const withoutFragment = (url: string): string => url.split('#')[0] ?? url;
  * page closes itself once its answers are sent, as in the desktop's window.
  */
 function sheetUri(page: ComputerAddress, localPort: number): string {
-  const themed = withPageTheme(page.path, useSettingsStore.getState().settings.sessionChatTheme);
+  const themed = withPageTheme(page.path, chatIsLightNow() ? 'light' : 'dark');
   return localPreviewUrl(page.scheme, localPort, `${themed}${themed.includes('#') ? '&' : '#'}gx-floating=1`);
 }
 

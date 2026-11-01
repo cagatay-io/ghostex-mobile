@@ -12,7 +12,7 @@ import { LicencesCopy } from '../copy';
 import { useBundledNotices } from '../licences/bundledNotices';
 import { entryHeading, licenceParagraphs, type NoticeEntry } from '../licences/notices';
 import type { RootStackParamList } from '../navigation/types';
-import { GhostexPalette, GhostexRadii, GhostexStrokeWidth } from '../theme/palette';
+import { GhostexRadii, GhostexStrokeWidth } from '../theme/palette';
 import { useAppearance } from '../theme/useAppearance';
 import { NoticesStatus } from './settings/LicencesPage';
 import { SettingsColumnsFrame } from './settings/SettingsColumns';
@@ -32,7 +32,7 @@ function NoticeBody({ entry }: { entry: NoticeEntry }) {
             <Text style={[styles.chipText, { color: appearance.foreground }]}>{entry.licence}</Text>
           </View>
         )}
-        <Text style={styles.url} selectable>
+        <Text style={[styles.url, { color: appearance.accent }]} selectable>
           {entry.url}
         </Text>
       </View>
@@ -97,7 +97,6 @@ const styles = StyleSheet.create({
   url: {
     flexShrink: 1,
     fontSize: 12,
-    color: GhostexPalette.ACCENT,
   },
   file: {
     gap: 4,

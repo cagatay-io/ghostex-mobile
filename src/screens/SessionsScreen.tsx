@@ -67,7 +67,7 @@ import SpaceTabs from '../components/sessions/SpaceTabs';
 import WorkspaceTile, { workspaceMenuItems } from '../components/sessions/WorkspaceTile';
 import { agentChoicePlace, parseAgentChoiceScope, type AgentChoiceContext } from '../components/sessions/agentChoice';
 import { useLauncherStore } from '../components/sessions/launcherStore';
-import { expandedGroupBackground } from '../components/sessions/rows';
+import { expandedGroupBackground, inkWash, sidebarInk } from '../components/sessions/rows';
 import SessionSearchSheet from '../components/sessions/SessionSearchSheet';
 import DelayedSendDialog from '../components/sessions/DelayedSendDialog';
 import NewCoordinatorSheet from './sessions-screen/NewCoordinatorSheet';
@@ -125,6 +125,7 @@ import { useSettingsStore, type SessionListView } from '../settings/store';
 import { attachSessionKey, useTerminalStore } from '../terminal/sessions';
 import { GhostexPalette } from '../theme/palette';
 import { readableSecondaryText } from '../theme/sidebarAppearance';
+import { useStatusBarStyle } from '../theme/statusBar';
 import { useAppearance } from '../theme/useAppearance';
 import {
   closePutsSessionToSleep,
@@ -205,6 +206,9 @@ export default function SessionsScreen({ navigation }: Props) {
   const tailscaleReminder = useSettingsStore((state) => state.settings.tailscaleReminder);
   const setSetting = useSettingsStore((state) => state.setSetting);
   const sidebarAppearance = useAppearance();
+  useStatusBarStyle(sidebarAppearance.light);
+  // The list's ink (rows.tsx): on a light appearance the screen's own captions take the desktop's dark text.
+  const listInk = sidebarInk(sidebarAppearance.light);
   const neutralExpandedGroupSurface = useMemo(
     () => expandedGroupBackground(sidebarAppearance.background),
     [sidebarAppearance.background],
@@ -813,8 +817,9 @@ export default function SessionsScreen({ navigation }: Props) {
       onRefresh={pullRefresh}
     />
   );
+  // Dark draws the hint in its light grey at 72%; light takes the text ink, since the muted ink at 72% fades into the page.
   const listFooter = (
-    <Text style={styles.longPressHint} numberOfLines={1}>
+    <Text style={[styles.longPressHint, listInk.light ? { color: listInk.text } : null]} numberOfLines={1}>
       Long-press any item for more options.
     </Text>
   );
@@ -1005,8 +1010,12 @@ export default function SessionsScreen({ navigation }: Props) {
           >
             <WarningTriangleIcon size={18} color={GhostexPalette.STATUS_WORKING} />
             <View style={styles.tailscaleWarningCopy}>
-              <Text style={styles.tailscaleWarningTitle}>Tailscale isn’t connected</Text>
-              <Text style={styles.tailscaleWarningBody}>Tap to open Tailscale and reconnect.</Text>
+              <Text style={[styles.tailscaleWarningTitle, listInk.light ? { color: listInk.text } : null]}>
+                Tailscale isn’t connected
+              </Text>
+              <Text style={[styles.tailscaleWarningBody, listInk.light ? { color: listInk.muted } : null]}>
+                Tap to open Tailscale and reconnect.
+              </Text>
             </View>
           </Pressable>
           <Pressable
@@ -1123,7 +1132,7 @@ export default function SessionsScreen({ navigation }: Props) {
                     onPress={() => setShowAllProjects((showing) => !showing)}
                     style={styles.showAllProjects}
                   >
-                    <Text style={styles.showAllProjectsText}>
+                    <Text style={[styles.showAllProjectsText, { color: inkWash(listInk, 0.55) }]}>
                       {showAllProjects
                         ? 'Hide projects without sessions'
                         : `Show all projects (${visibleEntries.emptyProjects} hidden)`}

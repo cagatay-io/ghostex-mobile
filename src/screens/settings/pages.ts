@@ -27,15 +27,17 @@ export type SettingsPageId =
   | 'readAloudVoice'
   | 'dictateLanguage'
   | 'dictateDictionary'
+  | 'terminalPaletteDark'
+  | 'terminalPaletteLight'
   | 'licences';
 
 export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, { title: string; description: string }>> = {
   updates: { title: 'Updates', description: 'Your Ghostex version, and newer releases.' },
-  theme: { title: 'Interface', description: 'Background contrast and tint.' },
+  theme: { title: 'Interface', description: 'Theme presets, colours, and the chat and terminal appearance.' },
   sessionsList: { title: 'Sessions list', description: 'Unified or Project layout, and how Unified groups.' },
-  chat: { title: 'Chat', description: 'Default agent view, chat theme and detail.' },
+  chat: { title: 'Chat', description: 'Default agent view and chat detail.' },
   voice: { title: 'Voice', description: "Dictate's engine and models, and the voice agent, per computer." },
-  terminal: { title: 'Terminal', description: 'Font size, screen and tab behavior.' },
+  terminal: { title: 'Terminal', description: 'Font size, background, screen and tab behavior.' },
   keyboard: { title: 'Keyboard', description: 'Command pad, its keys and agent hotkeys.' },
   shortReplies: { title: ShortRepliesCopy.pageTitle, description: ShortRepliesCopy.pageDescription },
   notifications: { title: NotificationsCopy.title, description: NotificationsCopy.settings.pageDescription },
@@ -49,6 +51,9 @@ export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, { title: string; de
   // Opened from Settings › Voice, for the computer picked there; not listed on the Settings home.
   dictateLanguage: { title: 'Language', description: 'The language Dictate listens for.' },
   dictateDictionary: { title: 'Dictionary', description: 'Words Dictate should spell your way.' },
+  // Opened from Settings › Interface's Terminal palettes rows, not listed on the Settings home.
+  terminalPaletteDark: { title: 'Terminal palette in dark mode', description: 'The terminal colours in dark mode.' },
+  terminalPaletteLight: { title: 'Terminal palette in light mode', description: 'The terminal colours in light mode.' },
 };
 
 export const SETTINGS_PAGE_ORDER: readonly SettingsPageId[] = [

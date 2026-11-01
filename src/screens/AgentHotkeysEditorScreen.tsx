@@ -535,7 +535,7 @@ function createStyles(appearance: Appearance) {
       fontSize: 15,
     },
     selectedMark: {
-      color: GhostexPalette.ACCENT,
+      color: appearance.accent,
       fontSize: 17,
       fontWeight: '700',
     },

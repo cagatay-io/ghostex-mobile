@@ -18,6 +18,7 @@ import ShortRepliesPage from './ShortRepliesPage';
 import SyncPage from './SyncPage';
 import TerminalPage from './TerminalPage';
 import { SettingsPageBoundary } from './SectionBoundary';
+import TerminalPalettePage from './TerminalPalettePage';
 import ThemePage from './ThemePage';
 import UpdatesPage from './UpdatesPage';
 import VoicePage from './VoicePage';
@@ -75,6 +76,10 @@ function SettingsPageBody({ page }: { page: SettingsPageId }) {
       return <DictateLanguagePage />;
     case 'dictateDictionary':
       return <DictateDictionaryPage />;
+    case 'terminalPaletteDark':
+      return <TerminalPalettePage dark />;
+    case 'terminalPaletteLight':
+      return <TerminalPalettePage dark={false} />;
     case 'licences':
       return <LicencesPage />;
   }

@@ -14,6 +14,8 @@ type SteppedSliderProps = {
   onValueChange: (value: number) => void;
   /** Paints the card, text and track in these colors (Settings pages pass the current appearance). */
   appearance?: Appearance;
+  /** Words under the two ends in place of the minimum and maximum numbers (Colourfulness: Subtle, Full). */
+  rangeLabels?: readonly [string, string];
 };
 
 export default function SteppedSlider({
@@ -25,6 +27,7 @@ export default function SteppedSlider({
   valueLabel,
   onValueChange,
   appearance,
+  rangeLabels,
 }: SteppedSliderProps) {
   const [trackWidth, setTrackWidth] = useState(0);
   const range = maximumValue - minimumValue;
@@ -58,7 +61,8 @@ export default function SteppedSlider({
           label: { color: appearance.foreground },
           muted: { color: appearance.muted },
           track: { backgroundColor: appearance.control },
-          thumb: { backgroundColor: appearance.foreground },
+          fill: { backgroundColor: appearance.accent },
+          thumb: { backgroundColor: appearance.foreground, borderColor: appearance.accent },
         };
 
   return (
@@ -90,13 +94,17 @@ export default function SteppedSlider({
         onStartShouldSetResponder={() => true}
       >
         <View style={[styles.track, colors?.track]}>
-          <View style={[styles.fill, { width: `${progress * 100}%` }]} />
+          <View style={[styles.fill, colors?.fill, { width: `${progress * 100}%` }]} />
         </View>
         <View style={[styles.thumb, colors?.thumb, { left: `${progress * 100}%` }]} />
       </View>
       <View style={styles.rangeLabels}>
-        <Text style={[styles.rangeLabel, colors?.muted]}>{minimumValue.toLocaleString('en-US')}</Text>
-        <Text style={[styles.rangeLabel, colors?.muted]}>{maximumValue.toLocaleString('en-US')}</Text>
+        <Text style={[styles.rangeLabel, colors?.muted]}>
+          {rangeLabels?.[0] ?? minimumValue.toLocaleString('en-US')}
+        </Text>
+        <Text style={[styles.rangeLabel, colors?.muted]}>
+          {rangeLabels?.[1] ?? maximumValue.toLocaleString('en-US')}
+        </Text>
       </View>
     </View>
   );

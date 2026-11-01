@@ -13,7 +13,7 @@ import Svg, { Circle, G, Path } from 'react-native-svg';
 
 import { linkChipsThatFit } from '../../chat/native/sessionLinks';
 import { SidebarPalette } from '../../theme/palette';
-import { ds } from './rows';
+import { ds, inkStyleSheets, useSidebarInk } from './rows';
 import type { WorkChip, WorkChipGlyph } from './workChipModel';
 
 /** The chip line's height under the 34dp first line; the card is 52dp, leaving 2dp below it. */
@@ -249,6 +249,7 @@ export default function WorkChips({
    */
   fitLinks?: { neverShown: number };
 }) {
+  const styles = chipStyles(useSidebarInk());
   const [lineWidth, setLineWidth] = useState(0);
   const [chipWidths, setChipWidths] = useState<Record<string, number>>({});
   const [pillWidth, setPillWidth] = useState(0);
@@ -330,39 +331,42 @@ export default function WorkChips({
   );
 }
 
-const styles = StyleSheet.create({
-  line: {
-    height: ds(WORK_CHIP_LINE_HEIGHT),
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: ds(10),
-    paddingRight: ds(6),
-    overflow: 'hidden',
-  },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexShrink: 0,
-    gap: ds(3),
-  },
-  label: {
-    color: SidebarPalette.MUTED,
-    fontSize: ds(11.5),
-    lineHeight: ds(WORK_CHIP_LINE_HEIGHT),
-  },
-  overflow: {
-    color: SidebarPalette.FOREGROUND,
-    fontSize: ds(11),
-    lineHeight: ds(WORK_CHIP_LINE_HEIGHT),
-    flexShrink: 0,
-  },
-  measureOnly: {
-    position: 'absolute',
-    opacity: 0,
-    pointerEvents: 'none',
-  },
-  labelPressed: {
-    color: SidebarPalette.FOREGROUND,
-    textDecorationLine: 'underline',
-  },
-});
+/** The chip text in the list's ink: dark keeps the drawer's palette, light takes the desktop's muted and text. */
+const chipStyles = inkStyleSheets((ink) =>
+  StyleSheet.create({
+    line: {
+      height: ds(WORK_CHIP_LINE_HEIGHT),
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: ds(10),
+      paddingRight: ds(6),
+      overflow: 'hidden',
+    },
+    chip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flexShrink: 0,
+      gap: ds(3),
+    },
+    label: {
+      color: ink.light ? ink.muted : SidebarPalette.MUTED,
+      fontSize: ds(11.5),
+      lineHeight: ds(WORK_CHIP_LINE_HEIGHT),
+    },
+    overflow: {
+      color: ink.light ? ink.text : SidebarPalette.FOREGROUND,
+      fontSize: ds(11),
+      lineHeight: ds(WORK_CHIP_LINE_HEIGHT),
+      flexShrink: 0,
+    },
+    measureOnly: {
+      position: 'absolute',
+      opacity: 0,
+      pointerEvents: 'none',
+    },
+    labelPressed: {
+      color: ink.light ? ink.text : SidebarPalette.FOREGROUND,
+      textDecorationLine: 'underline',
+    },
+  }),
+);

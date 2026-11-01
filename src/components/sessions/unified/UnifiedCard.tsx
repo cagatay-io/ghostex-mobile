@@ -31,7 +31,17 @@ import { SidebarPalette } from '../../../theme/palette';
 import SwipeRevealRow from '../../../screens/machines-screen/SwipeRevealRow';
 import type { MenuAnchor } from '../ContextMenu';
 import { ChevronDownGlyph, ChevronRightGlyph, GitPullRequestGlyph, PencilGlyph, PlusGlyph } from '../icons';
-import { ds, LetterTile, ProjectIcon, SelectedCardOutline, selectedFill, SELECTED_TEXT, SIDEBAR_MUTED, SIDEBAR_TEXT } from '../rows';
+import {
+  ds,
+  inkStyleSheets,
+  inkWash,
+  LetterTile,
+  ProjectIcon,
+  SelectedCardOutline,
+  selectedFill,
+  useSidebarInk,
+  type SidebarInk,
+} from '../rows';
 import { lastInteractionLabel } from '../sessionStatus';
 import type { UnifiedSwipeAction } from '../../../contract/unified/strip';
 import {
@@ -52,9 +62,8 @@ import CloudBoxBadge from '../CloudBoxBadge';
 
 /** The desktop's done blue (cards.rs `chrome_color(0x95d7f6, …)`). */
 const DONE_COLOR = SidebarPalette.ROW_ATTENTION;
-const AGE_COLOR = SidebarPalette.ROW_TIME;
 
-export function statusLook(status: UnifiedStatus): { Glyph: typeof AlertTriangleGlyph; color: string } {
+export function statusLook(status: UnifiedStatus, ink: SidebarInk): { Glyph: typeof AlertTriangleGlyph; color: string } {
   switch (status) {
     case 'Approval':
       return { Glyph: AlertTriangleGlyph, color: SidebarPalette.ROW_FAILED };
@@ -65,7 +74,7 @@ export function statusLook(status: UnifiedStatus): { Glyph: typeof AlertTriangle
     case 'Working':
       return { Glyph: CircleDashedGlyph, color: SidebarPalette.ROW_WORKING };
     case 'Waiting':
-      return { Glyph: StatusCircleDotGlyph, color: SIDEBAR_MUTED };
+      return { Glyph: StatusCircleDotGlyph, color: ink.muted };
     case 'Done':
       return { Glyph: StatusCircleCheckGlyph, color: DONE_COLOR };
   }
@@ -102,12 +111,14 @@ function SpinningGlyph({ children }: { children: ReactNode }) {
 
 /** A card's status: its icon, word and working timer, or its age when it has no status (also the wall's tile badge). */
 export function StatusSlot({ row, nowMs }: { row: UnifiedRow<GhostexSession>; nowMs: number }) {
+  const ink = useSidebarInk();
+  const styles = unifiedStyles(ink);
   const { status } = row;
   if (status === null) {
     const age = lastInteractionLabel(row.session.source!, nowMs);
     return <Text style={styles.age}>{age ?? ''}</Text>;
   }
-  const { Glyph, color } = statusLook(status);
+  const { Glyph, color } = statusLook(status, ink);
   const started = row.session.workingStartedMs;
   const timer = status === 'Working' && started !== null ? elapsedLabel(nowMs - started) : null;
   const glyph = <Glyph size={ds(13)} color={color} />;
@@ -124,22 +135,24 @@ export function StatusSlot({ row, nowMs }: { row: UnifiedRow<GhostexSession>; no
 
 /** The repository's icon, or its first letter on a tile when it has none (cards.rs `repo_tile`). */
 export function RepoTile({ icon, label, dim = false }: { icon: GhostexProjectIcon | null; label: string; dim?: boolean }) {
+  const styles = unifiedStyles(useSidebarInk());
   const tile =
     icon === null ? <LetterTile title={label} size={ds(16)} /> : <ProjectIcon icon={{ ...icon, glyph: '' }} title={label} size={ds(16)} />;
   return <View style={dim ? styles.dim : null}>{tile}</View>;
 }
 
 function AgentIcon({ session }: { session: GhostexSession }) {
-  if (session.isDraft === true) return <PencilGlyph size={ds(15)} color={SIDEBAR_TEXT} />;
+  const ink = useSidebarInk();
+  if (session.isDraft === true) return <PencilGlyph size={ds(15)} color={ink.text} />;
   const iconId = resolveAgentArtId(session.agentIcon, session.agentName.length > 0 ? session.agentName : session.agent);
   const Icon = AGENT_ICONS[iconId] ?? AGENT_ICONS.terminal;
   return <Icon size={iconId === 'terminal' || iconId === 'browser' ? ds(15) : ds(13)} color={agentIconTint(iconId)} />;
 }
 
-function pullRequestColor(state: string): string {
+function pullRequestColor(state: string, ink: SidebarInk): string {
   if (state === 'merged') return '#A371F7';
   if (state === 'closed') return SidebarPalette.ROW_FAILED;
-  if (state === 'draft') return SIDEBAR_MUTED;
+  if (state === 'draft') return ink.muted;
   return '#3FB950';
 }
 
@@ -156,6 +169,8 @@ function CardActions({
   onSleep: () => void;
 }) {
   const snoozeRef = useRef<ViewInstance | null>(null);
+  const ink = useSidebarInk();
+  const styles = unifiedStyles(ink);
   return (
     <View style={styles.actions}>
       {actions.map((action) => {
@@ -172,14 +187,14 @@ function CardActions({
                   snoozeRef.current?.measureInWindow((x, y, width, height) => onSnooze({ x, y, width, height }))
                 }
               >
-                <AlarmGlyph size={ds(15)} color={SIDEBAR_TEXT} />
+                <AlarmGlyph size={ds(15)} color={ink.text} />
                 <Text style={styles.actionWord}>Snooze</Text>
               </Pressable>
             );
           case 'park':
             return (
               <Pressable key={action} accessibilityRole="button" accessibilityLabel="Park session" style={styles.actionButton} onPress={onPark}>
-                <CheckGlyph size={ds(15)} color={SIDEBAR_TEXT} />
+                <CheckGlyph size={ds(15)} color={ink.text} />
                 <Text style={styles.actionWord}>Park</Text>
               </Pressable>
             );
@@ -218,6 +233,8 @@ export type UnifiedCardProps = {
 /** A card: always three lines. */
 export function UnifiedCard({ row, repoIcon, active, nowMs, sidebarBackground, onPress, onMenu, onSnooze, onPark, onSleep, swipeActions, inGroup = false }: UnifiedCardProps) {
   const cardRef = useRef<ViewInstance | null>(null);
+  const ink = useSidebarInk();
+  const styles = unifiedStyles(ink);
   const session = row.session.source!;
   const needsYou = row.status === 'Approval' || row.status === 'Question' || row.status === 'Done' || row.status === 'Failed';
   // A card that waits on nobody recedes, so the ones that need you stand out.
@@ -259,14 +276,14 @@ export function UnifiedCard({ row, repoIcon, active, nowMs, sidebarBackground, o
           onLongPress={openMenu}
           style={({ pressed }) => [
             styles.card,
-            { backgroundColor: active ? selectedFill(sidebarBackground) : pressed ? 'rgba(255,255,255,0.06)' : sidebarBackground },
+            { backgroundColor: active ? selectedFill(sidebarBackground, ink) : pressed ? inkWash(ink, 0.06) : sidebarBackground },
           ]}
         >
           {active ? <SelectedCardOutline /> : null}
           {titleLineOnly ? null : (
             <View style={styles.lineOne}>
               {inGroup ? null : <RepoTile icon={repoIcon} label={row.repo.label} />}
-              {session.isPinned ? <PinFilledGlyph size={ds(13)} color={SIDEBAR_MUTED} /> : null}
+              {session.isPinned ? <PinFilledGlyph size={ds(13)} color={ink.muted} /> : null}
               <Text numberOfLines={1} style={styles.project}>
                 {project}
               </Text>
@@ -274,7 +291,7 @@ export function UnifiedCard({ row, repoIcon, active, nowMs, sidebarBackground, o
             </View>
           )}
           <View style={styles.lineTwo}>
-            {titleLineOnly && session.isPinned ? <PinFilledGlyph size={ds(13)} color={SIDEBAR_MUTED} /> : null}
+            {titleLineOnly && session.isPinned ? <PinFilledGlyph size={ds(13)} color={ink.muted} /> : null}
             <Text
               numberOfLines={1}
               style={[styles.title, needsYou || active ? styles.titleBright : null, recede ? styles.recede : null]}
@@ -287,14 +304,14 @@ export function UnifiedCard({ row, repoIcon, active, nowMs, sidebarBackground, o
           <View style={styles.lineThree}>
             {row.noSourceControl && branch.length === 0 ? (
               <View style={styles.branch}>
-                <BranchDeletedGlyph size={ds(12)} color={SIDEBAR_MUTED} />
+                <BranchDeletedGlyph size={ds(12)} color={ink.muted} />
                 <Text numberOfLines={1} style={styles.meta}>
                   {SessionCopy.noSourceControl}
                 </Text>
               </View>
             ) : (
               <View style={[styles.branch, placeholder ? styles.placeholder : null]}>
-                <BranchGlyph size={ds(12)} color={SIDEBAR_MUTED} />
+                <BranchGlyph size={ds(12)} color={ink.muted} />
                 <Text numberOfLines={1} style={styles.meta}>
                   {shownBranch}
                 </Text>
@@ -302,8 +319,8 @@ export function UnifiedCard({ row, repoIcon, active, nowMs, sidebarBackground, o
             )}
             {prNumber !== null ? (
               <View style={styles.pullRequest}>
-                <GitPullRequestGlyph size={ds(12)} color={pullRequestColor(session.work?.pullRequestState ?? '')} />
-                <Text style={[styles.meta, { color: pullRequestColor(session.work?.pullRequestState ?? '') }]}>
+                <GitPullRequestGlyph size={ds(12)} color={pullRequestColor(session.work?.pullRequestState ?? '', ink)} />
+                <Text style={[styles.meta, { color: pullRequestColor(session.work?.pullRequestState ?? '', ink) }]}>
                   #{prNumber}
                 </Text>
               </View>
@@ -334,6 +351,8 @@ export type UnifiedSlimRowProps = {
 /** One line on the Snoozed and Parked shelves: the greyed tile, the title, and when it wakes or was last active. */
 export function UnifiedSlimRow({ row, shelf, repoIcon, active, nowMs, sidebarBackground, onPress, onMenu, onRestore }: UnifiedSlimRowProps) {
   const rowRef = useRef<ViewInstance | null>(null);
+  const ink = useSidebarInk();
+  const styles = unifiedStyles(ink);
   const session = row.session.source!;
   const wake = shelf === 'snoozed' ? row.session.snoozedUntilMs : null;
   const title = session.displayTitle.length > 0 ? session.displayTitle : SessionCopy.fallbackTitle;
@@ -345,7 +364,7 @@ export function UnifiedSlimRow({ row, shelf, repoIcon, active, nowMs, sidebarBac
         style={styles.actionButton}
         onPress={onRestore}
       >
-        {shelf === 'snoozed' ? <AlarmGlyph size={ds(15)} color={SIDEBAR_TEXT} /> : <ArrowBackUpGlyph size={ds(15)} color={SIDEBAR_TEXT} />}
+        {shelf === 'snoozed' ? <AlarmGlyph size={ds(15)} color={ink.text} /> : <ArrowBackUpGlyph size={ds(15)} color={ink.text} />}
         <Text style={styles.actionWord}>{shelf === 'snoozed' ? 'Unsnooze' : 'Unpark'}</Text>
       </Pressable>
     </View>
@@ -362,7 +381,7 @@ export function UnifiedSlimRow({ row, shelf, repoIcon, active, nowMs, sidebarBac
           onLongPress={() => rowRef.current?.measureInWindow((x, y, width, height) => onMenu({ x, y, width, height }))}
           style={({ pressed }) => [
             styles.slim,
-            { backgroundColor: active ? selectedFill(sidebarBackground) : pressed ? 'rgba(255,255,255,0.06)' : sidebarBackground },
+            { backgroundColor: active ? selectedFill(sidebarBackground, ink) : pressed ? inkWash(ink, 0.06) : sidebarBackground },
           ]}
         >
           {active ? <SelectedCardOutline /> : null}
@@ -396,6 +415,8 @@ const SHELF_LABEL: Record<UnifiedShelf, string> = {
 /** A shelf's heading: chevron, name and count; a tap folds or opens it. */
 export function UnifiedShelfHeader({ shelf, count, open, onToggle }: { shelf: UnifiedShelf; count: number; open: boolean; onToggle: () => void }) {
   const Chevron = open ? ChevronDownGlyph : ChevronRightGlyph;
+  const ink = useSidebarInk();
+  const styles = unifiedStyles(ink);
   return (
     <Pressable
       accessibilityRole="button"
@@ -404,7 +425,7 @@ export function UnifiedShelfHeader({ shelf, count, open, onToggle }: { shelf: Un
       onPress={onToggle}
       style={({ pressed }) => [styles.shelfHeader, pressed ? styles.shelfPressed : null]}
     >
-      <Chevron size={ds(13)} color={SIDEBAR_MUTED} />
+      <Chevron size={ds(13)} color={ink.muted} />
       <Text style={styles.shelfLabel}>{SHELF_LABEL[shelf]}</Text>
       <Text style={styles.shelfCount}>{count}</Text>
     </Pressable>
@@ -428,6 +449,8 @@ export function UnifiedGroupHeader({
   onNew: () => void;
 }) {
   const Chevron = open ? ChevronDownGlyph : ChevronRightGlyph;
+  const ink = useSidebarInk();
+  const styles = unifiedStyles(ink);
   return (
     <Pressable
       accessibilityRole="button"
@@ -436,84 +459,86 @@ export function UnifiedGroupHeader({
       onPress={onToggle}
       style={({ pressed }) => [styles.shelfHeader, pressed ? styles.shelfPressed : null]}
     >
-      <Chevron size={ds(13)} color={SIDEBAR_MUTED} />
+      <Chevron size={ds(13)} color={ink.muted} />
       <RepoTile icon={icon} label={label} />
       <Text numberOfLines={1} style={styles.groupLabel}>
         {label}
       </Text>
       <Pressable accessibilityRole="button" accessibilityLabel={`New session in ${label}`} hitSlop={8} onPress={onNew} style={styles.groupNew}>
-        <PlusGlyph size={ds(14)} color={SIDEBAR_MUTED} />
+        <PlusGlyph size={ds(14)} color={ink.muted} />
       </Pressable>
       <Text style={styles.shelfCount}>{count}</Text>
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
-  groupLabel: { flex: 1, minWidth: 0, color: SIDEBAR_TEXT, fontSize: ds(13.5), fontWeight: '400' },
-  groupNew: { width: ds(24), height: ds(24), alignItems: 'center', justifyContent: 'center' },
-  cardGap: { paddingHorizontal: ds(3), paddingBottom: ds(2) },
-  card: {
-    paddingHorizontal: ds(8),
-    paddingVertical: ds(7),
-    borderRadius: ds(5),
-    gap: ds(3),
-  },
-  lineOne: { height: ds(18), flexDirection: 'row', alignItems: 'center', gap: ds(6) },
-  project: { flex: 1, minWidth: 0, color: SIDEBAR_MUTED, fontSize: ds(12.5), fontWeight: '400' },
-  status: { flexDirection: 'row', alignItems: 'center', gap: ds(4), flexShrink: 0 },
-  statusTimer: { fontSize: ds(12.5), fontWeight: '400', opacity: 0.85 },
-  age: { color: AGE_COLOR, fontSize: ds(13.55), fontWeight: '300', flexShrink: 0 },
-  lineTwo: { minHeight: ds(20), flexDirection: 'row', alignItems: 'center', gap: ds(6) },
-  title: { flex: 1, minWidth: 0, color: SIDEBAR_TEXT, fontSize: ds(15.5), fontWeight: '300', lineHeight: ds(20) },
-  titleBright: { color: SELECTED_TEXT },
-  recede: { opacity: 0.75 },
-  lineThree: { height: ds(17), flexDirection: 'row', alignItems: 'center', gap: ds(5) },
-  branch: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: ds(4) },
-  /** A branch shown while the current one is not known: the last one seen, or "No branch". */
-  placeholder: { opacity: 0.6 },
-  meta: { color: SIDEBAR_MUTED, fontSize: ds(12.5), fontWeight: '400', flexShrink: 1 },
-  pullRequest: { flexDirection: 'row', alignItems: 'center', gap: ds(2), flexShrink: 0 },
-  agent: { opacity: 0.75, flexShrink: 0, width: ds(17), alignItems: 'center' },
-  /**
-   * CDXC:Sidebar 2026-11-05 DECISION: User: "the dot that indicates working/status is shifted to
-   * the left a bit and not center aligned with the icon below it". The status icon and the agent
-   * icon share one fixed-width, centred right column, so the status sits exactly over the agent
-   * icon whatever the timer says (cards.rs, `STATUS_SLOT_WIDTH`).
-   */
-  rightColumn: { width: ds(17), alignItems: 'center', flexShrink: 0 },
-  dim: { opacity: 0.5 },
-  actions: { flex: 1, flexDirection: 'row', alignItems: 'stretch', justifyContent: 'flex-end', gap: ds(2), paddingLeft: ds(4) },
-  actionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: ds(4),
-    borderRadius: ds(5),
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  actionWord: { color: SIDEBAR_TEXT, fontSize: ds(12), fontWeight: '400' },
-  slimGap: { paddingHorizontal: ds(3), paddingBottom: ds(1) },
-  slim: {
-    height: ds(34),
-    paddingHorizontal: ds(8),
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: ds(8),
-    borderRadius: ds(5),
-  },
-  slimTitle: { opacity: 0.8 },
-  shelfHeader: {
-    marginHorizontal: ds(3),
-    height: ds(30),
-    paddingHorizontal: ds(6),
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: ds(6),
-    borderRadius: ds(5),
-  },
-  shelfPressed: { backgroundColor: 'rgba(255,255,255,0.06)' },
-  shelfLabel: { flex: 1, color: SIDEBAR_MUTED, fontSize: ds(13), fontWeight: '400' },
-  shelfCount: { color: SIDEBAR_MUTED, fontSize: ds(13), fontWeight: '300' },
-});
+const unifiedStyles = inkStyleSheets((ink) =>
+  StyleSheet.create({
+    groupLabel: { flex: 1, minWidth: 0, color: ink.text, fontSize: ds(13.5), fontWeight: '400' },
+    groupNew: { width: ds(24), height: ds(24), alignItems: 'center', justifyContent: 'center' },
+    cardGap: { paddingHorizontal: ds(3), paddingBottom: ds(2) },
+    card: {
+      paddingHorizontal: ds(8),
+      paddingVertical: ds(7),
+      borderRadius: ds(5),
+      gap: ds(3),
+    },
+    lineOne: { height: ds(18), flexDirection: 'row', alignItems: 'center', gap: ds(6) },
+    project: { flex: 1, minWidth: 0, color: ink.muted, fontSize: ds(12.5), fontWeight: '400' },
+    status: { flexDirection: 'row', alignItems: 'center', gap: ds(4), flexShrink: 0 },
+    statusTimer: { fontSize: ds(12.5), fontWeight: '400', opacity: 0.85 },
+    age: { color: ink.time, fontSize: ds(13.55), fontWeight: '300', flexShrink: 0 },
+    lineTwo: { minHeight: ds(20), flexDirection: 'row', alignItems: 'center', gap: ds(6) },
+    title: { flex: 1, minWidth: 0, color: ink.text, fontSize: ds(15.5), fontWeight: '300', lineHeight: ds(20) },
+    titleBright: { color: ink.selectedText },
+    recede: { opacity: 0.75 },
+    lineThree: { height: ds(17), flexDirection: 'row', alignItems: 'center', gap: ds(5) },
+    branch: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: ds(4) },
+    /** A branch shown while the current one is not known: the last one seen, or "No branch". */
+    placeholder: { opacity: 0.6 },
+    meta: { color: ink.muted, fontSize: ds(12.5), fontWeight: '400', flexShrink: 1 },
+    pullRequest: { flexDirection: 'row', alignItems: 'center', gap: ds(2), flexShrink: 0 },
+    agent: { opacity: 0.75, flexShrink: 0, width: ds(17), alignItems: 'center' },
+    /**
+     * CDXC:Sidebar 2026-11-05 DECISION: User: "the dot that indicates working/status is shifted to
+     * the left a bit and not center aligned with the icon below it". The status icon and the agent
+     * icon share one fixed-width, centred right column, so the status sits exactly over the agent
+     * icon whatever the timer says (cards.rs, `STATUS_SLOT_WIDTH`).
+     */
+    rightColumn: { width: ds(17), alignItems: 'center', flexShrink: 0 },
+    dim: { opacity: 0.5 },
+    actions: { flex: 1, flexDirection: 'row', alignItems: 'stretch', justifyContent: 'flex-end', gap: ds(2), paddingLeft: ds(4) },
+    actionButton: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: ds(4),
+      borderRadius: ds(5),
+      backgroundColor: inkWash(ink, 0.06),
+    },
+    actionWord: { color: ink.text, fontSize: ds(12), fontWeight: '400' },
+    slimGap: { paddingHorizontal: ds(3), paddingBottom: ds(1) },
+    slim: {
+      height: ds(34),
+      paddingHorizontal: ds(8),
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: ds(8),
+      borderRadius: ds(5),
+    },
+    slimTitle: { opacity: 0.8 },
+    shelfHeader: {
+      marginHorizontal: ds(3),
+      height: ds(30),
+      paddingHorizontal: ds(6),
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: ds(6),
+      borderRadius: ds(5),
+    },
+    shelfPressed: { backgroundColor: inkWash(ink, 0.06) },
+    shelfLabel: { flex: 1, color: ink.muted, fontSize: ds(13), fontWeight: '400' },
+    shelfCount: { color: ink.muted, fontSize: ds(13), fontWeight: '300' },
+  }),
+);

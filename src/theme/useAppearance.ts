@@ -2,8 +2,8 @@ import { useMemo } from 'react';
 import { useColorScheme } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 
-import { useSettingsStore } from '../settings/store';
-import { mixHexColors, neutralButtonFills } from './palette';
+import { useSettingsStore, type GhostexSettings } from '../settings/store';
+import { GhostexPalette, mixHexColors, neutralButtonFills } from './palette';
 import {
   appearanceIsLight,
   resolveThemeAreas,
@@ -30,7 +30,12 @@ export type Appearance = SidebarAppearance & {
   /** Secondary text buttons: the neutral fill at rest and pressed (`neutralButtonFills`, no border). */
   neutralFill: string;
   neutralFillPressed: string;
+  /** Selected radios, switches and slider fills, and accent text: the sky accent, a deep blue-grey on a light page. */
+  accent: string;
 };
+
+/** The desktop's light Settings accent (`settings_accent`: #262626 mixed half with #174564). */
+const LIGHT_ACCENT = mixHexColors('#262626', '#174564', 50);
 
 let lastResolved: { key: string; appearance: Appearance } | null = null;
 
@@ -63,9 +68,24 @@ export function resolveAppearance(settings: ThemeColourSettings, light: boolean)
     light,
     neutralFill: fills.rest,
     neutralFillPressed: fills.pressed,
+    accent: light ? LIGHT_ACCENT : GhostexPalette.ACCENT,
   };
   lastResolved = { key, appearance };
   return appearance;
+}
+
+/** The colour keys of the settings, for a shallow store selector (the drawer, Settings and the chat read the same). */
+export function themeColourSettings(settings: GhostexSettings): ThemeColourSettings {
+  return {
+    darkThemePreset: settings.darkThemePreset,
+    lightThemePreset: settings.lightThemePreset,
+    customSidebarTitlebarBackgroundTintColor: settings.customSidebarTitlebarBackgroundTintColor,
+    customSidebarTitlebarLightBackgroundTintColor: settings.customSidebarTitlebarLightBackgroundTintColor,
+    customSidebarTitlebarBackgroundDarknessPercent: settings.customSidebarTitlebarBackgroundDarknessPercent,
+    customSidebarTitlebarLightBackgroundLightnessPercent: settings.customSidebarTitlebarLightBackgroundLightnessPercent,
+    themeSidebarContrast: settings.themeSidebarContrast,
+    themeWorkAreaContrast: settings.themeWorkAreaContrast,
+  };
 }
 
 /**
@@ -74,20 +94,16 @@ export function resolveAppearance(settings: ThemeColourSettings, light: boolean)
  * CDXC:Theming 2026-11-01 WHY: The colours come from the desktop's model (User 2026-11-01: copy the Mac app's theme functions): the saved appearance (System follows the device) picks the dark or light colour settings, and the drawer reads this same hook instead of a second resolver.
  */
 export function useAppearance(): Appearance {
-  const theme = useSettingsStore(
-    useShallow(({ settings }): ThemeColourSettings => ({
-      darkThemePreset: settings.darkThemePreset,
-      lightThemePreset: settings.lightThemePreset,
-      customSidebarTitlebarBackgroundTintColor: settings.customSidebarTitlebarBackgroundTintColor,
-      customSidebarTitlebarLightBackgroundTintColor: settings.customSidebarTitlebarLightBackgroundTintColor,
-      customSidebarTitlebarBackgroundDarknessPercent: settings.customSidebarTitlebarBackgroundDarknessPercent,
-      customSidebarTitlebarLightBackgroundLightnessPercent:
-        settings.customSidebarTitlebarLightBackgroundLightnessPercent,
-      themeSidebarContrast: settings.themeSidebarContrast,
-      themeWorkAreaContrast: settings.themeWorkAreaContrast,
-    })),
-  );
-  const sidebarTheme = useSettingsStore((state) => state.settings.sidebarTheme);
-  const light = appearanceIsLight(sidebarTheme, useColorScheme() === 'light');
+  const theme = useSettingsStore(useShallow(({ settings }) => themeColourSettings(settings)));
+  const light = useAppearanceIsLight();
   return useMemo(() => resolveAppearance(theme, light), [theme, light]);
+}
+
+/**
+ * Whether the saved appearance is light (System follows the device): `useAppearance().light` without resolving the
+ * colours, for the many Sessions list rows that only pick their ink by it (rows.tsx `useSidebarInk`).
+ */
+export function useAppearanceIsLight(): boolean {
+  const sidebarTheme = useSettingsStore((state) => state.settings.sidebarTheme);
+  return appearanceIsLight(sidebarTheme, useColorScheme() === 'light');
 }
