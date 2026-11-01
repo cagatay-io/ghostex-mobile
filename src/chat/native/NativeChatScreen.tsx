@@ -333,7 +333,7 @@ export default function NativeChatScreen({
             {/* Scroll-to-bottom alone while no card carries it. */}
             {document === null ? null : <LoneScrollBottom document={document} armed={armed} links={links} />}
           </View>
-          <ConnectionLostNotice machine={machine} active={visible} />
+          <ConnectionLostNotice machine={machine} active={visible} document={document} />
           {/* The working card in its own row above the cards and the composer: the transcript ends above it. */}
           {document === null ? null : (
             <WorkingCard document={document} />

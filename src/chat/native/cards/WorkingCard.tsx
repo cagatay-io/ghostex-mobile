@@ -63,9 +63,15 @@ function sitsOnBox(document: ChatDocument): boolean {
 }
 
 /** The card's share of the gap under it: the card band brings its own top padding, the composer 6. */
-function cardGap(document: ChatDocument): number {
+export function cardGap(document: ChatDocument): number {
   if (sitsOnBox(document)) return BOX_GAP - COMPOSER_TOP_PADDING;
   return chatCardsShown(document) ? 0 : STACK_GAP - COMPOSER_TOP_PADDING;
+}
+
+/** Whether the working card draws a bar (the same test `WorkingCard` returns null on). */
+export function workingCardShown(document: ChatDocument): boolean {
+  const card = document.workingCard;
+  return card !== undefined && card.visible === true && card.label !== null;
 }
 
 export function WorkingCard({ document }: { document: ChatDocument }) {

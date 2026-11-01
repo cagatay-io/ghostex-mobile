@@ -11,17 +11,28 @@
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
+import type { ChatDocument } from '../../rust/document';
 import type { MachineConnectionTarget } from '../../../machines/credentials';
 import { useMachinesStore } from '../../../machines/store';
 import { chatMachineLink } from '../../rust/machine-link';
 import { SINGLE_LINE_CARD, SINGLE_LINE_TITLE, singleLineShell } from '../transcript/singleLineCard';
 import { useTranscriptTheme } from '../transcript/theme';
+import { STACK_GAP } from './NativeChatCards';
 import { Spinner } from './primitives';
+import { cardGap, workingCardShown } from './WorkingCard';
 
 /** A quick reconnect stays quiet; Voice mode waits as long before its "Reconnecting to …" line (`voice/readAloud.ts`). */
 const NOTICE_AFTER_MS = 5_000;
 
-export function ConnectionLostNotice({ machine, active }: { machine: MachineConnectionTarget; active: boolean }) {
+export function ConnectionLostNotice({
+  machine,
+  active,
+  document,
+}: {
+  machine: MachineConnectionTarget;
+  active: boolean;
+  document: ChatDocument | null;
+}) {
   const theme = useTranscriptTheme();
   const lost = useConnectionLost(machine, active);
   const computer = useMachinesStore((state) => {
@@ -31,7 +42,10 @@ export function ConnectionLostNotice({ machine, active }: { machine: MachineConn
   if (!lost) return null;
   const title = `Reconnecting to ${computer}…`;
   return (
-    <View style={styles.row} accessibilityLiveRegion="polite">
+    <View
+      style={[styles.row, { paddingBottom: document === null ? STACK_GAP : gapBelow(document) }]}
+      accessibilityLiveRegion="polite"
+    >
       <View style={[singleLineShell(theme), styles.card]} accessible accessibilityLabel={title}>
         <View style={styles.spinner}>
           <Spinner size={SINGLE_LINE_CARD.tile.glyphSize} color={theme.muted} />
@@ -42,6 +56,15 @@ export function ConnectionLostNotice({ machine, active }: { machine: MachineConn
       </View>
     </View>
   );
+}
+
+/**
+ * The notice's share of the stack's gap under it, like the working card's (`cardGap`): a full
+ * `STACK_GAP` above the working card, otherwise what that card would leave above the cards band or
+ * the composer.
+ */
+function gapBelow(document: ChatDocument): number {
+  return workingCardShown(document) ? STACK_GAP : cardGap(document);
 }
 
 /** Whether `machine`'s chat link has been silent for `NOTICE_AFTER_MS`. Watches it only while `active`. */
