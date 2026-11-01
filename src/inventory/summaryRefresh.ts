@@ -33,9 +33,10 @@ export type SummaryRefreshDeps<Handle> = {
 
 /**
  * iOS keeps an `inactive` app in the foreground (Control Center, the app switcher on its way out, a system
- * prompt), so the poll keeps running there and stops only in the background.
+ * prompt), so the poll keeps running there and stops only in the background. The session wall's thumbnails follow
+ * the same rule.
  */
-function isForeground(appState: string): boolean {
+export function isForeground(appState: string): boolean {
   return appState === 'active' || appState === 'inactive';
 }
 

@@ -90,6 +90,7 @@ import {
   rowClockKind,
   rowTimeLabel,
   shouldStartCompletionFlash,
+  shownFoldedStatus,
 } from './sessionStatus';
 
 /** session_list.rs SESSION_SPACING: the gap under every row. */
@@ -105,8 +106,9 @@ const CHEVRON_EXTRA = 17;
  * Re-renders the row when the time it draws next reads differently
  * (nextLabelDeadline): every second while a countdown runs, and only when the
  * relative time's digit changes otherwise. Returns the clock the labels read.
+ * The session wall's tiles show the same label with the same clock.
  */
-function useRowLabelClock(session: GhostexSession): number {
+export function useRowLabelClock(session: GhostexSession): number {
   const [, wake] = useReducer((tick: number) => tick + 1, 0);
   const nowMs = Date.now();
   const deadline = nextLabelDeadline(session, nowMs);
@@ -440,8 +442,7 @@ export default function SessionRow({
   const renameShake = useRenameShake(session);
   // The red approval dot wins over every other status (sessionStatus.ts `isAwaitingApproval`).
   const approval = isAwaitingApproval(session);
-  const foldedStatus =
-    approval || (session.programStatusFailed && session.activity === 'attention') ? undefined : nesting?.foldedStatus;
+  const foldedStatus = shownFoldedStatus(session, nesting?.foldedStatus);
   const question =
     hasQuestion(session.pendingQuestionCount, capabilities.awaitingAnswer && session.awaitingAnswer) &&
     foldedStatus === undefined &&

@@ -3,6 +3,11 @@
  * the `commandPadKeys` fallback (absent or invalid = the default nine); a stored
  * `extraKeysToolbarVisible` keeps its meaning for the pad.
  * The pad position per layout (`commandPadPosition`; absent or invalid = the default position).
+ * On a fresh install (empty in-memory AsyncStorage) the project file browser's hidden-files
+ * switch `showHiddenFiles` reads false; switched on, it stays on across a store reload; settings stored before it
+ * existed read it as off.
+ * The Sessions list's view (`sessionListView`, list or tiles on the unfolded iPhone Duo): the list until tiles are
+ * chosen, the choice kept across a reload, anything else stored read as the list.
  */
 
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
@@ -177,5 +182,31 @@ describe('hidden files sit behind a switch that is off by default', () => {
     await reload();
     expect(useSettingsStore.getState().settings.showHiddenFiles).toBe(false);
     expect(useSettingsStore.getState().settings.autoReconnect).toBe(false);
+  });
+});
+
+describe('the Sessions list view (list or tiles) is kept as sessionListView', () => {
+  test('a fresh install, and settings saved before the choice existed, show the list', async () => {
+    await reload();
+    expect(useSettingsStore.getState().settings.sessionListView).toBe('list');
+    memory.set('settings.v1', JSON.stringify({ fontSize: 12 }));
+    await reload();
+    expect(useSettingsStore.getState().settings.sessionListView).toBe('list');
+  });
+
+  test('tiles chosen stay chosen after a reload', async () => {
+    await reload();
+    useSettingsStore.getState().setSetting('sessionListView', 'tiles');
+    await reload();
+    expect(useSettingsStore.getState().settings.sessionListView).toBe('tiles');
+    expect(JSON.parse(memory.get('settings.v1') ?? '{}').sessionListView).toBe('tiles');
+  });
+
+  test('any other stored value shows the list', async () => {
+    for (const sessionListView of ['grid', true, 2, null]) {
+      memory.set('settings.v1', JSON.stringify({ sessionListView }));
+      await reload();
+      expect(useSettingsStore.getState().settings.sessionListView).toBe('list');
+    }
   });
 });

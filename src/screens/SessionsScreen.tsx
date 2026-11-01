@@ -36,10 +36,12 @@ import { measureInWindow } from '../components/common/measureInWindow';
 import { bandRowFrame } from '../components/common/verticalBar/layout';
 import {
   useContentTop,
+  useFoldDivisions,
   useHeaderPlacement,
   useLiveMenuAnchor,
   useRailButtons,
   useScrollToBarEdges,
+  useVerticalBarSpace,
   type RailButtons,
   type RailEntry,
 } from '../components/common/verticalBar/VerticalBarArea';
@@ -50,7 +52,7 @@ import ContextMenu, { type ContextMenuItem } from '../components/sessions/Contex
 import SessionLinksSheet from '../chat/native/SessionLinksSheet';
 import { buildDrawerList, hideProjectsWithoutSessions, type DrawerBlock } from '../components/sessions/drawerModel';
 import { drawerStatusLine } from '../components/sessions/drawerStatusLine';
-import { MachinesGlyph, MenuGlyph, SearchGlyph, WorldGlyph } from '../components/sessions/icons';
+import { ListGlyph, MachinesGlyph, MenuGlyph, SearchGlyph, TilesGlyph, WorldGlyph } from '../components/sessions/icons';
 import { bellLabel, BellWithCount, useAttentionUnreadCount } from '../notifications/NotificationsBell';
 import { VoiceButton } from '../voice/VoiceButton';
 import { useVoiceStore, voiceActive } from '../voice/conversation';
@@ -92,6 +94,7 @@ import {
   StateCardCopy,
   StripCopy,
   WebPreviewCopy,
+  WallCopy,
 } from '../copy';
 import MachineNotice from './sessions-screen/MachineNotice';
 import { machineNotice } from '../components/sessions/machineNotice';
@@ -111,7 +114,7 @@ import { useSpacesStore } from '../spaces/store';
 import { revealSessionWorkspace, useWorkspacesStore } from '../workspaces/store';
 import { restoreClosedSession } from '../sessions/closedSessions';
 import { filterSummaryForWorkspace, resolveWorkspaceId, workspaceSwitchTarget } from '../workspaces/workspaceFilter';
-import { useSettingsStore } from '../settings/store';
+import { useSettingsStore, type SessionListView } from '../settings/store';
 import { attachSessionKey, useTerminalStore } from '../terminal/sessions';
 import { GhostexPalette } from '../theme/palette';
 import { resolveSidebarAppearance } from '../theme/sidebarAppearance';
@@ -135,6 +138,10 @@ import { useListInventories } from '../cloudBoxes/listInventories';
 import { cloudBoxRowMenu } from '../cloudBoxes/rowMenu';
 import { cloudWhereItems, useCloudWhere } from '../cloudBoxes/whereMenu';
 import { runPhoneBoxStart, type PhoneBoxStart } from '../cloudBoxes/phoneStartFlow';
+import { wallColumns } from './wall/layout';
+import { wallTargets } from './wall/previews';
+import { useWallPreviews } from './wall/useWallPreviews';
+import WallSwitch from './wall/WallSwitch';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Sessions'>;
 
@@ -438,6 +445,25 @@ export default function SessionsScreen({ navigation }: Props) {
     ],
   );
 
+  /*
+   * The session wall: where the window has the fold's divisions (the iPhone Duo's inner display, flat or half
+   * folded; the panes' rule in TerminalScreen) the list switches between rows and tiles. Folded, on other iPhones
+   * and on Android it is the list, and the stored choice waits. The tiles' thumbnails are read only while the tiles
+   * are shown on this screen in front (`useWallPreviews` adds the app being in the foreground).
+   */
+  const foldDivisions = useFoldDivisions();
+  const wallOffered = Platform.OS === 'ios' && (foldDivisions?.length ?? 0) > 0;
+  const sessionListView = useSettingsStore((state) => state.settings.sessionListView);
+  const chooseListView = useCallback(
+    (view: SessionListView): void => setSetting('sessionListView', view),
+    [setSetting],
+  );
+  const tilesShown = wallOffered && sessionListView === 'tiles';
+  const [listWidth, setListWidth] = useState(0);
+  const barSpace = useVerticalBarSpace();
+  const tileColumns = tilesShown ? wallColumns(listWidth - barSpace.left - barSpace.right) : null;
+  const wallTargetList = useMemo(() => (tilesShown ? wallTargets(entries) : []), [tilesShown, entries]);
+  useWallPreviews(tilesShown && isFocused, wallTargetList);
   /*
    * Glyph / failed-card retry. The store flips `retrying` synchronously before
    * its first await, so the tab spins for as long as the attempt really takes;
@@ -760,6 +786,7 @@ export default function SessionsScreen({ navigation }: Props) {
         (item.variant === 'failure' || item.variant === 'connecting') && machineById(block.machineId) !== null
       }
       actions={blockActions}
+      tileColumns={tileColumns}
     />
   );
 
@@ -783,7 +810,8 @@ export default function SessionsScreen({ navigation }: Props) {
   const inRail = headerPlacement.kind === 'rail';
   // The header keeps only the title, the notifications bell and this menu button (Voice, Search, Web and
   // Machines stand in the bottom bar, CDXC:Sessions 2026-10-27). On the iPhone Duo the status band holds the
-  // same row. In the side bar (a system that stands one) the bell and the menu stand there as its entries.
+  // same row. In the side bar (a system that stands one) the bell and the menu stand there as its entries. On the
+  // iPhone Duo's inner display the list/tiles switch stands before the bell, in the side bar as two switch entries.
   // The bell opens the attention list with its unread count.
   const bellButton = (
     <Pressable
@@ -815,6 +843,25 @@ export default function SessionsScreen({ navigation }: Props) {
   const railButtons = useMemo<RailButtons>(() => {
     const color = sidebarAppearance.foreground;
     const entries: RailEntry[] = [
+      // Upright in the side bar, the list/tiles switch's two halves (approved session wall mockup).
+      ...(wallOffered
+        ? [
+            {
+              key: 'wallList',
+              label: WallCopy.showList,
+              icon: (size: number) => <ListGlyph size={size} color={color} />,
+              onPress: () => chooseListView('list'),
+              selected: sessionListView === 'list',
+            },
+            {
+              key: 'wallTiles',
+              label: WallCopy.showTiles,
+              icon: (size: number) => <TilesGlyph size={size} color={color} />,
+              onPress: () => chooseListView('tiles'),
+              selected: sessionListView === 'tiles',
+            },
+          ]
+        : []),
       {
         key: 'notifications',
         label: bellLabel(unreadNotifications),
@@ -830,7 +877,7 @@ export default function SessionsScreen({ navigation }: Props) {
     ];
     // The session search sheet and the rename and note dialogs take the keyboard.
     return { entries, pinned: 0, moreMenu: 'always', reserveKeyboard: true };
-  }, [sidebarAppearance.foreground, unreadNotifications, navigation]);
+  }, [sidebarAppearance.foreground, unreadNotifications, navigation, wallOffered, sessionListView, chooseListView]);
   useRailButtons(railButtons, sidebarAppearance.background, inRail && isFocused);
 
   return (
@@ -870,6 +917,9 @@ export default function SessionsScreen({ navigation }: Props) {
         >
           <Text style={[styles.title, { color: sidebarAppearance.foreground }]}>Ghostex</Text>
         </Pressable>
+        {wallOffered && !inRail ? (
+          <WallSwitch view={sessionListView} appearance={sidebarAppearance} onChange={chooseListView} />
+        ) : null}
         {inRail ? null : bellButton}
         {inRail ? null : moreButton}
       </View>
@@ -983,7 +1033,7 @@ export default function SessionsScreen({ navigation }: Props) {
           onClose={() => setWorkspaceMenuOpen(false)}
         />
       ) : null}
-      <View style={styles.listArea}>
+      <View style={styles.listArea} onLayout={(event) => setListWidth(event.nativeEvent.layout.width)}>
         <SessionList
           unified={
             unified.on

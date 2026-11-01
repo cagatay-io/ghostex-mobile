@@ -91,6 +91,30 @@ export function MenuGlyph({ size, color }: GlyphProps) {
   );
 }
 
+/** The session list as rows: three bulleted lines (the session wall's list/tiles switch). */
+export function ListGlyph({ size, color }: GlyphProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M 9 6 h 11 M 9 12 h 11 M 9 18 h 11" stroke={color} strokeWidth={2} strokeLinecap="round" />
+      <Circle cx={4.5} cy={6} r={1.25} fill={color} />
+      <Circle cx={4.5} cy={12} r={1.25} fill={color} />
+      <Circle cx={4.5} cy={18} r={1.25} fill={color} />
+    </Svg>
+  );
+}
+
+/** The session list as tiles: four rounded squares (the session wall's list/tiles switch). */
+export function TilesGlyph({ size, color }: GlyphProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x={4} y={4} width={6.5} height={6.5} rx={1.5} stroke={color} strokeWidth={2} />
+      <Rect x={13.5} y={4} width={6.5} height={6.5} rx={1.5} stroke={color} strokeWidth={2} />
+      <Rect x={4} y={13.5} width={6.5} height={6.5} rx={1.5} stroke={color} strokeWidth={2} />
+      <Rect x={13.5} y={13.5} width={6.5} height={6.5} rx={1.5} stroke={color} strokeWidth={2} />
+    </Svg>
+  );
+}
+
 export function SettingsGlyph({ size, color }: GlyphProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">

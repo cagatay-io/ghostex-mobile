@@ -214,6 +214,28 @@ export const SessionCopy = {
   attachCommandCopied: 'Attach command copied',
 } as const;
 
+/**
+ * The session wall: the Sessions list's list/tiles switch on the unfolded iPhone Duo and its tiles (the approved
+ * session wall mockup's words). A badge says in a word what the row's dot says by colour; waiting for approval, which
+ * the mockup predates, takes the agents pane's words.
+ */
+export const WallCopy = {
+  showList: 'Show as list',
+  showTiles: 'Show as tiles',
+  badge: {
+    approval: 'Waiting for approval',
+    question: 'Has a question',
+    failed: 'Failed',
+    working: 'Working',
+    attention: 'Waiting',
+    backgroundWork: 'Background work',
+  },
+  /** The thumbnail of a session whose screen the computer could not read. */
+  previewUnavailable: 'No preview',
+  /** A tile for VoiceOver: its title, then its badge word or the row's time label when it has one. */
+  tile: (title: string, status: string | null) => (status === null ? title : `${title}, ${status}`),
+} as const;
+
 /** The floating context menu (`ContextMenu.tsx`). */
 export const ContextMenuCopy = {
   /** The dimmed screen around the menu, as VoiceOver names it: a tap on it closes the menu. */

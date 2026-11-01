@@ -42,6 +42,8 @@ export type MarkedHandoversStyle = 'labels' | 'rule' | 'badge' | 'plain';
 export type PreferredAgentInterface = 'terminal' | 'chat';
 /** How the phone draws its sessions list: the desktop's Unified sidebar, or the Project list per computer. */
 export type SessionsListLayout = 'unified' | 'project';
+/** How the Sessions list draws its sessions where it offers the choice (the unfolded iPhone Duo): rows or tiles. */
+export type SessionListView = 'list' | 'tiles';
 
 export type GhostexSettings = {
   // Terminal behavior (legacy Android row order).
@@ -143,6 +145,11 @@ export type GhostexSettings = {
    * Show Hidden Files, off until switched on.
    */
   showHiddenFiles: boolean;
+  /**
+   * The Sessions list as rows or as tiles with live thumbnails, chosen with its list/tiles switch on the unfolded
+   * iPhone Duo; kept while folded, where the list always shows rows.
+   */
+  sessionListView: SessionListView;
   // SSH connection (appended group).
   autoReconnect: boolean;
   keepAliveEnabled: boolean;
@@ -233,6 +240,7 @@ export function defaultSettings(): GhostexSettings {
     sessionsListWorkingSection: true,
     tailscaleReminder: true,
     showHiddenFiles: false,
+    sessionListView: 'list',
     autoReconnect: true,
     keepAliveEnabled: true,
     keepAliveIntervalSec: 30,
@@ -367,6 +375,7 @@ function sanitizeSettings(value: unknown): GhostexSettings {
     sessionsListWorkingSection: bool('sessionsListWorkingSection', defaults.sessionsListWorkingSection),
     tailscaleReminder: bool('tailscaleReminder', defaults.tailscaleReminder),
     showHiddenFiles: bool('showHiddenFiles', defaults.showHiddenFiles),
+    sessionListView: record.sessionListView === 'tiles' ? 'tiles' : defaults.sessionListView,
     autoReconnect: bool('autoReconnect', defaults.autoReconnect),
     keepAliveEnabled: bool('keepAliveEnabled', defaults.keepAliveEnabled),
     keepAliveIntervalSec,

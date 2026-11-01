@@ -9,7 +9,9 @@
  * SessionRow.tsx draws it; the colors are the row tokens in theme/palette.ts.
  */
 
+import type { FoldedStatus } from '../../contract/coordinatorTree';
 import { hasQuestion, type GhostexSession, type GhostexSummaryCapabilities } from '../../contract/mobileSummary';
+import { SidebarPalette } from '../../theme/palette';
 import { formatTimerCountdown, isDelayedSendWaitingLabel } from './timerCountdown';
 
 type RowSession = Pick<
@@ -62,6 +64,34 @@ export function rowActivityIndicator(session: RowSession): RowActivityIndicator 
   if (session.activity === 'attention') return 'attention';
   if (hasBackgroundWork(session)) return 'backgroundWork';
   return null;
+}
+
+/**
+ * The folded coordinator's stack (coordinatorTree.ts `foldedStatus`) the row draws in its status slot, in place of its
+ * own dot, question and time: unless the coordinator itself waits for approval or shows a program error, whose red dot
+ * wins.
+ */
+export function shownFoldedStatus(
+  session: RowSession,
+  foldedStatus: FoldedStatus | undefined,
+): FoldedStatus | undefined {
+  const ownRedDot = isAwaitingApproval(session) || (session.programStatusFailed && session.activity === 'attention');
+  return ownRedDot ? undefined : foldedStatus;
+}
+
+/**
+ * apps/desktop/src/app/native_sidebar/status.rs `status_dot_stack`: the colours of an overlapping stack, back to
+ * front: pink furthest left and underneath, then grey (never together with orange), orange, blue, and the red
+ * approval dot rightmost and on top.
+ */
+export function statusStackColors(stack: FoldedStatus): string[] {
+  const colors: string[] = [];
+  if (stack.question) colors.push(SidebarPalette.ROW_QUESTION);
+  if (stack.backgroundWork && !stack.working) colors.push(SidebarPalette.ROW_BACKGROUND_WORK);
+  if (stack.working) colors.push(SidebarPalette.ROW_WORKING);
+  if (stack.attention) colors.push(SidebarPalette.ROW_ATTENTION);
+  if (stack.approval) colors.push(SidebarPalette.ROW_APPROVAL);
+  return colors;
 }
 
 /**
