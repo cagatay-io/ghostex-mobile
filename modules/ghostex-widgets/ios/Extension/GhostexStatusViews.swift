@@ -41,14 +41,20 @@ struct WidgetColors {
       track: Color.white.opacity(0.1))
   }
 
-  func color(_ state: GhostexAgentState) -> Color {
-    state == .waiting ? waiting : working
+  func color(_ state: GhostexWidgetSnapshot.State) -> Color {
+    switch state {
+    case .working: return working
+    case .waiting: return waiting
+    }
   }
 }
 
 extension ActivityStatus {
-  init(widgetState state: GhostexAgentState) {
-    self = state == .waiting ? .waiting : .working
+  init(widgetState state: GhostexWidgetSnapshot.State) {
+    switch state {
+    case .working: self = .working
+    case .waiting: self = .waiting
+    }
   }
 }
 
@@ -124,11 +130,12 @@ struct AttentionMarker: View {
 
 /// A large count with its glyph and word below: the small widget and the medium widget's left side.
 struct BigCount: View {
-  let status: ActivityStatus
+  let state: GhostexWidgetSnapshot.State
   let count: Int
   let colors: WidgetColors
 
   var body: some View {
+    let status = ActivityStatus(widgetState: state)
     HStack(alignment: .center, spacing: 6) {
       Text("\(count)")
         .font(.system(size: 32, weight: .bold, design: .rounded))
@@ -136,7 +143,7 @@ struct BigCount: View {
         .minimumScaleFactor(0.6)
         .widgetAccentable()
       HStack(spacing: 3) {
-        StatusGlyph(status: status, size: 12, tint: status == .waiting ? colors.waiting : colors.working)
+        StatusGlyph(status: status, size: 12, tint: colors.color(state))
           .widgetAccentable()
         Text(status.word)
       }
@@ -163,8 +170,8 @@ struct SummaryColumn: View {
       }
       Spacer(minLength: 2)
       VStack(alignment: .leading, spacing: 0) {
-        BigCount(status: .working, count: snapshot.counts.working, colors: colors)
-        BigCount(status: .waiting, count: snapshot.counts.waiting, colors: colors)
+        BigCount(state: .working, count: snapshot.counts.working, colors: colors)
+        BigCount(state: .waiting, count: snapshot.counts.waiting, colors: colors)
       }
       Spacer(minLength: 2)
       DataTime(writtenAt: snapshot.writtenAt, colors: colors)
@@ -201,7 +208,7 @@ struct EmptyAgents: View {
 
 /// The state's glyph and word in the state's colour.
 struct StateLabel: View {
-  let state: GhostexAgentState
+  let state: GhostexWidgetSnapshot.State
   let colors: WidgetColors
 
   var body: some View {
@@ -254,13 +261,14 @@ struct MediumStatus: View {
 
 /// A count in the large widget's head: glyph, number and word on one line.
 struct InlineCount: View {
-  let status: ActivityStatus
+  let state: GhostexWidgetSnapshot.State
   let count: Int
   let colors: WidgetColors
 
   var body: some View {
+    let status = ActivityStatus(widgetState: state)
     HStack(spacing: 4) {
-      StatusGlyph(status: status, size: 13, tint: status == .waiting ? colors.waiting : colors.working)
+      StatusGlyph(status: status, size: 13, tint: colors.color(state))
         .widgetAccentable()
       Text("\(count)").font(.subheadline.weight(.bold)).monospacedDigit()
       Text(status.word).font(.footnote)
@@ -357,8 +365,8 @@ struct LargeStatus: View {
     VStack(alignment: .leading, spacing: 8) {
       HStack(spacing: 10) {
         GhostexMark()
-        InlineCount(status: .working, count: snapshot.counts.working, colors: colors)
-        InlineCount(status: .waiting, count: snapshot.counts.waiting, colors: colors)
+        InlineCount(state: .working, count: snapshot.counts.working, colors: colors)
+        InlineCount(state: .waiting, count: snapshot.counts.waiting, colors: colors)
         Spacer(minLength: 4)
         if snapshot.attention { AttentionMarker(colors: colors) }
       }

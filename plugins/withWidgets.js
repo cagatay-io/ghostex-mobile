@@ -14,6 +14,10 @@
 //   through the build setting `GHOSTEX_APP_GROUP`, so a build signed by another team overrides one setting;
 // - the app embeds the `.appex` (PlugIns) and depends on the target.
 //
+// The target, its bundle id and the app's embedding are created once. Its files and settings are set from this file
+// on every prebuild, also when `expo prebuild` without `--clean` runs on a project an earlier prebuild wrote, so an
+// existing target ends up as a new one.
+//
 // No push entitlement (`aps-environment`): the Live Activity's content comes through ActivityKit, the widgets'
 // through the App Group. `NSSupportsLiveActivities` is set in app.json's `ios.infoPlist`.
 // One plugin owns the target: Expo runs a later plugin's mods first, so a second plugin on this target would depend
@@ -39,6 +43,12 @@ const SOURCE_FILES = [
   'ghostex-widgets/ios/Extension/GhostexStatusViews.swift',
 ];
 const RESOURCE_FILES = ['ghostex-live-activity/ios/Extension/Assets.xcassets'];
+/** The target's build phases, all of them this plugin's: name, type and files. */
+const BUILD_PHASES = [
+  ['Sources', 'PBXSourcesBuildPhase', SOURCE_FILES],
+  ['Resources', 'PBXResourcesBuildPhase', RESOURCE_FILES],
+  ['Frameworks', 'PBXFrameworksBuildPhase', []],
+];
 const INFO_PLIST = `${TARGET_NAME}/Info.plist`;
 const ENTITLEMENTS = `${TARGET_NAME}/${TARGET_NAME}.entitlements`;
 const APP_GROUP_ENTITLEMENT = 'com.apple.security.application-groups';
@@ -161,6 +171,56 @@ function appBuildSetting(project, appTarget, key) {
   return read(appTarget.target.buildConfigurationList) ?? read(projectListId);
 }
 
+/** The uuid of the object named `name` in a section; the `xcode` package writes a new target's name quoted, Xcode not. */
+function uuidNamed(section, name) {
+  return Object.keys(section).find(
+    (key) => !key.endsWith('_comment') && String(section[key].name).replace(/^"(.*)"$/, '$1') === name,
+  );
+}
+
+function deleteObject(section, uuid) {
+  delete section[uuid];
+  delete section[`${uuid}_comment`];
+}
+
+/**
+ * Takes out what an earlier prebuild gave the existing target: the group with its file references and the build phases
+ * with their build files. Added again from the lists above, the target then has exactly the files a new one gets.
+ */
+function removeOwnedFiles(project, targetUuid) {
+  const objects = project.hash.project.objects;
+  const groupUuid = uuidNamed(objects.PBXGroup, TARGET_NAME);
+  if (groupUuid) {
+    for (const child of objects.PBXGroup[groupUuid].children) deleteObject(objects.PBXFileReference, child.value);
+    const mainGroup = objects.PBXGroup[project.getFirstProject().firstProject.mainGroup];
+    mainGroup.children = mainGroup.children.filter((child) => child.value !== groupUuid);
+    deleteObject(objects.PBXGroup, groupUuid);
+  }
+  const target = objects.PBXNativeTarget[targetUuid];
+  target.buildPhases = target.buildPhases.filter((phase) => {
+    const type = BUILD_PHASES.find(([name]) => name === phase.comment)?.[1];
+    if (!type) return true;
+    for (const file of objects[type][phase.value].files) deleteObject(objects.PBXBuildFile, file.value);
+    deleteObject(objects[type], phase.value);
+    return false;
+  });
+}
+
+/** Creates the target; the app embeds it and depends on it. */
+function addExtensionTarget(project, cfg, appTarget) {
+  const appBundleId = cfg.ios?.bundleIdentifier;
+  if (!appBundleId) throw new Error('withWidgets: ios.bundleIdentifier is required');
+  // addTarget embeds an app extension into the project's first target and makes that target depend on it;
+  // the first target must be the app.
+  if (project.getFirstTarget().uuid !== appTarget.uuid) {
+    throw new Error('withWidgets: the application is not the first target of the Xcode project');
+  }
+  const objects = project.hash.project.objects;
+  objects.PBXTargetDependency = objects.PBXTargetDependency ?? {};
+  objects.PBXContainerItemProxy = objects.PBXContainerItemProxy ?? {};
+  return project.addTarget(TARGET_NAME, 'app_extension', TARGET_NAME, `${appBundleId}.${BUNDLE_SUFFIX}`).uuid;
+}
+
 function withExtensionTarget(config) {
   return withXcodeProject(config, (cfg) => {
     const project = cfg.modResults;
@@ -168,32 +228,19 @@ function withExtensionTarget(config) {
     const appTarget = project.getTarget('com.apple.product-type.application');
     if (!appTarget) throw new Error('withWidgets: no application target in the Xcode project');
     setTargetSetting(project, appTarget.target.buildConfigurationList, APP_GROUP_SETTING, appGroup);
-    if (project.pbxTargetByName(TARGET_NAME)) return cfg;
 
-    const appBundleId = cfg.ios?.bundleIdentifier;
-    if (!appBundleId) throw new Error('withWidgets: ios.bundleIdentifier is required');
-    // addTarget embeds an app extension into the project's first target and makes that target depend on it;
-    // the first target must be the app.
-    if (project.getFirstTarget().uuid !== appTarget.uuid) {
-      throw new Error('withWidgets: the application is not the first target of the Xcode project');
-    }
-
-    const objects = project.hash.project.objects;
-    objects.PBXTargetDependency = objects.PBXTargetDependency ?? {};
-    objects.PBXContainerItemProxy = objects.PBXContainerItemProxy ?? {};
+    const existingUuid = uuidNamed(project.pbxNativeTargetSection(), TARGET_NAME);
+    if (existingUuid) removeOwnedFiles(project, existingUuid);
+    const targetUuid = existingUuid ?? addExtensionTarget(project, cfg, appTarget);
 
     const group = project.addPbxGroup([...SOURCE_FILES, ...RESOURCE_FILES], TARGET_NAME, SOURCE_ROOT);
     project.addToPbxGroup(group.uuid, project.getFirstProject().firstProject.mainGroup);
-
-    const target = project.addTarget(TARGET_NAME, 'app_extension', TARGET_NAME, `${appBundleId}.${BUNDLE_SUFFIX}`);
-    project.addBuildPhase(SOURCE_FILES, 'PBXSourcesBuildPhase', 'Sources', target.uuid);
-    project.addBuildPhase(RESOURCE_FILES, 'PBXResourcesBuildPhase', 'Resources', target.uuid);
-    project.addBuildPhase([], 'PBXFrameworksBuildPhase', 'Frameworks', target.uuid);
+    for (const [name, type, files] of BUILD_PHASES) project.addBuildPhase(files, type, name, targetUuid);
 
     const deploymentTarget = appBuildSetting(project, appTarget, 'IPHONEOS_DEPLOYMENT_TARGET');
     const teamId = cfg.ios?.appleTeamId;
     const configurations = project.pbxXCBuildConfigurationSection();
-    const list = project.pbxXCConfigurationList()[target.pbxNativeTarget.buildConfigurationList];
+    const list = project.pbxXCConfigurationList()[project.pbxNativeTargetSection()[targetUuid].buildConfigurationList];
     for (const entry of list.buildConfigurations) {
       const settings = configurations[entry.value].buildSettings;
       Object.assign(settings, {
@@ -212,7 +259,9 @@ function withExtensionTarget(config) {
         ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: 'NO',
       });
       if (deploymentTarget) settings.IPHONEOS_DEPLOYMENT_TARGET = deploymentTarget;
+      else delete settings.IPHONEOS_DEPLOYMENT_TARGET;
       if (teamId) settings.DEVELOPMENT_TEAM = teamId;
+      else delete settings.DEVELOPMENT_TEAM;
     }
     return cfg;
   });

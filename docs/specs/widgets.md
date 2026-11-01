@@ -21,7 +21,8 @@ of `plugins/withWidgets.js` together with the Live Activity.
   counted without a row (a computer that sends no start time, an approval without a time) leaves that place empty;
   the counts still show it.
 - Text level: event and session only. Agent name, project, state and times; no prompt, reply or session title.
-- No data written yet (or a snapshot of another version): the Ghostex mark only, no numbers.
+- No data written yet (or a snapshot of another version, or one with an agent neither working nor waiting): the
+  Ghostex mark only, no numbers.
 - Colour never carries meaning alone: every state colour comes with its glyph (open arc working, clock waiting, bell
   "Needs you") and word, so the tinted Home Screen and StandBy at night (red) keep the meaning. Dark: the app's
   surface and state colours; light: white surface, the darker state tones the app uses on light surfaces. StandBy and
@@ -44,10 +45,10 @@ of `plugins/withWidgets.js` together with the Live Activity.
 ## 3. Data path
 
 - After every session refresh the app builds the snapshot (`buildSnapshot`, `widget-snapshot` format version 1:
-  `schemaVersion`, `writtenAt`, `counts`, `attention`, `agents` (at most 8), optional `usage.bars` (at most 6)) over
-  every enabled computer's summary, with the Live Activity's classification of a session (`candidateFor` in
-  `contentState.ts`), and writes it as `widget-snapshot.json` into the App Group container (atomic), then asks
-  WidgetKit to reload the widget (`reloadTimelines(ofKind: "GhostexStatus")`), once per write.
+  `schemaVersion`, `writtenAt`, `counts`, `attention`, `agents` (at most 8, each `working` or `waiting`), optional
+  `usage.bars` (at most 6)) over every enabled computer's summary, with the Live Activity's classification of a
+  session (`candidateFor` in `contentState.ts`), and writes it as `widget-snapshot.json` into the App Group container
+  (atomic), then asks WidgetKit to reload the widget (`reloadTimelines(ofKind: "GhostexStatus")`), once per write.
 - Data time (`writtenAt`): when the oldest summary used was read; the refresh time when every computer answered.
 - A refresh that changes nothing shown, compared with the data time to the minute, writes nothing; while the poll runs
   an unchanged state is written once a minute, so the shown time stays current.

@@ -2,18 +2,24 @@ import Foundation
 
 /// The widget snapshot (format version 1) as the widgets read it. The app writes it after each
 /// session refresh (`src/notifications/widgetSnapshot.ts`); it carries agent, project, state and times only, no prompt,
-/// reply or title text. Any other version, a missing or an unreadable file reads as nil: the widget then shows its
-/// empty state, never placeholder values.
+/// reply or title text. Any other version, a missing or an unreadable file, and an agent in a state other than
+/// working or waiting read as nil: the widget then shows its empty state, never placeholder values.
 ///
-/// Compiled into the widget extension next to the Live Activity's `Shared/` files, whose counts, agent state and ISO
-/// time parsing (`ActivityTime`, which takes the app's milliseconds) it reuses.
+/// Compiled into the widget extension next to the Live Activity's `Shared/` files, whose counts and ISO time parsing
+/// (`ActivityTime`, which takes the app's milliseconds) it reuses.
 struct GhostexWidgetSnapshot: Decodable, Hashable {
   static let version = 1
+
+  /// What the widgets count and list: finished agents are in neither, so a snapshot has no third state.
+  enum State: String, Decodable, Hashable {
+    case working
+    case waiting
+  }
 
   struct Agent: Decodable, Hashable {
     let agentName: String
     let project: String
-    let state: GhostexAgentState
+    let state: State
     /// Working: since the stint began; waiting: since the agent waits.
     let sinceAt: Date
 
@@ -23,7 +29,7 @@ struct GhostexWidgetSnapshot: Decodable, Hashable {
       let container = try decoder.container(keyedBy: CodingKeys.self)
       agentName = try container.decode(String.self, forKey: .agentName)
       project = try container.decode(String.self, forKey: .project)
-      state = try container.decode(GhostexAgentState.self, forKey: .state)
+      state = try container.decode(State.self, forKey: .state)
       sinceAt = try ActivityTime.decode(container, .sinceAt)
     }
   }
