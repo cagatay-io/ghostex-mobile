@@ -154,6 +154,12 @@ public struct GhostexActivityContent: Codable, Hashable, Sendable {
     try container.encode(moreCount, forKey: .moreCount)
   }
 
+  /// No agent works or waits: both counts are 0. Not "no rows": an approval wait is counted without a row, so
+  /// rows can be missing while an agent waits.
+  public var noAgentWorkingOrWaiting: Bool {
+    counts.working == 0 && counts.waiting == 0
+  }
+
   /// ActivityKit's limit for the static attributes plus the content state, in bytes (platform, 4 KB).
   public static let byteBudget = 4096
 

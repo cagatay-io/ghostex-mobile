@@ -272,13 +272,14 @@ struct LockScreenCard: View {
       }
       .font(.footnote)
       .frame(minHeight: 20)
-      if content.agents.isEmpty {
+      if !content.agents.isEmpty {
+        ActivityRows(rows: content.agents, frozenAt: isStale ? content.updatedAt : nil)
+          .opacity(isStale ? 0.5 : 1)
+      } else if content.noAgentWorkingOrWaiting {
+        // Without rows but with a count (an approval wait has no row) the counts and "+N more" speak alone.
         Text("No agent is working or waiting")
           .font(.footnote)
           .foregroundStyle(ActivityStyle.secondaryText)
-      } else {
-        ActivityRows(rows: content.agents, frozenAt: isStale ? content.updatedAt : nil)
-          .opacity(isStale ? 0.5 : 1)
       }
     }
     .foregroundStyle(ActivityStyle.text)

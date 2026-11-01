@@ -130,4 +130,18 @@ final class GhostexActivityContentTests: XCTestCase {
     let json = Self.schemaInstance.replacingOccurrences(of: "\"hasQuestion\":true", with: "\"hasQuestion\":\"yes\"")
     XCTAssertThrowsError(try JSONDecoder().decode(GhostexActivityContent.self, from: Data(json.utf8)))
   }
+
+  /// The Lock Screen's "No agent is working or waiting" follows the counts, not the rows: an approval wait is
+  /// counted without a row (waiting 1, no rows, "+1 more"), and a finished agent without a row is in "+N more" only.
+  func testNoAgentWorkingOrWaitingOnlyWhenBothCountsAreZero() {
+    func content(working: Int, waiting: Int, moreCount: Int) -> GhostexActivityContent {
+      GhostexActivityContent(
+        updatedAt: Date(timeIntervalSince1970: 0), counts: GhostexActivityCounts(working: working, waiting: waiting),
+        agents: [], moreCount: moreCount)
+    }
+    XCTAssertFalse(content(working: 0, waiting: 1, moreCount: 1).noAgentWorkingOrWaiting, "approval wait, no row")
+    XCTAssertFalse(content(working: 1, waiting: 0, moreCount: 1).noAgentWorkingOrWaiting, "working, no row")
+    XCTAssertTrue(content(working: 0, waiting: 0, moreCount: 0).noAgentWorkingOrWaiting, "nothing at all")
+    XCTAssertTrue(content(working: 0, waiting: 0, moreCount: 1).noAgentWorkingOrWaiting, "finished, no row")
+  }
 }
