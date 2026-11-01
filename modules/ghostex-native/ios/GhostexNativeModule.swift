@@ -811,7 +811,7 @@ public class GhostexNativeModule: Module {
 
         // MARK: Share sheet
 
-        // Share… in the project file browser (REQ-FILES-009): the iOS share sheet for one file of the app's
+        // Share… in the project file browser: the iOS share sheet for one file of the app's
         // temporary storage. Settles once the share is over (GhostexShareSheetEnd): resolves when the sheet has left
         // and its last activity reported no error, so the copy is deleted then and not before; rejects with
         // E_SHARE_FAILED when that activity failed, E_SHARE_UNAVAILABLE when no sheet could be shown, and

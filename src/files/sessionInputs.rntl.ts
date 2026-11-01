@@ -1,14 +1,13 @@
 /// <reference types="jest" />
 /**
- * Run with `bun run test:jest`. REQ-FILES-010 AC2/AC3 on the app's own session inputs (`sessionInputs.ts`) behind
- * the real Add to Session Context flow: in chat view the text goes into the open chat's draft through the chat
- * box's append (`appendToDraft`) and nothing else is dispatched (no send); in terminal view it is typed into the
- * session's terminal exactly as gxserver wrote it, with no Enter key after it. REQ-FILES-010 scope (corrected
- * 2026-10-29): right before inserting, the target is checked again against the phone's tabs and the computer's
- * session list (still open, running, an agent), as the desktop checks Running + agent at insertion
- * (gpui_engine_terminal_attachment.rs:455-462 at 86b287b1); otherwise nothing is inserted and the notice says no
- * agent session is available. The chat host registry, the native terminal, the tab store and the inventory store
- * are stand-ins; the request is a fake `runProjectDocsAction`.
+ * Run with `bun run test:jest`. Add to Session Context on the app's own session inputs (`sessionInputs.ts`) behind
+ * the real Add to Session Context flow: in chat view the text goes into the open chat's draft through the chat box's
+ * append (`appendToDraft`) and nothing else is dispatched (no send); in terminal view it is typed into the session's
+ * terminal exactly as gxserver wrote it, with no Enter key after it. Right before inserting, the target is checked
+ * again against the phone's tabs and the computer's session list (still open, running, an agent), as the desktop
+ * checks Running + agent at insertion (gpui_engine_terminal_attachment.rs:455-462 at 86b287b1); otherwise nothing is
+ * inserted and the notice says no agent session is available. The chat host registry, the native terminal, the tab
+ * store and the inventory store are stand-ins; the request is a fake `runProjectDocsAction`.
  */
 
 import type { UserAction } from '../chat/rust/actions';
@@ -107,7 +106,7 @@ beforeEach(() => {
   mockSessions = [LIVE_AGENT];
 });
 
-test('REQ-FILES-010 AC2: in chat view the text is appended to the open chat draft and nothing is sent', async () => {
+test('in chat view the text is appended to the open chat draft and nothing is sent', async () => {
   mockChatTabs.add(SESSION.sessionKey);
   const dispatched = chatHost(true, 'Look at this:');
   const outcome = await addFileToSessionContext(
@@ -124,7 +123,7 @@ test('REQ-FILES-010 AC2: in chat view the text is appended to the open chat draf
   expect(mockSendKey).not.toHaveBeenCalled();
 });
 
-test('REQ-FILES-010 AC2: a chat that is not open or not ready yet takes nothing, and says so', async () => {
+test('a chat that is not open or not ready yet takes nothing, and says so', async () => {
   mockChatTabs.add(SESSION.sessionKey);
   const inputs = appSessionInputs('machine-1', 'project-1');
   expect(await addFileToSessionContext(rpc, 'project-1', 'docs/plan.md', SESSION, inputs)).toEqual({
@@ -140,7 +139,7 @@ test('REQ-FILES-010 AC2: a chat that is not open or not ready yet takes nothing,
   expect(mockSendText).not.toHaveBeenCalled();
 });
 
-test('REQ-FILES-010 AC3: in terminal view the text is typed into that terminal as it is, with no Enter after it', async () => {
+test('in terminal view the text is typed into that terminal as it is, with no Enter after it', async () => {
   const dispatched = chatHost(true, '');
   const outcome = await addFileToSessionContext(
     rpc,
@@ -155,7 +154,7 @@ test('REQ-FILES-010 AC3: in terminal view the text is typed into that terminal a
   expect(dispatched).toEqual([]);
 });
 
-test('REQ-FILES-010 AC3: a session that cannot show its chat is typed into even while its tab is set to Chat View', async () => {
+test('a session that cannot show its chat is typed into even while its tab is set to Chat View', async () => {
   mockChatTabs.add(SESSION.sessionKey);
   chatHost(true, '');
   await addFileToSessionContext(
@@ -184,7 +183,7 @@ async function addInView(chat: boolean, read: DocsRpc = rpc) {
 
 const REFUSED = { added: false, message: DocsCopy.contextNoSession };
 
-test('REQ-FILES-010 scope: an agent session that ended (its tab closed by the remote end, gone from the computer) takes nothing', async () => {
+test('an agent session that ended (its tab closed by the remote end, gone from the computer) takes nothing', async () => {
   // Remote EOF leaves the tab and its native view in place (GhostexNativeModule.swift:451-460), so `sendText` alone
   // would still type into it.
   mockTabs = [{ ...OPEN_TAB, state: 'closed' }];
@@ -196,7 +195,7 @@ test('REQ-FILES-010 scope: an agent session that ended (its tab closed by the re
   }
 });
 
-test('REQ-FILES-010 scope: a session the computer no longer runs (asleep or stopped) takes nothing', async () => {
+test('a session the computer no longer runs (asleep or stopped) takes nothing', async () => {
   mockSessions = [{ ...LIVE_AGENT, isLive: false }];
   for (const chat of [false, true]) {
     mockChatTabs.clear();
@@ -205,7 +204,7 @@ test('REQ-FILES-010 scope: a session the computer no longer runs (asleep or stop
   }
 });
 
-test('REQ-FILES-010 scope: a session that no longer runs an agent takes nothing', async () => {
+test('a session that no longer runs an agent takes nothing', async () => {
   mockSessions = [{ ...LIVE_AGENT, agentIcon: '', agentName: '', agent: '' }];
   for (const chat of [false, true]) {
     mockChatTabs.clear();
@@ -214,18 +213,18 @@ test('REQ-FILES-010 scope: a session that no longer runs an agent takes nothing'
   }
 });
 
-test('REQ-FILES-010 scope: a session whose tab was closed on the phone takes nothing, and no other session is chosen', async () => {
+test('a session whose tab was closed on the phone takes nothing, and no other session is chosen', async () => {
   mockTabs = [{ ...OPEN_TAB, sessionKey: 'machine-1:session-8', ghostexSessionId: 'session-8' }];
   mockSessions = [LIVE_AGENT, { ...LIVE_AGENT, sessionId: 'session-8' }];
   expect(await addInView(false)).toEqual({ outcome: REFUSED, inserted: [] });
 });
 
-test('REQ-FILES-010 scope: in terminal view a terminal that is not connected takes nothing', async () => {
+test('in terminal view a terminal that is not connected takes nothing', async () => {
   mockTabs = [{ ...OPEN_TAB, state: 'opening' }];
   expect(await addInView(false)).toEqual({ outcome: REFUSED, inserted: [] });
 });
 
-test('REQ-FILES-010 scope: the target is checked right before inserting, after the file was read', async () => {
+test('the target is checked right before inserting, after the file was read', async () => {
   // The agent ends while gxserver reads the file.
   const ending: DocsRpc = () => {
     mockSessions = [];

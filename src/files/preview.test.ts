@@ -2,8 +2,8 @@
 /**
  * Run with `bun test src/files/preview.test.ts`.
  *
- * REQ-FILES-002 (Markdown rendered, other text as source, up to the host preview limit of 2 MB) and REQ-FILES-006
- * (images, binary files and files over 2 MB show name and size only): how the browser opens a file, and the size
+ * Markdown rendered, other text as source, up to the host preview limit of 2 MB; images, binary files and files
+ * over 2 MB show name and size only: how the browser opens a file, and the size
  * it shows.
  */
 
@@ -18,38 +18,38 @@ import type { DocsRpc } from './request';
 const base64 = (bytes: readonly number[]) => Buffer.from(bytes).toString('base64');
 const utf8 = (text: string) => Buffer.from(text, 'utf8').toString('base64');
 
-describe('REQ-FILES-002: text up to 2 MB is shown', () => {
-  test('REQ-FILES-002 AC1: a Markdown file opens rendered (the Docs viewer)', () => {
+describe('text up to 2 MB is shown', () => {
+  test('a Markdown file opens rendered (the Docs viewer)', () => {
     assert.deepEqual(filePreview('README.md', 6_071), { kind: 'document' });
     assert.deepEqual(filePreview('notes.markdown', null), { kind: 'document' });
   });
 
-  test('REQ-FILES-002 AC2: a .ts file opens as source', () => {
+  test('a .ts file opens as source', () => {
     assert.deepEqual(filePreview('TerminalKeyBar.tsx', 21_279), { kind: 'source' });
     assert.deepEqual(filePreview('copy.ts', PREVIEW_MAX_BYTES), { kind: 'source' });
   });
 
-  test('REQ-FILES-002: a file of a kind the phone does not know is read and shown as source when it is text', () => {
+  test('a file of a kind the phone does not know is read and shown as source when it is text', () => {
     assert.deepEqual(filePreview('Podfile.lock', 900), { kind: 'source' });
     assert.deepEqual(filePreview('CODEOWNERS', 64), { kind: 'source' });
     assert.equal(isTextFile(utf8('export const a = 1;\n')), true);
   });
 });
 
-describe('REQ-FILES-006: images, binary and large files show name and size', () => {
-  test('REQ-FILES-006 AC1/AC2: an image shows only its name and size', () => {
+describe('images, binary and large files show name and size', () => {
+  test('an image shows only its name and size', () => {
     assert.deepEqual(filePreview('icon.png', 339_015), { kind: 'info', reason: 'image' });
     assert.deepEqual(filePreview('photo.HEIC', 2_000), { kind: 'info', reason: 'image' });
   });
 
-  test('REQ-FILES-006 AC3/AC4: a binary file shows only its name and size, known ones without being read', () => {
+  test('a binary file shows only its name and size, known ones without being read', () => {
     assert.deepEqual(filePreview('JetBrainsMonoNerdFont-Regular.ttf', 1_200_000), { kind: 'info', reason: 'binary' });
     assert.deepEqual(filePreview('demo.mp4', 1_000), { kind: 'info', reason: 'binary' });
     // Anything else is read first and shown only when it is text, as gxserver's preview decides: no NUL byte ...
     assert.equal(isTextFile(base64([0x50, 0x4b, 0x03, 0x04, 0x00, 0x00])), false);
   });
 
-  test('REQ-FILES-006 AC3/AC4/AC7: bytes that are not UTF-8 are not text, though they hold no NUL byte', () => {
+  test('bytes that are not UTF-8 are not text, though they hold no NUL byte', () => {
     // ... and valid UTF-8, checked on the bytes: the decoder would turn each of these into U+FFFD "text".
     for (const bytes of [
       [0xff, 0xfe], // no UTF-8 lead byte
@@ -64,19 +64,19 @@ describe('REQ-FILES-006: images, binary and large files show name and size', () 
     }
   });
 
-  test('REQ-FILES-002 AC2: any valid UTF-8 is text, a replacement character written in it too', () => {
+  test('any valid UTF-8 is text, a replacement character written in it too', () => {
     for (const text of ['', 'plain', 'ä € 𝄞', '\uFEFFwith a byte-order mark', 'a literal \uFFFD in it', '\u007F']) {
       assert.equal(isTextFile(utf8(text)), true, JSON.stringify(text));
     }
   });
 
-  test('REQ-FILES-006 AC5/AC6: a 3 MB text file shows only its name and size', () => {
+  test('a 3 MB text file shows only its name and size', () => {
     assert.deepEqual(filePreview('server.log', 3_000_000), { kind: 'info', reason: 'large' });
     assert.deepEqual(filePreview('huge.md', PREVIEW_MAX_BYTES + 1), { kind: 'info', reason: 'large' });
     assert.equal(formatFileSize(3_000_000), '3.0 MB');
   });
 
-  test('REQ-FILES-006 AC2/AC4/AC6: sizes read in the units of the 2 MB limit', () => {
+  test('sizes read in the units of the 2 MB limit', () => {
     assert.equal(formatFileSize(512), '512 B');
     assert.equal(formatFileSize(339_015), '339 KB');
     assert.equal(formatFileSize(999_600), '1.0 MB');
@@ -102,8 +102,8 @@ function statOf(path: string, size: number): Record<string, unknown> {
   return { kind: 'text', modifiedAt: '2026-10-29T08:00:00Z', name, path, size };
 }
 
-describe('REQ-FILES-006: a file found by search (listed without its size) is measured before it opens', () => {
-  test('REQ-FILES-006 AC5/AC6: the size comes from a project-scope stat, so a 3 MB text file shows name and size', async () => {
+describe('a file found by search (listed without its size) is measured before it opens', () => {
+  test('the size comes from a project-scope stat, so a 3 MB text file shows name and size', async () => {
     const sent: Record<string, unknown>[] = [];
     const answer = statAnswer(statOf('logs/server.log', 3_000_000));
     const rpc: DocsRpc = (method, params, timeoutMs) => {
@@ -116,13 +116,13 @@ describe('REQ-FILES-006: a file found by search (listed without its size) is mea
     assert.deepEqual(filePreview('server.log', size), { kind: 'info', reason: 'large' });
   });
 
-  test('REQ-FILES-006 AC5-AC7: a 3 MB Markdown file found by search shows name and size, not the rendered page', async () => {
+  test('a 3 MB Markdown file found by search shows name and size, not the rendered page', async () => {
     const size = await statProjectFile(statAnswer(statOf('docs/huge.md', 3_000_000)), 'project-1', 'docs/huge.md');
     assert.equal(size, 3_000_000);
     assert.deepEqual(filePreview('huge.md', size), { kind: 'info', reason: 'large' });
   });
 
-  test('REQ-FILES-006 AC2/AC4: an image or a binary file found by search keeps its size', async () => {
+  test('an image or a binary file found by search keeps its size', async () => {
     assert.equal(
       await statProjectFile(statAnswer(statOf('assets/icon.png', 339_015)), 'project-1', 'icon.png'),
       339_015,
@@ -130,12 +130,12 @@ describe('REQ-FILES-006: a file found by search (listed without its size) is mea
     assert.equal(await statProjectFile(statAnswer(statOf('bin/tool.wasm', 1_200)), 'project-1', 'tool.wasm'), 1_200);
   });
 
-  test('REQ-FILES-006: a file gone since it was listed says so instead of opening', async () => {
+  test('a file gone since it was listed says so instead of opening', async () => {
     const rpc = statAnswer({ missing: true, path: 'gone.txt' });
     await assert.rejects(statProjectFile(rpc, 'project-1', 'gone.txt'), { message: DocsCopy.fileMissing });
   });
 
-  test('REQ-FILES-006: an answer without the file (an older Ghostex) is not read as a size', async () => {
+  test('an answer without the file (an older Ghostex) is not read as a size', async () => {
     const rpc: DocsRpc = () => Promise.resolve({ result: { action: 'stat', size: 3_000_000 }, error: null });
     await assert.rejects(statProjectFile(rpc, 'project-1', 'logs/server.log'), { message: DocsCopy.oldCli });
   });

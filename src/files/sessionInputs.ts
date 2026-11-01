@@ -1,5 +1,5 @@
 /**
- * The app's session inputs for Add to Session Context (REQ-FILES-010): the chat the terminal screen keeps open
+ * The app's session inputs for Add to Session Context: the chat the terminal screen keeps open
  * for the session under Files, and the session's native terminal. The rule for which of the two the session shows
  * is the terminal screen's own (`chatModeActive`: a session that can show its chat, set to Chat View). What the
  * session is right now comes from the phone's tabs and the computer's session list (the inventory).

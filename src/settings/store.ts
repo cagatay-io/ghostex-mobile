@@ -119,7 +119,7 @@ export type GhostexSettings = {
   tailscaleReminder: boolean;
   /**
    * The project file browser lists hidden files and folders (names starting with a dot): its Files menu's
-   * Show Hidden Files, off until switched on (REQ-FILES-007, D-020 item 9).
+   * Show Hidden Files, off until switched on.
    */
   showHiddenFiles: boolean;
   // SSH connection (appended group).

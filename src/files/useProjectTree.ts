@@ -1,5 +1,5 @@
 /**
- * The project file browser's folder tree as it loads (REQ-FILES-001): the top level when the browser opens, a
+ * The project file browser's folder tree as it loads: the top level when the browser opens, a
  * folder's children when it is first opened, and on Refresh the top level and every open folder again. Each
  * folder remembers gxserver's revision of its children, so a refresh that finds nothing new sends nothing back.
  */

@@ -61,7 +61,7 @@ export type RootStackParamList = {
   /**
    * Files: a project's file browser, the whole project folder by folder with search, Recently changed on top.
    * `session`: the agent session it was opened from (the terminal screen's menu), which Add to Session Context
-   * fills (REQ-FILES-010); absent when opened from a project's menu.
+   * fills; absent when opened from a project's menu.
    */
   Docs: {
     machineId: string;
@@ -71,10 +71,10 @@ export type RootStackParamList = {
     session?: ContextSession;
   };
   /**
-   * One file the file browser opened that is not Markdown or HTML: as source, or its name and size only
-   * (REQ-FILES-002, -006). `entryPath` is its path in the project as gxserver lists it, `path` its full path on
-   * the computer, `size` its size in bytes when known, `session` the agent session the browser was opened from,
-   * which the source view's Add to Session Context fills (REQ-FILES-010).
+   * One file the file browser opened that is not Markdown or HTML: as source, or its name and size only. `entryPath`
+   * is its path in the project as gxserver lists it, `path` its full path on the computer, `size` its size in bytes
+   * when known, `session` the agent session the browser was opened from, which the source view's Add to Session
+   * Context fills.
    */
   ProjectFile: {
     machineId: string;
@@ -96,9 +96,9 @@ export type RootStackParamList = {
     fragment?: string;
     /** The session's project, whose file link streams a video or audio file (`docs/mediaStream.ts`). */
     projectId?: string;
-    /** Opened from Files: the file's path in the project, which Share… fetches (REQ-FILES-009). */
+    /** Opened from Files: the file's path in the project, which Share… fetches. */
     entryPath?: string;
-    /** Opened from Files from an agent session: the session Add to Session Context fills (REQ-FILES-010). */
+    /** Opened from Files from an agent session: the session Add to Session Context fills. */
     session?: ContextSession;
   };
   /**

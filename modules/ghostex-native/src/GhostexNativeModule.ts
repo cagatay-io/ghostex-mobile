@@ -149,7 +149,7 @@ declare class GhostexNativeModule extends NativeModule<GhostexNativeEvents> {
   stopObservingBarLayout(id: number): Promise<void>;
 
   /**
-   * Share… (REQ-FILES-009): the iOS share sheet for one file of the app's temporary storage (`file://` address).
+   * Share…: the iOS share sheet for one file of the app's temporary storage (`file://` address).
    * Settles once, when the share is over: the sheet has left the screen and reported its last activity's result (an
    * activity cancelled while the sheet stayed open is no end). Resolves when that activity reported no error (shared
    * or cancelled); rejects with `E_SHARE_FAILED` when it failed, `E_SHARE_UNAVAILABLE` when no sheet could be shown,

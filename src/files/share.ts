@@ -1,8 +1,8 @@
 /**
- * Share… (REQ-FILES-009): the phone fetches the file from the computer with gxserver's read of one project file
+ * Share…: the phone fetches the file from the computer with gxserver's read of one project file
  * (`readResource`, at most 12 MiB; server/src/project_docs/actions.rs, limits.rs), keeps a copy only in the app's
  * temporary storage while the iOS share sheet has it, and deletes that copy once the sheet closes, shared or
- * cancelled (data minimisation). Nothing is written to the project (REQ-FILES-005). One share at a time per share
+ * cancelled (data minimisation). Nothing is written to the project. One share at a time per share
  * sheet, and every screen hands its file to the app's one sheet, so one at a time for the whole app; each share
  * keeps and deletes only its own copy. Kept free of native imports so `bun test` drives it with a stand-in request
  * and share sheet; `shareSheet.ts` holds the app's.

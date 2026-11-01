@@ -1,7 +1,7 @@
 /**
  * The project file browser's rows: folders with their open state, files with their kind's icon, name, folder
  * (in Recently changed and search results) and last change. A tap opens a file or opens and closes a folder; a
- * long press opens the row's menu at the row (D-037), with a way to measure the row again; while its menu is open
+ * long press opens the row's menu at the row, with a way to measure the row again; while its menu is open
  * the row reports each new layout of its own (`onHeldLayout`), so the open menu follows it when the window changes
  * and the list lays its rows out again; VoiceOver offers Copy Full Path on every row.
  * Metrics are the phone's Files list's (44 pt rows, 15 pt names, 16 pt per level) as in the approved mockup.
@@ -147,7 +147,7 @@ export function FolderRowContent({
 /** Measures a row (or a control) where it stands now in the window; nothing once it is no longer mounted. */
 export type MeasureAnchor = (onFrame: (frame: MenuAnchor) => void) => void;
 
-/** A file row: a tap opens the file, a long press its menu (memoized as a list row, FL-RCT-10). */
+/** A file row: a tap opens the file, a long press its menu (memoized as a list row). */
 export const FileRow = memo(function FileRow({
   file,
   depth,
@@ -173,7 +173,7 @@ export const FileRow = memo(function FileRow({
     anchor: MenuAnchor,
     measure: MeasureAnchor,
   ) => void;
-  /** The row was laid out again while its menu is open (FL-LAY-08: the native layout callback, not a timer). */
+  /** The row was laid out again while its menu is open (the native layout callback, not a timer). */
   onHeldLayout: () => void;
   onCopyPath: (path: string) => void;
 }) {
@@ -200,7 +200,7 @@ export const FileRow = memo(function FileRow({
   );
 });
 
-/** A folder row: a tap opens or closes it, a long press its menu (memoized as a list row, FL-RCT-10). */
+/** A folder row: a tap opens or closes it, a long press its menu (memoized as a list row). */
 export const FolderRow = memo(function FolderRow({
   folder,
   depth,
@@ -221,7 +221,7 @@ export const FolderRow = memo(function FolderRow({
   held: boolean;
   onToggle: (path: string) => void;
   onMenu: (folder: BrowserFolder, depth: number, expanded: boolean, anchor: MenuAnchor, measure: MeasureAnchor) => void;
-  /** The row was laid out again while its menu is open (FL-LAY-08: the native layout callback, not a timer). */
+  /** The row was laid out again while its menu is open (the native layout callback, not a timer). */
   onHeldLayout: () => void;
   onCopyPath: (path: string) => void;
 }) {

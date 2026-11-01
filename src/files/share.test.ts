@@ -2,7 +2,7 @@
 /**
  * Run with `bun test src/files/share.test.ts`.
  *
- * REQ-FILES-009 (share a file): the real Share… flow (`share.ts`) and the real row menu (`rowMenu.ts`) with a
+ * Sharing a file: the real Share… flow (`share.ts`) and the real row menu (`rowMenu.ts`) with a
  * stand-in for `runProjectDocsAction` that captures what is sent and a stand-in share sheet that keeps each share's
  * temporary copy in memory, so what is left on the phone after the sheet closes is observed, not assumed. The app's
  * own sheet and file system across screens: `shareSheet.rntl.ts`.
@@ -61,8 +61,8 @@ function sheet(options: { fails?: Error } = {}) {
 
 const PICTURE = { path: 'assets/logo.png', name: 'logo.png' };
 
-describe('REQ-FILES-009: share a file', () => {
-  test('REQ-FILES-009 AC1: the host is asked once to read the file, and the sheet gets one file of that name and length', async () => {
+describe('share a file', () => {
+  test('the host is asked once to read the file, and the sheet gets one file of that name and length', async () => {
     const { rpc, sent } = host({
       result: { action: 'readResource', dataBase64: Buffer.from(BYTES).toString('base64') },
       error: null,
@@ -86,7 +86,7 @@ describe('REQ-FILES-009: share a file', () => {
     assert.deepEqual(await done, { shared: true });
   });
 
-  test('REQ-FILES-009 AC2: a file the host refuses reaches no share sheet, and the host message is answered', async () => {
+  test('a file the host refuses reaches no share sheet, and the host message is answered', async () => {
     // gxserver refuses a file over its 12 MiB read limit or one it cannot read with this message (actions.rs).
     const { rpc } = host({ error: { code: 'actionFailed', message: 'Resource is unavailable.' } });
     const share = sheet();
@@ -98,7 +98,7 @@ describe('REQ-FILES-009: share a file', () => {
     assert.equal(fetched, 1, 'the progress notice ends when the host refuses too');
   });
 
-  test('REQ-FILES-009 AC2: a refusal inside the result is the host message too', async () => {
+  test('a refusal inside the result is the host message too', async () => {
     const { rpc } = host({ result: { action: 'readResource', error: 'Select a resource to read.' }, error: null });
     const share = sheet();
     const outcome = await shareProjectFile(rpc, 'project-1', PICTURE, share.fake, () => undefined);
@@ -106,13 +106,13 @@ describe('REQ-FILES-009: share a file', () => {
     assert.deepEqual(share.opened, []);
   });
 
-  test('REQ-FILES-009 AC3: a folder row offers no Share…, a file row does', () => {
+  test('a folder row offers no Share…, a file row does', () => {
     assert.deepEqual(rowMenuActions('folder', { sessionContext: true, share: true }), ['copyPath']);
     assert.equal(rowMenuActions('file', { sessionContext: false, share: true }).includes('share'), true);
     assert.equal(rowMenuActions('file', { sessionContext: false, share: false }).includes('share'), false);
   });
 
-  test('REQ-FILES-009 AC4: the temporary copy exists while the sheet is open and is gone once it closes', async () => {
+  test('the temporary copy exists while the sheet is open and is gone once it closes', async () => {
     const { rpc } = host({ result: { dataBase64: Buffer.from(BYTES).toString('base64') }, error: null });
     const share = sheet();
     const done = shareProjectFile(rpc, 'project-1', PICTURE, share.fake, () => undefined);
@@ -125,7 +125,7 @@ describe('REQ-FILES-009: share a file', () => {
     assert.equal(share.copies.size, 0);
   });
 
-  test('REQ-FILES-009 AC4: a sheet that fails still leaves no copy, and its message is answered', async () => {
+  test('a sheet that fails still leaves no copy, and its message is answered', async () => {
     const { rpc } = host({ result: { dataBase64: Buffer.from(BYTES).toString('base64') }, error: null });
     const share = sheet({ fails: new Error('Share sheet unavailable') });
     const outcome = await shareProjectFile(rpc, 'project-1', PICTURE, share.fake, () => undefined);
@@ -133,14 +133,14 @@ describe('REQ-FILES-009: share a file', () => {
     assert.equal(share.copies.size, 0);
   });
 
-  test('REQ-FILES-009: a name from the computer that would leave the copy folder is not used as a file name', async () => {
+  test('a name from the computer that would leave the copy folder is not used as a file name', async () => {
     const { rpc } = host({ result: { dataBase64: '' }, error: null });
     const share = sheet({ fails: new Error('closed') });
     await shareProjectFile(rpc, 'project-1', { path: 'x/..', name: '..' }, share.fake, () => undefined);
     assert.deepEqual(share.kept, [{ name: DocsCopy.shareFallbackName, bytes: 0 }]);
   });
 
-  test('REQ-FILES-009: an answer without the file (an older Ghostex) says so instead of sharing nothing', async () => {
+  test('an answer without the file (an older Ghostex) says so instead of sharing nothing', async () => {
     const { rpc } = host({ result: { action: 'readResource' }, error: null });
     const share = sheet();
     const outcome = await shareProjectFile(rpc, 'project-1', PICTURE, share.fake, () => undefined);
@@ -148,7 +148,7 @@ describe('REQ-FILES-009: share a file', () => {
     assert.deepEqual(share.kept, []);
   });
 
-  test('REQ-FILES-009 AC4: one share at a time on a sheet; another started meanwhile reads nothing and keeps no copy', async () => {
+  test('one share at a time on a sheet; another started meanwhile reads nothing and keeps no copy', async () => {
     const { rpc, sent } = host({ result: { dataBase64: Buffer.from(BYTES).toString('base64') }, error: null });
     const share = sheet();
     const first = shareProjectFile(rpc, 'project-1', PICTURE, share.fake, () => undefined);

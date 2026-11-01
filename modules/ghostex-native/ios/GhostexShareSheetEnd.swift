@@ -2,7 +2,7 @@
 //  GhostexShareSheetEnd.swift
 //  GhostexNative
 //
-//  When the share sheet of Share… (REQ-FILES-009 AC4) is over, and how it ended: the moment its temporary copy is
+//  When the share sheet of Share… is over, and how it ended: the moment its temporary copy is
 //  deleted and the next share may start. Kept free of UIKit, so its decisions can be checked on their own; the sheet
 //  (GhostexShareSheet.swift) reports to it with what UIKit tells it.
 //
@@ -21,7 +21,7 @@
 //    dismissal after that waits for nothing more and ends with the last result reported, or as closed.
 //  Two ends come from outside the sheet: its presenter going away and taking it along before any result arrived, and
 //  the module ending the share at its teardown (`interrupt`). A sheet UIKit would not present never gets this far
-//  (GhostexShareSheets.present). The sheet being released is no signal: nothing settles from `deinit` (floor FL-NAT-04).
+//  (GhostexShareSheets.present). The sheet being released is no signal: nothing settles from `deinit`.
 //
 
 import Foundation

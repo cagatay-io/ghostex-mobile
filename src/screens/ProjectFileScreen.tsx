@@ -1,11 +1,10 @@
 /**
- * A file the project file browser opened that is not Markdown or HTML (those open in the Docs viewer): other
- * text up to 2 MB as numbered source (REQ-FILES-002 AC2), and pictures, files that are not text and files over
- * 2 MB by their name and size only, with Copy Full Path (REQ-FILES-006). Both offer Share… (REQ-FILES-009), as the
- * approved mockup draws it: in the source view's header, on the name-and-size view under Copy Full Path. The source
- * view's header also offers Add to Session Context in a preview opened from an agent session (REQ-FILES-010, the
- * mockup's `previewButtons`). The text is read off the computer as the Docs viewer reads files (`readRemoteFiles`),
- * never more than the 2 MB limit, and shown only when its bytes are UTF-8 text.
+ * A file the project file browser opened that is not Markdown or HTML (those open in the Docs viewer): other text up
+ * to 2 MB as numbered source, and pictures, files that are not text and files over 2 MB by their name and size only,
+ * with Copy Full Path. Both offer Share…, as the approved mockup draws it: in the source view's header, on the
+ * name-and-size view under Copy Full Path. The source view's header also offers Add to Session Context in a preview
+ * opened from an agent session (the mockup's `previewButtons`). The text is read off the computer as the Docs viewer
+ * reads files (`readRemoteFiles`), never more than the 2 MB limit, and shown only when its bytes are UTF-8 text.
  */
 
 import * as Clipboard from 'expo-clipboard';
@@ -97,7 +96,8 @@ export default function ProjectFileScreen({ navigation, route }: Props) {
     () => share({ path: entryPath, name, size: knownSize }),
     [entryPath, knownSize, name, share],
   );
-  // REQ-FILES-010: in a preview opened from an agent session, the file's context text into that session's input.
+  // Add to Session Context: in a preview opened from an agent session, the file's context text into that session's
+  // input.
   const addToContext = useAddToSessionContext(rpc, machineId, projectId, session, showNotice);
   const addFileToContext = useMemo(
     () => (addToContext === null ? null : () => addToContext({ path: entryPath, name })),
@@ -127,7 +127,7 @@ export default function ProjectFileScreen({ navigation, route }: Props) {
     setShown({ kind: 'loading' });
     setRun((current) => current + 1);
   }, []);
-  // REQ-FILES-003: the full path on the computer.
+  // Copy Full Path: the full path on the computer.
   const copyPath = useCallback(() => {
     Clipboard.setStringAsync(path).then(
       () => showNotice(path, false, DocsCopy.pathCopied),

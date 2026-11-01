@@ -1,8 +1,8 @@
 /**
- * The project file browser's search (REQ-FILES-004) and its file type filter (REQ-FILES-008): gxserver searches
- * the whole project in the project scope, matching every word of the term against each path (its own rule, which
- * REQ-FILES-004 leaves to the host), optionally only files of the picked types; with types picked and nothing
- * typed it lists every file of those types, which the browser draws as a tree of the folders holding them.
+ * The project file browser's search and its file type filter: gxserver searches the whole project in the project
+ * scope, matching every word of the term against each path (its own rule, which is left to the host), optionally only
+ * files of the picked types; with types picked and nothing typed it lists every file of those types, which the
+ * browser draws as a tree of the folders holding them.
  *
  * CDXC:Docs 2026-10-29 SEE-ALSO: the desktop files list's search and type filter
  * (`native_docs_schedule_search` in apps/desktop/src/app/native_docs/files.rs, `type_filter.rs`).
@@ -32,7 +32,7 @@ export type SearchAnswer = {
   incomplete: boolean;
 };
 
-/** Sends the search with `scope: "project"` and `action: "search"` for `query`, limited to `types` (REQ-FILES-004 AC1). */
+/** Sends the search with `scope: "project"` and `action: "search"` for `query`, limited to `types`. */
 export async function searchProjectFiles(
   rpc: DocsRpc,
   projectId: string,
@@ -49,8 +49,8 @@ export async function searchProjectFiles(
 }
 
 /**
- * The files of a search answer the browser lists: files, not the folders gxserver also finds (REQ-FILES-004,
- * approved mockup), and hidden ones only while the hidden-files switch is on (REQ-FILES-007).
+ * The files of a search answer the browser lists: files, not the folders gxserver also finds (approved
+ * mockup), and hidden ones only while the hidden-files switch is on.
  */
 export function searchedFiles(entries: readonly DocsEntry[], showHidden: boolean): DocsEntry[] {
   return entries.filter(

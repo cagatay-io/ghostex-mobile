@@ -1,5 +1,5 @@
 /**
- * Files: a project's file browser on the phone (REQ-FILES-001..010). The whole project folder, one folder at a
+ * Files: a project's file browser on the phone. The whole project folder, one folder at a
  * time as it is opened (gxserver's project-scope listing, `src/files/`), the Markdown and HTML files changed
  * last on top, a search over the whole project with the desktop's file type filter, and per row a menu with
  * Open and Copy Full Path, and for files Share… and, in a browser opened from an agent session, Add to Session
@@ -12,10 +12,9 @@
  * project's long-press menu and the terminal screen's menu. Its first form showed only Markdown and HTML;
  * the next decision widened it to the whole project.
  *
- * CDXC:Docs 2026-10-25 DECISION:
- * User (iPhone feature package, F6): "Projekt, nur lesen" and, for the file browser, "Dateibrowser: A passt":
- * Files becomes the project browser instead of a second entry; folder tree, preview, copy path and search,
- * no upload, edit or delete. The maintainer asked that it copy the desktop files list's ideas ("copy ideas
+ * CDXC:Docs 2026-10-25 WHY:
+ * Files becomes the project browser instead of a second entry, read-only: folder tree, preview, copy path and
+ * search, no upload, edit or delete. The maintainer asked that it copy the desktop files list's ideas ("copy ideas
  * from the files extension in the side panel in the desktop app so they're similar"), so its labels, menu
  * and type filter are the desktop's where the phone has the same thing.
  * SEE-ALSO: apps/desktop/src/app/native_docs/files_list.rs, server/src/project_docs/project_scope.rs
@@ -100,7 +99,7 @@ type Row =
 
 /**
  * The menu of a long-pressed row, kept while it fades out after closing; `measure` finds the row again, so the open
- * menu follows it when the window changes (D-037).
+ * menu follows it when the window changes.
  */
 type RowMenu =
   | {
@@ -173,10 +172,10 @@ export default function DocsScreen({ navigation, route }: Props) {
   }, []);
   // Ends a lasting notice (a file being fetched); a notice shown meanwhile stays.
   const clearNotice = useCallback(() => setNotice((current) => (current?.lasting === true ? null : current)), []);
-  // REQ-FILES-009: the file fetched under a progress notice, then the share sheet.
+  // Share…: the file fetched under a progress notice, then the share sheet.
   const { share: shareFile, sharing } = useShareFile(rpc, projectId, { show: showNotice, clear: clearNotice });
 
-  // REQ-FILES-010: the file's context text into the input of the session Files was opened from, never sent.
+  // Add to Session Context: the file's context text into the input of the session Files was opened from, never sent.
   const addToSessionContext = useAddToSessionContext(rpc, machineId, projectId, session, showNotice);
 
   // Recently changed: the Markdown and HTML files the Docs listing names, newest first, as Files showed them before.
@@ -203,7 +202,7 @@ export default function DocsScreen({ navigation, route }: Props) {
     browserCache.set(cacheKey, { root: rootEntries, recent });
   }, [cacheKey, recent, rootEntries]);
 
-  // The project-wide search (REQ-FILES-004), and the type filter's listing when only types are picked.
+  // The project-wide search, and the type filter's listing when only types are picked.
   const trimmed = query.trim();
   const searchKey = trimmed.length === 0 && types.length === 0 ? null : `${trimmed}\u0000${types.join(',')}`;
   useEffect(() => {
@@ -236,7 +235,7 @@ export default function DocsScreen({ navigation, route }: Props) {
     setSearchRun((run) => run + 1);
   }, [refreshTree]);
 
-  // REQ-FILES-003: the full path on the computer, not the path in the project.
+  // Copy Full Path: the full path on the computer, not the path in the project.
   const copyPath = useCallback(
     (entryPath: string) => {
       void (async () => {
@@ -252,9 +251,9 @@ export default function DocsScreen({ navigation, route }: Props) {
     [machineId, projectId, projectPath, showNotice],
   );
 
-  // Markdown and HTML open rendered in the Docs viewer; everything else in the file view (REQ-FILES-002, -006).
+  // Markdown and HTML open rendered in the Docs viewer; everything else in the file view.
   // A search result carries no size, so it is measured first: a file over 2 MB never opens its content. A browser
-  // opened from an agent session hands that session on, for the preview's Add to Session Context (REQ-FILES-010).
+  // opened from an agent session hands that session on, for the preview's Add to Session Context.
   const openFile = useCallback(
     (file: BrowserFile) => {
       if (opening !== null) return;
@@ -308,8 +307,8 @@ export default function DocsScreen({ navigation, route }: Props) {
     [],
   );
 
-  // D-037: an open row or filter menu stays at its row or button when the window changes (the iPhone rotating, the
-  // Duo unfolding): both are measured again where they stand now, and the menu stays open. FL-LAY-08: measured in a
+  // An open row or filter menu stays at its row or button when the window changes (the iPhone rotating, the
+  // Duo unfolding): both are measured again where they stand now, and the menu stays open. Measured in a
   // layout effect when the window's new size is committed (before that frame is painted), and again in the held
   // row's and the filter button's own layout callbacks whenever the list lays them out later; no timer guesses.
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
@@ -531,7 +530,7 @@ export default function DocsScreen({ navigation, route }: Props) {
   const closeRowMenu = () => setRowMenu((current) => (current === null ? null : { ...current, open: false }));
   const menu = rowMenu?.menu ?? null;
   // Files: Open, Copy Full Path, Add to Session Context, Share…; folders: Copy Full Path. Nothing that changes the
-  // project (REQ-FILES-005).
+  // project.
   const rowMenuItem = (action: RowAction, row: RowMenu): ContextMenuItem => {
     const pick = (run: () => void) => () => {
       closeRowMenu();
@@ -742,7 +741,7 @@ const styles = StyleSheet.create({
     borderColor: GhostexPalette.BORDER,
     backgroundColor: GhostexPalette.INPUT_BACKGROUND,
   },
-  // 34 pt inside the 40 pt field, as in the approved mockup (FL-A11Y-02: above the 28 pt minimum).
+  // 34 pt inside the 40 pt field, as in the approved mockup (above the 28 pt minimum).
   filterButton: { width: 34, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   filterButtonOn: { backgroundColor: 'rgba(125,211,252,0.12)' },
   filterDot: {

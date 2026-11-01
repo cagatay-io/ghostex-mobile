@@ -2,9 +2,8 @@
  * The project file browser's requests to gxserver: `runProjectDocsAction` in the whole-project scope
  * (`scope: "project"`), the requests the desktop Files list makes for a remote project
  * (server/src/project_docs/project_scope.rs, actions.rs). The browser only reads: it sends `list`, `search` and
- * `stat`, `readResource` for Share… (REQ-FILES-009) and `addToSessionContext`, which reads a file into the text
- * a session's input takes (REQ-FILES-010); nothing that writes (REQ-FILES-005). Kept free of native imports so
- * `bun test` can drive it with a stand-in request.
+ * `stat`, `readResource` for Share… and `addToSessionContext`, which reads a file into the text a session's input
+ * takes; nothing that writes. Kept free of native imports so `bun test` can drive it with a stand-in request.
  */
 
 import type { RpcAnswer } from '../chat/rust/transport';

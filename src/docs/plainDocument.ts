@@ -34,7 +34,7 @@ export function renderTextDocument(text: string, title: string): string {
 }
 
 /**
- * Source as the project file browser shows it (REQ-FILES-002 AC2, approved mockup "source"): monospace with
+ * Source as the project file browser shows it (approved mockup "source"): monospace with
  * line numbers, lines kept whole and scrolled sideways so indentation stays readable; the numbers are not
  * selected with the text.
  */

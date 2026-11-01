@@ -1,13 +1,12 @@
 /// <reference types="jest" />
 /**
  * Run with `bun run test:jest`. The project file browser's screen wiring (`DocsScreen`) with the real tree, row
- * menu, Share… and Add to Session Context flows: REQ-FILES-001 AC1-AC3 (the project listed in the project scope, a
- * folder's children on a tap, closed again on the next), D-037 with REQ-FILES-003 (a long press opens the menu at
- * its row, lifted; Copy Full Path puts the file's full path on the clipboard), REQ-FILES-009 (Share… for files
- * only, a progress notice while the file is fetched, then the share sheet, or the host's message) and
- * REQ-FILES-010 (Add to Session Context only in a browser opened from an agent session, the host's text into that
- * session's input and the notice that names it). Stand-ins: gxserver's `runProjectDocsAction`, the share sheet,
- * the session inputs, the clipboard and the native chrome.
+ * menu, Share… and Add to Session Context flows: the project listed in the project scope, a folder's children on a
+ * tap, closed again on the next; a long press opens the menu at its row, lifted, and Copy Full Path puts the file's
+ * full path on the clipboard; Share… for files only, a progress notice while the file is fetched, then the share
+ * sheet, or the host's message; and Add to Session Context only in a browser opened from an agent session, the host's
+ * text into that session's input and the notice that names it. Stand-ins: gxserver's `runProjectDocsAction`, the
+ * share sheet, the session inputs, the clipboard and the native chrome.
  */
 
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -262,7 +261,7 @@ function placedFrame(element: TestInstance): Record<string, unknown> {
   throw new Error('not placed');
 }
 
-test('REQ-FILES-001 AC1-AC3: the project is listed in the project scope, a folder opens to its children and closes again', async () => {
+test('the project is listed in the project scope, a folder opens to its children and closes again', async () => {
   await openBrowser('project-tree');
   expect(mockSent).toContainEqual(
     expect.objectContaining({ projectId: 'project-tree', scope: 'project', action: 'list', path: '' }),
@@ -281,7 +280,7 @@ test('REQ-FILES-001 AC1-AC3: the project is listed in the project scope, a folde
   expect(screen.queryByLabelText('index.ts')).toBeNull();
 });
 
-test('D-037, REQ-FILES-003 AC1: a long press opens the menu at its row, and Copy Full Path copies the full path', async () => {
+test('a long press opens the menu at its row, and Copy Full Path copies the full path', async () => {
   await openBrowser('project-copy');
   await longPress('README.md');
   // The pressed row, lifted at its own place (a full-width row becomes a card inset 8 pt from the edges).
@@ -302,7 +301,7 @@ test('D-037, REQ-FILES-003 AC1: a long press opens the menu at its row, and Copy
   expect(screen.getByText(DocsCopy.pathCopied)).toBeTruthy();
 });
 
-test('REQ-FILES-010 AC5, REQ-FILES-009 AC3: opened without a session, a file has no Add to Session Context and a folder no Share…', async () => {
+test('opened without a session, a file has no Add to Session Context and a folder no Share…', async () => {
   await openBrowser('project-plain');
   await longPress('README.md');
   expect(menuLabels()).toEqual([DocsCopy.open, DocsCopy.copyFullPath, DocsCopy.share]);
@@ -314,7 +313,7 @@ test('REQ-FILES-010 AC5, REQ-FILES-009 AC3: opened without a session, a file has
   expect(menuLabels()).toEqual([DocsCopy.copyFullPath]);
 });
 
-test('REQ-FILES-010 AC1/AC6: opened from an agent session, Add to Session Context puts the host text into it and names it', async () => {
+test('opened from an agent session, Add to Session Context puts the host text into it and names it', async () => {
   await openBrowser('project-context', SESSION);
   await longPress('README.md');
   expect(menuLabels()).toEqual([DocsCopy.open, DocsCopy.copyFullPath, DocsCopy.addToSessionContext, DocsCopy.share]);
@@ -330,7 +329,7 @@ test('REQ-FILES-010 AC1/AC6: opened from an agent session, Add to Session Contex
   expect(screen.getByText(DocsCopy.contextNotSent)).toBeTruthy();
 });
 
-test('REQ-FILES-009 AC1/AC5: Share… shows a progress notice while the file is fetched, then hands it to the share sheet', async () => {
+test('Share… shows a progress notice while the file is fetched, then hands it to the share sheet', async () => {
   const read = Promise.withResolvers<Answer>();
   mockReadAnswer = read.promise;
   await openBrowser('project-share');
@@ -354,7 +353,7 @@ test('REQ-FILES-009 AC1/AC5: Share… shows a progress notice while the file is 
   await waitFor(() => expect(screen.queryByText(DocsCopy.shareFetching('README.md'))).toBeNull());
 });
 
-test('REQ-FILES-009 AC2: a file the host refuses opens no share sheet and shows the host message', async () => {
+test('a file the host refuses opens no share sheet and shows the host message', async () => {
   mockReadAnswer = Promise.resolve({
     result: null,
     error: { code: 'actionFailed', message: 'Resource is unavailable.' },
@@ -382,7 +381,7 @@ async function openSearched(term: string, label: string): Promise<void> {
   await waitFor(() => expect(mockPush).toHaveBeenCalled());
 }
 
-test('REQ-FILES-006 AC5-AC7: a 3 MB Markdown file found by search opens by name and size, as the host measured it', async () => {
+test('a 3 MB Markdown file found by search opens by name and size, as the host measured it', async () => {
   await openBrowser('project-search-large');
   await openSearched('large', 'large.md, docs');
   expect(mockSent).toContainEqual(expect.objectContaining({ scope: 'project', action: 'stat', path: 'docs/large.md' }));
@@ -391,7 +390,7 @@ test('REQ-FILES-006 AC5-AC7: a 3 MB Markdown file found by search opens by name 
   ]);
 });
 
-test('REQ-FILES-006 AC1/AC2: a picture found by search shows its size, as the host measured it', async () => {
+test('a picture found by search shows its size, as the host measured it', async () => {
   await openBrowser('project-search-image');
   await openSearched('icon', 'icon.png, assets');
   expect(mockPush.mock.calls).toEqual([
@@ -399,7 +398,7 @@ test('REQ-FILES-006 AC1/AC2: a picture found by search shows its size, as the ho
   ]);
 });
 
-test('REQ-FILES-010 AC5 (preview header): a file opened in a browser from an agent session carries that session', async () => {
+test('preview header: a file opened in a browser from an agent session carries that session', async () => {
   await openBrowser('project-preview-session', SESSION);
   await act(async () => {
     fireEvent.press(screen.getByLabelText('README.md'));
@@ -418,7 +417,7 @@ test('REQ-FILES-010 AC5 (preview header): a file opened in a browser from an age
   ]);
 });
 
-test('REQ-FILES-010 AC5 (preview header): a file opened in a browser without a session carries none', async () => {
+test('preview header: a file opened in a browser without a session carries none', async () => {
   await openBrowser('project-preview-plain');
   await act(async () => {
     fireEvent.press(screen.getByLabelText('README.md'));
@@ -427,7 +426,7 @@ test('REQ-FILES-010 AC5 (preview header): a file opened in a browser without a s
   expect(mockPush.mock.calls[0]?.[1]).not.toHaveProperty('session');
 });
 
-test('D-037: an open file menu and its lifted row follow the row when the window changes', async () => {
+test('an open file menu and its lifted row follow the row when the window changes', async () => {
   await openBrowser('project-anchor-file');
   await longPress('README.md');
   mockRowFrame = { x: 0, y: 200, width: 852, height: 44 };
@@ -441,7 +440,7 @@ test('D-037: an open file menu and its lifted row follow the row when the window
   });
 });
 
-test('D-037: an open folder menu and its lifted row follow the row when the window changes', async () => {
+test('an open folder menu and its lifted row follow the row when the window changes', async () => {
   await openBrowser('project-anchor-folder');
   await longPress('src');
   mockRowFrame = { x: 0, y: 160, width: 852, height: 44 };
@@ -455,7 +454,7 @@ test('D-037: an open folder menu and its lifted row follow the row when the wind
   });
 });
 
-test('D-037: the open type filter menu follows its button when the window changes', async () => {
+test('the open type filter menu follows its button when the window changes', async () => {
   await openBrowser('project-anchor-filter');
   await act(async () => {
     fireEvent.press(screen.getByLabelText(DocsCopy.filterByType));
@@ -468,9 +467,9 @@ test('D-037: the open type filter menu follows its button when the window change
   });
 });
 
-// FL-LAY-08 (r2 K-4): the list may lay a row (or the search bar) out again later than the window change and any
-// next frame. The open menu must follow that actual layout, reported by the row's or the button's own layout
-// callback, not a guessed frame. The wait below lets every frame-based retry run before the late layout arrives.
+// The list may lay a row (or the search bar) out again later than the window change and any next frame. The open menu
+// must follow that actual layout, reported by the row's or the button's own layout callback, not a guessed frame. The
+// wait below lets every frame-based retry run before the late layout arrives.
 const laterThanAnyFrame = () =>
   act(() => {
     const { promise, resolve } = Promise.withResolvers<void>();
@@ -482,7 +481,7 @@ const laidOut = (element: TestInstance, width: number, height: number) =>
     fireEvent(element, 'layout', { nativeEvent: { layout: { x: 0, y: 0, width, height } } });
   });
 
-test('D-037 (FL-LAY-08): an open file menu follows its row when the list lays the row out after the window change', async () => {
+test('an open file menu follows its row when the list lays the row out after the window change', async () => {
   await openBrowser('project-anchor-file-late');
   await longPress('README.md');
   await withWindow(852, 393, async () => {
@@ -497,7 +496,7 @@ test('D-037 (FL-LAY-08): an open file menu follows its row when the list lays th
   });
 });
 
-test('D-037 (FL-LAY-08): an open folder menu follows its row when the list lays the row out after the window change', async () => {
+test('an open folder menu follows its row when the list lays the row out after the window change', async () => {
   await openBrowser('project-anchor-folder-late');
   await longPress('src');
   await withWindow(852, 393, async () => {
@@ -519,7 +518,7 @@ test('D-037 (FL-LAY-08): an open folder menu follows its row when the list lays 
   });
 });
 
-test('D-037 (FL-LAY-08): the open type filter menu follows its button when it is laid out after the window change', async () => {
+test('the open type filter menu follows its button when it is laid out after the window change', async () => {
   await openBrowser('project-anchor-filter-late');
   await act(async () => {
     fireEvent.press(screen.getByLabelText(DocsCopy.filterByType));

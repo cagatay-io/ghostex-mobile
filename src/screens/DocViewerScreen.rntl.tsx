@@ -1,12 +1,11 @@
 /// <reference types="jest" />
 /**
- * Run with `bun run test:jest`. The Docs viewer's header when the project file browser opened a Markdown file
- * (REQ-FILES-010 AC5 with its scope corrected on 2026-10-29, REQ-FILES-009): as the approved mockup's rendered
- * preview draws it (mockups/files/files.js `previewButtons`), Copy Full Path, Add to Session Context (only in a
- * preview opened from an agent session), Share and Reload; Add to Session Context puts the host's text into that
- * session's input and names the session. Stand-ins: the page builder (the page never finishes loading here, the
- * header does not wait for it), gxserver's `runProjectDocsAction`, the session inputs, the machines store, the
- * share sheet and the native chrome.
+ * Run with `bun run test:jest`. The Docs viewer's header when the project file browser opened a Markdown file: as the
+ * approved mockup's rendered preview draws it (`previewButtons`), Copy Full Path, Add to
+ * Session Context (only in a preview opened from an agent session), Share and Reload; Add to Session Context puts the
+ * host's text into that session's input and names the session. Stand-ins: the page builder (the page never finishes
+ * loading here, the header does not wait for it), gxserver's `runProjectDocsAction`, the session inputs, the machines
+ * store, the share sheet and the native chrome.
  */
 
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -137,7 +136,7 @@ beforeEach(() => {
   mockInserted.length = 0;
 });
 
-test('REQ-FILES-009 (one share at a time): while another screen shares, the preview header Share is dimmed and starts nothing', async () => {
+test('one share at a time: while another screen shares, the preview header Share is dimmed and starts nothing', async () => {
   // Another Files screen's share, its file still being fetched from the computer.
   const read = Promise.withResolvers<RpcAnswer>();
   const running = shareProjectFile(
@@ -161,7 +160,7 @@ test('REQ-FILES-009 (one share at a time): while another screen shares, the prev
   expect(shareButton().props.accessibilityState).toEqual(expect.objectContaining({ disabled: false }));
 });
 
-test('REQ-FILES-010 AC5 (corrected scope): a Markdown preview from an agent session offers Add to Session Context', async () => {
+test('a Markdown preview from an agent session offers Add to Session Context', async () => {
   await render(<WithHeader params={{ ...FROM_FILES, session: SESSION }} />);
   // The approved mockup's preview header: Copy Full Path, Add to Session Context, Share, Reload.
   expect(headerLabels()).toEqual([
@@ -182,12 +181,12 @@ test('REQ-FILES-010 AC5 (corrected scope): a Markdown preview from an agent sess
   expect(screen.getByText(DocsCopy.contextNotSent)).toBeTruthy();
 });
 
-test('REQ-FILES-010 AC5: a Markdown preview opened without a session has no Add to Session Context', async () => {
+test('a Markdown preview opened without a session has no Add to Session Context', async () => {
   await render(<WithHeader params={FROM_FILES} />);
   expect(headerLabels()).toEqual([DocsCopy.copyFullPath, DocsCopy.shareButton, DocsCopy.reload]);
 });
 
-test('REQ-FILES-010 AC5: a document opened outside Files (a chat link) keeps its own header, without Share or the action', async () => {
+test('a document opened outside Files (a chat link) keeps its own header, without Share or the action', async () => {
   await render(<WithHeader params={{ machineId: 'machine-1', path: '/Users/me/notes.md' }} />);
   expect(headerLabels()).toEqual([DocsCopy.copyPath, DocsCopy.reload]);
 });

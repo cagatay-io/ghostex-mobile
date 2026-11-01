@@ -1,12 +1,11 @@
 /// <reference types="jest" />
 /**
- * Run with `bun run test:jest`. The project file browser's file view (`ProjectFileScreen`) wiring: REQ-FILES-006
- * AC5/AC6/AC7 with REQ-FILES-003 (a file over 2 MB shows its name and size, no content is read, Copy Full Path puts
- * its full path on the clipboard), REQ-FILES-006 AC3/AC4/AC7 (bytes that are not UTF-8 text show name and size, not
- * decoded source), REQ-FILES-009 (its Share… fetches the file by its path in the project under a progress notice
- * and hands it to the share sheet, as the approved mockup's info view does) and REQ-FILES-010 (the source view's
- * header offers Add to Session Context only in a preview opened from an agent session, mockups/files/files.js
- * `previewButtons`). Stand-ins: gxserver's `runProjectDocsAction`, the SSH file read (its base64 decoded by the real
+ * Run with `bun run test:jest`. The project file browser's file view (`ProjectFileScreen`) wiring: a file over 2 MB
+ * shows its name and size, no content is read, and Copy Full Path puts its full path on the clipboard; bytes that are
+ * not UTF-8 text show name and size, not decoded source; its Share… fetches the file by its path in the project
+ * under a progress notice and hands it to the share sheet, as the approved mockup's info view does; and the source
+ * view's header offers Add to Session Context only in a preview opened from an agent session
+ * (`previewButtons`). Stand-ins: gxserver's `runProjectDocsAction`, the SSH file read (its base64 decoded by the real
  * decoder), the share sheet, the session inputs, the clipboard, the native chrome.
  */
 
@@ -144,7 +143,7 @@ beforeEach(() => {
   mockRead.mockClear();
 });
 
-test('REQ-FILES-006 AC5-AC7, REQ-FILES-003, REQ-FILES-009: a 3 MB file shows name and size, copies its full path and shares', async () => {
+test('a 3 MB file shows name and size, copies its full path and shares', async () => {
   await render(
     <WithHeader
       params={{
@@ -198,7 +197,7 @@ const SOURCE = {
   size: 21,
 };
 
-test('REQ-FILES-006 AC3/AC4/AC7: bytes that are not UTF-8 text (no NUL among them) show name and size, not source', async () => {
+test('bytes that are not UTF-8 text (no NUL among them) show name and size, not source', async () => {
   // FF FE: no NUL byte, but no UTF-8 either (gxserver's preview refuses it too, file_ops.rs "not valid UTF-8 text").
   readAnswers(Uint8Array.from([0xff, 0xfe]));
   await render(
@@ -217,13 +216,13 @@ test('REQ-FILES-006 AC3/AC4/AC7: bytes that are not UTF-8 text (no NUL among the
   expect(screen.queryByLabelText(DocsCopy.sourceView('sample.dat'))).toBeNull();
 });
 
-test('REQ-FILES-002 AC2: UTF-8 text that holds a replacement character itself is still shown as source', async () => {
+test('UTF-8 text that holds a replacement character itself is still shown as source', async () => {
   readAnswers(new TextEncoder().encode('const marker = "\uFFFD";\n'));
   await render(<WithHeader params={SOURCE} />);
   expect(await screen.findByLabelText(DocsCopy.sourceView('index.ts'))).toBeTruthy();
 });
 
-test('REQ-FILES-010 AC5 (corrected scope): a source preview from an agent session offers Add to Session Context in its header', async () => {
+test('a source preview from an agent session offers Add to Session Context in its header', async () => {
   readAnswers(new TextEncoder().encode('export const a = 1;\n'));
   await render(<WithHeader params={{ ...SOURCE, session: SESSION }} />);
   await screen.findByLabelText(DocsCopy.sourceView('index.ts'));
@@ -246,14 +245,14 @@ test('REQ-FILES-010 AC5 (corrected scope): a source preview from an agent sessio
   expect(screen.getByText(DocsCopy.contextNotSent)).toBeTruthy();
 });
 
-test('REQ-FILES-010 AC5: a preview opened without a session has no Add to Session Context in its header', async () => {
+test('a preview opened without a session has no Add to Session Context in its header', async () => {
   readAnswers(new TextEncoder().encode('export const a = 1;\n'));
   await render(<WithHeader params={SOURCE} />);
   await screen.findByLabelText(DocsCopy.sourceView('index.ts'));
   expect(headerLabels()).toEqual([DocsCopy.copyFullPath, DocsCopy.shareButton, DocsCopy.reload]);
 });
 
-test('REQ-FILES-006, mockup info view: name and size only, so its header keeps only Reload even from an agent session', async () => {
+test('the info view as in the mockup: name and size only, so its header keeps only Reload even from an agent session', async () => {
   await render(
     <WithHeader params={{ ...SOURCE, entryPath: 'big.log', path: '/p/big.log', size: 3_000_000, session: SESSION }} />,
   );
@@ -261,7 +260,7 @@ test('REQ-FILES-006, mockup info view: name and size only, so its header keeps o
   expect(headerLabels()).toEqual([DocsCopy.reload]);
 });
 
-test('REQ-FILES-009 (one share at a time): while its share runs, the source header Share is dimmed and starts nothing', async () => {
+test('one share at a time: while its share runs, the source header Share is dimmed and starts nothing', async () => {
   readAnswers(new TextEncoder().encode('export const a = 1;\n'));
   await render(<WithHeader params={SOURCE} />);
   await screen.findByLabelText(DocsCopy.sourceView('index.ts'));

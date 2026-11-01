@@ -1,6 +1,6 @@
 /// <reference types="jest" />
 /**
- * Run with `bun run test:jest`. FL-A11Y-05 on the file screens' notice (`NoticeToast`): it follows the system's
+ * Run with `bun run test:jest`. Reduce Motion on the file screens' notice (`NoticeToast`): it follows the system's
  * Reduce Motion setting live, through the app's one carrier of it (`reduceMotion.ts`). With Reduce Motion off a
  * notice fades in and out; switched on while the toast is mounted, the next notice appears and leaves at once,
  * without a fade; switched off again, notices fade again. `AccessibilityInfo` is the stand-in for the system
@@ -55,7 +55,7 @@ function opacityOf(message: string): unknown {
 
 const notice = (id: number, message: string): Notice => ({ id, message, error: false });
 
-test('FL-A11Y-05: the notice follows Reduce Motion switched on and off while it is mounted', async () => {
+test('the notice follows Reduce Motion switched on and off while it is mounted', async () => {
   const timing = jest.spyOn(Animated, 'timing');
   const view = await render(<NoticeToast notice={notice(1, 'Path copied')} bottom={16} />);
   // Off: the notice fades in.
@@ -80,7 +80,7 @@ test('FL-A11Y-05: the notice follows Reduce Motion switched on and off while it 
   expect(timing).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ toValue: 1 }));
 });
 
-test('FL-A11Y-05: with Reduce Motion on, clearing a lasting notice removes it at once', async () => {
+test('with Reduce Motion on, clearing a lasting notice removes it at once', async () => {
   reduceMotion.enabled = true;
   const timing = jest.spyOn(Animated, 'timing');
   const view = await render(<NoticeToast notice={{ ...notice(1, 'Getting plan.md…'), lasting: true }} bottom={16} />);

@@ -1,5 +1,5 @@
 /**
- * The app's share sheet for Share… (REQ-FILES-009): the app's own native module shows the iOS share sheet with the
+ * The app's share sheet for Share…: the app's own native module shows the iOS share sheet with the
  * copy's file address (`GhostexNative.shareFile`) and answers once the share is over, however it ended (a cancelled
  * sheet answers quietly; a share that failed, could not open or was interrupted answers with an error code, told to
  * the person by category); each share's copy sits in a
@@ -18,7 +18,7 @@ import type { ShareSheet } from './share';
 
 /**
  * Whether this phone can hand a file to the share sheet: iOS. The app's module shows it there only, and a
- * file-sharing module for Android would be a new dependency, which needs the owner's approval first (REQ-FILES-009).
+ * file-sharing module for Android would be a new dependency, which needs approval first.
  */
 export const canShareFiles = Platform.OS === 'ios';
 

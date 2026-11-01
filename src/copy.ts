@@ -894,8 +894,8 @@ export const ChangesCopy = {
 
 /**
  * Files: the project file browser (`DocsScreen`, `ProjectFileScreen`) and the Docs viewer. The browser's labels
- * and status lines are the desktop files list's where the phone has the same thing (REQ-FILES-008:
- * apps/desktop/src/app/native_docs/files_list.rs, type_filter.rs, actions.rs).
+ * and status lines are the desktop files list's where the phone has the same thing
+ * (apps/desktop/src/app/native_docs/files_list.rs, type_filter.rs, actions.rs).
  */
 export const DocsCopy = {
   menuLabel: 'Files',
@@ -922,16 +922,16 @@ export const DocsCopy = {
   open: 'Open',
   openFile: (name: string) => `Open ${name}`,
   copyFullPath: 'Copy Full Path',
-  // REQ-FILES-010: the desktop's row label and its messages (native_docs/actions.rs, gpui_engine_terminal_attachment.rs),
-  // in the row menu and a text preview's header; the notices are the approved mockup's (mockups/files/files.js
-  // `contextToast`).
+  // Add to Session Context: the desktop's row label and its messages (native_docs/actions.rs,
+  // gpui_engine_terminal_attachment.rs), in the row menu and a text preview's header; the notices are the approved
+  // mockup's.
   addToSessionContext: 'Add to Session Context',
   contextAdded: (session: string) => `Added to ${session}`,
   contextNotSent: 'Not sent yet. Write your message there and send it.',
   contextFailed: (name: string) => `Can't add ${name}`,
   contextNoSession: 'No active agent session is available.',
   contextNoText: 'The computer sent no text for this file. Update Ghostex on the computer and try again.',
-  // REQ-FILES-009: Share… in the row menu and on the name-and-size view, Share in a text preview's header (mockup).
+  // Share… in the row menu and on the name-and-size view, Share in a text preview's header (mockup).
   share: 'Share…',
   shareButton: 'Share',
   shareFetching: (name: string) => `Getting ${name}…`,

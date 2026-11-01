@@ -2,7 +2,7 @@
 /**
  * Run with `bun test src/files/sessionContext.test.ts`.
  *
- * REQ-FILES-010 (add a file to the session's context): the real flow (`sessionContext.ts`) and the real row menu
+ * Adding a file to the session's context: the real flow (`sessionContext.ts`) and the real row menu
  * (`rowMenu.ts`) with a stand-in for `runProjectDocsAction` that captures what is sent and stand-in session inputs
  * that record what lands in the chat draft and the terminal. The app's own inputs (chat host, native terminal)
  * are driven in `sessionInputs.rntl.ts`.
@@ -71,8 +71,8 @@ function inputs(chat: boolean, options: { chatReady?: boolean; terminal?: boolea
 
 const ANSWER: RpcAnswer = { result: { action: 'addToSessionContext', contextPrompt: PROMPT }, error: null };
 
-describe('REQ-FILES-010: add a file to the session context', () => {
-  test('REQ-FILES-010 AC1: one addToSessionContext request for the file, its text inserted once into that session', async () => {
+describe('add a file to the session context', () => {
+  test('one addToSessionContext request for the file, its text inserted once into that session', async () => {
     const { rpc, sent } = host(ANSWER);
     const session = inputs(true);
     const outcome = await addFileToSessionContext(rpc, 'project-1', 'docs/plan.md', SESSION, session.fake);
@@ -85,7 +85,7 @@ describe('REQ-FILES-010: add a file to the session context', () => {
     assert.deepEqual(outcome, { added: true, into: 'chat' });
   });
 
-  test('REQ-FILES-010 AC2: a session shown as a chat gets the text in its chat draft, not in its terminal', async () => {
+  test('a session shown as a chat gets the text in its chat draft, not in its terminal', async () => {
     const { rpc } = host(ANSWER);
     const session = inputs(true);
     await addFileToSessionContext(rpc, 'project-1', 'docs/plan.md', SESSION, session.fake);
@@ -93,7 +93,7 @@ describe('REQ-FILES-010: add a file to the session context', () => {
     assert.deepEqual(session.terminal, []);
   });
 
-  test('REQ-FILES-010 AC3: a session shown as a terminal gets the text pasted as it is, with nothing after it', async () => {
+  test('a session shown as a terminal gets the text pasted as it is, with nothing after it', async () => {
     const { rpc } = host(ANSWER);
     const session = inputs(false);
     const outcome = await addFileToSessionContext(rpc, 'project-1', 'docs/plan.md', SESSION, session.fake);
@@ -102,7 +102,7 @@ describe('REQ-FILES-010: add a file to the session context', () => {
     assert.deepEqual(outcome, { added: true, into: 'terminal' });
   });
 
-  test('REQ-FILES-010 AC3: a session that cannot show its chat is pasted into even when Chat View is the default', async () => {
+  test('a session that cannot show its chat is pasted into even when Chat View is the default', async () => {
     const { rpc } = host(ANSWER);
     const session = inputs(true);
     await addFileToSessionContext(rpc, 'project-1', 'docs/plan.md', { ...SESSION, chatCapable: false }, session.fake);
@@ -110,7 +110,7 @@ describe('REQ-FILES-010: add a file to the session context', () => {
     assert.deepEqual(session.chatDraft, []);
   });
 
-  test('REQ-FILES-010 AC4: a file the host refuses inserts nothing and answers the host message', async () => {
+  test('a file the host refuses inserts nothing and answers the host message', async () => {
     for (const message of [
       'File is too large to add to session context.',
       'Only UTF-8 text files can be added to session context.',
@@ -125,7 +125,7 @@ describe('REQ-FILES-010: add a file to the session context', () => {
     }
   });
 
-  test('REQ-FILES-010 AC4: a refusal inside the result is the host message too', async () => {
+  test('a refusal inside the result is the host message too', async () => {
     const { rpc } = host({ result: { error: 'Select a file to add to session context.' }, error: null });
     const session = inputs(true);
     const outcome = await addFileToSessionContext(rpc, 'project-1', 'docs', SESSION, session.fake);
@@ -133,7 +133,7 @@ describe('REQ-FILES-010: add a file to the session context', () => {
     assert.deepEqual(session.chatDraft, []);
   });
 
-  test('REQ-FILES-010: a chat box that is not open, or a terminal that is gone, says no agent session is available', async () => {
+  test('a chat box that is not open, or a terminal that is gone, says no agent session is available', async () => {
     const { rpc } = host(ANSWER);
     const notReady = inputs(true, { chatReady: false });
     assert.deepEqual(await addFileToSessionContext(rpc, 'project-1', 'docs/plan.md', SESSION, notReady.fake), {
@@ -147,7 +147,7 @@ describe('REQ-FILES-010: add a file to the session context', () => {
     });
   });
 
-  test('REQ-FILES-010 AC5: no session, a session without an agent, or a folder row: no Add to Session Context', () => {
+  test('no session, a session without an agent, or a folder row: no Add to Session Context', () => {
     const agentTab = { kind: 'attach' as const, sessionKey: 'machine-1:session-7', ghostexSessionId: 'session-7' };
     // Opened from an agent session: offered on files only.
     const fromAgent = contextSessionFor(agentTab, 'claude', 'Duo layout spike', true);
@@ -164,7 +164,7 @@ describe('REQ-FILES-010: add a file to the session context', () => {
     assert.equal(rowMenuActions('file', { sessionContext: false, share: true }).includes('addToSessionContext'), false);
   });
 
-  test('REQ-FILES-010 AC5 (corrected scope): a text preview header offers it only from an agent session, in the mockup order', () => {
+  test('a text preview header offers it only from an agent session, in the mockup order', () => {
     assert.deepEqual(previewActions({ sessionContext: true, share: true }), [
       'copyPath',
       'addToSessionContext',
@@ -176,7 +176,7 @@ describe('REQ-FILES-010: add a file to the session context', () => {
   });
 });
 
-describe('REQ-FILES-010 scope: the target is checked again right before inserting (still open, running, an agent)', () => {
+describe('the target is checked again right before inserting (still open, running, an agent)', () => {
   const refused = { added: false, message: DocsCopy.contextNoSession };
   const tab = OPEN_TAB;
   const record = LIVE_RECORD;
@@ -189,7 +189,7 @@ describe('REQ-FILES-010 scope: the target is checked again right before insertin
   ];
 
   for (const [why, now] of notReady) {
-    test(`REQ-FILES-010: nothing is inserted into a session ${why}, in chat or terminal view`, async () => {
+    test(`nothing is inserted into a session ${why}, in chat or terminal view`, async () => {
       for (const chat of [true, false]) {
         const { rpc } = host(ANSWER);
         const session = inputs(chat, { now });
@@ -202,7 +202,7 @@ describe('REQ-FILES-010 scope: the target is checked again right before insertin
     });
   }
 
-  test('REQ-FILES-010: in terminal view only a connected terminal takes the text; the chat needs none', async () => {
+  test('in terminal view only a connected terminal takes the text; the chat needs none', async () => {
     for (const state of ['opening', 'closed', 'failed', 'detached'] as const) {
       const { rpc } = host(ANSWER);
       const now = { tab: { ...tab, state }, record };
@@ -220,7 +220,7 @@ describe('REQ-FILES-010 scope: the target is checked again right before insertin
     }
   });
 
-  test('REQ-FILES-010: the check is made after the host answered, not when Add to Session Context was chosen', async () => {
+  test('the check is made after the host answered, not when Add to Session Context was chosen', async () => {
     let now: ContextTargetNow = LIVE;
     const rpc: DocsRpc = () => {
       now = { tab, record: undefined };

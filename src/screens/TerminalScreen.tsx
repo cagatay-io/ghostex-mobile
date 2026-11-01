@@ -577,7 +577,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
       if (id === 'docs') {
         setMenuVisible(false);
         if (activeTab !== null && activeProject !== null && (activeProject.path ?? '').length > 0) {
-          // The agent session Files was opened from takes Add to Session Context (REQ-FILES-010).
+          // The agent session Files was opened from takes Add to Session Context.
           const session = contextSessionFor(
             activeTab,
             activeAgentId,

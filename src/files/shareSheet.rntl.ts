@@ -1,11 +1,11 @@
 /// <reference types="jest" />
 /**
- * Run with `bun run test:jest`. REQ-FILES-009 AC4 across screens: the real Share… flow (`share.ts`), the app's
- * share sheet (`shareSheet.ts`) and the screens' hook (`useShareFile.ts`), with only the app module's share sheet
- * (`GhostexNative.shareFile`, which answers once the sheet is over) and the file system faked at their boundary.
- * The list, the source view and the Docs viewer each run their own hook but hand their files to the same share
- * sheet, so one share at a time holds for the whole app, and every share deletes only its own temporary copy: a
- * sheet never loses the file it was handed to another screen's share.
+ * Run with `bun run test:jest`. One share at a time, and its copy deleted, across screens: the real Share… flow
+ * (`share.ts`), the app's share sheet (`shareSheet.ts`) and the screens' hook (`useShareFile.ts`), with only the app
+ * module's share sheet (`GhostexNative.shareFile`, which answers once the sheet is over) and the file system faked at
+ * their boundary. The list, the source view and the Docs viewer each run their own hook but hand their files to the
+ * same share sheet, so one share at a time holds for the whole app, and every share deletes only its own temporary
+ * copy: a sheet never loses the file it was handed to another screen's share.
  */
 
 import { act, renderHook } from '@testing-library/react-native';
@@ -96,7 +96,7 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-test('REQ-FILES-009 AC4: a share started on another screen while the first file is fetched leaves the first copy alone', async () => {
+test('a share started on another screen while the first file is fetched leaves the first copy alone', async () => {
   const host = slowHost();
   // The list starts a share; while its file is fetched, the file view starts another; then both reads come back.
   const first = shareProjectFile(
@@ -133,7 +133,7 @@ test('REQ-FILES-009 AC4: a share started on another screen while the first file 
   expect(mockFiles.size).toBe(0);
 });
 
-test('REQ-FILES-009 AC4: each share deletes only its own copy, the next one starts afresh', async () => {
+test('each share deletes only its own copy, the next one starts afresh', async () => {
   const host = slowHost();
   const first = shareProjectFile(
     host.rpc,
@@ -161,7 +161,7 @@ test('REQ-FILES-009 AC4: each share deletes only its own copy, the next one star
   expect(mockFiles.size).toBe(0);
 });
 
-test('REQ-FILES-009 AC4: a copy an earlier run left behind (the app closed with its sheet open) goes at the next share', async () => {
+test('a copy an earlier run left behind (the app closed with its sheet open) goes at the next share', async () => {
   mockFolders.add('file:///cache/files-share/');
   mockFolders.add('file:///cache/files-share/left-behind/');
   mockFiles.add('file:///cache/files-share/left-behind/old.txt');
@@ -180,7 +180,7 @@ test('REQ-FILES-009 AC4: a copy an earlier run left behind (the app closed with 
   expect(mockFiles.size).toBe(0);
 });
 
-test('REQ-FILES-009: while one screen shares, every other screen shows Share… as busy and starts nothing', async () => {
+test('while one screen shares, every other screen shows Share… as busy and starts nothing', async () => {
   const host = slowHost();
   const notices = { show: jest.fn(), clear: jest.fn() };
   const list = await renderHook(() => useShareFile(host.rpc, 'project', notices));
@@ -197,7 +197,7 @@ test('REQ-FILES-009: while one screen shares, every other screen shows Share… 
   expect(preview.result.current.sharing).toBe(false);
 });
 
-test('REQ-FILES-009 AC4 (r2 K-2): the copy and the one-share lock last exactly as long as the module reports the sheet open', async () => {
+test('the copy and the one-share lock last exactly as long as the module reports the sheet open', async () => {
   // React Native's `Share` ignores the completion of an activity the person cancelled (RCTActionSheetManager.mm
   // 0.88:288-295) and could leave both for good; the app's sheet goes through its own module instead.
   const reactNativeShare = jest.spyOn(Share, 'share');
@@ -246,7 +246,7 @@ test.each([
   ['E_SHARE_UNAVAILABLE', 'The share sheet could not be shown', DocsCopy.shareSheetUnavailable],
   ['ERR_UNEXPECTED', 'synthetic unexpected failure', DocsCopy.shareSheetInterrupted],
 ])(
-  'REQ-FILES-009 AC4 (r3 K-2): a sheet that ends with %s releases the lock, deletes the copy and names the category',
+  'a sheet that ends with %s releases the lock, deletes the copy and names the category',
   async (code, nativeMessage, shown) => {
     const host = slowHost();
     const notices = { show: jest.fn(), clear: jest.fn() };

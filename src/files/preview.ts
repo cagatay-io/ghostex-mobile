@@ -1,5 +1,5 @@
 /**
- * What the project file browser does with a file it opens (REQ-FILES-002, REQ-FILES-006), and how it names a
+ * What the project file browser does with a file it opens, and how it names a
  * file's kind and size. Markdown and HTML open rendered in the Docs viewer, as from Files before; other text up
  * to the host's preview limit opens as source; pictures, files that are not text and files over the limit show
  * their name and size only, with Copy Full Path.
@@ -14,7 +14,7 @@ import { isRecord } from '../docs/entries';
 import { docKindForPath, extensionOf, previewKindForPath } from '../docs/paths';
 import { projectScopeAction, type DocsRpc } from './request';
 
-/** The host's preview limit, 2 MB (REQ-FILES-002 scope, REQ-FILES-006). */
+/** The host's preview limit, 2 MB. */
 export const PREVIEW_MAX_BYTES = 2_000_000;
 
 /** Pictures, as the desktop's files list counts them (its own, its embed page's and the system app's). */
@@ -131,7 +131,7 @@ export function fileKind(name: string): FileKind {
   return previewKindForPath(name) === 'text' ? 'source' : 'other';
 }
 
-/** Why a file shows only its name and size (REQ-FILES-006). */
+/** Why a file shows only its name and size. */
 export type InfoReason = 'image' | 'binary' | 'large';
 
 export type FilePreview = { kind: 'document' } | { kind: 'source' } | { kind: 'info'; reason: InfoReason };

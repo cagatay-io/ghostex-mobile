@@ -1,7 +1,7 @@
 /**
- * Run with `bun test src/settings/store.test.ts`. REQ-FILES-007 AC3: on a fresh install (empty in-memory
+ * Run with `bun test src/settings/store.test.ts`. On a fresh install (empty in-memory
  * AsyncStorage) the project file browser's hidden-files switch `showHiddenFiles` reads false; switched on, it
- * stays on across a store reload; settings stored before it existed read it as off (FL-STA-03).
+ * stays on across a store reload; settings stored before it existed read it as off.
  */
 
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
@@ -30,20 +30,20 @@ beforeEach(() => {
   memory.clear();
 });
 
-describe('REQ-FILES-007: hidden files sit behind a switch that is off by default', () => {
-  test('REQ-FILES-007 AC3: a fresh install reads showHiddenFiles as false', async () => {
+describe('hidden files sit behind a switch that is off by default', () => {
+  test('a fresh install reads showHiddenFiles as false', async () => {
     await reload();
     expect(useSettingsStore.getState().settings.showHiddenFiles).toBe(false);
   });
 
-  test('REQ-FILES-007 AC2: switched on, it is still on after a reload', async () => {
+  test('switched on, it is still on after a reload', async () => {
     await reload();
     useSettingsStore.getState().setSetting('showHiddenFiles', true);
     await reload();
     expect(useSettingsStore.getState().settings.showHiddenFiles).toBe(true);
   });
 
-  test('REQ-FILES-007 AC3: settings saved before the switch existed read it as off', async () => {
+  test('settings saved before the switch existed read it as off', async () => {
     memory.set('settings.v1', JSON.stringify({ fontSize: 12, autoReconnect: false }));
     await reload();
     expect(useSettingsStore.getState().settings.showHiddenFiles).toBe(false);

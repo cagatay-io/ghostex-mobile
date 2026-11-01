@@ -2,9 +2,9 @@
 //  GhostexShareSheet.swift
 //  GhostexNative
 //
-//  The iOS share sheet for one file: Share… in the project file browser (REQ-FILES-009). Each module instance owns the
+//  The iOS share sheet for one file: Share… in the project file browser. Each module instance owns the
 //  shares it started (`GhostexShareSheets`): a share lasts until GhostexShareSheetEnd has decided it is over, from what
-//  the sheet reports, or until the module ends it at its teardown. Nothing settles when a sheet is released (FL-NAT-04).
+//  the sheet reports, or until the module ends it at its teardown. Nothing settles when a sheet is released.
 //
 
 import UIKit

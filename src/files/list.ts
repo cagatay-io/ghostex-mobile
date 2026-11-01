@@ -1,5 +1,5 @@
 /**
- * The project file browser's folder tree (REQ-FILES-001, REQ-FILES-007): gxserver lists one folder's children
+ * The project file browser's folder tree: gxserver lists one folder's children
  * at a time in the project scope (every file type, its skip list applied: `.git`, `node_modules`, build
  * output), and the browser shows the top level plus the children of every folder that is open, hidden names
  * left out while the hidden-files switch is off.
@@ -43,10 +43,10 @@ export type FolderState = { entries: readonly DocsEntry[] | null; loading: boole
 export type FolderListing = { entries: DocsEntry[]; revision: string | null } | null;
 
 /**
- * Lists one folder of the project (`''`: its top level) with `scope: "project"` and `action: "list"`
- * (REQ-FILES-001 AC1). `force` drops gxserver's short-lived listing cache first, for Refresh. A Ghostex from
- * before the whole-project listing answers with its Docs list instead (no `progressive`), which is refused with
- * the update hint rather than drawn as a tree it is not.
+ * Lists one folder of the project (`''`: its top level) with `scope: "project"` and `action: "list"`. `force` drops
+ * gxserver's short-lived listing cache first, for Refresh. A Ghostex from before the whole-project listing answers
+ * with its Docs list instead (no `progressive`), which is refused with the update hint rather than drawn as a tree it
+ * is not.
  */
 export async function listProjectFolder(
   rpc: DocsRpc,
@@ -67,7 +67,7 @@ export async function listProjectFolder(
   };
 }
 
-/** A hidden file or folder: its name starts with a dot (REQ-FILES-007). */
+/** A hidden file or folder: its name starts with a dot. */
 export function isHiddenName(name: string): boolean {
   return name.startsWith('.');
 }
@@ -89,8 +89,8 @@ export function browserFile(entry: DocsEntry): BrowserFile {
 
 /**
  * The tree's rows: the project's top level and, one level deeper each, the children of every open folder
- * (REQ-FILES-001 AC2; closing a folder's row goes back to its parent, AC3). While `showHidden` is off a hidden
- * name is not listed, nor anything under it (REQ-FILES-007).
+ * (closing a folder's row goes back to its parent). While `showHidden` is off a hidden name is not listed, nor
+ * anything under it.
  */
 export function treeRows(
   folders: ReadonlyMap<string, FolderState>,

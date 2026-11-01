@@ -15,7 +15,7 @@ describe('mobileViewForRoute', () => {
     assert.equal(mobileViewForRoute('SettingsPage'), 'mobile_settings');
   });
 
-  test('REQ-FILES-002 AC2: a file the Files browser opens as source or by name and size counts as Files', () => {
+  test('a file the Files browser opens as source or by name and size counts as Files', () => {
     assert.equal(mobileViewForRoute('Docs'), 'mobile_files');
     assert.equal(mobileViewForRoute('ProjectFile'), 'mobile_files');
   });

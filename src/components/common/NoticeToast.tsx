@@ -2,7 +2,7 @@
  * A short message at the bottom of a file screen that fades in and out on its own: a copied path, a page's
  * notes, a failure (the Docs viewer and the project file browser). Each new `notice` (a new `id`) shows anew. A
  * `lasting` notice (a file being fetched for Share…) stays until the next notice replaces it or `null` clears it.
- * With the system's Reduce Motion on (followed live, FL-A11Y-05) a notice appears and leaves at once, without a fade.
+ * With the system's Reduce Motion on (followed live) a notice appears and leaves at once, without a fade.
  */
 
 import { useEffect, useRef, useState } from 'react';

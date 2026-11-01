@@ -15,8 +15,8 @@
  * embedded files are copied into the mirror or loaded through a forward
  * (CDXC:RemoteMachines 2026-10-16 in `webPreview/machineLinks.ts`). Video and audio play from the
  * computer's gxserver (`docs/mediaStream.ts`). Opened from Files, its header is the approved mockup's preview
- * header (`previewButtons`): Copy Full Path, Add to Session Context (REQ-FILES-010, only when Files was opened from
- * an agent session), Share (REQ-FILES-009) and Reload.
+ * header (`previewButtons`): Copy Full Path, Add to Session Context (only when Files was opened from
+ * an agent session), Share and Reload.
  */
 
 import * as Clipboard from 'expo-clipboard';

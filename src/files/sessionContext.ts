@@ -1,12 +1,12 @@
 /**
- * Add to Session Context (REQ-FILES-010) as the desktop does it: gxserver reads the file into "File context:
+ * Add to Session Context as the desktop does it: gxserver reads the file into "File context:
  * <path>" with its text in a code block (`addToSessionContext`, server/src/project_docs/actions.rs; UTF-8 text of
  * at most 300 000 bytes, limits.rs), and that text goes into the input of the agent session the browser was opened
  * from, never sent: after the chat box's draft while the session shows its chat, else pasted into its terminal with
  * no Enter (`insert_manage_file_context_into_agents_session`,
  * apps/desktop/src/app/terminal_sync/gpui_engine_terminal_attachment.rs). Right before inserting, the session is
  * checked again, as the desktop checks Running + agent there: still open on the phone, live on the computer and
- * running an agent; otherwise nothing is inserted (REQ-FILES-010 scope). Kept free of native imports so `bun test`
+ * running an agent; otherwise nothing is inserted. Kept free of native imports so `bun test`
  * drives it with stand-in inputs; `sessionInputs.ts` holds the app's.
  */
 

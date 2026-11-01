@@ -2,10 +2,10 @@
 /**
  * Run with `bun test src/files/search.test.ts`.
  *
- * REQ-FILES-004 (search files in the project): the real search action with a stand-in for
- * `runProjectDocsAction` that captures what is sent. REQ-FILES-007 (hidden files behind a switch) for the
- * results, REQ-FILES-008 AC1 (the desktop's type filter: its types, their extensions, its tree of the folders
- * that hold the files of those types, apps/desktop/src/app/native_docs/type_filter.rs).
+ * Searching files in the project: the real search action with a stand-in for `runProjectDocsAction` that captures
+ * what is sent. Hidden files behind a switch for the results, and the desktop's type filter (its types, their
+ * extensions, its tree of the folders that hold the files of those types,
+ * apps/desktop/src/app/native_docs/type_filter.rs).
  */
 
 import assert from 'node:assert/strict';
@@ -43,8 +43,8 @@ function names(rows: readonly TreeRow[]): string[] {
   return rows.map((row) => `${'  '.repeat(row.depth)}${row.kind === 'file' ? row.file.name : `${row.folder.name}/`}`);
 }
 
-describe('REQ-FILES-004: search files in the project', () => {
-  test('REQ-FILES-004 AC1: a submitted term is sent as a project-scope search with that term', async () => {
+describe('search files in the project', () => {
+  test('a submitted term is sent as a project-scope search with that term', async () => {
     const { rpc, sent } = capture([found('src/components/terminal/TerminalKeyBar.tsx')]);
     const answer = await searchProjectFiles(rpc, 'project-1', '  keybar ', []);
     assert.equal(sent.length, 1);
@@ -59,7 +59,7 @@ describe('REQ-FILES-004: search files in the project', () => {
     );
   });
 
-  test('REQ-FILES-004 AC2: the results list the files found, not the folders gxserver also matches', () => {
+  test('the results list the files found, not the folders gxserver also matches', () => {
     const rows = searchedFiles([found('src/keys', 'directory'), found('src/keys/keyBarPages.ts')], false);
     assert.deepEqual(
       rows.map((entry) => entry.path),
@@ -67,14 +67,14 @@ describe('REQ-FILES-004: search files in the project', () => {
     );
   });
 
-  test('REQ-FILES-004: gxserver saying it sent only the best matches, or searched part of a large project, is kept', async () => {
+  test('gxserver saying it sent only the best matches, or searched part of a large project, is kept', async () => {
     const { rpc } = capture([], { truncated: true, incomplete: true });
     const answer = await searchProjectFiles(rpc, 'project-1', 'a', []);
     assert.equal(answer.truncated, true);
     assert.equal(answer.incomplete, true);
   });
 
-  test('REQ-FILES-007 AC1/AC2: hidden results only with the switch on', () => {
+  test('hidden results only with the switch on', () => {
     const results = [found('.env'), found('.claude/settings.json'), found('src/env.ts')];
     assert.deepEqual(
       searchedFiles(results, false).map((entry) => entry.path),
@@ -87,8 +87,8 @@ describe('REQ-FILES-004: search files in the project', () => {
   });
 });
 
-describe('REQ-FILES-008 AC1: the desktop type filter', () => {
-  test('REQ-FILES-008 AC1: the types and their extensions are the desktop filter’s', async () => {
+describe('the desktop type filter', () => {
+  test('the types and their extensions are the desktop filter’s', async () => {
     assert.deepEqual(
       TYPE_FILTERS.map((filter) => filter.id),
       ['markdown', 'html', 'excalidraw', 'image', 'video'],
@@ -99,7 +99,7 @@ describe('REQ-FILES-008 AC1: the desktop type filter', () => {
     assert.deepEqual(sent[0]?.extensions, ['md', 'mdx', 'markdown', 'html', 'htm']);
   });
 
-  test('REQ-FILES-008 AC1: with nothing typed the matching files stand in the folders that hold them, all open', () => {
+  test('with nothing typed the matching files stand in the folders that hold them, all open', () => {
     const files = [
       found('docs/specs/onboarding.md'),
       found('README.md'),
@@ -116,7 +116,7 @@ describe('REQ-FILES-008 AC1: the desktop type filter', () => {
     ]);
   });
 
-  test('REQ-FILES-008 AC1: a folder closed in the filtered tree hides what is under it', () => {
+  test('a folder closed in the filtered tree hides what is under it', () => {
     const files = [found('docs/specs/onboarding.md'), found('docs/ARCHITECTURE.md'), found('src/x.md')];
     assert.deepEqual(names(filteredTreeRows(files, new Set(['docs']))), ['docs/', 'src/', '  x.md']);
     const docs = filteredTreeRows(files, new Set(['docs']))[0];
