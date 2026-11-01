@@ -1,6 +1,6 @@
 import Foundation
 
-/// The widget snapshot (`widget-snapshot.schema.json`, version 1) as the widgets read it. The app writes it after each
+/// The widget snapshot (format version 1) as the widgets read it. The app writes it after each
 /// session refresh (`src/notifications/widgetSnapshot.ts`); it carries agent, project, state and times only, no prompt,
 /// reply or title text. Any other version, a missing or an unreadable file reads as nil: the widget then shows its
 /// empty state, never placeholder values.

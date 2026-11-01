@@ -6,7 +6,7 @@ import { NativeModule, requireOptionalNativeModule } from 'expo';
  * `ios/Extension`, compiled into the widget extension `plugins/withWidgets.js` adds to the app.
  * Optional on purpose: it exists only on iOS (null on Android) and in builds made after it.
  *
- * `json` is the snapshot of `widget-snapshot.schema.json` (`src/notifications/widgetSnapshot.ts`).
+ * `json` is the versioned widget snapshot `src/notifications/widgetSnapshot.ts` builds.
  */
 declare class GhostexWidgetsModule extends NativeModule {
   /** Replaces the snapshot file atomically. Rejects when the App Group container is not available. */

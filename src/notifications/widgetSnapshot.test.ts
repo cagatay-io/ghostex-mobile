@@ -4,12 +4,12 @@
  * `buildSnapshot` on summary fixtures in the CLI's wire form (read by the real summary parser), the real
  * `buildUsageBars` on a computer's `agentAccounts` answer, and the real writer with a fake App Group file writer and
  * a fake `WidgetCenter`, with an injected clock. Expected values come from the widget snapshot contract
- * (`widget-snapshot.schema.json`, version 1) and the approved widget mockup: counts of working and waiting agents,
+ * (format version 1) and the approved widget mockup: counts of working and waiting agents,
  * the attention marker while one waits, the agents waiting first (oldest first inside a state), at most eight,
  * the data time, usage bars only where usage exists, and no prompt, reply or title text.
  *
  * With `WIDGET_SNAPSHOT_OUT=<dir>` every file the fake App Group writer receives is also saved there, so the same
- * run's output can be checked with `python3 -m jsonschema -i <file> widget-snapshot.schema.json`.
+ * run's output can be inspected or checked outside the test.
  */
 
 import assert from 'node:assert/strict';

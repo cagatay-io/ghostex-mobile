@@ -1,7 +1,7 @@
 import SwiftUI
 import WidgetKit
 
-// The approved widget mockup (`mockups/widgets`): small shows the counts of working and waiting agents, "Needs you"
+// The approved widget mockup: small shows the counts of working and waiting agents, "Needs you"
 // while one waits and the data time; medium adds three agents in two lines (name; state and project); large shows the
 // counts in its head, then the agents (up to eight, as many as fit), each with its state and since when, the usage
 // bars where there are any, and the data time. Every state colour comes with its glyph and word, so meaning survives

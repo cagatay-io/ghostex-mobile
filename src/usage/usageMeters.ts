@@ -61,7 +61,7 @@ export function buildUsageMeters(answer: unknown, columns: unknown): UsageAccoun
   });
 }
 
-/** One usage bar of the Home Screen widget (`widget-snapshot.schema.json`, `usage.bars`). */
+/** One usage bar of the Home Screen widget (the snapshot's `usage.bars`). */
 export type UsageBar = {
   readonly label: string;
   /** Within 0 to 100, as the pane's bar draws it. */

@@ -1,5 +1,5 @@
 /**
- * The Home Screen widgets' data (`widget-snapshot.schema.json`, version 1): the app writes it into the App Group
+ * The Home Screen widgets' data (a versioned snapshot, format version 1): the app writes it into the App Group
  * container after each session refresh (`widgetWriter.ts`), the widget extension only reads it. Small: the counts of
  * working and waiting agents and the attention marker; medium and large: the agents as well, waiting first; large:
  * the account usage bars where the app has them. Every size shows the data time.
