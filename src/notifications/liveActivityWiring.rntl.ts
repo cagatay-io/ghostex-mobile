@@ -128,7 +128,7 @@ afterAll(() => {
   jest.useRealTimers();
 });
 
-test('through the app wiring: refresh → activity, background stops, next stint restarts', async () => {
+test('through the app wiring: refresh → activity, background stops, next stint restarts, a finished row stays until 2 minutes after the finish', async () => {
   useMachinesStore.setState({ machines: [MACHINE], selectedMachineId: MACHINE.id, hydrated: true });
   useSettingsStore.setState({ hydrated: true });
   mockWire = { sessions: [working('s1', T0 - 60_000)] };
@@ -172,10 +172,8 @@ test('through the app wiring: refresh → activity, background stops, next stint
   mockWire = { sessions: [working('s1', T0 + 30_000), waiting('s2', T0 + 2_000)] };
   await jest.advanceTimersByTimeAsync(5_000);
   expect(native.start).toHaveBeenCalledTimes(2);
-});
 
-// Continues the app run of the test above (the activity runs, the clock stands at T0 + 25 s).
-test('through the app wiring a finished row stays after the computer stops sending its attention, until 2 minutes after the finish', async () => {
+  // A finished row stays after the computer stops sending its attention, until 2 minutes after the finish.
   mockWire = {
     sessions: [working('s1', T0 + 30_000), waiting('s2', T0 + 2_000), finished('s3', T0 + 24_000, T0 + 10_000)],
   };
