@@ -36,9 +36,9 @@ import type { BarLayout, FoldDivision } from '../../modules/ghostex-native/src/G
 import { keyboardFixture } from '../components/common/keyboard/keyboardEventFixtures';
 import { useBarGeometryStore } from '../components/common/verticalBar/barGeometry';
 import VerticalBarArea from '../components/common/verticalBar/VerticalBarArea';
-import type { GhostexMobileSummary } from '../contract/mobileSummary';
+import { parseMobileSummary, type GhostexMobileSummary } from '../contract/mobileSummary';
 import { PanesCopy } from '../copy';
-import { useInventoryStore, type MachineInventory } from '../inventory/store';
+import { emptyMachineInventory, useInventoryStore } from '../inventory/store';
 import { useMachinesStore, type MachineRecord } from '../machines/store';
 import { PANE_GAP, PANE_HANDLE_REACH, PANE_MIN_USABLE_HEIGHT, PANE_TITLE_HEIGHT } from '../panes/geometry';
 import { SINGLE_PANE_DOCUMENT, type PaneLayoutDocument } from '../panes/layout';
@@ -202,35 +202,32 @@ const A = ALPHA.sessionKey;
 const B = BETA.sessionKey;
 const C = GAMMA.sessionKey;
 
+/** A session on the wire, as the computer's summary sends it. */
 function summarySession(sessionId: string, displayTitle: string) {
   return {
     sessionId,
     projectId: 'p1',
     projectName: 'ghostex-mobile',
     displayTitle,
+    provider: 'zmx',
     agent: 'Codex',
     agentName: 'Codex',
-    agentSessionId: '',
-    pendingQuestionCount: 0,
-    awaitingAnswer: false,
-    awaitingApproval: false,
     activity: 'idle',
     status: 'running',
     isLive: true,
-    isSleeping: false,
-    backgroundWorkDetectedAt: '',
-    programStatusFailed: false,
   };
 }
 
-// A partial session list: the cast holds for the fields the screen, the chooser and the pane titles read (each
-// session's id, project, title, agent and question fields, the projects); the rest stays unset.
-const SUMMARY = {
-  agents: [],
-  projects: [],
-  capabilities: {},
+/** The computer's session list as the inventory reads it (`parseMobileSummary`). */
+function mobileSummary(wire: object): GhostexMobileSummary {
+  const summary = parseMobileSummary(JSON.stringify(wire));
+  if (summary === null) throw new Error('the fixture is not a mobile summary');
+  return summary;
+}
+
+const SUMMARY = mobileSummary({
   sessions: [summarySession('a', 'Alpha'), summarySession('b', 'Beta'), summarySession('c', 'Gamma')],
-} as unknown as GhostexMobileSummary;
+});
 
 function stacked(first: string, second: string, dividerRatio = 0.5): PaneLayoutDocument {
   return {
@@ -506,7 +503,7 @@ beforeEach(async () => {
   });
   useTerminalStore.setState({ sessionViewModeBySessionKey: {} });
   useMachinesStore.setState({ machines: [MACHINE] });
-  useInventoryStore.setState({ inventoriesByMachineId: { m1: { summary: SUMMARY } as unknown as MachineInventory } });
+  useInventoryStore.setState({ inventoriesByMachineId: { m1: { ...emptyMachineInventory(), summary: SUMMARY } } });
   jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockImplementation(() => Promise.resolve(false));
   await AsyncStorage.clear();
   usePaneStore.setState({

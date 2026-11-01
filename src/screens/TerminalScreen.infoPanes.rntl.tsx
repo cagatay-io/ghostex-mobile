@@ -43,9 +43,9 @@ import { FoldListFrame } from '../components/common/foldGap';
 import { useBarGeometryStore } from '../components/common/verticalBar/barGeometry';
 import { LaptopFoldProvider } from '../components/common/verticalBar/laptopFold';
 import VerticalBarArea from '../components/common/verticalBar/VerticalBarArea';
-import type { GhostexMobileSummary } from '../contract/mobileSummary';
+import { parseMobileSummary, type GhostexMobileSummary } from '../contract/mobileSummary';
 import { DuoChromeCopy, PanesCopy, TerminalHeaderCopy, UsageCopy } from '../copy';
-import { useInventoryStore, type MachineInventory } from '../inventory/store';
+import { emptyMachineInventory, useInventoryStore, type MachineInventory } from '../inventory/store';
 import { useMachinesStore, type MachineRecord } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
 import type { FeedRow } from '../notifications/feedContract';
@@ -254,6 +254,7 @@ const C = attachSessionKey('m1', 'c');
 const D = attachSessionKey('m1', 'd');
 const X = XRAY.sessionKey;
 
+/** A session on the wire, as the computer's summary sends it. */
 function summarySession(
   sessionId: string,
   displayTitle: string,
@@ -266,48 +267,43 @@ function summarySession(
     projectId,
     projectName,
     displayTitle,
+    provider: 'zmx',
     agent: 'Codex',
     agentName: 'Codex',
     agentIcon: 'codex',
-    agentSessionId: '',
-    pendingQuestionCount: 0,
-    awaitingAnswer: false,
-    awaitingApproval: false,
     activity: 'idle',
     status: 'running',
     isLive: true,
-    isSleeping: false,
-    backgroundWorkDetectedAt: '',
-    programStatusFailed: false,
     ...state,
   };
 }
 
-// Partial session lists: the cast holds for the fields the screen, the chooser, the agents pane, the pane titles, the
-// attention list's join and the deep link read (each session's id, project, title, agent, activity and question
-// fields; each project's id, name and folder; no workspaces, as a daemon without them).
-const SUMMARY = {
-  agents: [],
-  projects: [
-    { projectId: 'p1', name: 'ghostex-mobile', path: '/Users/me/ghostex-mobile' },
-    { projectId: 'p2', name: 'pad-lab', path: '/Users/me/pad-lab' },
-  ],
-  capabilities: {},
-  workspaces: null,
-  sessions: [
-    summarySession('a', 'Alpha', 'p1', 'ghostex-mobile'),
-    summarySession('b', 'Beta', 'p1', 'ghostex-mobile', { activity: 'working' }),
-    summarySession('c', 'Gamma', 'p2', 'pad-lab', { activity: 'attention', pendingQuestionCount: 1 }),
-    summarySession('d', 'Delta', 'p2', 'pad-lab', { activity: 'attention' }),
-  ],
-} as unknown as GhostexMobileSummary;
-const LINUX_SUMMARY = {
-  agents: [],
+/** The computer's session list as the inventory reads it (`parseMobileSummary`); no workspaces, as a daemon without. */
+function mobileSummary(wire: object): GhostexMobileSummary {
+  const summary = parseMobileSummary(JSON.stringify(wire));
+  if (summary === null) throw new Error('the fixture is not a mobile summary');
+  return summary;
+}
+
+function inventory(summary: GhostexMobileSummary): MachineInventory {
+  return { ...emptyMachineInventory(), summary };
+}
+
+const PROJECTS = [
+  { projectId: 'p1', name: 'ghostex-mobile', path: '/Users/me/ghostex-mobile' },
+  { projectId: 'p2', name: 'pad-lab', path: '/Users/me/pad-lab' },
+];
+const SESSIONS = [
+  summarySession('a', 'Alpha', 'p1', 'ghostex-mobile'),
+  summarySession('b', 'Beta', 'p1', 'ghostex-mobile', { activity: 'working' }),
+  summarySession('c', 'Gamma', 'p2', 'pad-lab', { activity: 'attention', pendingQuestionCount: 1 }),
+  summarySession('d', 'Delta', 'p2', 'pad-lab', { activity: 'attention' }),
+];
+const SUMMARY = mobileSummary({ projects: PROJECTS, sessions: SESSIONS });
+const LINUX_SUMMARY = mobileSummary({
   projects: [{ projectId: 'p3', name: 'lab', path: '/home/me/lab' }],
-  capabilities: {},
-  workspaces: null,
   sessions: [summarySession('x', 'Xray', 'p3', 'lab')],
-} as unknown as GhostexMobileSummary;
+});
 
 /** The Mac's accounts: a Claude login with two usage windows and a Codex login that reports none. */
 const ACCOUNTS = {
@@ -592,10 +588,7 @@ beforeEach(async () => {
   useTerminalStore.setState({ hydrated: true, sessionViewModeBySessionKey: {} });
   useMachinesStore.setState({ hydrated: true, machines: [MAC, LINUX] });
   useInventoryStore.setState({
-    inventoriesByMachineId: {
-      m1: { summary: SUMMARY } as unknown as MachineInventory,
-      m2: { summary: LINUX_SUMMARY } as unknown as MachineInventory,
-    },
+    inventoriesByMachineId: { m1: inventory(SUMMARY), m2: inventory(LINUX_SUMMARY) },
   });
   useAttentionFeedStore.setState({
     feeds: {
@@ -777,15 +770,15 @@ describe('attention: the Notifications screen’s list beside the session', () =
   test('Back after a question about the session beside the list shows that session’s terminal with the panes', async () => {
     useInventoryStore.setState({
       inventoriesByMachineId: {
-        m1: {
-          summary: {
-            ...SUMMARY,
-            sessions: SUMMARY.sessions.map((entry) =>
+        m1: inventory(
+          mobileSummary({
+            projects: PROJECTS,
+            sessions: SESSIONS.map((entry) =>
               entry.sessionId === 'a' ? { ...entry, activity: 'attention', pendingQuestionCount: 1 } : entry,
             ),
-          },
-        } as unknown as MachineInventory,
-        m2: { summary: LINUX_SUMMARY } as unknown as MachineInventory,
+          }),
+        ),
+        m2: inventory(LINUX_SUMMARY),
       },
     });
     useAttentionFeedStore.setState((state) => ({

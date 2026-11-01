@@ -34,9 +34,9 @@ import { FoldListFrame } from '../components/common/foldGap';
 import { useBarGeometryStore } from '../components/common/verticalBar/barGeometry';
 import { LaptopFoldProvider } from '../components/common/verticalBar/laptopFold';
 import VerticalBarArea from '../components/common/verticalBar/VerticalBarArea';
-import type { GhostexMobileSummary } from '../contract/mobileSummary';
+import { parseMobileSummary, type GhostexMobileSummary } from '../contract/mobileSummary';
 import { ChangesCopy, DocsCopy, DuoChromeCopy, PanesCopy, WebPreviewCopy } from '../copy';
-import { useInventoryStore, type MachineInventory } from '../inventory/store';
+import { emptyMachineInventory, useInventoryStore, type MachineInventory } from '../inventory/store';
 import { useMachinesStore, type MachineRecord } from '../machines/store';
 import { PANE_TITLE_HEIGHT } from '../panes/geometry';
 import { SINGLE_PANE_DOCUMENT, type PaneLayout, type PaneLayoutDocument } from '../panes/layout';
@@ -236,43 +236,44 @@ const A = ALPHA.sessionKey;
 const B = BETA.sessionKey;
 const C = GAMMA.sessionKey;
 
+/** A session on the wire, as the computer's summary sends it. */
 function summarySession(sessionId: string, displayTitle: string, projectId: string, projectName: string) {
   return {
     sessionId,
     projectId,
     projectName,
     displayTitle,
+    provider: 'zmx',
     agent: 'Codex',
     agentName: 'Codex',
     agentIcon: 'codex',
-    agentSessionId: '',
-    pendingQuestionCount: 0,
-    awaitingAnswer: false,
-    awaitingApproval: false,
     activity: 'idle',
     status: 'running',
     isLive: true,
-    isSleeping: false,
-    backgroundWorkDetectedAt: '',
-    programStatusFailed: false,
   };
 }
 
-// A partial session list: the cast holds for the fields the screen, the chooser, the pane titles and the project
-// lookup read (each session's id, project, title, agent and question fields; each project's id, name and folder).
-const SUMMARY = {
-  agents: [],
-  projects: [
-    { projectId: 'p1', name: 'ghostex-mobile', path: '/Users/me/ghostex-mobile' },
-    { projectId: 'p2', name: 'pad-lab', path: '/Users/me/pad-lab' },
-  ],
-  capabilities: {},
-  sessions: [
-    summarySession('a', 'Alpha', 'p1', 'ghostex-mobile'),
-    summarySession('b', 'Beta', 'p1', 'ghostex-mobile'),
-    summarySession('c', 'Gamma', 'p2', 'pad-lab'),
-  ],
-} as unknown as GhostexMobileSummary;
+/** The computer's session list as the inventory reads it (`parseMobileSummary`). */
+function mobileSummary(wire: object): GhostexMobileSummary {
+  const summary = parseMobileSummary(JSON.stringify(wire));
+  if (summary === null) throw new Error('the fixture is not a mobile summary');
+  return summary;
+}
+
+function inventory(summary: GhostexMobileSummary): MachineInventory {
+  return { ...emptyMachineInventory(), summary };
+}
+
+const PROJECTS = [
+  { projectId: 'p1', name: 'ghostex-mobile', path: '/Users/me/ghostex-mobile' },
+  { projectId: 'p2', name: 'pad-lab', path: '/Users/me/pad-lab' },
+];
+const SESSIONS = [
+  summarySession('a', 'Alpha', 'p1', 'ghostex-mobile'),
+  summarySession('b', 'Beta', 'p1', 'ghostex-mobile'),
+  summarySession('c', 'Gamma', 'p2', 'pad-lab'),
+];
+const SUMMARY = mobileSummary({ projects: PROJECTS, sessions: SESSIONS });
 
 function layout(first: PaneLayout['first'], second: PaneLayout['second'], dividerRatio = 0.5): PaneLayoutDocument {
   return { schemaVersion: 1, layouts: { stacked: { first, second, dividerRatio } } };
@@ -488,7 +489,7 @@ beforeEach(async () => {
   });
   useTerminalStore.setState({ sessionViewModeBySessionKey: {} });
   useMachinesStore.setState({ machines: [MACHINE] });
-  useInventoryStore.setState({ inventoriesByMachineId: { m1: { summary: SUMMARY } as unknown as MachineInventory } });
+  useInventoryStore.setState({ inventoriesByMachineId: { m1: inventory(SUMMARY) } });
   jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockImplementation(() => Promise.resolve(false));
   await AsyncStorage.clear();
   usePaneStore.setState({
@@ -543,13 +544,8 @@ describe('the chooser offers Web Preview, Files and Git Changes beside the sessi
   });
 
   test('Files and Git Changes are not offered for a session without a project folder', async () => {
-    const withoutFolder = {
-      ...SUMMARY,
-      projects: [{ projectId: 'p1', name: 'ghostex-mobile', path: '' }, SUMMARY.projects[1]],
-    } as unknown as GhostexMobileSummary;
-    useInventoryStore.setState({
-      inventoriesByMachineId: { m1: { summary: withoutFolder } as unknown as MachineInventory },
-    });
+    const withoutFolder = mobileSummary({ projects: [{ ...PROJECTS[0], path: '' }, PROJECTS[1]], sessions: SESSIONS });
+    useInventoryStore.setState({ inventoriesByMachineId: { m1: inventory(withoutFolder) } });
     await renderScreen({ stored: undefined });
     await press(PanesCopy.addPane);
     expect(screen.getByLabelText(new RegExp(`^${PanesCopy.browserType}, `))).toBeTruthy();
