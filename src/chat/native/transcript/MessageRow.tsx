@@ -177,10 +177,12 @@ function AgentMessage({ message, proseColor }: { message: ProjectedMessage; pros
   let toolsRendered = false;
   if (body.length > 0) {
     // The running turn's thought is one closed line, and so is every thought in Simple mode that
-    // owns no calls; the calls a running thought made stay in view below it, drawn by the run below
-    // as a reply's flat calls are (desktop `thinking_card.rs`, gx-chat-core `thinking_card.rs`).
+    // owns no calls; a running thought folds the calls it made behind its line, as a reply's
+    // sentence does (`thinkingCard.calls`), and any other leaves them to the run below (desktop
+    // `thinking_card.rs`, gx-chat-core `thinking_card.rs`).
     if (reasoning && (message.thinkingCard !== undefined || (simple && !hasTools))) {
       lead = <ThinkingLine id={id} body={body} message={message} />;
+      toolsRendered = message.thinkingCard?.calls !== undefined;
     } else if (reasoning && hasTools) {
       // A reasoning headline owns the tools that followed it (React's ReasoningRow).
       const detail = str(message.reasoning, 'body');
@@ -344,12 +346,20 @@ function ThinkingRow({ id, body, references }: { id: string; body: string; refer
  * is in gx-chat-core `transcript/thinking_card.rs`): a brain tile, "Thinking…" while it is written or
  * "Thought" after, and its line (the newest finished one while it streams). A press opens the full
  * thought below it; open while it is being written, it keeps the newest lines in view until the
- * reader scrolls up.
+ * reader scrolls up. A running thought that owns the calls it made ends its line with "N tool calls"
+ * and a chevron that folds them, on a sentence's default (open in detailed mode or while a call
+ * waits on an approval).
  */
 function ThinkingLine({ id, body, message }: { id: string; body: string; message: ProjectedMessage }) {
-  const { theme, mutedThinking } = useTranscriptEnv();
+  const { theme, mutedThinking, workOpen } = useTranscriptEnv();
   const { disclosures } = useNativeChatUi();
   const [open, toggle] = useDisclosure(disclosures, `thinking-card:${id}`);
+  const calls = message.thinkingCard?.calls;
+  const [callsOpen, toggleCalls] = useDisclosure(
+    disclosures,
+    `reasoning:${id}`,
+    workOpen || message.toolsOpen === true,
+  );
   const scroll = useRef<ScrollViewInstance>(null);
   const atEnd = useRef(true);
   const lane = thinkingTone(theme, mutedThinking);
@@ -376,6 +386,19 @@ function ThinkingLine({ id, body, message }: { id: string; body: string; message
         <Text style={[styles.thinkingPreview, { color: theme.prose, opacity: 0.8 }]} numberOfLines={1}>
           {open ? '' : preview}
         </Text>
+        {calls !== undefined ? (
+          <Pressable
+            onPress={toggleCalls}
+            accessibilityRole="button"
+            accessibilityLabel={`${callsOpen ? 'Hide' : 'Show'} ${calls}`}
+            accessibilityState={{ expanded: callsOpen }}
+            hitSlop={6}
+            style={({ pressed }) => [styles.thinkingCalls, pressed && { backgroundColor: theme.pressed }]}
+          >
+            <Text style={[styles.thinkingCallsLabel, { color: theme.muted }]}>{calls}</Text>
+            <Glyph name={callsOpen ? 'chevron-down' : 'chevron-right'} size={13} color={theme.muted} />
+          </Pressable>
+        ) : null}
       </Pressable>
       {open && expandable ? (
         <View style={styles.thinkingInset}>
@@ -399,6 +422,13 @@ function ThinkingLine({ id, body, message }: { id: string; body: string; message
                 headingColor={mutedThinking ? lane : undefined}
               />
             </ScrollView>
+          </DisclosureBody>
+        </View>
+      ) : null}
+      {calls !== undefined && callsOpen ? (
+        <View style={styles.thinkingInset}>
+          <DisclosureBody onCollapse={toggleCalls} label="Collapse tool calls">
+            <ToolRows message={message} />
           </DisclosureBody>
         </View>
       ) : null}
@@ -446,6 +476,8 @@ const styles = StyleSheet.create({
   thinkingTile: { width: 22, height: 22, borderRadius: 6, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   thinkingTitle: { fontSize: 13.5, lineHeight: 20, fontWeight: '500', flexShrink: 0 },
   thinkingPreview: { flex: 1, minWidth: 0, fontSize: PROSE_SIZE, lineHeight: 20 },
+  thinkingCalls: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 4, borderRadius: 4, flexShrink: 0 },
+  thinkingCallsLabel: { fontSize: 12.5, lineHeight: 20 },
   thinkingInset: { paddingLeft: 8 },
   thinkingScroll: { maxHeight: THINKING_CAP },
   promptColumn: { gap: 8 },

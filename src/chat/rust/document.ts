@@ -337,8 +337,9 @@ export type ProjectedMessage = {
   /** The card the agent is still adding to, which stays open (gx-chat-core `live_card_id`). */
   toolCardLive?: boolean;
   /** A thought of the running turn, drawn as one closed line (gx-chat-core `transcript/thinking_card.rs`):
-   * `live` while it is the row being written, `preview` its newest finished line. */
-  thinkingCard?: { live: boolean; preview: string };
+   * `live` while it is the row being written, `preview` its newest finished line, `calls` the label
+   * of the calls it folds behind its line ("3 tool calls"), absent when it owns none. */
+  thinkingCard?: { live: boolean; preview: string; calls?: string };
   /** A thought's one line and whether opening it shows more (gx-chat-core `thinking_row`). */
   thinkingRow?: { preview: string; expandable: boolean };
   /** The live terminal tool row synthesized from the agent's screen. Desktop: `terminal_tool_row.rs`. */
