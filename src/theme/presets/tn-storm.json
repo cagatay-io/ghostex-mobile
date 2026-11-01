@@ -1,0 +1,60 @@
+{
+  "id": "tn-storm",
+  "name": "Tokyo Night Storm",
+  "mode": "dark",
+  "partner": "tn-day",
+  "background": "#24283b",
+  "tintColor": "#222639",
+  "terminalPalette": "Ghostex Tokyo Night Storm",
+  "palette": {
+    "background": "#24283b",
+    "foreground": "#c0caf5",
+    "cursor": "#c0caf5",
+    "selectionBackground": "#2e3c64",
+    "ansi": [
+      "#1d202f",
+      "#f7768e",
+      "#9ece6a",
+      "#e0af68",
+      "#7aa2f7",
+      "#bb9af7",
+      "#7dcfff",
+      "#a9b1d6",
+      "#414868",
+      "#ff899d",
+      "#9fe044",
+      "#faba4a",
+      "#8db0ff",
+      "#c7a9ff",
+      "#a4daff",
+      "#c0caf5"
+    ]
+  },
+  "patches": {
+    "lightFollows": {
+      "sidebarTheme": "dark-2",
+      "darkThemePreset": "custom",
+      "customSidebarTitlebarBackgroundTintColor": "#222639",
+      "terminalGhosttyTheme": "Ghostex Tokyo Night Storm",
+      "lightThemePreset": "custom",
+      "customSidebarTitlebarLightBackgroundTintColor": "#d7d8df",
+      "terminalGhosttyLightTheme": "Ghostex Tokyo Night Day",
+      "themeSidebarContrast": -24,
+      "themeWorkAreaContrast": -24,
+      "customSidebarTitlebarBackgroundDarknessPercent": 85,
+      "customSidebarTitlebarLightBackgroundLightnessPercent": 84,
+      "terminalBackgroundMode": "theme"
+    },
+    "lightPickedOnPurpose": {
+      "sidebarTheme": "dark-2",
+      "darkThemePreset": "custom",
+      "customSidebarTitlebarBackgroundTintColor": "#222639",
+      "terminalGhosttyTheme": "Ghostex Tokyo Night Storm",
+      "themeSidebarContrast": -24,
+      "themeWorkAreaContrast": -24,
+      "customSidebarTitlebarBackgroundDarknessPercent": 85,
+      "customSidebarTitlebarLightBackgroundLightnessPercent": 84,
+      "terminalBackgroundMode": "theme"
+    }
+  }
+}

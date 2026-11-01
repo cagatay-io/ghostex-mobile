@@ -1,0 +1,60 @@
+{
+  "id": "gm-dark",
+  "name": "Gruvbox Material Dark",
+  "mode": "dark",
+  "partner": "gm-light",
+  "background": "#282828",
+  "tintColor": "#262626",
+  "terminalPalette": "Ghostex Gruvbox Material Dark",
+  "palette": {
+    "background": "#282828",
+    "foreground": "#d4be98",
+    "cursor": "#d4be98",
+    "selectionBackground": "#45403d",
+    "ansi": [
+      "#5a524c",
+      "#ea6962",
+      "#a9b665",
+      "#d8a657",
+      "#7daea3",
+      "#d3869b",
+      "#89b482",
+      "#d4be98",
+      "#5a524c",
+      "#ea6962",
+      "#a9b665",
+      "#d8a657",
+      "#7daea3",
+      "#d3869b",
+      "#89b482",
+      "#d4be98"
+    ]
+  },
+  "patches": {
+    "lightFollows": {
+      "sidebarTheme": "dark-2",
+      "darkThemePreset": "custom",
+      "customSidebarTitlebarBackgroundTintColor": "#262626",
+      "terminalGhosttyTheme": "Ghostex Gruvbox Material Dark",
+      "lightThemePreset": "custom",
+      "customSidebarTitlebarLightBackgroundTintColor": "#faecb4",
+      "terminalGhosttyLightTheme": "Ghostex Gruvbox Material Light",
+      "themeSidebarContrast": -24,
+      "themeWorkAreaContrast": -24,
+      "customSidebarTitlebarBackgroundDarknessPercent": 85,
+      "customSidebarTitlebarLightBackgroundLightnessPercent": 84,
+      "terminalBackgroundMode": "theme"
+    },
+    "lightPickedOnPurpose": {
+      "sidebarTheme": "dark-2",
+      "darkThemePreset": "custom",
+      "customSidebarTitlebarBackgroundTintColor": "#262626",
+      "terminalGhosttyTheme": "Ghostex Gruvbox Material Dark",
+      "themeSidebarContrast": -24,
+      "themeWorkAreaContrast": -24,
+      "customSidebarTitlebarBackgroundDarknessPercent": 85,
+      "customSidebarTitlebarLightBackgroundLightnessPercent": 84,
+      "terminalBackgroundMode": "theme"
+    }
+  }
+}

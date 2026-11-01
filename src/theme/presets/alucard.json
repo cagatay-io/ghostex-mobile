@@ -1,0 +1,63 @@
+{
+  "id": "alucard",
+  "name": "Alucard",
+  "mode": "light",
+  "partner": "dracula",
+  "background": "#fffbeb",
+  "tintColor": "#fffae4",
+  "terminalPalette": "Ghostex Alucard",
+  "palette": {
+    "background": "#fffbeb",
+    "foreground": "#1f1f1f",
+    "cursor": "#1f1f1f",
+    "selectionBackground": "#cfcfde",
+    "ansi": [
+      "#fffbeb",
+      "#cb3a2a",
+      "#14710a",
+      "#846e15",
+      "#644ac9",
+      "#a3144d",
+      "#036a96",
+      "#1f1f1f",
+      "#6c664b",
+      "#d74c3d",
+      "#198d0c",
+      "#9e841a",
+      "#7862d0",
+      "#bf185a",
+      "#047fb4",
+      "#2c2b31"
+    ]
+  },
+  "patches": {
+    "lightFollows": {
+      "sidebarTheme": "plain-light",
+      "lightThemePreset": "custom",
+      "customSidebarTitlebarLightBackgroundTintColor": "#fffae4",
+      "terminalGhosttyLightTheme": "Ghostex Alucard",
+      "darkThemePreset": "custom",
+      "customSidebarTitlebarBackgroundTintColor": "#262834",
+      "terminalGhosttyTheme": "Ghostex Dracula",
+      "themeSidebarContrast": -24,
+      "themeWorkAreaContrast": -24,
+      "customSidebarTitlebarBackgroundDarknessPercent": 85,
+      "customSidebarTitlebarLightBackgroundLightnessPercent": 84,
+      "terminalBackgroundMode": "theme"
+    },
+    "lightPickedOnPurpose": {
+      "sidebarTheme": "plain-light",
+      "lightThemePreset": "custom",
+      "customSidebarTitlebarLightBackgroundTintColor": "#fffae4",
+      "terminalGhosttyLightTheme": "Ghostex Alucard",
+      "darkThemePreset": "custom",
+      "customSidebarTitlebarBackgroundTintColor": "#262834",
+      "terminalGhosttyTheme": "Ghostex Dracula",
+      "themeSidebarContrast": -24,
+      "themeWorkAreaContrast": -24,
+      "customSidebarTitlebarBackgroundDarknessPercent": 85,
+      "customSidebarTitlebarLightBackgroundLightnessPercent": 84,
+      "terminalBackgroundMode": "theme"
+    }
+  }
+}

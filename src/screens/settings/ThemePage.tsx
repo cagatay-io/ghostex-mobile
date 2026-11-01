@@ -4,11 +4,17 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSettingsStore } from '../../settings/store';
 import { GhostexPalette, GhostexRadii } from '../../theme/palette';
 import {
-  normalizeSidebarTint,
-  sidebarBackgroundForSettings,
-  SIDEBAR_BACKGROUND_CONTRAST_MAX,
-  SIDEBAR_BACKGROUND_CONTRAST_MIN,
+  colourfulnessPatch,
+  DEFAULT_THEME_DEPTH,
+  DEFAULT_THEME_TINT,
+  MAX_THEME_DEPTH,
+  MIN_DARK_THEME_DEPTH,
+  normalizeHexColor,
+  resolveThemeAreas,
+  roundThemeContrastPoints,
   SIDEBAR_BACKGROUND_TINT_OPTIONS,
+  THEME_CONTRAST_VIVID_POINTS,
+  themeChromeControls,
 } from '../../theme/sidebarAppearance';
 import { useAppearance } from '../../theme/useAppearance';
 import { SettingsSection } from './SectionBoundary';
@@ -33,7 +39,7 @@ function TintControl({
 
   const commitDraft = (): void => {
     if (/^#[0-9a-f]{6}$/iu.test(draft.trim())) {
-      onChange(normalizeSidebarTint(draft));
+      onChange(normalizeHexColor(draft, DEFAULT_THEME_TINT));
     } else {
       setDraft(value.toUpperCase());
     }
@@ -85,7 +91,7 @@ function TintControl({
         onChangeText={(next) => {
           setDraft(next);
           if (/^#[0-9a-f]{6}$/iu.test(next.trim())) {
-            onChange(normalizeSidebarTint(next));
+            onChange(normalizeHexColor(next, DEFAULT_THEME_TINT));
           }
         }}
         onSubmitEditing={commitDraft}
@@ -94,37 +100,47 @@ function TintControl({
   );
 }
 
+/**
+ * CDXC:Theming 2026-11-01 WHY: Until the Theme page gets the desktop's controls, its two earlier controls write the
+ * desktop's keys. Background Contrast keeps its 85-100 scale and saves the Colourfulness position with the same depth
+ * (`2 * (100 - value)`: 96 is Soft, 85 is two positions short of Vivid), so it moves a colour square and a custom
+ * colour alike.
+ */
 function ContrastSection() {
-  const contrast = useSettingsStore((state) => state.settings.sidebarBackgroundContrast);
-  const setSetting = useSettingsStore((state) => state.setSetting);
+  const points = useSettingsStore((state) => state.settings.themeSidebarContrast);
+  const patchSettings = useSettingsStore((state) => state.patchSettings);
+  const value = Math.max(
+    MIN_DARK_THEME_DEPTH,
+    DEFAULT_THEME_DEPTH + Math.max(THEME_CONTRAST_VIVID_POINTS, roundThemeContrastPoints(points)),
+  );
 
   return (
     <>
       <SettingsSlider
         label="Background Contrast"
-        maximumValue={SIDEBAR_BACKGROUND_CONTRAST_MAX}
-        minimumValue={SIDEBAR_BACKGROUND_CONTRAST_MIN}
+        maximumValue={MAX_THEME_DEPTH}
+        minimumValue={MIN_DARK_THEME_DEPTH}
         step={1}
-        value={contrast}
-        valueLabel={`${contrast}`}
-        onValueChange={(value) => setSetting('sidebarBackgroundContrast', value)}
+        value={value}
+        valueLabel={`${value}`}
+        onValueChange={(next) => patchSettings(colourfulnessPatch(2 * (MAX_THEME_DEPTH - next)))}
       />
       <Caption>85 is softer gray; 100 is black. Drawer and Settings surfaces adjust automatically.</Caption>
     </>
   );
 }
 
+/** The earlier Background Tint control, writing the dark appearance's custom colour. */
 function TintSection() {
-  const contrast = useSettingsStore((state) => state.settings.sidebarBackgroundContrast);
-  const tint = useSettingsStore((state) => state.settings.sidebarBackgroundTint);
-  const setSetting = useSettingsStore((state) => state.setSetting);
+  const settings = useSettingsStore((state) => state.settings);
+  const patchSettings = useSettingsStore((state) => state.patchSettings);
 
   return (
     <>
       <TintControl
-        value={tint}
-        resolvedBackground={sidebarBackgroundForSettings(tint, contrast)}
-        onChange={(value) => setSetting('sidebarBackgroundTint', value)}
+        value={themeChromeControls(settings, false).tint}
+        resolvedBackground={resolveThemeAreas(settings, false).sidebar}
+        onChange={(value) => patchSettings({ darkThemePreset: 'custom', customSidebarTitlebarBackgroundTintColor: value })}
       />
       <Caption>Uses the same tint colors as the desktop sidebar.</Caption>
     </>

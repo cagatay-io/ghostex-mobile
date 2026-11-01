@@ -1,0 +1,60 @@
+{
+  "id": "kg-dragon",
+  "name": "Kanagawa Dragon",
+  "mode": "dark",
+  "partner": "kg-lotus",
+  "background": "#181616",
+  "tintColor": "#161414",
+  "terminalPalette": "Ghostex Kanagawa Dragon",
+  "palette": {
+    "background": "#181616",
+    "foreground": "#c5c9c5",
+    "cursor": "#c8c093",
+    "selectionBackground": "#2d4f67",
+    "ansi": [
+      "#0d0c0c",
+      "#c4746e",
+      "#8a9a7b",
+      "#c4b28a",
+      "#8ba4b0",
+      "#a292a3",
+      "#8ea4a2",
+      "#c8c093",
+      "#a6a69c",
+      "#e46876",
+      "#87a987",
+      "#e6c384",
+      "#7fb4ca",
+      "#938aa9",
+      "#7aa89f",
+      "#c5c9c5"
+    ]
+  },
+  "patches": {
+    "lightFollows": {
+      "sidebarTheme": "dark-2",
+      "darkThemePreset": "custom",
+      "customSidebarTitlebarBackgroundTintColor": "#161414",
+      "terminalGhosttyTheme": "Ghostex Kanagawa Dragon",
+      "lightThemePreset": "custom",
+      "customSidebarTitlebarLightBackgroundTintColor": "#eee6a6",
+      "terminalGhosttyLightTheme": "Ghostex Kanagawa Lotus",
+      "themeSidebarContrast": -24,
+      "themeWorkAreaContrast": -24,
+      "customSidebarTitlebarBackgroundDarknessPercent": 85,
+      "customSidebarTitlebarLightBackgroundLightnessPercent": 84,
+      "terminalBackgroundMode": "theme"
+    },
+    "lightPickedOnPurpose": {
+      "sidebarTheme": "dark-2",
+      "darkThemePreset": "custom",
+      "customSidebarTitlebarBackgroundTintColor": "#161414",
+      "terminalGhosttyTheme": "Ghostex Kanagawa Dragon",
+      "themeSidebarContrast": -24,
+      "themeWorkAreaContrast": -24,
+      "customSidebarTitlebarBackgroundDarknessPercent": 85,
+      "customSidebarTitlebarLightBackgroundLightnessPercent": 84,
+      "terminalBackgroundMode": "theme"
+    }
+  }
+}

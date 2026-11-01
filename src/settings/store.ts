@@ -3,7 +3,8 @@
  * (artifacts/001-mobile-settings-report/report.md): Terminal behavior, Extra
  * keys, Font size, Scrollback, Cursor, Alerts and hardware keys, then the
  * appended SSH connection group. Persisted to AsyncStorage under settings.v1
- * (new fields sanitize to their defaults for existing installs).
+ * (new fields sanitize to their defaults for existing installs; the colour
+ * keys are derived from the earlier tint and contrast, see `themeSettingsFromRecord`).
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -17,10 +18,19 @@ import {
   type NotificationSettings,
 } from '../notifications/settings';
 import {
-  clampSidebarContrast,
-  DEFAULT_SIDEBAR_BACKGROUND_CONTRAST,
-  DEFAULT_SIDEBAR_BACKGROUND_TINT,
-  normalizeSidebarTint,
+  clampDarkThemeDepth,
+  clampLightThemeDepth,
+  DARK_THEME_PRESETS,
+  DEFAULT_THEME_DEPTH,
+  DEFAULT_THEME_TINT,
+  LIGHT_THEME_PRESETS,
+  normalizeHexColor,
+  roundThemeContrastPoints,
+  SIDEBAR_THEME_OPTIONS,
+  type DarkThemePreset,
+  type LightThemePreset,
+  type SidebarThemeSetting,
+  type ThemeColourSettings,
 } from '../theme/sidebarAppearance';
 import {
   DEFAULT_COMMAND_PAD_KEYS,
@@ -33,6 +43,12 @@ const SETTINGS_STORAGE_KEY = 'settings.v1';
 
 export type BellBehavior = 'vibrate' | 'beep' | 'ignore';
 export type SessionChatTheme = 'dark' | 'light';
+/** Terminal background (desktop `terminalBackgroundMode`): pure black/white, the theme's work area, or a custom colour. */
+export type TerminalBackgroundMode = 'pure' | 'theme' | 'custom';
+export const TERMINAL_BACKGROUND_MODES: readonly TerminalBackgroundMode[] = ['pure', 'theme', 'custom'];
+/** A content area's appearance (desktop `terminalColorScheme`): follow the app, or light, dark or the device. */
+export type ContentColorScheme = 'app' | 'light' | 'dark' | 'system';
+export const CONTENT_COLOR_SCHEMES: readonly ContentColorScheme[] = ['app', 'light', 'dark', 'system'];
 /**
  * How the chat colours the sections an agent marks: the desktop's `markedHandoversStyle` values, plus
  * `plain` because the phone cannot see whether the computer's Marked handovers is on.
@@ -45,7 +61,7 @@ export type SessionsListLayout = 'unified' | 'project';
 /** How the Sessions list draws its sessions where it offers the choice (the unfolded iPhone Duo): rows or tiles. */
 export type SessionListView = 'list' | 'tiles';
 
-export type GhostexSettings = {
+export type GhostexSettings = ThemeColourSettings & {
   // Terminal behavior (legacy Android row order).
   autoScroll: boolean;
   /** The Befehlspad's toggle in terminals (the key bar's switch before the pad replaced the bar; same meaning). */
@@ -79,10 +95,24 @@ export type GhostexSettings = {
   cursorStyle: CursorStyle;
   cursorBlink: boolean;
   bellBehavior: BellBehavior;
-  /** GPUI-parity constrained sidebar background contrast (85-100). */
+  /**
+   * Retained data from the phone's earlier colour model (Background Contrast 85-100, reference 90, and Background
+   * Tint). Nothing paints from them any more: when the colour keys below are missing, the store derives them from
+   * these once, and the two values stay stored unchanged.
+   */
   sidebarBackgroundContrast: number;
-  /** GPUI-parity sidebar background tint as a normalized #rrggbb value. */
   sidebarBackgroundTint: string;
+  /**
+   * The app's appearance (desktop `sidebarTheme`): `system`, `plain-light` or `dark-2`. The colour keys come from
+   * `ThemeColourSettings` (the desktop's names and ranges).
+   */
+  sidebarTheme: SidebarThemeSetting;
+  /** The terminal palettes per appearance (desktop `terminalGhosttyTheme` / `terminalGhosttyLightTheme`). */
+  terminalGhosttyTheme: string;
+  terminalGhosttyLightTheme: string;
+  terminalBackgroundMode: TerminalBackgroundMode;
+  /** The terminal's own appearance override (desktop `terminalColorScheme`). */
+  terminalColorScheme: ContentColorScheme;
   /** Opacity percentage for sidebar collection-panel backgrounds and borders. */
   sidebarGroupsOpacityPercent: number;
   /**
@@ -183,6 +213,9 @@ export const READ_ALOUD_RATES = [0.75, 1, 1.25, 1.5, 2] as const;
 export const SIDEBAR_SURFACE_OPACITY_MIN = 0;
 export const SIDEBAR_SURFACE_OPACITY_MAX = 100;
 
+/** The earlier Background Contrast default, kept for the retained `sidebarBackgroundContrast`. */
+const LEGACY_DEFAULT_CONTRAST = 90;
+
 export const MIN_SESSION_CHAT_TRANSCRIPT_WIDTH_PERCENT = 50;
 export const MAX_SESSION_CHAT_TRANSCRIPT_WIDTH_PERCENT = 100;
 export const SESSION_CHAT_TRANSCRIPT_WIDTH_PERCENT_STEP = 5;
@@ -224,8 +257,22 @@ export function defaultSettings(): GhostexSettings {
     cursorStyle: 'bar',
     cursorBlink: true,
     bellBehavior: 'vibrate',
-    sidebarBackgroundContrast: DEFAULT_SIDEBAR_BACKGROUND_CONTRAST,
-    sidebarBackgroundTint: DEFAULT_SIDEBAR_BACKGROUND_TINT,
+    sidebarBackgroundContrast: LEGACY_DEFAULT_CONTRAST,
+    sidebarBackgroundTint: DEFAULT_THEME_TINT,
+    // The desktop's defaults (packages/settings-catalog/src/data/defaults.rs).
+    sidebarTheme: 'system',
+    darkThemePreset: 'gray',
+    lightThemePreset: 'gray',
+    customSidebarTitlebarBackgroundTintColor: DEFAULT_THEME_TINT,
+    customSidebarTitlebarLightBackgroundTintColor: DEFAULT_THEME_TINT,
+    customSidebarTitlebarBackgroundDarknessPercent: DEFAULT_THEME_DEPTH,
+    customSidebarTitlebarLightBackgroundLightnessPercent: DEFAULT_THEME_DEPTH,
+    themeSidebarContrast: 0,
+    themeWorkAreaContrast: 0,
+    terminalGhosttyTheme: 'GitHub Dark',
+    terminalGhosttyLightTheme: 'GitHub Light Default',
+    terminalBackgroundMode: 'pure',
+    terminalColorScheme: 'app',
     sidebarGroupsOpacityPercent: SIDEBAR_SURFACE_OPACITY_MIN,
     preferredAgentInterface: 'chat',
     sessionChatTheme: 'dark',
@@ -277,6 +324,75 @@ export function keptShortReplies(entries: readonly unknown[]): string[] {
   return entries.flatMap((entry) => (typeof entry === 'string' && entry.trim().length > 0 ? [entry.trim()] : []));
 }
 
+/**
+ * The colour keys of a stored settings object: each saved valid key as it is, each missing one derived from the
+ * retained earlier values, so the derivation runs only until the first save and never over saved keys.
+ *
+ * CDXC:Theming 2026-11-01 WHY: An upgraded phone keeps its look and its values (the phone keeps its own values,
+ * never the computer's). The earlier tint becomes the custom dark colour. Its contrast (85-100) is the same depth
+ * number for every calibrated colour and Black; White and Neutral Gray drew `#0b0b0b` at 90 from a different base,
+ * so their depth is `100 - (100 - c) * 11/28` to the half point (90 -> 96).
+ * Both areas' Colourfulness is `depth - 96`, where the desktop's Colourfulness slider writes that depth. The
+ * phone was dark only, so its appearance stays Dark. A desktop default (Graphite at 96) stays the `gray` square.
+ */
+function themeSettingsFromRecord(
+  record: Record<string, unknown>,
+  legacyTint: string,
+  legacyContrast: number,
+  defaults: GhostexSettings,
+): Pick<
+  GhostexSettings,
+  | keyof ThemeColourSettings
+  | 'sidebarTheme'
+  | 'terminalGhosttyTheme'
+  | 'terminalGhosttyLightTheme'
+  | 'terminalBackgroundMode'
+  | 'terminalColorScheme'
+> {
+  const number = (key: string): number | undefined => {
+    const value = record[key];
+    return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+  };
+  const oneOf = <T extends string>(key: string, options: readonly T[]): T | undefined =>
+    options.includes(record[key] as T) ? (record[key] as T) : undefined;
+  const name = (key: string, fallback: string): string => {
+    const value = record[key];
+    return typeof value === 'string' && value.trim() !== '' ? value : fallback;
+  };
+  const neutral = legacyTint === '#ffffff' || legacyTint === DEFAULT_THEME_TINT;
+  const legacyDepth = clampDarkThemeDepth(neutral ? 100 - ((100 - legacyContrast) * 11) / 28 : legacyContrast);
+  const darkTint = normalizeHexColor(record.customSidebarTitlebarBackgroundTintColor, legacyTint);
+  const darkDepth = clampDarkThemeDepth(number('customSidebarTitlebarBackgroundDarknessPercent') ?? legacyDepth);
+  const contrast = (key: string): number => {
+    const value = number(key);
+    return value === undefined ? legacyDepth - DEFAULT_THEME_DEPTH : roundThemeContrastPoints(value);
+  };
+  // The desktop's rule for a missing preset: custom colours tuned away from Graphite at 96 stay in force.
+  const darkDefault = darkDepth === DEFAULT_THEME_DEPTH && darkTint === DEFAULT_THEME_TINT;
+  return {
+    sidebarTheme: oneOf('sidebarTheme', SIDEBAR_THEME_OPTIONS) ?? 'dark-2',
+    darkThemePreset: oneOf<DarkThemePreset>('darkThemePreset', DARK_THEME_PRESETS) ?? (darkDefault ? 'gray' : 'custom'),
+    lightThemePreset: oneOf<LightThemePreset>('lightThemePreset', LIGHT_THEME_PRESETS) ?? defaults.lightThemePreset,
+    customSidebarTitlebarBackgroundTintColor: darkTint,
+    customSidebarTitlebarLightBackgroundTintColor: normalizeHexColor(
+      record.customSidebarTitlebarLightBackgroundTintColor,
+      defaults.customSidebarTitlebarLightBackgroundTintColor,
+    ),
+    customSidebarTitlebarBackgroundDarknessPercent: darkDepth,
+    customSidebarTitlebarLightBackgroundLightnessPercent: clampLightThemeDepth(
+      number('customSidebarTitlebarLightBackgroundLightnessPercent') ??
+        defaults.customSidebarTitlebarLightBackgroundLightnessPercent,
+    ),
+    themeSidebarContrast: contrast('themeSidebarContrast'),
+    themeWorkAreaContrast: contrast('themeWorkAreaContrast'),
+    terminalGhosttyTheme: name('terminalGhosttyTheme', defaults.terminalGhosttyTheme),
+    terminalGhosttyLightTheme: name('terminalGhosttyLightTheme', defaults.terminalGhosttyLightTheme),
+    terminalBackgroundMode:
+      oneOf('terminalBackgroundMode', TERMINAL_BACKGROUND_MODES) ?? defaults.terminalBackgroundMode,
+    terminalColorScheme: oneOf('terminalColorScheme', CONTENT_COLOR_SCHEMES) ?? defaults.terminalColorScheme,
+  };
+}
+
 function sanitizeSettings(value: unknown): GhostexSettings {
   const defaults = defaultSettings();
   if (typeof value !== 'object' || value === null) return defaults;
@@ -301,14 +417,14 @@ function sanitizeSettings(value: unknown): GhostexSettings {
     typeof record.keepAliveIntervalSec === 'number' && Number.isFinite(record.keepAliveIntervalSec)
       ? clampKeepAliveInterval(record.keepAliveIntervalSec)
       : defaults.keepAliveIntervalSec;
+  // The earlier contrast and tint keep the earlier normalization: whole numbers 85-100, `#rrggbb`.
   const sidebarBackgroundContrast =
-    typeof record.sidebarBackgroundContrast === 'number'
-      ? clampSidebarContrast(record.sidebarBackgroundContrast)
+    typeof record.sidebarBackgroundContrast === 'number' && Number.isFinite(record.sidebarBackgroundContrast)
+      ? Math.min(100, Math.max(85, Math.round(record.sidebarBackgroundContrast)))
       : defaults.sidebarBackgroundContrast;
-  const sidebarBackgroundTint =
-    typeof record.sidebarBackgroundTint === 'string'
-      ? normalizeSidebarTint(record.sidebarBackgroundTint)
-      : defaults.sidebarBackgroundTint;
+  const storedTint =
+    typeof record.sidebarBackgroundTint === 'string' ? record.sidebarBackgroundTint.trim().toLowerCase() : '';
+  const sidebarBackgroundTint = /^#[0-9a-f]{6}$/u.test(storedTint) ? storedTint : defaults.sidebarBackgroundTint;
   const sidebarGroupsOpacityPercent =
     typeof record.sidebarGroupsOpacityPercent === 'number'
       ? clampSidebarSurfaceOpacity(record.sidebarGroupsOpacityPercent, defaults.sidebarGroupsOpacityPercent)
@@ -349,6 +465,7 @@ function sanitizeSettings(value: unknown): GhostexSettings {
     bellBehavior,
     sidebarBackgroundContrast,
     sidebarBackgroundTint,
+    ...themeSettingsFromRecord(record, sidebarBackgroundTint, sidebarBackgroundContrast, defaults),
     sidebarGroupsOpacityPercent,
     preferredAgentInterface,
     sessionChatTheme,
@@ -403,7 +520,7 @@ type SettingsState = {
   settings: GhostexSettings;
   hydrate: () => Promise<void>;
   setSetting: <K extends keyof GhostexSettings>(key: K, value: GhostexSettings[K]) => void;
-  /** Several settings in one write. */
+  /** Several settings in one change: one publish and one save (a theme preset, a Colourfulness position). */
   patchSettings: (patch: Partial<GhostexSettings>) => void;
 };
 
@@ -424,9 +541,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   },
 
   setSetting: (key, value) => {
-    const settings = { ...get().settings, [key]: value };
-    set({ settings });
-    void AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+    get().patchSettings({ [key]: value });
   },
 
   patchSettings: (patch) => {

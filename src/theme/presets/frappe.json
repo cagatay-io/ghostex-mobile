@@ -1,0 +1,61 @@
+{
+  "id": "frappe",
+  "name": "Catppuccin Frappé",
+  "mode": "dark",
+  "partner": "latte",
+  "background": "#303446",
+  "tintColor": "#2e3244",
+  "terminalPalette": "Ghostex Catppuccin Frappe",
+  "palette": {
+    "background": "#303446",
+    "foreground": "#c6d0f5",
+    "cursor": "#f2d5cf",
+    "selectionBackground": "#44495d",
+    "cursorText": "#232634",
+    "ansi": [
+      "#51576d",
+      "#e78284",
+      "#a6d189",
+      "#e5c890",
+      "#8caaee",
+      "#f4b8e4",
+      "#81c8be",
+      "#a5adce",
+      "#626880",
+      "#e78284",
+      "#a6d189",
+      "#e5c890",
+      "#8caaee",
+      "#f4b8e4",
+      "#81c8be",
+      "#b5bfe2"
+    ]
+  },
+  "patches": {
+    "lightFollows": {
+      "sidebarTheme": "dark-2",
+      "darkThemePreset": "custom",
+      "customSidebarTitlebarBackgroundTintColor": "#2e3244",
+      "terminalGhosttyTheme": "Ghostex Catppuccin Frappe",
+      "lightThemePreset": "custom",
+      "customSidebarTitlebarLightBackgroundTintColor": "#eaecf2",
+      "terminalGhosttyLightTheme": "Ghostex Catppuccin Latte",
+      "themeSidebarContrast": -24,
+      "themeWorkAreaContrast": -24,
+      "customSidebarTitlebarBackgroundDarknessPercent": 85,
+      "customSidebarTitlebarLightBackgroundLightnessPercent": 84,
+      "terminalBackgroundMode": "theme"
+    },
+    "lightPickedOnPurpose": {
+      "sidebarTheme": "dark-2",
+      "darkThemePreset": "custom",
+      "customSidebarTitlebarBackgroundTintColor": "#2e3244",
+      "terminalGhosttyTheme": "Ghostex Catppuccin Frappe",
+      "themeSidebarContrast": -24,
+      "themeWorkAreaContrast": -24,
+      "customSidebarTitlebarBackgroundDarknessPercent": 85,
+      "customSidebarTitlebarLightBackgroundLightnessPercent": 84,
+      "terminalBackgroundMode": "theme"
+    }
+  }
+}

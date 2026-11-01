@@ -1,0 +1,60 @@
+{
+  "id": "kg-wave",
+  "name": "Kanagawa Wave",
+  "mode": "dark",
+  "partner": "kg-lotus",
+  "background": "#1f1f28",
+  "tintColor": "#1d1d26",
+  "terminalPalette": "Ghostex Kanagawa Wave",
+  "palette": {
+    "background": "#1f1f28",
+    "foreground": "#dcd7ba",
+    "cursor": "#c8c093",
+    "selectionBackground": "#2d4f67",
+    "ansi": [
+      "#16161d",
+      "#c34043",
+      "#76946a",
+      "#c0a36e",
+      "#7e9cd8",
+      "#957fb8",
+      "#6a9589",
+      "#c8c093",
+      "#727169",
+      "#e82424",
+      "#98bb6c",
+      "#e6c384",
+      "#7fb4ca",
+      "#938aa9",
+      "#7aa89f",
+      "#dcd7ba"
+    ]
+  },
+  "patches": {
+    "lightFollows": {
+      "sidebarTheme": "dark-2",
+      "darkThemePreset": "custom",
+      "customSidebarTitlebarBackgroundTintColor": "#1d1d26",
+      "terminalGhosttyTheme": "Ghostex Kanagawa Wave",
+      "lightThemePreset": "custom",
+      "customSidebarTitlebarLightBackgroundTintColor": "#eee6a6",
+      "terminalGhosttyLightTheme": "Ghostex Kanagawa Lotus",
+      "themeSidebarContrast": -24,
+      "themeWorkAreaContrast": -24,
+      "customSidebarTitlebarBackgroundDarknessPercent": 85,
+      "customSidebarTitlebarLightBackgroundLightnessPercent": 84,
+      "terminalBackgroundMode": "theme"
+    },
+    "lightPickedOnPurpose": {
+      "sidebarTheme": "dark-2",
+      "darkThemePreset": "custom",
+      "customSidebarTitlebarBackgroundTintColor": "#1d1d26",
+      "terminalGhosttyTheme": "Ghostex Kanagawa Wave",
+      "themeSidebarContrast": -24,
+      "themeWorkAreaContrast": -24,
+      "customSidebarTitlebarBackgroundDarknessPercent": 85,
+      "customSidebarTitlebarLightBackgroundLightnessPercent": 84,
+      "terminalBackgroundMode": "theme"
+    }
+  }
+}

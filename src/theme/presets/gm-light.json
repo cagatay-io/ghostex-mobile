@@ -1,0 +1,63 @@
+{
+  "id": "gm-light",
+  "name": "Gruvbox Material Light",
+  "mode": "light",
+  "partner": "gm-dark",
+  "background": "#fbf1c7",
+  "tintColor": "#faecb4",
+  "terminalPalette": "Ghostex Gruvbox Material Light",
+  "palette": {
+    "background": "#fbf1c7",
+    "foreground": "#654735",
+    "cursor": "#654735",
+    "selectionBackground": "#eee0b7",
+    "ansi": [
+      "#654735",
+      "#c14a4a",
+      "#6c782e",
+      "#b47109",
+      "#45707a",
+      "#945e80",
+      "#4c7a5d",
+      "#ddccab",
+      "#654735",
+      "#c14a4a",
+      "#6c782e",
+      "#b47109",
+      "#45707a",
+      "#945e80",
+      "#4c7a5d",
+      "#ddccab"
+    ]
+  },
+  "patches": {
+    "lightFollows": {
+      "sidebarTheme": "plain-light",
+      "lightThemePreset": "custom",
+      "customSidebarTitlebarLightBackgroundTintColor": "#faecb4",
+      "terminalGhosttyLightTheme": "Ghostex Gruvbox Material Light",
+      "darkThemePreset": "custom",
+      "customSidebarTitlebarBackgroundTintColor": "#262626",
+      "terminalGhosttyTheme": "Ghostex Gruvbox Material Dark",
+      "themeSidebarContrast": -24,
+      "themeWorkAreaContrast": -24,
+      "customSidebarTitlebarBackgroundDarknessPercent": 85,
+      "customSidebarTitlebarLightBackgroundLightnessPercent": 84,
+      "terminalBackgroundMode": "theme"
+    },
+    "lightPickedOnPurpose": {
+      "sidebarTheme": "plain-light",
+      "lightThemePreset": "custom",
+      "customSidebarTitlebarLightBackgroundTintColor": "#faecb4",
+      "terminalGhosttyLightTheme": "Ghostex Gruvbox Material Light",
+      "darkThemePreset": "custom",
+      "customSidebarTitlebarBackgroundTintColor": "#262626",
+      "terminalGhosttyTheme": "Ghostex Gruvbox Material Dark",
+      "themeSidebarContrast": -24,
+      "themeWorkAreaContrast": -24,
+      "customSidebarTitlebarBackgroundDarknessPercent": 85,
+      "customSidebarTitlebarLightBackgroundLightnessPercent": 84,
+      "terminalBackgroundMode": "theme"
+    }
+  }
+}

@@ -124,7 +124,8 @@ import { filterSummaryForWorkspace, resolveWorkspaceId, workspaceSwitchTarget } 
 import { useSettingsStore, type SessionListView } from '../settings/store';
 import { attachSessionKey, useTerminalStore } from '../terminal/sessions';
 import { GhostexPalette } from '../theme/palette';
-import { readableSecondaryText, resolveSidebarAppearance } from '../theme/sidebarAppearance';
+import { readableSecondaryText } from '../theme/sidebarAppearance';
+import { useAppearance } from '../theme/useAppearance';
 import {
   closePutsSessionToSleep,
   type SessionContext,
@@ -200,15 +201,10 @@ export default function SessionsScreen({ navigation }: Props) {
   );
   const lastActionByProject = useLauncherStore((state) => state.lastActionByProject);
   const selectedSessionKey = useTerminalStore((state) => state.selectedSessionKey);
-  const sidebarBackgroundContrast = useSettingsStore((state) => state.settings.sidebarBackgroundContrast);
-  const sidebarBackgroundTint = useSettingsStore((state) => state.settings.sidebarBackgroundTint);
   const sidebarGroupsOpacityPercent = useSettingsStore((state) => state.settings.sidebarGroupsOpacityPercent);
   const tailscaleReminder = useSettingsStore((state) => state.settings.tailscaleReminder);
   const setSetting = useSettingsStore((state) => state.setSetting);
-  const sidebarAppearance = useMemo(
-    () => resolveSidebarAppearance(sidebarBackgroundTint, sidebarBackgroundContrast),
-    [sidebarBackgroundContrast, sidebarBackgroundTint],
-  );
+  const sidebarAppearance = useAppearance();
   const neutralExpandedGroupSurface = useMemo(
     () => expandedGroupBackground(sidebarAppearance.background),
     [sidebarAppearance.background],
