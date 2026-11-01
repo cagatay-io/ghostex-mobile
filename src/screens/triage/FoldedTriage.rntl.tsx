@@ -7,7 +7,9 @@
  * core as the chat's own approval and question cards send them: the real `ApprovalCard` and `QuestionCard` are tapped
  * into one fake chat, the triage into a stand-in chat host, and both receive the same action. One decision per card
  * goes out once: after a tap the card's other buttons send nothing while the answer is on its way, and a short reply
- * is sent once and its card leaves. A card's head opens the session exactly as its list row does. Mocked are the
+ * is sent once and its card leaves. A card's head opens the session exactly as its list row does. With the computer's
+ * Sidebar set to Unified the same holds above upstream's Unified list, whose scope is every computer it shows as its
+ * filter leaves them: the waits ordered across computers, each card answering on its own. Mocked are the
  * boundaries only: the native module, the chat host, the computer's commands, the screen read, storage, haptics, the
  * safe area, navigation focus and the voice button.
  *
@@ -28,11 +30,14 @@ import { QuestionCard } from '../../chat/native/cards/QuestionCard';
 import { useBarGeometryStore } from '../../components/common/verticalBar/barGeometry';
 import VerticalBarArea from '../../components/common/verticalBar/VerticalBarArea';
 import { useCollapseStore } from '../../components/sessions/collapseStore';
-import { parseMobileSummary } from '../../contract/mobileSummary';
+import { parseMobileSummary, type GhostexMobileSummary } from '../../contract/mobileSummary';
+import { EMPTY_UNIFIED_FILTER } from '../../contract/unified/build';
+import * as inventoryClient from '../../inventory/client';
 import { useInventoryStore, type MachineInventory } from '../../inventory/store';
 import { useMachinesStore, type MachineRecord } from '../../machines/store';
 import { useSettingsStore } from '../../settings/store';
 import { useTerminalStore } from '../../terminal/sessions';
+import { useUnifiedListStore } from '../sessions-screen/unified-list-store';
 import SessionsScreen from '../SessionsScreen';
 
 const mockDispatched: { sessionId: string; action: UserAction }[] = [];
@@ -88,7 +93,8 @@ jest.mock('expo-haptics', () => ({
 }));
 jest.mock('expo-clipboard', () => ({ setStringAsync: () => Promise.resolve() }));
 jest.mock('expo-notifications', () => ({}));
-// The screen also holds the Unified list (off here), whose swipe rows need Reanimated's native runtime: a plain row.
+// The screen also holds the Unified list (on in the Unified tests at the end), whose swipe rows need Reanimated's
+// native runtime: a plain row.
 jest.mock('../machines-screen/SwipeRevealRow', () => {
   const { View } = jest.requireActual('react-native');
   return { __esModule: true, default: View, SWIPE_REVEAL_WIDTH: 176 };
@@ -416,6 +422,146 @@ describe('not folded', () => {
 
   test('on another iPhone there is no triage', async () => {
     await renderScreen(OTHER_IPHONE);
+    expect(screen.queryByLabelText('Waiting for you')).toBeNull();
+    expect(screen.getAllByText('Beta')).toHaveLength(1);
+    expect(mockHeld).toEqual([]);
+    expect(mockTailRead).not.toHaveBeenCalled();
+  });
+});
+
+describe("the Unified list (the computer's Sidebar set to Unified)", () => {
+  const MINI: MachineRecord = { ...MACHINE, id: 'm2', name: 'Mini', host: 'mini.local' };
+  /** The second computer: one approval waiting longer than any on the first, one finished turn, one working. */
+  const miniSummary = () =>
+    parseMobileSummary(
+      JSON.stringify({
+        ok: true,
+        capabilities: { awaitingAnswer: true },
+        projects: [{ projectId: 'p1', name: 'ghostex-server', path: '/work/ghostex-server' }],
+        sessions: [
+          wireSession('m', 'Theta', {
+            activity: 'attention',
+            awaitingApproval: true,
+            attention: { enteredAt: minutesAgo(9), kind: 'needsInput' },
+          }),
+          wireSession('n', 'Iota', {
+            activity: 'attention',
+            attention: { enteredAt: minutesAgo(2), kind: 'finished' },
+          }),
+          wireSession('o', 'Kappa'),
+        ],
+      }),
+    )!;
+  const inventory = (parsed: GhostexMobileSummary): MachineInventory => ({
+    ...useInventoryStore.getState().inventoriesByMachineId.m1!,
+    summary: parsed,
+    serverSummary: parsed,
+  });
+  const addMini = (): void => {
+    useMachinesStore.setState({ machines: [MACHINE, MINI], selectedMachineId: 'm1' });
+    useInventoryStore.setState({
+      inventoriesByMachineId: { ...useInventoryStore.getState().inventoriesByMachineId, m2: inventory(miniSummary()) },
+    });
+  };
+
+  beforeEach(() => {
+    // The first computer's Sidebar setting decides the list; the fixture is the classic tests' own.
+    useInventoryStore.setState({ inventoriesByMachineId: { m1: inventory({ ...summary(), sidebarView: 'unified' }) } });
+    useUnifiedListStore.setState({
+      hydrated: true,
+      filter: EMPTY_UNIFIED_FILTER,
+      toggledShelves: [],
+      foldedGroups: [],
+    });
+  });
+
+  test('folded: the three waiting sessions stand above the full Unified list, the one waiting longest on top', async () => {
+    await renderScreen(FOLDED);
+    expect(screen.getByPlaceholderText('Search sessions')).toBeTruthy();
+    expect(screen.getByText('Waiting for you · 3')).toBeTruthy();
+    expect(heads()).toEqual(['Open Beta, waiting 6m', 'Open Delta, waiting 3m', 'Open Zeta, waiting 1m']);
+    // The Unified list below keeps its cards; the waiting ones show twice, and the section comes first.
+    for (const title of ['Gamma', 'Eta']) expect(screen.getAllByText(title)).toHaveLength(1);
+    for (const title of ['Beta', 'Delta', 'Zeta']) expect(screen.getAllByText(title)).toHaveLength(2);
+    // Tree order: the section's heading before the list's cards.
+    expect(screen.getAllByText(/^(Waiting for you · 3|Gamma)$/).map((text) => text.props.children)).toEqual([
+      'Waiting for you · 3',
+      'Gamma',
+    ]);
+    expect(screen.getByLabelText('Allow')).toBeTruthy();
+    expect(screen.getByLabelText('Every 80 ms')).toBeTruthy();
+    expect(screen.getByLabelText('yes')).toBeTruthy();
+    expect([...mockHeld].sort()).toEqual(['b', 'd']);
+    expect(mockTailRead.mock.calls.map(([, , sessionId]) => sessionId)).toEqual(['f']);
+  });
+
+  test('every computer the list shows: the waits ordered across them, each card answering on its own computer', async () => {
+    addMini();
+    mockDocuments.m = APPROVAL;
+    await renderScreen(FOLDED);
+    expect(heads()).toEqual([
+      'Open Theta, waiting 9m',
+      'Open Beta, waiting 6m',
+      'Open Delta, waiting 3m',
+      'Open Iota, waiting 2m',
+      'Open Zeta, waiting 1m',
+    ]);
+    expect([...mockHeld].sort()).toEqual(['b', 'd', 'm']);
+    const [thetaAllow] = screen.getAllByLabelText('Allow');
+    await fireEvent.press(thetaAllow!);
+    expect(mockDispatched.map(({ sessionId }) => sessionId)).toEqual(['m']);
+    const [iotaReply] = screen.getAllByLabelText('yes');
+    await fireEvent.press(iotaReply!);
+    await settle();
+    expect(
+      mockRun.mock.calls
+        .filter(([, command]) => /^ghostex send-(session-chat-)?message /.test(command))
+        .map(([target, command]) => [target.id, /--session-id '(\w+)'/.exec(command)?.[1]]),
+    ).toEqual([['m2', 'n']]);
+  });
+
+  test("the Unified filter's scope is the triage's: with one computer picked, only its waiting sessions", async () => {
+    addMini();
+    useUnifiedListStore.setState({ filter: { ...EMPTY_UNIFIED_FILTER, machines: ['m2'] } });
+    await renderScreen(FOLDED);
+    expect(heads()).toEqual(['Open Theta, waiting 9m', 'Open Iota, waiting 2m']);
+    expect(mockHeld).toEqual(['m']);
+  });
+
+  test("a card's head opens the session exactly as its Unified card does", async () => {
+    // The computer answers the refresh that opening starts with what it showed, so it stays connected: a computer
+    // whose refresh fails gives no cards in the Unified list.
+    const read = jest.spyOn(inventoryClient, 'fetchInventory').mockImplementation(async () => ({
+      summary: useInventoryStore.getState().inventoriesByMachineId.m1!.serverSummary!,
+      fingerprint: 'unchanged',
+    }));
+    await renderScreen(FOLDED);
+    await fireEvent.press(screen.getByLabelText('Open Zeta, waiting 1m'));
+    await settle();
+    const fromHead = [...navigation.navigate.mock.calls];
+    expect(fromHead).toHaveLength(1);
+    await act(() => {
+      useTerminalStore.setState({ tabs: [], selectedSessionKey: null });
+    });
+    navigation.navigate.mockClear();
+    await fireEvent.press(screen.getAllByLabelText('Zeta').at(-1)!);
+    await settle();
+    expect(navigation.navigate.mock.calls).toEqual(fromHead);
+    read.mockRestore();
+  });
+
+  test('unfolded there is no triage above the Unified list, and nothing is read', async () => {
+    await renderScreen(UNFOLDED);
+    expect(screen.getByPlaceholderText('Search sessions')).toBeTruthy();
+    expect(screen.queryByLabelText('Waiting for you')).toBeNull();
+    expect(screen.getAllByText('Beta')).toHaveLength(1);
+    expect(mockHeld).toEqual([]);
+    expect(mockTailRead).not.toHaveBeenCalled();
+  });
+
+  test('on another iPhone there is no triage above the Unified list, and nothing is read', async () => {
+    await renderScreen(OTHER_IPHONE);
+    expect(screen.getByPlaceholderText('Search sessions')).toBeTruthy();
     expect(screen.queryByLabelText('Waiting for you')).toBeNull();
     expect(screen.getAllByText('Beta')).toHaveLength(1);
     expect(mockHeld).toEqual([]);

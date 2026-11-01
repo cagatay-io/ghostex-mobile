@@ -34,12 +34,7 @@ import { ChevronRightGlyph, CircleCheckGlyph } from '../../components/sessions/i
 import { STATUS_DOT_SIZE } from '../../components/sessions/rows';
 import { elapsedLabel } from '../../components/sessions/sessionStatus';
 import { OverlappedDots } from '../../components/sessions/StatusDotStack';
-import {
-  agentIconTint,
-  resolveAgentIconId,
-  type GhostexMobileSummary,
-  type GhostexSession,
-} from '../../contract/mobileSummary';
+import { agentIconTint, resolveAgentIconId, type GhostexSession } from '../../contract/mobileSummary';
 import { TriageCopy, WallCopy } from '../../copy';
 import type { MachineRecord } from '../../machines/store';
 import { useSettingsStore } from '../../settings/store';
@@ -51,7 +46,7 @@ import { sessionHasChatView, sessionOpensInChatView } from '../terminal-screen/s
 import { sessionTitle } from '../sessions-screen/session-actions';
 import { statusBadge } from '../wall/badge';
 import { sendShortReply } from './actions';
-import { hasQuestion, triageEntry, triageSessions, waitSignature, type TriageEntry } from './model';
+import { hasQuestion, triageEntry, waitSignature, type TriageEntry, type TriageWait } from './model';
 import { useTriageChats, useTriageTails, type TriageChat } from './useTriageData';
 
 /** How often the cards' "waiting 5m" moves on while the triage is shown. */
@@ -61,17 +56,19 @@ const APPROVAL_HUE = toneLook('approval', false).hue ?? SetupPalette.WARN;
 const ASK_HUE = askColor(false);
 
 export type TriageSectionProps = {
-  machine: MachineRecord;
-  /** The machine's session list as the list below shows it (its workspace and Space). */
-  summary: GhostexMobileSummary;
+  /**
+   * The list's waiting sessions with their computers, the one waiting longest first (`model.ts`): the classic list's
+   * one computer (its workspace and Space) or every computer of the Unified list.
+   */
+  waiting: readonly TriageWait<MachineRecord>[];
   appearance: SidebarAppearance;
   /** A card's head: the list row's own open. */
-  onOpen: (session: GhostexSession) => void;
+  onOpen: (machine: MachineRecord, session: GhostexSession) => void;
   /** The message at the bottom of the screen after a send. */
   onNotice: (notice: Omit<Notice, 'id'>) => void;
 };
 
-export default function TriageSection({ machine, summary, appearance, onOpen, onNotice }: TriageSectionProps) {
+export default function TriageSection({ waiting, appearance, onOpen, onNotice }: TriageSectionProps) {
   const shortReplies = useSettingsStore((state) => state.settings.shortReplies);
   const [nowMs, setNowMs] = useState(Date.now);
   useEffect(() => {
@@ -79,30 +76,30 @@ export default function TriageSection({ machine, summary, appearance, onOpen, on
     return () => clearInterval(timer);
   }, []);
 
-  const { capabilities } = summary;
-  const waiting = useMemo(() => triageSessions(summary), [summary]);
   const chatTargets = useMemo(
     () =>
       waiting
         .filter(
-          (session) => sessionHasChatView(session) && (session.awaitingApproval || hasQuestion(session, capabilities)),
+          ({ session, capabilities }) =>
+            sessionHasChatView(session) && (session.awaitingApproval || hasQuestion(session, capabilities)),
         )
-        .map((session) => ({
+        .map(({ machine, session }) => ({
           key: attachSessionKey(machine.id, session.sessionId),
           machine,
           projectId: session.projectId,
           sessionId: session.sessionId,
         })),
-    [waiting, capabilities, machine],
+    [waiting],
   );
   const chats = useTriageChats(chatTargets);
 
   /** Sessions answered here, by key, with the wait they were answered in: hidden until the computer's list moves on. */
   const [answered, setAnswered] = useState<Readonly<Record<string, string>>>({});
-  const cards = waiting.map((session) => {
+  const cards = waiting.map(({ machine, session, capabilities }) => {
     const key = attachSessionKey(machine.id, session.sessionId);
     return {
       key,
+      machine,
       session,
       signature: waitSignature(session, capabilities),
       chat: chats[key],
@@ -126,7 +123,7 @@ export default function TriageSection({ machine, summary, appearance, onOpen, on
   const tails = useTriageTails(
     shown
       .filter(({ entry }) => entry.kind === 'reply')
-      .map(({ key, session, signature }) => ({
+      .map(({ key, machine, session, signature }) => ({
         key,
         machine,
         projectId: session.projectId,
@@ -144,7 +141,7 @@ export default function TriageSection({ machine, summary, appearance, onOpen, on
   );
 
   const reply = useCallback(
-    async (key: string, signature: string, session: GhostexSession, text: string): Promise<void> => {
+    async (key: string, signature: string, machine: MachineRecord, session: GhostexSession, text: string) => {
       try {
         await sendShortReply({ machine, session, chatView: sessionOpensInChatView(key, session) }, text, {
           run: runGhostexCli,
@@ -160,18 +157,15 @@ export default function TriageSection({ machine, summary, appearance, onOpen, on
         throw error;
       }
     },
-    [machine, onNotice, sentTo],
+    [onNotice, sentTo],
   );
 
-  const openQuestion = useCallback(
-    (session: GhostexSession): void => {
-      // The app's link module (with its navigation container) loads on the first question opened here, as on the
-      // terminal screen's attention pane: the Sessions screen loads without it, as before.
-      const { openDeepLink } = require('../../app/deepLinks') as typeof DeepLinksModule;
-      openDeepLink(sessionDeepLink({ machineId: machine.id, sessionId: session.sessionId, view: 'question' }));
-    },
-    [machine.id],
-  );
+  const openQuestion = useCallback((machine: MachineRecord, session: GhostexSession): void => {
+    // The app's link module (with its navigation container) loads on the first question opened here, as on the
+    // terminal screen's attention pane: the Sessions screen loads without it, as before.
+    const { openDeepLink } = require('../../app/deepLinks') as typeof DeepLinksModule;
+    openDeepLink(sessionDeepLink({ machineId: machine.id, sessionId: session.sessionId, view: 'question' }));
+  }, []);
 
   return (
     <View accessibilityLabel={TriageCopy.section} style={[styles.section, { borderBottomColor: appearance.border }]}>
@@ -185,7 +179,7 @@ export default function TriageSection({ machine, summary, appearance, onOpen, on
           <Text accessibilityRole="header" style={[styles.heading, { color: appearance.muted }]}>
             {TriageCopy.heading(shown.length)}
           </Text>
-          {shown.map(({ key, session, signature, chat, entry }) => (
+          {shown.map(({ key, machine, session, signature, chat, entry }) => (
             <TriageCard
               key={key}
               session={session}
@@ -195,10 +189,10 @@ export default function TriageSection({ machine, summary, appearance, onOpen, on
               tail={tails[key] ?? []}
               replies={shortReplies}
               appearance={appearance}
-              onOpen={() => onOpen(session)}
+              onOpen={() => onOpen(machine, session)}
               onAnswered={(title) => sentTo(key, signature, session, title)}
-              onReply={(text) => reply(key, signature, session, text)}
-              onOpenQuestion={() => openQuestion(session)}
+              onReply={(text) => reply(key, signature, machine, session, text)}
+              onOpenQuestion={() => openQuestion(machine, session)}
             />
           ))}
         </>

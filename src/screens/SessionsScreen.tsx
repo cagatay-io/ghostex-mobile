@@ -149,7 +149,7 @@ import { wallColumns } from './wall/layout';
 import { wallTargets } from './wall/previews';
 import { useWallPreviews } from './wall/useWallPreviews';
 import WallSwitch from './wall/WallSwitch';
-import { foldedOuterDisplay } from './triage/model';
+import { foldedOuterDisplay, triageSessions, unifiedTriageWaits, type TriageWait } from './triage/model';
 import TriageSection from './triage/TriageSection';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Sessions'>;
@@ -475,24 +475,6 @@ export default function SessionsScreen({ navigation }: Props) {
   const classicWallTargets = useMemo(() => (tilesShown ? wallTargets(entries) : []), [tilesShown, entries]);
 
   /*
-   * The folded triage: on the iPhone Duo's outer display (the header in the status band, no fold divisions) the list
-   * starts with the sessions that wait for the user, from the list's own scope (computer, workspace and Space). Only
-   * while the screen is in front: it holds the waiting sessions' chats open (`triage/useTriageData.ts`).
-   */
-  const triageSummary = useMemo(
-    () =>
-      selectedSummary === null || !foldedOuterDisplay(headerPlacement.kind, foldDivisions)
-        ? null
-        : filterSummaryForSpace(selectedSummary, selectedSpaceId),
-    [selectedSummary, selectedSpaceId, headerPlacement.kind, foldDivisions],
-  );
-  const [notice, setNotice] = useState<Notice | null>(null);
-  const noticeCounter = useRef(0);
-  const showNotice = useCallback((next: Omit<Notice, 'id'>): void => {
-    noticeCounter.current += 1;
-    setNotice({ ...next, id: noticeCounter.current });
-  }, []);
-  /*
    * Glyph / failed-card retry. The store flips `retrying` synchronously before
    * its first await, so the tab spins for as long as the attempt really takes;
    * the status line says the same thing in words for the same span, then goes
@@ -669,6 +651,42 @@ export default function SessionsScreen({ navigation }: Props) {
   );
   useWallPreviews(tilesShown && isFocused, unified.on ? unified.wallTargets : classicWallTargets);
 
+  /*
+   * The folded triage: on the iPhone Duo's outer display (the header in the status band, no fold divisions) the list
+   * starts with the sessions that wait for the user, from the list's own scope: the classic list's computer, workspace
+   * and Space, or every computer of the Unified list as its filter and search leave them (`triage/model.ts`). Only
+   * while the screen is in front: it holds the waiting sessions' chats open (`triage/useTriageData.ts`).
+   */
+  const triageFolded = foldedOuterDisplay(headerPlacement.kind, foldDivisions);
+  const triageWaits = useMemo((): TriageWait<MachineRecord>[] | null => {
+    if (!triageFolded || machine === null || selectedSummary === null) return null;
+    if (unified.on) {
+      return unifiedTriageWaits(
+        unified.view,
+        machines,
+        (machineId) => inventoriesByMachineId[machineId]?.summary ?? null,
+      );
+    }
+    const scoped = filterSummaryForSpace(selectedSummary, selectedSpaceId);
+    return triageSessions(scoped).map((session) => ({ machine, session, capabilities: scoped.capabilities }));
+  }, [
+    triageFolded,
+    machine,
+    selectedSummary,
+    selectedSpaceId,
+    unified.on,
+    unified.view,
+    machines,
+    inventoriesByMachineId,
+  ]);
+
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const noticeCounter = useRef(0);
+  const showNotice = useCallback((next: Omit<Notice, 'id'>): void => {
+    noticeCounter.current += 1;
+    setNotice({ ...next, id: noticeCounter.current });
+  }, []);
+
   const {
     summaryFor,
     runCollectionsUpdate,
@@ -800,6 +818,16 @@ export default function SessionsScreen({ navigation }: Props) {
       Long-press any item for more options.
     </Text>
   );
+  // Above the classic and the Unified list alike; a card's head opens its session through the row's own `attach`.
+  const triageHeader =
+    triageWaits !== null && isFocused ? (
+      <TriageSection
+        waiting={triageWaits}
+        appearance={sidebarAppearance}
+        onOpen={(target, session) => withMachine(target.id, (saved) => void attach(saved, session))}
+        onNotice={showNotice}
+      />
+    ) : undefined;
 
   const renderBlock = ({ item: block }: { item: DrawerBlock }) => (
     <DrawerBlockView
@@ -1074,6 +1102,7 @@ export default function SessionsScreen({ navigation }: Props) {
                   style: [styles.list, listEdges.scroll],
                   contentContainerStyle: [styles.listContent, listEdges.content],
                   refreshControl: listRefreshControl,
+                  ListHeaderComponent: triageHeader,
                   ListFooterComponent: listFooter,
                 }
               : null
@@ -1085,16 +1114,7 @@ export default function SessionsScreen({ navigation }: Props) {
             style: [styles.list, listEdges.scroll],
             contentContainerStyle: [styles.listContent, listEdges.content],
             refreshControl: listRefreshControl,
-            ListHeaderComponent:
-              machine !== null && triageSummary !== null && isFocused ? (
-                <TriageSection
-                  machine={machine}
-                  summary={triageSummary}
-                  appearance={sidebarAppearance}
-                  onOpen={(session) => withMachine(machine.id, (target) => void attach(target, session))}
-                  onNotice={showNotice}
-                />
-              ) : undefined,
+            ListHeaderComponent: triageHeader,
             ListFooterComponent: (
               <>
                 {visibleEntries.emptyProjects > 0 ? (

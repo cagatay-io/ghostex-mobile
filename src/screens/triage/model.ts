@@ -6,6 +6,9 @@
  * - Waiting is what the list's dots say: the blue attention dot (finished or waiting), the red approval dot, and a
  *   pending question (an open question card from a computer that announces `awaitingAnswer`, or a counted question,
  *   the "has a question" rule of notifications and the Live Activity). The one waiting longest comes first.
+ * - Which sessions: the list's own. The classic list shows one computer (its workspace and Space); the Unified list
+ *   shows every computer the phone holds, narrowed by its filter and search, so there the triage spans them too, each
+ *   session read by its own computer's rules and answered on it.
  * - What an entry offers comes from the session's chat, the same document the chat's question card draws: an approval
  *   card gets Allow and Deny, a question with options a single choice can answer gets its options. A question buttons
  *   cannot answer completely (several choices, several questions, a written answer) and a question the chat has no
@@ -18,6 +21,7 @@ import { APPROVAL_ASK_FALLBACK, APPROVAL_TITLE_FALLBACK } from '../../chat/nativ
 import type { ChatDocument } from '../../chat/rust/document';
 import type { HeaderPlacement } from '../../components/common/verticalBar/layout';
 import type { GhostexMobileSummary, GhostexSession, GhostexSummaryCapabilities } from '../../contract/mobileSummary';
+import type { UnifiedView } from '../../contract/unified/build';
 
 /** The part of a session's chat document an entry reads: the blocking prompt and its card. */
 export type TriageDocument = Pick<ChatDocument, 'prompt' | 'questionCard'>;
@@ -69,16 +73,54 @@ export function foldedOuterDisplay(
   return placement !== 'top' && (divisions?.length ?? 0) === 0;
 }
 
-/** The summary's waiting sessions, the one waiting longest first; a wait without a known start after them. */
-export function triageSessions(summary: GhostexMobileSummary): GhostexSession[] {
-  return summary.sessions
-    .filter((session) => waitsForUser(session, summary.capabilities))
-    .map((session, index) => {
-      const since = Date.parse(session.attentionEnteredAt);
-      return { session, index, since: Number.isNaN(since) ? Number.POSITIVE_INFINITY : since };
+/** A waiting session with the computer it is on, read by that computer's capabilities. */
+export type TriageWait<M> = { machine: M; session: GhostexSession; capabilities: GhostexSummaryCapabilities };
+
+/** The waiting ones of `candidates`, the one waiting longest first; a wait without a known start after them. */
+function longestWaitFirst<T extends { session: GhostexSession; capabilities: GhostexSummaryCapabilities }>(
+  candidates: readonly T[],
+): T[] {
+  return candidates
+    .filter(({ session, capabilities }) => waitsForUser(session, capabilities))
+    .map((candidate, index) => {
+      const since = Date.parse(candidate.session.attentionEnteredAt);
+      return { candidate, index, since: Number.isNaN(since) ? Number.POSITIVE_INFINITY : since };
     })
     .sort((a, b) => (a.since === b.since ? a.index - b.index : a.since - b.since))
-    .map(({ session }) => session);
+    .map(({ candidate }) => candidate);
+}
+
+/** The summary's waiting sessions (the classic list's), the one waiting longest first. */
+export function triageSessions(summary: GhostexMobileSummary): GhostexSession[] {
+  return longestWaitFirst(summary.sessions.map((session) => ({ session, capabilities: summary.capabilities }))).map(
+    ({ session }) => session,
+  );
+}
+
+/**
+ * The Unified list's waiting sessions: every row its `view` holds (on any shelf, open or folded, as its filter and
+ * search leave them), each by its own computer's capabilities, the one waiting longest first across computers.
+ */
+export function unifiedTriageWaits<M extends { id: string }>(
+  view: UnifiedView<GhostexSession>,
+  machines: readonly M[],
+  summaryOf: (machineId: string) => GhostexMobileSummary | null,
+): TriageWait<M>[] {
+  const candidates: TriageWait<M>[] = [];
+  for (const row of [
+    ...view.drafts,
+    ...view.pinned,
+    ...view.active,
+    ...view.working,
+    ...view.snoozed,
+    ...view.parked,
+  ]) {
+    const machine = machines.find((entry) => entry.id === row.machine);
+    const summary = summaryOf(row.machine);
+    if (machine === undefined || summary === null || row.session.source === undefined) continue;
+    candidates.push({ machine, session: row.session.source, capabilities: summary.capabilities });
+  }
+  return longestWaitFirst(candidates);
 }
 
 export function triageEntry(

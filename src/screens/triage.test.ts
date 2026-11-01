@@ -19,8 +19,10 @@ import { describe, expect, test } from 'bun:test';
 import type { ChatDocument, Json } from '../chat/rust/document';
 import { approvalAnswer, questionOptionAnswer } from '../chat/native/cards/answers';
 import { parseMobileSummary, type GhostexMobileSummary, type GhostexSession } from '../contract/mobileSummary';
+import { EMPTY_UNIFIED_FILTER, type UnifiedFilter } from '../contract/unified/build';
+import { unifiedListOf, unifiedSettingsOf } from '../contract/unified/fromSummary';
 import { sendShortReply } from './triage/actions';
-import { foldedOuterDisplay, triageEntry, triageSessions, waitsForUser } from './triage/model';
+import { foldedOuterDisplay, triageEntry, triageSessions, unifiedTriageWaits, waitsForUser } from './triage/model';
 
 /** A fixed instant the waits are measured back from. */
 const NOW = 1_800_000_000_000;
@@ -156,6 +158,64 @@ describe('the outer display of the folded iPhone Duo', () => {
     expect(foldedOuterDisplay('rail', [{ x: 455.5, y: 0, width: 40, height: 669, active: false }])).toBe(false);
     expect(foldedOuterDisplay('top', [])).toBe(false);
     expect(foldedOuterDisplay('top', undefined)).toBe(false);
+  });
+});
+
+describe('the Unified list: its waiting sessions, every computer it shows', () => {
+  const studio = { id: 'm1', name: 'Studio Mac' };
+  const mini = { id: 'm2', name: 'Mini' };
+  const studioSummary = summary([
+    { sessionId: 'a', title: 'A', activity: 'working' },
+    { sessionId: 'b', title: 'B', activity: 'attention', attention: { enteredAt: minutesAgo(6) } },
+    { sessionId: 'c', title: 'C', activity: 'idle', isParked: true },
+    { sessionId: 'd', title: 'Deploy notes', awaitingAnswer: true, attention: { enteredAt: minutesAgo(3) } },
+  ]);
+  const miniSummary = summary(
+    [
+      { sessionId: 'm', title: 'M', awaitingApproval: true, attention: { enteredAt: minutesAgo(9) } },
+      { sessionId: 'n', title: 'N', activity: 'attention', isPinned: true, attention: { enteredAt: minutesAgo(1) } },
+      { sessionId: 'o', title: 'O', pendingQuestionCount: 1 },
+    ],
+    {},
+  );
+  const summaries: Record<string, GhostexMobileSummary> = { m1: studioSummary, m2: miniSummary };
+  /** The waiting sessions over the list as upstream's Unified list builds it for these two computers and `filter`. */
+  const waits = (filter: UnifiedFilter) =>
+    unifiedTriageWaits(
+      unifiedListOf(
+        [
+          { machineId: 'm1', label: 'Studio Mac', summary: studioSummary, workspaceId: null },
+          { machineId: 'm2', label: 'Mini', summary: miniSummary, workspaceId: null },
+        ],
+        unifiedSettingsOf(studioSummary),
+        filter,
+        NOW,
+      ),
+      [studio, mini],
+      (machineId) => summaries[machineId] ?? null,
+    ).map(({ machine, session }) => `${machine.id}:${session.sessionId}`);
+
+  test("both computers' waiting sessions, the one waiting longest first; working and idle ones, wherever they sit, not", () => {
+    expect(waits(EMPTY_UNIFIED_FILTER)).toEqual(['m2:m', 'm1:b', 'm1:d', 'm2:n', 'm2:o']);
+  });
+
+  test("each session counts by its own computer's rules: an open question card only from one that announces it", () => {
+    const unannounced = {
+      ...miniSummary,
+      sessions: [{ ...miniSummary.sessions[0]!, awaitingApproval: false, awaitingAnswer: true }],
+    };
+    const list = unifiedListOf(
+      [{ machineId: 'm2', label: 'Mini', summary: unannounced, workspaceId: null }],
+      unifiedSettingsOf(unannounced),
+      EMPTY_UNIFIED_FILTER,
+      NOW,
+    );
+    expect(unifiedTriageWaits(list, [mini], () => unannounced)).toEqual([]);
+  });
+
+  test("the Unified filter's scope is the triage's: one computer picked, only its waiting sessions", () => {
+    expect(waits({ ...EMPTY_UNIFIED_FILTER, machines: ['m2'] })).toEqual(['m2:m', 'm2:n', 'm2:o']);
+    expect(waits({ ...EMPTY_UNIFIED_FILTER, query: 'deploy' })).toEqual(['m1:d']);
   });
 });
 
