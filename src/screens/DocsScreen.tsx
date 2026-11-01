@@ -55,9 +55,16 @@ import { EllipsisIcon, ExternalLinkIcon, RefreshIcon } from '../components/termi
 import { DocsCopy } from '../copy';
 import { listProjectDocs, resolveDocsEntryPath } from '../docs/client';
 import type { DocsEntry } from '../docs/entries';
-import { buildDocsTree, flattenDocsFiles, recentDocsFiles, type DocsFileNode } from '../docs/tree';
 import { FileRow, FileRowContent, FolderRow, FolderRowContent, type MeasureAnchor } from '../files/FileRows';
-import { browserFile, isHiddenPath, treeRows, type BrowserFile, type BrowserFolder, type TreeRow } from '../files/list';
+import {
+  browserFile,
+  isHiddenPath,
+  recentDocsFiles,
+  treeRows,
+  type BrowserFile,
+  type BrowserFolder,
+  type TreeRow,
+} from '../files/list';
 import { currentMachine, useProjectDocsRpc } from '../files/machine';
 import { filePreview, statProjectFile } from '../files/preview';
 import { failureMessage } from '../files/request';
@@ -88,7 +95,7 @@ const COLUMN_MAX_WIDTH = 720;
 const MENU_ICON_SIZE = 14;
 
 /** The last top level and Recently changed per project, so returning to Files shows them at once while they refresh. */
-const browserCache = new Map<string, { root: readonly DocsEntry[] | null; recent: readonly DocsFileNode[] }>();
+const browserCache = new Map<string, { root: readonly DocsEntry[] | null; recent: readonly BrowserFile[] }>();
 
 type FileListRow = { kind: 'file'; key: string; file: BrowserFile; depth: number; location: string | null };
 type Row =
@@ -144,7 +151,7 @@ export default function DocsScreen({ navigation, route }: Props) {
   const showHidden = useSettingsStore((state) => state.settings.showHiddenFiles);
   const settingsHydrated = useSettingsStore((state) => state.hydrated);
   const setSetting = useSettingsStore((state) => state.setSetting);
-  const [recent, setRecent] = useState<readonly DocsFileNode[]>(cached?.recent ?? []);
+  const [recent, setRecent] = useState<readonly BrowserFile[]>(cached?.recent ?? []);
   const [recentError, setRecentError] = useState<string | null>(null);
   const [recentRun, setRecentRun] = useState(0);
   const [query, setQuery] = useState('');
@@ -186,7 +193,7 @@ export default function DocsScreen({ navigation, route }: Props) {
       try {
         const entries = await listProjectDocs(currentMachine(machineId), projectId);
         if (ignore) return;
-        setRecent(recentDocsFiles(flattenDocsFiles(buildDocsTree(entries)), RECENT_LIMIT));
+        setRecent(recentDocsFiles(entries, RECENT_LIMIT));
         setRecentError(null);
       } catch (failure) {
         if (!ignore) setRecentError(failureMessage(failure));

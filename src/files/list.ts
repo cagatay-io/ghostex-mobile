@@ -10,6 +10,7 @@
 
 import { DocsCopy } from '../copy';
 import { entryTimestamp, parseDocsEntries, type DocsEntry } from '../docs/entries';
+import { docKindForPath } from '../docs/paths';
 import { projectScopeAction, type DocsRpc } from './request';
 
 /** A file as a browser row shows and opens it. */
@@ -85,6 +86,19 @@ export function browserFile(entry: DocsEntry): BrowserFile {
     size: entry.size,
     modifiedAt: entryTimestamp(entry.modifiedAt),
   };
+}
+
+/**
+ * Recently changed: the Markdown and HTML files of a Docs listing (`listProjectDocs`) that carry a modification
+ * time, newest first, at most `limit`.
+ */
+export function recentDocsFiles(entries: readonly DocsEntry[], limit: number): BrowserFile[] {
+  return entries
+    .filter((entry) => entry.kind === 'file' && docKindForPath(entry.name) !== null)
+    .map(browserFile)
+    .filter((file) => file.modifiedAt !== null)
+    .sort((left, right) => (right.modifiedAt ?? 0) - (left.modifiedAt ?? 0))
+    .slice(0, limit);
 }
 
 /**

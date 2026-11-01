@@ -14,12 +14,10 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 
-import HeaderButton from '../components/common/HeaderButton';
 import NoticeToast, { type Notice } from '../components/common/NoticeToast';
 import { useStackScreenRail } from '../components/common/verticalBar/stackRail';
-import { useScrollToBarEdges, type RailEntry } from '../components/common/verticalBar/VerticalBarArea';
-import { CopyGlyph, MessagePlusGlyph, ShareGlyph } from '../components/sessions/icons';
-import { RefreshIcon } from '../components/terminal/icons';
+import { useScrollToBarEdges } from '../components/common/verticalBar/VerticalBarArea';
+import { CopyGlyph, ShareGlyph } from '../components/sessions/icons';
 import { DocsCopy } from '../copy';
 import { baseName, extensionOf } from '../docs/paths';
 import { renderSourceDocument } from '../docs/plainDocument';
@@ -34,7 +32,8 @@ import {
   statProjectFile,
   type InfoReason,
 } from '../files/preview';
-import { previewActions, type PreviewAction } from '../files/rowMenu';
+import { PreviewHeaderButtons, previewEntries } from '../files/PreviewButtons';
+import { previewActions } from '../files/rowMenu';
 import { canShareFiles } from '../files/shareSheet';
 import { useShareFile } from '../files/useShareFile';
 import { useAddToSessionContext } from '../files/useSessionContext';
@@ -139,71 +138,21 @@ export default function ProjectFileScreen({ navigation, route }: Props) {
   // The source view's header as the approved mockup draws a preview's (`previewButtons`); the name-and-size view
   // keeps only Reload there, its Copy Full Path and Share… stand under the name.
   const showsPreviewActions = shown.kind !== 'info';
-  const buttons = useMemo(() => {
-    const actions: PreviewAction[] = showsPreviewActions
-      ? previewActions({ sessionContext: addFileToContext !== null, share: canShareFiles })
-      : ['reload'];
-    return actions.flatMap((action): RailEntry[] => {
-      switch (action) {
-        case 'copyPath':
-          return [
-            {
-              key: 'copy-path',
-              label: DocsCopy.copyFullPath,
-              icon: (glyph: number) => <CopyGlyph size={glyph} color={GhostexPalette.FOREGROUND} />,
-              onPress: copyPath,
-            },
-          ];
-        case 'addToSessionContext':
-          return addFileToContext === null
-            ? []
-            : [
-                {
-                  key: 'context',
-                  label: DocsCopy.addToSessionContext,
-                  icon: (glyph: number) => <MessagePlusGlyph size={glyph} color={GhostexPalette.FOREGROUND} />,
-                  onPress: addFileToContext,
-                },
-              ];
-        case 'share':
-          return [
-            {
-              key: 'share',
-              label: DocsCopy.shareButton,
-              icon: (glyph: number) => <ShareGlyph size={glyph} color={GhostexPalette.FOREGROUND} />,
-              onPress: shareFile,
-              // One share at a time for the whole app: dimmed while any share runs, this screen's or another's.
-              disabled: sharing,
-            },
-          ];
-        case 'reload':
-          return [
-            {
-              key: 'reload',
-              label: DocsCopy.reload,
-              icon: (glyph: number) => <RefreshIcon size={glyph} color={GhostexPalette.FOREGROUND} />,
-              onPress: reload,
-            },
-          ];
-      }
-    });
-  }, [addFileToContext, copyPath, reload, shareFile, sharing, showsPreviewActions]);
+  const buttons = useMemo(
+    () =>
+      previewEntries(
+        showsPreviewActions
+          ? previewActions({ sessionContext: addFileToContext !== null, share: canShareFiles })
+          : ['reload'],
+        { copyPath, addToSessionContext: addFileToContext, share: shareFile, reload },
+        { copyPathLabel: DocsCopy.copyFullPath, sharing },
+      ),
+    [addFileToContext, copyPath, reload, shareFile, sharing, showsPreviewActions],
+  );
   useLayoutEffect(() => {
     navigation.setOptions({
       title: name,
-      headerRight: () => (
-        <View style={styles.headerButtons}>
-          {buttons.map((button) => (
-            <HeaderButton
-              key={button.key}
-              label={button.label}
-              onPress={button.onPress}
-              disabled={button.disabled}
-              icon={button.icon(button.key === 'reload' ? 18 : 17)}
-            />
-          ))}
-        </View>
-      ),
+      headerRight: () => <PreviewHeaderButtons entries={buttons} />,
     });
   }, [buttons, name, navigation]);
   // On the iPhone Duo the same buttons stand in the side bar under Back.
@@ -294,7 +243,6 @@ export default function ProjectFileScreen({ navigation, route }: Props) {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: GhostexPalette.BACKGROUND },
   source: { flex: 1, backgroundColor: GhostexPalette.BACKGROUND },
-  headerButtons: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   pressed: { opacity: 0.6 },
   infoContent: { paddingHorizontal: 28, paddingTop: 56, paddingBottom: 32 },
   info: { width: '100%', maxWidth: INFO_MAX_WIDTH, alignSelf: 'center', alignItems: 'center', gap: 8 },

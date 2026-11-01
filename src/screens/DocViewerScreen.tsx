@@ -27,12 +27,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
 
-import HeaderButton from '../components/common/HeaderButton';
 import NoticeToast, { type Notice } from '../components/common/NoticeToast';
 import { useStackScreenRail } from '../components/common/verticalBar/stackRail';
 import type { RailEntry } from '../components/common/verticalBar/VerticalBarArea';
-import { CopyGlyph, MessagePlusGlyph, PencilGlyph, ShareGlyph } from '../components/sessions/icons';
-import { RefreshIcon } from '../components/terminal/icons';
+import { PencilGlyph } from '../components/sessions/icons';
 import { DocsCopy } from '../copy';
 import { agentationInjectionScript, parseDocPageMessage } from '../docs/agentation';
 import { assetLoaderAnswerScript, assetLoaderInjectionScript, parseDocAssetsMessage } from '../docs/assetLoader';
@@ -48,7 +46,8 @@ import { remotePathFromFileUrl } from '../docs/openDoc';
 import { openComputerFile } from '../docs/openComputerFile';
 import { baseName, docKindForPath, normalizeRemotePath } from '../docs/paths';
 import { useProjectDocsRpc } from '../files/machine';
-import { previewActions, type PreviewAction } from '../files/rowMenu';
+import { PreviewHeaderButtons, previewEntries } from '../files/PreviewButtons';
+import { previewActions } from '../files/rowMenu';
 import { canShareFiles } from '../files/shareSheet';
 import { useShareFile } from '../files/useShareFile';
 import { useAddToSessionContext } from '../files/useSessionContext';
@@ -166,113 +165,42 @@ export default function DocViewerScreen({ navigation, route }: Props) {
     showNotice(remotePath, false, DocsCopy.pathCopied);
   }, [remotePath, showNotice]);
 
-  // The file's buttons: from Files the approved mockup's preview header, else Copy path and Reload as before.
-  const fileButtons = useMemo(() => {
-    const actions: PreviewAction[] =
-      fromFiles !== null
-        ? previewActions({ sessionContext: addFileToContext !== null, share: shareFile !== null })
-        : ['copyPath', 'reload'];
-    return actions.flatMap((action): RailEntry[] => {
-      switch (action) {
-        case 'copyPath':
-          return [
+  // An HTML page's annotation switch, then the file's buttons: from Files the approved mockup's preview header, else
+  // Copy path and Reload (outside Files there is neither Add to Session Context nor Share…).
+  const buttons = useMemo(
+    (): RailEntry[] => [
+      ...(isHtml
+        ? [
             {
-              key: 'copy-path',
-              label: fromFiles !== null ? DocsCopy.copyFullPath : DocsCopy.copyPath,
-              icon: (size: number) => <CopyGlyph size={size} color={GhostexPalette.FOREGROUND} />,
-              onPress: copyPath,
+              key: 'annotate',
+              label: annotate ? DocsCopy.annotateOn : DocsCopy.annotateOff,
+              icon: (size: number) => (
+                <PencilGlyph size={size} color={annotate ? GhostexPalette.ACCENT : GhostexPalette.FOREGROUND} />
+              ),
+              onPress: toggleAnnotate,
+              selected: annotate,
             },
-          ];
-        case 'addToSessionContext':
-          return addFileToContext === null
-            ? []
-            : [
-                {
-                  key: 'context',
-                  label: DocsCopy.addToSessionContext,
-                  icon: (size: number) => <MessagePlusGlyph size={size} color={GhostexPalette.FOREGROUND} />,
-                  onPress: addFileToContext,
-                },
-              ];
-        case 'share':
-          return shareFile === null
-            ? []
-            : [
-                {
-                  key: 'share',
-                  label: DocsCopy.shareButton,
-                  icon: (size: number) => <ShareGlyph size={size} color={GhostexPalette.FOREGROUND} />,
-                  onPress: shareFile,
-                  // One share at a time for the whole app: dimmed while any share runs, this screen's or another's.
-                  disabled: sharing,
-                },
-              ];
-        case 'reload':
-          return [
-            {
-              key: 'reload',
-              label: DocsCopy.reload,
-              icon: (size: number) => <RefreshIcon size={size} color={GhostexPalette.FOREGROUND} />,
-              onPress: reload,
-            },
-          ];
-      }
-    });
-  }, [addFileToContext, copyPath, fromFiles, reload, shareFile, sharing]);
+          ]
+        : []),
+      ...previewEntries(
+        previewActions({ sessionContext: addFileToContext !== null, share: shareFile !== null }),
+        { copyPath, addToSessionContext: addFileToContext, share: shareFile, reload },
+        { copyPathLabel: fromFiles !== null ? DocsCopy.copyFullPath : DocsCopy.copyPath, sharing },
+      ),
+    ],
+    [addFileToContext, annotate, copyPath, fromFiles, isHtml, reload, shareFile, sharing, toggleAnnotate],
+  );
 
   useLayoutEffect(() => {
     navigation.setOptions({
       title: baseName(remotePath),
-      headerRight: () => (
-        <View style={styles.headerButtons}>
-          {isHtml ? (
-            <HeaderButton
-              label={annotate ? DocsCopy.annotateOn : DocsCopy.annotateOff}
-              onPress={toggleAnnotate}
-              active={annotate}
-              icon={<PencilGlyph size={17} color={annotate ? GhostexPalette.ACCENT : GhostexPalette.FOREGROUND} />}
-            />
-          ) : null}
-          {fileButtons.map((button) => (
-            <HeaderButton
-              key={button.key}
-              label={button.label}
-              onPress={button.onPress}
-              disabled={button.disabled}
-              icon={button.icon(button.key === 'reload' ? 18 : 17)}
-            />
-          ))}
-        </View>
-      ),
+      headerRight: () => <PreviewHeaderButtons entries={buttons} />,
     });
-  }, [annotate, fileButtons, isHtml, navigation, remotePath, toggleAnnotate]);
+  }, [buttons, navigation, remotePath]);
   // On the iPhone Duo the same buttons stand in the side bar under Back. An HTML page's annotation tool
   // has text fields, so there the rail keeps clear of the keyboard, annotating or not (it never moves
   // when the switch flips).
-  useStackScreenRail(
-    useMemo(
-      () => ({
-        entries: [
-          ...(isHtml
-            ? [
-                {
-                  key: 'annotate',
-                  label: annotate ? DocsCopy.annotateOn : DocsCopy.annotateOff,
-                  icon: (size: number) => (
-                    <PencilGlyph size={size} color={annotate ? GhostexPalette.ACCENT : GhostexPalette.FOREGROUND} />
-                  ),
-                  onPress: toggleAnnotate,
-                  selected: annotate,
-                },
-              ]
-            : []),
-          ...fileButtons,
-        ],
-        reserveKeyboard: isHtml,
-      }),
-      [annotate, fileButtons, isHtml, toggleAnnotate],
-    ),
-  );
+  useStackScreenRail(useMemo(() => ({ entries: buttons, reserveKeyboard: isHtml }), [buttons, isHtml]));
 
   const page = load.kind === 'ready' ? load.page : null;
   const loadedPage = useRef<DocPage | null>(null);
@@ -476,7 +404,6 @@ function LoadingSurface({ message }: { message: string }) {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: GhostexPalette.BACKGROUND },
   webview: { flex: 1, backgroundColor: GhostexPalette.BACKGROUND },
-  headerButtons: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   centered: {
     flex: 1,
     alignItems: 'center',
