@@ -30,21 +30,33 @@ export type TriageChat = { document: TriageDocument | null; dispatch: (action: U
 /** The lines a short-reply card shows of its session's screen (approved mockup). */
 const TAIL_LINES = 2;
 
+/** The chat host's own identity (computer, project, session), as `acquireRustChatHost` and `useRustChat` key it. */
+function hostIdentity(target: TriageTarget): string {
+  return JSON.stringify([target.machine.id, target.projectId, target.sessionId]);
+}
+
 export function useTriageChats(targets: readonly TriageTarget[]): Readonly<Record<string, TriageChat>> {
   const [chats, setChats] = useState<Readonly<Record<string, TriageChat>>>({});
-  const held = useRef(new Map<string, () => void>());
+  /** By attach key: the host identity held for it and how to let it go. */
+  const held = useRef(new Map<string, { identity: string; drop: () => void }>());
   const latest = useRef(targets);
   latest.current = targets;
-  const wanted = targets.map((target) => target.key).join('\n');
+  // The machine object changes identity on every store update; only the chats' identities matter.
+  const wanted = targets.map(hostIdentity).join('\n');
 
   useEffect(() => {
     const now = new Map(latest.current.map((target) => [target.key, target]));
     const dropped: string[] = [];
-    for (const [key, drop] of held.current) {
-      if (now.has(key)) continue;
+    for (const [key, { identity, drop }] of held.current) {
+      const target = now.get(key);
+      if (target !== undefined && hostIdentity(target) === identity) continue;
       drop();
       held.current.delete(key);
       dropped.push(key);
+    }
+    // Before the hosts acquired below publish, so a session whose host changed shows none of the old one's card.
+    if (dropped.length > 0) {
+      setChats((current) => Object.fromEntries(Object.entries(current).filter(([key]) => !dropped.includes(key))));
     }
     for (const [key, target] of now) {
       if (held.current.has(key)) continue;
@@ -71,20 +83,20 @@ export function useTriageChats(targets: readonly TriageTarget[]): Readonly<Recor
         });
       };
       const unsubscribe = host.subscribe(publish);
-      held.current.set(key, () => {
-        unsubscribe();
-        release();
+      held.current.set(key, {
+        identity: hostIdentity(target),
+        drop: () => {
+          unsubscribe();
+          release();
+        },
       });
       publish();
-    }
-    if (dropped.length > 0) {
-      setChats((current) => Object.fromEntries(Object.entries(current).filter(([key]) => !dropped.includes(key))));
     }
   }, [wanted]);
 
   useEffect(
     () => () => {
-      for (const drop of held.current.values()) drop();
+      for (const { drop } of held.current.values()) drop();
       held.current.clear();
     },
     [],

@@ -2,14 +2,15 @@
 /**
  * Run with `bunx jest src/screens/triage/FoldedTriage.rntl.tsx`. The folded triage on the real Sessions screen under
  * the real `VerticalBarArea`: folded on the iPhone Duo the waiting sessions stand above the full list, the one waiting
- * longest first, and it reads only for the cards it shows (their chats, a short-reply card's screen lines); unfolded
- * and on another iPhone there is no triage and nothing is read. Allow, Deny and an option reach the session's chat
- * core as the chat's own approval and question cards send them: the real `ApprovalCard` and `QuestionCard` are tapped
- * into one fake chat, the triage into a stand-in chat host, and both receive the same action. One decision per card
- * goes out once: after a tap the card's other buttons send nothing while the answer is on its way, and a short reply
- * is sent once and its card leaves. A card's head opens the session exactly as its list row does. With the computer's
- * Sidebar set to Unified the same holds above upstream's Unified list, whose scope is every computer it shows as its
- * filter leaves them: the waits ordered across computers, each card answering on its own. Mocked are the
+ * longest first, and it reads only for the cards it shows (their chats, a short-reply card's screen lines), a session
+ * whose project changes trading the old project's chat for the new one's; unfolded and on another iPhone there is no
+ * triage and nothing is read. Allow, Deny and an option reach the session's chat core as the chat's own approval and
+ * question cards send them: the real `ApprovalCard` and `QuestionCard` are tapped into one fake chat, the triage into
+ * a stand-in chat host, and both receive the same action. One decision per card goes out once: after a tap the card's
+ * other buttons send nothing while the answer is on its way, and a short reply is sent once and its card leaves. A
+ * card's head opens the session exactly as its list row does. With the computer's Sidebar set to Unified the same
+ * holds above upstream's Unified list, whose scope is every computer it shows as its filter leaves them: the waits
+ * ordered across computers, each card answering on its own. Mocked are the
  * boundaries only: the native module, the chat host, the computer's commands, the screen read, storage, haptics, the
  * safe area, navigation focus and the voice button.
  *
@@ -49,12 +50,14 @@ const mockRun = jest.fn((_machine: { id: string }, _command: string): Promise<un
 );
 /** The sessions whose chat host is held now. */
 const mockHeld: string[] = [];
+/** The chat hosts let go, by the host's identity without the computer: `projectId/sessionId`. */
+const mockReleased: string[] = [];
 const mockTailRead = jest.fn((_machine: { id: string }, _projectId: string, _sessionId: string) =>
   Promise.resolve({ kind: 'lines', lines: ['✓ Wrote the release notes', 'Commit and tag?'] }),
 );
 
 jest.mock('../../chat/rust/host', () => ({
-  acquireRustChatHost: (target: { sessionId: string }) => {
+  acquireRustChatHost: (target: { projectId: string; sessionId: string }) => {
     mockHeld.push(target.sessionId);
     return {
       host: {
@@ -62,7 +65,10 @@ jest.mock('../../chat/rust/host', () => ({
         subscribe: () => () => undefined,
         dispatch: (action: UserAction) => mockDispatched.push({ sessionId: target.sessionId, action }),
       },
-      release: () => mockHeld.splice(mockHeld.indexOf(target.sessionId), 1),
+      release: () => {
+        mockHeld.splice(mockHeld.indexOf(target.sessionId), 1);
+        mockReleased.push(`${target.projectId}/${target.sessionId}`);
+      },
     };
   },
 }));
@@ -244,6 +250,7 @@ beforeEach(async () => {
   mockDispatched.length = 0;
   mockRun.mockClear();
   mockHeld.length = 0;
+  mockReleased.length = 0;
   mockTailRead.mockClear();
   mockRun.mockImplementation(() => Promise.resolve({ ok: true }));
   await AsyncStorage.clear();
@@ -303,6 +310,37 @@ describe('folded: waiting sessions above the full list', () => {
     expect([...mockHeld].sort()).toEqual(['b', 'd']);
     expect(mockTailRead.mock.calls.map(([, , sessionId]) => sessionId)).toEqual(['f']);
     expect(screen.getByLabelText('Last output: ✓ Wrote the release notes\nCommit and tag?')).toBeTruthy();
+  });
+
+  test("a waiting session whose project changes lets go of the old project's chat and answers from the new one", async () => {
+    await renderScreen(FOLDED);
+    expect(screen.getByLabelText('Allow')).toBeTruthy();
+    expect(mockReleased).toEqual([]);
+    // The same session on the same computer, now under another project, whose chat asks a question.
+    const moved = summary();
+    const beta = moved.sessions.find((session) => session.sessionId === 'b')!;
+    const elsewhere = {
+      ...moved,
+      projects: [...moved.projects, { ...moved.projects[0]!, projectId: 'p2', name: 'ghostex-server' }],
+      sessions: moved.sessions.map((session) => (session === beta ? { ...beta, projectId: 'p2' } : session)),
+    };
+    mockDocuments.b = QUESTION;
+    await act(() => {
+      useInventoryStore.setState({
+        inventoriesByMachineId: {
+          m1: {
+            ...useInventoryStore.getState().inventoriesByMachineId.m1!,
+            summary: elsewhere,
+            serverSummary: elsewhere,
+          },
+        },
+      });
+    });
+    await settle();
+    expect(mockReleased).toEqual(['p1/b']);
+    expect([...mockHeld].sort()).toEqual(['b', 'd']);
+    expect(screen.queryByLabelText('Allow')).toBeNull();
+    expect(screen.getAllByLabelText('Every 80 ms')).toHaveLength(2);
   });
 
   test('nothing waiting: one quiet row', async () => {
