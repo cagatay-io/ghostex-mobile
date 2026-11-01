@@ -6,8 +6,7 @@
  * the keyboard back. A Keys or Agent layer that leaves the open pad no room takes the pad's place with its own close
  * button, whether the pad holds the keyboard down or the keyboard was down before the pad opened. The keyboard coming
  * up, by any route, where the open pad has no room above it closes the pad at once, also while an update of the
- * terminal area is still settling. On Android, where the keyboard takes its room from the screen's layout, and for
- * turns, folds and resizes: `TerminalScreen.commandPadTurns.rntl.tsx`.
+ * terminal area is still settling. Turns, folds and resizes: `TerminalScreen.commandPadTurns.rntl.tsx`.
  */
 import {
   AGENT_TAB,

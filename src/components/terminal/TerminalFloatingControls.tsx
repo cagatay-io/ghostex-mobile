@@ -3,7 +3,7 @@
  * - Refresh button (settings.refreshButtonVisible, zmx attach tabs only):
  *   explicit native ZMX viewport refresh.
  * - Upload button (settings.fileUploadButtonVisible, hourglass while
- *   uploading); only while the Befehlspad is switched off, whose Upload key
+ *   uploading); not while the Befehlspad is shown (iOS), whose Upload key
  *   replaces it.
  * - Keyboard button (settings.keyboardButtonVisible). While the soft keyboard
  *   is up (with the pad switched off), it becomes the dismiss control so a

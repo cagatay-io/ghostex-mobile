@@ -1,8 +1,8 @@
 /**
- * The key pages of the former key bar, now in the Befehlspad's layers: the KEYS page is the Keys layer's
- * "More keys" (terminal control hotkeys and nav keys, PgUp/PgDn in the rightmost column), and the agent page
- * is the Agent layer, the hotkeys of the session's active agent. Every item carries a description the layer
- * shows while the pill is held. Agent bindings are persisted by the agent-hotkeys settings store.
+ * The key pages of the key bar's KEYS/AGENT pills (Android) and of the Befehlspad's layers (iOS): the KEYS page
+ * (the Keys layer's "More keys") holds terminal control hotkeys and nav keys, PgUp/PgDn in the rightmost column;
+ * the agent page (the Agent layer) the hotkeys of the session's active agent. Every item carries a description the
+ * bar or the layer shows while the pill is held. Agent bindings are persisted by the agent-hotkeys settings store.
  */
 
 import type { KeyModifiers, TerminalKey } from '../../../modules/ghostex-native/src';

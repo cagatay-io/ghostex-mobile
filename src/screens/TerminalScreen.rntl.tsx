@@ -100,6 +100,8 @@ const HIDE_MOTION = { duration: 250, update: { type: 'easeOut' } };
 
 // An editor on its way out is hidden from VoiceOver on purpose, so its queries include hidden elements.
 const EDITOR_LABEL = 'Terminal text editor';
+/** The key bar, which Android keeps in the flow. */
+const KEY_BAR_LABEL = 'Extra keys';
 const HIDDEN_TOO = { hidden: true };
 
 const navigation = { setOptions: () => undefined, popTo: () => undefined, navigate: () => undefined };
@@ -162,11 +164,15 @@ function terminalArea(): TestInstance {
   return node;
 }
 
-/** The absolutely positioned view around the text editor (its dock on iOS; null where it is in the flow). */
-function editorDock(): TestInstance | null {
-  let node: TestInstance | null = screen.getByLabelText(EDITOR_LABEL, HIDDEN_TOO);
+/** The absolutely positioned view around the element labelled `label` (its dock on iOS; null where it is in the flow). */
+function dockAround(label: string): TestInstance | null {
+  let node: TestInstance | null = screen.getByLabelText(label, HIDDEN_TOO);
   while (node !== null && StyleSheet.flatten(node.props.style)?.position !== 'absolute') node = node.parent;
   return node;
+}
+
+function editorDock(): TestInstance | null {
+  return dockAround(EDITOR_LABEL);
 }
 
 function dockBottom(): number | undefined {
@@ -556,9 +562,8 @@ describe('Android keeps its path', () => {
     Platform.OS = ios;
   });
 
-  test('the container still makes room for the keyboard, the text editor stays in the flow, nothing slides', async () => {
+  test('the container still makes room for the keyboard, the key bar stays in the flow, nothing slides', async () => {
     await renderScreen();
-    await openEditor();
     await act(() => {
       DeviceEventEmitter.emit('keyboardDidShow', {
         duration: 0,
@@ -568,8 +573,8 @@ describe('Android keeps its path', () => {
     });
     expect(terminalView().props.onCaretChange).toBeUndefined();
     expect(terminalTop()).toBe(0);
-    expect(screen.getByLabelText(EDITOR_LABEL, HIDDEN_TOO)).toBeTruthy();
-    expect(editorDock()).toBeNull();
+    expect(screen.getByLabelText(KEY_BAR_LABEL, HIDDEN_TOO)).toBeTruthy();
+    expect(dockAround(KEY_BAR_LABEL)).toBeNull();
     const tree = screen.toJSON();
     const container = Array.isArray(tree) ? tree[0] : tree;
     expect(StyleSheet.flatten(container?.props.style)?.paddingBottom).toBe(336);

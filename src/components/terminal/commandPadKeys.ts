@@ -1,7 +1,7 @@
 /**
  * What the Befehlspad's stored key ids (`settings/commandPad.ts`) mean: the key each position sends, its name
  * (accessibility label) and its face, and the choices Settings > Keyboard > Pad keys offers
- * (every function of the former key bar, plus Paste and Upload). The keys come from
+ * (every function of the key bar, plus Paste and Upload). The keys come from
  * the same catalogues the key bar used (`extraKeys.ts`, `keyBarPages.ts`, `agentHotkeys.ts`), so a pad key
  * sends the payload the bar sent for it.
  *

@@ -29,8 +29,7 @@
  *   has changed for `PAD_ROOM_SETTLE_MS`, from their latest values (`roomInputs`, `keyboardOverlap`); until then the
  *   pad stays as it was, open even where the new pose has no room for it, possibly cut off for that moment. A
  *   person's request during that wait does not end it: it is judged from the values reported so far, and the wait
- *   still judges the room once it has settled. The Android keyboard makes its room by changing the screen's layout,
- *   so its coming up is judged once that has settled.
+ *   still judges the room once it has settled.
  * - Where a Keys or Agent layer opened from the ring leaves the open pad no room above it, even reaching over the
  *   header (the pad holding the keyboard down, or a phone in landscape whose keyboard was down when the pad opened),
  *   the screen draws the pad closed and gives the layer its own close button (`closeLayer`): the layer wins because
@@ -107,10 +106,9 @@ export type CommandPadOptions = {
    */
   openPadFitsAboveKeyboard: (editorOpen: boolean) => boolean;
   /**
-   * What the room above the keyboard is read from besides the keyboard's overlap (`keyboardOverlap`, iOS): the
-   * window's size, its safe area, the terminal area's frame and, on Android, where the screen makes the keyboard's room
-   * in its layout, the keyboard's height there. A turn, fold or resize changes them, reported one by one; the room is
-   * judged once neither these nor the keyboard's overlap while it is up have changed for `PAD_ROOM_SETTLE_MS`.
+   * What the room above the keyboard is read from besides the keyboard's overlap (`keyboardOverlap`): the window's
+   * size, its safe area and the terminal area's frame. A turn, fold or resize changes them, reported one by one; the
+   * room is judged once neither these nor the keyboard's overlap while it is up have changed for `PAD_ROOM_SETTLE_MS`.
    */
   roomInputs: readonly number[];
   /**
@@ -225,15 +223,12 @@ export function useCommandPad({
     return () => clearTimeout(timer);
   }, [room]);
   // The person's own request in this render, judged at once even while the room waits to settle: the keyboard brought
-  // up from hidden, or the text editor opened on it. Only where the keyboard covers the terminal (`keyboardOverlap`,
-  // iOS); on Android the keyboard makes its room in the screen's layout, which is judged once it has settled.
+  // up from hidden, or the text editor opened on it.
   const [asked, setAsked] = useState({ keyboardAppearances, editorVisible });
   let personAsked = false;
   if (asked.keyboardAppearances !== keyboardAppearances || asked.editorVisible !== editorVisible) {
     setAsked({ keyboardAppearances, editorVisible });
-    personAsked =
-      keyboardOverlap > 0 &&
-      (asked.keyboardAppearances !== keyboardAppearances || (editorVisible && !asked.editorVisible));
+    personAsked = asked.keyboardAppearances !== keyboardAppearances || (editorVisible && !asked.editorVisible);
   }
   // The keyboard up and the open pad without room above it, even over the header, however that came about (the
   // keyboard came up, the text editor opened on it, a turn, fold or resize took the room): the pad closes and the

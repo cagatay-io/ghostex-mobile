@@ -44,7 +44,7 @@ import {
   terminalTop,
 } from './TerminalScreen.commandPadHarness';
 
-import { AccessibilityInfo, Platform, StyleSheet } from 'react-native';
+import { AccessibilityInfo, StyleSheet } from 'react-native';
 import { act, fireEvent, screen } from '@testing-library/react-native';
 import type { TestInstance } from 'test-renderer';
 
@@ -394,29 +394,6 @@ describe('the text editor with Send, and the pen hand-over', () => {
     await act(() => jest.advanceTimersByTime(300));
     expect(screen.queryByLabelText(EDITOR, HIDDEN_TOO)).toBeNull();
     expect(warnSpy.mock.calls).toEqual([[expect.stringMatching(/failed for session shell-1/), failure]]);
-  });
-});
-
-describe('Android keeps its flow path for the pad', () => {
-  const ios = Platform.OS;
-  beforeEach(() => {
-    Platform.OS = 'android';
-  });
-  afterEach(() => {
-    Platform.OS = ios;
-  });
-
-  test('the pad works there too and Paste is not offered (no native path on Android)', async () => {
-    const withPaste = [...DEFAULT_COMMAND_PAD_KEYS];
-    withPaste[8] = 'paste';
-    await setSettings({ commandPadKeys: withPaste });
-    await renderScreen();
-    await openPad();
-    // The bottom right position falls back to its default key.
-    expect(screen.queryByLabelText('Paste')).toBeNull();
-    expect(screen.getByLabelText('Upload')).toBeTruthy();
-    await tapKey('Right');
-    expect(mockNative.sendKey.mock.calls).toEqual([['shell-1', 'right', NO_MODS]]);
   });
 });
 

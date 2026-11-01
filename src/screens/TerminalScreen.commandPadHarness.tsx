@@ -10,7 +10,7 @@
  * tall (top 538); in landscape 874x402, safe area 0/21 and 62 across, keyboard 200 pt tall.
  */
 
-import { AccessibilityInfo, DeviceEventEmitter, Dimensions, Platform, StyleSheet } from 'react-native';
+import { AccessibilityInfo, Dimensions, StyleSheet } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import type { TestInstance } from 'test-renderer';
 
@@ -69,8 +69,6 @@ jest.mock('expo-haptics', () => ({
   impactAsync: (style?: string) => mockImpactHaptic(style),
   notificationAsync: () => Promise.resolve(),
   selectionAsync: () => mockSelectionHaptic(),
-  performAndroidHapticsAsync: () => Promise.resolve(),
-  AndroidHaptics: { Keyboard_Tap: 'keyboard-tap', Context_Click: 'context-click' },
   ImpactFeedbackStyle: { Light: 'light', Medium: 'medium', Heavy: 'heavy', Rigid: 'rigid' },
   NotificationFeedbackType: { Success: 'success', Warning: 'warning', Error: 'error' },
 }));
@@ -112,7 +110,7 @@ export const TOGGLE = 'Command pad';
 export const EDITOR = 'Terminal text editor';
 /** The nine default keys by name, in their places row by row. */
 export const DEFAULT_LABELS = ['Esc', 'Up', 'Ctrl+C', 'Left', 'Enter', 'Right', 'Tab', 'Down', 'Upload'];
-/** Accessibility labels of the former key bar's own controls (TerminalKeyBar.tsx at 7acb819). */
+/** Accessibility labels of the key bar's own controls (`TerminalKeyBar.tsx`, Android). */
 export const KEY_BAR_LABELS = ['Extra keys', 'Open text editor', 'Dismiss keyboard', 'ESC', 'SHIFT', 'NEWLN', 'PGUP'];
 export const NO_MODS = { ctrl: false, alt: false, shift: false };
 
@@ -409,17 +407,11 @@ export function keyboardShownNow(): boolean {
   return keyboardUp;
 }
 
-/**
- * The system shows the keyboard as it is in `pose`, or gives it that frame while it is up. Android reports the
- * keyboard after the fact, and again whenever its height changes; iOS before its motion.
- */
+/** The system shows the keyboard as it is in `pose`, or gives it that frame while it is up. */
 async function reportKeyboardIn(pose: Pose): Promise<void> {
   const { window, keyboard: height } = pose;
   const top = window.height - height;
-  if (Platform.OS === 'android') {
-    const endCoordinates = { screenX: 0, screenY: top, width: window.width, height };
-    await act(() => DeviceEventEmitter.emit('keyboardDidShow', { duration: 0, easing: 'keyboard', endCoordinates }));
-  } else if (keyboardUp) {
+  if (keyboardUp) {
     await act(() => keyboard.changeFrame(top, height, 250));
   } else {
     await act(() => keyboard.show(top, height, 250));
@@ -432,8 +424,7 @@ export async function keyboardComesUp(): Promise<void> {
 }
 
 async function keyboardGoesDown(): Promise<void> {
-  if (Platform.OS === 'android') await act(() => DeviceEventEmitter.emit('keyboardDidHide', null));
-  else await act(() => keyboard.hide(250));
+  await act(() => keyboard.hide(250));
   keyboardUp = false;
 }
 

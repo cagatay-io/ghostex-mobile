@@ -1,6 +1,7 @@
 /**
- * Extra-keys layout (Settings › Keyboard › Extra keys layout): the two key rows of the Befehlspad's Keys layer,
- * and the built-in keys and custom actions its nine positions can take. User-editable: built-in keys/modifiers
+ * Extra-keys layout (Settings › Keyboard › Extra keys layout): the two key rows of the key bar (Android) and of the
+ * Befehlspad's Keys layer (iOS), and the built-in keys and custom actions the pad's nine positions can take.
+ * User-editable: built-in keys/modifiers
  * from a fixed catalog plus custom actions (insert text, insert text + Enter, shortcut with modifiers).
  * Persisted to AsyncStorage under extraKeys.v1; invalid persisted layouts fall
  * back to the spec default (terminal-screen.md §2).
@@ -39,7 +40,7 @@ export function makeCustomActionId(): string {
 
 export type ExtraKeysLayout = ExtraKeyStored[][];
 
-/** Resolved item the Befehlspad's Keys layer and pad keys render. */
+/** Resolved item the key bar, the Befehlspad's Keys layer and pad keys render. */
 export type ResolvedExtraKey =
   | { id: string; kind: 'modifier'; label: string; modifier: ExtraKeyModifier }
   | {

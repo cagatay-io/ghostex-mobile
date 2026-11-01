@@ -6,7 +6,6 @@
  */
 
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
-import { Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
 import { GhostexNative } from '../../../modules/ghostex-native/src';
@@ -15,19 +14,11 @@ import { TerminalKeyInput, type ModifierState } from './terminalKeyInput';
 
 const haptics = {
   click: (): void => {
-    const feedback =
-      Platform.OS === 'android'
-        ? Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Keyboard_Tap)
-        : Haptics.selectionAsync();
-    void feedback.catch(() => undefined);
+    void Haptics.selectionAsync().catch(() => undefined);
   },
   // A distinct, crisp second click when a held modifier locks, so arming is felt without looking.
   lock: (): void => {
-    const feedback =
-      Platform.OS === 'android'
-        ? Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Context_Click)
-        : Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid);
-    void feedback.catch(() => undefined);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid).catch(() => undefined);
   },
 };
 
