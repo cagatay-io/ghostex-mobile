@@ -127,6 +127,39 @@ function createSettingsStyles(appearance: Appearance) {
       color: appearance.foreground,
       fontSize: 14,
     },
+    segments: {
+      flexDirection: 'row',
+      height: 36,
+      borderRadius: GhostexRadii.row,
+      borderWidth: GhostexStrokeWidth,
+      borderColor: appearance.border,
+      backgroundColor: appearance.card,
+      overflow: 'hidden',
+    },
+    segment: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    segmentDivider: {
+      borderLeftWidth: GhostexStrokeWidth,
+      borderLeftColor: appearance.border,
+    },
+    segmentOn: {
+      backgroundColor: appearance.cardActive,
+    },
+    segmentText: {
+      color: appearance.muted,
+      fontSize: 14,
+    },
+    segmentTextOn: {
+      color: appearance.foreground,
+      fontWeight: '600',
+    },
+    rowText: {
+      flex: 1,
+      gap: 2,
+    },
     radioOuter: {
       width: 20,
       height: 20,
@@ -259,10 +292,13 @@ export function Caption({ children }: { children: ReactNode }) {
 
 export function ToggleRow({
   label,
+  detail,
   value,
   onValueChange,
 }: {
   label: string;
+  /** A muted second line under the label. */
+  detail?: string;
   value: boolean;
   onValueChange: (value: boolean) => void;
 }) {
@@ -270,7 +306,14 @@ export function ToggleRow({
   const appearance = useAppearance();
   return (
     <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
+      {detail === undefined ? (
+        <Text style={styles.rowLabel}>{label}</Text>
+      ) : (
+        <View style={styles.rowText}>
+          <Text style={styles.cardLabel}>{label}</Text>
+          <Text style={styles.linkDescription}>{detail}</Text>
+        </View>
+      )}
       <Switch
         value={value}
         onValueChange={onValueChange}
@@ -278,6 +321,44 @@ export function ToggleRow({
         thumbColor={value ? appearance.foreground : appearance.controlThumb}
         ios_backgroundColor={appearance.control}
       />
+    </View>
+  );
+}
+
+/** Pick exactly one of a few options, drawn as one bordered row of segments (as the chat's worktree tray). */
+export function SegmentedRow<Value extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: readonly { value: Value; label: string }[];
+  value: Value;
+  onChange: (value: Value) => void;
+}) {
+  const styles = useSettingsStyles();
+  return (
+    <View style={styles.segments} accessibilityRole="radiogroup" accessibilityLabel={label}>
+      {options.map((option, index) => {
+        const on = option.value === value;
+        return (
+          <Pressable
+            key={option.value}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: on }}
+            accessibilityLabel={option.label}
+            onPress={() => {
+              if (!on) onChange(option.value);
+            }}
+            style={[styles.segment, index > 0 ? styles.segmentDivider : null, on ? styles.segmentOn : null]}
+          >
+            <Text style={[styles.segmentText, on ? styles.segmentTextOn : null]} numberOfLines={1}>
+              {option.label}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }

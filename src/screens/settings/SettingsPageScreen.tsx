@@ -8,6 +8,7 @@ import KeyboardPage from './KeyboardPage';
 import { SETTINGS_PAGES, type SettingsPageId } from './pages';
 import ReadAloudVoicePage from './ReadAloudVoicePage';
 import { SettingsColumnsFrame } from './SettingsColumns';
+import SessionsListPage from './SessionsListPage';
 import SoundsPage from './SoundsPage';
 import TerminalPage from './TerminalPage';
 import { SettingsPageBoundary } from './SectionBoundary';
@@ -40,6 +41,8 @@ function SettingsPageBody({ page }: { page: SettingsPageId }) {
       return <UpdatesPage />;
     case 'theme':
       return <ThemePage />;
+    case 'sessionsList':
+      return <SessionsListPage />;
     case 'chat':
       return <ChatPage />;
     case 'voice':

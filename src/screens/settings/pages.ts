@@ -10,6 +10,7 @@ import { VOICE_SUPPORTED } from '../../voice/conversation';
 export type SettingsPageId =
   | 'updates'
   | 'theme'
+  | 'sessionsList'
   | 'chat'
   | 'voice'
   | 'terminal'
@@ -22,6 +23,7 @@ export type SettingsPageId =
 export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, { title: string; description: string }>> = {
   updates: { title: 'Updates', description: 'Your Ghostex version, and newer releases.' },
   theme: { title: 'Interface', description: 'Background contrast and tint.' },
+  sessionsList: { title: 'Sessions list', description: 'Unified or Project layout, and how Unified groups.' },
   chat: { title: 'Chat', description: 'Default agent view, chat theme and detail.' },
   voice: { title: 'Voice agent', description: 'Regular or push-to-talk calls, and what each costs.' },
   terminal: { title: 'Terminal', description: 'Font size, screen and tab behavior.' },
@@ -36,6 +38,7 @@ export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, { title: string; de
 export const SETTINGS_PAGE_ORDER: readonly SettingsPageId[] = [
   ...(ANDROID_SELF_UPDATE_ENABLED || OTA_ENABLED ? (['updates'] as const) : []),
   'theme',
+  'sessionsList',
   'chat',
   ...(VOICE_SUPPORTED ? (['voice'] as const) : []),
   'terminal',

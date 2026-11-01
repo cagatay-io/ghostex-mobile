@@ -29,6 +29,8 @@ export type SessionChatTheme = 'dark' | 'light';
 export type MarkedHandoversStyle = 'labels' | 'rule' | 'badge' | 'plain';
 /** Same value space as the desktop app's global Default Agent View setting. */
 export type PreferredAgentInterface = 'terminal' | 'chat';
+/** How the phone draws its sessions list: the desktop's Unified sidebar, or the Project list per computer. */
+export type SessionsListLayout = 'unified' | 'project';
 
 export type GhostexSettings = {
   // Terminal behavior (legacy Android row order).
@@ -97,6 +99,19 @@ export type GhostexSettings = {
   readAloudVoice: string;
   /** Read aloud's speed on this phone, a multiple of the engine's normal rate ({@link READ_ALOUD_RATES}). */
   readAloudRate: number;
+  /**
+   * Settings › Sessions list: Unified (every computer's sessions in one list) or Project (one
+   * computer at a time behind its tabs). `null` until it is first taken from the selected computer's
+   * own Sidebar setting (`sessionsListSeedOf`); from then on the phone never follows the computer.
+   *
+   * CDXC:Sidebar 2026-11-01 DECISION:
+   * User: "On phone can we please set either project or unified look for the sessions list? I think it's taking this from what's set on the desktop now", then picked a Unified / Project switch in the phone's Settings with "Group by project" and "Show Working section" marked Unified only (Q933), Unified combining every computer and Project staying per computer (Q934). Supersedes the 2026-10-30 decision that the phone follows the computer's `sidebarView`.
+   */
+  sessionsListLayout: SessionsListLayout | null;
+  /** Unified only: one group per project (the computer's `unifiedGroupByProject` until first set here). */
+  sessionsListGroupByProject: boolean;
+  /** Unified only: working sessions fold into the Working section (the computer's `unifiedWorkingSection` until first set here). */
+  sessionsListWorkingSection: boolean;
   // SSH connection (appended group).
   autoReconnect: boolean;
   keepAliveEnabled: boolean;
@@ -177,6 +192,9 @@ export function defaultSettings(): GhostexSettings {
     markedHandoversEmoji: false,
     readAloudVoice: '',
     readAloudRate: 1,
+    sessionsListLayout: null,
+    sessionsListGroupByProject: false,
+    sessionsListWorkingSection: true,
     autoReconnect: true,
     keepAliveEnabled: true,
     keepAliveIntervalSec: 30,
@@ -294,6 +312,12 @@ function sanitizeSettings(value: unknown): GhostexSettings {
     readAloudRate: (READ_ALOUD_RATES as readonly number[]).includes(record.readAloudRate as number)
       ? (record.readAloudRate as number)
       : defaults.readAloudRate,
+    sessionsListLayout:
+      record.sessionsListLayout === 'unified' || record.sessionsListLayout === 'project'
+        ? record.sessionsListLayout
+        : defaults.sessionsListLayout,
+    sessionsListGroupByProject: bool('sessionsListGroupByProject', defaults.sessionsListGroupByProject),
+    sessionsListWorkingSection: bool('sessionsListWorkingSection', defaults.sessionsListWorkingSection),
     autoReconnect: bool('autoReconnect', defaults.autoReconnect),
     keepAliveEnabled: bool('keepAliveEnabled', defaults.keepAliveEnabled),
     keepAliveIntervalSec,
@@ -305,6 +329,8 @@ type SettingsState = {
   settings: GhostexSettings;
   hydrate: () => Promise<void>;
   setSetting: <K extends keyof GhostexSettings>(key: K, value: GhostexSettings[K]) => void;
+  /** Several settings in one write. */
+  patchSettings: (patch: Partial<GhostexSettings>) => void;
 };
 
 export const useSettingsStore = create<SettingsState>()((set, get) => ({
@@ -325,6 +351,12 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
 
   setSetting: (key, value) => {
     const settings = { ...get().settings, [key]: value };
+    set({ settings });
+    void AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+  },
+
+  patchSettings: (patch) => {
+    const settings = { ...get().settings, ...patch };
     set({ settings });
     void AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
   },

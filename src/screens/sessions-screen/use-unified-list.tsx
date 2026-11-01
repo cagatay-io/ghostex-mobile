@@ -3,13 +3,15 @@
  * (contract/unified/), with its header (the search field, the filter, Add project, New session), its
  * cards, project groups and shelves, its swipe buttons, and the menus they open.
  *
- * CDXC:Sidebar 2026-10-30 DECISION:
- * User: the phone's session list shows what the desktop's Unified sidebar shows, following the
- * computer's own Settings › Sidebar & Sessions › Sidebar (`sidebarView`, sent in the mobile summary
- * like `newSessionAgentScope`). The selected machine tab's computer decides; the tabs stay, since on
- * the phone they are also each computer's connect control, while the Space and Workspace tiles give
- * way to the filter, which narrows by computer, Space and project as on the desktop. The Project list
- * is untouched.
+ * CDXC:Sidebar 2026-11-01 DECISION:
+ * User (Q933, Q934): the phone picks Unified or Project itself, in Settings › Sessions list
+ * (`sessionsListLayout` in settings/store.ts, first taken from the selected computer's `sidebarView`
+ * and never following it after), with its own Group by project and Working section switches. Unified
+ * lists every computer's sessions together whichever tab is selected; Project stays one computer at a
+ * time. The tabs stay in Unified, since on the phone they are also each computer's connect control,
+ * while the Space and Workspace tiles give way to the filter, which narrows by computer, Space and
+ * project as on the desktop. Parking, the project groups' order and the swipe buttons still come from
+ * the selected computer. Supersedes the 2026-10-30 decision that the phone follows the computer.
  */
 
 import { useEffect, useMemo, useReducer, useRef, useState, type ReactElement } from 'react';
@@ -27,6 +29,7 @@ import {
 import { unifiedNewSessionTarget, unifiedProjectChoices, type UnifiedProjectChoice } from '../../contract/unified/choices';
 import { toggleUnifiedFilter, unifiedFilterLabel, unifiedFilterMenu } from '../../contract/unified/filterMenu';
 import {
+  sessionsListSeedOf,
   unifiedLayoutOf,
   unifiedListOf,
   unifiedMachineInput,
@@ -43,6 +46,7 @@ import { ds, SIDEBAR_MUTED, SIDEBAR_TEXT } from '../../components/sessions/rows'
 import { EditGlyph, FilterGlyph, FolderPlusGlyph, AlarmGlyph } from '../../components/sessions/unified/glyphs';
 import { UnifiedCard, UnifiedGroupHeader, UnifiedShelfHeader, UnifiedSlimRow } from '../../components/sessions/unified/UnifiedCard';
 import type { MachineInventory } from '../../inventory/store';
+import { useSettingsStore } from '../../settings/store';
 import { machineDisplayLabel, type MachineRecord } from '../../machines/store';
 import { attachSessionKey } from '../../terminal/sessions';
 import { resolveWorkspaceId } from '../../workspaces/workspaceFilter';
@@ -168,7 +172,21 @@ export function useUnifiedList(deps: UnifiedListDeps) {
     openAddProject,
   } = deps;
   const selectedSummary = selectedMachine === null ? null : (inventoriesByMachineId[selectedMachine.id]?.summary ?? null);
-  const on = wantsUnifiedSidebar(selectedSummary);
+  const settingsHydrated = useSettingsStore((state) => state.hydrated);
+  const listLayout = useSettingsStore((state) => state.settings.sessionsListLayout);
+  const phoneGroupByProject = useSettingsStore((state) => state.settings.sessionsListGroupByProject);
+  const phoneWorkingSection = useSettingsStore((state) => state.settings.sessionsListWorkingSection);
+  // The first computer summary after the update seeds the phone's own Sessions list settings.
+  useEffect(() => {
+    if (!settingsHydrated || listLayout !== null || selectedSummary === null) return;
+    useSettingsStore.getState().patchSettings(sessionsListSeedOf(selectedSummary));
+  }, [settingsHydrated, listLayout, selectedSummary]);
+  const seeded = listLayout !== null;
+  const on = seeded ? listLayout === 'unified' : wantsUnifiedSidebar(selectedSummary);
+  const unifiedSettings = useMemo(() => {
+    const fromComputer = unifiedSettingsOf(selectedSummary);
+    return seeded ? { ...fromComputer, workingSection: phoneWorkingSection } : fromComputer;
+  }, [selectedSummary, seeded, phoneWorkingSection]);
   const filter = useUnifiedListStore((state) => state.filter);
   const setFilter = useUnifiedListStore((state) => state.setFilter);
   const toggledShelves = useUnifiedListStore((state) => state.toggledShelves);
@@ -206,11 +224,12 @@ export function useUnifiedList(deps: UnifiedListDeps) {
   const [clockTicking, setClockTicking] = useState(false);
   const nowMs = useListClock(on && clockTicking);
   const view = useMemo(
-    () => unifiedListOf(computers, unifiedSettingsOf(selectedSummary), filter, nowMs),
-    [computers, selectedSummary, filter, nowMs],
+    () => unifiedListOf(computers, unifiedSettings, filter, nowMs),
+    [computers, unifiedSettings, filter, nowMs],
   );
   const working = view.working.length > 0 || view.active.some((row) => row.status === 'Working');
-  const layout = unifiedLayoutOf(selectedSummary);
+  const computerLayout = unifiedLayoutOf(selectedSummary);
+  const layout = seeded ? { ...computerLayout, groupByProject: phoneGroupByProject } : computerLayout;
   const groups = useMemo(
     (): UnifiedGroup<GhostexSession>[] => (layout.groupByProject ? groupUnifiedList(view, layout.projectOrder) : []),
     // `projectOrder` is a new array per summary read, so its content is the dependency.
@@ -312,7 +331,7 @@ export function useUnifiedList(deps: UnifiedListDeps) {
 
   const swipeActions = unifiedSwipeActions(
     selectedSummary?.unifiedSessionCardHoverButtons,
-    unifiedSettingsOf(selectedSummary).parking,
+    unifiedSettings.parking,
   );
 
   /** The agent picker in one project; nothing is opened first, so no default agent starts. */
