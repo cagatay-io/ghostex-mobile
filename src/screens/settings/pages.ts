@@ -1,7 +1,7 @@
 /**
  * The Settings pages listed on the Settings home, in order. Names follow the
  * desktop Settings where one exists (Interface, Chat, Terminal, Notifications:
- * the desktop files its sounds under Notifications, D-037 (9)).
+ * the desktop files its sounds under Notifications).
  */
 
 import { ANDROID_SELF_UPDATE_ENABLED } from '../../config/featureFlags';

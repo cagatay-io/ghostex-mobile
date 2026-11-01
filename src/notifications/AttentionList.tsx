@@ -1,14 +1,12 @@
 /**
- * The attention list (REQ-NOTIF-011, -017; mockup `notifications`, approved D-037): the computers'
- * notification feeds, the desktop bell's list, newest first in "Unread" and "Read" groups. A row names
- * agent · project, the session's title, the time and the event as word and glyph; never anything the
- * agent wrote. A tap opens the session and marks the row read on the computer (AC5); an account row is
- * only marked read (D-037 (9)). A long press opens the row's menu at the row (Open Session, Mark as
- * Read/Unread, Clear; D-037 row anchoring).
+ * The attention list (approved mockup `notifications`): the computers' notification feeds, the desktop bell's list,
+ * newest first in "Unread" and "Read" groups. A row names agent · project, the session's title, the time and the
+ * event as word and glyph; never anything the agent wrote. A tap opens the session and marks the row read on the
+ * computer; an account row is only marked read. A long press opens the row's menu at the row (Open Session, Mark as
+ * Read/Unread, Clear).
  *
- * One component for the full screen (`AttentionListScreen`) and, with S12, the attention-list pane
- * (REQ-PANE-010): the caller decides what opening a session means (`onOpenSession`: navigate to it, or
- * open it in the pane beside).
+ * One component for the full screen (`AttentionListScreen`) and, later, the attention-list pane: the caller decides
+ * what opening a session means (`onOpenSession`: navigate to it, or open it in the pane beside).
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -178,7 +176,7 @@ function EmptyState({
 
 export default function AttentionList({ onOpenSession }: { onOpenSession: (target: OpenSessionTarget) => void }) {
   const appearance = useAppearance();
-  // The list reaches under the iPhone Duo's side bar, its rows keep clear of it (FL-LAY-05).
+  // The list reaches under the iPhone Duo's side bar, its rows keep clear of it.
   const edges = useScrollToBarEdges(styles.content);
   const { rows, notices, loading, unreachable } = useAttentionRows();
   const [now, setNow] = useState(() => new Date());

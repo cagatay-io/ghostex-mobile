@@ -1,7 +1,7 @@
 /**
  * Reading and changing one computer's notification feed through gxserver's HTTP API over the warm link
- * (`POST /api/readNotificationFeed`, `POST /api/updateNotificationFeed`; spike `spike-host-data.md` §2).
- * Read state is the computer's, so the list and the desktop bell share it (D-020 item 3); `markRead`
+ * (`POST /api/readNotificationFeed`, `POST /api/updateNotificationFeed`).
+ * Read state is the computer's, so the list and the desktop bell share it; `markRead`
  * also acknowledges the session's attention on every client. The request function is passed in
  * (`FeedRpc`), so the client is testable under `bun test` with a fake transport.
  */
@@ -25,7 +25,7 @@ export type FeedRequestFailure = 'refused' | 'unreadable';
 
 /**
  * A failed request. It keeps only its category: the computer's own error text can carry paths or agent
- * output, and an error ends up in the app log, which can be exported (review s7-r1 K-2).
+ * output, and an error ends up in the app log, which can be exported.
  */
 export class FeedRequestError extends Error {
   constructor(readonly category: FeedRequestFailure) {

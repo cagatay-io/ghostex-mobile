@@ -75,7 +75,7 @@
  *    a row id (a new UUID per row); the same row with the same kind is the same event however often, in
  *    whichever order and whatever attention the session list shows by then, while it is remembered (rule 4).
  *    A row the computer turns from `finished` into `needsInput` in place is a second event of that row. A
- *    push carries the row id as `data.notificationId` (optional in the push message's schema; the row has to
+ *    push carries the row id as `data.notificationId` (optional in the push message; the row has to
  *    exist before the push is sent) and its kind as `data.kind`.
  * 2. The Sessions list names no kind. From a computer that names the attention's feed row
  *    (`attention.notificationId`), the list's copy is that row's first event: the first of its kinds announced

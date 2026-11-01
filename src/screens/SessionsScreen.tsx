@@ -786,7 +786,7 @@ export default function SessionsScreen({ navigation }: Props) {
   // The header keeps only the title, the notifications bell and this menu button (Voice, Search, Web and
   // Machines stand in the bottom bar, CDXC:Sessions 2026-10-27). On the iPhone Duo the status band holds the
   // same row. In the side bar (a system that stands one) the bell and the menu stand there as its entries.
-  // The bell opens the attention list with its unread count (S7, D-037 (9)).
+  // The bell opens the attention list with its unread count.
   const bellButton = (
     <Pressable
       accessibilityRole="button"

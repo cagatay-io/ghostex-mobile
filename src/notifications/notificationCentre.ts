@@ -1,9 +1,9 @@
 /**
  * The iPhone's notification centre through `expo-notifications` (SDK 58, MIT): local notifications only
- * (the config plugin's `enableRemoteNotifications` is off until push, S15), the permission behind the
+ * (the config plugin's `enableRemoteNotifications` is off until push), the permission behind the
  * one-time ask, banners while the app is in front, and taps.
  *
- * iOS only (D-003): on Android nothing here touches expo-notifications; the Android persistent
+ * iOS only: on Android nothing here touches expo-notifications; the Android persistent
  * notification (`src/app/persistentNotification.ts`) stays what it was.
  */
 

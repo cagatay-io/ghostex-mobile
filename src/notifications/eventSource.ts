@@ -1,5 +1,5 @@
 /**
- * The app-level source of agent events (REQ-NOTIF-001): it reads every enabled computer's notification
+ * The app-level source of agent events: it reads every enabled computer's notification
  * feed while the app can run, on every screen, not only on the Sessions screen (whose inventory poll
  * stops when it loses focus). An unread row is a new event when its id was not there before (the host
  * writes a new row for a session's new attention and drops its older unread one) or when its kind
@@ -9,14 +9,14 @@
  * `deferUnread`, another client) is no new event.
  *
  * - Without a live event channel the feed is read every `POLL_INTERVAL_MS`. A computer whose gxserver
- *   offers `stream=notifications` (H2, capability `notificationStream`) announces each change; its feed
+ *   offers `stream=notifications` (capability `notificationStream`) announces each change; its feed
  *   is read on that announcement (`refresh`) and otherwise only every `STREAMED_POLL_INTERVAL_MS`.
  * - A computer that cannot be read is tried again every `FAILING_POLL_INTERVAL_MS`, so an unreachable or
  *   older computer costs no handshake every few seconds.
  * - The first read of a computer, the first after a failed one, and the first after `rebaseline` (the
  *   app came back from the background, where iOS may have paused it) only record what is there: no
- *   notification for states that already exist (REQ-NOTIF-009 first-fetch rule, derived). What happened
- *   meanwhile is in the attention list, the reliable view after a reconnect (D-060). A read that was under
+ *   notification for states that already exist (the first-fetch rule). What happened
+ *   meanwhile is in the attention list, the reliable view after a reconnect. A read that was under
  *   way at `rebaseline` answers with the feed from before: its answer is dropped, so it neither notifies
  *   nor becomes the baseline, and a read asked for after `rebaseline` does not join it.
  *
@@ -136,7 +136,7 @@ export class FeedEventSource {
           if (generation !== state.generation) return;
           state.failing = true;
           // What arrives while the computer cannot be read is no news by the time it can: the next good
-          // read is a baseline, and the attention list shows what happened (D-060).
+          // read is a baseline, and the attention list shows what happened.
           state.seen = null;
           const reason = error instanceof FeedUnavailableError ? error.reason : 'unreachable';
           this.deps.onRead(machineId, { kind: 'failed', reason });

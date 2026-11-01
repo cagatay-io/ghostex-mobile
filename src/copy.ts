@@ -1017,19 +1017,19 @@ export const SettingsCopy = {
 } as const;
 
 /**
- * Agent notifications and the attention list (S7, mockup `notifications`, owner approval D-037 (9)): the
+ * Agent notifications and the attention list (approved mockup `notifications`): the
  * four event wordings, the list, the bell and Settings > Notifications. Text level: event and session
- * only, never anything the agent wrote (D-010).
+ * only, never anything the agent wrote.
  */
 export const NotificationsCopy = {
-  /** The line under "agent · project" in a notification (REQ-NOTIF-002..004, -015). */
+  /** The line under "agent · project" in a notification. */
   event: {
     finished: 'Finished',
     waiting: 'Waiting for you',
     question: 'Has a question',
     failed: 'Ended with an error',
   },
-  /** The kind line of an attention list row (REQ-NOTIF-011, -017). */
+  /** The kind line of an attention list row. */
   rowKind: {
     finished: 'finished',
     waiting: 'waiting',
@@ -1068,7 +1068,7 @@ export const NotificationsCopy = {
   clearAllBody: 'They also disappear from the bell on your computer. Your sessions stay as they are.',
   cancel: 'Cancel',
   actionFailed: 'The computer didn’t take that change. Try again in a moment.',
-  /** Settings > Notifications (REQ-NOTIF-010, -013); the page was "Sounds" (D-037 (9)). */
+  /** Settings > Notifications; the page was "Sounds". */
   settings: {
     pageDescription: 'Agent alerts and the attention sound.',
     sectionAgents: 'Agent notifications',

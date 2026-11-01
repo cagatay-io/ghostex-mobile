@@ -8,7 +8,7 @@
  * opened from a header button in the status band or the side bar stands at
  * that button instead (`anchor`), as an iOS pull-down does. A
  * menu opened from a row, or from a control inside a screen's content, stands at
- * that row on every iPhone (`rowAnchor`, D-037), the row lifted above the dimmed
+ * that row on every iPhone (`rowAnchor`), the row lifted above the dimmed
  * screen (`lifted`), as an iOS context menu does. For VoiceOver every command, a command's (i), the lifted
  * row and the dimmed screen ("Close menu") are separate elements: no ancestor of them is an accessibility
  * element, which iOS would read as one element holding all of them.
@@ -129,7 +129,7 @@ export type ContextMenuProps = {
   maxHeight?: number;
   /**
    * The row (window frame) it was opened from by a long press, or the control inside the content it opened
-   * from: the menu stands at it on every iPhone and in every pose (`rowMenuOrigin`, D-037). Wins over `anchor`.
+   * from: the menu stands at it on every iPhone and in every pose (`rowMenuOrigin`). Wins over `anchor`.
    */
   rowAnchor?: MenuAnchor;
   /** With `rowAnchor`: the row drawn again above the dimmed screen at its place; a tap on it runs `onPress`. */
@@ -150,7 +150,7 @@ const MAX_HEIGHT_RATIO = 0.78;
 
 /**
  * A command's role. React Native gives `menuitem` no trait on iOS, so VoiceOver would name no role; iOS's own
- * context menus expose their commands as buttons. Android keeps "menu item" (review s7-r1 r2 K-8).
+ * context menus expose their commands as buttons. Android keeps "menu item".
  */
 const COMMAND_ROLE: AccessibilityRole = Platform.OS === 'ios' ? 'button' : 'menuitem';
 
@@ -295,7 +295,7 @@ export default function ContextMenu({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} onDismiss={onDismissed}>
       {/*
-        A plain View: a pressable here would group the whole menu into one VoiceOver element (review s7-r1 r2 K-8).
+        A plain View: a pressable here would group the whole menu into one VoiceOver element.
       */}
       <View style={styles.backdrop} onAccessibilityEscape={onClose}>
         {/* The dimmed screen behind the card closes the menu; presses on the card never reach it. */}
@@ -430,7 +430,7 @@ export default function ContextMenu({
                     command
                   ) : (
                     // The (i) stands beside the command, not inside it: inside, iOS reads both as one element with
-                    // the command's action only, and the explanation cannot be reached (review s7-r1 r3 K-8).
+                    // the command's action only, and the explanation cannot be reached.
                     <View style={styles.itemRow}>
                       {command}
                       <Pressable

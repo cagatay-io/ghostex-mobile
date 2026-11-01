@@ -1,7 +1,7 @@
 /// <reference types="node" />
 /**
- * Run with `bun test src/app/deepLinks.test.ts`. REQ-NOTIF-012 AC1 and REQ-NOTIF-016 AC1/AC2, and the cold
- * start of AC3 (review s7-r1 K-1: the session list arrives during or after the attach): the real
+ * Run with `bun test src/app/deepLinks.test.ts`. A tapped notification opens its session, a question link its
+ * Chat View, also at a cold start (the session list arrives during or after the attach): the real
  * `handleDeepLink` with a fake navigator and fake stores.
  */
 
@@ -58,7 +58,7 @@ function coldStart(listed: DeepLinkSession, arrives: 'duringAttach' | 'whenAsked
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe('a notification tap opens its session', () => {
-  test('REQ-NOTIF-012 AC1: a session that opens in its terminal is attached and shown', async () => {
+  test('a session that opens in its terminal is attached and shown', async () => {
     const f = fake({ projectId: 'p1', title: 'fix build', hasChatView: false, opensInChatView: false });
     handleDeepLink('ghostex://session?machineId=m1&sessionId=s1', f.deps);
     await settle();
@@ -68,13 +68,13 @@ describe('a notification tap opens its session', () => {
     ]);
   });
 
-  test('REQ-NOTIF-012 AC1: a session that opens in its chat view shows the chat', () => {
+  test('a session that opens in its chat view shows the chat', () => {
     const f = fake({ projectId: 'p1', title: 'fix build', hasChatView: true, opensInChatView: true });
     handleDeepLink('ghostex://session?machineId=m1&sessionId=s1', f.deps);
     assert.deepEqual(f.calls, ['chat:s1']);
   });
 
-  test('REQ-NOTIF-016 AC1/AC2: a question link opens session s1 of m1 in its chat view', () => {
+  test('a question link opens session s1 of m1 in its chat view', () => {
     const f = fake({ projectId: 'p1', title: 'fix build', hasChatView: true, opensInChatView: false });
     const url = sessionDeepLink({ machineId: 'm1', sessionId: 's1', view: 'question' });
     handleDeepLink(url, f.deps);
@@ -84,7 +84,7 @@ describe('a notification tap opens its session', () => {
     ]);
   });
 
-  test('REQ-NOTIF-016 exception: a session without a chat view opens its terminal', async () => {
+  test('a session without a chat view opens its terminal', async () => {
     const f = fake({ projectId: 'p1', title: '', hasChatView: false, opensInChatView: false });
     handleDeepLink(sessionDeepLink({ machineId: 'm1', sessionId: 's1', view: 'question' }), f.deps);
     await settle();
@@ -98,7 +98,7 @@ describe('a notification tap opens its session', () => {
   });
 });
 
-describe('a question notification tapped at a cold start (REQ-NOTIF-016 AC3, K-1)', () => {
+describe('a question notification tapped at a cold start', () => {
   const withChat: DeepLinkSession = { projectId: 'p1', title: 'fix build', hasChatView: true, opensInChatView: false };
   const terminalOnly: DeepLinkSession = { projectId: 'p1', title: '', hasChatView: false, opensInChatView: false };
   const questionLink = sessionDeepLink({ machineId: 'm1', sessionId: 's1', view: 'question' });

@@ -85,7 +85,7 @@ export function notificationAllowed(kind: AttentionKind, settings: NotificationS
   if (settings.askedAt === undefined || !settings.enabled) return false;
   if (kind === 'finished') return settings.finished;
   if (kind === 'failed') return settings.error;
-  // Waiting and "has a question": one switch (D-032 changes only the wording).
+  // Waiting and "has a question": one switch (only the wording differs).
   return settings.waiting;
 }
 
@@ -123,8 +123,8 @@ export function notificationRequestFor(event: AttentionEvent, sound: boolean): N
  */
 export function postNotification(event: AttentionEvent, identity: EventIdentity, deps: NotifyDeps): boolean {
   if (!notificationAllowed(event.kind, deps.settings())) return false;
-  // The owner is looking at this session: nothing is announced, its row stays in the attention list, and the
-  // event counts as seen, so a copy that comes after the owner left announces nothing either.
+  // The user is looking at this session: nothing is announced, its row stays in the attention list, and the
+  // event counts as seen, so a copy that comes after the user left announces nothing either.
   if (deps.onScreen(event.machineId, event.sessionId)) {
     deps.announced.seenOnScreen(identity);
     return false;

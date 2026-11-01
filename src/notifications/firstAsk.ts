@@ -1,7 +1,7 @@
 /**
- * The one-time ask (REQ-NOTIF-014, D-023 "Einmal fragen"): at the first launch of a version that has
+ * The one-time ask: at the first launch of a version that has
  * notifications (a new install and an update alike) the app asks once whether it may notify. The ask
- * is the iOS permission prompt itself, without a screen of the app's own before it (D-031 item 4).
+ * is the iOS permission prompt itself, without a screen of the app's own before it.
  * Allowed: the master, finished, waiting and error switches turn on; not allowed: all four stay off.
  * Either way `askedAt` is stored and the prompt is never requested again; later changes happen in
  * Settings > Notifications (and, after a denial, in iOS Settings, because iOS shows its prompt once).

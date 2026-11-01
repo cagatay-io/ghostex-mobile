@@ -1,13 +1,12 @@
 /// <reference types="jest" />
 /**
- * Run with `bun run test:jest`. The attention list as it is drawn, REQ-NOTIF-011 (AC1: rows with kind, agent
- * and project, newest first; account rows are rows; AC5: opening an unread row marks it read on the computer)
- * and REQ-NOTIF-017 (a needsInput row of a session with a pending question says "has a question"), with the
- * approved mockup `notifications` (D-037): state list (the desktop's "Unread" and "Read" groups) and state
- * row-menu (a long press opens Open Session, Mark as Read / Unread and Clear at the held row, the row lifted
- * above the dimmed screen; D-037 row anchoring, `rowMenuOrigin`). Accessibility (review s7-r1 r2 K-8,
- * FL-A11Y-01): each command, the lifted row and a Close menu button are their own accessibility elements,
- * none grouped into an ancestor that iOS would read as one element.
+ * Run with `bun run test:jest`. The attention list as it is drawn (rows with kind, agent and project, newest first;
+ * account rows are rows; opening an unread row marks it read on the computer; a needsInput row of a session with a
+ * pending question says "has a question"), with the approved mockup `notifications`: state list (the desktop's
+ * "Unread" and "Read" groups) and state row-menu (a long press opens Open Session, Mark as Read / Unread and Clear at
+ * the held row, the row lifted above the dimmed screen; `rowMenuOrigin`). Accessibility: each command, the lifted row
+ * and a Close menu button are their own accessibility elements, none grouped into an ancestor that iOS would read as
+ * one element.
  *
  * The real `AttentionList`, row model, `ContextMenu` and stores; mocked are the boundaries only: the native
  * module, expo-notifications, storage, the safe area and the computer's feed endpoint (`updateAttentionFeed`,
@@ -74,7 +73,7 @@ function feedRow(id: string, minutes: number, fields: Partial<FeedRow>): FeedRow
 
 /** The feed as the computer sends it, newest first (the mockup's FEED, one row more for each question source). */
 const FEED: FeedRow[] = [
-  // REQ-NOTIF-017 through the session list: needsInput, its session has two pending questions.
+  // "Has a question" through the session list: needsInput, its session has two pending questions.
   feedRow('n1', 1, { kind: 'needsInput', sessionId: 's1' }),
   feedRow('n2', 6, { kind: 'failed', sessionId: 's6' }),
   feedRow('n3', 14, {
@@ -207,7 +206,7 @@ afterEach(() => {
   mockNativeMethods.measureInWindow.mockReset();
 });
 
-test('REQ-NOTIF-011 AC1, mockup list: "Unread" then "Read", each newest first, with kind, agent and project', async () => {
+test('mockup list: "Unread" then "Read", each newest first, with kind, agent and project', async () => {
   await renderList();
   expect(rowIds(screen)).toEqual(['n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7']);
   expect(rowIds(within(group('Unread')))).toEqual(['n1', 'n2', 'n3', 'n4']);
@@ -217,7 +216,7 @@ test('REQ-NOTIF-011 AC1, mockup list: "Unread" then "Read", each newest first, w
   expect(unread.getByText('ended with an error')).toBeTruthy();
   expect(unread.getByText('Codex · ghostex-mobile')).toBeTruthy();
   expect(unread.getByText('finished')).toBeTruthy();
-  // AC2: the account row is a row like any other, named by the account.
+  // The account row is a row like any other, named by the account.
   expect(unread.getByText('reset expiring')).toBeTruthy();
   expect(unread.getByText('Claude · Work')).toBeTruthy();
   // VoiceOver hears the unread state as a word, not a colour.
@@ -227,7 +226,7 @@ test('REQ-NOTIF-011 AC1, mockup list: "Unread" then "Read", each newest first, w
   expect(screen.getByTestId('attention-row-n5').props.accessibilityLabel).not.toMatch(/Unread/);
 });
 
-test('REQ-NOTIF-017: needsInput says "has a question" with a pending question, "waiting" without one', async () => {
+test('needsInput says "has a question" with a pending question, "waiting" without one', async () => {
   await renderList();
   expect(within(screen.getByTestId('attention-row-n1')).getByText('has a question')).toBeTruthy();
   expect(within(screen.getByTestId('attention-row-n7')).getByText('has a question')).toBeTruthy();
@@ -235,13 +234,13 @@ test('REQ-NOTIF-017: needsInput says "has a question" with a pending question, "
   expect(within(screen.getByTestId('attention-row-n6')).queryByText('has a question')).toBeNull();
 });
 
-test('REQ-NOTIF-011 AC5: opening an unread row marks it read once and opens its session; a question row asks for the question card', async () => {
+test('opening an unread row marks it read once and opens its session; a question row asks for the question card', async () => {
   await renderList();
   await fireEvent.press(screen.getByTestId('attention-row-n1'));
   expect(update.mock.calls).toEqual([['m1', { action: 'markRead', notificationId: 'n1' }]]);
   expect(opened).toEqual([{ machineId: 'm1', sessionId: 's1', question: true }]);
 
-  // A read row only opens; an account row has no session and is only marked read (D-037 (9)).
+  // A read row only opens; an account row has no session and is only marked read.
   update.mockClear();
   await fireEvent.press(screen.getByTestId('attention-row-n5'));
   await fireEvent.press(screen.getByTestId('attention-row-n3'));
@@ -249,7 +248,7 @@ test('REQ-NOTIF-011 AC5: opening an unread row marks it read once and opens its 
   expect(opened.slice(1)).toEqual([{ machineId: 'm1', sessionId: 's4', question: false }]);
 });
 
-test('REQ-NOTIF-011, mockup row-menu (D-037 row anchoring): a long press opens the menu at the held row, under it, the row lifted', async () => {
+test('mockup row-menu: a long press opens the menu at the held row, under it, the row lifted', async () => {
   await renderList();
   await fireEvent(screen.getByTestId('attention-row-n2'), 'longPress');
 
@@ -280,7 +279,7 @@ test('REQ-NOTIF-011, mockup row-menu (D-037 row anchoring): a long press opens t
   expect(screen.queryByRole('button', { name: 'Close menu' })).toBeNull();
 });
 
-test('K-8 (r2), mockup row-menu: each command, the lifted row and Close menu are separate accessibility elements', async () => {
+test('mockup row-menu: each command, the lifted row and Close menu are separate accessibility elements', async () => {
   await renderList();
   await fireEvent(screen.getByTestId('attention-row-n2'), 'longPress');
   expect(menuLabels()).toEqual(['Open Session', 'Mark as Read', 'Clear']);
@@ -301,7 +300,7 @@ test('K-8 (r2), mockup row-menu: each command, the lifted row and Close menu are
   expect(update).not.toHaveBeenCalled();
 });
 
-test('REQ-NOTIF-011, mockup row-menu: Mark as Read / Unread follow the row, Open Session opens it, an account row has no Open Session', async () => {
+test('mockup row-menu: Mark as Read / Unread follow the row, Open Session opens it, an account row has no Open Session', async () => {
   await renderList();
 
   await fireEvent(screen.getByTestId('attention-row-n4'), 'longPress');

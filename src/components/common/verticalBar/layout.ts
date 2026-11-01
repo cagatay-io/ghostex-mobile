@@ -323,8 +323,7 @@ export function menuRoomBeside(
 const ROW_MENU_MIN_HEIGHT = 150;
 
 /**
- * D-037 (owner 2026-10-25, "bei projekt dateibrowser sehe ich das fenster random irgendwo in der mitte. macht auch
- * keinen sinn"): a menu opened from a row (a long press) or from a control inside a screen's content stands at
+ * A menu opened from a row (a long press) or from a control inside a screen's content stands at
  * that row, as an iOS context menu does, in every pose and on every iPhone: under the row with its leading edge
  * at the row's, above it when the room under it is short. Where neither side holds the whole menu it stays at
  * the roomier side and scrolls inside (`maxHeight`), down to `ROW_MENU_MIN_HEIGHT`; with less room than that at

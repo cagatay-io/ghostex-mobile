@@ -1,12 +1,10 @@
 /// <reference types="node" />
 /**
- * Run with `bun test src/notifications/notify.test.ts`. REQ-NOTIF-002 AC1, -003 AC1, -004 AC2/AC3,
- * -005 AC1, -006 AC1, -007 AC1, -008 AC2, -009 AC1/AC2, -011 AC4, -013 AC2/AC3, -014 AC6, -015 AC1-AC5,
- * REQ-PUSH-001 AC4 (one notification per event from both routes, delayed and reordered; review s7-r1
- * K-4/K-9, r2: the exact row stays one event after the session moved on; r3: also after the computer
- * replaced it in its feed and across a restart): real `mapEvent`, `AnnouncedEvents` (with its rate limit;
- * its storage faked), `postNotification` with a fake notification centre and `announceAttentionTransitions`
- * (the Sessions list's attention sound) with a fake sound.
+ * Run with `bun test src/notifications/notify.test.ts`. Which events notify, their wording, the rate limit, the
+ * switches, and one notification per event from both routes, delayed and reordered (the exact row stays one event
+ * after the session moved on, also after the computer replaced it in its feed and across a restart): real `mapEvent`,
+ * `AnnouncedEvents` (with its rate limit; its storage faked), `postNotification` with a fake notification centre and
+ * `announceAttentionTransitions` (the Sessions list's attention sound) with a fake sound.
  */
 
 import assert from 'node:assert/strict';
@@ -141,7 +139,7 @@ function row(kind: string, sessionId = 's1'): HostEvent {
 }
 
 describe('agent events become notification requests', () => {
-  test('REQ-NOTIF-002 AC1: finished gives exactly one request of kind finished for S', async () => {
+  test('finished gives exactly one request of kind finished for S', async () => {
     const h = await harness();
     h.run([row('finished')]);
     assert.equal(h.posted.length, 1);
@@ -150,21 +148,21 @@ describe('agent events become notification requests', () => {
     assert.equal(h.posted[0].data.kind, 'finished');
   });
 
-  test('REQ-NOTIF-003 AC1: needsInput gives one waiting request', async () => {
+  test('needsInput gives one waiting request', async () => {
     const h = await harness();
     h.run([row('needsInput')]);
     assert.equal(h.posted.length, 1);
     assert.equal(h.posted[0].line, 'Waiting for you');
   });
 
-  test('REQ-NOTIF-004 AC2: failed gives one request of kind failed', async () => {
+  test('failed gives one request of kind failed', async () => {
     const h = await harness();
     h.run([row('failed')]);
     assert.equal(h.posted.length, 1);
     assert.equal(h.posted[0].line, 'Ended with an error');
   });
 
-  test('REQ-NOTIF-004 AC3, -005 AC1, -006 AC1: abort, start, end and idle->working create nothing', async () => {
+  test('abort, start, end and idle->working create nothing', async () => {
     const h = await harness();
     // They reach the phone only as summary changes: no host event of a notifying kind exists for them.
     h.run([
@@ -178,19 +176,19 @@ describe('agent events become notification requests', () => {
     assert.equal(h.posted.length, 0);
   });
 
-  test('REQ-NOTIF-007 AC1: an event of a session the computer does not list (a subagent) creates nothing', async () => {
+  test('an event of a session the computer does not list (a subagent) creates nothing', async () => {
     const h = await harness();
     h.run([row('finished', 'subagent-of-s1')]);
     assert.equal(h.posted.length, 0);
   });
 
-  test('D-061: a coordinator thread is a listed session and notifies', async () => {
+  test('a coordinator thread is a listed session and notifies', async () => {
     const h = await harness(ALL_ON, { thread1: facts('thread1') });
     h.run([row('needsInput', 'thread1')]);
     assert.equal(h.posted.length, 1);
   });
 
-  test('REQ-NOTIF-008 AC2: the feed text "secret text" is never in a request', async () => {
+  test('the feed text "secret text" is never in a request', async () => {
     const h = await harness();
     h.run([row('finished')]);
     assert.ok(!JSON.stringify(h.posted).includes('secret text'));
@@ -198,7 +196,7 @@ describe('agent events become notification requests', () => {
     assert.equal(h.posted[0].title, 'Claude Code · ghostex-mobile');
   });
 
-  test('REQ-NOTIF-009 AC1: three events of one session within 20 s give one request', async () => {
+  test('three events of one session within 20 s give one request', async () => {
     const h = await harness();
     h.run([row('finished')]);
     h.advance(5_000);
@@ -211,7 +209,7 @@ describe('agent events become notification requests', () => {
     assert.equal(h.posted.length, 2);
   });
 
-  test('REQ-NOTIF-009 AC2: ten sessions within 60 s give eight requests', async () => {
+  test('ten sessions within 60 s give eight requests', async () => {
     const listed: Record<string, SessionFacts> = {};
     for (let i = 0; i < 10; i += 1) listed[`s${i}`] = facts(`s${i}`);
     const h = await harness(ALL_ON, listed);
@@ -222,7 +220,7 @@ describe('agent events become notification requests', () => {
     assert.equal(h.posted.length, 8);
   });
 
-  test('REQ-NOTIF-011 AC4: an account row creates nothing', () => {
+  test('an account row creates nothing', () => {
     const parsed = parseFeedRow({
       id: 'n9',
       projectId: 'accounts',
@@ -239,20 +237,20 @@ describe('agent events become notification requests', () => {
     assert.equal(hostEventFromFeedRow('m1', parsed), null);
   });
 
-  test('REQ-NOTIF-013 AC2: finished switch off: only the waiting event notifies', async () => {
+  test('finished switch off: only the waiting event notifies', async () => {
     const h = await harness({ ...ALL_ON, finished: false }, { s1: facts('s1'), s2: facts('s2') });
     h.run([row('finished', 's1'), row('needsInput', 's2')]);
     assert.equal(h.posted.length, 1);
     assert.equal(h.posted[0].line, 'Waiting for you');
   });
 
-  test('REQ-NOTIF-013 AC3: master off: nothing notifies', async () => {
+  test('master off: nothing notifies', async () => {
     const h = await harness({ ...ALL_ON, enabled: false });
     h.run([row('finished'), row('failed', 's1'), row('needsInput')]);
     assert.equal(h.posted.length, 0);
   });
 
-  test('REQ-NOTIF-014 AC6: before the ask is answered nothing notifies', async () => {
+  test('before the ask is answered nothing notifies', async () => {
     const { askedAt: _asked, ...unasked } = ALL_ON;
     const h = await harness(unasked);
     h.run([row('finished')]);
@@ -260,15 +258,15 @@ describe('agent events become notification requests', () => {
   });
 });
 
-describe('"has a question" (REQ-NOTIF-015, D-032)', () => {
-  test('AC1: a waiting session with a pending question is announced as a question', async () => {
+describe('"has a question"', () => {
+  test('a waiting session with a pending question is announced as a question', async () => {
     const h = await harness(ALL_ON, { s1: facts('s1', 1) });
     h.run([row('needsInput')]);
     assert.equal(h.posted[0].line, 'Has a question');
     assert.ok(h.posted[0].data.url.includes('view=question'));
   });
 
-  test('AC2: without a pending question it is waiting', async () => {
+  test('without a pending question it is waiting', async () => {
     const h = await harness(ALL_ON, { s1: facts('s1', 0) });
     h.run([row('needsInput')]);
     assert.equal(h.posted[0].line, 'Waiting for you');
@@ -334,7 +332,7 @@ describe('"has a question" (REQ-NOTIF-015, D-032)', () => {
     });
   }
 
-  test('AC3: the request holds only agent, project and session identity, no question text', async () => {
+  test('the request holds only agent, project and session identity, no question text', async () => {
     const h = await harness(ALL_ON, { s1: facts('s1', 1) });
     h.run([row('needsInput')]);
     const request = h.posted[0];
@@ -342,21 +340,21 @@ describe('"has a question" (REQ-NOTIF-015, D-032)', () => {
     assert.equal(request.title, 'Claude Code · ghostex-mobile');
   });
 
-  test('AC4: waiting on, finished off: the question is posted', async () => {
+  test('waiting on, finished off: the question is posted', async () => {
     const h = await harness({ ...ALL_ON, finished: false }, { s1: facts('s1', 1) });
     h.run([row('needsInput')]);
     assert.equal(h.posted.length, 1);
   });
 
-  test('AC5: waiting off, finished and error on: nothing is posted', async () => {
+  test('waiting off, finished and error on: nothing is posted', async () => {
     const h = await harness({ ...ALL_ON, waiting: false }, { s1: facts('s1', 1) });
     h.run([row('needsInput')]);
     assert.equal(h.posted.length, 0);
   });
 });
 
-describe('REQ-PUSH-001 AC4: one event from two routes, delayed and reordered (review s7-r1 K-4, K-9)', () => {
-  /** The same event as an S15 push: its kind, computer and session, and the feed row id when it carries one. */
+describe('one event from two routes, delayed and reordered', () => {
+  /** The same event as a push: its kind, computer and session, and the feed row id when it carries one. */
   const pushOf = (event: HostEvent, withRowId: boolean): HostEvent => ({
     machineId: event.machineId,
     sessionId: event.sessionId,
@@ -382,7 +380,7 @@ describe('REQ-PUSH-001 AC4: one event from two routes, delayed and reordered (re
     assert.equal(h.posted.length, 1);
   });
 
-  test('the push carrying the row id (S15 contract) gives no second notification, also minutes later', async () => {
+  test('the push carrying the row id (the push contract) gives no second notification, also minutes later', async () => {
     const h = await harness();
     const event = row('needsInput');
     h.run([event]);
@@ -408,7 +406,7 @@ describe('REQ-PUSH-001 AC4: one event from two routes, delayed and reordered (re
     assert.equal(h.posted.length, 2);
   });
 
-  test('K-3: the row the computer turns from finished into needsInput in place is a new event', async () => {
+  test('the row the computer turns from finished into needsInput in place is a new event', async () => {
     const h = await harness();
     const finished = row('finished');
     h.run([finished]);
@@ -420,7 +418,7 @@ describe('REQ-PUSH-001 AC4: one event from two routes, delayed and reordered (re
     );
   });
 
-  describe('r2 K-4/K-9: the row id is the event, whatever the session list says by the time it comes again', () => {
+  describe('the row id is the event, whatever the session list says by the time it comes again', () => {
     const n1: HostEvent = {
       machineId: 'm1',
       sessionId: 's1',
@@ -470,7 +468,7 @@ describe('REQ-PUSH-001 AC4: one event from two routes, delayed and reordered (re
     });
   });
 
-  describe("r3 K-4/K-9: the record covers the push's validity, also across a restart (H4d addendum 2)", () => {
+  describe("the record covers the push's validity, also across a restart", () => {
     /** The reviewer's probe: a session list that shows no attention, so only the row id identifies the event. */
     const unattended: SessionFacts = { ...facts('s1'), attentionId: '', attentionEnteredAt: '' };
     const event = (index: number): HostEvent => ({
@@ -512,7 +510,7 @@ describe('REQ-PUSH-001 AC4: one event from two routes, delayed and reordered (re
   });
 });
 
-describe('the app log (review s7-r1 K-2)', () => {
+describe('the app log', () => {
   test("a request iOS does not take logs a fixed line, not the system's error text or a path", async () => {
     const h = await harness(
       ALL_ON,
@@ -527,8 +525,8 @@ describe('the app log (review s7-r1 K-2)', () => {
   });
 });
 
-describe('the session open on screen (D-063)', () => {
-  test("REQ-NOTIF-002/-003/-004/-015: its events post no notification; other sessions' events do", async () => {
+describe('the session open on screen', () => {
+  test("its events post no notification; other sessions' events do", async () => {
     const h = await harness(ALL_ON, { s1: facts('s1', 1), s2: facts('s2') });
     h.onScreen.add('m1\ns1');
     h.run([row('finished', 's1'), row('needsInput', 's1'), row('failed', 's1')]);
@@ -540,7 +538,7 @@ describe('the session open on screen (D-063)', () => {
     );
   });
 
-  test('it holds back no rate budget: once the owner leaves it, its next event notifies at once', async () => {
+  test('it holds back no rate budget: once the user leaves it, its next event notifies at once', async () => {
     const h = await harness();
     h.onScreen.add('m1\ns1');
     h.run([row('finished')]);
@@ -553,7 +551,7 @@ describe('the session open on screen (D-063)', () => {
     );
   });
 
-  test('an event held back for the session on screen counts as seen: its copies after the owner left stay silent', async () => {
+  test('an event held back for the session on screen counts as seen: its copies after the user left stay silent', async () => {
     const h = await harness();
     const event = row('finished');
     h.onScreen.add('m1\ns1');
@@ -664,7 +662,7 @@ describe("the Sessions list's attention sound goes through the same gate and rat
     );
   });
 
-  test('held back for the session on screen, a Sessions list naming no row covers no row: the row after the owner left sounds', async () => {
+  test('held back for the session on screen, a Sessions list naming no row covers no row: the row after the user left sounds', async () => {
     const h = await harness();
     h.onScreen.add('m1\ns1');
     h.sessionsList([], [entered('s1', 'a1')]);

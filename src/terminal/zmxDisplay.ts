@@ -140,7 +140,7 @@ export function setMountedSessionKeys(terminalKey: string | null, chatKey: strin
 
 /**
  * Whether a session is open on screen: the app is active and the focused Terminal screen shows this
- * session's terminal or its Chat View (the keys the screen reports above). Owner decision D-063: no
+ * session's terminal or its Chat View (the keys the screen reports above). No
  * notification banner and no attention sound for it; its attention-list row stays.
  */
 export function sessionOnScreen(machineId: string, sessionId: string): boolean {

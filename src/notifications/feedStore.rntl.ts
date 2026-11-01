@@ -6,15 +6,15 @@
  * expo-notifications (the scheduled requests are what the phone would show), the native module, storage,
  * the app log and the computer's gxserver reached over the warm link (a fake feed endpoint).
  *
- * - REQ-NOTIF-009 first-fetch rule (derived; review s7-r1 K-1): iOS returns from the background through
+ * - First-fetch rule: iOS returns from the background through
  *   `inactive`; rows written while the app was away are no news, at the return and at any read before it.
- * - REQ-NOTIF-017 (K-1): the list's join to the session list is read for new rows whatever the switches,
- *   and on an explicit refresh for waiting rows that stay as they are (r2), not on every poll.
- * - REQ-NOTIF-009 (r2 K-1): a row that arrives while an older session-list read is under way is mapped with
+ * - "Has a question": the list's join to the session list is read for new rows whatever the switches,
+ *   and on an explicit refresh for waiting rows that stay as they are, not on every poll.
+ * - A row that arrives while an older session-list read is under way is mapped with
  *   a newer read, not dropped.
- * - REQ-NOTIF-016 (r2 K-1): a question link at a cold start waits for the stores that decide or overwrite
+ * - A question link at a cold start waits for the stores that decide or overwrite
  *   the session's view (`deepLinkStoresReady`), so the loading of saved terminal views cannot overturn it.
- * - D-010, REQ-NOTIF-008 floor (K-2): the app log (exportable) gets a fixed failure word, never the text a
+ * - The app log (exportable) gets a fixed failure word, never the text a
  *   computer, the inventory or iOS put in an error (here a synthetic private payload and a path).
  * - One sound per event: the Sessions list's attention sound (`src/app/alerts.ts`) and the notification of
  *   the feed row the computer names for the attention sound once, whatever the delay, seen on screen alike;
@@ -28,9 +28,9 @@
  *   back is no announcement, so the event's later copy announces it once, with its sound; eight sounds,
  *   eight other notifications and the first notifications of the eight sounded events make eight
  *   notifications in a minute, not sixteen.
- * - REQ-PUSH-001 AC4, D-010 (r3 K-4/K-9): the record of announced events is kept in storage across a
+ * - The record of announced events is kept in storage across a
  *   launch, ids only, so a copy of an event announced before a restart neither notifies nor sounds after it.
- * - D-063: the session open on screen (its terminal or Chat View on the focused Terminal screen, the app
+ * - The session open on screen (its terminal or Chat View on the focused Terminal screen, the app
  *   active; `sessionOnScreen` in `src/terminal/zmxDisplay.ts`) gets no notification and no attention
  *   sound; its row stays in the attention list.
  */
@@ -350,7 +350,7 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-test('REQ-NOTIF-009 (K-1): back from the background through inactive, rows written meanwhile notify nothing; the next new row does', async () => {
+test('back from the background through inactive, rows written meanwhile notify nothing; the next new row does', async () => {
   mockHost.rows = [feedRow('old', 's1')];
   const app = startApp();
   app.feedStore.initAttentionNotifications();
@@ -371,7 +371,7 @@ test('REQ-NOTIF-009 (K-1): back from the background through inactive, rows writt
   expect(app.posted.mock.calls.map(([request]) => request.content.data?.sessionId)).toEqual(['s1']);
 });
 
-test('REQ-NOTIF-017 (K-1): with notifications off, a new question row still gets its session list read, so the list says "has a question"', async () => {
+test('with notifications off, a new question row still gets its session list read, so the list says "has a question"', async () => {
   // The feed row says only needsInput; whether it is a question comes from the session list.
   mockHost.rows = [feedRow('q1', 's1', { kind: 'needsInput' })];
   const app = startApp({ settings: { ...ALL_ON, enabled: false }, sessions: { s1: { activity: 'working' } } });
@@ -384,7 +384,7 @@ test('REQ-NOTIF-017 (K-1): with notifications off, a new question row still gets
   expect(app.posted).not.toHaveBeenCalled();
 
   // Only read state changes (the desktop read it), seen by the next poll: nothing to join anew. (An explicit
-  // refresh of the list does read the session list for waiting rows: r2 K-1, the test further below.)
+  // refresh of the list does read the session list for waiting rows: the test further below.)
   mockHost.rows = [feedRow('q1', 's1', { kind: 'needsInput', read: true })];
   jest.advanceTimersByTime(5_000);
   await settle();
@@ -404,18 +404,15 @@ test.each([
   { code: 'internalError', category: 'refused' },
   { code: 'unreachable', category: 'unreachable' },
   { code: 'notFound', category: 'legacy' },
-])(
-  'K-2: a feed change the computer refuses ($code) logs "$category", not its error text',
-  async ({ code, category }) => {
-    const app = startApp();
-    mockHost.error = { code, message: PRIVATE };
-    expect(await app.feedStore.updateAttentionFeed('m1', { action: 'markRead', notificationId: 'n1' })).toBe(false);
-    expectNoPrivateText(app.logs());
-    expect(app.logs()).toEqual([`Mac mini: notification markRead failed (${category})`]);
-  },
-);
+])('a feed change the computer refuses ($code) logs "$category", not its error text', async ({ code, category }) => {
+  const app = startApp();
+  mockHost.error = { code, message: PRIVATE };
+  expect(await app.feedStore.updateAttentionFeed('m1', { action: 'markRead', notificationId: 'n1' })).toBe(false);
+  expectNoPrivateText(app.logs());
+  expect(app.logs()).toEqual([`Mac mini: notification markRead failed (${category})`]);
+});
 
-test('K-2: a failing permission ask logs no system error text', async () => {
+test('a failing permission ask logs no system error text', async () => {
   const app = startApp({ settings: { enabled: false, finished: false, waiting: false, error: false } });
   jest.mocked(app.notifications.requestPermissionsAsync).mockRejectedValueOnce(new Error(PRIVATE));
   app.feedStore.initAttentionNotifications();
@@ -425,7 +422,7 @@ test('K-2: a failing permission ask logs no system error text', async () => {
   expect(app.logs()).toContain('Notifications: the permission ask failed (unexpected)');
 });
 
-test('K-2: new rows that cannot be mapped log no error text', async () => {
+test('new rows that cannot be mapped log no error text', async () => {
   mockHost.rows = [];
   const app = startApp();
   app.feedStore.initAttentionNotifications();
@@ -453,7 +450,7 @@ test('K-2: new rows that cannot be mapped log no error text', async () => {
   expect(app.logs()).toContain('Notifications: new notification rows not handled (unexpected)');
 });
 
-test('K-2: a session list that cannot be read for the list logs no error text', async () => {
+test('a session list that cannot be read for the list logs no error text', async () => {
   const app = startApp();
   app.inventory.setState({
     refreshMachineFresh: jest.fn(() => {
@@ -572,7 +569,7 @@ test("the Sessions list's sound shares the rate limit: held back after eight not
   expect(app.sounds()).toEqual(Array.from({ length: 9 }, () => 'notification'));
 });
 
-test("D-063: s1's Chat View on screen: its event posts nothing and does not sound, its row stays; s2's event notifies", async () => {
+test("s1's Chat View on screen: its event posts nothing and does not sound, its row stays; s2's event notifies", async () => {
   const app = await startWithSound();
   app.showOnScreen('s1', 'chat');
   app.setSessionsOnRequest({
@@ -588,7 +585,7 @@ test("D-063: s1's Chat View on screen: its event posts nothing and does not soun
   expect(app.sounds()).toEqual(['sessions list']);
 });
 
-test("D-063: s1's terminal on screen: the Sessions list's attention sound stays silent for it", async () => {
+test("s1's terminal on screen: the Sessions list's attention sound stays silent for it", async () => {
   const app = await startWithSound();
   app.showOnScreen('s1', 'terminal');
   app.setSessions({ s1: { activity: 'attention', attentionEventId: 'a1' }, s2: { activity: 'working' } });
@@ -777,7 +774,7 @@ describe("the Sessions list's sound and the feed row of its attention", () => {
   });
 });
 
-test('D-063: the app not active (inactive) or another screen in front: the mounted session notifies', async () => {
+test('the app not active (inactive) or another screen in front: the mounted session notifies', async () => {
   const app = await startWithSound();
   app.showOnScreen('s1', 'chat');
   app.appStateChange('inactive');
@@ -792,7 +789,7 @@ test('D-063: the app not active (inactive) or another screen in front: the mount
   expect(app.posted.mock.calls.map(([request]) => request.content.data?.sessionId)).toEqual(['s1', 's2']);
 });
 
-test('REQ-NOTIF-017 (r2 K-1, reviewer probe): a waiting row that stays as it is follows the question count on a list refresh, notifications off', async () => {
+test('a waiting row that stays as it is follows the question count on a list refresh, notifications off', async () => {
   mockHost.rows = [feedRow('same-wait', 's1', { kind: 'needsInput' })];
   const app = startApp({ settings: { ...ALL_ON, enabled: false }, sessions: { s1: { activity: 'attention' } } });
   app.feedStore.initAttentionNotifications();
@@ -805,7 +802,7 @@ test('REQ-NOTIF-017 (r2 K-1, reviewer probe): a waiting row that stays as it is 
   expect(app.listLabels()).toEqual(['same-wait:has a question']);
 });
 
-test('REQ-NOTIF-009 (r2 K-1, reviewer probe): a session row arriving during an older session-list read is mapped with a newer one, not dropped', async () => {
+test('a session row arriving during an older session-list read is mapped with a newer one, not dropped', async () => {
   const app = startApp({ sessions: { s1: { activity: 'working' } } });
   app.feedStore.initAttentionNotifications();
   await settle();
@@ -839,7 +836,7 @@ test('REQ-NOTIF-009 (r2 K-1, reviewer probe): a session row arriving during an o
   expect(reads).toBe(2);
 });
 
-test('REQ-NOTIF-016 (r2 K-1, reviewer probe): a question link at a cold start is not overturned by the loading of saved terminal views', async () => {
+test('a question link at a cold start is not overturned by the loading of saved terminal views', async () => {
   startApp({ sessions: { s1: { activity: 'attention', pendingQuestionCount: 1 } } });
   const { useTerminalStore, attachSessionKey } =
     jest.requireActual<typeof TerminalSessionsModule>('../terminal/sessions');
@@ -872,7 +869,7 @@ test('REQ-NOTIF-016 (r2 K-1, reviewer probe): a question link at a cold start is
   }
 });
 
-test('REQ-PUSH-001 AC4 (r3 K-4/K-9): a copy of an event announced before a restart posts nothing and does not sound after it', async () => {
+test('a copy of an event announced before a restart posts nothing and does not sound after it', async () => {
   type Storage = { getItem(key: string): Promise<string | null>; setItem(key: string, value: string): Promise<void> };
   const STORAGE_KEY = 'notifications.announced.v1';
   const sessions = { s1: { activity: 'attention', attentionEventId: 'a1' } };
@@ -886,7 +883,7 @@ test('REQ-PUSH-001 AC4 (r3 K-4/K-9): a copy of an event announced before a resta
   expect(first.sounds()).toEqual(['notification']);
   const record = await jest.requireMock<Storage>('@react-native-async-storage/async-storage').getItem(STORAGE_KEY);
   expect(record).toContain('"rowId":"n0"');
-  // D-010: ids only, none of the row's or the session's text.
+  // Ids only, none of the row's or the session's text.
   for (const text of ['secret agent text', 'private session title', 'ghostex-mobile', 'claude', 'Mac mini']) {
     expect(record).not.toContain(text);
   }

@@ -1,7 +1,7 @@
 /// <reference types="jest" />
 /**
- * Run with `bun run test:jest`. REQ-NOTIF-011 with the approved mockup `notifications` (state list-entry,
- * D-037 (9)): the bell on the Sessions screen carries the number of unread attention-list rows as a figure,
+ * Run with `bun run test:jest`. The attention list's entry with the approved mockup `notifications` (state
+ * list-entry): the bell on the Sessions screen carries the number of unread attention-list rows as a figure,
  * not as a colour alone, counted across every computer's feed; with nothing unread it shows no number. The
  * probe composes the bell exactly as `SessionsScreen` does: `useAttentionUnreadCount` into `bellLabel` and
  * `BellWithCount`. Rows are fed through the attention store, as the feed source does.
@@ -51,7 +51,7 @@ beforeEach(() => {
   useAttentionFeedStore.setState({ feeds: {}, permission: null });
 });
 
-test('REQ-NOTIF-011, mockup list-entry: the bell counts the unread rows of every computer as a figure', async () => {
+test('mockup list-entry: the bell counts the unread rows of every computer as a figure', async () => {
   useAttentionFeedStore.setState({
     feeds: {
       m1: { status: 'ready', rows: [row('a', false), row('b', true), row('c', false)] },
@@ -63,7 +63,7 @@ test('REQ-NOTIF-011, mockup list-entry: the bell counts the unread rows of every
   expect(screen.getByText('3', SHOWN)).toBeTruthy();
 });
 
-test('REQ-NOTIF-011, mockup list-entry: with every row read the bell shows no number', async () => {
+test('mockup list-entry: with every row read the bell shows no number', async () => {
   useAttentionFeedStore.setState({
     feeds: { m1: { status: 'ready', rows: [row('a', true), row('b', true)] } },
   });
@@ -72,7 +72,7 @@ test('REQ-NOTIF-011, mockup list-entry: with every row read the bell shows no nu
   expect(screen.queryByText(/^\d+\+?$/, SHOWN)).toBeNull();
 });
 
-test('REQ-NOTIF-011: the number follows the shared read state (a row read on the computer leaves the count)', async () => {
+test('the number follows the shared read state (a row read on the computer leaves the count)', async () => {
   useAttentionFeedStore.setState({ feeds: { m1: { status: 'ready', rows: [row('a', false), row('b', false)] } } });
   await render(<SessionsBell />);
   expect(screen.getByText('2', SHOWN)).toBeTruthy();

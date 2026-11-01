@@ -43,7 +43,7 @@ function navigateWhenReady(run: () => void): void {
 /**
  * The saved computers, Settings (the Default Agent View) and the terminal's saved per-session views are
  * loaded. Until then a link's view could be chosen from defaults or be overwritten by the loading: the
- * terminal store's hydration replaces every session's view choice (review s7-r1 r2 K-1).
+ * terminal store's hydration replaces every session's view choice.
  */
 export function deepLinkStoresReady(): boolean {
   return (

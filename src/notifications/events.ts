@@ -1,17 +1,14 @@
 /**
  * Agent events: what the computer reported (`HostEvent`), the session it belongs to as the phone's
- * session list knows it (`SessionFacts`), and the event the phone notifies about (`AttentionEvent`,
- * schema `attention-event`, ADR-0003).
+ * session list knows it (`SessionFacts`), and the event the phone notifies about (`AttentionEvent`).
  *
- * The owner's events (D-015, D-060, D-037 wording): finished, waiting for you (approvals such as bash or
- * rm included), has a question, ended with an error. Nothing else notifies: no session start or end
- * (REQ-NOTIF-005), no "agent runs" (REQ-NOTIF-006, D-016), no user abort (REQ-NOTIF-004 AC3, D-020
- * item 4). Those reach the phone only as summary changes, never as one of the notifying host kinds.
+ * The events that notify: finished, waiting for you (approvals such as bash or rm included), has a question, ended
+ * with an error. Nothing else notifies: no session start or end, no "agent runs", no user abort. Those reach the
+ * phone only as summary changes, never as one of the notifying host kinds.
  *
- * Top-level sessions only (REQ-NOTIF-007): an event notifies only when its session is in that
- * computer's session list, the sessions the user sees. Coordinator threads are listed sessions and
- * notify (D-061); the host drops true subagents before they reach its feed or summary (spike
- * `spike-host-data.md` §3), so a subagent event that ever arrived would name no listed session.
+ * Top-level sessions only: an event notifies only when its session is in that computer's session list, the sessions
+ * the user sees. Coordinator threads are listed sessions and notify; the host drops true subagents before they reach
+ * its feed or summary, so a subagent event that ever arrived would name no listed session.
  * Kept free of React Native so it is testable under `bun test`.
  */
 
@@ -21,21 +18,21 @@ import { isAccountRow, type FeedRow } from './feedContract';
 export type AttentionKind = 'finished' | 'waiting' | 'question' | 'failed';
 
 /**
- * The host kinds that can notify. An Expo push message (S15, schema `expo-push-message`) names its event
+ * The host kinds that can notify. An Expo push message names its event
  * with the same three values, so a push and a feed row of one event map through the same code.
  */
 export const HOST_EVENT_KINDS = ['finished', 'needsInput', 'failed'] as const;
 
 export type HostEventKind = (typeof HOST_EVENT_KINDS)[number];
 
-/** One event the computer reported, from a feed row (and, with S15, from a push message's data). */
+/** One event the computer reported, from a feed row (and, with push, from a push message's data). */
 export type HostEvent = {
   machineId: string;
   sessionId: string;
   /** Any host kind; only `HostEventKind` values can notify. */
   kind: string;
   /**
-   * The feed row id. With S15 a push carries it as `data.notificationId` (the identity contract in
+   * The feed row id. With push, a push carries it as `data.notificationId` (the identity contract in
    * `eventIdentity.ts`); '' when the source has none.
    */
   eventId: string;
@@ -65,7 +62,7 @@ export type SessionFacts = {
   attentionEnteredAt: string;
 };
 
-/** The normalised event (schema `attention-event`): event kind plus session identity and names, no text. */
+/** The normalised event: event kind plus session identity and names, no text. */
 export type AttentionEvent = {
   eventId: string;
   kind: AttentionKind;
@@ -105,7 +102,7 @@ export function sessionFacts(
   };
 }
 
-/** A feed row as a host event; account rows are no agent events (D-015) and give none. */
+/** A feed row as a host event; account rows are no agent events and give none. */
 export function hostEventFromFeedRow(machineId: string, row: FeedRow): HostEvent | null {
   if (isAccountRow(row)) return null;
   return {

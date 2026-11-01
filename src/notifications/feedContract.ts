@@ -2,13 +2,12 @@
  * The computer's notification feed as the phone reads it: `POST /api/readNotificationFeed` and the
  * `updateNotificationFeed` answer (both return the whole feed state). Wire inventory:
  * `server/src/notification_feed/store.rs` (`item_from_row`) and
- * `packages/shared/notification-feed/notification-feed-contract.ts` in the Ghostex repo; schema
- * `notification-feed-item` of the feature package.
+ * `packages/shared/notification-feed/notification-feed-contract.ts` in the Ghostex repo.
  *
  * The parser is the phone's trust boundary for this data. It keeps only what the attention list and
  * the event mapper use and never copies the row's message text: that field carries the agent's last
- * message, which no notification, list row or log may show (D-010, REQ-NOTIF-008, REQ-NOTIF-011 AC6).
- * A row of a kind the phone does not know is skipped, never shown or notified (schema `fehlerfall`).
+ * message, which no notification, list row or log may show.
+ * A row of a kind the phone does not know is skipped, never shown or notified.
  * Kept free of React Native so it is testable under `bun test`.
  */
 
@@ -109,7 +108,7 @@ export function parseFeedState(value: unknown): FeedSnapshot | null {
   return { rows };
 }
 
-/** An account row: no session behind it, never an OS notification (D-015), a tap only marks it read (D-037). */
+/** An account row: no session behind it, never an OS notification, a tap only marks it read. */
 export function isAccountRow(row: FeedRow): boolean {
   return row.accountId !== undefined || row.sessionId.startsWith(ACCOUNT_SESSION_PREFIX);
 }

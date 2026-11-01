@@ -1,15 +1,14 @@
 /// <reference types="node" />
 /**
- * Run with `bun test src/notifications/eventSource.test.ts`. REQ-NOTIF-001 AC1: the real event source
- * with a fake host transport; the source runs for the app, whatever screen is in front (here: Terminal).
- * REQ-NOTIF-009 first-fetch rule (derived): rows already there at the first read never count as new.
- * REQ-NOTIF-003/-015 (review s7-r1 K-3): the computer turns a session's unread `finished` row into
- * `needsInput` in place (same row id; `mark_unread_session_notification_needs_input` in the host's
- * `notification_feed/store.rs`), which is a new event; a row only marked read or unread again is none.
+ * Run with `bun test src/notifications/eventSource.test.ts`. A session entering attention is logged: the real event
+ * source with a fake host transport; the source runs for the app, whatever screen is in front (here: Terminal).
+ * First-fetch rule: rows already there at the first read never count as new.
+ * The computer turns a session's unread `finished` row into `needsInput` in place (same row id;
+ * `mark_unread_session_notification_needs_input` in the host's `notification_feed/store.rs`), which is a new event; a
+ * row only marked read or unread again is none.
  *
- * Review s7-r1 r2 K-1 (reviewer probe `source-probes.test.ts`): a read that was under way when the app
- * went away answers with the feed as it was before; it neither notifies nor counts as the return's
- * baseline, so the first read after the return only records what is there.
+ * A read that was under way when the app went away answers with the feed as it was before; it neither notifies nor
+ * counts as the return's baseline, so the first read after the return only records what is there.
  */
 
 import assert from 'node:assert/strict';
@@ -71,7 +70,7 @@ function harness() {
 }
 
 describe('the app-level event source', () => {
-  test('REQ-NOTIF-001 AC1: a session entering attention is logged within one polling interval on Terminal', async () => {
+  test('a session entering attention is logged within one polling interval on Terminal', async () => {
     const h = harness();
     h.source.start();
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -82,7 +81,7 @@ describe('the app-level event source', () => {
     assert.deepEqual(h.log, ['Terminal: Mac mini: notification feed event received (needsInput)']);
   });
 
-  test('REQ-NOTIF-009: after a rebaseline the rows already there are not new', async () => {
+  test('after a rebaseline the rows already there are not new', async () => {
     const h = harness();
     h.source.start();
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -92,7 +91,7 @@ describe('the app-level event source', () => {
     assert.deepEqual(h.fresh, []);
   });
 
-  test('REQ-NOTIF-003/-015 (K-3): a finished row the computer turns into needsInput in place is a new event', async () => {
+  test('a finished row the computer turns into needsInput in place is a new event', async () => {
     const h = harness();
     h.source.start();
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -104,7 +103,7 @@ describe('the app-level event source', () => {
     assert.deepEqual(h.freshKinds, ['n1:finished', 'n1:needsInput']);
   });
 
-  test('REQ-NOTIF-009 (K-3): a row only marked read and unread again (markUnread, deferUnread) is no new event', async () => {
+  test('a row only marked read and unread again (markUnread, deferUnread) is no new event', async () => {
     const h = harness();
     h.source.start();
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -117,7 +116,7 @@ describe('the app-level event source', () => {
     assert.deepEqual(h.freshKinds, ['n1:needsInput']);
   });
 
-  test('REQ-NOTIF-009 (r2 K-1): a read under way when the app went away does not take the return baseline', async () => {
+  test('a read under way when the app went away does not take the return baseline', async () => {
     let reads = 0;
     const held = Promise.withResolvers<FeedSnapshot>();
     const fresh: string[] = [];

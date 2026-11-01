@@ -127,7 +127,7 @@ export type GhostexSettings = {
   keepAliveEnabled: boolean;
   /** Keep-alive interval in seconds, 10-120 in 10-second steps. */
   keepAliveIntervalSec: number;
-  /** Agent notifications: master, finished, waiting, error and when the one-time ask was answered (S7). */
+  /** Agent notifications: master, finished, waiting, error and when the one-time ask was answered. */
   notifications: NotificationSettings;
 };
 

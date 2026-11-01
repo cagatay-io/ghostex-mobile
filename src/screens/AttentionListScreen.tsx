@@ -1,13 +1,13 @@
 /**
- * Notifications: the attention list as a screen (REQ-NOTIF-011), opened from the bell on the Sessions
- * screen (D-037 (9)). The header's "…" holds Mark All Read and Clear All, as the head of the desktop
+ * Notifications: the attention list as a screen, opened from the bell on the Sessions
+ * screen. The header's "…" holds Mark All Read and Clear All, as the head of the desktop
  * bell's list; Clear All asks first, because the rows also leave the bell on the computer. A row opens
  * its session as a notification does (`ghostex://session`, a "has a question" row at its question card).
  *
  * The "…" menu stands at its button wherever the header is (approved mockup `notifications`, state
- * list-menu; review s7-r1 K-7): with the header on top (every iPhone but the Duo) under the button at the
+ * list-menu): with the header on top (every iPhone but the Duo) under the button at the
  * window's trailing edge, as a menu at the control it opened from (`rowAnchor`); in the Duo's status band
- * (D-053) or a side bar, as that band's or bar's menus stand (`anchor`, floor S1-5).
+ * or a side bar, as that band's or bar's menus stand (`anchor`).
  */
 
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -48,7 +48,7 @@ export default function AttentionListScreen({ navigation }: Props) {
   const anyRows = shown.some((feed) => feed.rows.length > 0);
   const anyUnread = shown.some((feed) => feed.rows.some((row) => !row.read));
 
-  // The list is read again whenever it comes into view, so it is current on arrival (D-060).
+  // The list is read again whenever it comes into view, so it is current on arrival.
   useFocusEffect(
     useCallback(() => {
       void refreshAttentionFeeds();

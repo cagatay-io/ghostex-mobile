@@ -1,11 +1,11 @@
 /**
- * The attention list's rows (REQ-NOTIF-011, -017): the computer's notification feed, the same list as
- * the desktop bell (D-020 item 3), newest first, each row with agent and project, the session's title
- * and the event. Account rows (banked usage resets) are rows like any other (REQ-NOTIF-011 AC2, AC3).
+ * The attention list's rows: the computer's notification feed, the same list as
+ * the desktop bell, newest first, each row with agent and project, the session's title
+ * and the event. Account rows (banked usage resets) are rows like any other.
  * A needsInput row of a session that waits on a question (an open question card the computer announces, or a
  * counted pending question) says "has a question" instead of "waiting": the row is joined to its session
  * in the computer's session list by machine and session id.
- * The feed's message text is never part of a row (AC6, D-010). Kept free of React Native so it is
+ * The feed's message text is never part of a row. Kept free of React Native so it is
  * testable under `bun test`.
  */
 
@@ -33,7 +33,7 @@ export type AttentionRow = {
   agentIconId: AgentIconId;
   createdAt: string;
   read: boolean;
-  /** An account row: no session to open; a tap only marks it read (D-037 (9)). */
+  /** An account row: no session to open; a tap only marks it read. */
   account: boolean;
   /** The computer's name, only while more than one computer feeds the list. */
   machineLabel: string | null;

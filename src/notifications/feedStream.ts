@@ -1,11 +1,11 @@
 /**
- * The live announcement of feed changes (host contract H2): `/api/events?stream=notifications`, a socket
+ * The live announcement of feed changes: `/api/events?stream=notifications`, a socket
  * that passes only `notificationFeedChanged`, `serverStarted` and `serverStopping`. The announcement
  * carries no rows; the phone reads the feed again (`api.rs`: `/api/readNotificationFeed` stays the one
  * projection).
  *
  * Opened only when the computer's `ghostex server endpoint` lists the capability `notificationStream`:
- * a gxserver without H2 treats any `stream` other than `sessionChat` as the whole unfiltered event hub
+ * a gxserver without that capability treats any `stream` other than `sessionChat` as the whole unfiltered event hub
  * (`server/src/server/ws.rs` at 86b287b1), which would pour every presentation change and chat frame
  * through the SSH forward. Without it the phone polls the feed (`eventSource.ts`).
  */

@@ -1,7 +1,7 @@
 /// <reference types="jest" />
 /**
  * Run with `bun run test:jest`. The shared context menu's command with an (i) (the agent menu's "New
- * Coordinator…", `use-sessions-screen-menus.tsx`), FL-A11Y-01 and review s7-r1 r3 K-8: the command and its
+ * Coordinator…", `use-sessions-screen-menus.tsx`): the command and its
  * (i) are two VoiceOver elements, each with its own name, role and action, neither inside the other nor
  * inside an ancestor that iOS would read as one element. The real `ContextMenu`; mocked are the native
  * module, storage and the safe area.
@@ -33,7 +33,7 @@ function accessibleAncestors(element: TestInstance): TestInstance[] {
   return found;
 }
 
-test('K-8: a command and its (i) are separate elements, each with its own name and action', async () => {
+test('a command and its (i) are separate elements, each with its own name and action', async () => {
   const startCoordinator = jest.fn();
   const close = jest.fn();
   await render(

@@ -1,11 +1,11 @@
 /**
- * Settings > Notifications (was Sounds, D-037 (9); mockup `notifications`, states settings,
+ * Settings > Notifications (was Sounds; mockup `notifications`, states settings,
  * settings-master-off, settings-denied): one master switch and one each for finished, waiting and
- * error (REQ-NOTIF-013), the stage-1 delivery limit in words (REQ-NOTIF-010: no promise for a locked or
+ * error, the delivery limit without push in words (no promise for a locked or
  * paused phone), and the attention sound that was this page's only row before. With the master off the
  * three stay visible and keep their values, dimmed. When iOS blocks notifications the page says so
- * and leads to iOS Settings, because iOS asks only once (REQ-NOTIF-013 AC4, -014 AC7).
- * Agent notifications are iOS only (D-003); on Android the page keeps the sound.
+ * and leads to iOS Settings, because iOS asks only once.
+ * Agent notifications are iOS only; on Android the page keeps the sound.
  */
 
 import { useCallback } from 'react';
@@ -109,7 +109,7 @@ function AgentNotifications() {
 
   const set = (next: Partial<NotificationSettings>) => setSetting('notifications', { ...notifications, ...next });
   const setMaster = (on: boolean) => {
-    // Turned on before the one-time ask ever ran (it was dismissed): this is the ask (REQ-NOTIF-014).
+    // Turned on before the one-time ask ever ran (it was dismissed): this is the ask.
     if (on && notifications.askedAt === undefined) void askForNotificationsOnce();
     else set({ enabled: on });
   };

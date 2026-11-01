@@ -1,8 +1,8 @@
 /// <reference types="jest" />
 /**
- * Run with `bun run test:jest`. REQ-NOTIF-013 (AC1: a master switch and one each for finished, waiting and
- * error; AC4: with the permission denied the page says notifications are blocked in iOS Settings) with the
- * approved mockup `notifications` (D-037): state settings-master-off (the three stay visible with their
+ * Run with `bun run test:jest`. Settings > Notifications (a master switch and one each for finished, waiting and
+ * error; with the permission denied the page says notifications are blocked in iOS Settings) with the
+ * approved mockup `notifications`: state settings-master-off (the three stay visible with their
  * values, dimmed and not operable, while the master is off) and state settings-denied (the "Blocked in iOS
  * Settings" card with "Open iOS Settings"). The real page, settings store and attention store; mocked are
  * the boundaries only: navigation, the safe area, storage, the native module and expo-notifications.
@@ -54,7 +54,7 @@ function rowOpacity(name: string): number | undefined {
   return StyleSheet.flatten(node?.props.style)?.opacity;
 }
 
-test('REQ-NOTIF-013 AC1: the page has the master switch and one switch each for finished, waiting and error', async () => {
+test('the page has the master switch and one switch each for finished, waiting and error', async () => {
   seed({ enabled: true, finished: true, waiting: true, error: true, askedAt: ASKED }, 'granted');
   await render(<NotificationsPage />);
   for (const name of ['Notifications', ...KINDS]) {
@@ -65,7 +65,7 @@ test('REQ-NOTIF-013 AC1: the page has the master switch and one switch each for 
   expect(screen.queryByText('Blocked in iOS Settings')).toBeNull();
 });
 
-test('REQ-NOTIF-013, mockup settings-master-off: with the master off the three keep their values, dimmed and not operable', async () => {
+test('mockup settings-master-off: with the master off the three keep their values, dimmed and not operable', async () => {
   seed({ enabled: true, finished: true, waiting: false, error: true, askedAt: ASKED }, 'granted');
   await render(<NotificationsPage />);
   await fireEvent(switchFor('Notifications'), 'valueChange', false);
@@ -94,7 +94,7 @@ test('REQ-NOTIF-013, mockup settings-master-off: with the master off the three k
   expect(KINDS.map(valueOf)).toEqual([true, false, true]);
 });
 
-test('REQ-NOTIF-013 AC4, mockup settings-denied: a denied permission shows the blocked card that opens iOS Settings', async () => {
+test('mockup settings-denied: a denied permission shows the blocked card that opens iOS Settings', async () => {
   const openSettings = jest.spyOn(Linking, 'openSettings').mockResolvedValue(undefined);
   seed({ enabled: false, finished: false, waiting: false, error: false, askedAt: ASKED }, 'denied');
   await render(<NotificationsPage />);
@@ -107,12 +107,9 @@ test('REQ-NOTIF-013 AC4, mockup settings-denied: a denied permission shows the b
   openSettings.mockRestore();
 });
 
-test.each(['granted', 'undetermined'] as const)(
-  'REQ-NOTIF-013 AC4: no blocked card while the permission is %s',
-  async (permission) => {
-    seed({ enabled: true, finished: true, waiting: true, error: true, askedAt: ASKED }, permission);
-    await render(<NotificationsPage />);
-    expect(screen.queryByText('Blocked in iOS Settings')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Open iOS Settings' })).toBeNull();
-  },
-);
+test.each(['granted', 'undetermined'] as const)('no blocked card while the permission is %s', async (permission) => {
+  seed({ enabled: true, finished: true, waiting: true, error: true, askedAt: ASKED }, permission);
+  await render(<NotificationsPage />);
+  expect(screen.queryByText('Blocked in iOS Settings')).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Open iOS Settings' })).toBeNull();
+});

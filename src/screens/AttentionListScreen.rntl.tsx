@@ -1,15 +1,13 @@
 /// <reference types="jest" />
 /**
- * Run with `bun run test:jest`. The Notifications screen's "…" menu, REQ-NOTIF-011 (one list shared with the
- * desktop bell, read state on the computer) with the approved mockup `notifications` (D-037): state list-menu
- * (Mark All Read and Clear All, as the head of the desktop list, standing under the "…" at the top right on
- * every iPhone; review s7-r1 K-7) and state clear-confirm (Clear All asks
- * first, "Clear all notifications?", because the rows also leave the bell on the computer; Cancel keeps
- * them). Accessibility (review s7-r1 r2 K-8, FL-A11Y-01): each command and a Close menu button are their own
- * accessibility elements, none grouped into an ancestor iOS would read as one element. The real screen,
- * `AttentionList`, `ContextMenu`, `BottomSheet` and stores; mocked are the
- * boundaries only: navigation (a stand-in that draws the header button the screen sets), the native module,
- * expo-notifications, storage, the safe area and the computer's feed endpoint.
+ * Run with `bun run test:jest`. The Notifications screen's "…" menu (one list shared with the desktop bell, read
+ * state on the computer) with the approved mockup `notifications`: state list-menu (Mark All Read and Clear All, as
+ * the head of the desktop list, standing under the "…" at the top right on every iPhone) and state clear-confirm
+ * (Clear All asks first, "Clear all notifications?", because the rows also leave the bell on the computer; Cancel
+ * keeps them). Accessibility: each command and a Close menu button are their own accessibility elements, none grouped
+ * into an ancestor iOS would read as one element. The real screen, `AttentionList`, `ContextMenu`, `BottomSheet` and
+ * stores; mocked are the boundaries only: navigation (a stand-in that draws the header button the screen sets), the
+ * native module, expo-notifications, storage, the safe area and the computer's feed endpoint.
  */
 
 import { useMemo, useState, type ReactNode } from 'react';
@@ -134,7 +132,7 @@ afterEach(() => {
   mockNativeMethods.measureInWindow.mockReset();
 });
 
-test('REQ-NOTIF-011, mockup list-menu: the "…" menu offers Mark All Read and Clear All; Mark All Read marks every row read on the computer', async () => {
+test('mockup list-menu: the "…" menu offers Mark All Read and Clear All; Mark All Read marks every row read on the computer', async () => {
   await render(<Navigator />);
   await openMenu();
   expect(screen.getByText('Shared with the bell on your computer')).toBeTruthy();
@@ -146,7 +144,7 @@ test('REQ-NOTIF-011, mockup list-menu: the "…" menu offers Mark All Read and C
   expect(screen.queryByRole('button', { name: 'Close menu' })).toBeNull();
 });
 
-test('K-8 (r2), mockup list-menu: Mark All Read and Clear All are separate accessibility elements with their state; Close menu closes', async () => {
+test('mockup list-menu: Mark All Read and Clear All are separate accessibility elements with their state; Close menu closes', async () => {
   useAttentionFeedStore.setState({ feeds: { m1: { status: 'ready', rows: [feedRow('n2', true)] } } });
   await render(<Navigator />);
   await openMenu();
@@ -163,7 +161,7 @@ test('K-8 (r2), mockup list-menu: Mark All Read and Clear All are separate acces
   expect(updateAll).not.toHaveBeenCalled();
 });
 
-test('REQ-NOTIF-011, mockup clear-confirm: Clear All asks first; Cancel keeps the rows, Clear All clears them on the computer', async () => {
+test('mockup clear-confirm: Clear All asks first; Cancel keeps the rows, Clear All clears them on the computer', async () => {
   await render(<Navigator />);
   await openMenu();
   await fireEvent.press(item('Clear All'));
@@ -198,7 +196,7 @@ test.each([
   expect(item('Clear All').props.accessibilityState).toMatchObject({ disabled: state.clearAll });
 });
 
-test('mockup list-menu (D-037, K-7): on a regular iPhone the menu stands under its "…", at the window\'s trailing edge', async () => {
+test('mockup list-menu: on a regular iPhone the menu stands under its "…", at the window\'s trailing edge', async () => {
   // An iPhone 17 window (402x874), the header placed on top (no status band, no side bar). Test-only: the
   // window React Native reports, read by the menu through `useWindowDimensions`.
   await act(() => {

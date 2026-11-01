@@ -1,11 +1,10 @@
 /**
- * Agent notifications and the attention list, wired to the app (S7): one `FeedEventSource` for the app's
- * lifetime reads every enabled computer's notification feed over the warm link on every screen
- * (REQ-NOTIF-001), keeps the rows for the attention list and the bell (REQ-NOTIF-011), turns new rows
- * into local notifications (`processHostEvents`), runs the one-time ask (REQ-NOTIF-014) and opens the
- * session a notification names when it is tapped (REQ-NOTIF-012, -016).
+ * Agent notifications and the attention list, wired to the app: one `FeedEventSource` for the app's
+ * lifetime reads every enabled computer's notification feed over the warm link on every screen, keeps the
+ * rows for the attention list and the bell, turns new rows into local notifications (`processHostEvents`),
+ * runs the one-time ask and opens the session a notification names when it is tapped.
  *
- * Host contracts it reads (feature-detected; `research/spike-host-data.md`): the feed endpoints over the
+ * Host contracts it reads (feature-detected): the feed endpoints over the
  * warm link (an older computer on the exec route has no feed for the phone: `legacy`), the
  * `stream=notifications` channel when the computer lists `notificationStream`, the feed kind `failed`, and in
  * the session list `pendingQuestionCount` and the question-card field `awaitingAnswer`, the latter only when
@@ -158,10 +157,10 @@ const sessionListReads = new Map<string, SessionListRead>();
 
 /**
  * Reads a computer's session list anew, so that the answer is newer than the feed rows that asked for it.
- * The attention list joins its rows to that list (agent, project, "has a question"; REQ-NOTIF-011, -017) and
- * new events are mapped with it (REQ-NOTIF-007, -015), whether or not notifications are on. A caller joins
+ * The attention list joins its rows to that list (agent, project, "has a question") and
+ * new events are mapped with it, whether or not notifications are on. A caller joins
  * the read under way when that read started after the caller's feed snapshot arrived; otherwise it waits for
- * one more read after it, shared by every such caller (review s7-r1 r2 K-1: a row that came during an older
+ * one more read after it, shared by every such caller (a row that came during an older
  * read is not mapped with that read's answer). At most one read runs per computer, one more waits.
  */
 function readSessionList(machineId: string): Promise<void> {
@@ -203,7 +202,7 @@ function hasRowsToJoin(before: readonly FeedRow[], rows: readonly FeedRow[]): bo
 
 /**
  * New rows of one computer: its session list is read first, because only sessions it lists notify
- * (REQ-NOTIF-007) and "has a question" depends on its question count (REQ-NOTIF-015).
+ * and "has a question" depends on its question count.
  */
 async function notifyNewRows(machineId: string, rows: readonly FeedRow[]): Promise<void> {
   const settings = useSettingsStore.getState().settings.notifications;
@@ -218,7 +217,7 @@ async function notifyNewRows(machineId: string, rows: readonly FeedRow[]): Promi
   processHostEvents(events, sessionFactsFor, notifyDeps, arrival);
 }
 
-/** Open live feed channels (H2) per computer, as their close functions. */
+/** Open live feed channels per computer, as their close functions. */
 const streams = new Map<string, () => void>();
 
 const source = new FeedEventSource({
@@ -334,7 +333,7 @@ export async function refreshNotificationPermission(): Promise<void> {
   }
 }
 
-/** The one-time ask (REQ-NOTIF-014), also when the master switch is turned on before it ever ran. */
+/** The one-time ask, also when the master switch is turned on before it ever ran. */
 export async function askForNotificationsOnce(): Promise<void> {
   if (!NOTIFICATIONS_SUPPORTED) return;
   const settings = useSettingsStore.getState();
@@ -422,8 +421,8 @@ export function initAttentionNotifications(): void {
   });
   // Back from the background iOS goes through `inactive` before `active`: the source forgets what it saw at
   // the first state that is no longer `background`, so no read from then on (the return's own, the poll
-  // timer's, an announcement's) reports rows written while the app was away (REQ-NOTIF-009, derived); the
-  // attention list shows them (D-060). Once the app is active it reads every computer at once.
+  // timer's, an announcement's) reports rows written while the app was away (the first-fetch rule); the
+  // attention list shows them. Once the app is active it reads every computer at once.
   let away = AppState.currentState === 'background';
   let returning = false;
   AppState.addEventListener('change', (next) => {

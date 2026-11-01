@@ -1,6 +1,6 @@
 /// <reference types="node" />
 /**
- * Run with `bun test src/notifications/firstAsk.test.ts`. REQ-NOTIF-014 AC1-AC5: the real `runFirstAsk`
+ * Run with `bun test src/notifications/firstAsk.test.ts`. The one-time ask: the real `runFirstAsk`
  * with a fake permission adapter and an in-memory settings store.
  */
 
@@ -26,8 +26,8 @@ function fakes(answer: PermissionState, stored: NotificationSettings = { ...DEFA
 
 const NOW = () => new Date('2026-10-29T10:00:00Z');
 
-describe('the one-time ask (REQ-NOTIF-014)', () => {
-  test('AC1/AC2: granted turns all four on and stores askedAt', async () => {
+describe('the one-time ask', () => {
+  test('granted turns all four on and stores askedAt', async () => {
     const f = fakes('granted');
     await runFirstAsk(f.permission, f.access, NOW);
     assert.deepEqual(f.settings(), {
@@ -39,7 +39,7 @@ describe('the one-time ask (REQ-NOTIF-014)', () => {
     });
   });
 
-  test('AC3/AC4: denied leaves all four off and stores askedAt', async () => {
+  test('denied leaves all four off and stores askedAt', async () => {
     const f = fakes('denied');
     await runFirstAsk(f.permission, f.access, NOW);
     assert.deepEqual(f.settings(), {
@@ -51,7 +51,7 @@ describe('the one-time ask (REQ-NOTIF-014)', () => {
     });
   });
 
-  test('AC5: a later start with askedAt set does not request the prompt again', async () => {
+  test('a later start with askedAt set does not request the prompt again', async () => {
     const f = fakes('granted', { ...DEFAULT_NOTIFICATION_SETTINGS, askedAt: '2026-10-28T10:00:00Z' });
     assert.equal(await runFirstAsk(f.permission, f.access, NOW), 'alreadyAsked');
     assert.equal(f.requests(), 0);

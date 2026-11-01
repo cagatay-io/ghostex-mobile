@@ -1,8 +1,8 @@
 /// <reference types="node" />
 /**
- * Run with `bun test src/notifications/feedClient.test.ts`. REQ-NOTIF-011 AC2/AC3/AC5, REQ-NOTIF-017
- * AC1/AC2: the real parser, list builder and feed client with a fake HTTP transport. Review s7-r1 K-2: a
- * failed request carries a fixed category, never the computer's error text (the app log can be exported).
+ * Run with `bun test src/notifications/feedClient.test.ts`. The attention list and "has a question": the real parser,
+ * list builder and feed client with a fake HTTP transport. A failed request carries a fixed category, never the
+ * computer's error text (the app log can be exported).
  */
 
 import assert from 'node:assert/strict';
@@ -54,14 +54,14 @@ function facts(pendingQuestionCount: number): SessionFacts {
   };
 }
 
-describe('the attention list (REQ-NOTIF-011)', () => {
-  test('AC3: the parser keeps an account row', () => {
+describe('the attention list', () => {
+  test('the parser keeps an account row', () => {
     const snapshot = parseFeedState({ items: [ACCOUNT_ROW], unreadCount: 1 });
     assert.equal(snapshot?.rows.length, 1);
     assert.equal(snapshot?.rows[0].accountId, 'acc1');
   });
 
-  test('AC2: an account row appears as a row; rows are newest first', () => {
+  test('an account row appears as a row; rows are newest first', () => {
     const snapshot = parseFeedState({ items: [NEEDS_INPUT, ACCOUNT_ROW] });
     assert.ok(snapshot !== null);
     const rows = buildAttentionList([{ machineId: 'm1', machineLabel: 'Mac', rows: snapshot.rows }], () => facts(0));
@@ -75,7 +75,7 @@ describe('the attention list (REQ-NOTIF-011)', () => {
     assert.equal(rows[1].who, 'Account acc1');
   });
 
-  test('AC6 (data side): no row carries the feed text', () => {
+  test('no row carries the feed text (data side)', () => {
     const snapshot = parseFeedState({ items: [NEEDS_INPUT] });
     assert.ok(snapshot !== null);
     assert.ok(!JSON.stringify(snapshot).includes('secret text'));
@@ -87,7 +87,7 @@ describe('the attention list (REQ-NOTIF-011)', () => {
     assert.equal(parseFeedState({ items: [{ ...NEEDS_INPUT, kind: 'mystery' }] })?.rows.length, 0);
   });
 
-  test('AC5: opening an unread row sends one markRead POST', async () => {
+  test('opening an unread row sends one markRead POST', async () => {
     const calls: Array<[string, Record<string, unknown>]> = [];
     const rpc: FeedRpc = async (method, params) => {
       calls.push([method, params]);
@@ -103,7 +103,7 @@ describe('the attention list (REQ-NOTIF-011)', () => {
     await assert.rejects(readFeed(rpc));
   });
 
-  test('K-2: the error of a refused request is "refused", without the computer\'s text or paths', async () => {
+  test('the error of a refused request is "refused", without the computer\'s text or paths', async () => {
     const rpc: FeedRpc = async () => ({
       error: { message: 'SYNTHETIC_PRIVATE_PAYLOAD in /Users/someone/private/projects/secret.db' },
     });
@@ -118,18 +118,18 @@ describe('the attention list (REQ-NOTIF-011)', () => {
   });
 });
 
-describe('"has a question" in the list (REQ-NOTIF-017)', () => {
+describe('"has a question" in the list', () => {
   const rowsWith = (count: number) => {
     const state = parseFeedState({ items: [NEEDS_INPUT] });
     assert.ok(state !== null);
     return buildAttentionList([{ machineId: 'm1', machineLabel: 'Mac', rows: state.rows }], () => facts(count));
   };
 
-  test('AC1: needsInput of a session with pendingQuestionCount 2 says "has a question"', () => {
+  test('needsInput of a session with pendingQuestionCount 2 says "has a question"', () => {
     assert.equal(rowsWith(2)[0].label, 'has a question');
   });
 
-  test('AC2: with pendingQuestionCount 0 it says "waiting"', () => {
+  test('with pendingQuestionCount 0 it says "waiting"', () => {
     assert.equal(rowsWith(0)[0].label, 'waiting');
   });
 

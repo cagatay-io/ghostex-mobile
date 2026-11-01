@@ -1,9 +1,8 @@
 /**
- * The notification switches in `settings.v1` (`notifications`, schema `settings-additions`): one master
- * switch plus one each for finished, waiting and error (D-020 item 3). All four start off and stay off
- * until the one-time ask is answered (`askedAt`, REQ-NOTIF-014, D-023). The waiting switch also governs
- * "has a question" (REQ-NOTIF-015: D-032 changes only the wording). Kept free of React Native so the
- * rules are testable under `bun test`.
+ * The notification switches in `settings.v1` (`notifications`): one master switch plus
+ * one each for finished, waiting and error. All four start off and stay off until the one-time ask is answered
+ * (`askedAt`). The waiting switch also governs "has a question" (only the wording differs). Kept free of React Native
+ * so the rules are testable under `bun test`.
  */
 
 export type NotificationSettings = {
@@ -26,8 +25,7 @@ export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
 
 /**
  * A stored value as the app may use it. Anything malformed falls back to "not asked, all off"; a switch
- * stored on without `askedAt` is off, because nothing may notify before the ask (the schema's
- * if/then rule, REQ-NOTIF-014 AC6).
+ * stored on without `askedAt` is off, because nothing may notify before the ask.
  */
 export function sanitizeNotificationSettings(value: unknown): NotificationSettings {
   if (typeof value !== 'object' || value === null) return { ...DEFAULT_NOTIFICATION_SETTINGS };
