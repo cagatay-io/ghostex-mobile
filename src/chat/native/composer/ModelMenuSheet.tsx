@@ -17,6 +17,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
   useWindowDimensions,
   type ScrollViewInstance,
@@ -39,6 +40,9 @@ const SCROLL_WINDOW_MS = 600;
  * CDXC:SessionChat 2026-09-25 DECISION:
  * User: "please make the chat view model switcher match the one we have in gpui chat view now (search is gone for example)". The phone sheet draws the GPUI pop-up's tabs, model rows, footer buttons and Not applied line, and has no search field. This supersedes the phone's own layout with a search field, named tabs and a description under each model.
  * SEE-ALSO: apps/desktop/src/app/native_chat/option_menu/model_menu/ (the GPUI pop-up), packages/gx-chat-core/src/menus/picker/ (what it shows).
+ *
+ * CDXC:SessionChat 2026-11-02 DECISION:
+ * User: "for opencode and others that have lots of models please add a filter bar at the top of the model picker so i can search for a model ... let's say if there's more than 6 models then enable these 2 things". When the core marks the tab `searchEnabled` (more than six models), a search field sits under the tabs and filters through the core's `modelMenuView` query, as on the desktop pop-up; starred rows come first alphabetically (the core's order). This supersedes the 2026-09-25 "no search field" above for long lists only. The field is not focused on open, since the keyboard would cover most of the sheet; a tap on it starts typing.
  *
  * CDXC:Mobile 2026-09-24 DECISION:
  * User: remove the hotkeys shown on the mobile model picker; a phone has no Command key, so the ⌘1-⌘4 chips beside the models and the key hint row under the buttons don't make sense there. The sheet also leaves out the footer buttons' hotkey letters.
@@ -76,6 +80,8 @@ export function ModelMenuSheet({
   const [openButton, setOpenButton] = useState<number | null>(null);
   /** The row whose description the info button opened. */
   const [about, setAbout] = useState<string | null>(null);
+  /** The search field's text, which the core filters by (`modelMenuView` query). */
+  const [query, setQuery] = useState('');
   const list = useRef<ScrollViewInstance>(null);
   const scrollUntil = useRef(0);
 
@@ -86,6 +92,7 @@ export function ModelMenuSheet({
     setEffort(null);
     setOpenButton(null);
     setAbout(null);
+    setQuery('');
     scrollUntil.current = Date.now() + SCROLL_WINDOW_MS;
     dispatch({ type: 'modelMenuView', tab: null, query: '' });
   }, [visible, dispatch]);
@@ -102,6 +109,15 @@ export function ModelMenuSheet({
   useEffect(() => {
     if (visible && menu === null) onClose();
   }, [visible, menu, onClose]);
+
+  const searchEnabled = isTrue(menu, 'searchEnabled');
+  const search = (text: string): void => {
+    setQuery(text);
+    setCursor(null);
+    setAbout(null);
+    list.current?.scrollTo({ y: 0, animated: false });
+    dispatch({ type: 'modelMenuView', query: text });
+  };
 
   const disabled = isTrue(menu, 'disabled');
   const sessionScope = isTrue(menu, 'sessionScope');
@@ -238,7 +254,11 @@ export function ModelMenuSheet({
                 accessibilityState={{ selected: active }}
                 // Only another agent's tab carries the handoff badge (the user's decision in render.rs); its label says what a pick does.
                 accessibilityLabel={handoff ? `${name}: picking a model hands off to ${name}` : name}
-                onPress={() => dispatch({ type: 'modelMenuView', tab: id })}
+                onPress={() => {
+                  // Each tab starts unfiltered, as Tab does on the desktop pop-up.
+                  setQuery('');
+                  dispatch({ type: 'modelMenuView', tab: id, query: '' });
+                }}
                 style={({ pressed }) => [styles.tab, pressed && !active ? styles.tabPressed : null]}
               >
                 <View style={active ? null : styles.tabIdle}>
@@ -267,8 +287,36 @@ export function ModelMenuSheet({
             </Text>
           </View>
         ) : null}
+        {searchEnabled ? (
+          <View style={styles.search}>
+            <Glyph name="search" size={16} color={P.ink(0.64)} />
+            <TextInput
+              accessibilityLabel="Search models"
+              placeholder={str(menu, 'placeholder')}
+              placeholderTextColor={P.placeholder}
+              value={query}
+              onChangeText={search}
+              autoCorrect={false}
+              autoCapitalize="none"
+              returnKeyType="search"
+              style={styles.searchInput}
+            />
+            {query.length > 0 ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Clear search"
+                hitSlop={8}
+                onPress={() => search('')}
+                style={({ pressed }) => [styles.rowButton, pressed ? styles.rowButtonPressed : null]}
+              >
+                <Glyph name="x" size={16} color={P.ink(0.64)} />
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
         <ScrollView
           ref={list}
+          keyboardShouldPersistTaps="handled"
           style={[styles.list, { height: listHeight }, disabled ? styles.waiting : null]}
           contentContainerStyle={styles.listContent}
         >
@@ -454,6 +502,17 @@ const useStyles = themedStyles((P) => ({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: P.ink(0.08),
   },
+  search: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingLeft: 16,
+    paddingRight: 8,
+    minHeight: 44,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: P.ink(0.08),
+  },
+  searchInput: { flex: 1, minWidth: 0, color: P.menuForeground, fontSize: 15, paddingVertical: 8 },
   errorTitle: { color: P.ink(0.64), fontSize: 12 },
   errorText: { color: P.menuForeground, fontSize: 13, lineHeight: 18, marginTop: 2 },
   list: { flexGrow: 0, backgroundColor: P.ink(0.02) },
