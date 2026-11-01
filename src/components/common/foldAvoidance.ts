@@ -1,8 +1,8 @@
 /**
  * Sheets and dialogs off the knick while the iPhone Duo is half folded like a laptop: sheets, dialogs and full-screen
  * views that would cross the division are laid out with the laptop pose, as the approved mockups show ("menus and
- * sheets avoid the fold"). The approved form
- * (`mockups/kit/kit.js` `keepFoldFree`): a bottom sheet starts below the fold and its list scrolls inside; a
+ * sheets avoid the fold"). The approved form (the design kit's fold-free rule): a bottom sheet starts below the fold
+ * and its list scrolls inside; a
  * centred card (a dialog, a compact alert, a progress card) stands below the fold when it fits there, otherwise
  * above it. With the keyboard up the keyboard-avoiding layer already keeps them above the fold
  * (`laptopCoverTop`). Nothing changes in any other pose or on any other iPhone: every hook here returns its

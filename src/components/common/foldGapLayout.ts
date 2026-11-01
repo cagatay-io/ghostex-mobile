@@ -1,7 +1,7 @@
 /**
  * Nothing on the knick in lists, half folded like a laptop (the approved mockups: "half folded, nothing on the fold
- * in lists"; the laptop pose only, the book pose has no layout of its own). The approved form
- * (`mockups/index.html` "Knick in Listen", `mockups/kit/kit.js` `keepFoldFree`): at rest, the first item of a list
+ * in lists"; the laptop pose only, the book pose has no layout of its own). The approved form (the mockups' "fold in
+ * lists" rule and the design kit's fold-free rule): at rest, the first item of a list
  * that would cross the fold's band starts 4 pt below it; a heading moves with the rows it introduces, a card that
  * fits below the fold moves as a whole, a taller one is entered and the row inside it that would cross moves;
  * while scrolling the content passes under the band. Pure geometry; `foldGap.tsx` measures and applies it.
