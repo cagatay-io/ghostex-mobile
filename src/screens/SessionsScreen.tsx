@@ -11,7 +11,6 @@ import { projectChoicesNow } from './sessions-screen/new-session-place';
 import {
   AppState,
   BackHandler,
-  FlatList,
   Platform,
   Pressable,
   RefreshControl,
@@ -33,9 +32,7 @@ import DetailsSheet from '../components/common/DetailsSheet';
 import LogsSheet from '../components/common/LogsSheet';
 import ProgressOverlay from '../components/common/ProgressOverlay';
 import PromptDialog from '../components/common/PromptDialog';
-import { FoldGapProvider, useFoldGapList } from '../components/common/foldGap';
 import { measureInWindow } from '../components/common/measureInWindow';
-import { useLaptopFold } from '../components/common/verticalBar/laptopFold';
 import { bandRowFrame } from '../components/common/verticalBar/layout';
 import {
   useContentTop,
@@ -126,6 +123,7 @@ import {
   type Overlay,
 } from './sessions-screen/session-actions';
 import { closeConfirmCopy } from './sessions-screen/close-confirm';
+import { SessionList } from './sessions-screen/session-list';
 import { SessionsBottomBar } from './sessions-screen/BottomBar';
 import { SESSIONS_HEADER_HEIGHT, styles } from './sessions-screen/styles';
 import { useSessionsScreenActions } from './sessions-screen/use-sessions-screen-actions';
@@ -777,8 +775,6 @@ export default function SessionsScreen({ navigation }: Props) {
   const contentTop = useContentTop();
   // The session list reaches under the iPhone Duo's side bar, its rows keep clear of it.
   const listEdges = useScrollToBarEdges(styles.listContent);
-  // Half folded like a laptop, no block, header or row rests on the knick (foldGap.tsx).
-  const foldGap = useFoldGapList(useLaptopFold());
   // The app menu stays at its More options button while it is open, wherever that moves.
   const appMenuAnchor = useLiveMenuAnchor(
     overlay.kind === 'appMenu' ? { key: 'more', pressed: overlay.anchor } : null,
@@ -970,48 +966,47 @@ export default function SessionsScreen({ navigation }: Props) {
         />
       ) : null}
       <View style={styles.listArea}>
-        {unified.on ? (
-          <FlatList
-            data={unified.items}
-            keyExtractor={unified.keyExtractor}
-            renderItem={unified.renderItem}
-            style={[styles.list, listEdges.scroll]}
-            contentContainerStyle={[styles.listContent, listEdges.content]}
-            refreshControl={listRefreshControl}
-            ListFooterComponent={listFooter}
-          />
-        ) : (
-          <FoldGapProvider value={foldGap}>
-            <FlatList
-              data={visibleEntries.blocks}
-              keyExtractor={(entry) => entry.listKey}
-              renderItem={renderBlock}
-              style={[styles.list, listEdges.scroll]}
-              contentContainerStyle={[styles.listContent, listEdges.content]}
-              onScroll={foldGap.onScroll}
-              scrollEventThrottle={16}
-              refreshControl={listRefreshControl}
-              ListFooterComponent={
-                <>
-                  {visibleEntries.emptyProjects > 0 ? (
-                    <Pressable
-                      accessibilityRole="button"
-                      onPress={() => setShowAllProjects((showing) => !showing)}
-                      style={styles.showAllProjects}
-                    >
-                      <Text style={styles.showAllProjectsText}>
-                        {showAllProjects
-                          ? 'Hide projects without sessions'
-                          : `Show all projects (${visibleEntries.emptyProjects} hidden)`}
-                      </Text>
-                    </Pressable>
-                  ) : null}
-                  {listFooter}
-                </>
-              }
-            />
-          </FoldGapProvider>
-        )}
+        <SessionList
+          unified={
+            unified.on
+              ? {
+                  data: unified.items,
+                  keyExtractor: unified.keyExtractor,
+                  renderItem: unified.renderItem,
+                  style: [styles.list, listEdges.scroll],
+                  contentContainerStyle: [styles.listContent, listEdges.content],
+                  refreshControl: listRefreshControl,
+                  ListFooterComponent: listFooter,
+                }
+              : null
+          }
+          classic={{
+            data: visibleEntries.blocks,
+            keyExtractor: (entry) => entry.listKey,
+            renderItem: renderBlock,
+            style: [styles.list, listEdges.scroll],
+            contentContainerStyle: [styles.listContent, listEdges.content],
+            refreshControl: listRefreshControl,
+            ListFooterComponent: (
+              <>
+                {visibleEntries.emptyProjects > 0 ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setShowAllProjects((showing) => !showing)}
+                    style={styles.showAllProjects}
+                  >
+                    <Text style={styles.showAllProjectsText}>
+                      {showAllProjects
+                        ? 'Hide projects without sessions'
+                        : `Show all projects (${visibleEntries.emptyProjects} hidden)`}
+                    </Text>
+                  </Pressable>
+                ) : null}
+                {listFooter}
+              </>
+            ),
+          }}
+        />
         {noticeTarget !== null && selectedNotice !== null ? (
           <MachineNotice
             notice={unified.on && selectedNotice.kind === 'failure'

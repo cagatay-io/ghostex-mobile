@@ -1,7 +1,9 @@
 /**
  * The session list drawn as the desktop's Unified sidebar: every computer's sessions in one list
  * (contract/unified/), with its header (the search field, the filter, Add project, New session), its
- * cards, project groups and shelves, its swipe buttons, and the menus they open.
+ * cards, project groups and shelves, its swipe buttons, and the menus they open. Its cards, shelf rows
+ * and headings are fold-gap units (`FoldGapView`, a plain View outside the Sessions list's provider), so
+ * half folded like a laptop nothing rests on the knick.
  *
  * CDXC:Sidebar 2026-11-01 DECISION:
  * User (Q933, Q934): the phone picks Unified or Project itself, in Settings › Sessions list
@@ -41,6 +43,7 @@ import { groupUnifiedList, unifiedGroupCount, type UnifiedGroup } from '../../co
 import { unifiedSwipeActions } from '../../contract/unified/strip';
 import { SNOOZE_PRESETS, snoozeWakeAt } from '../../contract/unified/snooze';
 import { chatMachineLink } from '../../chat/rust/machine-link';
+import { FoldGapView } from '../../components/common/foldGap';
 import ContextMenu, { type ContextMenuItem, type MenuAnchor } from '../../components/sessions/ContextMenu';
 import { ds, SIDEBAR_MUTED, SIDEBAR_TEXT } from '../../components/sessions/rows';
 import { EditGlyph, FilterGlyph, FolderPlusGlyph, AlarmGlyph } from '../../components/sessions/unified/glyphs';
@@ -379,7 +382,7 @@ export function useUnifiedList(deps: UnifiedListDeps) {
     return true;
   };
 
-  const renderItem: FlatListProps<UnifiedListItem>['renderItem'] = ({ item }) => {
+  const renderUnit = (item: UnifiedListItem): ReactElement => {
     if (item.kind === 'gap') return <View style={styles.gap} />;
     if (item.kind === 'divider') return <View style={styles.divider} />;
     if (item.kind === 'empty') return <Text style={styles.empty}>{item.text}</Text>;
@@ -439,6 +442,13 @@ export function useUnifiedList(deps: UnifiedListDeps) {
         inGroup={item.inGroup === true}
       />
     );
+  };
+
+  const renderItem: FlatListProps<UnifiedListItem>['renderItem'] = ({ item }) => {
+    const unit = renderUnit(item);
+    // The spacer between sections shows nothing, so it is no unit.
+    if (item.kind === 'gap') return unit;
+    return <FoldGapView kind={item.kind === 'shelf' || item.kind === 'group' ? 'heading' : 'row'}>{unit}</FoldGapView>;
   };
 
   /**

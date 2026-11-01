@@ -6,8 +6,8 @@
  * The margin is part of the content, so while scrolling the content passes under the band. In every other pose and
  * on every other iPhone there is no gap and nothing is measured; a `FoldGapView` outside a provider is a plain View.
  *
- * Adopting it in a list (done here: Settings, Sessions, the work-link picker; to do when those land: the Files
- * browser and the attention list):
+ * Adopting it in a list (done here: Settings, the Sessions screen's classic and Unified lists, the work-link picker;
+ * to do when those land: the Files browser and the attention list):
  * 1. In the screen: `const foldGap = useFoldGapList(useLaptopFold());`, wrap the scroll view in
  *    `<FoldGapProvider value={foldGap}>`, and give the scroll view `onScroll={foldGap.onScroll}` (chained with an
  *    existing handler) and `scrollEventThrottle={16}`.
