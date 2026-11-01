@@ -2,7 +2,7 @@ import { NativeModule, requireOptionalNativeModule } from 'expo';
 
 /**
  * The one Ghostex Live Activity (ActivityKit, iOS 16.2+): GhostexLiveActivityModule.swift, with the views in
- * the widget extension `ios/Extension` that `plugins/withLiveActivity.js` adds to the app.
+ * the widget extension `ios/Extension` that `plugins/withWidgets.js` adds to the app.
  * Optional on purpose: it exists only on iOS (null on Android) and in builds made after it.
  *
  * `stateJson` is the content state `src/notifications/contentState.ts` builds. The module fits it into ActivityKit's

@@ -75,13 +75,14 @@ const TARGET_ID = /^[\x21-\x7e]{1,64}$/;
 const STATE_RANK: Record<LiveActivityAgentState, number> = { waiting: 0, working: 1, finished: 2 };
 
 /** A row and the time it sorts by (working, waiting: its start; finished: when it finished). */
-type Shown = { row: LiveActivityRow; sortTime: number };
+export type Shown = { row: LiveActivityRow; sortTime: number };
 
 /**
  * A working, waiting or recently finished agent; `shown` is null when it cannot have a row (see buildContentState).
- * A finished one carries when it finished (epoch ms), from which its 2 minutes run.
+ * A finished one carries when it finished (epoch ms), from which its 2 minutes run. The widgets classify the
+ * sessions the same way (`widgetSnapshot.ts`), so both surfaces show the same agents.
  */
-type Candidate =
+export type Candidate =
   | { state: 'working' | 'waiting'; shown: Shown | null }
   | { state: 'finished'; shown: Shown | null; finishedAt: number };
 
@@ -138,7 +139,7 @@ export function computersNeedingUpdate(sources: readonly ActivitySource[]): stri
     .map((source) => source.machineId);
 }
 
-function candidateFor(
+export function candidateFor(
   machineId: string,
   session: GhostexSession,
   capabilities: GhostexSummaryCapabilities,
@@ -205,7 +206,7 @@ function candidateFor(
  * Display priority waiting > working > finished; inside a class the oldest start first (finished: the newest
  * finish first); ties by session id, then machine id.
  */
-function compareShown(a: Shown, b: Shown): number {
+export function compareShown(a: Shown, b: Shown): number {
   const rank = STATE_RANK[a.row.state] - STATE_RANK[b.row.state];
   if (rank !== 0) return rank;
   if (a.sortTime !== b.sortTime) {

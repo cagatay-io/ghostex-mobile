@@ -79,7 +79,8 @@ function sourcesOf(
   return sources;
 }
 
-function currentSources(): ActivitySource[] {
+/** The enabled computers' summaries that were read; the widgets use the same (`widgets.ts`). */
+export function currentSources(): ActivitySource[] {
   return sourcesOf(enabledMachines(useMachinesStore.getState()), useInventoryStore.getState().inventoriesByMachineId);
 }
 

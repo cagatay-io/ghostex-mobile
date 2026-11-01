@@ -1,7 +1,7 @@
 /**
  * The one summary refresh of the app. While the app is in the foreground and a machine is
  * selected, every enabled machine's mobile summary is read again every `intervalMs` on whatever screen is in
- * front, the terminal included, so the Live Activity (and later the widgets) see state changes while the user
+ * front, the terminal included, so the Live Activity and the Home Screen widgets see state changes while the user
  * works in a session. The Sessions screen shares this refresh instead of running its own poll.
  *
  * Kept free of React Native and the stores, so the rule is testable under `bun test`; `src/app/lifecycle.ts`

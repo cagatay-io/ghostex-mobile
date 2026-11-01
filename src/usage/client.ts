@@ -18,8 +18,8 @@ import { buildUsageMeters, type UsageAccount } from './usageMeters';
 /** A computer reading every account's usage afresh can take a while (it asks Claude and Codex). */
 const ACCOUNTS_TIMEOUT_MS = 60_000;
 
-/** The accounts with their meters at the time of the answer; throws the computer's or the route's sentence. */
-export async function readAccountUsage(machine: MachineConnectionTarget, refresh: boolean): Promise<UsageAccount[]> {
+/** gxserver's `agentAccounts` answer as it came; throws the computer's or the route's sentence. */
+export async function readAccountsAnswer(machine: MachineConnectionTarget, refresh: boolean): Promise<unknown> {
   const answer = await sessionChatRpc(
     machine,
     'agentAccounts',
@@ -27,9 +27,15 @@ export async function readAccountUsage(machine: MachineConnectionTarget, refresh
     ACCOUNTS_TIMEOUT_MS,
   );
   if (answer.error !== null) throw new Error(answer.error.message);
+  return answer.result;
+}
+
+/** The accounts with core-projected meters at the time of the answer, for the usage pane. */
+export async function readAccountUsage(machine: MachineConnectionTarget, refresh: boolean): Promise<UsageAccount[]> {
+  const answer = await readAccountsAnswer(machine, refresh);
   const columns = await wasmCoreBridge.call({
     op: 'accountUsageColumns',
-    args: [JSON.stringify(answer.result), Date.now()],
+    args: [JSON.stringify(answer), Date.now()],
   });
-  return buildUsageMeters(answer.result, columns);
+  return buildUsageMeters(answer, columns);
 }

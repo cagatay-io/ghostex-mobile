@@ -75,23 +75,26 @@ struct WorkingArc: Shape {
 struct StatusGlyph: View {
   let status: ActivityStatus
   let size: CGFloat
+  /// The Home Screen widgets' light appearance draws the states in darker tones; nil keeps the state's colour.
+  var tint: Color? = nil
 
   var body: some View {
+    let color = tint ?? status.color
     Group {
       switch status {
       case .working:
         WorkingArc()
-          .stroke(status.color, style: StrokeStyle(lineWidth: max(1.5, size / 6.5), lineCap: .round))
+          .stroke(color, style: StrokeStyle(lineWidth: max(1.5, size / 6.5), lineCap: .round))
           .frame(width: size * 0.78, height: size * 0.78)
           .frame(width: size, height: size)
       case .waiting:
-        Image(systemName: "clock").font(.system(size: size, weight: .semibold)).foregroundStyle(status.color)
+        Image(systemName: "clock").font(.system(size: size, weight: .semibold)).foregroundStyle(color)
       case .question:
         Image(systemName: "questionmark.circle").font(.system(size: size, weight: .semibold))
-          .foregroundStyle(status.color)
+          .foregroundStyle(color)
       case .finished:
         Image(systemName: "checkmark.circle").font(.system(size: size, weight: .semibold))
-          .foregroundStyle(status.color)
+          .foregroundStyle(color)
       }
     }
     .accessibilityHidden(true)

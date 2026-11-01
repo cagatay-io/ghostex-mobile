@@ -2,13 +2,15 @@ import ActivityKit
 import SwiftUI
 import WidgetKit
 
-/// The widget extension `plugins/withLiveActivity.js` adds to the app: the presentations of the one Ghostex
-/// Live Activity. The app starts and updates it (`GhostexLiveActivityModule.swift`); the
-/// extension only renders the content state it is given and never reaches the network.
+/// The widget extension `plugins/withWidgets.js` adds to the app: the presentations of the one Ghostex Live
+/// Activity and the Home Screen widgets (`modules/ghostex-widgets/ios/Extension`). The app starts and updates the
+/// activity (`GhostexLiveActivityModule.swift`) and writes the widgets' snapshot; the extension only renders what it
+/// is given and never reaches the network.
 @main
 struct GhostexLiveActivityBundle: WidgetBundle {
   var body: some Widget {
     GhostexLiveActivityWidget()
+    GhostexStatusWidget()
   }
 }
 

@@ -23,6 +23,7 @@ import { flushPendingDeepLink, initDeepLinks, navigationRef } from './src/app/de
 import { initAppLifecycle } from './src/app/lifecycle';
 import { initSettingsSync } from './src/settingsSync/settingsSync';
 import { initLiveActivity } from './src/notifications/liveActivity';
+import { initWidgets } from './src/notifications/widgets';
 import { initPersistentNotification } from './src/app/persistentNotification';
 import { useMachinesStore } from './src/machines/store';
 import { initAttentionNotifications } from './src/notifications/feedStore';
@@ -142,6 +143,7 @@ export default function App() {
     initAlerts();
     initAttentionNotifications();
     initLiveActivity();
+    initWidgets();
     initAutoReconnect();
     initSettingsSync();
     initTerminalKeepAwake();

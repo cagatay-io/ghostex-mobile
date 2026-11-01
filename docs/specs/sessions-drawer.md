@@ -137,7 +137,7 @@ Recovery matching: message contains "SSH needs a key or password" or "SSH reject
 ## 5. Refresh, polling, states
 
 - List command: `ghostex sessions --json --mobile-summary` via `"$SHELL" -lc '...'`. Scan stdout for first JSON object containing `sessions` (tolerate banners). Keep only provider zmx.
-- Poll every **5s** on every screen while the app is in the foreground and a machine is selected (`src/inventory/summaryRefresh.ts`; the Live Activity reads the same summaries). Multi-machine: other machines refresh concurrently. No pull-to-refresh (header Refresh = full reconnect). (RN: pull-to-refresh optional addition.)
+- Poll every **5s** on every screen while the app is in the foreground and a machine is selected (`src/inventory/summaryRefresh.ts`; the Live Activity and the Home Screen widgets read the same summaries, `docs/specs/widgets.md`). Multi-machine: other machines refresh concurrently. No pull-to-refresh (header Refresh = full reconnect). (RN: pull-to-refresh optional addition.)
 - State copy (STATE_CARD title / body / action hint):
   - No machines: "Add your Mac" / "Add the macOS machine that runs Ghostex, Tailscale, SSH, and ZMX sessions." / "Open Machines, then tap Add, or open Tutorial from Machines." Status: "Add a machine to connect to Ghostex over Tailscale."
   - Connecting: "Connecting" / "Opening SSH to {label} and asking the Ghostex CLI for ZMX-backed sessions." / "Keep Tailscale online on both devices." Status "Connecting to {label}..."; refreshing over list: "Refreshing sessions on {label}...".

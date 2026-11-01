@@ -13,7 +13,7 @@
       "./plugins/withAndroidReleaseSize.js",
       "./plugins/withLoopbackCleartext.js",
       "./plugins/withVoiceLiveActivity.js",
-      "./plugins/withLiveActivity.js",
+      "./plugins/withWidgets.js",
       "expo-status-bar",
       "@react-native-community/datetimepicker",
       [
@@ -44,7 +44,8 @@
       "associatedDomains": ["applinks:ghostex.dev"],
       "entitlements": {
         "application-identifier": "$(AppIdentifierPrefix)com.maddada.ghostex.ios",
-        "keychain-access-groups": ["$(AppIdentifierPrefix)com.maddada.ghostex.ios"]
+        "keychain-access-groups": ["$(AppIdentifierPrefix)com.maddada.ghostex.ios"],
+        "com.apple.security.application-groups": ["group.com.maddada.ghostex.ios"]
       },
       "infoPlist": {
         "UIUserInterfaceStyle": "Dark",

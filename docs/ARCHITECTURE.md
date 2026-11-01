@@ -17,14 +17,13 @@ mobile/
     contract/                 # mobile-summary TS types + parser + displayStatus()
     machines/                 # machine store (AsyncStorage) + credentials (expo-secure-store)
     inventory/                # inventory client (exec over native ssh), 5s polling on every screen (summaryRefresh.ts), per-machine fan-out
-    notifications/            # Live Activity: content state from the summaries, start/update/end controller (modules/ghostex-live-activity)
     terminal/                 # tab/session state, warm-session policy (max 7, within a scrollback-row budget), attach orchestration
     panes/                    # two panes on the iPhone Duo's inner display: layout store, geometry, pane host (see "Two panes" below)
-    usage/                    # Claude and Codex account usage (gxserver agentAccounts), core-column adapter and view: the usage pane and screen
+    usage/                    # Claude and Codex account usage, core-column adapter and view; the widget's usage bars
     commands/                 # ghostex CLI command builders (login-shell wrapping, quoting)
     docs/                     # document page builder, remote-file mirror and renderers
     files/                    # project browser policy, listing, search, share and session-context actions
-    notifications/            # agent notifications + attention list (see "Agent notifications" below)
+    notifications/            # agent notifications, attention list, Live Activity and Home Screen widget snapshot/writer
     components/               # shared UI (action sheets, state cards, chips, key bar)
     screens/
       WelcomeScreen.tsx       # docs/specs/onboarding.md §1
@@ -41,6 +40,9 @@ mobile/
     ios/                      # Swift: GhosttyTerminal port + libssh2 SSHClient + registry
       Vendor/                 # GhosttyKit.xcframework, libssh2 xcframework (copied from iOS fork)
     android/                  # Kotlin glue + Java: termux terminal-emulator/-view + SSHJ transport
+  modules/ghostex-live-activity/  # Expo local module: Live Activity (ActivityKit); its views in ios/Extension
+  modules/ghostex-widgets/    # Expo local module: widget snapshot file + WidgetKit reload; the widgets in ios/Extension
+  plugins/withWidgets.js      # the WidgetKit extension (Live Activity and widgets) and the App Group in the generated project
   docs/specs/                 # extracted implementation specs (source of truth for UI copy)
   ios/ android/               # expo prebuild output, committed (bare workflow)
 ```
@@ -238,6 +240,17 @@ Local notifications while the app runs and the attention list (the computer's no
 - **Tests.** Pure modules under `bun test src/notifications` (and `src/app/deepLinks.test.ts`), including the record's randomized model test (`eventIdentity.model.test.ts`: both announcing routes against an independent reference that counts every notification and sound as the person gets it and matches copies by the host's own origin (the row id, and the row a computer names for an attention; without that name the list's copy is its attention's own event), over seeded sequences of feed reads, pushes, the Sessions list's attention sound, the sound switched off and on, sessions open on screen and leaving attention, restarts (also over a hundred an hour, and the app ended before its write) with stored records that load at once, after seconds or after hours, clock changes back and forward, rate-limit pressure and computers hidden, removed and added again; the invariants, the rate and the bound are checked after every step, each failure naming its seed, and the only deviations allowed are those the two exceptions describe, a clock set forward, by any amount, letting one more batch through in the minute after it; a separate test checks that bound for forward changes of less than a minute; fixed cases replay the counterexamples earlier versions failed); the summary's capabilities and question fields (`src/contract/mobileSummary.test.ts`); the list, the screen's menu, the bell, the Settings page and the app wiring (`feedStore.rntl.ts`: the real `initAttentionNotifications` with AppState, the alerts sound and the feed endpoint faked at their boundaries) as `*.rntl.ts(x)` under `bun run test:jest`.
 
 A Live Activity row opens its target session through the notification link handler above. A row that says "has a question" uses `GhostexActivityRow.deepLink` with `view=question`; other rows retain the session's normal view choice. The Swift row-link test and `src/app/deepLinks.test.ts` share the literal percent-encoded URLs, with no separate parser.
+
+## Home Screen widgets (`src/notifications/`, `modules/ghostex-widgets/`)
+
+Small, medium and large widgets (StandBy shows the small one) from a snapshot the app writes into the App Group; behaviour per `docs/specs/widgets.md`. No push: they show the app's last write and its data time.
+
+- **Snapshot.** `widgetSnapshot.ts` (`buildSnapshot`) builds `widget-snapshot` version 1 from every enabled computer's summary with the Live Activity's classification (`candidateFor`, `compareShown` in `contentState.ts`): counts of working and waiting agents, the attention marker, up to eight agents waiting first, the data time (the oldest summary read), the usage bars when there are any. No prompt, reply or title text.
+- **Writer.** `widgetWriter.ts` (`createWidgetWriter`): after each session refresh writes the snapshot and asks WidgetKit for one reload, unless nothing shown changed (compared with the data time to the minute); writes nothing before the first summary; deletes the file when the last computer is removed. Usage: reads the selected computer's `agentAccounts` (`readAccountsAnswer`, `buildUsageBars`) while the summary poll runs, at most every 2 minutes per computer (also across switching computers), and leaves out bars older than 5 minutes or of another computer. `widgets.ts` wires it to the inventory and machines stores (`initWidgets()` from `App.tsx`, iOS only, the module optional); `refreshWidgets()` reads every summary again and writes, for a background wake.
+
+  Widget usage reads ask the same `accountUsageColumns` core operation as the pane for window names, joined by input position before account filtering. The snapshot keeps the readable raw percent and absolute reset time; a window without a projected name is not labeled with a locally guessed name.
+- **Native.** `GhostexWidgetsModule.swift` writes and deletes `widget-snapshot.json` in the App Group container (`Shared/GhostexWidgetStore.swift`, which the extension shares) and calls `WidgetCenter.reloadTimelines(ofKind:)`. The widgets (`ios/Extension`: snapshot decoding, timeline provider, SwiftUI per size) are compiled into the one WidgetKit extension `plugins/withWidgets.js` adds, beside the Live Activity, whose glyphs, agent marks and time parsing they reuse. The App Group comes from app.json's `ios.entitlements`; the extension's entitlements and both Info.plists (`GhostexAppGroup`) take it through the build setting `GHOSTEX_APP_GROUP`.
+- **Tests.** `bun test src/notifications/widgetSnapshot.test.ts` (snapshot rules, usage bars, writer: one reload per write, no write without a change, deletion, usage schedule per computer and age) and `src/notifications/widgetsWiring.rntl.ts` (the real lifecycle, summary refresh and stores through `initWidgets`, with fakes only for SSH, the chat transport and the native module). The SwiftUI views: simulator build; their look is checked by hand, and the rule for the empty agents' place (`noAgentWorkingOrWaiting`) has no Swift test.
 
 ## Defaults (from the Android app)
 

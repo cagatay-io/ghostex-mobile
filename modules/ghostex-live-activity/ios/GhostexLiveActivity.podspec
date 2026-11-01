@@ -2,7 +2,7 @@ Pod::Spec.new do |s|
   s.name           = 'GhostexLiveActivity'
   s.version        = '1.0.0'
   s.summary        = 'Ghostex Live Activity (ActivityKit) for iOS'
-  s.description    = 'Expo local module that starts, updates and ends the Ghostex Live Activity; its views are in the widget extension plugins/withLiveActivity.js adds.'
+  s.description    = 'Expo local module that starts, updates and ends the Ghostex Live Activity; its views are in the widget extension plugins/withWidgets.js adds.'
   s.author         = ''
   s.homepage       = 'https://docs.expo.dev/modules/'
   s.license        = { :type => 'GPL-3.0' }
