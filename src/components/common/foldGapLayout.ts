@@ -2,8 +2,8 @@
  * Nothing on the knick in lists, half folded like a laptop (the approved mockups: "half folded, nothing on the fold
  * in lists"; the laptop pose only, the book pose has no layout of its own). The approved form (the mockups' "fold in
  * lists" rule and the design kit's fold-free rule): at rest, the first item of a list
- * that would cross the fold's band starts 4 pt below it; a heading moves with the rows it introduces, a card that
- * fits below the fold moves as a whole, a taller one is entered and the row inside it that would cross moves;
+ * that would cross the fold's band starts 4 pt below it; a heading moves with the rows it introduces, a short group
+ * moves as a whole, a taller one is entered and the row inside it that would cross moves;
  * while scrolling the content passes under the band. Pure geometry; `foldGap.tsx` measures and applies it.
  * Frames are window points of the list's units as they stand with the list scrolled to its top and no gap.
  */
@@ -13,8 +13,7 @@ import type { LaptopFold } from './verticalBar/layout';
 /**
  * - `row`: moves as a whole (a list row, a settings row, a caption).
  * - `heading`: moves together with the unit right below it when that one moves.
- * - `group`: a column of units (a project card with its rows); moved as a whole when it is a card that fits below
- *   the fold (`boxed`) or is short, otherwise entered.
+ * - `group`: a column of units (a project card with its rows); moved as a whole when it is short, otherwise entered.
  */
 export type FoldGapUnitKind = 'row' | 'heading' | 'group';
 
@@ -23,8 +22,6 @@ export type FoldGapUnitFrame = {
   /** The group it stands in; null for the list's own units. */
   readonly parent: string | null;
   readonly kind: FoldGapUnitKind;
-  /** A card with its own background or border, which moves as a whole when it fits below the fold. */
-  readonly boxed: boolean;
   readonly top: number;
   readonly bottom: number;
 };
@@ -34,9 +31,7 @@ export type FoldGap = { readonly id: string; readonly shift: number };
 
 /** Below the fold's band, so a moved unit never touches the knick. */
 export const FOLD_GAP_CLEARANCE = 4;
-/** A card fits below the fold when it leaves this much above the list's visible bottom (the kit's `room`). */
-export const FOLD_GAP_ROOM_CLEARANCE = 8;
-/** A group taller than this is entered rather than moved (unless it is a card that fits below the fold). */
+/** A group taller than this is entered rather than moved. */
 const MOVE_WHOLE_MAX = 120;
 /** A heading moves with the unit below it when that one starts at most this far below the heading's top. */
 const HEADING_REACH = 120;
@@ -52,19 +47,15 @@ function childrenOf(units: readonly FoldGapUnitFrame[], parent: string | null): 
   return units.filter((unit) => unit.parent === parent).sort((a, b) => a.top - b.top);
 }
 
-/**
- * Where the gap goes at rest: null when no unit crosses the fold. `room`: the height below the fold that a card has
- * to fit in to move as a whole (from the band's bottom to the list's visible bottom).
- */
-export function foldGapFor(units: readonly FoldGapUnitFrame[], fold: LaptopFold, room: number): FoldGap | null {
+/** Where the gap goes at rest: null when no unit crosses the fold. */
+export function foldGapFor(units: readonly FoldGapUnitFrame[], fold: LaptopFold): FoldGap | null {
   let level: string | null = null;
   for (let depth = 0; depth < MAX_DEPTH; depth += 1) {
     const siblings = childrenOf(units, level);
     const hit = siblings.find((unit) => crosses(unit, fold));
     if (hit === undefined) return null;
     const height = hit.bottom - hit.top;
-    const movesWhole = height <= MOVE_WHOLE_MAX || (hit.boxed && height <= room);
-    if (hit.kind === 'group' && !movesWhole && childrenOf(units, hit.id).length > 0) {
+    if (hit.kind === 'group' && height > MOVE_WHOLE_MAX && childrenOf(units, hit.id).length > 0) {
       level = hit.id;
       continue;
     }

@@ -229,46 +229,44 @@ describe('nothing on the fold in lists at rest', () => {
       id: `r${index}`,
       parent: null,
       kind: 'row' as const,
-      boxed: false,
       top: top + index * (height + gap),
       bottom: top + index * (height + gap) + height,
     }));
 
   test('the first row that would cross the band starts 4 pt below it', () => {
     // Row 6 stands at 412-456 and touches the band (455.5).
-    assert.deepEqual(foldGapFor(rows(12), FOLD, 400), { id: 'r6', shift: FOLD.bottom + FOLD_GAP_CLEARANCE - 412 });
+    assert.deepEqual(foldGapFor(rows(12), FOLD), { id: 'r6', shift: FOLD.bottom + FOLD_GAP_CLEARANCE - 412 });
   });
 
   test('a heading right above that row moves with it', () => {
     const units: FoldGapUnitFrame[] = [
-      { id: 'h', parent: null, kind: 'heading', boxed: false, top: 400, bottom: 420 },
-      { id: 'r', parent: null, kind: 'row', boxed: false, top: 424, bottom: 468 },
+      { id: 'h', parent: null, kind: 'heading', top: 400, bottom: 420 },
+      { id: 'r', parent: null, kind: 'row', top: 424, bottom: 468 },
     ];
-    assert.deepEqual(foldGapFor(units, FOLD, 400), { id: 'h', shift: 99.5 });
+    assert.deepEqual(foldGapFor(units, FOLD), { id: 'h', shift: 99.5 });
   });
 
-  test('a card that fits below moves whole; a taller plain group is entered', () => {
-    const card: FoldGapUnitFrame = { id: 'c', parent: null, kind: 'group', boxed: true, top: 300, bottom: 500 };
+  test('a taller group is entered', () => {
+    const group: FoldGapUnitFrame = { id: 'c', parent: null, kind: 'group', top: 300, bottom: 500 };
     const inside: FoldGapUnitFrame[] = [
-      { id: 'c1', parent: 'c', kind: 'row', boxed: false, top: 300, bottom: 400 },
-      { id: 'c2', parent: 'c', kind: 'row', boxed: false, top: 400, bottom: 500 },
+      { id: 'c1', parent: 'c', kind: 'row', top: 300, bottom: 400 },
+      { id: 'c2', parent: 'c', kind: 'row', top: 400, bottom: 500 },
     ];
-    assert.deepEqual(foldGapFor([card, ...inside], FOLD, 400), { id: 'c', shift: 199.5 });
-    assert.deepEqual(foldGapFor([{ ...card, boxed: false }, ...inside], FOLD, 400), { id: 'c2', shift: 99.5 });
+    assert.deepEqual(foldGapFor([group, ...inside], FOLD), { id: 'c2', shift: 99.5 });
   });
 
   test('nothing crossing: no gap', () => {
-    assert.equal(foldGapFor(rows(3), FOLD, 400), null);
+    assert.equal(foldGapFor(rows(3), FOLD), null);
   });
 
   test('frames measured with the gap in place give the frames without it, so the gap stays put', () => {
     const natural = rows(12);
-    const gap = foldGapFor(natural, FOLD, 400);
+    const gap = foldGapFor(natural, FOLD);
     assert.ok(gap !== null);
     const measured = natural.map((unit, index) =>
       index >= 6 ? { ...unit, top: unit.top + gap.shift, bottom: unit.bottom + gap.shift } : unit,
     );
     assert.deepEqual(framesWithoutGap(measured, gap), natural);
-    assert.deepEqual(foldGapFor(framesWithoutGap(measured, gap), FOLD, 400), gap);
+    assert.deepEqual(foldGapFor(framesWithoutGap(measured, gap), FOLD), gap);
   });
 });

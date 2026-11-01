@@ -11,7 +11,8 @@
  * (455.5-495.5 in the iPhone Duo's 669 x 951 laptop window). Expected: that unit (or the heading right above it)
  * starts 4 pt below the band; flat (inactive division) and the book pose nothing moves. Leaving the laptop pose for
  * flat or the book pose while a measurement is queued or still waiting for its native frames leaves no gap behind,
- * and back in the laptop pose the gap is placed again (the system's bar layout reports the new pose).
+ * and back in the laptop pose the gap is placed again (the system's bar layout reports the new pose). A window change
+ * with the same fold measures again, as it can move the units in the window without a layout of their own.
  *
  * Not reached here: the rest of `SessionsScreen` (the screen needs a computer's inventory to render; its list is
  * `SessionList`, rendered here), scrolling beyond the scroll event the list reports (the gap is measured at the
@@ -595,5 +596,35 @@ describe('the work-link picker (a full-screen view with a list)', () => {
     test.each(LEAVING)('to %s: no gap stays or comes back late', async (_pose, division, window) => {
       await expectNoGapAfterLeaving(race, picker, LABELS, '#106', division, window, { rowsOnTimer: true });
     });
+  });
+});
+
+describe('a window change with the same fold', () => {
+  const LABEL = 'Moved row';
+  /** A list with a fixed laptop fold, so only the window changes. */
+  function FixedFoldList() {
+    const list = useFoldGapList(FOLD);
+    return (
+      <FoldGapProvider value={list}>
+        <FoldGapView kind="row">
+          <Text>{LABEL}</Text>
+        </FoldGapView>
+      </FoldGapProvider>
+    );
+  }
+  const reportWindow = (window: { width: number; height: number }) =>
+    Dimensions.set({ window: { ...window, scale: 3, fontScale: 1 }, screen: { ...window, scale: 3, fontScale: 1 } });
+
+  test('a row an ancestor moved onto the fold, without a layout of its own, starts 4 pt below it', async () => {
+    await act(() => reportWindow(PORTRAIT));
+    frames.set(LABEL, { top: 400, height: 44 });
+    await render(<FixedFoldList />);
+    await advance();
+    expect(gapAbove(LABEL)).toBe(0);
+    // The new window moves the row 30 pt down (430-474, across the band); its own layout stays, so no onLayout.
+    frames.set(LABEL, { top: 430, height: 44 });
+    await act(() => reportWindow({ ...PORTRAIT, height: PORTRAIT.height + 50 }));
+    await advance();
+    expect(gapAbove(LABEL)).toBe(FOLD.bottom + 4 - 430);
   });
 });

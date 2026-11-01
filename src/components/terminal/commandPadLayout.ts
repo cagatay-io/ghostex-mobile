@@ -137,13 +137,21 @@ export function padAnchor(placement: CommandPadPlacement | undefined, area: PadA
 }
 
 /**
+ * The height the open pad needs in the terminal area with `cover` points of its bottom covered: its toggle just
+ * above the cover (or 16 pt above the bottom while nothing covers it) and its highest control 16 pt below the top.
+ */
+export function padRequiredHeight(cover: number): number {
+  return lowestBottom(cover) + PAD_EXTENT.height + PAD_MARGIN;
+}
+
+/**
  * How far above the terminal area the open pad may reach, given `headerRoom` points between the area's top and the
  * window's safe area (the header): none while it fits in the area above `cover`; the header's room when it fits only
  * with that, still 16 pt below the safe area's top; null when it does not fit even then. The header's controls are
  * not used while typing on the pad, so covering them costs less than smaller keys would.
  */
 export function padHeaderReach(area: PadArea, cover: number, headerRoom: number): number | null {
-  const needed = lowestBottom(cover) + PAD_EXTENT.height + PAD_MARGIN;
+  const needed = padRequiredHeight(cover);
   if (needed <= area.height) return 0;
   return needed <= area.height + headerRoom ? headerRoom : null;
 }

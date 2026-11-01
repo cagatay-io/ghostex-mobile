@@ -16,7 +16,7 @@
  */
 
 import { FOLD_CLEARANCE, LAPTOP_CLEAR, type LaptopFold } from '../common/verticalBar/layout';
-import { PAD_MARGIN, padAnchor, padHeaderReach } from './commandPadLayout';
+import { padHeaderReach, padRequiredHeight } from './commandPadLayout';
 
 /** A rectangle in the window: the terminal area, or the pad's room in it. */
 export type LaptopRect = { x: number; y: number; width: number; height: number };
@@ -34,17 +34,6 @@ export function laptopPadCover(editorHeight: number): number {
   return editorHeight > 0 ? LAPTOP_CLEAR + editorHeight : 0;
 }
 
-/** A room taller than the open pad: a pad placed at its very top shows how far the open pad stands above its toggle. */
-const TALL_ROOM = { width: 1000, height: 10_000 };
-
-/**
- * The height the open pad needs in its room with nothing covering the room's bottom, its margins included, as
- * `padHeaderReach` judges it: its toggle `PAD_MARGIN` above the room's bottom, its highest control `PAD_MARGIN` below
- * the room's top. Read from `padAnchor` (a pad placed at the very top of a taller room stands that far, less its own
- * bottom margin, below the room's top), so the pad's geometry stays in `commandPadLayout.ts` alone.
- */
-const OPEN_PAD_NEEDS = TALL_ROOM.height - padAnchor({ side: 'right', height: 0 }, TALL_ROOM, 0).bottom + PAD_MARGIN;
-
 /**
  * The open pad's room where the upper half (`upperHalf`, nothing covering it) is too short for it even reaching over
  * the header (`headerRoom` points between the area's top and the window's safe area): the upper half reaching below
@@ -53,7 +42,7 @@ const OPEN_PAD_NEEDS = TALL_ROOM.height - padAnchor({ side: 'right', height: 0 }
  */
 export function laptopPadRoomBelowFold(upperHalf: LaptopRect, headerRoom: number): LaptopRect | null {
   if (padHeaderReach(upperHalf, 0, headerRoom) !== null) return null;
-  return { ...upperHalf, height: OPEN_PAD_NEEDS - headerRoom };
+  return { ...upperHalf, height: padRequiredHeight(0) - headerRoom };
 }
 
 /**

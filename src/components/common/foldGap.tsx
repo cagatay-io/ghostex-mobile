@@ -12,7 +12,7 @@
  *    `<FoldGapProvider value={foldGap}>`, and give the scroll view `onScroll={foldGap.onScroll}` (chained with an
  *    existing handler) and `scrollEventThrottle={16}`.
  * 2. Render each row as `<FoldGapView kind="row" style={...}>` (or make the row's own root View one), section
- *    titles as `kind="heading"`, and a card that holds rows as `kind="group" boxed` with its rows as `FoldGapView`s
+ *    titles as `kind="heading"`, and a card that holds rows as `kind="group"` with its rows as `FoldGapView`s
  *    inside it. Rows of a virtualised list are units the same way: only the first screen matters at rest.
  * This file takes the fold as an argument and imports no chrome, so the row views that use `FoldGapView`
  * (DrawerBlockView) stay renderable on their own.
@@ -40,10 +40,8 @@ import {
   type ViewProps,
   type ViewStyle,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
-  FOLD_GAP_ROOM_CLEARANCE,
   foldGapFor,
   framesWithoutGap,
   type FoldGap,
@@ -55,7 +53,6 @@ import type { LaptopFold } from './verticalBar/layout';
 type RegisteredUnit = {
   readonly parent: string | null;
   readonly kind: FoldGapUnitKind;
-  readonly boxed: boolean;
   readonly ref: { readonly current: ViewInstance | null };
 };
 
@@ -79,7 +76,6 @@ const AT_REST = 1;
 /** One list's fold gap: measured at rest in the laptop pose (`fold`, from `useLaptopFold`), null elsewhere. */
 export function useFoldGapList(fold: LaptopFold | null): FoldGapList {
   const { height: windowHeight } = useWindowDimensions();
-  const bottomInset = useSafeAreaInsets().bottom;
   const units = useRef(new Map<string, RegisteredUnit>());
   const offset = useRef(0);
   const pending = useRef(false);
@@ -108,8 +104,7 @@ export function useFoldGapList(fold: LaptopFold | null): FoldGapList {
     let left = entries.length;
     const done = (): void => {
       if (current !== pass.current) return;
-      const room = windowHeight - bottomInset - fold.bottom - FOLD_GAP_ROOM_CLEARANCE;
-      const next = foldGapFor(framesWithoutGap(frames, gapRef.current), fold, room);
+      const next = foldGapFor(framesWithoutGap(frames, gapRef.current), fold);
       setGap((previous) =>
         previous?.id === next?.id && Math.abs((previous?.shift ?? 0) - (next?.shift ?? 0)) < 0.5 ? previous : next,
       );
@@ -120,13 +115,13 @@ export function useFoldGapList(fold: LaptopFold | null): FoldGapList {
     }
     for (const [id, unit] of entries) {
       unit.ref.current?.measureInWindow((_x, y, _width, height) => {
-        frames.push({ id, parent: unit.parent, kind: unit.kind, boxed: unit.boxed, top: y, bottom: y + height });
+        frames.push({ id, parent: unit.parent, kind: unit.kind, top: y, bottom: y + height });
         left -= 1;
         if (left === 0) done();
       });
     }
-  }, [fold, windowHeight, bottomInset]);
-  // A scheduled frame always measures with the fold and window of the latest render, never those it was asked under.
+  }, [fold]);
+  // A scheduled frame always measures with the fold of the latest render, never the one it was asked under.
   const latestMeasure = useRef(measure);
   latestMeasure.current = measure;
 
@@ -136,9 +131,10 @@ export function useFoldGapList(fold: LaptopFold | null): FoldGapList {
     scheduled.current = requestAnimationFrame(() => latestMeasure.current());
   }, [fold]);
 
-  // A fold that comes, goes or moves, or a window that changes, places the gap again (or drops it). The cleanup
-  // drops the frame queued under the old fold and window and invalidates a measurement still waiting for native
-  // frames, so neither can put back a gap the pose no longer has (the gap belongs to the laptop pose).
+  // A fold that comes, goes or moves, or a window that changes (which can move the units in the window without a
+  // layout of their own), places the gap again (or drops it). The cleanup drops the frame queued under the old fold
+  // and window and invalidates a measurement still waiting for native frames, so neither can put back a gap the pose
+  // no longer has (the gap belongs to the laptop pose).
   useEffect(() => {
     if (fold === null) setGap(null);
     else requestMeasure();
@@ -147,7 +143,7 @@ export function useFoldGapList(fold: LaptopFold | null): FoldGapList {
       scheduled.current = null;
       pass.current += 1;
     };
-  }, [fold, measure, requestMeasure]);
+  }, [fold, windowHeight, requestMeasure]);
 
   const onScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>): void => {
@@ -174,19 +170,17 @@ export function useFoldGapList(fold: LaptopFold | null): FoldGapList {
 
 export type FoldGapViewProps = ViewProps & {
   kind: FoldGapUnitKind;
-  /** A group that is a card (own background or border): it moves as a whole when it fits below the fold. */
-  boxed?: boolean;
   children?: ReactNode;
 };
 
 /** A unit of a fold-gap list: a View that takes the gap's top margin when it is the unit that moves. */
-export function FoldGapView({ kind, boxed = false, style, onLayout, children, ...props }: FoldGapViewProps) {
+export function FoldGapView({ kind, style, onLayout, children, ...props }: FoldGapViewProps) {
   const list = useContext(ListContext);
   const parent = useContext(ParentContext);
   const id = useId();
   const ref = useRef<ViewInstance | null>(null);
   const register = list?.register;
-  useEffect(() => register?.(id, { parent, kind, boxed, ref }), [register, id, parent, kind, boxed]);
+  useEffect(() => register?.(id, { parent, kind, ref }), [register, id, parent, kind]);
   const shift = list?.gap?.id === id ? list.gap.shift : 0;
   const content = kind === 'group' ? <ParentContext.Provider value={id}>{children}</ParentContext.Provider> : children;
   return (
