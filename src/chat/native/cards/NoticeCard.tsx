@@ -183,6 +183,7 @@ export function NoticeCard({
               key={`${num(choice, 'index') ?? index}`}
               choice={obj(choice) ?? {}}
               disabled={busy}
+              regularLabel={rateLimit}
               onPress={() => dispatch({ type: 'answer', answer: asJson(obj(choice)?.answer) })}
             />
           ))}
@@ -190,6 +191,7 @@ export function NoticeCard({
           <DialogChoiceRow
             key="more"
             choice={{ title: str(more, 'label'), detail: str(more, 'detail') }}
+            regularLabel={rateLimit}
             onPress={() => setMoreKey(key)}
           />
         ) : null}
@@ -535,10 +537,12 @@ function useDialogInput(dialog: Record<string, unknown> | null): DialogInput {
 function DialogChoiceRow({
   choice,
   disabled,
+  regularLabel,
   onPress,
 }: {
   choice: Record<string, unknown>;
   disabled?: boolean;
+  regularLabel?: boolean;
   onPress: () => void;
 }) {
   const styles = useStyles();
@@ -574,7 +578,7 @@ function DialogChoiceRow({
       <View style={styles.dialogRowText}>
         <View style={styles.dialogRowTitleLine}>
           <Text
-            style={styles.dialogRowTitle}
+            style={[styles.dialogRowTitle, regularLabel && styles.dialogRowTitleRegular]}
             {...(revealed ? {} : { numberOfLines: 1, ellipsizeMode: 'tail' as const })}
           >
             {str(choice, 'title')}
@@ -643,6 +647,10 @@ const useStyles = themedStyles((P) => ({
     fontSize: CARD_TEXT_SIZE,
     lineHeight: 19,
     fontWeight: '600',
+  },
+  // CDXC:SessionChat 2026-11-01 DECISION: User wants the usage limit choices at normal chat weight while the card title stays bold. Other numbered dialog choices keep their weight.
+  dialogRowTitleRegular: {
+    fontWeight: '400',
   },
   dialogRowSuffix: {
     color: P.cardMuted,
