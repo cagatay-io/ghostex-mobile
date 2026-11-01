@@ -1,8 +1,9 @@
 /**
  * The composer's bottom sheet: the phone form of the chat's popup menus (desktop draws them as
  * child windows, `option_menu/window.rs`; React as `ghostex-session-chat-popup` dropdowns). Dimmed
- * backdrop, a panel in the chat's menu tone, a grabber, an optional title row with a back arrow for
- * nested pages, and keyboard avoidance so a search field inside stays visible.
+ * backdrop, a panel in the chat's menu tone, a grabber (dragging it down closes the sheet), an optional
+ * title row with a back arrow for nested pages, and keyboard avoidance so a search field inside stays
+ * visible.
  *
  * CDXC:SessionChat 2026-10-25 DECISION:
  * User: "we are showing the backdrop, the black backdrop, animating up. It should fade in the
@@ -20,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useKeyboardTop } from '../../../components/common/keyboard/keyboardFrame';
 import KeyboardAvoidingContainer from '../../../components/common/keyboard/KeyboardAvoidingContainer';
 import { useVerticalBarSpace } from '../../../components/common/verticalBar/VerticalBarArea';
+import { useGrabberDrag } from '../../../components/common/useGrabberDrag';
 import { Glyph } from './icons';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 
@@ -61,9 +63,12 @@ export function Sheet(props: SheetProps) {
   const lastProps = useRef(props);
   if (visible) lastProps.current = props;
   const { title, onBack, accessory, children, maxHeight = '80%' } = lastProps.current;
+  const drag = useGrabberDrag(visible, onClose);
+  // The slide up starts once the panel has been measured, so it runs over the panel's own height.
+  const measured = panelHeight > 0;
 
   useEffect(() => {
-    if (visible && mounted) {
+    if (visible && mounted && measured) {
       Animated.timing(progress, {
         toValue: 1,
         duration: OPEN_MS,
@@ -77,10 +82,13 @@ export function Sheet(props: SheetProps) {
         easing: Easing.in(Easing.cubic),
         useNativeDriver: true,
       }).start(({ finished }) => {
-        if (finished) setMounted(false);
+        if (!finished) return;
+        setMounted(false);
+        // The next open measures its own content.
+        setPanelHeight(0);
       });
     }
-  }, [visible, mounted, progress]);
+  }, [visible, mounted, measured, progress]);
 
   const translateY = progress.interpolate({
     inputRange: [0, 1],
@@ -106,14 +114,21 @@ export function Sheet(props: SheetProps) {
           <Animated.View style={[styles.backdrop, { opacity: progress }]} />
         </Pressable>
         <Animated.View
+          testID="sheet-panel"
           onLayout={(event) => setPanelHeight(event.nativeEvent.layout.height)}
           style={[
             styles.panel,
             bar.margin,
-            { maxHeight, paddingBottom: Math.max(bottomInset, 12), transform: [{ translateY }] },
+            {
+              maxHeight,
+              paddingBottom: Math.max(bottomInset, 12),
+              transform: [{ translateY: Animated.add(translateY, drag.offset) }],
+            },
           ]}
         >
-          <View style={styles.grabber} />
+          <View testID="sheet-grabber" style={styles.grabberArea} {...drag.grabber}>
+            <View style={styles.grabber} />
+          </View>
           {title !== undefined || onBack !== undefined || accessory !== undefined ? (
             <View style={styles.titleRow}>
               {onBack !== undefined ? (
@@ -149,9 +164,10 @@ const useStyles = themedStyles((P) => ({
     borderTopRightRadius: 18,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: P.menuBorder,
-    paddingTop: 8,
   },
-  grabber: { width: 36, height: 4, borderRadius: 2, backgroundColor: P.grabber, alignSelf: 'center', marginBottom: 8 },
+  // The strip that takes the drag: the grabber with the room above and below it.
+  grabberArea: { paddingVertical: 8 },
+  grabber: { width: 36, height: 4, borderRadius: 2, backgroundColor: P.grabber, alignSelf: 'center' },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
