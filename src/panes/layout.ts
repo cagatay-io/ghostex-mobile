@@ -1,11 +1,11 @@
 /**
  * The stored pane layout, version 1: per window shape (`stacked` upright, `sideBySide` across and half folded like a
  * laptop) the pane type of each slot, the session a pane is bound to and the divider's position. A session pane's
- * session is the one it shows; a files or Git changes pane's is the session it was opened from, whose project it keeps
- *; a browser pane has none. Only a manual divider drag writes the position; the layout the keyboard
- * rules give is never stored. The reader is the trust boundary for what storage hands back: anything that is not
- * exactly this shape, or that would show one session in two session panes (a terminal can be shown in one place
- * only), is discarded as a whole and one pane is used.
+ * session is the one it shows; a files or Git changes pane's is the session it was opened from, whose project it keeps,
+ * and a usage pane's the session whose computer it keeps; a browser, agents or attention list pane has none. Only a
+ * manual divider drag writes the position; the layout the keyboard rules give is never stored. The reader is the
+ * trust boundary for what storage hands back: anything that is not exactly this shape, or that would show one session
+ * in two session panes (a terminal can be shown in one place only), is discarded as a whole and one pane is used.
  * Free of React Native, so it loads in a plain `bun test`.
  */
 
@@ -22,7 +22,10 @@ export type PaneArrangement = 'stacked' | 'sideBySide';
 
 export type PaneSlot = {
   readonly paneType: PaneType;
-  /** `machineId:sessionId`; set for session panes, and for files and Git changes panes the session they came from. */
+  /**
+   * `machineId:sessionId`; set for session panes, and for files, Git changes and usage panes the session they came
+   * from.
+   */
   readonly sessionKey?: string;
 };
 

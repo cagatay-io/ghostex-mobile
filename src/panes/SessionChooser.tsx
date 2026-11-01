@@ -1,10 +1,10 @@
 /**
- * The chooser in a new pane (the approved panes mockup's): first what else the pane can show, the Web Preview, the
- * project's Files and its Git Changes (the two only for a session with a project folder, as the ⋯ menu offers them),
- * then the computer's agent sessions to open there, each with its agent, project and status in words (a status dot
- * alone would carry it by colour only). The session on screen beside it is not listed. The list is the computer's
- * session list as the Sessions screen has it; while it is being read, a spinner. Every row is a control: half folded
- * like a book they all keep off the fold.
+ * The chooser in a new pane (the approved panes mockup's): first what else the pane can show (the pane types, Files
+ * and Git Changes only for a session with a project folder, as the ⋯ menu offers them), then the computer's agent
+ * sessions to open there, each with its agent, project and status in words (a status dot alone would carry it by
+ * colour only). The session on screen beside it is not listed. The list is the computer's session list as the
+ * Sessions screen has it; while it is being read, a spinner. Every row is a control: half folded like a book they all
+ * keep off the fold. The agents pane (`AgentsPane.tsx`) lists the sessions with the same row.
  */
 
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -31,22 +31,65 @@ export type SessionChooserProps = {
   onPickType: (type: Exclude<SettablePaneType, 'session'>) => void;
 };
 
-function statusWord(session: GhostexSession): string {
-  if (hasPendingQuestion(session)) return PanesCopy.status.question;
+/** A session's status as the pane rows say it (`PanesCopy.status`). */
+export type PaneSessionStatus = keyof typeof PanesCopy.status;
+
+export function paneSessionStatus(session: GhostexSession): PaneSessionStatus {
+  if (hasPendingQuestion(session)) return 'question';
   switch (rowActivityIndicator(session)) {
     case 'approval':
-      return PanesCopy.status.approval;
+      return 'approval';
     case 'failed':
-      return PanesCopy.status.failed;
+      return 'failed';
     case 'working':
-      return PanesCopy.status.working;
+      return 'working';
     case 'attention':
-      return PanesCopy.status.done;
+      return 'done';
     case 'backgroundWork':
-      return PanesCopy.status.backgroundWork;
+      return 'backgroundWork';
     default:
-      return PanesCopy.status.idle;
+      return 'idle';
   }
+}
+
+/** One of the computer's sessions: its agent icon, its title, and its agent, project (`withProject`) and status. */
+export function PaneSessionRow({
+  session,
+  withProject,
+  onPress,
+}: {
+  session: GhostexSession;
+  withProject: boolean;
+  onPress: () => void;
+}) {
+  const iconId = resolveAgentIconId(session.agentIcon, session.agentName);
+  const Icon = AGENT_ICONS[iconId] ?? AGENT_ICONS.terminal;
+  const title = session.displayTitle.length > 0 ? session.displayTitle : SessionCopy.fallbackTitle;
+  const detail = [
+    session.agentName.length > 0 ? session.agentName : session.agent,
+    withProject ? session.projectName : '',
+  ]
+    .filter((part) => part.length > 0)
+    .concat(PanesCopy.status[paneSessionStatus(session)])
+    .join(' · ');
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${title}, ${detail}`}
+      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+      onPress={onPress}
+    >
+      <Icon size={20} color={agentIconTint(iconId)} />
+      <View style={styles.text}>
+        <Text style={styles.title} numberOfLines={1}>
+          {title}
+        </Text>
+        <Text style={styles.detail} numberOfLines={1}>
+          {detail}
+        </Text>
+      </View>
+    </Pressable>
+  );
 }
 
 export default function SessionChooser({
@@ -105,34 +148,9 @@ export default function SessionChooser({
         </View>
       ) : null}
       {summary !== null && sessions.length === 0 ? <Text style={styles.empty}>{PanesCopy.chooserEmpty}</Text> : null}
-      {sessions.map((session) => {
-        const iconId = resolveAgentIconId(session.agentIcon, session.agentName);
-        const Icon = AGENT_ICONS[iconId] ?? AGENT_ICONS.terminal;
-        const title = session.displayTitle.length > 0 ? session.displayTitle : SessionCopy.fallbackTitle;
-        const detail = [session.agentName.length > 0 ? session.agentName : session.agent, session.projectName]
-          .filter((part) => part.length > 0)
-          .concat(statusWord(session))
-          .join(' · ');
-        return (
-          <Pressable
-            key={session.sessionId}
-            accessibilityRole="button"
-            accessibilityLabel={`${title}, ${detail}`}
-            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-            onPress={() => onPick(session)}
-          >
-            <Icon size={20} color={agentIconTint(iconId)} />
-            <View style={styles.text}>
-              <Text style={styles.title} numberOfLines={1}>
-                {title}
-              </Text>
-              <Text style={styles.detail} numberOfLines={1}>
-                {detail}
-              </Text>
-            </View>
-          </Pressable>
-        );
-      })}
+      {sessions.map((session) => (
+        <PaneSessionRow key={session.sessionId} session={session} withProject onPress={() => onPick(session)} />
+      ))}
     </ScrollView>
   );
 }

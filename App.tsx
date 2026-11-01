@@ -75,6 +75,7 @@ import ChangesScreen from './src/screens/ChangesScreen';
 import DocsScreen from './src/screens/DocsScreen';
 import DocViewerScreen from './src/screens/DocViewerScreen';
 import SshAccessHelpScreen from './src/screens/SshAccessHelpScreen';
+import UsageScreen from './src/screens/UsageScreen';
 import { useWebPreviewStore } from './src/webPreview/store';
 import {
   AddProjectCopy,
@@ -84,6 +85,7 @@ import {
   FindPromptsCopy,
   MachineCopy,
   NotificationsCopy,
+  PanesCopy,
   SettingsCopy,
   SshAccessCopy,
   TailscaleFormCopy,
@@ -273,6 +275,7 @@ export default function App() {
                     component={AttentionListScreen}
                     options={{ title: NotificationsCopy.title }}
                   />
+                  <Stack.Screen name="Usage" component={UsageScreen} options={{ title: PanesCopy.usageType }} />
                   <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: SettingsCopy.title }} />
                   <Stack.Screen
                     name="SettingsPage"

@@ -43,6 +43,8 @@ import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GhostexNative, GhostexTerminalView } from '../../modules/ghostex-native/src';
+import { sessionDeepLink } from '../app/deepLinkHandler';
+import type * as DeepLinksModule from '../app/deepLinks';
 import ProgressOverlay from '../components/common/ProgressOverlay';
 import PromptDialog from '../components/common/PromptDialog';
 import { useKeyboardState, useKeyboardTop } from '../components/common/keyboard/keyboardFrame';
@@ -109,6 +111,7 @@ import { hasPassword } from '../machines/credentials';
 import { useInventoryStore } from '../inventory/store';
 import { sessionNotesOnIn } from '../sessions/sessionNotesSwitch';
 import type { RootStackParamList } from '../navigation/types';
+import type { OpenSessionTarget } from '../notifications/AttentionList';
 import { contextSessionFor } from '../files/sessionContext';
 import { FORK_AGENT_ICONS, renameInitialTitle } from '../sessions/sessionCommands';
 import { useSettingsStore } from '../settings/store';
@@ -474,6 +477,37 @@ export default function TerminalScreen({ navigation, route }: Props) {
     navigation.popTo('Sessions');
   }, [dismissKeyboard, navigation]);
 
+  // A question opened from the attention list pane: its chat view stands full screen while the panes wait, and the
+  // screen's Back (button and side bar entry) goes back to them instead of to Sessions: the session that was beside the
+  // list is selected again, or, when the question was that session's, it shows its terminal again, so the stored
+  // layout is there as it was. Over as soon as that chat view is left another way (its terminal view, another session);
+  // every other way into a chat (the Notifications screen, a notification tap) keeps Back to Sessions.
+  const [paneQuestion, setPaneQuestion] = useState<{ chatSessionKey: string; returnSessionKey: string } | null>(null);
+  useEffect(() => {
+    if (paneQuestion !== null && (selectedSessionKey !== paneQuestion.chatSessionKey || !chatModeActive)) {
+      setPaneQuestion(null);
+    }
+  }, [paneQuestion, selectedSessionKey, chatModeActive]);
+  const goBack = useCallback((): void => {
+    const question = paneQuestion;
+    setPaneQuestion(null);
+    const store = useTerminalStore.getState();
+    if (
+      question === null ||
+      store.selectedSessionKey !== question.chatSessionKey ||
+      !store.tabs.some((tab) => tab.sessionKey === question.returnSessionKey)
+    ) {
+      showSessions();
+      return;
+    }
+    dismissKeyboard();
+    if (question.returnSessionKey === question.chatSessionKey) {
+      store.setSessionViewMode(question.chatSessionKey, 'terminal');
+    } else {
+      store.selectTab(question.returnSessionKey);
+    }
+  }, [paneQuestion, dismissKeyboard, showSessions]);
+
   // Android Back always switches to Sessions and is never allowed to fall
   // through to the system app-exit behavior.
   useFocusEffect(
@@ -530,8 +564,9 @@ export default function TerminalScreen({ navigation, route }: Props) {
   const paneArrangement: PaneArrangement = foldShown !== null || windowWidth > windowHeight ? 'sideBySide' : 'stacked';
   const panes = usePaneHost({ offered: panesOffered, arrangement: paneArrangement });
   const twoPanes = panes.display.kind === 'panes' ? panes.display : null;
-  // A browser, files or Git changes pane tapped last is the active one: the pad's keys, the text editor and Upload
-  // would reach no terminal there, so they are not shown (the approved panes mockup).
+  // A pane without a terminal (browser, files, Git changes, agents, attention list, usage) tapped last is the active
+  // one: the pad's keys, the text editor and Upload would reach no terminal there, so they are not shown (the approved
+  // panes mockup).
   const terminalPaneActive = twoPanes === null || twoPanes.slots[twoPanes.active].kind === 'session';
   // The Befehlspad: over the shown terminal while it is switched on, where the terminal slides with the keyboard
   // (iOS; never in chat view).
@@ -763,11 +798,18 @@ export default function TerminalScreen({ navigation, route }: Props) {
     setHeldSessionKey(padSessionKey);
     setPadHeld(false);
   }
+  // The stack's swipe back would also leave for Sessions past the panes waiting behind a question opened from the
+  // attention list pane, so it is not offered while such a chat view stands: Back is the way back there. Turned off
+  // rather than caught (`usePreventRemove`), whose iOS path lets the native pop begin, cancels it and puts the screen
+  // back into the native stack. One writer for both, with the pad's two options: the swipe is off while a finger is on
+  // the pad's toggle or such a question stands, so letting the pad go during the question keeps it off; once neither
+  // holds, the screen keeps the stack's own swipe.
+  const swipeBackOff = padHeld || paneQuestion !== null;
   useLayoutEffect(() => {
-    if (!padHeld) return;
+    if (!swipeBackOff) return;
     navigation.setOptions({ gestureEnabled: false, gestureResponseDistance: NO_SWIPE_BACK_START });
     return () => navigation.setOptions({ gestureEnabled: undefined, gestureResponseDistance: undefined });
-  }, [navigation, padHeld]);
+  }, [navigation, swipeBackOff]);
   // The round buttons with the pad switched off stand above what covers the terminal (in the laptop pose: the fold).
   const floatingLift =
     laptopFold !== null ? obstruction : slidesWithKeyboard ? Math.max(0, bottomInset - insets.bottom) : 0;
@@ -851,8 +893,8 @@ export default function TerminalScreen({ navigation, route }: Props) {
   }, []);
 
   // A touch in a pane makes it the active one (the pane tapped last): a session pane's session is selected where it
-  // stands, not scrolled, and its attention acknowledged as a tap on its tab does; a browser, files or Git changes pane
-  // only becomes the active one. The keyboard follows below.
+  // stands, not scrolled, and its attention acknowledged as a tap on its tab does; a pane without a terminal only
+  // becomes the active one. The keyboard follows below.
   const activatePane = useCallback(
     (slot: PaneIndex): void => {
       const content = twoPanes?.slots[slot];
@@ -871,8 +913,8 @@ export default function TerminalScreen({ navigation, route }: Props) {
   // notification, a pick in the chooser, the selected tab or the active pane closing, which leaves the other terminal
   // alone on screen), while the keyboard is up the new active terminal takes it, once that terminal is open, so typing
   // never goes to the other pane. The text editor keeps the keyboard while it is open, and a keyboard the person
-  // lowered stays down. With one pane a change of tab moves no keyboard, as before. A browser, files or Git changes
-  // pane becoming the active one takes the keyboard from the terminal: typing goes to the active pane, into a field of
+  // lowered stays down. With one pane a change of tab moves no keyboard, as before. A pane without a terminal
+  // becoming the active one takes the keyboard from the terminal: typing goes to the active pane, into a field of
   // its own once one is tapped. From such a pane the keyboard comes back the same way: up in one of its fields, it
   // goes to the terminal that becomes active (a touch in the session pane, the tab strip, a pick in the chooser), or
   // to the session left alone on screen when either pane closes.
@@ -880,7 +922,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
   const activePaneSessionKey = activePaneContent?.kind === 'session' ? activePaneContent.sessionKey : null;
   const otherPaneActive = activePaneContent !== null && activePaneContent.kind !== 'session';
   // The terminal typing goes to: the active pane's, or with one pane the terminal on screen; and the terminal beside
-  // it: the other session pane's, or beside a browser, files or Git changes pane the session pane's.
+  // it: the other session pane's, or beside a pane without a terminal the session pane's.
   const typingInPanes = twoPanes !== null;
   const typingSessionKey = typingInPanes ? activePaneSessionKey : mountedTerminalSessionKey;
   const besideContent = otherPaneActive ? twoPanes?.slots.find((content) => content.kind === 'session') : undefined;
@@ -915,7 +957,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
         (typingInPanes ? previous.inPanes : typingSessionKey === previous.beside);
       keyboardFollows.current = follows ? typingSessionKey : null;
     }
-    // From a terminal pane to a browser, files or Git changes pane: the terminal lets the keyboard go.
+    // From a terminal pane to a pane without a terminal: the terminal lets the keyboard go.
     if (otherPaneActive && previous.inPanes && previous.sessionKey !== null && keyboardVisible) {
       void GhostexNative.blurTerminal(previous.sessionKey).catch(() => undefined);
     }
@@ -935,29 +977,64 @@ export default function TerminalScreen({ navigation, route }: Props) {
     panesOffered,
   ]);
 
-  // The chooser's pick opens the session beside the one on screen, as a terminal: a pane shows no chat.
+  // A session opened from a pane goes into the session pane as a terminal (a pane shows no chat): the chooser's pick
+  // beside the session on screen, a session of the agents pane or a row of the attention list beside them. Any
+  // computer's: the attention list spans them all.
+  const openPaneSession = useCallback((machineId: string, sessionId: string): void => {
+    const machine = machineTargetFor(machineId);
+    if (machine === null) return;
+    const store = useTerminalStore.getState();
+    const sessionKey = attachSessionKey(machine.id, sessionId);
+    if (store.chatModeArmed(sessionKey)) store.setSessionViewMode(sessionKey, 'terminal');
+    // The session on screen stays beside a pick: it is the pane's before the pick takes the selection, so making room
+    // for the pick at the warm-terminal limit never closes it.
+    if (store.selectedSessionKey !== sessionKey) store.setPaneSessionKey(store.selectedSessionKey);
+    const record = useInventoryStore
+      .getState()
+      .inventoriesByMachineId[machine.id]?.summary?.sessions.find((entry) => entry.sessionId === sessionId);
+    void store
+      .attachSession(machine, {
+        sessionId,
+        ...(record !== undefined && record.projectId.length > 0 ? { projectId: record.projectId } : {}),
+        ...(record !== undefined && record.displayTitle.length > 0 ? { title: record.displayTitle } : {}),
+      })
+      .catch(() => {
+        // The pane shows the failure with Retry (`TerminalStateOverlay`).
+      });
+  }, []);
   const activeMachineId = activeTab?.machineId ?? null;
   const pickPaneSession = useCallback(
     (session: GhostexSession): void => {
-      const machine = activeMachineId === null ? null : machineTargetFor(activeMachineId);
-      if (machine === null) return;
-      const store = useTerminalStore.getState();
-      const sessionKey = attachSessionKey(machine.id, session.sessionId);
-      if (store.chatModeArmed(sessionKey)) store.setSessionViewMode(sessionKey, 'terminal');
-      // The session on screen stays beside the pick: it is the pane's before the pick takes the selection, so making
-      // room for the pick at the warm-terminal limit never closes it.
-      if (store.selectedSessionKey !== sessionKey) store.setPaneSessionKey(store.selectedSessionKey);
-      void store
-        .attachSession(machine, {
-          sessionId: session.sessionId,
-          ...(session.projectId.length > 0 ? { projectId: session.projectId } : {}),
-          ...(session.displayTitle.length > 0 ? { title: session.displayTitle } : {}),
-        })
-        .catch(() => {
-          // The pane shows the failure with Retry (`TerminalStateOverlay`).
-        });
+      if (activeMachineId !== null) openPaneSession(activeMachineId, session.sessionId);
     },
-    [activeMachineId],
+    [activeMachineId, openPaneSession],
+  );
+  // A row of the attention list pane: its session beside it, a question at its question card in the chat view, full
+  // screen, as the Notifications screen opens it. The chat view has no panes; Back there (`goBack`) or its terminal
+  // view brings the layout back.
+  const openAttentionTarget = useCallback(
+    (target: OpenSessionTarget): void => {
+      if (target.question) {
+        // The app's link module (with its navigation container) loads on the first question opened here, as the
+        // browser pane's module does: the terminal screen loads without it, as before.
+        const { openDeepLink } = require('../app/deepLinks') as typeof DeepLinksModule;
+        const returnSessionKey = useTerminalStore.getState().selectedSessionKey;
+        openDeepLink(sessionDeepLink({ machineId: target.machineId, sessionId: target.sessionId, view: 'question' }));
+        // The chat view came at once (the session is in the computer's list): Back goes back to the panes.
+        const store = useTerminalStore.getState();
+        const chatSessionKey = attachSessionKey(target.machineId, target.sessionId);
+        if (
+          returnSessionKey !== null &&
+          store.selectedSessionKey === chatSessionKey &&
+          store.chatModeArmed(chatSessionKey)
+        ) {
+          setPaneQuestion({ chatSessionKey, returnSessionKey });
+        }
+        return;
+      }
+      openPaneSession(target.machineId, target.sessionId);
+    },
+    [openPaneSession],
   );
 
   // The header's Panes button: the chooser in a second slot, or with two panes the second one closed.
@@ -979,8 +1056,8 @@ export default function TerminalScreen({ navigation, route }: Props) {
     twoPanes?.active ??
     0;
 
-  // Folded while a browser, files or Git changes pane is the active one: its content opens full screen, as the Web
-  // Preview, Files or Changes screen (`openPaneFullScreen`). The layout waits for the unfolded window.
+  // Folded while a pane other than a session is the active one: its content opens full screen, as the screen the app
+  // has for it (`openPaneFullScreen`). The layout waits for the unfolded window.
   const hasPaneSlots = (foldDivisions?.length ?? 0) > 0;
   const lastActivePane = useRef<PaneContent | null>(null);
   useEffect(() => {
@@ -1190,7 +1267,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
       accessibilityLabel={DuoChromeCopy.back}
       hitSlop={8}
       style={buttonStyle}
-      onPress={showSessions}
+      onPress={goBack}
     >
       <ChevronLeftIcon size={22} color={GhostexPalette.FOREGROUND} />
     </Pressable>
@@ -1223,7 +1300,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
           key: 'back',
           label: DuoChromeCopy.back,
           icon: (size) => <ChevronLeftIcon size={size} color={GhostexPalette.FOREGROUND} />,
-          onPress: showSessions,
+          onPress: goBack,
         },
         ...(panesOffered
           ? [
@@ -1268,7 +1345,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
       chatCapable,
       chatModeActive,
       toggleChatView,
-      showSessions,
+      goBack,
       openMenu,
       panesOffered,
       showsTwoPanes,
@@ -1414,6 +1491,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
                 onPickType={(type) => {
                   if (chooserSlot !== null) panes.setSlotType(chooserSlot, type);
                 }}
+                onOpenAttention={openAttentionTarget}
                 navigation={navigation}
               />
             )}
@@ -1488,7 +1566,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
           closed pad's toggle; when the user moved the pad away from the right edge they keep their own corner.
           iOS: while the keyboard is up and the pad is off or closed, the keyboard button shows as its dismiss
           whatever its setting, so one tap hides the keyboard; with the pad on it is then the only one there. Not
-          while a browser, files or Git changes pane is the active one: they act on a terminal.
+          while a pane without a terminal is the active one: they act on a terminal.
         */}
         {!chatModeActive &&
           terminalPaneActive &&

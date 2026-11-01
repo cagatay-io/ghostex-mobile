@@ -18,7 +18,14 @@ import type { PaneArrangement } from './layout';
 import { usePaneProjectOffered } from './paneProject';
 import { AVAILABLE_PANE_TYPES } from './paneTypes';
 import { DEFAULT_DIVIDER_RATIO } from './divider';
-import { paneEntryOf, resolvePanes, type PaneContent, type PaneDisplay, type PaneEntry } from './resolve';
+import {
+  machineOfSessionKey,
+  paneEntryOf,
+  resolvePanes,
+  type PaneContent,
+  type PaneDisplay,
+  type PaneEntry,
+} from './resolve';
 import { usePaneStore } from './store';
 
 export type PaneHostInput = {
@@ -28,7 +35,7 @@ export type PaneHostInput = {
 };
 
 /** The pane types a slot can be set to; Session opens the chooser there. */
-export type SettablePaneType = 'session' | 'browser' | 'files' | 'git';
+export type SettablePaneType = 'session' | 'browser' | 'files' | 'agents' | 'git' | 'usage' | 'attention';
 
 export type PaneHost = {
   display: PaneDisplay;
@@ -44,8 +51,8 @@ export type PaneHost = {
   setRatio: (ratio: number) => void;
   /**
    * Sets what a slot shows, the other slot keeping its content; the slot becomes the active one. Files and Git changes
-   * keep the project of the session the slot showed, or else of the selected session. The only session
-   * pane keeps its session: the selected session is always a pane's.
+   * keep the project of the session the slot showed, or else of the selected session, usage that session's computer.
+   * The only session pane keeps its session: the selected session is always a pane's.
    */
   setSlotType: (slot: PaneIndex, type: SettablePaneType) => void;
   /**
@@ -54,10 +61,6 @@ export type PaneHost = {
    */
   typeOffered: (slot: PaneIndex, type: SettablePaneType) => boolean;
 };
-
-function machineOf(sessionKey: string): string {
-  return sessionKey.slice(0, sessionKey.indexOf(':'));
-}
 
 type SessionContent = Extract<PaneContent, { kind: 'session' }>;
 
@@ -84,7 +87,7 @@ export function usePaneHost({ offered, arrangement }: PaneHostInput): PaneHost {
         carried,
         activeSlot,
         isOpen: (key) => tabs.some((tab) => tab.sessionKey === key),
-        isKnown: (key) => machines.some((machine) => machine.id === machineOf(key)),
+        isKnown: (key) => machines.some((machine) => machine.id === machineOfSessionKey(key)),
       }),
     [offered, hydrated, arrangement, selectedSessionKey, layout, chooser, carried, activeSlot, tabs, machines],
   );
@@ -136,7 +139,7 @@ export function usePaneHost({ offered, arrangement }: PaneHostInput): PaneHost {
   useEffect(() => {
     if (paneSessionKey === null || restored.current.has(paneSessionKey)) return;
     if (useTerminalStore.getState().tabs.some((tab) => tab.sessionKey === paneSessionKey)) return;
-    const machine = machineTargetFor(machineOf(paneSessionKey));
+    const machine = machineTargetFor(machineOfSessionKey(paneSessionKey));
     if (machine === null) return;
     restored.current.add(paneSessionKey);
     const sessionId = paneSessionKey.slice(paneSessionKey.indexOf(':') + 1);
@@ -178,8 +181,8 @@ export function usePaneHost({ offered, arrangement }: PaneHostInput): PaneHost {
         panes.closeChooser();
         return;
       }
-      // One pane again: the screen shows the selected session, so beside a browser, files or Git changes pane the
-      // session pane stays whichever of the two closes.
+      // One pane again: the screen shows the selected session, so beside a pane without a terminal the session pane
+      // stays whichever of the two closes.
       panes.closePanes(arrangement);
       // The pane that stays takes the keyboard and the pad.
       const staying = display.slots[slot === 0 ? 1 : 0];
@@ -208,7 +211,8 @@ export function usePaneHost({ offered, arrangement }: PaneHostInput): PaneHost {
       }
       if (current.kind === 'session' && beside.kind !== 'session') return;
       const origin = current.kind === 'session' ? current.sessionKey : selected;
-      const content: PaneContent = type === 'browser' ? { kind: 'browser' } : { kind: type, origin };
+      const content: PaneContent =
+        type === 'files' || type === 'git' || type === 'usage' ? { kind: type, origin } : { kind: type };
       const entry = paneEntryOf(content);
       const besideEntry = paneEntryOf(beside);
       if (entry === null || besideEntry === null) return;

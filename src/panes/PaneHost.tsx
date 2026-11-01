@@ -33,8 +33,9 @@ import type { WindowRect } from '../../modules/ghostex-native/src/GhostexNative.
 import { measureInWindow } from '../components/common/measureInWindow';
 import ContextMenu from '../components/sessions/ContextMenu';
 import { ChevronDownIcon, CloseIcon, GripIcon } from '../components/terminal/icons';
-import { PanesCopy, SessionCopy } from '../copy';
+import { PanesCopy, SessionCopy, UsageCopy } from '../copy';
 import { useInventoryStore } from '../inventory/store';
+import { machineDisplayLabel, useMachinesStore } from '../machines/store';
 import { useTerminalStore } from '../terminal/sessions';
 import { colorWithOpacity, GhostexPalette, GhostexRadii } from '../theme/palette';
 import { remoteDisplayAddress } from '../webPreview/urls';
@@ -53,7 +54,7 @@ import {
 import type { PaneArrangement } from './layout';
 import { usePaneProject } from './paneProject';
 import { AVAILABLE_PANE_TYPES } from './paneTypes';
-import type { PaneContent } from './resolve';
+import { machineOfSessionKey, type PaneContent } from './resolve';
 import { usePaneStore } from './store';
 import type { SettablePaneType } from './usePaneHost';
 
@@ -96,6 +97,7 @@ function contentKey(content: PaneContent): string {
       return content.sessionKey;
     case 'files':
     case 'git':
+    case 'usage':
       return `${content.kind}:${content.origin}`;
     default:
       return content.kind;
@@ -104,7 +106,8 @@ function contentKey(content: PaneContent): string {
 
 /**
  * The title a pane's bar shows: a session's name as the session list has it, else its tab's; a browser pane's page
- * (the type's name at the Web Preview's start); a files or Git changes pane's project.
+ * (the type's name at the Web Preview's start); a files or Git changes pane's project; a usage pane's computer;
+ * the type's name for the agents and attention list panes.
  */
 function usePaneTitle(content: PaneContent): string {
   const sessionKey = content.kind === 'session' ? content.sessionKey : null;
@@ -119,6 +122,11 @@ function usePaneTitle(content: PaneContent): string {
         )?.displayTitle ?? ''),
   );
   const project = usePaneProject(content.kind === 'files' || content.kind === 'git' ? content.origin : '');
+  const usageMachine = useMachinesStore((state) =>
+    content.kind === 'usage'
+      ? (state.machines.find((machine) => machine.id === machineOfSessionKey(content.origin)) ?? null)
+      : null,
+  );
   const page = usePaneStore((state) => (content.kind === 'browser' ? (state.browserPage?.page ?? null) : null));
   switch (content.kind) {
     case 'chooser':
@@ -129,6 +137,12 @@ function usePaneTitle(content: PaneContent): string {
       return page.path === undefined || page.path === '/'
         ? `localhost:${page.remotePort}`
         : remoteDisplayAddress(page.remotePort, page.path);
+    case 'agents':
+      return PanesCopy.agentsType;
+    case 'attention':
+      return PanesCopy.attentionType;
+    case 'usage':
+      return usageMachine === null ? PanesCopy.usageType : UsageCopy.title(machineDisplayLabel(usageMachine));
     case 'files':
     case 'git':
       return project.kind === 'project' && project.project.projectName.length > 0

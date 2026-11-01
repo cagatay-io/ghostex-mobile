@@ -1,8 +1,9 @@
 /**
- * What a pane shows, by its content: a session's terminal, the chooser in a new pane, the computer's Web Preview, or
- * the files or Git changes of the project the pane was opened from. Each pane type of `paneTypes.tsx`
- * has its body here; the browser, files and Git changes bodies are the Web Preview, Files and Changes screens' own.
- * Every body but a terminal keeps its controls off a book fold by `frame.controlInset`.
+ * What a pane shows, by its content: a session's terminal, the chooser in a new pane, the computer's Web Preview, the
+ * files or Git changes of the project the pane was opened from, the computer's agent sessions, the attention list or
+ * the usage of the computer the pane was opened for. Each pane type of `paneTypes.tsx` has its body here; the browser,
+ * files, Git changes and attention list bodies are the Web Preview, Files, Changes and Notifications screens' own, the
+ * usage body the Usage screen's. Every body but a terminal keeps its controls off a book fold by `frame.controlInset`.
  */
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -10,11 +11,14 @@ import { lazy, Suspense } from 'react';
 
 import type { GhostexSession } from '../contract/mobileSummary';
 import type { RootStackParamList } from '../navigation/types';
+import type { OpenSessionTarget } from '../notifications/AttentionList';
 import { ChangesView } from '../screens/ChangesScreen';
 import { DocsBrowser } from '../screens/DocsScreen';
+import UsageView from '../usage/UsageView';
+import AgentsPane from './AgentsPane';
 import type { PaneFrame } from './PaneHost';
 import ProjectPane from './ProjectPane';
-import type { PaneContent } from './resolve';
+import { machineOfSessionKey, type PaneContent } from './resolve';
 import SessionChooser from './SessionChooser';
 import SessionPane from './SessionPane';
 import type { SettablePaneType } from './usePaneHost';
@@ -24,18 +28,24 @@ import type { SettablePaneType } from './usePaneHost';
  * without it, as it did before a pane could show the Web Preview.
  */
 const BrowserPane = lazy(async () => require('./BrowserPane') as typeof import('./BrowserPane'));
+/** The attention list's module, with the app's notification and link modules, loads with the first attention pane. */
+const AttentionPane = lazy(async () => require('./AttentionPane') as typeof import('./AttentionPane'));
 
 export type PaneContentViewProps = {
   content: PaneContent;
   frame: PaneFrame;
-  /** The computer of the session on screen; the chooser lists its sessions, a browser pane is its Web Preview. */
+  /** The computer of the session on screen; the chooser and the agents pane list its sessions, a browser pane is its
+   * Web Preview. */
   machineId: string;
   /** The session on screen beside the chooser. */
   besideSessionId: string | undefined;
   /** The session on screen has a project with a folder: the chooser offers Files and Git Changes. */
   projectOffered: boolean;
+  /** A session picked in the chooser or the agents pane, on `machineId`. */
   onPickSession: (session: GhostexSession) => void;
   onPickType: (type: Exclude<SettablePaneType, 'session'>) => void;
+  /** A row opened in the attention list pane. */
+  onOpenAttention: (target: OpenSessionTarget) => void;
   /** Opens a file from a files pane in the full-screen viewer, and a Ghostex page in the Web preview. */
   navigation: Pick<NativeStackNavigationProp<RootStackParamList>, 'push' | 'navigate'>;
 };
@@ -48,6 +58,7 @@ export default function PaneContentView({
   projectOffered,
   onPickSession,
   onPickType,
+  onOpenAttention,
   navigation,
 }: PaneContentViewProps) {
   switch (content.kind) {
@@ -90,6 +101,22 @@ export default function PaneContentView({
             />
           )}
         </ProjectPane>
+      );
+    case 'agents':
+      return <AgentsPane machineId={machineId} controlInset={frame.controlInset} onPick={onPickSession} />;
+    case 'attention':
+      return (
+        <Suspense fallback={null}>
+          <AttentionPane controlInset={frame.controlInset} onOpenSession={onOpenAttention} />
+        </Suspense>
+      );
+    case 'usage':
+      return (
+        <UsageView
+          key={content.origin}
+          machineId={machineOfSessionKey(content.origin)}
+          placement={{ kind: 'pane', controlInset: frame.controlInset }}
+        />
       );
     case 'chooser':
       return (

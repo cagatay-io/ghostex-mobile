@@ -1085,6 +1085,21 @@ export const PanesCopy = {
   filesTypeDescription: 'The project’s files',
   gitType: 'Git Changes',
   gitTypeDescription: 'Changed files and their diff',
+  agentsType: 'Agents',
+  agentsTypeDescription: 'All sessions with their status',
+  usageType: 'Usage',
+  usageTypeDescription: 'Claude and Codex limits',
+  attentionType: 'Attention',
+  attentionTypeDescription: 'Notifications from your agents',
+  /** The agents pane's summary over its sessions (the approved panes mockup's chips). */
+  agentsSummary: 'Summary',
+  agentsChip: {
+    question: (count: number) => `${count} question`,
+    working: (count: number) => `${count} working`,
+    done: (count: number) => `${count} done`,
+    failed: (count: number) => `${count} failed`,
+  },
+  agentsEmpty: 'No sessions on this computer.',
   newPane: 'New pane',
   /** The chooser's pane types, above its sessions. */
   chooserTypesLead: 'Show in this pane',
@@ -1108,6 +1123,26 @@ export const PanesCopy = {
     backgroundWork: 'Background work',
     idle: 'Idle',
   },
+} as const;
+
+/**
+ * The usage of a computer's Claude and Codex accounts, in a usage pane and full screen: the chat Accounts panel's
+ * head, meters and sentences (`AccountsPanel.tsx`), and the computer it is for.
+ */
+export const UsageCopy = {
+  title: (computer: string) => `Usage · ${computer}`,
+  head: 'Accounts & limits',
+  refresh: 'Refresh accounts and usage',
+  loading: 'Reading accounts and usage…',
+  unavailable: 'Usage is unavailable for this login.',
+  /** No saved and enabled account to show: none saved, or every saved one turned off on the computer. */
+  noAccounts: (computer: string) =>
+    `No Claude or Codex account is enabled in Ghostex on ${computer}. Enable or add one there to see its usage and reset times here.`,
+  /** A meter for VoiceOver, as the Accounts panel reads it. */
+  meter: (name: string, value: string, resetIn: string) =>
+    `${name} ${value}${resetIn.length > 0 ? `, resets in ${resetIn}` : ''}`,
+  /** The countdown under a meter's bar. */
+  resetIn: (resetIn: string) => `↻ ${resetIn}`,
 } as const;
 
 /** Titles of the Settings screens that are not pages of their own (the pages' are in screens/settings/pages.ts). */

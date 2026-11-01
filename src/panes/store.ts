@@ -4,7 +4,7 @@
  *
  * A session pane lives as long as its session's tab: a tab that closes (closed, killed, slept, evicted at the warm
  * terminal limit) ends every layout whose session pane shows it, so a pane never stands on a terminal that is gone. A
- * files or Git changes pane only came from a session; that session's tab closing leaves it. After a
+ * files, Git changes or usage pane only came from a session; that session's tab closing leaves it. After a
  * restart no tab is open yet; the pane host attaches the stored sessions again (`usePaneHost`).
  */
 

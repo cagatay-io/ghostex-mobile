@@ -8,8 +8,10 @@
  * the knick, at rest or while scrolling, and the lower half stays empty, as the Settings pages do: it is a scroll view
  * page, which `components/common/foldGap.tsx` keeps above the fold (only its `FlatList` adopters run across it).
  *
- * One component for the full screen (`AttentionListScreen`) and, later, the attention-list pane: the caller decides
- * what opening a session means (`onOpenSession`: navigate to it, or open it in the pane beside).
+ * One component for the full screen (`AttentionListScreen`) and the attention-list pane (`src/panes/`): the
+ * caller decides what opening a session means (`onOpenSession`: navigate to it, or open it in the pane beside). In a
+ * pane (`pane`) the list reaches no side bar and keeps no laptop fold gap (the panes stand above that fold), and its
+ * rows keep off a book fold by the pane's `controlInset`.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -20,11 +22,13 @@ import ContextMenu, { type ContextMenuItem, type MenuAnchor } from '../component
 import { FoldListFrame } from '../components/common/foldGap';
 import { measureInWindow } from '../components/common/measureInWindow';
 import { useLaptopFold } from '../components/common/verticalBar/laptopFold';
+import { NO_BAR_INSETS } from '../components/common/verticalBar/layout';
 import { useScrollToBarEdges } from '../components/common/verticalBar/VerticalBarArea';
 import { agentIconTint, formatLastActive } from '../contract/mobileSummary';
 import { NotificationsCopy } from '../copy';
 import { useInventoryStore } from '../inventory/store';
 import { enabledMachines, machineDisplayLabel, useMachinesStore } from '../machines/store';
+import type { PaneBarInset } from '../panes/geometry';
 import { GhostexPalette, GhostexRadii, GhostexStrokeWidth, SidebarPalette, colorWithOpacity } from '../theme/palette';
 import { useAppearance, type Appearance } from '../theme/useAppearance';
 import { buildAttentionList, type AttentionRow, type ListKind, type MachineFeed } from './attentionRows';
@@ -179,11 +183,18 @@ function EmptyState({
   );
 }
 
-export default function AttentionList({ onOpenSession }: { onOpenSession: (target: OpenSessionTarget) => void }) {
+export default function AttentionList({
+  onOpenSession,
+  pane,
+}: {
+  onOpenSession: (target: OpenSessionTarget) => void;
+  /** Shown in a pane: how far its rows stay off the body's edges to keep off a book fold. */
+  pane?: { controlInset: PaneBarInset };
+}) {
   const appearance = useAppearance();
-  // The list reaches under the iPhone Duo's side bar, its rows keep clear of it.
-  const edges = useScrollToBarEdges(styles.content);
-  const fold = useLaptopFold();
+  // The list reaches under the iPhone Duo's side bar, its rows keep clear of it; not in a pane.
+  const edges = useScrollToBarEdges(styles.content, pane === undefined ? null : NO_BAR_INSETS);
+  const laptopFold = useLaptopFold();
   const { rows, notices, loading, unreachable } = useAttentionRows();
   const [now, setNow] = useState(() => new Date());
   const [menu, setMenu] = useState<{ row: AttentionRow; frame: MenuAnchor } | null>(null);
@@ -306,10 +317,17 @@ export default function AttentionList({ onOpenSession }: { onOpenSession: (targe
 
   return (
     <>
-      <FoldListFrame fold={fold}>
+      <FoldListFrame fold={pane === undefined ? laptopFold : null}>
         <ScrollView
           style={[styles.scroll, edges.scroll]}
-          contentContainerStyle={[styles.content, edges.content]}
+          contentContainerStyle={[
+            styles.content,
+            edges.content,
+            pane !== undefined && {
+              paddingLeft: styles.content.padding + pane.controlInset.left,
+              paddingRight: styles.content.padding + pane.controlInset.right,
+            },
+          ]}
           refreshControl={<RefreshControl refreshing={pulling} onRefresh={pull} tintColor={appearance.muted} />}
         >
           {notices.map((notice) => (

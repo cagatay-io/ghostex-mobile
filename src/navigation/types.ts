@@ -101,6 +101,11 @@ export type RootStackParamList = {
   SettingsPage: { page: SettingsPageId };
   /** Notifications: the attention list, the computers' notification feeds (the bell on the Sessions screen). */
   AttentionList: undefined;
+  /**
+   * Usage: the usage meters of a computer's Claude and Codex accounts, full screen (a usage pane's content when the
+   * Duo folds).
+   */
+  Usage: { machineId: string };
   ExtraKeysEditor: undefined;
   AgentHotkeysEditor: undefined;
   /** Settings > Keyboard > Pad keys: what the Befehlspad's nine positions do. */

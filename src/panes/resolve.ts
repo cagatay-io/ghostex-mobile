@@ -6,9 +6,10 @@
  *   (its terminal can be in one place only).
  * - Selecting any other session puts it into the active pane when that is a session pane, else into the session pane,
  *   as the tab strip does with one pane; that pane becomes the active one.
- * - A browser, files or Git changes pane tapped last stays the active one while the selection stays in the session pane
- *   beside it. Selecting sessions never changes what such a pane shows: files and Git changes keep the project of the
- *   session they were opened from, the browser the computer's Web Preview.
+ * - A browser, files, Git changes, agents, attention list or usage pane tapped last stays the active one while the
+ *   selection stays in the session pane beside it. Selecting sessions never changes what such a pane shows: files and
+ *   Git changes keep the project of the session they were opened from, usage that session's computer, the browser and
+ *   the agents pane show the selected session's computer, the attention list every computer.
  * - While the chooser is open, the session selected next fills its slot.
  * - When the window turns into a shape with nothing stored for it, the two panes on screen before come along into its
  *   slots (the divider in the middle) and are stored for it, rather than one pane.
@@ -25,7 +26,11 @@ export type PaneContent =
   | { readonly kind: 'browser' }
   /** `origin`: the session the pane was opened from (`machineId:sessionId`), whose project it shows. */
   | { readonly kind: 'files'; readonly origin: string }
-  | { readonly kind: 'git'; readonly origin: string };
+  | { readonly kind: 'git'; readonly origin: string }
+  | { readonly kind: 'agents' }
+  | { readonly kind: 'attention' }
+  /** `origin`: the session the pane was opened from, whose computer's usage it shows. */
+  | { readonly kind: 'usage'; readonly origin: string };
 
 /** What a slot stores: a session pane by its session's key, any other pane as its stored slot. */
 export type PaneEntry = string | PaneSlot;
@@ -65,13 +70,20 @@ type Slots = readonly [PaneContent, PaneContent];
 
 const SINGLE: PaneResolution = { display: { kind: 'single' }, store: null };
 const BROWSER: PaneContent = { kind: 'browser' };
+const AGENTS: PaneContent = { kind: 'agents' };
+const ATTENTION: PaneContent = { kind: 'attention' };
 const CHOOSER: PaneContent = { kind: 'chooser' };
 
 function session(sessionKey: string): PaneContent {
   return { kind: 'session', sessionKey };
 }
 
-/** A stored slot's content, or null for one this build cannot show (agents, attention, usage, or no origin). */
+/** The computer of a session key (`machineId:sessionId`), as a usage pane names it from its origin. */
+export function machineOfSessionKey(sessionKey: string): string {
+  return sessionKey.slice(0, sessionKey.indexOf(':'));
+}
+
+/** A stored slot's content, or null for one this build cannot show (files, Git changes or usage without origin). */
 export function paneContentOf(entry: PaneEntry): PaneContent | null {
   if (typeof entry === 'string') return session(entry);
   switch (entry.paneType) {
@@ -79,11 +91,14 @@ export function paneContentOf(entry: PaneEntry): PaneContent | null {
       return entry.sessionKey === undefined ? null : session(entry.sessionKey);
     case 'browser':
       return BROWSER;
+    case 'agents':
+      return AGENTS;
+    case 'attention':
+      return ATTENTION;
     case 'files':
     case 'git':
+    case 'usage':
       return entry.sessionKey === undefined ? null : { kind: entry.paneType, origin: entry.sessionKey };
-    default:
-      return null;
   }
 }
 
@@ -93,9 +108,12 @@ export function paneEntryOf(content: PaneContent): PaneEntry | null {
     case 'session':
       return content.sessionKey;
     case 'browser':
-      return { paneType: 'browser' };
+    case 'agents':
+    case 'attention':
+      return { paneType: content.kind };
     case 'files':
     case 'git':
+    case 'usage':
       return { paneType: content.kind, sessionKey: content.origin };
     case 'chooser':
       return null;
@@ -146,8 +164,11 @@ function showable(input: PaneResolveInput, content: PaneContent): boolean {
       return input.isOpen(content.sessionKey) || input.isKnown(content.sessionKey);
     case 'files':
     case 'git':
+    case 'usage':
       return input.isKnown(content.origin);
     case 'browser':
+    case 'agents':
+    case 'attention':
     case 'chooser':
       return true;
   }
