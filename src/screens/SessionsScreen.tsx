@@ -44,7 +44,7 @@ import {
 } from '../components/common/verticalBar/VerticalBarArea';
 import { useCollapseStore } from '../components/sessions/collapseStore';
 import { useSessionListClock } from '../components/sessions/useSessionListClock';
-import ContextMenu from '../components/sessions/ContextMenu';
+import ContextMenu, { type ContextMenuItem } from '../components/sessions/ContextMenu';
 import SessionLinksSheet from '../chat/native/SessionLinksSheet';
 import { buildDrawerList, hideProjectsWithoutSessions, type DrawerBlock } from '../components/sessions/drawerModel';
 import { drawerStatusLine } from '../components/sessions/drawerStatusLine';
@@ -124,6 +124,7 @@ import { SESSIONS_HEADER_HEIGHT, styles } from './sessions-screen/styles';
 import { useSessionsScreenActions } from './sessions-screen/use-sessions-screen-actions';
 import { useSessionsScreenMenus } from './sessions-screen/use-sessions-screen-menus';
 import { makeSnoozeSession, useUnifiedList } from './sessions-screen/use-unified-list';
+import { machineTabsVisible, noticeMachineId } from './sessions-screen/machineStripPolicy';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Sessions'>;
 
@@ -396,13 +397,6 @@ export default function SessionsScreen({ navigation }: Props) {
     ],
   );
 
-  const pullRefresh = useCallback((): void => {
-    if (machine === null) return;
-    setPullRefreshing(true);
-    const done = (): void => setPullRefreshing(false);
-    void refreshMachineFresh(machine).then(done, done);
-  }, [machine, refreshMachineFresh]);
-
   /*
    * Glyph / failed-card retry. The store flips `retrying` synchronously before
    * its first await, so the tab spins for as long as the attempt really takes;
@@ -418,11 +412,9 @@ export default function SessionsScreen({ navigation }: Props) {
   );
 
   /*
-   * One tab per visible machine, in saved order, then the "+" tab. The strip
-   * shows whenever a machine exists (the "+" and the connection glyph are
-   * useful even with one). The glyph's retry goes through the inventory store
-   * by id and never touches the selection, so retrying an unselected machine
-   * leaves the drawer on the machine it was showing.
+   * Project layout has one tab per visible machine, in saved order, then the "+" tab.
+   * The glyph's retry goes through the inventory store by id and never touches
+   * the selection, so retrying an unselected machine leaves the drawer in place.
    */
   const machineTabs = useMemo((): MachineTabStripItem[] => {
     const tabs = machines.map((entry): MachineTabItem => {
@@ -482,17 +474,6 @@ export default function SessionsScreen({ navigation }: Props) {
       return kept.length === Object.keys(current).length ? current : Object.fromEntries(kept);
     });
   }, [inventoriesByMachineId]);
-  const selectedNotice = useMemo(() => {
-    if (machine === null) return null;
-    const tab = machineTabs.find((item): item is MachineTabItem => !('kind' in item) && item.id === machine.id);
-    return machineNotice(machineDisplayLabel(machine), selectedInventory, tab?.connectionState ?? 'disconnected');
-  }, [machine, machineTabs, selectedInventory]);
-
-  const statusLine = statusOverride ?? drawerStatusLine(
-    machine === null ? null : machineDisplayLabel(machine),
-    selectedInventory,
-    selectedNotice,
-  );
   const recentProjects = selectedInventory?.summary?.recentProjects ?? [];
 
   // -------------------------------------------------------------------------
@@ -556,8 +537,34 @@ export default function SessionsScreen({ navigation }: Props) {
     attach: (target, session) => attach(target, session),
     runBulkSessionActions,
     snoozeSession,
-    openAddProject: (machineId) => navigation.navigate('AddProjectSource', { machineId }),
+    openAddProject: (machineId) =>
+      machines.length > 1
+        ? setOverlay({ kind: 'machinePicker', purpose: 'addProject' })
+        : navigation.navigate('AddProjectSource', { machineId }),
   });
+  const pullRefresh = useCallback((): void => {
+    if (machine === null) return;
+    setPullRefreshing(true);
+    const done = (): void => setPullRefreshing(false);
+    void (unified.on ? refreshAll() : refreshMachineFresh(machine)).then(done, done);
+  }, [machine, unified.on, refreshAll, refreshMachineFresh]);
+  const notices = machines.flatMap((entry) => {
+    const tab = machineTabs.find((item): item is MachineTabItem => !('kind' in item) && item.id === entry.id);
+    const notice = machineNotice(machineDisplayLabel(entry), inventoriesByMachineId[entry.id], tab?.connectionState ?? 'disconnected');
+    return notice === null ? [] : [{ machineId: entry.id, notice }];
+  });
+  const noticeId = noticeMachineId(
+    unified.on,
+    machine?.id ?? null,
+    notices.map(({ machineId, notice }) => ({ machineId, kind: notice.kind })),
+  );
+  const noticeTarget = noticeId === null ? null : machineById(noticeId);
+  const selectedNotice = notices.find(({ machineId }) => machineId === noticeId)?.notice ?? null;
+  const statusLine = statusOverride ?? drawerStatusLine(
+    machine === null ? null : machineDisplayLabel(machine),
+    selectedInventory,
+    unified.on ? null : selectedNotice,
+  );
 
   const {
     summaryFor,
@@ -797,7 +804,7 @@ export default function SessionsScreen({ navigation }: Props) {
         </Pressable>
         {inRail ? null : moreButton}
       </View>
-      {machines.length > 0 ? (
+      {machineTabsVisible(unified.on, machines.length) ? (
         <MachineTabs
           items={machineTabs}
           selectedMachineId={machine === null ? null : machine.id}
@@ -934,22 +941,24 @@ export default function SessionsScreen({ navigation }: Props) {
             }
           />
         )}
-        {machine !== null && selectedNotice !== null ? (
+        {noticeTarget !== null && selectedNotice !== null ? (
           <MachineNotice
-            notice={selectedNotice}
-            collapsed={selectedNotice.kind === 'failure' && shrunkNotices[machine.id] === selectedNotice.failureKey}
+            notice={unified.on && selectedNotice.kind === 'failure'
+              ? { ...selectedNotice, title: `${machineDisplayLabel(noticeTarget)}: ${selectedNotice.title}` }
+              : selectedNotice}
+            collapsed={selectedNotice.kind === 'failure' && shrunkNotices[noticeTarget.id] === selectedNotice.failureKey}
             appearance={sidebarAppearance}
             onShrink={() => {
               if (selectedNotice.kind !== 'failure') return;
-              setShrunkNotices((current) => ({ ...current, [machine.id]: selectedNotice.failureKey }));
+              setShrunkNotices((current) => ({ ...current, [noticeTarget.id]: selectedNotice.failureKey }));
             }}
             onExpand={() =>
               setShrunkNotices((current) =>
-                Object.fromEntries(Object.entries(current).filter(([id]) => id !== machine.id)),
+                Object.fromEntries(Object.entries(current).filter(([id]) => id !== noticeTarget.id)),
               )
             }
-            onReconnect={() => retryMachineWithStatus(machine)}
-            onRemoteSettings={() => navigation.navigate('MachineForm', { machineId: machine.id })}
+            onReconnect={() => retryMachineWithStatus(noticeTarget)}
+            onRemoteSettings={() => navigation.navigate('MachineForm', { machineId: noticeTarget.id })}
           />
         ) : null}
       </View>
@@ -1206,9 +1215,58 @@ export default function SessionsScreen({ navigation }: Props) {
           visible
           title="Ghostex"
           subtitle={machine === null ? undefined : machineDisplayLabel(machine)}
-          items={appMenuItems(machine)}
+          items={unified.on ? [
+            {
+              kind: 'item' as const,
+              key: 'computers',
+              label: 'Computers',
+              onPress: () => setOverlay({ kind: 'machinePicker', purpose: 'select' }),
+            },
+            ...appMenuItems(machine),
+          ] : appMenuItems(machine)}
           onClose={() => setOverlay(NONE)}
           anchor={appMenuAnchor}
+        />
+      ) : null}
+
+      {overlay.kind === 'machinePicker' ? (
+        <ContextMenu
+          visible
+          title={overlay.purpose === 'addProject' ? 'Add project on' : 'Computers'}
+          items={[
+            ...machines.map((entry): ContextMenuItem => ({
+              kind: 'item',
+              key: entry.id,
+              label: machineDisplayLabel(entry),
+              suffix: machineConnectionLine(entry.id),
+              selected: overlay.purpose === 'select' && machine?.id === entry.id,
+              disabled: overlay.purpose === 'addProject' && inventoriesByMachineId[entry.id]?.summary == null,
+              onPress: () => {
+                setOverlay(NONE);
+                if (overlay.purpose === 'addProject') navigation.navigate('AddProjectSource', { machineId: entry.id });
+                else selectMachine(entry.id);
+              },
+            })),
+            ...(overlay.purpose === 'select' ? [{ kind: 'separator' as const, key: 'computer-actions' }, {
+              kind: 'item' as const,
+              key: 'add-computer',
+              label: 'Add a computer',
+              onPress: () => {
+                setOverlay(NONE);
+                navigation.navigate('ConnectChoose');
+              },
+            }] : []),
+            {
+              kind: 'item' as const,
+              key: 'manage-computers',
+              label: 'Manage computers',
+              onPress: () => {
+                setOverlay(NONE);
+                navigation.navigate('Machines');
+              },
+            },
+          ]}
+          onClose={() => setOverlay(NONE)}
         />
       ) : null}
 

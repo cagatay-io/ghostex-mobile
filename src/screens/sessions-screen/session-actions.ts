@@ -70,6 +70,7 @@ export type Overlay =
   | { kind: 'groupMenu'; ctx: GroupContext }
   | { kind: 'parkedMenu'; ctx: ParkedContext }
   | { kind: 'machineMenu'; ctx: MachineContext }
+  | { kind: 'machinePicker'; purpose: 'select' | 'addProject' }
   /** Header hamburger: Search Prompts, Settings, Logout; at its button on the iPhone Duo (`anchor`). */
   | { kind: 'appMenu'; anchor?: MenuAnchor }
   | { kind: 'sectionMenu'; machine: MachineRecord; section: 'projects' }

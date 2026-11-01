@@ -7,11 +7,10 @@
  * User (Q933, Q934): the phone picks Unified or Project itself, in Settings › Sessions list
  * (`sessionsListLayout` in settings/store.ts, first taken from the selected computer's `sidebarView`
  * and never following it after), with its own Group by project and Working section switches. Unified
- * lists every computer's sessions together whichever tab is selected; Project stays one computer at a
- * time. The tabs stay in Unified, since on the phone they are also each computer's connect control,
- * while the Space and Workspace tiles give way to the filter, which narrows by computer, Space and
- * project as on the desktop. Parking, the project groups' order and the swipe buttons still come from
- * the selected computer. Supersedes the 2026-10-30 decision that the phone follows the computer.
+ * lists every computer's sessions together; Project stays one computer at a time. The Space and
+ * Workspace tiles give way to the filter, which narrows by computer, Space and project as on the
+ * desktop. Parking, the project groups' order and the swipe buttons still come from the selected
+ * computer. Supersedes the 2026-10-30 decision that the phone follows the computer.
  */
 
 import { useEffect, useMemo, useReducer, useRef, useState, type ReactElement } from 'react';
@@ -26,7 +25,7 @@ import {
   type UnifiedRow,
   type UnifiedShelf,
 } from '../../contract/unified/build';
-import { unifiedNewSessionTarget, unifiedProjectChoices, type UnifiedProjectChoice } from '../../contract/unified/choices';
+import { unifiedProjectChoices, type UnifiedProjectChoice } from '../../contract/unified/choices';
 import { toggleUnifiedFilter, unifiedFilterLabel, unifiedFilterMenu } from '../../contract/unified/filterMenu';
 import {
   sessionsListSeedOf,
@@ -343,15 +342,17 @@ export function useUnifiedList(deps: UnifiedListDeps) {
     if (projectHeader !== null) setOverlay({ kind: 'agentMenu', ctx: { machine: target, header: projectHeader } });
   };
 
-  /** A group's "+": its one machine, or a menu of its machines. */
+  /** A group's "+": its one reachable machine, or a menu of its reachable machines. */
   const openGroupNewSession = (repoKey: string): void => {
     const choice = choices.find((entry) => entry.repoKey === repoKey);
     if (choice === undefined) return;
-    const reachable = choice.machines.filter((machine) => machine.connected);
+    const reachable = choice.machines.filter(
+      (machine) => machine.connected && (view.filter.machines.length === 0 || view.filter.machines.includes(machine.machineId)),
+    );
     const first = reachable[0];
     if (first === undefined) return;
     if (reachable.length === 1) openPickerIn(first.machineId, first.projectId);
-    else setGroupNewFor(choice);
+    else setGroupNewFor({ ...choice, machines: reachable });
   };
 
   const renderItem: FlatListProps<UnifiedListItem>['renderItem'] = ({ item }) => {
@@ -415,29 +416,19 @@ export function useUnifiedList(deps: UnifiedListDeps) {
     );
   };
 
-  /**
-   * The New session button opens the agent picker in the project the filter narrows to when it is
-   * one project (on the selected computer first), else the open session's project, else the top card's.
-   */
+  /** A picked project asks for a computer when needed; otherwise the open or top card supplies both. */
   const openNewSession = (): void => {
-    const all = [...view.drafts, ...view.pinned, ...view.active, ...view.working, ...view.snoozed, ...view.parked];
-    const open = all.find((row) => selectedSessionKey === attachSessionKey(row.machine, row.session.sessionId));
-    const aimed = unifiedNewSessionTarget(view.filter, choices, open?.session.projectId ?? null);
-    let machineId: string | null = aimed?.machineId ?? null;
-    let projectId: string | null = aimed?.projectId ?? null;
-    if (projectId === null) {
-      const fallback =
-        all.find((row) => selectedSessionKey === attachSessionKey(row.machine, row.session.sessionId)) ?? all[0];
-      if (fallback !== undefined) {
-        machineId = fallback.machine;
-        projectId = fallback.session.projectId;
-      }
+    if (view.filter.repos.length === 1 && choices.some((choice) => choice.repoKey === view.filter.repos[0])) {
+      openGroupNewSession(view.filter.repos[0]);
+      return;
     }
-    if (machineId === null || projectId === null) {
+    const all = [...view.drafts, ...view.pinned, ...view.active, ...view.working, ...view.snoozed, ...view.parked];
+    const fallback = all.find((row) => selectedSessionKey === attachSessionKey(row.machine, row.session.sessionId)) ?? all[0];
+    if (fallback === undefined) {
       if (selectedMachine !== null) openAddProject(selectedMachine.id);
       return;
     }
-    openPickerIn(machineId, projectId);
+    openPickerIn(fallback.machine, fallback.session.projectId);
   };
 
   const filtered = !isUnifiedFilterEmpty(view.filter);
