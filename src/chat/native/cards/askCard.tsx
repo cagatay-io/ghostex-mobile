@@ -259,12 +259,30 @@ export function AskOption({
           <Text style={[styles.optionLabel, { color: other === true && !picked ? P.cardMuted : P.foreground }]}>
             {label}
           </Text>
-          {recommended === true ? <Text style={styles.recommended}>Recommended</Text> : null}
+          {recommended === true ? <RecommendedMark /> : null}
         </View>
         {showDetail ? <Text style={styles.optionDetail}>{detail}</Text> : null}
       </View>
       {keyLabel !== undefined ? <Keycap label={keyLabel} lit={picked} /> : null}
     </Pressable>
+  );
+}
+
+/**
+ * The quiet mark beside the option the agent recommends: a small muted "Recommended" in sentence
+ * case after a faint amber star, with no pill, fill or border.
+ *
+ * CDXC:SessionChat 2026-11-02 DECISION:
+ * User: "make the 'recommended' tag more subtle, not like a pill, and not all caps", first on the HTML pages, then the chat's own question card to match them. The same mark as the desktop (apps/desktop/src/app/native_chat/ask_card.rs `recommended_mark`) and the pages (server/src/visual_pages/kit.rs `.gx-rec`). Supersedes the light-grey Recommended pill.
+ */
+function RecommendedMark() {
+  const styles = useStyles();
+  const P = useTranscriptTheme();
+  return (
+    <View style={styles.recommended}>
+      <Glyph name="star" size={10} color={tint(askColor(P.light), 0.75)} />
+      <Text style={styles.recommendedText}>Recommended</Text>
+    </View>
   );
 }
 
@@ -516,15 +534,15 @@ const useStyles = themedStyles((P) => ({
     lineHeight: 19,
   },
   recommended: {
-    paddingHorizontal: 6,
-    borderWidth: 1,
-    borderRadius: 999,
-    overflow: 'hidden',
-    borderColor: P.light ? P.controlPrimary : 'rgba(229,229,229,0.6)',
-    color: P.controlPrimary,
-    fontSize: 10.5,
-    lineHeight: 16,
-    fontWeight: '600',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  recommendedText: {
+    color: P.muted,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '500',
   },
   dimmed: {
     opacity: 0.55,

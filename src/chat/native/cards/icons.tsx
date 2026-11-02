@@ -40,6 +40,11 @@ const GLYPHS = {
     strokeWidth: 1.8,
   },
   check: { paths: ['M5 12l4 4L19 6'] },
+  /** The Recommended mark's star (desktop `titlebar/star-filled.svg`). */
+  star: {
+    paths: ['m12 17.27-5.18 3.04 1.4-5.9-4.58-3.98 6.04-.5L12 4.34l2.32 5.59 6.04.5-4.58 3.98 1.4 5.9z'],
+    filled: true,
+  },
   pencil: { paths: ['M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4', 'M13.5 6.5l4 4'] },
   x: { paths: ['M18 6l-12 12', 'M6 6l12 12'], strokeWidth: 1.8 },
   clock: { paths: ['M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0', 'M12 7v5l3 3'] },
