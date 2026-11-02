@@ -528,7 +528,9 @@ export function Pill({ pill, open, onPress }: { pill: ChatPill; open: boolean; o
               ? 'terminal-2'
               : pill.id === 'resources'
                 ? 'stack'
-                : 'users'
+                : pill.id === 'stashed'
+                  ? 'stack-push'
+                  : 'users'
         }
         size={12}
         color={P.cardMuted}

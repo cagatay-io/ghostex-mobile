@@ -84,6 +84,7 @@ export function PillsStrip({
   armed,
   onArmedPress,
   links,
+  onStashedPress,
 }: {
   chat: RustChat;
   document: ChatDocument;
@@ -91,6 +92,8 @@ export function PillsStrip({
   /** Opens Delayed Actions; without it the timers are drawn but not pressable. */
   onArmedPress?: () => void;
   links: PillsStripLinks | null;
+  /** Opens Saved prompts: the Stashed pill opens that list rather than a sheet of its own (desktop `chat_pills.rs`). */
+  onStashedPress?: () => void;
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
@@ -127,7 +130,12 @@ export function PillsStrip({
     .map((id) => (document.chatPills ?? []).find((pill) => pill.id === id))
     .filter((pill) => pill !== undefined);
   const panelPills = pills.map((pill) => (
-    <Pill key={pill.id} pill={pill} open={pill.id === menu} onPress={() => setMenu(pill.id)} />
+    <Pill
+      key={pill.id}
+      pill={pill}
+      open={pill.id === menu}
+      onPress={() => (pill.id === 'stashed' ? onStashedPress?.() : setMenu(pill.id))}
+    />
   ));
   // The Links pill is the last one (desktop `links_pill.rs` has the user's words).
   if (links && linksPill !== null) panelPills.push(<LinksPill key="links" pill={linksPill} onPress={links.onOpen} />);

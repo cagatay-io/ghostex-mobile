@@ -363,6 +363,9 @@ export default function NativeChatScreen({
                           document={document}
                           armed={armed}
                           links={links}
+                          {...(sessionId.length > 0 && projectId.length > 0
+                            ? { onStashedPress: () => hostAction('stashedPrompts') }
+                            : {})}
                           {...(openDelayedActions !== undefined ? { onArmedPress: openDelayedActions } : {})}
                         />
                       ),

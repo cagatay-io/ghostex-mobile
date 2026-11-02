@@ -45,6 +45,8 @@ const GLYPHS = {
   clock: { paths: ['M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0', 'M12 7v5l3 3'] },
   /** The Resources pill's glyph (desktop `titlebar/stack.svg`). */
   stack: { paths: ['M12 6l-8 4l8 4l8 -4l-8 -4', 'M4 14l8 4l8 -4'] },
+  /** The Stashed pill's glyph (desktop `titlebar/stack-push.svg`). */
+  'stack-push': { paths: ['M6 10l-2 1l8 4l8 -4l-2 -1', 'M4 15l8 4l8 -4', 'M12 4v7', 'M15 8l-3 3l-3 -3'] },
   /** "Back to open" on a For later row (desktop `titlebar/arrow-back-up.svg`). */
   'arrow-back-up': { paths: ['M9 14l-4 -4l4 -4', 'M5 10h11a4 4 0 1 1 0 8h-1'] },
   'shield-check': {
