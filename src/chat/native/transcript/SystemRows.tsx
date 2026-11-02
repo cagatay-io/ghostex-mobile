@@ -235,6 +235,7 @@ const TONE_COLORS: { [tone: string]: string | null } = { ok: '#34d399', error: '
 /** What a status card's tile shows (`subject` from the core's `suppressed_turn_presentation`). */
 function subjectGlyph(subject: string): GlyphName {
   if (subject === 'compaction') return 'arrows-diagonal-minimize';
+  if (subject === 'command') return 'terminal-2';
   return 'adjustments-horizontal';
 }
 
@@ -243,7 +244,7 @@ export const SuppressedRow = memo(function SuppressedRow({ message }: { message:
   if (suppressed === null) return null;
   switch (str(suppressed, 'kind')) {
     case 'status':
-      return <StatusRows suppressed={suppressed} />;
+      return <StatusRows id={message.id} suppressed={suppressed} />;
     case 'inline':
       return <InlineSuppressed suppressed={suppressed} />;
     default:
@@ -251,7 +252,16 @@ export const SuppressedRow = memo(function SuppressedRow({ message }: { message:
   }
 });
 
-function StatusRows({ suppressed }: { suppressed: JsonRecord }) {
+/**
+ * A slash command's output with more than one line (`expandable`, core `command_output_note`)
+ * shows its first line, and a tap opens the whole output under it (desktop `expandable_status`).
+ */
+function StatusRows({ id, suppressed }: { id: string; suppressed: JsonRecord }) {
+  const { theme } = useTranscriptEnv();
+  const { disclosures } = useNativeChatUi();
+  const expandable = suppressed.expandable === true;
+  const [open, toggle] = useDisclosure(disclosures, `suppressed:${id}`);
+  const body = str(suppressed, 'text');
   const listed = arr(suppressed.statuses)
     .map((status) => obj(status))
     .filter((status): status is JsonRecord => status !== null);
@@ -266,8 +276,19 @@ function StatusRows({ suppressed }: { suppressed: JsonRecord }) {
           label={str(status, 'label')}
           detail={str(status, 'detail')}
           tone={str(status, 'tone')}
+          {...(expandable ? { onPress: toggle } : {})}
         />
       ))}
+      {expandable && open && body.length > 0 ? (
+        <ScrollView
+          nestedScrollEnabled
+          style={[styles.suppressedBody, { borderColor: theme.border, backgroundColor: theme.input }]}
+        >
+          <Text selectable style={[styles.commandText, { color: theme.muted }]}>
+            {body}
+          </Text>
+        </ScrollView>
+      ) : null}
     </View>
   );
 }
@@ -283,11 +304,13 @@ function StatusRowCard({
   label,
   detail,
   tone,
+  onPress,
 }: {
   glyph: GlyphName;
   label: string;
   detail: string;
   tone: string;
+  onPress?: () => void;
 }) {
   const { theme } = useTranscriptEnv();
   const [held, setHeld] = useState(false);
@@ -296,6 +319,7 @@ function StatusRowCard({
   return (
     <View>
       <Pressable
+        {...(onPress !== undefined ? { onPress } : {})}
         onLongPress={() => setHeld(true)}
         onPressOut={() => setHeld(false)}
         accessibilityRole="text"

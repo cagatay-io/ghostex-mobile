@@ -34,7 +34,7 @@ import { useDisclosure } from './state';
 import { InterAgentCard, SentAgentMessageCards } from './AgentMessageCards';
 import { WorkflowCards } from './WorkflowCard';
 import { estimatedLines, StartupDelivery, SuppressedRow, SystemCard } from './SystemRows';
-import { PROSE_LINE, PROSE_SIZE, type TranscriptTheme } from './theme';
+import { MONO_FONT, PROSE_LINE, PROSE_SIZE, type TranscriptTheme } from './theme';
 import { SideQuestionRow } from './SideQuestionRow';
 import { ShellCommandCard, ToolRows } from './ToolRows';
 import { Glyph } from './icons';
@@ -106,7 +106,15 @@ function UserMessage({ message }: { message: ProjectedMessage }) {
   const [open, toggle] = useDisclosure(disclosures, `prompt:${message.id}`);
   const shortened = collapsed.length > 0 && !open;
   const openMenu = useMessageMenu(message, useUserMenuActions(message));
-  const prose = (
+  // A slash command reads as one, in the chat's monospace (core `is_slash_command_line`).
+  const prose = message.slashCommand === true ? (
+    <Text
+      selectable={openMenu === undefined || MESSAGE_TEXT_SELECTABLE}
+      style={[styles.slashCommand, { color: strengthenedText(theme.primary, chatTextStrength, theme.light) }]}
+    >
+      {message.copyText ?? body}
+    </Text>
+  ) : (
     <Markdown
       text={shortened ? collapsed : body}
       references={shortened ? message.collapsedReferences : message.markdownReferences}
@@ -491,6 +499,7 @@ const styles = StyleSheet.create({
   thinkingInset: { paddingLeft: 8 },
   thinkingScroll: { maxHeight: THINKING_CAP },
   promptColumn: { gap: 8 },
+  slashCommand: { fontFamily: MONO_FONT, fontSize: PROSE_SIZE, lineHeight: PROSE_LINE },
   showMore: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   showMoreText: { fontSize: PROSE_SIZE },
   pendingBubble: { alignSelf: 'flex-end', width: '42%', height: 60, borderRadius: 16 },

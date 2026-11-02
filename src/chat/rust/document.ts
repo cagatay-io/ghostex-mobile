@@ -276,6 +276,8 @@ export type ProjectedMessage = {
   text?: string;
   /** What Copy copies. Desktop: `message_actions.rs`. */
   copyText?: string;
+  /** A one-line slash command: the bubble draws it in monospace (core `is_slash_command_line`). */
+  slashCommand?: boolean;
   /** Whether Rewind is offered on this row. Desktop: `message_actions.rs`, `rewind.rs`. */
   canRewind?: boolean;
   /** Text the per-message actions (save prompt, copy) act on. */
