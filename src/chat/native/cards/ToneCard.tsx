@@ -6,8 +6,8 @@
  * `packages/gx-chat-core/src/questions/notice_tone.rs`.
  */
 
-import type { ReactNode } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { isValidElement, useState, type ReactNode } from 'react';
+import { Pressable, ScrollView, Text, View, type LayoutChangeEvent } from 'react-native';
 
 import { Glyph, type GlyphName } from './icons';
 import { MONO_FONT, themedStyles, useTranscriptTheme } from '../transcript/theme';
@@ -92,6 +92,22 @@ export function ToneCard({
   const end = (footerEnd ?? []).filter(Boolean);
   const hasFooter = start.length > 0 || end.length > 0;
   const washOpacity = P.light ? SHELL.washLight : SHELL.washDark;
+  // The footer width these actions were last seen taking more than one line at (`at` is -1 until the footer is measured). A new
+  // set of actions in the same card measures afresh.
+  const actionsKey = end.map((item, index) => (isValidElement(item) && item.key !== null ? item.key : index)).join('|');
+  const [footerWidth, setFooterWidth] = useState(0);
+  const [wrapAt, setWrapAt] = useState({ key: '', at: 0 });
+  const wrapped = wrapAt.key === actionsKey && (wrapAt.at === -1 || (wrapAt.at > 0 && footerWidth <= wrapAt.at));
+  const measureFooter = (event: LayoutChangeEvent) => {
+    const { width } = event.nativeEvent.layout;
+    setFooterWidth(width);
+    if (wrapAt.at === -1) setWrapAt({ key: wrapAt.key, at: width });
+  };
+  const measureActions = (event: LayoutChangeEvent) => {
+    if (!wrapped && event.nativeEvent.layout.height > SHELL.buttonHeight * 1.5) {
+      setWrapAt({ key: actionsKey, at: footerWidth > 0 ? footerWidth : -1 });
+    }
+  };
   const headerContent = (
     <>
       <View
@@ -138,14 +154,32 @@ export function ToneCard({
       {bodyItems.length > 0 ? <View style={styles.body}>{bodyItems}</View> : null}
       {hasFooter ? (
         <View
+          onLayout={measureFooter}
           style={[
             styles.footer,
             { backgroundColor: `rgba(0,0,0,${P.light ? SHELL.footerShadeLight : SHELL.footerShadeDark})` },
           ]}
         >
           {start}
-          <View style={styles.spacer} />
-          {end}
+          {/*
+           * CDXC:SessionChat 2026-11-02 WHY: The actions are one group that fills what the footer leaves and keeps its own
+           * order and right alignment. A spacer between them and the wrapping footer pushed the first line of a four-button
+           * notice right and started the wrapped line at the left. Once the actions take more than one line they get a line of
+           * their own below any status text and every button grows, so each line fills the card edge to edge; a wider card
+           * (rotation) measures them on one line again.
+           * SEE-ALSO: apps/desktop/src/app/native_chat/tone_card.rs
+           */}
+          {end.length > 0 ? (
+            <View style={[styles.actions, wrapped && styles.actionsWrapped]} onLayout={measureActions}>
+              {wrapped
+                ? end.map((item, index) => (
+                    <View key={index} style={styles.wrappedAction}>
+                      {item}
+                    </View>
+                  ))
+                : end}
+            </View>
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -295,7 +329,19 @@ const useStyles = themedStyles((P) => ({
     borderTopWidth: 1,
     borderTopColor: P.controlBorder,
   },
-  spacer: {
+  actions: {
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  actionsWrapped: {
+    minWidth: '100%',
+  },
+  wrappedAction: {
     flexGrow: 1,
   },
   button: {
@@ -305,6 +351,7 @@ const useStyles = themedStyles((P) => ({
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
   },
   buttonLabel: {
