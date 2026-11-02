@@ -1178,7 +1178,7 @@ export default function SessionsScreen({ navigation }: Props) {
           confirmLabel="Close Session"
           destructive
           onConfirm={() => {
-            const action = closeSessionAction(overlay.ctx.item.session);
+            const action = closeSessionAction(overlay.ctx.item.session, 'phone.sessionMenu');
             void runSessionCommand(overlay.ctx.machine, action.command, {
               closeWarmSessionId: action.sessionId,
               optimisticChange: action.optimisticChange,

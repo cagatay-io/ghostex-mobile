@@ -416,7 +416,9 @@ export function useSessionsScreenActions({
       await runBulkSessionActions(
         ctx.machine,
         sessions.map((session) =>
-          action === 'kill' ? killSessionAction(session) : lifecycleSessionAction(session, action === 'sleep'),
+          action === 'kill'
+            ? killSessionAction(session, 'phone.projectKillAll')
+            : lifecycleSessionAction(session, action === 'sleep'),
         ),
       );
     },

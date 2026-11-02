@@ -114,8 +114,15 @@ export function lifecycleSessionAction(session: GhostexSession, sleeping: boolea
  * Close: an awake Claude cloud row is put to sleep instead and stays listed ("Keep it listed,
  * asleep", `claudeCloudCloseSleeps`); every other row is killed.
  */
-export function closeSessionAction(session: GhostexSession): BulkSessionAction {
-  return closePutsSessionToSleep(session) ? lifecycleSessionAction(session, true) : killSessionAction(session);
+export function closeSessionAction(session: GhostexSession, closeSource: string): BulkSessionAction {
+  return closePutsSessionToSleep(session)
+    ? lifecycleSessionAction(session, true)
+    : killSessionAction(session, closeSource);
+}
+
+/** `closeSessionAction` for a list's `map`, every close naming the same door. */
+export function closeSessionActionFrom(closeSource: string): (session: GhostexSession) => BulkSessionAction {
+  return (session) => closeSessionAction(session, closeSource);
 }
 
 /** Whether Close puts this row to sleep instead of closing it (an awake Claude cloud row). */
@@ -124,10 +131,14 @@ export function closePutsSessionToSleep(session: GhostexSession): boolean {
 }
 
 /** Kill: the session's row leaves the list, Claude cloud rows included. */
-export function killSessionAction(session: GhostexSession): BulkSessionAction {
+export function killSessionAction(session: GhostexSession, closeSource: string): BulkSessionAction {
   return {
     sessionId: session.sessionId,
-    command: killSessionCommand(session.sessionId, session.projectId.length > 0 ? session.projectId : undefined),
+    command: killSessionCommand(
+      session.sessionId,
+      session.projectId.length > 0 ? session.projectId : undefined,
+      closeSource,
+    ),
     closeWarmSession: true,
     optimisticChange: closeMutation(session.sessionId),
   };

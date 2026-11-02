@@ -92,8 +92,17 @@ export function sleepSessionCommand(sessionId: string, projectId?: string): stri
   return sessionActionCommand('sleep', sessionId, projectId);
 }
 
-export function killSessionCommand(sessionId: string, projectId?: string): string {
-  return sessionActionCommand('kill', sessionId, projectId);
+/**
+ * Kill, naming the phone's door (`phone.sessionMenu`, `phone.closeBelow`, …) so the computer's
+ * gxserver log says where the close came from (CDXC:Sessions 2026-11-02 in the main repo's
+ * server/src/session_close_log.rs). `--close-source=` is the `=` form on purpose: a computer whose
+ * CLI predates the flag ignores it instead of reading its value as a session selector.
+ */
+export function killSessionCommand(sessionId: string, projectId?: string, closeSource?: string): string {
+  const command = sessionActionCommand('kill', sessionId, projectId);
+  if (closeSource === undefined) return command;
+  if (!/^phone\.[A-Za-z]+$/.test(closeSource)) throw new Error(`Unsupported close source: ${closeSource}`);
+  return command.replace(/ --json$/, ` --close-source=${closeSource} --json`);
 }
 
 /** Rename: `ghostex rename-session --session-id <id> [--project-id <id>] --title=<title> --json`. */

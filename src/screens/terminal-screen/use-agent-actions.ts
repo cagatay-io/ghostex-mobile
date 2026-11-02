@@ -497,7 +497,7 @@ export function useTerminalAgentActions({
         text: 'Kill Session',
         style: 'destructive',
         onPress: () => {
-          void runSessionCommand(machine, killSessionCommand(session.sessionId, projectId), {
+          void runSessionCommand(machine, killSessionCommand(session.sessionId, projectId, 'phone.terminalKill'), {
             closeWarmSessionId: session.sessionId,
             optimisticChange: { kind: 'sessionClose', sessionId: session.sessionId },
             onError: (message) => Alert.alert('Kill Session Failed', message, [{ text: 'OK' }]),

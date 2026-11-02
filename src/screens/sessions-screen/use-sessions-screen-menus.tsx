@@ -107,7 +107,7 @@ import type { ExportedTranscript } from '../terminal-screen/session-lookups';
 import {
   cancelDelayedSendSessionAction,
   closeAfterDoneSessionAction,
-  closeSessionAction,
+  closeSessionActionFrom,
   lifecycleSessionAction,
   NONE,
   parkSessionAction,
@@ -514,7 +514,7 @@ export function useSessionsScreenMenus({
           title: 'Close sessions below?',
           body: `This stops ${sessions.length} session(s) below ${sessionTitle(ctx.item.session)} on the connected machine.${coordinatorsClosingLine(sessions, machineSessions(machine))}`,
           confirmLabel: 'Close',
-          run: () => void runBulkSessionActions(machine, sessions.map(closeSessionAction)),
+          run: () => void runBulkSessionActions(machine, sessions.map(closeSessionActionFrom('phone.closeBelow'))),
         });
         return;
       }
@@ -611,7 +611,7 @@ export function useSessionsScreenMenus({
           title: 'Close inactive sessions?',
           body: `This stops ${inactive.length} inactive session(s) in ${header.title} on the connected machine.${coordinatorsClosingLine(inactive, machineSessions(machine))}`,
           confirmLabel: 'Close',
-          run: () => void runBulkSessionActions(machine, inactive.map(closeSessionAction)),
+          run: () => void runBulkSessionActions(machine, inactive.map(closeSessionActionFrom('phone.closeInactive'))),
         });
         return;
       }
@@ -1040,7 +1040,7 @@ export function useSessionsScreenMenus({
           title: 'Close all sessions?',
           body: `This stops ${sessions.length} session(s) in ${ctx.header.title} on the connected machine.${coordinatorsClosingLine(sessions, machineSessions(ctx.machine))}`,
           confirmLabel: 'Close',
-          run: () => void runBulkSessionActions(ctx.machine, sessions.map(closeSessionAction)),
+          run: () => void runBulkSessionActions(ctx.machine, sessions.map(closeSessionActionFrom('phone.closeAll'))),
         }),
     });
     return items;
@@ -1123,7 +1123,7 @@ export function useSessionsScreenMenus({
           title: 'Close group?',
           body: `This stops ${sessions.length} session(s) in ${ctx.item.title} on the connected machine.${coordinatorsClosingLine(sessions, machineSessions(ctx.machine))}`,
           confirmLabel: 'Close Group',
-          run: () => void runBulkSessionActions(ctx.machine, sessions.map(closeSessionAction)),
+          run: () => void runBulkSessionActions(ctx.machine, sessions.map(closeSessionActionFrom('phone.closeGroup'))),
         }),
     });
     return items;
@@ -1174,7 +1174,7 @@ export function useSessionsScreenMenus({
             title: 'Close parked sessions?',
             body: `This stops ${parked.length} parked session(s) on the connected machine.`,
             confirmLabel: 'Close',
-            run: () => void runBulkSessionActions(ctx.machine, parked.map(closeSessionAction)),
+            run: () => void runBulkSessionActions(ctx.machine, parked.map(closeSessionActionFrom('phone.closeParked'))),
           }),
       },
     ];
