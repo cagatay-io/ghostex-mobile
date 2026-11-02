@@ -97,6 +97,9 @@ import {
 } from './terminal-screen/session-lookups';
 import { styles } from './terminal-screen/styles';
 import { useTerminalAgentActions } from './terminal-screen/use-agent-actions';
+import { boxMachineRecord, useCloudBoxesStore } from '../cloudBoxes/store';
+import { boxIdOfMachine } from '../cloudBoxes/types';
+import CloudBoxPill from '../components/terminal/CloudBoxPill';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Terminal'>;
 
@@ -158,8 +161,16 @@ export default function TerminalScreen({ navigation, route }: Props) {
 
   const openMachineLink = useOpenMachineLink();
   const activeTab = tabs.find((tab) => tab.sessionKey === selectedSessionKey) ?? null;
-  const activeMachine = useMachinesStore((state) =>
+  const activeSavedMachine = useMachinesStore((state) =>
     activeTab === null ? null : (state.machines.find((entry) => entry.id === activeTab.machineId) ?? null),
+  );
+  // A Cloud Box session's tab is on the box's hidden machine, which is never saved (cloudBoxes/store.ts).
+  const activeBoxEntry = useCloudBoxesStore((state) =>
+    activeTab === null ? null : (state.entries[boxIdOfMachine(activeTab.machineId) ?? ''] ?? null),
+  );
+  const activeMachine = useMemo(
+    () => activeSavedMachine ?? (activeBoxEntry === null ? null : boxMachineRecord(activeBoxEntry)),
+    [activeSavedMachine, activeBoxEntry],
   );
   const activeAgentId = useInventoryStore((state) =>
     sessionAgentIdFor(
@@ -758,6 +769,9 @@ export default function TerminalScreen({ navigation, route }: Props) {
         />
         {inRail ? null : headerButtons(styles.headerButton)}
       </View>
+      {activeBoxEntry !== null ? (
+        <CloudBoxPill entry={activeBoxEntry} sessionId={activeTab?.ghostexSessionId ?? null} />
+      ) : null}
 
       {/*
         Only a session this phone launched into chat (it carries the launcher's agent id) starts

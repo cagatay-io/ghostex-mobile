@@ -3,6 +3,7 @@
  * moved verbatim from src/screens/TerminalScreen.tsx.
  */
 
+import { findMachineRecord } from '../../cloudBoxes/store';
 import { resolveAgentIconId, type GhostexMobileSummary, type GhostexSession } from '../../contract/mobileSummary';
 import { isSessionChatSupportedAgent } from '../../chat/session-chat-helpers';
 import { claudeCloudTakesTask } from '../../contract/claudeCloud';
@@ -66,8 +67,9 @@ export const ANDROID_KEYBOARD_GAP = 3;
 /** How long an onSingleTap keeps the key bar optimistic before keyboard events decide. */
 export const TAP_KEYBOARD_HINT_TIMEOUT_MS = 1500;
 
+/** A saved computer, or a Cloud Box's hidden machine (`cloudbox:<boxId>`, cloudBoxes/store.ts). */
 export function machineRecordFor(machineId: string): MachineRecord | null {
-  return useMachinesStore.getState().machines.find((machine) => machine.id === machineId) ?? null;
+  return findMachineRecord(machineId);
 }
 
 export function machineTargetFor(machineId: string): MachineConnectionTarget | null {

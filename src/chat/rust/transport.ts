@@ -27,6 +27,8 @@ import { execRemoteCommand } from '../../remote/commands';
 import { ensureConnected } from '../../inventory/client';
 import type { ChatRpcError } from './events';
 import { chatMachineLink, UNREACHABLE_MESSAGE, type ChatMachineLink, type ChatRoute } from './machine-link';
+import { CLOUD_BOX_UNAVAILABLE, isCloudBoxMachineId } from '../../cloudBoxes/types';
+import { cloudBoxRequestGate } from '../../cloudBoxes/wake';
 
 /** The gxserver wire protocol the synthesized frames claim (`GXSERVER_PROTOCOL_VERSION`). */
 const PROTOCOL_VERSION = 1;
@@ -121,12 +123,36 @@ export async function sessionChatRpc(
   if (!METHOD_PATTERN.test(method)) {
     return { error: { code: null, message: `Invalid chat request method: ${method}`, endpoint: `/api/${method}` } };
   }
+  if (isCloudBoxMachineId(machine.id)) return cloudBoxChatRpc(machine, method, params, timeoutMs);
   const link = chatMachineLink(machine);
   if ((await link.route()) === 'socket') {
     const sent = await link.request(method, params, timeoutMs);
     if (sent.kind === 'answered') return sent.answer;
   }
   return sessionChatRpcOverSsh(machine, method, params, timeoutMs);
+}
+
+/**
+ * A chat request to a session on a Cloud Box: refused as `cloudBoxAsleep` while the box sleeps
+ * (a send wakes it first, `cloudBoxes/wake.ts`), then sent over the box's link. A box has no SSH
+ * exec route, so a request the link could not carry answers `cloudBoxUnavailable`.
+ */
+async function cloudBoxChatRpc(
+  machine: MachineConnectionTarget,
+  method: string,
+  params: unknown,
+  timeoutMs: number,
+): Promise<RpcAnswer> {
+  const refused = await cloudBoxRequestGate(machine.id, method);
+  if (refused !== null) return { error: refused };
+  const link = chatMachineLink(machine);
+  if ((await link.route()) === 'socket') {
+    const sent = await link.request(method, params, timeoutMs);
+    if (sent.kind === 'answered') return sent.answer;
+  }
+  return {
+    error: { code: CLOUD_BOX_UNAVAILABLE, message: "Couldn't reach the cloud box; try again in a moment.", endpoint: `/api/${method}` },
+  };
 }
 
 /** One request as `ghostex session-chat-rpc` over SSH: the route for an older Ghostex. */
@@ -392,6 +418,8 @@ export class SessionChatLongPoll {
 export class SessionChatStream {
   private readonly link: ChatMachineLink;
   private readonly poll: SessionChatLongPoll;
+  /** A Cloud Box's chat always follows the socket, which reconnects once the box is up. */
+  private readonly socketOnly: boolean;
   private readonly onFrame: (frame: Record<string, unknown>) => void;
   private limit = 0;
   private running = false;
@@ -405,6 +433,7 @@ export class SessionChatStream {
     callbacks: LongPollCallbacks,
   ) {
     this.link = chatMachineLink(machine);
+    this.socketOnly = isCloudBoxMachineId(machine.id);
     this.poll = new SessionChatLongPoll(machine, projectId, sessionId, callbacks);
     this.onFrame = (frame) => callbacks.onFrame(frame);
   }
@@ -462,7 +491,7 @@ export class SessionChatStream {
   }
 
   private use(route: ChatRoute): void {
-    if (route === 'socket') {
+    if (route === 'socket' || this.socketOnly) {
       this.mode = 'socket';
       this.link.follow(this.projectId, this.sessionId, this.limit, this.onFrame);
     } else {
@@ -474,6 +503,7 @@ export class SessionChatStream {
   private routeChanged(route: ChatRoute): void {
     if (!this.running) return;
     if (this.mode === 'none') this.use(route);
+    else if (this.socketOnly) return;
     else if (route === 'socket' && this.mode === 'poll') {
       this.leave();
       this.use('socket');

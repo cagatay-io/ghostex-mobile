@@ -50,6 +50,7 @@ import {
   STATUS_DOT_SIZE,
   TOUCH_ROW_HEIGHT,
 } from './rows';
+import CloudBoxBadge from './CloudBoxBadge';
 import StatusDotStack from './StatusDotStack';
 import {
   BoxGlyph,
@@ -635,7 +636,8 @@ export default function SessionRow({
           shownCoordinatorBadge !== undefined ||
           linksBadge !== null ||
           voiceCall ||
-          session.agentbox !== undefined ? (
+          session.agentbox !== undefined ||
+          session.cloudBox !== undefined ? (
             <View style={styles.trailing}>
               {/* sessions.rs: the links badge, the crew badge, the voice headset and the box, then the status (CDXC:Sidebar 2026-10-29: the user swapped the links badge before the crew badge). */}
               {linksBadge !== null ? (
@@ -670,6 +672,7 @@ export default function SessionRow({
               {shownCoordinatorBadge !== undefined ? <CoordinatorBadgeView badge={shownCoordinatorBadge} /> : null}
               {voiceCall ? <VoiceCallBadge /> : null}
               {session.agentbox !== undefined ? <AgentboxBadge agentbox={session.agentbox} /> : null}
+              {session.cloudBox !== undefined ? <CloudBoxBadge cloudBox={session.cloudBox} /> : null}
               {question ? (
                 <QuestionIndicator
                   activity={session.activity}

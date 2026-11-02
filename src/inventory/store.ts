@@ -17,6 +17,7 @@ import { restoreAttachTabs } from '../terminal/sessions';
 import { enabledMachines, machineDisplayLabel, useMachinesStore, type MachineRecord } from '../machines/store';
 import { FailureCopy } from '../copy';
 import { fetchInventory, summarizeFailureDetailed, type FailureReasonCode } from './client';
+import { refreshCloudBoxes } from '../cloudBoxes/sync';
 import {
   applyOptimisticMutations,
   reconcileOptimisticMutations,
@@ -307,6 +308,8 @@ export const useInventoryStore = create<InventoryState>()((set, get) => {
         return failure !== 'authFailed' && failure !== 'hostKeyChanged';
       });
       await Promise.all(machines.map((machine) => get().refreshMachine(machine)));
+      // Each computer's Cloud Boxes and their sessions ride the same poll (cloudBoxes/sync.ts).
+      void refreshCloudBoxes().catch(() => undefined);
     },
 
     startPolling: () => {

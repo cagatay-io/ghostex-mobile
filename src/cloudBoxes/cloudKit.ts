@@ -1,0 +1,135 @@
+/**
+ * The phone's cloud kit: what each computer hands it (`cloudBoxes cloudKit`) so it can start a box
+ * from a project's Default snapshot while that computer is off (Q1033 D7; the contents and the
+ * user's decision are in `packages/gx-protocol/src/cloud_box/kit.rs`).
+ *
+ * CDXC:CloudBoxes 2026-11-02 WHY:
+ * The kit holds provider keys, agent logins and secret values, so it lives only in the platform
+ * secure store (Keychain / Keystore through expo-secure-store, which the app already ships), split
+ * into chunks because a secure-store value should stay under 2 KB. It is read again from the
+ * computer at most every [`KIT_REFRESH_MS`] while the computer answers, and dropped as soon as the
+ * computer refuses it (the user turned "Start boxes from your phone" off).
+ */
+
+import * as SecureStore from 'expo-secure-store';
+
+import { homeCloudBoxesRpc } from './boxLink';
+
+/** `CloudKit` (the TypeScript twin is `GxserverCloudKit` in packages/shared). */
+export type CloudKit = {
+  version: number;
+  homeMachineId: string;
+  gxserverVersion: string;
+  issuedAt: string;
+  providers: Array<{ provider: string; key: string }>;
+  accounts: Array<{ accountId: string; agent: string; name: string; kind: string; value: string }>;
+  allowDeviceKeys: string[];
+  idleStopMinutes: number;
+  projects: CloudKitProject[];
+};
+
+export type CloudKitProject = {
+  homeProjectId: string;
+  projectKey: string;
+  name: string;
+  repoUrl?: string;
+  baseBranch?: string;
+  snapshot: { snapshotId: string; provider: string; providerSnapshotId: string; size?: string; name: string };
+  files: Array<{ path: string; contents: string }>;
+  vars: Array<{ name: string; value: string }>;
+};
+
+const KIT_VERSION = 1;
+const KIT_REFRESH_MS = 10 * 60_000;
+const CHUNK_CHARS = 1_800;
+
+const kits = new Map<string, CloudKit | null>();
+const readAt = new Map<string, number>();
+
+function countKey(machineId: string): string {
+  return `cloudkit.${machineId.replace(/[^A-Za-z0-9._-]/gu, '_')}.count`;
+}
+
+function chunkKey(machineId: string, index: number): string {
+  return `cloudkit.${machineId.replace(/[^A-Za-z0-9._-]/gu, '_')}.${index}`;
+}
+
+async function writeStored(machineId: string, kit: CloudKit): Promise<void> {
+  const text = JSON.stringify(kit);
+  const chunks: string[] = [];
+  for (let start = 0; start < text.length; start += CHUNK_CHARS) chunks.push(text.slice(start, start + CHUNK_CHARS));
+  await Promise.all(chunks.map((chunk, index) => SecureStore.setItemAsync(chunkKey(machineId, index), chunk)));
+  const previous = Number((await SecureStore.getItemAsync(countKey(machineId)).catch(() => null)) ?? 0);
+  await SecureStore.setItemAsync(countKey(machineId), String(chunks.length));
+  for (let index = chunks.length; index < previous; index += 1) {
+    await SecureStore.deleteItemAsync(chunkKey(machineId, index)).catch(() => undefined);
+  }
+}
+
+async function readStored(machineId: string): Promise<CloudKit | null> {
+  try {
+    const count = Number((await SecureStore.getItemAsync(countKey(machineId))) ?? 0);
+    if (!Number.isInteger(count) || count <= 0) return null;
+    const chunks = await Promise.all(
+      Array.from({ length: count }, (_, index) => SecureStore.getItemAsync(chunkKey(machineId, index))),
+    );
+    if (chunks.some((chunk) => chunk === null)) return null;
+    const kit = JSON.parse(chunks.join('')) as CloudKit;
+    return kit.version === KIT_VERSION ? kit : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Drops a computer's kit from the phone. */
+export async function forgetCloudKit(machineId: string): Promise<void> {
+  kits.set(machineId, null);
+  const count = Number((await SecureStore.getItemAsync(countKey(machineId)).catch(() => null)) ?? 0);
+  for (let index = 0; index < count; index += 1) {
+    await SecureStore.deleteItemAsync(chunkKey(machineId, index)).catch(() => undefined);
+  }
+  await SecureStore.deleteItemAsync(countKey(machineId)).catch(() => undefined);
+}
+
+/**
+ * Reads the computer's kit when it is due (or `force`), keeping the stored one when the computer
+ * does not answer and dropping it when the computer refuses (`cloudKitOff`).
+ */
+export async function syncCloudKit(machineId: string, force = false): Promise<void> {
+  if (!force && Date.now() - (readAt.get(machineId) ?? 0) < KIT_REFRESH_MS) return;
+  readAt.set(machineId, Date.now());
+  const answer = await homeCloudBoxesRpc(machineId, 'cloudKit');
+  if (answer.error !== null) {
+    if (answer.error.code === 'cloudKitOff') await forgetCloudKit(machineId);
+    // Unreachable, or an older Ghostex without the action: keep what the phone has.
+    return;
+  }
+  const kit = answer.result as CloudKit | null;
+  if (kit === null || kit.version !== KIT_VERSION) return;
+  if (kit.providers.length === 0 || kit.projects.length === 0) {
+    await forgetCloudKit(machineId);
+    return;
+  }
+  kits.set(machineId, kit);
+  await writeStored(machineId, kit);
+}
+
+/** The kit the phone holds for a computer, from memory or the secure store. */
+export async function cloudKitOf(machineId: string): Promise<CloudKit | null> {
+  if (kits.has(machineId)) return kits.get(machineId) ?? null;
+  const stored = await readStored(machineId);
+  kits.set(machineId, stored);
+  return stored;
+}
+
+/** A project the phone may start a box for with that computer off. */
+export async function cloudKitProject(machineId: string, homeProjectId: string): Promise<CloudKitProject | null> {
+  const kit = await cloudKitOf(machineId);
+  return kit?.projects.find((project) => project.homeProjectId === homeProjectId) ?? null;
+}
+
+/** A provider's key from a computer's kit. */
+export async function cloudKitKey(machineId: string, provider: string): Promise<string | null> {
+  const kit = await cloudKitOf(machineId);
+  return kit?.providers.find((entry) => entry.provider === provider)?.key ?? null;
+}

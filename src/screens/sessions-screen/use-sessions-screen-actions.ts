@@ -40,6 +40,7 @@ import { markSessionOpen, markSessionOpenTap } from '../../terminal/openTiming';
 import { attachSessionKey, useTerminalStore } from '../../terminal/sessions';
 import { webPreviewTargetForUrl } from '../../webPreview/routing';
 import { sessionOpensInChatView } from '../terminal-screen/session-lookups';
+import { cloudBoxOpenTarget } from '../../cloudBoxes/open';
 import {
   killSessionAction,
   lifecycleSessionAction,
@@ -73,8 +74,16 @@ export function useSessionsScreenActions({
   retryMachine,
 }: SessionsScreenActionsDeps) {
   const attach = useCallback(
-    async (target: MachineRecord, session: GhostexSession, options?: { terminal?: boolean }): Promise<void> => {
+    async (listTarget: MachineRecord, listSession: GhostexSession, options?: { terminal?: boolean }): Promise<void> => {
       setOverlay(NONE);
+      // A Cloud Box session is listed in its home project but runs on its box's hidden machine.
+      const boxOpen = cloudBoxOpenTarget(listTarget, listSession);
+      if (boxOpen !== null && 'refused' in boxOpen) {
+        setTransientStatus(boxOpen.refused);
+        return;
+      }
+      const target = boxOpen?.target ?? listTarget;
+      const session = boxOpen?.session ?? listSession;
       // Desktop parity: opening a session from the list acknowledges its
       // attention status.
       acknowledgeSessionAttention(target.id, session.sessionId);

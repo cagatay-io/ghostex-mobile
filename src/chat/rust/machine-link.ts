@@ -31,6 +31,8 @@ import { GhostexNative } from '../../../modules/ghostex-native/src';
 import { ensureConnected } from '../../inventory/client';
 import type { MachineConnectionTarget } from '../../machines/credentials';
 import { GXSERVER_FORWARD_HOST, readServerEndpoint } from './serverEndpoint';
+import { boxForward, boxHandshake, closeBoxForward, type BoxEndpoint } from '../../cloudBoxes/boxLink';
+import { isCloudBoxMachineId } from '../../cloudBoxes/types';
 import type { RpcAnswer } from './transport';
 
 /** `GXSERVER_PROTOCOL_VERSION`: the only wire this client speaks. */
@@ -95,7 +97,14 @@ export type ChatRoute = 'socket' | 'legacy' | 'unavailable';
  * `sendLedger`: the daemon advertised `sendRequestLedger`, so a send may be retried under its id.
  * `capabilities`: everything `ghostex server endpoint` listed (`voiceAgent` gates Voice mode).
  */
-type Endpoint = { port: number; authToken: string; sendLedger: boolean; capabilities: readonly string[] };
+type Endpoint = {
+  port: number;
+  authToken: string;
+  sendLedger: boolean;
+  capabilities: readonly string[];
+  /** A Cloud Box's gxserver (`cloudbox:` machine): reached through `cloudBoxes/boxLink.ts`, not SSH. */
+  box?: BoxEndpoint;
+};
 
 /** The phone's loopback forward to a computer's gxserver, for sockets other than the chat's. */
 export type GxserverLink = { localPort: number; authToken: string; capabilities: readonly string[] };
@@ -379,7 +388,10 @@ class ChatMachineLink {
       }, PROBE_TIMEOUT_MS);
     });
     const asked = (async () => {
-      const { localPort } = await GhostexNative.startPortForward(this.machine.id, endpoint.port, GXSERVER_FORWARD_HOST);
+      const localPort =
+        endpoint.box !== undefined
+          ? await boxForward(this.machine.id, endpoint.box)
+          : (await GhostexNative.startPortForward(this.machine.id, endpoint.port, GXSERVER_FORWARD_HOST)).localPort;
       const response = await fetch(`http://127.0.0.1:${localPort}/api/health`, { signal: controller.signal });
       await response.text();
       return true;
@@ -413,6 +425,7 @@ class ChatMachineLink {
   // ---- the handshake -----------------------------------------------------------------------------
 
   private async handshake(): Promise<{ route: 'socket'; endpoint: Endpoint } | { route: 'legacy' | 'unavailable' }> {
+    if (isCloudBoxMachineId(this.machine.id)) return this.boxHandshake();
     try {
       const answer = await readServerEndpoint(this.machine);
       if (answer.kind === 'unsupported') return { route: 'legacy' };
@@ -429,6 +442,41 @@ class ChatMachineLink {
       // An sshd with `AllowTcpForwarding no` will never carry the link; anything else may pass.
       return { route: errorCode(error) === 'E_FORWARDING_PROHIBITED' ? 'legacy' : 'unavailable' };
     }
+  }
+
+  /**
+   * A Cloud Box's handshake: its connect info from the box's computer (or the phone's stored copy),
+   * then a probe of the forward. A box that is not up answers `unavailable` without any network
+   * call, so opening a sleeping box's chat never wakes it (Q1013); a box is never `legacy`.
+   */
+  private async boxHandshake(): Promise<{ route: 'socket'; endpoint: Endpoint } | { route: 'unavailable' }> {
+    try {
+      const box = await boxHandshake(this.machine.id);
+      if (box === null) return { route: 'unavailable' };
+      await boxForward(this.machine.id, box);
+      return {
+        route: 'socket',
+        endpoint: {
+          port: box.info.gxserverPort,
+          authToken: box.info.gxserverToken,
+          // A box runs the gxserver its creator installed, which has the send ledger.
+          sendLedger: true,
+          capabilities: [],
+          box,
+        },
+      };
+    } catch {
+      return { route: 'unavailable' };
+    }
+  }
+
+  /**
+   * Forgets the known route of a woken Cloud Box, so the next request runs the handshake at once:
+   * a box that slept may come back on another address or port (a `local` box's Docker port, a Boat
+   * box on a new machine), and an `unavailable` answer would otherwise wait out its recheck time.
+   */
+  forgetRoute(): void {
+    if (this.state.kind !== 'probing') this.state = { kind: 'unknown' };
   }
 
   /** Forgets the endpoint so the next request or reconnect asks the computer again. */
@@ -455,9 +503,12 @@ class ChatMachineLink {
     this.repairing = (async () => {
       if (state.kind === 'socket') {
         this.state = { kind: 'unknown' };
-        await GhostexNative.stopPortForward(this.machine.id, state.endpoint.port).catch(() => undefined);
+        if (state.endpoint.box !== undefined) await closeBoxForward(this.machine.id, state.endpoint.box);
+        else await GhostexNative.stopPortForward(this.machine.id, state.endpoint.port).catch(() => undefined);
       }
-      await ensureConnected(this.machine, { verify: true }).catch(() => undefined);
+      if (!isCloudBoxMachineId(this.machine.id)) {
+        await ensureConnected(this.machine, { verify: true }).catch(() => undefined);
+      }
       await this.route();
     })().finally(() => {
       this.repairing = null;
@@ -483,6 +534,14 @@ class ChatMachineLink {
    * dial and forward again.
    */
   private async forward(endpoint: Endpoint): Promise<number> {
+    if (endpoint.box !== undefined) {
+      try {
+        return await boxForward(this.machine.id, endpoint.box);
+      } catch (error) {
+        this.recheck();
+        throw error;
+      }
+    }
     await ensureConnected(this.machine);
     try {
       const { localPort } = await GhostexNative.startPortForward(this.machine.id, endpoint.port, GXSERVER_FORWARD_HOST);

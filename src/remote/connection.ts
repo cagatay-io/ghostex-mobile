@@ -1,6 +1,7 @@
 import { GhostexNative } from '../../modules/ghostex-native/src';
 import { resolveSshConfig, type MachineConnectionTarget } from '../machines/credentials';
 import { forgetRemoteEnvironment } from './commands';
+import { isCloudBoxMachineId } from '../cloudBoxes/types';
 
 type Attempt = { promise: Promise<void>; reset: boolean; verify: boolean };
 const attempts = new Map<string, Attempt>();
@@ -21,6 +22,8 @@ export function ensureConnected(
   machine: MachineConnectionTarget,
   options: { verify?: boolean; reset?: boolean } = {},
 ): Promise<void> {
+  // A Cloud Box has no SSH: its chat link reaches it through `cloudBoxes/boxLink.ts`.
+  if (isCloudBoxMachineId(machine.id)) return Promise.resolve();
   const existing = attempts.get(machine.id);
   if (existing && (!options.reset || existing.reset)) {
     return options.verify && !existing.verify && !existing.reset

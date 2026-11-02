@@ -126,6 +126,10 @@ import { useSessionsScreenActions } from './sessions-screen/use-sessions-screen-
 import { useSessionsScreenMenus } from './sessions-screen/use-sessions-screen-menus';
 import { makeSnoozeSession, useUnifiedList } from './sessions-screen/use-unified-list';
 import { machineTabsVisible, noticeMachineId } from './sessions-screen/machineStripPolicy';
+import { useListInventories } from '../cloudBoxes/listInventories';
+import { cloudBoxRowMenu } from '../cloudBoxes/rowMenu';
+import { cloudWhereItems, useCloudWhere } from '../cloudBoxes/whereMenu';
+import { runPhoneBoxStart, type PhoneBoxStart } from '../cloudBoxes/phoneStartFlow';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Sessions'>;
 
@@ -138,7 +142,8 @@ export default function SessionsScreen({ navigation }: Props) {
   const machines = useMemo(() => savedMachines.filter(isMachineEnabled), [savedMachines]);
   const machine = useMachinesStore((state) => selectedMachine(state));
   const selectMachine = useMachinesStore((state) => state.selectMachine);
-  const inventoriesByMachineId = useInventoryStore((state) => state.inventoriesByMachineId);
+  // Cloud Box sessions are listed inside their home project (cloudBoxes/listInventories.ts).
+  const inventoriesByMachineId = useListInventories();
   const refreshMachine = useInventoryStore((state) => state.refreshMachine);
   const refreshMachineFresh = useInventoryStore((state) => state.refreshMachineFresh);
   const retryMachine = useInventoryStore((state) => state.retryMachine);
@@ -174,6 +179,13 @@ export default function SessionsScreen({ navigation }: Props) {
   );
 
   const [overlay, setOverlay] = useState<Overlay>(NONE);
+  /** New session › Cloud Box with the computer off: the first message the phone starts the box with. */
+  const [phoneBoxStart, setPhoneBoxStart] = useState<PhoneBoxStart | null>(null);
+  // New session › Where (This computer or Cloud Box) for the project whose agent menu is open.
+  useCloudWhere(
+    overlay.kind === 'agentMenu' ? overlay.ctx.machine.id : null,
+    overlay.kind === 'agentMenu' ? overlay.ctx.header.projectId : null,
+  );
   const [sessionSearchOpen, setSessionSearchOpen] = useState(false);
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
@@ -1054,6 +1066,14 @@ export default function SessionsScreen({ navigation }: Props) {
           visible
           title={sessionTitle(overlay.ctx.item.session)}
           {...sessionMenuView(overlay.ctx, overlay.menuPath)}
+          // A Cloud Box session's row holds the box's actions: the computer's session actions would
+          // reach the computer, not the box (cloudBoxes/menu.tsx).
+          {...cloudBoxRowMenu(
+            overlay.ctx,
+            () => void attach(overlay.ctx.machine, overlay.ctx.item.session),
+            (message) => setTransientStatus(message),
+            () => setOverlay(NONE),
+          )}
           onClose={() => setOverlay(NONE)}
         />
       ) : null}
@@ -1330,12 +1350,45 @@ export default function SessionsScreen({ navigation }: Props) {
 
       {unified.overlays}
 
+      {phoneBoxStart !== null ? (
+        <PromptDialog
+          visible
+          multiline
+          title={`${phoneBoxStart.agent.name} on a Cloud Box`}
+          body={`Your computer is off. The phone starts a box for ${phoneBoxStart.projectTitle} from its Default snapshot and sends this first message.`}
+          placeholder="What should the agent do?"
+          confirmLabel="Start"
+          onSubmit={(value) => {
+            const start = phoneBoxStart;
+            setPhoneBoxStart(null);
+            if (value.trim().length === 0) return;
+            void runPhoneBoxStart(start, value.trim(), {
+              setProgress,
+              setTransientStatus,
+              navigate: (params) => navigation.navigate('Terminal', params),
+            });
+          }}
+          onCancel={() => setPhoneBoxStart(null)}
+        />
+      ) : null}
+
       {overlay.kind === 'agentMenu' ? (
         <ContextMenu
           visible
           title={overlay.ctx.header.title}
           subtitle="Start an agent session"
-          items={agentMenuItems(overlay.ctx)}
+          items={[
+            ...cloudWhereItems(overlay.ctx.machine.id, overlay.ctx.header.projectId, setTransientStatus, (agent) => {
+              setOverlay(NONE);
+              setPhoneBoxStart({
+                machine: overlay.ctx.machine,
+                projectId: overlay.ctx.header.projectId,
+                projectTitle: overlay.ctx.header.title,
+                agent,
+              });
+            }),
+            ...agentMenuItems(overlay.ctx),
+          ]}
           onClose={() => setOverlay(NONE)}
         />
       ) : null}

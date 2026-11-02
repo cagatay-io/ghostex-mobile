@@ -407,6 +407,27 @@ export type GhostexSessionWork = {
   offerCleanup: boolean;
 };
 
+/**
+ * A session on a Cloud Box (`PresentationCloudBox`, plus where the phone reaches it). A box's
+ * sessions are listed inside their home project: `projectId` is then the home project and
+ * `boxProjectId` the box's own, which every request to the box uses; `machineId` is the box's
+ * hidden machine (`cloudbox:<boxId>`).
+ */
+export type GhostexSessionCloudBox = {
+  boxId: string;
+  provider: string;
+  state: string;
+  boxName: string;
+  homeProjectId?: string;
+  /** A home draft whose tray picked Cloud Box: its first message starts the box. */
+  pending?: true;
+  machineId?: string;
+  boxProjectId?: string;
+  startedAt?: string;
+  costTotalUsd?: number;
+  usdPerHour?: number;
+};
+
 /** Normalized session row: fallback chains applied, provider guaranteed "zmx". */
 export type GhostexSession = {
   /** Display-only compact badge; derived from first 4 chars of sessionId when omitted. */
@@ -445,6 +466,12 @@ export type GhostexSession = {
    * whose chat Run on row picked the box; its first message starts it.
    */
   agentbox?: { provider: string; boxName: string; providerLabel: string; pending?: true };
+  /**
+   * The Cloud Box the session runs on (☁ badge and its state dot). Set by the phone when it lists
+   * a box's sessions inside their home project (src/cloudBoxes/boxSessions.ts), and from
+   * `PresentationSession.cloudBox` for a home draft whose tray picked Cloud Box (`pending`).
+   */
+  cloudBox?: GhostexSessionCloudBox;
   hasComposerDraft?: boolean;
   lastInteractionAt: string;
   lastActiveAt: string;
@@ -1254,6 +1281,7 @@ export function parseSession(value: unknown): GhostexSession | null {
     createdAt: trimmedValue(value, 'createdAt'),
     isDraft: value.isDraft === true ? true : undefined,
     agentbox: parseAgentbox(value.agentbox),
+    cloudBox: parseCloudBox(value.cloudBox),
     hasComposerDraft: value.hasComposerDraft === true ? true : undefined,
     lastInteractionAt: trimmedValue(value, 'lastInteractionAt'),
     lastActiveAt: trimmedValue(value, 'lastActiveAt'),
@@ -1754,6 +1782,32 @@ function parseAgentbox(value: unknown): GhostexSession['agentbox'] {
     boxName,
     providerLabel: text('providerLabel'),
     pending: record.pending === true ? true : undefined,
+  };
+}
+
+/**
+ * `PresentationCloudBox` as gxserver sends it, or what src/cloudBoxes/boxSessions.ts stamped on a
+ * box's session; undefined for a session on the computer.
+ */
+function parseCloudBox(value: unknown): GhostexSession['cloudBox'] {
+  if (value === null || typeof value !== 'object') return undefined;
+  const record = value as Record<string, unknown>;
+  const text = (key: string): string => (typeof record[key] === 'string' ? (record[key] as string).trim() : '');
+  const boxId = text('boxId');
+  // A home draft's box does not exist yet (`pending`), so it may have no id.
+  if (boxId.length === 0 && record.pending !== true) return undefined;
+  return {
+    boxId,
+    provider: text('provider'),
+    state: text('state'),
+    boxName: text('boxName'),
+    homeProjectId: text('homeProjectId') || undefined,
+    pending: record.pending === true ? true : undefined,
+    machineId: text('machineId') || undefined,
+    boxProjectId: text('boxProjectId') || undefined,
+    startedAt: text('startedAt') || undefined,
+    costTotalUsd: typeof record.costTotalUsd === 'number' ? record.costTotalUsd : undefined,
+    usdPerHour: typeof record.usdPerHour === 'number' ? record.usdPerHour : undefined,
   };
 }
 

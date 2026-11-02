@@ -47,6 +47,7 @@ import {
   StatusCircleCheckGlyph,
   StatusCircleDotGlyph,
 } from './glyphs';
+import CloudBoxBadge from '../CloudBoxBadge';
 
 /** The desktop's done blue (cards.rs `chrome_color(0x95d7f6, …)`). */
 const DONE_COLOR = SidebarPalette.ROW_ATTENTION;
@@ -268,6 +269,7 @@ export function UnifiedCard({ row, repoIcon, active, nowMs, sidebarBackground, o
             >
               {title}
             </Text>
+            {session.cloudBox !== undefined ? <CloudBoxBadge cloudBox={session.cloudBox} /> : null}
             {!hasMeta ? (
               <View style={styles.agent}>
                 <AgentIcon session={session} />
