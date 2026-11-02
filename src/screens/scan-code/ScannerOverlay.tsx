@@ -13,17 +13,7 @@ import { ScanCopy } from '../../copy';
 import { GhostexStrokeWidth, SetupPalette } from '../../theme/palette';
 import type { ScanToast } from './useScanController';
 
-/**
- * CDXC:RemotePairing 2026-11-02 WHY:
- * Issue #394: an Android phone's in-app scanner "focuses on the code, but nothing happens". People
- * fill the frame with the code, and a 220pt frame put the phone about 17cm from a MacBook's QR
- * (24cm from a PC monitor's), at or inside the closest distance many phones' main cameras focus
- * at, the cause found on iPhones in systemScanner.ts; this camera view cannot switch to a macro
- * lens. The scanner reads the whole camera picture, not just the frame, so the frame only sets
- * how close people hold the phone: at 160pt they stand about 23 to 33cm back, and the compact QR
- * (61 modules) still gets about 5 analysis pixels a module there, over ML Kit's minimum of 2.
- */
-const FRAME_SIZE = 160;
+const FRAME_SIZE = 220;
 const CORNER = 30;
 
 function Spinner() {

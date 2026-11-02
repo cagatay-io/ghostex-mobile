@@ -32,6 +32,18 @@ const RELEASE_GRADLE_PROPERTIES = {
   'android.packagingOptions.excludes': '/org/bouncycastle/pqc/crypto/picnic/**',
 };
 
+/**
+ * CDXC:RemotePairing 2026-11-02 WHY:
+ * Issue #394: the Android Scan code camera never read a QR in release builds ("not scanning",
+ * while the phone's own camera read the same QR). Since R8 was turned on (10-15), ML Kit's
+ * registrars (BarcodeRegistrar, VisionCommonRegistrar, CommonComponentRegistrar) shipped
+ * without their no-argument constructors: the rule ML Kit pulls in through firebase-components
+ * 16.1.0 keeps the classes but not the constructors, and R8 full mode drops them. ML Kit then
+ * cannot build a barcode scanner, expo-camera never attaches its analyzer, and onBarcodeScanned
+ * never fires, with no error on screen (expo/expo#52274, fixed in expo-camera by #52377 with this
+ * same rule). Debug builds were unaffected. Keep it until the app resolves an expo-camera or
+ * firebase-components (19.0.0+) that ships the rule.
+ */
 const RULES_BEGIN = '# BEGIN plugins/withAndroidReleaseSize.js';
 const RULES_END = '# END plugins/withAndroidReleaseSize.js';
 const APP_RULES = `${RULES_BEGIN}
@@ -39,6 +51,9 @@ const APP_RULES = `${RULES_BEGIN}
 # rules (same lines as node_modules/react-native-worklets/android/proguard-rules.pro).
 -keep class com.swmansion.worklets.** { *; }
 -keep class com.facebook.react.fabric.** { *; }
+# ML Kit builds its component registrars (barcode, vision, common) by reflection through
+# their no-argument constructors; see CDXC:RemotePairing above APP_RULES.
+-keep class * implements com.google.firebase.components.ComponentRegistrar { void <init>(); }
 ${RULES_END}
 `;
 
@@ -56,16 +71,20 @@ function withReleaseGradleProperties(config) {
   });
 }
 
+/** Writes this plugin's rules block into `file`, replacing the block a previous run wrote. */
+function writeAppProguardRules(file) {
+  const contents = fs.readFileSync(file, 'utf8');
+  const begin = contents.indexOf(RULES_BEGIN);
+  const end = contents.indexOf(RULES_END);
+  const base = begin === -1 ? contents : contents.slice(0, begin) + contents.slice(end + RULES_END.length + 1);
+  fs.writeFileSync(file, `${base.trimEnd()}\n\n${APP_RULES}`);
+}
+
 function withAppProguardRules(config) {
   return withDangerousMod(config, [
     'android',
     async (cfg) => {
-      const file = path.join(cfg.modRequest.platformProjectRoot, 'app', 'proguard-rules.pro');
-      const contents = fs.readFileSync(file, 'utf8');
-      const begin = contents.indexOf(RULES_BEGIN);
-      const end = contents.indexOf(RULES_END);
-      const base = begin === -1 ? contents : contents.slice(0, begin) + contents.slice(end + RULES_END.length + 1);
-      fs.writeFileSync(file, `${base.trimEnd()}\n\n${APP_RULES}`);
+      writeAppProguardRules(path.join(cfg.modRequest.platformProjectRoot, 'app', 'proguard-rules.pro'));
       return cfg;
     },
   ]);
@@ -74,3 +93,4 @@ function withAppProguardRules(config) {
 module.exports = function withAndroidReleaseSize(config) {
   return withAppProguardRules(withReleaseGradleProperties(config));
 };
+module.exports.writeAppProguardRules = writeAppProguardRules;
