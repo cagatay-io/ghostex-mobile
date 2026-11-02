@@ -40,6 +40,7 @@ import {
   sanitizeCommandPadPosition,
   type CommandPadPositions,
 } from './commandPad';
+import { DEFAULT_TERMINAL_PALETTE } from '../theme/terminalPalettes';
 
 const SETTINGS_STORAGE_KEY = 'settings.v1';
 
@@ -274,8 +275,8 @@ export function defaultSettings(): GhostexSettings {
     customSidebarTitlebarLightBackgroundLightnessPercent: DEFAULT_THEME_DEPTH,
     themeSidebarContrast: 0,
     themeWorkAreaContrast: 0,
-    terminalGhosttyTheme: 'GitHub Dark',
-    terminalGhosttyLightTheme: 'GitHub Light Default',
+    terminalGhosttyTheme: DEFAULT_TERMINAL_PALETTE.dark,
+    terminalGhosttyLightTheme: DEFAULT_TERMINAL_PALETTE.light,
     terminalBackgroundMode: 'pure',
     workspaceBackgroundColor: '',
     terminalColorScheme: 'app',

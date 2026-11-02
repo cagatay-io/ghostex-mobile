@@ -22,7 +22,7 @@ import {
   resolveThemeAreas,
   sidebarAppearanceFor,
 } from './sidebarAppearance';
-import { terminalPalette } from './terminalPalettes';
+import { DEFAULT_TERMINAL_PALETTE, terminalPalette } from './terminalPalettes';
 
 /** The settings the terminal's colours depend on. */
 export type TerminalColourSettings = Pick<
@@ -67,14 +67,19 @@ export function terminalBackground(settings: TerminalColourSettings, light: bool
 }
 
 /**
- * Everything a terminal paints with. A light terminal whose light palette the phone does not carry keeps the dark
- * palette's colours (the Mac applies the dark palette first and the light one only when it resolves); a palette it
- * does not carry at all leaves foreground, cursor and ANSI colours to Ghostty's defaults.
+ * Everything a terminal paints with. A palette name the phone does not carry (one saved before it stopped shipping,
+ * or any other) takes the colours of that mode's default palette, GitHub Dark or GitHub Light Default; the saved name
+ * itself stays.
+ *
+ * CDXC:Theming 2026-11-02 DECISION: Main (2026-11-02, review s5notices-r1 K-10): the Mac leaves an unknown name to
+ * Ghostty's defaults (`apply_ghostty_theme` returns without colours), whose white text on the white light background
+ * would be unreadable after D-101 dropped palettes users had saved; the default palette keeps every terminal readable.
  */
 export function terminalColours(settings: TerminalColourSettings, systemIsLight: boolean): TerminalColors {
   const light = contentIsLight(settings, 'terminalColorScheme', systemIsLight);
-  const dark = terminalPalette(settings.terminalGhosttyTheme);
-  const palette = light ? (terminalPalette(settings.terminalGhosttyLightTheme) ?? dark) : dark;
+  const palette = light
+    ? (terminalPalette(settings.terminalGhosttyLightTheme) ?? terminalPalette(DEFAULT_TERMINAL_PALETTE.light))
+    : (terminalPalette(settings.terminalGhosttyTheme) ?? terminalPalette(DEFAULT_TERMINAL_PALETTE.dark));
   const colors: TerminalColors = { light, background: terminalBackground(settings, light), palette: [] };
   if (palette === null) return colors;
   colors.foreground = palette.foreground;

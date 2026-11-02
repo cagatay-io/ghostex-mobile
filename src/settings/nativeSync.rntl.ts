@@ -17,6 +17,7 @@ jest.mock('../../modules/ghostex-native/src', () => ({
   },
 }));
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Appearance } from 'react-native';
 
 import { GhostexNative } from '../../modules/ghostex-native/src';
@@ -114,4 +115,61 @@ test('with the Terminal theme on System, a device appearance change recolours th
   expect(setTerminalSettings).toHaveBeenCalledTimes(1);
   // The light palette is still Latte's from the Mocha preset applied above.
   expect(sentColors()).toMatchObject({ light: true, background: '#ffffff', foreground: '#4c4f69' });
+});
+
+// Ported from review s5notices-r1 K-10 (evidence/removed-pair-runtime.json): an upgrade where both saved palettes are
+// no longer shipped. CDXC:Theming 2026-11-02 DECISION: Main (2026-11-02): such a name takes the colours of that
+// mode's default palette (GitHub Dark / GitHub Light Default); the saved names stay as they are.
+test('both saved palettes no longer ship: the terminals take the default palettes, the saved names stay', async () => {
+  deviceScheme = 'light';
+  await AsyncStorage.setItem(
+    'settings.v1',
+    JSON.stringify({
+      ...defaultSettings(),
+      sidebarTheme: 'system',
+      terminalColorScheme: 'system',
+      terminalBackgroundMode: 'pure',
+      terminalGhosttyTheme: 'Monokai Pro',
+      terminalGhosttyLightTheme: 'Pro Light',
+    }),
+  );
+  setTerminalSettings.mockClear();
+  useSettingsStore.setState({ hydrated: false });
+  await useSettingsStore.getState().hydrate();
+  expect(useSettingsStore.getState().settings).toMatchObject({
+    terminalGhosttyTheme: 'Monokai Pro',
+    terminalGhosttyLightTheme: 'Pro Light',
+  });
+  // Ghostty's GitHub Light Default theme file; light terminals carry no selection colour.
+  expect(sentColors()).toEqual({
+    light: true,
+    background: '#ffffff',
+    foreground: '#1f2328',
+    cursor: '#0969da',
+    cursorText: '#3c9cff',
+    palette: [
+      '#24292f',
+      '#cf222e',
+      '#116329',
+      '#4d2d00',
+      '#0969da',
+      '#8250df',
+      '#1b7c83',
+      '#6e7781',
+      '#57606a',
+      '#a40e26',
+      '#1a7f37',
+      '#633c01',
+      '#218bff',
+      '#a475f9',
+      '#3192aa',
+      '#8c959f',
+    ],
+  });
+  expect(sentColors().foreground).not.toBe(sentColors().background);
+
+  deviceScheme = 'dark';
+  appearanceListener?.();
+  // Ghostty's GitHub Dark theme file.
+  expect(sentColors()).toMatchObject({ light: false, background: '#000000', foreground: '#8b949e', cursor: '#c9d1d9' });
 });

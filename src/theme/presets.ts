@@ -6,8 +6,10 @@
  * CDXC:Theming 2026-11-01 DECISION: User (2026-11-01): the phone copies the desktop's presets. The files in
  * `./presets/` are the desktop's data in the format its parity test (`theme_preset_parity_with_the_phone`,
  * apps/desktop/src/terminal_gpui_engine.rs) compares as whole JSON objects, so they carry no other fields; the
- * grouping lives here. Their palettes are the theme projects' own colours (provenance and licences: the third-party
- * notices). Picking a preset applies one of the file's two patches through the settings store's `patchSettings`.
+ * grouping lives here. Their palettes are the theme projects' own colours; each file's sources, commits and licence
+ * texts are its entries in the third-party notices (`GENERATED_DATA_FILES` in scripts/notices/pinned.ts, which fails
+ * on a file it does not list). Picking a preset applies one of the file's two patches through the settings store's
+ * `patchSettings`.
  */
 
 import type { GhostexSettings } from '../settings/store';

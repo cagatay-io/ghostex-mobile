@@ -12,6 +12,8 @@ import {
   fail,
   isDirectory,
   isFile,
+  isRecord,
+  readJson,
   readLicenceText,
   sha256File,
   sha256Tree,
@@ -24,6 +26,7 @@ import {
   HOST_BUILT_VENDOR_FOLDERS,
   PINNED,
   VENDOR_FOLDERS,
+  type PinnedComponent,
   type PinnedId,
 } from './pinned';
 
@@ -32,6 +35,9 @@ const VENDOR = 'modules/ghostex-native/ios/Vendor';
 const FONT_DIRS = ['assets/fonts', 'modules/ghostex-native/ios/Fonts'];
 export const FONT_FILE = /\.(ttf|otf|ttc|woff2?)$/i;
 const PINNED_TABLES = 'scripts/notices/pinned.ts';
+/** Folders of generated data files: each file in them must be listed in GENERATED_DATA_FILES. */
+const GENERATED_DATA_DIRS = ['src/theme/presets'];
+export const GHOSTTY_THEMES_FILE = 'src/theme/ghosttyThemes.json';
 
 export function pinnedEntry(repo: string, id: PinnedId, group: Group): Collected {
   const component = PINNED[id];
@@ -98,12 +104,51 @@ export function collectFonts(repo: string): Collected[] {
   return entries;
 }
 
+/**
+ * Every palette in `src/theme/ghosttyThemes.json` (`names`) is listed in the `themes` of an entry in PINNED, whose
+ * licence then covers it, and every listed name is a palette the file holds.
+ */
+export function checkGhosttyThemeCoverage(names: readonly string[]): void {
+  const listed = new Set<string>();
+  for (const id of Object.keys(PINNED) as PinnedId[]) {
+    const component: PinnedComponent = PINNED[id];
+    for (const theme of component.themes ?? []) listed.add(theme);
+  }
+  const unlisted = names.filter((name) => !listed.has(name));
+  if (unlisted.length > 0) {
+    fail(
+      `${GHOSTTY_THEMES_FILE} holds palettes no entry in ${PINNED_TABLES} lists in its themes: ${unlisted.join(', ')}. ` +
+        'Add each to the entry of the project it comes from, with that licence copied under third-party/.',
+    );
+  }
+  const present = new Set(names);
+  const stale = [...listed].filter((name) => !present.has(name));
+  if (stale.length > 0) {
+    fail(`${PINNED_TABLES} lists themes ${GHOSTTY_THEMES_FILE} does not hold: ${stale.join(', ')}. Remove them.`);
+  }
+}
+
 export function collectGeneratedData(repo: string): Collected[] {
+  for (const dir of GENERATED_DATA_DIRS) {
+    if (!isDirectory(path.join(repo, dir))) fail(`${dir} is missing.`);
+    for (const name of readdirSync(path.join(repo, dir)).sort()) {
+      if (name.startsWith('.') || GENERATED_DATA_FILES[`${dir}/${name}`] !== undefined) continue;
+      fail(
+        `${dir}/${name} is not known to the notices generator: add it to GENERATED_DATA_FILES in ${PINNED_TABLES}, ` +
+          'with the entries of the projects its data comes from.',
+      );
+    }
+  }
   const entries: Collected[] = [];
   for (const [file, data] of Object.entries(GENERATED_DATA_FILES)) {
     const absolute = path.join(repo, file);
     if (!isFile(absolute)) fail(`${file} is gone: remove it from GENERATED_DATA_FILES in ${PINNED_TABLES}.`);
     checkFingerprint(file, sha256File(absolute), data.sha256, 'GENERATED_DATA_FILES');
+    if (file === GHOSTTY_THEMES_FILE) {
+      const palettes = readJson(absolute, 'the terminal palettes');
+      if (!isRecord(palettes)) fail(`${file} is not an object of palettes.`);
+      checkGhosttyThemeCoverage(Object.keys(palettes));
+    }
     for (const id of data.components) entries.push(pinnedEntry(repo, id, 'asset'));
   }
   return entries;

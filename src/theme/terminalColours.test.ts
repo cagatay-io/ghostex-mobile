@@ -216,20 +216,49 @@ describe('Terminal background', () => {
   });
 });
 
-describe('names the phone does not carry', () => {
-  test('an unknown dark palette leaves everything but the background to Ghostty', () => {
+// CDXC:Theming 2026-11-02 DECISION: Main (2026-11-02, review s5notices-r1 K-10): a palette name the phone does not
+// carry (one saved before D-101 dropped it, or any other) takes the colours of that mode's default palette, GitHub Dark
+// or GitHub Light Default, so a light terminal never gets the white default text on white; the saved name stays.
+describe('names the phone does not carry take the default palette of their mode', () => {
+  test('an unknown dark palette: GitHub Dark', () => {
     assert.deepEqual(terminalColours({ ...DEFAULTS, terminalGhosttyTheme: 'No Such Theme' }, false), {
       light: false,
       background: '#000000',
-      palette: [],
+      ...GITHUB_DARK,
     });
   });
 
-  test('an unknown light palette keeps the dark palette’s colours, without its selection colour', () => {
-    const colors = terminalColours({ ...DEFAULTS, terminalGhosttyLightTheme: 'No Such Theme' }, true);
-    assert.equal(colors.foreground, GITHUB_DARK.foreground);
-    assert.deepEqual(colors.palette, GITHUB_DARK.palette);
-    assert.equal(colors.selectionBackground, undefined);
+  test('an unknown light palette: GitHub Light Default, not the dark palette', () => {
+    const mochaDark = { ...DEFAULTS, terminalGhosttyTheme: 'Ghostex Catppuccin Mocha' };
+    assert.deepEqual(terminalColours({ ...mochaDark, terminalGhosttyLightTheme: 'No Such Theme' }, true), {
+      light: true,
+      background: '#ffffff',
+      ...GITHUB_LIGHT_DEFAULT,
+    });
+  });
+
+  test('a saved dark palette that no longer ships (Monokai Pro, nonfree): GitHub Dark', () => {
+    assert.equal(terminalPaletteNames().includes('Monokai Pro'), false);
+    assert.deepEqual(terminalColours({ ...DEFAULTS, terminalGhosttyTheme: 'Monokai Pro' }, false), {
+      light: false,
+      background: '#000000',
+      ...GITHUB_DARK,
+    });
+  });
+
+  test('both saved palettes no longer ship (Monokai Pro, Pro Light): a light terminal gets readable default text', () => {
+    assert.equal(terminalPaletteNames().includes('Pro Light'), false);
+    const removed = { ...DEFAULTS, terminalGhosttyTheme: 'Monokai Pro', terminalGhosttyLightTheme: 'Pro Light' };
+    const colors = terminalColours(removed, true);
+    assert.deepEqual(colors, { light: true, background: '#ffffff', ...GITHUB_LIGHT_DEFAULT });
+    assert.notEqual(colors.foreground, colors.background);
+  });
+
+  test('a saved light palette that no longer ships (Breeze, GPL-2.0-only): GitHub Light Default', () => {
+    assert.equal(terminalPaletteNames().includes('Breeze'), false);
+    const colors = terminalColours({ ...DEFAULTS, terminalGhosttyLightTheme: 'Breeze' }, true);
+    assert.equal(colors.foreground, GITHUB_LIGHT_DEFAULT.foreground);
+    assert.deepEqual(colors.palette, GITHUB_LIGHT_DEFAULT.palette);
   });
 });
 
@@ -237,8 +266,9 @@ describe('every offered palette gives the terminal complete colours', () => {
   const HEX = /^#[0-9a-f]{6}$/;
   const names = terminalPaletteNames();
 
-  test('the Mac’s list: 486 Ghostty themes and the twenty preset palettes', () => {
-    assert.equal(names.length, 506);
+  test('the 210 Ghostty themes that may ship (D-101) and the twenty preset palettes', () => {
+    // 486 offered by the Mac; licenses.yml @ f6fc23ce keeps 214 of them, minus the four EXCLUDED with a kept licence.
+    assert.equal(names.length, 230);
     assert.equal(names.filter((name) => name.startsWith('Ghostex ')).length, 20);
   });
 

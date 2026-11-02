@@ -62,6 +62,7 @@
     "sim:tap": "./scripts/sim-tap.sh",
     "generate:chat-agents": "node scripts/generate-chat-agents.mjs",
     "generate:tabler-icons": "node scripts/generate-tabler-icons.mjs",
+    "generate:ghostty-themes": "bun scripts/generate-ghostty-themes.ts",
     "notices": "bun scripts/notices/generate.ts"
   },
   "jest": {

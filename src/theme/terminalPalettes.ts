@@ -1,8 +1,12 @@
 /**
  * The terminal palettes the phone offers (Settings › Interface › Terminal palette in dark mode / light mode) and their
  * colours: the twenty preset palettes from `./presets/<id>.json` plus the Ghostty themes in `./ghosttyThemes.json`
- * (the desktop's defaults, GitHub Dark and GitHub Light Default, read from the desktop's embedded Ghostty themes).
- * Settings lists the names; the terminal reads the colours of the saved name.
+ * (written by scripts/generate-ghostty-themes.ts from the desktop's embedded Ghostty themes, including the desktop's
+ * defaults GitHub Dark and GitHub Light Default). Settings lists the names; the terminal reads the colours of the saved
+ * name, and a saved name the phone does not carry keeps the fallback in terminalColours.ts.
+ *
+ * CDXC:Theming 2026-11-02 DECISION: User (2026-11-02, D-101): only the Ghostty themes whose licence the app may pass
+ * on ship, each covered by the third-party notices; the desktop is to apply the same selection.
  *
  * CDXC:Theming 2026-11-01 WHY: User (2026-11-01): copy the Mac app's theme functions. The Mac lists every palette in
  * both pickers, sorted by value byte for byte, and labels two of them differently from their values; both are kept.
@@ -22,6 +26,12 @@ export type TerminalPalette = {
   selectionForeground?: string;
   ansi: string[];
 };
+
+/**
+ * The desktop's default palettes (packages/settings-catalog/src/data/defaults.rs). A name the phone does not carry
+ * takes the colours of its mode's default (terminalColours.ts).
+ */
+export const DEFAULT_TERMINAL_PALETTE = { dark: 'GitHub Dark', light: 'GitHub Light Default' } as const;
 
 const PALETTES: ReadonlyMap<string, TerminalPalette> = new Map<string, TerminalPalette>([
   ...Object.entries(ghosttyThemes as Record<string, TerminalPalette>),
