@@ -11,7 +11,7 @@ import type { CompletedWorkItem, ProjectedMessage, SummaryItem, TranscriptItem }
 import { QuestionExchangeCards } from '../cards';
 import { useNativeChatUi, useTranscriptEnv, useTranscriptFlags } from './context';
 import { DisclosureBody, DisclosureHeading, FoldPlaceProvider } from './Disclosure';
-import { ReadImages } from './Images';
+import { cardEdge, ReadImageStrip } from './Images';
 import { CompletedFilesFold, hasCompletedFiles } from './FileChanges';
 import { arr, obj } from './json';
 import { MessageRow } from './MessageRow';
@@ -20,6 +20,7 @@ import { WorkflowCards } from './WorkflowCard';
 import { useDisclosure } from './state';
 import {
   SINGLE_LINE_CARD,
+  SINGLE_LINE_HEADER_HEIGHT,
   SINGLE_LINE_TITLE,
   SingleLinePill,
   SingleLineTile,
@@ -77,7 +78,7 @@ function SummaryRow({ item }: { item: SummaryItem }) {
         <>
           <DisclosureHeading label={hasFinal ? 'Agent reply' : 'Active work'} open={open} onToggle={toggle} />
           {/* The closed "Active work" fold keeps the pictures its rows read in view (gx-chat-core `read_images.rs`). */}
-          {!open ? <ReadImages images={item.readImages} inset={4} /> : null}
+          {!open ? <ReadImageStrip images={item.readImages} inset={4} /> : null}
           {open ? (
             <View style={styles.column}>
               {foldRows.map((message) => (
@@ -125,11 +126,7 @@ function CompletedWorkRow({ item }: { item: CompletedWorkItem }) {
             ))}
           </DisclosureBody>
         </FoldPlaceProvider>
-      ) : (
-        // The closed fold keeps the pictures its rows read in view; opened, each row shows its own
-        // (gx-chat-core `read_images.rs`).
-        <ReadImages images={item.readImages} inset={4} />
-      )}
+      ) : null}
       <CompletedFilesFold
         itemId={item.id}
         files={item.files}
@@ -164,33 +161,51 @@ function WorkSummary({ item, open, onToggle }: { item: CompletedWorkItem; open: 
   const { theme } = useTranscriptEnv();
   const stats = item.stats ?? [];
   const spoken = [item.label, ...stats.map((stat) => stat.label)].join(', ');
+  // The closed card keeps the pictures its rows read in view, under its header past a hairline
+  // (gx-chat-core `read_images.rs`, where the user's decision is); opened, each row shows its own.
+  const pictures = !open && (item.readImages ?? []).length > 0;
   return (
-    <Pressable
-      disabled={!item.expandable}
-      onPress={onToggle}
-      accessibilityRole="button"
-      accessibilityLabel={spoken}
-      accessibilityState={{ expanded: open }}
-      style={({ pressed }) => [styles.summary, singleLineShell(theme), pressed && singleLinePressed(theme)]}
-    >
-      <SingleLineTile glyph="clock" badge="check" />
-      <Text style={[SINGLE_LINE_TITLE, { color: theme.foreground }]}>{item.label}</Text>
-      {/* The count pills sit at the row's right end and wrap among themselves (desktop `work_summary`). */}
-      <View style={styles.chips}>
-        {stats.map((stat) => {
-          const failed = stat.kind === 'failed' || stat.kind === 'recovered';
-          const tone = failed ? theme.error : theme.cardMuted;
-          return (
-            <SingleLinePill
-              key={stat.kind}
-              icon={stat.kind === 'files' ? 'pencil' : failed ? 'alert-triangle' : 'tool'}
-              label={stat.label}
-              color={tone}
-            />
-          );
-        })}
-      </View>
-    </Pressable>
+    <View style={singleLineShell(theme)}>
+      <Pressable
+        disabled={!item.expandable}
+        onPress={onToggle}
+        accessibilityRole="button"
+        accessibilityLabel={spoken}
+        accessibilityState={{ expanded: open }}
+        style={({ pressed }) => [styles.summary, pressed && singleLinePressed(theme)]}
+      >
+        <SingleLineTile glyph="clock" badge="check" />
+        <Text style={[SINGLE_LINE_TITLE, { color: theme.foreground }]}>{item.label}</Text>
+        {/* The count pills sit at the row's right end and wrap among themselves (desktop `work_summary`). */}
+        <View style={styles.chips}>
+          {stats.map((stat) => {
+            const failed = stat.kind === 'failed' || stat.kind === 'recovered';
+            const tone = failed ? theme.error : theme.cardMuted;
+            return (
+              <SingleLinePill
+                key={stat.kind}
+                icon={
+                  stat.kind === 'files'
+                    ? 'pencil'
+                    : stat.kind === 'images'
+                      ? 'photo'
+                      : failed
+                        ? 'alert-triangle'
+                        : 'tool'
+                }
+                label={stat.label}
+                color={tone}
+              />
+            );
+          })}
+        </View>
+      </Pressable>
+      {pictures ? (
+        <View style={[styles.cardPictures, { borderTopColor: theme.ink(SINGLE_LINE_CARD.borderAlpha) }]}>
+          <ReadImageStrip images={item.readImages} inset={0} edge={cardEdge(theme)} />
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -224,8 +239,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    height: SINGLE_LINE_CARD.height,
+    height: SINGLE_LINE_HEADER_HEIGHT,
     paddingHorizontal: SINGLE_LINE_CARD.paddingX,
+  },
+  cardPictures: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: SINGLE_LINE_CARD.paddingX,
+    paddingVertical: 8,
   },
   chips: {
     flex: 1,

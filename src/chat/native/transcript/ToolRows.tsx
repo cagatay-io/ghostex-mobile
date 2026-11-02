@@ -15,7 +15,7 @@ import { Glyph, toolGlyph } from './icons';
 import { ToolBody } from './ToolBody';
 import { ToolCard } from './ToolCard';
 import { arr, obj, str, type JsonRecord } from './json';
-import { FOLDED_CALLS_INSET, ReadImages } from './Images';
+import { FOLDED_CALLS_INSET, ReadImageStrip, ReadImages } from './Images';
 import { highlightLabel, useRowFind } from './searchHighlight';
 import { useDisclosure } from './state';
 import { openTranscriptMenu } from './transcriptMenuStore';
@@ -95,7 +95,7 @@ function ToolRunRows({ message }: { message: ProjectedMessage }) {
           </DisclosureBody>
         ) : (
           // The closed group keeps the pictures its calls read in view (gx-chat-core `read_images.rs`).
-          <ReadImages images={message.readImages} inset={FOLDED_CALLS_INSET} />
+          <ReadImageStrip images={message.readImages} inset={FOLDED_CALLS_INSET} />
         )}
       </View>
     );
@@ -135,7 +135,7 @@ function ToolRunRows({ message }: { message: ProjectedMessage }) {
     <View style={styles.column}>
       {rows(visible.filter((index) => keptFlags[index] === true && index < before))}
       {toggle}
-      <ReadImages images={foldedPictures} inset={FOLDED_CALLS_INSET} />
+      <ReadImageStrip images={foldedPictures} inset={FOLDED_CALLS_INSET} />
       {rows(visible.filter((index) => keptFlags[index] === true && index >= before))}
     </View>
   );

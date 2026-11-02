@@ -5,7 +5,7 @@
  * (`loadImage`), and a tap opens the image viewer `NativeChatOverlays` draws.
  */
 
-import { memo, useState } from 'react';
+import { memo, useId, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -18,12 +18,14 @@ import {
 } from 'react-native';
 
 import { openChatImageViewer } from '../cards';
+import { mixHex } from '../cards/PillsStrip';
 import { fileNameOf, imageFailureCopy } from '../cards/ImageUnavailable';
 import { useImageDisplay, useOptionalNativeChatUi, useTranscriptEnv, type ChatImageSource } from './context';
 import { Glyph } from './icons';
 import { arr, obj, str } from './json';
 import { OWNS_HOLD } from './messageSelection';
 import { openTranscriptMenu } from './transcriptMenuStore';
+import { HorizontalFade } from './verticalFade';
 
 /** A picture's file on the computer (`copyPath`, or the path it is read from); none for a web address or pasted bytes. */
 function imageFilePath(image: ChatImageSource): string {
@@ -302,6 +304,89 @@ export const ReadImages = memo(function ReadImages({ images, inset }: { images: 
   );
 });
 
+/** The fade over a strip's edge that hides more pictures (the pills strip's `PILLS_FADE`). */
+const STRIP_FADE = 24;
+
+/**
+ * The pictures a closed fold keeps in view: one row of thumbnails that scrolls sideways when it does
+ * not fit, fading into `edge` (the opaque colour behind it) at an edge that hides more, as the pills
+ * strip does (`PillsStrip.tsx`). Desktop `read_picture_strip` in `read_pictures.rs`; the user's
+ * decision is gx-chat-core `read_images.rs` (CDXC:SessionChat 2026-11-02).
+ */
+export const ReadImageStrip = memo(function ReadImageStrip({
+  images,
+  inset,
+  edge,
+}: {
+  images: unknown;
+  inset: number;
+  edge?: string;
+}) {
+  const { theme } = useTranscriptEnv();
+  const openPicture = useOpenPicture();
+  const fadeId = useId();
+  const [edges, setEdges] = useState({ left: false, right: false });
+  const metrics = useRef({ x: 0, width: 0, content: 0 });
+  const update = () => {
+    const { x, width, content } = metrics.current;
+    const next = { left: x > 0.5, right: content - width - x > 0.5 };
+    setEdges((was) => (was.left === next.left && was.right === next.right ? was : next));
+  };
+  const list = arr(images)
+    .map((entry) => obj(entry))
+    .filter((entry): entry is ChatImageSource => entry !== null);
+  if (list.length === 0) return null;
+  const color = edge ?? theme.background;
+  return (
+    <View style={[styles.stripArea, { marginLeft: inset }]}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        alwaysBounceHorizontal={false}
+        overScrollMode="never"
+        directionalLockEnabled
+        nestedScrollEnabled
+        scrollEventThrottle={16}
+        onScroll={(event) => {
+          metrics.current.x = event.nativeEvent.contentOffset.x;
+          update();
+        }}
+        onLayout={(event) => {
+          metrics.current.width = event.nativeEvent.layout.width;
+          update();
+        }}
+        onContentSizeChange={(width) => {
+          metrics.current.content = width;
+          update();
+        }}
+        contentContainerStyle={{ gap: VISUAL.userRowGap }}
+      >
+        {list.map((image, index) => (
+          <ImageTile
+            key={index}
+            image={image}
+            index={index}
+            user
+            onOpen={() => openPicture(image, list, index)}
+            themeMuted={theme.muted}
+          />
+        ))}
+      </ScrollView>
+      {edges.left ? (
+        <HorizontalFade id={`${fadeId}-left`} color={color} from={1} to={0} style={[styles.stripFade, { left: 0 }]} />
+      ) : null}
+      {edges.right ? (
+        <HorizontalFade id={`${fadeId}-right`} color={color} from={0} to={1} style={[styles.stripFade, { right: 0 }]} />
+      ) : null}
+    </View>
+  );
+});
+
+/** A folded turn card's fill over the page, opaque, which a strip inside the card fades into. */
+export function cardEdge(theme: { background: string; foreground: string }): string {
+  return mixHex(theme.background, theme.foreground, 0.025);
+}
+
 function ImageTile({
   image,
   index,
@@ -372,6 +457,8 @@ const styles = StyleSheet.create({
   inline: { marginHorizontal: VISUAL.inlineMarginX, marginVertical: VISUAL.inlineMarginY },
   row: { flexDirection: 'row', flexWrap: 'wrap', paddingVertical: VISUAL.rowPaddingY },
   rowEnd: { justifyContent: 'flex-end' },
+  stripArea: { position: 'relative', minWidth: 0 },
+  stripFade: { position: 'absolute', top: 0, bottom: 0, width: STRIP_FADE },
   missing: { borderStyle: 'dashed' },
   inlineMissing: {
     flexDirection: 'row',

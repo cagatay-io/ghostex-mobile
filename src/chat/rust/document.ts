@@ -193,8 +193,8 @@ export type SummaryItem = {
 /** One count beside a finished turn's "Worked for 2m 5s" (gx-chat-core `work_summary.rs`). */
 export type WorkStat = {
   /** Picks the chip's glyph and tone. */
-  kind: 'tools' | 'files' | 'failed' | 'recovered';
-  /** "4 tool calls", "1 file", "1 failed, then passed". */
+  kind: 'images' | 'tools' | 'files' | 'failed' | 'recovered';
+  /** "3 images" (the pictures in the closed card's strip, first), "4 tool calls", "1 file", "1 failed, then passed". */
   label: string;
 };
 

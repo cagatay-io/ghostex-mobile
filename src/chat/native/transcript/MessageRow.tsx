@@ -12,7 +12,7 @@ import { ApiErrorCard, ApiErrorNote, QuestionExchangeCards } from '../cards';
 import { useNativeChatUi, useTranscriptEnv, useTranscriptFlags } from './context';
 import { Chevron, DisclosureBody, DisclosureHeading, LaneMarker, useFoldPlace } from './Disclosure';
 import { FileChangeStack } from './FileChanges';
-import { FOLDED_CALLS_INSET, ImageRow, ReadImages } from './Images';
+import { FOLDED_CALLS_INSET, ImageRow, ReadImageStrip } from './Images';
 import { arr, obj, str } from './json';
 import { MessageLongPressContext } from './markdown/blockLongPress';
 import { messageMenuSelection } from './messageCopy';
@@ -210,7 +210,7 @@ function AgentMessage({ message, proseColor }: { message: ProjectedMessage; pros
             </DisclosureBody>
           ) : (
             // The closed headline keeps the pictures its calls read in view (gx-chat-core `read_images.rs`).
-            <ReadImages images={message.readImages} inset={FOLDED_CALLS_INSET} />
+            <ReadImageStrip images={message.readImages} inset={FOLDED_CALLS_INSET} />
           )}
         </>
       );
@@ -278,7 +278,7 @@ function AgentMessage({ message, proseColor }: { message: ProjectedMessage; pros
             </DisclosureBody>
           ) : (
             // The sentence's closed calls keep the pictures they read in view (gx-chat-core `read_images.rs`).
-            <ReadImages images={message.readImages} inset={FOLDED_CALLS_INSET} />
+            <ReadImageStrip images={message.readImages} inset={FOLDED_CALLS_INSET} />
           )}
         </>
       ) : (
@@ -440,7 +440,7 @@ function ThinkingLine({ id, body, message }: { id: string; body: string; message
       ) : calls !== undefined ? (
         // Folded calls keep the pictures they read in view, as a closed turn fold does (gx-chat-core
         // `read_images.rs`; desktop `thinking_card.rs`).
-        <ReadImages images={message.readImages} inset={FOLDED_CALLS_INSET} />
+        <ReadImageStrip images={message.readImages} inset={FOLDED_CALLS_INSET} />
       ) : null}
     </View>
   );
