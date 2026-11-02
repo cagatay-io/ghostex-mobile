@@ -13,7 +13,7 @@
  * User: "let's please allow picking more cli agents here ... we should just include a line that can't be removed saying: "Read and adhere to this skill: /ghostex-orchestrator" ... also remove this [First request] and this [Goal]", and for the phone: "phone too". No Goal or First request field; the first message is shown locked.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import type { CreateCoordinatorInput } from '../../commands/ghostexCli';
@@ -43,6 +43,30 @@ export const NEW_ORCHESTRATOR_BENEFITS = `Recommended
 • You talk to one agent and the work gets done
 • It keeps improving as it saves memories about your project
 • Needs a very good model, e.g. Opus 5.5 at high or xhigh`;
+
+/** A lineup longer than this gets a search field above its Model chips (OpenCode lists hundreds). */
+const MODEL_SEARCH_THRESHOLD = 12;
+/** How many matching Model chips the search shows at once. */
+const MODEL_SEARCH_LIMIT = 24;
+
+/**
+ * The Model chips a long lineup shows: the models whose label or id has every typed word, at most
+ * MODEL_SEARCH_LIMIT of them, with the picked one always among them.
+ */
+function searchedModels(models: CoordinatorModel[], query: string, picked: string): CoordinatorModel[] {
+  const terms = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((term) => term.length > 0);
+  const matches = models.filter((model) => {
+    const haystack = `${model.label} ${model.value}`.toLowerCase();
+    return terms.every((term) => haystack.includes(term));
+  });
+  const shown = matches.slice(0, MODEL_SEARCH_LIMIT);
+  const selected = models.find((model) => model.value === picked);
+  if (selected !== undefined && !shown.includes(selected)) shown.unshift(selected);
+  return shown;
+}
 
 function text(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -76,7 +100,8 @@ export function parseCoordinatorOptions(json: unknown): CoordinatorOptions {
           efforts: choices(model.efforts),
           defaultEffort: text(model.defaultEffort),
         }))
-        .filter((model) => model.value.length > 0),
+        // OpenCode's first row ("OpenCode's default") has no value: it keeps OpenCode's own model.
+        .filter((model) => model.value.length > 0 || model.label.length > 0),
     }))
     .filter((agent) => agent.agentId.length > 0);
   return { agents, defaultEffort: text(root.defaultEffort) };
@@ -118,6 +143,7 @@ export default function NewCoordinatorSheet({
   const [model, setModel] = useState('');
   const [effort, setEffort] = useState('');
   const [name, setName] = useState('');
+  const [modelQuery, setModelQuery] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -142,6 +168,7 @@ export default function NewCoordinatorSheet({
   const pickAgent = (agent: CoordinatorAgent, loaded: CoordinatorOptions, pickedEffort: string): void => {
     const startModel = agent.models.find((entry) => entry.value === agent.defaultModel) ?? agent.models[0];
     setAgentId(agent.agentId);
+    setModelQuery('');
     setModel(startModel?.value ?? '');
     setEffort(effortFor(startModel, pickedEffort, loaded.defaultEffort));
   };
@@ -161,15 +188,22 @@ export default function NewCoordinatorSheet({
     });
   };
 
-  const chipRow = (label: string, items: Choice[], selected: string, onPick: (value: string) => void) => (
+  const chipRow = (
+    label: string,
+    items: Choice[],
+    selected: string,
+    onPick: (value: string) => void,
+    header?: ReactNode,
+  ) => (
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>{label}</Text>
+      {header}
       <View accessibilityRole="radiogroup" style={styles.chips}>
         {items.map((item) => {
           const isSelected = item.value === selected;
           return (
             <Pressable
-              key={item.value}
+              key={item.value || 'default'}
               accessibilityRole="radio"
               accessibilityState={{ selected: isSelected }}
               style={[styles.chip, isSelected ? styles.chipSelected : null]}
@@ -216,7 +250,7 @@ export default function NewCoordinatorSheet({
               ) : options.agents.length === 0 ? (
                 <Text style={styles.error}>
                   No agent a coordinator can run on is set up on this computer: Claude, Codex, ZCode, Cursor, Grok,
-                  Copilot, Antigravity, Pi or OMP.
+                  Copilot, Antigravity, Pi, OMP or OpenCode.
                 </Text>
               ) : (
                 <>
@@ -230,16 +264,35 @@ export default function NewCoordinatorSheet({
                     },
                   )}
                   {agent !== undefined && agent.models.length > 0
-                    ? chipRow('Model', agent.models, model, (value) => {
-                        setModel(value);
-                        setEffort(
-                          effortFor(
-                            agent.models.find((entry) => entry.value === value),
-                            effort,
-                            options.defaultEffort,
-                          ),
-                        );
-                      })
+                    ? chipRow(
+                        'Model',
+                        agent.models.length > MODEL_SEARCH_THRESHOLD
+                          ? searchedModels(agent.models, modelQuery, model)
+                          : agent.models,
+                        model,
+                        (value) => {
+                          setModel(value);
+                          setEffort(
+                            effortFor(
+                              agent.models.find((entry) => entry.value === value),
+                              effort,
+                              options.defaultEffort,
+                            ),
+                          );
+                        },
+                        agent.models.length > MODEL_SEARCH_THRESHOLD ? (
+                          <TextInput
+                            accessibilityLabel="Search models"
+                            style={[styles.input, styles.modelSearch]}
+                            value={modelQuery}
+                            onChangeText={setModelQuery}
+                            placeholder={`Search ${agent.models.length} models`}
+                            placeholderTextColor={GhostexPalette.MUTED}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                          />
+                        ) : undefined,
+                      )
                     : null}
                   {selectedModel !== undefined && selectedModel.efforts.length > 0
                     ? chipRow('Effort', selectedModel.efforts, effort, setEffort)
@@ -359,6 +412,9 @@ const styles = StyleSheet.create({
     color: GhostexPalette.MUTED,
     fontSize: 14,
     lineHeight: 19,
+  },
+  modelSearch: {
+    marginBottom: 8,
   },
   chips: {
     flexDirection: 'row',
