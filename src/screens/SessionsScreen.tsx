@@ -43,6 +43,7 @@ import {
   type RailEntry,
 } from '../components/common/verticalBar/VerticalBarArea';
 import { useCollapseStore } from '../components/sessions/collapseStore';
+import { useOpenProjectDraftsOnArrival } from '../components/sessions/useDraftArrivals';
 import { useSessionListClock } from '../components/sessions/useSessionListClock';
 import ContextMenu, { type ContextMenuItem } from '../components/sessions/ContextMenu';
 import SessionLinksSheet from '../chat/native/SessionLinksSheet';
@@ -542,6 +543,7 @@ export default function SessionsScreen({ navigation }: Props) {
         ? setOverlay({ kind: 'machinePicker', purpose: 'addProject' })
         : navigation.navigate('AddProjectSource', { machineId }),
   });
+  useOpenProjectDraftsOnArrival(inventoriesByMachineId, !unified.on);
   const pullRefresh = useCallback((): void => {
     if (machine === null) return;
     setPullRefreshing(true);

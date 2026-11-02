@@ -37,6 +37,7 @@ import {
   wantsUnifiedSidebar,
   type UnifiedComputer,
 } from '../../contract/unified/fromSummary';
+import { useOpenUnifiedDraftsOnArrival } from '../../components/sessions/useDraftArrivals';
 import { groupUnifiedList, unifiedGroupCount, type UnifiedGroup } from '../../contract/unified/grouping';
 import { unifiedSwipeActions } from '../../contract/unified/strip';
 import { SNOOZE_PRESETS, snoozeWakeAt } from '../../contract/unified/snooze';
@@ -228,6 +229,7 @@ export function useUnifiedList(deps: UnifiedListDeps) {
     [computers, unifiedSettings, filter, nowMs],
   );
   const working = view.working.length > 0 || view.active.some((row) => row.status === 'Working');
+  useOpenUnifiedDraftsOnArrival(view.drafts, on);
   const computerLayout = unifiedLayoutOf(selectedSummary);
   const layout = seeded ? { ...computerLayout, groupByProject: phoneGroupByProject } : computerLayout;
   const groups = useMemo(

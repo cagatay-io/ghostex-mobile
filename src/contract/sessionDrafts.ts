@@ -6,8 +6,8 @@ type DraftSession = {
 };
 
 /**
- * CDXC:Drafts 2026-09-15 SEE-ALSO:
- * packages/shared/session-drafts.ts owns the 10-minute grace period and Drafts membership shared by desktop and web; keep this standalone mobile contract aligned.
+ * CDXC:Drafts 2026-11-02 SEE-ALSO:
+ * packages/gx-core/src/sidebar_view/ordering.rs owns Drafts membership (every never-sent session that is not pinned, empty or not, from the moment it is created) and the 10-minute lead a new sent session keeps at the top of Sessions; keep this standalone mobile contract aligned.
  */
 export const NEW_SESSION_PRIORITY_MS = 10 * 60 * 1_000;
 
@@ -19,11 +19,6 @@ export function isNewSidebarSession(session: DraftSession | undefined, nowMs: nu
   return newSessionPriorityExpiresAt(session) > nowMs;
 }
 
-export function isSidebarDraftSectionSession(session: DraftSession | undefined, nowMs: number = Date.now()): boolean {
-  return (
-    session?.isDraft === true &&
-    session.isPinned !== true &&
-    session.hasComposerDraft === true &&
-    !isNewSidebarSession(session, nowMs)
-  );
+export function isSidebarDraftSectionSession(session: DraftSession | undefined, _nowMs: number = Date.now()): boolean {
+  return session?.isDraft === true && session.isPinned !== true;
 }

@@ -28,6 +28,8 @@ type UnifiedListState = {
   setFilter: (filter: UnifiedFilter) => void;
   setQuery: (query: string) => void;
   toggleShelf: (key: string) => void;
+  /** Opens the Drafts shelf for a session that just arrived there (gx-core draft_arrivals.rs). */
+  openDrafts: () => void;
   toggleGroup: (repoKey: string) => void;
   noteLastMachine: (repoKey: string, machineId: string) => void;
 };
@@ -68,6 +70,11 @@ export const useUnifiedListStore = create<UnifiedListState>((set, get) => {
     setQuery: (query) => set((state) => ({ filter: { ...state.filter, query } })),
     toggleShelf: (key) => {
       set((state) => ({ toggledShelves: flip(state.toggledShelves, key) }));
+      save();
+    },
+    openDrafts: () => {
+      if (!get().toggledShelves.includes('drafts')) return;
+      set((state) => ({ toggledShelves: state.toggledShelves.filter((key) => key !== 'drafts') }));
       save();
     },
     toggleGroup: (repoKey) => {

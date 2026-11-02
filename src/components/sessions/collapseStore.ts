@@ -73,6 +73,11 @@ type CollapseState = {
   toggleCoordinator: (machineId: string, coordinatorKey: string) => void;
   toggleCoordinatorOlder: (machineId: string, coordinatorKey: string) => void;
   toggleMachine: (machineId: string) => void;
+  /**
+   * Opens a project and its Drafts heading for a session that just arrived in Drafts
+   * (CDXC:Drafts 2026-11-02 in gx-core sidebar_view/draft_arrivals.rs).
+   */
+  openDrafts: (machineId: string, projectKey: string) => void;
   /** Projects-section bulk disclosure (desktop Collapse All / Expand). */
   collapseAllProjects: (machineId: string) => void;
   expandAllProjects: (machineId: string, projectKeys: string[], collectionIds: string[]) => void;
@@ -230,6 +235,24 @@ export const useCollapseStore = create<CollapseState>()((set, get) => {
 
     toggleCoordinatorOlder: (machineId, coordinatorKey) =>
       toggleIn('expandedCoordinatorOlderByMachine', machineId, coordinatorKey),
+
+    openDrafts: (machineId, projectKey) => {
+      const draftsKey = `${projectKey}|drafts`;
+      const drafts = get().expandedDraftSessionKeysByMachine;
+      const projects = get().expandedProjectsByMachine;
+      const draftsOpen = (drafts[machineId] ?? []).includes(draftsKey);
+      const projectOpen = (projects[machineId] ?? []).includes(projectKey);
+      if (draftsOpen && projectOpen) return;
+      set({
+        expandedDraftSessionKeysByMachine: draftsOpen
+          ? drafts
+          : { ...drafts, [machineId]: [...(drafts[machineId] ?? []), draftsKey] },
+        expandedProjectsByMachine: projectOpen
+          ? projects
+          : { ...projects, [machineId]: [...(projects[machineId] ?? []), projectKey] },
+      });
+      if (!projectOpen) persist();
+    },
 
     toggleMachine: (machineId) => {
       set({ collapsedMachineIds: toggled(get().collapsedMachineIds, machineId) });
