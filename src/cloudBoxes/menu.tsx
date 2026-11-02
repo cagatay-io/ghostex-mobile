@@ -17,7 +17,9 @@ function confirmDelete(entry: CloudBoxEntry, force: boolean, report: (outcome: B
     force ? `Delete ${entry.box.name} anyway?` : `Delete ${entry.box.name}?`,
     force
       ? 'Its uncommitted and unpushed work is lost with it.'
-      : 'The box and its disk are deleted. Its snapshot is kept.',
+      : entry.box.snapshotId
+        ? 'The box and its disk are deleted. Its snapshot is kept.'
+        : 'The box and its disk are deleted.',
     [
       { text: 'Cancel', style: 'cancel' },
       {

@@ -120,7 +120,7 @@ function verbAnswer(output: ExecOutput, verb: string): Record<string, unknown> {
   const value = output.json;
   if (value !== null && value.ok === true) return value;
   const error = typeof value?.error === 'string' ? value.error : null;
-  throw new Error(error ?? `ghostex box ${verb} printed no answer: ${output.failureTail}`);
+  throw new Error(error ?? output.missingBoxCommand ?? `ghostex box ${verb} printed no answer: ${output.failureTail}`);
 }
 
 async function opsFor(homeMachineId: string, provider: string): Promise<ProviderOps> {

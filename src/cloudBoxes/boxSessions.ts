@@ -116,6 +116,7 @@ export function withBoxSessions(
   boxSummaries: Readonly<Record<string, GhostexMobileSummary | null | undefined>>,
 ): GhostexMobileSummary {
   if (boxes.length === 0) return home;
+  const homeSessions = home.sessions.map((session) => withStartedBox(session, boxes));
   const added: GhostexSession[] = [];
   for (const entry of boxes) {
     const homeProjectId = entry.box.homeProjectId ?? '';
@@ -131,14 +132,30 @@ export function withBoxSessions(
         projectPath: project.path ?? '',
         groupId: '',
         sortOrder: null,
+        // Listed with the sessions, never Drafts: a box's cached rows (box asleep) carry no draft
+        // flag, so a not-started agent jumped from Drafts to the sessions when its box stopped.
+        isDraft: undefined,
         // The registry's state wins: a row read a moment ago may predate a stop.
         cloudBox: { ...session.cloudBox, state: entry.box.state, boxName: entry.box.name },
       });
     }
   }
-  if (added.length === 0) return home;
-  const known = new Set(home.sessions.map((session) => session.sessionId));
-  return { ...home, sessions: [...home.sessions, ...added.filter((session) => !known.has(session.sessionId))] };
+  const known = new Set(homeSessions.map((session) => session.sessionId));
+  return { ...home, sessions: [...homeSessions, ...added.filter((session) => !known.has(session.sessionId))] };
+}
+
+/**
+ * A home draft whose first message started a box: its badge reads that box's name and state, so a
+ * failed start shows Failed instead of "Starts with the first message" (the draft row stays
+ * `pending` until the box session replaces it). The phone's twin of gx-core's
+ * `SessionCloudBoxBadge::with_started_box`.
+ */
+function withStartedBox(session: GhostexSession, boxes: readonly CloudBoxEntry[]): GhostexSession {
+  const badge = session.cloudBox;
+  if (badge === undefined || badge.state !== 'pending' || badge.boxId.length === 0) return session;
+  const started = boxes.find((entry) => entry.box.boxId === badge.boxId)?.box;
+  if (started === undefined) return session;
+  return { ...session, cloudBox: { ...badge, state: started.state, boxName: started.name } };
 }
 
 /** The session as its box knows it (its own project id), for a row listed in the home project. */

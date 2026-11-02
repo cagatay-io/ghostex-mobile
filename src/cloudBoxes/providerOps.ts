@@ -49,6 +49,8 @@ export type ExecOutput = {
   /** The one JSON object a `ghostex box` verb printed, if any. */
   json: Record<string, unknown> | null;
   failureTail: string;
+  /** What a box whose `ghostex` has no `box` command said, in words (gx-cloud `missing_box_command`); absent from an older core. */
+  missingBoxCommand?: string | null;
 };
 
 type Operation = { operationId: string; providerBoxId?: string | null; state: string; phase?: string | null; error?: string | null; done: boolean };
