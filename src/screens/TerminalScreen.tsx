@@ -87,11 +87,11 @@ import {
   ANDROID_KEYBOARD_GAP,
   HEADER_HEIGHT,
   HEADER_PADDING,
-  machineTargetFor,
   sessionAgentIdFor,
   sessionProjectIdFor,
   sessionRecordFor,
   TAP_KEYBOARD_HINT_TIMEOUT_MS,
+  useMachineTarget,
   type AgentOverlay,
   type ExportedTranscript,
 } from './terminal-screen/session-lookups';
@@ -234,7 +234,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
     chatCapable &&
     activeTab !== null &&
     (sessionViewModeBySessionKey[activeTab.sessionKey] ?? settings.preferredAgentInterface) === 'chat';
-  const chatMachineTarget = chatCapable && activeTab !== null ? machineTargetFor(activeTab.machineId) : null;
+  const chatMachineTarget = useMachineTarget(chatCapable && activeTab !== null ? activeTab.machineId : null);
   useSessionLinksRefresh(activeMachine, activeSession?.sessionId, chatModeActive);
   // iOS terminal mode: the terminal view keeps its size, so its grid and the pty stay put, and slides with
   // the keyboard instead (terminal-screen.md §2), on every iPhone (decision Q761 in terminalKeyboardSlide.ts).

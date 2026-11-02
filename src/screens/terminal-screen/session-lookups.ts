@@ -3,6 +3,8 @@
  * moved verbatim from src/screens/TerminalScreen.tsx.
  */
 
+import { useRef } from 'react';
+
 import { findMachineRecord } from '../../cloudBoxes/store';
 import { resolveAgentIconId, type GhostexMobileSummary, type GhostexSession } from '../../contract/mobileSummary';
 import { isSessionChatSupportedAgent } from '../../chat/session-chat-helpers';
@@ -82,6 +84,35 @@ export function machineTargetFor(machineId: string): MachineConnectionTarget | n
     port: record.port,
     transport: record.transport,
   };
+}
+
+/**
+ * `machineTargetFor` for a component: the same object across renders while the machine's
+ * connection fields stay the same, so props and hook dependencies built on it stay put.
+ *
+ * CDXC:SavedPrompts 2026-11-03 WHY:
+ * The terminal screen re-renders every few seconds while an agent works (the transcript, the
+ * working timer), and a fresh target each time re-ran every effect keyed on it: the Saved prompts
+ * sheet went back to its loading spinner and reloaded on each render, so on Android it flashed
+ * between its full height and the spinner's short one.
+ */
+export function useMachineTarget(machineId: string | null): MachineConnectionTarget | null {
+  const next = machineId === null ? null : machineTargetFor(machineId);
+  const kept = useRef(next);
+  if (!sameMachineTarget(kept.current, next)) kept.current = next;
+  return kept.current;
+}
+
+function sameMachineTarget(a: MachineConnectionTarget | null, b: MachineConnectionTarget | null): boolean {
+  if (a === null || b === null) return a === b;
+  return (
+    a.id === b.id &&
+    a.host === b.host &&
+    a.username === b.username &&
+    a.port === b.port &&
+    a.transport === b.transport &&
+    a.tailscaleSsh === b.tailscaleSsh
+  );
 }
 
 /**
