@@ -49,6 +49,21 @@ const GLYPHS = {
   'stack-push': { paths: ['M6 10l-2 1l8 4l8 -4l-2 -1', 'M4 15l8 4l8 -4', 'M12 4v7', 'M15 8l-3 3l-3 -3'] },
   /** "Back to open" on a For later row (desktop `titlebar/arrow-back-up.svg`). */
   'arrow-back-up': { paths: ['M9 14l-4 -4l4 -4', 'M5 10h11a4 4 0 1 1 0 8h-1'] },
+  messages: {
+    paths: [
+      'M21 14l-3 -3h-7a1 1 0 0 1 -1 -1v-6a1 1 0 0 1 1 -1h9a1 1 0 0 1 1 1v10',
+      'M14 15v2a1 1 0 0 1 -1 1h-7l-3 3v-10a1 1 0 0 1 1 -1h2',
+    ],
+  },
+  trash: {
+    paths: [
+      'M4 7l16 0',
+      'M10 11l0 6',
+      'M14 11l0 6',
+      'M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12',
+      'M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3',
+    ],
+  },
   'shield-check': {
     paths: [
       'M11.46 20.846a12 12 0 0 1 -7.96 -14.846a12 12 0 0 0 8.5 -3a12 12 0 0 0 8.5 3a12 12 0 0 1 -.09 7.06',

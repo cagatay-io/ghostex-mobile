@@ -589,6 +589,10 @@ export type ChatDocument = {
   agentTasksPanel: Json;
   /** A coordinator's Threads panel, or null. Desktop: `coordinator_threads.rs`. */
   coordinatorThreadsPanel: Json;
+  /** The Side chats pill's sheet (gx-chat-core `extras/side_chats.rs`), or null. */
+  sideChatsPanel?: Json;
+  /** A side chat's own bar: `{ parentSessionId, parentTitle }`, or null for any other chat. */
+  sideChatOf?: Json;
   /** The background tasks the agent left running, or null; the Background pill's sheet. Desktop: `background_tasks.rs`. */
   backgroundTasksPanel: Json;
   /** The working card's pills, each opening the menu of one of the panels above. Desktop: `chat_pills.rs`. */

@@ -26,7 +26,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AGENT_ICONS } from '../../assets/agentIcons.generated';
-import { agentIconTint, resolveAgentArtId, type GhostexSession } from '../../contract/mobileSummary';
+import { agentIconTint, resolveAgentArtId, visibleSessions, type GhostexSession } from '../../contract/mobileSummary';
 import { resolveSessionTag } from '../../contract/sessionTags';
 import { SessionSearchCopy } from '../../copy';
 import { useInventoryStore } from '../../inventory/store';
@@ -134,7 +134,7 @@ export default function SessionSearchSheet({ visible, machines, onOpen, onRestor
           machineId: machine.id,
           machineLabel: nameMachines ? machineDisplayLabel(machine) : '',
           customSessionTags: summary.customSessionTags,
-          open: summary.sessions.map((session) => ({
+          open: visibleSessions(summary.sessions).map((session) => ({
             session,
             projectLabel: session.projectName.trim(),
           })),

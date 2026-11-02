@@ -524,6 +524,11 @@ export type GhostexSession = {
   /** On a thread: waiting, finished, working, sleeping, closed or done ('' otherwise). */
   coordinatorThreadState: string;
   /**
+   * On a side chat: the main session it was forked from ('' otherwise). Side chats are left out of
+   * every session list and reached from their main chat's Side chats pill (`visibleSessions`).
+   */
+  sideChatParentSessionId: string;
+  /**
    * The provider conversation id the note is keyed by ('' before the agent has
    * started one, or on a daemon that predates the field). Non-empty is what
    * gates the "Session note" long-press item: a session with no conversation
@@ -1287,6 +1292,7 @@ export function parseSession(value: unknown): GhostexSession | null {
     coordinatorProjectId: trimmedValue(value, 'coordinatorProjectId'),
     coordinatorSessionId: trimmedValue(value, 'coordinatorSessionId'),
     coordinatorThreadState: trimmedValue(value, 'coordinatorThreadState'),
+    sideChatParentSessionId: trimmedValue(value, 'sideChatParentSessionId'),
     agentSessionId: trimmedValue(value, 'agentSessionId'),
     sendWhenAllProjectSessionsStopActive: boolValue(value, 'sendWhenAllProjectSessionsStopActive', false),
     sendWhenAgentStopsActive: boolValue(value, 'sendWhenAgentStopsActive', false),
@@ -1749,4 +1755,12 @@ function parseAgentbox(value: unknown): GhostexSession['agentbox'] {
     providerLabel: text('providerLabel'),
     pending: record.pending === true ? true : undefined,
   };
+}
+
+/**
+ * The sessions the lists show: every one but side chats, which their main chat's Side chats pill
+ * lists instead (gx-protocol `PresentationSession::listed_in_sidebar`, the desktop's same rule).
+ */
+export function visibleSessions<T extends { sideChatParentSessionId?: string }>(sessions: readonly T[]): T[] {
+  return sessions.filter((session) => !session.sideChatParentSessionId);
 }

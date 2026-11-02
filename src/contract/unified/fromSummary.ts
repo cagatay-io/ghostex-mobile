@@ -3,7 +3,7 @@
  * sessions and Spaces as its own Workspace shows them, in the terms of ./build.ts.
  */
 
-import type { GhostexMobileSummary, GhostexSession } from '../mobileSummary';
+import { visibleSessions, type GhostexMobileSummary, type GhostexSession } from '../mobileSummary';
 import { collectionIdByProjectId, orderedSpaces } from '../../spaces/spaceFilter';
 import { filterSummaryForWorkspace } from '../../workspaces/workspaceFilter';
 import {
@@ -43,7 +43,10 @@ export function unifiedSessionInput(session: GhostexSession): UnifiedSessionInpu
     sessionId: session.sessionId,
     projectId: session.projectId ?? '',
     title: session.displayTitle,
-    branch: session.gitBranch !== undefined && session.gitBranch.length > 0 ? session.gitBranch : (session.work?.branch ?? ''),
+    branch:
+      session.gitBranch !== undefined && session.gitBranch.length > 0
+        ? session.gitBranch
+        : (session.work?.branch ?? ''),
     activity: session.activity,
     awaitingApproval: session.awaitingApproval === true,
     pendingQuestionCount: session.pendingQuestionCount ?? 0,
@@ -67,10 +70,7 @@ export function unifiedSessionInput(session: GhostexSession): UnifiedSessionInpu
  * One computer's builder input. `alone` is a phone holding just this computer: like the
  * desktop's own computer, its cards then carry no computer name.
  */
-export function unifiedMachineInput(
-  computer: UnifiedComputer,
-  alone: boolean,
-): UnifiedMachineInput<GhostexSession> {
+export function unifiedMachineInput(computer: UnifiedComputer, alone: boolean): UnifiedMachineInput<GhostexSession> {
   const summary =
     computer.workspaceId === null
       ? computer.summary
@@ -103,7 +103,7 @@ export function unifiedMachineInput(
         collectionId: collections.get(project.projectId) ?? null,
       };
     }),
-    sessions: summary.sessions.map(unifiedSessionInput),
+    sessions: visibleSessions(summary.sessions).map(unifiedSessionInput),
   };
 }
 
@@ -116,7 +116,10 @@ export function unifiedSettingsOf(summary: GhostexMobileSummary | null): Unified
 }
 
 /** Group by Project and the arranged order, from the computer whose setting picked the layout. */
-export function unifiedLayoutOf(summary: GhostexMobileSummary | null): { groupByProject: boolean; projectOrder: string[] } {
+export function unifiedLayoutOf(summary: GhostexMobileSummary | null): {
+  groupByProject: boolean;
+  projectOrder: string[];
+} {
   return {
     groupByProject: summary?.unifiedGroupByProject === true,
     projectOrder: summary?.unifiedProjectOrder ?? [],

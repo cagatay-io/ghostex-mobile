@@ -53,6 +53,7 @@ import { laterAction, removeAction, rowAge, statusLabel } from './questionAge';
 import type { SessionLinksChatPill } from '../sessionLinks';
 import { Glyph as TranscriptGlyph } from '../transcript/icons';
 import { AgentFleetMenu, AgentTasksMenu, CoordinatorThreadsMenu, waitingColor } from './AgentPanels';
+import { SideChatsMenu } from './SideChats';
 import { Glyph } from './icons';
 import { obj } from './json';
 import { BackgroundTasksMenu } from './WorkingStrip';
@@ -205,7 +206,9 @@ export function QuestionsMenu({
   };
   const folded = (id: string) => FOLDED_BY_DEFAULT.has(id) !== toggled.has(id);
   // The rows still to come in the groups that are open: what scrolling to the end loads.
-  const remaining = sections.filter((section) => !folded(section.id)).reduce((sum, section) => sum + (section.remaining ?? 0), 0);
+  const remaining = sections
+    .filter((section) => !folded(section.id))
+    .reduce((sum, section) => sum + (section.remaining ?? 0), 0);
   const toggle = (id: string) =>
     setToggled((was) => {
       const next = new Set(was);
@@ -354,9 +357,10 @@ function QuestionsSection({
             const label = statusLabel(row.status);
             // No hover on a phone, so the buttons always show. They sit before the label and age so
             // every row's age ends at the same right edge.
-            const buttons = [laterAction(row.status, row.kind, row.id), removeAction(row.status, row.kind, row.id)].filter(
-              (button) => button !== null,
-            );
+            const buttons = [
+              laterAction(row.status, row.kind, row.id),
+              removeAction(row.status, row.kind, row.id),
+            ].filter((button) => button !== null);
             return (
               <Pressable
                 key={row.id}
@@ -365,14 +369,11 @@ function QuestionsSection({
                 onPress={() => onPick(row)}
                 style={({ pressed }) => [styles.questionsRow, pressed && styles.pillPressed]}
               >
-                <KindIcon kind={row.kind} color={answered ? answeredColor(P.light) : withdrawn ? P.ink(0.35) : P.cardMuted} />
-                <Text
-                  numberOfLines={1}
-                  style={[
-                    styles.questionsTitle,
-                    withdrawn && { color: P.cardMuted },
-                  ]}
-                >
+                <KindIcon
+                  kind={row.kind}
+                  color={answered ? answeredColor(P.light) : withdrawn ? P.ink(0.35) : P.cardMuted}
+                />
+                <Text numberOfLines={1} style={[styles.questionsTitle, withdrawn && { color: P.cardMuted }]}>
                   {row.title}
                 </Text>
                 {row.thread !== undefined && row.thread.length > 0 ? (
@@ -530,7 +531,9 @@ export function Pill({ pill, open, onPress }: { pill: ChatPill; open: boolean; o
                 ? 'stack'
                 : pill.id === 'stashed'
                   ? 'stack-push'
-                  : 'users'
+                  : pill.id === 'sideChats'
+                    ? 'messages'
+                    : 'users'
         }
         size={12}
         color={P.cardMuted}
@@ -681,6 +684,8 @@ export function PillMenuSheet({
     >
       {open === 'threads' ? (
         <CoordinatorThreadsMenu chat={chat} document={document} onDone={close} />
+      ) : open === 'sideChats' ? (
+        <SideChatsMenu chat={chat} document={document} onDone={close} />
       ) : open === 'tasks' ? (
         <AgentTasksMenu chat={chat} document={document} />
       ) : open === 'subagents' ? (
@@ -792,8 +797,22 @@ const useStyles = themedStyles((P) => ({
     paddingRight: 4,
     borderRadius: 6,
   },
-  questionsLater: { flexShrink: 0, width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 6 },
-  questionsMore: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 40, borderRadius: 6 },
+  questionsLater: {
+    flexShrink: 0,
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 6,
+  },
+  questionsMore: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 40,
+    borderRadius: 6,
+  },
   questionsTitle: { flex: 1, minWidth: 0, color: P.foreground, fontSize: 14 },
   filterTrigger: {
     flexDirection: 'row',

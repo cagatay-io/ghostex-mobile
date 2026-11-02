@@ -38,6 +38,10 @@ export type ActionFields = {
   toggleBackgroundTasks: { open: boolean };
   /** Open one of the coordinator's threads: gxserver resumes it if closed, then the host opens its tab. */
   openCoordinatorThread: { projectId: string; sessionId: string };
+  openSideChat: { projectId: string; sessionId: string };
+  /** `sessionId` names one of this chat's side chats; without it, this chat itself. */
+  bringBackSideChat: { sessionId?: string };
+  deleteSideChat: { sessionId?: string };
   searchOpen: {};
   searchClose: {};
   searchQuery: { query: string };

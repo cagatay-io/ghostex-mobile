@@ -43,6 +43,8 @@ import { useArmedActions } from './armedActions';
 import { NativeChatCards, NativeChatOverlays, PageSheet, ResourceSheet, questionReplacesComposer } from './cards';
 import { ConnectionLostNotice } from './cards/ConnectionLostNotice';
 import { PillsStrip, type PillsStripLinks } from './cards/PillsStrip';
+import { SideChatBar } from './cards/SideChats';
+import { useTerminalStore } from '../../terminal/sessions';
 import { LoneScrollBottom, WorkingCard } from './cards/WorkingCard';
 import { NativeComposer } from './composer';
 import { HandoffSheet, type HandoffRequest } from './composer/HandoffSheet';
@@ -321,6 +323,7 @@ export default function NativeChatScreen({
           }}
         >
           {chat.state?.error ? <Text style={[styles.error, { color: theme.error }]}>{chat.state.error}</Text> : null}
+          {document ? <SideChatBar chat={chat} document={document} /> : null}
           <TranscriptSearchBar chat={chat} />
           <View
             style={styles.transcript}
@@ -335,9 +338,7 @@ export default function NativeChatScreen({
           </View>
           <ConnectionLostNotice machine={machine} active={visible} document={document} />
           {/* The working card in its own row above the cards and the composer: the transcript ends above it. */}
-          {document === null ? null : (
-            <WorkingCard document={document} />
-          )}
+          {document === null ? null : <WorkingCard document={document} />}
           <NativeChatCards chat={chat} onHostAction={hostAction} />
           {!composerShown ? null : (
             <View
@@ -515,6 +516,25 @@ function useChatViewRequests(
                   'Could not open that worker',
                 ),
               );
+            } else if (request.action === 'openSideChat') {
+              // A side chat (gx-chat-core `extras/side_chats.rs`) opens as its own chat tab, like a worker.
+              void openForkBranch(machine, request.params).catch(() =>
+                show('The side chat could not be opened. Try again.', true, 'Could not open that side chat'),
+              );
+            } else if (request.action === 'sideChatDeleted') {
+              // A deleted side chat's tab goes; deleted from its own chat, its main session's chat comes back.
+              const params = (
+                typeof request.params === 'object' && request.params !== null ? request.params : {}
+              ) as Record<string, unknown>;
+              const deleted = typeof params.sessionId === 'string' ? params.sessionId : '';
+              const parent = typeof params.parentSessionId === 'string' ? params.parentSessionId : '';
+              const leave =
+                deleted === sessionId && parent.length > 0
+                  ? openForkBranch(machine, { projectId, sessionId: parent }).catch(() => undefined)
+                  : Promise.resolve();
+              void leave.then(() => {
+                if (deleted.length > 0) void useTerminalStore.getState().closeWarmSessionFor(machineId, deleted);
+              });
             } else if (request.action === 'runInTerminal' || request.action === 'pasteInTerminal') {
               // A command in a reply: the project's Commands panel terminal on the computer (or a new
               // terminal in this session's folder) runs it (or, for Paste, only types it), opened as

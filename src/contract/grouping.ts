@@ -23,6 +23,7 @@ import {
   type GhostexQuickAction,
   type GhostexSession,
   type GhostexSessionGroup,
+  visibleSessions,
 } from './mobileSummary';
 
 // ---------------------------------------------------------------------------
@@ -458,7 +459,10 @@ export type SessionCounts = {
  * session with a pending question counts pink instead of blue, so the attention count leaves it out.
  */
 export function tabStatusCounts(
-  counts: Pick<SessionCounts, 'workingCount' | 'attentionCount' | 'backgroundWorkCount' | 'questionCount' | 'approvalCount'>,
+  counts: Pick<
+    SessionCounts,
+    'workingCount' | 'attentionCount' | 'backgroundWorkCount' | 'questionCount' | 'approvalCount'
+  >,
 ): {
   workingCount: number;
   attentionCount: number;
@@ -497,7 +501,10 @@ export function headerStatusCounts(
     SessionCounts,
     'workingCount' | 'attentionCount' | 'backgroundWorkCount' | 'questionCount' | 'approvalCount' | 'awakeCount'
   >,
-): Pick<SessionCounts, 'workingCount' | 'attentionCount' | 'backgroundWorkCount' | 'questionCount' | 'approvalCount' | 'awakeCount'> {
+): Pick<
+  SessionCounts,
+  'workingCount' | 'attentionCount' | 'backgroundWorkCount' | 'questionCount' | 'approvalCount' | 'awakeCount'
+> {
   return { ...counts, attentionCount: counts.attentionCount - counts.questionCount };
 }
 
@@ -573,7 +580,7 @@ export function countSectionSessions(sessions: readonly GhostexSession[]): Secti
  * unselected tab still says something needs the user (desktop machine-tabs.tsx).
  */
 export function machineSessionCounts(summary: GhostexMobileSummary | null): SessionCounts {
-  return countSessions(summary === null ? [] : summary.sessions);
+  return countSessions(summary === null ? [] : visibleSessions(summary.sessions));
 }
 
 export type DrawerBuildInput = {
@@ -659,7 +666,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
 
   // Bucket sessions by project key. Insertion order preserves the wire session order.
   const sessionsByProjectKey = new Map<string, GhostexSession[]>();
-  for (const session of summary.sessions) {
+  for (const session of visibleSessions(summary.sessions)) {
     const key = projectKeyForSession(session);
     const bucket = sessionsByProjectKey.get(key);
     if (bucket === undefined) sessionsByProjectKey.set(key, [session]);
