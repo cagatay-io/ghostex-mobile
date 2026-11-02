@@ -106,7 +106,7 @@ export const ScanCopy = {
     title: 'Paste a pairing code',
     ledePrefix: 'On the computer, open Settings → Remote, click ',
     ledeStrong: 'Copy as text',
-    ledeSuffix: ' under Show QR, and send the text to this phone.',
+    ledeSuffix: ' under the QR, and send the text to this phone.',
     placeholder: 'ghostex-ec1:…',
     validEasyConnect: (user: string, computer: string) =>
       `Looks like a Ghostex pairing code for ${user} on ${computer}`,
