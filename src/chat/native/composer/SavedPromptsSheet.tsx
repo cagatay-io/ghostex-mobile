@@ -21,11 +21,19 @@ import { sessionChatRpc } from '../../rust/transport';
 import { Glyph } from './icons';
 import { arr, obj, str } from './json';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
+import { sheetPrompts } from './savedPromptsScope';
 import { Sheet } from './Sheet';
 
 const DELETE_TIMEOUT_MS = 30_000;
 
-type SavedPrompt = { promptId: string; content: string; sessionTitle: string; updatedAt: string };
+type SavedPrompt = {
+  promptId: string;
+  content: string;
+  sessionTitle: string;
+  updatedAt: string;
+  projectId: string;
+  sessionId: string;
+};
 
 type Stage = { kind: 'loading' } | { kind: 'ready'; prompts: SavedPrompt[] } | { kind: 'failed'; message: string };
 
@@ -36,6 +44,8 @@ function savedPrompts(result: unknown): SavedPrompt[] {
       content: str(row, 'content'),
       sessionTitle: str(row, 'sessionTitle'),
       updatedAt: str(row, 'updatedAt'),
+      projectId: str(row, 'projectId'),
+      sessionId: str(row, 'sessionId'),
     }))
     .filter((prompt) => prompt.promptId.length > 0 && prompt.content.trim().length > 0);
 }
@@ -93,6 +103,8 @@ export function SavedPromptsSheet({
 
   useEffect(() => {
     if (visible) load();
+    // Closed, it forgets the rows, so the next open never paints the last open's list before its own.
+    else setStage({ kind: 'loading' });
   }, [load, visible]);
 
   const remove = useCallback(
@@ -128,6 +140,7 @@ export function SavedPromptsSheet({
     [remove],
   );
 
+  const shown = stage.kind === 'ready' ? sheetPrompts(stage.prompts, projectId, sessionId) : [];
   let body;
   if (stage.kind === 'loading') {
     body = (
@@ -148,7 +161,7 @@ export function SavedPromptsSheet({
         </Pressable>
       </View>
     );
-  } else if (stage.prompts.length === 0) {
+  } else if (shown.length === 0) {
     body = (
       <View style={styles.centered}>
         <Text style={styles.empty}>
@@ -159,7 +172,7 @@ export function SavedPromptsSheet({
   } else {
     body = (
       <ScrollView style={styles.list} contentContainerStyle={styles.listContent} keyboardShouldPersistTaps="handled">
-        {stage.prompts.map((prompt) => {
+        {shown.map((prompt) => {
           const meta = [prompt.sessionTitle, age(prompt.updatedAt)].filter((part) => part.length > 0).join(' · ');
           return (
             <View key={prompt.promptId} style={styles.row}>
