@@ -604,6 +604,8 @@ export default function SessionsScreen({ navigation }: Props) {
     launchAgent,
     createProjectTerminal,
     agentMenuItems,
+    closeAgentMenuThen,
+    onAgentMenuDismissed,
     createCoordinator,
     loadCoordinatorOptions,
     loadCoordinatorDetails,
@@ -1372,26 +1374,32 @@ export default function SessionsScreen({ navigation }: Props) {
         />
       ) : null}
 
-      {overlay.kind === 'agentMenu' ? (
-        <ContextMenu
-          visible
-          title={overlay.ctx.header.title}
-          subtitle="Start an agent session"
-          items={[
-            ...cloudWhereItems(overlay.ctx.machine.id, overlay.ctx.header.projectId, setTransientStatus, (agent) => {
-              setOverlay(NONE);
-              setPhoneBoxStart({
-                machine: overlay.ctx.machine,
-                projectId: overlay.ctx.header.projectId,
-                projectTitle: overlay.ctx.header.title,
-                agent,
-              });
-            }),
-            ...agentMenuItems(overlay.ctx),
-          ]}
-          onClose={() => setOverlay(NONE)}
-        />
-      ) : null}
+      {/* Stays mounted while hidden so its dismissal reports back (`closeAgentMenuThen`). */}
+      <ContextMenu
+        visible={overlay.kind === 'agentMenu'}
+        title={overlay.kind === 'agentMenu' ? overlay.ctx.header.title : ''}
+        subtitle="Start an agent session"
+        items={
+          overlay.kind === 'agentMenu'
+            ? [
+                ...cloudWhereItems(overlay.ctx.machine.id, overlay.ctx.header.projectId, setTransientStatus, (agent) => {
+                  const ctx = overlay.ctx;
+                  closeAgentMenuThen(() =>
+                    setPhoneBoxStart({
+                      machine: ctx.machine,
+                      projectId: ctx.header.projectId,
+                      projectTitle: ctx.header.title,
+                      agent,
+                    }),
+                  );
+                }),
+                ...agentMenuItems(overlay.ctx),
+              ]
+            : []
+        }
+        onClose={() => setOverlay(NONE)}
+        onDismissed={onAgentMenuDismissed}
+      />
 
       {overlay.kind === 'workLinkPicker' ? (
         <WorkLinkPicker

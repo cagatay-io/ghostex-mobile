@@ -65,6 +65,13 @@ export function boxSummaryFromPresentation(entry: CloudBoxEntry, answer: unknown
         projectName: project?.name ?? '',
         projectPath: project?.path ?? '',
         status: session.lifecycleState,
+        // The box's gxserver publishes no git row for its sessions; the branch it put the session on
+        // rides in its `cloudBox` field (Pull branch, Open PR).
+        gitStatus:
+          session.gitStatus ??
+          (isObject(session.cloudBox) && typeof session.cloudBox.branch === 'string'
+            ? { branch: session.cloudBox.branch }
+            : undefined),
         cloudBox: cloudBoxStamp(entry.box, typeof session.projectId === 'string' ? session.projectId : ''),
       };
     });

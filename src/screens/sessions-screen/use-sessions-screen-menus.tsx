@@ -8,7 +8,7 @@
  */
 
 import { snoozeWakeAt } from '../../contract/unified/snooze';
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { Platform } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Clipboard from 'expo-clipboard';
@@ -1471,6 +1471,27 @@ export function useSessionsScreenMenus({
    * CDXC:Coordinators 2026-10-03 DECISION:
    * User: "On mobile app I can't start a coordinator thread from the agents drop down" and "Please move this to the top in both apps". The phone's agent menu offers New Coordinator… as its first row, as the desktop launcher does (gx-core `agent_launcher_items_with_accounts`), and it opens the phone's New Coordinator form.
    */
+  /**
+   * What a pick in the agent menu starts once the menu is gone: it opens another modal (the
+   * creation progress, the phone box start sheet), and iOS cannot present one while the menu's own
+   * is still dismissing. The second never showed and left an invisible window over the list that
+   * swallowed every touch until the app restarted. Android has no `onDismiss`, so it runs at once.
+   */
+  const afterAgentMenu = useRef<(() => void) | null>(null);
+  const closeAgentMenuThen = useCallback(
+    (work: () => void): void => {
+      setOverlay(NONE);
+      if (Platform.OS === 'ios') afterAgentMenu.current = work;
+      else work();
+    },
+    [setOverlay],
+  );
+  const onAgentMenuDismissed = useCallback((): void => {
+    const work = afterAgentMenu.current;
+    afterAgentMenu.current = null;
+    work?.();
+  }, []);
+
   const agentMenuItems = (ctx: ProjectContext): ContextMenuItem[] => {
     const selected = resolvePrimaryAgent(ctx.header);
     const newCoordinator: ContextMenuItem[] =
@@ -1504,10 +1525,7 @@ export function useSessionsScreenMenus({
           selectedPresentation: 'emphasis' as const,
           trailingIcon: supportsChat ? <MessageCircleGlyph size={14} color={SidebarPalette.MUTED} /> : undefined,
           trailingIconLabel: supportsChat ? 'Supports chat' : undefined,
-          onPress: () => {
-            setOverlay(NONE);
-            launchAgent(ctx.machine, ctx.header, agent);
-          },
+          onPress: () => closeAgentMenuThen(() => launchAgent(ctx.machine, ctx.header, agent)),
         };
       }),
     ];
@@ -1648,6 +1666,8 @@ export function useSessionsScreenMenus({
     launchAgent,
     createProjectTerminal,
     agentMenuItems,
+    closeAgentMenuThen,
+    onAgentMenuDismissed,
     createCoordinator,
     loadCoordinatorOptions,
     loadCoordinatorDetails,

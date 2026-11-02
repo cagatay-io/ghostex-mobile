@@ -29,6 +29,7 @@ import { openComputerFile, phoneOpensFile } from '../../docs/openComputerFile';
 import { remotePathForChatFile } from '../../docs/openDoc';
 import GhostexImageIntakeView from '../../../modules/ghostex-native/src/GhostexImageIntakeView';
 import { useInventoryStore } from '../../inventory/store';
+import { openStartedBoxChat } from '../../cloudBoxes/open';
 import type { MachineConnectionTarget } from '../../machines/credentials';
 import type { RootStackParamList } from '../../navigation/types';
 import { classifyMachineLink, visualPageAddress, type ComputerAddress } from '../../webPreview/machineLinks';
@@ -501,9 +502,24 @@ function useChatViewRequests(
               request.action === 'openAgentSession' &&
               typeof (request.params as { machineId?: unknown } | null)?.machineId === 'string'
             ) {
-              // A Cloud Box start finished: its chat now runs on the box (`cloudbox:<boxId>`), which the
-              // sessions list shows once the phone reaches boxes.
-              show('The chat now runs on its cloud box. Open it from the sessions list.', false, 'Cloud box ready');
+              // A Cloud Box start finished: its chat now runs on the box (`cloudbox:<boxId>`) and opens there.
+              const opened = request.params as { machineId: string; projectId?: unknown; sessionId?: unknown };
+              // The draft's own title (its first message) until the box's session reports its own.
+              const draftTitle =
+                useInventoryStore
+                  .getState()
+                  .inventoriesByMachineId[machineId]?.summary?.sessions.find((session) => session.sessionId === sessionId)
+                  ?.title ?? 'Cloud Box';
+              void openStartedBoxChat(
+                machineId,
+                opened.machineId,
+                typeof opened.sessionId === 'string' ? opened.sessionId : '',
+                typeof opened.projectId === 'string' ? opened.projectId : '',
+                draftTitle,
+                (params) => navigation.navigate('Terminal', params),
+              ).then((done) => {
+                if (!done) show('The chat now runs on its cloud box. Open it from the sessions list.', false, 'Cloud box ready');
+              });
             } else if (request.action === 'openSettingsPage') {
               // Connecting a provider and managing snapshots stay on the computer (D7).
               show('Open Settings › Cloud Boxes in Ghostex on your computer.', false, 'Cloud Boxes');
