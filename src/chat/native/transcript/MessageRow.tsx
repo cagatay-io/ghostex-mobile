@@ -12,7 +12,7 @@ import { ApiErrorCard, ApiErrorNote, QuestionExchangeCards } from '../cards';
 import { useNativeChatUi, useTranscriptEnv, useTranscriptFlags } from './context';
 import { Chevron, DisclosureBody, DisclosureHeading, LaneMarker, useFoldPlace } from './Disclosure';
 import { FileChangeStack } from './FileChanges';
-import { ImageRow } from './Images';
+import { FOLDED_CALLS_INSET, ImageRow, ReadImages } from './Images';
 import { arr, obj, str } from './json';
 import { MessageLongPressContext } from './markdown/blockLongPress';
 import { messageMenuSelection } from './messageCopy';
@@ -208,7 +208,10 @@ function AgentMessage({ message, proseColor }: { message: ProjectedMessage; pros
               ) : null}
               <ToolRows message={message} />
             </DisclosureBody>
-          ) : null}
+          ) : (
+            // The closed headline keeps the pictures its calls read in view (gx-chat-core `read_images.rs`).
+            <ReadImages images={message.readImages} inset={FOLDED_CALLS_INSET} />
+          )}
         </>
       );
       toolsRendered = true;
@@ -273,7 +276,10 @@ function AgentMessage({ message, proseColor }: { message: ProjectedMessage; pros
             <DisclosureBody onCollapse={toggleTools} label="Collapse tool calls">
               <ToolRows message={message} />
             </DisclosureBody>
-          ) : null}
+          ) : (
+            // The sentence's closed calls keep the pictures they read in view (gx-chat-core `read_images.rs`).
+            <ReadImages images={message.readImages} inset={FOLDED_CALLS_INSET} />
+          )}
         </>
       ) : (
         heading
@@ -431,6 +437,10 @@ function ThinkingLine({ id, body, message }: { id: string; body: string; message
             <ToolRows message={message} />
           </DisclosureBody>
         </View>
+      ) : calls !== undefined ? (
+        // Folded calls keep the pictures they read in view, as a closed turn fold does (gx-chat-core
+        // `read_images.rs`; desktop `thinking_card.rs`).
+        <ReadImages images={message.readImages} inset={FOLDED_CALLS_INSET} />
       ) : null}
     </View>
   );

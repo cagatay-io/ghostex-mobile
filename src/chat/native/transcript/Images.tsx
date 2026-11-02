@@ -276,6 +276,9 @@ export const ImageRow = memo(function ImageRow({ images, user }: { images: unkno
  * gone, each opening the viewer (desktop `read_pictures.rs`; the rules are gx-chat-core
  * `read_images.rs`, CDXC:SessionChat 2026-11-02).
  */
+/** Where a strip under a closed fold of a message's calls starts: under a tool row's label (ROW_PAD_X 8 + TILE 22 + 8). */
+export const FOLDED_CALLS_INSET = 38;
+
 export const ReadImages = memo(function ReadImages({ images, inset }: { images: unknown; inset: number }) {
   const { theme } = useTranscriptEnv();
   const openPicture = useOpenPicture();

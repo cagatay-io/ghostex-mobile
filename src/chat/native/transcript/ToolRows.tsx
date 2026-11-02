@@ -15,7 +15,7 @@ import { Glyph, toolGlyph } from './icons';
 import { ToolBody } from './ToolBody';
 import { ToolCard } from './ToolCard';
 import { arr, obj, str, type JsonRecord } from './json';
-import { ReadImages } from './Images';
+import { FOLDED_CALLS_INSET, ReadImages } from './Images';
 import { highlightLabel, useRowFind } from './searchHighlight';
 import { useDisclosure } from './state';
 import { openTranscriptMenu } from './transcriptMenuStore';
@@ -93,7 +93,10 @@ function ToolRunRows({ message }: { message: ProjectedMessage }) {
           <DisclosureBody onCollapse={toggleSimple} label="Collapse tool calls" gap={ROW_GAP}>
             {rows(visible)}
           </DisclosureBody>
-        ) : null}
+        ) : (
+          // The closed group keeps the pictures its calls read in view (gx-chat-core `read_images.rs`).
+          <ReadImages images={message.readImages} inset={FOLDED_CALLS_INSET} />
+        )}
       </View>
     );
   }
@@ -126,10 +129,13 @@ function ToolRunRows({ message }: { message: ProjectedMessage }) {
       </DisclosureBody>
     );
   }
+  // The pictures the folded calls read stay in view under the toggle (gx-chat-core `read_images.rs`).
+  const foldedPictures = tools.filter((_, index) => keptFlags[index] !== true).flatMap((tool) => arr(tool.images));
   return (
     <View style={styles.column}>
       {rows(visible.filter((index) => keptFlags[index] === true && index < before))}
       {toggle}
+      <ReadImages images={foldedPictures} inset={FOLDED_CALLS_INSET} />
       {rows(visible.filter((index) => keptFlags[index] === true && index >= before))}
     </View>
   );
