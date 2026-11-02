@@ -168,7 +168,8 @@ final class GhostexSelectionMenuView: ExpoView, UIGestureRecognizerDelegate, UIT
         }
         let more = UIAction(title: "More", image: UIImage(systemName: "ellipsis")) { [weak self] _ in
             overlay.dismiss()
-            self?.onSelectionAction(["action": "more", "text": ""])
+            // The menu's Reply quotes these words (`replySelection` in transcriptMenuStore.ts).
+            self?.onSelectionAction(["action": "more", "text": selection])
         }
         return UIMenu(children: [copy, addToChat, more])
     }

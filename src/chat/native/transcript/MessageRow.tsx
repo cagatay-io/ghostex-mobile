@@ -91,9 +91,15 @@ function ApiErrorRow({ message }: { message: ProjectedMessage }) {
  * the selection menu's More opens it (`messageSelection.tsx`). The
  * main transcript and the subagent viewer share the menu (`TranscriptMenu.tsx`).
  */
-function useMessageMenu(message: ProjectedMessage, actions: MessageMenuAction[] = []): (() => void) | undefined {
+function useMessageMenu(
+  message: ProjectedMessage,
+  actions: MessageMenuAction[] = [],
+): ((selectedWords?: string) => void) | undefined {
   const selection = messageMenuSelection(message);
-  return selection !== null ? () => openTranscriptMenu({ selection, actions }) : undefined;
+  return selection !== null
+    ? (selectedWords?: string) =>
+        openTranscriptMenu({ selection, actions, ...(selectedWords !== undefined ? { selectedWords } : {}) })
+    : undefined;
 }
 
 function UserMessage({ message }: { message: ProjectedMessage }) {

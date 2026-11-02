@@ -54,7 +54,8 @@ export function MessageSelection({
   accessible = true,
   children,
 }: {
-  openMenu: () => void;
+  /** `selectedWords`: the words selected when the selection bar's More opened it. */
+  openMenu: (selectedWords?: string) => void;
   style?: StyleProp<ViewStyle>;
   accessible?: boolean;
   children: ReactNode;
@@ -62,9 +63,10 @@ export function MessageSelection({
   return (
     <GhostexSelectionMenuView
       style={style}
-      onHold={openMenu}
+      onHold={() => openMenu()}
       onSelectionAction={({ nativeEvent }) => {
-        if (nativeEvent.action === 'more') openMenu();
+        // An app built before 2026-11-02 sends More without the words; Reply then quotes the message.
+        if (nativeEvent.action === 'more') openMenu(nativeEvent.text);
         else addSelectionToChat(nativeEvent.text);
       }}
       {...(accessible

@@ -12,7 +12,16 @@ import { create } from 'zustand';
  */
 export type MessageMenuAction = { label: string; icon: string; run: () => void };
 
-type MenuRequest = { href: string | null; selection: string; actions: MessageMenuAction[] };
+/**
+ * `selection` is what the menu's Copy and Add to Chat take (a message's whole text); `selectedWords`
+ * are the words the reader had selected when they opened it from the selection bar's More.
+ */
+export type MenuRequest = {
+  href: string | null;
+  selection: string;
+  actions: MessageMenuAction[];
+  selectedWords: string | null;
+};
 
 export const useTranscriptMenuStore = create<{
   request: MenuRequest | null;
@@ -20,16 +29,34 @@ export const useTranscriptMenuStore = create<{
   quote: ((selection: string) => void) | null;
 }>(() => ({ request: null, quote: null }));
 
-/** A long press on a message (`selection` is its text, `actions` its own buttons) or on a link (`href`, no selection). */
+/**
+ * A long press on a message (`selection` is its text, `actions` its own buttons, `selectedWords` the
+ * words selected when it came from the selection bar's More) or on a link (`href`, no selection).
+ */
 export function openTranscriptMenu(request: {
   href?: string;
   selection?: string;
   actions?: MessageMenuAction[];
+  selectedWords?: string;
 }): void {
   const href = request.href !== undefined && request.href.length > 0 ? request.href : null;
   const selection = (request.selection ?? '').trim();
   if (href === null && selection.length === 0) return;
-  useTranscriptMenuStore.setState({ request: { href, selection, actions: request.actions ?? [] } });
+  const words = (request.selectedWords ?? '').trim();
+  useTranscriptMenuStore.setState({
+    request: { href, selection, actions: request.actions ?? [], selectedWords: words.length > 0 ? words : null },
+  });
+}
+
+/**
+ * What the menu's Reply quotes: the words selected before More, or the whole message when nothing
+ * was selected (a hold beside the words).
+ *
+ * CDXC:SessionChat 2026-11-02 DECISION:
+ * User, on Android: "I selected some text, then clicked on reply, and then typed my reply and pressed send. It literally quoted the whole message instead of just quoting the part I selected when I hit reply. Please fix this." Reply quotes the selection, as it does on the desktop; the menu's Copy and Add to Chat keep the whole message (More > Copy is how a whole message is copied, CDXC:SessionChat 2026-10-21 in `MessageActions.tsx`). The selection bar's More hands the selected words over (`GhostexSelectionMenuView.kt` / `.swift`).
+ */
+export function replySelection(request: Pick<MenuRequest, 'selection' | 'selectedWords'>): string {
+  return request.selectedWords ?? request.selection;
 }
 
 /** The selection bar's Add to Chat (`messageSelection.tsx`): the selected words, as the menu's row adds them. */

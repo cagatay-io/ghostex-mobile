@@ -28,7 +28,7 @@ import type { RustChat } from '../../rust/useRustChat';
 import { MenuSheet, type MenuRow } from '../composer/MenuSheet';
 import { arr, obj, str } from './json';
 import { ReplySheet, type ReplyAction } from './ReplySheet';
-import { closeTranscriptMenu, useTranscriptMenuStore } from './transcriptMenuStore';
+import { closeTranscriptMenu, replySelection, useTranscriptMenuStore } from './transcriptMenuStore';
 
 /** What the screen answers for the menu's rows. */
 export type TranscriptMenuHost = {
@@ -110,12 +110,29 @@ export function TranscriptMenuSheet({
   }, [enabled, quote]);
   // The Reply sheet's quote, and the one waiting for the menu sheet to finish going away (iOS).
   const [replyQuote, setReplyQuote] = useState<string | null>(null);
-  const replyAfterDismiss = useRef<string | null>(null);
+  const replyAfterDismiss = useRef<Promise<string> | null>(null);
   const onMenuDismissed = useCallback(() => {
     const quote = replyAfterDismiss.current;
     replyAfterDismiss.current = null;
-    if (quote !== null) setReplyQuote(quote);
+    void quote?.then((text) => {
+      if (text.length > 0) setReplyQuote(text);
+    });
   }, []);
+  // The Reply row quotes the menu's selection; words selected before More are quoted instead,
+  // in the core's own quote (its Reply row for those words).
+  const replyQuoteFor = useCallback(
+    async (rowQuote: string): Promise<string> => {
+      if (request === null) return rowQuote;
+      const words = replySelection(request);
+      if (words === request.selection) return rowQuote;
+      const answer = await queryAsync('transcriptMenu', [{ href: null, selection: words, questionActive: active }]);
+      const row = arr(answer)
+        .map((entry) => obj(entry))
+        .find((entry) => str(obj(entry?.command), 'type') === 'replyToSelection');
+      return str(obj(row?.command), 'quote') || rowQuote;
+    },
+    [active, queryAsync, request],
+  );
   // The core composes the chat box (`transcriptReply`); Send reply then sends it as Send does.
   const onReply = useCallback(
     (quote: string, reply: string, action: ReplyAction) => {
@@ -143,14 +160,15 @@ export function TranscriptMenuSheet({
       if (str(command, 'type') === 'replyToSelection') {
         const quote = str(command, 'quote');
         if (quote.length === 0) return false;
-        if (Platform.OS === 'ios') replyAfterDismiss.current = quote;
-        else setReplyQuote(quote);
+        const pending = replyQuoteFor(quote);
+        if (Platform.OS === 'ios') replyAfterDismiss.current = pending;
+        else void pending.then(setReplyQuote);
         return false;
       }
       host.perform(command);
       return false;
     },
-    [chat, composerText, host],
+    [chat, composerText, host, replyQuoteFor],
   );
   return (
     <>

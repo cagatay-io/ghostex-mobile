@@ -165,8 +165,10 @@ class GhostexSelectionMenuView(context: Context, appContext: AppContext) : ExpoV
           if (selection.isNotBlank()) onSelectionAction(mapOf("action" to "addToChat", "text" to selection))
         }
         R.id.ghostex_selection_more -> {
+          // Read before `finish`, which clears the selection: the menu's Reply quotes these words.
+          val selection = selectedText(textView)
           mode.finish()
-          onSelectionAction(mapOf("action" to "more", "text" to ""))
+          onSelectionAction(mapOf("action" to "more", "text" to selection))
         }
         else -> return inner.onActionItemClicked(mode, item)
       }
