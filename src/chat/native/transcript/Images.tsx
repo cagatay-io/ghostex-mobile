@@ -270,6 +270,35 @@ export const ImageRow = memo(function ImageRow({ images, user }: { images: unkno
   );
 });
 
+/**
+ * The pictures an agent opened from disk: under a tool row that read one, and as the strip a folded
+ * turn keeps under its fold row. 48px tiles that wrap, the user's dashed square for a file that has
+ * gone, each opening the viewer (desktop `read_pictures.rs`; the rules are gx-chat-core
+ * `read_images.rs`, CDXC:SessionChat 2026-11-02).
+ */
+export const ReadImages = memo(function ReadImages({ images, inset }: { images: unknown; inset: number }) {
+  const { theme } = useTranscriptEnv();
+  const openPicture = useOpenPicture();
+  const list = arr(images)
+    .map((entry) => obj(entry))
+    .filter((entry): entry is ChatImageSource => entry !== null);
+  if (list.length === 0) return null;
+  return (
+    <View style={[styles.row, { gap: VISUAL.userRowGap, paddingLeft: inset }]}>
+      {list.map((image, index) => (
+        <ImageTile
+          key={index}
+          image={image}
+          index={index}
+          user
+          onOpen={() => openPicture(image, list, index)}
+          themeMuted={theme.muted}
+        />
+      ))}
+    </View>
+  );
+});
+
 function ImageTile({
   image,
   index,

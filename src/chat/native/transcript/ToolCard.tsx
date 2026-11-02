@@ -27,6 +27,7 @@ import { useNativeChatUi, useRowDetail, useTranscriptEnv } from './context';
 import { DisclosureBody } from './Disclosure';
 import { Counts, FileChangeDiff, palette } from './FileChanges';
 import { Glyph, toolGlyph } from './icons';
+import { ReadImages } from './Images';
 import { arr, num, obj, str, type JsonRecord } from './json';
 import { useDisclosure } from './state';
 import type { TranscriptTheme } from './theme';
@@ -334,6 +335,12 @@ const CardRow = memo(function CardRow({
         {parts.length > 0 ? <View style={styles.metaLine}>{parts}</View> : null}
         <View style={styles.status}>{statusIcon}</View>
       </Pressable>
+      {/* The picture the call opened from disk, under its label (gx-chat-core `read_images.rs`). */}
+      {entry.images !== undefined ? (
+        <View style={styles.readImages}>
+          <ReadImages images={entry.images} inset={8 + ROW_ICON + 9} />
+        </View>
+      ) : null}
       {open ? (
         kind === 'file' ? (
           <FileChangeDiff rowKey={key} file={source} colors={palette(theme)} />
@@ -418,6 +425,7 @@ const styles = StyleSheet.create({
   meta: { fontSize: 12, flexShrink: 0, fontVariant: ['tabular-nums'] },
   rows: { borderTopWidth: StyleSheet.hairlineWidth, padding: 4, gap: 1 },
   rowColumn: { minWidth: 0 },
+  readImages: { paddingBottom: 6 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

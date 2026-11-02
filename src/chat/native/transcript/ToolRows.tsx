@@ -15,6 +15,7 @@ import { Glyph, toolGlyph } from './icons';
 import { ToolBody } from './ToolBody';
 import { ToolCard } from './ToolCard';
 import { arr, obj, str, type JsonRecord } from './json';
+import { ReadImages } from './Images';
 import { highlightLabel, useRowFind } from './searchHighlight';
 import { useDisclosure } from './state';
 import { openTranscriptMenu } from './transcriptMenuStore';
@@ -355,6 +356,8 @@ const ToolRow = memo(function ToolRow({
           )}
         </View>
       )}
+      {/* The picture the call opened from disk, under its label (gx-chat-core `read_images.rs`). */}
+      <ReadImages images={tool.images} inset={ROW_PAD_X + TILE + 8} />
       {body}
     </View>
   );

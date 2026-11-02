@@ -11,6 +11,7 @@ import type { CompletedWorkItem, ProjectedMessage, SummaryItem, TranscriptItem }
 import { QuestionExchangeCards } from '../cards';
 import { useNativeChatUi, useTranscriptEnv, useTranscriptFlags } from './context';
 import { DisclosureBody, DisclosureHeading, FoldPlaceProvider } from './Disclosure';
+import { ReadImages } from './Images';
 import { CompletedFilesFold, hasCompletedFiles } from './FileChanges';
 import { arr, obj } from './json';
 import { MessageRow } from './MessageRow';
@@ -75,6 +76,8 @@ function SummaryRow({ item }: { item: SummaryItem }) {
       {(hasFinal || item.active) && foldRows.length > 0 ? (
         <>
           <DisclosureHeading label={hasFinal ? 'Agent reply' : 'Active work'} open={open} onToggle={toggle} />
+          {/* The closed "Active work" fold keeps the pictures its rows read in view (gx-chat-core `read_images.rs`). */}
+          {!open ? <ReadImages images={item.readImages} inset={4} /> : null}
           {open ? (
             <View style={styles.column}>
               {foldRows.map((message) => (
@@ -104,7 +107,11 @@ function CompletedWorkRow({ item }: { item: CompletedWorkItem }) {
   // Two one-line cards in a row are a row gap apart (`cardSpacing.ts`): the answered-question and
   // sent-message stacks sit that far under the "Worked for" fold, or under each other, when nothing
   // else comes between.
-  const foldAbove = !open && !hasCompletedFiles(item.files, item.deferred) && item.artifacts.length === 0;
+  const foldAbove =
+    !open &&
+    (item.readImages ?? []).length === 0 &&
+    !hasCompletedFiles(item.files, item.deferred) &&
+    item.artifacts.length === 0;
   const hasQuestions = arr(item.questions).length > 0;
   return (
     <View style={styles.completedColumn}>
@@ -118,7 +125,11 @@ function CompletedWorkRow({ item }: { item: CompletedWorkItem }) {
             ))}
           </DisclosureBody>
         </FoldPlaceProvider>
-      ) : null}
+      ) : (
+        // The closed fold keeps the pictures its rows read in view; opened, each row shows its own
+        // (gx-chat-core `read_images.rs`).
+        <ReadImages images={item.readImages} inset={4} />
+      )}
       <CompletedFilesFold
         itemId={item.id}
         files={item.files}

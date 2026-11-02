@@ -185,6 +185,10 @@ export type SummaryItem = {
   /** The agent's messages in the turn that hold a page card, a question form or a chart, drawn in
    * full under the prompt; the folds leave them out (gx-chat-core `content_rows`). */
   cards?: ProjectedMessage[];
+  /** The pictures the running turn's work opened from disk (image sources, like a message's
+   * `images`), drawn under the closed "Active work" fold (gx-chat-core `read_images.rs`); omitted
+   * when there are none. */
+  readImages?: Json[];
 };
 
 /** One count beside a finished turn's "Worked for 2m 5s" (gx-chat-core `work_summary.rs`). */
@@ -230,6 +234,10 @@ export type CompletedWorkItem = {
   artifacts: ProjectedMessage[];
   /** The turn's reply; omitted (not null) when the turn has none. */
   final?: ProjectedMessage;
+  /** The pictures the folded work opened from disk (image sources), its rows' and those of rows
+   * still on the server, drawn under the closed fold (gx-chat-core `read_images.rs`); omitted when
+   * there are none. */
+  readImages?: Json[];
 };
 
 /** A kind this build does not know, kept verbatim so one new row cannot drop the list. Draw
@@ -299,6 +307,9 @@ export type ProjectedMessage = {
   /** Image sources on the row (machine paths). Load bytes with `{type: 'loadImage', path}`.
    * Desktop: `images.rs`. */
   images?: Json[];
+  /** The pictures this row's tool calls opened from disk, in row order (each tool row also carries
+   * its own `images`); gx-chat-core `read_images.rs`. */
+  readImages?: Json[];
   /** How a suppressed row is presented, or null. */
   suppressed?: Json;
   /** A `/btw` side question kept in the transcript: `{question, answer, answerMarkdown, answerReferences}`. */
