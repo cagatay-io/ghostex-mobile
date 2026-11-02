@@ -5,12 +5,15 @@
  * `extras/side_chats.rs`, where the user's decision lives); the desktop's twin is
  * apps/desktop/src/app/native_chat/side_chats.rs.
  */
+import { useMemo } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import type { ChatDocument } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
 import { waitingColor } from './AgentPanels';
 import { Glyph } from './icons';
 import { arr, isTrue, obj, str } from './json';
+import { TranscriptEnvProvider, type TranscriptEnv } from '../transcript/context';
+import { SessionPill } from '../transcript/SessionPill';
 import { PROSE_SIZE, themedStyles, useTranscriptTheme } from '../transcript/theme';
 
 /** The sidebar's working colour, as the Workers sheet uses it. */
@@ -138,15 +141,31 @@ export function SideChatBar({ chat, document }: { chat: RustChat; document: Chat
   const styles = useStyles();
   const P = useTranscriptTheme();
   const bar = obj(document.sideChatOf);
+  const { dispatch } = chat;
+  // The pill is the card pill of "Message from" cards, which reads the transcript's env.
+  const env = useMemo<TranscriptEnv>(
+    () => ({
+      dispatch,
+      theme: P,
+      simple: false,
+      workOpen: false,
+      filePreviews: false,
+      mutedThinking: false,
+      main: false,
+    }),
+    [dispatch, P],
+  );
   if (bar === null) return null;
   const parent = str(bar, 'parentTitle');
   return (
     <View accessibilityLabel={`Side chat of ${parent}`} style={styles.bar}>
       <Glyph name="messages" size={14} color={P.cardMuted} />
       <Text style={styles.barLabel}>Side chat of</Text>
-      <Text style={styles.barParent} numberOfLines={1}>
-        {parent}
-      </Text>
+      <View style={styles.barParent}>
+        <TranscriptEnvProvider value={env}>
+          <SessionPill pill={obj(bar.parentPill) ?? {}} textStyle={styles.barParentText} />
+        </TranscriptEnvProvider>
+      </View>
       <IconButton
         glyph="arrow-back-up"
         label="Bring back to the main session"
@@ -243,6 +262,9 @@ const useStyles = themedStyles((P) => ({
   barParent: {
     flex: 1,
     minWidth: 0,
+    flexDirection: 'row',
+  },
+  barParentText: {
     color: P.foreground,
     fontSize: PROSE_SIZE - 1,
   },
