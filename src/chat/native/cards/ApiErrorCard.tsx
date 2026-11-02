@@ -1,6 +1,7 @@
 /**
- * The card a failed API call becomes: the tone card with the failure's glyph, the agent's own words,
- * and the retry gxserver runs for it. Port of desktop `apps/desktop/src/app/native_chat/api_error_card.rs`;
+ * The card a failed API call becomes: the tone card with the failure's glyph, a plain sentence with the agent's own words
+ * behind Details, and the retry gxserver runs for it. The retry line sits in the body so Retry now and Stop retrying get
+ * the footer row to themselves (Q1118). Port of desktop `apps/desktop/src/app/native_chat/api_error_card.rs`;
  * which rows get it, the titles, the status and the buttons come from the chat core
  * (`packages/gx-chat-core/src/transcript/api_errors.rs`, the 2026-10-15 decision there).
  */
@@ -11,6 +12,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { UserAction } from '../../rust/actions';
 import { Glyph, type GlyphName } from './icons';
 import { arr, obj, str } from './json';
+import { DetailsToggle } from './DetailsToggle';
 import { ToneButton, ToneCard } from './ToneCard';
 import { useTranscriptTheme } from '../transcript/theme';
 
@@ -62,12 +64,10 @@ export function ApiErrorCard({ card, dispatch }: { card: unknown; dispatch: (act
       title={str(value, 'title')}
       accessibilityLabel={str(value, 'title')}
       body={[
-        <Text key="detail" style={[styles.detail, { color: P.muted }]}>
-          {str(value, 'detail')}
+        <Text key="body" style={[styles.detail, { color: P.muted }]}>
+          {str(value, 'body')}
         </Text>,
-      ]}
-      footerStart={
-        label === ''
+        ...(label === ''
           ? []
           : [
               <View key="status" style={styles.status}>
@@ -76,8 +76,9 @@ export function ApiErrorCard({ card, dispatch }: { card: unknown; dispatch: (act
                 </Text>
                 {note !== '' ? <Text style={[styles.statusLabel, { color: P.muted }]}>{`· ${note}`}</Text> : null}
               </View>,
-            ]
-      }
+            ]),
+        <DetailsToggle key="details" lines={[value.detail]} />,
+      ]}
       footerEnd={actions.map((action, index) => (
         <ToneButton
           key={str(action, 'id')}

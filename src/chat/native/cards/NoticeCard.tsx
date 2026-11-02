@@ -29,6 +29,7 @@ import {
   useWellStyle,
 } from './primitives';
 import { Glyph } from './icons';
+import { DetailsToggle } from './DetailsToggle';
 import { ToneButton, ToneCard } from './ToneCard';
 import { PanelBlocks } from './PanelBlocks';
 import { PermissionDetails } from './PermissionDetails';
@@ -158,13 +159,9 @@ export function NoticeCard({
       </Text>,
     );
   }
-  // What a failed start printed (`errorLines` from gxserver), so the card says why without the terminal.
-  if (!collapsed && typeof notice.errorLines === 'string') {
-    body.push(
-      <Text key="error-lines" style={styles.monoText}>
-        {notice.errorLines}
-      </Text>,
-    );
+  // The terminal's own words (`details`) and what a failed start printed (`errorLines`), behind Details (notice.rs).
+  if (!collapsed && (typeof notice.details === 'string' || typeof notice.errorLines === 'string')) {
+    body.push(<DetailsToggle key={`details:${key}`} lines={[notice.details, notice.errorLines]} />);
   }
   if (answerable && numbered) {
     const moreOpen = moreKey === key;
