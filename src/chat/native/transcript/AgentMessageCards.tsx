@@ -5,8 +5,10 @@
  * opened, the time and the status as a pill, no chevron) that opens to the whole message. Everything a card says is the core's
  * `card` object (`agent_message_card.rs`; the user's pick is the `CDXC:SessionChat 2026-10-12 DECISION` there);
  * this file only lays it out, in the shell, height and title type every one-line card shares
- * (`singleLineCard.tsx`). The phone has no hover, so Go to session sits in the opened message;
- * a message sent to several sessions lists each of them there instead, each name opening its session.
+ * (`singleLineCard.tsx`). The session's name in the row is a pill that opens the session (no Go to session
+ * button, CDXC:SessionChat 2026-11-02 DECISION: User: "let's remove \"Go to session\" button since we already can click on
+ * the session's name to jump to it ... in the \"Message from\" and \"Message to\" header cards basically");
+ * a message sent to several sessions lists each of them in the opened message, each name opening its session.
  */
 
 import { memo } from 'react';
@@ -113,13 +115,11 @@ const AgentCard = memo(function AgentCard({
   const footer = failure.length > 0 ? failure : str(card, 'waitReason');
   const retry = typeof card.retryPromptId === 'string' ? card.retryPromptId : null;
   const remove = typeof card.removePromptId === 'string' ? card.removePromptId : null;
-  const session = obj(card.session);
   const time = str(card, 'time');
   const hairline = theme.ink(theme.light ? 0.08 : 0.05);
   const recipients = arr(card.recipients)
     .map((recipient) => obj(recipient))
     .filter((recipient): recipient is JsonRecord => recipient !== null);
-  const showSession = failure.length === 0 && session !== null;
   const pill = obj(card.pill);
 
   return (
@@ -151,24 +151,6 @@ const AgentCard = memo(function AgentCard({
       </Pressable>
       {open ? (
         <View style={[styles.opened, { borderTopColor: hairline }]}>
-          {showSession && session !== null ? (
-            <Pressable
-              onPress={() =>
-                dispatch({
-                  type: 'openAgentSession',
-                  projectId: str(session, 'projectId'),
-                  sessionId: str(session, 'sessionId'),
-                })
-              }
-              accessibilityRole="button"
-              accessibilityLabel="Go to session"
-              hitSlop={6}
-              style={({ pressed }) => [styles.goto, pressed && { backgroundColor: theme.ink(0.08) }]}
-            >
-              <Glyph name="arrow-up-right" size={12} color={theme.muted} />
-              <Text style={[styles.gotoText, { color: theme.muted }]}>Go to session</Text>
-            </Pressable>
-          ) : null}
           {recipients.length > 0 ? (
             <View style={styles.recipients}>
               {recipients.map((recipient, index) => {
@@ -309,17 +291,6 @@ const styles = StyleSheet.create({
   pillTitle: { flexDirection: 'row', alignItems: 'center', gap: Math.round(SINGLE_LINE_CARD.titleSize * 0.27) },
   small: { fontSize: 12, lineHeight: 16 },
   opened: { borderTopWidth: 1, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10, gap: 6 },
-  goto: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginLeft: -6,
-  },
-  gotoText: { fontSize: 12.5, lineHeight: 17 },
   recipients: { gap: 4, paddingBottom: 4 },
   recipient: {
     flexDirection: 'row',

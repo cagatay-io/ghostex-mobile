@@ -97,7 +97,7 @@ export type ActionFields = {
   questionListMore: {};
   /** The list closed: back to its first page. */
   questionListReset: {};
-  /** An agent message card's Go to session: the other session, focused. Desktop: `inter_agent_message.rs`. */
+  /** A session name's pill on an agent message card: the other session, focused. Desktop: `inter_agent_message.rs`. */
   openAgentSession: { projectId: string; sessionId: string };
   /** A command in a reply, run in the project's Commands panel terminal (gx-chat-core `run_command.rs`). */
   runInTerminal: { command: string };
