@@ -25,8 +25,10 @@
  * GhostexWebViewPost (Kotlin and Swift).
  */
 
+import { logAppEvent } from '../../../app/appLog';
 import { ChatCoreError } from '../core-types';
 import { GhostexNative } from '../../../../modules/ghostex-native/src';
+import { PageRestarts } from './pageLoad';
 
 /** One request the page answers (`{id, op, handle?, args?}` in the page's protocol). */
 export type WasmCoreRequest = { op: string; handle?: number; args?: readonly unknown[] };
@@ -50,6 +52,12 @@ class WasmCoreBridge {
   /** The page posted `ready`. The bridge is ready once this and the view tag are both known. */
   private pageReady = false;
   private failure: string | null = null;
+  /** The failure came from a page that kept dying, so a chat opening a minute later may try again. */
+  private failureRetryable = false;
+  /** Why the page last failed to load or died, for the "did not start in time" message. */
+  private lastError: string | null = null;
+  private readonly restarts = new PageRestarts();
+  private reloadTimer: ReturnType<typeof setTimeout> | null = null;
   private viewTag: number | null = null;
   private nextId = 1;
   private readonly pending = new Map<number, Pending>();
@@ -83,17 +91,47 @@ class WasmCoreBridge {
     this.becomeReady();
   }
 
-  /** The renderer process died or the page could not load: every core in it is gone. */
+  /**
+   * The renderer process died or the page could not load: every core in it is gone. The page is
+   * reloaded after a growing wait, and after a few failures in a row the bridge gives up with
+   * `reason` (pageLoad.ts PageRestarts).
+   *
+   * CDXC:SessionChat 2026-11-02 WHY: issue #393. This used to reload at once with no cap, so a page
+   * that can never load (it resolved to a folder) spawned about 16 WebContent processes a second
+   * forever and the chat never learned why.
+   */
   died(reason: string): void {
-    // Reload first, so the chats that rebuild on `lose` wait for the new page.
-    this.reload();
+    this.lastError = reason;
+    // A reload is already on its way: another report of the same failure (the content process
+    // ending after the load error) doesn't spend another try.
+    if (this.reloadTimer !== null) return;
+    if (this.phase === 'failed') return;
+    const decision = this.restarts.onFailure(reason, Date.now());
+    if (decision.kind === 'giveUp') {
+      console.warn(`[chat-core] gave up: ${decision.message}`);
+      logAppEvent(`Chat engine: ${decision.message}`);
+      this.fail(decision.message, { retryable: true });
+      this.lose(reason);
+      return;
+    }
+    console.warn(`[chat-core] ${reason} Reloading in ${decision.delayMs} ms.`);
+    logAppEvent(`Chat engine: ${reason} Reloading in ${decision.delayMs} ms.`);
+    // Loading from now, so the chats that rebuild on `lose` wait for the new page.
+    this.phase = 'loading';
+    this.pageReady = false;
+    this.viewTag = null;
+    this.reloadTimer = setTimeout(() => {
+      this.reloadTimer = null;
+      this.reload();
+    }, decision.delayMs);
     this.lose(reason);
   }
 
   /** The page could not even start (the asset is missing from this build, for example). */
-  fail(reason: string): void {
+  fail(reason: string, { retryable = false }: { retryable?: boolean } = {}): void {
     this.phase = 'failed';
     this.failure = reason;
+    this.failureRetryable = retryable;
     this.rejectWaiting(new ChatCoreError('unavailable', reason));
   }
 
@@ -142,6 +180,11 @@ class WasmCoreBridge {
   /** Resolves once the page answers; rejects when it cannot start. */
   ready(): Promise<void> {
     if (this.phase === 'ready') return Promise.resolve();
+    if (this.phase === 'failed' && this.failureRetryable && this.restarts.retryAfterGiveUp(Date.now())) {
+      // The page kept dying a while ago; a chat opening now gets one fresh round of tries.
+      logAppEvent('Chat engine: trying the chat core page again.');
+      this.reload();
+    }
     if (this.phase === 'failed') {
       return Promise.reject(new ChatCoreError('unavailable', this.failure ?? 'The chat core could not start.'));
     }
@@ -152,8 +195,10 @@ class WasmCoreBridge {
       // every chat broken until the app was restarted, with no other brain to switch to.
       this.readyTimer = setTimeout(() => {
         this.readyTimer = null;
-        if (this.phase !== 'ready')
-          this.rejectWaiting(new ChatCoreError('unavailable', 'The chat core did not start in time.'));
+        if (this.phase !== 'ready') {
+          const last = this.lastError === null ? '' : ` Last error: ${this.lastError}`;
+          this.rejectWaiting(new ChatCoreError('unavailable', `The chat core did not start in time.${last}`));
+        }
       }, READY_TIMEOUT_MS);
     }
     return new Promise((resolve, reject) => {
@@ -248,6 +293,8 @@ class WasmCoreBridge {
   private becomeReady(): void {
     if (this.phase !== 'loading' || !this.pageReady || this.viewTag === null) return;
     this.phase = 'ready';
+    this.restarts.onReady();
+    this.lastError = null;
     if (this.readyTimer !== null) clearTimeout(this.readyTimer);
     this.readyTimer = null;
     const waiting = this.waiting;
@@ -256,7 +303,11 @@ class WasmCoreBridge {
   }
 
   private reload(): void {
+    if (this.reloadTimer !== null) clearTimeout(this.reloadTimer);
+    this.reloadTimer = null;
     this.phase = 'loading';
+    this.failure = null;
+    this.failureRetryable = false;
     this.pageReady = false;
     this.viewTag = null;
     this.reloadSequence += 1;

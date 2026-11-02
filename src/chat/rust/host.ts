@@ -56,6 +56,7 @@ import {
 import { currentSessionDirectory, subscribeSessionDirectory } from './sessionDirectory';
 import { readRecord, readRetainedSnapshot, writeRecord, writeRetainedSnapshot } from './storage';
 import { chatMachineLink } from './machine-link';
+import { coreUnavailableMessage } from './wasm-core/pageLoad';
 import { SessionChatStream, sessionChatRpc, type RpcAnswer } from './transport';
 import { markSessionOpen } from '../../terminal/openTiming';
 import { receivePageThumbnail } from '../native/transcript/pageThumbnails';
@@ -111,8 +112,6 @@ export type RustChatState = {
 
 /** What a chat whose core failed draws. A constant sentence: a panic payload can hold chat text. */
 const CORE_FAILURE_MESSAGE = 'Chat could not be shown. Close it and open it again.';
-/** What a chat draws when the chat core's page could not start (`unavailable`). */
-const CORE_UNAVAILABLE_MESSAGE = "The chat engine couldn't start. Close the chat and open it again.";
 /** Helpers whose answer depends only on their arguments; the host keeps those. */
 const PURE_QUERIES: ReadonlySet<ChatCoreQuery> = new Set(['composerReferences', 'renderVisual', 'speakableMarkdown']);
 /** Answers the host keeps for paint-time callers (drafts, chart layouts). */
@@ -578,7 +577,14 @@ export class RustChatHost {
     const code = error instanceof ChatCoreError ? error.code : 'unknown';
     if (code === 'lost') return;
     console.warn(`[rust-chat] the core failed (${code})`);
-    this.fail(code === 'unavailable' ? CORE_UNAVAILABLE_MESSAGE : CORE_FAILURE_MESSAGE);
+    // CDXC:SessionChat 2026-11-02 WHY: issue #393. The chat named no reason, so a page that could
+    // never load looked like any slow start; the bridge's reason (the WebView's error, the path it
+    // tried) now shows in the chat itself.
+    this.fail(
+      code === 'unavailable'
+        ? coreUnavailableMessage(error instanceof ChatCoreError ? error.message : null)
+        : CORE_FAILURE_MESSAGE,
+    );
   }
 
   /**
