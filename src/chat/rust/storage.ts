@@ -58,6 +58,7 @@ const LOCAL: CatalogStore['backend'] = { kind: 'local' };
 const STORES: readonly CatalogStore[] = [
   { id: 'verbose', prefix: 'ghostex.sessionChat.verbose.', collection: true, backend: disk() },
   { id: 'summary', prefix: 'ghostex.sessionChat.summary.', collection: true, backend: disk() },
+  { id: 'simple', prefix: 'ghostex.sessionChat.simple.', collection: true, backend: disk() },
   { id: 'tasksCollapsed', prefix: 'ghostex.chat.agentTasks.collapsed', collection: false, backend: LOCAL },
   { id: 'threadsCollapsed', prefix: 'ghostex.chat.coordinatorThreads.collapsed', collection: false, backend: LOCAL },
   { id: 'claudeContext', prefix: 'ghostex.chat.context-details.v1', collection: false, backend: LOCAL },

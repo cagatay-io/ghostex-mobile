@@ -260,6 +260,8 @@ export type ActionFields = {
   // ---- modes and loading --------------------------------------------------------------------
   toggleSummary: {};
   setVerbose: { enabled: boolean };
+  /** More actions > View: the chat's one level (gx-chat-core `transcript/view_level.rs`). */
+  setDetailLevel: { level: 'summary' | 'normal' | 'detailed' };
   retry: {};
   refresh: {};
   loadEarlier: {};

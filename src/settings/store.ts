@@ -72,12 +72,10 @@ export type GhostexSettings = {
   /** Width of the message transcript; the prompt composer keeps its full width. */
   sessionChatTranscriptWidthPercent: number;
   /**
-   * Simplify every chat: hide tool command previews and fold tool runs and file edits behind
-   * expandable counts. Same key and default as the desktop's `sessionChatSimpleMode`.
+   * Default to Detailed view: new chats open Detailed instead of Normal (desktop
+   * `sessionChatDetailedView`; each chat's More actions > View picks its own level).
    */
-  sessionChatSimpleMode: boolean;
-  /** Reveal thinking-owned tool calls by default. */
-  sessionChatVerboseMode: boolean;
+  sessionChatDetailedView: boolean;
   /**
    * The session links sheet's folded groups (`open`, `finished`, `suggested`, `removed`), one
    * choice per group for every session; the desktop's `sessionLinksFoldedGroups`
@@ -182,8 +180,7 @@ export function defaultSettings(): GhostexSettings {
     sessionChatTheme: 'dark',
     sessionChatCustomTranscriptWidthEnabled: false,
     sessionChatTranscriptWidthPercent: DEFAULT_SESSION_CHAT_TRANSCRIPT_WIDTH_PERCENT,
-    sessionChatSimpleMode: true,
-    sessionChatVerboseMode: false,
+    sessionChatDetailedView: false,
     sessionLinksFoldedGroups: ['finished', 'removed'],
     sessionChatFileEditPreviews: false,
     sessionChatMutedThinking: false,
@@ -295,8 +292,12 @@ function sanitizeSettings(value: unknown): GhostexSettings {
     sessionChatFileEditPreviews: bool('sessionChatFileEditPreviews', defaults.sessionChatFileEditPreviews),
     sessionChatMutedThinking: bool('sessionChatMutedThinking', defaults.sessionChatMutedThinking),
     chatToolCallCards: bool('chatToolCallCards', defaults.chatToolCallCards),
-    sessionChatSimpleMode: bool('sessionChatSimpleMode', defaults.sessionChatSimpleMode),
-    sessionChatVerboseMode: bool('sessionChatVerboseMode', defaults.sessionChatVerboseMode),
+    // The retired Simple mode off or Verbose Mode on opened chats in more detail, which is Detailed
+    // now (desktop settings catalog `migrate_chat_view_default`).
+    sessionChatDetailedView: bool(
+      'sessionChatDetailedView',
+      record.sessionChatVerboseMode === true || record.sessionChatSimpleMode === false,
+    ),
     sessionLinksFoldedGroups: Array.isArray(record.sessionLinksFoldedGroups)
       ? record.sessionLinksFoldedGroups.filter((group): group is string => typeof group === 'string')
       : defaults.sessionLinksFoldedGroups,

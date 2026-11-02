@@ -94,7 +94,6 @@ function Summary({
     () => ({
       dispatch,
       theme,
-      verbose: false,
       simple: false,
       workOpen: false,
       filePreviews: false,

@@ -17,7 +17,7 @@ export type ComposerBootRead = {
   optionStates: Record<string, unknown>;
   modelOutboxes: Record<string, unknown>;
   modelCatalog: unknown;
-  chatSettings: { hideAccountEmails: boolean; title: string | null; toolCards: boolean };
+  chatSettings: { hideAccountEmails: boolean; title: string | null; toolCards: boolean; detailedDefault: boolean };
   contextPreferences: {
     claude: unknown;
     codex: unknown;
@@ -29,6 +29,7 @@ export type ComposerBootRead = {
   dismissedNotice: unknown;
   summaryMode: boolean;
   verboseOverride: boolean | null;
+  simpleOverride: boolean | null;
 };
 
 /** Reads that refused, and reads attempted: all refused means storage itself is unavailable. */
@@ -149,6 +150,7 @@ export async function readComposerBoot(sessionKey: string, nowMs: number): Promi
         { store: 'notices', suffix: sessionKey },
         { store: 'summary', suffix: sessionKey },
         { store: 'verbose', suffix: sessionKey },
+        { store: 'simple', suffix: sessionKey },
       ],
       nowMs,
       reads,
@@ -169,6 +171,7 @@ export async function readComposerBoot(sessionKey: string, nowMs: number): Promi
     noticeRaw,
     summaryRaw,
     verboseRaw,
+    simpleRaw,
   ] = records;
   const id = await clientId(storedClientId, nowMs, reads);
   const entry = entryWithVersion(storedRaw === null ? null : decodeStoredDraft(storedRaw));
@@ -182,6 +185,9 @@ export async function readComposerBoot(sessionKey: string, nowMs: number): Promi
   const dismissedNotice = parse(noticeRaw);
   const summaryMode = decodeSummary(summaryRaw);
   const verboseOverride = decodeVerbose(verboseRaw);
+  // The chat's Normal or Detailed record (gx-chat-core `transcript/view_level.rs`), the same
+  // encoding as `verbose`.
+  const simpleOverride = decodeVerbose(simpleRaw);
   if (reads.attempts > 0 && reads.errors === reads.attempts) return null;
   return {
     sessionKey,
@@ -200,10 +206,12 @@ export async function readComposerBoot(sessionKey: string, nowMs: number): Promi
       hideAccountEmails: false,
       title: null,
       toolCards: useSettingsStore.getState().settings.chatToolCallCards,
+      detailedDefault: useSettingsStore.getState().settings.sessionChatDetailedView,
     },
     contextPreferences: { claude, codex, cursor, hermes, pi, basic },
     dismissedNotice,
     summaryMode,
     verboseOverride,
+    simpleOverride,
   };
 }

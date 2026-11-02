@@ -41,9 +41,6 @@ export function overflowed(document: ChatDocument, id: string): boolean {
 
 export type MoreActionsInput = {
   document: ChatDocument;
-  verbose: boolean;
-  /** The phone's Simple mode setting (`sessionChatSimpleMode`). */
-  simple: boolean;
   /** Controls this composer can draw (the host gates plus what the phone serves). */
   available: (id: ComposerActionId) => boolean;
   /** Whether the screen performs this app-shell action (`NativeComposer`'s `hostActions`). */
@@ -66,40 +63,29 @@ export type MoreActionsInput = {
 };
 
 /**
- * The View row: the chat's display modes as one submenu, its detail naming the ones that are on
- * (desktop's `view_modes_row` in `actions.rs`, where the user decision is recorded).
+ * The View row: one choice of Summary, Normal and Detailed, picking one turning the others off
+ * (desktop's `view_modes_row` in `actions.rs`; the user decision is in gx-chat-core
+ * `transcript/view_level.rs`). Summary shows only where this chat has it.
  */
-function viewModesRow(document: ChatDocument, simple: boolean, verbose: boolean, summaryAvailable: boolean): MenuRow {
-  const summary = summaryAvailable && document.summaryMode === true;
-  const modes: MenuRow[] = [
-    {
-      label: 'Simple mode',
-      iconPath: 'titlebar/leaf.svg',
-      checked: simple,
-      command: { type: 'setSimpleMode', enabled: !simple },
-    },
-    {
-      label: 'Verbose mode',
-      iconPath: verbose ? 'titlebar/eye-filled.svg' : 'titlebar/eye-off.svg',
-      checked: verbose,
-      command: { type: 'setVerbose', enabled: !verbose },
-    },
+function viewModesRow(document: ChatDocument, summaryAvailable: boolean): MenuRow {
+  const level = document.viewLevel ?? 'normal';
+  const levels: { value: 'summary' | 'normal' | 'detailed'; label: string; iconPath: string }[] = [
+    { value: 'summary', label: 'Summary', iconPath: 'titlebar/list-check.svg' },
+    { value: 'normal', label: 'Normal', iconPath: 'titlebar/leaf.svg' },
+    { value: 'detailed', label: 'Detailed', iconPath: 'titlebar/list-details.svg' },
   ];
-  if (summaryAvailable) {
-    modes.push({
-      label: 'Summary mode',
-      iconPath: summary ? 'titlebar/list-check.svg' : 'titlebar/list-details.svg',
-      checked: summary,
-      command: { type: 'toggleSummary' },
-    });
-  }
-  const on = [simple ? 'Simple' : null, verbose ? 'Verbose' : null, summary ? 'Summary' : null].filter(
-    (name) => name !== null,
-  );
+  const modes: MenuRow[] = levels
+    .filter((row) => row.value !== 'summary' || summaryAvailable)
+    .map((row) => ({
+      label: row.label,
+      iconPath: row.iconPath,
+      checked: level === row.value,
+      command: { type: 'setDetailLevel', level: row.value },
+    }));
   return {
     label: 'View',
     iconPath: 'titlebar/eye.svg',
-    detail: on.length > 0 ? on.join(', ') : 'Standard',
+    detail: level === 'summary' ? 'Summary' : level === 'detailed' ? 'Detailed' : 'Normal',
     children: modes,
   };
 }
@@ -189,8 +175,6 @@ export function sendChoiceRows({ ready, canQueue }: { ready: boolean; canQueue: 
 
 export function moreActionsRows({
   document,
-  simple,
-  verbose,
   available,
   serves,
   compactAndSend = null,
@@ -240,7 +224,7 @@ export function moreActionsRows({
   rows.push({ heading: true, label: 'Chat' });
   const branches = branchesRow(document);
   if (branches !== null) rows.push(branches);
-  rows.push(viewModesRow(document, simple, verbose, available('summary')));
+  rows.push(viewModesRow(document, available('summary')));
   rows.push(...readAloudRows(document));
   // Under Auto-read: a voice call about this session (`src/voice/callAbout.ts` has the DECISION).
   if (serves('voiceCall')) {

@@ -88,10 +88,13 @@ export function NativeChatUiProvider({ chat, children }: { chat: RustChat; child
       ),
     [],
   );
-  const toolAppLogo = useCallback((key: string): string | null => {
-    const svg = query('toolAppLogo', [key]);
-    return typeof svg === 'string' ? svg : null;
-  }, [query]);
+  const toolAppLogo = useCallback(
+    (key: string): string | null => {
+      const svg = query('toolAppLogo', [key]);
+      return typeof svg === 'string' ? svg : null;
+    },
+    [query],
+  );
   const openPicture = useCallback((image: ChatImageSource, fallback: readonly ChatImageSource[], index: number) => {
     void queryAsyncRef
       .current('transcriptPictures', [image])
@@ -130,16 +133,14 @@ export type TranscriptEnv = {
   /** The chat's `dispatch`, stable per chat (the `RustChat` object itself changes every frame). */
   dispatch: RustChat['dispatch'];
   theme: TranscriptTheme;
-  /** Verbose mode opens every work fold by default (`verboseOverride` or the setting). */
-  verbose: boolean;
   /**
-   * Simple mode (`sessionChatSimpleMode`): tool runs and a message's file edits fold behind a
-   * count, and tool rows hide their command preview (desktop `ChatAppearance::simple`).
+   * The Normal look (Normal or Summary view, `viewLevel`): tool runs and a message's file edits
+   * fold behind a count, and tool rows hide their command preview (desktop `ChatAppearance::simple`).
    */
   simple: boolean;
   /**
    * The folds under each agent message (its tool calls, a thought's tools, a finished turn's
-   * "Worked" log) start open: in verbose mode, and whenever Simple mode is off (desktop
+   * "Worked" log) start open: in Detailed view (desktop
    * `ChatAppearance::work_open`, CDXC:SessionChat 2026-10-14 DECISION).
    */
   workOpen: boolean;

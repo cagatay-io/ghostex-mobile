@@ -7,6 +7,10 @@
  * no strip; it grows in and shrinks away with the chat box's own ease (`composer-animation.json`).
  * Each pill opens its own sheet (`ChatPills.tsx`). Port of desktop `pills_strip.rs`.
  *
+ * The band's left holds the view status chip ("Summary view" or "Detailed view"), pinned there while
+ * the pills scroll. With no hover on a phone the chip's X always shows; a tap anywhere on the chip
+ * goes back to Normal view (gx-chat-core extras/chat_pills.rs `view_chips` has the user's words).
+ *
  * CDXC:SessionChat 2026-10-29 SEE-ALSO:
  * The user's words (option E) are on packages/gx-chat-core/src/extras/chat_pills.rs.
  */
@@ -15,7 +19,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Animated, Easing, Pressable, ScrollView, Text, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
-import type { ChatDocument } from '../../rust/document';
+import type { ChatDocument, ViewChip } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
 import type { GhostexSessionLinks } from '../../../contract/mobileSummary';
 import { Glyph as ComposerGlyph } from '../composer/icons';
@@ -53,13 +57,12 @@ export function mixHex(base: string, over: string, alpha: number): string {
     .join('')}`;
 }
 
-
 /** Whether the question pill shows: a question form or page waits (the core's `openQuestions.count`). */
 function questionWaiting(document: ChatDocument): boolean {
   return (document.openQuestions?.count ?? 0) > 0;
 }
 
-/** Whether the strip shows: a panel pill, the ?, the Links pill or an armed timer calls for it; the ↓ only joins them. */
+/** Whether the strip shows: a view chip, a panel pill, the ?, the Links pill or an armed timer calls for it; the ↓ only joins them. */
 export function pillsStripShown(
   document: ChatDocument,
   armed: readonly ArmedAction[],
@@ -68,6 +71,7 @@ export function pillsStripShown(
 ): boolean {
   return (
     armed.length > 0 ||
+    (document.viewChips?.length ?? 0) > 0 ||
     questionWaiting(document) ||
     (document.workingCard?.pills.length ?? 0) > 0 ||
     (links !== null && sessionLinksChatPill(links.links, muted) !== null)
@@ -106,7 +110,12 @@ export function PillsStrip({
       if (!shown) setDrawn(false);
       return undefined;
     }
-    const run = Animated.timing(open, { toValue: shown ? 1 : 0, duration: EASE_MS, easing: EASE, useNativeDriver: false });
+    const run = Animated.timing(open, {
+      toValue: shown ? 1 : 0,
+      duration: EASE_MS,
+      easing: EASE,
+      useNativeDriver: false,
+    });
     run.start(({ finished }) => {
       if (finished && !shown) setDrawn(false);
     });
@@ -130,13 +139,29 @@ export function PillsStrip({
         <Animated.View
           accessibilityRole="toolbar"
           accessibilityLabel="Chat pills"
-          style={[styles.strip, { height: open.interpolate({ inputRange: [0, 1], outputRange: [0, STRIP] }), opacity: open }]}
+          style={[
+            styles.strip,
+            { height: open.interpolate({ inputRange: [0, 1], outputRange: [0, STRIP] }), opacity: open },
+          ]}
         >
           <View style={styles.band}>
+            {/* The view chips stay pinned left; the pills scroll in what is left beside them. */}
+            {shown && (document.viewChips?.length ?? 0) > 0 ? (
+              <View style={styles.chips}>
+                {(document.viewChips ?? []).map((chip) => (
+                  <ViewChipButton key={chip.id} chip={chip} onPress={() => chat.dispatch(chip.command)} />
+                ))}
+              </View>
+            ) : null}
             <PillsScroll>
               {/* The ↓ at the left of the pills, so it appearing moves none of them. */}
               {shown && showJump ? (
-                <IconPill glyph="arrow-down" accessibilityLabel="Scroll to bottom" color={P.primary} onPress={() => jumpToBottom?.()} />
+                <IconPill
+                  glyph="arrow-down"
+                  accessibilityLabel="Scroll to bottom"
+                  color={P.primary}
+                  onPress={() => jumpToBottom?.()}
+                />
               ) : null}
               {armed.map((action) => (
                 <Pressable
@@ -174,6 +199,26 @@ export function PillsStrip({
       ) : null}
       <PillMenuSheet chat={chat} document={document} open={menu} onClose={closeMenu} />
     </>
+  );
+}
+
+/** One view status chip: quieter than the pills (a faint fill, no outline) at their height, with its X. */
+function ViewChipButton({ chip, onPress }: { chip: ViewChip; onPress: () => void }) {
+  const styles = useStyles();
+  const P = useTranscriptTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={chip.ariaLabel}
+      hitSlop={6}
+      style={({ pressed }) => [styles.chip, pressed ? styles.chipPressed : null]}
+    >
+      <Text style={styles.chipLabel} numberOfLines={1}>
+        {chip.label}
+      </Text>
+      <ComposerGlyph name="x" size={10} color={P.cardMuted} />
+    </Pressable>
   );
 }
 
@@ -247,6 +292,32 @@ const useStyles = themedStyles((P) => ({
     paddingHorizontal: 10,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+  },
+  chips: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexShrink: 0,
+  },
+  /** A pill's 22 (its 1px border included), quieter: a faint fill and no outline. */
+  chip: {
+    height: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingLeft: 8,
+    paddingRight: 6,
+    borderRadius: 11,
+    backgroundColor: P.ink(0.04),
+  },
+  chipPressed: {
+    backgroundColor: P.ink(0.08),
+  },
+  chipLabel: {
+    color: P.cardMuted,
+    fontSize: 11.5,
+    lineHeight: 16,
   },
   /** The hairline under the band, the box's border colour. */
   hairline: {

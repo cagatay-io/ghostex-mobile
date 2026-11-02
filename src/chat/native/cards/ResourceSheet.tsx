@@ -28,7 +28,6 @@ export function ResourceSheet({ chat, document }: { chat: RustChat; document: Ch
     () => ({
       dispatch,
       theme,
-      verbose: false,
       simple: false,
       workOpen: false,
       filePreviews: false,

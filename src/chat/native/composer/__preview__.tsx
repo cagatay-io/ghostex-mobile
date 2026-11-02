@@ -175,13 +175,16 @@ function Preview() {
           <Text style={{ color: '#b4b8c0', fontSize: 15 }}>Composer preview: {SCENE}</Text>
           <View style={{ height: 20 }} />
         </ScrollView>
-        <NativeComposer projectId="preview" sessionId="preview" chat={chat} onHostAction={(action) => console.log('[preview] host', action)} />
+        <NativeComposer
+          projectId="preview"
+          sessionId="preview"
+          chat={chat}
+          onHostAction={(action) => console.log('[preview] host', action)}
+        />
         {SCENE === 'more' ? (
           <MenuSheet
             rows={moreActionsRows({
               document: doc,
-              simple: true,
-              verbose: false,
               available: () => true,
               serves: () => true,
             })}

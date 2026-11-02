@@ -16,7 +16,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Alert, Platform, Pressable, Text, View, type LayoutChangeEvent } from 'react-native';
 import Animated from 'react-native-reanimated';
 
-import { useSettingsStore } from '../../../settings/store';
 import type { UserAction } from '../../rust/actions';
 import type { ChatDocument } from '../../rust/document';
 import type { SubmitMode } from '../../rust/composer';
@@ -219,9 +218,6 @@ export function NativeComposer({
     (draft) => input?.replace(draft),
     (message) => onHostAction?.('toast', { message, level: 'error' }),
   );
-  const verboseSetting = useSettingsStore((store) => store.settings.sessionChatVerboseMode);
-  const simpleSetting = useSettingsStore((store) => store.settings.sessionChatSimpleMode);
-  const setSetting = useSettingsStore((store) => store.setSetting);
 
   useEffect(
     () =>
@@ -412,10 +408,6 @@ export function NativeComposer({
         case 'copyText':
           void Clipboard.setStringAsync(str(command, 'text'));
           return false;
-        case 'setSimpleMode':
-          // A phone setting, like desktop's `setSimpleMode` host action writing its own settings.
-          setSetting('sessionChatSimpleMode', command.enabled === true);
-          return false;
         case 'host':
           host(str(command, 'action'), command);
           return false;
@@ -424,7 +416,7 @@ export function NativeComposer({
           return false;
       }
     },
-    [dispatch, host, input, model, openAttach, performComposerAction, serves, setSetting],
+    [dispatch, host, input, model, openAttach, performComposerAction, serves],
   );
 
   const launchPick = useCallback(
@@ -515,7 +507,6 @@ export function NativeComposer({
 
   const openMore = useCallback(() => {
     if (document === null) return;
-    const verbose = document.verboseOverride ?? verboseSetting;
     // Send's own menu on desktop (`show_send_actions`), which a phone has no right press to open.
     const compactAndSend =
       model !== null && model.text.trim().length > 0
@@ -527,8 +518,6 @@ export function NativeComposer({
       kind: 'rows',
       rows: moreActionsRows({
         document,
-        simple: simpleSetting,
-        verbose,
         available,
         serves,
         compactAndSend,
@@ -537,7 +526,7 @@ export function NativeComposer({
         voiceCallTitle,
       }),
     });
-  }, [available, document, model, serves, simpleSetting, verboseSetting, voiceCallTitle]);
+  }, [available, document, model, serves, voiceCallTitle]);
 
   /** Send held while the agent works: Interrupt & Send or Queue. */
   const openSendChoices = useCallback(() => {

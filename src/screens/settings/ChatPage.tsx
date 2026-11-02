@@ -72,10 +72,6 @@ export default function ChatPage() {
       </SettingsSection>
       <SettingsSection name="settings:chat:messages">
         <SectionHeader title="Messages" />
-        <SettingToggle settingKey="sessionChatSimpleMode" label="Simple mode" />
-        <Caption>
-          Simplify all chats: hide tool command previews and group file edits behind an expandable file count.
-        </Caption>
         <SettingToggle settingKey="sessionChatFileEditPreviews" label="Show file edit previews" />
         <Caption>Show the first seven code lines instead of only the path and change counts.</Caption>
         <SettingToggle settingKey="sessionChatMutedThinking" label="Grey thinking" />
@@ -87,8 +83,6 @@ export default function ChatPage() {
           Show each run of tool calls as one card: it counts the calls, says what each one is doing and then did, with
           its result and time, explains a failure, and folds to one line once the agent writes again.
         </Caption>
-        <SettingToggle settingKey="sessionChatVerboseMode" label="Verbose Mode" />
-        <Caption>Expands thinking blocks to show their tool calls by default.</Caption>
         <Caption>
           Show the session's pull requests, issues and Linear tickets under the chat's header. Turn off to keep the
           header to the title; the session list still shows them.

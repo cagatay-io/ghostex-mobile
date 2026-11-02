@@ -124,6 +124,12 @@ export default function AdvancedPage() {
       </SettingsSection>
       <SettingsSection name="settings:advanced:chat-transcript">
         <SectionHeader title="Chat transcript" />
+        {/* CDXC:Settings 2026-11-02 SEE-ALSO: the user's words (an Advanced row) are in the desktop's packages/settings-catalog/src/general/chat.rs. */}
+        <SettingToggle settingKey="sessionChatDetailedView" label="Default to Detailed view" />
+        <Caption>
+          New chats open in Detailed view, with the work under each agent reply shown. Off, they open in Normal view.
+          More actions &gt; View in a chat picks Summary, Normal or Detailed for that chat.
+        </Caption>
         <SettingToggle settingKey="sessionChatCustomTranscriptWidthEnabled" label="Custom Transcript Width" />
         <Caption>Lets the transcript use a different width from the prompt composer.</Caption>
         {settings.sessionChatCustomTranscriptWidthEnabled ? (

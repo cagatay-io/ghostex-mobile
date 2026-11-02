@@ -259,12 +259,19 @@ export class RustChatHost {
     );
     // Settings > Chat > Tool call cards is a phone setting: the boot read carries it in
     // (`boot.ts`), and a change while the chat is open goes in here (gx-chat-core `tool_card.rs`).
+    // Default to Detailed view rides along: the level a chat with no level of its own opens in.
     let toolCards = useSettingsStore.getState().settings.chatToolCallCards;
+    let detailedDefault = useSettingsStore.getState().settings.sessionChatDetailedView;
     this.unsubscribeToolCards = useSettingsStore.subscribe((store) => {
       const next = store.settings.chatToolCallCards;
-      if (next === toolCards) return;
+      const nextDetailed = store.settings.sessionChatDetailedView;
+      if (next === toolCards && nextDetailed === detailedDefault) return;
       toolCards = next;
-      this.enqueue({ type: 'settingsChanged', settings: { hideAccountEmails: false, title: this.title, toolCards: next } });
+      detailedDefault = nextDetailed;
+      this.enqueue({
+        type: 'settingsChanged',
+        settings: { hideAccountEmails: false, title: this.title, toolCards: next, detailedDefault: nextDetailed },
+      });
     });
     // This computer's model lineup, pushed on its chat socket; the `subscribe` effect hands over
     // the one already known.

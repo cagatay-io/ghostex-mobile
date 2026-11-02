@@ -54,13 +54,14 @@ export type ChatCoreEvent =
   | { type: 'retainedSnapshotLoaded'; value: string | null }
   /** The answer to `readComposerBoot` (`ComposerBootRead`: `{sessionKey, clientId, entry,
    * nextVersion, optionStates, modelOutboxes, modelCatalog, chatSettings, contextPreferences,
-   * dismissedNotice, summaryMode, verboseOverride}`). */
+   * dismissedNotice, summaryMode, verboseOverride, simpleOverride}`). */
   | { type: 'composerBootRead'; read: Record<string, unknown> }
   | { type: 'composerBootFailed'; error: string }
   | {
       type: 'settingsChanged';
       /** `toolCards`: Settings > Chat > Tool call cards; left out, the core keeps what it has. */
-      settings: { hideAccountEmails: boolean; title: string | null; toolCards?: boolean };
+      /** `detailedDefault`: Default to Detailed view, the level a chat with no level of its own opens in. */
+      settings: { hideAccountEmails: boolean; title: string | null; toolCards?: boolean; detailedDefault?: boolean };
     }
   | { type: 'contextPreferencesChanged'; provider: string; preferences: unknown }
   | { type: 'modelCatalogChanged'; catalog: unknown }

@@ -22,6 +22,8 @@
  *   authority on what it reads.
  */
 
+import type { UserAction } from './actions';
+
 /** Any JSON value, for the subtrees the Rust core has not typed yet. */
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 
@@ -42,10 +44,7 @@ export type WorktreeTray = {
   worktreeLabel: string | null;
   /** The first message is moving the chat into a worktree. */
   busy: boolean;
-  status:
-    | null
-    | { state: 'creating' | 'opened'; label: string }
-    | { state: 'failed'; message: string };
+  status: null | { state: 'creating' | 'opened'; label: string } | { state: 'failed'; message: string };
 };
 
 /** The Run on row above a new thread's composer (gx-chat-core `menus/run_location.rs`). */
@@ -594,6 +593,8 @@ export type ChatDocument = {
   backgroundTasksPanel: Json;
   /** The working card's pills, each opening the menu of one of the panels above. Desktop: `chat_pills.rs`. */
   chatPills: ChatPill[];
+  /** The view level as a status chip at the left of the pill strip, unless it is Normal (gx-chat-core `view_chips`). */
+  viewChips?: ViewChip[];
   /** The working card right above the composer. Desktop: `working_card.rs`. */
   workingCard?: WorkingCard;
   /** The subagent viewer header state, or null when closed (its rows come in `subagentSplice`).
@@ -620,6 +621,8 @@ export type ChatDocument = {
 
   /** One row per turn. Desktop: `toolbar.rs`. */
   summaryMode: boolean;
+  /** The chat's one view level (gx-chat-core `transcript/view_level.rs`); draw from this, not the records. */
+  viewLevel?: 'summary' | 'normal' | 'detailed';
   /** The user's verbose override, or null to follow the setting. Desktop: `appearance.rs`. */
   verboseOverride: boolean | null;
   /** Headline and detail of an empty transcript. Desktop: `new_session_welcome.rs`. */
@@ -971,6 +974,18 @@ export type ChatPill = {
   /** The panel's muted detail ("2 working · 212 workers"). */
   meta: string;
   ariaLabel: string;
+};
+
+/** One status chip at the left of the pill strip (gx-chat-core `extras/chat_pills.rs` `view_chips`). */
+export type ViewChip = {
+  /** `summary` or `detailed`. */
+  id: string;
+  /** "Summary view" or "Detailed view". */
+  label: string;
+  /** What a screen reader says for the chip, which goes back to Normal view. */
+  ariaLabel: string;
+  /** The action that goes back to Normal view. */
+  command: UserAction;
 };
 
 /** The working card right above the composer (gx-chat-core `extras/working_card.rs`). It never opens. */
