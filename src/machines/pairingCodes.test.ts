@@ -32,6 +32,10 @@ delete today.expiresAt;
 
 const tailscale: TailscaleCode = { v: 1, name: 'Studio', host: 'studio.tail1234.ts.net', port: 22, user: 'madda' };
 
+/** gxserver's `REAL_SIZE_COMPACT_VECTOR`: `today` with a secret gxserver mints (canonical base64url). */
+const REAL_SIZE_COMPACT_VECTOR =
+  'GHOSTEX-EC2:ACWKIYLQLAQKLUCIJT3JNPW66TINDCM6S4MCEQPGBD46JDXIZPMAE3MRB5BVYLDBNNMCAWEHCYJZHSN7VQMY2JJLNVYKPTEUUHDNXVMBW4FJG2AEKMULINKHMFYVQIAP6E4KDHT62XKPPYQIIOHARJT35TNTXIBMRMRJILTSZ7VFBYA2KZQXFANBMFHIDI3BNBXHIYZTGAZWCLTJOBXC4ZDFOZQTI3ZRHA2S4MJXHAXDEMBSFYYTSN3BGZYTEYJQGA5GIZBYGA5DEMB2HIZDANYACAROR4FHD5VGFD4HJP3I7BIW7LROK6AACYAAK3LBMRSGCAAWKN2HKZDJN7RIBGLTEBGWCY2CN5XWWICQOJXQ';
+
 /** gxserver's `COMPACT_VECTOR` (server/src/remote_access/pairing_code.rs). */
 const COMPACT_VECTOR =
   'GHOSTEX-EC2:AAUAAAICAMCAKBQHBAEQUCYMBUHA6EARCIJRIFIWC4MBSGQ3DQOR4HZAEERCGJBFEYTQAEDEMVTGO2DJNJVWY3LON5YHC4TT4V4AAFQAAVWWCZDEMEAA4U3UOVSGS37CQCMXGICNMFRQ';
@@ -69,6 +73,25 @@ describe('readPairingCode reads every code a computer since 10.30.0 has shown', 
       secret: 'ZGVmZ2hpamtsbW5vcHFycw',
     };
     for (const payload of [COMPACT_VECTOR, pairingLink(COMPACT_VECTOR), COMPACT_VECTOR.toLowerCase()]) {
+      assert.deepEqual(readPairingCode(payload), { kind: 'easyConnect', code: expected }, payload);
+    }
+  });
+
+  test('2026-11-02 on: the QR carries the compact code in the link (a real-size code)', () => {
+    const expected: EasyConnectCode = { ...today, secret: 'Iujwpx9qYo-HS_aPhRb64g' };
+    const link = pairingLink(REAL_SIZE_COMPACT_VECTOR);
+    // What the in-app scanner reads, and what the phone's own camera hands the app: an App Link
+    // the camera or browser may have touched (http, www., the host's case, a trailing slash, the
+    // code's case).
+    for (const payload of [
+      link,
+      link.replace('https://', 'http://'),
+      link.replace('https://ghostex.dev', 'https://www.Ghostex.dev'),
+      link.replace('/pair#', '/pair/#'),
+      link.replace('/pair#', '/pair?utm=x#'),
+      pairingLink(REAL_SIZE_COMPACT_VECTOR.toLowerCase()),
+      pairingLink(encodeURIComponent(REAL_SIZE_COMPACT_VECTOR)),
+    ]) {
       assert.deepEqual(readPairingCode(payload), { kind: 'easyConnect', code: expected }, payload);
     }
   });

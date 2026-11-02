@@ -18,8 +18,6 @@ import * as Haptics from 'expo-haptics';
 import { ScanCopy } from '../../copy';
 import { pairEasyConnect, type EasyConnectPairingResult } from '../../machines/pairing';
 import {
-  isGhostexPairingPayload,
-  readPairingCode,
   tailscaleCodeAddress,
   type EasyConnectCode,
   type ReadPairingCodeResult,
@@ -27,6 +25,7 @@ import {
 } from '../../machines/pairingCodes';
 import { useMachinesStore } from '../../machines/store';
 import type { RootStackParamList } from '../../navigation/types';
+import { readScan } from './readScan';
 
 export type ScanPhase =
   { kind: 'scanning' } | { kind: 'pairing'; code: EasyConnectCode } | { kind: 'tailscale'; code: TailscaleCode };
@@ -145,23 +144,20 @@ export function useScanController(navigation: ScanNavigation, rePairMachineId: s
   const handlePayload = useCallback(
     (...payloads: (string | undefined)[]): void => {
       if (phaseRef.current.kind !== 'scanning') return;
-      const candidates = payloads.filter((text): text is string => text !== undefined && text.length > 0);
-      const parsed = candidates.map(readPairingCode).find((result) => result !== null) ?? null;
-      if (parsed === null) {
-        const payload = candidates[0] ?? '';
+      const read = readScan(payloads);
+      if (read.kind === 'rejected') {
         const now = Date.now();
         const last = lastRejected.current;
-        if (last === null || last.payload !== payload || now - last.at > REPEAT_REJECT_MS) {
-          lastRejected.current = { payload, at: now };
+        if (last === null || last.payload !== read.payload || now - last.at > REPEAT_REJECT_MS) {
+          lastRejected.current = { payload: read.payload, at: now };
           haptic(Haptics.NotificationFeedbackType.Warning);
           // A Ghostex code this build cannot read comes from a newer computer: say to update,
           // not that it is foreign (a 10.32 phone said "not a Ghostex code" to 10.33's link).
-          const outdated = candidates.some(isGhostexPairingPayload);
-          showToast({ tone: 'error', ...(outdated ? ScanCopy.outdated : ScanCopy.rejected) });
+          showToast({ tone: 'error', ...(read.outdated ? ScanCopy.outdated : ScanCopy.rejected) });
         }
         return;
       }
-      routeCode(parsed);
+      routeCode(read.parsed);
     },
     [routeCode, showToast],
   );

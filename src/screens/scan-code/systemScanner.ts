@@ -14,7 +14,7 @@
  * VisionKit does not support (iOS 15, or an A11 chip and older) and Android keep the camera view.
  */
 
-import { isGhostexPairingPayload, readPairingCode } from '../../machines/pairingCodes';
+import { readScan } from './readScan';
 
 /**
  * Whether a code Apple's scanner reports should close it and go to the scan controller: a code
@@ -22,10 +22,6 @@ import { isGhostexPairingPayload, readPairingCode } from '../../machines/pairing
  * Any other QR keeps the scanner open, since its toast would be hidden behind the scanner.
  */
 export function shouldTakeSystemScan(payloads: readonly (string | undefined)[]): boolean {
-  return payloads.some(
-    (payload) =>
-      payload !== undefined &&
-      payload.length > 0 &&
-      (readPairingCode(payload) !== null || isGhostexPairingPayload(payload)),
-  );
+  const read = readScan(payloads);
+  return read.kind === 'code' || read.outdated;
 }
