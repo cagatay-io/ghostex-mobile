@@ -399,6 +399,9 @@ class GhostexNativeModule : Module() {
           entry.explicitGrid = TerminalGrid(cols, rows)
           entry.attachedView?.suspendViewDrivenSizing()
           entry.session?.updateSize(cols, rows, entry.cellWidthPx, entry.cellHeightPx)
+          // The resize reflows the transcript under the view (a 200-column rest can leave none),
+          // and only onScreenUpdated re-clamps its scroll row (issue #398).
+          entry.attachedView?.onSessionTextChanged()
         }
         promise.resolve(null)
       }

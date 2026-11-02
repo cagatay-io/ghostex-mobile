@@ -153,6 +153,18 @@ public final class TerminalBuffer {
     }
 
     /**
+     * CDXC:Terminal 2026-11-02 WHY:
+     * A view's scroll row outlives the transcript it was taken against: a resize reflow, ED 3, RIS or an alt-screen
+     * switch can shrink the transcript before the view hears about it, and drawing from the old row threw in
+     * {@link #externalToInternalRow(int)} (issue #398, extRow=-6 with an empty transcript). Every view clamps through here.
+     *
+     * @return {@code topRow} limited to the rows that exist now: -{@link #getActiveTranscriptRows()} to 0.
+     */
+    public int clampTopRow(int topRow) {
+        return Math.min(0, Math.max(-mActiveTranscriptRows, topRow));
+    }
+
+    /**
      * Convert a row value from the public external coordinate system to our internal private coordinate system.
      *
      * <pre>

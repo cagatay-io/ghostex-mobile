@@ -478,7 +478,7 @@ public final class TerminalView extends View {
         if (mEmulator == null) return;
 
         int rowsInHistory = mEmulator.getScreen().getActiveTranscriptRows();
-        if (mTopRow < -rowsInHistory) mTopRow = -rowsInHistory;
+        mTopRow = mEmulator.getScreen().clampTopRow(mTopRow);
 
         boolean selectingText = isSelectingText();
         boolean preservingScrollPosition = selectingText || mEmulator.isAutoScrollDisabled() || !shouldFollowOutputAtScrollPosition(mTopRow);
@@ -1067,6 +1067,9 @@ public final class TerminalView extends View {
                 mTextSelectionCursorController.getSelectors(sel);
             }
 
+            // Ghostex: a view that missed onScreenUpdated (a module-driven resize, or a second view on the
+            // same session) still holds the scroll row of the old transcript; see TerminalBuffer#clampTopRow.
+            mTopRow = mEmulator.getScreen().clampTopRow(mTopRow);
             mRenderer.render(mEmulator, canvas, mTopRow, sel[0], sel[1], sel[2], sel[3]);
 
             // render the text selection handles
@@ -1106,7 +1109,7 @@ public final class TerminalView extends View {
     }
 
     public void setTopRow(int mTopRow) {
-        this.mTopRow = mTopRow;
+        this.mTopRow = mEmulator == null ? mTopRow : mEmulator.getScreen().clampTopRow(mTopRow);
     }
 
 
