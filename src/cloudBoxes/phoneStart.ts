@@ -13,7 +13,7 @@
  * SEE-ALSO: packages/gx-protocol/src/cloud_box/kit.rs (what the kit holds)
  */
 
-import { cloudKitKey, cloudKitOf, type CloudKit, type CloudKitProject } from './cloudKit';
+import { cloudKitCapRefusal, cloudKitKey, cloudKitOf, type CloudKit, type CloudKitProject } from './cloudKit';
 import { gxCloud } from './gxCloud';
 import { ProviderOps, type ExecOutput, type ProviderMachine } from './providerOps';
 import { saveConnectInfo, useCloudBoxesStore, type CloudBoxEntry } from './store';
@@ -200,6 +200,8 @@ export async function startBoxFromPhone(input: PhoneStartInput): Promise<PhoneSt
   if (kit === null || project === null) {
     throw new Error('This project has no Default snapshot the phone can start from. Save one on the computer first.');
   }
+  const capped = cloudKitCapRefusal(kit);
+  if (capped !== null) throw new Error(capped);
   const provider = project.snapshot.provider;
   const ops = await opsFor(input.homeMachineId, provider);
   const entropy = new Uint8Array(16);
@@ -225,8 +227,8 @@ export async function startBoxFromPhone(input: PhoneStartInput): Promise<PhoneSt
     sessions: [],
     progress: { kind: 'create', steps: [] },
   }, input.onProgress);
-  // The phone has no view of the computer's monthly spend while it is off; the cap is checked there.
-  row.step('checkCap', 'skipped');
+  // Checked above against the kit's last spend (`cloudKitCapRefusal`), before anything was made.
+  row.step('checkCap', 'done');
   const providerBoxId = await row.run('create', () =>
     ops.create(
       {

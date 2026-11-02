@@ -14,7 +14,7 @@
 import { create } from 'zustand';
 
 import { homeCloudBoxesRpc } from './boxLink';
-import { cloudKitOf, cloudKitProject } from './cloudKit';
+import { cloudKitCapRefusal, cloudKitOf, cloudKitProject } from './cloudKit';
 
 export type CloudWhere = {
   /** A provider is connected and available on that computer. */
@@ -27,7 +27,7 @@ export type CloudWhere = {
    * The computer does not answer and the phone's cloud kit can start this project's box (Q1033
    * D7): the agents whose logins the kit carries, which the phone starts itself.
    */
-  computerOff?: { agents: Array<{ agentId: string; name: string }> };
+  computerOff?: { agents: Array<{ agentId: string; name: string }>; capReached: string | null };
 };
 
 type WhereState = {
@@ -67,7 +67,7 @@ export async function loadCloudWhere(machineId: string, projectId: string): Prom
       offered: true,
       cloud: true,
       settings: {},
-      computerOff: { agents },
+      computerOff: { agents, capReached: cloudKitCapRefusal(kit) },
     });
     return;
   }

@@ -37,9 +37,12 @@ export function cloudWhereItems(
       info: "Starts a box from the project's Default snapshot with your computer off.",
       onPress: () => startOnPhone(agent),
     }));
+    const capReached = where.computerOff.capReached;
     return [
       { kind: 'heading', key: 'where.heading', label: 'Your computer is off' },
-      ...(rows.length > 0
+      ...(capReached !== null
+        ? [{ kind: 'note' as const, key: 'where.capReached', label: capReached }]
+        : rows.length > 0
         ? rows
         : [{ kind: 'note' as const, key: 'where.noAgents', label: 'Allow an agent login on cloud boxes on the computer first.' }]),
       { kind: 'separator', key: 'where.separator' },

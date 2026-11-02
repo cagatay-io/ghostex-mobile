@@ -26,6 +26,8 @@ export type CloudKit = {
   allowDeviceKeys: string[];
   idleStopMinutes: number;
   projects: CloudKitProject[];
+  /** The cap and the spend the computer last read (`CloudKitSpend`); absent from an older computer. */
+  spend?: { month: string; totalUsd: number; capUsd?: number };
 };
 
 export type CloudKitProject = {
@@ -126,6 +128,23 @@ export async function cloudKitOf(machineId: string): Promise<CloudKit | null> {
 export async function cloudKitProject(machineId: string, homeProjectId: string): Promise<CloudKitProject | null> {
   const kit = await cloudKitOf(machineId);
   return kit?.projects.find((project) => project.homeProjectId === homeProjectId) ?? null;
+}
+
+/**
+ * Why the phone may not start a new box for this computer now: this month's spend the computer last
+ * read reached its monthly cap. `null` when it may.
+ *
+ * CDXC:CloudBoxes 2026-11-02 DECISION: user (cap A): the kit carries the cap and the last spend
+ * seen, and the phone refuses a new box at 100% with the computer off, as the computer does
+ * (`server/src/cloud_boxes/spend.rs` `check_cap`); running boxes are never stopped. A kit read in
+ * an earlier month says nothing about this one, so only the current UTC month counts.
+ */
+export function cloudKitCapRefusal(kit: CloudKit, now = new Date()): string | null {
+  const spend = kit.spend;
+  if (spend === undefined || spend.capUsd === undefined || spend.capUsd <= 0) return null;
+  const month = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+  if (spend.month !== month || spend.totalUsd < spend.capUsd) return null;
+  return `This month's Cloud Box spend ($${spend.totalUsd.toFixed(2)}) reached your $${spend.capUsd.toFixed(2)} cap. Raise the cap on the computer to start new boxes; running boxes keep running.`;
 }
 
 /** A provider's key from a computer's kit. */
