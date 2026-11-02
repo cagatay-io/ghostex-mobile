@@ -42,6 +42,8 @@ export type ActionFields = {
   /** `sessionId` names one of this chat's side chats; without it, this chat itself. */
   bringBackSideChat: { sessionId?: string };
   deleteSideChat: { sessionId?: string };
+  /** Save (`secret`) or Decline (`decline: true`) of a secret request card; the value is never kept. */
+  answerSecretRequest: { requestId: string; secret?: string; decline?: boolean };
   searchOpen: {};
   searchClose: {};
   searchQuery: { query: string };

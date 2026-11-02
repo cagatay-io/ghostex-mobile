@@ -3,7 +3,7 @@
  * (`render_composer` in apps/desktop/src/app/native_chat/composer.rs):
  *
  * 1. the composer-not-ready card, or a refused operation's error line,
- * 2. the terminal notice,
+ * 2. the terminal notice, then any secret requests,
  * 3. the async questions,
  * 4. the blocking question or approval.
  *
@@ -23,9 +23,10 @@ import type { RustChat } from '../../rust/useRustChat';
 import { ApiErrorCard } from './ApiErrorCard';
 import { AsyncQuestionsCard } from './AsyncQuestionsCard';
 import { ComposerNotReadyCard } from './ComposerNotReadyCard';
-import { obj } from './json';
+import { arr, obj } from './json';
 import { NoticeCard } from './NoticeCard';
 import { CARD_BAND_SHARE, QuestionCard } from './QuestionCard';
+import { SecretRequestCards } from './SecretRequestCard';
 import type { CardHostAction } from './types';
 
 /** A failure the agent keeps no record of (Codex shows it only on screen): its card sits here, where its screen notice would have been. */
@@ -40,6 +41,7 @@ export function chatCardsShown(document: ChatDocument): boolean {
     typeof document.operationError === 'string' ||
     (obj(document.terminalNotice) !== null && document.noticeVisible === true) ||
     unrecordedApiError(document.apiErrorCard) ||
+    arr(document.secretRequests).length > 0 ||
     typeof document.asyncQuestions?.question?.key === 'string' ||
     document.questionCard?.visible === true
   );
@@ -70,6 +72,7 @@ export function NativeChatCards({ chat, onHostAction }: NativeChatCardsProps) {
     >
       <ComposerNotReadyCard chat={chat} document={document} onHostAction={onHostAction} />
       <NoticeCard chat={chat} document={document} onHostAction={onHostAction} />
+      <SecretRequestCards chat={chat} document={document} />
       {unrecordedApiError(document.apiErrorCard) ? (
         <ApiErrorCard card={document.apiErrorCard} dispatch={chat.dispatch} />
       ) : null}

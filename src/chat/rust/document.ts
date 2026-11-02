@@ -595,6 +595,8 @@ export type ChatDocument = {
   sideChatsPanel?: Json;
   /** A side chat's own bar: `{ parentSessionId, parentTitle }`, or null for any other chat. */
   sideChatOf?: Json;
+  /** The private secret request cards (gx-chat-core `extras/secret_requests.rs`), empty when none. Desktop: `secret_request.rs`. */
+  secretRequests?: Json;
   /** The background tasks the agent left running, or null; the Background pill's sheet. Desktop: `background_tasks.rs`. */
   backgroundTasksPanel: Json;
   /** The working card's pills, each opening the menu of one of the panels above. Desktop: `chat_pills.rs`. */
