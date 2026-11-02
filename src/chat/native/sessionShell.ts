@@ -126,6 +126,8 @@ export function modelPickerProvider(icon: string | undefined): string | null {
     case 'antigravity-cli':
     case 'antigravity':
       return 'antigravity';
+    case 'opencode':
+      return 'opencode';
     default:
       return null;
   }
