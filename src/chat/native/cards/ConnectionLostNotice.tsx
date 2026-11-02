@@ -14,6 +14,8 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { ChatDocument } from '../../rust/document';
 import type { MachineConnectionTarget } from '../../../machines/credentials';
 import { useMachinesStore } from '../../../machines/store';
+import { useCloudBoxesStore } from '../../../cloudBoxes/store';
+import { boxIdOfMachine, wakesOnSend } from '../../../cloudBoxes/types';
 import { chatMachineLink } from '../../rust/machine-link';
 import { SINGLE_LINE_CARD, SINGLE_LINE_TITLE, singleLineShell } from '../transcript/singleLineCard';
 import { useTranscriptTheme } from '../transcript/theme';
@@ -35,11 +37,18 @@ export function ConnectionLostNotice({
 }) {
   const theme = useTranscriptTheme();
   const lost = useConnectionLost(machine, active);
+  const box = useCloudBoxesStore((state) => {
+    const boxId = boxIdOfMachine(machine.id);
+    return boxId === null ? null : (state.entries[boxId]?.box ?? null);
+  });
   const computer = useMachinesStore((state) => {
     const record = state.machines.find((entry) => entry.id === machine.id);
-    return record !== undefined && record.name.length > 0 ? record.name : machine.username;
+    if (record !== undefined && record.name.length > 0) return record.name;
+    // A box's hidden machine is not saved, so it is named by its box.
+    return box?.name ?? machine.username;
   });
-  if (!lost) return null;
+  // A stopped or paused box is asleep, not lost: its chat already says sending a message wakes it.
+  if (!lost || (box !== null && wakesOnSend(box.state))) return null;
   const title = `Reconnecting to ${computer}…`;
   return (
     <View

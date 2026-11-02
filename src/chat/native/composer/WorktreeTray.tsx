@@ -104,7 +104,7 @@ export function WorktreeTray({
         </View>
       ) : null}
       {status?.state === 'failed' ? (
-        <View style={styles.status}>
+        <View style={[styles.status, styles.failed]}>
           <Glyph name="alert-triangle" size={13} color={P.error} />
           <Text style={[styles.statusText, { color: P.error }]} numberOfLines={2}>
             {status.message}
@@ -211,6 +211,11 @@ const useStyles = themedStyles((P) => ({
   chipText: { color: P.primary, fontSize: 12.5, flexShrink: 1 },
   status: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, flexGrow: 1 },
   statusText: { color: P.muted, fontSize: 12.5, flexShrink: 1 },
+  /**
+   * A line of its own, like the boot card: shrinkable beside the segments, the message was squeezed to
+   * nothing (Yoga shrank the row instead of wrapping it), leaving only ⚠ and Try again.
+   */
+  failed: { width: '100%', flexShrink: 0 },
   /**
    * CDXC:CloudBoxes 2026-11-02 DECISION: User (Q1006 note): "move the branch name to align to the end of the left
    * aligned elements in that bar". The current branch follows the segments instead of sitting at the right end.

@@ -20,10 +20,13 @@ export function cloudBoxRowMenu(
   if (box?.machineId === undefined) return {};
   const entry = cloudBoxEntry(box.boxId);
   if (entry === null) return {};
+  // A box's terminals open on the computer (./open.ts), so its terminal rows offer no Open chat.
+  const openChat: ContextMenuItem[] =
+    ctx.item.session.kind === 'terminal' ? [] : [{ kind: 'item', key: 'cloudBox.open', label: 'Open chat', onPress: open }];
   return {
     subtitle: entry.box.name,
     items: [
-      { kind: 'item', key: 'cloudBox.open', label: 'Open chat', onPress: open },
+      ...openChat,
       ...cloudBoxMenuItems(entry, ctx.item.session.sessionId, (outcome) => report(outcome.message), close),
     ],
   };
