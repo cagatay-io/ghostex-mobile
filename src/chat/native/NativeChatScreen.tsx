@@ -497,6 +497,16 @@ function useChatViewRequests(
                   'Could not open that branch',
                 ),
               );
+            } else if (
+              request.action === 'openAgentSession' &&
+              typeof (request.params as { machineId?: unknown } | null)?.machineId === 'string'
+            ) {
+              // A Cloud Box start finished: its chat now runs on the box (`cloudbox:<boxId>`), which the
+              // sessions list shows once the phone reaches boxes.
+              show('The chat now runs on its cloud box. Open it from the sessions list.', false, 'Cloud box ready');
+            } else if (request.action === 'openSettingsPage') {
+              // Connecting a provider and managing snapshots stay on the computer (D7).
+              show('Open Settings › Cloud Boxes in Ghostex on your computer.', false, 'Cloud Boxes');
             } else if (request.action === 'openAgentSession') {
               // An agent message card's Go to session: the other session, as its tab.
               void openForkBranch(machine, request.params).catch(() =>

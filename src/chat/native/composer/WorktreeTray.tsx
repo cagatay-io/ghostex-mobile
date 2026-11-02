@@ -3,13 +3,15 @@
  * and machine chip, This folder, New worktree (from a base branch) or Existing, from the document's `worktreeTray` key. gx-chat-core
  * decides when it shows, what it offers and what is picked; this only lays it out, opens the base
  * branch and worktree lists in the composer's menu sheet, and reports picks. No branch name is shown:
- * gxserver makes it from the first message.
+ * gxserver makes it from the first message. The Cloud Box segment's chip and boot card are
+ * `BoxPicker.tsx` (desktop `box_picker.rs`).
  */
 
 import { Pressable, Text, View } from 'react-native';
 
 import type { UserAction } from '../../rust/actions';
 import type { WorktreeTray as Tray } from '../../rust/document';
+import { CloudBoxCardView, CloudBoxChip } from './BoxPicker';
 import { Glyph } from './icons';
 import type { MenuRow } from './MenuSheet';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
@@ -82,9 +84,12 @@ export function WorktreeTray({
               onPress={() => dispatch({ type: 'setDraftWorktree', mode: segment.mode })}
               style={[styles.segment, index > 0 ? styles.segmentDivider : null, on ? styles.segmentOn : null]}
             >
-              <Text style={[styles.segmentText, on ? styles.segmentTextOn : null]} numberOfLines={1}>
-                {segment.label}
-              </Text>
+              <View style={styles.segmentInner}>
+                {segment.icon === 'cloud' ? <Glyph name="cloud" size={13} color={on ? P.primary : P.muted} /> : null}
+                <Text style={[styles.segmentText, on ? styles.segmentTextOn : null]} numberOfLines={1}>
+                  {segment.label}
+                </Text>
+              </View>
             </Pressable>
           );
         })}
@@ -138,6 +143,9 @@ export function WorktreeTray({
             })),
           )
         : null}
+      {status === null && tray.mode === 'cloudBox' && tray.cloudBox !== undefined ? (
+        <CloudBoxChip cloud={tray.cloudBox} busy={tray.busy} openRows={openRows} />
+      ) : null}
       {status === null && tray.segments.length > 0 && tray.mode === 'folder' && tray.currentBranch !== null ? (
         <View style={styles.current}>
           <Glyph name="git-branch" size={13} color={P.muted} />
@@ -146,6 +154,7 @@ export function WorktreeTray({
           </Text>
         </View>
       ) : null}
+      {status !== null && status.state !== 'failed' && status.card ? <CloudBoxCardView card={status.card} /> : null}
     </View>
   );
 }
@@ -182,6 +191,7 @@ const useStyles = themedStyles((P) => ({
     overflow: 'hidden',
   },
   segment: { justifyContent: 'center', paddingHorizontal: 10 },
+  segmentInner: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   segmentDivider: { borderLeftWidth: 1, borderLeftColor: P.composerBorder },
   segmentOn: { backgroundColor: P.border },
   segmentText: { color: P.muted, fontSize: 13 },
@@ -201,5 +211,9 @@ const useStyles = themedStyles((P) => ({
   chipText: { color: P.primary, fontSize: 12.5, flexShrink: 1 },
   status: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, flexGrow: 1 },
   statusText: { color: P.muted, fontSize: 12.5, flexShrink: 1 },
-  current: { flexDirection: 'row', alignItems: 'center', gap: 5, marginLeft: 'auto' },
+  /**
+   * CDXC:CloudBoxes 2026-11-02 DECISION: User (Q1006 note): "move the branch name to align to the end of the left
+   * aligned elements in that bar". The current branch follows the segments instead of sitting at the right end.
+   */
+  current: { flexDirection: 'row', alignItems: 'center', gap: 5 },
 }));

@@ -70,6 +70,7 @@ const KNOWN_GLYPHS = new Set<string>([
   'settings',
   'copy',
   'star',
+  'cloud',
   'search',
   'link',
   'bolt',

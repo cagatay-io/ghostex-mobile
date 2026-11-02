@@ -31,11 +31,23 @@ export type Json = null | boolean | number | string | Json[] | { [key: string]: 
 export type JsonObject = { [key: string]: Json };
 
 /** The worktree tray on top of a new chat's message box (gx-chat-core `menus/draft_worktree.rs`). */
+export type WorktreeTrayMode = 'folder' | 'newWorktree' | 'existingWorktree' | 'cloudBox';
+
+/** One step of the Cloud Box boot card (gx-chat-core `menus/cloud_box.rs`, `card`). */
+export type CloudBoxCardStep = {
+  label: string;
+  state: 'waiting' | 'running' | 'done' | 'failed';
+  seconds: number | null;
+  detail: string | null;
+};
+
+export type CloudBoxCard = { title: string; message: string | null; boxName: string | null; steps: CloudBoxCardStep[] };
+
 export type WorktreeTray = {
-  mode: 'folder' | 'newWorktree' | 'existingWorktree';
+  mode: WorktreeTrayMode;
   /** The project the draft is in; its chip moves the draft. Null from an older computer. */
   projectName: string | null;
-  segments: { mode: 'folder' | 'newWorktree' | 'existingWorktree'; label: string }[];
+  segments: { mode: WorktreeTrayMode; label: string; icon?: string }[];
   currentBranch: string | null;
   baseBranch: string | null;
   branches: { name: string; current?: boolean; remote?: boolean }[];
@@ -44,7 +56,15 @@ export type WorktreeTray = {
   worktreeLabel: string | null;
   /** The first message is moving the chat into a worktree. */
   busy: boolean;
-  status: null | { state: 'creating' | 'opened'; label: string } | { state: 'failed'; message: string };
+  status:
+    | null
+    | { state: 'creating' | 'opened'; label: string; card?: CloudBoxCard | null }
+    | { state: 'failed'; message: string };
+  /** With the Cloud Box segment on: the chip (what the box starts from) and the picker's menu rows. */
+  cloudBox?: {
+    chip: { label: string | null; star: boolean; agentbox?: boolean };
+    menu: { [key: string]: unknown }[];
+  };
 };
 
 /** The Run on row above a new thread's composer (gx-chat-core `menus/run_location.rs`). */

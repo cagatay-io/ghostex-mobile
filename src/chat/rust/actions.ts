@@ -210,6 +210,16 @@ export type ActionFields = {
   switchDraftRunLocation: { runLocation: string };
   /** The worktree tray: where a new chat runs, a new worktree's base branch, or an existing worktree. */
   setDraftWorktree: { mode?: string; baseBranch?: string; worktreeKey?: string };
+  /** The Cloud Box picker: a snapshot, a blank box, a running box to reuse, the provider or the size (`null` clears). */
+  setDraftCloudBox: {
+    provider?: string | null;
+    snapshotId?: string | null;
+    size?: string | null;
+    reuseBoxId?: string | null;
+    blank?: boolean;
+  };
+  /** Settings › Cloud Boxes (or `projects` for snapshots); the phone points at the computer. */
+  openCloudBoxSettings: { page?: string };
   selectForkBranch: { [field: string]: unknown };
 
   // ---- context ------------------------------------------------------------------------------
