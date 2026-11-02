@@ -32,6 +32,8 @@ export type RustChat = {
   setTitle(title: string | null): void;
   composer: RustChatHost['composerInput'] | null;
   attachFiles(files: readonly { uri: string; name?: string }[]): Promise<void>;
+  /** Uploads files to the machine and answers their paths (see `RustChatHost.uploadFiles`). */
+  uploadFiles(files: readonly { uri: string; name?: string }[]): Promise<string[]>;
   /**
    * One of the core's pure helpers (see `RustChatHost.query`); null while no core runs. The answer
    * can arrive a moment later: the function changes identity when it does, so a memo that depends
@@ -83,6 +85,10 @@ export function useRustChat(target: RustChatTarget | null): RustChat {
     (files: readonly { uri: string; name?: string }[]) => host?.attachFiles(files) ?? Promise.resolve(),
     [host],
   );
+  const uploadFiles = useCallback(
+    (files: readonly { uri: string; name?: string }[]) => host?.uploadFiles(files) ?? Promise.resolve([]),
+    [host],
+  );
   const onViewRequest = useCallback(
     (listener: (request: ChatViewRequest) => void) => (host ? host.onViewRequest(listener) : noop),
     [host],
@@ -106,11 +112,12 @@ export function useRustChat(target: RustChatTarget | null): RustChat {
       setTitle,
       composer: host?.composerInput ?? null,
       attachFiles,
+      uploadFiles,
       query,
       queryAsync,
       onViewRequest,
       machine,
     }),
-    [host, state, dispatch, measure, setTitle, attachFiles, query, queryAsync, onViewRequest, machine],
+    [host, state, dispatch, measure, setTitle, attachFiles, uploadFiles, query, queryAsync, onViewRequest, machine],
   );
 }

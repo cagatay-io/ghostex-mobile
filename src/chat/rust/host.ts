@@ -487,6 +487,14 @@ export class RustChatHost {
     }
   }
 
+  /**
+   * Files uploaded to the machine with their paths returned, inserted nowhere: a question form's
+   * note box writes the references itself (`QuestionForm.tsx`).
+   */
+  uploadFiles(files: readonly { uri: string; name?: string }[]): Promise<string[]> {
+    return this.uploadLocalFiles(files);
+  }
+
   // ---- the drive loop ----------------------------------------------------------------------------
 
   private enqueue(event: ChatCoreEvent): void {

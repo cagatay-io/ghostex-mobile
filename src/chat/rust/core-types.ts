@@ -220,7 +220,13 @@ export type ChatCoreQuery =
   | 'speakableMarkdown'
   | 'transcriptPictures'
   /** `toolAppLogo(key)`: an MCP app's logo SVG for a tool-call card (gx-chat-core `transcript/tool_apps.rs`). */
-  | 'toolAppLogo';
+  | 'toolAppLogo'
+  /**
+   * `insertAnswerAttachments(current, paths, original, start, end, others)`: a question answer after
+   * uploaded paths went in as `[Image #N](path)` references, numbered on from `others` (the form's
+   * other boxes). Offsets in UTF-16 code units; answers `{text, caret}`.
+   */
+  | 'insertAnswerAttachments';
 
 export class ChatCoreError extends Error {
   readonly code: string;

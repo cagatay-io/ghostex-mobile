@@ -123,8 +123,10 @@ export function TranscriptScope({ chat, main, children }: { chat: RustChat; main
       filePreviews: main && filePreviews,
       mutedThinking,
       main,
+      uploadFiles: chat.uploadFiles,
+      queryAsync: chat.queryAsync,
     }),
-    [chat.dispatch, filePreviews, main, mutedThinking, simple, theme, workOpen],
+    [chat.dispatch, chat.uploadFiles, chat.queryAsync, filePreviews, main, mutedThinking, simple, theme, workOpen],
   );
   // The document is parsed afresh per frame, so the flags are keyed by their content.
   const flagsSignature =

@@ -156,6 +156,7 @@ function useFakeChat(scene: string): RustChat {
         replace: (text) => model.replace(text, null, false),
       },
       attachFiles: async () => undefined,
+      uploadFiles: async () => [],
       query: (name, args) => (name === 'composerReferences' ? refs(String(args[0] ?? '')) : null),
       queryAsync: async (name, args) => (name === 'composerReferences' ? refs(String(args[0] ?? '')) : null),
       onViewRequest: () => () => undefined,

@@ -23,7 +23,7 @@ export function ResourceSheet({ chat, document }: { chat: RustChat; document: Ch
   const styles = useStyles();
   const theme = useTranscriptTheme();
   const modal = document?.resourceModal ?? null;
-  const { dispatch } = chat;
+  const { dispatch, uploadFiles, queryAsync } = chat;
   const env = useMemo<TranscriptEnv>(
     () => ({
       dispatch,
@@ -33,8 +33,10 @@ export function ResourceSheet({ chat, document }: { chat: RustChat; document: Ch
       filePreviews: false,
       mutedThinking: false,
       main: false,
+      uploadFiles,
+      queryAsync,
     }),
-    [dispatch, theme],
+    [dispatch, theme, uploadFiles, queryAsync],
   );
   const forms = document?.questionForms ?? {};
   const open = modal !== null;

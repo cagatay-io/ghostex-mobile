@@ -150,6 +150,10 @@ export type TranscriptEnv = {
   mutedThinking: boolean;
   /** This session's own transcript (not the subagent viewer): only it offers rewind. */
   main: boolean;
+  /** Uploads files and answers their paths, for images pasted into a question form's boxes. */
+  uploadFiles?: RustChat['uploadFiles'];
+  /** The core's pure helpers, for the reference a pasted image writes into a form's box. */
+  queryAsync?: RustChat['queryAsync'];
 };
 
 const EnvContext = createContext<TranscriptEnv | null>(null);

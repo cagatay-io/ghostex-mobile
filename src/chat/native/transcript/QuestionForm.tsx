@@ -9,7 +9,7 @@
  * packages/gx-chat-core/src/transcript/question_forms.rs. Change them together.
  */
 
-import { createContext, useCallback, useContext, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
 import {
   Modal,
   Pressable,
@@ -31,6 +31,8 @@ import { Glyph } from './icons';
 import { SingleLinePill, SingleLineTile } from './singleLineCard';
 import { MONO_FONT } from './theme';
 import { QuestionFlashFrame, useQuestionAnchor } from './OpenQuestions';
+import GhostexImageIntakeView from '../../../../modules/ghostex-native/src/GhostexImageIntakeView';
+import { imagesFromIntake } from '../composer/imageIntake';
 
 /** The document's `questionForms`, by form id. */
 const FormsContext = createContext<{ [id: string]: Json }>({});
@@ -315,25 +317,116 @@ function FormNotes({ formId, notes, enabled }: { formId: string; notes: string; 
     );
   }
   return (
-    <TextInput
-      multiline
-      value={text}
-      placeholder={NOTES_PLACEHOLDER}
-      placeholderTextColor={theme.placeholder}
-      accessibilityLabel="Notes"
-      onFocus={reveal}
-      onContentSizeChange={reveal}
-      onChangeText={setText}
-      style={[
-        styles.input,
-        {
-          color: theme.foreground,
-          borderColor: theme.inputBorder,
-          backgroundColor: theme.light ? theme.background : theme.cardRow,
-        },
-      ]}
-    />
+    <FormBox formId={formId} slot="notes" text={text} setText={setText}>
+      {(onSelectionChange) => (
+        <TextInput
+          multiline
+          value={text}
+          placeholder={NOTES_PLACEHOLDER}
+          placeholderTextColor={theme.placeholder}
+          accessibilityLabel="Notes"
+          onFocus={reveal}
+          onContentSizeChange={reveal}
+          onChangeText={setText}
+          onSelectionChange={onSelectionChange}
+          style={[
+            styles.input,
+            {
+              color: theme.foreground,
+              borderColor: theme.inputBorder,
+              backgroundColor: theme.light ? theme.background : theme.cardRow,
+            },
+          ]}
+        />
+      )}
+    </FormBox>
   );
+}
+
+/**
+ * A form's note or text box that takes an image the keyboard inserts or the long-press Paste puts
+ * in (`GhostexImageIntakeView`, Android), the composer's own intake: it is uploaded like an attached
+ * photo and written into the box as the composer's `[Image #N](path)` reference, numbered on from the
+ * form's other boxes (gx-chat-core `insert_answer_attachments`), so the answers carry it.
+ *
+ * CDXC:Clipboard 2026-11-02 SEE-ALSO: the user's DECISION on pasting images into question notes is in apps/desktop/src/app/native_chat/form_attachments.rs. A React Native `TextInput` cannot draw a pill inside its text without the composer's hidden-glyph projection, so the box shows the reference as text.
+ */
+function FormBox({
+  formId,
+  slot,
+  text,
+  setText,
+  children,
+}: {
+  formId: string;
+  slot: number | 'notes';
+  text: string;
+  setText: (text: string) => void;
+  children: (onSelectionChange: (event: { nativeEvent: { selection: { start: number; end: number } } }) => void) => ReactNode;
+}) {
+  const { theme, uploadFiles, queryAsync } = useTranscriptEnv();
+  const forms = useContext(FormsContext);
+  const textRef = useRef(text);
+  textRef.current = text;
+  const selection = useRef<{ start: number; end: number } | null>(null);
+  const [status, setStatus] = useState<{ text: string; error: boolean } | null>(null);
+  const onSelectionChange = useCallback(
+    (event: { nativeEvent: { selection: { start: number; end: number } } }) => {
+      selection.current = event.nativeEvent.selection;
+    },
+    [],
+  );
+  const onImages = useCallback(
+    (event: { nativeEvent: unknown }) => {
+      if (uploadFiles === undefined || queryAsync === undefined) return;
+      const { files, failed } = imagesFromIntake(event.nativeEvent);
+      if (files.length === 0) {
+        if (failed > 0) setStatus({ text: 'The pasted image could not be read.', error: true });
+        return;
+      }
+      const original = textRef.current;
+      const { start, end } = selection.current ?? { start: original.length, end: original.length };
+      setStatus({ text: files.length > 1 ? 'Saving the pasted images…' : 'Saving the pasted image…', error: false });
+      uploadFiles(files)
+        .then(async (paths) => {
+          const edit = obj(
+            await queryAsync('insertAnswerAttachments', [
+              textRef.current,
+              paths,
+              original,
+              start,
+              end,
+              otherBoxes(forms[formId], slot),
+            ]),
+          );
+          if (typeof edit?.text !== 'string') throw new Error('The image reference could not be inserted. Please paste it again.');
+          setText(edit.text);
+          setStatus(null);
+        })
+        .catch((error: unknown) =>
+          setStatus({ text: error instanceof Error ? error.message : 'The pasted image could not be saved.', error: true }),
+        );
+    },
+    [formId, forms, queryAsync, setText, slot, uploadFiles],
+  );
+  return (
+    <View>
+      <GhostexImageIntakeView onImages={onImages}>{children(onSelectionChange)}</GhostexImageIntakeView>
+      {status !== null ? (
+        <Text style={[styles.hint, { color: status.error ? '#fb7185' : theme.muted }]}>{status.text}</Text>
+      ) : null}
+    </View>
+  );
+}
+
+/** The text of form `form`'s boxes other than `slot`, which go to the agent in the same message. */
+function otherBoxes(form: Json | undefined, slot: number | 'notes'): string {
+  const record = obj(form);
+  const texts = arr(record?.drafts)
+    .map((draft, index) => (index === slot ? '' : str(draft, 'other')))
+    .filter((text) => text.length > 0);
+  if (slot !== 'notes') texts.push(str(record, 'notes'));
+  return texts.join('\n');
 }
 
 function FormQuestion({
@@ -409,24 +502,29 @@ function FormQuestion({
         />
       ) : null}
       {enabled ? (
-        <TextInput
-          multiline
-          value={text}
-          placeholder={placeholder(question, draft)}
-          placeholderTextColor={theme.placeholder}
-          onFocus={reveal}
-          onContentSizeChange={reveal}
-          onChangeText={setText}
-          style={[
-            styles.input,
-            {
-              color: theme.foreground,
-              borderColor: theme.inputBorder,
-              backgroundColor: theme.light ? theme.background : theme.cardRow,
-            },
-            isText && styles.textAnswer,
-          ]}
-        />
+        <FormBox formId={formId} slot={index} text={text} setText={setText}>
+          {(onSelectionChange) => (
+            <TextInput
+              multiline
+              value={text}
+              placeholder={placeholder(question, draft)}
+              placeholderTextColor={theme.placeholder}
+              onFocus={reveal}
+              onContentSizeChange={reveal}
+              onChangeText={setText}
+              onSelectionChange={onSelectionChange}
+              style={[
+                styles.input,
+                {
+                  color: theme.foreground,
+                  borderColor: theme.inputBorder,
+                  backgroundColor: theme.light ? theme.background : theme.cardRow,
+                },
+                isText && styles.textAnswer,
+              ]}
+            />
+          )}
+        </FormBox>
       ) : written.trim().length > 0 ? (
         <Text selectable style={[styles.detail, { color: theme.cardMuted }]}>
           {isText ? written : `Note: ${written}`}
