@@ -124,6 +124,7 @@ import {
   type ProjectContext,
   type SessionContext,
 } from './session-actions';
+import { coordinatorsClosingLine } from './close-confirm';
 import { NEW_ORCHESTRATOR_BENEFITS, parseCoordinatorOptions, type CoordinatorOptions } from './NewCoordinatorSheet';
 import {
   parseCoordinatorDetails,
@@ -268,6 +269,10 @@ export function useSessionsScreenMenus({
     summaryFor(machineId)?.sessions.find((entry) => entry.sessionId === sessionId) ?? null;
 
   /** A session a menu command names, which must still be on the machine. */
+  /** Every session the phone lists for a computer, for the Close dialogs' thread counts. */
+  const machineSessions = (machine: MachineRecord): GhostexSession[] =>
+    useInventoryStore.getState().inventoriesByMachineId[machine.id]?.summary?.sessions ?? [];
+
   const menuSession = (machine: MachineRecord, sessionId: string): GhostexSession => {
     const session = sessionById(machine.id, sessionId);
     if (session === null) throw new Error('That session is no longer on the computer.');
@@ -507,7 +512,7 @@ export function useSessionsScreenMenus({
         setOverlay({
           kind: 'confirmAction',
           title: 'Close sessions below?',
-          body: `This stops ${sessions.length} session(s) below ${sessionTitle(ctx.item.session)} on the connected machine.`,
+          body: `This stops ${sessions.length} session(s) below ${sessionTitle(ctx.item.session)} on the connected machine.${coordinatorsClosingLine(sessions, machineSessions(machine))}`,
           confirmLabel: 'Close',
           run: () => void runBulkSessionActions(machine, sessions.map(closeSessionAction)),
         });
@@ -604,7 +609,7 @@ export function useSessionsScreenMenus({
         setOverlay({
           kind: 'confirmAction',
           title: 'Close inactive sessions?',
-          body: `This stops ${inactive.length} inactive session(s) in ${header.title} on the connected machine.`,
+          body: `This stops ${inactive.length} inactive session(s) in ${header.title} on the connected machine.${coordinatorsClosingLine(inactive, machineSessions(machine))}`,
           confirmLabel: 'Close',
           run: () => void runBulkSessionActions(machine, inactive.map(closeSessionAction)),
         });
@@ -1033,7 +1038,7 @@ export function useSessionsScreenMenus({
         setOverlay({
           kind: 'confirmAction',
           title: 'Close all sessions?',
-          body: `This stops ${sessions.length} session(s) in ${ctx.header.title} on the connected machine.`,
+          body: `This stops ${sessions.length} session(s) in ${ctx.header.title} on the connected machine.${coordinatorsClosingLine(sessions, machineSessions(ctx.machine))}`,
           confirmLabel: 'Close',
           run: () => void runBulkSessionActions(ctx.machine, sessions.map(closeSessionAction)),
         }),
@@ -1116,7 +1121,7 @@ export function useSessionsScreenMenus({
         setOverlay({
           kind: 'confirmAction',
           title: 'Close group?',
-          body: `This stops ${sessions.length} session(s) in ${ctx.item.title} on the connected machine.`,
+          body: `This stops ${sessions.length} session(s) in ${ctx.item.title} on the connected machine.${coordinatorsClosingLine(sessions, machineSessions(ctx.machine))}`,
           confirmLabel: 'Close Group',
           run: () => void runBulkSessionActions(ctx.machine, sessions.map(closeSessionAction)),
         }),

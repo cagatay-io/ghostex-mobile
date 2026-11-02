@@ -115,11 +115,13 @@ import { GhostexPalette } from '../theme/palette';
 import { resolveSidebarAppearance } from '../theme/sidebarAppearance';
 import {
   closePutsSessionToSleep,
+  type SessionContext,
   closeSessionAction,
   NONE,
   sessionTitle,
   type Overlay,
 } from './sessions-screen/session-actions';
+import { closeConfirmCopy } from './sessions-screen/close-confirm';
 import { SessionsBottomBar } from './sessions-screen/BottomBar';
 import { SESSIONS_HEADER_HEIGHT, styles } from './sessions-screen/styles';
 import { useSessionsScreenActions } from './sessions-screen/use-sessions-screen-actions';
@@ -132,6 +134,19 @@ import { cloudWhereItems, useCloudWhere } from '../cloudBoxes/whereMenu';
 import { runPhoneBoxStart, type PhoneBoxStart } from '../cloudBoxes/phoneStartFlow';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Sessions'>;
+
+/** The Close dialog's words: a coordinator or a busy agent names what closes (close-confirm.ts). */
+function closeDialogCopy(ctx: SessionContext): { title: string; body: string } {
+  const session = ctx.item.session;
+  if (closePutsSessionToSleep(session)) return { title: 'Close session?', body: SessionCopy.claudeCloudCloseSleeps };
+  const sessions = useInventoryStore.getState().inventoriesByMachineId[ctx.machine.id]?.summary?.sessions ?? [];
+  return (
+    closeConfirmCopy(session, sessions) ?? {
+      title: 'Close session?',
+      body: 'This closes the selected Ghostex session on the connected machine.',
+    }
+  );
+}
 
 export default function SessionsScreen({ navigation }: Props) {
   const headerPlacement = useHeaderPlacement();
@@ -1157,12 +1172,8 @@ export default function SessionsScreen({ navigation }: Props) {
       {overlay.kind === 'closeConfirm' ? (
         <ConfirmDialog
           visible
-          title="Close session?"
-          body={
-            closePutsSessionToSleep(overlay.ctx.item.session)
-              ? SessionCopy.claudeCloudCloseSleeps
-              : 'This closes the selected Ghostex session on the connected machine.'
-          }
+          title={closeDialogCopy(overlay.ctx).title}
+          body={closeDialogCopy(overlay.ctx).body}
           targetLine={`${overlay.ctx.item.session.alias} · ${sessionTitle(overlay.ctx.item.session)}`}
           confirmLabel="Close Session"
           destructive
