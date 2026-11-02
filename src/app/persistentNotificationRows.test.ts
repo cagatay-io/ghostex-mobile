@@ -46,4 +46,13 @@ describe('persistent notification rows', () => {
       ['lead'],
     );
   });
+
+  test('side chats are left out', () => {
+    const sideChat = { ...session('side', null), sideChatParentSessionId: 'solo' } as GhostexSession;
+    const rows = notificationRowsFromSummary('m1', summary([session('solo', null), sideChat]));
+    assert.deepEqual(
+      rows.map((row) => row.sessionId),
+      ['solo'],
+    );
+  });
 });
