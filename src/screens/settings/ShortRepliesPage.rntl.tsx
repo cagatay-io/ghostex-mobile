@@ -1,6 +1,6 @@
 /// <reference types="jest" />
 /**
- * Run with `bunx jest src/screens/settings/ShortRepliesPage.rntl.tsx`. The short-replies requirement on the page
+ * Run with `bunx jest src/screens/settings/ShortRepliesPage.rntl.tsx`. The short-replies behaviour on the page
  * itself: on Settings › Short Replies the user adds, edits and removes entries, and the stored list (`shortReplies` in
  * `settings.v1`, read back by a reload of the settings) equals the list the page shows; an entry left empty is not
  * kept. The real page, the real settings store and the storage mock of the storage package; only the page frame (safe

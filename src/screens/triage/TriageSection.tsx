@@ -1,5 +1,5 @@
 /**
- * The folded triage (approved triage mockup): on the iPhone Duo's outer display the Sessions list starts with the
+ * The folded triage (the triage design): on the iPhone Duo's outer display the Sessions list starts with the
  * sessions that wait for the user, the one waiting longest first, each a card with the answer that fits it (rules in
  * `model.ts`). The full list stays below, where these sessions show a second time; a card's head opens its session
  * exactly as its list row does. When nothing waits, one quiet row says so.

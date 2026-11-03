@@ -3,7 +3,7 @@
  * wait for the user and in which order, what each entry offers (Allow and Deny, a question's options, "Open Question",
  * short replies), and what a tap sends.
  *
- * The expectations come from the requirement and the chat's own cards, never from the triage module: Allow and Deny
+ * The expectations come from the chat's own cards, never from the triage module: Allow and Deny
  * are the actions `ApprovalCard` dispatches into the session's chat core, an option is the action `QuestionCard`'s
  * option row dispatches (both written out here as the cards wrote them before the triage shared them); the chat core
  * builds the `answerSessionChatPrompt` request from that action, so the same action gives the same request. The core

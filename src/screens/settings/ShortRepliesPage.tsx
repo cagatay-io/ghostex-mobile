@@ -1,5 +1,5 @@
 /**
- * Settings › Short Replies (approved triage mockup): the replies the folded triage offers on a waiting session, in
+ * Settings › Short Replies (the triage design): the replies the folded triage offers on a waiting session, in
  * their order on the cards. Every entry is a text field changed in place, × removes it, Add Reply adds an empty one.
  * Each change is stored at once (`shortReplies` in `settings.v1`), so the stored list is the list shown; an entry left
  * empty is not kept and leaves the page when its field loses focus.

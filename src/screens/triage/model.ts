@@ -1,5 +1,5 @@
 /**
- * The folded triage's rules (approved triage mockup): on the iPhone Duo's outer display the Sessions list starts with
+ * The folded triage's rules (the triage design): on the iPhone Duo's outer display the Sessions list starts with
  * the sessions that wait for the user, each with the quick answer that fits it. Free of React Native, so the rules load
  * in a plain `bun test` (`src/screens/triage.test.ts`).
  *

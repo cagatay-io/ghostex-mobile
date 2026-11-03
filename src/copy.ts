@@ -245,8 +245,8 @@ export const WallCopy = {
 } as const;
 
 /**
- * The folded triage: the waiting sessions above the Sessions list on the iPhone Duo's outer display (the approved
- * triage mockup's words). Allow and Deny are the chat's approval card's labels.
+ * The folded triage: the waiting sessions above the Sessions list on the iPhone Duo's outer display (the triage
+ * design's words). Allow and Deny are the chat's approval card's labels.
  */
 export const TriageCopy = {
   /** The section for VoiceOver. */

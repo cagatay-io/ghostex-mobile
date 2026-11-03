@@ -27,7 +27,7 @@ export type TriageTarget = {
 
 export type TriageChat = { document: TriageDocument | null; dispatch: (action: UserAction) => void };
 
-/** The lines a short-reply card shows of its session's screen (approved mockup). */
+/** The lines a short-reply card shows of its session's screen (the design). */
 const TAIL_LINES = 2;
 
 /** The chat host's own identity (computer, project, session), as `acquireRustChatHost` and `useRustChat` key it. */
