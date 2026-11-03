@@ -21,6 +21,7 @@ import type { TestInstance } from 'test-renderer';
 import type { GhostexMobileSummary } from '../contract/mobileSummary';
 import { useInventoryStore, type MachineInventory } from '../inventory/store';
 import { useMachinesStore, type MachineRecord } from '../machines/store';
+import { SidebarPalette } from '../theme/palette';
 import AttentionList from './AttentionList';
 import type { FeedRow } from './feedContract';
 import { updateAttentionFeed, useAttentionFeedStore } from './feedStore';
@@ -246,6 +247,26 @@ test('opening an unread row marks it read once and opens its session; a question
   await fireEvent.press(screen.getByTestId('attention-row-n3'));
   expect(update.mock.calls).toEqual([['m1', { action: 'markRead', notificationId: 'n3' }]]);
   expect(opened.slice(1)).toEqual([{ machineId: 'm1', sessionId: 's4', question: false }]);
+});
+
+describe('a message the computer could not send (sendFailed)', () => {
+  test('"not sent" in red, unread, a tap marks it read and opens its session', async () => {
+    // The desktop's bell draws a sendFailed row "Not sent" in the urgent red (`GpuiNotificationFeedKind::SendFailed`).
+    useAttentionFeedStore.setState({
+      feeds: { m1: { status: 'ready', rows: [feedRow('n8', 2, { kind: 'sendFailed', sessionId: 's6' }), ...FEED] } },
+    });
+    await renderList();
+    expect(rowIds(within(group('Unread')))).toEqual(['n1', 'n8', 'n2', 'n3', 'n4']);
+    const row = screen.getByTestId('attention-row-n8');
+    expect(row.props.accessibilityLabel).toMatch(
+      /^Unread\. Codex · ghostex-mobile, not sent\. Theme notices\. 2m ago\.$/,
+    );
+    expect(StyleSheet.flatten(within(row).getByText('not sent').props.style).color).toBe(SidebarPalette.MENU_DANGER);
+
+    await fireEvent.press(row);
+    expect(update.mock.calls).toEqual([['m1', { action: 'markRead', notificationId: 'n8' }]]);
+    expect(opened).toEqual([{ machineId: 'm1', sessionId: 's6', question: false }]);
+  });
 });
 
 test('a long press opens the menu at the held row, under it, the row lifted', async () => {

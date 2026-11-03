@@ -22,6 +22,10 @@ export const FEED_KINDS = [
   // once for a permanent one or a program error (the session's state stays), never on a user abort. A computer that
   // predates it never sends it.
   'failed',
+  // A chat message the computer could not send for good ("Not sent" on the desktop's bell, drawn red). A row in the
+  // list only: no notification, as on the desktop, and the computer pushes none. An unread one stays beside the
+  // session's newer rows and goes read when the failure is dealt with. A computer that predates it never sends it.
+  'sendFailed',
 ] as const;
 
 export type FeedKind = (typeof FEED_KINDS)[number];

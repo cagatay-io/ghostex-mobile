@@ -4,7 +4,9 @@
  *
  * The events that notify: finished, waiting for you (approvals such as bash or rm included), has a question, ended
  * with an error. Nothing else notifies: no session start or end, no "agent runs", no user abort. Those reach the
- * phone only as summary changes, never as one of the notifying host kinds.
+ * phone only as summary changes, never as one of the notifying host kinds. A message the computer could not send
+ * (`sendFailed`) is a row of the attention list only, as on the desktop, which shows no banner and plays no sound for
+ * it.
  *
  * Top-level sessions only: an event notifies only when its session is in that computer's session list, the sessions
  * the user sees. Coordinator threads are listed sessions and notify; the host drops true subagents before they reach

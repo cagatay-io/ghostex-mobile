@@ -176,6 +176,13 @@ describe('agent events become notification requests', () => {
     assert.equal(h.posted.length, 0);
   });
 
+  test('sendFailed (a message the computer could not send) creates nothing', async () => {
+    // The desktop shows no banner and plays no sound for it, and the computer pushes no such row.
+    const h = await harness();
+    h.run([row('sendFailed')]);
+    assert.equal(h.posted.length, 0);
+  });
+
   test('an event of a session the computer does not list (a subagent) creates nothing', async () => {
     const h = await harness();
     h.run([row('finished', 'subagent-of-s1')]);

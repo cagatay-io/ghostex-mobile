@@ -14,7 +14,7 @@ import { resolveAgentIconId, type AgentIconId } from '../contract/mobileSummary'
 import { waitsOnQuestion, type AttentionKind, type SessionFacts } from './events';
 import { isAccountRow, type FeedRow } from './feedContract';
 
-export type ListKind = AttentionKind | 'bell' | 'custom' | 'resetExpiring' | 'resetRedeemed';
+export type ListKind = AttentionKind | 'bell' | 'custom' | 'sendFailed' | 'resetExpiring' | 'resetRedeemed';
 
 export type AttentionRow = {
   /** Unique across computers. */

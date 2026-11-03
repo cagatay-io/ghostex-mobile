@@ -1037,6 +1037,7 @@ export const NotificationsCopy = {
     failed: 'ended with an error',
     bell: 'bell',
     custom: 'notification',
+    sendFailed: 'not sent',
     resetExpiring: 'reset expiring',
     resetRedeemed: 'reset used',
   },

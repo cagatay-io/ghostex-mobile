@@ -37,7 +37,7 @@ const CLOCK_TICK_MS = 30_000;
 function kindColor(kind: ListKind, appearance: Appearance): string {
   if (kind === 'waiting') return SidebarPalette.ROW_ATTENTION;
   if (kind === 'question') return SidebarPalette.ROW_QUESTION;
-  if (kind === 'failed' || kind === 'resetExpiring') return SidebarPalette.MENU_DANGER;
+  if (kind === 'failed' || kind === 'sendFailed' || kind === 'resetExpiring') return SidebarPalette.MENU_DANGER;
   return appearance.muted;
 }
 

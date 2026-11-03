@@ -87,6 +87,38 @@ describe('the attention list', () => {
     assert.equal(parseFeedState({ items: [{ ...NEEDS_INPUT, kind: 'mystery' }] })?.rows.length, 0);
   });
 
+  // The desktop's bell (`apps/desktop/src/notification_feed/mod.rs`, `GpuiNotificationFeedKind::SendFailed`): a chat
+  // message the computer could not send is a session row labelled "Not sent", read state as the computer keeps it.
+  const NOT_SENT = { ...NEEDS_INPUT, id: 'n2', kind: 'sendFailed', body: 'Message not sent. secret reason' };
+
+  test('a sendFailed row is listed as "not sent" with its session, its read state and no feed text', () => {
+    const snapshot = parseFeedState({ items: [NOT_SENT, { ...NOT_SENT, id: 'n3', read: true }] });
+    assert.ok(snapshot !== null);
+    const rows = buildAttentionList([{ machineId: 'm1', machineLabel: 'Mac', rows: snapshot.rows }], () => facts(0));
+    assert.deepEqual(
+      rows.map((row) => [row.notificationId, row.kind, row.label, row.who, row.detail, row.read, row.account]),
+      [
+        ['n2', 'sendFailed', 'not sent', 'Claude Code · ghostex-mobile', 'fix build', false, false],
+        ['n3', 'sendFailed', 'not sent', 'Claude Code · ghostex-mobile', 'fix build', true, false],
+      ],
+    );
+    assert.ok(!JSON.stringify(rows).includes('secret'));
+  });
+
+  test('an unread sendFailed row stays beside the newer row of its session', () => {
+    // The computer keeps an unread Not sent row when the session's next row comes (`insert_notification_feed_row`).
+    const snapshot = parseFeedState({ items: [{ ...NEEDS_INPUT, createdAt: '2026-10-24T11:05:00Z' }, NOT_SENT] });
+    assert.ok(snapshot !== null);
+    const rows = buildAttentionList([{ machineId: 'm1', machineLabel: 'Mac', rows: snapshot.rows }], () => facts(0));
+    assert.deepEqual(
+      rows.map((row) => [row.notificationId, row.label, row.read]),
+      [
+        ['n1', 'waiting', false],
+        ['n2', 'not sent', false],
+      ],
+    );
+  });
+
   test('opening an unread row sends one markRead POST', async () => {
     const calls: Array<[string, Record<string, unknown>]> = [];
     const rpc: FeedRpc = async (method, params) => {
