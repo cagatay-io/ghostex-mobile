@@ -139,6 +139,11 @@ describe('the Unified list matches the desktop builder', () => {
             hasSessions: (machine.sessions as Json[]).some(
               (session) => session.projectId === project.projectId && session.isBrowser !== true,
             ),
+            lastActivityMs: (machine.sessions as Json[])
+              .filter((session) => session.projectId === project.projectId && session.isBrowser !== true)
+              .map((session) => session.lastInteractionMs)
+              .filter((at): at is number => typeof at === 'number')
+              .reduce<number | null>((newest, at) => (newest === null ? at : Math.max(newest, at)), null),
           })),
         })),
         fixtureCase.lastMachines ?? {},

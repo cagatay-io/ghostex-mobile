@@ -613,9 +613,14 @@ export function NativeComposer({
             visible={projectChoices !== null}
             choices={projectChoices ?? []}
             onClose={() => setProjectChoices(null)}
-            onPick={(choice) => {
+            onPick={(choice, machineIndex) => {
               setProjectChoices(null);
-              const picked = choice.machines[choice.selected];
+              // The draft's own project, taken on its marked computer: nothing moves (the desktop's rule).
+              const ownProject = choice.machines.some(
+                (machine) => machine.machineId === chat.machine?.id && machine.projectId === projectId,
+              );
+              if (ownProject && machineIndex === choice.selected) return;
+              const picked = choice.machines[machineIndex];
               if (picked !== undefined && picked.connected) moveDraftHere(choice.repoKey, picked.machineId, picked.projectId);
             }}
           />

@@ -31,12 +31,23 @@ export function projectChoiceInputsNow(): UnifiedChoiceMachineInput[] {
     if (summary === null) continue;
     const label = machineDisplayLabel(machine);
     const { projects, sessions } = unifiedMachineInput({ machineId: machine.id, label, summary, workspaceId: null }, false);
-    const withSessions = new Set(sessions.filter((session) => !session.isBrowser).map((session) => session.projectId));
+    const live = sessions.filter((session) => !session.isBrowser);
+    const withSessions = new Set(live.map((session) => session.projectId));
+    // Recent leads with the projects whose sessions came back to you last (gx-core `recent_order`).
+    const activity = new Map<string, number>();
+    for (const session of live) {
+      if (session.lastInteractionMs === null) continue;
+      activity.set(session.projectId, Math.max(activity.get(session.projectId) ?? session.lastInteractionMs, session.lastInteractionMs));
+    }
     inputs.push({
       machine: machine.id,
       label,
       connected: (inventory?.lastError ?? null) === null,
-      projects: projects.map((project) => ({ ...project, hasSessions: withSessions.has(project.projectId) })),
+      projects: projects.map((project) => ({
+        ...project,
+        hasSessions: withSessions.has(project.projectId),
+        lastActivityMs: activity.get(project.projectId) ?? null,
+      })),
     });
   }
   return inputs;

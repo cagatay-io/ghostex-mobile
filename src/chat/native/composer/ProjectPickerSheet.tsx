@@ -1,8 +1,12 @@
 /**
  * The phone's project list (`draft_project_picker.rs` and the New thread picker's project list on
- * desktop): one row per repository, with no machine on it; the machine is picked afterwards (the
- * agent menu's machine chips, the tray's machine chip). Recent projects come first; a project with
- * no open session says so. The composer's tray and the Sessions list's agent menu both open it.
+ * desktop): one row per repository, with its computers as small chips while there is more than
+ * one computer, the one it starts on (the last used for it) marked. Tapping the row takes the
+ * project on that computer; tapping a chip takes that computer; a computer that isn't connected is
+ * dimmed and can't be tapped. Recent projects come first; a project with no open session says so.
+ * The composer's tray and the Sessions list's agent menu both open it.
+ * SEE-ALSO: CDXC:Sidebar 2026-11-03 in components/sessions/NewSessionPlace.tsx (why the computers
+ * moved here).
  */
 
 import { useMemo, useState } from 'react';
@@ -27,13 +31,18 @@ export function ProjectPickerSheet({
   onClose: () => void;
   /** iOS: the sheet finished going away (`Sheet`). */
   onDismissed?: () => void;
-  /** The picked project; it starts on `choice.machines[choice.selected]`. */
-  onPick: (choice: UnifiedProjectChoice) => void;
+  /** The picked project and the index of its computer in `choice.machines`. */
+  onPick: (choice: UnifiedProjectChoice, machineIndex: number) => void;
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
   const [query, setQuery] = useState('');
   const rows = useMemo(() => projectPickerRows(choices, query), [choices, query]);
+  // Chips only mean something with more than one computer.
+  const chips = useMemo(
+    () => new Set(choices.flatMap((choice) => choice.machines.map((machine) => machine.machineId))).size > 1,
+    [choices],
+  );
   return (
     <Sheet visible={visible} onClose={onClose} onDismissed={onDismissed} title={title} maxHeight="70%">
       <TextInput
@@ -58,7 +67,7 @@ export function ProjectPickerSheet({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={item.choice.label}
-              onPress={() => onPick(item.choice)}
+              onPress={() => onPick(item.choice, item.choice.selected)}
               style={({ pressed }) => [styles.row, pressed ? styles.pressed : null]}
             >
               <View style={styles.tile}>
@@ -68,6 +77,31 @@ export function ProjectPickerSheet({
                 {item.choice.label}
               </Text>
               {item.choice.hasSessions ? null : <Text style={styles.note}>No sessions</Text>}
+              {chips ? (
+                <View style={styles.chips}>
+                  {item.choice.machines.map((machine, index) => {
+                    const on = index === item.choice.selected;
+                    return (
+                      <Pressable
+                        key={machine.machineId}
+                        accessibilityRole="button"
+                        accessibilityLabel={
+                          machine.connected ? `${item.choice.label} on ${machine.label}` : `${machine.label}, not connected`
+                        }
+                        accessibilityState={{ selected: on, disabled: !machine.connected }}
+                        disabled={!machine.connected}
+                        hitSlop={4}
+                        onPress={() => onPick(item.choice, index)}
+                        style={[styles.chip, on ? styles.chipOn : null, machine.connected ? null : styles.chipAway]}
+                      >
+                        <Text numberOfLines={1} style={[styles.chipText, on ? styles.chipTextOn : null]}>
+                          {machine.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ) : null}
             </Pressable>
           )
         }
@@ -107,6 +141,21 @@ const useStyles = themedStyles((P) => ({
   },
   tileText: { color: P.muted, fontSize: 11, fontWeight: '600' },
   note: { color: P.muted, fontSize: 12 },
+  chips: { flexDirection: 'row', gap: 4, flexShrink: 1 },
+  chip: {
+    maxWidth: 96,
+    height: 24,
+    paddingHorizontal: 7,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: P.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chipOn: { backgroundColor: P.border },
+  chipAway: { opacity: 0.45 },
+  chipText: { color: P.muted, fontSize: 12 },
+  chipTextOn: { color: P.primary, fontWeight: '600' },
   heading: {
     paddingHorizontal: 12,
     paddingTop: 10,

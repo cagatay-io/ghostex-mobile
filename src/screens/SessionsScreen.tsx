@@ -1430,8 +1430,8 @@ export default function SessionsScreen({ navigation }: Props) {
           afterProjectSheet.current = null;
           work?.();
         }}
-        onPick={(choice) => {
-          const machine = choice.machines[choice.selected];
+        onPick={(choice, machineIndex) => {
+          const machine = choice.machines[machineIndex];
           setOverlay(NONE);
           if (machine === undefined) return;
           const work = (): void => openAgentMenuAt(machine.machineId, machine.projectId);

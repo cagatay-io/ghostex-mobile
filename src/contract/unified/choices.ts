@@ -8,6 +8,7 @@
 
 import type { UnifiedFilter, UnifiedProjectInput } from './build';
 import { repoIdentity } from './repo';
+import { RECENT_REPOS_MAX } from './saved';
 
 export type UnifiedChoiceMachineInput = {
   machine: string;
@@ -17,6 +18,8 @@ export type UnifiedChoiceMachineInput = {
   projects: (Pick<UnifiedProjectInput, 'projectId' | 'title' | 'path' | 'gitRemoteOriginUrl' | 'worktreeParentPath'> & {
     /** The project has an open session on this machine. */
     hasSessions?: boolean;
+    /** When a session of the project on this machine last came back to the user, the newest. */
+    lastActivityMs?: number | null;
   })[];
 };
 
@@ -35,7 +38,7 @@ export type UnifiedProjectChoice = {
   selected: number;
   /** One of its machines has an open session; the list says "No sessions" otherwise. */
   hasSessions: boolean;
-  /** One of the last projects a session was started in, listed first under Recent. */
+  /** Listed first under Recent (`recentOrder`). */
   recent: boolean;
 };
 
@@ -70,8 +73,29 @@ export function defaultMachine(
 }
 
 /**
- * One row per repository, its machines behind it: recent projects first in the order they were
- * last used, then the rest A to Z, projects with no open session included. Each machine points at
+ * Recent, in order: repositories by their newest session activity, then the picker's own starts
+ * that are still listed, up to `RECENT_REPOS_MAX` (gx-core `recent_order`).
+ */
+function recentOrder(
+  listed: ReadonlyMap<string, unknown>,
+  latest: ReadonlyMap<string, number>,
+  recentRepos: readonly string[],
+): string[] {
+  const byActivity = [...latest.entries()].sort(
+    ([leftRepo, leftAt], [rightRepo, rightAt]) => rightAt - leftAt || byCodePoint(leftRepo, rightRepo),
+  );
+  const order: string[] = [];
+  for (const repo of [...byActivity.map(([repo]) => repo), ...recentRepos]) {
+    if (order.length === RECENT_REPOS_MAX) break;
+    if (listed.has(repo) && !order.includes(repo)) order.push(repo);
+  }
+  return order;
+}
+
+/**
+ * One row per repository, its machines behind it: recent projects first, newest first (session
+ * activity, then the picker's own starts), then the rest A to Z, projects with no open session
+ * included. Each machine points at
  * its main checkout; a worktree stands in only when the machine has nothing else of the repository.
  */
 export function unifiedProjectChoices(
@@ -82,12 +106,18 @@ export function unifiedProjectChoices(
   localMachine = 'local',
 ): UnifiedProjectChoice[] {
   const byRepo = new Map<string, UnifiedProjectChoice>();
+  // Each repository's newest session activity across its machines.
+  const latest = new Map<string, number>();
   for (const machine of machines) {
     const picks = new Map<string, { project: UnifiedChoiceMachineInput['projects'][number]; label: string }>();
     const withSessions = new Set<string>();
+    const activity = new Map<string, number>();
     for (const project of machine.projects) {
       const repo = repoIdentity(project.gitRemoteOriginUrl, project.path, project.worktreeParentPath, project.title);
       if (project.hasSessions === true) withSessions.add(repo.key);
+      if (project.lastActivityMs !== undefined && project.lastActivityMs !== null) {
+        activity.set(repo.key, Math.max(activity.get(repo.key) ?? project.lastActivityMs, project.lastActivityMs));
+      }
       const pick = picks.get(repo.key);
       if (pick === undefined || (pick.project.worktreeParentPath !== null && project.worktreeParentPath === null)) {
         picks.set(repo.key, { project, label: pick?.label ?? repo.label });
@@ -95,6 +125,8 @@ export function unifiedProjectChoices(
     }
     for (const repoKey of [...picks.keys()].sort(byCodePoint)) {
       const { project, label } = picks.get(repoKey)!;
+      const at = activity.get(repoKey);
+      if (at !== undefined) latest.set(repoKey, Math.max(latest.get(repoKey) ?? at, at));
       let choice = byRepo.get(repoKey);
       if (choice === undefined) {
         choice = { repoKey, label, machines: [], selected: 0, hasSessions: false, recent: false };
@@ -109,13 +141,14 @@ export function unifiedProjectChoices(
       });
     }
   }
+  const recent = recentOrder(byRepo, latest, recentRepos);
   const choices = [...byRepo.values()];
   for (const choice of choices) {
     choice.selected = defaultMachine(choice, lastMachines, currentMachine, localMachine);
-    choice.recent = recentRepos.includes(choice.repoKey);
+    choice.recent = recent.includes(choice.repoKey);
   }
   const rank = (choice: UnifiedProjectChoice) => {
-    const index = recentRepos.indexOf(choice.repoKey);
+    const index = recent.indexOf(choice.repoKey);
     return index < 0 ? Number.MAX_SAFE_INTEGER : index;
   };
   return choices.sort(

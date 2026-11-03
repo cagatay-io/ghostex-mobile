@@ -12,6 +12,21 @@
         "choices": [
           {
             "hasSessions": true,
+            "label": "zebra",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "zeb"
+              }
+            ],
+            "recent": true,
+            "repoKey": "github.com/o/zebra",
+            "selected": 0
+          },
+          {
+            "hasSessions": true,
             "label": "acme",
             "machines": [
               {
@@ -27,7 +42,7 @@
                 "projectId": "rac"
               }
             ],
-            "recent": false,
+            "recent": true,
             "repoKey": "github.com/o/acme",
             "selected": 0
           },
@@ -42,7 +57,7 @@
                 "projectId": "bil"
               }
             ],
-            "recent": false,
+            "recent": true,
             "repoKey": "github.com/o/billing",
             "selected": 0
           },
@@ -74,21 +89,6 @@
             ],
             "recent": false,
             "repoKey": "github.com/o/tools",
-            "selected": 0
-          },
-          {
-            "hasSessions": true,
-            "label": "zebra",
-            "machines": [
-              {
-                "connected": true,
-                "label": "Local",
-                "machineId": "local",
-                "projectId": "zeb"
-              }
-            ],
-            "recent": false,
-            "repoKey": "github.com/o/zebra",
             "selected": 0
           }
         ],
@@ -418,6 +418,21 @@
         "choices": [
           {
             "hasSessions": true,
+            "label": "zebra",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "zeb"
+              }
+            ],
+            "recent": true,
+            "repoKey": "github.com/o/zebra",
+            "selected": 0
+          },
+          {
+            "hasSessions": true,
             "label": "acme",
             "machines": [
               {
@@ -433,7 +448,7 @@
                 "projectId": "rac"
               }
             ],
-            "recent": false,
+            "recent": true,
             "repoKey": "github.com/o/acme",
             "selected": 0
           },
@@ -448,7 +463,7 @@
                 "projectId": "bil"
               }
             ],
-            "recent": false,
+            "recent": true,
             "repoKey": "github.com/o/billing",
             "selected": 0
           },
@@ -480,21 +495,6 @@
             ],
             "recent": false,
             "repoKey": "github.com/o/tools",
-            "selected": 0
-          },
-          {
-            "hasSessions": true,
-            "label": "zebra",
-            "machines": [
-              {
-                "connected": true,
-                "label": "Local",
-                "machineId": "local",
-                "projectId": "zeb"
-              }
-            ],
-            "recent": false,
-            "repoKey": "github.com/o/zebra",
             "selected": 0
           }
         ],
@@ -572,8 +572,8 @@
         ],
         "newSessionTarget": {
           "machineId": "local",
-          "projectId": "ac",
-          "repoKey": "github.com/o/acme"
+          "projectId": "zeb",
+          "repoKey": "github.com/o/zebra"
         },
         "options": {
           "machines": [
@@ -867,6 +867,21 @@
         "choices": [
           {
             "hasSessions": true,
+            "label": "zebra",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "zeb"
+              }
+            ],
+            "recent": true,
+            "repoKey": "github.com/o/zebra",
+            "selected": 0
+          },
+          {
+            "hasSessions": true,
             "label": "acme",
             "machines": [
               {
@@ -882,7 +897,7 @@
                 "projectId": "rac"
               }
             ],
-            "recent": false,
+            "recent": true,
             "repoKey": "github.com/o/acme",
             "selected": 0
           },
@@ -897,7 +912,7 @@
                 "projectId": "bil"
               }
             ],
-            "recent": false,
+            "recent": true,
             "repoKey": "github.com/o/billing",
             "selected": 0
           },
@@ -930,21 +945,6 @@
             "recent": false,
             "repoKey": "github.com/o/tools",
             "selected": 0
-          },
-          {
-            "hasSessions": true,
-            "label": "zebra",
-            "machines": [
-              {
-                "connected": true,
-                "label": "Local",
-                "machineId": "local",
-                "projectId": "zeb"
-              }
-            ],
-            "recent": false,
-            "repoKey": "github.com/o/zebra",
-            "selected": 0
           }
         ],
         "drafts": [],
@@ -964,8 +964,8 @@
         "moves": [],
         "newSessionTarget": {
           "machineId": "local",
-          "projectId": "ac",
-          "repoKey": "github.com/o/acme"
+          "projectId": "zeb",
+          "repoKey": "github.com/o/zebra"
         },
         "options": {
           "machines": [
@@ -1175,6 +1175,21 @@
         "choices": [
           {
             "hasSessions": true,
+            "label": "zebra",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "zeb"
+              }
+            ],
+            "recent": true,
+            "repoKey": "github.com/o/zebra",
+            "selected": 0
+          },
+          {
+            "hasSessions": true,
             "label": "acme",
             "machines": [
               {
@@ -1190,7 +1205,7 @@
                 "projectId": "rac"
               }
             ],
-            "recent": false,
+            "recent": true,
             "repoKey": "github.com/o/acme",
             "selected": 0
           },
@@ -1205,7 +1220,7 @@
                 "projectId": "bil"
               }
             ],
-            "recent": false,
+            "recent": true,
             "repoKey": "github.com/o/billing",
             "selected": 0
           },
@@ -1238,21 +1253,6 @@
             "recent": false,
             "repoKey": "github.com/o/tools",
             "selected": 0
-          },
-          {
-            "hasSessions": true,
-            "label": "zebra",
-            "machines": [
-              {
-                "connected": true,
-                "label": "Local",
-                "machineId": "local",
-                "projectId": "zeb"
-              }
-            ],
-            "recent": false,
-            "repoKey": "github.com/o/zebra",
-            "selected": 0
           }
         ],
         "drafts": [],
@@ -1272,8 +1272,8 @@
         "moves": [],
         "newSessionTarget": {
           "machineId": "local",
-          "projectId": "ac",
-          "repoKey": "github.com/o/acme"
+          "projectId": "zeb",
+          "repoKey": "github.com/o/zebra"
         },
         "options": {
           "machines": [
@@ -1485,6 +1485,21 @@
         "choices": [
           {
             "hasSessions": true,
+            "label": "zebra",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "zeb"
+              }
+            ],
+            "recent": true,
+            "repoKey": "github.com/o/zebra",
+            "selected": 0
+          },
+          {
+            "hasSessions": true,
             "label": "acme",
             "machines": [
               {
@@ -1500,7 +1515,7 @@
                 "projectId": "rac"
               }
             ],
-            "recent": false,
+            "recent": true,
             "repoKey": "github.com/o/acme",
             "selected": 0
           },
@@ -1515,7 +1530,7 @@
                 "projectId": "bil"
               }
             ],
-            "recent": false,
+            "recent": true,
             "repoKey": "github.com/o/billing",
             "selected": 0
           },
@@ -1547,21 +1562,6 @@
             ],
             "recent": false,
             "repoKey": "github.com/o/tools",
-            "selected": 0
-          },
-          {
-            "hasSessions": true,
-            "label": "zebra",
-            "machines": [
-              {
-                "connected": true,
-                "label": "Local",
-                "machineId": "local",
-                "projectId": "zeb"
-              }
-            ],
-            "recent": false,
-            "repoKey": "github.com/o/zebra",
             "selected": 0
           }
         ],
@@ -1804,6 +1804,21 @@
         "choices": [
           {
             "hasSessions": true,
+            "label": "zebra",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "zeb"
+              }
+            ],
+            "recent": true,
+            "repoKey": "github.com/o/zebra",
+            "selected": 0
+          },
+          {
+            "hasSessions": true,
             "label": "acme",
             "machines": [
               {
@@ -1819,7 +1834,7 @@
                 "projectId": "rac"
               }
             ],
-            "recent": false,
+            "recent": true,
             "repoKey": "github.com/o/acme",
             "selected": 0
           },
@@ -1834,7 +1849,7 @@
                 "projectId": "bil"
               }
             ],
-            "recent": false,
+            "recent": true,
             "repoKey": "github.com/o/billing",
             "selected": 0
           },
@@ -1866,21 +1881,6 @@
             ],
             "recent": false,
             "repoKey": "github.com/o/tools",
-            "selected": 0
-          },
-          {
-            "hasSessions": true,
-            "label": "zebra",
-            "machines": [
-              {
-                "connected": true,
-                "label": "Local",
-                "machineId": "local",
-                "projectId": "zeb"
-              }
-            ],
-            "recent": false,
-            "repoKey": "github.com/o/zebra",
             "selected": 0
           }
         ],
@@ -2180,6 +2180,21 @@
         "choices": [
           {
             "hasSessions": true,
+            "label": "zebra",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "zeb"
+              }
+            ],
+            "recent": true,
+            "repoKey": "github.com/o/zebra",
+            "selected": 0
+          },
+          {
+            "hasSessions": true,
             "label": "acme",
             "machines": [
               {
@@ -2195,7 +2210,7 @@
                 "projectId": "rac"
               }
             ],
-            "recent": false,
+            "recent": true,
             "repoKey": "github.com/o/acme",
             "selected": 0
           },
@@ -2210,7 +2225,7 @@
                 "projectId": "bil"
               }
             ],
-            "recent": false,
+            "recent": true,
             "repoKey": "github.com/o/billing",
             "selected": 0
           },
@@ -2242,21 +2257,6 @@
             ],
             "recent": false,
             "repoKey": "github.com/o/tools",
-            "selected": 0
-          },
-          {
-            "hasSessions": true,
-            "label": "zebra",
-            "machines": [
-              {
-                "connected": true,
-                "label": "Local",
-                "machineId": "local",
-                "projectId": "zeb"
-              }
-            ],
-            "recent": false,
-            "repoKey": "github.com/o/zebra",
             "selected": 0
           }
         ],
@@ -2564,7 +2564,7 @@
                 "projectId": "rac"
               }
             ],
-            "recent": false,
+            "recent": true,
             "repoKey": "github.com/o/acme",
             "selected": 0
           },
@@ -2796,33 +2796,18 @@
         ],
         "choices": [
           {
-            "hasSessions": false,
-            "label": "quiet",
-            "machines": [
-              {
-                "connected": true,
-                "label": "Local",
-                "machineId": "local",
-                "projectId": "quiet"
-              }
-            ],
-            "recent": true,
-            "repoKey": "github.com/o/quiet",
-            "selected": 0
-          },
-          {
             "hasSessions": true,
-            "label": "billing",
+            "label": "zebra",
             "machines": [
               {
                 "connected": true,
                 "label": "Local",
                 "machineId": "local",
-                "projectId": "bil"
+                "projectId": "zeb"
               }
             ],
             "recent": true,
-            "repoKey": "github.com/o/billing",
+            "repoKey": "github.com/o/zebra",
             "selected": 0
           },
           {
@@ -2842,8 +2827,38 @@
                 "projectId": "rac"
               }
             ],
-            "recent": false,
+            "recent": true,
             "repoKey": "github.com/o/acme",
+            "selected": 0
+          },
+          {
+            "hasSessions": true,
+            "label": "billing",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "bil"
+              }
+            ],
+            "recent": true,
+            "repoKey": "github.com/o/billing",
+            "selected": 0
+          },
+          {
+            "hasSessions": false,
+            "label": "quiet",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "quiet"
+              }
+            ],
+            "recent": true,
+            "repoKey": "github.com/o/quiet",
             "selected": 0
           },
           {
@@ -2859,21 +2874,6 @@
             ],
             "recent": false,
             "repoKey": "github.com/o/tools",
-            "selected": 0
-          },
-          {
-            "hasSessions": true,
-            "label": "zebra",
-            "machines": [
-              {
-                "connected": true,
-                "label": "Local",
-                "machineId": "local",
-                "projectId": "zeb"
-              }
-            ],
-            "recent": false,
-            "repoKey": "github.com/o/zebra",
             "selected": 0
           }
         ],
@@ -2926,8 +2926,8 @@
         "moves": [],
         "newSessionTarget": {
           "machineId": "local",
-          "projectId": "quiet",
-          "repoKey": "github.com/o/quiet"
+          "projectId": "zeb",
+          "repoKey": "github.com/o/zebra"
         },
         "options": {
           "machines": [
@@ -3209,6 +3209,21 @@
         "choices": [
           {
             "hasSessions": true,
+            "label": "zebra",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "zeb"
+              }
+            ],
+            "recent": true,
+            "repoKey": "github.com/o/zebra",
+            "selected": 0
+          },
+          {
+            "hasSessions": true,
             "label": "acme",
             "machines": [
               {
@@ -3224,7 +3239,7 @@
                 "projectId": "rac"
               }
             ],
-            "recent": false,
+            "recent": true,
             "repoKey": "github.com/o/acme",
             "selected": 0
           },
@@ -3239,7 +3254,7 @@
                 "projectId": "bil"
               }
             ],
-            "recent": false,
+            "recent": true,
             "repoKey": "github.com/o/billing",
             "selected": 0
           },
@@ -3271,21 +3286,6 @@
             ],
             "recent": false,
             "repoKey": "github.com/o/tools",
-            "selected": 0
-          },
-          {
-            "hasSessions": true,
-            "label": "zebra",
-            "machines": [
-              {
-                "connected": true,
-                "label": "Local",
-                "machineId": "local",
-                "projectId": "zeb"
-              }
-            ],
-            "recent": false,
-            "repoKey": "github.com/o/zebra",
             "selected": 0
           }
         ],
@@ -3619,6 +3619,21 @@
         "choices": [
           {
             "hasSessions": true,
+            "label": "zebra",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "zeb"
+              }
+            ],
+            "recent": true,
+            "repoKey": "github.com/o/zebra",
+            "selected": 0
+          },
+          {
+            "hasSessions": true,
             "label": "acme",
             "machines": [
               {
@@ -3634,7 +3649,7 @@
                 "projectId": "rac"
               }
             ],
-            "recent": false,
+            "recent": true,
             "repoKey": "github.com/o/acme",
             "selected": 0
           },
@@ -3649,7 +3664,7 @@
                 "projectId": "bil"
               }
             ],
-            "recent": false,
+            "recent": true,
             "repoKey": "github.com/o/billing",
             "selected": 0
           },
@@ -3681,21 +3696,6 @@
             ],
             "recent": false,
             "repoKey": "github.com/o/tools",
-            "selected": 0
-          },
-          {
-            "hasSessions": true,
-            "label": "zebra",
-            "machines": [
-              {
-                "connected": true,
-                "label": "Local",
-                "machineId": "local",
-                "projectId": "zeb"
-              }
-            ],
-            "recent": false,
-            "repoKey": "github.com/o/zebra",
             "selected": 0
           }
         ],
@@ -4027,6 +4027,21 @@
         "choices": [
           {
             "hasSessions": true,
+            "label": "zebra",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "zeb"
+              }
+            ],
+            "recent": true,
+            "repoKey": "github.com/o/zebra",
+            "selected": 0
+          },
+          {
+            "hasSessions": true,
             "label": "acme",
             "machines": [
               {
@@ -4042,7 +4057,7 @@
                 "projectId": "rac"
               }
             ],
-            "recent": false,
+            "recent": true,
             "repoKey": "github.com/o/acme",
             "selected": 0
           },
@@ -4057,7 +4072,7 @@
                 "projectId": "bil"
               }
             ],
-            "recent": false,
+            "recent": true,
             "repoKey": "github.com/o/billing",
             "selected": 0
           },
@@ -4089,21 +4104,6 @@
             ],
             "recent": false,
             "repoKey": "github.com/o/tools",
-            "selected": 0
-          },
-          {
-            "hasSessions": true,
-            "label": "zebra",
-            "machines": [
-              {
-                "connected": true,
-                "label": "Local",
-                "machineId": "local",
-                "projectId": "zeb"
-              }
-            ],
-            "recent": false,
-            "repoKey": "github.com/o/zebra",
             "selected": 0
           }
         ],
@@ -4354,6 +4354,21 @@
         "choices": [
           {
             "hasSessions": true,
+            "label": "zebra",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "zeb"
+              }
+            ],
+            "recent": true,
+            "repoKey": "github.com/o/zebra",
+            "selected": 0
+          },
+          {
+            "hasSessions": true,
             "label": "acme",
             "machines": [
               {
@@ -4369,7 +4384,7 @@
                 "projectId": "rac"
               }
             ],
-            "recent": false,
+            "recent": true,
             "repoKey": "github.com/o/acme",
             "selected": 0
           },
@@ -4384,7 +4399,7 @@
                 "projectId": "bil"
               }
             ],
-            "recent": false,
+            "recent": true,
             "repoKey": "github.com/o/billing",
             "selected": 0
           },
@@ -4417,21 +4432,6 @@
             "recent": false,
             "repoKey": "github.com/o/tools",
             "selected": 0
-          },
-          {
-            "hasSessions": true,
-            "label": "zebra",
-            "machines": [
-              {
-                "connected": true,
-                "label": "Local",
-                "machineId": "local",
-                "projectId": "zeb"
-              }
-            ],
-            "recent": false,
-            "repoKey": "github.com/o/zebra",
-            "selected": 0
           }
         ],
         "drafts": [],
@@ -4451,8 +4451,8 @@
         "moves": [],
         "newSessionTarget": {
           "machineId": "local",
-          "projectId": "ac",
-          "repoKey": "github.com/o/acme"
+          "projectId": "zeb",
+          "repoKey": "github.com/o/zebra"
         },
         "options": {
           "machines": [
@@ -4686,21 +4686,6 @@
                 "connected": true,
                 "label": "Local",
                 "machineId": "local",
-                "projectId": "p2"
-              }
-            ],
-            "recent": false,
-            "repoKey": "dir:ghostex",
-            "selected": 0
-          },
-          {
-            "hasSessions": true,
-            "label": "Ghostex",
-            "machines": [
-              {
-                "connected": true,
-                "label": "Local",
-                "machineId": "local",
                 "projectId": "p1"
               },
               {
@@ -4710,23 +4695,8 @@
                 "projectId": "p9"
               }
             ],
-            "recent": false,
+            "recent": true,
             "repoKey": "github.com/owner/ghostex",
-            "selected": 0
-          },
-          {
-            "hasSessions": true,
-            "label": "Ghostex",
-            "machines": [
-              {
-                "connected": true,
-                "label": "hp-laptop",
-                "machineId": "hp",
-                "projectId": "p8"
-              }
-            ],
-            "recent": false,
-            "repoKey": "gitlab.com/fork/ghostex",
             "selected": 0
           },
           {
@@ -4746,8 +4716,38 @@
                 "projectId": "p7"
               }
             ],
-            "recent": false,
+            "recent": true,
             "repoKey": "dir:notes",
+            "selected": 0
+          },
+          {
+            "hasSessions": true,
+            "label": "Ghostex",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "p2"
+              }
+            ],
+            "recent": true,
+            "repoKey": "dir:ghostex",
+            "selected": 0
+          },
+          {
+            "hasSessions": true,
+            "label": "Ghostex",
+            "machines": [
+              {
+                "connected": true,
+                "label": "hp-laptop",
+                "machineId": "hp",
+                "projectId": "p8"
+              }
+            ],
+            "recent": true,
+            "repoKey": "gitlab.com/fork/ghostex",
             "selected": 0
           }
         ],
@@ -4803,8 +4803,8 @@
         "moves": [],
         "newSessionTarget": {
           "machineId": "local",
-          "projectId": "p2",
-          "repoKey": "dir:ghostex"
+          "projectId": "p1",
+          "repoKey": "github.com/owner/ghostex"
         },
         "options": {
           "machines": [
@@ -5035,7 +5035,7 @@
                 "projectId": "p"
               }
             ],
-            "recent": false,
+            "recent": true,
             "repoKey": "github.com/o/p",
             "selected": 0
           }
@@ -5496,7 +5496,7 @@
                 "projectId": "p"
               }
             ],
-            "recent": false,
+            "recent": true,
             "repoKey": "dir:p",
             "selected": 0
           }
@@ -5628,21 +5628,6 @@
         "choices": [
           {
             "hasSessions": true,
-            "label": "api",
-            "machines": [
-              {
-                "connected": true,
-                "label": "Local",
-                "machineId": "local",
-                "projectId": "api"
-              }
-            ],
-            "recent": false,
-            "repoKey": "github.com/o/api",
-            "selected": 0
-          },
-          {
-            "hasSessions": true,
             "label": "web",
             "machines": [
               {
@@ -5664,8 +5649,23 @@
                 "projectId": "pweb"
               }
             ],
-            "recent": false,
+            "recent": true,
             "repoKey": "github.com/o/web",
+            "selected": 0
+          },
+          {
+            "hasSessions": true,
+            "label": "api",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "api"
+              }
+            ],
+            "recent": true,
+            "repoKey": "github.com/o/api",
             "selected": 0
           }
         ],

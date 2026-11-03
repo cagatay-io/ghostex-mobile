@@ -21,7 +21,7 @@ import { AGENT_ICONS } from '../../assets/agentIcons.generated';
 import { isSessionChatSupportedAgent } from '../../chat/session-chat-helpers';
 import { runGhostexCli } from '../../components/sessions/cli';
 import { type ContextMenuItem } from '../../components/sessions/ContextMenu';
-import { NewSessionMachineChips, NewSessionProjectRow } from '../../components/sessions/NewSessionPlace';
+import { NewSessionProjectRow } from '../../components/sessions/NewSessionPlace';
 import { noteNewSessionIn, projectChoicesNow, repoKeyOfProject } from './new-session-place';
 import { projectHeaderOf } from './use-unified-list';
 import { type DrawerBlock } from '../../components/sessions/drawerModel';
@@ -1515,43 +1515,32 @@ export function useSessionsScreenMenus({
     if (header !== null) setOverlay({ kind: 'agentMenu', ctx: { machine, header } });
   };
 
-  /** The project row and, with more than one computer, the machine chips, above the agents. */
+  /** The project row above the agents, naming the computer while there is more than one. */
   const placeItems = (ctx: ProjectContext): ContextMenuItem[] => {
     const repoKey = repoKeyOfProject(ctx.machine.id, ctx.header.projectId);
     const choice =
       repoKey === null ? undefined : projectChoicesNow(ctx.machine.id).find((entry) => entry.repoKey === repoKey);
     if (choice === undefined) return [];
-    const items: ContextMenuItem[] = [
+    const machineLabel =
+      enabledMachines(useMachinesStore.getState()).length > 1
+        ? (choice.machines.find((machine) => machine.machineId === ctx.machine.id)?.label ?? null)
+        : null;
+    return [
       {
         kind: 'custom',
         key: 'place-project',
         render: () => (
           <NewSessionProjectRow
             label={choice.label}
+            machineLabel={machineLabel}
             onPress={() =>
               closeAgentMenuThen(() => setOverlay({ kind: 'newSessionProject', currentMachineId: ctx.machine.id }))
             }
           />
         ),
       },
+      { kind: 'separator', key: 'place-separator' },
     ];
-    if (enabledMachines(useMachinesStore.getState()).length > 1) {
-      items.push({
-        kind: 'custom',
-        key: 'place-machines',
-        render: () => (
-          <NewSessionMachineChips
-            machines={choice.machines}
-            selectedMachineId={ctx.machine.id}
-            onPick={(machine) => {
-              if (machine.machineId !== ctx.machine.id) openAgentMenuAt(machine.machineId, machine.projectId);
-            }}
-          />
-        ),
-      });
-    }
-    items.push({ kind: 'separator', key: 'place-separator' });
-    return items;
   };
 
   const agentMenuItems = (ctx: ProjectContext): ContextMenuItem[] => {

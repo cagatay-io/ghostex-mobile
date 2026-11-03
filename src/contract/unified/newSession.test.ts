@@ -8,6 +8,7 @@ import {
   defaultMachine,
   moveProjectChoiceMachine,
   unifiedNewSessionTarget,
+  unifiedProjectChoices,
   widenFilterForNewSession,
   type UnifiedProjectChoice,
 } from './choices';
@@ -90,5 +91,49 @@ describe('the project list', () => {
   test('no headings while typing, or with nothing recent', () => {
     assert.deepEqual(projectPickerRows(choices, 'acm').map((row) => row.key), ['acme']);
     assert.ok(projectPickerRows([choices[1]!], '').every((row) => row.kind === 'project'));
+  });
+});
+
+describe('Recent', () => {
+  test('holds the newest active projects up to its cap (gx-core recent_holds_the_newest_active_projects_up_to_its_cap)', () => {
+    const project = (id: string, at: number | null) => ({
+      projectId: id,
+      title: id,
+      path: `/${id}`,
+      gitRemoteOriginUrl: `https://github.com/o/${id}`,
+      worktreeParentPath: null,
+      hasSessions: at !== null,
+      lastActivityMs: at,
+    });
+    const choices = unifiedProjectChoices(
+      [
+        {
+          machine: 'local',
+          label: 'Local',
+          connected: true,
+          projects: [
+            project('a', 1),
+            project('b', 7),
+            project('c', 3),
+            project('d', 9),
+            project('e', 5),
+            project('f', 2),
+            project('g', null),
+          ],
+        },
+      ],
+      {},
+      [],
+      'local',
+    );
+    assert.deepEqual(choices.map((choice) => [choice.label, choice.recent]), [
+      ['d', true],
+      ['b', true],
+      ['e', true],
+      ['c', true],
+      ['f', true],
+      ['a', false],
+      ['g', false],
+    ]);
   });
 });
