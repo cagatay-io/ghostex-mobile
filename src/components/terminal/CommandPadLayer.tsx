@@ -336,7 +336,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     textTransform: 'uppercase',
     color: GhostexPalette.MUTED,
-    opacity: 0.7,
   },
   row: {
     flexDirection: 'row',
