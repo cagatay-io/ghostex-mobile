@@ -60,6 +60,16 @@ export function sessionLinkLook(link: GhostexSessionLink): SessionLinkLook {
           return { glyph: 'linearLogo', color: SidebarPalette.WORK_DRAFT };
       }
     }
+    case 'ticket':
+      // The desktop's circle-dot ticket icon (`issueOpen` is the same artwork).
+      return {
+        glyph: 'issueOpen',
+        color: link.finished
+          ? SidebarPalette.WORK_DONE
+          : link.state.length > 0 && link.state !== 'unavailable'
+            ? SidebarPalette.WORK_OPEN
+            : SidebarPalette.WORK_DRAFT,
+      };
   }
 }
 
@@ -79,7 +89,7 @@ export function sessionLinkChecksMark(link: GhostexSessionLink): SessionLinkLook
 
 /** "Open", "Draft", "Merged", "Closed", or the Linear team's own name for the state. */
 export function sessionLinkStateLabel(link: GhostexSessionLink): string {
-  if (link.kind === 'linear') return link.stateName;
+  if (link.kind === 'linear' || link.kind === 'ticket') return link.stateName;
   return link.state.length > 0 ? link.state[0].toUpperCase() + link.state.slice(1) : '';
 }
 
@@ -249,7 +259,7 @@ export function sessionLinksBadgeLabel(links: readonly GhostexSessionLink[]): { 
  */
 export function sessionLinkBadgeId(link: GhostexSessionLink): string {
   const at = link.label.indexOf('#');
-  return link.kind !== 'linear' && at >= 0 ? link.label.slice(at) : link.label;
+  return (link.kind === 'pullRequest' || link.kind === 'issue') && at >= 0 ? link.label.slice(at) : link.label;
 }
 
 /** The Links pill on the chat's bar above the composer (gx-core `SessionLinks::chat_pill`). */

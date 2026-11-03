@@ -4,12 +4,14 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
-import type { GhostexSessionLink, GhostexSessionLinks } from '../../contract/mobileSummary';
+import { linkKind, parseSession, type GhostexSessionLink, type GhostexSessionLinks } from '../../contract/mobileSummary';
 import { SidebarPalette } from '../../theme/palette';
 import {
   SUGGESTED_OPEN_UP_TO_LINKED,
   SUGGESTED_SHOWN_FIRST,
   linkBadgeColor,
+  sessionLinkLook,
+  sessionLinkStateLabel,
   sessionLinksBadgeLabel,
   sessionLinksChatPill,
   sessionLinksDisplay,
@@ -179,5 +181,52 @@ describe('linkBadgeColor', () => {
     assert.equal(linkBadgeColor(SidebarPalette.WORK_OPEN, true), '#2A7A3AB3');
     assert.equal(linkBadgeColor(SidebarPalette.WORK_MERGED), '#AA94C8B3');
     assert.equal(linkBadgeColor('#123456'), '#AEAEAEB3');
+  });
+});
+
+describe('a ticket command ticket', () => {
+  test('an unknown kind is a generic ticket, never Linear', () => {
+    assert.equal(linkKind('pullRequest'), 'pullRequest');
+    assert.equal(linkKind('issue'), 'issue');
+    assert.equal(linkKind('linear'), 'linear');
+    assert.equal(linkKind('fixture'), 'ticket');
+    const session = parseSession({
+      sessionId: 'S1',
+      links: {
+        items: [
+          {
+            key: 'fixture:ACM-12',
+            kind: 'fixture',
+            label: 'ACM-12',
+            title: 'Spec the contract',
+            state: 'unavailable',
+            stateName: 'Unavailable',
+          },
+        ],
+      },
+    });
+    const ticket = session?.links?.items[0];
+    assert.equal(ticket?.kind, 'ticket');
+    assert.equal(ticket?.key, 'fixture:ACM-12');
+  });
+
+  test('draws the circle-dot ticket icon: grey while unavailable, open, then done', () => {
+    const ticket: GhostexSessionLink = {
+      ...link('fixture:ACM-12', 'unavailable', false),
+      kind: 'ticket',
+      label: 'ACM-12',
+      stateName: 'Unavailable',
+    };
+    assert.deepEqual(sessionLinkLook(ticket), { glyph: 'issueOpen', color: SidebarPalette.WORK_DRAFT });
+    assert.equal(sessionLinkStateLabel(ticket), 'Unavailable');
+    assert.deepEqual(sessionLinkLook({ ...ticket, state: 'active', stateName: 'In progress' }), {
+      glyph: 'issueOpen',
+      color: SidebarPalette.WORK_OPEN,
+    });
+    assert.deepEqual(sessionLinkLook({ ...ticket, state: 'done', finished: true }), {
+      glyph: 'issueOpen',
+      color: SidebarPalette.WORK_DONE,
+    });
+    assert.deepEqual(sessionLinksBadgeLabel([ticket]), { label: 'ACM-12', more: 0 });
   });
 });

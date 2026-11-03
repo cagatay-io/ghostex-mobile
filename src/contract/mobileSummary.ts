@@ -329,11 +329,12 @@ export type GhostexSessionActions = {
   wake: boolean;
 };
 
-/** One PR, GitHub issue or Linear ticket a session is linked to (`GxserverPresentationSessionLink`). */
+/** One PR, GitHub issue, Linear ticket or other ticket a session is linked to (`GxserverPresentationSessionLink`). */
 export type GhostexSessionLink = {
-  /** `pr:owner/repo#318`, `issue:owner/repo#305` or `linear:GHX-142`: what removing it sends. */
+  /** `pr:owner/repo#318`, `issue:owner/repo#305`, `linear:GHX-142` or `fixture:ACM-12`: what removing it sends. */
   key: string;
-  kind: 'pullRequest' | 'issue' | 'linear';
+  /** `ticket` is any other source's ticket (a workspace's ticket command, whose id is its wire kind). */
+  kind: 'pullRequest' | 'issue' | 'linear' | 'ticket';
   /** `#318`, `repo#12` or `GHX-142`. */
   label: string;
   title: string;
@@ -1117,9 +1118,12 @@ function aliasFromSessionId(sessionId: string): string {
   return sessionId.length <= 4 ? sessionId : sessionId.slice(0, 4);
 }
 
-/** `work` on the wire (`GxserverPresentationSessionWork`); null when the session has none. */
-function linkKind(value: string): GhostexSessionLink['kind'] {
-  return value === 'pullRequest' || value === 'issue' ? value : 'linear';
+/**
+ * A link's `kind` on the wire: `pullRequest`, `issue`, `linear`, or a ticket command's id, which
+ * draws as a generic ticket (gx-core `kind_of`), never with the Linear logo.
+ */
+export function linkKind(value: string): GhostexSessionLink['kind'] {
+  return value === 'pullRequest' || value === 'issue' || value === 'linear' ? value : 'ticket';
 }
 
 /** One entry of `items`, `suggested` or `removed`; null without a key. */
