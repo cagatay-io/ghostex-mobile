@@ -77,7 +77,7 @@ const RADIX_RELEASE_C31C972 = 'c31c97274ff357aea99afe6c01c1c8c58b6356e0';
 /**
  * The terminal palettes in `src/theme/ghosttyThemes.json`: `scripts/generate-ghostty-themes.ts` converts them from the
  * Ghostty theme files of this iTerm2-Color-Schemes release (the one Ghostty's build fetches) and keeps only the themes
- * whose licence the collection's licenses.yml records as one the app may pass on (CDXC:Theming 2026-11-02, D-101).
+ * whose licence the collection's licenses.yml records as one the app may pass on (CDXC:Theming).
  * The collection's MIT licence covers the collection only; each theme's own licence belongs to its author, so every
  * project a kept theme comes from has its own entry below, with its licence file at the commit named in its version.
  */

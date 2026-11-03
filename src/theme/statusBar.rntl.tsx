@@ -6,7 +6,7 @@
  *
  * The real `useStatusBarStyle`, the real Expo `StatusBar` component App.tsx mounts, React Native's status bar stack and
  * a real navigator; only the native status bar manager is the test preset's mock, and its last call is the ink the
- * phone shows. (Ported from the S5 UI review's probe, review-status.rntl.tsx, finding K-12.)
+ * phone shows. (It reproduces the case where a light screen's ink lost to the root entry.)
  */
 
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';

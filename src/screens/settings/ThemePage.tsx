@@ -3,8 +3,7 @@
  * Colours (Appearance, Dark mode colour, Light mode colour, Colourfulness and the separate sidebar and work area
  * sliders), then Chat theme, Terminal theme and the terminal palettes.
  *
- * CDXC:Theming 2026-11-01 DECISION: User (2026-11-01): "die funktionen der mac app kopieren. dort haben wir die presets
- * nun bereits" (copy the Mac app's theme functions, presets included). The controls write the desktop's keys through
+ * CDXC:Theming DECISION: the phone copies the Mac app's theme functions, presets included. The controls write the desktop's keys through
  * the settings store; a preset is one save, and the card whose always-written keys still hold shows as selected
  * (presets.ts). Picking a colour square or preset of one appearance, or typing its custom tint, marks it picked on
  * purpose for as long as the page stays open, which stops the other appearance's colour from following

@@ -7,7 +7,7 @@
  * steps off the chat's own work-area colour, so a theme preset carries into all of them. Over the phone's former
  * fixed backgrounds (`#0e0e0e` dark, `#fdfdfd` light) the steps land on the values the phone drew before.
  *
- * CDXC:Theming 2026-11-01 WHY: User (2026-11-01): copy the Mac app's theme functions. The chat's appearance is the
+ * CDXC:Theming WHY: the phone copies the Mac app's theme functions. The chat's appearance is the
  * Mac's Chat theme (Follow app, System, Light, Dark) and its colours come from the same resolver as Settings.
  */
 

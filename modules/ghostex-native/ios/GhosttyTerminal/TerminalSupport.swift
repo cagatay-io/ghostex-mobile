@@ -62,7 +62,7 @@ struct TerminalRuntimeSettings {
 /// background, the terminal's appearance) and sent as values: the phone has no Ghostty themes folder,
 /// so the config carries explicit colour lines instead of a theme name.
 ///
-/// CDXC:Theming 2026-11-01 WHY: the phone copies the Mac's terminal colours (D-100): the palette of the
+/// CDXC:Theming WHY: the phone copies the Mac's terminal colours: the palette of the
 /// terminal's appearance, the Terminal background choice painted behind the cells, no selection
 /// background in light mode (the Mac's adaptive selection) and selected text in each cell's own colour.
 /// SEE-ALSO: src/theme/terminalColours.ts (the resolver), apps/desktop/src/terminal_gpui_engine.rs

@@ -15,7 +15,7 @@
  *     `zig build --fetch` put it into .dependencies/ghostty/zig-pkg/<hash>/;
  *   - that collection's licenses.yml at the commit after that release, downloaded and checked against its SHA-256.
  *
- * CDXC:Theming 2026-11-02 DECISION: User (2026-11-02, D-101): the phone bundles only the Ghostty themes with a known
+ * CDXC:Theming DECISION: the phone bundles only the Ghostty themes with a known
  * licence compatible with the app (GPL-3.0), each with its notice, plus the preset palettes. A theme is kept when
  * licenses.yml records one of KEPT_LICENCES under its exact name and EXCLUDED does not name it; `nonfree`, `unknown`,
  * GPL-2.0-only and a name without an entry are dropped, and any other licence stops the run until it is classified
@@ -38,7 +38,7 @@ const LICENCES_URL = `https://raw.githubusercontent.com/mbadolato/iTerm2-Color-S
 const LICENCES_SHA256 = '056595904a0f42a439feb908dc75c824c60ff233a34b01e39f28a7b9593ef845';
 const UNMANAGED = '__ghostex_ghostty_theme_unmanaged__';
 
-/** Licences the app (GPL-3.0) may ship palettes under (D-101). */
+/** Licences the app (GPL-3.0) may ship palettes under. */
 export const KEPT_LICENCES: ReadonlySet<string> = new Set([
   'MIT',
   'ISC',
@@ -62,8 +62,8 @@ export const KEPT_LICENCES: ReadonlySet<string> = new Set([
 
 /**
  * Themes dropped although licenses.yml records a kept licence (or has no entry under the offered name), because other
- * evidence leaves their rights unclear. CDXC:Theming 2026-11-02 DECISION: Main (2026-11-02), derived from D-101 and
- * the no-unclear-rights floor.
+ * evidence leaves their rights unclear. CDXC:Theming DECISION: derived from the licence selection above and
+ * the rule that no theme ships with unclear rights.
  */
 export const EXCLUDED: Readonly<Record<string, string>> = {
   'Material Darker':
@@ -77,7 +77,7 @@ export const EXCLUDED: Readonly<Record<string, string>> = {
 };
 /** Kept licences whose themes need no notice entry of their own; the collection's entry lists them. */
 export const NO_NOTICE_LICENCES: ReadonlySet<string> = new Set(['CC0-1.0', 'Unlicense', '0BSD', 'WTFPL']);
-/** Not redistributable (`nonfree`), no licence found (`unknown`), or incompatible with GPL-3.0 (D-101). */
+/** Not redistributable (`nonfree`), no licence found (`unknown`), or incompatible with GPL-3.0. */
 export const DROPPED_LICENCES: ReadonlySet<string> = new Set(['nonfree', 'unknown', 'GPL-2.0-only']);
 
 export type ThemeLicence = { readonly licence: string; readonly source: string };
@@ -139,7 +139,7 @@ export function parseLicences(yaml: string): ReadonlyMap<string, ThemeLicence> {
   return licences;
 }
 
-/** Whether theme `name` ships (D-101): only an exact licenses.yml entry with a kept licence, not EXCLUDED, keeps it. */
+/** Whether theme `name` ships: only an exact licenses.yml entry with a kept licence, not EXCLUDED, keeps it. */
 export function themeVerdict(name: string, licences: ReadonlyMap<string, ThemeLicence>): Verdict {
   if (Object.hasOwn(EXCLUDED, name)) return { kept: false, reason: 'excluded' };
   const entry = licences.get(name);

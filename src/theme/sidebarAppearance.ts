@@ -6,8 +6,7 @@ import { mixHexColors } from './palette';
  * The phone keeps its own copy and its own values (no sync with the computer); the desktop's parity test reads the
  * phone's preset files.
  *
- * CDXC:Theming 2026-11-01 DECISION: User (2026-11-01): "die funktionen der mac app kopieren. dort haben wir die presets
- * nun bereits" (copy the Mac app's theme functions, presets included). This model replaces the phone's earlier tint and
+ * CDXC:Theming DECISION: the phone copies the Mac app's theme functions, presets included. This model replaces the phone's earlier tint and
  * 85-100 depth slider (reference 90): one resolver for the whole app, the desktop's numbers. The desktop paints in
  * 32-bit floats and rounds half away from zero where it calls `round()`; both are reproduced below so the phone paints
  * the same `#rrggbb` (`f32`, `roundAway`).

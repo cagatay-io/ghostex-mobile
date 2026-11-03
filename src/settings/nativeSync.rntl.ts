@@ -117,8 +117,8 @@ test('with the Terminal theme on System, a device appearance change recolours th
   expect(sentColors()).toMatchObject({ light: true, background: '#ffffff', foreground: '#4c4f69' });
 });
 
-// Ported from review s5notices-r1 K-10 (evidence/removed-pair-runtime.json): an upgrade where both saved palettes are
-// no longer shipped. CDXC:Theming 2026-11-02 DECISION: Main (2026-11-02): such a name takes the colours of that
+// An upgrade where both saved palettes are no longer shipped.
+// CDXC:Theming DECISION: such a name takes the colours of that
 // mode's default palette (GitHub Dark / GitHub Light Default); the saved names stay as they are.
 test('both saved palettes no longer ship: the terminals take the default palettes, the saved names stay', async () => {
   deviceScheme = 'light';

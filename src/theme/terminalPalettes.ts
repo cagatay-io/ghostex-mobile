@@ -5,10 +5,10 @@
  * defaults GitHub Dark and GitHub Light Default). Settings lists the names; the terminal reads the colours of the saved
  * name, and a saved name the phone does not carry keeps the fallback in terminalColours.ts.
  *
- * CDXC:Theming 2026-11-02 DECISION: User (2026-11-02, D-101): only the Ghostty themes whose licence the app may pass
+ * CDXC:Theming DECISION: only the Ghostty themes whose licence the app may pass
  * on ship, each covered by the third-party notices; the desktop is to apply the same selection.
  *
- * CDXC:Theming 2026-11-01 WHY: User (2026-11-01): copy the Mac app's theme functions. The Mac lists every palette in
+ * CDXC:Theming WHY: the phone copies the Mac app's theme functions. The Mac lists every palette in
  * both pickers, sorted by value byte for byte, and labels two of them differently from their values; both are kept.
  */
 

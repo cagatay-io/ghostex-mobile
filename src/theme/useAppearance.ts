@@ -89,9 +89,9 @@ export function themeColourSettings(settings: GhostexSettings): ThemeColourSetti
 }
 
 /**
- * CDXC:Theming 2026-09-25 DECISION: User (2026-09-25): "i want settings to be affected by selected colors". The theme colours paint every Settings page, the Extra Keys and Agent Hotkeys editors, their navigation headers and the sessions drawer with the same colors, and a change repaints the open page at once.
+ * CDXC:Theming DECISION: the selected colours reach the settings screens. The theme colours paint every Settings page, the Extra Keys and Agent Hotkeys editors, their navigation headers and the sessions drawer with the same colors, and a change repaints the open page at once.
  *
- * CDXC:Theming 2026-11-01 WHY: The colours come from the desktop's model (User 2026-11-01: copy the Mac app's theme functions): the saved appearance (System follows the device) picks the dark or light colour settings, and the drawer reads this same hook instead of a second resolver.
+ * CDXC:Theming WHY: The colours come from the desktop's model (the phone copies the Mac app's theme functions): the saved appearance (System follows the device) picks the dark or light colour settings, and the drawer reads this same hook instead of a second resolver.
  */
 export function useAppearance(): Appearance {
   const theme = useSettingsStore(useShallow(({ settings }) => themeColourSettings(settings)));

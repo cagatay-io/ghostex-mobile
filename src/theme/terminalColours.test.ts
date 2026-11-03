@@ -216,8 +216,8 @@ describe('Terminal background', () => {
   });
 });
 
-// CDXC:Theming 2026-11-02 DECISION: Main (2026-11-02, review s5notices-r1 K-10): a palette name the phone does not
-// carry (one saved before D-101 dropped it, or any other) takes the colours of that mode's default palette, GitHub Dark
+// CDXC:Theming DECISION: a palette name the phone does not
+// carry (one saved before the licence selection dropped it, or any other) takes the colours of that mode's default palette, GitHub Dark
 // or GitHub Light Default, so a light terminal never gets the white default text on white; the saved name stays.
 describe('names the phone does not carry take the default palette of their mode', () => {
   test('an unknown dark palette: GitHub Dark', () => {
@@ -266,7 +266,7 @@ describe('every offered palette gives the terminal complete colours', () => {
   const HEX = /^#[0-9a-f]{6}$/;
   const names = terminalPaletteNames();
 
-  test('the 210 Ghostty themes that may ship (D-101) and the twenty preset palettes', () => {
+  test('the 210 Ghostty themes that may ship and the twenty preset palettes', () => {
     // 486 offered by the Mac; licenses.yml @ f6fc23ce keeps 214 of them, minus the four EXCLUDED with a kept licence.
     assert.equal(names.length, 230);
     assert.equal(names.filter((name) => name.startsWith('Ghostex ')).length, 20);

@@ -6,7 +6,7 @@
  *   caption on the terminal background, the key labels on their pill (the ink's 8% wash over the background);
  * - the iPhone Duo's side-bar buttons keep a glyph that reads on their dark round capsule (at least 3:1, non-text UI),
  *   while the header's own row keeps dark ink on a light page.
- * Ported from the S5 native review's probes (review-workspace/s5native-r1-20261102, NativeColourReview.rntl.tsx).
+ * Contrast values are computed in this file from the WCAG 2 formulas, not taken from the code under test.
  */
 
 import { act, render, screen } from '@testing-library/react-native';

@@ -3,7 +3,7 @@
  * settings in one change so the app looks like that theme. A preset is a one-time write, not a saved choice: nothing
  * records which one was picked, and the card that matches the current settings shows as selected.
  *
- * CDXC:Theming 2026-11-01 DECISION: User (2026-11-01): the phone copies the desktop's presets. The files in
+ * CDXC:Theming DECISION: the phone copies the desktop's presets. The files in
  * `./presets/` are the desktop's data in the format its parity test (`theme_preset_parity_with_the_phone`,
  * apps/desktop/src/terminal_gpui_engine.rs) compares as whole JSON objects, so they carry no other fields; the
  * grouping lives here. Their palettes are the theme projects' own colours; each file's sources, commits and licence

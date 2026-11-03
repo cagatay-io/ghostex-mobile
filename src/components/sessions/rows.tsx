@@ -46,7 +46,7 @@ import {
  * light flag (apps/desktop/src/app/native_sidebar appearance.rs, sessions.rs, sections.rs, threads.rs,
  * decorations.rs). The dark values are the ones the phone's list has always drawn.
  *
- * CDXC:Theming 2026-11-01 DECISION: Main (option A, under the owner's D-100 "copy the Mac app's theme functions"):
+ * CDXC:Theming DECISION: as the phone copies the Mac app's theme functions,
  * the Sessions list's ink flips with the appearance as the Mac sidebar's does, so a light preset draws dark text on
  * its light list. Status and other meaning-carrying colours keep their values in both appearances.
  */

@@ -2,7 +2,7 @@
  * The colours a native terminal paints with, resolved from the theme settings the way the Mac resolves them, and the
  * terminal screen's chrome over those colours. Pure (no React Native), so `bun test` reaches it.
  *
- * CDXC:Theming 2026-11-01 WHY: User (2026-11-01): copy the Mac app's theme functions. The terminal takes the palette
+ * CDXC:Theming WHY: the phone copies the Mac app's theme functions. The terminal takes the palette
  * of its own appearance (Terminal theme: Follow app, System, Light, Dark), the Terminal background choice behind its
  * cells (Black / white, Follow theme = the theme's work area, Custom colour in both appearances) and, in light mode,
  * no palette selection colour (the Mac's adaptive selection). The phone has no Ghostty themes folder, so the native
@@ -71,9 +71,9 @@ export function terminalBackground(settings: TerminalColourSettings, light: bool
  * or any other) takes the colours of that mode's default palette, GitHub Dark or GitHub Light Default; the saved name
  * itself stays.
  *
- * CDXC:Theming 2026-11-02 DECISION: Main (2026-11-02, review s5notices-r1 K-10): the Mac leaves an unknown name to
+ * CDXC:Theming DECISION: the Mac leaves an unknown name to
  * Ghostty's defaults (`apply_ghostty_theme` returns without colours), whose white text on the white light background
- * would be unreadable after D-101 dropped palettes users had saved; the default palette keeps every terminal readable.
+ * would be unreadable after the licence selection dropped palettes users had saved; the default palette keeps every terminal readable.
  */
 export function terminalColours(settings: TerminalColourSettings, systemIsLight: boolean): TerminalColors {
   const light = contentIsLight(settings, 'terminalColorScheme', systemIsLight);

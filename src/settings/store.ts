@@ -335,7 +335,7 @@ export function keptShortReplies(entries: readonly unknown[]): string[] {
  * The colour keys of a stored settings object: each saved valid key as it is, each missing one derived from the
  * retained earlier values, so the derivation runs only until the first save and never over saved keys.
  *
- * CDXC:Theming 2026-11-01 WHY: An upgraded phone keeps its look and its values (the phone keeps its own values,
+ * CDXC:Theming WHY: An upgraded phone keeps its look and its values (the phone keeps its own values,
  * never the computer's). The earlier tint becomes the custom dark colour. Its contrast (85-100) is the same depth
  * number for every calibrated colour and Black; White and Neutral Gray drew `#0b0b0b` at 90 from a different base,
  * so their depth is `100 - (100 - c) * 11/28` to the half point (90 -> 96).

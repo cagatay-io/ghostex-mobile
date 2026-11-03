@@ -1,6 +1,6 @@
 /// <reference types="node" />
 /**
- * Run with `bun test src/theme/ghosttyThemes.test.ts`. Which Ghostty themes ship (D-101: only a licence the app may
+ * Run with `bun test src/theme/ghosttyThemes.test.ts`. Which Ghostty themes ship (only a licence the app may
  * pass on, by the theme's exact entry in iTerm2-Color-Schemes' licenses.yml) and that the notices cover each one. The
  * licenses.yml lines below are copied from the pinned file
  * (https://raw.githubusercontent.com/mbadolato/iTerm2-Color-Schemes/f6fc23cea088fe144ab0d8c604199afcc3c5da8e/licenses.yml).
@@ -72,7 +72,7 @@ describe('licenses.yml as the generator reads it', () => {
   });
 });
 
-describe('which themes ship (D-101)', () => {
+describe('which themes ship', () => {
   const licences = parseLicences(LICENCES_YML);
 
   test('nonfree, GPL-2.0-only and unknown themes are dropped; an MIT theme is kept', () => {
