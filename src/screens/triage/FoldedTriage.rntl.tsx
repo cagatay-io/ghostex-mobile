@@ -28,6 +28,7 @@ import type { UserAction } from '../../chat/rust/actions';
 import type { ChatDocument } from '../../chat/rust/document';
 import { ApprovalCard } from '../../chat/native/cards/ApprovalCard';
 import { QuestionCard } from '../../chat/native/cards/QuestionCard';
+import { NoticeCard } from '../../chat/native/cards/NoticeCard';
 import { useBarGeometryStore } from '../../components/common/verticalBar/barGeometry';
 import VerticalBarArea from '../../components/common/verticalBar/VerticalBarArea';
 import { useCollapseStore } from '../../components/sessions/collapseStore';
@@ -43,6 +44,7 @@ import SessionsScreen from '../SessionsScreen';
 
 const mockDispatched: { sessionId: string; action: UserAction }[] = [];
 const mockDocuments: Record<string, Partial<ChatDocument>> = {};
+const mockChatListeners = new Map<string, () => void>();
 let mockBarLayout: BarLayout | null = null;
 /** The computer's commands; a test may hold one back to keep a short reply on its way. */
 const mockRun = jest.fn((_machine: { id: string }, _command: string): Promise<unknown> =>
@@ -62,7 +64,10 @@ jest.mock('../../chat/rust/host', () => ({
     return {
       host: {
         getState: () => ({ document: mockDocuments[target.sessionId] ?? null }),
-        subscribe: () => () => undefined,
+        subscribe: (listener: () => void) => {
+          mockChatListeners.set(target.sessionId, listener);
+          return () => mockChatListeners.delete(target.sessionId);
+        },
         dispatch: (action: UserAction) => mockDispatched.push({ sessionId: target.sessionId, action }),
       },
       release: () => {
@@ -99,6 +104,13 @@ jest.mock('expo-haptics', () => ({
 }));
 jest.mock('expo-clipboard', () => ({ setStringAsync: () => Promise.resolve() }));
 jest.mock('expo-notifications', () => ({}));
+jest.mock('react-native-webview', () => ({ WebView: () => null }));
+// NoticeCard's Markdown imports image/animation views; these cases render only its plain folded rows.
+jest.mock('react-native-reanimated', () => ({
+  __esModule: true,
+  default: jest.requireActual('react-native').Animated,
+  useReducedMotion: () => false,
+}));
 // The screen also holds the Unified list (on in the Unified tests at the end), whose swipe rows need Reanimated's
 // native runtime: a plain row.
 jest.mock('../machines-screen/SwipeRevealRow', () => {
@@ -164,6 +176,35 @@ const QUESTION: Partial<ChatDocument> = {
     ],
   },
   questionCard: { ...card, controls: { hasAnswer: false, disabled: true, label: 'Submit' } },
+};
+
+const PERMISSION_ROWS: Partial<ChatDocument> = {
+  ...APPROVAL,
+  questionCard: { ...card, controls: { hasAnswer: false, disabled: false, label: '' }, visible: false },
+  noticeVisible: true,
+  terminalNotice: {
+    kind: 'permissionPrompt',
+    title: 'Run the checks?',
+    detectedAt: '2026-11-01T12:00:00Z',
+    tone: 'approval',
+    collapsedDetail: '$ bun test',
+    collapsedChoices: [0, 2],
+    choices: [
+      {
+        index: 4,
+        label: 'Proceed once (y)',
+        collapsedLabel: 'Proceed once',
+        answer: { kind: 'terminalChoice', choiceIndex: 4 },
+      },
+      {
+        index: 7,
+        label: 'Always proceed',
+        collapsedLabel: 'Always proceed',
+        answer: { kind: 'terminalChoice', choiceIndex: 7 },
+      },
+      { index: 9, label: 'Decline (n)', collapsedLabel: 'Decline', answer: { kind: 'terminalChoice', choiceIndex: 9 } },
+    ],
+  },
 };
 
 /**
@@ -262,6 +303,7 @@ beforeEach(async () => {
   mockHeld.length = 0;
   mockReleased.length = 0;
   mockTailRead.mockClear();
+  mockChatListeners.clear();
   mockRun.mockImplementation(() => Promise.resolve({ ok: true }));
   await AsyncStorage.clear();
   for (const key of Object.keys(mockDocuments)) delete mockDocuments[key];
@@ -459,6 +501,43 @@ describe("the chat's own answers", () => {
     expect(fromCard).toHaveLength(1);
     expect(mockDispatched).toEqual([{ sessionId: 'd', action: fromCard[0] }]);
   });
+
+  describe.each(['omp', 'claude', 'copilot', 'grok', 'antigravity', 'cursor', 'empryo'])(
+    '%s permission rows',
+    (agent) => {
+      test.each([
+        { label: 'Proceed once', choiceIndex: 4 },
+        { label: 'Decline', choiceIndex: 9 },
+      ])('$label sends the folded notice row answer once and retires with the notice', async ({ label, choiceIndex }) => {
+        mockDocuments.b = PERMISSION_ROWS;
+        const parsed = summary();
+        await showSummary({
+          ...parsed,
+          sessions: parsed.sessions.map((session) =>
+            session.sessionId === 'b' ? { ...session, agent, agentIcon: agent, agentName: agent } : session,
+          ),
+        });
+        const fromCard: UserAction[] = [];
+        const chat = { dispatch: (action: UserAction) => fromCard.push(action) };
+        // The fixture contains only the card fields read by these renderers.
+        await renderScreen(FOLDED, <NoticeCard chat={chat as never} document={PERMISSION_ROWS as ChatDocument} />);
+        const [triageRow, cardRow] = screen.getAllByLabelText(label);
+        if (triageRow === undefined || cardRow === undefined) throw new Error('Both surfaces must show the folded row.');
+        expect(screen.queryByLabelText('Always proceed')).toBeNull();
+        await fireEvent.press(cardRow);
+        await fireEvent.press(triageRow);
+        expect(fromCard).toEqual([{ type: 'answer', answer: { kind: 'terminalChoice', choiceIndex } }]);
+        expect(mockDispatched).toEqual([{ sessionId: 'b', action: fromCard[0] }]);
+        await fireEvent.press(triageRow);
+        expect(mockDispatched).toHaveLength(1);
+        // The stored prompt and questionCard do not change when the visible notice retires.
+        mockDocuments.b = { ...PERMISSION_ROWS, noticeVisible: false };
+        await act(() => mockChatListeners.get('b')?.());
+        await settle();
+        expect(screen.queryByLabelText('Open Beta, waiting 6m')).toBeNull();
+      });
+    },
+  );
 });
 
 describe('one decision per card goes out once', () => {

@@ -12,22 +12,29 @@
  * - Which sessions: the list's own. The classic list shows one computer (its workspace and Space); the Unified list
  *   shows every computer the phone holds, narrowed by its filter and search, so there the triage spans them too, each
  *   session read by its own computer's rules and answered on it.
- * - What an entry offers comes from the session's chat, the same document the chat's question card draws: an approval
- *   card gets Allow and Deny, a question with options a single choice can answer gets its options. A question buttons
- *   cannot answer completely (several choices, several questions, a written answer) and a question the chat has no
- *   card for offer to open the question in the session. An approval the chat does not show (read from the agent's
- *   screen only) is answered in the session. Every other waiting session gets the short replies.
+ * - What an entry offers comes from the session's chat: a stored approval card gets Allow and Deny; a permission
+ *   notice gets its folded rows, labels and answers from the core. A question with options a single choice can answer
+ *   gets its options. Questions buttons cannot answer completely (several choices, several questions, a written
+ *   answer) and questions without a card offer to open the session. Approvals with neither a stored card nor folded
+ *   rows are answered in the session. Every other waiting session gets the short replies.
  */
 
-import { arr, isTrue, obj, str } from '../../chat/native/cards/json';
-import { APPROVAL_ASK_FALLBACK, APPROVAL_TITLE_FALLBACK } from '../../chat/native/cards/answers';
+import { arr, asJson, isTrue, obj, str } from '../../chat/native/cards/json';
+import {
+  APPROVAL_ASK_FALLBACK,
+  APPROVAL_TITLE_FALLBACK,
+  approvalAnswer,
+  foldedNoticeChoices,
+} from '../../chat/native/cards/answers';
+import type { UserAction } from '../../chat/rust/actions';
 import type { ChatDocument } from '../../chat/rust/document';
+import { TriageCopy } from '../../copy';
 import type { HeaderPlacement } from '../../components/common/verticalBar/layout';
 import type { GhostexMobileSummary, GhostexSession, GhostexSummaryCapabilities } from '../../contract/mobileSummary';
 import type { UnifiedView } from '../../contract/unified/build';
 
-/** The part of a session's chat document an entry reads: the blocking prompt and its card. */
-export type TriageDocument = Pick<ChatDocument, 'prompt' | 'questionCard'>;
+/** The blocking prompt and the stored card or notice the session's chat draws. */
+export type TriageDocument = Pick<ChatDocument, 'prompt' | 'questionCard' | 'terminalNotice' | 'noticeVisible'>;
 
 export type TriageEntry =
   | {
@@ -40,6 +47,8 @@ export type TriageEntry =
       tool: string;
       busy: boolean;
       reconnecting: boolean;
+      approve: { label: string; action: UserAction };
+      deny: { label: string; action: UserAction };
     }
   | { kind: 'approvalInSession' }
   | { kind: 'question'; header: string; text: string; options: string[]; busy: boolean; reconnecting: boolean }
@@ -155,6 +164,8 @@ export function triageEntry(
         tool: str(prompt, 'tool'),
         busy: card.busy,
         reconnecting: card.reconnecting === true,
+        approve: { label: TriageCopy.allow, action: approvalAnswer(true) },
+        deny: { label: TriageCopy.deny, action: approvalAnswer(false) },
       };
     }
     if (kind === 'question') {
@@ -174,6 +185,28 @@ export function triageEntry(
               : null;
       if (reason !== null) return { kind: 'openQuestion', reason, header, text, steps: questions.length };
       return { kind: 'question', header, text, options, busy: card.busy, reconnecting: card.reconnecting === true };
+    }
+  }
+  const notice = obj(document?.terminalNotice);
+  if (document?.noticeVisible === true && notice !== null && str(notice, 'kind') === 'permissionPrompt') {
+    const rows = foldedNoticeChoices(notice);
+    const approve = obj(rows?.[0]);
+    const deny = obj(rows?.[1]);
+    if (rows?.length === 2 && approve !== null && deny !== null) {
+      const approval = obj(notice.approval);
+      const command = str(approval, 'codePreview') || str(approval, 'code') || str(notice, 'collapsedDetail');
+      return {
+        kind: 'approval',
+        title: str(approval, 'title') || str(notice, 'title'),
+        detail: str(approval, 'source'),
+        command,
+        ask: command.length > 0 ? '' : str(notice, 'detail'),
+        tool: '',
+        busy: card?.busy === true,
+        reconnecting: card?.reconnecting === true,
+        approve: { label: str(approve, 'collapsedLabel'), action: { type: 'answer', answer: asJson(approve.answer) } },
+        deny: { label: str(deny, 'collapsedLabel'), action: { type: 'answer', answer: asJson(deny.answer) } },
+      };
     }
   }
   if (session.awaitingApproval) return { kind: 'approvalInSession' };

@@ -19,6 +19,7 @@ import type { ChatDocument } from '../../rust/document';
 import { useChatViewSize } from '../chatPlacement';
 import type { RustChat } from '../../rust/useRustChat';
 import { phoneKeepsCancel } from './dialogCancel';
+import { foldedNoticeChoices } from './answers';
 import { arr, asJson, isTrue, num, obj, str } from './json';
 import { MONO_FONT, themedStyles, useTranscriptTheme } from '../transcript/theme';
 import {
@@ -69,7 +70,8 @@ export function NoticeCard({
   const panel = arr(obj(dialog?.presentation)?.blocks).length > 0;
   // A live dialog's rows are numbered choices that open with the card (`dialog_rows.rs` in the chat core).
   const numbered = notice?.numbered === true;
-  const foldable = answerable && !panel && !numbered;
+  const foldedChoices = foldedNoticeChoices(notice);
+  const foldable = foldedChoices !== null;
   const collapsed = foldable && expandedKey !== key;
   const rateLimit = choices.some((choice) => str(choice, 'label').startsWith('Wait here, then continue automatically'));
 
@@ -202,12 +204,7 @@ export function NoticeCard({
      * that field (an over-the-air update on an older build) still sends `collapsedChoiceCount`, the first rows.
      * SEE-ALSO: packages/gx-chat-core/src/questions/notice_choices.rs (collapsed_choice_positions)
      */
-    const positions = Array.isArray(notice.collapsedChoices) ? notice.collapsedChoices : null;
-    const shownChoices = !collapsed
-      ? choices
-      : positions !== null
-        ? positions.flatMap((position) => (typeof position === 'number' && choices[position] !== undefined ? [choices[position]] : []))
-        : choices.slice(0, num(notice, 'collapsedChoiceCount') ?? 2);
+    const shownChoices = collapsed ? foldedChoices ?? [] : choices;
     const labels = shownChoices.map((choice) => str(choice, collapsed ? 'collapsedLabel' : 'label'));
     /*
      * CDXC:SessionChat 2026-09-27 DECISION: User: when a notice card's choices do not fit side by side, "make buttons appear full

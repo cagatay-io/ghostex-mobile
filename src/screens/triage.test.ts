@@ -16,13 +16,15 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import type { ChatDocument, Json } from '../chat/rust/document';
+import type { Json } from '../chat/rust/document';
 import { approvalAnswer, questionOptionAnswer } from '../chat/native/cards/answers';
+import { obj } from '../chat/native/cards/json';
 import { parseMobileSummary, type GhostexMobileSummary, type GhostexSession } from '../contract/mobileSummary';
 import { EMPTY_UNIFIED_FILTER, type UnifiedFilter } from '../contract/unified/build';
 import { unifiedListOf, unifiedSettingsOf } from '../contract/unified/fromSummary';
 import { sendShortReply } from './triage/actions';
 import { foldedOuterDisplay, triageEntry, triageSessions, unifiedTriageWaits, waitsForUser } from './triage/model';
+import type { TriageDocument } from './triage/model';
 
 /** A fixed instant the waits are measured back from. */
 const NOW = 1_800_000_000_000;
@@ -60,8 +62,10 @@ const OPTIONS = [{ label: 'Every 50 ms' }, { label: 'Every 80 ms' }, { label: 'F
 function questionDocument(
   question: Record<string, Json>,
   extraQuestions: Record<string, Json>[] = [],
-): Pick<ChatDocument, 'prompt' | 'questionCard'> {
+): TriageDocument {
   return {
+    terminalNotice: null,
+    noticeVisible: false,
     prompt: {
       kind: 'question',
       questions: [
@@ -81,8 +85,10 @@ function questionDocument(
   };
 }
 
-function approvalDocument(): Pick<ChatDocument, 'prompt' | 'questionCard'> {
+function approvalDocument(): TriageDocument {
   return {
+    terminalNotice: null,
+    noticeVisible: false,
     prompt: { kind: 'approval', tool: 'Bash', summary: 'bun test src/components/terminal' },
     questionCard: {
       visible: true,
@@ -261,6 +267,53 @@ describe('approve and deny from the triage', () => {
       detail: 'Bash · in ~/Projects/ghostex-mobile',
       command: 'bun test src/components/terminal',
     });
+  });
+
+  test('the stored approval keeps the chat card labels and answers on the entry', () => {
+    const { session, summary: parsed } = one({ awaitingApproval: true });
+    expect(triageEntry(session, parsed.capabilities, approvalDocument())).toMatchObject({
+      kind: 'approval',
+      approve: { label: 'Allow', action: { type: 'answer', answer: { kind: 'approval', approvalSend: '1' } } },
+      deny: { label: 'Deny', action: { type: 'answer', answer: { kind: 'approval', approvalSend: '' } } },
+    });
+  });
+
+  test('permission rows use only the folded positions, labels and answers; question notices stay questions', () => {
+    const { session, summary: parsed } = one({ awaitingApproval: true });
+    const document: TriageDocument = {
+      ...approvalDocument(),
+      questionCard: { ...approvalDocument().questionCard, visible: false },
+      noticeVisible: true,
+      terminalNotice: {
+        kind: 'permissionPrompt',
+        title: 'Run the checks?',
+        collapsedDetail: '$ bun test',
+        collapsedChoices: [0, 2],
+        choices: [
+          { label: 'Proceed once (y)', collapsedLabel: 'Proceed once', answer: { kind: 'terminalChoice', choiceIndex: 4 } },
+          { label: 'Always proceed', collapsedLabel: 'Always proceed', answer: { kind: 'terminalChoice', choiceIndex: 7 } },
+          { label: 'Decline (n)', collapsedLabel: 'Decline', answer: { kind: 'terminalChoice', choiceIndex: 9 } },
+        ],
+      },
+    };
+    expect(triageEntry(session, parsed.capabilities, document)).toMatchObject({
+      kind: 'approval',
+      title: 'Run the checks?',
+      command: '$ bun test',
+      approve: { label: 'Proceed once', action: { type: 'answer', answer: { kind: 'terminalChoice', choiceIndex: 4 } } },
+      deny: { label: 'Decline', action: { type: 'answer', answer: { kind: 'terminalChoice', choiceIndex: 9 } } },
+    });
+    expect(triageEntry(session, parsed.capabilities, { ...document, noticeVisible: false })).toEqual({
+      kind: 'approvalInSession',
+    });
+    const question = one({ awaitingAnswer: true });
+    expect(
+      triageEntry(question.session, question.summary.capabilities, {
+        ...document,
+        prompt: { kind: 'question' },
+        terminalNotice: { ...obj(document.terminalNotice), kind: 'questionPrompt' },
+      }),
+    ).toEqual({ kind: 'openQuestion', reason: null, header: '', text: '', steps: 1 });
   });
 
   test("Approve sends the answer the chat's Allow button sends", () => {

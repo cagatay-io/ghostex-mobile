@@ -3,8 +3,8 @@
  *
  * - `useTriageChats`: the chat of each session whose approval or question the triage answers. It holds the session's
  *   chat host (`acquireRustChatHost`), the same chat core and warm link the session's Chat View uses (a Chat View
- *   opened meanwhile shares it), publishes only the card's part of the document (`prompt`, `questionCard`) and hands
- *   taps to that core. A session that stops needing it, and the whole triage when it leaves the screen, release it.
+ *   opened meanwhile shares it), publishes only the card fields (`prompt`, `questionCard`, `terminalNotice`,
+ *   `noticeVisible`) and hands taps to that core. Sessions no longer needing it, and the triage on leaving, release it.
  * - `useTriageTails`: the last lines of a waiting session's screen for its short replies, read once per wait
  *   (`waitSignature`: a finished turn after a wait for the user is a new one) through the session wall's
  *   `readSessionTerminalTail` read; a refused read shows none.
@@ -67,7 +67,7 @@ export function useTriageChats(targets: readonly TriageTarget[]): Readonly<Recor
         sessionId: target.sessionId,
       });
       const dispatch = (action: UserAction): void => host.dispatch(action);
-      // A frame changes the transcript far more often than the card: only a new prompt or card draws the triage again.
+      // Transcript frames need no redraw here; prompt, card and notice changes do.
       const publish = (): void => {
         const document = host.getState().document;
         setChats((current) => {
@@ -75,11 +75,21 @@ export function useTriageChats(targets: readonly TriageTarget[]): Readonly<Recor
           if (
             shown !== undefined &&
             shown.document?.prompt === document?.prompt &&
-            shown.document?.questionCard === document?.questionCard
+            shown.document?.questionCard === document?.questionCard &&
+            shown.document?.terminalNotice === document?.terminalNotice &&
+            shown.document?.noticeVisible === document?.noticeVisible
           ) {
             return current;
           }
-          const card = document === null ? null : { prompt: document.prompt, questionCard: document.questionCard };
+          const card =
+            document === null
+              ? null
+              : {
+                  prompt: document.prompt,
+                  questionCard: document.questionCard,
+                  terminalNotice: document.terminalNotice,
+                  noticeVisible: document.noticeVisible,
+                };
           return { ...current, [key]: { document: card, dispatch } };
         });
       };

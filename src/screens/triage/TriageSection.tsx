@@ -4,8 +4,8 @@
  * `model.ts`). The full list stays below, where these sessions show a second time; a card's head opens its session
  * exactly as its list row does. When nothing waits, one quiet row says so.
  *
- * - Approval: Deny and Allow, sent into the session's chat core as the chat's approval card sends them
- *   (`approvalAnswer`).
+ * - Approval: the stored card's Deny and Allow (`approvalAnswer`) or the permission notice's folded rows, with their
+ *   labels and answers from the chat core.
  * - Question with options one tap answers: the options, sent as the question card's option row sends them
  *   (`questionOptionAnswer`). Other questions: "Open Question" opens the session at its question card (the
  *   notification's `view=question` link).
@@ -22,7 +22,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AGENT_ICONS } from '../../assets/agentIcons.generated';
-import { RECONNECTING_NOTE, approvalAnswer, questionOptionAnswer } from '../../chat/native/cards/answers';
+import { RECONNECTING_NOTE, questionOptionAnswer } from '../../chat/native/cards/answers';
 import { Glyph } from '../../chat/native/cards/icons';
 import { askColor, tint } from '../../chat/native/cards/askCard';
 import { isShellTool, toneLook } from '../../chat/native/cards/ToneCard';
@@ -330,17 +330,17 @@ function TriageCard({
             )}
             <View style={styles.actions}>
               <CardButton
-                label={pending?.label === TriageCopy.deny ? TriageCopy.sending : TriageCopy.deny}
-                accessibilityLabel={TriageCopy.deny}
+                label={pending?.label === entry.deny.label ? TriageCopy.sending : entry.deny.label}
+                accessibilityLabel={entry.deny.label}
                 disabled={locked}
-                onPress={() => answer(TriageCopy.deny, TriageCopy.sent(TriageCopy.deny), approvalAnswer(false))}
+                onPress={() => answer(entry.deny.label, TriageCopy.sent(entry.deny.label), entry.deny.action)}
               />
               <CardButton
                 primary
-                label={pending?.label === TriageCopy.allow ? TriageCopy.sending : TriageCopy.allow}
-                accessibilityLabel={TriageCopy.allow}
+                label={pending?.label === entry.approve.label ? TriageCopy.sending : entry.approve.label}
+                accessibilityLabel={entry.approve.label}
                 disabled={locked}
-                onPress={() => answer(TriageCopy.allow, TriageCopy.sent(TriageCopy.allow), approvalAnswer(true))}
+                onPress={() => answer(entry.approve.label, TriageCopy.sent(entry.approve.label), entry.approve.action)}
               />
             </View>
           </>

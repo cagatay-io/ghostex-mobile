@@ -6,6 +6,7 @@
  */
 
 import type { UserAction } from '../../rust/actions';
+import { arr, num, obj, type JsonRecord } from './json';
 
 /** The approval card's title when the chat core names none. */
 export const APPROVAL_TITLE_FALLBACK = 'Approval request';
@@ -22,4 +23,30 @@ export function approvalAnswer(allow: boolean): UserAction {
 /** A tap on a question's option; a single-select question's last step sends the answers with it. */
 export function questionOptionAnswer(index: number): UserAction {
   return { type: 'questionOption', index };
+}
+
+/**
+ * The rows NoticeCard opens folded, already chosen by the core. Null means the notice uses another presentation:
+ * numbered rows, a panel, a picker, pass-through, or a dialog input instead of folded buttons.
+ */
+export function foldedNoticeChoices(notice: JsonRecord): unknown[] | null {
+  const choices = arr(notice.choices);
+  const dialog = obj(notice.dialog);
+  const presentation = obj(dialog?.presentation);
+  if (
+    choices.length === 0 ||
+    notice.numbered === true ||
+    arr(presentation?.blocks).length > 0 ||
+    obj(presentation?.picker) !== null ||
+    obj(notice.passthrough) !== null ||
+    (dialog !== null && Array.isArray(dialog.rows) && dialog.rows.length === 0)
+  ) {
+    return null;
+  }
+  const positions = Array.isArray(notice.collapsedChoices) ? notice.collapsedChoices : null;
+  return positions !== null
+    ? positions.flatMap((position) =>
+        typeof position === 'number' && choices[position] !== undefined ? [choices[position]] : [],
+      )
+    : choices.slice(0, num(notice, 'collapsedChoiceCount') ?? 2);
 }
