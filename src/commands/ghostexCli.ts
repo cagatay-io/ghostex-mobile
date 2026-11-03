@@ -839,9 +839,26 @@ export function exportSessionTranscriptCommand(
   sessionId: string,
   projectId: string,
   include: { commands: boolean; patches: boolean; reasoning: boolean },
+  lastTurns: number | null = null,
 ): string {
+  // `--last-turns` keeps the last turns and lists the earlier messages; a computer from before it ignores it.
   return (
     `ghostex export-transcript ${sessionChatSelector(sessionId, projectId)}` +
+    ` --include-commands ${include.commands} --include-patches ${include.patches}` +
+    ` --include-reasoning ${include.reasoning}` +
+    (lastTurns !== null ? ` --last-turns ${Math.max(1, Math.floor(lastTurns))}` : '') +
+    ' --json'
+  );
+}
+
+/** Handoff's History hint: the turns and the file's size for each last N, without writing a file. */
+export function countSessionTranscriptTurnsCommand(
+  sessionId: string,
+  projectId: string,
+  include: { commands: boolean; patches: boolean; reasoning: boolean },
+): string {
+  return (
+    `ghostex count-transcript-turns ${sessionChatSelector(sessionId, projectId)}` +
     ` --include-commands ${include.commands} --include-patches ${include.patches}` +
     ` --include-reasoning ${include.reasoning} --json`
   );

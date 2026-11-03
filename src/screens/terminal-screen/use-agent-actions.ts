@@ -33,6 +33,7 @@ import {
   type SessionChatSyncedDraft,
 } from '../../chat/session-chat-helpers';
 import { loadHandoffPrefs } from '../../chat/native/composer/handoffPrefsStore';
+import { handoffLastTurns } from '../../contract/handoff/handoff';
 import { createAgentWithFirstInputDraft, machineAgents, projectTitle, stagedHandoffDraft } from '../../chat/native/sessionShell';
 import type { GhostexSession } from '../../contract/mobileSummary';
 import { ProgressCopy, RenameCopy, SessionCopy } from '../../copy';
@@ -313,8 +314,11 @@ export function useTerminalAgentActions({
     const { machine, projectId, session } = target;
     setAgentProgress('Exporting transcript…');
     try {
-      const { include } = await loadHandoffPrefs();
-      const result = await runGhostexCli(machine, exportSessionTranscriptCommand(session.sessionId, projectId, include));
+      const { include, history } = await loadHandoffPrefs();
+      const result = await runGhostexCli(
+        machine,
+        exportSessionTranscriptCommand(session.sessionId, projectId, include, handoffLastTurns(history)),
+      );
       setAgentProgress(null);
       const path = typeof result.json?.path === 'string' ? result.json.path.trim() : '';
       if (path.length === 0) {

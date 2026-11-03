@@ -2,7 +2,8 @@
 /**
  * Run with `bun run test:jest`. The sheet's shape and memory: two cards, this project here by
  * default with the button naming the agent, Change… opening the choices with the button naming the
- * project, Include closed and off, and what a handoff remembers.
+ * project, Include closed and off, and what a handoff remembers. History: the last 20 turns by
+ * default, a Whole conversation switch that hides the slider, and nothing on a computer that can't count.
  */
 
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
@@ -13,6 +14,9 @@ import { HandoffSheet } from './HandoffSheet';
 const mockExport = jest.fn(async (..._args: unknown[]) => '/exports/a.md');
 const mockStart = jest.fn(async (..._args: unknown[]) => undefined);
 const mockSave = jest.fn();
+/** A 120-turn conversation of 3,600 bytes a turn. */
+const counted = { turns: 120, bytes: 432_000, lastTurnsBytes: Array.from({ length: 120 }, (_, index) => (index + 1) * 3_600) };
+const mockCount = jest.fn(async (..._args: unknown[]): Promise<typeof counted | null> => counted);
 let mockPrefs: HandoffPrefs;
 
 const computers: HandoffComputer[] = [
@@ -39,6 +43,7 @@ const computers: HandoffComputer[] = [
 
 jest.mock('../sessionShell', () => ({
   exportTranscript: (...args: unknown[]) => mockExport(...args),
+  countTranscriptTurns: (...args: unknown[]) => mockCount(...args),
   startHandoffConversation: (...args: unknown[]) => mockStart(...args),
   machineAgents: () => [{ agentId: 'codex', name: 'Codex' }, { agentId: 'claude', name: 'Claude' }],
   modelPickerProvider: () => null,
@@ -69,6 +74,7 @@ const defaults: HandoffPrefs = {
   agentId: null,
   destination: null,
   destinationOpen: false,
+  history: { all: false, turns: 20 },
 };
 
 async function open(prefs: Partial<HandoffPrefs> = {}, target: { provider: string; model: string; effort: string } | null = null) {
@@ -92,6 +98,8 @@ beforeEach(() => {
   mockExport.mockClear();
   mockStart.mockClear();
   mockSave.mockClear();
+  mockCount.mockClear();
+  mockCount.mockImplementation(async () => counted);
 });
 
 test('two cards, this project here, Include closed and off, and the button names the agent', async () => {
@@ -102,8 +110,9 @@ test('two cards, this project here, Include closed and off, and the button names
   expect(screen.queryByText('Export to Markdown')).toBeNull();
   expect(screen.getByText('This project, same computer')).toBeTruthy();
   expect(screen.queryByText('Computer')).toBeNull();
-  expect(screen.getByText('Messages only')).toBeTruthy();
+  expect(screen.getByText('Last 20 turns · Messages only')).toBeTruthy();
   expect(screen.queryByText('Commands & output')).toBeNull();
+  expect(screen.queryByText('Whole conversation')).toBeNull();
   expect(screen.getByText('Handoff to Codex')).toBeTruthy();
 });
 
@@ -190,4 +199,58 @@ test("the model picker's handoff opens here and is not remembered", async () => 
   await fireEvent.press(screen.getByText('Handoff to Codex'));
   await waitFor(() => expect(mockStart).toHaveBeenCalled());
   expect(mockSave).not.toHaveBeenCalled();
+});
+
+test('History starts on the last 20 turns, says what they hold, and the handoff keeps them', async () => {
+  await open({ includeOpen: true });
+  expect(screen.getByText('Last 20 turns · Messages only')).toBeTruthy();
+  expect(screen.getByLabelText('Whole conversation').props.value).toBe(false);
+  expect(screen.getByText('Last 20 turns')).toBeTruthy();
+  expect(screen.getByText('20 of 120 turns · about 18k tokens (the whole is 108k)')).toBeTruthy();
+  expect(mockCount.mock.calls[0]?.[3]).toEqual({ commands: false, patches: false, reasoning: false });
+  await fireEvent.press(screen.getByText('Handoff to Codex'));
+  await waitFor(() => expect(mockStart).toHaveBeenCalled());
+  expect(mockExport.mock.calls[0]?.[4]).toBe(20);
+});
+
+test('the slider moves between its stops and is remembered', async () => {
+  await open({ includeOpen: true });
+  const slider = screen.getByLabelText('History');
+  await fireEvent(slider, 'accessibilityAction', { nativeEvent: { actionName: 'increment' } });
+  expect(mockSave.mock.calls.at(-1)?.[0]).toMatchObject({ history: { all: false, turns: 50 } });
+  expect(screen.getByText('Last 50 turns · Messages only')).toBeTruthy();
+  expect(screen.getByText('50 of 120 turns · about 45k tokens (the whole is 108k)')).toBeTruthy();
+  await fireEvent(slider, 'accessibilityAction', { nativeEvent: { actionName: 'decrement' } });
+  await fireEvent(slider, 'accessibilityAction', { nativeEvent: { actionName: 'decrement' } });
+  expect(mockSave.mock.calls.at(-1)?.[0]).toMatchObject({ history: { all: false, turns: 10 } });
+});
+
+test('Whole conversation hides the slider and exports all of it', async () => {
+  await open({ includeOpen: true });
+  await fireEvent(screen.getByLabelText('Whole conversation'), 'valueChange', true);
+  expect(screen.queryByLabelText('History')).toBeNull();
+  expect(screen.getByText('Whole conversation · Messages only')).toBeTruthy();
+  expect(screen.getByText('All 120 turns · about 108k tokens')).toBeTruthy();
+  expect(mockSave.mock.calls.at(-1)?.[0]).toMatchObject({ history: { all: true, turns: 20 } });
+  await fireEvent.press(screen.getByText('Handoff to Codex'));
+  await waitFor(() => expect(mockStart).toHaveBeenCalled());
+  expect(mockExport.mock.calls[0]?.[4]).toBeNull();
+});
+
+test('a computer that cannot count shows no History and asks for no cut', async () => {
+  mockCount.mockImplementation(async () => null);
+  await open({ includeOpen: true });
+  expect(screen.getByText('Messages only')).toBeTruthy();
+  expect(screen.queryByText('Whole conversation')).toBeNull();
+  expect(screen.queryByLabelText('History')).toBeNull();
+  await fireEvent.press(screen.getByText('Handoff to Codex'));
+  await waitFor(() => expect(mockStart).toHaveBeenCalled());
+  expect(mockExport.mock.calls[0]?.[4]).toBeNull();
+});
+
+test('a changed Include is counted again', async () => {
+  await open({ includeOpen: true });
+  await fireEvent(screen.getByLabelText('Reasoning'), 'valueChange', true);
+  await waitFor(() => expect(mockCount).toHaveBeenCalledTimes(2));
+  expect(mockCount.mock.calls[1]?.[3]).toEqual({ commands: false, patches: false, reasoning: true });
 });

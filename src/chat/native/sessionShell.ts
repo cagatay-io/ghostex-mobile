@@ -11,6 +11,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 import { createdSessionId, runGhostexCli } from '../../components/sessions/cli';
 import { sanitizeAttachmentFilename } from '../../components/terminal/uploads';
 import {
+  countSessionTranscriptTurnsCommand,
   createAgentCommand,
   exportSessionTranscriptCommand,
   runInTerminalCommand,
@@ -133,17 +134,50 @@ export function modelPickerProvider(icon: string | undefined): string | null {
   }
 }
 
-/** Writes the session's transcript to a Markdown file on the machine and returns its path. */
+/**
+ * Writes the session's transcript to a Markdown file on the machine and returns its path. `lastTurns`
+ * keeps only the last turns (History); null is the whole conversation.
+ */
 export async function exportTranscript(
   machine: MachineConnectionTarget,
   sessionId: string,
   projectId: string,
   include: HandoffInclude,
+  lastTurns: number | null = null,
 ): Promise<string> {
-  const result = await runGhostexCli(machine, exportSessionTranscriptCommand(sessionId, projectId, include));
+  const result = await runGhostexCli(machine, exportSessionTranscriptCommand(sessionId, projectId, include, lastTurns));
   const path = typeof result.json?.path === 'string' ? result.json.path.trim() : '';
   if (path.length === 0) throw new Error('gxserver did not return the exported file.');
   return path;
+}
+
+/** The computer's count for History's hint: the turns, the whole file's size, and each last N's. */
+export type TranscriptTurnCount = { turns: number; bytes: number; lastTurnsBytes: number[] };
+
+/**
+ * Counts the conversation under `include` without writing a file, or null when the computer can't:
+ * a Ghostex from before History has no `count-transcript-turns`, and its export would ignore
+ * `--last-turns`, so the sheet hides History there.
+ */
+export async function countTranscriptTurns(
+  machine: MachineConnectionTarget,
+  sessionId: string,
+  projectId: string,
+  include: HandoffInclude,
+): Promise<TranscriptTurnCount | null> {
+  try {
+    const result = await runGhostexCli(machine, countSessionTranscriptTurnsCommand(sessionId, projectId, include));
+    const json = result.json ?? {};
+    const sizes = Array.isArray(json.lastTurnsBytes) ? json.lastTurnsBytes : null;
+    if (typeof json.turns !== 'number' || typeof json.bytes !== 'number' || sizes === null) return null;
+    return {
+      turns: json.turns,
+      bytes: json.bytes,
+      lastTurnsBytes: sizes.filter((size): size is number => typeof size === 'number'),
+    };
+  } catch {
+    return null;
+  }
 }
 
 /** The project's name, as a handoff's lead-in says it. */

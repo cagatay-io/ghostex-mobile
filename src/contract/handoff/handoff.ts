@@ -279,6 +279,73 @@ export type HandoffInclude = { commands: boolean; patches: boolean; reasoning: b
 
 export type HandoffDestination = { machineId: string; projectId: string };
 
+/**
+ * How much of the conversation the file holds: the "Whole conversation" switch, and while it is off
+ * the slider's last 1 to 100 turns (handoff_prefs.rs, CDXC:TranscriptExport 2026-11-03).
+ */
+export type HandoffHistory = { all: boolean; turns: number };
+
+/** The slider's stops. */
+export const HANDOFF_HISTORY_STOPS: readonly number[] = [1, 2, 3, 5, 10, 20, 50, 100];
+export const HANDOFF_HISTORY_DEFAULT_TURNS = 20;
+
+/** The stop nearest `turns`, the lower one on a tie. */
+export function handoffHistoryStop(turns: number): number {
+  let nearest = HANDOFF_HISTORY_STOPS[0] ?? HANDOFF_HISTORY_DEFAULT_TURNS;
+  for (const stop of HANDOFF_HISTORY_STOPS) {
+    if (Math.abs(stop - turns) < Math.abs(nearest - turns)) nearest = stop;
+  }
+  return nearest;
+}
+
+/** The stop's index on the slider. */
+export function handoffHistoryStopIndex(turns: number): number {
+  return Math.max(0, HANDOFF_HISTORY_STOPS.indexOf(handoffHistoryStop(turns)));
+}
+
+/** The computer's `--last-turns`: null for the whole conversation. */
+export function handoffLastTurns(history: HandoffHistory): number | null {
+  return history.all ? null : history.turns;
+}
+
+/** The slider's value and the Include heading's first half: "Last 20 turns", "Last turn", "Whole conversation". */
+export function handoffHistoryLabel(history: HandoffHistory): string {
+  if (history.all) return 'Whole conversation';
+  return history.turns === 1 ? 'Last turn' : `Last ${history.turns} turns`;
+}
+
+/** The Include heading, e.g. "Last 10 turns · Messages only". */
+export function handoffIncludeSummary(history: HandoffHistory, include: string): string {
+  return `${handoffHistoryLabel(history)} · ${include}`;
+}
+
+/** About how many tokens `bytes` of the file are: "900", "9k", "1.2M". A token is about four bytes. */
+export function handoffTokensText(bytes: number): string {
+  const tokens = Math.ceil(bytes / 4);
+  if (tokens < 1_000) return String(Math.max(10, Math.ceil(tokens / 10) * 10));
+  if (tokens < 999_500) return `${Math.floor((tokens + 500) / 1_000)}k`;
+  const tenths = Math.floor((tokens + 50_000) / 100_000);
+  return tenths % 10 === 0 ? `${tenths / 10}M` : `${Math.floor(tenths / 10)}.${tenths % 10}M`;
+}
+
+/**
+ * The slider's hint from the computer's count (`ghostex count-transcript-turns`): "10 of 120 turns ·
+ * about 9k tokens (the whole is 87k)". `lastTurnsBytes[i]` is the size of the last `i + 1` turns.
+ */
+export function handoffHistoryEstimate(
+  history: HandoffHistory,
+  turns: number,
+  wholeBytes: number,
+  lastTurnsBytes: readonly number[],
+): string {
+  if (history.all || history.turns >= turns) {
+    const allOfIt = turns === 1 ? 'The one turn' : `All ${turns} turns`;
+    return `${allOfIt} · about ${handoffTokensText(wholeBytes)} tokens`;
+  }
+  const kept = lastTurnsBytes[history.turns - 1] ?? wholeBytes;
+  return `${history.turns} of ${turns} turns · about ${handoffTokensText(kept)} tokens (the whole is ${handoffTokensText(wholeBytes)})`;
+}
+
 export type HandoffPrefs = {
   card: HandoffCard;
   include: HandoffInclude;
@@ -288,6 +355,7 @@ export type HandoffPrefs = {
   destination: HandoffDestination | null;
   /** The destination's choices open with nothing remembered to show. */
   destinationOpen: boolean;
+  history: HandoffHistory;
 };
 
 const PREFS_VERSION = 2;
@@ -313,6 +381,7 @@ export function parseHandoffPrefs(value: unknown): HandoffPrefs {
     agentId: null,
     destination: null,
     destinationOpen: false,
+    history: { all: false, turns: HANDOFF_HISTORY_DEFAULT_TURNS },
   };
   if (saved.version !== PREFS_VERSION) return { ...base, destinationOpen: mode === 'handoffRemote' };
   const machineId = savedText(saved.destination, 'machineId');
@@ -328,6 +397,14 @@ export function parseHandoffPrefs(value: unknown): HandoffPrefs {
     agentId: savedText(saved, 'agentId'),
     destination: machineId !== null && projectId !== null ? { machineId, projectId } : null,
     destinationOpen: saved.destinationOpen === true,
+    // Saved before the slider: its default.
+    history: {
+      all: saved.historyAll === true,
+      turns:
+        typeof saved.historyTurns === 'number' && Number.isFinite(saved.historyTurns) && saved.historyTurns >= 0
+          ? handoffHistoryStop(Math.floor(saved.historyTurns))
+          : HANDOFF_HISTORY_DEFAULT_TURNS,
+    },
   };
 }
 
@@ -341,6 +418,8 @@ export function handoffPrefsJson(prefs: HandoffPrefs): Record<string, unknown> {
     includeReasoning: prefs.include.reasoning,
     includeOpen: prefs.includeOpen,
     destinationOpen: prefs.destinationOpen,
+    historyAll: prefs.history.all,
+    historyTurns: prefs.history.turns,
     ...(prefs.agentId !== null ? { agentId: prefs.agentId } : {}),
     ...(prefs.destination !== null ? { destination: prefs.destination } : {}),
   };

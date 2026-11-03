@@ -102,6 +102,7 @@ import type { RootStackParamList } from '../../navigation/types';
 import { GhostexPalette, SidebarPalette } from '../../theme/palette';
 import { useUpdateNotice } from '../../updates/updateNotice';
 import { loadHandoffPrefs } from '../../chat/native/composer/handoffPrefsStore';
+import { handoffLastTurns } from '../../contract/handoff/handoff';
 import { stagedHandoffDraft } from '../../chat/native/sessionShell';
 import type { ExportedTranscript } from '../terminal-screen/session-lookups';
 import {
@@ -348,8 +349,11 @@ export function useSessionsScreenMenus({
     setOverlay(NONE);
     setProgress('Exporting transcript…');
     try {
-      const { include } = await loadHandoffPrefs();
-      const result = await runGhostexCli(machine, exportSessionTranscriptCommand(session.sessionId, session.projectId, include));
+      const { include, history } = await loadHandoffPrefs();
+      const result = await runGhostexCli(
+        machine,
+        exportSessionTranscriptCommand(session.sessionId, session.projectId, include, handoffLastTurns(history)),
+      );
       const path = typeof result.json?.path === 'string' ? result.json.path.trim() : '';
       if (path.length === 0) {
         throw new Error('gxserver exported the transcript without reporting its path.');

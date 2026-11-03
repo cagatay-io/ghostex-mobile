@@ -454,6 +454,8 @@
     {
       "expected": {
         "destinationOpen": false,
+        "historyAll": false,
+        "historyTurns": 20,
         "includeCommands": false,
         "includeOpen": false,
         "includePatches": false,
@@ -468,6 +470,8 @@
     {
       "expected": {
         "destinationOpen": false,
+        "historyAll": false,
+        "historyTurns": 20,
         "includeCommands": false,
         "includeOpen": false,
         "includePatches": false,
@@ -487,6 +491,8 @@
     {
       "expected": {
         "destinationOpen": false,
+        "historyAll": false,
+        "historyTurns": 20,
         "includeCommands": false,
         "includeOpen": false,
         "includePatches": false,
@@ -504,6 +510,8 @@
     {
       "expected": {
         "destinationOpen": true,
+        "historyAll": false,
+        "historyTurns": 20,
         "includeCommands": false,
         "includeOpen": false,
         "includePatches": false,
@@ -527,6 +535,8 @@
           "projectId": "acme"
         },
         "destinationOpen": false,
+        "historyAll": false,
+        "historyTurns": 20,
         "includeCommands": true,
         "includeOpen": true,
         "includePatches": false,
@@ -554,6 +564,8 @@
     {
       "expected": {
         "destinationOpen": false,
+        "historyAll": false,
+        "historyTurns": 20,
         "includeCommands": false,
         "includeOpen": false,
         "includePatches": false,
@@ -574,6 +586,8 @@
     {
       "expected": {
         "destinationOpen": false,
+        "historyAll": false,
+        "historyTurns": 20,
         "includeCommands": false,
         "includeOpen": false,
         "includePatches": false,
@@ -593,6 +607,8 @@
     {
       "expected": {
         "destinationOpen": false,
+        "historyAll": false,
+        "historyTurns": 20,
         "includeCommands": false,
         "includeOpen": false,
         "includePatches": false,
@@ -686,6 +702,195 @@
         "projectId": "scratch"
       },
       "remembered": null
+    },
+    {
+      "bytes": 86400,
+      "expected": {
+        "estimate": "20 of 24 turns · about 18k tokens (the whole is 22k)",
+        "lastTurns": 20,
+        "stopIndex": 5,
+        "summary": "Last 20 turns · Messages only"
+      },
+      "include": "Messages only",
+      "kind": "history",
+      "lastTurnsBytes": [
+        3600,
+        7200,
+        10800,
+        14400,
+        18000,
+        21600,
+        25200,
+        28800,
+        32400,
+        36000,
+        39600,
+        43200,
+        46800,
+        50400,
+        54000,
+        57600,
+        61200,
+        64800,
+        68400,
+        72000,
+        75600,
+        79200,
+        82800,
+        86400
+      ],
+      "name": "nothing saved is the last 20 turns",
+      "saved": null,
+      "turns": 24
+    },
+    {
+      "bytes": 86400,
+      "expected": {
+        "estimate": "10 of 24 turns · about 9k tokens (the whole is 22k)",
+        "lastTurns": 10,
+        "stopIndex": 4,
+        "summary": "Last 10 turns · Messages only"
+      },
+      "include": "Messages only",
+      "kind": "history",
+      "lastTurnsBytes": [
+        3600,
+        7200,
+        10800,
+        14400,
+        18000,
+        21600,
+        25200,
+        28800,
+        32400,
+        36000,
+        39600,
+        43200,
+        46800,
+        50400,
+        54000,
+        57600,
+        61200,
+        64800,
+        68400,
+        72000,
+        75600,
+        79200,
+        82800,
+        86400
+      ],
+      "name": "the last 10 of 24 turns",
+      "saved": {
+        "historyTurns": 10,
+        "version": 2
+      },
+      "turns": 24
+    },
+    {
+      "bytes": 9000,
+      "expected": {
+        "estimate": "1 of 3 turns · about 250 tokens (the whole is 2k)",
+        "lastTurns": 1,
+        "stopIndex": 0,
+        "summary": "Last turn · Commands & output"
+      },
+      "include": "Commands & output",
+      "kind": "history",
+      "lastTurnsBytes": [
+        1000,
+        5000,
+        9000
+      ],
+      "name": "the last turn",
+      "saved": {
+        "historyTurns": 1,
+        "version": 2
+      },
+      "turns": 3
+    },
+    {
+      "bytes": 21600,
+      "expected": {
+        "estimate": "All 6 turns · about 5k tokens",
+        "lastTurns": 50,
+        "stopIndex": 6,
+        "summary": "Last 50 turns · Messages only"
+      },
+      "include": "Messages only",
+      "kind": "history",
+      "lastTurnsBytes": [
+        3600,
+        7200,
+        10800,
+        14400,
+        18000,
+        21600
+      ],
+      "name": "more turns than the conversation has",
+      "saved": {
+        "historyTurns": 50,
+        "version": 2
+      },
+      "turns": 6
+    },
+    {
+      "bytes": 5000000,
+      "expected": {
+        "estimate": "All 120 turns · about 1.3M tokens",
+        "lastTurns": null,
+        "stopIndex": 3,
+        "summary": "Whole conversation · Reasoning"
+      },
+      "include": "Reasoning",
+      "kind": "history",
+      "lastTurnsBytes": [],
+      "name": "the whole conversation",
+      "saved": {
+        "historyAll": true,
+        "historyTurns": 5,
+        "version": 2
+      },
+      "turns": 120
+    },
+    {
+      "bytes": 40,
+      "expected": {
+        "estimate": "The one turn · about 10 tokens",
+        "lastTurns": 5,
+        "stopIndex": 3,
+        "summary": "Last 5 turns · Messages only"
+      },
+      "include": "Messages only",
+      "kind": "history",
+      "lastTurnsBytes": [
+        40
+      ],
+      "name": "a saved number between stops snaps to the nearer",
+      "saved": {
+        "historyTurns": 7,
+        "version": 2
+      },
+      "turns": 1
+    },
+    {
+      "expected": {
+        "destinationOpen": false,
+        "historyAll": true,
+        "historyTurns": 50,
+        "includeCommands": false,
+        "includeOpen": false,
+        "includePatches": false,
+        "includeReasoning": false,
+        "mode": "handoff",
+        "version": 2
+      },
+      "kind": "prefs",
+      "name": "a saved history comes back",
+      "saved": {
+        "historyAll": true,
+        "historyTurns": 50,
+        "version": 2
+      }
     }
   ]
 }

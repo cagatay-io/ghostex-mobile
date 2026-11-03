@@ -11,27 +11,46 @@
  *
  * CDXC:TranscriptExport 2026-10-31 DECISION:
  * User: the phone gets the desktop's new shape: "Handoff to an agent" and "Handoff to MD", the default destination one quiet row with Change… opening the computer and project choices, the button reading "Handoff to <agent>" here and "Handoff to <project>" (plus "on <computer>") elsewhere, Include closed with everything off, and the same memory. Desktop's "Clone it there…" is left out: Add Project is several screens on the phone and has no way back to this sheet, so the sheet says what the computer lacks and the user adds the project first.
+ *
+ * CDXC:TranscriptExport 2026-11-03 DECISION:
+ * User (Q1150 to Q1159): Include also holds History, as on desktop: a "Whole conversation" switch and, while it is off, a full-width slider row (label and value on one line, the slider under it) over the last 1 to 100 turns, starting on 20 and remembered. Under it the computer's count: "10 of 120 turns · about 9k tokens (the whole is 87k)". The count is `ghostex count-transcript-turns`; a computer from before History has no such verb and its export would ignore `--last-turns`, so History stays hidden there and the export asks for no cut.
  */
 
 import * as Clipboard from 'expo-clipboard';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Switch, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Switch,
+  Text,
+  View,
+  type GestureResponderEvent,
+  type LayoutChangeEvent,
+} from 'react-native';
 
 import { AGENT_ICONS } from '../../../assets/agentIcons.generated';
 import type { GhostexAgentLauncher } from '../../../contract/mobileSummary';
 import { resolveAgentArtId } from '../../../contract/mobileSummary';
 import {
+  HANDOFF_HISTORY_STOPS,
   branchDifferenceLine,
   handoffBranchNoticeApplies,
   handoffComputer,
   handoffDestinationLabel,
   handoffDestinationSummary,
+  handoffHistoryEstimate,
+  handoffHistoryLabel,
+  handoffHistoryStopIndex,
+  handoffIncludeSummary,
   handoffIsElsewhere,
+  handoffLastTurns,
   handoffProject,
   handoffProjectLabel,
   openingHandoffDestination,
   parseHandoffPrefs,
   type HandoffComputer,
+  type HandoffHistory,
   type HandoffInclude,
   type HandoffPrefs,
 } from '../../../contract/handoff/handoff';
@@ -39,6 +58,7 @@ import { useInventoryStore } from '../../../inventory/store';
 import type { MachineConnectionTarget } from '../../../machines/credentials';
 import { machineTargetFor } from '../../../screens/terminal-screen/session-lookups';
 import {
+  countTranscriptTurns,
   exportTranscript,
   machineAgents,
   modelPickerProvider,
@@ -46,6 +66,7 @@ import {
   sessionRecord,
   sessionTitle,
   startHandoffConversation,
+  type TranscriptTurnCount,
 } from '../sessionShell';
 import { handoffComputersFor } from './handoffComputers';
 import { loadHandoffPrefs, saveHandoffPrefs } from './handoffPrefsStore';
@@ -84,6 +105,9 @@ const INCLUDE_ROWS: readonly { key: keyof HandoffInclude; label: string; descrip
   { key: 'patches', label: 'File changes', description: 'The patches the agent applied to files.' },
   { key: 'reasoning', label: 'Reasoning', description: "The agent's own reasoning sections." },
 ];
+const HISTORY = 'History';
+const WHOLE_CONVERSATION = 'Whole conversation';
+const WHOLE_CONVERSATION_DESCRIPTION = 'Off, the file keeps the last turns and lists what you asked before them.';
 const SAVED_AS_MARKDOWN = 'Saved as Markdown';
 const EXPORT_FAILED = 'The transcript export failed.';
 
@@ -132,6 +156,10 @@ export function HandoffSheet({
   const [destinationOpen, setDestinationOpen] = useState(false);
   const [include, setInclude] = useState<HandoffInclude>({ commands: false, patches: false, reasoning: false });
   const [includeOpen, setIncludeOpen] = useState(false);
+  const [history, setHistory] = useState<HandoffHistory>(parseHandoffPrefs(null).history);
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
+  /** The computer's last count and the Include it counted; null for a computer that can't count. */
+  const [turnCount, setTurnCount] = useState<{ key: string; count: TranscriptTurnCount | null } | null>(null);
   const [branchNotice, setBranchNotice] = useState<{ key: string; line: string } | null>(null);
   /** The saved choices: changing a card or a switch keeps the agent and destination in here. */
   const saved = useRef<HandoffPrefs>(parseHandoffPrefs(null));
@@ -158,6 +186,8 @@ export function HandoffSheet({
     setSelectedProjectId(null);
     setDestinationOpen(false);
     setBranchNotice(null);
+    setPrefsLoaded(false);
+    setTurnCount(null);
     setSelected(
       target === null
         ? null
@@ -169,6 +199,8 @@ export function HandoffSheet({
       saved.current = prefs;
       setInclude(prefs.include);
       setIncludeOpen(prefs.includeOpen);
+      setHistory(prefs.history);
+      setPrefsLoaded(true);
       if (target !== null) return;
       setMode(prefs.card === 'markdown' ? 'export' : 'handoff');
       setSelected(prefs.agentId);
@@ -208,7 +240,32 @@ export function HandoffSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noticeKey]);
 
+  // History's count, once per Include; the export it estimates writes nothing.
+  const includeKey = `${include.commands} ${include.patches} ${include.reasoning}`;
+  useEffect(() => {
+    if (request === null || !prefsLoaded) return undefined;
+    let current = true;
+    void countTranscriptTurns(machine, sessionId, projectId, include).then((count) => {
+      if (current) setTurnCount({ key: includeKey, count });
+    });
+    return () => {
+      current = false;
+    };
+    // `includeKey` names the Include this counts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [request, prefsLoaded, includeKey]);
+
   if (request === null) return null;
+  // Shown once the computer has counted, so a computer that would ignore `--last-turns` never shows it.
+  const historySupported = turnCount !== null && turnCount.count !== null;
+  const historyEstimate =
+    turnCount !== null && turnCount.key === includeKey && turnCount.count !== null
+      ? handoffHistoryEstimate(history, turnCount.count.turns, turnCount.count.bytes, turnCount.count.lastTurnsBytes)
+      : null;
+  const includeText =
+    INCLUDE_ROWS.filter((row) => include[row.key])
+      .map((row) => row.label)
+      .join(', ') || INCLUDE_NOTHING;
   const effectiveMode: Mode = agents.length === 0 ? 'export' : mode;
   // The agents of the computer the session starts on: another computer has its own.
   const offeredAgents = elsewhere && computer !== null && !computer.isSource ? machineAgents(computer.machineId) : agents;
@@ -263,7 +320,8 @@ export function HandoffSheet({
         destinationOpen: elsewhere,
       });
     }
-    void exportTranscript(machine, sessionId, projectId, include).then(
+    const lastTurns = historySupported ? handoffLastTurns(history) : null;
+    void exportTranscript(machine, sessionId, projectId, include, lastTurns).then(
       (path) => {
         if (handoffAgent === null) {
           setStage({ kind: 'done', path });
@@ -468,11 +526,41 @@ export function HandoffSheet({
             <Glyph name={includeOpen ? 'chevron-down' : 'chevron-right'} size={16} color={P.muted} />
             <Text style={styles.section}>{INCLUDE}</Text>
             <Text style={styles.includeSummary} numberOfLines={1}>
-              {INCLUDE_ROWS.filter((row) => include[row.key])
-                .map((row) => row.label)
-                .join(', ') || INCLUDE_NOTHING}
+              {historySupported ? handoffIncludeSummary(history, includeText) : includeText}
             </Text>
           </Pressable>
+        ) : null}
+        {!showResult && includeOpen && historySupported ? (
+          <View style={styles.agentList}>
+            <View style={styles.includeRow}>
+              <View style={styles.includeText}>
+                <Text style={styles.agentOptionText}>{WHOLE_CONVERSATION}</Text>
+                <Text style={styles.cardDescription}>{WHOLE_CONVERSATION_DESCRIPTION}</Text>
+              </View>
+              <Switch
+                accessibilityLabel={WHOLE_CONVERSATION}
+                value={history.all}
+                disabled={disabled}
+                onValueChange={(all) => {
+                  const next = { ...history, all };
+                  setHistory(next);
+                  persist({ history: next });
+                }}
+              />
+            </View>
+            {!history.all ? (
+              <HistorySlider
+                history={history}
+                disabled={disabled}
+                onChange={(turns) => {
+                  const next = { ...history, turns };
+                  setHistory(next);
+                  persist({ history: next });
+                }}
+              />
+            ) : null}
+            {historyEstimate !== null ? <Text style={styles.historyHint}>{historyEstimate}</Text> : null}
+          </View>
         ) : null}
         {!showResult && includeOpen ? (
           <View style={styles.agentList}>
@@ -605,6 +693,72 @@ function SelectRow({
   );
 }
 
+/**
+ * History's slider row: the label and its value on one line, the slider under it, snapping to
+ * `HANDOFF_HISTORY_STOPS`. The touch handling is `SteppedSlider`'s (components/common), over the
+ * stops rather than a linear range and in this sheet's colors.
+ */
+function HistorySlider({
+  history,
+  disabled,
+  onChange,
+}: {
+  history: HandoffHistory;
+  disabled: boolean;
+  onChange: (turns: number) => void;
+}) {
+  const styles = useStyles();
+  const [trackWidth, setTrackWidth] = useState(0);
+  const last = HANDOFF_HISTORY_STOPS.length - 1;
+  const index = handoffHistoryStopIndex(history.turns);
+  const progress = index / last;
+  const label = handoffHistoryLabel(history);
+  const moveTo = (next: number): void => {
+    const turns = HANDOFF_HISTORY_STOPS[Math.min(last, Math.max(0, next))];
+    if (turns !== undefined && turns !== history.turns) onChange(turns);
+  };
+  const handleTouch = (event: GestureResponderEvent): void => {
+    if (disabled || trackWidth <= 0) return;
+    moveTo(Math.round(Math.min(1, Math.max(0, event.nativeEvent.locationX / trackWidth)) * last));
+  };
+  return (
+    <View style={[styles.historyRow, disabled ? styles.dim : null]}>
+      <View style={styles.historyHeader}>
+        <Text style={styles.agentOptionText}>{HISTORY}</Text>
+        <Text style={styles.historyValue}>{label}</Text>
+      </View>
+      <View
+        accessible
+        accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+        accessibilityLabel={HISTORY}
+        accessibilityRole="adjustable"
+        accessibilityState={{ disabled }}
+        accessibilityValue={{ min: 0, max: last, now: index, text: label }}
+        onAccessibilityAction={(event) => {
+          if (disabled) return;
+          if (event.nativeEvent.actionName === 'increment') moveTo(index + 1);
+          if (event.nativeEvent.actionName === 'decrement') moveTo(index - 1);
+        }}
+        onLayout={(event: LayoutChangeEvent) => setTrackWidth(event.nativeEvent.layout.width)}
+        onStartShouldSetResponder={() => !disabled}
+        onMoveShouldSetResponder={() => !disabled}
+        onResponderGrant={handleTouch}
+        onResponderMove={handleTouch}
+        style={styles.historyTouch}
+      >
+        <View style={styles.historyTrack}>
+          <View style={[styles.historyFill, { width: `${progress * 100}%` }]} />
+        </View>
+        <View style={[styles.historyThumb, { left: `${progress * 100}%` }]} />
+      </View>
+      <View style={styles.historyRange}>
+        <Text style={styles.historyRangeText}>{HANDOFF_HISTORY_STOPS[0]}</Text>
+        <Text style={styles.historyRangeText}>{HANDOFF_HISTORY_STOPS[last]}</Text>
+      </View>
+    </View>
+  );
+}
+
 function OptionRow({
   label,
   leading,
@@ -677,6 +831,25 @@ const useStyles = themedStyles((P) => ({
   includeSummary: { flex: 1, minWidth: 0, color: P.muted, fontSize: 13, textAlign: 'right' },
   includeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 8 },
   includeText: { flex: 1, minWidth: 0, gap: 2 },
+  historyRow: { paddingHorizontal: 12, paddingTop: 6, borderTopWidth: 1, borderTopColor: P.menuBorder },
+  historyHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  historyValue: { color: P.muted, fontSize: 14, fontVariant: ['tabular-nums'] },
+  historyTouch: { height: 36, marginHorizontal: 10, justifyContent: 'center' },
+  historyTrack: { height: 4, borderRadius: 2, backgroundColor: P.ring, overflow: 'hidden' },
+  historyFill: { height: '100%', borderRadius: 2, backgroundColor: P.foreground },
+  historyThumb: {
+    position: 'absolute',
+    width: 20,
+    height: 20,
+    marginLeft: -10,
+    borderRadius: 10,
+    backgroundColor: P.send.ink,
+    borderWidth: 2,
+    borderColor: P.foreground,
+  },
+  historyRange: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4 },
+  historyRangeText: { color: P.muted, fontSize: 10, fontVariant: ['tabular-nums'] },
+  historyHint: { color: P.muted, fontSize: 12.5, lineHeight: 17, paddingHorizontal: 12, paddingTop: 4, paddingBottom: 8 },
   select: {
     flex: 1,
     minWidth: 0,

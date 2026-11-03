@@ -19,7 +19,11 @@ import {
   handoffDestinationLabel,
   handoffDestinationSummary,
   handoffDraft,
+  handoffHistoryEstimate,
+  handoffHistoryStopIndex,
+  handoffIncludeSummary,
   handoffIsElsewhere,
+  handoffLastTurns,
   handoffLeadIn,
   handoffPrefsJson,
   handoffProject,
@@ -66,6 +70,15 @@ function answer(item: Case): unknown {
       return { label: handoffDestinationLabel(item.projectTitle, item.computerLabel, item.isSource) };
     case 'prefs':
       return handoffPrefsJson(parseHandoffPrefs(item.saved));
+    case 'history': {
+      const history = parseHandoffPrefs(item.saved).history;
+      return {
+        lastTurns: handoffLastTurns(history),
+        stopIndex: handoffHistoryStopIndex(history.turns),
+        summary: handoffIncludeSummary(history, item.include),
+        estimate: handoffHistoryEstimate(history, item.turns, item.bytes, item.lastTurnsBytes),
+      };
+    }
     case 'destination': {
       const offered = item.offered as { machineId: string; projectId: string }[];
       return {
@@ -205,7 +218,18 @@ describe('what the sheet remembers', () => {
       agentId: 'codex',
       destination: { machineId: 'studio', projectId: 'acme' },
       destinationOpen: true,
+      history: { all: true, turns: 5 },
     };
     assert.deepEqual(parseHandoffPrefs(handoffPrefsJson(prefs)), prefs);
+  });
+
+  test('history starts on the last 20 turns and a saved number snaps to a stop', () => {
+    assert.deepEqual(parseHandoffPrefs(null).history, { all: false, turns: 20 });
+    const saved = (historyTurns: unknown) => parseHandoffPrefs({ version: 2, historyTurns }).history.turns;
+    assert.equal(saved(50), 50);
+    assert.equal(saved(7), 5);
+    assert.equal(saved(4), 3);
+    assert.equal(saved(4000), 100);
+    assert.equal(saved('ten'), 20);
   });
 });
