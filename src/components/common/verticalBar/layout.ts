@@ -322,7 +322,7 @@ export function menuRoomBeside(
 /** The fold's band while the iPhone Duo is half folded like a laptop: its top and bottom edge in window points. */
 export type LaptopFold = { readonly top: number; readonly bottom: number };
 
-/** Space a control keeps from the knick in the laptop pose, as in the approved mockup (`laptop-mode.js` CLEAR). */
+/** Space a control keeps from the knick in the laptop pose, as in the design. */
 export const LAPTOP_CLEAR = 12;
 
 /**
@@ -345,7 +345,7 @@ export function laptopFoldOf(divisions: readonly FoldDivision[] | undefined): La
 export function laptopCoverTop(keyboardTop: number | null, fold: LaptopFold | null): number | null {
   return keyboardTop === null || fold === null ? keyboardTop : Math.min(keyboardTop, fold.top);
 }
-/** Space kept between a sheet or a card and the fold's band (the mockup kit's 8 pt). */
+/** Space kept between a sheet or a card and the fold's band (8 pt in the design). */
 export const FOLD_CLEARANCE = 8;
 /** The centred cards' own margin from the window's edges (the dialogs' backdrop padding). */
 const CARD_MARGIN = 24;

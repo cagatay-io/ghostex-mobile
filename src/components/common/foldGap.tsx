@@ -1,5 +1,5 @@
 /**
- * The list fold gap (the approved mockups: "half folded, nothing on the fold in lists"; the laptop pose only): a
+ * The list fold gap (the designs: "half folded, nothing on the fold in lists"; the laptop pose only): a
  * scroll list gives its units a provider (`useFoldGapList(useLaptopFold())` + `FoldGapProvider`), its units render as
  * `FoldGapView`s (rows, headings, groups that hold rows), and while the iPhone Duo is half folded like a laptop the
  * first unit that would cross the fold at rest gets a top margin that starts it below the band (`foldGapLayout.ts`).

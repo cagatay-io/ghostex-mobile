@@ -1,6 +1,6 @@
 /**
  * The iOS terminal in the iPhone Duo's laptop pose: half folded, the session output stays above the fold and the
- * keyboard lies below it; nothing lies on the knick (the approved laptop-mode mockup).
+ * keyboard lies below it; nothing lies on the knick (the laptop-mode design).
  * - Keyboard up or not: the terminal's visible part ends at the fold's top. The view keeps its size and slides as
  *   with every keyboard, by the part below the fold; what it still has below the fold (the cursor row won and it slid
  *   less) is covered in the terminal's background. The text editor stands above the fold, at the bottom of the upper

@@ -1,6 +1,6 @@
 /// <reference types="jest" />
 /**
- * Run with `bun run test:jest`. The list fold gap (the approved mockups: "half folded, nothing on the fold in lists";
+ * Run with `bun run test:jest`. The list fold gap (the designs: "half folded, nothing on the fold in lists";
  * the laptop pose only) measured in real lists under the real `VerticalBarArea`: a Settings page
  * (`SettingsPageScrollView` with its shared row controls), the Sessions list's blocks (`DrawerBlockView` project
  * cards in a list wired like `SessionsScreen`'s: provider, `onScroll`, `scrollEventThrottle`), the Unified sessions
