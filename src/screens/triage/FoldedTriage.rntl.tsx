@@ -166,7 +166,10 @@ const QUESTION: Partial<ChatDocument> = {
   questionCard: { ...card, controls: { hasAnswer: false, disabled: true, label: 'Submit' } },
 };
 
-/** Two sessions wait (one for approval, one with a question), one finished turn waits, four others work or idle. */
+/**
+ * Three sessions wait (one for approval, one with a question, one for input without a question), one turn finished
+ * (in the list only), four others work or idle.
+ */
 function summary() {
   return parseMobileSummary(
     JSON.stringify({
@@ -187,8 +190,15 @@ function summary() {
           attention: { enteredAt: minutesAgo(3), kind: 'needsInput' },
         }),
         wireSession('e', 'Epsilon'),
-        wireSession('f', 'Zeta', { activity: 'attention', attention: { enteredAt: minutesAgo(1), kind: 'finished' } }),
+        wireSession('f', 'Zeta', {
+          activity: 'attention',
+          attention: { enteredAt: minutesAgo(1), kind: 'needsInput' },
+        }),
         wireSession('g', 'Eta', { activity: 'idle' }),
+        wireSession('h', 'Lambda', {
+          activity: 'attention',
+          attention: { enteredAt: minutesAgo(2), kind: 'finished' },
+        }),
       ],
     }),
   )!;
@@ -298,13 +308,13 @@ const ZETA_ENTERED = minutesAgo(1);
  * The summary with Zeta in one attention of `kind`: the computer keeps the attention's id when a wait for the user
  * turns into a finished turn (a question answered on the Mac, the turn done), so only the kind says what it shows now.
  */
-function zetaIn(kind: 'needsInput' | 'finished'): GhostexMobileSummary {
+function zetaIn(kind: 'needsInput' | 'finished', eventId = 'attention-f'): GhostexMobileSummary {
   const base = summary();
   return {
     ...base,
     sessions: base.sessions.map((session) =>
       session.sessionId === 'f'
-        ? { ...session, attentionEventId: 'attention-f', attentionEnteredAt: ZETA_ENTERED, attentionKind: kind }
+        ? { ...session, attentionEventId: eventId, attentionEnteredAt: ZETA_ENTERED, attentionKind: kind }
         : session,
     ),
   };
@@ -326,8 +336,10 @@ describe('folded: waiting sessions above the full list', () => {
     await renderScreen(FOLDED);
     expect(screen.getByText('Waiting for you · 3')).toBeTruthy();
     expect(heads()).toEqual(['Open Beta, waiting 6m', 'Open Delta, waiting 3m', 'Open Zeta, waiting 1m']);
-    // Every session still has its list row; the waiting ones show twice.
-    for (const title of ['Alpha', 'Gamma', 'Epsilon', 'Eta']) expect(screen.getAllByText(title)).toHaveLength(1);
+    // Every session still has its list row; the waiting ones show twice, the finished turn once.
+    for (const title of ['Alpha', 'Gamma', 'Epsilon', 'Eta', 'Lambda']) {
+      expect(screen.getAllByText(title)).toHaveLength(1);
+    }
     for (const title of ['Beta', 'Delta', 'Zeta']) expect(screen.getAllByText(title)).toHaveLength(2);
     // Approval, question and short replies.
     expect(screen.getByLabelText('Allow')).toBeTruthy();
@@ -382,7 +394,7 @@ describe('folded: waiting sessions above the full list', () => {
     expect(screen.getByText('Nothing is waiting for you')).toBeTruthy();
   });
 
-  test("a session that moves on within the same attention shows its screen as it is now, not the question's", async () => {
+  test('a wait whose turn then finishes in the same attention leaves the triage and keeps its list row', async () => {
     mockTailRead.mockImplementation(() =>
       Promise.resolve({ kind: 'lines', lines: ['Which repeat rate?', '› 1. Every 50 ms  2. Every 80 ms'] }),
     );
@@ -391,25 +403,26 @@ describe('folded: waiting sessions above the full list', () => {
     expect(screen.getByLabelText('Last output: Which repeat rate?\n› 1. Every 50 ms  2. Every 80 ms')).toBeTruthy();
     const reads = mockTailRead.mock.calls.length;
 
-    mockTailRead.mockImplementation(() => Promise.resolve({ kind: 'lines', lines: ['✓ Set to 80 ms', 'Done.'] }));
     await showSummary(zetaIn('finished'));
-    expect(mockTailRead.mock.calls.length).toBe(reads + 1);
-    expect(screen.queryByLabelText('Last output: Which repeat rate?\n› 1. Every 50 ms  2. Every 80 ms')).toBeNull();
-    expect(screen.getByLabelText('Last output: ✓ Set to 80 ms\nDone.')).toBeTruthy();
+    expect(heads().map((head) => head.replace(/, waiting .*$/, ''))).toEqual(['Open Beta', 'Open Delta']);
+    expect(screen.getAllByText('Zeta')).toHaveLength(1);
+    expect(screen.queryByLabelText(/^Last output: /)).toBeNull();
+    expect(mockTailRead.mock.calls.length).toBe(reads);
   });
 
-  test("the screen read for the question's wait, answering after the finished turn's, leaves the newer lines", async () => {
-    // Ported from the independent review livefix-r1-20261103 (K-10): two reads of one session overtake each other.
-    const questionRead = Promise.withResolvers<{ kind: string; lines: string[] }>();
-    mockTailRead.mockImplementation(() => questionRead.promise);
-    await showSummary(zetaIn('needsInput'));
+  test("the screen read for an earlier wait, answering after the newer wait's, leaves the newer lines", async () => {
+    // Two reads of one session overtake each other.
+    // A finished turn leaves the triage, so the newer wait is the next wait for input.
+    const earlierRead = Promise.withResolvers<{ kind: string; lines: string[] }>();
+    mockTailRead.mockImplementation(() => earlierRead.promise);
+    await showSummary(zetaIn('needsInput', 'attention-f1'));
     await renderScreen(FOLDED);
-    mockTailRead.mockImplementation(() => Promise.resolve({ kind: 'lines', lines: ['Answer received', 'Finished'] }));
-    await showSummary(zetaIn('finished'));
-    expect(screen.getByLabelText('Last output: Answer received\nFinished')).toBeTruthy();
-    await act(() => questionRead.resolve({ kind: 'lines', lines: ['Old question', 'old options'] }));
+    mockTailRead.mockImplementation(() => Promise.resolve({ kind: 'lines', lines: ['Continue?', '(y/n)'] }));
+    await showSummary(zetaIn('needsInput', 'attention-f2'));
+    expect(screen.getByLabelText('Last output: Continue?\n(y/n)')).toBeTruthy();
+    await act(() => earlierRead.resolve({ kind: 'lines', lines: ['Old question', 'old options'] }));
     await settle();
-    expect(screen.getByLabelText('Last output: Answer received\nFinished')).toBeTruthy();
+    expect(screen.getByLabelText('Last output: Continue?\n(y/n)')).toBeTruthy();
   });
 });
 
@@ -527,7 +540,10 @@ describe('not folded', () => {
 
 describe("the Unified list (the computer's Sidebar set to Unified)", () => {
   const MINI: MachineRecord = { ...MACHINE, id: 'm2', name: 'Mini', host: 'mini.local' };
-  /** The second computer: one approval waiting longer than any on the first, one finished turn, one working. */
+  /**
+   * The second computer: one approval waiting longer than any on the first, one wait for input, one finished turn
+   * (in the list only), one working.
+   */
   const miniSummary = () =>
     parseMobileSummary(
       JSON.stringify({
@@ -542,9 +558,13 @@ describe("the Unified list (the computer's Sidebar set to Unified)", () => {
           }),
           wireSession('n', 'Iota', {
             activity: 'attention',
-            attention: { enteredAt: minutesAgo(2), kind: 'finished' },
+            attention: { enteredAt: minutesAgo(2), kind: 'needsInput' },
           }),
           wireSession('o', 'Kappa'),
+          wireSession('q', 'Mu', {
+            activity: 'attention',
+            attention: { enteredAt: minutesAgo(4), kind: 'finished' },
+          }),
         ],
       }),
     )!;
@@ -577,7 +597,7 @@ describe("the Unified list (the computer's Sidebar set to Unified)", () => {
     expect(screen.getByText('Waiting for you · 3')).toBeTruthy();
     expect(heads()).toEqual(['Open Beta, waiting 6m', 'Open Delta, waiting 3m', 'Open Zeta, waiting 1m']);
     // The Unified list below keeps its cards; the waiting ones show twice, and the section comes first.
-    for (const title of ['Gamma', 'Eta']) expect(screen.getAllByText(title)).toHaveLength(1);
+    for (const title of ['Gamma', 'Eta', 'Lambda']) expect(screen.getAllByText(title)).toHaveLength(1);
     for (const title of ['Beta', 'Delta', 'Zeta']) expect(screen.getAllByText(title)).toHaveLength(2);
     // Tree order: the section's heading before the list's cards.
     expect(screen.getAllByText(/^(Waiting for you · 3|Gamma)$/).map((text) => text.props.children)).toEqual([

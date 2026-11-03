@@ -124,6 +124,37 @@ describe('which sessions wait for the user', () => {
     expect(waitsForUser(unannounced.session, unannounced.summary.capabilities)).toBe(false);
   });
 
+  test('a finished turn does not wait; one still holding an approval or a question does', () => {
+    const capabilities = { awaitingAnswer: true, attentionNotificationId: false };
+    const finished = { activity: 'attention', attention: { enteredAt: minutesAgo(1), kind: 'finished' } };
+    expect(waitsForUser(one(finished).session, capabilities)).toBe(false);
+    expect(waitsForUser(one({ ...finished, awaitingApproval: true }).session, capabilities)).toBe(true);
+    expect(waitsForUser(one({ ...finished, awaitingAnswer: true }).session, capabilities)).toBe(true);
+    expect(waitsForUser(one({ ...finished, pendingQuestionCount: 1 }).session, capabilities)).toBe(true);
+  });
+
+  test('a wait for input without a question waits; an attention without a kind (an older computer) still counts', () => {
+    const capabilities = { awaitingAnswer: true, attentionNotificationId: false };
+    const needsInput = { activity: 'attention', attention: { enteredAt: minutesAgo(1), kind: 'needsInput' } };
+    expect(waitsForUser(one(needsInput).session, capabilities)).toBe(true);
+    const noKind = one({ activity: 'attention', attention: { enteredAt: minutesAgo(1) } });
+    expect(waitsForUser(noKind.session, capabilities)).toBe(true);
+  });
+
+  test('a finished turn stays out of the triage and keeps its place in the normal list', () => {
+    const parsed = summary([
+      {
+        sessionId: 'w',
+        title: 'W',
+        activity: 'attention',
+        attention: { enteredAt: minutesAgo(5), kind: 'needsInput' },
+      },
+      { sessionId: 'd', title: 'D', activity: 'attention', attention: { enteredAt: minutesAgo(8), kind: 'finished' } },
+    ]);
+    expect(triageSessions(parsed).map((session) => session.sessionId)).toEqual(['w']);
+    expect(parsed.sessions.map((session) => session.sessionId)).toEqual(['w', 'd']);
+  });
+
   test('two waiting sessions among five others are the triage, the one waiting longest first', () => {
     const parsed = summary([
       { sessionId: 'a', title: 'A', activity: 'working' },
@@ -169,6 +200,8 @@ describe('the Unified list: its waiting sessions, every computer it shows', () =
     { sessionId: 'b', title: 'B', activity: 'attention', attention: { enteredAt: minutesAgo(6) } },
     { sessionId: 'c', title: 'C', activity: 'idle', isParked: true },
     { sessionId: 'd', title: 'Deploy notes', awaitingAnswer: true, attention: { enteredAt: minutesAgo(3) } },
+    // A finished turn: in the Unified list, not in the triage.
+    { sessionId: 'p', title: 'P', activity: 'attention', attention: { enteredAt: minutesAgo(8), kind: 'finished' } },
   ]);
   const miniSummary = summary(
     [

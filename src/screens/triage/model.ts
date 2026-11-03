@@ -3,9 +3,12 @@
  * the sessions that wait for the user, each with the quick answer that fits it. Free of React Native, so the rules load
  * in a plain `bun test` (`src/screens/triage.test.ts`).
  *
- * - Waiting is what the list's dots say: the blue attention dot (finished or waiting), the red approval dot, and a
- *   pending question (an open question card from a computer that announces `awaitingAnswer`, or a counted question,
- *   the "has a question" rule of notifications and the Live Activity). The one waiting longest comes first.
+ * - Waiting is what the list's dots say, less the finished turns: the blue attention dot of a wait for the
+ *   user (a finished turn stays in the normal list only; an attention whose kind the computer does not send still
+ *   counts, since it cannot tell the two apart), the red approval dot, and a pending question (an open question card
+ *   from a computer that announces `awaitingAnswer`, or a counted question, the "has a question" rule of
+ *   notifications and the Live Activity). A finished turn that still holds an approval or a question waits. The one
+ *   waiting longest comes first.
  * - Which sessions: the list's own. The classic list shows one computer (its workspace and Space); the Unified list
  *   shows every computer the phone holds, narrowed by its filter and search, so there the triage spans them too, each
  *   session read by its own computer's rules and answered on it.
@@ -56,8 +59,16 @@ export function hasQuestion(session: GhostexSession, capabilities: GhostexSummar
   return (capabilities.awaitingAnswer && session.awaitingAnswer) || session.pendingQuestionCount > 0;
 }
 
+/**
+ * Waits for the user: an approval, a question, or an attention that is not a finished turn. An attention
+ * without a kind (a computer that does not send it) cannot be told from a finished turn and keeps counting.
+ */
 export function waitsForUser(session: GhostexSession, capabilities: GhostexSummaryCapabilities): boolean {
-  return session.awaitingApproval || session.activity === 'attention' || hasQuestion(session, capabilities);
+  return (
+    session.awaitingApproval ||
+    hasQuestion(session, capabilities) ||
+    (session.activity === 'attention' && session.attentionKind !== 'finished')
+  );
 }
 
 /**
@@ -174,8 +185,8 @@ export function triageEntry(
  * What the computer says about a session's wait. An entry answered from the triage stays away while this is
  * unchanged (the computer's list follows the answer only on its next read) and its chat shows no new card; a
  * short-reply card reads its screen lines once per signature. The attention's kind is part of it: the computer keeps
- * the attention's id when a wait for the user turns into a finished turn (its question answered, the turn done), and
- * only the kind then says that the session shows something else.
+ * the attention's id when a wait for the user turns into a finished turn (its question answered, the turn done); a
+ * finished turn alone leaves the triage, one that still holds an approval or a question stays as a new wait.
  */
 export function waitSignature(session: GhostexSession, capabilities: GhostexSummaryCapabilities): string {
   return [
