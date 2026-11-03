@@ -17,9 +17,10 @@
  * bottom, the terminal's `top`, the pad room's frame and each control's place in it), which give window frames only
  * under the assumption the screen itself makes: the screen's root starts at the window's top. Mocked are the
  * boundaries only: the native module, haptics, storage, the safe area, navigation focus, the chat screen, the voice
- * button and the file picker. Frames of the iPhone Duo's inner display in the laptop pose, as the simulator reports
- * them: window 669 x 951, division `[0, 455.5, 669, 40]`, safe area top 80, home indicator inset 20; the terminal area
- * from y 82 (the header stands in the status band) and the keyboard's top at 555 are assumed.
+ * button and the file picker; a native-driven animation reports its end value as on the device
+ * (`nativeAnimationsReportTheirEnd`). Frames of the iPhone Duo's inner display in the laptop pose, as the simulator
+ * reports them: window 669 x 951, division `[0, 455.5, 669, 40]`, safe area top 80, home indicator inset 20; the
+ * terminal area from y 82 (the header stands in the status band) and the keyboard's top at 555 are assumed.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -29,6 +30,7 @@ import type { TestInstance } from 'test-renderer';
 
 import type { BarLayout, FoldDivision } from '../../modules/ghostex-native/src/GhostexNative.types';
 import { keyboardFixture } from '../components/common/keyboard/keyboardEventFixtures';
+import { nativeAnimationsReportTheirEnd } from '../components/common/nativeAnimationFixture';
 import { useBarGeometryStore } from '../components/common/verticalBar/barGeometry';
 import VerticalBarArea from '../components/common/verticalBar/VerticalBarArea';
 import { TEXT_EDITOR_HEIGHT } from '../components/terminal/TerminalTextEditor';
@@ -334,6 +336,7 @@ async function dragPad(dx: number, dy: number): Promise<void> {
 
 beforeEach(async () => {
   jest.useFakeTimers();
+  nativeAnimationsReportTheirEnd();
   Object.values(mockNative).forEach((mock) => mock.mockClear());
   mockNative.focusTerminal.mockImplementation(() => Promise.resolve(true));
   mockReport = null;
