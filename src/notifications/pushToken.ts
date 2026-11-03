@@ -18,9 +18,13 @@
  * again; one that did not take a request is asked again at the next occasion, never in a loop, so a switch change
  * that does not reach a computer takes effect there at the next registration it takes. A computer whose Ghostex does
  * not know the route has no push, and one the phone reaches only on the exec route cannot be asked: neither is asked
- * again (also not for a switch change) until the app starts again or the token changes. With the master switch off
- * at launch, each enabled computer is asked once to remove the token, because an earlier launch may have registered
- * it. What the person or iOS changed during a pass wins: a token fetched before iOS issued a newer one is never kept
+ * again (also not for a switch change) until the app starts again or the token changes. Push is offered only by a
+ * computer whose `ghostex server endpoint` lists `pushNotifications`: one that does not gets no registration
+ * (`noPush`), counts as one whose pushes the app does not count on, and is looked at again at the next occasion, so
+ * it is registered once its Ghostex offers push; a removal (master switch off, removing the computer) still goes to
+ * it, because an earlier registration may still be there. With the master switch off at launch, each enabled
+ * computer is asked once to remove the token, because an earlier launch may have registered it. What the person or
+ * iOS changed during a pass wins: a token fetched before iOS issued a newer one is never kept
  * or sent, and before each request the pass checks that the master switch and the token still ask for it, once more
  * when the computer's route is known, right before the request is handed to the link (`send`, `superseded`); if
  * not, it stops and the pass that follows sends what is wanted now. A switch change during a pass gets the pass that
@@ -40,8 +44,10 @@
  * no registration until the app starts again.
  *
  * The app learns what each computer confirmed (`accepted`): it took the token (true), or it holds none (false: it
- * removed the token, or its Ghostex has no push route). Anything else confirms nothing, because a computer keeps the
- * token it holds until it takes a new registration or a removal: a refused request, an answer the phone cannot read,
+ * removed the token, or its Ghostex has no push route); a computer that does not offer push is counted as false as
+ * well, since the app counts on the pushes of a computer that offers push only. Anything else confirms nothing,
+ * because a computer keeps the token it holds until it takes a new registration or a removal: a refused request,
+ * an answer the phone cannot read,
  * a computer out of reach or on the exec route. What it took before then stays as the app knew it; the app keeps
  * that across launches (`setPushAccepted` in `eventIdentity.ts`), ids only. A computer the app never heard confirm
  * is not counted as holding the token, also when a request went out and its answer was lost.
@@ -65,9 +71,17 @@ export type PushTokenParams =
  * How a computer answered: it took the request; its Ghostex does not know the route (`unsupported`); the phone
  * reaches it only on the exec route, without its gxserver's API (`legacy`); it could not be reached; it did not
  * take the request (`refused`: it refused it, or its answer could not be read); or the request was not sent,
- * because the master switch or the token changed while it was prepared (`superseded`).
+ * because the master switch or the token changed while it was prepared (`superseded`), or because it is a
+ * registration and the computer's `ghostex server endpoint` does not list `pushNotifications` (`noPush`).
  */
-export type PushTokenSendOutcome = 'done' | 'unsupported' | 'legacy' | 'unreachable' | 'refused' | 'superseded';
+export type PushTokenSendOutcome =
+  | 'done'
+  | 'unsupported'
+  | 'legacy'
+  | 'unreachable'
+  | 'refused'
+  | 'superseded'
+  | 'noPush';
 
 export type PushTokenDeps = {
   /** iOS's notification permission now. */
@@ -218,6 +232,12 @@ export class PushTokenRegistration {
       }
       // Its removal started meanwhile: what it answered to this request goes with it.
       if (this.removed.has(machine.id)) continue;
+      if (outcome === 'noPush') {
+        // Nothing was sent. Not kept as without push: a removal still goes to it, and the next occasion looks again.
+        this.deps.accepted(machine.id, false);
+        this.deps.log(`${machine.label}: this computer does not offer push; no push token registered`);
+        continue;
+      }
       if (params.action === 'register' && params.deviceId === undefined && (machine.deviceId ?? '').length > 0) {
         // The id itself stays out of the log: it is pairing metadata, not something the log needs.
         this.deps.log(

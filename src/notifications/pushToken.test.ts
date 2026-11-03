@@ -522,6 +522,37 @@ describe('a computer whose Ghostex does not know the route', () => {
   });
 });
 
+// `sendPushToken` answers `noPush` for a registration to a computer whose `ghostex server endpoint` does not list
+// `pushNotifications`, without sending it; the fake link here stands for that answer.
+describe('a computer that does not offer push', () => {
+  test('holds none and is looked at again at each occasion; the master switch off still asks it to remove the token', async () => {
+    const app = harness({ answers: { m2: 'noPush' } });
+    await app.registration.sync();
+    await app.registration.sync();
+    assert.deepEqual(app.accepted, ['m1:true', 'm2:false', 'm2:false']);
+    assert.ok(app.logs.includes('Mac m2: this computer does not offer push; no push token registered'));
+    // An earlier registration may still be there.
+    app.state.answers = {};
+    app.state.settings = { ...ON, enabled: false };
+    await app.registration.sync();
+    assert.deepEqual(
+      app.sent.filter((entry) => entry.machineId === 'm2').map((entry) => entry.params),
+      [register('m2'), register('m2'), unregister('m2')],
+    );
+  });
+
+  test('is registered at the next occasion once it offers push', async () => {
+    const app = harness({ answers: { m2: 'noPush' } });
+    await app.registration.sync();
+    app.state.answers = {};
+    await app.registration.sync();
+    assert.deepEqual(
+      app.accepted.filter((entry) => entry.startsWith('m2:')),
+      ['m2:false', 'm2:true'],
+    );
+  });
+});
+
 describe('the token stays out of the logs', () => {
   test('no log line carries the token, whatever the computers answer or throw', async () => {
     const app = harness({

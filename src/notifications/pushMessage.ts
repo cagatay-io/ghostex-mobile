@@ -10,6 +10,9 @@
 /** The warm link's method that registers or removes the phone's push token on a computer (`POST /api/<method>`). */
 export const REGISTER_PUSH_TOKEN_METHOD = 'registerPushToken';
 
+/** What `ghostex server endpoint` lists for a computer that offers push: only such a computer gets a registration. */
+export const PUSH_NOTIFICATIONS_CAPABILITY = 'pushNotifications';
+
 /** One push message's event: any kind (only the notifying ones notify, `mapEvent`), '' without a feed row id. */
 export type PushEvent = { kind: string; machineId: string; sessionId: string; notificationId: string };
 

@@ -6,8 +6,11 @@
  * phone's registration, because while the app is out of front only their pushes announce their events, and
  * Settings says what that means for delivery.
  *
- * The token goes to every enabled computer over its warm link (`POST /api/registerPushToken` on the
- * computer's gxserver, with the link's bearer token like every other request of that link), and nowhere else.
+ * The token goes to every enabled computer whose `ghostex server endpoint` lists `pushNotifications` over its warm
+ * link (`POST /api/registerPushToken` on the computer's gxserver, with the link's bearer token like every other
+ * request of that link), and nowhere else; a computer that does not list it gets no registration, counts as one
+ * whose pushes the app does not count on (Settings says so) and is looked at again at the next occasion, while a
+ * removal of the token still goes to it.
  * The registration (with the finished, waiting and error switches and a QR-paired computer's pairing device id) runs
  * at the app's start, when the app comes back to the front, when the master switch, the finished, waiting or error
  * switch or the first ask's answer changes, when a computer is added, shown again or paired anew, and when iOS issues
@@ -41,7 +44,7 @@ import {
   registerBackgroundPushTask,
   watchPushToken,
 } from './notificationCentre';
-import { REGISTER_PUSH_TOKEN_METHOD } from './pushMessage';
+import { PUSH_NOTIFICATIONS_CAPABILITY, REGISTER_PUSH_TOKEN_METHOD } from './pushMessage';
 import { PushTokenRegistration, type PushTokenParams, type PushTokenSendOutcome } from './pushToken';
 
 const PUSH_TOKEN_REQUEST_TIMEOUT_MS = 10_000;
@@ -55,8 +58,10 @@ function startTimer(ms: number): { expired: Promise<void>; cancel(): void } {
 /**
  * One registration request to a computer's gxserver over its warm link. `current` is the pass's check that the
  * master switch and the token still ask for it: looking up the link's route can take a handshake, so it is checked
- * again once the route is known, and nothing is sent when it no longer holds (`superseded`). Any saved computer
- * can be asked: a pass asks only enabled ones (it checks that right before), a removal also a hidden one.
+ * again once the route is known, and nothing is sent when it no longer holds (`superseded`). A registration goes
+ * only to a computer whose endpoint lists `pushNotifications` (`noPush` otherwise); a removal goes to any, since
+ * an earlier registration may still be there. Any saved computer can be asked: a pass asks only enabled ones (it
+ * checks that right before), a removal also a hidden one.
  */
 async function sendPushToken(
   machineId: string,
@@ -70,6 +75,12 @@ async function sendPushToken(
   if (route === 'legacy') return 'legacy';
   if (route !== 'socket') return 'unreachable';
   if (!current()) return 'superseded';
+  if (params.action === 'register') {
+    // What the handshake that settled the route read; none when the link was reset since: asked again then.
+    const capabilities = link.capabilities();
+    if (capabilities === null) return 'unreachable';
+    if (!capabilities.includes(PUSH_NOTIFICATIONS_CAPABILITY)) return 'noPush';
+  }
   const answer = await link.rpc(REGISTER_PUSH_TOKEN_METHOD, params, PUSH_TOKEN_REQUEST_TIMEOUT_MS);
   if (answer.error === null) return 'done';
   // gxserver answers an `/api/` route it does not know with `notFound`.

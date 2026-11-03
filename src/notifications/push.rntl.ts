@@ -37,11 +37,13 @@
  *   later tap came and the person did not leave for another screen or session since the tap, up to the link
  *   handler's navigation (the real handler here, its stores and navigator stood in for); what counts as the person
  *   leaving is tested on the real `deepLinks.ts`.
- * - The push token: registered with each enabled computer over the warm link, with the phone's own id for that
- *   computer, which a push carries back to be the app's (any other computer id is left to iOS), the finished,
- *   waiting and error switches, and the pairing device id of a computer paired by QR code; a change of those
- *   switches registers again once with each enabled computer, other settings and the master switch off send none;
- *   removed by the master switch, registered again when it is turned on; every removal names the computer; a
+ * - The push token: registered over the warm link with each enabled computer whose `ghostex server endpoint` lists
+ *   `pushNotifications` (one that does not gets no registration, counts as holding none and is looked at again at
+ *   the next occasion), with the phone's own id for that computer, which a push carries back to be the app's (any
+ *   other computer id is left to iOS), the finished, waiting and error switches, and the pairing device id of a
+ *   computer paired by QR code; a change of those switches registers again once with each enabled computer, other
+ *   settings and the master switch off send none; removed by the master switch, also from a computer that does not
+ *   list `pushNotifications`, registered again when it is turned on; every removal names the computer; a
  *   registration the master switch or a new token overtook while its computer's route was looked up is not sent; a
  *   computer that does not know the route is not asked again until the token changes; no log line carries the
  *   token, and storage keeps none. Removing a computer (hidden or not, master switch on or off) asks it once to
@@ -139,14 +141,16 @@ type HostRequest = { machineId: string; method: string; params: Record<string, u
 /**
  * Each computer's gxserver behind the warm link: its feed rows, its error per method, the computers that cannot be
  * reached for the registration (they may still hold the token an earlier launch registered), the computers the
- * phone reaches only on the exec route, the link's route lookup held while `routeGate` is set, a registration
- * answer held back while `registrationGate` is set, and every request.
+ * phone reaches only on the exec route, the computers whose `ghostex server endpoint` does not list
+ * `pushNotifications` (every other one lists it), the link's route lookup held while `routeGate` is set, a
+ * registration answer held back while `registrationGate` is set, and every request.
  */
 const mockHost: {
   rows: Record<string, unknown>[];
   errors: Record<string, { code: string | null; message: string }>;
   registrationUnreachable: Set<string>;
   legacy: Set<string>;
+  withoutPushFlag: Set<string>;
   routeGate: Promise<void> | null;
   registrationGate: Promise<void> | null;
   requests: HostRequest[];
@@ -155,6 +159,7 @@ const mockHost: {
   errors: {},
   registrationUnreachable: new Set(),
   legacy: new Set(),
+  withoutPushFlag: new Set(),
   routeGate: null,
   registrationGate: null,
   requests: [],
@@ -165,7 +170,7 @@ jest.mock('../chat/rust/machine-link', () => ({
       if (mockHost.routeGate !== null) await mockHost.routeGate;
       return mockHost.legacy.has(machine.id) ? 'legacy' : 'socket';
     },
-    capabilities: () => [],
+    capabilities: () => (mockHost.withoutPushFlag.has(machine.id) ? [] : ['pushNotifications']),
     gxserverLink: () => Promise.resolve(null),
     rpc: async (method: string, params: Record<string, unknown>) => {
       mockHost.requests.push({ machineId: machine.id, method, params: { ...params } });
@@ -615,6 +620,7 @@ beforeEach(() => {
   mockHost.requests = [];
   mockHost.registrationUnreachable = new Set();
   mockHost.legacy = new Set();
+  mockHost.withoutPushFlag = new Set();
   mockHost.routeGate = null;
   mockHost.registrationGate = null;
   mockToken.current = TOKEN;
@@ -899,6 +905,31 @@ describe('the push token', () => {
     mockHost.errors = {};
     await app.tokenChanges(NEW_TOKEN);
     expect(app.pushRequests()).toEqual([`m1:register:${TOKEN}`, `m1:register:${NEW_TOKEN}`]);
+  });
+
+  test('a computer whose endpoint does not list pushNotifications gets no registration; one that lists it does', async () => {
+    mockHost.withoutPushFlag.add('m1');
+    const app = await startApp({ machines: [machine('m1', 'Mac mini'), machine('m2', 'MacBook')] });
+    expect(app.pushRequests()).toEqual([`m2:register:${TOKEN}`]);
+    expect(app.feedStore.useAttentionFeedStore.getState().pushComputers).toEqual(['m2']);
+    expect(app.logs()).toContain('Mac mini: this computer does not offer push; no push token registered');
+
+    // Its Ghostex is updated and lists the flag: the next occasion registers it.
+    mockHost.withoutPushFlag.clear();
+    await app.appStateChange('background');
+    await app.appStateChange('active');
+    expect(app.pushRequests()).toEqual([`m2:register:${TOKEN}`, `m1:register:${TOKEN}`]);
+  });
+
+  test('a computer without pushNotifications is still asked to remove the token: the master switch off, its removal', async () => {
+    mockHost.withoutPushFlag.add('m1');
+    const app = await startApp();
+    expect(app.pushRequests()).toEqual([]);
+    app.settings.getState().setSetting('notifications', { ...ALL_ON, enabled: false });
+    await settle();
+    expect(app.pushRequests()).toEqual(['m1:unregister']);
+    await app.pushStore.unregisterBeforeRemoval('m1');
+    expect(app.pushRequests()).toEqual(['m1:unregister', 'm1:unregister']);
   });
 
   test('no log line and no console output carries the token', async () => {
@@ -1597,6 +1628,16 @@ describe('which computers accepted this phone’s push registration, also in an 
     const stored = await acceptedBefore();
     mockHost.errors = { registerPushToken: { code: 'notFound', message: 'not a gxserver HTTP endpoint' } };
     const app = await startApp({ stored });
+    expect(app.feedStore.useAttentionFeedStore.getState().pushComputers).toEqual([]);
+    expect(await rowInBackground(app)).toBe(1);
+  });
+
+  test('once its endpoint no longer lists pushNotifications, Settings names it no more and its rows notify by the app', async () => {
+    const stored = await acceptedBefore();
+    mockHost.requests = [];
+    mockHost.withoutPushFlag.add('m1');
+    const app = await startApp({ stored });
+    expect(app.pushRequests()).toEqual([]);
     expect(app.feedStore.useAttentionFeedStore.getState().pushComputers).toEqual([]);
     expect(await rowInBackground(app)).toBe(1);
   });
