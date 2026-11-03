@@ -109,7 +109,7 @@ jest.mock('expo-notifications', () => ({
   registerTaskAsync: jest.fn(() => Promise.resolve(null)),
 }));
 jest.mock('expo-task-manager', () => ({ defineTask: jest.fn() }));
-/** The build's push project (the maintainer's EAS project); null: a build without one. */
+/** The build's push project (the project's EAS project); null: a build without one. */
 const mockProject: { id: string | null } = { id: 'project-1' };
 jest.mock('expo-constants', () => ({
   __esModule: true,
