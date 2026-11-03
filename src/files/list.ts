@@ -4,8 +4,8 @@
  * output), and the browser shows the top level plus the children of every folder that is open, hidden names
  * left out while the hidden-files switch is off.
  *
- * CDXC:Docs 2026-10-29 SEE-ALSO: the desktop files list loads its tree the same way, one folder when it is
- * opened (`native_docs_list_folder` in apps/desktop/src/app/native_docs/files.rs, CDXC:Docs 2026-09-27).
+ * CDXC:Docs SEE-ALSO: the desktop files list loads its tree the same way, one folder when it is
+ * opened (`native_docs_list_folder` in apps/desktop/src/app/native_docs/files.rs).
  */
 
 import { DocsCopy } from '../copy';

@@ -1,8 +1,8 @@
 /**
- * The project file browser's actions in the approved mockup's order. A row's long-press menu (`rowMenu`): a file has
+ * The project file browser's actions in the design's order. A row's long-press menu (`rowMenu`): a file has
  * Open, Copy Full Path, Add to Session Context (only in a browser opened from an agent session) and Share… (where the
  * phone can hand a file to the share sheet); a folder has Copy Full Path only. A text preview's header
- * (`previewButtons`, rendered Markdown and source): Copy Full Path, Add to Session Context (again only from an agent
+ * (rendered Markdown and source): Copy Full Path, Add to Session Context (again only from an agent
  * session), Share and Reload. Nothing that changes the project.
  */
 

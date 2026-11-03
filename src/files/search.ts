@@ -4,7 +4,7 @@
  * files of the picked types; with types picked and nothing typed it lists every file of those types, which the
  * browser draws as a tree of the folders holding them.
  *
- * CDXC:Docs 2026-10-29 SEE-ALSO: the desktop files list's search and type filter
+ * CDXC:Docs SEE-ALSO: the desktop files list's search and type filter
  * (`native_docs_schedule_search` in apps/desktop/src/app/native_docs/files.rs, `type_filter.rs`).
  */
 
@@ -15,7 +15,7 @@ import { projectScopeAction, type DocsRpc } from './request';
 
 export type TypeFilter = 'markdown' | 'html' | 'excalidraw' | 'image' | 'video';
 
-/** The type filter's types in its menu's order (approved mockup), each with the extensions it covers (desktop). */
+/** The type filter's types in its menu's order (the design), each with the extensions it covers (desktop). */
 export const TYPE_FILTERS: readonly { readonly id: TypeFilter; readonly extensions: readonly string[] }[] = [
   { id: 'markdown', extensions: ['md', 'mdx', 'markdown'] },
   { id: 'html', extensions: ['html', 'htm'] },
@@ -49,8 +49,8 @@ export async function searchProjectFiles(
 }
 
 /**
- * The files of a search answer the browser lists: files, not the folders gxserver also finds (approved
- * mockup), and hidden ones only while the hidden-files switch is on.
+ * The files of a search answer the browser lists: files, not the folders gxserver also finds (the
+ * design), and hidden ones only while the hidden-files switch is on.
  */
 export function searchedFiles(entries: readonly DocsEntry[], showHidden: boolean): DocsEntry[] {
   return entries.filter(

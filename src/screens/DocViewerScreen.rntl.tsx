@@ -1,7 +1,7 @@
 /// <reference types="jest" />
 /**
  * Run with `bun run test:jest`. The Docs viewer's header when the project file browser opened a Markdown file: as the
- * approved mockup's rendered preview draws it (`previewButtons`), Copy Full Path, Add to
+ * the design's rendered preview draws it, Copy Full Path, Add to
  * Session Context (only in a preview opened from an agent session), Share and Reload; Add to Session Context puts the
  * host's text into that session's input and names the session. Stand-ins: the page builder (the page never finishes
  * loading here, the header does not wait for it), gxserver's `runProjectDocsAction`, the session inputs, the machines
@@ -162,7 +162,7 @@ test('one share at a time: while another screen shares, the preview header Share
 
 test('a Markdown preview from an agent session offers Add to Session Context', async () => {
   await render(<WithHeader params={{ ...FROM_FILES, session: SESSION }} />);
-  // The approved mockup's preview header: Copy Full Path, Add to Session Context, Share, Reload.
+  // The design's preview header: Copy Full Path, Add to Session Context, Share, Reload.
   expect(headerLabels()).toEqual([
     DocsCopy.copyFullPath,
     DocsCopy.addToSessionContext,

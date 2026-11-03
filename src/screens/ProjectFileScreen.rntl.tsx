@@ -3,9 +3,8 @@
  * Run with `bun run test:jest`. The project file browser's file view (`ProjectFileScreen`) wiring: a file over 2 MB
  * shows its name and size, no content is read, and Copy Full Path puts its full path on the clipboard; bytes that are
  * not UTF-8 text show name and size, not decoded source; its Share… fetches the file by its path in the project
- * under a progress notice and hands it to the share sheet, as the approved mockup's info view does; and the source
- * view's header offers Add to Session Context only in a preview opened from an agent session
- * (`previewButtons`). Stand-ins: gxserver's `runProjectDocsAction`, the SSH file read (its base64 decoded by the real
+ * under a progress notice and hands it to the share sheet, as the design's info view does; and the source
+ * view's header offers Add to Session Context only in a preview opened from an agent session. Stand-ins: gxserver's `runProjectDocsAction`, the SSH file read (its base64 decoded by the real
  * decoder), the share sheet, the session inputs, the clipboard, the native chrome.
  */
 
@@ -226,7 +225,7 @@ test('a source preview from an agent session offers Add to Session Context in it
   readAnswers(new TextEncoder().encode('export const a = 1;\n'));
   await render(<WithHeader params={{ ...SOURCE, session: SESSION }} />);
   await screen.findByLabelText(DocsCopy.sourceView('index.ts'));
-  // The approved mockup's preview header: Copy Full Path, Add to Session Context, Share, Reload.
+  // The design's preview header: Copy Full Path, Add to Session Context, Share, Reload.
   expect(headerLabels()).toEqual([
     DocsCopy.copyFullPath,
     DocsCopy.addToSessionContext,
@@ -252,7 +251,7 @@ test('a preview opened without a session has no Add to Session Context in its he
   expect(headerLabels()).toEqual([DocsCopy.copyFullPath, DocsCopy.shareButton, DocsCopy.reload]);
 });
 
-test('the info view as in the mockup: name and size only, so its header keeps only Reload even from an agent session', async () => {
+test('the info view as in the design: name and size only, so its header keeps only Reload even from an agent session', async () => {
   await render(
     <WithHeader params={{ ...SOURCE, entryPath: 'big.log', path: '/p/big.log', size: 3_000_000, session: SESSION }} />,
   );

@@ -12,10 +12,9 @@
  * project's long-press menu and the terminal screen's menu. Its first form showed only Markdown and HTML;
  * the next decision widened it to the whole project.
  *
- * CDXC:Docs 2026-10-25 WHY:
+ * CDXC:Docs WHY:
  * Files becomes the project browser instead of a second entry, read-only: folder tree, preview, copy path and
- * search, no upload, edit or delete. The maintainer asked that it copy the desktop files list's ideas ("copy ideas
- * from the files extension in the side panel in the desktop app so they're similar"), so its labels, menu
+ * search, no upload, edit or delete. It copies the desktop files list's ideas, so its labels, menu
  * and type filter are the desktop's where the phone has the same thing.
  * SEE-ALSO: apps/desktop/src/app/native_docs/files_list.rs, server/src/project_docs/project_scope.rs
  */
@@ -90,7 +89,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Docs'>;
 const RECENT_LIMIT = 6;
 /** Typing pauses this long before the search goes out: one request per term, not per keystroke. */
 const SEARCH_DELAY_MS = 300;
-/** On a wide window (the unfolded iPhone Duo) the list stays one readable column, as in the approved mockup. */
+/** On a wide window (the unfolded iPhone Duo) the list stays one readable column, as in the design. */
 const COLUMN_MAX_WIDTH = 720;
 const MENU_ICON_SIZE = 14;
 
@@ -587,7 +586,7 @@ export default function DocsScreen({ navigation, route }: Props) {
         );
   const menuShownPath = menu === null ? '' : menu.kind === 'file' ? menu.file.displayPath : menu.folder.displayPath;
   const menuFolder = menuShownPath.includes('/') ? menuShownPath.slice(0, menuShownPath.lastIndexOf('/')) : '';
-  // The pressed row, lifted above the dimmed list (approved mockup): a tap on a file's opens it.
+  // The pressed row, lifted above the dimmed list (the design): a tap on a file's opens it.
   const liftedRow =
     menu === null
       ? undefined
@@ -748,7 +747,7 @@ const styles = StyleSheet.create({
     borderColor: GhostexPalette.BORDER,
     backgroundColor: GhostexPalette.INPUT_BACKGROUND,
   },
-  // 34 pt inside the 40 pt field, as in the approved mockup (above the 28 pt minimum).
+  // 34 pt inside the 40 pt field, as in the design (above the 28 pt minimum).
   filterButton: { width: 34, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   filterButtonOn: { backgroundColor: 'rgba(125,211,252,0.12)' },
   filterDot: {

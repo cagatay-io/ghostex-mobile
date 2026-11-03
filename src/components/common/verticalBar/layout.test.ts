@@ -982,7 +982,7 @@ describe('menus keep off only an active division', () => {
 
 /*
  * Row context menus (Files, notifications, theme choices) open anchored at their row,
- * falling back above or below when space is short; the approved mockup kit places them under the row, leading
+ * falling back above or below when space is short; the design places them under the row, leading
  * edges aligned, scrolling inside at the roomier side when neither side holds them.
  */
 describe('menus at their row (the long-press menu of a Files row among them)', () => {

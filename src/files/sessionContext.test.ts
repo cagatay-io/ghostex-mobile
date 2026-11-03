@@ -164,7 +164,7 @@ describe('add a file to the session context', () => {
     assert.equal(rowMenuActions('file', { sessionContext: false, share: true }).includes('addToSessionContext'), false);
   });
 
-  test('a text preview header offers it only from an agent session, in the mockup order', () => {
+  test('a text preview header offers it only from an agent session, in the design order', () => {
     assert.deepEqual(previewActions({ sessionContext: true, share: true }), [
       'copyPath',
       'addToSessionContext',

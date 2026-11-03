@@ -4,7 +4,7 @@
  * to the host's preview limit opens as source; pictures, files that are not text and files over the limit show
  * their name and size only, with Copy Full Path.
  *
- * CDXC:Docs 2026-10-29 SEE-ALSO: the kinds follow the desktop files list's (`DocsFileKind`, `DocsMediaKind` in
+ * CDXC:Docs SEE-ALSO: the kinds follow the desktop files list's (`DocsFileKind`, `DocsMediaKind` in
  * apps/desktop/src/app/native_docs/state.rs); the limit is gxserver's `FILE_PREVIEW_MAX_BYTES`
  * (server/src/project_docs/limits.rs).
  */

@@ -4,7 +4,7 @@
  * long press opens the row's menu at the row, with a way to measure the row again; while its menu is open
  * the row reports each new layout of its own (`onHeldLayout`), so the open menu follows it when the window changes
  * and the list lays its rows out again; VoiceOver offers Copy Full Path on every row.
- * Metrics are the phone's Files list's (44 pt rows, 15 pt names, 16 pt per level) as in the approved mockup.
+ * Metrics are the phone's Files list's (44 pt rows, 15 pt names, 16 pt per level) as in the design.
  */
 
 import { memo, useRef } from 'react';

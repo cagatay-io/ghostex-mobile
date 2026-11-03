@@ -1,6 +1,6 @@
 /**
  * Share… on a screen of the project file browser: a progress notice while the file is fetched from
- * the computer (approved mockup, `fetchingToast`), then the share sheet, or gxserver's message when it refuses the
+ * the computer (the design), then the share sheet, or gxserver's message when it refuses the
  * file. One share at a time for the whole app: the list, the file view and the Docs viewer each run this hook, and
  * while any of them shares, `sharing` is true on all of them and a tap starts nothing.
  */

@@ -14,8 +14,8 @@
  * picture from `http://localhost:3000/…`) is the computer's too: links open it from there, and
  * embedded files are copied into the mirror or loaded through a forward
  * (CDXC:RemoteMachines 2026-10-16 in `webPreview/machineLinks.ts`). Video and audio play from the
- * computer's gxserver (`docs/mediaStream.ts`). Opened from Files, its header is the approved mockup's preview
- * header (`previewButtons`): Copy Full Path, Add to Session Context (only when Files was opened from
+ * computer's gxserver (`docs/mediaStream.ts`). Opened from Files, its header is the design's preview
+ * header: Copy Full Path, Add to Session Context (only when Files was opened from
  * an agent session), Share and Reload.
  */
 
@@ -165,7 +165,7 @@ export default function DocViewerScreen({ navigation, route }: Props) {
     showNotice(remotePath, false, DocsCopy.pathCopied);
   }, [remotePath, showNotice]);
 
-  // An HTML page's annotation switch, then the file's buttons: from Files the approved mockup's preview header, else
+  // An HTML page's annotation switch, then the file's buttons: from Files the design's preview header, else
   // Copy path and Reload (outside Files there is neither Add to Session Context nor Share…).
   const buttons = useMemo(
     (): RailEntry[] => [

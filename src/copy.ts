@@ -923,15 +923,14 @@ export const DocsCopy = {
   openFile: (name: string) => `Open ${name}`,
   copyFullPath: 'Copy Full Path',
   // Add to Session Context: the desktop's row label and its messages (native_docs/actions.rs,
-  // gpui_engine_terminal_attachment.rs), in the row menu and a text preview's header; the notices are the approved
-  // mockup's.
+  // gpui_engine_terminal_attachment.rs), in the row menu and a text preview's header; the notices are the design's.
   addToSessionContext: 'Add to Session Context',
   contextAdded: (session: string) => `Added to ${session}`,
   contextNotSent: 'Not sent yet. Write your message there and send it.',
   contextFailed: (name: string) => `Can't add ${name}`,
   contextNoSession: 'No active agent session is available.',
   contextNoText: 'The computer sent no text for this file. Update Ghostex on the computer and try again.',
-  // Share… in the row menu and on the name-and-size view, Share in a text preview's header (mockup).
+  // Share… in the row menu and on the name-and-size view, Share in a text preview's header.
   share: 'Share…',
   shareButton: 'Share',
   shareFetching: (name: string) => `Getting ${name}…`,

@@ -1,8 +1,8 @@
 /**
  * Add to Session Context on a screen of the project file browser: the list's row menu and a text
- * preview's header (approved mockup, `rowMenu` and `previewButtons`). The file's context text goes into the input of
+ * preview's header (the design). The file's context text goes into the input of
  * the agent session the browser was opened from, and a notice names that session and says the text is not sent
- * yet, or says why nothing was added (the approved mockup's `contextToast`).
+ * yet, or says why nothing was added (a toast).
  */
 
 import { useCallback } from 'react';
