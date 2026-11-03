@@ -56,6 +56,17 @@ function startTimer(ms: number): { expired: Promise<void>; cancel(): void } {
 }
 
 /**
+ * What a computer's warm link knows about push without a request: its endpoint lists `pushNotifications` (true) or
+ * not (false), as the handshake that settled the link's route read it; null while the link has settled no endpoint
+ * (never handshaken, on another route, or reset since), which says nothing.
+ */
+function offersPush(machineId: string): boolean | null {
+  const machine = useMachinesStore.getState().machines.find((entry) => entry.id === machineId);
+  if (machine === undefined) return null;
+  return chatMachineLink(machine).capabilities()?.includes(PUSH_NOTIFICATIONS_CAPABILITY) ?? null;
+}
+
+/**
  * One registration request to a computer's gxserver over its warm link. `current` is the pass's check that the
  * master switch and the token still ask for it: looking up the link's route can take a handshake, so it is checked
  * again once the route is known, and nothing is sent when it no longer holds (`superseded`). A registration goes
@@ -76,10 +87,10 @@ async function sendPushToken(
   if (route !== 'socket') return 'unreachable';
   if (!current()) return 'superseded';
   if (params.action === 'register') {
-    // What the handshake that settled the route read; none when the link was reset since: asked again then.
-    const capabilities = link.capabilities();
-    if (capabilities === null) return 'unreachable';
-    if (!capabilities.includes(PUSH_NOTIFICATIONS_CAPABILITY)) return 'noPush';
+    // Unknown when the link was reset since its route was settled: asked again at the next occasion.
+    const offers = offersPush(machineId);
+    if (offers === null) return 'unreachable';
+    if (!offers) return 'noPush';
   }
   const answer = await link.rpc(REGISTER_PUSH_TOKEN_METHOD, params, PUSH_TOKEN_REQUEST_TIMEOUT_MS);
   if (answer.error === null) return 'done';
@@ -101,6 +112,7 @@ const registration = new PushTokenRegistration({
       label: machineDisplayLabel(machine),
       ...(machine.deviceId === undefined ? {} : { deviceId: machine.deviceId }),
     })),
+  offersPush,
   send: sendPushToken,
   accepted: pushAccepted,
   log: logAppEvent,

@@ -22,9 +22,12 @@
  * computer whose `ghostex server endpoint` lists `pushNotifications`: one that does not gets no registration
  * (`noPush`), counts as one whose pushes the app does not count on, and is looked at again at the next occasion, so
  * it is registered once its Ghostex offers push; a removal (master switch off, removing the computer) still goes to
- * it, because an earlier registration may still be there. With the master switch off at launch, each enabled
- * computer is asked once to remove the token, because an earlier launch may have registered it. What the person or
- * iOS changed during a pass wins: a token fetched before iOS issued a newer one is never kept
+ * it, because an earlier registration may still be there. What the computer's link already knows (`offersPush`) is
+ * read before the check that skips a computer holding what is wanted, so one whose endpoint stops listing the flag
+ * during the launch (a reconnect settles a new one) leaves at the next occasion; a link that knows no endpoint yet
+ * says nothing. With the master switch off at launch, each enabled computer is asked once to remove the token,
+ * because an earlier launch may have registered it. What the person or iOS changed during a pass wins: a token
+ * fetched before iOS issued a newer one is never kept
  * or sent, and before each request the pass checks that the master switch and the token still ask for it, once more
  * when the computer's route is known, right before the request is handed to the link (`send`, `superseded`); if
  * not, it stops and the pass that follows sends what is wanted now. A switch change during a pass gets the pass that
@@ -96,6 +99,11 @@ export type PushTokenDeps = {
    * paired by QR code.
    */
   machines(): readonly { id: string; label: string; deviceId?: string }[];
+  /**
+   * What the computer's warm link knows about push without a request: true when its endpoint lists
+   * `pushNotifications`, false when it does not, null when the link has settled no endpoint (no absence).
+   */
+  offersPush(machineId: string): boolean | null;
   /**
    * One request to a computer's gxserver over the warm link; `current` tells whether the pass still wants it sent,
    * checked right before it is handed to the link.
@@ -215,6 +223,10 @@ export class PushTokenRegistration {
     for (const machine of machines) {
       if (this.removed.has(machine.id) || this.unsupported.has(machine.id)) continue;
       const params = this.request(machine, wanted);
+      if (params.action === 'register' && this.deps.offersPush(machine.id) === false) {
+        this.offersNoPush(machine);
+        continue;
+      }
       const taken = this.taken.get(machine.id);
       if (taken !== undefined && holdsAlready(taken, params)) continue;
       if (!this.deps.machines().some((entry) => entry.id === machine.id)) continue;
@@ -233,9 +245,7 @@ export class PushTokenRegistration {
       // Its removal started meanwhile: what it answered to this request goes with it.
       if (this.removed.has(machine.id)) continue;
       if (outcome === 'noPush') {
-        // Nothing was sent. Not kept as without push: a removal still goes to it, and the next occasion looks again.
-        this.deps.accepted(machine.id, false);
-        this.deps.log(`${machine.label}: this computer does not offer push; no push token registered`);
+        this.offersNoPush(machine);
         continue;
       }
       if (params.action === 'register' && params.deviceId === undefined && (machine.deviceId ?? '').length > 0) {
@@ -259,6 +269,16 @@ export class PushTokenRegistration {
         this.deps.log(`${machine.label}: push token ${what} not taken (${outcome}); asked again at the next occasion`);
       }
     }
+  }
+
+  /**
+   * `machine` does not offer push: no registration, and it counts as holding none. Not kept as without push: a removal
+   * still goes to it, the next occasion looks again, and what it took before is sent anew once it offers push.
+   */
+  private offersNoPush(machine: { id: string; label: string }): void {
+    this.taken.delete(machine.id);
+    this.deps.accepted(machine.id, false);
+    this.deps.log(`${machine.label}: this computer does not offer push; no push token registered`);
   }
 
   /**

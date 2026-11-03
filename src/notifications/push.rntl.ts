@@ -39,11 +39,13 @@
  *   leaving is tested on the real `deepLinks.ts`.
  * - The push token: registered over the warm link with each enabled computer whose `ghostex server endpoint` lists
  *   `pushNotifications` (one that does not gets no registration, counts as holding none and is looked at again at
- *   the next occasion), with the phone's own id for that computer, which a push carries back to be the app's (any
- *   other computer id is left to iOS), the finished, waiting and error switches, and the pairing device id of a
- *   computer paired by QR code; a change of those switches registers again once with each enabled computer, other
- *   settings and the master switch off send none; removed by the master switch, also from a computer that does not
- *   list `pushNotifications`, registered again when it is turned on; every removal names the computer; a
+ *   the next occasion, also one that took the token before its link settled an endpoint without the flag; a link
+ *   that knows no endpoint says nothing), with the phone's own id for that computer, which a push carries back to
+ *   be the app's (any other computer id is left to iOS), the finished, waiting and error switches, and the pairing
+ *   device id of a computer paired by QR code; a change of those switches registers again once with each enabled
+ *   computer, other settings and the master switch off send none; removed by the master switch, also from a
+ *   computer that does not list `pushNotifications`, registered again when it is turned on; every removal names the
+ *   computer; a
  *   registration the master switch or a new token overtook while its computer's route was looked up is not sent; a
  *   computer that does not know the route is not asked again until the token changes; no log line carries the
  *   token, and storage keeps none. Removing a computer (hidden or not, master switch on or off) asks it once to
@@ -142,8 +144,9 @@ type HostRequest = { machineId: string; method: string; params: Record<string, u
  * Each computer's gxserver behind the warm link: its feed rows, its error per method, the computers that cannot be
  * reached for the registration (they may still hold the token an earlier launch registered), the computers the
  * phone reaches only on the exec route, the computers whose `ghostex server endpoint` does not list
- * `pushNotifications` (every other one lists it), the link's route lookup held while `routeGate` is set, a
- * registration answer held back while `registrationGate` is set, and every request.
+ * `pushNotifications` (every other one lists it), the computers whose link has not settled an endpoint yet (it knows
+ * no capabilities), the link's route lookup held while `routeGate` is set, a registration answer held back while
+ * `registrationGate` is set, and every request.
  */
 const mockHost: {
   rows: Record<string, unknown>[];
@@ -151,6 +154,7 @@ const mockHost: {
   registrationUnreachable: Set<string>;
   legacy: Set<string>;
   withoutPushFlag: Set<string>;
+  capabilitiesUnknown: Set<string>;
   routeGate: Promise<void> | null;
   registrationGate: Promise<void> | null;
   requests: HostRequest[];
@@ -160,6 +164,7 @@ const mockHost: {
   registrationUnreachable: new Set(),
   legacy: new Set(),
   withoutPushFlag: new Set(),
+  capabilitiesUnknown: new Set(),
   routeGate: null,
   registrationGate: null,
   requests: [],
@@ -170,7 +175,10 @@ jest.mock('../chat/rust/machine-link', () => ({
       if (mockHost.routeGate !== null) await mockHost.routeGate;
       return mockHost.legacy.has(machine.id) ? 'legacy' : 'socket';
     },
-    capabilities: () => (mockHost.withoutPushFlag.has(machine.id) ? [] : ['pushNotifications']),
+    capabilities: () => {
+      if (mockHost.capabilitiesUnknown.has(machine.id)) return null;
+      return mockHost.withoutPushFlag.has(machine.id) ? [] : ['pushNotifications'];
+    },
     gxserverLink: () => Promise.resolve(null),
     rpc: async (method: string, params: Record<string, unknown>) => {
       mockHost.requests.push({ machineId: machine.id, method, params: { ...params } });
@@ -621,6 +629,7 @@ beforeEach(() => {
   mockHost.registrationUnreachable = new Set();
   mockHost.legacy = new Set();
   mockHost.withoutPushFlag = new Set();
+  mockHost.capabilitiesUnknown = new Set();
   mockHost.routeGate = null;
   mockHost.registrationGate = null;
   mockToken.current = TOKEN;
@@ -1640,6 +1649,27 @@ describe('which computers accepted this phone’s push registration, also in an 
     expect(app.pushRequests()).toEqual([]);
     expect(app.feedStore.useAttentionFeedStore.getState().pushComputers).toEqual([]);
     expect(await rowInBackground(app)).toBe(1);
+  });
+
+  // Its link settles a new endpoint during the launch (a reconnect) that no longer lists the flag: the next occasion
+  // takes it out, although the registration it took is still the one wanted.
+  test('once its endpoint stops listing pushNotifications during the launch, the return to front takes it out', async () => {
+    const app = await startApp();
+    expect(app.feedStore.useAttentionFeedStore.getState().pushComputers).toEqual(['m1']);
+    mockHost.withoutPushFlag.add('m1');
+    await app.appStateChange('background');
+    await app.appStateChange('active');
+    expect(app.feedStore.useAttentionFeedStore.getState().pushComputers).toEqual([]);
+    expect(app.pushRequests()).toEqual([`m1:register:${TOKEN}`]);
+  });
+
+  test('a link that knows no endpoint at the return to front says nothing about push: it stays accepted', async () => {
+    const app = await startApp();
+    mockHost.capabilitiesUnknown.add('m1');
+    await app.appStateChange('background');
+    await app.appStateChange('active');
+    expect(app.feedStore.useAttentionFeedStore.getState().pushComputers).toEqual(['m1']);
+    expect(app.pushRequests()).toEqual([`m1:register:${TOKEN}`]);
   });
 
   test('what is stored of it is its computer id, never the token', async () => {

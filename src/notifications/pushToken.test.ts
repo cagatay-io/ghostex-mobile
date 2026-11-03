@@ -78,6 +78,8 @@ function harness(options: HarnessOptions = {}) {
     answering: (_machineId: string): Promise<void> => Promise.resolve(),
     /** What the link waits for before a request to that computer goes out (its route looked up). */
     preparing: (_machineId: string): Promise<void> => Promise.resolve(),
+    /** What each computer's link knows it offers (`pushNotifications`); unknown when not named. */
+    offersPush: {} as Record<string, boolean>,
   };
   /** Each confirmation a computer gave, as `computer:holds` (true: it took the token; false: it holds none). */
   const accepted: string[] = [];
@@ -99,6 +101,7 @@ function harness(options: HarnessOptions = {}) {
         const deviceId = state.deviceIds[id];
         return { id, label: `Mac ${id}`, ...(deviceId === undefined ? {} : { deviceId }) };
       }),
+    offersPush: (machineId) => state.offersPush[machineId] ?? null,
     send: async (machineId, params, current) => {
       await state.preparing(machineId);
       // As `sendPushToken` does once the route is known: nothing goes out when the pass no longer wants it.
@@ -523,7 +526,8 @@ describe('a computer whose Ghostex does not know the route', () => {
 });
 
 // `sendPushToken` answers `noPush` for a registration to a computer whose `ghostex server endpoint` does not list
-// `pushNotifications`, without sending it; the fake link here stands for that answer.
+// `pushNotifications`, without sending it; the fake link here stands for that answer. `offersPush` is what a
+// computer's link already knows before any request (a computer that took the token is not sent it again).
 describe('a computer that does not offer push', () => {
   test('holds none and is looked at again at each occasion; the master switch off still asks it to remove the token', async () => {
     const app = harness({ answers: { m2: 'noPush' } });
@@ -550,6 +554,30 @@ describe('a computer that does not offer push', () => {
       app.accepted.filter((entry) => entry.startsWith('m2:')),
       ['m2:false', 'm2:true'],
     );
+  });
+
+  test('one that took the token and is then known not to offer push holds none at the next occasion, asked nothing', async () => {
+    const app = harness();
+    await app.registration.sync();
+    app.state.offersPush = { m2: false };
+    await app.registration.sync();
+    assert.deepEqual(app.accepted, ['m1:true', 'm2:true', 'm2:false']);
+    // Offering push again, it is registered anew and confirms it.
+    app.state.offersPush = { m2: true };
+    await app.registration.sync();
+    assert.deepEqual(app.accepted, ['m1:true', 'm2:true', 'm2:false', 'm2:true']);
+    assert.deepEqual(
+      app.sent.filter((entry) => entry.machineId === 'm2').map((entry) => entry.params),
+      [register('m2'), register('m2')],
+    );
+  });
+
+  test('what its link does not know yet is no absence: a computer that took the token keeps it as it was', async () => {
+    const app = harness();
+    await app.registration.sync();
+    await app.registration.sync();
+    assert.deepEqual(app.accepted, ['m1:true', 'm2:true']);
+    assert.equal(app.sent.length, 2);
   });
 });
 
