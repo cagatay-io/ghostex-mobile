@@ -23,6 +23,8 @@ jest.mock('@react-navigation/native', () => ({
       if (options.headerRight !== undefined) mockHeaderRight = options.headerRight;
     },
   }),
+  // The header's status bar style (`useAppearanceHeader` → `useStatusBarStyle`) runs on focus; no navigator here.
+  useFocusEffect: () => undefined,
 }));
 jest.mock('@react-native-async-storage/async-storage', () =>
   jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'),
