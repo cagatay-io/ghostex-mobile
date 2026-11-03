@@ -105,17 +105,42 @@ describe('rows, order and counts', () => {
 });
 
 describe('row content', () => {
-  test('a row carries name, project, state, start and target, and no title or message text', () => {
+  test('a row carries name, resolved mark, project, state, start and target, and no title or message text', () => {
     const [row] = buildContentState(sources(twoWorkingOneWaiting), NOW).agents;
     assert.deepEqual(row, {
       target: { machineId: MACHINE, sessionId: 's-omp' },
       agentName: 'omp',
+      agentIcon: 'omp',
+      agentTint: 0xC8FF62,
       project: 'Ghostex',
       state: 'waiting',
       startedAt: '2026-10-24T10:40:00.000Z',
     });
     const text = JSON.stringify(buildContentState(sources(twoWorkingOneWaiting), NOW));
     assert.ok(!text.includes('must not leak'), 'the session titles of the fixture never reach the state');
+  });
+
+  test('an explicit Codex icon on My helper carries the Codex mark, not the name fallback', () => {
+    const [row] = buildContentState(
+      sources({
+        sessions: [
+          {
+            sessionId: 'helper',
+            provider: 'zmx',
+            agent: 'claude',
+            agentName: 'My helper',
+            agentIcon: 'codex',
+            projectName: 'p',
+            activity: 'working',
+            workingStartedAt: '2026-10-24T10:30:00Z',
+          },
+        ],
+      }),
+      NOW,
+    ).agents;
+    assert.equal(row?.agentName, 'My helper');
+    assert.equal(row?.agentIcon, 'codex');
+    assert.equal(row?.agentTint, 0xFFFFFF);
   });
 
   test('two sessions of the same agent and project keep their own session ids', () => {

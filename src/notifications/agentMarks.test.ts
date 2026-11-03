@@ -1,37 +1,24 @@
 /**
- * The Lock Screen lists the agents as the design draws a row: the agent's mark first. The Live Activity
- * extension cannot run the app's React Native logo components, so it carries copies: the tint and name tables in
- * `modules/ghostex-live-activity/ios/Extension/GhostexAgentMarks.swift` and one vector image set per logo in
- * `Extension/Assets.xcassets/AgentMarks/`. This test fails when a copy disagrees with what the app draws:
- * `AGENT_ICON_TINTS` / `AGENT_NAME_ALIASES` in `src/contract/mobileSummary.ts` and the components of
- * `src/assets/agentIcons.generated.tsx` (same ids; the same elements with the same geometry: viewBox, path data,
- * transforms, fill rules, strokes, gradient and stops; template unless the component ignores `color`). The judgement
- * of the marks on the device stays; this checks only that the extension draws the app's marks.
+ * The Live Activity cannot run the app's React Native logo components, so it carries one vector image set per
+ * logo in `modules/ghostex-live-activity/ios/Extension/Assets.xcassets/AgentMarks/`. The content state supplies the
+ * artwork identity and tint from the app's registry. These checks cover that payload and the asset copies
+ * against `src/assets/agentIcons.generated.tsx`: the same elements with the same geometry (viewBox, path data,
+ * transforms, fill rules, strokes, gradient and stops), template unless the component ignores `color`.
+ * The judgement of the marks on the device stays; these checks do not render the extension.
  */
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, test } from 'node:test';
 
-import { AGENT_NAME_ALIASES, agentIconTint, type AgentIconId } from '../contract/mobileSummary';
+import { AGENT_NAME_ALIASES, agentIconTint, parseMobileSummary, type AgentArtId } from '../contract/mobileSummary';
+import { buildContentState } from './contentState';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const EXTENSION = join(ROOT, 'modules/ghostex-live-activity/ios/Extension');
-const swift = readFileSync(join(EXTENSION, 'GhostexAgentMarks.swift'), 'utf8');
 const generated = readFileSync(join(ROOT, 'src/assets/agentIcons.generated.tsx'), 'utf8');
-
-/** The `"key": value` entries of a Swift dictionary literal `static let <name>: [...] = [ ... ]`. */
-function swiftTable(name: string): Array<[string, string]> {
-  const body = new RegExp(`static let ${name}: \\[[^\\]]+\\] = \\[\\n([\\s\\S]*?)\\n  \\]`).exec(swift)?.[1];
-  assert.ok(body !== undefined, `GhostexAgentMarks.swift has no table ${name}`);
-  return body.split('\n').map((line) => {
-    const entry = /^\s*"([^"]+)": ("[^"]+"|0x[0-9A-F]{6}),$/.exec(line);
-    assert.ok(entry !== null, `unexpected line in ${name}: ${line}`);
-    return [entry[1], entry[2]];
-  });
-}
 
 /** `AGENT_ICONS` of the generated file, icon id → component name (read as text: it imports react-native-svg). */
 const COMPONENTS = new Map(
@@ -82,26 +69,60 @@ function drawing(markup: string): string[] {
   return elements;
 }
 
-const ICON_IDS = [...COMPONENTS.keys()].sort() as AgentIconId[];
+const ICON_IDS = [...COMPONENTS.keys()].sort() as AgentArtId[];
 
 describe('the Live Activity extension draws the agent marks the app draws', () => {
-  test('the same icon ids with the same tints', () => {
-    const tints = swiftTable('tints');
-    assert.deepEqual(tints.map(([id]) => id).sort(), ICON_IDS);
-    for (const [id, value] of tints) {
-      assert.equal(
-        value,
-        `0x${agentIconTint(id as AgentIconId)
-          .slice(1)
-          .toUpperCase()}`,
-        `tint of ${id}`,
+  test('the same icon ids with the same tints travel in the content state', () => {
+    const assets = readdirSync(join(EXTENSION, 'Assets.xcassets/AgentMarks'))
+      .filter((name) => name.endsWith('.imageset'))
+      .map((name) => name.slice('AgentMark-'.length, -'.imageset'.length))
+      .sort();
+    assert.deepEqual(assets, ICON_IDS);
+    for (const id of ICON_IDS) {
+      const now = Date.parse('2026-10-24T10:42:00Z');
+      const summary = parseMobileSummary(
+        JSON.stringify({
+          sessions: [
+            {
+              sessionId: 's',
+              provider: 'zmx',
+              agentName: 'My helper',
+              agentIcon: id,
+              activity: 'working',
+              workingStartedAt: new Date(now).toISOString(),
+            },
+          ],
+        }),
       );
+      assert.ok(summary !== null);
+      const [row] = buildContentState([{ machineId: 'm', summary, loadedAt: now }], now).agents;
+      assert.equal(row?.agentIcon, id);
+      assert.equal(row?.agentTint, Number.parseInt(agentIconTint(id).slice(1), 16), `tint of ${id}`);
     }
   });
 
-  test('the same name aliases', () => {
-    const aliases = Object.fromEntries(swiftTable('aliases').map(([name, id]) => [name, JSON.parse(id) as string]));
-    assert.deepEqual(aliases, { ...AGENT_NAME_ALIASES });
+  test('name aliases, known ids and unknown names use the app resolver before the content is sent', () => {
+    const aliases = [...Object.entries(AGENT_NAME_ALIASES), ['empryo', 'empryo'], ['aider', 'terminal']];
+    for (const [name, id] of aliases) {
+      const now = Date.parse('2026-10-24T10:42:00Z');
+      const summary = parseMobileSummary(
+        JSON.stringify({
+          sessions: [
+            {
+              sessionId: 's',
+              provider: 'zmx',
+              agentName: `  ${name.toUpperCase()}  `,
+              activity: 'working',
+              workingStartedAt: new Date(now).toISOString(),
+            },
+          ],
+        }),
+      );
+      assert.ok(summary !== null);
+      const [row] = buildContentState([{ machineId: 'm', summary, loadedAt: now }], now).agents;
+      const expected = name === 'claude-cloud' || name === 'claude (cloud)' ? 'claude-cloud' : id;
+      assert.equal(row?.agentIcon, expected, `mark of ${name}`);
+    }
   });
 
   test('one image set per icon id with the drawing of the app component, template unless it ignores color', () => {

@@ -152,7 +152,7 @@ struct ActivityRowView: View {
   var body: some View {
     let status = ActivityStatus(row)
     HStack(spacing: 8) {
-      AgentMarkView(agentName: row.agentName)
+      AgentMarkView(iconId: row.agentIcon, tint: row.agentTint)
       HStack(alignment: .firstTextBaseline, spacing: 6) {
         Text(row.agentName)
           .font(.subheadline.weight(.semibold))

@@ -13,8 +13,8 @@ let package = Package(
   ],
   targets: [
     .target(name: "GhostexLiveActivityModel", path: "Shared"),
-    // The extension's views and agent marks, so their rules are testable too (the minimal counts,
-    // the agent mark resolver). Without the widget entry point (`@main`) and the asset catalog.
+    // The extension's views, so the minimal counts are testable too.
+    // Without the widget entry point (`@main`) and the asset catalog.
     .target(
       name: "GhostexLiveActivityViews",
       dependencies: ["GhostexLiveActivityModel"],

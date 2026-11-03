@@ -59,6 +59,9 @@ public enum GhostexAgentState: String, Codable, Hashable, Sendable {
 public struct GhostexActivityRow: Codable, Hashable, Sendable {
   public var target: GhostexActivityTarget
   public var agentName: String
+  /// Resolved artwork identity and RGB tint from the app's registry; never resolved from the display name here.
+  public var agentIcon: String
+  public var agentTint: UInt32
   public var project: String
   public var state: GhostexAgentState
   /// Working: when the current stint began (`workingStartedAt`); finished: when the stint that ended began
@@ -71,11 +74,14 @@ public struct GhostexActivityRow: Codable, Hashable, Sendable {
   public var hasQuestion: Bool?
 
   public init(
-    target: GhostexActivityTarget, agentName: String, project: String, state: GhostexAgentState,
+    target: GhostexActivityTarget, agentName: String, agentIcon: String, agentTint: UInt32,
+    project: String, state: GhostexAgentState,
     startedAt: Date, finishedAt: Date? = nil, expiresAt: Date? = nil, hasQuestion: Bool? = nil
   ) {
     self.target = target
     self.agentName = agentName
+    self.agentIcon = agentIcon
+    self.agentTint = agentTint
     self.project = project
     self.state = state
     self.startedAt = startedAt
@@ -85,13 +91,15 @@ public struct GhostexActivityRow: Codable, Hashable, Sendable {
   }
 
   private enum CodingKeys: String, CodingKey {
-    case target, agentName, project, state, startedAt, finishedAt, expiresAt, hasQuestion
+    case target, agentName, agentIcon, agentTint, project, state, startedAt, finishedAt, expiresAt, hasQuestion
   }
 
   public init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     target = try container.decode(GhostexActivityTarget.self, forKey: .target)
     agentName = try container.decode(String.self, forKey: .agentName)
+    agentIcon = try container.decode(String.self, forKey: .agentIcon)
+    agentTint = try container.decode(UInt32.self, forKey: .agentTint)
     project = try container.decode(String.self, forKey: .project)
     state = try container.decode(GhostexAgentState.self, forKey: .state)
     startedAt = try ActivityTime.decode(container, .startedAt)
@@ -104,6 +112,8 @@ public struct GhostexActivityRow: Codable, Hashable, Sendable {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(target, forKey: .target)
     try container.encode(agentName, forKey: .agentName)
+    try container.encode(agentIcon, forKey: .agentIcon)
+    try container.encode(agentTint, forKey: .agentTint)
     try container.encode(project, forKey: .project)
     try container.encode(state, forKey: .state)
     try container.encode(ActivityTime.text(startedAt), forKey: .startedAt)

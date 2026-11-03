@@ -26,6 +26,8 @@ final class GhostexActivityContentTests: XCTestCase {
       GhostexActivityRow(
         target: GhostexActivityTarget(machineId: worstId, sessionId: String(worstId.dropLast()) + "\(index)"),
         agentName: worstName,
+        agentIcon: "antigravity-cli",
+        agentTint: 0x749BFF,
         project: worstName,
         state: .finished,
         startedAt: start,
@@ -62,7 +64,8 @@ final class GhostexActivityContentTests: XCTestCase {
     let rows = (0..<4).map { index in
       GhostexActivityRow(
         target: GhostexActivityTarget(machineId: "m1", sessionId: "s\(index)"),
-        agentName: String(repeating: "n", count: 64), project: String(repeating: "p", count: 64),
+        agentName: String(repeating: "n", count: 64), agentIcon: "codex", agentTint: 0xFFFFFF,
+        project: String(repeating: "p", count: 64),
         state: .working, startedAt: start)
     }
     let content = GhostexActivityContent(
@@ -99,10 +102,13 @@ final class GhostexActivityContentTests: XCTestCase {
   private static let schemaInstance = """
     {"updatedAt":"2026-10-24T10:42:00Z","counts":{"working":1,"waiting":1},"agents":[\
     {"target":{"machineId":"m1","sessionId":"s1"},"agentName":"a","project":"p1","state":"waiting",\
+    "agentIcon":"codex","agentTint":16777215,\
     "startedAt":"2026-10-24T10:30:00Z","hasQuestion":true},\
     {"target":{"machineId":"m1","sessionId":"s2"},"agentName":"b","project":"p2","state":"working",\
+    "agentIcon":"claude-cloud","agentTint":14054742,\
     "startedAt":"2026-10-24T10:30:00Z"},\
     {"target":{"machineId":"m1","sessionId":"s3"},"agentName":"c","project":"p3","state":"finished",\
+    "agentIcon":"terminal","agentTint":16448250,\
     "startedAt":"2026-10-24T10:30:00Z","finishedAt":"2026-10-24T10:41:00Z","expiresAt":"2026-10-24T10:43:00Z"}],\
     "moreCount":0}
     """
@@ -110,6 +116,8 @@ final class GhostexActivityContentTests: XCTestCase {
   func testSchemaInstanceDecodesAndRoundTrips() throws {
     let content = try JSONDecoder().decode(GhostexActivityContent.self, from: Data(Self.schemaInstance.utf8))
     XCTAssertEqual(content.agents.map(\.state), [.waiting, .working, .finished])
+    XCTAssertEqual(content.agents.map(\.agentIcon), ["codex", "claude-cloud", "terminal"])
+    XCTAssertEqual(content.agents.map(\.agentTint), [0xFFFFFF, 0xD67556, 0xFAFAFA])
     XCTAssertTrue(content.agents[0].asksQuestion)
     XCTAssertFalse(content.agents[1].asksQuestion)
     XCTAssertEqual(content.agents[2].expiresAt, ActivityTime.parse("2026-10-24T10:43:00Z"))
@@ -121,7 +129,8 @@ final class GhostexActivityContentTests: XCTestCase {
   func testRowWithoutStartIsRejected() {
     let json = """
       {"updatedAt":"2026-10-24T10:42:00.000Z","counts":{"working":1,"waiting":0},"agents":[\
-      {"target":{"machineId":"m1","sessionId":"s1"},"agentName":"a","project":"p","state":"working"}],"moreCount":0}
+      {"target":{"machineId":"m1","sessionId":"s1"},"agentName":"a","agentIcon":"codex","agentTint":16777215,\
+      "project":"p","state":"working"}],"moreCount":0}
       """
     XCTAssertThrowsError(try JSONDecoder().decode(GhostexActivityContent.self, from: Data(json.utf8)))
   }

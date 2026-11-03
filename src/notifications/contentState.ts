@@ -23,6 +23,7 @@
  */
 
 import type { GhostexMobileSummary, GhostexSession, GhostexSummaryCapabilities } from '../contract/mobileSummary';
+import { agentIconTint, resolveAgentArtId, type AgentArtId } from '../contract/mobileSummary';
 
 export type LiveActivityAgentState = 'working' | 'waiting' | 'finished';
 
@@ -31,6 +32,10 @@ export type LiveActivityTarget = { machineId: string; sessionId: string };
 export type LiveActivityRow = {
   target: LiveActivityTarget;
   agentName: string;
+  /** Artwork identity resolved exactly as the session row, including an explicit icon and the cloud artwork. */
+  agentIcon: AgentArtId;
+  /** RGB tint from the app's registry, packed as 0xRRGGBB for the native view. */
+  agentTint: number;
   project: string;
   state: LiveActivityAgentState;
   /** Working: since the stint began; waiting: since the agent waits; finished: when its last stint began. */
@@ -146,9 +151,15 @@ function candidateFor(
   // An open question card counts only from a computer that announces the field; the counted questions always.
   const hasQuestion = (capabilities.awaitingAnswer && session.awaitingAnswer) || session.pendingQuestionCount > 0;
   const waitsOnUser = session.awaitingApproval || hasQuestion;
+  const agentIcon = resolveAgentArtId(
+    session.agentIcon,
+    session.agentName.length > 0 ? session.agentName : session.agent,
+  );
   const base = {
     target: { machineId, sessionId: session.sessionId },
     agentName,
+    agentIcon,
+    agentTint: Number.parseInt(agentIconTint(agentIcon).slice(1), 16),
     project: truncateName(session.projectName),
   };
   const routable = TARGET_ID.test(machineId) && TARGET_ID.test(session.sessionId);

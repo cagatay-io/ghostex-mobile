@@ -4,9 +4,7 @@ import XCTest
 @testable import GhostexLiveActivityModel
 @testable import GhostexLiveActivityViews
 
-/// The minimal island shows the counts of working and waiting agents, also in the 28 pt width-limited circle, and
-/// the agent mark at the start of a row (the design): resolved by name as the app's session list does, unknown
-/// names neutral.
+/// The minimal island shows the counts of working and waiting agents, also in the 28 pt width-limited circle.
 @MainActor
 final class GhostexActivityViewsTests: XCTestCase {
   private typealias Line = MinimalLayout.Line
@@ -33,17 +31,5 @@ final class GhostexActivityViewsTests: XCTestCase {
     let image = try XCTUnwrap(renderer.uiImage)
     XCTAssertLessThanOrEqual(image.size.width, 28, "width \(image.size.width)")
     XCTAssertLessThanOrEqual(image.size.height, 28, "height \(image.size.height)")
-  }
-
-  /// The row's agent mark: the name branch of the app's `resolveAgentArtId`.
-  func testAgentMarkResolvesNamesAsTheApp() {
-    XCTAssertEqual(AgentMark.id(forAgentName: "Claude Code"), "claude", "alias, any case")
-    XCTAssertEqual(AgentMark.id(forAgentName: "Claude (cloud)"), "claude-cloud", "the Claude (cloud) agent's cloud")
-    XCTAssertEqual(AgentMark.id(forAgentName: "  droid \n"), "factory-droid", "alias, trimmed")
-    XCTAssertEqual(AgentMark.id(forAgentName: "empryo"), "empryo", "a name that is an icon id")
-    XCTAssertEqual(AgentMark.id(forAgentName: "aider"), "terminal", "unknown name: the neutral mark")
-    XCTAssertEqual(AgentMark.id(forAgentName: ""), "terminal", "no name: the neutral mark")
-    XCTAssertEqual(AgentMark.neutral, "terminal")
-    XCTAssertNotNil(AgentMark.tints[AgentMark.neutral], "the neutral mark has its own tint")
   }
 }

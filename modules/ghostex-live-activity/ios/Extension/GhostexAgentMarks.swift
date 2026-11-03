@@ -3,13 +3,9 @@ import SwiftUI
 /// The agent's logo at the start of a row, as the app's session list draws it (`SessionRow.tsx`:
 /// `resolveAgentArtId` plus `agentIconTint`), so a row shows the same mark as the session it opens.
 ///
-/// The row carries only the agent's name (the content state), so the extension resolves the
-/// mark from that name with the app's name table; a name the table does not know gets the neutral terminal mark,
-/// as in the app. The logos are the asset catalog's `AgentMarks/AgentMark-<id>` image sets, drawn as template
-/// images in the tint below, except omp's fixed gradient, which is drawn as is. The tables mirror
-/// `AGENT_ICON_TINTS` (plus the Claude (cloud) tint of `agentIconTint`) and `AGENT_NAME_ALIASES` in
-/// `src/contract/mobileSummary.ts`; a new agent logo there needs its image set and its entries here, and
-/// `src/notifications/agentMarks.test.ts` fails until both agree.
+/// The content state carries the artwork identity and RGB tint already resolved by the app; this view only
+/// draws them. The logos are the asset catalog's `AgentMarks/AgentMark-<id>` image sets, drawn as template
+/// images in the supplied tint, except omp's fixed gradient, which is drawn as is.
 ///
 /// Provenance of the image sets: SVG copies of the components of the app's `src/assets/agentIcons.generated.tsx`
 /// as of upstream commit ab15143ac83060bc6368ba6eb3726a23ca9bad62 (the last commit that changed that file),
@@ -20,119 +16,19 @@ import SwiftUI
 /// extension reuses the app's existing marks for the same purpose, telling which agent a row is, as in the session
 /// list, and adds no new asset source. The marks of third-party agents belong to their makers; no licence for them
 /// is recorded here.
-enum AgentMark {
-  /// The mark of a name the table does not know.
-  static let neutral = "terminal"
-
-  /// Icon id → tint (`AGENT_ICON_TINTS`, and `agentIconTint`'s tint of the Claude (cloud) mark).
-  static let tints: [String: UInt32] = [
-    "amp-cli": 0xFFFFFF,
-    "antigravity-cli": 0x749BFF,
-    "browser": 0x82B7FF,
-    "claude": 0xD97757,
-    "claude-cloud": 0xD67556,
-    "codebuddy": 0x72D6FF,
-    "cursor-cli": 0xEDECEC,
-    "codex": 0xFFFFFF,
-    "copilot": 0xFFFFFF,
-    "dsh": 0x4D6BFE,
-    "empryo": 0x1FA31D,
-    "factory-droid": 0xFF7A1A,
-    "freebuff": 0xFFFFFF,
-    "gemini": 0x8B9AFF,
-    "grok-build": 0xFFFFFF,
-    "hermes-agent": 0xF3C46B,
-    "kiro": 0xA6E3FF,
-    "omp": 0xC8FF62,
-    "openclaude": 0xF0A68A,
-    "opencode": 0x6D96C0,
-    "pi": 0xC8FF62,
-    "qoder": 0xA991FF,
-    "rovo-dev": 0x4FC3A1,
-    "zcode": 0xFFFFFF,
-    "terminal": 0xFAFAFA,
-  ]
-
-  /// Lowercased agent name → icon id (`AGENT_NAME_ALIASES`).
-  static let aliases: [String: String] = [
-    "codex": "codex",
-    "codex cli": "codex",
-    "claude": "claude",
-    "claude code": "claude",
-    "claude-cloud": "claude",
-    "claude (cloud)": "claude",
-    "openclaude": "openclaude",
-    "open claude": "openclaude",
-    "cursor": "cursor-cli",
-    "cursor cli": "cursor-cli",
-    "cursor agent": "cursor-cli",
-    "cursor-agent": "cursor-cli",
-    "pi": "pi",
-    "pi agent": "pi",
-    "π": "pi",
-    "opencode": "opencode",
-    "open code": "opencode",
-    "gemini": "gemini",
-    "copilot": "copilot",
-    "github copilot": "copilot",
-    "droid": "factory-droid",
-    "factory droid": "factory-droid",
-    "grok": "grok-build",
-    "grok build": "grok-build",
-    "antigravity": "antigravity-cli",
-    "antigravity cli": "antigravity-cli",
-    "agy": "antigravity-cli",
-    "amp": "amp-cli",
-    "amp cli": "amp-cli",
-    "hermes": "hermes-agent",
-    "hermes agent": "hermes-agent",
-    "codebuddy": "codebuddy",
-    "code buddy": "codebuddy",
-    "kiro": "kiro",
-    "omp": "omp",
-    "oh my pi": "omp",
-    "qoder": "qoder",
-    "rovo": "rovo-dev",
-    "rovo dev": "rovo-dev",
-    "rovo-dev": "rovo-dev",
-    "zcode": "zcode",
-    "zcode-cli": "zcode",
-    "z code": "zcode",
-    "freebuff": "freebuff",
-    "dsh": "dsh",
-    "dsh-tui": "dsh",
-    "deepseek": "dsh",
-    "deepseek harness": "dsh",
-    "browser": "browser",
-  ]
-
-  /// The name branch of `resolveAgentArtId`: the Claude (cloud) agent's own cloud mark, else that of
-  /// `resolveAgentIconId`: an alias, else a name that is an icon id, else the neutral mark.
-  static func id(forAgentName name: String) -> String {
-    let key = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-    if key == "claude-cloud" || key == "claude (cloud)" { return "claude-cloud" }
-    if let aliased = aliases[key] { return aliased }
-    if tints[key] != nil { return key }
-    return neutral
-  }
-
-  static func tint(_ id: String) -> Color {
-    let rgb = tints[id, default: 0xFAFAFA]
-    return Color(
-      red: Double((rgb >> 16) & 0xFF) / 255, green: Double((rgb >> 8) & 0xFF) / 255, blue: Double(rgb & 0xFF) / 255)
-  }
-}
-
 /// 18 pt, the size of the mark in the design's row. Decorative: the row's text names the agent.
 struct AgentMarkView: View {
-  let agentName: String
+  let iconId: String
+  let tint: UInt32
 
   var body: some View {
-    let id = AgentMark.id(forAgentName: agentName)
-    Image("AgentMark-\(id)")
+    Image("AgentMark-\(iconId)")
       .resizable()
       .scaledToFit()
-      .foregroundStyle(AgentMark.tint(id))
+      .foregroundStyle(Color(
+        red: Double((tint >> 16) & 0xFF) / 255,
+        green: Double((tint >> 8) & 0xFF) / 255,
+        blue: Double(tint & 0xFF) / 255))
       .frame(width: 18, height: 18)
       .accessibilityHidden(true)
   }

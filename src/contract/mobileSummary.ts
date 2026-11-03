@@ -1000,7 +1000,7 @@ const AGENT_ICON_TINTS: Record<AgentIconId, string> = {
   terminal: '#FAFAFA',
 };
 
-/** Lowercased name/icon aliases → icon id (spec §2); the Live Activity extension mirrors it (GhostexAgentMarks.swift). */
+/** Lowercased name/icon aliases → icon id (spec §2), shared by session rows and Live Activity content. */
 export const AGENT_NAME_ALIASES: Readonly<Record<string, AgentIconId>> = {
   codex: 'codex',
   'codex cli': 'codex',
