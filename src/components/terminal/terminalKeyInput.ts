@@ -1,6 +1,6 @@
 /**
- * Key input of the Befehlspad and its Keys and Agent layers, the key bar's behaviour
- * unchanged (terminal-screen.md §2):
+ * Shared key input of the key bar, the Befehlspad and its Keys and Agent layers, extracted from the key bar
+ * (terminal-screen.md §2):
  * - Modifier latching: a tap arms Ctrl/Alt/Shift for the next key (one-shot), a long press locks it until it is
  *   tapped again; the next key keeps only the locked ones. The state is mirrored to the native view, which
  *   applies it to the software keyboard and reports when a key there used a one-shot modifier.
@@ -8,7 +8,7 @@
  *   the modifiers captured on the first press.
  * - Custom text actions send their text (and Enter); agent hotkey sequences send their steps 120 ms apart.
  * - A haptic tick on every press while the user's key haptics are on, a firmer one when a modifier locks.
- * Free of React and of the native module object, so the pad's logic runs under `bun test` with fakes.
+ * Free of React and of the native module object, so the shared logic runs under `bun test` with fakes.
  */
 
 import type { KeyModifiers, TerminalKey } from '../../../modules/ghostex-native/src/GhostexNative.types';

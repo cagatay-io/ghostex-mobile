@@ -138,6 +138,7 @@ Labels (fixed ASCII): CTRL, ALT, Cmd, SHIFT, ESC, TAB, S-Tab, Enter, Bksp, Del, 
 - Tapping Ctrl/Alt/Cmd/Shift activates it for the next input only. One-shot look: system blue background with white text.
 - Long-pressing a modifier for 450ms locks it until the modifier is tapped again. Locked look: purple background, white text, and a brighter border so it is visually distinct from one-shot activation.
 - The next non-modifier input clears only one-shot modifiers. Locked modifiers remain applied to accessory keys and software-keyboard input.
+- The bar and pad share their input machine (`terminalKeyInput.ts`, `useTerminalKeyInput.ts`); their renderers keep their own gestures. Custom text actions, agent sequences and Paste clear spent one-shot modifiers in the native keyboard too, keeping locks, so the following software-keyboard character does not inherit a spent modifier.
 
 ### Repeat-on-hold
 - Repeatable: arrows, backspace, home, end, pageUp, pageDown.
