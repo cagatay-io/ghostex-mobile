@@ -232,7 +232,7 @@ function paths(project: XcodeProject, entries: Array<{ value: string }>, viaBuil
   return entries.map(({ value }) => unquote(PBXFileReference[viaBuildFile ? PBXBuildFile[value].fileRef : value].path));
 }
 
-/** The extension as a maintainer would check it in Xcode. */
+/** The extension as one would check it in Xcode. */
 function extensionOf(project: XcodeProject) {
   const objects = project.hash.project.objects;
   const [targetUuid, ...otherTargets] = uuidsNamed(project, 'PBXNativeTarget', TARGET);

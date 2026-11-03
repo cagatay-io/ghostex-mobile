@@ -4,7 +4,7 @@
  * `buildSnapshot` on summary fixtures in the CLI's wire form (read by the real summary parser), the real
  * `buildUsageBars` on a computer's `agentAccounts` answer, and the real writer with a fake App Group file writer and
  * a fake `WidgetCenter`, with an injected clock. Expected values come from the widget snapshot contract
- * (format version 1) and the approved widget mockup: counts of working and waiting agents,
+ * (format version 1) and the widget design: counts of working and waiting agents,
  * the attention marker while one waits, the agents waiting first (oldest first inside a state), at most eight,
  * the data time, usage bars only where usage exists, and no prompt, reply or title text.
  *
@@ -426,7 +426,7 @@ describe('reading the usage for the widget', () => {
     });
     const labels = () => fake.written.at(-1)?.usage?.bars.map((bar) => bar.label);
 
-    // The reviewer's sequence: A at 0 s, B at 5 s, A again at 10 s, while the poll runs.
+    // A sequence: A at 0 s, B at 5 s, A again at 10 s, while the poll runs.
     await writer.sync(inputs());
     now = NOW + 5_000;
     await writer.sync(inputs({ selectedMachineId: OTHER_MACHINE }));
