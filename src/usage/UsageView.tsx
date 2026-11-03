@@ -22,7 +22,8 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 
 import { AGENT_ICONS } from '../assets/agentIcons.generated';
 import { COMMAND_ICONS } from '../assets/tablerIcons.generated';
-import { usageLines, type UsageColumn } from '../chat/native/composer/accountUsage';
+import { UsageRow } from '../chat/native/composer/AccountsPanel';
+import { transcriptTheme } from '../chat/native/transcript/theme';
 import { UNREACHABLE_MESSAGE } from '../chat/rust/machine-link';
 import { FoldListFrame } from '../components/common/foldGap';
 import { useLaptopFold } from '../components/common/verticalBar/laptopFold';
@@ -33,13 +34,15 @@ import { UsageCopy } from '../copy';
 import { machineDisplayLabel, useMachinesStore } from '../machines/store';
 import type { PaneBarInset } from '../panes/geometry';
 import { machineTargetFor } from '../screens/terminal-screen/session-lookups';
-import { colorWithOpacity, GhostexPalette, GhostexRadii } from '../theme/palette';
+import { GhostexPalette, GhostexRadii } from '../theme/palette';
 import { readAccountUsage } from './client';
 import type { UsageAccount } from './usageMeters';
 
 /** How often the usage is read again while the view is open: the chat Accounts panel's poll. */
 const READ_EVERY_MS = 30_000;
 const PADDING = 12;
+// This surface stays in the app's dark appearance, independently of Settings > Chat theme.
+const USAGE_APPEARANCE = transcriptTheme('dark');
 
 export type UsagePlacement = { kind: 'pane'; controlInset: PaneBarInset } | { kind: 'screen' };
 
@@ -168,37 +171,8 @@ function AccountSection({ account }: { account: UsageAccount }) {
       {account.unavailable ? (
         <Text style={styles.paragraph}>{UsageCopy.unavailable}</Text>
       ) : (
-        <View style={styles.meters}>
-          {usageLines([...account.meters]).map((line, lineIndex) => (
-            <View key={lineIndex} style={styles.meterLine}>
-              {line.map((meter, index) =>
-                meter === null ? <View key={index} style={styles.meter} /> : <Meter key={index} meter={meter} />,
-              )}
-            </View>
-          ))}
-        </View>
+        <UsageRow columns={account.meters} resets appearance={USAGE_APPEARANCE} />
       )}
-    </View>
-  );
-}
-
-function Meter({ meter }: { meter: UsageColumn }) {
-  return (
-    <View style={styles.meter} accessible accessibilityLabel={UsageCopy.meter(meter.name, meter.value, meter.resetIn)}>
-      <View style={styles.meterHead}>
-        <Text style={styles.meterName} numberOfLines={1}>
-          {meter.name}
-        </Text>
-        <Text style={styles.meterValue}>{meter.value}</Text>
-      </View>
-      <View style={styles.track}>
-        <View style={[styles.fill, { width: `${meter.percent}%` }]} />
-      </View>
-      {meter.resetIn.length > 0 ? (
-        <Text style={styles.meterReset} numberOfLines={1}>
-          {UsageCopy.resetIn(meter.resetIn)}
-        </Text>
-      ) : null}
     </View>
   );
 }
@@ -223,18 +197,4 @@ const styles = StyleSheet.create({
   nameLine: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 20 },
   name: { color: GhostexPalette.FOREGROUND, fontSize: 14, fontWeight: '600', flexShrink: 1 },
   email: { flex: 1, minWidth: 0, color: GhostexPalette.MUTED, fontSize: 12 },
-  meters: { gap: 8 },
-  meterLine: { flexDirection: 'row', gap: 14 },
-  meter: { flex: 1, minWidth: 0, gap: 4 },
-  meterHead: { flexDirection: 'row', justifyContent: 'space-between', gap: 6 },
-  meterName: { flexShrink: 1, color: GhostexPalette.MUTED, fontSize: 12, lineHeight: 15, fontWeight: '500' },
-  meterValue: { color: GhostexPalette.FOREGROUND, fontSize: 12, lineHeight: 15, fontWeight: '600' },
-  meterReset: { color: GhostexPalette.MUTED, fontSize: 11, lineHeight: 13 },
-  track: {
-    height: 3,
-    borderRadius: 2,
-    overflow: 'hidden',
-    backgroundColor: colorWithOpacity(GhostexPalette.MUTED, 24),
-  },
-  fill: { height: '100%', borderRadius: 2, backgroundColor: GhostexPalette.FOREGROUND },
 });

@@ -11,6 +11,7 @@
  */
 
 import { sessionChatRpc } from '../chat/rust/transport';
+import { wasmCoreBridge } from '../chat/rust/wasm-core/bridge';
 import type { MachineConnectionTarget } from '../machines/credentials';
 import { buildUsageMeters, type UsageAccount } from './usageMeters';
 
@@ -26,5 +27,9 @@ export async function readAccountUsage(machine: MachineConnectionTarget, refresh
     ACCOUNTS_TIMEOUT_MS,
   );
   if (answer.error !== null) throw new Error(answer.error.message);
-  return buildUsageMeters(answer.result, Date.now());
+  const columns = await wasmCoreBridge.call({
+    op: 'accountUsageColumns',
+    args: [JSON.stringify(answer.result), Date.now()],
+  });
+  return buildUsageMeters(answer.result, columns);
 }

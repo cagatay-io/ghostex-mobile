@@ -6,8 +6,9 @@
  * Notifications screen's `AttentionList`, the usage view and its meters), the deep link route a
  * question takes, the Usage screen, and the pane, terminal, settings, inventory, machine and attention feed stores;
  * mocked are the boundaries only: the native module (its terminal view a stand-in that shows its props), gxserver's
- * answers (`sessionChatRpc`: the accounts and their usage), the feed's writes and reads on the computer, haptics,
- * storage, the safe area, navigation and the chat screen. The swipe back runs in the app's real navigation container
+ * answers (`sessionChatRpc`: the accounts and their usage), the hidden core page's bridge answer,
+ * the feed's writes and reads on the computer, haptics, storage, the safe area, navigation and the chat screen.
+ * The swipe back runs in the app's real navigation container
  * and native stack, only the native screen host a stand-in that keeps what the stack hands each screen.
  *
  * Covered: each type's entry from the chooser and from the title's pane type menu; what each shows; the other slot
@@ -39,6 +40,9 @@ import type { BarLayout, FoldDivision } from '../../modules/ghostex-native/src/G
 import { sessionDeepLink } from '../app/deepLinkHandler';
 import type * as DeepLinksModule from '../app/deepLinks';
 import { keyboardFixture } from '../components/common/keyboard/keyboardEventFixtures';
+import { AccountsPanel, UsageRow } from '../chat/native/composer/AccountsPanel';
+import { transcriptTheme } from '../chat/native/transcript/theme';
+import { wasmCoreBridge, type WasmCoreRequest } from '../chat/rust/wasm-core/bridge';
 import { FoldListFrame } from '../components/common/foldGap';
 import { useBarGeometryStore } from '../components/common/verticalBar/barGeometry';
 import { LaptopFoldProvider } from '../components/common/verticalBar/laptopFold';
@@ -134,6 +138,16 @@ jest.mock('../chat/rust/transport', () => ({
     mockRpcCalls.push({ machineId: machine.id, method, params });
     if (method === 'agentAccounts') return mockAccountsAnswer?.() ?? Promise.resolve(mockAccounts);
     return Promise.resolve({ result: { entries: [] }, error: null });
+  },
+}));
+// The bundled page owns projection. Return its columns, not a second projection in this fixture.
+let mockColumns: unknown = [];
+jest.mock('../chat/rust/wasm-core/bridge', () => ({
+  wasmCoreBridge: {
+    call: jest.fn((request: WasmCoreRequest) => {
+      if (request.op !== 'accountUsageColumns') return Promise.reject(new Error(`Unexpected op: ${request.op}`));
+      return Promise.resolve(mockColumns);
+    }),
   },
 }));
 // The feed's writes and reads on the computer; the list itself comes from the real feed store.
@@ -345,6 +359,17 @@ const ACCOUNTS = {
     },
   ],
 };
+
+const COLUMNS = [
+  {
+    id: 'work',
+    usage: [
+      { label: '5h: 16%', name: '5h', value: '16%', percent: 16.4, reset: 'Resets 2h 36m', resetIn: '2h 36m' },
+      { label: '7d: 40%', name: '7d', value: '40%', percent: 40, reset: 'Resets 5d 4h', resetIn: '5d 4h' },
+    ],
+  },
+  { id: 'spare', usage: [] },
+];
 
 function feedRow(id: string, sessionId: string, kind: FeedRow['kind'], read = false): FeedRow {
   return {
@@ -570,6 +595,8 @@ beforeEach(async () => {
   mockRpcCalls.length = 0;
   mockAccounts = { result: ACCOUNTS, error: null };
   mockAccountsAnswer = null;
+  mockColumns = COLUMNS;
+  jest.mocked(wasmCoreBridge.call).mockClear();
   mockReport = null;
   areaView = null;
   Object.values(navigation).forEach((mock) => mock.mockClear());
@@ -967,6 +994,11 @@ describe('usage: the meters of the computer it was opened for', () => {
   test('the Accounts panel’s meters per account; a login without usage says so; the title names the computer', async () => {
     await renderScreen({ stored: layout(session(A), usage(A)) });
     expect(mockRpcCalls).toContainEqual({ machineId: 'm1', method: 'agentAccounts', params: { operation: 'list' } });
+    expect(wasmCoreBridge.call).toHaveBeenCalledTimes(1);
+    expect(wasmCoreBridge.call).toHaveBeenCalledWith({
+      op: 'accountUsageColumns',
+      args: [JSON.stringify(ACCOUNTS), NOW],
+    });
     const meters = within(pane(`usage:${A}`));
     expect(meters.getByText(UsageCopy.head)).toBeTruthy();
     expect(meters.getByLabelText('5h 16%, resets in 2h 36m')).toBeTruthy();
@@ -976,6 +1008,36 @@ describe('usage: the meters of the computer it was opened for', () => {
     expect(meters.getByText(UsageCopy.unavailable)).toBeTruthy();
     expect(meters.queryByText('0%')).toBeNull();
     expect(barTitle(`usage:${A}`, UsageCopy.title('Mac'), PanesCopy.usageType)).toBeTruthy();
+  });
+
+  test('the pane draws the page’s returned names, values and resets, not the raw account windows', async () => {
+    mockColumns = [
+      { id: 'work', usage: [
+        { name: 'Core window', value: '81%', percent: 80.5, resetIn: 'due' },
+        { name: 'Core model', value: 'NaN%', percent: null, resetIn: null },
+        { name: 'Core weekly', value: '113%', percent: 100, resetIn: '3d 2h' },
+        { name: 'Core fourth', value: '-4%', percent: 0, resetIn: '59m' },
+      ] },
+      { id: 'spare', usage: [] },
+    ];
+    await renderScreen({ stored: layout(session(A), usage(A)) });
+    const body = within(pane(`usage:${A}`));
+    expect(body.getByLabelText('Core window 81%, resets in due')).toBeTruthy();
+    expect(body.getByLabelText('Core model NaN%')).toBeTruthy();
+    expect(body.getByLabelText('Core weekly 113%, resets in 3d 2h')).toBeTruthy();
+    expect(body.getByLabelText('Core fourth -4%, resets in 59m')).toBeTruthy();
+    expect(body.queryByText('16%')).toBeNull();
+    expect(body.getByText(UsageCopy.unavailable)).toBeTruthy();
+  });
+
+  test('a page failure uses the existing error path and keeps the last reading', async () => {
+    await renderScreen({ stored: layout(session(A), usage(A)) });
+    jest.mocked(wasmCoreBridge.call).mockRejectedValueOnce(new Error('The chat core page stopped.'));
+    await press(UsageCopy.refresh);
+    const body = within(pane(`usage:${A}`));
+    expect(body.getByText('The chat core page stopped.')).toBeTruthy();
+    expect(body.getByLabelText('5h 16%, resets in 2h 36m')).toBeTruthy();
+    expect(wasmCoreBridge.call).toHaveBeenCalledTimes(2);
   });
 
   test('a session of another computer selected: the pane keeps the Mac’s usage and its name', async () => {
@@ -1274,5 +1336,53 @@ describe('half folded like a book: the rows of the agents, attention and usage b
     const meters = within(pane(`usage:${A}`));
     expectOffTheFold('Refresh', spanOf(`usage:${A}`, meters.getByLabelText(UsageCopy.refresh)));
     expectOffTheFold('meter', spanOf(`usage:${A}`, meters.getByLabelText('5h 16%, resets in 2h 36m')));
+  });
+});
+
+describe('the Accounts panel’s shared usage row', () => {
+  test.each(['dark', 'light'] as const)('keeps current and switch reset policy and %s appearance roles', async (theme) => {
+    useSettingsStore.setState((state) => ({ settings: { ...state.settings, sessionChatTheme: theme } }));
+    const appearance = transcriptTheme(theme);
+    await render(
+      <AccountsPanel
+        panel={{
+          session: {
+            name: 'Current',
+            usage: COLUMNS[0].usage,
+            others: [{
+              id: 'other', name: 'Other', ready: true, action: 'Use account',
+              usage: [{ name: 'Other window', value: '23%', percent: 23, resetIn: '7m' }],
+            }],
+          },
+        }}
+        onCommand={() => undefined}
+      />,
+    );
+    expect(screen.getByText('↻ 2h 36m')).toBeTruthy();
+    expect(screen.queryByText('↻ 7m')).toBeNull();
+    expect(StyleSheet.flatten(screen.getByText('16%').props.style).color).toBe(appearance.foreground);
+    expect(StyleSheet.flatten(screen.getByText('5h').props.style).color).toBe(appearance.muted);
+    const column = screen.getByLabelText('5h 16%, resets in 2h 36m');
+    expect(column.queryAll((node) => StyleSheet.flatten(node.props.style)?.backgroundColor === appearance.meterTrack).length)
+      .toBeGreaterThan(0);
+    expect(column.queryAll((node) => {
+      const style = StyleSheet.flatten(node.props.style);
+      return style?.width === '16.4%' && style.backgroundColor === appearance.meterFill;
+    }).length).toBeGreaterThan(0);
+  });
+
+  test('the shared row takes its caller’s appearance independently of the chat setting', async () => {
+    useSettingsStore.setState((state) => ({ settings: { ...state.settings, sessionChatTheme: 'light' } }));
+    const appearance = transcriptTheme('dark');
+    await render(
+      <UsageRow
+        columns={[{ name: 'Core window', value: '81%', percent: 80.5, resetIn: 'due' }]}
+        resets
+        appearance={appearance}
+      />,
+    );
+    expect(screen.getByLabelText('Core window 81%, resets in due')).toBeTruthy();
+    expect(screen.getByText('↻ due')).toBeTruthy();
+    expect(StyleSheet.flatten(screen.getByText('81%').props.style).color).toBe(appearance.foreground);
   });
 });

@@ -18,10 +18,11 @@ import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { SwitchRow } from '../../../components/common/SwitchRow';
 import { AGENT_ICONS } from '../../../assets/agentIcons.generated';
-import { currentProblem, usageColumns, usageLines } from './accountUsage';
+import { UsageCopy } from '../../../copy';
+import { currentProblem, usageColumns, usageLines, type UsageColumn } from './accountUsage';
 import { Glyph } from './icons';
 import { arr, isTrue, num, obj, str, type JsonRecord } from './json';
-import { themedStyles, useTranscriptTheme } from '../transcript/theme';
+import { themedStyles, useTranscriptTheme, type TranscriptTheme } from '../transcript/theme';
 
 type Run = (command: JsonRecord, keepOpen: boolean) => void;
 
@@ -159,7 +160,7 @@ function SessionBlocks({
       </NameLine>
       {problem !== null ? <Text style={styles.paragraph}>{problem.message}</Text> : null}
       {usage.length > 0 ? (
-        <UsageRow session={session} resets />
+        <UsageRow columns={usage} resets appearance={P} />
       ) : problem === null ? (
         <Text style={styles.paragraph}>Usage is unavailable for this login.</Text>
       ) : null}
@@ -190,7 +191,7 @@ function SessionBlocks({
             {rowError.length > 0 ? (
               <Text style={styles.paragraph}>{rowError}</Text>
             ) : (
-              <UsageRow session={record} resets={false} />
+              <UsageRow columns={usageColumns(record.usage)} resets={false} appearance={P} />
             )}
           </Pressable>
         );
@@ -337,9 +338,17 @@ function NameLine({
 }
 
 /** The account's limits: label and percent over a thin bar, three columns a line. */
-function UsageRow({ session, resets }: { session: JsonRecord; resets: boolean }) {
-  const styles = useStyles();
-  const lines = usageLines(usageColumns(session.usage));
+export function UsageRow({
+  columns,
+  resets,
+  appearance,
+}: {
+  columns: readonly UsageColumn[];
+  resets: boolean;
+  appearance: Pick<TranscriptTheme, 'foreground' | 'muted' | 'meterTrack' | 'meterFill'>;
+}) {
+  const styles = usageRowStyles;
+  const lines = usageLines(columns);
   if (lines.length === 0) return null;
   return (
     <View style={styles.usage}>
@@ -353,20 +362,20 @@ function UsageRow({ session, resets }: { session: JsonRecord; resets: boolean })
                 key={index}
                 style={styles.column}
                 accessible
-                accessibilityLabel={`${column.name} ${column.value}${column.resetIn ? `, resets in ${column.resetIn}` : ''}`}
+                accessibilityLabel={UsageCopy.meter(column.name, column.value, column.resetIn)}
               >
                 <View style={styles.columnHead}>
-                  <Text style={styles.columnLabel} numberOfLines={1}>
+                  <Text style={[styles.columnLabel, { color: appearance.muted }]} numberOfLines={1}>
                     {column.name}
                   </Text>
-                  <Text style={styles.columnValue}>{column.value}</Text>
+                  <Text style={[styles.columnValue, { color: appearance.foreground }]}>{column.value}</Text>
                 </View>
-                <View style={styles.track}>
-                  <View style={[styles.fill, { width: `${column.percent}%` }]} />
+                <View style={[styles.track, { backgroundColor: appearance.meterTrack }]}>
+                  <View style={[styles.fill, { width: `${column.percent}%`, backgroundColor: appearance.meterFill }]} />
                 </View>
                 {resets && column.resetIn.length > 0 ? (
-                  <Text style={styles.columnReset} numberOfLines={1}>
-                    {`↻ ${column.resetIn}`}
+                  <Text style={[styles.columnReset, { color: appearance.muted }]} numberOfLines={1}>
+                    {UsageCopy.resetIn(column.resetIn)}
                   </Text>
                 ) : null}
               </View>
@@ -488,17 +497,20 @@ const useStyles = themedStyles((P) => ({
     paddingHorizontal: 8,
     borderRadius: 8,
   },
-  usage: { gap: 6 },
-  usageLine: { flexDirection: 'row', gap: 14 },
-  column: { flex: 1, minWidth: 0, gap: 4 },
-  columnHead: { flexDirection: 'row', justifyContent: 'space-between', gap: 6 },
-  columnLabel: { color: P.muted, fontSize: 12, lineHeight: 15, fontWeight: '500', flexShrink: 1 },
-  columnValue: { color: P.foreground, fontSize: 12, lineHeight: 15, fontWeight: '600' },
-  columnReset: { color: P.muted, fontSize: 10, lineHeight: 12 },
-  track: { height: 3, borderRadius: 2, overflow: 'hidden', backgroundColor: P.meterTrack },
-  fill: { height: '100%', borderRadius: 2, backgroundColor: P.meterFill },
   filledWide: { height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   filled: { backgroundColor: P.neutralFill },
   filledPressed: { backgroundColor: P.neutralFillPressed },
   filledLabel: { color: P.foreground, fontSize: 14 },
 }));
+
+const usageRowStyles = StyleSheet.create({
+  usage: { gap: 6 },
+  usageLine: { flexDirection: 'row', gap: 14 },
+  column: { flex: 1, minWidth: 0, gap: 4 },
+  columnHead: { flexDirection: 'row', justifyContent: 'space-between', gap: 6 },
+  columnLabel: { fontSize: 12, lineHeight: 15, fontWeight: '500', flexShrink: 1 },
+  columnValue: { fontSize: 12, lineHeight: 15, fontWeight: '600' },
+  columnReset: { fontSize: 10, lineHeight: 12 },
+  track: { height: 3, borderRadius: 2, overflow: 'hidden' },
+  fill: { height: '100%', borderRadius: 2 },
+});
