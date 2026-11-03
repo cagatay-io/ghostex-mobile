@@ -67,7 +67,7 @@ export const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     opacity: 0,
   },
-  /** Laptop pose: the terminal area below the fold while the keyboard or a layer is up. */
+  /** Laptop pose: the terminal area below the fold, keyboard up or not. */
   laptopCover: {
     position: 'absolute',
     left: 0,

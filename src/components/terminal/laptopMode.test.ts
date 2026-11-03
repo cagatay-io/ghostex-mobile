@@ -3,7 +3,7 @@
  * Run with `bun test src/components/terminal/laptopMode.test.ts`.
  *
  * Laptop mode's geometry: the laptop pose as the layout layer gets it from the active division (and the dev-only
- * debug row's text); the terminal's cover with the keyboard or a layer up; the pad's room in the upper half above
+ * debug row's text); the terminal's cover, keyboard up or not; the pad's room in the upper half above
  * the fold, covered only by the text editor, and reaching below the fold where the upper half is too short for the
  * open pad even over the header; the editor above the fold; a layer below it; sheets, centred cards and a
  * web page off the fold; and lists, whose first unit that would cross the fold starts below it. Frames: the iPhone
@@ -75,7 +75,7 @@ describe('the laptop pose comes from the active division across the window', () 
   });
 });
 
-describe('the terminal: with the keyboard or a layer up the output ends at the fold', () => {
+describe('the terminal: keyboard up or not, the output ends at the fold', () => {
   test('keyboard up: everything below the fold top is covered, so the visible part ends at the fold top', () => {
     assert.equal(obstruction(), AREA_BOTTOM - FOLD.top);
   });
@@ -94,8 +94,8 @@ describe('the terminal: with the keyboard or a layer up the output ends at the f
     assert.equal(AREA_BOTTOM - obstruction({ editorHeight: EDITOR }), editorBottom - EDITOR);
   });
 
-  test('neither keyboard nor layer: nothing is covered, the terminal runs over the fold', () => {
-    assert.equal(obstruction({ keyboardCover: 0 }), 0);
+  test('neither keyboard nor layer: the same cover, the visible part ends at the fold top', () => {
+    assert.equal(obstruction({ keyboardCover: 0 }), AREA_BOTTOM - FOLD.top);
   });
 
   test('the cover of dialogs and text fields starts at the fold, not at the keyboard', () => {

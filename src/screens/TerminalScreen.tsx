@@ -582,7 +582,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
   const layerFrameHeight =
     laptopFold !== null ? laptopLayerHeight(laptopFold, windowHeight, pad.layerMinHeight) : pad.layerMinHeight;
   // iOS: the covered part of the terminal's bottom, the keyboard with the editor on it or a layer in its place. In
-  // the laptop pose with the keyboard or a layer up: everything below the fold (and the editor above it).
+  // the laptop pose, keyboard up or not: everything below the fold (and the editor above it).
   const layerCover = layerShown ? (layerFrameHeight ?? layerHeight) - insets.bottom : 0;
   // The terminal area's bottom edge in the window: the home indicator's inset above the window's bottom until measured.
   const terminalAreaBottom =
@@ -1136,7 +1136,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
         ) : null}
         {tabs.length > 1 && <EdgeSwipeZones onPrev={() => switchTabBy(-1)} onNext={() => switchTabBy(1)} />}
         {laptopFold !== null && obstruction > 0 ? (
-          // Laptop pose with the keyboard or a layer up: the output ends at the fold. The view keeps its size and
+          // Laptop pose, keyboard up or not: the output ends at the fold. The view keeps its size and
           // slides; what it still has below the fold's top (the cursor row won and it slid less) is covered, and
           // touches there reach no terminal.
           <View testID="laptop-cover" style={[styles.laptopCover, { height: obstruction }]} />

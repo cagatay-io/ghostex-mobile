@@ -1,11 +1,10 @@
 /**
  * The iOS terminal in the iPhone Duo's laptop pose: half folded, the session output stays above the fold and the
  * keyboard lies below it; nothing lies on the knick (the approved laptop-mode mockup).
- * - Keyboard or a pad layer up: the terminal's visible part ends at the fold's top. The view keeps its size and
- *   slides as with every keyboard, by the part below the fold; what it still has below the fold (the cursor row won
- *   and it slid less) is covered. The text editor stands above the fold, at the bottom of the upper half, and the
- *   terminal ends above it. A Keys or Agent layer takes the keyboard's place below the fold.
- * - Neither: the terminal runs over the fold as in every other pose.
+ * - Keyboard up or not: the terminal's visible part ends at the fold's top. The view keeps its size and slides as
+ *   with every keyboard, by the part below the fold; what it still has below the fold (the cursor row won and it slid
+ *   less) is covered in the terminal's background. The text editor stands above the fold, at the bottom of the upper
+ *   half, and the terminal ends above it. The keyboard, or a Keys or Agent layer in its place, lies below the fold.
  * - The Befehlspad stands in the upper half above the fold: that is the room it is placed, moved and judged in
  *   (`laptopPadArea`), with its own stored place. The keyboard and the layers lie below the fold, so they never push
  *   it; only the text editor above the fold covers the bottom of that room (`laptopPadCover`). Only where the open
@@ -84,8 +83,9 @@ export type LaptopObstructionInput = {
 };
 
 /**
- * How much of the terminal area's bottom is covered, so the terminal slides by it and the cover hides it: with the
- * keyboard or a layer up everything below the fold's top (and the editor above it), else nothing.
+ * How much of the terminal area's bottom is covered, so the terminal slides by it and the cover hides it: everything
+ * below the fold's top (and the editor above it), keyboard and layer up or not; more only where a reported keyboard
+ * or layer reaches higher.
  */
 export function laptopObstruction({
   fold,
@@ -94,7 +94,6 @@ export function laptopObstruction({
   layerCover,
   editorHeight,
 }: LaptopObstructionInput): number {
-  if (keyboardCover <= 0 && layerCover <= 0) return 0;
   const belowFold = Math.max(0, areaBottom - fold.top);
   const editor = editorHeight > 0 ? LAPTOP_CLEAR + editorHeight : 0;
   return Math.max(belowFold + editor, keyboardCover, layerCover);

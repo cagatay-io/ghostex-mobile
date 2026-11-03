@@ -3,14 +3,15 @@
  * Run with `bun run test:jest`. The terminal screen in the iPhone Duo's laptop pose, rendered under the real
  * `VerticalBarArea` with the system's bar layout coming from a stand-in for the native module, so the fold reaches
  * the screen the way it does on the device (`BarLayout.divisions` → `laptopFoldOf` → `useLaptopFold`).
- * Covered: with the keyboard or a layer up the output ends at the fold (the cover from the fold's top down and the
- * slide, also with the cursor near the top); the Befehlspad in the upper half above the fold at its default place,
- * at a stored and at a dragged place, unmoved by the keyboard and by the Keys and Agent layers, which open below the
- * fold in the keyboard's place; no key row; the text editor above the fold, and the pad giving way to it where the
- * upper half is too short for both (Send or the toggle bring the pad back); an upper half too short for the open pad
- * even reaching over the header: the open pad reaching below the fold by what is missing, the keyboard staying up, a
- * layer clear of it and a layer reaching into its room; the same keys and functions flat; the round buttons with the
- * pad switched off; and the negative cases flat and in the book pose.
+ * Covered: keyboard up or not, the output ends at the fold (the cover from the fold's top down and the slide, also
+ * with the cursor near the top, and with a layer up); the Befehlspad in the upper half above the fold at its default
+ * place, at a stored and at a dragged place, unmoved by the keyboard and by the Keys and Agent layers, which open
+ * below the fold in the keyboard's place; no key row; the text editor above the fold, and the pad giving way to it
+ * where the upper half is too short for both (Send or the toggle bring the pad back); an upper half too short for the
+ * open pad even reaching over the header: the open pad reaching below the fold by what is missing, the keyboard
+ * staying up, a layer clear of it and a layer reaching into its room; the same keys and functions flat; the round
+ * buttons with the pad switched off, above the fold with and without the keyboard; and the negative cases flat, in
+ * the book pose and without a division, keyboard up and down.
  *
  * The device's window frames are asked of the styles the screen sets (the cover's height from the terminal area's
  * bottom, the terminal's `top`, the pad room's frame and each control's place in it), which give window frames only
@@ -357,10 +358,9 @@ afterEach(async () => {
   jest.useRealTimers();
 });
 
-describe('with the keyboard up the output ends at the fold', () => {
+describe('keyboard up or not, the output ends at the fold', () => {
   test('the terminal keeps its size and slides by everything below the fold; that part is covered', async () => {
     await renderScreen();
-    expect(coverHeight()).toBeNull();
     await keyboardWillShow();
     const covered = AREA_BOTTOM - FOLD.top;
     expect(coverHeight()).toBe(covered);
@@ -380,10 +380,39 @@ describe('with the keyboard up the output ends at the fold', () => {
     expect(AREA_BOTTOM - (coverHeight() ?? 0)).toBe(FOLD.top);
   });
 
-  test('without the keyboard and a layer: no cover, the terminal does not move', async () => {
+  test('without the keyboard and a layer: the same, the terminal slides by everything below the fold, that part is covered', async () => {
+    await renderScreen();
+    const covered = AREA_BOTTOM - FOLD.top;
+    expect(coverHeight()).toBe(covered);
+    expect(terminalTop()).toBe(-covered);
+    expect(AREA_BOTTOM + terminalTop()).toBe(FOLD.top);
+  });
+
+  test('the keyboard going down again keeps the output ending at the fold', async () => {
     await renderScreen();
     await keyboardWillShow();
     await keyboardWillHide();
+    const covered = AREA_BOTTOM - FOLD.top;
+    expect(coverHeight()).toBe(covered);
+    expect(terminalTop()).toBe(-covered);
+  });
+
+  test('without the keyboard, cursor near the top: the view slides less and what it has below the fold is covered', async () => {
+    await renderScreen();
+    await fireEvent(screen.getByTestId('terminal-view'), 'caretChange', { nativeEvent: { top: 100 } });
+    expect(terminalTop()).toBe(-100);
+    expect(AREA_BOTTOM - (coverHeight() ?? 0)).toBe(FOLD.top);
+  });
+
+  test('folding to the laptop pose with the keyboard down ends the output at the fold; unfolding gives the area back', async () => {
+    await renderScreen(PORTRAIT, [FLAT_DIVISION]);
+    expect(coverHeight()).toBeNull();
+    expect(terminalTop()).toBe(0);
+    await reportDivisions([LAPTOP_DIVISION]);
+    const covered = AREA_BOTTOM - FOLD.top;
+    expect(coverHeight()).toBe(covered);
+    expect(terminalTop()).toBe(-covered);
+    await reportDivisions([FLAT_DIVISION]);
     expect(coverHeight()).toBeNull();
     expect(terminalTop()).toBe(0);
   });
@@ -756,7 +785,7 @@ describe('an upper half too short for the open pad even over the header: the ope
 });
 
 describe('the round buttons with the pad switched off', () => {
-  test('with the keyboard up they stand above the fold, not on it', async () => {
+  async function renderWithoutPad(): Promise<void> {
     useSettingsStore.setState({
       settings: {
         ...useSettingsStore.getState().settings,
@@ -765,8 +794,18 @@ describe('the round buttons with the pad switched off', () => {
       },
     });
     await renderScreen();
+  }
+
+  test('with the keyboard up they stand above the fold, not on it', async () => {
+    await renderWithoutPad();
     await keyboardWillShow();
     const stack = bottomCarrier(screen.getByLabelText('Dismiss keyboard'));
+    expect(AREA_BOTTOM - required(stack, 'bottom')).toBe(FOLD.top - 16);
+  });
+
+  test('without the keyboard they stand above the fold too', async () => {
+    await renderWithoutPad();
+    const stack = bottomCarrier(screen.getByLabelText('Show keyboard'));
     expect(AREA_BOTTOM - required(stack, 'bottom')).toBe(FOLD.top - 16);
   });
 });
@@ -805,4 +844,17 @@ describe('only the active division across the window is the laptop pose', () => 
     expect(screen.getByLabelText(EDITOR)).toBeTruthy();
     expect(padOpen()).toBe(open);
   });
+
+  test.each([
+    ['flat (inactive division)', PORTRAIT, [FLAT_DIVISION]],
+    ['book pose', LANDSCAPE, [BOOK_DIVISION]],
+    ['no division (every other iPhone)', PORTRAIT, []],
+  ] as [string, Window, FoldDivision[]][])(
+    'without the keyboard, %s: no cover, the terminal does not move',
+    async (_name, window, divisions) => {
+      await renderScreen(window, divisions);
+      expect(coverHeight()).toBeNull();
+      expect(terminalTop()).toBe(0);
+    },
+  );
 });
