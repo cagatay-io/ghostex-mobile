@@ -355,6 +355,32 @@ describe('fixed regressions', () => {
     off.input.selectionFeedback();
     expect([on.haptics.clicks, off.haptics.clicks]).toEqual([1, 0]);
   });
+
+  test('Paste and a text action spend a one-shot modifier in the native keyboard too, a lock stays', () => {
+    const NONE = { ctrl: false, alt: false, shift: false, ctrlLocked: false, altLocked: false, shiftLocked: false };
+    const native = (calls: unknown[][]) => calls.filter((call) => call[0] === 'setKeyModifiers').at(-1)?.[2];
+    // Neither the native Paste nor the native text insert goes through the key path that spends one-shot modifiers
+    // natively, so without being told, the next software-keyboard letter would still carry Ctrl.
+    const pasted = setup();
+    tap(pasted.input, key('key:ctrl'));
+    tap(pasted.input, key('paste'));
+    expect(pasted.input.getModifiers().ctrl).toBe('off');
+    expect(pasted.calls.filter((call) => call[0] === 'paste')).toHaveLength(1);
+    expect(native(pasted.calls)).toEqual(NONE);
+
+    const typed = setup();
+    tap(typed.input, key('key:ctrl'));
+    typed.input.insertText('ls', false);
+    expect(typed.input.getModifiers().ctrl).toBe('off');
+    expect(native(typed.calls)).toEqual(NONE);
+
+    const locked = setup();
+    locked.input.padKeyLongPress(key('key:ctrl'));
+    tap(locked.input, key('key:alt'));
+    tap(locked.input, key('paste'));
+    expect(locked.input.getModifiers()).toEqual({ ctrl: 'locked', alt: 'off', shift: 'off' });
+    expect(native(locked.calls)).toEqual({ ...NONE, ctrl: true, ctrlLocked: true });
+  });
 });
 
 describe('the empty hotkey id is malformed, not deleted', () => {

@@ -248,11 +248,19 @@ export class TerminalKeyInput {
     if (key.action.kind === 'modifier') this.toggleModifier(key.action.modifier, true);
   }
 
-  /** Text, sequences and paste: no repeat running, one-shot modifiers spent, locked ones kept. */
+  /**
+   * Text, sequences and paste: no repeat running, one-shot modifiers spent, locked ones kept. The native view is told
+   * as well: its own spending happens only on the native key path (`sendKey`), which text and Paste never take, so
+   * it would otherwise still hold the one-shot modifier and put it on the next software-keyboard character.
+   */
   private beginAction(): void {
     this.stopRepeat();
     this.tick();
-    this.setModifiers(retainLockedModifiers(this.modifiers));
+    const retained = retainLockedModifiers(this.modifiers);
+    if (!this.setModifiers(retained)) return;
+    void this.options.native
+      .setKeyModifiers(this.options.sessionKey, modifierPayload(retained))
+      .catch(ignoreClosedTerminal);
   }
 
   private send(key: TerminalKey, mods: KeyModifiers): void {
@@ -273,10 +281,12 @@ export class TerminalKeyInput {
     if (this.options.hapticsEnabled()) this.options.haptics[kind]();
   }
 
-  private setModifiers(next: ModifierState): void {
+  /** Whether the state changed (listeners notified). */
+  private setModifiers(next: ModifierState): boolean {
     const current = this.modifiers;
-    if (next.ctrl === current.ctrl && next.alt === current.alt && next.shift === current.shift) return;
+    if (next.ctrl === current.ctrl && next.alt === current.alt && next.shift === current.shift) return false;
     this.modifiers = next;
     for (const listener of this.listeners) listener();
+    return true;
   }
 }
