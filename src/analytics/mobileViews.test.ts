@@ -17,7 +17,7 @@ describe('mobileViewForRoute', () => {
 
   test('a file the Files browser opens as source or by name and size counts as Files', () => {
     assert.equal(mobileViewForRoute('Docs'), 'mobile_files');
-    assert.equal(mobileViewForRoute('ProjectFile'), 'mobile_files');
+    assert.equal(mobileViewForRoute('DocViewer'), 'mobile_files');
   });
 
   test('setup and unknown routes report nothing', () => {

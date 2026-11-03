@@ -893,7 +893,7 @@ export const ChangesCopy = {
 };
 
 /**
- * Files: the project file browser (`DocsScreen`, `ProjectFileScreen`) and the Docs viewer. The browser's labels
+ * Files: the project file browser (`DocsScreen`) and its shared document viewer (`DocViewerScreen`). The browser's labels
  * and status lines are the desktop files list's where the phone has the same thing
  * (apps/desktop/src/app/native_docs/files_list.rs, type_filter.rs, actions.rs).
  */

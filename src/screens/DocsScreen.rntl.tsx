@@ -5,8 +5,9 @@
  * tap, closed again on the next; a long press opens the menu at its row, lifted, and Copy Full Path puts the file's
  * full path on the clipboard; Share… for files only, a progress notice while the file is fetched, then the share
  * sheet, or the host's message; and Add to Session Context only in a browser opened from an agent session, the host's
- * text into that session's input and the notice that names it. Stand-ins: gxserver's `runProjectDocsAction`, the
- * share sheet, the session inputs, the clipboard and the native chrome.
+ * text into that session's input and the notice that names it; a Ghostex page opens as its page in the Web preview.
+ * Stand-ins: gxserver's `runProjectDocsAction` and port, the share sheet, the session inputs, the clipboard and the
+ * native chrome.
  */
 
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -18,6 +19,8 @@ import VerticalBarArea from '../components/common/verticalBar/VerticalBarArea';
 import { ContextMenuCopy, DocsCopy } from '../copy';
 import type { ContextSession, SessionInputs } from '../files/sessionContext';
 import type { ShareSheet } from '../files/share';
+import { useInventoryStore } from '../inventory/store';
+import { useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
 import DocsScreen from './DocsScreen';
 
@@ -62,6 +65,11 @@ const mockRpc = (_method: string, params: Record<string, unknown>): Promise<Answ
     return Promise.resolve({ result: { contextPrompt: '\nFile context: README.md\n' }, error: null });
   }
   if (params.action === 'readResource') return mockReadAnswer;
+  // gxserver's `openPage`: the page an HTML file declares itself to be (`docs/mediaStream.ts` `computerPagePath`).
+  if (params.action === 'openPage') {
+    const page = String(params.path).endsWith('/board.html') ? { path: '/visual/board-1/' } : null;
+    return Promise.resolve({ result: { page }, error: null });
+  }
   // gxserver's search rows carry no size (`search_project`, server/src/project_docs/project_scope.rs:193-201 at
   // 86b287b1); its `stat` answers the metadata under `file` (actions.rs:24-40,77-83; file_ops.rs:99-130).
   if (params.action === 'search') {
@@ -93,6 +101,7 @@ const mockRpc = (_method: string, params: Record<string, unknown>): Promise<Answ
 const MOCK_FOUND = [
   { path: 'docs/large.md', name: 'large.md', size: 3_000_000 },
   { path: 'assets/icon.png', name: 'icon.png', size: 339_015 },
+  { path: 'docs/board.html', name: 'board.html', size: 4_200 },
 ];
 jest.mock('../files/machine', () => ({
   currentMachine: (id: string) => ({ id }),
@@ -100,6 +109,10 @@ jest.mock('../files/machine', () => ({
 }));
 jest.mock('../chat/rust/transport', () => ({
   sessionChatRpc: (_machine: unknown, method: string, params: Record<string, unknown>) => mockRpc(method, params),
+}));
+jest.mock('../webPreview/machineLinks', () => ({
+  ...jest.requireActual('../webPreview/machineLinks'),
+  gxserverComputerPort: () => Promise.resolve(17_421),
 }));
 jest.mock('../components/sessions/cli', () => ({ runGhostexCli: () => Promise.reject(new Error('no cli')) }));
 
@@ -169,6 +182,7 @@ const SESSION: ContextSession = {
   chatCapable: true,
 };
 const mockPush = jest.fn();
+const mockNavigate = jest.fn();
 
 /** The browser for a project of its own (the screen keeps each project's top level between visits). */
 async function openBrowser(projectId: string, session?: ContextSession): Promise<void> {
@@ -183,9 +197,14 @@ async function openBrowser(projectId: string, session?: ContextSession): Promise
       ...(session !== undefined ? { session } : {}),
     },
   };
-  // Of the navigator only `setOptions` (header) and `push` (opening a file) are called here; a navigator is not
-  // mounted, so the stand-in is cast (any other member called fails the test with a TypeError).
-  const navigation = { setOptions: jest.fn(), push: mockPush } as unknown as Props['navigation'];
+  // Of the navigator only `setOptions` (header), `push` (opening a file) and `navigate` (a Ghostex page's Web
+  // preview) are called here; a navigator is not mounted, so the stand-in is cast (any other member called fails the
+  // test with a TypeError).
+  const navigation = {
+    setOptions: jest.fn(),
+    push: mockPush,
+    navigate: mockNavigate,
+  } as unknown as Props['navigation'];
   await render(
     <VerticalBarArea>
       <DocsScreen navigation={navigation} route={route} />
@@ -234,6 +253,7 @@ beforeEach(() => {
   mockShared.dropped = 0;
   mockClipboard.mockClear();
   mockPush.mockClear();
+  mockNavigate.mockClear();
   mockRowFrame = { x: 0, y: 300, width: 393, height: 44 };
 });
 
@@ -386,7 +406,7 @@ test('a 3 MB Markdown file found by search opens by name and size, as the host m
   await openSearched('large', 'large.md, docs');
   expect(mockSent).toContainEqual(expect.objectContaining({ scope: 'project', action: 'stat', path: 'docs/large.md' }));
   expect(mockPush.mock.calls).toEqual([
-    ['ProjectFile', expect.objectContaining({ entryPath: 'docs/large.md', size: 3_000_000 })],
+    ['DocViewer', expect.objectContaining({ entryPath: 'docs/large.md', size: 3_000_000 })],
   ]);
 });
 
@@ -394,7 +414,7 @@ test('a picture found by search shows its size, as the host measured it', async 
   await openBrowser('project-search-image');
   await openSearched('icon', 'icon.png, assets');
   expect(mockPush.mock.calls).toEqual([
-    ['ProjectFile', expect.objectContaining({ entryPath: 'assets/icon.png', size: 339_015 })],
+    ['DocViewer', expect.objectContaining({ entryPath: 'assets/icon.png', size: 339_015 })],
   ]);
 });
 
@@ -413,7 +433,7 @@ test('preview header: a file opened in a browser from an agent session carries t
   await waitFor(() => expect(mockPush).toHaveBeenCalledTimes(2));
   expect(mockPush.mock.calls).toEqual([
     ['DocViewer', expect.objectContaining({ entryPath: 'README.md', session: SESSION })],
-    ['ProjectFile', expect.objectContaining({ entryPath: 'src/index.ts', session: SESSION })],
+    ['DocViewer', expect.objectContaining({ entryPath: 'src/index.ts', session: SESSION })],
   ]);
 });
 
@@ -424,6 +444,36 @@ test('preview header: a file opened in a browser without a session carries none'
   });
   await waitFor(() => expect(mockPush).toHaveBeenCalledTimes(1));
   expect(mockPush.mock.calls[0]?.[1]).not.toHaveProperty('session');
+});
+
+test('a Ghostex page found by search opens as its page in the Web preview, not in the viewer', async () => {
+  // The computer and the project the page lookup asks (`docs/mediaStream.ts` `viewerProject`); only the fields it
+  // reads, so the stand-ins are cast.
+  useMachinesStore.setState({ machines: [{ id: 'machine-1' }] } as never);
+  useInventoryStore.setState({
+    inventoriesByMachineId: {
+      'machine-1': { summary: { projects: [{ projectId: 'project-page', path: '/Users/me/ghostex-mobile' }] } },
+    },
+  } as never);
+  await openBrowser('project-page');
+  await act(async () => {
+    fireEvent.changeText(screen.getByLabelText(DocsCopy.searchPlaceholder), 'board');
+  });
+  const found = await screen.findByLabelText('board.html, docs');
+  await act(async () => {
+    fireEvent.press(found);
+  });
+  await waitFor(() => expect(mockNavigate).toHaveBeenCalled());
+  expect(mockSent).toContainEqual(
+    expect.objectContaining({ action: 'openPage', path: '/Users/me/ghostex-mobile/docs/board.html' }),
+  );
+  expect(mockNavigate.mock.calls).toEqual([
+    [
+      'WebPreview',
+      { machineId: 'machine-1', scheme: 'http', remotePort: 17_421, host: '127.0.0.1', path: '/visual/board-1/' },
+    ],
+  ]);
+  expect(mockPush).not.toHaveBeenCalled();
 });
 
 test('an open file menu and its lifted row follow the row when the window changes', async () => {

@@ -104,6 +104,7 @@ const FROM_FILES: Props['route']['params'] = {
   path: '/Users/me/ghostex-mobile/docs/plan.md',
   projectId: 'project-1',
   entryPath: 'docs/plan.md',
+  size: 1_200,
 };
 
 /** The viewer with the header it sets drawn above it, as the stack navigator draws `headerRight`. */

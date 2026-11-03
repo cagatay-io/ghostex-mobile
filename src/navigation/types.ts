@@ -70,25 +70,11 @@ export type RootStackParamList = {
     projectPath: string;
     session?: ContextSession;
   };
-  /**
-   * One file the file browser opened that is not Markdown or HTML: as source, or its name and size only. `entryPath`
-   * is its path in the project as gxserver lists it, `path` its full path on the computer, `size` its size in bytes
-   * when known, `session` the agent session the browser was opened from, which the source view's Add to Session
-   * Context fills.
-   */
-  ProjectFile: {
-    machineId: string;
-    projectId: string;
-    entryPath: string;
-    path: string;
-    size: number | null;
-    session?: ContextSession;
-  };
   /** A project's Changes, read-only: its diff against main or HEAD, as the desktop Changes tab shows it. */
   Changes: { machineId: string; projectId: string; projectName: string };
   /**
-   * One Markdown or HTML file from the computer, by absolute path. `fragment` scrolls to an anchor
-   * (a link such as `other.md#setup`).
+   * One file from the computer, by absolute path. `fragment` scrolls to an anchor
+   * (a link such as `other.md#setup`). Files uses the same viewer for rendered documents, source and metadata.
    */
   DocViewer: {
     machineId: string;
@@ -98,6 +84,8 @@ export type RootStackParamList = {
     projectId?: string;
     /** Opened from Files: the file's path in the project, which Share… fetches. */
     entryPath?: string;
+    /** Opened from Files: the listed size; null when unknown. Enables the browser's preview policy. */
+    size?: number | null;
     /** Opened from Files from an agent session: the session Add to Session Context fills. */
     session?: ContextSession;
   };

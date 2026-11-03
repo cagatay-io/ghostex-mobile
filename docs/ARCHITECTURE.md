@@ -19,6 +19,8 @@ mobile/
     inventory/                # inventory client (exec over native ssh), 5s polling, per-machine fan-out
     terminal/                 # tab/session state, warm-session policy (max 7, within a scrollback-row budget), attach orchestration
     commands/                 # ghostex CLI command builders (login-shell wrapping, quoting)
+    docs/                     # document page builder, remote-file mirror and renderers
+    files/                    # project browser policy, listing, search, share and session-context actions
     components/               # shared UI (action sheets, state cards, chips, key bar)
     screens/
       WelcomeScreen.tsx       # docs/specs/onboarding.md §1
@@ -36,6 +38,19 @@ mobile/
   docs/specs/                 # extracted implementation specs (source of truth for UI copy)
   ios/ android/               # expo prebuild output, committed (bare workflow)
 ```
+
+### Project file previews
+
+`DocsScreen` opens a Ghostex page as its page in the Web preview (`openComputerPage` in `src/docs/openComputerFile.ts`,
+as chat file links do) and every other project file in `DocViewerScreen`, also used by chat and terminal file links.
+`src/docs/page.ts` (`buildDocPage`) applies the browser's existing preview policy when Files supplies a size:
+Markdown and HTML render up to 2 MB; other UTF-8 text opens as numbered source with JavaScript, asset loading
+and annotations disabled. Images, binary files and files over the limit show their name, kind, size and full
+path instead, with Copy Full Path and Share below the metadata and only Reload in the header. Reload measures
+the project file again before choosing its mode. The viewer owns loading, cancellation, failures, retry,
+clipboard feedback and sharing for all three modes. File links outside Files keep their existing text,
+image and media previews and limits.
+
 
 ## Native module contract (`modules/ghostex-native`)
 

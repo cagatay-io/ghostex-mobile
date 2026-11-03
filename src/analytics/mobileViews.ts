@@ -25,7 +25,6 @@ const VIEW_BY_ROUTE: Record<string, MobileView> = {
   Terminal: 'mobile_terminal',
   Docs: 'mobile_files',
   DocViewer: 'mobile_files',
-  ProjectFile: 'mobile_files',
   Changes: 'mobile_changes',
   FindPrompts: 'mobile_find',
   FindPrompt: 'mobile_find',

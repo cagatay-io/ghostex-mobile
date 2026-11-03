@@ -4,7 +4,7 @@
  * last on top, a search over the whole project with the desktop's file type filter, and per row a menu with
  * Open and Copy Full Path, and for files Share… and, in a browser opened from an agent session, Add to Session
  * Context. Markdown and HTML open rendered in the Docs viewer, other text as source, and pictures, binary and
- * large files by name and size (`ProjectFileScreen`). Nothing here changes the project.
+ * large files by name and size in that same viewer. Nothing here changes the project.
  *
  * CDXC:Docs 2026-09-24 DECISION:
  * User: "i want also docs list in the app for folders and the docs and mds in them. implement this
@@ -54,6 +54,7 @@ import { EllipsisIcon, ExternalLinkIcon, RefreshIcon } from '../components/termi
 import { DocsCopy } from '../copy';
 import { listProjectDocs, resolveDocsEntryPath } from '../docs/client';
 import type { DocsEntry } from '../docs/entries';
+import { openComputerPage } from '../docs/openComputerFile';
 import { FileRow, FileRowContent, FolderRow, FolderRowContent, type MeasureAnchor } from '../files/FileRows';
 import {
   browserFile,
@@ -65,7 +66,7 @@ import {
   type TreeRow,
 } from '../files/list';
 import { currentMachine, useProjectDocsRpc } from '../files/machine';
-import { filePreview, statProjectFile } from '../files/preview';
+import { statProjectFile } from '../files/preview';
 import { failureMessage } from '../files/request';
 import { rowMenuActions, type RowAction } from '../files/rowMenu';
 import {
@@ -257,7 +258,8 @@ export default function DocsScreen({ navigation, route }: Props) {
     [machineId, projectId, projectPath, showNotice],
   );
 
-  // Markdown and HTML open rendered in the Docs viewer; everything else in the file view.
+  // A Ghostex page opens as its page (`openComputerPage`); every other file opens in the Docs viewer, which applies
+  // the browser's preview policy.
   // A search result carries no size, so it is measured first: a file over 2 MB never opens its content. A browser
   // opened from an agent session hands that session on, for the preview's Add to Session Context.
   const openFile = useCallback(
@@ -268,12 +270,9 @@ export default function DocsScreen({ navigation, route }: Props) {
         try {
           const size = file.size ?? (await statProjectFile(rpc, projectId, file.path));
           const path = await resolveDocsEntryPath(currentMachine(machineId), projectId, projectPath, file.path);
+          if (await openComputerPage(navigation, machineId, path, { projectId })) return;
           const from = session !== undefined ? { session } : {};
-          if (filePreview(file.name, size).kind === 'document') {
-            navigation.push('DocViewer', { machineId, path, projectId, entryPath: file.path, ...from });
-          } else {
-            navigation.push('ProjectFile', { machineId, projectId, entryPath: file.path, path, size, ...from });
-          }
+          navigation.push('DocViewer', { machineId, projectId, entryPath: file.path, path, size, ...from });
         } catch (failure) {
           showNotice(failureMessage(failure), true, DocsCopy.openFailed);
         } finally {
