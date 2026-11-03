@@ -99,8 +99,6 @@ function chatWith(document: ChatDocument): RustChat {
       images: {},
       error: null,
       stats: {} as never,
-      // A running chat whose document holds the computer's read, which the question card waits for.
-      live: true,
       queryRevision: 0,
     },
     dispatch: (action) => mockDispatch(action),
@@ -115,6 +113,7 @@ function chatWith(document: ChatDocument): RustChat {
       replace: (text) => model.replace(text, null, false),
     },
     attachFiles: async () => undefined,
+    uploadFiles: async () => [],
     query: () => null,
     queryAsync: async () => null,
     onViewRequest: () => () => undefined,

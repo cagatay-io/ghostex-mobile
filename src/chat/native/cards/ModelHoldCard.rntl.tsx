@@ -64,7 +64,7 @@ function chatWith(fields: Record<string, unknown>): RustChat {
 
 const initialSettings = useSettingsStore.getState().settings;
 beforeEach(() => {
-  useSettingsStore.getState().applyPatch({ sessionChatTheme: 'dark' });
+  useSettingsStore.setState({ settings: { ...initialSettings, sessionChatTheme: 'dark' } });
 });
 afterEach(() => {
   useSettingsStore.setState({ settings: initialSettings });
@@ -104,11 +104,13 @@ test('the footer: the muted note takes the room beside one primary Pick model, a
   await render(<NativeChatCards chat={chatWith({ modelHoldCard: CARD })} onHostAction={jest.fn()} />);
   const note = screen.getByText(NOTE);
   const pick = screen.getByRole('button', { name: 'Pick model' });
-  // Beside each other in the footer row, the note first, nothing between them pushing the button away.
+  // The note precedes the upstream action group; wrapped actions keep their own row.
   const footer = note.parent;
+  const actions = pick.parent;
   expect(footer).not.toBeNull();
-  expect(pick.parent).toBe(footer);
-  expect(footer?.children).toEqual([note, pick]);
+  expect(actions?.parent).toBe(footer);
+  expect(footer?.children).toEqual([note, actions]);
+  expect(styleOf(actions)).toMatchObject({ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end' });
   expect(styleOf(footer)).toMatchObject({ flexDirection: 'row', flexWrap: 'wrap' });
   // The note takes the room the button leaves and wraps inside it.
   expect(styleOf(note)).toMatchObject({ flex: 1, minWidth: 0, color: MUTED });
@@ -183,7 +185,7 @@ test('a document without the key (an older core, a gxserver without queue or mod
   expect(screen.toJSON()).toBeNull();
 });
 
-test('the other tone cards look as before: a one-line detail and the gap that pushes their buttons right', async () => {
+test('the other tone cards keep a one-line detail and the upstream right-aligned action group', async () => {
   await render(
     <ToneCard
       tone="warning"
@@ -194,10 +196,8 @@ test('the other tone cards look as before: a one-line detail and the gap that pu
   );
   expect(screen.getByText('Resets at 14:00').props.numberOfLines).toBe(1);
   const button = screen.getByRole('button', { name: 'Switch account' });
-  const footer = button.parent;
-  expect(footer?.children).toHaveLength(2);
-  const gap = footer?.children[0] as TestInstance;
-  expect(gap.type).toBe('View');
-  expect(styleOf(gap)).toEqual({ flexGrow: 1 });
-  expect(gap.children).toEqual([]);
+  const actions = button.parent;
+  expect(actions?.children).toEqual([button]);
+  expect(styleOf(actions)).toMatchObject({ flexGrow: 1, flexDirection: 'row', justifyContent: 'flex-end' });
+  expect(actions?.parent?.children).toEqual([actions]);
 });
