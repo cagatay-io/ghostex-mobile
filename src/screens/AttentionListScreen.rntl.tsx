@@ -1,7 +1,7 @@
 /// <reference types="jest" />
 /**
  * Run with `bun run test:jest`. The Notifications screen's "…" menu (one list shared with the desktop bell, read
- * state on the computer) with the approved mockup `notifications`: state list-menu (Mark All Read and Clear All, as
+ * state on the computer) with the notifications design: its list-menu state (Mark All Read and Clear All, as
  * the head of the desktop list, standing under the "…" at the top right on every iPhone) and state clear-confirm
  * (Clear All asks first, "Clear all notifications?", because the rows also leave the bell on the computer; Cancel
  * keeps them). Accessibility: each command and a Close menu button are their own accessibility elements, none grouped
@@ -132,7 +132,7 @@ afterEach(() => {
   mockNativeMethods.measureInWindow.mockReset();
 });
 
-test('mockup list-menu: the "…" menu offers Mark All Read and Clear All; Mark All Read marks every row read on the computer', async () => {
+test('the "…" menu offers Mark All Read and Clear All; Mark All Read marks every row read on the computer', async () => {
   await render(<Navigator />);
   await openMenu();
   expect(screen.getByText('Shared with the bell on your computer')).toBeTruthy();
@@ -144,7 +144,7 @@ test('mockup list-menu: the "…" menu offers Mark All Read and Clear All; Mark 
   expect(screen.queryByRole('button', { name: 'Close menu' })).toBeNull();
 });
 
-test('mockup list-menu: Mark All Read and Clear All are separate accessibility elements with their state; Close menu closes', async () => {
+test('Mark All Read and Clear All are separate accessibility elements with their state; Close menu closes', async () => {
   useAttentionFeedStore.setState({ feeds: { m1: { status: 'ready', rows: [feedRow('n2', true)] } } });
   await render(<Navigator />);
   await openMenu();
@@ -161,7 +161,7 @@ test('mockup list-menu: Mark All Read and Clear All are separate accessibility e
   expect(updateAll).not.toHaveBeenCalled();
 });
 
-test('mockup clear-confirm: Clear All asks first; Cancel keeps the rows, Clear All clears them on the computer', async () => {
+test('Clear All asks first; Cancel keeps the rows, Clear All clears them on the computer', async () => {
   await render(<Navigator />);
   await openMenu();
   await fireEvent.press(item('Clear All'));
@@ -188,7 +188,7 @@ test('mockup clear-confirm: Clear All asks first; Cancel keeps the rows, Clear A
 test.each([
   { name: 'nothing unread', rows: [feedRow('n2', true)], markAllRead: true, clearAll: false },
   { name: 'no rows', rows: [], markAllRead: true, clearAll: true },
-])('mockup list-menu: with $name, Mark All Read off: $markAllRead, Clear All off: $clearAll', async (state) => {
+])('with $name, Mark All Read off: $markAllRead, Clear All off: $clearAll', async (state) => {
   useAttentionFeedStore.setState({ feeds: { m1: { status: 'ready', rows: state.rows } } });
   await render(<Navigator />);
   await openMenu();
@@ -196,7 +196,7 @@ test.each([
   expect(item('Clear All').props.accessibilityState).toMatchObject({ disabled: state.clearAll });
 });
 
-test('mockup list-menu: on a regular iPhone the menu stands under its "…", at the window\'s trailing edge', async () => {
+test('on a regular iPhone the menu stands under its "…", at the window\'s trailing edge', async () => {
   // An iPhone 17 window (402x874), the header placed on top (no status band, no side bar). Test-only: the
   // window React Native reports, read by the menu through `useWindowDimensions`.
   await act(() => {

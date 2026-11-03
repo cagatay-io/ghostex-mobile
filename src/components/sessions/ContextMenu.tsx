@@ -138,7 +138,7 @@ export type ContextMenuProps = {
 
 /** Comfortable reading width; the card shrinks on narrow screens. */
 const MENU_MAX_WIDTH = 360;
-/** A menu at its row is as wide as the approved mockup's menus. */
+/** A menu at its row is as wide as the design's menus. */
 const ROW_MENU_MAX_WIDTH = 320;
 /** A lifted row that runs from edge to edge of the window becomes a card this far in from each edge. */
 const LIFT_INSET = 8;
@@ -235,7 +235,7 @@ export default function ContextMenu({
     bottom: screenHeight - safeArea.bottom - ANCHORED_MARGIN,
   };
   // The lifted row is the row's own box, a card inset from the window's edges where the row runs across it
-  // (the approved mockup's lift); the menu's leading edge lines up with it.
+  // (the design's lift); the menu's leading edge lines up with it.
   const lift =
     rowAnchor === undefined
       ? undefined
@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
     shadowRadius: 28,
     elevation: 12,
   },
-  /** The lifted row: the row on a card above the dimmed screen (the approved mockup's `menu-lift`). */
+  /** The lifted row: the row on a card above the dimmed screen. */
   lifted: {
     position: 'absolute',
     borderRadius: 12,

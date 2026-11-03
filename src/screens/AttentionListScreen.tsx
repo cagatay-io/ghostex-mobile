@@ -4,7 +4,7 @@
  * bell's list; Clear All asks first, because the rows also leave the bell on the computer. A row opens
  * its session as a notification does (`ghostex://session`, a "has a question" row at its question card).
  *
- * The "…" menu stands at its button wherever the header is (approved mockup `notifications`, state
+ * The "…" menu stands at its button wherever the header is (the notifications design, state
  * list-menu): with the header on top (every iPhone but the Duo) under the button at the
  * window's trailing edge, as a menu at the control it opened from (`rowAnchor`); in the Duo's status band
  * or a side bar, as that band's or bar's menus stand (`anchor`).

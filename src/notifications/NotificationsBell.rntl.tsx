@@ -1,6 +1,6 @@
 /// <reference types="jest" />
 /**
- * Run with `bun run test:jest`. The attention list's entry with the approved mockup `notifications` (state
+ * Run with `bun run test:jest`. The attention list's entry with the notifications design (state
  * list-entry): the bell on the Sessions screen carries the number of unread attention-list rows as a figure,
  * not as a colour alone, counted across every computer's feed; with nothing unread it shows no number. The
  * probe composes the bell exactly as `SessionsScreen` does: `useAttentionUnreadCount` into `bellLabel` and
@@ -51,7 +51,7 @@ beforeEach(() => {
   useAttentionFeedStore.setState({ feeds: {}, permission: null });
 });
 
-test('mockup list-entry: the bell counts the unread rows of every computer as a figure', async () => {
+test('the bell counts the unread rows of every computer as a figure', async () => {
   useAttentionFeedStore.setState({
     feeds: {
       m1: { status: 'ready', rows: [row('a', false), row('b', true), row('c', false)] },
@@ -63,7 +63,7 @@ test('mockup list-entry: the bell counts the unread rows of every computer as a 
   expect(screen.getByText('3', SHOWN)).toBeTruthy();
 });
 
-test('mockup list-entry: with every row read the bell shows no number', async () => {
+test('with every row read the bell shows no number', async () => {
   useAttentionFeedStore.setState({
     feeds: { m1: { status: 'ready', rows: [row('a', true), row('b', true)] } },
   });

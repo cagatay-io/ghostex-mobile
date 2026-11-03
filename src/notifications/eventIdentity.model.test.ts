@@ -63,7 +63,7 @@ import { FEED_RETENTION_ROWS } from './feedContract';
 import { announceAttentionTransitions, processHostEvents, type NotificationRequest } from './notify';
 import type { NotificationSettings } from './settings';
 
-/** The host contract and the rate rule, as the requirements state them. */
+/** The host contract and the rate rule, as the push service documents them. */
 const PUSH_TTL_MS = 60 * 60 * 1000;
 const RATE_WINDOW_MS = 60_000;
 const RATE_MAX = 8;

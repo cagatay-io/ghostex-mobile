@@ -1,5 +1,5 @@
 /**
- * Settings > Notifications (was Sounds; mockup `notifications`, states settings,
+ * Settings > Notifications (was Sounds; the notifications design, states settings,
  * settings-master-off, settings-denied): one master switch and one each for finished, waiting and
  * error, the delivery limit without push in words (no promise for a locked or
  * paused phone), and the attention sound that was this page's only row before. With the master off the

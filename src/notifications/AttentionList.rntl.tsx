@@ -2,7 +2,7 @@
 /**
  * Run with `bun run test:jest`. The attention list as it is drawn (rows with kind, agent and project, newest first;
  * account rows are rows; opening an unread row marks it read on the computer; a needsInput row of a session with a
- * pending question says "has a question"), with the approved mockup `notifications`: state list (the desktop's
+ * pending question says "has a question"), with the notifications design: its list state (the desktop's
  * "Unread" and "Read" groups) and state row-menu (a long press opens Open Session, Mark as Read / Unread and Clear at
  * the held row, the row lifted above the dimmed screen; `rowMenuOrigin`). Accessibility: each command, the lifted row
  * and a Close menu button are their own accessibility elements, none grouped into an ancestor that iOS would read as
@@ -71,7 +71,7 @@ function feedRow(id: string, minutes: number, fields: Partial<FeedRow>): FeedRow
   };
 }
 
-/** The feed as the computer sends it, newest first (the mockup's FEED, one row more for each question source). */
+/** The feed as the computer sends it, newest first (the design's feed, one row more for each question source). */
 const FEED: FeedRow[] = [
   // "Has a question" through the session list: needsInput, its session has two pending questions.
   feedRow('n1', 1, { kind: 'needsInput', sessionId: 's1' }),
@@ -206,7 +206,7 @@ afterEach(() => {
   mockNativeMethods.measureInWindow.mockReset();
 });
 
-test('mockup list: "Unread" then "Read", each newest first, with kind, agent and project', async () => {
+test('"Unread" then "Read", each newest first, with kind, agent and project', async () => {
   await renderList();
   expect(rowIds(screen)).toEqual(['n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7']);
   expect(rowIds(within(group('Unread')))).toEqual(['n1', 'n2', 'n3', 'n4']);
@@ -248,7 +248,7 @@ test('opening an unread row marks it read once and opens its session; a question
   expect(opened.slice(1)).toEqual([{ machineId: 'm1', sessionId: 's4', question: false }]);
 });
 
-test('mockup row-menu: a long press opens the menu at the held row, under it, the row lifted', async () => {
+test('a long press opens the menu at the held row, under it, the row lifted', async () => {
   await renderList();
   await fireEvent(screen.getByTestId('attention-row-n2'), 'longPress');
 
@@ -279,7 +279,7 @@ test('mockup row-menu: a long press opens the menu at the held row, under it, th
   expect(screen.queryByRole('button', { name: 'Close menu' })).toBeNull();
 });
 
-test('mockup row-menu: each command, the lifted row and Close menu are separate accessibility elements', async () => {
+test('each command, the lifted row and Close menu are separate accessibility elements', async () => {
   await renderList();
   await fireEvent(screen.getByTestId('attention-row-n2'), 'longPress');
   expect(menuLabels()).toEqual(['Open Session', 'Mark as Read', 'Clear']);
@@ -300,7 +300,7 @@ test('mockup row-menu: each command, the lifted row and Close menu are separate 
   expect(update).not.toHaveBeenCalled();
 });
 
-test('mockup row-menu: Mark as Read / Unread follow the row, Open Session opens it, an account row has no Open Session', async () => {
+test('Mark as Read / Unread follow the row, Open Session opens it, an account row has no Open Session', async () => {
   await renderList();
 
   await fireEvent(screen.getByTestId('attention-row-n4'), 'longPress');
@@ -321,7 +321,7 @@ test('mockup row-menu: Mark as Read / Unread follow the row, Open Session opens 
   expect(menuLabels()).toEqual(['Mark as Read', 'Clear']);
 });
 
-test("mockup empty: without rows the list shows the desktop's empty text", async () => {
+test("without rows the list shows the desktop's empty text", async () => {
   useAttentionFeedStore.setState({ feeds: { m1: { status: 'ready', rows: [] } } });
   await renderList();
   expect(screen.getByText('No notifications yet')).toBeTruthy();

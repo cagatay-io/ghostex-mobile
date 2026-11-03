@@ -1,5 +1,5 @@
 /**
- * Line glyphs of the attention list and the bell (mockup `notifications`: bell, the four event glyphs,
+ * Line glyphs of the attention list and the bell (the notifications design: bell, the four event glyphs,
  * blocked and offline), drawn like the sessions drawer's glyphs (`components/sessions/icons.tsx`):
  * 24-unit view box, 2-unit strokes, tinted through `color`.
  */

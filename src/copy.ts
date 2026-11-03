@@ -1017,7 +1017,7 @@ export const SettingsCopy = {
 } as const;
 
 /**
- * Agent notifications and the attention list (approved mockup `notifications`): the
+ * Agent notifications and the attention list (the notifications design): the
  * four event wordings, the list, the bell and Settings > Notifications. Text level: event and session
  * only, never anything the agent wrote.
  */

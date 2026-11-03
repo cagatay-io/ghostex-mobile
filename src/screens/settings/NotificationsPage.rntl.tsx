@@ -2,7 +2,7 @@
 /**
  * Run with `bun run test:jest`. Settings > Notifications (a master switch and one each for finished, waiting and
  * error; with the permission denied the page says notifications are blocked in iOS Settings) with the
- * approved mockup `notifications`: state settings-master-off (the three stay visible with their
+ * the notifications design: its master-off state (the three stay visible with their
  * values, dimmed and not operable, while the master is off) and state settings-denied (the "Blocked in iOS
  * Settings" card with "Open iOS Settings"). The real page, settings store and attention store; mocked are
  * the boundaries only: navigation, the safe area, storage, the native module and expo-notifications.
@@ -47,7 +47,7 @@ const switchFor = (name: string) => screen.getByRole('switch', { name });
 const valueOf = (name: string) => switchFor(name).props.accessibilityState?.checked;
 const disabledOf = (name: string) => switchFor(name).props.accessibilityState?.disabled;
 
-/** The row the switch stands in (the dimmed container of the mockup's `nt-dimrow`). */
+/** The row the switch stands in (the dimmed container). */
 function rowOpacity(name: string): number | undefined {
   let node: TestInstance | null = switchFor(name);
   while (node !== null && StyleSheet.flatten(node.props.style)?.flexDirection !== 'row') node = node.parent;
@@ -65,7 +65,7 @@ test('the page has the master switch and one switch each for finished, waiting a
   expect(screen.queryByText('Blocked in iOS Settings')).toBeNull();
 });
 
-test('mockup settings-master-off: with the master off the three keep their values, dimmed and not operable', async () => {
+test('with the master off the three keep their values, dimmed and not operable', async () => {
   seed({ enabled: true, finished: true, waiting: false, error: true, askedAt: ASKED }, 'granted');
   await render(<NotificationsPage />);
   await fireEvent(switchFor('Notifications'), 'valueChange', false);
@@ -94,7 +94,7 @@ test('mockup settings-master-off: with the master off the three keep their value
   expect(KINDS.map(valueOf)).toEqual([true, false, true]);
 });
 
-test('mockup settings-denied: a denied permission shows the blocked card that opens iOS Settings', async () => {
+test('a denied permission shows the blocked card that opens iOS Settings', async () => {
   const openSettings = jest.spyOn(Linking, 'openSettings').mockResolvedValue(undefined);
   seed({ enabled: false, finished: false, waiting: false, error: false, askedAt: ASKED }, 'denied');
   await render(<NotificationsPage />);
@@ -102,7 +102,7 @@ test('mockup settings-denied: a denied permission shows the blocked card that op
   expect(screen.getByText(/iOS doesn’t allow Ghostex to notify you/)).toBeTruthy();
   await fireEvent.press(screen.getByRole('button', { name: 'Open iOS Settings' }));
   expect(openSettings).toHaveBeenCalledTimes(1);
-  // The switches stay on the page under the card (mockup settings-denied).
+  // The switches stay on the page under the card.
   for (const name of ['Notifications', ...KINDS]) expect(valueOf(name)).toBe(false);
   openSettings.mockRestore();
 });

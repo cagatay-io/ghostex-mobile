@@ -1,5 +1,5 @@
 /**
- * The attention list (approved mockup `notifications`): the computers' notification feeds, the desktop bell's list,
+ * The attention list (the notifications design): the computers' notification feeds, the desktop bell's list,
  * newest first in "Unread" and "Read" groups. A row names agent · project, the session's title, the time and the
  * event as word and glyph; never anything the agent wrote. A tap opens the session and marks the row read on the
  * computer; an account row is only marked read. A long press opens the row's menu at the row (Open Session, Mark as
@@ -33,7 +33,7 @@ export type OpenSessionTarget = { machineId: string; sessionId: string; question
 /** How often the rows' "5m ago" moves on while the list is on screen. */
 const CLOCK_TICK_MS = 30_000;
 
-/** The event colours of the approved mockup: Ghostex's status language, word and glyph carry it too. */
+/** The event colours of the design: Ghostex's status language, word and glyph carry it too. */
 function kindColor(kind: ListKind, appearance: Appearance): string {
   if (kind === 'waiting') return SidebarPalette.ROW_ATTENTION;
   if (kind === 'question') return SidebarPalette.ROW_QUESTION;

@@ -430,7 +430,7 @@ describe('one event from two routes, delayed and reordered', () => {
 
     for (const { name, enteredAt } of [
       { name: 'with', enteredAt: '2026-10-29T10:00:20Z' },
-      // The reviewer's probe: a session list that names the attention but not when it began.
+      // A session list that names the attention but not when it began.
       { name: 'without', enteredAt: '' },
     ]) {
       test(`n1, then n2 in the session's next attention, then n1 again (${name} its start): two notifications, two sounds`, async () => {
@@ -469,7 +469,7 @@ describe('one event from two routes, delayed and reordered', () => {
   });
 
   describe("the record covers the push's validity, also across a restart", () => {
-    /** The reviewer's probe: a session list that shows no attention, so only the row id identifies the event. */
+    /** A session list that shows no attention, so only the row id identifies the event. */
     const unattended: SessionFacts = { ...facts('s1'), attentionId: '', attentionEnteredAt: '' };
     const event = (index: number): HostEvent => ({
       machineId: 'm1',
@@ -480,7 +480,7 @@ describe('one event from two routes, delayed and reordered', () => {
     });
 
     for (const restartAt of ['nowhere', 'after n0', 'before the late copy']) {
-      test(`reviewer probe: n0, the row replaced 41 times in the feed, then a late copy of n0 (restart ${restartAt}): one request, one sound`, async () => {
+      test(`n0, the row replaced 41 times in the feed, then a late copy of n0 (restart ${restartAt}): one request, one sound`, async () => {
         const h = await harness(ALL_ON, { s1: unattended });
         for (let i = 0; i <= 41; i += 1) {
           h.announced.retainFeed('m1', [{ sessionId: 's1', id: `n${i}` }]);
