@@ -440,18 +440,22 @@ export function paneLayoutInput({
 } {
   // Two panes in the terminal area (the pane container). Upright, what covers its bottom across the whole width (the
   // keyboard with the text editor riding on it, or a layer in its place) decides the keyboard rules; side by side the
-  // editor stands over the active pane only, as wide as it; half folded the panes end above the fold, where the
-  // keyboard and the layers below it do not reach them.
+  // editor stands over the active pane only, as wide as it; half folded the panes end above the fold (`end`), where the
+  // keyboard and the layers below it do not reach them. There the fold alone, the keyboard and a layer down, is no
+  // cover: the divider handle stays.
   const panesUpright = arrangement === 'stacked';
+  const laptopCovered = keyboardCover(false) > 0 || layerCover > 0;
   const paneCover =
     laptopFold !== null
-      ? laptopObstruction({
-          fold: laptopFold,
-          areaBottom: terminalAreaBottom,
-          keyboardCover: keyboardCover(false),
-          layerCover,
-          editorHeight: 0,
-        })
+      ? laptopCovered
+        ? laptopObstruction({
+            fold: laptopFold,
+            areaBottom: terminalAreaBottom,
+            keyboardCover: keyboardCover(false),
+            layerCover,
+            editorHeight: 0,
+          })
+        : 0
       : Math.max(keyboardCover(panesUpright && editorShown), layerCover);
   // Half folded like a book (an active division down the window; the pose has no layout of its own): the panes'
   // content may run across the fold, their controls keep off it.

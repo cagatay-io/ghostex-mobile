@@ -22,6 +22,7 @@
 
 import { useCallback, useRef, useState, type ReactNode } from 'react';
 import {
+  Animated,
   Pressable,
   StyleSheet,
   Text,
@@ -158,7 +159,10 @@ function usePaneTitle(content: PaneContent): string {
   }
 }
 
+/** A title bar's drag: its slot and how far the finger has moved it. */
 type SwapDrag = { slot: PaneIndex; dx: number; dy: number };
+/** What a drag shows apart from where its copy stands: whose title bar it is, and whether it is over the other slot. */
+type SwapShown = { slot: PaneIndex; hovering: boolean };
 
 /** Where the dragged title bar's middle stands now, and whether that is inside the other slot. */
 function overOtherSlot(geometry: PaneGeometry, drag: SwapDrag): boolean {
@@ -177,13 +181,24 @@ export default function PaneHost(props: PaneHostProps) {
   const { layout, slots } = props;
   const { arrangement, active } = layout;
   const [dragRatio, setDragRatio] = useState<number | null>(null);
-  const [swapDrag, setSwapDrag] = useState<SwapDrag | null>(null);
+  const [swapShown, setSwapShown] = useState<SwapShown | null>(null);
+  // The dragged title bar's copy follows the finger by this offset from its card, set per move without drawing the
+  // panes again; only crossing into or out of the other slot changes what they show.
+  const [swapOffset] = useState(() => new Animated.ValueXY({ x: 0, y: 0 }));
   const [menu, setMenu] = useState<{ slot: PaneIndex; anchor: WindowRect } | null>(null);
   const ratio = dragRatio ?? layout.ratio;
   const geometry = paneGeometry({ ...layout, ratio });
-  const hovering = swapDrag !== null && overOtherSlot(geometry, swapDrag);
   const order: PaneIndex[] = contentKey(slots[0]) < contentKey(slots[1]) ? [0, 1] : [1, 0];
   const swappable = slots.every((content) => content.kind !== 'chooser');
+  const onSwapDrag = (drag: SwapDrag | null): void => {
+    if (drag === null) {
+      setSwapShown(null);
+      return;
+    }
+    swapOffset.setValue({ x: drag.dx, y: drag.dy });
+    const hovering = overOtherSlot(geometry, drag);
+    if (swapShown?.slot !== drag.slot || swapShown.hovering !== hovering) setSwapShown({ slot: drag.slot, hovering });
+  };
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
@@ -195,8 +210,8 @@ export default function PaneHost(props: PaneHostProps) {
           geometry={geometry}
           active={slot === active}
           swappable={swappable}
-          dropTarget={hovering && swapDrag.slot !== slot}
-          onSwapDrag={setSwapDrag}
+          dropTarget={swapShown !== null && swapShown.hovering && swapShown.slot !== slot}
+          onSwapDrag={onSwapDrag}
           menuOpen={menu?.slot === slot}
           onMenu={(anchor) => setMenu({ slot, anchor })}
           renderContent={props.renderContent}
@@ -215,8 +230,14 @@ export default function PaneHost(props: PaneHostProps) {
         onDrag={setDragRatio}
         onRatio={props.onRatio}
       />
-      {swapDrag !== null ? (
-        <SwapGhost geometry={geometry} drag={swapDrag} content={slots[swapDrag.slot]} hovering={hovering} />
+      {swapShown !== null ? (
+        <SwapGhost
+          geometry={geometry}
+          slot={swapShown.slot}
+          offset={swapOffset}
+          content={slots[swapShown.slot]}
+          hovering={swapShown.hovering}
+        />
       ) : null}
       <ContextMenu
         visible={menu !== null}
@@ -374,36 +395,45 @@ function PaneCard(props: PaneCardProps) {
   );
 }
 
-/** The title bar of the pane being dragged, under the finger. */
+/** The title bar of the pane being dragged, under the finger: its card's place moved by `offset`. */
 function SwapGhost({
   geometry,
-  drag,
+  slot,
+  offset,
   content,
   hovering,
 }: {
   geometry: PaneGeometry;
-  drag: SwapDrag;
+  slot: PaneIndex;
+  offset: Animated.ValueXY;
   content: PaneContent;
   hovering: boolean;
 }) {
   const title = usePaneTitle(content);
-  const card = geometry.cards[drag.slot];
+  const card = geometry.cards[slot];
   return (
-    <View
+    <Animated.View
+      testID="pane-swap-ghost"
       pointerEvents="none"
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
       style={[
         styles.ghost,
         hovering && styles.ghostOver,
-        { left: card.x + drag.dx, top: card.y + drag.dy, width: card.width, height: PANE_TITLE_HEIGHT },
+        {
+          left: card.x,
+          top: card.y,
+          width: card.width,
+          height: PANE_TITLE_HEIGHT,
+          transform: offset.getTranslateTransform(),
+        },
       ]}
     >
       <GripIcon size={18} color={GhostexPalette.FOREGROUND} />
       <Text style={[styles.titleText, styles.titleActive, { color: GhostexPalette.ACCENT }]} numberOfLines={1}>
         {title}
       </Text>
-    </View>
+    </Animated.View>
   );
 }
 

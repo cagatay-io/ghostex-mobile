@@ -59,6 +59,8 @@ const mockNative = {
 const mockPickAndSend = jest.fn((_machineId: string, _sessionKey: string, _sink?: unknown) => Promise.resolve('sent'));
 /** Each terminal view's mount and unmount, in order: a remount shows here. */
 const mockMounts: string[] = [];
+/** Each time a terminal view is drawn (rendered), by its session: what a gesture redraws shows here. */
+const mockTerminalRenders: string[] = [];
 let mockBarLayout: BarLayout | null = null;
 let mockReport: ((layout: BarLayout) => void) | null = null;
 /** The chat screen's queued-prompts count report from its latest render: the terminal screen's pill shows it. */
@@ -68,6 +70,7 @@ jest.mock('../../modules/ghostex-native/src', () => {
   const { View: MockView } = jest.requireActual('react-native');
   const React = jest.requireActual('react');
   function MockTerminalView(props: { sessionKey: string }) {
+    mockTerminalRenders.push(props.sessionKey);
     React.useEffect(() => {
       mockMounts.push(`mount ${props.sessionKey}`);
       return () => {
@@ -803,6 +806,42 @@ describe('swapping by the title bar', () => {
     expect(storedLayouts().stacked).toEqual(stacked(A, B).layouts.stacked);
   });
 
+  test('while a title bar is dragged only its copy follows the finger: the panes are drawn again only when it crosses into the other slot', async () => {
+    await renderScreen({ stored: stacked(A, B) });
+    const top = card(A);
+    const bottomSlot = card(B).y;
+    /** The copy of the title bar (hidden from VoiceOver), where it is drawn in the pane container. */
+    const ghostAt = (): { x: number; y: number } => {
+      const ghost = screen.getByTestId('pane-swap-ghost', HIDDEN_TOO);
+      const shift = (style(ghost).transform ?? []) as Record<string, number>[];
+      return {
+        x: num(ghost, 'left') + shift.reduce((sum, entry) => sum + (entry.translateX ?? 0), 0),
+        y: num(ghost, 'top') + shift.reduce((sum, entry) => sum + (entry.translateY ?? 0), 0),
+      };
+    };
+    const move = (dy: number) => fireEvent(titleBar(A), 'responderMove', touch(100, 100 + dy));
+    await fireEvent(titleBar(A), 'touchStart', touch(100, 100));
+    await fireEvent(titleBar(A), 'responderGrant', touch(100, 110));
+    mockTerminalRenders.length = 0;
+    for (let dy = 11; dy <= 70; dy += 1) await move(dy);
+    expect(mockTerminalRenders).toEqual([]);
+    expect(ghostAt()).toEqual({ x: top.x, y: top.y + 70 });
+    expect(screen.queryByText(PanesCopy.releaseToSwap)).toBeNull();
+
+    // Into the other slot: it is marked as the drop target, once.
+    await move(bottomSlot + 20);
+    expect(screen.getByText(PanesCopy.releaseToSwap)).toBeTruthy();
+    const atCrossing = mockTerminalRenders.length;
+    for (let dy = bottomSlot + 21; dy <= bottomSlot + 80; dy += 1) await move(dy);
+    expect(mockTerminalRenders).toHaveLength(atCrossing);
+    expect(ghostAt()).toEqual({ x: top.x, y: top.y + bottomSlot + 80 });
+
+    await fireEvent(titleBar(A), 'responderRelease', touch(100, 100 + bottomSlot + 80, false));
+    await settle();
+    expect(screen.queryByTestId('pane-swap-ghost', HIDDEN_TOO)).toBeNull();
+    expect(card(B).y).toBe(0);
+  });
+
   test('a touch on the title bar that moves less than the slop is a tap, not a drag', async () => {
     await renderScreen({ stored: stacked(A, B) });
     await fireEvent(titleBar(A), 'touchStart', touch(100, 100));
@@ -836,6 +875,17 @@ describe('resizing by the divider handle', () => {
     expect(bottom - card(B).height).toBeCloseTo(100, 0);
     const area = areaOf(UPRIGHT);
     expect(storedLayouts().stacked?.dividerRatio).toBeCloseTo(0.5 + 100 / area.height, 5);
+  });
+
+  test('while the handle is dragged the panes follow it at once, before the finger lets go; nothing is stored yet', async () => {
+    await renderScreen({ stored: stacked(A, B) });
+    const top = card(A).height;
+    await fireEvent(handle(), 'responderGrant', touch(300, 400));
+    await fireEvent(handle(), 'responderMove', touch(300, 460));
+    expect(card(A).height - top).toBeCloseTo(60, 0);
+    await fireEvent(handle(), 'responderMove', touch(300, 480));
+    expect(card(A).height - top).toBeCloseTo(80, 0);
+    expect(storedLayouts().stacked?.dividerRatio).toBe(0.5);
   });
 
   test('dragged as far as it goes: each pane keeps 25 % of the pane container', async () => {
@@ -970,6 +1020,36 @@ describe('half folded like a laptop', () => {
     expect(num(dock, 'left')).toBe(areaOf(UPRIGHT).x + active.x);
     expect(num(dock, 'width')).toBe(active.width);
   });
+
+  test('keyboard down, the divider handle stands and resizes the panes, which end above the fold; keyboard up, it is gone', async () => {
+    const foldInArea = FOLD_TOP - areaOf(UPRIGHT).y;
+    await renderScreen({ divisions: [LAPTOP], stored: sideBySide(A, B) });
+    for (const key of [A, B]) expect(card(key).y + card(key).height).toBeLessThanOrEqual(foldInArea);
+    await dragDivider(80, false);
+    expect(storedLayouts().sideBySide?.dividerRatio).toBeGreaterThan(0.5);
+    expect(card(A).width).toBeGreaterThan(card(B).width);
+
+    await keyboardWillShow();
+    expect(screen.queryByTestId('pane-divider-handle')).toBeNull();
+  });
+
+  test.each([
+    ['right', B, A],
+    ['left', A, B],
+  ])(
+    'the text editor over the %s pane takes nothing of the other one; the cover starts at the fold',
+    async (_side, active, other) => {
+      const area = areaOf(UPRIGHT);
+      await renderScreen({ divisions: [LAPTOP], stored: sideBySide(A, B), selected: active });
+      await keyboardWillShow();
+      await press(TOGGLE);
+      await press('Text editor');
+      expect(screen.getByLabelText(EDITOR, HIDDEN_TOO)).toBeTruthy();
+      const coverTop = area.height - num(screen.getByTestId('laptop-cover'), 'height');
+      expect(coverTop).toBe(FOLD_TOP - area.y);
+      expect(coverTop).toBeGreaterThanOrEqual(card(other).y + card(other).height);
+    },
+  );
 });
 
 describe('a restart', () => {

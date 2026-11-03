@@ -635,6 +635,18 @@ export default function TerminalScreen({ navigation, route }: Props) {
       : slidesWithKeyboard
         ? Math.max(keyboardCover(editorShown), layerCover)
         : 0;
+  // The laptop pose's cover across the window: with two panes without the text editor, which stands over the active
+  // pane only and ends that pane's terminal above it (`paneLayoutInput`), so the other pane keeps all its output.
+  const laptopCover =
+    laptopFold !== null && twoPanes !== null
+      ? laptopObstruction({
+          fold: laptopFold,
+          areaBottom: terminalAreaBottom,
+          keyboardCover: keyboardCover(false),
+          layerCover,
+          editorHeight: 0,
+        })
+      : obstruction;
   const terminalOffset = terminalSlideOffset(caretTop, terminalArea?.height ?? 0, obstruction);
   const panesUpright = paneArrangement === 'stacked';
   const { paneLayout, editorDockFrame } = paneLayoutInput({
@@ -1322,11 +1334,11 @@ export default function TerminalScreen({ navigation, route }: Props) {
         {twoPanes === null && tabs.length > 1 && (
           <EdgeSwipeZones onPrev={() => switchTabBy(-1)} onNext={() => switchTabBy(1)} />
         )}
-        {laptopFold !== null && obstruction > 0 ? (
+        {laptopFold !== null && laptopCover > 0 ? (
           // Laptop pose, keyboard up or not: the output ends at the fold. The view keeps its size and
           // slides; what it still has below the fold's top (the cursor row won and it slid less) is covered, and
           // touches there reach no terminal.
-          <View testID="laptop-cover" style={[styles.laptopCover, { height: obstruction }]} />
+          <View testID="laptop-cover" style={[styles.laptopCover, { height: laptopCover }]} />
         ) : null}
         {/*
           Without the pad (switched off, or Android): the round buttons as before the pad, hidden while the key bar
