@@ -3,7 +3,7 @@
  * position opens a sheet that offers every function of the key bar (keys, modifiers, the KEYS page
  * shortcuts, each agent's hotkeys, custom actions of the extra-keys layout) plus Paste and Upload
  * (`commandPadChoices`). A choice is saved at once (`commandPadKeys`); Reset in the header puts the default nine
- * back. Layout of the approved Pad keys mockup.
+ * back. Layout of the Pad keys design.
  */
 
 import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
@@ -25,7 +25,7 @@ import { SettingsColumnsFrame } from './settings/SettingsColumns';
 import { SettingsPageScrollView } from './settings/SettingsControls';
 import { useAppearanceHeader } from './settings/useAppearanceHeader';
 
-/** A position in the preview: round, the size of the mockup's preview keys. */
+/** A position in the preview: round, the size of the design's preview keys. */
 const PREVIEW_KEY = 68;
 const PREVIEW_GAP = 10;
 
@@ -63,7 +63,7 @@ export default function CommandPadKeysEditorScreen() {
     ]);
   }, [setSetting]);
 
-  // Reset sits in the header, as in the approved mockup: the stack header's right side, or the page's own title
+  // Reset sits in the header, as in the design: the stack header's right side, or the page's own title
   // row when Settings shows two columns (the stack header then carries no buttons).
   const resetButton = useMemo(
     () => (

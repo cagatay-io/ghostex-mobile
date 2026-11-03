@@ -649,7 +649,7 @@ describe('custom action references and touch-free activation', () => {
   });
 });
 
-describe('frosted glass as in the approved mockup, opaque with Reduce Transparency', () => {
+describe('frosted glass as in the design, opaque with Reduce Transparency', () => {
   function blurViews(): number {
     let count = 0;
     const walk = (node: unknown): void => {

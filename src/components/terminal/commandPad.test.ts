@@ -95,7 +95,7 @@ describe('pad keys use the terminal key input path', () => {
     expect(calls.filter((call) => call[0] === 'paste')).toEqual([['paste', SESSION]]);
   });
 
-  test('the default nine keys in the approved order', () => {
+  test('the default nine keys in the designed order', () => {
     expect(resolveCommandPadKeys(DEFAULT_COMMAND_PAD_KEYS, sources).map((entry) => entry.label)).toEqual([
       'Esc',
       'Up',

@@ -66,7 +66,7 @@ export const GhostexPalette = {
 } as const;
 
 /**
- * The Befehlspad over the terminal (approved mockups): light glass keys
+ * The Befehlspad over the terminal (the designs): light glass keys
  * that keep the terminal readable behind them, the accent when open or pressed, the key bar's one-shot blue and
  * locked purple for modifiers, and the keyboard-coloured panel of a layer in the keyboard's place.
  */

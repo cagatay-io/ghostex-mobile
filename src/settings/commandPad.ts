@@ -50,7 +50,7 @@ export function customActionId(actionId: string): string {
 }
 
 /**
- * The default set (arrows, Enter, Esc, Upload, Tab, Ctrl+C) in the approved layout: arrows around Enter in the
+ * The default set (arrows, Enter, Esc, Upload, Tab, Ctrl+C) in the designed layout: arrows around Enter in the
  * centre, Esc top left, Ctrl+C top right, Tab bottom left, Upload bottom right.
  */
 export const DEFAULT_COMMAND_PAD_KEYS: readonly string[] = [

@@ -1018,7 +1018,7 @@ export const SettingsCopy = {
 
 /**
  * The Befehlspad (command pad) in the terminal, its Keys and Agent layers and the text editor, and its rows in
- * Settings > Keyboard (wording of the approved mockups).
+ * Settings > Keyboard (wording of the designs).
  */
 export const CommandPadCopy = {
   toggle: 'Command pad',

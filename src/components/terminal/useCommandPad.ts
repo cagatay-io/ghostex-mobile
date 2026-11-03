@@ -1,6 +1,6 @@
 /**
  * The Befehlspad's state on the terminal screen: open or closed, the layer in the keyboard's place, the text
- * editor, the key input, and the nine keys from Settings. The rules between them follow the approved mockups:
+ * editor, the key input, and the nine keys from Settings. The rules between them follow the designs:
  * - The pad stays open until its toggle is tapped again. Closing it closes a layer and drops armed
  *   modifiers, so nothing stays armed out of sight.
  * - A layer (Keys, Agent) takes the keyboard's place: opening one while the keyboard is up hides the keyboard;

@@ -2,8 +2,8 @@
 /**
  * Run with `bun run test:jest`. Settings > Keyboard > Pad keys with the real picker and the real settings store: a
  * key changed in Settings, up to the stored key (a position changed through the picker holds the chosen key, which
- * the pad then shows: TerminalScreen.commandPad.rntl.tsx), and Reset in the header as in the approved Pad keys
- * mockup. Mocked are the boundaries only: navigation (its header options are captured), storage, the safe area, the
+ * the pad then shows: TerminalScreen.commandPad.rntl.tsx), and Reset in the header as in the Pad keys
+ * design. Mocked are the boundaries only: navigation (its header options are captured), storage, the safe area, the
  * Settings columns frame and scroll view (layout chrome), and the system alert.
  */
 
@@ -77,7 +77,7 @@ describe('every pad key is changeable in Settings', () => {
     }
   });
 
-  test('Reset sits in the header (approved mockup) and puts the default nine back after confirming', async () => {
+  test('Reset sits in the header (the design) and puts the default nine back after confirming', async () => {
     const changed = [...DEFAULT_COMMAND_PAD_KEYS];
     changed[0] = 'key:f1';
     useSettingsStore.setState({ settings: { ...useSettingsStore.getState().settings, commandPadKeys: changed } });

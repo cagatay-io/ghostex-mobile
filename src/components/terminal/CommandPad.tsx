@@ -1,5 +1,5 @@
 /**
- * The Befehlspad over the terminal, in its approved form: a round toggle
+ * The Befehlspad over the terminal, in its designed form: a round toggle
  * in the bottom right corner, and while it is open the 3x3 field of the user's nine keys above it with the four
  * function buttons on an arc around the field's upper left corner: Keys and Agent (the layers in the keyboard's
  * place), the text editor, and the keyboard. The pad stays open until the toggle is tapped again; it floats with
@@ -132,7 +132,7 @@ function CommandPad({
   onKeyboard,
 }: CommandPadProps) {
   const reduceMotion = useReduceMotion();
-  // Frosted glass as in the approved mockup; opaque with Reduce Transparency on.
+  // Frosted glass as in the design; opaque with Reduce Transparency on.
   const opaque = useReduceTransparency();
   // One value and its interpolation for the pad's life: nothing animated is rebuilt per render.
   const [{ reveal, scale }] = useState(() => {
@@ -450,7 +450,7 @@ function springHome(drag: Animated.ValueXY, from: { x: number; y: number }, redu
   Animated.spring(drag, { toValue: { x: 0, y: 0 }, stiffness: 300, damping: 30, useNativeDriver: false }).start();
 }
 
-/** Intensity of the blur behind the glass (the mockup's `blur(12px)` under a light fill). */
+/** Intensity of the blur behind the glass (the design's `blur(12px)` under a light fill). */
 const FROST_INTENSITY = 30;
 
 /** The blurred output behind a glass control, clipped to its shape; nothing with Reduce Transparency on. */

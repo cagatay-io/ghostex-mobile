@@ -1,5 +1,5 @@
 /**
- * Geometry of the Befehlspad in the terminal area, from the approved mockups:
+ * Geometry of the Befehlspad in the terminal area, from the designs:
  * the toggle in the bottom right corner, the 3x3 field above it, and the four function buttons on an arc
  * around the field's upper left corner, every one `RING_CLEAR` points clear of the nearest key. All offsets are
  * from the toggle's anchor (its right and bottom edge), so the whole pad moves as one: with the keyboard, and
@@ -74,7 +74,7 @@ const PAD_EXTENT: PadArea = {
   ),
 };
 
-/** The mockup's place: bottom right. */
+/** The design's place: bottom right. */
 export const DEFAULT_PAD_PLACEMENT: CommandPadPlacement = { side: 'right', height: 1 };
 
 /**

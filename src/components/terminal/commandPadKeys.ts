@@ -254,7 +254,7 @@ function choice(id: string, sources: CommandPadSources, chip?: string): CommandP
 }
 
 /**
- * What a pad position can be set to, in the sections of the approved Pad keys picker:
+ * What a pad position can be set to, in the sections of the Pad keys picker:
  * keys, modifiers, the KEYS page shortcuts, each agent's hotkeys, Paste and Upload, and the layout's custom
  * actions (an empty section when there are none).
  */
