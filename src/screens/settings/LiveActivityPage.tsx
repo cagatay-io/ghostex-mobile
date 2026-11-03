@@ -5,7 +5,7 @@ import LiveActivityPreview from './LiveActivityPreview';
 import { Caption, SectionHeader, SettingsScreenLayout, SettingToggle } from './SettingsControls';
 
 /**
- * Settings › Live Activity (the approved mockup's settings; its own page):
+ * Settings › Live Activity (the design's settings; its own page):
  * one switch, on by default (`liveActivityEnabled`). Off ends a running activity at once and starts none.
  * While a computer with agents sends no start times or attention kind, it says which Mac needs an update. iOS only
  * (pages.ts).

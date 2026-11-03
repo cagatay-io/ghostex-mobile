@@ -6,7 +6,7 @@
  * Which host data a row needs: `startedAt` of a working row is the top-level `workingStartedAt`, which means only the
  * current run; of a waiting row `attention.enteredAt`; of a finished row `attention.workingStartedAt`, when the stint
  * that ended began, so the row shows how long the agent worked (`attention.enteredAt` − `attention.workingStartedAt`,
- * as the approved mockup), while the 2-minute window runs from `attention.enteredAt`. Finished vs waiting is
+ * as the design), while the 2-minute window runs from `attention.enteredAt`. Finished vs waiting is
  * `attention.kind` (`finished` or `needsInput`). A waiting row says "has a question" when the session has an open
  * question card (`awaitingAnswer`, read only from a computer whose summary announces it in `capabilities`) or a
  * counted pending question (`pendingQuestionCount`). The Live Activity runs only when every computer with agents

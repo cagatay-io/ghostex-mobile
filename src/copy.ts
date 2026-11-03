@@ -1107,7 +1107,7 @@ export const LiveActivityCopy = {
   toggle: 'Show Live Activity',
   onCaption:
     'Shows working and waiting agents on the Lock Screen and in the Dynamic Island. It starts when an agent starts working and ends 15 minutes after the last one stops.',
-  // The approved mockup also says "or briefly in the background": that needs silent pushes, which this build
+  // The design also says "or briefly in the background": that needs silent pushes, which this build
   // does not have, so it claims only what it does (updates while the app is open).
   freshnessCaption: 'Ghostex updates it while the app is open. Later it can show an older state and then says so.',
   offCaption: 'Off. Ghostex ends the current Live Activity and starts no new one.',
@@ -1128,7 +1128,7 @@ export const LiveActivityCopy = {
   finished: 'finished',
   count: (count: number, word: string) => `${count} ${word}`,
   more: (count: number) => `+${count} more`,
-  /** Sample rows of the preview: agent, project, state and time, as the mockup's Lock Screen. */
+  /** Sample rows of the preview: agent, project, state and time, as the design's Lock Screen. */
   previewRows: [
     { agent: 'Claude Code', project: 'ghostex-mobile', state: 'question', time: '4m' },
     { agent: 'Codex', project: 'homeserver', state: 'waiting', time: '1m' },

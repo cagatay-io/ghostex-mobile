@@ -123,7 +123,7 @@ enum AgentMark {
   }
 }
 
-/// 18 pt, the size of the mark in the approved mockup's row. Decorative: the row's text names the agent.
+/// 18 pt, the size of the mark in the design's row. Decorative: the row's text names the agent.
 struct AgentMarkView: View {
   let agentName: String
 

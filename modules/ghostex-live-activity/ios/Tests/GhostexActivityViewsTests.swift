@@ -5,7 +5,7 @@ import XCTest
 @testable import GhostexLiveActivityViews
 
 /// The minimal island shows the counts of working and waiting agents, also in the 28 pt width-limited circle, and
-/// the agent mark at the start of a row (approved mockup): resolved by name as the app's session list does, unknown
+/// the agent mark at the start of a row (the design): resolved by name as the app's session list does, unknown
 /// names neutral.
 @MainActor
 final class GhostexActivityViewsTests: XCTestCase {

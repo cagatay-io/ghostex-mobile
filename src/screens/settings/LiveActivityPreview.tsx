@@ -1,6 +1,6 @@
 /**
- * What the Live Activity switch controls, drawn once with sample agents (the approved
- * mockup's preview, so that it is clear what the switch controls). A picture of
+ * What the Live Activity switch controls, drawn once with sample agents (the
+ * design's preview, so that it is clear what the switch controls). A picture of
  * the Lock Screen card, not live data: the real one is rendered by the widget extension
  * (modules/ghostex-live-activity/ios/Extension/GhostexActivityViews.swift), whose colours and words it repeats.
  */
@@ -13,7 +13,7 @@ import { GhostexPalette, SidebarPalette } from '../../theme/palette';
 
 type PreviewState = (typeof LiveActivityCopy.previewRows)[number]['state'];
 
-/** Glyphs of the mockup kit (24-unit paths), so colour never carries the state alone. */
+/** Glyphs of the design (24-unit paths), so colour never carries the state alone. */
 const GLYPHS: Record<PreviewState, { path: string; color: string; word: string }> = {
   working: { path: 'M12 3a9 9 0 1 1-9 9', color: SidebarPalette.ROW_WORKING, word: LiveActivityCopy.working },
   waiting: {

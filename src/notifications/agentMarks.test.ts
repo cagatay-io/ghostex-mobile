@@ -1,5 +1,5 @@
 /**
- * The Lock Screen lists the agents as the approved mockup draws a row: the agent's mark first. The Live Activity
+ * The Lock Screen lists the agents as the design draws a row: the agent's mark first. The Live Activity
  * extension cannot run the app's React Native logo components, so it carries copies: the tint and name tables in
  * `modules/ghostex-live-activity/ios/Extension/GhostexAgentMarks.swift` and one vector image set per logo in
  * `Extension/Assets.xcassets/AgentMarks/`. This test fails when a copy disagrees with what the app draws:

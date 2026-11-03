@@ -7,7 +7,7 @@ import WidgetKit
   import GhostexLiveActivityModel
 #endif
 
-// The approved mockup: state colours of the session list (orange works, blue
+// The design: state colours of the session list (orange works, blue
 // waits, pink asks, muted finished), always with a glyph and a word so colour never carries meaning alone;
 // rows of the agent's mark, agent + project; four rows within Apple's 160 pt Lock Screen height.
 
@@ -119,7 +119,7 @@ struct CountLabel: View {
   }
 }
 
-/// Time in the row's state, in minutes as the approved mockup shows it ("4m", "1h 2m"). A working or waiting row
+/// Time in the row's state, in minutes as the design shows it ("4m", "1h 2m"). A working or waiting row
 /// counts on from `startedAt` by itself while the content is current (iOS 18: the system's `TimeDataSource`;
 /// iOS 16.4–17 have no live minute format, so they count as a `m:ss` timer) and stops at the data time once the
 /// content is not current. A finished row says how long the agent worked, from `startedAt` to
@@ -316,7 +316,7 @@ struct ExpandedRows: View {
       }
       .font(.caption)
       .foregroundStyle(ActivityStyle.secondaryText)
-      // The island's bottom corners are round: inset the footer so its ends stay inside them (mockup).
+      // The island's bottom corners are round: inset the footer so its ends stay inside them.
       .padding(.horizontal, 8)
       .padding(.bottom, 4)
     }
@@ -403,7 +403,7 @@ struct CompactCount: View {
 }
 
 /// What the minimal island draws: both counts, working above waiting, each line its state's glyph and number
-/// (the approved mockup's minimal circle). In the 28 pt circle of a width-limited island
+/// (the design's minimal circle). In the 28 pt circle of a width-limited island
 /// (iOS 27, iPhone Duo) the same two lines are drawn smaller, so neither count is dropped there.
 struct MinimalLayout: Equatable {
   struct Line: Equatable {
