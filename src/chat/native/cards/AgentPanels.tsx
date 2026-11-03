@@ -245,16 +245,12 @@ export function subagentOpenAction(target: unknown): UserAction | null {
   } as UserAction;
 }
 
-/** The Subagents pill's sheet: what the Subagents strip above the composer listed. A row's link opens the subagent's transcript and closes the sheet (`onDone`). */
-export function AgentFleetMenu({
-  chat,
-  document,
-  onDone,
-}: {
-  chat: RustChat;
-  document: ChatDocument;
-  onDone: () => void;
-}) {
+/**
+ * The Subagents pill's sheet: what the Subagents strip above the composer listed. A row's link hands its
+ * `openSubagent` to the sheet's owner (`onOpen`), which closes the sheet and opens the subagent's
+ * transcript once the sheet's modal has gone (`PillMenuSheet`).
+ */
+export function AgentFleetMenu({ document, onOpen }: { document: ChatDocument; onOpen: (action: UserAction) => void }) {
   const styles = useStyles();
   const strip = obj(document.agentFleetStrip);
   if (strip === null) return null;
@@ -280,9 +276,8 @@ export function AgentFleetMenu({
           <FleetRow
             key={str(row, 'key') || String(index)}
             row={row}
-            chat={chat}
             nameWidth={nameWidth}
-            onDone={onDone}
+            onOpen={onOpen}
           />
         ))}
       </ScrollView>
@@ -292,14 +287,12 @@ export function AgentFleetMenu({
 
 function FleetRow({
   row,
-  chat,
   nameWidth,
-  onDone,
+  onOpen,
 }: {
   row: unknown;
-  chat: RustChat;
   nameWidth: number;
-  onDone: () => void;
+  onOpen: (action: UserAction) => void;
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
@@ -309,13 +302,7 @@ function FleetRow({
   // "Done" or "Idle" from the core, empty while the child works or the roster is stale.
   const state = str(row, 'stateLabel');
   const nested = num(row, 'nested') ?? 0;
-  const press =
-    open === null
-      ? undefined
-      : () => {
-          chat.dispatch(open);
-          onDone();
-        };
+  const press = open === null ? undefined : () => onOpen(open);
   return (
     <View style={styles.fleetRow}>
       <PulseDot size={6} color={working ? P.controlPrimary : P.mutedInk(0.5)} active={working} />
