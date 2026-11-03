@@ -248,8 +248,16 @@ const ToolRow = memo(function ToolRow({
   const preview = failure.length === 0 ? argument : argument.length === 0 ? failure : `${argument} \u00b7 ${failure}`;
   const subagent = str(tool.subagent, 'name');
   const openSubagent = subagentOpenAction(tool.subagent);
-  // A description reads as the agent's own prose: the reply's size and weight, a fifth dimmer.
-  const heading = failed ? theme.error : described ? dimmed(theme.prose, DESCRIBED_LABEL_OPACITY) : theme.foreground;
+  // A description reads as the agent's own prose: the reply's size and weight, a fifth dimmer. A
+  // background job stopped before it finished (gx-chat-core `is_stopped_task`) takes the tool-call
+  // card's stopped look (`ToolCard.tsx`): a muted name and a muted cross.
+  const heading = failed
+    ? theme.error
+    : status === 'stopped'
+      ? theme.muted
+      : described
+        ? dimmed(theme.prose, DESCRIBED_LABEL_OPACITY)
+        : theme.foreground;
   const nameStyle = described ? [styles.name, styles.described] : styles.name;
   // Holding a call that names a file opens that file's menu (Copy Path; CDXC:SessionChat 2026-10-17 in desktop `native_chat/file_actions.rs`).
   const filePath = str(tool, 'filePath');
@@ -298,6 +306,7 @@ const ToolRow = memo(function ToolRow({
       {duration.length > 0 ? <Text style={[styles.duration, { color: theme.mutedInk(0.75) }]}>{duration}</Text> : null}
       {status === 'done' ? <Glyph name="check" size={13} color={successTone(theme.light)} /> : null}
       {status === 'failed' ? <Glyph name="x" size={13} color={theme.error} /> : null}
+      {status === 'stopped' ? <Glyph name="x" size={13} color={theme.muted} /> : null}
     </Pressable>
   );
   let body = null;
