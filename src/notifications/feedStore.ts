@@ -253,7 +253,12 @@ const source = new FeedEventSource({
   clearInterval: (handle) => clearInterval(handle as ReturnType<typeof setInterval>),
 });
 
-/** Opens the live channel of a computer that offers it, while the app is in front. */
+/**
+ * Opens the live channel of a computer that offers it, while the app is in front. While the forward is looked up the
+ * computer's entry is a reservation of this call: hiding or removing the computer, or the app leaving the front,
+ * closes it like an open channel (it leaves the map), and the lookup's answer opens the channel only while that same
+ * reservation still stands, so neither a hidden computer nor a later call's reservation gets a channel from it.
+ */
 function ensureStream(machineId: string): void {
   if (streams.has(machineId) || AppState.currentState !== 'active') return;
   const machine = machineById(machineId);
@@ -261,12 +266,16 @@ function ensureStream(machineId: string): void {
   const link = chatMachineLink(machine);
   if (link.capabilities()?.includes(NOTIFICATION_STREAM_CAPABILITY) !== true) return;
   // Reserved while the forward is looked up, so a second read does not open a second socket.
-  streams.set(machineId, () => undefined);
+  const reservation = (): void => {
+    if (streams.get(machineId) === reservation) streams.delete(machineId);
+  };
+  streams.set(machineId, reservation);
   void link
     .gxserverLink()
     .then((gxserver) => {
-      if (gxserver === null || streams.get(machineId) === undefined) {
-        streams.delete(machineId);
+      if (streams.get(machineId) !== reservation) return;
+      if (gxserver === null) {
+        reservation();
         return;
       }
       const close = openFeedStream(
@@ -280,7 +289,7 @@ function ensureStream(machineId: string): void {
       streams.set(machineId, close);
       source.setStreamed(machineId, true);
     })
-    .catch(() => streams.delete(machineId));
+    .catch(reservation);
 }
 
 function closeStreams(): void {

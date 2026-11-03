@@ -4,7 +4,8 @@
  * `feedStore.ts`) as the app starts it, with the real stores, event source, mapper, rate limiter and
  * notification centre adapter; mocked are the boundaries only: React Native's AppState (driven here),
  * expo-notifications (the scheduled requests are what the phone would show), the native module, storage,
- * the app log and the computer's gxserver reached over the warm link (a fake feed endpoint).
+ * the app log, the computer's gxserver reached over the warm link (a fake feed endpoint and forward) and the
+ * WebSocket of the live channel.
  *
  * - First-fetch rule: iOS returns from the background through
  *   `inactive`; rows written while the app was away are no news, at the return and at any read before it.
@@ -33,6 +34,8 @@
  * - The session open on screen (its terminal or Chat View on the focused Terminal screen, the app
  *   active; `sessionOnScreen` in `src/terminal/zmxDisplay.ts`) gets no notification and no attention
  *   sound; its row stays in the attention list.
+ * - The live channel (`stream=notifications`) opens once its forward is looked up, but not for a computer hidden
+ *   while the lookup waited, and a lookup from before a stretch in the background opens no second channel.
  */
 
 import type * as ReactNative from 'react-native';
@@ -85,16 +88,26 @@ jest.mock('expo-secure-store', () => ({
   deleteItemAsync: () => Promise.resolve(),
 }));
 
-/** The computer's feed endpoint behind the warm link: its rows, or the error it answers with. */
-const mockHost: { rows: Record<string, unknown>[]; error: { code: string; message: string } | null } = {
+/**
+ * The computer's feed endpoint behind the warm link: its rows, or the error it answers with; what its
+ * `ghostex server endpoint` lists, and the loopback forward the link hands out for another socket (none by default).
+ */
+const mockHost: {
+  rows: Record<string, unknown>[];
+  error: { code: string; message: string } | null;
+  capabilities: string[];
+  forward: () => Promise<{ localPort: number; authToken: string; capabilities: string[] } | null>;
+} = {
   rows: [],
   error: null,
+  capabilities: [],
+  forward: () => Promise.resolve(null),
 };
 jest.mock('../chat/rust/machine-link', () => ({
   chatMachineLink: () => ({
     route: () => Promise.resolve('socket'),
-    capabilities: () => [],
-    gxserverLink: () => Promise.resolve(null),
+    capabilities: () => mockHost.capabilities,
+    gxserverLink: () => mockHost.forward(),
     rpc: () =>
       Promise.resolve(
         mockHost.error !== null
@@ -343,6 +356,8 @@ beforeEach(() => {
   });
   mockHost.rows = [];
   mockHost.error = null;
+  mockHost.capabilities = [];
+  mockHost.forward = () => Promise.resolve(null);
 });
 
 afterEach(() => {
@@ -989,4 +1004,85 @@ test('a start that merges two saved records of one computer keeps the record of 
   const stored = JSON.parse((await storage.getItem(STORAGE_KEY)) ?? '') as { computers: Record<string, unknown> };
   expect(Object.keys(stored.computers)).toEqual([MACHINE.id]);
   expect(JSON.stringify(stored.computers[MACHINE.id])).toContain('"rowId":"n0"');
+});
+
+// A computer that lists `notificationStream` gets its live channel once its loopback forward is looked up, which can
+// take a handshake. The channel lives only while its computer is shown and the app is in front.
+describe('the live feed channel while its forward is looked up', () => {
+  type Forward = { localPort: number; authToken: string; capabilities: string[] };
+  const FORWARD: Forward = { localPort: 12345, authToken: 'synthetic-token', capabilities: ['notificationStream'] };
+
+  /** The computer lists the channel; each forward lookup waits until the test answers it. */
+  function heldLookups(): PromiseWithResolvers<Forward>[] {
+    const lookups: PromiseWithResolvers<Forward>[] = [];
+    mockHost.capabilities = ['notificationStream'];
+    mockHost.forward = () => {
+      const lookup = Promise.withResolvers<Forward>();
+      lookups.push(lookup);
+      return lookup.promise;
+    };
+    return lookups;
+  }
+
+  /** Runs `body` with a fake WebSocket that records each channel opened. */
+  async function withSockets(body: (opened: string[]) => Promise<void>): Promise<void> {
+    const opened: string[] = [];
+    const original = global.WebSocket;
+    global.WebSocket = class {
+      constructor(url: string) {
+        opened.push(url);
+      }
+      close(): void {}
+    } as unknown as typeof WebSocket;
+    try {
+      await body(opened);
+    } finally {
+      global.WebSocket = original;
+    }
+  }
+
+  test('a computer shown all along gets its channel once the lookup answers', async () => {
+    const lookups = heldLookups();
+    await withSockets(async (opened) => {
+      const app = startApp();
+      app.feedStore.initAttentionNotifications();
+      await settle();
+      expect(lookups).toHaveLength(1);
+      lookups[0].resolve(FORWARD);
+      await settle();
+      expect(opened).toHaveLength(1);
+    });
+  });
+
+  test('hidden while its lookup waits, the computer gets no channel when the lookup answers', async () => {
+    const lookups = heldLookups();
+    await withSockets(async (opened) => {
+      const app = startApp();
+      app.feedStore.initAttentionNotifications();
+      await settle();
+      expect(lookups).toHaveLength(1);
+      const { useMachinesStore } = jest.requireActual<typeof MachinesStoreModule>('../machines/store');
+      useMachinesStore.getState().setMachineDisabled(MACHINE.id, true);
+      lookups[0].resolve(FORWARD);
+      await settle();
+      expect(opened).toEqual([]);
+    });
+  });
+
+  test('a lookup from before a stretch in the background opens no second channel beside the one after it', async () => {
+    const lookups = heldLookups();
+    await withSockets(async (opened) => {
+      const app = startApp();
+      app.feedStore.initAttentionNotifications();
+      await settle();
+      app.appStateChange('background');
+      app.appStateChange('active');
+      await settle();
+      expect(lookups).toHaveLength(2);
+      lookups[0].resolve(FORWARD);
+      lookups[1].resolve(FORWARD);
+      await settle();
+      expect(opened).toHaveLength(1);
+    });
+  });
 });
