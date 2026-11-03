@@ -1125,7 +1125,9 @@ export default function TerminalScreen({ navigation, route }: Props) {
       {slidesWithKeyboard ? (
         <>
           <KeyBarDock shown={editorShown} inset={bottomInset} hideMs={hideMotionMs} onHeightChange={setEditorHeight}>
-            {padSessionKey !== null ? <TerminalTextEditor key={padSessionKey} sessionKey={padSessionKey} /> : null}
+            {padSessionKey !== null ? (
+              <TerminalTextEditor key={padSessionKey} sessionKey={padSessionKey} draft={pad.editorDraft} />
+            ) : null}
           </KeyBarDock>
           {padLayer !== null ? <View style={styles.padLayerDock}>{padLayer}</View> : null}
         </>
@@ -1135,7 +1137,6 @@ export default function TerminalScreen({ navigation, route }: Props) {
         visible={menuVisible}
         sessionTitle={menuTitle}
         agentActionsEnabled={agentActionsCapable && activeSession !== null}
-                draft={pad.editorDraft}
         sleeping={activeSession?.isSleeping === true}
         forkEnabled={FORK_AGENT_ICONS.includes(activeAgentId)}
         // gxserver only parses the transcripts of the agents the chat view
