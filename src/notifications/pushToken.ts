@@ -23,9 +23,10 @@
  * (`noPush`), counts as one whose pushes the app does not count on, and is looked at again at the next occasion, so
  * it is registered once its Ghostex offers push; a removal (master switch off, removing the computer) still goes to
  * it, because an earlier registration may still be there. What the computer's link already knows (`offersPush`) is
- * read before the check that skips a computer holding what is wanted, so one whose endpoint stops listing the flag
- * during the launch (a reconnect settles a new one) leaves at the next occasion; a link that knows no endpoint yet
- * says nothing. With the master switch off at launch, each enabled computer is asked once to remove the token,
+ * read before the caches that skip a computer (one without push or on the exec route, one holding what is wanted),
+ * so one whose endpoint stops listing the flag during the launch (a reconnect settles a new one) leaves at the next
+ * occasion without being asked; a link that knows no endpoint yet says nothing. With the master switch off at launch,
+ * each enabled computer is asked once to remove the token,
  * because an earlier launch may have registered it. What the person or iOS changed during a pass wins: a token
  * fetched before iOS issued a newer one is never kept
  * or sent, and before each request the pass checks that the master switch and the token still ask for it, once more
@@ -221,12 +222,15 @@ export class PushTokenRegistration {
     const wanted = await this.wantedToken();
     if (wanted === undefined) return;
     for (const machine of machines) {
-      if (this.removed.has(machine.id) || this.unsupported.has(machine.id)) continue;
+      if (this.removed.has(machine.id)) continue;
       const params = this.request(machine, wanted);
+      // Before the caches below: they would keep a computer that took the token before its endpoint stopped listing
+      // the flag. Read locally, so a computer on the exec route is not asked again.
       if (params.action === 'register' && this.deps.offersPush(machine.id) === false) {
         this.offersNoPush(machine);
         continue;
       }
+      if (this.unsupported.has(machine.id)) continue;
       const taken = this.taken.get(machine.id);
       if (taken !== undefined && holdsAlready(taken, params)) continue;
       if (!this.deps.machines().some((entry) => entry.id === machine.id)) continue;

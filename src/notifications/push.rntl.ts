@@ -1672,6 +1672,24 @@ describe('which computers accepted this phone’s push registration, also in an 
     expect(app.pushRequests()).toEqual([`m1:register:${TOKEN}`]);
   });
 
+  // A launch that reaches it only on the exec route (its endpoint unknown) keeps the earlier acceptance and does not
+  // ask it again; once a later handshake settles an endpoint without the flag, the next occasion takes it out.
+  test('accepted before, reached only on the exec route this launch, then known without pushNotifications: taken out', async () => {
+    const stored = await acceptedBefore();
+    mockHost.requests = [];
+    mockHost.legacy.add('m1');
+    mockHost.capabilitiesUnknown.add('m1');
+    const app = await startApp({ stored });
+    expect(app.feedStore.useAttentionFeedStore.getState().pushComputers).toEqual(['m1']);
+    mockHost.legacy.clear();
+    mockHost.capabilitiesUnknown.clear();
+    mockHost.withoutPushFlag.add('m1');
+    await app.appStateChange('background');
+    await app.appStateChange('active');
+    expect(app.feedStore.useAttentionFeedStore.getState().pushComputers).toEqual([]);
+    expect(app.pushRequests()).toEqual([]);
+  });
+
   test('what is stored of it is its computer id, never the token', async () => {
     const stored = await acceptedBefore();
     expect(Object.values(stored).filter((value) => value.includes('PushToken['))).toEqual([]);

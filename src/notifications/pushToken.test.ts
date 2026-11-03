@@ -579,6 +579,28 @@ describe('a computer that does not offer push', () => {
     assert.deepEqual(app.accepted, ['m1:true', 'm2:true']);
     assert.equal(app.sent.length, 2);
   });
+
+  // A computer the phone reached only on the exec route is not asked again until the app starts again or the token
+  // changes; what its link learns later without a request still counts.
+  test('one that took the token, then was reached only on the exec route, holds none once its link knows no push', async () => {
+    let token = TOKEN;
+    const app = harness({ token: async () => token });
+    await app.registration.sync();
+    token = NEW_TOKEN;
+    app.state.answers = { m2: 'legacy' };
+    await app.registration.tokenChanged();
+    assert.deepEqual(app.accepted, ['m1:true', 'm2:true', 'm1:true']);
+    // Unknown on the exec route: nothing changes, and the exec route is not asked again.
+    await app.registration.sync();
+    assert.deepEqual(app.accepted, ['m1:true', 'm2:true', 'm1:true']);
+    app.state.offersPush = { m2: false };
+    await app.registration.sync();
+    assert.deepEqual(app.accepted, ['m1:true', 'm2:true', 'm1:true', 'm2:false']);
+    assert.deepEqual(
+      app.sent.filter((entry) => entry.machineId === 'm2').map((entry) => entry.params),
+      [register('m2'), register('m2', NEW_TOKEN)],
+    );
+  });
 });
 
 describe('the token stays out of the logs', () => {
