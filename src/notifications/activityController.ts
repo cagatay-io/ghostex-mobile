@@ -3,8 +3,11 @@
  * builds on every summary refresh (`contentState.ts`). The adapter is ActivityKit behind the native module in
  * the app, and a fake in the tests.
  *
- * - Start: while the setting is on, every computer with agents sends start times and the attention kind, and an agent
- *   works or waits and none runs. An activity that ended outside the app (the
+ * - Start: while the setting is on, every computer with agents sends start times and the attention kind, an agent
+ *   works or waits, none runs and the app is in front: ActivityKit starts an activity only for an app in front (a
+ *   background run for a push updates and ends one, but starts none), so an agent read in the background starts it
+ *   at the first refresh in front. A start iOS refuses is asked for again in the app's next stretch in front, or when
+ *   a working stint begins, not on every refresh. An activity that ended outside the app (the
  *   user removed it, or iOS ended it after 8 hours) is not started again on the next refresh; the next working
  *   stint that begins starts a new one: a working agent whose session or `workingStartedAt` the last
  *   refresh did not have, among all working agents, also those without a row and the same session's next turn.
@@ -51,13 +54,16 @@ export type ActivityController = {
   /**
    * Applies the latest content; `workingStints` the keys of every working agent (`workingStints` in
    * `contentState.ts`), `enabled` the Settings switch (`liveActivityEnabled`), `hostsCurrent` false while any
-   * computer with agents sends no start times or attention kind (`computersNeedingUpdate`).
+   * computer with agents sends no start times or attention kind (`computersNeedingUpdate`), `inFront` whether the
+   * app is in front (active) now. Called again when `inFront` changes, so a start that waited for the front, or
+   * that iOS refused in an earlier stretch in front, is asked for then.
    */
   process: (
     state: LiveActivityContentState,
     workingStints: readonly string[],
     enabled: boolean,
     hostsCurrent: boolean,
+    inFront: boolean,
   ) => void;
 };
 
@@ -84,8 +90,13 @@ export function createActivityController<Handle>(deps: ActivityControllerDeps<Ha
   const { adapter, timers } = deps;
   /** The app has an activity it started and did not end. */
   let running = adapter.hasActivity() === true;
-  /** An activity ended outside the app, or could not start: wait for the next agent that starts working. */
+  /** An activity ended outside the app: wait for the next agent that starts working. */
   let held = false;
+  /** The app's stretches in front, counted as `process` sees them. */
+  let frontStretch = 0;
+  let wasInFront = false;
+  /** The stretch in front in which iOS refused the last start: no start is asked for again in it. */
+  let refusedIn: number | null = null;
   let idleSince: number | null = null;
   let endTimer: Handle | null = null;
   /** `workingStints` of the last refresh. */
@@ -120,11 +131,15 @@ export function createActivityController<Handle>(deps: ActivityControllerDeps<Ha
   };
 
   return {
-    process: (state, workingStints, enabled, hostsCurrent) => {
+    process: (state, workingStints, enabled, hostsCurrent, inFront) => {
+      if (inFront && !wasInFront) frontStretch += 1;
+      wasInFront = inFront;
+
       if (!enabled || !hostsCurrent) {
         const reason = enabled ? 'a computer needs a Ghostex update' : 'switched off in Settings';
         if (running || adapter.hasActivity() === true) endActivity(reason);
         held = false;
+        refusedIn = null;
         knownStints = new Set();
         return;
       }
@@ -142,17 +157,22 @@ export function createActivityController<Handle>(deps: ActivityControllerDeps<Ha
       const stints = new Set(workingStints);
       const stintStarted = [...stints].some((stint) => !knownStints.has(stint));
       knownStints = stints;
-      if (stintStarted) held = false;
+      if (stintStarted) {
+        held = false;
+        refusedIn = null;
+      }
 
       const active = state.counts.working + state.counts.waiting > 0;
       if (!running) {
-        if (!active || held) return;
+        if (!active || held || !inFront || refusedIn === frontStretch) return;
         running = true;
         idleSince = null;
         remember(state, shapeOf(state));
+        const stretch = frontStretch;
         adapter.request(contentFor(state)).catch((error: unknown) => {
+          // Not the user removing it: asked for again in the next stretch in front, or for the next working stint.
           running = false;
-          held = true;
+          refusedIn = stretch;
           sentShape = null;
           deps.onError(`Live Activity: starting it failed: ${errorText(error)}`);
         });

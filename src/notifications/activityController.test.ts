@@ -2,7 +2,9 @@
  * When the activity starts and ends (none while a computer sends no start times or attention kind), the switch,
  * silent updates and the stale date: the real `ActivityController` with a fake ActivityKit adapter and an injected
  * clock and timers. Content states and the host check come from the real `buildContentState` and
- * `computersNeedingUpdate` on summaries in the CLI's wire form.
+ * `computersNeedingUpdate` on summaries in the CLI's wire form. The fake ActivityKit refuses a start while the app is
+ * out of front, as iOS does: a start that waits for the app to be in front, or that iOS refused, is not the user
+ * removing the activity.
  */
 
 import assert from 'node:assert/strict';
@@ -66,16 +68,37 @@ const finished = (id: string, at: number, workedSince = T0): WireSession => ({
   },
 });
 
-/** Records every call the controller makes and lets a test end the activity "outside the app". */
+/**
+ * Records every call the controller makes and lets a test end the activity "outside the app". Like ActivityKit, it
+ * starts an activity only while the app is in front (`ios.inFront`), and refuses every start while
+ * `ios.refusesStarts` (iOS refusing it for another reason, such as Live Activities switched off for the app). While
+ * `ios.answersLater`, a start's answer waits for `answerStart()`, and `hasActivity` is null meanwhile, as the adapter's
+ * contract says for a call under way.
+ */
 function fakeAdapter() {
   const calls: Array<{ kind: 'request' | 'update' | 'end'; content?: ActivityContent }> = [];
   let onScreen = false;
+  let unanswered: (() => void) | null = null;
+  const ios = { inFront: true, refusesStarts: false, answersLater: false };
   const adapter: LiveActivityAdapter = {
-    hasActivity: () => onScreen,
+    hasActivity: () => (unanswered !== null ? null : onScreen),
     request: (content) => {
       calls.push({ kind: 'request', content });
-      onScreen = true;
-      return Promise.resolve();
+      // iOS decides when the start is asked for.
+      const refused = !ios.inFront || ios.refusesStarts;
+      const answered = Promise.withResolvers<void>();
+      const answer = (): void => {
+        unanswered = null;
+        if (refused) {
+          answered.reject(new Error('the activity was not started'));
+          return;
+        }
+        onScreen = true;
+        answered.resolve();
+      };
+      if (ios.answersLater) unanswered = answer;
+      else answer();
+      return answered.promise;
     },
     update: (content) => {
       calls.push({ kind: 'update', content });
@@ -90,11 +113,21 @@ function fakeAdapter() {
   return {
     adapter,
     calls,
+    ios,
     kinds: () => calls.map((call) => call.kind),
+    onScreen: () => onScreen,
+    answerStart: () => unanswered?.(),
     dismissByUser: () => {
       onScreen = false;
     },
   };
+}
+
+/** Lets the answers of the ActivityKit calls made so far arrive. */
+function settled(): Promise<void> {
+  const { promise, resolve } = Promise.withResolvers<void>();
+  setImmediate(resolve);
+  return promise;
 }
 
 /** A clock with one-shot timers, advanced by hand. */
@@ -144,13 +177,13 @@ function setup() {
   const process = (at: number, sessions: WireSession[], enabled = true) => {
     time.advanceTo(at);
     const { state, stints, hostsCurrent } = stateAt(at, sessions);
-    controller.process(state, stints, enabled, hostsCurrent);
+    controller.process(state, stints, enabled, hostsCurrent, fake.ios.inFront);
   };
   /** A refresh right after iOS resumed the app, before its overdue timers ran. */
   const processAfterSuspension = (at: number, sessions: WireSession[]) => {
     time.jumpTo(at);
     const { state, stints, hostsCurrent } = stateAt(at, sessions);
-    controller.process(state, stints, true, hostsCurrent);
+    controller.process(state, stints, true, hostsCurrent, fake.ios.inFront);
   };
   return { ...fake, time, errors, process, processAfterSuspension };
 }
@@ -231,6 +264,96 @@ describe('start and end', () => {
     // Between two refreshes `a` stopped and `b` started: one working agent before and after, the same four rows.
     process(T0 + 10_000, [...fourWaiting, idle('a'), working('b', T0 + 8_000)]);
     assert.equal(kinds().filter((kind) => kind === 'request').length, 2);
+  });
+});
+
+// A background run for a push refreshes the session list and brings the activity in line (`backgroundPush.ts`), also
+// when no activity is on screen. ActivityKit starts an activity only for an app in front; it updates and ends a
+// running one in the background too.
+describe('a start needs the app in front', () => {
+  test('a working agent read in the background starts its activity once the app is in front, the same stint', async () => {
+    const { process, kinds, ios, onScreen } = setup();
+    ios.inFront = false;
+    process(T0, [working('s1')]);
+    await settled();
+    assert.deepEqual(kinds(), [], 'no start is asked for in the background');
+    ios.inFront = true;
+    process(T0 + 5_000, [working('s1')]);
+    await settled();
+    assert.deepEqual(kinds(), ['request']);
+    assert.equal(onScreen(), true);
+  });
+
+  test('a start iOS refused is asked for again once the app was out of front and is back, not on each refresh', async () => {
+    const { process, kinds, ios, onScreen, errors } = setup();
+    ios.refusesStarts = true;
+    process(T0, [working('s1')]);
+    await settled();
+    process(T0 + 5_000, [working('s1')]);
+    await settled();
+    assert.deepEqual(kinds(), ['request'], 'no second request while the app stays in front');
+    assert.equal(errors.length, 1);
+    ios.refusesStarts = false;
+    ios.inFront = false;
+    process(T0 + 10_000, [working('s1')]);
+    ios.inFront = true;
+    process(T0 + 15_000, [working('s1')]);
+    await settled();
+    assert.deepEqual(kinds(), ['request', 'request']);
+    assert.equal(onScreen(), true);
+  });
+
+  test('a start iOS refused is asked for again when a working stint begins, also while the app stays in front', async () => {
+    const { process, kinds, ios } = setup();
+    ios.refusesStarts = true;
+    process(T0, [working('s1', T0)]);
+    await settled();
+    ios.refusesStarts = false;
+    process(T0 + 5_000, [working('s1', T0), working('s2', T0 + 4_000)]);
+    await settled();
+    assert.deepEqual(kinds(), ['request', 'request']);
+  });
+
+  test('a start refused as the app left the front is asked for again when it is back', async () => {
+    const { process, kinds, ios, onScreen, answerStart } = setup();
+    ios.refusesStarts = true;
+    ios.answersLater = true;
+    process(T0, [working('s1')]);
+    // The app leaves the front, and a refresh runs, before iOS's answer arrives.
+    ios.inFront = false;
+    process(T0 + 1_000, [working('s1')]);
+    answerStart();
+    await settled();
+    ios.refusesStarts = false;
+    ios.answersLater = false;
+    ios.inFront = true;
+    process(T0 + 5_000, [working('s1')]);
+    await settled();
+    assert.deepEqual(kinds(), ['request', 'request']);
+    assert.equal(onScreen(), true);
+  });
+
+  test('removed by the user, it stays away when the app comes back to front during the same stint', async () => {
+    const { process, kinds, ios, dismissByUser } = setup();
+    process(T0, [working('s1')]);
+    await settled();
+    dismissByUser();
+    ios.inFront = false;
+    process(T0 + 5_000, [working('s1')]);
+    ios.inFront = true;
+    process(T0 + 10_000, [working('s1')]);
+    await settled();
+    assert.deepEqual(kinds(), ['request']);
+  });
+
+  test('out of front a running activity is still updated and ended', async () => {
+    const { process, kinds, ios } = setup();
+    process(T0, [working('s1')]);
+    await settled();
+    ios.inFront = false;
+    process(T0 + 5_000, [waiting('s1', T0 + 4_000)]);
+    process(T0 + 10_000, [waiting('s1', T0 + 4_000)], false);
+    assert.deepEqual(kinds(), ['request', 'update', 'end']);
   });
 });
 

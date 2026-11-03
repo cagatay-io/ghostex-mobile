@@ -1,15 +1,17 @@
 /**
- * Runs the Live Activity for the app's lifetime: every change of the inventory, the machines or the
- * settings rebuilds the content state from the polled summaries and hands it to the controller, which starts,
- * updates or ends the activity through ActivityKit. iOS only; on Android the native module does not exist and
- * nothing is installed.
+ * Runs the Live Activity for the app's lifetime: every change of the inventory, the machines, the
+ * settings or the app's state (AppState) rebuilds the content state from the polled summaries and hands it to the
+ * controller, which starts, updates or ends the activity through ActivityKit. ActivityKit starts an activity only for
+ * an app in front, so the controller learns whether the app is active, and the change to active is a pass of its own:
+ * an agent read in the background starts its activity when the app comes to front, also before the next read. iOS
+ * only; on Android the native module does not exist and nothing is installed.
  *
  * `refreshLiveActivity` is the local update entry point for a short background wake (a silent-push handler calls it);
  * it reads every summary again and resolves once ActivityKit has the result.
  */
 
 import { useMemo } from 'react';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import { GhostexLiveActivity } from '../../modules/ghostex-live-activity/src/GhostexLiveActivity';
 import { logAppEvent } from '../app/appLog';
@@ -36,7 +38,7 @@ let controller: ActivityController | null = null;
 let queue: Promise<void> = Promise.resolve();
 let pendingCalls = 0;
 /** The inputs of the last pass, so the store updates of a poll that changed nothing cost nothing. */
-let lastInputs: { sources: readonly ActivitySource[]; enabled: boolean } | null = null;
+let lastInputs: { sources: readonly ActivitySource[]; enabled: boolean; inFront: boolean } | null = null;
 /** The finished events seen while the app runs (in memory: a restart forgets them). */
 const finishedMemory: FinishedMemory = new Map();
 
@@ -95,8 +97,13 @@ export function useComputersNeedingUpdate(): string[] {
   }, [machines, inventories]);
 }
 
-function sameInputs(sources: readonly ActivitySource[], enabled: boolean): boolean {
-  if (lastInputs === null || lastInputs.enabled !== enabled || lastInputs.sources.length !== sources.length) {
+function sameInputs(sources: readonly ActivitySource[], enabled: boolean, inFront: boolean): boolean {
+  if (
+    lastInputs === null ||
+    lastInputs.enabled !== enabled ||
+    lastInputs.inFront !== inFront ||
+    lastInputs.sources.length !== sources.length
+  ) {
     return false;
   }
   return sources.every((source, index) => {
@@ -110,21 +117,23 @@ function sameInputs(sources: readonly ActivitySource[], enabled: boolean): boole
   });
 }
 
-/** Brings the activity in line with the latest summaries and the setting. */
+/** Brings the activity in line with the latest summaries, the setting and whether the app is in front. */
 function syncLiveActivity(): void {
   const settings = useSettingsStore.getState();
   // The switch is a stored setting: nothing starts or ends before it is read.
   if (controller === null || !settings.hydrated) return;
   const enabled = settings.settings.liveActivityEnabled;
   const sources = currentSources();
-  if (sameInputs(sources, enabled)) return;
-  lastInputs = { sources, enabled };
+  const inFront = AppState.currentState === 'active';
+  if (sameInputs(sources, enabled, inFront)) return;
+  lastInputs = { sources, enabled, inFront };
   const now = Date.now();
   controller.process(
     buildContentState(sources, now, finishedMemory),
     workingStints(sources, now),
     enabled,
     computersNeedingUpdate(sources).length === 0,
+    inFront,
   );
 }
 
@@ -145,6 +154,7 @@ export function initLiveActivity(): void {
   useInventoryStore.subscribe(syncLiveActivity);
   useMachinesStore.subscribe(syncLiveActivity);
   useSettingsStore.subscribe(syncLiveActivity);
+  AppState.addEventListener('change', syncLiveActivity);
   syncLiveActivity();
 }
 
