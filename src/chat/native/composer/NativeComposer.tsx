@@ -47,6 +47,8 @@ import { OptionPills, type PillKind } from './OptionPills';
 import { RunLocationRow } from './RunLocationRow';
 import { ProjectPickerSheet } from './ProjectPickerSheet';
 import { draftProjectChoices, moveDraftToProject } from './draftProjectChoices';
+import { MachinePickerSheet } from './MachinePickerSheet';
+import { repoKeyOfProject } from '../../../screens/sessions-screen/new-session-place';
 import { machineTargetFor } from '../../../screens/terminal-screen/session-lookups';
 import type { UnifiedProjectChoice } from '../../../contract/unified/choices';
 import { enabledMachines, machineDisplayLabel, useMachinesStore } from '../../../machines/store';
@@ -178,14 +180,21 @@ export function NativeComposer({
       onHostAction?.('toast', { message: error instanceof Error ? error.message : String(error), level: 'error' });
     });
   };
-  const projectChipLabel = ((): string | null => {
-    const name = document?.worktreeTray?.projectName ?? null;
-    if (name === null) return null;
-    const machine = chat.machine;
+  const projectChipLabel = document?.worktreeTray?.projectName ?? null;
+  /** The machine chip, beside the project chip while the phone knows more than one computer. */
+  const machineChipLabel = ((): string | null => {
+    if (projectChipLabel === null) return null;
     const machines = enabledMachines(useMachinesStore.getState());
-    const record = machines.length > 1 ? machines.find((entry) => entry.id === machine?.id) : undefined;
-    return record === undefined ? name : `${name} · ${machineDisplayLabel(record)}`;
+    const record = machines.length > 1 ? machines.find((entry) => entry.id === chat.machine?.id) : undefined;
+    return record === undefined ? null : machineDisplayLabel(record);
   })();
+  const [machineChoice, setMachineChoice] = useState<UnifiedProjectChoice | null>(null);
+  const openMachines = (): void => {
+    const from = chat.machine;
+    if (from === null) return;
+    const repoKey = repoKeyOfProject(from.id, projectId);
+    setMachineChoice(draftProjectChoices(from.id).find((choice) => choice.repoKey === repoKey) ?? null);
+  };
   /**
    * What the expanded composer measures around its field: the card's top inside the composer, the
    * card's content at its natural height and the field's own height. The room left for the field is
@@ -604,9 +613,21 @@ export function NativeComposer({
             visible={projectChoices !== null}
             choices={projectChoices ?? []}
             onClose={() => setProjectChoices(null)}
-            onPick={(choice, picked) => {
+            onPick={(choice) => {
               setProjectChoices(null);
-              moveDraftHere(choice.repoKey, picked.machineId, picked.projectId);
+              const picked = choice.machines[choice.selected];
+              if (picked !== undefined && picked.connected) moveDraftHere(choice.repoKey, picked.machineId, picked.projectId);
+            }}
+          />
+          <MachinePickerSheet
+            visible={machineChoice !== null}
+            machines={machineChoice?.machines ?? []}
+            currentMachineId={chat.machine?.id ?? null}
+            onClose={() => setMachineChoice(null)}
+            onPick={(picked) => {
+              const choice = machineChoice;
+              setMachineChoice(null);
+              if (choice !== null) moveDraftHere(choice.repoKey, picked.machineId, picked.projectId);
             }}
           />
           {document?.worktreeTray ? (
@@ -617,6 +638,8 @@ export function NativeComposer({
               retry={() => input?.submit('send')}
               projectLabel={projectChipLabel}
               openProjects={() => setProjectChoices(chat.machine === null ? [] : draftProjectChoices(chat.machine.id))}
+              machineLabel={machineChipLabel}
+              openMachines={openMachines}
             />
           ) : null}
           <View

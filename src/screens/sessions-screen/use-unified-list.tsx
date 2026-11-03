@@ -14,7 +14,7 @@
  */
 
 import { useEffect, useMemo, useReducer, useRef, useState, type ReactElement } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View, type FlatListProps, type ViewInstance } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, TextInput, View, type FlatListProps, type ViewInstance } from 'react-native';
 
 import { buildDrawerItems, projectKeyForSession, type ProjectHeaderItem, type SessionItem } from '../../contract/grouping';
 import type { GhostexMobileSummary, GhostexProjectIcon, GhostexSession } from '../../contract/mobileSummary';
@@ -25,9 +25,8 @@ import {
   type UnifiedRow,
   type UnifiedShelf,
 } from '../../contract/unified/build';
-import { unifiedProjectChoices, type UnifiedProjectChoice } from '../../contract/unified/choices';
+import { unifiedNewSessionTarget, unifiedProjectChoices, type UnifiedProjectChoice } from '../../contract/unified/choices';
 import { toggleUnifiedFilter, unifiedFilterLabel, unifiedFilterMenu } from '../../contract/unified/filterMenu';
-import { newSessionStartsInOpen } from './machineStripPolicy';
 import {
   sessionsListSeedOf,
   unifiedLayoutOf,
@@ -45,6 +44,7 @@ import { chatMachineLink } from '../../chat/rust/machine-link';
 import ContextMenu, { type ContextMenuItem, type MenuAnchor } from '../../components/sessions/ContextMenu';
 import { ds, SIDEBAR_MUTED, SIDEBAR_TEXT } from '../../components/sessions/rows';
 import { EditGlyph, FilterGlyph, FolderPlusGlyph, AlarmGlyph } from '../../components/sessions/unified/glyphs';
+import { PlusGlyph } from '../../components/sessions/icons';
 import { UnifiedCard, UnifiedGroupHeader, UnifiedShelfHeader, UnifiedSlimRow } from '../../components/sessions/unified/UnifiedCard';
 import type { MachineInventory } from '../../inventory/store';
 import { useSettingsStore } from '../../settings/store';
@@ -128,7 +128,11 @@ function sessionItemOf(machineId: string, session: GhostexSession, summary: Ghos
 }
 
 /** The project's header as its card in the Project list would carry it, for the agent picker. */
-function projectHeaderOf(machineId: string, summary: GhostexMobileSummary, projectId: string): ProjectHeaderItem | null {
+export function projectHeaderOf(
+  machineId: string,
+  summary: GhostexMobileSummary,
+  projectId: string,
+): ProjectHeaderItem | null {
   const items = buildDrawerItems({
     machineId,
     summary,
@@ -195,10 +199,12 @@ export function useUnifiedList(deps: UnifiedListDeps) {
   const foldedGroups = useUnifiedListStore((state) => state.foldedGroups);
   const toggleGroup = useUnifiedListStore((state) => state.toggleGroup);
   const lastMachines = useUnifiedListStore((state) => state.lastMachines);
+  const recentRepos = useUnifiedListStore((state) => state.recentRepos);
   const setQuery = useUnifiedListStore((state) => state.setQuery);
   useEffect(() => useUnifiedListStore.getState().hydrate(), []);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
-  const [groupNewFor, setGroupNewFor] = useState<UnifiedProjectChoice | null>(null);
+  /** What a filter row's "+" opens once the filter menu has gone (iOS presents one modal at a time). */
+  const afterFilterMenu = useRef<(() => void) | null>(null);
   const [snoozeFor, setSnoozeFor] = useState<{ machine: MachineRecord; session: GhostexSession; anchor: MenuAnchor } | null>(
     null,
   );
@@ -241,17 +247,22 @@ export function useUnifiedList(deps: UnifiedListDeps) {
   const choices = useMemo((): UnifiedProjectChoice[] => {
     if (!on) return [];
     return unifiedProjectChoices(
-      computers.map((computer) => ({
-        machine: computer.machineId,
-        label: computer.label,
-        connected: (inventoriesByMachineId[computer.machineId]?.lastError ?? null) === null,
-        projects: unifiedMachineInput(computer, false).projects,
-      })),
+      computers.map((computer) => {
+        const { projects, sessions } = unifiedMachineInput(computer, false);
+        const withSessions = new Set(sessions.filter((session) => !session.isBrowser).map((session) => session.projectId));
+        return {
+          machine: computer.machineId,
+          label: computer.label,
+          connected: (inventoriesByMachineId[computer.machineId]?.lastError ?? null) === null,
+          projects: projects.map((project) => ({ ...project, hasSessions: withSessions.has(project.projectId) })),
+        };
+      }),
       lastMachines,
+      recentRepos,
       selectedMachine?.id ?? '',
       selectedMachine?.id ?? '',
     );
-  }, [on, computers, inventoriesByMachineId, lastMachines, selectedMachine]);
+  }, [on, computers, inventoriesByMachineId, lastMachines, recentRepos, selectedMachine]);
   useEffect(() => setClockTicking(working), [working]);
 
   /** One icon per repository: the first of its projects, on any computer, that has one. */
@@ -345,17 +356,15 @@ export function useUnifiedList(deps: UnifiedListDeps) {
     if (projectHeader !== null) setOverlay({ kind: 'agentMenu', ctx: { machine: target, header: projectHeader } });
   };
 
-  /** A group's "+": its one reachable machine, or a menu of its reachable machines; false when none is reachable. */
+  /**
+   * A project's "+" (its group header, its filter row): the agent menu on that project, on the
+   * machine it starts on (gx-core `default_machine`); the menu's chips change the machine.
+   */
   const openGroupNewSession = (repoKey: string): boolean => {
     const choice = choices.find((entry) => entry.repoKey === repoKey);
-    if (choice === undefined) return false;
-    const reachable = choice.machines.filter(
-      (machine) => machine.connected && (view.filter.machines.length === 0 || view.filter.machines.includes(machine.machineId)),
-    );
-    const first = reachable[0];
-    if (first === undefined) return false;
-    if (reachable.length === 1) openPickerIn(first.machineId, first.projectId);
-    else setGroupNewFor({ ...choice, machines: reachable });
+    const machine = choice?.machines[choice.selected];
+    if (machine === undefined || !machine.connected) return false;
+    openPickerIn(machine.machineId, machine.projectId);
     return true;
   };
 
@@ -421,26 +430,22 @@ export function useUnifiedList(deps: UnifiedListDeps) {
   };
 
   /**
-   * A picked project starts where its open session is, else asks for one of its reachable computers;
-   * otherwise (or when none is reachable) the open or top card supplies both.
+   * The pencil: the agent menu where gx-core `unified_new_session_target` aims it (the one filtered
+   * project, else the open session's project on its machine, else the list's first project).
    */
   const openNewSession = (): void => {
     const all = [...view.drafts, ...view.pinned, ...view.active, ...view.working, ...view.snoozed, ...view.parked];
     const open = all.find((row) => selectedSessionKey === attachSessionKey(row.machine, row.session.sessionId));
-    const picked = view.filter.repos.length === 1 ? choices.find((choice) => choice.repoKey === view.filter.repos[0]) : undefined;
-    if (picked !== undefined) {
-      if (open !== undefined && newSessionStartsInOpen(picked.machines, { machineId: open.machine, projectId: open.session.projectId })) {
-        openPickerIn(open.machine, open.session.projectId);
-        return;
-      }
-      if (openGroupNewSession(picked.repoKey)) return;
-    }
-    const fallback = open ?? all[0];
-    if (fallback === undefined) {
+    const target = unifiedNewSessionTarget(
+      view.filter,
+      choices,
+      open === undefined ? null : { repoKey: open.repo.key, machineId: open.machine, projectId: open.session.projectId },
+    );
+    if (target === null) {
       if (selectedMachine !== null) openAddProject(selectedMachine.id);
       return;
     }
-    openPickerIn(fallback.machine, fallback.session.projectId);
+    openPickerIn(target.machineId, target.projectId);
   };
 
   const filtered = !isUnifiedFilterEmpty(view.filter);
@@ -507,6 +512,21 @@ export function useUnifiedList(deps: UnifiedListDeps) {
             label: row.label,
             suffix: row.detail ?? undefined,
             selected: row.checked,
+            // A project row's "+" starts a session there without changing the filter (Q1163 C).
+            secondary:
+              row.filterKind === 'repos'
+                ? {
+                    icon: <PlusGlyph size={14} color={SIDEBAR_TEXT} />,
+                    label: `New session in ${row.label}`,
+                    onPress: () => {
+                      const repoKey = row.key;
+                      setFilterMenuOpen(false);
+                      const work = (): void => void openGroupNewSession(repoKey);
+                      if (Platform.OS === 'ios') afterFilterMenu.current = work;
+                      else work();
+                    },
+                  }
+                : undefined,
             onPress: () => {
               setFilter(toggleUnifiedFilter(view.filter, row.filterKind, row.key));
               setFilterMenuOpen(false);
@@ -517,32 +537,19 @@ export function useUnifiedList(deps: UnifiedListDeps) {
 
   const overlays = (
     <>
-      {on && filterMenuOpen ? (
+      {/* Stays mounted while hidden so a row's "+" can open the agent menu once it has gone (iOS). */}
+      {on ? (
         <ContextMenu
-          visible
+          visible={filterMenuOpen}
           title="Filter sessions"
-          items={filterItems()}
+          items={filterMenuOpen ? filterItems() : []}
           maxHeight={420}
           onClose={() => setFilterMenuOpen(false)}
-        />
-      ) : null}
-      {groupNewFor !== null ? (
-        <ContextMenu
-          visible
-          title={groupNewFor.label}
-          subtitle="New session on"
-          items={groupNewFor.machines
-            .filter((machine) => machine.connected)
-            .map((machine) => ({
-              kind: 'item' as const,
-              key: machine.machineId,
-              label: machine.label,
-              onPress: () => {
-                setGroupNewFor(null);
-                openPickerIn(machine.machineId, machine.projectId);
-              },
-            }))}
-          onClose={() => setGroupNewFor(null)}
+          onDismissed={() => {
+            const work = afterFilterMenu.current;
+            afterFilterMenu.current = null;
+            work?.();
+          }}
         />
       ) : null}
       {snoozeFor !== null ? (

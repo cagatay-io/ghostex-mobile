@@ -3,40 +3,21 @@
  *
  * CDXC:Worktrees 2026-10-31 DECISION:
  * User (Q847, Q856): the phone's tray picks the project and machine like the desktop's. A session row can't change project, so a pick starts the same agent as a draft there, with the composer's text, opens it, then gxserver closes this draft (`/api/draftWorktree {finish, moved}`), which only closes a session still a draft. If the start fails the draft stays open with its text.
+ *
+ * CDXC:Worktrees 2026-11-03 DECISION:
+ * User (Q1186 "split"): the tray has a project chip that lists projects only, and a machine chip beside it that changes the machine, the same model as the agent menu; both move the draft as above. This supersedes Q848's machine chips inside the project search.
  * SEE-ALSO: apps/desktop/src/app/gx_store/unified_new_session.rs.
  */
 
-import {
-  unifiedProjectChoices,
-  type UnifiedChoiceMachineInput,
-  type UnifiedProjectChoice,
-} from '../../../contract/unified/choices';
-import { unifiedMachineInput } from '../../../contract/unified/fromSummary';
-import { useInventoryStore } from '../../../inventory/store';
-import { enabledMachines, machineDisplayLabel, useMachinesStore } from '../../../machines/store';
+import type { UnifiedProjectChoice } from '../../../contract/unified/choices';
+import { projectChoicesNow } from '../../../screens/sessions-screen/new-session-place';
 import { useUnifiedListStore } from '../../../screens/sessions-screen/unified-list-store';
 import { sessionChatRpc } from '../../rust/transport';
 import type { MachineConnectionTarget } from '../../../machines/credentials';
 import { createAgentWithFirstInputDraft, machineAgents, openSessionTab } from '../sessionShell';
 
 export function draftProjectChoices(currentMachineId: string): UnifiedProjectChoice[] {
-  const inventories = useInventoryStore.getState().inventoriesByMachineId;
-  const machines = enabledMachines(useMachinesStore.getState());
-  const inputs: UnifiedChoiceMachineInput[] = [];
-  for (const machine of machines) {
-    const inventory = inventories[machine.id];
-    const summary = inventory?.summary ?? null;
-    if (summary === null) continue;
-    const label = machineDisplayLabel(machine);
-    const { projects } = unifiedMachineInput({ machineId: machine.id, label, summary, workspaceId: null }, false);
-    inputs.push({ machine: machine.id, label, connected: (inventory?.lastError ?? null) === null, projects });
-  }
-  return unifiedProjectChoices(
-    inputs,
-    useUnifiedListStore.getState().lastMachines,
-    currentMachineId,
-    currentMachineId,
-  );
+  return projectChoicesNow(currentMachineId);
 }
 
 export async function moveDraftToProject(input: {
@@ -56,7 +37,7 @@ export async function moveDraftToProject(input: {
     agent,
     draft: input.text,
   });
-  useUnifiedListStore.getState().noteLastMachine(input.repoKey, to.id);
+  useUnifiedListStore.getState().noteNewSession(input.repoKey, to.id, null);
   await openSessionTab(to, sessionId, input.toProjectId);
   await sessionChatRpc(from, 'draftWorktree', {
     projectId: input.fromProjectId,

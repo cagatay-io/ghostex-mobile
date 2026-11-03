@@ -44,12 +44,14 @@ describe('what the Unified list remembers', () => {
       toggledShelves: ['working', 'a|parked'],
       foldedGroups: ['b'],
       lastMachines: { a: 'm' },
+      recentRepos: ['a'],
     };
     const restored = parseUnifiedSaved(serializeUnifiedSaved(saved));
     assert.deepEqual(restored.filter, { repos: ['a'], machines: ['m'], spaces: ['s'], query: '' });
     assert.deepEqual(restored.toggledShelves, saved.toggledShelves);
     assert.deepEqual(restored.foldedGroups, saved.foldedGroups);
     assert.deepEqual(restored.lastMachines, saved.lastMachines);
+    assert.deepEqual(restored.recentRepos, saved.recentRepos);
   });
   test('nothing saved or something unreadable starts over', () => {
     assert.deepEqual(parseUnifiedSaved(null).toggledShelves, []);

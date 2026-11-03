@@ -198,7 +198,7 @@ function machineKeyOf(machine: UnifiedMachineInput<unknown>): string {
 }
 
 /** The Space that shows a project: the first Space in order that claims it, else Other. */
-function spaceOfProject(spaces: UnifiedSpaceInput[], project: UnifiedProjectInput): string {
+export function spaceOfProject(spaces: UnifiedSpaceInput[], project: UnifiedProjectInput): string {
   const claimed = spaces.find((space) =>
     project.collectionId !== null
       ? space.memberCollectionIds.includes(project.collectionId)

@@ -18,7 +18,13 @@ import {
   type UnifiedRow,
   type UnifiedSessionInput,
 } from './build';
-import { filterProjectChoices, unifiedNewSessionTarget, unifiedProjectChoices } from './choices';
+import {
+  filterProjectChoices,
+  unifiedNewSessionTarget,
+  unifiedProjectChoices,
+  widenFilterForNewSession,
+} from './choices';
+import { repoIdentity } from './repo';
 import { groupUnifiedList, moveUnifiedProject } from './grouping';
 
 type Json = Record<string, any>;
@@ -130,24 +136,49 @@ describe('the Unified list matches the desktop builder', () => {
             path: project.path,
             gitRemoteOriginUrl: project.gitRemoteOriginUrl ?? null,
             worktreeParentPath: project.worktreeParentPath ?? null,
+            hasSessions: (machine.sessions as Json[]).some(
+              (session) => session.projectId === project.projectId && session.isBrowser !== true,
+            ),
           })),
         })),
         fixtureCase.lastMachines ?? {},
+        fixtureCase.recentRepos ?? [],
         fixtureCase.currentMachine ?? 'local',
       );
       assert.deepEqual(filterProjectChoices(allChoices, fixtureCase.choiceQuery ?? ''), expected.choices, 'choices');
+      const filter = {
+        repos: fixtureCase.filter?.repos ?? [],
+        machines: fixtureCase.filter?.machines ?? [],
+        spaces: fixtureCase.filter?.spaces ?? [],
+        query: fixtureCase.filter?.query ?? '',
+      };
+      const activeMachine: string = fixtureCase.activeMachine ?? 'local';
+      const activeProject = (fixtureCase.machines as Json[])
+        .find((machine) => machine.machine === activeMachine)
+        ?.projects.find((project: Json) => project.projectId === fixtureCase.activeProjectId);
+      const active =
+        activeProject === undefined
+          ? null
+          : {
+              repoKey: repoIdentity(
+                activeProject.gitRemoteOriginUrl ?? null,
+                activeProject.path,
+                activeProject.worktreeParentPath ?? null,
+                activeProject.title,
+              ).key,
+              machineId: activeMachine,
+              projectId: activeProject.projectId,
+            };
+      assert.deepEqual(unifiedNewSessionTarget(filter, allChoices, active), expected.newSessionTarget, 'new session target');
+      const created: Json | undefined = fixtureCase.createdIn;
+      const widened =
+        created === undefined
+          ? null
+          : widenFilterForNewSession(filter, created.repoKey, created.machineId, created.spaceKey ?? null);
       assert.deepEqual(
-        unifiedNewSessionTarget(
-          {
-            repos: fixtureCase.filter?.repos ?? [],
-            machines: fixtureCase.filter?.machines ?? [],
-            spaces: fixtureCase.filter?.spaces ?? [],
-          },
-          allChoices,
-          fixtureCase.activeProjectId ?? null,
-        ),
-        expected.newSessionTarget,
-        'new session target',
+        widened === null ? null : { repos: widened.repos, machines: widened.machines, spaces: widened.spaces },
+        expected.widenedFilter,
+        'widened filter',
       );
       for (const shelf of ['drafts', 'pinned', 'active', 'working', 'snoozed', 'parked'] as const) {
         assert.deepEqual(ids(view[shelf]), expected[shelf], shelf);

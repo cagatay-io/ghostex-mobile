@@ -49,6 +49,11 @@ type ContextMenuAction = {
   submenu?: boolean;
   destructive?: boolean;
   disabled?: boolean;
+  /**
+   * A second button at the row's end (the filter menu's "+" on a project row): its own press, which
+   * never runs the row's `onPress`.
+   */
+  secondary?: { icon: ReactElement; label: string; onPress: () => void };
   onPress: () => void;
 };
 
@@ -76,6 +81,8 @@ export type ContextMenuItem =
   | { kind: 'note'; key: string; label: string }
   /** The desktop sidebar menu's small dimmed heading ("Session", "Below"), sentence case. */
   | { kind: 'heading'; key: string; label: string }
+  /** A row drawn by its menu (the agent menu's project row and machine chips). */
+  | { kind: 'custom'; key: string; render: () => ReactElement }
   | (ContextMenuAction & ContextMenuLeadingVisual);
 
 export type ContextMenuProps = {
@@ -256,6 +263,7 @@ export default function ContextMenu({
                   </Text>
                 );
               }
+              if (item.kind === 'custom') return <Fragment key={item.key}>{item.render()}</Fragment>;
               const infoOpen = item.info !== undefined && openInfo === item.key;
               return (
                 <Fragment key={item.key}>
@@ -315,6 +323,17 @@ export default function ContextMenu({
                         onPress={() => setOpenInfo(infoOpen ? null : item.key)}
                       >
                         <InfoGlyph size={15} color={infoOpen ? SidebarPalette.FOREGROUND : SidebarPalette.MUTED} />
+                      </Pressable>
+                    ) : null}
+                    {item.secondary !== undefined ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={item.secondary.label}
+                        hitSlop={10}
+                        style={({ pressed }) => [styles.itemSecondary, pressed ? styles.itemActive : null]}
+                        onPress={item.secondary.onPress}
+                      >
+                        {item.secondary.icon}
                       </Pressable>
                     ) : null}
                     {item.selected === true && item.selectedPresentation !== 'emphasis' ? (
@@ -433,6 +452,14 @@ const styles = StyleSheet.create({
   },
   itemInfo: {
     marginLeft: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  itemSecondary: {
+    marginLeft: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },

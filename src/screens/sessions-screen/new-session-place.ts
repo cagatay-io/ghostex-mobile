@@ -1,0 +1,81 @@
+/**
+ * Where a new session starts on the phone: every computer's projects as the agent menu, its
+ * project sheet and the composer's tray offer them (gx-core `unified_sidebar/choices.rs` through
+ * `contract/unified/choices.ts`), read from the stores at the moment they are opened.
+ *
+ * CDXC:Sidebar 2026-11-03 DECISION:
+ * User (Q1167, Q1188 "all"): "i want to pick the project then pick which machine on the "New thread" page itself (default to the machine used last)", on the phone in the same change. So the phone's agent menu starts on a project and a machine, its top row opens a project-only list (Recent first, projects with no session marked "No sessions"), and its machine chips under that row change the machine.
+ * SEE-ALSO: apps/desktop/src/app/gx_store/unified_new_session.rs (the desktop's picker host).
+ */
+
+import { LOCAL_MACHINE_KEY, spaceFilterKey, spaceOfProject } from '../../contract/unified/build';
+import {
+  unifiedProjectChoices,
+  type UnifiedChoiceMachineInput,
+  type UnifiedProjectChoice,
+} from '../../contract/unified/choices';
+import { unifiedMachineInput } from '../../contract/unified/fromSummary';
+import { repoIdentity } from '../../contract/unified/repo';
+import { useInventoryStore } from '../../inventory/store';
+import { enabledMachines, machineDisplayLabel, useMachinesStore } from '../../machines/store';
+import { useUnifiedListStore } from './unified-list-store';
+
+/** Each computer the phone has read, with its projects and which of them has an open session. */
+export function projectChoiceInputsNow(): UnifiedChoiceMachineInput[] {
+  const inventories = useInventoryStore.getState().inventoriesByMachineId;
+  const machines = enabledMachines(useMachinesStore.getState());
+  const inputs: UnifiedChoiceMachineInput[] = [];
+  for (const machine of machines) {
+    const inventory = inventories[machine.id];
+    const summary = inventory?.summary ?? null;
+    if (summary === null) continue;
+    const label = machineDisplayLabel(machine);
+    const { projects, sessions } = unifiedMachineInput({ machineId: machine.id, label, summary, workspaceId: null }, false);
+    const withSessions = new Set(sessions.filter((session) => !session.isBrowser).map((session) => session.projectId));
+    inputs.push({
+      machine: machine.id,
+      label,
+      connected: (inventory?.lastError ?? null) === null,
+      projects: projects.map((project) => ({ ...project, hasSessions: withSessions.has(project.projectId) })),
+    });
+  }
+  return inputs;
+}
+
+/** The project list, Recent first, each row starting on its own default machine. */
+export function projectChoicesNow(currentMachineId: string): UnifiedProjectChoice[] {
+  const { lastMachines, recentRepos } = useUnifiedListStore.getState();
+  return unifiedProjectChoices(projectChoiceInputsNow(), lastMachines, recentRepos, currentMachineId, currentMachineId);
+}
+
+/** The repository a project of a computer belongs to, as the project list keys it. */
+export function repoKeyOfProject(machineId: string, projectId: string): string | null {
+  const summary = useInventoryStore.getState().inventoriesByMachineId[machineId]?.summary ?? null;
+  if (summary === null) return null;
+  const { projects } = unifiedMachineInput({ machineId, label: '', summary, workspaceId: null }, false);
+  const project = projects.find((entry) => entry.projectId === projectId);
+  if (project === undefined) return null;
+  return repoIdentity(project.gitRemoteOriginUrl, project.path, project.worktreeParentPath, project.title).key;
+}
+
+/** The Unified filter's key of the Space that shows a project, or null when its computer has none. */
+export function spaceKeyOfProject(machineId: string, projectId: string): string | null {
+  const summary = useInventoryStore.getState().inventoriesByMachineId[machineId]?.summary ?? null;
+  if (summary === null) return null;
+  const machine = unifiedMachineInput({ machineId, label: '', summary, workspaceId: null }, false);
+  const project = machine.projects.find((entry) => entry.projectId === projectId);
+  if (machine.spaces === null || project === undefined) return null;
+  // The list keys a lone computer as `local` (`unifiedListOf`), and its Spaces with it.
+  const alone = projectChoiceInputsNow().length === 1;
+  return spaceFilterKey(alone ? LOCAL_MACHINE_KEY : machineId, spaceOfProject(machine.spaces, project));
+}
+
+/** A session started in a project of a computer: its machine and Recent, and the filter's chips. */
+export function noteNewSessionIn(machineId: string, projectId: string): void {
+  const repoKey = repoKeyOfProject(machineId, projectId);
+  if (repoKey === null) return;
+  const alone = projectChoiceInputsNow().length === 1;
+  useUnifiedListStore
+    .getState()
+    .noteNewSession(repoKey, alone ? LOCAL_MACHINE_KEY : machineId, spaceKeyOfProject(machineId, projectId));
+}

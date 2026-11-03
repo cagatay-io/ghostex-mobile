@@ -10,8 +10,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 
 import { EMPTY_UNIFIED_FILTER, type UnifiedFilter, type UnifiedShelf } from '../../contract/unified/build';
+import { widenFilterForNewSession } from '../../contract/unified/choices';
 import {
   parseUnifiedSaved,
+  rememberNewSession,
   serializeUnifiedSaved,
   UNIFIED_SAVED_STATE_KEY,
 } from '../../contract/unified/saved';
@@ -21,8 +23,10 @@ type UnifiedListState = {
   /** Shelves toggled away from how they start; inside a project as `<repo key>|<shelf>`. */
   toggledShelves: string[];
   foldedGroups: string[];
-  /** The machine a new session last used per repository (the tray's machine chips). */
+  /** The machine a new session last used per repository (the agent menu and tray start there). */
   lastMachines: Record<string, string>;
+  /** The repositories new sessions last started in, newest first: the project list's Recent. */
+  recentRepos: string[];
   hydrated: boolean;
   hydrate: () => void;
   setFilter: (filter: UnifiedFilter) => void;
@@ -32,14 +36,20 @@ type UnifiedListState = {
   openDrafts: () => void;
   toggleGroup: (repoKey: string) => void;
   noteLastMachine: (repoKey: string, machineId: string) => void;
+  /**
+   * A session started in `repoKey` on `machineId` (gx-core `remember_new_session` and
+   * `widen_filter_for_new_session`): it becomes that repository's machine and the top of Recent,
+   * and a filter that would hide it gains its project, machine or Space as chips.
+   */
+  noteNewSession: (repoKey: string, machineId: string, spaceKey: string | null) => void;
 };
 
 export const useUnifiedListStore = create<UnifiedListState>((set, get) => {
   const save = (): void => {
-    const { filter, toggledShelves, foldedGroups, lastMachines } = get();
+    const { filter, toggledShelves, foldedGroups, lastMachines, recentRepos } = get();
     void AsyncStorage.setItem(
       UNIFIED_SAVED_STATE_KEY,
-      serializeUnifiedSaved({ filter, toggledShelves, foldedGroups, lastMachines }),
+      serializeUnifiedSaved({ filter, toggledShelves, foldedGroups, lastMachines, recentRepos }),
     );
   };
   const flip = (list: string[], key: string): string[] =>
@@ -49,6 +59,7 @@ export const useUnifiedListStore = create<UnifiedListState>((set, get) => {
     toggledShelves: [],
     foldedGroups: [],
     lastMachines: {},
+    recentRepos: [],
     hydrated: false,
     hydrate: () => {
       if (get().hydrated) return;
@@ -60,6 +71,7 @@ export const useUnifiedListStore = create<UnifiedListState>((set, get) => {
           toggledShelves: saved.toggledShelves,
           foldedGroups: saved.foldedGroups,
           lastMachines: saved.lastMachines,
+          recentRepos: saved.recentRepos,
         }));
       });
     },
@@ -83,6 +95,13 @@ export const useUnifiedListStore = create<UnifiedListState>((set, get) => {
     },
     noteLastMachine: (repoKey, machineId) => {
       set((state) => ({ lastMachines: { ...state.lastMachines, [repoKey]: machineId } }));
+      save();
+    },
+    noteNewSession: (repoKey, machineId, spaceKey) => {
+      set((state) => ({
+        ...rememberNewSession(state, repoKey, machineId),
+        filter: widenFilterForNewSession(state.filter, repoKey, machineId, spaceKey),
+      }));
       save();
     },
   };

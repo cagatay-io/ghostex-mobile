@@ -63,6 +63,8 @@ export type Overlay =
   | { kind: 'projectKillConfirm'; ctx: ProjectContext }
   | { kind: 'projectDetails'; ctx: ProjectContext }
   | { kind: 'agentMenu'; ctx: ProjectContext }
+  /** The agent menu's project list; a pick opens the agent menu again on that project. */
+  | { kind: 'newSessionProject'; currentMachineId: string }
   | { kind: 'newCoordinator'; ctx: ProjectContext }
   | { kind: 'actionsMenu'; ctx: ProjectContext }
   | { kind: 'collectionMenu'; ctx: CollectionContext; view: 'root' | 'colors' }

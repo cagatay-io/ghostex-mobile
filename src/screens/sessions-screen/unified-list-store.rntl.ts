@@ -33,6 +33,20 @@ describe('the Unified list state on the phone', () => {
     expect(useUnifiedListStore.getState().filter.query).toBe('typed');
   });
 
+  test('a new session tops Recent and joins a filter that would hide it', async () => {
+    const store = useUnifiedListStore.getState();
+    store.setFilter({ repos: ['shown'], machines: [], spaces: [] });
+    store.noteNewSession('elsewhere', 'studio', null);
+    const state = useUnifiedListStore.getState();
+    expect(state.filter.repos).toEqual(['elsewhere', 'shown']);
+    expect(state.filter.machines).toEqual([]);
+    expect(state.recentRepos[0]).toBe('elsewhere');
+    expect(state.lastMachines.elsewhere).toBe('studio');
+    const saved = JSON.parse((await AsyncStorage.getItem(UNIFIED_SAVED_STATE_KEY)) ?? '{}');
+    expect(saved.recentRepos[0]).toBe('elsewhere');
+    expect(saved.repos).toEqual(['elsewhere', 'shown']);
+  });
+
   test('a restart reads them back', async () => {
     await AsyncStorage.setItem(
       UNIFIED_SAVED_STATE_KEY,

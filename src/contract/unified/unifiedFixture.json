@@ -11,6 +11,7 @@
         ],
         "choices": [
           {
+            "hasSessions": true,
             "label": "acme",
             "machines": [
               {
@@ -26,10 +27,12 @@
                 "projectId": "rac"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/acme",
             "selected": 0
           },
           {
+            "hasSessions": true,
             "label": "billing",
             "machines": [
               {
@@ -39,10 +42,12 @@
                 "projectId": "bil"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/billing",
             "selected": 0
           },
           {
+            "hasSessions": false,
             "label": "quiet",
             "machines": [
               {
@@ -52,10 +57,12 @@
                 "projectId": "quiet"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/quiet",
             "selected": 0
           },
           {
+            "hasSessions": false,
             "label": "tools",
             "machines": [
               {
@@ -65,10 +72,12 @@
                 "projectId": "only-wt"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/tools",
             "selected": 0
           },
           {
+            "hasSessions": true,
             "label": "zebra",
             "machines": [
               {
@@ -78,6 +87,7 @@
                 "projectId": "zeb"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/zebra",
             "selected": 0
           }
@@ -129,7 +139,11 @@
           }
         ],
         "moves": [],
-        "newSessionTarget": null,
+        "newSessionTarget": {
+          "machineId": "local",
+          "projectId": "zeb",
+          "repoKey": "github.com/o/zebra"
+        },
         "options": {
           "machines": [
             {
@@ -248,6 +262,7 @@
           "studio|r1"
         ],
         "total": 8,
+        "widenedFilter": null,
         "working": [
           "local|a-work"
         ]
@@ -402,6 +417,7 @@
         ],
         "choices": [
           {
+            "hasSessions": true,
             "label": "acme",
             "machines": [
               {
@@ -417,10 +433,12 @@
                 "projectId": "rac"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/acme",
             "selected": 0
           },
           {
+            "hasSessions": true,
             "label": "billing",
             "machines": [
               {
@@ -430,10 +448,12 @@
                 "projectId": "bil"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/billing",
             "selected": 0
           },
           {
+            "hasSessions": false,
             "label": "quiet",
             "machines": [
               {
@@ -443,10 +463,12 @@
                 "projectId": "quiet"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/quiet",
             "selected": 0
           },
           {
+            "hasSessions": false,
             "label": "tools",
             "machines": [
               {
@@ -456,10 +478,12 @@
                 "projectId": "only-wt"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/tools",
             "selected": 0
           },
           {
+            "hasSessions": true,
             "label": "zebra",
             "machines": [
               {
@@ -469,6 +493,7 @@
                 "projectId": "zeb"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/zebra",
             "selected": 0
           }
@@ -545,7 +570,11 @@
             "github.com/o/tools"
           ]
         ],
-        "newSessionTarget": null,
+        "newSessionTarget": {
+          "machineId": "local",
+          "projectId": "ac",
+          "repoKey": "github.com/o/acme"
+        },
         "options": {
           "machines": [
             {
@@ -664,6 +693,7 @@
           "studio|r1"
         ],
         "total": 8,
+        "widenedFilter": null,
         "working": [
           "local|a-work"
         ]
@@ -836,6 +866,7 @@
         ],
         "choices": [
           {
+            "hasSessions": true,
             "label": "acme",
             "machines": [
               {
@@ -851,10 +882,12 @@
                 "projectId": "rac"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/acme",
             "selected": 0
           },
           {
+            "hasSessions": true,
             "label": "billing",
             "machines": [
               {
@@ -864,10 +897,12 @@
                 "projectId": "bil"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/billing",
             "selected": 0
           },
           {
+            "hasSessions": false,
             "label": "quiet",
             "machines": [
               {
@@ -877,10 +912,12 @@
                 "projectId": "quiet"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/quiet",
             "selected": 0
           },
           {
+            "hasSessions": false,
             "label": "tools",
             "machines": [
               {
@@ -890,10 +927,12 @@
                 "projectId": "only-wt"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/tools",
             "selected": 0
           },
           {
+            "hasSessions": true,
             "label": "zebra",
             "machines": [
               {
@@ -903,6 +942,7 @@
                 "projectId": "zeb"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/zebra",
             "selected": 0
           }
@@ -922,7 +962,11 @@
           }
         ],
         "moves": [],
-        "newSessionTarget": null,
+        "newSessionTarget": {
+          "machineId": "local",
+          "projectId": "ac",
+          "repoKey": "github.com/o/acme"
+        },
         "options": {
           "machines": [
             {
@@ -979,6 +1023,7 @@
         },
         "snoozed": [],
         "total": 8,
+        "widenedFilter": null,
         "working": []
       },
       "filter": {
@@ -1129,6 +1174,7 @@
         "active": [],
         "choices": [
           {
+            "hasSessions": true,
             "label": "acme",
             "machines": [
               {
@@ -1144,10 +1190,12 @@
                 "projectId": "rac"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/acme",
             "selected": 0
           },
           {
+            "hasSessions": true,
             "label": "billing",
             "machines": [
               {
@@ -1157,10 +1205,12 @@
                 "projectId": "bil"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/billing",
             "selected": 0
           },
           {
+            "hasSessions": false,
             "label": "quiet",
             "machines": [
               {
@@ -1170,10 +1220,12 @@
                 "projectId": "quiet"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/quiet",
             "selected": 0
           },
           {
+            "hasSessions": false,
             "label": "tools",
             "machines": [
               {
@@ -1183,10 +1235,12 @@
                 "projectId": "only-wt"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/tools",
             "selected": 0
           },
           {
+            "hasSessions": true,
             "label": "zebra",
             "machines": [
               {
@@ -1196,6 +1250,7 @@
                 "projectId": "zeb"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/zebra",
             "selected": 0
           }
@@ -1215,7 +1270,11 @@
           }
         ],
         "moves": [],
-        "newSessionTarget": null,
+        "newSessionTarget": {
+          "machineId": "local",
+          "projectId": "ac",
+          "repoKey": "github.com/o/acme"
+        },
         "options": {
           "machines": [
             {
@@ -1274,6 +1333,7 @@
           "studio|r1"
         ],
         "total": 8,
+        "widenedFilter": null,
         "working": []
       },
       "filter": {
@@ -1424,6 +1484,7 @@
         "active": [],
         "choices": [
           {
+            "hasSessions": true,
             "label": "acme",
             "machines": [
               {
@@ -1439,10 +1500,12 @@
                 "projectId": "rac"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/acme",
             "selected": 0
           },
           {
+            "hasSessions": true,
             "label": "billing",
             "machines": [
               {
@@ -1452,10 +1515,12 @@
                 "projectId": "bil"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/billing",
             "selected": 0
           },
           {
+            "hasSessions": false,
             "label": "quiet",
             "machines": [
               {
@@ -1465,10 +1530,12 @@
                 "projectId": "quiet"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/quiet",
             "selected": 0
           },
           {
+            "hasSessions": false,
             "label": "tools",
             "machines": [
               {
@@ -1478,10 +1545,12 @@
                 "projectId": "only-wt"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/tools",
             "selected": 0
           },
           {
+            "hasSessions": true,
             "label": "zebra",
             "machines": [
               {
@@ -1491,6 +1560,7 @@
                 "projectId": "zeb"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/zebra",
             "selected": 0
           }
@@ -1512,7 +1582,8 @@
         "moves": [],
         "newSessionTarget": {
           "machineId": "local",
-          "projectId": "ac"
+          "projectId": "ac",
+          "repoKey": "github.com/o/acme"
         },
         "options": {
           "machines": [
@@ -1572,6 +1643,7 @@
           "studio|r1"
         ],
         "total": 8,
+        "widenedFilter": null,
         "working": []
       },
       "filter": {
@@ -1731,6 +1803,7 @@
         ],
         "choices": [
           {
+            "hasSessions": true,
             "label": "acme",
             "machines": [
               {
@@ -1746,10 +1819,12 @@
                 "projectId": "rac"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/acme",
-            "selected": 1
+            "selected": 0
           },
           {
+            "hasSessions": true,
             "label": "billing",
             "machines": [
               {
@@ -1759,10 +1834,12 @@
                 "projectId": "bil"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/billing",
             "selected": 0
           },
           {
+            "hasSessions": false,
             "label": "quiet",
             "machines": [
               {
@@ -1772,10 +1849,12 @@
                 "projectId": "quiet"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/quiet",
             "selected": 0
           },
           {
+            "hasSessions": false,
             "label": "tools",
             "machines": [
               {
@@ -1785,10 +1864,12 @@
                 "projectId": "only-wt"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/tools",
             "selected": 0
           },
           {
+            "hasSessions": true,
             "label": "zebra",
             "machines": [
               {
@@ -1798,6 +1879,7 @@
                 "projectId": "zeb"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/zebra",
             "selected": 0
           }
@@ -1828,8 +1910,9 @@
         ],
         "moves": [],
         "newSessionTarget": {
-          "machineId": "studio",
-          "projectId": "rac"
+          "machineId": "local",
+          "projectId": "ac",
+          "repoKey": "github.com/o/acme"
         },
         "options": {
           "machines": [
@@ -1933,6 +2016,7 @@
           "studio|r1"
         ],
         "total": 8,
+        "widenedFilter": null,
         "working": [
           "local|a-work"
         ]
@@ -2095,6 +2179,7 @@
         ],
         "choices": [
           {
+            "hasSessions": true,
             "label": "acme",
             "machines": [
               {
@@ -2110,10 +2195,12 @@
                 "projectId": "rac"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/acme",
-            "selected": 1
+            "selected": 0
           },
           {
+            "hasSessions": true,
             "label": "billing",
             "machines": [
               {
@@ -2123,10 +2210,12 @@
                 "projectId": "bil"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/billing",
             "selected": 0
           },
           {
+            "hasSessions": false,
             "label": "quiet",
             "machines": [
               {
@@ -2136,10 +2225,12 @@
                 "projectId": "quiet"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/quiet",
             "selected": 0
           },
           {
+            "hasSessions": false,
             "label": "tools",
             "machines": [
               {
@@ -2149,10 +2240,12 @@
                 "projectId": "only-wt"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/tools",
             "selected": 0
           },
           {
+            "hasSessions": true,
             "label": "zebra",
             "machines": [
               {
@@ -2162,6 +2255,7 @@
                 "projectId": "zeb"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/zebra",
             "selected": 0
           }
@@ -2191,7 +2285,11 @@
           }
         ],
         "moves": [],
-        "newSessionTarget": null,
+        "newSessionTarget": {
+          "machineId": "local",
+          "projectId": "ac",
+          "repoKey": "github.com/o/acme"
+        },
         "options": {
           "machines": [
             {
@@ -2294,6 +2392,7 @@
           "studio|r1"
         ],
         "total": 8,
+        "widenedFilter": null,
         "working": [
           "local|a-work"
         ]
@@ -2449,6 +2548,7 @@
         "active": [],
         "choices": [
           {
+            "hasSessions": true,
             "label": "acme",
             "machines": [
               {
@@ -2464,10 +2564,12 @@
                 "projectId": "rac"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/acme",
             "selected": 0
           },
           {
+            "hasSessions": false,
             "label": "tools",
             "machines": [
               {
@@ -2477,6 +2579,7 @@
                 "projectId": "only-wt"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/tools",
             "selected": 0
           }
@@ -2486,7 +2589,8 @@
         "moves": [],
         "newSessionTarget": {
           "machineId": "studio",
-          "projectId": "only-wt"
+          "projectId": "only-wt",
+          "repoKey": "github.com/o/tools"
         },
         "options": {
           "machines": [
@@ -2535,6 +2639,7 @@
         "rows": {},
         "snoozed": [],
         "total": 8,
+        "widenedFilter": null,
         "working": []
       },
       "filter": {
@@ -2685,6 +2790,1886 @@
     {
       "expected": {
         "active": [
+          "local|z1",
+          "local|b1",
+          "local|a1"
+        ],
+        "choices": [
+          {
+            "hasSessions": false,
+            "label": "quiet",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "quiet"
+              }
+            ],
+            "recent": true,
+            "repoKey": "github.com/o/quiet",
+            "selected": 0
+          },
+          {
+            "hasSessions": true,
+            "label": "billing",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "bil"
+              }
+            ],
+            "recent": true,
+            "repoKey": "github.com/o/billing",
+            "selected": 0
+          },
+          {
+            "hasSessions": true,
+            "label": "acme",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "ac"
+              },
+              {
+                "connected": false,
+                "label": "Studio",
+                "machineId": "studio",
+                "projectId": "rac"
+              }
+            ],
+            "recent": false,
+            "repoKey": "github.com/o/acme",
+            "selected": 0
+          },
+          {
+            "hasSessions": false,
+            "label": "tools",
+            "machines": [
+              {
+                "connected": false,
+                "label": "Studio",
+                "machineId": "studio",
+                "projectId": "only-wt"
+              }
+            ],
+            "recent": false,
+            "repoKey": "github.com/o/tools",
+            "selected": 0
+          },
+          {
+            "hasSessions": true,
+            "label": "zebra",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "zeb"
+              }
+            ],
+            "recent": false,
+            "repoKey": "github.com/o/zebra",
+            "selected": 0
+          }
+        ],
+        "drafts": [
+          "local|a-draft"
+        ],
+        "groups": [
+          {
+            "active": [
+              "local|a1"
+            ],
+            "label": "acme",
+            "parked": [
+              "local|a-park"
+            ],
+            "pinned": [
+              "local|a-pin"
+            ],
+            "repoKey": "github.com/o/acme",
+            "snoozed": [
+              "studio|r1"
+            ],
+            "working": [
+              "local|a-work"
+            ]
+          },
+          {
+            "active": [
+              "local|b1"
+            ],
+            "label": "billing",
+            "parked": [],
+            "pinned": [],
+            "repoKey": "github.com/o/billing",
+            "snoozed": [],
+            "working": []
+          },
+          {
+            "active": [
+              "local|z1"
+            ],
+            "label": "zebra",
+            "parked": [],
+            "pinned": [],
+            "repoKey": "github.com/o/zebra",
+            "snoozed": [],
+            "working": []
+          }
+        ],
+        "moves": [],
+        "newSessionTarget": {
+          "machineId": "local",
+          "projectId": "quiet",
+          "repoKey": "github.com/o/quiet"
+        },
+        "options": {
+          "machines": [
+            {
+              "detail": null,
+              "key": "local",
+              "label": "Local"
+            },
+            {
+              "detail": null,
+              "key": "studio",
+              "label": "Studio"
+            }
+          ],
+          "repos": [
+            {
+              "detail": "Local, Studio",
+              "key": "github.com/o/acme",
+              "label": "acme"
+            },
+            {
+              "detail": null,
+              "key": "github.com/o/billing",
+              "label": "billing"
+            },
+            {
+              "detail": null,
+              "key": "github.com/o/quiet",
+              "label": "quiet"
+            },
+            {
+              "detail": null,
+              "key": "github.com/o/tools",
+              "label": "tools"
+            },
+            {
+              "detail": null,
+              "key": "github.com/o/zebra",
+              "label": "zebra"
+            }
+          ],
+          "spaces": []
+        },
+        "parked": [
+          "local|a-park"
+        ],
+        "pinned": [
+          "local|a-pin"
+        ],
+        "rows": {
+          "local|a-draft": {
+            "cameBackMs": 600,
+            "machineLabel": null,
+            "repoKey": "github.com/o/acme",
+            "repoLabel": "acme",
+            "spaceKey": null,
+            "status": null
+          },
+          "local|a-park": {
+            "cameBackMs": 400,
+            "machineLabel": null,
+            "repoKey": "github.com/o/acme",
+            "repoLabel": "acme",
+            "spaceKey": null,
+            "status": null
+          },
+          "local|a-pin": {
+            "cameBackMs": 50,
+            "machineLabel": null,
+            "repoKey": "github.com/o/acme",
+            "repoLabel": "acme",
+            "spaceKey": null,
+            "status": null
+          },
+          "local|a-work": {
+            "cameBackMs": 500,
+            "machineLabel": null,
+            "repoKey": "github.com/o/acme",
+            "repoLabel": "acme",
+            "spaceKey": null,
+            "status": "Working"
+          },
+          "local|a1": {
+            "cameBackMs": 100,
+            "machineLabel": null,
+            "repoKey": "github.com/o/acme",
+            "repoLabel": "acme",
+            "spaceKey": null,
+            "status": null
+          },
+          "local|b1": {
+            "cameBackMs": 300,
+            "machineLabel": null,
+            "repoKey": "github.com/o/billing",
+            "repoLabel": "billing",
+            "spaceKey": null,
+            "status": null
+          },
+          "local|z1": {
+            "cameBackMs": 900,
+            "machineLabel": null,
+            "repoKey": "github.com/o/zebra",
+            "repoLabel": "zebra",
+            "spaceKey": null,
+            "status": null
+          },
+          "studio|r1": {
+            "cameBackMs": 700,
+            "machineLabel": "Studio",
+            "repoKey": "github.com/o/acme",
+            "repoLabel": "acme",
+            "spaceKey": null,
+            "status": null
+          }
+        },
+        "snoozed": [
+          "studio|r1"
+        ],
+        "total": 8,
+        "widenedFilter": null,
+        "working": [
+          "local|a-work"
+        ]
+      },
+      "filter": {},
+      "machines": [
+        {
+          "label": "Local",
+          "machine": "local",
+          "projects": [
+            {
+              "gitRemoteOriginUrl": "https://github.com/o/zebra",
+              "path": "/zebra",
+              "projectId": "zeb",
+              "title": "zebra"
+            },
+            {
+              "gitRemoteOriginUrl": "https://github.com/o/acme",
+              "path": "/acme-wt",
+              "projectId": "ac-wt",
+              "title": "acme wt",
+              "worktreeParentPath": "/acme"
+            },
+            {
+              "gitRemoteOriginUrl": "https://github.com/o/acme",
+              "path": "/acme",
+              "projectId": "ac",
+              "title": "acme"
+            },
+            {
+              "gitRemoteOriginUrl": "https://github.com/o/billing",
+              "path": "/billing",
+              "projectId": "bil",
+              "title": "billing"
+            },
+            {
+              "gitRemoteOriginUrl": "https://github.com/o/quiet",
+              "path": "/quiet",
+              "projectId": "quiet",
+              "title": "quiet"
+            }
+          ],
+          "sessions": [
+            {
+              "activity": "idle",
+              "createdMs": 1,
+              "lastInteractionMs": 900,
+              "projectId": "zeb",
+              "sessionId": "z1",
+              "title": "Tune zebra"
+            },
+            {
+              "activity": "idle",
+              "branch": "feature/Login",
+              "createdMs": 1,
+              "lastInteractionMs": 100,
+              "projectId": "ac",
+              "sessionId": "a1",
+              "title": "Fix login"
+            },
+            {
+              "activity": "idle",
+              "createdMs": 1,
+              "isPinned": true,
+              "lastInteractionMs": 50,
+              "projectId": "ac",
+              "sessionId": "a-pin",
+              "title": "Pinned one"
+            },
+            {
+              "activity": "working",
+              "createdMs": 1,
+              "lastInteractionMs": 500,
+              "projectId": "ac-wt",
+              "sessionId": "a-work",
+              "title": "Busy",
+              "workingStartedMs": 500
+            },
+            {
+              "activity": "idle",
+              "createdMs": 1,
+              "isParked": true,
+              "lastInteractionMs": 400,
+              "projectId": "ac",
+              "sessionId": "a-park",
+              "title": "Later"
+            },
+            {
+              "activity": "idle",
+              "createdMs": 7,
+              "isDraft": true,
+              "lastInteractionMs": 600,
+              "projectId": "ac",
+              "sessionId": "a-draft",
+              "title": "New chat"
+            },
+            {
+              "activity": "idle",
+              "createdMs": 1,
+              "lastInteractionMs": 300,
+              "projectId": "bil",
+              "sessionId": "b1",
+              "title": "Invoices"
+            }
+          ]
+        },
+        {
+          "connected": false,
+          "label": "Studio",
+          "machine": "studio",
+          "projects": [
+            {
+              "gitRemoteOriginUrl": "git@github.com:o/acme.git",
+              "path": "/r/acme",
+              "projectId": "rac",
+              "title": "acme"
+            },
+            {
+              "gitRemoteOriginUrl": "git@github.com:o/tools.git",
+              "path": "/r/tools-wt",
+              "projectId": "only-wt",
+              "title": "tools wt",
+              "worktreeParentPath": "/r/tools"
+            }
+          ],
+          "sessions": [
+            {
+              "activity": "idle",
+              "createdMs": 1,
+              "lastInteractionMs": 700,
+              "projectId": "rac",
+              "sessionId": "r1",
+              "snoozedUntilMs": 10001000,
+              "title": "Remote fix"
+            }
+          ]
+        }
+      ],
+      "name": "the project list puts recent projects first and keeps projects with no session",
+      "nowMs": 10000000,
+      "recentRepos": [
+        "github.com/o/quiet",
+        "github.com/o/billing",
+        "gone/repo"
+      ],
+      "settings": {
+        "parking": true,
+        "workingSection": true
+      }
+    },
+    {
+      "activeProjectId": "bil",
+      "expected": {
+        "active": [
+          "local|z1",
+          "local|b1",
+          "local|a1"
+        ],
+        "choices": [
+          {
+            "hasSessions": true,
+            "label": "acme",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "ac"
+              },
+              {
+                "connected": false,
+                "label": "Studio",
+                "machineId": "studio",
+                "projectId": "rac"
+              }
+            ],
+            "recent": false,
+            "repoKey": "github.com/o/acme",
+            "selected": 0
+          },
+          {
+            "hasSessions": true,
+            "label": "billing",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "bil"
+              }
+            ],
+            "recent": false,
+            "repoKey": "github.com/o/billing",
+            "selected": 0
+          },
+          {
+            "hasSessions": false,
+            "label": "quiet",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "quiet"
+              }
+            ],
+            "recent": false,
+            "repoKey": "github.com/o/quiet",
+            "selected": 0
+          },
+          {
+            "hasSessions": false,
+            "label": "tools",
+            "machines": [
+              {
+                "connected": false,
+                "label": "Studio",
+                "machineId": "studio",
+                "projectId": "only-wt"
+              }
+            ],
+            "recent": false,
+            "repoKey": "github.com/o/tools",
+            "selected": 0
+          },
+          {
+            "hasSessions": true,
+            "label": "zebra",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "zeb"
+              }
+            ],
+            "recent": false,
+            "repoKey": "github.com/o/zebra",
+            "selected": 0
+          }
+        ],
+        "drafts": [
+          "local|a-draft"
+        ],
+        "groups": [
+          {
+            "active": [
+              "local|a1"
+            ],
+            "label": "acme",
+            "parked": [
+              "local|a-park"
+            ],
+            "pinned": [
+              "local|a-pin"
+            ],
+            "repoKey": "github.com/o/acme",
+            "snoozed": [
+              "studio|r1"
+            ],
+            "working": [
+              "local|a-work"
+            ]
+          },
+          {
+            "active": [
+              "local|b1"
+            ],
+            "label": "billing",
+            "parked": [],
+            "pinned": [],
+            "repoKey": "github.com/o/billing",
+            "snoozed": [],
+            "working": []
+          },
+          {
+            "active": [
+              "local|z1"
+            ],
+            "label": "zebra",
+            "parked": [],
+            "pinned": [],
+            "repoKey": "github.com/o/zebra",
+            "snoozed": [],
+            "working": []
+          }
+        ],
+        "moves": [],
+        "newSessionTarget": {
+          "machineId": "local",
+          "projectId": "bil",
+          "repoKey": "github.com/o/billing"
+        },
+        "options": {
+          "machines": [
+            {
+              "detail": null,
+              "key": "local",
+              "label": "Local"
+            },
+            {
+              "detail": null,
+              "key": "studio",
+              "label": "Studio"
+            }
+          ],
+          "repos": [
+            {
+              "detail": "Local, Studio",
+              "key": "github.com/o/acme",
+              "label": "acme"
+            },
+            {
+              "detail": null,
+              "key": "github.com/o/billing",
+              "label": "billing"
+            },
+            {
+              "detail": null,
+              "key": "github.com/o/quiet",
+              "label": "quiet"
+            },
+            {
+              "detail": null,
+              "key": "github.com/o/tools",
+              "label": "tools"
+            },
+            {
+              "detail": null,
+              "key": "github.com/o/zebra",
+              "label": "zebra"
+            }
+          ],
+          "spaces": []
+        },
+        "parked": [
+          "local|a-park"
+        ],
+        "pinned": [
+          "local|a-pin"
+        ],
+        "rows": {
+          "local|a-draft": {
+            "cameBackMs": 600,
+            "machineLabel": null,
+            "repoKey": "github.com/o/acme",
+            "repoLabel": "acme",
+            "spaceKey": null,
+            "status": null
+          },
+          "local|a-park": {
+            "cameBackMs": 400,
+            "machineLabel": null,
+            "repoKey": "github.com/o/acme",
+            "repoLabel": "acme",
+            "spaceKey": null,
+            "status": null
+          },
+          "local|a-pin": {
+            "cameBackMs": 50,
+            "machineLabel": null,
+            "repoKey": "github.com/o/acme",
+            "repoLabel": "acme",
+            "spaceKey": null,
+            "status": null
+          },
+          "local|a-work": {
+            "cameBackMs": 500,
+            "machineLabel": null,
+            "repoKey": "github.com/o/acme",
+            "repoLabel": "acme",
+            "spaceKey": null,
+            "status": "Working"
+          },
+          "local|a1": {
+            "cameBackMs": 100,
+            "machineLabel": null,
+            "repoKey": "github.com/o/acme",
+            "repoLabel": "acme",
+            "spaceKey": null,
+            "status": null
+          },
+          "local|b1": {
+            "cameBackMs": 300,
+            "machineLabel": null,
+            "repoKey": "github.com/o/billing",
+            "repoLabel": "billing",
+            "spaceKey": null,
+            "status": null
+          },
+          "local|z1": {
+            "cameBackMs": 900,
+            "machineLabel": null,
+            "repoKey": "github.com/o/zebra",
+            "repoLabel": "zebra",
+            "spaceKey": null,
+            "status": null
+          },
+          "studio|r1": {
+            "cameBackMs": 700,
+            "machineLabel": "Studio",
+            "repoKey": "github.com/o/acme",
+            "repoLabel": "acme",
+            "spaceKey": null,
+            "status": null
+          }
+        },
+        "snoozed": [
+          "studio|r1"
+        ],
+        "total": 8,
+        "widenedFilter": null,
+        "working": [
+          "local|a-work"
+        ]
+      },
+      "filter": {},
+      "lastMachines": {
+        "github.com/o/acme": "studio"
+      },
+      "machines": [
+        {
+          "label": "Local",
+          "machine": "local",
+          "projects": [
+            {
+              "gitRemoteOriginUrl": "https://github.com/o/zebra",
+              "path": "/zebra",
+              "projectId": "zeb",
+              "title": "zebra"
+            },
+            {
+              "gitRemoteOriginUrl": "https://github.com/o/acme",
+              "path": "/acme-wt",
+              "projectId": "ac-wt",
+              "title": "acme wt",
+              "worktreeParentPath": "/acme"
+            },
+            {
+              "gitRemoteOriginUrl": "https://github.com/o/acme",
+              "path": "/acme",
+              "projectId": "ac",
+              "title": "acme"
+            },
+            {
+              "gitRemoteOriginUrl": "https://github.com/o/billing",
+              "path": "/billing",
+              "projectId": "bil",
+              "title": "billing"
+            },
+            {
+              "gitRemoteOriginUrl": "https://github.com/o/quiet",
+              "path": "/quiet",
+              "projectId": "quiet",
+              "title": "quiet"
+            }
+          ],
+          "sessions": [
+            {
+              "activity": "idle",
+              "createdMs": 1,
+              "lastInteractionMs": 900,
+              "projectId": "zeb",
+              "sessionId": "z1",
+              "title": "Tune zebra"
+            },
+            {
+              "activity": "idle",
+              "branch": "feature/Login",
+              "createdMs": 1,
+              "lastInteractionMs": 100,
+              "projectId": "ac",
+              "sessionId": "a1",
+              "title": "Fix login"
+            },
+            {
+              "activity": "idle",
+              "createdMs": 1,
+              "isPinned": true,
+              "lastInteractionMs": 50,
+              "projectId": "ac",
+              "sessionId": "a-pin",
+              "title": "Pinned one"
+            },
+            {
+              "activity": "working",
+              "createdMs": 1,
+              "lastInteractionMs": 500,
+              "projectId": "ac-wt",
+              "sessionId": "a-work",
+              "title": "Busy",
+              "workingStartedMs": 500
+            },
+            {
+              "activity": "idle",
+              "createdMs": 1,
+              "isParked": true,
+              "lastInteractionMs": 400,
+              "projectId": "ac",
+              "sessionId": "a-park",
+              "title": "Later"
+            },
+            {
+              "activity": "idle",
+              "createdMs": 7,
+              "isDraft": true,
+              "lastInteractionMs": 600,
+              "projectId": "ac",
+              "sessionId": "a-draft",
+              "title": "New chat"
+            },
+            {
+              "activity": "idle",
+              "createdMs": 1,
+              "lastInteractionMs": 300,
+              "projectId": "bil",
+              "sessionId": "b1",
+              "title": "Invoices"
+            }
+          ]
+        },
+        {
+          "connected": false,
+          "label": "Studio",
+          "machine": "studio",
+          "projects": [
+            {
+              "gitRemoteOriginUrl": "git@github.com:o/acme.git",
+              "path": "/r/acme",
+              "projectId": "rac",
+              "title": "acme"
+            },
+            {
+              "gitRemoteOriginUrl": "git@github.com:o/tools.git",
+              "path": "/r/tools-wt",
+              "projectId": "only-wt",
+              "title": "tools wt",
+              "worktreeParentPath": "/r/tools"
+            }
+          ],
+          "sessions": [
+            {
+              "activity": "idle",
+              "createdMs": 1,
+              "lastInteractionMs": 700,
+              "projectId": "rac",
+              "sessionId": "r1",
+              "snoozedUntilMs": 10001000,
+              "title": "Remote fix"
+            }
+          ]
+        }
+      ],
+      "name": "a machine that is not connected is never where a project starts while another has it",
+      "nowMs": 10000000,
+      "settings": {
+        "parking": true,
+        "workingSection": true
+      }
+    },
+    {
+      "activeProjectId": "ac-wt",
+      "expected": {
+        "active": [
+          "local|z1",
+          "local|b1",
+          "local|a1"
+        ],
+        "choices": [
+          {
+            "hasSessions": true,
+            "label": "acme",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "ac"
+              },
+              {
+                "connected": false,
+                "label": "Studio",
+                "machineId": "studio",
+                "projectId": "rac"
+              }
+            ],
+            "recent": false,
+            "repoKey": "github.com/o/acme",
+            "selected": 0
+          },
+          {
+            "hasSessions": true,
+            "label": "billing",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "bil"
+              }
+            ],
+            "recent": false,
+            "repoKey": "github.com/o/billing",
+            "selected": 0
+          },
+          {
+            "hasSessions": false,
+            "label": "quiet",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "quiet"
+              }
+            ],
+            "recent": false,
+            "repoKey": "github.com/o/quiet",
+            "selected": 0
+          },
+          {
+            "hasSessions": false,
+            "label": "tools",
+            "machines": [
+              {
+                "connected": false,
+                "label": "Studio",
+                "machineId": "studio",
+                "projectId": "only-wt"
+              }
+            ],
+            "recent": false,
+            "repoKey": "github.com/o/tools",
+            "selected": 0
+          },
+          {
+            "hasSessions": true,
+            "label": "zebra",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "zeb"
+              }
+            ],
+            "recent": false,
+            "repoKey": "github.com/o/zebra",
+            "selected": 0
+          }
+        ],
+        "drafts": [
+          "local|a-draft"
+        ],
+        "groups": [
+          {
+            "active": [
+              "local|a1"
+            ],
+            "label": "acme",
+            "parked": [
+              "local|a-park"
+            ],
+            "pinned": [
+              "local|a-pin"
+            ],
+            "repoKey": "github.com/o/acme",
+            "snoozed": [
+              "studio|r1"
+            ],
+            "working": [
+              "local|a-work"
+            ]
+          },
+          {
+            "active": [
+              "local|b1"
+            ],
+            "label": "billing",
+            "parked": [],
+            "pinned": [],
+            "repoKey": "github.com/o/billing",
+            "snoozed": [],
+            "working": []
+          },
+          {
+            "active": [
+              "local|z1"
+            ],
+            "label": "zebra",
+            "parked": [],
+            "pinned": [],
+            "repoKey": "github.com/o/zebra",
+            "snoozed": [],
+            "working": []
+          }
+        ],
+        "moves": [],
+        "newSessionTarget": {
+          "machineId": "local",
+          "projectId": "ac-wt",
+          "repoKey": "github.com/o/acme"
+        },
+        "options": {
+          "machines": [
+            {
+              "detail": null,
+              "key": "local",
+              "label": "Local"
+            },
+            {
+              "detail": null,
+              "key": "studio",
+              "label": "Studio"
+            }
+          ],
+          "repos": [
+            {
+              "detail": "Local, Studio",
+              "key": "github.com/o/acme",
+              "label": "acme"
+            },
+            {
+              "detail": null,
+              "key": "github.com/o/billing",
+              "label": "billing"
+            },
+            {
+              "detail": null,
+              "key": "github.com/o/quiet",
+              "label": "quiet"
+            },
+            {
+              "detail": null,
+              "key": "github.com/o/tools",
+              "label": "tools"
+            },
+            {
+              "detail": null,
+              "key": "github.com/o/zebra",
+              "label": "zebra"
+            }
+          ],
+          "spaces": []
+        },
+        "parked": [
+          "local|a-park"
+        ],
+        "pinned": [
+          "local|a-pin"
+        ],
+        "rows": {
+          "local|a-draft": {
+            "cameBackMs": 600,
+            "machineLabel": null,
+            "repoKey": "github.com/o/acme",
+            "repoLabel": "acme",
+            "spaceKey": null,
+            "status": null
+          },
+          "local|a-park": {
+            "cameBackMs": 400,
+            "machineLabel": null,
+            "repoKey": "github.com/o/acme",
+            "repoLabel": "acme",
+            "spaceKey": null,
+            "status": null
+          },
+          "local|a-pin": {
+            "cameBackMs": 50,
+            "machineLabel": null,
+            "repoKey": "github.com/o/acme",
+            "repoLabel": "acme",
+            "spaceKey": null,
+            "status": null
+          },
+          "local|a-work": {
+            "cameBackMs": 500,
+            "machineLabel": null,
+            "repoKey": "github.com/o/acme",
+            "repoLabel": "acme",
+            "spaceKey": null,
+            "status": "Working"
+          },
+          "local|a1": {
+            "cameBackMs": 100,
+            "machineLabel": null,
+            "repoKey": "github.com/o/acme",
+            "repoLabel": "acme",
+            "spaceKey": null,
+            "status": null
+          },
+          "local|b1": {
+            "cameBackMs": 300,
+            "machineLabel": null,
+            "repoKey": "github.com/o/billing",
+            "repoLabel": "billing",
+            "spaceKey": null,
+            "status": null
+          },
+          "local|z1": {
+            "cameBackMs": 900,
+            "machineLabel": null,
+            "repoKey": "github.com/o/zebra",
+            "repoLabel": "zebra",
+            "spaceKey": null,
+            "status": null
+          },
+          "studio|r1": {
+            "cameBackMs": 700,
+            "machineLabel": "Studio",
+            "repoKey": "github.com/o/acme",
+            "repoLabel": "acme",
+            "spaceKey": null,
+            "status": null
+          }
+        },
+        "snoozed": [
+          "studio|r1"
+        ],
+        "total": 8,
+        "widenedFilter": null,
+        "working": [
+          "local|a-work"
+        ]
+      },
+      "filter": {},
+      "machines": [
+        {
+          "label": "Local",
+          "machine": "local",
+          "projects": [
+            {
+              "gitRemoteOriginUrl": "https://github.com/o/zebra",
+              "path": "/zebra",
+              "projectId": "zeb",
+              "title": "zebra"
+            },
+            {
+              "gitRemoteOriginUrl": "https://github.com/o/acme",
+              "path": "/acme-wt",
+              "projectId": "ac-wt",
+              "title": "acme wt",
+              "worktreeParentPath": "/acme"
+            },
+            {
+              "gitRemoteOriginUrl": "https://github.com/o/acme",
+              "path": "/acme",
+              "projectId": "ac",
+              "title": "acme"
+            },
+            {
+              "gitRemoteOriginUrl": "https://github.com/o/billing",
+              "path": "/billing",
+              "projectId": "bil",
+              "title": "billing"
+            },
+            {
+              "gitRemoteOriginUrl": "https://github.com/o/quiet",
+              "path": "/quiet",
+              "projectId": "quiet",
+              "title": "quiet"
+            }
+          ],
+          "sessions": [
+            {
+              "activity": "idle",
+              "createdMs": 1,
+              "lastInteractionMs": 900,
+              "projectId": "zeb",
+              "sessionId": "z1",
+              "title": "Tune zebra"
+            },
+            {
+              "activity": "idle",
+              "branch": "feature/Login",
+              "createdMs": 1,
+              "lastInteractionMs": 100,
+              "projectId": "ac",
+              "sessionId": "a1",
+              "title": "Fix login"
+            },
+            {
+              "activity": "idle",
+              "createdMs": 1,
+              "isPinned": true,
+              "lastInteractionMs": 50,
+              "projectId": "ac",
+              "sessionId": "a-pin",
+              "title": "Pinned one"
+            },
+            {
+              "activity": "working",
+              "createdMs": 1,
+              "lastInteractionMs": 500,
+              "projectId": "ac-wt",
+              "sessionId": "a-work",
+              "title": "Busy",
+              "workingStartedMs": 500
+            },
+            {
+              "activity": "idle",
+              "createdMs": 1,
+              "isParked": true,
+              "lastInteractionMs": 400,
+              "projectId": "ac",
+              "sessionId": "a-park",
+              "title": "Later"
+            },
+            {
+              "activity": "idle",
+              "createdMs": 7,
+              "isDraft": true,
+              "lastInteractionMs": 600,
+              "projectId": "ac",
+              "sessionId": "a-draft",
+              "title": "New chat"
+            },
+            {
+              "activity": "idle",
+              "createdMs": 1,
+              "lastInteractionMs": 300,
+              "projectId": "bil",
+              "sessionId": "b1",
+              "title": "Invoices"
+            }
+          ]
+        },
+        {
+          "connected": false,
+          "label": "Studio",
+          "machine": "studio",
+          "projects": [
+            {
+              "gitRemoteOriginUrl": "git@github.com:o/acme.git",
+              "path": "/r/acme",
+              "projectId": "rac",
+              "title": "acme"
+            },
+            {
+              "gitRemoteOriginUrl": "git@github.com:o/tools.git",
+              "path": "/r/tools-wt",
+              "projectId": "only-wt",
+              "title": "tools wt",
+              "worktreeParentPath": "/r/tools"
+            }
+          ],
+          "sessions": [
+            {
+              "activity": "idle",
+              "createdMs": 1,
+              "lastInteractionMs": 700,
+              "projectId": "rac",
+              "sessionId": "r1",
+              "snoozedUntilMs": 10001000,
+              "title": "Remote fix"
+            }
+          ]
+        }
+      ],
+      "name": "the picker starts on the open project, on its own machine",
+      "nowMs": 10000000,
+      "settings": {
+        "parking": true,
+        "workingSection": true
+      }
+    },
+    {
+      "createdIn": {
+        "machineId": "studio",
+        "repoKey": "github.com/o/billing"
+      },
+      "expected": {
+        "active": [
+          "local|z1"
+        ],
+        "choices": [
+          {
+            "hasSessions": true,
+            "label": "acme",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "ac"
+              },
+              {
+                "connected": false,
+                "label": "Studio",
+                "machineId": "studio",
+                "projectId": "rac"
+              }
+            ],
+            "recent": false,
+            "repoKey": "github.com/o/acme",
+            "selected": 0
+          },
+          {
+            "hasSessions": true,
+            "label": "billing",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "bil"
+              }
+            ],
+            "recent": false,
+            "repoKey": "github.com/o/billing",
+            "selected": 0
+          },
+          {
+            "hasSessions": false,
+            "label": "quiet",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "quiet"
+              }
+            ],
+            "recent": false,
+            "repoKey": "github.com/o/quiet",
+            "selected": 0
+          },
+          {
+            "hasSessions": false,
+            "label": "tools",
+            "machines": [
+              {
+                "connected": false,
+                "label": "Studio",
+                "machineId": "studio",
+                "projectId": "only-wt"
+              }
+            ],
+            "recent": false,
+            "repoKey": "github.com/o/tools",
+            "selected": 0
+          },
+          {
+            "hasSessions": true,
+            "label": "zebra",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "zeb"
+              }
+            ],
+            "recent": false,
+            "repoKey": "github.com/o/zebra",
+            "selected": 0
+          }
+        ],
+        "drafts": [],
+        "groups": [
+          {
+            "active": [
+              "local|z1"
+            ],
+            "label": "zebra",
+            "parked": [],
+            "pinned": [],
+            "repoKey": "github.com/o/zebra",
+            "snoozed": [],
+            "working": []
+          }
+        ],
+        "moves": [],
+        "newSessionTarget": {
+          "machineId": "local",
+          "projectId": "zeb",
+          "repoKey": "github.com/o/zebra"
+        },
+        "options": {
+          "machines": [
+            {
+              "detail": null,
+              "key": "local",
+              "label": "Local"
+            },
+            {
+              "detail": null,
+              "key": "studio",
+              "label": "Studio"
+            }
+          ],
+          "repos": [
+            {
+              "detail": "Local, Studio",
+              "key": "github.com/o/acme",
+              "label": "acme"
+            },
+            {
+              "detail": null,
+              "key": "github.com/o/billing",
+              "label": "billing"
+            },
+            {
+              "detail": null,
+              "key": "github.com/o/quiet",
+              "label": "quiet"
+            },
+            {
+              "detail": null,
+              "key": "github.com/o/tools",
+              "label": "tools"
+            },
+            {
+              "detail": null,
+              "key": "github.com/o/zebra",
+              "label": "zebra"
+            }
+          ],
+          "spaces": []
+        },
+        "parked": [],
+        "pinned": [],
+        "rows": {
+          "local|z1": {
+            "cameBackMs": 900,
+            "machineLabel": null,
+            "repoKey": "github.com/o/zebra",
+            "repoLabel": "zebra",
+            "spaceKey": null,
+            "status": null
+          }
+        },
+        "snoozed": [],
+        "total": 8,
+        "widenedFilter": {
+          "machines": [
+            "local",
+            "studio"
+          ],
+          "repos": [
+            "github.com/o/billing",
+            "github.com/o/zebra"
+          ],
+          "spaces": []
+        },
+        "working": []
+      },
+      "filter": {
+        "machines": [
+          "local"
+        ],
+        "repos": [
+          "github.com/o/zebra"
+        ]
+      },
+      "machines": [
+        {
+          "label": "Local",
+          "machine": "local",
+          "projects": [
+            {
+              "gitRemoteOriginUrl": "https://github.com/o/zebra",
+              "path": "/zebra",
+              "projectId": "zeb",
+              "title": "zebra"
+            },
+            {
+              "gitRemoteOriginUrl": "https://github.com/o/acme",
+              "path": "/acme-wt",
+              "projectId": "ac-wt",
+              "title": "acme wt",
+              "worktreeParentPath": "/acme"
+            },
+            {
+              "gitRemoteOriginUrl": "https://github.com/o/acme",
+              "path": "/acme",
+              "projectId": "ac",
+              "title": "acme"
+            },
+            {
+              "gitRemoteOriginUrl": "https://github.com/o/billing",
+              "path": "/billing",
+              "projectId": "bil",
+              "title": "billing"
+            },
+            {
+              "gitRemoteOriginUrl": "https://github.com/o/quiet",
+              "path": "/quiet",
+              "projectId": "quiet",
+              "title": "quiet"
+            }
+          ],
+          "sessions": [
+            {
+              "activity": "idle",
+              "createdMs": 1,
+              "lastInteractionMs": 900,
+              "projectId": "zeb",
+              "sessionId": "z1",
+              "title": "Tune zebra"
+            },
+            {
+              "activity": "idle",
+              "branch": "feature/Login",
+              "createdMs": 1,
+              "lastInteractionMs": 100,
+              "projectId": "ac",
+              "sessionId": "a1",
+              "title": "Fix login"
+            },
+            {
+              "activity": "idle",
+              "createdMs": 1,
+              "isPinned": true,
+              "lastInteractionMs": 50,
+              "projectId": "ac",
+              "sessionId": "a-pin",
+              "title": "Pinned one"
+            },
+            {
+              "activity": "working",
+              "createdMs": 1,
+              "lastInteractionMs": 500,
+              "projectId": "ac-wt",
+              "sessionId": "a-work",
+              "title": "Busy",
+              "workingStartedMs": 500
+            },
+            {
+              "activity": "idle",
+              "createdMs": 1,
+              "isParked": true,
+              "lastInteractionMs": 400,
+              "projectId": "ac",
+              "sessionId": "a-park",
+              "title": "Later"
+            },
+            {
+              "activity": "idle",
+              "createdMs": 7,
+              "isDraft": true,
+              "lastInteractionMs": 600,
+              "projectId": "ac",
+              "sessionId": "a-draft",
+              "title": "New chat"
+            },
+            {
+              "activity": "idle",
+              "createdMs": 1,
+              "lastInteractionMs": 300,
+              "projectId": "bil",
+              "sessionId": "b1",
+              "title": "Invoices"
+            }
+          ]
+        },
+        {
+          "connected": false,
+          "label": "Studio",
+          "machine": "studio",
+          "projects": [
+            {
+              "gitRemoteOriginUrl": "git@github.com:o/acme.git",
+              "path": "/r/acme",
+              "projectId": "rac",
+              "title": "acme"
+            },
+            {
+              "gitRemoteOriginUrl": "git@github.com:o/tools.git",
+              "path": "/r/tools-wt",
+              "projectId": "only-wt",
+              "title": "tools wt",
+              "worktreeParentPath": "/r/tools"
+            }
+          ],
+          "sessions": [
+            {
+              "activity": "idle",
+              "createdMs": 1,
+              "lastInteractionMs": 700,
+              "projectId": "rac",
+              "sessionId": "r1",
+              "snoozedUntilMs": 10001000,
+              "title": "Remote fix"
+            }
+          ]
+        }
+      ],
+      "name": "a new session outside the filter joins its repository and machine picks",
+      "nowMs": 10000000,
+      "settings": {
+        "parking": true,
+        "workingSection": true
+      }
+    },
+    {
+      "createdIn": {
+        "machineId": "local",
+        "repoKey": "github.com/o/billing"
+      },
+      "expected": {
+        "active": [],
+        "choices": [
+          {
+            "hasSessions": true,
+            "label": "acme",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "ac"
+              },
+              {
+                "connected": false,
+                "label": "Studio",
+                "machineId": "studio",
+                "projectId": "rac"
+              }
+            ],
+            "recent": false,
+            "repoKey": "github.com/o/acme",
+            "selected": 0
+          },
+          {
+            "hasSessions": true,
+            "label": "billing",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "bil"
+              }
+            ],
+            "recent": false,
+            "repoKey": "github.com/o/billing",
+            "selected": 0
+          },
+          {
+            "hasSessions": false,
+            "label": "quiet",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "quiet"
+              }
+            ],
+            "recent": false,
+            "repoKey": "github.com/o/quiet",
+            "selected": 0
+          },
+          {
+            "hasSessions": false,
+            "label": "tools",
+            "machines": [
+              {
+                "connected": false,
+                "label": "Studio",
+                "machineId": "studio",
+                "projectId": "only-wt"
+              }
+            ],
+            "recent": false,
+            "repoKey": "github.com/o/tools",
+            "selected": 0
+          },
+          {
+            "hasSessions": true,
+            "label": "zebra",
+            "machines": [
+              {
+                "connected": true,
+                "label": "Local",
+                "machineId": "local",
+                "projectId": "zeb"
+              }
+            ],
+            "recent": false,
+            "repoKey": "github.com/o/zebra",
+            "selected": 0
+          }
+        ],
+        "drafts": [],
+        "groups": [
+          {
+            "active": [],
+            "label": "acme",
+            "parked": [],
+            "pinned": [],
+            "repoKey": "github.com/o/acme",
+            "snoozed": [
+              "studio|r1"
+            ],
+            "working": []
+          }
+        ],
+        "moves": [],
+        "newSessionTarget": {
+          "machineId": "local",
+          "projectId": "ac",
+          "repoKey": "github.com/o/acme"
+        },
+        "options": {
+          "machines": [
+            {
+              "detail": null,
+              "key": "local",
+              "label": "Local"
+            },
+            {
+              "detail": null,
+              "key": "studio",
+              "label": "Studio"
+            }
+          ],
+          "repos": [
+            {
+              "detail": "Local, Studio",
+              "key": "github.com/o/acme",
+              "label": "acme"
+            },
+            {
+              "detail": null,
+              "key": "github.com/o/billing",
+              "label": "billing"
+            },
+            {
+              "detail": null,
+              "key": "github.com/o/quiet",
+              "label": "quiet"
+            },
+            {
+              "detail": null,
+              "key": "github.com/o/tools",
+              "label": "tools"
+            },
+            {
+              "detail": null,
+              "key": "github.com/o/zebra",
+              "label": "zebra"
+            }
+          ],
+          "spaces": []
+        },
+        "parked": [],
+        "pinned": [],
+        "rows": {
+          "studio|r1": {
+            "cameBackMs": 700,
+            "machineLabel": "Studio",
+            "repoKey": "github.com/o/acme",
+            "repoLabel": "acme",
+            "spaceKey": null,
+            "status": null
+          }
+        },
+        "snoozed": [
+          "studio|r1"
+        ],
+        "total": 8,
+        "widenedFilter": {
+          "machines": [
+            "local",
+            "studio"
+          ],
+          "repos": [],
+          "spaces": []
+        },
+        "working": []
+      },
+      "filter": {
+        "machines": [
+          "studio"
+        ]
+      },
+      "machines": [
+        {
+          "label": "Local",
+          "machine": "local",
+          "projects": [
+            {
+              "gitRemoteOriginUrl": "https://github.com/o/zebra",
+              "path": "/zebra",
+              "projectId": "zeb",
+              "title": "zebra"
+            },
+            {
+              "gitRemoteOriginUrl": "https://github.com/o/acme",
+              "path": "/acme-wt",
+              "projectId": "ac-wt",
+              "title": "acme wt",
+              "worktreeParentPath": "/acme"
+            },
+            {
+              "gitRemoteOriginUrl": "https://github.com/o/acme",
+              "path": "/acme",
+              "projectId": "ac",
+              "title": "acme"
+            },
+            {
+              "gitRemoteOriginUrl": "https://github.com/o/billing",
+              "path": "/billing",
+              "projectId": "bil",
+              "title": "billing"
+            },
+            {
+              "gitRemoteOriginUrl": "https://github.com/o/quiet",
+              "path": "/quiet",
+              "projectId": "quiet",
+              "title": "quiet"
+            }
+          ],
+          "sessions": [
+            {
+              "activity": "idle",
+              "createdMs": 1,
+              "lastInteractionMs": 900,
+              "projectId": "zeb",
+              "sessionId": "z1",
+              "title": "Tune zebra"
+            },
+            {
+              "activity": "idle",
+              "branch": "feature/Login",
+              "createdMs": 1,
+              "lastInteractionMs": 100,
+              "projectId": "ac",
+              "sessionId": "a1",
+              "title": "Fix login"
+            },
+            {
+              "activity": "idle",
+              "createdMs": 1,
+              "isPinned": true,
+              "lastInteractionMs": 50,
+              "projectId": "ac",
+              "sessionId": "a-pin",
+              "title": "Pinned one"
+            },
+            {
+              "activity": "working",
+              "createdMs": 1,
+              "lastInteractionMs": 500,
+              "projectId": "ac-wt",
+              "sessionId": "a-work",
+              "title": "Busy",
+              "workingStartedMs": 500
+            },
+            {
+              "activity": "idle",
+              "createdMs": 1,
+              "isParked": true,
+              "lastInteractionMs": 400,
+              "projectId": "ac",
+              "sessionId": "a-park",
+              "title": "Later"
+            },
+            {
+              "activity": "idle",
+              "createdMs": 7,
+              "isDraft": true,
+              "lastInteractionMs": 600,
+              "projectId": "ac",
+              "sessionId": "a-draft",
+              "title": "New chat"
+            },
+            {
+              "activity": "idle",
+              "createdMs": 1,
+              "lastInteractionMs": 300,
+              "projectId": "bil",
+              "sessionId": "b1",
+              "title": "Invoices"
+            }
+          ]
+        },
+        {
+          "connected": false,
+          "label": "Studio",
+          "machine": "studio",
+          "projects": [
+            {
+              "gitRemoteOriginUrl": "git@github.com:o/acme.git",
+              "path": "/r/acme",
+              "projectId": "rac",
+              "title": "acme"
+            },
+            {
+              "gitRemoteOriginUrl": "git@github.com:o/tools.git",
+              "path": "/r/tools-wt",
+              "projectId": "only-wt",
+              "title": "tools wt",
+              "worktreeParentPath": "/r/tools"
+            }
+          ],
+          "sessions": [
+            {
+              "activity": "idle",
+              "createdMs": 1,
+              "lastInteractionMs": 700,
+              "projectId": "rac",
+              "sessionId": "r1",
+              "snoozedUntilMs": 10001000,
+              "title": "Remote fix"
+            }
+          ]
+        }
+      ],
+      "name": "a new session leaves a kind with no pick empty",
+      "nowMs": 10000000,
+      "settings": {
+        "parking": true,
+        "workingSection": true
+      }
+    },
+    {
+      "expected": {
+        "active": [
           "hp|d",
           "local|c",
           "local|a",
@@ -2694,6 +4679,7 @@
         ],
         "choices": [
           {
+            "hasSessions": true,
             "label": "Ghostex",
             "machines": [
               {
@@ -2703,10 +4689,12 @@
                 "projectId": "p2"
               }
             ],
+            "recent": false,
             "repoKey": "dir:ghostex",
             "selected": 0
           },
           {
+            "hasSessions": true,
             "label": "Ghostex",
             "machines": [
               {
@@ -2722,10 +4710,12 @@
                 "projectId": "p9"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/owner/ghostex",
             "selected": 0
           },
           {
+            "hasSessions": true,
             "label": "Ghostex",
             "machines": [
               {
@@ -2735,10 +4725,12 @@
                 "projectId": "p8"
               }
             ],
+            "recent": false,
             "repoKey": "gitlab.com/fork/ghostex",
             "selected": 0
           },
           {
+            "hasSessions": true,
             "label": "notes",
             "machines": [
               {
@@ -2754,6 +4746,7 @@
                 "projectId": "p7"
               }
             ],
+            "recent": false,
             "repoKey": "dir:notes",
             "selected": 0
           }
@@ -2808,7 +4801,11 @@
           }
         ],
         "moves": [],
-        "newSessionTarget": null,
+        "newSessionTarget": {
+          "machineId": "local",
+          "projectId": "p2",
+          "repoKey": "dir:ghostex"
+        },
         "options": {
           "machines": [
             {
@@ -2900,6 +4897,7 @@
         },
         "snoozed": [],
         "total": 6,
+        "widenedFilter": null,
         "working": []
       },
       "filter": {},
@@ -3027,6 +5025,7 @@
         ],
         "choices": [
           {
+            "hasSessions": true,
             "label": "p",
             "machines": [
               {
@@ -3036,6 +5035,7 @@
                 "projectId": "p"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/p",
             "selected": 0
           }
@@ -3080,7 +5080,11 @@
           }
         ],
         "moves": [],
-        "newSessionTarget": null,
+        "newSessionTarget": {
+          "machineId": "local",
+          "projectId": "p",
+          "repoKey": "github.com/o/p"
+        },
         "options": {
           "machines": [
             {
@@ -3281,6 +5285,7 @@
           "local|snoozed-late"
         ],
         "total": 21,
+        "widenedFilter": null,
         "working": [
           "local|working-2",
           "local|working",
@@ -3481,6 +5486,7 @@
         ],
         "choices": [
           {
+            "hasSessions": true,
             "label": "p",
             "machines": [
               {
@@ -3490,6 +5496,7 @@
                 "projectId": "p"
               }
             ],
+            "recent": false,
             "repoKey": "dir:p",
             "selected": 0
           }
@@ -3511,7 +5518,11 @@
           }
         ],
         "moves": [],
-        "newSessionTarget": null,
+        "newSessionTarget": {
+          "machineId": "local",
+          "projectId": "p",
+          "repoKey": "dir:p"
+        },
         "options": {
           "machines": [
             {
@@ -3559,6 +5570,7 @@
         },
         "snoozed": [],
         "total": 3,
+        "widenedFilter": null,
         "working": []
       },
       "filter": {},
@@ -3615,6 +5627,7 @@
         ],
         "choices": [
           {
+            "hasSessions": true,
             "label": "api",
             "machines": [
               {
@@ -3624,10 +5637,12 @@
                 "projectId": "api"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/api",
             "selected": 0
           },
           {
+            "hasSessions": true,
             "label": "web",
             "machines": [
               {
@@ -3649,6 +5664,7 @@
                 "projectId": "pweb"
               }
             ],
+            "recent": false,
             "repoKey": "github.com/o/web",
             "selected": 0
           }
@@ -3672,7 +5688,8 @@
         "moves": [],
         "newSessionTarget": {
           "machineId": "local",
-          "projectId": "web"
+          "projectId": "web",
+          "repoKey": "github.com/o/web"
         },
         "options": {
           "machines": [
@@ -3762,6 +5779,7 @@
         },
         "snoozed": [],
         "total": 6,
+        "widenedFilter": null,
         "working": []
       },
       "filter": {

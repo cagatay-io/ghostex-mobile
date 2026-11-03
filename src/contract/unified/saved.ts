@@ -8,13 +8,18 @@ import { EMPTY_UNIFIED_FILTER, type UnifiedFilter } from './build';
 
 export const UNIFIED_SAVED_STATE_KEY = 'sessions.unified.v1';
 
+/** How many projects the project list keeps under Recent (gx-core `RECENT_REPOS_MAX`). */
+export const RECENT_REPOS_MAX = 5;
+
 export type UnifiedSavedState = {
   filter: UnifiedFilter;
   /** Shelves toggled away from how they start; inside a project as `<repo key>|<shelf>`. */
   toggledShelves: string[];
   foldedGroups: string[];
-  /** The machine a new session last used per repository (the tray's machine chips). */
+  /** The machine a new session last used per repository (the agent menu and tray start there). */
   lastMachines: Record<string, string>;
+  /** The repositories new sessions last started in, newest first: the project list's Recent. */
+  recentRepos: string[];
 };
 
 export const EMPTY_UNIFIED_SAVED: UnifiedSavedState = {
@@ -22,7 +27,20 @@ export const EMPTY_UNIFIED_SAVED: UnifiedSavedState = {
   toggledShelves: [],
   foldedGroups: [],
   lastMachines: {},
+  recentRepos: [],
 };
+
+/** A session started in `repoKey` on `machineId`: where that repository starts next time, and the top of Recent. */
+export function rememberNewSession(
+  state: Pick<UnifiedSavedState, 'lastMachines' | 'recentRepos'>,
+  repoKey: string,
+  machineId: string,
+): Pick<UnifiedSavedState, 'lastMachines' | 'recentRepos'> {
+  return {
+    lastMachines: { ...state.lastMachines, [repoKey]: machineId },
+    recentRepos: [repoKey, ...state.recentRepos.filter((repo) => repo !== repoKey)].slice(0, RECENT_REPOS_MAX),
+  };
+}
 
 function strings(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];
@@ -55,6 +73,7 @@ export function parseUnifiedSaved(raw: string | null): UnifiedSavedState {
     toggledShelves: strings(saved.toggledShelves),
     foldedGroups: strings(saved.foldedGroups),
     lastMachines,
+    recentRepos: strings(saved.recentRepos).slice(0, RECENT_REPOS_MAX),
   };
 }
 
@@ -66,5 +85,6 @@ export function serializeUnifiedSaved(state: UnifiedSavedState): string {
     toggledShelves: state.toggledShelves,
     foldedGroups: state.foldedGroups,
     lastMachines: state.lastMachines,
+    recentRepos: state.recentRepos,
   });
 }

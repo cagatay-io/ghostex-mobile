@@ -23,6 +23,8 @@ export function WorktreeTray({
   retry,
   projectLabel,
   openProjects,
+  machineLabel,
+  openMachines,
 }: {
   tray: Tray;
   dispatch: (action: UserAction) => void;
@@ -32,8 +34,12 @@ export function WorktreeTray({
   retry: () => void;
   /** The project chip's words, or null while the tray can't offer one. */
   projectLabel: string | null;
-  /** Opens the project and machine search. */
+  /** Opens the project list. */
   openProjects: () => void;
+  /** The machine chip's words, or null while there is one computer to run on. */
+  machineLabel: string | null;
+  /** Opens the machines that have the project. */
+  openMachines: () => void;
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
@@ -66,6 +72,20 @@ export function WorktreeTray({
           <Glyph name="folder" size={13} color={P.muted} />
           <Text style={styles.chipText} numberOfLines={1}>
             {projectLabel}
+          </Text>
+          <Glyph name="chevron-down" size={12} color={P.muted} />
+        </Pressable>
+      ) : null}
+      {machineLabel !== null ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Machine: ${machineLabel}`}
+          disabled={tray.busy}
+          onPress={openMachines}
+          style={({ pressed }) => [styles.chip, pressed ? styles.pressed : null]}
+        >
+          <Text style={styles.chipText} numberOfLines={1}>
+            {machineLabel}
           </Text>
           <Glyph name="chevron-down" size={12} color={P.muted} />
         </Pressable>

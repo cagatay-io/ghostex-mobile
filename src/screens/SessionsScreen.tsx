@@ -6,6 +6,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ProjectPickerSheet } from '../chat/native/composer/ProjectPickerSheet';
+import { projectChoicesNow } from './sessions-screen/new-session-place';
 import {
   AppState,
   BackHandler,
@@ -194,6 +196,8 @@ export default function SessionsScreen({ navigation }: Props) {
   );
 
   const [overlay, setOverlay] = useState<Overlay>(NONE);
+  /** What a pick in the agent menu's project list opens once the sheet has gone. */
+  const afterProjectSheet = useRef<(() => void) | null>(null);
   /** New session › Cloud Box with the computer off: the first message the phone starts the box with. */
   const [phoneBoxStart, setPhoneBoxStart] = useState<PhoneBoxStart | null>(null);
   // New session › Where (This computer or Cloud Box) for the project whose agent menu is open.
@@ -619,6 +623,8 @@ export default function SessionsScreen({ navigation }: Props) {
     launchAgent,
     createProjectTerminal,
     agentMenuItems,
+    placeItems,
+    openAgentMenuAt,
     closeAgentMenuThen,
     onAgentMenuDismissed,
     createCoordinator,
@@ -1393,6 +1399,7 @@ export default function SessionsScreen({ navigation }: Props) {
         items={
           overlay.kind === 'agentMenu'
             ? [
+                ...placeItems(overlay.ctx),
                 ...cloudWhereItems(overlay.ctx.machine.id, overlay.ctx.header.projectId, setTransientStatus, (agent) => {
                   const ctx = overlay.ctx;
                   closeAgentMenuThen(() =>
@@ -1410,6 +1417,27 @@ export default function SessionsScreen({ navigation }: Props) {
         }
         onClose={() => setOverlay(NONE)}
         onDismissed={onAgentMenuDismissed}
+      />
+
+      {/* The agent menu's project row; a pick opens the menu again there once the sheet has gone (iOS). */}
+      <ProjectPickerSheet
+        visible={overlay.kind === 'newSessionProject'}
+        title="Choose a project"
+        choices={overlay.kind === 'newSessionProject' ? projectChoicesNow(overlay.currentMachineId) : []}
+        onClose={() => setOverlay(NONE)}
+        onDismissed={() => {
+          const work = afterProjectSheet.current;
+          afterProjectSheet.current = null;
+          work?.();
+        }}
+        onPick={(choice) => {
+          const machine = choice.machines[choice.selected];
+          setOverlay(NONE);
+          if (machine === undefined) return;
+          const work = (): void => openAgentMenuAt(machine.machineId, machine.projectId);
+          if (Platform.OS === 'ios') afterProjectSheet.current = work;
+          else work();
+        }}
       />
 
       {overlay.kind === 'workLinkPicker' ? (

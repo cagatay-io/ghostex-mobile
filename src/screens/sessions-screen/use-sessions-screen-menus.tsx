@@ -21,6 +21,9 @@ import { AGENT_ICONS } from '../../assets/agentIcons.generated';
 import { isSessionChatSupportedAgent } from '../../chat/session-chat-helpers';
 import { runGhostexCli } from '../../components/sessions/cli';
 import { type ContextMenuItem } from '../../components/sessions/ContextMenu';
+import { NewSessionMachineChips, NewSessionProjectRow } from '../../components/sessions/NewSessionPlace';
+import { noteNewSessionIn, projectChoicesNow, repoKeyOfProject } from './new-session-place';
+import { projectHeaderOf } from './use-unified-list';
 import { type DrawerBlock } from '../../components/sessions/drawerModel';
 import {
   ArrowGlyph,
@@ -96,7 +99,7 @@ import {
 import { DocsCopy, FeedbackCopy, ProgressCopy, StripCopy, WebPreviewCopy } from '../../copy';
 import type { OptimisticInventoryChange } from '../../inventory/optimistic';
 import { useInventoryStore } from '../../inventory/store';
-import { isMachineEnabled, useMachinesStore, type MachineRecord } from '../../machines/store';
+import { enabledMachines, isMachineEnabled, useMachinesStore, type MachineRecord } from '../../machines/store';
 import { useSettingsStore } from '../../settings/store';
 import type { RootStackParamList } from '../../navigation/types';
 import { GhostexPalette, SidebarPalette } from '../../theme/palette';
@@ -1459,6 +1462,8 @@ export function useSessionsScreenMenus({
       useLauncherStore
         .getState()
         .rememberAgent(agent.agentId, agentChoiceContext(header.machineId, header.projectId).place);
+      // CDXC:Sidebar 2026-11-03 SEE-ALSO: new-session-place.ts; the project's machine and Recent, and a Unified filter that would hide the session gains it (gx-core `widen_filter_for_new_session`).
+      noteNewSessionIn(target.id, header.projectId);
       const agentName = agent.name !== undefined && agent.name.length > 0 ? agent.name : agent.agentId;
       const iconId = resolveAgentIconId(agent.icon, agentName);
       const chatFirst =
@@ -1500,6 +1505,54 @@ export function useSessionsScreenMenus({
     afterAgentMenu.current = null;
     work?.();
   }, []);
+
+  /** The agent menu on a project of a computer; nothing is opened first, so no default agent starts. */
+  const openAgentMenuAt = (machineId: string, projectId: string): void => {
+    const machine = useMachinesStore.getState().machines.find((entry) => entry.id === machineId) ?? null;
+    const summary = summaryFor(machineId);
+    if (machine === null || summary === null) return;
+    const header = projectHeaderOf(machineId, summary, projectId);
+    if (header !== null) setOverlay({ kind: 'agentMenu', ctx: { machine, header } });
+  };
+
+  /** The project row and, with more than one computer, the machine chips, above the agents. */
+  const placeItems = (ctx: ProjectContext): ContextMenuItem[] => {
+    const repoKey = repoKeyOfProject(ctx.machine.id, ctx.header.projectId);
+    const choice =
+      repoKey === null ? undefined : projectChoicesNow(ctx.machine.id).find((entry) => entry.repoKey === repoKey);
+    if (choice === undefined) return [];
+    const items: ContextMenuItem[] = [
+      {
+        kind: 'custom',
+        key: 'place-project',
+        render: () => (
+          <NewSessionProjectRow
+            label={choice.label}
+            onPress={() =>
+              closeAgentMenuThen(() => setOverlay({ kind: 'newSessionProject', currentMachineId: ctx.machine.id }))
+            }
+          />
+        ),
+      },
+    ];
+    if (enabledMachines(useMachinesStore.getState()).length > 1) {
+      items.push({
+        kind: 'custom',
+        key: 'place-machines',
+        render: () => (
+          <NewSessionMachineChips
+            machines={choice.machines}
+            selectedMachineId={ctx.machine.id}
+            onPick={(machine) => {
+              if (machine.machineId !== ctx.machine.id) openAgentMenuAt(machine.machineId, machine.projectId);
+            }}
+          />
+        ),
+      });
+    }
+    items.push({ kind: 'separator', key: 'place-separator' });
+    return items;
+  };
 
   const agentMenuItems = (ctx: ProjectContext): ContextMenuItem[] => {
     const selected = resolvePrimaryAgent(ctx.header);
@@ -1675,6 +1728,8 @@ export function useSessionsScreenMenus({
     launchAgent,
     createProjectTerminal,
     agentMenuItems,
+    placeItems,
+    openAgentMenuAt,
     closeAgentMenuThen,
     onAgentMenuDismissed,
     createCoordinator,
