@@ -215,9 +215,9 @@ export const SessionCopy = {
 } as const;
 
 /**
- * The session wall: the Sessions list's list/tiles switch on the unfolded iPhone Duo and its tiles (the approved
- * session wall mockup's words). A badge says in a word what the row's dot says by colour; waiting for approval, which
- * the mockup predates, takes the agents pane's words.
+ * The session wall: the Sessions list's list/tiles switch on the unfolded iPhone Duo and its tiles (the session wall
+ * design's words). A badge says in a word what the row's dot says by colour; waiting for approval, which
+ * the design predates, takes the agents pane's words.
  */
 export const WallCopy = {
   showList: 'Show as list',

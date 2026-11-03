@@ -29,7 +29,7 @@ export default function WallTileRow({ firstKey, columns, style, children }: Wall
 }
 
 const styles = StyleSheet.create({
-  /* The mockup's gap between tiles and below the row. */
+  /* The design's gap between tiles and below the row. */
   tileRow: {
     flexDirection: 'row',
     gap: WALL_TILE_GAP,

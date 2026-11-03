@@ -1,8 +1,8 @@
 /**
  * Run with `bun test src/screens/wall/badge.test.ts`. A tile's status badge says what the session's list row shows:
- * the same dot (or the question pair) in the row's colours, plus the word of the approved session wall mockup, so a
+ * the same dot (or the question pair) in the row's colours, plus the word of the session wall design, so a
  * session that stops working and waits for the user changes its badge while the tiles stay on screen. The expectations
- * are the list's own mapping (`sessionStatus.ts`) and the mockup's words, never this module's output.
+ * are the list's own mapping (`sessionStatus.ts`) and the design's words, never this module's output.
  */
 
 import { describe, expect, test } from 'bun:test';

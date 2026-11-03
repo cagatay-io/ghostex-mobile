@@ -845,7 +845,7 @@ export default function SessionsScreen({ navigation }: Props) {
   const railButtons = useMemo<RailButtons>(() => {
     const color = sidebarAppearance.foreground;
     const entries: RailEntry[] = [
-      // Upright in the side bar, the list/tiles switch's two halves (approved session wall mockup).
+      // Upright in the side bar, the list/tiles switch's two halves (the session wall design).
       ...(wallOffered
         ? [
             {

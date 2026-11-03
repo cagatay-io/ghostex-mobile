@@ -8,7 +8,7 @@
  * only: the native module, the computer's screen read (`tailClient.ts`), storage, haptics, the safe area, navigation
  * focus, the voice button and notifications.
  *
- * Device-only, not shown here: the frames the device reports, the look against the approved mockup, the real
+ * Device-only, not shown here: the frames the device reports, the look against the design, the real
  * computer's answer and what the reads cost on the network.
  */
 

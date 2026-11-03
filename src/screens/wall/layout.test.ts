@@ -1,5 +1,5 @@
 /**
- * Run with `bun test src/screens/wall/layout.test.ts`. The tile grid of the approved session wall mockup: columns at
+ * Run with `bun test src/screens/wall/layout.test.ts`. The tile grid of the session wall design: columns at
  * least 250 pt wide (`minmax(250px, 1fr)`), so two upright and three across on the iPhone Duo's inner display, and a
  * project's session rows turned into grid rows of that many tiles while its other rows (a kind label, a session
  * group's tree rows) stay rows in their place.

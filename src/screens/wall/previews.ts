@@ -32,7 +32,7 @@ import { statusBadge } from './badge';
 export const WALL_REFRESH_MS = 5_000;
 /** Reads on their way at once; the rest wait their turn. */
 export const WALL_MAX_READS = 4;
-/** The lines a thumbnail shows: the newest, at a size that stays readable (approved mockup). */
+/** The lines a thumbnail shows: the newest, at a size that stays readable (the design). */
 export const THUMB_LINES = 9;
 
 export type Preview = { kind: 'lines'; lines: readonly string[] } | { kind: 'unavailable' };

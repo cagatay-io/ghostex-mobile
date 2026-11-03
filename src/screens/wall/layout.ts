@@ -1,5 +1,5 @@
 /**
- * The session wall's grid (approved session wall mockup): columns at least `WALL_MIN_TILE_WIDTH` wide, so two upright
+ * The session wall's grid (the session wall design): columns at least `WALL_MIN_TILE_WIDTH` wide, so two upright
  * and three across on the iPhone Duo's inner display, and a project's session rows drawn as grid rows of that many
  * tiles while its other rows (a kind label, a coordinator's older threads) keep their place as rows. The Unified list
  * cuts its cards and shelf rows the same way (`tileRunsOf`), its group and shelf headers keeping their place. Free of
@@ -8,7 +8,7 @@
 
 import type { DrawerItem, SessionItem } from '../../contract/grouping';
 
-/** The mockup's `minmax(250px, 1fr)`: a tile never gets narrower than this while another column fits. */
+/** The design's `minmax(250px, 1fr)`: a tile never gets narrower than this while another column fits. */
 export const WALL_MIN_TILE_WIDTH = 250;
 /** The space between tiles, across and down. */
 export const WALL_TILE_GAP = 12;

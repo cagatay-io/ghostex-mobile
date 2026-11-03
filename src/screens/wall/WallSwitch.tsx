@@ -1,5 +1,5 @@
 /**
- * The Sessions header's list/tiles switch on the unfolded iPhone Duo (approved session wall mockup): two buttons in
+ * The Sessions header's list/tiles switch on the unfolded iPhone Duo (the session wall design): two buttons in
  * one segment, the chosen one filled. In the side bar the same two stand as its switch entries (`SessionsScreen`).
  */
 

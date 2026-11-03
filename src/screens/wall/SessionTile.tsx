@@ -1,5 +1,5 @@
 /**
- * One session on the session wall (approved session wall mockup): its agent icon and title, its status badge (the
+ * One session on the session wall (the session wall design): its agent icon and title, its status badge (the
  * row's dot, or a folded coordinator's stack, plus a word, `badge.ts`) with the row's time label, and its live
  * thumbnail, the newest lines of its screen at a size that stays readable instead of the whole screen shrunk. A tap
  * opens the session and a long press opens its menu, through the same actions as its list row. When the badge changes
@@ -26,7 +26,7 @@ import type { SidebarAppearance } from '../../theme/sidebarAppearance';
 import { statusBadge } from './badge';
 import { THUMB_LINES, useWallPreviewStore } from './previews';
 
-/** The thumbnail's line height; with `THUMB_LINES` lines it fixes the thumbnail's height (mockup: 11 / 15). */
+/** The thumbnail's line height; with `THUMB_LINES` lines it fixes the thumbnail's height (11 / 15). */
 const THUMB_LINE_HEIGHT = 15;
 const THUMB_PADDING = 8;
 const MONOSPACE = Platform.select({ ios: 'Menlo', default: 'monospace' });
@@ -166,7 +166,7 @@ function TileFrame({ session, sessionKey, appearance, statusWord, ring, onPress,
 
 /**
  * The colour of the ring a tile carries for `COMPLETION_FLASH_MS` after its badge changed while it was shown (the
- * mockup's short ring in the new status colour); null at rest and on the first render.
+ * design's short ring in the new status colour); null at rest and on the first render.
  */
 function useChangeRing(kind: string | null, color: string | null): string | null {
   const shown = useRef(kind);

@@ -1,6 +1,6 @@
 /**
  * A session wall tile's status badge: the dot its list row shows (`SessionRow`, rules in `sessionStatus.ts`), in the
- * row's colours, plus a word, so colour is not the only carrier (approved session wall mockup). The order is the
+ * row's colours, plus a word, so colour is not the only carrier (the session wall design). The order is the
  * row's: waiting for approval wins over everything, then a pending question (its pink dot paired behind the working
  * or waiting dot), then the row's activity dot. A coordinator whose threads are folded shows its row's stack instead:
  * the dots of the threads the fold hides plus its own (`shownFoldedStatus`), named by the most urgent in that same
