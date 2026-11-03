@@ -293,6 +293,34 @@ const replySends = () =>
     .map(([, command]) => command)
     .filter((command) => /^ghostex send-(session-chat-)?message /.test(command));
 
+const ZETA_ENTERED = minutesAgo(1);
+/**
+ * The summary with Zeta in one attention of `kind`: the computer keeps the attention's id when a wait for the user
+ * turns into a finished turn (a question answered on the Mac, the turn done), so only the kind says what it shows now.
+ */
+function zetaIn(kind: 'needsInput' | 'finished'): GhostexMobileSummary {
+  const base = summary();
+  return {
+    ...base,
+    sessions: base.sessions.map((session) =>
+      session.sessionId === 'f'
+        ? { ...session, attentionEventId: 'attention-f', attentionEnteredAt: ZETA_ENTERED, attentionKind: kind }
+        : session,
+    ),
+  };
+}
+
+async function showSummary(next: GhostexMobileSummary): Promise<void> {
+  await act(() => {
+    useInventoryStore.setState({
+      inventoriesByMachineId: {
+        m1: { ...useInventoryStore.getState().inventoriesByMachineId.m1!, summary: next, serverSummary: next },
+      },
+    });
+  });
+  await settle();
+}
+
 describe('folded: waiting sessions above the full list', () => {
   test('the three waiting sessions come first, the one waiting longest on top; the full list stays below', async () => {
     await renderScreen(FOLDED);
@@ -352,6 +380,36 @@ describe('folded: waiting sessions above the full list', () => {
     });
     await renderScreen(FOLDED);
     expect(screen.getByText('Nothing is waiting for you')).toBeTruthy();
+  });
+
+  test("a session that moves on within the same attention shows its screen as it is now, not the question's", async () => {
+    mockTailRead.mockImplementation(() =>
+      Promise.resolve({ kind: 'lines', lines: ['Which repeat rate?', '› 1. Every 50 ms  2. Every 80 ms'] }),
+    );
+    await renderScreen(FOLDED);
+    await showSummary(zetaIn('needsInput'));
+    expect(screen.getByLabelText('Last output: Which repeat rate?\n› 1. Every 50 ms  2. Every 80 ms')).toBeTruthy();
+    const reads = mockTailRead.mock.calls.length;
+
+    mockTailRead.mockImplementation(() => Promise.resolve({ kind: 'lines', lines: ['✓ Set to 80 ms', 'Done.'] }));
+    await showSummary(zetaIn('finished'));
+    expect(mockTailRead.mock.calls.length).toBe(reads + 1);
+    expect(screen.queryByLabelText('Last output: Which repeat rate?\n› 1. Every 50 ms  2. Every 80 ms')).toBeNull();
+    expect(screen.getByLabelText('Last output: ✓ Set to 80 ms\nDone.')).toBeTruthy();
+  });
+
+  test("the screen read for the question's wait, answering after the finished turn's, leaves the newer lines", async () => {
+    // Ported from the independent review livefix-r1-20261103 (K-10): two reads of one session overtake each other.
+    const questionRead = Promise.withResolvers<{ kind: string; lines: string[] }>();
+    mockTailRead.mockImplementation(() => questionRead.promise);
+    await showSummary(zetaIn('needsInput'));
+    await renderScreen(FOLDED);
+    mockTailRead.mockImplementation(() => Promise.resolve({ kind: 'lines', lines: ['Answer received', 'Finished'] }));
+    await showSummary(zetaIn('finished'));
+    expect(screen.getByLabelText('Last output: Answer received\nFinished')).toBeTruthy();
+    await act(() => questionRead.resolve({ kind: 'lines', lines: ['Old question', 'old options'] }));
+    await settle();
+    expect(screen.getByLabelText('Last output: Answer received\nFinished')).toBeTruthy();
   });
 });
 

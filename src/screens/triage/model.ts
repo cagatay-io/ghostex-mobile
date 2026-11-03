@@ -172,11 +172,15 @@ export function triageEntry(
 
 /**
  * What the computer says about a session's wait. An entry answered from the triage stays away while this is
- * unchanged (the computer's list follows the answer only on its next read) and its chat shows no new card.
+ * unchanged (the computer's list follows the answer only on its next read) and its chat shows no new card; a
+ * short-reply card reads its screen lines once per signature. The attention's kind is part of it: the computer keeps
+ * the attention's id when a wait for the user turns into a finished turn (its question answered, the turn done), and
+ * only the kind then says that the session shows something else.
  */
 export function waitSignature(session: GhostexSession, capabilities: GhostexSummaryCapabilities): string {
   return [
     session.attentionEventId || session.attentionEnteredAt,
+    session.attentionKind,
     session.activity,
     session.awaitingApproval,
     hasQuestion(session, capabilities),

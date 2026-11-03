@@ -5,8 +5,9 @@
  *   chat host (`acquireRustChatHost`), the same chat core and warm link the session's Chat View uses (a Chat View
  *   opened meanwhile shares it), publishes only the card's part of the document (`prompt`, `questionCard`) and hands
  *   taps to that core. A session that stops needing it, and the whole triage when it leaves the screen, release it.
- * - `useTriageTails`: the last lines of a waiting session's screen for its short replies, read once per wait through
- *   the session wall's `readSessionTerminalTail` read; a refused read shows none.
+ * - `useTriageTails`: the last lines of a waiting session's screen for its short replies, read once per wait
+ *   (`waitSignature`: a finished turn after a wait for the user is a new one) through the session wall's
+ *   `readSessionTerminalTail` read; a refused read shows none.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -127,6 +128,9 @@ export function useTriageTails(
         .catch(() => ({ kind: 'unavailable' }) as const)
         .then((preview) => {
           if (!mounted.current) return;
+          // A read for a wait that ended (the reads of one session can overtake each other) shows nothing, so it never
+          // replaces the newer wait's lines.
+          if (!latest.current.some((now) => now.key === target.key && now.signature === target.signature)) return;
           const lines =
             preview.kind === 'lines' ? preview.lines.filter((line) => line.trim().length > 0).slice(-TAIL_LINES) : [];
           setTails((current) => ({ ...current, [target.key]: { signature: target.signature, lines } }));
