@@ -1,6 +1,6 @@
 /**
  * Where two panes stand in the pane container (the area below the header that they share), in the container's own
- * points (y grows downwards from its top). The geometry is the approved panes mockup's: the two slots meet at the
+ * points (y grows downwards from its top). The geometry is the panes design's: the two slots meet at the
  * divider (`dividerRatio` of the container), each pane card stands half the 12 pt gap off it, every pane has a 44 pt
  * title bar, and the body side facing the divider keeps clear of the divider handle's 44 pt touch area.
  *

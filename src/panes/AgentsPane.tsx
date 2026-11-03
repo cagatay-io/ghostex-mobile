@@ -1,5 +1,5 @@
 /**
- * The agents pane (the approved panes mockup's `agentsBody`): the computer's agent sessions with their
+ * The agents pane (the panes design's): the computer's agent sessions with their
  * status, from its session list as the Sessions screen and the chooser have it (the app's one summary poll; no read of
  * its own). On top the count of sessions with a question, working, done and failed, each a word beside its status dot;
  * below, the sessions by project, each the chooser's row (agent icon, title, agent and status in words). A tap opens
@@ -17,7 +17,7 @@ import { GhostexPalette, SidebarPalette } from '../theme/palette';
 import type { PaneBarInset } from './geometry';
 import { paneSessionStatus, PaneSessionRow, type PaneSessionStatus } from './SessionChooser';
 
-/** The summary's counts, in the mockup's order, each with its status colour (the session list's dots). */
+/** The summary's counts, in the design's order, each with its status colour (the session list's dots). */
 const CHIPS = [
   { status: 'question', color: SidebarPalette.ROW_QUESTION },
   { status: 'working', color: SidebarPalette.ROW_WORKING },

@@ -1066,7 +1066,7 @@ export const TerminalHeaderCopy = {
 
 /**
  * Panes on the unfolded iPhone Duo: the header's Panes button, the panes' title bars, divider and chooser, and the
- * pane types (the approved panes mockup's labels and descriptions).
+ * pane types (the panes design's labels and descriptions).
  */
 export const PanesCopy = {
   addPane: 'Panes: add a pane',
@@ -1093,7 +1093,7 @@ export const PanesCopy = {
   usageTypeDescription: 'Claude and Codex limits',
   attentionType: 'Attention',
   attentionTypeDescription: 'Notifications from your agents',
-  /** The agents pane's summary over its sessions (the approved panes mockup's chips). */
+  /** The agents pane's summary over its sessions (the panes design's chips). */
   agentsSummary: 'Summary',
   agentsChip: {
     question: (count: number) => `${count} question`,

@@ -1,7 +1,7 @@
 /// <reference types="node" />
 /**
  * Run with `bun test src/panes/geometry.test.ts`. Where the two panes stand in the pane container (the area below the
- * header they share), from the approved panes mockup's geometry: the two slots meet at the divider, each pane card
+ * header they share), from the panes design's geometry: the two slots meet at the divider, each pane card
  * stands 6 pt off it (a 12 pt gap), every pane has a 44 pt title bar, and the body side facing the divider keeps
  * clear of the 44 pt handle (16 pt). Expectations are the rules for the two panes:
  * - portrait one above the other at the same x, landscape side by side at the same y;

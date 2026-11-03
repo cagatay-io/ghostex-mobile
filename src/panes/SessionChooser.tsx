@@ -1,5 +1,5 @@
 /**
- * The chooser in a new pane (the approved panes mockup's): a Close row at its top (as its close button), then what
+ * The chooser in a new pane (the panes design's): a Close row at its top (as its close button), then what
  * else the pane can show (the pane types, Files and Git Changes only for a session with a project folder, as the ⋯
  * menu offers them), then a new terminal in the project of the session beside it, the computer's Add Project flow,
  * and the computer's agent sessions to open there, each with its agent, project and status in words (a status dot

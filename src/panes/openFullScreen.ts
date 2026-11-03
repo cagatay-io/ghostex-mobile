@@ -1,6 +1,6 @@
 /**
  * Folded, there are no pane slots: when the Duo folds while a pane other than a session is the active one, its content
- * opens full screen instead, as the screen of its own that the app has (the approved panes mockup: the active pane
+ * opens full screen instead, as the screen of its own that the app has (the panes design: the active pane
  * stays full screen; "the same holds for files, agents, Git and usage"). The Web Preview opens at the pane's page, or
  * at its start; Files and Changes open for the pane's project; the attention list as the Notifications screen; the
  * usage as the Usage screen for the pane's computer. Going back leaves the session on screen; unfolded, the stored

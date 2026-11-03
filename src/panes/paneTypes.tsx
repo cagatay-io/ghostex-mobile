@@ -1,6 +1,6 @@
 /**
- * The pane types this build can show, in the order the pane type menu and the chooser list them (the approved panes
- * mockup's order, the attention list last as the approved notifications mockup adds it). The stored layout names every
+ * The pane types this build can show, in the order the pane type menu and the chooser list them (the panes
+ * design's order, the attention list last as the notifications design adds it). The stored layout names every
  * type the layout contract knows (`PANE_TYPES` in `layout.ts`); each has its body in `PaneContentView.tsx` and its slot
  * content in `resolve.ts` (`PaneHost.tsx` is the same for every type).
  */

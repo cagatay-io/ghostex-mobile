@@ -493,7 +493,7 @@ function Divider({
   );
 }
 
-/** The active pane's title bar: the accent over the card colour, its bottom line stronger (the approved mockup's). */
+/** The active pane's title bar: the accent over the card colour, its bottom line stronger (the design's). */
 const ACTIVE_BAR = colorWithOpacity(GhostexPalette.ACCENT, 24);
 const ACTIVE_LINE = colorWithOpacity(GhostexPalette.ACCENT, 55);
 const GRABBER = colorWithOpacity(GhostexPalette.FOREGROUND, 34);

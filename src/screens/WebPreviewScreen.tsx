@@ -239,7 +239,7 @@ export type WebPreviewViewProps = {
   controlInset?: PaneBarInset;
 };
 
-/** The pane's row moves Forward, then Reload into "…" below these widths (the approved panes mockup). */
+/** The pane's row moves Forward, then Reload into "…" below these widths (the panes design). */
 const PANE_FORWARD_MIN_WIDTH = 340;
 const PANE_RELOAD_MIN_WIDTH = 240;
 
@@ -943,7 +943,7 @@ export function WebPreviewView({ page, placement, onClose, onPage, controlInset 
   return (
     <View style={[styles.screen, { paddingBottom: inPane ? 0 : insets.bottom }]}>
       {inPane ? (
-        // A pane: one row as the approved panes mockup draws it; Close is the pane's own, Back at the first page
+        // A pane: one row as the panes design draws it; Close is the pane's own, Back at the first page
         // returns to the Web Preview's start.
         <View
           style={[
