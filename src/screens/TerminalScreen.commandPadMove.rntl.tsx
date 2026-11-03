@@ -30,7 +30,7 @@ import {
   translationOf,
 } from './TerminalScreen.commandPadHarness';
 
-import { AccessibilityInfo, Animated, StyleSheet } from 'react-native';
+import { AccessibilityInfo, Animated, NativeModules, StyleSheet } from 'react-native';
 import { act, fireEvent, screen } from '@testing-library/react-native';
 import type { TestInstance } from 'test-renderer';
 
@@ -135,6 +135,36 @@ describe('the pad moves by a drag on its toggle', () => {
     expect(storedFlatPosition()).toMatchObject({ side: 'left' });
     // Still open: the hold moved the pad, it did not toggle it.
     expect(screen.getByLabelText('Up')).toBeTruthy();
+  });
+
+  test('the snap runs on the native animation driver from where the finger let go; a later drag still moves the pad', async () => {
+    const spring = jest.spyOn(Animated, 'spring');
+    const nativeValues = NativeModules.NativeAnimatedModule.setAnimatedNodeValue as jest.Mock;
+    await renderScreen();
+    await layOutArea();
+    await openPad();
+    const before = padFrame();
+    let start = await holdToggle(300);
+    await moveFinger(start.x - 120, start.y - 200);
+    await liftFinger(start.x - 120, start.y - 200);
+    expect(spring.mock.calls.map(([, config]) => config)).toEqual([
+      expect.objectContaining({ toValue: { x: 0, y: 0 }, useNativeDriver: true }),
+    ]);
+    // The snap starts where the finger let go and ends at the nearer side edge.
+    expect(frameOf(TOGGLE).right).toBe(before.right - 120);
+    await act(() => jest.advanceTimersByTime(SNAP_SETTLED_MS));
+    expect(padFrame()).toMatchObject({ left: 16, bottom: before.bottom - 200 });
+
+    // The offset now lives on the native side: the finger's next drag sets it there (on the device that moves the
+    // view; the test renderer draws only what JavaScript flushes), and its drop snaps from there.
+    nativeValues.mockClear();
+    start = await holdToggle(300);
+    await moveFinger(start.x + 40, start.y + 30);
+    expect(nativeValues.mock.calls.slice(-2).map(([, value]) => value)).toEqual([40, 30]);
+    await liftFinger(start.x + 40, start.y + 30);
+    await act(() => jest.advanceTimersByTime(SNAP_SETTLED_MS));
+    expect(padFrame()).toMatchObject({ left: 16, bottom: before.bottom - 200 + 30 });
+    expect(translationOf(screen.getByLabelText(TOGGLE))).toEqual({ x: 0, y: 0 });
   });
 
   test('let go beyond the allowed area, the pad stays inside it, 16 pt from the area edges (never under the header or the home indicator)', async () => {
@@ -332,21 +362,44 @@ describe('only a drag stores a place; Reduce Motion followed live', () => {
 
   test('Reduce Motion turned on during a snap ends it and places the pad at once', async () => {
     const listeners = followReduceMotion();
+    const spring = jest.spyOn(Animated, 'spring');
+    const native = NativeModules.NativeAnimatedModule as Record<string, jest.Mock>;
     await renderScreen();
     await layOutArea();
     await openPad();
     const before = padFrame();
     const start = await holdToggle(300);
     await moveFinger(start.x - 195, start.y - 100);
+    native.startAnimatingNode.mockClear();
     await liftFinger(start.x - 195, start.y - 100);
     // The snap is running: the pad is still near where the finger let go.
     expect(padFrame().left).not.toBe(16);
     expect(listeners.length).toBeGreaterThan(0);
+    // The pad's offset (across, down) on the native side: the two nodes the snap animates.
+    const padNodes = native.startAnimatingNode.mock.calls.map(([, nodeTag]) => nodeTag);
+    expect(padNodes).toHaveLength(2);
+    const padValues = () =>
+      native.setAnimatedNodeValue.mock.calls
+        .filter(([nodeTag]) => padNodes.includes(nodeTag))
+        .map(([, value]) => value);
+    native.setAnimatedNodeValue.mockClear();
+    native.stopAnimation.mockClear();
     await act(() => listeners.forEach((listener) => listener(true)));
-    expect(padFrame()).toMatchObject({ left: 16, bottom: before.bottom - 100 });
-    expect(translationOf(screen.getByLabelText(TOGGLE))).toEqual({ x: 0, y: 0 });
+    // The snap runs on the native driver: it is stopped there and the pad's offset set to none at once, which on the
+    // device draws it at its place (the test renderer draws only what JavaScript flushes, so the place is read here
+    // without the offset).
+    expect(native.stopAnimation).toHaveBeenCalled();
+    expect(padValues()).toEqual([0, 0]);
+    const shift = translationOf(screen.getByLabelText(TOGGLE));
+    const placed = padFrame();
+    expect({ left: placed.left - shift.x, bottom: placed.bottom - shift.y }).toEqual({
+      left: 16,
+      bottom: before.bottom - 100,
+    });
+    // Nothing springs afterwards.
     await act(() => jest.advanceTimersByTime(SNAP_SETTLED_MS));
-    expect(padFrame()).toMatchObject({ left: 16, bottom: before.bottom - 100 });
+    expect(spring).toHaveBeenCalledTimes(1);
+    expect(padValues()).toEqual([0, 0]);
   });
 
   test('Reduce Motion turned on while the pad is lifted leaves it under the finger', async () => {

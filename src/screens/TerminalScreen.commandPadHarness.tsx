@@ -6,7 +6,8 @@
  *
  * Mocked are the boundaries only: the native module, haptics, storage, the safe area (reported on its own,
  * `setSafeArea`), navigation focus, the chat screen, the voice button and the file picker; the terminal area's layout
- * is delivered by the test (`layOutArea`). Frames of an iPhone 17: 402x874, home indicator inset 34, keyboard 336 pt
+ * is delivered by the test (`layOutArea`), and a native-driven animation reports its end value as on the device
+ * (`nativeAnimationsReportTheirEnd`). Frames of an iPhone 17: 402x874, home indicator inset 34, keyboard 336 pt
  * tall (top 538); in landscape 874x402, safe area 0/21 and 62 across, keyboard 200 pt tall.
  */
 
@@ -15,6 +16,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import type { TestInstance } from 'test-renderer';
 
 import { keyboardFixture } from '../components/common/keyboard/keyboardEventFixtures';
+import { nativeAnimationsReportTheirEnd } from '../components/common/nativeAnimationFixture';
 import { DEFAULT_COMMAND_PAD_KEYS } from '../settings/commandPad';
 import { useSettingsStore } from '../settings/store';
 import { useTerminalStore, type TerminalTab } from '../terminal/sessions';
@@ -228,6 +230,7 @@ export function terminalTop(): number {
 
 beforeEach(() => {
   jest.useFakeTimers();
+  nativeAnimationsReportTheirEnd();
   Object.values(mockNative).forEach((mock) => mock.mockClear());
   Object.assign(mockSafeArea, PORTRAIT_INSETS);
   keyboard.setScreen(WINDOW.width, WINDOW.height);

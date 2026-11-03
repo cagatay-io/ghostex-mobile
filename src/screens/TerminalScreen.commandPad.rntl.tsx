@@ -569,6 +569,39 @@ describe('fixed regressions', () => {
     expect(mockNative.sendKey.mock.calls).toEqual([['shell-2', 'enter', {}]]);
   });
 
+  test('the pen closing the editor keeps its unsent draft for the same session; Send then inserts it and clears it', async () => {
+    await renderScreen();
+    await keyboardWillShow();
+    await openPad();
+    await fireEvent.press(screen.getByLabelText('Text editor'));
+    await fireEvent.changeText(screen.getByLabelText(EDITOR), 'finish this after reading the output');
+    // The pen hands the keyboard back to the terminal; the editor leaves with its motion and is gone.
+    await fireEvent.press(screen.getByLabelText('Text editor'));
+    await act(() => jest.advanceTimersByTime(1000));
+    expect(screen.queryByLabelText(EDITOR, HIDDEN_TOO)).toBeNull();
+    await fireEvent.press(screen.getByLabelText('Text editor'));
+    expect(screen.getByLabelText(EDITOR).props.value).toBe('finish this after reading the output');
+    expect(mockNative.sendText).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByLabelText('Insert text into terminal'));
+    expect(mockNative.sendText.mock.calls).toEqual([['shell-1', 'finish this after reading the output']]);
+    expect(screen.getByLabelText(EDITOR).props.value).toBe('');
+  });
+
+  test('the keyboard going away drops the draft, as it did with the key bar: the editor opens empty again', async () => {
+    await renderScreen();
+    await keyboardWillShow();
+    await openPad();
+    await fireEvent.press(screen.getByLabelText('Text editor'));
+    await fireEvent.changeText(screen.getByLabelText(EDITOR), 'not sent');
+    await keyboardWillHide();
+    await act(() => jest.advanceTimersByTime(1000));
+    expect(screen.queryByLabelText(EDITOR, HIDDEN_TOO)).toBeNull();
+    await keyboardWillShow();
+    await fireEvent.press(screen.getByLabelText('Text editor'));
+    expect(screen.getByLabelText(EDITOR).props.value).toBe('');
+    expect(mockNative.sendText).not.toHaveBeenCalled();
+  });
+
   test('opening and closing the Keys and Agent layers ticks like the key bar page toggles, only with Key vibration on', async () => {
     useTerminalStore.setState({ sessionViewModeBySessionKey: { 'agent-1': 'terminal' } });
     await renderScreen(AGENT_TAB);

@@ -1135,6 +1135,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
         visible={menuVisible}
         sessionTitle={menuTitle}
         agentActionsEnabled={agentActionsCapable && activeSession !== null}
+                draft={pad.editorDraft}
         sleeping={activeSession?.isSleeping === true}
         forkEnabled={FORK_AGENT_ICONS.includes(activeAgentId)}
         // gxserver only parses the transcripts of the agents the chat view

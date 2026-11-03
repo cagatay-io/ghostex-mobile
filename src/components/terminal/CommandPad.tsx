@@ -440,14 +440,18 @@ function placeAt(
   return anchor.side === 'left' ? { left: inset, bottom } : { right: inset, bottom };
 }
 
-/** Springs the pad home from `from` (its offset from its anchor); with Reduce Motion it is placed at once. */
+/**
+ * Springs the pad home from `from` (its offset from its anchor); with Reduce Motion it is placed at once. The offset
+ * only moves the pad's transform, so the spring runs on the native driver and keeps going while JavaScript is busy;
+ * the finger's next drag stops it and sets the offset from JavaScript again (`pickUp`, `follow`).
+ */
 function springHome(drag: Animated.ValueXY, from: { x: number; y: number }, reduceMotion: boolean): void {
   if (reduceMotion) {
     drag.setValue({ x: 0, y: 0 });
     return;
   }
   drag.setValue(from);
-  Animated.spring(drag, { toValue: { x: 0, y: 0 }, stiffness: 300, damping: 30, useNativeDriver: false }).start();
+  Animated.spring(drag, { toValue: { x: 0, y: 0 }, stiffness: 300, damping: 30, useNativeDriver: true }).start();
 }
 
 /** Intensity of the blur behind the glass (the design's `blur(12px)` under a light fill). */
