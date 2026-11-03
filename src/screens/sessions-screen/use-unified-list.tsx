@@ -128,7 +128,10 @@ function sessionItemOf(machineId: string, session: GhostexSession, summary: Ghos
   };
 }
 
-/** The project's header as its card in the Project list would carry it, for the agent picker. */
+/**
+ * The project's header as its card in the Project list would carry it, for the agent picker. The Unified list
+ * folds nothing by collection, so the lookup opens the project's collections regardless of the Project list's folds.
+ */
 export function projectHeaderOf(
   machineId: string,
   summary: GhostexMobileSummary,
@@ -140,7 +143,11 @@ export function projectHeaderOf(
     summary: { ...summary, worktreeSessionsInProject: false },
     nowMs: Date.now(),
     expandedProjectKeys: new Set([`id:${projectId}`]),
-    expandedCollectionIds: new Set(),
+    expandedCollectionIds: new Set(
+      summary.projectCollections
+        .filter((collection) => collection.projectIds.includes(projectId))
+        .map((collection) => collection.collectionId),
+    ),
     expandedGroupKeys: new Set(),
     collapsedSessionKindKeys: new Set(),
   });
