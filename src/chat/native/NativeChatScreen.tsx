@@ -36,6 +36,7 @@ import type { RootStackParamList } from '../../navigation/types';
 import { classifyMachineLink, visualPageAddress, type ComputerAddress } from '../../webPreview/machineLinks';
 import { useOpenMachineLink } from '../../webPreview/useOpenMachineLink';
 import type { ChatViewRequest } from '../rust/effects';
+import type { ChatDocument } from '../rust/document';
 import { machineIdOfGlobalRef } from '../rust/sessionDirectory';
 import { sessionChatRpc } from '../rust/transport';
 import { useRustChat, type RustChat } from '../rust/useRustChat';
@@ -46,7 +47,7 @@ import { sessionNotesOnIn } from '../../sessions/sessionNotesSwitch';
 import { useArmedActions } from './armedActions';
 import { NativeChatCards, NativeChatOverlays, PageSheet, ResourceSheet, questionReplacesComposer } from './cards';
 import { ConnectionLostNotice } from './cards/ConnectionLostNotice';
-import { obj } from './cards/json';
+import { obj, str } from './cards/json';
 import { remoteWorkerNotice, remoteWorkerOfAction } from './cards/remoteWorker';
 import { PillsStrip, type PillsStripLinks } from './cards/PillsStrip';
 import { SideChatBar } from './cards/SideChats';
@@ -54,6 +55,7 @@ import { useTerminalStore } from '../../terminal/sessions';
 import { LoneScrollBottom, WorkingCard } from './cards/WorkingCard';
 import { NativeComposer } from './composer';
 import { HandoffSheet, type HandoffRequest } from './composer/HandoffSheet';
+import { ModelMenuSheet } from './composer/ModelMenuSheet';
 import type { MenuRow } from './composer/MenuSheet';
 import { attachIntakeImages } from './composer/imageIntake';
 import { SavedPromptsSheet } from './composer/SavedPromptsSheet';
@@ -196,6 +198,9 @@ export default function NativeChatScreen({
 
   // The notice card's Switch account opens the composer's Accounts & limits panel.
   const [accountsRequestId, setAccountsRequestId] = useState(0);
+  // The held-messages card's Pick model opens the composer's model sheet, the one the model pill opens (while a
+  // question takes the composer's place, the same sheet hosted by `QuestionModelSheet`).
+  const [modelRequestId, setModelRequestId] = useState(0);
   // The Stash button's Saved prompts (empty draft, or a long press), like desktop's Stashed Prompts modal.
   const [savedPromptsOpen, setSavedPromptsOpen] = useState(false);
   // More actions > Handoff / Export opens the chat's own dialog, the one the model menu's handoff opens.
@@ -203,6 +208,7 @@ export default function NativeChatScreen({
   const hostAction = useCallback(
     (action: string, params: Record<string, unknown> = {}) => {
       if (action === 'terminalView' || action === 'switchToTerminal') onSwitchToTerminal();
+      else if (action === 'pickModel') setModelRequestId((current) => current + 1);
       else if (action === 'switchAccount' && Object.keys(params).length === 0)
         setAccountsRequestId((current) => current + 1);
       else if (action === 'switchAccount') {
@@ -365,6 +371,7 @@ export default function NativeChatScreen({
                 onHostAction={hostAction}
                 hostActions={composerHostActions}
                 openAccountsRequestId={accountsRequestId}
+                openModelRequestId={modelRequestId}
                 voiceCallTitle={title}
                 {...(composerRoom !== undefined ? { room: composerRoom } : {})}
                 {...(document !== null
@@ -385,6 +392,9 @@ export default function NativeChatScreen({
                   : {})}
               />
             </View>
+          )}
+          {composerShown || document === null ? null : (
+            <QuestionModelSheet chat={chat} document={document} openRequestId={modelRequestId} />
           )}
           <RewindDialog chat={chat} />
           <SaveMarkdownDialog chat={chat} />
@@ -431,6 +441,43 @@ export default function NativeChatScreen({
 }
 
 const NO_HOST_ACTIONS: readonly string[] = [];
+
+/**
+ * The composer's model sheet while a question takes the composer's place: the held-messages card's Pick model
+ * (`openRequestId`, the request the composer answers otherwise) opens it here, the same sheet with the same
+ * actions, and only requests made while it is mounted count.
+ *
+ * CDXC:SessionChat WHY: The sheet's own host is the composer, which a question unmounts, and Pick
+ * model has to open the model sheet in that state too (desktop's Pick model works there). Hosting the same sheet
+ * here keeps the question in the composer's place and leaves the composer's path untouched.
+ */
+function QuestionModelSheet({
+  chat,
+  document,
+  openRequestId,
+}: {
+  chat: RustChat;
+  document: ChatDocument;
+  openRequestId: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const handledRequest = useRef(openRequestId);
+  useEffect(() => {
+    if (openRequestId === handledRequest.current) return;
+    handledRequest.current = openRequestId;
+    if (openRequestId > 0) setOpen(true);
+  }, [openRequestId]);
+  const close = useCallback(() => setOpen(false), []);
+  return (
+    <ModelMenuSheet
+      menu={obj(document.modelMenu)}
+      visible={open}
+      ownProvider={str(document.modelMenuContext, 'provider')}
+      onClose={close}
+      dispatch={chat.dispatch}
+    />
+  );
+}
 
 type Toast = { id: number; title?: string; message: string; error: boolean } | null;
 

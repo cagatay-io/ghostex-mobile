@@ -63,9 +63,11 @@ export function ToneCard({
   icon,
   title,
   detail,
+  detailWraps,
   trailing,
   body,
   footerStart,
+  footerNote,
   footerEnd,
   onPressHeader,
   accessibilityLabel,
@@ -75,9 +77,16 @@ export function ToneCard({
   icon?: GlyphName;
   title: string;
   detail?: string;
+  /** The detail wraps instead of ending at one line (the held-messages card's reason). */
+  detailWraps?: boolean;
   trailing?: ReactNode;
   body?: ReactNode[];
   footerStart?: ReactNode[];
+  /**
+   * Muted text after `footerStart` that takes the room the buttons leave, wrapping there, in place
+   * of the gap that pushes `footerEnd` right (the held-messages card's way out; desktop's `footer_note`).
+   */
+  footerNote?: string;
   footerEnd?: ReactNode[];
   /** Makes the header the fold's target. */
   onPressHeader?: () => void;
@@ -90,7 +99,7 @@ export function ToneCard({
   const bodyItems = (body ?? []).filter((item) => item !== null && item !== undefined && item !== false);
   const start = (footerStart ?? []).filter(Boolean);
   const end = (footerEnd ?? []).filter(Boolean);
-  const hasFooter = start.length > 0 || end.length > 0;
+  const hasFooter = start.length > 0 || footerNote !== undefined || end.length > 0;
   const washOpacity = P.light ? SHELL.washLight : SHELL.washDark;
   // The footer width these actions were last seen taking more than one line at (`at` is -1 until the footer is measured). A new
   // set of actions in the same card measures afresh.
@@ -126,7 +135,7 @@ export function ToneCard({
       <View style={styles.titleColumn}>
         <Text style={styles.title}>{title}</Text>
         {detail ? (
-          <Text style={styles.detail} numberOfLines={1}>
+          <Text style={styles.detail} {...(detailWraps === true ? {} : { numberOfLines: 1 })}>
             {detail}
           </Text>
         ) : null}
@@ -161,6 +170,7 @@ export function ToneCard({
           ]}
         >
           {start}
+          {footerNote !== undefined ? <Text style={styles.footerNote}>{footerNote}</Text> : null}
           {/*
            * CDXC:SessionChat 2026-11-02 WHY: The actions are one group that fills what the footer leaves and keeps its own
            * order and right alignment. A spacer between them and the wrapping footer pushed the first line of a four-button
@@ -343,6 +353,13 @@ const useStyles = themedStyles((P) => ({
   },
   wrappedAction: {
     flexGrow: 1,
+  },
+  footerNote: {
+    flex: 1,
+    minWidth: 0,
+    color: P.muted,
+    fontSize: SHELL.detailSize,
+    lineHeight: SHELL.detailLineHeight,
   },
   button: {
     height: SHELL.buttonHeight,
