@@ -41,6 +41,7 @@ import {
   type CommandPadPositions,
 } from './commandPad';
 import { DEFAULT_TERMINAL_PALETTE } from '../theme/terminalPalettes';
+import { sanitizeImportedTerminalPalettes, type ImportedTerminalPalette } from '../theme/importGhostty';
 
 const SETTINGS_STORAGE_KEY = 'settings.v1';
 
@@ -111,6 +112,8 @@ export type GhostexSettings = ThemeColourSettings & {
   /** The terminal palettes per appearance (desktop `terminalGhosttyTheme` / `terminalGhosttyLightTheme`). */
   terminalGhosttyTheme: string;
   terminalGhosttyLightTheme: string;
+  /** Private local imports; absent on phones that have never imported a terminal palette. */
+  importedTerminalPalettes?: ImportedTerminalPalette[];
   terminalBackgroundMode: TerminalBackgroundMode;
   /**
    * The Custom terminal background (desktop `workspaceBackgroundColor`): `#rrggbb`, or `''` while none is set. The
@@ -450,6 +453,7 @@ function sanitizeSettings(value: unknown): GhostexSettings {
     typeof record.sessionChatTranscriptWidthPercent === 'number'
       ? clampSessionChatTranscriptWidthPercent(record.sessionChatTranscriptWidthPercent)
       : defaults.sessionChatTranscriptWidthPercent;
+  const importedTerminalPalettes = sanitizeImportedTerminalPalettes(record.importedTerminalPalettes);
   return {
     autoScroll: bool('autoScroll', defaults.autoScroll),
     extraKeysToolbarVisible: bool('extraKeysToolbarVisible', defaults.extraKeysToolbarVisible),
@@ -475,6 +479,7 @@ function sanitizeSettings(value: unknown): GhostexSettings {
     sidebarBackgroundContrast,
     sidebarBackgroundTint,
     ...themeSettingsFromRecord(record, sidebarBackgroundTint, sidebarBackgroundContrast, defaults),
+    ...(importedTerminalPalettes === undefined ? {} : { importedTerminalPalettes }),
     sidebarGroupsOpacityPercent,
     preferredAgentInterface,
     sessionChatTheme,

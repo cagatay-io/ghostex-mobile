@@ -21,7 +21,7 @@ import { useAppearance, type Appearance } from '../../theme/useAppearance';
 import { useAppearanceHeader } from './useAppearanceHeader';
 
 export type BooleanSettingKey = {
-  [Key in keyof GhostexSettings]: GhostexSettings[Key] extends boolean ? Key : never;
+  [Key in keyof GhostexSettings]-?: GhostexSettings[Key] extends boolean ? Key : never;
 }[keyof GhostexSettings];
 
 const stylesByAppearance = new WeakMap<Appearance, ReturnType<typeof createSettingsStyles>>();

@@ -3,7 +3,8 @@
  * colours: the twenty preset palettes from `./presets/<id>.json` plus the Ghostty themes in `./ghosttyThemes.json`
  * (written by scripts/generate-ghostty-themes.ts from the desktop's embedded Ghostty themes, including the desktop's
  * defaults GitHub Dark and GitHub Light Default). Settings lists the names; the terminal reads the colours of the saved
- * name, and a saved name the phone does not carry keeps the fallback in terminalColours.ts.
+ * name, and a saved name the phone does not carry keeps the fallback in terminalColours.ts. The caller also supplies
+ * any private palettes imported on this phone, stored separately from the bundled data in settings.v1.
  *
  * CDXC:Theming DECISION: only the Ghostty themes whose licence the app may pass
  * on ship, each covered by the third-party notices; the desktop is to apply the same selection.
@@ -13,6 +14,7 @@
  */
 
 import ghosttyThemes from './ghosttyThemes.json';
+import type { ImportedTerminalPalette } from './importGhostty';
 import { THEME_PRESETS } from './presets';
 import { isLightBackground } from './sidebarAppearance';
 
@@ -41,15 +43,33 @@ const PALETTES: ReadonlyMap<string, TerminalPalette> = new Map<string, TerminalP
 /** Byte order, as the Mac sorts its list (every name is ASCII, so UTF-16 order is the same). */
 const NAMES: readonly string[] = [...PALETTES.keys()].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 
-/** The palette names in the Mac's order; with `mode`, only those whose background is that dark or light. */
-export function terminalPaletteNames(mode?: 'dark' | 'light'): string[] {
-  if (mode === undefined) return [...NAMES];
-  return NAMES.filter((name) => isLightBackground(PALETTES.get(name)!.background) === (mode === 'light'));
+/** Bundled and private palette names, sorted by value; `mode` filters by their background colour. */
+export function terminalPaletteNames(
+  mode?: 'dark' | 'light',
+  imported?: readonly ImportedTerminalPalette[],
+): string[] {
+  const names = imported?.length
+    ? [...NAMES, ...imported.map((entry) => entry.name)].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+    : [...NAMES];
+  if (mode === undefined) return names;
+  return names.filter((name) => isLightBackground(terminalPalette(name, imported)!.background) === (mode === 'light'));
 }
 
-/** The colours of palette `name`, or null for a name the phone does not carry. */
-export function terminalPalette(name: string): TerminalPalette | null {
-  return PALETTES.get(name) ?? null;
+/** The colours of a bundled or privately imported palette, or null for a name the phone does not carry. */
+export function terminalPalette(name: string, imported?: readonly ImportedTerminalPalette[]): TerminalPalette | null {
+  const bundled = PALETTES.get(name);
+  if (bundled !== undefined) return bundled;
+  const palette = imported?.find((entry) => entry.name === name)?.palette;
+  return palette === undefined
+    ? null
+    : {
+        background: palette.background,
+        foreground: palette.foreground,
+        cursor: palette.cursor,
+        selectionBackground: palette.selectionBackground,
+        selectionForeground: palette.selectionForeground,
+        ansi: palette.palette,
+      };
 }
 
 /** The Mac's labels that differ from their values (`GHOSTTY_THEME_SETTING_OPTIONS`). */

@@ -14,6 +14,7 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { importGhosttyTheme } from '../theme/importGhostty';
 import { themePresetPatch } from '../theme/presets';
 import { resolveThemeAreas } from '../theme/sidebarAppearance';
 import { defaultSettings, useSettingsStore, type GhostexSettings } from './store';
@@ -201,4 +202,17 @@ describe('settings store colour keys', () => {
     );
     expect((await load(legacyRecord({ workspaceBackgroundColor: 'teal' }))).workspaceBackgroundColor).toBe('');
   });
+});
+
+test('the optional private palette list leaves old settings unchanged and loads valid stored imports', async () => {
+  const old = { ...defaultSettings(), fontSize: 18 };
+  expect(await load(old)).toEqual(old);
+  expect(Object.hasOwn(useSettingsStore.getState().settings, 'importedTerminalPalettes')).toBe(false);
+  const text = ['background=#000000', 'foreground=#ffffff',
+    ...Array.from({ length: 16 }, (_, index) => `palette=${index}=#aaaaaa`)].join('\n');
+  const imported = importGhosttyTheme(old, text, 'Private');
+  expect(await load(imported)).toEqual(imported);
+  const invalid = { ...imported.importedTerminalPalettes[0], schemaVersion: 2 };
+  const recovered = await load({ ...imported, importedTerminalPalettes: [invalid] });
+  expect(recovered).toEqual({ ...old, importedTerminalPalettes: [] });
 });

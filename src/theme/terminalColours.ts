@@ -39,6 +39,7 @@ export type TerminalColourSettings = Pick<
   | 'terminalColorScheme'
   | 'terminalGhosttyTheme'
   | 'terminalGhosttyLightTheme'
+  | 'importedTerminalPalettes'
   | 'terminalBackgroundMode'
   | 'workspaceBackgroundColor'
 >;
@@ -77,9 +78,10 @@ export function terminalBackground(settings: TerminalColourSettings, light: bool
  */
 export function terminalColours(settings: TerminalColourSettings, systemIsLight: boolean): TerminalColors {
   const light = contentIsLight(settings, 'terminalColorScheme', systemIsLight);
-  const palette = light
-    ? (terminalPalette(settings.terminalGhosttyLightTheme) ?? terminalPalette(DEFAULT_TERMINAL_PALETTE.light))
-    : (terminalPalette(settings.terminalGhosttyTheme) ?? terminalPalette(DEFAULT_TERMINAL_PALETTE.dark));
+  const name = light ? settings.terminalGhosttyLightTheme : settings.terminalGhosttyTheme;
+  const palette =
+    terminalPalette(name, settings.importedTerminalPalettes) ??
+    terminalPalette(light ? DEFAULT_TERMINAL_PALETTE.light : DEFAULT_TERMINAL_PALETTE.dark);
   const colors: TerminalColors = { light, background: terminalBackground(settings, light), palette: [] };
   if (palette === null) return colors;
   colors.foreground = palette.foreground;

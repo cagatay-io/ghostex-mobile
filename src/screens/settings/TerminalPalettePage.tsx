@@ -1,7 +1,7 @@
 /**
  * Settings › Interface › Terminal palette in dark mode / in light mode: the palette the terminal draws with in that
- * appearance (`terminalGhosttyTheme` / `terminalGhosttyLightTheme`), from the Mac's list. A filter narrows the list;
- * a saved name the phone does not carry stays listed first, as on the Mac.
+ * appearance (`terminalGhosttyTheme` / `terminalGhosttyLightTheme`), from the Mac's bundled list plus this phone's
+ * private imports. A filter narrows the list; a saved name the phone does not carry stays listed first, as on the Mac.
  * The list holds a couple of hundred palettes, so it is one virtualised list with the caption and filter as its
  * header: only the rows near the screen are built. Like every Settings page it keeps the focused filter above the
  * keyboard, a readable column clear of the side bar, and half folded like a laptop a list that ends above the fold.
@@ -26,17 +26,18 @@ export default function TerminalPalettePage({ dark }: { dark: boolean }) {
   useAppearanceHeader();
   const key = dark ? 'terminalGhosttyTheme' : 'terminalGhosttyLightTheme';
   const current = useSettingsStore((state) => state.settings[key]);
+  const imported = useSettingsStore((state) => state.settings.importedTerminalPalettes);
   const setSetting = useSettingsStore((state) => state.setSetting);
   const styles = useSettingsStyles();
   const appearance = useAppearance();
   const [filter, setFilter] = useState('');
 
   const shown = useMemo(() => {
-    const names = terminalPaletteNames();
+    const names = terminalPaletteNames(undefined, imported);
     const offered = names.includes(current) ? names : [current, ...names];
     const query = filter.trim().toLowerCase();
     return query === '' ? offered : offered.filter((name) => terminalPaletteLabel(name).toLowerCase().includes(query));
-  }, [current, filter]);
+  }, [current, filter, imported]);
 
   // As every Settings page: a readable column where the Duo's chrome gives a wide window, and scroll content kept
   // clear of the side bar.

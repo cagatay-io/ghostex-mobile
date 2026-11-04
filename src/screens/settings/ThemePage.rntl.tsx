@@ -16,7 +16,7 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { NativeModules } from 'react-native';
+import { Alert, NativeModules } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { transcriptThemeFor } from '../../chat/native/transcript/theme';
@@ -34,6 +34,20 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 jest.mock('../../../modules/ghostex-native/src/GhostexNativeModule', () => ({ __esModule: true, default: {} }));
 // Settings' page switch also imports the Licences page, which bundles the notices file; these pages never read it.
 jest.mock('../../../THIRD_PARTY_NOTICES.md', () => 1);
+const mockPick = jest.fn();
+const mockRead = jest.fn();
+const mockDelete = jest.fn();
+jest.mock('expo-document-picker', () => ({ getDocumentAsync: (...args: unknown[]) => mockPick(...args) }));
+jest.mock('expo-file-system', () => ({
+  ...jest.requireActual('expo-file-system'),
+  File: jest.fn().mockImplementation(() => ({ text: mockRead, delete: mockDelete })),
+}));
+
+const IMPORT_TEXT = [
+  'background=#282a36', 'foreground=#f8f8f2', 'cursor-color=#ff5555',
+  ...Array.from({ length: 16 }, (_, index) => `palette=${index}=#${index.toString(16).repeat(6)}`),
+].join('\n');
+const PICKED = { canceled: false, assets: [{ uri: 'file:///cache/private.ghostty', name: 'Private.ghostty' }] };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -64,9 +78,13 @@ const settings = () => useSettingsStore.getState().settings;
 
 beforeEach(() => {
   nativeStatusStyle().mockClear();
+  mockPick.mockReset();
+  mockRead.mockReset();
+  mockDelete.mockReset();
   useSettingsStore.setState({ hydrated: true, settings: defaultSettings() });
 });
 
+afterEach(() => jest.restoreAllMocks());
 test('a preset is one save of its patch, its card is selected, and a manual edit unselects it', async () => {
   await render(<Page page="theme" />);
   expect(screen.getAllByRole('button', { name: /preset$/ })).toHaveLength(20);
@@ -214,4 +232,91 @@ describe('the terminal palette pickers (one list of every palette)', () => {
     while (host !== null && host.props.keyboardShouldPersistTaps === undefined) host = host.parent;
     expect(host?.props.keyboardShouldPersistTaps).toBe('handled');
   });
+});
+
+test('a local import changes only the private list, survives hydration and can be selected in both palette pickers', async () => {
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  mockPick.mockResolvedValue(PICKED);
+  mockRead.mockResolvedValue(IMPORT_TEXT);
+  const before = settings();
+  const first = await render(<Page page="theme" />);
+  await act(async () => fireEvent.press(screen.getByRole('button', { name: 'Import Ghostty theme' })));
+  expect(mockPick).toHaveBeenCalledWith({ multiple: false, copyToCacheDirectory: true });
+  expect(mockDelete).toHaveBeenCalledTimes(1);
+  expect(alert).toHaveBeenCalledWith('Palette imported', expect.any(String));
+  const { importedTerminalPalettes, ...unchanged } = settings();
+  expect(unchanged).toEqual(before);
+  expect(importedTerminalPalettes).toHaveLength(1);
+  // Hydrate from the real settings.v1 write; the importer has not selected either appearance.
+  await act(async () => {
+    useSettingsStore.setState({ hydrated: false, settings: defaultSettings() });
+    await useSettingsStore.getState().hydrate();
+  });
+  expect(settings().importedTerminalPalettes).toEqual(importedTerminalPalettes);
+  await act(async () => fireEvent.press(screen.getByText('Terminal palette in dark mode')));
+  await act(async () => fireEvent.changeText(screen.getByLabelText('Filter palettes'), 'Private'));
+  await act(async () => fireEvent.press(screen.getByRole('radio', { name: 'Private' })));
+  expect(settings().terminalGhosttyTheme).toBe('Private');
+  expect(settings().terminalGhosttyLightTheme).toBe(before.terminalGhosttyLightTheme);
+  await first.unmount();
+  await render(<Page page="terminalPaletteLight" />);
+  await act(async () => fireEvent.changeText(screen.getByLabelText('Filter palettes'), 'Private'));
+  await act(async () => fireEvent.press(screen.getByRole('radio', { name: 'Private' })));
+  expect(settings().terminalGhosttyLightTheme).toBe('Private');
+});
+
+test.each([
+  IMPORT_TEXT.replace('background=#282a36', ''),
+  IMPORT_TEXT.split('\n').slice(0, -1).join('\n'),
+  ['background=#000000', 'foreground=#ffffff', ...Array(16).fill('palette=0=#000000')].join('\n'),
+])('an invalid import shows an error and leaves every setting unchanged', async (text) => {
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  mockPick.mockResolvedValue(PICKED);
+  mockRead.mockResolvedValue(text);
+  const before = settings();
+  await render(<Page page="theme" />);
+  await act(async () => fireEvent.press(screen.getByRole('button', { name: 'Import Ghostty theme' })));
+  expect(alert).toHaveBeenCalledWith('Cannot import palette', expect.any(String));
+  expect(settings()).toEqual(before);
+  expect(mockDelete).toHaveBeenCalledTimes(1);
+});
+
+test('cancel is silent, a failed read is recoverable, and a pending picker cannot import twice', async () => {
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  const before = settings();
+  mockPick.mockResolvedValueOnce({ canceled: true });
+  await render(<Page page="theme" />);
+  await act(async () => fireEvent.press(screen.getByRole('button', { name: 'Import Ghostty theme' })));
+  expect(alert).not.toHaveBeenCalled();
+  expect(settings()).toEqual(before);
+  mockPick.mockResolvedValueOnce(PICKED);
+  mockRead.mockRejectedValueOnce(new Error('Provider read failed'));
+  await act(async () => fireEvent.press(screen.getByRole('button', { name: 'Import Ghostty theme' })));
+  expect(alert).toHaveBeenCalledWith('Cannot import palette', expect.stringContaining('could not be read'));
+  expect(settings()).toEqual(before);
+  const pending = Promise.withResolvers<typeof PICKED>();
+  mockPick.mockReturnValueOnce(pending.promise);
+  mockRead.mockResolvedValueOnce(IMPORT_TEXT);
+  await act(async () => {
+    await fireEvent.press(screen.getByRole('button', { name: 'Import Ghostty theme' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Import Ghostty theme' }));
+  });
+  expect(screen.getByRole('button', { name: 'Import Ghostty theme', disabled: true })).toBeTruthy();
+  expect(mockPick).toHaveBeenCalledTimes(3);
+  await act(async () => pending.resolve(PICKED));
+  expect(settings().importedTerminalPalettes).toHaveLength(1);
+});
+
+test('a picker completing after the theme page leaves cannot import or show an alert', async () => {
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  const pending = Promise.withResolvers<typeof PICKED>();
+  mockPick.mockReturnValue(pending.promise);
+  const before = settings();
+  const page = await render(<Page page="theme" />);
+  await act(async () => fireEvent.press(screen.getByRole('button', { name: 'Import Ghostty theme' })));
+  await page.unmount();
+  await act(async () => pending.resolve(PICKED));
+  expect(settings()).toEqual(before);
+  expect(alert).not.toHaveBeenCalled();
+  expect(mockDelete).toHaveBeenCalledTimes(1);
 });

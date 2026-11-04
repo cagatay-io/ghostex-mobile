@@ -14,12 +14,15 @@
 
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import { File } from 'expo-file-system';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import type { RootStackParamList } from '../../navigation/types';
 import { defaultSettings, useSettingsStore, type GhostexSettings } from '../../settings/store';
+import { GhosttyImportError, importGhosttyTheme } from '../../theme/importGhostty';
 import { colorWithOpacity, GhostexStrokeWidth } from '../../theme/palette';
 import {
   THEME_PRESET_FAMILIES,
@@ -446,6 +449,57 @@ function TerminalPaletteRows() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const dark = useSettingsStore((state) => state.settings.terminalGhosttyTheme);
   const light = useSettingsStore((state) => state.settings.terminalGhosttyLightTheme);
+  const hydrated = useSettingsStore((state) => state.hydrated);
+  const settingsStyles = useSettingsStyles();
+  const [importing, setImporting] = useState(false);
+  const picking = useRef(false);
+  const active = useRef(true);
+  useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+    };
+  }, []);
+
+  const importPalette = async (): Promise<void> => {
+    if (picking.current || !hydrated) return;
+    picking.current = true;
+    setImporting(true);
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ multiple: false, copyToCacheDirectory: true });
+      if (result.canceled) return;
+      const asset = result.assets[0];
+      if (asset === undefined || !asset.uri.startsWith('file://')) {
+        throw new Error('No local file');
+      }
+      const file = new File(asset.uri);
+      let text: string;
+      try {
+        if (!active.current) return;
+        text = await file.text();
+      } finally {
+        // The picker supplied a cache copy, never the document provider's original file.
+        file.delete();
+      }
+      if (!active.current) return;
+      const state = useSettingsStore.getState();
+      const next = importGhosttyTheme(state.settings, text, asset.name);
+      state.patchSettings({ importedTerminalPalettes: next.importedTerminalPalettes });
+      Alert.alert('Palette imported', 'Choose it in the terminal palette list for dark or light mode.');
+    } catch (error) {
+      if (active.current) {
+        Alert.alert(
+          'Cannot import palette',
+          error instanceof GhosttyImportError
+            ? error.message
+            : 'The file could not be read. Choose a local Ghostty theme file and try again.',
+        );
+      }
+    } finally {
+      picking.current = false;
+      if (active.current) setImporting(false);
+    }
+  };
   return (
     <>
       <SectionHeader title="Terminal palettes" />
@@ -460,6 +514,25 @@ function TerminalPaletteRows() {
         onPress={() => navigation.navigate('SettingsPage', { page: 'terminalPaletteLight' })}
       />
       <Caption>The terminal colours in dark mode and in light mode.</Caption>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Import Ghostty theme"
+        accessibilityState={{ disabled: !hydrated || importing, busy: importing }}
+        disabled={!hydrated || importing}
+        onPress={() => void importPalette()}
+        style={({ pressed }) => [
+          settingsStyles.row,
+          pressed && settingsStyles.rowPressed,
+          (!hydrated || importing) && settingsStyles.rowDisabled,
+        ]}
+      >
+        <View style={settingsStyles.linkText}>
+          <Text style={settingsStyles.linkTitle}>Import Ghostty theme</Text>
+          <Text style={settingsStyles.linkDescription}>
+            {importing ? 'Reading file…' : 'Add a private terminal palette from a local file.'}
+          </Text>
+        </View>
+      </Pressable>
     </>
   );
 }

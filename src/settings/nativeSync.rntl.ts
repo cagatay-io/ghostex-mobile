@@ -22,6 +22,7 @@ import { Appearance } from 'react-native';
 
 import { GhostexNative } from '../../modules/ghostex-native/src';
 import type { TerminalColors, TerminalRuntimeSettings } from '../../modules/ghostex-native/src/GhostexNative.types';
+import { importGhosttyTheme } from '../theme/importGhostty';
 import { themePresetPatch } from '../theme/presets';
 import { initSettingsNativeSync } from './nativeSync';
 import { defaultSettings, useSettingsStore } from './store';
@@ -172,4 +173,23 @@ test('both saved palettes no longer ship: the terminals take the default palette
   appearanceListener?.();
   // Ghostty's GitHub Dark theme file.
   expect(sentColors()).toMatchObject({ light: false, background: '#000000', foreground: '#8b949e', cursor: '#c9d1d9' });
+});
+
+test('import is inert until selected; selecting it sends its colours through the existing native sync', () => {
+  const text = ['background=#112233', 'foreground=#ddeeff', 'cursor-color=#abcdef',
+    ...Array.from({ length: 16 }, (_, index) => `palette=${index}=#${index.toString(16).repeat(6)}`)].join('\n');
+  const next = importGhosttyTheme(useSettingsStore.getState().settings, text, 'Private');
+  setTerminalSettings.mockClear();
+  useSettingsStore.getState().patchSettings({ importedTerminalPalettes: next.importedTerminalPalettes });
+  expect(setTerminalSettings).not.toHaveBeenCalled();
+  useSettingsStore.getState().patchSettings({ terminalGhosttyTheme: 'Private', terminalColorScheme: 'dark' });
+  expect(sentColors()).toEqual({
+    light: false, background: '#000000', foreground: '#ddeeff', cursor: '#abcdef',
+    palette: [
+      '#000000', '#111111', '#222222', '#333333', '#444444', '#555555', '#666666', '#777777',
+      '#888888', '#999999', '#aaaaaa', '#bbbbbb', '#cccccc', '#dddddd', '#eeeeee', '#ffffff',
+    ],
+  });
+  useSettingsStore.getState().patchSettings({ terminalGhosttyLightTheme: 'Private', terminalColorScheme: 'light' });
+  expect(sentColors()).toMatchObject({ light: true, foreground: '#ddeeff', cursor: '#abcdef' });
 });

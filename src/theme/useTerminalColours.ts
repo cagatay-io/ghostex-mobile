@@ -26,6 +26,7 @@ export function useTerminalColours(): { colors: TerminalColors; chrome: Terminal
       terminalColorScheme: settings.terminalColorScheme,
       terminalGhosttyTheme: settings.terminalGhosttyTheme,
       terminalGhosttyLightTheme: settings.terminalGhosttyLightTheme,
+      importedTerminalPalettes: settings.importedTerminalPalettes,
       terminalBackgroundMode: settings.terminalBackgroundMode,
       workspaceBackgroundColor: settings.workspaceBackgroundColor,
     })),
