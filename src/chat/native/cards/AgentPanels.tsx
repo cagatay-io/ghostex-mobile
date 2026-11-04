@@ -260,7 +260,6 @@ export function AgentFleetMenu({
           <FleetRow
             key={str(row, 'key') || String(index)}
             row={row}
-            stale={stale}
             chat={chat}
             nameWidth={nameWidth}
             onDone={onDone}
@@ -273,13 +272,11 @@ export function AgentFleetMenu({
 
 function FleetRow({
   row,
-  stale,
   chat,
   nameWidth,
   onDone,
 }: {
   row: unknown;
-  stale: boolean;
   chat: RustChat;
   nameWidth: number;
   onDone: () => void;
@@ -289,6 +286,8 @@ function FleetRow({
   const open = subagentOpenAction(row);
   const working = isTrue(row, 'working');
   const status = str(row, 'statusText');
+  // "Done" or "Idle" from the core, empty while the child works or the roster is stale.
+  const state = str(row, 'stateLabel');
   const nested = num(row, 'nested') ?? 0;
   const press =
     open === null
@@ -312,7 +311,7 @@ function FleetRow({
       <View style={styles.fleetWork}>
         {/* The separator leads the status cell so it aligns across rows (agent_fleet.rs). */}
         {isTrue(row, 'marker') ? <Text style={styles.fleetMarker}>‣</Text> : null}
-        {isTrue(row, 'idle') && !stale ? <Text style={styles.fleetIdle}>Idle</Text> : null}
+        {state.length > 0 ? <Text style={styles.fleetIdle}>{state}</Text> : null}
         {status.length > 0 ? (
           <Text style={styles.fleetStatus} numberOfLines={1} onPress={press}>
             {status}
