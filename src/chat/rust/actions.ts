@@ -187,6 +187,8 @@ export type ActionFields = {
   formSend: { form: string };
   formSkipAll: { form: string };
   formToggle: { form: string };
+  inlineAnswer: { form: string; choice: number };
+  inlineAnswerChange: { form: string };
   asyncQuestionToggle: {};
   asyncQuestionNavigate: { direction: string };
   asyncQuestionText: { key: string; text: string };

@@ -28,6 +28,8 @@ const QUESTIONS_OPEN = `${MARK}questions:`;
 const QUESTIONS_CLOSE = `${MARK}/questions`;
 const SECTION_OPEN = `${MARK}section:`;
 const SECTION_CLOSE = `${MARK}/section`;
+/** One-click answers under an agent's question (gx-chat-core `transcript/inline_answers.rs` `ANSWERS_OPEN`). */
+const ANSWERS_OPEN = `${MARK}answers:`;
 
 /** A marked section of an agent's reply, as the core described it (`marked_sections.rs`). */
 export type SectionMeta = {
@@ -71,6 +73,8 @@ export type Block =
   | { t: 'visual'; source: string }
   /** A finished ```questions fence: the form's id and its lines, drawn by `QuestionForm` (desktop `question_form.rs`). */
   | { t: 'questions'; id: string; source: string }
+  /** One-click answers under the question above (`InlineAnswers.tsx`; desktop `inline_answers.rs`): the marked line's JSON. */
+  | { t: 'answers'; mark: JsonRecord }
   /**
    * A marked section (`MarkedSections.tsx`): `all` is every line as written and `rest` the lines
    * after the first, for the styles that draw their own first line (the core ends the first line at
@@ -226,6 +230,7 @@ class BlockParser {
   private interrupts(line: string): boolean {
     if (FENCE.test(line) || ATX.test(line) || HR.test(line) || QUOTE.test(line)) return true;
     if (line.startsWith(SECTION_OPEN) || line === SECTION_CLOSE) return true;
+    if (line.trimStart().startsWith(ANSWERS_OPEN)) return true;
     if (
       line.startsWith(ALERT_OPEN) ||
       line === TABLE_OPEN ||
@@ -262,6 +267,12 @@ class BlockParser {
           c: this.blocks(lines.slice(index + 1, end)),
         });
         index = end + 1;
+        continue;
+      }
+      if (line.trimStart().startsWith(ANSWERS_OPEN)) {
+        const mark = obj(parseJson<unknown>(line.trimStart().slice(ANSWERS_OPEN.length), null));
+        if (mark !== null) out.push({ t: 'answers', mark });
+        index += 1;
         continue;
       }
       if (line.startsWith(SECTION_OPEN)) {

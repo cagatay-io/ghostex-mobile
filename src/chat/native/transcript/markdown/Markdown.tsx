@@ -25,6 +25,7 @@ import { CODE_SIZE, MONO_FONT, PROSE_LINE, PROSE_SIZE, type TranscriptTheme } fr
 import { InlineImage, PictureStrip } from '../Images';
 import { VisualBlock } from '../VisualBlock';
 import { QuestionForm } from '../QuestionForm';
+import { InlineAnswers } from './InlineAnswers';
 import { QUESTION_TAGS, type QuestionTagState } from '../OpenQuestions';
 import { openTranscriptMenu } from '../transcriptMenuStore';
 import { highlightText, useOwnFind, useRowFind, type RowFind } from '../searchHighlight';
@@ -761,6 +762,12 @@ function Blocks({ blocks, context, color, depth, listDepth }: BlockProps) {
             return (
               <View key={key} style={spacing}>
                 <QuestionForm id={block.id} source={block.source} />
+              </View>
+            );
+          case 'answers':
+            return (
+              <View key={key} style={spacing}>
+                <InlineAnswers mark={block.mark} />
               </View>
             );
           case 'hr':

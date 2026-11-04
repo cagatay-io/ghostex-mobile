@@ -41,6 +41,11 @@ import { imagesFromIntake } from '../composer/imageIntake';
 const FormsContext = createContext<{ [id: string]: Json }>({});
 export const QuestionFormsProvider = FormsContext.Provider;
 
+/** One form's state from the document's `questionForms` (a one-click question's too, `InlineAnswers.tsx`). */
+export function useQuestionFormState(id: string): JsonRecord | null {
+  return obj(useContext(FormsContext)[id]);
+}
+
 /** What the footer says about the questions left blank, behind the (i) icon; desktop `SKIPPED_HINT` (ask_card.rs) says the same. */
 const SKIPPED_HINT = 'Questions you leave blank are sent as skipped.';
 
