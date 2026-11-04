@@ -116,7 +116,7 @@ function StatusSlot({ row, nowMs }: { row: UnifiedRow<GhostexSession>; nowMs: nu
   return (
     <View style={styles.status} accessibilityLabel={status}>
       {timer !== null ? <Text style={[styles.statusTimer, { color }]}>{timer}</Text> : null}
-      {status === 'Working' ? <SpinningGlyph>{glyph}</SpinningGlyph> : glyph}
+      <View style={styles.rightColumn}>{status === 'Working' ? <SpinningGlyph>{glyph}</SpinningGlyph> : glyph}</View>
     </View>
   );
 }
@@ -473,7 +473,14 @@ const styles = StyleSheet.create({
   placeholder: { opacity: 0.6 },
   meta: { color: SIDEBAR_MUTED, fontSize: ds(12.5), fontWeight: '400', flexShrink: 1 },
   pullRequest: { flexDirection: 'row', alignItems: 'center', gap: ds(2), flexShrink: 0 },
-  agent: { opacity: 0.75, flexShrink: 0 },
+  agent: { opacity: 0.75, flexShrink: 0, width: ds(17), alignItems: 'center' },
+  /**
+   * CDXC:Sidebar 2026-11-05 DECISION: User: "the dot that indicates working/status is shifted to
+   * the left a bit and not center aligned with the icon below it". The status icon and the agent
+   * icon share one fixed-width, centred right column, so the status sits exactly over the agent
+   * icon whatever the timer says (cards.rs, `STATUS_SLOT_WIDTH`).
+   */
+  rightColumn: { width: ds(17), alignItems: 'center', flexShrink: 0 },
   dim: { opacity: 0.5 },
   actions: { flex: 1, flexDirection: 'row', alignItems: 'stretch', justifyContent: 'flex-end', gap: ds(2), paddingLeft: ds(4) },
   actionButton: {
