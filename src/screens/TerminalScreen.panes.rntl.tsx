@@ -781,6 +781,23 @@ describe('input goes to the pane tapped last: the keyboard, the pad, the editor,
     await settle();
     expect(mockNative.focusTerminal.mock.calls).toEqual([[B]]);
   });
+
+  test('an answer about the hardware keyboard that comes after the text editor opened moves nothing', async () => {
+    await renderScreen({ stored: stacked(A, B) });
+    // Alpha's answer is held back until the person has opened the text editor on Beta.
+    const answer = Promise.withResolvers<boolean>();
+    mockNative.terminalHoldsKeyboard.mockImplementation(() => answer.promise);
+    await fireEvent.press(screen.getByRole('tab', { name: 'Beta' }));
+    await settle();
+    await press(TOGGLE);
+    await press('Text editor');
+    expect(screen.getByLabelText(EDITOR, HIDDEN_TOO)).toBeTruthy();
+    mockNative.focusTerminal.mockClear();
+    await act(async () => answer.resolve(true));
+    await settle();
+    expect(screen.getByLabelText(EDITOR, HIDDEN_TOO)).toBeTruthy();
+    expect(mockNative.focusTerminal).not.toHaveBeenCalled();
+  });
 });
 
 describe('the active pane is marked only while two panes show', () => {

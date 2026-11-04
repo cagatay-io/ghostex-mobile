@@ -19,7 +19,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AccessibilityInfo, Dimensions, StyleSheet } from 'react-native';
+import { AccessibilityInfo, Dimensions, Keyboard, StyleSheet, TextInput, type HostInstance } from 'react-native';
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import type { TestInstance } from 'test-renderer';
 
@@ -154,6 +154,8 @@ const FOLD_TOP = 455.5;
 const KEYBOARD_HEIGHT = 336;
 const TOGGLE = 'Command pad';
 const HIDDEN_TOO = { hidden: true };
+/** What React Native's focus registry answers while a text field (the chat's composer) holds the keyboard's input. */
+const FOCUSED_FIELD = {} as HostInstance;
 
 const MACHINE: MachineRecord = {
   id: 'm1',
@@ -637,6 +639,35 @@ describe('the keyboard follows the active pane to and from the composer', () => 
     const asked = Number(chatInPane(A, 'a').props.focusRequestId ?? 0);
     await tapPane(A);
     expect(Number(chatInPane(A, 'a').props.focusRequestId)).toBe(asked + 1);
+  });
+
+  test('a hardware keyboard typing into the composer goes to the terminal pane selected in the tab strip', async () => {
+    await renderScreen({ stored: stacked(sessionSlot(A), sessionSlot(B)) });
+    // Alpha's composer holds the keyboard's input while iOS shows no keyboard: no keyboard frame arrives.
+    jest.spyOn(TextInput.State, 'currentlyFocusedInput').mockReturnValue(FOCUSED_FIELD);
+    mockNative.focusTerminal.mockClear();
+    await fireEvent.press(screen.getByRole('tab', { name: 'Beta' }));
+    await settle();
+    expect(selected()).toBe(B);
+    expect(chatInPane(A, 'a').props.visible).toBe(true);
+    expect(mockNative.focusTerminal.mock.calls).toEqual([[B]]);
+  });
+
+  test('nothing typing into the composer and no keyboard: selecting the terminal pane raises no keyboard', async () => {
+    await renderScreen({ stored: stacked(sessionSlot(A), sessionSlot(B)) });
+    await fireEvent.press(screen.getByRole('tab', { name: 'Beta' }));
+    await settle();
+    expect(selected()).toBe(B);
+    expect(mockNative.focusTerminal).not.toHaveBeenCalled();
+  });
+
+  test('a hardware keyboard typing into the composer stops there when a pane without a terminal is tapped', async () => {
+    await renderScreen({ stored: stacked({ paneType: 'agents' }, sessionSlot(A)) });
+    await tapPane(A);
+    jest.spyOn(TextInput.State, 'currentlyFocusedInput').mockReturnValue(FOCUSED_FIELD);
+    const dismiss = jest.spyOn(Keyboard, 'dismiss').mockImplementation(() => undefined);
+    await tapPane('agents');
+    expect(dismiss).toHaveBeenCalled();
   });
 });
 

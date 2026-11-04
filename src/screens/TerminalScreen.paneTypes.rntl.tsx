@@ -27,7 +27,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AccessibilityInfo, Dimensions, FlatList, StyleSheet } from 'react-native';
+import { AccessibilityInfo, Dimensions, FlatList, StyleSheet, TextInput, type HostInstance } from 'react-native';
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import type { TestInstance } from 'test-renderer';
 
@@ -944,6 +944,16 @@ describe('the active pane without a terminal', () => {
     await touchPane('browser');
     expect(mockNative.blurTerminal).not.toHaveBeenCalled();
     expect(mockNative.focusTerminal).not.toHaveBeenCalled();
+  });
+
+  test('a hardware keyboard typing into a field of the browser pane goes to the terminal pane touched', async () => {
+    await renderScreen({ stored: layout(session(A), BROWSER) });
+    await touchPane('browser');
+    // A field of the browser pane holds the keyboard's input while iOS shows no keyboard: no keyboard frame arrives.
+    jest.spyOn(TextInput.State, 'currentlyFocusedInput').mockReturnValue({} as HostInstance);
+    mockNative.focusTerminal.mockClear();
+    await touchPane(A);
+    expect(mockNative.focusTerminal.mock.calls).toEqual([[A]]);
   });
 
   test('half folded like a laptop: side by side above the fold, no pad while the files pane is active', async () => {

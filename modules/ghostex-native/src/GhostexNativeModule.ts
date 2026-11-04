@@ -176,8 +176,8 @@ declare class GhostexNativeModule extends NativeModule<GhostexNativeEvents> {
   blurTerminal(sessionKey: string): Promise<void>;
   /**
    * iOS only: whether the attached view holds the keyboard's input (first responder, and not only for its edit menu's
-   * Paste). With a hardware keyboard iOS shows no software keyboard, so no keyboard frame arrives while typing still
-   * goes to this terminal. Not bridged on Android.
+   * Paste). With a hardware keyboard no software keyboard need cover the app, so typing can go to this terminal with no
+   * keyboard frame. Not bridged on Android.
    */
   terminalHoldsKeyboard(sessionKey: string): Promise<boolean>;
 
