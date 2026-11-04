@@ -37,6 +37,9 @@ mobile/
   ios/ android/               # expo prebuild output, committed (bare workflow)
 ```
 
+Sent chat prompts use content-sized message bubbles. Markdown list bodies keep their intrinsic width while
+remaining able to grow and shrink, so an ordered-list prompt contains its words and inline pictures.
+
 ## Native module contract (`modules/ghostex-native`)
 
 Both platforms implement this API, except the iOS-only bar layout functions and event (`observeBarLayout`, `stopObservingBarLayout`, `onBarLayoutChange`), which the shared layer calls only behind `Platform.OS === 'ios'`. TS bindings in `modules/ghostex-native/src/index.ts`.

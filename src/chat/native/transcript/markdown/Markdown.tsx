@@ -1002,7 +1002,9 @@ const styles = StyleSheet.create({
   listItem: { flexDirection: 'row' },
   listItemGap: { marginTop: 4 },
   listMarker: { alignItems: 'flex-start' },
-  listBody: { flex: 1, minWidth: 0 },
+  // A content-sized user bubble needs the body's intrinsic width, not `flex: 1`'s zero basis.
+  // Grow still fills an answer's row; shrink keeps long prompts inside their bubble.
+  listBody: { flexGrow: 1, flexShrink: 1, minWidth: 0 },
   checkbox: {
     width: 13,
     height: 13,
