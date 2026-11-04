@@ -195,7 +195,8 @@ describe('Settings › Notifications (its switch rows and the blocked card)', ()
         notifications: { enabled: true, finished: true, waiting: true, error: true, askedAt: new Date().toISOString() },
       },
     }));
-    useAttentionFeedStore.setState({ permission });
+    // The measured caption describes a running app: the saved push record has loaded with no accepted computers.
+    useAttentionFeedStore.setState({ permission, pushComputers: [] });
   }
   const switchRows = () => SWITCHES.map((name) => screen.getByRole('switch', { name }));
 
