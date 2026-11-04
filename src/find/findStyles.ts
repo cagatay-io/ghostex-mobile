@@ -6,7 +6,7 @@
 
 import { StyleSheet } from 'react-native';
 
-import { GhostexPalette, GhostexRadii, GhostexStrokeWidth, mixHexColors } from '../theme/palette';
+import { GhostexRadii, GhostexStrokeWidth, mixHexColors } from '../theme/palette';
 import { readableSecondaryText } from '../theme/sidebarAppearance';
 import { useAppearance, type Appearance } from '../theme/useAppearance';
 
@@ -202,7 +202,7 @@ function createFindStyles(appearance: Appearance) {
       backgroundColor: appearance.cardActive,
     },
     sheetTitle: {
-      color: GhostexPalette.FOREGROUND,
+      color: appearance.foreground,
       fontSize: 15,
       fontWeight: '700',
       marginBottom: 10,
@@ -212,10 +212,10 @@ function createFindStyles(appearance: Appearance) {
       paddingHorizontal: 12,
       marginBottom: 8,
       borderRadius: GhostexRadii.input,
-      backgroundColor: GhostexPalette.INPUT_BACKGROUND,
+      backgroundColor: appearance.input,
       borderWidth: GhostexStrokeWidth,
-      borderColor: GhostexPalette.BORDER,
-      color: GhostexPalette.FOREGROUND,
+      borderColor: appearance.border,
+      color: appearance.foreground,
       fontSize: 15,
     },
     sheetRow: {
@@ -227,18 +227,18 @@ function createFindStyles(appearance: Appearance) {
       borderRadius: GhostexRadii.row,
     },
     sheetRowPressed: {
-      backgroundColor: GhostexPalette.CARD_ACTIVE,
+      backgroundColor: appearance.cardActive,
     },
     sheetRowText: {
       flex: 1,
       minWidth: 0,
     },
     sheetRowLabel: {
-      color: GhostexPalette.FOREGROUND,
+      color: appearance.foreground,
       fontSize: 15,
     },
     sheetRowDetail: {
-      color: GhostexPalette.MUTED,
+      color: appearance.muted,
       fontSize: 12,
     },
     sheetCheck: {
