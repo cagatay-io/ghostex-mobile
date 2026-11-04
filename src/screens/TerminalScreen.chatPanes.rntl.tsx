@@ -43,8 +43,8 @@ import TerminalScreen from './TerminalScreen';
 const mockNative = {
   focusTerminal: jest.fn((_sessionKey: string): Promise<boolean> => Promise.resolve(true)),
   blurTerminal: jest.fn((_sessionKey: string) => Promise.resolve()),
-  /** Whether a terminal holds the keyboard's input: a hardware keyboard typing into it, no keyboard on screen. */
-  terminalHoldsKeyboard: jest.fn((_sessionKey: string): Promise<boolean> => Promise.resolve(false)),
+  /** Whether something in the app holds a hardware keyboard's typing while no keyboard is on screen. */
+  keyboardInputHeld: jest.fn((): Promise<boolean> => Promise.resolve(false)),
   openTerminal: jest.fn((_sessionKey: string, _machineId: string, _opts: object) => Promise.resolve()),
 };
 let mockBarLayout: BarLayout | null = null;
@@ -74,7 +74,7 @@ jest.mock('../../modules/ghostex-native/src', () => {
       pasteFromClipboard: () => Promise.resolve(),
       focusTerminal: (sessionKey: string) => mockNative.focusTerminal(sessionKey),
       blurTerminal: (sessionKey: string) => mockNative.blurTerminal(sessionKey),
-      terminalHoldsKeyboard: (sessionKey: string) => mockNative.terminalHoldsKeyboard(sessionKey),
+      keyboardInputHeld: () => mockNative.keyboardInputHeld(),
       openTerminal: (...args: [string, string, object]) => mockNative.openTerminal(...args),
       closeTerminal: () => Promise.resolve(),
     },
@@ -372,7 +372,7 @@ beforeAll(() => {
 beforeEach(async () => {
   jest.useFakeTimers();
   Object.values(mockNative).forEach((mock) => mock.mockClear());
-  mockNative.terminalHoldsKeyboard.mockImplementation(() => Promise.resolve(false));
+  mockNative.keyboardInputHeld.mockImplementation(() => Promise.resolve(false));
   navigation.setOptions.mockClear();
   mockReport = null;
   mockMounted = [null, null, null];
@@ -635,7 +635,7 @@ describe('the keyboard follows the active pane to and from the composer', () => 
     await renderScreen({ stored: stacked(sessionSlot(A), sessionSlot(B)) });
     await tapPane(B);
     // Beta's terminal holds the keyboard's input while iOS shows no keyboard: no keyboard frame arrives.
-    mockNative.terminalHoldsKeyboard.mockImplementation((sessionKey) => Promise.resolve(sessionKey === B));
+    mockNative.keyboardInputHeld.mockImplementation(() => Promise.resolve(true));
     const asked = Number(chatInPane(A, 'a').props.focusRequestId ?? 0);
     await tapPane(A);
     expect(Number(chatInPane(A, 'a').props.focusRequestId)).toBe(asked + 1);

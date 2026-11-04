@@ -54,8 +54,8 @@ import TerminalScreen from './TerminalScreen';
 const mockNative = {
   focusTerminal: jest.fn((_sessionKey: string): Promise<boolean> => Promise.resolve(true)),
   blurTerminal: jest.fn((_sessionKey: string) => Promise.resolve()),
-  /** Whether a terminal holds the keyboard's input: a hardware keyboard typing into it, no keyboard on screen. */
-  terminalHoldsKeyboard: jest.fn((_sessionKey: string): Promise<boolean> => Promise.resolve(false)),
+  /** Whether something in the app holds a hardware keyboard's typing while no keyboard is on screen. */
+  keyboardInputHeld: jest.fn((): Promise<boolean> => Promise.resolve(false)),
   openTerminal: jest.fn((_sessionKey: string, _machineId: string, _opts: object) => Promise.resolve()),
 };
 let mockBarLayout: BarLayout | null = null;
@@ -92,7 +92,7 @@ jest.mock('../../modules/ghostex-native/src', () => {
       pasteFromClipboard: () => Promise.resolve(),
       focusTerminal: (sessionKey: string) => mockNative.focusTerminal(sessionKey),
       blurTerminal: (sessionKey: string) => mockNative.blurTerminal(sessionKey),
-      terminalHoldsKeyboard: (sessionKey: string) => mockNative.terminalHoldsKeyboard(sessionKey),
+      keyboardInputHeld: () => mockNative.keyboardInputHeld(),
       openTerminal: (...args: [string, string, object]) => mockNative.openTerminal(...args),
       closeTerminal: () => Promise.resolve(),
     },
@@ -490,7 +490,7 @@ beforeEach(async () => {
   jest.useFakeTimers();
   Object.values(mockNative).forEach((mock) => mock.mockClear());
   mockNative.focusTerminal.mockImplementation(() => Promise.resolve(true));
-  mockNative.terminalHoldsKeyboard.mockImplementation(() => Promise.resolve(false));
+  mockNative.keyboardInputHeld.mockImplementation(() => Promise.resolve(false));
   mockMounts.length = 0;
   mockRpcCalls.length = 0;
   mockRunCli.mockReset();
@@ -933,7 +933,7 @@ describe('the active pane without a terminal', () => {
   test('a hardware keyboard typing into the terminal: tapping the browser pane takes it from the terminal', async () => {
     await renderScreen({ stored: layout(session(A), BROWSER) });
     // The terminal holds the keyboard's input while iOS shows no keyboard: no keyboard frame arrives.
-    mockNative.terminalHoldsKeyboard.mockImplementation((sessionKey) => Promise.resolve(sessionKey === A));
+    mockNative.keyboardInputHeld.mockImplementation(() => Promise.resolve(true));
     await touchPane('browser');
     expect(mockNative.blurTerminal).toHaveBeenCalledWith(A);
     expect(screen.getByTestId('terminal-view').props.paneFocus).toBe(false);
@@ -954,6 +954,35 @@ describe('the active pane without a terminal', () => {
     mockNative.focusTerminal.mockClear();
     await touchPane(A);
     expect(mockNative.focusTerminal.mock.calls).toEqual([[A]]);
+  });
+
+  test('a hardware keyboard typing into a field of the web page goes to the terminal selected in the tab strip', async () => {
+    await renderScreen({ stored: layout(session(A), BROWSER) });
+    await fireEvent.changeText(within(pane('browser')).getByLabelText(WebPreviewCopy.manualSection), '5173');
+    await fireEvent.press(within(pane('browser')).getByText(WebPreviewCopy.openButton));
+    await settle();
+    expect(within(pane('browser')).getByTestId('web-page')).toBeTruthy();
+    await touchPane('browser');
+    // A field of the page holds the typing: a WebKit responder, not a React Native text field, so only the native
+    // side knows; iOS shows no keyboard, so no keyboard frame arrives.
+    expect(TextInput.State.currentlyFocusedInput()).toBeNull();
+    mockNative.keyboardInputHeld.mockImplementation(() => Promise.resolve(true));
+    mockNative.focusTerminal.mockClear();
+    await fireEvent.press(screen.getByRole('tab', { name: 'Gamma' }));
+    await settle();
+    expect(useTerminalStore.getState().selectedSessionKey).toBe(C);
+    expect(within(pane('browser')).getByTestId('web-page')).toBeTruthy();
+    expect(mockNative.focusTerminal.mock.calls).toEqual([[C]]);
+  });
+
+  test('nothing typing into the web page and no keyboard: selecting a terminal raises no keyboard', async () => {
+    await renderScreen({ stored: layout(session(A), BROWSER) });
+    await touchPane('browser');
+    mockNative.focusTerminal.mockClear();
+    await fireEvent.press(screen.getByRole('tab', { name: 'Gamma' }));
+    await settle();
+    expect(useTerminalStore.getState().selectedSessionKey).toBe(C);
+    expect(mockNative.focusTerminal).not.toHaveBeenCalled();
   });
 
   test('half folded like a laptop: side by side above the fold, no pad while the files pane is active', async () => {

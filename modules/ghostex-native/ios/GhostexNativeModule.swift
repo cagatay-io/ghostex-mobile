@@ -13,6 +13,7 @@ import ExpoModulesCore
 import Darwin
 import AudioToolbox
 import AVFoundation
+import GameController
 import Tailcatbridge
 
 // MARK: - Records
@@ -668,12 +669,11 @@ public class GhostexNativeModule: Module {
             }
         }
 
-        // Whether the terminal holds the keyboard's input (`holdsKeyboardInput`): with a hardware keyboard React sees
-        // no keyboard frame, and asks this before handing the typing to the active pane.
-        AsyncFunction("terminalHoldsKeyboard") { (sessionKey: String) async -> Bool in
-            await MainActor.run {
-                GhostexTerminalRegistry.shared.entry(for: sessionKey)?.view?.holdsKeyboardInput ?? false
-            }
+        // Whether something in the app holds a hardware keyboard's typing (`KeyboardInputHolder.held`): no software
+        // keyboard need cover the app then, so React sees no keyboard frame and asks this before it hands the typing to
+        // the active pane.
+        AsyncFunction("keyboardInputHeld") { () async -> Bool in
+            await MainActor.run { KeyboardInputHolder.held }
         }
 
         AsyncFunction("setFontSize") { (sessionKey: String, size: Double) async throws in
@@ -1157,5 +1157,39 @@ public class GhostexNativeModule: Module {
         case "f12": return .f12
         default: return nil
         }
+    }
+}
+
+// MARK: - Keyboard input holder
+
+/// Who holds a hardware keyboard's typing while no keyboard is on screen, for the pane controller's keyboard follow.
+@MainActor
+enum KeyboardInputHolder {
+    /// Whether the app's first responder takes the typing: a terminal outside its edit-menu-only focus (a terminal
+    /// always wants a keyboard, so with none on screen that is a hardware one), or any other text input (a field of a
+    /// web page, a text view) while a hardware keyboard is connected (`GCKeyboard`). Such a responder can also be first
+    /// responder without wanting a keyboard (a page tapped outside its fields); handing the focus on then would raise a
+    /// software keyboard nobody asked for, so without a hardware keyboard the answer is no.
+    static var held: Bool {
+        found = nil
+        // A nil-targeted action goes to the key window's first responder first.
+        _ = UIApplication.shared.sendAction(
+            #selector(UIResponder.ghostexReportFirstResponder(_:)), to: nil, from: nil, for: nil)
+        guard let responder = found else { return false }
+        found = nil
+        if let terminal = responder as? GhosttyTerminalView { return terminal.holdsKeyboardInput }
+        return responder is UIKeyInput && GCKeyboard.coalesced != nil
+    }
+
+    private static weak var found: UIResponder?
+
+    fileprivate static func report(_ responder: UIResponder) {
+        found = responder
+    }
+}
+
+extension UIResponder {
+    @objc fileprivate func ghostexReportFirstResponder(_ sender: Any?) {
+        KeyboardInputHolder.report(self)
     }
 }

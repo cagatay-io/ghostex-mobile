@@ -54,8 +54,8 @@ const mockNative = {
   sendText: jest.fn((_sessionKey: string, _text: string) => Promise.resolve()),
   focusTerminal: jest.fn((_sessionKey: string): Promise<boolean> => Promise.resolve(true)),
   blurTerminal: jest.fn((_sessionKey: string) => Promise.resolve()),
-  /** Whether a terminal holds the keyboard's input: a hardware keyboard typing into it, no keyboard on screen. */
-  terminalHoldsKeyboard: jest.fn((_sessionKey: string): Promise<boolean> => Promise.resolve(false)),
+  /** Whether something in the app holds a hardware keyboard's typing while no keyboard is on screen. */
+  keyboardInputHeld: jest.fn((): Promise<boolean> => Promise.resolve(false)),
   openTerminal: jest.fn((_sessionKey: string, _machineId: string, _opts: object) => Promise.resolve()),
 };
 const mockPickAndSend = jest.fn((_machineId: string, _sessionKey: string, _sink?: unknown) => Promise.resolve('sent'));
@@ -98,7 +98,7 @@ jest.mock('../../modules/ghostex-native/src', () => {
       pasteFromClipboard: () => Promise.resolve(),
       focusTerminal: (sessionKey: string) => mockNative.focusTerminal(sessionKey),
       blurTerminal: (sessionKey: string) => mockNative.blurTerminal(sessionKey),
-      terminalHoldsKeyboard: (sessionKey: string) => mockNative.terminalHoldsKeyboard(sessionKey),
+      keyboardInputHeld: () => mockNative.keyboardInputHeld(),
       openTerminal: (...args: [string, string, object]) => mockNative.openTerminal(...args),
       closeTerminal: () => Promise.resolve(),
     },
@@ -493,7 +493,7 @@ beforeEach(async () => {
   jest.useFakeTimers();
   Object.values(mockNative).forEach((mock) => mock.mockClear());
   mockNative.focusTerminal.mockImplementation(() => Promise.resolve(true));
-  mockNative.terminalHoldsKeyboard.mockImplementation(() => Promise.resolve(false));
+  mockNative.keyboardInputHeld.mockImplementation(() => Promise.resolve(false));
   mockPickAndSend.mockClear();
   mockMounts.length = 0;
   mockReport = null;
@@ -759,14 +759,13 @@ describe('input goes to the pane tapped last: the keyboard, the pad, the editor,
   test('a hardware keyboard typing into the active terminal goes to the other pane selected in the tab strip', async () => {
     await renderScreen({ stored: stacked(A, B) });
     // Alpha holds the keyboard's input while iOS shows no keyboard: no keyboard frame ever arrives.
-    mockNative.terminalHoldsKeyboard.mockImplementation((sessionKey) => Promise.resolve(sessionKey === A));
+    mockNative.keyboardInputHeld.mockImplementation(() => Promise.resolve(true));
     await fireEvent.press(screen.getByRole('tab', { name: 'Beta' }));
     await settle();
     expect(selected()).toBe(B);
     expect(terminalView(B).props.paneFocus).toBe(true);
     expect(mockNative.focusTerminal.mock.calls).toEqual([[B]]);
     // And back with a touch in Alpha's pane, Beta holding it now.
-    mockNative.terminalHoldsKeyboard.mockImplementation((sessionKey) => Promise.resolve(sessionKey === B));
     await tapPane(A);
     expect(mockNative.focusTerminal.mock.calls).toEqual([[B], [A]]);
   });
@@ -774,7 +773,7 @@ describe('input goes to the pane tapped last: the keyboard, the pad, the editor,
   test('a hardware keyboard typing into the terminal goes to a session picked in the chooser once it is open', async () => {
     await renderScreen({ tabs: [ALPHA], stored: undefined });
     await press(PanesCopy.addPane);
-    mockNative.terminalHoldsKeyboard.mockImplementation((sessionKey) => Promise.resolve(sessionKey === A));
+    mockNative.keyboardInputHeld.mockImplementation(() => Promise.resolve(true));
     await press(/^Beta, Codex/);
     expect(mockNative.focusTerminal).not.toHaveBeenCalled();
     await act(() => openedNow(B));
@@ -786,7 +785,7 @@ describe('input goes to the pane tapped last: the keyboard, the pad, the editor,
     await renderScreen({ stored: stacked(A, B) });
     // Alpha's answer is held back until the person has opened the text editor on Beta.
     const answer = Promise.withResolvers<boolean>();
-    mockNative.terminalHoldsKeyboard.mockImplementation(() => answer.promise);
+    mockNative.keyboardInputHeld.mockImplementation(() => answer.promise);
     await fireEvent.press(screen.getByRole('tab', { name: 'Beta' }));
     await settle();
     await press(TOGGLE);

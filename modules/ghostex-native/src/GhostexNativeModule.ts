@@ -175,11 +175,12 @@ declare class GhostexNativeModule extends NativeModule<GhostexNativeEvents> {
   /** Resign first responder / hide the soft keyboard for the attached view. */
   blurTerminal(sessionKey: string): Promise<void>;
   /**
-   * iOS only: whether the attached view holds the keyboard's input (first responder, and not only for its edit menu's
-   * Paste). With a hardware keyboard no software keyboard need cover the app, so typing can go to this terminal with no
-   * keyboard frame. Not bridged on Android.
+   * iOS only: whether something in the app holds a hardware keyboard's typing: its first responder is a terminal
+   * outside its edit menu's keyboard-less focus, or another text input (a field of a web page) while a hardware keyboard
+   * is connected. No software keyboard need cover the app then, so typing goes on with no keyboard frame. Not bridged on
+   * Android.
    */
-  terminalHoldsKeyboard(sessionKey: string): Promise<boolean>;
+  keyboardInputHeld(): Promise<boolean>;
 
   // SFTP upload with 0600 permissions.
   uploadFile(machineId: string, localPath: string, remotePath: string): Promise<void>;

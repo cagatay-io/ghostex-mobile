@@ -208,11 +208,11 @@ export function useTerminalPanes({
   // is such a pane with its composer as its field: becoming the active pane while the keyboard is up, the composer
   // takes it; left for a pane without a terminal, the keyboard goes down. A pane turned between its terminal and its
   // chat view stays the same pane: the keyboard does not follow (the view button lowers it, as with one pane).
-  // A hardware keyboard follows the same way, although iOS then shows no keyboard on screen (no keyboard frame
-  // arrives): its typing is held by a text field of the app (the chat's composer, a pane's search field), which React
-  // Native's focus registry names, or by the terminal that was active, which is asked (`terminalHoldsKeyboard`). A
-  // keyboard the person lowered let either go, so nothing comes up. An answer that arrives after the active pane, the
-  // text editor or the keyboard changed, or after a newer question, is stale and moves nothing.
+  // A hardware keyboard follows the same way, although no software keyboard then needs to cover the app (no keyboard
+  // frame arrives): whatever holds its typing (a text field of the app, which React Native's focus registry names, or,
+  // as the native side answers (`keyboardInputHeld`), a terminal or a field of a web page) hands it on. A keyboard the
+  // person lowered let its holder go, so nothing comes up. An answer that arrives after the active pane, the text
+  // editor or the keyboard changed, or after a newer question, is stale and moves nothing.
   const chatSessionKey = panes.chatSessionKey;
   const activePaneContent = twoPanes === null || !isFocused ? null : twoPanes.slots[twoPanes.active];
   const activeIsChat = activePaneContent?.kind === 'session' && activePaneContent.sessionKey === chatSessionKey;
@@ -260,9 +260,9 @@ export function useTerminalPanes({
     editor: false,
     visible: false,
   });
-  // The terminal that takes the keyboard once it is open, and the terminal it comes from (null: from no terminal).
-  const keyboardFollows = useRef<{ sessionKey: string; from: string | null } | null>(null);
-  // The keyboard question last asked of a terminal; a later one, or a change of the situation, supersedes it.
+  // The terminal that takes the keyboard once it is open.
+  const keyboardFollows = useRef<string | null>(null);
+  // The keyboard question last asked of the native side; a later one, or a change of the situation, supersedes it.
   const keyboardRequest = useRef(0);
   useEffect(() => {
     const previous = lastTyping.current;
@@ -290,21 +290,19 @@ export function useTerminalPanes({
         fromPane &&
         typingSessionKey !== null &&
         (typingInPanes ? previous.inPanes : typingSessionKey === previous.beside);
-      keyboardFollows.current =
-        follows && typingSessionKey !== null ? { sessionKey: typingSessionKey, from: previous.sessionKey } : null;
+      keyboardFollows.current = follows ? typingSessionKey : null;
     }
     // A move of the keyboard: at once while it is on screen or a text field of the app holds its input; otherwise once
-    // the terminal it comes from answers that it holds a hardware keyboard's typing, unless that answer is stale.
+    // the native side answers that something holds a hardware keyboard's typing, unless that answer is stale.
     const fieldHolds = TextInput.State.currentlyFocusedInput() != null;
-    const whileTyping = (from: string | null, move: () => void): void => {
+    const whileTyping = (move: () => void): void => {
       if (keyboardVisible || fieldHolds) {
         move();
         return;
       }
-      if (from === null) return;
       keyboardRequest.current += 1;
       const request = keyboardRequest.current;
-      void GhostexNative.terminalHoldsKeyboard(from)
+      void GhostexNative.keyboardInputHeld()
         .then((held) => {
           if (held && keyboardRequest.current === request) move();
         })
@@ -312,25 +310,25 @@ export function useTerminalPanes({
     };
     if (activeIsChat && paneChanged && typingInPanes && previous.inPanes) {
       // To the chat in a pane: its composer takes the keyboard from the terminal or the field it was in.
-      whileTyping(previous.sessionKey, focusComposer);
+      whileTyping(focusComposer);
     } else if (otherPaneActive && previous.inPanes && previous.sessionKey !== null) {
       // From a terminal pane to a pane without a terminal: the terminal lets the keyboard go.
       const from = previous.sessionKey;
-      whileTyping(from, () => void GhostexNative.blurTerminal(from).catch(() => undefined));
+      whileTyping(() => void GhostexNative.blurTerminal(from).catch(() => undefined));
     } else if (otherPaneActive && paneChanged && previous.chat && (keyboardVisible || fieldHolds)) {
       // From the chat's composer to a pane without a terminal: the keyboard goes down until one of its fields is tapped.
       Keyboard.dismiss();
     }
-    const follow = keyboardFollows.current;
-    if (follow === null) return;
-    // The text editor keeps the keyboard; with none on screen only typing a field or a terminal holds follows.
-    if (editorShown || (!keyboardVisible && !fieldHolds && follow.from === null)) {
+    const sessionKey = keyboardFollows.current;
+    if (sessionKey === null) return;
+    // The text editor keeps the keyboard.
+    if (editorShown) {
       keyboardFollows.current = null;
       return;
     }
     if (!typingTerminalOpen) return;
     keyboardFollows.current = null;
-    whileTyping(follow.from, () => void GhostexNative.focusTerminal(follow.sessionKey).catch(() => undefined));
+    whileTyping(() => void GhostexNative.focusTerminal(sessionKey).catch(() => undefined));
   }, [
     typingSessionKey,
     typingInPanes,

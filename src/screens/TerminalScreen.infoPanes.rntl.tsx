@@ -103,8 +103,8 @@ jest.mock('../../modules/ghostex-native/src', () => {
       pasteFromClipboard: () => Promise.resolve(),
       focusTerminal: (sessionKey: string) => mockNative.focusTerminal(sessionKey),
       blurTerminal: (sessionKey: string) => mockNative.blurTerminal(sessionKey),
-      // No hardware keyboard: no terminal holds the keyboard's input without a keyboard on screen.
-      terminalHoldsKeyboard: () => Promise.resolve(false),
+      // No hardware keyboard: nothing holds the keyboard's input without a keyboard on screen.
+      keyboardInputHeld: () => Promise.resolve(false),
       openTerminal: (...args: [string, string, object]) => mockNative.openTerminal(...args),
       closeTerminal: () => Promise.resolve(),
     },
