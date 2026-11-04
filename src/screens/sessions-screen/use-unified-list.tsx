@@ -213,8 +213,14 @@ export function useUnifiedList(deps: UnifiedListDeps) {
     if (!on) return [];
     const list: UnifiedComputer[] = [];
     for (const machine of machines) {
-      const summary = inventoriesByMachineId[machine.id]?.summary ?? null;
+      const inventory = inventoriesByMachineId[machine.id];
+      const summary = inventory?.summary ?? null;
       if (summary === null) continue;
+      // CDXC:Sidebar 2026-11-05 DECISION: a computer that is not connected gives no cards, filter
+      // choices or counts until it answers again, as on the desktop (gx-core
+      // unified_sidebar/machines.rs `unified_shows_machine`): "the sessions from the other machine
+      // still show in sidebar when that machine goes disconnected".
+      if ((inventory?.lastError ?? null) !== null) continue;
       list.push({
         machineId: machine.id,
         label: machineDisplayLabel(machine),

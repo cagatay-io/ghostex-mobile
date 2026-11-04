@@ -214,7 +214,7 @@ export type UnifiedCardProps = {
   inGroup?: boolean;
 };
 
-/** A card: three lines, or two when there is no branch or pull request to show and its folder is not known to be outside git. */
+/** A card: always three lines. */
 export function UnifiedCard({ row, repoIcon, active, nowMs, sidebarBackground, onPress, onMenu, onSnooze, onPark, onSleep, swipeActions, inGroup = false }: UnifiedCardProps) {
   const cardRef = useRef<ViewInstance | null>(null);
   const session = row.session.source!;
@@ -233,7 +233,13 @@ export function UnifiedCard({ row, repoIcon, active, nowMs, sidebarBackground, o
   const prNumber = session.work?.pullRequestNumber ?? null;
   // CDXC:Sidebar 2026-11-04 DECISION: a session outside git keeps its third line, "Untracked"
   // (Q1239) by a crossed-out branch in the branch's colour (cards.rs, build.ts `noSourceControl`).
-  const hasMeta = branch.length > 0 || prNumber !== null || row.noSourceControl;
+  // CDXC:Sidebar 2026-11-05 DECISION: every card draws its third line ("i want rows to always
+  // remain 3 rows in unified sidebar"): while its branch is not known, the branch this card last
+  // showed, else a quiet "No branch" (gx-core unified_sidebar/machines.rs `unified_branch_line`).
+  const lastBranch = useRef('');
+  if (branch.length > 0) lastBranch.current = branch;
+  const placeholder = branch.length === 0 && !row.noSourceControl;
+  const shownBranch = branch.length > 0 ? branch : lastBranch.current.length > 0 ? lastBranch.current : SessionCopy.noBranch;
   const openMenu = (): void => {
     cardRef.current?.measureInWindow((x, y, width, height) => onMenu({ x, y, width, height }));
   };
@@ -275,45 +281,36 @@ export function UnifiedCard({ row, repoIcon, active, nowMs, sidebarBackground, o
               {title}
             </Text>
             {session.cloudBox !== undefined ? <CloudBoxBadge cloudBox={session.cloudBox} /> : null}
-            {!hasMeta ? (
-              <View style={styles.agent}>
-                <AgentIcon session={session} />
-              </View>
-            ) : null}
             {titleLineOnly ? <StatusSlot row={row} nowMs={nowMs} /> : null}
           </View>
-          {hasMeta ? (
-            <View style={styles.lineThree}>
-              {branch.length > 0 ? (
-                <View style={styles.branch}>
-                  <BranchGlyph size={ds(12)} color={SIDEBAR_MUTED} />
-                  <Text numberOfLines={1} style={styles.meta}>
-                    {branch}
-                  </Text>
-                </View>
-              ) : row.noSourceControl ? (
-                <View style={styles.branch}>
-                  <BranchDeletedGlyph size={ds(12)} color={SIDEBAR_MUTED} />
-                  <Text numberOfLines={1} style={styles.meta}>
-                    {SessionCopy.noSourceControl}
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.branch} />
-              )}
-              {prNumber !== null ? (
-                <View style={styles.pullRequest}>
-                  <GitPullRequestGlyph size={ds(12)} color={pullRequestColor(session.work?.pullRequestState ?? '')} />
-                  <Text style={[styles.meta, { color: pullRequestColor(session.work?.pullRequestState ?? '') }]}>
-                    #{prNumber}
-                  </Text>
-                </View>
-              ) : null}
-              <View style={styles.agent}>
-                <AgentIcon session={session} />
+          <View style={styles.lineThree}>
+            {row.noSourceControl && branch.length === 0 ? (
+              <View style={styles.branch}>
+                <BranchDeletedGlyph size={ds(12)} color={SIDEBAR_MUTED} />
+                <Text numberOfLines={1} style={styles.meta}>
+                  {SessionCopy.noSourceControl}
+                </Text>
               </View>
+            ) : (
+              <View style={[styles.branch, placeholder ? styles.placeholder : null]}>
+                <BranchGlyph size={ds(12)} color={SIDEBAR_MUTED} />
+                <Text numberOfLines={1} style={styles.meta}>
+                  {shownBranch}
+                </Text>
+              </View>
+            )}
+            {prNumber !== null ? (
+              <View style={styles.pullRequest}>
+                <GitPullRequestGlyph size={ds(12)} color={pullRequestColor(session.work?.pullRequestState ?? '')} />
+                <Text style={[styles.meta, { color: pullRequestColor(session.work?.pullRequestState ?? '') }]}>
+                  #{prNumber}
+                </Text>
+              </View>
+            ) : null}
+            <View style={styles.agent}>
+              <AgentIcon session={session} />
             </View>
-          ) : null}
+          </View>
         </Pressable>
       </SwipeRevealRow>
     </View>
@@ -472,6 +469,8 @@ const styles = StyleSheet.create({
   recede: { opacity: 0.75 },
   lineThree: { height: ds(17), flexDirection: 'row', alignItems: 'center', gap: ds(5) },
   branch: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: ds(4) },
+  /** A branch shown while the current one is not known: the last one seen, or "No branch". */
+  placeholder: { opacity: 0.6 },
   meta: { color: SIDEBAR_MUTED, fontSize: ds(12.5), fontWeight: '400', flexShrink: 1 },
   pullRequest: { flexDirection: 'row', alignItems: 'center', gap: ds(2), flexShrink: 0 },
   agent: { opacity: 0.75, flexShrink: 0 },
