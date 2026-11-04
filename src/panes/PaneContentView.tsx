@@ -1,13 +1,14 @@
 /**
- * What a pane shows, by its content: a session's terminal, the chooser in a new pane, the computer's Web Preview, the
- * files or Git changes of the project the pane was opened from, the computer's agent sessions, the attention list or
- * the usage of the computer the pane was opened for. Each pane type of `paneTypes.tsx` has its body here; the browser,
- * files, Git changes and attention list bodies are the Web Preview, Files, Changes and Notifications screens' own, the
- * usage body the Usage screen's. Every body but a terminal keeps its controls off a book fold by `frame.controlInset`.
+ * What a pane shows, by its content: a session's terminal or its chat view, the chooser in a new pane, the computer's
+ * Web Preview, the files or Git changes of the project the pane was opened from, the computer's agent sessions, the
+ * attention list or the usage of the computer the pane was opened for. Each pane type of `paneTypes.tsx` has its body
+ * here; the browser, files, Git changes and attention list bodies are the Web Preview, Files, Changes and Notifications
+ * screens' own, the usage body the Usage screen's, a session's chat view the terminal screen's chat (`chat`). Every
+ * body but a terminal keeps its controls off a book fold by `frame.controlInset`.
  */
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, type ReactNode } from 'react';
 
 import type { GhostexSession } from '../contract/mobileSummary';
 import type { RootStackParamList } from '../navigation/types';
@@ -34,6 +35,8 @@ const AttentionPane = lazy(async () => require('./AttentionPane') as typeof impo
 export type PaneContentViewProps = {
   content: PaneContent;
   frame: PaneFrame;
+  /** The session pane showing its chat view, and that chat (the screen's, sized by the pane's body), or null. */
+  chat: { sessionKey: string; view: ReactNode } | null;
   /** The computer of the session on screen; the chooser and the agents pane list its sessions, a browser pane is its
    * Web Preview. */
   machineId: string;
@@ -60,6 +63,7 @@ export type PaneContentViewProps = {
 export default function PaneContentView({
   content,
   frame,
+  chat,
   machineId,
   besideSessionId,
   projectOffered,
@@ -72,6 +76,7 @@ export default function PaneContentView({
 }: PaneContentViewProps) {
   switch (content.kind) {
     case 'session':
+      if (chat?.sessionKey === content.sessionKey) return chat.view;
       return (
         <SessionPane sessionKey={content.sessionKey} view={frame.view} covered={frame.covered} active={frame.active} />
       );

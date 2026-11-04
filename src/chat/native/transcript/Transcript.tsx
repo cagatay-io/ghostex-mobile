@@ -98,6 +98,12 @@ export type NativeTranscriptProps = {
   items?: readonly TranscriptItem[];
   /** False for a subagent's rows: no rewind, and the normal display mode. */
   main?: boolean;
+  /**
+   * The chat is on screen (the Terminal screen's `visible`). Only such a main transcript publishes the reader's place
+   * (`bottomStore.ts`): a chat mounted hidden beside one on screen (the terminal pane's preloaded chat next to a chat in
+   * the other pane) never takes it over, and its unmount never clears it.
+   */
+  active?: boolean;
 };
 
 type Row = { item: TranscriptItem; index: number };
@@ -200,7 +206,7 @@ export function useSubagentRowRenderer(chat: RustChat): (item: TranscriptItem, i
 const QUESTION_SETTLE_MS = 80;
 const QUESTION_SETTLE_TRIES = 15;
 
-export function NativeTranscript({ chat, items, main = true }: NativeTranscriptProps) {
+export function NativeTranscript({ chat, items, main = true, active = true }: NativeTranscriptProps) {
   const theme = useTranscriptTheme();
   const state = chat.state;
   const document = state?.document ?? null;
@@ -375,14 +381,20 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
 
   // The scroll-to-bottom pill lives on the working card (`cards/WorkingCard.tsx`), outside this list.
   const showJump = main && awayFromBottom && rows.length > 0;
+  const publishes = main && active;
   useEffect(() => {
-    if (!main) return;
+    if (!publishes) return;
     useTranscriptBottomStore.setState({ awayFromBottom: showJump, jumpToBottom });
-  }, [jumpToBottom, main, showJump]);
+  }, [jumpToBottom, publishes, showJump]);
   useEffect(() => {
-    if (!main) return;
-    return () => useTranscriptBottomStore.setState({ awayFromBottom: false, jumpToBottom: null });
-  }, [main]);
+    if (!publishes) return;
+    // Cleared only while it is still this list's: a chat that came on screen in the same pass keeps its own.
+    return () => {
+      if (useTranscriptBottomStore.getState().jumpToBottom === jumpToBottom) {
+        useTranscriptBottomStore.setState({ awayFromBottom: false, jumpToBottom: null });
+      }
+    };
+  }, [jumpToBottom, publishes]);
 
   // Settings > Chat's custom transcript width (desktop's `transcript_width`): the rows take that
   // share of the pane instead of the composer's 768pt column.

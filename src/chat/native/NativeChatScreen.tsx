@@ -45,6 +45,7 @@ import { useVoiceCapability } from '../../voice/VoiceButton';
 import { sessionNotesOnIn } from '../../sessions/sessionNotesSwitch';
 import { useArmedActions } from './armedActions';
 import { NativeChatCards, NativeChatOverlays, PageSheet, ResourceSheet, questionReplacesComposer } from './cards';
+import { ChatPlacementProvider, type ChatPlacement } from './chatPlacement';
 import { ConnectionLostNotice } from './cards/ConnectionLostNotice';
 import { obj } from './cards/json';
 import { remoteWorkerNotice, remoteWorkerOfAction } from './cards/remoteWorker';
@@ -93,6 +94,13 @@ export type NativeChatScreenProps = {
   onQueueCountChange?: (count: number) => void;
   /** The session's links for the working card's Links pill and the tap that opens their sheet. */
   links?: PillsStripLinks | null;
+  /**
+   * In one of the iPhone Duo's pane slots (`src/panes/`): the pane ends at the keyboard or the fold, so the composer
+   * lifts nothing itself, and the cards, tables and pictures are sized by this chat, not the window (`chatPlacement`).
+   */
+  inPane?: boolean;
+  /** Bumped when the composer is to take the keyboard (the pane it stands in became the active one); 0 asks nothing. */
+  focusRequestId?: number;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -108,6 +116,8 @@ export default function NativeChatScreen({
   openSessionNoteRequestId = 0,
   onQueueCountChange,
   links = null,
+  inPane = false,
+  focusRequestId = 0,
   style,
 }: NativeChatScreenProps) {
   const chat = useRustChat({ machine, projectId, sessionId });
@@ -302,6 +312,9 @@ export default function NativeChatScreen({
     transcriptBottom: -1,
     composerTop: -1,
   });
+  // In a pane, the chat's own size stands for the window's (`chatPlacement`).
+  const [paneSize, setPaneSize] = useState<{ width: number; height: number } | null>(null);
+  const placement = useMemo<ChatPlacement>(() => ({ inPane, size: inPane ? paneSize : null }), [inPane, paneSize]);
   const composerRoom =
     composerFrame.height < 0 || composerFrame.transcriptTop < 0 || composerFrame.composerTop < 0
       ? undefined
@@ -318,114 +331,120 @@ export default function NativeChatScreen({
 
   return (
     <NativeChatUiProvider chat={chat}>
-      {/* An Expo view takes no `pointerEvents`, so the preloading chat's stays on the view inside. */}
-      <GhostexImageIntakeView
-        style={[styles.root, style, !visible && styles.preloading]}
-        dropTarget={visible && composerShown}
-        onImages={receiveImages}
-        onDropActive={(event) => setDropActive(event.nativeEvent.active)}
-      >
-        <View
-          style={[styles.root, { backgroundColor: theme.background }]}
-          pointerEvents={visible ? 'auto' : 'none'}
-          onLayout={(event) => {
-            const height = event.nativeEvent.layout.height;
-            setComposerFrame((now) => ({ ...now, height }));
-          }}
+      <ChatPlacementProvider value={placement}>
+        {/* An Expo view takes no `pointerEvents`, so the preloading chat's stays on the view inside. */}
+        <GhostexImageIntakeView
+          style={[styles.root, style, !visible && styles.preloading]}
+          dropTarget={visible && composerShown}
+          onImages={receiveImages}
+          onDropActive={(event) => setDropActive(event.nativeEvent.active)}
         >
-          {chat.state?.error ? <Text style={[styles.error, { color: theme.error }]}>{chat.state.error}</Text> : null}
-          {document ? <SideChatBar chat={chat} document={document} /> : null}
-          <TranscriptSearchBar chat={chat} />
+
           <View
-            style={styles.transcript}
+            style={[styles.root, { backgroundColor: theme.background }]}
+            pointerEvents={visible ? 'auto' : 'none'}
             onLayout={(event) => {
-              const { y, height } = event.nativeEvent.layout;
-              setComposerFrame((now) => ({ ...now, transcriptTop: y, transcriptBottom: y + height }));
+              const { width, height } = event.nativeEvent.layout;
+              setComposerFrame((now) => ({ ...now, height }));
+              if (inPane)
+                setPaneSize((now) => (now?.width === width && now.height === height ? now : { width, height }));
             }}
           >
-            <NativeTranscript chat={chat} />
-            {/* Scroll-to-bottom alone while no card carries it. */}
-            {document === null ? null : <LoneScrollBottom document={document} armed={armed} links={links} />}
-          </View>
-          <ConnectionLostNotice machine={machine} active={visible} document={document} />
-          {/* The working card in its own row above the cards and the composer: the transcript ends above it. */}
-          {document === null ? null : <WorkingCard document={document} />}
-          <NativeChatCards chat={chat} onHostAction={hostAction} />
-          {!composerShown ? null : (
+            {chat.state?.error ? <Text style={[styles.error, { color: theme.error }]}>{chat.state.error}</Text> : null}
+            {document ? <SideChatBar chat={chat} document={document} /> : null}
+            <TranscriptSearchBar chat={chat} />
             <View
+              style={styles.transcript}
               onLayout={(event) => {
-                const composerTop = event.nativeEvent.layout.y;
-                setComposerFrame((now) => ({ ...now, composerTop }));
+                const { y, height } = event.nativeEvent.layout;
+                setComposerFrame((now) => ({ ...now, transcriptTop: y, transcriptBottom: y + height }));
               }}
             >
-              <NativeComposer
-                projectId={projectId}
-                sessionId={sessionId}
-                chat={chat}
-                onHostAction={hostAction}
-                hostActions={composerHostActions}
-                openAccountsRequestId={accountsRequestId}
-                voiceCallTitle={title}
-                {...(composerRoom !== undefined ? { room: composerRoom } : {})}
-                {...(document !== null
-                  ? {
-                      strip: (
-                        <PillsStrip
-                          chat={chat}
-                          document={document}
-                          armed={armed}
-                          links={links}
-                          {...(sessionId.length > 0 && projectId.length > 0
-                            ? { onStashedPress: () => hostAction('stashedPrompts') }
-                            : {})}
-                          {...(openDelayedActions !== undefined ? { onArmedPress: openDelayedActions } : {})}
-                        />
-                      ),
-                    }
-                  : {})}
-              />
+              <NativeTranscript chat={chat} active={visible} />
+              {/* Scroll-to-bottom alone while no card carries it. */}
+              {document === null ? null : <LoneScrollBottom document={document} armed={armed} links={links} />}
             </View>
-          )}
-          <RewindDialog chat={chat} />
-          <SaveMarkdownDialog chat={chat} />
-          <TranscriptMenuSheet chat={chat} host={menuHost} enabled={!subagentOpen} />
-          <SavedPromptsSheet
-            visible={savedPromptsOpen}
-            machine={machine}
-            projectId={projectId}
-            sessionId={sessionId}
-            onClose={() => setSavedPromptsOpen(false)}
-            onInsert={(content) => chat.composer?.replace(content)}
-            onChanged={() => chat.dispatch({ type: 'refreshComposerChrome', sessionId })}
-          />
-          <HandoffSheet
-            request={handoff}
-            machine={machine}
-            projectId={projectId}
-            sessionId={sessionId}
-            onClose={() => setHandoff(null)}
-            onFailure={(failure, message) => show(message, true, failure)}
-          />
-          <NativeChatOverlays
-            chat={chat}
-            renderTranscriptItem={renderSubagentRow}
-            subagentMenu={<TranscriptMenuSheet chat={chat} host={menuHost} />}
-          />
-          <PageSheet chat={chat} machine={machine} page={page} onClose={closePage} onOpenLink={openPageLink} />
-          <ResourceSheet chat={chat} document={document} />
-          <ChatToast toast={toast} />
-          {dropActive ? (
-            <View
-              pointerEvents="none"
-              style={[styles.dropHighlight, { borderColor: theme.ring, backgroundColor: theme.ringGlow }]}
-            >
-              <Text style={[styles.dropLabel, { color: theme.foreground, backgroundColor: theme.cardBackground }]}>
-                Drop to attach
-              </Text>
-            </View>
-          ) : null}
-        </View>
-      </GhostexImageIntakeView>
+            <ConnectionLostNotice machine={machine} active={visible} document={document} />
+            {/* The working card in its own row above the cards and the composer: the transcript ends above it. */}
+            {document === null ? null : <WorkingCard document={document} />}
+            <NativeChatCards chat={chat} onHostAction={hostAction} />
+            {!composerShown ? null : (
+              <View
+                onLayout={(event) => {
+                  const composerTop = event.nativeEvent.layout.y;
+                  setComposerFrame((now) => ({ ...now, composerTop }));
+                }}
+              >
+                <NativeComposer
+                  projectId={projectId}
+                  sessionId={sessionId}
+                  chat={chat}
+                  onHostAction={hostAction}
+                  hostActions={composerHostActions}
+                  openAccountsRequestId={accountsRequestId}
+                  focusRequestId={focusRequestId}
+                  voiceCallTitle={title}
+                  {...(composerRoom !== undefined ? { room: composerRoom } : {})}
+                  {...(document !== null
+                    ? {
+                        strip: (
+                          <PillsStrip
+                            chat={chat}
+                            document={document}
+                            armed={armed}
+                            links={links}
+                            {...(sessionId.length > 0 && projectId.length > 0
+                              ? { onStashedPress: () => hostAction('stashedPrompts') }
+                              : {})}
+                            {...(openDelayedActions !== undefined ? { onArmedPress: openDelayedActions } : {})}
+                          />
+                        ),
+                      }
+                    : {})}
+                />
+              </View>
+            )}
+            <RewindDialog chat={chat} />
+            <SaveMarkdownDialog chat={chat} />
+            <TranscriptMenuSheet chat={chat} host={menuHost} enabled={!subagentOpen} />
+            <SavedPromptsSheet
+              visible={savedPromptsOpen}
+              machine={machine}
+              projectId={projectId}
+              sessionId={sessionId}
+              onClose={() => setSavedPromptsOpen(false)}
+              onInsert={(content) => chat.composer?.replace(content)}
+              onChanged={() => chat.dispatch({ type: 'refreshComposerChrome', sessionId })}
+            />
+            <HandoffSheet
+              request={handoff}
+              machine={machine}
+              projectId={projectId}
+              sessionId={sessionId}
+              onClose={() => setHandoff(null)}
+              onFailure={(failure, message) => show(message, true, failure)}
+            />
+            <NativeChatOverlays
+              chat={chat}
+              renderTranscriptItem={renderSubagentRow}
+              subagentMenu={<TranscriptMenuSheet chat={chat} host={menuHost} />}
+            />
+            <PageSheet chat={chat} machine={machine} page={page} onClose={closePage} onOpenLink={openPageLink} />
+            <ResourceSheet chat={chat} document={document} />
+            <ChatToast toast={toast} />
+            {dropActive ? (
+              <View
+                pointerEvents="none"
+                style={[styles.dropHighlight, { borderColor: theme.ring, backgroundColor: theme.ringGlow }]}
+              >
+                <Text style={[styles.dropLabel, { color: theme.foreground, backgroundColor: theme.cardBackground }]}>
+                  Drop to attach
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        </GhostexImageIntakeView>
+      </ChatPlacementProvider>
     </NativeChatUiProvider>
   );
 }

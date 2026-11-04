@@ -13,6 +13,8 @@
  * - While the chooser is open, the session selected next fills its slot.
  * - When the window turns into a shape with nothing stored for it, the two panes on screen before come along into its
  *   slots (the divider in the middle) and are stored for it, rather than one pane.
+ * - A session pane shows the session's terminal or its chat view (`paneChatAfter`), never both: at most one pane shows
+ *   a chat view, chosen for the panes only and never stored.
  * Free of React Native, so it loads in a plain `bun test`.
  */
 
@@ -50,7 +52,7 @@ export type PaneResolution = {
 };
 
 export type PaneResolveInput = {
-  /** The window has pane slots and the selected tab is an agent session shown as a terminal. */
+  /** The window has pane slots and the selected tab is an agent session, unless a question from the attention list stands. */
   readonly offered: boolean;
   readonly arrangement: PaneArrangement;
   readonly selectedSessionKey: string | null;
@@ -218,4 +220,43 @@ function chooserInSlot(input: PaneResolveInput, selected: string, slots: Slots, 
   }
   const next = replaced(slots, slot, session(selected));
   return { display: { kind: 'panes', slots: next, active: slot }, store: entries(next) };
+}
+
+export type PaneChatInput = {
+  /** The session panes on screen at the last look, each with whether its session's saved view is its chat view (a
+   * session that has one); null while there was one content area. */
+  readonly before: ReadonlyMap<string, boolean> | null;
+  /** The same now; null with one content area. */
+  readonly now: ReadonlyMap<string, boolean> | null;
+  readonly selectedSessionKey: string | null;
+  /** The session whose pane shows its chat view so far, or null. */
+  readonly chatSession: string | null;
+  /** A session a pane opened (the chooser, the agents pane, an attention list row): it comes in as its terminal. */
+  readonly picked: string | null;
+};
+
+/**
+ * Which session pane shows its chat view now: one at most, so a pane turned to its chat view turns the other back to
+ * its terminal. It is the panes' own choice, never the session's saved view,
+ * except where a session comes in:
+ * - the selected session coming into the panes from outside them (the panes appear, the tab strip, a link) comes in
+ *   with its saved view, as one content area shows it; a pane's pick comes in as its terminal (the approved mockup);
+ * - the other session coming in with it shows its terminal;
+ * - a session whose saved view changes while it stands in a pane (set outside the panes) takes it there;
+ * - a pane's pick of the session that already shows its chat in a pane turns that pane to its terminal (the pick's
+ *   promise; only that chat, the saved view kept), once the pick is the selection.
+ * With one content area the choice waits; the saved view decides there.
+ */
+export function paneChatAfter({ before, now, selectedSessionKey, chatSession, picked }: PaneChatInput): string | null {
+  if (now === null) return chatSession;
+  let chat = chatSession !== null && now.has(chatSession) ? chatSession : null;
+  for (const [sessionKey, savedChat] of now) {
+    const savedBefore = before?.get(sessionKey);
+    if (savedBefore === savedChat) continue;
+    const comesWithItsView = savedBefore !== undefined || (sessionKey === selectedSessionKey && sessionKey !== picked);
+    if (comesWithItsView && savedChat) chat = sessionKey;
+    else if (chat === sessionKey) chat = null;
+  }
+  if (picked !== null && picked === selectedSessionKey && chat === picked) chat = null;
+  return chat;
 }

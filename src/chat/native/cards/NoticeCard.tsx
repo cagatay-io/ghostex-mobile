@@ -13,9 +13,10 @@
  */
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import type { ChatDocument } from '../../rust/document';
+import { useChatViewSize } from '../chatPlacement';
 import type { RustChat } from '../../rust/useRustChat';
 import { phoneKeepsCancel } from './dialogCancel';
 import { arr, asJson, isTrue, num, obj, str } from './json';
@@ -50,7 +51,7 @@ export function NoticeCard({
   const styles = useStyles();
   const look: DialogLook = { styles, P: useTranscriptTheme(), cardText, wellStyle: useWellStyle() };
   const { dispatch } = chat;
-  const { height } = useWindowDimensions();
+  const { height } = useChatViewSize();
   const notice = obj(document.terminalNotice);
   const key = `notice:${str(notice, 'kind')}:${str(notice, 'detectedAt')}`;
   const [expandedKey, setExpandedKey] = useState<string | null>(null);

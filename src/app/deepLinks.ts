@@ -17,6 +17,7 @@ import { Linking } from 'react-native';
 import { useInventoryStore } from '../inventory/store';
 import { useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
+import { usePaneStore } from '../panes/store';
 import { sessionHasChatView, sessionOpensInChatView } from '../screens/terminal-screen/session-lookups';
 import { useSettingsStore } from '../settings/store';
 import { attachSessionKey, useTerminalStore } from '../terminal/sessions';
@@ -83,7 +84,11 @@ const appDeps: DeepLinkDeps = {
   },
   revealWorkspace: revealSessionWorkspace,
   openChatTab: (machine, session) => useTerminalStore.getState().openChatTab(machine, session),
-  showChatView: (sessionKey) => useTerminalStore.getState().setSessionViewMode(sessionKey, 'chat'),
+  // A question's chat view stands full screen, also where panes are open.
+  showChatView: (sessionKey) => {
+    useTerminalStore.getState().setSessionViewMode(sessionKey, 'chat');
+    usePaneStore.getState().setQuestionHold(sessionKey);
+  },
   attachSession: (machine, session) => useTerminalStore.getState().attachSession(machine, session),
   navigate: (route) =>
     navigateWhenReady(() => {

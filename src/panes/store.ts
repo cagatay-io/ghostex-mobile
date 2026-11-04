@@ -1,6 +1,7 @@
 /**
  * The pane layouts (`layout.ts`), persisted to AsyncStorage as the other preference stores are, and what the pane host
- * keeps while the app runs: which pane was tapped last, which slot shows the chooser and the browser pane's page.
+ * keeps while the app runs: which pane was tapped last, which slot shows the chooser, the browser pane's page and which
+ * session pane shows its chat view.
  *
  * A session pane lives as long as its session's tab: a tab that closes (closed, killed, slept, evicted at the warm
  * terminal limit) ends every layout whose session pane shows it, so a pane never stands on a terminal that is gone. A
@@ -57,11 +58,24 @@ type PaneState = {
   shown: PanesShown | null;
   /** The browser pane's computer and page (null at the Web Preview's start); not stored (the layout has no page). */
   browserPage: { readonly machineId: string; readonly page: BrowserPage | null } | null;
+  /** The session whose pane shows its chat view (`paneChatAfter`), or null; not stored. */
+  chatSession: string | null;
+  /** The session a pane opened last (a pick), until it comes into the panes as its terminal; not stored. */
+  pickedSession: string | null;
+  /**
+   * The session whose question a link opened (a notification, the Notifications screen, the attention list): its chat
+   * view stands full screen and the panes wait until the person brings them back with the Panes button, selects another
+   * session or leaves that chat view; not stored.
+   */
+  questionHold: string | null;
 
   hydrate: () => Promise<void>;
   openChooser: (chooser: PaneChooser) => void;
   closeChooser: () => void;
   setActiveSlot: (slot: PaneIndex) => void;
+  setChatSession: (sessionKey: string | null) => void;
+  setPickedSession: (sessionKey: string | null) => void;
+  setQuestionHold: (sessionKey: string | null) => void;
   setShown: (shown: PanesShown | null) => void;
   /** Two session panes in `arrangement`, the divider where it was last for that shape, or in the middle. */
   showSessions: (arrangement: PaneArrangement, first: string, second: string) => void;
@@ -97,6 +111,9 @@ export const usePaneStore = create<PaneState>()((set, get) => {
     chooser: null,
     shown: null,
     browserPage: null,
+    chatSession: null,
+    pickedSession: null,
+    questionHold: null,
 
     hydrate: async () => {
       if (get().hydrated) return;
@@ -118,6 +135,15 @@ export const usePaneStore = create<PaneState>()((set, get) => {
     closeChooser: () => set({ chooser: null }),
     setActiveSlot: (activeSlot) => {
       if (get().activeSlot !== activeSlot) set({ activeSlot });
+    },
+    setChatSession: (chatSession) => {
+      if (get().chatSession !== chatSession) set({ chatSession });
+    },
+    setPickedSession: (pickedSession) => {
+      if (get().pickedSession !== pickedSession) set({ pickedSession });
+    },
+    setQuestionHold: (questionHold) => {
+      if (get().questionHold !== questionHold) set({ questionHold });
     },
     setShown: (shown) => {
       const current = get().shown;
@@ -165,6 +191,7 @@ export const usePaneStore = create<PaneState>()((set, get) => {
     forgetSession: (sessionKey) => {
       const { layouts } = get().document;
       if (get().shown?.slots.includes(sessionKey) === true) set({ shown: null });
+      if (get().chatSession === sessionKey) set({ chatSession: null });
       const showsIt = (slot: PaneSlot | undefined) => slot?.paneType === 'session' && slot.sessionKey === sessionKey;
       const showing = (Object.keys(layouts) as PaneArrangement[]).filter(
         (arrangement) => showsIt(layouts[arrangement]?.first) || showsIt(layouts[arrangement]?.second),

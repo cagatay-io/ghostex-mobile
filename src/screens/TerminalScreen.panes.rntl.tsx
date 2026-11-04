@@ -1154,14 +1154,15 @@ describe('selection and the chat view', () => {
     expect(terminalView(B).props.paneFocus).toBe(true);
   });
 
-  test('the chat view shows one content area; back to the terminal, both panes are there again', async () => {
+  test('the chat view keeps the panes: its chat in its pane, the other terminal beside it; back, both terminals', async () => {
     // The chat view of a session that has one (Codex, with its project).
     await renderScreen({ stored: stacked(A, B) });
     expect(shownSessions().sort()).toEqual([A, B]);
     await act(() => useTerminalStore.getState().setSessionViewMode(A, 'chat'));
     await settle();
-    expect(screen.queryAllByTestId('terminal-view')).toEqual([]);
-    expect(screen.queryByTestId(`pane:${B}`)).toBeNull();
+    expect(shownSessions()).toEqual([B]);
+    expect(card(A).y).toBe(0);
+    expect(card(B).y).toBeGreaterThan(card(A).y);
     await act(() => useTerminalStore.getState().setSessionViewMode(A, 'terminal'));
     await settle();
     expect(shownSessions().sort()).toEqual([A, B]);

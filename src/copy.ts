@@ -1081,6 +1081,8 @@ export const PanesCopy = {
   typeMenuSubtitle: 'Shown in this pane',
   sessionType: 'Session',
   sessionTypeDescription: 'Another agent session next to this one',
+  /** A session pane showing the session's chat view: its title bar names it a chat. */
+  chatType: 'Chat',
   browserType: 'Web Preview',
   browserTypeDescription: 'A page from your computer',
   filesType: 'Files',

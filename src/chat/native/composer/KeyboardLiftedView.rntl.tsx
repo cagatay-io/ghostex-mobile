@@ -3,14 +3,16 @@
  * Run with `bun run test:jest`. The chat composer stays above the keyboard as before, with the bottom
  * inset counted once: the composer's frame (`KeyboardLiftedView`, NativeComposer's root) lifts it from the keyboard's
  * last reported frame, again when the window's height changes without a keyboard event (a fold, unfold or
- * rotation) and when its own layout changes. Frames in window points: the folded display 466x678 with
- * the keyboard's top at 413 (measured on a device), the home indicator inset 20.
+ * rotation) and when its own layout changes; in a pane slot the pane holds the keyboard's cover and nothing lifts.
+ * Frames in window points: the folded display 466x678 with the keyboard's top at 413 (measured on a device), the home
+ * indicator inset 20.
  */
 
 import { Dimensions, StyleSheet, Text } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import { keyboardFixture } from '../../../components/common/keyboard/keyboardEventFixtures';
+import { ChatPlacementProvider } from '../chatPlacement';
 import { KeyboardLiftedView } from './KeyboardLiftedView';
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -111,4 +113,18 @@ test('a function child gets the padding in the same render the keyboard height c
   expect(rendered.every((bottom) => bottom === 678 - 413 + 8)).toBe(true);
   // The padding drawn is the padding handed over.
   expect(bottomPadding()).toBe(rendered.at(-1));
+});
+
+test('in a pane the pane ends at the keyboard: the composer keeps only its least space, with or without one', async () => {
+  await screen.unmount();
+  await render(
+    <ChatPlacementProvider value={{ inPane: true, size: { width: 466, height: 300 } }}>
+      <KeyboardLiftedView>
+        <Text>composer</Text>
+      </KeyboardLiftedView>
+    </ChatPlacementProvider>,
+  );
+  expect(bottomPadding()).toBe(12);
+  await keyboardAt(413, 265);
+  expect(bottomPadding()).toBe(12);
 });

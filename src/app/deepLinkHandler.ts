@@ -99,7 +99,10 @@ export type DeepLinkDeps = {
   revealWorkspace(machineId: string, sessionId: string): void;
   /** Opens (or selects) the session's tab for its Chat View, without attaching its terminal. */
   openChatTab(machine: DeepLinkMachine, session: { sessionId: string; projectId?: string; title?: string }): string;
-  /** Shows this tab's Chat View from now on, as the Terminal screen's own toggle does. */
+  /**
+   * Shows this tab's Chat View from now on, as the Terminal screen's own toggle does, for a question's link: full
+   * screen, the panes waiting until the person brings them back (`usePaneStore`'s `questionHold`).
+   */
   showChatView(sessionKey: string): void;
   attachSession(machine: DeepLinkMachine, session: { sessionId: string; title?: string }): Promise<string>;
   navigate(

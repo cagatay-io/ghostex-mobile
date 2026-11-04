@@ -722,7 +722,8 @@ describe('agents: the computer’s sessions with their status', () => {
     await fireEvent.press(within(pane('agents')).getByLabelText('Delta, Codex · Done'));
     await settle();
     expect(useTerminalStore.getState().selectedSessionKey).toBe(D);
-    expect(useTerminalStore.getState().sessionViewModeBySessionKey[D]).toBe('terminal');
+    // The terminal is the pane's only: the session's own saved view stays.
+    expect(useTerminalStore.getState().sessionViewModeBySessionKey[D]).toBe('chat');
     expect(shownSessions()).toEqual([D]);
     expect(storedStacked()).toEqual({ first: session(D), second: AGENTS, dividerRatio: 0.5 });
     expect(pane('agents')).toBeTruthy();

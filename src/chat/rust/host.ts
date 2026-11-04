@@ -1083,7 +1083,11 @@ function hostKey(machineId: string, projectId: string, sessionId: string): strin
 
 /**
  * The host for a chat, created and started on first use and shared by every caller until the last
- * one releases it (a dev shadow and the future native screen can hold the same chat at once).
+ * one releases it (a dev shadow and the future native screen can hold the same chat at once). The last
+ * release disposes it a microtask later, unless it was taken again by then: a chat screen that moves to
+ * another place in one React commit (the terminal screen's chat into one of the iPhone Duo's panes and
+ * back, `src/panes/`) releases its host and takes it again in the same effects pass, and keeps its
+ * transcript, its composer and its live read rather than starting over.
  */
 export function acquireRustChatHost(target: RustChatTarget): { host: RustChatHost; release: () => void } {
   const key = hostKey(target.machine.id, target.projectId, target.sessionId);
@@ -1102,10 +1106,13 @@ export function acquireRustChatHost(target: RustChatTarget): { host: RustChatHos
       if (released) return;
       released = true;
       held.references -= 1;
-      if (held.references === 0 && hosts.get(key) === held) {
-        hosts.delete(key);
-        held.host.dispose();
-      }
+      if (held.references > 0) return;
+      queueMicrotask(() => {
+        if (held.references === 0 && hosts.get(key) === held) {
+          hosts.delete(key);
+          held.host.dispose();
+        }
+      });
     },
   };
 }

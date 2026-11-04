@@ -87,6 +87,8 @@ export type NativeComposerProps = {
    * (the notice card's Switch account). Each new value opens it; 0 opens nothing.
    */
   openAccountsRequestId?: number;
+  /** Bumped by the screen when the field is to take the keyboard (its pane became the active one); 0 asks nothing. */
+  focusRequestId?: number;
   /** The session's title, for the More actions row "Voice call about this chat" (shown when `voiceCall` is served). */
   voiceCallTitle?: string;
   /**
@@ -147,6 +149,7 @@ export function NativeComposer({
   onHostAction,
   hostActions = DEFAULT_HOST_ACTIONS,
   openAccountsRequestId = 0,
+  focusRequestId = 0,
   voiceCallTitle = '',
   room,
   strip,
@@ -237,6 +240,12 @@ export function NativeComposer({
       }),
     [chat.onViewRequest],
   );
+  const handledFocusRequest = useRef(focusRequestId);
+  useEffect(() => {
+    if (focusRequestId === handledFocusRequest.current) return;
+    handledFocusRequest.current = focusRequestId;
+    if (focusRequestId > 0) field.current?.focus();
+  }, [focusRequestId]);
 
   // Pills: the core parses the draft (`composerReferences`) and answers a moment after the text
   // changes; until it does, the last pills carry over the edit (`rebaseReferences`), so typing never

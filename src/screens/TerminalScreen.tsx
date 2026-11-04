@@ -123,8 +123,9 @@ import { useOpenMachineLink } from '../webPreview/useOpenMachineLink';
 import type { PaneArrangement } from '../panes/layout';
 import PaneContentView from '../panes/PaneContentView';
 import PaneHost from '../panes/PaneHost';
+import { usePaneStore } from '../panes/store';
 import { usePaneHost } from '../panes/usePaneHost';
-import { paneLayoutInput, useTerminalPanes } from '../panes/useTerminalPanes';
+import { paneLayoutInput, useTerminalPanes, type PaneQuestion } from '../panes/useTerminalPanes';
 import {
   AGENT_OVERLAY_NONE,
   ANDROID_KEYBOARD_GAP,
@@ -135,6 +136,7 @@ import {
   sessionRecordFor,
   useMachineTarget,
   TAP_KEYBOARD_HINT_TIMEOUT_MS,
+  tabChatCapable,
   type AgentOverlay,
   type ExportedTranscript,
 } from './terminal-screen/session-lookups';
@@ -290,26 +292,76 @@ export default function TerminalScreen({ navigation, route }: Props) {
     activeTab.ghostexSessionId !== undefined &&
     activeProjectId.length > 0;
 
-  // Chat/terminal toggle (per tab): only agent sessions with a chat
-  // projection and a resolved (projectId, sessionId) identity offer it.
-  const chatCapable =
-    activeTab !== null &&
-    activeTab.kind === 'attach' &&
-    activeTab.ghostexSessionId !== undefined &&
-    activeProjectId.length > 0 &&
-    isSessionChatSupportedAgent(activeAgentId) &&
-    // CDXC:AgentBox 2026-10-01 SEE-ALSO: gx-core's `session_chat_view_unavailable`. A box session's agent runs in its box, so no transcript exists here and it stays on its terminal; a draft whose box only starts with its first message (`pending`) keeps chat until that message.
-    !(activeSession?.agentbox !== undefined && activeSession.agentbox.pending !== true);
-  const chatModeActive =
+  // Chat/terminal toggle (per tab): only agent sessions with a chat projection and a resolved (projectId, sessionId)
+  // identity offer it (`tabChatCapable`).
+  const chatCapable = useInventoryStore((state) =>
+    tabChatCapable(
+      activeTab,
+      activeTab === null ? undefined : state.inventoriesByMachineId[activeTab.machineId]?.summary,
+    ),
+  );
+  // The selected session's saved view (its tab's, else the Default Agent View setting): what one content area shows.
+  const savedChatMode =
     chatCapable &&
     activeTab !== null &&
     (sessionViewModeBySessionKey[activeTab.sessionKey] ?? settings.preferredAgentInterface) === 'chat';
+
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  // The iPhone Duo half folded like a laptop (`laptopMode.ts`): the output above the fold, the keyboard and the pad's
+  // layers below it, the pad in the upper half. Null in every other pose, on every other iPhone and on Android.
+  const foldShown = useLaptopFold();
+  // Two panes (`src/panes/`): where the window has pane slots (the iPhone Duo's inner display, whose window has the
+  // fold's divisions; folded, on other iPhones and on Android it has none) and the selected tab is an agent session, in
+  // the terminal and in the chat view alike, except while a question opened from the attention
+  // list pane stands full screen, when not even the Panes button is there. A question a link opened (a
+  // notification, the Notifications screen) stands full screen too, the Panes button bringing the panes back.
+  // Side by side across and half folded like a laptop, one above the other upright.
+  // selected session is a pane's, so the keyboard, the pad, the editor and Upload go to it unchanged.
+  const foldDivisions = useFoldDivisions();
+  const hasPaneSlots = (foldDivisions?.length ?? 0) > 0;
+  const [paneQuestion, setPaneQuestion] = useState<PaneQuestion | null>(null);
+  const panesAvailable = Platform.OS === 'ios' && hasPaneSlots && activeTab?.kind === 'attach' && paneQuestion === null;
+  // The question's chat view stands while its session stays selected in its chat view (`usePaneStore`'s questionHold).
+  const questionHold = usePaneStore((state) => state.questionHold);
+  const questionStands = questionHold !== null && questionHold === activeTab?.sessionKey && savedChatMode;
+  useEffect(() => {
+    if (questionHold !== null && !questionStands) usePaneStore.getState().setQuestionHold(null);
+  }, [questionHold, questionStands]);
+  const panesOffered = panesAvailable && !questionStands;
+  const paneArrangement: PaneArrangement = foldShown !== null || windowWidth > windowHeight ? 'sideBySide' : 'stacked';
+  const panes = usePaneHost({ offered: panesOffered, arrangement: paneArrangement });
+  const twoPanes = panes.display.kind === 'panes' ? panes.display : null;
+  const showsPanes = twoPanes !== null;
+  const setPaneChat = panes.setChatSession;
+  // The session pane showing its chat view (one at most, the panes' own choice, never saved), or null.
+  const paneChatKey = twoPanes === null ? null : panes.chatSessionKey;
+  // The selected session shows its chat view: with two panes in its pane, with one as its saved view says.
+  const chatModeActive = twoPanes === null ? savedChatMode : activeTab !== null && paneChatKey === activeTab.sessionKey;
+  // The chat on screen: the one in a pane, else the selected session's (mounted hidden while its terminal shows).
+  const chatTab = paneChatKey === null ? activeTab : (tabs.find((tab) => tab.sessionKey === paneChatKey) ?? null);
+  const chatProjectId = useInventoryStore((state) =>
+    sessionProjectIdFor(
+      chatTab,
+      chatTab === null ? undefined : state.inventoriesByMachineId[chatTab.machineId]?.summary,
+    ),
+  );
+  const chatSession = useInventoryStore((state) =>
+    sessionRecordFor(chatTab, chatTab === null ? undefined : state.inventoriesByMachineId[chatTab.machineId]?.summary),
+  );
+  const chatMachine = useMachinesStore((state) =>
+    chatTab === null ? null : (state.machines.find((entry) => entry.id === chatTab.machineId) ?? null),
+  );
   const chatMachineTarget = useMachineTarget(chatCapable && activeTab !== null ? activeTab.machineId : null);
-  useSessionLinksRefresh(activeMachine, activeSession?.sessionId, chatModeActive);
+  useSessionLinksRefresh(
+    chatMachine,
+    chatSession?.sessionId,
+    twoPanes === null ? chatModeActive : paneChatKey !== null,
+  );
   // iOS terminal mode: the terminal view keeps its size, so its grid and the pty stay put, and slides with
   // the keyboard instead (terminal-screen.md §2), on every iPhone (decision Q761 in terminalKeyboardSlide.ts).
-  // The one place that decides it.
-  const slidesWithKeyboard = Platform.OS === 'ios' && !chatModeActive;
+  // With two panes the panes take the keyboard so, whatever the active one shows: a chat in a pane ends where its pane
+  // does and lifts nothing itself. The one place that decides it.
+  const slidesWithKeyboard = Platform.OS === 'ios' && (twoPanes !== null || !chatModeActive);
   const mountedTerminalSessionKey = activeTab !== null && !chatModeActive && isFocused ? activeTab.sessionKey : null;
   const { keyboardVisible, bottomInset, visibleWindowBottom, hideMotionMs } = useKeyboardMetrics({
     slides: slidesWithKeyboard,
@@ -326,7 +378,13 @@ export default function TerminalScreen({ navigation, route }: Props) {
   });
 
   // The chat view on screen, for the zmx display policy below (the terminals on screen are the panes' too).
-  const mountedChatSessionKey = activeTab !== null && chatModeActive && isFocused ? activeTab.sessionKey : null;
+  const mountedChatSessionKey = !isFocused
+    ? null
+    : twoPanes !== null
+      ? paneChatKey
+      : activeTab !== null && chatModeActive
+        ? activeTab.sessionKey
+        : null;
   // A tab opened in Chat View has no terminal yet (`openChatTab`); showing its terminal attaches it.
   const activeTabDetached = activeTab?.state === 'detached';
   useEffect(() => {
@@ -336,22 +394,20 @@ export default function TerminalScreen({ navigation, route }: Props) {
   }, [mountedTerminalSessionKey, activeTabDetached]);
   // Read aloud speaks only the chat on screen, locked or not; leaving this screen leaves the chat.
   const readAloudKey =
-    mountedChatSessionKey !== null && activeTab !== null && activeTab.ghostexSessionId !== undefined
-      ? readAloudChatKey(activeTab.machineId, activeProjectId, activeTab.ghostexSessionId)
+    mountedChatSessionKey !== null && chatTab !== null && chatTab.ghostexSessionId !== undefined
+      ? readAloudChatKey(chatTab.machineId, chatProjectId, chatTab.ghostexSessionId)
       : null;
   const readAloudTitle =
-    activeSession !== null && activeSession.displayTitle.length > 0
-      ? activeSession.displayTitle
-      : (activeTab?.title ?? '');
+    chatSession !== null && chatSession.displayTitle.length > 0 ? chatSession.displayTitle : (chatTab?.title ?? '');
   useEffect(() => {
     setReadAloudOnScreen(
-      readAloudKey === null || activeTab === null
+      readAloudKey === null || chatTab === null
         ? null
         : {
             key: readAloudKey,
             title: readAloudTitle,
-            machineId: activeTab.machineId,
-            sessionId: activeTab.ghostexSessionId ?? '',
+            machineId: chatTab.machineId,
+            sessionId: chatTab.ghostexSessionId ?? '',
           },
     );
     // The tab object changes on every store update; the key and the title are what matter.
@@ -503,36 +559,26 @@ export default function TerminalScreen({ navigation, route }: Props) {
 
   const keyBarVisible = (keyboardVisible || tapKeyboardHint) && settings.extraKeysToolbarVisible;
 
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-  // The iPhone Duo half folded like a laptop (`laptopMode.ts`): the output above the fold, the keyboard and the pad's
-  // layers below it, the pad in the upper half. Null in every other pose, on every other iPhone, in chat view (the
-  // chat has its own laptop layout, `chatFoldInset` below) and on Android.
-  const foldShown = useLaptopFold();
+  // The laptop pose where the terminal slides (`foldShown` above): with one content area not in chat view (the chat
+  // has its own laptop layout, `chatFoldInset` below); with two panes always, which end above it whatever they show.
   const laptopFold = slidesWithKeyboard ? foldShown : null;
   const chatKeyboardUp = useKeyboardTop() !== null;
-  // Two panes (`src/panes/`): where the window has pane slots (the iPhone Duo's inner display, whose window has the
-  // fold's divisions; folded, on other iPhones and on Android it has none) and the selected tab is an agent session
-  // shown as a terminal. Side by side across and half folded like a laptop, one above the other upright. The selected
-  // session is a pane's, so the keyboard, the pad, the editor and Upload go to its terminal unchanged.
-  const foldDivisions = useFoldDivisions();
-  const hasPaneSlots = (foldDivisions?.length ?? 0) > 0;
-  const panesOffered = Platform.OS === 'ios' && hasPaneSlots && activeTab?.kind === 'attach' && !chatModeActive;
-  const paneArrangement: PaneArrangement = foldShown !== null || windowWidth > windowHeight ? 'sideBySide' : 'stacked';
-  const panes = usePaneHost({ offered: panesOffered, arrangement: paneArrangement });
-  const twoPanes = panes.display.kind === 'panes' ? panes.display : null;
-  // A pane without a terminal (browser, files, Git changes, agents, attention list, usage) tapped last is the active
-  // one: the pad's keys, the text editor and Upload would reach no terminal there, so they are not shown (the approved
-  // panes mockup).
-  const terminalPaneActive = twoPanes === null || twoPanes.slots[twoPanes.active].kind === 'session';
+  // A pane without a terminal (browser, files, Git changes, agents, attention list, usage, a session's chat view) tapped
+  // last is the active one: the pad's keys, the text editor and Upload would reach no terminal there, so they are not
+  // shown (the approved panes mockup).
+  const activePaneContent = twoPanes === null ? null : twoPanes.slots[twoPanes.active];
+  const terminalPaneActive =
+    twoPanes === null || (activePaneContent?.kind === 'session' && activePaneContent.sessionKey !== paneChatKey);
   // The Befehlspad: over the shown terminal while it is switched on, where the terminal slides with the keyboard
   // (iOS; never in chat view).
   const padSessionKey =
     settings.extraKeysToolbarVisible && activeTab !== null && slidesWithKeyboard && terminalPaneActive
       ? activeTab.sessionKey
       : null;
-  // zmx display policy: the terminals on screen own their real grid (with two panes both), the chat view its own;
-  // none while another screen is on top.
-  const mountedPaneSessionKey = twoPanes !== null && isFocused ? panes.paneSessionKey : null;
+  // zmx display policy: the terminals on screen own their real grid (with two panes both, unless one shows its
+  // session's chat), the chat view its own; none while another screen is on top.
+  const mountedPaneSessionKey =
+    twoPanes !== null && isFocused && panes.paneSessionKey !== paneChatKey ? panes.paneSessionKey : null;
   useEffect(() => {
     setMountedSessionKeys(mountedTerminalSessionKey, mountedChatSessionKey, mountedPaneSessionKey);
     setChatGridSessionKey(mountedChatSessionKey);
@@ -755,7 +801,9 @@ export default function TerminalScreen({ navigation, route }: Props) {
     const sessionKey = store.selectedSessionKey;
     if (sessionKey === null) return;
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const enteringChat = !store.chatModeArmed(sessionKey);
+    // With two panes the selected session's pane turns, and only there: one chat per screen,
+    // the other pane's back to its terminal, the session's saved view kept; with one, the session's saved view.
+    const enteringChat = showsPanes ? paneChatKey !== sessionKey : !store.chatModeArmed(sessionKey);
     // Each surface owns its own input focus. Dismiss before either direction
     // so the retained hidden WebView cannot leave its keyboard attached to the
     // terminal, and the terminal keyboard cannot linger over chat.
@@ -768,8 +816,21 @@ export default function TerminalScreen({ navigation, route }: Props) {
         acknowledgeSessionAttention(tab.machineId, tab.ghostexSessionId);
       }
     }
-    store.toggleChatMode(sessionKey);
-  }, [dismissKeyboard]);
+    if (showsPanes) setPaneChat(enteringChat ? sessionKey : null);
+    else store.toggleChatMode(sessionKey);
+  }, [dismissKeyboard, showsPanes, paneChatKey, setPaneChat]);
+
+  // The keyboard's way to the composer of the chat in a pane (`focusRequestId`, each new value focuses it).
+  const [composerFocusRequestId, setComposerFocusRequestId] = useState(0);
+  const focusComposer = useCallback(() => setComposerFocusRequestId((current) => current + 1), []);
+  // The menu's Session Note for a terminal pane turns that pane to its chat view, which mounts there: the note is
+  // asked for once that chat is on screen (a request present at a chat's mount is not a new one).
+  const [noteWhenChatShows, setNoteWhenChatShows] = useState<string | null>(null);
+  useEffect(() => {
+    if (noteWhenChatShows === null || noteWhenChatShows !== paneChatKey) return;
+    setNoteWhenChatShows(null);
+    setChatSessionNoteRequestId((current) => current + 1);
+  }, [noteWhenChatShows, paneChatKey]);
 
   /** Re-run the open flow for a failed/closed tab (Retry / Reconnect). */
   const reopenTab = useCallback(async (tab: TerminalTab): Promise<void> => {
@@ -834,12 +895,15 @@ export default function TerminalScreen({ navigation, route }: Props) {
     navigation,
     isFocused,
     panesOffered,
+    paneQuestion,
+    setPaneQuestion,
     hasPaneSlots,
     tabs,
     selectedSessionKey,
     activeMachineId: activeTab?.machineId ?? null,
     chatModeActive,
     mountedTerminalSessionKey,
+    focusComposer,
     keyboardVisible,
     editorShown,
     dismissKeyboard,
@@ -847,6 +911,17 @@ export default function TerminalScreen({ navigation, route }: Props) {
     setProgress: setAgentProgress,
     padHeld,
   });
+  // The Panes button over a question a link opened brings the panes back (the stored ones, else the chooser beside it).
+  const openChooser = panes.openChooser;
+  const pressPanes = useCallback((): void => {
+    if (!questionStands) {
+      togglePanes();
+      return;
+    }
+    const paneStore = usePaneStore.getState();
+    paneStore.setQuestionHold(null);
+    if (paneStore.document.layouts[paneArrangement] === undefined) openChooser();
+  }, [questionStands, togglePanes, paneArrangement, openChooser]);
 
   // ---------------------------------------------------------------------
   // Agent Actions (desktop terminal-overlay parity, minus the stash entries
@@ -929,6 +1004,10 @@ export default function TerminalScreen({ navigation, route }: Props) {
         setMenuVisible(false);
         if (!chatModeActive) {
           toggleChatView();
+          if (showsPanes && activeTab !== null) {
+            setNoteWhenChatShows(activeTab.sessionKey);
+            return;
+          }
         }
         setChatSessionNoteRequestId((current) => current + 1);
         return;
@@ -945,6 +1024,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
       handleMenuAction,
       navigation,
       setMenuVisible,
+      showsPanes,
       toggleChatView,
     ],
   );
@@ -983,6 +1063,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
         ? activeTab.title
         : SessionCopy.fallbackTitle;
 
+
   // The header's buttons on top, or in the iPhone Duo's status band (band); in the rail they are
   // `railButtons` below.
   const headerButtons = (buttonStyle: StyleProp<ViewStyle>) => (
@@ -994,14 +1075,14 @@ export default function TerminalScreen({ navigation, route }: Props) {
         size={20}
         activeFill={false}
       />
-      {panesOffered && bandOverflow.shows('panes') && (
+      {panesAvailable && bandOverflow.shows('panes') && (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={panesLabel}
           accessibilityState={{ selected: showsTwoPanes }}
           hitSlop={8}
           style={buttonStyle}
-          onPress={togglePanes}
+          onPress={pressPanes}
         >
           <PanesIcon
             across={!panesUpright}
@@ -1079,7 +1160,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
           icon: (size) => <ChevronLeftIcon size={size} color={GhostexPalette.FOREGROUND} />,
           onPress: goBack,
         },
-        ...(panesOffered
+        ...(panesAvailable
           ? [
               {
                 key: 'panes',
@@ -1091,7 +1172,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
                     color={showsTwoPanes ? GhostexPalette.ACCENT : GhostexPalette.FOREGROUND}
                   />
                 ),
-                onPress: togglePanes,
+                onPress: pressPanes,
               },
             ]
           : []),
@@ -1124,11 +1205,11 @@ export default function TerminalScreen({ navigation, route }: Props) {
       toggleChatView,
       goBack,
       openMenu,
-      panesOffered,
+      panesAvailable,
       showsTwoPanes,
       panesLabel,
       panesUpright,
-      togglePanes,
+      pressPanes,
     ],
   );
   useRailButtons(railButtons, surfaceBackground, inRail && isFocused);
@@ -1167,6 +1248,41 @@ export default function TerminalScreen({ navigation, route }: Props) {
         <Text style={styles.queuedPillLabel}>{`Queued: ${activeQueuedPromptCount}`}</Text>
       </Pressable>
     ) : null;
+
+  // What the chat's More actions rows and cards ask of the screen: the terminal menu's own actions, on the selected
+  // session (a touch in a chat pane selects its session before its rows are reached).
+  const chatHostAction = (action: string): void => {
+    if (action === 'closeAfterDone') void toggleCloseAfterDone();
+    else handleTerminalMenuAction(action as TerminalMenuActionId);
+  };
+  // The chat in a pane: today's chat view at the size of the pane's body, which ends at
+  // the keyboard or above the fold, so its composer lifts nothing itself (`inPane`). Its Terminal View turns only this
+  // pane back to the terminal. Its sheets and dialogs stay the chat's own, over the whole window.
+  const paneChatTarget = useMachineTarget(chatTab !== null && paneChatKey !== null ? chatTab.machineId : null);
+  const paneChat =
+    paneChatKey === null || chatTab === null || paneChatTarget === null
+      ? null
+      : {
+          sessionKey: paneChatKey,
+          view: (
+            <NativeChatScreen
+              key={paneChatKey}
+              machine={paneChatTarget}
+              projectId={chatProjectId}
+              sessionId={chatTab.ghostexSessionId ?? ''}
+              onSwitchToTerminal={() => setPaneChat(null)}
+              hostActions={chatSession !== null ? NATIVE_CHAT_HOST_ACTIONS : NO_NATIVE_CHAT_HOST_ACTIONS}
+              onHostAction={chatHostAction}
+              visible
+              inPane
+              focusRequestId={composerFocusRequestId}
+              openSearchRequestId={chatSearchRequestId}
+              openSessionNoteRequestId={chatSessionNoteRequestId}
+              links={{ links: chatSession?.links, onOpen: () => setLinksSheetVisible(true) }}
+              style={styles.terminal}
+            />
+          ),
+        };
 
   return (
     <View
@@ -1258,10 +1374,12 @@ export default function TerminalScreen({ navigation, route }: Props) {
           <PaneHost
             layout={paneLayout}
             slots={twoPanes.slots}
+            chatSessionKey={paneChatKey}
             renderContent={(content, frame) => (
               <PaneContentView
                 content={content}
                 frame={frame}
+                chat={paneChat}
                 machineId={activeTab.machineId}
                 besideSessionId={activeTab.ghostexSessionId}
                 projectOffered={chooserSlot !== null && panes.typeOffered(chooserSlot, 'files')}
@@ -1286,12 +1404,13 @@ export default function TerminalScreen({ navigation, route }: Props) {
             onRatio={panes.setRatio}
           />
         ) : null}
-        {activeTab !== null && chatMachineTarget !== null ? (
+        {activeTab !== null && chatMachineTarget !== null && activeTab.sessionKey !== paneChatKey ? (
           /*
            * Keep the selected session's chat screen mounted while terminal mode
            * is visible. Its first transcript read warms in advance, and while
            * hidden it owns no input region until the user switches views.
-           * Toggling no longer destroys the conversation.
+           * Toggling no longer destroys the conversation. With two panes it stays hidden; a chat in a pane is its own
+           * (`paneChat`), and while it is the selected session's this one is not mounted (one screen per chat core).
            *
            * CDXC:SessionChat 2026-09-25 DECISION:
            * User (2026-09-25): delete the phone's "Web (previous)" chat fallback so the phone runs only the native Rust chat. NativeChatScreen is the only chat view; the WebView chat, the Settings > Chat view choice and its bundled page are gone, and a stored `sessionChatView: 'web'` is ignored. Supersedes the earlier 2026-09-25 decision that kept the WebView as a fallback.
@@ -1307,11 +1426,8 @@ export default function TerminalScreen({ navigation, route }: Props) {
             hostActions={
               agentActionsCapable && activeSession !== null ? NATIVE_CHAT_HOST_ACTIONS : NO_NATIVE_CHAT_HOST_ACTIONS
             }
-            onHostAction={(action) => {
-              if (action === 'closeAfterDone') void toggleCloseAfterDone();
-              else handleTerminalMenuAction(action as TerminalMenuActionId);
-            }}
-            visible={chatModeActive}
+            onHostAction={chatHostAction}
+            visible={chatModeActive && twoPanes === null}
             openSearchRequestId={chatSearchRequestId}
             openSessionNoteRequestId={chatSessionNoteRequestId}
             onQueueCountChange={handleChatQueueCount}

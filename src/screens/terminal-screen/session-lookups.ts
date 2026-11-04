@@ -202,6 +202,21 @@ export function sessionRecordFor(
   return summary.sessions.find((entry) => entry.sessionId === tab.ghostexSessionId) ?? null;
 }
 
+/**
+ * Whether the session shown in `tab` offers its Chat View on the Terminal screen (the chat/terminal toggle): an agent
+ * session with a resolved (projectId, sessionId) identity whose agent has a chat projection. CDXC:AgentBox 2026-10-01
+ * SEE-ALSO: gx-core's `session_chat_view_unavailable`. A box session's agent runs in its box, so no transcript exists
+ * here and it stays on its terminal; a draft whose box only starts with its first message (`pending`) keeps chat until
+ * that message.
+ */
+export function tabChatCapable(tab: TerminalTab | null, summary: GhostexMobileSummary | null | undefined): boolean {
+  if (tab === null || tab.kind !== 'attach' || tab.ghostexSessionId === undefined) return false;
+  if (sessionProjectIdFor(tab, summary).length === 0) return false;
+  if (!isSessionChatSupportedAgent(sessionAgentIdFor(tab, summary))) return false;
+  const session = sessionRecordFor(tab, summary);
+  return !(session?.agentbox !== undefined && session.agentbox.pending !== true);
+}
+
 export function patchTab(sessionKey: string, patch: Partial<TerminalTab>): void {
   useTerminalStore.setState((state) => ({
     tabs: state.tabs.map((tab) => (tab.sessionKey === sessionKey ? { ...tab, ...patch } : tab)),

@@ -1,14 +1,15 @@
 /**
  * The terminal screen's pane controller, beside the pane state of `usePaneHost`: what a touch in a pane, a pick in the
  * chooser (also its Close row and its new terminal), a row of the agents or attention list pane and the header's Panes
- * button do, the keyboard following the active pane, Back from a question opened in the attention list pane, and the
- * active pane's content opening full screen when the Duo folds. `paneLayoutInput` places the two panes in the terminal
- * area from the keyboard, the text editor and the fold. `TerminalScreen` calls the hook once its keyboard and editor
- * state are known.
+ * button do, the keyboard following the active pane (to a terminal or to the composer of a chat in a pane), Back from a
+ * question opened in the attention list pane, and the active pane's content opening full screen when the Duo folds.
+ * `paneLayoutInput` places the two panes in the terminal area from the keyboard, the text editor and the fold.
+ * `TerminalScreen` calls the hook once its keyboard and editor state are known, and holds the question opened from the
+ * attention list pane (`PaneQuestion`): the panes are offered only while none stands.
  */
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Alert, type LayoutRectangle } from 'react-native';
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import { Alert, Keyboard, type LayoutRectangle } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { GhostexNative } from '../../modules/ghostex-native/src';
@@ -44,22 +45,34 @@ type TwoPanes = Extract<PaneDisplay, { kind: 'panes' }>;
  */
 const NO_SWIPE_BACK_START = { start: 1, end: 0 } as const;
 
+/**
+ * A question opened from the attention list pane: its session's chat view stands full screen while the panes wait
+ * and Back returns to `returnSessionKey`, the session that was beside the list.
+ */
+export type PaneQuestion = { chatSessionKey: string; returnSessionKey: string };
+
 export type TerminalPanesInput = {
   /** The pane state (`usePaneHost`). */
   panes: PaneHost;
   navigation: TerminalNavigation;
   isFocused: boolean;
-  /** The window has pane slots and the selected tab is an agent session shown as a terminal (`usePaneHost`'s). */
+  /** The window has pane slots and the selected tab is an agent session, no question standing (`usePaneHost`'s). */
   panesOffered: boolean;
+  /** The question opened from the attention list pane, held by the screen, and its setter. */
+  paneQuestion: PaneQuestion | null;
+  setPaneQuestion: (question: PaneQuestion | null) => void;
   /** The window has pane slots (the fold's divisions), offered or not. */
   hasPaneSlots: boolean;
   tabs: readonly TerminalTab[];
   selectedSessionKey: string | null;
   /** The computer of the selected tab. */
   activeMachineId: string | null;
+  /** The selected session shows its chat view (with two panes: in its pane). */
   chatModeActive: boolean;
   /** The terminal on screen with one pane. */
   mountedTerminalSessionKey: string | null;
+  /** Gives the keyboard to the composer of the chat in a pane (`usePaneHost`'s `chatSessionKey`). */
+  focusComposer: () => void;
   keyboardVisible: boolean;
   /** The text editor is open: it keeps the keyboard. */
   editorShown: boolean;
@@ -104,6 +117,8 @@ export function useTerminalPanes({
   navigation,
   isFocused,
   panesOffered,
+  paneQuestion,
+  setPaneQuestion,
   hasPaneSlots,
   tabs,
   selectedSessionKey,
@@ -111,6 +126,7 @@ export function useTerminalPanes({
   chatModeActive,
   mountedTerminalSessionKey,
   keyboardVisible,
+  focusComposer,
   editorShown,
   dismissKeyboard,
   showSessions,
@@ -119,17 +135,16 @@ export function useTerminalPanes({
 }: TerminalPanesInput): TerminalPanes {
   const twoPanes: TwoPanes | null = panes.display.kind === 'panes' ? panes.display : null;
 
-  // A question opened from the attention list pane: its chat view stands full screen while the panes wait, and the
-  // screen's Back (button and side bar entry) goes back to them instead of to Sessions: the session that was beside the
-  // list is selected again, or, when the question was that session's, it shows its terminal again, so the stored
-  // layout is there as it was. Over as soon as that chat view is left another way (its terminal view, another session);
-  // every other way into a chat (the Notifications screen, a notification tap) keeps Back to Sessions.
-  const [paneQuestion, setPaneQuestion] = useState<{ chatSessionKey: string; returnSessionKey: string } | null>(null);
+  // A question opened from the attention list pane (`PaneQuestion`): the screen's Back (button and side bar entry) goes
+  // back to the panes instead of to Sessions: the session that was beside the list is selected again, or, when the
+  // question was that session's, it shows its terminal again, so the stored layout is there as it was. Over as soon as
+  // that chat view is left another way (its terminal view, another session); every other way into a chat (the
+  // Notifications screen, a notification tap) keeps Back to Sessions.
   useEffect(() => {
     if (paneQuestion !== null && (selectedSessionKey !== paneQuestion.chatSessionKey || !chatModeActive)) {
       setPaneQuestion(null);
     }
-  }, [paneQuestion, selectedSessionKey, chatModeActive]);
+  }, [paneQuestion, selectedSessionKey, chatModeActive, setPaneQuestion]);
   // The stack's swipe back would leave for Sessions past the waiting panes, so it is not offered while such a chat
   // view stands: Back is the way back there. Turned off rather than caught (`usePreventRemove`), whose iOS path lets
   // the native pop begin, cancels it and puts the screen back into the native stack. A finger on the screen's pad
@@ -189,24 +204,50 @@ export function useTerminalPanes({
   // becoming the active one takes the keyboard from the terminal: typing goes to the active pane, into a field of
   // its own once one is tapped. From such a pane the keyboard comes back the same way: up in one of its fields, it
   // goes to the terminal that becomes active (a touch in the session pane, the tab strip, a pick in the chooser), or
-  // to the session left alone on screen when either pane closes.
+  // to the session left alone on screen when either pane closes. A session pane showing its chat view (`chatSessionKey`)
+  // is such a pane with its composer as its field: becoming the active pane while the keyboard is up, the composer
+  // takes it; left for a pane without a terminal, the keyboard goes down. A pane turned between its terminal and its
+  // chat view stays the same pane: the keyboard does not follow (the view button lowers it, as with one pane).
+  const chatSessionKey = panes.chatSessionKey;
   const activePaneContent = twoPanes === null || !isFocused ? null : twoPanes.slots[twoPanes.active];
-  const activePaneSessionKey = activePaneContent?.kind === 'session' ? activePaneContent.sessionKey : null;
-  const otherPaneActive = activePaneContent !== null && activePaneContent.kind !== 'session';
+  const activeIsChat = activePaneContent?.kind === 'session' && activePaneContent.sessionKey === chatSessionKey;
+  const activePaneSessionKey =
+    activePaneContent?.kind === 'session' && !activeIsChat ? activePaneContent.sessionKey : null;
+  const otherPaneActive = activePaneContent !== null && (activePaneContent.kind !== 'session' || activeIsChat);
+  // The active pane by what it holds: a session's pane stays the same pane whether it shows its terminal or its chat.
+  const activePane =
+    activePaneContent === null
+      ? null
+      : activePaneContent.kind === 'session'
+        ? activePaneContent.sessionKey
+        : activePaneContent.kind;
   // The terminal typing goes to: the active pane's, or with one pane the terminal on screen; and the terminal beside
   // it: the other session pane's, or beside a pane without a terminal the session pane's.
   const typingInPanes = twoPanes !== null;
   const typingSessionKey = typingInPanes ? activePaneSessionKey : mountedTerminalSessionKey;
-  const besideContent = otherPaneActive ? twoPanes?.slots.find((content) => content.kind === 'session') : undefined;
+  const besideContent = otherPaneActive
+    ? twoPanes?.slots.find((content) => content.kind === 'session' && content.sessionKey !== chatSessionKey)
+    : undefined;
   const besideSessionKey = !typingInPanes
     ? null
     : besideContent?.kind === 'session'
       ? besideContent.sessionKey
-      : panes.paneSessionKey;
+      : panes.paneSessionKey === chatSessionKey
+        ? null
+        : panes.paneSessionKey;
   const typingTerminalOpen = tabs.some((tab) => tab.sessionKey === typingSessionKey && tab.state === 'open');
-  const lastTyping = useRef<{ sessionKey: string | null; other: boolean; inPanes: boolean; beside: string | null }>({
+  const lastTyping = useRef<{
+    sessionKey: string | null;
+    other: boolean;
+    chat: boolean;
+    pane: string | null;
+    inPanes: boolean;
+    beside: string | null;
+  }>({
     sessionKey: null,
     other: false,
+    chat: false,
+    pane: null,
     inPanes: false,
     beside: null,
   });
@@ -216,22 +257,33 @@ export function useTerminalPanes({
     lastTyping.current = {
       sessionKey: typingSessionKey,
       other: otherPaneActive,
+      chat: activeIsChat,
+      pane: activePane,
       inPanes: typingInPanes,
       beside: besideSessionKey,
     };
+    const paneChanged = activePane !== previous.pane || typingInPanes !== previous.inPanes;
     if (typingSessionKey !== previous.sessionKey || typingInPanes !== previous.inPanes) {
       // From one pane to the other, or to the pane left alone on screen when the active one closed; from a browser,
-      // files or Git changes pane the same way, except when the Duo folds (its content then opens full screen).
-      const fromPane = previous.sessionKey !== null || (previous.other && (typingInPanes || panesOffered));
+      // files or Git changes pane or a chat the same way, except when the Duo folds (its content then opens full
+      // screen). Not a pane turned to its terminal: it stays the active pane.
+      const fromPane =
+        paneChanged && (previous.sessionKey !== null || (previous.other && (typingInPanes || panesOffered)));
       const follows =
         fromPane &&
         typingSessionKey !== null &&
         (typingInPanes ? previous.inPanes : typingSessionKey === previous.beside);
       keyboardFollows.current = follows ? typingSessionKey : null;
     }
-    // From a terminal pane to a pane without a terminal: the terminal lets the keyboard go.
-    if (otherPaneActive && previous.inPanes && previous.sessionKey !== null && keyboardVisible) {
+    if (activeIsChat && paneChanged && typingInPanes && previous.inPanes && keyboardVisible) {
+      // To the chat in a pane: its composer takes the keyboard from the terminal or the field it was in.
+      focusComposer();
+    } else if (otherPaneActive && previous.inPanes && previous.sessionKey !== null && keyboardVisible) {
+      // From a terminal pane to a pane without a terminal: the terminal lets the keyboard go.
       void GhostexNative.blurTerminal(previous.sessionKey).catch(() => undefined);
+    } else if (otherPaneActive && paneChanged && previous.chat && keyboardVisible) {
+      // From the chat's composer to a pane without a terminal: the keyboard goes down until one of its fields is tapped.
+      Keyboard.dismiss();
     }
     if (!keyboardVisible || editorShown) keyboardFollows.current = null;
     const sessionKey = keyboardFollows.current;
@@ -246,18 +298,22 @@ export function useTerminalPanes({
     keyboardVisible,
     editorShown,
     otherPaneActive,
+    activeIsChat,
+    activePane,
+    focusComposer,
     panesOffered,
   ]);
 
-  // A session opened from a pane goes into the session pane as a terminal (a pane shows no chat): the chooser's pick
-  // beside the session on screen, a session of the agents pane or a row of the attention list beside them. Any
-  // computer's: the attention list spans them all.
+  // A session opened from a pane goes into the session pane as its terminal (the approved mockup): the chooser's pick
+  // beside the session on screen, a session of the agents pane or a row of the attention list beside them. Only the
+  // pane shows the terminal; the session's saved view stays. Any computer's: the attention list
+  // spans them all.
   const openPaneSession = useCallback((machineId: string, sessionId: string): void => {
     const machine = machineTargetFor(machineId);
     if (machine === null) return;
     const store = useTerminalStore.getState();
     const sessionKey = attachSessionKey(machine.id, sessionId);
-    if (store.chatModeArmed(sessionKey)) store.setSessionViewMode(sessionKey, 'terminal');
+    usePaneStore.getState().setPickedSession(sessionKey);
     // The session on screen stays beside a pick: it is the pane's before the pick takes the selection, so making room
     // for the pick at the warm-terminal limit never closes it.
     if (store.selectedSessionKey !== sessionKey) store.setPaneSessionKey(store.selectedSessionKey);
@@ -271,7 +327,9 @@ export function useTerminalPanes({
         ...(record !== undefined && record.displayTitle.length > 0 ? { title: record.displayTitle } : {}),
       })
       .catch(() => {
-        // The pane shows the failure with Retry (`TerminalStateOverlay`).
+        // The pane shows the failure with Retry (`TerminalStateOverlay`); a pick never selected is no pick any more.
+        if (useTerminalStore.getState().selectedSessionKey !== sessionKey)
+          usePaneStore.getState().setPickedSession(null);
       });
   }, []);
   const pickPaneSession = useCallback(
@@ -281,8 +339,8 @@ export function useTerminalPanes({
     [activeMachineId, openPaneSession],
   );
   // A row of the attention list pane: its session beside it, a question at its question card in the chat view, full
-  // screen, as the Notifications screen opens it. The chat view has no panes; Back there (`goBack`) or its terminal
-  // view brings the layout back.
+  // screen, as the Notifications screen opens it: the panes wait. Back there (`goBack`) or its
+  // terminal view brings the layout back.
   const openAttentionTarget = useCallback(
     (target: OpenSessionTarget): void => {
       if (target.question) {

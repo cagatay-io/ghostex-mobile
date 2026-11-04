@@ -3,8 +3,8 @@
  * them and their title bars. Where they stand is `paneGeometry`'s; what they show is the caller's (`renderContent`).
  *
  * - Each pane has a title bar: the grip, the type icon and title (a tap opens the pane type menu, which sets what the
- *   pane shows), the close button. The pane tapped last is active: its title bar in the accent colour; the other's
- *   grey.
+ *   pane shows), the close button; a session pane showing its chat view has the chat's icon and is named a chat. The
+ *   pane tapped last is active: its title bar in the accent colour; the other's grey.
  * - Dragging a pane by its title bar (the grip is part of it) onto the other slot swaps the two. While the finger
  *   moves, a copy of the title bar follows it and the other pane shows where a release swaps; the panes themselves
  *   stay put, so their terminals are never moved or remounted (a terminal can be in one place only). While the
@@ -35,7 +35,7 @@ import {
 import type { WindowRect } from '../../modules/ghostex-native/src/GhostexNative.types';
 import { measureInWindow } from '../components/common/measureInWindow';
 import ContextMenu from '../components/sessions/ContextMenu';
-import { ChevronDownIcon, CloseIcon, GripIcon } from '../components/terminal/icons';
+import { ChatBubbleIcon, ChevronDownIcon, CloseIcon, GripIcon } from '../components/terminal/icons';
 import { PanesCopy, SessionCopy, UsageCopy } from '../copy';
 import { useInventoryStore } from '../inventory/store';
 import { machineDisplayLabel, useMachinesStore } from '../machines/store';
@@ -79,6 +79,8 @@ export type PaneHostProps = {
    * active pane, the keyboard's cover, the editor and the fold). */
   layout: PaneGeometryInput;
   slots: readonly [PaneContent, PaneContent];
+  /** The session whose pane shows its chat view (`usePaneHost`): its title bar names it a chat. */
+  chatSessionKey: string | null;
   renderContent: (content: PaneContent, frame: PaneFrame) => ReactNode;
   /** Shown in the body of the pane in `accessorySlot` (the queued prompts of the selected session, in its pane). */
   accessory?: ReactNode;
@@ -209,6 +211,7 @@ export default function PaneHost(props: PaneHostProps) {
           content={slots[slot]}
           geometry={geometry}
           active={slot === active}
+          chat={slots[slot].kind === 'session' && contentKey(slots[slot]) === props.chatSessionKey}
           swappable={swappable}
           dropTarget={swapShown !== null && swapShown.hovering && swapShown.slot !== slot}
           onSwapDrag={onSwapDrag}
@@ -268,6 +271,8 @@ type PaneCardProps = {
   content: PaneContent;
   geometry: PaneGeometry;
   active: boolean;
+  /** A session pane showing its chat view: the chat's icon and name in the title bar, the type menu as a session's. */
+  chat: boolean;
   /** Its title bar drags it onto the other slot (`PaneHost`: not while the chooser is one of the two). */
   swappable: boolean;
   dropTarget: boolean;
@@ -289,7 +294,7 @@ function PaneCard(props: PaneCardProps) {
   const card = geometry.cards[slot];
   const inset = geometry.bodyInsets[slot];
   const typeDefinition = AVAILABLE_PANE_TYPES.find((definition) => definition.type === content.kind);
-  const typeLabel = typeDefinition?.label ?? PanesCopy.newPane;
+  const typeLabel = props.chat ? PanesCopy.chatType : (typeDefinition?.label ?? PanesCopy.newPane);
   const tint = active ? GhostexPalette.ACCENT : GhostexPalette.MUTED;
   const delta = (event: GestureResponderEvent) => ({
     dx: event.nativeEvent.pageX - (start.current?.x ?? event.nativeEvent.pageX),
@@ -356,7 +361,7 @@ function PaneCard(props: PaneCardProps) {
           style={styles.title}
           onPress={() => measureInWindow(titleRef, props.onMenu)}
         >
-          {typeDefinition?.icon(16, tint)}
+          {props.chat ? <ChatBubbleIcon size={16} color={tint} /> : typeDefinition?.icon(16, tint)}
           <Text style={[styles.titleText, { color: tint }, active && styles.titleActive]} numberOfLines={1}>
             {title}
           </Text>

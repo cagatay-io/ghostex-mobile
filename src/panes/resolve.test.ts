@@ -2,15 +2,16 @@
 /**
  * Run with `bun test src/panes/resolve.test.ts`. What the pane host shows: the active pane is the one tapped last and
  * takes the keyboard, the pad and the editor, so it holds the selected session; a session is shown in one pane at
- * most; without pane slots (folded, other iPhones), in the chat view or for a shell tab there is one content area and
- * the stored layout waits; a stored layout this build cannot show leaves one pane.
+ * most; without pane slots (folded, other iPhones), for a shell tab or while a question opened from the attention list
+ * stands full screen there is one content area and the stored layout waits; a stored layout this build cannot show
+ * leaves one pane. Which session pane shows its chat view (`paneChatAfter`): one at most, chosen per pane, never stored.
  */
 
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
 import type { PaneLayout } from './layout';
-import { resolvePanes, type PaneResolveInput } from './resolve';
+import { paneChatAfter, resolvePanes, type PaneChatInput, type PaneResolveInput } from './resolve';
 
 const A = 'm1:a';
 const B = 'm1:b';
@@ -82,7 +83,7 @@ describe('two session panes', () => {
 });
 
 describe('one content area', () => {
-  test('without pane slots, in the chat view or for a shell tab (not offered): the layout waits', () => {
+  test('without pane slots, for a shell tab or behind a question from the attention list (not offered): the layout waits', () => {
     assert.deepEqual(resolvePanes(input({ offered: false })), { display: { kind: 'single' }, store: null });
   });
 
@@ -159,5 +160,91 @@ describe('the window turning into a shape with nothing stored', () => {
       display: { kind: 'single' },
       store: null,
     });
+  });
+});
+
+describe('which pane shows its chat view', () => {
+  /** The session panes on screen, each with whether its saved view is its chat. */
+  const views = (...entries: [string, boolean][]) => new Map(entries);
+  const chatInput = (partial: Partial<PaneChatInput>): PaneChatInput => ({
+    before: null,
+    now: views([A, false], [B, false]),
+    selectedSessionKey: A,
+    chatSession: null,
+    picked: null,
+    ...partial,
+  });
+
+  test('the panes appear from the chat view: the selected session keeps its chat in its slot', () => {
+    assert.equal(paneChatAfter(chatInput({ now: views([A, true]) })), A);
+    assert.equal(paneChatAfter(chatInput({ now: views([A, true], [B, true]) })), A);
+  });
+
+  test('the panes appear from the terminal view: terminals only', () => {
+    assert.equal(paneChatAfter(chatInput({ now: views([A, false], [B, true]) })), null);
+  });
+
+  test('a pane pick opens its terminal, whatever its saved view', () => {
+    const before = views([A, true]);
+    assert.equal(
+      paneChatAfter(
+        chatInput({ before, now: views([A, true], [B, true]), selectedSessionKey: B, chatSession: A, picked: B }),
+      ),
+      A,
+    );
+  });
+
+  test('a session selected from outside the panes comes in with its saved view; its chat is the one chat', () => {
+    const before = views([A, true], [B, false]);
+    const after = (now: Map<string, boolean>) =>
+      paneChatAfter(chatInput({ before, now, selectedSessionKey: C, chatSession: A }));
+    assert.equal(after(views([A, true], [C, true])), C);
+    assert.equal(after(views([A, true], [C, false])), A);
+  });
+
+  test('the pane-scoped choice holds while its sessions stay on screen', () => {
+    const now = views([A, true], [B, false]);
+    assert.equal(paneChatAfter(chatInput({ before: now, now, selectedSessionKey: B, chatSession: B })), B);
+    assert.equal(paneChatAfter(chatInput({ before: now, now, selectedSessionKey: A, chatSession: null })), null);
+  });
+
+  test('a saved view changed while its session stands in a pane takes effect there', () => {
+    const before = views([A, false], [B, false]);
+    assert.equal(paneChatAfter(chatInput({ before, now: views([A, false], [B, true]), chatSession: null })), B);
+    const chatting = views([A, true], [B, false]);
+    assert.equal(
+      paneChatAfter(chatInput({ before: chatting, now: views([A, false], [B, false]), chatSession: A })),
+      null,
+    );
+  });
+
+  test('a chat whose session left the panes is no longer the chat', () => {
+    assert.equal(
+      paneChatAfter(
+        chatInput({ before: views([A, false], [B, false]), now: views([A, false], [C, false]), chatSession: B }),
+      ),
+      null,
+    );
+  });
+
+  test('a session coming in beside the selected one shows its terminal, also when it was the chat before', () => {
+    assert.equal(paneChatAfter(chatInput({ before: null, now: views([A, false], [B, true]), chatSession: B })), null);
+  });
+
+  test('one content area: the value waits', () => {
+    assert.equal(paneChatAfter(chatInput({ now: null, chatSession: B })), B);
+  });
+
+  test('a pane pick of the session already shown as chat turns its pane to the terminal (review K-10)', () => {
+    const now = views([A, true], [B, false]);
+    assert.equal(
+      paneChatAfter(chatInput({ before: now, now, selectedSessionKey: A, chatSession: A, picked: A })),
+      null,
+    );
+  });
+
+  test('a pick only counts once it is the selection: a pick not yet selected leaves the chat alone', () => {
+    const now = views([A, true], [B, false]);
+    assert.equal(paneChatAfter(chatInput({ before: now, now, selectedSessionKey: B, chatSession: A, picked: A })), A);
   });
 });
