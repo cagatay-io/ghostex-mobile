@@ -38,6 +38,12 @@ export type UnifiedSessionInput = {
   /** Never sent a message (gxserver's `draftStatus`, the row's pencil). */
   isDraft: boolean;
   isBrowser: boolean;
+  /**
+   * On a coordinator's worker: its coordinator on the same computer ('' or absent otherwise), as
+   * the drawer nests it (coordinatorTree.ts).
+   */
+  coordinatorProjectId?: string;
+  coordinatorSessionId?: string;
   createdMs: number | null;
   lastInteractionMs: number | null;
   workingStartedMs: number | null;
@@ -237,6 +243,45 @@ function queryMatches(query: string, row: UnifiedRow<unknown>): boolean {
   return words.every((word) => haystack.includes(word));
 }
 
+const workerId = (projectId: string, sessionId: string) => `${projectId}\u0000${sessionId}`;
+
+/**
+ * The sessions of a computer that a coordinator in its list started, at any depth (gx-core
+ * `worker_keys`, CDXC:Sidebar 2026-11-04): they are reached from the coordinator, so they are no
+ * cards of their own. A worker whose coordinator is not in the list (closed) is a card again, and a
+ * loop of coordinators that are each other's worker stays cards. The phone's summaries know a
+ * worker's coordinator on the worker's own computer only, so a worker another computer's
+ * coordinator started is still its computer's card here.
+ */
+function workerIdsOf(sessions: UnifiedSessionInput[]): Set<string> {
+  const present = new Set(
+    sessions.filter((session) => !session.isBrowser).map((session) => workerId(session.projectId, session.sessionId)),
+  );
+  const parents = new Map<string, string>();
+  for (const session of sessions) {
+    if ((session.coordinatorSessionId ?? '') === '') continue;
+    parents.set(
+      workerId(session.projectId, session.sessionId),
+      workerId(session.coordinatorProjectId ?? '', session.coordinatorSessionId!),
+    );
+  }
+  const reachesTop = (key: string) => {
+    let at = key;
+    for (let step = 0; step <= parents.size; step += 1) {
+      const parent = parents.get(at);
+      if (parent === undefined) return true;
+      if (parent === key) return false;
+      at = parent;
+    }
+    return false;
+  };
+  const workers = new Set<string>();
+  for (const [key, parent] of parents) {
+    if (present.has(parent) && reachesTop(key)) workers.add(key);
+  }
+  return workers;
+}
+
 export function buildUnifiedList<S>(
   machines: UnifiedMachineInput<S>[],
   settings: UnifiedSettings,
@@ -272,6 +317,7 @@ export function buildUnifiedList<S>(
         detail: remoteName,
       });
     }
+    const workers = workerIdsOf(machine.sessions);
     for (const [projectIndex, project] of machine.projects.entries()) {
       const repo = identities[machineIndex]![projectIndex]!;
       const entry = repoMachines.get(repo.key) ?? { label: repo.label, machines: new Set<string>() };
@@ -283,6 +329,7 @@ export function buildUnifiedList<S>(
           : spaceFilterKey(machineKey, spaceOfProject(machine.spaces, project));
       for (const session of machine.sessions) {
         if (session.projectId !== project.projectId || session.isBrowser) continue;
+        if (workers.has(workerId(session.projectId, session.sessionId))) continue;
         rows.push({
           machineKey,
           row: {

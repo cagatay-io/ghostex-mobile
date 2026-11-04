@@ -49,6 +49,8 @@ function sessionOf(raw: Json): UnifiedSessionInput {
     isParked: raw.isParked === true,
     isDraft: raw.isDraft === true,
     isBrowser: raw.isBrowser === true,
+    coordinatorProjectId: raw.coordinatorProjectId ?? '',
+    coordinatorSessionId: raw.coordinatorSessionId ?? '',
     createdMs: raw.createdMs ?? null,
     lastInteractionMs: raw.lastInteractionMs ?? null,
     workingStartedMs: raw.workingStartedMs ?? null,

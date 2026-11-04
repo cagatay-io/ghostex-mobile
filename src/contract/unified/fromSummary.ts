@@ -58,6 +58,8 @@ export function unifiedSessionInput(session: GhostexSession): UnifiedSessionInpu
     isParked: session.isParked === true,
     isDraft: session.isDraft === true,
     isBrowser: isBrowserSession(session),
+    coordinatorProjectId: session.coordinatorProjectId,
+    coordinatorSessionId: session.coordinatorSessionId,
     createdMs: millis(session.createdAt),
     lastInteractionMs: millis(session.lastInteractionAt),
     workingStartedMs: millis(session.workingStartedAt),
