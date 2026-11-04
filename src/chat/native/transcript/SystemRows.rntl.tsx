@@ -3,10 +3,11 @@
  * Run with `bun run test:jest`. OMP's advisor notes arrive from the chat core as a system card of kind
  * `advisor` (gx-chat-core `transcript/system_cards.rs`, `advisor_card`; its notes get `markdown` and
  * `references` in `presentation.rs`). On the phone it is one 44pt one-line card: the info tile, "Advisor
- * notes" and the core's severity counts as pills in the core's words and tones, no time; with more than
+ * shared notes" and the core's severity counts as pills in the core's words and tones, no time; with more than
  * two severities, or pills measured wider than the room beside the title, only the worst severity's pill
  * and a neutral "+N" for the other notes. Tapping opens every note below a hairline in the core's order,
- * each with its severity word and icon in its tone and its text as Markdown. A system card of a kind the
+ * each with its severity word and icon in its tone and its text as Markdown. In a light appearance, red and amber
+ * severity words and pill labels take the card's ink, keeping the tone on their icons. A system card of a kind the
  * renderer does not draw stays the muted text line, which is what a renderer without the `advisor` kind
  * shows for the core's `text`. The real `SystemCard`; mocked are storage (the library's own Jest mock),
  * the glyph drawing, which reports its name and colour, and what Markdown hands to Reanimated (the cards
@@ -114,8 +115,8 @@ function advisorCard(notes: [Severity, string][]) {
     }));
   return {
     kind: 'advisor',
-    name: 'Advisor notes',
-    title: `Advisor notes: ${counts.map((count) => count.label).join(', ')}`,
+    name: 'Advisor shared notes',
+    title: `Advisor shared notes: ${counts.map((count) => count.label).join(', ')}`,
     time: '12:41',
     counts,
     notes: notes.map(([severity, markdown]) => ({
@@ -169,7 +170,7 @@ const row = (title: string) => screen.getByRole('button', { name: title });
 
 /** The pills' slot: the row's child that reports its own width. */
 const pillSlot = (title: string) =>
-  up(screen.getByText('Advisor notes'), (node) => node.parent?.props.accessibilityLabel === title).parent!.children.find(
+  up(screen.getByText('Advisor shared notes'), (node) => node.parent?.props.accessibilityLabel === title).parent!.children.find(
     (child): child is Node => typeof child !== 'string' && child.props.onLayout !== undefined,
   )!;
 
@@ -220,17 +221,49 @@ function openedNotes() {
   });
 }
 
+/** The rendered card's hex or rgba colours, kept as channels for contrast on its translucent fill. */
+function channels(colour: unknown): [number, number, number, number] {
+  if (typeof colour !== 'string') throw new Error('Expected a colour string');
+  const hex = /^#([0-9a-f]{6})$/i.exec(colour)?.[1];
+  if (hex !== undefined) {
+    return [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16), parseInt(hex.slice(4, 6), 16), 1];
+  }
+  const [, r, g, b, a = '1'] = /^rgba?\(([\d.]+),([\d.]+),([\d.]+)(?:,([\d.]+))?\)$/.exec(colour.replace(/\s/g, '')) ?? [];
+  if (r === undefined || g === undefined || b === undefined) throw new Error(`Not a colour: ${colour}`);
+  return [Number(r), Number(g), Number(b), Number(a)];
+}
+
+/** WCAG text contrast over the card's fill composited on the chat background. */
+function contrastOn(ink: unknown, fill: unknown, base: string): number {
+  const [r, g, b, alpha] = channels(fill);
+  const [underR, underG, underB] = channels(base);
+  const [inkR, inkG, inkB] = channels(ink);
+  const linear = (channel: number) => {
+    const value = channel / 255;
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  };
+  const luminance = (red: number, green: number, blue: number) =>
+    0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue);
+  const surface = luminance(
+    r * alpha + underR * (1 - alpha),
+    g * alpha + underG * (1 - alpha),
+    b * alpha + underB * (1 - alpha),
+  );
+  const text = luminance(inkR, inkG, inkB);
+  return (Math.max(text, surface) + 0.05) / (Math.min(text, surface) + 0.05);
+}
+
 describe('the advisor card, folded', () => {
   const card = advisorCard([
     ['concern', CONCERN],
     ['nit', NIT],
   ]);
 
-  test('is one 44pt row: the info tile, "Advisor notes" and a pill per severity in the core’s words and tones', async () => {
+  test('is one 44pt row: the info tile, "Advisor shared notes" and a pill per severity in the core’s words and tones', async () => {
     await show(card);
     const button = row(card.title);
     expect(flat(button).height).toBe(SINGLE_LINE_HEADER_HEIGHT);
-    expect(screen.getByText('Advisor notes')).toBeTruthy();
+    expect(screen.getByText('Advisor shared notes')).toBeTruthy();
     expect(screen.getByTestId('glyph:info-circle')).toBeTruthy();
     expect(pills(card.title)).toEqual([
       { label: '1 concern', color: AMBER.dark, glyph: 'glyph:alert-triangle', glyphColor: AMBER.dark },
@@ -240,7 +273,7 @@ describe('the advisor card, folded', () => {
 
   test('its accessibility label is the core’s title, and it says whether it is open', async () => {
     await show(card);
-    expect(row('Advisor notes: 1 concern, 1 nit').props.accessibilityState).toEqual({ expanded: false });
+    expect(row('Advisor shared notes: 1 concern, 1 nit').props.accessibilityState).toEqual({ expanded: false });
   });
 
   test('shows no time and none of the notes', async () => {
@@ -323,13 +356,28 @@ describe('a blocker', () => {
     expect(openedNotes()[0]).toMatchObject({ word: 'Blocker', color: RED.dark, glyph: 'glyph:alert-octagon' });
   });
 
-  test('takes the message cards’ light red, and a concern their light amber, in the light chat theme', async () => {
+  test('in the light chat theme, severity words and labels read at 4.5:1 in the ink; tones stay on icons', async () => {
     const card = advisorCard([
       ['blocker', BLOCKER],
       ['concern', CONCERN],
     ]);
     await show(card, LIGHT);
-    expect(pills(card.title).map(({ color }) => color)).toEqual([RED.light, AMBER.light]);
+    const surface = flat(up(screen.getByText('Advisor shared notes'), (node) => flat(node).borderRadius !== undefined))
+      .backgroundColor;
+    const folded = pills(card.title);
+    expect(folded.map(({ color, glyphColor }) => ({ color, glyphColor }))).toEqual([
+      { color: LIGHT.foreground, glyphColor: RED.light },
+      { color: LIGHT.foreground, glyphColor: AMBER.light },
+    ]);
+    await fireEvent.press(row(card.title));
+    const words = openedNotes();
+    expect(words.map(({ color, glyphColor }) => ({ color, glyphColor }))).toEqual([
+      { color: LIGHT.foreground, glyphColor: RED.light },
+      { color: LIGHT.foreground, glyphColor: AMBER.light },
+    ]);
+    for (const { color } of [...folded, ...words]) {
+      expect(contrastOn(color, surface, LIGHT.background)).toBeGreaterThanOrEqual(4.5);
+    }
   });
 });
 
@@ -419,7 +467,7 @@ describe('system cards the phone draws as a text line', () => {
     const line = screen.getByText(later.text);
     expect(flat(line).color).toBe(DARK.muted);
     expect(screen.queryByRole('button')).toBeNull();
-    expect(screen.queryByText('Advisor notes')).toBeNull();
+    expect(screen.queryByText('Advisor shared notes')).toBeNull();
   });
 
   test('advisor notes from a core without the advisor card stay the muted text line', async () => {

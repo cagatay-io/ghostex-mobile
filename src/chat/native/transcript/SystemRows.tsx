@@ -243,10 +243,16 @@ function advisorTone(tone: string, theme: TranscriptTheme): string {
   return tone === 'failed' || tone === 'waiting' ? toneColor(tone, theme) : theme.cardMuted;
 }
 
+/** A light card keeps red and amber severity words in its ink, with the tone on the icon. */
+function advisorLabel(tone: string, theme: TranscriptTheme): string {
+  return theme.light && (tone === 'failed' || tone === 'waiting') ? theme.foreground : advisorTone(tone, theme);
+}
+
 /**
  * OMP's advisor notes (desktop `advisor_card` in `system_cards.rs`): one 44pt row (the info tile,
- * "Advisor notes" and the core's count of each severity as a pill) that opens to every note below a
- * hairline, each with its severity word and icon in its tone and its text as Markdown. The core
+ * "Advisor shared notes" and the core's count of each severity as a pill) that opens to every note below a
+ * hairline, each with its severity word and icon in its tone and its text as Markdown. A light appearance
+ * keeps red and amber words in the card's ink (`advisorLabel`). The core
  * decides the notes, their order (worst first), their words and tones; this lays them out in the
  * one-line card every transcript card shares (`singleLineCard.tsx`).
  *
@@ -280,6 +286,7 @@ function AdvisorCard({ id, card }: { id: string; card: JsonRecord }) {
       icon={advisorGlyph(str(count, 'icon'))}
       label={str(count, 'label')}
       color={advisorTone(str(count, 'tone'), theme)}
+      labelColor={advisorLabel(str(count, 'tone'), theme)}
     />
   );
   return (
@@ -326,7 +333,9 @@ function AdvisorCard({ id, card }: { id: string; card: JsonRecord }) {
               <View key={index} style={styles.advisorNote}>
                 <View style={styles.advisorSeverity}>
                   <Glyph name={advisorGlyph(str(note, 'icon'))} size={13} color={tone} />
-                  <Text style={[styles.advisorSeverityText, { color: tone }]}>{str(note, 'label')}</Text>
+                  <Text style={[styles.advisorSeverityText, { color: advisorLabel(str(note, 'tone'), theme) }]}>
+                    {str(note, 'label')}
+                  </Text>
                 </View>
                 <View style={styles.advisorNoteText}>
                   <Markdown text={str(note, 'markdown')} references={note.references} color={theme.cardMuted} />
