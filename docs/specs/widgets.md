@@ -58,8 +58,11 @@ of `plugins/withWidgets.js` together with the Live Activity.
 - A refresh that changes nothing shown, compared with the data time to the minute, writes nothing; while the poll runs
   an unchanged state is written once a minute, so the shown time stays current.
 - Nothing is written before the first summary was read. Removing the last computer deletes the file.
-- Not written while the app is in the background (no refresh runs). `refreshWidgets()` reads every summary again and
-  writes, for a background wake.
+- Not written while the app is in the background except in a run iOS grants for a push with content-available.
+  The registered task refreshes the session list once, then `updateWidgets()` installs the existing writer if a
+  background launch mounted no screen and applies that list. The task awaits the write and reload within its 25 s
+  budget. If the refresh fails or reads no computer, the snapshot stays as it is; a successfully read empty list
+  still updates it. No second summary read or background usage read is added.
 - An agent of a computer that does not send a start time (`workingStartedAt`, `attention.enteredAt`) is counted but
   gets no row. On a computer that does not send `attention.kind`, every agent in attention counts as waiting.
 

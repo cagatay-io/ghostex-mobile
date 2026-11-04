@@ -2,8 +2,10 @@
  * A push that iOS hands to the app in the background. The computer sends its pushes with content-available,
  * so iOS may start or wake the app for a short while (not guaranteed: iOS decides, advises few such runs an
  * hour, and a force-quit app gets none). In that while the app loads what a launch in the background has not
- * loaded yet, refreshes the session list, and completes within `BACKGROUND_PUSH_BUDGET_MS`, inside the time
- * iOS gives such a run.
+ * loaded yet, refreshes the session list, brings the Live Activity and widgets in line with the list it read,
+ * and completes within `BACKGROUND_PUSH_BUDGET_MS`, inside the time iOS gives such a run. A launch in the background
+ * mounts no screen, so this run installs their existing consumers. When the refresh fails or reads no computer's
+ * session list, both are left as they are: nothing read says that no agent works or waits.
  *
  * A push with an alert that came while the app was in the background was shown by iOS itself: it goes to the
  * record of announced events as that event's notification (`shownByIos`), with the sound only when the push
@@ -17,8 +19,8 @@
  * is inactive iOS may ask the same or show the push itself (not verified), and a run then cannot tell which, so
  * recording it could count a push the app held back as shown (`feedStore.ts` covers the return to the front).
  *
- * The app state, the stores, the refresh, the record and the timer are passed in, so the handler is testable
- * under `bun test`.
+ * The app state, stores, refresh, Live Activity and widget update, record and timer are passed in, so the handler
+ * is testable under `bun test`.
  */
 
 import { pushEventFromData, type PushEvent } from './pushMessage';
@@ -32,8 +34,13 @@ export type BackgroundPushResult = 'newData' | 'noData' | 'failed';
 export type BackgroundPushDeps = {
   /** Loads what a launch in the background has not loaded yet (the saved computers, Settings). */
   prepare(): Promise<void>;
-  /** Reads the session list of every enabled computer anew. */
-  refreshSessions(): Promise<void>;
+  /**
+   * Reads every enabled computer's session list; resolves whether at least one was read. An unreachable computer
+   * keeps its error in the inventory store rather than rejecting the refresh.
+   */
+  refreshSessions(): Promise<boolean>;
+  /** Applies the refreshed list and resolves after ActivityKit and the widget snapshot write/reload calls finish. */
+  updateActivityAndWidgets(): Promise<void>;
   /** Whether the app is in the background now (iOS shows a push's alert itself then). */
   inBackground(): boolean;
   /**
@@ -85,6 +92,8 @@ export async function handleBackgroundPush(payload: unknown, deps: BackgroundPus
     recorded = true;
   };
   let settled = false;
+  /** The session refresh completed; what remains is the Live Activity and widgets. */
+  let sessionsRefreshed = false;
   const refreshed = deps
     .prepare()
     .then(() => {
@@ -92,7 +101,16 @@ export async function handleBackgroundPush(payload: unknown, deps: BackgroundPus
       return deps.refreshSessions();
     })
     .then(
-      (): BackgroundPushResult => 'newData',
+      async (read): Promise<BackgroundPushResult> => {
+        sessionsRefreshed = true;
+        if (!read) return 'newData';
+        try {
+          await deps.updateActivityAndWidgets();
+        } catch {
+          deps.log('Push: the Live Activity and the widgets were not updated in the background (unexpected)');
+        }
+        return 'newData';
+      },
       () => {
         deps.log('Push: the session list was not refreshed in the background (unexpected)');
         return 'failed' as const;
@@ -104,14 +122,17 @@ export async function handleBackgroundPush(payload: unknown, deps: BackgroundPus
   const timer = deps.startTimer(BACKGROUND_PUSH_BUDGET_MS);
   const result = await Promise.race([
     refreshed,
-    timer.expired.then(() => {
-      if (!settled) deps.log('Push: the session list was not refreshed in the background in time');
-      return 'failed' as const;
+    timer.expired.then((): BackgroundPushResult => {
+      if (settled) return 'failed';
+      if (!sessionsRefreshed) {
+        deps.log('Push: the session list was not refreshed in the background in time');
+        return 'failed';
+      }
+      deps.log('Push: the Live Activity and the widgets were not updated in the background in time');
+      return 'newData';
     }),
   ]);
   timer.cancel();
-  // The Live Activity update from a background push is called here once the Live Activity code is on this
-  // branch: after the refresh, with the session list it brought.
   record();
   return result;
 }

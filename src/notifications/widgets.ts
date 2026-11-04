@@ -3,8 +3,8 @@
  * or of the machines brings the App Group snapshot in line and, when it changed, asks WidgetKit to reload the
  * widgets (`widgetWriter.ts`). iOS only; on Android the native module does not exist and nothing is installed.
  *
- * `refreshWidgets` is the update entry point for a short background wake (the push handler can call it beside
- * `refreshLiveActivity`): it reads every summary again and resolves once the snapshot is written.
+ * `updateWidgets` applies the latest summaries after a background push refreshed them, beside `updateLiveActivity`.
+ * It installs the existing writer when a background launch mounted no screen and resolves after its write/reload.
  */
 
 import { Platform } from 'react-native';
@@ -70,8 +70,8 @@ export function initWidgets(): void {
   void syncWidgets();
 }
 
-/** Reads every summary again and writes the snapshot; resolves once it is written (and the reload requested). */
-export async function refreshWidgets(): Promise<void> {
-  await useInventoryStore.getState().refreshAll();
+/** Installs the existing writer and applies the summaries read last; resolves after the snapshot write and reload. */
+export async function updateWidgets(): Promise<void> {
+  initWidgets();
   await syncWidgets();
 }

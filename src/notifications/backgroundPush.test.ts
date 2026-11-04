@@ -2,8 +2,8 @@
 /**
  * Run with `bun test src/notifications/backgroundPush.test.ts`. The real handler of a push that iOS hands to
  * the app in the background (`handleBackgroundPush`); faked are the boundaries only: the stores a launch in the
- * background loads, the session list's refresh over the warm link, the app state, the record of announced
- * events and the timer. The payloads are what expo-notifications passes to the background task on iOS.
+ * background loads, the session list's refresh over the warm link, the Live Activity and widget update, the app
+ * state, the record of announced events and the timer. The payloads are what expo-notifications passes to the task.
  */
 
 import assert from 'node:assert/strict';
@@ -30,7 +30,13 @@ function payload(
   };
 }
 
-function harness(options: { inBackground?: () => boolean; refresh?: () => Promise<void> } = {}) {
+function harness(
+  options: {
+    inBackground?: () => boolean;
+    refresh?: () => Promise<boolean>;
+    updateActivityAndWidgets?: () => Promise<void>;
+  } = {},
+) {
   const steps: string[] = [];
   const shown: PushEvent[] = [];
   /** Whether each push the record took sounded, in order. */
@@ -46,7 +52,13 @@ function harness(options: { inBackground?: () => boolean; refresh?: () => Promis
   const waiting = Promise.withResolvers<void>();
   const deps: BackgroundPushDeps = {
     prepare: async () => void steps.push('prepare'),
-    refreshSessions: options.refresh ?? (async () => void steps.push('refresh')),
+    refreshSessions:
+      options.refresh ??
+      (async () => {
+        steps.push('refresh');
+        return true;
+      }),
+    updateActivityAndWidgets: options.updateActivityAndWidgets ?? (async () => void steps.push('outputs')),
     inBackground: options.inBackground ?? (() => true),
     shownByIos: (event, sound, again) => {
       steps.push('recorded');
@@ -77,6 +89,13 @@ function harness(options: { inBackground?: () => boolean; refresh?: () => Promis
   };
 }
 
+/** Settles once every step the handler can take without a timer has run. */
+function stepsTaken(): Promise<void> {
+  const { promise, resolve } = Promise.withResolvers<void>();
+  setImmediate(resolve);
+  return promise;
+}
+
 describe('a push with content-available', () => {
   test('refreshes the session list once and completes with new data', async () => {
     const app = harness();
@@ -92,7 +111,7 @@ describe('a push with content-available', () => {
   });
 
   test('completes within its budget when the session list does not answer', async () => {
-    const app = harness({ refresh: () => Promise.withResolvers<void>().promise });
+    const app = harness({ refresh: () => Promise.withResolvers<boolean>().promise });
     const result = handleBackgroundPush(payload(), app.deps);
     await app.waiting;
     app.expire();
@@ -110,8 +129,64 @@ describe('a push with content-available', () => {
     const app = harness();
     const started = payload({ alert: false, data: { kind: 'agentStarted', machineId: 'm1', sessionId: 's1' } });
     assert.equal(await handleBackgroundPush(started, app.deps), 'newData');
-    assert.deepEqual(app.steps, ['prepare', 'refresh']);
+    assert.deepEqual(app.steps, ['prepare', 'refresh', 'outputs']);
     assert.deepEqual(app.shown, []);
+  });
+
+  test('brings the Live Activity and the widgets in line with the fresh list once, and completes after they are', async () => {
+    const outputs = Promise.withResolvers<void>();
+    const app = harness({
+      updateActivityAndWidgets: () => {
+        app.steps.push('outputs');
+        return outputs.promise;
+      },
+    });
+    let done = false;
+    const result = handleBackgroundPush(payload({ alert: false }), app.deps).then((value) => {
+      done = true;
+      return value;
+    });
+    await app.waiting;
+    await stepsTaken();
+    assert.deepEqual(app.steps, ['prepare', 'refresh', 'outputs']);
+    assert.equal(done, false);
+    outputs.resolve();
+    assert.equal(await result, 'newData');
+  });
+
+  test('leaves the Live Activity and the widgets alone when the session list could not be refreshed', async () => {
+    const app = harness({ refresh: () => Promise.reject(new Error('down')) });
+    assert.equal(await handleBackgroundPush(payload({ alert: false }), app.deps), 'failed');
+    assert.deepEqual(app.steps, ['prepare']);
+  });
+
+  test('leaves the Live Activity and the widgets alone when the refresh read no computer (none could be reached)', async () => {
+    const app = harness({
+      refresh: async () => {
+        app.steps.push('refresh');
+        return false;
+      },
+    });
+    assert.equal(await handleBackgroundPush(payload({ alert: false }), app.deps), 'newData');
+    assert.deepEqual(app.steps, ['prepare', 'refresh']);
+  });
+
+  test('completes within its budget when the Live Activity or the widgets do not finish, with the fresh list read', async () => {
+    const app = harness({ updateActivityAndWidgets: () => Promise.withResolvers<void>().promise });
+    const result = handleBackgroundPush(payload(), app.deps);
+    await app.waiting;
+    await stepsTaken();
+    app.expire();
+    assert.equal(await result, 'newData');
+    assert.deepEqual(app.logs, ['Push: the Live Activity and the widgets were not updated in the background in time']);
+  });
+
+  test('completes with the fresh list read when the Live Activity or the widgets fail, with a fixed log line', async () => {
+    const app = harness({ updateActivityAndWidgets: () => Promise.reject(new Error('secret agent text')) });
+    assert.equal(await handleBackgroundPush(payload(), app.deps), 'newData');
+    assert.deepEqual(app.logs, [
+      'Push: the Live Activity and the widgets were not updated in the background (unexpected)',
+    ]);
   });
 });
 
@@ -119,7 +194,7 @@ describe('the alert iOS showed while the app was in the background', () => {
   test('goes to the record before the refresh (a running app may read the feed meanwhile) and again after it', async () => {
     const app = harness();
     await handleBackgroundPush(payload(), app.deps);
-    assert.deepEqual(app.steps, ['prepare', 'recorded', 'refresh', 'recorded']);
+    assert.deepEqual(app.steps, ['prepare', 'recorded', 'refresh', 'outputs', 'recorded']);
     assert.deepEqual(app.shown, [DATA, DATA]);
   });
 
@@ -145,6 +220,7 @@ describe('the alert iOS showed while the app was in the background', () => {
       inBackground: () => background,
       refresh: async () => {
         background = false;
+        return true;
       },
     });
     await handleBackgroundPush(payload(), app.deps);
@@ -160,7 +236,7 @@ describe('the alert iOS showed while the app was in the background', () => {
   test('is left to the app in front, which takes the push itself', async () => {
     const app = harness({ inBackground: () => false });
     assert.equal(await handleBackgroundPush(payload(), app.deps), 'newData');
-    assert.deepEqual(app.steps, ['prepare', 'refresh']);
+    assert.deepEqual(app.steps, ['prepare', 'refresh', 'outputs']);
   });
 
   test('reads the data from its JSON string when the dictionary is missing', async () => {

@@ -6,8 +6,8 @@
  * an agent read in the background starts its activity when the app comes to front, also before the next read. iOS
  * only; on Android the native module does not exist and nothing is installed.
  *
- * `refreshLiveActivity` is the local update entry point for a short background wake (a silent-push handler calls it);
- * it reads every summary again and resolves once ActivityKit has the result.
+ * `updateLiveActivity` applies the latest summaries after a background push refreshed them. It installs the existing
+ * consumer when a background launch mounted no screen, and resolves once ActivityKit has the result.
  */
 
 import { useMemo } from 'react';
@@ -160,11 +160,11 @@ export function initLiveActivity(): void {
 }
 
 /**
- * Reads every summary again and applies it to the activity; resolves once ActivityKit has the update. For a
- * short background wake, where the foreground poll does not run.
+ * Installs the existing consumer when nothing did yet and applies the summaries read last. For a background push,
+ * after its session refresh; resolves once ActivityKit has the update, without reading the summaries again.
  */
-export async function refreshLiveActivity(): Promise<void> {
-  await useInventoryStore.getState().refreshAll();
+export async function updateLiveActivity(): Promise<void> {
+  initLiveActivity();
   syncLiveActivity();
   await queue;
 }

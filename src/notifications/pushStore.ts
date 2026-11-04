@@ -20,8 +20,8 @@
  * (`unregisterBeforeRemoval`, bounded by `REMOVAL_WAIT_MS` in `pushToken.ts`), before its link is closed.
  *
  * The background task is defined when this module loads: iOS can start the app in the background for a push,
- * and then no screen is mounted and `initPushNotifications` does not run. iOS only; on Android nothing here
- * runs.
+ * and then no screen is mounted and `initPushNotifications` does not run. The task brings the Live Activity and
+ * widgets in line after reading the session list (`updateLiveActivity`, `updateWidgets`). iOS only.
  */
 
 import * as TaskManager from 'expo-task-manager';
@@ -34,6 +34,7 @@ import { enabledMachines, machineDisplayLabel, useMachinesStore } from '../machi
 import { useSettingsStore } from '../settings/store';
 import { handleBackgroundPush } from './backgroundPush';
 import { pushAccepted, recordPushShownByIos } from './feedStore';
+import { updateLiveActivity } from './liveActivity';
 import {
   BACKGROUND_PUSH_TASK,
   backgroundTaskResult,
@@ -46,6 +47,7 @@ import {
 } from './notificationCentre';
 import { PUSH_NOTIFICATIONS_CAPABILITY, REGISTER_PUSH_TOKEN_METHOD } from './pushMessage';
 import { PushTokenRegistration, type PushTokenParams, type PushTokenSendOutcome } from './pushToken';
+import { updateWidgets } from './widgets';
 
 const PUSH_TOKEN_REQUEST_TIMEOUT_MS = 10_000;
 
@@ -127,7 +129,18 @@ if (NOTIFICATIONS_SUPPORTED) {
         prepare: async () => {
           await Promise.all([useMachinesStore.getState().hydrate(), useSettingsStore.getState().hydrate()]);
         },
-        refreshSessions: () => useInventoryStore.getState().refreshAll(),
+        refreshSessions: async () => {
+          // A successful read sets `loadedAt`; an unreachable computer keeps it and gets an error.
+          const before = useInventoryStore.getState().inventoriesByMachineId;
+          await useInventoryStore.getState().refreshAll();
+          return Object.entries(useInventoryStore.getState().inventoriesByMachineId).some(
+            ([machineId, inventory]) =>
+              inventory.loadedAt !== null && inventory.loadedAt !== before[machineId]?.loadedAt,
+          );
+        },
+        updateActivityAndWidgets: async () => {
+          await Promise.all([updateLiveActivity(), updateWidgets()]);
+        },
         inBackground: () => (executionInfo.appState ?? AppState.currentState) === 'background',
         shownByIos: recordPushShownByIos,
         startTimer,
