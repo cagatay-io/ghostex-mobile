@@ -15,8 +15,10 @@ import ExtraKeysEditorScreen from '../screens/ExtraKeysEditorScreen';
 import { SettingsScreenLayout, ToggleRow } from '../screens/settings/SettingsControls';
 import UpdatesPage from '../screens/settings/UpdatesPage';
 import { defaultSettings, useSettingsStore } from '../settings/store';
-import { GhostexPalette, mixHexColors } from './palette';
-import { readableSecondaryText, resolveSidebarAppearance, SIDEBAR_BACKGROUND_TINT_OPTIONS } from './sidebarAppearance';
+import { mixHexColors } from './palette';
+import { THEME_PRESETS, themePresetPatch } from './presets';
+import { readableSecondaryText, sidebarAppearanceFor } from './sidebarAppearance';
+import { resolveAppearance } from './useAppearance';
 
 jest.mock('@react-native-async-storage/async-storage', () =>
   jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'),
@@ -80,25 +82,25 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-test('secondary ink reaches 4.5:1 on every shipped tint, contrast stop and resolved surface without recolouring glyphs', () => {
-  for (const { value } of SIDEBAR_BACKGROUND_TINT_OPTIONS) {
-    for (let stop = 85; stop <= 100; stop += 1) {
-      const appearance = resolveSidebarAppearance(value, stop);
-      for (const background of [appearance.background, appearance.card, appearance.cardActive]) {
-        expect(contrast(appearance.muted, background)).toBeGreaterThanOrEqual(4.5);
-      }
-      expect(appearance.mutedGlyph).toBe(mixHexColors(appearance.foreground, appearance.background, 56));
+test('secondary ink reaches 4.5:1 on every preset and resolved surface without recolouring glyphs', () => {
+  for (const preset of THEME_PRESETS) {
+    const appearance = sidebarAppearanceFor(preset.tintColor);
+    for (const background of [appearance.background, appearance.card, appearance.cardActive]) {
+      expect(contrast(appearance.muted, background)).toBeGreaterThanOrEqual(4.5);
     }
+    expect(appearance.mutedGlyph).toBe(mixHexColors(appearance.foreground, appearance.background, 56));
   }
   expect(readableSecondaryText('#ffffff', '#000000', ['#ffffff'])).not.toBe('#ffffff');
   expect(readableSecondaryText('#000000', '#000000', ['#ffffff'])).toBe('#000000');
 });
 
 test('the inline error banner uses readable ink over its real translucent wash', async () => {
-  const page = { background: '#383838', foreground: GhostexPalette.FOREGROUND };
+  const settings = { ...defaultSettings(), ...themePresetPatch('latte', false) };
+  useSettingsStore.setState({ settings });
+  const page = resolveAppearance(settings, true);
   await render(
     <View style={{ backgroundColor: page.background }}>
-      <ErrorBanner message="Could not save" page={page} />
+      <ErrorBanner message="Could not save" />
     </View>,
   );
   readable(screen.getByText('Could not save'));
@@ -160,9 +162,7 @@ function FindSurface() {
   );
 }
 test('Find secondary and error text and filter-sheet labels use their actual page and sheet surfaces', async () => {
-  useSettingsStore.setState({
-    settings: { ...defaultSettings(), sidebarBackgroundTint: '#123456', sidebarBackgroundContrast: 85 },
-  });
+  useSettingsStore.setState({ settings: { ...defaultSettings(), ...themePresetPatch('latte', false) } });
   await render(<FindSurface />);
   readable(screen.getByText('codex'));
   readable(screen.getByText('Search unavailable'));
@@ -187,9 +187,7 @@ test('both keyboard editors use readable labels on accent and destructive contro
 });
 
 test('Settings descriptions and update errors keep readable text on their containing surfaces', async () => {
-  useSettingsStore.setState({
-    settings: { ...defaultSettings(), sidebarBackgroundTint: '#123456', sidebarBackgroundContrast: 85 },
-  });
+  useSettingsStore.setState({ settings: { ...defaultSettings(), ...themePresetPatch('latte', false) } });
   await render(
     <SettingsScreenLayout>
       <ToggleRow label="Example setting" detail="Setting explanation" value={false} onValueChange={() => {}} />
