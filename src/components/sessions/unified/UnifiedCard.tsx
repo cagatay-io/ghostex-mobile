@@ -39,6 +39,7 @@ import {
   AlertCircleGlyph,
   AlertTriangleGlyph,
   ArrowBackUpGlyph,
+  BranchDeletedGlyph,
   BranchGlyph,
   CheckGlyph,
   CircleDashedGlyph,
@@ -109,11 +110,13 @@ function StatusSlot({ row, nowMs }: { row: UnifiedRow<GhostexSession>; nowMs: nu
   const started = row.session.workingStartedMs;
   const timer = status === 'Working' && started !== null ? elapsedLabel(nowMs - started) : null;
   const glyph = <Glyph size={ds(13)} color={color} />;
+  // CDXC:Sidebar 2026-11-04 DECISION: User: "Please don't say Working or Question or Done for the
+  // threads in the sidebar, should just show the icon", and the dot should "stay in 1 place". No
+  // status word; the icon sits on the card's edge and the timer grows leftward from it (cards.rs).
   return (
-    <View style={styles.status}>
-      {status === 'Working' ? <SpinningGlyph>{glyph}</SpinningGlyph> : glyph}
-      <Text style={[styles.statusWord, { color }]}>{status}</Text>
+    <View style={styles.status} accessibilityLabel={status}>
       {timer !== null ? <Text style={[styles.statusTimer, { color }]}>{timer}</Text> : null}
+      {status === 'Working' ? <SpinningGlyph>{glyph}</SpinningGlyph> : glyph}
     </View>
   );
 }
@@ -211,7 +214,7 @@ export type UnifiedCardProps = {
   inGroup?: boolean;
 };
 
-/** A card: three lines, or two when there is no branch or pull request to show. */
+/** A card: three lines, or two when there is no branch or pull request to show and its folder is not known to be outside git. */
 export function UnifiedCard({ row, repoIcon, active, nowMs, sidebarBackground, onPress, onMenu, onSnooze, onPark, onSleep, swipeActions, inGroup = false }: UnifiedCardProps) {
   const cardRef = useRef<ViewInstance | null>(null);
   const session = row.session.source!;
@@ -228,7 +231,9 @@ export function UnifiedCard({ row, repoIcon, active, nowMs, sidebarBackground, o
   const title = session.displayTitle.length > 0 ? session.displayTitle : SessionCopy.fallbackTitle;
   const branch = session.gitBranch !== undefined && session.gitBranch.length > 0 ? session.gitBranch : (session.work?.branch ?? '');
   const prNumber = session.work?.pullRequestNumber ?? null;
-  const hasMeta = branch.length > 0 || prNumber !== null;
+  // CDXC:Sidebar 2026-11-04 DECISION: a session outside git keeps its third line, "No source
+  // control" by a crossed-out branch in the branch's colour (cards.rs, build.ts `noSourceControl`).
+  const hasMeta = branch.length > 0 || prNumber !== null || row.noSourceControl;
   const openMenu = (): void => {
     cardRef.current?.measureInWindow((x, y, width, height) => onMenu({ x, y, width, height }));
   };
@@ -284,6 +289,13 @@ export function UnifiedCard({ row, repoIcon, active, nowMs, sidebarBackground, o
                   <BranchGlyph size={ds(12)} color={SIDEBAR_MUTED} />
                   <Text numberOfLines={1} style={styles.meta}>
                     {branch}
+                  </Text>
+                </View>
+              ) : row.noSourceControl ? (
+                <View style={styles.branch}>
+                  <BranchDeletedGlyph size={ds(12)} color={SIDEBAR_MUTED} />
+                  <Text numberOfLines={1} style={styles.meta}>
+                    {SessionCopy.noSourceControl}
                   </Text>
                 </View>
               ) : (
@@ -452,7 +464,6 @@ const styles = StyleSheet.create({
   lineOne: { height: ds(18), flexDirection: 'row', alignItems: 'center', gap: ds(6) },
   project: { flex: 1, minWidth: 0, color: SIDEBAR_MUTED, fontSize: ds(12.5), fontWeight: '400' },
   status: { flexDirection: 'row', alignItems: 'center', gap: ds(4), flexShrink: 0 },
-  statusWord: { fontSize: ds(12.5), fontWeight: '500' },
   statusTimer: { fontSize: ds(12.5), fontWeight: '400', opacity: 0.85 },
   age: { color: AGE_COLOR, fontSize: ds(13.55), fontWeight: '300', flexShrink: 0 },
   lineTwo: { minHeight: ds(20), flexDirection: 'row', alignItems: 'center', gap: ds(6) },

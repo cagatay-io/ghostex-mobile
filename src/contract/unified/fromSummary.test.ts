@@ -148,3 +148,27 @@ describe('a phone with one computer', () => {
     assert.ok(ids(list.active).includes('w-parked'));
   });
 });
+
+describe('a card outside git', () => {
+  test('says No source control only for a plain folder and a session with no branch', () => {
+    const parsed = summary(
+      [
+        { projectId: 'G1', name: 'repo', path: '/r/repo', gitRemoteOriginUrl: 'git@github.com:o/repo.git' },
+        { projectId: 'G2', name: 'local', path: '/r/local', gitRemoteOriginUrl: null },
+        { projectId: 'F1', name: 'home', path: '/Users/me' },
+      ],
+      [
+        session('in-repo', 'G1'),
+        session('no-origin', 'G2'),
+        session('in-folder', 'F1'),
+        session('folder-branch', 'F1', { gitStatus: { branch: 'main' } }),
+      ],
+      { sidebarView: 'unified' },
+    );
+    const list = unifiedListOf([computer('local', 'Mac', parsed)], { workingSection: true, parking: true }, EMPTY_UNIFIED_FILTER, NOW);
+    const claims = Object.fromEntries(
+      [...list.active, ...list.pinned, ...list.drafts].map((row) => [row.session.sessionId, row.noSourceControl]),
+    );
+    assert.deepEqual(claims, { 'in-repo': false, 'no-origin': false, 'in-folder': true, 'folder-branch': false });
+  });
+});

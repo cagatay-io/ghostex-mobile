@@ -183,6 +183,8 @@ export const ConnectedCopy = {
 export const SessionCopy = {
   /** Row/menu title fallback when a session has no display title. */
   fallbackTitle: 'Ghostex Session',
+  /** A Unified card's third line for a session whose folder is not under git. */
+  noSourceControl: 'No source control',
   /** A Claude cloud session row's leading orange cloud, for screen readers. */
   claudeCloud: "Runs in Claude's cloud",
   /** Tapping a cloud row when the phone could not open its claude.ai page. */

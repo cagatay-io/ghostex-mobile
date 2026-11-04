@@ -247,26 +247,36 @@ export default function SessionLinksSheet({
     setAddError(null);
   };
   /**
-   * A suggestion's ×: tap it, then Remove? to dismiss it for good (it goes under Removed).
+   * A suggestion's ×: tap it, and tap it again while it is red to dismiss it for good (it goes
+   * under Removed).
    *
    * CDXC:SessionLinks 2026-10-27 DECISION:
    * User: "i should be able to press x on suggested ones to remove them also please" (gxserver's
    * `dismiss_suggestion` in server/src/session_links/store.rs).
+   *
+   * CDXC:SessionLinks 2026-11-04 DECISION:
+   * User: "when i click on the x button for links please don't show 'Remove?' instead make the x
+   * button turn redish to indicate i need to click again to confirm pls". The armed × keeps its size
+   * and place and turns red on the soft red fill, as on the desktop (links_list.rs
+   * `render_remove_button`).
    */
-  const dismissButton = (key: string, label: string) =>
-    armed === key ? (
-      menuButton('Remove?', () => remove(key), true)
-    ) : (
+  const dismissButton = (key: string, label: string) => {
+    const isArmed = armed === key;
+    return (
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Remove ${label}`}
+        accessibilityLabel={isArmed ? 'Tap again to remove the link' : `Remove ${label}`}
         hitSlop={ROW_BUTTON_HIT_SLOP}
         onPress={() => remove(key)}
-        style={({ pressed }) => [styles.remove, pressed && { backgroundColor: P.neutralFillPressed }]}
+        style={({ pressed }) => [
+          styles.remove,
+          isArmed ? { backgroundColor: P.destructiveFill } : pressed && { backgroundColor: P.neutralFillPressed },
+        ]}
       >
-        <Glyph name="x" size={14} color={P.muted} />
+        <Glyph name="x" size={14} color={isArmed ? P.error : P.muted} />
       </Pressable>
     );
+  };
   // Only links read as open count: one not read yet is neither open nor finished.
   const openCount = links.items.filter((link) => !link.finished && link.state.length > 0).length;
   const failingCount = links.items.filter((link) => link.checks === 'failing').length;

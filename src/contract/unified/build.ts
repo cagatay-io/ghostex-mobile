@@ -55,6 +55,11 @@ export type UnifiedProjectInput = {
   title: string;
   path: string;
   gitRemoteOriginUrl: string | null;
+  /**
+   * The project's folder is in a git work tree (gx-core `ProjectContextView::git_work_tree`);
+   * absent when the computer did not say, which never claims a plain folder.
+   */
+  gitWorkTree?: boolean;
   /** A worktree's parent checkout, whose origin or folder it shares. */
   worktreeParentPath: string | null;
   /** A worktree's parent project, whose Space it follows. */
@@ -124,6 +129,8 @@ export type UnifiedRow<S = unknown> = {
   shelf: UnifiedShelf;
   status: UnifiedStatus | null;
   cameBackMs: number;
+  /** The card says its folder is not under git ([`noSourceControl`]). */
+  noSourceControl: boolean;
 };
 
 export type UnifiedFilterOption = {
@@ -282,6 +289,16 @@ function workerIdsOf(sessions: UnifiedSessionInput[]): Set<string> {
   return workers;
 }
 
+/**
+ * Whether a card says its session works outside git: it has no branch and its project's folder is
+ * in no git work tree (gx-core unified_sidebar/build.rs `no_source_control`, CDXC:Sidebar
+ * 2026-11-04: "it shouldn't do this, should say something that indicates that it's without source
+ * control for that thread").
+ */
+export function noSourceControl(project: UnifiedProjectInput, session: UnifiedSessionInput): boolean {
+  return (session.branch ?? '').length === 0 && project.gitWorkTree === false;
+}
+
 export function buildUnifiedList<S>(
   machines: UnifiedMachineInput<S>[],
   settings: UnifiedSettings,
@@ -345,6 +362,7 @@ export function buildUnifiedList<S>(
             shelf: unifiedShelf(session, settings, nowMs),
             status: unifiedStatus(session),
             cameBackMs: cameBackMs(session),
+            noSourceControl: noSourceControl(project, session),
           },
         });
       }

@@ -196,6 +196,12 @@ export type GhostexProject = {
    * its repository from it (contract/unified/repo.ts). Absent without a remote or from an older computer.
    */
   gitRemoteOriginUrl?: string;
+  /**
+   * The computer's probe found the project's folder in a git work tree: it sent
+   * `gitRemoteOriginUrl`, a URL or `null` for a repository with no remote. `false` for a plain
+   * folder (and for one the probe has not reached yet, the first minutes after gxserver starts).
+   */
+  gitWorkTree?: boolean;
 };
 
 export type GhostexRecentProject = {
@@ -1380,6 +1386,7 @@ function parseProjects(value: unknown): GhostexProject[] {
       workspaceId: trimmedValue(entry, 'workspaceId') || undefined,
       everyWorkspace: entry.everyWorkspace === true ? true : undefined,
       gitRemoteOriginUrl: trimmedValue(entry, 'gitRemoteOriginUrl') || undefined,
+      gitWorkTree: 'gitRemoteOriginUrl' in entry,
     });
   }
   return projects;

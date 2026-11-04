@@ -100,6 +100,7 @@ export function unifiedMachineInput(computer: UnifiedComputer, alone: boolean): 
         title: project.name ?? '',
         path: project.path ?? '',
         gitRemoteOriginUrl: project.gitRemoteOriginUrl ?? null,
+        gitWorkTree: project.gitWorkTree,
         worktreeParentPath: parent === '' ? null : (pathById.get(parent) ?? null),
         parentProjectId: parent === '' ? null : parent,
         collectionId: collections.get(project.projectId) ?? null,
