@@ -37,6 +37,10 @@ mobile/
   ios/ android/               # expo prebuild output, committed (bare workflow)
 ```
 
+Chat pill sheets belong to `NativeChatScreen`, not the composer: a live question may replace the composer while
+a sheet is dismissing. On iOS, a Subagents or Resources pick opens its destination from the sheet's native
+dismissal callback, not a timed delay. Android dispatches the pick immediately.
+
 ## Native module contract (`modules/ghostex-native`)
 
 Both platforms implement this API, except the iOS-only bar layout functions and event (`observeBarLayout`, `stopObservingBarLayout`, `onBarLayoutChange`), which the shared layer calls only behind `Platform.OS === 'ios'`. TS bindings in `modules/ghostex-native/src/index.ts`.

@@ -28,6 +28,8 @@ import type { ChatDocument, ChatPill } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
 import { PillMenuSheet } from './ChatPills';
 import { SubagentViewer } from './SubagentViewer';
+import { PillsStrip } from './PillsStrip';
+import { ResourceSheet } from './ResourceSheet';
 
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 34, left: 0, right: 0 }),
@@ -48,7 +50,7 @@ const mockModals = {
   count: 0,
 };
 /** How long UIKit takes to finish a dismissal it has begun (the sheet's runs without an animation of its own). */
-const mockDismissMs = 16;
+let mockDismissMs = 16;
 
 jest.mock('react-native/Libraries/Modal/Modal', () => {
   const React = jest.requireActual<typeof ReactModule>('react');
@@ -135,6 +137,10 @@ const CHILD = {
 };
 const DOCUMENT = {
   chatPills: [SUBAGENTS],
+  workingCard: {
+    visible: true, phase: 'working', working: true, label: null, labelKind: null,
+    activity: null, pills: ['subagents'], ariaLabel: 'Working',
+  },
   agentFleetStrip: { countLabel: '1 subagent', rows: [CHILD] },
   subagent: null,
 } as unknown as ChatDocument;
@@ -149,6 +155,7 @@ let dispatched: string[] = [];
 function ChatScreen() {
   const [document, setDocument] = useState(DOCUMENT);
   const [open, setOpen] = useState<string | null>(null);
+  const [question, setQuestion] = useState(false);
   const chat = {
     state: { document, subagentItems: [] },
     dispatch: (action: UserAction) => {
@@ -159,7 +166,10 @@ function ChatScreen() {
   } as unknown as RustChat;
   return (
     <>
-      <Pressable accessibilityLabel="Subagents 1" onPress={() => setOpen('subagents')} />
+      {!question ? (
+        <PillsStrip chat={chat} document={document} armed={[]} links={null} menu={open} onMenuChange={setOpen} />
+      ) : null}
+      <Pressable accessibilityLabel="Receive live question" onPress={() => setQuestion(true)} />
       {/* The transcript's own link (`ToolRows.tsx`) sends the same action with no sheet on screen. */}
       <Pressable
         accessibilityLabel="Transcript link"
@@ -205,6 +215,7 @@ beforeEach(() => {
   mockModals.log = [];
   mockModals.states.clear();
   mockModals.count = 0;
+  mockDismissMs = 16;
 });
 
 afterEach(() => {
@@ -278,4 +289,59 @@ test('Android: the row sends the open at the tap, as before (a modal there is a 
   await fireEvent.press(screen.getByLabelText(ROW_LINK));
 
   expect(dispatched).toEqual(['openSubagent']);
+});
+
+test('iOS: a picked child survives a live question replacing the composer during dismissal', async () => {
+  await render(<ChatScreen />);
+  await fireEvent.press(screen.getByLabelText('Subagents 1'));
+  await fireEvent.press(screen.getByLabelText(ROW_LINK));
+  await fireEvent.press(screen.getByLabelText('Receive live question'));
+  expect(screen.queryByLabelText('Chat pills')).toBeNull();
+  await settle();
+  expect(dispatched).toEqual(['openSubagent']);
+  expect(viewerShown()).toBe(true);
+});
+
+test('iOS: a resource waits for native dismissal even when it takes longer than a fixed delay', async () => {
+  mockDismissMs = 1500;
+  function ResourceChat() {
+    const [open, setOpen] = useState<string | null>('resources');
+    const [resource, setResource] = useState<ChatDocument['resourceModal']>(null);
+    const document: ChatDocument = {
+      ...DOCUMENT,
+      resourceModal: resource,
+      openQuestions: {
+        count: 1, total: 1, text: '?', accessibilityLabel: 'Question', jump: null,
+        sections: [{
+          id: 'unanswered', title: 'Unanswered', count: 1,
+          rows: [{ id: 'q1', kind: 'form', title: 'Choose a colour', tags: [], time: '', timeTitle: '' }],
+        }],
+      },
+    };
+    const chat = {
+      dispatch: (action: UserAction) => {
+        if (action.type === 'openResource') {
+          setResource({
+            id: 'q1', kind: 'form', title: 'Choose a colour', status: 'waiting',
+            loading: true, missing: '', source: '', going: false,
+          });
+        }
+      },
+    };
+    // Only the native/core boundary is a fixture; the real sheets consume dispatch and document here.
+    const fixture = chat as RustChat;
+    return (
+      <>
+        <PillMenuSheet chat={fixture} document={document} open={open} onClose={() => setOpen(null)} />
+        <ResourceSheet chat={fixture} document={document} />
+      </>
+    );
+  }
+  await render(<ResourceChat />);
+  await fireEvent.press(screen.getByLabelText('Go to Choose a colour'));
+  await act(() => jest.advanceTimersByTime(500));
+  expect(screen.queryByText('Reading it from the chat…')).toBeNull();
+  await act(() => jest.advanceTimersByTime(2000));
+  expect(screen.getByText('Reading it from the chat…')).toBeTruthy();
+  expect(mockModals.log).not.toContain('2 dropped');
 });

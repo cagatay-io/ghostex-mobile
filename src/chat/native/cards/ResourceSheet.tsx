@@ -8,8 +8,8 @@
  * words are). Desktop: `resource_modal.rs`.
  */
 
-import { useEffect, useMemo, useState } from 'react';
-import { Platform, Pressable, Text, View } from 'react-native';
+import { useMemo } from 'react';
+import { Pressable, Text, View } from 'react-native';
 
 import type { ChatDocument } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
@@ -39,19 +39,9 @@ export function ResourceSheet({ chat, document }: { chat: RustChat; document: Ch
     [dispatch, theme, uploadFiles, queryAsync],
   );
   const forms = document?.questionForms ?? {};
-  const open = modal !== null;
-  const [shown, setShown] = useState(false);
-  useEffect(() => {
-    if (!open) {
-      setShown(false);
-      return undefined;
-    }
-    const timer = setTimeout(() => setShown(true), Platform.OS === 'ios' ? IOS_PRESENT_DELAY_MS : 0);
-    return () => clearTimeout(timer);
-  }, [open]);
   return (
     <Sheet
-      visible={open && shown}
+      visible={modal !== null}
       onClose={() => dispatch({ type: 'closeResource' })}
       title={modal?.title && modal.title.length > 0 ? modal.title : 'Resource'}
       accessory={
@@ -87,9 +77,6 @@ export function ResourceSheet({ chat, document }: { chat: RustChat; document: Ch
     </Sheet>
   );
 }
-
-/** The list's sheet is still sliding away when a row opens this one, and iOS drops a modal presented during another's dismissal (desktop has no such wait). */
-const IOS_PRESENT_DELAY_MS = 320;
 
 const useStyles = themedStyles((P) => ({
   go: {
