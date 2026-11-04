@@ -34,7 +34,13 @@ import { ChevronRightGlyph, CircleCheckGlyph } from '../../components/sessions/i
 import { STATUS_DOT_SIZE } from '../../components/sessions/rows';
 import { elapsedLabel } from '../../components/sessions/sessionStatus';
 import { OverlappedDots } from '../../components/sessions/StatusDotStack';
-import { agentIconTint, resolveAgentIconId, type GhostexSession } from '../../contract/mobileSummary';
+import {
+  agentIconTint,
+  hasQuestion,
+  resolveAgentIconId,
+  type GhostexSession,
+  type GhostexSummaryCapabilities,
+} from '../../contract/mobileSummary';
 import { TriageCopy, WallCopy } from '../../copy';
 import type { MachineRecord } from '../../machines/store';
 import { useSettingsStore } from '../../settings/store';
@@ -46,7 +52,7 @@ import { sessionHasChatView, sessionOpensInChatView } from '../terminal-screen/s
 import { sessionTitle } from '../sessions-screen/session-actions';
 import { statusBadge } from '../wall/badge';
 import { sendShortReply } from './actions';
-import { hasQuestion, triageEntry, waitSignature, type TriageEntry, type TriageWait } from './model';
+import { triageEntry, waitSignature, type TriageEntry, type TriageWait } from './model';
 import { useTriageChats, useTriageTails, type TriageChat } from './useTriageData';
 
 /** How often the cards' "waiting 5m" moves on while the triage is shown. */
@@ -81,7 +87,9 @@ export default function TriageSection({ waiting, appearance, onOpen, onNotice }:
       waiting
         .filter(
           ({ session, capabilities }) =>
-            sessionHasChatView(session) && (session.awaitingApproval || hasQuestion(session, capabilities)),
+            sessionHasChatView(session) &&
+            (session.awaitingApproval ||
+              hasQuestion(session.pendingQuestionCount, capabilities.awaitingAnswer && session.awaitingAnswer)),
         )
         .map(({ machine, session }) => ({
           key: attachSessionKey(machine.id, session.sessionId),
@@ -100,6 +108,7 @@ export default function TriageSection({ waiting, appearance, onOpen, onNotice }:
     return {
       key,
       machine,
+      capabilities,
       session,
       signature: waitSignature(session, capabilities),
       chat: chats[key],
@@ -179,10 +188,11 @@ export default function TriageSection({ waiting, appearance, onOpen, onNotice }:
           <Text accessibilityRole="header" style={[styles.heading, { color: appearance.muted }]}>
             {TriageCopy.heading(shown.length)}
           </Text>
-          {shown.map(({ key, machine, session, signature, chat, entry }) => (
+          {shown.map(({ key, machine, session, capabilities, signature, chat, entry }) => (
             <TriageCard
               key={key}
               session={session}
+              capabilities={capabilities}
               entry={entry}
               chat={chat}
               waited={elapsedLabel(session.attentionEnteredAt, nowMs)}
@@ -203,6 +213,8 @@ export default function TriageSection({ waiting, appearance, onOpen, onNotice }:
 
 type TriageCardProps = {
   session: GhostexSession;
+  /** The computer's summary capabilities, which the card's status dots read. */
+  capabilities: GhostexSummaryCapabilities;
   entry: TriageEntry;
   /** The session's chat, for the entries answered through it. */
   chat: TriageChat | undefined;
@@ -223,6 +235,7 @@ type Pending = { label: string; title: string; busySeen: boolean };
 
 function TriageCard({
   session,
+  capabilities,
   entry,
   chat,
   waited,
@@ -280,7 +293,7 @@ function TriageCard({
   );
   const Icon = AGENT_ICONS[iconId] ?? AGENT_ICONS.terminal;
   const title = sessionTitle(session);
-  const dots = statusBadge(session)?.dots ?? [];
+  const dots = statusBadge(session, capabilities)?.dots ?? [];
 
   return (
     <View

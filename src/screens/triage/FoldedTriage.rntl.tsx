@@ -21,7 +21,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
-import { Dimensions } from 'react-native';
+import { Dimensions, StyleSheet } from 'react-native';
+import type { TestInstance } from 'test-renderer';
 
 import type { BarLayout } from '../../../modules/ghostex-native/src/GhostexNative.types';
 import type { UserAction } from '../../chat/rust/actions';
@@ -39,6 +40,7 @@ import { useInventoryStore, type MachineInventory } from '../../inventory/store'
 import { useMachinesStore, type MachineRecord } from '../../machines/store';
 import { useSettingsStore } from '../../settings/store';
 import { useTerminalStore } from '../../terminal/sessions';
+import { SidebarPalette } from '../../theme/palette';
 import { useUnifiedListStore } from '../sessions-screen/unified-list-store';
 import SessionsScreen from '../SessionsScreen';
 
@@ -392,6 +394,30 @@ describe('folded: waiting sessions above the full list', () => {
     expect([...mockHeld].sort()).toEqual(['b', 'd']);
     expect(mockTailRead.mock.calls.map(([, , sessionId]) => sessionId)).toEqual(['f']);
     expect(screen.getByLabelText('Last output: ✓ Wrote the release notes\nCommit and tag?')).toBeTruthy();
+  });
+
+  test("the open question card's session shows the pink question dot on its card and on its list row", async () => {
+    await renderScreen(FOLDED);
+    const pinkDots = (node: TestInstance) =>
+      node.queryAll(
+        (candidate) => StyleSheet.flatten(candidate.props.style)?.backgroundColor === SidebarPalette.ROW_QUESTION,
+      );
+    // Delta's computer announces `awaitingAnswer` and counts no question: its card and its row read the question card.
+    const [card, row] = screen.getAllByText('Delta').map((title) => {
+      let node = title;
+      while (
+        node.parent !== null &&
+        node.props.accessibilityLabel !== 'Delta' &&
+        node.props.accessibilityRole !== 'button'
+      )
+        node = node.parent;
+      return node;
+    });
+    expect(card).toBeDefined();
+    expect(row).toBeDefined();
+    if (card === undefined || row === undefined) throw new Error('the question card and list row must both be drawn');
+    expect(pinkDots(card)).toHaveLength(1);
+    expect(pinkDots(row)).toHaveLength(1);
   });
 
   test("a waiting session whose project changes lets go of the old project's chat and answers from the new one", async () => {

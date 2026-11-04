@@ -30,7 +30,12 @@ import type { UserAction } from '../../chat/rust/actions';
 import type { ChatDocument } from '../../chat/rust/document';
 import { TriageCopy } from '../../copy';
 import type { HeaderPlacement } from '../../components/common/verticalBar/layout';
-import type { GhostexMobileSummary, GhostexSession, GhostexSummaryCapabilities } from '../../contract/mobileSummary';
+import {
+  hasQuestion,
+  type GhostexMobileSummary,
+  type GhostexSession,
+  type GhostexSummaryCapabilities,
+} from '../../contract/mobileSummary';
 import type { UnifiedView } from '../../contract/unified/build';
 
 /** The blocking prompt and the stored card or notice the session's chat draws. */
@@ -63,11 +68,6 @@ export type TriageEntry =
     }
   | { kind: 'reply' };
 
-/** "Has a question": an open question card (only from a computer that announces the field) or a counted question. */
-export function hasQuestion(session: GhostexSession, capabilities: GhostexSummaryCapabilities): boolean {
-  return (capabilities.awaitingAnswer && session.awaitingAnswer) || session.pendingQuestionCount > 0;
-}
-
 /**
  * Waits for the user: an approval, a question, or an attention that is not a finished turn. An attention
  * without a kind (a computer that does not send it) cannot be told from a finished turn and keeps counting.
@@ -75,7 +75,7 @@ export function hasQuestion(session: GhostexSession, capabilities: GhostexSummar
 export function waitsForUser(session: GhostexSession, capabilities: GhostexSummaryCapabilities): boolean {
   return (
     session.awaitingApproval ||
-    hasQuestion(session, capabilities) ||
+    hasQuestion(session.pendingQuestionCount, capabilities.awaitingAnswer && session.awaitingAnswer) ||
     (session.activity === 'attention' && session.attentionKind !== 'finished')
   );
 }
@@ -210,7 +210,9 @@ export function triageEntry(
     }
   }
   if (session.awaitingApproval) return { kind: 'approvalInSession' };
-  if (hasQuestion(session, capabilities)) return { kind: 'openQuestion', reason: null, header: '', text: '', steps: 1 };
+  if (hasQuestion(session.pendingQuestionCount, capabilities.awaitingAnswer && session.awaitingAnswer)) {
+    return { kind: 'openQuestion', reason: null, header: '', text: '', steps: 1 };
+  }
   return { kind: 'reply' };
 }
 
@@ -227,6 +229,6 @@ export function waitSignature(session: GhostexSession, capabilities: GhostexSumm
     session.attentionKind,
     session.activity,
     session.awaitingApproval,
-    hasQuestion(session, capabilities),
+    hasQuestion(session.pendingQuestionCount, capabilities.awaitingAnswer && session.awaitingAnswer),
   ].join('|');
 }
