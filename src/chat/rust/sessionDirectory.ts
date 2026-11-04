@@ -7,6 +7,7 @@
 
 import type { ChatKnownSession } from './core-types';
 import { useInventoryStore } from '../../inventory/store';
+import { machineDisplayLabel, useMachinesStore } from '../../machines/store';
 
 type Directory = { key: string; sessions: ChatKnownSession[] };
 
@@ -15,7 +16,13 @@ let cached: Directory = { key: '', sessions: [] };
 /** The inventory's sessions as the core reads them. */
 export function currentSessionDirectory(): ChatKnownSession[] {
   const sessions: ChatKnownSession[] = [];
-  for (const inventory of Object.values(useInventoryStore.getState().inventoriesByMachineId)) {
+  const machines = useMachinesStore.getState().machines;
+  for (const [machineId, inventory] of Object.entries(useInventoryStore.getState().inventoriesByMachineId)) {
+    // The `+` picker offers sessions on the other computers by name, and none on a computer whose
+    // last poll failed (the sessions list's own test for a computer that is not connected).
+    const machine = machines.find((candidate) => candidate.id === machineId);
+    const computer = machine !== undefined ? machineDisplayLabel(machine) : '';
+    const offline = !inventory.hasLoaded || inventory.lastError !== null;
     for (const session of inventory.summary?.sessions ?? []) {
       sessions.push({
         globalRef: session.globalRef,
@@ -29,6 +36,9 @@ export function currentSessionDirectory(): ChatKnownSession[] {
         activity: session.activity,
         lifecycleState: session.isSleeping ? 'sleeping' : session.status,
         activeAt: session.lastInteractionAt || session.lastActiveAt,
+        computer,
+        projectName: session.projectName,
+        offline,
       });
     }
   }
@@ -48,4 +58,17 @@ export function subscribeSessionDirectory(listener: (sessions: ChatKnownSession[
     last = next;
     listener(next);
   });
+}
+
+/**
+ * The phone's computer a session on another computer than the chat's runs on, by its Global Ref
+ * (`<serverId>:<projectId>:<sessionId>`), for a mention pill's `openAgentSession` that names a
+ * `serverId` (`open_mentioned_session` in gx-chat-core `transcript/actions.rs`); `null` when no
+ * computer the phone polls has it.
+ */
+export function machineIdOfGlobalRef(globalRef: string): string | null {
+  for (const [machineId, inventory] of Object.entries(useInventoryStore.getState().inventoriesByMachineId)) {
+    if ((inventory.summary?.sessions ?? []).some((session) => session.globalRef === globalRef)) return machineId;
+  }
+  return null;
 }

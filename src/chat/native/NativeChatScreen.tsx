@@ -35,8 +35,10 @@ import type { RootStackParamList } from '../../navigation/types';
 import { classifyMachineLink, visualPageAddress, type ComputerAddress } from '../../webPreview/machineLinks';
 import { useOpenMachineLink } from '../../webPreview/useOpenMachineLink';
 import type { ChatViewRequest } from '../rust/effects';
+import { machineIdOfGlobalRef } from '../rust/sessionDirectory';
 import { sessionChatRpc } from '../rust/transport';
 import { useRustChat, type RustChat } from '../rust/useRustChat';
+import { machineTargetFor } from '../../screens/terminal-screen/session-lookups';
 import { callVoiceAbout } from '../../voice/callAbout';
 import { useVoiceCapability } from '../../voice/VoiceButton';
 import { sessionNotesOnIn } from '../../sessions/sessionNotesSwitch';
@@ -530,8 +532,21 @@ function useChatViewRequests(
               // Connecting a provider and managing snapshots stay on the computer (D7).
               show('Open Settings › Cloud Boxes in Ghostex on your computer.', false, 'Cloud Boxes');
             } else if (request.action === 'openAgentSession') {
-              // An agent message card's Go to session: the other session, as its tab.
-              void openForkBranch(machine, request.params).catch(() =>
+              // An agent message card's Go to session: the other session, as its tab. A mention of a
+              // session on another computer (`serverId`, a `+` pick) opens on that computer when the
+              // phone polls it too.
+              const fields = (request.params ?? {}) as { serverId?: unknown; projectId?: unknown; sessionId?: unknown };
+              let target = machine;
+              if (typeof fields.serverId === 'string' && fields.serverId.length > 0) {
+                const otherId = machineIdOfGlobalRef(`${fields.serverId}:${String(fields.projectId)}:${String(fields.sessionId)}`);
+                const other = otherId !== null ? machineTargetFor(otherId) : null;
+                if (other === null) {
+                  show('That session runs on a computer this phone is not connected to.', false, 'Could not open that session');
+                  return;
+                }
+                target = other;
+              }
+              void openForkBranch(target, request.params).catch(() =>
                 show(
                   'The session could not be opened. Try again from the sessions list.',
                   true,

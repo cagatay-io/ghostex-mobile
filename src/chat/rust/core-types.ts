@@ -113,6 +113,12 @@ export type ChatKnownSession = {
   lifecycleState?: string;
   /** When the session last did something (ISO time), the `+` picker's newest-first order. */
   activeAt?: string;
+  /** The computer's name, for the `+` picker's rows of sessions on another computer. */
+  computer?: string;
+  /** The project's name, for the same rows. */
+  projectName?: string;
+  /** Its computer is not connected now: the `+` picker leaves its sessions out. */
+  offline?: boolean;
 };
 
 export type ChatMeasurement =
