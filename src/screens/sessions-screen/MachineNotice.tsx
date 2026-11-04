@@ -40,7 +40,7 @@ export default function MachineNotice({
     return (
       <View pointerEvents="box-none" style={styles.pillRow}>
         <View accessibilityLiveRegion="polite" style={[styles.pill, surface]}>
-          <SpinningLoader color={appearance.muted} size={13} />
+          <SpinningLoader color={appearance.mutedGlyph} size={13} />
           <Text numberOfLines={1} style={[styles.pillText, { color: appearance.muted }]}>
             {notice.title}
           </Text>
@@ -78,7 +78,7 @@ export default function MachineNotice({
           onPress={onShrink}
           style={({ pressed }) => [styles.close, pressed ? styles.pressed : null]}
         >
-          <XGlyph size={14} color={appearance.muted} />
+          <XGlyph size={14} color={appearance.mutedGlyph} />
         </Pressable>
       </View>
       <Text style={[styles.reason, { color: appearance.muted }]}>{notice.reason}</Text>

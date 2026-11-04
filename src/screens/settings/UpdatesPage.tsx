@@ -13,6 +13,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { SetupButton } from '../../components/onboarding/SetupPrimitives';
 import { ANDROID_SELF_UPDATE_ENABLED } from '../../config/featureFlags';
 import { SetupPalette } from '../../theme/palette';
+import { readableSecondaryText } from '../../theme/sidebarAppearance';
 import { useAppearance } from '../../theme/useAppearance';
 import { formatByteSize, installedAppVersion } from '../../updates/androidSelfUpdate';
 import {
@@ -83,18 +84,13 @@ function downloadPercent(download: UpdateDownloadState): number {
 
 function StatusText({ line }: { line: StatusLine }) {
   const appearance = useAppearance();
-  return (
-    <Text
-      style={[
-        styles.status,
-        { color: appearance.muted },
-        line.tone === 'accent' ? styles.statusAccent : null,
-        line.tone === 'error' ? styles.statusError : null,
-      ]}
-    >
-      {line.text}
-    </Text>
-  );
+  const color =
+    line.tone === 'muted'
+      ? appearance.muted
+      : readableSecondaryText(line.tone === 'accent' ? SetupPalette.ACCENT : SetupPalette.ERROR, appearance.foreground, [
+          appearance.background,
+        ]);
+  return <Text style={[styles.status, { color }]}>{line.text}</Text>;
 }
 
 /** The over-the-air update state from expo-updates. */
@@ -159,10 +155,10 @@ function ApkSection() {
             />
           )}
           {download.phase === 'error' ? (
-            <Text style={[styles.status, styles.statusError]}>{download.message}</Text>
+            <StatusText line={{ text: download.message, tone: 'error' }} />
           ) : null}
           {download.phase === 'ready' && download.installError !== null ? (
-            <Text style={[styles.status, styles.statusError]}>{download.installError}</Text>
+            <StatusText line={{ text: download.installError, tone: 'error' }} />
           ) : null}
           <Text style={[styles.status, { color: appearance.muted }]}>{UpdatesCopy.installHint}</Text>
         </View>
@@ -231,12 +227,6 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     lineHeight: 18,
     paddingHorizontal: 4,
-  },
-  statusAccent: {
-    color: SetupPalette.ACCENT,
-  },
-  statusError: {
-    color: SetupPalette.ERROR,
   },
   actions: {
     gap: 8,

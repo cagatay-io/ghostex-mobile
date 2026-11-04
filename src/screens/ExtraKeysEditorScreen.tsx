@@ -23,7 +23,8 @@ import {
   type ExtraKeyStored,
   type ExtraKeysLayout,
 } from '../settings/extraKeys';
-import { destructiveButtonFills, GhostexPalette, GhostexRadii, GhostexStrokeWidth } from '../theme/palette';
+import { destructiveButtonFills, GhostexPalette, GhostexRadii, GhostexStrokeWidth, mixHexColors } from '../theme/palette';
+import { readableSecondaryText } from '../theme/sidebarAppearance';
 import type { Appearance } from '../theme/useAppearance';
 import KeyboardAvoidingContainer from '../components/common/keyboard/KeyboardAvoidingContainer';
 import KeyboardAwareScrollView from '../components/common/keyboard/KeyboardAwareScrollView';
@@ -60,6 +61,10 @@ export default function ExtraKeysEditorScreen() {
   const navigation = useNavigation();
   const appearance = useAppearanceHeader();
   const styles = useMemo(() => createStyles(appearance), [appearance]);
+  const placeholder = useMemo(
+    () => readableSecondaryText(appearance.muted, appearance.foreground, [mixHexColors('#ffffff', appearance.card, 8)]),
+    [appearance],
+  );
   const savedLayout = useExtraKeysStore((state) => state.layout);
   const saveLayout = useExtraKeysStore((state) => state.saveLayout);
   const resetToDefault = useExtraKeysStore((state) => state.resetToDefault);
@@ -360,7 +365,7 @@ export default function ExtraKeysEditorScreen() {
                       autoCorrect={false}
                       maxLength={EXTRA_KEY_LABEL_MAX_LENGTH}
                       placeholder="e.g. GITST"
-                      placeholderTextColor={appearance.muted}
+                      placeholderTextColor={placeholder}
                       value={customDraft.label}
                       onChangeText={(label) => setCustomDraft({ ...customDraft, label })}
                     />
@@ -372,7 +377,7 @@ export default function ExtraKeysEditorScreen() {
                           autoCapitalize="none"
                           autoCorrect={false}
                           placeholder="e.g. c, escape, f5"
-                          placeholderTextColor={appearance.muted}
+                          placeholderTextColor={placeholder}
                           value={customDraft.shortcutKey}
                           onChangeText={(shortcutKey) => setCustomDraft({ ...customDraft, shortcutKey })}
                         />
@@ -399,7 +404,7 @@ export default function ExtraKeysEditorScreen() {
                           multiline
                           maxLength={EXTRA_KEY_TEXT_MAX_LENGTH}
                           placeholder="e.g. git status"
-                          placeholderTextColor={appearance.muted}
+                          placeholderTextColor={placeholder}
                           value={customDraft.text}
                           onChangeText={(text) => setCustomDraft({ ...customDraft, text })}
                         />
@@ -485,7 +490,7 @@ function createStyles(appearance: Appearance) {
       color: appearance.foreground,
     },
     chipLabelSelected: {
-      color: '#FFFFFF',
+      color: GhostexPalette.ACCENT_FOREGROUND,
     },
     chipAdd: {
       backgroundColor: 'transparent',
@@ -493,7 +498,7 @@ function createStyles(appearance: Appearance) {
     },
     chipAddLabel: {
       fontSize: 16,
-      color: appearance.muted,
+      color: appearance.mutedGlyph,
     },
     selectionActions: {
       flexDirection: 'row',
@@ -521,7 +526,10 @@ function createStyles(appearance: Appearance) {
       fontSize: 12,
     },
     actionLabelDestructive: {
-      color: REMOVE_COLOR,
+      color: readableSecondaryText(REMOVE_COLOR, appearance.foreground, [
+        mixHexColors(REMOVE_COLOR, appearance.background, appearance.light ? 10 : 18),
+        mixHexColors(REMOVE_COLOR, appearance.background, appearance.light ? 22 : 32),
+      ]),
     },
     examples: {
       color: appearance.muted,
@@ -539,7 +547,7 @@ function createStyles(appearance: Appearance) {
       opacity: 0.45,
     },
     primaryButtonLabel: {
-      color: '#FFFFFF',
+      color: GhostexPalette.ACCENT_FOREGROUND,
       fontSize: 14,
       fontWeight: '600',
     },

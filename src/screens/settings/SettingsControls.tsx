@@ -109,7 +109,7 @@ function createSettingsStyles(appearance: Appearance) {
       color: GhostexPalette.ACCENT,
     },
     chevron: {
-      color: appearance.muted,
+      color: appearance.mutedGlyph,
       fontSize: 22,
       lineHeight: 24,
     },

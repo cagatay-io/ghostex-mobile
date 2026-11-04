@@ -114,7 +114,7 @@ import { filterSummaryForWorkspace, resolveWorkspaceId, workspaceSwitchTarget } 
 import { useSettingsStore } from '../settings/store';
 import { attachSessionKey, useTerminalStore } from '../terminal/sessions';
 import { GhostexPalette } from '../theme/palette';
-import { resolveSidebarAppearance } from '../theme/sidebarAppearance';
+import { readableSecondaryText, resolveSidebarAppearance } from '../theme/sidebarAppearance';
 import {
   closePutsSessionToSleep,
   type SessionContext,
@@ -195,6 +195,10 @@ export default function SessionsScreen({ navigation }: Props) {
   const neutralExpandedGroupSurface = useMemo(
     () => expandedGroupBackground(sidebarAppearance.background),
     [sidebarAppearance.background],
+  );
+  const tailscaleConnectedInk = useMemo(
+    () => readableSecondaryText(GhostexPalette.STATUS_CONNECTED, sidebarAppearance.foreground, [sidebarAppearance.background]),
+    [sidebarAppearance],
   );
 
   const [overlay, setOverlay] = useState<Overlay>(NONE);
@@ -733,7 +737,7 @@ export default function SessionsScreen({ navigation }: Props) {
   const listRefreshControl = (
     <RefreshControl
       colors={[GhostexPalette.ACCENT]}
-      tintColor={sidebarAppearance.muted}
+      tintColor={sidebarAppearance.mutedGlyph}
       progressBackgroundColor={sidebarAppearance.background}
       refreshing={pullRefreshing}
       onRefresh={pullRefresh}
@@ -915,7 +919,7 @@ export default function SessionsScreen({ navigation }: Props) {
             style={styles.tailscaleIndicator}
             onPress={() => void openTailscaleOrDownload()}
           >
-            <Text style={[styles.tailscaleIndicatorLabel, { color: GhostexPalette.STATUS_CONNECTED }]}>
+            <Text style={[styles.tailscaleIndicatorLabel, { color: tailscaleConnectedInk }]}>
               • Tailscale
             </Text>
           </Pressable>

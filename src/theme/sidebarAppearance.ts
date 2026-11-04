@@ -63,6 +63,8 @@ export type SidebarAppearance = {
   background: string;
   foreground: string;
   muted: string;
+  /** The original muted tone for glyphs; secondary text is contrast-adjusted independently. */
+  mutedGlyph: string;
   card: string;
   cardActive: string;
   border: string;
@@ -144,15 +146,42 @@ function hexWithAlpha(color: string, alpha: number): string {
   return `rgba(${red},${green},${blue},${alpha})`;
 }
 
+/** Moves a text ink toward the foreground until every surface reaches 4.5:1, or returns the foreground. */
+export function readableSecondaryText(designed: string, foreground: string, surfaces: readonly string[]): string {
+  const luminance = (hex: string): number => {
+    const { red, green, blue } = parseHex(hex);
+    const linear = (channel: number): number => {
+      const value = channel / 255;
+      return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue);
+  };
+  const backgrounds = surfaces.map(luminance);
+  const readable = (color: string): boolean => {
+    const ink = luminance(color);
+    return backgrounds.every((background) => (Math.max(ink, background) + 0.05) / (Math.min(ink, background) + 0.05) >= 4.5);
+  };
+  if (readable(designed)) return designed;
+  for (let toward = 1; toward < 100; toward += 1) {
+    const candidate = mixHexColors(foreground, designed, toward);
+    if (readable(candidate)) return candidate;
+  }
+  return foreground;
+}
+
 export function resolveSidebarAppearance(tint: string, contrast: number): SidebarAppearance {
   const background = sidebarBackgroundForSettings(tint, contrast);
   const foreground = foregroundForBackground(background);
+  const mutedGlyph = mixHexColors(foreground, background, 56);
+  const card = mixHexColors(foreground, background, 4);
+  const cardActive = mixHexColors(foreground, background, 7);
   return {
     background,
     foreground,
-    muted: mixHexColors(foreground, background, 56),
-    card: mixHexColors(foreground, background, 4),
-    cardActive: mixHexColors(foreground, background, 7),
+    muted: readableSecondaryText(mutedGlyph, foreground, [background, card, cardActive]),
+    mutedGlyph,
+    card,
+    cardActive,
     border: hexWithAlpha(foreground, 0.12),
     projectCard: hexWithAlpha(foreground, 0.045),
     projectBorder: hexWithAlpha(foreground, 0.13),

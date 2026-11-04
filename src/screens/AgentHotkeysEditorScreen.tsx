@@ -13,7 +13,8 @@ import {
   type AgentHotkey,
   type ConfigurableAgentId,
 } from '../settings/agentHotkeys';
-import { destructiveButtonFills, GhostexPalette, GhostexRadii, GhostexStrokeWidth } from '../theme/palette';
+import { destructiveButtonFills, GhostexPalette, GhostexRadii, GhostexStrokeWidth, mixHexColors } from '../theme/palette';
+import { readableSecondaryText } from '../theme/sidebarAppearance';
 import type { Appearance } from '../theme/useAppearance';
 import { barPadding } from '../components/common/verticalBar/layout';
 import { useVerticalBarSpace } from '../components/common/verticalBar/VerticalBarArea';
@@ -346,7 +347,7 @@ function createStyles(appearance: Appearance) {
       fontWeight: '600',
     },
     dropdownChevron: {
-      color: appearance.muted,
+      color: appearance.mutedGlyph,
       fontSize: 20,
     },
     hotkeyRow: {
@@ -395,7 +396,10 @@ function createStyles(appearance: Appearance) {
       fontSize: 15,
     },
     removeLabel: {
-      color: '#FF7B72',
+      color: readableSecondaryText(RESET_COLOR, appearance.foreground, [
+        mixHexColors(appearance.light ? '#000000' : '#ffffff', appearance.card, appearance.light ? 7 : 10),
+        mixHexColors(appearance.light ? '#000000' : '#ffffff', appearance.card, appearance.light ? 15 : 18),
+      ]),
       fontSize: 19,
       lineHeight: 20,
     },
@@ -445,7 +449,7 @@ function createStyles(appearance: Appearance) {
       backgroundColor: GhostexPalette.ACCENT,
     },
     primaryButtonLabel: {
-      color: '#FFFFFF',
+      color: GhostexPalette.ACCENT_FOREGROUND,
       fontSize: 14,
       fontWeight: '700',
     },
@@ -476,7 +480,10 @@ function createStyles(appearance: Appearance) {
       backgroundColor: destructiveButtonFills(RESET_COLOR, appearance.light).pressed,
     },
     resetButtonLabel: {
-      color: RESET_COLOR,
+      color: readableSecondaryText(RESET_COLOR, appearance.foreground, [
+        mixHexColors(RESET_COLOR, appearance.background, appearance.light ? 10 : 18),
+        mixHexColors(RESET_COLOR, appearance.background, appearance.light ? 22 : 32),
+      ]),
       fontSize: 14,
       fontWeight: '600',
     },

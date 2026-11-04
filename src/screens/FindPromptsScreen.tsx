@@ -222,7 +222,7 @@ export default function FindPromptsScreen({ navigation, route }: Props) {
     <KeyboardAvoidingContainer style={[styles.page, { paddingBottom: keyboardOpen ? 0 : insets.bottom }]}>
       <View style={styles.toolbar}>
         <View style={styles.field}>
-          <SearchGlyph size={16} color={appearance.muted} />
+          <SearchGlyph size={16} color={appearance.mutedGlyph} />
           <TextInput
             ref={inputRef}
             value={find.query}
@@ -252,7 +252,7 @@ export default function FindPromptsScreen({ navigation, route }: Props) {
                 inputRef.current?.focus();
               }}
             >
-              <XGlyph size={16} color={appearance.muted} />
+              <XGlyph size={16} color={appearance.mutedGlyph} />
             </Pressable>
           ) : null}
         </View>
@@ -263,7 +263,7 @@ export default function FindPromptsScreen({ navigation, route }: Props) {
             active={find.agents.length > 0}
             grow
             accessibilityLabel={FindPromptsCopy.agentsTitle}
-            chevronColor={appearance.muted}
+            chevronColor={appearance.mutedGlyph}
             onPress={() => setSheet('agent')}
           />
           <FilterChip
@@ -272,7 +272,7 @@ export default function FindPromptsScreen({ navigation, route }: Props) {
             active={find.project !== null}
             grow
             accessibilityLabel={FindPromptsCopy.projectsTitle}
-            chevronColor={appearance.muted}
+            chevronColor={appearance.mutedGlyph}
             onPress={() => setSheet('project')}
           />
           <FilterChip
@@ -295,7 +295,7 @@ export default function FindPromptsScreen({ navigation, route }: Props) {
               row={item}
               timeLabel={formatLastActiveCompact(item.ts, now)}
               styles={styles}
-              dimColor={appearance.muted}
+              dimColor={appearance.mutedGlyph}
               onOpen={openRow}
               onToggleFavorite={toggleFavorite}
             />
@@ -318,7 +318,7 @@ export default function FindPromptsScreen({ navigation, route }: Props) {
             <RefreshControl
               refreshing={find.refreshing}
               onRefresh={() => void actions.search(machine, { refresh: true })}
-              tintColor={appearance.muted}
+              tintColor={appearance.mutedGlyph}
               colors={[appearance.foreground]}
               progressBackgroundColor={appearance.card}
             />
@@ -338,7 +338,7 @@ export default function FindPromptsScreen({ navigation, route }: Props) {
           }
           ListFooterComponent={
             find.loadingMore ? (
-              <ActivityIndicator style={{ paddingVertical: 12 }} color={appearance.muted} />
+              <ActivityIndicator style={{ paddingVertical: 12 }} color={appearance.mutedGlyph} />
             ) : undefined
           }
         />
@@ -362,7 +362,7 @@ export default function FindPromptsScreen({ navigation, route }: Props) {
             numberOfLines={3}
           >
             {find.notice.message}
-            {find.notice.detail !== undefined ? <Text style={styles.noticeDetail}> {find.notice.detail}</Text> : null}
+            {find.notice.detail !== undefined ? <Text> {find.notice.detail}</Text> : null}
           </Text>
         </View>
       ) : null}
