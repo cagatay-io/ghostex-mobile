@@ -14,7 +14,6 @@ import {
   Text,
   View,
   useWindowDimensions,
-  type StyleProp,
   type TextStyle,
 } from 'react-native';
 
@@ -29,7 +28,7 @@ import { QuestionForm } from '../QuestionForm';
 import { QUESTION_TAGS, type QuestionTagState } from '../OpenQuestions';
 import { openTranscriptMenu } from '../transcriptMenuStore';
 import { highlightText, useOwnFind, useRowFind, type RowFind } from '../searchHighlight';
-import { inlineText, parseInline, parseMarkdown, type Block, type FenceHeader, type Inline } from './parse';
+import { inlineText, parseMarkdown, type Block, type FenceHeader, type Inline } from './parse';
 import { BlockLongPress } from './blockLongPress';
 import { isRunCommandHref } from './runCommands';
 import { fitTableColumns } from './tableLayout';
@@ -957,41 +956,6 @@ export const Markdown = memo(function Markdown({
     </View>
   );
 });
-
-/**
- * A question form's words with their links: the core's Markdown of them (gx-chat-core
- * `questions/form_links.rs`, only the links are markup) drawn as one run of text in `style`, its
- * links tinted and opened the way a message's are. Desktop: `form_words` in `question_form.rs`.
- */
-export function LinkedWords({
-  markdown,
-  references,
-  style,
-}: {
-  markdown: string;
-  references?: unknown;
-  style: StyleProp<TextStyle>;
-}) {
-  const { theme, dispatch } = useTranscriptEnv();
-  const referencesMap = useMemo(() => referenceMap(references), [references]);
-  const inlines = useMemo(() => parseInline(markdown, false), [markdown]);
-  const context = useMemo<InlineContext>(
-    () => ({
-      theme,
-      references: referencesMap,
-      openLink: (href: string) => dispatch({ type: 'openMarkdownLink', href, external: false }),
-      longPressLink: (href: string) => openTranscriptMenu({ href }),
-      selectable: true,
-      find: null,
-      strips: false,
-      heading: theme.primary,
-      inlineCode: theme.primary,
-      body: theme.prose,
-    }),
-    [dispatch, referencesMap, theme],
-  );
-  return <Text style={style}>{renderInlines(inlines, context, 'words')}</Text>;
-}
 
 const styles = StyleSheet.create({
   root: { minWidth: 0, flexShrink: 1 },

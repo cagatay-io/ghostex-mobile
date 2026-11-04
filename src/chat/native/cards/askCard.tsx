@@ -383,12 +383,15 @@ const RECEIPT_QUESTION_LINE = 19;
 export function ReceiptRow({
   number,
   question,
+  renderQuestion,
   answer,
   below,
   first,
 }: {
   number: number;
   question: string;
+  /** Draws the question in the given style instead of plain text (its links, `PageAnswersCard.tsx`). */
+  renderQuestion?: (style: StyleProp<TextStyle>) => ReactNode;
   answer: ReactNode;
   below?: ReactNode;
   first: boolean;
@@ -399,7 +402,13 @@ export function ReceiptRow({
       {/* The card's own tile with the number in it, so the question and answer line up under the title. */}
       <SingleLineNumberTile number={number} />
       <View style={styles.receiptBody}>
-        {question.length > 0 ? <Text style={styles.receiptQuestion}>{question}</Text> : null}
+        {question.length > 0 ? (
+          renderQuestion !== undefined ? (
+            renderQuestion(styles.receiptQuestion)
+          ) : (
+            <Text style={styles.receiptQuestion}>{question}</Text>
+          )
+        ) : null}
         <View style={styles.answerLine}>{answer}</View>
         {below}
       </View>

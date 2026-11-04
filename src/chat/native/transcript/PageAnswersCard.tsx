@@ -7,11 +7,12 @@
  * Desktop draws the same card in apps/desktop/src/app/native_chat/page_answers.rs. Change them together. The agent's own question receipts (QuestionExchangeCards.tsx) take the same `PlainAnswer`.
  */
 
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View, type StyleProp, type TextStyle } from 'react-native';
 
 import type { ProjectedMessage } from '../../rust/document';
 import { AnswerAside, AskCard, AskHead, PlainAnswer, ReceiptRow } from '../cards/askCard';
 import { useTranscriptEnv, useTranscriptFlags } from './context';
+import { LinkWords } from './LinkWords';
 import { SingleLineTile } from './singleLineCard';
 import { arr, num, obj, str } from './json';
 
@@ -62,6 +63,14 @@ export function PageAnswersCard({ message }: { message: ProjectedMessage }) {
               key={index}
               number={index + 1}
               question={str(row, 'label')}
+              // The question's links open on a tap (`labelRuns`, gx-chat-core `questions/form_links.rs`).
+              {...(Array.isArray(obj(row)?.labelRuns)
+                ? {
+                    renderQuestion: (style: StyleProp<TextStyle>) => (
+                      <LinkWords text={str(row, 'label')} runs={obj(row)?.labelRuns} color={theme.muted} style={style} />
+                    ),
+                  }
+                : {})}
               answer={<PlainAnswer>{value}</PlainAnswer>}
               below={note.length > 0 ? <AnswerAside>{note}</AnswerAside> : undefined}
               first={index === 0}

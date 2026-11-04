@@ -1,0 +1,61 @@
+/**
+ * A question's words with their links (the core's runs, gx-chat-core `questions/form_links.rs`):
+ * each link in the text's own colour with a faint dotted underline, opening on a tap the way a
+ * message's link does (`openMarkdownLink`). A bare `#407` (an `issue` run) stays text: the phone has
+ * no project issue links. Desktop draws the same in apps/desktop/src/app/native_chat/link_words.rs,
+ * whose dots are a session name's on a "Message to" card; the phone has no hover, so its dots sit
+ * between that name's resting and hovered strength.
+ */
+
+import { Text, type StyleProp, type TextStyle } from 'react-native';
+
+import { useTranscriptEnv } from './context';
+import { arr, str } from './json';
+
+/** How strong the dotted underline is (desktop: 0.3 at rest, full under the pointer). */
+const UNDERLINE_ALPHA = 0.5;
+
+/** `#rrggbb` at an alpha; any other colour as it is. */
+function faint(color: string): string {
+  if (!/^#[0-9a-f]{6}$/i.test(color)) return color;
+  return `${color}${Math.round(UNDERLINE_ALPHA * 255)
+    .toString(16)
+    .padStart(2, '0')}`;
+}
+
+export function LinkWords({
+  text,
+  runs,
+  color,
+  style,
+}: {
+  /** The words as plain text, drawn as they are when `runs` is not an array. */
+  text: string;
+  runs: unknown;
+  /** The text's colour, which its links keep. */
+  color: string;
+  style: StyleProp<TextStyle>;
+}) {
+  const { dispatch } = useTranscriptEnv();
+  if (!Array.isArray(runs)) return <Text style={[style, { color }]}>{text}</Text>;
+  return (
+    <Text style={[style, { color }]}>
+      {arr(runs).map((run, index) => {
+        const words = str(run, 'text');
+        const href = str(run, 'href');
+        if (href.length === 0) return words;
+        return (
+          <Text
+            key={index}
+            accessibilityRole="link"
+            suppressHighlighting={false}
+            onPress={() => dispatch({ type: 'openMarkdownLink', href, external: false })}
+            style={{ textDecorationLine: 'underline', textDecorationStyle: 'dotted', textDecorationColor: faint(color) }}
+          >
+            {words}
+          </Text>
+        );
+      })}
+    </Text>
+  );
+}

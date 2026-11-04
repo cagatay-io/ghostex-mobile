@@ -32,7 +32,7 @@ import { arr, obj, str, type JsonRecord } from './json';
 import { Glyph } from './icons';
 import { SingleLinePill, SingleLineTile } from './singleLineCard';
 import { MONO_FONT } from './theme';
-import { LinkedWords } from './markdown/Markdown';
+import { LinkWords } from './LinkWords';
 import { QuestionFlashFrame, useQuestionAnchor } from './OpenQuestions';
 import GhostexImageIntakeView from '../../../../modules/ghostex-native/src/GhostexImageIntakeView';
 import { imagesFromIntake } from '../composer/imageIntake';
@@ -469,17 +469,18 @@ function FormQuestion({
   return (
     <View ref={anchor} collapsable={false} style={styles.question}>
       <View style={styles.questionHead}>
-        <FormWords
+        <LinkWords
           text={str(question, 'title')}
-          links={question?.titleLinks}
-          style={[styles.questionTitle, { color: theme.foreground }]}
+          runs={question?.titleRuns}
+          color={theme.foreground}
+          style={styles.questionTitle}
         />
         {tag.length > 0 ? (
           <Text style={[styles.tag, { color: theme.muted, backgroundColor: `${theme.muted}2e` }]}>{tag}</Text>
         ) : null}
       </View>
       {detail.length > 0 ? (
-        <FormWords text={detail} links={question?.detailLinks} style={[styles.detail, { color: theme.cardMuted }]} />
+        <LinkWords text={detail} runs={question?.detailRuns} color={theme.cardMuted} style={styles.detail} />
       ) : null}
       {!isText && multiple ? <Text style={[styles.hint, { color: theme.muted }]}>Pick any that apply.</Text> : null}
       {!isText
@@ -489,10 +490,10 @@ function FormQuestion({
               keyLabel={letter(choiceIndex)}
               label={str(choice, 'shownLabel') || str(choice, 'label')}
               detail={str(choice, 'detail')}
-              {...(obj(obj(choice)?.detailLinks) !== null
+              {...(Array.isArray(obj(choice)?.detailRuns)
                 ? {
                     renderDetail: (style: StyleProp<TextStyle>) => (
-                      <FormWords text={str(choice, 'detail')} links={obj(choice)?.detailLinks} style={style} />
+                      <LinkWords text={str(choice, 'detail')} runs={obj(choice)?.detailRuns} color={theme.muted} style={style} />
                     ),
                   }
                 : {})}
@@ -552,18 +553,6 @@ function FormQuestion({
       ) : null}
     </View>
   );
-}
-
-/**
- * A question's or a choice's words: plain text, or, when the core found links in them
- * (`titleLinks`, `detailLinks`: gx-chat-core `questions/form_links.rs`), the same words with links
- * that open on a tap. A bare `#407` stays text here: the phone has no project issue links.
- */
-function FormWords({ text, links, style }: { text: string; links: unknown; style: StyleProp<TextStyle> }) {
-  const linked = obj(links);
-  const markdown = str(linked, 'markdown');
-  if (linked === null || markdown.length === 0) return <Text style={style}>{text}</Text>;
-  return <LinkedWords markdown={markdown} references={linked.references} style={style} />;
 }
 
 const styles = StyleSheet.create({
