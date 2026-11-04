@@ -16,7 +16,14 @@ import { AGENT_ICONS } from '../assets/agentIcons.generated';
 import { PlusGlyph, TerminalGlyph } from '../components/sessions/icons';
 import { rowActivityIndicator } from '../components/sessions/sessionStatus';
 import { CloseIcon } from '../components/terminal/icons';
-import { agentIconTint, hasQuestion, resolveAgentIconId, type GhostexSession } from '../contract/mobileSummary';
+import {
+  agentIconTint,
+  hasQuestion,
+  NO_SUMMARY_CAPABILITIES,
+  resolveAgentIconId,
+  type GhostexSession,
+  type GhostexSummaryCapabilities,
+} from '../contract/mobileSummary';
 import { PanesCopy, SessionCopy } from '../copy';
 import { useInventoryStore } from '../inventory/store';
 import { GhostexPalette, GhostexRadii } from '../theme/palette';
@@ -44,11 +51,14 @@ export type SessionChooserProps = {
 /** A session's status as the pane rows say it (`PanesCopy.status`). */
 export type PaneSessionStatus = keyof typeof PanesCopy.status;
 
-export function paneSessionStatus(session: GhostexSession): PaneSessionStatus {
-  if (hasQuestion(session.pendingQuestionCount, false)) return 'question';
-  switch (rowActivityIndicator(session)) {
-    case 'approval':
-      return 'approval';
+export function paneSessionStatus(
+  session: GhostexSession,
+  capabilities: GhostexSummaryCapabilities,
+): PaneSessionStatus {
+  const activity = rowActivityIndicator(session);
+  if (activity === 'approval') return 'approval';
+  if (hasQuestion(session.pendingQuestionCount, capabilities.awaitingAnswer && session.awaitingAnswer)) return 'question';
+  switch (activity) {
     case 'failed':
       return 'failed';
     case 'working':
@@ -65,10 +75,12 @@ export function paneSessionStatus(session: GhostexSession): PaneSessionStatus {
 /** One of the computer's sessions: its agent icon, its title, and its agent, project (`withProject`) and status. */
 export function PaneSessionRow({
   session,
+  capabilities,
   withProject,
   onPress,
 }: {
   session: GhostexSession;
+  capabilities: GhostexSummaryCapabilities;
   withProject: boolean;
   onPress: () => void;
 }) {
@@ -80,7 +92,7 @@ export function PaneSessionRow({
     withProject ? session.projectName : '',
   ]
     .filter((part) => part.length > 0)
-    .concat(PanesCopy.status[paneSessionStatus(session)])
+    .concat(PanesCopy.status[paneSessionStatus(session, capabilities)])
     .join(' · ');
   return (
     <Pressable
@@ -149,6 +161,7 @@ export default function SessionChooser({
 }: SessionChooserProps) {
   const summary = useInventoryStore((state) => state.inventoriesByMachineId[machineId]?.summary ?? null);
   const sessions = summary?.sessions.filter((session) => session.sessionId !== besideSessionId) ?? [];
+  const capabilities = summary?.capabilities ?? NO_SUMMARY_CAPABILITIES;
   // A new terminal goes into the project of the session beside the chooser, where it has one.
   const beside = summary?.sessions.find((session) => session.sessionId === besideSessionId) ?? null;
   const besideProject = beside !== null && beside.projectId.length > 0 && beside.projectName.length > 0 ? beside : null;
@@ -208,7 +221,13 @@ export default function SessionChooser({
       ) : null}
       {summary !== null && sessions.length === 0 ? <Text style={styles.empty}>{PanesCopy.chooserEmpty}</Text> : null}
       {sessions.map((session) => (
-        <PaneSessionRow key={session.sessionId} session={session} withProject onPress={() => onPick(session)} />
+        <PaneSessionRow
+          key={session.sessionId}
+          session={session}
+          capabilities={capabilities}
+          withProject
+          onPress={() => onPick(session)}
+        />
       ))}
     </ScrollView>
   );

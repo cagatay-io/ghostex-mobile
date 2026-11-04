@@ -10,7 +10,7 @@
 
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import type { GhostexSession } from '../contract/mobileSummary';
+import { NO_SUMMARY_CAPABILITIES, type GhostexSession } from '../contract/mobileSummary';
 import { PanesCopy } from '../copy';
 import { useInventoryStore } from '../inventory/store';
 import { GhostexPalette, SidebarPalette } from '../theme/palette';
@@ -37,7 +37,8 @@ export type AgentsPaneProps = {
 export default function AgentsPane({ machineId, controlInset, onPick }: AgentsPaneProps) {
   const summary = useInventoryStore((state) => state.inventoriesByMachineId[machineId]?.summary ?? null);
   const sessions = summary?.sessions ?? [];
-  const statuses = sessions.map(paneSessionStatus);
+  const capabilities = summary?.capabilities ?? NO_SUMMARY_CAPABILITIES;
+  const statuses = sessions.map((session) => paneSessionStatus(session, capabilities));
   const projects = new Map<string, GhostexSession[]>();
   for (const session of sessions) {
     const rows = projects.get(session.projectName);
@@ -84,6 +85,7 @@ export default function AgentsPane({ machineId, controlInset, onPick }: AgentsPa
             <PaneSessionRow
               key={session.sessionId}
               session={session}
+              capabilities={capabilities}
               withProject={false}
               onPress={() => onPick(session)}
             />

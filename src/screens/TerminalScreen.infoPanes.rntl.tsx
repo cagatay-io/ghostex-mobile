@@ -276,7 +276,7 @@ function summarySession(
   displayTitle: string,
   projectId: string,
   projectName: string,
-  state: Partial<{ activity: string; pendingQuestionCount: number }> = {},
+  state: Partial<{ activity: string; pendingQuestionCount: number; awaitingAnswer: boolean; awaitingApproval: boolean }> = {},
 ) {
   return {
     sessionId,
@@ -693,6 +693,42 @@ describe('entry: the chooser and the pane type menu offer Agents, Usage and Atte
 });
 
 describe('agents: the computer’s sessions with their status', () => {
+  test.each([true, false])('an open question card follows the computer capability (%s) in both pane lists', async (announced) => {
+    const summary = mobileSummary({
+      capabilities: { awaitingAnswer: announced },
+      projects: PROJECTS,
+      sessions: [
+        ...SESSIONS,
+        summarySession('ask', 'Open question', 'p2', 'pad-lab', { awaitingAnswer: true }),
+      ],
+    });
+    useInventoryStore.setState({ inventoriesByMachineId: { [MAC.id]: inventory(summary) } });
+    await renderScreen({ stored: layout(session(A), AGENTS) });
+    const status = announced ? 'Has a question' : 'Idle';
+    expect(within(pane('agents')).getByLabelText(`Open question, Codex · ${status}`)).toBeTruthy();
+    expect(within(pane('agents')).getByText(PanesCopy.agentsChip.question(announced ? 2 : 1))).toBeTruthy();
+    await press(PanesCopy.close(PanesCopy.agentsType));
+    await press(PanesCopy.addPane);
+    expect(screen.getByLabelText(`Open question, Codex · pad-lab · ${status}`)).toBeTruthy();
+  });
+
+  test('approval wins over counted and open-card questions in both pane lists and their counts', async () => {
+    const summary = mobileSummary({
+      capabilities: { awaitingAnswer: true },
+      projects: PROJECTS,
+      sessions: [...SESSIONS, summarySession('approve', 'Approval pending', 'p2', 'pad-lab', {
+        awaitingApproval: true, awaitingAnswer: true, pendingQuestionCount: 1,
+      })],
+    });
+    useInventoryStore.setState({ inventoriesByMachineId: { [MAC.id]: inventory(summary) } });
+    await renderScreen({ stored: layout(session(A), AGENTS) });
+    expect(within(pane('agents')).getByLabelText('Approval pending, Codex · Waiting for approval')).toBeTruthy();
+    expect(within(pane('agents')).getByText(PanesCopy.agentsChip.question(1))).toBeTruthy();
+    await press(PanesCopy.close(PanesCopy.agentsType));
+    await press(PanesCopy.addPane);
+    expect(screen.getByLabelText('Approval pending, Codex · pad-lab · Waiting for approval')).toBeTruthy();
+  });
+
   test('the counts, the sessions by project with their status in words', async () => {
     await renderScreen({ stored: layout(session(A), AGENTS) });
     const agents = within(pane('agents'));
