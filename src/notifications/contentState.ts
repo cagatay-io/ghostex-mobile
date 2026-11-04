@@ -23,7 +23,7 @@
  */
 
 import type { GhostexMobileSummary, GhostexSession, GhostexSummaryCapabilities } from '../contract/mobileSummary';
-import { agentIconTint, resolveAgentArtId, type AgentArtId } from '../contract/mobileSummary';
+import { agentIconTint, hasQuestion, resolveAgentArtId, type AgentArtId } from '../contract/mobileSummary';
 
 export type LiveActivityAgentState = 'working' | 'waiting' | 'finished';
 
@@ -149,8 +149,8 @@ function candidateFor(
   if (agentName.length === 0) return null;
   const attention = session.activity === 'attention';
   // An open question card counts only from a computer that announces the field; the counted questions always.
-  const hasQuestion = (capabilities.awaitingAnswer && session.awaitingAnswer) || session.pendingQuestionCount > 0;
-  const waitsOnUser = session.awaitingApproval || hasQuestion;
+  const question = hasQuestion(session.pendingQuestionCount, capabilities.awaitingAnswer && session.awaitingAnswer);
+  const waitsOnUser = session.awaitingApproval || question;
   const agentIcon = resolveAgentArtId(
     session.agentIcon,
     session.agentName.length > 0 ? session.agentName : session.agent,
@@ -185,7 +185,7 @@ function candidateFor(
     const since = hostTime(session.attentionEnteredAt);
     if (!routable || since === null) return { state: 'waiting', shown: null };
     const row: LiveActivityRow = { ...base, state: 'waiting', startedAt: isoTime(since) };
-    if (hasQuestion) row.hasQuestion = true;
+    if (question) row.hasQuestion = true;
     return { state: 'waiting', shown: { row, sortTime: since } };
   }
 
