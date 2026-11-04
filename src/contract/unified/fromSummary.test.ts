@@ -150,7 +150,7 @@ describe('a phone with one computer', () => {
 });
 
 describe('a card outside git', () => {
-  test('says No source control only for a plain folder and a session with no branch', () => {
+  test('says Untracked only for a plain folder and a session with no branch', () => {
     const parsed = summary(
       [
         { projectId: 'G1', name: 'repo', path: '/r/repo', gitRemoteOriginUrl: 'git@github.com:o/repo.git' },

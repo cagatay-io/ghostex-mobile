@@ -231,8 +231,8 @@ export function UnifiedCard({ row, repoIcon, active, nowMs, sidebarBackground, o
   const title = session.displayTitle.length > 0 ? session.displayTitle : SessionCopy.fallbackTitle;
   const branch = session.gitBranch !== undefined && session.gitBranch.length > 0 ? session.gitBranch : (session.work?.branch ?? '');
   const prNumber = session.work?.pullRequestNumber ?? null;
-  // CDXC:Sidebar 2026-11-04 DECISION: a session outside git keeps its third line, "No source
-  // control" by a crossed-out branch in the branch's colour (cards.rs, build.ts `noSourceControl`).
+  // CDXC:Sidebar 2026-11-04 DECISION: a session outside git keeps its third line, "Untracked"
+  // (Q1239) by a crossed-out branch in the branch's colour (cards.rs, build.ts `noSourceControl`).
   const hasMeta = branch.length > 0 || prNumber !== null || row.noSourceControl;
   const openMenu = (): void => {
     cardRef.current?.measureInWindow((x, y, width, height) => onMenu({ x, y, width, height }));
