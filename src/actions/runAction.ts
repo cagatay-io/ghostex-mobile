@@ -5,7 +5,7 @@
  * opens in the Web Preview, which forwards the port; every other address goes to the phone's browser. A terminal
  * action runs `ghostex run-action` in the project whose menu it was chosen from (with `--scope global` for a Global
  * Action), then the session it started opens once the list has been read again. A start the computer refuses shows
- * its message in the start-failure card.
+ * its message in the shared bottom notice.
  *
  * Global Actions run only while the computer's current summary offers them: the menu may have been opened from an
  * older summary, so this is checked at the tap.

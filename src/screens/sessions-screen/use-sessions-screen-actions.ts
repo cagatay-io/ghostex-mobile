@@ -5,7 +5,7 @@
  * stay there and in ./use-sessions-screen-menus.tsx.
  */
 
-import { useCallback, type Dispatch, type SetStateAction } from 'react';
+import { useCallback } from 'react';
 import { Linking } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Clipboard from 'expo-clipboard';
@@ -20,7 +20,7 @@ import {
   restoreRecentProjectCommand,
   sessionNoteSaveCommand,
 } from '../../commands/ghostexCli';
-import type { ShownActionFailure } from '../../components/sessions/ActionFailureCard';
+import type { Notice } from '../../components/common/NoticeToast';
 import { createdSessionId, runGhostexCli } from '../../components/sessions/cli';
 import type { WorkChipActions } from '../../components/sessions/WorkChips';
 import { claudeCloudPageUrl } from '../../contract/claudeCloud';
@@ -61,11 +61,9 @@ export type SessionsScreenActionsDeps = {
   setOverlay: (overlay: Overlay) => void;
   /** Full-screen progress line (null hides it). */
   setProgress: (message: string | null) => void;
-  setTransientStatus: (message: string | null) => void;
+  setTransientStatus: (message: string | null, options?: Partial<Pick<Notice, 'title' | 'error' | 'announce'>>) => void;
   refreshMachine: (machine: MachineRecord) => Promise<void>;
   retryMachine: (machineId: string) => Promise<void>;
-  /** Shows the start-failure card for an action the computer did not start. */
-  setActionFailure: Dispatch<SetStateAction<ShownActionFailure | null>>;
 };
 
 export function useSessionsScreenActions({
@@ -75,7 +73,6 @@ export function useSessionsScreenActions({
   setTransientStatus,
   refreshMachine,
   retryMachine,
-  setActionFailure,
 }: SessionsScreenActionsDeps) {
   const attach = useCallback(
     async (listTarget: MachineRecord, listSession: GhostexSession, options?: { terminal?: boolean }): Promise<void> => {
@@ -377,15 +374,17 @@ export function useSessionsScreenActions({
           openUrl: (url) => Linking.openURL(url),
           setProgress,
           showStatus: setTransientStatus,
-          showStartFailure: (failure) => {
-            logAppEvent(`${ActionCopy.startFailedTitle(failure.name)}: ${failure.message}`);
-            setActionFailure((current) => ({ ...failure, id: (current?.id ?? 0) + 1 }));
-          },
+          showStartFailure: (failure) =>
+            setTransientStatus(failure.message, {
+              title: ActionCopy.startFailedTitle(failure.name),
+              error: true,
+              announce: true,
+            }),
         },
         { projectId, projectTitle, entry },
       );
     },
-    [attachCreated, navigation, refreshMachine, setTransientStatus],
+    [attachCreated, navigation, refreshMachine, setOverlay, setProgress, setTransientStatus],
   );
 
   const restoreRecentProject = useCallback(

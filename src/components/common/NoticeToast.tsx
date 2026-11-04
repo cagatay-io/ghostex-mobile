@@ -1,17 +1,27 @@
 /**
- * A short message at the bottom of a file screen that fades in and out on its own: a copied path, a page's
- * notes, a failure (the Docs viewer and the project file browser). Each new `notice` (a new `id`) shows anew. A
+ * A short message at the bottom of a screen that fades in and out on its own: a copied path, a page's
+ * notes, or a failure. Each new `notice` (a new `id`) shows anew. A
  * `lasting` notice (a file being fetched for Share…) stays until the next notice replaces it or `null` clears it.
  * With the system's Reduce Motion on (followed live) a notice appears and leaves at once, without a fade.
  */
 
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Animated, Platform, StyleSheet, Text, View } from 'react-native';
 
 import { GhostexPalette } from '../../theme/palette';
 import { useReduceMotion } from './reduceMotion';
 
-export type Notice = { id: number; title?: string; message: string; error: boolean; lasting?: boolean };
+export type Notice = {
+  id: number;
+  title?: string;
+  message: string;
+  error: boolean;
+  lasting?: boolean;
+  /** Reading time before the shared fade-out; omitted keeps the file screens' duration. */
+  durationMs?: number;
+  /** An accessible alert, with an explicit iOS announcement where live regions do not apply. */
+  announce?: boolean;
+};
 
 /** How long a notice stays before it fades out. */
 const NOTICE_SHOWN_MS = 3200;
@@ -40,6 +50,11 @@ export default function NoticeToast({ notice, bottom }: { notice: Notice | null;
       return undefined;
     }
     setShown(notice);
+    if (notice.announce === true && Platform.OS === 'ios') {
+      AccessibilityInfo.announceForAccessibility(
+        notice.title === undefined ? notice.message : `${notice.title}. ${notice.message}`,
+      );
+    }
     if (reducesMotion()) {
       opacity.stopAnimation();
       opacity.setValue(1);
@@ -49,12 +64,18 @@ export default function NoticeToast({ notice, bottom }: { notice: Notice | null;
     }
     if (notice.lasting === true) return undefined;
     // The notice's reading time, then it leaves.
-    const timer = setTimeout(hide, NOTICE_SHOWN_MS);
+    const timer = setTimeout(hide, notice.durationMs ?? NOTICE_SHOWN_MS);
     return () => clearTimeout(timer);
   }, [notice, opacity]);
   if (shown === null) return null;
   return (
-    <Animated.View pointerEvents="none" style={[styles.toastRow, { bottom, opacity }]} accessibilityLiveRegion="polite">
+    <Animated.View
+      pointerEvents="none"
+      style={[styles.toastRow, { bottom, opacity }]}
+      accessible={shown.announce === true ? true : undefined}
+      accessibilityRole={shown.announce === true ? 'alert' : undefined}
+      accessibilityLiveRegion="polite"
+    >
       <View style={styles.toast}>
         {shown.title !== undefined ? <Text style={styles.toastTitle}>{shown.title}</Text> : null}
         <Text style={[styles.toastText, shown.error && styles.toastError]} numberOfLines={3}>

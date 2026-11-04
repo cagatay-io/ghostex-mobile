@@ -5,12 +5,18 @@
  * how a failed start is reported. The computer's answers are the ones `ghostex run-action` prints.
  */
 
+import { act, renderHook } from '@testing-library/react-native';
+
 import type { ExecResult } from '../../modules/ghostex-native/src';
 import { useAppLogStore } from '../app/appLog';
 import { ActionCopy, FailureCopy } from '../copy';
 import { execRemoteCommand } from '../remote/commands';
 import { runQuickAction, type QuickActionRunHost } from './runAction';
 import type { QuickActionEntry } from './quickActions';
+import {
+  useSessionsScreenActions,
+  type SessionsScreenActionsDeps,
+} from '../screens/sessions-screen/use-sessions-screen-actions';
 
 jest.mock('../remote/commands', () => ({ execRemoteCommand: jest.fn() }));
 jest.mock('../remote/connection', () => ({ ensureConnected: jest.fn(async () => undefined) }));
@@ -18,6 +24,9 @@ jest.mock('../machines/credentials', () => ({ hasPassword: jest.fn(async () => f
 jest.mock('../../modules/ghostex-native/src', () => ({
   GhostexNative: { addListener: () => ({ remove: () => undefined }) },
 }));
+jest.mock('@react-native-async-storage/async-storage', () =>
+  jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+);
 
 const exec = execRemoteCommand as jest.MockedFunction<typeof execRemoteCommand>;
 
@@ -119,7 +128,7 @@ describe('terminal actions', () => {
 
 // A refusal the phone does not recognise reads as a plain sentence; the computer's own words go to the app log
 // (`classifyFailure` in src/inventory/client.ts).
-describe('a start that fails shows a plain sentence in the start-failure card, the computer’s words in the app log', () => {
+describe('a start that fails reports a plain sentence for the shared notice, the computer’s words in the app log', () => {
   const lastLogged = (): string | undefined => useAppLogStore.getState().entries.at(-1)?.message;
 
   test('a Global Action the computer does not have', async () => {
@@ -176,10 +185,48 @@ describe('a start that fails shows a plain sentence in the start-failure card, t
       'progress Starting Tests in Ghostex…',
       'refresh',
       'progress closed',
-      // The message as the list read reports it, in the status line as for every other start.
+      // The message as the list read reports it, through the ordinary notice channel.
       'status Connection refused',
     ]);
   });
+});
+
+test('the Sessions handler sends a failed start through its ordinary notice channel', async () => {
+  const setTransientStatus = jest.fn();
+  const setProgress = jest.fn();
+  const deps: SessionsScreenActionsDeps = {
+    // A refused start never navigates; the navigation boundary is deliberately unused here.
+    navigation: {} as SessionsScreenActionsDeps['navigation'],
+    setOverlay: jest.fn(),
+    setProgress,
+    setTransientStatus,
+    refreshMachine: jest.fn(),
+    retryMachine: jest.fn(),
+  };
+  const machine = {
+    id: 'm1',
+    name: 'Mac',
+    host: 'mac.local',
+    username: 'me',
+    port: 22,
+    savePassword: false,
+    lastConnectedAt: null,
+  };
+  answer('{"commandId":"c1","error":"Quick action is not configured for this project.","ok":false}', 1);
+  const { result } = await renderHook(() => useSessionsScreenActions(deps));
+  await act(async () => {
+    result.current.runQuickAction(machine, 'p1', 'Ghostex', projectTerminal);
+  });
+  expect(setProgress).toHaveBeenLastCalledWith(null);
+  expect(setTransientStatus).toHaveBeenCalledTimes(1);
+  expect(setTransientStatus).toHaveBeenCalledWith(FailureCopy.computerRefused, {
+    title: "Couldn't start Tests",
+    error: true,
+    announce: true,
+  });
+  expect(useAppLogStore.getState().entries.at(-1)?.message).toBe(
+    'Unrecognised computer failure: Quick action is not configured for this project.',
+  );
 });
 
 describe('browser actions open the URL from the summary, without a command', () => {
