@@ -6,8 +6,9 @@
  * terminal exactly as gxserver wrote it, with no Enter key after it. Right before inserting, the target is checked
  * again against the phone's tabs and the computer's session list (still open, running, an agent), as the desktop
  * checks Running + agent at insertion (gpui_engine_terminal_attachment.rs:455-462 at 86b287b1); otherwise nothing is
- * inserted and the notice says no agent session is available. The chat host registry, the native terminal, the tab
- * store and the inventory store are stand-ins; the request is a fake `runProjectDocsAction`.
+ * inserted and the notice says no agent session is available. In a session pane on screen the pane's own view (chat or
+ * terminal) takes the text, not the session's saved view. The chat host registry, the native terminal, the tab store,
+ * the pane store and the inventory store are stand-ins; the request is a fake `runProjectDocsAction`.
  */
 
 import type { UserAction } from '../chat/rust/actions';
@@ -53,6 +54,9 @@ jest.mock('../terminal/sessions', () => ({
     getState: () => ({ tabs: mockTabs, chatModeArmed: (sessionKey: string) => mockChatTabs.has(sessionKey) }),
   },
 }));
+// What each session pane on screen shows (the pane store's `paneViews`); null with one content area.
+let mockPaneViews: Record<string, 'chat' | 'terminal'> | null = null;
+jest.mock('../panes/store', () => ({ usePaneStore: { getState: () => ({ paneViews: mockPaneViews }) } }));
 // The computer's session list per machine (the inventory summary's `sessions`).
 type MockSession = { sessionId: string; isLive: boolean; agentIcon: string; agentName: string; agent: string };
 let mockSessions: MockSession[] = [];
@@ -101,6 +105,7 @@ beforeEach(() => {
   mockChatTabs.clear();
   mockSendText.mockClear();
   mockSendKey.mockClear();
+  mockPaneViews = null;
   // The session Files came from: its tab open on the phone, live with its agent on the computer.
   mockTabs = [OPEN_TAB];
   mockSessions = [LIVE_AGENT];
@@ -165,6 +170,57 @@ test('a session that cannot show its chat is typed into even while its tab is se
     appSessionInputs('machine-1', 'project-1'),
   );
   expect(mockSendText.mock.calls).toEqual([['machine-1:session-7', PROMPT]]);
+});
+
+test('in a session pane the view the pane shows takes the text, not the session’s saved view', async () => {
+  // Saved as Chat View, its pane turned to the terminal: typed into the terminal.
+  mockChatTabs.add(SESSION.sessionKey);
+  mockPaneViews = { [SESSION.sessionKey]: 'terminal', 'machine-1:session-8': 'chat' };
+  const untouched = chatHost(true, '');
+  expect(
+    await addFileToSessionContext(
+      rpc,
+      'project-1',
+      'docs/plan.md',
+      SESSION,
+      appSessionInputs('machine-1', 'project-1'),
+    ),
+  ).toEqual({ added: true, into: 'terminal' });
+  expect(mockSendText.mock.calls).toEqual([['machine-1:session-7', PROMPT]]);
+  expect(untouched).toEqual([]);
+
+  // Saved as Terminal View, its pane turned to the chat: appended to the chat's draft.
+  mockChatTabs.clear();
+  mockSendText.mockClear();
+  mockPaneViews = { [SESSION.sessionKey]: 'chat', 'machine-1:session-8': 'terminal' };
+  const dispatched = chatHost(true, 'Look at this:');
+  expect(
+    await addFileToSessionContext(
+      rpc,
+      'project-1',
+      'docs/plan.md',
+      SESSION,
+      appSessionInputs('machine-1', 'project-1'),
+    ),
+  ).toEqual({ added: true, into: 'chat' });
+  expect(dispatched).toEqual([{ type: 'appendToDraft', text: PROMPT, draft: 'Look at this:' }]);
+  expect(mockSendText).not.toHaveBeenCalled();
+
+  // Panes on screen without this session: its saved view.
+  mockChatTabs.add(SESSION.sessionKey);
+  mockPaneViews = { 'machine-1:session-8': 'terminal', 'machine-1:session-9': 'terminal' };
+  const saved = chatHost(true, '');
+  expect(
+    await addFileToSessionContext(
+      rpc,
+      'project-1',
+      'docs/plan.md',
+      SESSION,
+      appSessionInputs('machine-1', 'project-1'),
+    ),
+  ).toEqual({ added: true, into: 'chat' });
+  expect(saved).toHaveLength(1);
+  expect(mockSendText).not.toHaveBeenCalled();
 });
 
 /** Adds the file with the app's inputs, chat view or terminal view; answers the outcome and what was inserted. */

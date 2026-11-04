@@ -29,6 +29,7 @@ import { useBarGeometryStore } from '../components/common/verticalBar/barGeometr
 import VerticalBarArea from '../components/common/verticalBar/VerticalBarArea';
 import { parseMobileSummary } from '../contract/mobileSummary';
 import { PanesCopy, TerminalHeaderCopy } from '../copy';
+import { appSessionInputs } from '../files/sessionInputs';
 import { emptyMachineInventory, useInventoryStore } from '../inventory/store';
 import { useMachinesStore, type MachineRecord } from '../machines/store';
 import { PANE_FOLD_CLEARANCE, PANE_TITLE_HEIGHT } from '../panes/geometry';
@@ -42,6 +43,8 @@ import TerminalScreen from './TerminalScreen';
 const mockNative = {
   focusTerminal: jest.fn((_sessionKey: string): Promise<boolean> => Promise.resolve(true)),
   blurTerminal: jest.fn((_sessionKey: string) => Promise.resolve()),
+  /** Whether a terminal holds the keyboard's input: a hardware keyboard typing into it, no keyboard on screen. */
+  terminalHoldsKeyboard: jest.fn((_sessionKey: string): Promise<boolean> => Promise.resolve(false)),
   openTerminal: jest.fn((_sessionKey: string, _machineId: string, _opts: object) => Promise.resolve()),
 };
 let mockBarLayout: BarLayout | null = null;
@@ -71,6 +74,7 @@ jest.mock('../../modules/ghostex-native/src', () => {
       pasteFromClipboard: () => Promise.resolve(),
       focusTerminal: (sessionKey: string) => mockNative.focusTerminal(sessionKey),
       blurTerminal: (sessionKey: string) => mockNative.blurTerminal(sessionKey),
+      terminalHoldsKeyboard: (sessionKey: string) => mockNative.terminalHoldsKeyboard(sessionKey),
       openTerminal: (...args: [string, string, object]) => mockNative.openTerminal(...args),
       closeTerminal: () => Promise.resolve(),
     },
@@ -98,10 +102,11 @@ jest.mock('../terminal/chatGridClaim', () => ({
     mockChatGrid = sessionKey;
   },
 }));
-jest.mock('../inventory/client', () => ({
-  ...jest.requireActual('../inventory/client'),
-  ensureConnected: () => Promise.resolve(),
-}));
+// The actual module as the stand-in's prototype, not copied into it: the session inputs reach this module through the
+// remote connection's own imports while it is still loading, and a copy would read its exports before they exist.
+jest.mock('../inventory/client', () =>
+  Object.create(jest.requireActual('../inventory/client'), { ensureConnected: { value: () => Promise.resolve() } }),
+);
 jest.mock('../remote/commands', () => ({
   remoteTerminalCommand: (_machineId: string, command: string) => Promise.resolve(command),
   remoteShellCommand: () => Promise.resolve(null),
@@ -365,6 +370,7 @@ beforeAll(() => {
 beforeEach(async () => {
   jest.useFakeTimers();
   Object.values(mockNative).forEach((mock) => mock.mockClear());
+  mockNative.terminalHoldsKeyboard.mockImplementation(() => Promise.resolve(false));
   navigation.setOptions.mockClear();
   mockReport = null;
   mockMounted = [null, null, null];
@@ -622,6 +628,16 @@ describe('the keyboard follows the active pane to and from the composer', () => 
     await press(TerminalHeaderCopy.terminalView);
     expect(mockNative.focusTerminal).not.toHaveBeenCalled();
   });
+
+  test('a hardware keyboard typing into the terminal pane goes to the composer of the chat pane tapped', async () => {
+    await renderScreen({ stored: stacked(sessionSlot(A), sessionSlot(B)) });
+    await tapPane(B);
+    // Beta's terminal holds the keyboard's input while iOS shows no keyboard: no keyboard frame arrives.
+    mockNative.terminalHoldsKeyboard.mockImplementation((sessionKey) => Promise.resolve(sessionKey === B));
+    const asked = Number(chatInPane(A, 'a').props.focusRequestId ?? 0);
+    await tapPane(A);
+    expect(Number(chatInPane(A, 'a').props.focusRequestId)).toBe(asked + 1);
+  });
 });
 
 describe('what the computer and the stack are told', () => {
@@ -637,6 +653,36 @@ describe('what the computer and the stack are told', () => {
   test('the stack’s swipe back stays offered with a chat in a pane, as with terminal panes', async () => {
     await renderScreen({ stored: stacked(sessionSlot(A), sessionSlot(B)) });
     expect(navigation.setOptions).not.toHaveBeenCalledWith(expect.objectContaining({ gestureEnabled: false }));
+  });
+});
+
+describe('what Files’ Add to Session Context fills', () => {
+  const contextFor = (tab: TerminalTab) => ({
+    sessionKey: tab.sessionKey,
+    sessionId: tab.ghostexSessionId ?? '',
+    title: tab.title,
+    chatCapable: true,
+  });
+  const showsChat = (tab: TerminalTab) => appSessionInputs('m1', 'p1').showsChat(contextFor(tab));
+
+  test('the input a session pane shows, not the session’s saved view; one pane again, the saved view', async () => {
+    // Alpha's saved view is its chat, Beta's its terminal; each pane is then turned the other way, which saves nothing.
+    await renderScreen({ stored: stacked(sessionSlot(A), sessionSlot(B)) });
+    await press(TerminalHeaderCopy.terminalView);
+    expect(terminalIn(A)).not.toBeNull();
+    expect(showsChat(ALPHA)).toBe(false);
+    await tapPane(B);
+    await press(TerminalHeaderCopy.chatView);
+    expect(chatInPane(B, 'b').props.visible).toBe(true);
+    expect(savedViews()).toEqual({ [A]: 'chat' });
+    expect(showsChat(BETA)).toBe(true);
+    expect(showsChat(ALPHA)).toBe(false);
+
+    // A session in no pane on screen shows its saved view when selected: that is what it fills.
+    await press(PanesCopy.close('Alpha'));
+    expect(screen.queryAllByTestId(/^pane:/)).toEqual([]);
+    expect(showsChat(ALPHA)).toBe(true);
+    expect(showsChat(BETA)).toBe(false);
   });
 });
 

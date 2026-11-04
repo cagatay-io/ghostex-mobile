@@ -668,6 +668,14 @@ public class GhostexNativeModule: Module {
             }
         }
 
+        // Whether the terminal holds the keyboard's input (`holdsKeyboardInput`): with a hardware keyboard React sees
+        // no keyboard frame, and asks this before handing the typing to the active pane.
+        AsyncFunction("terminalHoldsKeyboard") { (sessionKey: String) async -> Bool in
+            await MainActor.run {
+                GhostexTerminalRegistry.shared.entry(for: sessionKey)?.view?.holdsKeyboardInput ?? false
+            }
+        }
+
         AsyncFunction("setFontSize") { (sessionKey: String, size: Double) async throws in
             try await MainActor.run {
                 guard let entry = GhostexTerminalRegistry.shared.entry(for: sessionKey),

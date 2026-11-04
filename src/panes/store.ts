@@ -1,7 +1,8 @@
 /**
  * The pane layouts (`layout.ts`), persisted to AsyncStorage as the other preference stores are, and what the pane host
- * keeps while the app runs: which pane was tapped last, which slot shows the chooser, the browser pane's page and which
- * session pane shows its chat view.
+ * keeps while the app runs: which pane was tapped last, which slot shows the chooser, the browser pane's page, which
+ * session pane shows its chat view (the panes' own choice, never stored) and what each session pane on screen shows,
+ * for readers outside the terminal screen.
  *
  * A session pane lives as long as its session's tab: a tab that closes (closed, killed, slept, evicted at the warm
  * terminal limit) ends every layout whose session pane shows it, so a pane never stands on a terminal that is gone. A
@@ -60,6 +61,12 @@ type PaneState = {
   browserPage: { readonly machineId: string; readonly page: BrowserPage | null } | null;
   /** The session whose pane shows its chat view (`paneChatAfter`), or null; not stored. */
   chatSession: string | null;
+  /**
+   * What each session pane shows while the terminal screen shows its panes, by session key: its terminal or its chat
+   * view, the panes' choice rather than the session's saved view; null with one content area. Set by the pane host
+   * for what fills a session's input from outside the screen (Files' Add to Session Context). Not stored.
+   */
+  paneViews: Readonly<Record<string, 'chat' | 'terminal'>> | null;
   /** The session a pane opened last (a pick), until it comes into the panes as its terminal; not stored. */
   pickedSession: string | null;
   /**
@@ -74,6 +81,7 @@ type PaneState = {
   closeChooser: () => void;
   setActiveSlot: (slot: PaneIndex) => void;
   setChatSession: (sessionKey: string | null) => void;
+  setPaneViews: (paneViews: PaneState['paneViews']) => void;
   setPickedSession: (sessionKey: string | null) => void;
   setQuestionHold: (sessionKey: string | null) => void;
   setShown: (shown: PanesShown | null) => void;
@@ -112,6 +120,7 @@ export const usePaneStore = create<PaneState>()((set, get) => {
     shown: null,
     browserPage: null,
     chatSession: null,
+    paneViews: null,
     pickedSession: null,
     questionHold: null,
 
@@ -139,6 +148,7 @@ export const usePaneStore = create<PaneState>()((set, get) => {
     setChatSession: (chatSession) => {
       if (get().chatSession !== chatSession) set({ chatSession });
     },
+    setPaneViews: (paneViews) => set({ paneViews }),
     setPickedSession: (pickedSession) => {
       if (get().pickedSession !== pickedSession) set({ pickedSession });
     },

@@ -83,6 +83,13 @@ extension GhosttyTerminalView {
         }
     }
 
+    /// Whether the keyboard's input reaches this terminal: it is first responder, and not only for the edit menu's
+    /// Paste (`editMenuFocusHidesKeyboard`). With no keyboard on screen that is a hardware keyboard typing into it:
+    /// iOS shows no software keyboard then, so React sees no keyboard frame.
+    var holdsKeyboardInput: Bool {
+        isFirstResponder && !editMenuFocusHidesKeyboard
+    }
+
     func markKeyboardFocusForReconnect() {
         keyboardFocusPolicy.markForReconnect()
     }

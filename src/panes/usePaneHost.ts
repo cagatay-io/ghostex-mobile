@@ -4,8 +4,9 @@
  * the window turns into a shape with nothing stored), tells the terminal store which session the second session pane
  * shows (eviction keeps it, a closing selected tab hands it the selection), attaches a stored pane's session again after
  * a restart without changing the selection, closes the chooser when the window changes, sets a slot's pane type
- * (the chooser's types and the title's pane type menu), and keeps which session pane shows its chat view
- * (`paneChatAfter`: one at most, the panes' own choice, never stored).
+ * (the chooser's types and the title's pane type menu), keeps which session pane shows its chat view
+ * (`paneChatAfter`: one at most, the panes' own choice, never stored) and tells the pane store what each session pane
+ * shows (`paneViews`).
  */
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
@@ -150,6 +151,18 @@ export function usePaneHost({ offered, arrangement }: PaneHostInput): PaneHost {
     // The pick came in (or was on screen already): from now on it is like any session.
     if (pickedSession !== null && pickedSession === selectedSessionKey) panes.setPickedSession(null);
   }, [viewsKey, chat, pickedSession, selectedSessionKey]);
+
+  // What each session pane shows, for what fills a session's input from outside the screen (Files' Add to Session
+  // Context): the pane's choice, not the session's saved view. Cleared with one content area and when the screen goes.
+  const paneViewsKey =
+    savedViews === null
+      ? null
+      : JSON.stringify([...savedViews.keys()].map((key) => [key, key === chatSessionKey ? 'chat' : 'terminal']));
+  useEffect(() => {
+    const views = paneViewsKey === null ? null : (JSON.parse(paneViewsKey) as [string, 'chat' | 'terminal'][]);
+    usePaneStore.getState().setPaneViews(views === null ? null : Object.fromEntries(views));
+  }, [paneViewsKey]);
+  useEffect(() => () => usePaneStore.getState().setPaneViews(null), []);
 
   // What the selection changed is the layout from now on; the pane tapped last is remembered. Keyed by value: the
   // resolver builds new slot objects on every render.
