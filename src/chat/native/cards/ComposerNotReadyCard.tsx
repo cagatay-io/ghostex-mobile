@@ -41,6 +41,19 @@ export function ComposerNotReadyCard({
         {document.operationError}
       </Text>
     );
+    // Ghostex didn't answer (a restart, a dropped link): Retry rebuilds the chat's connection, as desktop's does
+    // (core `session/reads.rs` `humanize_unreachable`). A failed send is back in the box; sending it again reuses
+    // its `sendRequestId`, so gxserver never types it twice.
+    if (document.operationErrorCode === 'unreachable') {
+      return (
+        <View style={styles.answerInTerminal}>
+          {error}
+          <View style={styles.answerInTerminalActions}>
+            <ChatButton icon="refresh" label="Retry" onPress={() => chat.dispatch({ type: 'retry' })} />
+          </View>
+        </View>
+      );
+    }
     // An answer only the terminal can take (gxserver's `ANSWER_IN_TERMINAL`) offers the way there, as desktop does.
     if (document.operationErrorCode !== 'answerInTerminal' || !onHostAction) return error;
     return (

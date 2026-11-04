@@ -574,6 +574,9 @@ export type ChatDocument = {
   operationError?: string | null;
   /** The refusal's code, so the composer can draw its not-ready card instead of an error line. */
   operationErrorCode: string | null;
+  /** With an `unreachable` refusal of a send: the mode (`send`, `queue`, `compact`) Retry submits the box with,
+   * under the failed call's own `sendRequestId`. Desktop: `composer.rs` `unreachable_retry`. */
+  operationErrorResend?: string | null;
 
   // ---- options, model picker, accounts ----------------------------------------------------
 
