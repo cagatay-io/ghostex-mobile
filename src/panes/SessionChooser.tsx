@@ -14,9 +14,9 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 
 import { AGENT_ICONS } from '../assets/agentIcons.generated';
 import { PlusGlyph, TerminalGlyph } from '../components/sessions/icons';
-import { hasPendingQuestion, rowActivityIndicator } from '../components/sessions/sessionStatus';
+import { rowActivityIndicator } from '../components/sessions/sessionStatus';
 import { CloseIcon } from '../components/terminal/icons';
-import { agentIconTint, resolveAgentIconId, type GhostexSession } from '../contract/mobileSummary';
+import { agentIconTint, hasQuestion, resolveAgentIconId, type GhostexSession } from '../contract/mobileSummary';
 import { PanesCopy, SessionCopy } from '../copy';
 import { useInventoryStore } from '../inventory/store';
 import { GhostexPalette, GhostexRadii } from '../theme/palette';
@@ -45,7 +45,7 @@ export type SessionChooserProps = {
 export type PaneSessionStatus = keyof typeof PanesCopy.status;
 
 export function paneSessionStatus(session: GhostexSession): PaneSessionStatus {
-  if (hasPendingQuestion(session)) return 'question';
+  if (hasQuestion(session.pendingQuestionCount, false)) return 'question';
   switch (rowActivityIndicator(session)) {
     case 'approval':
       return 'approval';
