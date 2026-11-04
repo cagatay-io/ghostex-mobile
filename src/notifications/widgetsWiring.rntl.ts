@@ -4,7 +4,8 @@
  * summary refresh, the real inventory store reads the summary through the real inventory client, and the real
  * `initWidgets` turns the stores into App Group writes and timeline reloads. Fakes only at the boundaries: the SSH
  * exec answers with a summary in the CLI's wire form, the chat transport answers `agentAccounts` with an account
- * list, the native module records what it is asked, and the clock is Jest's.
+ * list, the core bridge supplies projected window names, the native module records what it is asked, and the clock
+ * is Jest's.
  *
  * A refresh writes the snapshot and asks for one reload; a refresh that changes nothing in the same minute writes
  * nothing; the usage is read once and again only after 2 minutes, while the poll runs; in the background nothing is
