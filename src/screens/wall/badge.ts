@@ -9,14 +9,13 @@
  */
 
 import {
-  hasPendingQuestion,
   isAwaitingApproval,
   rowActivityIndicator,
   statusStackColors,
   type RowActivityIndicator,
 } from '../../components/sessions/sessionStatus';
 import type { FoldedStatus } from '../../contract/coordinatorTree';
-import type { GhostexSession } from '../../contract/mobileSummary';
+import { hasQuestion, type GhostexSession } from '../../contract/mobileSummary';
 import { WallCopy } from '../../copy';
 import { SidebarPalette } from '../../theme/palette';
 
@@ -47,7 +46,7 @@ export function statusBadge(session: GhostexSession, foldedStatus?: FoldedStatus
     if (kind !== undefined) return { kind, label: WallCopy.badge[kind], dots: statusStackColors(foldedStatus) };
   }
   if (isAwaitingApproval(session)) return { kind: 'approval', label: WallCopy.badge.approval, dots: [DOT.approval] };
-  if (hasPendingQuestion(session)) {
+  if (hasQuestion(session.pendingQuestionCount, false)) {
     // The row pairs the question with the working or the waiting dot (`QuestionIndicator`).
     const paired = session.activity === 'working' || session.activity === 'attention' ? [DOT[session.activity]] : [];
     return { kind: 'question', label: WallCopy.badge.question, dots: [SidebarPalette.ROW_QUESTION, ...paired] };

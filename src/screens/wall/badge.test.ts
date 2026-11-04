@@ -8,13 +8,12 @@
 import { describe, expect, test } from 'bun:test';
 
 import {
-  hasPendingQuestion,
   isAwaitingApproval,
   rowActivityIndicator,
   shownFoldedStatus,
 } from '../../components/sessions/sessionStatus';
 import type { FoldedStatus } from '../../contract/coordinatorTree';
-import type { GhostexSession } from '../../contract/mobileSummary';
+import { hasQuestion, type GhostexSession } from '../../contract/mobileSummary';
 import { SidebarPalette } from '../../theme/palette';
 import { statusBadge } from './badge';
 
@@ -69,7 +68,7 @@ describe('the badge follows the row for every status', () => {
 
   test('a pending question shows the pink dot, paired behind the working or waiting dot as on the row', () => {
     const asking = session({ pendingQuestionCount: 2 });
-    expect(hasPendingQuestion(asking)).toBe(true);
+    expect(hasQuestion(asking.pendingQuestionCount, false)).toBe(true);
     expect(statusBadge(asking)).toEqual({
       kind: 'question',
       label: 'Has a question',
