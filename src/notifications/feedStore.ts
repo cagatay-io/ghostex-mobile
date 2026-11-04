@@ -41,11 +41,12 @@ import { logAppEvent } from '../app/appLog';
 import { sessionDeepLink } from '../app/deepLinkHandler';
 import { openDeepLink, personNavigations, tapOpens } from '../app/deepLinks';
 import { chatMachineLink } from '../chat/rust/machine-link';
+import { hasQuestion } from '../contract/mobileSummary';
 import { useInventoryStore } from '../inventory/store';
 import { enabledMachines, machineDisplayLabel, useMachinesStore, type MachineRecord } from '../machines/store';
 import { useSettingsStore } from '../settings/store';
 import { sessionOnScreen } from '../terminal/zmxDisplay';
-import { HOST_EVENT_KINDS, hostEventFromFeedRow, sessionFacts, waitsOnQuestion, type HostEvent } from './events';
+import { HOST_EVENT_KINDS, hostEventFromFeedRow, sessionFacts, type HostEvent } from './events';
 import { FeedEventSource, FeedUnavailableError, type FeedReadFailure } from './eventSource';
 import { FeedRequestError, readFeed, updateFeed, type FeedRpc, type FeedUpdate } from './feedClient';
 import { isAccountRow, type FeedRow, type FeedSnapshot } from './feedContract';
@@ -519,7 +520,7 @@ let taps = 0;
 
 /**
  * A waiting event's push carries no link: the session opens at its question card when the session's fresh list
- * shows a pending question (`waitsOnQuestion`, the rule of a "has a question" notification), else as a tap in the
+ * shows a pending question (`hasQuestion`, the rule of a "has a question" notification), else as a tap in the
  * Sessions list opens it. The list is read anew at the tap and waited for at most `SESSION_LIST_WAIT_MS`, so the
  * session never waits longer to open. When the read ends within that, the session opens once, as the list then
  * says. When it does not, the session opens then, as the list last read says, and the tap keeps its question
@@ -541,7 +542,8 @@ async function openWaitingPush(machineId: string, sessionId: string, current: ()
   if (!current()) return;
   const machine = machineById(machineId);
   if (machine === undefined) {
-    open(waitsOnQuestion(sessionFactsFor(machineId, sessionId)));
+    const facts = sessionFactsFor(machineId, sessionId);
+    open(hasQuestion(facts?.pendingQuestionCount ?? 0, facts?.awaitingAnswer ?? false));
     return;
   }
   let ended = false;
@@ -562,10 +564,13 @@ async function openWaitingPush(machineId: string, sessionId: string, current: ()
       ended = true;
     });
   await within(fresh, SESSION_LIST_WAIT_MS);
-  const question = waitsOnQuestion(sessionFactsFor(machineId, sessionId));
+  const facts = sessionFactsFor(machineId, sessionId);
+  const question = hasQuestion(facts?.pendingQuestionCount ?? 0, facts?.awaitingAnswer ?? false);
   open(question);
   if (ended || question) return;
-  if (!(await fresh) || !waitsOnQuestion(sessionFactsFor(machineId, sessionId))) return;
+  if (!(await fresh)) return;
+  const latest = sessionFactsFor(machineId, sessionId);
+  if (!hasQuestion(latest?.pendingQuestionCount ?? 0, latest?.awaitingAnswer ?? false)) return;
   open(true);
 }
 
