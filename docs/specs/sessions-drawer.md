@@ -19,6 +19,8 @@ Extracted from `/Users/madda/dev/_active/Ghostex/android` (Termux fork). This is
 | STATUS_WORKING   | `#F59E0B`               | working dot (amber)                                              |
 | STATUS_SLEEPING  | `#6E7684`               | sleep icon tint                                                  |
 
+The table above is the original reference palette, not a fixed runtime page palette. Native screens, setup/forms, state cards, machine chips, the bottom bar, menus and dialogs now read `useAppearance`; the shared colour model resolves their page/card/input/neutral/accent roles in light and dark appearance. Secondary and semantic text is adjusted for its actual surfaces, while semantic glyph hues stay distinct. The original sleeping-row dimming and Unified status-colour decisions remain in force.
+
 Radius: cards/rows/inputs 8dp; pills/chips fully rounded. Strokes 1dp BORDER (active row: BUTTON).
 
 ## 1. Drawer structure
@@ -231,8 +233,8 @@ and recloned every surface from the live CSS cascade.
   quick actions), Create Terminal, and the 24+17 agent split-button (primary
   agent icon + ▾). Long-press on the header opens the project menu (desktop
   right-click equivalent).
-- **Menus** (`ContextMenu`, cloned from `.session-context-menu`): 220dp dark
-  popup (#222222, 1dp border, radius 0, 6dp padding, 2dp row gap) aligned
+- **Menus** (`ContextMenu`, cloned from `.session-context-menu`): 220dp model-coloured
+  popup (the current card, 1dp border, radius 0, 6dp padding, 2dp row gap) aligned
   horizontally to the pressed row and fixed to the full safe viewport height.
   Its vertical frame never depends on space remaining below the anchor, so
   menus opened near the bottom cannot collapse into a short strip. Every
