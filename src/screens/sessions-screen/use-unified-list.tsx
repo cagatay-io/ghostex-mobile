@@ -375,9 +375,19 @@ export function useUnifiedList(deps: UnifiedListDeps) {
   const wallTargets = useMemo(
     (): PreviewTarget[] =>
       shownItems.flatMap((item) =>
-        item.kind === 'tiles' ? item.rows.map((row) => sessionTarget(row.machine, row.session.source!)) : [],
+        item.kind === 'tiles'
+          ? item.rows.map((row) => {
+              const session = row.session.source;
+              if (session === undefined) throw new Error('Unified session is missing its source');
+              return sessionTarget(
+                row.machine,
+                session,
+                inventoriesByMachineId[row.machine]?.summary?.capabilities ?? NO_SUMMARY_CAPABILITIES,
+              );
+            })
+          : [],
       ),
-    [shownItems],
+    [shownItems, inventoriesByMachineId],
   );
 
   const machineById = (machineId: string): MachineRecord | null =>

@@ -13,9 +13,12 @@ import {
   shownFoldedStatus,
 } from '../../components/sessions/sessionStatus';
 import type { FoldedStatus } from '../../contract/coordinatorTree';
-import { hasQuestion, type GhostexSession } from '../../contract/mobileSummary';
+import { hasQuestion, type GhostexSession, type GhostexSummaryCapabilities } from '../../contract/mobileSummary';
 import { SidebarPalette } from '../../theme/palette';
 import { statusBadge } from './badge';
+
+const CURRENT: GhostexSummaryCapabilities = { awaitingAnswer: true, attentionNotificationId: true };
+const OLDER: GhostexSummaryCapabilities = { awaitingAnswer: false, attentionNotificationId: false };
 
 function session(overrides: Partial<GhostexSession>): GhostexSession {
   return {
@@ -46,8 +49,8 @@ describe('a session that changes from working to attention', () => {
     // The list shows the same change on the row's dot.
     expect(rowActivityIndicator(working)).toBe('working');
     expect(rowActivityIndicator(waiting)).toBe('attention');
-    expect(statusBadge(working)).toEqual({ kind: 'working', label: 'Working', dots: [SidebarPalette.ROW_WORKING] });
-    expect(statusBadge(waiting)).toEqual({
+    expect(statusBadge(working, CURRENT)).toEqual({ kind: 'working', label: 'Working', dots: [SidebarPalette.ROW_WORKING] });
+    expect(statusBadge(waiting, CURRENT)).toEqual({
       kind: 'attention',
       label: 'Waiting',
       dots: [SidebarPalette.ROW_ATTENTION],
@@ -59,7 +62,7 @@ describe('the badge follows the row for every status', () => {
   test('a session waiting for approval shows the red approval dot, ahead of a question and an error', () => {
     const stuck = session({ awaitingApproval: true, pendingQuestionCount: 1, programStatusFailed: true });
     expect(isAwaitingApproval(stuck)).toBe(true);
-    expect(statusBadge(stuck)).toEqual({
+    expect(statusBadge(stuck, CURRENT)).toEqual({
       kind: 'approval',
       label: 'Waiting for approval',
       dots: [SidebarPalette.ROW_APPROVAL],
@@ -69,31 +72,42 @@ describe('the badge follows the row for every status', () => {
   test('a pending question shows the pink dot, paired behind the working or waiting dot as on the row', () => {
     const asking = session({ pendingQuestionCount: 2 });
     expect(hasQuestion(asking.pendingQuestionCount, false)).toBe(true);
-    expect(statusBadge(asking)).toEqual({
+    expect(statusBadge(asking, CURRENT)).toEqual({
       kind: 'question',
       label: 'Has a question',
       dots: [SidebarPalette.ROW_QUESTION],
     });
-    expect(statusBadge({ ...asking, activity: 'working' })?.dots).toEqual([
+    expect(statusBadge({ ...asking, activity: 'working' }, CURRENT)?.dots).toEqual([
       SidebarPalette.ROW_QUESTION,
       SidebarPalette.ROW_WORKING,
     ]);
-    expect(statusBadge({ ...asking, activity: 'attention' })?.dots).toEqual([
+    expect(statusBadge({ ...asking, activity: 'attention' }, CURRENT)?.dots).toEqual([
       SidebarPalette.ROW_QUESTION,
       SidebarPalette.ROW_ATTENTION,
     ]);
   });
 
+  test('an open question card has a question badge only when its computer announces it', () => {
+    const card = session({ activity: 'attention', awaitingAnswer: true });
+    expect(statusBadge(card, CURRENT)).toEqual({
+      kind: 'question', label: 'Has a question',
+      dots: [SidebarPalette.ROW_QUESTION, SidebarPalette.ROW_ATTENTION],
+    });
+    expect(statusBadge(card, OLDER)).toEqual({
+      kind: 'attention', label: 'Waiting', dots: [SidebarPalette.ROW_ATTENTION],
+    });
+  });
+
   test('a program error in attention shows the failed dot', () => {
     const failed = session({ activity: 'attention', programStatusFailed: true });
     expect(rowActivityIndicator(failed)).toBe('failed');
-    expect(statusBadge(failed)).toEqual({ kind: 'failed', label: 'Failed', dots: [SidebarPalette.ROW_FAILED] });
+    expect(statusBadge(failed, CURRENT)).toEqual({ kind: 'failed', label: 'Failed', dots: [SidebarPalette.ROW_FAILED] });
   });
 
   test('background work on an otherwise idle session shows the grey dot', () => {
     const shell = session({ backgroundWorkDetectedAt: 'set' });
     expect(rowActivityIndicator(shell)).toBe('backgroundWork');
-    expect(statusBadge(shell)).toEqual({
+    expect(statusBadge(shell, CURRENT)).toEqual({
       kind: 'backgroundWork',
       label: 'Background work',
       dots: [SidebarPalette.ROW_BACKGROUND_WORK],
@@ -103,7 +117,7 @@ describe('the badge follows the row for every status', () => {
   test('an idle session has no badge (the tile shows the row’s time label instead)', () => {
     const idle = session({});
     expect(rowActivityIndicator(idle)).toBeNull();
-    expect(statusBadge(idle)).toBeNull();
+    expect(statusBadge(idle, CURRENT)).toBeNull();
   });
 });
 
@@ -119,7 +133,7 @@ describe("a coordinator whose threads are folded shows its row's stack", () => {
   test('a hidden thread waiting for approval puts the red dot and its word on an idle coordinator', () => {
     const lead = session({});
     const stack = shownFoldedStatus(lead, { ...none, approval: true });
-    expect(statusBadge(lead, stack)).toEqual({
+    expect(statusBadge(lead, CURRENT, stack)).toEqual({
       kind: 'approval',
       label: 'Waiting for approval',
       dots: [SidebarPalette.ROW_APPROVAL],
@@ -128,7 +142,7 @@ describe("a coordinator whose threads are folded shows its row's stack", () => {
 
   test('every hidden dot stays, overlapping in the row’s order, and the most urgent names the badge', () => {
     const lead = session({ activity: 'working' });
-    expect(statusBadge(lead, { ...none, question: true, working: true, attention: true, approval: true })).toEqual({
+    expect(statusBadge(lead, CURRENT, { ...none, question: true, working: true, attention: true, approval: true })).toEqual({
       kind: 'approval',
       label: 'Waiting for approval',
       dots: [
@@ -138,7 +152,7 @@ describe("a coordinator whose threads are folded shows its row's stack", () => {
         SidebarPalette.ROW_APPROVAL,
       ],
     });
-    expect(statusBadge(lead, { ...none, question: true, working: true })).toEqual({
+    expect(statusBadge(lead, CURRENT, { ...none, question: true, working: true })).toEqual({
       kind: 'question',
       label: 'Has a question',
       dots: [SidebarPalette.ROW_QUESTION, SidebarPalette.ROW_WORKING],

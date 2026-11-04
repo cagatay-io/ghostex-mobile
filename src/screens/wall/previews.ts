@@ -24,7 +24,7 @@ import { projectFoldSections } from '../../components/sessions/projectFold';
 import { hasBackgroundWork } from '../../components/sessions/sessionStatus';
 import type { DrawerBlock, ProjectCardBlock } from '../../components/sessions/drawerModel';
 import type { DrawerItem, SessionItem } from '../../contract/grouping';
-import type { GhostexSession } from '../../contract/mobileSummary';
+import type { GhostexSession, GhostexSummaryCapabilities } from '../../contract/mobileSummary';
 import type { IntervalTimers } from '../../inventory/summaryRefresh';
 import { statusBadge } from './badge';
 
@@ -67,22 +67,26 @@ export function previewFromTail(result: unknown): Preview {
   return { kind: 'lines', lines: text.slice(-THUMB_LINES) };
 }
 
-/** One session's tile to read, in either list (the Unified list's tiles: `use-unified-list.tsx`). */
-export function sessionTarget(machineId: string, session: GhostexSession): PreviewTarget {
+/** One session's tile in either list, reading its badge with its own computer's capabilities. */
+export function sessionTarget(
+  machineId: string,
+  session: GhostexSession,
+  capabilities: GhostexSummaryCapabilities,
+): PreviewTarget {
   return {
     key: `${machineId}:${session.sessionId}`,
     machineId,
     projectId: session.projectId,
     sessionId: session.sessionId,
     live: session.activity === 'working' || hasBackgroundWork(session),
-    signature: `${statusBadge(session)?.kind ?? 'none'}|${session.activity}|${session.lastInteractionAt}`,
+    signature: `${statusBadge(session, capabilities)?.kind ?? 'none'}|${session.activity}|${session.lastInteractionAt}`,
   };
 }
 
 function sessionTargets(machineId: string, items: readonly DrawerItem[]): PreviewTarget[] {
   return items
     .filter((item): item is SessionItem => item.type === 'SESSION')
-    .map(({ session }) => sessionTarget(machineId, session));
+    .map(({ session, capabilities }) => sessionTarget(machineId, session, capabilities));
 }
 
 function cardTargets(machineId: string, card: ProjectCardBlock): PreviewTarget[] {

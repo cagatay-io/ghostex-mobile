@@ -41,12 +41,12 @@ export type SessionTileProps = {
 };
 
 export default function SessionTile({ item, sessionKey, appearance, onPress, onMenu }: SessionTileProps) {
-  const { session } = item;
+  const { session, capabilities } = item;
   const nowMs = useRowLabelClock(session);
   // A coordinator whose threads are folded shows its row's stack in place of its own dot and time.
   const foldedStatus = shownFoldedStatus(session, item.nesting?.foldedStatus);
-  const badge = statusBadge(session, foldedStatus);
-  const timeLabel = foldedStatus !== undefined ? null : rowTimeLabel(session, item.capabilities, nowMs);
+  const badge = statusBadge(session, capabilities, foldedStatus);
+  const timeLabel = foldedStatus !== undefined ? null : rowTimeLabel(session, capabilities, nowMs);
   // The ring takes the colour of the badge's front dot (the status the session changed to).
   const ring = useChangeRing(badge?.kind ?? null, badge?.dots.at(-1) ?? null);
   return (

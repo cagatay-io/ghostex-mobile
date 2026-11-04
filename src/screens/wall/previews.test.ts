@@ -13,7 +13,7 @@ import { describe, expect, test } from 'bun:test';
 
 import type { DrawerBlock, ProjectCardBlock } from '../../components/sessions/drawerModel';
 import type { DrawerItem, GroupHeaderItem, ProjectHeaderItem, SessionItem } from '../../contract/grouping';
-import type { GhostexSession } from '../../contract/mobileSummary';
+import { NO_SUMMARY_CAPABILITIES, type GhostexSession } from '../../contract/mobileSummary';
 import {
   createPreviewScheduler,
   previewFromTail,
@@ -313,6 +313,7 @@ describe('the tiles a list shows', () => {
       key: `session:${sessionId}`,
       groupId: '',
       session: session(sessionId, sessionOverrides),
+      capabilities: NO_SUMMARY_CAPABILITIES,
       ...overrides,
     }) as SessionItem;
   const header = (collapsed: boolean): ProjectHeaderItem =>
@@ -324,6 +325,17 @@ describe('the tiles a list shows', () => {
     listKey: `m1:${card.header.key}`,
     machineId: 'm1',
     card,
+  });
+
+  test('an announced open question changes the preview signature without changing activity or timestamps', () => {
+    const card = session('ask', { awaitingAnswer: true, pendingQuestionCount: 0 });
+    const open = { awaitingAnswer: true, attentionNotificationId: false };
+    const withCard = item('ask', { session: card, capabilities: open });
+    const withoutCard = { ...withCard, capabilities: NO_SUMMARY_CAPABILITIES };
+    expect(wallTargets([{ kind: 'row', listKey: withCard.key, machineId: 'm1', item: withCard }])[0]?.signature)
+      .toBe('question|idle|');
+    expect(wallTargets([{ kind: 'row', listKey: withoutCard.key, machineId: 'm1', item: withoutCard }])[0]?.signature)
+      .toBe('none|idle|');
   });
 
   test('the sessions of an open project, a working or background-work one live', () => {
