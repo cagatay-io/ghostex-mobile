@@ -48,6 +48,7 @@ jest.mock('expo-haptics', () => ({
   ImpactFeedbackStyle: { Light: 'light', Medium: 'medium', Heavy: 'heavy' },
 }));
 jest.mock('@react-navigation/native', () => ({
+  ...jest.requireActual('@react-navigation/native'),
   useIsFocused: () => true,
   useFocusEffect: () => undefined,
   useNavigation: () => ({ navigate: () => undefined }),

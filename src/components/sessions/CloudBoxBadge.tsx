@@ -9,7 +9,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { GhostexSessionCloudBox } from '../../contract/mobileSummary';
 import { cloudBoxDotColor, cloudBoxStateLabel } from '../../cloudBoxes/types';
 import { CloudGlyph } from './icons';
-import { ds, SIDEBAR_MUTED } from './rows';
+import { ds, sidebarInk } from './rows';
 
 export default function CloudBoxBadge({ cloudBox }: { cloudBox: GhostexSessionCloudBox }) {
   const name = cloudBox.boxName.trim().length > 0 ? cloudBox.boxName : 'Cloud';
@@ -21,7 +21,7 @@ export default function CloudBoxBadge({ cloudBox }: { cloudBox: GhostexSessionCl
       style={styles.badge}
     >
       <View>
-        <CloudGlyph size={ds(12)} color={SIDEBAR_MUTED} />
+        <CloudGlyph size={ds(12)} color={sidebarInk(false).muted} />
         <View style={[styles.dot, dot === null ? styles.dotMuted : { backgroundColor: dot }]} />
       </View>
       <Text style={styles.label} numberOfLines={1}>
@@ -48,11 +48,11 @@ const styles = StyleSheet.create({
     borderRadius: ds(2.5),
   },
   dotMuted: {
-    backgroundColor: SIDEBAR_MUTED,
+    backgroundColor: sidebarInk(false).muted,
     opacity: 0.7,
   },
   label: {
-    color: SIDEBAR_MUTED,
+    color: sidebarInk(false).muted,
     fontSize: ds(11.5),
     fontWeight: '300',
     flexShrink: 1,

@@ -588,7 +588,7 @@ export function useUnifiedList(deps: UnifiedListDeps) {
             secondary:
               row.filterKind === 'repos'
                 ? {
-                    icon: <PlusGlyph size={14} color={SIDEBAR_TEXT} />,
+                    icon: <PlusGlyph size={14} color={ink.text} />,
                     label: `New session in ${row.label}`,
                     onPress: () => {
                       const repoKey = row.key;

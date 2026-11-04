@@ -23,7 +23,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { AGENT_ICONS } from '../assets/agentIcons.generated';
 import { COMMAND_ICONS } from '../assets/tablerIcons.generated';
 import { UsageRow } from '../chat/native/composer/AccountsPanel';
-import { transcriptTheme } from '../chat/native/transcript/theme';
+import { transcriptThemeFor } from '../chat/native/transcript/theme';
 import { UNREACHABLE_MESSAGE } from '../chat/rust/machine-link';
 import { FoldListFrame } from '../components/common/foldGap';
 import { useLaptopFold } from '../components/common/verticalBar/laptopFold';
@@ -35,6 +35,7 @@ import { machineDisplayLabel, useMachinesStore } from '../machines/store';
 import type { PaneBarInset } from '../panes/geometry';
 import { machineTargetFor } from '../screens/terminal-screen/session-lookups';
 import { GhostexPalette, GhostexRadii } from '../theme/palette';
+import { defaultSettings } from '../settings/store';
 import { readAccountUsage } from './client';
 import type { UsageAccount } from './usageMeters';
 
@@ -42,7 +43,7 @@ import type { UsageAccount } from './usageMeters';
 const READ_EVERY_MS = 30_000;
 const PADDING = 12;
 // This surface stays in the app's dark appearance, independently of Settings > Chat theme.
-const USAGE_APPEARANCE = transcriptTheme('dark');
+const USAGE_APPEARANCE = transcriptThemeFor(defaultSettings(), false);
 
 export type UsagePlacement = { kind: 'pane'; controlInset: PaneBarInset } | { kind: 'screen' };
 

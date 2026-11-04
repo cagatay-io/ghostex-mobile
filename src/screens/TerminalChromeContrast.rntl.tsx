@@ -138,7 +138,7 @@ afterEach(() => jest.restoreAllMocks());
 
 describe.each(LIGHT_PRESETS)('%s', (id, background) => {
   test('the connection texts read on the terminal background (at least 4.5:1)', async () => {
-    useSettingsStore.getState().applyPatch(themePresetPatch(id, false)!);
+    useSettingsStore.getState().patchSettings(themePresetPatch(id, false)!);
     await render(
       <TerminalStateOverlay
         tab={{ ...tab, state: 'failed' }}
@@ -164,7 +164,7 @@ describe.each(LIGHT_PRESETS)('%s', (id, background) => {
   });
 
   test('the key labels read on their pill (at least 4.5:1 against the pill over the background)', async () => {
-    useSettingsStore.getState().applyPatch(themePresetPatch(id, false)!);
+    useSettingsStore.getState().patchSettings(themePresetPatch(id, false)!);
     await render(<TerminalKeyBar sessionKey={tab.sessionKey} agentId="terminal" onDismissKeyboard={() => undefined} />);
     const label = screen.getByText('ESC');
     const nodes = ancestors(label);
@@ -185,7 +185,7 @@ test('Duo landscape: the side bar glyphs read on their dark capsules over a ligh
       screen: { width: 951, height: 669, scale: 3, fontScale: 1 },
     }),
   );
-  useSettingsStore.getState().applyPatch(themePresetPatch('latte', false)!);
+  useSettingsStore.getState().patchSettings(themePresetPatch('latte', false)!);
   await render(
     <VerticalBarArea>
       <TerminalScreen navigation={nav as never} route={route as never} />

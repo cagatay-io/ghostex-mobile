@@ -16,7 +16,8 @@ import { coordinatorRowKey } from '../../contract/coordinatorTree';
 import { buildDrawerItems, type SessionItem } from '../../contract/grouping';
 import { parseMobileSummary } from '../../contract/mobileSummary';
 import { SidebarPalette } from '../../theme/palette';
-import { resolveSidebarAppearance } from '../../theme/sidebarAppearance';
+import { defaultSettings } from '../../settings/store';
+import { resolveAppearance } from '../../theme/useAppearance';
 import DrawerBlockView from '../sessions-screen/DrawerBlockView';
 import { wallTargets } from './previews';
 
@@ -76,7 +77,7 @@ const items = buildDrawerItems({
 });
 const block = blocksFromItems('m1', items).find((candidate) => candidate.kind === 'project')!;
 const leadItem = items.find((item) => item.type === 'SESSION' && item.session.sessionId === 'lead') as SessionItem;
-const appearance = resolveSidebarAppearance('#808080', 90);
+const appearance = resolveAppearance(defaultSettings(), false);
 const actions = new Proxy({}, { get: () => () => undefined });
 const props = {
   block,

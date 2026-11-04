@@ -41,7 +41,7 @@ import { sessionDeepLink } from '../app/deepLinkHandler';
 import type * as DeepLinksModule from '../app/deepLinks';
 import { keyboardFixture } from '../components/common/keyboard/keyboardEventFixtures';
 import { AccountsPanel, UsageRow } from '../chat/native/composer/AccountsPanel';
-import { transcriptTheme } from '../chat/native/transcript/theme';
+import { transcriptThemeFor } from '../chat/native/transcript/theme';
 import { wasmCoreBridge, type WasmCoreRequest } from '../chat/rust/wasm-core/bridge';
 import { FoldListFrame } from '../components/common/foldGap';
 import { useBarGeometryStore } from '../components/common/verticalBar/barGeometry';
@@ -1393,7 +1393,7 @@ describe('half folded like a book: the rows of the agents, attention and usage b
 describe('the Accounts panel’s shared usage row', () => {
   test.each(['dark', 'light'] as const)('keeps current and switch reset policy and %s appearance roles', async (theme) => {
     useSettingsStore.setState((state) => ({ settings: { ...state.settings, sessionChatTheme: theme } }));
-    const appearance = transcriptTheme(theme);
+    const appearance = transcriptThemeFor(useSettingsStore.getState().settings, theme === 'light');
     await render(
       <AccountsPanel
         panel={{
@@ -1424,7 +1424,7 @@ describe('the Accounts panel’s shared usage row', () => {
 
   test('the shared row takes its caller’s appearance independently of the chat setting', async () => {
     useSettingsStore.setState((state) => ({ settings: { ...state.settings, sessionChatTheme: 'light' } }));
-    const appearance = transcriptTheme('dark');
+    const appearance = transcriptThemeFor(useSettingsStore.getState().settings, false);
     await render(
       <UsageRow
         columns={[{ name: 'Core window', value: '81%', percent: 80.5, resetIn: 'due' }]}

@@ -81,15 +81,15 @@ test('a fresh install sends GitHub Dark on black (the Mac’s defaults) once', (
 
 test('Mocha, then Latte, then Mocha again: each sends its own colours, no font size is pushed', () => {
   setTerminalSettings.mockClear();
-  useSettingsStore.getState().applyPatch(themePresetPatch('mocha', false)!);
+  useSettingsStore.getState().patchSettings(themePresetPatch('mocha', false)!);
   expect(sentColors()).toMatchObject({ light: false, background: '#1e1e2e', foreground: '#cdd6f4' });
   const mocha = sentColors();
 
-  useSettingsStore.getState().applyPatch(themePresetPatch('latte', false)!);
+  useSettingsStore.getState().patchSettings(themePresetPatch('latte', false)!);
   expect(sentColors()).toMatchObject({ light: true, background: '#eff1f5', foreground: '#4c4f69' });
   expect(sentColors().selectionBackground).toBeUndefined();
 
-  useSettingsStore.getState().applyPatch(themePresetPatch('mocha', false)!);
+  useSettingsStore.getState().patchSettings(themePresetPatch('mocha', false)!);
   expect(sentColors()).toEqual(mocha);
   expect(setTerminalSettings).toHaveBeenCalledTimes(3);
   expect(setFontSize).not.toHaveBeenCalled();
@@ -97,17 +97,17 @@ test('Mocha, then Latte, then Mocha again: each sends its own colours, no font s
 
 test('the Terminal background reaches the terminal; an unrelated setting sends nothing', () => {
   setTerminalSettings.mockClear();
-  useSettingsStore.getState().applyPatch({ terminalBackgroundMode: 'pure' });
+  useSettingsStore.getState().patchSettings({ terminalBackgroundMode: 'pure' });
   expect(sentColors().background).toBe('#000000');
-  useSettingsStore.getState().applyPatch({ terminalBackgroundMode: 'custom', workspaceBackgroundColor: '#123456' });
+  useSettingsStore.getState().patchSettings({ terminalBackgroundMode: 'custom', workspaceBackgroundColor: '#123456' });
   expect(sentColors().background).toBe('#123456');
   setTerminalSettings.mockClear();
-  useSettingsStore.getState().applyPatch({ confirmTabClose: true });
+  useSettingsStore.getState().patchSettings({ confirmTabClose: true });
   expect(setTerminalSettings).not.toHaveBeenCalled();
 });
 
 test('with the Terminal theme on System, a device appearance change recolours the terminals', () => {
-  useSettingsStore.getState().applyPatch({ terminalColorScheme: 'system', terminalBackgroundMode: 'pure' });
+  useSettingsStore.getState().patchSettings({ terminalColorScheme: 'system', terminalBackgroundMode: 'pure' });
   expect(sentColors()).toMatchObject({ light: false, background: '#000000' });
   setTerminalSettings.mockClear();
   deviceScheme = 'light';
