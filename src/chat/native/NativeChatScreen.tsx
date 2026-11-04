@@ -43,6 +43,8 @@ import { sessionNotesOnIn } from '../../sessions/sessionNotesSwitch';
 import { useArmedActions } from './armedActions';
 import { NativeChatCards, NativeChatOverlays, PageSheet, ResourceSheet, questionReplacesComposer } from './cards';
 import { ConnectionLostNotice } from './cards/ConnectionLostNotice';
+import { obj } from './cards/json';
+import { remoteWorkerNotice, remoteWorkerOfAction } from './cards/remoteWorker';
 import { PillsStrip, type PillsStripLinks } from './cards/PillsStrip';
 import { SideChatBar } from './cards/SideChats';
 import { useTerminalStore } from '../../terminal/sessions';
@@ -444,6 +446,10 @@ function useChatViewRequests(
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [toast, setToast] = useState<Toast>(null);
   const counter = useRef(0);
+  // The Workers sheet's rows as they are now, for a worker on another computer (read when it is asked
+  // to open one, not a dependency of the listener below).
+  const workerRows = useRef<unknown>(null);
+  workerRows.current = obj(chat.state?.document?.coordinatorThreadsPanel)?.rows ?? null;
   const show = useCallback((message: string, error: boolean, title?: string) => {
     counter.current += 1;
     setToast({ id: counter.current, message, error, ...(title !== undefined ? { title } : {}) });
@@ -533,6 +539,14 @@ function useChatViewRequests(
                 ),
               );
             } else if (request.action === 'openCoordinatorThread') {
+              // A worker on another computer (`serverId`) cannot be opened from here: say where it runs
+              // (cards/remoteWorker.ts). The sheet's row says so before asking; this covers any other way in.
+              const elsewhere = remoteWorkerOfAction(request.params, workerRows.current);
+              if (elsewhere !== null) {
+                const notice = remoteWorkerNotice(elsewhere);
+                show(notice.message, false, notice.title);
+                return;
+              }
               // A coordinator's thread opens like a fork branch, as its tab. gxserver already resumed it when it was
               // closed (`openCoordinatorThread`), so the action carries no lifecycleState and nothing is woken here.
               void openForkBranch(machine, request.params).catch(() =>

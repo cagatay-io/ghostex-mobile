@@ -7,7 +7,7 @@
  */
 
 import type { ReactNode } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 
 import type { ChatDocument } from '../../rust/document';
 import type { UserAction } from '../../rust/actions';
@@ -17,6 +17,7 @@ import { Glyph } from './icons';
 import { arr, asJson, isTrue, num, obj, str } from './json';
 import { PROSE_SIZE, themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { PulseDot, Spinner } from './primitives';
+import { remoteWorkerComputer, remoteWorkerNotice } from './remoteWorker';
 
 /** A sheet's first line under its title: the panel's muted detail and an optional ornament. */
 function MenuMeta({ meta, trailing }: { meta: string; trailing?: ReactNode }) {
@@ -169,7 +170,14 @@ function ThreadRow({ row, chat, onDone }: { row: unknown; chat: RustChat; onDone
   const title = str(row, 'title');
   const detail = str(row, 'detail');
   const branch = str(row, 'branch');
+  // A worker on another computer: the phone cannot open it, so a tap says where it runs.
+  const computer = remoteWorkerComputer(row);
   const openThread = () => {
+    if (computer !== null) {
+      const notice = remoteWorkerNotice(computer);
+      Alert.alert(notice.title, notice.message);
+      return;
+    }
     chat.dispatch({
       type: 'openCoordinatorThread',
       projectId: str(row, 'projectId'),
@@ -180,7 +188,7 @@ function ThreadRow({ row, chat, onDone }: { row: unknown; chat: RustChat; onDone
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Open worker ${title}`}
+      accessibilityLabel={computer !== null ? `Worker ${title}, runs on ${computer}` : `Open worker ${title}`}
       onPress={openThread}
       style={styles.threadRow}
     >
@@ -197,6 +205,11 @@ function ThreadRow({ row, chat, onDone }: { row: unknown; chat: RustChat; onDone
             {title}
           </Text>
           {isTrue(row, 'needsApproval') ? <Text style={styles.approvalTag}>{NEEDS_APPROVAL_LABEL}</Text> : null}
+          {computer !== null ? (
+            <Text style={styles.threadComputer} numberOfLines={1}>
+              {computer}
+            </Text>
+          ) : null}
         </View>
         {detail.length > 0 || branch.length > 0 ? (
           <Text style={styles.threadDetail} numberOfLines={1}>
@@ -477,6 +490,13 @@ const useStyles = themedStyles((P) => ({
     flexShrink: 1,
     color: P.foreground,
     fontSize: PROSE_SIZE,
+  },
+  /** The computer a worker on another computer runs on, after its title: muted, like the branch. */
+  threadComputer: {
+    flexShrink: 0,
+    maxWidth: 120,
+    color: P.cardMuted,
+    fontSize: PROSE_SIZE - 2,
   },
   /** One line under the title: muted, a step under it so the title still leads. */
   threadDetail: {
