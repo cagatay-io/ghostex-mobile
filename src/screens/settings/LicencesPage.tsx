@@ -2,6 +2,7 @@
  * Settings › Licences: the third-party notices bundled with the app (THIRD_PARTY_NOTICES.md) as a searchable list
  * of components with their version and licence; a row opens the component's licence texts (LicenceNoticeScreen).
  * The file holds a couple of hundred entries, so one long page of licence texts would be hard to search.
+ * Half folded like a laptop the list ends above the fold, as the Settings pages do (`components/common/foldGap.tsx`).
  */
 
 import { useNavigation } from '@react-navigation/native';
@@ -10,6 +11,8 @@ import { useCallback, useContext, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { FoldListFrame } from '../../components/common/foldGap';
+import { useLaptopFold } from '../../components/common/verticalBar/laptopFold';
 import { SearchGlyph, XGlyph } from '../../components/sessions/icons';
 import { useHeaderPlacement, useScrollToBarEdges } from '../../components/common/verticalBar/VerticalBarArea';
 import { LicencesCopy } from '../../copy';
@@ -43,7 +46,7 @@ export function NoticesStatus({
   if (state.status === 'loading') {
     return (
       <View style={styles.status} accessibilityLiveRegion="polite">
-        <ActivityIndicator color={appearance.muted} />
+        <ActivityIndicator color={appearance.mutedGlyph} />
         <Caption>{LicencesCopy.loading}</Caption>
       </View>
     );
@@ -84,6 +87,7 @@ export default function LicencesPage() {
 
   const entries = state.status === 'ready' ? state.notices.entries : NO_ENTRIES;
   const shown = useMemo(() => filterEntries(entries, query), [entries, query]);
+  const fold = useLaptopFold();
 
   // A stable row renderer so the list re-renders rows only when the shown entries change (React Compiler is off).
   const renderItem = useCallback(
@@ -109,8 +113,9 @@ export default function LicencesPage() {
     <View style={styles.header}>
       <Text style={[styles.intro, { color: appearance.muted }]}>{state.notices.intro}</Text>
       <View style={[styles.search, { backgroundColor: appearance.input, borderColor: appearance.border }]}>
-        <SearchGlyph size={16} color={appearance.muted} />
+        <SearchGlyph size={16} color={appearance.mutedGlyph} />
         <TextInput
+          keyboardAppearance={appearance.light ? 'light' : 'dark'}
           style={[styles.searchInput, { color: appearance.foreground }]}
           value={query}
           onChangeText={setQuery}
@@ -130,7 +135,7 @@ export default function LicencesPage() {
             style={styles.clear}
             onPress={() => setQuery('')}
           >
-            <XGlyph size={14} color={appearance.muted} />
+            <XGlyph size={14} color={appearance.mutedGlyph} />
           </Pressable>
         ) : null}
       </View>
@@ -142,17 +147,19 @@ export default function LicencesPage() {
 
   return (
     <SafeAreaView style={settingsStyles.container} edges={['bottom']}>
-      <FlatList
-        data={shown}
-        keyExtractor={entryHeading}
-        renderItem={renderItem}
-        ListHeaderComponent={header}
-        ListEmptyComponent={<Caption>{LicencesCopy.noMatches}</Caption>}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        style={edges.scroll}
-        contentContainerStyle={[contentStyle, edges.content]}
-      />
+      <FoldListFrame fold={fold}>
+        <FlatList
+          data={shown}
+          keyExtractor={entryHeading}
+          renderItem={renderItem}
+          ListHeaderComponent={header}
+          ListEmptyComponent={<Caption>{LicencesCopy.noMatches}</Caption>}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          style={edges.scroll}
+          contentContainerStyle={[contentStyle, edges.content]}
+        />
+      </FoldListFrame>
     </SafeAreaView>
   );
 }

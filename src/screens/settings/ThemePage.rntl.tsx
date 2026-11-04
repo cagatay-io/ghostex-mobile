@@ -4,10 +4,13 @@
  * the real settings store and the real pages: a preset is one save of the desktop's patch and its card shows as
  * selected; picking light mode's colour on purpose keeps a dark preset from writing light mode until the page is
  * opened again; a manual edit unselects the card; Chat theme and Terminal theme take the desktop's four values;
- * the status bar ink follows a light page; Custom terminal background seeds the desktop's colour. Expectations come
- * from the desktop (`theme_preset_choice`, `select_preset`, `SESSION_CHAT_THEME_OPTIONS`, General › Terminal) and
- * the preset files, not from the page. Only native modules are replaced: storage (AsyncStorage's own mock), the
- * app's native module and the native status bar manager (the test preset's mock).
+ * the status bar ink follows a light page; Custom terminal background seeds the desktop's colour; the two terminal
+ * palette pickers build only the rows near the screen of their couple of hundred palettes, keep the saved one selected
+ * (listed first when the phone does not carry it), save a tapped one, filter by label and keep taps working while the
+ * filter has the keyboard. Expectations come from the desktop (`theme_preset_choice`, `select_preset`,
+ * `SESSION_CHAT_THEME_OPTIONS`, General › Terminal) and the preset files, not from the page. Only native modules are
+ * replaced: storage (AsyncStorage's own mock), the app's native module and the native status bar manager (the test
+ * preset's mock).
  */
 
 import { NavigationContainer } from '@react-navigation/native';
@@ -21,6 +24,7 @@ import type { RootStackParamList } from '../../navigation/types';
 import { defaultSettings, useSettingsStore } from '../../settings/store';
 import { THEME_PRESETS, themePresetMatches } from '../../theme/presets';
 import { resolveThemeAreas, stepTowardHex } from '../../theme/sidebarAppearance';
+import { terminalPaletteLabel, terminalPaletteNames } from '../../theme/terminalPalettes';
 import SettingsPageScreen from './SettingsPageScreen';
 
 const nativeStatusStyle = (): jest.Mock => NativeModules.StatusBarManager.setStyle as jest.Mock;
@@ -33,7 +37,7 @@ jest.mock('../../../THIRD_PARTY_NOTICES.md', () => 1);
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-function Page({ page }: { page: 'theme' | 'terminal' }) {
+function Page({ page }: { page: 'theme' | 'terminal' | 'terminalPaletteDark' | 'terminalPaletteLight' }) {
   return (
     <SafeAreaProvider
       initialMetrics={{
@@ -160,4 +164,54 @@ test('Custom terminal background seeds the desktop colour once, then takes a typ
   await act(async () => fireEvent.press(screen.getByRole('radio', { name: 'Follow theme' })));
   await act(async () => fireEvent.press(screen.getByRole('radio', { name: 'Custom color' })));
   expect(settings()).toMatchObject({ terminalBackgroundMode: 'custom', workspaceBackgroundColor: '#336699' });
+});
+
+describe('the terminal palette pickers (one list of every palette)', () => {
+  const radios = () => screen.getAllByRole('radio');
+
+  test.each([
+    ['terminalPaletteDark', 'terminalGhosttyTheme'],
+    ['terminalPaletteLight', 'terminalGhosttyLightTheme'],
+  ] as const)(
+    '%s opens without building every row; the saved palette is selected and a tap saves another',
+    async (page, key) => {
+      const names = terminalPaletteNames();
+      await render(<Page page={page} />);
+      // Only the rows near the top exist before scrolling; the last palette is not built yet.
+      expect(radios().length).toBeGreaterThan(0);
+      expect(radios().length).toBeLessThan(names.length);
+      expect(screen.queryByRole('radio', { name: terminalPaletteLabel(names.at(-1)!) })).toBeNull();
+
+      const saved = terminalPaletteLabel(settings()[key]);
+      await act(async () => fireEvent.changeText(screen.getByLabelText('Filter palettes'), saved));
+      expect(screen.getByRole('radio', { name: saved, selected: true })).toBeTruthy();
+      await act(async () => fireEvent.changeText(screen.getByLabelText('Filter palettes'), 'Catppuccin Mocha'));
+      await act(async () => fireEvent.press(screen.getByRole('radio', { name: 'Ghostex Catppuccin Mocha' })));
+      expect(settings()[key]).toBe('Ghostex Catppuccin Mocha');
+      expect(screen.getByRole('radio', { name: 'Ghostex Catppuccin Mocha', selected: true })).toBeTruthy();
+    },
+  );
+
+  test('the filter narrows the list by label and says when nothing matches', async () => {
+    await render(<Page page="terminalPaletteDark" />);
+    await act(async () => fireEvent.changeText(screen.getByLabelText('Filter palettes'), 'frappé'));
+    expect(radios()).toHaveLength(1);
+    expect(screen.getByRole('radio', { name: 'Ghostex Catppuccin Frappé' })).toBeTruthy();
+    await act(async () => fireEvent.changeText(screen.getByLabelText('Filter palettes'), 'no such palette'));
+    expect(screen.queryAllByRole('radio')).toHaveLength(0);
+    expect(screen.getByText('No palette matches.')).toBeTruthy();
+  });
+
+  test('a saved palette the phone does not carry stays listed first and selected', async () => {
+    useSettingsStore.setState({ settings: { ...defaultSettings(), terminalGhosttyTheme: 'Not Shipped' } });
+    await render(<Page page="terminalPaletteDark" />);
+    expect(radios()[0]).toBe(screen.getByRole('radio', { name: 'Not Shipped', selected: true }));
+  });
+
+  test('taps reach the rows while the filter has the keyboard', async () => {
+    await render(<Page page="terminalPaletteDark" />);
+    let host = screen.getByLabelText('Filter palettes').parent;
+    while (host !== null && host.props.keyboardShouldPersistTaps === undefined) host = host.parent;
+    expect(host?.props.keyboardShouldPersistTaps).toBe('handled');
+  });
 });

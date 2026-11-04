@@ -164,7 +164,7 @@ function PresetCard({
         ) : null}
       </View>
       <View style={styles.presetName}>
-        <ModeGlyph dark={preset.mode === 'dark'} size={11} color={appearance.muted} />
+        <ModeGlyph dark={preset.mode === 'dark'} size={11} color={appearance.mutedGlyph} />
         <Text
           numberOfLines={2}
           style={[
@@ -306,7 +306,7 @@ function ColourRow({ dark, picked, onPicked }: { dark: boolean; picked: Picked; 
       <View
         style={[styles.square, { borderColor: appearance.border }, fill === null ? null : { backgroundColor: fill }]}
       >
-        {fill === null ? <Text style={[styles.squarePlus, { color: appearance.muted }]}>+</Text> : null}
+        {fill === null ? <Text style={[styles.squarePlus, { color: appearance.mutedGlyph }]}>+</Text> : null}
       </View>
     </Pressable>
   );

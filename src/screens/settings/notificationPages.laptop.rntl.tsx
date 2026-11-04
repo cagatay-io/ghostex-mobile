@@ -2,16 +2,21 @@
 /**
  * Run with `bun run test:jest`. The Settings pages with rows of their own under the app's list fold gap (nothing on
  * the fold in lists; the laptop pose only, `components/common/foldGap.tsx`), measured as `foldGap.rntl.tsx` measures
- * the shared Settings page: Settings › Notifications (its switch rows and the "Blocked in iOS Settings" card) and
- * Settings › Live Activity (its preview card). The page's frame comes from the jest preset's `measureInWindow`: the
+ * the shared Settings page: Settings › Notifications (its switch rows and the "Blocked in iOS Settings" card),
+ * Settings › Live Activity (its preview card), Settings › Licences (its list of components), Settings › Interface
+ * (the presets' scroller, Appearance's cards, a mode colour's squares and its custom tint) and its terminal palette
+ * picker (its list of palettes). The page's frame comes from the jest preset's `measureInWindow`: the
  * whole 669 x 951 window of the iPhone Duo in the laptop pose, whose fold's band is 455.5-495.5. Expected: the page's
  * scroll view ends 8 pt above the fold's top (447.5), before and after a scroll, and none of its own rows carries a
  * gap of its own; flat (inactive division) and in the book pose the page keeps its whole frame and its frame measures
  * nothing. The real pages, shared controls and stores under the real `VerticalBarArea`; stand-ins: navigation, the
- * safe area, storage, the native chrome and expo-notifications.
+ * safe area, storage, the native chrome, expo-notifications and the bundled notices file's native read (it returns
+ * the real THIRD_PARTY_NOTICES.md).
  *
  * Not reached here: the scroll view's clipping of its rows (the platform's) and the device's real frames.
  */
+
+import { readFileSync } from 'node:fs';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { ReactNode } from 'react';
@@ -27,8 +32,12 @@ import { useInventoryStore } from '../../inventory/store';
 import { useMachinesStore } from '../../machines/store';
 import { useAttentionFeedStore } from '../../notifications/feedStore';
 import { useSettingsStore } from '../../settings/store';
+import { terminalPaletteLabel, terminalPaletteNames } from '../../theme/terminalPalettes';
+import LicencesPage from './LicencesPage';
 import LiveActivityPage from './LiveActivityPage';
 import NotificationsPage from './NotificationsPage';
+import TerminalPalettePage from './TerminalPalettePage';
+import ThemePage from './ThemePage';
 
 const mockNativeMethods = jest.requireActual<{ default: { measureInWindow: jest.Mock } }>(
   '@react-native/jest-preset/jest/MockNativeMethods',
@@ -56,6 +65,18 @@ jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ setOptions: () => undefined }),
   useFocusEffect: () => undefined,
   useIsFocused: () => true,
+}));
+const mockNotices = readFileSync(`${__dirname}/../../../THIRD_PARTY_NOTICES.md`, 'utf8');
+jest.mock('../../../THIRD_PARTY_NOTICES.md', () => 1);
+jest.mock('expo-asset', () => ({
+  Asset: { fromModule: () => ({ downloadAsync: () => Promise.resolve({ localUri: 'file:///notices.md' }) }) },
+}));
+jest.mock('expo-file-system', () => ({
+  File: class {
+    text(): Promise<string> {
+      return Promise.resolve(mockNotices);
+    }
+  },
 }));
 
 const PORTRAIT = { width: 669, height: 951 };
@@ -247,6 +268,74 @@ describe('Settings › Live Activity (its preview card)', () => {
     await renderPage(<LiveActivityPage />, division, window);
     expect(visibleBottom(screen.getByLabelText(LiveActivityCopy.previewLabel))).toBe(window.height);
     expect(gapAbove(screen.getByLabelText(LiveActivityCopy.previewLabel))).toBe(0);
+    expect(measuredViews()).toBe(0);
+  });
+});
+
+describe('Settings › Licences (its list of components)', () => {
+  const units = () => [screen.getByText('FreeType'), screen.getByText('Ghostty')];
+
+  test('laptop pose: the list ends above the fold, also scrolled, and no component row carries a gap', async () => {
+    await renderPage(<LicencesPage />);
+    await expectEndsAboveFold(units);
+  });
+
+  test.each(OTHER_POSES)('%s: the list keeps its whole frame and its frame measures nothing', async (_pose, division, window) => {
+    listFrame = { top: 0, height: window.height };
+    await renderPage(<LicencesPage />, division, window);
+    expect(visibleBottom(screen.getByText('Ghostty'))).toBe(window.height);
+    for (const row of units()) expect(gapAbove(row)).toBe(0);
+    expect(measuredViews()).toBe(0);
+  });
+});
+
+describe('Settings › Interface › Terminal palette (its list of palettes)', () => {
+  const rows = () => [2, 3].map((index) => screen.getByRole('radio', { name: terminalPaletteLabel(terminalPaletteNames()[index]!) }));
+
+  test('laptop pose: the list ends above the fold, also scrolled, and no palette row carries a gap', async () => {
+    await renderPage(<TerminalPalettePage dark />);
+    await expectEndsAboveFold(rows);
+  });
+
+  test.each(OTHER_POSES)('%s: the list keeps its whole frame and its frame measures nothing', async (_pose, division, window) => {
+    listFrame = { top: 0, height: window.height };
+    await renderPage(<TerminalPalettePage dark />, division, window);
+    expect(visibleBottom(rows()[0]!)).toBe(window.height);
+    for (const row of rows()) expect(gapAbove(row)).toBe(0);
+    expect(measuredViews()).toBe(0);
+  });
+});
+
+describe('Settings › Interface (its presets, Appearance and mode colour blocks)', () => {
+  const initialSettings = useSettingsStore.getState().settings;
+  afterEach(async () => {
+    await act(() => {
+      useSettingsStore.setState({ settings: initialSettings });
+    });
+  });
+  // The presets' scroller is a horizontal scroll view of its own: measured from the view around it in the page.
+  const units = () => [
+    ...['System appearance', 'Light appearance', 'Dark appearance'].map((name) => screen.getByRole('radio', { name })),
+    screen.getByRole('radio', { name: 'Custom, dark mode colour' }),
+    screen.getByLabelText('Presets').parent!,
+  ];
+
+  test("laptop pose: the page ends above the fold, also scrolled, and neither the presets' scroller, Appearance's cards nor a mode colour's squares carry a gap", async () => {
+    await renderPage(<ThemePage />);
+    await expectEndsAboveFold(units);
+  });
+
+  test('laptop pose: with the custom tint field the page ends above the fold, also scrolled, and the field carries no gap', async () => {
+    useSettingsStore.setState((state) => ({ settings: { ...state.settings, darkThemePreset: 'custom' } }));
+    await renderPage(<ThemePage />);
+    await expectEndsAboveFold(() => [screen.getByLabelText('Custom tint, hex colour'), ...units()]);
+  });
+
+  test.each(OTHER_POSES)('%s: the page keeps its whole frame and its frame measures nothing', async (_pose, division, window) => {
+    listFrame = { top: 0, height: window.height };
+    await renderPage(<ThemePage />, division, window);
+    expect(visibleBottom(screen.getByRole('radio', { name: 'Light appearance' }))).toBe(window.height);
+    for (const row of units()) expect(gapAbove(row)).toBe(0);
     expect(measuredViews()).toBe(0);
   });
 });
