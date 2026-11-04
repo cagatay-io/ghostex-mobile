@@ -18,6 +18,10 @@ import type { TestInstance } from 'test-renderer';
 import { useMachinesStore, type MachineRecord } from '../machines/store';
 import type { FeedRow } from '../notifications/feedContract';
 import { updateAllAttentionFeeds, useAttentionFeedStore } from '../notifications/feedStore';
+import { NotificationsCopy } from '../copy';
+import { useSettingsStore } from '../settings/store';
+import { destructiveButtonFills, GhostexPalette, neutralButtonFills } from '../theme/palette';
+import { THEME_PRESETS, themePresetPatch } from '../theme/presets';
 import AttentionListScreen from './AttentionListScreen';
 
 jest.mock('../../modules/ghostex-native/src', () => ({ GhostexNative: {} }));
@@ -29,7 +33,7 @@ jest.mock('react-native-safe-area-context', () => {
   const { View: MockView } = jest.requireActual('react-native');
   return { SafeAreaView: MockView, useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) };
 });
-// `useAppearanceHeader` paints the header through `useNavigation`; the colours are not under test.
+// `useAppearanceHeader` paints the header through `useNavigation`; native header painting is outside this test.
 const mockHeaderNavigation = { setOptions: () => undefined };
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual('@react-navigation/native'),
@@ -229,4 +233,92 @@ test('on a regular iPhone the menu stands under its "…", at the window\'s trai
     width: 320,
     opacity: 1,
   });
+});
+
+/** WCAG contrast of two opaque RGB colours. */
+function contrast(a: string, b: string): number {
+  const luminance = (hex: string) => {
+    const [r = 0, g = 0, blue = 0] = [1, 3, 5]
+      .map((at) => parseInt(hex.slice(at, at + 2), 16) / 255)
+      .map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * r + 0.7152 * g + 0.0722 * blue;
+  };
+  const x = luminance(a);
+  const y = luminance(b);
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+
+/** A translucent button fill composited over the sheet it actually stands on. */
+function over(fill: string, base: string): string {
+  if (fill.startsWith('#')) return fill;
+  const channels = fill.match(/[0-9.]+/g)?.map(Number);
+  if (channels?.length !== 4) throw new Error(`Unsupported fill ${fill}`);
+  const [r = 0, g = 0, b = 0, alpha = 0] = channels;
+  return `#${[r, g, b]
+    .map((channel, at) => Math.round(parseInt(base.slice(1 + 2 * at, 3 + 2 * at), 16) * (1 - alpha) + channel * alpha))
+    .map((channel) => channel.toString(16).padStart(2, '0'))
+    .join('')}`;
+}
+
+describe('colour readability on the model surfaces', () => {
+  const initialSettings = useSettingsStore.getState().settings;
+  afterEach(async () => {
+    await act(() => useSettingsStore.setState({ settings: initialSettings }));
+  });
+
+  test.each(['mocha', ...THEME_PRESETS.filter((preset) => preset.mode === 'light').map((preset) => preset.id)])(
+    '%s: title, explanation, Cancel and destructive Clear All read on the actual sheet',
+    async (preset) => {
+      const patch = themePresetPatch(preset, false);
+      if (patch === undefined) throw new Error(`Unknown preset ${preset}`);
+      useSettingsStore.getState().patchSettings(patch);
+      await render(<Navigator />);
+      await openMenu();
+      await fireEvent.press(item('Clear All'));
+      const flat = (node: TestInstance) => StyleSheet.flatten(node.props.style) ?? {};
+      const panel = String(flat(screen.getByTestId('sheet-panel')).backgroundColor);
+      for (const text of [
+        screen.getByRole('header', { name: 'Clear all notifications?' }),
+        screen.getByText('They also disappear from the bell on your computer. Your sessions stay as they are.'),
+      ]) {
+        expect(contrast(String(flat(text).color), panel)).toBeGreaterThanOrEqual(4.5);
+      }
+      const light = THEME_PRESETS.find((entry) => entry.id === preset)?.mode === 'light';
+      for (const [name, fills] of [
+        ['Cancel', neutralButtonFills(light)],
+        ['Clear All', destructiveButtonFills(GhostexPalette.DANGER, light)],
+      ] as const) {
+        const button = screen.getByRole('button', { name });
+        expect(flat(button).backgroundColor).toBe(fills.rest);
+        const ink = String(flat(within(button).getByText(name)).color);
+        for (const fill of [fills.rest, fills.pressed]) {
+          expect(contrast(ink, over(fill, panel))).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+      // Cancelling and clearing remain exercised by the original confirmation test above.
+      expect(updateAll).not.toHaveBeenCalled();
+    },
+  );
+
+  test.each(THEME_PRESETS.map((preset) => [preset.id, preset.mode] as const))(
+    '%s (%s): the line for a change the computer did not take keeps 4.5:1 on the page',
+    async (preset) => {
+      const patch = themePresetPatch(preset, false);
+      if (patch === undefined) throw new Error(`Unknown preset ${preset}`);
+      useSettingsStore.getState().patchSettings(patch);
+      updateAll.mockResolvedValueOnce(false);
+      await render(<Navigator />);
+      await openMenu();
+      await fireEvent.press(item('Mark All Read'));
+      await act(async () => undefined);
+      const line = screen.getByText(NotificationsCopy.actionFailed);
+      let page = line.parent;
+      while (page !== null && !String(StyleSheet.flatten(page.props.style)?.backgroundColor ?? '').startsWith('#')) {
+        page = page.parent;
+      }
+      if (page === null) throw new Error('No painted page under the failure line');
+      const surface = String(StyleSheet.flatten(page.props.style).backgroundColor);
+      expect(contrast(String(StyleSheet.flatten(line.props.style).color), surface)).toBeGreaterThanOrEqual(4.5);
+    },
+  );
 });
