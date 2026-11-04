@@ -618,31 +618,6 @@ function hexWithAlpha(color: string, alpha: number): string {
   return `rgba(${red},${green},${blue},${alpha})`;
 }
 
-/** Moves a text ink toward the foreground until every surface reaches 4.5:1, or returns the foreground. */
-export function readableSecondaryText(designed: string, foreground: string, surfaces: readonly string[]): string {
-  const luminance = (hex: string): number => {
-    const { red, green, blue } = parseHex(hex);
-    const linear = (channel: number): number => {
-      const value = channel / 255;
-      return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
-    };
-    return 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue);
-  };
-  const backgrounds = surfaces.map(luminance);
-  const readable = (color: string): boolean => {
-    const ink = luminance(color);
-    return backgrounds.every(
-      (background) => (Math.max(ink, background) + 0.05) / (Math.min(ink, background) + 0.05) >= 4.5,
-    );
-  };
-  if (readable(designed)) return designed;
-  for (let toward = 1; toward < 100; toward += 1) {
-    const candidate = mixHexColors(foreground, designed, toward);
-    if (readable(candidate)) return candidate;
-  }
-  return foreground;
-}
-
 /** The drawer's tokens over a resolved sidebar colour. */
 export function sidebarAppearanceFor(background: string): SidebarAppearance {
   const foreground = isLightBackground(background) ? DARK_FOREGROUND : LIGHT_FOREGROUND;

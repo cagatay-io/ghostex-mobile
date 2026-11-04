@@ -13,7 +13,8 @@ import { blocksFromItems } from '../../components/sessions/drawerModel';
 import { buildDrawerItems, type SessionItem } from '../../contract/grouping';
 import { parseMobileSummary, type GhostexMobileSummary } from '../../contract/mobileSummary';
 import { SidebarPalette } from '../../theme/palette';
-import { resolveSidebarAppearance } from '../../theme/sidebarAppearance';
+import { defaultSettings } from '../../settings/store';
+import { resolveAppearance } from '../../theme/useAppearance';
 import DrawerBlockView from './DrawerBlockView';
 import { buildSessionMenu } from './sidebar-menus';
 
@@ -68,7 +69,7 @@ function drawn(summary: GhostexMobileSummary) {
   });
   const block = blocksFromItems('m1', items).find((candidate) => candidate.kind === 'project');
   if (block === undefined) throw new Error('the fixture has no project block');
-  const appearance = resolveSidebarAppearance('#808080', 90);
+  const appearance = resolveAppearance(defaultSettings(), false);
   const props = {
     block,
     selectedSessionKey: null,
