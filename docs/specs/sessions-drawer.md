@@ -87,6 +87,9 @@ inventory converges; repeated authoritative disagreement restores server truth.
 
 ### Recency: <60s "{n}s ago" (min 1); <60m "{n}m ago"; <48h "{n}h ago"; else "{n}d ago"; unknown → "Unknown" (details only; rows are title-only single line).
 
+The Unified list's clock updates working time each second and ages every half minute while Sessions is in front.
+It stops behind another screen and in Project mode; returning to Unified reads the current time immediately.
+
 ### MACHINE_HEADER (only when ≥2 machines): muted 12sp bold ALL-CAPS letterSpacing 0.06, padding 8/18/8/4, minHeight 36; " …" suffix when collapsed; tap toggles machine section collapse.
 
 ### PROJECT_HEADER

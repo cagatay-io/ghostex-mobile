@@ -104,6 +104,8 @@ export type UnifiedListDeps = {
   selectedWorkspaceIdByMachine: Record<string, string>;
   selectedSessionKey: string | null;
   sidebarBackground: string;
+  /** Whether the Sessions screen is in front; its clock stops behind another screen. */
+  focused: boolean;
   setOverlay: (overlay: Overlay) => void;
   attach: (target: MachineRecord, session: GhostexSession) => Promise<void>;
   runBulkSessionActions: (target: MachineRecord, actions: readonly BulkSessionAction[]) => Promise<void>;
@@ -154,13 +156,14 @@ function hasImage(icon: GhostexProjectIcon | undefined): icon is GhostexProjectI
   return icon !== undefined && (icon.imageDataUrl.length > 0 || icon.discoveredIconDataUrl.length > 0);
 }
 
-/** Redraws once a second while a card counts a working agent's time, else every half minute for the ages. */
-function useListClock(ticking: boolean): number {
+/** Counts working time each second, otherwise ages each half minute, only while the Unified list is in front. */
+function useListClock(running: boolean, ticking: boolean): number {
   const [, wake] = useReducer((tick: number) => tick + 1, 0);
   useEffect(() => {
+    if (!running) return undefined;
     const timer = setInterval(wake, ticking ? 1_000 : 30_000);
     return () => clearInterval(timer);
-  }, [ticking]);
+  }, [running, ticking]);
   return Date.now();
 }
 
@@ -172,6 +175,7 @@ export function useUnifiedList(deps: UnifiedListDeps) {
     selectedWorkspaceIdByMachine,
     selectedSessionKey,
     sidebarBackground,
+    focused,
     setOverlay,
     attach,
     runBulkSessionActions,
@@ -237,7 +241,7 @@ export function useUnifiedList(deps: UnifiedListDeps) {
   }, [on, machines, inventoriesByMachineId, selectedWorkspaceIdByMachine]);
 
   const [clockTicking, setClockTicking] = useState(false);
-  const nowMs = useListClock(on && clockTicking);
+  const nowMs = useListClock(on && focused, clockTicking);
   const view = useMemo(
     () => unifiedListOf(computers, unifiedSettings, filter, nowMs),
     [computers, unifiedSettings, filter, nowMs],

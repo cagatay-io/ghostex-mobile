@@ -574,6 +574,7 @@ export default function SessionsScreen({ navigation }: Props) {
     selectedWorkspaceIdByMachine,
     selectedSessionKey,
     sidebarBackground: sidebarAppearance.background,
+    focused: isFocused,
     setOverlay,
     attach: (target, session) => attach(target, session),
     runBulkSessionActions,
