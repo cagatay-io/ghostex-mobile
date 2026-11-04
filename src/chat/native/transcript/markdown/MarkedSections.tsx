@@ -34,6 +34,10 @@ const PALETTE: { [kind: string]: { dark: string; light: string } } = {
   untested: { dark: '#2dd4bf', light: '#0f766e' },
   shipped: { dark: '#818cf8', light: '#4f46e5' },
   blocked: { dark: '#f87171', light: '#dc2626' },
+  comms: { dark: '#a3e635', light: '#4d7c0f' },
+  parked: { dark: '#94a3b8', light: '#475569' },
+  held: { dark: '#d6a77a', light: '#92400e' },
+  suggestions: { dark: '#c084fc', light: '#7e22ce' },
 };
 
 export function kindColor(kind: string, light: boolean): string {
