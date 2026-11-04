@@ -118,6 +118,22 @@ const GLYPHS = {
   },
   file: { paths: ['M14 3v4a1 1 0 0 0 1 1h4', 'M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2'] },
   folder: { paths: ['M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'] },
+  // The new chat bar's choices (`titlebar/folder-open.svg`, `git-fork.svg`, `stack.svg`): This folder, New worktree, Existing.
+  'folder-open': {
+    paths: [
+      'M5 19l2.757 -7.351a1 1 0 0 1 .936 -.649h12.307a1 1 0 0 1 .986 1.164l-.996 5.211a2 2 0 0 1 -1.964 1.625h-14.026a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2h4l3 3h7a2 2 0 0 1 2 2v2',
+    ],
+  },
+  'git-fork': {
+    paths: [
+      'M10 18a2 2 0 1 0 4 0a2 2 0 1 0 -4 0',
+      'M5 6a2 2 0 1 0 4 0a2 2 0 1 0 -4 0',
+      'M15 6a2 2 0 1 0 4 0a2 2 0 1 0 -4 0',
+      'M7 8v2a2 2 0 0 0 2 2h6a2 2 0 0 0 2 -2v-2',
+      'M12 12l0 4',
+    ],
+  },
+  stack: { paths: ['M12 6l-8 4l8 4l8 -4l-8 -4', 'M4 14l8 4l8 -4'] },
   photo: {
     paths: [
       'M15 8h.01',

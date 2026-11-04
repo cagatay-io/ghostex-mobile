@@ -638,7 +638,6 @@ export function NativeComposer({
           {document?.worktreeTray ? (
             <WorktreeTray
               tray={document.worktreeTray}
-              dispatch={dispatch}
               openRows={(title, rows) => setMenu({ kind: 'rows', title, rows })}
               retry={() => input?.submit('send')}
               projectLabel={projectChipLabel}

@@ -26,7 +26,6 @@ export function glyphForIconPath(iconPath: unknown): GlyphName | null {
   const aliases: Record<string, GlyphName> = {
     'eye-filled': 'eye',
     loader2: 'loader',
-    'folder-open': 'folder',
     code: 'file',
   };
   const glyph = aliases[name] ?? name;
@@ -52,6 +51,9 @@ const KNOWN_GLYPHS = new Set<string>([
   'file-text',
   'file',
   'folder',
+  'folder-open',
+  'git-fork',
+  'stack',
   'photo',
   'camera',
   'eye',

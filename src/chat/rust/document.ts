@@ -65,6 +65,26 @@ export type WorktreeTray = {
     chip: { label: string | null; star: boolean; agentbox?: boolean };
     menu: { [key: string]: unknown }[];
   };
+  /**
+   * The breadcrumb's where part (`where_part` in the core): what runs where now and the menu that picks
+   * another, its rows numbered 1 to 4. Null in a folder that is not a git checkout. Absent from an older core.
+   */
+  where?: { label: string; glyph: string; menu: { [key: string]: unknown }[] } | null;
+  /**
+   * The breadcrumb's last part (`detail_part` in the core): This folder's branch (only shown, `menu` null),
+   * a new worktree's base branch, the existing worktree, or the Cloud Box pick.
+   */
+  detail?: {
+    kind: 'branch' | 'baseBranch' | 'worktree' | 'cloudBox';
+    label: string;
+    glyph: string;
+    prefix?: string;
+    tooltip?: string;
+    star?: boolean;
+    placeholder?: boolean;
+    menuTitle?: string;
+    menu: { [key: string]: unknown }[] | null;
+  } | null;
 };
 
 /** The Run on row above a new thread's composer (gx-chat-core `menus/run_location.rs`). */
