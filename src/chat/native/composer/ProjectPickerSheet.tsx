@@ -73,11 +73,12 @@ export function ProjectPickerSheet({
               onPress={() => onPick(item.choice, item.choice.selected)}
               style={({ pressed }) => [styles.row, pressed ? styles.pressed : null]}
             >
-              <View style={styles.tile}>
-                <Text style={styles.tileText}>{item.choice.label.slice(0, 1).toUpperCase()}</Text>
-              </View>
               <View style={styles.body}>
+                {/* The tile sits on the name's line, not centred on a two-line row ("keep the icon of the project aligned with it's name"). */}
                 <View style={styles.nameLine}>
+                  <View style={styles.tile}>
+                    <Text style={styles.tileText}>{item.choice.label.slice(0, 1).toUpperCase()}</Text>
+                  </View>
                   <Text numberOfLines={1} style={styles.label}>
                     {item.choice.label}
                   </Text>
@@ -146,13 +147,15 @@ const useStyles = themedStyles((P) => ({
   },
   body: { flex: 1, minWidth: 0, gap: 4 },
   nameLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  placeLine: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4 },
+  // Under the name: past the tile (20) and its gap (10).
+  placeLine: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4, paddingLeft: 30 },
   detail: { color: P.muted, fontSize: 12, marginRight: 4, flexShrink: 1 },
   pressed: { backgroundColor: P.border },
   label: { flex: 1, minWidth: 0, color: P.primary, fontSize: 14 },
   tile: {
     width: 20,
     height: 20,
+    marginRight: 2,
     borderRadius: 5,
     alignItems: 'center',
     justifyContent: 'center',
