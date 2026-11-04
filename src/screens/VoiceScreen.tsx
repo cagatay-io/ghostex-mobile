@@ -602,10 +602,10 @@ export default function VoiceScreen({ navigation }: Props) {
             <Svg width={30} height={30} viewBox="0 0 24 24" fill="none">
               <Path
                 d="M 3 14 c 5 -5 13 -5 18 0 l -2 3 l -4 -1.5 v -2.5 c -2 -0.6 -4 -0.6 -6 0 v 2.5 l -4 1.5 z"
-                fill={appearance.foreground}
+                fill={appearance.accentForeground}
               />
             </Svg>
-            <Text style={styles.controlLabel}>Hang up</Text>
+            <Text style={[styles.controlLabel, styles.controlLabelOn]}>Hang up</Text>
           </Pressable>
         </View>
       ) : (
@@ -763,5 +763,5 @@ const createStyles = (appearance: Appearance) => StyleSheet.create({
   controlLabel: { color: appearance.foreground, fontSize: 17, fontWeight: '600', textAlign: 'center' },
   controlLabelOn: { color: appearance.accentForeground },
   hangUp: { backgroundColor: appearance.danger },
-  hangUpPressed: { opacity: 0.8 },
+  hangUpPressed: { transform: [{ scale: 0.98 }] },
 });
