@@ -6,6 +6,7 @@ import { describe, test } from 'node:test';
 
 import {
   defaultMachine,
+  filterProjectChoices,
   moveProjectChoiceMachine,
   unifiedNewSessionTarget,
   unifiedProjectChoices,
@@ -13,6 +14,7 @@ import {
   type UnifiedProjectChoice,
 } from './choices';
 import { projectPickerRows } from './projectList';
+import { mergeRepoIdentities, originKeysOf, repoIdentity, resolveRepoIdentity } from './repo';
 import { EMPTY_UNIFIED_SAVED, parseUnifiedSaved, rememberNewSession, serializeUnifiedSaved } from './saved';
 
 const choice = (repoKey: string, machines: [string, boolean][], extra: Partial<UnifiedProjectChoice> = {}): UnifiedProjectChoice => ({
@@ -22,6 +24,7 @@ const choice = (repoKey: string, machines: [string, boolean][], extra: Partial<U
   selected: 0,
   hasSessions: true,
   recent: false,
+  detail: null,
   ...extra,
 });
 
@@ -135,5 +138,40 @@ describe('Recent', () => {
       ['a', false],
       ['g', false],
     ]);
+  });
+});
+
+describe('one project is one row (Q1224)', () => {
+  const id = (origin: string | null, path: string) => repoIdentity(origin, path, null, '');
+  test('however its origin is spelled or known', () => {
+    const https = id('https://github.com/Owner/Ghostex.git', '/a/Ghostex');
+    const alias = id('git@github-work:owner/ghostex.git', '/b/Ghostex');
+    const none = id(null, '/c/Ghostex');
+    const fork = id('git@github.com:fork/ghostex.git', '/d/ghostex');
+    const other = id(null, '/e/notes');
+    let merged = mergeRepoIdentities([https, alias, none, fork, other]);
+    assert.equal(merged.get(alias.key)!.key, https.key);
+    // A fork is a different repository, so a folder named like both stays on its own.
+    assert.equal(merged.get(none.key)!.key, none.key);
+    assert.equal(merged.get(fork.key)!.key, fork.key);
+    assert.equal(merged.get(other.key)!.key, other.key);
+    merged = mergeRepoIdentities([https, alias, none]);
+    assert.equal(merged.get(none.key)!.key, https.key);
+    assert.equal(merged.get(none.key)!.label, 'Ghostex');
+    // Another computer's folder joins the row; one beside the repository is another checkout.
+    assert.equal(resolveRepoIdentity(none, merged, originKeysOf([none], merged)).key, https.key);
+    assert.equal(resolveRepoIdentity(none, merged, originKeysOf([https, none], merged)).key, none.key);
+  });
+
+  test("a computer's name in the search picks it on the row", () => {
+    const ghostex = choice('ghostex', [['MacBook', true], ['Studio', false], ['Windows', true]], { label: 'Ghostex' });
+    const notes = choice('notes', [['MacBook', true]], { label: 'notes' });
+    const found = filterProjectChoices([ghostex, notes], 'ghostex win');
+    assert.deepEqual(found.map((row) => [row.label, row.selected]), [['Ghostex', 2]]);
+    // A connected computer wins over one that is not.
+    const both = choice('ghostex', [['Studio A', false], ['Studio B', true]], { label: 'Ghostex' });
+    assert.equal(filterProjectChoices([both], 'studio')[0]!.selected, 1);
+    // A word nothing holds hides the row.
+    assert.deepEqual(filterProjectChoices([ghostex], 'ghostex linux'), []);
   });
 });

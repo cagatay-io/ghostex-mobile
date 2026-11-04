@@ -7,7 +7,7 @@
  * (Q1010 "per project"; gx-chat-core `menus/cloud_box.rs` reads `remembered`). So Where writes the
  * same remembered choice (`projectSettings.remember`) before the draft opens, and the draft opens
  * with Cloud Box picked: one rule, no second way to start a box from the phone while the computer
- * answers. The choice shows only while the computer has a provider connected.
+ * answers. The choice shows only once Cloud Boxes is in use on that computer (./setUp.ts).
  * SEE-ALSO: server/src/server/worktree_ops/draft_cloud_box.rs (`cloud_box_facts`, `remember_project_choice`)
  */
 
@@ -15,9 +15,11 @@ import { create } from 'zustand';
 
 import { homeCloudBoxesRpc } from './boxLink';
 import { cloudKitCapRefusal, cloudKitOf, cloudKitProject } from './cloudKit';
+import { cloudBoxesSetUp, type CloudProviderRow } from './setUp';
+import { useCloudBoxesStore } from './store';
 
 export type CloudWhere = {
-  /** A provider is connected and available on that computer. */
+  /** Cloud Boxes is in use on that computer (`cloudBoxesSetUp`). */
   offered: boolean;
   /** The project's remembered choice. */
   cloud: boolean;
@@ -72,13 +74,14 @@ export async function loadCloudWhere(machineId: string, projectId: string): Prom
     return;
   }
   if (providers.error !== null || project.error !== null) return;
-  const rows = (providers.result as { providers?: Array<{ state?: string; available?: boolean }> } | null)?.providers ?? [];
+  const rows = (providers.result as { providers?: CloudProviderRow[] } | null)?.providers ?? [];
+  const hasBoxes = Object.values(useCloudBoxesStore.getState().entries).some((entry) => entry.homeMachineId === machineId);
   const settings = ((project.result as { settings?: Record<string, unknown> } | null)?.settings ?? {}) as Record<
     string,
     unknown
   >;
   useCloudWhereStore.getState().put(whereKey(machineId, projectId), {
-    offered: rows.some((row) => row.state === 'connected' && row.available !== false),
+    offered: cloudBoxesSetUp(rows, hasBoxes),
     cloud: settings.remember === 'cloud',
     settings,
   });

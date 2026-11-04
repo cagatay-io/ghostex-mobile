@@ -11,6 +11,7 @@
         ],
         "choices": [
           {
+            "detail": null,
             "hasSessions": true,
             "label": "zebra",
             "machines": [
@@ -26,6 +27,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": true,
             "label": "acme",
             "machines": [
@@ -47,6 +49,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": true,
             "label": "billing",
             "machines": [
@@ -62,6 +65,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": false,
             "label": "quiet",
             "machines": [
@@ -77,6 +81,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": false,
             "label": "tools",
             "machines": [
@@ -417,6 +422,7 @@
         ],
         "choices": [
           {
+            "detail": null,
             "hasSessions": true,
             "label": "zebra",
             "machines": [
@@ -432,6 +438,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": true,
             "label": "acme",
             "machines": [
@@ -453,6 +460,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": true,
             "label": "billing",
             "machines": [
@@ -468,6 +476,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": false,
             "label": "quiet",
             "machines": [
@@ -483,6 +492,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": false,
             "label": "tools",
             "machines": [
@@ -866,6 +876,7 @@
         ],
         "choices": [
           {
+            "detail": null,
             "hasSessions": true,
             "label": "zebra",
             "machines": [
@@ -881,6 +892,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": true,
             "label": "acme",
             "machines": [
@@ -902,6 +914,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": true,
             "label": "billing",
             "machines": [
@@ -917,6 +930,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": false,
             "label": "quiet",
             "machines": [
@@ -932,6 +946,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": false,
             "label": "tools",
             "machines": [
@@ -1174,6 +1189,7 @@
         "active": [],
         "choices": [
           {
+            "detail": null,
             "hasSessions": true,
             "label": "zebra",
             "machines": [
@@ -1189,6 +1205,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": true,
             "label": "acme",
             "machines": [
@@ -1210,6 +1227,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": true,
             "label": "billing",
             "machines": [
@@ -1225,6 +1243,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": false,
             "label": "quiet",
             "machines": [
@@ -1240,6 +1259,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": false,
             "label": "tools",
             "machines": [
@@ -1484,6 +1504,7 @@
         "active": [],
         "choices": [
           {
+            "detail": null,
             "hasSessions": true,
             "label": "zebra",
             "machines": [
@@ -1499,6 +1520,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": true,
             "label": "acme",
             "machines": [
@@ -1520,6 +1542,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": true,
             "label": "billing",
             "machines": [
@@ -1535,6 +1558,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": false,
             "label": "quiet",
             "machines": [
@@ -1550,6 +1574,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": false,
             "label": "tools",
             "machines": [
@@ -1803,6 +1828,7 @@
         ],
         "choices": [
           {
+            "detail": null,
             "hasSessions": true,
             "label": "zebra",
             "machines": [
@@ -1818,6 +1844,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": true,
             "label": "acme",
             "machines": [
@@ -1839,6 +1866,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": true,
             "label": "billing",
             "machines": [
@@ -1854,6 +1882,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": false,
             "label": "quiet",
             "machines": [
@@ -1869,6 +1898,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": false,
             "label": "tools",
             "machines": [
@@ -2179,6 +2209,7 @@
         ],
         "choices": [
           {
+            "detail": null,
             "hasSessions": true,
             "label": "zebra",
             "machines": [
@@ -2194,6 +2225,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": true,
             "label": "acme",
             "machines": [
@@ -2215,6 +2247,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": true,
             "label": "billing",
             "machines": [
@@ -2230,6 +2263,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": false,
             "label": "quiet",
             "machines": [
@@ -2245,6 +2279,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": false,
             "label": "tools",
             "machines": [
@@ -2548,6 +2583,7 @@
         "active": [],
         "choices": [
           {
+            "detail": null,
             "hasSessions": true,
             "label": "acme",
             "machines": [
@@ -2566,9 +2602,10 @@
             ],
             "recent": true,
             "repoKey": "github.com/o/acme",
-            "selected": 0
+            "selected": 1
           },
           {
+            "detail": null,
             "hasSessions": false,
             "label": "tools",
             "machines": [
@@ -2796,6 +2833,7 @@
         ],
         "choices": [
           {
+            "detail": null,
             "hasSessions": true,
             "label": "zebra",
             "machines": [
@@ -2811,6 +2849,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": true,
             "label": "acme",
             "machines": [
@@ -2832,6 +2871,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": true,
             "label": "billing",
             "machines": [
@@ -2847,6 +2887,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": false,
             "label": "quiet",
             "machines": [
@@ -2862,6 +2903,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": false,
             "label": "tools",
             "machines": [
@@ -3208,6 +3250,7 @@
         ],
         "choices": [
           {
+            "detail": null,
             "hasSessions": true,
             "label": "zebra",
             "machines": [
@@ -3223,6 +3266,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": true,
             "label": "acme",
             "machines": [
@@ -3244,6 +3288,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": true,
             "label": "billing",
             "machines": [
@@ -3259,6 +3304,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": false,
             "label": "quiet",
             "machines": [
@@ -3274,6 +3320,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": false,
             "label": "tools",
             "machines": [
@@ -3618,6 +3665,7 @@
         ],
         "choices": [
           {
+            "detail": null,
             "hasSessions": true,
             "label": "zebra",
             "machines": [
@@ -3633,6 +3681,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": true,
             "label": "acme",
             "machines": [
@@ -3654,6 +3703,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": true,
             "label": "billing",
             "machines": [
@@ -3669,6 +3719,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": false,
             "label": "quiet",
             "machines": [
@@ -3684,6 +3735,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": false,
             "label": "tools",
             "machines": [
@@ -4026,6 +4078,7 @@
         ],
         "choices": [
           {
+            "detail": null,
             "hasSessions": true,
             "label": "zebra",
             "machines": [
@@ -4041,6 +4094,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": true,
             "label": "acme",
             "machines": [
@@ -4062,6 +4116,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": true,
             "label": "billing",
             "machines": [
@@ -4077,6 +4132,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": false,
             "label": "quiet",
             "machines": [
@@ -4092,6 +4148,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": false,
             "label": "tools",
             "machines": [
@@ -4353,6 +4410,7 @@
         "active": [],
         "choices": [
           {
+            "detail": null,
             "hasSessions": true,
             "label": "zebra",
             "machines": [
@@ -4368,6 +4426,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": true,
             "label": "acme",
             "machines": [
@@ -4389,6 +4448,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": true,
             "label": "billing",
             "machines": [
@@ -4404,6 +4464,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": false,
             "label": "quiet",
             "machines": [
@@ -4419,6 +4480,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": false,
             "label": "tools",
             "machines": [
@@ -4668,6 +4730,190 @@
       }
     },
     {
+      "choiceQuery": "ghostex win",
+      "expected": {
+        "active": [
+          "local|s1",
+          "win|s2"
+        ],
+        "choices": [
+          {
+            "detail": "maddada/ghostex",
+            "hasSessions": true,
+            "label": "Ghostex",
+            "machines": [
+              {
+                "connected": true,
+                "label": "MacBook",
+                "machineId": "local",
+                "projectId": "m1"
+              },
+              {
+                "connected": true,
+                "label": "Windows",
+                "machineId": "win",
+                "projectId": "w1"
+              },
+              {
+                "connected": true,
+                "label": "Studio",
+                "machineId": "box",
+                "projectId": "b1"
+              }
+            ],
+            "recent": true,
+            "repoKey": "github.com/maddada/ghostex",
+            "selected": 1
+          }
+        ],
+        "drafts": [],
+        "groups": [
+          {
+            "active": [
+              "local|s1",
+              "win|s2"
+            ],
+            "label": "Ghostex",
+            "parked": [],
+            "pinned": [],
+            "repoKey": "github.com/maddada/ghostex",
+            "snoozed": [],
+            "working": []
+          }
+        ],
+        "moves": [],
+        "newSessionTarget": {
+          "machineId": "local",
+          "projectId": "m1",
+          "repoKey": "github.com/maddada/ghostex"
+        },
+        "options": {
+          "machines": [
+            {
+              "detail": null,
+              "key": "local",
+              "label": "MacBook"
+            },
+            {
+              "detail": null,
+              "key": "win",
+              "label": "Windows"
+            },
+            {
+              "detail": null,
+              "key": "box",
+              "label": "Studio"
+            }
+          ],
+          "repos": [
+            {
+              "detail": "no remote",
+              "key": "dir:ghostex",
+              "label": "ghostex"
+            },
+            {
+              "detail": "maddada/ghostex · MacBook, Studio, Windows",
+              "key": "github.com/maddada/ghostex",
+              "label": "Ghostex"
+            }
+          ],
+          "spaces": []
+        },
+        "parked": [],
+        "pinned": [],
+        "rows": {
+          "local|s1": {
+            "cameBackMs": 50,
+            "machineLabel": null,
+            "repoKey": "github.com/maddada/ghostex",
+            "repoLabel": "Ghostex",
+            "spaceKey": null,
+            "status": null
+          },
+          "win|s2": {
+            "cameBackMs": 40,
+            "machineLabel": "Windows",
+            "repoKey": "github.com/maddada/ghostex",
+            "repoLabel": "Ghostex",
+            "spaceKey": null,
+            "status": null
+          }
+        },
+        "snoozed": [],
+        "total": 2,
+        "widenedFilter": null,
+        "working": []
+      },
+      "filter": {},
+      "machines": [
+        {
+          "label": "MacBook",
+          "machine": "local",
+          "projects": [
+            {
+              "gitRemoteOriginUrl": "https://github.com/maddada/Ghostex.git",
+              "path": "/Users/me/dev/Ghostex",
+              "projectId": "m1",
+              "title": "Ghostex"
+            },
+            {
+              "path": "/Users/me/old/ghostex",
+              "projectId": "m2",
+              "title": "ghostex"
+            }
+          ],
+          "sessions": [
+            {
+              "activity": "idle",
+              "createdMs": 1,
+              "lastInteractionMs": 50,
+              "projectId": "m1",
+              "sessionId": "s1"
+            }
+          ]
+        },
+        {
+          "label": "Windows",
+          "machine": "win",
+          "projects": [
+            {
+              "gitRemoteOriginUrl": "git@github-work:maddada/Ghostex.git",
+              "path": "C:\\dev\\Ghostex",
+              "projectId": "w1",
+              "title": "Ghostex"
+            }
+          ],
+          "sessions": [
+            {
+              "activity": "idle",
+              "createdMs": 1,
+              "lastInteractionMs": 40,
+              "projectId": "w1",
+              "sessionId": "s2"
+            }
+          ]
+        },
+        {
+          "label": "Studio",
+          "machine": "box",
+          "projects": [
+            {
+              "path": "/home/me/Ghostex",
+              "projectId": "b1",
+              "title": "Ghostex"
+            }
+          ],
+          "sessions": []
+        }
+      ],
+      "name": "an origin spelled with an SSH host alias, or not known yet, joins its repository's row, and a computer's name in the search picks it",
+      "nowMs": 10000000,
+      "settings": {
+        "parking": true,
+        "workingSection": true
+      }
+    },
+    {
       "expected": {
         "active": [
           "hp|d",
@@ -4679,6 +4925,7 @@
         ],
         "choices": [
           {
+            "detail": "owner/ghostex",
             "hasSessions": true,
             "label": "Ghostex",
             "machines": [
@@ -4700,8 +4947,9 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": true,
-            "label": "notes",
+            "label": "Notes",
             "machines": [
               {
                 "connected": true,
@@ -4721,6 +4969,7 @@
             "selected": 0
           },
           {
+            "detail": "no remote",
             "hasSessions": true,
             "label": "Ghostex",
             "machines": [
@@ -4736,6 +4985,7 @@
             "selected": 0
           },
           {
+            "detail": "fork/ghostex",
             "hasSessions": true,
             "label": "Ghostex",
             "machines": [
@@ -4792,7 +5042,7 @@
               "local|c",
               "hp|f"
             ],
-            "label": "notes",
+            "label": "Notes",
             "parked": [],
             "pinned": [],
             "repoKey": "dir:notes",
@@ -4838,7 +5088,7 @@
             {
               "detail": "Local, hp-laptop",
               "key": "dir:notes",
-              "label": "notes"
+              "label": "Notes"
             }
           ],
           "spaces": []
@@ -4866,7 +5116,7 @@
             "cameBackMs": 2000,
             "machineLabel": "hp-laptop",
             "repoKey": "dir:notes",
-            "repoLabel": "notes",
+            "repoLabel": "Notes",
             "spaceKey": null,
             "status": null
           },
@@ -4890,7 +5140,7 @@
             "cameBackMs": 6000,
             "machineLabel": null,
             "repoKey": "dir:notes",
-            "repoLabel": "notes",
+            "repoLabel": "Notes",
             "spaceKey": null,
             "status": null
           }
@@ -5025,6 +5275,7 @@
         ],
         "choices": [
           {
+            "detail": null,
             "hasSessions": true,
             "label": "p",
             "machines": [
@@ -5486,6 +5737,7 @@
         ],
         "choices": [
           {
+            "detail": null,
             "hasSessions": true,
             "label": "p",
             "machines": [
@@ -5627,6 +5879,7 @@
         ],
         "choices": [
           {
+            "detail": null,
             "hasSessions": true,
             "label": "web",
             "machines": [
@@ -5654,6 +5907,7 @@
             "selected": 0
           },
           {
+            "detail": null,
             "hasSessions": true,
             "label": "api",
             "machines": [

@@ -5,6 +5,9 @@
  * project on that computer; tapping a chip takes that computer; a computer that isn't connected is
  * dimmed and can't be tapped. Recent projects come first; a project with no open session says so.
  * The composer's tray and the Sessions list's agent menu both open it.
+ *
+ * CDXC:Sidebar 2026-11-04 DECISION:
+ * User (Q1224, randomsand: with a project on 3 computers "the computer chips push the project name out of view"; "project name on top, the computers below it"): a row that lists computers, or says which repository it is (`detail`: `owner/repo` or "no remote", when two rows share a name), puts the name on its own line and those under it, so the name always has the row's width. Searching a computer's name next to the project's marks that computer (`filterProjectChoices`).
  * SEE-ALSO: CDXC:Sidebar 2026-11-03 in components/sessions/NewSessionPlace.tsx (why the computers
  * moved here).
  */
@@ -73,35 +76,46 @@ export function ProjectPickerSheet({
               <View style={styles.tile}>
                 <Text style={styles.tileText}>{item.choice.label.slice(0, 1).toUpperCase()}</Text>
               </View>
-              <Text numberOfLines={1} style={styles.label}>
-                {item.choice.label}
-              </Text>
-              {item.choice.hasSessions ? null : <Text style={styles.note}>No sessions</Text>}
-              {chips ? (
-                <View style={styles.chips}>
-                  {item.choice.machines.map((machine, index) => {
-                    const on = index === item.choice.selected;
-                    return (
-                      <Pressable
-                        key={machine.machineId}
-                        accessibilityRole="button"
-                        accessibilityLabel={
-                          machine.connected ? `${item.choice.label} on ${machine.label}` : `${machine.label}, not connected`
-                        }
-                        accessibilityState={{ selected: on, disabled: !machine.connected }}
-                        disabled={!machine.connected}
-                        hitSlop={4}
-                        onPress={() => onPick(item.choice, index)}
-                        style={[styles.chip, on ? styles.chipOn : null, machine.connected ? null : styles.chipAway]}
-                      >
-                        <Text numberOfLines={1} style={[styles.chipText, on ? styles.chipTextOn : null]}>
-                          {machine.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
+              <View style={styles.body}>
+                <View style={styles.nameLine}>
+                  <Text numberOfLines={1} style={styles.label}>
+                    {item.choice.label}
+                  </Text>
+                  {item.choice.hasSessions ? null : <Text style={styles.note}>No sessions</Text>}
                 </View>
-              ) : null}
+                {chips || item.choice.detail !== null ? (
+                  <View style={styles.placeLine}>
+                    {item.choice.detail !== null ? (
+                      <Text numberOfLines={1} style={styles.detail}>
+                        {item.choice.detail}
+                      </Text>
+                    ) : null}
+                    {chips
+                      ? item.choice.machines.map((machine, index) => {
+                          const on = index === item.choice.selected;
+                          return (
+                            <Pressable
+                              key={machine.machineId}
+                              accessibilityRole="button"
+                              accessibilityLabel={
+                                machine.connected ? `${item.choice.label} on ${machine.label}` : `${machine.label}, not connected`
+                              }
+                              accessibilityState={{ selected: on, disabled: !machine.connected }}
+                              disabled={!machine.connected}
+                              hitSlop={4}
+                              onPress={() => onPick(item.choice, index)}
+                              style={[styles.chip, on ? styles.chipOn : null, machine.connected ? null : styles.chipAway]}
+                            >
+                              <Text numberOfLines={1} style={[styles.chipText, on ? styles.chipTextOn : null]}>
+                                {machine.label}
+                              </Text>
+                            </Pressable>
+                          );
+                        })
+                      : null}
+                  </View>
+                ) : null}
+              </View>
             </Pressable>
           )
         }
@@ -125,10 +139,15 @@ const useStyles = themedStyles((P) => ({
   row: {
     minHeight: 44,
     paddingHorizontal: 12,
+    paddingVertical: 6,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
+  body: { flex: 1, minWidth: 0, gap: 4 },
+  nameLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  placeLine: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4 },
+  detail: { color: P.muted, fontSize: 12, marginRight: 4, flexShrink: 1 },
   pressed: { backgroundColor: P.border },
   label: { flex: 1, minWidth: 0, color: P.primary, fontSize: 14 },
   tile: {
@@ -141,7 +160,6 @@ const useStyles = themedStyles((P) => ({
   },
   tileText: { color: P.muted, fontSize: 11, fontWeight: '600' },
   note: { color: P.muted, fontSize: 12 },
-  chips: { flexDirection: 'row', gap: 4, flexShrink: 1 },
   chip: {
     maxWidth: 96,
     height: 24,

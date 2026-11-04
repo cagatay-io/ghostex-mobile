@@ -107,3 +107,94 @@ export function repoIdentity(
     fallbackTitle.trim();
   return { key: `dir:${folder.toLowerCase()}`, label: folder };
 }
+
+/** The `owner/repo` part of an origin key (its last two segments), which two spellings of one origin share. */
+function ownerRepo(key: string): string {
+  const parts = key.split('/').filter((part) => part !== '');
+  if (parts.length >= 2) return `${parts[parts.length - 2]}/${parts[parts.length - 1]}`;
+  return parts[0] ?? key;
+}
+
+/**
+ * Each repository key a list holds, mapped to the identity its row goes under (gx-core
+ * `merge_repo_identities`): origins naming the same `owner/repo` are one repository whatever their
+ * host (the `github.com` key, else the first, wins), and a folder with no known origin joins the
+ * one repository whose name is its folder name. Two provably different repositories stay apart.
+ *
+ * CDXC:Sidebar 2026-11-04 DECISION:
+ * User (Q1224, randomsand: "Projects with the same name on 2 computers sometimes merge into one row and sometimes show as two"): one project is one row with its computers on it, and it stays one row; the rule and its reasons are written down in packages/gx-core/src/unified_sidebar/repo.rs.
+ */
+export function mergeRepoIdentities(identities: Iterable<RepoIdentity>): Map<string, RepoIdentity> {
+  const origins = new Map<string, RepoIdentity[]>();
+  const folders: RepoIdentity[] = [];
+  for (const identity of identities) {
+    if (identity.key.startsWith('dir:')) {
+      folders.push(identity);
+    } else {
+      const group = ownerRepo(identity.key);
+      origins.set(group, [...(origins.get(group) ?? []), identity]);
+    }
+  }
+  const merged = new Map<string, RepoIdentity>();
+  const canonicalByName = new Map<string, RepoIdentity[]>();
+  for (const group of origins.values()) {
+    let canonical = group[0]!;
+    for (const identity of group) {
+      const rank = (candidate: RepoIdentity) => (candidate.key.startsWith('github.com/') ? 0 : 1);
+      if (
+        rank(identity) < rank(canonical) ||
+        (rank(identity) === rank(canonical) && identity.key < canonical.key)
+      ) {
+        canonical = identity;
+      }
+    }
+    for (const identity of group) merged.set(identity.key, { ...canonical });
+    const name = canonical.key.split('/').pop() ?? '';
+    const entry = canonicalByName.get(name) ?? [];
+    if (!entry.some((other) => other.key === canonical.key && other.label === canonical.label)) {
+      entry.push(canonical);
+    }
+    canonicalByName.set(name, entry);
+  }
+  for (const folder of folders) {
+    const candidates = canonicalByName.get(folder.key.slice('dir:'.length)) ?? [];
+    merged.set(folder.key, candidates.length === 1 ? { ...candidates[0]! } : { ...folder });
+  }
+  return merged;
+}
+
+/** The merged keys of one computer's projects that have an origin (gx-core `origin_keys_of`). */
+export function originKeysOf(identities: Iterable<RepoIdentity>, merged: ReadonlyMap<string, RepoIdentity>): Set<string> {
+  const keys = new Set<string>();
+  for (const identity of identities) {
+    if (identity.key.startsWith('dir:')) continue;
+    keys.add(merged.get(identity.key)?.key ?? identity.key);
+  }
+  return keys;
+}
+
+/**
+ * The identity one project of one computer goes under: its merged repository, except that a
+ * folder with no origin keeps its own when that computer already has the repository it would
+ * join, since then it is another checkout (gx-core `resolve_repo_identity`).
+ */
+export function resolveRepoIdentity(
+  identity: RepoIdentity,
+  merged: ReadonlyMap<string, RepoIdentity>,
+  originKeysHere: ReadonlySet<string>,
+): RepoIdentity {
+  const target = merged.get(identity.key) ?? identity;
+  if (identity.key.startsWith('dir:') && target.key !== identity.key && originKeysHere.has(target.key)) {
+    return { ...identity };
+  }
+  return { ...target };
+}
+
+/** Every computer's project identities, merged across the computers and resolved per computer. */
+export function mergedRepoIdentities(perComputer: readonly (readonly RepoIdentity[])[]): RepoIdentity[][] {
+  const merged = mergeRepoIdentities(perComputer.flat());
+  return perComputer.map((identities) => {
+    const here = originKeysOf(identities, merged);
+    return identities.map((identity) => resolveRepoIdentity(identity, merged, here));
+  });
+}

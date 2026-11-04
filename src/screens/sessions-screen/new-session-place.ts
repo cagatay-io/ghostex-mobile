@@ -15,7 +15,7 @@ import {
   type UnifiedProjectChoice,
 } from '../../contract/unified/choices';
 import { unifiedMachineInput } from '../../contract/unified/fromSummary';
-import { repoIdentity } from '../../contract/unified/repo';
+import { mergedRepoIdentities, repoIdentity } from '../../contract/unified/repo';
 import { useInventoryStore } from '../../inventory/store';
 import { enabledMachines, machineDisplayLabel, useMachinesStore } from '../../machines/store';
 import { useUnifiedListStore } from './unified-list-store';
@@ -59,14 +59,25 @@ export function projectChoicesNow(currentMachineId: string): UnifiedProjectChoic
   return unifiedProjectChoices(projectChoiceInputsNow(), lastMachines, recentRepos, currentMachineId, currentMachineId);
 }
 
-/** The repository a project of a computer belongs to, as the project list keys it. */
+/**
+ * The repository a project of a computer belongs to, as the project list keys it: merged across
+ * every computer the phone has read (gx-core `merge_repo_identities`), so a project on another
+ * computer and its twin here share one key.
+ */
 export function repoKeyOfProject(machineId: string, projectId: string): string | null {
-  const summary = useInventoryStore.getState().inventoriesByMachineId[machineId]?.summary ?? null;
-  if (summary === null) return null;
-  const { projects } = unifiedMachineInput({ machineId, label: '', summary, workspaceId: null }, false);
-  const project = projects.find((entry) => entry.projectId === projectId);
-  if (project === undefined) return null;
-  return repoIdentity(project.gitRemoteOriginUrl, project.path, project.worktreeParentPath, project.title).key;
+  const inputs = projectChoiceInputsNow();
+  const machineIndex = inputs.findIndex((machine) => machine.machine === machineId);
+  if (machineIndex < 0) return null;
+  const projectIndex = inputs[machineIndex]!.projects.findIndex((project) => project.projectId === projectId);
+  if (projectIndex < 0) return null;
+  const identities = mergedRepoIdentities(
+    inputs.map((machine) =>
+      machine.projects.map((project) =>
+        repoIdentity(project.gitRemoteOriginUrl, project.path, project.worktreeParentPath, project.title),
+      ),
+    ),
+  );
+  return identities[machineIndex]![projectIndex]!.key;
 }
 
 /** The Unified filter's key of the Space that shows a project, or null when its computer has none. */

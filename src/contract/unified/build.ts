@@ -15,7 +15,7 @@
  * this file.
  */
 
-import { repoIdentity, type RepoIdentity } from './repo';
+import { mergedRepoIdentities, repoIdentity, type RepoIdentity } from './repo';
 
 export const LOCAL_MACHINE_KEY = 'local';
 export const OTHER_SPACE_ID = 'other';
@@ -212,7 +212,7 @@ function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
-function repoDisambiguator(key: string): string {
+export function repoDisambiguator(key: string): string {
   if (key.startsWith('dir:')) return 'no remote';
   const parts = key.split('/');
   return parts.length >= 2 ? `${parts[parts.length - 2]}/${parts[parts.length - 1]}` : key;
@@ -246,7 +246,15 @@ export function buildUnifiedList<S>(
   const rows: Array<{ row: UnifiedRow<S>; machineKey: string }> = [];
   const repoMachines = new Map<string, { label: string; machines: Set<string> }>();
   const options: UnifiedFilterOptions = { repos: [], machines: [], spaces: [] };
-  for (const machine of machines) {
+  // Every project's repository, merged across the computers (gx-core `merged_repos_of`).
+  const identities = mergedRepoIdentities(
+    machines.map((machine) =>
+      machine.projects.map((project) =>
+        repoIdentity(project.gitRemoteOriginUrl, project.path, project.worktreeParentPath, project.title),
+      ),
+    ),
+  );
+  for (const [machineIndex, machine] of machines.entries()) {
     const machineKey = machineKeyOf(machine);
     options.machines.push({ key: machineKey, label: machine.label, detail: null });
     const remoteName = machine.isLocal ? null : machine.label;
@@ -264,13 +272,8 @@ export function buildUnifiedList<S>(
         detail: remoteName,
       });
     }
-    for (const project of machine.projects) {
-      const repo = repoIdentity(
-        project.gitRemoteOriginUrl,
-        project.path,
-        project.worktreeParentPath,
-        project.title,
-      );
+    for (const [projectIndex, project] of machine.projects.entries()) {
+      const repo = identities[machineIndex]![projectIndex]!;
       const entry = repoMachines.get(repo.key) ?? { label: repo.label, machines: new Set<string>() };
       entry.machines.add(machine.label);
       repoMachines.set(repo.key, entry);

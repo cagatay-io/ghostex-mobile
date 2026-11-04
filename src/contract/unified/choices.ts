@@ -6,8 +6,8 @@
  * The user's decisions behind these rules (Q1163 to Q1187) are recorded there.
  */
 
-import type { UnifiedFilter, UnifiedProjectInput } from './build';
-import { repoIdentity } from './repo';
+import { repoDisambiguator, type UnifiedFilter, type UnifiedProjectInput } from './build';
+import { mergedRepoIdentities, repoIdentity } from './repo';
 import { RECENT_REPOS_MAX } from './saved';
 
 export type UnifiedChoiceMachineInput = {
@@ -40,6 +40,8 @@ export type UnifiedProjectChoice = {
   hasSessions: boolean;
   /** Listed first under Recent (`recentOrder`). */
   recent: boolean;
+  /** What tells it from another row with the same name: `owner/repo`, or "no remote". */
+  detail: string | null;
 };
 
 /** Where a new session starts: a project of a repository on one machine. */
@@ -108,19 +110,27 @@ export function unifiedProjectChoices(
   const byRepo = new Map<string, UnifiedProjectChoice>();
   // Each repository's newest session activity across its machines.
   const latest = new Map<string, number>();
-  for (const machine of machines) {
+  // Every project's repository, merged across computers (gx-core `merge_repo_identities`).
+  const identities = mergedRepoIdentities(
+    machines.map((machine) =>
+      machine.projects.map((project) =>
+        repoIdentity(project.gitRemoteOriginUrl, project.path, project.worktreeParentPath, project.title),
+      ),
+    ),
+  );
+  for (const [machineIndex, machine] of machines.entries()) {
     const picks = new Map<string, { project: UnifiedChoiceMachineInput['projects'][number]; label: string }>();
     const withSessions = new Set<string>();
     const activity = new Map<string, number>();
-    for (const project of machine.projects) {
-      const repo = repoIdentity(project.gitRemoteOriginUrl, project.path, project.worktreeParentPath, project.title);
+    for (const [projectIndex, project] of machine.projects.entries()) {
+      const repo = identities[machineIndex]![projectIndex]!;
       if (project.hasSessions === true) withSessions.add(repo.key);
       if (project.lastActivityMs !== undefined && project.lastActivityMs !== null) {
         activity.set(repo.key, Math.max(activity.get(repo.key) ?? project.lastActivityMs, project.lastActivityMs));
       }
       const pick = picks.get(repo.key);
       if (pick === undefined || (pick.project.worktreeParentPath !== null && project.worktreeParentPath === null)) {
-        picks.set(repo.key, { project, label: pick?.label ?? repo.label });
+        picks.set(repo.key, { project, label: repo.label });
       }
     }
     for (const repoKey of [...picks.keys()].sort(byCodePoint)) {
@@ -129,7 +139,7 @@ export function unifiedProjectChoices(
       if (at !== undefined) latest.set(repoKey, Math.max(latest.get(repoKey) ?? at, at));
       let choice = byRepo.get(repoKey);
       if (choice === undefined) {
-        choice = { repoKey, label, machines: [], selected: 0, hasSessions: false, recent: false };
+        choice = { repoKey, label, machines: [], selected: 0, hasSessions: false, recent: false, detail: null };
         byRepo.set(repoKey, choice);
       }
       choice.hasSessions ||= withSessions.has(repoKey);
@@ -147,6 +157,13 @@ export function unifiedProjectChoices(
     choice.selected = defaultMachine(choice, lastMachines, currentMachine, localMachine);
     choice.recent = recent.includes(choice.repoKey);
   }
+  // Two different repositories with the same name say which is which, as the filter does.
+  const names = choices.map((choice) => choice.label.toLowerCase());
+  choices.forEach((choice, index) => {
+    if (names.some((name, other) => other !== index && name === names[index])) {
+      choice.detail = repoDisambiguator(choice.repoKey);
+    }
+  });
   const rank = (choice: UnifiedProjectChoice) => {
     const index = recent.indexOf(choice.repoKey);
     return index < 0 ? Number.MAX_SAFE_INTEGER : index;
@@ -159,13 +176,34 @@ export function unifiedProjectChoices(
   );
 }
 
-/** The rows whose name, or a machine's name, holds every typed word. */
+/**
+ * The rows whose name (or `owner/repo`), or one of whose machines' names, holds every typed word.
+ * A word only a machine's name holds picks that machine on the row (a connected one first), so
+ * "ghostex win" is Ghostex on Windows (gx-core `filter_project_choices`, Q1224).
+ */
 export function filterProjectChoices(choices: readonly UnifiedProjectChoice[], query: string): UnifiedProjectChoice[] {
   const words = query.toLowerCase().split(/\s+/u).filter((word) => word.length > 0);
-  return choices.filter((choice) => {
-    const haystack = [choice.label, ...choice.machines.map((machine) => machine.label)].join('\n').toLowerCase();
-    return words.every((word) => haystack.includes(word));
-  });
+  const kept: UnifiedProjectChoice[] = [];
+  for (const choice of choices) {
+    const name = `${choice.label.toLowerCase()}\n${(choice.detail ?? '').toLowerCase()}`;
+    let picked: number | null = null;
+    let matches = true;
+    for (const word of words) {
+      if (name.includes(word)) continue;
+      const named = choice.machines
+        .map((machine, index) => ({ machine, index }))
+        .filter(({ machine }) => machine.label.toLowerCase().includes(word));
+      const first = named.find(({ machine }) => machine.connected) ?? named[0];
+      if (first === undefined) {
+        matches = false;
+        break;
+      }
+      picked ??= first.index;
+    }
+    if (!matches) continue;
+    kept.push(picked === null ? choice : { ...choice, selected: picked });
+  }
+  return kept;
 }
 
 /** The next connected machine in `forward`'s direction, stopping at the ends. */
