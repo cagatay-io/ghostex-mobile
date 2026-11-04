@@ -113,7 +113,7 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  useInventoryStore.getState().stopPolling();
+  useInventoryStore.getState().setPolling(false);
   jest.useRealTimers();
 });
 

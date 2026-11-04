@@ -133,8 +133,6 @@ export type MobileSummaryWireRoot = {
   quickActionsByProject?: Record<string, GhostexQuickAction[]>;
   /** The computer's Global Actions, in its saved order; absent from a computer that predates them. */
   globalQuickActions?: GhostexQuickAction[];
-  /** Features of the answering `ghostex`; `globalQuickActions: true` means it lists and runs Global Actions. */
-  capabilities?: Record<string, unknown>;
   workspaceGroups?: GhostexWorkspaceGroups;
   /** Server-normalized colored "Group N" overlay: {order, collections}. */
   sidebarProjectCollections?: unknown;
@@ -144,7 +142,7 @@ export type MobileSummaryWireRoot = {
   customSessionTags?: unknown;
   /** This computer's workspaces (`SidebarWorkspacesState`); absent on a daemon without workspaces. */
   sidebarWorkspaces?: unknown;
-  /** Booleans naming the summary fields this computer sends (such as `awaitingAnswer`); absent from an older one. */
+  /** Booleans naming supported summary features, including `awaitingAnswer`, `attentionNotificationId` and `globalQuickActions`; absent on older computers. */
   capabilities?: unknown;
 };
 
