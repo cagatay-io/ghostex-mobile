@@ -95,7 +95,12 @@ function TaskRow({ row }: { row: unknown }) {
 
 /** The sidebar's working colour and the amber of the "Needs your approval" tag (desktop `coordinator_threads.rs`). */
 const THREAD_WORKING = '#c68a06';
-const THREAD_APPROVAL = '#f5a524';
+/**
+ * A worker waiting for approval: its dot and its "Needs your approval" tag take the sidebar's red
+ * approval dot, as the sheet's header does (desktop `coordinator_threads.rs`, the user's 2026-11-05
+ * words there).
+ */
+const THREAD_APPROVAL = SidebarPalette.ROW_APPROVAL;
 
 /**
  * The sidebar's colour for what a pill's sheet waits on (gx-chat-core `ChatPill.waiting`; the
@@ -195,6 +200,8 @@ function ThreadRow({ row, chat, onDone }: { row: unknown; chat: RustChat; onDone
       <View style={styles.taskMarker}>
         {isTrue(row, 'working') ? (
           <View style={[styles.threadDot, { backgroundColor: THREAD_WORKING }]} />
+        ) : isTrue(row, 'needsApproval') ? (
+          <View style={[styles.threadDot, { backgroundColor: THREAD_APPROVAL }]} />
         ) : (
           <View style={styles.pendingRing} />
         )}
@@ -516,7 +523,7 @@ const useStyles = themedStyles((P) => ({
     paddingHorizontal: 5,
     borderRadius: 4,
     overflow: 'hidden',
-    backgroundColor: 'rgba(245, 165, 36, 0.16)',
+    backgroundColor: 'rgba(239, 68, 68, 0.16)',
     color: THREAD_APPROVAL,
     fontSize: PROSE_SIZE - 2,
   },
