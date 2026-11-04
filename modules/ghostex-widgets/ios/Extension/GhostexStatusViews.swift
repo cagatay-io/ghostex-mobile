@@ -238,7 +238,7 @@ struct MediumStatus: View {
           ForEach(Array(snapshot.agents.prefix(shownAgents).enumerated()), id: \.offset) { _, agent in
             VStack(alignment: .leading, spacing: 2) {
               HStack(spacing: 6) {
-                AgentMarkView(agentName: agent.agentName)
+                AgentMarkView(iconId: agent.agentIcon, tint: agent.agentTint)
                 Text(agent.agentName).font(.footnote.weight(.semibold))
               }
               HStack(spacing: 6) {
@@ -285,7 +285,7 @@ struct LargeAgentRow: View {
 
   var body: some View {
     HStack(spacing: 8) {
-      AgentMarkView(agentName: agent.agentName)
+      AgentMarkView(iconId: agent.agentIcon, tint: agent.agentTint)
       HStack(alignment: .firstTextBaseline, spacing: 6) {
         Text(agent.agentName).font(.footnote.weight(.semibold)).layoutPriority(1)
         Text(agent.project).font(.caption).foregroundStyle(colors.secondary)

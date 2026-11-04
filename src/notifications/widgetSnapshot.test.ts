@@ -4,7 +4,7 @@
  * `buildSnapshot` on summary fixtures in the CLI's wire form (read by the real summary parser), the real
  * `buildUsageBars` on a computer's `agentAccounts` answer, and the real writer with a fake App Group file writer and
  * a fake `WidgetCenter`, with an injected clock. Expected values come from the widget snapshot contract
- * (format version 1) and the widget design: counts of working and waiting agents,
+ * (format version 2) and the widget design: counts of working and waiting agents,
  * the attention marker while one waits, the agents waiting first (oldest first inside a state), at most eight,
  * the data time, usage bars only where usage exists, and no prompt, reply or title text.
  *
@@ -171,13 +171,15 @@ describe('the snapshot', () => {
   test('only the contract fields: no title, prompt or reply text, and no usage without usage data', () => {
     const snapshot = buildSnapshot(sources(twoWorkingOneWaiting), NOW);
     assert.deepEqual(Object.keys(snapshot).sort(), ['agents', 'attention', 'counts', 'schemaVersion', 'writtenAt']);
-    assert.equal(snapshot.schemaVersion, 1);
+    assert.equal(snapshot.schemaVersion, 2);
     for (const agent of snapshot.agents) {
-      assert.deepEqual(Object.keys(agent).sort(), ['agentName', 'project', 'sinceAt', 'state']);
+      assert.deepEqual(Object.keys(agent).sort(), ['agentIcon', 'agentName', 'agentTint', 'project', 'sinceAt', 'state']);
     }
     assert.ok(!JSON.stringify(snapshot).includes('must not leak'));
     assert.deepEqual(snapshot.agents[0], {
       agentName: 'omp',
+      agentIcon: 'omp',
+      agentTint: 0xC8FF62,
       project: 'Ghostex',
       state: 'waiting',
       sinceAt: '2026-10-24T10:40:00.000Z',

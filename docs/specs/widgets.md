@@ -17,6 +17,8 @@ of `plugins/withWidgets.js` together with the Live Activity.
 - Agents: working and waiting, waiting first; inside a state the longest wait and the longest work first. Finished
   agents are neither counted nor listed. A waiting agent with a question says "waiting" (the snapshot carries no
   question field).
+- Agent marks and tints come from the same resolved identity as the session list and Live Activity, not from the
+  displayed name. An explicit icon keeps its identity even when the agent has a custom name.
 - "No agent is working or waiting." (medium and large, in the agents' place) only when both counts are 0. An agent
   counted without a row (a computer that sends no start time, an approval without a time) leaves that place empty;
   the counts still show it.
@@ -44,11 +46,14 @@ of `plugins/withWidgets.js` together with the Live Activity.
 
 ## 3. Data path
 
-- After every session refresh the app builds the snapshot (`buildSnapshot`, `widget-snapshot` format version 1:
-  `schemaVersion`, `writtenAt`, `counts`, `attention`, `agents` (at most 8, each `working` or `waiting`), optional
-  `usage.bars` (at most 6)) over every enabled computer's summary, with the Live Activity's classification of a
-  session (`candidateFor` in `contentState.ts`), and writes it as `widget-snapshot.json` into the App Group container
-  (atomic), then asks WidgetKit to reload the widget (`reloadTimelines(ofKind: "GhostexStatus")`), once per write.
+- After every session refresh the app builds the snapshot (`buildSnapshot`, `widget-snapshot` format version 2:
+  `schemaVersion`, `writtenAt`, `counts`, `attention`, `agents` (at most 8, each `working` or `waiting`, with resolved
+  artwork `agentIcon` and packed RGB `agentTint`), optional `usage.bars` (at most 6)) over every enabled computer's
+  summary, with the Live Activity's classification of a session (`candidateFor` in `contentState.ts`), and writes it
+  as `widget-snapshot.json` into the App Group container (atomic), then asks WidgetKit to reload the widget
+  (`reloadTimelines(ofKind: "GhostexStatus")`), once per write.
+- Older snapshots show the existing empty state until the app's next session refresh replaces them with the current
+  format. The app and extension ship together; no name-based identity is reconstructed from an old snapshot.
 - Data time (`writtenAt`): when the oldest summary used was read; the refresh time when every computer answered.
 - A refresh that changes nothing shown, compared with the data time to the minute, writes nothing; while the poll runs
   an unchanged state is written once a minute, so the shown time stays current.

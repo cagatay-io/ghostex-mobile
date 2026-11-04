@@ -1,14 +1,14 @@
 import Foundation
 
-/// The widget snapshot (format version 1) as the widgets read it. The app writes it after each
-/// session refresh (`src/notifications/widgetSnapshot.ts`); it carries agent, project, state and times only, no prompt,
-/// reply or title text. Any other version, a missing or an unreadable file, and an agent in a state other than
+/// The widget snapshot (format version 2) as the widgets read it. The app writes it after each
+/// session refresh (`src/notifications/widgetSnapshot.ts`); it carries agent identity, tint, project, state and times,
+/// no prompt, reply or title text. Any other version, a missing or an unreadable file, and an agent in a state other than
 /// working or waiting read as nil: the widget then shows its empty state, never placeholder values.
 ///
 /// Compiled into the widget extension next to the Live Activity's `Shared/` files, whose counts and ISO time parsing
 /// (`ActivityTime`, which takes the app's milliseconds) it reuses.
 struct GhostexWidgetSnapshot: Decodable, Hashable {
-  static let version = 1
+  static let version = 2
 
   /// What the widgets count and list: finished agents are in neither, so a snapshot has no third state.
   enum State: String, Decodable, Hashable {
@@ -18,16 +18,21 @@ struct GhostexWidgetSnapshot: Decodable, Hashable {
 
   struct Agent: Decodable, Hashable {
     let agentName: String
+    /// Resolved artwork identity and packed RGB tint from the app, never inferred from the display name.
+    let agentIcon: String
+    let agentTint: UInt32
     let project: String
     let state: State
     /// Working: since the stint began; waiting: since the agent waits.
     let sinceAt: Date
 
-    private enum CodingKeys: String, CodingKey { case agentName, project, state, sinceAt }
+    private enum CodingKeys: String, CodingKey { case agentName, agentIcon, agentTint, project, state, sinceAt }
 
     init(from decoder: Decoder) throws {
       let container = try decoder.container(keyedBy: CodingKeys.self)
       agentName = try container.decode(String.self, forKey: .agentName)
+      agentIcon = try container.decode(String.self, forKey: .agentIcon)
+      agentTint = try container.decode(UInt32.self, forKey: .agentTint)
       project = try container.decode(String.self, forKey: .project)
       state = try container.decode(State.self, forKey: .state)
       sinceAt = try ActivityTime.decode(container, .sinceAt)
