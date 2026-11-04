@@ -94,6 +94,7 @@ type UnifiedListItem =
   | { kind: 'card'; key: string; row: UnifiedRow<GhostexSession>; inGroup?: boolean }
   | { kind: 'slim'; key: string; shelf: UnifiedShelf; row: UnifiedRow<GhostexSession> }
   | { kind: 'gap'; key: string }
+  | { kind: 'divider'; key: string }
   | { kind: 'empty'; key: string; text: string };
 
 export type UnifiedListDeps = {
@@ -317,6 +318,9 @@ export function useUnifiedList(deps: UnifiedListDeps) {
       if (shelves.length > 0) list.push({ kind: 'gap', key: 'gap:shelves' });
       for (const shelf of shelves) pushShelf(shelf, view[shelf], null);
     }
+    // The Drafts area ends in a hairline once sessions follow it, like the desktop's Unified sidebar; alone it keeps its plain gap.
+    const draftsGap = list.findIndex((item) => item.key === 'gap:drafts');
+    if (draftsGap !== -1 && draftsGap < list.length - 1) list[draftsGap] = { kind: 'divider', key: 'divider:drafts' };
     if (list.length === 0) {
       const anyProjects = computers.some((computer) => computer.summary.projects.length > 0);
       list.push({
@@ -376,6 +380,7 @@ export function useUnifiedList(deps: UnifiedListDeps) {
 
   const renderItem: FlatListProps<UnifiedListItem>['renderItem'] = ({ item }) => {
     if (item.kind === 'gap') return <View style={styles.gap} />;
+    if (item.kind === 'divider') return <View style={styles.divider} />;
     if (item.kind === 'empty') return <Text style={styles.empty}>{item.text}</Text>;
     if (item.kind === 'shelf') {
       const shelfKey = item.repoKey === null ? item.shelf : `${item.repoKey}|${item.shelf}`;
@@ -613,6 +618,7 @@ const styles = StyleSheet.create({
     borderRadius: ds(5),
   },
   gap: { height: ds(10) },
+  divider: { height: StyleSheet.hairlineWidth, marginVertical: ds(6), marginHorizontal: ds(9), backgroundColor: 'rgba(255,255,255,0.12)' },
   empty: {
     paddingVertical: ds(26),
     textAlign: 'center',
