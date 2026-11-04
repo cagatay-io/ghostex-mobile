@@ -101,13 +101,13 @@ function session(sessionId: string, title: string, projectId: string, minutes: n
 
 const PROJECTS = [
   { projectId: 'P1', name: 'website', path: '/repo/website' },
-  { projectId: 'P2', name: 'ghostex-livetest', path: '/repo/ghostex-livetest' },
+  { projectId: 'P2', name: 'inventory', path: '/repo/inventory' },
   { projectId: 'P3', name: 'billing', path: '/repo/billing' },
 ];
 
 /**
- * One computer: `ghostex-livetest` in the collection "Internal", `billing` in "Acme", `website` in none. The most
- * recent session is in `ghostex-livetest`, so it is the Unified list's top card.
+ * One computer: `inventory` in the collection "Internal", `billing` in "Acme", `website` in none. The most
+ * recent session is in `inventory`, so it is the Unified list's top card.
  */
 function summary(extra: object = {}): GhostexMobileSummary {
   const parsed = parseMobileSummary(
@@ -115,7 +115,7 @@ function summary(extra: object = {}): GhostexMobileSummary {
       ok: true,
       projects: PROJECTS,
       sessions: [
-        session('s-live', 'Live test run', 'P2', 2),
+        session('s-inventory', 'Stock reconciliation', 'P2', 2),
         session('s-bill', 'Invoice export', 'P3', 30),
         session('s-web', 'Landing copy', 'P1', 90),
       ],
@@ -269,16 +269,16 @@ describe('the Unified list, projects in collections', () => {
 
   test('a project group\'s "+" opens the picker in that project', async () => {
     await renderSessions({ extra: { ...UNIFIED, unifiedGroupByProject: true } });
-    await press('New session in ghostex-livetest');
-    await expectPickerStarting('ghostex-livetest', 'P2');
+    await press('New session in inventory');
+    await expectPickerStarting('inventory', 'P2');
   });
 
   test('a project group\'s "+" on two computers opens the picker on the computer picked', async () => {
     await renderSessions({ extra: { ...UNIFIED, unifiedGroupByProject: true }, withMini: true });
-    await press('New session in ghostex-livetest');
-    await pressAndDismiss(screen.getByRole('button', { name: 'Project: ghostex-livetest on Studio. Tap to change' }));
-    await pressAndDismiss(screen.getByRole('button', { name: 'ghostex-livetest on Mac mini' }));
-    await expectPickerStarting('ghostex-livetest', 'P2', MINI.id);
+    await press('New session in inventory');
+    await pressAndDismiss(screen.getByRole('button', { name: 'Project: inventory on Studio. Tap to change' }));
+    await pressAndDismiss(screen.getByRole('button', { name: 'inventory on Mac mini' }));
+    await expectPickerStarting('inventory', 'P2', MINI.id);
   });
 
   test('a project outside every collection keeps its picker', async () => {
@@ -292,7 +292,7 @@ describe('the Project list, a project in a collection', () => {
   test('its open header\'s "Select agent" opens the picker in that project', async () => {
     await renderSessions({ expandedCollections: ['internal'], expandedProjects: ['id:P2'] });
     await press('Select agent');
-    await expectPickerStarting('ghostex-livetest', 'P2');
+    await expectPickerStarting('inventory', 'P2');
   });
 
   test('a closed collection draws no project header, so no picker can be asked for there', async () => {
