@@ -326,6 +326,34 @@ describe('the switch between list and tiles', () => {
     expect(await storedView()).toBe('list');
   });
 
+  test.each([true, false])('an open question card follows its computer capability in the tile (%s)', async (announced) => {
+    const summary = parseMobileSummary(
+      JSON.stringify({
+        ok: true,
+        capabilities: announced ? { awaitingAnswer: true } : {},
+        projects: [{ projectId: 'p1', name: 'ghostex-mobile', path: '/work/ghostex-mobile' }],
+        sessions: [
+          wireSession('omp', 'Omp', {
+            agent: 'omp',
+            agentName: 'OMP',
+            activity: 'attention',
+            awaitingAnswer: true,
+            pendingQuestionCount: 0,
+          }),
+          wireSession('asked', 'Asked', { activity: 'attention', pendingQuestionCount: 1 }),
+        ],
+      }),
+    );
+    expect(summary?.sessions).toHaveLength(2);
+    const inventory = useInventoryStore.getState().inventoriesByMachineId.m1;
+    useInventoryStore.setState({ inventoriesByMachineId: { m1: { ...inventory, summary, serverSummary: summary } } });
+    await renderScreen(UPRIGHT, [FLAT_UPRIGHT]);
+    await press('Show as tiles');
+    expect(screen.getByRole('button', { name: `Omp, ${announced ? 'Has a question' : 'Waiting'}` })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Asked, Has a question' })).toBeTruthy();
+    if (!announced) expect(screen.queryByRole('button', { name: 'Omp, Has a question' })).toBeNull();
+  });
+
   test('half folded like a laptop the switch is offered too', async () => {
     await renderScreen(UPRIGHT, [LAPTOP]);
     expect(screen.getByLabelText('Show as tiles')).toBeTruthy();
