@@ -587,6 +587,7 @@ describe("the Unified sessions list (useUnifiedList cards in the screen's Sessio
       lastError: null,
       lastErrorCode: null,
       hasLoaded: true,
+      loadedAt: now,
       refreshing: false,
       retrying: false,
       fingerprint: null,
