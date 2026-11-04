@@ -11,6 +11,10 @@ import { AccessibilityInfo, Platform } from 'react-native';
 
 import NoticeToast, { type Notice } from '../common/NoticeToast';
 
+jest.mock('@react-native-async-storage/async-storage', () =>
+  jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+);
+
 let announce: jest.SpyInstance;
 
 beforeEach(() => {
