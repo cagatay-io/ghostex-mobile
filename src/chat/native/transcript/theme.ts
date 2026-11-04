@@ -185,7 +185,7 @@ const DARK: TranscriptTheme = {
   send: {
     fill: '#e5e5e5',
     ink: '#171717',
-    stopFill: '#171717',
+    stopFill: 'transparent',
     stopInk: '#fcfcfc',
     stopBorder: 'rgba(255,255,255,0.14)',
   },
