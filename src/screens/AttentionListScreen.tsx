@@ -28,7 +28,7 @@ import { NotificationsCopy } from '../copy';
 import type { RootStackParamList } from '../navigation/types';
 import AttentionList, { type OpenSessionTarget } from '../notifications/AttentionList';
 import { refreshAttentionFeeds, updateAllAttentionFeeds, useAttentionFeedStore } from '../notifications/feedStore';
-import { destructiveButtonFills, GhostexPalette, neutralButtonFills } from '../theme/palette';
+import { destructiveButtonFills, GhostexPalette, neutralButtonFills, SidebarPalette } from '../theme/palette';
 import { useAppearanceHeader } from './settings/useAppearanceHeader';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AttentionList'>;
@@ -162,7 +162,9 @@ export default function AttentionListScreen({ navigation }: Props) {
             }}
             style={({ pressed }) => [styles.sheetButton, { backgroundColor: pressed ? danger.pressed : danger.rest }]}
           >
-            <Text style={[styles.sheetButtonText, { color: GhostexPalette.DANGER }]}>{NotificationsCopy.clearAll}</Text>
+            <Text style={[styles.sheetButtonText, { color: SidebarPalette.MENU_DANGER }]}>
+              {NotificationsCopy.clearAll}
+            </Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
