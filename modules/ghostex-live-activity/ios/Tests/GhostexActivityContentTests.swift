@@ -98,6 +98,23 @@ final class GhostexActivityContentTests: XCTestCase {
       "ghostex://session?machineId=a%23b%3Dc&sessionId=x%2By%25z%3Fw%2F")
   }
 
+  /// The question row uses the same literal link as `src/app/deepLinks.test.ts`; other rows force no view.
+  func testQuestionRowLinkOpensTheQuestionCard() {
+    let start = Date(timeIntervalSince1970: 1_793_000_000)
+    func row(_ state: GhostexAgentState, hasQuestion: Bool?) -> GhostexActivityRow {
+      GhostexActivityRow(
+        target: GhostexActivityTarget(machineId: "m1", sessionId: "sess&1"),
+        agentName: "a", agentIcon: "codex", agentTint: 0xFFFFFF, project: "p",
+        state: state, startedAt: start, hasQuestion: hasQuestion)
+    }
+    let session = "ghostex://session?machineId=m1&sessionId=sess%261"
+    XCTAssertEqual(row(.waiting, hasQuestion: true).deepLink?.absoluteString, session + "&view=question")
+    XCTAssertEqual(row(.waiting, hasQuestion: false).deepLink?.absoluteString, session)
+    XCTAssertEqual(row(.waiting, hasQuestion: nil).deepLink?.absoluteString, session)
+    XCTAssertEqual(row(.working, hasQuestion: true).deepLink?.absoluteString, session)
+    XCTAssertEqual(row(.finished, hasQuestion: true).deepLink?.absoluteString, session)
+  }
+
   /// A valid content state (a question, a working and a finished row).
   private static let schemaInstance = """
     {"updatedAt":"2026-10-24T10:42:00Z","counts":{"working":1,"waiting":1},"agents":[\

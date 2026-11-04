@@ -40,7 +40,7 @@ public struct GhostexActivityTarget: Codable, Hashable, Sendable {
   private static let unreserved = CharacterSet(
     charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
 
-  /// `ghostex://session?machineId=…&sessionId=…`, parsed by the app's `src/app/sessionLink.ts`.
+  /// `ghostex://session?machineId=…&sessionId=…`, parsed by the app's `src/app/deepLinkHandler.ts`.
   public var deepLink: URL? {
     guard
       let machine = machineId.addingPercentEncoding(withAllowedCharacters: Self.unreserved),
@@ -124,6 +124,13 @@ public struct GhostexActivityRow: Codable, Hashable, Sendable {
 
   /// Whether the row says "has a question" instead of "waiting".
   public var asksQuestion: Bool { state == .waiting && hasQuestion == true }
+
+  /// A question row opens its question card through the app's existing `view=question` session link.
+  public var deepLink: URL? {
+    guard let session = target.deepLink else { return nil }
+    guard asksQuestion else { return session }
+    return URL(string: session.absoluteString + "&view=question")
+  }
 }
 
 public struct GhostexActivityContent: Codable, Hashable, Sendable {

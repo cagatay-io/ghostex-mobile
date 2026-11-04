@@ -6,8 +6,8 @@
  * - A pairing link (`https://ghostex.dev/pair#…`) opens the scanner with it.
  * - `ghostex://session?machineId=…&sessionId=…[&title=…][&view=question]` opens the session as a tap in
  *   the Sessions list does: in its Chat View when it opens there, else its terminal (attached first).
- *   The Android persistent notification's rows and the agent notifications send it.
- *   `view=question` (a "has a question" notification) opens the Chat View, where the
+ *   The Android persistent notification's rows, the agent notifications and the Live Activity's rows send it.
+ *   `view=question` (a "has a question" notification or Live Activity row) opens the Chat View, where the
  *   question card stands in place of the composer; a session without a Chat View opens its terminal.
  *   At a cold start the link waits until the stores that decide or overwrite the session's view are
  *   loaded (`storesReady`); the computer's session list may still be missing then: the session is

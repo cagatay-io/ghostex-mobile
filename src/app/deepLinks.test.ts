@@ -135,11 +135,9 @@ describe('a question notification tapped at a cold start', () => {
 });
 
 /**
- * Parser side: a Live Activity row opens the session its target names, through the
- * same parser the deep-link handler uses (`deepLinkHandler.ts`). The URLs are the literal form
- * the extension builds (`GhostexActivityTarget.deepLink`, asserted against the same literals by the Swift
- * test in modules/ghostex-live-activity/ios/Tests): every id character outside RFC 3986's unreserved set
- * percent-encoded.
+ * A Live Activity row opens its session through the app's existing parser (`deepLinkHandler.ts`), and a row with a
+ * question opens its question card. These literal URLs match `GhostexActivityRow.deepLink` in the Swift tests:
+ * ids are percent-encoded and only a question row adds `view=question`.
  */
 
 
@@ -168,5 +166,25 @@ describe('session links from Live Activity rows', () => {
       title: 'Fix tests',
       view: null,
     });
+  });
+
+  const savedInTerminal: DeepLinkSession = {
+    projectId: 'p1',
+    title: 'fix build',
+    hasChatView: true,
+    opensInChatView: false,
+  };
+
+  test('a row that has a question opens the question card, also for a session saved in its terminal view', () => {
+    const f = fake(savedInTerminal);
+    handleDeepLink('ghostex://session?machineId=m1&sessionId=sess%261&view=question', f.deps);
+    assert.deepEqual(f.calls, ['chat:sess&1', 'chatView:m1:sess&1']);
+  });
+
+  test('a row without a question opens the session in the view a tap in the Sessions list picks', async () => {
+    const f = fake(savedInTerminal);
+    handleDeepLink('ghostex://session?machineId=m1&sessionId=sess%261', f.deps);
+    await settle();
+    assert.deepEqual(f.calls, ['attach:sess&1']);
   });
 });

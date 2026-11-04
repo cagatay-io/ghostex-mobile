@@ -184,7 +184,7 @@ struct ActivityRowView: View {
   }
 }
 
-/// A row that opens its session: the target's ids, never the name.
+/// A row opens its session by id, and a question row opens that session's question card.
 struct ActivityRowLink: View {
   let row: GhostexActivityRow
   let frozenAt: Date?
@@ -192,7 +192,7 @@ struct ActivityRowLink: View {
 
   var body: some View {
     Group {
-      if let url = row.target.deepLink {
+      if let url = row.deepLink {
         Link(destination: url) { ActivityRowView(row: row, frozenAt: frozenAt) }
       } else {
         ActivityRowView(row: row, frozenAt: frozenAt)
