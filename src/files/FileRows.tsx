@@ -7,7 +7,9 @@
  * Metrics are the phone's Files list's (44 pt rows, 15 pt names, 16 pt per level) as in the design.
  */
 
-import { memo, useRef } from 'react';
+import { useMemo, memo, useRef } from 'react';
+import { useAppearance, type Appearance } from '../theme/useAppearance';
+
 import { ActivityIndicator, Pressable, StyleSheet, Text, View, type ViewInstance } from 'react-native';
 
 import { DocsCopy } from '../copy';
@@ -25,7 +27,7 @@ import {
   WorldGlyph,
 } from '../components/sessions/icons';
 import { FILE_LIST_DETAIL_SIZE, FILE_LIST_NAME_SIZE } from '../docs/textSizes';
-import { GhostexPalette } from '../theme/palette';
+
 import type { BrowserFile, BrowserFolder } from './list';
 import { fileKind } from './preview';
 
@@ -52,21 +54,23 @@ export function relativeTime(timestamp: number | null): string {
 
 /** A file's icon by its kind, as the desktop files list tells them apart (Markdown, HTML, picture, code, binary). */
 export function FileKindIcon({ name, size }: { name: string; size: number }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   switch (fileKind(name)) {
     case 'markdown':
-      return <NoteGlyph size={size} color={GhostexPalette.FOREGROUND} />;
+      return <NoteGlyph size={size} color={appearance.foreground} />;
     case 'html':
-      return <WorldGlyph size={size} color={GhostexPalette.ACCENT} />;
+      return <WorldGlyph size={size} color={appearance.accent} />;
     case 'image':
-      return <PhotoGlyph size={size} color={GhostexPalette.FOREGROUND} />;
+      return <PhotoGlyph size={size} color={appearance.foreground} />;
     case 'video':
     case 'audio':
     case 'binary':
-      return <BinaryGlyph size={size} color={GhostexPalette.FOREGROUND} />;
+      return <BinaryGlyph size={size} color={appearance.foreground} />;
     case 'source':
-      return <FileCodeGlyph size={size} color={GhostexPalette.FOREGROUND} />;
+      return <FileCodeGlyph size={size} color={appearance.foreground} />;
     case 'other':
-      return <FileGlyph size={size} color={GhostexPalette.FOREGROUND} />;
+      return <FileGlyph size={size} color={appearance.foreground} />;
   }
 }
 
@@ -83,6 +87,8 @@ export function FileRowContent({
   location: string | null;
   opening: boolean;
 }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   return (
     <View style={[styles.row, { paddingLeft: 12 + depth * INDENT + (location === null ? CARET_SPACE : 0) }]}>
       <FileKindIcon name={file.name} size={ICON_SIZE} />
@@ -97,7 +103,7 @@ export function FileRowContent({
         ) : null}
       </View>
       {opening ? (
-        <ActivityIndicator size="small" color={GhostexPalette.MUTED} accessibilityLabel={DocsCopy.opening} />
+        <ActivityIndicator size="small" color={appearance.muted} accessibilityLabel={DocsCopy.opening} />
       ) : (
         <Text style={styles.meta}>{relativeTime(file.modifiedAt)}</Text>
       )}
@@ -119,13 +125,15 @@ export function FolderRowContent({
   loading: boolean;
   error: string | null;
 }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   return (
     <View style={[styles.row, { paddingLeft: 12 + depth * INDENT }]}>
-      <CaretRightGlyph size={12} color={GhostexPalette.MUTED} rotated={expanded} />
+      <CaretRightGlyph size={12} color={appearance.muted} rotated={expanded} />
       {expanded ? (
-        <FolderOpenGlyph size={ICON_SIZE} color={GhostexPalette.MUTED} />
+        <FolderOpenGlyph size={ICON_SIZE} color={appearance.muted} />
       ) : (
-        <FolderGlyph size={ICON_SIZE} color={GhostexPalette.MUTED} />
+        <FolderGlyph size={ICON_SIZE} color={appearance.muted} />
       )}
       <View style={styles.text}>
         <Text style={styles.folderName} numberOfLines={1}>
@@ -138,7 +146,7 @@ export function FolderRowContent({
         ) : null}
       </View>
       {loading ? (
-        <ActivityIndicator size="small" color={GhostexPalette.MUTED} accessibilityLabel={DocsCopy.folderLoading} />
+        <ActivityIndicator size="small" color={appearance.muted} accessibilityLabel={DocsCopy.folderLoading} />
       ) : null}
     </View>
   );
@@ -177,6 +185,8 @@ export const FileRow = memo(function FileRow({
   onHeldLayout: () => void;
   onCopyPath: (path: string) => void;
 }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const rowRef = useRef<ViewInstance | null>(null);
   return (
     <Pressable
@@ -225,6 +235,8 @@ export const FolderRow = memo(function FolderRow({
   onHeldLayout: () => void;
   onCopyPath: (path: string) => void;
 }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const rowRef = useRef<ViewInstance | null>(null);
   return (
     <Pressable
@@ -249,13 +261,13 @@ export const FolderRow = memo(function FolderRow({
   );
 });
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44, paddingRight: 14, paddingVertical: 6 },
-  pressed: { backgroundColor: GhostexPalette.CARD_ACTIVE },
+  pressed: { backgroundColor: appearance.cardActive },
   text: { flex: 1, minWidth: 0 },
-  folderName: { color: GhostexPalette.FOREGROUND, fontSize: FILE_LIST_NAME_SIZE, fontWeight: '500' },
-  fileName: { color: GhostexPalette.FOREGROUND, fontSize: FILE_LIST_NAME_SIZE },
-  location: { color: GhostexPalette.MUTED, fontSize: FILE_LIST_DETAIL_SIZE, marginTop: 1 },
-  meta: { color: GhostexPalette.MUTED, fontSize: FILE_LIST_DETAIL_SIZE },
-  error: { color: GhostexPalette.DANGER, fontSize: FILE_LIST_DETAIL_SIZE, marginTop: 1 },
+  folderName: { color: appearance.foreground, fontSize: FILE_LIST_NAME_SIZE, fontWeight: '500' },
+  fileName: { color: appearance.foreground, fontSize: FILE_LIST_NAME_SIZE },
+  location: { color: appearance.muted, fontSize: FILE_LIST_DETAIL_SIZE, marginTop: 1 },
+  meta: { color: appearance.muted, fontSize: FILE_LIST_DETAIL_SIZE },
+  error: { color: appearance.danger, fontSize: FILE_LIST_DETAIL_SIZE, marginTop: 1 },
 });

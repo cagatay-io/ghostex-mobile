@@ -20,13 +20,15 @@
  * the pen does.
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useMemo, useCallback, useRef, useState } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
+
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { GhostexNative } from '../../../modules/ghostex-native/src';
 import { CommandPadCopy } from '../../copy';
 import { useTerminalStore } from '../../terminal/sessions';
-import { CommandPadPalette, GhostexPalette } from '../../theme/palette';
+
 import { CommandPadCloseButton } from './CommandPadLayer';
 import { ArrowIcon, SendIcon } from './icons';
 
@@ -95,6 +97,8 @@ export const TEXT_EDITOR_HEIGHT = 56;
 const ignoreClosedTerminal = (): void => undefined;
 
 export default function TerminalTextEditor({ sessionKey, onClose, onSent }: TerminalTextEditorProps) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   // The session's draft (`textEditorDraftBySessionKey`): the editor starts with it and keeps it up to date. Only the
   // editor reads it, and only as it opens, so typing redraws the editor alone.
   const [text, setShownText] = useState(
@@ -122,6 +126,7 @@ export default function TerminalTextEditor({ sessionKey, onClose, onSent }: Term
   return (
     <View style={styles.bar}>
       <TextInput
+        keyboardAppearance={appearance.light ? 'light' : 'dark'}
         autoFocus
         accessibilityLabel={CommandPadCopy.editorField}
         autoCapitalize="none"
@@ -129,8 +134,8 @@ export default function TerminalTextEditor({ sessionKey, onClose, onSent }: Term
         keyboardType="default"
         multiline
         placeholder={CommandPadCopy.editorPlaceholder}
-        placeholderTextColor={GhostexPalette.MUTED}
-        selectionColor={CommandPadPalette.SELECTION}
+        placeholderTextColor={appearance.muted}
+        selectionColor={appearance.control}
         spellCheck
         style={styles.field}
         submitBehavior="newline"
@@ -145,9 +150,9 @@ export default function TerminalTextEditor({ sessionKey, onClose, onSent }: Term
         onPress={send}
       >
         {text.length === 0 ? (
-          <SendIcon size={18} color={GhostexPalette.ACCENT_FOREGROUND} />
+          <SendIcon size={18} color={appearance.accentForeground} />
         ) : (
-          <ArrowIcon direction="up" size={18} color={GhostexPalette.ACCENT_FOREGROUND} />
+          <ArrowIcon direction="up" size={18} color={appearance.accentForeground} />
         )}
       </Pressable>
       {onClose !== undefined ? (
@@ -162,44 +167,45 @@ export default function TerminalTextEditor({ sessionKey, onClose, onSent }: Term
   );
 }
 
-const styles = StyleSheet.create({
-  bar: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    backgroundColor: GhostexPalette.TERMINAL_BACKGROUND,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: CommandPadPalette.EDITOR_LINE,
-  },
-  field: {
-    flex: 1,
-    minHeight: 40,
-    maxHeight: 120,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: CommandPadPalette.PILL_LINE,
-    backgroundColor: CommandPadPalette.PILL,
-    color: GhostexPalette.FOREGROUND,
-    fontSize: 15,
-    textAlignVertical: 'top',
-  },
-  send: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: GhostexPalette.ACCENT,
-  },
-  sendPressed: {
-    opacity: 0.8,
-  },
-  // The 44 pt target's extra height lies over the bar's padding, so the bar keeps its height; its face centres on Send.
-  close: {
-    marginVertical: -2,
-  },
-});
+const createStyles = (appearance: Appearance) =>
+  StyleSheet.create({
+    bar: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      gap: 8,
+      paddingVertical: 8,
+      paddingHorizontal: 10,
+      backgroundColor: appearance.background,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: appearance.border,
+    },
+    field: {
+      flex: 1,
+      minHeight: 40,
+      maxHeight: 120,
+      paddingHorizontal: 12,
+      paddingVertical: 9,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: appearance.border,
+      backgroundColor: appearance.neutralFill,
+      color: appearance.foreground,
+      fontSize: 15,
+      textAlignVertical: 'top',
+    },
+    send: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: appearance.accent,
+    },
+    sendPressed: {
+      opacity: 0.8,
+    },
+    // The 44 pt target's extra height lies over the bar's padding, so the bar keeps its height; its face centres on Send.
+    close: {
+      marginVertical: -2,
+    },
+  });

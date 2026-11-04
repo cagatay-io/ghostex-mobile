@@ -22,8 +22,11 @@
  * fields, the annotation tool) that the app cannot move off the knick.
  */
 
+import { documentAppearanceScript, documentAppearanceStyles } from '../docs/plainDocument';
+import { useMemo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useAppearance, type Appearance } from '../theme/useAppearance';
 import * as Clipboard from 'expo-clipboard';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View, type ViewInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -61,7 +64,7 @@ import { useShareFile } from '../files/useShareFile';
 import { useAddToSessionContext } from '../files/useSessionContext';
 import { useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
-import { GhostexPalette } from '../theme/palette';
+
 import {
   classifyMachineLink,
   holdComputerForward,
@@ -80,6 +83,8 @@ type LoadState =
 let annotationsEnabled = true;
 
 export default function DocViewerScreen({ navigation, route }: Props) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const insets = useSafeAreaInsets();
   const infoEdges = useScrollToBarEdges(styles.infoContent);
   const { machineId, fragment, projectId, entryPath, size: listedSize, session } = route.params;
@@ -141,6 +146,11 @@ export default function DocViewerScreen({ navigation, route }: Props) {
     [addToContext, fromFiles, remotePath],
   );
 
+  const appearanceRef = useRef(appearance);
+  useEffect(() => {
+    appearanceRef.current = appearance;
+  }, [appearance]);
+
   const readPage = useCallback(
     (refreshSize: boolean) => {
       const target = machineRef.current;
@@ -162,6 +172,7 @@ export default function DocViewerScreen({ navigation, route }: Props) {
           buildDocPage(
             target,
             remotePath,
+            appearanceRef.current,
             () => current !== generation.current,
             viewerProject(target.id, projectId),
             fileSize,
@@ -215,7 +226,7 @@ export default function DocViewerScreen({ navigation, route }: Props) {
               key: 'annotate',
               label: annotate ? DocsCopy.annotateOn : DocsCopy.annotateOff,
               icon: (size: number) => (
-                <PencilGlyph size={size} color={annotate ? GhostexPalette.ACCENT : GhostexPalette.FOREGROUND} />
+                <PencilGlyph size={size} color={annotate ? appearance.accent : appearance.foreground} />
               ),
               onPress: toggleAnnotate,
               selected: annotate,
@@ -230,7 +241,19 @@ export default function DocViewerScreen({ navigation, route }: Props) {
         { copyPathLabel: fromFiles !== null ? DocsCopy.copyFullPath : DocsCopy.copyPath, sharing },
       ),
     ],
-    [addFileToContext, annotate, copyPath, fromFiles, info, isHtml, reload, shareFile, sharing, toggleAnnotate],
+    [
+      addFileToContext,
+      annotate,
+      copyPath,
+      fromFiles,
+      info,
+      isHtml,
+      reload,
+      shareFile,
+      sharing,
+      toggleAnnotate,
+      appearance,
+    ],
   );
 
   useLayoutEffect(() => {
@@ -248,6 +271,11 @@ export default function DocViewerScreen({ navigation, route }: Props) {
   const loadedPage = useRef<typeof page>(null);
   loadedPage.current = page;
   const isSource = page?.kind === 'source';
+  useEffect(() => {
+    if (page !== null && page.kind !== 'html') {
+      webViewRef.current?.injectJavaScript(documentAppearanceScript(appearance));
+    }
+  }, [appearance, page]);
   const source = useMemo(
     () =>
       page === null
@@ -256,6 +284,13 @@ export default function DocViewerScreen({ navigation, route }: Props) {
           ? { html: page.html }
           : { uri: fragment ? `${page.uri}#${encodeURIComponent(fragment)}` : page.uri },
     [fragment, page],
+  );
+
+  const themedSource = useMemo(
+    () => page?.kind === 'source'
+      ? { html: page.html.replace(/(<style id="ghostex-document-theme">)[\s\S]*?(<\/style>)/u, `$1${documentAppearanceStyles(appearance)}$2`) }
+      : source,
+    [appearance, page, source],
   );
 
   /** Opens another file on the computer where the phone opens it (`docs/openComputerFile.ts`). */
@@ -381,8 +416,8 @@ export default function DocViewerScreen({ navigation, route }: Props) {
 
   const injectAgentation = isHtml && annotate;
   const injectedScript = useMemo(
-    () => (injectAgentation ? agentationInjectionScript() : undefined),
-    [injectAgentation],
+    () => `${isHtml ? '' : documentAppearanceScript(appearance)}${injectAgentation ? agentationInjectionScript() : ''}`,
+    [injectAgentation, isHtml, appearance],
   );
   // What the page leaves free above the area's bottom in the laptop pose; 0 elsewhere.
   const contentInset = areaBottom === null ? 0 : foldUpperHalfInset(fold, areaBottom);
@@ -419,7 +454,7 @@ export default function DocViewerScreen({ navigation, route }: Props) {
               onPress={copyPath}
               style={({ pressed }) => [styles.copyButton, pressed && styles.pressed]}
             >
-              <CopyGlyph size={16} color={GhostexPalette.ACCENT_FOREGROUND} />
+              <CopyGlyph size={16} color={appearance.accentForeground} />
               <Text style={styles.copyText}>{DocsCopy.copyFullPath}</Text>
             </Pressable>
             {shareFile !== null ? (
@@ -430,7 +465,7 @@ export default function DocViewerScreen({ navigation, route }: Props) {
                 onPress={shareFile}
                 style={({ pressed }) => [styles.shareButton, (pressed || sharing) && styles.pressed]}
               >
-                <ShareGlyph size={16} color={GhostexPalette.FOREGROUND} />
+                <ShareGlyph size={16} color={appearance.foreground} />
                 <Text style={styles.shareText}>{DocsCopy.share}</Text>
               </Pressable>
             ) : null}
@@ -444,7 +479,7 @@ export default function DocViewerScreen({ navigation, route }: Props) {
           // A new read, or annotation tools turned on or off, loads the page afresh.
           key={`${load.nonce}:${injectAgentation ? 'a' : 'p'}`}
           ref={webViewRef}
-          source={source}
+          source={themedSource ?? undefined}
           accessibilityLabel={isSource ? DocsCopy.sourceView(baseName(remotePath)) : undefined}
           javaScriptEnabled={!isSource}
           originWhitelist={isSource ? ['about:blank'] : ['*']}
@@ -500,18 +535,20 @@ function decodeFragment(fragment: string): string {
 }
 
 function LoadingSurface({ message }: { message: string }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   return (
     <View style={[styles.centered, StyleSheet.absoluteFill]}>
-      <ActivityIndicator color={GhostexPalette.MUTED} />
+      <ActivityIndicator color={appearance.muted} />
       <Text style={styles.loadingText}>{message}</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: GhostexPalette.BACKGROUND },
+const createStyles = (appearance: Appearance) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: appearance.background },
   area: { flex: 1 },
-  webview: { flex: 1, backgroundColor: GhostexPalette.BACKGROUND },
+  webview: { flex: 1, backgroundColor: appearance.background },
   pressed: { opacity: 0.6 },
   infoContent: { paddingHorizontal: 28, paddingTop: 56, paddingBottom: 32 },
   info: { width: '100%', maxWidth: 420, alignSelf: 'center', alignItems: 'center', gap: 8 },
@@ -522,11 +559,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
-    backgroundColor: GhostexPalette.CARD,
+    backgroundColor: appearance.card,
   },
-  infoTitle: { color: GhostexPalette.FOREGROUND, fontSize: 15, fontWeight: '600', textAlign: 'center' },
-  infoName: { color: GhostexPalette.FOREGROUND, fontSize: 15, textAlign: 'center' },
-  infoMeta: { color: GhostexPalette.MUTED, fontSize: 13, lineHeight: 19, textAlign: 'center' },
+  infoTitle: { color: appearance.foreground, fontSize: 15, fontWeight: '600', textAlign: 'center' },
+  infoName: { color: appearance.foreground, fontSize: 15, textAlign: 'center' },
+  infoMeta: { color: appearance.muted, fontSize: 13, lineHeight: 19, textAlign: 'center' },
   copyButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -537,9 +574,9 @@ const styles = StyleSheet.create({
     minHeight: 44,
     paddingHorizontal: 18,
     borderRadius: 10,
-    backgroundColor: GhostexPalette.ACCENT,
+    backgroundColor: appearance.accent,
   },
-  copyText: { color: GhostexPalette.ACCENT_FOREGROUND, fontSize: 14, fontWeight: '600' },
+  copyText: { color: appearance.accentForeground, fontSize: 14, fontWeight: '600' },
   shareButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -550,13 +587,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: GhostexPalette.BORDER,
-    backgroundColor: GhostexPalette.CARD,
+    borderColor: appearance.border,
+    backgroundColor: appearance.card,
   },
-  shareText: { color: GhostexPalette.FOREGROUND, fontSize: 14, fontWeight: '600' },
+  shareText: { color: appearance.foreground, fontSize: 14, fontWeight: '600' },
   infoPath: {
     marginTop: 4,
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 11,
     lineHeight: 16,
     fontFamily: 'Menlo',
@@ -568,19 +605,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
     padding: 24,
-    backgroundColor: GhostexPalette.BACKGROUND,
+    backgroundColor: appearance.background,
   },
-  loadingText: { color: GhostexPalette.MUTED, fontSize: 13 },
-  failureTitle: { color: GhostexPalette.FOREGROUND, fontSize: 16, fontWeight: '600', textAlign: 'center' },
-  failureBody: { color: GhostexPalette.MUTED, fontSize: 13, lineHeight: 19, textAlign: 'center' },
+  loadingText: { color: appearance.muted, fontSize: 13 },
+  failureTitle: { color: appearance.foreground, fontSize: 16, fontWeight: '600', textAlign: 'center' },
+  failureBody: { color: appearance.muted, fontSize: 13, lineHeight: 19, textAlign: 'center' },
   retryButton: {
     marginTop: 6,
     paddingHorizontal: 18,
     height: 40,
     borderRadius: 10,
-    backgroundColor: GhostexPalette.ACCENT,
+    backgroundColor: appearance.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  retryText: { color: GhostexPalette.ACCENT_FOREGROUND, fontSize: 14, fontWeight: '600' },
+  retryText: { color: appearance.accentForeground, fontSize: 14, fontWeight: '600' },
 });

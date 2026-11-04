@@ -23,7 +23,11 @@
  * Where the terminal area is too short for the open pad, it is drawn reaching over the header (`reach`).
  */
 
-import { memo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { contrastRatio, readableSecondaryText } from '../../theme/sidebarAppearance';
+import { useTerminalColours } from '../../theme/useTerminalColours';
+import { useMemo, memo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
+
 import {
   Animated,
   Easing,
@@ -41,7 +45,7 @@ import { BlurView } from 'expo-blur';
 import { CommandPadCopy } from '../../copy';
 import type { CommandPadPlacement } from '../../settings/commandPad';
 import type { ExtraKeyModifier } from '../../settings/extraKeys';
-import { CommandPadPalette, GhostexPalette } from '../../theme/palette';
+import { colorOver, colorWithOpacity, CommandPadPalette } from '../../theme/palette';
 import { KEYBOARD_HIDE_MOTION, KEYBOARD_SHOW_MOTION } from '../common/keyboard/keyboardMotion';
 import { useReduceMotion } from '../common/reduceMotion';
 import { useReduceTransparency } from '../common/reduceTransparency';
@@ -152,6 +156,8 @@ function CommandPad({
   keyboardVisible,
   onKeyboard,
 }: CommandPadProps) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const reduceMotion = useReduceMotion();
   // Frosted glass as in the design; opaque with Reduce Transparency on.
   const opaque = useReduceTransparency();
@@ -374,7 +380,7 @@ function CommandPad({
       key: 'keys',
       label: CommandPadCopy.keysLayer,
       selected: layer === 'keys',
-      icon: <HashIcon size={18} color={layer === 'keys' ? GhostexPalette.ACCENT : GhostexPalette.FOREGROUND} />,
+      icon: <HashIcon size={18} color={layer === 'keys' ? appearance.accent : appearance.foreground} />,
       onPress: () => onLayer('keys'),
     },
     {
@@ -388,10 +394,10 @@ function CommandPad({
           size={18}
           color={
             layer === 'agent'
-              ? GhostexPalette.ACCENT
+              ? appearance.accent
               : !agentAvailable && opaque
                 ? CommandPadPalette.FACE_DISABLED
-                : GhostexPalette.FOREGROUND
+                : appearance.foreground
           }
         />
       ),
@@ -401,7 +407,7 @@ function CommandPad({
       key: 'editor',
       label: CommandPadCopy.editor,
       selected: editorOpen,
-      icon: <PencilIcon size={18} color={editorOpen ? GhostexPalette.ACCENT : GhostexPalette.FOREGROUND} />,
+      icon: <PencilIcon size={18} color={editorOpen ? appearance.accent : appearance.foreground} />,
       onPress: onEditor,
     },
     {
@@ -411,10 +417,10 @@ function CommandPad({
       icon: (
         <View style={styles.symbols}>
           <Animated.View style={[StyleSheet.absoluteFill, { opacity: keyboardDown }]}>
-            <KeyboardIcon size={18} color={GhostexPalette.FOREGROUND} />
+            <KeyboardIcon size={18} color={appearance.foreground} />
           </Animated.View>
           <Animated.View style={[StyleSheet.absoluteFill, { opacity: keyboardUp }]}>
-            <KeyboardDismissIcon size={18} color={GhostexPalette.FOREGROUND} />
+            <KeyboardDismissIcon size={18} color={appearance.foreground} />
           </Animated.View>
         </View>
       ),
@@ -526,7 +532,7 @@ function CommandPad({
         onTouchCancel={(event) => endLift(event, false)}
       >
         <Frost radius={PAD_TOGGLE / 2} opaque={opaque} />
-        <PadIcon size={20} color={open ? GhostexPalette.ACCENT : GhostexPalette.FOREGROUND} />
+        <PadIcon size={20} color={open ? appearance.accent : appearance.foreground} />
       </Pressable>
     </Animated.View>
   );
@@ -582,10 +588,11 @@ const FROST_INTENSITY = 30;
 
 /** The blurred output behind a glass control, clipped to its shape; nothing with Reduce Transparency on. */
 function Frost({ radius, opaque }: { radius: number; opaque: boolean }) {
+  const appearance = useAppearance();
   if (opaque) return null;
   return (
     <BlurView
-      tint="dark"
+      tint={appearance.light ? 'light' : 'dark'}
       intensity={FROST_INTENSITY}
       pointerEvents="none"
       style={[StyleSheet.absoluteFill, { borderRadius: radius, overflow: 'hidden' }]}
@@ -606,17 +613,26 @@ type PadKeyProps = {
  * hotkeys, Paste, Upload and modifier taps act on release; a held modifier locks.
  */
 function PadKey({ padKey, input, modifiers, upload, opaque }: PadKeyProps) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const { action } = padKey;
   const enabled = TerminalKeyInput.isPadKeyEnabled(padKey, upload);
   const modifierMode = action.kind === 'modifier' ? modifiers[action.modifier] : 'off';
   const busy = action.kind === 'upload' && upload.uploading;
-  // Disabled with Reduce Transparency on: the solid backplate stays and only the face dims.
-  const glyphColor =
-    !enabled && opaque
-      ? CommandPadPalette.FACE_DISABLED
-      : modifierMode === 'off'
-        ? GhostexPalette.FOREGROUND
-        : '#FFFFFF';
+  const terminalBackground = useTerminalColours().chrome.background;
+  const faceColors = useMemo(() => {
+    const foregroundFor = (pressed: boolean) => {
+      const fill = pressed ? (opaque ? styles.opaquePressed.backgroundColor : styles.pressed.backgroundColor)
+        : modifierMode === 'oneShot' ? styles.modifierOneShot.backgroundColor
+        : modifierMode === 'locked' ? styles.modifierLocked.backgroundColor
+        : padKey.glyph === 'enter' ? (opaque ? styles.opaqueStrong.backgroundColor : styles.keyStrong.backgroundColor)
+        : opaque ? styles.opaque.backgroundColor : styles.key.backgroundColor;
+      const surface = colorOver(fill, terminalBackground);
+      const target = contrastRatio('#000000', surface) >= 4.5 ? '#000000' : '#ffffff';
+      return readableSecondaryText(appearance.foreground, target, [surface]);
+    };
+    return { rest: foregroundFor(false), pressed: foregroundFor(true) };
+  }, [modifierMode, opaque, padKey.glyph, styles, terminalBackground, appearance]);
   return (
     <Pressable
       accessibilityRole="button"
@@ -639,20 +655,24 @@ function PadKey({ padKey, input, modifiers, upload, opaque }: PadKeyProps) {
       onPress={(event) => input.padKeyTap(padKey, upload, pressFromTouch(event))}
       onLongPress={action.kind === 'modifier' ? () => input.padKeyLongPress(padKey) : undefined}
     >
-      {modifierMode === 'off' ? <Frost radius={PAD_KEY_RADIUS} opaque={opaque} /> : null}
-      <CommandPadKeyFace padKey={padKey} color={glyphColor} size={20} busy={busy} />
+      {({ pressed }) => (
+        <>
+          {modifierMode === 'off' ? <Frost radius={PAD_KEY_RADIUS} opaque={opaque} /> : null}
+          <CommandPadKeyFace padKey={padKey} color={!enabled && opaque ? CommandPadPalette.FACE_DISABLED : pressed ? faceColors.pressed : faceColors.rest} size={20} busy={busy} />
+        </>
+      )}
     </Pressable>
   );
 }
 
-const glass = {
-  backgroundColor: CommandPadPalette.GLASS,
-  borderWidth: StyleSheet.hairlineWidth,
-  borderColor: CommandPadPalette.GLASS_LINE,
-  boxShadow: '0px 6px 18px rgba(0, 0, 0, 0.3)',
-} as const;
-
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => {
+  const glass = {
+    backgroundColor: colorWithOpacity(appearance.light ? '#000000' : '#ffffff', 17),
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: appearance.border,
+    boxShadow: '0px 6px 18px rgba(0, 0, 0, 0.3)',
+  } as const;
+  return StyleSheet.create({
   // Grow out of the toggle's corner (before the terminal area is measured: the area's corner, near it).
   reveal: {
     transformOrigin: 'bottom right',
@@ -673,7 +693,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   keyStrong: {
-    backgroundColor: CommandPadPalette.GLASS_STRONG,
+    backgroundColor: colorWithOpacity(appearance.light ? '#000000' : '#ffffff', 25),
   },
   modifierOneShot: {
     backgroundColor: CommandPadPalette.MODIFIER_ONE_SHOT,
@@ -681,7 +701,7 @@ const styles = StyleSheet.create({
   },
   modifierLocked: {
     backgroundColor: CommandPadPalette.MODIFIER_LOCKED,
-    borderColor: CommandPadPalette.MODIFIER_LOCKED_LINE,
+    borderColor: appearance.border,
   },
   ringButton: {
     ...glass,
@@ -702,26 +722,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   active: {
-    backgroundColor: CommandPadPalette.ACTIVE_FILL,
-    borderColor: GhostexPalette.ACCENT,
+    backgroundColor: colorWithOpacity(appearance.accent, 24),
+    borderColor: appearance.accent,
   },
   pressed: {
-    backgroundColor: CommandPadPalette.GLASS_PRESSED,
+    backgroundColor: colorWithOpacity(appearance.light ? '#000000' : '#ffffff', 34),
     transform: [{ scale: 0.94 }],
   },
   opaque: {
-    backgroundColor: CommandPadPalette.GLASS_OPAQUE,
+    backgroundColor: appearance.card,
   },
   opaqueStrong: {
-    backgroundColor: CommandPadPalette.GLASS_OPAQUE_STRONG,
+    backgroundColor: appearance.cardActive,
   },
   opaquePressed: {
-    backgroundColor: CommandPadPalette.GLASS_OPAQUE_PRESSED,
+    backgroundColor: appearance.cardActive,
     transform: [{ scale: 0.94 }],
   },
   // Picked up to move: a little larger, edged in the accent.
   lifted: {
-    borderColor: GhostexPalette.ACCENT,
+    borderColor: appearance.accent,
     transform: [{ scale: 1.12 }],
   },
   disabled: {
@@ -740,7 +760,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     fontSize: 11,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#000000',
   },
   chipOneShot: {
     backgroundColor: CommandPadPalette.MODIFIER_ONE_SHOT,
@@ -748,7 +768,7 @@ const styles = StyleSheet.create({
   chipLocked: {
     backgroundColor: CommandPadPalette.MODIFIER_LOCKED,
     borderWidth: 1,
-    borderColor: CommandPadPalette.MODIFIER_LOCKED_LINE,
+    borderColor: appearance.border,
   },
   hintRow: {
     position: 'absolute',
@@ -762,12 +782,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     fontSize: 11,
     lineHeight: PAD_HINT_HEIGHT - 6,
-    color: GhostexPalette.FOREGROUND,
-    backgroundColor: CommandPadPalette.GLASS_OPAQUE,
+    color: appearance.foreground,
+    backgroundColor: appearance.card,
   },
   // The keyboard button's two symbols, one over the other.
   symbols: {
     width: 18,
     height: 18,
   },
-});
+  });
+};

@@ -6,16 +6,19 @@
  * CDXC:VoiceMode 2026-10-20 SEE-ALSO: the user's answers are the DECISION in server/src/voice_agent/memory.rs; the desktop voice panel (apps/desktop/src/app/voice_agent/panel.rs, memory.rs) shows the same card.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { VOICE_MEMORY_HUE, VOICE_MEMORY_WASH, colorOver, colorWithOpacity } from '../theme/palette';
+import { readableSecondaryText } from '../theme/sidebarAppearance';
+import { useAppearance, type Appearance } from '../theme/useAppearance';
+
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { GhostexPalette, GhostexRadii } from '../theme/palette';
+import { GhostexRadii } from '../theme/palette';
 import { continueVoiceMemory, forgetVoiceMemory, memoryAgo, startVoiceFresh, useVoiceStore } from './conversation';
 
-/** The remembered conversation's accent (the desktop panel's violet). */
-const MEMORY_ACCENT = '#A78BFA';
-
 export function VoiceMemoryCard() {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const memory = useVoiceStore((state) => state.memory);
   const memoryState = useVoiceStore((state) => state.memoryState);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -98,47 +101,47 @@ export function VoiceMemoryCard() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   card: {
     borderRadius: GhostexRadii.section,
     borderWidth: 1,
-    borderColor: GhostexPalette.BORDER,
-    backgroundColor: GhostexPalette.CARD,
+    borderColor: appearance.border,
+    backgroundColor: appearance.card,
     padding: 14,
     gap: 10,
   },
   cardHead: { flexDirection: 'row', alignItems: 'center' },
-  cardTitle: { color: GhostexPalette.FOREGROUND, fontSize: 16, fontWeight: '700' },
-  cardWhen: { color: GhostexPalette.MUTED, fontSize: 15 },
+  cardTitle: { color: appearance.foreground, fontSize: 16, fontWeight: '700' },
+  cardWhen: { color: appearance.muted, fontSize: 15 },
   spacer: { flex: 1 },
-  summary: { color: GhostexPalette.FOREGROUND, fontSize: 16, lineHeight: 22, opacity: 0.9 },
+  summary: { color: appearance.foreground, fontSize: 16, lineHeight: 22 },
   actions: { flexDirection: 'row', gap: 10 },
   action: {
     flex: 1,
     minHeight: 48,
     borderRadius: GhostexRadii.section,
-    backgroundColor: GhostexPalette.CARD_ACTIVE,
+    backgroundColor: appearance.cardActive,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  actionPrimary: { backgroundColor: GhostexPalette.FOREGROUND },
-  actionLabel: { color: GhostexPalette.FOREGROUND, fontSize: 17, fontWeight: '600' },
-  actionLabelPrimary: { color: GhostexPalette.ACCENT_FOREGROUND },
+  actionPrimary: { backgroundColor: appearance.foreground },
+  actionLabel: { color: appearance.foreground, fontSize: 17, fontWeight: '600' },
+  actionLabelPrimary: { color: appearance.accentForeground },
   remembering: {
     borderRadius: GhostexRadii.section,
     borderWidth: 1,
-    borderColor: 'rgba(167,139,250,0.3)',
-    backgroundColor: 'rgba(167,139,250,0.1)',
+    borderColor: colorWithOpacity(VOICE_MEMORY_HUE, 30),
+    backgroundColor: VOICE_MEMORY_WASH,
     paddingHorizontal: 12,
     paddingVertical: 10,
     gap: 8,
   },
   rememberingRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   rememberingToggle: { flex: 1, minHeight: 32, justifyContent: 'center' },
-  rememberingText: { color: GhostexPalette.MUTED, fontSize: 15 },
-  rememberingStrong: { color: MEMORY_ACCENT, fontWeight: '700' },
+  rememberingText: { color: appearance.muted, fontSize: 15 },
+  rememberingStrong: { color: readableSecondaryText(VOICE_MEMORY_HUE, appearance.foreground, [colorOver(VOICE_MEMORY_WASH, appearance.background)]), fontWeight: '700' },
   link: { minHeight: 32, justifyContent: 'center', paddingHorizontal: 4 },
-  linkText: { color: GhostexPalette.MUTED, fontSize: 15, textDecorationLine: 'underline' },
-  forgotten: { color: GhostexPalette.MUTED, fontSize: 15, fontStyle: 'italic', paddingHorizontal: 4 },
+  linkText: { color: appearance.muted, fontSize: 15, textDecorationLine: 'underline' },
+  forgotten: { color: appearance.muted, fontSize: 15, fontStyle: 'italic', paddingHorizontal: 4 },
   pressed: { opacity: 0.75 },
 });

@@ -16,9 +16,11 @@
  * instead, the keyboard button still nearest the corner.
  */
 
+import { useMemo } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { GhostexPalette, GhostexStrokeWidth } from '../../theme/palette';
+import { GhostexStrokeWidth } from '../../theme/palette';
 import { HourglassIcon, KeyboardDismissIcon, KeyboardIcon, PaperclipIcon, RefreshIcon } from './icons';
 
 const BUTTON_SIZE = 44;
@@ -57,6 +59,8 @@ export default function TerminalFloatingControls({
   onUpload,
   onRefresh,
 }: TerminalFloatingControlsProps) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const count = Number(showKeyboardButton) + Number(showUploadButton) + Number(showRefreshButton);
   if (count === 0) return null;
   const across = maxHeight !== undefined && count * BUTTON_SIZE + (count - 1) * BUTTON_GAP > maxHeight;
@@ -71,7 +75,7 @@ export default function TerminalFloatingControls({
           style={[styles.button, !refreshEnabled && styles.buttonDisabled]}
           onPress={onRefresh}
         >
-          <RefreshIcon size={18} color={GhostexPalette.FOREGROUND} />
+          <RefreshIcon size={18} color={appearance.foreground} />
         </Pressable>
       )}
       {showUploadButton && (
@@ -83,9 +87,9 @@ export default function TerminalFloatingControls({
           onPress={onUpload}
         >
           {uploading ? (
-            <HourglassIcon size={18} color={GhostexPalette.FOREGROUND} />
+            <HourglassIcon size={18} color={appearance.foreground} />
           ) : (
-            <PaperclipIcon size={18} color={GhostexPalette.FOREGROUND} />
+            <PaperclipIcon size={18} color={appearance.foreground} />
           )}
         </Pressable>
       )}
@@ -97,9 +101,9 @@ export default function TerminalFloatingControls({
           onPress={keyboardShown ? onDismissKeyboard : onKeyboard}
         >
           {keyboardShown ? (
-            <KeyboardDismissIcon size={18} color={GhostexPalette.FOREGROUND} />
+            <KeyboardDismissIcon size={18} color={appearance.foreground} />
           ) : (
-            <KeyboardIcon size={18} color={GhostexPalette.FOREGROUND} />
+            <KeyboardIcon size={18} color={appearance.foreground} />
           )}
         </Pressable>
       )}
@@ -107,7 +111,7 @@ export default function TerminalFloatingControls({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   stack: {
     position: 'absolute',
     right: 16,
@@ -123,9 +127,9 @@ const styles = StyleSheet.create({
     borderRadius: BUTTON_SIZE / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: GhostexPalette.CARD_ACTIVE,
+    backgroundColor: appearance.cardActive,
     borderWidth: GhostexStrokeWidth,
-    borderColor: GhostexPalette.BORDER,
+    borderColor: appearance.border,
   },
   buttonDisabled: {
     opacity: 0.45,

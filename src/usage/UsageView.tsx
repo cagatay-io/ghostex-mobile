@@ -17,13 +17,15 @@
  * `foldGap.tsx`), as the Settings pages and the app's other scroll view pages do.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useMemo, useCallback, useEffect, useRef, useState } from 'react';
+import { useAppearance, type Appearance } from '../theme/useAppearance';
+
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AGENT_ICONS } from '../assets/agentIcons.generated';
 import { COMMAND_ICONS } from '../assets/tablerIcons.generated';
 import { UsageRow } from '../chat/native/composer/AccountsPanel';
-import { transcriptThemeFor } from '../chat/native/transcript/theme';
+
 import { UNREACHABLE_MESSAGE } from '../chat/rust/machine-link';
 import { FoldListFrame } from '../components/common/foldGap';
 import { useLaptopFold } from '../components/common/verticalBar/laptopFold';
@@ -34,16 +36,14 @@ import { UsageCopy } from '../copy';
 import { machineDisplayLabel, useMachinesStore } from '../machines/store';
 import type { PaneBarInset } from '../panes/geometry';
 import { machineTargetFor } from '../screens/terminal-screen/session-lookups';
-import { GhostexPalette, GhostexRadii } from '../theme/palette';
-import { defaultSettings } from '../settings/store';
+import { GhostexRadii } from '../theme/palette';
+
 import { readAccountUsage } from './client';
 import type { UsageAccount } from './usageMeters';
 
 /** How often the usage is read again while the view is open: the chat Accounts panel's poll. */
 const READ_EVERY_MS = 30_000;
 const PADDING = 12;
-// This surface stays in the app's dark appearance, independently of Settings > Chat theme.
-const USAGE_APPEARANCE = transcriptThemeFor(defaultSettings(), false);
 
 export type UsagePlacement = { kind: 'pane'; controlInset: PaneBarInset } | { kind: 'screen' };
 
@@ -56,6 +56,8 @@ type Reading = {
 };
 
 export default function UsageView({ machineId, placement }: { machineId: string; placement: UsagePlacement }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const record = useMachinesStore((state) => state.machines.find((machine) => machine.id === machineId) ?? null);
   const computer = record === null ? machineId : machineDisplayLabel(record);
   const known = record !== null;
@@ -131,7 +133,7 @@ export default function UsageView({ machineId, placement }: { machineId: string;
             onPress={() => read(true)}
             style={({ pressed }) => [styles.refresh, pressed && styles.pressed, (busy || !known) && styles.dim]}
           >
-            <COMMAND_ICONS.refresh size={17} color={GhostexPalette.FOREGROUND} />
+            <COMMAND_ICONS.refresh size={17} color={appearance.foreground} />
           </Pressable>
         </View>
         {error !== null ? (
@@ -141,7 +143,7 @@ export default function UsageView({ machineId, placement }: { machineId: string;
         ) : null}
         {accounts === null && error === null ? (
           <View style={styles.pending}>
-            <ActivityIndicator size="small" color={GhostexPalette.MUTED} accessibilityLabel={UsageCopy.loading} />
+            <ActivityIndicator size="small" color={appearance.muted} accessibilityLabel={UsageCopy.loading} />
           </View>
         ) : null}
         {accounts !== null && accounts.length === 0 ? (
@@ -156,6 +158,11 @@ export default function UsageView({ machineId, placement }: { machineId: string;
 }
 
 function AccountSection({ account }: { account: UsageAccount }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
+  const meterAppearance = useMemo(() => ({
+    foreground: appearance.foreground, muted: appearance.muted, meterTrack: appearance.control, meterFill: appearance.accent,
+  }), [appearance]);
   const Icon = AGENT_ICONS[account.provider];
   return (
     <View style={styles.account}>
@@ -172,30 +179,30 @@ function AccountSection({ account }: { account: UsageAccount }) {
       {account.unavailable ? (
         <Text style={styles.paragraph}>{UsageCopy.unavailable}</Text>
       ) : (
-        <UsageRow columns={account.meters} resets appearance={USAGE_APPEARANCE} />
+        <UsageRow columns={account.meters} resets appearance={meterAppearance} />
       )}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: GhostexPalette.BACKGROUND },
+const createStyles = (appearance: Appearance) => StyleSheet.create({
+  scroll: { flex: 1, backgroundColor: appearance.background },
   content: { padding: PADDING, gap: 12, paddingBottom: 28 },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingLeft: 4 },
-  headTitle: { color: GhostexPalette.FOREGROUND, fontSize: 16, fontWeight: '600' },
+  headTitle: { color: appearance.foreground, fontSize: 16, fontWeight: '600' },
   refresh: { width: 44, height: 44, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  pressed: { backgroundColor: GhostexPalette.CARD_ACTIVE },
+  pressed: { backgroundColor: appearance.cardActive },
   dim: { opacity: 0.45 },
   alert: {
     padding: 12,
     borderRadius: GhostexRadii.card,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: GhostexPalette.BORDER,
+    borderColor: appearance.border,
   },
   pending: { alignItems: 'center', paddingVertical: 16 },
-  paragraph: { color: GhostexPalette.MUTED, fontSize: 13, lineHeight: 18 },
-  account: { gap: 10, padding: 12, borderRadius: GhostexRadii.section, backgroundColor: GhostexPalette.CARD },
+  paragraph: { color: appearance.muted, fontSize: 13, lineHeight: 18 },
+  account: { gap: 10, padding: 12, borderRadius: GhostexRadii.section, backgroundColor: appearance.card },
   nameLine: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 20 },
-  name: { color: GhostexPalette.FOREGROUND, fontSize: 14, fontWeight: '600', flexShrink: 1 },
-  email: { flex: 1, minWidth: 0, color: GhostexPalette.MUTED, fontSize: 12 },
+  name: { color: appearance.foreground, fontSize: 14, fontWeight: '600', flexShrink: 1 },
+  email: { flex: 1, minWidth: 0, color: appearance.muted, fontSize: 12 },
 });

@@ -16,10 +16,12 @@
  * the other clients see it. Half folded like a laptop the card keeps off the fold.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useMemo, useEffect, useRef, useState } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
+
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { GhostexPalette, GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
+import { GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
 import { useFoldCardPlacement } from '../common/foldAvoidance';
 import KeyboardAvoidingContainer from '../common/keyboard/KeyboardAvoidingContainer';
 import KeyboardAwareScrollView from '../common/keyboard/KeyboardAwareScrollView';
@@ -52,6 +54,8 @@ export default function PromptEditorSheet({
   onSubmit,
   onCancel,
 }: PromptEditorSheetProps) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const [text, setText] = useState('');
   /** Cleared on every open; set the first time the user changes the field. */
   const typedRef = useRef(false);
@@ -85,6 +89,7 @@ export default function PromptEditorSheet({
                   : `Type this prompt into ${title.length > 0 ? `"${title}"` : 'this session'} without pressing Enter.`}
               </Text>
               <TextInput
+                keyboardAppearance={appearance.light ? 'light' : 'dark'}
                 accessibilityLabel="Prompt"
                 style={styles.input}
                 multiline
@@ -93,7 +98,7 @@ export default function PromptEditorSheet({
                 autoCorrect
                 autoFocus
                 placeholder="Write a longer prompt…"
-                placeholderTextColor={GhostexPalette.MUTED}
+                placeholderTextColor={appearance.muted}
                 value={text}
                 onChangeText={(next) => {
                   typedRef.current = true;
@@ -132,7 +137,7 @@ export default function PromptEditorSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   // The dim sits on the keyboard-avoiding layer so it also covers the strip the keyboard leaves while it slides away.
   keyboardFill: {
     flex: 1,
@@ -146,31 +151,31 @@ const styles = StyleSheet.create({
   card: {
     maxHeight: '100%',
     overflow: 'hidden',
-    backgroundColor: GhostexPalette.BACKGROUND,
+    backgroundColor: appearance.background,
     borderRadius: 12,
     borderWidth: GhostexStrokeWidth,
-    borderColor: GhostexPalette.BORDER,
+    borderColor: appearance.border,
   },
   cardContent: {
     padding: 16,
   },
   title: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 15,
     fontWeight: 'bold',
   },
   body: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     marginTop: 8,
   },
   input: {
     marginTop: 12,
-    backgroundColor: GhostexPalette.INPUT_BACKGROUND,
+    backgroundColor: appearance.input,
     borderRadius: GhostexRadii.input,
     borderWidth: GhostexStrokeWidth,
-    borderColor: GhostexPalette.BORDER,
-    color: GhostexPalette.FOREGROUND,
+    borderColor: appearance.border,
+    color: appearance.foreground,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
@@ -192,15 +197,15 @@ const styles = StyleSheet.create({
     height: 40,
     paddingHorizontal: 16,
     borderRadius: GhostexRadii.card,
-    backgroundColor: GhostexPalette.NEUTRAL_FILL,
+    backgroundColor: appearance.neutralFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelButtonPressed: {
-    backgroundColor: GhostexPalette.NEUTRAL_FILL_PRESSED,
+    backgroundColor: appearance.neutralFillPressed,
   },
   cancelLabel: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -208,12 +213,12 @@ const styles = StyleSheet.create({
     height: 40,
     paddingHorizontal: 16,
     borderRadius: GhostexRadii.card,
-    backgroundColor: GhostexPalette.ACCENT,
+    backgroundColor: appearance.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
   confirmLabel: {
-    color: GhostexPalette.ACCENT_FOREGROUND,
+    color: appearance.accentForeground,
     fontSize: 13,
     fontWeight: '600',
   },

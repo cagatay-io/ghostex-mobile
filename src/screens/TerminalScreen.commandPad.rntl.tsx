@@ -61,6 +61,9 @@ import {
   type Pose,
 } from './TerminalScreen.commandPadHarness';
 
+import { resolveAppearance } from '../theme/useAppearance';
+import { useSettingsStore } from '../settings/store';
+
 import { AccessibilityInfo, Alert, Animated, StyleSheet } from 'react-native';
 import { act, fireEvent, screen } from '@testing-library/react-native';
 import type { TestInstance } from 'test-renderer';
@@ -914,7 +917,7 @@ describe('frosted glass as in the design, opaque with Reduce Transparency', () =
     await renderScreen();
     await openPad();
     expect(blurViews()).toBe(14);
-    expect(StyleSheet.flatten(screen.getByLabelText('Up').props.style)?.backgroundColor).toBe('rgba(255,255,255,0.17)');
+    expect(StyleSheet.flatten(screen.getByLabelText('Up').props.style)?.backgroundColor).toBe('rgba(0,0,0,0.17)');
   });
 
   test('with Reduce Transparency on nothing blurs and the keys are opaque; the setting is followed live', async () => {
@@ -930,7 +933,7 @@ describe('frosted glass as in the design, opaque with Reduce Transparency', () =
     await renderScreen();
     await openPad();
     expect(blurViews()).toBe(0);
-    expect(StyleSheet.flatten(screen.getByLabelText('Up').props.style)?.backgroundColor).toBe('#3A3A3C');
+    expect(StyleSheet.flatten(screen.getByLabelText('Up').props.style)?.backgroundColor).toBe(resolveAppearance(useSettingsStore.getState().settings, true).card);
     await act(() => listeners.forEach((listener) => listener(false)));
     expect(blurViews()).toBe(14);
   });
@@ -956,12 +959,12 @@ describe('Reduce Transparency order and disabled controls', () => {
     await renderScreen();
     await openPad();
     await act(() => listeners.forEach((listener) => listener(true)));
-    expect(StyleSheet.flatten(screen.getByLabelText('Up').props.style)?.backgroundColor).toBe('#3A3A3C');
+    expect(StyleSheet.flatten(screen.getByLabelText('Up').props.style)?.backgroundColor).toBe(resolveAppearance(useSettingsStore.getState().settings, true).card);
     await act(async () => {
       read.resolve(false);
       await read.promise;
     });
-    expect(StyleSheet.flatten(screen.getByLabelText('Up').props.style)?.backgroundColor).toBe('#3A3A3C');
+    expect(StyleSheet.flatten(screen.getByLabelText('Up').props.style)?.backgroundColor).toBe(resolveAppearance(useSettingsStore.getState().settings, true).card);
   });
 
   test('with Reduce Transparency on, disabled controls keep their opaque backplate (Agent, Not available, Upload)', async () => {
@@ -975,7 +978,7 @@ describe('Reduce Transparency order and disabled controls', () => {
       const style = StyleSheet.flatten(screen.getByLabelText(label).props.style);
       expect(screen.getByLabelText(label).props.accessibilityState).toMatchObject({ disabled: true });
       expect(style?.opacity ?? 1).toBe(1);
-      expect(style?.backgroundColor).toBe('#3A3A3C');
+      expect(style?.backgroundColor).toBe(resolveAppearance(useSettingsStore.getState().settings, true).card);
     }
   });
 });

@@ -7,15 +7,18 @@
  * CDXC:VoiceMode 2026-10-24 SEE-ALSO: the user's DECISION about the Stop talking pill is in apps/desktop/src/app/voice_agent/panel_controls.rs; the phone's buttons stay Mute, the hold button and Hang up for the whole call.
  */
 
+import { useMemo } from 'react';
+import { useAppearance, type Appearance } from '../theme/useAppearance';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import { GhostexPalette } from '../theme/palette';
 import { interruptVoice, useVoiceStore } from './conversation';
 
 export const VOICE_STRIP_HEIGHT = 44;
 
 export function VoiceStopPill({ slidOff }: { slidOff: boolean }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const speaking = useVoiceStore((state) => state.phase === 'live' && state.agentState === 'speaking');
   const hint = useVoiceStore((state) => state.hint);
   const talking = useVoiceStore((state) => state.talking);
@@ -37,7 +40,7 @@ export function VoiceStopPill({ slidOff }: { slidOff: boolean }) {
         onPress={interruptVoice}
       >
         <Svg width={14} height={14} viewBox="0 0 24 24">
-          <Path d="M 7 7 h 10 v 10 h -10 z" fill={GhostexPalette.FOREGROUND} />
+          <Path d="M 7 7 h 10 v 10 h -10 z" fill={appearance.foreground} />
         </Svg>
         <Text style={styles.pillText}>Stop talking</Text>
       </Pressable>
@@ -52,7 +55,7 @@ export function VoiceStopPill({ slidOff }: { slidOff: boolean }) {
   return <View style={styles.strip}>{content}</View>;
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   strip: { height: VOICE_STRIP_HEIGHT, alignItems: 'center', justifyContent: 'center' },
   pill: {
     flexDirection: 'row',
@@ -62,19 +65,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.18)',
-    backgroundColor: GhostexPalette.CARD_ACTIVE,
+    borderColor: appearance.border,
+    backgroundColor: appearance.cardActive,
   },
   pillPressed: { opacity: 0.75 },
-  pillText: { color: GhostexPalette.FOREGROUND, fontSize: 15, fontWeight: '600' },
+  pillText: { color: appearance.foreground, fontSize: 15, fontWeight: '600' },
   note: {
     height: 30,
     paddingHorizontal: 14,
     borderRadius: 15,
     justifyContent: 'center',
-    backgroundColor: 'rgba(38, 38, 38, 0.95)',
+    backgroundColor: appearance.cardActive,
   },
-  noteText: { color: GhostexPalette.FOREGROUND, fontSize: 14 },
+  noteText: { color: appearance.foreground, fontSize: 14 },
   cancel: { borderWidth: 1, borderColor: 'rgba(232, 92, 92, 0.45)' },
-  cancelText: { color: GhostexPalette.DANGER },
+  cancelText: { color: appearance.danger },
 });

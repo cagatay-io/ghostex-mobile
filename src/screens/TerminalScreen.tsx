@@ -119,6 +119,7 @@ import { GhostexPalette } from '../theme/palette';
 import { useStatusBarStyle } from '../theme/statusBar';
 import { terminalChrome } from '../theme/terminalColours';
 import { useTerminalColours } from '../theme/useTerminalColours';
+import { useAppearance } from '../theme/useAppearance';
 import { useMachinesStore } from '../machines/store';
 import { VoiceButton } from '../voice/VoiceButton';
 import { readAloudChatKey, setReadAloudOnScreen } from '../voice/readAloud';
@@ -1075,6 +1076,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
   // The screen reaches the window edges in the colour of what it shows: the chat theme's page in chat view, the
   // terminal's own background (palette, Terminal background, its appearance) in the terminal, so the header, the
   // strip under the iPhone Duo's rail and the status bar sit on the same surface; their ink follows it.
+  const appearance = useAppearance();
   const chatBackground = useTranscriptTheme().background;
   const terminalSurface = useTerminalColours().chrome;
   const surfaceBackground = chatModeActive ? chatBackground : terminalSurface.background;
@@ -1156,9 +1158,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
   // The same buttons standing in the iPhone Duo's side bar below the status items (rail): Back never
   // moves into the menu. The voice button has no rail entry: the rail exists only on iOS, where it does
   // not render (VOICE_SUPPORTED). Memoized on the header's inputs, so terminal output and tab updates
-  // do not republish the side bar. Their glyphs sit on the side bar's dark round capsules
-  // (`RoundBarButton`) or in the dark "…" menu, never on the page, so they keep the light ink whatever
-  // the page's colour (the header row's own buttons take `ink`).
+  // do not republish the side bar. Its capsules and menus take the app appearance; the header row takes `ink`.
   const railButtons = useMemo<RailButtons>(
     () => ({
       pinned: 1,
@@ -1169,7 +1169,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
         {
           key: 'back',
           label: DuoChromeCopy.back,
-          icon: (size) => <ChevronLeftIcon size={size} color={GhostexPalette.FOREGROUND} />,
+          icon: (size) => <ChevronLeftIcon size={size} color={appearance.foreground} />,
           onPress: goBack,
         },
         ...(panesAvailable
@@ -1181,7 +1181,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
                   <PanesIcon
                     across={!panesUpright}
                     size={size - 2}
-                    color={showsTwoPanes ? GhostexPalette.ACCENT : GhostexPalette.FOREGROUND}
+                    color={showsTwoPanes ? appearance.accent : appearance.foreground}
                   />
                 ),
                 onPress: pressPanes,
@@ -1195,9 +1195,9 @@ export default function TerminalScreen({ navigation, route }: Props) {
                 label: chatModeActive ? TerminalHeaderCopy.terminalView : TerminalHeaderCopy.chatView,
                 icon: (size: number) =>
                   chatModeActive ? (
-                    <TerminalPromptIcon size={size - 3} color={GhostexPalette.FOREGROUND} />
+                    <TerminalPromptIcon size={size - 3} color={appearance.foreground} />
                   ) : (
-                    <ChatBubbleIcon size={size - 3} color={GhostexPalette.FOREGROUND} />
+                    <ChatBubbleIcon size={size - 3} color={appearance.foreground} />
                   ),
                 onPress: toggleChatView,
               },
@@ -1206,12 +1206,13 @@ export default function TerminalScreen({ navigation, route }: Props) {
         {
           key: 'more',
           label: DuoChromeCopy.more,
-          icon: (size) => <EllipsisIcon size={size} color={GhostexPalette.FOREGROUND} />,
+          icon: (size) => <EllipsisIcon size={size} color={appearance.foreground} />,
           onPress: openMenu,
         },
       ],
     }),
     [
+      appearance,
       chatCapable,
       chatModeActive,
       toggleChatView,
@@ -1468,7 +1469,10 @@ export default function TerminalScreen({ navigation, route }: Props) {
           // Laptop pose, keyboard up or not: the output ends at the fold. The view keeps its size and
           // slides; what it still has below the fold's top (the cursor row won and it slid less) is covered, and
           // touches there reach no terminal.
-          <View testID="laptop-cover" style={[styles.laptopCover, { height: laptopCover }]} />
+          <View
+            testID="laptop-cover"
+            style={[styles.laptopCover, { height: laptopCover, backgroundColor: terminalSurface.background }]}
+          />
         ) : null}
         {/*
           Without the pad (switched off, or Android): the round buttons as before the pad, hidden while the key bar

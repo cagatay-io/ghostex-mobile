@@ -12,13 +12,15 @@
  * (`CommandPadCloseButton`, which the text editor uses in the same state).
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useCallback, useEffect, useRef, useState } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
+
 import { Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { CommandPadCopy } from '../../copy';
 import { AGENT_NAMES, useAgentHotkeysStore, type ConfigurableAgentId } from '../../settings/agentHotkeys';
 import { resolveExtraKeysLayout, useExtraKeysStore, type ResolvedExtraKey } from '../../settings/extraKeys';
-import { CommandPadPalette, GhostexPalette } from '../../theme/palette';
+import { CommandPadPalette } from '../../theme/palette';
 import { ArrowIcon, CloseIcon, GearIcon, ReturnIcon } from './icons';
 import { agentKeyPage, EXTRA_KEYS_PAGE, type KeyPageItem } from './keyBarPages';
 import { pressFromTouch, type ModifierState, type TerminalKeyInput } from './terminalKeyInput';
@@ -63,6 +65,8 @@ export default function CommandPadLayer({
   onHeightChange,
   onClose,
 }: CommandPadLayerProps) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const layout = useExtraKeysStore((state) => state.layout);
   const profiles = useAgentHotkeysStore((state) => state.profiles);
   const extraRows = useMemo(() => resolveExtraKeysLayout(layout), [layout]);
@@ -134,9 +138,9 @@ export default function CommandPadLayer({
         }}
       >
         {item.arrow !== undefined ? (
-          <ArrowIcon direction={item.arrow} size={14} color={GhostexPalette.MUTED} />
+          <ArrowIcon direction={item.arrow} size={14} color={appearance.muted} />
         ) : item.returnGlyph === true ? (
-          <ReturnIcon size={15} color={GhostexPalette.MUTED} />
+          <ReturnIcon size={15} color={appearance.muted} />
         ) : (
           <Text style={styles.pillLabel} numberOfLines={1}>
             {item.label}
@@ -195,7 +199,7 @@ export default function CommandPadLayer({
             style={({ pressed }) => [styles.settings, pressed && styles.pillPressed]}
             onPress={onOpenSettings}
           >
-            <GearIcon size={14} color={GhostexPalette.MUTED} strokeWidth={1.8} />
+            <GearIcon size={14} color={appearance.muted} strokeWidth={1.8} />
             <Text style={styles.settingsLabel}>{CommandPadCopy.padSettings}</Text>
           </Pressable>
         ) : null}
@@ -259,6 +263,8 @@ export function CommandPadCloseButton({
   style,
   onPress,
 }: CommandPadCloseButtonProps) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   return (
     <Pressable
       accessibilityRole="button"
@@ -269,144 +275,144 @@ export function CommandPadCloseButton({
     >
       {({ pressed }) => (
         <View style={[styles.closeFace, pressed && styles.pillPressed]}>
-          <CloseIcon size={14} color={GhostexPalette.MUTED} strokeWidth={1.8} />
+          <CloseIcon size={14} color={appearance.muted} strokeWidth={1.8} />
         </View>
       )}
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
-  panel: {
-    backgroundColor: CommandPadPalette.LAYER_PANEL,
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
-    paddingTop: 10,
-    paddingHorizontal: 12,
-    gap: 6,
-  },
-  // Takes what the frame leaves below the head and scrolls the rest; without a frame, its content's height.
-  body: {
-    flexGrow: 0,
-    flexShrink: 1,
-  },
-  bodyContent: {
-    gap: 6,
-  },
-  head: {
-    minHeight: 28,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  title: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
-    color: GhostexPalette.MUTED,
-  },
-  hint: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: 11,
-    lineHeight: 16,
-    color: GhostexPalette.FOREGROUND,
-  },
-  hintIdle: {
-    color: GhostexPalette.MUTED,
-    opacity: 0.6,
-  },
-  settings: {
-    height: 28,
-    paddingHorizontal: 10,
-    borderRadius: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: CommandPadPalette.CHIP_FILL,
-  },
-  settingsLabel: {
-    fontSize: 12,
-    color: GhostexPalette.MUTED,
-  },
-  close: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  // In the head, the target's extra height lies over the panel's top padding and the gap below the head, so the head
-  // keeps its height and the keys keep their room.
-  closeInHead: {
-    marginTop: -10,
-    marginBottom: -6,
-  },
-  closeFace: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: CommandPadPalette.CHIP_FILL,
-  },
-  // Side by side once two sections of seven pills fit with their labels whole.
-  sections: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    columnGap: 16,
-    rowGap: 6,
-  },
-  section: {
-    flexGrow: 1,
-    flexBasis: 380,
-    gap: 6,
-  },
-  sectionTitle: {
-    marginTop: 4,
-    fontSize: 10,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-    color: GhostexPalette.MUTED,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  pill: {
-    flex: 1,
-    minWidth: 0,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 2,
-    backgroundColor: CommandPadPalette.PILL,
-    borderWidth: 1,
-    borderColor: CommandPadPalette.PILL_LINE,
-  },
-  pillPressed: {
-    backgroundColor: CommandPadPalette.PILL_PRESSED,
-  },
-  pillHeld: {
-    backgroundColor: CommandPadPalette.PILL_HELD,
-  },
-  pillOneShot: {
-    backgroundColor: CommandPadPalette.MODIFIER_ONE_SHOT,
-    borderColor: 'transparent',
-  },
-  pillLocked: {
-    backgroundColor: CommandPadPalette.MODIFIER_LOCKED,
-    borderColor: CommandPadPalette.MODIFIER_LOCKED_LINE,
-  },
-  pillLabel: {
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '600',
-    color: GhostexPalette.MUTED,
-  },
-  pillLabelActive: {
-    color: '#FFFFFF',
-  },
-});
+const createStyles = (appearance: Appearance) =>
+  StyleSheet.create({
+    panel: {
+      backgroundColor: appearance.card,
+      borderTopLeftRadius: 22,
+      borderTopRightRadius: 22,
+      paddingTop: 10,
+      paddingHorizontal: 12,
+      gap: 6,
+    },
+    // Takes what the frame leaves below the head and scrolls the rest; without a frame, its content's height.
+    body: {
+      flexGrow: 0,
+      flexShrink: 1,
+    },
+    bodyContent: {
+      gap: 6,
+    },
+    head: {
+      minHeight: 28,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    title: {
+      fontSize: 12,
+      fontWeight: '700',
+      letterSpacing: 0.4,
+      textTransform: 'uppercase',
+      color: appearance.muted,
+    },
+    hint: {
+      flex: 1,
+      minWidth: 0,
+      fontSize: 11,
+      lineHeight: 16,
+      color: appearance.foreground,
+    },
+    hintIdle: {
+      color: appearance.muted,
+    },
+    settings: {
+      height: 28,
+      paddingHorizontal: 10,
+      borderRadius: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: appearance.neutralFill,
+    },
+    settingsLabel: {
+      fontSize: 12,
+      color: appearance.muted,
+    },
+    close: {
+      width: 44,
+      height: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    // In the head, the target's extra height lies over the panel's top padding and the gap below the head, so the head
+    // keeps its height and the keys keep their room.
+    closeInHead: {
+      marginTop: -10,
+      marginBottom: -6,
+    },
+    closeFace: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: appearance.neutralFill,
+    },
+    // Side by side once two sections of seven pills fit with their labels whole.
+    sections: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      columnGap: 16,
+      rowGap: 6,
+    },
+    section: {
+      flexGrow: 1,
+      flexBasis: 380,
+      gap: 6,
+    },
+    sectionTitle: {
+      marginTop: 4,
+      fontSize: 10,
+      fontWeight: '600',
+      letterSpacing: 0.5,
+      textTransform: 'uppercase',
+      color: appearance.muted,
+    },
+    row: {
+      flexDirection: 'row',
+      gap: 4,
+    },
+    pill: {
+      flex: 1,
+      minWidth: 0,
+      height: 34,
+      borderRadius: 17,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 2,
+      backgroundColor: appearance.neutralFill,
+      borderWidth: 1,
+      borderColor: appearance.border,
+    },
+    pillPressed: {
+      backgroundColor: appearance.neutralFillPressed,
+    },
+    pillHeld: {
+      backgroundColor: appearance.neutralFillPressed,
+    },
+    pillOneShot: {
+      backgroundColor: CommandPadPalette.MODIFIER_ONE_SHOT,
+      borderColor: 'transparent',
+    },
+    pillLocked: {
+      backgroundColor: CommandPadPalette.MODIFIER_LOCKED,
+      borderColor: appearance.border,
+    },
+    pillLabel: {
+      fontSize: 11,
+      lineHeight: 14,
+      fontWeight: '600',
+      color: appearance.muted,
+    },
+    pillLabelActive: {
+      color: '#000000',
+    },
+  });

@@ -5,10 +5,11 @@
  * the phone's menu has no flyouts, so the list is a menu of its own.
  */
 
+import { useAppearance } from '../../theme/useAppearance';
 import ContextMenu, { type ContextMenuItem } from '../sessions/ContextMenu';
 import { SettingsGlyph } from '../sessions/icons';
 import type { TerminalSkillRow } from '../../screens/terminal-screen/session-lookups';
-import { GhostexPalette } from '../../theme/palette';
+
 
 export type TerminalSkillsMenuProps = {
   sessionTitle: string;
@@ -28,6 +29,7 @@ export default function TerminalSkillsMenu({
   onConfigure,
   onClose,
 }: TerminalSkillsMenuProps) {
+  const appearance = useAppearance();
   const status = (key: string, label: string): ContextMenuItem => ({
     kind: 'item',
     key,
@@ -46,7 +48,7 @@ export default function TerminalSkillsMenu({
       kind: 'item',
       key: 'configure',
       label: 'Configure / Install more',
-      icon: <SettingsGlyph size={14} color={GhostexPalette.FOREGROUND} />,
+      icon: <SettingsGlyph size={14} color={appearance.foreground} />,
       onPress: onConfigure,
     },
   );

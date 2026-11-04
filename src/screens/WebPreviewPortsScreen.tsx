@@ -12,6 +12,7 @@
  * and port rows) keeps off a book fold.
  */
 
+import { useAppearance } from '../theme/useAppearance';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ActivityIndicator, Pressable, RefreshControl, Text, TextInput, View } from 'react-native';
@@ -25,12 +26,12 @@ import { WebPreviewCopy } from '../copy';
 import { machineDisplayLabel, useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
 import type { PaneBarInset } from '../panes/geometry';
-import { GhostexPalette } from '../theme/palette';
+
 import { fetchRemotePorts, type RemoteListeningPort } from '../webPreview/ports';
 import { useWebPreviewStore } from '../webPreview/store';
 import { parseAddressInput } from '../webPreview/urls';
 import { webPreviewTargetForUrl } from '../webPreview/routing';
-import { styles } from './web-preview/styles';
+import { useWebPreviewStyles } from './web-preview/styles';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'WebPreviewPorts'>;
 
@@ -69,6 +70,7 @@ function Frame({
   controlInset: PaneBarInset | undefined;
   children: ReactNode;
 }) {
+  const styles = useWebPreviewStyles();
   return inPane ? (
     <View
       style={[
@@ -86,6 +88,8 @@ function Frame({
 }
 
 export function WebPreviewPortsView({ machineId, inPane, controlInset, onOpen }: WebPreviewPortsViewProps) {
+  const appearance = useAppearance();
+  const styles = useWebPreviewStyles();
   const machine = useMachinesStore((state) => state.machines.find((candidate) => candidate.id === machineId));
   const hydrateWebPreview = useWebPreviewStore((state) => state.hydrate);
   const rememberedPort = useWebPreviewStore((state) => state.lastPortByMachine[machineId]);
@@ -215,9 +219,9 @@ export function WebPreviewPortsView({ machineId, inPane, controlInset, onOpen }:
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => void loadPorts(true)}
-            tintColor={GhostexPalette.MUTED}
-            colors={[GhostexPalette.ACCENT]}
-            progressBackgroundColor={GhostexPalette.CARD}
+            tintColor={appearance.muted}
+            colors={[appearance.accent]}
+            progressBackgroundColor={appearance.card}
           />
         }
       >
@@ -226,6 +230,7 @@ export function WebPreviewPortsView({ machineId, inPane, controlInset, onOpen }:
         <Text style={styles.sectionTitle}>{WebPreviewCopy.manualSection}</Text>
         <View style={styles.portEntryRow}>
           <TextInput
+            keyboardAppearance={appearance.light ? 'light' : 'dark'}
             style={styles.portInput}
             value={addressText}
             onChangeText={(value) => {
@@ -235,7 +240,7 @@ export function WebPreviewPortsView({ machineId, inPane, controlInset, onOpen }:
             }}
             onSubmitEditing={submitAddress}
             placeholder={WebPreviewCopy.manualPlaceholder}
-            placeholderTextColor={GhostexPalette.MUTED}
+            placeholderTextColor={appearance.muted}
             keyboardType="url"
             selectTextOnFocus
             autoCapitalize="none"
@@ -280,7 +285,7 @@ export function WebPreviewPortsView({ machineId, inPane, controlInset, onOpen }:
 
         {listing.kind === 'loading' ? (
           <View style={styles.pendingRow}>
-            <ActivityIndicator size="small" color={GhostexPalette.ACCENT} />
+            <ActivityIndicator size="small" color={appearance.accent} />
             <Text style={styles.pendingLabel}>{WebPreviewCopy.listeningLoading}</Text>
           </View>
         ) : null}
@@ -299,7 +304,7 @@ export function WebPreviewPortsView({ machineId, inPane, controlInset, onOpen }:
 
         {inspecting ? (
           <View style={styles.pendingRow}>
-            <ActivityIndicator size="small" color={GhostexPalette.ACCENT} />
+            <ActivityIndicator size="small" color={appearance.accent} />
             <Text style={styles.pendingLabel}>Reading page titles and icons…</Text>
           </View>
         ) : null}

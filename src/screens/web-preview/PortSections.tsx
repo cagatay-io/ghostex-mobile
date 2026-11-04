@@ -1,11 +1,12 @@
+import { useAppearance } from '../../theme/useAppearance';
 import { useMemo, useState } from 'react';
 import { Image, Pressable, Text, TextInput, View } from 'react-native';
 
 import { WorldGlyph } from '../../components/sessions/icons';
-import { GhostexPalette } from '../../theme/palette';
+
 import { groupPorts, type PortListRow, type PortSectionId } from '../../webPreview/portSections';
 import type { RemoteListeningPort } from '../../webPreview/ports';
-import { styles } from './styles';
+import { useWebPreviewStyles } from './styles';
 
 export function PortSections({
   ports,
@@ -14,6 +15,8 @@ export function PortSections({
   ports: RemoteListeningPort[];
   onOpen: (entry: RemoteListeningPort) => void;
 }) {
+  const appearance = useAppearance();
+  const styles = useWebPreviewStyles();
   const [query, setQuery] = useState('');
   const [collapsed, setCollapsed] = useState<Set<PortSectionId>>(() => new Set(['services', 'other']));
   const [searchCollapsed, setSearchCollapsed] = useState<Set<PortSectionId>>(() => new Set());
@@ -21,6 +24,7 @@ export function PortSections({
   return (
     <View style={styles.portSections}>
       <TextInput
+        keyboardAppearance={appearance.light ? 'light' : 'dark'}
         value={query}
         onChangeText={(value) => {
           setQuery(value);
@@ -28,7 +32,7 @@ export function PortSections({
         }}
         style={styles.portSearch}
         placeholder="Find a page, process, or port"
-        placeholderTextColor={GhostexPalette.MUTED}
+        placeholderTextColor={appearance.muted}
         accessibilityLabel="Search pages and ports"
         autoCapitalize="none"
         autoCorrect={false}
@@ -71,6 +75,8 @@ export function PortSections({
 }
 
 function PortRow({ row, onOpen }: { row: PortListRow; onOpen: (entry: RemoteListeningPort) => void }) {
+  const appearance = useAppearance();
+  const styles = useWebPreviewStyles();
   const [failedIcon, setFailedIcon] = useState<string | null>(null);
   const icon = row.entry.web?.faviconDataUrl;
   const process = [row.entry.command, row.entry.pid === null ? null : `PID ${row.entry.pid}`]
@@ -89,7 +95,7 @@ function PortRow({ row, onOpen }: { row: PortListRow; onOpen: (entry: RemoteList
         ) : /storybook/i.test(row.title) ? (
           <Text style={styles.storybookIcon}>S</Text>
         ) : (
-          <WorldGlyph size={16} color={GhostexPalette.MUTED} />
+          <WorldGlyph size={16} color={appearance.muted} />
         )}
       </View>
       <View style={styles.portRowBody}>

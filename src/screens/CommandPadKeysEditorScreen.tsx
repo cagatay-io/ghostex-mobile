@@ -6,7 +6,8 @@
  * back. Layout of the Pad keys design.
  */
 
-import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
+import { useMemo, useCallback, useLayoutEffect, useState } from 'react';
+
 import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,7 +20,7 @@ import { useAgentHotkeysStore } from '../settings/agentHotkeys';
 import { COMMAND_PAD_POSITIONS, DEFAULT_COMMAND_PAD_KEYS } from '../settings/commandPad';
 import { useExtraKeysStore } from '../settings/extraKeys';
 import { useSettingsStore } from '../settings/store';
-import { colorWithOpacity, GhostexPalette, GhostexRadii, GhostexStrokeWidth, SetupPalette } from '../theme/palette';
+import { colorWithOpacity, GhostexPalette, GhostexRadii, GhostexStrokeWidth } from '../theme/palette';
 import type { Appearance } from '../theme/useAppearance';
 import { SettingsColumnsFrame } from './settings/SettingsColumns';
 import { SettingsPageScrollView } from './settings/SettingsControls';
@@ -31,6 +32,7 @@ const PREVIEW_GAP = 10;
 
 export default function CommandPadKeysEditorScreen() {
   const appearance = useAppearanceHeader();
+  const sheetStyles = useMemo(() => createSheetStyles(appearance), [appearance]);
   const navigation = useNavigation();
   const styles = useMemo(() => createStyles(appearance), [appearance]);
   const storedKeys = useSettingsStore((state) => state.settings.commandPadKeys);
@@ -231,7 +233,7 @@ function createStyles(appearance: Appearance) {
 }
 
 /** The sheet is the app's dark bottom sheet (`BottomSheet`), whatever the page's appearance. */
-const sheetStyles = StyleSheet.create({
+const createSheetStyles = (appearance: Appearance) => StyleSheet.create({
   head: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -239,7 +241,7 @@ const sheetStyles = StyleSheet.create({
     marginBottom: 8,
   },
   title: {
-    color: SetupPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 17,
     fontWeight: '600',
   },
@@ -248,13 +250,13 @@ const sheetStyles = StyleSheet.create({
     paddingHorizontal: 14,
     justifyContent: 'center',
     borderRadius: GhostexRadii.control,
-    backgroundColor: SetupPalette.NEUTRAL_FILL,
+    backgroundColor: appearance.neutralFill,
   },
   donePressed: {
-    backgroundColor: SetupPalette.NEUTRAL_FILL_PRESSED,
+    backgroundColor: appearance.neutralFillPressed,
   },
   doneLabel: {
-    color: SetupPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -263,14 +265,14 @@ const sheetStyles = StyleSheet.create({
     paddingVertical: 8,
   },
   sectionTitle: {
-    color: SetupPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     fontWeight: '600',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
   empty: {
-    color: SetupPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     lineHeight: 18,
   },
@@ -287,22 +289,22 @@ const sheetStyles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 22,
     borderWidth: GhostexStrokeWidth,
-    borderColor: SetupPalette.BORDER_STRONG,
-    backgroundColor: SetupPalette.NEUTRAL_FILL,
+    borderColor: appearance.border,
+    backgroundColor: appearance.neutralFill,
   },
   chipPressed: {
-    backgroundColor: SetupPalette.NEUTRAL_FILL_PRESSED,
+    backgroundColor: appearance.neutralFillPressed,
   },
   chipSelected: {
-    backgroundColor: GhostexPalette.ACCENT,
-    borderColor: GhostexPalette.ACCENT,
+    backgroundColor: appearance.accent,
+    borderColor: appearance.accent,
   },
   chipLabel: {
-    color: SetupPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     fontWeight: '600',
   },
   chipLabelSelected: {
-    color: GhostexPalette.ACCENT_FOREGROUND,
+    color: appearance.accentForeground,
   },
 });

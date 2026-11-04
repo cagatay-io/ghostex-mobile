@@ -47,9 +47,6 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => mockInsets }));
 jest.mock('@react-navigation/native', () => ({ useIsFocused: () => true, useFocusEffect: () => undefined }));
 jest.mock('react-native-webview', () => ({ WebView: () => null }));
-jest.mock('../theme/useAppearance', () => ({
-  useAppearance: () => ({ background: 'black', foreground: 'white', border: 'gray' }),
-}));
 jest.mock('../inventory/client', () => ({ ensureConnected: () => Promise.withResolvers().promise }));
 jest.mock('../machines/credentials', () => ({ hasPassword: () => Promise.resolve(false) }));
 jest.mock('../webPreview/forwards', () => ({

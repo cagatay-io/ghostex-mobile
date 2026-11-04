@@ -25,8 +25,10 @@
  * SEE-ALSO: apps/desktop/src/app/native_docs/files_list.rs, server/src/project_docs/project_scope.rs
  */
 
+import { useMemo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useAppearance, type Appearance } from '../theme/useAppearance';
 import * as Clipboard from 'expo-clipboard';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   FlatList,
@@ -93,7 +95,7 @@ import { useShareFile } from '../files/useShareFile';
 import type { RootStackParamList } from '../navigation/types';
 import type { PaneBarInset } from '../panes/geometry';
 import { useSettingsStore } from '../settings/store';
-import { GhostexPalette } from '../theme/palette';
+
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Docs'>;
 
@@ -170,6 +172,8 @@ export type DocsBrowserProps = RootStackParamList['Docs'] & {
 
 /** The file browser: the Files screen's body, and a files pane's without the screen's chrome. */
 export function DocsBrowser({ machineId, projectId, projectName, projectPath, session, placement }: DocsBrowserProps) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const inPane = placement.kind === 'pane';
   const { navigation } = placement;
   const controlColumn =
@@ -469,7 +473,7 @@ export function DocsBrowser({ machineId, projectId, projectName, projectPath, se
           );
       }
     },
-    [copyPath, followRowMenu, heldPath, openFile, openFileMenu, openFolderMenu, opening, toggleFolder],
+    [copyPath, followRowMenu, heldPath, openFile, openFileMenu, openFolderMenu, opening, toggleFolder, styles],
   );
 
   const pickType = (type: TypeFilter | null) => {
@@ -512,7 +516,7 @@ export function DocsBrowser({ machineId, projectId, projectName, projectPath, se
           kind: 'item',
           key: action,
           label: DocsCopy.open,
-          icon: <ExternalLinkIcon size={MENU_ICON_SIZE} color={GhostexPalette.FOREGROUND} />,
+          icon: <ExternalLinkIcon size={MENU_ICON_SIZE} color={appearance.foreground} />,
           onPress: pick(() => row.kind === 'file' && openFile(row.file)),
         };
       case 'copyPath':
@@ -520,7 +524,7 @@ export function DocsBrowser({ machineId, projectId, projectName, projectPath, se
           kind: 'item',
           key: action,
           label: DocsCopy.copyFullPath,
-          icon: <CopyGlyph size={MENU_ICON_SIZE} color={GhostexPalette.FOREGROUND} />,
+          icon: <CopyGlyph size={MENU_ICON_SIZE} color={appearance.foreground} />,
           onPress: pick(() => copyPath(row.kind === 'file' ? row.file.path : row.folder.path)),
         };
       case 'addToSessionContext':
@@ -528,7 +532,7 @@ export function DocsBrowser({ machineId, projectId, projectName, projectPath, se
           kind: 'item',
           key: action,
           label: DocsCopy.addToSessionContext,
-          icon: <MessagePlusGlyph size={MENU_ICON_SIZE} color={GhostexPalette.FOREGROUND} />,
+          icon: <MessagePlusGlyph size={MENU_ICON_SIZE} color={appearance.foreground} />,
           onPress: pick(() => row.kind === 'file' && addToSessionContext?.(row.file)),
         };
       case 'share':
@@ -536,7 +540,7 @@ export function DocsBrowser({ machineId, projectId, projectName, projectPath, se
           kind: 'item',
           key: action,
           label: DocsCopy.share,
-          icon: <ShareGlyph size={MENU_ICON_SIZE} color={GhostexPalette.FOREGROUND} />,
+          icon: <ShareGlyph size={MENU_ICON_SIZE} color={appearance.foreground} />,
           disabled: sharing,
           onPress: pick(() => row.kind === 'file' && shareFile(row.file)),
         };
@@ -598,15 +602,16 @@ export function DocsBrowser({ machineId, projectId, projectName, projectPath, se
               pressed && styles.pressed,
             ]}
           >
-            <FilterGlyph size={16} color={types.length > 0 ? GhostexPalette.ACCENT : GhostexPalette.MUTED} />
+            <FilterGlyph size={16} color={types.length > 0 ? appearance.accent : appearance.muted} />
             {types.length > 0 ? <View style={styles.filterDot} /> : null}
           </Pressable>
           <TextInput
+            keyboardAppearance={appearance.light ? 'light' : 'dark'}
             style={styles.searchInput}
             value={query}
             onChangeText={setQuery}
             placeholder={DocsCopy.searchPlaceholder}
-            placeholderTextColor={GhostexPalette.MUTED}
+            placeholderTextColor={appearance.muted}
             accessibilityLabel={DocsCopy.searchPlaceholder}
             autoCapitalize="none"
             autoCorrect={false}
@@ -621,7 +626,7 @@ export function DocsBrowser({ machineId, projectId, projectName, projectPath, se
               onPress={() => setQuery('')}
               style={({ pressed }) => [styles.clearButton, pressed && styles.pressed]}
             >
-              <XGlyph size={14} color={GhostexPalette.MUTED} />
+              <XGlyph size={14} color={appearance.muted} />
             </Pressable>
           ) : null}
         </View>
@@ -657,7 +662,7 @@ export function DocsBrowser({ machineId, projectId, projectName, projectPath, se
             <RefreshControl
               refreshing={rootLoading && rootEntries !== null}
               onRefresh={refresh}
-              tintColor={GhostexPalette.MUTED}
+              tintColor={appearance.muted}
             />
           }
           initialNumToRender={30}
@@ -698,6 +703,8 @@ function DocsScreenChrome({
   projectName: string;
   refresh: () => void;
 }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const showHidden = useSettingsStore((state) => state.settings.showHiddenFiles);
   const settingsHydrated = useSettingsStore((state) => state.hydrated);
   const setSetting = useSettingsStore((state) => state.setSetting);
@@ -711,18 +718,18 @@ function DocsScreenChrome({
           <HeaderButton
             label={DocsCopy.refresh}
             onPress={refresh}
-            icon={<RefreshIcon size={18} color={GhostexPalette.FOREGROUND} />}
+            icon={<RefreshIcon size={18} color={appearance.foreground} />}
           />
           <HeaderButton
             label={DocsCopy.filesMenu}
             onPress={() => openHeaderMenu()}
             buttonRef={headerMenu.buttonRef}
-            icon={<EllipsisIcon size={18} color={GhostexPalette.FOREGROUND} />}
+            icon={<EllipsisIcon size={18} color={appearance.foreground} />}
           />
         </View>
       ),
     });
-  }, [headerMenu.buttonRef, navigation, openHeaderMenu, projectName, refresh]);
+  }, [headerMenu.buttonRef, navigation, openHeaderMenu, projectName, refresh, styles, appearance]);
   // On the iPhone Duo the same buttons stand in the side bar under Back; the search field takes the keyboard.
   useStackScreenRail(
     useMemo(
@@ -731,19 +738,19 @@ function DocsScreenChrome({
           {
             key: 'refresh',
             label: DocsCopy.refresh,
-            icon: (size: number) => <RefreshIcon size={size} color={GhostexPalette.FOREGROUND} />,
+            icon: (size: number) => <RefreshIcon size={size} color={appearance.foreground} />,
             onPress: refresh,
           },
           {
             key: 'files-menu',
             label: DocsCopy.filesMenu,
-            icon: (size: number) => <EllipsisIcon size={size} color={GhostexPalette.FOREGROUND} />,
+            icon: (size: number) => <EllipsisIcon size={size} color={appearance.foreground} />,
             onPress: openHeaderMenu,
           },
         ],
         reserveKeyboard: true,
       }),
-      [openHeaderMenu, refresh],
+      [openHeaderMenu, refresh, appearance],
     ),
   );
 
@@ -753,7 +760,7 @@ function DocsScreenChrome({
       kind: 'item',
       key: 'refresh',
       label: DocsCopy.refresh,
-      icon: <RefreshIcon size={MENU_ICON_SIZE} color={GhostexPalette.FOREGROUND} />,
+      icon: <RefreshIcon size={MENU_ICON_SIZE} color={appearance.foreground} />,
       onPress: () => {
         closeHeaderMenu();
         refresh();
@@ -764,9 +771,9 @@ function DocsScreenChrome({
       key: 'hidden',
       label: DocsCopy.showHiddenFiles,
       icon: showHidden ? (
-        <EyeGlyph size={MENU_ICON_SIZE} color={GhostexPalette.FOREGROUND} />
+        <EyeGlyph size={MENU_ICON_SIZE} color={appearance.foreground} />
       ) : (
-        <EyeOffGlyph size={MENU_ICON_SIZE} color={GhostexPalette.FOREGROUND} />
+        <EyeOffGlyph size={MENU_ICON_SIZE} color={appearance.foreground} />
       ),
       selected: showHidden,
       disabled: !settingsHydrated,
@@ -789,8 +796,8 @@ function DocsScreenChrome({
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: GhostexPalette.BACKGROUND },
+const createStyles = (appearance: Appearance) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: appearance.background },
   column: { width: '100%', maxWidth: COLUMN_MAX_WIDTH, alignSelf: 'center' },
   headerButtons: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   pressed: { opacity: 0.6 },
@@ -806,8 +813,8 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: GhostexPalette.BORDER,
-    backgroundColor: GhostexPalette.INPUT_BACKGROUND,
+    borderColor: appearance.border,
+    backgroundColor: appearance.input,
   },
   // 34 pt inside the 40 pt field, as in the design (above the 28 pt minimum).
   filterButton: { width: 34, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
@@ -819,13 +826,13 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: GhostexPalette.ACCENT,
+    backgroundColor: appearance.accent,
   },
-  searchInput: { flex: 1, color: GhostexPalette.FOREGROUND, fontSize: 15, paddingVertical: 0 },
+  searchInput: { flex: 1, color: appearance.foreground, fontSize: 15, paddingVertical: 0 },
   clearButton: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   listContent: { paddingTop: 4 },
   sectionTitle: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'uppercase',
@@ -834,27 +841,27 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 6,
   },
-  status: { color: GhostexPalette.MUTED, fontSize: 13, lineHeight: 19, paddingHorizontal: 16, paddingVertical: 10 },
+  status: { color: appearance.muted, fontSize: 13, lineHeight: 19, paddingHorizontal: 16, paddingVertical: 10 },
   errorCard: {
     margin: 12,
     padding: 14,
     gap: 6,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: GhostexPalette.BORDER,
-    backgroundColor: GhostexPalette.CARD,
+    borderColor: appearance.border,
+    backgroundColor: appearance.card,
   },
-  errorTitle: { color: GhostexPalette.FOREGROUND, fontSize: 14, fontWeight: '600' },
-  errorBody: { color: GhostexPalette.MUTED, fontSize: 13, lineHeight: 18 },
+  errorTitle: { color: appearance.foreground, fontSize: 14, fontWeight: '600' },
+  errorBody: { color: appearance.muted, fontSize: 13, lineHeight: 18 },
   retryButton: {
     alignSelf: 'flex-start',
     marginTop: 4,
     paddingHorizontal: 14,
     height: 34,
     borderRadius: 8,
-    backgroundColor: GhostexPalette.ACCENT,
+    backgroundColor: appearance.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  retryText: { color: GhostexPalette.ACCENT_FOREGROUND, fontSize: 13, fontWeight: '600' },
+  retryText: { color: appearance.accentForeground, fontSize: 13, fontWeight: '600' },
 });

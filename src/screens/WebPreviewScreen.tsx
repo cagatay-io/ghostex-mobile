@@ -25,6 +25,7 @@
  * compact toolbar of its own; its forwards are its own and go when the pane does.
  */
 
+import { useAppearance } from '../theme/useAppearance';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -77,7 +78,7 @@ import { hasPassword } from '../machines/credentials';
 import { useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
 import type { PaneBarInset } from '../panes/geometry';
-import { GhostexPalette } from '../theme/palette';
+
 import { describeForwardFailure, startWebPreviewForward, type WebPreviewFailure } from '../webPreview/forwards';
 import { holdComputerForward, releaseComputerForward } from '../webPreview/machineLinks';
 import { DESKTOP_VIEWPORT_SCRIPT, desktopUserAgent, siteKeyForUrl } from '../webPreview/desktopSite';
@@ -90,7 +91,7 @@ import {
   parseAddressInput,
   remoteDisplayAddress,
 } from '../webPreview/urls';
-import { BAND_ROW_HEIGHT, BAND_ROW_PADDING, TOOLBAR_BUTTON_SIZE, TOOLBAR_PADDING, styles } from './web-preview/styles';
+import { BAND_ROW_HEIGHT, BAND_ROW_PADDING, TOOLBAR_BUTTON_SIZE, TOOLBAR_PADDING, useWebPreviewStyles } from './web-preview/styles';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'WebPreview'>;
 
@@ -244,6 +245,8 @@ const PANE_FORWARD_MIN_WIDTH = 340;
 const PANE_RELOAD_MIN_WIDTH = 240;
 
 export function WebPreviewView({ page, placement, onClose, onPage, controlInset }: WebPreviewViewProps) {
+  const appearance = useAppearance();
+  const styles = useWebPreviewStyles();
   const inPane = placement === 'pane';
   const insets = useSafeAreaInsets();
   const headerPlacement = useHeaderPlacement();
@@ -791,34 +794,34 @@ export function WebPreviewView({ page, placement, onClose, onPage, controlInset 
         {
           key: 'close',
           label: WebPreviewCopy.closeLabel,
-          icon: (size) => <CloseIcon size={size} color={GhostexPalette.FOREGROUND} />,
+          icon: (size) => <CloseIcon size={size} color={appearance.foreground} />,
           onPress: onClose,
         },
         {
           key: 'back',
           label: WebPreviewCopy.backLabel,
-          icon: (size) => <ArrowIcon direction="left" size={size} color={GhostexPalette.FOREGROUND} />,
+          icon: (size) => <ArrowIcon direction="left" size={size} color={appearance.foreground} />,
           onPress: goBack,
           disabled: !canGoBack,
         },
         {
           key: 'reload',
           label: WebPreviewCopy.reloadLabel,
-          icon: (size) => <RefreshIcon size={size} color={GhostexPalette.FOREGROUND} />,
+          icon: (size) => <RefreshIcon size={size} color={appearance.foreground} />,
           onPress: reload,
           disabled: reloadDisabled,
         },
         {
           key: 'more',
           label: DuoChromeCopy.more,
-          icon: (size) => <EllipsisIcon size={size} color={GhostexPalette.FOREGROUND} />,
+          icon: (size) => <EllipsisIcon size={size} color={appearance.foreground} />,
           onPress: (anchor) => setRailMenu({ anchor }),
         },
       ],
     }),
-    [canGoBack, goBack, onClose, reload, reloadDisabled],
+    [canGoBack, goBack, onClose, reload, reloadDisabled, appearance],
   );
-  useRailButtons(railButtons, GhostexPalette.BACKGROUND, inRail);
+  useRailButtons(railButtons, appearance.background, inRail);
   const railOverflow = useRailOverflow(railButtons, inRail);
   // The status band's row: the rail's buttons (Close, Back, Reload, "…"), those that do not
   // fit moving into the "…" menu, last first.
@@ -841,7 +844,7 @@ export function WebPreviewView({ page, placement, onClose, onPage, controlInset 
             {
               key: 'forward',
               label: WebPreviewCopy.forwardLabel,
-              icon: (size: number) => <ArrowIcon direction="right" size={size} color={GhostexPalette.FOREGROUND} />,
+              icon: (size: number) => <ArrowIcon direction="right" size={size} color={appearance.foreground} />,
               onPress: goForward,
               disabled: !canGoForward,
             },
@@ -850,7 +853,7 @@ export function WebPreviewView({ page, placement, onClose, onPage, controlInset 
         key: 'desktop-site',
         label: WebPreviewCopy.desktopSiteLabel,
         icon: (size) => (
-          <DesktopIcon size={size} color={desktopMode ? GhostexPalette.ACCENT : GhostexPalette.FOREGROUND} />
+          <DesktopIcon size={size} color={desktopMode ? appearance.accent : appearance.foreground} />
         ),
         onPress: toggleDesktopSite,
         disabled: siteKey === null || failure !== null,
@@ -859,7 +862,7 @@ export function WebPreviewView({ page, placement, onClose, onPage, controlInset 
       {
         key: 'open-in-browser',
         label: WebPreviewCopy.openInBrowserLabel,
-        icon: (size) => <ExternalLinkIcon size={size} color={GhostexPalette.FOREGROUND} />,
+        icon: (size) => <ExternalLinkIcon size={size} color={appearance.foreground} />,
         onPress: openInBrowser,
         disabled: currentUrl === null || address.kind === 'remote',
       },
@@ -879,6 +882,7 @@ export function WebPreviewView({ page, placement, onClose, onPage, controlInset 
       reloadEntry,
       siteKey,
       toggleDesktopSite,
+      appearance,
     ],
   );
 
@@ -901,6 +905,7 @@ export function WebPreviewView({ page, placement, onClose, onPage, controlInset 
   const addressBar = (
     <View style={[styles.addressBar, inPane && styles.paneAddressBar]}>
       <TextInput
+        keyboardAppearance={appearance.light ? 'light' : 'dark'}
         ref={addressInputRef}
         style={styles.addressText}
         value={addressDraft}
@@ -917,7 +922,7 @@ export function WebPreviewView({ page, placement, onClose, onPage, controlInset 
         onSubmitEditing={submitAddress}
         accessibilityLabel={WebPreviewCopy.manualSection}
         placeholder={WebPreviewCopy.manualPlaceholder}
-        placeholderTextColor={GhostexPalette.MUTED}
+        placeholderTextColor={appearance.muted}
         keyboardType="url"
         returnKeyType="go"
         submitBehavior="submit"
@@ -929,7 +934,7 @@ export function WebPreviewView({ page, placement, onClose, onPage, controlInset 
       <ToolbarButton
         label={WebPreviewCopy.openButton}
         onPress={submitAddress}
-        icon={<ArrowIcon direction="right" size={18} color={GhostexPalette.FOREGROUND} />}
+        icon={<ArrowIcon direction="right" size={18} color={appearance.foreground} />}
       />
     </View>
   );
@@ -958,14 +963,14 @@ export function WebPreviewView({ page, placement, onClose, onPage, controlInset 
             <ToolbarButton
               label={WebPreviewCopy.backLabel}
               onPress={canGoBack ? goBack : onClose}
-              icon={<ArrowIcon direction="left" size={18} color={GhostexPalette.FOREGROUND} />}
+              icon={<ArrowIcon direction="left" size={18} color={appearance.foreground} />}
             />
             {paneShowsForward ? (
               <ToolbarButton
                 label={WebPreviewCopy.forwardLabel}
                 disabled={!canGoForward}
                 onPress={goForward}
-                icon={<ArrowIcon direction="right" size={18} color={GhostexPalette.FOREGROUND} />}
+                icon={<ArrowIcon direction="right" size={18} color={appearance.foreground} />}
               />
             ) : null}
             {addressBar}
@@ -974,14 +979,14 @@ export function WebPreviewView({ page, placement, onClose, onPage, controlInset 
                 label={WebPreviewCopy.reloadLabel}
                 disabled={reloadDisabled}
                 onPress={reload}
-                icon={<RefreshIcon size={18} color={GhostexPalette.FOREGROUND} />}
+                icon={<RefreshIcon size={18} color={appearance.foreground} />}
               />
             ) : null}
             <ToolbarButton
               buttonRef={moreButtonRef}
               label={DuoChromeCopy.more}
               onPress={() => measureInWindow(moreButtonRef, (anchor) => setRailMenu({ anchor }))}
-              icon={<EllipsisIcon size={18} color={GhostexPalette.FOREGROUND} />}
+              icon={<EllipsisIcon size={18} color={appearance.foreground} />}
             />
           </View>
           {addressAlert}
@@ -1027,26 +1032,26 @@ export function WebPreviewView({ page, placement, onClose, onPage, controlInset 
               <ToolbarButton
                 label={WebPreviewCopy.closeLabel}
                 onPress={onClose}
-                icon={<CloseIcon size={18} color={GhostexPalette.FOREGROUND} />}
+                icon={<CloseIcon size={18} color={appearance.foreground} />}
               />
               <View style={styles.toolbarNavGroup}>
                 <ToolbarButton
                   label={WebPreviewCopy.backLabel}
                   disabled={!canGoBack}
                   onPress={goBack}
-                  icon={<ArrowIcon direction="left" size={18} color={GhostexPalette.FOREGROUND} />}
+                  icon={<ArrowIcon direction="left" size={18} color={appearance.foreground} />}
                 />
                 <ToolbarButton
                   label={WebPreviewCopy.forwardLabel}
                   disabled={!canGoForward}
                   onPress={goForward}
-                  icon={<ArrowIcon direction="right" size={18} color={GhostexPalette.FOREGROUND} />}
+                  icon={<ArrowIcon direction="right" size={18} color={appearance.foreground} />}
                 />
                 <ToolbarButton
                   label={WebPreviewCopy.reloadLabel}
                   disabled={source === null || failure !== null}
                   onPress={reload}
-                  icon={<RefreshIcon size={18} color={GhostexPalette.FOREGROUND} />}
+                  icon={<RefreshIcon size={18} color={appearance.foreground} />}
                 />
               </View>
               <ToolbarButton
@@ -1054,13 +1059,13 @@ export function WebPreviewView({ page, placement, onClose, onPage, controlInset 
                 disabled={siteKey === null || failure !== null}
                 active={desktopMode}
                 onPress={toggleDesktopSite}
-                icon={<DesktopIcon size={18} color={desktopMode ? GhostexPalette.ACCENT : GhostexPalette.FOREGROUND} />}
+                icon={<DesktopIcon size={18} color={desktopMode ? appearance.accent : appearance.foreground} />}
               />
               <ToolbarButton
                 label={WebPreviewCopy.openInBrowserLabel}
                 disabled={currentUrl === null || address.kind === 'remote'}
                 onPress={openInBrowser}
-                icon={<ExternalLinkIcon size={18} color={GhostexPalette.FOREGROUND} />}
+                icon={<ExternalLinkIcon size={18} color={appearance.foreground} />}
               />
             </View>
           )}
@@ -1147,6 +1152,7 @@ export function WebPreviewView({ page, placement, onClose, onPage, controlInset 
  * the page, fed by the WebView's own progress, shows the load is alive.
  */
 function LoadProgressBar({ progress }: { progress: number }) {
+  const styles = useWebPreviewStyles();
   const width = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     // A sliver while the forward opens or the first bytes are on their way.
@@ -1166,9 +1172,11 @@ function LoadProgressBar({ progress }: { progress: number }) {
 }
 
 function ConnectingSurface({ address }: { address: PreviewAddress }) {
+  const appearance = useAppearance();
+  const styles = useWebPreviewStyles();
   return (
     <View style={[styles.stateSurface, styles.failureOverlay]}>
-      <ActivityIndicator size="small" color={GhostexPalette.ACCENT} />
+      <ActivityIndicator size="small" color={appearance.accent} />
       <Text style={styles.stateBody}>
         {address.kind === 'remote'
           ? WebPreviewCopy.connecting(address.remotePort)
@@ -1188,6 +1196,7 @@ function PreviewFailure({
   /** In a pane: Retry and the words around it keep off a book fold. */
   controlInset: PaneBarInset | undefined;
 }) {
+  const styles = useWebPreviewStyles();
   return (
     <View
       style={[
@@ -1232,6 +1241,7 @@ function ToolbarButton({
   label: string;
   onPress: () => void;
 }) {
+  const styles = useWebPreviewStyles();
   const isDisabled = disabled === true;
   return (
     <Pressable

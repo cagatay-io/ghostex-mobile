@@ -121,6 +121,7 @@ const contrast = (a: string, b: string): number => {
 };
 /** `rgba(r,g,b,a)` painted over an opaque `#rrggbb`. */
 const over = (rgba: string, base: string): string => {
+  if (/^#[0-9a-f]{6}$/iu.test(rgba)) return rgba;
   const [r, g, b, a] = (rgba.match(/[\d.]+/g) ?? []).map(Number) as [number, number, number, number];
   return `#${channels(base)
     .map((value, index) => Math.round([r, g, b][index]! * a + value * (1 - a)))
@@ -177,7 +178,7 @@ describe.each(LIGHT_PRESETS)('%s', (id, background) => {
   });
 });
 
-test('Duo landscape: the side bar glyphs read on their dark capsules over a light terminal; the header row keeps dark ink', async () => {
+test('Duo landscape: the side bar glyphs read on their model-coloured capsules over a light terminal; the header row keeps dark ink', async () => {
   mockDuo = true;
   await act(() =>
     Dimensions.set({
