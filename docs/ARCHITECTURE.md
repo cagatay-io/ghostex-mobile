@@ -272,8 +272,8 @@ Generated Markdown, source, plain-text, image and media viewer pages take the na
 
 The component tests in `src/find/FindFilterSheets.rntl.tsx`, the Extra Keys and Agent Hotkeys editor tests,
 `AttentionListScreen.rntl.tsx`, `FeedbackScreen.rntl.tsx`, both Find screen tests,
-`SessionsScreen.tailscale.rntl.tsx` and `settings/UpdatesPage.rntl.tsx` measure rendered text roles against their
-actual model-coloured surfaces across the twenty presets. The Add Project source test covers its missing-computer
+`SessionsScreen.tailscale.rntl.tsx`, `TerminalChromeContrast.rntl.tsx` (connection instructions and link-picker failures)
+and `settings/UpdatesPage.rntl.tsx` measure rendered text roles against their actual model-coloured surfaces across the twenty presets. The Add Project source test covers its missing-computer
 banner. Translucent button and error washes are composited before measuring contrast; these checks exercise
 React Native styles and handlers, not device pixels, native blur, font rendering or the retained parity exceptions.
 

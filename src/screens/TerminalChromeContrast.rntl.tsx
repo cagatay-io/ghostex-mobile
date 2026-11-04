@@ -20,7 +20,10 @@ import TerminalKeyBar from '../components/terminal/TerminalKeyBar';
 import TerminalStateOverlay from '../components/terminal/TerminalStateOverlay';
 import { defaultSettings, useSettingsStore } from '../settings/store';
 import { useTerminalStore } from '../terminal/sessions';
-import { themePresetPatch } from '../theme/presets';
+import { THEME_PRESETS, themePresetPatch } from '../theme/presets';
+import { ConnectChooseCopy } from '../copy';
+import ConnectChooseScreen from './ConnectChooseScreen';
+import WorkLinkPicker from './sessions-screen/work-link-picker';
 import TerminalScreen from './TerminalScreen';
 
 let mockDuo = false;
@@ -69,6 +72,7 @@ jest.mock('expo-haptics', () => ({
   NotificationFeedbackType: { Success: 'success' },
 }));
 jest.mock('react-native-safe-area-context', () => ({
+  ...jest.requireActual('react-native-safe-area-context/jest/mock').default,
   useSafeAreaInsets: () => ({ top: 59, bottom: 34, left: 0, right: 0 }),
 }));
 jest.mock('@react-navigation/native', () => ({
@@ -175,6 +179,30 @@ describe.each(LIGHT_PRESETS)('%s', (id, background) => {
     const pillColour = over(flat(pill!).backgroundColor as string, background);
     expect(contrast(flat(label).color as string, pillColour)).toBeGreaterThanOrEqual(4.5);
     await screen.unmount();
+  });
+});
+
+describe.each(THEME_PRESETS.map((preset) => [preset.id, preset.mode] as const))('%s (%s) setup and link surfaces', (id) => {
+  test('connection instructions keep 4.5:1 on their actual option card', async () => {
+    useSettingsStore.getState().patchSettings(themePresetPatch(id, false)!);
+    await render(<ConnectChooseScreen navigation={nav as never} route={{} as never} />);
+    for (const step of ConnectChooseCopy.easyConnect.steps) {
+      const label = screen.getByText(step);
+      const card = ancestors(label).slice(1).find((node) => /^#[0-9a-f]{6}$/iu.test(String(flat(node).backgroundColor)));
+      expect(card).toBeDefined();
+      expect(contrast(String(flat(label).color), String(flat(card!).backgroundColor))).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  test('a failed link-candidate load keeps 4.5:1 on the picker page', async () => {
+    useSettingsStore.getState().patchSettings(themePresetPatch(id, false)!);
+    await render(<WorkLinkPicker kind="pullRequest" sessionTitle="Example session"
+      load={async () => { throw new Error('Suggestions unavailable'); }}
+      onPick={() => {}} onCancel={() => {}} />);
+    const label = await screen.findByText('Suggestions unavailable');
+    const page = ancestors(label).slice(1).find((node) => /^#[0-9a-f]{6}$/iu.test(String(flat(node).backgroundColor)));
+    expect(page).toBeDefined();
+    expect(contrast(String(flat(label).color), String(flat(page!).backgroundColor))).toBeGreaterThanOrEqual(4.5);
   });
 });
 

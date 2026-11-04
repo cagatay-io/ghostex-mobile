@@ -164,7 +164,7 @@ const createStyles = (appearance: Appearance) => StyleSheet.create({
   },
   stepText: {
     flex: 1,
-    color: '#d4d4d8',
+    color: appearance.foreground,
     fontSize: 13,
     lineHeight: 18,
   },

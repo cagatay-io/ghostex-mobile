@@ -308,7 +308,7 @@ const createStyles = (appearance: Appearance) => StyleSheet.create({
     marginVertical: 8,
   },
   error: {
-    color: '#FF7B72',
+    color: appearance.danger,
     fontSize: 12,
     lineHeight: 17,
     marginHorizontal: 16,
