@@ -10,7 +10,7 @@
  */
 
 import type { ReactNode } from 'react';
-import { Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, Text, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 
 import { Glyph } from './icons';
 import {
@@ -205,9 +205,12 @@ export function AskOption({
   enabled,
   answered,
   onPress,
+  renderDetail,
 }: {
   label: string;
   detail?: string;
+  /** Draws the detail in the given style instead of plain text (a question form's links, `QuestionForm.tsx`). */
+  renderDetail?: (style: StyleProp<TextStyle>) => ReactNode;
   picked: boolean;
   multiple: boolean;
   keyLabel?: string;
@@ -261,7 +264,13 @@ export function AskOption({
           </Text>
           {recommended === true ? <RecommendedMark /> : null}
         </View>
-        {showDetail ? <Text style={styles.optionDetail}>{detail}</Text> : null}
+        {showDetail ? (
+          renderDetail !== undefined ? (
+            renderDetail(styles.optionDetail)
+          ) : (
+            <Text style={styles.optionDetail}>{detail}</Text>
+          )
+        ) : null}
       </View>
       {keyLabel !== undefined ? <Keycap label={keyLabel} lit={picked} /> : null}
     </Pressable>
