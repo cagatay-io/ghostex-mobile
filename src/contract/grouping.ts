@@ -1111,7 +1111,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
  * The project's header as its card in the Project list would carry it, for the Unified list, which has no header: its
  * agent picker and a session menu's Actions…. A project in a saved collection has a header only while that collection
  * is open, as the Project list draws it; `throughCollections` opens the project's collections for the lookup, so the
- * header does not depend on how the collection is folded (Actions… uses it; the agent picker does not).
+ * header does not depend on how the collection is folded (Actions… and the agent pickers use it).
  */
 export function projectHeaderOf(
   machineId: string,

@@ -33,7 +33,6 @@ import DetailsSheet from '../components/common/DetailsSheet';
 import LogsSheet from '../components/common/LogsSheet';
 import NoticeToast, { type Notice } from '../components/common/NoticeToast';
 import ProgressOverlay from '../components/common/ProgressOverlay';
-import NoticeToast, { type Notice } from '../components/common/NoticeToast';
 import PromptDialog from '../components/common/PromptDialog';
 import { measureInWindow } from '../components/common/measureInWindow';
 import { bandRowFrame } from '../components/common/verticalBar/layout';
@@ -687,8 +686,6 @@ export default function SessionsScreen({ navigation }: Props) {
     inventoriesByMachineId,
   ]);
 
-  const [notice, setNotice] = useState<Notice | null>(null);
-  const noticeCounter = useRef(0);
   const showNotice = useCallback((next: Omit<Notice, 'id'>): void => {
     noticeCounter.current += 1;
     setNotice({ ...next, id: noticeCounter.current });

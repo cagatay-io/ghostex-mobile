@@ -1556,7 +1556,7 @@ export function useSessionsScreenMenus({
     const machine = useMachinesStore.getState().machines.find((entry) => entry.id === machineId) ?? null;
     const summary = summaryFor(machineId);
     if (machine === null || summary === null) return;
-    const header = projectHeaderOf(machineId, summary, projectId);
+    const header = projectHeaderOf(machineId, summary, projectId, { throughCollections: true });
     if (header !== null) setOverlay({ kind: 'agentMenu', ctx: { machine, header } });
   };
 
