@@ -53,6 +53,7 @@ import { laterAction, removeAction, rowAge, statusLabel } from './questionAge';
 import type { SessionLinksChatPill } from '../sessionLinks';
 import { Glyph as TranscriptGlyph } from '../transcript/icons';
 import { AgentFleetMenu, AgentTasksMenu, CoordinatorThreadsMenu, waitingColor } from './AgentPanels';
+import { CoordinatorBoardMenu } from './CoordinatorBoard';
 import { SideChatsMenu } from './SideChats';
 import { Glyph } from './icons';
 import { obj } from './json';
@@ -502,7 +503,18 @@ function PingRing({ progress }: { progress: Animated.Value }) {
 }
 
 /** One panel pill in the Worked row's chip look (`TranscriptItemRow.tsx` `chip`): icon, label, count. A tap opens its sheet. */
-export function Pill({ pill, open, onPress }: { pill: ChatPill; open: boolean; onPress: () => void }) {
+export function Pill({
+  pill,
+  open,
+  onPress,
+  counts,
+}: {
+  pill: ChatPill;
+  open: boolean;
+  onPress: () => void;
+  /** The Board pill's coloured counts (`boardPillCounts`). */
+  counts?: { color: string; count: number }[];
+}) {
   const styles = useStyles();
   const P = useTranscriptTheme();
   return (
@@ -533,12 +545,20 @@ export function Pill({ pill, open, onPress }: { pill: ChatPill; open: boolean; o
                   ? 'stack-push'
                   : pill.id === 'sideChats'
                     ? 'messages'
-                    : 'users'
+                    : pill.id === 'board'
+                      ? 'layout-board-split'
+                      : 'users'
         }
         size={12}
         color={P.cardMuted}
       />
       <Text style={styles.label}>{pill.label}</Text>
+      {(counts ?? []).map(({ color, count }) => (
+        <View key={color} style={styles.boardCount}>
+          <View style={[styles.boardDot, { backgroundColor: color }]} />
+          <Text style={styles.count}>{count}</Text>
+        </View>
+      ))}
       {pill.count.length > 0 ? <Text style={styles.count}>{pill.count}</Text> : null}
     </Pressable>
   );
@@ -684,6 +704,8 @@ export function PillMenuSheet({
     >
       {open === 'threads' ? (
         <CoordinatorThreadsMenu chat={chat} document={document} onDone={close} />
+      ) : open === 'board' ? (
+        <CoordinatorBoardMenu chat={chat} document={document} onDone={close} />
       ) : open === 'sideChats' ? (
         <SideChatsMenu chat={chat} document={document} onDone={close} />
       ) : open === 'tasks' ? (
@@ -706,6 +728,17 @@ export function PillMenuSheet({
 }
 
 const useStyles = themedStyles((P) => ({
+  /** One of the Board pill's coloured counts: its group's dot and number. */
+  boardCount: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  boardDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',

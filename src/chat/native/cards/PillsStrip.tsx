@@ -22,6 +22,7 @@ import { Animated, Easing, Pressable, ScrollView, Text, View } from 'react-nativ
 import { useReducedMotion } from 'react-native-reanimated';
 
 import type { ChatDocument, ViewChip } from '../../rust/document';
+import { boardPillCounts } from './CoordinatorBoard';
 import type { RustChat } from '../../rust/useRustChat';
 import type { GhostexSessionLinks } from '../../../contract/mobileSummary';
 import { Glyph as ComposerGlyph } from '../composer/icons';
@@ -146,6 +147,7 @@ export function PillsStrip({
     <Pill
       key={pill.id}
       pill={pill}
+      counts={pill.id === 'board' ? boardPillCounts(document) : undefined}
       open={pill.id === menu}
       onPress={() => (pill.id === 'stashed' ? onStashedPress?.() : setMenu(pill.id))}
     />

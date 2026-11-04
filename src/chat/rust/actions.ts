@@ -34,6 +34,9 @@ export type ActionFields = {
   toggleAgentTasksCompleted: { step: number };
   /** A coordinator's Threads panel fold, and the step its list is at (0 in flight, 1 recent, 2+ 30 more each). Desktop: `coordinator_threads.rs`. */
   toggleCoordinatorThreadsMore: { step: number };
+  /** A coordinator board group's fold, and showing all of a group's rows. Desktop: `coordinator_board.rs`. */
+  toggleCoordinatorBoardGroup: { group: string };
+  coordinatorBoardMore: { group: string };
   /** The grouped background-task row's fold. Desktop: `background_tasks.rs`. */
   toggleBackgroundTasks: { open: boolean };
   /** Open one of the coordinator's threads: gxserver resumes it if closed, then the host opens its tab. */

@@ -637,6 +637,8 @@ export type ChatDocument = {
   agentTasksPanel: Json;
   /** A coordinator's Threads panel, or null. Desktop: `coordinator_threads.rs`. */
   coordinatorThreadsPanel: Json;
+  /** A coordinator's board (gx-chat-core `extras/coordinator_board.rs`), or null. Desktop: `coordinator_board.rs`. */
+  coordinatorBoard?: Json;
   /** The Side chats pill's sheet (gx-chat-core `extras/side_chats.rs`), or null. */
   sideChatsPanel?: Json;
   /** A side chat's own bar: `{ parentSessionId, parentTitle }`, or null for any other chat. */
