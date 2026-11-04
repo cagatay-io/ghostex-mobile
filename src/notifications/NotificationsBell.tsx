@@ -4,10 +4,12 @@
  * bell. The number counts the rows the list shows, across every enabled computer.
  */
 
+import { useMemo } from 'react';
+import { useAppearance, type Appearance } from '../theme/useAppearance';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { NotificationsCopy } from '../copy';
-import { SidebarPalette } from '../theme/palette';
+
 import { useAttentionFeedStore } from './feedStore';
 import { BellGlyph } from './icons';
 
@@ -26,6 +28,8 @@ export function bellLabel(unread: number): string {
 
 /** The bell glyph with its count badge; the label is the caller's (`bellLabel`). */
 export function BellWithCount({ size, color, unread }: { size: number; color: string; unread: number }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   return (
     <View
       style={{ width: size, height: size }}
@@ -44,7 +48,7 @@ export function BellWithCount({ size, color, unread }: { size: number; color: st
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   badge: {
     position: 'absolute',
     top: -7,
@@ -53,9 +57,9 @@ const styles = StyleSheet.create({
     height: 18,
     paddingHorizontal: 5,
     borderRadius: 9,
-    backgroundColor: SidebarPalette.ROW_FAILED,
+    backgroundColor: appearance.danger,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  badgeText: { color: appearance.accentForeground, fontSize: 11, fontWeight: '700', fontVariant: ['tabular-nums'] },
 });

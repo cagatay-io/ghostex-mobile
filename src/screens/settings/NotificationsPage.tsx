@@ -29,7 +29,8 @@ import { BellOffGlyph } from '../../notifications/icons';
 import { NOTIFICATIONS_SUPPORTED } from '../../notifications/notificationCentre';
 import type { NotificationSettings } from '../../notifications/settings';
 import { useSettingsStore } from '../../settings/store';
-import { colorWithOpacity, GhostexPalette, neutralButtonFills, SidebarPalette } from '../../theme/palette';
+import { BLOCKED_CARD_WASH, colorOver, neutralButtonFills } from '../../theme/palette';
+import { readableSecondaryText } from '../../theme/sidebarAppearance';
 import { useAppearance } from '../../theme/useAppearance';
 import { Caption, SectionHeader, SettingsScreenLayout, SettingToggle, useSettingsStyles } from './SettingsControls';
 
@@ -68,7 +69,7 @@ function SwitchRow({
         value={value}
         disabled={disabled}
         onValueChange={onValueChange}
-        trackColor={{ false: appearance.control, true: GhostexPalette.ACCENT }}
+        trackColor={{ false: appearance.control, true: appearance.accent }}
         thumbColor={value ? appearance.foreground : appearance.controlThumb}
         ios_backgroundColor={appearance.control}
       />
@@ -80,21 +81,25 @@ function BlockedCard() {
   const appearance = useAppearance();
   const fills = neutralButtonFills(appearance.light);
   const copy = NotificationsCopy.settings;
+  const surface = colorOver(BLOCKED_CARD_WASH, appearance.background);
+  const buttonInk = readableSecondaryText(appearance.foreground, appearance.light ? '#000000' : '#ffffff', [
+    colorOver(fills.rest, surface),
+    colorOver(fills.pressed, surface),
+  ]);
+  // The secondary text sits on the red wash, not on the page: it keeps 4.5:1 on the wash it is drawn on.
+  const detail = readableSecondaryText(appearance.muted, appearance.foreground, [surface]);
   return (
-    <View
-      accessibilityRole="alert"
-      style={[local.blocked, { backgroundColor: colorWithOpacity(SidebarPalette.ROW_FAILED, 12) }]}
-    >
-      <BellOffGlyph size={20} color={SidebarPalette.MENU_DANGER} />
+    <View accessibilityRole="alert" style={[local.blocked, { backgroundColor: BLOCKED_CARD_WASH }]}>
+      <BellOffGlyph size={20} color={appearance.danger} />
       <View style={local.blockedText}>
         <Text style={[local.blockedTitle, { color: appearance.foreground }]}>{copy.blockedTitle}</Text>
-        <Text style={[local.detail, { color: appearance.muted }]}>{copy.blockedText}</Text>
+        <Text style={[local.detail, { color: detail }]}>{copy.blockedText}</Text>
         <Pressable
           accessibilityRole="button"
           onPress={() => void Linking.openSettings()}
           style={({ pressed }) => [local.blockedButton, { backgroundColor: pressed ? fills.pressed : fills.rest }]}
         >
-          <Text style={[local.blockedButtonText, { color: appearance.foreground }]}>{copy.openSettings}</Text>
+          <Text style={[local.blockedButtonText, { color: buttonInk }]}>{copy.openSettings}</Text>
         </Pressable>
       </View>
     </View>

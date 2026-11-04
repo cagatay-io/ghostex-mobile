@@ -52,7 +52,7 @@ export default function SpaceTabs({
   const ink = useSidebarInk();
   const styles = spaceStyles(ink);
   // The ring between overlapping dots is drawn in the chip's own card (dark: its active card, as before).
-  const ringColor = ink.light ? ink.chipCard : GhostexPalette.CARD_ACTIVE;
+  const ringColor = ink.chipCard;
   return (
     <ScrollView
       contentContainerStyle={styles.row}

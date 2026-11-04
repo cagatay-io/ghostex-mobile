@@ -7,12 +7,15 @@
  * alone would carry it by colour only). The session on screen beside it is not listed, nor, opened over a session
  * pane, that pane's session (it comes back with Close). The list is the computer's session list as the Sessions
  * screen has it; while it is being read, a spinner. The sessions are a virtualised list (`FlatList`, keyed by session
- * id, one memoized row sharing this file's styles), the rows above them its header. The list does not spring back
- * past its ends. Every row is a control: half folded like a book they all keep off the fold.
+ * id, one memoized row; the list builds the rows' styles once per appearance and hands them to every row), the rows
+ * above them its header. The list does not spring back past its ends. Every row is a control: half folded like a book
+ * they all keep off the fold.
  * The agents pane (`AgentsPane.tsx`) lists the sessions with the same row.
  */
 
 import { memo, useCallback, useMemo, type ReactNode } from 'react';
+import { useAppearance, type Appearance } from '../theme/useAppearance';
+
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View, type ListRenderItem } from 'react-native';
 
 import { AGENT_ICONS } from '../assets/agentIcons.generated';
@@ -29,7 +32,7 @@ import {
 } from '../contract/mobileSummary';
 import { PanesCopy, SessionCopy } from '../copy';
 import { useInventoryStore } from '../inventory/store';
-import { GhostexPalette, GhostexRadii } from '../theme/palette';
+import { GhostexRadii } from '../theme/palette';
 import type { PaneBarInset } from './geometry';
 import { AVAILABLE_PANE_TYPES } from './paneTypes';
 import type { SettablePaneType } from './usePaneHost';
@@ -79,18 +82,20 @@ export function paneSessionStatus(
 
 /**
  * One of the computer's sessions: its agent icon, its title, and its agent, project (`withProject`) and status. A press
- * hands its session to `onPick`, so a list passes one callback to every row and a row is drawn again only when its own
- * session changes.
+ * hands its session to `onPick`, so a list passes one callback and one styles object (`usePaneRowStyles`) to every row
+ * and a row is drawn again only when its own session changes.
  */
 export const PaneSessionRow = memo(function PaneSessionRow({
   session,
   capabilities,
   withProject,
+  styles,
   onPick,
 }: {
   session: GhostexSession;
   capabilities: GhostexSummaryCapabilities;
   withProject: boolean;
+  styles: PaneRowStyles;
   onPick: (session: GhostexSession) => void;
 }) {
   const iconId = resolveAgentIconId(session.agentIcon, session.agentName);
@@ -128,11 +133,13 @@ function ActionRow({
   label,
   detail,
   icon,
+  styles,
   onPress,
 }: {
   label: string;
   detail?: string;
   icon: ReactNode;
+  styles: PaneRowStyles;
   onPress: () => void;
 }) {
   return (
@@ -169,6 +176,9 @@ export default function SessionChooser({
   onNewTerminal,
   onAddProject,
 }: SessionChooserProps) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
+  const rowStyles = usePaneRowStyles();
   const summary = useInventoryStore((state) => state.inventoriesByMachineId[machineId]?.summary ?? null);
   // A new terminal goes into the project of the session beside the chooser, where it has one.
   const beside = summary?.sessions.find((session) => session.sessionId === besideSessionId) ?? null;
@@ -192,8 +202,10 @@ export default function SessionChooser({
       definition.type !== 'session' && (projectOffered || !definition.needsProject),
   );
   const renderSession = useCallback<ListRenderItem<GhostexSession>>(
-    ({ item }) => <PaneSessionRow session={item} capabilities={capabilities} withProject onPick={onPick} />,
-    [capabilities, onPick],
+    ({ item }) => (
+      <PaneSessionRow session={item} capabilities={capabilities} withProject styles={rowStyles} onPick={onPick} />
+    ),
+    [capabilities, rowStyles, onPick],
   );
   return (
     <FlatList
@@ -214,7 +226,8 @@ export default function SessionChooser({
         <View style={styles.header}>
           <ActionRow
             label={PanesCopy.chooserClose}
-            icon={<CloseIcon size={16} color={GhostexPalette.ACCENT} />}
+            icon={<CloseIcon size={16} color={appearance.accent} />}
+            styles={rowStyles}
             onPress={onClose}
           />
           <Text style={[styles.lead, styles.leadAfter]} accessibilityRole="header">
@@ -225,7 +238,8 @@ export default function SessionChooser({
               key={definition.type}
               label={definition.label}
               detail={definition.description}
-              icon={definition.icon(20, GhostexPalette.ACCENT)}
+              icon={definition.icon(20, appearance.accent)}
+              styles={rowStyles}
               onPress={() => onPickType(definition.type)}
             />
           ))}
@@ -235,22 +249,20 @@ export default function SessionChooser({
           {besideProject !== null ? (
             <ActionRow
               label={PanesCopy.newTerminalIn(besideProject.projectName)}
-              icon={<TerminalGlyph size={20} color={GhostexPalette.ACCENT} />}
+              icon={<TerminalGlyph size={20} color={appearance.accent} />}
+              styles={rowStyles}
               onPress={() => onNewTerminal(besideProject)}
             />
           ) : null}
           <ActionRow
             label={PanesCopy.addProject}
-            icon={<PlusGlyph size={20} color={GhostexPalette.ACCENT} />}
+            icon={<PlusGlyph size={20} color={appearance.accent} />}
+            styles={rowStyles}
             onPress={onAddProject}
           />
           {summary === null ? (
             <View style={styles.pending}>
-              <ActivityIndicator
-                size="small"
-                color={GhostexPalette.MUTED}
-                accessibilityLabel={PanesCopy.chooserLoading}
-              />
+              <ActivityIndicator size="small" color={appearance.muted} accessibilityLabel={PanesCopy.chooserLoading} />
             </View>
           ) : null}
           {summary !== null && sessions.length === 0 ? (
@@ -266,7 +278,7 @@ function sessionKey(session: GhostexSession): string {
   return session.sessionId;
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   /** The rows above the sessions, as far apart as the sessions are (`content`'s gap). */
   header: {
     gap: 8,
@@ -277,14 +289,14 @@ const styles = StyleSheet.create({
   },
   list: {
     flex: 1,
-    backgroundColor: GhostexPalette.BACKGROUND,
+    backgroundColor: appearance.background,
   },
   content: {
     padding: 12,
     gap: 8,
   },
   lead: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 13,
     fontWeight: '600',
     paddingHorizontal: 4,
@@ -294,10 +306,22 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   empty: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 15,
     paddingHorizontal: 4,
   },
+});
+
+/** The rows' styles for one appearance (`usePaneRowStyles`), apart from the list's own. */
+export type PaneRowStyles = ReturnType<typeof createRowStyles>;
+
+/** The rows' styles for the current appearance: a list builds them once and hands them to each of its rows. */
+export function usePaneRowStyles(): PaneRowStyles {
+  const appearance = useAppearance();
+  return useMemo(() => createRowStyles(appearance), [appearance]);
+}
+
+const createRowStyles = (appearance: Appearance) => StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -306,16 +330,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
-    backgroundColor: GhostexPalette.CARD,
+    backgroundColor: appearance.card,
   },
   rowPressed: {
-    backgroundColor: GhostexPalette.CARD_ACTIVE,
+    backgroundColor: appearance.cardActive,
   },
   typeIcon: {
     width: 36,
     height: 36,
     borderRadius: GhostexRadii.card,
-    backgroundColor: GhostexPalette.NEUTRAL_FILL,
+    backgroundColor: appearance.neutralFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -324,12 +348,12 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   title: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 15,
     fontWeight: '500',
   },
   detail: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 13,
     marginTop: 2,
   },

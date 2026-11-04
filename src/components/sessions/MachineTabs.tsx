@@ -22,7 +22,9 @@
  * user. A long press opens the tab's menu.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useMemo, useEffect, useRef, useState } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
+
 import {
   Animated,
   Easing,
@@ -110,6 +112,8 @@ export function SpinningLoader({ color, size = GLYPH_SIZE }: { color: string; si
 }
 
 function ConnectionGlyph({ item }: { item: MachineTabItem }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   if (item.connectionState === 'busy') {
     return (
       <View accessibilityLabel={StripCopy.connection.busy} style={styles.glyph}>
@@ -148,6 +152,8 @@ function ConnectionGlyph({ item }: { item: MachineTabItem }) {
  * User: "when we show those colored circles on remote machines let's make those circles appear below the remote machine tab instead of showing in a way that pushes the icon and name of the remote/local machine", and "Yes, same as the desktop" for the phone. The dots are drawn absolutely at the bottom of the tab, centred, so the glyph and label stay centred where they sit without dots and the tab keeps its height. Supersedes the dots sitting inline after the name.
  */
 function StatusDots({ item }: { item: MachineTabItem }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   if (
     item.workingCount <= 0 &&
     item.attentionCount <= 0 &&
@@ -179,7 +185,7 @@ function StatusDots({ item }: { item: MachineTabItem }) {
         backgroundWorkCount={item.backgroundWorkCount}
         questionCount={item.questionCount}
         approvalCount={item.approvalCount}
-        ringColor={SetupPalette.PANEL}
+        ringColor={appearance.input}
       />
     </View>
   );
@@ -201,6 +207,8 @@ function MachineTab({
   onSelect: (machineId: string) => void;
   onLongPress: (machineId: string) => void;
 }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const stateLabel = item.connectionLabel ?? StripCopy.connection[item.connectionState];
   return (
     <Pressable
@@ -230,14 +238,16 @@ function MachineTab({
 
 /** A soft edge on the scrolling row, so tabs run out of sight rather than stop at a line. */
 function EdgeFade({ side }: { side: 'left' | 'right' }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const id = `machine-tabs-fade-${side}`;
   return (
     <View pointerEvents="none" style={[styles.fade, side === 'left' ? styles.fadeLeft : styles.fadeRight]}>
       <Svg width={FADE_WIDTH} height="100%">
         <Defs>
           <LinearGradient id={id} x1={side === 'left' ? '1' : '0'} y1="0" x2={side === 'left' ? '0' : '1'} y2="0">
-            <Stop offset="0" stopColor={SetupPalette.PANEL} stopOpacity={0} />
-            <Stop offset="1" stopColor={SetupPalette.PANEL} stopOpacity={1} />
+            <Stop offset="0" stopColor={appearance.input} stopOpacity={0} />
+            <Stop offset="1" stopColor={appearance.input} stopOpacity={1} />
           </LinearGradient>
         </Defs>
         <Rect x="0" y="0" width={FADE_WIDTH} height="100%" fill={`url(#${id})`} />
@@ -248,6 +258,8 @@ function EdgeFade({ side }: { side: 'left' | 'right' }) {
 
 /** What the tabs past one edge have to say, on that edge. */
 function EdgeDots({ side, hidden }: { side: 'left' | 'right'; hidden: readonly MachineTabItem[] }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const sum = (count: (item: MachineTabItem) => number): number => hidden.reduce((total, item) => total + count(item), 0);
   const counts = {
     workingCount: sum((item) => item.workingCount),
@@ -259,7 +271,7 @@ function EdgeDots({ side, hidden }: { side: 'left' | 'right'; hidden: readonly M
   if (Object.values(counts).every((count) => count <= 0)) return null;
   return (
     <View pointerEvents="none" style={[styles.edgeDots, side === 'left' ? styles.edgeDotsLeft : styles.edgeDotsRight]}>
-      <StatusDotStack {...counts} ringColor={SetupPalette.PANEL} />
+      <StatusDotStack {...counts} ringColor={appearance.input} />
     </View>
   );
 }
@@ -278,6 +290,8 @@ export default function MachineTabs({
   /** The trailing "+" tab: add a computer through the onboarding chooser. */
   onAdd: () => void;
 }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const { width: windowWidth } = useWindowDimensions();
   const [stripWidth, setStripWidth] = useState(windowWidth);
   const machines = items.filter((item): item is MachineTabItem => !isAddItem(item));
@@ -315,7 +329,7 @@ export default function MachineTabs({
         pressed ? styles.tabPressed : null,
       ]}
     >
-      <PlusGlyph size={16} color={SetupPalette.MUTED} />
+      <PlusGlyph size={16} color={appearance.muted} />
     </Pressable>
   ) : null;
   const [firstVisible, firstAfter] =
@@ -376,7 +390,7 @@ export default function MachineTabs({
 /** The Sessions page pads by 12; the strip cancels that to run edge to edge. */
 const PAGE_PADDING = 12;
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   strip: {
     flexDirection: 'row',
     alignItems: 'stretch',
@@ -386,8 +400,8 @@ const styles = StyleSheet.create({
     marginHorizontal: -PAGE_PADDING,
     borderTopWidth: GhostexStrokeWidth,
     borderBottomWidth: GhostexStrokeWidth,
-    borderColor: SetupPalette.BORDER,
-    backgroundColor: SetupPalette.PANEL,
+    borderColor: appearance.border,
+    backgroundColor: appearance.input,
   },
   tabShared: {
     flex: 1,
@@ -438,13 +452,13 @@ const styles = StyleSheet.create({
   /** Segments share one hairline instead of each drawing its own border. */
   tabDivided: {
     borderLeftWidth: GhostexStrokeWidth,
-    borderLeftColor: SetupPalette.BORDER,
+    borderLeftColor: appearance.border,
   },
   tabSelected: {
-    backgroundColor: SetupPalette.CARD_HOVER,
+    backgroundColor: appearance.cardActive,
   },
   tabPressed: {
-    backgroundColor: SetupPalette.MUTED_BG,
+    backgroundColor: appearance.cardActive,
   },
   tabBusy: {
     opacity: 0.72,
@@ -459,16 +473,16 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   glyphPressed: {
-    backgroundColor: SetupPalette.MUTED_BG,
+    backgroundColor: appearance.cardActive,
   },
   label: {
     flexShrink: 1,
     minWidth: 0,
-    color: SetupPalette.MUTED,
+    color: appearance.muted,
     fontSize: 13,
     fontWeight: '600',
   },
   labelSelected: {
-    color: SetupPalette.FOREGROUND,
+    color: appearance.foreground,
   },
 });

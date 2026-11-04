@@ -11,7 +11,8 @@
  * One component for the full screen (`AttentionListScreen`) and the attention-list pane (`src/panes/`): the
  * caller decides what opening a session means (`onOpenSession`: navigate to it, or open it in the pane beside). In a
  * pane (`pane`) the list reaches no side bar and keeps no laptop fold gap (the panes stand above that fold), and its
- * rows keep off a book fold by the pane's `controlInset`.
+ * rows keep off a book fold by the pane's `controlInset`. Its body paints the appearance's page colour itself, so in a
+ * pane (whose card is the terminal's black) its text stands on the colour its ink is made for, as on the full screen.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -29,7 +30,16 @@ import { NotificationsCopy } from '../copy';
 import { useInventoryStore } from '../inventory/store';
 import { enabledMachines, machineDisplayLabel, useMachinesStore } from '../machines/store';
 import type { PaneBarInset } from '../panes/geometry';
-import { GhostexPalette, GhostexRadii, GhostexStrokeWidth, SidebarPalette, colorWithOpacity } from '../theme/palette';
+import {
+  ATTENTION_ROW_WASH,
+  GhostexPalette,
+  GhostexRadii,
+  GhostexStrokeWidth,
+  SidebarPalette,
+  colorOver,
+  colorWithOpacity,
+} from '../theme/palette';
+import { readableSecondaryText } from '../theme/sidebarAppearance';
 import { useAppearance, type Appearance } from '../theme/useAppearance';
 import { buildAttentionList, type AttentionRow, type ListKind, type MachineFeed } from './attentionRows';
 import { sessionFacts } from './events';
@@ -42,12 +52,44 @@ export type OpenSessionTarget = { machineId: string; sessionId: string; question
 /** How often the rows' "5m ago" moves on while the list is on screen. */
 const CLOCK_TICK_MS = 30_000;
 
-/** The event colours of the design: Ghostex's status language, word and glyph carry it too. */
-function kindColor(kind: ListKind, appearance: Appearance): string {
-  if (kind === 'waiting') return SidebarPalette.ROW_ATTENTION;
-  if (kind === 'question') return SidebarPalette.ROW_QUESTION;
-  if (kind === 'failed' || kind === 'sendFailed' || kind === 'resetExpiring') return SidebarPalette.MENU_DANGER;
-  return appearance.muted;
+type StatusColors = { waiting: string; question: string; danger: string };
+const STATUS_COLORS: StatusColors = {
+  waiting: SidebarPalette.ROW_ATTENTION,
+  question: SidebarPalette.ROW_QUESTION,
+  danger: SidebarPalette.MENU_DANGER,
+};
+
+function kindColor(kind: ListKind, neutral: string, status: StatusColors): string {
+  if (kind === 'waiting') return status.waiting;
+  if (kind === 'question') return status.question;
+  if (kind === 'failed' || kind === 'sendFailed' || kind === 'resetExpiring') return status.danger;
+  return neutral;
+}
+
+type RowInk = {
+  light: boolean;
+  foreground: string;
+  muted: string;
+  mutedGlyph: string;
+  status: StatusColors;
+};
+
+function rowInks(appearance: Appearance): { read: RowInk; unread: RowInk } {
+  const make = (surfaces: readonly string[]): RowInk => ({
+    light: appearance.light,
+    foreground: appearance.foreground,
+    muted: readableSecondaryText(appearance.muted, appearance.foreground, surfaces),
+    mutedGlyph: appearance.mutedGlyph,
+    status: {
+      waiting: readableSecondaryText(STATUS_COLORS.waiting, appearance.foreground, surfaces),
+      question: readableSecondaryText(STATUS_COLORS.question, appearance.foreground, surfaces),
+      danger: readableSecondaryText(STATUS_COLORS.danger, appearance.foreground, surfaces),
+    },
+  });
+  return {
+    read: make([appearance.card, appearance.cardActive]),
+    unread: make([colorOver(ATTENTION_ROW_WASH, appearance.background), appearance.cardActive]),
+  };
 }
 
 type Notice = { key: string; text: string };
@@ -80,9 +122,12 @@ function useAttentionRows(): { rows: AttentionRow[]; notices: Notice[]; loading:
   }, [feeds, machines, inventories]);
 }
 
-function RowContent({ row, now, appearance }: { row: AttentionRow; now: Date; appearance: Appearance }) {
+function RowContent({ row, now, ink }: { row: AttentionRow; now: Date; ink: RowInk }) {
   const Icon = AGENT_ICONS[row.agentIconId] ?? AGENT_ICONS.terminal;
-  const color = kindColor(row.kind, appearance);
+  // The status colours and the dimmer read ink read on the dark rows only: on a light row identity and event word
+  // take the ink's foreground, and the glyph keeps the event's colour.
+  const whoColor = row.read && !ink.light ? SidebarPalette.FOREGROUND : ink.foreground;
+  const wordColor = ink.light ? ink.foreground : kindColor(row.kind, ink.muted, ink.status);
   const detail = row.machineLabel !== null ? `${row.detail} · ${row.machineLabel}` : row.detail;
   return (
     <>
@@ -91,26 +136,19 @@ function RowContent({ row, now, appearance }: { row: AttentionRow; now: Date; ap
       </View>
       <View style={styles.text}>
         <View style={styles.firstLine}>
-          <Text
-            style={[
-              styles.who,
-              { color: row.read ? SidebarPalette.FOREGROUND : appearance.foreground },
-              !row.read && styles.whoUnread,
-            ]}
-            numberOfLines={1}
-          >
+          <Text style={[styles.who, { color: whoColor }, !row.read && styles.whoUnread]} numberOfLines={1}>
             {row.who}
           </Text>
-          <Text style={[styles.time, { color: appearance.muted }]}>{formatLastActive(row.createdAt, now)}</Text>
+          <Text style={[styles.time, { color: ink.muted }]}>{formatLastActive(row.createdAt, now)}</Text>
         </View>
         {detail.length > 0 ? (
-          <Text style={[styles.detail, { color: appearance.muted }]} numberOfLines={1}>
+          <Text style={[styles.detail, { color: ink.muted }]} numberOfLines={1}>
             {detail}
           </Text>
         ) : null}
         <View style={styles.kind}>
-          <KindGlyph kind={row.kind} size={14} color={color} />
-          <Text style={[styles.kindText, { color }, !row.read && styles.kindUnread]}>{row.label}</Text>
+          <KindGlyph kind={row.kind} size={14} color={kindColor(row.kind, ink.mutedGlyph, STATUS_COLORS)} />
+          <Text style={[styles.kindText, { color: wordColor }, !row.read && styles.kindUnread]}>{row.label}</Text>
         </View>
       </View>
     </>
@@ -129,6 +167,7 @@ function Row({
   row,
   now,
   appearance,
+  ink,
   held,
   onOpen,
   onHold,
@@ -136,6 +175,7 @@ function Row({
   row: AttentionRow;
   now: Date;
   appearance: Appearance;
+  ink: RowInk;
   held: boolean;
   onOpen: (row: AttentionRow) => void;
   onHold: (row: AttentionRow, frame: MenuAnchor) => void;
@@ -158,7 +198,7 @@ function Row({
         (pressed || held) && { backgroundColor: appearance.cardActive },
       ]}
     >
-      <RowContent row={row} now={now} appearance={appearance} />
+      <RowContent row={row} now={now} ink={ink} />
     </Pressable>
   );
 }
@@ -192,6 +232,12 @@ export default function AttentionList({
   pane?: { controlInset: PaneBarInset };
 }) {
   const appearance = useAppearance();
+  const inks = useMemo(() => rowInks(appearance), [appearance]);
+  // The failure line's red reads on the dark pages; on a light page it moves toward the text colour until it keeps 4.5:1.
+  const failedInk = useMemo(
+    () => readableSecondaryText(SidebarPalette.MENU_DANGER, appearance.foreground, [appearance.background]),
+    [appearance],
+  );
   // The list reaches under the iPhone Duo's side bar, its rows keep clear of it; not in a pane.
   const edges = useScrollToBarEdges(styles.content, pane === undefined ? null : NO_BAR_INSETS);
   const laptopFold = useLaptopFold();
@@ -283,6 +329,7 @@ export default function AttentionList({
             row={row}
             now={now}
             appearance={appearance}
+            ink={row.read ? inks.read : inks.unread}
             held={menu?.row.key === row.key}
             onOpen={open}
             onHold={(target, frame) => setMenu({ row: target, frame })}
@@ -296,7 +343,7 @@ export default function AttentionList({
   else if (unreachable !== null) {
     body = (
       <EmptyState
-        icon={<CloudOffGlyph size={32} color={appearance.muted} />}
+        icon={<CloudOffGlyph size={32} color={appearance.mutedGlyph} />}
         title={NotificationsCopy.cantLoadTitle}
         text={NotificationsCopy.cantLoadText(unreachable)}
         appearance={appearance}
@@ -307,7 +354,7 @@ export default function AttentionList({
   } else {
     body = (
       <EmptyState
-        icon={<BellGlyph size={32} color={appearance.muted} />}
+        icon={<BellGlyph size={32} color={appearance.mutedGlyph} />}
         title={NotificationsCopy.emptyTitle}
         text={NotificationsCopy.emptyText}
         appearance={appearance}
@@ -319,7 +366,7 @@ export default function AttentionList({
     <>
       <FoldListFrame fold={pane === undefined ? laptopFold : null}>
         <ScrollView
-          style={[styles.scroll, edges.scroll]}
+          style={[styles.scroll, { backgroundColor: appearance.background }, edges.scroll]}
           contentContainerStyle={[
             styles.content,
             edges.content,
@@ -328,7 +375,7 @@ export default function AttentionList({
               paddingRight: styles.content.padding + pane.controlInset.right,
             },
           ]}
-          refreshControl={<RefreshControl refreshing={pulling} onRefresh={pull} tintColor={appearance.muted} />}
+          refreshControl={<RefreshControl refreshing={pulling} onRefresh={pull} tintColor={appearance.mutedGlyph} />}
         >
           {notices.map((notice) => (
             <View
@@ -336,12 +383,12 @@ export default function AttentionList({
               accessibilityRole="alert"
               style={[styles.notice, { backgroundColor: appearance.card }]}
             >
-              <CloudOffGlyph size={16} color={appearance.muted} />
+              <CloudOffGlyph size={16} color={appearance.mutedGlyph} />
               <Text style={[styles.noticeText, { color: appearance.muted }]}>{notice.text}</Text>
             </View>
           ))}
           {failed ? (
-            <Text accessibilityRole="alert" style={styles.failed}>
+            <Text accessibilityRole="alert" style={[styles.failed, { color: failedInk }]}>
               {NotificationsCopy.actionFailed}
             </Text>
           ) : null}
@@ -361,7 +408,7 @@ export default function AttentionList({
             : {
                 content: (
                   <View style={styles.liftedRow}>
-                    <RowContent row={menu.row} now={now} appearance={appearance} />
+                    <RowContent row={menu.row} now={now} ink={inks.read} />
                   </View>
                 ),
                 accessibilityLabel: rowLabel(menu.row, now),
@@ -397,7 +444,7 @@ const styles = StyleSheet.create({
   },
   rowUnread: {
     // The desktop bell's attention-blue wash and border on unread rows.
-    backgroundColor: colorWithOpacity(SidebarPalette.ROW_ATTENTION, 9),
+    backgroundColor: ATTENTION_ROW_WASH,
     borderColor: colorWithOpacity(SidebarPalette.ROW_ATTENTION, 38),
   },
   liftedRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 12 },
@@ -431,5 +478,5 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   noticeText: { flex: 1, fontSize: 13 },
-  failed: { color: SidebarPalette.MENU_DANGER, fontSize: 13, paddingHorizontal: 4, marginBottom: 8 },
+  failed: { fontSize: 13, paddingHorizontal: 4, marginBottom: 8 },
 });

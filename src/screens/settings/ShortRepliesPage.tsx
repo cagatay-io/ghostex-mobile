@@ -36,6 +36,7 @@ export default function ShortRepliesPage() {
       {rows.map((row, index) => (
         <View key={row.id} style={styles.row}>
           <TextInput
+            keyboardAppearance={appearance.light ? 'light' : 'dark'}
             accessibilityLabel={ShortRepliesCopy.entry(index + 1)}
             autoFocus={row.id === focusId}
             autoCorrect={false}
@@ -56,7 +57,7 @@ export default function ShortRepliesPage() {
             style={local.remove}
             onPress={() => change(rows.filter((entry) => entry.id !== row.id))}
           >
-            <XGlyph size={14} color={appearance.muted} />
+            <XGlyph size={14} color={appearance.mutedGlyph} />
           </Pressable>
         </View>
       ))}

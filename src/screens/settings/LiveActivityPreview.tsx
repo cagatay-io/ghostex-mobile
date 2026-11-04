@@ -5,6 +5,8 @@
  * (modules/ghostex-live-activity/ios/Extension/GhostexActivityViews.swift), whose colours and words it repeats.
  */
 
+import { useMemo } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
@@ -48,6 +50,8 @@ function Glyph({ state, size }: { state: PreviewState; size: number }) {
 }
 
 export default function LiveActivityPreview() {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   return (
     <View style={styles.frame} accessible accessibilityRole="image" accessibilityLabel={LiveActivityCopy.previewLabel}>
       <View style={styles.card}>
@@ -88,20 +92,17 @@ export default function LiveActivityPreview() {
   );
 }
 
-const ON_DARK = '#FFFFFF';
-const ON_DARK_SECONDARY = 'rgba(255,255,255,0.72)';
-
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   frame: {
     borderRadius: 28,
     padding: 14,
-    backgroundColor: '#05070D',
+    backgroundColor: appearance.background,
   },
   card: {
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.09)',
-    backgroundColor: 'rgba(12,12,14,0.74)',
+    borderColor: appearance.border,
+    backgroundColor: appearance.card,
     paddingHorizontal: 14,
     paddingTop: 10,
     paddingBottom: 6,
@@ -119,7 +120,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   headText: {
-    color: ON_DARK,
+    color: appearance.foreground,
     fontSize: 13,
   },
   number: {
@@ -128,7 +129,7 @@ const styles = StyleSheet.create({
   },
   more: {
     marginLeft: 'auto',
-    color: ON_DARK_SECONDARY,
+    color: appearance.muted,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -150,16 +151,16 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   agent: {
-    color: ON_DARK,
+    color: appearance.foreground,
     fontSize: 14,
     fontWeight: '600',
     flexShrink: 0,
   },
   secondary: {
-    color: ON_DARK_SECONDARY,
+    color: appearance.muted,
   },
   project: {
-    color: ON_DARK_SECONDARY,
+    color: appearance.muted,
     fontSize: 13,
     flexShrink: 1,
   },
@@ -169,14 +170,14 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   stateText: {
-    color: ON_DARK,
+    color: appearance.foreground,
     fontSize: 12,
     fontWeight: '600',
   },
   time: {
     width: 38,
     textAlign: 'right',
-    color: ON_DARK_SECONDARY,
+    color: appearance.muted,
     fontSize: 12,
     fontVariant: ['tabular-nums'],
   },

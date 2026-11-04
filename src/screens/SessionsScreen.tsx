@@ -1178,11 +1178,11 @@ export default function SessionsScreen({ navigation }: Props) {
         <VoiceButton
           machine={machine}
           style={styles.bottomItem}
-          color={styles.bottomIconColor.color}
+          color={sidebarAppearance.foreground}
           size={20}
           activeFill={false}
           label="Voice"
-          labelStyle={styles.bottomLabel}
+          labelStyle={[styles.bottomLabel, { color: sidebarAppearance.foreground }]}
         />
         <Pressable
           accessibilityRole="button"
@@ -1190,8 +1190,8 @@ export default function SessionsScreen({ navigation }: Props) {
           style={({ pressed }) => [styles.bottomItem, pressed ? styles.bottomItemPressed : null]}
           onPress={() => setSessionSearchOpen(true)}
         >
-          <SearchGlyph size={20} color={styles.bottomIconColor.color} />
-          <Text style={styles.bottomLabel}>Search</Text>
+          <SearchGlyph size={20} color={sidebarAppearance.foreground} />
+          <Text style={[styles.bottomLabel, { color: sidebarAppearance.foreground }]}>Search</Text>
         </Pressable>
         {/*
           Web Preview forwards a port from the selected machine, so it is
@@ -1206,8 +1206,8 @@ export default function SessionsScreen({ navigation }: Props) {
             style={({ pressed }) => [styles.bottomItem, pressed ? styles.bottomItemPressed : null]}
             onPress={() => navigation.navigate('WebPreviewPorts', { machineId: machine.id })}
           >
-            <WorldGlyph size={20} color={styles.bottomIconColor.color} />
-            <Text style={styles.bottomLabel}>Web</Text>
+            <WorldGlyph size={20} color={sidebarAppearance.foreground} />
+            <Text style={[styles.bottomLabel, { color: sidebarAppearance.foreground }]}>Web</Text>
           </Pressable>
         ) : null}
         <Pressable
@@ -1216,8 +1216,8 @@ export default function SessionsScreen({ navigation }: Props) {
           style={({ pressed }) => [styles.bottomItem, pressed ? styles.bottomItemPressed : null]}
           onPress={() => navigation.navigate('Machines')}
         >
-          <MachinesGlyph size={20} color={styles.bottomIconColor.color} />
-          <Text style={styles.bottomLabel}>Machines</Text>
+          <MachinesGlyph size={20} color={sidebarAppearance.foreground} />
+          <Text style={[styles.bottomLabel, { color: sidebarAppearance.foreground }]}>Machines</Text>
         </Pressable>
       </SessionsBottomBar>
       <ProgressOverlay visible={progress !== null} message={progress ?? ''} />

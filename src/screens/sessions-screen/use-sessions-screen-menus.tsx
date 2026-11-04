@@ -108,7 +108,8 @@ import { useInventoryStore } from '../../inventory/store';
 import { enabledMachines, isMachineEnabled, useMachinesStore, type MachineRecord } from '../../machines/store';
 import { useSettingsStore } from '../../settings/store';
 import type { RootStackParamList } from '../../navigation/types';
-import { GhostexPalette, SidebarPalette } from '../../theme/palette';
+
+import { useAppearance } from '../../theme/useAppearance';
 import { useUpdateNotice } from '../../updates/updateNotice';
 import { loadHandoffPrefs } from '../../chat/native/composer/handoffPrefsStore';
 import { handoffLastTurns } from '../../contract/handoff/handoff';
@@ -300,8 +301,9 @@ export function useSessionsScreenMenus({
     return summary.sessions.filter((session) => memberIds.has(session.sessionId));
   };
 
-  const menuIconColor = GhostexPalette.FOREGROUND;
-  const dangerIconColor = '#FF7B72';
+  const appearance = useAppearance();
+  const menuIconColor = appearance.foreground;
+  const dangerIconColor = appearance.danger;
 
   // Session and project menus (desktop sidebar parity) ------------------------
 
@@ -821,7 +823,7 @@ export function useSessionsScreenMenus({
     const view = sidebarMenuView(menu, menuPath, {
       openPath: (next) => setOverlay({ kind: 'sessionMenu', ctx, menuPath: next }),
       run: (menuCommand) => runMenuCommand(ctx.machine, menuCommand, { session: ctx }),
-    });
+    }, appearance.foreground);
     // CDXC:SessionStatus 2026-10-15 SEE-ALSO: contract/programStatus.ts (the line the program reported, shown on long press only).
     const programLine = ctx.item.session.programStatusLine;
     const items =
@@ -856,7 +858,7 @@ export function useSessionsScreenMenus({
     const view = sidebarMenuView(menu, menuPath, {
       openPath: (next) => setOverlay({ kind: 'projectMenu', ctx, menuPath: next }),
       run: (menuCommand) => runMenuCommand(ctx.machine, menuCommand, { project: ctx }),
-    });
+    }, appearance.foreground);
     if (view.openedLabel !== null) return { subtitle: view.openedLabel, items: view.items };
 
     const orderedHeaders: ProjectHeaderItem[] = [];
@@ -1597,7 +1599,7 @@ export function useSessionsScreenMenus({
               kind: 'item',
               key: 'new-coordinator',
               label: 'New Coordinator…',
-              icon: <CrewGlyph size={14} color={SidebarPalette.MUTED} />,
+              icon: <CrewGlyph size={14} color={appearance.mutedGlyph} />,
               info: NEW_ORCHESTRATOR_BENEFITS,
               onPress: () => setOverlay({ kind: 'newCoordinator', ctx }),
             },
@@ -1619,7 +1621,7 @@ export function useSessionsScreenMenus({
           icon: <Icon size={14} color={agentIconTint(artId)} />,
           selected: selected !== null && selected.agentId === agent.agentId,
           selectedPresentation: 'emphasis' as const,
-          trailingIcon: supportsChat ? <MessageCircleGlyph size={14} color={SidebarPalette.MUTED} /> : undefined,
+          trailingIcon: supportsChat ? <MessageCircleGlyph size={14} color={appearance.mutedGlyph} /> : undefined,
           trailingIconLabel: supportsChat ? 'Supports chat' : undefined,
           onPress: () => closeAgentMenuThen(() => launchAgent(ctx.machine, ctx.header, agent)),
         };

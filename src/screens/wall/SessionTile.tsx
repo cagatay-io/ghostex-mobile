@@ -15,14 +15,14 @@ import { Platform, Pressable, StyleSheet, Text, View, type ViewInstance } from '
 
 import { AGENT_ICONS } from '../../assets/agentIcons.generated';
 import type { MenuAnchor } from '../../components/sessions/ContextMenu';
-import { STATUS_DOT_SIZE } from '../../components/sessions/rows';
+import { STATUS_DOT_SIZE, useSidebarInk } from '../../components/sessions/rows';
 import { useRowLabelClock, WorktreeBadge } from '../../components/sessions/SessionRow';
 import { COMPLETION_FLASH_MS, rowTimeLabel, shownFoldedStatus } from '../../components/sessions/sessionStatus';
 import { OverlappedDots } from '../../components/sessions/StatusDotStack';
 import type { SessionItem } from '../../contract/grouping';
 import { agentIconTint, resolveAgentIconId, type GhostexSession } from '../../contract/mobileSummary';
 import { SessionCopy, WallCopy } from '../../copy';
-import { GhostexPalette, GhostexRadii, SidebarPalette } from '../../theme/palette';
+import { GhostexRadii, neutralButtonFills } from '../../theme/palette';
 import type { SidebarAppearance } from '../../theme/sidebarAppearance';
 import { statusBadge } from './badge';
 import { THUMB_LINES, useWallPreviewStore } from './previews';
@@ -52,6 +52,8 @@ export default function SessionTile({ item, sessionKey, appearance, onPress, onM
   const ring = useChangeRing(badge?.kind ?? null, badge?.dots.at(-1) ?? null);
   // The branch the row names for a worktree session its parent project lists (`grouping.ts`).
   const worktree = item.worktree !== undefined && item.worktree.length > 0 ? item.worktree : undefined;
+  // The age in the list's time ink, the badge on the appearance's neutral fill (light ones on a light card).
+  const ink = useSidebarInk();
   return (
     <TileFrame
       session={session}
@@ -66,12 +68,12 @@ export default function SessionTile({ item, sessionKey, appearance, onPress, onM
       {badge !== null || timeLabel !== null || worktree !== undefined ? (
         <View style={styles.status}>
           {badge !== null ? (
-            <View style={styles.badge}>
+            <View style={[styles.badge, { backgroundColor: neutralButtonFills(ink.light).rest }]}>
               <OverlappedDots colors={badge.dots} size={STATUS_DOT_SIZE} ringColor={appearance.card} />
               <Text style={[styles.badgeLabel, { color: appearance.foreground }]}>{badge.label}</Text>
             </View>
           ) : null}
-          {timeLabel !== null ? <Text style={styles.time}>{timeLabel}</Text> : null}
+          {timeLabel !== null ? <Text style={[styles.time, { color: ink.time }]}>{timeLabel}</Text> : null}
           {worktree !== undefined ? <WorktreeBadge label={worktree} /> : null}
         </View>
       ) : null}
@@ -242,7 +244,6 @@ const styles = StyleSheet.create({
     paddingLeft: 6,
     paddingRight: 8,
     borderRadius: GhostexRadii.pill,
-    backgroundColor: GhostexPalette.NEUTRAL_FILL,
   },
   badgeLabel: {
     fontSize: 12,
@@ -250,7 +251,6 @@ const styles = StyleSheet.create({
   },
   time: {
     fontSize: 13,
-    color: SidebarPalette.ROW_TIME,
   },
   thumb: {
     height: THUMB_LINES * THUMB_LINE_HEIGHT + 2 * THUMB_PADDING,

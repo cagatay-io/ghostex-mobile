@@ -28,6 +28,7 @@
  * touch selection and its edit menu in a pane, and how a swap or a divider drag feels.
  */
 
+import { resolveAppearance } from '../theme/useAppearance';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AccessibilityInfo, Alert, Dimensions, StyleSheet } from 'react-native';
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
@@ -47,7 +48,7 @@ import { initPaneLayouts, PANE_LAYOUT_STORAGE_KEY, usePaneStore } from '../panes
 import { DEFAULT_COMMAND_PAD_KEYS } from '../settings/commandPad';
 import { useSettingsStore } from '../settings/store';
 import { attachSessionKey, restoreAttachTabs, useTerminalStore, type TerminalTab } from '../terminal/sessions';
-import { GhostexPalette } from '../theme/palette';
+
 import TerminalScreen from './TerminalScreen';
 
 const mockNative = {
@@ -821,14 +822,14 @@ describe('the active pane is marked only while two panes show', () => {
     expect(terminalView(B).props.paneFocus).toBe(false);
     expect(title('Alpha').props.accessibilityState).toMatchObject({ selected: true });
     expect(title('Beta').props.accessibilityState).toMatchObject({ selected: false });
-    expect(titleColour('Alpha')).toBe(GhostexPalette.ACCENT);
-    expect(titleColour('Beta')).toBe(GhostexPalette.MUTED);
+    expect(titleColour('Alpha')).toBe(resolveAppearance(useSettingsStore.getState().settings, true).accent);
+    expect(titleColour('Beta')).toBe(resolveAppearance(useSettingsStore.getState().settings, true).muted);
 
     await tapPane(B);
     expect(terminalView(A).props.paneFocus).toBe(false);
     expect(terminalView(B).props.paneFocus).toBe(true);
-    expect(titleColour('Alpha')).toBe(GhostexPalette.MUTED);
-    expect(titleColour('Beta')).toBe(GhostexPalette.ACCENT);
+    expect(titleColour('Alpha')).toBe(resolveAppearance(useSettingsStore.getState().settings, true).muted);
+    expect(titleColour('Beta')).toBe(resolveAppearance(useSettingsStore.getState().settings, true).accent);
   });
 
   test('one pane: no marking, the terminal keeps its own focus (no paneFocus)', async () => {

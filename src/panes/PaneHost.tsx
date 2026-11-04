@@ -25,7 +25,8 @@
  * their native views keep their place in the view tree.
  */
 
-import { memo, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useAppearance, type Appearance } from '../theme/useAppearance';
 import {
   Animated,
   Pressable,
@@ -45,7 +46,7 @@ import { PanesCopy, SessionCopy, UsageCopy } from '../copy';
 import { useInventoryStore } from '../inventory/store';
 import { machineDisplayLabel, useMachinesStore } from '../machines/store';
 import { useTerminalStore } from '../terminal/sessions';
-import { colorWithOpacity, GhostexPalette, GhostexRadii } from '../theme/palette';
+import { GhostexRadii } from '../theme/palette';
 import { remoteDisplayAddress } from '../webPreview/urls';
 import { clampDividerRatio, MAX_DIVIDER_RATIO, MIN_DIVIDER_RATIO } from './divider';
 import {
@@ -216,6 +217,8 @@ function rectStyle(rect: PaneRect) {
 }
 
 export default function PaneHost(props: PaneHostProps) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const { layout, slots } = props;
   const { arrangement, active } = layout;
   const [dragRatio, setDragRatio] = useState<number | null>(null);
@@ -297,7 +300,7 @@ export default function PaneHost(props: PaneHostProps) {
             kind: 'item' as const,
             key: definition.type,
             label: definition.label,
-            icon: definition.icon(18, GhostexPalette.FOREGROUND),
+            icon: definition.icon(18, appearance.foreground),
             selected: current,
             selectedPresentation: 'check' as const,
             hint: switchesSession ? PanesCopy.switchSessionHint : undefined,
@@ -338,6 +341,8 @@ type PaneCardProps = {
 };
 
 function PaneCard(props: PaneCardProps) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const { slot, content, geometry, active } = props;
   const title = usePaneTitle(content);
   const titleRef = useRef<ViewInstance>(null);
@@ -346,7 +351,7 @@ function PaneCard(props: PaneCardProps) {
   const inset = geometry.bodyInsets[slot];
   const typeDefinition = AVAILABLE_PANE_TYPES.find((definition) => definition.type === content.kind);
   const typeLabel = props.chat ? PanesCopy.chatType : (typeDefinition?.label ?? PanesCopy.newPane);
-  const tint = active ? GhostexPalette.ACCENT : GhostexPalette.MUTED;
+  const tint = active ? appearance.accent : appearance.muted;
   const delta = (event: GestureResponderEvent) => ({
     dx: event.nativeEvent.pageX - (start.current?.x ?? event.nativeEvent.pageX),
     dy: event.nativeEvent.pageY - (start.current?.y ?? event.nativeEvent.pageY),
@@ -398,7 +403,7 @@ function PaneCard(props: PaneCardProps) {
             onAccessibilityAction={props.onSwap}
             style={styles.barButton}
           >
-            <GripIcon size={18} color={active ? GhostexPalette.FOREGROUND : GhostexPalette.MUTED} />
+            <GripIcon size={18} color={active ? appearance.foreground : appearance.muted} />
           </View>
         ) : (
           <View style={styles.barButton} />
@@ -425,7 +430,7 @@ function PaneCard(props: PaneCardProps) {
           style={styles.barButton}
           onPress={() => props.onClose(slot)}
         >
-          <CloseIcon size={14} color={active ? GhostexPalette.FOREGROUND : GhostexPalette.MUTED} />
+          <CloseIcon size={14} color={active ? appearance.foreground : appearance.muted} />
         </Pressable>
       </View>
       <View style={[styles.body, { left: inset.left, right: inset.right, bottom: inset.bottom }]}>
@@ -469,6 +474,8 @@ function SwapGhost({
   content: PaneContent;
   hovering: boolean;
 }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const title = usePaneTitle(content);
   const card = geometry.cards[slot];
   return (
@@ -489,8 +496,8 @@ function SwapGhost({
         },
       ]}
     >
-      <GripIcon size={18} color={GhostexPalette.FOREGROUND} />
-      <Text style={[styles.titleText, styles.titleActive, { color: GhostexPalette.ACCENT }]} numberOfLines={1}>
+      <GripIcon size={18} color={appearance.foreground} />
+      <Text style={[styles.titleText, styles.titleActive, { color: appearance.accent }]} numberOfLines={1}>
         {title}
       </Text>
     </Animated.View>
@@ -514,6 +521,8 @@ function Divider({
   onDrag: (ratio: number | null) => void;
   onRatio: (ratio: number) => void;
 }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const grab = useRef<{ position: number; ratio: number } | null>(null);
   // The finger's newest position waits for the next frame: the panes follow it at most once per frame however often
   // the touch reports a move, and the terminals keep their size until the drag ends. Letting go waits for that frame
@@ -631,36 +640,32 @@ function Divider({
   );
 }
 
-/** The active pane's title bar: the accent over the card colour, its bottom line stronger (the design's). */
-const ACTIVE_BAR = colorWithOpacity(GhostexPalette.ACCENT, 24);
-const ACTIVE_LINE = colorWithOpacity(GhostexPalette.ACCENT, 55);
-const GRABBER = colorWithOpacity(GhostexPalette.FOREGROUND, 34);
-
-const styles = StyleSheet.create({
+/** Pane chrome shares the app surface, with accent labels and borders for its active pane. */
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   card: {
     position: 'absolute',
     overflow: 'hidden',
     borderRadius: GhostexRadii.section,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: GhostexPalette.BORDER,
-    backgroundColor: GhostexPalette.TERMINAL_BACKGROUND,
+    borderColor: appearance.border,
+    backgroundColor: appearance.background,
   },
   dropTarget: {
     borderWidth: 2,
     borderStyle: 'dashed',
-    borderColor: GhostexPalette.ACCENT,
+    borderColor: appearance.accent,
   },
   bar: {
     height: PANE_TITLE_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: GhostexPalette.CARD,
+    backgroundColor: appearance.card,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: GhostexPalette.BORDER,
+    borderBottomColor: appearance.border,
   },
   barActive: {
-    backgroundColor: ACTIVE_BAR,
-    borderBottomColor: ACTIVE_LINE,
+    backgroundColor: appearance.cardActive,
+    borderBottomColor: appearance.accent,
   },
   barCollapsed: {
     borderBottomWidth: 0,
@@ -709,8 +714,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 18,
-    backgroundColor: GhostexPalette.ACCENT,
-    color: GhostexPalette.ACCENT_FOREGROUND,
+    backgroundColor: appearance.accent,
+    color: appearance.accentForeground,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -721,7 +726,7 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingLeft: 13,
     borderRadius: GhostexRadii.section,
-    backgroundColor: GhostexPalette.CARD_ACTIVE,
+    backgroundColor: appearance.cardActive,
     shadowColor: '#000000',
     shadowOpacity: 0.6,
     shadowRadius: 30,
@@ -729,7 +734,7 @@ const styles = StyleSheet.create({
   },
   ghostOver: {
     borderWidth: 2,
-    borderColor: GhostexPalette.ACCENT,
+    borderColor: appearance.accent,
   },
   divider: {
     position: 'absolute',
@@ -746,16 +751,16 @@ const styles = StyleSheet.create({
     width: 36,
     height: 5,
     borderRadius: 3,
-    backgroundColor: GRABBER,
+    backgroundColor: appearance.control,
   },
   grabberAcross: {
     width: 5,
     height: 36,
     borderRadius: 3,
-    backgroundColor: GRABBER,
+    backgroundColor: appearance.control,
   },
   grabberDragging: {
-    backgroundColor: GhostexPalette.ACCENT,
+    backgroundColor: appearance.accent,
   },
   shares: {
     position: 'absolute',
@@ -776,8 +781,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 14,
-    backgroundColor: GhostexPalette.ACCENT,
-    color: GhostexPalette.ACCENT_FOREGROUND,
+    backgroundColor: appearance.accent,
+    color: appearance.accentForeground,
     fontSize: 13,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],

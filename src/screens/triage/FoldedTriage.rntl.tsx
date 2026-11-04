@@ -27,6 +27,7 @@ import type { TestInstance } from 'test-renderer';
 import type { BarLayout } from '../../../modules/ghostex-native/src/GhostexNative.types';
 import type { UserAction } from '../../chat/rust/actions';
 import type { ChatDocument } from '../../chat/rust/document';
+import { askColor } from '../../chat/native/cards/askCard';
 import { ApprovalCard } from '../../chat/native/cards/ApprovalCard';
 import { QuestionCard } from '../../chat/native/cards/QuestionCard';
 import { NoticeCard } from '../../chat/native/cards/NoticeCard';
@@ -40,8 +41,10 @@ import { useInventoryStore, type MachineInventory } from '../../inventory/store'
 import { useMachinesStore, type MachineRecord } from '../../machines/store';
 import { useSettingsStore } from '../../settings/store';
 import { useTerminalStore } from '../../terminal/sessions';
-import { SidebarPalette } from '../../theme/palette';
 import { useUnifiedListStore } from '../sessions-screen/unified-list-store';
+import { THEME_PRESETS, themePresetPatch } from '../../theme/presets';
+import { GhostexPalette, neutralButtonFills, SidebarPalette } from '../../theme/palette';
+import { resolveAppearance } from '../../theme/useAppearance';
 import SessionsScreen from '../SessionsScreen';
 
 const mockDispatched: { sessionId: string; action: UserAction }[] = [];
@@ -788,4 +791,108 @@ describe("the Unified list (the computer's Sidebar set to Unified)", () => {
     expect(mockHeld).toEqual([]);
     expect(mockTailRead).not.toHaveBeenCalled();
   });
+});
+
+/** WCAG relative luminance of `#rrggbb`. */
+function luminance(hex: string): number {
+  const [r, g, b] = [1, 3, 5]
+    .map((at) => parseInt(hex.slice(at, at + 2), 16) / 255)
+    .map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+}
+function contrast(a: string, b: string): number {
+  const [x, y] = [luminance(a), luminance(b)];
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+/** `fill` (`#rrggbb` or `rgba(r,g,b,a)`) painted over the opaque `base`. */
+function over(fill: string, base: string): string {
+  if (fill.startsWith('#')) return fill;
+  const [r, g, b, a] = fill.match(/[0-9.]+/g)!.map(Number);
+  return `#${[r!, g!, b!]
+    .map((channel, at) => Math.round(parseInt(base.slice(1 + 2 * at, 3 + 2 * at), 16) * (1 - a!) + channel * a!))
+    .map((channel) => channel.toString(16).padStart(2, '0'))
+    .join('')}`;
+}
+const flat = (node: { props: { style?: unknown } }) => StyleSheet.flatten(node.props.style as never) ?? {};
+
+describe("the triage in the appearance's colours", () => {
+  const MULTI_SELECT: Partial<ChatDocument> = {
+    ...QUESTION,
+    prompt: {
+      kind: 'question',
+      questions: [
+        { header: 'Pick', question: 'Choose several', multiSelect: true, options: [{ label: 'A' }, { label: 'B' }] },
+      ],
+    },
+  };
+
+  test.each(['latte', 'alucard', 'tn-day'])(
+    'light preset %s: Deny, Open Question, the command and the waiting time read on the light cards',
+    async (preset) => {
+      useSettingsStore.getState().patchSettings(themePresetPatch(preset, false)!);
+      mockDocuments.d = MULTI_SELECT;
+      const page = resolveAppearance(useSettingsStore.getState().settings, true);
+      await renderScreen(FOLDED);
+      const light = neutralButtonFills(true).rest;
+      for (const label of ['Deny', 'Open Question']) {
+        const button = screen.getByLabelText(label);
+        const text = screen.getByText(label);
+        expect(flat(button).backgroundColor).toBe(light);
+        expect(flat(text).color).toBe(page.foreground);
+        expect(contrast(flat(text).color as string, over(light, page.card))).toBeGreaterThanOrEqual(4.5);
+      }
+      const command = screen.getByText(/bun test src\/components\/terminal/);
+      const well = command.parent!;
+      expect(flat(well).backgroundColor).toBe(page.background);
+      expect(contrast(flat(command).color as string, page.background)).toBeGreaterThanOrEqual(4.5);
+      const head = screen.getByLabelText('Open Beta, waiting 6m');
+      const [waited] = head.queryAll((node) => typeof node.type === 'string' && node.props.children === '6m');
+      expect(flat(waited!).color).toBe('#424242');
+    },
+  );
+
+  test.each(THEME_PRESETS.filter((preset) => preset.mode === 'light').map((preset) => preset.id))(
+    "light preset %s: a question's header reads on the light card",
+    async (preset) => {
+      useSettingsStore.getState().patchSettings(themePresetPatch(preset, false)!);
+      const page = resolveAppearance(useSettingsStore.getState().settings, true);
+      await renderScreen(FOLDED);
+      expect(contrast(flat(screen.getByText('Key repeat')).color as string, page.card)).toBeGreaterThanOrEqual(4.5);
+    },
+  );
+
+  test('dark: the same parts keep their dark look', async () => {
+    // The default appearance follows the system, which is light under Jest; the dark look is asked for.
+    useSettingsStore.getState().patchSettings({ sidebarTheme: 'dark-2' });
+    mockDocuments.d = MULTI_SELECT;
+    await renderScreen(FOLDED);
+    for (const label of ['Deny', 'Open Question']) {
+      expect(flat(screen.getByLabelText(label)).backgroundColor).toBe(GhostexPalette.NEUTRAL_FILL);
+      expect(flat(screen.getByText(label)).color).toBe(resolveAppearance(useSettingsStore.getState().settings, false).foreground);
+    }
+    const command = screen.getByText(/bun test src\/components\/terminal/);
+    const well = command.parent!;
+    expect(flat(well).backgroundColor).toBe(resolveAppearance(useSettingsStore.getState().settings, false).background);
+    const head = screen.getByLabelText('Open Beta, waiting 6m');
+    const [waited] = head.queryAll((node) => typeof node.type === 'string' && node.props.children === '6m');
+    expect(flat(waited!).color).toBe(SidebarPalette.ROW_TIME);
+    expect(flat(screen.getByText('Pick')).color).toBe(askColor(false));
+  });
+
+  test.each(THEME_PRESETS.map((preset) => [preset.id, preset.mode] as const))(
+    '%s (%s): "Sending…" on a picked option keeps 4.5:1 on its fill, at rest and pressed',
+    async (preset, mode) => {
+      useSettingsStore.getState().patchSettings(themePresetPatch(preset, false)!);
+      await renderScreen(FOLDED);
+      await fireEvent.press(screen.getByLabelText('Every 80 ms'));
+      const option = screen.getByLabelText('Every 80 ms');
+      let card = option.parent;
+      while (card !== null && !String(flat(card).backgroundColor ?? '').startsWith('#')) card = card.parent;
+      const cardFill = String(flat(card!).backgroundColor);
+      const sending = flat(screen.getByText('Sending…')).color as string;
+      for (const fill of [String(flat(option).backgroundColor), neutralButtonFills(mode === 'light').pressed]) {
+        expect(contrast(sending, over(fill, cardFill))).toBeGreaterThanOrEqual(4.5);
+      }
+    },
+  );
 });

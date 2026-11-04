@@ -9,13 +9,15 @@
  */
 
 import { Linking, StyleSheet } from 'react-native';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import type { TestInstance } from 'test-renderer';
 
 import { useMachinesStore, type MachineRecord } from '../../machines/store';
 import { useAttentionFeedStore } from '../../notifications/feedStore';
 import type { NotificationSettings } from '../../notifications/settings';
 import { useSettingsStore } from '../../settings/store';
+import { THEME_PRESETS, themePresetPatch } from '../../theme/presets';
+import { resolveAppearance } from '../../theme/useAppearance';
 import NotificationsPage from './NotificationsPage';
 
 jest.mock('../../../modules/ghostex-native/src', () => ({ GhostexNative: {} }));
@@ -113,6 +115,62 @@ test.each(['granted', 'undetermined'] as const)('no blocked card while the permi
   await render(<NotificationsPage />);
   expect(screen.queryByText('Blocked in iOS Settings')).toBeNull();
   expect(screen.queryByRole('button', { name: 'Open iOS Settings' })).toBeNull();
+});
+
+/** WCAG contrast of two `#rrggbb` colours. */
+function contrast(a: string, b: string): number {
+  const luminance = (hex: string) => {
+    const [r, g, bl] = [1, 3, 5]
+      .map((at) => parseInt(hex.slice(at, at + 2), 16) / 255)
+      .map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r! + 0.7152 * g! + 0.0722 * bl!;
+  };
+  const [x, y] = [luminance(a), luminance(b)];
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+
+/** `fill` (`#rrggbb` or `rgba(r,g,b,a)`) as it shows painted over the opaque `base`. */
+function over(fill: string, base: string): string {
+  if (fill.startsWith('#')) return fill;
+  const [r, g, b, a] = fill.match(/[0-9.]+/g)!.map(Number);
+  return `#${[r!, g!, b!]
+    .map((channel, at) => Math.round(parseInt(base.slice(1 + 2 * at, 3 + 2 * at), 16) * (1 - a!) + channel * a!))
+    .map((channel) => channel.toString(16).padStart(2, '0'))
+    .join('')}`;
+}
+
+/** The nearest ancestor of `node` that paints a background, and that background. */
+function paintedAncestor(node: TestInstance): { node: TestInstance; fill: string } {
+  for (let parent = node.parent; parent !== null; parent = parent.parent) {
+    const fill = StyleSheet.flatten(parent.props.style)?.backgroundColor;
+    if (typeof fill === 'string') return { node: parent, fill };
+  }
+  throw new Error('nothing painted under the node');
+}
+
+describe('the blocked card in every preset', () => {
+  const initialSettings = useSettingsStore.getState().settings;
+  afterEach(async () => {
+    await act(() => {
+      useSettingsStore.setState({ settings: initialSettings });
+    });
+  });
+
+  test.each(THEME_PRESETS.map((preset) => [preset.id, preset.mode] as const))(
+    "%s (%s): its explanation keeps 4.5:1 on the card's red wash over the page",
+    async (preset, mode) => {
+      useSettingsStore.getState().patchSettings(themePresetPatch(preset, false)!);
+      seed({ enabled: false, finished: false, waiting: false, error: false, askedAt: ASKED }, 'denied');
+      const page = resolveAppearance(useSettingsStore.getState().settings, mode === 'light');
+      await render(<NotificationsPage />);
+      const text = screen.getByText(/iOS doesn’t allow Ghostex to notify you/);
+      const card = paintedAncestor(text);
+      const under = paintedAncestor(card.node);
+      expect(under.fill).toBe(page.background);
+      const color = StyleSheet.flatten(text.props.style).color as string;
+      expect(contrast(color, over(card.fill, under.fill))).toBeGreaterThanOrEqual(4.5);
+    },
+  );
 });
 
 describe('the delivery text', () => {

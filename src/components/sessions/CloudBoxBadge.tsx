@@ -4,14 +4,18 @@
  * (CDXC:CloudBoxes 2026-11-02, Q1015 "in project with badge").
  */
 
+import { useMemo } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { GhostexSessionCloudBox } from '../../contract/mobileSummary';
 import { cloudBoxDotColor, cloudBoxStateLabel } from '../../cloudBoxes/types';
 import { CloudGlyph } from './icons';
-import { ds, sidebarInk } from './rows';
+import { ds } from './rows';
 
 export default function CloudBoxBadge({ cloudBox }: { cloudBox: GhostexSessionCloudBox }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const name = cloudBox.boxName.trim().length > 0 ? cloudBox.boxName : 'Cloud';
   const dot = cloudBoxDotColor(cloudBox.state);
   return (
@@ -21,7 +25,7 @@ export default function CloudBoxBadge({ cloudBox }: { cloudBox: GhostexSessionCl
       style={styles.badge}
     >
       <View>
-        <CloudGlyph size={ds(12)} color={sidebarInk(false).muted} />
+        <CloudGlyph size={ds(12)} color={appearance.muted} />
         <View style={[styles.dot, dot === null ? styles.dotMuted : { backgroundColor: dot }]} />
       </View>
       <Text style={styles.label} numberOfLines={1}>
@@ -31,7 +35,7 @@ export default function CloudBoxBadge({ cloudBox }: { cloudBox: GhostexSessionCl
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -48,11 +52,11 @@ const styles = StyleSheet.create({
     borderRadius: ds(2.5),
   },
   dotMuted: {
-    backgroundColor: sidebarInk(false).muted,
+    backgroundColor: appearance.muted,
     opacity: 0.7,
   },
   label: {
-    color: sidebarInk(false).muted,
+    color: appearance.muted,
     fontSize: ds(11.5),
     fontWeight: '300',
     flexShrink: 1,

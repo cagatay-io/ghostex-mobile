@@ -10,7 +10,9 @@
  * or a side bar, as that band's or bar's menus stand (`anchor`).
  */
 
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { type Appearance } from '../theme/useAppearance';
+
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Pressable, StyleSheet, Text, View, type ViewInstance } from 'react-native';
@@ -28,7 +30,7 @@ import { NotificationsCopy } from '../copy';
 import type { RootStackParamList } from '../navigation/types';
 import AttentionList, { type OpenSessionTarget } from '../notifications/AttentionList';
 import { refreshAttentionFeeds, updateAllAttentionFeeds, useAttentionFeedStore } from '../notifications/feedStore';
-import { destructiveButtonFills, GhostexPalette, neutralButtonFills, SidebarPalette } from '../theme/palette';
+import { neutralButtonFills } from '../theme/palette';
 import { useAppearanceHeader } from './settings/useAppearanceHeader';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AttentionList'>;
@@ -38,6 +40,7 @@ type MenuState = { anchor?: MenuAnchor; control?: MenuAnchor } | null;
 
 export default function AttentionListScreen({ navigation }: Props) {
   const appearance = useAppearanceHeader();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const moreRef = useRef<ViewInstance | null>(null);
   const headerOnTop = useHeaderPlacement().kind === 'top';
   const [menu, setMenu] = useState<MenuState>(null);
@@ -87,7 +90,7 @@ export default function AttentionListScreen({ navigation }: Props) {
         </Pressable>
       ),
     });
-  }, [navigation, appearance.foreground, headerOnTop]);
+  }, [navigation, headerOnTop, styles, appearance]);
   // Where the system stands a side bar the "…" stands there under Back (the Duo's header is in its status band).
   useStackScreenRail(
     useMemo(
@@ -96,17 +99,17 @@ export default function AttentionListScreen({ navigation }: Props) {
           {
             key: 'notificationsMenu',
             label: NotificationsCopy.menuTitle,
-            icon: (size: number) => <MoreGlyph size={size} color={GhostexPalette.FOREGROUND} />,
+            icon: (size: number) => <MoreGlyph size={size} color={appearance.foreground} />,
             onPress: (anchor?: MenuAnchor) => setMenu({ anchor }),
           },
         ],
         reserveKeyboard: false,
       }),
-      [],
+      [appearance],
     ),
   );
 
-  const danger = destructiveButtonFills(GhostexPalette.DANGER, appearance.light);
+  const danger = { rest: appearance.dangerFill, pressed: appearance.dangerFillPressed };
   const neutral = neutralButtonFills(appearance.light);
 
   return (
@@ -162,9 +165,7 @@ export default function AttentionListScreen({ navigation }: Props) {
             }}
             style={({ pressed }) => [styles.sheetButton, { backgroundColor: pressed ? danger.pressed : danger.rest }]}
           >
-            <Text style={[styles.sheetButtonText, { color: SidebarPalette.MENU_DANGER }]}>
-              {NotificationsCopy.clearAll}
-            </Text>
+            <Text style={[styles.sheetButtonText, { color: appearance.danger }]}>{NotificationsCopy.clearAll}</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -179,11 +180,11 @@ export default function AttentionListScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   container: { flex: 1 },
   headerButton: { width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   pressed: { opacity: 0.6 },
-  failed: { color: GhostexPalette.DANGER, fontSize: 13, paddingHorizontal: 16, paddingTop: 8 },
+  failed: { color: appearance.danger, fontSize: 13, paddingHorizontal: 16, paddingTop: 8 },
   sheet: { gap: 10, paddingHorizontal: 4 },
   sheetTitle: { fontSize: 17, fontWeight: '600', textAlign: 'center' },
   sheetText: { fontSize: 14, textAlign: 'center', marginBottom: 6 },

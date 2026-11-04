@@ -27,8 +27,8 @@ import {
 import type { SectionStatusCounts } from '../../contract/grouping';
 import { decodeBase64Utf8 } from '../../docs/remoteFiles';
 import { GhostexPalette, mixHexColors, SidebarPalette } from '../../theme/palette';
-import { isLightBackground } from '../../theme/sidebarAppearance';
-import { useAppearanceIsLight } from '../../theme/useAppearance';
+import { isLightBackground, readableSecondaryText } from '../../theme/sidebarAppearance';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
 import { measureInWindow as measurePress } from '../common/measureInWindow';
 import type { MenuAnchor } from './ContextMenu';
 import {
@@ -99,7 +99,7 @@ const DARK_INK: SidebarInk = {
   selectedHighlight: 'rgba(255,255,255,0.04)',
   chipCard: SidebarPalette.HEADER_BUTTON_BG,
   chipBorder: SidebarPalette.HEADER_BUTTON_BORDER,
-  chipSelected: GhostexPalette.CARD_ACTIVE,
+  chipSelected: SidebarPalette.HEADER_BUTTON_BG,
 };
 
 const LIGHT_INK: SidebarInk = {
@@ -128,16 +128,46 @@ export function sidebarInk(light: boolean): SidebarInk {
   return light ? LIGHT_INK : DARK_INK;
 }
 
-/** The ink of the saved appearance, for a list row (`useAppearance().light`). */
+const INK_BY_APPEARANCE = new WeakMap<Appearance, SidebarInk>();
+
+/** List identities and chip surfaces from the same colour model as the page they stand on. */
 export function useSidebarInk(): SidebarInk {
-  return sidebarInk(useAppearanceIsLight());
+  const appearance = useAppearance();
+  return useMemo(() => {
+    const cached = INK_BY_APPEARANCE.get(appearance);
+    if (cached !== undefined) return cached;
+    const ink = sidebarInk(appearance.light);
+    const surfaces = [appearance.background, appearance.card, appearance.cardActive];
+    const text = (designed: string) => readableSecondaryText(designed, appearance.foreground, surfaces);
+    const resolved: SidebarInk = {
+      ...ink,
+      text: text(ink.text),
+      muted: text(ink.muted),
+      selectedText: appearance.foreground,
+      sectionLabel: appearance.muted,
+      time: text(ink.time),
+      timeSleeping: text(ink.timeSleeping),
+      selected: appearance.cardActive,
+      chipCard: appearance.card,
+      chipBorder: appearance.border,
+      chipSelected: appearance.cardActive,
+    };
+    INK_BY_APPEARANCE.set(appearance, resolved);
+    return resolved;
+  }, [appearance]);
 }
 
-/** A component's ink styles, made once for each ink so a row allocates none while it draws. */
+/** Styles are cached by resolved ink, including its model-derived chip surfaces. */
 export function inkStyleSheets<T>(make: (ink: SidebarInk) => T): (ink: SidebarInk) => T {
-  const dark = make(DARK_INK);
-  const light = make(LIGHT_INK);
-  return (ink) => (ink.light ? light : dark);
+  const cache = new WeakMap<SidebarInk, T>();
+  return (ink) => {
+    let styles = cache.get(ink);
+    if (styles === undefined) {
+      styles = make(ink);
+      cache.set(ink, styles);
+    }
+    return styles;
+  };
 }
 
 /**
@@ -665,6 +695,7 @@ export function MachineHeaderRow({
   onPress: () => void;
   onMenu: (anchor: MenuAnchor) => void;
 }) {
+  const ink = useSidebarInk();
   const rowRef = useRef<ViewInstance | null>(null);
   return (
     <Pressable
@@ -674,7 +705,7 @@ export function MachineHeaderRow({
       onPress={onPress}
       onLongPress={() => measurePress(rowRef, onMenu)}
     >
-      <Text style={machineHeaderStyles.title} numberOfLines={1}>
+      <Text style={[machineHeaderStyles.title, { color: ink.muted }]} numberOfLines={1}>
         {`${title.toUpperCase()}${collapsed ? ' …' : ''}`}
       </Text>
       <View style={machineHeaderStyles.trailing}>
@@ -689,7 +720,7 @@ export function MachineHeaderRow({
           />
         ) : null}
         <HeaderButton accessibilityLabel={`${title} options`} onAnchorPress={onMenu}>
-          <MoreGlyph size={ds(14)} color={SidebarPalette.HEADER_BUTTON_ICON} />
+          <MoreGlyph size={ds(14)} color={ink.muted} />
         </HeaderButton>
       </View>
     </Pressable>
@@ -758,6 +789,7 @@ export function SectionLabelRow({
   /** Trailing "⋮" button; the section's discoverable action menu. */
   onMoreMenu?: (anchor: MenuAnchor) => void;
 }) {
+  const ink = useSidebarInk();
   const rowRef = useRef<ViewInstance | null>(null);
   return (
     <View ref={rowRef} style={[sectionStyles.row, first ? sectionStyles.rowFirst : null]}>
@@ -768,8 +800,8 @@ export function SectionLabelRow({
         onPress={onToggle}
         onLongPress={onMenu === undefined ? undefined : () => measurePress(rowRef, onMenu)}
       >
-        <Text style={sectionStyles.title}>{title}</Text>
-        {onToggle !== undefined ? <CaretRightGlyph size={ds(13)} color="#727982" rotated={!collapsed} /> : null}
+        <Text style={[sectionStyles.title, { color: ink.sectionLabel }]}>{title}</Text>
+        {onToggle !== undefined ? <CaretRightGlyph size={ds(13)} color={ink.muted} rotated={!collapsed} /> : null}
       </Pressable>
       <View style={sectionStyles.trailing}>
         {collapsed ? (
@@ -785,7 +817,7 @@ export function SectionLabelRow({
         <View style={sectionStyles.actions}>
           {onMoreMenu !== undefined ? (
             <HeaderButton accessibilityLabel={`${title} options`} onAnchorPress={onMoreMenu}>
-              <MoreGlyph size={ds(14)} color={SidebarPalette.HEADER_BUTTON_ICON} />
+              <MoreGlyph size={ds(14)} color={ink.muted} />
             </HeaderButton>
           ) : null}
         </View>

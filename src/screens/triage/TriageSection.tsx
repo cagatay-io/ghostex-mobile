@@ -18,6 +18,7 @@
  * Question text and screen lines stay on this screen: nothing here is logged or notified.
  */
 
+import { useAppearance } from '../../theme/useAppearance';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -31,7 +32,7 @@ import { sessionDeepLink } from '../../app/deepLinkHandler';
 import type { Notice } from '../../components/common/NoticeToast';
 import { runGhostexCli } from '../../components/sessions/cli';
 import { ChevronRightGlyph, CircleCheckGlyph } from '../../components/sessions/icons';
-import { STATUS_DOT_SIZE } from '../../components/sessions/rows';
+import { STATUS_DOT_SIZE, useSidebarInk } from '../../components/sessions/rows';
 import { elapsedLabel } from '../../components/sessions/sessionStatus';
 import { OverlappedDots } from '../../components/sessions/StatusDotStack';
 import {
@@ -46,8 +47,8 @@ import type { MachineRecord } from '../../machines/store';
 import { useSettingsStore } from '../../settings/store';
 import { acknowledgeSessionAttention } from '../../terminal/attention';
 import { attachSessionKey } from '../../terminal/sessions';
-import { GhostexPalette, GhostexRadii, SetupPalette, SidebarPalette } from '../../theme/palette';
-import type { SidebarAppearance } from '../../theme/sidebarAppearance';
+import { colorOver, GhostexRadii, neutralButtonFills, SetupPalette } from '../../theme/palette';
+import { readableSecondaryText, type SidebarAppearance } from '../../theme/sidebarAppearance';
 import { sessionHasChatView, sessionOpensInChatView } from '../terminal-screen/session-lookups';
 import { sessionTitle } from '../sessions-screen/session-actions';
 import { statusBadge } from '../wall/badge';
@@ -59,7 +60,6 @@ import { useTriageChats, useTriageTails, type TriageChat } from './useTriageData
 const CLOCK_TICK_MS = 30_000;
 const MONOSPACE = Platform.select({ ios: 'Menlo', default: 'monospace' });
 const APPROVAL_HUE = toneLook('approval', false).hue ?? SetupPalette.WARN;
-const ASK_HUE = askColor(false);
 
 export type TriageSectionProps = {
   /**
@@ -249,6 +249,7 @@ function TriageCard({
 }: TriageCardProps) {
   const [pending, setPending] = useState<Pending | null>(null);
   const [replying, setReplying] = useState<string | null>(null);
+  const ink = useSidebarInk();
   const mounted = useRef(true);
   useEffect(
     () => () => {
@@ -294,6 +295,11 @@ function TriageCard({
   const Icon = AGENT_ICONS[iconId] ?? AGENT_ICONS.terminal;
   const title = sessionTitle(session);
   const dots = statusBadge(session, capabilities)?.dots ?? [];
+  // The appearance's neutral fill and the command's model page colour.
+  const fills = neutralButtonFills(ink.light);
+  const commandWell = appearance.background;
+  // The question's hue of the chat's ask card, its darker light-page tone on a light card.
+  const askHue = askColor(ink.light);
 
   return (
     <View
@@ -317,9 +323,9 @@ function TriageCard({
             </Text>
           ) : null}
         </View>
-        {waited !== null ? <Text style={styles.waited}>{waited}</Text> : null}
+        {waited !== null ? <Text style={[styles.waited, { color: ink.time }]}>{waited}</Text> : null}
         <OverlappedDots colors={dots} size={STATUS_DOT_SIZE} ringColor={appearance.card} />
-        <ChevronRightGlyph size={14} color={appearance.muted} />
+        <ChevronRightGlyph size={14} color={appearance.mutedGlyph} />
       </Pressable>
       <View style={styles.body}>
         {entry.kind === 'approval' ? (
@@ -332,7 +338,7 @@ function TriageCard({
               appearance={appearance}
             />
             {entry.command.length > 0 ? (
-              <View style={[styles.command, { borderColor: appearance.border }]}>
+              <View style={[styles.command, { borderColor: appearance.border, backgroundColor: commandWell }]}>
                 <Text style={[styles.commandText, { color: appearance.foreground }]} numberOfLines={4}>
                   {isShellTool(entry.tool) ? <Text style={{ color: appearance.muted }}>{'$ '}</Text> : null}
                   {entry.command}
@@ -344,6 +350,7 @@ function TriageCard({
             <View style={styles.actions}>
               <CardButton
                 label={pending?.label === entry.deny.label ? TriageCopy.sending : entry.deny.label}
+                appearance={appearance}
                 accessibilityLabel={entry.deny.label}
                 disabled={locked}
                 onPress={() => answer(entry.deny.label, TriageCopy.sent(entry.deny.label), entry.deny.action)}
@@ -351,6 +358,7 @@ function TriageCard({
               <CardButton
                 primary
                 label={pending?.label === entry.approve.label ? TriageCopy.sending : entry.approve.label}
+                appearance={appearance}
                 accessibilityLabel={entry.approve.label}
                 disabled={locked}
                 onPress={() => answer(entry.approve.label, TriageCopy.sent(entry.approve.label), entry.approve.action)}
@@ -379,14 +387,27 @@ function TriageCard({
                   onPress={() => answer(option, TriageCopy.answered(option), questionOptionAnswer(index))}
                   style={({ pressed }) => [
                     styles.option,
-                    { backgroundColor: pressed ? GhostexPalette.NEUTRAL_FILL_PRESSED : GhostexPalette.NEUTRAL_FILL },
-                    pending?.label === option ? { borderColor: ASK_HUE } : null,
+                    { backgroundColor: pressed ? fills.pressed : fills.rest },
+                    pending?.label === option ? { borderColor: askHue } : null,
                     locked && pending?.label !== option ? styles.disabled : null,
                   ]}
                 >
                   <Text style={[styles.optionText, { color: appearance.foreground }]}>{option}</Text>
                   {pending?.label === option ? (
-                    <Text style={[styles.sending, { color: appearance.muted }]}>{TriageCopy.sending}</Text>
+                    // On the option's neutral fill (at rest, or pressed while the finger is still down).
+                    <Text
+                      style={[
+                        styles.sending,
+                        {
+                          color: readableSecondaryText(appearance.muted, appearance.foreground, [
+                            colorOver(fills.rest, appearance.card),
+                            colorOver(fills.pressed, appearance.card),
+                          ]),
+                        },
+                      ]}
+                    >
+                      {TriageCopy.sending}
+                    </Text>
                   ) : null}
                 </Pressable>
               ))}
@@ -412,6 +433,7 @@ function TriageCard({
             ) : null}
             <CardButton
               label={TriageCopy.openQuestion}
+              appearance={appearance}
               glyph={<Glyph name="help-circle" size={16} color={appearance.foreground} />}
               onPress={onOpenQuestion}
             />
@@ -443,8 +465,8 @@ function TriageCard({
                   style={({ pressed }) => [
                     styles.reply,
                     {
-                      backgroundColor: pressed ? GhostexPalette.NEUTRAL_FILL_PRESSED : GhostexPalette.NEUTRAL_FILL,
-                      borderColor: replying === text ? ASK_HUE : appearance.border,
+                      backgroundColor: pressed ? fills.pressed : fills.rest,
+                      borderColor: replying === text ? askHue : appearance.border,
                     },
                     replying !== null && replying !== text ? styles.disabled : null,
                   ]}
@@ -502,19 +524,30 @@ function ToneLine({
 }
 
 function QuestionText({ header, text, appearance }: { header: string; text: string; appearance: SidebarAppearance }) {
+  // The ask hue reads on the dark cards only; a light card's header takes its ink (the marks keep the hue).
+  const ink = useSidebarInk();
   return (
     <View>
-      {header.length > 0 ? <Text style={[styles.questionHeader, { color: ASK_HUE }]}>{header}</Text> : null}
+      {header.length > 0 ? (
+        <Text style={[styles.questionHeader, { color: ink.light ? appearance.foreground : askColor(false) }]}>
+          {header}
+        </Text>
+      ) : null}
       <Text style={[styles.question, { color: appearance.foreground }]}>{text}</Text>
     </View>
   );
 }
 
+/**
+ * A card's button: the primary one in the model's accent, the others the neutral fill of the appearance (a wash of white
+ * on dark cards, of black on light ones) with the ink that reads on it.
+ */
 function CardButton({
   label,
   accessibilityLabel,
   primary = false,
   glyph,
+  appearance,
   disabled = false,
   onPress,
 }: {
@@ -522,9 +555,12 @@ function CardButton({
   accessibilityLabel?: string;
   primary?: boolean;
   glyph?: ReactNode;
+  appearance: SidebarAppearance;
   disabled?: boolean;
   onPress: () => void;
 }) {
+  const colors = useAppearance();
+  const fills = neutralButtonFills(colors.light);
   return (
     <Pressable
       accessibilityRole="button"
@@ -534,13 +570,7 @@ function CardButton({
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
-        {
-          backgroundColor: primary
-            ? SetupPalette.PRIMARY_BUTTON
-            : pressed
-              ? GhostexPalette.NEUTRAL_FILL_PRESSED
-              : GhostexPalette.NEUTRAL_FILL,
-        },
+        { backgroundColor: primary ? colors.accent : pressed ? fills.pressed : fills.rest },
         primary && pressed ? styles.primaryPressed : null,
         disabled ? styles.disabled : null,
       ]}
@@ -549,7 +579,9 @@ function CardButton({
       <Text
         style={[
           styles.buttonLabel,
-          { color: primary ? SetupPalette.PRIMARY_BUTTON_FOREGROUND : GhostexPalette.FOREGROUND },
+          {
+            color: primary ? colors.accentForeground : appearance.foreground,
+          },
         ]}
       >
         {label}
@@ -585,7 +617,7 @@ const styles = StyleSheet.create({
   name: { flex: 1, minWidth: 0 },
   title: { fontSize: 16, fontWeight: '600' },
   project: { fontSize: 12 },
-  waited: { fontSize: 13, color: SidebarPalette.ROW_TIME, fontVariant: ['tabular-nums'] },
+  waited: { fontSize: 13, fontVariant: ['tabular-nums'] },
   body: { gap: 10, paddingHorizontal: 12, paddingBottom: 12 },
   tone: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   toneTile: {
@@ -602,7 +634,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: GhostexRadii.control,
     borderWidth: StyleSheet.hairlineWidth,
-    backgroundColor: GhostexPalette.BACKGROUND,
   },
   commandText: { fontFamily: MONOSPACE, fontSize: 12.5, lineHeight: 20 },
   actions: { flexDirection: 'row', gap: 8 },

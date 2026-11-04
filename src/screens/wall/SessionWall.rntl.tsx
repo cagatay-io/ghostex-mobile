@@ -12,6 +12,8 @@
  * computer's answer and what the reads cost on the network.
  */
 
+import { GhostexPalette, neutralButtonFills, SidebarPalette } from '../../theme/palette';
+import { themePresetPatch } from '../../theme/presets';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, Dimensions, StyleSheet, type AppStateStatus, type NativeEventSubscription } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
@@ -762,5 +764,42 @@ describe("in the Unified list (the computer's Sidebar set to Unified)", () => {
     await scrollList('wall-row-m1|b');
     expect(visibleBottomOf('wall-row-m1|b', UPRIGHT)).toBe(ABOVE_FOLD);
     expect([marginTop('b'), marginTop('c')]).toEqual([undefined, undefined]);
+  });
+});
+
+describe("the tiles in the appearance's colours", () => {
+  /** One session idle for five minutes (its tile shows its age), one waiting (its tile shows a badge). */
+  function ageAndBadge(): void {
+    const summary = parseMobileSummary(
+      JSON.stringify({
+        ok: true,
+        projects: [{ projectId: 'p1', name: 'ghostex-mobile', path: '/work/ghostex-mobile' }],
+        sessions: [
+          wireSession('a', 'Alpha', { lastInteractionAt: new Date(Date.now() - 5 * 60_000).toISOString() }),
+          wireSession('b', 'Beta', { activity: 'attention' }),
+        ],
+      }),
+    )!;
+    const inventory = useInventoryStore.getState().inventoriesByMachineId.m1!;
+    useInventoryStore.setState({ inventoriesByMachineId: { m1: { ...inventory, summary, serverSummary: summary } } });
+  }
+  const flat = (node: { props: { style?: unknown } }) => StyleSheet.flatten(node.props.style as never) ?? {};
+
+  test("light preset: a tile's age takes the light time ink and its badge the light neutral fill", async () => {
+    useSettingsStore.getState().patchSettings({ ...themePresetPatch('latte', false)!, sessionListView: 'tiles' });
+    ageAndBadge();
+    await renderScreen(UPRIGHT, [FLAT_UPRIGHT]);
+    expect(tile(/^Alpha, 5m$/)).toBeTruthy();
+    expect(flat(screen.getByText('5m')).color).toBe('#424242');
+    expect(flat(screen.getByText('Waiting').parent!).backgroundColor).toBe(neutralButtonFills(true).rest);
+  });
+
+  test('dark: the age and the badge keep their dark look', async () => {
+    // The default appearance follows the system, which is light under Jest; the dark look is asked for.
+    useSettingsStore.getState().patchSettings({ sidebarTheme: 'dark-2', sessionListView: 'tiles' });
+    ageAndBadge();
+    await renderScreen(UPRIGHT, [FLAT_UPRIGHT]);
+    expect(flat(screen.getByText('5m')).color).toBe(SidebarPalette.ROW_TIME);
+    expect(flat(screen.getByText('Waiting').parent!).backgroundColor).toBe(GhostexPalette.NEUTRAL_FILL);
   });
 });

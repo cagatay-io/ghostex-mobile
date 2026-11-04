@@ -18,10 +18,14 @@ import { Dimensions, StyleSheet } from 'react-native';
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import type { TestInstance } from 'test-renderer';
 
+import { NotificationsCopy } from '../copy';
 import type { GhostexMobileSummary } from '../contract/mobileSummary';
 import { useInventoryStore, type MachineInventory } from '../inventory/store';
 import { useMachinesStore, type MachineRecord } from '../machines/store';
 import { SidebarPalette } from '../theme/palette';
+import { useSettingsStore } from '../settings/store';
+import { THEME_PRESETS, themePresetPatch } from '../theme/presets';
+import { resolveAppearance } from '../theme/useAppearance';
 import AttentionList from './AttentionList';
 import type { FeedRow } from './feedContract';
 import { updateAttentionFeed, useAttentionFeedStore } from './feedStore';
@@ -250,7 +254,7 @@ test('opening an unread row marks it read once and opens its session; a question
 });
 
 describe('a message the computer could not send (sendFailed)', () => {
-  test('"not sent" in red, unread, a tap marks it read and opens its session', async () => {
+  test('"not sent" with a red glyph, unread, a tap marks it read and opens its session', async () => {
     // The desktop's bell draws a sendFailed row "Not sent" in the urgent red (`GpuiNotificationFeedKind::SendFailed`).
     useAttentionFeedStore.setState({
       feeds: { m1: { status: 'ready', rows: [feedRow('n8', 2, { kind: 'sendFailed', sessionId: 's6' }), ...FEED] } },
@@ -261,7 +265,14 @@ describe('a message the computer could not send (sendFailed)', () => {
     expect(row.props.accessibilityLabel).toMatch(
       /^Unread\. Codex · ghostex-mobile, not sent\. Theme notices\. 2m ago\.$/,
     );
-    expect(StyleSheet.flatten(within(row).getByText('not sent').props.style).color).toBe(SidebarPalette.MENU_DANGER);
+    expect(StyleSheet.flatten(within(row).getByText('not sent').props.style).color).toBe(resolveAppearance(useSettingsStore.getState().settings, true).foreground);
+    const glyph = row.queryAll((node) => node.props.d === 'M 12 4 L 21 19.5 H 3 Z M 12 10 v 4');
+    expect(glyph).toHaveLength(1);
+    const stroke: unknown = glyph[0]?.props.stroke;
+    if (typeof stroke !== 'object' || stroke === null || !('payload' in stroke) || typeof stroke.payload !== 'number') {
+      throw new Error('The event glyph must have a native colour brush.');
+    }
+    expect(stroke.payload & 0xffffff).toBe(Number.parseInt(SidebarPalette.MENU_DANGER.slice(1), 16));
 
     await fireEvent.press(row);
     expect(update.mock.calls).toEqual([['m1', { action: 'markRead', notificationId: 'n8' }]]);
@@ -348,4 +359,181 @@ test("without rows the list shows the desktop's empty text", async () => {
   expect(screen.getByText('No notifications yet')).toBeTruthy();
   expect(screen.getByText('Agents that finish or need you will show up here.')).toBeTruthy();
   expect(screen.queryByRole('header', { name: 'Unread' })).toBeNull();
+});
+
+/** WCAG contrast of two `#rrggbb` colours. */
+function contrast(a: string, b: string): number {
+  const luminance = (hex: string) => {
+    const [r, g, bl] = [1, 3, 5]
+      .map((at) => parseInt(hex.slice(at, at + 2), 16) / 255)
+      .map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r! + 0.7152 * g! + 0.0722 * bl!;
+  };
+  const [x, y] = [luminance(a), luminance(b)];
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+
+/** A row's identity and event word, as its accessibility label names them ("Unread. who, word."). */
+function rowTexts(id: string) {
+  const row = screen.getByTestId(`attention-row-${id}`);
+  const [, who, word] = /^(?:Unread\. )?(.+?), (.+?)\./.exec(String(row.props.accessibilityLabel))!;
+  const color = (text: string) => StyleSheet.flatten(within(row).getByText(text).props.style).color as string;
+  return { who: color(who!), word: color(word!) };
+}
+
+describe("the rows in the appearance's colours", () => {
+  const initialSettings = useSettingsStore.getState().settings;
+  afterEach(async () => {
+    await act(() => {
+      useSettingsStore.setState({ settings: initialSettings });
+    });
+  });
+
+  test.each(THEME_PRESETS.filter((preset) => preset.mode === 'light').map((preset) => preset.id))(
+    'light preset %s: every identity and event word, read or unread, reads on the light row',
+    async (preset) => {
+      useSettingsStore.getState().patchSettings(themePresetPatch(preset, false)!);
+      const page = resolveAppearance(useSettingsStore.getState().settings, true);
+      await renderList();
+      for (const id of ['n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7']) {
+        const { who, word } = rowTexts(id);
+        expect(contrast(who, page.card)).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(word, page.card)).toBeGreaterThanOrEqual(4.5);
+      }
+    },
+  );
+
+  test('dark: a read identity keeps its dimmer ink and the event words their status colours', async () => {
+    useSettingsStore.getState().patchSettings({ sidebarTheme: 'dark-2' });
+    await renderList();
+    expect(rowTexts('n5').who).toBe(SidebarPalette.FOREGROUND);
+    expect(rowTexts('n6').word).toBe(SidebarPalette.ROW_ATTENTION);
+    expect(rowTexts('n7').word).toBe(SidebarPalette.ROW_QUESTION);
+    expect(rowTexts('n2').word).toBe(SidebarPalette.MENU_DANGER);
+  });
+});
+
+/** `fill` (`#rrggbb` or `rgba(r,g,b,a)`) as it shows painted over the opaque `base`. */
+function over(fill: string, base: string): string {
+  if (fill.startsWith('#')) return fill;
+  const [r, g, b, a] = fill.match(/[0-9.]+/g)!.map(Number);
+  return `#${[r!, g!, b!]
+    .map((channel, at) => Math.round(parseInt(base.slice(1 + 2 * at, 3 + 2 * at), 16) * (1 - a!) + channel * a!))
+    .map((channel) => channel.toString(16).padStart(2, '0'))
+    .join('')}`;
+}
+
+/** A row's texts by role, as its accessibility label names them ("Unread. who, word. detail. time."). */
+function rowParts(row: TestInstance) {
+  const parts = String(row.props.accessibilityLabel)
+    .replace(/^Unread\. /, '')
+    .replace(/\.$/, '')
+    .split('. ');
+  const [who, word] = parts[0]!.split(', ');
+  const color = (text: string) => StyleSheet.flatten(within(row).getByText(text).props.style).color as string;
+  return {
+    who: color(who!),
+    word: color(word!),
+    time: color(parts.at(-1)!),
+    detail: parts.length === 3 ? color(parts[1]!) : null,
+  };
+}
+
+describe('secondary text reads on the surface it is drawn on', () => {
+  const initialSettings = useSettingsStore.getState().settings;
+  afterEach(async () => {
+    await act(() => {
+      useSettingsStore.setState({ settings: initialSettings });
+    });
+  });
+
+  test.each(THEME_PRESETS.map((preset) => [preset.id, preset.mode] as const))(
+    '%s (%s): every row keeps its time, detail and event word at 4.5:1 on its card or unread wash, pressed or not',
+    async (preset, mode) => {
+      useSettingsStore.getState().patchSettings(themePresetPatch(preset, false)!);
+      const page = resolveAppearance(useSettingsStore.getState().settings, mode === 'light');
+      await renderList();
+      const failures: string[] = [];
+      for (const id of ['n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7']) {
+        const row = screen.getByTestId(`attention-row-${id}`);
+        const rowFill = StyleSheet.flatten(row.props.style).backgroundColor as string;
+        const surfaces = [over(rowFill, page.background), page.cardActive];
+        const { time, detail, word } = rowParts(row);
+        // The event word: a status colour (has a question, waiting, an error, reset expiring) or, for a finished
+        // event (n4, n5), the secondary ink on a dark row; the foreground on a light one.
+        const texts = { time, detail, word };
+        for (const [name, color] of Object.entries(texts)) {
+          if (color === null) continue;
+          for (const surface of surfaces) {
+            const ratio = contrast(color, surface);
+            if (ratio < 4.5) failures.push(`${id} ${name} ${color} on ${surface}: ${ratio.toFixed(2)}`);
+          }
+        }
+      }
+      expect(failures).toEqual([]);
+    },
+  );
+
+  test.each(['latte', 'tn-day', 'mocha', 'nord'])(
+    '%s in a pane: the list body paints the page colour its ink is made for, as on the full screen',
+    async (preset) => {
+      const light = THEME_PRESETS.find((entry) => entry.id === preset)!.mode === 'light';
+      useSettingsStore.getState().patchSettings(themePresetPatch(preset, false)!);
+      const page = resolveAppearance(useSettingsStore.getState().settings, light);
+      await render(
+        <AttentionList
+          pane={{ controlInset: { left: 0, right: 0 } }}
+          onOpenSession={(target) => opened.push(target)}
+        />,
+      );
+      // The nearest painted ancestor of the list's content: the pane card under it is the terminal's black.
+      let body = screen.getByRole('header', { name: 'Unread' }).parent;
+      while (body !== null && StyleSheet.flatten(body.props.style)?.backgroundColor === undefined) body = body.parent;
+      expect(body === null ? null : StyleSheet.flatten(body.props.style).backgroundColor).toBe(page.background);
+      const title = StyleSheet.flatten(screen.getByRole('header', { name: 'Unread' }).props.style).color as string;
+      expect(contrast(title, page.background)).toBeGreaterThanOrEqual(4.5);
+    },
+  );
+
+  test.each(THEME_PRESETS.map((preset) => [preset.id, preset.mode] as const))(
+    "%s (%s): the lifted row's text reads on the menu's dark card",
+    async (preset, mode) => {
+      useSettingsStore.getState().patchSettings(themePresetPatch(preset, false)!);
+      await renderList();
+      const failures: string[] = [];
+      for (const id of ['n2', 'n5']) {
+        await fireEvent(screen.getByTestId(`attention-row-${id}`), 'longPress');
+        const label = String(screen.getByTestId(`attention-row-${id}`).props.accessibilityLabel);
+        const lifted = screen.getAllByLabelText(label).find((node) => node.props.testID === undefined)!;
+        const card = StyleSheet.flatten(lifted.props.style).backgroundColor as string;
+        for (const [name, color] of Object.entries(rowParts(lifted))) {
+          if (color === null) continue;
+          const ratio = contrast(color, card);
+          if (ratio < 4.5) failures.push(`${mode} ${id} ${name} ${color} on ${card}: ${ratio.toFixed(2)}`);
+        }
+        await fireEvent.press(screen.getByRole('button', { name: 'Close menu' }));
+      }
+      expect(failures).toEqual([]);
+    },
+  );
+
+  test.each(THEME_PRESETS.map((preset) => [preset.id, preset.mode] as const))(
+    '%s (%s): the line for a change the computer did not take keeps 4.5:1 on the list page',
+    async (preset) => {
+      useSettingsStore.getState().patchSettings(themePresetPatch(preset, false)!);
+      update.mockResolvedValueOnce(false);
+      await renderList();
+      // Opening an unread row marks it read on the computer, which says no.
+      await fireEvent.press(screen.getByTestId('attention-row-n1'));
+      await act(async () => undefined);
+      const line = screen.getByText(NotificationsCopy.actionFailed);
+      let page = line.parent;
+      while (page !== null && !String(StyleSheet.flatten(page.props.style)?.backgroundColor ?? '').startsWith('#')) {
+        page = page.parent;
+      }
+      const surface = String(StyleSheet.flatten(page!.props.style).backgroundColor);
+      const ink = StyleSheet.flatten(line.props.style).color as string;
+      expect(contrast(ink, surface)).toBeGreaterThanOrEqual(4.5);
+    },
+  );
 });

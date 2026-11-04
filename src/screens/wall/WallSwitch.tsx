@@ -8,8 +8,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { ListGlyph, TilesGlyph } from '../../components/sessions/icons';
 import { WallCopy } from '../../copy';
 import type { SessionListView } from '../../settings/store';
-import { GhostexPalette, GhostexRadii } from '../../theme/palette';
-import type { SidebarAppearance } from '../../theme/sidebarAppearance';
+import { GhostexRadii, neutralButtonFills } from '../../theme/palette';
+import { isLightBackground, type SidebarAppearance } from '../../theme/sidebarAppearance';
 
 const OPTIONS = [
   { view: 'list', label: WallCopy.showList, Glyph: ListGlyph },
@@ -35,10 +35,10 @@ export default function WallSwitch({
             accessibilityRole="button"
             accessibilityLabel={label}
             accessibilityState={{ selected }}
-            style={[styles.button, selected ? styles.selected : null]}
+            style={[styles.button, selected ? { backgroundColor: neutralButtonFills(isLightBackground(appearance.background)).pressed } : null]}
             onPress={() => onChange(option)}
           >
-            <Glyph size={20} color={selected ? appearance.foreground : appearance.muted} />
+            <Glyph size={20} color={selected ? appearance.foreground : appearance.mutedGlyph} />
           </Pressable>
         );
       })}
@@ -59,8 +59,5 @@ const styles = StyleSheet.create({
     borderRadius: GhostexRadii.card + 2,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  selected: {
-    backgroundColor: GhostexPalette.NEUTRAL_FILL_PRESSED,
   },
 });

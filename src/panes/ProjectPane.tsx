@@ -5,11 +5,13 @@
  * is the existing screen body for that project, keyed by it.
  */
 
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
+import { useAppearance, type Appearance } from '../theme/useAppearance';
+
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { PanesCopy } from '../copy';
-import { GhostexPalette } from '../theme/palette';
+
 import { usePaneProject, type PaneProject } from './paneProject';
 
 export type ProjectPaneProps = {
@@ -19,11 +21,13 @@ export type ProjectPaneProps = {
 };
 
 export default function ProjectPane({ origin, children }: ProjectPaneProps) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const state = usePaneProject(origin);
   if (state.kind === 'loading') {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="small" color={GhostexPalette.MUTED} accessibilityLabel={PanesCopy.projectLoading} />
+        <ActivityIndicator size="small" color={appearance.muted} accessibilityLabel={PanesCopy.projectLoading} />
       </View>
     );
   }
@@ -37,16 +41,16 @@ export default function ProjectPane({ origin, children }: ProjectPaneProps) {
   return children(state.project);
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
-    backgroundColor: GhostexPalette.BACKGROUND,
+    backgroundColor: appearance.background,
   },
   notice: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 15,
     lineHeight: 21,
     textAlign: 'center',

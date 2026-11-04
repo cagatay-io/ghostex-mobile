@@ -8,14 +8,16 @@
  * the fold (`controlInset`).
  */
 
+import { useMemo } from 'react';
+import { useAppearance, type Appearance } from '../theme/useAppearance';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { NO_SUMMARY_CAPABILITIES, type GhostexSession } from '../contract/mobileSummary';
 import { PanesCopy } from '../copy';
 import { useInventoryStore } from '../inventory/store';
-import { GhostexPalette, SidebarPalette } from '../theme/palette';
+import { SidebarPalette } from '../theme/palette';
 import type { PaneBarInset } from './geometry';
-import { paneSessionStatus, PaneSessionRow, type PaneSessionStatus } from './SessionChooser';
+import { paneSessionStatus, PaneSessionRow, usePaneRowStyles, type PaneSessionStatus } from './SessionChooser';
 
 /** The summary's counts, in the design's order, each with its status colour (the session list's dots). */
 const CHIPS = [
@@ -35,6 +37,9 @@ export type AgentsPaneProps = {
 };
 
 export default function AgentsPane({ machineId, controlInset, onPick }: AgentsPaneProps) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
+  const rowStyles = usePaneRowStyles();
   const summary = useInventoryStore((state) => state.inventoriesByMachineId[machineId]?.summary ?? null);
   const sessions = summary?.sessions ?? [];
   const capabilities = summary?.capabilities ?? NO_SUMMARY_CAPABILITIES;
@@ -60,7 +65,7 @@ export default function AgentsPane({ machineId, controlInset, onPick }: AgentsPa
     >
       {summary === null ? (
         <View style={styles.pending}>
-          <ActivityIndicator size="small" color={GhostexPalette.MUTED} accessibilityLabel={PanesCopy.chooserLoading} />
+          <ActivityIndicator size="small" color={appearance.muted} accessibilityLabel={PanesCopy.chooserLoading} />
         </View>
       ) : null}
       {summary !== null && sessions.length === 0 ? <Text style={styles.empty}>{PanesCopy.agentsEmpty}</Text> : null}
@@ -87,6 +92,7 @@ export default function AgentsPane({ machineId, controlInset, onPick }: AgentsPa
               session={session}
               capabilities={capabilities}
               withProject={false}
+              styles={rowStyles}
               onPick={onPick}
             />
           ))}
@@ -96,11 +102,11 @@ export default function AgentsPane({ machineId, controlInset, onPick }: AgentsPa
   );
 }
 
-const styles = StyleSheet.create({
-  list: { flex: 1, backgroundColor: GhostexPalette.BACKGROUND },
+const createStyles = (appearance: Appearance) => StyleSheet.create({
+  list: { flex: 1, backgroundColor: appearance.background },
   content: { padding: PADDING, gap: 12 },
   pending: { alignItems: 'center', paddingVertical: 16 },
-  empty: { color: GhostexPalette.MUTED, fontSize: 15, paddingHorizontal: 4 },
+  empty: { color: appearance.muted, fontSize: 15, paddingHorizontal: 4 },
   summary: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: {
     flexDirection: 'row',
@@ -109,10 +115,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
-    backgroundColor: GhostexPalette.CARD,
+    backgroundColor: appearance.card,
   },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  chipText: { color: GhostexPalette.FOREGROUND, fontSize: 13 },
+  chipText: { color: appearance.foreground, fontSize: 13 },
   group: { gap: 8 },
-  project: { color: GhostexPalette.MUTED, fontSize: 13, fontWeight: '600', paddingHorizontal: 4 },
+  project: { color: appearance.muted, fontSize: 13, fontWeight: '600', paddingHorizontal: 4 },
 });
