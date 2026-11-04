@@ -67,6 +67,7 @@ const TITLE = '2 messages are held';
 const CARD = {
   tone: 'warning',
   title: TITLE,
+  body: 'The model change failed.',
   detail: 'The change to openrouter/qwen3.8-max high failed: No API key for openrouter.',
   note: 'Pick a model again; held messages send once it applies.',
   action: { id: 'pickModel', label: 'Pick model' },

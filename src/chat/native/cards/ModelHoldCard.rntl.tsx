@@ -2,8 +2,8 @@
 /**
  * Run with `bun run test:jest`. The held-messages card above the composer: while the document carries
  * `modelHoldCard` (gx-chat-core `menus/picker/hold_card.rs`), the phone draws one tone card with the
- * core's tone, title and reason, the reason wrapping, and a footer whose muted note takes the room
- * beside one primary Pick model button; no dismiss. Pick model asks the screen for the model sheet
+ * core's tone, title and plain sentence, the diagnostic behind Details, and a footer whose muted note
+ * takes the room beside one primary Pick model button; no dismiss. Pick model asks the screen for the model sheet
  * and shows only where the screen offers the cards' host actions (opening the sheet, also while a
  * question takes the composer's place, is `NativeChatScreen.rntl.tsx`). The card sits in the stack in
  * desktop's order (`render_composer`: after a failed call's card, before the async questions) and counts
@@ -40,12 +40,14 @@ jest.mock('../../../../modules/ghostex-native/src', () => ({
 jest.mock('react-native-webview', () => ({}));
 
 const TITLE = '2 messages are held';
+const BODY = 'The model change failed.';
 const REASON = 'The change to openrouter/qwen3.8-max high failed: No API key for openrouter.';
 const NOTE = 'Pick a model again; held messages send once it applies.';
 /** The payload `hold_card.rs` builds. */
 const CARD = {
   tone: 'warning',
   title: TITLE,
+  body: BODY,
   detail: REASON,
   note: NOTE,
   action: { id: 'pickModel', label: 'Pick model' },
@@ -78,19 +80,34 @@ function hostsWithFill(fill: string): TestInstance[] {
   return screen.root?.queryAll((node) => styleOf(node).backgroundColor === fill) ?? [];
 }
 
-test('draws the core’s title and reason in its tone; the reason wraps instead of ending at one line', async () => {
+test('draws the core’s plain sentence and keeps its diagnostic behind Details', async () => {
   await render(<NativeChatCards chat={chatWith({ modelHoldCard: CARD })} onHostAction={jest.fn()} />);
   expect(screen.getByText(TITLE)).toBeTruthy();
-  const reason = screen.getByText(REASON);
-  expect(reason.props.numberOfLines).toBeUndefined();
-  expect(styleOf(reason).color).toBe(MUTED);
+  const body = screen.getByText(BODY);
+  expect(body.props.numberOfLines).toBeUndefined();
+  expect(styleOf(body).color).toBe(MUTED);
   expect(hostsWithFill(WARNING_TILE)).toHaveLength(1);
+  expect(screen.queryByText(REASON)).toBeNull();
+  await fireEvent.press(screen.getByRole('button', { name: 'Show details' }));
+  expect(screen.getByText(REASON)).toBeTruthy();
+  expect(screen.getByText(BODY)).toBeTruthy();
+  await fireEvent.press(screen.getByRole('button', { name: 'Hide details' }));
+  expect(screen.queryByText(REASON)).toBeNull();
 });
 
-test('the tone and the title are the core’s, not the phone’s', async () => {
+test('the tone, title and sentence are the core’s; an empty diagnostic has no Details', async () => {
   await render(
     <NativeChatCards
-      chat={chatWith({ modelHoldCard: { ...CARD, tone: 'error', title: '1 message is held', heldCount: 1 } })}
+      chat={chatWith({
+        modelHoldCard: {
+          ...CARD,
+          tone: 'error',
+          title: '1 message is held',
+          body: 'The thinking-level change failed.',
+          detail: '',
+          heldCount: 1,
+        },
+      })}
       onHostAction={jest.fn()}
     />,
   );
@@ -98,6 +115,9 @@ test('the tone and the title are the core’s, not the phone’s', async () => {
   expect(screen.queryByText(TITLE)).toBeNull();
   expect(hostsWithFill(ERROR_TILE)).toHaveLength(1);
   expect(hostsWithFill(WARNING_TILE)).toHaveLength(0);
+  expect(screen.getByText('The thinking-level change failed.')).toBeTruthy();
+  expect(screen.queryByText(BODY)).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Show details' })).toBeNull();
 });
 
 test('the footer: the muted note takes the room beside one primary Pick model, and nothing dismisses the card', async () => {
@@ -116,7 +136,7 @@ test('the footer: the muted note takes the room beside one primary Pick model, a
   expect(styleOf(note)).toMatchObject({ flex: 1, minWidth: 0, color: MUTED });
   expect(note.props.numberOfLines).toBeUndefined();
   expect(styleOf(pick).backgroundColor).toBe(PRIMARY);
-  expect(screen.getAllByRole('button')).toHaveLength(1);
+  expect(screen.getAllByRole('button')).toHaveLength(2);
   expect(screen.queryByRole('button', { name: 'Dismiss' })).toBeNull();
 });
 

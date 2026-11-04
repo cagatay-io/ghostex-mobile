@@ -63,7 +63,6 @@ export function ToneCard({
   icon,
   title,
   detail,
-  detailWraps,
   trailing,
   body,
   footerStart,
@@ -77,8 +76,6 @@ export function ToneCard({
   icon?: GlyphName;
   title: string;
   detail?: string;
-  /** The detail wraps instead of ending at one line (the held-messages card's reason). */
-  detailWraps?: boolean;
   trailing?: ReactNode;
   body?: ReactNode[];
   footerStart?: ReactNode[];
@@ -135,7 +132,7 @@ export function ToneCard({
       <View style={styles.titleColumn}>
         <Text style={styles.title}>{title}</Text>
         {detail ? (
-          <Text style={styles.detail} {...(detailWraps === true ? {} : { numberOfLines: 1 })}>
+          <Text style={styles.detail} numberOfLines={1}>
             {detail}
           </Text>
         ) : null}
