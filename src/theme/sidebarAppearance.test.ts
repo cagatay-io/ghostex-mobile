@@ -9,12 +9,15 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
+import { THEME_PRESETS, themePresetPatch } from './presets';
 import {
   appearanceIsLight,
   areaColourfulnessPatch,
   colourfulnessPatch,
+  readableSecondaryText,
   relativeLuminance,
   resolveThemeAreas,
+  sidebarAppearanceFor,
   type ThemeColourSettings,
 } from './sidebarAppearance';
 
@@ -250,4 +253,104 @@ test('System follows the device; Light and Dark do not', () => {
   assert.equal(appearanceIsLight('system', false), false);
   assert.equal(appearanceIsLight('plain-light', false), true);
   assert.equal(appearanceIsLight('dark-2', true), false);
+});
+
+describe('secondary text reads on the surfaces it is drawn on', () => {
+  // WCAG 2.x normal-size text: 4.5:1. Luminance and contrast are computed here, not with the module's helpers.
+  const luminance = (hex: string): number =>
+    rgb(hex)
+      .map((value) => value / 255)
+      .map((value) => (value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4))
+      .reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index]!, 0);
+  const contrast = (a: string, b: string): number => {
+    const [x, y] = [luminance(a), luminance(b)];
+    return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+  };
+  /** `top` painted `percent` over `base`, channel by channel as React Native composites a translucent fill. */
+  const over = (top: string, base: string, percent: number): string =>
+    `#${rgb(top)
+      .map((value, index) => Math.round(value * (percent / 100) + rgb(base)[index]! * (1 - percent / 100)))
+      .map((value) => value.toString(16).padStart(2, '0'))
+      .join('')}`;
+  /**
+   * The page, a card, a pressed card and a text field: the drawer's tokens and the Settings field (`useAppearance`
+   * `input`, 3% of the text colour over the page), where captions, descriptions, values and placeholders sit.
+   */
+  const surfaces = (background: string) => {
+    const appearance = sidebarAppearanceFor(background);
+    return {
+      page: appearance.background,
+      card: appearance.card,
+      pressedCard: appearance.cardActive,
+      field: over(appearance.foreground, appearance.background, 3),
+    };
+  };
+  const reads = (color: string, background: string): boolean =>
+    Object.values(surfaces(background)).every((surface) => contrast(color, surface) >= 4.5);
+  const presetSidebar = (id: string, light: boolean): string =>
+    resolveThemeAreas({ ...BASE, ...themePresetPatch(id, false) } as ThemeColourSettings, light).sidebar;
+
+  test('all twenty presets: captions, descriptions, values and placeholders keep 4.5:1', () => {
+    assert.equal(THEME_PRESETS.length, 20);
+    const failures: string[] = [];
+    for (const preset of THEME_PRESETS) {
+      const background = presetSidebar(preset.id, preset.mode === 'light');
+      const { muted } = sidebarAppearanceFor(background);
+      for (const [name, surface] of Object.entries(surfaces(background))) {
+        const ratio = contrast(muted, surface);
+        if (ratio < 4.5) failures.push(`${preset.id} ${muted} on ${name} ${surface}: ${ratio.toFixed(2)}`);
+      }
+    }
+    assert.deepEqual(failures, []);
+  });
+
+  test('every square in both appearances at every Colourfulness position keeps 4.5:1 too', () => {
+    const failures: string[] = [];
+    for (const [isLight, squares] of [
+      [false, DARK_SQUARES],
+      [true, LIGHT_SQUARES],
+    ] as const) {
+      for (const [id] of squares) {
+        for (let position = 0; position <= 56; position += 1) {
+          const settings: ThemeColourSettings = {
+            ...BASE,
+            ...(isLight
+              ? { lightThemePreset: id as ThemeColourSettings['lightThemePreset'] }
+              : { darkThemePreset: id as ThemeColourSettings['darkThemePreset'] }),
+            ...colourfulnessPatch(position),
+          };
+          const background = resolveThemeAreas(settings, isLight).sidebar;
+          if (!reads(sidebarAppearanceFor(background).muted, background)) {
+            failures.push(`${isLight ? 'light' : 'dark'} ${id} at ${position}`);
+          }
+        }
+      }
+    }
+    assert.deepEqual(failures, []);
+  });
+
+  test('marks keep the designed muted ink; text moves toward the foreground only as far as 4.5:1 takes', () => {
+    for (const preset of THEME_PRESETS) {
+      const background = presetSidebar(preset.id, preset.mode === 'light');
+      const appearance = sidebarAppearanceFor(background);
+      // The designed ink: 56% of the text colour over the page.
+      assert.equal(appearance.mutedGlyph, over(appearance.foreground, background, 56), preset.id);
+      const steps = Array.from({ length: 100 }, (_, toward) =>
+        over(appearance.foreground, appearance.mutedGlyph, toward),
+      );
+      const step = steps.indexOf(appearance.muted);
+      assert.ok(step > 0, `${preset.id}: ${appearance.muted} is a step from ${appearance.mutedGlyph} toward the text`);
+      assert.equal(reads(steps[step - 1]!, background), false, `${preset.id}: one step less already reads`);
+    }
+  });
+
+  test('a colour that already reads is kept; one that cannot get there takes the foreground', () => {
+    assert.equal(readableSecondaryText('#595959', '#262626', ['#ffffff', '#f5f5f5']), '#595959');
+    assert.equal(readableSecondaryText('#d0d0d0', '#e0e0e0', ['#ffffff']), '#e0e0e0');
+    const moved = readableSecondaryText('#9a9a9a', '#262626', ['#ffffff']);
+    const least = Array.from({ length: 100 }, (_, toward) => over('#262626', '#9a9a9a', toward)).find(
+      (color) => contrast(color, '#ffffff') >= 4.5,
+    );
+    assert.equal(moved, least);
+  });
 });

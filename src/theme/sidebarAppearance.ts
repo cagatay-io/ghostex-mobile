@@ -250,6 +250,24 @@ export function relativeLuminance(rgb: readonly number[]): number {
   return 0.2126 * linear(rgb[0]!) + 0.7152 * linear(rgb[1]!) + 0.0722 * linear(rgb[2]!);
 }
 
+/** WCAG contrast ratio of two opaque colours. */
+export function contrastRatio(a: string, b: string): number {
+  const x = relativeLuminance(channels(rgbOf(a)));
+  const y = relativeLuminance(channels(rgbOf(b)));
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+
+/** Move secondary or semantic text toward the foreground only as far as its actual surfaces require. */
+export function readableSecondaryText(designed: string, foreground: string, surfaces: readonly string[]): string {
+  const readable = (color: string): boolean => surfaces.every((surface) => contrastRatio(color, surface) >= 4.5);
+  if (readable(designed)) return designed;
+  for (let toward = 1; toward < 100; toward += 1) {
+    const candidate = mixHexColors(foreground, designed, toward);
+    if (readable(candidate)) return candidate;
+  }
+  return foreground;
+}
+
 /** Dark Full: the picked colour, or its channels scaled down until it is as deep as the 0.04 cap. */
 function fullColourTarget(picked: Channels): Channels {
   if (relativeLuminance(picked) <= FULL_COLOUR_MAX_LUMINANCE) return picked;
@@ -577,7 +595,7 @@ export type SidebarAppearance = {
   background: string;
   foreground: string;
   muted: string;
-  /** The original muted tone for glyphs; secondary text is contrast-adjusted independently. */
+  /** The designed secondary ink for non-text marks. */
   mutedGlyph: string;
   card: string;
   cardActive: string;

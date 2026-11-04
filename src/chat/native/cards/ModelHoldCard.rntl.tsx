@@ -23,6 +23,7 @@ import { useSettingsStore } from '../../../settings/store';
 import type { ChatDocument } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
 import { ToneButton, ToneCard } from './ToneCard';
+import { transcriptThemeFor } from '../transcript/theme';
 import { chatCardsShown, NativeChatCards } from './NativeChatCards';
 
 jest.mock('@react-native-async-storage/async-storage', () =>
@@ -57,7 +58,7 @@ const CARD = {
 const WARNING_TILE = 'rgba(251,191,36,0.12)';
 const ERROR_TILE = 'rgba(251,113,133,0.12)';
 /** The dark chat theme's `muted` and `controlPrimary`. */
-const MUTED = '#9e9e9e';
+const muted = () => transcriptThemeFor(useSettingsStore.getState().settings, false).muted;
 const PRIMARY = '#e5e5e5';
 
 function chatWith(fields: Record<string, unknown>): RustChat {
@@ -85,7 +86,7 @@ test('draws the core’s plain sentence and keeps its diagnostic behind Details'
   expect(screen.getByText(TITLE)).toBeTruthy();
   const body = screen.getByText(BODY);
   expect(body.props.numberOfLines).toBeUndefined();
-  expect(styleOf(body).color).toBe(MUTED);
+  expect(styleOf(body).color).toBe(muted());
   expect(hostsWithFill(WARNING_TILE)).toHaveLength(1);
   expect(screen.queryByText(REASON)).toBeNull();
   await fireEvent.press(screen.getByRole('button', { name: 'Show details' }));
@@ -133,7 +134,7 @@ test('the footer: the muted note takes the room beside one primary Pick model, a
   expect(styleOf(actions)).toMatchObject({ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end' });
   expect(styleOf(footer)).toMatchObject({ flexDirection: 'row', flexWrap: 'wrap' });
   // The note takes the room the button leaves and wraps inside it.
-  expect(styleOf(note)).toMatchObject({ flex: 1, minWidth: 0, color: MUTED });
+  expect(styleOf(note)).toMatchObject({ flex: 1, minWidth: 0, color: muted() });
   expect(note.props.numberOfLines).toBeUndefined();
   expect(styleOf(pick).backgroundColor).toBe(PRIMARY);
   expect(screen.getAllByRole('button')).toHaveLength(2);

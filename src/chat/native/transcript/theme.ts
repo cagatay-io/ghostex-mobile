@@ -24,9 +24,10 @@ import {
 import { useShallow } from 'zustand/react/shallow';
 
 import { useSettingsStore, type GhostexSettings } from '../../../settings/store';
-import { colorWithOpacity, destructiveButtonFills, mixHexColors, neutralButtonFills } from '../../../theme/palette';
+import { colorOver, colorWithOpacity, destructiveButtonFills, mixHexColors, neutralButtonFills } from '../../../theme/palette';
 import {
   contentIsLight,
+  readableSecondaryText,
   resolveThemeAreas,
   stepTowardHex,
   type ContentColorScheme,
@@ -359,7 +360,30 @@ export function transcriptThemeFor(settings: ThemeColourSettings, light: boolean
   let theme = themes.get(key);
   if (theme === undefined) {
     const roles = light ? LIGHT : DARK;
-    theme = { ...roles, ...chatSurfaces(roles, areas.workArea, areas.menu) };
+    const surfaces = chatSurfaces(roles, areas.workArea, areas.menu);
+    const backgrounds = [
+      surfaces.background, surfaces.input, surfaces.cardBackground, surfaces.cardPanel, surfaces.cardRow,
+      surfaces.cardFooter, surfaces.composerBackground, surfaces.menu, surfaces.floatingSurface,
+      surfaces.floatingTile, surfaces.markCard, roles.inlineCodeSurface,
+      colorOver(roles.neutralFill, surfaces.cardPanel),
+      colorOver(roles.neutralFillPressed, surfaces.cardPanel),
+      colorOver(roles.destructiveFill, surfaces.cardPanel),
+      colorOver(roles.destructiveFillPressed, surfaces.cardPanel),
+      colorOver(roles.selectedFill, surfaces.cardPanel),
+    ];
+    const foreground = readableSecondaryText(roles.foreground, light ? '#000000' : '#ffffff', backgrounds);
+    const text = (designed: string) => readableSecondaryText(designed, foreground, backgrounds);
+    theme = {
+      ...roles, ...surfaces, foreground,
+      primary: text(roles.primary), prose: text(roles.prose), controlPrimary: text(roles.controlPrimary),
+      muted: text(roles.muted), cardMuted: text(roles.cardMuted), error: text(roles.error),
+      menuForeground: text(roles.menuForeground),
+      placeholder: text(colorOver(roles.placeholder, surfaces.composerBackground)),
+      link: { url: text(roles.link.url), file: text(roles.link.file), folder: text(roles.link.folder), image: text(roles.link.image), skill: text(roles.link.skill), comment: text(roles.link.comment) },
+      alert: { note: text(roles.alert.note), tip: text(roles.alert.tip), important: text(roles.alert.important), warning: text(roles.alert.warning), caution: text(roles.alert.caution) },
+      diff: { ...roles.diff, added: text(roles.diff.added), removed: text(roles.diff.removed) },
+      reference: Object.fromEntries(Object.entries(roles.reference).map(([key, value]) => [key, text(value)])),
+    };
     if (themes.size >= KEPT_THEMES) themes.delete(themes.keys().next().value!);
   } else {
     themes.delete(key);

@@ -18,7 +18,7 @@ import { GhostexPalette, mixHexColors } from './palette';
 import {
   contentIsLight,
   isLightBackground,
-  relativeLuminance,
+  readableSecondaryText,
   resolveThemeAreas,
   sidebarAppearanceFor,
 } from './sidebarAppearance';
@@ -101,45 +101,21 @@ export type TerminalChrome = {
   ink: '#ffffff' | '#000000';
 };
 
-/** WCAG AA for normal-size text: the key labels (9 pt), captions and hints are all normal-size. */
-const SECONDARY_TEXT_CONTRAST = 4.5;
 /** Secondary text sits on the background itself and on the key pills and the editor: the ink's 8% wash over it. */
 const SECONDARY_TEXT_WASH_PERCENT = 8;
 
-function contrastRatio(a: string, b: string): number {
-  const [x, y] = [a, b].map((hex) => {
-    const value = parseInt(hex.slice(1), 16);
-    return relativeLuminance([(value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff]);
-  }) as [number, number];
-  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
-}
-
-/**
- * The designed secondary colour (`muted`), moved toward the foreground just as far as it takes to keep 4.5:1 on the
- * background and on the washed pills; a colour that already does is kept as it is.
- */
-function readableMuted(muted: string, foreground: string, background: string, ink: string): string {
-  const surfaces = [background, mixHexColors(ink, background, SECONDARY_TEXT_WASH_PERCENT)];
-  const readable = (color: string): boolean =>
-    surfaces.every((surface) => contrastRatio(color, surface) >= SECONDARY_TEXT_CONTRAST);
-  if (readable(muted)) return muted;
-  for (let toward = 1; toward < 100; toward += 1) {
-    const candidate = mixHexColors(foreground, muted, toward);
-    if (readable(candidate)) return candidate;
-  }
-  return foreground;
-}
-
 /**
  * The chrome over `background`: the screen's dark tokens over a dark background (its earlier look), the drawer's ink
- * over a light one (`sidebarAppearanceFor`), split as the desktop splits light and dark chrome. Secondary text keeps
- * 4.5:1 on the surfaces it is drawn on (`readableMuted`): the drawer's muted ink is too faint for the key labels and
- * captions on the light presets' backgrounds.
+ * over a light one (`sidebarAppearanceFor`), split as the desktop splits light and dark chrome. Secondary text is
+ * adjusted for the background and washed pills. The helper retains its foreground fallback when that foreground
+ * itself cannot meet 4.5:1, which can occur with unrestricted custom terminal backgrounds.
  */
 export function terminalChrome(background: string): TerminalChrome {
   const light = isLightBackground(background);
-  const foreground = light ? sidebarAppearanceFor(background).foreground : GhostexPalette.FOREGROUND;
-  const designed = light ? sidebarAppearanceFor(background).muted : GhostexPalette.MUTED;
+  const drawer = light ? sidebarAppearanceFor(background) : null;
+  const foreground = drawer?.foreground ?? GhostexPalette.FOREGROUND;
+  const designed = drawer?.mutedGlyph ?? GhostexPalette.MUTED;
   const ink = light ? '#000000' : '#ffffff';
-  return { background, light, foreground, muted: readableMuted(designed, foreground, background, ink), ink };
+  const surfaces = [background, mixHexColors(ink, background, SECONDARY_TEXT_WASH_PERCENT)];
+  return { background, light, foreground, muted: readableSecondaryText(designed, foreground, surfaces), ink };
 }

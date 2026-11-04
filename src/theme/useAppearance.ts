@@ -3,10 +3,14 @@ import { useColorScheme } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 
 import { useSettingsStore, type GhostexSettings } from '../settings/store';
-import { GhostexPalette, mixHexColors, neutralButtonFills } from './palette';
+import {
+  ATTENTION_ROW_WASH, BLOCKED_CARD_WASH, VOICE_MEMORY_WASH, colorOver, destructiveButtonFills,
+  GhostexPalette, mixHexColors, neutralButtonFills,
+} from './palette';
 import {
   appearanceIsLight,
   resolveThemeAreas,
+  readableSecondaryText,
   sidebarAppearanceFor,
   type SidebarAppearance,
   type ThemeColourSettings,
@@ -32,6 +36,14 @@ export type Appearance = SidebarAppearance & {
   neutralFillPressed: string;
   /** Selected radios, switches and slider fills, and accent text: the sky accent, a deep blue-grey on a light page. */
   accent: string;
+  accentForeground: string;
+  danger: string;
+  dangerFill: string;
+  dangerFillPressed: string;
+  attention: string;
+  working: string;
+  connected: string;
+  sleeping: string;
 };
 
 /** The desktop's light Settings accent (`settings_accent`: #262626 mixed half with #174564). */
@@ -59,8 +71,27 @@ export function resolveAppearance(settings: ThemeColourSettings, light: boolean)
   const areas = resolveThemeAreas(settings, light);
   const sidebar = sidebarAppearanceFor(areas.sidebar);
   const fills = neutralButtonFills(light);
+  const dangerFills = destructiveButtonFills(GhostexPalette.DANGER, light);
+  const surfaces = [
+    sidebar.background,
+    sidebar.card,
+    sidebar.cardActive,
+    ...[sidebar.background, sidebar.card].flatMap((base) =>
+      [fills.rest, fills.pressed, dangerFills.rest, dangerFills.pressed].map((fill) => colorOver(fill, base)),
+    ),
+    colorOver(BLOCKED_CARD_WASH, sidebar.background),
+    colorOver(ATTENTION_ROW_WASH, sidebar.background),
+    colorOver(VOICE_MEMORY_WASH, sidebar.background),
+  ];
+  // Keep the desktop's surfaces and fill alphas; strengthen text only where a surface needs it.
+  const foreground = readableSecondaryText(sidebar.foreground, light ? '#000000' : '#ffffff', surfaces);
+  const text = (designed: string) => readableSecondaryText(designed, foreground, surfaces);
+  const accent = text(light ? LIGHT_ACCENT : GhostexPalette.ACCENT);
+  const danger = text(GhostexPalette.DANGER);
   const appearance: Appearance = {
     ...sidebar,
+    foreground,
+    muted: text(sidebar.muted),
     workArea: areas.workArea,
     input: mixHexColors(sidebar.foreground, sidebar.background, 3),
     control: mixHexColors(sidebar.foreground, sidebar.background, 22),
@@ -68,7 +99,15 @@ export function resolveAppearance(settings: ThemeColourSettings, light: boolean)
     light,
     neutralFill: fills.rest,
     neutralFillPressed: fills.pressed,
-    accent: light ? LIGHT_ACCENT : GhostexPalette.ACCENT,
+    accent,
+    accentForeground: light ? GhostexPalette.FOREGROUND : GhostexPalette.ACCENT_FOREGROUND,
+    danger,
+    dangerFill: dangerFills.rest,
+    dangerFillPressed: dangerFills.pressed,
+    attention: text(GhostexPalette.STATUS_ATTENTION),
+    working: text(GhostexPalette.STATUS_WORKING),
+    connected: text(GhostexPalette.STATUS_CONNECTED),
+    sleeping: text(GhostexPalette.STATUS_SLEEPING),
   };
   lastResolved = { key, appearance };
   return appearance;

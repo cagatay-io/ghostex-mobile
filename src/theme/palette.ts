@@ -178,6 +178,12 @@ export const SidebarPalette = {
   MENU_DANGER: '#FF7B72',
 } as const;
 
+/** Shared semantic washes: text adaptation and the painted surface read the same values. */
+export const ATTENTION_ROW_WASH = colorWithOpacity(SidebarPalette.ROW_ATTENTION, 9);
+export const BLOCKED_CARD_WASH = colorWithOpacity(SidebarPalette.ROW_FAILED, 12);
+export const VOICE_MEMORY_HUE = '#A78BFA';
+export const VOICE_MEMORY_WASH = colorWithOpacity(VOICE_MEMORY_HUE, 10);
+
 export type GhostexPaletteToken = keyof typeof GhostexPalette;
 
 /**
@@ -292,4 +298,21 @@ export function colorWithOpacity(color: string, opacityPercent: number): string 
   }
 
   throw new Error(`Unsupported color format: ${color}`);
+}
+
+/**
+ * `fill` (`#rrggbb`, or `rgba(...)` as `colorWithOpacity` and the button fills write it) as it shows painted over the
+ * opaque `#rrggbb` `base`: the one colour text on that wash is drawn on, for measuring its contrast.
+ */
+export function colorOver(fill: string, base: string): string {
+  const hex = /^#[0-9a-f]{6}$/iu;
+  if (!hex.test(base.trim())) throw new Error(`Unsupported base colour: ${base}`);
+  if (hex.test(fill.trim())) return mixHexColors(fill, base, 100);
+  const rgba = /^rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d*\.?\d+)\s*\)$/iu.exec(fill.trim());
+  if (rgba === null) throw new Error(`Unsupported color format: ${fill}`);
+  const top = `#${rgba
+    .slice(1, 4)
+    .map((channel) => Number(channel).toString(16).padStart(2, '0'))
+    .join('')}`;
+  return mixHexColors(top, base, Number.parseFloat(rgba[4]) * 100);
 }
