@@ -4,15 +4,17 @@
  * input + hint, `.section-label`, and the `.rows-panel` rows under Advanced.
  */
 
+import { useMemo } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
 import { StyleSheet } from 'react-native';
 
 import { SETUP_MONOSPACE } from '../../components/onboarding/SetupPrimitives';
-import { GhostexRadii, GhostexStrokeWidth, SetupPalette } from '../../theme/palette';
+import { GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
 
-export const formStyles = StyleSheet.create({
+const createFormStyles = (appearance: Appearance) => StyleSheet.create({
   page: {
     flex: 1,
-    backgroundColor: SetupPalette.PAGE,
+    backgroundColor: appearance.background,
   },
   keyboardArea: {
     flex: 1,
@@ -27,7 +29,7 @@ export const formStyles = StyleSheet.create({
     gap: 12,
   },
   sectionLabel: {
-    color: SetupPalette.DIM,
+    color: appearance.muted,
     fontSize: 11.5,
     fontWeight: '600',
     textTransform: 'uppercase',
@@ -38,7 +40,7 @@ export const formStyles = StyleSheet.create({
     gap: 6,
   },
   fieldLabel: {
-    color: SetupPalette.MUTED,
+    color: appearance.muted,
     fontSize: 13,
   },
   input: {
@@ -46,9 +48,9 @@ export const formStyles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: GhostexRadii.control,
     borderWidth: GhostexStrokeWidth,
-    borderColor: SetupPalette.BORDER_STRONG,
-    backgroundColor: SetupPalette.CARD,
-    color: SetupPalette.FOREGROUND,
+    borderColor: appearance.border,
+    backgroundColor: appearance.card,
+    color: appearance.foreground,
     fontSize: 15,
   },
   inputMono: {
@@ -61,15 +63,15 @@ export const formStyles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   inputError: {
-    borderColor: SetupPalette.ERROR_BORDER,
+    borderColor: appearance.danger,
   },
   fieldHint: {
-    color: SetupPalette.DIM,
+    color: appearance.muted,
     fontSize: 12,
     lineHeight: 17,
   },
   fieldError: {
-    color: SetupPalette.ERROR,
+    color: appearance.danger,
     fontSize: 12,
     lineHeight: 17,
   },
@@ -79,7 +81,7 @@ export const formStyles = StyleSheet.create({
     gap: 12,
     paddingVertical: 10,
     borderTopWidth: GhostexStrokeWidth,
-    borderTopColor: SetupPalette.BORDER,
+    borderTopColor: appearance.border,
   },
   rowFirst: {
     borderTopWidth: 0,
@@ -89,12 +91,12 @@ export const formStyles = StyleSheet.create({
     gap: 3,
   },
   rowLabel: {
-    color: SetupPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 14,
     fontWeight: '600',
   },
   rowDetail: {
-    color: SetupPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12.5,
     lineHeight: 17,
   },
@@ -102,14 +104,14 @@ export const formStyles = StyleSheet.create({
     fontFamily: SETUP_MONOSPACE,
   },
   rowValue: {
-    color: SetupPalette.MUTED,
+    color: appearance.muted,
     fontSize: 13,
   },
   rowsCard: {
     borderRadius: GhostexRadii.section,
     borderWidth: GhostexStrokeWidth,
-    borderColor: SetupPalette.BORDER,
-    backgroundColor: SetupPalette.CARD,
+    borderColor: appearance.border,
+    backgroundColor: appearance.card,
     paddingHorizontal: 14,
   },
   errorCallout: {
@@ -119,12 +121,12 @@ export const formStyles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: GhostexRadii.section,
     borderWidth: GhostexStrokeWidth,
-    borderColor: SetupPalette.ERROR_BORDER,
+    borderColor: appearance.danger,
     backgroundColor: 'rgba(255,107,107,0.08)',
   },
   errorCalloutText: {
     flex: 1,
-    color: SetupPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 13,
     lineHeight: 19,
   },
@@ -137,12 +139,12 @@ export const formStyles = StyleSheet.create({
     backgroundColor: 'rgba(99,209,122,0.08)',
   },
   okCalloutText: {
-    color: SetupPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 13,
     lineHeight: 19,
   },
   link: {
-    color: SetupPalette.ACCENT,
+    color: appearance.accent,
     fontWeight: '600',
   },
   footer: {
@@ -150,15 +152,21 @@ export const formStyles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 8,
     borderTopWidth: GhostexStrokeWidth,
-    borderTopColor: SetupPalette.BORDER,
-    backgroundColor: SetupPalette.PAGE,
+    borderTopColor: appearance.border,
+    backgroundColor: appearance.background,
   },
   divider: {
     height: GhostexStrokeWidth,
-    backgroundColor: SetupPalette.BORDER,
+    backgroundColor: appearance.border,
     marginTop: 12,
   },
   danger: {
-    color: SetupPalette.ERROR,
+    color: appearance.danger,
   },
 });
+
+/** Cached styles of the existing colour model for this shared surface. */
+export function useFormStyles() {
+  const appearance = useAppearance();
+  return useMemo(() => createFormStyles(appearance), [appearance]);
+}

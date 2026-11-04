@@ -4,7 +4,9 @@
  * button not available right now (drawn dimmed and not pressable, as the side bar draws its entries).
  */
 
-import type { ReactNode, Ref } from 'react';
+import { useMemo, type ReactNode, type Ref } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
+
 import { Pressable, StyleSheet, type ViewInstance } from 'react-native';
 
 export default function HeaderButton({
@@ -25,6 +27,8 @@ export default function HeaderButton({
   /** The button itself, for a menu that opens at it. */
   buttonRef?: Ref<ViewInstance>;
 }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   return (
     <Pressable
       ref={buttonRef}
@@ -48,9 +52,9 @@ export default function HeaderButton({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   button: { width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  active: { backgroundColor: 'rgba(125,211,252,0.12)' },
+  active: { backgroundColor: appearance.neutralFill },
   pressed: { opacity: 0.6 },
   disabled: { opacity: 0.3 },
 });

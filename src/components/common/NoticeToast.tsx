@@ -5,10 +5,10 @@
  * With the system's Reduce Motion on (followed live) a notice appears and leaves at once, without a fade.
  */
 
-import { useEffect, useEffectEvent, useRef, useState } from 'react';
+import { useMemo, useEffect, useEffectEvent, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Platform, StyleSheet, Text, View } from 'react-native';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
 
-import { GhostexPalette } from '../../theme/palette';
 import { useReduceMotion } from './reduceMotion';
 
 export type Notice = {
@@ -27,6 +27,8 @@ export type Notice = {
 const NOTICE_SHOWN_MS = 3200;
 
 export default function NoticeToast({ notice, bottom }: { notice: Notice | null; bottom: number }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const opacity = useRef(new Animated.Value(0)).current;
   const [shown, setShown] = useState<Notice | null>(null);
   const reduceMotion = useReduceMotion();
@@ -86,19 +88,19 @@ export default function NoticeToast({ notice, bottom }: { notice: Notice | null;
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   toastRow: { position: 'absolute', left: 16, right: 16, alignItems: 'center' },
   toast: {
     maxWidth: 420,
     borderWidth: 1,
-    borderColor: GhostexPalette.BORDER,
+    borderColor: appearance.border,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 10,
     gap: 2,
-    backgroundColor: '#1f1f1f',
+    backgroundColor: appearance.cardActive,
   },
-  toastTitle: { color: GhostexPalette.FOREGROUND, fontSize: 13, fontWeight: '600' },
-  toastText: { color: GhostexPalette.MUTED, fontSize: 13, lineHeight: 18 },
-  toastError: { color: GhostexPalette.DANGER },
+  toastTitle: { color: appearance.foreground, fontSize: 13, fontWeight: '600' },
+  toastText: { color: appearance.muted, fontSize: 13, lineHeight: 18 },
+  toastError: { color: appearance.danger },
 });

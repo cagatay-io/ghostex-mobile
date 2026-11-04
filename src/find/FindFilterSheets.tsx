@@ -121,6 +121,7 @@ export function FindProjectFilterSheet({
     <BottomSheet visible={visible} onClose={close}>
       <Text style={styles.sheetTitle}>{FindPromptsCopy.projectsTitle}</Text>
       <TextInput
+        keyboardAppearance={appearance.light ? 'light' : 'dark'}
         value={filter}
         onChangeText={setFilter}
         placeholder={FindPromptsCopy.projectsPlaceholder}

@@ -1,3 +1,5 @@
+import { useMemo, useEffect, useState } from 'react';
+import { useAppearance, type Appearance } from '../theme/useAppearance';
 import { execRemoteCommand } from '../remote/commands';
 /**
  * Connected (docs/2026-09-03/mobile-setup/mobile-05-connected.html): end of
@@ -7,7 +9,6 @@ import { execRemoteCommand } from '../remote/commands';
  * questions (the computer has to be awake), then hands off to Sessions.
  */
 
-import { useEffect, useState } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,14 +20,14 @@ import {
   SetupRow,
   SetupRows,
   StatusDot,
-  setupText,
+  useSetupText,
 } from '../components/onboarding/SetupPrimitives';
 import { countSessions } from '../contract/grouping';
 import { ConnectedCopy } from '../copy';
 import { useInventoryStore } from '../inventory/store';
 import { useMachinesStore, type MachineRecord } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
-import { GhostexStrokeWidth, SetupPalette } from '../theme/palette';
+import { GhostexStrokeWidth } from '../theme/palette';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Connected'>;
 
@@ -87,6 +88,9 @@ async function readGhostexVersion(machine: MachineRecord): Promise<string> {
 }
 
 export default function ConnectedScreen({ navigation, route }: Props) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
+  const setupText = useSetupText();
   const { machineId } = route.params;
   const machine = useMachinesStore((state) => state.machines.find((entry) => entry.id === machineId) ?? null);
   const [firstLoad, setFirstLoad] = useState<FirstLoad>({ kind: 'loading' });
@@ -123,7 +127,7 @@ export default function ConnectedScreen({ navigation, route }: Props) {
   };
   const failure = firstLoad.kind === 'failed' ? firstLoad.message : null;
   const dotColor =
-    firstLoad.kind === 'loaded' ? SetupPalette.OK : firstLoad.kind === 'failed' ? SetupPalette.ERROR : SetupPalette.DIM;
+    firstLoad.kind === 'loaded' ? appearance.connected : firstLoad.kind === 'failed' ? appearance.danger : appearance.muted;
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -131,7 +135,7 @@ export default function ConnectedScreen({ navigation, route }: Props) {
         {firstLoad.kind === 'loading' ? (
           <View style={styles.hero}>
             <View style={[styles.mark, styles.markNeutral]}>
-              <LoaderGlyph size={36} color={SetupPalette.MUTED} strokeWidth={2.2} />
+              <LoaderGlyph size={36} color={appearance.muted} strokeWidth={2.2} />
             </View>
             <View>
               <Text style={[setupText.titleLg, setupText.center]}>{ConnectedCopy.connectingTitle(name)}</Text>
@@ -141,7 +145,7 @@ export default function ConnectedScreen({ navigation, route }: Props) {
         ) : firstLoad.kind === 'failed' ? (
           <View style={styles.hero}>
             <View style={[styles.mark, styles.markFailed]}>
-              <AlertTriangleGlyph size={36} color={SetupPalette.WARN} strokeWidth={2.2} />
+              <AlertTriangleGlyph size={36} color={appearance.working} strokeWidth={2.2} />
             </View>
             <View>
               <Text style={[setupText.titleLg, setupText.center]}>{ConnectedCopy.failedTitle(name)}</Text>
@@ -151,7 +155,7 @@ export default function ConnectedScreen({ navigation, route }: Props) {
         ) : (
           <View style={styles.hero}>
             <View style={styles.mark}>
-              <CheckGlyph size={40} color={SetupPalette.OK} strokeWidth={2.2} />
+              <CheckGlyph size={40} color={appearance.connected} strokeWidth={2.2} />
             </View>
             <View>
               <Text style={[setupText.titleLg, setupText.center]}>{ConnectedCopy.title}</Text>
@@ -188,7 +192,7 @@ export default function ConnectedScreen({ navigation, route }: Props) {
           </View>
         ) : null}
 
-        <SetupCallout icon={<InfoGlyph size={16} color={SetupPalette.MUTED} />}>
+        <SetupCallout icon={<InfoGlyph size={16} color={appearance.muted} />}>
           {easyConnect ? ConnectedCopy.calloutEasyConnect : ConnectedCopy.calloutTailscale}
         </SetupCallout>
       </View>
@@ -201,10 +205,10 @@ export default function ConnectedScreen({ navigation, route }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: SetupPalette.PAGE,
+    backgroundColor: appearance.background,
   },
   body: {
     flex: 1,
@@ -228,8 +232,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   markNeutral: {
-    backgroundColor: SetupPalette.CARD,
-    borderColor: SetupPalette.BORDER_STRONG,
+    backgroundColor: appearance.card,
+    borderColor: appearance.border,
   },
   markFailed: {
     backgroundColor: 'rgba(255,180,84,0.12)',
@@ -243,7 +247,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   failure: {
-    color: SetupPalette.ERROR,
+    color: appearance.danger,
     fontSize: 12.5,
     lineHeight: 18,
   },

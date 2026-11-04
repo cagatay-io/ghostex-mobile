@@ -5,7 +5,9 @@
  * below the fold and the log scrolls inside.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useMemo, useEffect, useRef, useState } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
+
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useFoldSheetMaxHeight } from './foldAvoidance';
@@ -13,7 +15,7 @@ import { useVerticalBarSpace } from './verticalBar/VerticalBarArea';
 import * as Clipboard from 'expo-clipboard';
 
 import { formatAppLog, formatLogTime, useAppLogStore } from '../../app/appLog';
-import { GhostexPalette, GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
+import { GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
 
 export type LogsSheetProps = {
   visible: boolean;
@@ -21,6 +23,8 @@ export type LogsSheetProps = {
 };
 
 export default function LogsSheet({ visible, onClose }: LogsSheetProps) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const bar = useVerticalBarSpace();
   const foldMaxHeight = useFoldSheetMaxHeight({ avoidsKeyboard: false });
   const entries = useAppLogStore((state) => state.entries);
@@ -83,18 +87,18 @@ export default function LogsSheet({ visible, onClose }: LogsSheetProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: GhostexPalette.BACKGROUND,
+    backgroundColor: appearance.background,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
     borderWidth: GhostexStrokeWidth,
-    borderColor: GhostexPalette.BORDER,
+    borderColor: appearance.border,
     paddingTop: 14,
     paddingBottom: 24,
     paddingHorizontal: 12,
@@ -107,7 +111,7 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 15,
     fontWeight: 'bold',
   },
@@ -115,15 +119,15 @@ const styles = StyleSheet.create({
     minHeight: 32,
     paddingHorizontal: 14,
     borderRadius: GhostexRadii.row,
-    backgroundColor: GhostexPalette.NEUTRAL_FILL,
+    backgroundColor: appearance.neutralFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   copyButtonPressed: {
-    backgroundColor: GhostexPalette.NEUTRAL_FILL_PRESSED,
+    backgroundColor: appearance.neutralFillPressed,
   },
   copyButtonLabel: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -131,7 +135,7 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   subtitle: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     marginTop: 4,
     paddingHorizontal: 4,
@@ -144,7 +148,7 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   emptyText: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     paddingHorizontal: 4,
     paddingVertical: 8,
@@ -156,14 +160,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   rowTime: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 11,
     lineHeight: 16,
     fontVariant: ['tabular-nums'],
   },
   rowMessage: {
     flex: 1,
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 11,
     lineHeight: 16,
   },

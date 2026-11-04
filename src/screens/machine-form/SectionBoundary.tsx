@@ -10,9 +10,10 @@ import { Text, View } from 'react-native';
 import ErrorBoundary from '../../components/common/ErrorBoundary';
 import { SetupButton } from '../../components/onboarding/SetupPrimitives';
 import { SectionErrorCopy } from '../settings/SectionBoundary';
-import { formStyles } from './styles';
+import { useFormStyles } from './styles';
 
 function FormSectionErrorCard({ retry }: { error: unknown; retry: () => void }) {
+  const formStyles = useFormStyles();
   return (
     <View style={[formStyles.rowsCard, formStyles.stack, { paddingVertical: 12 }]}>
       <Text style={formStyles.rowLabel}>{SectionErrorCopy.title}</Text>

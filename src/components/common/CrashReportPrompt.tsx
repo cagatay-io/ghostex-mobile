@@ -4,6 +4,8 @@
  * Bug / Feedback with the report attached. Shown once per crash (src/app/crashReports.ts).
  */
 
+import { useMemo } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -12,10 +14,12 @@ import { navigationRef } from '../../app/deepLinks';
 import { CrashReportCopy } from '../../copy';
 import { crashTimeLabel } from '../../feedback/crashReports';
 import { useMachinesStore } from '../../machines/store';
-import { GhostexPalette, GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
+import { GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
 import { SetupButton } from '../onboarding/SetupPrimitives';
 
 export default function CrashReportPrompt() {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const pending = useCrashPromptStore((state) => state.pending);
   const insets = useSafeAreaInsets();
   if (pending === null) return null;
@@ -46,26 +50,26 @@ export default function CrashReportPrompt() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   wrap: {
     paddingHorizontal: 12,
     paddingTop: 8,
-    backgroundColor: GhostexPalette.BACKGROUND,
+    backgroundColor: appearance.background,
   },
   card: {
     padding: 12,
     borderRadius: GhostexRadii.card,
-    backgroundColor: GhostexPalette.CARD_ACTIVE,
+    backgroundColor: appearance.cardActive,
     borderWidth: GhostexStrokeWidth,
-    borderColor: GhostexPalette.BORDER,
+    borderColor: appearance.border,
   },
   title: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 15,
     fontWeight: 'bold',
   },
   body: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 13,
     marginTop: 6,
   },

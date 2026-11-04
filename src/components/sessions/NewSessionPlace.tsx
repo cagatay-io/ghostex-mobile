@@ -7,9 +7,11 @@
  * User, of the New thread picker's machine row: "let's not show the machines here, show the machines inside the project picking area please instead". The agent menu has no machine chips any more; it names the computer on its project row, and the project list's rows carry each project's computers. This supersedes the Q1180 note that had the chips fill a row under the project.
  */
 
+import { useMemo } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { SidebarPalette } from '../../theme/palette';
+
 
 export function NewSessionProjectRow({
   label,
@@ -21,6 +23,8 @@ export function NewSessionProjectRow({
   machineLabel: string | null;
   onPress: () => void;
 }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   return (
     <Pressable
       accessibilityRole="button"
@@ -45,7 +49,7 @@ export function NewSessionProjectRow({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   project: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -53,7 +57,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 10,
     borderRadius: 8,
-    backgroundColor: SidebarPalette.MENU_HOVER,
+    backgroundColor: appearance.cardActive,
   },
   pressed: { opacity: 0.7 },
   tile: {
@@ -62,12 +66,12 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: appearance.neutralFill,
   },
-  tileText: { color: SidebarPalette.MUTED, fontSize: 11, fontWeight: '600' },
+  tileText: { color: appearance.muted, fontSize: 11, fontWeight: '600' },
   projectText: { flex: 1, minWidth: 0 },
-  projectLabel: { color: SidebarPalette.FOREGROUND, fontSize: 15, fontWeight: '600' },
-  machine: { color: SidebarPalette.MUTED, fontWeight: '400' },
-  projectHint: { color: SidebarPalette.MUTED, fontSize: 12 },
-  chevron: { color: SidebarPalette.MUTED, fontSize: 18 },
+  projectLabel: { color: appearance.foreground, fontSize: 15, fontWeight: '600' },
+  machine: { color: appearance.muted, fontWeight: '400' },
+  projectHint: { color: appearance.muted, fontSize: 12 },
+  chevron: { color: appearance.muted, fontSize: 18 },
 });

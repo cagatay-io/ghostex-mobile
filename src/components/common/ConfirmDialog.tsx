@@ -8,13 +8,15 @@
  * buttons (`useFoldCardPlacement`).
  */
 
+import { useMemo } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useFoldCardPlacement } from './foldAvoidance';
 import { barPadding } from './verticalBar/layout';
 import { useVerticalBarSpace } from './verticalBar/VerticalBarArea';
 
-import { GhostexPalette, GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
+import { GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
 
 export type ConfirmDialogProps = {
   visible: boolean;
@@ -44,6 +46,8 @@ export default function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const bar = useVerticalBarSpace();
   const placement = useFoldCardPlacement({ avoidsKeyboard: false });
   return (
@@ -93,7 +97,7 @@ export default function ConfirmDialog({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',
@@ -101,14 +105,14 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   card: {
-    backgroundColor: GhostexPalette.BACKGROUND,
+    backgroundColor: appearance.background,
     borderRadius: 12,
     borderWidth: GhostexStrokeWidth,
-    borderColor: GhostexPalette.BORDER,
+    borderColor: appearance.border,
     padding: 16,
   },
   title: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 15,
     fontWeight: 'bold',
   },
@@ -118,19 +122,19 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   body: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     marginTop: 8,
   },
   bodyMono: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontFamily: 'monospace',
-    backgroundColor: GhostexPalette.INPUT_BACKGROUND,
+    backgroundColor: appearance.input,
     borderRadius: GhostexRadii.input,
     padding: 10,
   },
   target: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 13,
     fontWeight: 'bold',
     marginTop: 8,
@@ -145,15 +149,15 @@ const styles = StyleSheet.create({
     height: 40,
     paddingHorizontal: 16,
     borderRadius: GhostexRadii.card,
-    backgroundColor: GhostexPalette.NEUTRAL_FILL,
+    backgroundColor: appearance.neutralFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelButtonPressed: {
-    backgroundColor: GhostexPalette.NEUTRAL_FILL_PRESSED,
+    backgroundColor: appearance.neutralFillPressed,
   },
   cancelLabel: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -161,19 +165,19 @@ const styles = StyleSheet.create({
     height: 40,
     paddingHorizontal: 16,
     borderRadius: GhostexRadii.card,
-    backgroundColor: GhostexPalette.ACCENT,
+    backgroundColor: appearance.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
   confirmButtonDestructive: {
-    backgroundColor: GhostexPalette.DANGER,
+    backgroundColor: appearance.danger,
   },
   confirmLabel: {
-    color: GhostexPalette.ACCENT_FOREGROUND,
+    color: appearance.accentForeground,
     fontSize: 13,
     fontWeight: '600',
   },
   confirmLabelDestructive: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.accentForeground,
   },
 });

@@ -251,6 +251,7 @@ export default function FeedbackScreen() {
       <SettingsScreenLayout intro={FeedbackCopy.reviewIntro}>
         <Text style={styles.cardLabel}>{FeedbackCopy.issueTitleLabel}</Text>
         <TextInput
+          keyboardAppearance={appearance.light ? 'light' : 'dark'}
           style={input}
           value={step.title}
           onChangeText={(title) => setStep({ ...step, title })}
@@ -259,6 +260,7 @@ export default function FeedbackScreen() {
         />
         <Text style={[styles.cardLabel, local.spaced]}>{FeedbackCopy.issueBodyLabel}</Text>
         <TextInput
+          keyboardAppearance={appearance.light ? 'light' : 'dark'}
           style={[...multiline, local.body]}
           value={step.body}
           onChangeText={(body) => setStep({ ...step, body })}
@@ -268,7 +270,7 @@ export default function FeedbackScreen() {
           placeholderTextColor={appearance.muted}
         />
         <Caption>{FeedbackCopy.added(images.length, footer)}</Caption>
-        {error !== null ? <ErrorBanner message={error} page={appearance} /> : null}
+        {error !== null ? <ErrorBanner message={error} /> : null}
         <View style={local.buttons}>
           <SetupButton
             label={FeedbackCopy.back}
@@ -296,6 +298,7 @@ export default function FeedbackScreen() {
     <SettingsScreenLayout intro={withAgent ? FeedbackCopy.introAgent : FeedbackCopy.intro}>
       <Text style={styles.cardLabel}>{FeedbackCopy.usernameLabel}</Text>
       <TextInput
+        keyboardAppearance={appearance.light ? 'light' : 'dark'}
         style={input}
         value={username}
         onChangeText={setUsername}
@@ -315,6 +318,7 @@ export default function FeedbackScreen() {
 
       <Text style={[styles.cardLabel, local.spaced]}>{FeedbackCopy.messageLabel}</Text>
       <TextInput
+        keyboardAppearance={appearance.light ? 'light' : 'dark'}
         style={[...multiline, local.message]}
         value={message}
         onChangeText={setMessage}
@@ -413,7 +417,7 @@ export default function FeedbackScreen() {
         </View>
       ) : null}
 
-      {error !== null ? <ErrorBanner message={error} page={appearance} /> : null}
+      {error !== null ? <ErrorBanner message={error} /> : null}
       <View style={local.buttons}>
         <SetupButton label="Cancel" disabled={busy} onPress={() => navigation.goBack()} style={local.button} />
         <SetupButton

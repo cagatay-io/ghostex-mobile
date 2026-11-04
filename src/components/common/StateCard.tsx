@@ -4,9 +4,11 @@
  * (marginTop 6), action hint 12sp bold accent (marginTop 10).
  */
 
+import { useMemo } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
-import { GhostexPalette, GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
+import { GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
 
 export type StateCardProps = {
   title: string;
@@ -16,6 +18,8 @@ export type StateCardProps = {
 };
 
 export default function StateCard({ title, body, actionHint, onPress }: StateCardProps) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   return (
     <Pressable accessibilityRole="button" style={styles.card} onPress={onPress}>
       <Text style={styles.title}>{title}</Text>
@@ -25,27 +29,27 @@ export default function StateCard({ title, body, actionHint, onPress }: StateCar
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   card: {
     padding: 12,
     minHeight: 104,
     borderRadius: GhostexRadii.card,
-    backgroundColor: GhostexPalette.CARD_ACTIVE,
+    backgroundColor: appearance.cardActive,
     borderWidth: GhostexStrokeWidth,
-    borderColor: GhostexPalette.BORDER,
+    borderColor: appearance.border,
   },
   title: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 15,
     fontWeight: 'bold',
   },
   body: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     marginTop: 6,
   },
   hint: {
-    color: GhostexPalette.ACCENT,
+    color: appearance.accent,
     fontSize: 12,
     fontWeight: 'bold',
     marginTop: 10,

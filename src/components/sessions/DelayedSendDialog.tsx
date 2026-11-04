@@ -5,14 +5,16 @@
  * off the fold (`useFoldCardPlacement`).
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useMemo, useCallback, useEffect, useState } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
+
 import DateTimePicker, { type DateTimePickerChangeEvent } from '@react-native-community/datetimepicker';
 import { Modal, Platform, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
 import { AGENT_ICONS } from '../../assets/agentIcons.generated';
 import type { DelayedSendTrigger } from '../../commands/ghostexCli';
 import { agentIconTint, resolveAgentArtId } from '../../contract/mobileSummary';
-import { GhostexPalette, GhostexStrokeWidth } from '../../theme/palette';
+import { GhostexStrokeWidth } from '../../theme/palette';
 import { useFoldCardPlacement } from '../common/foldAvoidance';
 import KeyboardAvoidingContainer from '../common/keyboard/KeyboardAvoidingContainer';
 import KeyboardAwareScrollView from '../common/keyboard/KeyboardAwareScrollView';
@@ -79,6 +81,8 @@ export default function DelayedSendDialog({
   onToggleCloseAfterDone,
   onCancel,
 }: DelayedSendDialogProps) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const [hours, setHours] = useState('0');
   const [minutes, setMinutes] = useState('5');
   const [specificTime, setSpecificTime] = useState(() => new Date());
@@ -230,8 +234,8 @@ export default function DelayedSendDialog({
                       accessibilityLabel="Send Enter automation"
                       value={sendEnterEnabled}
                       onValueChange={setSendEnterEnabled}
-                      trackColor={{ false: GhostexPalette.CARD_ACTIVE, true: GhostexPalette.ACCENT }}
-                      thumbColor={GhostexPalette.FOREGROUND}
+                      trackColor={{ false: appearance.cardActive, true: appearance.accent }}
+                      thumbColor={appearance.foreground}
                     />
                   </SwitchRow>
                   {sendEnterEnabled ? (
@@ -274,6 +278,7 @@ export default function DelayedSendDialog({
                             <View style={styles.durationField}>
                               <Text style={styles.fieldLabel}>Hours</Text>
                               <TextInput
+                                keyboardAppearance={appearance.light ? 'light' : 'dark'}
                                 accessibilityLabel="Hours"
                                 style={styles.input}
                                 keyboardType="number-pad"
@@ -285,6 +290,7 @@ export default function DelayedSendDialog({
                             <View style={styles.durationField}>
                               <Text style={styles.fieldLabel}>Minutes</Text>
                               <TextInput
+                                keyboardAppearance={appearance.light ? 'light' : 'dark'}
                                 accessibilityLabel="Minutes"
                                 autoFocus
                                 style={styles.input}
@@ -369,8 +375,8 @@ export default function DelayedSendDialog({
                         accessibilityLabel="Close session after Done"
                         value={closeAfterDoneEnabled}
                         onValueChange={setCloseAfterDoneEnabled}
-                        trackColor={{ false: GhostexPalette.CARD_ACTIVE, true: GhostexPalette.ACCENT }}
-                        thumbColor={GhostexPalette.FOREGROUND}
+                        trackColor={{ false: appearance.cardActive, true: appearance.accent }}
+                        thumbColor={appearance.foreground}
                       />
                     </SwitchRow>
                   </View>
@@ -401,7 +407,7 @@ export default function DelayedSendDialog({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   // The dim sits on the keyboard-avoiding layer so it also covers the strip the keyboard leaves while it slides away.
   keyboardFill: {
     flex: 1,
@@ -413,10 +419,10 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   card: {
-    backgroundColor: GhostexPalette.BACKGROUND,
+    backgroundColor: appearance.background,
     borderRadius: 12,
     borderWidth: GhostexStrokeWidth,
-    borderColor: GhostexPalette.BORDER,
+    borderColor: appearance.border,
     maxHeight: '100%',
     overflow: 'hidden',
   },
@@ -424,12 +430,12 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   title: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 17,
     fontWeight: 'bold',
   },
   body: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     marginTop: 8,
     lineHeight: 17,
@@ -441,7 +447,7 @@ const styles = StyleSheet.create({
     marginTop: 7,
   },
   sessionTargetTitle: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     flex: 1,
     fontSize: 13,
     fontWeight: '500',
@@ -451,8 +457,8 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   automationCard: {
-    backgroundColor: GhostexPalette.CARD,
-    borderColor: GhostexPalette.BORDER,
+    backgroundColor: appearance.card,
+    borderColor: appearance.border,
     borderRadius: 8,
     borderWidth: GhostexStrokeWidth,
     overflow: 'hidden',
@@ -469,17 +475,17 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   automationTitle: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 14,
     fontWeight: '600',
   },
   automationDescription: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     lineHeight: 17,
   },
   automationContent: {
-    borderColor: GhostexPalette.BORDER,
+    borderColor: appearance.border,
     borderTopWidth: GhostexStrokeWidth,
     gap: 8,
     padding: 14,
@@ -489,8 +495,8 @@ const styles = StyleSheet.create({
   },
   triggerOption: {
     alignItems: 'center',
-    backgroundColor: GhostexPalette.INPUT_BACKGROUND,
-    borderColor: GhostexPalette.BORDER,
+    backgroundColor: appearance.input,
+    borderColor: appearance.border,
     borderRadius: 8,
     borderWidth: GhostexStrokeWidth,
     flexDirection: 'row',
@@ -499,20 +505,20 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   triggerOptionSelected: {
-    borderColor: GhostexPalette.ACCENT,
-    backgroundColor: GhostexPalette.CARD_ACTIVE,
+    borderColor: appearance.accent,
+    backgroundColor: appearance.cardActive,
   },
   triggerLabel: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 14,
   },
   triggerLabelSelected: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontWeight: '600',
   },
   radio: {
     alignItems: 'center',
-    borderColor: GhostexPalette.MUTED,
+    borderColor: appearance.muted,
     borderRadius: 7,
     borderWidth: GhostexStrokeWidth,
     height: 14,
@@ -520,10 +526,10 @@ const styles = StyleSheet.create({
     width: 14,
   },
   radioSelected: {
-    borderColor: GhostexPalette.ACCENT,
+    borderColor: appearance.accent,
   },
   radioDot: {
-    backgroundColor: GhostexPalette.ACCENT,
+    backgroundColor: appearance.accent,
     borderRadius: 3,
     height: 6,
     width: 6,
@@ -537,7 +543,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   triggerDescription: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -545,22 +551,22 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   fieldLabel: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     marginBottom: 4,
   },
   input: {
     borderRadius: 8,
     borderWidth: GhostexStrokeWidth,
-    borderColor: GhostexPalette.BORDER,
+    borderColor: appearance.border,
     backgroundColor: 'rgba(255,255,255,0.06)',
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 15,
   },
   dateTimeValue: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 15,
   },
   buttonRow: {
@@ -571,7 +577,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     flex: 1,
     borderRadius: 8,
-    backgroundColor: GhostexPalette.ACCENT,
+    backgroundColor: appearance.accent,
     alignItems: 'center',
     paddingVertical: 10,
   },
@@ -579,22 +585,22 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   primaryLabel: {
-    color: GhostexPalette.ACCENT_FOREGROUND,
+    color: appearance.accentForeground,
     fontSize: 14,
     fontWeight: '600',
   },
   cancelButton: {
     flex: 1,
     borderRadius: 8,
-    backgroundColor: GhostexPalette.NEUTRAL_FILL,
+    backgroundColor: appearance.neutralFill,
     alignItems: 'center',
     paddingVertical: 10,
   },
   cancelButtonPressed: {
-    backgroundColor: GhostexPalette.NEUTRAL_FILL_PRESSED,
+    backgroundColor: appearance.neutralFillPressed,
   },
   cancelLabel: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 14,
   },
 });

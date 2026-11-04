@@ -14,7 +14,9 @@
  * element, which iOS would read as one element holding all of them.
  */
 
-import { Fragment, useState, type ReactElement, type ReactNode } from 'react';
+import { useMemo, Fragment, useState, type ReactElement, type ReactNode } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
+
 import {
   Modal,
   Platform,
@@ -29,7 +31,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ContextMenuCopy } from '../../copy';
-import { GhostexPalette, SidebarPalette } from '../../theme/palette';
+
 import { useFoldCardPlacement } from '../common/foldAvoidance';
 import { anchoredMenuOrigin, menuRoomBeside, rowMenuOrigin, type MenuRoom } from '../common/verticalBar/layout';
 import {
@@ -208,6 +210,8 @@ export default function ContextMenu({
   rowAnchor: liveRowAnchor,
   lifted,
 }: ContextMenuProps) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const safeArea = useSafeAreaInsets();
   const bar = useVerticalBarSpace();
@@ -425,7 +429,7 @@ export default function ContextMenu({
                   ) : null}
                   {item.selected === true && item.selectedPresentation !== 'emphasis' ? (
                     <View style={styles.itemCheck}>
-                      <CheckGlyph color={SidebarPalette.FOREGROUND} />
+                      <CheckGlyph color={appearance.foreground} />
                     </View>
                   ) : item.submenu === true ? (
                     <Text style={styles.itemChevron}>›</Text>
@@ -448,7 +452,7 @@ export default function ContextMenu({
                         style={styles.itemInfo}
                         onPress={() => setOpenInfo(infoOpen ? null : item.key)}
                       >
-                        <InfoGlyph size={15} color={infoOpen ? SidebarPalette.FOREGROUND : SidebarPalette.MUTED} />
+                        <InfoGlyph size={15} color={infoOpen ? appearance.foreground : appearance.muted} />
                       </Pressable>
                     </View>
                   )}
@@ -463,7 +467,7 @@ export default function ContextMenu({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   backdrop: {
     flex: 1,
     alignItems: 'center',
@@ -471,9 +475,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
   menu: {
-    backgroundColor: SidebarPalette.MENU_BG,
+    backgroundColor: appearance.card,
     borderWidth: 1,
-    borderColor: SidebarPalette.MENU_BORDER,
+    borderColor: appearance.border,
     borderRadius: 12,
     overflow: 'hidden',
     shadowColor: '#000000',
@@ -487,7 +491,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: GhostexPalette.CARD,
+    backgroundColor: appearance.card,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.5,
@@ -500,16 +504,16 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: SidebarPalette.MENU_DIVIDER,
+    borderBottomColor: appearance.border,
     gap: 2,
   },
   headerTitle: {
-    color: SidebarPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 14,
     fontWeight: '600',
   },
   headerSubtitle: {
-    color: SidebarPalette.MUTED,
+    color: appearance.muted,
     fontSize: 11,
   },
   menuContent: {
@@ -539,7 +543,7 @@ const styles = StyleSheet.create({
     paddingRight: 0,
   },
   itemActive: {
-    backgroundColor: SidebarPalette.MENU_HOVER,
+    backgroundColor: appearance.cardActive,
   },
   itemDisabled: {
     opacity: 0.42,
@@ -552,22 +556,22 @@ const styles = StyleSheet.create({
   },
   itemLabel: {
     flex: 1,
-    color: SidebarPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 13,
     lineHeight: 18,
   },
   itemSuffix: {
-    color: SidebarPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     lineHeight: 18,
     maxWidth: 120,
   },
   itemLabelSelected: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontWeight: '600',
   },
   itemLabelDanger: {
-    color: SidebarPalette.MENU_DANGER,
+    color: appearance.danger,
   },
   itemCheck: {
     width: 14,
@@ -596,7 +600,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   itemInfoText: {
-    color: SidebarPalette.FOREGROUND,
+    color: appearance.foreground,
     opacity: 0.8,
     fontSize: 13,
     lineHeight: 19,
@@ -605,7 +609,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   itemChevron: {
-    color: SidebarPalette.MUTED,
+    color: appearance.muted,
     fontSize: 14,
     lineHeight: 16,
   },
@@ -620,7 +624,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   sectionLabel: {
-    color: SidebarPalette.MUTED,
+    color: appearance.muted,
     fontSize: 10,
     fontWeight: '600',
     letterSpacing: 0.8,
@@ -631,7 +635,7 @@ const styles = StyleSheet.create({
   },
   /** Desktop heading row: 11px at 60% opacity, no hover (native_sidebar/menus.rs). */
   heading: {
-    color: SidebarPalette.FOREGROUND,
+    color: appearance.foreground,
     opacity: 0.6,
     fontSize: 11,
     lineHeight: 14,
@@ -640,7 +644,7 @@ const styles = StyleSheet.create({
     paddingBottom: 2,
   },
   note: {
-    color: SidebarPalette.FOREGROUND,
+    color: appearance.foreground,
     opacity: 0.8,
     fontSize: 13,
     lineHeight: 18,
@@ -652,6 +656,6 @@ const styles = StyleSheet.create({
     height: 1,
     marginVertical: 6,
     marginHorizontal: 4,
-    backgroundColor: SidebarPalette.MENU_DIVIDER,
+    backgroundColor: appearance.border,
   },
 });

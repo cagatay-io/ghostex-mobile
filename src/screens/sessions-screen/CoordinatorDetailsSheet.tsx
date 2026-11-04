@@ -8,14 +8,16 @@
  * SEE-ALSO: the user's decision on `coordinator_rows` in packages/gx-core/src/sidebar_menu/session.rs.
  */
 
-import { useEffect, useState } from 'react';
+import { useMemo, useEffect, useState } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
+
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useFoldCardPlacement } from '../../components/common/foldAvoidance';
 import KeyboardAvoidingContainer from '../../components/common/keyboard/KeyboardAvoidingContainer';
 import KeyboardAwareScrollView from '../../components/common/keyboard/KeyboardAwareScrollView';
 import { XGlyph } from '../../components/sessions/icons';
-import { GhostexPalette, GhostexStrokeWidth } from '../../theme/palette';
+import { GhostexStrokeWidth } from '../../theme/palette';
 
 export type CoordinatorDetailsMode = 'goal' | 'memory';
 
@@ -59,6 +61,8 @@ export type CoordinatorDetailsSheetProps = {
 };
 
 export default function CoordinatorDetailsSheet({ mode, load, onSave, onCancel }: CoordinatorDetailsSheetProps) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const [details, setDetails] = useState<CoordinatorDetails | null>(null);
   const [goal, setGoal] = useState('');
   const [instructions, setInstructions] = useState('');
@@ -122,31 +126,33 @@ export default function CoordinatorDetailsSheet({ mode, load, onSave, onCancel }
                   : `Lasting preferences, decisions and pitfalls ${name} remembers.`}
               </Text>
               {details === null && error === null ? (
-                <ActivityIndicator style={styles.loading} color={GhostexPalette.MUTED} />
+                <ActivityIndicator style={styles.loading} color={appearance.muted} />
               ) : null}
               {details !== null && mode === 'goal' ? (
                 <>
                   <View style={styles.field}>
                     <Text style={styles.fieldLabel}>Goal</Text>
                     <TextInput
+                      keyboardAppearance={appearance.light ? 'light' : 'dark'}
                       accessibilityLabel="Goal"
                       style={styles.input}
                       value={goal}
                       onChangeText={setGoal}
                       placeholder="One line it works toward, e.g. Ship the new checkout by Friday"
-                      placeholderTextColor={GhostexPalette.MUTED}
+                      placeholderTextColor={appearance.muted}
                     />
                   </View>
                   <View style={styles.field}>
                     <Text style={styles.fieldLabel}>Standing instructions</Text>
                     <TextInput
+                      keyboardAppearance={appearance.light ? 'light' : 'dark'}
                       accessibilityLabel="Standing instructions"
                       style={[styles.input, styles.multiline]}
                       value={instructions}
                       onChangeText={setInstructions}
                       multiline
                       placeholder="Rules every thread follows, e.g. Branch from main."
-                      placeholderTextColor={GhostexPalette.MUTED}
+                      placeholderTextColor={appearance.muted}
                     />
                     <Text style={styles.hint}>
                       Every thread it starts from now on gets the goal and these instructions with its task.
@@ -173,12 +179,13 @@ export default function CoordinatorDetailsSheet({ mode, load, onSave, onCancel }
                         style={styles.noteRemove}
                         onPress={() => setNotes(notes.filter((_, position) => position !== index))}
                       >
-                        <XGlyph size={14} color={GhostexPalette.MUTED} />
+                        <XGlyph size={14} color={appearance.muted} />
                       </Pressable>
                     </View>
                   ))}
                   <View style={styles.addRow}>
                     <TextInput
+                      keyboardAppearance={appearance.light ? 'light' : 'dark'}
                       accessibilityLabel="New note"
                       style={[styles.input, styles.addInput]}
                       value={note}
@@ -186,7 +193,7 @@ export default function CoordinatorDetailsSheet({ mode, load, onSave, onCancel }
                       onSubmitEditing={addNote}
                       returnKeyType="done"
                       placeholder="A preference, decision or pitfall, in one line"
-                      placeholderTextColor={GhostexPalette.MUTED}
+                      placeholderTextColor={appearance.muted}
                     />
                     <Pressable
                       accessibilityRole="button"
@@ -220,7 +227,7 @@ export default function CoordinatorDetailsSheet({ mode, load, onSave, onCancel }
                   onPress={save}
                 >
                   {busy ? (
-                    <ActivityIndicator color={GhostexPalette.ACCENT_FOREGROUND} />
+                    <ActivityIndicator color={appearance.accentForeground} />
                   ) : (
                     <Text style={styles.primaryLabel}>Save</Text>
                   )}
@@ -234,7 +241,7 @@ export default function CoordinatorDetailsSheet({ mode, load, onSave, onCancel }
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   // The same card as the New Orchestrator sheet (NewCoordinatorSheet.tsx).
   keyboardFill: {
     flex: 1,
@@ -246,10 +253,10 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   card: {
-    backgroundColor: GhostexPalette.BACKGROUND,
+    backgroundColor: appearance.background,
     borderRadius: 12,
     borderWidth: GhostexStrokeWidth,
-    borderColor: GhostexPalette.BORDER,
+    borderColor: appearance.border,
     maxHeight: '100%',
     overflow: 'hidden',
   },
@@ -257,12 +264,12 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   title: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 17,
     fontWeight: 'bold',
   },
   body: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     marginTop: 8,
     lineHeight: 17,
@@ -271,12 +278,12 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   fieldLabel: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     marginBottom: 4,
   },
   hint: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     lineHeight: 17,
     marginTop: 4,
@@ -284,9 +291,9 @@ const styles = StyleSheet.create({
   input: {
     borderRadius: 8,
     borderWidth: GhostexStrokeWidth,
-    borderColor: GhostexPalette.BORDER,
+    borderColor: appearance.border,
     backgroundColor: 'rgba(255,255,255,0.06)',
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 15,
@@ -300,7 +307,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   empty: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 13,
     lineHeight: 18,
     marginTop: 14,
@@ -313,16 +320,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: GhostexPalette.CARD,
+    backgroundColor: appearance.card,
   },
   noteNumber: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 13,
     width: 20,
   },
   noteText: {
     flex: 1,
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 14,
   },
   noteRemove: {
@@ -344,12 +351,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: GhostexStrokeWidth,
     borderColor: 'transparent',
-    backgroundColor: GhostexPalette.NEUTRAL_FILL,
+    backgroundColor: appearance.neutralFill,
     paddingHorizontal: 14,
     paddingVertical: 9,
   },
   error: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 13,
     lineHeight: 18,
     marginTop: 14,
@@ -362,7 +369,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     flex: 1,
     borderRadius: 8,
-    backgroundColor: GhostexPalette.ACCENT,
+    backgroundColor: appearance.accent,
     alignItems: 'center',
     paddingVertical: 10,
   },
@@ -370,22 +377,22 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   primaryLabel: {
-    color: GhostexPalette.ACCENT_FOREGROUND,
+    color: appearance.accentForeground,
     fontSize: 14,
     fontWeight: '600',
   },
   cancelButton: {
     flex: 1,
     borderRadius: 8,
-    backgroundColor: GhostexPalette.NEUTRAL_FILL,
+    backgroundColor: appearance.neutralFill,
     alignItems: 'center',
     paddingVertical: 10,
   },
   cancelButtonPressed: {
-    backgroundColor: GhostexPalette.NEUTRAL_FILL_PRESSED,
+    backgroundColor: appearance.neutralFillPressed,
   },
   cancelLabel: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 14,
   },
 });

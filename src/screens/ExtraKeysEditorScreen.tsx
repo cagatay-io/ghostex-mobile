@@ -374,6 +374,7 @@ export default function ExtraKeysEditorScreen() {
                     </Text>
                     <Text style={styles.fieldLabel}>Key label</Text>
                     <TextInput
+                      keyboardAppearance={appearance.light ? 'light' : 'dark'}
                       style={styles.input}
                       autoCapitalize="characters"
                       autoCorrect={false}
@@ -387,6 +388,7 @@ export default function ExtraKeysEditorScreen() {
                       <>
                         <Text style={styles.fieldLabel}>Key (single character or key name)</Text>
                         <TextInput
+                          keyboardAppearance={appearance.light ? 'light' : 'dark'}
                           style={styles.input}
                           autoCapitalize="none"
                           autoCorrect={false}
@@ -418,6 +420,7 @@ export default function ExtraKeysEditorScreen() {
                       <>
                         <Text style={styles.fieldLabel}>Text to insert</Text>
                         <TextInput
+                          keyboardAppearance={appearance.light ? 'light' : 'dark'}
                           style={[styles.input, styles.inputMultiline]}
                           autoCapitalize="none"
                           autoCorrect={false}

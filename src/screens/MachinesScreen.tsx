@@ -8,7 +8,9 @@
  * diagnostics moved to Edit machine, so this page has no per-card menu.
  */
 
-import { useCallback, useState } from 'react';
+import { useMemo, useCallback, useState } from 'react';
+import { useAppearance, type Appearance } from '../theme/useAppearance';
+
 import { useFocusEffect } from '@react-navigation/native';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -20,7 +22,7 @@ import ConfirmDialog from '../components/common/ConfirmDialog';
 import { useScrollToBarEdges } from '../components/common/verticalBar/VerticalBarArea';
 import PathCard from '../components/onboarding/PathCard';
 import { CameraGlyph, QrcodeGlyph, ShieldGlyph } from '../components/onboarding/SetupIcons';
-import { setupText } from '../components/onboarding/SetupPrimitives';
+import { useSetupText } from '../components/onboarding/SetupPrimitives';
 import { MachinesCopy } from '../copy';
 import { useInventoryStore } from '../inventory/store';
 import {
@@ -36,7 +38,7 @@ import type { RootStackParamList } from '../navigation/types';
 import { unregisterBeforeRemoval, useRemovalAsksComputer } from '../notifications/pushStore';
 import { useSpacesStore } from '../spaces/store';
 import { useWorkspacesStore } from '../workspaces/store';
-import { SetupPalette } from '../theme/palette';
+
 import MachineCard from './machines-screen/MachineCard';
 import { machineCardDetail, machineCardStatus, machineCardTitle } from './machines-screen/machineCardModel';
 
@@ -47,6 +49,9 @@ type Overlay = { kind: 'none' } | { kind: 'remove'; machine: MachineRecord };
 const NONE: Overlay = { kind: 'none' };
 
 export default function MachinesScreen({ navigation }: Props) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
+  const setupText = useSetupText();
   const machines = useMachinesStore((state) => state.machines);
   // The list reaches under the iPhone Duo's side bar, its content keeps clear of it.
   const edges = useScrollToBarEdges(styles.content);
@@ -138,17 +143,17 @@ export default function MachinesScreen({ navigation }: Props) {
         <View style={styles.cards}>
           <PathCard
             recommended
-            icon={<QrcodeGlyph size={20} color={SetupPalette.ACCENT} />}
+            icon={<QrcodeGlyph size={20} color={appearance.accent} />}
             title={MachinesCopy.add.easyConnect.title}
             subtitle={MachinesCopy.add.easyConnect.subtitle}
             button={{
               label: MachinesCopy.add.easyConnect.button,
-              icon: <CameraGlyph size={14} color={SetupPalette.PRIMARY_BUTTON_FOREGROUND} />,
+              icon: <CameraGlyph size={14} color={appearance.accentForeground} />,
               onPress: () => navigation.navigate('ScanCode'),
             }}
           />
           <PathCard
-            icon={<ShieldGlyph size={20} color={SetupPalette.FOREGROUND} />}
+            icon={<ShieldGlyph size={20} color={appearance.foreground} />}
             title={MachinesCopy.add.tailscale.title}
             subtitle={MachinesCopy.add.tailscale.subtitle}
             button={{
@@ -175,10 +180,10 @@ export default function MachinesScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: SetupPalette.PAGE,
+    backgroundColor: appearance.background,
   },
   content: {
     paddingHorizontal: 16,
@@ -193,7 +198,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   sectionLabel: {
-    color: SetupPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     fontWeight: '600',
     letterSpacing: 0.4,

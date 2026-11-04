@@ -4,7 +4,9 @@
  * row / input radii from GhostexRadii, GhostexPalette surfaces, 1dp strokes.
  */
 
-import type { ReactElement, ReactNode } from 'react';
+import { useMemo, type ReactElement, type ReactNode } from 'react';
+import { useAppearance, type Appearance } from '../theme/useAppearance';
+
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -17,6 +19,8 @@ import { readableSecondaryText } from '../theme/sidebarAppearance';
 const MONOSPACE = Platform.select({ ios: 'Menlo', default: 'monospace' });
 
 export function AddProjectShell({ children }: { children: ReactNode }): ReactElement {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   // The page reaches under the iPhone Duo's side bar, its content keeps clear of it.
   const edges = useScrollToBarEdges(styles.content);
   return (
@@ -34,14 +38,20 @@ export function AddProjectShell({ children }: { children: ReactNode }): ReactEle
 }
 
 export function SectionTitle({ children }: { children: string }): ReactElement {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   return <Text style={styles.sectionTitle}>{children}</Text>;
 }
 
 export function MutedText({ children }: { children: string }): ReactElement {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   return <Text style={styles.mutedText}>{children}</Text>;
 }
 
 export function ListSection({ children }: { children: ReactNode }): ReactElement {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   return <View style={styles.listSection}>{children}</View>;
 }
 
@@ -64,6 +74,8 @@ export function ListRow({
   title: string;
   trailing?: ReactNode;
 }): ReactElement {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const isDisabled = disabled === true;
   return (
     <Pressable
@@ -94,13 +106,15 @@ export function ListRow({
       {trailing !== undefined ? (
         trailing
       ) : isDisabled ? null : (
-        <CaretRightGlyph size={14} color={GhostexPalette.MUTED} />
+        <CaretRightGlyph size={14} color={appearance.muted} />
       )}
     </Pressable>
   );
 }
 
 export function SetupRequiredBadge({ label }: { label: string }): ReactElement {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   return (
     <View style={styles.badge}>
       <Text style={styles.badgeLabel}>{label}</Text>
@@ -121,6 +135,8 @@ export function PrimaryActionButton({
   onPress: () => void;
   testID?: string;
 }): ReactElement {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const isDisabled = disabled === true || loading === true;
   return (
     <Pressable
@@ -133,7 +149,7 @@ export function PrimaryActionButton({
       style={[styles.primaryButton, isDisabled && styles.primaryButtonDisabled]}
     >
       {loading === true ? (
-        <ActivityIndicator size="small" color={GhostexPalette.ACCENT_FOREGROUND} />
+        <ActivityIndicator size="small" color={appearance.accentForeground} />
       ) : (
         <Text style={styles.primaryButtonLabel}>{label}</Text>
       )}
@@ -154,15 +170,18 @@ export function ProjectPathInput({
   testID?: string;
   value: string;
 }): ReactElement {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   return (
     <TextInput
+      keyboardAppearance={appearance.light ? 'light' : 'dark'}
       style={styles.pathInput}
       testID={testID}
       value={value}
       onChangeText={onChangeText}
       onSubmitEditing={onSubmitEditing}
       placeholder={placeholder}
-      placeholderTextColor={GhostexPalette.MUTED}
+      placeholderTextColor={appearance.muted}
       autoCapitalize="none"
       autoCorrect={false}
       spellCheck={false}
@@ -173,27 +192,22 @@ export function ProjectPathInput({
 }
 
 /** Inline rose-tinted failure banner — mobile never uses toasts (spec §5.2). */
-export function ErrorBanner({
-  message,
-  page = { background: GhostexPalette.BACKGROUND, foreground: GhostexPalette.FOREGROUND },
-}: {
-  message: string;
-  page?: { background: string; foreground: string };
-}): ReactElement {
-  const color = readableSecondaryText(GhostexPalette.DANGER, page.foreground, [
-    mixHexColors(GhostexPalette.DANGER, page.background, 8),
-  ]);
+export function ErrorBanner({ message }: { message: string }): ReactElement {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   return (
     <View accessibilityRole="alert" style={styles.errorBanner}>
-      <Text style={[styles.errorText, { color }]}>{message}</Text>
+      <Text style={styles.errorText}>{message}</Text>
     </View>
   );
 }
 
 export function PendingRow({ label }: { label: string }): ReactElement {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   return (
     <View style={styles.pendingRow}>
-      <ActivityIndicator size="small" color={GhostexPalette.ACCENT} />
+      <ActivityIndicator size="small" color={appearance.accent} />
       <Text style={styles.pendingLabel}>{label}</Text>
     </View>
   );
@@ -201,6 +215,8 @@ export function PendingRow({ label }: { label: string }): ReactElement {
 
 /** Repository context card pinned above the destination browser (spec §5.7). */
 export function RepositoryCard({ subtitle, title }: { subtitle: string; title: string }): ReactElement {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   return (
     <View style={styles.repositoryCard}>
       <Text numberOfLines={1} style={styles.repositoryTitle}>
@@ -213,10 +229,10 @@ export function RepositoryCard({ subtitle, title }: { subtitle: string; title: s
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: GhostexPalette.BACKGROUND,
+    backgroundColor: appearance.background,
   },
   content: {
     padding: 16,
@@ -224,7 +240,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   sectionTitle: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'uppercase',
@@ -232,7 +248,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   mutedText: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     lineHeight: 17,
   },
@@ -240,8 +256,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderRadius: GhostexRadii.card,
     borderWidth: GhostexStrokeWidth,
-    borderColor: GhostexPalette.BORDER,
-    backgroundColor: GhostexPalette.CARD,
+    borderColor: appearance.border,
+    backgroundColor: appearance.card,
   },
   listRow: {
     flexDirection: 'row',
@@ -253,13 +269,13 @@ const styles = StyleSheet.create({
   },
   listRowDivided: {
     borderTopWidth: GhostexStrokeWidth,
-    borderTopColor: GhostexPalette.BORDER,
+    borderTopColor: appearance.border,
   },
   listRowDisabled: {
     opacity: 0.45,
   },
   listRowPressed: {
-    backgroundColor: GhostexPalette.CARD_ACTIVE,
+    backgroundColor: appearance.cardActive,
   },
   listRowIcon: {
     width: 28,
@@ -267,31 +283,31 @@ const styles = StyleSheet.create({
     borderRadius: GhostexRadii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: GhostexPalette.CARD_ACTIVE,
+    backgroundColor: appearance.cardActive,
   },
   listRowBody: {
     flex: 1,
     gap: 2,
   },
   listRowTitle: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 15,
     fontWeight: '600',
   },
   listRowDescription: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     lineHeight: 16,
   },
   badge: {
     borderRadius: GhostexRadii.pill,
     borderWidth: GhostexStrokeWidth,
-    borderColor: GhostexPalette.STATUS_WORKING,
+    borderColor: appearance.working,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
   badgeLabel: {
-    color: GhostexPalette.STATUS_WORKING,
+    color: appearance.working,
     fontSize: 10,
     fontWeight: '700',
     textTransform: 'uppercase',
@@ -300,7 +316,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     height: 48,
     borderRadius: GhostexRadii.card,
-    backgroundColor: GhostexPalette.ACCENT,
+    backgroundColor: appearance.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -308,16 +324,16 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   primaryButtonLabel: {
-    color: GhostexPalette.ACCENT_FOREGROUND,
+    color: appearance.accentForeground,
     fontSize: 15,
     fontWeight: '700',
   },
   pathInput: {
-    backgroundColor: GhostexPalette.INPUT_BACKGROUND,
+    backgroundColor: appearance.input,
     borderRadius: GhostexRadii.input,
     borderWidth: GhostexStrokeWidth,
-    borderColor: GhostexPalette.BORDER,
-    color: GhostexPalette.FOREGROUND,
+    borderColor: appearance.border,
+    color: appearance.foreground,
     paddingHorizontal: 12,
     height: 48,
     fontSize: 14,
@@ -326,11 +342,14 @@ const styles = StyleSheet.create({
   errorBanner: {
     borderRadius: GhostexRadii.card,
     borderWidth: GhostexStrokeWidth,
-    borderColor: GhostexPalette.DANGER,
+    borderColor: appearance.danger,
     backgroundColor: 'rgba(232,92,92,0.08)',
     padding: 12,
   },
   errorText: {
+    color: readableSecondaryText(GhostexPalette.DANGER, appearance.foreground, [
+      mixHexColors(GhostexPalette.DANGER, appearance.background, 8),
+    ]),
     fontSize: 13,
     lineHeight: 18,
   },
@@ -341,26 +360,26 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   pendingLabel: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     flex: 1,
   },
   repositoryCard: {
     borderRadius: GhostexRadii.card,
     borderWidth: GhostexStrokeWidth,
-    borderColor: GhostexPalette.BORDER,
-    backgroundColor: GhostexPalette.CARD,
+    borderColor: appearance.border,
+    backgroundColor: appearance.card,
     paddingHorizontal: 14,
     paddingVertical: 12,
     gap: 4,
   },
   repositoryTitle: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 15,
     fontWeight: '600',
   },
   repositorySubtitle: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     lineHeight: 16,
   },

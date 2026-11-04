@@ -6,7 +6,9 @@
  * keyboard up, above it: the keyboard-avoiding layer).
  */
 
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
+
 import { Animated, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -25,6 +27,8 @@ export type BottomSheetProps = {
 };
 
 export default function BottomSheet({ visible, onClose, children }: BottomSheetProps) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const insets = useSafeAreaInsets();
   const bar = useVerticalBarSpace();
   // The navigation bar's inset is under the keyboard while it is open; the sheet sits right on top of it.
@@ -56,7 +60,7 @@ export default function BottomSheet({ visible, onClose, children }: BottomSheetP
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   fill: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -70,11 +74,11 @@ const styles = StyleSheet.create({
     backgroundColor: SetupPalette.BACKDROP,
   },
   sheet: {
-    backgroundColor: SetupPalette.PANEL,
+    backgroundColor: appearance.input,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     borderTopWidth: GhostexStrokeWidth,
-    borderTopColor: SetupPalette.BORDER_STRONG,
+    borderTopColor: appearance.border,
     paddingHorizontal: 16,
     maxHeight: '88%',
   },
@@ -87,7 +91,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: SetupPalette.GRABBER,
+    backgroundColor: appearance.control,
     alignSelf: 'center',
   },
   content: {

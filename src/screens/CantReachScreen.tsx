@@ -7,7 +7,9 @@
  * fix's button), and the primary action is always Retry.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useMemo, useEffect, useRef, useState } from 'react';
+import { useAppearance, type Appearance } from '../theme/useAppearance';
+
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
@@ -17,21 +19,25 @@ import { GhostexNative } from '../../modules/ghostex-native/src';
 import { formatAppLog, useAppLogStore } from '../app/appLog';
 import { Accordion, type AccordionItem } from '../components/common/Collapsible';
 import { useScrollToBarEdges } from '../components/common/verticalBar/VerticalBarArea';
-import { SetupButton, StatusDot, setupText } from '../components/onboarding/SetupPrimitives';
+import { SetupButton, StatusDot, useSetupText } from '../components/onboarding/SetupPrimitives';
 import SshAccessHelpSheet, { SshOsButtons, type SshOs } from '../components/onboarding/SshAccessHelpSheet';
 import { CantReachCopy } from '../copy';
 import { useInventoryStore } from '../inventory/store';
 import { machineDisplayLabel, machineTransportLabel, useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
-import { SetupPalette } from '../theme/palette';
+
 import { checklistFor, type ChecklistAction, type ChecklistStep } from './cant-reach/checklists';
 import { formatRecency } from './machine-form/dates';
 import { PrecheckStep, useTailscalePhoneState } from './machine-form/PrecheckList';
-import { formStyles } from './machine-form/styles';
+import { useFormStyles } from './machine-form/styles';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CantReach'>;
 
 export default function CantReachScreen({ navigation, route }: Props) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
+  const setupText = useSetupText();
+  const formStyles = useFormStyles();
   const { machineId } = route.params;
   const machine = useMachinesStore((state) => state.machines.find((entry) => entry.id === machineId) ?? null);
   const inventory = useInventoryStore((state) => state.inventoriesByMachineId[machineId]);
@@ -114,7 +120,7 @@ export default function CantReachScreen({ navigation, route }: Props) {
 
   const otherReasons = CantReachCopy.tailscale.otherReasons;
   // The row for the error that actually happened is titled in the error colour.
-  const currentReason = (code: string): string | undefined => (reasonCode === code ? SetupPalette.ERROR : undefined);
+  const currentReason = (code: string): string | undefined => (reasonCode === code ? appearance.danger : undefined);
   const otherReasonItems: readonly AccordionItem[] = [
     {
       id: 'sshRefused',
@@ -198,7 +204,7 @@ export default function CantReachScreen({ navigation, route }: Props) {
       <ScrollView style={edges.scroll} contentContainerStyle={[formStyles.scroll, edges.content]}>
         <View style={styles.hero}>
           <View style={styles.eyebrow}>
-            <StatusDot color={SetupPalette.ERROR} />
+            <StatusDot color={appearance.danger} />
             <Text style={setupText.eyebrow}>{CantReachCopy.eyebrow}</Text>
           </View>
           <Text style={setupText.titleLg}>{CantReachCopy.title(name)}</Text>
@@ -253,7 +259,7 @@ export default function CantReachScreen({ navigation, route }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   hero: {
     gap: 8,
   },
@@ -273,12 +279,12 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   otherTitle: {
-    color: SetupPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12.5,
     fontWeight: '600',
   },
   reasonText: {
-    color: SetupPalette.MUTED,
+    color: appearance.muted,
     fontSize: 13,
     lineHeight: 19,
   },
@@ -286,6 +292,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   reasonDone: {
-    color: SetupPalette.OK,
+    color: appearance.connected,
   },
 });

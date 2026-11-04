@@ -224,6 +224,7 @@ export default function FindPromptsScreen({ navigation, route }: Props) {
         <View style={styles.field}>
           <SearchGlyph size={16} color={appearance.mutedGlyph} />
           <TextInput
+            keyboardAppearance={appearance.light ? 'light' : 'dark'}
             ref={inputRef}
             value={find.query}
             onChangeText={actions.setQuery}

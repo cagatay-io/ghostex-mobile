@@ -4,6 +4,8 @@
  * and Integrations with that machine picked.
  */
 
+import { readableSecondaryText } from '../../theme/sidebarAppearance';
+import { useAppearance } from '../../theme/useAppearance';
 import { ActivityIndicator, Text, View } from 'react-native';
 
 import { SetupButton } from '../../components/onboarding/SetupPrimitives';
@@ -24,7 +26,7 @@ import {
   type ToolRowView,
 } from '../../machines/machineTools';
 import { SetupPalette } from '../../theme/palette';
-import { formStyles } from './styles';
+import { useFormStyles } from './styles';
 
 const TONE_COLOR: Record<RowTone, string> = {
   muted: SetupPalette.MUTED,
@@ -43,6 +45,8 @@ function Row({
   first: boolean;
   tools: MachineTools;
 }) {
+  const appearance = useAppearance();
+  const formStyles = useFormStyles();
   const starting = tools.starting[row.key] === true;
   const failed = tools.failed[row.key];
   const action = row.action;
@@ -50,11 +54,11 @@ function Row({
     <View style={[formStyles.row, first ? formStyles.rowFirst : null]}>
       <View style={formStyles.rowMain}>
         <Text style={formStyles.rowLabel}>{row.title}</Text>
-        <Text style={[formStyles.rowDetail, { color: TONE_COLOR[failed ? 'warning' : row.tone] }]}>
+        <Text style={[formStyles.rowDetail, { color: readableSecondaryText(TONE_COLOR[failed ? 'warning' : row.tone], appearance.foreground, [appearance.background, appearance.card, appearance.cardActive]) }]}>
           {failed ?? row.detail}
         </Text>
       </View>
-      {row.busy ? <ActivityIndicator size="small" color={SetupPalette.MUTED} /> : null}
+      {row.busy ? <ActivityIndicator size="small" color={appearance.muted} /> : null}
       {action !== null ? (
         <SetupButton
           small
@@ -62,9 +66,9 @@ function Row({
           busy={starting}
           icon={
             action.operation === 'update' ? (
-              <RefreshGlyph size={14} color={SetupPalette.FOREGROUND} />
+              <RefreshGlyph size={14} color={appearance.foreground} />
             ) : action.operation === 'uninstallSkill' ? undefined : (
-              <DownloadGlyph size={14} color={SetupPalette.FOREGROUND} />
+              <DownloadGlyph size={14} color={appearance.foreground} />
             )
           }
           onPress={() => void runRowAction(machine, row.key, action)}
@@ -85,6 +89,7 @@ function Card({
   heading?: string;
   rows: ToolRowView[];
 }) {
+  const formStyles = useFormStyles();
   if (rows.length === 0) return null;
   return (
     <>
@@ -99,10 +104,12 @@ function Card({
 }
 
 function Notice({ text, busy, onRetry }: { text: string; busy: boolean; onRetry?: () => void }) {
+  const appearance = useAppearance();
+  const formStyles = useFormStyles();
   return (
     <View style={formStyles.rowsCard}>
       <View style={[formStyles.row, formStyles.rowFirst]}>
-        {busy ? <ActivityIndicator size="small" color={SetupPalette.MUTED} /> : null}
+        {busy ? <ActivityIndicator size="small" color={appearance.muted} /> : null}
         <View style={formStyles.rowMain}>
           <Text style={formStyles.rowDetail}>{text}</Text>
         </View>
@@ -121,6 +128,7 @@ export default function MachineToolsSection({
   machine: MachineConnectionTarget;
   reachable: boolean;
 }) {
+  const formStyles = useFormStyles();
   const tools = useMachineToolsStore((state) => state.byMachineId[machine.id]);
   const copy = EditMachineCopy.machineTools;
   if (!reachable) {

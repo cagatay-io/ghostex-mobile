@@ -7,6 +7,10 @@
  * setting and its change event.
  */
 
+jest.mock('@react-native-async-storage/async-storage', () =>
+  jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+);
+
 import { AccessibilityInfo, Animated, StyleSheet } from 'react-native';
 import { act, render, screen } from '@testing-library/react-native';
 import type { TestInstance } from 'test-renderer';

@@ -4,12 +4,14 @@
  * copy written for someone standing at the computer.
  */
 
+import { useMemo } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
 import { Linking, StyleSheet, Text, View } from 'react-native';
 
 import { ScanCopy } from '../../copy';
-import { GhostexRadii, GhostexStrokeWidth, SetupPalette } from '../../theme/palette';
+import { GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
 import BottomSheet from '../common/BottomSheet';
-import { StepNumber, setupText } from './SetupPrimitives';
+import { StepNumber, useSetupText } from './SetupPrimitives';
 
 export type WhereIsCodeSheetProps = {
   visible: boolean;
@@ -17,6 +19,9 @@ export type WhereIsCodeSheetProps = {
 };
 
 export default function WhereIsCodeSheet({ visible, onClose }: WhereIsCodeSheetProps) {
+  const setupText = useSetupText();
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   return (
     <BottomSheet visible={visible} onClose={onClose}>
       <Text style={setupText.title}>{ScanCopy.whereIsCode.title}</Text>
@@ -44,12 +49,12 @@ export default function WhereIsCodeSheet({ visible, onClose }: WhereIsCodeSheetP
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   steps: {
     marginTop: 16,
-    backgroundColor: SetupPalette.CARD,
+    backgroundColor: appearance.card,
     borderWidth: GhostexStrokeWidth,
-    borderColor: SetupPalette.BORDER,
+    borderColor: appearance.border,
     borderRadius: GhostexRadii.section,
     overflow: 'hidden',
   },
@@ -59,7 +64,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderTopWidth: GhostexStrokeWidth,
-    borderTopColor: SetupPalette.BORDER,
+    borderTopColor: appearance.border,
   },
   stepFirst: {
     borderTopWidth: 0,
@@ -69,13 +74,13 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   stepTitle: {
-    color: SetupPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 14,
     fontWeight: '500',
     lineHeight: 19,
   },
   stepDetail: {
-    color: SetupPalette.MUTED,
+    color: appearance.muted,
     fontSize: 13,
     lineHeight: 18,
   },

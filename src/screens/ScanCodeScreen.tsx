@@ -13,7 +13,9 @@
  * back after it was closed or a code failed to pair.
  */
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useAppearance, type Appearance } from '../theme/useAppearance';
+
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
@@ -22,13 +24,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import PasteCodeSheet from '../components/onboarding/PasteCodeSheet';
 import { useStackScreenRail } from '../components/common/verticalBar/stackRail';
 import { HelpCircleGlyph, PasteGlyph } from '../components/onboarding/SetupIcons';
-import { SetupButton, SetupRow, SetupRows, setupText } from '../components/onboarding/SetupPrimitives';
+import { SetupButton, SetupRow, SetupRows, useSetupText } from '../components/onboarding/SetupPrimitives';
 import TailscalePasswordSheet from '../components/onboarding/TailscalePasswordSheet';
 import WhereIsCodeSheet from '../components/onboarding/WhereIsCodeSheet';
 import { ScanCopy } from '../copy';
 import { tailscaleCodeAddress } from '../machines/pairingCodes';
 import type { RootStackParamList } from '../navigation/types';
-import { SetupPalette } from '../theme/palette';
+
 import ScannerOverlay from './scan-code/ScannerOverlay';
 import { useScanController } from './scan-code/useScanController';
 import { useSystemScanner } from './scan-code/useSystemScanner';
@@ -36,6 +38,9 @@ import { useSystemScanner } from './scan-code/useSystemScanner';
 type Props = NativeStackScreenProps<RootStackParamList, 'ScanCode'>;
 
 export default function ScanCodeScreen({ navigation, route }: Props) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
+  const setupText = useSetupText();
   const rePairMachineId = route.params?.rePairMachineId ?? null;
   const incomingCode = route.params?.incomingCode;
   const [permission, requestPermission] = useCameraPermissions();
@@ -106,11 +111,11 @@ export default function ScanCodeScreen({ navigation, route }: Props) {
             hitSlop={10}
             onPress={() => setSheet('where')}
           >
-            <HelpCircleGlyph size={22} color={SetupPalette.FOREGROUND} />
+            <HelpCircleGlyph size={22} color={appearance.foreground} />
           </Pressable>
         ),
     });
-  }, [navigation, pairing, setSheet]);
+  }, [navigation, pairing, setSheet, appearance]);
   // On the iPhone Duo, Help stands in the side bar under Back; the paste-code and password sheets take
   // the keyboard.
   useStackScreenRail(
@@ -122,13 +127,13 @@ export default function ScanCodeScreen({ navigation, route }: Props) {
               {
                 key: 'help',
                 label: ScanCopy.helpAccessibilityLabel,
-                icon: (size: number) => <HelpCircleGlyph size={size} color={SetupPalette.FOREGROUND} />,
+                icon: (size: number) => <HelpCircleGlyph size={size} color={appearance.foreground} />,
                 onPress: () => setSheet('where'),
               },
             ],
         reserveKeyboard: true,
       }),
-      [pairing, setSheet],
+      [pairing, setSheet, appearance],
     ),
   );
 
@@ -192,7 +197,7 @@ export default function ScanCodeScreen({ navigation, route }: Props) {
             ) : null}
             <SetupButton
               label={ScanCopy.pasteButton}
-              icon={<PasteGlyph size={16} color={SetupPalette.FOREGROUND} />}
+              icon={<PasteGlyph size={16} color={appearance.foreground} />}
               onPress={() => setSheet('paste')}
               disabled={phase.kind !== 'scanning'}
             />
@@ -224,10 +229,10 @@ export default function ScanCodeScreen({ navigation, route }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: SetupPalette.PAGE,
+    backgroundColor: appearance.background,
   },
   viewfinder: {
     flex: 1,
@@ -239,6 +244,6 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 8,
     gap: 10,
-    backgroundColor: SetupPalette.PAGE,
+    backgroundColor: appearance.background,
   },
 });

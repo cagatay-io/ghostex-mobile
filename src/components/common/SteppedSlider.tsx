@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { StyleSheet, Text, View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native';
 
-import { GhostexPalette, GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
-import type { Appearance } from '../../theme/useAppearance';
+import { GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
 
 type SteppedSliderProps = {
   label: string;
@@ -26,9 +26,12 @@ export default function SteppedSlider({
   step,
   valueLabel,
   onValueChange,
-  appearance,
+  appearance: suppliedAppearance,
   rangeLabels,
 }: SteppedSliderProps) {
+  const currentAppearance = useAppearance();
+  const appearance = suppliedAppearance ?? currentAppearance;
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const [trackWidth, setTrackWidth] = useState(0);
   const range = maximumValue - minimumValue;
   const progress = range === 0 ? 0 : (value - minimumValue) / range;
@@ -53,23 +56,11 @@ export default function SteppedSlider({
     onValueChange(Math.min(maximumValue, Math.max(minimumValue, value + delta * step)));
   };
 
-  const colors =
-    appearance === undefined
-      ? null
-      : {
-          card: { backgroundColor: appearance.card, borderColor: appearance.border },
-          label: { color: appearance.foreground },
-          muted: { color: appearance.muted },
-          track: { backgroundColor: appearance.control },
-          fill: { backgroundColor: appearance.accent },
-          thumb: { backgroundColor: appearance.foreground, borderColor: appearance.accent },
-        };
-
   return (
-    <View style={[styles.card, colors?.card]}>
+    <View style={styles.card}>
       <View style={styles.header}>
-        <Text style={[styles.label, colors?.label]}>{label}</Text>
-        <Text style={[styles.value, colors?.muted]}>{valueLabel}</Text>
+        <Text style={styles.label}>{label}</Text>
+        <Text style={styles.value}>{valueLabel}</Text>
       </View>
       <View
         accessible
@@ -93,16 +84,16 @@ export default function SteppedSlider({
         onResponderMove={handleTouch}
         onStartShouldSetResponder={() => true}
       >
-        <View style={[styles.track, colors?.track]}>
-          <View style={[styles.fill, colors?.fill, { width: `${progress * 100}%` }]} />
+        <View style={styles.track}>
+          <View style={[styles.fill, { width: `${progress * 100}%` }]} />
         </View>
-        <View style={[styles.thumb, colors?.thumb, { left: `${progress * 100}%` }]} />
+        <View style={[styles.thumb, { left: `${progress * 100}%` }]} />
       </View>
       <View style={styles.rangeLabels}>
-        <Text style={[styles.rangeLabel, colors?.muted]}>
+        <Text style={styles.rangeLabel}>
           {rangeLabels?.[0] ?? minimumValue.toLocaleString('en-US')}
         </Text>
-        <Text style={[styles.rangeLabel, colors?.muted]}>
+        <Text style={styles.rangeLabel}>
           {rangeLabels?.[1] ?? maximumValue.toLocaleString('en-US')}
         </Text>
       </View>
@@ -110,15 +101,15 @@ export default function SteppedSlider({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   card: {
     paddingHorizontal: 12,
     paddingTop: 10,
     paddingBottom: 8,
     borderRadius: GhostexRadii.row,
-    backgroundColor: GhostexPalette.CARD,
+    backgroundColor: appearance.card,
     borderWidth: GhostexStrokeWidth,
-    borderColor: GhostexPalette.BORDER,
+    borderColor: appearance.border,
   },
   header: {
     flexDirection: 'row',
@@ -126,11 +117,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   label: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 14,
   },
   value: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 13,
     fontVariant: ['tabular-nums'],
   },
@@ -142,13 +133,13 @@ const styles = StyleSheet.create({
   track: {
     height: 4,
     borderRadius: GhostexRadii.pill,
-    backgroundColor: '#3A3A3A',
+    backgroundColor: appearance.control,
     overflow: 'hidden',
   },
   fill: {
     height: '100%',
     borderRadius: GhostexRadii.pill,
-    backgroundColor: GhostexPalette.ACCENT,
+    backgroundColor: appearance.accent,
   },
   thumb: {
     position: 'absolute',
@@ -156,9 +147,9 @@ const styles = StyleSheet.create({
     height: 20,
     marginLeft: -10,
     borderRadius: 10,
-    backgroundColor: GhostexPalette.FOREGROUND,
+    backgroundColor: appearance.foreground,
     borderWidth: 2,
-    borderColor: GhostexPalette.ACCENT,
+    borderColor: appearance.accent,
   },
   rangeLabels: {
     flexDirection: 'row',
@@ -166,7 +157,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   rangeLabel: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 10,
     fontVariant: ['tabular-nums'],
   },

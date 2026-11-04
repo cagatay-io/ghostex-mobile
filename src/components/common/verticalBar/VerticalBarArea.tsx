@@ -17,17 +17,18 @@
  */
 
 import {
+  useMemo,
   createContext,
   useCallback,
   useContext,
   useEffect,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
   type ReactNode,
   type RefObject,
 } from 'react';
+
 import {
   Platform,
   Pressable,
@@ -43,8 +44,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GhostexNative, type BarLayout } from '../../../../modules/ghostex-native/src';
 import type { FoldDivision, WindowRect } from '../../../../modules/ghostex-native/src/GhostexNative.types';
 import { logAppEvent } from '../../../app/appLog';
-import { GhostexPalette } from '../../../theme/palette';
-import { useAppearance } from '../../../theme/useAppearance';
+
+import { useAppearance, type Appearance } from '../../../theme/useAppearance';
 import type { ContextMenuItem } from '../../sessions/ContextMenu';
 import { useKeyboardFrame } from '../keyboard/keyboardFrame';
 import { keyboardHeightForWindow } from '../keyboard/keyboardTop';
@@ -361,6 +362,8 @@ type Observation =
   { readonly kind: 'waiting' } | { readonly kind: 'none' } | { readonly kind: 'live'; readonly live: LiveBarLayout };
 
 export default function VerticalBarArea({ children }: { children: ReactNode }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const { top, left, right } = useSafeAreaInsets();
   // The strip beside the content continues the focused screen (its rail background), else the app's
   // page.
@@ -554,7 +557,9 @@ export function RoundBarButton({
   /** Extra room above it in the side bar, past a division. */
   offset?: number;
 }) {
-  const buttonStyle = useMemo(() => roundButton(size), [size]);
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
+  const buttonStyle = useMemo(() => roundButton(size, appearance), [size, appearance]);
   const ref = useRef<ViewInstance | null>(null);
   return (
     <Pressable
@@ -579,20 +584,20 @@ export function RoundBarButton({
   );
 }
 
-function roundButton(size: number): ViewStyle {
+function roundButton(size: number, appearance: Appearance): ViewStyle {
   return {
     width: size,
     height: size,
     borderRadius: size / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(40,40,44,0.78)',
+    backgroundColor: appearance.card,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.16)',
+    borderColor: appearance.border,
   };
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   fill: {
     flex: 1,
   },
@@ -602,10 +607,10 @@ const styles = StyleSheet.create({
   },
   /** A switch that is on: pressed in, as the toolbars draw it. */
   railButtonOn: {
-    backgroundColor: GhostexPalette.CARD_ACTIVE,
+    backgroundColor: appearance.cardActive,
   },
   railButtonPressed: {
-    backgroundColor: GhostexPalette.NEUTRAL_FILL_PRESSED,
+    backgroundColor: appearance.neutralFillPressed,
   },
   railButtonDisabled: {
     opacity: 0.3,

@@ -226,6 +226,7 @@ export default function AgentHotkeysEditorScreen() {
           <Text style={styles.sectionHeader}>{editingIndex >= 0 ? 'Edit hotkey' : 'Add hotkey'}</Text>
           <Text style={styles.fieldLabel}>Label</Text>
           <TextInput
+            keyboardAppearance={appearance.light ? 'light' : 'dark'}
             autoCapitalize="characters"
             autoCorrect={false}
             maxLength={AGENT_HOTKEY_LABEL_MAX_LENGTH}
@@ -237,6 +238,7 @@ export default function AgentHotkeysEditorScreen() {
           />
           <Text style={styles.fieldLabel}>Hotkey</Text>
           <TextInput
+            keyboardAppearance={appearance.light ? 'light' : 'dark'}
             autoCapitalize="none"
             autoCorrect={false}
             placeholder="e.g. Ctrl+R"

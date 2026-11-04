@@ -8,11 +8,13 @@
  * list on Can't reach). Their look can only ever change here.
  */
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useMemo, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
+
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import { GhostexRadii, GhostexStrokeWidth, SetupPalette } from '../../theme/palette';
+import { GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
 
 const CHEVRON_TURN_MS = 160;
 
@@ -39,6 +41,7 @@ export type CollapsibleProps = {
 };
 
 function Chevron({ open }: { open: boolean }) {
+  const appearance = useAppearance();
   const turn = useRef(new Animated.Value(open ? 1 : 0)).current;
   useEffect(() => {
     Animated.timing(turn, {
@@ -55,7 +58,7 @@ function Chevron({ open }: { open: boolean }) {
         height={16}
         viewBox="0 0 24 24"
         fill="none"
-        stroke={SetupPalette.MUTED}
+        stroke={appearance.muted}
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -76,6 +79,8 @@ export default function Collapsible({
   titleColor,
   children,
 }: CollapsibleProps) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const [ownOpen, setOwnOpen] = useState(initiallyOpen);
   const open = controlledOpen ?? ownOpen;
   const toggle = (): void => {
@@ -121,6 +126,8 @@ export function Accordion({
   items: readonly AccordionItem[];
   initiallyOpenId?: string | null;
 }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const [openId, setOpenId] = useState<string | null>(initiallyOpenId);
   return (
     <View style={styles.accordion}>
@@ -142,24 +149,24 @@ export function Accordion({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   card: {
     borderRadius: GhostexRadii.section,
     borderWidth: GhostexStrokeWidth,
-    borderColor: SetupPalette.BORDER,
-    backgroundColor: SetupPalette.PANEL,
+    borderColor: appearance.border,
+    backgroundColor: appearance.input,
     overflow: 'hidden',
   },
   accordion: {
     borderRadius: GhostexRadii.section,
     borderWidth: GhostexStrokeWidth,
-    borderColor: SetupPalette.BORDER,
-    backgroundColor: SetupPalette.PANEL,
+    borderColor: appearance.border,
+    backgroundColor: appearance.input,
     overflow: 'hidden',
   },
   accordionRowDivided: {
     borderTopWidth: GhostexStrokeWidth,
-    borderTopColor: SetupPalette.BORDER,
+    borderTopColor: appearance.border,
   },
   header: {
     minHeight: 48,
@@ -170,19 +177,19 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   headerPressed: {
-    backgroundColor: SetupPalette.CARD_HOVER,
+    backgroundColor: appearance.cardActive,
   },
   headerText: {
     flex: 1,
     gap: 2,
   },
   title: {
-    color: SetupPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 14,
     fontWeight: '600',
   },
   hint: {
-    color: SetupPalette.DIM,
+    color: appearance.muted,
     fontSize: 12,
   },
   body: {
@@ -191,6 +198,6 @@ const styles = StyleSheet.create({
     paddingTop: 2,
     gap: 12,
     borderTopWidth: GhostexStrokeWidth,
-    borderTopColor: SetupPalette.BORDER,
+    borderTopColor: appearance.border,
   },
 });

@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useMemo, type ReactNode } from 'react';
-import { DarkTheme, NavigationContainer, type Theme } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, NavigationContainer, type Theme } from '@react-navigation/native';
 import { createNativeStackNavigator, type NativeStackNavigationOptions } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, View } from 'react-native';
@@ -40,7 +40,7 @@ import { initZmxDisplayPolicy } from './src/terminal/zmxDisplay';
 import { initAndroidSelfUpdate } from './src/updates/androidSelfUpdateStore';
 import { initOverTheAirUpdates } from './src/updates/overTheAir';
 import { addProjectSourceLabel } from './src/addProject/sources';
-import { GhostexPalette } from './src/theme/palette';
+
 import CrashReportPrompt from './src/components/common/CrashReportPrompt';
 import { useBarGeometryStore } from './src/components/common/verticalBar/barGeometry';
 import { useStackHeaderOptions } from './src/components/common/verticalBar/StackHeader';
@@ -95,6 +95,8 @@ import {
   WebPreviewCopy,
 } from './src/copy';
 import { isSettingsRoute } from './src/screens/settings/columnRules';
+import { useAppearance } from './src/theme/useAppearance';
+import { useTerminalColours } from './src/theme/useTerminalColours';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -120,19 +122,24 @@ function DuoStackNavigator({
   return <Stack.Navigator screenOptions={options}>{children}</Stack.Navigator>;
 }
 
-const navigationTheme: Theme = {
-  ...DarkTheme,
-  colors: {
-    ...DarkTheme.colors,
-    primary: GhostexPalette.ACCENT,
-    background: GhostexPalette.BACKGROUND,
-    card: GhostexPalette.BACKGROUND,
-    text: GhostexPalette.FOREGROUND,
-    border: GhostexPalette.BORDER,
-  },
-};
 
 export default function App() {
+  const appearance = useAppearance();
+  const terminalSurface = useTerminalColours().chrome;
+  const navigationTheme = useMemo<Theme>(() => {
+    const base = appearance.light ? DefaultTheme : DarkTheme;
+    return {
+      ...base,
+      colors: {
+        ...base.colors,
+        primary: appearance.accent,
+        background: appearance.background,
+        card: appearance.background,
+        text: appearance.foreground,
+        border: appearance.border,
+      },
+    };
+  }, [appearance]);
   const hydrated = useMachinesStore((state) => state.hydrated);
   const hasMachines = useMachinesStore((state) => state.machines.length > 0);
 
@@ -176,7 +183,7 @@ export default function App() {
   }, []);
 
   if (!hydrated) {
-    return <View style={styles.splash} />;
+    return <View style={[styles.splash, { backgroundColor: appearance.background }]} />;
   }
 
   return (
@@ -198,12 +205,12 @@ export default function App() {
               reportMobileView(navigationRef.getCurrentRoute());
             }}
           >
-            <StatusBar style="light" />
+            <StatusBar style={appearance.light ? 'dark' : 'light'} />
             <DuoStackNavigator
               screenOptions={{
-                headerStyle: { backgroundColor: GhostexPalette.BACKGROUND },
-                headerTintColor: GhostexPalette.FOREGROUND,
-                contentStyle: { backgroundColor: GhostexPalette.BACKGROUND },
+                headerStyle: { backgroundColor: appearance.background },
+                headerTintColor: appearance.foreground,
+                contentStyle: { backgroundColor: appearance.background },
               }}
             >
               {!hasMachines ? (
@@ -252,8 +259,8 @@ export default function App() {
                     component={TerminalScreen}
                     options={({ route }) => ({
                       title: route.params.title ?? 'Terminal',
-                      headerStyle: { backgroundColor: GhostexPalette.TERMINAL_BACKGROUND },
-                      contentStyle: { backgroundColor: GhostexPalette.TERMINAL_BACKGROUND },
+                      headerStyle: { backgroundColor: terminalSurface.background },
+                      contentStyle: { backgroundColor: terminalSurface.background },
                     })}
                   />
                   <Stack.Screen
@@ -346,6 +353,5 @@ const styles = StyleSheet.create({
   },
   splash: {
     flex: 1,
-    backgroundColor: GhostexPalette.BACKGROUND,
   },
 });

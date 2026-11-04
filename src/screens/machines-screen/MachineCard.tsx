@@ -7,7 +7,10 @@
  * closes it instead of opening the editor.
  */
 
-import { useRef, useState } from 'react';
+import { readableSecondaryText } from '../../theme/sidebarAppearance';
+import { useMemo, useRef, useState } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
+
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ChevronRightGlyph, CloudGlyph, DownloadGlyph, PencilGlyph, TrashGlyph } from '../../components/sessions/icons';
@@ -18,12 +21,15 @@ import { MACHINE_STATUS_BADGE_LABEL, MACHINE_STATUS_COLOR, type MachineCardStatu
 import SwipeRevealRow, { SWIPE_REVEAL_WIDTH, type SwipeRevealRowMethods } from './SwipeRevealRow';
 
 function StatusBadge({ status }: { status: MachineCardStatus }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const color = MACHINE_STATUS_COLOR[status];
+  const labelColor = readableSecondaryText(color, appearance.foreground, [appearance.card, appearance.cardActive]);
   const tinted = status === 'connected' || status === 'failed';
   return (
     <View style={[styles.badge, tinted ? { borderColor: `${color}4d` } : null]}>
       <View style={[styles.badgeDot, { backgroundColor: color }]} />
-      <Text numberOfLines={1} style={[styles.badgeLabel, tinted ? { color } : null]}>
+      <Text numberOfLines={1} style={[styles.badgeLabel, tinted ? { color: labelColor } : null]}>
         {MACHINE_STATUS_BADGE_LABEL[status]}
       </Text>
     </View>
@@ -60,6 +66,8 @@ export default function MachineCard({
   onEdit: () => void;
   onRemove: () => void;
 }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const installLabel =
     update?.view.updateAvailable === true ? (update.view.action?.label ?? MachinesCopy.update) : null;
   const row = useRef<SwipeRevealRowMethods>(null);
@@ -81,7 +89,7 @@ export default function MachineCard({
             onPress={closeThen(onEdit)}
             style={[styles.action, styles.actionEdit]}
           >
-            <PencilGlyph size={16} color={SetupPalette.FOREGROUND} />
+            <PencilGlyph size={16} color={appearance.foreground} />
             <Text style={styles.actionLabel}>{MachinesCopy.swipe.edit}</Text>
           </Pressable>
           <Pressable
@@ -116,12 +124,12 @@ export default function MachineCard({
             {detail}
           </Text>
           {update != null ? (
-            <Text numberOfLines={1} style={[styles.detail, { color: UPDATE_TONE_COLOR[update.view.tone] }]}>
+            <Text numberOfLines={1} style={[styles.detail, { color: readableSecondaryText(UPDATE_TONE_COLOR[update.view.tone], appearance.foreground, [appearance.background, appearance.card, appearance.cardActive]) }]}>
               {update.line}
             </Text>
           ) : null}
         </View>
-        {update?.view.busy === true ? <ActivityIndicator size="small" color={SetupPalette.MUTED} /> : null}
+        {update?.view.busy === true ? <ActivityIndicator size="small" color={appearance.muted} /> : null}
         {installLabel !== null && update?.view.busy !== true ? (
           <Pressable
             accessibilityRole="button"
@@ -131,17 +139,17 @@ export default function MachineCard({
             hitSlop={6}
             style={({ pressed }) => [styles.updateButton, pressed ? styles.updateButtonPressed : null]}
           >
-            <DownloadGlyph size={14} color={SetupPalette.FOREGROUND} />
+            <DownloadGlyph size={14} color={appearance.foreground} />
             <Text style={styles.updateLabel}>{MachinesCopy.update}</Text>
           </Pressable>
         ) : null}
-        <ChevronRightGlyph size={16} color={SetupPalette.DIM} />
+        <ChevronRightGlyph size={16} color={appearance.muted} />
       </Pressable>
     </SwipeRevealRow>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   row: {
     borderRadius: GhostexRadii.section,
   },
@@ -151,21 +159,21 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 12,
     paddingHorizontal: 14,
-    backgroundColor: SetupPalette.CARD,
+    backgroundColor: appearance.card,
     borderWidth: GhostexStrokeWidth,
-    borderColor: SetupPalette.BORDER,
+    borderColor: appearance.border,
     borderRadius: GhostexRadii.section,
   },
   cardPressed: {
-    backgroundColor: SetupPalette.CARD_HOVER,
+    backgroundColor: appearance.cardActive,
   },
   iconTile: {
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: SetupPalette.MUTED_BG,
+    backgroundColor: appearance.cardActive,
     borderWidth: GhostexStrokeWidth,
-    borderColor: SetupPalette.BORDER,
+    borderColor: appearance.border,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -191,13 +199,13 @@ const styles = StyleSheet.create({
   title: {
     flexShrink: 1,
     minWidth: 72,
-    color: SetupPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 15,
     fontWeight: '600',
   },
   detail: {
     marginTop: 2,
-    color: SetupPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12.5,
   },
   updateButton: {
@@ -207,13 +215,13 @@ const styles = StyleSheet.create({
     height: 28,
     paddingHorizontal: 10,
     borderRadius: GhostexRadii.control,
-    backgroundColor: SetupPalette.NEUTRAL_FILL,
+    backgroundColor: appearance.neutralFill,
   },
   updateButtonPressed: {
-    backgroundColor: SetupPalette.CARD_HOVER,
+    backgroundColor: appearance.cardActive,
   },
   updateLabel: {
-    color: SetupPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 12.5,
     fontWeight: '600',
   },
@@ -224,9 +232,9 @@ const styles = StyleSheet.create({
     height: 22,
     paddingHorizontal: 8,
     borderRadius: GhostexRadii.pill,
-    backgroundColor: SetupPalette.MUTED_BG,
+    backgroundColor: appearance.cardActive,
     borderWidth: GhostexStrokeWidth,
-    borderColor: SetupPalette.BORDER,
+    borderColor: appearance.border,
     flexShrink: 0,
   },
   badgeDot: {
@@ -235,7 +243,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   badgeLabel: {
-    color: SetupPalette.MUTED,
+    color: appearance.muted,
     fontSize: 11.5,
     fontWeight: '600',
   },
@@ -246,17 +254,17 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   actionEdit: {
-    backgroundColor: '#2c2c2c',
+    backgroundColor: appearance.cardActive,
   },
   actionRemove: {
-    backgroundColor: '#7a2e2e',
+    backgroundColor: appearance.dangerFill,
   },
   actionLabel: {
-    color: SetupPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 12,
     fontWeight: '600',
   },
   actionRemoveLabel: {
-    color: '#ffffff',
+    color: appearance.foreground,
   },
 });
