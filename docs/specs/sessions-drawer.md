@@ -162,6 +162,8 @@ Session (sessionId required; provider must normalize to "zmx"): alias (derives f
 
 Has a question: `hasQuestion` in `src/contract/mobileSummary.ts` combines a positive `pendingQuestionCount` with an open question card (`awaitingAnswer`, only when the computer announces its capability). The notification and attention lists use the same predicate on their capability-gated session facts. The Sessions list uses it for the row's pink question indicator and hidden time, the Unified list's "Question" ahead of "Done", machine and Space tabs, project, collection, group and section counts, and folded coordinator stacks. Approval keeps precedence. Sleep Below leaves sessions with either kind of question awake. Without the capability, the card field does not change the existing status; counted questions still count.
 
+The Close confirmation uses that same capability-gated question rule when warning that an agent waits for an answer. Opening a coordinator acknowledges finished threads only when a thread has no question by that rule; an open question card is not a finished reply. Both classifiers receive the capabilities of the same computer as their session rows, with no capabilities when its summary is absent.
+
 displayStatus(): sleeping&&!live → "sleep"; else first actionable (attention|working|done|error) from normalized activity then status; else !live && sleepish → "sleep"; else first non-empty non-"running" activity/status; else "idle". Normalize: needs-attention/attention-required→attention; active/busy/processing→working; sleeping→sleep; `_`/space→`-`; lowercase.
 
 ## 8. Notifications

@@ -82,7 +82,7 @@ import {
 import { stateWithCollectionTitle } from '../contract/collectionsState';
 import { machineSessionCounts, tabStatusCounts } from '../contract/grouping';
 import { coordinatorRowKey } from '../contract/coordinatorTree';
-import { EMPTY_SIDEBAR_SPACES, type GhostexSession } from '../contract/mobileSummary';
+import { EMPTY_SIDEBAR_SPACES, NO_SUMMARY_CAPABILITIES, type GhostexSession } from '../contract/mobileSummary';
 import {
   DuoChromeCopy,
   ProgressCopy,
@@ -142,9 +142,10 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Sessions'>;
 function closeDialogCopy(ctx: SessionContext): { title: string; body: string } {
   const session = ctx.item.session;
   if (closePutsSessionToSleep(session)) return { title: 'Close session?', body: SessionCopy.claudeCloudCloseSleeps };
-  const sessions = useInventoryStore.getState().inventoriesByMachineId[ctx.machine.id]?.summary?.sessions ?? [];
+  const summary = useInventoryStore.getState().inventoriesByMachineId[ctx.machine.id]?.summary;
+  const sessions = summary?.sessions ?? [];
   return (
-    closeConfirmCopy(session, sessions) ?? {
+    closeConfirmCopy(session, sessions, summary?.capabilities ?? NO_SUMMARY_CAPABILITIES) ?? {
       title: 'Close session?',
       body: 'This closes the selected Ghostex session on the connected machine.',
     }
