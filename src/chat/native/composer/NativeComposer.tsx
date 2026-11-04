@@ -27,7 +27,6 @@ import { ContextEditorSheet } from './ContextEditorSheet';
 import { Glyph, type GlyphName } from './icons';
 import { Glyph as CardGlyph } from '../cards/icons';
 import { attachIntakeImages } from './imageIntake';
-import { IncomingDraftBar } from './IncomingDraftBar';
 import { isTrue, obj, str, type JsonRecord } from './json';
 import {
   COMPOSER_CONTROLS,
@@ -595,7 +594,7 @@ export function NativeComposer({
     <KeyboardLiftedView style={styles.root}>
       {(bottom) => (
         <>
-          {document?.incomingDraft ? <IncomingDraftBar draft={document.incomingDraft} dispatch={dispatch} /> : null}
+          {/* A draft saved elsewhere is offered by the Saved draft pill in the box's pill strip (`cards/SavedDraftPill.tsx`). */}
           {/* A refused operation's error line is the card band's (`ComposerNotReadyCard`), where desktop draws it; drawing it here too showed it twice. */}
           {document !== null ? <NotePanel note={document.note} dispatch={dispatch} /> : null}
           {document !== null ? <CatchUpCard catchUp={document.catchUp} dispatch={dispatch} /> : null}

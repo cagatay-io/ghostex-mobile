@@ -10,6 +10,8 @@
  * The band's left holds the view status chip ("Summary view" or "Detailed view"), pinned there while
  * the pills scroll. With no hover on a phone the chip's X always shows; a tap anywhere on the chip
  * goes back to Normal view (gx-chat-core extras/chat_pills.rs `view_chips` has the user's words).
+ * Before it, while a draft saved elsewhere is offered, the Saved draft pill (`SavedDraftPill.tsx`),
+ * which alone is enough to show the strip and opens its own sheet.
  *
  * CDXC:SessionChat 2026-10-29 SEE-ALSO:
  * The user's words (option E) are on packages/gx-chat-core/src/extras/chat_pills.rs.
@@ -28,6 +30,7 @@ import { useTranscriptBottomStore } from '../transcript/bottomStore';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { HorizontalFade } from '../transcript/verticalFade';
 import { IconPill, LinksPill, Pill, PillMenuSheet, QuestionPill } from './ChatPills';
+import { SavedDraftPill, SavedDraftSheet } from './SavedDraftPill';
 import { VISUAL, type ArmedAction } from './WorkingStrip';
 
 /** The session's links and the Links pill's tap, from the screen that knows the session (`TerminalScreen`). */
@@ -62,7 +65,7 @@ function questionWaiting(document: ChatDocument): boolean {
   return (document.openQuestions?.count ?? 0) > 0;
 }
 
-/** Whether the strip shows: a view chip, a panel pill, the ?, the Links pill or an armed timer calls for it; the ↓ only joins them. */
+/** Whether the strip shows: the Saved draft pill, a view chip, a panel pill, the ?, the Links pill or an armed timer calls for it; the ↓ only joins them. */
 export function pillsStripShown(
   document: ChatDocument,
   armed: readonly ArmedAction[],
@@ -71,6 +74,7 @@ export function pillsStripShown(
 ): boolean {
   return (
     armed.length > 0 ||
+    (document.savedDraftPill ?? null) !== null ||
     (document.viewChips?.length ?? 0) > 0 ||
     questionWaiting(document) ||
     (document.workingCard?.pills.length ?? 0) > 0 ||
@@ -102,6 +106,15 @@ export function PillsStrip({
   const jumpToBottom = useTranscriptBottomStore((store) => store.jumpToBottom);
   const [menu, setMenu] = useState<string | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
+  const savedDraft = document.savedDraftPill ?? null;
+  const [draftOpen, setDraftOpen] = useState(false);
+  const closeDraft = useCallback(() => setDraftOpen(false), []);
+  // A draft answered or withdrawn elsewhere takes its sheet with it.
+  useEffect(() => {
+    if (savedDraft === null) setDraftOpen(false);
+  }, [savedDraft]);
+  // The box's width, which the Saved draft pill shortens its label by (`savedDraft.ts`).
+  const [stripWidth, setStripWidth] = useState(0);
   const shown = pillsStripShown(document, armed, links, P.cardMuted);
   // Grows in and shrinks away; drawn while it shrinks, dropped once it has.
   const open = useRef(new Animated.Value(shown ? 1 : 0)).current;
@@ -152,10 +165,18 @@ export function PillsStrip({
             { height: open.interpolate({ inputRange: [0, 1], outputRange: [0, STRIP] }), opacity: open },
           ]}
         >
-          <View style={styles.band}>
-            {/* The view chips stay pinned left; the pills scroll in what is left beside them. */}
-            {shown && (document.viewChips?.length ?? 0) > 0 ? (
+          <View style={styles.band} onLayout={(event) => setStripWidth(event.nativeEvent.layout.width)}>
+            {/* The Saved draft pill and the view chips stay pinned left; the pills scroll in what is left beside them. */}
+            {shown && (savedDraft !== null || (document.viewChips?.length ?? 0) > 0) ? (
               <View style={styles.chips}>
+                {savedDraft !== null ? (
+                  <SavedDraftPill
+                    pill={savedDraft}
+                    width={stripWidth}
+                    open={draftOpen}
+                    onPress={() => setDraftOpen(true)}
+                  />
+                ) : null}
                 {(document.viewChips ?? []).map((chip) => (
                   <ViewChipButton key={chip.id} chip={chip} onPress={() => chat.dispatch(chip.command)} />
                 ))}
@@ -206,6 +227,7 @@ export function PillsStrip({
         </Animated.View>
       ) : null}
       <PillMenuSheet chat={chat} document={document} open={menu} onClose={closeMenu} />
+      <SavedDraftSheet pill={savedDraft} open={draftOpen} onClose={closeDraft} dispatch={chat.dispatch} />
     </>
   );
 }

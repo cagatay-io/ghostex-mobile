@@ -539,6 +539,9 @@ export type ChatDocument = {
   /** A draft handed to this chat from elsewhere, offered before it replaces the text.
    * Actions: `useIncomingDraft`, `dismissIncomingDraft`. Desktop: `composer.rs`. */
   incomingDraft: IncomingDraft | null;
+  /** The Saved draft pill for `incomingDraft`, pinned at the left of the pill strip, or null.
+   * Desktop: `saved_draft_pill.rs`; phone: `cards/SavedDraftPill.tsx`. */
+  savedDraftPill?: SavedDraftPill | null;
   /** The session note sheet. Desktop: `note.rs`. */
   note: NoteState;
   /** The Catch me up button and card (`composer/catch_up.rs`). Desktop: `catch_up.rs`. */
@@ -940,6 +943,21 @@ export type FilesLinksState = {
 export type Interaction = { queueLongPressMs: number; stopButtonCooldownMs: number };
 
 export type IncomingDraft = { content: string; version?: Json; [key: string]: unknown };
+
+/** gx-chat-core `SavedDraftPill` (extras/chat_pills.rs `saved_draft_pill`). */
+export type SavedDraftPill = {
+  /** "Saved draft", where the strip has room. */
+  label: string;
+  /** "Draft", where it is narrow; narrower still the pill is its icon alone. */
+  shortLabel: string;
+  ariaLabel: string;
+  /** "from another device or the terminal". */
+  detail: string;
+  /** The draft's first 600 characters. */
+  preview: string;
+  /** "Replaces what's in the box" while Use draft would replace typed text, else empty. */
+  hint: string;
+};
 
 /** One More actions row. `group` is `agent` or `session`. Pressing it is an app-shell action. */
 export type HostActionRow = {
