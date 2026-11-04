@@ -650,6 +650,17 @@ export type GhostexSummaryCapabilities = {
   attentionNotificationId: boolean;
 };
 
+/** The capabilities of a computer whose summary the phone does not hold (yet): it announces nothing. */
+export const NO_SUMMARY_CAPABILITIES: GhostexSummaryCapabilities = {
+  awaitingAnswer: false,
+  attentionNotificationId: false,
+};
+
+/** An open question card or a counted question; callers gate the card field by the computer's capability. */
+export function hasQuestion(pendingQuestionCount: number, awaitingAnswer: boolean): boolean {
+  return pendingQuestionCount > 0 || awaitingAnswer;
+}
+
 export type GhostexMobileSummary = {
   /** Only zmx-backed sessions with a non-empty sessionId, wire order preserved. */
   sessions: GhostexSession[];

@@ -15,7 +15,7 @@
  * actually 'hide' them please"). Both change only when the user taps them.
  */
 
-import type { GhostexSession } from './mobileSummary';
+import { hasQuestion, type GhostexSession, type GhostexSummaryCapabilities } from './mobileSummary';
 
 /** Deeper trees are drawn flat past this, as on the desktop. */
 const MAX_THREAD_DEPTH = 3;
@@ -78,7 +78,10 @@ export type RowNesting = {
   foldedStatus?: FoldedStatus;
 };
 
-/** Which dots a folded coordinator's stack draws, counted as the machine tabs count them: a row with a pending question, or a thread waiting on the user, is pink, not blue. */
+/**
+ * Which dots a folded coordinator's stack draws, counted as the machine tabs count them: a row with a question
+ * (`hasQuestion`), or a thread waiting on the user, is pink, not blue.
+ */
 export type FoldedStatus = {
   working: boolean;
   attention: boolean;
@@ -88,12 +91,16 @@ export type FoldedStatus = {
   approval: boolean;
 };
 
-function addFoldedStatus(status: FoldedStatus, session: GhostexSession): void {
+function addFoldedStatus(
+  status: FoldedStatus,
+  session: GhostexSession,
+  capabilities: GhostexSummaryCapabilities,
+): void {
   if (session.awaitingApproval) {
     status.approval = true;
     return;
   }
-  const question = session.pendingQuestionCount > 0;
+  const question = hasQuestion(session.pendingQuestionCount, capabilities.awaitingAnswer && session.awaitingAnswer);
   // A thread waiting on the user (gxserver's `waiting`: a permission prompt, a bell) is the pink needs-you dot (the
   // user's choice, gx-core `FoldedStatus::add`); only a finished turn is the stack's blue, so the blue is exactly what
   // opening the orchestrator clears.
@@ -219,9 +226,11 @@ export type NestedSessions<S> = {
  * recent threads before its older ones. A pinned coordinator takes its threads to Pinned, a parked
  * one to Parked. The threads of a folded coordinator, and the older threads of one not in
  * `olderShown`, stay in the list, marked folded, so the section headings above still count them.
+ * `capabilities` are the computer's, which a folded stack's question dot reads.
  */
 export function nestCoordinatorThreads<S>(
   sessions: readonly GhostexSession[],
+  capabilities: GhostexSummaryCapabilities,
   collapsedCoordinators: ReadonlySet<string>,
   sectionOf: (session: GhostexSession) => S,
   olderShown: ReadonlySet<string> = new Set<string>(),
@@ -287,7 +296,7 @@ export function nestCoordinatorThreads<S>(
     };
     const stack = [index];
     for (let next = stack.pop(); next !== undefined; next = stack.pop()) {
-      addFoldedStatus(status, sessions[next]);
+      addFoldedStatus(status, sessions[next], capabilities);
       stack.push(...(children.get(next) ?? []));
     }
     return status.working || status.attention || status.backgroundWork || status.question || status.approval

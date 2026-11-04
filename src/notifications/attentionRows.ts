@@ -10,8 +10,8 @@
  */
 
 import { NotificationsCopy } from '../copy';
-import { resolveAgentIconId, type AgentIconId } from '../contract/mobileSummary';
-import { waitsOnQuestion, type AttentionKind, type SessionFacts } from './events';
+import { hasQuestion, resolveAgentIconId, type AgentIconId } from '../contract/mobileSummary';
+import type { AttentionKind, SessionFacts } from './events';
 import { isAccountRow, type FeedRow } from './feedContract';
 
 export type ListKind = AttentionKind | 'bell' | 'custom' | 'sendFailed' | 'resetExpiring' | 'resetRedeemed';
@@ -42,7 +42,9 @@ export type AttentionRow = {
 export type MachineFeed = { machineId: string; machineLabel: string; rows: readonly FeedRow[] };
 
 export function listKindFor(row: FeedRow, facts: SessionFacts | undefined): ListKind {
-  if (row.kind === 'needsInput') return waitsOnQuestion(facts) ? 'question' : 'waiting';
+  if (row.kind === 'needsInput') {
+    return facts !== undefined && hasQuestion(facts.pendingQuestionCount, facts.awaitingAnswer) ? 'question' : 'waiting';
+  }
   return row.kind;
 }
 

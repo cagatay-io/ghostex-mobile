@@ -14,7 +14,7 @@
  * Kept free of React Native so it is testable under `bun test`.
  */
 
-import { resolveAgentIconId, type AgentIconId, type GhostexMobileSummary } from '../contract/mobileSummary';
+import { hasQuestion, resolveAgentIconId, type AgentIconId, type GhostexMobileSummary } from '../contract/mobileSummary';
 import { isAccountRow, type FeedRow } from './feedContract';
 
 export type AttentionKind = 'finished' | 'waiting' | 'question' | 'failed';
@@ -116,21 +116,15 @@ export function hostEventFromFeedRow(machineId: string, row: FeedRow): HostEvent
   };
 }
 
-/**
- * A wait is announced as "has a question" when the session has an open question card or a counted pending
- * question. The question itself never leaves the app.
- */
-export function waitsOnQuestion(facts: SessionFacts | undefined): boolean {
-  return facts !== undefined && (facts.awaitingAnswer || facts.pendingQuestionCount > 0);
-}
-
 /** The event to notify about, or null when this event never notifies. */
 export function mapEvent(event: HostEvent, facts: SessionFacts | undefined): AttentionEvent | null {
   if (facts === undefined) return null;
   let kind: AttentionKind;
   if (event.kind === 'finished') kind = 'finished';
   else if (event.kind === 'failed') kind = 'failed';
-  else if (event.kind === 'needsInput') kind = waitsOnQuestion(facts) ? 'question' : 'waiting';
+  else if (event.kind === 'needsInput') {
+    kind = hasQuestion(facts.pendingQuestionCount, facts.awaitingAnswer) ? 'question' : 'waiting';
+  }
   else return null;
   return {
     eventId: event.eventId,

@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
 import { coordinatorBadges, coordinatorRowKey, nestCoordinatorThreads } from './coordinatorTree';
-import type { GhostexSession } from './mobileSummary';
+import { NO_SUMMARY_CAPABILITIES, type GhostexSession } from './mobileSummary';
 
 function row(sessionId: string, parent: string | null, isCoordinator: boolean): GhostexSession {
   return {
@@ -37,6 +37,7 @@ describe('coordinator tree lines', () => {
   const nestingOf = (collapsed: string[], id: string) =>
     nestCoordinatorThreads(
       sessions,
+      NO_SUMMARY_CAPABILITIES,
       new Set(collapsed.map((sessionId) => coordinatorRowKey({ projectId: 'p1', sessionId }))),
       () => 'main',
     ).nesting.get(coordinatorRowKey({ projectId: 'p1', sessionId: id }))!;
@@ -99,6 +100,7 @@ describe('approval waits', () => {
     const sessions = [{ ...row('lead', null, true), activity: 'idle' } as GhostexSession, thread('stuck', 'lead', 'waiting', true)];
     const lead = nestCoordinatorThreads(
       sessions,
+      NO_SUMMARY_CAPABILITIES,
       new Set([coordinatorRowKey({ projectId: 'p1', sessionId: 'lead' })]),
       () => 'main',
     ).nesting.get(coordinatorRowKey({ projectId: 'p1', sessionId: 'lead' }))!;

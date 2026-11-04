@@ -23,15 +23,17 @@
 import { SNOOZE_PRESETS, type SnoozePreset } from '../../contract/unified/snooze';
 import {
   displayStatus,
+  hasQuestion,
   type GhostexCustomSessionTags,
   type GhostexProject,
   type GhostexProjectCollection,
   type GhostexSession,
+  type GhostexSummaryCapabilities,
 } from '../../contract/mobileSummary';
 import { COMMAND_ICONS } from '../../assets/tablerIcons.generated';
 import { MORE_DETAILS_LINE, sessionLinkText, sessionMentionText } from './sessionMention';
 import { claudeCloudPageUrl } from '../../contract/claudeCloud';
-import { hasBackgroundWork, hasPendingQuestion } from '../../components/sessions/sessionStatus';
+import { hasBackgroundWork } from '../../components/sessions/sessionStatus';
 import type { SessionWorkLinks, WorkLinkKind } from '../../commands/ghostexCli';
 import { effectiveSessionTag, SESSION_TAG_SECTIONS } from '../../contract/sessionTags';
 import { FORK_AGENT_ICONS, isCoordinatorAgent } from '../../sessions/sessionCommands';
@@ -423,6 +425,8 @@ function parkWithTag(item: SidebarMenuItem, session: GhostexSession): SidebarMen
 
 export type SessionMenuInput = {
   session: GhostexSession;
+  /** The capabilities of the session's computer, which Sleep Below's question rule reads (`hasQuestion`). */
+  capabilities: GhostexSummaryCapabilities;
   /** The machine's custom tag catalog. */
   customTags: GhostexCustomSessionTags;
   /** The rows drawn under this one in its group, for Sleep Below and Close Below. */
@@ -683,7 +687,17 @@ function isSnoozedNow(session: GhostexSession): boolean {
 }
 
 export function buildSessionMenu(input: SessionMenuInput): SidebarMenuItem[] {
-  const { session, customTags, below, threads, project, voiceCall = false, sessionNotes = true, snooze = false } = input;
+  const {
+    session,
+    capabilities,
+    customTags,
+    below,
+    threads,
+    project,
+    voiceCall = false,
+    sessionNotes = true,
+    snooze = false,
+  } = input;
   const settings = PHONE_MENU_SETTINGS;
   const caps = sessionCapabilities(session);
   const id = session.sessionId;
@@ -815,8 +829,14 @@ export function buildSessionMenu(input: SessionMenuInput): SidebarMenuItem[] {
     /**
      * CDXC:SessionSleep 2026-10-01 DECISION: User: "please don't sleep terminal sessions that have shell running or a question status", and Sleep Below is a bulk sweep too, so it skips rows with the grey shell-running dot or an unanswered question (the desktop's gx-core sidebar_menu/session.rs `full_menu`).
      */
+    // The question is the row's: an open question card the computer announces counts too.
     const sleepable = below
-      .filter((entry) => isRunningSession(entry) && !hasBackgroundWork(entry) && !hasPendingQuestion(entry))
+      .filter(
+        (entry) =>
+          isRunningSession(entry) &&
+          !hasBackgroundWork(entry) &&
+          !hasQuestion(entry.pendingQuestionCount, capabilities.awaitingAnswer && entry.awaitingAnswer),
+      )
       .map((entry) => entry.sessionId);
     if (sleepable.length > 0) {
       advanced.push(

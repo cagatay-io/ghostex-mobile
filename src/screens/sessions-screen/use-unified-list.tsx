@@ -17,7 +17,12 @@ import { useEffect, useMemo, useReducer, useRef, useState, type ReactElement } f
 import { Platform, Pressable, StyleSheet, Text, TextInput, View, type FlatListProps, type ViewInstance } from 'react-native';
 
 import { buildDrawerItems, projectKeyForSession, type ProjectHeaderItem, type SessionItem } from '../../contract/grouping';
-import type { GhostexMobileSummary, GhostexProjectIcon, GhostexSession } from '../../contract/mobileSummary';
+import {
+  NO_SUMMARY_CAPABILITIES,
+  type GhostexMobileSummary,
+  type GhostexProjectIcon,
+  type GhostexSession,
+} from '../../contract/mobileSummary';
 import {
   EMPTY_UNIFIED_FILTER,
   isUnifiedFilterEmpty,
@@ -125,6 +130,7 @@ function sessionItemOf(machineId: string, session: GhostexSession, summary: Ghos
     projectTitle: project?.name ?? session.projectName,
     projectPath: project?.path ?? session.projectPath,
     session,
+    capabilities: summary?.capabilities ?? NO_SUMMARY_CAPABILITIES,
   };
 }
 

@@ -31,9 +31,11 @@ import { AGENT_ICONS } from '../../assets/agentIcons.generated';
 import type { CoordinatorBadge, FoldedStatus, RowNesting } from '../../contract/coordinatorTree';
 import {
   agentIconTint,
+  hasQuestion,
   resolveAgentArtId,
   type GhostexCustomSessionTags,
   type GhostexSession,
+  type GhostexSummaryCapabilities,
 } from '../../contract/mobileSummary';
 import { resolveSessionTag } from '../../contract/sessionTags';
 import { SessionCopy } from '../../copy';
@@ -82,7 +84,6 @@ import {
   COMPLETION_FLASH_MS,
   COMPLETION_FLASH_OPACITY,
   COMPLETION_FLASH_PROGRESS,
-  hasPendingQuestion,
   isAwaitingApproval,
   nextLabelDeadline,
   rowActivityIndicator,
@@ -367,6 +368,8 @@ function FoldedStatusIndicator({ status, ringColor }: { status: FoldedStatus; ri
 
 export type SessionRowProps = {
   session: GhostexSession;
+  /** The capabilities of the session's computer, which the question indicator reads (`hasQuestion`). */
+  capabilities: GhostexSummaryCapabilities;
   /** Warm-attached session key matches the current terminal. */
   active: boolean;
   /** Exact expanded-group surface behind this row, including collection tint. */
@@ -407,6 +410,7 @@ export type SessionRowProps = {
  */
 export default function SessionRow({
   session,
+  capabilities,
   active,
   expandedGroupSurface,
   sidebarForeground,
@@ -438,9 +442,12 @@ export default function SessionRow({
   const approval = isAwaitingApproval(session);
   const foldedStatus =
     approval || (session.programStatusFailed && session.activity === 'attention') ? undefined : nesting?.foldedStatus;
-  const question = hasPendingQuestion(session) && foldedStatus === undefined && !approval;
+  const question =
+    hasQuestion(session.pendingQuestionCount, capabilities.awaitingAnswer && session.awaitingAnswer) &&
+    foldedStatus === undefined &&
+    !approval;
   const indicator = question || foldedStatus !== undefined ? null : rowActivityIndicator(session);
-  const timeLabel = foldedStatus !== undefined ? null : rowTimeLabel(session, nowMs);
+  const timeLabel = foldedStatus !== undefined ? null : rowTimeLabel(session, capabilities, nowMs);
   /*
    * Desktop leading-slot order (icons.rs render_session_icon): an armed Delayed
    * Send clock, then a Close After Done clock, then the session tag, then the

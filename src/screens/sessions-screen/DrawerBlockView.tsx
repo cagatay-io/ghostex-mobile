@@ -105,6 +105,7 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
       <SessionRow
         key={item.key}
         session={item.session}
+        capabilities={item.capabilities}
         active={selectedSessionKey === key || item.nesting?.containsActive === true}
         expandedGroupSurface={props.rowSurface}
         sidebarBackground={props.appearance.background}
