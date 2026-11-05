@@ -57,6 +57,7 @@ import { SideChatsMenu } from './SideChats';
 import { Glyph } from './icons';
 import { obj } from './json';
 import { BackgroundTasksMenu } from './WorkingStrip';
+import { RelayedApprovalsMenu } from './RelayedApprovalCard';
 import { SidebarPalette } from '../../../theme/palette';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 
@@ -455,7 +456,9 @@ export function Pill({ pill, open, onPress }: { pill: ChatPill; open: boolean; o
                     ? 'messages'
                     : pill.id === 'board'
                       ? 'layout-board-split'
-                      : 'users'
+                      : pill.id === 'approvals'
+                        ? 'shield-check'
+                        : 'users'
         }
         size={12}
         color={P.cardMuted}
@@ -561,6 +564,8 @@ export function PillMenuSheet({
         <CoordinatorThreadsMenu chat={chat} document={document} onDone={close} />
       ) : open === 'board' ? (
         <CoordinatorBoardMenu chat={chat} document={document} onDone={close} focus={boardFocus} />
+      ) : open === 'approvals' ? (
+        <RelayedApprovalsMenu chat={chat} document={document} />
       ) : open === 'sideChats' ? (
         <SideChatsMenu chat={chat} document={document} onDone={close} />
       ) : open === 'tasks' ? (

@@ -51,6 +51,8 @@ export type ActionFields = {
   deleteSideChat: { sessionId?: string };
   /** Save (`secret`) or Decline (`decline: true`) of a secret request card; the value is never kept. */
   answerSecretRequest: { requestId: string; secret?: string; decline?: boolean };
+  /** One button of a thread's approval card relayed to its coordinator's chat (core `extras/relayed_approvals.rs`). */
+  answerRelayedApproval: { key: string; choice: number };
   searchOpen: {};
   searchClose: {};
   searchQuery: { query: string };

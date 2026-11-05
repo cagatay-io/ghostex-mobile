@@ -18,7 +18,8 @@ import type { ProjectedMessage } from '../../rust/document';
 import { CoordinatorGlyph } from '../../../components/sessions/icons';
 import { SidebarPalette } from '../../../theme/palette';
 import { AgentMark } from '../cards/agentMark';
-import { useNativeChatUi, useTranscriptEnv } from './context';
+import { useNativeChatUi, useTranscriptEnv, useTranscriptFlags } from './context';
+import { RelayedApprovalCard } from '../cards/RelayedApprovalCard';
 import { Glyph, type GlyphName } from './icons';
 import { arr, obj, str, type JsonRecord } from './json';
 import { Markdown } from './markdown/Markdown';
@@ -224,16 +225,26 @@ const AgentCard = memo(function AgentCard({
 
 /** A message another agent sent this session. */
 export const InterAgentCard = memo(function InterAgentCard({ message }: { message: ProjectedMessage }) {
+  const { dispatch } = useTranscriptEnv();
+  const relayed = useTranscriptFlags().relayedApprovals[message.id];
   const inter = obj(message.interAgentMessage);
   const card = obj(inter?.card);
   if (inter === null || card === null) return null;
-  return (
+  const agentCard = (
     <AgentCard
       disclosureKey={`inter-agent:${message.id}`}
       card={card}
       body={str(inter, 'body')}
       references={message.markdownReferences}
     />
+  );
+  // A thread's "waiting for an answer" report carries its relayed approval card under it.
+  if (relayed === undefined) return agentCard;
+  return (
+    <View style={styles.relayed}>
+      {agentCard}
+      <RelayedApprovalCard card={relayed} dispatch={dispatch} />
+    </View>
   );
 });
 
@@ -277,6 +288,10 @@ export function SentAgentMessageCards({ cards, aboveIsCard = false, columnGap = 
 }
 
 const styles = StyleSheet.create({
+  /** A report row with its relayed approval card under it. */
+  relayed: {
+    gap: 6,
+  },
   column: { gap: ROW_GAP, minWidth: 0 },
   card: { minWidth: 0 },
   row: {

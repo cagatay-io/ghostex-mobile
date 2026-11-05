@@ -27,6 +27,7 @@ import { arr, obj } from './json';
 import { NoticeCard } from './NoticeCard';
 import { CARD_BAND_SHARE, QuestionCard } from './QuestionCard';
 import { SecretRequestCards } from './SecretRequestCard';
+import { RelayedAnswerLine, relayedAnswerLineShown } from './RelayedApprovalCard';
 import type { CardHostAction } from './types';
 
 /** A failure the agent keeps no record of (Codex shows it only on screen): its card sits here, where its screen notice would have been. */
@@ -42,6 +43,7 @@ export function chatCardsShown(document: ChatDocument): boolean {
     (obj(document.terminalNotice) !== null && document.noticeVisible === true) ||
     unrecordedApiError(document.apiErrorCard) ||
     arr(document.secretRequests).length > 0 ||
+    relayedAnswerLineShown(document) ||
     typeof document.asyncQuestions?.question?.key === 'string' ||
     document.questionCard?.visible === true
   );
@@ -73,6 +75,7 @@ export function NativeChatCards({ chat, onHostAction }: NativeChatCardsProps) {
       <ComposerNotReadyCard chat={chat} document={document} onHostAction={onHostAction} />
       <NoticeCard chat={chat} document={document} onHostAction={onHostAction} />
       <SecretRequestCards chat={chat} document={document} />
+      <RelayedAnswerLine document={document} />
       {unrecordedApiError(document.apiErrorCard) ? (
         <ApiErrorCard card={document.apiErrorCard} dispatch={chat.dispatch} />
       ) : null}

@@ -20,6 +20,8 @@ import { arr, asJson, isTrue, num, obj, str } from './json';
 import { PROSE_SIZE, themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { remoteWorkerNotice } from './remoteWorker';
 import { AgentMark } from './agentMark';
+import { BoardRelayButtons } from './RelayedApprovalCard';
+import { openRelayedCardForThread } from './relayedApprovals';
 
 /** Each group's colour: the sidebar's question pink, approval red and working amber. */
 const GROUP_COLOR: Record<string, string | null> = {
@@ -191,6 +193,9 @@ export function CoordinatorBoardMenu({
                 const restore = obj(obj(row)?.restore);
                 const tags = arr(obj(row)?.tags);
                 const answers = arr(obj(row)?.answers);
+                // A thread waiting on a relayed approval shows that card's buttons in place of its
+                // chips (desktop `board_relay_buttons`; the user's Q1297).
+                const relayed = openRelayedCardForThread(document, str(openThread, 'sessionId'));
                 const reference = str(row, 'reference');
                 const note = str(row, 'note');
                 // A tap puts the card's reference in the chat box so the user can comment on it
@@ -254,7 +259,9 @@ export function CoordinatorBoardMenu({
                     </View>
                     <View style={styles.chipLine}>
                       <View style={styles.chips}>
-                        {answers.length > 0 ? (
+                        {relayed !== null ? (
+                          <BoardRelayButtons card={relayed} dispatch={chat.dispatch} />
+                        ) : answers.length > 0 ? (
                           <View style={styles.answers}>
                             {answers.map((answer, answerIndex) => (
                               <Pressable
@@ -290,7 +297,7 @@ export function CoordinatorBoardMenu({
                             {note.length > 0 ? note : 'No links yet'}
                           </Text>
                         ) : null}
-                        {(answers.length > 0 ? [] : shownTags).map((tag, tagIndex) => {
+                        {(answers.length > 0 || relayed !== null ? [] : shownTags).map((tag, tagIndex) => {
                           const tint = toneColor(str(tag, 'tone'));
                           const open = obj(obj(tag)?.command);
                           const coloured = str(tag, 'kind') === 'release' || str(tag, 'kind') === 'question';
@@ -315,7 +322,7 @@ export function CoordinatorBoardMenu({
                             </Pressable>
                           );
                         })}
-                        {answers.length === 0 && hiddenTags > 0 ? (
+                        {answers.length === 0 && relayed === null && hiddenTags > 0 ? (
                           <View style={styles.tag}>
                             <Text style={styles.tagText}>{`+${hiddenTags}`}</Text>
                           </View>
@@ -323,6 +330,13 @@ export function CoordinatorBoardMenu({
                       </View>
                       <Text style={styles.age}>{str(row, 'age')}</Text>
                     </View>
+                    {relayed !== null ? (
+                      <Text style={styles.note} numberOfLines={2}>
+                        {[str(relayed, 'title'), str(relayed, 'codePreview') || str(relayed, 'code')]
+                          .filter((part) => part.length > 0)
+                          .join('\n')}
+                      </Text>
+                    ) : null}
                     {remove !== null && armed === key ? (
                       <Pressable
                         accessibilityRole="button"

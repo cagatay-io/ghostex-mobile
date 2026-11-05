@@ -12,6 +12,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, typ
 import type { RustChat } from '../../rust/useRustChat';
 import type { ChatDocument, Json } from '../../rust/document';
 import { arr, obj, str, type JsonRecord } from './json';
+import { relayedByReport } from '../cards/relayedApprovals';
 import { openChatImageViewer } from '../cards/overlayStore';
 import { DisclosureStore, RowDetailDemand } from './state';
 import type { TranscriptTheme } from './theme';
@@ -205,6 +206,8 @@ export type TranscriptFlags = {
   readAloudAvailable: boolean;
   /** The reply being read, whose row reads Stop reading (`readAloud.speakingId`). */
   readAloudSpeakingId: string | null;
+  /** A coordinator's relayed thread approval cards, by the report row each is drawn under (`anchorId`). */
+  relayedApprovals: { [messageId: string]: JsonRecord };
 };
 
 const EMPTY_FLAGS: TranscriptFlags = {
@@ -230,6 +233,7 @@ const EMPTY_FLAGS: TranscriptFlags = {
   workflowCards: {},
   readAloudAvailable: false,
   readAloudSpeakingId: null,
+  relayedApprovals: {},
 };
 
 const FlagsContext = createContext<TranscriptFlags>(EMPTY_FLAGS);
@@ -276,6 +280,7 @@ export function transcriptFlags(document: ChatDocument | null): TranscriptFlags 
     workflowCards: obj(document.workflowCards) === null ? {} : (document.workflowCards ?? {}),
     readAloudAvailable: document.readAloud?.available === true,
     readAloudSpeakingId: typeof document.readAloud?.speakingId === 'string' ? document.readAloud.speakingId : null,
+    relayedApprovals: relayedByReport(document),
   };
 }
 
