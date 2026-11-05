@@ -3,10 +3,11 @@
  * Run with `bun run test:jest`. Settings in two columns with the app's real stack navigator: a row tap
  * opens its page beside the list and keeps the list where the user scrolled it, also on the first tap
  * from the bare Settings list (that tap hands the list to the page screen it opens); a tap on the open
- * page's own row keeps that page.
+ * page's own row keeps that page. A page opened from the default page (Interface beside the bare list,
+ * which has no route of its own) has a Back that returns to it, with Interface selected in the list.
  */
 
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator, type NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Text } from 'react-native';
 import { act, fireEvent, render, type RenderResult } from '@testing-library/react-native';
@@ -22,22 +23,38 @@ jest.mock('../../components/common/verticalBar/VerticalBarArea', () => ({
   useVerticalBarSpace: () => ({ left: 0, right: 0 }),
   useScrollToBarEdges: () => ({ scroll: undefined, content: undefined }),
 }));
-jest.mock('../../components/common/verticalBar/StackHeader', () => ({ ContentTitleRow: () => null }));
+jest.mock('../../components/common/verticalBar/StackHeader', () => ({
+  ContentTitleRow: ({ title, onBack }: { title: string; onBack?: () => void }) =>
+    onBack === undefined
+      ? null
+      : jest
+          .requireActual('react')
+          .createElement(jest.requireActual('react-native').Text, { onPress: onBack }, `back:${title}`),
+}));
 jest.mock('../../components/common/verticalBar/stackRail', () => ({ useStackScreenRail: () => undefined }));
 jest.mock('../../theme/useAppearance', () => ({
   useAppearance: () => ({ background: 'black', foreground: 'white', border: 'gray' }),
 }));
 jest.mock('../../updates/updateNotice', () => ({ useUpdateNotice: () => null }));
 jest.mock('./SettingsControls', () => ({
-  LinkRow: ({ title, onPress }: { title: string; onPress: () => void }) =>
+  LinkRow: ({ title, selected, onPress }: { title: string; selected?: boolean; onPress: () => void }) =>
     jest
       .requireActual('react')
-      .createElement(jest.requireActual('react-native').Text, { onPress }, `row:${title}`),
+      .createElement(
+        jest.requireActual('react-native').Text,
+        { onPress, accessibilityState: { selected } },
+        `row:${title}`,
+      ),
   useSettingsStyles: () => ({ list: {} }),
   SettingsPageEdgesContext: jest.requireActual('react').createContext(null),
 }));
 jest.mock('./pages', () => ({
-  SETTINGS_PAGES: { theme: { title: 'Interface' }, chat: { title: 'Chat' }, advanced: { title: 'Advanced' } },
+  SETTINGS_PAGES: {
+    theme: { title: 'Interface' },
+    chat: { title: 'Chat' },
+    advanced: { title: 'Advanced' },
+    terminalPaletteDark: { title: 'Palette' },
+  },
   SETTINGS_PAGE_ORDER: ['theme', 'chat', 'advanced'],
 }));
 
@@ -59,9 +76,11 @@ function SettingsPage({ route }: NativeStackScreenProps<RootStackParamList, 'Set
   );
 }
 
+const navigationRef = createNavigationContainerRef<RootStackParamList>();
+
 function settings() {
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator initialRouteName="Settings">
         <Stack.Screen name="Settings" component={SettingsRoot} />
         <Stack.Screen name="SettingsPage" component={SettingsPage} />
@@ -110,4 +129,29 @@ test('a row tap keeps the list where it is, from the bare list and from an open 
   });
   expect(screen.getByText('page:chat')).toBe(chatPage);
   expect(listScroll(screen)).toBe(pageList);
+});
+
+test('a palette opened from the default page has a Back to Interface, selected in the list', async () => {
+  const screen = await render(settings());
+  expect(screen.getByText('page:theme')).toBeTruthy();
+  // The default page has no route of its own, so no Back beside it.
+  expect(screen.queryByText(/^back:/)).toBeNull();
+
+  // Interface's palette row opens a page that no list row carries, straight from the bare Settings.
+  await act(async () => {
+    navigationRef.navigate('SettingsPage', { page: 'terminalPaletteDark' });
+  });
+  expect(screen.getByText('page:terminalPaletteDark')).toBeTruthy();
+  expect(screen.getByText('row:Interface').props.accessibilityState).toEqual({ selected: true });
+  expect(screen.getByText('row:Chat').props.accessibilityState).toEqual({ selected: false });
+
+  // Its Back returns to Interface (not out of Settings): the stack is the bare Settings again.
+  await act(async () => {
+    fireEvent.press(screen.getByText('back:terminalPaletteDark'));
+  });
+  expect(navigationRef.getRootState()?.routes.map((route) => route.name)).toEqual(['Settings']);
+  expect(screen.getByText('page:theme')).toBeTruthy();
+  expect(screen.queryByText('page:terminalPaletteDark')).toBeNull();
+  expect(screen.queryByText(/^back:/)).toBeNull();
+  expect(screen.getByText('row:Interface').props.accessibilityState).toEqual({ selected: true });
 });

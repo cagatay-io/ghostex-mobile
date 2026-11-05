@@ -3,9 +3,10 @@
  * is wide enough for them: the list column (320 pt) on the left with the
  * open page selected, the page (at least 375 pt) on the right, each under its own title row. The rule
  * reads the window's content width, not its orientation (`twoColumnWindow` in layout.ts): in practice
- * the unfolded Duo in landscape. Which page is open comes from the stack (settingsColumns.ts); picking a
+ * the unfolded Duo in landscape. Which page is open comes from the stack (columnRules.ts); picking a
  * row shows its page in the page screen above Settings, Back leaves Settings, and a page opened from a
- * page (Keyboard's editors, Chat's read-aloud voice) has a Back of its own in the right column. Picking a
+ * page (Keyboard's editors, Chat's read-aloud voice, Interface's terminal palettes, also when Interface is
+ * only the page shown beside the bare list) has a Back of its own in the right column. Picking a
  * row keeps the list where it is. Every other window keeps one column, the screens exactly as before.
  */
 
@@ -107,6 +108,10 @@ function isSettingsPageId(value: unknown): value is SettingsPageId {
   return typeof value === 'string' && Object.hasOwn(SETTINGS_PAGES, value);
 }
 
+function isListedPage(page: SettingsPageId): boolean {
+  return SETTINGS_PAGE_ORDER.includes(page);
+}
+
 function columnRoute(route: { readonly name: string; readonly params?: object }): ColumnRoute {
   const page =
     route.name === 'SettingsPage' && route.params !== undefined ? Reflect.get(route.params, 'page') : undefined;
@@ -179,7 +184,7 @@ export function SettingsColumnsFrame({
   const twoColumns = useTwoColumns();
   const columns = useMemo(() => {
     const index = routes.findIndex((route) => route.key === routeKey);
-    return twoColumns ? settingsColumnsFor(routes.map(columnRoute), index) : null;
+    return twoColumns ? settingsColumnsFor(routes.map(columnRoute), index, isListedPage) : null;
   }, [routes, routeKey, twoColumns]);
   const settingsIndex = columns?.settingsIndex;
 
