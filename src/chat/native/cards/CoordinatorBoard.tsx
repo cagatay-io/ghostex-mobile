@@ -230,13 +230,16 @@ export function CoordinatorBoardMenu({
                                 key={`answer:${answerIndex}`}
                                 accessibilityRole="button"
                                 accessibilityLabel={`Answer ${str(answer, 'label')}`}
-                                onPress={() =>
-                                  chat.dispatch(asJson(obj(answer)?.command) as unknown as UserAction)
-                                }
+                                disabled={isTrue(answer, 'locked')}
+                                onPress={() => {
+                                  const command = obj(obj(answer)?.command);
+                                  if (command !== null) chat.dispatch(asJson(command) as unknown as UserAction);
+                                }}
                                 style={[
                                   styles.answer,
                                   answerIndex > 0 && styles.answerDivider,
                                   isTrue(answer, 'picked') && styles.answerPicked,
+                                  isTrue(answer, 'locked') && !isTrue(answer, 'picked') && styles.answerFaded,
                                 ]}
                               >
                                 <Text
@@ -246,7 +249,7 @@ export function CoordinatorBoardMenu({
                                   ]}
                                   numberOfLines={1}
                                 >
-                                  {str(answer, 'label')}
+                                  {isTrue(answer, 'picked') ? `\u2713 ${str(answer, 'label')}` : str(answer, 'label')}
                                 </Text>
                               </Pressable>
                             ))}
@@ -419,6 +422,10 @@ const useStyles = themedStyles((P) => ({
     overflow: 'hidden',
   },
   /** The red × that floats over a long-pressed card's top-right corner (desktop `board_remove_badge`). */
+  /**
+   * Soft red, never a dark slab: the user, of the desktop's black × ("i hate black in transparent
+   * design looks bad"); the armed × is the only one the phone shows.
+   */
   removeBadge: {
     position: 'absolute',
     top: -8,
@@ -427,8 +434,8 @@ const useStyles = themedStyles((P) => ({
     height: 22,
     borderRadius: 11,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.5)',
-    backgroundColor: P.background,
+    borderColor: 'rgba(239, 68, 68, 0.45)',
+    backgroundColor: 'rgba(253, 226, 226, 0.88)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -461,6 +468,9 @@ const useStyles = themedStyles((P) => ({
   },
   answerPicked: {
     backgroundColor: P.ink(0.14),
+  },
+  answerFaded: {
+    opacity: 0.4,
   },
   answerStrong: {
     color: P.foreground,
