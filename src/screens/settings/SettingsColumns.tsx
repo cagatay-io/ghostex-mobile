@@ -4,15 +4,23 @@
  * open page selected, the page (at least 375 pt) on the right, each under its own title row. The rule
  * reads the window's content width, not its orientation (`twoColumnWindow` in layout.ts): in practice
  * the unfolded Duo in landscape. Which page is open comes from the stack (settingsColumns.ts); picking a
- * row replaces the page above Settings, Back leaves Settings, and a page opened from a page (Keyboard's
- * editors, Chat's read-aloud voice) has a Back of its own in the right column. Every other window keeps
- * one column, the screens exactly as before.
+ * row shows its page in the page screen above Settings, Back leaves Settings, and a page opened from a
+ * page (Keyboard's editors, Chat's read-aloud voice) has a Back of its own in the right column. Picking a
+ * row keeps the list where it is. Every other window keeps one column, the screens exactly as before.
  */
 
 import { CommonActions, StackActions, useNavigation, useNavigationState, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useCallback, useMemo, type ReactNode } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  ScrollView,
+  StyleSheet,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SETTINGS_LIST_WIDTH, type HorizontalInsets } from '../../components/common/verticalBar/layout';
@@ -105,6 +113,48 @@ function columnRoute(route: { readonly name: string; readonly params?: object })
   return isSettingsPageId(page) ? { name: route.name, page } : { name: route.name };
 }
 
+/** Where the list starts on this screen: where it stood when a row opened the screen's page, else the top. */
+function carriedListOffset(params: object | undefined): number {
+  const offset = params === undefined ? undefined : Reflect.get(params, 'listOffset');
+  return typeof offset === 'number' && Number.isFinite(offset) ? offset : 0;
+}
+
+/**
+ * The list column's scroll view. It starts at `start` when it mounts (a changed `contentOffset` would
+ * scroll it, so later values are not passed on), and a row tap hands on where the list stands.
+ */
+function SettingsListScroll({
+  start,
+  selected,
+  onOpen,
+  style,
+  contentContainerStyle,
+}: {
+  start: number;
+  selected: SettingsPageId;
+  onOpen: (page: SettingsPageId, listOffset: number) => void;
+  style: StyleProp<ViewStyle>;
+  contentContainerStyle: StyleProp<ViewStyle>;
+}) {
+  const [contentOffset] = useState(() => ({ x: 0, y: start }));
+  const offset = useRef(start);
+  const onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    offset.current = event.nativeEvent.contentOffset.y;
+  }, []);
+  const openHere = useCallback((page: SettingsPageId) => onOpen(page, offset.current), [onOpen]);
+  return (
+    <ScrollView
+      style={style}
+      contentContainerStyle={contentContainerStyle}
+      contentOffset={contentOffset}
+      scrollEventThrottle={16}
+      onScroll={onScroll}
+    >
+      <SettingsPageList selected={selected} onOpen={openHere} />
+    </ScrollView>
+  );
+}
+
 /**
  * A Settings screen: in two columns the list beside `children` (the open page, under `title`), else
  * `single` (the Settings list itself) or `children` as before. Also gives the screen's side bar its
@@ -120,7 +170,8 @@ export function SettingsColumnsFrame({
   children: ReactNode;
 }) {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const routeKey = useRoute().key;
+  const route = useRoute();
+  const routeKey = route.key;
   const routes = useNavigationState((state) => state.routes);
   const twoColumns = useTwoColumns();
   const columns = useMemo(() => {
@@ -138,15 +189,23 @@ export function SettingsColumnsFrame({
 
   // A row opens its page beside the list, in place of the page open there.
   const open = useCallback(
-    (page: SettingsPageId) => {
+    (page: SettingsPageId, listOffset: number) => {
       if (settingsIndex === undefined) return;
       const state = navigation.getState();
       // The routes up to Settings as they are (their keys keep those screens mounted), then the page. Only
       // routes and index: the rest of the old state (its key, `stale`, the route names) is the navigator's.
       const kept = state.routes.slice(0, settingsIndex + 1).map(({ key, name, params }) => ({ key, name, params }));
-      navigation.dispatch(
-        CommonActions.reset({ index: kept.length, routes: [...kept, { name: 'SettingsPage', params: { page } }] }),
-      );
+      // The page screen above Settings keeps its key, so the navigator keeps that screen and only its page
+      // changes; its list, when it is the one on screen, stays where it is. A page opened from it closes.
+      // The first page opened from the bare list, and a page screen a page opened from it covered, draw a
+      // list of their own, which starts where the list on screen stood (`listOffset`).
+      const opened = state.routes[settingsIndex + 1];
+      const pageRoute = {
+        key: opened?.name === 'SettingsPage' ? opened.key : undefined,
+        name: 'SettingsPage' as const,
+        params: { page, listOffset },
+      };
+      navigation.dispatch(CommonActions.reset({ index: kept.length, routes: [...kept, pageRoute] }));
     },
     [navigation, settingsIndex],
   );
@@ -178,12 +237,13 @@ export function SettingsColumnsFrame({
       {columns === null || covered ? null : (
         <View style={[styles.list, { borderRightColor: appearance.border }]}>
           <ContentTitleRow title={SettingsCopy.title} tint={appearance.foreground} />
-          <ScrollView
+          <SettingsListScroll
+            start={carriedListOffset(route.params)}
+            selected={columns.selected}
+            onOpen={open}
             style={listEdges.scroll}
             contentContainerStyle={[settingsStyles.list, listEdges.content, { paddingBottom: bottom }]}
-          >
-            <SettingsPageList selected={columns.selected} onOpen={open} />
-          </ScrollView>
+          />
         </View>
       )}
       <View style={styles.page}>
