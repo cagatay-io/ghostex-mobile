@@ -234,6 +234,9 @@ export async function projectBranch(machine: MachineConnectionTarget, path: stri
  *
  * CDXC:TranscriptExport 2026-10-31 WHY:
  * The computers never talk to each other (export_handoff_remote.rs). The desktop gets the text with the export (`includeMarkdown`), but the phone exports through `ghostex export-transcript`, which has no such flag on computers already out there, and has no HTTP path to gxserver.
+ *
+ * CDXC:TranscriptExport 2026-11-06 WHY:
+ * The files the transcript links to travel too: gxserver copies them into `<transcript>-files/` next to it (server/src/session_transcript_export/carry_files.rs), so the phone finds those links in the text, carries each file the same way and points the links at the copies before it saves the transcript. A file that can't be carried keeps its link rather than failing the handoff.
  */
 export async function carryTranscript(
   from: MachineConnectionTarget,
@@ -243,13 +246,52 @@ export async function carryTranscript(
   const [read] = await readRemoteFiles(from, [path], TRANSCRIPT_CARRY_MAX_BYTES);
   if (read?.status === 'tooLarge') throw new Error('This conversation is too long to carry to another computer.');
   if (read?.status !== 'ok') throw new Error('The transcript could not be read on its computer.');
-  const name = path.split(/[/\\]/).pop() ?? 'handoff.md';
+  let markdown = decodeBase64Utf8(read.base64);
+  for (const carried of carriedFilePaths(markdown, path)) {
+    try {
+      const [file] = await readRemoteFiles(from, [carried], TRANSCRIPT_CARRY_MAX_BYTES);
+      if (file?.status !== 'ok') continue;
+      const copy = await uploadCarriedFile(to, carried, file.base64, 'base64');
+      markdown = markdown.split(carried).join(copy);
+    } catch {
+      // Its link stays as it was.
+    }
+  }
+  return uploadCarriedFile(to, path, markdown, 'utf8');
+}
+
+/**
+ * The copies gxserver saved next to the transcript at `transcriptPath`, as its links write them,
+ * longest first so one that begins another never rewrites part of it. Their names keep to
+ * `[A-Za-z0-9._-]` (`copy_name` in carry_files.rs), which is what ends one in the text.
+ */
+function carriedFilePaths(markdown: string, transcriptPath: string): string[] {
+  const separator = transcriptPath.includes('/') ? '/' : '\\';
+  const folder = `${transcriptPath.replace(/\.md$/u, '')}-files${separator}`;
+  const found = new Set<string>();
+  for (let index = markdown.indexOf(folder); index >= 0; index = markdown.indexOf(folder, index + folder.length)) {
+    const name = /^[A-Za-z0-9._-]+/u.exec(markdown.slice(index + folder.length, index + folder.length + 256))?.[0];
+    const trimmed = name?.replace(/\.+$/u, '');
+    if (trimmed) found.add(folder + trimmed);
+  }
+  return [...found].sort((a, b) => b.length - a.length);
+}
+
+/** Saves `content` on `to` as a chat attachment named like `sourcePath`, and answers its path there. */
+async function uploadCarriedFile(
+  to: MachineConnectionTarget,
+  sourcePath: string,
+  content: string,
+  encoding: 'base64' | 'utf8',
+): Promise<string> {
+  const name = sourcePath.split(/[/\\]/).pop() ?? 'handoff.md';
   const folder = new Directory(Paths.cache, 'handoff');
   folder.create({ idempotent: true, intermediates: true });
   const file = new File(folder, `${Date.now()}-${sanitizeAttachmentFilename(name)}`);
   file.create({ overwrite: true });
   try {
-    file.write(decodeBase64Utf8(read.base64));
+    if (encoding === 'base64') file.write(content, { encoding: 'base64' });
+    else file.write(content);
     return await uploadSessionChatLocalFile(to, file.uri, name, 'file');
   } finally {
     file.delete();
