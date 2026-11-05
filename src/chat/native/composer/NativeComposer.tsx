@@ -21,9 +21,10 @@ import type { ChatDocument } from '../../rust/document';
 import type { SubmitMode } from '../../rust/composer';
 import type { RustChat } from '../../rust/useRustChat';
 import { AttachmentPreviews } from './AttachmentPreviews';
-import { pickAttachments, type AttachSource } from './attachments';
+import { clipboardHasImage, pickAttachments, savePastedImage, type AttachSource } from './attachments';
 import { COLLAPSED_INPUT_HEIGHT, ComposerInput, type ComposerInputHandle } from './ComposerInput';
 import { ContextEditorSheet } from './ContextEditorSheet';
+import { PasteImageRow, pasteControlAvailable } from './PasteImageRow';
 import { Glyph, type GlyphName } from './icons';
 import { Glyph as CardGlyph } from '../cards/icons';
 import { attachIntakeImages } from './imageIntake';
@@ -137,7 +138,7 @@ const CONTROL_GLYPHS: Record<ComposerControlId, GlyphName> = {
   terminal: 'terminal-2',
 };
 
-type OpenMenu = { kind: 'rows'; title?: string; rows: MenuRow[] } | { kind: 'model' } | null;
+type OpenMenu = { kind: 'rows'; title?: string; rows: MenuRow[]; pasteImage?: boolean } | { kind: 'model' } | null;
 
 export function NativeComposer({
   projectId,
@@ -307,11 +308,26 @@ export function NativeComposer({
     [onHostAction],
   );
 
-  const openAttach = useCallback(() => {
+  const openAttach = useCallback(async () => {
+    // A copied screenshot leads the sheet: iOS's long-press Paste offers none for a text field.
+    // iOS 16 and later show Apple's Paste control above the rows (`PasteImageRow`) instead.
+    const hasImage = await clipboardHasImage();
+    const pasteRows =
+      hasImage && !pasteControlAvailable
+        ? [
+            {
+              label: 'Paste image',
+              iconPath: 'titlebar/copy.svg',
+              command: { type: 'pickAttachments', source: 'clipboard' },
+            },
+          ]
+        : [];
     setMenu({
       kind: 'rows',
       title: 'Attach',
+      pasteImage: hasImage && pasteControlAvailable,
       rows: [
+        ...pasteRows,
         {
           label: 'Photo library',
           iconPath: 'titlebar/photo.svg',
@@ -340,7 +356,7 @@ export function NativeComposer({
           dispatch({ type: 'filesLinks' });
           return;
         case 'attachPath':
-          openAttach();
+          void openAttach();
           return;
         case 'dictate':
           void dictation.toggle();
@@ -385,7 +401,7 @@ export function NativeComposer({
         case 'composerHost':
           // Attach swaps this sheet's rows for the Attach rows; closing it would close those too.
           if (str(command, 'action') === 'attachPath') {
-            openAttach();
+            void openAttach();
             return true;
           }
           performComposerAction(str(command, 'action'));
@@ -451,6 +467,18 @@ export function NativeComposer({
     (event: { nativeEvent: unknown }) =>
       attachIntakeImages(chat, event.nativeEvent, (message) => onHostAction?.('toast', { message, level: 'error' })),
     [chat, onHostAction],
+  );
+  /** An image pasted with the Attach sheet's Paste control joins the draft like a picked photo. */
+  const attachPastedImage = useCallback(
+    (dataUri: string) => {
+      setMenu(null);
+      savePastedImage(dataUri)
+        .then((file) => chat.attachFiles([file]))
+        .catch((error: unknown) => {
+          Alert.alert('Attachment failed', error instanceof Error ? error.message : 'The image could not be added.');
+        });
+    },
+    [chat],
   );
   /** A source picked in the sheet, launched once the sheet's modal is gone (iOS). */
   const pickAfterDismiss = useRef<AttachSource | null>(null);
@@ -858,6 +886,9 @@ export function NativeComposer({
             onClose={closeMenu}
             onCommand={runCommand}
             onDismissed={onMenuDismissed}
+            {...(menu?.kind === 'rows' && menu.pasteImage === true
+              ? { header: <PasteImageRow onImage={attachPastedImage} /> }
+              : {})}
           />
           <ModelMenuSheet
             menu={obj(document?.modelMenu)}
