@@ -18,14 +18,16 @@ export type SettingsPageId =
   | 'sounds'
   | 'connection'
   | 'advanced'
-  | 'readAloudVoice';
+  | 'readAloudVoice'
+  | 'dictateLanguage'
+  | 'dictateDictionary';
 
 export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, { title: string; description: string }>> = {
   updates: { title: 'Updates', description: 'Your Ghostex version, and newer releases.' },
   theme: { title: 'Interface', description: 'Background contrast and tint.' },
   sessionsList: { title: 'Sessions list', description: 'Unified or Project layout, and how Unified groups.' },
   chat: { title: 'Chat', description: 'Default agent view, chat theme and detail.' },
-  voice: { title: 'Voice agent', description: 'Regular or push-to-talk calls, and what each costs.' },
+  voice: { title: 'Voice', description: "Dictate's engine and models, and the voice agent, per computer." },
   terminal: { title: 'Terminal', description: 'Font size, screen and tab behavior.' },
   keyboard: { title: 'Keyboard', description: 'Extra keys row and agent hotkeys.' },
   sounds: { title: 'Sounds', description: 'A sound when an agent needs you.' },
@@ -33,6 +35,9 @@ export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, { title: string; de
   advanced: { title: 'Advanced', description: 'Older settings most people never change.' },
   // Opened from Settings › Chat's Read aloud rows, not listed on the Settings home.
   readAloudVoice: { title: 'Read aloud voice', description: "Which of this phone's voices reads replies aloud." },
+  // Opened from Settings › Voice, for the computer picked there; not listed on the Settings home.
+  dictateLanguage: { title: 'Language', description: 'The language Dictate listens for.' },
+  dictateDictionary: { title: 'Dictionary', description: 'Words Dictate should spell your way.' },
 };
 
 export const SETTINGS_PAGE_ORDER: readonly SettingsPageId[] = [

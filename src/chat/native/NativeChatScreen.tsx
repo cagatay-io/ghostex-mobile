@@ -19,6 +19,7 @@
  */
 
 import { useNavigation } from '@react-navigation/native';
+import { chooseVoiceComputer } from '../../voice/dictateSettings';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as Clipboard from 'expo-clipboard';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -217,6 +218,11 @@ export default function NativeChatScreen({
           show(answer.error.message, true, 'Switch Account failed');
         });
       } else if (action === 'toast') show(String(params.message ?? ''), params.level === 'error');
+      else if (action === 'voiceSettings') {
+        // The Dictate menu's Voice settings: Settings › Voice, already on this chat's computer.
+        chooseVoiceComputer(machine.id);
+        voiceNavigation.navigate('SettingsPage', { page: 'voice' });
+      }
       else if (action === 'voiceCall') {
         callVoiceAbout(machine, { projectId, sessionId, title: title.length > 0 ? title : 'this chat' }, () =>
           voiceNavigation.navigate('Voice'),

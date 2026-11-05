@@ -61,6 +61,8 @@ import { Suggestions } from './Suggestions';
 import { useComposerMotion } from './useComposerMotion';
 import { DictationBar } from './DictationBar';
 import { dictationClock, useDictation } from './useDictation';
+import { engineStatusLine } from '../../../voice/dictateModel';
+import { computerName } from '../../../screens/settings/voiceComputer';
 import { KeyboardLiftedView } from './KeyboardLiftedView';
 
 export type NativeComposerProps = {
@@ -346,6 +348,10 @@ export function NativeComposer({
         case 'transcribePreviousDictation':
           void dictation.transcribePrevious();
           return;
+        case 'voiceSettings':
+          // Settings › Voice, on this chat's computer (NativeChatScreen opens it).
+          if (chat.machine !== null) host('voiceSettings', { machineId: chat.machine.id });
+          return;
         case 'stashPrompt':
           if (model !== null && model.text.trim().length > 0) {
             dispatch({
@@ -490,28 +496,44 @@ export function NativeComposer({
     }
   }, [document, openAccountsRequestId]);
 
-  // A long press on the microphone offers Transcribe previous: the newest recording that has no text yet.
+  // The chat's computer by name, for the Dictate menu ("Transcribes on MacBook Pro").
+  const machineLabel = useMachinesStore((state) => {
+    const record = state.machines.find((entry) => entry.id === chat.machine?.id);
+    return record === undefined ? null : computerName(record);
+  });
+
+  // A long press on the microphone says what transcribes on this computer, and offers Transcribe
+  // previous (the newest recording that has no text yet) and the computer's Voice settings.
   const openDictationMenu = useCallback(() => {
     void dictation.previous().then((previous) => {
-      if (previous === null) {
-        onHostAction?.('toast', { message: 'There is no recording waiting to be transcribed.', level: 'info' });
-        return;
+      const engine = dictation.engine;
+      const rows: MenuRow[] = [];
+      if (engine !== null) {
+        rows.push({
+          heading: true,
+          label: engine.label,
+          description: engineStatusLine(engine, machineLabel ?? 'your computer'),
+        });
       }
-      const minutes = Math.floor((Date.now() - previous.createdAt) / 60_000);
-      const when = minutes < 1 ? 'just now' : minutes < 60 ? `${minutes} min ago` : `${Math.floor(minutes / 60)} h ago`;
-      setMenu({
-        kind: 'rows',
-        title: 'Dictate',
-        rows: [
-          {
-            label: `Transcribe previous (${dictationClock(previous.durationMs)}, ${when})`,
-            iconPath: 'titlebar/microphone.svg',
-            command: { type: 'composerHost', action: 'transcribePreviousDictation' },
-          },
-        ],
+      if (previous !== null) {
+        const minutes = Math.floor((Date.now() - previous.createdAt) / 60_000);
+        const when =
+          minutes < 1 ? 'just now' : minutes < 60 ? `${minutes} min ago` : `${Math.floor(minutes / 60)} h ago`;
+        rows.push({
+          label: `Transcribe previous (${dictationClock(previous.durationMs)}, ${when})`,
+          iconPath: 'titlebar/microphone.svg',
+          command: { type: 'composerHost', action: 'transcribePreviousDictation' },
+        });
+      }
+      rows.push({
+        label: 'Voice settings',
+        description: `Dictate's engine, models and dictionary on ${machineLabel ?? 'this computer'}`,
+        iconPath: 'titlebar/settings.svg',
+        command: { type: 'composerHost', action: 'voiceSettings' },
       });
+      setMenu({ kind: 'rows', title: 'Dictate', rows });
     });
-  }, [dictation, onHostAction]);
+  }, [dictation, machineLabel]);
 
   const openMore = useCallback(() => {
     if (document === null) return;
@@ -605,8 +627,13 @@ export function NativeComposer({
             phase={dictation.phase}
             elapsedMs={dictation.elapsedMs}
             failure={dictation.failure}
+            engine={dictation.engine?.label ?? null}
+            download={dictation.download}
+            fix={dictation.fix}
             onCancel={() => void dictation.cancel()}
             onRetry={() => void dictation.retry()}
+            onSkip={() => void dictation.skipPolish()}
+            onFix={() => void dictation.downloadNeeded()}
           />
           <ProjectPickerSheet
             visible={projectChoices !== null}
@@ -775,7 +802,13 @@ export function NativeComposer({
                       {available('dictate') ? (
                         <ToolbarButton
                           glyph={dictation.listening ? 'player-stop' : 'microphone'}
-                          label={dictation.listening ? 'Stop dictating' : 'Dictate'}
+                          label={
+                            dictation.listening
+                              ? 'Stop dictating'
+                              : dictation.engine !== null
+                                ? `Dictate · ${dictation.engine.label}`
+                                : 'Dictate'
+                          }
                           pressed={dictation.listening}
                           onPress={() => performComposerAction('dictate')}
                           onLongPress={openDictationMenu}

@@ -4,6 +4,8 @@ import type { RootStackParamList } from '../../navigation/types';
 import AdvancedPage from './AdvancedPage';
 import ChatPage from './ChatPage';
 import ConnectionPage from './ConnectionPage';
+import DictateDictionaryPage from './DictateDictionaryPage';
+import DictateLanguagePage from './DictateLanguagePage';
 import KeyboardPage from './KeyboardPage';
 import { SETTINGS_PAGES, type SettingsPageId } from './pages';
 import ReadAloudVoicePage from './ReadAloudVoicePage';
@@ -59,5 +61,9 @@ function SettingsPageBody({ page }: { page: SettingsPageId }) {
       return <AdvancedPage />;
     case 'readAloudVoice':
       return <ReadAloudVoicePage />;
+    case 'dictateLanguage':
+      return <DictateLanguagePage />;
+    case 'dictateDictionary':
+      return <DictateDictionaryPage />;
   }
 }
