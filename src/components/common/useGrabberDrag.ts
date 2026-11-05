@@ -6,7 +6,7 @@
  * Only the grabber strip takes the gesture, so lists inside the sheet keep scrolling.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Animated, PanResponder } from 'react-native';
 
 /** How far the grabber must be dragged down before letting go closes the sheet. */
@@ -27,8 +27,11 @@ function springBack(offset: Animated.Value) {
 
 export function useGrabberDrag(visible: boolean, onClose: () => void) {
   const offset = useRef(new Animated.Value(0)).current;
+  // The gesture calls the latest `onClose`, kept after each commit and so before a touch on it can end.
   const latestOnClose = useRef(onClose);
-  latestOnClose.current = onClose;
+  useLayoutEffect(() => {
+    latestOnClose.current = onClose;
+  }, [onClose]);
   // Whether the touch began above the panel, where the touch area lies over the backdrop.
   const startedAbovePanel = useRef(false);
   // Set when a gesture asked to close; the render it causes shows whether the sheet's owner closed it.
