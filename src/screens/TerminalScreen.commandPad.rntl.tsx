@@ -272,10 +272,12 @@ describe('every function of the key bar is reached from the pad', () => {
     ]);
   });
 
-  test('a shell session has no agent hotkeys: the Agent button is unavailable', async () => {
+  test('a shell session has no agent hotkeys: the Agent button is unavailable and says why', async () => {
     await renderScreen();
     await openPad();
-    expect(screen.getByLabelText('Agent hotkeys').props.accessibilityState).toMatchObject({ disabled: true });
+    const agent = screen.getByLabelText('Agent hotkeys');
+    expect(agent.props.accessibilityState).toMatchObject({ disabled: true });
+    expect(agent.props.accessibilityHint).toBe("This session's agent has no agent hotkeys");
   });
 
   test('the keyboard button shows the keyboard and, while it is up, dismisses it', async () => {

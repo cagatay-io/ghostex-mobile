@@ -1027,6 +1027,8 @@ export const CommandPadCopy = {
   moveRight: 'Move to the right side',
   keysLayer: 'Keys',
   agentLayer: 'Agent hotkeys',
+  /** Why the Agent button is unavailable: only Codex, Claude Code and Pi have agent hotkeys. */
+  agentUnavailableHint: "This session's agent has no agent hotkeys",
   editor: 'Text editor',
   showKeyboard: 'Show keyboard',
   hideKeyboard: 'Hide keyboard',

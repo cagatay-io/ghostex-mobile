@@ -268,6 +268,8 @@ function CommandPad({
     label: string;
     selected: boolean;
     disabled?: boolean;
+    /** Spoken after the label, e.g. why an unavailable button cannot act. */
+    hint?: string;
     icon: ReactNode;
     onPress: () => void;
   }[] = [
@@ -283,6 +285,7 @@ function CommandPad({
       label: CommandPadCopy.agentLayer,
       selected: layer === 'agent',
       disabled: !agentAvailable,
+      hint: agentAvailable ? undefined : CommandPadCopy.agentUnavailableHint,
       icon: (
         <AgentSparkIcon
           size={18}
@@ -360,6 +363,7 @@ function CommandPad({
               key={button.key}
               accessibilityRole="button"
               accessibilityLabel={button.label}
+              accessibilityHint={button.hint}
               accessibilityState={{ selected: button.selected, disabled: button.disabled === true }}
               disabled={button.disabled}
               style={({ pressed }) => [
