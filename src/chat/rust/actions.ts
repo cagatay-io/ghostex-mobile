@@ -193,8 +193,6 @@ export type ActionFields = {
   formToggle: { form: string };
   inlineAnswer: { form: string; choice: number };
   inlineAnswerChange: { form: string };
-  /** The reader's own words as a one-click question's answer: by its form, or its tag alone. */
-  inlineAnswerText: { form?: string; tag?: string; text: string };
   asyncQuestionToggle: {};
   asyncQuestionNavigate: { direction: string };
   asyncQuestionText: { key: string; text: string };

@@ -7,53 +7,12 @@
  * CDXC:SessionChat 2026-11-05 SEE-ALSO: The decision (Q1245 C, the segmented pill on the line under the question; Q1247 B, Change while queued or after) is in packages/gx-chat-core/src/transcript/inline_answers.rs.
  */
 
-import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useTranscriptEnv } from '../context';
 import { arr, obj, str, type JsonRecord } from '../json';
 import { QuestionFlashFrame } from '../OpenQuestions';
 import { useQuestionFormState } from '../QuestionForm';
-import { ReplySheet } from '../ReplySheet';
-
-/** The reader's own answer as the status quotes it: its first line, at most 48 characters. */
-function short(text: string): string {
-  const line = (text.split('\n')[0] ?? '').trim();
-  const cut = Array.from(line).slice(0, 48).join('');
-  return cut.length < line.length || text.trim().includes('\n') ? `${cut}…` : cut;
-}
-
-/**
- * A one-click question's Reply sheet: the reader's own words go as its answer (`inlineAnswerText`,
- * desktop `reply_popover.rs`, CDXC:SessionChat 2026-11-05 DECISION on `open_question_reply`).
- * `form` is null when the question's own Q-tag opened it; the core finds the question by its tag.
- */
-export function QuestionReplySheet({
-  open,
-  form,
-  tag,
-  onClose,
-}: {
-  open: boolean;
-  form: string | null;
-  tag: string;
-  onClose: () => void;
-}) {
-  const { dispatch } = useTranscriptEnv();
-  return (
-    <ReplySheet
-      quote={open ? '' : null}
-      question={tag}
-      onClose={onClose}
-      onReply={(_, reply) => {
-        onClose();
-        const text = reply.trim();
-        if (text.length === 0) return;
-        dispatch({ type: 'inlineAnswerText', ...(form !== null ? { form } : {}), tag, text });
-      }}
-    />
-  );
-}
 
 /** `rgba()` of a `#rrggbb` colour at `alpha`; other colour strings come back as they are. */
 function withAlpha(color: string, alpha: number): string {
@@ -75,12 +34,6 @@ export function InlineAnswers({ mark }: { mark: JsonRecord }) {
   const picked = typeof pickedRaw === 'number' ? pickedRaw : null;
   const sent = phase === 'sending' || phase === 'queued' || phase === 'answered';
   const clickable = !withdrawn && (phase === 'open' || (changing && phase !== 'sending'));
-  // A newer copy of this question sits further down; every copy answers it there.
-  const askedAgain = form?.askedAgain === true && phase === 'open' && !changing && !withdrawn;
-  const ownAnswer = sent && form !== null ? str(form, 'ownAnswer') : '';
-  const words = ownAnswer.length > 0 ? ` “${short(ownAnswer)}”` : '';
-  const tag = str(mark, 'tag');
-  const [replying, setReplying] = useState(false);
   const edge = withAlpha(theme.foreground, 0.16);
   const inkText = theme.light ? '#fafafa' : '#111113';
   const choices = arr(mark.choices).map((choice) => obj(choice)).filter((choice) => choice !== null);
@@ -88,10 +41,9 @@ export function InlineAnswers({ mark }: { mark: JsonRecord }) {
   let status: { text: string; link: string | null } | null = null;
   if (withdrawn) status = { text: 'Withdrawn', link: null };
   else if (changing) status = { text: 'Pick another answer ·', link: 'Cancel' };
-  else if (askedAgain) status = { text: 'Asked again below', link: null };
-  else if (phase === 'sending') status = { text: `Sending${words}…`, link: null };
-  else if (phase === 'queued') status = { text: `Queued${words} ·`, link: 'Change' };
-  else if (phase === 'answered') status = { text: `Sent${words} ·`, link: 'Change' };
+  else if (phase === 'sending') status = { text: 'Sending…', link: null };
+  else if (phase === 'queued') status = { text: 'Queued ·', link: 'Change' };
+  else if (phase === 'answered') status = { text: 'Sent ·', link: 'Change' };
 
   return (
     <QuestionFlashFrame target={formId} light={theme.light}>
@@ -131,20 +83,6 @@ export function InlineAnswers({ mark }: { mark: JsonRecord }) {
               </Pressable>
             );
           })}
-          {clickable ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Write your own answer"
-              onPress={() => setReplying(true)}
-              style={({ pressed }) => [
-                styles.segment,
-                choices.length > 0 && { borderLeftWidth: StyleSheet.hairlineWidth * 2, borderLeftColor: edge },
-                { backgroundColor: withAlpha(theme.foreground, pressed ? 0.1 : 0.035) },
-              ]}
-            >
-              <Text style={[styles.label, { color: theme.cardMuted }]}>✎</Text>
-            </Pressable>
-          ) : null}
         </View>
         {status !== null ? (
           <View style={styles.status}>
@@ -161,7 +99,6 @@ export function InlineAnswers({ mark }: { mark: JsonRecord }) {
           </View>
         ) : null}
       </View>
-      <QuestionReplySheet open={replying} form={formId} tag={tag} onClose={() => setReplying(false)} />
     </QuestionFlashFrame>
   );
 }

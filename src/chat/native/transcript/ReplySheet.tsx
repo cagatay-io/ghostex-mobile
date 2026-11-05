@@ -16,14 +16,11 @@ export type ReplyAction = 'add' | 'send';
 
 export function ReplySheet({
   quote,
-  question,
   onClose,
   onReply,
 }: {
   /** The Reply row's `quote` (Add to Chat's text); null closes the sheet. */
   quote: string | null;
-  /** The tag of the one-click question it answers instead (`InlineAnswers.tsx`): Send answer only. */
-  question?: string;
   onClose: () => void;
   onReply: (quote: string, reply: string, action: ReplyAction) => void;
 }) {
@@ -58,7 +55,7 @@ export function ReplySheet({
     </Pressable>
   );
   return (
-    <Sheet visible={quote !== null} onClose={onClose} title={question !== undefined ? `Answer ${question}` : 'Reply'}>
+    <Sheet visible={quote !== null} onClose={onClose} title="Reply">
       <View style={styles.body}>
         {preview.length > 0 ? (
           <Text style={styles.quote} numberOfLines={3}>
@@ -70,14 +67,14 @@ export function ReplySheet({
           onChangeText={setText}
           multiline
           autoFocus
-          placeholder={question !== undefined ? `Your answer to ${question}…` : 'Reply…'}
+          placeholder="Reply…"
           placeholderTextColor={P.placeholder}
-          accessibilityLabel={question !== undefined ? `Answer ${question}` : 'Reply'}
+          accessibilityLabel="Reply"
           style={styles.input}
         />
         <View style={styles.footer}>
-          {question !== undefined ? null : button('Add to prompt', 'add', false)}
-          {button(question !== undefined ? 'Send answer' : 'Send reply', 'send', true)}
+          {button('Add to prompt', 'add', false)}
+          {button('Send reply', 'send', true)}
         </View>
       </View>
     </Sheet>
