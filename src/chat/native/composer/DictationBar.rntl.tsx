@@ -45,15 +45,15 @@ test('a missing model offers its download, then shows its progress', async () =>
     <DictationBar
       phase="failed"
       elapsedMs={0}
-      failure="Parakeet TDT 0.6B v3 isn't downloaded yet."
+      failure="Parakeet v3 isn't downloaded on your computer yet."
       engine="Local, Parakeet v3"
       download={null}
-      fix={{ kind: 'download', label: 'Download Parakeet v3 (0.72 GB)' }}
+      fix={{ kind: 'download', label: 'Download (0.72 GB)' }}
       {...on}
     />,
   );
   expect(screen.queryByText('Transcribe again')).toBeNull();
-  await fireEvent.press(screen.getByText('Download Parakeet v3 (0.72 GB)'));
+  await fireEvent.press(screen.getByText('Download (0.72 GB)'));
   expect(on.onFix).toHaveBeenCalledTimes(1);
   await render(
     <DictationBar

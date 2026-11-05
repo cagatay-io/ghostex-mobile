@@ -63,6 +63,43 @@ for k in EXDevMenuShowFloatingActionButton EXDevMenuShowsAtLaunch; do xcrun simc
 xcrun simctl --set $SET launch --terminate-running-process $U com.maddada.ghostex.ios --initialUrl http://localhost:8081
 ```
 
+### Keeping the simulator dev client current
+
+The shared test device is `gx-cb-iPhone-Duo` in `~/Library/Developer/GhostexSimDevices`. Its dev client goes stale whenever native code changes (a module method the JS calls, a new pod, a Tailcat bridge change); the symptom is a crash at launch on a native call the old build lacks (for example `voiceStatus`). Rebuild it with these steps, from this folder. Keep build output out of `/tmp` (`W` below):
+
+```sh
+SET=~/Library/Developer/GhostexSimDevices; U=393739D1-0237-4BAE-91DD-FDD8E53979E2   # gx-cb-iPhone-Duo
+W=~/.local/share/agent-work/ghostex/sim-dev-client; mkdir -p $W
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer   # Xcode 27.1; xcode-select may point at an older beta
+bun install
+(cd ../../.. && cargo xtask build-mobile-chat-wasm)               # the chat core page Metro bundles
+../tailcat-bridge/build.sh --target ios                            # the vendored Tailcatbridge.xcframework is gitignored and goes stale
+CI=1 bunx expo prebuild --platform ios --no-install && (cd ios && pod install)
+xcodebuild -workspace ios/Ghostex.xcworkspace -scheme Ghostex -configuration Debug -sdk iphonesimulator \
+  -destination 'generic/platform=iOS Simulator' -derivedDataPath $W/DerivedData ARCHS=arm64 build > $W/xcodebuild.log 2>&1
+APP=$W/DerivedData/Build/Products/Debug-iphonesimulator/Ghostex.app
+plutil -extract DTSDKName raw $APP/Info.plist                      # iphonesimulator27.1
+xcrun simctl --set $SET boot $U; xcrun simctl --set $SET bootstatus $U -b
+xcrun simctl --set $SET install $U $APP                            # keeps the app's data (paired computers)
+bunx expo start --dev-client --port 8081 > $W/metro.log 2>&1 &     # then the dev-launcher defaults and launch above
+```
+
+- `error: cannot find 'Tailcat…' in scope` from `GhostexNativeModule.swift` means the Tailcat bridge step was skipped.
+- Screenshots: the iPhone Duo has several displays and the default capture is black; take the outer one with `xcrun simctl --set $SET io $U screenshot --display=primary shot.png` (`idb screenshot` fails with "Display has no activity").
+- `xcrun simctl --set $SET privacy $U grant microphone com.maddada.ghostex.ios` lets Dictate record without a prompt; it quits the app, so launch it again afterwards.
+- Pairing with this Mac's gxserver (the device is paired as of 2026-11-05; repeat only if Machines shows it failing): ask gxserver for an Easy Connect code, then in the app tap Add a computer › Scan a code. The simulator has no camera, so the page offers a paste field; type the code with `idb ui text`, tap the page title to close the keyboard (it covers Pair), and tap Pair.
+
+```sh
+E=$(ghostex server endpoint); P=$(echo $E | jq .port); T=$(echo $E | jq -r .authToken)
+curl -s -X POST -H "authorization: Bearer $T" -H 'x-gxserver-protocol-version: 1' -H 'content-type: application/json' \
+  -d '{"params":{"openTunnel":true}}' http://127.0.0.1:$P/api/remotePairingCode | jq -r .result.easyConnect.text
+```
+
+- gxserver reads a request's arguments from `params` (`{"params":{…}}`); a bare body is ignored or refused.
+- Keep one machine record per computer: older records for the same Mac run their own Tailcat tunnels, the Mac's WireGuard replies reach the wrong one (`Received invalid response message` in the device log) and the chat link never connects. Remove stale ones in Machines › the record › Remove this computer from the phone, then relaunch the app.
+- Leave the computer's settings as they were: Settings › Voice changes Dictate on the real Mac (engine, models, dictionary). Read `/api/readDictateSettings` first and restore it with `/api/setDictateSettings` (`{"params":{"patch":{…}}}`) when done.
+- When done: stop Metro, `idb disconnect localhost 10882` and kill its `idb_companion`, and `xcrun simctl --set $SET shutdown $U`.
+
 ## License
 
 GPL-3.0 — inherits from the Termux-derived Java and the VVTerm-derived Swift.

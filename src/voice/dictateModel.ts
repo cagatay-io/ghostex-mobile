@@ -75,6 +75,8 @@ export const DICTIONARY_LIMITS = { words: 200, wordLength: 64, aliasMin: 3, alia
 
 /** "0.72 GB", or "150 MB" under a gigabyte's tenth. */
 export function formatBytes(bytes: number): string {
+  // Nothing on disk is "0 MB", not the 1 MB floor a small file gets.
+  if (bytes <= 0) return '0 MB';
   if (bytes >= 100_000_000) return `${(bytes / 1e9).toFixed(2)} GB`;
   return `${Math.max(1, Math.round(bytes / 1e6))} MB`;
 }

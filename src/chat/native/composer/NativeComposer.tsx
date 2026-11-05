@@ -518,7 +518,13 @@ export function NativeComposer({
       if (previous !== null) {
         const minutes = Math.floor((Date.now() - previous.createdAt) / 60_000);
         const when =
-          minutes < 1 ? 'just now' : minutes < 60 ? `${minutes} min ago` : `${Math.floor(minutes / 60)} h ago`;
+          minutes < 1
+            ? 'just now'
+            : minutes < 60
+              ? `${minutes} min ago`
+              : minutes < 2880
+                ? `${Math.floor(minutes / 60)} h ago`
+                : `${Math.floor(minutes / 1440)} days ago`;
         rows.push({
           label: `Transcribe previous (${dictationClock(previous.durationMs)}, ${when})`,
           iconPath: 'titlebar/microphone.svg',

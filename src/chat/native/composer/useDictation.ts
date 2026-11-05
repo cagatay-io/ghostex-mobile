@@ -388,8 +388,17 @@ export function useDictation(
     failure !== null && failure.code !== null && MODEL_CODES.has(failure.code) && neededModel !== null
       ? neededModel.state === 'downloading' || neededModel.state === 'preparing'
         ? { kind: 'wait', label: 'Transcribe when ready' }
-        : { kind: 'download', label: `Download ${neededModel.shortTitle} (${formatBytes(neededModel.downloadBytes)})` }
+        : { kind: 'download', label: `Download (${formatBytes(neededModel.downloadBytes)})` }
       : null;
+
+  // gxserver's sentence for a missing model says to download it in Settings; the row's own button
+  // does that, so the phone says it in its words (a failed download keeps the computer's reason).
+  const failureText =
+    fix !== null && neededModel !== null && neededModel.state !== 'failed'
+      ? fix.kind === 'wait'
+        ? `${neededModel.shortTitle} is still downloading on your computer.`
+        : `${neededModel.shortTitle} isn't downloaded on your computer yet.`
+      : (failure?.message ?? null);
 
   /** What Transcribe previous would take, asked fresh (for the long-press menu). */
   const previous = useCallback(async () => (machine === null ? null : latestUntranscribed(machine)), [machine]);
@@ -398,7 +407,7 @@ export function useDictation(
     available,
     phase,
     listening: phase === 'recording' || phase === 'starting',
-    failure: failure?.message ?? null,
+    failure: failureText,
     elapsedMs: phase === 'recording' ? Math.max(0, now - startedAt) : 0,
     /** What will transcribe ("Local, Parakeet v3"), or null when the computer doesn't say. */
     engine,

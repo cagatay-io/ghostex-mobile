@@ -61,6 +61,7 @@ describe('model sizes and downloads', () => {
     assert.equal(formatBytes(1_620_000_000), '1.62 GB');
     assert.equal(formatBytes(147_000_000), '0.15 GB');
     assert.equal(formatBytes(42_000_000), '42 MB');
+    assert.equal(formatBytes(0), '0 MB');
   });
 
   test('a download counts up to 100, and preparing shows as done', () => {
