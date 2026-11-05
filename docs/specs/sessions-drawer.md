@@ -252,10 +252,10 @@ anchors to the long-pressed row):
   kill). Browser sessions lose Rename/Tag/Delayed Send/Close After Done/
   Fork/Full reload like the desktop. Focus on Mac was removed 2026-07-22.
   Desktop-only items intentionally absent: Pop Out Pane / Focus (AppKit pane
-  zoom), Move to New Group, Sleep/Close below (sidebar-visual-order bulk
+  zoom), Move to New Sessions Group, Sleep/Close below (sidebar-visual-order bulk
   actions), View 1st message / Generate Title / Copy resume (need fields the
   mobile summary does not carry yet).
-- **Project header**: Copy Path, Add to project group › (New project group /
+- **Project header**: Copy Path, Add to project group › (New Group /
   swatch radio per collection / Remove from group — full-state
   `update-sidebar-project-collections --state-json` round-trip via
   `contract/collectionsState.ts`) · Sleep Inactive⇄Wake, Full reload · Close

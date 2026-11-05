@@ -673,7 +673,7 @@ function coordinatorRows(session: GhostexSession): SidebarMenuItem[] {
  * Left out, because the phone has no way to run them: Snooze / Unsnooze (no `ghostex` verb for
  * gxserver's `/api/snoozeSession`), the five Postpone By presets (no verb for
  * `/api/postponeDelayedSend`), Switch Account, View 1st Message (the summary carries no first
- * message), Generate Title, Move to New Group, and New Tag…; Split Right and Focus act on the
+ * message), Generate Title, Move to New Sessions Group, and New Tag…; Split Right and Focus act on the
  * computer's own panes.
  */
 /** A wake time still ahead (gx-core `session_is_snoozed`). */
@@ -903,7 +903,7 @@ export type ProjectMenuInput = {
 function projectMembershipMenu(input: ProjectMenuInput): SidebarMenuItem[] {
   if (input.projectId.length === 0) return [];
   const children: SidebarMenuItem[] = [
-    row('New Project Group', 'plus', {
+    row('New Group', 'plus', {
       type: 'projectMembership',
       groupId: input.groupId,
       action: 'createCollection',
