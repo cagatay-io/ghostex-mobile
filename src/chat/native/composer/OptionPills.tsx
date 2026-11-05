@@ -2,7 +2,8 @@
  * The pills under the composer (`option_pills.rs`): the agent chip naming the bot a Hermes chat
  * talks to, the model pill (with the agent's mark and, for the merged picker, the reasoning suffix),
  * the options pill, the permission mode pill, and the context meter ring. Each pill opens its menu;
- * the menus are the document's rows.
+ * the menus are the document's rows. A chat in a pane slot (`modelOnly`) shows the agent chip and the
+ * model pill alone, the panes mockup's agent and model button; the rest is in the full chat view.
  */
 
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -40,7 +41,16 @@ function lightModeColor(hex: string): string {
   return `#${channel(16)}${channel(8)}${channel(0)}`;
 }
 
-export function OptionPills({ document, onOpen }: { document: ChatDocument; onOpen: (kind: PillKind) => void }) {
+export function OptionPills({
+  document,
+  onOpen,
+  modelOnly = false,
+}: {
+  document: ChatDocument;
+  onOpen: (kind: PillKind) => void;
+  /** The compact composer of a chat in a pane: no options, mode or context pill. */
+  modelOnly?: boolean;
+}) {
   const styles = useStyles();
   const P = useTranscriptTheme();
   const labels = obj(document.optionLabels);
@@ -119,7 +129,7 @@ export function OptionPills({ document, onOpen }: { document: ChatDocument; onOp
           <Glyph name="chevron-down" size={12} color={P.primary} />
         </Pressable>
       ) : null}
-      {isTrue(labels, 'showOptions') && !merged && !optionsOverflowed ? (
+      {isTrue(labels, 'showOptions') && !merged && !optionsOverflowed && !modelOnly ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={optionsLabel.length > 0 ? `Options: ${optionsLabel}` : 'Reading options'}
@@ -138,7 +148,7 @@ export function OptionPills({ document, onOpen }: { document: ChatDocument; onOp
           <Glyph name="chevron-down" size={12} color={P.primary} />
         </Pressable>
       ) : null}
-      {hasMode ? (
+      {hasMode && !modelOnly ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={str(labels, 'mode') ? `Mode: ${str(labels, 'mode')}` : 'Mode'}
@@ -150,7 +160,7 @@ export function OptionPills({ document, onOpen }: { document: ChatDocument; onOp
           </View>
         </Pressable>
       ) : null}
-      {context !== null && !optionsOverflowed ? (
+      {context !== null && !optionsOverflowed && !modelOnly ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={str(context, 'label')}
