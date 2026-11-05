@@ -440,7 +440,7 @@ async function dragTitleBar(sessionKey: string, dx: number, dy: number): Promise
   await settle();
 }
 
-/** A finger on the divider handle moved by `delta` along the divider's axis and lifted. */
+/** A finger on the divider handle moved by `delta` along the divider's axis and lifted, then the next frame. */
 async function dragDivider(delta: number, upright = true): Promise<void> {
   const at = (offset: number) => (upright ? touch(300, 400 + offset) : touch(400 + offset, 300));
   await fireEvent(handle(), 'responderGrant', at(0));
@@ -449,6 +449,8 @@ async function dragDivider(delta: number, upright = true): Promise<void> {
     ...at(delta),
     nativeEvent: { ...at(delta).nativeEvent, touches: [] },
   });
+  // The drag, its end included, takes effect at the next frame.
+  await act(() => jest.advanceTimersByTime(16));
   await settle();
 }
 
@@ -940,6 +942,33 @@ describe('resizing by the divider handle', () => {
     await nextFrame();
     expect(card(A).height - top).toBeCloseTo(80, 0);
     expect(storedLayouts().stacked?.dividerRatio).toBe(0.5);
+  });
+
+  test('moves and the release in a frame that already resized: no second resize in it, one at the next frame, the released position stored', async () => {
+    await renderScreen({ stored: stacked(A, B) });
+    const top = card(A).height;
+    const terminalHeight = () => num(terminalView(A), 'height');
+    const nextFrame = () => act(() => jest.advanceTimersByTime(16));
+    const lifted = (pageY: number) => ({
+      ...touch(300, pageY),
+      nativeEvent: { ...touch(300, pageY).nativeEvent, touches: [] },
+    });
+    await fireEvent(handle(), 'responderGrant', touch(300, 400));
+    await fireEvent(handle(), 'responderMove', touch(300, 430));
+    await nextFrame();
+    const resized = terminalHeight();
+    expect(card(A).height - top).toBeCloseTo(30, 0);
+    // Before the next frame: two more moves and the finger lets go.
+    await fireEvent(handle(), 'responderMove', touch(300, 440));
+    await fireEvent(handle(), 'responderMove', touch(300, 450));
+    await fireEvent(handle(), 'responderRelease', lifted(450));
+    await settle();
+    expect(terminalHeight()).toBe(resized);
+    expect(card(A).height - top).toBeCloseTo(30, 0);
+    await nextFrame();
+    expect(card(A).height - top).toBeCloseTo(50, 0);
+    expect(terminalHeight()).not.toBe(resized);
+    expect(storedLayouts().stacked?.dividerRatio).toBeCloseTo(0.5 + 50 / areaOf(UPRIGHT).height, 5);
   });
 
   test('dragged as far as it goes: each pane keeps 25 % of the pane container', async () => {

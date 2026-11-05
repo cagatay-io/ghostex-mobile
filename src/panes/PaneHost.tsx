@@ -497,27 +497,42 @@ function Divider({
 }) {
   const grab = useRef<{ position: number; ratio: number } | null>(null);
   // The finger's newest position waits for the next frame: the panes, and a terminal's native size, follow it at most
-  // once per frame however often the touch reports a move.
-  const nextFrame = useRef<{ request: number; ratio: number } | null>(null);
-  const dragTo = (next: number): void => {
+  // once per frame however often the touch reports a move. Letting go (or losing the touch) waits for that frame too,
+  // so the end of a drag never resizes a second time in a frame that has already resized (`end`: the drag's state is
+  // cleared then, and a released position is stored).
+  const nextFrame = useRef<{ request: number; ratio: number | null; end: boolean } | null>(null);
+  const onFrame = (ratio: number | null, end: boolean): void => {
     if (nextFrame.current !== null) {
-      nextFrame.current.ratio = next;
+      nextFrame.current.ratio = ratio;
+      nextFrame.current.end = end;
       return;
     }
     const request = requestAnimationFrame(() => {
-      const latest = nextFrame.current;
+      const due = nextFrame.current;
       nextFrame.current = null;
-      if (latest !== null) onDrag(latest.ratio);
+      if (due === null) return;
+      if (!due.end) {
+        if (due.ratio !== null) onDrag(due.ratio);
+        return;
+      }
+      // Stored first, then the drag let go, in one render: the panes stand where the finger left them.
+      if (due.ratio !== null) onRatio(due.ratio);
+      onDrag(null);
     });
-    nextFrame.current = { request, ratio: next };
+    nextFrame.current = { request, ratio, end };
   };
-  const dropFrame = (): void => {
-    if (nextFrame.current !== null) cancelAnimationFrame(nextFrame.current.request);
-    nextFrame.current = null;
-  };
+  // A released position not yet stored when the divider goes away with the panes is stored then.
+  const storeRatio = useRef(onRatio);
+  useEffect(() => {
+    storeRatio.current = onRatio;
+  }, [onRatio]);
   useEffect(
     () => () => {
-      if (nextFrame.current !== null) cancelAnimationFrame(nextFrame.current.request);
+      const due = nextFrame.current;
+      if (due === null) return;
+      cancelAnimationFrame(due.request);
+      nextFrame.current = null;
+      if (due.end && due.ratio !== null) storeRatio.current(due.ratio);
     },
     [],
   );
@@ -556,24 +571,28 @@ function Divider({
           ]}
           onStartShouldSetResponder={() => true}
           onResponderGrant={(event) => {
+            // A drag let go less than a frame ago is stored now; the new one starts where the panes stand.
+            const due = nextFrame.current;
+            if (due !== null) {
+              cancelAnimationFrame(due.request);
+              nextFrame.current = null;
+              if (due.end && due.ratio !== null) onRatio(due.ratio);
+            }
             grab.current = { position: position(event), ratio };
             onDrag(ratio);
           }}
           onResponderMove={(event) => {
             const next = ratioAt(event);
-            if (next !== null) dragTo(next);
+            if (next !== null) onFrame(next, false);
           }}
           onResponderRelease={(event) => {
             const next = ratioAt(event);
             grab.current = null;
-            dropFrame();
-            onDrag(null);
-            if (next !== null) onRatio(next);
+            onFrame(next, true);
           }}
           onResponderTerminate={() => {
             grab.current = null;
-            dropFrame();
-            onDrag(null);
+            onFrame(null, true);
           }}
           onResponderTerminationRequest={() => false}
         >
