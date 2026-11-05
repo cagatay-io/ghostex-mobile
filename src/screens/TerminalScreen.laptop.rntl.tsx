@@ -35,6 +35,7 @@ import { useBarGeometryStore } from '../components/common/verticalBar/barGeometr
 import VerticalBarArea from '../components/common/verticalBar/VerticalBarArea';
 import { TEXT_EDITOR_HEIGHT } from '../components/terminal/TerminalTextEditor';
 import { DEFAULT_COMMAND_PAD_KEYS } from '../settings/commandPad';
+import { useMachinesStore } from '../machines/store';
 import { useSettingsStore } from '../settings/store';
 import { useTerminalStore, type TerminalTab } from '../terminal/sessions';
 import TerminalScreen from './TerminalScreen';
@@ -90,7 +91,15 @@ jest.mock('expo-haptics', () => ({
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 80, bottom: 20, left: 0, right: 0 }),
 }));
-jest.mock('../chat/native/NativeChatScreen', () => ({ __esModule: true, default: () => null }));
+// The chat screen as a plain view with the style the terminal screen gives it, so its frame can be read.
+jest.mock('../chat/native/NativeChatScreen', () => {
+  const { createElement } = jest.requireActual('react');
+  const { View } = jest.requireActual('react-native');
+  return {
+    __esModule: true,
+    default: ({ style }: { style?: unknown }) => createElement(View, { testID: 'chat-view', style }),
+  };
+});
 jest.mock('../voice/VoiceButton', () => ({ VoiceButton: () => null }));
 jest.mock('@react-navigation/native', () => ({
   useIsFocused: () => true,
@@ -175,7 +184,8 @@ async function renderScreen(
   );
   await act(async () => undefined);
   // The terminal area's frame, as its layout reports it (the slide and the pad's room need a laid-out area).
-  await fireEvent(screen.getByTestId('terminal-view').parent as TestInstance, 'layout', {
+  const area = (screen.queryByTestId('terminal-view') ?? screen.getByTestId('chat-view')).parent as TestInstance;
+  await fireEvent(area, 'layout', {
     nativeEvent: { layout: { x: 0, y: AREA_TOP, width: window.width, height: window.height - HOME - AREA_TOP } },
   });
 }
@@ -425,6 +435,54 @@ describe('keyboard up or not, the output ends at the fold', () => {
     let overlay: TestInstance | null = screen.getByText('Reconnect');
     while (overlay !== null && num(overlay, 'paddingBottom') === undefined) overlay = overlay.parent;
     expect(overlay === null ? undefined : num(overlay, 'paddingBottom')).toBe(AREA_BOTTOM - FOLD.top);
+  });
+
+  describe('the single chat', () => {
+    const CHAT_TAB: TerminalTab = {
+      ...SHELL_TAB,
+      sessionKey: 'agent-1',
+      kind: 'attach',
+      ghostexSessionId: 's1',
+      ghostexProjectId: 'p1',
+      ghostexAgentId: 'claude',
+    };
+    /** Where the chat view (its transcript and composer) ends in the window: the area's bottom less its margin. */
+    function chatBottom(): number {
+      return AREA_BOTTOM - (num(screen.getByTestId('chat-view'), 'marginBottom') ?? 0);
+    }
+
+    beforeEach(() => {
+      useMachinesStore.setState({
+        machines: [{ id: 'm1', name: 'synthetic', host: 'synthetic.invalid', port: 22, username: 'synthetic' }] as never,
+      });
+      useTerminalStore.setState({ sessionViewModeBySessionKey: { 'agent-1': 'chat' } });
+    });
+
+    afterEach(async () => {
+      await act(() => useMachinesStore.setState({ machines: [] }));
+    });
+
+    test('keyboard down: the transcript and the composer end above the fold', async () => {
+      await renderScreen(PORTRAIT, [LAPTOP_DIVISION], CHAT_TAB);
+      expect(chatBottom()).toBeLessThanOrEqual(FOLD.top);
+      expect(chatBottom()).toBe(FOLD.top - 8);
+    });
+
+    test('keyboard up: the chat keeps its area and its composer lifts itself above the fold, as before', async () => {
+      await renderScreen(PORTRAIT, [LAPTOP_DIVISION], CHAT_TAB);
+      await keyboardWillShow();
+      expect(chatBottom()).toBe(AREA_BOTTOM);
+      await keyboardWillHide();
+      expect(chatBottom()).toBe(FOLD.top - 8);
+    });
+
+    test.each([
+      ['flat', PORTRAIT, FLAT_DIVISION],
+      ['book pose', LANDSCAPE, BOOK_DIVISION],
+    ])('%s: the chat keeps its whole area', async (_pose, window, division) => {
+      await renderScreen(window, [division], CHAT_TAB);
+      expect(num(screen.getByTestId('chat-view'), 'marginBottom')).toBeUndefined();
+    });
   });
 });
 

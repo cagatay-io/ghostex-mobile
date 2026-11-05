@@ -17,7 +17,8 @@
  * - Laptop pose (iPhone Duo half folded, `laptopMode.ts`): with the keyboard or a pad layer up the terminal's
  *   visible part ends at the fold and the lower half is covered; the keyboard and the layers lie below the fold, the
  *   pad and the text editor above it (the open pad reaches below it only where the upper half is too short for it
- *   even reaching over the header).
+ *   even reaching over the header). In chat view the transcript and the composer end above the fold, keyboard up
+ *   or not.
  */
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -44,10 +45,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GhostexNative, GhostexTerminalView } from '../../modules/ghostex-native/src';
 import ProgressOverlay from '../components/common/ProgressOverlay';
 import PromptDialog from '../components/common/PromptDialog';
-import { useKeyboardState } from '../components/common/keyboard/keyboardFrame';
+import { useKeyboardState, useKeyboardTop } from '../components/common/keyboard/keyboardFrame';
 import { measureInWindow } from '../components/common/measureInWindow';
 import { useLaptopFold } from '../components/common/verticalBar/laptopFold';
-import { bandRowFrame } from '../components/common/verticalBar/layout';
+import { bandRowFrame, foldUpperHalfInset } from '../components/common/verticalBar/layout';
 import {
   barBackgroundToEdges,
   railMenuItems,
@@ -506,9 +507,10 @@ export default function TerminalScreen({ navigation, route }: Props) {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   // The iPhone Duo half folded like a laptop (`laptopMode.ts`): the output above the fold, the keyboard and the pad's
   // layers below it, the pad in the upper half. Null in every other pose, on every other iPhone, in chat view (the
-  // composer keeps itself above the fold) and on Android.
+  // chat has its own laptop layout, `chatFoldInset` below) and on Android.
   const foldShown = useLaptopFold();
   const laptopFold = slidesWithKeyboard ? foldShown : null;
+  const chatKeyboardUp = useKeyboardTop() !== null;
   // The pad's room: the terminal area within the window's safe area across (in landscape the area runs under the
   // screen's rounded corners and the camera), and the header above it where the open pad needs that (`padReach`).
   // In the laptop pose only the part above the fold.
@@ -589,6 +591,10 @@ export default function TerminalScreen({ navigation, route }: Props) {
     terminalArea === null ? windowHeight - insets.bottom : terminalArea.y + terminalArea.height;
   // In the laptop pose: how far the fold's top stands above the terminal area's bottom (0 in every other pose).
   const foldAboveAreaBottom = laptopFold === null ? 0 : Math.max(0, terminalAreaBottom - laptopFold.top);
+  // The chat view in the laptop pose: with the keyboard down the transcript and the composer end above the fold, as
+  // a web page does (`foldUpperHalfInset`), and the lower half stays empty; with the keyboard up the composer lifts
+  // itself above the fold (`KeyboardLiftedView`). 0 in every other pose and in terminal view.
+  const chatFoldInset = chatModeActive && !chatKeyboardUp ? foldUpperHalfInset(foldShown, terminalAreaBottom) : 0;
   const obstruction =
     laptopFold !== null
       ? laptopObstruction({
@@ -1099,7 +1105,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
             openSessionNoteRequestId={chatSessionNoteRequestId}
             onQueueCountChange={handleChatQueueCount}
             links={{ links: activeSession?.links, onOpen: () => setLinksSheetVisible(true) }}
-            style={styles.terminal}
+            style={chatFoldInset > 0 ? [styles.terminal, { marginBottom: chatFoldInset }] : styles.terminal}
           />
         ) : null}
         {activeTab !== null && !chatModeActive && (
