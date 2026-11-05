@@ -334,6 +334,38 @@ export function keptShortReplies(entries: readonly unknown[]): string[] {
   return entries.flatMap((entry) => (typeof entry === 'string' && entry.trim().length > 0 ? [entry.trim()] : []));
 }
 
+/** The keys the colour model added to the stored settings; `themeSettingsFromRecord` derives each missing one. */
+type ColourModelKey =
+  | keyof ThemeColourSettings
+  | 'sidebarTheme'
+  | 'terminalGhosttyTheme'
+  | 'terminalGhosttyLightTheme'
+  | 'terminalBackgroundMode'
+  | 'workspaceBackgroundColor'
+  | 'terminalColorScheme';
+
+/**
+ * Every key only the colour model stores: its colour keys, and the private palette list. The store saves its whole
+ * settings object, so every save since the colour model writes all colour keys; the earlier app stored none of them.
+ */
+const COLOUR_MODEL_STORED_KEYS = Object.keys({
+  sidebarTheme: true,
+  darkThemePreset: true,
+  lightThemePreset: true,
+  customSidebarTitlebarBackgroundTintColor: true,
+  customSidebarTitlebarLightBackgroundTintColor: true,
+  customSidebarTitlebarBackgroundDarknessPercent: true,
+  customSidebarTitlebarLightBackgroundLightnessPercent: true,
+  themeSidebarContrast: true,
+  themeWorkAreaContrast: true,
+  terminalGhosttyTheme: true,
+  terminalGhosttyLightTheme: true,
+  terminalBackgroundMode: true,
+  workspaceBackgroundColor: true,
+  terminalColorScheme: true,
+  importedTerminalPalettes: true,
+} satisfies Record<ColourModelKey | 'importedTerminalPalettes', true>);
+
 /**
  * The colour keys of a stored settings object: each saved valid key as it is, each missing one derived from the
  * retained earlier values, so the derivation runs only until the first save and never over saved keys.
@@ -350,16 +382,7 @@ function themeSettingsFromRecord(
   legacyTint: string,
   legacyContrast: number,
   defaults: GhostexSettings,
-): Pick<
-  GhostexSettings,
-  | keyof ThemeColourSettings
-  | 'sidebarTheme'
-  | 'terminalGhosttyTheme'
-  | 'terminalGhosttyLightTheme'
-  | 'terminalBackgroundMode'
-  | 'workspaceBackgroundColor'
-  | 'terminalColorScheme'
-> {
+): Pick<GhostexSettings, ColourModelKey> {
   const number = (key: string): number | undefined => {
     const value = record[key];
     return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
@@ -446,9 +469,16 @@ function sanitizeSettings(value: unknown): GhostexSettings {
       ? record.preferredAgentInterface
       : defaults.preferredAgentInterface;
   // A saved Dark or Light stays the chat's own appearance; a missing or unknown value follows the app.
-  const sessionChatTheme = CONTENT_COLOR_SCHEMES.includes(record.sessionChatTheme as ContentColorScheme)
+  const storedChatTheme = CONTENT_COLOR_SCHEMES.includes(record.sessionChatTheme as ContentColorScheme)
     ? (record.sessionChatTheme as ContentColorScheme)
     : defaults.sessionChatTheme;
+  // Except a Dark the earlier app stored, recognisable by none of the keys only the colour model stores: that app
+  // was dark only and saved Dark as everyone's default, so it looked as Follow app does now. It follows the app;
+  // the next save writes the colour keys, so from then on a Dark is the user's own and stays.
+  const sessionChatTheme =
+    storedChatTheme === 'dark' && !COLOUR_MODEL_STORED_KEYS.some((key) => Object.hasOwn(record, key))
+      ? 'app'
+      : storedChatTheme;
   const sessionChatTranscriptWidthPercent =
     typeof record.sessionChatTranscriptWidthPercent === 'number'
       ? clampSessionChatTranscriptWidthPercent(record.sessionChatTranscriptWidthPercent)

@@ -186,12 +186,28 @@ describe('settings store colour keys', () => {
     });
   });
 
-  test('chat theme: a saved Dark or Light stays, a new install follows the app, unknown values follow the app', async () => {
-    expect((await load(legacyRecord({}))).sessionChatTheme).toBe('dark');
+  test('chat theme: a saved Light stays, a new install follows the app, unknown values follow the app', async () => {
     expect((await load(legacyRecord({ sessionChatTheme: 'light' }))).sessionChatTheme).toBe('light');
     expect((await load(legacyRecord({ sessionChatTheme: 'system' }))).sessionChatTheme).toBe('system');
     expect((await load(legacyRecord({ sessionChatTheme: 'sepia' }))).sessionChatTheme).toBe('app');
     expect((await load(null)).sessionChatTheme).toBe('app');
+  });
+
+  test('chat theme: a Dark the earlier app stored follows the app once; a Dark stored since stays', async () => {
+    // The earlier app saved Dark for everyone, in a record without any of the colour model's keys.
+    expect((await load(legacyRecord({}))).sessionChatTheme).toBe('app');
+    // The next save writes the colour keys with Follow app, so the record is no longer the earlier app's.
+    useSettingsStore.getState().setSetting('fontSize', 12);
+    expect(await saved()).toMatchObject({ sessionChatTheme: 'app', sidebarTheme: 'dark-2', fontSize: 12 });
+    // A Dark chosen from then on is the user's own and stays.
+    useSettingsStore.getState().setSetting('sessionChatTheme', 'dark');
+    const record = await saved();
+    expect(record.sessionChatTheme).toBe('dark');
+    expect((await load(record)).sessionChatTheme).toBe('dark');
+    // Any one key only the colour model stores marks the record as its own.
+    expect((await load({ ...defaultSettings(), sessionChatTheme: 'dark' })).sessionChatTheme).toBe('dark');
+    expect((await load(legacyRecord({ terminalColorScheme: 'app' }))).sessionChatTheme).toBe('dark');
+    expect((await load(legacyRecord({ importedTerminalPalettes: [] }))).sessionChatTheme).toBe('dark');
   });
 
   test('the custom terminal background colour keeps a valid hex and is unset otherwise', async () => {
