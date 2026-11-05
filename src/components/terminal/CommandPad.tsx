@@ -4,7 +4,9 @@
  * function buttons on an arc around the field's upper left corner: Keys and Agent (the layers in the keyboard's
  * place), the text editor, and the keyboard. The pad stays open until the toggle is tapped again; it floats with
  * and without the software keyboard and takes no room from the terminal. Armed modifiers show as a chip beside
- * the toggle. Opening fades and grows the pad out of the toggle, at once with Reduce Motion on.
+ * the toggle; a tap on an unavailable ring button (Agent without agent hotkeys) shows why in a line in the same place
+ * for as long as a layer's hint line stays. Opening fades and grows the pad out of the toggle, at once with Reduce
+ * Motion on.
  *
  * Moving it: holding the toggle for 0.3 s picks the whole pad up (toggle, field, ring);
  * it follows the finger and, let go, snaps to the nearer side edge at the released height inside the allowed area
@@ -38,7 +40,7 @@ import { KEYBOARD_HIDE_MOTION, KEYBOARD_SHOW_MOTION } from '../common/keyboard/k
 import { useReduceMotion } from '../common/reduceMotion';
 import { useReduceTransparency } from '../common/reduceTransparency';
 import CommandPadKeyFace from './CommandPadKeyFace';
-import type { CommandPadLayerKind } from './CommandPadLayer';
+import { HINT_TIMEOUT_MS, type CommandPadLayerKind } from './CommandPadLayer';
 import {
   DEFAULT_PAD_PLACEMENT,
   PAD_CHIP_OFFSET,
@@ -155,6 +157,21 @@ function CommandPad({
     return () => motion.stop();
   }, [open, reduceMotion, reveal]);
 
+  // Why a tapped ring button is unavailable, beside the toggle until the layer hint's timeout; gone with the open pad.
+  const [ringHint, setRingHint] = useState<string | null>(null);
+  const ringHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showRingHint = (text: string): void => {
+    clearTimeout(ringHintTimer.current ?? undefined);
+    setRingHint(text);
+    ringHintTimer.current = setTimeout(() => setRingHint(null), HINT_TIMEOUT_MS);
+  };
+  useEffect(() => {
+    if (open) return;
+    clearTimeout(ringHintTimer.current ?? undefined);
+    setRingHint(null);
+  }, [open]);
+  useEffect(() => () => clearTimeout(ringHintTimer.current ?? undefined), []);
+
   // The keyboard button's symbol crossfades over the keyboard's own motion (`keyboardMotion.ts`), so it changes as
   // the keyboard moves rather than at its start; at once with Reduce Motion on (also when that is turned on during
   // the fade). 1: the keyboard is up.
@@ -267,8 +284,9 @@ function CommandPad({
     key: string;
     label: string;
     selected: boolean;
+    /** Announced and drawn unavailable; a tap only shows `hint` beside the toggle. */
     disabled?: boolean;
-    /** Spoken after the label, e.g. why an unavailable button cannot act. */
+    /** Why an unavailable button cannot act: spoken after the label, shown on a tap. */
     hint?: string;
     icon: ReactNode;
     onPress: () => void;
@@ -298,7 +316,7 @@ function CommandPad({
           }
         />
       ),
-      onPress: () => onLayer('agent'),
+      onPress: () => (agentAvailable ? onLayer('agent') : showRingHint(CommandPadCopy.agentUnavailableHint)),
     },
     {
       key: 'editor',
@@ -365,7 +383,7 @@ function CommandPad({
               accessibilityLabel={button.label}
               accessibilityHint={button.hint}
               accessibilityState={{ selected: button.selected, disabled: button.disabled === true }}
-              disabled={button.disabled}
+              // An unavailable button stays tappable (announced unavailable above), so a tap can show why.
               style={({ pressed }) => [
                 styles.ringButton,
                 placeAt(anchor, PAD_RING_OFFSETS[index]),
@@ -383,7 +401,7 @@ function CommandPad({
           ))}
         </Animated.View>
       ) : null}
-      {armed.length > 0 ? (
+      {armed.length > 0 || ringHint !== null ? (
         <View accessibilityLiveRegion="polite" style={[styles.chips, placeAt(anchor, PAD_CHIP_OFFSET)]}>
           {armed.map((modifier) => {
             const name = CommandPadCopy.modifierNames[modifier];
@@ -394,6 +412,11 @@ function CommandPad({
               </Text>
             );
           })}
+          {ringHint !== null ? (
+            <Text style={styles.ringHint} numberOfLines={1}>
+              {ringHint}
+            </Text>
+          ) : null}
         </View>
       ) : null}
       <Pressable
@@ -630,6 +653,17 @@ const styles = StyleSheet.create({
     backgroundColor: CommandPadPalette.MODIFIER_LOCKED,
     borderWidth: 1,
     borderColor: CommandPadPalette.MODIFIER_LOCKED_LINE,
+  },
+  // The layer hint line's type (`CommandPadLayer`) on a solid backplate the chips' height, readable over any output.
+  ringHint: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 11,
+    overflow: 'hidden',
+    fontSize: 11,
+    lineHeight: 16,
+    color: GhostexPalette.FOREGROUND,
+    backgroundColor: CommandPadPalette.GLASS_OPAQUE,
   },
   // The keyboard button's two symbols, one over the other.
   symbols: {

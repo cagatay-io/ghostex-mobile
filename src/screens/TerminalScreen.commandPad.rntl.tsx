@@ -280,6 +280,22 @@ describe('every function of the key bar is reached from the pad', () => {
     expect(agent.props.accessibilityHint).toBe("This session's agent has no agent hotkeys");
   });
 
+  test('a tap on the unavailable Agent button shows why beside the toggle, opens no layer, and the line goes after the hint timeout', async () => {
+    await renderScreen();
+    await openPad();
+    const reason = "This session's agent has no agent hotkeys";
+    await fireEvent.press(screen.getByLabelText('Agent hotkeys'));
+    expect(screen.getByText(reason)).toBeTruthy();
+    expect(screen.getByLabelText('Agent hotkeys').props.accessibilityState).toMatchObject({ disabled: true });
+    // No layer: neither its title nor its hold-to-see line.
+    expect(screen.queryByText('Agent hotkeys')).toBeNull();
+    expect(screen.queryByText('Hold a key to see what it does')).toBeNull();
+    await act(() => jest.advanceTimersByTime(3499));
+    expect(screen.getByText(reason)).toBeTruthy();
+    await act(() => jest.advanceTimersByTime(1));
+    expect(screen.queryByText(reason)).toBeNull();
+  });
+
   test('the keyboard button shows the keyboard and, while it is up, dismisses it', async () => {
     await renderScreen();
     await openPad();

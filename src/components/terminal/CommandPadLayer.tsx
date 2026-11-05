@@ -26,7 +26,8 @@ export type CommandPadLayerKind = 'keys' | 'agent';
 
 const MODIFIER_LONG_PRESS_MS = 450;
 const HINT_LONG_PRESS_MS = 350;
-const HINT_TIMEOUT_MS = 3500;
+/** How long a hint stays: the layer's hold-to-see line and the ring's line for an unavailable button. */
+export const HINT_TIMEOUT_MS = 3500;
 
 export type CommandPadLayerProps = {
   kind: CommandPadLayerKind;
