@@ -138,11 +138,17 @@ export default function App() {
     initOverTheAirUpdates();
     initVoice();
     void checkForCrashReport().catch(() => undefined);
-    void useMachinesStore.getState().hydrate();
-    void useTerminalStore.getState().hydrate();
+    // Stores keyed by machine id load after the machine list, whose load may merge duplicate
+    // records and move their saved data to the record it keeps (healDuplicateComputers).
+    void useMachinesStore
+      .getState()
+      .hydrate()
+      .finally(() => {
+        void useTerminalStore.getState().hydrate();
+        void useWebPreviewStore.getState().hydrate();
+      });
     void useExtraKeysStore.getState().hydrate();
     void useAgentHotkeysStore.getState().hydrate();
-    void useWebPreviewStore.getState().hydrate();
     void useBarGeometryStore.getState().hydrate();
     // Native sync installs after hydration so it pushes the persisted values.
     void useSettingsStore

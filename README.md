@@ -96,7 +96,7 @@ curl -s -X POST -H "authorization: Bearer $T" -H 'x-gxserver-protocol-version: 1
 ```
 
 - gxserver reads a request's arguments from `params` (`{"params":{…}}`); a bare body is ignored or refused.
-- Keep one machine record per computer: older records for the same Mac run their own Tailcat tunnels, the Mac's WireGuard replies reach the wrong one (`Received invalid response message` in the device log) and the chat link never connects. Remove stale ones in Machines › the record › Remove this computer from the phone, then relaunch the app.
+- One machine record per computer: two records for the same Mac run two Tailcat tunnels with the phone's one client key, the Mac's WireGuard replies reach the wrong one (`Received invalid response message` in the device log) and the chat link never connects. The app heals this itself: pairing a saved computer again re-pairs its record, and launching merges older duplicates into the newest pairing (`src/machines/computerIdentity.ts`). While a record for the Mac is connected, pairing it again can still time out (the pairing tunnel is a second tunnel too); hide the record first if that happens.
 - Leave the computer's settings as they were: Settings › Voice changes Dictate on the real Mac (engine, models, dictionary). Read `/api/readDictateSettings` first and restore it with `/api/setDictateSettings` (`{"params":{"patch":{…}}}`) when done.
 - When done: stop Metro, `idb disconnect localhost 10882` and kill its `idb_companion`, and `xcrun simctl --set $SET shutdown $U`.
 

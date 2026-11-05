@@ -19,7 +19,8 @@
 import { Platform } from 'react-native';
 
 import { GhostexNative } from '../../modules/ghostex-native/src';
-import { setDeviceApiToken, setPassphrase, setPublicKey, setSshKey } from './credentials';
+import { machineForSameComputer } from './computerIdentity';
+import { getTailcatToken, setDeviceApiToken, setPassphrase, setPublicKey, setSshKey } from './credentials';
 import type { EasyConnectCode } from './pairingCodes';
 import { tailcatSyntheticHost, useMachinesStore, type MachineRecord } from './store';
 
@@ -162,11 +163,26 @@ async function postPairDevice(localPort: number, request: PairDeviceRequest): Pr
   return parsePairDeviceResponse(body);
 }
 
+/**
+ * The saved Easy Connect machine for the computer behind `address`, if any. Pairing that computer
+ * again re-pairs this record instead of adding a second one: two records mean two tunnels to one
+ * computer, which break each other (CDXC:RemotePairing 2026-11-05 in computerIdentity.ts).
+ */
+async function savedMachineForComputer(address: string): Promise<string | null> {
+  const { machines } = useMachinesStore.getState();
+  const tailcat = machines.filter((machine) => machine.transport === 'tailcat');
+  const tokens = new Map<string, string | null>(
+    await Promise.all(tailcat.map(async (machine) => [machine.id, await getTailcatToken(machine.id)] as const)),
+  );
+  return machineForSameComputer(tailcat, (id) => tokens.get(id) ?? null, address)?.id ?? null;
+}
+
 async function saveEasyConnectMachine(
   code: EasyConnectCode,
   registration: PairDeviceResponse,
-  rePairMachineId: string | null,
+  requestedRePairId: string | null,
 ): Promise<MachineRecord> {
+  const rePairMachineId = requestedRePairId ?? (await savedMachineForComputer(code.address));
   const store = useMachinesStore.getState();
   const existing =
     rePairMachineId === null ? null : (store.machines.find((machine) => machine.id === rePairMachineId) ?? null);

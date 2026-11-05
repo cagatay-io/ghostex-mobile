@@ -12,6 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 
 import { MachineCopy } from '../copy';
+import { dedupeMachineRecords, machineForSameComputer } from './computerIdentity';
 import {
   clearSessionPassword,
   deleteAllCredentials,
@@ -23,6 +24,7 @@ import {
   setTailcatToken,
   type MachineTransport,
 } from './credentials';
+import { migrateMachineData } from './machineDataMigration';
 
 export type { MachineTransport };
 
@@ -223,6 +225,13 @@ async function validateInput(
     if (effectiveToken.length === 0) errors.tailcatToken = MachineCopy.validation.tailcatTokenEmpty;
     else if (!effectiveToken.startsWith(TAILCAT_TOKEN_PREFIX)) {
       errors.tailcatToken = MachineCopy.validation.tailcatTokenPrefix;
+    } else {
+      // A second record for one computer runs a second tunnel to it, which breaks both (see computerIdentity.ts).
+      const tokens = await loadTailcatTokens(machines);
+      const sameComputer = machineForSameComputer(machines, (id) => tokens.get(id) ?? null, effectiveToken, editingId);
+      if (sameComputer !== null) {
+        errors.duplicate = MachineCopy.validation.duplicateComputer(machineDisplayLabel(sameComputer));
+      }
     }
   } else if (normalized.host.length === 0) {
     errors.host = MachineCopy.validation.general;
@@ -327,6 +336,44 @@ function isMachineRecord(value: unknown): value is MachineRecord {
   );
 }
 
+/** The saved Easy Connect address of every tailcat machine in `machines`, by id. */
+async function loadTailcatTokens(machines: readonly MachineRecord[]): Promise<Map<string, string>> {
+  const tailcat = machines.filter((machine) => machine.transport === 'tailcat');
+  const tokens = await Promise.all(tailcat.map((machine) => getTailcatToken(machine.id)));
+  const byId = new Map<string, string>();
+  tailcat.forEach((machine, index) => {
+    const token = tokens[index];
+    if (token !== null && token !== undefined && token.length > 0) byId.set(machine.id, token);
+  });
+  return byId;
+}
+
+/**
+ * CDXC:RemotePairing 2026-11-05 DECISION:
+ * Brief: "A phone never runs two tunnels to the same computer, and old duplicate records heal by
+ * themselves." Loading collapses Easy Connect records for one computer into the newest pairing,
+ * moves what the phone saved under the dropped ids (selected machine, workspaces, drawer state,
+ * terminal tabs, chat drafts) to the kept id, and deletes the dropped records' credentials. It runs
+ * before anything connects, so the dropped records never start a tunnel.
+ */
+async function healDuplicateComputers(machines: MachineRecord[]): Promise<MachineRecord[]> {
+  try {
+    const tokens = await loadTailcatTokens(machines);
+    const { machines: deduped, merges } = dedupeMachineRecords(machines, (id) => tokens.get(id) ?? null);
+    if (merges.length === 0) return machines;
+    const renames = new Map<string, string>();
+    for (const merge of merges) for (const staleId of merge.staleIds) renames.set(staleId, merge.survivorId);
+    // Data first: if the app stops halfway, the duplicates are still saved and the next launch redoes it.
+    await migrateMachineData(AsyncStorage, renames, new Set([MACHINES_STORAGE_KEY]));
+    await AsyncStorage.setItem(MACHINES_STORAGE_KEY, JSON.stringify(deduped));
+    await Promise.all([...renames.keys()].map((staleId) => deleteAllCredentials(staleId)));
+    return deduped;
+  } catch {
+    // A failed heal leaves the records as they were; the next launch tries again.
+    return machines;
+  }
+}
+
 async function loadPersistedMachines(): Promise<MachineRecord[]> {
   try {
     const raw = await AsyncStorage.getItem(MACHINES_STORAGE_KEY);
@@ -350,10 +397,9 @@ export const useMachinesStore = create<MachinesState>()((set, get) => ({
 
   hydrate: async () => {
     if (get().hydrated) return;
-    const [machines, selectedId] = await Promise.all([
-      loadPersistedMachines(),
-      AsyncStorage.getItem(SELECTED_MACHINE_STORAGE_KEY),
-    ]);
+    const machines = await healDuplicateComputers(await loadPersistedMachines());
+    // Read after the heal, which may have moved the selection to the record it kept.
+    const selectedId = await AsyncStorage.getItem(SELECTED_MACHINE_STORAGE_KEY);
     const selectedMachineId = resolveSelectedMachineId(machines, selectedId);
     set({ hydrated: true, machines, selectedMachineId });
   },

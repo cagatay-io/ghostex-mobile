@@ -15,6 +15,7 @@
 import type { ChatDocument } from './document';
 import { nextDraftVersion, randomUuid } from './host-records';
 import type { UserAction } from './actions';
+import { releaseAnswerHold } from '../native/transcript/answerHold';
 
 /** What a submission does; `interrupt` is Interrupt & Send. */
 export type SubmitMode = 'send' | 'queue' | 'compact' | 'handoff' | 'interrupt';
@@ -152,6 +153,8 @@ export class ComposerModel {
       replaceSequence: this.state.replaceSequence + 1,
       fromHistory: false,
     });
+    // A send from the chat box follows the newest row again (`answerHold.ts`).
+    releaseAnswerHold();
     this.hooks.dispatch(submission);
     return true;
   }

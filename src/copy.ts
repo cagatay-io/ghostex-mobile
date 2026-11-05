@@ -354,6 +354,7 @@ export const MachineCopy = {
   validation: {
     port: 'Use a port from 1 to 65535.',
     duplicate: 'This SSH target is already saved.',
+    duplicateComputer: (name: string) => `This computer is already saved as ${name}. Edit that one instead.`,
     savePasswordWithoutPassword: 'Enter a password or uncheck Save password.',
     general: 'Fix the highlighted machine details.',
     emptyPassword: 'Enter the SSH password.',
