@@ -14,6 +14,7 @@ import { Pressable, StyleSheet, Text, View, type StyleProp, type TextStyle } fro
 import { CoordinatorGlyph } from '../../../components/sessions/icons';
 import { SidebarPalette } from '../../../theme/palette';
 import { AgentMark } from '../cards/agentMark';
+import { Glyph } from '../cards/icons';
 import { useTranscriptEnv } from './context';
 import { obj, str, type JsonRecord } from './json';
 
@@ -70,7 +71,10 @@ export function SessionPill({
     >
       {showsLogo ? (
         <View style={missing ? styles.faded : null}>
-          {pill.coordinator === true ? (
+          {pill.kind === 'board' ? (
+            // A board item's pill (gx-chat-core `board_reference`) takes the Board pill's icon.
+            <Glyph name="layout-board-split" size={12} color={theme.foreground} />
+          ) : pill.coordinator === true ? (
             <CoordinatorGlyph size={12} color={theme.light ? '#000000' : SidebarPalette.ROW_COORDINATOR_CROWN} />
           ) : (
             <AgentMark icon={icon.length > 0 ? icon : null} size={12} />

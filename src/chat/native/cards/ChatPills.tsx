@@ -52,7 +52,7 @@ import { laterAction, removeAction, rowAge, statusLabel } from './questionAge';
 import type { SessionLinksChatPill } from '../sessionLinks';
 import { Glyph as TranscriptGlyph } from '../transcript/icons';
 import { AgentFleetMenu, AgentTasksMenu, CoordinatorThreadsMenu } from './AgentPanels';
-import { CoordinatorBoardMenu } from './CoordinatorBoard';
+import { CoordinatorBoardMenu, type BoardFocus } from './CoordinatorBoard';
 import { SideChatsMenu } from './SideChats';
 import { Glyph } from './icons';
 import { obj } from './json';
@@ -517,11 +517,14 @@ export function PillMenuSheet({
   document,
   open,
   onClose,
+  boardFocus = null,
 }: {
   chat: RustChat;
   document: ChatDocument;
   open: string | null;
   onClose: () => void;
+  /** The card a board pill in the chat asked to see, which the Board sheet scrolls to. */
+  boardFocus?: BoardFocus | null;
 }) {
   const questions = open === 'resources' && (document.openQuestions?.total ?? 0) > 0;
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -557,7 +560,7 @@ export function PillMenuSheet({
       {open === 'threads' ? (
         <CoordinatorThreadsMenu chat={chat} document={document} onDone={close} />
       ) : open === 'board' ? (
-        <CoordinatorBoardMenu chat={chat} document={document} onDone={close} />
+        <CoordinatorBoardMenu chat={chat} document={document} onDone={close} focus={boardFocus} />
       ) : open === 'sideChats' ? (
         <SideChatsMenu chat={chat} document={document} onDone={close} />
       ) : open === 'tasks' ? (

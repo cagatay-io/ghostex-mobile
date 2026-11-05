@@ -158,8 +158,10 @@ function renderInlines(
         if (reference?.kind === 'question')
           return <QuestionTagPill key={key} reference={reference} href={inline.href} context={context} />;
         // A mention of another session (`[<title>](<Global Ref>)`) is its agent pill; a tap goes
-        // to the core as any link does, which switches to it (`session_mentions.rs`).
-        if (reference?.kind === 'session')
+        // to the core as any link does, which switches to it (`session_mentions.rs`). A board item
+        // (`[<title>](board:B4)`) is the same pill with the board's icon, and a tap opens the
+        // board at it (`coordinator_board.rs`).
+        if (reference?.kind === 'session' || reference?.kind === 'board')
           return (
             <Text key={key}>
               <SessionPill

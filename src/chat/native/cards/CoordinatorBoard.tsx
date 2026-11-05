@@ -8,8 +8,8 @@
  * (`apps/desktop/src/app/native_chat/coordinator_board.rs`).
  */
 
-import { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, Pressable, ScrollView, Text, View, type ScrollViewInstance } from 'react-native';
 
 import type { ChatDocument } from '../../rust/document';
 import type { UserAction } from '../../rust/actions';
@@ -82,17 +82,47 @@ function GroupMarker({ group }: { group: string }) {
   return <View style={[styles.ring, { borderColor: color, borderStyle: 'dashed' }]} />;
 }
 
+/** A board pill's tap (gx-chat-core `show_item`): the card to show, once per `seq`. */
+export type BoardFocus = { key: string; seq: number };
+
 export function CoordinatorBoardMenu({
   chat,
   document,
   onDone,
+  focus = null,
 }: {
   chat: RustChat;
   document: ChatDocument;
   onDone: () => void;
+  /** The card to scroll to and ring for a moment (desktop `scroll_into_view`). */
+  focus?: BoardFocus | null;
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
+  // Where each group sits in the list and each card in its group, so a board pill's card can be
+  // scrolled to once both are known.
+  const list = useRef<ScrollViewInstance>(null);
+  const groupTops = useRef<Record<string, number>>({});
+  const cardTops = useRef<Record<string, { group: string; y: number }>>({});
+  const scrolledFor = useRef<number | null>(null);
+  const [ringed, setRinged] = useState<string | null>(null);
+  const scrollToFocus = () => {
+    if (focus === null || scrolledFor.current === focus.seq) return;
+    const card = cardTops.current[focus.key];
+    const group = card !== undefined ? groupTops.current[card.group] : undefined;
+    if (card === undefined || group === undefined) return;
+    scrolledFor.current = focus.seq;
+    list.current?.scrollTo({ y: Math.max(0, group + card.y - 8), animated: true });
+  };
+  useEffect(() => {
+    if (focus === null) return undefined;
+    setRinged(focus.key);
+    scrollToFocus();
+    const timer = setTimeout(() => setRinged(null), 2200);
+    return () => clearTimeout(timer);
+    // `scrollToFocus` reads refs; a new tap is a new `seq`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus?.key, focus?.seq]);
   // The row whose × was tapped once, waiting three seconds for the second tap (desktop
   // `REMOVE_ARMED_FOR`, as the links list's ×).
   const [armed, setArmed] = useState<string | null>(null);
@@ -128,13 +158,19 @@ export function CoordinatorBoardMenu({
       <Text style={styles.meta} numberOfLines={1}>
         {isTrue(board, 'empty') ? 'Nothing open' : str(board, 'meta')}
       </Text>
-      <ScrollView style={styles.rows} nestedScrollEnabled>
+      <ScrollView ref={list} style={styles.rows} nestedScrollEnabled>
         {arr(board.groups).map((group) => {
           const id = str(group, 'id');
           const open = isTrue(group, 'open');
           const more = str(group, 'moreLabel');
           return (
-            <View key={id}>
+            <View
+              key={id}
+              onLayout={(event) => {
+                groupTops.current[id] = event.nativeEvent.layout.y;
+                scrollToFocus();
+              }}
+            >
               <Pressable
                 accessibilityRole="button"
                 accessibilityState={{ expanded: open }}
@@ -184,7 +220,11 @@ export function CoordinatorBoardMenu({
                     accessibilityHint={remove !== null ? 'Long-press to remove it from the board' : undefined}
                     onPress={tapCard}
                     onLongPress={remove !== null ? () => setArmed(key) : undefined}
-                    style={styles.card}
+                    onLayout={(event) => {
+                      cardTops.current[key] = { group: id, y: event.nativeEvent.layout.y };
+                      if (focus?.key === key) scrollToFocus();
+                    }}
+                    style={[styles.card, ringed === key ? { borderColor: P.accent, backgroundColor: `${P.accent}14` } : null]}
                   >
                     <View style={styles.cardTitleLine}>
                       <Text style={styles.rowTitle} numberOfLines={1}>
