@@ -10,7 +10,9 @@
  *   stay put, so their terminals are never moved or remounted (a terminal can be in one place only). While the
  *   chooser is one of the two, neither moves (the chooser is a picker, never stored): no grip, no drag, the grip's
  *   space kept.
- * - Dragging the divider handle resizes both panes, 25-75 %; the handle is there only while the keyboard is down.
+ * - Dragging the divider handle resizes both panes, 25-75 %; the handle is there only while the keyboard is down. The
+ *   drag follows the finger at most once per frame, and a pane's body is drawn again only when what it is given
+ *   changes (`PaneBody`): a terminal its size, any other body nothing of the card's size, which it fills by layout.
  * - A gesture that starts in a pane's content is never a pane gesture: nothing here takes a touch there, so the
  *   terminal's own selection, scrolling and pinch stay as they are.
  * - Half folded like a book the content may run across the fold, but nothing to touch stands on it: the handle moves
@@ -20,7 +22,7 @@
  * their native views keep their place in the view tree.
  */
 
-import { useCallback, useRef, useState, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Animated,
   Pressable,
@@ -70,9 +72,39 @@ const GRIP_ACTIONS = [{ name: 'activate' }] as const;
 
 /**
  * What a body is given: its terminal's size and what the keyboard rules hide of it, whether its pane is active, and
- * how far its own controls stay off its edges to keep off a book fold (`paneGeometry`'s `controlInsets`).
+ * how far its own controls stay off its edges to keep off a book fold (`paneGeometry`'s `controlInsets`). `view` and
+ * `covered` are a terminal's: every other body fills its card by layout and is not drawn again when only they change.
  */
 export type PaneFrame = { view: PaneSize; covered: number; active: boolean; controlInset: PaneBarInset };
+
+type PaneBodyProps = {
+  content: PaneContent;
+  frame: PaneFrame;
+  renderContent: PaneHostProps['renderContent'];
+};
+
+/** Whether a body would draw the same: the frame's size and cover count only for a session's terminal. */
+function sameBody(before: PaneBodyProps, after: PaneBodyProps): boolean {
+  if (before.content !== after.content || before.renderContent !== after.renderContent) return false;
+  const was = before.frame;
+  const is = after.frame;
+  if (
+    was.active !== is.active ||
+    was.controlInset.left !== is.controlInset.left ||
+    was.controlInset.right !== is.controlInset.right
+  ) {
+    return false;
+  }
+  return (
+    after.content.kind !== 'session' ||
+    (was.view.width === is.view.width && was.view.height === is.view.height && was.covered === is.covered)
+  );
+}
+
+/** A pane's body, drawn again only when what it reads changes, so a divider drag redraws no more than it resizes. */
+const PaneBody = memo(function PaneBody({ content, frame, renderContent }: PaneBodyProps) {
+  return renderContent(content, frame);
+}, sameBody);
 
 export type PaneHostProps = {
   /** Where the panes stand (`paneGeometry`'s input: the window's shape, the container, the stored divider, the
@@ -378,12 +410,16 @@ function PaneCard(props: PaneCardProps) {
         </Pressable>
       </View>
       <View style={[styles.body, { left: inset.left, right: inset.right, bottom: inset.bottom }]}>
-        {props.renderContent(content, {
-          view: geometry.views[slot],
-          covered: geometry.covered[slot],
-          active,
-          controlInset: geometry.controlInsets[slot],
-        })}
+        <PaneBody
+          content={content}
+          renderContent={props.renderContent}
+          frame={{
+            view: geometry.views[slot],
+            covered: geometry.covered[slot],
+            active,
+            controlInset: geometry.controlInsets[slot],
+          }}
+        />
         {props.accessory !== undefined && props.accessory !== null ? (
           // Half folded like a book it starts past a fold in the body's leading half (`paneGeometry`).
           <View style={[StyleSheet.absoluteFill, { left: geometry.accessoryLeft[slot] }]} pointerEvents="box-none">
@@ -460,6 +496,31 @@ function Divider({
   onRatio: (ratio: number) => void;
 }) {
   const grab = useRef<{ position: number; ratio: number } | null>(null);
+  // The finger's newest position waits for the next frame: the panes, and a terminal's native size, follow it at most
+  // once per frame however often the touch reports a move.
+  const nextFrame = useRef<{ request: number; ratio: number } | null>(null);
+  const dragTo = (next: number): void => {
+    if (nextFrame.current !== null) {
+      nextFrame.current.ratio = next;
+      return;
+    }
+    const request = requestAnimationFrame(() => {
+      const latest = nextFrame.current;
+      nextFrame.current = null;
+      if (latest !== null) onDrag(latest.ratio);
+    });
+    nextFrame.current = { request, ratio: next };
+  };
+  const dropFrame = (): void => {
+    if (nextFrame.current !== null) cancelAnimationFrame(nextFrame.current.request);
+    nextFrame.current = null;
+  };
+  useEffect(
+    () => () => {
+      if (nextFrame.current !== null) cancelAnimationFrame(nextFrame.current.request);
+    },
+    [],
+  );
   const across = arrangement === 'sideBySide';
   const position = (event: GestureResponderEvent) => (across ? event.nativeEvent.pageX : event.nativeEvent.pageY);
   const ratioAt = (event: GestureResponderEvent): number | null => {
@@ -500,16 +561,18 @@ function Divider({
           }}
           onResponderMove={(event) => {
             const next = ratioAt(event);
-            if (next !== null) onDrag(next);
+            if (next !== null) dragTo(next);
           }}
           onResponderRelease={(event) => {
             const next = ratioAt(event);
             grab.current = null;
+            dropFrame();
             onDrag(null);
             if (next !== null) onRatio(next);
           }}
           onResponderTerminate={() => {
             grab.current = null;
+            dropFrame();
             onDrag(null);
           }}
           onResponderTerminationRequest={() => false}

@@ -926,13 +926,18 @@ describe('resizing by the divider handle', () => {
     expect(storedLayouts().stacked?.dividerRatio).toBeCloseTo(0.5 + 100 / area.height, 5);
   });
 
-  test('while the handle is dragged the panes follow it at once, before the finger lets go; nothing is stored yet', async () => {
+  test('while the handle is dragged the panes follow it from the next frame on, before the finger lets go; nothing is stored yet', async () => {
     await renderScreen({ stored: stacked(A, B) });
     const top = card(A).height;
+    // The drag follows the finger at most once per frame.
+    const nextFrame = () => act(() => jest.advanceTimersByTime(16));
     await fireEvent(handle(), 'responderGrant', touch(300, 400));
     await fireEvent(handle(), 'responderMove', touch(300, 460));
+    await nextFrame();
     expect(card(A).height - top).toBeCloseTo(60, 0);
+    await fireEvent(handle(), 'responderMove', touch(300, 470));
     await fireEvent(handle(), 'responderMove', touch(300, 480));
+    await nextFrame();
     expect(card(A).height - top).toBeCloseTo(80, 0);
     expect(storedLayouts().stacked?.dividerRatio).toBe(0.5);
   });
