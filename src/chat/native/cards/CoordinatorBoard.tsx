@@ -29,15 +29,6 @@ const GROUP_COLOR: Record<string, string | null> = {
   done: '#2fa865',
 };
 
-/** The Board pill's coloured counts: Needs you, Blocked, Moving, each in its group's colour. */
-export function boardPillCounts(document: ChatDocument): { color: string; count: number }[] {
-  return arr(obj(document.coordinatorBoard)?.pillCounts).flatMap((pair) => {
-    if (!Array.isArray(pair) || typeof pair[0] !== 'string' || typeof pair[1] !== 'number') return [];
-    const color = GROUP_COLOR[pair[0]];
-    return color ? [{ color, count: pair[1] }] : [];
-  });
-}
-
 /** A chip's words: what the link is, then its label ("PR #414", "Issue #12", "GHX-142"). */
 function chipLabel(kind: string, label: string): string {
   switch (kind) {

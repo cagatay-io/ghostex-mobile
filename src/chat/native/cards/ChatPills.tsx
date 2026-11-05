@@ -42,8 +42,7 @@
  */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Animated, Easing, Pressable, ScrollView, Text, View } from 'react-native';
-import { useReducedMotion } from 'react-native-reanimated';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import type { ChatDocument, ChatPill, QuestionListRow, QuestionListSection } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
@@ -52,29 +51,18 @@ import { answeredColor } from './askCard';
 import { laterAction, removeAction, rowAge, statusLabel } from './questionAge';
 import type { SessionLinksChatPill } from '../sessionLinks';
 import { Glyph as TranscriptGlyph } from '../transcript/icons';
-import { AgentFleetMenu, AgentTasksMenu, CoordinatorThreadsMenu, waitingColor } from './AgentPanels';
+import { AgentFleetMenu, AgentTasksMenu, CoordinatorThreadsMenu } from './AgentPanels';
 import { CoordinatorBoardMenu } from './CoordinatorBoard';
 import { SideChatsMenu } from './SideChats';
 import { Glyph } from './icons';
 import { obj } from './json';
 import { BackgroundTasksMenu } from './WorkingStrip';
-import { OverlappedDots } from '../../../components/sessions/StatusDotStack';
+import { SidebarPalette } from '../../../theme/palette';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 
 /** How often the open Chat Resources list redraws so its ages stay current (desktop `AGE_REFRESH`). */
 const AGE_REFRESH_MS = 30_000;
 
-/** The amber of the ? pill's corner dot and a running pill's. */
-const ATTENTION_COLOR = '#f5a524';
-
-/** The running corner dot's fade: the Subagents menu's 1.6 s beat (desktop `chat_pills.rs` `running_dot`). */
-const RUNNING_PULSE_MS = 1600;
-
-/** `questionPing` in packages/gx-chat-core/visual/scroll-bottom.json (desktop `question_ping.rs`). */
-const QUESTION_PING = { durationMs: 800, everyMs: 30000, dotSize: 6, scale: 2.8, alpha: 0.8, countSwapMs: 2000 };
-/** The corner dot's offsets inside a pill's edge (the ? pill's and a running pill's, desktop `corner_dot`). */
-const DOT_TOP = 1;
-const DOT_RIGHT = 2;
 /** A label pill's side padding (desktop `chat_pill`, 8px). */
 const PILL_PADDING_X = 8;
 
@@ -119,35 +107,56 @@ export function IconPill({
   );
 }
 
-/** "Previous question" with its amber dot, which pings now and then while questions wait. */
+/**
+ * "Previous question": its ? and, while questions wait, the pink dot and their count inside the pill,
+ * as every pill flags (`InlineDots`; gx-chat-core `extras/chat_pills.rs` `pill_dots` has the user's
+ * words). No corner dot, ping or count swap.
+ */
 export function QuestionPill({
   count,
-  newest,
   accessibilityLabel,
   onPress,
 }: {
   count: number;
-  newest: string | null;
+  newest?: string | null;
   accessibilityLabel: string;
   onPress: () => void;
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
-  const ping = useQuestionPing(count, newest);
-  const showingCount = useCountSwap(count);
-  // Only unanswered questions get the attention look; answered and For later ones keep the pill
-  // so the list stays reachable.
   return (
-    <IconPill
-      glyph="question-mark"
+    <Pressable
+      accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      color={P.cardMuted}
       onPress={onPress}
-      count={{ text: String(count), shown: showingCount }}
+      hitSlop={4}
+      style={({ pressed }) => [styles.pill, pressed && styles.pillPressed]}
     >
-      {count > 0 ? <PingRing progress={ping} /> : null}
-      {count > 0 ? <View pointerEvents="none" style={styles.cornerDot} /> : null}
-    </IconPill>
+      <Glyph name="question-mark" size={14} color={P.cardMuted} />
+      {count > 0 ? <InlineDots dots={[{ tone: 'question', count: String(count) }]} /> : null}
+    </Pressable>
+  );
+}
+
+/** A status dot's colour (gx-chat-core `PillDot::tone`): the sidebar's question pink, approval red (also Blocked), working amber. */
+function pillDotColor(tone: string): string {
+  if (tone === 'question') return SidebarPalette.ROW_QUESTION;
+  if (tone === 'approval' || tone === 'blocked') return SidebarPalette.ROW_APPROVAL;
+  return '#c68a06';
+}
+
+/** A pill's status inside it, after its label: each dot followed by its count (desktop `inline_dots`). */
+function InlineDots({ dots }: { dots: readonly { tone: string; count: string }[] }) {
+  const styles = useStyles();
+  return (
+    <View style={styles.inlineDots}>
+      {dots.map((dot, index) => (
+        <View key={`${dot.tone}:${index}`} style={styles.boardCount}>
+          <View style={[styles.boardDot, { backgroundColor: pillDotColor(dot.tone) }]} />
+          <Text style={styles.count}>{dot.count}</Text>
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -419,102 +428,8 @@ function QuestionsSection({
   );
 }
 
-/** True while the ? pill shows its count: every other `countSwapMs` while two or more questions wait. */
-function useCountSwap(count: number): boolean {
-  const [shown, setShown] = useState(false);
-  const swapping = count >= 2;
-  useEffect(() => {
-    if (!swapping) return undefined;
-    const swap = setInterval(() => setShown((was) => !was), QUESTION_PING.countSwapMs);
-    return () => {
-      clearInterval(swap);
-      setShown(false);
-    };
-  }, [swapping]);
-  return shown;
-}
-
-/**
- * The question pill's ping: 0 at rest, running to 1 once on arrival and every 30 s while questions
- * wait. A new question (the newest id changing without the count dropping) restarts the beat; the
- * beats stop when nothing waits; with reduce motion on it never runs, so only the dot shows.
- */
-function useQuestionPing(count: number, newest: string | null): Animated.Value {
-  const reduceMotion = useReducedMotion();
-  const progress = useRef(new Animated.Value(0)).current;
-  const seen = useRef<{ count: number; newest: string | null }>({ count: 0, newest: null });
-  const [arrival, setArrival] = useState(0);
-  useEffect(() => {
-    const before = seen.current;
-    seen.current = { count, newest };
-    if (newest !== null && newest !== before.newest && count >= before.count) setArrival((n) => n + 1);
-  }, [count, newest]);
-  const waiting = count > 0;
-  useEffect(() => {
-    if (!waiting || reduceMotion || arrival === 0) return undefined;
-    const play = () => {
-      progress.setValue(0);
-      Animated.timing(progress, {
-        toValue: 1,
-        duration: QUESTION_PING.durationMs,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }).start(() => progress.setValue(0));
-    };
-    play();
-    const beat = setInterval(play, QUESTION_PING.everyMs);
-    return () => {
-      clearInterval(beat);
-      progress.stopAnimation();
-      progress.setValue(0);
-    };
-  }, [arrival, waiting, reduceMotion, progress]);
-  return progress;
-}
-
-/** The ring spreading out of the ? pill's dot; it takes no touches. */
-function PingRing({ progress }: { progress: Animated.Value }) {
-  const { dotSize, scale, alpha } = QUESTION_PING;
-  const size = dotSize * scale;
-  return (
-    <Animated.View
-      pointerEvents="none"
-      style={{
-        position: 'absolute',
-        top: DOT_TOP + dotSize / 2 - size / 2,
-        right: DOT_RIGHT + dotSize / 2 - size / 2,
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        backgroundColor: ATTENTION_COLOR,
-        opacity: progress.interpolate({ inputRange: [0, 0.001, 1], outputRange: [0, alpha, 0] }),
-        transform: [
-          {
-            scale: progress.interpolate({
-              inputRange: [0, 1],
-              outputRange: [1 / scale, 1],
-              easing: Easing.out(Easing.cubic),
-            }),
-          },
-        ],
-      }}
-    />
-  );
-}
-
 /** One panel pill in the Worked row's chip look (`TranscriptItemRow.tsx` `chip`): icon, label, count. A tap opens its sheet. */
-export function Pill({
-  pill,
-  open,
-  onPress,
-  counts,
-}: {
-  pill: ChatPill;
-  open: boolean;
-  onPress: () => void;
-  /** The Board pill's coloured counts (`boardPillCounts`). */
-  counts?: { color: string; count: number }[];
-}) {
+export function Pill({ pill, open, onPress }: { pill: ChatPill; open: boolean; onPress: () => void }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
   return (
@@ -524,15 +439,8 @@ export function Pill({
       accessibilityState={{ expanded: open }}
       onPress={onPress}
       hitSlop={4}
-      style={({ pressed }) => [
-        styles.pill,
-        // Two overlapping corner dots reach half a dot further in than one: room for them, not over the count.
-        pill.running &&
-          waitingColor(pill.waiting) !== null && { paddingRight: PILL_PADDING_X + QUESTION_PING.dotSize / 2 },
-        (pressed || open) && styles.pillPressed,
-      ]}
+      style={({ pressed }) => [styles.pill, (pressed || open) && styles.pillPressed]}
     >
-      <CornerIndicator pill={pill} />
       <Glyph
         name={
           pill.id === 'tasks'
@@ -553,13 +461,11 @@ export function Pill({
         color={P.cardMuted}
       />
       <Text style={styles.label}>{pill.label}</Text>
-      {(counts ?? []).map(({ color, count }) => (
-        <View key={color} style={styles.boardCount}>
-          <View style={[styles.boardDot, { backgroundColor: color }]} />
-          <Text style={styles.count}>{count}</Text>
-        </View>
-      ))}
-      {pill.count.length > 0 ? <Text style={styles.count}>{pill.count}</Text> : null}
+      {(pill.dots ?? []).length > 0 ? (
+        <InlineDots dots={pill.dots ?? []} />
+      ) : pill.count.length > 0 ? (
+        <Text style={styles.count}>{pill.count}</Text>
+      ) : null}
     </Pressable>
   );
 }
@@ -603,60 +509,6 @@ function withAlpha(color: string, alpha: number): string {
   return `${color}${Math.round(alpha * 255)
     .toString(16)
     .padStart(2, '0')}`;
-}
-
-/**
- * A pill's corner (CDXC:SessionChat 2026-10-27 in gx-chat-core extras/chat_pills.rs, desktop
- * `corner_indicator`): the pulsing amber dot while something runs, the sidebar's red or pink dot
- * while something waits on the user, and both overlapping with the sidebar's 1px ring
- * (`OverlappedDots`) when both hold, the waiting one in front.
- */
-function CornerIndicator({ pill }: { pill: ChatPill }) {
-  const styles = useStyles();
-  const P = useTranscriptTheme();
-  const waiting = waitingColor(pill.waiting);
-  if (pill.running && waiting !== null) {
-    return (
-      <View pointerEvents="none" style={styles.cornerStack}>
-        <OverlappedDots
-          colors={[ATTENTION_COLOR, waiting]}
-          size={QUESTION_PING.dotSize}
-          ringColor={P.composerBackground}
-          unit={(value) => value}
-        />
-      </View>
-    );
-  }
-  if (pill.running) return <RunningDot />;
-  if (waiting !== null) return <View pointerEvents="none" style={[styles.cornerDot, { backgroundColor: waiting }]} />;
-  return null;
-}
-
-/**
- * A running pill's corner dot (`running`, gx-chat-core `extras/chat_pills.rs`, where the user's
- * decision lives): the ? pill's own dot (`cornerDot`), fading to 35% and back every 1.6 s, and still
- * with the phone's reduce-motion setting on.
- */
-function RunningDot() {
-  const styles = useStyles();
-  const reduceMotion = useReducedMotion();
-  const opacity = useRef(new Animated.Value(1)).current;
-  useEffect(() => {
-    if (reduceMotion) return undefined;
-    const half = { duration: RUNNING_PULSE_MS / 2, easing: Easing.linear, useNativeDriver: true };
-    const beat = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, { ...half, toValue: 0.35 }),
-        Animated.timing(opacity, { ...half, toValue: 1 }),
-      ]),
-    );
-    beat.start();
-    return () => {
-      beat.stop();
-      opacity.setValue(1);
-    };
-  }, [reduceMotion, opacity]);
-  return <Animated.View pointerEvents="none" style={[styles.cornerDot, { opacity }]} />;
 }
 
 /** The sheet a pill opens: that panel's rows, titled by the pill. `open` is the pill's id, or null. */
@@ -782,15 +634,11 @@ const useStyles = themedStyles((P) => ({
     lineHeight: 16,
     fontVariant: ['tabular-nums'],
   },
-  /** The ? pill's and a running pill's amber dot, inside the pill's edge in the top right corner. */
-  cornerDot: {
-    position: 'absolute',
-    top: DOT_TOP,
-    right: DOT_RIGHT,
-    width: QUESTION_PING.dotSize,
-    height: QUESTION_PING.dotSize,
-    borderRadius: QUESTION_PING.dotSize / 2,
-    backgroundColor: ATTENTION_COLOR,
+  /** A pill's status dots, after its label (`InlineDots`). */
+  inlineDots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
   /** The ? pill's glyph and count share this slot; the count sets its width once wider than the glyph. */
   glyphSlot: {
@@ -881,10 +729,4 @@ const useStyles = themedStyles((P) => ({
   filterLabel: { color: P.foreground, fontSize: 13 },
   filterCount: { marginLeft: 'auto', color: P.cardMuted, fontSize: 12, fontVariant: ['tabular-nums'] },
   questionsMeta: { flexShrink: 0, maxWidth: 110, color: P.muted, fontSize: 12, fontVariant: ['tabular-nums'] },
-  /** The running and waiting dots overlapping: one ring further out, so the front dot sits where a lone dot does. */
-  cornerStack: {
-    position: 'absolute',
-    top: DOT_TOP - 1,
-    right: DOT_RIGHT - 1,
-  },
 }));

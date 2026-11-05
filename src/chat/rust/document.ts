@@ -1045,6 +1045,8 @@ export type ChatPill = {
   /** The panel's muted detail ("2 working · 212 workers"). */
   meta: string;
   ariaLabel: string;
+  /** What the pill flags, inside it after its label: a dot per tone followed by its count (gx-chat-core `PillDot`). */
+  dots?: { tone: string; count: string }[];
 };
 
 /** One status chip at the left of the pill strip (gx-chat-core `extras/chat_pills.rs` `view_chips`). */
