@@ -87,7 +87,7 @@ export default function AgentsPane({ machineId, controlInset, onPick }: AgentsPa
               session={session}
               capabilities={capabilities}
               withProject={false}
-              onPress={() => onPick(session)}
+              onPick={onPick}
             />
           ))}
         </View>

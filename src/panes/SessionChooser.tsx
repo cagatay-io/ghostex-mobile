@@ -4,13 +4,14 @@
  * menu offers them), then a new terminal in the project of the session beside it, the computer's Add Project flow,
  * and the computer's agent sessions to open there, each with its agent, project and status in words (a status dot
  * alone would carry it by colour only). The session on screen beside it is not listed. The list is the computer's
- * session list as the Sessions screen has it; while it is being read, a spinner. The list does not spring back past
- * its ends. Every row is a control: half folded like a book they all keep off the fold. The agents pane
- * (`AgentsPane.tsx`) lists the sessions with the same row.
+ * session list as the Sessions screen has it; while it is being read, a spinner. The sessions are a virtualised list
+ * (`FlatList`, keyed by session id, one memoized row sharing this file's styles), the rows above them its header. The
+ * list does not spring back past its ends. Every row is a control: half folded like a book they all keep off the fold.
+ * The agents pane (`AgentsPane.tsx`) lists the sessions with the same row.
  */
 
-import type { ReactNode } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { memo, useCallback, useMemo, type ReactNode } from 'react';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View, type ListRenderItem } from 'react-native';
 
 import { AGENT_ICONS } from '../assets/agentIcons.generated';
 import { PlusGlyph, TerminalGlyph } from '../components/sessions/icons';
@@ -72,17 +73,21 @@ export function paneSessionStatus(
   }
 }
 
-/** One of the computer's sessions: its agent icon, its title, and its agent, project (`withProject`) and status. */
-export function PaneSessionRow({
+/**
+ * One of the computer's sessions: its agent icon, its title, and its agent, project (`withProject`) and status. A press
+ * hands its session to `onPick`, so a list passes one callback to every row and a row is drawn again only when its own
+ * session changes.
+ */
+export const PaneSessionRow = memo(function PaneSessionRow({
   session,
   capabilities,
   withProject,
-  onPress,
+  onPick,
 }: {
   session: GhostexSession;
   capabilities: GhostexSummaryCapabilities;
   withProject: boolean;
-  onPress: () => void;
+  onPick: (session: GhostexSession) => void;
 }) {
   const iconId = resolveAgentIconId(session.agentIcon, session.agentName);
   const Icon = AGENT_ICONS[iconId] ?? AGENT_ICONS.terminal;
@@ -99,7 +104,7 @@ export function PaneSessionRow({
       accessibilityRole="button"
       accessibilityLabel={`${title}, ${detail}`}
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-      onPress={onPress}
+      onPress={() => onPick(session)}
     >
       <Icon size={20} color={agentIconTint(iconId)} />
       <View style={styles.text}>
@@ -112,7 +117,7 @@ export function PaneSessionRow({
       </View>
     </Pressable>
   );
-}
+});
 
 /** A row that acts rather than opens a session: its icon, its label and, where it has one, a line under it. */
 function ActionRow({
@@ -160,7 +165,10 @@ export default function SessionChooser({
   onAddProject,
 }: SessionChooserProps) {
   const summary = useInventoryStore((state) => state.inventoriesByMachineId[machineId]?.summary ?? null);
-  const sessions = summary?.sessions.filter((session) => session.sessionId !== besideSessionId) ?? [];
+  const sessions = useMemo(
+    () => summary?.sessions.filter((session) => session.sessionId !== besideSessionId) ?? [],
+    [summary, besideSessionId],
+  );
   const capabilities = summary?.capabilities ?? NO_SUMMARY_CAPABILITIES;
   // A new terminal goes into the project of the session beside the chooser, where it has one.
   const beside = summary?.sessions.find((session) => session.sessionId === besideSessionId) ?? null;
@@ -169,8 +177,12 @@ export default function SessionChooser({
     (definition): definition is typeof definition & { type: Exclude<SettablePaneType, 'session'> } =>
       definition.type !== 'session' && (projectOffered || !definition.needsProject),
   );
+  const renderSession = useCallback<ListRenderItem<GhostexSession>>(
+    ({ item }) => <PaneSessionRow session={item} capabilities={capabilities} withProject onPick={onPick} />,
+    [capabilities, onPick],
+  );
   return (
-    <ScrollView
+    <FlatList
       style={styles.list}
       bounces={false}
       alwaysBounceVertical={false}
@@ -181,59 +193,70 @@ export default function SessionChooser({
           paddingRight: styles.content.padding + controlInset.right,
         },
       ]}
-    >
-      <ActionRow
-        label={PanesCopy.chooserClose}
-        icon={<CloseIcon size={16} color={GhostexPalette.ACCENT} />}
-        onPress={onClose}
-      />
-      <Text style={[styles.lead, styles.leadAfter]} accessibilityRole="header">
-        {PanesCopy.chooserTypesLead}
-      </Text>
-      {types.map((definition) => (
-        <ActionRow
-          key={definition.type}
-          label={definition.label}
-          detail={definition.description}
-          icon={definition.icon(20, GhostexPalette.ACCENT)}
-          onPress={() => onPickType(definition.type)}
-        />
-      ))}
-      <Text style={[styles.lead, styles.leadAfter]} accessibilityRole="header">
-        {PanesCopy.chooserLead}
-      </Text>
-      {besideProject !== null ? (
-        <ActionRow
-          label={PanesCopy.newTerminalIn(besideProject.projectName)}
-          icon={<TerminalGlyph size={20} color={GhostexPalette.ACCENT} />}
-          onPress={() => onNewTerminal(besideProject)}
-        />
-      ) : null}
-      <ActionRow
-        label={PanesCopy.addProject}
-        icon={<PlusGlyph size={20} color={GhostexPalette.ACCENT} />}
-        onPress={onAddProject}
-      />
-      {summary === null ? (
-        <View style={styles.pending}>
-          <ActivityIndicator size="small" color={GhostexPalette.MUTED} accessibilityLabel={PanesCopy.chooserLoading} />
+      data={sessions}
+      keyExtractor={sessionKey}
+      renderItem={renderSession}
+      ListHeaderComponent={
+        <View style={styles.header}>
+          <ActionRow
+            label={PanesCopy.chooserClose}
+            icon={<CloseIcon size={16} color={GhostexPalette.ACCENT} />}
+            onPress={onClose}
+          />
+          <Text style={[styles.lead, styles.leadAfter]} accessibilityRole="header">
+            {PanesCopy.chooserTypesLead}
+          </Text>
+          {types.map((definition) => (
+            <ActionRow
+              key={definition.type}
+              label={definition.label}
+              detail={definition.description}
+              icon={definition.icon(20, GhostexPalette.ACCENT)}
+              onPress={() => onPickType(definition.type)}
+            />
+          ))}
+          <Text style={[styles.lead, styles.leadAfter]} accessibilityRole="header">
+            {PanesCopy.chooserLead}
+          </Text>
+          {besideProject !== null ? (
+            <ActionRow
+              label={PanesCopy.newTerminalIn(besideProject.projectName)}
+              icon={<TerminalGlyph size={20} color={GhostexPalette.ACCENT} />}
+              onPress={() => onNewTerminal(besideProject)}
+            />
+          ) : null}
+          <ActionRow
+            label={PanesCopy.addProject}
+            icon={<PlusGlyph size={20} color={GhostexPalette.ACCENT} />}
+            onPress={onAddProject}
+          />
+          {summary === null ? (
+            <View style={styles.pending}>
+              <ActivityIndicator
+                size="small"
+                color={GhostexPalette.MUTED}
+                accessibilityLabel={PanesCopy.chooserLoading}
+              />
+            </View>
+          ) : null}
+          {summary !== null && sessions.length === 0 ? (
+            <Text style={styles.empty}>{PanesCopy.chooserEmpty}</Text>
+          ) : null}
         </View>
-      ) : null}
-      {summary !== null && sessions.length === 0 ? <Text style={styles.empty}>{PanesCopy.chooserEmpty}</Text> : null}
-      {sessions.map((session) => (
-        <PaneSessionRow
-          key={session.sessionId}
-          session={session}
-          capabilities={capabilities}
-          withProject
-          onPress={() => onPick(session)}
-        />
-      ))}
-    </ScrollView>
+      }
+    />
   );
 }
 
+function sessionKey(session: GhostexSession): string {
+  return session.sessionId;
+}
+
 const styles = StyleSheet.create({
+  /** The rows above the sessions, as far apart as the sessions are (`content`'s gap). */
+  header: {
+    gap: 8,
+  },
   pending: {
     alignItems: 'center',
     paddingVertical: 16,
