@@ -1,6 +1,7 @@
 /**
  * A coordinator's board, the Board pill's sheet: its lines of work grouped by who has the ball
- * (Later, Needs you, Blocked, Moving, Done today, Ideas), each row with its tags and latest status.
+ * (Backlog, To do, Needs you, Blocked, Moving, Done today, Removed), each a card of its title and
+ * its work's links.
  * Groups, rows, tags, folds and counts come from the core (gx-chat-core
  * `extras/coordinator_board.rs`, where the user's decision lives); this only lays them out. A row
  * opens its thread, its question card or its link, as the desktop's side panel does
@@ -162,19 +163,42 @@ export function CoordinatorBoardMenu({
                 const remove = obj(obj(row)?.remove);
                 const restore = obj(obj(row)?.restore);
                 const tags = arr(obj(row)?.tags);
+                const answers = arr(obj(row)?.answers);
+                const reference = str(row, 'reference');
+                const note = str(row, 'note');
+                // A tap puts the card's reference in the chat box so the user can comment on it
+                // (desktop `insert_board_reference`); a question's card jumps to it instead.
+                const tapCard =
+                  reference.length > 0
+                    ? () => {
+                        chat.dispatch({
+                          type: 'insertBoardReference',
+                          reference,
+                          text: chat.state?.composer.text ?? '',
+                        } as unknown as UserAction);
+                        onDone();
+                      }
+                    : command !== null
+                      ? () => run(command)
+                      : undefined;
+                // At most two chips fit beside the age; the rest are counted in "+N" (desktop
+                // `fit_chips`), so a card keeps its two lines.
+                const shownTags = tags.slice(0, 2);
+                const hiddenTags = tags.length - shownTags.length;
                 return (
                   <Pressable
                     key={key}
-                    accessibilityRole={command !== null ? 'button' : 'text'}
+                    accessibilityRole={tapCard !== undefined ? 'button' : 'text'}
                     accessibilityLabel={str(row, 'title')}
-                    onPress={command !== null ? () => run(command) : undefined}
+                    accessibilityHint={remove !== null ? 'Long-press to remove it from the board' : undefined}
+                    onPress={tapCard}
+                    onLongPress={remove !== null ? () => setArmed(key) : undefined}
                     style={styles.card}
                   >
                     <View style={styles.cardTitleLine}>
                       <Text style={styles.rowTitle} numberOfLines={1}>
                         {str(row, 'title')}
                       </Text>
-                      <Text style={styles.age}>{str(row, 'age')}</Text>
                       {openThread !== null ? (
                         <Pressable
                           accessibilityRole="button"
@@ -195,45 +219,87 @@ export function CoordinatorBoardMenu({
                         >
                           Restore
                         </Text>
-                      ) : remove !== null ? (
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={armed === key ? 'Tap again to move it to Removed' : 'Remove from the board'}
-                          hitSlop={8}
-                          onPress={() => tapRemove(key, remove)}
-                          style={[styles.remove, armed === key && styles.removeArmed]}
-                        >
-                          <Glyph
-                            name="x"
-                            size={11}
-                            color={armed === key ? SidebarPalette.ROW_APPROVAL : P.cardMuted}
-                          />
-                        </Pressable>
                       ) : null}
                     </View>
                     <View style={styles.chipLine}>
-                      {tags.length === 0 ? <Text style={styles.noLinks}>No links yet</Text> : null}
-                      {tags.map((tag, tagIndex) => {
-                        const tint = toneColor(str(tag, 'tone'));
-                        const open = obj(obj(tag)?.command);
-                        const coloured = str(tag, 'kind') === 'release' || str(tag, 'kind') === 'question';
-                        return (
-                          <Pressable
-                            key={`${str(tag, 'kind')}:${tagIndex}`}
-                            accessibilityRole={open !== null ? 'link' : 'text'}
-                            onPress={open !== null ? () => run(open) : undefined}
-                            style={[styles.tag, coloured && tint !== null && { borderColor: tint }]}
-                          >
-                            {!coloured ? (
-                              <View style={[styles.tagDot, { backgroundColor: tint ?? P.cardMuted }]} />
-                            ) : null}
-                            <Text style={[styles.tagText, coloured && tint !== null && { color: tint }]} numberOfLines={1}>
-                              {chipLabel(str(tag, 'kind'), str(tag, 'label'))}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
+                      <View style={styles.chips}>
+                        {answers.length > 0 ? (
+                          <View style={styles.answers}>
+                            {answers.map((answer, answerIndex) => (
+                              <Pressable
+                                key={`answer:${answerIndex}`}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Answer ${str(answer, 'label')}`}
+                                onPress={() =>
+                                  chat.dispatch(asJson(obj(answer)?.command) as unknown as UserAction)
+                                }
+                                style={[
+                                  styles.answer,
+                                  answerIndex > 0 && styles.answerDivider,
+                                  isTrue(answer, 'picked') && styles.answerPicked,
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.tagText,
+                                    (isTrue(answer, 'picked') || isTrue(answer, 'recommended')) && styles.answerStrong,
+                                  ]}
+                                  numberOfLines={1}
+                                >
+                                  {str(answer, 'label')}
+                                </Text>
+                              </Pressable>
+                            ))}
+                          </View>
+                        ) : tags.length === 0 ? (
+                          <Text style={note.length > 0 ? styles.note : styles.noLinks} numberOfLines={1}>
+                            {note.length > 0 ? note : 'No links yet'}
+                          </Text>
+                        ) : null}
+                        {(answers.length > 0 ? [] : shownTags).map((tag, tagIndex) => {
+                          const tint = toneColor(str(tag, 'tone'));
+                          const open = obj(obj(tag)?.command);
+                          const coloured = str(tag, 'kind') === 'release' || str(tag, 'kind') === 'question';
+                          return (
+                            <Pressable
+                              key={`${str(tag, 'kind')}:${tagIndex}`}
+                              accessibilityRole={open !== null ? 'link' : 'text'}
+                              accessibilityLabel={str(tag, 'title') || str(tag, 'label')}
+                              onPress={open !== null ? () => run(open) : undefined}
+                              style={[styles.tag, coloured && tint !== null && { borderColor: tint }]}
+                            >
+                              {!coloured ? (
+                                <View style={[styles.tagDot, { backgroundColor: tint ?? P.cardMuted }]} />
+                              ) : null}
+                              <Text
+                                style={[styles.tagText, coloured && tint !== null && { color: tint }]}
+                                numberOfLines={1}
+                                ellipsizeMode="tail"
+                              >
+                                {chipLabel(str(tag, 'kind'), str(tag, 'label'))}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                        {answers.length === 0 && hiddenTags > 0 ? (
+                          <View style={styles.tag}>
+                            <Text style={styles.tagText}>{`+${hiddenTags}`}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      <Text style={styles.age}>{str(row, 'age')}</Text>
                     </View>
+                    {remove !== null && armed === key ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Tap to move it to Removed"
+                        hitSlop={8}
+                        onPress={() => tapRemove(key, remove)}
+                        style={styles.removeBadge}
+                      >
+                        <Glyph name="x" size={11} color={SidebarPalette.ROW_APPROVAL} />
+                      </Pressable>
+                    ) : null}
                   </Pressable>
                 );
               })}
@@ -304,6 +370,7 @@ const useStyles = themedStyles((P) => ({
   },
   /** A line of work's card: two lines, always (desktop `board_card`). */
   card: {
+    position: 'relative',
     marginBottom: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -342,13 +409,65 @@ const useStyles = themedStyles((P) => ({
     alignItems: 'center',
     gap: 6,
     height: 24,
+  },
+  chips: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     overflow: 'hidden',
+  },
+  /** The red × that floats over a long-pressed card's top-right corner (desktop `board_remove_badge`). */
+  removeBadge: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.5)',
+    backgroundColor: P.background,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   noLinks: {
     color: P.cardMuted,
     fontSize: PROSE_SIZE - 2,
   },
+  /** The coordinator's own line for a card with no links: a step brighter than "No links yet". */
+  note: {
+    flexShrink: 1,
+    color: P.prose,
+    fontSize: PROSE_SIZE - 2,
+  },
+  /** An item's one-click answers, one segmented pill (desktop `board_answers`). */
+  answers: {
+    flexDirection: 'row',
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: P.ink(0.14),
+    overflow: 'hidden',
+  },
+  answer: {
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  answerDivider: {
+    borderLeftWidth: 1,
+    borderLeftColor: P.ink(0.14),
+  },
+  answerPicked: {
+    backgroundColor: P.ink(0.14),
+  },
+  answerStrong: {
+    color: P.foreground,
+  },
   tag: {
+    flexShrink: 1,
+    maxWidth: 160,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
@@ -364,6 +483,7 @@ const useStyles = themedStyles((P) => ({
     borderRadius: 3,
   },
   tagText: {
+    flexShrink: 1,
     color: P.cardMuted,
     fontSize: PROSE_SIZE - 2,
   },

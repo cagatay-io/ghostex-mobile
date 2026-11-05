@@ -37,6 +37,10 @@ export type ActionFields = {
   /** A coordinator board group's fold, and showing all of a group's rows. Desktop: `coordinator_board.rs`. */
   toggleCoordinatorBoardGroup: { group: string };
   coordinatorBoardMore: { group: string };
+  /** A board card's reference put in the chat box at the caret, so the user can comment on it. */
+  insertBoardReference: { reference: string; text: string; start?: number; end?: number };
+  /** One of a board card's answers, sent to the coordinator ("B4: Yes"). */
+  coordinatorBoardAnswer: { key: string; label: string; text: string };
   /** The grouped background-task row's fold. Desktop: `background_tasks.rs`. */
   toggleBackgroundTasks: { open: boolean };
   /** Open one of the coordinator's threads: gxserver resumes it if closed, then the host opens its tab. */
