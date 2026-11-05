@@ -40,10 +40,12 @@ import {
   mockPickImageAndSend,
   mockSelectionHaptic,
   navigation,
+  numberAt,
   openPad,
   parentOf,
   renderPose,
   renderScreen,
+  requiredNumber,
   setSettings,
   tapKey,
   terminalTop,
@@ -294,6 +296,33 @@ describe('every function of the key bar is reached from the pad', () => {
     expect(screen.getByText(reason)).toBeTruthy();
     await act(() => jest.advanceTimersByTime(1));
     expect(screen.queryByText(reason)).toBeNull();
+  });
+
+  test('three locked modifiers in a 320 pt window: the reason stands in its own row inside the window, chips, ring and keys stay put', async () => {
+    const window = { width: 320, height: 568 };
+    await renderScreen(SHELL_TAB, window);
+    await openPad();
+    await fireEvent.press(screen.getByLabelText('Keys'));
+    for (const modifier of ['CTRL', 'ALT', 'SHIFT']) await fireEvent(screen.getByLabelText(modifier), 'longPress');
+    const chipRow = () => StyleSheet.flatten(parentOf(screen.getByText('Ctrl locked')).props.style);
+    const placeOf = (label: string) => StyleSheet.flatten(screen.getByLabelText(label).props.style);
+    const before = { chips: chipRow(), keys: placeOf('Keys'), up: placeOf('Up') };
+    expect(['Ctrl locked', 'Alt locked', 'Shift locked'].map((chip) => screen.getByText(chip))).toHaveLength(3);
+
+    await fireEvent.press(screen.getByLabelText('Agent hotkeys'));
+    const line = screen.getByText("This session's agent has no agent hotkeys");
+    // The whole sentence, never cut to one line.
+    expect(line.props.numberOfLines).toBeUndefined();
+    // Its row is bounded on both sides by the pad's 16 pt margin and the toggle's column: inside the window.
+    const row = StyleSheet.flatten(parentOf(line).props.style);
+    const left = numberAt(row, 'left') ?? -1;
+    const right = numberAt(row, 'right') ?? -1;
+    expect(left).toBeGreaterThanOrEqual(0);
+    expect(right).toBeGreaterThanOrEqual(0);
+    expect(window.width - left - right).toBeGreaterThan(0);
+    // Above the chips' row (22 pt tall), not in it.
+    expect(requiredNumber(row, 'bottom')).toBeGreaterThanOrEqual(requiredNumber(before.chips, 'bottom') + 22);
+    expect({ chips: chipRow(), keys: placeOf('Keys'), up: placeOf('Up') }).toEqual(before);
   });
 
   test('the keyboard button shows the keyboard and, while it is up, dismisses it', async () => {

@@ -4,9 +4,9 @@
  * function buttons on an arc around the field's upper left corner: Keys and Agent (the layers in the keyboard's
  * place), the text editor, and the keyboard. The pad stays open until the toggle is tapped again; it floats with
  * and without the software keyboard and takes no room from the terminal. Armed modifiers show as a chip beside
- * the toggle; a tap on an unavailable ring button (Agent without agent hotkeys) shows why in a line in the same place
- * for as long as a layer's hint line stays. Opening fades and grows the pad out of the toggle, at once with Reduce
- * Motion on.
+ * the toggle; a tap on an unavailable ring button (Agent without agent hotkeys) shows why in a row of its own above
+ * the chips, bounded by the pad room's far margin, for as long as a layer's hint line stays. Opening fades and grows
+ * the pad out of the toggle, at once with Reduce Motion on.
  *
  * Moving it: holding the toggle for 0.3 s picks the whole pad up (toggle, field, ring);
  * it follows the finger and, let go, snaps to the nearer side edge at the released height inside the allowed area
@@ -29,6 +29,7 @@ import {
   View,
   type AccessibilityActionEvent,
   type GestureResponderEvent,
+  type ViewStyle,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 
@@ -45,6 +46,8 @@ import {
   DEFAULT_PAD_PLACEMENT,
   PAD_CHIP_OFFSET,
   PAD_FIELD_OFFSET,
+  PAD_HINT_HEIGHT,
+  PAD_HINT_OFFSET,
   PAD_KEY,
   PAD_KEY_GAP,
   PAD_MARGIN,
@@ -401,7 +404,7 @@ function CommandPad({
           ))}
         </Animated.View>
       ) : null}
-      {armed.length > 0 || ringHint !== null ? (
+      {armed.length > 0 ? (
         <View accessibilityLiveRegion="polite" style={[styles.chips, placeAt(anchor, PAD_CHIP_OFFSET)]}>
           {armed.map((modifier) => {
             const name = CommandPadCopy.modifierNames[modifier];
@@ -412,11 +415,12 @@ function CommandPad({
               </Text>
             );
           })}
-          {ringHint !== null ? (
-            <Text style={styles.ringHint} numberOfLines={1}>
-              {ringHint}
-            </Text>
-          ) : null}
+        </View>
+      ) : null}
+      {ringHint !== null ? (
+        <View accessibilityLiveRegion="polite" style={[styles.hintRow, spanAt(anchor, PAD_HINT_OFFSET)]}>
+          {/* Never cut: where the row is too narrow (narrower than any current iPhone) the line wraps upwards. */}
+          <Text style={styles.ringHint}>{ringHint}</Text>
         </View>
       ) : null}
       <Pressable
@@ -446,6 +450,18 @@ function CommandPad({
       </Pressable>
     </Animated.View>
   );
+}
+
+/**
+ * A row `offset` from the toggle at `anchor` that reaches across to the pad room's far margin, its content kept at the
+ * toggle's side: bounded on both sides, so nothing in it runs out of the room.
+ */
+function spanAt(anchor: PadAnchor, offset: PadOffset): ViewStyle {
+  const inset = PAD_MARGIN + offset.right;
+  const bottom = anchor.bottom + offset.bottom;
+  return anchor.side === 'left'
+    ? { left: inset, right: PAD_MARGIN, bottom, alignItems: 'flex-start' }
+    : { right: inset, left: PAD_MARGIN, bottom, alignItems: 'flex-end' };
 }
 
 /** Re-renders only when its own inputs change, not with every terminal screen update. */
@@ -654,14 +670,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: CommandPadPalette.MODIFIER_LOCKED_LINE,
   },
-  // The layer hint line's type (`CommandPadLayer`) on a solid backplate the chips' height, readable over any output.
+  hintRow: {
+    position: 'absolute',
+  },
+  // The layer hint line's type (`CommandPadLayer`) on a solid backplate, readable over any output.
   ringHint: {
+    minHeight: PAD_HINT_HEIGHT,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 11,
+    borderRadius: PAD_HINT_HEIGHT / 2,
     overflow: 'hidden',
     fontSize: 11,
-    lineHeight: 16,
+    lineHeight: PAD_HINT_HEIGHT - 6,
     color: GhostexPalette.FOREGROUND,
     backgroundColor: CommandPadPalette.GLASS_OPAQUE,
   },

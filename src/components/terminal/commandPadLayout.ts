@@ -44,6 +44,18 @@ export const PAD_FIELD_OFFSET: PadOffset = { right: 0, bottom: PAD_TOGGLE + 10 }
 /** The armed-modifier chip, left of the toggle. */
 export const PAD_CHIP_OFFSET: PadOffset = { right: PAD_TOGGLE + 10, bottom: 12 };
 
+/** The line that says why a tapped ring button is unavailable: one line of type with its backplate. */
+export const PAD_HINT_HEIGHT = 20;
+
+/**
+ * That line's own row, left of the toggle between the chips and the field (it ends at the field's bottom edge), so it
+ * moves neither the chips nor any key; it may reach across to the pad room's far margin.
+ */
+export const PAD_HINT_OFFSET: PadOffset = {
+  right: PAD_CHIP_OFFSET.right,
+  bottom: PAD_FIELD_OFFSET.bottom - PAD_HINT_HEIGHT,
+};
+
 /** The ring buttons in order (Keys, Agent, Editor, Keyboard), symmetric around the field's upper left diagonal. */
 export const PAD_RING_OFFSETS: readonly PadOffset[] = (() => {
   const half = FIELD / 2;
