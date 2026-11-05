@@ -19,10 +19,32 @@ export type RemoteFileRead =
 const ANSWER_MARKER = '__GHOSTEX_DOCS_READ__';
 const READ_EXEC_TIMEOUT_MS = 60_000;
 
+/*
+ * CDXC:Docs 2026-11-05 WHY:
+ * The Docs viewer copies a page's assets only from its project (CDXC:Docs 2026-10-25 in page.ts), but
+ * that check reads the path's text: a link inside the project (`docs/logo.png -> ~/.ssh/id_ed25519`)
+ * passed it and the computer read the target (security review 2026-11-05). With a `scope`, the
+ * computer itself now resolves the file's real folder (`pwd -P`, or every parent's reparse point on
+ * Windows) and answers `missing` for a file that is itself a link or whose real folder is outside
+ * the scope's real folder.
+ */
+
 /** Runs under `sh`, whatever the account's login shell is (a fish login cannot parse `f() {}`). */
-function posixReadScript(paths: readonly string[], maximumBytes: number): string {
+function posixReadScript(paths: readonly string[], maximumBytes: number, scope: string | null): string {
   const script = [
+    `gx_scope=${shellQuote(scope ?? '')}`,
+    'gx_scope_real=""',
+    'if [ -n "$gx_scope" ]; then gx_scope_real=$(cd "$gx_scope" 2>/dev/null && pwd -P) || gx_scope_real=""; fi',
+    'gx_inside() {',
+    '  [ -z "$gx_scope" ] && return 0',
+    '  [ -n "$gx_scope_real" ] || return 1',
+    '  [ ! -L "$1" ] || return 1',
+    '  gx_dir=$(cd "$(dirname "$1")" 2>/dev/null && pwd -P) || return 1',
+    '  case "$gx_dir/" in "$gx_scope_real"/*) return 0 ;; esac',
+    '  return 1',
+    '}',
     'gx_read() {',
+    '  if ! gx_inside "$1"; then printf \'missing\\n\'; return; fi',
     '  if [ -f "$1" ] && [ -r "$1" ]; then',
     '    gx_size=$(wc -c < "$1" 2>/dev/null | tr -d "[:space:]")',
     `    if [ -n "$gx_size" ] && [ "$gx_size" -le ${maximumBytes} ]; then`,
@@ -36,13 +58,28 @@ function posixReadScript(paths: readonly string[], maximumBytes: number): string
   return `sh -c ${shellQuote(script)}`;
 }
 
-function powershellReadScript(paths: readonly string[], maximumBytes: number): string {
+function powershellReadScript(paths: readonly string[], maximumBytes: number, scope: string | null): string {
   return `
+$gxScope=${powershellQuote(scope ?? '')}
+$gxScopeFull=''
+if ($gxScope -ne '') { try { $gxScopeFull=(Get-Item -LiteralPath $gxScope -ErrorAction Stop).FullName.TrimEnd('\\') } catch { $gxScopeFull='' } }
+function GxInside($gxFile) {
+  if ($gxScope -eq '') { return $true }
+  if ($gxScopeFull -eq '') { return $false }
+  if ($gxFile.Attributes -band [IO.FileAttributes]::ReparsePoint) { return $false }
+  if (-not $gxFile.FullName.StartsWith($gxScopeFull + '\\', [StringComparison]::OrdinalIgnoreCase)) { return $false }
+  $gxDir=$gxFile.Directory
+  while ($gxDir -ne $null -and $gxDir.FullName.Length -gt $gxScopeFull.Length) {
+    if ($gxDir.Attributes -band [IO.FileAttributes]::ReparsePoint) { return $false }
+    $gxDir=$gxDir.Parent
+  }
+  return $true
+}
 [Console]::Out.WriteLine(${powershellQuote(ANSWER_MARKER)})
 foreach ($gxPath in @(${paths.map(powershellQuote).join(',')})) {
   try {
     $gxFile=Get-Item -LiteralPath $gxPath -ErrorAction Stop
-    if ($gxFile.PSIsContainer) { [Console]::Out.WriteLine('missing') }
+    if ($gxFile.PSIsContainer -or -not (GxInside $gxFile)) { [Console]::Out.WriteLine('missing') }
     elseif ($gxFile.Length -gt ${maximumBytes}) { [Console]::Out.WriteLine('large') }
     else { [Console]::Out.WriteLine('ok ' + [Convert]::ToBase64String([IO.File]::ReadAllBytes($gxFile.FullName))) }
   } catch { [Console]::Out.WriteLine('missing') }
@@ -50,17 +87,24 @@ foreach ($gxPath in @(${paths.map(powershellQuote).join(',')})) {
 `;
 }
 
-/** Answers one read per path, in order. Throws only when the computer could not be asked at all. */
+/**
+ * Answers one read per path, in order. Throws only when the computer could not be asked at all.
+ * With a `scope`, a file outside that folder once links are resolved reads as `missing`.
+ */
 export async function readRemoteFiles(
   machine: MachineConnectionTarget,
   paths: readonly string[],
   maximumBytes: number,
+  scope: string | null = null,
 ): Promise<RemoteFileRead[]> {
   if (paths.length === 0) return [];
   await ensureConnected(machine);
   const exec = await execRemoteScript(
     machine.id,
-    { posix: posixReadScript(paths, maximumBytes), powershell: powershellReadScript(paths, maximumBytes) },
+    {
+      posix: posixReadScript(paths, maximumBytes, scope),
+      powershell: powershellReadScript(paths, maximumBytes, scope),
+    },
     READ_EXEC_TIMEOUT_MS,
   );
   const lines = exec.stdout.split(/\r?\n/u);

@@ -336,7 +336,8 @@ async function mirrorAssets(
       }
       let reads: Awaited<ReturnType<typeof readRemoteFiles>>;
       try {
-        reads = await readRemoteFiles(mirror.machine, batch, ASSET_MAX_BYTES);
+        // The computer also checks the scope after resolving links (remoteFiles.ts).
+        reads = await readRemoteFiles(mirror.machine, batch, ASSET_MAX_BYTES, mirror.scope);
       } catch (error) {
         // The computer could not be asked; a later ask (or Reload) tries these files again.
         batch.forEach((path) => mirror.settled.delete(path));
