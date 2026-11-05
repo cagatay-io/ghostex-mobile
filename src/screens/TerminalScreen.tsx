@@ -562,6 +562,20 @@ export default function TerminalScreen({ navigation, route }: Props) {
     (): void => (padGivesWay ? closePadLayer() : togglePadOpen(padReach !== null)),
     [padGivesWay, closePadLayer, togglePadOpen, padReach],
   );
+  // While the pad is lifted, the stack's swipe back to Sessions is off, so the drag is not taken for it; letting the
+  // pad go, its touch being cancelled, the pad going away and leaving the screen turn it back on, and so does a session
+  // switch (the lift belonged to the session it began in). At every other time the swipe works as before.
+  const [padLifted, setPadLifted] = useState(false);
+  const [liftSessionKey, setLiftSessionKey] = useState(padSessionKey);
+  if (liftSessionKey !== padSessionKey) {
+    setLiftSessionKey(padSessionKey);
+    setPadLifted(false);
+  }
+  useLayoutEffect(() => {
+    if (!padLifted) return;
+    navigation.setOptions({ gestureEnabled: false });
+    return () => navigation.setOptions({ gestureEnabled: undefined });
+  }, [navigation, padLifted]);
   const floatingLift = slidesWithKeyboard ? Math.max(0, bottomInset - insets.bottom) : 0;
   // The round buttons' bottom edge in the terminal area: above the closed pad's toggle at the right edge, else in the
   // corner above what covers the area. On iOS, where the area does not shrink with the keyboard, the height left for
@@ -1082,6 +1096,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
             cover={obstruction}
             placement={pad.placement}
             onMove={pad.movePad}
+            onLift={setPadLifted}
             layer={pad.layer}
             onLayer={pad.selectLayer}
             agentAvailable={pad.agentAvailable}

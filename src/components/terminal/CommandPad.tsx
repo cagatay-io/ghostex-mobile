@@ -12,7 +12,10 @@
  * it follows the finger and, let go, snaps to the nearer side edge at the released height inside the allowed area
  * (`padPlacementAt`), at once with Reduce Motion on (also when that is turned on during the snap). Only a drag
  * stores a new place: a hold let go without one (the finger never more than 10 pt from where it went down) puts
- * the pad back where it stood, so a place that only a cover pushed it to never becomes its resting place. A
+ * the pad back where it stood, so a place that only a cover pushed it to never becomes its resting place. While it is
+ * lifted the pad keeps its touch: the toggle refuses to hand the press to another responder, the screen turns its
+ * swipe back off (`onLift`), only the finger that lifted it moves it (from where that finger was at the lift), and a
+ * touch the system cancels puts it back without storing a place. A
  * shorter tap still opens and closes it. VoiceOver gets the same through the toggle's actions "Move to the left
  * side" and "Move to the right side". On the left edge the pad is drawn mirrored: the toggle at that edge, the ring
  * and the modifier chip on the field's other side; the field keeps its order, so every arrow still points its way.
@@ -29,6 +32,7 @@ import {
   View,
   type AccessibilityActionEvent,
   type GestureResponderEvent,
+  type NativeTouchEvent,
   type ViewStyle,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
@@ -105,6 +109,11 @@ export type CommandPadProps = {
   placement: CommandPadPlacement | undefined;
   /** Stores a new place. */
   onMove: (placement: CommandPadPlacement) => void;
+  /**
+   * The pad was lifted (true), or let go, cancelled or removed while lifted (false): the screen keeps its swipe back
+   * off meanwhile, so the drag is not taken for it.
+   */
+  onLift: (lifted: boolean) => void;
   layer: CommandPadLayerKind | null;
   onLayer: (layer: CommandPadLayerKind) => void;
   /** The session's agent has hotkeys (otherwise the Agent button is unavailable). */
@@ -128,6 +137,7 @@ function CommandPad({
   cover,
   placement,
   onMove,
+  onLift,
   layer,
   onLayer,
   agentAvailable,
@@ -207,7 +217,20 @@ function CommandPad({
     return { drag: value, dragTransform: value.getTranslateTransform() };
   });
   const [lifted, setLifted] = useState(false);
-  const gesture = useRef<{ startX: number; startY: number; dx: number; dy: number; dragged: boolean } | null>(null);
+  // The finger that pressed the toggle and where it was last reported: only it lifts, moves and drops the pad.
+  const press = useRef<{ id: NativeTouchEvent['identifier']; x: number; y: number } | null>(null);
+  // A lift: where its finger went down (a drag is more than PAD_DRAG_MIN_DISTANCE from there), where it was as the
+  // pad came up (the pad's offset counts from there, so the drift during the hold does not make it jump), and the
+  // offset so far.
+  const gesture = useRef<{
+    downX: number;
+    downY: number;
+    startX: number;
+    startY: number;
+    dx: number;
+    dy: number;
+    dragged: boolean;
+  } | null>(null);
   // Where a dropped pad's toggle was let go (its left and bottom edge in the area), until its new anchor is rendered;
   // the snap starts there.
   const released = useRef<{ left: number; bottom: number } | null>(null);
@@ -232,13 +255,31 @@ function CommandPad({
     drag.setValue({ x: 0, y: 0 });
   }, [drag, reduceMotion]);
 
+  // The screen keeps its swipe back off while the pad is lifted; let go, cancelled or gone, it gets it back.
+  useEffect(() => {
+    if (!lifted) return;
+    onLift(true);
+    return () => onLift(false);
+  }, [lifted, onLift]);
+
+  const pressIn = (event: GestureResponderEvent): void => {
+    const { identifier, pageX, pageY } = event.nativeEvent;
+    press.current = { id: identifier, x: pageX, y: pageY };
+  };
+
+  // The long press's event is the touch-down's; the finger may have drifted up to 10 pt since, so the lift starts
+  // where the pressing finger was last reported.
   const pickUp = (event: GestureResponderEvent): void => {
+    const finger = press.current;
+    if (finger === null) return;
     drag.stopAnimation();
     drag.setValue({ x: 0, y: 0 });
     released.current = null;
     gesture.current = {
-      startX: event.nativeEvent.pageX,
-      startY: event.nativeEvent.pageY,
+      downX: event.nativeEvent.pageX,
+      downY: event.nativeEvent.pageY,
+      startX: finger.x,
+      startY: finger.y,
       dx: 0,
       dy: 0,
       dragged: false,
@@ -247,22 +288,45 @@ function CommandPad({
     input.pickUpFeedback();
   };
 
-  const follow = (event: GestureResponderEvent): void => {
-    const current = gesture.current;
-    if (current === null) return;
-    current.dx = event.nativeEvent.pageX - current.startX;
-    current.dy = event.nativeEvent.pageY - current.startY;
-    drag.setValue({ x: current.dx, y: current.dy });
-    if (Math.hypot(current.dx, current.dy) > PAD_DRAG_MIN_DISTANCE) current.dragged = true;
+  /** The pressing finger's touch among those `event` reports as changed; undefined when only another one did. */
+  const pressingTouch = (event: GestureResponderEvent): NativeTouchEvent | undefined => {
+    const finger = press.current;
+    if (finger === null) return undefined;
+    return event.nativeEvent.changedTouches.find((touch) => touch.identifier === finger.id);
   };
 
-  const drop = (): void => {
+  // The responder's moves carry any finger's move; only the pressing finger's own moves count.
+  const follow = (event: GestureResponderEvent): void => {
+    const touch = pressingTouch(event);
+    if (touch === undefined || press.current === null) return;
+    press.current.x = touch.pageX;
+    press.current.y = touch.pageY;
+    const current = gesture.current;
+    if (current === null) return;
+    current.dx = touch.pageX - current.startX;
+    current.dy = touch.pageY - current.startY;
+    drag.setValue({ x: current.dx, y: current.dy });
+    if (Math.hypot(touch.pageX - current.downX, touch.pageY - current.downY) > PAD_DRAG_MIN_DISTANCE) {
+      current.dragged = true;
+    }
+  };
+
+  // A lift ends with its own finger's end (let go: the pad snaps and its place is stored) or cancel (the system took
+  // the touch: the pad goes back and nothing is stored). The press's end (`onPressOut`) is the same for both, so the
+  // toggle's own touch events end it.
+  const endLift = (event: GestureResponderEvent, letGo: boolean): void => {
+    if (pressingTouch(event) === undefined) return;
+    press.current = null;
     const current = gesture.current;
     if (current === null) return;
     gesture.current = null;
     setLifted(false);
-    input.selectionFeedback();
     const from = { x: current.dx, y: current.dy };
+    if (!letGo) {
+      springHome(drag, from, reduceMotion);
+      return;
+    }
+    input.selectionFeedback();
     if (area === null || !current.dragged) {
       // Not measured yet (nowhere to snap to), or held without a drag: back to where it was, nothing stored.
       springHome(drag, from, reduceMotion);
@@ -430,8 +494,9 @@ function CommandPad({
         accessibilityActions={MOVE_ACTIONS}
         onAccessibilityAction={moveBy}
         delayLongPress={PAD_MOVE_HOLD_MS}
-        // Lifted, the finger may go anywhere without cancelling the drag.
+        // Lifted, the finger may go anywhere without cancelling the drag, and no other responder takes the press.
         pressRetentionOffset={lifted ? Number.POSITIVE_INFINITY : undefined}
+        cancelable={!lifted}
         style={({ pressed }) => [
           styles.toggle,
           placeAt(anchor, AT_TOGGLE),
@@ -441,9 +506,11 @@ function CommandPad({
           lifted && styles.lifted,
         ]}
         onPress={onToggle}
+        onPressIn={pressIn}
         onLongPress={pickUp}
         onPressMove={follow}
-        onPressOut={drop}
+        onTouchEnd={(event) => endLift(event, true)}
+        onTouchCancel={(event) => endLift(event, false)}
       >
         <Frost radius={PAD_TOGGLE / 2} opaque={opaque} />
         <PadIcon size={20} color={open ? GhostexPalette.ACCENT : GhostexPalette.FOREGROUND} />

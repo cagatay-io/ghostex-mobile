@@ -4,8 +4,11 @@
  * dragging it, the snap to the nearer side edge at the released height, the tap that still opens and closes it, the
  * place that only a drag stores, the keyboard and the layers moving it only to keep it above them, Reduce Motion
  * (also turned on while it springs or is lifted), the toggle's accessibility actions, the pick-up and drop haptics,
- * and the pad drawn mirrored on the left edge. The toggle's real hold timer and React Native's responder events drive
- * the drag.
+ * the pad drawn mirrored on the left edge, and the lifted pad keeping its touch (no responder hand-over, the swipe
+ * back off, only its own finger moving it, a cancelled touch storing nothing). The toggle's real hold timer and React
+ * Native's responder and touch events drive the drag, in the order the device sends them: a finger's end reaches the
+ * responder first, then the toggle's own touch event. That the iOS back swipe really stays off, and what a second
+ * finger or the system's cancel does on the device, stays with the end test on the iPhone.
  */
 import {
   ACCESSIBILITY_ACTIVATION,
@@ -13,6 +16,7 @@ import {
   AREA,
   DEFAULT_LABELS,
   RING,
+  SHELL_TAB,
   TOGGLE,
   frameOf,
   keyboardWillHide,
@@ -20,6 +24,7 @@ import {
   layOutArea,
   mockImpactHaptic,
   mockSelectionHaptic,
+  navigation,
   numberAt,
   openPad,
   padFrame,
@@ -35,19 +40,19 @@ import { act, fireEvent, screen } from '@testing-library/react-native';
 import type { TestInstance } from 'test-renderer';
 
 import { useSettingsStore } from '../settings/store';
-import { useTerminalStore } from '../terminal/sessions';
+import { useTerminalStore, type TerminalTab } from '../terminal/sessions';
 
-/** A finger at a point of the terminal area, as React Native's responder events carry it. */
-function touch(pageX: number, pageY: number, down = true) {
-  const point = { pageX, pageY, locationX: 0, locationY: 0, identifier: 0, target: 1 };
+/** A finger (`identifier`) at a point of the terminal area, as React Native's responder and touch events carry it. */
+function touch(pageX: number, pageY: number, down = true, identifier = 0) {
+  const point = { pageX, pageY, locationX: 0, locationY: 0, identifier, target: 1 };
   return {
     persist: () => undefined,
-    nativeEvent: { pageX, pageY, touches: down ? [point] : [], changedTouches: [point] },
+    nativeEvent: { pageX, pageY, identifier, touches: down ? [point] : [], changedTouches: [point] },
   };
 }
 
-/** Puts a finger on the toggle's centre and keeps it there for `ms` (the toggle's own press timers run). */
-async function holdToggle(ms: number): Promise<{ x: number; y: number }> {
+/** Puts a finger on the toggle's centre: the responder's grant, whose touch-down the press timers start from. */
+async function fingerDown(): Promise<{ x: number; y: number }> {
   const frame = frameOf(TOGGLE);
   const start = { x: (frame.left + frame.right) / 2, y: (frame.top + frame.bottom) / 2 };
   const measure = (callback: (...values: number[]) => void) =>
@@ -56,16 +61,29 @@ async function holdToggle(ms: number): Promise<{ x: number; y: number }> {
     ...touch(start.x, start.y),
     currentTarget: { measure },
   });
+  return start;
+}
+
+/** Puts a finger on the toggle's centre and keeps it there for `ms` (the toggle's own press timers run). */
+async function holdToggle(ms: number): Promise<{ x: number; y: number }> {
+  const start = await fingerDown();
   await act(() => jest.advanceTimersByTime(ms));
   return start;
 }
 
-async function moveFinger(x: number, y: number): Promise<void> {
-  await fireEvent(screen.getByLabelText(TOGGLE), 'responderMove', touch(x, y));
+async function moveFinger(x: number, y: number, identifier = 0): Promise<void> {
+  await fireEvent(screen.getByLabelText(TOGGLE), 'responderMove', touch(x, y, true, identifier));
 }
 
 async function liftFinger(x: number, y: number): Promise<void> {
   await fireEvent(screen.getByLabelText(TOGGLE), 'responderRelease', touch(x, y, false));
+  await fireEvent(screen.getByLabelText(TOGGLE), 'touchEnd', touch(x, y, false));
+}
+
+/** The system cancels the finger's touch: the responder is terminated, then the toggle's own touch is cancelled. */
+async function cancelFinger(x: number, y: number): Promise<void> {
+  await fireEvent(screen.getByLabelText(TOGGLE), 'responderTerminate', touch(x, y, false));
+  await fireEvent(screen.getByLabelText(TOGGLE), 'touchCancel', touch(x, y, false));
 }
 
 /** Long enough for the snap's spring to come to rest from anywhere in the area. */
@@ -481,5 +499,125 @@ describe('the pad on the left edge', () => {
     const toggle = frameOf(TOGGLE);
     expect(chip?.right).toBeUndefined();
     expect(numberAt(chip, 'left')).toBeGreaterThanOrEqual(toggle.right);
+  });
+});
+
+describe('a lifted pad keeps its touch', () => {
+  test('lifted, the toggle refuses to hand its press to another responder until it is let go', async () => {
+    await renderScreen();
+    await layOutArea();
+    await openPad();
+    const handsOver = (): unknown => screen.getByLabelText(TOGGLE).props.onResponderTerminationRequest();
+    const start = await holdToggle(200);
+    // Not lifted yet: a swipe that starts on the toggle may still go to the screen.
+    expect(handsOver()).toBe(true);
+    await act(() => jest.advanceTimersByTime(100));
+    expect(handsOver()).toBe(false);
+    await moveFinger(start.x - 120, start.y - 200);
+    expect(handsOver()).toBe(false);
+    await liftFinger(start.x - 120, start.y - 200);
+    expect(handsOver()).toBe(true);
+  });
+
+  test('the swipe back to Sessions is off from the lift until the pad is let go; a tap leaves it alone', async () => {
+    const setOptions = jest.spyOn(navigation, 'setOptions');
+    await renderScreen();
+    await layOutArea();
+    setOptions.mockClear();
+    let start = await holdToggle(200);
+    await liftFinger(start.x, start.y);
+    expect(screen.getByLabelText('Up')).toBeTruthy();
+    expect(setOptions).not.toHaveBeenCalled();
+    start = await holdToggle(300);
+    expect(setOptions.mock.calls).toEqual([[{ gestureEnabled: false }]]);
+    await moveFinger(start.x - 120, start.y - 200);
+    await liftFinger(start.x - 120, start.y - 200);
+    expect(setOptions.mock.calls).toEqual([[{ gestureEnabled: false }], [{ gestureEnabled: undefined }]]);
+  });
+
+  test('a touch the system cancels puts the pad back, stores nothing, gives no drop tick and turns the swipe back on', async () => {
+    const setOptions = jest.spyOn(navigation, 'setOptions');
+    await renderScreen();
+    await layOutArea();
+    await openPad();
+    mockSelectionHaptic.mockClear();
+    const before = padFrame();
+    const start = await holdToggle(300);
+    await moveFinger(start.x - 120, start.y - 200);
+    expect(padFrame()).toMatchObject({ left: before.left - 120, top: before.top - 200 });
+    await cancelFinger(start.x - 120, start.y - 200);
+    await act(() => jest.advanceTimersByTime(SNAP_SETTLED_MS));
+    expect(padFrame()).toEqual(before);
+    expect(translationOf(screen.getByLabelText(TOGGLE))).toEqual({ x: 0, y: 0 });
+    expect(storedFlatPosition()).toBeUndefined();
+    expect(mockSelectionHaptic).not.toHaveBeenCalled();
+    expect(setOptions).toHaveBeenLastCalledWith({ gestureEnabled: undefined });
+    // Still open, and the toggle answers a tap again.
+    expect(screen.getByLabelText('Up')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText(TOGGLE));
+    expect(screen.queryByLabelText('Up')).toBeNull();
+  });
+
+  test('only the finger that lifted the pad moves it and drops it; another finger neither moves nor drops it', async () => {
+    await renderScreen();
+    await layOutArea();
+    await openPad();
+    const before = padFrame();
+    const start = await holdToggle(300);
+    await moveFinger(start.x - 120, start.y - 200);
+    // A second finger moving elsewhere reaches the responder too; the pad stays under the first one.
+    await moveFinger(start.x + 150, start.y - 50, 1);
+    expect(padFrame()).toMatchObject({ left: before.left - 120, top: before.top - 200 });
+    // The second finger's end does not drop it.
+    await fireEvent(screen.getByLabelText(TOGGLE), 'touchEnd', touch(start.x + 150, start.y - 50, false, 1));
+    await moveFinger(start.x - 130, start.y - 190);
+    expect(padFrame()).toMatchObject({ left: before.left - 130, top: before.top - 190 });
+    expect(storedFlatPosition()).toBeUndefined();
+    await liftFinger(start.x - 130, start.y - 190);
+    await act(() => jest.advanceTimersByTime(SNAP_SETTLED_MS));
+    expect(padFrame()).toMatchObject({ left: 16, bottom: before.bottom - 190 });
+    expect(storedFlatPosition()).toMatchObject({ side: 'left' });
+  });
+
+  test('the first move after the lift does not jump by what the finger drifted during the hold', async () => {
+    await renderScreen();
+    await layOutArea();
+    await openPad();
+    const before = padFrame();
+    const start = await fingerDown();
+    await act(() => jest.advanceTimersByTime(150));
+    // 5 pt of drift, inside the hold's 10 pt allowance: the hold goes on and lifts the pad.
+    await moveFinger(start.x + 3, start.y - 4);
+    await act(() => jest.advanceTimersByTime(150));
+    expect(mockImpactHaptic).toHaveBeenCalledTimes(1);
+    expect(padFrame()).toEqual(before);
+    await moveFinger(start.x + 3 - 120, start.y - 4 - 200);
+    expect(padFrame()).toEqual({
+      left: before.left - 120,
+      top: before.top - 200,
+      right: before.right - 120,
+      bottom: before.bottom - 200,
+    });
+  });
+
+  test('a session switch turns the swipe back on, and so does leaving the screen', async () => {
+    const second: TerminalTab = { ...SHELL_TAB, sessionKey: 'shell-2', title: 'second' };
+    const setOptions = jest.spyOn(navigation, 'setOptions');
+    await renderScreen();
+    await act(() => useTerminalStore.setState({ tabs: [SHELL_TAB, second] }));
+    await layOutArea();
+    setOptions.mockClear();
+    const start = await holdToggle(300);
+    expect(setOptions.mock.calls).toEqual([[{ gestureEnabled: false }]]);
+    await act(() => useTerminalStore.getState().selectTab('shell-2'));
+    expect(setOptions.mock.calls).toEqual([[{ gestureEnabled: false }], [{ gestureEnabled: undefined }]]);
+    // The finger lets go in the new session: nothing turns the swipe off again.
+    await liftFinger(start.x, start.y);
+    expect(setOptions).toHaveBeenCalledTimes(2);
+    await holdToggle(300);
+    expect(setOptions).toHaveBeenLastCalledWith({ gestureEnabled: false });
+    await act(() => screen.unmount());
+    expect(setOptions).toHaveBeenLastCalledWith({ gestureEnabled: undefined });
+    expect(setOptions).toHaveBeenCalledTimes(4);
   });
 });
