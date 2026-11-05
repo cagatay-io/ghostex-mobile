@@ -3,9 +3,10 @@
  * the software keyboard (`KeyBarDock`): a multiline draft with the full text keyboard (emoji, dictation,
  * suggestions) and Send. Send inserts the draft into the terminal and clears it; with an empty draft it sends
  * Enter. Return in the keyboard adds a newline to the draft. Backspace or Delete on an empty draft go to the
- * terminal (terminal-screen.md §2 "Text editor"). The draft is held above the editor's view (`useTerminalTextEditor`),
- * so the pen closing the editor and opening it again keeps it while the keyboard stays; the keyboard going away or a
- * session switch drops it.
+ * terminal (terminal-screen.md §2 "Text editor"). The draft belongs to its session and is kept in the terminal store
+ * (`textEditorDraftBySessionKey`), in memory only: however the editor closes (the pen, the keyboard going away, the pad
+ * lowering the keyboard, a layer taking its place, a session switch, leaving the terminal screen), that session's
+ * next opening shows it again; only Send empties it.
  *
  * Closing it with the pen hands the keyboard back to the terminal: the terminal is asked for first responder
  * while the editor, which holds it, is still mounted, so UIKit moves the responder straight over and the
@@ -18,37 +19,25 @@ import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { GhostexNative } from '../../../modules/ghostex-native/src';
 import { CommandPadCopy } from '../../copy';
+import { useTerminalStore } from '../../terminal/sessions';
 import { CommandPadPalette, GhostexPalette } from '../../theme/palette';
 import { ArrowIcon, SendIcon } from './icons';
-
-/**
- * The unsent draft of one session's editor, held above the editor's view, which unmounts once the editor has closed.
- * The editor writes it as the text changes; nothing renders from it, so typing redraws the editor alone.
- */
-export type TerminalTextDraft = { current: string };
 
 export type TerminalTextEditorState = {
   visible: boolean;
   /** Pen: opens the editor, or hands the keyboard back to the terminal and closes it. */
   toggle: () => void;
-  /** Closes it without a hand-over (the keyboard went away, a layer took its place) and drops the draft. */
+  /** Closes it without a hand-over (the keyboard went away, a layer took its place); the draft stays. */
   dismiss: () => void;
-  /**
-   * The shown session's draft: kept while the pen has closed the editor and the keyboard stays, cleared by Send; the
-   * keyboard going away (`dismiss`) or a session switch starts a new one, as the key bar's editor did.
-   */
-  draft: TerminalTextDraft;
 };
 
-/** Whether the editor is open for the shown session, and its draft; a session switch closes it and drops the draft. */
+/** Whether the editor is open for the shown session; a session switch closes it and keeps each session's draft. */
 export function useTerminalTextEditor(sessionKey: string | null): TerminalTextEditorState {
   const [visible, setVisible] = useState(false);
-  const [draft, setDraft] = useState<TerminalTextDraft>(() => ({ current: '' }));
   const [openFor, setOpenFor] = useState(sessionKey);
   if (openFor !== sessionKey) {
     setOpenFor(sessionKey);
     setVisible(false);
-    setDraft({ current: '' });
   }
   /** A hand-over to the terminal is in flight; the pen ignores further presses until it answers. */
   const handOverPending = useRef(false);
@@ -76,18 +65,13 @@ export function useTerminalTextEditor(sessionKey: string | null): TerminalTextEd
     })();
   }, [visible, sessionKey]);
 
-  const dismiss = useCallback((): void => {
-    setVisible(false);
-    setDraft((current) => (current.current === '' ? current : { current: '' }));
-  }, []);
+  const dismiss = useCallback((): void => setVisible(false), []);
 
-  return { visible, toggle, dismiss, draft };
+  return { visible, toggle, dismiss };
 }
 
 export type TerminalTextEditorProps = {
   sessionKey: string;
-  /** The session's draft (`useTerminalTextEditor`): the editor starts with it and keeps it up to date. */
-  draft: TerminalTextDraft;
 };
 
 /** The editor's height with one line of text: the dock's height until it has laid out. */
@@ -96,10 +80,14 @@ export const TEXT_EDITOR_HEIGHT = 56;
 // A failed call means the terminal entry closed or failed; the terminal's state overlay shows that.
 const ignoreClosedTerminal = (): void => undefined;
 
-export default function TerminalTextEditor({ sessionKey, draft }: TerminalTextEditorProps) {
-  const [text, setShownText] = useState(draft.current);
+export default function TerminalTextEditor({ sessionKey }: TerminalTextEditorProps) {
+  // The session's draft (`textEditorDraftBySessionKey`): the editor starts with it and keeps it up to date. Only the
+  // editor reads it, and only as it opens, so typing redraws the editor alone.
+  const [text, setShownText] = useState(
+    () => useTerminalStore.getState().textEditorDraftBySessionKey[sessionKey] ?? '',
+  );
   const setText = (next: string): void => {
-    draft.current = next;
+    useTerminalStore.getState().setTextEditorDraft(sessionKey, next);
     setShownText(next);
   };
 

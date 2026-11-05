@@ -1126,7 +1126,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
         <>
           <KeyBarDock shown={editorShown} inset={bottomInset} hideMs={hideMotionMs} onHeightChange={setEditorHeight}>
             {padSessionKey !== null ? (
-              <TerminalTextEditor key={padSessionKey} sessionKey={padSessionKey} draft={pad.editorDraft} />
+              <TerminalTextEditor key={padSessionKey} sessionKey={padSessionKey} />
             ) : null}
           </KeyBarDock>
           {padLayer !== null ? <View style={styles.padLayerDock}>{padLayer}</View> : null}

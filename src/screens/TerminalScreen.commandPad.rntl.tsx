@@ -4,7 +4,8 @@
  * and text editor: the pad replacing the key bar and the upload button, the setting that shows and hides it (and,
  * with the pad off, the round upload button as today), the 3x3 field, a key changed in Settings, the pad staying
  * open, Upload up to the terminal menu's source choice, every old function of the key bar reached from the pad, the
- * layer in the keyboard's place with cross and ring standing still, and the pen's keyboard hand-over.
+ * layer in the keyboard's place with cross and ring standing still, the pen's keyboard hand-over, and the text editor's
+ * draft kept per session through every close until Send.
  *
  * On the device these checks read the accessibility tree; here the same questions are asked of the rendered
  * component tree (labels, presence, the calls that reach the native module). Device behaviour (the keyboard really
@@ -20,11 +21,13 @@
 
 import {
   ACCESSIBILITY_ACTIVATION,
+  ACTIONS,
   AGENT_TAB,
   DEFAULT_LABELS,
   EDITOR,
   HIDDEN_TOO,
   IPHONE_TURNED,
+  IPHONE_UPRIGHT,
   KEYBOARD,
   KEY_BAR_LABELS,
   NO_MODS,
@@ -35,6 +38,7 @@ import {
   keyboardComesUp,
   keyboardWillHide,
   keyboardWillShow,
+  matrixStep,
   mockNative,
   mockPickAndSend,
   mockPickImageAndSend,
@@ -47,8 +51,10 @@ import {
   renderScreen,
   requiredNumber,
   setSettings,
+  shownNow,
   tapKey,
   terminalTop,
+  type Pose,
 } from './TerminalScreen.commandPadHarness';
 
 import { AccessibilityInfo, Alert, Animated, StyleSheet } from 'react-native';
@@ -610,7 +616,7 @@ describe('fixed regressions', () => {
     ]);
   });
 
-  test('a draft typed in one session never goes to another one (tab switch within the editor linger)', async () => {
+  test('a draft typed in one session never goes to another one (tab switch within the editor linger) and is there again back in its own', async () => {
     const second: TerminalTab = { ...SHELL_TAB, sessionKey: 'shell-2', title: 'second' };
     await renderScreen();
     await act(() => useTerminalStore.setState({ tabs: [SHELL_TAB, second] }));
@@ -626,6 +632,13 @@ describe('fixed regressions', () => {
     await fireEvent.press(screen.getByLabelText('Send Enter to terminal'));
     expect(mockNative.sendText).not.toHaveBeenCalled();
     expect(mockNative.sendKey.mock.calls).toEqual([['shell-2', 'enter', {}]]);
+    // Back in the first session the switch closed the editor and kept that session's draft for it.
+    await act(() => useTerminalStore.getState().selectTab('shell-1'));
+    await act(() => jest.advanceTimersByTime(1000));
+    expect(screen.queryByLabelText(EDITOR, HIDDEN_TOO)).toBeNull();
+    await fireEvent.press(screen.getByLabelText('Text editor'));
+    expect(screen.getByLabelText(EDITOR).props.value).toBe('draft for A');
+    expect(mockNative.sendText).not.toHaveBeenCalled();
   });
 
   test('the pen closing the editor keeps its unsent draft for the same session; Send then inserts it and clears it', async () => {
@@ -646,7 +659,7 @@ describe('fixed regressions', () => {
     expect(screen.getByLabelText(EDITOR).props.value).toBe('');
   });
 
-  test('the keyboard going away drops the draft, as it did with the key bar: the editor opens empty again', async () => {
+  test('the keyboard going away keeps the draft: the editor opens with it again; Send then inserts it and clears it', async () => {
     await renderScreen();
     await keyboardWillShow();
     await openPad();
@@ -657,8 +670,15 @@ describe('fixed regressions', () => {
     expect(screen.queryByLabelText(EDITOR, HIDDEN_TOO)).toBeNull();
     await keyboardWillShow();
     await fireEvent.press(screen.getByLabelText('Text editor'));
-    expect(screen.getByLabelText(EDITOR).props.value).toBe('');
+    expect(screen.getByLabelText(EDITOR).props.value).toBe('not sent');
     expect(mockNative.sendText).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByLabelText('Insert text into terminal'));
+    expect(mockNative.sendText.mock.calls).toEqual([['shell-1', 'not sent']]);
+    await keyboardWillHide();
+    await act(() => jest.advanceTimersByTime(1000));
+    await keyboardWillShow();
+    await fireEvent.press(screen.getByLabelText('Text editor'));
+    expect(screen.getByLabelText(EDITOR).props.value).toBe('');
   });
 
   test('opening and closing the Keys and Agent layers ticks like the key bar page toggles, only with Key vibration on', async () => {
@@ -692,6 +712,84 @@ describe('fixed regressions', () => {
     let scroller: TestInstance | null = screen.getByText('More keys');
     while (scroller !== null && scroller.props.contentContainerStyle === undefined) scroller = scroller.parent;
     expect(scroller).not.toBeNull();
+  });
+});
+
+/*
+ * Every way the text editor closes keeps its draft for the next opening in the same session. The pose's system
+ * keyboard follows the app's requests (`matrixStep`): a focus brings it up, a blur or the system lowers it.
+ */
+describe('the text editor keeps its draft however it closes', () => {
+  const DRAFT = 'git log --oneline -5';
+
+  // As in the transition matrix, the pad stands at its end state at once (Reduce Motion on): its native-driven
+  // motions do not run in this renderer, and the draft does not depend on them.
+  beforeEach(() => {
+    jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockImplementation(() => Promise.resolve(true));
+  });
+
+  /** In `pose`: the pad opened with the keyboard down, the pen's editor brought up with it, the draft typed. */
+  async function typeDraft(pose: Pose): Promise<void> {
+    await renderPose(pose);
+    await matrixStep(ACTIONS.toggle);
+    await matrixStep(ACTIONS.pen);
+    await fireEvent.changeText(screen.getByLabelText(EDITOR), DRAFT);
+  }
+
+  /** The pen opens the editor again (from a pad drawn open), and it shows the draft. */
+  async function penShowsDraft(): Promise<void> {
+    await matrixStep(ACTIONS.pen);
+    expect(screen.getByLabelText(EDITOR).props.value).toBe(DRAFT);
+    expect(mockNative.sendText).not.toHaveBeenCalled();
+  }
+
+  test('the keyboard going away', async () => {
+    await typeDraft(IPHONE_UPRIGHT);
+    await matrixStep(ACTIONS['keyboard away']);
+    expect(shownNow()).toMatchObject({ keyboard: false, editor: false, pad: 'open' });
+    await penShowsDraft();
+  });
+
+  test('the pad toggle lowering the keyboard where the open pad and the keyboard do not fit together', async () => {
+    await typeDraft(IPHONE_TURNED);
+    // The editor opening on the keyboard closed the pad: the toggle is the one control left beside the editor.
+    expect(shownNow()).toMatchObject({ keyboard: true, editor: true, pad: 'closed' });
+    await matrixStep(ACTIONS.toggle);
+    expect(shownNow()).toMatchObject({ keyboard: false, editor: false, pad: 'open' });
+    await penShowsDraft();
+  });
+
+  test.each(['Keys', 'Agent'] as const)('the %s layer taking the keyboard’s place', async (layer) => {
+    await typeDraft(IPHONE_UPRIGHT);
+    await matrixStep(ACTIONS[layer]);
+    expect(shownNow()).toMatchObject({ keyboard: false, editor: false, layer });
+    // The same layer button again brings the keyboard back.
+    await matrixStep(ACTIONS[layer]);
+    expect(shownNow()).toMatchObject({ keyboard: true, editor: false, layer: 'none' });
+    await penShowsDraft();
+  });
+
+  test('the pen', async () => {
+    await typeDraft(IPHONE_UPRIGHT);
+    await matrixStep(ACTIONS.pen);
+    expect(shownNow()).toMatchObject({ keyboard: true, editor: false, pad: 'open' });
+    await penShowsDraft();
+  });
+
+  test('leaving the terminal screen and opening it again', async () => {
+    await typeDraft(IPHONE_UPRIGHT);
+    await act(() => screen.unmount());
+    // The keyboard leaves with the screen; the screen opens again with its pad closed.
+    await ACTIONS['keyboard away']();
+    await renderPose(IPHONE_UPRIGHT);
+    await matrixStep(ACTIONS.toggle);
+    await penShowsDraft();
+    // Send inserts it and empties it; the next opening starts empty.
+    await fireEvent.press(screen.getByLabelText('Insert text into terminal'));
+    expect(mockNative.sendText.mock.calls).toEqual([['agent-1', DRAFT]]);
+    await matrixStep(ACTIONS.pen);
+    await matrixStep(ACTIONS.pen);
+    expect(screen.getByLabelText(EDITOR).props.value).toBe('');
   });
 });
 

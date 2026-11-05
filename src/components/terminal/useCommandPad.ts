@@ -8,9 +8,9 @@
  *   coming up any other way (a tap on the terminal), ends the layer. A layer that waits for the keyboard stays
  *   until the keyboard is up, so the pad does not drop and rise again in between.
  * - The text editor lives on the keyboard: it opens with the pen (closing a layer), and the keyboard going away
- *   closes it. The pen closing it keeps its unsent draft for when it opens again; Send or the keyboard going away
- *   drops it.
- * - Switching sessions closes the layer and the editor, drops the draft and starts with no armed modifier.
+ *   closes it. Its unsent draft belongs to its session and outlives every close (the pen, the keyboard going away, a
+ *   layer, a session switch, leaving the screen; `textEditorDraftBySessionKey` in the terminal store); Send empties it.
+ * - Switching sessions closes the layer and the editor and starts with no armed modifier.
  * - Where the user moved the pad is stored per layout (`commandPadPosition`); layers, the editor and the keyboard
  *   never change it: they move the pad only while it would stand under them.
  * - Where the open pad does not fit above the keyboard even reaching over the header (a phone in landscape),
@@ -57,7 +57,7 @@ import { resolveCommandPadKeys, type CommandPadKey } from './commandPadKeys';
 import { agentKeyPage } from './keyBarPages';
 import type { ModifierState, TerminalKeyInput } from './terminalKeyInput';
 import { useTerminalKeyInput } from './useTerminalKeyInput';
-import { useTerminalTextEditor, type TerminalTextDraft } from './TerminalTextEditor';
+import { useTerminalTextEditor } from './TerminalTextEditor';
 
 /** How long a layer waits for the keyboard it asked for before it goes anyway (a refused focus). */
 const LAYER_KEYBOARD_WAIT_MS = 1500;
@@ -144,8 +144,6 @@ export type CommandPadState = {
   closeLayer: () => void;
   editorVisible: boolean;
   toggleEditor: () => void;
-  /** The text editor's unsent draft, kept while the pen has closed it (`useTerminalTextEditor`). */
-  editorDraft: TerminalTextDraft;
   /** The ring's keyboard button: hides the keyboard, or brings it back (ending a layer). */
   toggleKeyboard: () => void;
   /** The user's place for this layout; undefined: the default (bottom right). */
@@ -173,7 +171,6 @@ export function useCommandPad({
     visible: editorVisible,
     toggle: toggleEditorOpen,
     dismiss: dismissEditor,
-    draft: editorDraft,
   } = useTerminalTextEditor(sessionKey);
   const storedKeys = useSettingsStore((state) => state.settings.commandPadKeys);
   const placement = useSettingsStore((state) => state.settings.commandPadPosition[layout]);
@@ -377,7 +374,6 @@ export function useCommandPad({
     closeLayer,
     editorVisible,
     toggleEditor,
-    editorDraft,
     toggleKeyboard,
     placement,
     movePad,

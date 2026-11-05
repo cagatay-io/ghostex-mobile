@@ -245,7 +245,7 @@ beforeEach(() => {
   mockImpactHaptic.mockClear();
   navigation.navigate.mockClear();
   useSettingsStore.setState({ settings: { ...initialSettings, commandPadKeys: [...DEFAULT_COMMAND_PAD_KEYS] } });
-  useTerminalStore.setState({ sessionViewModeBySessionKey: {} });
+  useTerminalStore.setState({ sessionViewModeBySessionKey: {}, textEditorDraftBySessionKey: {} });
   jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockImplementation(() => Promise.resolve(false));
 });
 
