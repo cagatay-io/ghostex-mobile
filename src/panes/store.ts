@@ -114,7 +114,7 @@ type PaneState = {
   setDividerRatio: (arrangement: PaneArrangement, ratio: number) => void;
   /**
    * The Panes button with one pane: the panes stored for `arrangement` again, or, with none stored, the chooser beside
-   * `firstSessionKey` (the panes stay closed until a session is picked there).
+   * `firstSessionKey` (the panes stay closed until a session or a pane type is picked there).
    */
   openPanes: (arrangement: PaneArrangement, firstSessionKey: string) => void;
   /** One pane again in every window shape; each shape's layout stays stored for the next open. */
