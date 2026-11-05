@@ -1,7 +1,9 @@
 /// <reference types="jest" />
 /**
- * A prompt starting with an ordered list keeps its words and inline picture inside its bubble.
- * These assertions cover the intrinsic-width styles and containment; Jest does not perform Yoga layout.
+ * A prompt starting with an ordered list keeps its words and inline picture inside its bubble, and a list
+ * item with a picture keeps its marker in the row of words and pictures, on the first line of its words.
+ * These assertions cover the structure and styles the layout depends on; Jest does not perform Yoga layout,
+ * so where the marker lands on screen needs the device.
  * Native boundaries are mocked, while the message row, Markdown and inline picture remain real.
  */
 
@@ -103,27 +105,43 @@ function picture(): { press: TestInstance; frame: ViewStyle } {
   throw new Error('the picture draws no image');
 }
 
+/** The marker's row with the words after it, and the flow of words and pictures holding that row. */
+function markerInFlow(words: RegExp): { lead: TestInstance; flow: TestInstance } {
+  const marker = screen.getByText('1.').parent;
+  const lead = marker?.parent;
+  const flow = lead?.parent;
+  if (lead == null || flow == null) throw new Error('Missing list marker');
+  // The marker and the first words share one row, the marker first, so it sits on their first line.
+  expect(styleOf(lead)).toMatchObject({ flexDirection: 'row', flexShrink: 1, minWidth: 0 });
+  expect(lead.children[0]).toBe(marker);
+  expect(isWithin(screen.getByText(words), lead)).toBe(true);
+  // That row is an item of the flow that centres words and pictures, not a column beside it.
+  expect(styleOf(flow)).toMatchObject({ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' });
+  expect(flow.children[0]).toBe(lead);
+  return { lead, flow };
+}
+
 describe.each([
   ['portrait', PORTRAIT],
   ['landscape', LANDSCAPE],
 ])('a %s picture', (_shape, bytes) => {
-  test('"1. x" with the picture: the list body brings the width of its words, the picture stays inside it', async () => {
+  test('"1. x" with the picture: the marker leads the words in the flow, the picture stays inside it', async () => {
     await render(<Prompt text={`1. Look at this picture please ${PICTURE}`} picture={bytes} />);
-    // The item: its marker, then its body (`Markdown.tsx`).
-    const marker = screen.getByText('1.').parent;
-    const item = marker?.parent;
-    const body = item?.children[1];
-    if (body === undefined || typeof body === 'string') throw new Error('Missing list body');
-    const style = styleOf(body);
+    const { lead, flow } = markerInFlow(/^Look at this picture please/);
     // Sized by its content (no zero flex basis), and free to shrink to the bubble.
-    expect(style.flex).toBeUndefined();
-    expect(style.flexBasis ?? 'auto').toBe('auto');
-    expect(style.flexShrink).toBe(1);
-    expect(style.minWidth).toBe(0);
-    // The picture is the body's, as a thumbnail of one size whatever the picture's shape.
+    expect(styleOf(lead).flex).toBeUndefined();
+    expect(styleOf(lead).flexBasis ?? 'auto').toBe('auto');
+    // The picture is the flow's, as a thumbnail of one size whatever the picture's shape.
     const { press, frame } = picture();
-    expect(isWithin(press, body)).toBe(true);
+    expect(press.parent).toBe(flow);
     expect([frame.width, frame.height]).toEqual([48, 48]);
+  });
+
+  test('"1. x" over two lines with the picture: the marker stays with the first line of the words', async () => {
+    await render(<Prompt text={`1. Look at this picture\nplease, the one below ${PICTURE}`} picture={bytes} />);
+    const { flow } = markerInFlow(/^Look at this picture\s*please, the one below/);
+    const { press } = picture();
+    expect(press.parent).toBe(flow);
   });
 
   test('"x 1." with the picture: no list, the words and the picture in one paragraph of the bubble', async () => {
@@ -134,4 +152,22 @@ describe.each([
     expect(press.parent).toBe(words.parent);
     expect([frame.width, frame.height]).toEqual([48, 48]);
   });
+});
+
+test('"1. x" without a picture: the marker keeps its column beside the body', async () => {
+  await render(<Prompt text={'1. Look at this\n2. And at that'} picture={PORTRAIT} />);
+  // The item: its marker, then its body (`Markdown.tsx`).
+  const marker = screen.getByText('1.').parent;
+  const item = marker?.parent;
+  const body = item?.children[1];
+  if (item == null || body === undefined || typeof body === 'string') throw new Error('Missing list body');
+  expect(styleOf(item).flexDirection).toBe('row');
+  expect(item.children[0]).toBe(marker);
+  // Sized by its content (no zero flex basis), and free to shrink to the bubble.
+  const style = styleOf(body);
+  expect(style.flex).toBeUndefined();
+  expect(style.flexBasis ?? 'auto').toBe('auto');
+  expect(style.flexShrink).toBe(1);
+  expect(style.minWidth).toBe(0);
+  expect(isWithin(screen.getByText('Look at this'), body)).toBe(true);
 });
