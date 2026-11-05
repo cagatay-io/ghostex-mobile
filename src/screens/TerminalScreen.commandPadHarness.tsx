@@ -5,9 +5,9 @@
  * before anything else in a test file: its module mocks must be declared before the screen's own imports load.
  *
  * Mocked are the boundaries only: the native module, haptics, storage, the safe area (reported on its own,
- * `setSafeArea`), navigation focus, the chat screen, the voice button and the file picker; the terminal area's layout
- * is delivered by the test (`layOutArea`), and a native-driven animation reports its end value as on the device
- * (`nativeAnimationsReportTheirEnd`). Frames of an iPhone 17: 402x874, home indicator inset 34, keyboard 336 pt
+ * `setSafeArea`), navigation focus, the chat screen, the voice button and the file and photo pickers; the terminal
+ * area's layout is delivered by the test (`layOutArea`), and a native-driven animation reports its end value as on the
+ * device (`nativeAnimationsReportTheirEnd`). Frames of an iPhone 17: 402x874, home indicator inset 34, keyboard 336 pt
  * tall (top 538); in landscape 874x402, safe area 0/21 and 62 across, keyboard 200 pt tall.
  */
 
@@ -31,6 +31,9 @@ export const mockNative = {
   blurTerminal: jest.fn((_sessionKey: string) => Promise.resolve()),
 };
 export const mockPickAndSend = jest.fn((_machineId: string, _sessionKey: string, _sink?: unknown) =>
+  Promise.resolve('sent'),
+);
+export const mockPickImageAndSend = jest.fn((_machineId: string, _sessionKey: string, _sink?: unknown) =>
   Promise.resolve('sent'),
 );
 export const mockSelectionHaptic = jest.fn(() => Promise.resolve());
@@ -63,6 +66,7 @@ jest.mock('../../modules/ghostex-native/src', () => {
 jest.mock('../components/terminal/uploads', () => ({
   ...jest.requireActual('../components/terminal/uploads'),
   pickAndSendAttachment: (...args: [string, string, unknown?]) => mockPickAndSend(...args),
+  pickAndSendImageAttachment: (...args: [string, string, unknown?]) => mockPickImageAndSend(...args),
 }));
 jest.mock('@react-native-async-storage/async-storage', () =>
   jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'),
@@ -236,6 +240,7 @@ beforeEach(() => {
   keyboard.setScreen(WINDOW.width, WINDOW.height);
   mockNative.focusTerminal.mockImplementation(() => Promise.resolve(true));
   mockPickAndSend.mockClear();
+  mockPickImageAndSend.mockClear();
   mockSelectionHaptic.mockClear();
   mockImpactHaptic.mockClear();
   navigation.navigate.mockClear();

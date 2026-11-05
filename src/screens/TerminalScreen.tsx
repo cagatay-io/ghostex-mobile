@@ -651,7 +651,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
     promptEditorDraft,
     pushPromptEditorDraft,
     submitPromptEditor,
-    handleUpload,
+    promptAttachmentSource,
     handleRefresh,
     handleMenuAction,
     handleMenuDismissed,
@@ -718,10 +718,10 @@ export default function TerminalScreen({ navigation, route }: Props) {
   );
 
   const uploadEnabled = activeTab !== null && (chatModeActive ? agentActionsCapable : activeTab.state === 'open');
-  // The pad's Upload key starts the upload the round button started.
+  // The pad's Upload key asks for the source as the terminal menu's "Send & Attach File" does.
   const padUpload = useMemo(
-    () => ({ available: uploadEnabled && !uploading, uploading, start: () => void handleUpload('file') }),
-    [uploadEnabled, uploading, handleUpload],
+    () => ({ available: uploadEnabled && !uploading, uploading, start: promptAttachmentSource }),
+    [uploadEnabled, uploading, promptAttachmentSource],
   );
   const openPadSettings = useCallback(() => navigation.navigate('SettingsPage', { page: 'keyboard' }), [navigation]);
   const padLayer =
@@ -1042,7 +1042,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
             maxHeight={floatingRoom}
             onKeyboard={showKeyboard}
             onDismissKeyboard={dismissKeyboard}
-            onUpload={() => void handleUpload('file')}
+            onUpload={promptAttachmentSource}
             onRefresh={handleRefresh}
           />
         )}

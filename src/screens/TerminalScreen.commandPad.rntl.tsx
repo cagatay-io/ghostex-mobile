@@ -3,8 +3,8 @@
  * Run with `bun run test:jest`. The Befehlspad on the real terminal screen, with its real stores, key input, layers
  * and text editor: the pad replacing the key bar and the upload button, the setting that shows and hides it (and,
  * with the pad off, the round upload button as today), the 3x3 field, a key changed in Settings, the pad staying
- * open, Upload up to the screen's upload call, every old function of the key bar reached from the pad, the layer
- * in the keyboard's place with cross and ring standing still, and the pen's keyboard hand-over.
+ * open, Upload up to the terminal menu's source choice, every old function of the key bar reached from the pad, the
+ * layer in the keyboard's place with cross and ring standing still, and the pen's keyboard hand-over.
  *
  * On the device these checks read the accessibility tree; here the same questions are asked of the rendered
  * component tree (labels, presence, the calls that reach the native module). Device behaviour (the keyboard really
@@ -37,6 +37,7 @@ import {
   keyboardWillShow,
   mockNative,
   mockPickAndSend,
+  mockPickImageAndSend,
   mockSelectionHaptic,
   navigation,
   openPad,
@@ -48,7 +49,7 @@ import {
   terminalTop,
 } from './TerminalScreen.commandPadHarness';
 
-import { AccessibilityInfo, Animated, StyleSheet } from 'react-native';
+import { AccessibilityInfo, Alert, Animated, StyleSheet } from 'react-native';
 import { act, fireEvent, screen } from '@testing-library/react-native';
 import type { TestInstance } from 'test-renderer';
 
@@ -190,18 +191,29 @@ describe('the pad stays open until its toggle is tapped again', () => {
 });
 
 describe('Upload from the pad', () => {
-  test('Upload starts the upload the round button started, once, for this session', async () => {
+  test('Upload offers Photo Library and File as the terminal menu does, and sends the chosen one for this session', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     await renderScreen();
     await openPad();
     await tapKey('Upload');
+    expect(mockPickAndSend).not.toHaveBeenCalled();
+    expect(alert).toHaveBeenCalledTimes(1);
+    const [title, , buttons] = alert.mock.calls[0];
+    expect(title).toBe('Send & Attach File');
+    expect(buttons?.map((button) => button.text)).toEqual(['Photo Library', 'Choose File', 'Cancel']);
+    await act(async () => buttons?.[1].onPress?.());
     expect(mockPickAndSend.mock.calls).toEqual([['m1', 'shell-1', undefined]]);
+    await act(async () => buttons?.[0].onPress?.());
+    expect(mockPickImageAndSend.mock.calls).toEqual([['m1', 'shell-1', undefined]]);
   });
 
   test('no open session: Upload is disabled and starts nothing', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     await renderScreen({ ...SHELL_TAB, state: 'opening' });
     await openPad();
     expect(screen.getByLabelText('Upload').props.accessibilityState).toMatchObject({ disabled: true });
     await tapKey('Upload');
+    expect(alert).not.toHaveBeenCalled();
     expect(mockPickAndSend).not.toHaveBeenCalled();
   });
 });
