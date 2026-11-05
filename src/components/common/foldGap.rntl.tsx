@@ -1,27 +1,22 @@
 /// <reference types="jest" />
 /**
- * Run with `bun run test:jest`. The list fold gap (the designs: "half folded, nothing on the fold in lists";
- * the laptop pose only) measured in real lists under the real `VerticalBarArea`: a Settings page
- * (`SettingsPageScrollView` with its shared row controls), the Sessions list's blocks (`DrawerBlockView` project
- * cards in a list wired like `SessionsScreen`'s: provider, `onScroll`, `scrollEventThrottle`), the Unified sessions
- * list (`useUnifiedList`'s cards and headers in the screen's own `SessionList`), the switch between the classic and
- * the Unified list after scrolling (`SessionList`) and the work-link picker's list. Each
- * unit's window frame comes from the jest preset's `measureInWindow`, answered per unit from the
- * text it shows: rows 44 pt tall, 8 pt apart from y 100, so the seventh (412-456) touches the fold's band
- * (455.5-495.5 in the iPhone Duo's 669 x 951 laptop window). Expected: that unit (or the heading right above it)
- * starts 4 pt below the band; flat (inactive division) and the book pose nothing moves. Leaving the laptop pose for
- * flat or the book pose while a measurement is queued or still waiting for its native frames leaves no gap behind,
- * and back in the laptop pose the gap is placed again (the system's bar layout reports the new pose). A window change
- * with the same fold measures again, as it can move the units in the window without a layout of their own.
+ * Run with `bun run test:jest`. Nothing on the fold in lists (the designs: "half folded, nothing on the fold in
+ * lists"; the laptop pose only, the book pose has no layout of its own): in the laptop pose a list's scroll view ends
+ * above the fold, so no row is drawn on it, at rest or scrolled; flat and in the book pose nothing changes. Real lists
+ * under the real `VerticalBarArea`: a Settings page (`SettingsPageScrollView` with its shared row controls), the
+ * Sessions screen's classic list (`DrawerBlockView` project cards) and Unified list (`useUnifiedList`'s cards) in the
+ * screen's own `SessionList`, the switch between the two, and the work-link picker's list. The list's frame comes
+ * from the jest preset's `measureInWindow`: the whole 669 x 951 window of the iPhone Duo in the laptop pose, whose
+ * fold's band is 455.5-495.5. Expected: the scroll view's visible part ends 8 pt above the fold's top (447.5), before
+ * and after a scroll.
  *
  * Not reached here: the rest of `SessionsScreen` (the screen needs a computer's inventory to render; its list is
- * `SessionList`, rendered here), scrolling beyond the scroll event the list reports (the gap is measured at the
- * list's top only) and the device's real frames.
+ * `SessionList`, rendered here), the scroll view's clipping of its rows (the platform's) and the device's real frames.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { isValidElement, useEffect, useState, type ReactNode } from 'react';
-import { Dimensions, FlatList, StyleSheet, Text } from 'react-native';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Dimensions, ScrollView, StyleSheet, Text } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import type { TestInstance } from 'test-renderer';
 
@@ -35,10 +30,9 @@ import DrawerBlockView, { type DrawerBlockActions } from '../../screens/sessions
 import WorkLinkPicker, { type WorkLinkCandidates } from '../../screens/sessions-screen/work-link-picker';
 import { SessionList } from '../../screens/sessions-screen/session-list';
 import { useUnifiedList } from '../../screens/sessions-screen/use-unified-list';
-import { Caption, SectionHeader, SettingsPageScrollView } from '../../screens/settings/SettingsControls';
-import { FoldGapProvider, FoldGapView, useFoldGapList } from './foldGap';
+import { Caption, SettingsPageScrollView } from '../../screens/settings/SettingsControls';
+import { FoldListFrame } from './foldGap';
 import { useBarGeometryStore } from './verticalBar/barGeometry';
-import { useLaptopFold } from './verticalBar/laptopFold';
 import VerticalBarArea from './verticalBar/VerticalBarArea';
 
 const mockNativeMethods = jest.requireActual<{ default: { measureInWindow: jest.Mock } }>(
@@ -82,12 +76,10 @@ const LAPTOP: FoldDivision = { x: 0, y: 455.5, width: 669, height: 40, active: t
 const FLAT: FoldDivision = { ...LAPTOP, active: false };
 const BOOK: FoldDivision = { x: 455.5, y: 0, width: 40, height: 669, active: true };
 const FOLD = { top: 455.5, bottom: 495.5 };
-/** Window frames by the text a unit shows: rows 44 pt tall, 8 pt apart from y 100. */
-const frames = new Map<string, { top: number; height: number }>();
-const rowFrames = (labels: string[]) =>
-  labels.forEach((label, index) => frames.set(label, { top: 100 + index * 52, height: 44 }));
-/** While set, the native frame reads are held here unanswered (a measurement still running). */
-let heldFrames: (() => void)[] | null = null;
+/** Where the list's visible part must end in the laptop pose: 8 pt above the fold's top. */
+const ABOVE_FOLD = FOLD.top - 8;
+/** The window frame `measureInWindow` answers: the whole window unless a test moves it. */
+let listFrame = { top: 0, height: PORTRAIT.height };
 
 function barLayout(division: FoldDivision, window: { width: number; height: number }): BarLayout {
   return {
@@ -102,40 +94,19 @@ function barLayout(division: FoldDivision, window: { width: number; height: numb
   };
 }
 
-/** The text an element tree shows (strings, the `title` or `label` a row component takes, a Unified card's title). */
-function textOf(node: unknown): string {
-  if (typeof node === 'string' || typeof node === 'number') return String(node);
-  if (Array.isArray(node)) return node.map(textOf).join('');
-  if (!isValidElement(node)) return '';
-  const props = node.props as {
-    children?: unknown;
-    title?: unknown;
-    label?: unknown;
-    row?: { session?: { source?: { displayTitle?: unknown } } };
-  };
-  const cardTitle = props.row?.session?.source?.displayTitle;
-  return (
-    textOf(props.children) +
-    (typeof props.title === 'string' ? props.title : '') +
-    (typeof props.label === 'string' ? props.label : '') +
-    (typeof cardTitle === 'string' ? cardTitle : '')
-  );
+function setWindow(window: { width: number; height: number }): void {
+  Dimensions.set({ window: { ...window, scale: 3, fontScale: 1 }, screen: { ...window, scale: 3, fontScale: 1 } });
 }
 
 async function renderIn(
   content: ReactNode,
   division: FoldDivision = LAPTOP,
   window: { width: number; height: number } = PORTRAIT,
-  { settle = true }: { settle?: boolean } = {},
 ): Promise<void> {
   mockBarLayout = barLayout(division, window);
-  await act(() => {
-    Dimensions.set({ window: { ...window, scale: 3, fontScale: 1 }, screen: { ...window, scale: 3, fontScale: 1 } });
-  });
+  await act(() => setWindow(window));
   await render(<VerticalBarArea>{content}</VerticalBarArea>);
-  // The units register, then measure after the next frame (`settle: false` leaves that frame queued).
-  await act(async () => undefined);
-  if (settle) await advance();
+  await advance();
 }
 
 async function advance(): Promise<void> {
@@ -147,94 +118,72 @@ async function advance(): Promise<void> {
 /** The system reports a new pose: React Native's window first, then the bar layout with its division. */
 async function reportPose(division: FoldDivision, window: { width: number; height: number }): Promise<void> {
   await act(() => {
-    Dimensions.set({ window: { ...window, scale: 3, fontScale: 1 }, screen: { ...window, scale: 3, fontScale: 1 } });
+    setWindow(window);
     mockReport?.(barLayout(division, window));
   });
+  await advance();
 }
 
-const LEAVING: [string, FoldDivision, { width: number; height: number }][] = [
+/** The scroll view a row showing `text` scrolls in. */
+function scrollViewOf(text: string): TestInstance {
+  let node: TestInstance | null = screen.getByText(text);
+  while (node !== null && node.type !== 'RCTScrollView') node = node.parent;
+  if (node === null) throw new Error(`${text} is in no scroll view`);
+  return node;
+}
+
+/**
+ * The window y where the scroll view holding `text` ends: its frame's bottom less the room the frame keeps below it
+ * (the scroll view clips its rows there).
+ */
+function visibleBottom(text: string): number {
+  const frame = scrollViewOf(text).parent;
+  const padding = frame === null ? undefined : StyleSheet.flatten(frame.props.style)?.paddingBottom;
+  return listFrame.top + listFrame.height - (typeof padding === 'number' ? padding : 0);
+}
+
+/** The list's scroll view reports a scroll to `y`. */
+async function scrollTo(text: string, y: number): Promise<void> {
+  await fireEvent.scroll(scrollViewOf(text), {
+    nativeEvent: {
+      contentOffset: { x: 0, y },
+      contentSize: { width: 640, height: 1600 },
+      layoutMeasurement: { width: 640, height: ABOVE_FOLD },
+    },
+  });
+  await advance();
+}
+
+/** In the laptop pose, at rest and scrolled: the list ends above the fold, so no row is drawn on it. */
+async function expectEndsAboveFold(text: string): Promise<void> {
+  expect(visibleBottom(text)).toBe(ABOVE_FOLD);
+  await scrollTo(text, 300);
+  expect(visibleBottom(text)).toBe(ABOVE_FOLD);
+}
+
+const OTHER_POSES: [string, FoldDivision, { width: number; height: number }][] = [
   ['flat', FLAT, PORTRAIT],
   ['book pose', BOOK, LANDSCAPE],
 ];
 
-/**
- * The pose leaves the laptop while the list's measurement is under way, `queued` (its frame has not run yet) or
- * `running` (the native frame reads have not answered yet). Expected (the gap
- * belongs to the laptop pose only): no unit keeps or gets a gap afterwards, and back in the laptop pose the crossing
- * unit gets its gap again. `rowsOnTimer`: the list loads its rows on a timer (the picker), so the queued frame is the
- * one its rows asked for once they are on screen.
- */
-async function expectNoGapAfterLeaving(
-  race: 'queued' | 'running',
-  content: ReactNode,
-  labels: string[],
-  crossing: string,
-  to: FoldDivision,
-  window: { width: number; height: number },
-  { rowsOnTimer = false }: { rowsOnTimer?: boolean } = {},
-): Promise<void> {
-  rowFrames(labels);
-  if (race === 'running') heldFrames = [];
-  await renderIn(content, LAPTOP, PORTRAIT, { settle: race === 'running' });
-  if (race === 'queued' && rowsOnTimer) {
-    await act(async () => {
-      jest.runOnlyPendingTimers();
-    });
-  }
-  if (race === 'running') {
-    // The second frame of a list that loads its rows (the picker) is held as well.
-    await advance();
-    expect(heldFrames?.length).toBeGreaterThan(0);
-  }
-  expect(screen.getByText(crossing)).toBeTruthy();
-  await reportPose(to, window);
-  const answers = heldFrames ?? [];
-  heldFrames = null;
-  await act(() => answers.forEach((answer) => answer()));
-  await advance();
-  for (const label of labels) expect(gapAbove(label)).toBe(0);
-  await reportPose(LAPTOP, PORTRAIT);
-  await advance();
-  expect(gapAbove(crossing)).toBe(FOLD.bottom + 4 - 412);
-}
-
-/** The extra top margin a unit showing `text` carries (the gap), 0 when none of its views has one. */
-function gapAbove(text: string): number {
-  let node: TestInstance | null = screen.getByText(text);
-  while (node !== null) {
-    const marginTop = StyleSheet.flatten(node.props.style)?.marginTop;
-    if (typeof marginTop === 'number' && marginTop >= 40) return marginTop;
-    node = node.parent;
-  }
-  return 0;
-}
-
 beforeEach(async () => {
   jest.useFakeTimers();
-  frames.clear();
-  mockNativeMethods.measureInWindow.mockImplementation(function (
-    this: { props: { children?: unknown } },
-    onFrame: (...frame: number[]) => void,
-  ) {
-    const frame = frames.get(textOf(this.props.children));
-    const answer = () =>
-      frame === undefined ? onFrame(0, 0, PORTRAIT.width, PORTRAIT.height) : onFrame(12, frame.top, 640, frame.height);
-    if (heldFrames === null) answer();
-    else heldFrames.push(answer);
-  });
+  listFrame = { top: 0, height: PORTRAIT.height };
+  mockNativeMethods.measureInWindow.mockImplementation((onFrame: (...frame: number[]) => void) =>
+    onFrame(0, listFrame.top, PORTRAIT.width, listFrame.height),
+  );
   await AsyncStorage.clear();
   useBarGeometryStore.setState({ hydrated: false, keyboardHeights: {}, layouts: {} });
   await useBarGeometryStore.getState().hydrate();
 });
 
 afterEach(() => {
-  heldFrames = null;
   mockNativeMethods.measureInWindow.mockReset();
   jest.useRealTimers();
 });
 
 describe('Settings (SettingsPageScrollView and the shared row controls)', () => {
-  const LABELS = Array.from({ length: 12 }, (_, index) => `Setting ${index}`);
+  const LABELS = Array.from({ length: 30 }, (_, index) => `Setting ${index}`);
   const page = (
     <SettingsPageScrollView>
       {LABELS.map((label) => (
@@ -243,47 +192,32 @@ describe('Settings (SettingsPageScrollView and the shared row controls)', () => 
     </SettingsPageScrollView>
   );
 
-  test('laptop pose: the row that would cross the fold starts 4 pt below it, the rows before it stay', async () => {
-    rowFrames(LABELS);
+  test('laptop pose: the page ends above the fold, also scrolled', async () => {
     await renderIn(page);
-    expect(gapAbove('Setting 6')).toBe(FOLD.bottom + 4 - 412);
-    expect(gapAbove('Setting 5')).toBe(0);
+    await expectEndsAboveFold('Setting 0');
   });
 
-  test('a section title right above that row moves with it', async () => {
-    rowFrames(LABELS.slice(0, 6));
-    frames.set('Later', { top: 408, height: 20 });
-    frames.set('Setting 6', { top: 432, height: 44 });
-    await renderIn(
-      <SettingsPageScrollView>
-        {LABELS.slice(0, 6).map((label) => (
-          <Caption key={label}>{label}</Caption>
-        ))}
-        <SectionHeader title="Later" />
-        <Caption>Setting 6</Caption>
-      </SettingsPageScrollView>,
-    );
-    expect(gapAbove('Later')).toBe(FOLD.bottom + 4 - 408);
-  });
-
-  test.each([
-    ['flat', FLAT, PORTRAIT],
-    ['book pose', BOOK, LANDSCAPE],
-  ])('%s: nothing moves', async (_pose, division, window) => {
-    rowFrames(LABELS);
+  test.each(OTHER_POSES)('%s: the page keeps its whole frame and nothing is measured', async (_pose, division, window) => {
+    listFrame = { top: 0, height: window.height };
     await renderIn(page, division, window);
-    for (const label of LABELS) expect(gapAbove(label)).toBe(0);
+    expect(visibleBottom('Setting 0')).toBe(window.height);
+    expect(mockNativeMethods.measureInWindow).not.toHaveBeenCalled();
   });
 
-  describe.each(['queued', 'running'] as const)('leaving the laptop pose with the measurement %s', (race) => {
-    test.each(LEAVING)('to %s: no gap stays or comes back late', async (_pose, division, window) => {
-      await expectNoGapAfterLeaving(race, page, LABELS, 'Setting 6', division, window);
-    });
+  test.each(OTHER_POSES)('leaving the laptop pose for %s gives the page its whole frame, coming back ends it above the fold', async (_pose, division, window) => {
+    await renderIn(page);
+    expect(visibleBottom('Setting 0')).toBe(ABOVE_FOLD);
+    listFrame = { top: 0, height: window.height };
+    await reportPose(division, window);
+    expect(visibleBottom('Setting 0')).toBe(window.height);
+    listFrame = { top: 0, height: PORTRAIT.height };
+    await reportPose(LAPTOP, PORTRAIT);
+    expect(visibleBottom('Setting 0')).toBe(ABOVE_FOLD);
   });
 });
 
-describe('Sessions (DrawerBlockView blocks in a list wired like SessionsScreen)', () => {
-  const PROJECTS = Array.from({ length: 10 }, (_, index) => `Project ${index}`);
+describe("the Sessions screen's classic list (DrawerBlockView blocks in SessionList)", () => {
+  const PROJECTS = Array.from({ length: 20 }, (_, index) => `Project ${index}`);
   const header = (title: string): ProjectHeaderItem => ({
     type: 'PROJECT_HEADER',
     key: `project:${title}`,
@@ -325,57 +259,44 @@ describe('Sessions (DrawerBlockView blocks in a list wired like SessionsScreen)'
     projectCard: '#1a1a1a',
     projectBorder: '#2a2a2a',
   };
+  const classic = (
+    <SessionList
+      unified={null}
+      classic={{
+        data: blocks,
+        keyExtractor: (block) => block.listKey,
+        renderItem: ({ item }) => (
+          <DrawerBlockView
+            block={item}
+            selectedSessionKey={null}
+            appearance={appearance}
+            rowSurface="#1c1c1c"
+            groupsOpacityPercent={100}
+            summary={null}
+            voiceCallSessionKey={null}
+            primaryAgent={() => null}
+            hideStateCard={() => false}
+            actions={noAction}
+          />
+        ),
+      }}
+    />
+  );
 
-  function SessionsList() {
-    const foldGap = useFoldGapList(useLaptopFold());
-    return (
-      <FoldGapProvider value={foldGap}>
-        <FlatList
-          data={blocks}
-          keyExtractor={(block) => block.listKey}
-          onScroll={foldGap.onScroll}
-          scrollEventThrottle={16}
-          renderItem={({ item }) => (
-            <DrawerBlockView
-              block={item}
-              selectedSessionKey={null}
-              appearance={appearance}
-              rowSurface="#1c1c1c"
-              groupsOpacityPercent={100}
-              summary={null}
-              voiceCallSessionKey={null}
-              primaryAgent={() => null}
-              hideStateCard={() => false}
-              actions={noAction}
-            />
-          )}
-        />
-      </FoldGapProvider>
-    );
-  }
-
-  test('laptop pose: the project card that would cross the fold starts 4 pt below it', async () => {
-    rowFrames(PROJECTS);
-    await renderIn(<SessionsList />);
-    expect(gapAbove('Project 6')).toBe(FOLD.bottom + 4 - 412);
-    expect(gapAbove('Project 5')).toBe(0);
+  test('laptop pose: the list ends above the fold, also scrolled', async () => {
+    await renderIn(classic);
+    await expectEndsAboveFold('Project 0');
   });
 
-  test('flat: nothing moves', async () => {
-    rowFrames(PROJECTS);
-    await renderIn(<SessionsList />, FLAT);
-    for (const title of PROJECTS) expect(gapAbove(title)).toBe(0);
-  });
-
-  describe.each(['queued', 'running'] as const)('leaving the laptop pose with the measurement %s', (race) => {
-    test.each(LEAVING)('to %s: no gap stays or comes back late', async (_pose, division, window) => {
-      await expectNoGapAfterLeaving(race, <SessionsList />, PROJECTS, 'Project 6', division, window);
-    });
+  test.each(OTHER_POSES)('%s: the list keeps its whole frame', async (_pose, division, window) => {
+    listFrame = { top: 0, height: window.height };
+    await renderIn(classic, division, window);
+    expect(visibleBottom('Project 0')).toBe(window.height);
   });
 });
 
-describe("the Unified sessions list (useUnifiedList cards and headers in the screen's SessionList)", () => {
-  const TITLES = Array.from({ length: 10 }, (_, index) => `Session ${index}`);
+describe("the Unified sessions list (useUnifiedList cards in the screen's SessionList)", () => {
+  const TITLES = Array.from({ length: 20 }, (_, index) => `Session ${index}`);
   const MACHINE: MachineRecord = {
     id: 'm1',
     name: 'studio',
@@ -387,14 +308,14 @@ describe("the Unified sessions list (useUnifiedList cards and headers in the scr
   };
   const MACHINES = [MACHINE];
   const NO_WORKSPACES: Record<string, string> = {};
-  /** One computer asking for the Unified sidebar: one project, ten idle sessions, newest first. */
-  const inventory = (groupByProject: boolean): MachineInventory => {
+  /** One computer asking for the Unified sidebar: one project, twenty idle sessions, newest first. */
+  const inventory = (): MachineInventory => {
     const now = Date.now();
     const summary = parseMobileSummary(
       JSON.stringify({
         ok: true,
         sidebarView: 'unified',
-        unifiedGroupByProject: groupByProject,
+        unifiedGroupByProject: false,
         projects: [{ projectId: 'P1', name: 'Ghostex', path: '/work/Ghostex' }],
         sessions: TITLES.map((title, index) => ({
           sessionId: `s${index}`,
@@ -421,13 +342,13 @@ describe("the Unified sessions list (useUnifiedList cards and headers in the scr
     };
   };
   /** Built once, so every render reads the same summaries (as the screen's inventory store hands them out). */
-  const INVENTORIES = { listed: { [MACHINE.id]: inventory(false) }, grouped: { [MACHINE.id]: inventory(true) } };
+  const INVENTORIES = { [MACHINE.id]: inventory() };
 
-  function UnifiedList({ groupByProject = false }: { groupByProject?: boolean }) {
+  function UnifiedList() {
     const unified = useUnifiedList({
       machines: MACHINES,
       selectedMachine: MACHINE,
-      inventoriesByMachineId: groupByProject ? INVENTORIES.grouped : INVENTORIES.listed,
+      inventoriesByMachineId: INVENTORIES,
       selectedWorkspaceIdByMachine: NO_WORKSPACES,
       selectedSessionKey: null,
       sidebarBackground: '#121212',
@@ -445,45 +366,22 @@ describe("the Unified sessions list (useUnifiedList cards and headers in the scr
     );
   }
 
-  test('laptop pose: the card that would cross the fold starts 4 pt below it, the cards before it stay', async () => {
-    rowFrames(TITLES);
+  test('laptop pose: the list ends above the fold, also scrolled', async () => {
     await renderIn(<UnifiedList />);
-    expect(gapAbove('Session 6')).toBe(FOLD.bottom + 4 - 412);
-    expect(gapAbove('Session 5')).toBe(0);
+    await expectEndsAboveFold('Session 0');
   });
 
-  test("a project group's header right above that card moves with it", async () => {
-    frames.set('Ghostex', { top: 382, height: 30 });
-    TITLES.forEach((title, index) => frames.set(title, { top: 412 + index * 52, height: 44 }));
-    await renderIn(<UnifiedList groupByProject />);
-    expect(gapAbove('Ghostex')).toBe(FOLD.bottom + 4 - 382);
-    expect(gapAbove('Session 0')).toBe(0);
-  });
-
-  test.each([
-    ['flat', FLAT, PORTRAIT],
-    ['book pose', BOOK, LANDSCAPE],
-  ])('%s: nothing moves', async (_pose, division, window) => {
-    rowFrames(TITLES);
+  test.each(OTHER_POSES)('%s: the list keeps its whole frame', async (_pose, division, window) => {
+    listFrame = { top: 0, height: window.height };
     await renderIn(<UnifiedList />, division, window);
-    for (const title of TITLES) expect(gapAbove(title)).toBe(0);
-  });
-
-  describe.each(['queued', 'running'] as const)('leaving the laptop pose with the measurement %s', (race) => {
-    test.each(LEAVING)('to %s: no gap stays or comes back late', async (_pose, division, window) => {
-      await expectNoGapAfterLeaving(race, <UnifiedList />, TITLES, 'Session 6', division, window);
-    });
+    expect(visibleBottom('Session 0')).toBe(window.height);
   });
 });
 
 describe("switching between the classic and the Unified list (the screen's SessionList)", () => {
   const CLASSIC = Array.from({ length: 10 }, (_, index) => `Project ${index}`);
   const UNIFIED = Array.from({ length: 10 }, (_, index) => `Card ${index}`);
-  const unit = ({ item }: { item: string }) => (
-    <FoldGapView kind="row">
-      <Text>{item}</Text>
-    </FoldGapView>
-  );
+  const unit = ({ item }: { item: string }) => <Text>{item}</Text>;
   let lists = { mounted: 0, unmounted: 0 };
   /** Mounted with the list it heads, so it counts the list's own mounts. */
   function ListLife() {
@@ -501,27 +399,11 @@ describe("switching between the classic and the Unified list (the screen's Sessi
     const [on, setOn] = useState(false);
     showUnified = setOn;
     // Keyed by row as the screen's lists are (`listKey`, the Unified row id), so no row stands in for another.
-    const list = {
-      renderItem: unit,
-      keyExtractor: (item: string) => item,
-      ListHeaderComponent: ListLife,
-      testID: 'list',
-    };
+    const list = { renderItem: unit, keyExtractor: (item: string) => item, ListHeaderComponent: ListLife };
     return <SessionList unified={on ? { ...list, data: UNIFIED } : null} classic={{ ...list, data: CLASSIC }} />;
   }
   async function switchTo(unified: boolean): Promise<void> {
     await act(() => showUnified?.(unified));
-    await advance();
-  }
-  /** The list reports a scroll to `y` (its scroll view's event). */
-  async function scrollTo(y: number): Promise<void> {
-    await fireEvent.scroll(screen.getByTestId('list'), {
-      nativeEvent: {
-        contentOffset: { x: 0, y },
-        contentSize: { width: 640, height: 1000 },
-        layoutMeasurement: { width: 640, height: 800 },
-      },
-    });
     await advance();
   }
 
@@ -530,7 +412,6 @@ describe("switching between the classic and the Unified list (the screen's Sessi
   });
 
   test('flat: a switch mounts the other list, and switching back mounts the first one again', async () => {
-    rowFrames(CLASSIC);
     await renderIn(<SwitchingList />, FLAT);
     expect(lists).toEqual({ mounted: 1, unmounted: 0 });
     await switchTo(true);
@@ -539,24 +420,18 @@ describe("switching between the classic and the Unified list (the screen's Sessi
     expect(lists).toEqual({ mounted: 3, unmounted: 2 });
   });
 
-  test('laptop pose: after scrolling, the list switched to and the list switched back to each start their crossing row below the fold', async () => {
-    rowFrames(CLASSIC);
-    rowFrames(UNIFIED);
+  test('laptop pose: after scrolling, the list switched to and the list switched back to each end above the fold', async () => {
     await renderIn(<SwitchingList />);
-    expect(gapAbove('Project 6')).toBe(FOLD.bottom + 4 - 412);
-    await scrollTo(52);
+    await expectEndsAboveFold('Project 0');
     await switchTo(true);
-    expect(gapAbove('Card 6')).toBe(FOLD.bottom + 4 - 412);
-    for (const label of UNIFIED.filter((label) => label !== 'Card 6')) expect(gapAbove(label)).toBe(0);
-    await scrollTo(52);
+    await expectEndsAboveFold('Card 0');
     await switchTo(false);
-    expect(gapAbove('Project 6')).toBe(FOLD.bottom + 4 - 412);
-    for (const label of CLASSIC.filter((label) => label !== 'Project 6')) expect(gapAbove(label)).toBe(0);
+    await expectEndsAboveFold('Project 0');
   });
 });
 
 describe('the work-link picker (a full-screen view with a list)', () => {
-  const LABELS = Array.from({ length: 10 }, (_, index) => `#${index + 100}`);
+  const LABELS = Array.from({ length: 20 }, (_, index) => `#${index + 100}`);
   const candidates: WorkLinkCandidates = {
     multiSelect: false,
     linked: [],
@@ -573,58 +448,44 @@ describe('the work-link picker (a full-screen view with a list)', () => {
     />
   );
 
-  test('laptop pose: the candidate row that would cross the fold starts 4 pt below it', async () => {
-    rowFrames(LABELS);
+  test('laptop pose: the candidate list ends above the fold, also scrolled', async () => {
+    // Below the picker's header and search field.
+    listFrame = { top: 150, height: PORTRAIT.height - 170 };
     await renderIn(picker);
-    await act(async () => {
-      await jest.advanceTimersByTimeAsync(50);
-    });
-    expect(gapAbove('#106')).toBe(FOLD.bottom + 4 - 412);
-    expect(gapAbove('#105')).toBe(0);
+    await advance();
+    await expectEndsAboveFold('#100');
   });
 
-  test('flat: nothing moves', async () => {
-    rowFrames(LABELS);
+  test('flat: the candidate list keeps its whole frame', async () => {
+    listFrame = { top: 150, height: PORTRAIT.height - 170 };
     await renderIn(picker, FLAT);
-    await act(async () => {
-      await jest.advanceTimersByTimeAsync(50);
-    });
-    for (const label of LABELS) expect(gapAbove(label)).toBe(0);
-  });
-
-  describe.each(['queued', 'running'] as const)('leaving the laptop pose with the measurement %s', (race) => {
-    test.each(LEAVING)('to %s: no gap stays or comes back late', async (_pose, division, window) => {
-      await expectNoGapAfterLeaving(race, picker, LABELS, '#106', division, window, { rowsOnTimer: true });
-    });
+    await advance();
+    expect(visibleBottom('#100')).toBe(PORTRAIT.height - 20);
   });
 });
 
 describe('a window change with the same fold', () => {
-  const LABEL = 'Moved row';
-  /** A list with a fixed laptop fold, so only the window changes. */
+  const LABEL = 'Row';
   function FixedFoldList() {
-    const list = useFoldGapList(FOLD);
     return (
-      <FoldGapProvider value={list}>
-        <FoldGapView kind="row">
+      <FoldListFrame fold={FOLD}>
+        <ScrollView>
           <Text>{LABEL}</Text>
-        </FoldGapView>
-      </FoldGapProvider>
+        </ScrollView>
+      </FoldListFrame>
     );
   }
-  const reportWindow = (window: { width: number; height: number }) =>
-    Dimensions.set({ window: { ...window, scale: 3, fontScale: 1 }, screen: { ...window, scale: 3, fontScale: 1 } });
 
-  test('a row an ancestor moved onto the fold, without a layout of its own, starts 4 pt below it', async () => {
-    await act(() => reportWindow(PORTRAIT));
-    frames.set(LABEL, { top: 400, height: 44 });
+  test('a list an ancestor stretched over the fold, without a layout of its own, then ends above it', async () => {
+    await act(() => setWindow(PORTRAIT));
+    listFrame = { top: 100, height: 300 };
     await render(<FixedFoldList />);
     await advance();
-    expect(gapAbove(LABEL)).toBe(0);
-    // The new window moves the row 30 pt down (430-474, across the band); its own layout stays, so no onLayout.
-    frames.set(LABEL, { top: 430, height: 44 });
-    await act(() => reportWindow({ ...PORTRAIT, height: PORTRAIT.height + 50 }));
+    expect(visibleBottom(LABEL)).toBe(400);
+    // The new window stretches the list to 100-600, across the band; its own layout event does not come.
+    listFrame = { top: 100, height: 500 };
+    await act(() => setWindow({ ...PORTRAIT, height: PORTRAIT.height + 50 }));
     await advance();
-    expect(gapAbove(LABEL)).toBe(FOLD.bottom + 4 - 430);
+    expect(visibleBottom(LABEL)).toBe(ABOVE_FOLD);
   });
 });
