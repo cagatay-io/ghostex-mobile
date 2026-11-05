@@ -12,6 +12,7 @@ import UIKit
 import ExpoModulesCore
 import Darwin
 import AudioToolbox
+import AVFoundation
 import Tailcatbridge
 
 // MARK: - Records
@@ -64,6 +65,30 @@ struct KeyModifiersRecord: Record {
     @Field var shiftLocked: Bool = false
 }
 
+/// What `voiceStart` opens (gxserver's `/api/voice`, GhostexVoice.swift).
+struct VoiceStartOptionsRecord: Record {
+    @Field var mode: String = "conversation"
+    @Field var localPort: Int = 0
+    @Field var authToken: String = ""
+    @Field var title: String = ""
+    @Field var provider: String?
+    @Field var language: String?
+    @Field var focus: String?
+}
+
+/// The chat Read aloud's Voice mode reads (Android's notification; iOS has none).
+struct ReadAloudModeRecord: Record {
+    @Field var title: String = ""
+    @Field var machineId: String = ""
+    @Field var sessionId: String = ""
+    @Field var reconnecting: String?
+}
+
+/// A voice event for `sendEvent`, which takes no nil values: a missing value becomes null.
+private func eventPayload(_ event: [String: Any?]) -> [String: Any] {
+    event.mapValues { $0 ?? NSNull() }
+}
+
 // MARK: - Module
 
 public class GhostexNativeModule: Module {
@@ -94,8 +119,16 @@ public class GhostexNativeModule: Module {
             "onKeyModifiersConsumed",
             "onTerminalGridChange",
             "onConnectionState",
-            "onBarLayoutChange"
+            "onBarLayoutChange",
+            "onVoiceEvent",
+            "onSpeechEvent"
         )
+
+        OnCreate { [weak self] in
+            GhostexVoice.emitter = { event in self?.sendEvent("onVoiceEvent", eventPayload(event)) }
+            GhostexVoiceRecorder.emitter = { event in self?.sendEvent("onVoiceEvent", eventPayload(event)) }
+            GhostexSpeech.emitter = { event in self?.sendEvent("onSpeechEvent", eventPayload(event)) }
+        }
 
         // The chat core's hidden WebView: post a script without waiting for the next frame
         // (GhostexWebViewPost).
@@ -712,6 +745,9 @@ public class GhostexNativeModule: Module {
         // A reload or teardown drops the module: the observation this instance started leaves the
         // window with it and its notifications end; a newer module's observation keeps running.
         OnDestroy { [weak self] in
+            GhostexVoice.emitter = nil
+            GhostexVoiceRecorder.emitter = nil
+            GhostexSpeech.emitter = nil
             guard let self else { return }
             self.followBarWindows(false)
             guard let id = self.barObservationID else { return }
@@ -781,6 +817,104 @@ public class GhostexNativeModule: Module {
 
         AsyncFunction("resetHostKey") { (host: String, port: Int) in
             KnownHostsManager.shared.remove(host: host, port: port)
+        }
+
+        // MARK: Voice (the manager voice agent and Grok dictation, GhostexVoice.swift)
+
+        /// Asks for the microphone once; answers whether Ghostex may use it.
+        AsyncFunction("microphonePermission") { (promise: Promise) in
+            let session = AVAudioSession.sharedInstance()
+            switch session.recordPermission {
+            case .granted: promise.resolve(true)
+            case .denied: promise.resolve(false)
+            default: session.requestRecordPermission { granted in promise.resolve(granted) }
+            }
+        }
+
+        AsyncFunction("voiceStart") { (options: VoiceStartOptionsRecord) -> String in
+            GhostexVoice.start(GhostexVoice.Options(
+                mode: options.mode == "dictation" ? "dictation" : "conversation",
+                localPort: options.localPort,
+                authToken: options.authToken,
+                title: options.title.isEmpty ? "your computer" : options.title,
+                provider: options.provider.flatMap { $0.isEmpty ? nil : $0 },
+                language: options.language.flatMap { $0.isEmpty ? nil : $0 },
+                focus: options.focus.flatMap { $0.isEmpty ? nil : $0 }
+            ))
+        }
+
+        AsyncFunction("voiceSetFocus") { (session: String?) in
+            GhostexVoice.setFocus(session.flatMap { $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 })
+        }
+
+        AsyncFunction("voiceUpdateLink") { (mode: String, localPort: Int, authToken: String) in
+            GhostexVoice.updateLink(mode: mode, localPort: localPort, authToken: authToken)
+        }
+
+        AsyncFunction("voiceSetMuted") { (muted: Bool) in GhostexVoice.setMuted(muted) }
+        AsyncFunction("voiceInterrupt") { GhostexVoice.interrupt() }
+        AsyncFunction("voiceSendText") { (text: String) in GhostexVoice.sendText(text) }
+        AsyncFunction("voiceSetTalking") { (talking: Bool) in GhostexVoice.setTalking(talking) }
+        AsyncFunction("voiceCancelTalking") { GhostexVoice.cancelTalking() }
+        AsyncFunction("voiceSetSpeed") { (speed: Double) in GhostexVoice.setSpeed(speed) }
+        AsyncFunction("voiceSetVoice") { (voice: String) in GhostexVoice.setVoice(voice) }
+        AsyncFunction("voiceSendControl") { (type: String) in GhostexVoice.sendControl(type) }
+        AsyncFunction("voiceEnd") { (mode: String) in GhostexVoice.end(mode) }
+        AsyncFunction("voiceCancel") { (mode: String) in GhostexVoice.cancel(mode) }
+
+        AsyncFunction("voiceStatus") { () -> [String: Any]? in
+            GhostexVoice.status().map(eventPayload)
+        }
+
+        // Dictate's recordings (GhostexVoiceRecorder.swift): record to a file first, upload it after.
+        AsyncFunction("dictationRecordStart") { () throws -> String in
+            do {
+                return try GhostexVoiceRecorder.start()
+            } catch {
+                throw GhostexException(code: .channelFailed, reason: "Couldn't start the microphone.")
+            }
+        }
+
+        AsyncFunction("dictationRecordStop") { (dismissed: Bool) -> [String: Any]? in
+            GhostexVoiceRecorder.stop(dismissed: dismissed)
+        }
+
+        AsyncFunction("dictationUnsent") { () -> [[String: Any]] in
+            GhostexVoiceRecorder.unsent()
+        }
+
+        AsyncFunction("dictationReadPiece") { (path: String, offset: Double, length: Int) throws -> String in
+            do {
+                return try GhostexVoiceRecorder.readPiece(path: path, offset: Int64(offset), length: length)
+            } catch {
+                throw GhostexException(code: .channelFailed, reason: "Cannot read the recording: \(path)")
+            }
+        }
+
+        AsyncFunction("dictationDismissLocal") { (path: String) in GhostexVoiceRecorder.dismiss(path: path) }
+        AsyncFunction("dictationForget") { (path: String) in GhostexVoiceRecorder.forget(path: path) }
+
+        // MARK: Speech (Read aloud, GhostexSpeech.swift)
+
+        AsyncFunction("speechInit") { () -> Bool in GhostexSpeech.shared.initialize() }
+
+        AsyncFunction("speechVoices") { () -> [String: Any] in
+            eventPayload(GhostexSpeech.shared.voices())
+        }
+
+        AsyncFunction("speechSpeak") { (token: String, segments: [String], voice: String, rate: Double) in
+            GhostexSpeech.shared.speak(token: token, segments: segments, voice: voice, rate: rate)
+        }
+
+        AsyncFunction("speechStop") { (token: String) in GhostexSpeech.shared.stop(token: token) }
+
+        // Read aloud's Voice mode: Android's notification has no iOS counterpart (GhostexSpeech.swift).
+        AsyncFunction("readAloudModeStart") { (_: ReadAloudModeRecord) -> Bool in true }
+        AsyncFunction("readAloudModeUpdate") { (_: ReadAloudModeRecord) in }
+        AsyncFunction("readAloudModeStop") {}
+
+        AsyncFunction("readAloudModeEnded") { (title: String, text: String) in
+            GhostexSpeech.shared.postEnded(title: title, text: text)
         }
 
         // MARK: View

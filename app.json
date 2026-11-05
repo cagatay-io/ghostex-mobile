@@ -12,6 +12,7 @@
       "./plugins/withAndroidReleaseSigning.js",
       "./plugins/withAndroidReleaseSize.js",
       "./plugins/withLoopbackCleartext.js",
+      "./plugins/withVoiceLiveActivity.js",
       "expo-status-bar",
       "@react-native-community/datetimepicker",
       [
@@ -24,7 +25,7 @@
       [
         "expo-speech-recognition",
         {
-          "microphonePermission": "Ghostex uses the microphone when you dictate a message in the chat or record a video to attach to a session.",
+          "microphonePermission": "Ghostex uses the microphone when you talk with the voice agent, dictate a message in the chat or record a video to attach to a session.",
           "speechRecognitionPermission": "Ghostex turns what you dictate in the chat into text."
         }
       ]
@@ -49,8 +50,9 @@
         "UIAppFonts": ["JetBrainsMonoNerdFont-Regular.ttf"],
         "NSPhotoLibraryUsageDescription": "Ghostex uses your photo library so you can attach images to your sessions.",
         "NSCameraUsageDescription": "Ghostex uses the camera to scan the tailcat pairing QR code shown on your computer, and when you capture a photo to attach to a session.",
-        "NSMicrophoneUsageDescription": "Ghostex uses the microphone when you dictate a message in the chat or record a video to attach to a session.",
-        "NSSpeechRecognitionUsageDescription": "Ghostex turns what you dictate in the chat into text."
+        "NSMicrophoneUsageDescription": "Ghostex uses the microphone when you talk with the voice agent, dictate a message in the chat or record a video to attach to a session.",
+        "NSSpeechRecognitionUsageDescription": "Ghostex turns what you dictate in the chat into text.",
+        "UIBackgroundModes": ["audio", "voip"]
       },
       "privacyManifests": {
         "NSPrivacyTracking": false,

@@ -246,8 +246,8 @@ export type GhostexNativeEvents = {
 };
 
 /**
- * Android only (GhostexSpeech.kt): utterance `token` of `speechSpeak` ended, played to its end or
- * cut off; or `voiceModeStop`, the "Voice mode on" notification's Stop (or Exit), which turns
+ * GhostexSpeech.kt / .swift: utterance `token` of `speechSpeak` ended, played to its end or
+ * cut off; or (Android only) `voiceModeStop`, the "Voice mode on" notification's Stop (or Exit), which turns
  * Auto-read off.
  */
 export type SpeechEvent = { token: string; kind: 'ended' | 'voiceModeStop'; interrupted: boolean };
@@ -264,7 +264,10 @@ export type ReadAloudMode = {
 
 /** One voice of the phone's text-to-speech engine (`speechVoices`). */
 export type SpeechVoice = {
+  /** The engine's id for it (Android's `en-us-x-iob-local`, iOS's `com.apple.voice.premium.en-US.Ava`). */
   name: string;
+  /** iOS only: the voice's own name and quality, such as "Ava (Premium)". */
+  label?: string;
   /** ISO 639 language, such as `en`. */
   language: string;
   /** BCP 47 tag, such as `en-US`. */
@@ -280,13 +283,13 @@ export type SpeechVoice = {
 /** The engine's voices, the one it uses by default, and the phone's language. */
 export type SpeechVoices = { voices: SpeechVoice[]; defaultVoice: string | null; language: string };
 
-/** Android only: what `voiceStart` opens (gxserver's `/api/voice`, see GhostexVoice.kt). */
+/** What `voiceStart` opens (gxserver's `/api/voice`, see GhostexVoice.kt and GhostexVoice.swift). */
 export type VoiceStartOptions = {
   mode: VoiceMode;
   /** The phone's loopback forward to the computer's gxserver. */
   localPort: number;
   authToken: string;
-  /** The computer's name, shown in the "Voice mode on" notification. */
+  /** The computer's name, shown in the "Voice mode on" notification (iOS: the CallKit call). */
   title: string;
   provider?: 'xai' | 'openai';
   /** Dictation only: a BCP-47 hint for the recognizer. */

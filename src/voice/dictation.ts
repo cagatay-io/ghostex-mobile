@@ -1,6 +1,6 @@
 /**
  * Dictate on the phone, in two independent steps: the microphone is recorded to a file on the phone
- * first (`GhostexVoiceRecorder.kt`), and only after Stop is that file handed to the computer's
+ * first (`GhostexVoiceRecorder.kt` / `.swift`), and only after Stop is that file handed to the computer's
  * gxserver, which keeps it and transcribes it with xAI using the key kept on the computer
  * (`/api/saveDictationRecording`, `/api/transcribeDictation`). The phone deletes its copy only once
  * the computer has all of it, so a dropped link, a refused key or an empty xAI account never loses
@@ -9,12 +9,11 @@
  * CDXC:VoiceMode 2026-10-20 SEE-ALSO: the user's decision is in the computer's `server/src/voice_agent/recordings.rs` and `apps/desktop/src/app/voice_agent/dictation.rs`; the desktop records with `recorder.rs`.
  */
 
-import { PermissionsAndroid } from 'react-native';
-
 import { GhostexNative, type LocalDictation } from '../../modules/ghostex-native/src';
 import { chatMachineLink } from '../chat/rust/machine-link';
 import type { MachineConnectionTarget } from '../machines/credentials';
 import { VOICE_SUPPORTED } from './conversation';
+import { microphoneAllowed, microphoneDeniedMessage } from './microphone';
 
 /** Raw bytes per upload piece: under gxserver's 1 MiB JSON limit once base64 grows it by a third. */
 const PIECE_BYTES = 512 * 1024;
@@ -76,14 +75,7 @@ async function rpc(
 export async function startRecording(
   onMicError: (message: string) => void,
 ): Promise<{ id: string } | { error: string }> {
-  const permission = PermissionsAndroid.PERMISSIONS.RECORD_AUDIO;
-  const allowed =
-    (await PermissionsAndroid.check(permission)) ||
-    (await PermissionsAndroid.request(permission)) === PermissionsAndroid.RESULTS.GRANTED;
-  if (!allowed)
-    return {
-      error: 'Ghostex needs microphone access to dictate. Allow it in Android Settings › Apps › Ghostex › Permissions.',
-    };
+  if (!(await microphoneAllowed())) return { error: microphoneDeniedMessage('dictate') };
   let id: string;
   try {
     id = await GhostexNative.dictationRecordStart();

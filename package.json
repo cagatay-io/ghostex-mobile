@@ -67,5 +67,8 @@
     ],
     "testTimeout": 30000
   },
-  "private": true
+  "private": true,
+  "patchedDependencies": {
+    "react-native-screens@4.30.0": "patches/react-native-screens@4.30.0.patch"
+  }
 }

@@ -180,8 +180,13 @@ declare class GhostexNativeModule extends NativeModule<GhostexNativeEvents> {
   updatePersistentNotification(rows: NotificationSessionRow[]): Promise<void>;
   requestNotificationPermission(): Promise<void>;
 
-  // Voice mode, Android only (GhostexVoice.kt): the manager voice agent and Grok dictation.
-  /** Opens `/api/voice` and starts the microphone; a conversation also enters "Voice mode on". */
+  // Voice mode (GhostexVoice.kt, GhostexVoice.swift): the manager voice agent and Grok dictation.
+  /** iOS only: asks for the microphone once; answers whether Ghostex may use it (Android asks from JS). */
+  microphonePermission(): Promise<boolean>;
+  /**
+   * Opens `/api/voice` and starts the microphone; a conversation also enters "Voice mode on" (Android's
+   * notification, a CallKit call on iOS).
+   */
   voiceStart(options: VoiceStartOptions): Promise<string>;
   /** A fresh forward port and token after the SSH link was rebuilt (answers a `linkNeeded`). */
   voiceUpdateLink(mode: VoiceMode, localPort: number, authToken: string): Promise<void>;
@@ -209,7 +214,7 @@ declare class GhostexNativeModule extends NativeModule<GhostexNativeEvents> {
   /** Drops a dictation without its final text. */
   voiceCancel(mode: VoiceMode): Promise<void>;
   voiceStatus(): Promise<VoiceStatus | null>;
-  // Dictate's recordings, Android only (GhostexVoiceRecorder.kt): the microphone to a WAV file first.
+  // Dictate's recordings (GhostexVoiceRecorder.kt / .swift): the microphone to a WAV file first.
   /** Starts recording; answers the recording's id. A microphone failure arrives as a `micError` status. */
   dictationRecordStart(): Promise<string>;
   /** Stops recording and closes the file; null when none ran. */
@@ -221,7 +226,7 @@ declare class GhostexNativeModule extends NativeModule<GhostexNativeEvents> {
   dictationDismissLocal(path: string): Promise<void>;
   /** The computer has it: the phone's copy goes. */
   dictationForget(path: string): Promise<void>;
-  // Read aloud's speaker, Android only (GhostexSpeech.kt): one utterance at a time for the whole app.
+  // Read aloud's speaker (GhostexSpeech.kt / .swift): one utterance at a time for the whole app.
   /** Starts the phone's text-to-speech engine once; false when the phone has none that works. */
   speechInit(): Promise<boolean>;
   speechVoices(): Promise<SpeechVoices>;
@@ -236,7 +241,8 @@ declare class GhostexNativeModule extends NativeModule<GhostexNativeEvents> {
   /**
    * Read aloud's Voice mode: the service takes the `mediaPlayback` type and shows "Voice mode on"
    * for `mode`, and the `GhostexVoiceMode` headless task starts (JavaScript ends it). Call it while
-   * the app is in front. Answers whether this phone shows Ghostex notifications.
+   * the app is in front. Answers whether this phone shows Ghostex notifications. iOS has no such
+   * notification and answers true; the Update and Stop do nothing there.
    */
   readAloudModeStart(mode: ReadAloudMode): Promise<boolean>;
   /** A new chat or reconnecting line for the running Voice mode. */

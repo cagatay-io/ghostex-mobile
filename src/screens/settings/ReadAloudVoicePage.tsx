@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 
 import type { SpeechVoice, SpeechVoices } from '../../../modules/ghostex-native/src';
 import { useSettingsStore } from '../../settings/store';
@@ -22,11 +23,29 @@ export function voiceVariant(voice: SpeechVoice): string {
 
 /**
  * One voice as a row label: its short name, and whether it needs the network or a download. An
- * online voice is never downloaded, though Google's engine marks it not installed too.
+ * online voice is never downloaded, though Google's engine marks it not installed too. An iPhone
+ * voice has a name of its own ("Ava (Premium)").
  */
 export function voiceLabel(voice: SpeechVoice): string {
+  if (voice.label !== undefined && voice.label.length > 0) return voice.label;
   const note = voice.network ? 'online' : voice.notInstalled ? 'needs download' : null;
   return `Voice ${voiceVariant(voice)}${note !== null ? ` (${note})` : ''}`;
+}
+
+/** Where the phone's own voices are set up, for the page's captions. */
+export function phoneVoiceSettings(os: string = Platform.OS): { noVoice: string; defaultVoice: string } {
+  if (os === 'ios') {
+    return {
+      noVoice:
+        'This phone has no voice to read with. Add one in iPhone Settings › Accessibility › Spoken Content › Voices.',
+      defaultVoice:
+        "The voice for this phone's language. More voices, and better ones, are in iPhone Settings › Accessibility › Spoken Content › Voices.",
+    };
+  }
+  return {
+    noVoice: 'This phone has no text-to-speech voice. Install one in Android Settings › Text-to-speech output.',
+    defaultVoice: 'The voice set in Android Settings › Text-to-speech output.',
+  };
 }
 
 export default function ReadAloudVoicePage() {
@@ -61,9 +80,7 @@ export default function ReadAloudVoicePage() {
   if (answer === null) {
     return (
       <SettingsScreenLayout>
-        <Caption>
-          This phone has no text-to-speech voice. Install one in Android Settings › Text-to-speech output.
-        </Caption>
+        <Caption>{phoneVoiceSettings().noVoice}</Caption>
       </SettingsScreenLayout>
     );
   }
@@ -80,7 +97,7 @@ export default function ReadAloudVoicePage() {
     <SettingsScreenLayout>
       <SettingsSection name="settings:readAloudVoice:default">
         <ChoiceRow label="Phone's default voice" selected={selected === ''} onPress={() => choose('')} />
-        <Caption>The voice set in Android Settings › Text-to-speech output.</Caption>
+        <Caption>{phoneVoiceSettings().defaultVoice}</Caption>
       </SettingsSection>
       {[...byLocale.entries()].map(([locale, voices]) => (
         <SettingsSection key={locale} name={`settings:readAloudVoice:${locale}`}>

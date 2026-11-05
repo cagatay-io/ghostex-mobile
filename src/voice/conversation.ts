@@ -4,8 +4,8 @@
  *
  * The phone only streams the microphone in and plays the agent out; gxserver owns the provider,
  * the API keys, the tools and the idle hang-up. The audio, the socket and its reattach ladder run in
- * Kotlin (`GhostexVoice.kt`) so the conversation keeps going with the screen locked. This file keeps
- * the state the voice screen draws (state, captions, tool rows, errors) and answers the native
+ * Kotlin (`GhostexVoice.kt`) and Swift (`GhostexVoice.swift`) so the conversation keeps going with
+ * the screen locked. This file keeps the state the voice screen draws (state, captions, tool rows, errors) and answers the native
  * side's `linkNeeded` by rebuilding the SSH forward to the computer.
  *
  * CDXC:VoiceMode 2026-10-20 DECISION: User: "the one in the chat box just pastes whatever i say into the chat box, while the one above is more general and for discussing". The phone's top bar has a global Voice button that starts and ends a conversation with the manager voice agent; it keeps going while you move between screens and with the phone locked ("Voice mode on" notification with Hang up). The composer's Dictate microphone is the other entry point (`src/chat/native/composer/useDictation.ts`).
@@ -15,7 +15,7 @@
  * CDXC:VoiceMode 2026-10-20 DECISION: User: "on the voice mode screen, the user should be able to click on Eve to change the voice, and click buttons to change the voice agent's speed, with options 1, 1.2, 1.4, 1.6, 1.8, and 2", and the phone's voice screen gets the same picker and speed control, reading and saving the computer's settings (`voiceAgentXaiVoice` / `voiceAgentOpenaiVoice`, `voiceAgentSpeed`) through gxserver's `setVoiceAgentSettings`. The speed is played on the phone (`AudioTrack` playback rate, pitch kept) like the desktop's time stretch. Later the same day: "Move the voice speed control from the bottom bar into the top-right picker. Add a smaller button to its right that opens a speed menu when clicked, so users can pick a different speed without the bottom bar." (phone confirmed): the speed is a small button right of the voice chip that opens a speed sheet, superseding the row of speed buttons above Mute and Hang up.
  */
 
-import { PermissionsAndroid, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import { create } from 'zustand';
 
 import { GhostexNative, type VoiceEvent } from '../../modules/ghostex-native/src';
@@ -32,6 +32,7 @@ import {
   type VoiceFocusTarget,
 } from './focus';
 import { captionParagraphs, toolLineFrame } from './lines';
+import { microphoneAllowed, microphoneDeniedMessage } from './microphone';
 
 /** Where the conversation is: not running, opening, talking, reconnecting after a dropped link, over. */
 export type VoicePhase = 'idle' | 'starting' | 'live' | 'reattaching' | 'ended';
@@ -180,8 +181,13 @@ export function flashVoiceHint(text: string): void {
   }, HINT_MS);
 }
 
-/** Voice mode needs the Android voice engine; the iOS module has none yet. */
-export const VOICE_SUPPORTED = Platform.OS === 'android';
+/**
+ * Voice mode needs the phone's native voice engine (GhostexVoice.kt on Android, GhostexVoice.swift
+ * with CallKit on iOS).
+ *
+ * CDXC:VoiceMode 2026-11-04 DECISION: Issue #412 ("Ship the Ghostex iPhone app with voice mode: the same voice agent call the Android app has today"), started by the user ("Yes, start it now"): the iPhone gets the voice agent call, Dictate and Read aloud with the same screens; the call is a CallKit call (GhostexVoiceCall.swift says why).
+ */
+export const VOICE_SUPPORTED = Platform.OS === 'android' || Platform.OS === 'ios';
 
 /** The speeds the speed buttons offer (`voiceAgentSpeed`). */
 export const VOICE_SPEEDS = [1, 1.2, 1.4, 1.6, 1.8, 2] as const;
@@ -544,12 +550,6 @@ export function voiceActive(phase: VoicePhase): boolean {
   return phase === 'starting' || phase === 'live' || phase === 'reattaching';
 }
 
-async function microphoneAllowed(): Promise<boolean> {
-  const permission = PermissionsAndroid.PERMISSIONS.RECORD_AUDIO;
-  if (await PermissionsAndroid.check(permission)) return true;
-  return (await PermissionsAndroid.request(permission)) === PermissionsAndroid.RESULTS.GRANTED;
-}
-
 /**
  * Starts a conversation with the voice agent on `machine`, about all sessions or, with `about`, about
  * one session. Never throws: every failure lands in the store as a problem the voice screen shows.
@@ -567,10 +567,7 @@ export async function startVoice(
   const fail = (code: string, message: string) => finish(message, { code, message });
   try {
     if (!(await microphoneAllowed())) {
-      fail(
-        'microphone',
-        'Ghostex needs microphone access to talk with the voice agent. Allow it in Android Settings › Apps › Ghostex › Permissions.',
-      );
+      fail('microphone', microphoneDeniedMessage('talk with the voice agent'));
       return;
     }
     const link = chatMachineLink(machine);
@@ -671,7 +668,9 @@ async function saveVoiceSettings(
   try {
     const answer = await chatMachineLink(target).rpc('setVoiceAgentSettings', params, READ_TIMEOUT_MS);
     if (answer.error !== null) {
-      notice(`Couldn't save the ${what} on ${useVoiceStore.getState().machineName} (${answer.error.message})${consequence}.`);
+      notice(
+        `Couldn't save the ${what} on ${useVoiceStore.getState().machineName} (${answer.error.message})${consequence}.`,
+      );
       return false;
     }
     return true;
@@ -709,7 +708,10 @@ export async function readComputerCallMode(
 }
 
 /** Saves the call mode on `machine` through gxserver; answers an error sentence, or null when saved. */
-export async function saveComputerCallMode(machine: MachineConnectionTarget, mode: VoiceCallMode): Promise<string | null> {
+export async function saveComputerCallMode(
+  machine: MachineConnectionTarget,
+  mode: VoiceCallMode,
+): Promise<string | null> {
   try {
     const answer = await chatMachineLink(machine).rpc('setVoiceAgentSettings', { callMode: mode }, READ_TIMEOUT_MS);
     if (answer.error !== null) return answer.error.message;

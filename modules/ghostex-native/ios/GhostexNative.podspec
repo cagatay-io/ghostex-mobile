@@ -45,7 +45,10 @@ Pod::Spec.new do |s|
   s.preserve_paths = 'Vendor/**/*'
 
   # Network is NWListener/NWConnection, the loopback side of SSH local port forwarding.
-  s.frameworks = 'Metal', 'QuartzCore', 'UIKit', 'IOSurface', 'Security', 'AudioToolbox', 'Network', 'WebKit'
+  # AVFoundation, CallKit and UserNotifications are the voice agent, Dictate and Read aloud
+  # (GhostexVoice*.swift, GhostexSpeech.swift).
+  s.frameworks = 'Metal', 'QuartzCore', 'UIKit', 'IOSurface', 'Security', 'AudioToolbox', 'Network', 'WebKit',
+                 'AVFoundation', 'CallKit', 'UserNotifications'
   s.libraries = 'z', 'c++'
 
   s.pod_target_xcconfig = {

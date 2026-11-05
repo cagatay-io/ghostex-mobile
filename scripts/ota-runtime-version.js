@@ -43,6 +43,8 @@ const APP_SHARED = [
   'app.config.js',
   'scripts/ota-runtime-version.js',
   'plugins',
+  // Patches to dependencies (bun `patchedDependencies`) can change native code.
+  'patches',
   'certs',
   ':(glob)modules/*/expo-module.config.json',
 ];
