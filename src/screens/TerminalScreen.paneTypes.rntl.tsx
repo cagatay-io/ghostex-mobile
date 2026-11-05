@@ -735,7 +735,9 @@ describe('closing, and the only session pane', () => {
     await renderScreen({ stored: layout(session(A), BROWSER) });
     await press(PanesCopy.close(PanesCopy.browserType));
     expect(screen.queryByTestId('pane:browser')).toBeNull();
-    expect(storedStacked()).toBeUndefined();
+    // Closed, the layout stays stored for the next open.
+    expect(storedStacked()).toEqual({ first: session(A), second: BROWSER, dividerRatio: 0.5 });
+    expect(usePaneStore.getState().document.closed).toBe(true);
 
     await act(() => usePaneStore.getState().showSlots('stacked', A, { paneType: 'git', sessionKey: A }));
     await settle();

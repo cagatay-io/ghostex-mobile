@@ -30,7 +30,7 @@ import {
   type PaneDisplay,
   type PaneEntry,
 } from './resolve';
-import { usePaneStore } from './store';
+import { panesFrom, usePaneStore } from './store';
 
 export type PaneHostInput = {
   /** The window has pane slots and the selected tab is an agent session, unless a question from the attention list stands. */
@@ -52,9 +52,12 @@ export type PaneHost = {
   /** Shows this session's chat view in its pane (the other pane's chat view goes back to its terminal), or, with null,
    * every session pane its terminal; the panes' own choice, never the session's saved view. */
   setChatSession: (sessionKey: string | null) => void;
-  /** Panes in the header: the chooser in a second slot beside the selected session. */
-  openChooser: () => void;
-  /** A pane's close button (the Panes button closes the second): one pane again, a session staying. */
+  /** Panes in the header: the panes stored for the window's shape again, else the chooser beside the selected session. */
+  openPanes: () => void;
+  /**
+   * A pane's close button (the Panes button closes the second): one pane again in every window shape, a session
+   * staying; each shape's layout stays stored for the next open.
+   */
   closeSlot: (slot: PaneIndex) => void;
   swap: () => void;
   setRatio: (ratio: number) => void;
@@ -77,7 +80,7 @@ export function usePaneHost({ offered, arrangement }: PaneHostInput): PaneHost {
   const tabs = useTerminalStore((state) => state.tabs);
   const selectedSessionKey = useTerminalStore((state) => state.selectedSessionKey);
   const machines = useMachinesStore((state) => state.machines);
-  const layout = usePaneStore((state) => state.document.layouts[arrangement]);
+  const document = usePaneStore((state) => state.document);
   const chooser = usePaneStore((state) => state.chooser);
   const activeSlot = usePaneStore((state) => state.activeSlot);
   const hydrated = usePaneStore((state) => state.hydrated);
@@ -88,8 +91,9 @@ export function usePaneHost({ offered, arrangement }: PaneHostInput): PaneHost {
   const sessionViewModes = useTerminalStore((state) => state.sessionViewModeBySessionKey);
   const preferredInterface = useSettingsStore((state) => state.settings.preferredAgentInterface);
   const inventories = useInventoryStore((state) => state.inventoriesByMachineId);
-  // The window turned: the panes last on screen in the other shape come along where nothing is stored for this one.
-  const carried = shown !== null && shown.arrangement !== arrangement ? shown.slots : null;
+  // Nothing while the panes are closed; else the stored layout, or the panes last on screen in the other shape when the
+  // window turned and nothing is stored for this one.
+  const { layout, carried } = panesFrom(document, shown, arrangement);
 
   const resolution = useMemo(
     () =>
@@ -230,9 +234,8 @@ export function usePaneHost({ offered, arrangement }: PaneHostInput): PaneHost {
     }
   }, [chooser, offered, arrangement]);
 
-  const openChooser = useCallback(() => {
-    if (selectedSessionKey !== null)
-      usePaneStore.getState().openChooser({ arrangement, firstSessionKey: selectedSessionKey });
+  const openPanes = useCallback(() => {
+    if (selectedSessionKey !== null) usePaneStore.getState().openPanes(arrangement, selectedSessionKey);
   }, [arrangement, selectedSessionKey]);
 
   const closeSlot = useCallback(
@@ -245,14 +248,14 @@ export function usePaneHost({ offered, arrangement }: PaneHostInput): PaneHost {
       }
       // One pane again: the screen shows the selected session, so beside a pane without a terminal the session pane
       // stays whichever of the two closes.
-      panes.closePanes(arrangement);
+      panes.closePanes();
       // The pane that stays takes the keyboard and the pad.
       const staying = display.slots[slot === 0 ? 1 : 0];
       if (slot === display.active && staying.kind === 'session') {
         useTerminalStore.getState().selectTab(staying.sessionKey, { scrollToBottom: false });
       }
     },
-    [arrangement, display],
+    [display],
   );
 
   const setSlotType = useCallback(
@@ -323,7 +326,7 @@ export function usePaneHost({ offered, arrangement }: PaneHostInput): PaneHost {
     paneSessionKey,
     chatSessionKey,
     setChatSession,
-    openChooser,
+    openPanes,
     closeSlot,
     swap,
     setRatio,

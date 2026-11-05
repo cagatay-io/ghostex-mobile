@@ -567,16 +567,18 @@ describe('two session panes', () => {
     expect(storedLayouts().stacked).toEqual(stacked(A, B).layouts.stacked);
   });
 
-  test("a pane's close button leaves the other one alone, full screen; Panes closes the second", async () => {
+  test("a pane's close button leaves the other one alone, full screen; Panes brings the panes back, then closes the second", async () => {
     await renderScreen({ stored: stacked(A, B) });
     await press(PanesCopy.close('Beta'));
     expect(shownSessions()).toEqual([A]);
     expect(screen.queryByTestId(`pane:${A}`)).toBeNull();
-    expect(storedLayouts().stacked).toBeUndefined();
+    // Closed, the layout stays stored for the next open.
+    expect(storedLayouts().stacked).toEqual(stacked(A, B).layouts.stacked);
 
     await press(PanesCopy.addPane);
-    await press(/^Beta, Codex/);
     expect(shownSessions().sort()).toEqual([A, B]);
+    expect(card(B).y).toBeGreaterThan(card(A).y);
+    await tapPane(B);
     await press(PanesCopy.closeSecondPane);
     expect(shownSessions()).toEqual([A]);
     // The active pane was the second: the one staying takes the selection.
@@ -746,13 +748,14 @@ describe('input goes to the pane tapped last: the keyboard, the pad, the editor,
     mockNative.focusTerminal.mockClear();
     await press(PanesCopy.close('Alpha'));
     expect(shownSessions()).toEqual([B]);
+    // Panes brings the stored panes back; then the selected tab closes.
     await press(PanesCopy.addPane);
-    await press(/^Gamma, /);
-    expect(shownSessions().sort()).toEqual([B, C]);
-    await act(() => useTerminalStore.getState().closeTab(C));
-    await settle();
+    expect(shownSessions().sort()).toEqual([A, B]);
     expect(selected()).toBe(B);
-    expect(shownSessions()).toEqual([B]);
+    await act(() => useTerminalStore.getState().closeTab(B));
+    await settle();
+    expect(selected()).toBe(A);
+    expect(shownSessions()).toEqual([A]);
     expect(mockNative.focusTerminal).not.toHaveBeenCalled();
   });
 

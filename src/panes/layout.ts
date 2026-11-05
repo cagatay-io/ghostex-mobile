@@ -1,12 +1,14 @@
 /**
  * The stored pane layout, version 1: per window shape (`stacked` upright, `sideBySide` across and half folded like a
- * laptop) the pane type of each slot, the session a pane is bound to and the divider's position. A session pane's
- * session is the one it shows; a files or Git changes pane's is the session it was opened from, whose project it keeps,
- * and a usage pane's the session whose computer it keeps; a browser, agents or attention list pane has none. Only a
- * manual divider drag writes the position; the layout the keyboard rules give is never stored. The reader is the
- * trust boundary for what storage hands back: anything that is not exactly this shape, or that would show one session
- * in two session panes (a terminal can be shown in one place only), is discarded as a whole and one pane is used.
- * Free of React Native, so it loads in a plain `bun test`.
+ * laptop) the pane type of each slot, the session a pane is bound to and the divider's position, and whether the panes
+ * are closed. A session pane's session is the one it shows; a files or Git changes pane's is the session it was opened
+ * from, whose project it keeps, and a usage pane's the session whose computer it keeps; a browser, agents or attention
+ * list pane has none. Only a manual divider drag writes the position; the layout the keyboard rules give is never
+ * stored. Closing the panes hides them in every window shape and keeps each shape's layout for the next open
+ * (`closed`, present only while closed; a value stored before it existed has none and reads as open). The reader is
+ * the trust boundary for what storage hands back: anything that is not exactly this shape, or that would show one
+ * session in two session panes (a terminal can be shown in one place only), is discarded as a whole and one pane is
+ * used. Free of React Native, so it loads in a plain `bun test`.
  */
 
 import { isRecord } from '../docs/entries';
@@ -39,6 +41,8 @@ export type PaneLayout = {
 export type PaneLayoutDocument = {
   readonly schemaVersion: typeof PANE_LAYOUT_VERSION;
   readonly layouts: Readonly<Partial<Record<PaneArrangement, PaneLayout>>>;
+  /** The panes are closed in every window shape until the user opens them again; absent while they are not. */
+  readonly closed?: true;
 };
 
 /** Nothing stored, or nothing usable: one pane in every window shape. */
@@ -80,7 +84,8 @@ function parseLayout(value: unknown): PaneLayout | null {
 
 /** The stored value as the pane host may use it; `SINGLE_PANE_DOCUMENT` for anything else. */
 export function parsePaneLayoutDocument(value: unknown): PaneLayoutDocument {
-  if (!isRecord(value) || !hasOnlyKeys(value, ['schemaVersion', 'layouts'])) return SINGLE_PANE_DOCUMENT;
+  if (!isRecord(value) || !hasOnlyKeys(value, ['schemaVersion', 'layouts', 'closed'])) return SINGLE_PANE_DOCUMENT;
+  if (value.closed !== undefined && value.closed !== true) return SINGLE_PANE_DOCUMENT;
   if (value.schemaVersion !== PANE_LAYOUT_VERSION || !isRecord(value.layouts)) return SINGLE_PANE_DOCUMENT;
   if (!hasOnlyKeys(value.layouts, ['stacked', 'sideBySide'])) return SINGLE_PANE_DOCUMENT;
   const layouts: Partial<Record<PaneArrangement, PaneLayout>> = {};
@@ -91,7 +96,7 @@ export function parsePaneLayoutDocument(value: unknown): PaneLayoutDocument {
     if (layout === null) return SINGLE_PANE_DOCUMENT;
     layouts[arrangement] = layout;
   }
-  return { schemaVersion: PANE_LAYOUT_VERSION, layouts };
+  return { schemaVersion: PANE_LAYOUT_VERSION, layouts, ...(value.closed === true ? { closed: true } : {}) };
 }
 
 /** One line for the development build's debug row: each slot's type and session, then the divider in percent. */

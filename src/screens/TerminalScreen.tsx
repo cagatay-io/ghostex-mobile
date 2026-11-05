@@ -912,16 +912,15 @@ export default function TerminalScreen({ navigation, route }: Props) {
     padHeld,
   });
   // The Panes button over a question a link opened brings the panes back (the stored ones, else the chooser beside it).
-  const openChooser = panes.openChooser;
+  const openPanes = panes.openPanes;
   const pressPanes = useCallback((): void => {
     if (!questionStands) {
       togglePanes();
       return;
     }
-    const paneStore = usePaneStore.getState();
-    paneStore.setQuestionHold(null);
-    if (paneStore.document.layouts[paneArrangement] === undefined) openChooser();
-  }, [questionStands, togglePanes, paneArrangement, openChooser]);
+    usePaneStore.getState().setQuestionHold(null);
+    openPanes();
+  }, [questionStands, togglePanes, openPanes]);
 
   // ---------------------------------------------------------------------
   // Agent Actions (desktop terminal-overlay parity, minus the stash entries

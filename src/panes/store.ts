@@ -43,6 +43,23 @@ export type PaneChooser = {
 /** The two panes on screen (first, second) and the window shape they stand in. */
 export type PanesShown = { readonly arrangement: PaneArrangement; readonly slots: readonly [PaneEntry, PaneEntry] };
 
+/**
+ * What the pane host shows panes from in `arrangement`: its stored layout, and the two panes on screen in the other
+ * window shape just before the window turned (they come along where nothing is stored). Neither while the panes are
+ * closed: they stay hidden in every window shape until the user opens them again (`openPanes`).
+ */
+export function panesFrom(
+  document: PaneLayoutDocument,
+  shown: PanesShown | null,
+  arrangement: PaneArrangement,
+): { layout: PaneLayout | undefined; carried: readonly [PaneEntry, PaneEntry] | null } {
+  if (document.closed === true) return { layout: undefined, carried: null };
+  return {
+    layout: document.layouts[arrangement],
+    carried: shown !== null && shown.arrangement !== arrangement ? shown.slots : null,
+  };
+}
+
 /** The page a browser pane shows, as the full-screen Web Preview opens it. */
 export type BrowserPage = RootStackParamList['WebPreview'];
 
@@ -54,7 +71,7 @@ type PaneState = {
   chooser: PaneChooser | null;
   /**
    * The two panes last on screen, kept while the panes are hidden (folded, the chat view, a shell tab); they come
-   * along when the window turns into a shape with nothing stored for it. Not stored.
+   * along when the window turns into a shape with nothing stored for it. Not stored; closing the panes ends it.
    */
   shown: PanesShown | null;
   /** The browser pane's computer and page (null at the Web Preview's start); not stored (the layout has no page). */
@@ -87,13 +104,21 @@ type PaneState = {
   setShown: (shown: PanesShown | null) => void;
   /** Two session panes in `arrangement`, the divider where it was last for that shape, or in the middle. */
   showSessions: (arrangement: PaneArrangement, first: string, second: string) => void;
-  /** Two panes in `arrangement` (a session's key for a session pane), the divider as `showSessions` has it. */
+  /**
+   * Two panes in `arrangement` (a session's key for a session pane), the divider as `showSessions` has it; the panes
+   * are open again if they were closed.
+   */
   showSlots: (arrangement: PaneArrangement, first: PaneEntry, second: PaneEntry) => void;
   /** Swaps the two panes; the active one moves with its content. */
   swap: (arrangement: PaneArrangement) => void;
   setDividerRatio: (arrangement: PaneArrangement, ratio: number) => void;
-  /** One pane again in `arrangement`. */
-  closePanes: (arrangement: PaneArrangement) => void;
+  /**
+   * The Panes button with one pane: the panes stored for `arrangement` again, or, with none stored, the chooser beside
+   * `firstSessionKey` (the panes stay closed until a session is picked there).
+   */
+  openPanes: (arrangement: PaneArrangement, firstSessionKey: string) => void;
+  /** One pane again in every window shape; each shape's layout stays stored for the next open. */
+  closePanes: () => void;
   /** Ends every layout whose session pane shows this session. */
   forgetSession: (sessionKey: string) => void;
   setBrowserPage: (browserPage: PaneState['browserPage']) => void;
@@ -105,12 +130,10 @@ export const usePaneStore = create<PaneState>()((set, get) => {
     void AsyncStorage.setItem(PANE_LAYOUT_STORAGE_KEY, JSON.stringify(document));
   };
 
-  const withLayout = (arrangement: PaneArrangement, layout: PaneLayout | undefined): PaneLayoutDocument => {
-    const layouts = { ...get().document.layouts };
-    if (layout === undefined) delete layouts[arrangement];
-    else layouts[arrangement] = layout;
-    return { ...get().document, layouts };
-  };
+  const withLayout = (arrangement: PaneArrangement, layout: PaneLayout): PaneLayoutDocument => ({
+    ...get().document,
+    layouts: { ...get().document.layouts, [arrangement]: layout },
+  });
 
   return {
     hydrated: false,
@@ -176,7 +199,13 @@ export const usePaneStore = create<PaneState>()((set, get) => {
     showSlots: (arrangement, first, second) => {
       const dividerRatio = get().document.layouts[arrangement]?.dividerRatio ?? DEFAULT_DIVIDER_RATIO;
       set({ chooser: null });
-      persist(withLayout(arrangement, { first: paneSlotOf(first), second: paneSlotOf(second), dividerRatio }));
+      // Panes shown are open: the document loses `closed`.
+      const { schemaVersion, layouts } = withLayout(arrangement, {
+        first: paneSlotOf(first),
+        second: paneSlotOf(second),
+        dividerRatio,
+      });
+      persist({ schemaVersion, layouts });
     },
 
     swap: (arrangement) => {
@@ -193,9 +222,19 @@ export const usePaneStore = create<PaneState>()((set, get) => {
       persist(withLayout(arrangement, { ...layout, dividerRatio: clampDividerRatio(ratio) }));
     },
 
-    closePanes: (arrangement) => {
-      if (get().document.layouts[arrangement] === undefined) return;
-      persist(withLayout(arrangement, undefined));
+    openPanes: (arrangement, firstSessionKey) => {
+      const { document } = get();
+      if (document.layouts[arrangement] === undefined) {
+        set({ chooser: { arrangement, firstSessionKey } });
+        return;
+      }
+      if (document.closed === true) persist({ schemaVersion: document.schemaVersion, layouts: document.layouts });
+    },
+
+    closePanes: () => {
+      // The panes on screen do not come along into the other window shape either.
+      set({ shown: null });
+      if (get().document.closed !== true) persist({ ...get().document, closed: true });
     },
 
     forgetSession: (sessionKey) => {

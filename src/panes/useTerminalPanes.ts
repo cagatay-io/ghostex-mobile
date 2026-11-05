@@ -433,18 +433,18 @@ export function useTerminalPanes({
   // The slot of the chooser.
   const chooserSlot =
     twoPanes === null ? null : (([0, 1] as const).find((slot) => twoPanes.slots[slot].kind === 'chooser') ?? null);
-  const { openChooser: openPaneChooser, closeSlot: closePaneSlot } = panes;
+  const { openPanes, closeSlot: closePaneSlot } = panes;
   // The chooser's Close row: as its close button.
   const closeChooser = useCallback((): void => {
     if (chooserSlot !== null) closePaneSlot(chooserSlot);
   }, [chooserSlot, closePaneSlot]);
 
-  // The header's Panes button: the chooser in a second slot; with two panes the chooser closed where one is on
-  // screen (in either slot), else the second pane.
+  // The header's Panes button: the panes stored for the window's shape, else the chooser in a second slot; with two
+  // panes the chooser closed where one is on screen (in either slot), else the second pane.
   const showsTwoPanes = twoPanes !== null;
   const togglePanes = useCallback(
-    (): void => (showsTwoPanes ? closePaneSlot(chooserSlot ?? 1) : openPaneChooser()),
-    [showsTwoPanes, chooserSlot, closePaneSlot, openPaneChooser],
+    (): void => (showsTwoPanes ? closePaneSlot(chooserSlot ?? 1) : openPanes()),
+    [showsTwoPanes, chooserSlot, closePaneSlot, openPanes],
   );
   // What the button and its "More options" entry say: what a press does now.
   const panesLabel = !showsTwoPanes

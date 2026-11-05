@@ -585,6 +585,18 @@ function barTitle(key: string, title: string, typeLabel: string): TestInstance {
   return within(screen.getByTestId(`pane-bar:${key}`)).getByLabelText(PanesCopy.title(title, typeLabel));
 }
 
+/** The chooser in the agents pane's slot, beside the session pane: the agents pane's type menu set to Session. */
+async function chooserForAgentsPane(): Promise<void> {
+  const restore = measuredTitles();
+  try {
+    await press(PanesCopy.title(PanesCopy.agentsType, PanesCopy.agentsType));
+    await fireEvent.press(menuItem(PanesCopy.sessionType));
+    await settle();
+  } finally {
+    restore();
+  }
+}
+
 beforeAll(() => {
   initPaneLayouts();
 });
@@ -707,8 +719,7 @@ describe('agents: the computer’s sessions with their status', () => {
     const status = announced ? 'Has a question' : 'Idle';
     expect(within(pane('agents')).getByLabelText(`Open question, Codex · ${status}`)).toBeTruthy();
     expect(within(pane('agents')).getByText(PanesCopy.agentsChip.question(announced ? 2 : 1))).toBeTruthy();
-    await press(PanesCopy.close(PanesCopy.agentsType));
-    await press(PanesCopy.addPane);
+    await chooserForAgentsPane();
     expect(screen.getByLabelText(`Open question, Codex · pad-lab · ${status}`)).toBeTruthy();
   });
 
@@ -724,8 +735,7 @@ describe('agents: the computer’s sessions with their status', () => {
     await renderScreen({ stored: layout(session(A), AGENTS) });
     expect(within(pane('agents')).getByLabelText('Approval pending, Codex · Waiting for approval')).toBeTruthy();
     expect(within(pane('agents')).getByText(PanesCopy.agentsChip.question(1))).toBeTruthy();
-    await press(PanesCopy.close(PanesCopy.agentsType));
-    await press(PanesCopy.addPane);
+    await chooserForAgentsPane();
     expect(screen.getByLabelText('Approval pending, Codex · pad-lab · Waiting for approval')).toBeTruthy();
   });
 
@@ -1198,7 +1208,9 @@ describe('closing', () => {
     await renderScreen({ stored: layout(session(A), ATTENTION) });
     await press(PanesCopy.close(PanesCopy.attentionType));
     expect(screen.queryByTestId('pane:attention')).toBeNull();
-    expect(storedStacked()).toBeUndefined();
+    // Closed, the layout stays stored for the next open.
+    expect(storedStacked()).toEqual({ first: session(A), second: ATTENTION, dividerRatio: 0.5 });
+    expect(usePaneStore.getState().document.closed).toBe(true);
 
     await act(() => usePaneStore.getState().showSlots('stacked', A, usage(A)));
     await settle();
