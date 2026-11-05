@@ -626,4 +626,27 @@ describe("in the Unified list (the computer's Sidebar set to Unified)", () => {
     expect(screen.getByText('Rename')).toBeTruthy();
     expect(screen.getByText('Snooze')).toBeTruthy();
   });
+
+  test('half folded like a laptop the Unified list of tiles ends above the fold, also scrolled, and no row of tiles carries a gap', async () => {
+    // The list's frame in the window is the whole upright window; the fold's band is 455.5-495.5. A row of tiles is
+    // named by its first tile's Unified row id (`<computer>|<session>`).
+    measureInWindow.mockImplementation((onFrame: (...frame: number[]) => void) =>
+      onFrame(0, 0, UPRIGHT.width, UPRIGHT.height),
+    );
+    useUnified(false);
+    useSettingsStore.setState({ settings: { ...useSettingsStore.getState().settings, sessionListView: 'tiles' } });
+    await renderScreen(UPRIGHT, [LAPTOP]);
+    await settle();
+    expect(screen.queryAllByTestId(/^wall-row-/).map((row) => row.props.testID)).toEqual([
+      'wall-row-m1|b',
+      'wall-row-m1|c',
+    ]);
+    const marginTop = (session: string) =>
+      StyleSheet.flatten((screen.getByTestId(`wall-row-m1|${session}`) as TestInstance).props.style)?.marginTop;
+    expect(visibleBottomOf('wall-row-m1|b', UPRIGHT)).toBe(ABOVE_FOLD);
+    expect([marginTop('b'), marginTop('c')]).toEqual([undefined, undefined]);
+    await scrollList('wall-row-m1|b');
+    expect(visibleBottomOf('wall-row-m1|b', UPRIGHT)).toBe(ABOVE_FOLD);
+    expect([marginTop('b'), marginTop('c')]).toEqual([undefined, undefined]);
+  });
 });
