@@ -72,6 +72,7 @@ export function AccountsPanel({ panel, onCommand }: { panel: JsonRecord; onComma
         </View>
       ) : null}
       {message.length > 0 ? <Text style={styles.paragraph}>{message}</Text> : null}
+      {message.length > 0 ? <OtherUsage panel={panel} /> : null}
       {message.length === 0 && session !== null ? (
         <SessionBlocks
           session={session}
@@ -83,9 +84,40 @@ export function AccountsPanel({ panel, onCommand }: { panel: JsonRecord; onComma
             onCommand(policyCommand(null), true);
           }}
           onCommand={onCommand}
+          otherUsage={<OtherUsage panel={panel} />}
         />
       ) : null}
     </View>
+  );
+}
+
+/**
+ * Other usage: the Cursor, Gemini and Copilot accounts, each a name line over its columns. They
+ * only show usage, so nothing here switches the session (gx-chat-core's CDXC:AgentProviders
+ * 2026-11-05 on `PanelOtherUsage`).
+ */
+function OtherUsage({ panel }: { panel: JsonRecord }) {
+  const styles = useStyles();
+  const rows = arr(panel.otherUsage);
+  if (rows.length === 0) return null;
+  return (
+    <>
+      <Text style={styles.sectionHeading}>Other usage</Text>
+      {rows.map((row, index) => {
+        const record = obj(row) ?? {};
+        const usageError = str(row, 'usageError');
+        return (
+          <View key={`${index}:${str(row, 'id')}`} style={styles.account}>
+            <NameLine account={record} name={str(row, 'name')} email={str(row, 'providerLabel')} />
+            {usageColumns(record.usage).length > 0 ? (
+              <UsageRow session={record} resets />
+            ) : (
+              <Text style={styles.paragraph}>{usageError.length > 0 ? usageError : "Usage isn't read yet."}</Text>
+            )}
+          </View>
+        );
+      })}
+    </>
   );
 }
 
@@ -96,6 +128,7 @@ function SessionBlocks({
   onCustomize,
   onDefaults,
   onCommand,
+  otherUsage,
 }: {
   session: JsonRecord;
   busy: boolean;
@@ -103,6 +136,8 @@ function SessionBlocks({
   onCustomize: () => void;
   onDefaults: () => void;
   onCommand: Run;
+  /** The usage-only accounts, drawn under the session's own accounts. */
+  otherUsage: ReactNode;
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
@@ -185,6 +220,7 @@ function SessionBlocks({
           </Pressable>
         );
       })}
+      {otherUsage}
       <View style={styles.divider} />
       <View style={styles.header}>
         <Text style={styles.strong}>Keep going at a limit</Text>
@@ -300,7 +336,8 @@ function NameLine({
   const styles = useStyles();
   const P = useTranscriptTheme();
   const provider = str(account, 'provider') || 'claude';
-  const Icon = account !== null ? AGENT_ICONS[provider] : undefined;
+  // Cursor's agent logo is keyed by its CLI.
+  const Icon = account !== null ? AGENT_ICONS[provider === 'cursor' ? 'cursor-cli' : provider] : undefined;
   return (
     <View style={styles.nameLine}>
       {Icon !== undefined ? <Icon size={16} color={P.foreground} /> : null}
