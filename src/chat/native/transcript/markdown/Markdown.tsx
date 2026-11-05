@@ -35,6 +35,7 @@ import { isRunCommandHref } from './runCommands';
 import { fitTableColumns } from './tableLayout';
 import { MarkedSection, useMarkedEmoji, useMarkedStyle } from './MarkedSections';
 import { SessionPill } from '../SessionPill';
+import { openQuestionReply } from '../QuestionReply';
 
 /** One `markdownReferences` entry; `record` is the whole entry (a `session` pill reads its logo and state). */
 type Reference = { label: string; kind: string; state: string; title: string; record: JsonRecord };
@@ -213,12 +214,15 @@ function QuestionTagPill({ reference, href, context }: { reference: Reference; h
   const state = (reference.state in QUESTION_TAGS.tone.dark ? reference.state : 'open') as QuestionTagState;
   const tone = (context.theme.light ? QUESTION_TAGS.tone.light : QUESTION_TAGS.tone.dark)[state];
   const glyph = state === 'open' ? 'question-mark' : state === 'answered' ? 'check' : undefined;
+  // On its own one-click question the tag answers it there instead of jumping (desktop
+  // `here_tag`, gx-chat-core `jump_to_tag`).
+  const here = reference.record.here === true ? str(reference.record, 'tag') : '';
   return (
     <Text>
       <Pressable
         accessibilityRole="link"
         accessibilityLabel={reference.title}
-        onPress={() => context.openLink(href)}
+        onPress={() => (here.length > 0 ? openQuestionReply({ form: null, tag: here }) : context.openLink(href))}
         {...(context.longPressLink !== undefined ? { onLongPress: () => context.longPressLink?.(href) } : {})}
         style={({ pressed }) => [
           styles.questionTag,

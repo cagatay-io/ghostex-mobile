@@ -28,6 +28,8 @@ import { useSettingsStore } from '../../../settings/store';
 import { transcriptItemKey, type TranscriptItem } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
 import { EmptyTranscript } from '../cards';
+import { holdForAnswer, holdsTranscript, releaseAnswerHold, useAnswerHold } from './answerHold';
+import { QuestionReplyHost } from './QuestionReply';
 import {
   ChatImagesProvider,
   RowDetailsProvider,
@@ -114,9 +116,18 @@ export function TranscriptScope({ chat, main, children }: { chat: RustChat; main
   // Normal look and opens the work under each reply; Summary shows the Normal look too.
   const simple = main && document?.viewLevel !== 'detailed';
   const workOpen = main && !simple;
+  // An answer sent from inside the main transcript stops it following the newest row (`answerHold.ts`).
+  const chatDispatch = chat.dispatch;
+  const dispatch = useCallback<RustChat['dispatch']>(
+    (action) => {
+      if (main && holdsTranscript(action.type)) holdForAnswer();
+      chatDispatch(action);
+    },
+    [chatDispatch, main],
+  );
   const env = useMemo<TranscriptEnv>(
     () => ({
-      dispatch: chat.dispatch,
+      dispatch,
       theme,
       simple,
       workOpen,
@@ -126,7 +137,7 @@ export function TranscriptScope({ chat, main, children }: { chat: RustChat; main
       uploadFiles: chat.uploadFiles,
       queryAsync: chat.queryAsync,
     }),
-    [chat.dispatch, chat.uploadFiles, chat.queryAsync, filePreviews, main, mutedThinking, simple, theme, workOpen],
+    [dispatch, chat.uploadFiles, chat.queryAsync, filePreviews, main, mutedThinking, simple, theme, workOpen],
   );
   // The document is parsed afresh per frame, so the flags are keyed by their content.
   const flagsSignature =
@@ -355,7 +366,9 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
     [collapsed, dispatch, main],
   );
 
+  const answerHeld = useAnswerHold((hold) => hold.held);
   const jumpToBottom = useCallback(() => {
+    releaseAnswerHold();
     listRef.current?.scrollToOffset({ offset: 0, animated: true });
     dispatch({ type: 'composerExpand' });
   }, [dispatch]);
@@ -465,10 +478,14 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
         onEndReached={loadEarlier}
         onEndReachedThreshold={0.6}
         onScrollToIndexFailed={onScrollToIndexFailed}
-        maintainVisibleContentPosition={{
-          minIndexForVisible: 0,
-          autoscrollToTopThreshold: SCROLL_BOTTOM.edgeThreshold,
-        }}
+        // Near the bottom new rows scroll into view; after an answer sent from a row they do not,
+        // so the tapped row stays put until the reader moves the list (`answerHold.ts`).
+        maintainVisibleContentPosition={
+          answerHeld
+            ? { minIndexForVisible: 0 }
+            : { minIndexForVisible: 0, autoscrollToTopThreshold: SCROLL_BOTTOM.edgeThreshold }
+        }
+        onScrollBeginDrag={releaseAnswerHold}
         keyboardDismissMode="interactive"
         // Android's scroll-into-view for a focused field is mirrored in an inverted list; the
         // question form's fields reveal themselves instead (`fieldReveal.ts`).
@@ -493,6 +510,7 @@ export function NativeTranscript({ chat, items, main = true }: NativeTranscriptP
   return (
     <TranscriptScope chat={chat} main={main}>
       {main && searchOpen ? <SearchFoldsReport dispatch={dispatch} /> : null}
+      {main ? <QuestionReplyHost /> : null}
       <QuestionFlashProvider value={questionFlash}>
         <QuestionAnchorsProvider value={questionAnchors}>
           <TranscriptFieldRevealContext.Provider value={revealFocusedField}>

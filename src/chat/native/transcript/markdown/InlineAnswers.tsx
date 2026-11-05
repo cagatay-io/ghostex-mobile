@@ -13,6 +13,14 @@ import { useTranscriptEnv } from '../context';
 import { arr, obj, str, type JsonRecord } from '../json';
 import { QuestionFlashFrame } from '../OpenQuestions';
 import { useQuestionFormState } from '../QuestionForm';
+import { openQuestionReply } from '../QuestionReply';
+
+/** The reader's own answer as the status quotes it: its first line, at most 48 characters. */
+function short(text: string): string {
+  const line = (text.split('\n')[0] ?? '').trim();
+  const cut = Array.from(line).slice(0, 48).join('');
+  return cut.length < line.length || text.trim().includes('\n') ? `${cut}…` : cut;
+}
 
 /** `rgba()` of a `#rrggbb` colour at `alpha`; other colour strings come back as they are. */
 function withAlpha(color: string, alpha: number): string {
@@ -34,6 +42,11 @@ export function InlineAnswers({ mark }: { mark: JsonRecord }) {
   const picked = typeof pickedRaw === 'number' ? pickedRaw : null;
   const sent = phase === 'sending' || phase === 'queued' || phase === 'answered';
   const clickable = !withdrawn && (phase === 'open' || (changing && phase !== 'sending'));
+  // A newer copy of this question sits further down; every copy answers it there.
+  const askedAgain = form?.askedAgain === true && phase === 'open' && !changing && !withdrawn;
+  const ownAnswer = sent && form !== null ? str(form, 'ownAnswer') : '';
+  const words = ownAnswer.length > 0 ? ` “${short(ownAnswer)}”` : '';
+  const tag = str(mark, 'tag');
   const edge = withAlpha(theme.foreground, 0.16);
   const inkText = theme.light ? '#fafafa' : '#111113';
   const choices = arr(mark.choices).map((choice) => obj(choice)).filter((choice) => choice !== null);
@@ -41,9 +54,10 @@ export function InlineAnswers({ mark }: { mark: JsonRecord }) {
   let status: { text: string; link: string | null } | null = null;
   if (withdrawn) status = { text: 'Withdrawn', link: null };
   else if (changing) status = { text: 'Pick another answer ·', link: 'Cancel' };
-  else if (phase === 'sending') status = { text: 'Sending…', link: null };
-  else if (phase === 'queued') status = { text: 'Queued ·', link: 'Change' };
-  else if (phase === 'answered') status = { text: 'Sent ·', link: 'Change' };
+  else if (askedAgain) status = { text: 'Asked again below', link: null };
+  else if (phase === 'sending') status = { text: `Sending${words}…`, link: null };
+  else if (phase === 'queued') status = { text: `Queued${words} ·`, link: 'Change' };
+  else if (phase === 'answered') status = { text: `Sent${words} ·`, link: 'Change' };
 
   return (
     <QuestionFlashFrame target={formId} light={theme.light}>
@@ -83,6 +97,20 @@ export function InlineAnswers({ mark }: { mark: JsonRecord }) {
               </Pressable>
             );
           })}
+          {clickable ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Write your own answer"
+              onPress={() => openQuestionReply({ form: formId, tag })}
+              style={({ pressed }) => [
+                styles.segment,
+                choices.length > 0 && { borderLeftWidth: StyleSheet.hairlineWidth * 2, borderLeftColor: edge },
+                { backgroundColor: withAlpha(theme.foreground, pressed ? 0.1 : 0.035) },
+              ]}
+            >
+              <Text style={[styles.label, { color: theme.cardMuted }]}>✎</Text>
+            </Pressable>
+          ) : null}
         </View>
         {status !== null ? (
           <View style={styles.status}>
