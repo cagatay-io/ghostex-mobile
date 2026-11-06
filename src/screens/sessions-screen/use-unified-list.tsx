@@ -136,7 +136,8 @@ export function projectHeaderOf(
 ): ProjectHeaderItem | null {
   const items = buildDrawerItems({
     machineId,
-    summary,
+    // A worktree's own header, which the Project list may fold into its parent's (grouping.ts).
+    summary: { ...summary, worktreeSessionsInProject: false },
     nowMs: Date.now(),
     expandedProjectKeys: new Set([`id:${projectId}`]),
     expandedCollectionIds: new Set(),

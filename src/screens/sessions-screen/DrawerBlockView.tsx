@@ -113,6 +113,7 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
         customSessionTags={summary?.customSessionTags}
         nesting={item.nesting}
         coordinatorBadge={item.coordinatorBadge}
+        worktree={item.worktree}
         onToggleThreads={() => actions.toggleCoordinator(machineId, item)}
         workActions={actions.workChipActions(machineId, item)}
         sessionLinksDisplay={linksDisplay}

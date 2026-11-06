@@ -191,6 +191,11 @@ export type SessionItem = {
   coordinatorBadge?: CoordinatorBadge;
   /** A row of a user-made session group, drawn indented under the group with a tree line. */
   inSessionGroup?: boolean;
+  /**
+   * The worktree a session runs in, on a row its parent project lists (`foldWorktreeBuckets`):
+   * its branch, else its folder's name. Absent everywhere else.
+   */
+  worktree?: string;
 };
 
 /**
@@ -643,6 +648,34 @@ function withOlderThreadRows(items: DrawerItem[]): DrawerItem[] {
   return result;
 }
 
+/**
+ * CDXC:Worktrees 2026-11-06 SEE-ALSO: the DECISION in packages/gx-core/src/sidebar_view/worktree_fold.rs. While the computer's Worktree sessions show in their project is on (the default), the Project list moves every worktree project's sessions into its parent project's bucket and drops the worktree's own entry; a row there names its worktree's branch and still acts in the worktree's project. The Unified list groups worktrees by repository itself, so it never folds.
+ */
+function foldWorktreeBuckets(
+  summary: GhostexMobileSummary,
+  projectById: ReadonlyMap<string, GhostexProject>,
+  sessionsByProjectKey: Map<string, GhostexSession[]>,
+): Map<string, { project: GhostexProject; label: string }> {
+  const worktreeOf = new Map<string, { project: GhostexProject; label: string }>();
+  if (summary.worktreeSessionsInProject === false || summary.sidebarView === 'unified') return worktreeOf;
+  for (const project of summary.projects) {
+    const parent = projectById.get(project.worktreeParentProjectId);
+    if (parent === undefined || parent.worktreeParentProjectId.length > 0) continue;
+    const parentKey = `id:${parent.projectId}`;
+    const ownKey = `id:${project.projectId}`;
+    const parentBucket = sessionsByProjectKey.get(parentKey);
+    if (parentBucket === undefined) continue;
+    parentBucket.push(...(sessionsByProjectKey.get(ownKey) ?? []));
+    sessionsByProjectKey.delete(ownKey);
+    const branch = project.worktree?.branch ?? '';
+    worktreeOf.set(project.projectId, {
+      project,
+      label: branch.length > 0 ? branch : (project.worktree?.name ?? projectDisplayName(project)),
+    });
+  }
+  return worktreeOf;
+}
+
 export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
   const {
     machineId,
@@ -677,6 +710,8 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
     const key = `id:${project.projectId}`;
     if (!sessionsByProjectKey.has(key)) sessionsByProjectKey.set(key, []);
   }
+
+  const worktreeOf = foldWorktreeBuckets(summary, projectById, sessionsByProjectKey);
 
   // Desktop display layout: the wire order (server sortOrder) is the stable
   // manual base; browser-first/pinned-first/draft-first/activity sorting is applied on top
@@ -802,7 +837,31 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
       return;
     }
 
-    const sessionItem = (session: GhostexSession, groupId: string): SessionItem => ({
+    const sessionItem = (session: GhostexSession, groupId: string): SessionItem => {
+      // A worktree session this project lists acts in its worktree's own project.
+      const worktree = worktreeOf.get(session.projectId);
+      if (worktree !== undefined) {
+        return {
+          type: 'SESSION',
+          key: `session:${projectKey}:${session.sessionId}`,
+          machineId,
+          projectKey,
+          projectId: worktree.project.projectId,
+          groupId: session.groupId,
+          projectTitle: projectDisplayName(worktree.project),
+          projectPath: worktree.project.path ?? session.projectPath,
+          session,
+          collectionColor,
+          nesting: nesting.get(coordinatorRowKey(session)),
+          coordinatorBadge: session.isCoordinator
+            ? (badges.get(coordinatorRowKey(session)) ?? { count: 0, tone: 'idle' })
+            : undefined,
+          worktree: worktree.label,
+        };
+      }
+      return sessionItemOf(session, groupId);
+    };
+    const sessionItemOf = (session: GhostexSession, groupId: string): SessionItem => ({
       type: 'SESSION',
       key: `session:${projectKey}:${session.sessionId}`,
       machineId,

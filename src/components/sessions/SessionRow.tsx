@@ -51,6 +51,7 @@ import {
   TOUCH_ROW_HEIGHT,
 } from './rows';
 import CloudBoxBadge from './CloudBoxBadge';
+import { BranchGlyph } from './unified/glyphs';
 import StatusDotStack from './StatusDotStack';
 import {
   BoxGlyph,
@@ -294,6 +295,21 @@ function AgentboxBadge({ agentbox }: { agentbox: NonNullable<GhostexSession['age
 }
 
 /**
+ * native_sidebar/threads.rs `worktree_badge`: the branch of a worktree session its parent project
+ * lists (CDXC:Worktrees 2026-11-06 in gx-core sidebar_view/worktree_fold.rs), in the agentbox badge's muted text.
+ */
+function WorktreeBadge({ label }: { label: string }) {
+  return (
+    <View accessible accessibilityLabel={`In worktree ${label}`} style={styles.worktree}>
+      <BranchGlyph size={ds(12)} color={SIDEBAR_MUTED} />
+      <Text style={styles.agentboxLabel} numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+/**
  * apps/desktop/src/app/voice_agent/sidebar_badge.rs: a small green headset on the row of the session
  * a voice call is about, while the call connects or runs (the phone's own call, src/voice/).
  */
@@ -380,6 +396,8 @@ export type SessionRowProps = {
   dimSleeping?: boolean;
   /** A voice call on the phone is about this session. */
   voiceCall?: boolean;
+  /** The worktree's branch, on a worktree session its parent project lists (grouping.ts). */
+  worktree?: string;
 };
 
 /**
@@ -403,6 +421,7 @@ export default function SessionRow({
   sessionLinksDisplay = 'badge',
   dimSleeping = false,
   voiceCall = false,
+  worktree,
 }: SessionRowProps) {
   const rowRef = useRef<ViewInstance | null>(null);
   const iconId = resolveAgentArtId(
@@ -671,6 +690,7 @@ export default function SessionRow({
               ) : null}
               {shownCoordinatorBadge !== undefined ? <CoordinatorBadgeView badge={shownCoordinatorBadge} /> : null}
               {voiceCall ? <VoiceCallBadge /> : null}
+              {worktree !== undefined && worktree.length > 0 ? <WorktreeBadge label={worktree} /> : null}
               {session.agentbox !== undefined ? <AgentboxBadge agentbox={session.agentbox} /> : null}
               {session.cloudBox !== undefined ? <CloudBoxBadge cloudBox={session.cloudBox} /> : null}
               {question ? (
@@ -743,6 +763,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: ds(3),
     maxWidth: ds(96),
+    flexShrink: 1,
+  },
+  worktree: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ds(3),
+    maxWidth: ds(110),
     flexShrink: 1,
   },
   agentboxLabel: {
