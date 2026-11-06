@@ -63,7 +63,12 @@ test('a new failure replaces the shown one and starts its own 6 seconds', async 
   });
   await view.rerender(
     <NoticeToast
-      notice={{ ...failure, id: 2, title: "Couldn't start Git Status", message: 'Global quick action is not configured.' }}
+      notice={{
+        ...failure,
+        id: 2,
+        title: "Couldn't start Git Status",
+        message: 'Global quick action is not configured.',
+      }}
       bottom={16}
     />,
   );
