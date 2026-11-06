@@ -107,7 +107,7 @@ export default function DocViewerScreen({ navigation, route }: Props) {
   const { share, sharing } = useShareFile(rpc, projectId ?? '', { show: showNotice, clear: clearNotice });
   const fromFiles = entryPath !== undefined && projectId !== undefined ? entryPath : null;
   const info = load.kind === 'ready' && load.page.kind === 'info' ? load.page : null;
-  const knownSize = info !== null ? info.size : listedSize ?? null;
+  const knownSize = info !== null ? info.size : (listedSize ?? null);
   const shareFile = useMemo(
     () =>
       canShareFiles && fromFiles !== null
@@ -130,35 +130,46 @@ export default function DocViewerScreen({ navigation, route }: Props) {
     [addToContext, fromFiles, remotePath],
   );
 
-  const readPage = useCallback((refreshSize: boolean) => {
-    const target = machineRef.current;
-    generation.current += 1;
-    const current = generation.current;
-    if (target === undefined) {
-      setLoad({ kind: 'failed', message: DocsCopy.machineMissing });
-      return;
-    }
-    setLoad({ kind: 'loading' });
-    const size = fromFiles === null
-      ? Promise.resolve(undefined)
-      : refreshSize
-        ? statProjectFile(rpc, projectId ?? '', fromFiles)
-        : Promise.resolve(listedSize ?? null);
-    size.then((fileSize) =>
-      buildDocPage(target, remotePath, () => current !== generation.current, viewerProject(target.id, projectId), fileSize),
-    )
-      .then((page) => {
-        if (current !== generation.current) return;
-        setLoad({ kind: 'ready', page, nonce: current });
-        if (page.kind !== 'info' && page.kind !== 'source' && page.skippedAssets > 0) {
-          showNotice(DocsCopy.skippedAssets(page.skippedAssets));
-        }
-      })
-      .catch((error: unknown) => {
-        if (current !== generation.current) return;
-        setLoad({ kind: 'failed', message: error instanceof Error ? error.message : String(error) });
-      });
-  }, [fromFiles, listedSize, projectId, remotePath, rpc, showNotice]);
+  const readPage = useCallback(
+    (refreshSize: boolean) => {
+      const target = machineRef.current;
+      generation.current += 1;
+      const current = generation.current;
+      if (target === undefined) {
+        setLoad({ kind: 'failed', message: DocsCopy.machineMissing });
+        return;
+      }
+      setLoad({ kind: 'loading' });
+      const size =
+        fromFiles === null
+          ? Promise.resolve(undefined)
+          : refreshSize
+            ? statProjectFile(rpc, projectId ?? '', fromFiles)
+            : Promise.resolve(listedSize ?? null);
+      size
+        .then((fileSize) =>
+          buildDocPage(
+            target,
+            remotePath,
+            () => current !== generation.current,
+            viewerProject(target.id, projectId),
+            fileSize,
+          ),
+        )
+        .then((page) => {
+          if (current !== generation.current) return;
+          setLoad({ kind: 'ready', page, nonce: current });
+          if (page.kind !== 'info' && page.kind !== 'source' && page.skippedAssets > 0) {
+            showNotice(DocsCopy.skippedAssets(page.skippedAssets));
+          }
+        })
+        .catch((error: unknown) => {
+          if (current !== generation.current) return;
+          setLoad({ kind: 'failed', message: error instanceof Error ? error.message : String(error) });
+        });
+    },
+    [fromFiles, listedSize, projectId, remotePath, rpc, showNotice],
+  );
   const reload = useCallback(() => readPage(true), [readPage]);
 
   useEffect(() => {
@@ -201,7 +212,9 @@ export default function DocViewerScreen({ navigation, route }: Props) {
           ]
         : []),
       ...previewEntries(
-        info !== null ? ['reload'] : previewActions({ sessionContext: addFileToContext !== null, share: shareFile !== null }),
+        info !== null
+          ? ['reload']
+          : previewActions({ sessionContext: addFileToContext !== null, share: shareFile !== null }),
         { copyPath, addToSessionContext: addFileToContext, share: shareFile, reload },
         { copyPathLabel: fromFiles !== null ? DocsCopy.copyFullPath : DocsCopy.copyPath, sharing },
       ),
@@ -225,9 +238,12 @@ export default function DocViewerScreen({ navigation, route }: Props) {
   loadedPage.current = page;
   const isSource = page?.kind === 'source';
   const source = useMemo(
-    () => page === null ? null : page.kind === 'source'
-      ? { html: page.html }
-      : { uri: fragment ? `${page.uri}#${encodeURIComponent(fragment)}` : page.uri },
+    () =>
+      page === null
+        ? null
+        : page.kind === 'source'
+          ? { html: page.html }
+          : { uri: fragment ? `${page.uri}#${encodeURIComponent(fragment)}` : page.uri },
     [fragment, page],
   );
 
@@ -366,8 +382,12 @@ export default function DocViewerScreen({ navigation, route }: Props) {
             <View style={styles.infoIcon}>
               <FileKindIcon name={baseName(remotePath)} size={34} />
             </View>
-            <Text style={styles.infoTitle} accessibilityRole="header">{DocsCopy.cantPreview}</Text>
-            <Text style={styles.infoName} selectable>{baseName(remotePath)}</Text>
+            <Text style={styles.infoTitle} accessibilityRole="header">
+              {DocsCopy.cantPreview}
+            </Text>
+            <Text style={styles.infoName} selectable>
+              {baseName(remotePath)}
+            </Text>
             <Text style={styles.infoMeta}>
               {DocsCopy.infoMeta(
                 info.size === null ? DocsCopy.sizeUnknown : formatFileSize(info.size),
@@ -395,7 +415,9 @@ export default function DocViewerScreen({ navigation, route }: Props) {
                 <Text style={styles.shareText}>{DocsCopy.share}</Text>
               </Pressable>
             ) : null}
-            <Text style={styles.infoPath} selectable>{remotePath}</Text>
+            <Text style={styles.infoPath} selectable>
+              {remotePath}
+            </Text>
           </View>
         </ScrollView>
       ) : load.kind === 'ready' && page !== null && source !== null ? (

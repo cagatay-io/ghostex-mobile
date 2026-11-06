@@ -43,7 +43,9 @@ jest.mock('../docs/mediaStream', () => ({ viewerProject: () => null }));
 // This suite exercises source, metadata and HTML, not Markdown. Fail if that renderer is reached.
 // Marked is ESM-only and is outside the existing Jest preset's transform allowlist.
 jest.mock('../docs/markdownDocument', () => ({
-  renderMarkdownDocument: () => { throw new Error('Markdown rendering is outside this suite'); },
+  renderMarkdownDocument: () => {
+    throw new Error('Markdown rendering is outside this suite');
+  },
 }));
 jest.mock('../docs/openComputerFile', () => ({ openComputerFile: () => undefined }));
 jest.mock('../webPreview/machineLinks', () => ({
@@ -63,14 +65,20 @@ jest.mock('expo-file-system', () => ({
   Directory: class {
     uri: string;
     exists = false;
-    constructor(...parts: string[]) { this.uri = parts.join('/'); }
+    constructor(...parts: string[]) {
+      this.uri = parts.join('/');
+    }
     create() {}
   },
   File: class {
     uri: string;
-    constructor(uri: string) { this.uri = uri; }
+    constructor(uri: string) {
+      this.uri = uri;
+    }
     create() {}
-    writeSync(content: string) { mockWritten.set(this.uri, content); }
+    writeSync(content: string) {
+      mockWritten.set(this.uri, content);
+    }
   },
 }));
 // The native WebView boundary exposes its source and script policy, without executing a browser here.
@@ -268,12 +276,14 @@ test('UTF-8 text that holds a replacement character itself is still shown as sou
   await render(<WithHeader params={SOURCE} />);
   expect(await screen.findByLabelText(DocsCopy.sourceView('index.ts'))).toBeTruthy();
   expect(mockRead.mock.calls[0]?.slice(1)).toEqual([['/Users/me/ghostex-mobile/src/index.ts'], 2_000_000]);
-  expect(mockLastWebView).toEqual(expect.objectContaining({
-    javaScriptEnabled: false,
-    allowFileAccess: false,
-    allowFileAccessFromFileURLs: false,
-    source: { html: expect.stringContaining('<span class="ln">1</span>const marker = &#34;�&#34;;') },
-  }));
+  expect(mockLastWebView).toEqual(
+    expect.objectContaining({
+      javaScriptEnabled: false,
+      allowFileAccess: false,
+      allowFileAccessFromFileURLs: false,
+      source: { html: expect.stringContaining('<span class="ln">1</span>const marker = &#34;�&#34;;') },
+    }),
+  );
   expect(mockLastWebView?.injectedJavaScript).toBeUndefined();
   expect(mockLastWebView?.injectedJavaScriptBeforeContentLoaded).toBeUndefined();
   expect(mockLastWebView?.onMessage).toBeUndefined();
@@ -358,7 +368,9 @@ test('Reload measures an info file again and opens its new text through the same
   await render(<WithHeader params={{ ...SOURCE, size: 3_000_000 }} />);
   await screen.findByText(DocsCopy.infoWhy.large);
   readAnswers(new TextEncoder().encode('const fresh = true;\n'));
-  await act(async () => { fireEvent.press(screen.getByLabelText(DocsCopy.reload)); });
+  await act(async () => {
+    fireEvent.press(screen.getByLabelText(DocsCopy.reload));
+  });
   await screen.findByLabelText(DocsCopy.sourceView('index.ts'));
   expect(mockSent).toEqual([expect.objectContaining({ action: 'stat', path: 'src/index.ts' })]);
   expect(headerLabels()).toEqual([DocsCopy.copyFullPath, DocsCopy.shareButton, DocsCopy.reload]);
@@ -376,7 +388,9 @@ test('a missing file uses the shared failure surface and Retry reads it again', 
   await render(<WithHeader params={SOURCE} />);
   expect(await screen.findByText(DocsCopy.fileMissing)).toBeTruthy();
   readAnswers(new TextEncoder().encode('restored\n'));
-  await act(async () => { fireEvent.press(screen.getByRole('button', { name: DocsCopy.retry })); });
+  await act(async () => {
+    fireEvent.press(screen.getByRole('button', { name: DocsCopy.retry }));
+  });
   await screen.findByLabelText(DocsCopy.sourceView('index.ts'));
   expect(mockRead).toHaveBeenCalledTimes(2);
   expect(mockSent).toContainEqual(expect.objectContaining({ action: 'stat', path: 'src/index.ts' }));
@@ -388,9 +402,13 @@ test('a superseded read cannot replace the page loaded by Reload', async () => {
   await render(<WithHeader params={SOURCE} />);
   expect(screen.getByText(DocsCopy.readingFile)).toBeTruthy();
   readAnswers(new TextEncoder().encode('new version\n'));
-  await act(async () => { fireEvent.press(screen.getByLabelText(DocsCopy.reload)); });
+  await act(async () => {
+    fireEvent.press(screen.getByLabelText(DocsCopy.reload));
+  });
   await screen.findByLabelText(DocsCopy.sourceView('index.ts'));
-  await act(async () => { slow.resolve([{ status: 'missing' }]); });
+  await act(async () => {
+    slow.resolve([{ status: 'missing' }]);
+  });
   expect(screen.getByLabelText(DocsCopy.sourceView('index.ts'))).toBeTruthy();
   expect(screen.queryByText(DocsCopy.openFailed)).toBeNull();
 });

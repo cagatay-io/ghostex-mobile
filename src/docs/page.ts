@@ -46,22 +46,23 @@ const ASSET_BATCH_SIZE = 40;
 /** HTML → stylesheet → the stylesheet's own imports and fonts. */
 const ASSET_MAX_DEPTH = 4;
 
-export type DocPage = { kind: 'info'; reason: InfoReason; size: number | null }
+export type DocPage =
+  | { kind: 'info'; reason: InfoReason; size: number | null }
   | { kind: 'source'; html: string }
   | {
-  kind: PreviewKind;
-  /** What the WebView loads. */
-  uri: string;
-  /** The mirror folder; iOS needs read access widened to it for the page's sibling files. */
-  rootUri: string;
-  title: string;
-  /** Referenced files that were missing, too large, or over the page budget. */
-  skippedAssets: number;
-  /** What this page has already copied or tried, for the files it asks for while it runs. */
-  mirror: DocMirror;
-  /** Computer loopback ports the document's own markup names: the only ones the viewer forwards. */
-  loopbackPorts: ReadonlySet<number>;
-};
+      kind: PreviewKind;
+      /** What the WebView loads. */
+      uri: string;
+      /** The mirror folder; iOS needs read access widened to it for the page's sibling files. */
+      rootUri: string;
+      title: string;
+      /** Referenced files that were missing, too large, or over the page budget. */
+      skippedAssets: number;
+      /** What this page has already copied or tried, for the files it asks for while it runs. */
+      mirror: DocMirror;
+      /** Computer loopback ports the document's own markup names: the only ones the viewer forwards. */
+      loopbackPorts: ReadonlySet<number>;
+    };
 
 /** One opened page's mirror bookkeeping. */
 type DocMirror = {
@@ -475,9 +476,14 @@ export async function buildDocPage(
     };
   }
 
-  const maximumBytes = fileSize !== undefined
-    ? PREVIEW_MAX_BYTES
-    : kind === 'image' ? ASSET_MAX_BYTES : kind === 'text' ? TEXT_MAX_BYTES : DOCUMENT_MAX_BYTES;
+  const maximumBytes =
+    fileSize !== undefined
+      ? PREVIEW_MAX_BYTES
+      : kind === 'image'
+        ? ASSET_MAX_BYTES
+        : kind === 'text'
+          ? TEXT_MAX_BYTES
+          : DOCUMENT_MAX_BYTES;
   const [read] = await readRemoteFiles(machine, [documentPath], maximumBytes);
   if (read === undefined || read.status === 'missing') {
     throw new Error(fileSize !== undefined ? DocsCopy.fileMissing : `File not found: ${documentPath}`);
