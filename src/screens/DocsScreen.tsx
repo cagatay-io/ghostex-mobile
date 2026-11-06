@@ -9,7 +9,8 @@
  * their state from this screen, continue below the fold's band, and no row or section title is drawn on the knick, at
  * rest or while scrolling.
  * The same browser (`DocsBrowser`) fills a files pane on the iPhone Duo (`src/panes/PaneContentView.tsx`), without the
- * screen's header; a file opened there opens in the same full-screen viewer.
+ * screen's header; a file opened there opens as from the screen, in the same full-screen viewer (a Ghostex page in
+ * the Web preview).
  *
  * CDXC:Docs 2026-09-24 DECISION:
  * User: "i want also docs list in the app for folders and the docs and mds in them. implement this

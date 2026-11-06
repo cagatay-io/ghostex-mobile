@@ -516,9 +516,11 @@ function Divider({
 }) {
   const grab = useRef<{ position: number; ratio: number } | null>(null);
   // The finger's newest position waits for the next frame: the panes follow it at most once per frame however often
-  // the touch reports a move, and the terminals keep their size until the drag ends. Letting go (or losing the touch)
-  // waits for that frame too, so the end of a drag never resizes a second time in a frame that has already resized
-  // (`end`: the drag's state is cleared then, and a released position is stored, the terminals sized to it).
+  // the touch reports a move, and the terminals keep their size until the drag ends. Letting go waits for that frame
+  // too, so the end of a drag never resizes a second time in a frame that has already resized (`end`: the drag's state
+  // is cleared then, and the released position is stored, the terminals sized to it once). Losing the touch ends the
+  // drag at that frame without a position (`ratio` null, also over a move still waiting): nothing is stored, the panes
+  // show the stored position again and the terminals keep their size.
   const nextFrame = useRef<{ request: number; ratio: number | null; end: boolean } | null>(null);
   const onFrame = (ratio: number | null, end: boolean): void => {
     if (nextFrame.current !== null) {
