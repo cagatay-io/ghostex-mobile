@@ -400,7 +400,8 @@ export const FailureCopy = {
   /** Any other action that failed because Ghostex on the computer didn't answer. */
   ghostexNotRunning: "Ghostex on the computer isn't answering yet. Open it there, or try again in a moment.",
   /** An action the computer refused for a reason the phone doesn't recognise; the raw text goes to the app log. */
-  computerRefused: "Ghostex on the computer couldn't do that. Try again; if it keeps failing, check Ghostex on the computer.",
+  computerRefused:
+    "Ghostex on the computer couldn't do that. Try again; if it keeps failing, check Ghostex on the computer.",
   /** The same failure after about 30 s, the sidebar's and the chat's long-wait line. */
   ghostexNotAnsweringLong: 'Sessions are taking longer than usual to load. If this keeps happening, restart Ghostex.',
   noCli:
@@ -411,8 +412,7 @@ export const FailureCopy = {
     "This machine's Ghostex is too old for this feature. Update Ghostex on the machine, then try again.",
   persistenceNotZmx:
     'One setting on the computer needs changing: open Ghostex Settings there and turn on keeping terminals running in the background.',
-  zmxMissing:
-    'Part of Ghostex is missing on the computer. Reinstall Ghostex there, then try again.',
+  zmxMissing: 'Part of Ghostex is missing on the computer. Reinstall Ghostex there, then try again.',
   emptyOutput: 'Could not connect to the machine.',
   noJson: 'Ghostex CLI did not return JSON.',
   incompleteJson: 'Ghostex CLI returned incomplete JSON.',
@@ -1447,6 +1447,11 @@ export const NotificationsCopy = {
     rules:
       'Only main sessions notify, not their subagents. Starting, ending or working never notifies. At most one notification per session every 20 seconds, and 8 per minute.',
     sectionSound: 'Sound',
+    alertsFor: 'Alert me for',
+    alertsForAll: 'All',
+    alertsForNeedsYou: 'Needs you only',
+    alertsForDetail:
+      'Needs you only keeps the sound and Finished notifications for questions, approvals and replies that end with Blocked or Needs you. A coordinator’s threads stay quiet when they finish.',
     sound: 'Attention notification sound',
     soundDetail: 'Plays a sound when a session on your computer finishes or needs your attention.',
     blockedTitle: 'Blocked in iOS Settings',

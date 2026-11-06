@@ -87,6 +87,7 @@ export type MobileSummaryWireSession = {
     notificationId?: string;
     kind?: string;
     workingStartedAt?: string;
+    handoverNeedsYou?: boolean;
   };
 
   /** Questions the agent is waiting on an answer to; absent at zero. */
@@ -665,6 +666,11 @@ export type GhostexSession = {
    * which cannot tell a finished turn from a wait for the user).
    */
   attentionKind: GhostexAttentionKind;
+  /**
+   * A finished turn whose handover ends with a Blocked or Needs you section (`attention.handoverNeedsYou`; false
+   * outside attention and from a computer that does not send it).
+   */
+  attentionHandoverNeedsYou: boolean;
   /**
    * When the stint that ended began, sent while the session is in attention (`attention.workingStartedAt`; '' outside
    * attention, from a computer that sends no start times, and when the attention came from idle or its start is
@@ -1460,6 +1466,7 @@ export function parseSession(value: unknown): GhostexSession | null {
     attentionEventId: attention === null ? '' : trimmedValue(attention, 'eventId'),
     attentionNotificationId: attention === null ? '' : trimmedValue(attention, 'notificationId'),
     attentionKind: attention === null ? '' : attentionKindOf(attention),
+    attentionHandoverNeedsYou: attention === null ? false : boolValue(attention, 'handoverNeedsYou', false),
     attentionWorkingStartedAt: attention === null ? '' : trimmedValue(attention, 'workingStartedAt'),
     actions: parseActions(value.actions),
   };

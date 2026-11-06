@@ -14,7 +14,13 @@
  * Kept free of React Native so it is testable under `bun test`.
  */
 
-import { hasQuestion, resolveAgentIconId, type AgentIconId, type GhostexMobileSummary } from '../contract/mobileSummary';
+import {
+  hasQuestion,
+  resolveAgentIconId,
+  type AgentIconId,
+  type GhostexMobileSummary,
+} from '../contract/mobileSummary';
+import { attentionAlerts } from './attentionAlerts';
 import { isAccountRow, type FeedRow } from './feedContract';
 
 export type AttentionKind = 'finished' | 'waiting' | 'question' | 'failed';
@@ -60,6 +66,8 @@ export type SessionFacts = {
   awaitingAnswer: boolean;
   /** The session's current attention event (`attention.eventId`); '' outside attention or from an older computer. */
   attentionId: string;
+  /** A finished turn of this session alerts under Needs you only (`attentionAlerts`); unknown alerts as before. */
+  finishedNeedsYou?: boolean;
   /** When that attention began (`attention.enteredAt`, ISO); '' outside attention or when the computer omits it. */
   attentionEnteredAt: string;
 };
@@ -101,6 +109,7 @@ export function sessionFacts(
     awaitingAnswer: summary.capabilities.awaitingAnswer && session.awaitingAnswer,
     attentionId: session.attentionEventId,
     attentionEnteredAt: session.attentionEnteredAt,
+    finishedNeedsYou: attentionAlerts('needsYou', { ...session, attentionKind: 'finished' }),
   };
 }
 
@@ -124,8 +133,7 @@ export function mapEvent(event: HostEvent, facts: SessionFacts | undefined): Att
   else if (event.kind === 'failed') kind = 'failed';
   else if (event.kind === 'needsInput') {
     kind = hasQuestion(facts.pendingQuestionCount, facts.awaitingAnswer) ? 'question' : 'waiting';
-  }
-  else return null;
+  } else return null;
   return {
     eventId: event.eventId,
     kind,

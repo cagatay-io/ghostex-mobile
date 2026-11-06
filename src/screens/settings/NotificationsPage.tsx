@@ -32,7 +32,14 @@ import { useSettingsStore } from '../../settings/store';
 import { BLOCKED_CARD_WASH, colorOver, neutralButtonFills } from '../../theme/palette';
 import { readableSecondaryText } from '../../theme/sidebarAppearance';
 import { useAppearance } from '../../theme/useAppearance';
-import { Caption, SectionHeader, SettingsScreenLayout, SettingToggle, useSettingsStyles } from './SettingsControls';
+import {
+  Caption,
+  SectionHeader,
+  SegmentedRow,
+  SettingsScreenLayout,
+  SettingToggle,
+  useSettingsStyles,
+} from './SettingsControls';
 
 type KindKey = 'finished' | 'waiting' | 'error';
 
@@ -152,6 +159,26 @@ function AgentNotifications() {
   );
 }
 
+function AlertsFor() {
+  const copy = NotificationsCopy.settings;
+  const alertsFor = useSettingsStore((state) => state.settings.attentionAlertsFor);
+  const setSetting = useSettingsStore((state) => state.setSetting);
+  return (
+    <>
+      <SegmentedRow
+        label={copy.alertsFor}
+        options={[
+          { value: 'all', label: copy.alertsForAll },
+          { value: 'needsYou', label: copy.alertsForNeedsYou },
+        ]}
+        value={alertsFor}
+        onChange={(next) => setSetting('attentionAlertsFor', next)}
+      />
+      <Caption>{copy.alertsForDetail}</Caption>
+    </>
+  );
+}
+
 export default function NotificationsPage() {
   const copy = NotificationsCopy.settings;
   return (
@@ -160,6 +187,7 @@ export default function NotificationsPage() {
       {NOTIFICATIONS_SUPPORTED ? <SectionHeader title={copy.sectionSound} /> : null}
       <SettingToggle settingKey="doneNotificationSound" label={copy.sound} />
       <Caption>{copy.soundDetail}</Caption>
+      <AlertsFor />
     </SettingsScreenLayout>
   );
 }

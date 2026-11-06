@@ -24,6 +24,7 @@ import * as Haptics from 'expo-haptics';
 import { GhostexNative } from '../../modules/ghostex-native/src';
 import { displayStatus } from '../contract/mobileSummary';
 import { useInventoryStore } from '../inventory/store';
+import { attentionAlerts } from '../notifications/attentionAlerts';
 import { announcedEvents, attentionKey, type EventIdentity } from '../notifications/eventIdentity';
 import { announceAttentionTransitions } from '../notifications/notify';
 import { useSettingsStore } from '../settings/store';
@@ -75,7 +76,12 @@ function scanInventoryTransitions(): void {
       lastStatusBySession.set(key, status);
       if (!ALERT_STATUSES.has(status)) left.push({ machineId, sessionId: session.sessionId });
       if (firstSnapshot || previous === undefined) continue;
-      if (previous !== status && ALERT_STATUSES.has(status) && !ALERT_STATUSES.has(previous)) {
+      if (
+        previous !== status &&
+        ALERT_STATUSES.has(status) &&
+        !ALERT_STATUSES.has(previous) &&
+        attentionAlerts(useSettingsStore.getState().settings.attentionAlertsFor, session)
+      ) {
         // The list names no event kind; its attention is the feed row the computer names for it, else an event of
         // its own (`eventIdentity.ts`, rule 2). A row id from a computer that does not announce it is not used.
         entered.push({

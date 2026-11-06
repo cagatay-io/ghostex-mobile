@@ -8,6 +8,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { AttentionAlertsFor } from '../notifications/attentionAlerts';
 import { Platform } from 'react-native';
 import { create } from 'zustand';
 
@@ -170,6 +171,8 @@ export type GhostexSettings = ThemeColourSettings & {
    * User: "On phone can we please set either project or unified look for the sessions list? I think it's taking this from what's set on the desktop now", then picked a Unified / Project switch in the phone's Settings with "Group by project" and "Show Working section" marked Unified only (Q933), Unified combining every computer and Project staying per computer (Q934). Supersedes the 2026-10-30 decision that the phone follows the computer's `sidebarView`.
    */
   sessionsListLayout: SessionsListLayout | null;
+  /** Settings › Notifications › Alert me for (`attentionAlerts` in src/notifications/attentionAlerts.ts). */
+  attentionAlertsFor: AttentionAlertsFor;
   /** Unified only: one group per project (the computer's `unifiedGroupByProject` until first set here). */
   sessionsListGroupByProject: boolean;
   /** Unified only: working sessions fold into the Moving section (the computer's `unifiedWorkingSection` until first set here). */
@@ -298,6 +301,7 @@ export function defaultSettings(): GhostexSettings {
     readAloudVoice: '',
     readAloudRate: 1,
     sessionsListLayout: null,
+    attentionAlertsFor: 'all',
     sessionsListGroupByProject: false,
     sessionsListWorkingSection: true,
     tailscaleReminder: true,
@@ -546,6 +550,7 @@ function sanitizeSettings(value: unknown): GhostexSettings {
       record.sessionsListLayout === 'unified' || record.sessionsListLayout === 'project'
         ? record.sessionsListLayout
         : defaults.sessionsListLayout,
+    attentionAlertsFor: record.attentionAlertsFor === 'needsYou' ? 'needsYou' : defaults.attentionAlertsFor,
     sessionsListGroupByProject: bool('sessionsListGroupByProject', defaults.sessionsListGroupByProject),
     sessionsListWorkingSection: bool('sessionsListWorkingSection', defaults.sessionsListWorkingSection),
     tailscaleReminder: bool('tailscaleReminder', defaults.tailscaleReminder),

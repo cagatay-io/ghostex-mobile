@@ -70,6 +70,8 @@ export type NotifyDeps = {
   settings(): NotificationSettings;
   /** Whether the attention sound is on (Settings › Notifications, `doneNotificationSound`). */
   soundOn(): boolean;
+  /** Alert me for is Needs you only: a finished turn notifies only when its session's `finishedNeedsYou`. */
+  needsYouOnly?(): boolean;
   /** Whether the session is open on screen now: no banner and no sound for it, and its event counts as seen. */
   onScreen(machineId: string, sessionId: string): boolean;
   log(message: string): void;
@@ -157,6 +159,7 @@ export function processHostEvents(
       const sessionFacts = facts(event.machineId, event.sessionId);
       const mapped = mapEvent(event, sessionFacts);
       if (mapped === null) continue;
+      if (mapped.kind === 'finished' && deps.needsYouOnly?.() && sessionFacts?.finishedNeedsYou === false) continue;
       const identity: EventIdentity = {
         machineId: event.machineId,
         sessionId: event.sessionId,
