@@ -7,11 +7,12 @@
  * with the cursor near the top, and with a layer up); the Befehlspad in the upper half above the fold at its default
  * place, at a stored and at a dragged place, unmoved by the keyboard and by the Keys and Agent layers, which open
  * below the fold in the keyboard's place; no key row; the text editor above the fold, and the pad giving way to it
- * where the upper half is too short for both (Send or the toggle bring the pad back); an upper half too short for the
- * open pad even reaching over the header: the open pad reaching below the fold by what is missing, the keyboard
- * staying up, a layer clear of it and a layer reaching into its room; the same keys and functions flat; the round
- * buttons with the pad switched off, above the fold with and without the keyboard; and the negative cases flat, in
- * the book pose and without a division, keyboard up and down.
+ * where the upper half is too short for both (Send or the toggle bring the pad back; the editor's own close button
+ * closes it as the pen does and leaves the pad closed); an upper half too short for the open pad even reaching over
+ * the header: the open pad reaching below the fold by what is missing, the keyboard staying up, a layer clear of it
+ * and a layer reaching into its room; the same keys and functions flat; the round buttons with the pad switched off,
+ * above the fold with and without the keyboard; and the negative cases flat, in the book pose and without a division,
+ * keyboard up and down.
  *
  * The device's window frames are asked of the styles the screen sets (the cover's height from the terminal area's
  * bottom, the terminal's `top`, the pad room's frame and each control's place in it), which give window frames only
@@ -141,6 +142,8 @@ const HIDDEN_TOO = { hidden: true };
 const TOGGLE = 'Command pad';
 const EDITOR = 'Terminal text editor';
 const SEND = 'Send Enter to terminal';
+/** The text editor's own close button, there only while the pad is closed for lack of room above the editor. */
+const CLOSE_EDITOR = 'Close text editor';
 /** The nine default keys by name, in their places row by row. */
 const KEY_LABELS = ['Esc', 'Up', 'Ctrl+C', 'Left', 'Enter', 'Right', 'Tab', 'Down', 'Upload'];
 const RING: (string | RegExp)[] = ['Keys', 'Agent hotkeys', 'Text editor', /^(Show|Hide) keyboard$/];
@@ -358,7 +361,7 @@ beforeEach(async () => {
       commandPadPosition: {},
     },
   });
-  useTerminalStore.setState({ sessionViewModeBySessionKey: {} });
+  useTerminalStore.setState({ sessionViewModeBySessionKey: {}, textEditorDraftBySessionKey: {} });
   jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockImplementation(() => Promise.resolve(false));
   await AsyncStorage.clear();
   useBarGeometryStore.setState({ hydrated: false, keyboardHeights: {}, layouts: {} });
@@ -719,6 +722,45 @@ describe('the text editor above the fold, and the pad giving way to it where the
     await settle();
     expect(screen.getByLabelText(EDITOR)).toBeTruthy();
     expect(padOpen()).toBe(true);
+  });
+
+  test.each([
+    { name: 'too short', division: LAPTOP_DIVISION },
+    { name: 'too short even for the open pad alone', division: SHORT_DIVISION },
+  ])(
+    '$name: the editor has its own close button, announced with its label; a tap closes the editor as the pen does, the keyboard stays, the pad stays closed, and the next opening shows the draft',
+    async ({ division }) => {
+      const draft = 'git log --oneline -5';
+      await renderScreen(PORTRAIT, [division]);
+      await openEditor();
+      await fireEvent.changeText(screen.getByLabelText(EDITOR), draft);
+      expect(padOpen()).toBe(false);
+      const close = screen.getByRole('button', { name: CLOSE_EDITOR });
+      expect(close.props.accessibilityHint).toBe('Keeps the text for the next opening; the keyboard stays up');
+      mockNative.focusTerminal.mockClear();
+
+      await press(CLOSE_EDITOR);
+      await settle();
+      expect(screen.queryByLabelText(EDITOR)).toBeNull();
+      expect(screen.queryByLabelText(CLOSE_EDITOR)).toBeNull();
+      expect(padOpen()).toBe(false);
+      // As the pen: the keyboard is handed to the terminal, not lowered; nothing is sent.
+      expect(mockNative.focusTerminal).toHaveBeenCalledWith('shell-1');
+      expect(mockNative.blurTerminal).not.toHaveBeenCalled();
+      expect(mockNative.sendText).not.toHaveBeenCalled();
+
+      await press(TOGGLE);
+      await press('Text editor');
+      await settle();
+      expect(screen.getByLabelText(EDITOR).props.value).toBe(draft);
+    },
+  );
+
+  test('room enough: the pen is in reach and the editor has no close button of its own', async () => {
+    await renderScreen(PORTRAIT, [LOW_DIVISION]);
+    await openEditor();
+    expect(padOpen()).toBe(true);
+    expect(screen.queryByLabelText(CLOSE_EDITOR)).toBeNull();
   });
 });
 

@@ -15,8 +15,9 @@
  * (the keyboard then hides with the editor) and is logged, so the failure is not silent.
  *
  * While the pad is closed because the open pad has no room above the keyboard and the editor, even over the header
- * (a phone in landscape), the pen is out of reach: the editor then has its own close button at its end, the layer's
- * (`CommandPadCloseButton`), which does what the pen does.
+ * (a phone in landscape; in the laptop pose an upper half too short for the pad above the editor), the pen is out of
+ * reach: the editor then has its own close button at its end, the layer's (`CommandPadCloseButton`), which does what
+ * the pen does.
  */
 
 import { useCallback, useRef, useState } from 'react';

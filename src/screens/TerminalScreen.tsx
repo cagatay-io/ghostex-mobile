@@ -654,9 +654,10 @@ export default function TerminalScreen({ navigation, route }: Props) {
     [padYieldsToEditor, openPadOverEditor, padGivesWay, closePadLayer, togglePadOpen, padReach],
   );
   // The text editor open while the pad is closed and the open pad has no room above the keyboard and the editor, even
-  // over the header (a phone in landscape): the pen is out of reach, so the editor gets its own close button, which
-  // does what the pen does (the editor closes, its draft stays, the keyboard stays up) and leaves the pad closed. Read
-  // from the room on every render, as for a layer.
+  // over the header (a phone in landscape; in the laptop pose an upper half too short for the pad above the editor,
+  // `padYieldsToEditor`): the pen is out of reach, so the editor gets its own close button, which does what the pen
+  // does (the editor closes, its draft stays, the keyboard stays up) and leaves the pad closed. Read from the room on
+  // every render, as for a layer.
   const editorStandsAlone = editorShown && !pad.open && padReach === null;
   // While a finger is on the pad's toggle, from its first touch until it is up or its touch is cancelled, the stack's
   // swipe back to Sessions does not start, so neither the hold nor the drag is taken for it. The native stack reads
