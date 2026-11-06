@@ -12,6 +12,10 @@
  *   the agents pane show the selected session's computer, the attention list every computer.
  * - While the chooser is open, the session selected next fills its slot. Opened over a session pane, it names that
  *   pane's session (`over`), which it does not list either; closed, the pane is back.
+ * - Panes open from a stored layout without a session they showed before (`openedSlots`): the Panes button, and the
+ *   window turning into a shape with a stored layout while panes are on screen. The session on screen stands where the
+ *   layout had its first session pane, the stored pane types and the divider come back, and where both slots held a
+ *   session the chooser stands in the second slot beside it.
  * - When the window turns into a shape with nothing stored for it, the two panes on screen before come along into its
  *   slots (the divider in the middle) and are stored for it, rather than one pane.
  * - A session pane shows the session's terminal or its chat view (`paneChatAfter`), never both: at most one pane shows
@@ -51,6 +55,8 @@ export type PaneResolution = {
   readonly display: PaneDisplay;
   /** The two panes the stored layout must now hold (first, second), or null when it holds them already. */
   readonly store: readonly [PaneEntry, PaneEntry] | null;
+  /** The chooser the pane store must now hold: the window turned into a shape that opens with it. */
+  readonly chooser?: PaneChooser;
 };
 
 export type PaneResolveInput = {
@@ -60,7 +66,9 @@ export type PaneResolveInput = {
   readonly selectedSessionKey: string | null;
   readonly layout: PaneLayout | undefined;
   readonly chooser: PaneChooser | null;
-  /** The two panes (first, second) on screen in the other window shape just before the window turned. */
+  /** Panes were on screen (the chooser one of them, too) in the other window shape just before the window turned. */
+  readonly turned: boolean;
+  /** The two panes (first, second) on screen then; null while the chooser was one of them. */
   readonly carried: readonly [PaneEntry, PaneEntry] | null;
   /** The pane tapped last; null before any was since the app started. */
   readonly activeSlot: PaneIndex | null;
@@ -129,20 +137,26 @@ export function paneSlotOf(entry: PaneEntry): PaneSlot {
   return typeof entry === 'string' ? { paneType: 'session', sessionKey: entry } : entry;
 }
 
+/**
+ * The two panes a stored layout opens with, so that no session it showed comes back: `sessionKey`, the session on
+ * screen, stands where the layout had its first session pane (in the first slot where it had none) and the other slot
+ * keeps its stored pane. Null where both slots held a session: the chooser stands in the second slot beside it. The
+ * divider stays the layout's.
+ */
+export function openedSlots(layout: PaneLayout, sessionKey: string): readonly [PaneEntry, PaneEntry] | null {
+  const firstSession = layout.first.paneType === 'session';
+  const secondSession = layout.second.paneType === 'session';
+  if (firstSession && secondSession) return null;
+  return secondSession ? [layout.first, sessionKey] : [sessionKey, layout.second];
+}
+
 export function resolvePanes(input: PaneResolveInput): PaneResolution {
-  const { offered, arrangement, selectedSessionKey: selected, layout, chooser, carried } = input;
+  const { offered, arrangement, selectedSessionKey: selected, layout, chooser, turned, carried } = input;
   if (!offered || selected === null) return SINGLE;
 
-  if (layout === undefined && carried !== null) {
-    const contents = carried.map(paneContentOf);
-    if (contents[0] === null || contents[1] === null) return SINGLE;
-    return showSlots(input, selected, [contents[0], contents[1]], true);
-  }
-
-  if (layout === undefined) {
-    if (chooser === null || chooser.arrangement !== arrangement || !input.isOpen(chooser.firstSessionKey)) {
-      return SINGLE;
-    }
+  // The chooser the panes opened with (Panes, or the window turning), beside the session on screen.
+  if (chooser !== null && chooser.slot === undefined && chooser.arrangement === arrangement) {
+    if (!input.isOpen(chooser.firstSessionKey)) return SINGLE;
     if (selected === chooser.firstSessionKey) {
       return { display: { kind: 'panes', slots: [session(selected), CHOOSER], active: 0 }, store: null };
     }
@@ -151,6 +165,26 @@ export function resolvePanes(input: PaneResolveInput): PaneResolution {
       store: [chooser.firstSessionKey, selected],
     };
   }
+
+  // The window turned while panes were on screen: a stored layout opens as the Panes button opens it; into a shape
+  // with nothing stored for it, the two panes on screen come along.
+  if (turned) {
+    const opened = layout === undefined ? carried : openedSlots(layout, selected);
+    if (opened === null && layout !== undefined) {
+      return {
+        display: { kind: 'panes', slots: [session(selected), CHOOSER], active: 0 },
+        store: null,
+        chooser: { arrangement, firstSessionKey: selected },
+      };
+    }
+    if (opened !== null) {
+      const contents = opened.map(paneContentOf);
+      if (contents[0] === null || contents[1] === null) return SINGLE;
+      return showSlots(input, selected, [contents[0], contents[1]], true);
+    }
+  }
+
+  if (layout === undefined) return SINGLE;
 
   const first = paneContentOf(layout.first);
   const second = paneContentOf(layout.second);

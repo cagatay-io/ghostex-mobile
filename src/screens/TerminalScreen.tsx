@@ -918,7 +918,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
     setProgress: setAgentProgress,
     padHeld,
   });
-  // The Panes button over a question a link opened brings the panes back (the stored ones, else the chooser beside it).
+  // The Panes button over a question a link opened brings the panes back (those that waited, else as Panes opens them).
   const openPanes = panes.openPanes;
   const pressPanes = useCallback((): void => {
     if (!questionStands) {

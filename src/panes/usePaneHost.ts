@@ -1,7 +1,8 @@
 /**
  * The pane host's state for the terminal screen: what it shows (`resolve.ts`), kept in step with the stores. It
  * stores a layout the selection changed, remembers the pane tapped last and the panes on screen (they come along when
- * the window turns into a shape with nothing stored), tells the terminal store which session the second session pane
+ * the window turns into a shape with nothing stored; a shape with a stored layout then opens as the Panes button opens
+ * it, its chooser held in the pane store), tells the terminal store which session the second session pane
  * shows (eviction keeps it, a closing selected tab hands it the selection), attaches a stored pane's session again after
  * a restart without changing the selection, closes the chooser when the window changes, sets a slot's pane type
  * (the chooser's types and the title's pane type menu), keeps which session pane shows its chat view
@@ -30,7 +31,7 @@ import {
   type PaneDisplay,
   type PaneEntry,
 } from './resolve';
-import { panesFrom, usePaneStore } from './store';
+import { panesFrom, usePaneStore, type PaneChooser } from './store';
 
 export type PaneHostInput = {
   /** The window has pane slots and the selected tab is an agent session, unless a question from the attention list stands. */
@@ -43,7 +44,10 @@ export type SettablePaneType = 'session' | 'browser' | 'files' | 'agents' | 'git
 
 export type PaneHost = {
   display: PaneDisplay;
-  /** The divider's stored position for the window's shape. */
+  /**
+   * The divider's stored position for the window's shape, also while the chooser Panes opened stands beside the
+   * session and the panes are still closed.
+   */
   ratio: number;
   /** The session the second session pane shows beside the selected one, or null. */
   paneSessionKey: string | null;
@@ -52,7 +56,10 @@ export type PaneHost = {
   /** Shows this session's chat view in its pane (the other pane's chat view goes back to its terminal), or, with null,
    * every session pane its terminal; the panes' own choice, never the session's saved view. */
   setChatSession: (sessionKey: string | null) => void;
-  /** Panes in the header: the panes stored for the window's shape again, else the chooser beside the selected session. */
+  /**
+   * Panes in the header: the stored pane types and divider for the window's shape again, the selected session in place
+   * of a stored session and the chooser in place of a second one, else the chooser beside the selected session.
+   */
   openPanes: () => void;
   /**
    * A pane's close button (the Panes button closes the second): one pane again in every window shape, a session
@@ -92,9 +99,9 @@ export function usePaneHost({ offered, arrangement }: PaneHostInput): PaneHost {
   const sessionViewModes = useTerminalStore((state) => state.sessionViewModeBySessionKey);
   const preferredInterface = useSettingsStore((state) => state.settings.preferredAgentInterface);
   const inventories = useInventoryStore((state) => state.inventoriesByMachineId);
-  // Nothing while the panes are closed; else the stored layout, or the panes last on screen in the other shape when the
-  // window turned and nothing is stored for this one.
-  const { layout, carried } = panesFrom(document, shown, arrangement);
+  // Nothing while the panes are closed; else the stored layout, whether panes were on screen in the other shape when
+  // the window turned, and those panes (they come along where nothing is stored for this one).
+  const { layout, turned, carried } = panesFrom(document, shown, arrangement);
 
   const resolution = useMemo(
     () =>
@@ -104,12 +111,13 @@ export function usePaneHost({ offered, arrangement }: PaneHostInput): PaneHost {
         selectedSessionKey,
         layout,
         chooser,
+        turned,
         carried,
         activeSlot,
         isOpen: (key) => tabs.some((tab) => tab.sessionKey === key),
         isKnown: (key) => machines.some((machine) => machine.id === machineOfSessionKey(key)),
       }),
-    [offered, hydrated, arrangement, selectedSessionKey, layout, chooser, carried, activeSlot, tabs, machines],
+    [offered, hydrated, arrangement, selectedSessionKey, layout, chooser, turned, carried, activeSlot, tabs, machines],
   );
   const { display, store } = resolution;
   const active = display.kind === 'panes' ? display.active : null;
@@ -180,17 +188,24 @@ export function usePaneHost({ offered, arrangement }: PaneHostInput): PaneHost {
   useEffect(() => {
     if (active !== null) usePaneStore.getState().setActiveSlot(active);
   }, [active]);
+  // The window turned into a shape whose stored layout opens with the chooser: the pane store holds it from now on.
+  const opensChooser = resolution.chooser === undefined ? null : JSON.stringify(resolution.chooser);
+  useEffect(() => {
+    if (opensChooser !== null) usePaneStore.getState().openChooser(JSON.parse(opensChooser) as PaneChooser);
+  }, [opensChooser]);
 
-  // What is on screen comes along when the window turns; while the panes are hidden it waits as the layout does.
-  const shownFirst = display.kind === 'panes' ? paneEntryOf(display.slots[0]) : null;
-  const shownSecond = display.kind === 'panes' ? paneEntryOf(display.slots[1]) : null;
-  const shownKey = shownFirst !== null && shownSecond !== null ? JSON.stringify([shownFirst, shownSecond]) : null;
+  // What is on screen comes along when the window turns (the chooser does not); while the panes are hidden it waits as
+  // the layout does.
+  const shownKey = display.kind === 'panes' ? JSON.stringify(display.slots.map(paneEntryOf)) : null;
   const showing = offered && hydrated;
   useEffect(() => {
     if (!showing) return;
-    usePaneStore
-      .getState()
-      .setShown(shownKey === null ? null : { arrangement, slots: JSON.parse(shownKey) as [PaneEntry, PaneEntry] });
+    const slots = shownKey === null ? null : (JSON.parse(shownKey) as [PaneEntry | null, PaneEntry | null]);
+    usePaneStore.getState().setShown(
+      slots === null
+        ? null
+        : { arrangement, slots: slots[0] === null || slots[1] === null ? null : [slots[0], slots[1]] },
+    );
   }, [showing, arrangement, shownKey]);
 
   // The terminal store keeps the second pane's terminal warm and gives it the selection when the selected tab closes.
@@ -228,9 +243,11 @@ export function usePaneHost({ offered, arrangement }: PaneHostInput): PaneHost {
       });
   }, [paneSessionKey]);
 
-  // The chooser belongs to the window shape and the slots it was opened in.
+  // The chooser belongs to the window shape and the slots it was opened in. Read from the store: a turn may just have
+  // opened one for the new shape.
   useEffect(() => {
-    if (chooser !== null && (!offered || chooser.arrangement !== arrangement)) {
+    const current = usePaneStore.getState().chooser;
+    if (current !== null && (!offered || current.arrangement !== arrangement)) {
       usePaneStore.getState().closeChooser();
     }
   }, [chooser, offered, arrangement]);
@@ -245,6 +262,9 @@ export function usePaneHost({ offered, arrangement }: PaneHostInput): PaneHost {
       const panes = usePaneStore.getState();
       if (display.slots[slot].kind === 'chooser') {
         panes.closeChooser();
+        // The chooser a turn opened over this shape's stored layout: Close closes the panes, as a pane's close button
+        // does, and the session stays.
+        if (chooser?.slot === undefined && layout !== undefined) panes.closePanes();
         return;
       }
       // One pane again: the screen shows the selected session, so beside a pane without a terminal the session pane
@@ -256,7 +276,7 @@ export function usePaneHost({ offered, arrangement }: PaneHostInput): PaneHost {
         useTerminalStore.getState().selectTab(staying.sessionKey, { scrollToBottom: false });
       }
     },
-    [display],
+    [chooser, display, layout],
   );
 
   const setSlotType = useCallback(
@@ -329,7 +349,7 @@ export function usePaneHost({ offered, arrangement }: PaneHostInput): PaneHost {
 
   return {
     display,
-    ratio: layout?.dividerRatio ?? DEFAULT_DIVIDER_RATIO,
+    ratio: document.layouts[arrangement]?.dividerRatio ?? DEFAULT_DIVIDER_RATIO,
     paneSessionKey,
     chatSessionKey,
     setChatSession,

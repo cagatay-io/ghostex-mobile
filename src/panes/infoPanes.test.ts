@@ -23,6 +23,7 @@ function input(layout: PaneLayout | undefined, partial: Partial<PaneResolveInput
     selectedSessionKey: A,
     layout,
     chooser: null,
+    turned: false,
     carried: null,
     activeSlot: null,
     isOpen: () => true,
@@ -116,6 +117,9 @@ describe('beside a session pane', () => {
 
   test('turned into a shape with nothing stored, the two panes come along and are stored', () => {
     const carried = [{ paneType: 'usage', sessionKey: A }, A] as const;
-    assert.deepEqual(resolvePanes(input(undefined, { arrangement: 'sideBySide', carried })).store, carried);
+    assert.deepEqual(
+      resolvePanes(input(undefined, { arrangement: 'sideBySide', turned: true, carried })).store,
+      carried,
+    );
   });
 });

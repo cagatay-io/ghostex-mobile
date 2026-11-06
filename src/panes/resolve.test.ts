@@ -31,6 +31,7 @@ function input(partial: Partial<PaneResolveInput>): PaneResolveInput {
     selectedSessionKey: A,
     layout: STACKED,
     chooser: null,
+    turned: false,
     carried: null,
     activeSlot: 0,
     isOpen: () => true,
@@ -161,7 +162,9 @@ describe('the window turning into a shape with nothing stored', () => {
   // The two panes on screen before the window turned stay, in the new shape's slots and with the divider in the middle.
   test('the panes on screen come along, the selected one active, and are stored for the new shape', () => {
     assert.deepEqual(
-      resolvePanes(input({ arrangement: 'sideBySide', layout: undefined, carried: [A, B], selectedSessionKey: B })),
+      resolvePanes(
+        input({ arrangement: 'sideBySide', layout: undefined, turned: true, carried: [A, B], selectedSessionKey: B }),
+      ),
       { display: { kind: 'panes', slots: sessions(A, B), active: 1 }, store: [A, B] },
     );
   });
@@ -169,22 +172,31 @@ describe('the window turning into a shape with nothing stored', () => {
   test('a session selected outside them goes into the active pane, as with a stored layout', () => {
     assert.deepEqual(
       resolvePanes(
-        input({ arrangement: 'sideBySide', layout: undefined, carried: [A, B], selectedSessionKey: C, activeSlot: 1 }),
+        input({
+          arrangement: 'sideBySide',
+          layout: undefined,
+          turned: true,
+          carried: [A, B],
+          selectedSessionKey: C,
+          activeSlot: 1,
+        }),
       ),
       { display: { kind: 'panes', slots: sessions(A, C), active: 1 }, store: [A, C] },
     );
   });
 
-  test('a layout stored for the new shape wins over what came along', () => {
-    assert.deepEqual(resolvePanes(input({ layout: STACKED, carried: [C, A], selectedSessionKey: A })), {
-      display: { kind: 'panes', slots: sessions(A, B), active: 0 },
-      store: null,
-    });
+  test('the chooser was one of the panes on screen: nothing comes along, one pane', () => {
+    assert.deepEqual(
+      resolvePanes(input({ arrangement: 'sideBySide', layout: undefined, turned: true, carried: null })),
+      { display: { kind: 'single' }, store: null },
+    );
   });
 
   test('a pane that came along but can no longer be attached leaves one pane', () => {
     assert.deepEqual(
-      resolvePanes(input({ layout: undefined, carried: [A, B], isOpen: (key) => key === A, isKnown: () => false })),
+      resolvePanes(
+        input({ layout: undefined, turned: true, carried: [A, B], isOpen: (key) => key === A, isKnown: () => false }),
+      ),
       { display: { kind: 'single' }, store: null },
     );
   });
@@ -194,6 +206,55 @@ describe('the window turning into a shape with nothing stored', () => {
       display: { kind: 'single' },
       store: null,
     });
+  });
+});
+
+describe('the window turning into a shape with a stored layout: it opens as Panes opens it', () => {
+  const files = { paneType: 'files', sessionKey: B } as const;
+
+  test('a session stored in both slots: the session on screen in the first, the chooser beside it, held from now on', () => {
+    assert.deepEqual(resolvePanes(input({ turned: true, carried: [C, A], selectedSessionKey: C })), {
+      display: { kind: 'panes', slots: [{ kind: 'session', sessionKey: C }, { kind: 'chooser' }], active: 0 },
+      store: null,
+      chooser: { arrangement: 'stacked', firstSessionKey: C },
+    });
+  });
+
+  test('the session on screen was a stored one: the chooser still stands in the other slot', () => {
+    assert.deepEqual(resolvePanes(input({ turned: true, carried: [B, C], selectedSessionKey: B })), {
+      display: { kind: 'panes', slots: [{ kind: 'session', sessionKey: B }, { kind: 'chooser' }], active: 0 },
+      store: null,
+      chooser: { arrangement: 'stacked', firstSessionKey: B },
+    });
+  });
+
+  test('Files stored beside a session: Files again, the session on screen in the session’s slot, stored', () => {
+    const layout: PaneLayout = { first: files, second: { paneType: 'session', sessionKey: A }, dividerRatio: 0.3 };
+    assert.deepEqual(
+      resolvePanes(input({ layout, turned: true, carried: [C, B], selectedSessionKey: C, activeSlot: null })),
+      {
+        display: {
+          kind: 'panes',
+          slots: [
+            { kind: 'files', origin: B },
+            { kind: 'session', sessionKey: C },
+          ],
+          active: 1,
+        },
+        store: [files, C],
+      },
+    );
+  });
+
+  test('no session stored: the session on screen in the first slot, the second keeps its pane type', () => {
+    const layout: PaneLayout = { first: files, second: { paneType: 'browser' }, dividerRatio: 0.5 };
+    assert.deepEqual(
+      resolvePanes(input({ layout, turned: true, carried: [C, B], selectedSessionKey: C, activeSlot: null })),
+      {
+        display: { kind: 'panes', slots: [{ kind: 'session', sessionKey: C }, { kind: 'browser' }], active: 0 },
+        store: [C, { paneType: 'browser' }],
+      },
+    );
   });
 });
 

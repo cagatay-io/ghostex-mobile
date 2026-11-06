@@ -439,8 +439,9 @@ export function useTerminalPanes({
     if (chooserSlot !== null) closePaneSlot(chooserSlot);
   }, [chooserSlot, closePaneSlot]);
 
-  // The header's Panes button: the panes stored for the window's shape, else the chooser in a second slot; with two
-  // panes the chooser closed where one is on screen (in either slot), else the second pane.
+  // The header's Panes button: the pane types and divider stored for the window's shape, a stored session's slot
+  // taking the selected session or the chooser, else the chooser in a second slot; with two panes the chooser closed
+  // where one is on screen (in either slot), else the second pane.
   const showsTwoPanes = twoPanes !== null;
   const togglePanes = useCallback(
     (): void => (showsTwoPanes ? closePaneSlot(chooserSlot ?? 1) : openPanes()),

@@ -570,7 +570,7 @@ describe('two session panes', () => {
     expect(storedLayouts().stacked).toEqual(stacked(A, B).layouts.stacked);
   });
 
-  test("a pane's close button leaves the other one alone, full screen; Panes brings the panes back, then closes the second", async () => {
+  test("a pane's close button leaves the other one alone, full screen; Panes opens the session choice beside it, then closes the second", async () => {
     await renderScreen({ stored: stacked(A, B) });
     await press(PanesCopy.close('Beta'));
     expect(shownSessions()).toEqual([A]);
@@ -578,7 +578,11 @@ describe('two session panes', () => {
     // Closed, the layout stays stored for the next open.
     expect(storedLayouts().stacked).toEqual(stacked(A, B).layouts.stacked);
 
+    // The closed pane's session does not come back: the chooser stands in its slot, below the session on screen.
     await press(PanesCopy.addPane);
+    expect(shownSessions()).toEqual([A]);
+    expect(screen.getByText(PanesCopy.chooserLead)).toBeTruthy();
+    await press(/^Beta, Codex/);
     expect(shownSessions().sort()).toEqual([A, B]);
     expect(card(B).y).toBeGreaterThan(card(A).y);
     await tapPane(B);
@@ -751,14 +755,17 @@ describe('input goes to the pane tapped last: the keyboard, the pad, the editor,
     mockNative.focusTerminal.mockClear();
     await press(PanesCopy.close('Alpha'));
     expect(shownSessions()).toEqual([B]);
-    // Panes brings the stored panes back; then the selected tab closes.
+    // Panes opens the chooser beside the session left (the closed pane's session does not come back); a pick there
+    // makes two panes again, then the selected tab closes.
     await press(PanesCopy.addPane);
+    expect(shownSessions()).toEqual([B]);
+    await press(/^Alpha, Codex/);
     expect(shownSessions().sort()).toEqual([A, B]);
-    expect(selected()).toBe(B);
-    await act(() => useTerminalStore.getState().closeTab(B));
-    await settle();
     expect(selected()).toBe(A);
-    expect(shownSessions()).toEqual([A]);
+    await act(() => useTerminalStore.getState().closeTab(A));
+    await settle();
+    expect(selected()).toBe(B);
+    expect(shownSessions()).toEqual([B]);
     expect(mockNative.focusTerminal).not.toHaveBeenCalled();
   });
 
@@ -1255,6 +1262,84 @@ describe('the window turning into a shape with nothing stored', () => {
     await changeWindow(TURNED, [FLAT_TURNED]);
     expect(shownSessions()).toEqual([A]);
     expect(storedLayouts().sideBySide).toBeUndefined();
+  });
+});
+
+describe('the window turning into a shape with a stored layout: it opens as Panes opens it', () => {
+  const both: PaneLayoutDocument = {
+    schemaVersion: 1,
+    layouts: { ...stacked(A, B, 0.4).layouts, ...sideBySide(A, C, 0.6).layouts },
+  };
+
+  test('two sessions stored: the session on screen and the chooser, the stored divider; a pick stores them; back upright, the same', async () => {
+    await renderScreen({ tabs: [ALPHA, BETA, GAMMA], stored: both });
+    expect(shownSessions().sort()).toEqual([A, B]);
+
+    await changeWindow(TURNED, [FLAT_TURNED]);
+    expect(shownSessions()).toEqual([A]);
+    expect(screen.getByText(PanesCopy.chooserLead)).toBeTruthy();
+    expect(dividerAt(false)).toBe(Math.round(0.6 * areaOf(TURNED).width));
+    // Nothing is stored until a pick.
+    expect(storedLayouts().sideBySide).toEqual(sideBySide(A, C, 0.6).layouts.sideBySide);
+    await press(/^Beta, Codex/);
+    expect(shownSessions().sort()).toEqual([A, B]);
+    expect(storedLayouts().sideBySide).toEqual(sideBySide(A, B, 0.6).layouts.sideBySide);
+
+    // Back upright with Beta selected: Beta in the first slot, the chooser where Beta was stored second.
+    await changeWindow(UPRIGHT, [FLAT_UPRIGHT]);
+    expect(selected()).toBe(B);
+    expect(shownSessions()).toEqual([B]);
+    expect(screen.getByText(PanesCopy.chooserLead)).toBeTruthy();
+    expect(dividerAt()).toBe(Math.round(0.4 * areaOf(UPRIGHT).height));
+  });
+
+  test("the chooser's close button there closes the panes in every shape; the session stays", async () => {
+    await renderScreen({ tabs: [ALPHA, BETA, GAMMA], stored: both });
+    await changeWindow(TURNED, [FLAT_TURNED]);
+    await press(PanesCopy.closeNewPane);
+    expect(shownSessions()).toEqual([A]);
+    expect(screen.queryByText(PanesCopy.chooserLead)).toBeNull();
+    expect(usePaneStore.getState().document.closed).toBe(true);
+    await changeWindow(UPRIGHT, [FLAT_UPRIGHT]);
+    expect(shownSessions()).toEqual([A]);
+  });
+
+  test("the session pane's close button beside that chooser closes the panes too: one content area, no chooser", async () => {
+    await renderScreen({ tabs: [ALPHA, BETA, GAMMA], stored: both });
+    await changeWindow(TURNED, [FLAT_TURNED]);
+    await press(PanesCopy.close('Alpha'));
+    expect(shownSessions()).toEqual([A]);
+    expect(screen.queryByText(PanesCopy.chooserLead)).toBeNull();
+    expect(screen.queryAllByTestId(/^pane:/)).toHaveLength(0);
+    expect(usePaneStore.getState().document.closed).toBe(true);
+    await changeWindow(UPRIGHT, [FLAT_UPRIGHT]);
+    expect(shownSessions()).toEqual([A]);
+    expect(screen.queryAllByTestId(/^pane:/)).toHaveLength(0);
+  });
+});
+
+describe('closing the session pane beside the chooser Panes opened leaves that session alone, the chooser gone', () => {
+  test('two sessions stored, closed, Panes from a third session: its close button leaves one content area', async () => {
+    await renderScreen({ tabs: [ALPHA, BETA, GAMMA], selected: C, stored: { ...stacked(A, B, 0.4), closed: true } });
+    expect(shownSessions()).toEqual([C]);
+    await press(PanesCopy.addPane);
+    expect(screen.getByText(PanesCopy.chooserLead)).toBeTruthy();
+    await press(PanesCopy.close('Gamma'));
+    expect(shownSessions()).toEqual([C]);
+    expect(screen.queryByText(PanesCopy.chooserLead)).toBeNull();
+    expect(screen.queryAllByTestId(/^pane:/)).toHaveLength(0);
+    expect(usePaneStore.getState().document.closed).toBe(true);
+    expect(storedLayouts().stacked).toEqual(stacked(A, B, 0.4).layouts.stacked);
+  });
+
+  test('nothing stored: its close button leaves one content area', async () => {
+    await renderScreen({ stored: undefined });
+    await press(PanesCopy.addPane);
+    expect(screen.getByText(PanesCopy.chooserLead)).toBeTruthy();
+    await press(PanesCopy.close('Alpha'));
+    expect(shownSessions()).toEqual([A]);
+    expect(screen.queryByText(PanesCopy.chooserLead)).toBeNull();
+    expect(screen.queryAllByTestId(/^pane:/)).toHaveLength(0);
   });
 });
 
