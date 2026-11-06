@@ -41,12 +41,12 @@ export default function SessionsListPage() {
               onValueChange={(next) => setSetting('sessionsListGroupByProject', next)}
             />
             <ToggleRow
-              label="Show Working section"
+              label="Show Moving section"
               detail="Unified only"
               value={workingSection}
               onValueChange={(next) => setSetting('sessionsListWorkingSection', next)}
             />
-            <Caption>Working sessions fold into their own section while the switch is on.</Caption>
+            <Caption>Sessions whose agent is working fold into the Moving section while the switch is on.</Caption>
           </>
         ) : null}
       </SettingsSection>

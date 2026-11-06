@@ -110,7 +110,7 @@ export type GhostexSettings = {
   sessionsListLayout: SessionsListLayout | null;
   /** Unified only: one group per project (the computer's `unifiedGroupByProject` until first set here). */
   sessionsListGroupByProject: boolean;
-  /** Unified only: working sessions fold into the Working section (the computer's `unifiedWorkingSection` until first set here). */
+  /** Unified only: working sessions fold into the Moving section (the computer's `unifiedWorkingSection` until first set here). */
   sessionsListWorkingSection: boolean;
   /**
    * Show the "Tailscale isn't connected" notice on Sessions when Tailscale is off on this phone and

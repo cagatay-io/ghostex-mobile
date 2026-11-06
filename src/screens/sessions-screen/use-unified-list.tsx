@@ -6,7 +6,7 @@
  * CDXC:Sidebar 2026-11-01 DECISION:
  * User (Q933, Q934): the phone picks Unified or Project itself, in Settings › Sessions list
  * (`sessionsListLayout` in settings/store.ts, first taken from the selected computer's `sidebarView`
- * and never following it after), with its own Group by project and Working section switches. Unified
+ * and never following it after), with its own Group by project and Moving section switches. Unified
  * lists every computer's sessions together; Project stays one computer at a time. The Space and
  * Workspace tiles give way to the filter, which narrows by computer, Space and project as on the
  * desktop. Parking, the project groups' order and the swipe buttons still come from the selected

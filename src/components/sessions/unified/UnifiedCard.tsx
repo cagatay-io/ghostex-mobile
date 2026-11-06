@@ -385,7 +385,7 @@ export function UnifiedSlimRow({ row, shelf, repoIcon, active, nowMs, sidebarBac
 
 const SHELF_LABEL: Record<UnifiedShelf, string> = {
   drafts: 'Drafts',
-  working: 'Working',
+  working: 'Moving',
   snoozed: 'Snoozed',
   parked: 'Parked',
   pinned: 'Pinned',

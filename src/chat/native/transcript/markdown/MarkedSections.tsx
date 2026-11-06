@@ -22,8 +22,11 @@ import { useTranscriptFlags } from '../context';
 import { PROSE_LINE, PROSE_SIZE, type TranscriptTheme } from '../theme';
 import type { SectionMeta } from './parse';
 
-/** The "In progress" colour (user pick 2026-10-11: #00A6ED); darkened on a light chat, where it reads 2.7:1. */
-const IN_PROGRESS = { dark: '#00a6ed', light: '#0077b6' };
+/**
+ * CDXC:MarkedHandovers 2026-11-06 DECISION:
+ * User: "please make in progress color in handover headings #C68A06 like Moving is in the board". The "In progress" heading takes the board's Moving amber in both appearances (the board uses this one colour on dark and light); it replaces the earlier #00A6ED / #0077B6 pick of 2026-10-11.
+ */
+const IN_PROGRESS = { dark: '#c68a06', light: '#c68a06' };
 
 const PALETTE: { [kind: string]: { dark: string; light: string } } = {
   need: { dark: '#fb923c', light: '#c2410c' },
