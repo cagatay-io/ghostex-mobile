@@ -170,9 +170,10 @@ const row = (title: string) => screen.getByRole('button', { name: title });
 
 /** The pills' slot: the row's child that reports its own width. */
 const pillSlot = (title: string) =>
-  up(screen.getByText('Advisor shared notes'), (node) => node.parent?.props.accessibilityLabel === title).parent!.children.find(
-    (child): child is Node => typeof child !== 'string' && child.props.onLayout !== undefined,
-  )!;
+  up(
+    screen.getByText('Advisor shared notes'),
+    (node) => node.parent?.props.accessibilityLabel === title,
+  ).parent!.children.find((child): child is Node => typeof child !== 'string' && child.props.onLayout !== undefined)!;
 
 /** Fires the room beside the title and the width the pills need side by side (the invisible copy's row). */
 async function measure(title: string, room: number, needed: number) {
@@ -228,7 +229,8 @@ function channels(colour: unknown): [number, number, number, number] {
   if (hex !== undefined) {
     return [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16), parseInt(hex.slice(4, 6), 16), 1];
   }
-  const [, r, g, b, a = '1'] = /^rgba?\(([\d.]+),([\d.]+),([\d.]+)(?:,([\d.]+))?\)$/.exec(colour.replace(/\s/g, '')) ?? [];
+  const [, r, g, b, a = '1'] =
+    /^rgba?\(([\d.]+),([\d.]+),([\d.]+)(?:,([\d.]+))?\)$/.exec(colour.replace(/\s/g, '')) ?? [];
   if (r === undefined || g === undefined || b === undefined) throw new Error(`Not a colour: ${colour}`);
   return [Number(r), Number(g), Number(b), Number(a)];
 }
@@ -330,7 +332,9 @@ describe('opening the advisor card', () => {
   });
 
   test('a note’s text sits in a column bounded by the card, so a long code name wraps inside it', async () => {
-    const card = advisorCard([['nit', 'Rename `rate_limiter_middleware_failure_counter_shared_store_key_prefix_for_login_attempts`.']]);
+    const card = advisorCard([
+      ['nit', 'Rename `rate_limiter_middleware_failure_counter_shared_store_key_prefix_for_login_attempts`.'],
+    ]);
     await show(card);
     await fireEvent.press(row(card.title));
     const [note] = openedNotes();
@@ -362,8 +366,9 @@ describe('a blocker', () => {
       ['concern', CONCERN],
     ]);
     await show(card, LIGHT);
-    const surface = flat(up(screen.getByText('Advisor shared notes'), (node) => flat(node).borderRadius !== undefined))
-      .backgroundColor;
+    const surface = flat(
+      up(screen.getByText('Advisor shared notes'), (node) => flat(node).borderRadius !== undefined),
+    ).backgroundColor;
     const folded = pills(card.title);
     expect(folded.map(({ color, glyphColor }) => ({ color, glyphColor }))).toEqual([
       { color: LIGHT.foreground, glyphColor: RED.light },
