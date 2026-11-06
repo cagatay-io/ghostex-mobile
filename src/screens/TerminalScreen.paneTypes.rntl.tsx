@@ -992,6 +992,58 @@ describe('the chooser: not movable, no rubber-band, Close, a new terminal or pro
     await press(PanesCopy.addProject);
     expect(navigation.push).toHaveBeenCalledWith('AddProjectSource', { machineId: 'm1' });
   });
+
+  /** The computer's list with the projects interleaved; `alphaProject`: Alpha's project, the session beside the chooser. */
+  function interleaved(alphaProject: [string, string]) {
+    useInventoryStore.setState({
+      inventoriesByMachineId: {
+        m1: inventory(
+          mobileSummary({
+            projects: PROJECTS,
+            sessions: [
+              summarySession('c', 'Gamma', 'p2', 'pad-lab'),
+              summarySession('a', 'Alpha', ...alphaProject),
+              summarySession('d', 'Delta', 'p2', 'pad-lab'),
+              summarySession('b', 'Beta', 'p1', 'ghostex-mobile'),
+              summarySession('e', 'Epsilon', 'p1', 'ghostex-mobile'),
+            ],
+          }),
+        ),
+      },
+    });
+  }
+
+  /** The titles of the sessions the chooser lists, top to bottom. */
+  const listedSessions = (): string[] =>
+    within(chooserList())
+      .getAllByRole('button')
+      .map((row) => String(row.props.accessibilityLabel))
+      .filter((label) => label.includes(', Codex · '))
+      .map((label) => label.slice(0, label.indexOf(',')));
+
+  test('the sessions of the project beside it first, then the rest, each part in the computer’s order', async () => {
+    interleaved(['p1', 'ghostex-mobile']);
+    await renderScreen({ stored: undefined });
+    await press(PanesCopy.addPane);
+    expect(screen.getByLabelText(PanesCopy.newTerminalIn('ghostex-mobile'))).toBeTruthy();
+    expect(listedSessions()).toEqual(['Beta', 'Epsilon', 'Gamma', 'Delta']);
+  });
+
+  test('a project the computer’s list leaves unnamed still comes first; only New terminal needs its name', async () => {
+    interleaved(['p1', '']);
+    await renderScreen({ stored: undefined });
+    await press(PanesCopy.addPane);
+    expect(screen.queryByLabelText(/^New terminal in /)).toBeNull();
+    expect(listedSessions()).toEqual(['Beta', 'Epsilon', 'Gamma', 'Delta']);
+  });
+
+  test('beside a session without a project the sessions keep the computer’s order', async () => {
+    interleaved(['', '']);
+    await renderScreen({ stored: undefined });
+    await press(PanesCopy.addPane);
+    expect(screen.queryByLabelText(/^New terminal in /)).toBeNull();
+    expect(listedSessions()).toEqual(['Gamma', 'Delta', 'Beta', 'Epsilon']);
+  });
 });
 
 describe('the active pane without a terminal', () => {

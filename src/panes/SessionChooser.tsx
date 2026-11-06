@@ -2,7 +2,8 @@
  * The chooser in a new pane (the panes design's): a Close row at its top (as its close button), then what
  * else the pane can show (the pane types, Files and Git Changes only for a session with a project folder, as the ⋯
  * menu offers them), then a new terminal in the project of the session beside it, the computer's Add Project flow,
- * and the computer's agent sessions to open there, each with its agent, project and status in words (a status dot
+ * and the computer's agent sessions to open there (those of the project of the session beside it first, then the
+ * rest, each part in the session list's order), each with its agent, project and status in words (a status dot
  * alone would carry it by colour only). The session on screen beside it is not listed, nor, opened over a session
  * pane, that pane's session (it comes back with Close). The list is the computer's session list as the Sessions
  * screen has it; while it is being read, a spinner. The sessions are a virtualised list (`FlatList`, keyed by session
@@ -169,17 +170,23 @@ export default function SessionChooser({
   onAddProject,
 }: SessionChooserProps) {
   const summary = useInventoryStore((state) => state.inventoriesByMachineId[machineId]?.summary ?? null);
-  const sessions = useMemo(
-    () =>
-      summary?.sessions.filter(
-        (session) => session.sessionId !== besideSessionId && session.sessionId !== overSessionId,
-      ) ?? [],
-    [summary, besideSessionId, overSessionId],
-  );
-  const capabilities = summary?.capabilities ?? NO_SUMMARY_CAPABILITIES;
   // A new terminal goes into the project of the session beside the chooser, where it has one.
   const beside = summary?.sessions.find((session) => session.sessionId === besideSessionId) ?? null;
   const besideProject = beside !== null && beside.projectId.length > 0 && beside.projectName.length > 0 ? beside : null;
+  // The sessions of the project of the session beside the chooser first, then the rest, each part in the summary's
+  // order: by the project's id alone, also where the summary names no project (the row above needs the name).
+  const besideProjectId = beside !== null && beside.projectId.length > 0 ? beside.projectId : null;
+  const sessions = useMemo(() => {
+    const listed =
+      summary?.sessions.filter(
+        (session) => session.sessionId !== besideSessionId && session.sessionId !== overSessionId,
+      ) ?? [];
+    if (besideProjectId === null) return listed;
+    return listed
+      .filter((session) => session.projectId === besideProjectId)
+      .concat(listed.filter((session) => session.projectId !== besideProjectId));
+  }, [summary, besideSessionId, overSessionId, besideProjectId]);
+  const capabilities = summary?.capabilities ?? NO_SUMMARY_CAPABILITIES;
   const types = AVAILABLE_PANE_TYPES.filter(
     (definition): definition is typeof definition & { type: Exclude<SettablePaneType, 'session'> } =>
       definition.type !== 'session' && (projectOffered || !definition.needsProject),
