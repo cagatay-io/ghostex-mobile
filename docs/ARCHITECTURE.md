@@ -47,6 +47,11 @@ mobile/
   ios/ android/               # expo prebuild output, committed (bare workflow)
 ```
 
+Sent chat prompts use content-sized message bubbles. Markdown list bodies keep their intrinsic width while
+remaining able to grow and shrink, so an ordered-list prompt contains its words and inline pictures. A list
+item whose first paragraph starts as a row of words and pictures draws its marker in that row, before its
+first words, as the desktop does; a filmstrip in an agent's reply keeps its marker beside it.
+
 Chat pill sheets belong to `NativeChatScreen`, not the composer: a live question may replace the composer while
 a sheet is dismissing. On iOS, a Subagents or Resources pick opens its destination from the sheet's native
 dismissal callback, not a timed delay. Android dispatches the pick immediately.

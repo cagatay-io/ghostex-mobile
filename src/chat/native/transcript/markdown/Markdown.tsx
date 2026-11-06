@@ -258,8 +258,23 @@ function pictureRuns(inlines: Inline[]): { pictures: boolean; inlines: Inline[] 
   return runs;
 }
 
-/** A paragraph with pictures in it: the run of words and thumbnails it was written as (`flow` in `rich_markdown.rs`). */
-function FlowParagraph({ inlines, context, color }: { inlines: Inline[]; context: InlineContext; color: string }) {
+/**
+ * A paragraph with pictures in it: the run of words and thumbnails it was written as (`flow` in `rich_markdown.rs`).
+ * `lead` is the marker of the list item the paragraph opens. It leads the first words in one row of the flow, so it
+ * stays on their first line however the flow centres them against a picture: the desktop's flow keeps a line's `1.`
+ * in the text the line starts with.
+ */
+function FlowParagraph({
+  inlines,
+  context,
+  color,
+  lead,
+}: {
+  inlines: Inline[];
+  context: InlineContext;
+  color: string;
+  lead?: ReactNode;
+}) {
   const parts: ({ kind: 'text'; inlines: Inline[] } | { kind: 'image'; image: JsonRecord })[] = [];
   for (const inline of inlines) {
     if (inline.t === 'image') parts.push({ kind: 'image', image: inline.image });
@@ -269,19 +284,42 @@ function FlowParagraph({ inlines, context, color }: { inlines: Inline[]; context
       else parts.push({ kind: 'text', inlines: [inline] });
     }
   }
+  const leadsWords = lead !== undefined && parts[0]?.kind === 'text';
   return (
     <View style={styles.flow}>
-      {parts.map((part, index) =>
-        part.kind === 'image' ? (
-          <InlineImage key={index} image={part.image} />
-        ) : (
-          <Text key={index} selectable={context.selectable} style={[styles.prose, { color }]}>
+      {lead !== undefined && !leadsWords ? lead : null}
+      {parts.map((part, index) => {
+        if (part.kind === 'image') return <InlineImage key={index} image={part.image} />;
+        const words = (
+          <Text
+            key={index}
+            selectable={context.selectable}
+            style={[styles.prose, { color }, leadsWords && index === 0 && styles.flowLeadWords]}
+          >
             {renderInlines(part.inlines, context, `f${index}`)}
           </Text>
-        ),
-      )}
+        );
+        return leadsWords && index === 0 ? (
+          <View key={index} style={styles.flowLead}>
+            {lead}
+            {words}
+          </View>
+        ) : (
+          words
+        );
+      })}
     </View>
   );
+}
+
+/**
+ * Whether a list item's first block is a paragraph that starts as a flow of words and pictures, which then carries
+ * the item's marker (`FlowParagraph`). A paragraph that opens with a filmstrip keeps the marker beside it, as the
+ * desktop's strip does.
+ */
+function leadsFlow(block: Block | undefined, strips: boolean): boolean {
+  if (block?.t !== 'p' || !block.c.some((inline) => inline.t === 'image')) return false;
+  return !strips || pictureRuns(block.c)[0]?.pictures === false;
 }
 
 const CELL_PAD_X = 12;
@@ -691,9 +729,11 @@ type BlockProps = {
   color: string;
   depth: number;
   listDepth: { ordered: number; bullet: number };
+  /** The marker of the list item these blocks open, drawn by the first block's flow (`leadsFlow`). */
+  lead?: ReactNode;
 };
 
-function Blocks({ blocks, context, color, depth, listDepth }: BlockProps) {
+function Blocks({ blocks, context, color, depth, listDepth, lead }: BlockProps) {
   const { theme } = context;
   const markedStyle = useMarkedStyle();
   const markedEmoji = useMarkedEmoji();
@@ -714,7 +754,13 @@ function Blocks({ blocks, context, color, depth, listDepth }: BlockProps) {
                         images={run.inlines.flatMap((inline) => (inline.t === 'image' ? [inline.image] : []))}
                       />
                     ) : (
-                      <FlowParagraph key={part} inlines={run.inlines} context={context} color={color} />
+                      <FlowParagraph
+                        key={part}
+                        inlines={run.inlines}
+                        context={context}
+                        color={color}
+                        lead={index === 0 && part === 0 ? lead : undefined}
+                      />
                     ),
                   )}
                 </View>
@@ -855,8 +901,8 @@ function Blocks({ blocks, context, color, depth, listDepth }: BlockProps) {
             const gutter = block.ordered ? Math.max(20, widest.length * 8 + 4) : 20;
             return (
               <View key={key} style={spacing}>
-                {block.items.map((item, itemIndex) => (
-                  <View key={itemIndex} style={[styles.listItem, itemIndex > 0 && styles.listItemGap]}>
+                {block.items.map((item, itemIndex) => {
+                  const marker = (
                     <View style={[styles.listMarker, { width: gutter }]}>
                       {item.checked !== null ? (
                         <View
@@ -878,18 +924,55 @@ function Blocks({ blocks, context, color, depth, listDepth }: BlockProps) {
                         </Text>
                       )}
                     </View>
-                    <View style={styles.listBody}>
-                      {/* A done task steps back so the open ones stand out, as on the desktop. */}
-                      <Blocks
-                        blocks={item.c}
-                        context={context}
-                        color={item.checked ? theme.muted : color}
-                        depth={depth + 1}
-                        listDepth={nested}
-                      />
+                  );
+                  // A done task steps back so the open ones stand out, as on the desktop.
+                  const itemColor = item.checked ? theme.muted : color;
+                  if (leadsFlow(item.c[0], context.strips)) {
+                    // Words and pictures flow in one row that centres them against the picture; the marker
+                    // goes into that row before the words, not into a column of its own above them. The
+                    // item's later blocks keep the list's indent.
+                    const rest = item.c.slice(1);
+                    return (
+                      <View key={itemIndex} style={itemIndex > 0 && styles.listItemGap}>
+                        <Blocks
+                          blocks={item.c.slice(0, 1)}
+                          context={context}
+                          color={itemColor}
+                          depth={depth + 1}
+                          listDepth={nested}
+                          lead={marker}
+                        />
+                        {rest.length > 0 ? (
+                          <View
+                            style={[rest[0]?.t === 'h' ? styles.headingGap : styles.blockGap, { paddingLeft: gutter }]}
+                          >
+                            <Blocks
+                              blocks={rest}
+                              context={context}
+                              color={itemColor}
+                              depth={depth + 1}
+                              listDepth={nested}
+                            />
+                          </View>
+                        ) : null}
+                      </View>
+                    );
+                  }
+                  return (
+                    <View key={itemIndex} style={[styles.listItem, itemIndex > 0 && styles.listItemGap]}>
+                      {marker}
+                      <View style={styles.listBody}>
+                        <Blocks
+                          blocks={item.c}
+                          context={context}
+                          color={itemColor}
+                          depth={depth + 1}
+                          listDepth={nested}
+                        />
+                      </View>
                     </View>
-                  </View>
-                ))}
+                  );
+                })}
               </View>
             );
           }
@@ -982,6 +1065,9 @@ const styles = StyleSheet.create({
   },
   questionTagLabel: { fontSize: PROSE_SIZE - 1, lineHeight: PROSE_SIZE + 4, fontWeight: '600' },
   flow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' },
+  // A list item's marker and its first words, one item of the flow that may shrink and wrap inside the bubble.
+  flowLead: { flexDirection: 'row', flexShrink: 1, minWidth: 0 },
+  flowLeadWords: { flexShrink: 1 },
   pictureLines: { gap: 6 },
   blockGap: { marginTop: 10.4 },
   headingGap: { marginTop: 20 },
@@ -995,7 +1081,9 @@ const styles = StyleSheet.create({
   listItem: { flexDirection: 'row' },
   listItemGap: { marginTop: 4 },
   listMarker: { alignItems: 'flex-start' },
-  listBody: { flex: 1, minWidth: 0 },
+  // A content-sized user bubble needs the body's intrinsic width, not `flex: 1`'s zero basis.
+  // Grow still fills an answer's row; shrink keeps long prompts inside their bubble.
+  listBody: { flexGrow: 1, flexShrink: 1, minWidth: 0 },
   checkbox: {
     width: 13,
     height: 13,
