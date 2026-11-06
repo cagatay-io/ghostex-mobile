@@ -10,7 +10,8 @@
  *   selection stays in the session pane beside it. Selecting sessions never changes what such a pane shows: files and
  *   Git changes keep the project of the session they were opened from, usage that session's computer, the browser and
  *   the agents pane show the selected session's computer, the attention list every computer.
- * - While the chooser is open, the session selected next fills its slot.
+ * - While the chooser is open, the session selected next fills its slot. Opened over a session pane, it names that
+ *   pane's session (`over`), which it does not list either; closed, the pane is back.
  * - When the window turns into a shape with nothing stored for it, the two panes on screen before come along into its
  *   slots (the divider in the middle) and are stored for it, rather than one pane.
  * - A session pane shows the session's terminal or its chat view (`paneChatAfter`), never both: at most one pane shows
@@ -24,7 +25,8 @@ import type { PaneChooser } from './store';
 
 export type PaneContent =
   | { readonly kind: 'session'; readonly sessionKey: string }
-  | { readonly kind: 'chooser' }
+  /** `over`: the session of the session pane the chooser stands over (its slot's stored pane), when it is one. */
+  | { readonly kind: 'chooser'; readonly over?: string }
   | { readonly kind: 'browser' }
   /** `origin`: the session the pane was opened from (`machineId:sessionId`), whose project it shows. */
   | { readonly kind: 'files'; readonly origin: string }
@@ -216,7 +218,9 @@ function chooserInSlot(input: PaneResolveInput, selected: string, slots: Slots, 
   const besideContent = slots[beside];
   if (besideContent.kind !== 'session' || !showable(input, besideContent)) return SINGLE;
   if (selected === besideContent.sessionKey) {
-    return { display: { kind: 'panes', slots: replaced(slots, slot, CHOOSER), active: beside }, store: null };
+    const stored = slots[slot];
+    const chooser: PaneContent = stored.kind === 'session' ? { kind: 'chooser', over: stored.sessionKey } : CHOOSER;
+    return { display: { kind: 'panes', slots: replaced(slots, slot, chooser), active: beside }, store: null };
   }
   const next = replaced(slots, slot, session(selected));
   return { display: { kind: 'panes', slots: next, active: slot }, store: entries(next) };

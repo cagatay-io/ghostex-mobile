@@ -3,10 +3,11 @@
  * else the pane can show (the pane types, Files and Git Changes only for a session with a project folder, as the ⋯
  * menu offers them), then a new terminal in the project of the session beside it, the computer's Add Project flow,
  * and the computer's agent sessions to open there, each with its agent, project and status in words (a status dot
- * alone would carry it by colour only). The session on screen beside it is not listed. The list is the computer's
- * session list as the Sessions screen has it; while it is being read, a spinner. The sessions are a virtualised list
- * (`FlatList`, keyed by session id, one memoized row sharing this file's styles), the rows above them its header. The
- * list does not spring back past its ends. Every row is a control: half folded like a book they all keep off the fold.
+ * alone would carry it by colour only). The session on screen beside it is not listed, nor, opened over a session
+ * pane, that pane's session (it comes back with Close). The list is the computer's session list as the Sessions
+ * screen has it; while it is being read, a spinner. The sessions are a virtualised list (`FlatList`, keyed by session
+ * id, one memoized row sharing this file's styles), the rows above them its header. The list does not spring back
+ * past its ends. Every row is a control: half folded like a book they all keep off the fold.
  * The agents pane (`AgentsPane.tsx`) lists the sessions with the same row.
  */
 
@@ -36,6 +37,8 @@ export type SessionChooserProps = {
   machineId: string;
   /** The session already on screen beside the chooser. */
   besideSessionId: string | undefined;
+  /** Opened over a session pane: that pane's session (on this computer), not listed either. */
+  overSessionId: string | undefined;
   /** The session beside has a project with a folder: Files and Git Changes are offered. */
   projectOffered: boolean;
   /** How far its rows stay off the body's edges to keep off a book fold (`PaneFrame.controlInset`). */
@@ -156,6 +159,7 @@ function ActionRow({
 export default function SessionChooser({
   machineId,
   besideSessionId,
+  overSessionId,
   projectOffered,
   controlInset,
   onPick,
@@ -166,8 +170,11 @@ export default function SessionChooser({
 }: SessionChooserProps) {
   const summary = useInventoryStore((state) => state.inventoriesByMachineId[machineId]?.summary ?? null);
   const sessions = useMemo(
-    () => summary?.sessions.filter((session) => session.sessionId !== besideSessionId) ?? [],
-    [summary, besideSessionId],
+    () =>
+      summary?.sessions.filter(
+        (session) => session.sessionId !== besideSessionId && session.sessionId !== overSessionId,
+      ) ?? [],
+    [summary, besideSessionId, overSessionId],
   );
   const capabilities = summary?.capabilities ?? NO_SUMMARY_CAPABILITIES;
   // A new terminal goes into the project of the session beside the chooser, where it has one.

@@ -38,7 +38,7 @@ export type PaneHostInput = {
   arrangement: PaneArrangement;
 };
 
-/** The pane types a slot can be set to; Session opens the chooser there. */
+/** The pane types a slot can be set to; Session opens the chooser there, on a session pane too (another session). */
 export type SettablePaneType = 'session' | 'browser' | 'files' | 'agents' | 'git' | 'usage' | 'attention';
 
 export type PaneHost = {
@@ -64,7 +64,8 @@ export type PaneHost = {
   /**
    * Sets what a slot shows, the other slot keeping its content; the slot becomes the active one. Files and Git changes
    * keep the project of the session the slot showed, or else of the selected session, usage that session's computer.
-   * The only session pane keeps its session: the selected session is always a pane's.
+   * The only session pane keeps its session: the selected session is always a pane's. Session opens the chooser in the
+   * slot beside a session pane, a session pane's too: the session picked there replaces the one it showed.
    */
   setSlotType: (slot: PaneIndex, type: SettablePaneType) => void;
   /**
@@ -265,15 +266,21 @@ export function usePaneHost({ offered, arrangement }: PaneHostInput): PaneHost {
       if (display.kind !== 'panes' || selected === null) return;
       const current = display.slots[slot];
       const beside = display.slots[slot === 0 ? 1 : 0];
-      if (current.kind === type || beside.kind === 'chooser') return;
+      if (beside.kind === 'chooser') return;
       const panes = usePaneStore.getState();
       if (type === 'session') {
-        // The chooser in this slot, beside the session pane; the session picked there fills it.
+        // The chooser in this slot, beside the session pane; the session picked there fills it. Over a session pane it
+        // stands beside the selected session, so the selection moves to the pane beside first (Close brings the pane
+        // back with its session, the selection staying a shown session's).
         if (current.kind !== 'chooser' && beside.kind === 'session') {
+          if (current.kind === 'session' && current.sessionKey === selected) {
+            terminal.selectTab(beside.sessionKey, { scrollToBottom: false });
+          }
           panes.openChooser({ arrangement, firstSessionKey: beside.sessionKey, slot });
         }
         return;
       }
+      if (current.kind === type) return;
       if (current.kind === 'session' && beside.kind !== 'session') return;
       const origin = current.kind === 'session' ? current.sessionKey : selected;
       const content: PaneContent =

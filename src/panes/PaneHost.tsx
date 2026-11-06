@@ -3,7 +3,8 @@
  * them and their title bars. Where they stand is `paneGeometry`'s; what they show is the caller's (`renderContent`).
  *
  * - Each pane has a title bar: the grip, the type icon and title (a tap opens the pane type menu, which sets what the
- *   pane shows), the close button; a session pane showing its chat view has the chat's icon and is named a chat. The
+ *   pane shows; on a session pane beside another its checked Session opens the chooser there, to switch the session),
+ *   the close button; a session pane showing its chat view has the chat's icon and is named a chat. The
  *   pane tapped last is active: its title bar in the accent colour; the other's grey.
  * - Dragging a pane by its title bar (the grip is part of it) onto the other slot swaps the two. While the finger
  *   moves, a copy of the title bar follows it and the other pane shows where a release swaps; the panes themselves
@@ -278,19 +279,29 @@ export default function PaneHost(props: PaneHostProps) {
         visible={menu !== null}
         title={PanesCopy.typeMenuTitle}
         subtitle={PanesCopy.typeMenuSubtitle}
-        items={AVAILABLE_PANE_TYPES.map((definition) => ({
-          kind: 'item' as const,
-          key: definition.type,
-          label: definition.label,
-          icon: definition.icon(18, GhostexPalette.FOREGROUND),
-          selected: menu !== null && slots[menu.slot].kind === definition.type,
-          selectedPresentation: 'check' as const,
-          disabled: menu === null || !props.typeOffered(menu.slot, definition.type),
-          onPress: () => {
-            setMenu(null);
-            if (menu !== null && slots[menu.slot].kind !== definition.type) props.onSetType(menu.slot, definition.type);
-          },
-        }))}
+        items={AVAILABLE_PANE_TYPES.map((definition) => {
+          const current = menu !== null && slots[menu.slot].kind === definition.type;
+          // A session pane beside another: its own type opens the chooser there (`onSetType`), to switch the session.
+          const switchesSession =
+            current &&
+            definition.type === 'session' &&
+            menu !== null &&
+            slots[menu.slot === 0 ? 1 : 0].kind === 'session';
+          return {
+            kind: 'item' as const,
+            key: definition.type,
+            label: definition.label,
+            icon: definition.icon(18, GhostexPalette.FOREGROUND),
+            selected: current,
+            selectedPresentation: 'check' as const,
+            hint: switchesSession ? PanesCopy.switchSessionHint : undefined,
+            disabled: menu === null || !props.typeOffered(menu.slot, definition.type),
+            onPress: () => {
+              setMenu(null);
+              if (menu !== null && (!current || switchesSession)) props.onSetType(menu.slot, definition.type);
+            },
+          };
+        })}
         onClose={() => setMenu(null)}
         rowAnchor={menu?.anchor}
       />

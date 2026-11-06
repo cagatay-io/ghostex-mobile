@@ -1081,6 +1081,8 @@ export const PanesCopy = {
   typeMenuSubtitle: 'Shown in this pane',
   sessionType: 'Session',
   sessionTypeDescription: 'Another agent session next to this one',
+  /** The checked Session in a session pane's type menu beside another session pane: it opens the chooser there. */
+  switchSessionHint: 'Opens the session choice for this pane',
   /** A session pane showing the session's chat view: its title bar names it a chat. */
   chatType: 'Chat',
   browserType: 'Web Preview',

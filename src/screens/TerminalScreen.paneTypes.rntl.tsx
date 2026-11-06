@@ -12,7 +12,8 @@
  * Covered: each type's entry from the chooser and from the title's pane type menu; what each shows (web preview,
  * files, Git changes read only); the other slot keeping its content and its terminal; files and Git changes keeping the
  * project they were opened from when the selection changes; the layout stored within version 1 and brought back after
- * a restart, also with the origin session gone; closing either pane; the only session pane keeping its session; the
+ * a restart, also with the origin session gone; closing either pane; the only session pane keeping its session; a
+ * session pane beside another switched to a third session through the chooser in its slot (Close keeping it); the
  * chooser's Close row, its list not springing back, neither pane moving while it is one of them, Panes in the header
  * and in "More options" naming and closing it in either slot, a new terminal in the project of the session beside it
  * opening in its pane, and Add project; the pad and the keyboard with a non-terminal pane active, flat and half folded
@@ -777,6 +778,85 @@ describe('closing, and the only session pane', () => {
     await press(/^Beta, Codex/);
     expect(storedStacked()).toEqual({ first: session(A), second: session(B), dividerRatio: 0.5 });
     expect(shownSessions().sort()).toEqual([A, B]);
+  });
+});
+
+describe('Session in a session pane’s type menu, beside another session pane', () => {
+  /** The pane type menu of the session pane titled `title`, its checked Session pressed. */
+  async function pressSession(title: string): Promise<TestInstance> {
+    const restore = measuredTitles();
+    try {
+      await press(PanesCopy.title(title, PanesCopy.sessionType));
+      const row = menuItem(PanesCopy.sessionType);
+      await fireEvent.press(row);
+      await settle();
+      return row;
+    } finally {
+      restore();
+    }
+  }
+  const top = (key: string): number => StyleSheet.flatten(pane(key).props.style)?.top as number;
+  const listed = (title: string) => within(pane('chooser')).queryByLabelText(new RegExp(`^${title}, `));
+
+  test('in the second pane: the chooser there lists the third session, neither shown one; a pick replaces the second, stored', async () => {
+    await renderScreen({ stored: layout(session(A), session(B)), selected: A });
+    const row = await pressSession('Beta');
+    expect(row.props.accessibilityState).toEqual(expect.objectContaining({ selected: true, disabled: false }));
+    expect(row.props.accessibilityHint).toBe(PanesCopy.switchSessionHint);
+    // The chooser stands in the second slot, below the first session's pane.
+    expect(top('chooser')).toBeGreaterThan(top(A));
+    expect(shownSessions()).toEqual([A]);
+    expect(listed('Gamma')).toBeTruthy();
+    expect(listed('Alpha')).toBeNull();
+    expect(listed('Beta')).toBeNull();
+    // Nothing is stored while the chooser is open.
+    expect(storedStacked()).toEqual({ first: session(A), second: session(B), dividerRatio: 0.5 });
+
+    await press(/^Gamma, /);
+    expect(storedStacked()).toEqual({ first: session(A), second: session(C), dividerRatio: 0.5 });
+    expect(await storageHolds()).toEqual(layout(session(A), session(C)));
+    expect(shownSessions().sort()).toEqual([A, C]);
+    expect(useTerminalStore.getState().selectedSessionKey).toBe(C);
+  });
+
+  test('Close instead brings the second pane back with its session; nothing is stored', async () => {
+    await renderScreen({ stored: layout(session(A), session(B)), selected: A });
+    await pressSession('Beta');
+    await press(PanesCopy.chooserClose);
+    expect(screen.queryByTestId('pane:chooser')).toBeNull();
+    expect(shownSessions().sort()).toEqual([A, B]);
+    expect(storedStacked()).toEqual({ first: session(A), second: session(B), dividerRatio: 0.5 });
+    expect(useTerminalStore.getState().selectedSessionKey).toBe(A);
+  });
+
+  test('in the selected session’s pane: the selection moves to the shown session beside; Close or a pick keeps it on a shown one', async () => {
+    await renderScreen({ stored: layout(session(A), session(B)), selected: A });
+    await pressSession('Alpha');
+    expect(top('chooser')).toBeLessThan(top(B));
+    expect(useTerminalStore.getState().selectedSessionKey).toBe(B);
+    expect(listed('Gamma')).toBeTruthy();
+    expect(listed('Alpha')).toBeNull();
+    expect(listed('Beta')).toBeNull();
+
+    await press(PanesCopy.chooserClose);
+    expect(shownSessions().sort()).toEqual([A, B]);
+    expect(storedStacked()).toEqual({ first: session(A), second: session(B), dividerRatio: 0.5 });
+    expect(useTerminalStore.getState().selectedSessionKey).toBe(B);
+
+    await pressSession('Alpha');
+    await press(/^Gamma, /);
+    expect(storedStacked()).toEqual({ first: session(C), second: session(B), dividerRatio: 0.5 });
+    expect(shownSessions().sort()).toEqual([B, C]);
+    expect(useTerminalStore.getState().selectedSessionKey).toBe(C);
+  });
+
+  test('beside a files pane, Session opens no chooser: the only session pane keeps its session', async () => {
+    await renderScreen({ stored: layout(session(A), files(A)) });
+    const row = await pressSession('Alpha');
+    expect(row.props.accessibilityHint).toBeUndefined();
+    expect(screen.queryByTestId('pane:chooser')).toBeNull();
+    expect(shownSessions()).toEqual([A]);
+    expect(storedStacked()).toEqual({ first: session(A), second: files(A), dividerRatio: 0.5 });
   });
 });
 

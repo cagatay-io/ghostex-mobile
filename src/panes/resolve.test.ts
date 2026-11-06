@@ -4,7 +4,8 @@
  * takes the keyboard, the pad and the editor, so it holds the selected session; a session is shown in one pane at
  * most; without pane slots (folded, other iPhones), for a shell tab or while a question opened from the attention list
  * stands full screen there is one content area and the stored layout waits; a stored layout this build cannot show
- * leaves one pane. Which session pane shows its chat view (`paneChatAfter`): one at most, chosen per pane, never stored.
+ * leaves one pane; the chooser over a session pane names that pane's session until a pick replaces it. Which session
+ * pane shows its chat view (`paneChatAfter`): one at most, chosen per pane, never stored.
  */
 
 import assert from 'node:assert/strict';
@@ -119,6 +120,39 @@ describe('the chooser in the second slot', () => {
     });
     assert.deepEqual(resolvePanes(input({ layout: undefined, chooser, isOpen: () => false })).display, {
       kind: 'single',
+    });
+  });
+});
+
+describe('the chooser over a session pane beside another', () => {
+  test('it names the session it stands over; nothing is stored until a pick, which replaces that session', () => {
+    const second = { arrangement: 'stacked', firstSessionKey: A, slot: 1 } as const;
+    assert.deepEqual(resolvePanes(input({ chooser: second })), {
+      display: {
+        kind: 'panes',
+        slots: [
+          { kind: 'session', sessionKey: A },
+          { kind: 'chooser', over: B },
+        ],
+        active: 0,
+      },
+      store: null,
+    });
+    assert.deepEqual(resolvePanes(input({ chooser: second, selectedSessionKey: C })), {
+      display: { kind: 'panes', slots: sessions(A, C), active: 1 },
+      store: [A, C],
+    });
+    const first = { arrangement: 'stacked', firstSessionKey: B, slot: 0 } as const;
+    assert.deepEqual(resolvePanes(input({ chooser: first, selectedSessionKey: B })), {
+      display: {
+        kind: 'panes',
+        slots: [
+          { kind: 'chooser', over: A },
+          { kind: 'session', sessionKey: B },
+        ],
+        active: 1,
+      },
+      store: null,
     });
   });
 });

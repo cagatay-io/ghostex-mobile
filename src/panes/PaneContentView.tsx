@@ -137,6 +137,11 @@ export default function PaneContentView({
         <SessionChooser
           machineId={machineId}
           besideSessionId={besideSessionId}
+          overSessionId={
+            content.over !== undefined && machineOfSessionKey(content.over) === machineId
+              ? content.over.slice(machineId.length + 1)
+              : undefined
+          }
           projectOffered={projectOffered}
           controlInset={frame.controlInset}
           onPick={onPickSession}

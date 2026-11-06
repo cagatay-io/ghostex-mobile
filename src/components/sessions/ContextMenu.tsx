@@ -54,6 +54,8 @@ type ContextMenuAction = {
   /** Optional right-aligned informational glyph. */
   trailingIcon?: ReactElement;
   trailingIconLabel?: string;
+  /** What a press does, for VoiceOver, where the label alone does not say it (a checked row that still acts). */
+  hint?: string;
   /**
    * Text behind an (i) at the row's end. The phone has no hover, so a tap on the (i) shows it
    * under the row (and a second tap hides it); a tap on the row still runs `onPress`. The desktop
@@ -366,7 +368,7 @@ export default function ContextMenu({
               const infoOpen = item.info !== undefined && openInfo === item.key;
               const command = (
                 <Pressable
-                  accessibilityHint={item.trailingIconLabel}
+                  accessibilityHint={item.hint ?? item.trailingIconLabel}
                   accessibilityRole={COMMAND_ROLE}
                   accessibilityState={{
                     disabled: item.disabled === true,
