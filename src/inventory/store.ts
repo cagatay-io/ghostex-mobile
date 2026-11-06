@@ -100,7 +100,9 @@ type InventoryState = {
   rollbackOptimisticMutations: (machineId: string, mutationIds: readonly string[]) => void;
   /**
    * Forget the computer's cached Global Actions and capability, keeping everything else on screen; for a connection
-   * that is recovered outside this store (the automatic reconnect, the check on returning to the foreground).
+   * that is recovered outside this store (the automatic reconnect, the check on returning to the foreground). A list
+   * read already under way was sent over the connection being recovered: its answer is discarded, and the next
+   * read starts anew.
    */
   dropGlobalQuickActions: (machineId: string) => void;
   /**
@@ -116,6 +118,12 @@ let nextMutationNumber = 1;
 const inFlightRefreshes = new Map<string, Promise<void>>();
 const refreshRevisions = new Map<string, number>();
 const retryRequests = new Map<string, Promise<void>>();
+
+/** A read already under way for the computer is not applied when it answers, and the next refresh starts anew. */
+function forgetInFlightRefresh(machineId: string): void {
+  refreshRevisions.set(machineId, (refreshRevisions.get(machineId) ?? 0) + 1);
+  inFlightRefreshes.delete(machineId);
+}
 
 export const useInventoryStore = create<InventoryState>()((set, get) => {
   const patchMachine = (machineId: string, patch: Partial<MachineInventory>): void => {
@@ -296,8 +304,7 @@ export const useInventoryStore = create<InventoryState>()((set, get) => {
       if (existing !== undefined) return existing;
       const machine = enabledMachines(useMachinesStore.getState()).find((entry) => entry.id === machineId);
       if (machine === undefined) return Promise.resolve();
-      refreshRevisions.set(machineId, (refreshRevisions.get(machineId) ?? 0) + 1);
-      inFlightRefreshes.delete(machineId);
+      forgetInFlightRefresh(machineId);
       patchMachine(machine.id, { retrying: true });
       dropGlobalQuickActions(machine.id);
       const request = Promise.resolve().then(async () => {
@@ -330,7 +337,10 @@ export const useInventoryStore = create<InventoryState>()((set, get) => {
       return request;
     },
 
-    dropGlobalQuickActions,
+    dropGlobalQuickActions: (machineId) => {
+      forgetInFlightRefresh(machineId);
+      dropGlobalQuickActions(machineId);
+    },
 
     refreshAll: async () => {
       // Machines hidden from the Sessions screen are never connected to, so a
@@ -372,8 +382,7 @@ export const useInventoryStore = create<InventoryState>()((set, get) => {
       const nextPending = { ...get().pendingMutationsByMachineId };
       delete next[machineId];
       delete nextPending[machineId];
-      refreshRevisions.set(machineId, (refreshRevisions.get(machineId) ?? 0) + 1);
-      inFlightRefreshes.delete(machineId);
+      forgetInFlightRefresh(machineId);
       set({
         inventoriesByMachineId: next,
         pendingMutationsByMachineId: nextPending,

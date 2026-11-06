@@ -2,13 +2,14 @@
 /**
  * Run with `bun run test:jest`. Global Actions come only from a summary read over the current connection: when the
  * automatic reconnect or the return to the foreground starts recovering a computer, its cached Global Actions and
- * capability go before the computer answers again, while its sessions and project actions stay on screen.
+ * capability go before the computer answers again, while its sessions and project actions stay on screen. A list
+ * read already under way then is not applied; the recovery ends with its own read.
  */
 
 import { AppState } from 'react-native';
 
 import { parseMobileSummary } from '../contract/mobileSummary';
-import { fetchInventory } from '../inventory/client';
+import { fetchInventory, type InventoryFetchResult } from '../inventory/client';
 import { useInventoryStore } from '../inventory/store';
 import type { MachineRecord } from '../machines/store';
 import { ensureConnected } from '../remote/connection';
@@ -147,4 +148,30 @@ test('returning to the foreground drops the cached Global Actions while the conn
     await finishReconnect();
   }
   expect(current()?.summary?.globalQuickActions.map((action) => action.commandId)).toEqual(['g1']);
+});
+
+test('a list read that started before the connection check does not bring the Global Actions back', async () => {
+  const finishReconnect = await loadedWithPendingReconnect();
+  const olderRead = Promise.withResolvers<InventoryFetchResult>();
+  fetchMock.mockReturnValueOnce(olderRead.promise);
+  const pendingOlderRead = useInventoryStore.getState().refreshMachine(machine);
+  // The read after the check finds a different Global Action, so the end state shows which answer was applied.
+  const recoveredWire = WIRE.replace('"g1"', '"g2"');
+  fetchMock.mockImplementation(async () => ({
+    summary: parseMobileSummary(recoveredWire)!,
+    fingerprint: recoveredWire,
+  }));
+  try {
+    recoverConnections();
+    // The older read answers while the check is still running, with the Global Actions it read before.
+    olderRead.resolve({ summary: parseMobileSummary(WIRE)!, fingerprint: WIRE });
+    await pendingOlderRead;
+    expectGlobalsDroppedOnly();
+  } finally {
+    await finishReconnect();
+  }
+  // The recovery ends with its own read over the checked connection.
+  expect(fetchMock).toHaveBeenCalledTimes(3);
+  expect(current()?.summary?.globalQuickActionsSupported).toBe(true);
+  expect(current()?.summary?.globalQuickActions.map((action) => action.commandId)).toEqual(['g2']);
 });
