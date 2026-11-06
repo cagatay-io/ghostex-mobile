@@ -39,6 +39,7 @@ import TerminalScreen from './TerminalScreen';
 import { keyboardFixture } from '../components/common/keyboard/keyboardEventFixtures';
 import { useKeyboardFrame } from '../components/common/keyboard/keyboardFrame';
 import VerticalBarArea from '../components/common/verticalBar/VerticalBarArea';
+import { isReduceMotionOn, useReduceMotion } from '../components/common/reduceMotion';
 
 const mockScrollToBottom = jest.fn((_sessionKey: string) => Promise.resolve());
 let mockScreenFocused = true;
@@ -638,6 +639,28 @@ describe('the chat box keeps the bottom spacer it had outside the iPhone Duo (de
 });
 
 describe('Reduce Motion', () => {
+  test('a live change wins over a pending initial read, and unmount invalidates the next read', async () => {
+    const { promise: first, resolve: resolveFirst } = Promise.withResolvers<boolean>();
+    const { promise: second, resolve: resolveSecond } = Promise.withResolvers<boolean>();
+    jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled')
+      .mockReturnValueOnce(first)
+      .mockReturnValueOnce(second);
+
+    const mounted = await renderHook(() => useReduceMotion());
+    await act(() => reduceMotion.listeners.forEach((listener) => listener(true)));
+    expect(mounted.result.current).toBe(true);
+    await act(async () => { resolveFirst(false); await first; });
+    expect(mounted.result.current).toBe(true);
+    await mounted.unmount();
+
+    const remounted = await renderHook(() => useReduceMotion());
+    expect(remounted.result.current).toBe(true);
+    await remounted.unmount();
+    await act(async () => { resolveSecond(false); await second; });
+    expect(isReduceMotionOn()).toBe(true);
+    expect(reduceMotion.unsubscribed).toHaveBeenCalledTimes(2);
+  });
+
   test('with Reduce Motion on no animation is requested and every end position is the same', async () => {
     reduceMotion.enabled = true;
     await renderScreen();

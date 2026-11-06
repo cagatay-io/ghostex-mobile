@@ -13,7 +13,7 @@ import { AccessibilityInfo, type EmitterSubscription } from 'react-native';
 let value = false;
 const listeners = new Set<() => void>();
 let following: EmitterSubscription | null = null;
-/** Invalidates a read that is still pending when following stops. */
+/** Invalidates a pending initial read when following stops or a newer change event arrives. */
 let generation = 0;
 
 function set(next: boolean): void {
@@ -24,10 +24,13 @@ function set(next: boolean): void {
 
 function startFollowing(): void {
   const mine = ++generation;
+  following = AccessibilityInfo.addEventListener('reduceMotionChanged', (enabled) => {
+    generation += 1;
+    set(enabled);
+  });
   void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
     if (mine === generation) set(enabled);
   });
-  following = AccessibilityInfo.addEventListener('reduceMotionChanged', set);
 }
 
 function stopFollowing(): void {
