@@ -6,8 +6,9 @@
  * debug row's text); the terminal's cover, keyboard up or not; the pad's room in the upper half above
  * the fold, covered only by the text editor, and reaching below the fold where the upper half is too short for the
  * open pad even over the header; the editor above the fold; a layer below it; sheets, centred cards and a
- * web page and lists off the fold (they end above it). Frames: the iPhone
- * Duo's inner display in the laptop pose as the simulator reports it, window 669 x 951 pt, division
+ * web page off the fold (the page ends above it); a list running across the fold, its copy below the band continuing
+ * where the list ends above it, the band not counted (no copy for short content or with the keyboard up). Frames: the
+ * iPhone Duo's inner display in the laptop pose as the simulator reports it, window 669 x 951 pt, division
  * `[0, 455.5, 669, 40]` active when half folded, home indicator inset 20; the keyboard's top at 555 is assumed.
  */
 
@@ -16,7 +17,11 @@ import { describe, test } from 'node:test';
 
 import {
   foldCardRegion,
+  foldCopyOffset,
   foldDivisionsSummary,
+  foldListAcross,
+  foldListInsets,
+  foldListOffset,
   foldSheetMaxHeight,
   foldUpperHalfInset,
   laptopCoverTop,
@@ -219,5 +224,55 @@ describe('sheets and centred cards off the fold', () => {
     const window = { height: WINDOW.height, topInset: 80 };
     assert.equal(foldCardRegion(FOLD, window, 447.5 - 88, false, true)?.above, true);
     assert.equal(foldCardRegion(FOLD, window, 150, false, true)?.above, false);
+  });
+});
+
+describe('a list running across the fold', () => {
+  // A list's frame from below the header to above the home indicator: upper window 100-455.5, band 455.5-495.5,
+  // lower window 495.5-931.
+  const FRAME = { top: 100, bottom: 931 };
+  const UPPER = FOLD.top - FRAME.top;
+  const LOWER = FRAME.bottom - FOLD.bottom;
+  const CONTENT = 2000;
+  const across = foldListAcross(FOLD, FRAME, CONTENT, null);
+
+  test('the frame splits at the band: the list above it, its copy below it', () => {
+    assert.deepEqual(across, { upper: UPPER, band: FOLD.bottom - FOLD.top, lower: LOWER });
+  });
+
+  test('the band is not counted: the scroll range is the content less both windows, and at its end the copy shows the last point', () => {
+    assert.ok(across !== null);
+    const insets = foldListInsets(across);
+    // iOS: the farthest offset is the content height plus the bottom inset less the visible height.
+    const range = CONTENT + insets.list.bottom - across.upper;
+    assert.equal(range, CONTENT - UPPER - LOWER);
+    assert.equal(foldCopyOffset(range, across) + across.lower, CONTENT);
+    // The copy's top inset keeps it from scrolling above the point where the upper window ends.
+    assert.equal(-insets.copy.top, foldCopyOffset(0, across));
+  });
+
+  test('the copy continues where the upper window ends, with no gap and no overlap, and back again', () => {
+    assert.ok(across !== null);
+    for (const offset of [0, 1, 300, CONTENT - UPPER - LOWER]) {
+      // What the upper window shows last is what the lower window shows first.
+      assert.equal(foldCopyOffset(offset, across), offset + UPPER);
+      // A drag on the copy moves the list to the matching offset.
+      assert.equal(foldListOffset(foldCopyOffset(offset, across), across), offset);
+    }
+    assert.equal(foldListOffset(900, across), 900 - UPPER);
+  });
+
+  test('no copy for content that fits above the fold, while the keyboard is up, or outside the laptop pose', () => {
+    const fits = FOLD.top - 8 - FRAME.top;
+    assert.equal(foldListAcross(FOLD, FRAME, fits, null), null);
+    assert.notEqual(foldListAcross(FOLD, FRAME, fits + 1, null), null);
+    assert.equal(foldListAcross(FOLD, FRAME, CONTENT, KEYBOARD_TOP), null);
+    assert.equal(foldListAcross(null, FRAME, CONTENT, null), null);
+    assert.equal(foldListAcross(FOLD, FRAME, null, null), null);
+  });
+
+  test("no copy for a frame that starts below the fold's top or ends above its bottom", () => {
+    assert.equal(foldListAcross(FOLD, { top: FOLD.top, bottom: 931 }, CONTENT, null), null);
+    assert.equal(foldListAcross(FOLD, { top: 100, bottom: FOLD.bottom }, CONTENT, null), null);
   });
 });

@@ -368,6 +368,51 @@ export function foldUpperHalfInset(fold: LaptopFold | null, areaBottom: number):
   return fold === null ? 0 : Math.max(0, areaBottom - (fold.top - FOLD_CLEARANCE));
 }
 
+/**
+ * A list running across the fold in the laptop pose (`FoldListFrame`): the list's frame split at the fold's band into
+ * an upper window (the list itself) and a lower window (a copy of it that follows), heights in points. The band
+ * between them shows nothing and adds no scroll distance: content that leaves the upper window at the band's top
+ * appears at once at the lower window's top.
+ */
+export type FoldListAcross = { readonly upper: number; readonly band: number; readonly lower: number };
+
+/**
+ * Whether and how a list whose frame stands at `frame` (window points) runs across the fold: null outside the laptop
+ * pose, while the keyboard is up (`keyboardTop`, null while it is down; it lies in the lower half), for a frame that
+ * does not reach from above the fold's top to below its bottom, while the content's height is not known yet, and for
+ * content that fits above the fold (it needs no scroll and stays as it is, ending `FOLD_CLEARANCE` above the fold).
+ */
+export function foldListAcross(
+  fold: LaptopFold | null,
+  frame: { top: number; bottom: number } | null,
+  contentHeight: number | null,
+  keyboardTop: number | null,
+): FoldListAcross | null {
+  if (fold === null || frame === null || contentHeight === null || keyboardTop !== null) return null;
+  if (frame.top >= fold.top || frame.bottom <= fold.bottom) return null;
+  if (contentHeight <= fold.top - FOLD_CLEARANCE - frame.top) return null;
+  return { upper: fold.top - frame.top, band: fold.bottom - fold.top, lower: frame.bottom - fold.bottom };
+}
+
+/**
+ * The content insets of a list running across the fold: the list's own bottom inset takes the lower window's height
+ * off its scroll range (content length less both windows, the band not counted), and the copy's top inset starts it
+ * where the upper window ends, so it cannot scroll above that.
+ */
+export function foldListInsets(across: FoldListAcross): { list: { bottom: number }; copy: { top: number } } {
+  return { list: { bottom: -across.lower }, copy: { top: -across.upper } };
+}
+
+/** The copy's scroll offset for the list's: the lower window shows what follows the upper window's last point. */
+export function foldCopyOffset(listOffset: number, across: FoldListAcross): number {
+  return listOffset + across.upper;
+}
+
+/** The list's scroll offset for the copy's (a drag in the lower window), the inverse of `foldCopyOffset`. */
+export function foldListOffset(copyOffset: number, across: FoldListAcross): number {
+  return copyOffset - across.upper;
+}
+
 export type CardRegion = { readonly top: number; readonly bottom: number; readonly above: boolean };
 
 /**

@@ -1,7 +1,9 @@
 /**
  * The Sessions screen's list: the Unified list when the computer's sidebar setting asks for it, else the classic
  * project list. A switch between them mounts the other list, as it always has (each has its own key). Half folded
- * like a laptop either list ends above the fold (`components/common/foldGap.tsx`).
+ * like a laptop (`components/common/foldGap.tsx`) the classic list runs across the fold, its rows continuing below
+ * the fold's band; the Unified list ends above the fold, because each of its cards keeps its own swipe-open state,
+ * which the copy below the band would keep separately.
  */
 
 import type { ReactElement } from 'react';
@@ -19,7 +21,7 @@ export function SessionList<U, C>({
   classic: FlatListProps<C>;
 }): ReactElement {
   return (
-    <FoldListFrame fold={useLaptopFold()}>
+    <FoldListFrame fold={useLaptopFold()} endAboveFold={unified !== null}>
       {unified !== null ? <FlatList key="unified" {...unified} /> : <FlatList key="classic" {...classic} />}
     </FoldListFrame>
   );

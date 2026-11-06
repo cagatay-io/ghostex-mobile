@@ -1,22 +1,27 @@
 /// <reference types="jest" />
 /**
  * Run with `bun run test:jest`. Nothing on the fold in lists (the designs: "half folded, nothing on the fold in
- * lists"; the laptop pose only, the book pose has no layout of its own): in the laptop pose a list's scroll view ends
- * above the fold, so no row is drawn on it, at rest or scrolled; flat and in the book pose nothing changes. Real lists
- * under the real `VerticalBarArea`: a Settings page (`SettingsPageScrollView` with its shared row controls), the
- * Sessions screen's classic list (`DrawerBlockView` project cards) and Unified list (`useUnifiedList`'s cards) in the
- * screen's own `SessionList`, the switch between the two, and the work-link picker's list. The list's frame comes
- * from the jest preset's `measureInWindow`: the whole 669 x 951 window of the iPhone Duo in the laptop pose, whose
- * fold's band is 455.5-495.5. Expected: the scroll view's visible part ends 8 pt above the fold's top (447.5), before
- * and after a scroll.
+ * lists"; the laptop pose only, the book pose has no layout of its own), in the two ways the laptop-pose decision for
+ * lists sets: a list whose rows take their state from the screen or a store runs across the fold (the Sessions
+ * screen's classic list, the work-link picker): the list ends at the fold's top and a copy of it, hidden from
+ * accessibility, fills the frame from the fold's bottom, continuing where the list ends (the band not counted), and a
+ * drag on either moves the other; a Settings page and the Unified list (its cards keep their swipe state) end 8 pt
+ * above the fold's top (447.5) with no copy, as a running list does while the keyboard is up or while its content
+ * fits above the fold. Flat and in the book pose nothing changes. Real lists under the real `VerticalBarArea`: a
+ * Settings page (`SettingsPageScrollView` with its shared row controls), the Sessions screen's classic list
+ * (`DrawerBlockView` project cards) and Unified list (`useUnifiedList`'s cards) in the screen's own `SessionList`, the
+ * switch between the two, and the work-link picker's list. The list's frame comes from the jest preset's
+ * `measureInWindow`: the whole 669 x 951 window of the iPhone Duo in the laptop pose, whose fold's band is
+ * 455.5-495.5; the content height and the scrolls are the platform's events, fired here.
  *
  * Not reached here: the rest of `SessionsScreen` (the screen needs a computer's inventory to render; its list is
- * `SessionList`, rendered here), the scroll view's clipping of its rows (the platform's) and the device's real frames.
+ * `SessionList`, rendered here), the scroll views' clipping and their native scrolling (the jest preset's scroll view
+ * records `scrollTo` and moves nothing), and the device's real frames.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState, type ReactNode } from 'react';
-import { Dimensions, ScrollView, StyleSheet, Text } from 'react-native';
+import { Dimensions, RefreshControl, ScrollView, StyleSheet, Text, TextInput } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import type { TestInstance } from 'test-renderer';
 
@@ -32,6 +37,7 @@ import { SessionList } from '../../screens/sessions-screen/session-list';
 import { useUnifiedList } from '../../screens/sessions-screen/use-unified-list';
 import { Caption, SettingsPageScrollView } from '../../screens/settings/SettingsControls';
 import { FoldListFrame } from './foldGap';
+import { keyboardFixture } from './keyboard/keyboardEventFixtures';
 import { useBarGeometryStore } from './verticalBar/barGeometry';
 import VerticalBarArea from './verticalBar/VerticalBarArea';
 
@@ -80,6 +86,11 @@ const FOLD = { top: 455.5, bottom: 495.5 };
 const ABOVE_FOLD = FOLD.top - 8;
 /** The window frame `measureInWindow` answers: the whole window unless a test moves it. */
 let listFrame = { top: 0, height: PORTRAIT.height };
+/** The scroll command the jest preset's scroll view records (one function for every scroll view; `this` tells which). */
+const nativeScrollTo = jest.mocked(ScrollView.prototype.scrollTo);
+const keyboard = keyboardFixture(PORTRAIT);
+/** The keyboard's top in the laptop pose: in the lower half. */
+const KEYBOARD_TOP = 600;
 
 function barLayout(division: FoldDivision, window: { width: number; height: number }): BarLayout {
   return {
@@ -142,23 +153,79 @@ function visibleBottom(text: string): number {
   return listFrame.top + listFrame.height - (typeof padding === 'number' ? padding : 0);
 }
 
-/** The list's scroll view reports a scroll to `y`. */
-async function scrollTo(text: string, y: number): Promise<void> {
-  await fireEvent.scroll(scrollViewOf(text), {
+/** A scroll event at offset `y`; `target`: where a drag that ends there will come to rest. */
+function scrollEvent(y: number, target?: number) {
+  return {
     nativeEvent: {
       contentOffset: { x: 0, y },
       contentSize: { width: 640, height: 1600 },
       layoutMeasurement: { width: 640, height: ABOVE_FOLD },
+      ...(target === undefined ? {} : { targetContentOffset: { x: 0, y: target } }),
     },
-  });
+  };
+}
+
+/** The list's scroll view reports a scroll to `y`. */
+async function scrollTo(text: string, y: number): Promise<void> {
+  await fireEvent.scroll(scrollViewOf(text), scrollEvent(y));
   await advance();
 }
 
-/** In the laptop pose, at rest and scrolled: the list ends above the fold, so no row is drawn on it. */
+/** The list holding `text` reports its content's height, as the platform does once its rows are laid out. */
+async function reportContent(text: string, height = 1600): Promise<void> {
+  await fireEvent(scrollViewOf(text), 'contentSizeChange', 640, height);
+  await advance();
+}
+
+/** The scroll view of the list's copy below the fold's band (hidden from accessibility), or null without a copy. */
+function copyOf(text: string): TestInstance | null {
+  const list = scrollViewOf(text);
+  for (const row of screen.queryAllByText(text, { includeHiddenElements: true })) {
+    let node: TestInstance | null = row;
+    while (node !== null && node.type !== 'RCTScrollView') node = node.parent;
+    if (node !== null && node !== list) return node;
+  }
+  return null;
+}
+
+/** The window band the copy's scroll view fills: from its place's top in the list's frame, as tall as that place. */
+function copyWindow(copy: TestInstance): { top: number; bottom: number } {
+  const place = StyleSheet.flatten(copy.parent?.props.style);
+  const top = listFrame.top + Number(place?.top);
+  return { top, bottom: top + Number(place?.height) };
+}
+
+/** In the laptop pose, at rest and scrolled: the list ends above the fold, with no copy, so no row is drawn on it. */
 async function expectEndsAboveFold(text: string): Promise<void> {
+  await reportContent(text);
+  expect(copyOf(text)).toBeNull();
   expect(visibleBottom(text)).toBe(ABOVE_FOLD);
   await scrollTo(text, 300);
   expect(visibleBottom(text)).toBe(ABOVE_FOLD);
+  expect(copyOf(text)).toBeNull();
+}
+
+/**
+ * In the laptop pose, at rest and scrolled: the list ends at the fold's top and its copy fills the frame from the
+ * fold's bottom, at the offset where the list's upper part ends, so its rows continue below the band and none is
+ * drawn on it; the band adds no scroll distance (the list's range loses the lower part's height, nothing more).
+ */
+async function expectRunsAcross(text: string): Promise<void> {
+  const frameBottom = listFrame.top + listFrame.height;
+  const upper = FOLD.top - listFrame.top;
+  await reportContent(text);
+  expect(visibleBottom(text)).toBe(FOLD.top);
+  const copy = copyOf(text);
+  if (copy === null) throw new Error(`${text}: no copy below the fold`);
+  expect(copyWindow(copy)).toEqual({ top: FOLD.bottom, bottom: frameBottom });
+  expect(scrollViewOf(text).props.contentInset).toEqual({ top: 0, bottom: -(frameBottom - FOLD.bottom) });
+  expect(copy.props.contentInset).toEqual({ top: -upper, bottom: 0 });
+  // The copy starts where the list's upper part ends, and follows the list's scroll.
+  expect(nativeScrollTo).toHaveBeenLastCalledWith({ animated: false, y: upper });
+  await scrollTo(text, 300);
+  expect(nativeScrollTo).toHaveBeenLastCalledWith({ animated: false, y: 300 + upper });
+  expect(visibleBottom(text)).toBe(FOLD.top);
+  expect(copyWindow(copy)).toEqual({ top: FOLD.bottom, bottom: frameBottom });
 }
 
 const OTHER_POSES: [string, FoldDivision, { width: number; height: number }][] = [
@@ -172,12 +239,16 @@ beforeEach(async () => {
   mockNativeMethods.measureInWindow.mockImplementation((onFrame: (...frame: number[]) => void) =>
     onFrame(0, listFrame.top, PORTRAIT.width, listFrame.height),
   );
+  nativeScrollTo.mockClear();
+  keyboard.setScreen(PORTRAIT.width, PORTRAIT.height);
+  await act(() => keyboard.hide(0));
   await AsyncStorage.clear();
   useBarGeometryStore.setState({ hydrated: false, keyboardHeights: {}, layouts: {} });
   await useBarGeometryStore.getState().hydrate();
 });
 
-afterEach(() => {
+afterEach(async () => {
+  await act(() => keyboard.hide(0));
   mockNativeMethods.measureInWindow.mockReset();
   jest.useRealTimers();
 });
@@ -279,19 +350,137 @@ describe("the Sessions screen's classic list (DrawerBlockView blocks in SessionL
             actions={noAction}
           />
         ),
+        // As the screen's list has them: pull to refresh, and a header (the screen's is the folded triage).
+        refreshControl: <RefreshControl refreshing={false} onRefresh={() => undefined} />,
+        ListHeaderComponent: <TextInput accessibilityLabel="Filter projects" />,
       }}
     />
   );
 
-  test('laptop pose: the list ends above the fold, also scrolled', async () => {
+  test('laptop pose: the list runs across the fold, its rows continuing below the band and none on it, also scrolled', async () => {
     await renderIn(classic);
-    await expectEndsAboveFold('Project 0');
+    await expectRunsAcross('Project 0');
+    // The copy draws the same rows below the band.
+    expect(screen.getAllByText('Project 5', { includeHiddenElements: true })).toHaveLength(2);
   });
 
-  test.each(OTHER_POSES)('%s: the list keeps its whole frame', async (_pose, division, window) => {
+  test('laptop pose: the copy is hidden from accessibility, so each row is there once for VoiceOver', async () => {
+    await renderIn(classic);
+    await reportContent('Project 0');
+    const copy = copyOf('Project 0');
+    expect(copy?.parent?.props).toMatchObject({
+      accessibilityElementsHidden: true,
+      importantForAccessibility: 'no-hide-descendants',
+    });
+    for (const title of ['Project 0', 'Project 5']) expect(screen.getAllByText(title)).toHaveLength(1);
+    expect(screen.getAllByLabelText('Filter projects')).toHaveLength(1);
+  });
+
+  test("laptop pose: the copy has no pull to refresh, and its list header takes no touches (the list's does)", async () => {
+    await renderIn(classic);
+    await reportContent('Project 0');
+    const copy = copyOf('Project 0');
+    expect(scrollViewOf('Project 0').props.refreshControl).toBeDefined();
+    expect(copy?.props.refreshControl).toBeUndefined();
+    /** The nearest view up to the scroll view that takes no touches, or null. */
+    const untouchable = (field: TestInstance | undefined): TestInstance | null => {
+      let node: TestInstance | null = field ?? null;
+      while (node !== null && node.type !== 'RCTScrollView') {
+        if (StyleSheet.flatten(node.props.style)?.pointerEvents === 'none') return node;
+        node = node.parent;
+      }
+      return null;
+    };
+    const shown = screen.getByLabelText('Filter projects');
+    const fields = screen.getAllByLabelText('Filter projects', { includeHiddenElements: true });
+    expect(fields).toHaveLength(2);
+    expect(untouchable(shown)).toBeNull();
+    expect(untouchable(fields.find((field) => field !== shown))).not.toBeNull();
+  });
+
+  test('laptop pose: a drag on either part moves the other, and the follower sends nothing back', async () => {
+    await renderIn(classic);
+    await reportContent('Project 0');
+    const upper = FOLD.top - listFrame.top;
+    const copy = copyOf('Project 0');
+    if (copy === null) throw new Error('no copy below the fold');
+    // The list scrolls: the copy follows to the matching offset.
+    nativeScrollTo.mockClear();
+    await scrollTo('Project 0', 300);
+    expect(nativeScrollTo.mock.calls).toEqual([[{ animated: false, y: 300 + upper }]]);
+    const copyInstance = nativeScrollTo.mock.contexts[0];
+    // The user drags the copy: the list follows to the matching offset, and the list's own report of that scroll
+    // moves the copy no further.
+    nativeScrollTo.mockClear();
+    await fireEvent(copy, 'scrollBeginDrag', scrollEvent(300 + upper));
+    await fireEvent.scroll(copy, scrollEvent(900));
+    await advance();
+    expect(nativeScrollTo.mock.calls).toEqual([[{ animated: false, y: 900 - upper }]]);
+    expect(nativeScrollTo.mock.contexts[0]).not.toBe(copyInstance);
+    nativeScrollTo.mockClear();
+    await scrollTo('Project 0', 900 - upper);
+    expect(nativeScrollTo).not.toHaveBeenCalled();
+    // The drag ends where it rests: the list leads again, and the copy's own reports move the list no further.
+    await fireEvent(copy, 'scrollEndDrag', scrollEvent(900, 900));
+    await fireEvent.scroll(copy, scrollEvent(900));
+    await advance();
+    expect(nativeScrollTo).not.toHaveBeenCalled();
+    await scrollTo('Project 0', 500);
+    expect(nativeScrollTo.mock.calls).toEqual([[{ animated: false, y: 500 + upper }]]);
+    expect(nativeScrollTo.mock.contexts[0]).toBe(copyInstance);
+  });
+
+  test('laptop pose: a fling of the copy leads until its motion ends', async () => {
+    await renderIn(classic);
+    await reportContent('Project 0');
+    const upper = FOLD.top - listFrame.top;
+    const copy = copyOf('Project 0');
+    if (copy === null) throw new Error('no copy below the fold');
+    await fireEvent(copy, 'scrollBeginDrag', scrollEvent(upper));
+    // Released moving: it will come to rest further on.
+    await fireEvent(copy, 'scrollEndDrag', scrollEvent(700, 1100));
+    nativeScrollTo.mockClear();
+    await fireEvent.scroll(copy, scrollEvent(1000));
+    await advance();
+    expect(nativeScrollTo.mock.calls).toEqual([[{ animated: false, y: 1000 - upper }]]);
+    await fireEvent(copy, 'momentumScrollEnd', scrollEvent(1100));
+    nativeScrollTo.mockClear();
+    await scrollTo('Project 0', 400);
+    expect(nativeScrollTo.mock.calls).toEqual([[{ animated: false, y: 400 + upper }]]);
+  });
+
+  test('laptop pose with the keyboard up (it lies in the lower half): the list ends above the fold, without a copy', async () => {
+    await renderIn(classic);
+    await reportContent('Project 0');
+    expect(copyOf('Project 0')).not.toBeNull();
+    await act(() => keyboard.show(KEYBOARD_TOP, PORTRAIT.height - KEYBOARD_TOP));
+    await advance();
+    expect(copyOf('Project 0')).toBeNull();
+    expect(visibleBottom('Project 0')).toBe(ABOVE_FOLD);
+    await scrollTo('Project 0', 300);
+    expect(copyOf('Project 0')).toBeNull();
+    // The keyboard goes: the copy comes back, in step with the list's offset.
+    nativeScrollTo.mockClear();
+    await act(() => keyboard.hide(0));
+    await advance();
+    expect(copyOf('Project 0')).not.toBeNull();
+    expect(visibleBottom('Project 0')).toBe(FOLD.top);
+    expect(nativeScrollTo).toHaveBeenLastCalledWith({ animated: false, y: 300 + FOLD.top - listFrame.top });
+  });
+
+  test('laptop pose: content that fits above the fold has no copy and ends above it', async () => {
+    await renderIn(classic);
+    await reportContent('Project 0', ABOVE_FOLD - listFrame.top);
+    expect(copyOf('Project 0')).toBeNull();
+    expect(visibleBottom('Project 0')).toBe(ABOVE_FOLD);
+  });
+
+  test.each(OTHER_POSES)('%s: the list keeps its whole frame, without a copy', async (_pose, division, window) => {
     listFrame = { top: 0, height: window.height };
     await renderIn(classic, division, window);
+    await reportContent('Project 0');
     expect(visibleBottom('Project 0')).toBe(window.height);
+    expect(copyOf('Project 0')).toBeNull();
   });
 });
 
@@ -366,7 +555,7 @@ describe("the Unified sessions list (useUnifiedList cards in the screen's Sessio
     );
   }
 
-  test('laptop pose: the list ends above the fold, also scrolled', async () => {
+  test('laptop pose: the list ends above the fold with no copy below it (its cards keep their swipe state), also scrolled', async () => {
     await renderIn(<UnifiedList />);
     await expectEndsAboveFold('Session 0');
   });
@@ -420,13 +609,13 @@ describe("switching between the classic and the Unified list (the screen's Sessi
     expect(lists).toEqual({ mounted: 3, unmounted: 2 });
   });
 
-  test('laptop pose: after scrolling, the list switched to and the list switched back to each end above the fold', async () => {
+  test('laptop pose: after scrolling, the classic list runs across the fold, the Unified list switched to ends above it, and the classic list switched back runs across again from its top', async () => {
     await renderIn(<SwitchingList />);
-    await expectEndsAboveFold('Project 0');
+    await expectRunsAcross('Project 0');
     await switchTo(true);
     await expectEndsAboveFold('Card 0');
     await switchTo(false);
-    await expectEndsAboveFold('Project 0');
+    await expectRunsAcross('Project 0');
   });
 });
 
@@ -448,12 +637,12 @@ describe('the work-link picker (a full-screen view with a list)', () => {
     />
   );
 
-  test('laptop pose: the candidate list ends above the fold, also scrolled', async () => {
+  test('laptop pose: the candidate list runs across the fold, also scrolled', async () => {
     // Below the picker's header and search field.
     listFrame = { top: 150, height: PORTRAIT.height - 170 };
     await renderIn(picker);
     await advance();
-    await expectEndsAboveFold('#100');
+    await expectRunsAcross('#100');
   });
 
   test('flat: the candidate list keeps its whole frame', async () => {

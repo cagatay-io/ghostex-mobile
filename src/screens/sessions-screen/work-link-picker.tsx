@@ -13,8 +13,8 @@
  *
  * SEE-ALSO: apps/desktop/src/app/window/work_link_picker_modal.rs (the desktop's picker).
  *
- * Half folded like a laptop the list ends above the fold, as the app's lists do (`components/common/foldGap.tsx`);
- * the header and the search field stand above it.
+ * Half folded like a laptop the list runs across the fold, its rows continuing below the fold's band (rows take their
+ * ticks from the picker's state; `components/common/foldGap.tsx`); the header and the search field stand above it.
  */
 
 import { useEffect, useRef, useState } from 'react';
