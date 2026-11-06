@@ -10,6 +10,9 @@
  * CDXC:RemoteMachines 2026-10-16 DECISION:
  * User picked: PDFs on the phone "download through the computer's gxserver and open in the phone's own PDF viewer (Android intent; iOS share/QuickLook if the phone app supports iOS)", and Excalidraw drawings "open the computer's drawing page in the phone's web preview through the gxserver connection", instead of copying the path. On iOS the PDF opens in the Web preview because WebKit renders PDFs natively, which needs no new native module (a share sheet or QuickLook would).
  * SEE-ALSO: src/docs/mediaStream.ts (the file link), server/src/file_links/ (what it serves).
+ *
+ * CDXC:SessionChat 2026-11-06 SEE-ALSO:
+ * An HTML file that declares itself a Ghostex page opens as its page with the page kit, in the chat's page sheet when a chat opened it (else the Web preview), not in the file viewer as plain HTML; the user's decision is on server/src/visual_pages/file_page.rs.
  */
 
 import * as Clipboard from 'expo-clipboard';
@@ -21,8 +24,8 @@ import { Platform } from 'react-native';
 import { DocsCopy } from '../copy';
 import { useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
-import { gxserverComputerPort } from '../webPreview/machineLinks';
-import { computerFileLinkPath, computerFileUrl, viewerProject } from './mediaStream';
+import { gxserverComputerPort, type ComputerAddress } from '../webPreview/machineLinks';
+import { computerFileLinkPath, computerPagePath, computerFileUrl, viewerProject } from './mediaStream';
 import { baseName, extensionOf, normalizeRemotePath, previewKindForPath } from './paths';
 
 /** `Intent.FLAG_GRANT_READ_URI_PERMISSION`: lets the PDF app read the content URI. */
@@ -52,6 +55,8 @@ export type OpenComputerFileOptions = {
   fragment?: string;
   /** Shows a short message: progress, a copied path, or a failure (`error`). */
   notify: (message: string, error: boolean, title?: string) => void;
+  /** Opens a Ghostex page in the chat's page sheet; without it the page opens in the Web preview. */
+  openPage?: (address: ComputerAddress) => void;
 };
 
 /** Opens `path` (absolute on the computer) as the header comment describes. */
@@ -63,23 +68,44 @@ export function openComputerFile(
 ): void {
   const target = normalizeRemotePath(path);
   const projectId = options.projectId !== undefined && options.projectId.length > 0 ? options.projectId : undefined;
-  if (previewKindForPath(target) !== null) {
+  const machine = useMachinesStore.getState().machines.find((candidate) => candidate.id === machineId);
+  const openInViewer = (): void => {
     navigation.push('DocViewer', {
       machineId,
       path: target,
       ...(options.fragment !== undefined ? { fragment: options.fragment } : {}),
       ...(projectId !== undefined ? { projectId } : {}),
     });
+  };
+  const project = viewerProject(machineId, projectId);
+  if (previewKindForPath(target) === 'html' && machine !== undefined && project !== null) {
+    void (async () => {
+      const [pagePath, remotePort] = await Promise.all([
+        computerPagePath(machine, target, project),
+        gxserverComputerPort(machine),
+      ]);
+      if (pagePath === null) return false;
+      const address: ComputerAddress = { scheme: 'http', remotePort, host: '127.0.0.1', path: pagePath };
+      if (options.openPage !== undefined) options.openPage(address);
+      else navigation.navigate('WebPreview', { machineId, ...address });
+      return true;
+    })()
+      .catch(() => false)
+      .then((opened) => {
+        if (!opened) openInViewer();
+      });
+    return;
+  }
+  if (previewKindForPath(target) !== null) {
+    openInViewer();
     return;
   }
   const opener = openerForPath(target);
-  const machine = useMachinesStore.getState().machines.find((candidate) => candidate.id === machineId);
   if (opener === null || machine === undefined) {
     void Clipboard.setStringAsync(target);
     options.notify(DocsCopy.pathCopiedNote(target), false, DocsCopy.cantPreview);
     return;
   }
-  const project = viewerProject(machineId, projectId);
   const opened =
     opener === 'pdf' && Platform.OS === 'android'
       ? (async () => {

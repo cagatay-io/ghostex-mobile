@@ -37,6 +37,7 @@ import { useScrollToBarEdges } from '../components/common/verticalBar/VerticalBa
 import { RefreshIcon } from '../components/terminal/icons';
 import { DocsCopy } from '../copy';
 import { listProjectDocs, resolveDocsEntryPath } from '../docs/client';
+import { openComputerFile } from '../docs/openComputerFile';
 import {
   buildDocsTree,
   flattenDocsFiles,
@@ -195,7 +196,15 @@ export default function DocsScreen({ navigation, route }: Props) {
       if (target === undefined || opening !== null) return;
       setOpening(file.path);
       resolveDocsEntryPath(target, projectId, projectPath, file.path)
-        .then((path) => navigation.push('DocViewer', { machineId, path, projectId }))
+        // A Ghostex page file opens as its page (`openComputerFile`), anything else in the viewer.
+        .then((path) =>
+          openComputerFile(navigation, machineId, path, {
+            projectId,
+            notify: (message, failed) => {
+              if (failed) setError(message);
+            },
+          }),
+        )
         .catch((failure: unknown) => setError(failure instanceof Error ? failure.message : String(failure)))
         .finally(() => setOpening(null));
     },

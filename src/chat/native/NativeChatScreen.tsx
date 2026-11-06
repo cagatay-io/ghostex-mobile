@@ -492,7 +492,7 @@ function useChatViewRequests(
                 show(DocsCopy.pathCopiedNote(request.target.path), false, DocsCopy.cantPreview);
                 return;
               }
-              openComputerFile(navigation, machineId, path, { projectId, notify: show });
+              openComputerFile(navigation, machineId, path, { projectId, notify: show, openPage: onOpenPage });
             }
             return;
           case 'markdownSaved':

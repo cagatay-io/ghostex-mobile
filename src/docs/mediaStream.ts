@@ -94,3 +94,30 @@ export async function computerFileUrl(
   const linkPath = await computerFileLinkPath(machine, remotePath, project);
   return `${await gxserverPhoneOrigin(machine)}${linkPath}`;
 }
+
+/**
+ * The gxserver path of the Ghostex page an HTML file declares itself to be
+ * (`<meta name="ghostex-page" content="v2">`): the page served with the page kit, as `ghostex show`
+ * publishes it (`openPage`, server/src/visual_pages/file_page.rs). Null for any other HTML file, for
+ * a viewer opened without its project, and for a computer from before `openPage`: the file then opens
+ * as it is.
+ */
+export async function computerPagePath(
+  machine: MachineConnectionTarget,
+  remotePath: string,
+  project: ViewerProject | null,
+): Promise<string | null> {
+  if (project === null) return null;
+  const answer = await sessionChatRpc(machine, 'runProjectDocsAction', {
+    projectId: project.projectId,
+    action: 'openPage',
+    path: normalizeRemotePath(remotePath),
+    scope: 'project',
+    additionalDocsFolders: '',
+    requestId: `mobile-page-${Date.now()}`,
+  });
+  const page = ((answer.result ?? {}) as Record<string, unknown>).page;
+  if (page === null || typeof page !== 'object') return null;
+  const path = (page as Record<string, unknown>).path;
+  return typeof path === 'string' && path.startsWith('/visual/') ? path : null;
+}
