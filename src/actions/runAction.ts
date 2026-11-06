@@ -4,8 +4,8 @@
  * A browser action opens the URL the summary carries: a loopback address names a listener on the computer, so it
  * opens in the Web Preview, which forwards the port; every other address goes to the phone's browser. A terminal
  * action runs `ghostex run-action` in the project whose menu it was chosen from (with `--scope global` for a Global
- * Action), then the session it started opens once the list has been read again. A start the computer refuses shows
- * its message in the shared bottom notice.
+ * Action), then the session it started opens once the list has been read again. A start the computer refuses, or an
+ * address the phone cannot open (no app handles it), shows its message in the shared bottom notice.
  *
  * Global Actions run only while the computer's current summary offers them: the menu may have been opened from an
  * older summary, so this is checked at the tap.
@@ -58,7 +58,12 @@ export async function runQuickAction(host: QuickActionRunHost, run: QuickActionR
       host.openWebPreview(previewTarget);
       return;
     }
-    await host.openUrl(url).catch(() => undefined);
+    try {
+      await host.openUrl(url);
+    } catch (error) {
+      host.showStartFailure({ name, message: error instanceof Error ? error.message : String(error) });
+      return;
+    }
     host.showStatus(ProgressCopy.openedInBrowser(name));
     return;
   }

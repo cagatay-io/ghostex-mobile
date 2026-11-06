@@ -32,7 +32,10 @@ const exec = execRemoteCommand as jest.MockedFunction<typeof execRemoteCommand>;
 
 type Calls = string[];
 
-function host(calls: Calls, options: { globalSupported?: boolean; refresh?: () => Promise<void> } = {}) {
+function host(
+  calls: Calls,
+  options: { globalSupported?: boolean; refresh?: () => Promise<void>; openUrlError?: Error } = {},
+) {
   const machine = { id: 'm1', host: 'mac.local', username: 'me', port: 22 };
   const runHost: QuickActionRunHost = {
     machine,
@@ -49,6 +52,7 @@ function host(calls: Calls, options: { globalSupported?: boolean; refresh?: () =
     }),
     openUrl: jest.fn(async (url: string) => {
       calls.push(`browser ${url}`);
+      if (options.openUrlError !== undefined) throw options.openUrlError;
     }),
     setProgress: jest.fn((message: string | null) => {
       calls.push(`progress ${message ?? 'closed'}`);
@@ -250,6 +254,22 @@ describe('browser actions open the URL from the summary, without a command', () 
       };
       await runQuickAction(host(calls), run(entry));
       expect(calls).toEqual(['browser https://example.com/', 'status Opened Status Page in the browser.']);
+      expect(exec).not.toHaveBeenCalled();
+    });
+
+    test(`${scope}: an address no app on the phone opens reports a failed start, not the opened notice`, async () => {
+      const calls: Calls = [];
+      const entry: QuickActionEntry = {
+        scope,
+        action: { actionType: 'browser', commandId: 'g3', name: 'Saved App', url: 'missing-app-scheme://open' },
+      };
+      // What React Native's Linking.openURL rejects with on iOS when no installed app handles the scheme.
+      const openUrlError = new Error('Unable to open URL: missing-app-scheme://open');
+      await runQuickAction(host(calls, { openUrlError }), run(entry));
+      expect(calls).toEqual([
+        'browser missing-app-scheme://open',
+        'failed Saved App: Unable to open URL: missing-app-scheme://open',
+      ]);
       expect(exec).not.toHaveBeenCalled();
     });
 
