@@ -93,8 +93,10 @@ const FLAT_UPRIGHT: FoldDivision = { x: 0, y: 455.5, width: 669, height: 40, act
 const FLAT_TURNED: FoldDivision = { x: 455.5, y: 0, width: 40, height: 669, active: false };
 /** Half folded like a laptop. */
 const LAPTOP: FoldDivision = { ...FLAT_UPRIGHT, active: true };
-/** Where a list ends half folded like a laptop: 8 pt above the fold's top. */
+/** Where a list that stays above the fold ends half folded like a laptop: 8 pt above the fold's top. */
 const ABOVE_FOLD = LAPTOP.y - 8;
+/** Where a list running across the fold ends half folded like a laptop: at the fold's top, its copy below the band. */
+const UPPER_END = LAPTOP.y;
 
 const MACHINE: MachineRecord = {
   id: 'm1',
@@ -202,6 +204,17 @@ async function scrollList(testID: string | RegExp): Promise<void> {
     },
   });
   await settle();
+}
+
+/** The list holding `testID` reports its content's height, as the platform does once its rows are laid out. */
+async function reportContent(testID: string | RegExp): Promise<void> {
+  await fireEvent(listOf(testID), 'contentSizeChange', 640, 1600);
+  await settle();
+}
+
+/** How often the row named `testID` is drawn: once, or twice with the list's copy below the fold (hidden). */
+function drawn(testID: string | RegExp): number {
+  return screen.queryAllByTestId(testID, { includeHiddenElements: true }).length;
 }
 
 async function renderScreen(
@@ -524,9 +537,10 @@ describe('opening a session from a tile', () => {
 });
 
 describe('half folded like a laptop', () => {
-  test('the list of tiles ends above the fold, also scrolled, and no row of tiles carries a gap', async () => {
+  test('the list of tiles runs across the fold, also scrolled, and no row of tiles carries a gap', async () => {
     // The list's frame in the window is the whole upright window; the fold's band is 455.5-495.5. The list's item
-    // keys end in the session id.
+    // keys end in the session id. The classic list's rows take their state from the screen, so by the laptop-pose
+    // decision for lists it ends at the fold's top and its copy below the band, hidden from accessibility, goes on.
     measureInWindow.mockImplementation((onFrame: (...frame: number[]) => void) =>
       onFrame(0, 0, UPRIGHT.width, UPRIGHT.height),
     );
@@ -538,10 +552,12 @@ describe('half folded like a laptop', () => {
       ['a', 'b', 'c'].map(
         (session) => StyleSheet.flatten((screen.getByTestId(row(session)) as TestInstance).props.style)?.marginTop,
       );
-    expect(visibleBottomOf(row('a'), UPRIGHT)).toBe(ABOVE_FOLD);
+    await reportContent(row('a'));
+    expect(visibleBottomOf(row('a'), UPRIGHT)).toBe(UPPER_END);
+    expect(drawn(row('a'))).toBe(2);
     expect(marginTops()).toEqual([undefined, undefined, undefined]);
     await scrollList(row('a'));
-    expect(visibleBottomOf(row('a'), UPRIGHT)).toBe(ABOVE_FOLD);
+    expect(visibleBottomOf(row('a'), UPRIGHT)).toBe(UPPER_END);
     expect(marginTops()).toEqual([undefined, undefined, undefined]);
   });
 });
@@ -704,7 +720,9 @@ describe("in the Unified list (the computer's Sidebar set to Unified)", () => {
     ]);
     const marginTop = (session: string) =>
       StyleSheet.flatten((screen.getByTestId(`wall-row-m1|${session}`) as TestInstance).props.style)?.marginTop;
+    await reportContent('wall-row-m1|b');
     expect(visibleBottomOf('wall-row-m1|b', UPRIGHT)).toBe(ABOVE_FOLD);
+    expect(drawn('wall-row-m1|b')).toBe(1);
     expect([marginTop('b'), marginTop('c')]).toEqual([undefined, undefined]);
     await scrollList('wall-row-m1|b');
     expect(visibleBottomOf('wall-row-m1|b', UPRIGHT)).toBe(ABOVE_FOLD);
