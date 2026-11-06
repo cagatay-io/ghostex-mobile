@@ -2,7 +2,8 @@
  * Sessions drawer as the app's home page (docs/specs/sessions-drawer.md §§1-6):
  * header + status line + flat drawer list built from
  * buildDrawerItems, with session/project context menus, creation flows,
- * recovery sheet, and focus-scoped 5s inventory polling.
+ * recovery sheet, and focus-scoped 5s inventory polling. Folded on the iPhone
+ * Duo the list starts with the sessions that wait for the user (`triage/`).
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -11,7 +12,6 @@ import { projectChoicesNow } from './sessions-screen/new-session-place';
 import {
   AppState,
   BackHandler,
-  FlatList,
   Platform,
   Pressable,
   RefreshControl,
@@ -31,16 +31,19 @@ import ActionSheet from '../components/common/ActionSheet';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import DetailsSheet from '../components/common/DetailsSheet';
 import LogsSheet from '../components/common/LogsSheet';
+import NoticeToast, { type Notice } from '../components/common/NoticeToast';
 import ProgressOverlay from '../components/common/ProgressOverlay';
 import PromptDialog from '../components/common/PromptDialog';
 import { measureInWindow } from '../components/common/measureInWindow';
 import { bandRowFrame } from '../components/common/verticalBar/layout';
 import {
   useContentTop,
+  useFoldDivisions,
   useHeaderPlacement,
   useLiveMenuAnchor,
   useRailButtons,
   useScrollToBarEdges,
+  useVerticalBarSpace,
   type RailButtons,
   type RailEntry,
 } from '../components/common/verticalBar/VerticalBarArea';
@@ -51,7 +54,8 @@ import ContextMenu, { type ContextMenuItem } from '../components/sessions/Contex
 import SessionLinksSheet from '../chat/native/SessionLinksSheet';
 import { buildDrawerList, hideProjectsWithoutSessions, type DrawerBlock } from '../components/sessions/drawerModel';
 import { drawerStatusLine } from '../components/sessions/drawerStatusLine';
-import { MachinesGlyph, MenuGlyph, SearchGlyph, WorldGlyph } from '../components/sessions/icons';
+import { ListGlyph, MachinesGlyph, MenuGlyph, SearchGlyph, TilesGlyph, WorldGlyph } from '../components/sessions/icons';
+import { bellLabel, BellWithCount, useAttentionUnreadCount } from '../notifications/NotificationsBell';
 import { VoiceButton } from '../voice/VoiceButton';
 import { useVoiceStore, voiceActive } from '../voice/conversation';
 import MachineTabs, {
@@ -81,7 +85,7 @@ import {
 import { stateWithCollectionTitle } from '../contract/collectionsState';
 import { machineSessionCounts, tabStatusCounts } from '../contract/grouping';
 import { coordinatorRowKey } from '../contract/coordinatorTree';
-import { EMPTY_SIDEBAR_SPACES, type GhostexSession } from '../contract/mobileSummary';
+import { EMPTY_SIDEBAR_SPACES, NO_SUMMARY_CAPABILITIES, type GhostexSession } from '../contract/mobileSummary';
 import {
   DuoChromeCopy,
   ProgressCopy,
@@ -92,6 +96,7 @@ import {
   StateCardCopy,
   StripCopy,
   WebPreviewCopy,
+  WallCopy,
 } from '../copy';
 import MachineNotice from './sessions-screen/MachineNotice';
 import { machineNotice } from '../components/sessions/machineNotice';
@@ -106,12 +111,17 @@ import {
   type MachineRecord,
 } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
-import { resolveSelectedSpaceId, spaceRowItems, spaceSessionCounts } from '../spaces/spaceFilter';
+import {
+  filterSummaryForSpace,
+  resolveSelectedSpaceId,
+  spaceRowItems,
+  spaceSessionCounts,
+} from '../spaces/spaceFilter';
 import { useSpacesStore } from '../spaces/store';
 import { revealSessionWorkspace, useWorkspacesStore } from '../workspaces/store';
 import { restoreClosedSession } from '../sessions/closedSessions';
 import { filterSummaryForWorkspace, resolveWorkspaceId, workspaceSwitchTarget } from '../workspaces/workspaceFilter';
-import { useSettingsStore } from '../settings/store';
+import { useSettingsStore, type SessionListView } from '../settings/store';
 import { attachSessionKey, useTerminalStore } from '../terminal/sessions';
 import { GhostexPalette } from '../theme/palette';
 import { resolveSidebarAppearance } from '../theme/sidebarAppearance';
@@ -124,6 +134,7 @@ import {
   type Overlay,
 } from './sessions-screen/session-actions';
 import { closeConfirmCopy } from './sessions-screen/close-confirm';
+import { SessionList } from './sessions-screen/session-list';
 import { SessionsBottomBar } from './sessions-screen/BottomBar';
 import { SESSIONS_HEADER_HEIGHT, styles } from './sessions-screen/styles';
 import { useSessionsScreenActions } from './sessions-screen/use-sessions-screen-actions';
@@ -134,6 +145,12 @@ import { useListInventories } from '../cloudBoxes/listInventories';
 import { cloudBoxRowMenu } from '../cloudBoxes/rowMenu';
 import { cloudWhereItems, useCloudWhere } from '../cloudBoxes/whereMenu';
 import { runPhoneBoxStart, type PhoneBoxStart } from '../cloudBoxes/phoneStartFlow';
+import { wallColumns } from './wall/layout';
+import { wallTargets } from './wall/previews';
+import { useWallPreviews } from './wall/useWallPreviews';
+import WallSwitch from './wall/WallSwitch';
+import { foldedOuterDisplay, triageSessions, unifiedTriageWaits, type TriageWait } from './triage/model';
+import TriageSection from './triage/TriageSection';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Sessions'>;
 
@@ -141,9 +158,10 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Sessions'>;
 function closeDialogCopy(ctx: SessionContext): { title: string; body: string } {
   const session = ctx.item.session;
   if (closePutsSessionToSleep(session)) return { title: 'Close session?', body: SessionCopy.claudeCloudCloseSleeps };
-  const sessions = useInventoryStore.getState().inventoriesByMachineId[ctx.machine.id]?.summary?.sessions ?? [];
+  const summary = useInventoryStore.getState().inventoriesByMachineId[ctx.machine.id]?.summary;
+  const sessions = summary?.sessions ?? [];
   return (
-    closeConfirmCopy(session, sessions) ?? {
+    closeConfirmCopy(session, sessions, summary?.capabilities ?? NO_SUMMARY_CAPABILITIES) ?? {
       title: 'Close session?',
       body: 'This closes the selected Ghostex session on the connected machine.',
     }
@@ -165,8 +183,7 @@ export default function SessionsScreen({ navigation }: Props) {
   const refreshMachineFresh = useInventoryStore((state) => state.refreshMachineFresh);
   const retryMachine = useInventoryStore((state) => state.retryMachine);
   const refreshAll = useInventoryStore((state) => state.refreshAll);
-  const startPolling = useInventoryStore((state) => state.startPolling);
-  const stopPolling = useInventoryStore((state) => state.stopPolling);
+  const unreadNotifications = useAttentionUnreadCount();
   const selectedSpaceIdByMachine = useSpacesStore((state) => state.selectedSpaceIdByMachine);
   const selectSpace = useSpacesStore((state) => state.selectSpace);
   const selectedWorkspaceIdByMachine = useWorkspacesStore((state) => state.selectedWorkspaceIdByMachine);
@@ -239,16 +256,15 @@ export default function SessionsScreen({ navigation }: Props) {
     }
   }, []);
 
-  // Poll every 5s only while this screen is focused AND a machine is selected.
+  // The summary poll is the app's own (src/app/lifecycle.ts): it runs on every screen while
+  // the app is in the foreground and a machine is selected, so this screen only hydrates its own stores.
   useFocusEffect(
     useCallback(() => {
       void useCollapseStore.getState().hydrate();
       void useLauncherStore.getState().hydrate();
       void useSpacesStore.getState().hydrate();
       void useWorkspacesStore.getState().hydrate();
-      if (machine !== null) startPolling();
-      return () => stopPolling();
-    }, [machine !== null, startPolling, stopPolling]),
+    }, []),
   );
 
   useFocusEffect(
@@ -439,6 +455,26 @@ export default function SessionsScreen({ navigation }: Props) {
   );
 
   /*
+   * The session wall: where the window has the fold's divisions (the iPhone Duo's inner display, flat or half
+   * folded; the panes' rule in TerminalScreen) the list switches between rows and tiles. Folded, on other iPhones
+   * and on Android it is the list, and the stored choice waits. The classic list draws its tiles in `DrawerBlockView`,
+   * the Unified list in `useUnifiedList` (`wall`). The tiles' thumbnails are read only while the tiles are shown on
+   * this screen in front (`useWallPreviews` adds the app being in the foreground), for the list that draws them.
+   */
+  const foldDivisions = useFoldDivisions();
+  const wallOffered = Platform.OS === 'ios' && (foldDivisions?.length ?? 0) > 0;
+  const sessionListView = useSettingsStore((state) => state.settings.sessionListView);
+  const chooseListView = useCallback(
+    (view: SessionListView): void => setSetting('sessionListView', view),
+    [setSetting],
+  );
+  const tilesShown = wallOffered && sessionListView === 'tiles';
+  const [listWidth, setListWidth] = useState(0);
+  const barSpace = useVerticalBarSpace();
+  const tileColumns = tilesShown ? wallColumns(listWidth - barSpace.left - barSpace.right) : null;
+  const classicWallTargets = useMemo(() => (tilesShown ? wallTargets(entries) : []), [tilesShown, entries]);
+
+  /*
    * Glyph / failed-card retry. The store flips `retrying` synchronously before
    * its first await, so the tab spins for as long as the attempt really takes;
    * the status line says the same thing in words for the same span, then goes
@@ -582,6 +618,7 @@ export default function SessionsScreen({ navigation }: Props) {
       machines.length > 1
         ? setOverlay({ kind: 'machinePicker', purpose: 'addProject' })
         : navigation.navigate('AddProjectSource', { machineId }),
+    wall: tileColumns === null ? null : { columns: tileColumns, appearance: sidebarAppearance },
   });
   useOpenProjectDraftsOnArrival(inventoriesByMachineId, !unified.on);
   const pullRefresh = useCallback((): void => {
@@ -612,6 +649,43 @@ export default function SessionsScreen({ navigation }: Props) {
     selectedInventory,
     unified.on ? null : selectedNotice,
   );
+  useWallPreviews(tilesShown && isFocused, unified.on ? unified.wallTargets : classicWallTargets);
+
+  /*
+   * The folded triage: on the iPhone Duo's outer display (the header in the status band, no fold divisions) the list
+   * starts with the sessions that wait for the user, from the list's own scope: the classic list's computer, workspace
+   * and Space, or every computer of the Unified list as its filter and search leave them (`triage/model.ts`). Only
+   * while the screen is in front: it holds the waiting sessions' chats open (`triage/useTriageData.ts`).
+   */
+  const triageFolded = foldedOuterDisplay(headerPlacement.kind, foldDivisions);
+  const triageWaits = useMemo((): TriageWait<MachineRecord>[] | null => {
+    if (!triageFolded || machine === null || selectedSummary === null) return null;
+    if (unified.on) {
+      return unifiedTriageWaits(
+        unified.view,
+        machines,
+        (machineId) => inventoriesByMachineId[machineId]?.summary ?? null,
+      );
+    }
+    const scoped = filterSummaryForSpace(selectedSummary, selectedSpaceId);
+    return triageSessions(scoped).map((session) => ({ machine, session, capabilities: scoped.capabilities }));
+  }, [
+    triageFolded,
+    machine,
+    selectedSummary,
+    selectedSpaceId,
+    unified.on,
+    unified.view,
+    machines,
+    inventoriesByMachineId,
+  ]);
+
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const noticeCounter = useRef(0);
+  const showNotice = useCallback((next: Omit<Notice, 'id'>): void => {
+    noticeCounter.current += 1;
+    setNotice({ ...next, id: noticeCounter.current });
+  }, []);
 
   const {
     summaryFor,
@@ -744,6 +818,16 @@ export default function SessionsScreen({ navigation }: Props) {
       Long-press any item for more options.
     </Text>
   );
+  // Above the classic and the Unified list alike; a card's head opens its session through the row's own `attach`.
+  const triageHeader =
+    triageWaits !== null && isFocused ? (
+      <TriageSection
+        waiting={triageWaits}
+        appearance={sidebarAppearance}
+        onOpen={(target, session) => withMachine(target.id, (saved) => void attach(saved, session))}
+        onNotice={showNotice}
+      />
+    ) : undefined;
 
   const renderBlock = ({ item: block }: { item: DrawerBlock }) => (
     <DrawerBlockView
@@ -760,6 +844,7 @@ export default function SessionsScreen({ navigation }: Props) {
         (item.variant === 'failure' || item.variant === 'connecting') && machineById(block.machineId) !== null
       }
       actions={blockActions}
+      tileColumns={tileColumns}
     />
   );
 
@@ -781,9 +866,21 @@ export default function SessionsScreen({ navigation }: Props) {
     moreButtonRef,
   );
   const inRail = headerPlacement.kind === 'rail';
-  // The header keeps only the title and this menu button (Voice, Search, Web and Machines stand in the
-  // bottom bar, CDXC:Sessions 2026-10-27). On the iPhone Duo the status band holds the same row. In the
-  // side bar (a system that stands one) the button stands there as the rail's one entry.
+  // The header keeps only the title, the notifications bell and this menu button (Voice, Search, Web and
+  // Machines stand in the bottom bar, CDXC:Sessions 2026-10-27). On the iPhone Duo the status band holds the
+  // same row. In the side bar (a system that stands one) the bell and the menu stand there as its entries. On the
+  // iPhone Duo's inner display the list/tiles switch stands before the bell, in the side bar as two switch entries.
+  // The bell opens the attention list with its unread count.
+  const bellButton = (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={bellLabel(unreadNotifications)}
+      style={styles.headerButton}
+      onPress={() => navigation.navigate('AttentionList')}
+    >
+      <BellWithCount size={22} color={sidebarAppearance.foreground} unread={unreadNotifications} />
+    </Pressable>
+  );
   const moreButton = (
     <Pressable
       ref={moreButtonRef}
@@ -804,6 +901,31 @@ export default function SessionsScreen({ navigation }: Props) {
   const railButtons = useMemo<RailButtons>(() => {
     const color = sidebarAppearance.foreground;
     const entries: RailEntry[] = [
+      // Upright in the side bar, the list/tiles switch's two halves (the session wall design).
+      ...(wallOffered
+        ? [
+            {
+              key: 'wallList',
+              label: WallCopy.showList,
+              icon: (size: number) => <ListGlyph size={size} color={color} />,
+              onPress: () => chooseListView('list'),
+              selected: sessionListView === 'list',
+            },
+            {
+              key: 'wallTiles',
+              label: WallCopy.showTiles,
+              icon: (size: number) => <TilesGlyph size={size} color={color} />,
+              onPress: () => chooseListView('tiles'),
+              selected: sessionListView === 'tiles',
+            },
+          ]
+        : []),
+      {
+        key: 'notifications',
+        label: bellLabel(unreadNotifications),
+        icon: (size) => <BellWithCount size={size} color={color} unread={unreadNotifications} />,
+        onPress: () => navigation.navigate('AttentionList'),
+      },
       {
         key: 'more',
         label: DuoChromeCopy.more,
@@ -813,7 +935,7 @@ export default function SessionsScreen({ navigation }: Props) {
     ];
     // The session search sheet and the rename and note dialogs take the keyboard.
     return { entries, pinned: 0, moreMenu: 'always', reserveKeyboard: true };
-  }, [sidebarAppearance.foreground]);
+  }, [sidebarAppearance.foreground, unreadNotifications, navigation, wallOffered, sessionListView, chooseListView]);
   useRailButtons(railButtons, sidebarAppearance.background, inRail && isFocused);
 
   return (
@@ -853,6 +975,10 @@ export default function SessionsScreen({ navigation }: Props) {
         >
           <Text style={[styles.title, { color: sidebarAppearance.foreground }]}>Ghostex</Text>
         </Pressable>
+        {wallOffered && !inRail ? (
+          <WallSwitch view={sessionListView} appearance={sidebarAppearance} onChange={chooseListView} />
+        ) : null}
+        {inRail ? null : bellButton}
         {inRail ? null : moreButton}
       </View>
       {machineTabsVisible(unified.on, machines.length) ? (
@@ -965,26 +1091,31 @@ export default function SessionsScreen({ navigation }: Props) {
           onClose={() => setWorkspaceMenuOpen(false)}
         />
       ) : null}
-      <View style={styles.listArea}>
-        {unified.on ? (
-          <FlatList
-            data={unified.items}
-            keyExtractor={unified.keyExtractor}
-            renderItem={unified.renderItem}
-            style={[styles.list, listEdges.scroll]}
-            contentContainerStyle={[styles.listContent, listEdges.content]}
-            refreshControl={listRefreshControl}
-            ListFooterComponent={listFooter}
-          />
-        ) : (
-          <FlatList
-            data={visibleEntries.blocks}
-            keyExtractor={(entry) => entry.listKey}
-            renderItem={renderBlock}
-            style={[styles.list, listEdges.scroll]}
-            contentContainerStyle={[styles.listContent, listEdges.content]}
-            refreshControl={listRefreshControl}
-            ListFooterComponent={
+      <View style={styles.listArea} onLayout={(event) => setListWidth(event.nativeEvent.layout.width)}>
+        <SessionList
+          unified={
+            unified.on
+              ? {
+                  data: unified.items,
+                  keyExtractor: unified.keyExtractor,
+                  renderItem: unified.renderItem,
+                  style: [styles.list, listEdges.scroll],
+                  contentContainerStyle: [styles.listContent, listEdges.content],
+                  refreshControl: listRefreshControl,
+                  ListHeaderComponent: triageHeader,
+                  ListFooterComponent: listFooter,
+                }
+              : null
+          }
+          classic={{
+            data: visibleEntries.blocks,
+            keyExtractor: (entry) => entry.listKey,
+            renderItem: renderBlock,
+            style: [styles.list, listEdges.scroll],
+            contentContainerStyle: [styles.listContent, listEdges.content],
+            refreshControl: listRefreshControl,
+            ListHeaderComponent: triageHeader,
+            ListFooterComponent: (
               <>
                 {visibleEntries.emptyProjects > 0 ? (
                   <Pressable
@@ -1001,9 +1132,9 @@ export default function SessionsScreen({ navigation }: Props) {
                 ) : null}
                 {listFooter}
               </>
-            }
-          />
-        )}
+            ),
+          }}
+        />
         {noticeTarget !== null && selectedNotice !== null ? (
           <MachineNotice
             notice={unified.on && selectedNotice.kind === 'failure'
@@ -1024,6 +1155,7 @@ export default function SessionsScreen({ navigation }: Props) {
             onRemoteSettings={() => navigation.navigate('MachineForm', { machineId: noticeTarget.id })}
           />
         ) : null}
+        <NoticeToast notice={notice} bottom={12} />
       </View>
       {/*
         CDXC:Sessions 2026-10-27 DECISION:

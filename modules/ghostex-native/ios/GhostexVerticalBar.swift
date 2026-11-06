@@ -58,7 +58,8 @@ enum GhostexVerticalBar {
     }
 
     /// System notifications after which the app may be shown in another window (a key window or scene
-    /// changing); each moves the running observation's view there. The caller removes them
+    /// changing) or the fold may have changed unseen (the scene active again); each moves the running
+    /// observation's view there or has it read the fold again. The caller removes them
     /// (`NotificationCenter.removeObserver`) when it stops listening.
     nonisolated static func windowChangeObservers() -> [NSObjectProtocol] {
         let center = NotificationCenter.default
@@ -80,14 +81,15 @@ enum GhostexVerticalBar {
     }
 
     /// Moves the observer to the hosting window when that is another one; a resized window is followed
-    /// by layout alone, so this does nothing then.
+    /// by layout alone. In the same window it reads the fold again (`refresh`): the device may have
+    /// been folded or unfolded while the app was in the background, which lays nothing out.
     private static func followHostWindow() {
         guard let observer else { return }
         guard let window = hostWindow() else {
             observer.removeFromSuperview()
             return
         }
-        if observer.window !== window { observer.move(to: window) }
+        if observer.window !== window { observer.move(to: window) } else { observer.refresh() }
     }
 
     /// The bar regions of `window`, in window points: `edge` ("leading"/"trailing") and `sideBar` while
@@ -230,8 +232,10 @@ enum GhostexVerticalBar {
 /// Layout lays this view out again (as on rotation, a safe-area change, or a change of the traits that
 /// decide the side bar), and it reports the window's bar layout when that differs from the last report.
 /// The probes move to the other side's guide in `updateConstraints`, after the traits that decide the
-/// side changed, and the fold's division regions are read there too (`readDivisions`);
-/// `layoutSubviews` only reads the settled layout.
+/// side changed. The fold's division regions are read in `updateConstraints` and again at the start of
+/// every `layoutSubviews` (`readDivisions`), so no report goes out with an older fold than UIKit has.
+/// Folding or unfolding need not change a trait, the safe area or a layout guide, so the hinge itself
+/// (`UIHingeInteraction`, each hinge update) and the scene becoming active lay this view out again.
 @MainActor
 final class GhostexBarLayoutObserver: UIView {
     private let sideExtent: CGFloat
@@ -261,6 +265,13 @@ final class GhostexBarLayoutObserver: UIView {
             probe.translatesAutoresizingMaskIntoConstraints = false
             addSubview(probe)
         }
+        #if canImport(UIKit, _version: 9127.0.85)
+        if #available(iOS 27.1, *) {
+            // A hinge update (its status or angle) is when the fold's division may turn active or
+            // inactive; the layout pass it asks for reads the regions after UIKit has applied it.
+            addInteraction(UIHingeInteraction { [weak self] _, _ in self?.setNeedsLayout() })
+        }
+        #endif
         if #available(iOS 17.0, *) {
             var traits: [UITrait] = [UITraitHorizontalSizeClass.self, UITraitVerticalSizeClass.self]
             #if canImport(UIKit, _version: 9127.0.85)
@@ -301,15 +312,22 @@ final class GhostexBarLayoutObserver: UIView {
         onChange(attach(to: window))
     }
 
+    /// Lays this view out again, which reads the fold and reports a changed layout: for an event
+    /// after which the fold may have changed without UIKit laying the view out by itself.
+    func refresh() {
+        setNeedsLayout()
+    }
+
     override func updateConstraints() {
         if let window, currentSide(of: window) != pinnedSide { pinRegionProbes(in: window) }
-        readDivisions()
+        if readDivisions() { setNeedsLayout() }
         super.updateConstraints()
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
         guard let window else { return }
+        readDivisions()
         let layout = currentLayout(in: window)
         let snapshot = layout as NSDictionary
         guard snapshot != reported else { return }
@@ -388,26 +406,29 @@ final class GhostexBarLayoutObserver: UIView {
         NSLayoutConstraint.activate(regionConstraints)
     }
 
-    /// The fold's division regions: read here, in the view that measures where the chrome
-    /// goes, inside `updateConstraints`, which UIKit runs again when the regions change. The frames are
-    /// taken as given, margins included, and inactive ones too (`.includeInactive`), each with its
-    /// `isActive`: the persistent chrome keeps off the fold while the display is flat, so nothing moves
-    /// when it folds, and menus keep off only active ones (JS `menuRoomBeside`). A change is reported
-    /// with the next layout pass. Before iOS 27.1 there are none.
-    private func readDivisions() {
+    /// The fold's division regions: read here, in the view that measures where the chrome goes. The
+    /// frames are taken as given, margins included, and inactive ones too (`.includeInactive`), each
+    /// with its `isActive`: the persistent chrome keeps off the fold while the display is flat, so
+    /// nothing moves when it folds, and menus keep off only active ones (JS `menuRoomBeside`). UIKit
+    /// only answers the query and reports no change of the regions, so they are read on every pass
+    /// that may report (`updateConstraints`, `layoutSubviews`, attaching); an unchanged read leaves
+    /// everything as it is. Returns whether the read changed them. Before iOS 27.1 there are none.
+    @discardableResult
+    private func readDivisions() -> Bool {
         #if canImport(UIKit, _version: 9127.0.85)
         if #available(iOS 27.1, *) {
-            guard let window else { return }
+            guard let window else { return false }
             let regions = reservedRegions(kind: .division, options: .includeInactive)
             let read = regions.map { FoldDivision(frame: convert($0.frame, to: window), active: $0.isActive) }
-            guard read != divisions else { return }
+            guard read != divisions else { return false }
             divisions = read
             #if DEBUG
             GhostexVerticalBar.logDivisions(regions, of: self, in: window)
             #endif
-            setNeedsLayout()
+            return true
         }
         #endif
+        return false
     }
 }
 

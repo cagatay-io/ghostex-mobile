@@ -113,10 +113,13 @@ function columnRoute(route: { readonly name: string; readonly params?: object })
 export function SettingsColumnsFrame({
   title,
   single,
+  trailing,
   children,
 }: {
   title: string;
   single?: ReactNode;
+  /** The page's header button (its `headerRight`), drawn in its own title row in two columns. */
+  trailing?: ReactNode;
   children: ReactNode;
 }) {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -192,6 +195,7 @@ export function SettingsColumnsFrame({
             title={title}
             tint={appearance.foreground}
             onBack={columns.subPage ? () => navigation.goBack() : undefined}
+            trailing={trailing}
           />
         )}
         <SettingsPageEdgesContext.Provider value={split ? pageEdges : null}>

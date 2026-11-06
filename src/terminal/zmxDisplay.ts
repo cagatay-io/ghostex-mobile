@@ -1,6 +1,7 @@
 /**
  * CDXC:Zmx 2026-09-05 WHY:
  * A foreground, focused, selected terminal reports ZMX_VISIBLE and owns its real grid.
+ * With two panes the terminal beside the selected one is on screen as well and reports ZMX_VISIBLE with its own grid.
  * The same on-screen slot in chat mode reports ZMX_CHAT, claiming a wide resting grid only when no terminal is visible.
  * Background tabs, screens and apps report ZMX_HIDDEN (parked), retaining the daemon grid when no chat claim exists.
  * Both non-visible states pin the local emulator and SSH PTY to 200 columns because another client's chat may widen the daemon.
@@ -24,6 +25,8 @@ type Announced = { state: DisplayState; cols: number; rows: number };
 /** Session key whose GhostexTerminalView is mounted on the focused Terminal screen. */
 let mountedTerminalSessionKey: string | null = null;
 let mountedChatSessionKey: string | null = null;
+/** With two panes: the session key of the terminal in the pane beside the selected one; it is as visible. */
+let mountedPaneSessionKey: string | null = null;
 let appState: AppStateStatus = AppState.currentState as AppStateStatus;
 let installed = false;
 
@@ -68,7 +71,7 @@ function desiredState(sessionKey: string): DisplayState | null {
   const tab = useTerminalStore.getState().tabs.find((entry) => entry.sessionKey === sessionKey);
   if (tab === undefined || tab.kind !== 'attach' || tab.state !== 'open') return null;
   if (!isForeground(appState)) return 'parked';
-  if (mountedTerminalSessionKey === sessionKey) return 'visible';
+  if (mountedTerminalSessionKey === sessionKey || mountedPaneSessionKey === sessionKey) return 'visible';
   return mountedChatSessionKey === sessionKey ? 'chat' : 'parked';
 }
 
@@ -130,12 +133,40 @@ function reconcile(): void {
   for (const sessionKey of ready) enqueue(sessionKey, () => transition(sessionKey));
 }
 
-/** Called by the Terminal screen with the session key whose terminal view it shows. */
-export function setMountedSessionKeys(terminalKey: string | null, chatKey: string | null): void {
-  if (mountedTerminalSessionKey === terminalKey && mountedChatSessionKey === chatKey) return;
+/**
+ * Called by the Terminal screen with the session keys whose terminal views it shows (with two panes, also the one
+ * beside the selected terminal: both own their real grid) and whose Chat View it shows.
+ */
+export function setMountedSessionKeys(
+  terminalKey: string | null,
+  chatKey: string | null,
+  paneTerminalKey: string | null = null,
+): void {
+  if (
+    mountedTerminalSessionKey === terminalKey &&
+    mountedChatSessionKey === chatKey &&
+    mountedPaneSessionKey === paneTerminalKey
+  ) {
+    return;
+  }
   mountedTerminalSessionKey = terminalKey;
   mountedChatSessionKey = chatKey;
+  mountedPaneSessionKey = paneTerminalKey;
   reconcile();
+}
+
+/**
+ * Whether a session is open on screen: the app is active and the focused Terminal screen shows this
+ * session's terminal or its Chat View (the keys the screen reports above). No
+ * notification banner and no attention sound for it; its attention-list row stays.
+ */
+export function sessionOnScreen(machineId: string, sessionId: string): boolean {
+  if (AppState.currentState !== 'active') return false;
+  return [mountedTerminalSessionKey, mountedPaneSessionKey, mountedChatSessionKey].some((sessionKey) => {
+    if (sessionKey === null) return false;
+    const tab = useTerminalStore.getState().tabs.find((entry) => entry.sessionKey === sessionKey);
+    return tab !== undefined && tab.machineId === machineId && tab.ghostexSessionId === sessionId;
+  });
 }
 
 /** An attach entry reported `open`; announce once its client can read stdin. */

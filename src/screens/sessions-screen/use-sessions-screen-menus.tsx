@@ -750,6 +750,7 @@ export function useSessionsScreenMenus({
   ): { subtitle: string; items: ContextMenuItem[] } => {
     const menu = buildSessionMenu({
       session: ctx.item.session,
+      capabilities: ctx.item.capabilities,
       customTags: summaryFor(ctx.machine.id)?.customSessionTags ?? EMPTY_CUSTOM_SESSION_TAGS,
       below: sessionsBelow(ctx),
       threads: ctx.item.session.isCoordinator

@@ -13,16 +13,20 @@
  * layout, never measured at keyboard time) less the keyboard's top edge. The lift is padding inside the view,
  * so its bottom edge stays put with and without it. The resting bottom edge is measured again when the view's
  * own layout changes (`onAnchorLayout` for its `onLayout`) and when the window's height does (a fold, an
- * unfold or a rotation); until the first measurement the window's bottom stands in for it.
+ * unfold or a rotation); until the first measurement the window's bottom stands in for it. In the iPhone Duo's
+ * laptop pose the cover starts at the fold's top (`laptopCoverTop`), so the composer stands above the fold and the
+ * keyboard below it.
  */
 
 import { useCallback, useEffect, useState, type RefObject } from 'react';
 import { Platform, useWindowDimensions, type ViewInstance } from 'react-native';
 
 import { useKeyboardTop } from '../../../components/common/keyboard/keyboardFrame';
+import { laptopCoverTop } from '../../../components/common/verticalBar/layout';
+import { useLaptopFold } from '../../../components/common/verticalBar/laptopFold';
 
 export type KeyboardInset = {
-  /** The lift in points: how far the keyboard reaches over the view, 0 without one. */
+  /** The lift in points: how far the keyboard (in the laptop pose: from the fold down) reaches over the view, 0 without one. */
   readonly inset: number;
   /** For the view's `onLayout`: its frame changed, so its resting bottom edge is measured again. */
   readonly onAnchorLayout: () => void;
@@ -30,7 +34,7 @@ export type KeyboardInset = {
 
 export function useKeyboardInset(anchor: RefObject<ViewInstance | null>): KeyboardInset {
   const windowHeight = useWindowDimensions().height;
-  const keyboardTop = useKeyboardTop();
+  const keyboardTop = laptopCoverTop(useKeyboardTop(), useLaptopFold());
   const [anchorBottom, setAnchorBottom] = useState<number | null>(null);
   const ios = Platform.OS === 'ios';
 

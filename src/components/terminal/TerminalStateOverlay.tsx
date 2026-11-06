@@ -2,7 +2,8 @@
  * Connection-state overlays over the terminal area (terminal-screen.md §1):
  * opening → spinner + "Connecting...", failed → triangle + "Connection
  * Failed" + error caption + Retry, closed → "Disconnected" + Reconnect.
- * Returns null while the tab is open.
+ * Returns null while the tab is open. In the iPhone Duo's laptop pose its content stands in the part above the
+ * fold (`contentBottom`), so Retry and Reconnect never lie on the knick.
  */
 
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -17,13 +18,21 @@ export type TerminalStateOverlayProps = {
   errorCaption: string | null;
   onRetry: () => void;
   onReconnect: () => void;
+  /** Points at the area's bottom the content keeps clear of (the laptop pose's lower half); 0 elsewhere. */
+  contentBottom?: number;
 };
 
-export default function TerminalStateOverlay({ tab, errorCaption, onRetry, onReconnect }: TerminalStateOverlayProps) {
+export default function TerminalStateOverlay({
+  tab,
+  errorCaption,
+  onRetry,
+  onReconnect,
+  contentBottom = 0,
+}: TerminalStateOverlayProps) {
   if (tab.state === 'open') return null;
 
   return (
-    <View style={styles.overlay} pointerEvents="auto">
+    <View style={[styles.overlay, contentBottom > 0 && { paddingBottom: contentBottom }]} pointerEvents="auto">
       {(tab.state === 'opening' || tab.state === 'detached') && (
         <View style={styles.stack}>
           <ActivityIndicator size="small" color={GhostexPalette.MUTED} />

@@ -3,7 +3,8 @@
  * `session-chat-image-viewer.tsx`): the picture fitted to the screen, pinch or double tap to zoom,
  * a tap outside it closes, next / previous (the round buttons at the sides, or a sideways swipe while
  * not zoomed) across the transcript's pictures with a "3 / 6" counter under them, and Copy path / Copy
- * image with a tick once done.
+ * image with a tick once done. Half folded like a laptop the side buttons stand in the lower half, off the knick, and
+ * the card of a picture that cannot be shown (Copy path) stands below the fold, or above it when it does not fit.
  *
  * CDXC:SessionChat 2026-10-24 SEE-ALSO:
  * The list is every picture the transcript shows, in order (gx-chat-core `transcript/pictures.rs`, with
@@ -34,6 +35,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useFoldCardPlacement } from '../../../components/common/foldAvoidance';
+import { FOLD_CLEARANCE } from '../../../components/common/verticalBar/layout';
+import { useLaptopFold } from '../../../components/common/verticalBar/laptopFold';
 import { useVerticalBarSpace } from '../../../components/common/verticalBar/VerticalBarArea';
 import type { RustChat } from '../../rust/useRustChat';
 import { Glyph, type GlyphName } from './icons';
@@ -95,6 +99,8 @@ export function ImageViewerModal({
    * picture rather than calling the file damaged, because nothing here has read its bytes.
    */
   const [broken, setBroken] = useState(false);
+  // The unavailable card's place in the laptop pose; the stage it centres in covers the window.
+  const unavailablePlacement = useFoldCardPlacement({ avoidsKeyboard: false });
   const uri = source.status === 'ready' && !broken ? source.uri : null;
   const readyUri = source.status === 'ready' ? source.uri : null;
 
@@ -154,10 +160,13 @@ export function ImageViewerModal({
             <ToolbarButton label="Close" icon="x" onPress={close} />
           </View>
         </View>
-        <View style={styles.stage} pointerEvents="box-none">
+        <View
+          style={[styles.stage, uri === null && failure !== null && unavailablePlacement.style]}
+          pointerEvents="box-none"
+        >
           {uri === null ? (
             failure !== null ? (
-              <View style={styles.unavailable} pointerEvents="box-none">
+              <View style={styles.unavailable} onLayout={unavailablePlacement.onCardLayout} pointerEvents="box-none">
                 <ImageUnavailable
                   image={image}
                   failure={failure}
@@ -388,8 +397,16 @@ function ToolbarButton({ label, icon, onPress }: { label: string; icon: GlyphNam
 function EdgeButton({ side, onPress }: { side: 'left' | 'right'; onPress: () => void }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
+  const fold = useLaptopFold();
   return (
-    <View style={[styles.edge, side === 'left' ? styles.edgeLeft : styles.edgeRight]} pointerEvents="box-none">
+    <View
+      style={[
+        styles.edge,
+        side === 'left' ? styles.edgeLeft : styles.edgeRight,
+        fold !== null && { top: fold.bottom + FOLD_CLEARANCE },
+      ]}
+      pointerEvents="box-none"
+    >
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={side === 'left' ? 'Previous image' : 'Next image'}

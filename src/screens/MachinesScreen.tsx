@@ -33,6 +33,7 @@ import {
 } from '../machines/appUpdate';
 import { useMachinesStore, type MachineRecord } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
+import { unregisterBeforeRemoval, useRemovalAsksComputer } from '../notifications/pushStore';
 import { useSpacesStore } from '../spaces/store';
 import { useWorkspacesStore } from '../workspaces/store';
 import { SetupPalette } from '../theme/palette';
@@ -55,6 +56,7 @@ export default function MachinesScreen({ navigation }: Props) {
   const clearMachineSpace = useSpacesStore((state) => state.clearMachine);
 
   const appUpdates = useAppUpdateStore((state) => state.byMachineId);
+  const removalAsksComputer = useRemovalAsksComputer();
 
   const [overlay, setOverlay] = useState<Overlay>(NONE);
 
@@ -81,6 +83,8 @@ export default function MachinesScreen({ navigation }: Props) {
       clearMachineInventory(machine.id);
       clearMachineSpace(machine.id);
       useWorkspacesStore.getState().clearMachine(machine.id);
+      // While its record and link still exist; waits a bounded time, and an unreachable computer is removed anyway.
+      await unregisterBeforeRemoval(machine.id);
       try {
         markManualDisconnect(machine.id);
         await GhostexNative.disconnect(machine.id);
@@ -159,7 +163,7 @@ export default function MachinesScreen({ navigation }: Props) {
         <ConfirmDialog
           visible
           title={MachinesCopy.remove.title}
-          body={MachinesCopy.remove.body(machineCardTitle(overlay.machine))}
+          body={MachinesCopy.remove.body(machineCardTitle(overlay.machine), removalAsksComputer)}
           targetLine={machineCardTitle(overlay.machine)}
           confirmLabel={MachinesCopy.remove.confirm}
           destructive

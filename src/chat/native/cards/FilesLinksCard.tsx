@@ -12,10 +12,11 @@
 
 import * as Clipboard from 'expo-clipboard';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import type { UserAction } from '../../rust/actions';
 import type { FilesLinksRow, FilesLinksState } from '../../rust/document';
+import { useChatViewSize } from '../chatPlacement';
 import { Glyph, type GlyphName } from '../composer/icons';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { openChatImageViewer, type ChatImage } from './overlayStore';
@@ -37,7 +38,7 @@ export function FilesLinksCard({
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
-  const { height } = useWindowDimensions();
+  const { height } = useChatViewSize();
   const [query, setQuery] = useState(filesLinks?.query ?? '');
   const [held, setHeld] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);

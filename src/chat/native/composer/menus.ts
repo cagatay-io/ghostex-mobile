@@ -60,6 +60,11 @@ export type MoreActionsInput = {
   draft?: string;
   /** The session's title, for Voice call about this chat's hint (the row shows when `serves('voiceCall')`). */
   voiceCallTitle?: string;
+  /**
+   * The composer draws no toolbar control and no option pill but the model's (a chat in a pane slot, `chatPlacement`):
+   * every control it may draw and the option settings are rows here, as when they all overflow.
+   */
+  allFolded?: boolean;
 };
 
 /**
@@ -181,6 +186,7 @@ export function moreActionsRows({
   interruptAndSend = null,
   draft = '',
   voiceCallTitle = '',
+  allFolded = false,
 }: MoreActionsInput): MenuRow[] {
   const rows: MenuRow[] = [];
   if (interruptAndSend !== null) {
@@ -202,7 +208,12 @@ export function moreActionsRows({
   if (interruptAndSend !== null || compactAndSend !== null) rows.push({ separator: true });
   const labels = obj(document.optionLabels);
   const merged = obj(document.modelMenu) !== null;
-  if (document.composerOverflow?.optionsOverflowed === true) {
+  // The option settings fold here when the core says they overflow, or when the composer draws none of them; then
+  // only where there is one to show, as the core's `hasOverflowOptions` has it.
+  const optionsFolded = allFolded
+    ? (isTrue(labels, 'showOptions') && !merged) || obj(document.contextMeter) !== null
+    : document.composerOverflow?.optionsOverflowed === true;
+  if (optionsFolded) {
     rows.push({ heading: true, label: 'Model settings' });
     if (isTrue(labels, 'showOptions') && !merged) {
       rows.push({
@@ -270,7 +281,8 @@ export function moreActionsRows({
    */
   // The screen lists `sessionNote` among its actions only while the computer has Session notes on
   // (`sessions/sessionNotesSwitch.ts`; CDXC:SessionNotes 2026-10-30).
-  const noteFolded = overflowed(document, 'note') && available('note');
+  const folded = (id: string): boolean => allFolded || overflowed(document, id);
+  const noteFolded = folded('note') && available('note');
   if (serves('sessionNote') && !noteFolded && document.composerActions?.files !== false) {
     rows.push({
       label: 'Session note',
@@ -281,7 +293,7 @@ export function moreActionsRows({
     });
   }
   for (const control of COMPOSER_CONTROLS) {
-    if (!overflowed(document, control.id) || !available(control.id)) continue;
+    if (!folded(control.id) || !available(control.id)) continue;
     const row: MenuRow = {
       label: control.label,
       iconPath: control.icon,

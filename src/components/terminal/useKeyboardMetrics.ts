@@ -27,7 +27,7 @@ export type KeyboardMetrics = {
   bottomInset: number;
   /** Android's actual unobscured window boundary, including IME candidate/tool rows. */
   visibleWindowBottom: number | null;
-  /** Milliseconds a hide is animated over, which the key bar dock stays mounted for (0 with Reduce Motion on or no animation). */
+  /** Milliseconds a hide is animated over, which the keyboard dock stays mounted for (0 with Reduce Motion on or no animation). */
   hideMotionMs: number;
 };
 
@@ -108,7 +108,7 @@ export function useKeyboardMetrics({ slides = false, onAppear }: KeyboardMetrics
     keyboardVisible,
     bottomInset: keyboardVisible ? Math.max(0, overlap) : 0,
     visibleWindowBottom,
-    // The dock keeps the key bar mounted for the hide motion's length; with nothing animating it leaves at once.
+    // The dock keeps what rides on the keyboard mounted for the hide motion's length; with nothing animating it leaves at once.
     hideMotionMs: !ios || reduceMotion || shared.duration <= 0 ? 0 : (KEYBOARD_HIDE_MOTION.duration ?? 0),
   };
 }

@@ -31,9 +31,11 @@ import { AGENT_ICONS } from '../../assets/agentIcons.generated';
 import type { CoordinatorBadge, FoldedStatus, RowNesting } from '../../contract/coordinatorTree';
 import {
   agentIconTint,
+  hasQuestion,
   resolveAgentArtId,
   type GhostexCustomSessionTags,
   type GhostexSession,
+  type GhostexSummaryCapabilities,
 } from '../../contract/mobileSummary';
 import { resolveSessionTag } from '../../contract/sessionTags';
 import { SessionCopy } from '../../copy';
@@ -82,13 +84,13 @@ import {
   COMPLETION_FLASH_MS,
   COMPLETION_FLASH_OPACITY,
   COMPLETION_FLASH_PROGRESS,
-  hasPendingQuestion,
   isAwaitingApproval,
   nextLabelDeadline,
   rowActivityIndicator,
   rowClockKind,
   rowTimeLabel,
   shouldStartCompletionFlash,
+  shownFoldedStatus,
 } from './sessionStatus';
 
 /** session_list.rs SESSION_SPACING: the gap under every row. */
@@ -104,8 +106,9 @@ const CHEVRON_EXTRA = 17;
  * Re-renders the row when the time it draws next reads differently
  * (nextLabelDeadline): every second while a countdown runs, and only when the
  * relative time's digit changes otherwise. Returns the clock the labels read.
+ * The session wall's tiles show the same label with the same clock.
  */
-function useRowLabelClock(session: GhostexSession): number {
+export function useRowLabelClock(session: GhostexSession): number {
   const [, wake] = useReducer((tick: number) => tick + 1, 0);
   const nowMs = Date.now();
   const deadline = nextLabelDeadline(session, nowMs);
@@ -298,9 +301,9 @@ function AgentboxBadge({ agentbox }: { agentbox: NonNullable<GhostexSession['age
  * native_sidebar/threads.rs `worktree_badge`: the branch of a worktree session its parent project
  * lists (CDXC:Worktrees 2026-11-06 in gx-core sidebar_view/worktree_fold.rs), in the agentbox badge's muted text.
  */
-function WorktreeBadge({ label }: { label: string }) {
+export function WorktreeBadge({ label }: { label: string }) {
   return (
-    <View accessible accessibilityLabel={`In worktree ${label}`} style={styles.worktree}>
+    <View accessible accessibilityLabel={SessionCopy.inWorktree(label)} style={styles.worktree}>
       <BranchGlyph size={ds(12)} color={SIDEBAR_MUTED} />
       <Text style={styles.agentboxLabel} numberOfLines={1}>
         {label}
@@ -367,6 +370,8 @@ function FoldedStatusIndicator({ status, ringColor }: { status: FoldedStatus; ri
 
 export type SessionRowProps = {
   session: GhostexSession;
+  /** The capabilities of the session's computer, which the question indicator reads (`hasQuestion`). */
+  capabilities: GhostexSummaryCapabilities;
   /** Warm-attached session key matches the current terminal. */
   active: boolean;
   /** Exact expanded-group surface behind this row, including collection tint. */
@@ -407,6 +412,7 @@ export type SessionRowProps = {
  */
 export default function SessionRow({
   session,
+  capabilities,
   active,
   expandedGroupSurface,
   sidebarForeground,
@@ -436,11 +442,13 @@ export default function SessionRow({
   const renameShake = useRenameShake(session);
   // The red approval dot wins over every other status (sessionStatus.ts `isAwaitingApproval`).
   const approval = isAwaitingApproval(session);
-  const foldedStatus =
-    approval || (session.programStatusFailed && session.activity === 'attention') ? undefined : nesting?.foldedStatus;
-  const question = hasPendingQuestion(session) && foldedStatus === undefined && !approval;
+  const foldedStatus = shownFoldedStatus(session, nesting?.foldedStatus);
+  const question =
+    hasQuestion(session.pendingQuestionCount, capabilities.awaitingAnswer && session.awaitingAnswer) &&
+    foldedStatus === undefined &&
+    !approval;
   const indicator = question || foldedStatus !== undefined ? null : rowActivityIndicator(session);
-  const timeLabel = foldedStatus !== undefined ? null : rowTimeLabel(session, nowMs);
+  const timeLabel = foldedStatus !== undefined ? null : rowTimeLabel(session, capabilities, nowMs);
   /*
    * Desktop leading-slot order (icons.rs render_session_icon): an armed Delayed
    * Send clock, then a Close After Done clock, then the session tag, then the

@@ -8,27 +8,32 @@
  */
 
 import { useCallback, useMemo, useState } from 'react';
-import { ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { ScrollView, Text, TextInput, View } from 'react-native';
 
 import type { ChatDocument } from '../../rust/document';
+import { useChatViewSize } from '../chatPlacement';
 import type { RustChat } from '../../rust/useRustChat';
+import { RECONNECTING_NOTE, questionOptionAnswer } from './answers';
 import { Glyph } from './icons';
 import { arr, isTrue, obj, str } from './json';
 import { MONO_FONT, themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { AskCard, AskHead, AskOption, PrimaryButton, ProgressDots } from './askCard';
 import { SingleLineTile } from '../transcript/singleLineCard';
 import { CardButton, CardHeader, StatusCard, useCardText } from './primitives';
-import { ApprovalCard, RECONNECTING_NOTE } from './ApprovalCard';
+import { ApprovalCard } from './ApprovalCard';
 import { useEchoedText } from './useEchoedText';
 
-/** The share of the window the cards band above the composer may take (`NativeChatCards`). */
+/**
+ * The share of the window (of a chat in a pane: the chat's own height, `chatPlacement`) the cards band above the
+ * composer may take (`NativeChatCards`).
+ */
 export const CARD_BAND_SHARE = 0.6;
 
 /**
  * CDXC:SessionChat 2026-10-23 DECISION: User: "please make the height of this limited and the text in the middle scrollable. right now it sometimes becomes super tall and i can't click on the buttons at the bottom." The card stands in for the composer at the foot of the cards band, so it is no taller than that band (less its top padding): its head, options and footer keep their height and only the question text scrolls. The options keep their own scroll at under half the card. Desktop caps its card the same way (`question_card_max_height` in apps/desktop/src/app/native_chat/question.rs).
  */
-function questionCardMaxHeight(windowHeight: number): number {
-  return windowHeight * CARD_BAND_SHARE - 8;
+function questionCardMaxHeight(viewHeight: number): number {
+  return viewHeight * CARD_BAND_SHARE - 8;
 }
 
 /** Desktop returns the question card instead of the composer for a `question` prompt. */
@@ -63,7 +68,7 @@ function QuestionPromptCard({ chat, document }: { chat: RustChat; document: Chat
   const styles = useStyles();
   const P = useTranscriptTheme();
   const { dispatch } = chat;
-  const maxHeight = questionCardMaxHeight(useWindowDimensions().height);
+  const maxHeight = questionCardMaxHeight(useChatViewSize().height);
   const card = document.questionCard;
   const prompt = document.prompt;
   const questions = arr(obj(prompt)?.questions);
@@ -159,7 +164,7 @@ function QuestionPromptCard({ chat, document }: { chat: RustChat; document: Chat
                     picked={selected}
                     multiple={multi}
                     enabled={!busy}
-                    onPress={() => dispatch({ type: 'questionOption', index: optionIndex })}
+                    onPress={() => dispatch(questionOptionAnswer(optionIndex))}
                   />
                   {/* The mockup Claude shows beside the option, under the row that picks it (desktop question.rs). */}
                   {preview.length > 0 ? (

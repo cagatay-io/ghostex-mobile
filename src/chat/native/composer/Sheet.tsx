@@ -10,13 +10,15 @@
  * together, so the Modal now has no animation and this component runs two: the backdrop fades in
  * place (opacity only) while the panel slides up by its own height, and both reverse on close. While
  * closing, the sheet keeps showing the last content it was given (a parent usually empties it the
- * moment `visible` goes false) and takes no touches.
+ * moment `visible` goes false) and takes no touches. Half folded like a laptop the panel starts below the fold
+ * (with the keyboard up, above it: the keyboard-avoiding layer).
  */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Easing, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useFoldSheetMaxHeight } from '../../../components/common/foldAvoidance';
 import { useKeyboardTop } from '../../../components/common/keyboard/keyboardFrame';
 import KeyboardAvoidingContainer from '../../../components/common/keyboard/KeyboardAvoidingContainer';
 import { useVerticalBarSpace } from '../../../components/common/verticalBar/VerticalBarArea';
@@ -51,6 +53,7 @@ export function Sheet(props: SheetProps) {
   const windowHeight = useWindowDimensions().height;
   // The navigation bar's inset is under the keyboard while it is open; the sheet sits right on top of it.
   const bottomInset = useKeyboardTop() === null ? insets.bottom : 0;
+  const foldMaxHeight = useFoldSheetMaxHeight({ avoidsKeyboard: true });
   // Stays true until the closing animation has finished, so the Modal outlives `visible`.
   const [mounted, setMounted] = useState(visible);
   if (visible && !mounted) setMounted(true);
@@ -110,7 +113,11 @@ export function Sheet(props: SheetProps) {
           style={[
             styles.panel,
             bar.margin,
-            { maxHeight, paddingBottom: Math.max(bottomInset, 12), transform: [{ translateY }] },
+            {
+              maxHeight: foldMaxHeight ?? maxHeight,
+              paddingBottom: Math.max(bottomInset, 12),
+              transform: [{ translateY }],
+            },
           ]}
         >
           <View style={styles.grabber} />

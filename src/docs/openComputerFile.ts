@@ -59,6 +59,38 @@ export type OpenComputerFileOptions = {
   openPage?: (address: ComputerAddress) => void;
 };
 
+/**
+ * Opens `path` (absolute on the computer) as the Ghostex page it declares itself to be, in `openPage` when given,
+ * else in the Web preview. Resolves false, having opened nothing, for any other file, for a computer from before
+ * `openPage`, and without the computer or the project to ask: the caller then opens the file its own way
+ * (`openComputerFile` in the viewer; the Files list in the viewer with its preview policy).
+ */
+export async function openComputerPage(
+  navigation: FileNavigation,
+  machineId: string,
+  path: string,
+  options: Pick<OpenComputerFileOptions, 'projectId' | 'openPage'>,
+): Promise<boolean> {
+  const target = normalizeRemotePath(path);
+  const projectId = options.projectId !== undefined && options.projectId.length > 0 ? options.projectId : undefined;
+  const machine = useMachinesStore.getState().machines.find((candidate) => candidate.id === machineId);
+  const project = viewerProject(machineId, projectId);
+  if (previewKindForPath(target) !== 'html' || machine === undefined || project === null) return false;
+  try {
+    const [pagePath, remotePort] = await Promise.all([
+      computerPagePath(machine, target, project),
+      gxserverComputerPort(machine),
+    ]);
+    if (pagePath === null) return false;
+    const address: ComputerAddress = { scheme: 'http', remotePort, host: '127.0.0.1', path: pagePath };
+    if (options.openPage !== undefined) options.openPage(address);
+    else navigation.navigate('WebPreview', { machineId, ...address });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Opens `path` (absolute on the computer) as the header comment describes. */
 export function openComputerFile(
   navigation: FileNavigation,
@@ -79,21 +111,9 @@ export function openComputerFile(
   };
   const project = viewerProject(machineId, projectId);
   if (previewKindForPath(target) === 'html' && machine !== undefined && project !== null) {
-    void (async () => {
-      const [pagePath, remotePort] = await Promise.all([
-        computerPagePath(machine, target, project),
-        gxserverComputerPort(machine),
-      ]);
-      if (pagePath === null) return false;
-      const address: ComputerAddress = { scheme: 'http', remotePort, host: '127.0.0.1', path: pagePath };
-      if (options.openPage !== undefined) options.openPage(address);
-      else navigation.navigate('WebPreview', { machineId, ...address });
-      return true;
-    })()
-      .catch(() => false)
-      .then((opened) => {
-        if (!opened) openInViewer();
-      });
+    void openComputerPage(navigation, machineId, target, options).then((opened) => {
+      if (!opened) openInViewer();
+    });
     return;
   }
   if (previewKindForPath(target) !== null) {

@@ -14,22 +14,8 @@
 import { sessionChatRpc } from '../chat/rust/transport';
 import { runGhostexCli } from '../components/sessions/cli';
 import type { MachineConnectionTarget } from '../machines/credentials';
+import { DOCS_MOUNT_SEGMENT, isRecord, parseDocsEntries, type DocsEntry } from './entries';
 import { joinRemotePath } from './paths';
-
-/** One row of the Docs `list` answer (`file_entry` in project_docs.rs). */
-export type DocsEntry = {
-  path: string;
-  name: string;
-  kind: 'file' | 'directory';
-  depth: number;
-  modifiedAt: string | null;
-  size: number | null;
-  /** Set on entries of the mounted Docs directory: what the tree calls them. */
-  displayPath?: string;
-};
-
-/** The first path segment gxserver reserves for the mounted Docs directory. */
-export const DOCS_MOUNT_SEGMENT = '.ghostex-docs-root';
 
 const LIST_TIMEOUT_MS = 60_000;
 
@@ -44,23 +30,6 @@ async function additionalDocsFolders(machine: MachineConnectionTarget): Promise<
   }
 }
 
-function parseEntry(value: unknown): DocsEntry | null {
-  if (typeof value !== 'object' || value === null) return null;
-  const record = value as Record<string, unknown>;
-  const path = typeof record.path === 'string' ? record.path : '';
-  const kind = record.kind === 'directory' ? 'directory' : record.kind === 'file' ? 'file' : null;
-  if (path.length === 0 || kind === null) return null;
-  return {
-    path,
-    name: typeof record.name === 'string' && record.name.length > 0 ? record.name : path,
-    kind,
-    depth: typeof record.depth === 'number' ? record.depth : 0,
-    modifiedAt: typeof record.modifiedAt === 'string' ? record.modifiedAt : null,
-    size: typeof record.size === 'number' ? record.size : null,
-    ...(typeof record.displayPath === 'string' ? { displayPath: record.displayPath } : {}),
-  };
-}
-
 export async function listProjectDocs(machine: MachineConnectionTarget, projectId: string): Promise<DocsEntry[]> {
   const folders = await additionalDocsFolders(machine);
   const answer = await sessionChatRpc(
@@ -70,10 +39,9 @@ export async function listProjectDocs(machine: MachineConnectionTarget, projectI
     LIST_TIMEOUT_MS,
   );
   if (answer.error !== null) throw new Error(answer.error.message);
-  const result = (answer.result ?? {}) as Record<string, unknown>;
+  const result: Record<string, unknown> = isRecord(answer.result) ? answer.result : {};
   if (typeof result.error === 'string' && result.error.length > 0) throw new Error(result.error);
-  const entries = Array.isArray(result.entries) ? result.entries : [];
-  return entries.map(parseEntry).filter((entry): entry is DocsEntry => entry !== null);
+  return parseDocsEntries(result.entries);
 }
 
 /**
@@ -97,7 +65,7 @@ export async function resolveDocsEntryPath(
     additionalDocsFolders: '',
   });
   if (answer.error !== null) throw new Error(answer.error.message);
-  const result = (answer.result ?? {}) as Record<string, unknown>;
+  const result: Record<string, unknown> = isRecord(answer.result) ? answer.result : {};
   if (typeof result.fullPath === 'string' && result.fullPath.length > 0) return result.fullPath;
   throw new Error(typeof result.error === 'string' ? result.error : 'The Docs file is unavailable.');
 }

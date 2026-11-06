@@ -12,7 +12,7 @@
  * WebView, too late for the session list), so this is a port, held to the desktop by
  * `unifiedFixture.json`: a gx-core test writes the desktop builder's answers for a set of cases
  * into it and fails when they change, and `unifiedFixture.test.ts` runs the same cases through
- * this file.
+ * this file. The summary adapter supplies `hasQuestion` through the shared mobile-summary predicate.
  */
 
 import { mergedRepoIdentities, repoIdentity, type RepoIdentity } from './repo';
@@ -29,7 +29,12 @@ export type UnifiedSessionInput = {
   branch?: string;
   activity: string;
   awaitingApproval: boolean;
-  pendingQuestionCount: number;
+  /**
+   * The session has a question. The phone decides it by its one rule (`hasQuestion` in ../mobileSummary.ts: an open
+   * question card from a computer that announces it, or a counted question). The host fixture carries the count
+   * alone, so its adapter derives the same boolean from `pendingQuestionCount`.
+   */
+  hasQuestion: boolean;
   modelSelectionFailed: boolean;
   programStatusFailed: boolean;
   hasBackgroundWork: boolean;
@@ -161,7 +166,7 @@ export type UnifiedView<S = unknown> = {
 /** The status a session shows, most urgent first, in the order the desktop row's dots use. */
 export function unifiedStatus(session: UnifiedSessionInput): UnifiedStatus | null {
   if (session.awaitingApproval) return 'Approval';
-  if (session.pendingQuestionCount > 0) return 'Question';
+  if (session.hasQuestion) return 'Question';
   if (session.modelSelectionFailed || session.programStatusFailed) return 'Failed';
   if (session.activity === 'working') return 'Working';
   if (session.activity === 'attention') return 'Done';

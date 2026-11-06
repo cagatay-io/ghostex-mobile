@@ -7,10 +7,11 @@
 
 import * as Clipboard from 'expo-clipboard';
 import { useMemo } from 'react';
-import { ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 
 import type { UserAction } from '../../rust/actions';
 import type { CatchUpState, Json } from '../../rust/document';
+import { useChatViewSize } from '../chatPlacement';
 import { Glyph } from '../composer/icons';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { ChatButton, StatusCard } from './primitives';
@@ -89,7 +90,7 @@ function Summary({
   references?: Json;
 }) {
   const theme = useTranscriptTheme();
-  const { height } = useWindowDimensions();
+  const { height } = useChatViewSize();
   const env = useMemo<TranscriptEnv>(
     () => ({
       dispatch,

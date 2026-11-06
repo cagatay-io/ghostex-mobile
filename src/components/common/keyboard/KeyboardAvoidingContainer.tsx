@@ -2,7 +2,8 @@
  * A view that keeps its children above the software keyboard by padding its bottom by exactly the
  * part of its own frame the keyboard covers. Every modal dialog and bottom sheet puts its content
  * in one, so a centred card re-centres in the space above the keyboard and a bottom sheet rides on
- * top of it (shrinking when its percentage max height no longer fits).
+ * top of it (shrinking when its percentage max height no longer fits). Half folded like a laptop, the cover
+ * starts at the fold's top (`laptopCoverTop`), so they stand in the upper half, off the knick.
  *
  * Replaces React Native's `KeyboardAvoidingView`, which needs a resized window on Android and so
  * does nothing inside a `Modal` there (see keyboardFrame.ts).
@@ -12,10 +13,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, type ViewInstance, type ViewProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { laptopCoverTop } from '../verticalBar/layout';
+import { useLaptopFold } from '../verticalBar/laptopFold';
 import { stylePadding, useVerticalBarSpace } from '../verticalBar/VerticalBarArea';
 import { useKeyboardTop } from './keyboardFrame';
 
-/** How far below the keyboard's top edge the view's frame reaches; 0 while the keyboard is hidden. */
+/**
+ * How far below the top of what covers the window from below (the keyboard; in the laptop pose from the fold's
+ * top) the view's frame reaches; 0 while the keyboard is hidden. `keyboardTop` is that cover's top edge.
+ */
 export function useKeyboardOverlap(): {
   ref: React.RefObject<ViewInstance | null>;
   onLayout: () => void;
@@ -24,7 +30,7 @@ export function useKeyboardOverlap(): {
   frame: { top: number; bottom: number } | null;
 } {
   const ref = useRef<ViewInstance | null>(null);
-  const keyboardTop = useKeyboardTop();
+  const keyboardTop = laptopCoverTop(useKeyboardTop(), useLaptopFold());
   const [frame, setFrame] = useState<{ top: number; bottom: number } | null>(null);
   const onLayout = useCallback(() => {
     ref.current?.measureInWindow((_x, y, _width, height) => {

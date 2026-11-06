@@ -1,11 +1,14 @@
 /**
  * The rewind confirmation a prompt's Rewind button opens (desktop `rewind.rs`): the prompt it goes
  * back to, the core's description and error, and Cancel / the submit label. Everything it says is
- * `document.rewind`; the buttons send `rewindCancel` and `rewindSubmit`.
+ * `document.rewind`; the buttons send `rewindCancel` and `rewindSubmit`. Half folded like a laptop the card keeps
+ * off the fold, held to its band: a longer preview, description or error scrolls between the title and the buttons
+ * (`useFoldCardPlacement`).
  */
 
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { useFoldCardPlacement } from '../../../components/common/foldAvoidance';
 import { barPadding } from '../../../components/common/verticalBar/layout';
 import { useVerticalBarSpace } from '../../../components/common/verticalBar/VerticalBarArea';
 import type { RustChat } from '../../rust/useRustChat';
@@ -15,6 +18,7 @@ import { useTranscriptTheme } from './Transcript';
 export function RewindDialog({ chat }: { chat: RustChat }) {
   const theme = useTranscriptTheme();
   const bar = useVerticalBarSpace();
+  const placement = useFoldCardPlacement({ avoidsKeyboard: false });
   const state = obj(chat.state?.document?.rewind);
   if (state === null) return null;
   const busy = isTrue(state, 'busy');
@@ -42,7 +46,7 @@ export function RewindDialog({ chat }: { chat: RustChat }) {
   );
   return (
     <Modal visible transparent animationType="fade" onRequestClose={cancel} statusBarTranslucent>
-      <View style={[styles.backdrop, barPadding(bar, 16)]}>
+      <View style={[styles.backdrop, barPadding(bar, 16), placement.style]}>
         <Pressable
           style={StyleSheet.absoluteFill}
           onPress={busy ? undefined : cancel}
@@ -55,7 +59,9 @@ export function RewindDialog({ chat }: { chat: RustChat }) {
               backgroundColor: theme.light ? '#fefefe' : '#161616',
               borderColor: theme.light ? '#e5e5e5' : 'rgba(255,255,255,0.08)',
             },
+            placement.maxHeight !== null && { maxHeight: placement.maxHeight },
           ]}
+          onLayout={placement.onCardLayout}
           accessibilityViewIsModal
         >
           <View style={styles.titleBlock}>
@@ -64,7 +70,7 @@ export function RewindDialog({ chat }: { chat: RustChat }) {
               Restore the conversation to the point before you sent this message?
             </Text>
           </View>
-          <View style={styles.details}>
+          <ScrollView style={styles.detailsScroll} contentContainerStyle={styles.details} bounces={false}>
             {preview.length > 0 ? (
               <View style={[styles.preview, { borderLeftColor: theme.border }]}>
                 <Text numberOfLines={6} style={[styles.text, { color: theme.muted }]}>
@@ -74,7 +80,7 @@ export function RewindDialog({ chat }: { chat: RustChat }) {
             ) : null}
             <Text style={[styles.small, { color: theme.muted }]}>{str(state, 'description')}</Text>
             {error.length > 0 ? <Text style={[styles.small, { color: destructive }]}>{error}</Text> : null}
-          </View>
+          </ScrollView>
           <View style={styles.buttons}>
             {button(str(state, 'cancelLabel') || 'Cancel', cancel, busy, false)}
             {button(
@@ -102,6 +108,8 @@ const styles = StyleSheet.create({
   titleBlock: { gap: 6 },
   title: { fontSize: 16, fontWeight: '500' },
   text: { fontSize: 14, lineHeight: 20 },
+  // Its own height while it fits; it shrinks and scrolls where the card is held to its band.
+  detailsScroll: { flexGrow: 0, flexShrink: 1 },
   details: { gap: 16 },
   preview: { borderLeftWidth: 2, paddingLeft: 12 },
   small: { fontSize: 12, lineHeight: 18 },

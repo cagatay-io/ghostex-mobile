@@ -1,11 +1,13 @@
 /**
  * Generic action sheet: modal bottom sheet with a title/subtitle header and a
  * scrollable list of action rows (label + optional detail line, destructive
- * tint, disabled state). Styling per docs/specs/sessions-drawer.md §0.
+ * tint, disabled state). Styling per docs/specs/sessions-drawer.md §0. Half folded like a laptop it starts
+ * below the fold and its list scrolls inside.
  */
 
 import { Modal, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 
+import { useFoldSheetMaxHeight } from './foldAvoidance';
 import { useVerticalBarSpace } from './verticalBar/VerticalBarArea';
 
 import { GhostexPalette, GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
@@ -30,10 +32,14 @@ export type ActionSheetProps = {
 
 export default function ActionSheet({ visible, title, subtitle, items, onClose }: ActionSheetProps) {
   const bar = useVerticalBarSpace();
+  const foldMaxHeight = useFoldSheetMaxHeight({ avoidsKeyboard: false });
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={[styles.backdrop, bar.padding]} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}>
+        <Pressable
+          style={[styles.sheet, foldMaxHeight !== undefined && { maxHeight: foldMaxHeight }]}
+          onPress={(event) => event.stopPropagation()}
+        >
           <Text style={styles.title} numberOfLines={1}>
             {title}
           </Text>

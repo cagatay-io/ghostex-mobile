@@ -18,6 +18,7 @@ import {
   EXTRA_KEY_TEXT_MAX_LENGTH,
   SHORTCUT_KEY_NAMES,
   extraKeyCatalog,
+  makeCustomActionId,
   storedItemLabel,
   useExtraKeysStore,
   type ExtraKeyStored,
@@ -25,6 +26,7 @@ import {
 } from '../settings/extraKeys';
 import { destructiveButtonFills, GhostexPalette, GhostexRadii, GhostexStrokeWidth } from '../theme/palette';
 import type { Appearance } from '../theme/useAppearance';
+import { useFoldCardPlacement } from '../components/common/foldAvoidance';
 import KeyboardAvoidingContainer from '../components/common/keyboard/KeyboardAvoidingContainer';
 import KeyboardAwareScrollView from '../components/common/keyboard/KeyboardAwareScrollView';
 import { SettingsCopy } from '../copy';
@@ -32,7 +34,7 @@ import { SettingsColumnsFrame } from './settings/SettingsColumns';
 import { SettingsPageScrollView } from './settings/SettingsControls';
 import { useAppearanceHeader } from './settings/useAppearanceHeader';
 
-const STATUS_LINE = 'Customize the two key rows shown above the keyboard. Tap a key to move or remove it.';
+const STATUS_LINE = SettingsCopy.extraKeysStatus;
 const EXAMPLES_LINE =
   'Examples: a key that types "git status" and presses Enter, a key that inserts a long path, or Ctrl+C as a single tap.';
 
@@ -68,6 +70,10 @@ export default function ExtraKeysEditorScreen() {
   const [selected, setSelected] = useState<{ row: number; index: number } | null>(null);
   const [addTargetRow, setAddTargetRow] = useState<number | null>(null);
   const [customDraft, setCustomDraft] = useState<CustomDraft | null>(null);
+  // Half folded like a laptop each card stands off the fold: above it with the keyboard up (the keyboard-avoiding
+  // layer), else below it when it fits.
+  const addPlacement = useFoldCardPlacement({ avoidsKeyboard: true, belowSafeAreaTop: true });
+  const customPlacement = useFoldCardPlacement({ avoidsKeyboard: true, belowSafeAreaTop: true });
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(savedLayout);
 
@@ -169,6 +175,7 @@ export default function ExtraKeysEditorScreen() {
       }
       item = {
         type: 'shortcut',
+        id: makeCustomActionId(),
         label,
         key: normalized ?? key,
         ctrl: customDraft.ctrl,
@@ -182,6 +189,7 @@ export default function ExtraKeysEditorScreen() {
       }
       item = {
         type: 'text',
+        id: makeCustomActionId(),
         label,
         text: customDraft.text,
         sendEnter: customDraft.kind === 'textEnter',
@@ -291,8 +299,8 @@ export default function ExtraKeysEditorScreen() {
           onRequestClose={() => setAddTargetRow(null)}
         >
           <KeyboardAvoidingContainer safeAreaTop style={styles.modalKeyboardFill}>
-            <Pressable style={styles.modalBackdrop} onPress={() => setAddTargetRow(null)}>
-              <Pressable style={styles.modalCard} onPress={() => undefined}>
+            <Pressable style={[styles.modalBackdrop, addPlacement.style]} onPress={() => setAddTargetRow(null)}>
+              <Pressable style={styles.modalCard} onLayout={addPlacement.onCardLayout} onPress={() => undefined}>
                 <Text style={styles.modalTitle}>Add key</Text>
                 <ScrollView style={styles.modalScroll}>
                   <Text style={styles.modalSection}>Custom actions</Text>
@@ -342,8 +350,8 @@ export default function ExtraKeysEditorScreen() {
           onRequestClose={() => setCustomDraft(null)}
         >
           <KeyboardAvoidingContainer safeAreaTop style={styles.modalKeyboardFill}>
-            <Pressable style={styles.modalBackdrop} onPress={() => setCustomDraft(null)}>
-              <Pressable style={styles.modalCard} onPress={() => undefined}>
+            <Pressable style={[styles.modalBackdrop, customPlacement.style]} onPress={() => setCustomDraft(null)}>
+              <Pressable style={styles.modalCard} onLayout={customPlacement.onCardLayout} onPress={() => undefined}>
                 {customDraft !== null && (
                   <KeyboardAwareScrollView style={styles.modalScroll} contentContainerStyle={styles.modalForm}>
                     <Text style={styles.modalTitle}>

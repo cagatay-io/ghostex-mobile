@@ -84,6 +84,15 @@ class GhosttyTerminalView: UIView {
     var didSignalReady = false
     var isShuttingDown = false
     var isPaused = false
+    /// Two panes on screen: true for the active pane's terminal (Ghostty draws its cursor filled), false for the other
+    /// (hollow), whichever view holds the keyboard. Nil with one terminal on screen: the surface's focus follows the
+    /// first responder, as before.
+    var paneFocus: Bool? {
+        didSet {
+            guard paneFocus != oldValue, !isPaused, let surface = surface?.unsafeCValue else { return }
+            ghostty_surface_set_focus(surface, paneFocus ?? isFirstResponder)
+        }
+    }
     private var customIORedrawScheduled = false
     var keyRepeatTimer: DispatchSourceTimer?
     var repeatingHardwareKey: UIKey?
@@ -440,6 +449,10 @@ class GhosttyTerminalView: UIView {
 
         if let surface = surface?.unsafeCValue {
             ghostty_surface_set_occlusion(surface, true)
+            // A pause took the focus; a pane gets its own back (with one terminal it returns with the keyboard).
+            if let paneFocus {
+                ghostty_surface_set_focus(surface, paneFocus)
+            }
         }
 
         sizeDidChange(bounds.size)

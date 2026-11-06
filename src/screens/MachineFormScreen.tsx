@@ -59,6 +59,7 @@ import {
   type MachineValidationErrors,
 } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
+import { unregisterBeforeRemoval, useRemovalAsksComputer } from '../notifications/pushStore';
 import { useSpacesStore } from '../spaces/store';
 import { useWorkspacesStore } from '../workspaces/store';
 import { useWebPreviewStore } from '../webPreview/store';
@@ -108,6 +109,7 @@ export default function MachineFormScreen({ navigation, route }: Props) {
   const webPreviewPort = useWebPreviewStore((state) =>
     machineId === null ? undefined : state.lastPortByMachine[machineId],
   );
+  const removalAsksComputer = useRemovalAsksComputer();
   const existing = machineId === null ? null : (machines.find((m) => m.id === machineId) ?? null);
   const editing = existing !== null;
 
@@ -312,6 +314,8 @@ export default function MachineFormScreen({ navigation, route }: Props) {
     clearMachineInventory(existing.id);
     clearMachineSpace(existing.id);
     useWorkspacesStore.getState().clearMachine(existing.id);
+    // While its record and link still exist; waits a bounded time, and an unreachable computer is removed anyway.
+    await unregisterBeforeRemoval(existing.id);
     try {
       markManualDisconnect(existing.id);
       await GhostexNative.disconnect(existing.id);
@@ -608,7 +612,10 @@ export default function MachineFormScreen({ navigation, route }: Props) {
         <ConfirmDialog
           visible={removeOpen}
           title={EditMachineCopy.remove.title}
-          body={EditMachineCopy.remove.body(existing.name.length > 0 ? existing.name : existing.username)}
+          body={EditMachineCopy.remove.body(
+            existing.name.length > 0 ? existing.name : existing.username,
+            removalAsksComputer,
+          )}
           confirmLabel={EditMachineCopy.remove.confirm}
           destructive
           onConfirm={() => void remove()}

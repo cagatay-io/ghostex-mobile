@@ -7,12 +7,14 @@
  * that same machine, or copying it so the user can mention it themselves.
  *
  * Presentation follows the app's other bottom sheets (ActionSheet/LogsSheet):
- * modal backdrop, sheet card, selectable monospace body, action rows.
+ * modal backdrop, sheet card, selectable monospace body, action rows. Half folded
+ * like a laptop it starts below the fold and scrolls inside, as they do.
  */
 
 import { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { useFoldSheetMaxHeight } from '../common/foldAvoidance';
 import { useVerticalBarSpace } from '../common/verticalBar/VerticalBarArea';
 import * as Clipboard from 'expo-clipboard';
 
@@ -47,6 +49,7 @@ export default function ExportTranscriptSheet({
   onClose,
 }: ExportTranscriptSheetProps) {
   const bar = useVerticalBarSpace();
+  const foldMaxHeight = useFoldSheetMaxHeight({ avoidsKeyboard: false });
   const [copied, setCopied] = useState(false);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -68,7 +71,10 @@ export default function ExportTranscriptSheet({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={[styles.backdrop, bar.padding]} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}>
+        <Pressable
+          style={[styles.sheet, foldMaxHeight !== undefined && { maxHeight: foldMaxHeight }]}
+          onPress={(event) => event.stopPropagation()}
+        >
           <Text style={styles.title}>Transcript Exported</Text>
           <Text style={styles.subtitle} numberOfLines={2}>
             {sessionTitle}

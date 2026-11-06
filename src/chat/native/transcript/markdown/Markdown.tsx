@@ -7,17 +7,10 @@
 
 import * as Clipboard from 'expo-clipboard';
 import { memo, useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-  type TextStyle,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, type TextStyle } from 'react-native';
 
 import { openChatTablePreview, tableCsv } from '../../cards';
+import { useChatViewSize } from '../../chatPlacement';
 import { useTranscriptEnv } from '../context';
 import { Glyph, type GlyphName } from '../icons';
 import { arr, obj, str, type JsonRecord } from '../json';
@@ -447,7 +440,7 @@ function Table({ block, context: rowContext }: { block: Extract<Block, { t: 'tab
   const [find, findDone] = useOwnFind(rowContext.find);
   const context = { ...rowContext, find };
   const measureContext = { ...rowContext, find: null };
-  const { width } = useWindowDimensions();
+  const { width } = useChatViewSize();
   const [collapsed, setCollapsed] = useState(false);
   // The table fits the transcript's width (`fitTableColumns`). React Native has no table layout,
   // so both of a column's widths are measured from an invisible copy of the cells laid out without

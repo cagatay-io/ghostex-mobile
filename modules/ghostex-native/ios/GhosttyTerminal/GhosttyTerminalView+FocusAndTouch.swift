@@ -83,6 +83,13 @@ extension GhosttyTerminalView {
         }
     }
 
+    /// Whether the keyboard's input reaches this terminal: it is first responder, and not only for the edit menu's
+    /// Paste (`editMenuFocusHidesKeyboard`). With no keyboard on screen that is a hardware keyboard typing into it:
+    /// iOS shows no software keyboard then, so React sees no keyboard frame.
+    var holdsKeyboardInput: Bool {
+        isFirstResponder && !editMenuFocusHidesKeyboard
+    }
+
     func markKeyboardFocusForReconnect() {
         keyboardFocusPolicy.markForReconnect()
     }
@@ -96,7 +103,8 @@ extension GhosttyTerminalView {
     override func becomeFirstResponder() -> Bool {
         let became = super.becomeFirstResponder()
         if became, let surface = surface?.unsafeCValue {
-            ghostty_surface_set_focus(surface, true)
+            // With two panes the pane's own focus stands (`paneFocus`); with one the keyboard's holder is focused.
+            ghostty_surface_set_focus(surface, paneFocus ?? true)
         }
         return became
     }
@@ -106,7 +114,7 @@ extension GhosttyTerminalView {
         if resigned {
             editMenuFocusHidesKeyboard = false
             if let surface = surface?.unsafeCValue {
-                ghostty_surface_set_focus(surface, false)
+                ghostty_surface_set_focus(surface, paneFocus ?? false)
             }
             invalidateLocalTextInputSession()
             stopKeyRepeat()

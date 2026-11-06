@@ -3,13 +3,19 @@
  * keyboard and keeps the home indicator's inset without one (the bottom inset counted once). It follows the shared keyboard store synchronously, so its lift is expected to land in the commit the
  * keyboard's motion is requested for (basis and limit: `keyboardMotion.ts`; the device decides), and it measures
  * its resting bottom edge when its own layout changes (`onLayout`) and the window's height does
- * (`useKeyboardInset`), so the composer cannot lose either hookup.
+ * (`useKeyboardInset`), so the composer cannot lose either hookup. In the iPhone Duo's laptop pose it stands
+ * `LAPTOP_CLEAR` above the fold with the keyboard below it, as the approved mockup shows. In one of the Duo's pane
+ * slots (`chatPlacement`) the pane already ends at the keyboard or above the fold and away from the home indicator:
+ * the composer keeps only its least space below, with the keyboard or without.
  */
 
 import { useRef, type ReactNode } from 'react';
 import { View, type StyleProp, type ViewInstance, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { LAPTOP_CLEAR } from '../../../components/common/verticalBar/layout';
+import { useLaptopFold } from '../../../components/common/verticalBar/laptopFold';
+import { useChatPlacement } from '../chatPlacement';
 import { useKeyboardInset } from './useKeyboardInset';
 
 /** Space between the composer and the keyboard's top edge. */
@@ -28,7 +34,9 @@ export function KeyboardLiftedView({
   const insets = useSafeAreaInsets();
   const anchor = useRef<ViewInstance>(null);
   const { inset, onAnchorLayout } = useKeyboardInset(anchor);
-  const bottom = inset > 0 ? inset + KEYBOARD_GAP : Math.max(insets.bottom, MIN_BOTTOM);
+  // In the laptop pose the lift ends at the fold's top: keep the knick's clearance there.
+  const gap = useLaptopFold() === null ? KEYBOARD_GAP : LAPTOP_CLEAR;
+  const bottom = useChatPlacement().inPane ? MIN_BOTTOM : inset > 0 ? inset + gap : Math.max(insets.bottom, MIN_BOTTOM);
   return (
     <View ref={anchor} style={[style, { paddingBottom: bottom }]} onLayout={onAnchorLayout}>
       {typeof children === 'function' ? children(bottom) : children}

@@ -3,7 +3,7 @@
  * long-press menu. Same fields and copy as the desktop's native editors
  * (apps/desktop/src/app/window/coordinator_details_modal.rs): both edit a local copy and save it in
  * one `ghostex coordinator edit` (Memory sends the whole list), so Cancel leaves everything as it
- * was.
+ * was. Half folded like a laptop the card keeps off the fold (`useFoldCardPlacement`).
  *
  * SEE-ALSO: the user's decision on `coordinator_rows` in packages/gx-core/src/sidebar_menu/session.rs.
  */
@@ -11,6 +11,7 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { useFoldCardPlacement } from '../../components/common/foldAvoidance';
 import KeyboardAvoidingContainer from '../../components/common/keyboard/KeyboardAvoidingContainer';
 import KeyboardAwareScrollView from '../../components/common/keyboard/KeyboardAwareScrollView';
 import { XGlyph } from '../../components/sessions/icons';
@@ -107,11 +108,12 @@ export default function CoordinatorDetailsSheet({ mode, load, onSave, onCancel }
 
   const name = details !== null && details.title.length > 0 ? details.title : 'this coordinator';
   const canSave = details !== null && !busy;
+  const placement = useFoldCardPlacement({ avoidsKeyboard: true, belowSafeAreaTop: true });
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onCancel}>
       <KeyboardAvoidingContainer safeAreaTop style={styles.keyboardFill}>
-        <Pressable style={styles.backdrop} onPress={onCancel}>
-          <Pressable style={styles.card} onPress={(event) => event.stopPropagation()}>
+        <Pressable style={[styles.backdrop, placement.style]} onPress={onCancel}>
+          <Pressable style={styles.card} onLayout={placement.onCardLayout} onPress={(event) => event.stopPropagation()}>
             <KeyboardAwareScrollView contentContainerStyle={styles.cardContent}>
               <Text style={styles.title}>{mode === 'goal' ? 'Goal & Instructions' : 'Memory'}</Text>
               <Text style={styles.body}>

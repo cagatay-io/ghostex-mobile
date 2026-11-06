@@ -12,11 +12,22 @@ import { create } from 'zustand';
 
 import type { CursorStyle } from '../../modules/ghostex-native/src/GhostexNative.types';
 import {
+  DEFAULT_NOTIFICATION_SETTINGS,
+  sanitizeNotificationSettings,
+  type NotificationSettings,
+} from '../notifications/settings';
+import {
   clampSidebarContrast,
   DEFAULT_SIDEBAR_BACKGROUND_CONTRAST,
   DEFAULT_SIDEBAR_BACKGROUND_TINT,
   normalizeSidebarTint,
 } from '../theme/sidebarAppearance';
+import {
+  DEFAULT_COMMAND_PAD_KEYS,
+  sanitizeCommandPadKeys,
+  sanitizeCommandPadPosition,
+  type CommandPadPositions,
+} from './commandPad';
 
 const SETTINGS_STORAGE_KEY = 'settings.v1';
 
@@ -31,10 +42,13 @@ export type MarkedHandoversStyle = 'labels' | 'rule' | 'badge' | 'plain';
 export type PreferredAgentInterface = 'terminal' | 'chat';
 /** How the phone draws its sessions list: the desktop's Unified sidebar, or the Project list per computer. */
 export type SessionsListLayout = 'unified' | 'project';
+/** How the Sessions list draws its sessions where it offers the choice (the unfolded iPhone Duo): rows or tiles. */
+export type SessionListView = 'list' | 'tiles';
 
 export type GhostexSettings = {
   // Terminal behavior (legacy Android row order).
   autoScroll: boolean;
+  /** The Befehlspad's toggle in terminals (the key bar's switch before the pad replaced the bar; same meaning). */
   extraKeysToolbarVisible: boolean;
   softKeyboardEnabled: boolean;
   keepScreenOn: boolean;
@@ -44,11 +58,20 @@ export type GhostexSettings = {
   doneNotificationSound: boolean;
   /** This phone carries settings sync between the computers it connects to (src/settingsSync/). */
   settingsSyncThroughPhone: boolean;
+  /**
+   * The automatic Live Activity: off ends a
+   * running one and starts no other. iOS only.
+   */
+  liveActivityEnabled: boolean;
   hideKeyboardOnStartup: boolean;
   openUrlsOnTap: boolean;
   confirmTabClose: boolean;
-  /** Haptic tick on key-bar presses + lock-in buzz on held modifiers. */
+  /** Haptic tick on pad and layer key presses + lock-in buzz on held modifiers. */
   keyBarHapticsEnabled: boolean;
+  /** The Befehlspad's nine keys, row by row from the top left (`settings/commandPad.ts`). */
+  commandPadKeys: string[];
+  /** Where the user moved the Befehlspad, per layout (`settings/commandPad.ts`); `{}` = the default position. */
+  commandPadPosition: CommandPadPositions;
   /** Terminal font size in pt (iOS) / sp (Android). Range 4-32. */
   fontSize: number;
   /** Scrollback rows for newly created terminal buffers. */
@@ -117,11 +140,28 @@ export type GhostexSettings = {
    * the computer cannot be reached (Settings > Connection; the notice's close button turns it off).
    */
   tailscaleReminder: boolean;
+  /**
+   * The project file browser lists hidden files and folders (names starting with a dot): its Files menu's
+   * Show Hidden Files, off until switched on.
+   */
+  showHiddenFiles: boolean;
+  /**
+   * The Sessions list as rows or as tiles with live thumbnails, chosen with its list/tiles switch on the unfolded
+   * iPhone Duo; kept while folded, where the list always shows rows.
+   */
+  sessionListView: SessionListView;
+  /**
+   * The short replies the folded triage offers on a waiting session (Settings › Short Replies), in their order on the
+   * cards; a tap sends the text to that session. Only non-empty entries are kept.
+   */
+  shortReplies: string[];
   // SSH connection (appended group).
   autoReconnect: boolean;
   keepAliveEnabled: boolean;
   /** Keep-alive interval in seconds, 10-120 in 10-second steps. */
   keepAliveIntervalSec: number;
+  /** Agent notifications: master, finished, waiting, error and when the one-time ask was answered. */
+  notifications: NotificationSettings;
 };
 
 export const TERMINAL_FONT_SIZE_MIN = 4;
@@ -172,10 +212,13 @@ export function defaultSettings(): GhostexSettings {
     keyboardButtonVisible: false,
     doneNotificationSound: true,
     settingsSyncThroughPhone: true,
+    liveActivityEnabled: true,
     hideKeyboardOnStartup: true,
     openUrlsOnTap: true,
     confirmTabClose: false,
     keyBarHapticsEnabled: true,
+    commandPadKeys: [...DEFAULT_COMMAND_PAD_KEYS],
+    commandPadPosition: {},
     fontSize: defaultFontSize(),
     scrollbackRows: 2_000,
     cursorStyle: 'bar',
@@ -201,9 +244,13 @@ export function defaultSettings(): GhostexSettings {
     sessionsListGroupByProject: false,
     sessionsListWorkingSection: true,
     tailscaleReminder: true,
+    showHiddenFiles: false,
+    sessionListView: 'list',
+    shortReplies: [...DEFAULT_SHORT_REPLIES],
     autoReconnect: true,
     keepAliveEnabled: true,
     keepAliveIntervalSec: 30,
+    notifications: { ...DEFAULT_NOTIFICATION_SETTINGS },
   };
 }
 
@@ -220,6 +267,14 @@ function clampSidebarSurfaceOpacity(value: number, fallback: number): number {
 export function clampScrollbackRows(value: number): number {
   const stepped = Math.round(value / SCROLLBACK_ROWS_STEP) * SCROLLBACK_ROWS_STEP;
   return Math.min(SCROLLBACK_ROWS_MAX, Math.max(SCROLLBACK_ROWS_MIN, stepped));
+}
+
+/** The short replies of a fresh install. */
+export const DEFAULT_SHORT_REPLIES: readonly string[] = ['continue', 'yes'];
+
+/** The entries as they are kept: text only, trimmed, empty ones dropped. */
+export function keptShortReplies(entries: readonly unknown[]): string[] {
+  return entries.flatMap((entry) => (typeof entry === 'string' && entry.trim().length > 0 ? [entry.trim()] : []));
 }
 
 function sanitizeSettings(value: unknown): GhostexSettings {
@@ -280,10 +335,13 @@ function sanitizeSettings(value: unknown): GhostexSettings {
     keyboardButtonVisible: bool('keyboardButtonVisible', defaults.keyboardButtonVisible),
     doneNotificationSound: bool('doneNotificationSound', defaults.doneNotificationSound),
     settingsSyncThroughPhone: bool('settingsSyncThroughPhone', defaults.settingsSyncThroughPhone),
+    liveActivityEnabled: bool('liveActivityEnabled', defaults.liveActivityEnabled),
     hideKeyboardOnStartup: bool('hideKeyboardOnStartup', defaults.hideKeyboardOnStartup),
     openUrlsOnTap: bool('openUrlsOnTap', defaults.openUrlsOnTap),
     confirmTabClose: bool('confirmTabClose', defaults.confirmTabClose),
     keyBarHapticsEnabled: bool('keyBarHapticsEnabled', defaults.keyBarHapticsEnabled),
+    commandPadKeys: sanitizeCommandPadKeys(record.commandPadKeys) ?? defaults.commandPadKeys,
+    commandPadPosition: sanitizeCommandPadPosition(record.commandPadPosition),
     fontSize,
     scrollbackRows,
     cursorStyle,
@@ -330,9 +388,13 @@ function sanitizeSettings(value: unknown): GhostexSettings {
     sessionsListGroupByProject: bool('sessionsListGroupByProject', defaults.sessionsListGroupByProject),
     sessionsListWorkingSection: bool('sessionsListWorkingSection', defaults.sessionsListWorkingSection),
     tailscaleReminder: bool('tailscaleReminder', defaults.tailscaleReminder),
+    showHiddenFiles: bool('showHiddenFiles', defaults.showHiddenFiles),
+    sessionListView: record.sessionListView === 'tiles' ? 'tiles' : defaults.sessionListView,
+    shortReplies: Array.isArray(record.shortReplies) ? keptShortReplies(record.shortReplies) : defaults.shortReplies,
     autoReconnect: bool('autoReconnect', defaults.autoReconnect),
     keepAliveEnabled: bool('keepAliveEnabled', defaults.keepAliveEnabled),
     keepAliveIntervalSec,
+    notifications: sanitizeNotificationSettings(record.notifications),
   };
 }
 

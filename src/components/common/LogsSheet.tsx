@@ -1,12 +1,14 @@
 /**
  * Logs bottom sheet, opened by tapping the sessions-screen status line: the
  * in-app event log (appLog.ts) as selectable timestamped lines, newest last,
- * with a Copy button that puts the full plain-text log on the clipboard.
+ * with a Copy button that puts the full plain-text log on the clipboard. Half folded like a laptop it starts
+ * below the fold and the log scrolls inside.
  */
 
 import { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { useFoldSheetMaxHeight } from './foldAvoidance';
 import { useVerticalBarSpace } from './verticalBar/VerticalBarArea';
 import * as Clipboard from 'expo-clipboard';
 
@@ -20,6 +22,7 @@ export type LogsSheetProps = {
 
 export default function LogsSheet({ visible, onClose }: LogsSheetProps) {
   const bar = useVerticalBarSpace();
+  const foldMaxHeight = useFoldSheetMaxHeight({ avoidsKeyboard: false });
   const entries = useAppLogStore((state) => state.entries);
   const [copied, setCopied] = useState(false);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -42,7 +45,10 @@ export default function LogsSheet({ visible, onClose }: LogsSheetProps) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={[styles.backdrop, bar.padding]} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}>
+        <Pressable
+          style={[styles.sheet, foldMaxHeight !== undefined && { maxHeight: foldMaxHeight }]}
+          onPress={(event) => event.stopPropagation()}
+        >
           <View style={styles.headerRow}>
             <Text style={styles.title}>Logs</Text>
             <Pressable

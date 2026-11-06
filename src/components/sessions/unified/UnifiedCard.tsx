@@ -54,7 +54,7 @@ import CloudBoxBadge from '../CloudBoxBadge';
 const DONE_COLOR = SidebarPalette.ROW_ATTENTION;
 const AGE_COLOR = SidebarPalette.ROW_TIME;
 
-function statusLook(status: UnifiedStatus): { Glyph: typeof AlertTriangleGlyph; color: string } {
+export function statusLook(status: UnifiedStatus): { Glyph: typeof AlertTriangleGlyph; color: string } {
   switch (status) {
     case 'Approval':
       return { Glyph: AlertTriangleGlyph, color: SidebarPalette.ROW_FAILED };
@@ -100,7 +100,8 @@ function SpinningGlyph({ children }: { children: ReactNode }) {
   return <Animated.View style={{ transform: [{ rotate }] }}>{children}</Animated.View>;
 }
 
-function StatusSlot({ row, nowMs }: { row: UnifiedRow<GhostexSession>; nowMs: number }) {
+/** A card's status: its icon, word and working timer, or its age when it has no status (also the wall's tile badge). */
+export function StatusSlot({ row, nowMs }: { row: UnifiedRow<GhostexSession>; nowMs: number }) {
   const { status } = row;
   if (status === null) {
     const age = lastInteractionLabel(row.session.source!, nowMs);

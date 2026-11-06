@@ -16,6 +16,7 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import type { ChatDocument, WorkingCard as WorkingCardValue } from '../../rust/document';
+import { useChatPlacement } from '../chatPlacement';
 import { useTranscriptBottomStore } from '../transcript/bottomStore';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { IconPill } from './ChatPills';
@@ -123,7 +124,8 @@ export function WorkingCard({ document }: { document: ChatDocument }) {
 /**
  * Scroll-to-bottom on its own over the transcript's bottom edge, while the reader is away from the
  * bottom and the chat box has no pill strip to carry it (desktop `render_lone_scroll_bottom`): a strip
- * opened only for the ↓ would resize the box every time the reader scrolled up.
+ * opened only for the ↓ would resize the box every time the reader scrolled up. A chat in a pane slot
+ * draws no strip (`NativeComposer`'s compact form), so there it is always on its own.
  */
 export function LoneScrollBottom({
   document,
@@ -138,7 +140,8 @@ export function LoneScrollBottom({
   const P = useTranscriptTheme();
   const awayFromBottom = useTranscriptBottomStore((store) => store.awayFromBottom);
   const jumpToBottom = useTranscriptBottomStore((store) => store.jumpToBottom);
-  if (pillsStripShown(document, armed, links ?? null, P.cardMuted) || !awayFromBottom || jumpToBottom === null) {
+  const stripCarriesIt = !useChatPlacement().inPane && pillsStripShown(document, armed, links ?? null, P.cardMuted);
+  if (stripCarriesIt || !awayFromBottom || jumpToBottom === null) {
     return null;
   }
   return (

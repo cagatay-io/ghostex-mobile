@@ -1,21 +1,40 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
+import { CommandPadCopy } from '../../copy';
 import type { RootStackParamList } from '../../navigation/types';
 import { SettingsSection } from './SectionBoundary';
 import { Caption, LinkRow, SectionHeader, SettingsScreenLayout, SettingToggle } from './SettingsControls';
 
-function ExtraKeysSection() {
+/**
+ * The Befehlspad's switch (the key bar's `extraKeysToolbarVisible`, same meaning), key vibration and its nine
+ * keys, then the editors whose keys fill its Keys and Agent layers (the design).
+ */
+function CommandPadSection() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   return (
     <>
-      <SectionHeader title="Extra keys" />
-      <SettingToggle settingKey="extraKeysToolbarVisible" label="Extra keys toolbar" />
-      <Caption>Shows the row of extra keys above the keyboard in terminals.</Caption>
-      <SettingToggle settingKey="keyBarHapticsEnabled" label="Key bar vibration" />
-      <LinkRow title="Extra keys layout" onPress={() => navigation.navigate('ExtraKeysEditor')} />
-      <LinkRow title="Agent hotkeys" onPress={() => navigation.navigate('AgentHotkeysEditor')} />
+      <SectionHeader title={CommandPadCopy.settingsSection} />
+      <SettingToggle settingKey="extraKeysToolbarVisible" label={CommandPadCopy.toggle} />
+      <Caption>{CommandPadCopy.settingsCaption}</Caption>
+      <SettingToggle settingKey="keyBarHapticsEnabled" label={CommandPadCopy.vibration} />
+      <LinkRow
+        title={CommandPadCopy.padKeys}
+        description={CommandPadCopy.padKeysDescription}
+        onPress={() => navigation.navigate('CommandPadKeysEditor')}
+      />
+      <SectionHeader title={CommandPadCopy.layersSection} />
+      <LinkRow
+        title={CommandPadCopy.extraKeysLayout}
+        description={CommandPadCopy.extraKeysLayoutDescription}
+        onPress={() => navigation.navigate('ExtraKeysEditor')}
+      />
+      <LinkRow
+        title={CommandPadCopy.agentHotkeys}
+        description={CommandPadCopy.agentHotkeysDescription}
+        onPress={() => navigation.navigate('AgentHotkeysEditor')}
+      />
     </>
   );
 }
@@ -23,8 +42,8 @@ function ExtraKeysSection() {
 export default function KeyboardPage() {
   return (
     <SettingsScreenLayout>
-      <SettingsSection name="settings:keyboard:extra-keys">
-        <ExtraKeysSection />
+      <SettingsSection name="settings:keyboard:command-pad">
+        <CommandPadSection />
       </SettingsSection>
     </SettingsScreenLayout>
   );

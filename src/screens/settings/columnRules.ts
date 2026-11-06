@@ -16,6 +16,7 @@ const SETTINGS_ROUTES: ReadonlySet<string> = new Set([
   'SettingsPage',
   'ExtraKeysEditor',
   'AgentHotkeysEditor',
+  'CommandPadKeysEditor',
 ]);
 
 /** The page selected while none was opened yet: the first of the list (Interface). */

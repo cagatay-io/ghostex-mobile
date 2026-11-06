@@ -9,8 +9,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SwitchRow } from '../../components/common/SwitchRow';
 import SteppedSlider from '../../components/common/SteppedSlider';
+import { FoldListFrame } from '../../components/common/foldGap';
 import KeyboardAwareScrollView from '../../components/common/keyboard/KeyboardAwareScrollView';
 import type { HorizontalInsets } from '../../components/common/verticalBar/layout';
+import { useLaptopFold } from '../../components/common/verticalBar/laptopFold';
 import { useHeaderPlacement, useScrollToBarEdges } from '../../components/common/verticalBar/VerticalBarArea';
 import { useSettingsStore, type GhostexSettings } from '../../settings/store';
 import { GhostexPalette, GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
@@ -242,7 +244,7 @@ export const SettingsPageEdgesContext = createContext<HorizontalInsets | null>(n
 /**
  * A Settings page's scroll view (the pages' and the editors'): it spans the window under the side bar
  * and its content keeps its own padding clear of it; unchanged without a side bar.
- * `keyboardAware` for a page with text fields.
+ * `keyboardAware` for a page with text fields. Half folded like a laptop it ends above the fold (fold gap).
  */
 export function SettingsPageScrollView({
   keyboardAware = false,
@@ -252,11 +254,14 @@ export function SettingsPageScrollView({
   ...props
 }: ScrollViewProps & { keyboardAware?: boolean }) {
   const edges = useScrollToBarEdges(contentContainerStyle, useContext(SettingsPageEdgesContext));
+  const fold = useLaptopFold();
   const Scroll = keyboardAware ? KeyboardAwareScrollView : ScrollView;
   return (
-    <Scroll {...props} style={[style, edges.scroll]} contentContainerStyle={[contentContainerStyle, edges.content]}>
-      {children}
-    </Scroll>
+    <FoldListFrame fold={fold}>
+      <Scroll {...props} style={[style, edges.scroll]} contentContainerStyle={[contentContainerStyle, edges.content]}>
+        {children}
+      </Scroll>
+    </FoldListFrame>
   );
 }
 

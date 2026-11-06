@@ -517,6 +517,19 @@ export function cancelDelayedSendCommand(sessionId: string): string {
   return `ghostex delayed-send --session-id ${shellQuote(requireId(sessionId, 'session id'))}` + ' --cancel --json';
 }
 
+/**
+ * Type text into a session's terminal and submit it: `ghostex send-message --session-id <id> [--project-id <id>]
+ * --text=<text> --json`. gxserver clears the agent's input line, types the text and presses Enter in the session's
+ * own terminal (`/api/sendSessionMessage`), whether or not the phone has that terminal open. The folded triage's
+ * short reply to a session shown as a terminal.
+ */
+export function sendSessionMessageCommand(sessionId: string, projectId: string, text: string): string {
+  return (
+    `ghostex send-message --session-id ${shellQuote(requireId(sessionId, 'session id'))}` +
+    `${projectFlag(projectId)} ${inlineTextFlag('--text', text)} --json`
+  );
+}
+
 /** Toggle Close After Done: `ghostex close-after-done --session-id <id> --json`. */
 export function closeAfterDoneCommand(sessionId: string): string {
   return `ghostex close-after-done --session-id ${shellQuote(requireId(sessionId, 'session id'))}` + ' --json';

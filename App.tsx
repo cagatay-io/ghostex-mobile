@@ -22,8 +22,13 @@ import { reportMobileView } from './src/analytics/clientView';
 import { flushPendingDeepLink, initDeepLinks, navigationRef } from './src/app/deepLinks';
 import { initAppLifecycle } from './src/app/lifecycle';
 import { initSettingsSync } from './src/settingsSync/settingsSync';
+import { initLiveActivity } from './src/notifications/liveActivity';
+import { initWidgets } from './src/notifications/widgets';
 import { initPersistentNotification } from './src/app/persistentNotification';
 import { useMachinesStore } from './src/machines/store';
+import { initAttentionNotifications } from './src/notifications/feedStore';
+import { initPaneLayouts } from './src/panes/store';
+import { initPushNotifications } from './src/notifications/pushStore';
 import { useAgentHotkeysStore } from './src/settings/agentHotkeys';
 import { useExtraKeysStore } from './src/settings/extraKeys';
 import { initSettingsNativeSync } from './src/settings/nativeSync';
@@ -44,6 +49,7 @@ import { ChatCoreWebViewHost } from './src/chat/rust/wasm-core/ChatCoreWebView';
 import ExtraKeysEditorScreen from './src/screens/ExtraKeysEditorScreen';
 import FeedbackScreen from './src/screens/FeedbackScreen';
 import AgentHotkeysEditorScreen from './src/screens/AgentHotkeysEditorScreen';
+import CommandPadKeysEditorScreen from './src/screens/CommandPadKeysEditorScreen';
 import AddProjectDestinationScreen from './src/screens/AddProjectDestinationScreen';
 import AddProjectLocalScreen from './src/screens/AddProjectLocalScreen';
 import AddProjectRepositoryScreen from './src/screens/AddProjectRepositoryScreen';
@@ -66,10 +72,12 @@ import ConnectChooseScreen from './src/screens/ConnectChooseScreen';
 import ConnectedScreen from './src/screens/ConnectedScreen';
 import ScanCodeScreen from './src/screens/ScanCodeScreen';
 import CantReachScreen from './src/screens/CantReachScreen';
+import AttentionListScreen from './src/screens/AttentionListScreen';
 import ChangesScreen from './src/screens/ChangesScreen';
 import DocsScreen from './src/screens/DocsScreen';
 import DocViewerScreen from './src/screens/DocViewerScreen';
 import SshAccessHelpScreen from './src/screens/SshAccessHelpScreen';
+import UsageScreen from './src/screens/UsageScreen';
 import { useWebPreviewStore } from './src/webPreview/store';
 import {
   AddProjectCopy,
@@ -78,6 +86,8 @@ import {
   FeedbackCopy,
   FindPromptsCopy,
   MachineCopy,
+  NotificationsCopy,
+  PanesCopy,
   SettingsCopy,
   SshAccessCopy,
   TailscaleFormCopy,
@@ -132,10 +142,15 @@ export default function App() {
     initPersistentNotification();
     initDeepLinks();
     initAlerts();
+    initAttentionNotifications();
+    initLiveActivity();
+    initWidgets();
+    initPushNotifications();
     initAutoReconnect();
     initSettingsSync();
     initTerminalKeepAwake();
     initChatGridClaim();
+    initPaneLayouts();
     initAndroidSelfUpdate();
     initOverTheAirUpdates();
     initVoice();
@@ -259,6 +274,12 @@ export default function App() {
                   <Stack.Screen name="Docs" component={DocsScreen} options={{ title: DocsCopy.listTitle }} />
                   <Stack.Screen name="DocViewer" component={DocViewerScreen} options={{ title: '' }} />
                   <Stack.Screen name="Changes" component={ChangesScreen} options={{ title: ChangesCopy.title }} />
+                  <Stack.Screen
+                    name="AttentionList"
+                    component={AttentionListScreen}
+                    options={{ title: NotificationsCopy.title }}
+                  />
+                  <Stack.Screen name="Usage" component={UsageScreen} options={{ title: PanesCopy.usageType }} />
                   <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: SettingsCopy.title }} />
                   <Stack.Screen
                     name="SettingsPage"
@@ -274,6 +295,11 @@ export default function App() {
                     name="AgentHotkeysEditor"
                     component={AgentHotkeysEditorScreen}
                     options={{ title: SettingsCopy.agentHotkeysTitle }}
+                  />
+                  <Stack.Screen
+                    name="CommandPadKeysEditor"
+                    component={CommandPadKeysEditorScreen}
+                    options={{ title: SettingsCopy.padKeysTitle }}
                   />
                   <Stack.Screen
                     name="AddProjectSource"

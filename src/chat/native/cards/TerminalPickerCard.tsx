@@ -9,17 +9,10 @@
  */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import {
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-  useWindowDimensions,
-  type ScrollViewInstance,
-} from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View, type ScrollViewInstance } from 'react-native';
 
 import type { ChatDocument } from '../../rust/document';
+import { useChatViewSize } from '../chatPlacement';
 import type { RustChat } from '../../rust/useRustChat';
 import { arr, asJson, obj, str } from './json';
 import { MONO_FONT, themedStyles, useTranscriptTheme } from '../transcript/theme';
@@ -41,7 +34,7 @@ export function TerminalPickerCard({
   const styles = useStyles();
   const P = useTranscriptTheme();
   const cardText = useCardText();
-  const { height } = useWindowDimensions();
+  const { height } = useChatViewSize();
   const { dispatch } = chat;
   const picker = obj(obj(obj(notice.dialog)?.presentation)?.picker) ?? {};
   const keys = obj(picker.keys);

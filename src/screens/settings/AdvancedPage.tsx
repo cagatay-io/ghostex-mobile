@@ -16,6 +16,10 @@ import {
 } from '../../settings/store';
 import { MAX_WARM_SESSIONS } from '../../terminal/sessions';
 import { warmTerminalsFor } from '../../terminal/warmBudget';
+import { foldDivisionsSummary } from '../../components/common/verticalBar/layout';
+import { useFoldDivisions } from '../../components/common/verticalBar/VerticalBarArea';
+import { paneLayoutSummary } from '../../panes/layout';
+import { usePaneStore } from '../../panes/store';
 import { SettingsSection } from './SectionBoundary';
 import {
   Caption,
@@ -25,15 +29,41 @@ import {
   SettingsSlider,
   SettingToggle,
   StepperRow,
+  ValueRow,
   type BooleanSettingKey,
 } from './SettingsControls';
 
-/** Why fewer terminals stay open with a large scrollback (they share one memory budget), or null. */
+/**
+ * Why fewer terminals stay open with a large scrollback (they share one memory budget), or null. The terminals on
+ * screen are never closed to make room (evictExcessWarmEntries in terminal/sessions.ts), so two panes keep both.
+ */
 function warmTerminalsCaption(scrollbackRows: number): string | null {
   const count = warmTerminalsFor(scrollbackRows, MAX_WARM_SESSIONS);
   if (count >= MAX_WARM_SESSIONS) return null;
-  const kept = count === 1 ? 'only the terminal you are using stays open' : `${count} terminals stay open`;
+  const kept =
+    count === 1
+      ? 'only the terminal you are using stays open, or the two on screen when you use two panes'
+      : `${count} terminals stay open`;
   return `At this size ${kept}; others reconnect when you open them again, so the phone does not run out of memory.`;
+}
+
+/**
+ * Development builds only: the fold's division regions as the layout layer gets them from
+ * `reservedRegions(kind: .division)`, so a UI inspector can read them half folded and flat. Release builds never show
+ * it.
+ */
+function FoldDivisionsDebugRow() {
+  const divisions = useFoldDivisions();
+  return <ValueRow label="Fold divisions (debug)" value={foldDivisionsSummary(divisions)} />;
+}
+
+/**
+ * Development builds only: the pane layout stored for the upright window (each slot's type and session, the divider),
+ * so a UI inspector can read after a restart that the layout came back as set. Release builds never show it.
+ */
+function PaneLayoutDebugRow() {
+  const stacked = usePaneStore((state) => state.document.layouts.stacked);
+  return <ValueRow label="Pane layout, upright (debug)" value={paneLayoutSummary(stacked)} />;
 }
 
 /** Terminal toggles carried over from the older Android app, in its order. */
@@ -173,6 +203,13 @@ export default function AdvancedPage() {
         />
         <Caption>Applies the next time a machine connects.</Caption>
       </SettingsSection>
+      {__DEV__ ? (
+        <SettingsSection name="settings:advanced:debug">
+          <SectionHeader title="Debug" />
+          <FoldDivisionsDebugRow />
+          <PaneLayoutDebugRow />
+        </SettingsSection>
+      ) : null}
     </SettingsScreenLayout>
   );
 }

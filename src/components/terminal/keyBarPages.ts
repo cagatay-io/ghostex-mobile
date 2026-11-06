@@ -1,10 +1,8 @@
 /**
- * Toggle pages for the key bar's KEYS/AGENT pills (the slots that held plain
- * PGUP/PGDN). KEYS opens a fixed page of extra keys and terminal hotkeys with
- * the real PgUp/PgDn in the rightmost column (mirroring where the base-bar
- * pills sit); AGENT opens agent-specific hotkeys for the session's active
- * agent. Every item carries a description the key bar shows while the pill is
- * held. Agent bindings are persisted by the agent-hotkeys settings store.
+ * The key pages of the key bar's KEYS/AGENT pills (Android) and of the Befehlspad's layers (iOS): the KEYS page
+ * (the Keys layer's "More keys") holds terminal control hotkeys and nav keys, PgUp/PgDn in the rightmost column;
+ * the agent page (the Agent layer) the hotkeys of the session's active agent. Every item carries a description the
+ * bar or the layer shows while the pill is held. Agent bindings are persisted by the agent-hotkeys settings store.
  */
 
 import type { KeyModifiers, TerminalKey } from '../../../modules/ghostex-native/src';

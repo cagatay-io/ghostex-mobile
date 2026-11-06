@@ -1,0 +1,183 @@
+/**
+ * What the Live Activity switch controls, drawn once with sample agents (the
+ * design's preview, so that it is clear what the switch controls). A picture of
+ * the Lock Screen card, not live data: the real one is rendered by the widget extension
+ * (modules/ghostex-live-activity/ios/Extension/GhostexActivityViews.swift), whose colours and words it repeats.
+ */
+
+import { StyleSheet, Text, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
+
+import { LiveActivityCopy } from '../../copy';
+import { GhostexPalette, SidebarPalette } from '../../theme/palette';
+
+type PreviewState = (typeof LiveActivityCopy.previewRows)[number]['state'];
+
+/** Glyphs of the design (24-unit paths), so colour never carries the state alone. */
+const GLYPHS: Record<PreviewState, { path: string; color: string; word: string }> = {
+  working: { path: 'M12 3a9 9 0 1 1-9 9', color: SidebarPalette.ROW_WORKING, word: LiveActivityCopy.working },
+  waiting: {
+    path: 'M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zM12 7.5V12l3 2',
+    color: SidebarPalette.ROW_ATTENTION,
+    word: LiveActivityCopy.waiting,
+  },
+  question: {
+    path: 'M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zM9.5 9.5a2.6 2.6 0 0 1 5 .9c0 1.7-2.5 2.2-2.5 3.6M12 17h.01',
+    color: SidebarPalette.ROW_QUESTION,
+    word: LiveActivityCopy.question,
+  },
+  finished: {
+    path: 'M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zM8 12.5l2.7 2.7L16 10',
+    color: GhostexPalette.MUTED,
+    word: LiveActivityCopy.finished,
+  },
+};
+
+function Glyph({ state, size }: { state: PreviewState; size: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d={GLYPHS[state].path}
+        stroke={GLYPHS[state].color}
+        strokeWidth={2.4}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export default function LiveActivityPreview() {
+  return (
+    <View style={styles.frame} accessible accessibilityRole="image" accessibilityLabel={LiveActivityCopy.previewLabel}>
+      <View style={styles.card}>
+        <View style={styles.head}>
+          <View style={styles.count}>
+            <Glyph state="working" size={14} />
+            <Text style={styles.headText}>
+              <Text style={styles.number}>1</Text> {LiveActivityCopy.working}
+            </Text>
+          </View>
+          <View style={styles.count}>
+            <Glyph state="waiting" size={14} />
+            <Text style={styles.headText}>
+              <Text style={styles.number}>2</Text> {LiveActivityCopy.waiting}
+            </Text>
+          </View>
+          <Text style={styles.more}>{LiveActivityCopy.more(1)}</Text>
+        </View>
+        {LiveActivityCopy.previewRows.map((row, index) => (
+          <View key={`${row.agent}:${row.project}`} style={[styles.row, index > 0 && styles.rowDivider]}>
+            <View style={styles.identity}>
+              <Text style={[styles.agent, row.state === 'finished' && styles.secondary]} numberOfLines={1}>
+                {row.agent}
+              </Text>
+              <Text style={styles.project} numberOfLines={1}>
+                {row.project}
+              </Text>
+            </View>
+            <View style={styles.state}>
+              <Glyph state={row.state} size={13} />
+              <Text style={styles.stateText}>{GLYPHS[row.state].word}</Text>
+            </View>
+            <Text style={styles.time}>{row.time}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+const ON_DARK = '#FFFFFF';
+const ON_DARK_SECONDARY = 'rgba(255,255,255,0.72)';
+
+const styles = StyleSheet.create({
+  frame: {
+    borderRadius: 28,
+    padding: 14,
+    backgroundColor: '#05070D',
+  },
+  card: {
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.09)',
+    backgroundColor: 'rgba(12,12,14,0.74)',
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 6,
+    gap: 4,
+  },
+  head: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 20,
+  },
+  count: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  headText: {
+    color: ON_DARK,
+    fontSize: 13,
+  },
+  number: {
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+  more: {
+    marginLeft: 'auto',
+    color: ON_DARK_SECONDARY,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minHeight: 29,
+  },
+  rowDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+  },
+  identity: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+    minWidth: 0,
+  },
+  agent: {
+    color: ON_DARK,
+    fontSize: 14,
+    fontWeight: '600',
+    flexShrink: 0,
+  },
+  secondary: {
+    color: ON_DARK_SECONDARY,
+  },
+  project: {
+    color: ON_DARK_SECONDARY,
+    fontSize: 13,
+    flexShrink: 1,
+  },
+  state: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  stateText: {
+    color: ON_DARK,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  time: {
+    width: 38,
+    textAlign: 'right',
+    color: ON_DARK_SECONDARY,
+    fontSize: 12,
+    fontVariant: ['tabular-nums'],
+  },
+});

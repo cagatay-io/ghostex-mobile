@@ -74,10 +74,23 @@ export type MobileSummaryWireSession = {
   isTemporaryTitle?: boolean;
   visibleInSidebarByDefault?: boolean;
   shouldSubmitStagedFirstPromptTitleCommand?: boolean;
-  /** Sent only while `activity` is attention. */
-  attention?: { enteredAt?: string; acknowledged?: boolean; eventId?: string };
+  /**
+   * Sent only while `activity` is attention. `kind` identifies a finished turn or a wait; an unknown or idle
+   * start leaves `workingStartedAt` out even on a current computer. `notificationId` requires its capability.
+   */
+  attention?: {
+    enteredAt?: string;
+    acknowledged?: boolean;
+    eventId?: string;
+    notificationId?: string;
+    kind?: string;
+    workingStartedAt?: string;
+  };
+
   /** Questions the agent is waiting on an answer to; absent at zero. */
   pendingQuestionCount?: number;
+  /** An open question card waits for an answer; sent by a computer with the `awaitingAnswer` capability. */
+  awaitingAnswer?: boolean;
   /** Stuck on a permission prompt or approval card only the user can grant; absent when not (server/src/session_approval.rs). */
   awaitingApproval?: boolean;
   /** Present while a background shell or monitor the agent started still runs after its turn. */
@@ -127,6 +140,8 @@ export type MobileSummaryWireRoot = {
   customSessionTags?: unknown;
   /** This computer's workspaces (`SidebarWorkspacesState`); absent on a daemon without workspaces. */
   sidebarWorkspaces?: unknown;
+  /** Booleans naming the summary fields this computer sends (such as `awaitingAnswer`); absent from an older one. */
+  capabilities?: unknown;
 };
 
 // ---------------------------------------------------------------------------
@@ -584,6 +599,11 @@ export type GhostexSession = {
   /** Questions the agent is waiting on an answer to (0 when none, or from a computer that predates the field). */
   pendingQuestionCount: number;
   /**
+   * An open question card waits for an answer (false when not, or when the computer does not send the field: only
+   * with the summary's `capabilities.awaitingAnswer` does false mean "no open question card").
+   */
+  awaitingAnswer: boolean;
+  /**
    * Stuck on a permission prompt or approval card only the user can grant: the red approval dot
    * (false when not, or from a computer that predates the field).
    */
@@ -605,7 +625,7 @@ export type GhostexSession = {
    * When the agent's current working stint began ('' when it is not working, or from a computer
    * that predates the field): the Unified list's "came back" moment and Working timer.
    */
-  workingStartedAt?: string;
+  workingStartedAt: string;
   /** The last model change failed (the Unified list's Failed status); false from an older computer. */
   modelSelectionFailed?: boolean;
   /** When a snoozed session wakes ('' when it is not snoozed): the Unified list's Snoozed shelf. */
@@ -621,8 +641,50 @@ export type GhostexSession = {
   attentionAcknowledged: boolean;
   /** The attention event id ('' outside attention, or from a computer that predates it). */
   attentionEventId: string;
+  /**
+   * The feed row written for that attention event (`attention.notificationId`, optional: '' outside attention,
+   * without a feed row, or from a computer that does not send it). Used only when the summary's
+   * `capabilities.attentionNotificationId` is set.
+   */
+  attentionNotificationId: string;
+  /**
+   * Why the session is in attention ('' outside attention, and from a computer that sends no attention kind,
+   * which cannot tell a finished turn from a wait for the user).
+   */
+  attentionKind: GhostexAttentionKind;
+  /**
+   * When the stint that ended began, sent while the session is in attention (`attention.workingStartedAt`; '' outside
+   * attention, from a computer that sends no start times, and when the attention came from idle or its start is
+   * unknown).
+   */
+  attentionWorkingStartedAt: string;
+
   actions: GhostexSessionActions;
 };
+
+/** `attention.kind`: a finished turn or a wait for the user; a bell counts as `needsInput`. */
+export type GhostexAttentionKind = '' | 'finished' | 'needsInput';
+/**
+ * The summary fields a computer announces in its `capabilities` object. A flag that is not `true`, or an absent
+ * object, marks a computer whose summary lacks the field: there, the field's absence says nothing.
+ */
+export type GhostexSummaryCapabilities = {
+  /** Sessions carry `awaitingAnswer` (an open question card). */
+  awaitingAnswer: boolean;
+  /** A session's `attention` carries `notificationId`, the feed row written for it, once that row exists. */
+  attentionNotificationId: boolean;
+};
+
+/** The capabilities of a computer whose summary the phone does not hold (yet): it announces nothing. */
+export const NO_SUMMARY_CAPABILITIES: GhostexSummaryCapabilities = {
+  awaitingAnswer: false,
+  attentionNotificationId: false,
+};
+
+/** An open question card or a counted question; callers gate the card field by the computer's capability. */
+export function hasQuestion(pendingQuestionCount: number, awaitingAnswer: boolean): boolean {
+  return pendingQuestionCount > 0 || awaitingAnswer;
+}
 
 export type GhostexMobileSummary = {
   /** Only zmx-backed sessions with a non-empty sessionId, wire order preserved. */
@@ -702,6 +764,8 @@ export type GhostexMobileSummary = {
    * worktree's sessions under its parent project (contract/grouping.ts). On unless the computer sends `false`.
    */
   worktreeSessionsInProject?: boolean;
+  /** The capability flags the phone uses; all off from a computer that sends none. */
+  capabilities: GhostexSummaryCapabilities;
 };
 
 // ---------------------------------------------------------------------------
@@ -936,8 +1000,8 @@ const AGENT_ICON_TINTS: Record<AgentIconId, string> = {
   terminal: '#FAFAFA',
 };
 
-/** Lowercased name/icon aliases → icon id (spec §2). */
-const AGENT_NAME_ALIASES: Record<string, AgentIconId> = {
+/** Lowercased name/icon aliases → icon id (spec §2), shared by session rows and Live Activity content. */
+export const AGENT_NAME_ALIASES: Readonly<Record<string, AgentIconId>> = {
   codex: 'codex',
   'codex cli': 'codex',
   claude: 'claude',
@@ -1347,6 +1411,7 @@ export function parseSession(value: unknown): GhostexSession | null {
         : 0,
     backgroundWorkDetectedAt: trimmedValue(value, 'backgroundWorkDetectedAt'),
     awaitingApproval: boolValue(value, 'awaitingApproval', false),
+    awaitingAnswer: boolValue(value, 'awaitingAnswer', false),
     programStatusLine: programStatusLine(value.programStatus),
     programStatusFailed: programStatusFailed(value.programStatus),
     workingStartedAt: trimmedValue(value, 'workingStartedAt'),
@@ -1362,8 +1427,17 @@ export function parseSession(value: unknown): GhostexSession | null {
     attentionEnteredAt: attention === null ? '' : trimmedValue(attention, 'enteredAt'),
     attentionAcknowledged: attention === null ? false : boolValue(attention, 'acknowledged', false),
     attentionEventId: attention === null ? '' : trimmedValue(attention, 'eventId'),
+    attentionNotificationId: attention === null ? '' : trimmedValue(attention, 'notificationId'),
+    attentionKind: attention === null ? '' : attentionKindOf(attention),
+    attentionWorkingStartedAt: attention === null ? '' : trimmedValue(attention, 'workingStartedAt'),
     actions: parseActions(value.actions),
   };
+}
+
+/** `attention.kind` as the host defines it; any other value reads as no kind. */
+function attentionKindOf(attention: JsonObject): GhostexAttentionKind {
+  const kind = trimmedValue(attention, 'kind');
+  return kind === 'finished' || kind === 'needsInput' ? kind : '';
 }
 
 function parseProjects(value: unknown): GhostexProject[] {
@@ -1763,6 +1837,16 @@ function normalizeRoot(root: JsonObject): GhostexMobileSummary {
     sidebarHideProjectsWithoutSessions: root.sidebarHideProjectsWithoutSessions === true,
     enableSessionParking: root.enableSessionParking !== false,
     worktreeSessionsInProject: root.worktreeSessionsInProject !== false,
+    capabilities: parseCapabilities(root.capabilities),
+  };
+}
+
+/** The capability flags the phone uses; other keys are ignored, and only a boolean `true` sets a flag. */
+function parseCapabilities(value: unknown): GhostexSummaryCapabilities {
+  const flags: JsonObject = isObject(value) ? value : {};
+  return {
+    awaitingAnswer: boolValue(flags, 'awaitingAnswer', false),
+    attentionNotificationId: boolValue(flags, 'attentionNotificationId', false),
   };
 }
 

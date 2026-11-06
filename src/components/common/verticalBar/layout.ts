@@ -319,6 +319,186 @@ export function menuRoomBeside(
   return beside;
 }
 
+/** The fold's band while the iPhone Duo is half folded like a laptop: its top and bottom edge in window points. */
+export type LaptopFold = { readonly top: number; readonly bottom: number };
+
+/** Space a control keeps from the knick in the laptop pose, as in the design. */
+export const LAPTOP_CLEAR = 12;
+
+/**
+ * Space the pad's toggle at its lowest place and the round buttons at the bottom of the upper half keep from the
+ * fold's top in the laptop pose while nothing above the fold covers the terminal: a finger's width, so a thumb
+ * pressing them stays clear of the knick.
+ */
+export const LAPTOP_CONTROL_CLEAR = 44;
+
+/**
+ * The laptop pose: an active division that runs across the window, so the window is split into an upper and a
+ * lower half. The pose comes from the division's shape only, never from the hinge. A division along the window's
+ * height is the book pose, which has no layout of its own, and an inactive one (the device lies flat) divides
+ * nothing: both give null, as does a window without divisions (every other iPhone, Android).
+ */
+export function laptopFoldOf(divisions: readonly FoldDivision[] | undefined): LaptopFold | null {
+  const across = divisions?.find((division) => division.active && division.width > division.height);
+  return across === undefined ? null : { top: across.y, bottom: across.y + across.height };
+}
+
+/**
+ * The top edge of what covers the window from below while the software keyboard is up (`keyboardTop`, null
+ * while it is down). In the laptop pose the keyboard lies in the lower half and the knick above it is no
+ * place for content either, so the cover starts at the fold's top: text fields, dialogs and sheets that keep
+ * clear of the keyboard stand in the upper half (the text editor sits on the upper screen as well).
+ */
+export function laptopCoverTop(keyboardTop: number | null, fold: LaptopFold | null): number | null {
+  return keyboardTop === null || fold === null ? keyboardTop : Math.min(keyboardTop, fold.top);
+}
+/** Space kept between a sheet or a card and the fold's band (8 pt in the design). */
+export const FOLD_CLEARANCE = 8;
+/** The centred cards' own margin from the window's edges (the dialogs' backdrop padding). */
+const CARD_MARGIN = 24;
+
+/**
+ * The tallest a bottom sheet may be so that it starts `FOLD_CLEARANCE` below the fold (it stands on the window's
+ * bottom edge); undefined outside the laptop pose, where the sheet keeps its own limit.
+ */
+export function foldSheetMaxHeight(fold: LaptopFold | null, windowHeight: number): number | undefined {
+  return fold === null ? undefined : Math.max(0, windowHeight - fold.bottom - FOLD_CLEARANCE);
+}
+
+/**
+ * How far a full-screen view's content area must end above its own bottom edge (`areaBottom`, window points) to stand
+ * in the laptop pose's upper half, `FOLD_CLEARANCE` over the fold: for content with controls of its own that the app
+ * cannot move off the knick (a web page), on the upper screen, where the keyboard never comes. 0 outside the laptop
+ * pose.
+ */
+export function foldUpperHalfInset(fold: LaptopFold | null, areaBottom: number): number {
+  return fold === null ? 0 : Math.max(0, areaBottom - (fold.top - FOLD_CLEARANCE));
+}
+
+/**
+ * A list running across the fold in the laptop pose (`FoldListFrame`): the list's frame split at the fold's band into
+ * an upper window (the list itself) and a lower window (a copy of it that follows), heights in points. The band
+ * between them shows nothing and adds no scroll distance: content that leaves the upper window at the band's top
+ * appears at once at the lower window's top.
+ */
+export type FoldListAcross = { readonly upper: number; readonly band: number; readonly lower: number };
+
+/**
+ * Whether and how a list whose frame stands at `frame` (window points) runs across the fold: null outside the laptop
+ * pose, while the keyboard is up (`keyboardTop`, null while it is down; it lies in the lower half), for a frame that
+ * does not reach from above the fold's top to below its bottom, while the content's height is not known yet, and for
+ * content that fits above the fold (it needs no scroll and stays as it is, ending `FOLD_CLEARANCE` above the fold).
+ */
+export function foldListAcross(
+  fold: LaptopFold | null,
+  frame: { top: number; bottom: number } | null,
+  contentHeight: number | null,
+  keyboardTop: number | null,
+): FoldListAcross | null {
+  if (fold === null || frame === null || contentHeight === null || keyboardTop !== null) return null;
+  if (frame.top >= fold.top || frame.bottom <= fold.bottom) return null;
+  if (contentHeight <= fold.top - FOLD_CLEARANCE - frame.top) return null;
+  return { upper: fold.top - frame.top, band: fold.bottom - fold.top, lower: frame.bottom - fold.bottom };
+}
+
+/**
+ * The content insets of a list running across the fold: the list's own bottom inset takes the lower window's height
+ * off its scroll range (content length less both windows, the band not counted), and the copy's top inset starts it
+ * where the upper window ends, so it cannot scroll above that.
+ */
+export function foldListInsets(across: FoldListAcross): { list: { bottom: number }; copy: { top: number } } {
+  return { list: { bottom: -across.lower }, copy: { top: -across.upper } };
+}
+
+/** The copy's scroll offset for the list's: the lower window shows what follows the upper window's last point. */
+export function foldCopyOffset(listOffset: number, across: FoldListAcross): number {
+  return listOffset + across.upper;
+}
+
+/** The list's scroll offset for the copy's (a drag in the lower window), the inverse of `foldCopyOffset`. */
+export function foldListOffset(copyOffset: number, across: FoldListAcross): number {
+  return copyOffset - across.upper;
+}
+
+export type CardRegion = { readonly top: number; readonly bottom: number; readonly above: boolean };
+
+/**
+ * Where a centred card stands in the laptop pose, as the window band it is centred in: below the fold when a card
+ * `cardHeight` tall fits there (or its height is not known yet), otherwise above it. `keyboardUp`: the lower half
+ * is the keyboard's, so above. `wasAbove`: the card stood above for not fitting below; it stays there while it
+ * still does not fit, and a card held to the band above (it measures that band) counts as not fitting, so a card
+ * taller than both bands does not swap between them. Null outside the laptop pose.
+ */
+export function foldCardRegion(
+  fold: LaptopFold | null,
+  window: { height: number; topInset: number },
+  cardHeight: number | null,
+  keyboardUp: boolean,
+  wasAbove = false,
+): CardRegion | null {
+  if (fold === null) return null;
+  const below = { top: fold.bottom + FOLD_CLEARANCE, bottom: window.height - CARD_MARGIN, above: false };
+  const above = {
+    top: Math.max(CARD_MARGIN, window.topInset + FOLD_CLEARANCE),
+    bottom: fold.top - FOLD_CLEARANCE,
+    above: true,
+  };
+  if (keyboardUp) return above;
+  if (cardHeight === null) return below;
+  // A card held to a band measures that band's height: it does not fit there.
+  const fitsBelow = cardHeight < below.bottom - below.top - 0.5;
+  const heldAbove = wasAbove && cardHeight >= above.bottom - above.top - 0.5;
+  return fitsBelow && !heldAbove ? below : above;
+}
+
+/**
+ * The fold's division regions as the layout layer has them, in one line for the dev-only debug row (read with a UI
+ * inspector on the device): "none", or per region whether it is active and its window frame.
+ */
+export function foldDivisionsSummary(divisions: readonly FoldDivision[] | undefined): string {
+  if (divisions === undefined || divisions.length === 0) return 'none';
+  return divisions
+    .map(
+      (division) =>
+        `${division.active ? 'active' : 'inactive'} x ${division.x} y ${division.y} w ${division.width} h ${division.height}`,
+    )
+    .join('; ');
+}
+/** The least height a menu at its row keeps before it gives up the row's side (as in the design). */
+const ROW_MENU_MIN_HEIGHT = 150;
+
+/**
+ * A menu opened from a row (a long press) or from a control inside a screen's content stands at
+ * that row, as an iOS context menu does, in every pose and on every iPhone: under the row with its leading edge
+ * at the row's, above it when the room under it is short. Where neither side holds the whole menu it stays at
+ * the roomier side and scrolls inside (`maxHeight`), down to `ROW_MENU_MIN_HEIGHT`; with less room than that at
+ * the row it stands wherever `room` holds it. Pass the room `menuRoomBeside` leaves, so it stays off the fold.
+ */
+export function rowMenuOrigin(
+  anchor: WindowRect,
+  menu: { readonly width: number; readonly height: number },
+  room: MenuRoom,
+): { left: number; top: number; maxHeight: number | null } {
+  const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max));
+  const left = clamp(anchor.x, room.left, room.right - menu.width);
+  const below = anchor.y + anchor.height + MENU_GAP;
+  const roomBelow = room.bottom - below;
+  const roomAbove = anchor.y - MENU_GAP - room.top;
+  if (menu.height <= roomBelow) return { left, top: below, maxHeight: null };
+  if (menu.height <= roomAbove) return { left, top: anchor.y - MENU_GAP - menu.height, maxHeight: null };
+  if (Math.max(roomBelow, roomAbove) >= Math.min(menu.height, ROW_MENU_MIN_HEIGHT)) {
+    return roomBelow >= roomAbove
+      ? { left, top: below, maxHeight: roomBelow }
+      : { left, top: anchor.y - MENU_GAP - roomAbove, maxHeight: roomAbove };
+  }
+  const height = Math.min(menu.height, room.bottom - room.top);
+  return {
+    left,
+    top: clamp(below, room.top, room.bottom - height),
+    maxHeight: height < menu.height ? height : null,
+  };
+}
+
 /** The window frame of a side bar button standing at `top` (`railLayoutFor`'s `tops`), centred across it. */
 export function railButtonFrame(frame: WindowRect, fit: RailFit, top: number): WindowRect {
   return { x: frame.x + (frame.width - fit.size) / 2, y: top, width: fit.size, height: fit.size };

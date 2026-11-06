@@ -22,6 +22,12 @@ enum GhostexErrorCode: String {
     case portNotListening = "E_PORT_NOT_LISTENING"
     /// startPortForward: the remote sshd refuses direct-tcpip channels.
     case forwardingProhibited = "E_FORWARDING_PROHIBITED"
+    /// shareFile (iOS): no share sheet could be shown (no screen, UIKit refused it, not a local file).
+    case shareUnavailable = "E_SHARE_UNAVAILABLE"
+    /// shareFile (iOS): the activity the person picked reported an error.
+    case shareFailed = "E_SHARE_FAILED"
+    /// shareFile (iOS): the sheet ended before it reported a result (its presenter went away, or a reload).
+    case shareInterrupted = "E_SHARE_INTERRUPTED"
 }
 
 /// Expo exception carrying a contract error code.

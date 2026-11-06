@@ -47,6 +47,34 @@ export const styles = StyleSheet.create({
   terminal: {
     flex: 1,
   },
+  /** iOS: a Befehlspad layer in the software keyboard's place, from the window's bottom edge up. */
+  padLayerDock: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  /**
+   * The Befehlspad's room over the terminal area (and over the header when the open pad needs it); like the terminal
+   * area, it cuts off what is moved out of it.
+   */
+  padRoom: {
+    position: 'absolute',
+    overflow: 'hidden',
+  },
+  /** Before the terminal area is measured (the first layout pass) the pad has no place yet, so it is not seen. */
+  padRoomUnmeasured: {
+    ...StyleSheet.absoluteFill,
+    opacity: 0,
+  },
+  /** Laptop pose: the terminal area below the fold, keyboard up or not. */
+  laptopCover: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: GhostexPalette.TERMINAL_BACKGROUND,
+  },
   queuedPill: {
     position: 'absolute',
     top: 8,

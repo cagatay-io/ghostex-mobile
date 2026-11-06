@@ -134,8 +134,9 @@ export function sessionFolderFor(tab: TerminalTab | null): string {
 
 /**
  * Resolved agent icon id of the session shown in `tab` ('terminal' when it is
- * a shell tab or the session is unknown) — drives the key bar's agent-hotkey
- * page. Pure so the screen can subscribe to it as an inventory selector.
+ * a shell tab or the session is unknown) — drives the Befehlspad's Agent
+ * layer (iOS) and the key bar's agent-hotkey page (Android). Pure so the
+ * screen can subscribe to it as an inventory selector.
  */
 export function sessionAgentIdFor(tab: TerminalTab | null, summary: GhostexMobileSummary | null | undefined): string {
   if (tab === null || tab.ghostexSessionId === undefined) return 'terminal';
@@ -145,23 +146,33 @@ export function sessionAgentIdFor(tab: TerminalTab | null, summary: GhostexMobil
 }
 
 /**
- * Whether tapping `session` opens it in Chat View: the same rule as the Terminal screen's
- * `chatCapable` and `chatModeActive` (a chat-supported agent with a project, not running in an
- * agentbox box, and Chat View chosen for the tab or by the Default Agent View setting).
+ * Whether `session` has a Chat View at all: a chat-supported agent with a project, not running in an
+ * agentbox box, or a Claude cloud session waiting for its task (CDXC:ClaudeCloud in
+ * contract/claudeCloud.ts). The Terminal screen's `chatCapable` rule.
  */
-export function sessionOpensInChatView(sessionKey: string, session: GhostexSession): boolean {
+export function sessionHasChatView(session: GhostexSession): boolean {
   if (session.projectId.length === 0) return false;
-  // A Claude cloud session waiting for its task takes it in Chat View, unless this session was
-  // switched to its terminal (CDXC:ClaudeCloud in contract/claudeCloud.ts).
-  if (claudeCloudTakesTask(session.claudeCloud)) {
-    return useTerminalStore.getState().sessionViewModeBySessionKey[sessionKey] !== 'terminal';
-  }
+  if (claudeCloudTakesTask(session.claudeCloud)) return true;
   const agentId = resolveAgentIconId(
     session.agentIcon,
     session.agentName.length > 0 ? session.agentName : session.agent,
   );
   if (!isSessionChatSupportedAgent(agentId)) return false;
-  if (session.agentbox !== undefined && session.agentbox.pending !== true) return false;
+  return session.agentbox === undefined || session.agentbox.pending === true;
+}
+
+/**
+ * Whether tapping `session` opens it in Chat View: the same rule as the Terminal screen's
+ * `chatCapable` and `chatModeActive` (`sessionHasChatView`, and Chat View chosen for the tab or by the
+ * Default Agent View setting).
+ */
+export function sessionOpensInChatView(sessionKey: string, session: GhostexSession): boolean {
+  if (!sessionHasChatView(session)) return false;
+  // A Claude cloud session waiting for its task takes it in Chat View, unless this session was
+  // switched to its terminal.
+  if (claudeCloudTakesTask(session.claudeCloud)) {
+    return useTerminalStore.getState().sessionViewModeBySessionKey[sessionKey] !== 'terminal';
+  }
   return useTerminalStore.getState().chatModeArmed(sessionKey);
 }
 
@@ -189,6 +200,21 @@ export function sessionRecordFor(
   if (tab === null || tab.ghostexSessionId === undefined) return null;
   if (summary === null || summary === undefined) return null;
   return summary.sessions.find((entry) => entry.sessionId === tab.ghostexSessionId) ?? null;
+}
+
+/**
+ * Whether the session shown in `tab` offers its Chat View on the Terminal screen (the chat/terminal toggle): an agent
+ * session with a resolved (projectId, sessionId) identity whose agent has a chat projection. CDXC:AgentBox 2026-10-01
+ * SEE-ALSO: gx-core's `session_chat_view_unavailable`. A box session's agent runs in its box, so no transcript exists
+ * here and it stays on its terminal; a draft whose box only starts with its first message (`pending`) keeps chat until
+ * that message.
+ */
+export function tabChatCapable(tab: TerminalTab | null, summary: GhostexMobileSummary | null | undefined): boolean {
+  if (tab === null || tab.kind !== 'attach' || tab.ghostexSessionId === undefined) return false;
+  if (sessionProjectIdFor(tab, summary).length === 0) return false;
+  if (!isSessionChatSupportedAgent(sessionAgentIdFor(tab, summary))) return false;
+  const session = sessionRecordFor(tab, summary);
+  return !(session?.agentbox !== undefined && session.agentbox.pending !== true);
 }
 
 export function patchTab(sessionKey: string, patch: Partial<TerminalTab>): void {

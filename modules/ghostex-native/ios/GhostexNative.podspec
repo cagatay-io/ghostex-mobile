@@ -44,10 +44,11 @@ Pod::Spec.new do |s|
   # library search paths visible at the final (app) link step.
   s.preserve_paths = 'Vendor/**/*'
 
-  # Network is NWListener/NWConnection, the loopback side of SSH local port forwarding.
+  # Network is NWListener/NWConnection, the loopback side of SSH local port forwarding. GameController tells whether
+  # a hardware keyboard is connected (`GCKeyboard`, the pane keyboard follow).
   # AVFoundation, CallKit and UserNotifications are the voice agent, Dictate and Read aloud
   # (GhostexVoice*.swift, GhostexSpeech.swift).
-  s.frameworks = 'Metal', 'QuartzCore', 'UIKit', 'IOSurface', 'Security', 'AudioToolbox', 'Network', 'WebKit',
+  s.frameworks = 'Metal', 'QuartzCore', 'UIKit', 'IOSurface', 'Security', 'AudioToolbox', 'Network', 'WebKit', 'GameController',
                  'AVFoundation', 'CallKit', 'UserNotifications'
   s.libraries = 'z', 'c++'
 

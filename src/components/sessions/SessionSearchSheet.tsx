@@ -8,7 +8,10 @@
  * Tapping an open row (or the keyboard's search key, which opens the first
  * row, as Enter does on the desktop) opens it the way tapping it in the list
  * does; tapping a closed row brings it back on its computer first. The
- * matching rules live in src/sessions/sessionSearch.ts.
+ * matching rules live in src/sessions/sessionSearch.ts. Half folded like a laptop
+ * the panel stays in the upper half, off the fold: above the keyboard's cover
+ * while it is up (`KeyboardAvoidingContainer`), and above the fold with the
+ * keyboard dismissed, so it does not jump between the halves.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -22,6 +25,7 @@ import {
   TextInput,
   View,
   type TextInputInstance,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -43,6 +47,8 @@ import { GhostexStrokeWidth, SetupPalette } from '../../theme/palette';
 import { useKeyboardTop } from '../common/keyboard/keyboardFrame';
 import KeyboardAvoidingContainer from '../common/keyboard/KeyboardAvoidingContainer';
 import { useVerticalBarSpace } from '../common/verticalBar/VerticalBarArea';
+import { FOLD_CLEARANCE } from '../common/verticalBar/layout';
+import { useLaptopFold } from '../common/verticalBar/laptopFold';
 import { ChevronLeftGlyph, SearchGlyph, XGlyph } from './icons';
 
 export type SessionSearchSheetProps = {
@@ -69,8 +75,13 @@ export default function SessionSearchSheet({ visible, machines, onOpen, onRestor
   const inputRef = useRef<TextInputInstance | null>(null);
   const [query, setQuery] = useState('');
   const inventoriesByMachineId = useInventoryStore((state) => state.inventoriesByMachineId);
-  // The navigation bar's inset is under the keyboard while it is open; the panel ends right on top of it.
-  const bottomInset = useKeyboardTop() === null ? insets.bottom : 0;
+  // The navigation bar's inset is under the keyboard while it is open; the panel ends 8 pt above it. Half folded like
+  // a laptop with the keyboard dismissed, it ends `FOLD_CLEARANCE` above the fold, where the keyboard's cover (from
+  // the fold's top) leaves it while the keyboard is up.
+  const keyboardUp = useKeyboardTop() !== null;
+  const fold = useLaptopFold();
+  const { height: windowHeight } = useWindowDimensions();
+  const panelBottom = keyboardUp ? 8 : fold !== null ? windowHeight - fold.top + FOLD_CLEARANCE : insets.bottom + 8;
   const [closedByMachine, setClosedByMachine] = useState<Record<string, ClosedSession[]>>({});
   const [closedLoading, setClosedLoading] = useState(false);
   const [closedFailures, setClosedFailures] = useState<string[]>([]);
@@ -275,7 +286,7 @@ export default function SessionSearchSheet({ visible, machines, onOpen, onRestor
       onRequestClose={close}
       onShow={() => inputRef.current?.focus()}
     >
-      <KeyboardAvoidingContainer style={[styles.fill, { paddingTop: insets.top + 8, paddingBottom: bottomInset + 8 }]}>
+      <KeyboardAvoidingContainer style={[styles.fill, { paddingTop: insets.top + 8, paddingBottom: panelBottom }]}>
         <Pressable
           style={styles.backdrop}
           accessibilityRole="button"

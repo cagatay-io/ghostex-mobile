@@ -133,7 +133,7 @@ export function spaceSessionCounts(
   const counts: Record<string, SessionCounts> = {};
   if (summary === null) return counts;
   for (const spaceId of [...spaceIds, OTHER_SIDEBAR_SPACE_ID]) {
-    counts[spaceId] = countSessions(filterSummaryForSpace(summary, spaceId).sessions);
+    counts[spaceId] = countSessions(filterSummaryForSpace(summary, spaceId).sessions, summary.capabilities);
   }
   return counts;
 }

@@ -9,6 +9,12 @@
  * Top to bottom, as desktop's `render_composer` stacks them: the incoming draft offer, the
  * operation error, the session note, the suggestions popup, then the card (image tiles, queue,
  * input, option pills + toolbar + Send), then the status line.
+ *
+ * In one of the iPhone Duo's pane slots (`chatPlacement`) the card takes the approved panes mockup's compact form,
+ * with Dictate kept right before Send: under the field one row of the model pill, More actions, Dictate and Send.
+ * The pill strip, the other option pills (options, permission mode, context ring), the toolbar controls, Copy Report
+ * and the status line are drawn by the full chat view only; More actions carries the controls and the option
+ * settings as it does when they overflow (`moreActionsRows`' `allFolded`).
  */
 
 import * as Clipboard from 'expo-clipboard';
@@ -65,6 +71,7 @@ import { dictationClock, useDictation } from './useDictation';
 import { engineStatusLine } from '../../../voice/dictateModel';
 import { computerName } from '../../../screens/settings/voiceComputer';
 import { KeyboardLiftedView } from './KeyboardLiftedView';
+import { useChatPlacement } from '../chatPlacement';
 
 export type NativeComposerProps = {
   /** The draft's own place, which the tray's project chip moves it from. */
@@ -87,6 +94,8 @@ export type NativeComposerProps = {
    * (the notice card's Switch account). Each new value opens it; 0 opens nothing.
    */
   openAccountsRequestId?: number;
+  /** Bumped by the screen when the field is to take the keyboard (its pane became the active one); 0 asks nothing. */
+  focusRequestId?: number;
   /** The session's title, for the More actions row "Voice call about this chat" (shown when `voiceCall` is served). */
   voiceCallTitle?: string;
   /**
@@ -95,7 +104,7 @@ export type NativeComposerProps = {
    * absent, the field grows to `INPUT_MAX_HEIGHT`.
    */
   room?: number;
-  /** The chat's pill strip (`PillsStrip.tsx`), drawn along the box's top edge inside its border. */
+  /** The chat's pill strip (`PillsStrip.tsx`), drawn along the box's top edge inside its border; not in a pane. */
   strip?: ReactNode;
 };
 
@@ -147,11 +156,14 @@ export function NativeComposer({
   onHostAction,
   hostActions = DEFAULT_HOST_ACTIONS,
   openAccountsRequestId = 0,
+  focusRequestId = 0,
   voiceCallTitle = '',
   room,
   strip,
 }: NativeComposerProps) {
   const styles = useStyles();
+  // A chat in a pane slot: the compact form (see the head of this file).
+  const compact = useChatPlacement().inPane;
   const serves = useCallback(
     (action: string) => onHostAction !== undefined && hostActions.includes(action),
     [hostActions, onHostAction],
@@ -237,6 +249,12 @@ export function NativeComposer({
       }),
     [chat.onViewRequest],
   );
+  const handledFocusRequest = useRef(focusRequestId);
+  useEffect(() => {
+    if (focusRequestId === handledFocusRequest.current) return;
+    handledFocusRequest.current = focusRequestId;
+    if (focusRequestId > 0) field.current?.focus();
+  }, [focusRequestId]);
 
   // Pills: the core parses the draft (`composerReferences`) and answers a moment after the text
   // changes; until it does, the last pills carry over the edit (`rebaseReferences`), so typing never
@@ -271,7 +289,8 @@ export function NativeComposer({
   const sentMeasurement = useRef('');
   const composerReady = model?.ready === true;
   useEffect(() => {
-    if (document === null || !composerReady || footerWidth <= 0) return;
+    // The compact form draws no control and no option pill but the model's: nothing to fit.
+    if (compact || document === null || !composerReady || footerWidth <= 0) return;
     const controls = COMPOSER_CONTROLS.filter((control) => available(control.id)).map((control) => ({
       id: control.id,
       width: CONTROL_WIDTH,
@@ -297,7 +316,7 @@ export function NativeComposer({
     if (key === sentMeasurement.current) return;
     sentMeasurement.current = key;
     dispatch({ type: 'measureComposer', measurements });
-  }, [document, composerReady, footerWidth, optionsWidth, available, dispatch]);
+  }, [compact, document, composerReady, footerWidth, optionsWidth, available, dispatch]);
 
   // ---- menus and host actions --------------------------------------------------------------------
 
@@ -588,9 +607,10 @@ export function NativeComposer({
         interruptAndSend,
         draft: model?.text ?? '',
         voiceCallTitle,
+        allFolded: compact,
       }),
     });
-  }, [available, document, model, serves, voiceCallTitle]);
+  }, [available, compact, document, model, serves, voiceCallTitle]);
 
   /** Send held while the agent works: Interrupt & Send or Queue. */
   const openSendChoices = useCallback(() => {
@@ -642,7 +662,12 @@ export function NativeComposer({
           INPUT_MIN_HEIGHT,
           Math.min(
             INPUT_MAX_HEIGHT,
-            room - (frame.cardTop + stripHeight + CARD_BORDER * 2 + (frame.content - frame.field) + bottom),
+            room -
+              (frame.cardTop +
+                (compact ? 0 : stripHeight) +
+                CARD_BORDER * 2 +
+                (frame.content - frame.field) +
+                bottom),
           ),
         );
 
@@ -711,7 +736,7 @@ export function NativeComposer({
             onLayout={(event: LayoutChangeEvent) => measureFrame('cardTop', event.nativeEvent.layout.y)}
           >
             {/* The chat's pills ride in a strip along the box's top edge, inside its border (`PillsStrip.tsx`); what the box holds under it is unchanged. */}
-            {strip !== undefined ? (
+            {strip !== undefined && !compact ? (
               <View
                 onLayout={(event: LayoutChangeEvent) => setStripHeight(Math.round(event.nativeEvent.layout.height))}
               >
@@ -797,7 +822,9 @@ export function NativeComposer({
                     onLayout={(event: LayoutChangeEvent) => setFooterWidth(Math.round(event.nativeEvent.layout.width))}
                   >
                     <View style={styles.options}>
-                      {document !== null ? <OptionPills document={document} onOpen={openPill} /> : null}
+                      {document !== null ? (
+                        <OptionPills document={document} onOpen={openPill} modelOnly={compact} />
+                      ) : null}
                     </View>
                     <View style={styles.toolbar}>
                       <ToolbarButton
@@ -806,7 +833,7 @@ export function NativeComposer({
                         onPress={openMore}
                         disabled={document === null}
                       />
-                      {document !== null
+                      {document !== null && !compact
                         ? COMPOSER_CONTROLS.filter(
                             (control) => available(control.id) && !overflowed(document, control.id),
                           ).map((control) => {
@@ -857,7 +884,7 @@ export function NativeComposer({
                         onHoldWhileWorking={openSendChoices}
                       />
                     </View>
-                    {document !== null ? (
+                    {document !== null && !compact ? (
                       <View
                         style={styles.measure}
                         pointerEvents="none"
@@ -879,7 +906,7 @@ export function NativeComposer({
               </Pressable>
             </Animated.View>
           </View>
-          {statusLine && document !== null ? <StatusLine document={document} dispatch={dispatch} /> : null}
+          {statusLine && document !== null && !compact ? <StatusLine document={document} dispatch={dispatch} /> : null}
           <MenuSheet
             rows={menu?.kind === 'rows' ? menu.rows : null}
             {...(menu?.kind === 'rows' && menu.title !== undefined ? { title: menu.title } : {})}

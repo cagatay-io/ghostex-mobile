@@ -1,17 +1,20 @@
 /// <reference types="jest" />
 /**
- * Run with `bun run test:jest`. The terminal keeps working as before and the key bar stays within the window
- * width, over the keyboard, on the report that the terminal jumped when the keyboard went up and, when the
- * keyboard went away, scrolled down oddly and jumped back up (the terminal grid stays, the terminal slides
+ * Run with `bun run test:jest`. The terminal keeps working as before and what rides on the keyboard stays within
+ * the window width, over the keyboard, on the report that the terminal jumped when the keyboard went up and, when
+ * the keyboard went away, scrolled down oddly and jumped back up (the terminal grid stays, the terminal slides
  * with the keyboard so the cursor row stays visible).
+ * The Befehlspad replaces the key bar: the terminal slides by the keyboard,
+ * or by the keyboard and the pad's text editor riding on it in `KeyBarDock`; the pad itself floats and covers
+ * nothing of the grid. The pad's own criteria are in `TerminalScreen.commandPad.rntl.tsx`.
  *
- * The real `TerminalScreen` with its real stores, `KeyBarDock`, `TerminalKeyBar` and `useKeyboardMetrics`;
+ * The real `TerminalScreen` with its real stores, `KeyBarDock`, the pad, its text editor and `useKeyboardMetrics`;
  * mocked are the boundaries only: the native module (the terminal view is a stand-in that shows its props
  * and fires the cursor row event), the safe area, navigation focus, haptics, storage and the chat screens.
  * The test renderer lays nothing out, so heights come from `onLayout` events the test fires, and "the
  * terminal is not resized" is read from every in-flow style of the screen: nothing that decides the
  * terminal view's height may differ between the keyboard hidden and shown. Frames in window points of an
- * iPhone 17: 402x874, home indicator inset 34, keyboard 336 pt tall (top 538), key bar 88 pt.
+ * iPhone 17: 402x874, home indicator inset 34, keyboard 336 pt tall (top 538), text editor 56 pt.
  *
  * Device-only, not shown here: that the native view's grid and the host's pty really stay put, the
  * smoothness of the motion, the clip under the header, touch / selection hit-testing while the view is
@@ -88,14 +91,16 @@ jest.mock('@react-navigation/native', () => ({
 }));
 const WINDOW = { width: 402, height: 874 };
 const KEYBOARD = { top: 538, height: 336 };
-const KEY_BAR = 88;
+const EDITOR_HEIGHT = 56;
 const DURATION = 250;
 // The measured keyboard motion on the iPhone Duo (screen recording, iOS 27.2), as the app requests it: the
 // show is a spring (damping 1.8, 580 ms), the hide an ease-out (250 ms), not the event's own duration.
 const SHOW_MOTION = { duration: 580, update: { type: 'spring', springDamping: 1.8 } };
 const HIDE_MOTION = { duration: 250, update: { type: 'easeOut' } };
 
-// A bar on its way out is hidden from VoiceOver on purpose, so its queries include hidden elements.
+// An editor on its way out is hidden from VoiceOver on purpose, so its queries include hidden elements.
+const EDITOR_LABEL = 'Terminal text editor';
+/** The key bar, which Android keeps in the flow. */
 const KEY_BAR_LABEL = 'Extra keys';
 const HIDDEN_TOO = { hidden: true };
 
@@ -159,15 +164,30 @@ function terminalArea(): TestInstance {
   return node;
 }
 
-/** The absolutely positioned view around the key bar (its dock on iOS; null where the bar is in the flow). */
-function keyBarDock(): TestInstance | null {
-  let node: TestInstance | null = screen.getByLabelText(KEY_BAR_LABEL, HIDDEN_TOO);
+/** The absolutely positioned view around the element labelled `label` (its dock on iOS; null where it is in the flow). */
+function dockAround(label: string): TestInstance | null {
+  let node: TestInstance | null = screen.getByLabelText(label, HIDDEN_TOO);
   while (node !== null && StyleSheet.flatten(node.props.style)?.position !== 'absolute') node = node.parent;
   return node;
 }
 
+function editorDock(): TestInstance | null {
+  return dockAround(EDITOR_LABEL);
+}
+
 function dockBottom(): number | undefined {
-  return StyleSheet.flatten(keyBarDock()?.props.style)?.bottom;
+  return StyleSheet.flatten(editorDock()?.props.style)?.bottom;
+}
+
+/** The pad's toggle above the terminal area's bottom: 16 while nothing covers it, 12 above the keyboard. */
+function padBottom(): number | undefined {
+  return StyleSheet.flatten(screen.getByLabelText('Command pad').props.style)?.bottom;
+}
+
+/** The pad's pen opens the text editor, which rides on the keyboard as the key bar did. */
+async function openEditor(): Promise<void> {
+  await fireEvent.press(screen.getByLabelText('Command pad'));
+  await fireEvent.press(screen.getByLabelText('Text editor'));
 }
 
 async function layoutTerminalArea(height: number): Promise<void> {
@@ -245,7 +265,7 @@ beforeEach(() => {
   configureNext = jest.spyOn(LayoutAnimation, 'configureNext').mockImplementation(() => {
     atConfigure.push({
       top: screen.queryByTestId('terminal-view') === null ? 0 : terminalTop(),
-      dockBottom: screen.queryByLabelText(KEY_BAR_LABEL, HIDDEN_TOO) === null ? undefined : dockBottom(),
+      dockBottom: screen.queryByLabelText(EDITOR_LABEL, HIDDEN_TOO) === null ? undefined : dockBottom(),
     });
   });
 });
@@ -277,22 +297,22 @@ describe('the terminal grid stays while the keyboard comes and goes', () => {
 });
 
 describe('the terminal slides with the keyboard, the cursor row stays visible', () => {
-  test('the cursor row at the bottom: the view moves up the whole covered height, keyboard and key bar less the home inset', async () => {
+  test('the cursor row at the bottom: the view moves up the whole covered height, the keyboard less the home inset', async () => {
     await renderScreen();
     await layoutTerminalArea(700);
     await caretAt(680);
     expect(terminalTop()).toBe(0);
     await keyboardWillShow();
-    // 336 + 88 - 34
-    expect(terminalTop()).toBe(-390);
+    // 336 - 34: the pad floats over the terminal and covers nothing of it.
+    expect(terminalTop()).toBe(-302);
   });
 
-  test('a cursor row in the middle still moves the view the whole covered height: what is drawn below it shows above the key bar', async () => {
+  test('a cursor row in the middle still moves the view the whole covered height: what is drawn below it shows above the keyboard', async () => {
     await renderScreen();
     await layoutTerminalArea(700);
     await keyboardWillShow();
     await caretAt(480);
-    expect(terminalTop()).toBe(-390);
+    expect(terminalTop()).toBe(-302);
   });
 
   test('a cursor row near the top wins: the view moves only as far as its top edge, so the cursor row stays visible', async () => {
@@ -309,21 +329,34 @@ describe('the terminal slides with the keyboard, the cursor row stays visible', 
     await renderScreen();
     await layoutTerminalArea(700);
     await keyboardWillShow();
-    expect(terminalTop()).toBe(-390);
+    expect(terminalTop()).toBe(-302);
   });
 
   test('the view follows the cursor row while the keyboard is up (new output, a growing prompt)', async () => {
     await renderScreen();
     await layoutTerminalArea(700);
     await keyboardWillShow();
+    await caretAt(250);
+    expect(terminalTop()).toBe(-250);
+    await caretAt(280);
+    expect(terminalTop()).toBe(-280);
     await caretAt(300);
     expect(terminalTop()).toBe(-300);
     await caretAt(340);
-    expect(terminalTop()).toBe(-340);
-    await caretAt(380);
-    expect(terminalTop()).toBe(-380);
-    await caretAt(420);
-    expect(terminalTop()).toBe(-390);
+    expect(terminalTop()).toBe(-302);
+  });
+
+  test('with the text editor open on the keyboard, the bottom row stands above the editor', async () => {
+    await renderScreen();
+    await layoutTerminalArea(700);
+    await caretAt(680);
+    await openEditor();
+    await keyboardWillShow();
+    await fireEvent(editorDock() as TestInstance, 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: WINDOW.width, height: EDITOR_HEIGHT } },
+    });
+    // 336 + 56 - 34
+    expect(terminalTop()).toBe(-358);
   });
 
   test('the view moves back when the keyboard hides', async () => {
@@ -331,7 +364,7 @@ describe('the terminal slides with the keyboard, the cursor row stays visible', 
     await layoutTerminalArea(700);
     await caretAt(680);
     await keyboardWillShow();
-    expect(terminalTop()).toBe(-390);
+    expect(terminalTop()).toBe(-302);
     await keyboardWillHide();
     expect(terminalTop()).toBe(0);
   });
@@ -346,12 +379,12 @@ describe('the terminal slides with the keyboard, the cursor row stays visible', 
     expect(configureNext).toHaveBeenLastCalledWith(SHOW_MOTION);
     // At that moment the view was still where it was: the commit after it moves it.
     expect(atConfigure[0].top).toBe(0);
-    expect(terminalTop()).toBe(-390);
+    expect(terminalTop()).toBe(-302);
 
     await keyboardWillHide(300);
     expect(configureNext).toHaveBeenCalledTimes(2);
     expect(configureNext).toHaveBeenLastCalledWith(HIDE_MOTION);
-    expect(atConfigure[1].top).toBe(-390);
+    expect(atConfigure[1].top).toBe(-302);
     expect(terminalTop()).toBe(0);
   });
 
@@ -389,8 +422,8 @@ describe('the terminal slides with the keyboard, the cursor row stays visible', 
         screen: { width: 951, height: 669, scale: 3, fontScale: 1 },
       });
     });
-    // 669 - 413 = 256 reach into the new window, plus the key bar, less the inset: 256 + 88 - 34.
-    expect(terminalTop()).toBe(-310);
+    // 669 - 413 = 256 reach into the new window, less the inset: 256 - 34.
+    expect(terminalTop()).toBe(-222);
   });
 
   test('the keyboard top comes from the window: the overlap is the window bottom less the frame top, not the reported height', async () => {
@@ -405,84 +438,100 @@ describe('the terminal slides with the keyboard, the cursor row stays visible', 
     await caretAt(480);
     // Top 413 in a 678 pt window: 265 pt reach into it, whatever else the frame says.
     await keyboardWillShow({ top: 413, height: 300 });
-    // 265 + 88 - 34
-    expect(terminalTop()).toBe(-319);
+    // 265 - 34
+    expect(terminalTop()).toBe(-231);
   });
 });
 
-describe('the key bar rides on top of the keyboard', () => {
-  test("the key bar stands on the keyboard across the window width, in the keyboard's animation", async () => {
+describe('the text editor rides on top of the keyboard, as the key bar did', () => {
+  test("the editor stands on the keyboard across the window width, in the keyboard's animation", async () => {
     await renderScreen();
     await layoutTerminalArea(700);
-    expect(screen.queryByLabelText(KEY_BAR_LABEL, HIDDEN_TOO)).toBeNull();
+    expect(screen.queryByLabelText(EDITOR_LABEL, HIDDEN_TOO)).toBeNull();
+    await openEditor();
     await keyboardWillShow();
-    expect(screen.getByLabelText(KEY_BAR_LABEL, HIDDEN_TOO)).toBeTruthy();
-    expect(StyleSheet.flatten(keyBarDock()?.props.style)).toMatchObject({
+    expect(screen.getByLabelText(EDITOR_LABEL, HIDDEN_TOO)).toBeTruthy();
+    expect(StyleSheet.flatten(editorDock()?.props.style)).toMatchObject({
       position: 'absolute',
       left: 0,
       right: 0,
       bottom: 336,
     });
-    // Requested in the commit that mounted the bar and moved it: it rides in with the keyboard.
+    // Requested in the commit that moved it: it rides in with the keyboard.
     expect(configureNext).toHaveBeenCalledTimes(1);
   });
 
-  test('the key bar stays mounted while the keyboard slides out and is gone after it', async () => {
+  test('the editor stays mounted while the keyboard slides out and is gone after it', async () => {
     await renderScreen();
     await layoutTerminalArea(700);
+    await openEditor();
     await keyboardWillShow();
-    await fireEvent(keyBarDock() as TestInstance, 'layout', {
-      nativeEvent: { layout: { x: 0, y: 0, width: WINDOW.width, height: KEY_BAR } },
+    await fireEvent(editorDock() as TestInstance, 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: WINDOW.width, height: EDITOR_HEIGHT } },
     });
     await keyboardWillHide(250);
-    // The keyboard is still on its way down: the bar is still there, going down with it.
-    expect(screen.getByLabelText(KEY_BAR_LABEL, HIDDEN_TOO)).toBeTruthy();
-    expect(dockBottom()).toBe(-KEY_BAR);
+    // The keyboard is still on its way down: the editor is still there, going down with it.
+    expect(screen.getByLabelText(EDITOR_LABEL, HIDDEN_TOO)).toBeTruthy();
+    expect(dockBottom()).toBe(-EDITOR_HEIGHT);
     await act(() => jest.advanceTimersByTime(249));
-    expect(screen.queryByLabelText(KEY_BAR_LABEL, HIDDEN_TOO)).not.toBeNull();
+    expect(screen.queryByLabelText(EDITOR_LABEL, HIDDEN_TOO)).not.toBeNull();
     await act(() => jest.advanceTimersByTime(1));
-    expect(screen.queryByLabelText(KEY_BAR_LABEL, HIDDEN_TOO)).toBeNull();
+    expect(screen.queryByLabelText(EDITOR_LABEL, HIDDEN_TOO)).toBeNull();
   });
 
-  test("the key bar's linger is the hide motion's 250 ms, not the event's duration", async () => {
+  test("the editor's linger is the hide motion's 250 ms, not the event's duration", async () => {
     await renderScreen();
     await layoutTerminalArea(700);
+    await openEditor();
     await keyboardWillShow();
-    await fireEvent(keyBarDock() as TestInstance, 'layout', {
-      nativeEvent: { layout: { x: 0, y: 0, width: WINDOW.width, height: KEY_BAR } },
+    await fireEvent(editorDock() as TestInstance, 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: WINDOW.width, height: EDITOR_HEIGHT } },
     });
     await keyboardWillHide(400);
     await act(() => jest.advanceTimersByTime(249));
-    expect(screen.queryByLabelText(KEY_BAR_LABEL, HIDDEN_TOO)).not.toBeNull();
+    expect(screen.queryByLabelText(EDITOR_LABEL, HIDDEN_TOO)).not.toBeNull();
     await act(() => jest.advanceTimersByTime(1));
-    expect(screen.queryByLabelText(KEY_BAR_LABEL, HIDDEN_TOO)).toBeNull();
+    expect(screen.queryByLabelText(EDITOR_LABEL, HIDDEN_TOO)).toBeNull();
   });
 
-  test('a bar on its way out is out of reach: no touches, hidden from VoiceOver', async () => {
+  test('an editor on its way out is out of reach: no touches, hidden from VoiceOver', async () => {
     await renderScreen();
+    await openEditor();
     await keyboardWillShow();
     await keyboardWillHide(250);
-    const dock = keyBarDock();
+    const dock = editorDock();
     expect(dock?.props.pointerEvents).toBe('none');
     expect(dock?.props.accessibilityElementsHidden).toBe(true);
   });
 
-  test('a tap on the terminal brings the bar up at the window bottom before the keyboard events land, then onto the keyboard', async () => {
+  test('the editor opened before the keyboard is up stands at the window bottom, then on the keyboard', async () => {
     await renderScreen();
     await layoutTerminalArea(700);
     await caretAt(680);
-    await act(() => terminalView().props.onSingleTap());
+    await openEditor();
     expect(dockBottom()).toBe(0);
-    // The bar alone covers 88 - 34 of the view.
-    expect(terminalTop()).toBe(-54);
+    // The editor alone covers 56 - 34 of the view (its height before it laid out).
+    expect(terminalTop()).toBe(-22);
     await keyboardWillShow();
     expect(dockBottom()).toBe(336);
-    expect(terminalTop()).toBe(-390);
+    expect(terminalTop()).toBe(-358);
   });
 });
 
-describe('extra keys toolbar off: the keyboard alone decides', () => {
-  test('with the key bar off the view moves up the keyboard less the home inset', async () => {
+describe('the pad: it floats above the keyboard and moves in its commit', () => {
+  test("the pad's toggle stands 12 pt above the keyboard while it is up, 16 pt above the bottom while it is down", async () => {
+    await renderScreen();
+    expect(padBottom()).toBe(16);
+    await keyboardWillShow();
+    // 336 - 34 + 12
+    expect(padBottom()).toBe(314);
+    await keyboardWillHide();
+    expect(padBottom()).toBe(16);
+  });
+});
+
+describe('the pad switched off: the keyboard alone decides', () => {
+  test('with the pad off the view moves up the keyboard less the home inset', async () => {
     const before = useSettingsStore.getState().settings;
     useSettingsStore.setState({ settings: { ...before, extraKeysToolbarVisible: false } });
     try {
@@ -490,7 +539,7 @@ describe('extra keys toolbar off: the keyboard alone decides', () => {
       await layoutTerminalArea(700);
       await caretAt(680);
       await keyboardWillShow();
-      expect(screen.queryByLabelText(KEY_BAR_LABEL, HIDDEN_TOO)).toBeNull();
+      expect(screen.queryByLabelText('Command pad', HIDDEN_TOO)).toBeNull();
       // 336 - 34
       expect(terminalTop()).toBe(-302);
       // A cursor row mid-screen: still the keyboard's whole cover; near the top: its top edge.
@@ -525,7 +574,7 @@ describe('Android keeps its path', () => {
     expect(terminalView().props.onCaretChange).toBeUndefined();
     expect(terminalTop()).toBe(0);
     expect(screen.getByLabelText(KEY_BAR_LABEL, HIDDEN_TOO)).toBeTruthy();
-    expect(keyBarDock()).toBeNull();
+    expect(dockAround(KEY_BAR_LABEL)).toBeNull();
     const tree = screen.toJSON();
     const container = Array.isArray(tree) ? tree[0] : tree;
     expect(StyleSheet.flatten(container?.props.style)?.paddingBottom).toBe(336);
@@ -594,15 +643,17 @@ describe('Reduce Motion', () => {
     await renderScreen();
     await layoutTerminalArea(700);
     await caretAt(680);
+    await openEditor();
     await keyboardWillShow();
     expect(configureNext).not.toHaveBeenCalled();
-    expect(terminalTop()).toBe(-390);
+    // 336 + 56 - 34: the keyboard and the editor on it.
+    expect(terminalTop()).toBe(-358);
     expect(dockBottom()).toBe(336);
     await keyboardWillHide();
     expect(configureNext).not.toHaveBeenCalled();
     expect(terminalTop()).toBe(0);
-    // Nothing animates, so the bar does not wait for the keyboard to finish.
-    expect(screen.queryByLabelText(KEY_BAR_LABEL, HIDDEN_TOO)).toBeNull();
+    // Nothing animates, so the editor does not wait for the keyboard to finish.
+    expect(screen.queryByLabelText(EDITOR_LABEL, HIDDEN_TOO)).toBeNull();
   });
 
   test('a change of the setting while the screen is open is followed in both directions', async () => {
@@ -640,8 +691,8 @@ describe('at the shared root: the app chrome follows Reduce Motion too', () => {
     await caretAt(680);
     await keyboardWillShow();
     expect(configureNext).not.toHaveBeenCalled();
-    expect(terminalTop()).toBe(-390);
-    expect(dockBottom()).toBe(336);
+    expect(terminalTop()).toBe(-302);
+    expect(padBottom()).toBe(314);
     await keyboardWillHide();
     expect(configureNext).not.toHaveBeenCalled();
     expect(terminalTop()).toBe(0);
@@ -662,7 +713,7 @@ describe('at the shared root: the app chrome follows Reduce Motion too', () => {
 });
 
 describe('the scroll to the input area follows the keyboard really coming up, in the terminal on screen', () => {
-  test('a frame change that ends below the window after a hide is no new appearance: one scroll, key bar gone', async () => {
+  test('a frame change that ends below the window after a hide is no new appearance: one scroll, the pad back down', async () => {
     await renderScreen();
     await keyboardWillShow();
     expect(mockScrollToBottom).toHaveBeenCalledTimes(1);
@@ -671,7 +722,7 @@ describe('the scroll to the input area follows the keyboard really coming up, in
     await act(() => keyboard.changeFrame(WINDOW.height, KEYBOARD.height, DURATION, KEYBOARD));
     expect(mockScrollToBottom).toHaveBeenCalledTimes(1);
     await act(() => jest.advanceTimersByTime(DURATION + 50));
-    expect(screen.queryByLabelText(KEY_BAR_LABEL, HIDDEN_TOO)).toBeNull();
+    expect(padBottom()).toBe(16);
     // The next real appearance still scrolls.
     await keyboardWillShow();
     expect(mockScrollToBottom).toHaveBeenCalledTimes(2);
@@ -708,7 +759,7 @@ describe('the keyboard store is the one writer of the layout animation and the o
     expect(configureNext.mock.calls).toEqual([[HIDE_MOTION]]);
   });
 
-  test('the end frame below the screen, then the hide: one hide motion, the key bar gone after it, one scroll', async () => {
+  test('the end frame below the screen, then the hide: one hide motion, the pad back down after it, one scroll', async () => {
     await renderScreen();
     await keyboardWillShow();
     configureNext.mockClear();
@@ -716,7 +767,7 @@ describe('the keyboard store is the one writer of the layout animation and the o
     await keyboardWillHide();
     expect(configureNext.mock.calls).toEqual([[HIDE_MOTION]]);
     await act(() => jest.advanceTimersByTime(HIDE_MOTION.duration));
-    expect(screen.queryByLabelText(KEY_BAR_LABEL, HIDDEN_TOO)).toBeNull();
+    expect(padBottom()).toBe(16);
     expect(mockScrollToBottom).toHaveBeenCalledTimes(1);
   });
 
@@ -725,7 +776,7 @@ describe('the keyboard store is the one writer of the layout animation and the o
     await keyboardWillShow();
     await act(() => keyboard.changeFrame(WINDOW.height, KEYBOARD.height, DURATION));
     await act(() => jest.advanceTimersByTime(HIDE_MOTION.duration));
-    expect(screen.queryByLabelText(KEY_BAR_LABEL, HIDDEN_TOO)).toBeNull();
+    expect(padBottom()).toBe(16);
     mockScrollToBottom.mockClear();
     configureNext.mockClear();
     await keyboardWillShow();
@@ -751,13 +802,14 @@ describe('the keyboard store is the one writer of the layout animation and the o
       await act(() => keyboard.changeFrame(402, 200, DURATION, { top: 202, height: 200 }));
       expect(configureNext.mock.calls).toEqual([[HIDE_MOTION]]);
       await act(() => jest.advanceTimersByTime(HIDE_MOTION.duration));
-      expect(screen.queryByLabelText(KEY_BAR_LABEL, HIDDEN_TOO)).toBeNull();
+      expect(padBottom()).toBe(16);
       mockScrollToBottom.mockClear();
       configureNext.mockClear();
       await keyboardWillShow({ top: 202, height: 200 });
       expect(mockScrollToBottom.mock.calls).toEqual([['shell-1']]);
       expect(configureNext.mock.calls).toEqual([[SHOW_MOTION]]);
-      expect(screen.queryByLabelText(KEY_BAR_LABEL, HIDDEN_TOO)).not.toBeNull();
+      // 200 - 34 + 12: the pad above the landscape keyboard.
+      expect(padBottom()).toBe(178);
     });
 
     test('the same with a hide after the end frame: one hide motion in all, hidden, the next show scrolls once', async () => {
@@ -769,7 +821,7 @@ describe('the keyboard store is the one writer of the layout animation and the o
       await keyboardWillHide();
       expect(configureNext.mock.calls).toEqual([[HIDE_MOTION]]);
       await act(() => jest.advanceTimersByTime(HIDE_MOTION.duration));
-      expect(screen.queryByLabelText(KEY_BAR_LABEL, HIDDEN_TOO)).toBeNull();
+      expect(padBottom()).toBe(16);
       mockScrollToBottom.mockClear();
       await keyboardWillShow({ top: 202, height: 200 });
       expect(mockScrollToBottom).toHaveBeenCalledTimes(1);
@@ -787,9 +839,9 @@ describe('the keyboard store is the one writer of the layout animation and the o
       configureNext.mockClear();
       await keyboardWillShow(KEYBOARD);
       expect(mockScrollToBottom).not.toHaveBeenCalled();
-      expect(screen.queryByLabelText(KEY_BAR_LABEL, HIDDEN_TOO)).not.toBeNull();
-      // 336 + 88 - 34: the keyboard and the key bar over the terminal view's bottom.
-      expect(terminalTop()).toBe(-390);
+      expect(padBottom()).toBe(314);
+      // 336 - 34: the keyboard over the terminal view's bottom.
+      expect(terminalTop()).toBe(-302);
       expect(configureNext.mock.calls).toEqual([[SHOW_MOTION]]);
     });
 

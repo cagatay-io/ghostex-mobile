@@ -183,6 +183,8 @@ export const ConnectedCopy = {
 export const SessionCopy = {
   /** Row/menu title fallback when a session has no display title. */
   fallbackTitle: 'Ghostex Session',
+  /** A worktree session's branch, as its badge reads to a screen reader (the Project list's row, a Session Wall tile). */
+  inWorktree: (branch: string) => `In worktree ${branch}`,
   /** A Unified card's third line for a session whose folder is not under git. */
   noSourceControl: 'Untracked',
   /** A Unified card's third line while its branch is not known and none was seen before. */
@@ -212,6 +214,87 @@ export const SessionCopy = {
   sessionsKindLabel: 'Sessions',
   unknownRecency: 'Unknown',
   attachCommandCopied: 'Attach command copied',
+} as const;
+
+/**
+ * The session wall: the Sessions list's list/tiles switch on the unfolded iPhone Duo and its tiles (the session wall
+ * design's words). A badge says in a word what the row's dot says by colour; waiting for approval, which
+ * the design predates, takes the agents pane's words.
+ */
+export const WallCopy = {
+  showList: 'Show as list',
+  showTiles: 'Show as tiles',
+  badge: {
+    approval: 'Waiting for approval',
+    question: 'Has a question',
+    failed: 'Failed',
+    working: 'Working',
+    attention: 'Waiting',
+    backgroundWork: 'Background work',
+  },
+  /** The thumbnail of a session whose screen the computer could not read. */
+  previewUnavailable: 'No preview',
+  /**
+   * A tile for VoiceOver: its title, then its badge word or the row's time label when it has one, then the worktree
+   * its session runs in when its row names one.
+   */
+  tile: (title: string, status: string | null, worktree?: string) =>
+    [title, status, worktree === undefined ? null : SessionCopy.inWorktree(worktree)]
+      .filter((part) => part !== null)
+      .join(', '),
+} as const;
+
+/**
+ * The folded triage: the waiting sessions above the Sessions list on the iPhone Duo's outer display (the triage
+ * design's words). Allow and Deny are the chat's approval card's labels.
+ */
+export const TriageCopy = {
+  /** The section for VoiceOver. */
+  section: 'Waiting for you',
+  heading: (count: number) => `Waiting for you · ${count}`,
+  /** The quiet row when nothing waits. */
+  nothingWaiting: 'Nothing is waiting for you',
+  /** A card's head, which opens the session: its title and, when known, how long it has waited. */
+  open: (title: string, waited: string | null) =>
+    waited === null ? `Open ${title}` : `Open ${title}, waiting ${waited}`,
+  deny: 'Deny',
+  allow: 'Allow',
+  sending: 'Sending…',
+  /** An approval the chat does not show (the agent asks on its screen only). */
+  approvalInSession: 'Answer it in the session.',
+  answers: 'Answers',
+  /** The header of the first of several questions in a row. */
+  stepHeader: (header: string, steps: number) => (header.length > 0 ? `${header} · 1 of ${steps}` : `1 of ${steps}`),
+  openQuestion: 'Open Question',
+  hint: {
+    multiSelect: 'You can pick several options. Choose them in the session.',
+    steps: (steps: number) => `${steps} questions in a row. Answer them in the session.`,
+    text: 'Needs a written answer.',
+  },
+  lastOutput: 'Last output',
+  shortReplies: 'Short replies',
+  /** The message after an answer went out: what, and to which session. */
+  sent: (label: string) => `Sent “${label}”`,
+  answered: (label: string) => `Answered “${label}”`,
+  sessionLine: (title: string, project: string) => (project.length > 0 ? `${title} · ${project}` : title),
+  notSent: 'Not sent',
+} as const;
+
+/** Settings › Short Replies: the replies the folded triage offers on a waiting session. */
+export const ShortRepliesCopy = {
+  pageTitle: 'Short Replies',
+  pageDescription: 'Quick answers for waiting agents when folded.',
+  intro: 'Shown on a waiting session when the phone is folded. A tap sends the text to that session.',
+  entry: (position: number) => `Short reply ${position}`,
+  remove: (text: string) => `Remove “${text}”`,
+  add: 'Add Reply',
+  footer: 'Replies appear on the cards in this order. Empty entries are not kept.',
+} as const;
+
+/** The floating context menu (`ContextMenu.tsx`). */
+export const ContextMenuCopy = {
+  /** The dimmed screen around the menu, as VoiceOver names it: a tap on it closes the menu. */
+  close: 'Close menu',
 } as const;
 
 /** Session search (the Sessions header's search button), worded as the desktop's Sessions search. */
@@ -580,8 +663,9 @@ export const MachinesCopy = {
   update: 'Update',
   remove: {
     title: 'Remove this computer?',
-    body: (name: string) =>
-      `${name} is removed from this phone, along with its saved password and pairing key. Nothing changes on the computer.`,
+    /** `asksComputer`: the removal first asks the computer to stop its push notifications. */
+    body: (name: string, asksComputer: boolean) =>
+      `${name} is removed from this phone, along with its saved password and pairing key. ${asksComputer ? `If ${name} can be reached, it also stops sending push notifications. Nothing else changes on the computer.` : 'Nothing changes on the computer.'}`,
     confirm: 'Remove',
   },
   add: {
@@ -762,8 +846,9 @@ export const EditMachineCopy = {
   remove: {
     button: 'Remove this computer from the phone',
     title: 'Remove this computer?',
-    body: (name: string) =>
-      `${name} is removed from this phone, along with its saved password and pairing key. Nothing changes on the computer.`,
+    /** `asksComputer`: the removal first asks the computer to stop its push notifications. */
+    body: (name: string, asksComputer: boolean) =>
+      `${name} is removed from this phone, along with its saved password and pairing key. ${asksComputer ? `If ${name} can be reached, it also stops sending push notifications. Nothing else changes on the computer.` : 'Nothing changes on the computer.'}`,
     confirm: 'Remove',
   },
 } as const;
@@ -886,28 +971,83 @@ export const ChangesCopy = {
   unfoldFile: 'Unfold file',
 };
 
+/**
+ * Files: the project file browser (`DocsScreen`) and its shared document viewer (`DocViewerScreen`). The browser's labels
+ * and status lines are the desktop files list's where the phone has the same thing
+ * (apps/desktop/src/app/native_docs/files_list.rs, type_filter.rs, actions.rs).
+ */
 export const DocsCopy = {
   menuLabel: 'Files',
   listTitle: 'Files',
   searchPlaceholder: 'Search files',
   recentSection: 'Recently changed',
-  foldersSection: 'Folders',
+  foldersSection: 'Project Docs',
   searchSection: (count: number) => (count === 1 ? '1 match' : `${count} matches`),
   loading: 'Listing this project’s files…',
-  empty: 'No Markdown or HTML files in this project yet.',
-  emptyHint:
-    'Files lists docs/, artifacts/, ai/ and tmp/, the Markdown and HTML files in the project folder, and any folders added under Settings > Projects > Docs folders on the computer.',
-  noMatches: 'No files match that search.',
+  noFiles: 'No files found',
+  noMatches: 'No matching files',
+  searching: 'Searching…',
+  searchIncomplete: 'No matching files. This project is large, so search covers its first 200,000 files and folders.',
+  searchTruncated: 'Showing the best matches. Type more to narrow them.',
+  filterTruncated: 'Showing the first 3,000 files of these types. Type a name to narrow them.',
+  clearSearch: 'Clear search',
+  filterByType: 'Filter by file type',
+  filterShowing: (types: readonly string[]) => `Showing ${types.join(', ')} files`,
+  allFiles: 'All files',
+  typeFilterLabels: { markdown: 'Markdown', html: 'HTML', excalidraw: 'Excalidraw', image: 'Image', video: 'Video' },
+  filesMenu: 'Files menu',
+  refresh: 'Refresh',
+  showHiddenFiles: 'Show Hidden Files',
+  open: 'Open',
+  openFile: (name: string) => `Open ${name}`,
+  copyFullPath: 'Copy Full Path',
+  // Add to Session Context: the desktop's row label and its messages (native_docs/actions.rs,
+  // gpui_engine_terminal_attachment.rs), in the row menu and a text preview's header; the notices are the design's.
+  addToSessionContext: 'Add to Session Context',
+  contextAdded: (session: string) => `Added to ${session}`,
+  contextNotSent: 'Not sent yet. Write your message there and send it.',
+  contextFailed: (name: string) => `Can't add ${name}`,
+  contextNoSession: 'No active agent session is available.',
+  contextNoText: 'The computer sent no text for this file. Update Ghostex on the computer and try again.',
+  // Share… in the row menu and on the name-and-size view, Share in a text preview's header.
+  share: 'Share…',
+  shareButton: 'Share',
+  shareFetching: (name: string) => `Getting ${name}…`,
+  shareFetchingDetail: (size: string | null) => (size === null ? 'From the computer' : `${size} from the computer`),
+  shareFailed: (name: string) => `Can't share ${name}`,
+  shareNoData: 'The computer sent no file. Update Ghostex on the computer and try again.',
+  // Why a share failed, could not open or was interrupted (`shareSheet.ts`); a plain cancel shows nothing.
+  shareSheetUnavailable: 'The share sheet could not open. Try again.',
+  shareActivityFailed: 'The app you picked could not share the file.',
+  shareSheetInterrupted: 'The share sheet closed before it finished. Try again.',
+  shareFallbackName: 'File',
+  folderLoading: 'Folder not loaded yet',
+  folderFailed: (message: string) => `This folder could not load: ${message}`,
   listFailed: 'Could not list this project’s files',
   oldCli: 'Update Ghostex on the computer to list its files from the phone.',
   retry: 'Retry',
   machineMissing: 'This machine is no longer saved on this device.',
-  fileCount: (count: number) => (count === 1 ? '1 file' : `${count} files`),
   opening: 'Opening…',
   readingFile: 'Reading the file from the computer…',
   openFailed: 'Could not open this file',
+  fileMissing: 'This file is no longer on the computer.',
   reload: 'Reload',
   copyPath: 'Copy path',
+  copyFailed: 'Could not copy the path',
+  sourceView: (name: string) => `Source of ${name}`,
+  infoWhy: {
+    image: 'Images are not shown on the phone.',
+    binary: 'Binary files are not shown on the phone.',
+    large: 'Files over 2 MB are not shown on the phone.',
+  },
+  infoKind: (extension: string, image: boolean) =>
+    extension.length === 0 ? 'File' : `${extension.toUpperCase()} ${image ? 'image' : 'file'}`,
+  infoMeta: (size: string, kind: string) => `${size} · ${kind}`,
+  sizeUnknown: 'Size unknown',
+  justNow: 'just now',
+  minutesAgo: (minutes: number) => `${minutes}m ago`,
+  hoursAgo: (hours: number) => `${hours}h ago`,
+  daysAgo: (days: number) => `${days}d ago`,
   pathCopied: 'Path copied',
   annotateOn: 'Hide annotation tools',
   annotateOff: 'Annotate with Agentation',
@@ -1003,9 +1143,347 @@ export const TerminalHeaderCopy = {
   terminalView: 'Terminal view',
 } as const;
 
+/**
+ * Panes on the unfolded iPhone Duo: the header's Panes button, the panes' title bars, divider and chooser, and the
+ * pane types (the panes design's labels and descriptions).
+ */
+export const PanesCopy = {
+  addPane: 'Panes: add a pane',
+  closeSecondPane: 'Panes: close the second pane',
+  /** While the chooser (titled "New pane") is on screen the Panes button closes it, the other pane staying. */
+  closeNewPane: 'Panes: close the new pane',
+  move: (title: string) => `Move ${title} pane`,
+  /** The title opens the pane type menu. */
+  title: (title: string, typeLabel: string) => `${title}, ${typeLabel} pane`,
+  close: (title: string) => `Close ${title} pane`,
+  typeMenuTitle: 'Pane type',
+  typeMenuSubtitle: 'Shown in this pane',
+  sessionType: 'Session',
+  sessionTypeDescription: 'Another agent session next to this one',
+  /** The checked Session in a session pane's type menu beside another session pane: it opens the chooser there. */
+  switchSessionHint: 'Opens the session choice for this pane',
+  /** A session pane showing the session's chat view: its title bar names it a chat. */
+  chatType: 'Chat',
+  browserType: 'Web Preview',
+  browserTypeDescription: 'A page from your computer',
+  filesType: 'Files',
+  filesTypeDescription: 'The project’s files',
+  gitType: 'Git Changes',
+  gitTypeDescription: 'Changed files and their diff',
+  agentsType: 'Agents',
+  agentsTypeDescription: 'All sessions with their status',
+  usageType: 'Usage',
+  usageTypeDescription: 'Claude and Codex limits',
+  attentionType: 'Attention',
+  attentionTypeDescription: 'Notifications from your agents',
+  /** The agents pane's summary over its sessions (the panes design's chips). */
+  agentsSummary: 'Summary',
+  agentsChip: {
+    question: (count: number) => `${count} question`,
+    working: (count: number) => `${count} working`,
+    done: (count: number) => `${count} done`,
+    failed: (count: number) => `${count} failed`,
+  },
+  agentsEmpty: 'No sessions on this computer.',
+  newPane: 'New pane',
+  /** The chooser's pane types, above its sessions. */
+  chooserTypesLead: 'Show in this pane',
+  chooserLead: 'Open a session here',
+  chooserEmpty: 'No other session on this computer.',
+  chooserLoading: 'Loading sessions',
+  /** The chooser's first row: closes it, as its close button does. */
+  chooserClose: 'Close',
+  /** A new terminal session in the project of the session beside the chooser, opened in the chooser's pane. */
+  newTerminalIn: (project: string) => `New terminal in ${project}`,
+  /** The computer's Add Project flow, full screen. */
+  addProject: 'Add project',
+  newTerminalFailed: 'New Terminal Failed',
+  /** A files or Git changes pane while the computer's session list is read. */
+  projectLoading: 'Loading the project',
+  /** A files or Git changes pane whose session (its project's) the computer no longer lists. */
+  projectGone: 'The session this pane was opened from is no longer on this computer, so its project is not known.',
+  resize: 'Resize panes',
+  /** While the divider is dragged: both shares, and "limit" at 25 or 75 percent. */
+  shares: (first: number, second: number, atLimit: boolean) => `${first} % · ${second} %${atLimit ? ' · limit' : ''}`,
+  releaseToSwap: 'Release to swap',
+  status: {
+    question: 'Has a question',
+    approval: 'Waiting for approval',
+    working: 'Working',
+    done: 'Done',
+    failed: 'Failed',
+    backgroundWork: 'Background work',
+    idle: 'Idle',
+  },
+} as const;
+
+/**
+ * The usage of a computer's Claude and Codex accounts, in a usage pane and full screen: the chat Accounts panel's
+ * head, meters and sentences (`AccountsPanel.tsx`), and the computer it is for.
+ */
+export const UsageCopy = {
+  title: (computer: string) => `Usage · ${computer}`,
+  head: 'Accounts & limits',
+  refresh: 'Refresh accounts and usage',
+  loading: 'Reading accounts and usage…',
+  unavailable: 'Usage is unavailable for this login.',
+  /** No saved and enabled account to show: none saved, or every saved one turned off on the computer. */
+  noAccounts: (computer: string) =>
+    `No Claude or Codex account is enabled in Ghostex on ${computer}. Enable or add one there to see its usage and reset times here.`,
+  /** A meter for VoiceOver, as the Accounts panel reads it. */
+  meter: (name: string, value: string, resetIn: string) =>
+    `${name} ${value}${resetIn.length > 0 ? `, resets in ${resetIn}` : ''}`,
+  /** The countdown under a meter's bar. */
+  resetIn: (resetIn: string) => `↻ ${resetIn}`,
+  /** The provider's name on a Home Screen widget bar ("Claude 5h"), when the computer has one account of it. */
+  provider: { claude: 'Claude', codex: 'Codex' },
+  /** A Home Screen widget bar: the provider's or, with several accounts of one provider, the account's name. */
+  widgetBar: (owner: string, window: string) => `${owner} ${window}`,
+} as const;
+
 /** Titles of the Settings screens that are not pages of their own (the pages' are in screens/settings/pages.ts). */
 export const SettingsCopy = {
   title: 'Settings',
   extraKeysTitle: 'Extra Keys',
   agentHotkeysTitle: 'Agent Hotkeys',
+  padKeysTitle: 'Pad Keys',
+  /** Settings > Keyboard > Extra keys layout: the rows feed the command pad's Keys layer. */
+  extraKeysStatus: "Customize the two key rows of the command pad's Keys layer. Tap a key to move or remove it.",
+  /** Settings > Keyboard > Agent hotkeys. */
+  agentHotkeysIntro:
+    "Configure the exact terminal shortcuts shown on the command pad's Agent layer for each agent. These keys never type slash commands.",
+} as const;
+
+/**
+ * The Befehlspad (command pad) in the terminal, its Keys and Agent layers and the text editor, and its rows in
+ * Settings > Keyboard (wording of the designs).
+ */
+export const CommandPadCopy = {
+  toggle: 'Command pad',
+  /** The toggle's accessibility actions that move the pad; a held toggle drags it. */
+  moveLeft: 'Move to the left side',
+  moveRight: 'Move to the right side',
+  keysLayer: 'Keys',
+  agentLayer: 'Agent hotkeys',
+  /** Why the Agent button is unavailable: only Codex, Claude Code and Pi have agent hotkeys. */
+  agentUnavailableHint: "This session's agent has no agent hotkeys",
+  editor: 'Text editor',
+  showKeyboard: 'Show keyboard',
+  hideKeyboard: 'Hide keyboard',
+  extraKeys: 'Extra keys',
+  moreKeys: 'More keys',
+  padSettings: 'Pad settings',
+  /** A layer's own close button, shown while it stands in for the open pad (too little room for both). */
+  closeLayer: 'Close',
+  closeLayerHint: 'Opens the command pad again',
+  /**
+   * The text editor's own close button in the same state: it does what the pen does. Named for what it closes, as the
+   * editor has no titled head that tells which "Close" it is.
+   */
+  closeEditor: 'Close text editor',
+  closeEditorHint: 'Keeps the text for the next opening; the keyboard stays up',
+  holdHintIdle: 'Hold a key to see what it does',
+  holdHint: 'Hold to see what this key does',
+  modifierHint: 'Tap for one key, or hold to lock until tapped again',
+  /** The chip beside the toggle while a modifier is armed. */
+  modifierLocked: (label: string) => `${label} locked`,
+  editorField: 'Terminal text editor',
+  editorPlaceholder: 'Type text to send to the terminal',
+  sendEnter: 'Send Enter to terminal',
+  insertText: 'Insert text into terminal',
+  paste: 'Paste',
+  upload: 'Upload',
+  newLine: 'New line',
+  /** A pad position whose custom action or agent hotkey was deleted; it sends nothing. */
+  unavailable: 'Not available',
+  /** Spoken and shown names of keys by terminal key name. */
+  keyNames: {
+    escape: 'Esc',
+    tab: 'Tab',
+    enter: 'Enter',
+    backspace: 'Backspace',
+    delete: 'Delete',
+    insert: 'Insert',
+    home: 'Home',
+    end: 'End',
+    pageUp: 'Page Up',
+    pageDown: 'Page Down',
+    up: 'Up',
+    down: 'Down',
+    left: 'Left',
+    right: 'Right',
+  } as Readonly<Record<string, string>>,
+  /** Shorter faces where the name does not fit a pad key. */
+  keyFaces: {
+    backspace: 'Bksp',
+    delete: 'Del',
+    insert: 'Ins',
+    pageUp: 'PgUp',
+    pageDown: 'PgDn',
+  } as Readonly<Record<string, string>>,
+  modifierNames: { ctrl: 'Ctrl', alt: 'Alt', shift: 'Shift' },
+  agentKey: (agent: string, label: string) => `${agent}: ${label}`,
+  // Settings > Keyboard
+  settingsSection: 'Command pad',
+  settingsCaption:
+    'Shows the pad button in terminals. The pad holds the arrow keys, Enter, Esc, Tab, Ctrl+C and Upload.',
+  vibration: 'Key vibration',
+  padKeys: 'Pad keys',
+  padKeysDescription: 'Choose what the nine pad keys do.',
+  layersSection: 'Pad layers',
+  extraKeysLayout: 'Extra keys layout',
+  extraKeysLayoutDescription: 'Keys layer: your two rows of keys and custom actions.',
+  agentHotkeys: 'Agent hotkeys',
+  agentHotkeysDescription: 'Agent layer: hotkeys for Codex, Claude Code and Pi.',
+  // Settings > Keyboard > Pad keys
+  editorIntro: 'Tap a key to change it. Arrow keys repeat while you hold them.',
+  positions: {
+    topLeft: 'Top left',
+    top: 'Top',
+    topRight: 'Top right',
+    left: 'Left',
+    centre: 'Centre',
+    right: 'Right',
+    bottomLeft: 'Bottom left',
+    bottom: 'Bottom',
+    bottomRight: 'Bottom right',
+  },
+  positionKey: (position: string, key: string) => `${position}: ${key}`,
+  pickerTitle: (position: string) => `${position} key`,
+  done: 'Done',
+  sectionKeys: 'Keys',
+  sectionModifiers: 'Modifiers',
+  sectionShortcuts: 'Shortcuts',
+  sectionAgent: (agent: string) => `Agent hotkeys · ${agent}`,
+  sectionOther: 'Other',
+  sectionCustom: 'Custom actions',
+  customEmpty: 'None yet. Add text or shortcut keys in Extra keys layout; they appear here.',
+  reset: 'Reset',
+  resetTitle: 'Reset Pad Keys?',
+  resetBody: 'This puts the default nine keys back.',
+  cancel: 'Cancel',
+} as const;
+
+/**
+ * Agent notifications and the attention list (the notifications design): the
+ * four event wordings, the list, the bell and Settings > Notifications. Text level: event and session
+ * only, never anything the agent wrote.
+ */
+export const NotificationsCopy = {
+  /** The line under "agent · project" in a notification. */
+  event: {
+    finished: 'Finished',
+    waiting: 'Waiting for you',
+    question: 'Has a question',
+    failed: 'Ended with an error',
+  },
+  /** The kind line of an attention list row. */
+  rowKind: {
+    finished: 'finished',
+    waiting: 'waiting',
+    question: 'has a question',
+    failed: 'ended with an error',
+    bell: 'bell',
+    custom: 'notification',
+    sendFailed: 'not sent',
+    resetExpiring: 'reset expiring',
+    resetRedeemed: 'reset used',
+  },
+  /** Who a row names when the computer did not say which agent it was. */
+  unknownAgent: 'Agent',
+  title: 'Notifications',
+  unread: 'Unread',
+  read: 'Read',
+  emptyTitle: 'No notifications yet',
+  emptyText: 'Agents that finish or need you will show up here.',
+  loading: 'Loading notifications…',
+  offline: (machine: string) => `${machine} is offline. Its notifications show again when it reconnects.`,
+  cantLoadTitle: 'Can’t load notifications',
+  cantLoadText: (machine: string) => `The list loads again as soon as the phone reaches ${machine}.`,
+  tooOld: (machine: string) =>
+    `${machine} runs a Ghostex that can’t share its notifications with the phone. Update Ghostex on that computer.`,
+  bell: 'Notifications',
+  bellUnread: (count: number) => `Notifications, ${count} unread`,
+  rowUnread: 'Unread.',
+  menuTitle: 'Notifications',
+  menuSubtitle: 'Shared with the bell on your computer',
+  markAllRead: 'Mark All Read',
+  clearAll: 'Clear All',
+  openSession: 'Open Session',
+  markRead: 'Mark as Read',
+  markUnread: 'Mark as Unread',
+  clear: 'Clear',
+  clearAllTitle: 'Clear all notifications?',
+  clearAllBody: 'They also disappear from the bell on your computer. Your sessions stay as they are.',
+  cancel: 'Cancel',
+  actionFailed: 'The computer didn’t take that change. Try again in a moment.',
+  /** Settings > Notifications; the page was "Sounds". */
+  settings: {
+    pageDescription: 'Agent alerts and the attention sound.',
+    sectionAgents: 'Agent notifications',
+    master: 'Notifications',
+    limit:
+      'Ghostex can notify you only while it is running: open, or briefly in the background. Once iOS pauses it, for example a while after you lock the phone, nothing arrives until you open Ghostex again. The bell on the Sessions screen then lists what happened.',
+    /** Instead of `limit` while an enabled computer accepted this phone's push registration, or that is not read yet. */
+    limitWithPush:
+      'Ghostex notifies you while it is running. A computer that accepted this iPhone for push can also notify you while Ghostex is closed or paused: iOS decides when a push arrives, and one can come late or not at all. Finished, Waiting for you and Ended with an error also apply to pushes. A computer that Ghostex cannot reach when you change one keeps the earlier choice until it next accepts this iPhone, for example when you open Ghostex again. The bell on the Sessions screen lists what happened.',
+    finished: 'Finished',
+    finishedDetail: 'An agent finished its turn.',
+    waiting: 'Waiting for you',
+    waitingDetail: 'Also when an agent has a question.',
+    error: 'Ended with an error',
+    errorDetail:
+      'When an agent’s run ends with an error, such as an API error. Stopping an agent yourself doesn’t notify.',
+    rules:
+      'Only main sessions notify, not their subagents. Starting, ending or working never notifies. At most one notification per session every 20 seconds, and 8 per minute.',
+    sectionSound: 'Sound',
+    sound: 'Attention notification sound',
+    soundDetail: 'Plays a sound when a session on your computer finishes or needs your attention.',
+    blockedTitle: 'Blocked in iOS Settings',
+    blockedText:
+      'iOS doesn’t allow Ghostex to notify you, so the switches below have no effect. Turn on Allow Notifications in iOS Settings › Apps › Ghostex › Notifications.',
+    openSettings: 'Open iOS Settings',
+  },
+} as const;
+
+/**
+ * Settings › Live Activity (approved mockup). The activity's own words (working,
+ * waiting, has a question, finished, "+N more", "Not current") are drawn by the widget extension
+ * (modules/ghostex-live-activity/ios/Extension); the preview here repeats them.
+ */
+export const LiveActivityCopy = {
+  /** The page's row on the Settings home and its title (`src/screens/settings/pages.ts`). */
+  pageTitle: 'Live Activity',
+  pageDescription: 'Agents on the Lock Screen and in the Dynamic Island.',
+  toggle: 'Show Live Activity',
+  onCaption:
+    'Shows working and waiting agents on the Lock Screen and in the Dynamic Island. It starts when an agent starts working and ends 15 minutes after the last one stops.',
+  // The design also says "or briefly in the background": that needs silent pushes, which this build
+  // does not have, so it claims only what it does (updates while the app is open).
+  freshnessCaption: 'Ghostex updates it while the app is open. Later it can show an older state and then says so.',
+  offCaption: 'Off. Ghostex ends the current Live Activity and starts no new one.',
+  /**
+   * The Live Activity starts only when every computer with agents sends their start times and whether
+   * they finished or wait.
+   */
+  needsUpdate: (names: readonly string[]) =>
+    names.length === 1
+      ? `${names[0]} needs a newer Ghostex for the Live Activity. Update Ghostex on that Mac; until then no Live Activity starts.`
+      : `${names.join(', ')} need a newer Ghostex for the Live Activity. Update Ghostex on those Macs; until then no Live Activity starts.`,
+  previewTitle: 'Preview',
+  previewLabel:
+    'Preview of the Live Activity: 1 working, 2 waiting, one more agent. Claude Code in ghostex-mobile has a question, Codex in homeserver is waiting, Codex in ghostex-mobile is working, omp in Ghostex finished.',
+  working: 'working',
+  waiting: 'waiting',
+  question: 'has a question',
+  finished: 'finished',
+  count: (count: number, word: string) => `${count} ${word}`,
+  more: (count: number) => `+${count} more`,
+  /** Sample rows of the preview: agent, project, state and time, as the design's Lock Screen. */
+  previewRows: [
+    { agent: 'Claude Code', project: 'ghostex-mobile', state: 'question', time: '4m' },
+    { agent: 'Codex', project: 'homeserver', state: 'waiting', time: '1m' },
+    { agent: 'Codex', project: 'ghostex-mobile', state: 'working', time: '12m' },
+    { agent: 'omp', project: 'Ghostex', state: 'finished', time: '18m' },
+  ],
 } as const;

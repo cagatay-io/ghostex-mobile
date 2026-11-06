@@ -103,6 +103,12 @@ declare class GhostexNativeModule extends NativeModule<GhostexNativeEvents> {
   sendKey(sessionKey: string, key: TerminalKey, mods?: KeyModifiers): Promise<void>;
   /** Apply one-shot modifiers to the next key produced by the terminal's software keyboard. */
   setKeyModifiers(sessionKey: string, mods: KeyModifiers): Promise<void>;
+  /**
+   * iOS only: paste the clipboard into the terminal through the terminal's own Paste, the one its edit menu
+   * runs (`paste(_:)`), so iOS's paste permission and the unsafe-paste question apply as there. Not bridged on
+   * Android.
+   */
+  pasteFromClipboard(sessionKey: string): Promise<void>;
   setFontSize(sessionKey: string, size: number): Promise<void>;
   scrollToBottom(sessionKey: string): Promise<void>;
 
@@ -148,6 +154,16 @@ declare class GhostexNativeModule extends NativeModule<GhostexNativeEvents> {
   /** Ends observation `id` from `observeBarLayout` (a newer one keeps running). iOS only. */
   stopObservingBarLayout(id: number): Promise<void>;
 
+  /**
+   * Share…: the iOS share sheet for one file of the app's temporary storage (`file://` address).
+   * Settles once, when the share is over: the sheet has left the screen and reported its last activity's result (an
+   * activity cancelled while the sheet stayed open is no end). Resolves when that activity reported no error (shared
+   * or cancelled); rejects with `E_SHARE_FAILED` when it failed, `E_SHARE_UNAVAILABLE` when no sheet could be shown,
+   * and `E_SHARE_INTERRUPTED` when its presenting screen went away before a result or the module was torn down
+   * (reload). iOS only: guard with Platform.OS.
+   */
+  shareFile(fileUri: string): Promise<void>;
+
   /** Play a short native alert sound (terminal bell beep or attention alert). */
   playAlertSound(kind: TerminalAlertSoundKind): Promise<void>;
 
@@ -158,6 +174,13 @@ declare class GhostexNativeModule extends NativeModule<GhostexNativeEvents> {
   focusTerminal(sessionKey: string): Promise<boolean>;
   /** Resign first responder / hide the soft keyboard for the attached view. */
   blurTerminal(sessionKey: string): Promise<void>;
+  /**
+   * iOS only: whether something in the app holds a hardware keyboard's typing: its first responder is a terminal
+   * outside its edit menu's keyboard-less focus, or another text input (a field of a web page) while a hardware keyboard
+   * is connected. No software keyboard need cover the app then, so typing goes on with no keyboard frame. Not bridged on
+   * Android.
+   */
+  keyboardInputHeld(): Promise<boolean>;
 
   // SFTP upload with 0600 permissions.
   uploadFile(machineId: string, localPath: string, remotePath: string): Promise<void>;
