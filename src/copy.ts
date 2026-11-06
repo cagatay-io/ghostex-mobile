@@ -183,6 +183,8 @@ export const ConnectedCopy = {
 export const SessionCopy = {
   /** Row/menu title fallback when a session has no display title. */
   fallbackTitle: 'Ghostex Session',
+  /** A worktree session's branch, as its badge reads to a screen reader (the Project list's row, a Session Wall tile). */
+  inWorktree: (branch: string) => `In worktree ${branch}`,
   /** A Unified card's third line for a session whose folder is not under git. */
   noSourceControl: 'Untracked',
   /** A Unified card's third line while its branch is not known and none was seen before. */
@@ -232,8 +234,14 @@ export const WallCopy = {
   },
   /** The thumbnail of a session whose screen the computer could not read. */
   previewUnavailable: 'No preview',
-  /** A tile for VoiceOver: its title, then its badge word or the row's time label when it has one. */
-  tile: (title: string, status: string | null) => (status === null ? title : `${title}, ${status}`),
+  /**
+   * A tile for VoiceOver: its title, then its badge word or the row's time label when it has one, then the worktree
+   * its session runs in when its row names one.
+   */
+  tile: (title: string, status: string | null, worktree?: string) =>
+    [title, status, worktree === undefined ? null : SessionCopy.inWorktree(worktree)]
+      .filter((part) => part !== null)
+      .join(', '),
 } as const;
 
 /** The floating context menu (`ContextMenu.tsx`). */

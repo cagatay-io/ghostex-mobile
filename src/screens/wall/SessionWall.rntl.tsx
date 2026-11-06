@@ -367,6 +367,38 @@ describe('the switch between list and tiles', () => {
     if (!announced) expect(screen.queryByRole('button', { name: 'Omp, Has a question' })).toBeNull();
   });
 
+  test('a worktree session its parent project lists keeps its branch in the tile, as its row has it, also for VoiceOver', async () => {
+    const summary = parseMobileSummary(
+      JSON.stringify({
+        ok: true,
+        worktreeSessionsInProject: true,
+        projects: [
+          { projectId: 'p1', name: 'ghostex-mobile', path: '/work/ghostex-mobile' },
+          {
+            projectId: 'wt',
+            name: 'ghostex-mobile-review',
+            path: '/work/ghostex-mobile-review',
+            worktree: { parentProjectId: 'p1', name: 'review', branch: 'feature/review' },
+          },
+        ],
+        sessions: [
+          wireSession('a', 'Alpha', { activity: 'working' }),
+          wireSession('w', 'Review', { projectId: 'wt', activity: 'working' }),
+        ],
+      }),
+    );
+    const inventory = useInventoryStore.getState().inventoriesByMachineId.m1;
+    useInventoryStore.setState({ inventoriesByMachineId: { m1: { ...inventory, summary, serverSummary: summary } } });
+    await renderScreen(UPRIGHT, [FLAT_UPRIGHT]);
+    // The list's row under the parent project names the branch.
+    expect(screen.getByLabelText('In worktree feature/review')).toBeTruthy();
+    await press('Show as tiles');
+    expect(tile(/^Review, Working, In worktree feature\/review$/)).toBeTruthy();
+    expect(screen.getByText('feature/review')).toBeTruthy();
+    // A session in the parent project itself names no worktree.
+    expect(tile(/^Alpha, Working$/)).toBeTruthy();
+  });
+
   test('half folded like a laptop the switch is offered too', async () => {
     await renderScreen(UPRIGHT, [LAPTOP]);
     expect(screen.getByLabelText('Show as tiles')).toBeTruthy();

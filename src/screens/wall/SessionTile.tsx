@@ -3,7 +3,8 @@
  * row's dot, or a folded coordinator's stack, plus a word, `badge.ts`) with the row's time label, and its live
  * thumbnail, the newest lines of its screen at a size that stays readable instead of the whole screen shrunk. A tap
  * opens the session and a long press opens its menu, through the same actions as its list row. When the badge changes
- * while the tile is on screen, a ring in the new status colour marks the tile for a moment.
+ * while the tile is on screen, a ring in the new status colour marks the tile for a moment. A worktree session its
+ * parent project lists names its worktree's branch with the list row's badge (`WorktreeBadge`), also to VoiceOver.
  *
  * In the Unified list (`UnifiedSessionTile`) the badge is the Unified card's own status (its icon, word and working
  * timer, or its age), which the Unified list draws and hands over, so a tile says what its card says.
@@ -15,7 +16,7 @@ import { Platform, Pressable, StyleSheet, Text, View, type ViewInstance } from '
 import { AGENT_ICONS } from '../../assets/agentIcons.generated';
 import type { MenuAnchor } from '../../components/sessions/ContextMenu';
 import { STATUS_DOT_SIZE } from '../../components/sessions/rows';
-import { useRowLabelClock } from '../../components/sessions/SessionRow';
+import { useRowLabelClock, WorktreeBadge } from '../../components/sessions/SessionRow';
 import { COMPLETION_FLASH_MS, rowTimeLabel, shownFoldedStatus } from '../../components/sessions/sessionStatus';
 import { OverlappedDots } from '../../components/sessions/StatusDotStack';
 import type { SessionItem } from '../../contract/grouping';
@@ -49,17 +50,20 @@ export default function SessionTile({ item, sessionKey, appearance, onPress, onM
   const timeLabel = foldedStatus !== undefined ? null : rowTimeLabel(session, capabilities, nowMs);
   // The ring takes the colour of the badge's front dot (the status the session changed to).
   const ring = useChangeRing(badge?.kind ?? null, badge?.dots.at(-1) ?? null);
+  // The branch the row names for a worktree session its parent project lists (`grouping.ts`).
+  const worktree = item.worktree !== undefined && item.worktree.length > 0 ? item.worktree : undefined;
   return (
     <TileFrame
       session={session}
       sessionKey={sessionKey}
       appearance={appearance}
       statusWord={badge?.label ?? timeLabel}
+      worktree={worktree}
       ring={ring}
       onPress={onPress}
       onMenu={onMenu}
     >
-      {badge !== null || timeLabel !== null ? (
+      {badge !== null || timeLabel !== null || worktree !== undefined ? (
         <View style={styles.status}>
           {badge !== null ? (
             <View style={styles.badge}>
@@ -68,6 +72,7 @@ export default function SessionTile({ item, sessionKey, appearance, onPress, onM
             </View>
           ) : null}
           {timeLabel !== null ? <Text style={styles.time}>{timeLabel}</Text> : null}
+          {worktree !== undefined ? <WorktreeBadge label={worktree} /> : null}
         </View>
       ) : null}
     </TileFrame>
@@ -104,6 +109,8 @@ type TileFrameProps = {
   sessionKey: string;
   appearance: SidebarAppearance;
   statusWord: string | null;
+  /** The worktree's branch the session's row names, read after the status; the Unified list has none. */
+  worktree?: string;
   ring: string | null;
   onPress: () => void;
   onMenu: (anchor: MenuAnchor) => void;
@@ -112,7 +119,17 @@ type TileFrameProps = {
 };
 
 /** The tile around its status line: icon, title, thumbnail, the change ring, the tap and the long press. */
-function TileFrame({ session, sessionKey, appearance, statusWord, ring, onPress, onMenu, children }: TileFrameProps) {
+function TileFrame({
+  session,
+  sessionKey,
+  appearance,
+  statusWord,
+  worktree,
+  ring,
+  onPress,
+  onMenu,
+  children,
+}: TileFrameProps) {
   const tileRef = useRef<ViewInstance | null>(null);
   const preview = useWallPreviewStore((state) => state.previews[sessionKey]);
   const iconId = resolveAgentIconId(
@@ -126,7 +143,7 @@ function TileFrame({ session, sessionKey, appearance, statusWord, ring, onPress,
     <Pressable
       ref={tileRef}
       accessibilityRole="button"
-      accessibilityLabel={WallCopy.tile(title, statusWord)}
+      accessibilityLabel={WallCopy.tile(title, statusWord, worktree)}
       style={({ pressed }) => [
         styles.tile,
         { backgroundColor: pressed ? appearance.cardActive : appearance.card, borderColor: appearance.border },

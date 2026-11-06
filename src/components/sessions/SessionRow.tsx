@@ -301,9 +301,9 @@ function AgentboxBadge({ agentbox }: { agentbox: NonNullable<GhostexSession['age
  * native_sidebar/threads.rs `worktree_badge`: the branch of a worktree session its parent project
  * lists (CDXC:Worktrees 2026-11-06 in gx-core sidebar_view/worktree_fold.rs), in the agentbox badge's muted text.
  */
-function WorktreeBadge({ label }: { label: string }) {
+export function WorktreeBadge({ label }: { label: string }) {
   return (
-    <View accessible accessibilityLabel={`In worktree ${label}`} style={styles.worktree}>
+    <View accessible accessibilityLabel={SessionCopy.inWorktree(label)} style={styles.worktree}>
       <BranchGlyph size={ds(12)} color={SIDEBAR_MUTED} />
       <Text style={styles.agentboxLabel} numberOfLines={1}>
         {label}
