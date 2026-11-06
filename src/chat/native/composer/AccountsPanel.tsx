@@ -72,7 +72,6 @@ export function AccountsPanel({ panel, onCommand }: { panel: JsonRecord; onComma
         </View>
       ) : null}
       {message.length > 0 ? <Text style={styles.paragraph}>{message}</Text> : null}
-      {message.length > 0 ? <OtherUsage panel={panel} /> : null}
       {message.length === 0 && session !== null ? (
         <SessionBlocks
           session={session}
@@ -84,7 +83,7 @@ export function AccountsPanel({ panel, onCommand }: { panel: JsonRecord; onComma
             onCommand(policyCommand(null), true);
           }}
           onCommand={onCommand}
-          otherUsage={<OtherUsage panel={panel} />}
+          otherUsage={null}
         />
       ) : null}
     </View>
@@ -92,35 +91,10 @@ export function AccountsPanel({ panel, onCommand }: { panel: JsonRecord; onComma
 }
 
 /**
- * Other usage: the Cursor, Gemini and Copilot accounts, each a name line over its columns. They
- * only show usage, so nothing here switches the session (gx-chat-core's CDXC:AgentProviders
- * 2026-11-05 on `PanelOtherUsage`).
+ * The panel lists only the session agent's own accounts (gx-chat-core's CDXC:AgentProviders
+ * 2026-11-06): usage-only accounts (Cursor, Gemini, Copilot) stay in the sidebar meters and
+ * Settings > Accounts, never in a chat's account switcher.
  */
-function OtherUsage({ panel }: { panel: JsonRecord }) {
-  const styles = useStyles();
-  const rows = arr(panel.otherUsage);
-  if (rows.length === 0) return null;
-  return (
-    <>
-      <Text style={styles.sectionHeading}>Other usage</Text>
-      {rows.map((row, index) => {
-        const record = obj(row) ?? {};
-        const usageError = str(row, 'usageError');
-        return (
-          <View key={`${index}:${str(row, 'id')}`} style={styles.account}>
-            <NameLine account={record} name={str(row, 'name')} email={str(row, 'providerLabel')} />
-            {usageColumns(record.usage).length > 0 ? (
-              <UsageRow session={record} resets />
-            ) : (
-              <Text style={styles.paragraph}>{usageError.length > 0 ? usageError : "Usage isn't read yet."}</Text>
-            )}
-          </View>
-        );
-      })}
-    </>
-  );
-}
-
 function SessionBlocks({
   session,
   busy,
