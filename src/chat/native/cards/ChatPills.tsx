@@ -468,7 +468,8 @@ export function Pill({ pill, open, onPress }: { pill: ChatPill; open: boolean; o
         size={12}
         color={P.cardMuted}
       />
-      <Text style={styles.label}>{pill.label}</Text>
+      {/* Blocked has no word, like the ? pill: its glyph and red dot (gx-chat-core `blocked_pill`). */}
+      {pill.label.length > 0 ? <Text style={styles.label}>{pill.label}</Text> : null}
       {(pill.dots ?? []).length > 0 ? (
         <InlineDots dots={pill.dots ?? []} />
       ) : pill.count.length > 0 ? (
