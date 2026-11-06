@@ -195,6 +195,22 @@ function copyWindow(copy: TestInstance): { top: number; bottom: number } {
   return { top, bottom: top + Number(place?.height) };
 }
 
+/**
+ * Where React Native's iOS scroll command sets a scroll view asked for offset `y` (`scrollTo:y:animated:` in
+ * `RCTScrollViewComponentView.mm` of the installed react-native): without `scrollToOverflowEnabled` it clamps `y` to
+ * `min(-inset.top, 0)` … that plus `max(content - visible + inset.bottom + max(inset.top, 0), 0.01)`; with it, `y`
+ * stands. The jest preset's scroll view only records the command, so these tests apply that native rule, copied from
+ * the source, to the props the scroll view got (`content` and `visible` are the heights the device would report).
+ */
+function nativeLanding(scroll: TestInstance, y: number, content: number, visible: number): number {
+  if (scroll.props.scrollToOverflowEnabled === true) return y;
+  const top = Number(scroll.props.contentInset?.top ?? 0);
+  const bottom = Number(scroll.props.contentInset?.bottom ?? 0);
+  const min = Math.min(-top, 0);
+  const max = min + Math.max(content - visible + bottom + Math.max(top, 0), 0.01);
+  return Math.min(Math.max(y, min), max);
+}
+
 /** In the laptop pose, at rest and scrolled: the list ends above the fold, with no copy, so no row is drawn on it. */
 async function expectEndsAboveFold(text: string): Promise<void> {
   await reportContent(text);
@@ -428,6 +444,52 @@ describe("the Sessions screen's classic list (DrawerBlockView blocks in SessionL
     await scrollTo('Project 0', 500);
     expect(nativeScrollTo.mock.calls).toEqual([[{ animated: false, y: 500 + upper }]]);
     expect(nativeScrollTo.mock.contexts[0]).toBe(copyInstance);
+  });
+
+  describe("the native scroll command takes the offsets past either part's own range", () => {
+    // A frame from 100 to 931: upper part 100-455.5 (A = 355.5), band, lower part 495.5-931 (C = 435.5).
+    const A = FOLD.top - 100;
+    const C = 931 - FOLD.bottom;
+    beforeEach(() => {
+      listFrame = { top: 100, height: 831 };
+    });
+
+    test('content longer than the upper part but shorter than both (A < L < A + C) continues below the band without repeating a row', async () => {
+      await renderIn(classic);
+      // Before the content is known the list keeps its own setting.
+      expect(scrollViewOf('Project 0').props.scrollToOverflowEnabled).toBeUndefined();
+      await reportContent('Project 0', 600);
+      const copy = copyOf('Project 0');
+      if (copy === null) throw new Error('no copy below the fold');
+      // The copy is asked to start where the upper part ends (offset 0 + A), and it lands there.
+      expect(nativeScrollTo).toHaveBeenLastCalledWith({ animated: false, y: A });
+      expect(nativeLanding(copy, A, 600, C)).toBe(A);
+    });
+
+    test('a pull past the top in the copy is mirrored in the list', async () => {
+      await renderIn(classic);
+      await reportContent('Project 0', 2000);
+      const copy = copyOf('Project 0');
+      if (copy === null) throw new Error('no copy below the fold');
+      nativeScrollTo.mockClear();
+      await fireEvent(copy, 'scrollBeginDrag', scrollEvent(A));
+      await fireEvent.scroll(copy, scrollEvent(A - 50));
+      await advance();
+      expect(nativeScrollTo).toHaveBeenLastCalledWith({ animated: false, y: -50 });
+      expect(nativeLanding(scrollViewOf('Project 0'), -50, 2000, A)).toBe(-50);
+    });
+
+    test('a pull past the end in the list is mirrored in the copy', async () => {
+      await renderIn(classic);
+      await reportContent('Project 0', 2000);
+      const copy = copyOf('Project 0');
+      if (copy === null) throw new Error('no copy below the fold');
+      const end = 2000 - A - C;
+      nativeScrollTo.mockClear();
+      await scrollTo('Project 0', end + 50);
+      expect(nativeScrollTo).toHaveBeenLastCalledWith({ animated: false, y: 2000 - C + 50 });
+      expect(nativeLanding(copy, 2000 - C + 50, 2000, C)).toBe(2000 - C + 50);
+    });
   });
 
   test('laptop pose: a fling of the copy leads until its motion ends', async () => {

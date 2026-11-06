@@ -6,7 +6,8 @@
  *   band's top; a copy of it fills the frame below the band's bottom and follows its scroll, so content that leaves
  *   the upper part at the band appears at once below it, and the other way round; the band adds no scroll distance
  *   (`foldListAcross` and the offsets in `verticalBar/layout.ts`). A drag on either part scrolls both; whichever is
- *   dragged leads and the other follows it (`scrollToOffset`, not animated, from `onScroll`), on the JS thread, so
+ *   dragged leads and the other follows it (`scrollToOffset`, not animated, from `onScroll`, with the native
+ *   `scrollToOverflowEnabled` on both, so an offset past a part's own range stands), on the JS thread, so
  *   during a fast fling the lower part trails the upper one by a frame or two. The copy is hidden from VoiceOver, so
  *   each row is read once; VoiceOver scrolls the list and the copy follows (exploring the lower part by touch finds
  *   nothing). The copy has no pull to refresh, no indicator and none of the list's ref and list-state callbacks
@@ -144,6 +145,9 @@ export function FoldListFrame({
       ref: listRef,
       contentInset: insets === null ? props.contentInset : withInsets(props.contentInset, insets.list),
       scrollEventThrottle: across === null ? props.scrollEventThrottle : 16,
+      // As the follower the list is set to offsets beyond its own range (a pull past the top or the end in the
+      // copy), which the native scroll command only takes with this switch on; outside this mode the list's own.
+      scrollToOverflowEnabled: across === null ? props.scrollToOverflowEnabled : true,
       onContentSizeChange: (width: number, height: number) => {
         const key = element.key;
         setContent((current) => (current?.key === key && current.height === height ? current : { key, height }));
@@ -172,6 +176,9 @@ export function FoldListFrame({
             ref: copy,
             contentInset: withInsets(props.contentInset, insets.copy),
             scrollEventThrottle: 16,
+            // The copy's offsets lie past its own range (content shorter than both parts together, a pull past the
+            // top or the end); without this switch the native scroll command clamps them and rows would repeat.
+            scrollToOverflowEnabled: true,
             showsVerticalScrollIndicator: false,
             scrollsToTop: false,
             refreshControl: undefined,
