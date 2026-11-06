@@ -6,7 +6,7 @@
  * cards area's (`../cards/QuestionExchangeCards.tsx`). Which card a row is comes from the core; this file only lays it out.
  */
 
-import { memo, useState, type ReactNode } from 'react';
+import { memo, useMemo, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { ProjectedMessage } from '../../rust/document';
@@ -15,9 +15,18 @@ import { DisclosureHeading, LaneMarker } from './Disclosure';
 import { Glyph, type GlyphName } from './icons';
 import { arr, obj, str, type JsonRecord } from './json';
 import { useDisclosure } from './state';
-import { SubagentMessageCard } from './AgentMessageCards';
-import { SINGLE_LINE_CARD, SINGLE_LINE_TITLE, SingleLinePill, SingleLineTile, singleLineShell } from './singleLineCard';
-import { MONO_FONT, PROSE_LINE, PROSE_SIZE } from './theme';
+import { SubagentMessageCard, toneColor } from './AgentMessageCards';
+import { Markdown } from './markdown/Markdown';
+import {
+  SINGLE_LINE_CARD,
+  SINGLE_LINE_HEADER_HEIGHT,
+  SINGLE_LINE_TITLE,
+  SingleLinePill,
+  SingleLineTile,
+  singleLinePressed,
+  singleLineShell,
+} from './singleLineCard';
+import { MONO_FONT, PROSE_LINE, PROSE_SIZE, type TranscriptTheme } from './theme';
 import { ROW_GAP } from './cardSpacing';
 
 /** Collapsed, a goal shows this many lines of its objective. */
@@ -113,6 +122,8 @@ export const SystemCard = memo(function SystemCard({ message }: { message: Proje
       return <CommandOutputCard id={message.id} card={card} />;
     case 'agent-message':
       return <SubagentMessageCard id={message.id} card={card} references={message.markdownReferences} />;
+    case 'advisor':
+      return <AdvisorCard id={message.id} card={card} />;
     default:
       return <SystemMarker card={card} />;
   }
@@ -217,6 +228,122 @@ function CommandOutputCard({ id, card }: { id: string; card: JsonRecord }) {
             {output}
           </Text>
         </ScrollView>
+      ) : null}
+    </View>
+  );
+}
+
+/** An advisor severity's glyph, named by the core (`ADVISOR_RANKS` in gx-chat-core `transcript/system_cards.rs`). */
+function advisorGlyph(icon: string): GlyphName {
+  return icon === 'alert-octagon' || icon === 'alert-triangle' || icon === 'bulb' ? icon : 'info-circle';
+}
+
+/** An advisor severity's colour: the message cards' red and amber, otherwise the card's muted text. */
+function advisorTone(tone: string, theme: TranscriptTheme): string {
+  return tone === 'failed' || tone === 'waiting' ? toneColor(tone, theme) : theme.cardMuted;
+}
+
+/** A light card keeps red and amber severity words in its ink, with the tone on the icon. */
+function advisorLabel(tone: string, theme: TranscriptTheme): string {
+  return theme.light && (tone === 'failed' || tone === 'waiting') ? theme.foreground : advisorTone(tone, theme);
+}
+
+/**
+ * OMP's advisor notes (desktop `advisor_card` in `system_cards.rs`): one 44pt row (the info tile,
+ * "Advisor shared notes" and the core's count of each severity as a pill) that opens to every note below a
+ * hairline, each with its severity word and icon in its tone and its text as Markdown. A light appearance
+ * keeps red and amber words in the card's ink (`advisorLabel`). The core
+ * decides the notes, their order (worst first), their words and tones; this lays them out in the
+ * one-line card every transcript card shares (`singleLineCard.tsx`).
+ *
+ * CDXC:SessionChat WHY: the phone row leaves the time out so the pills have room. With more than two severities, or whenever the pills measure wider than the room beside the title (large text, a narrow screen), it shows only the worst severity's pill and a neutral "+N" for the other notes, the count OMP's own "+N more notes" gives; opening the card still lists every note. Until two pills are measured they show side by side.
+ */
+function AdvisorCard({ id, card }: { id: string; card: JsonRecord }) {
+  const { theme } = useTranscriptEnv();
+  const { disclosures } = useNativeChatUi();
+  const [open, toggle] = useDisclosure(disclosures, `advisor:${id}`);
+  const [room, setRoom] = useState<number | null>(null);
+  const [needed, setNeeded] = useState<number | null>(null);
+  // Read once per card: the width reports re-render the card without changing what it says.
+  const { counts, notes, others } = useMemo(() => {
+    const counts = arr(card.counts)
+      .map((count) => obj(count))
+      .filter((count): count is JsonRecord => count !== null);
+    const notes = arr(card.notes)
+      .map((note) => obj(note))
+      .filter((note): note is JsonRecord => note !== null);
+    const worstSeverity = str(counts[0], 'severity');
+    let others = 0;
+    for (const note of notes) if (str(note, 'severity') !== worstSeverity) others += 1;
+    return { counts, notes, others };
+  }, [card]);
+  const worst = counts[0];
+  const folded = counts.length > 2 || (room !== null && needed !== null && needed > room);
+  const hairline = theme.ink(theme.light ? 0.08 : 0.05);
+  const pill = (count: JsonRecord, index: number) => (
+    <SingleLinePill
+      key={index}
+      icon={advisorGlyph(str(count, 'icon'))}
+      label={str(count, 'label')}
+      color={advisorTone(str(count, 'tone'), theme)}
+      labelColor={advisorLabel(str(count, 'tone'), theme)}
+    />
+  );
+  return (
+    <View style={[styles.advisorCard, singleLineShell(theme)]}>
+      <Pressable
+        onPress={toggle}
+        accessibilityRole="button"
+        accessibilityLabel={str(card, 'title')}
+        accessibilityState={{ expanded: open }}
+        style={({ pressed }) => [styles.advisorRow, pressed && singleLinePressed(theme)]}
+      >
+        <SingleLineTile glyph="info-circle" />
+        <Text style={[SINGLE_LINE_TITLE, styles.advisorName, { color: theme.foreground }]} numberOfLines={1}>
+          {str(card, 'name')}
+        </Text>
+        <View style={styles.advisorPills} onLayout={(event) => setRoom(event.nativeEvent.layout.width)}>
+          {counts.length === 2 ? (
+            <View
+              pointerEvents="none"
+              style={styles.advisorMeasure}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+            >
+              <View style={styles.advisorPillRow} onLayout={(event) => setNeeded(event.nativeEvent.layout.width)}>
+                {counts.map(pill)}
+              </View>
+            </View>
+          ) : null}
+          {folded && worst !== undefined ? (
+            <>
+              {pill(worst, 0)}
+              <SingleLinePill label={`+${others}`} color={theme.cardMuted} />
+            </>
+          ) : (
+            counts.map(pill)
+          )}
+        </View>
+      </Pressable>
+      {open ? (
+        <View style={[styles.advisorNotes, { borderTopColor: hairline }]}>
+          {notes.map((note, index) => {
+            const tone = advisorTone(str(note, 'tone'), theme);
+            return (
+              <View key={index} style={styles.advisorNote}>
+                <View style={styles.advisorSeverity}>
+                  <Glyph name={advisorGlyph(str(note, 'icon'))} size={13} color={tone} />
+                  <Text style={[styles.advisorSeverityText, { color: advisorLabel(str(note, 'tone'), theme) }]}>
+                    {str(note, 'label')}
+                  </Text>
+                </View>
+                <View style={styles.advisorNoteText}>
+                  <Markdown text={str(note, 'markdown')} references={note.references} color={theme.cardMuted} />
+                </View>
+              </View>
+            );
+          })}
+        </View>
       ) : null}
     </View>
   );
@@ -501,6 +628,41 @@ const styles = StyleSheet.create({
   commandHeader: { paddingHorizontal: 12, paddingVertical: 8 },
   commandBody: { maxHeight: 384, paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 1 },
   commandText: { fontFamily: MONO_FONT, fontSize: 12, lineHeight: 19.5 },
+  advisorCard: { minWidth: 0 },
+  advisorRow: {
+    height: SINGLE_LINE_HEADER_HEIGHT,
+    paddingHorizontal: SINGLE_LINE_CARD.paddingX,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  advisorName: { flexShrink: 1, minWidth: 0 },
+  advisorPills: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 6,
+    overflow: 'hidden',
+  },
+  /** The pills side by side without a width limit, drawn invisibly to measure what they need. */
+  advisorMeasure: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    width: 10000,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    opacity: 0,
+  },
+  advisorPillRow: { flexDirection: 'row', gap: 6 },
+  advisorNotes: { borderTopWidth: 1, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10, gap: 10 },
+  advisorNote: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, minWidth: 0 },
+  advisorSeverity: { minWidth: 76, height: PROSE_LINE, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  advisorSeverityText: { fontSize: 12, fontWeight: '600' },
+  /** Bounded beside the severity, so a long code name in a note wraps inside the card. */
+  advisorNoteText: { flex: 1, minWidth: 0 },
   markerRow: { paddingBottom: 8 },
   statusColumn: { gap: ROW_GAP, minWidth: 0 },
   statusCard: {
