@@ -5,12 +5,14 @@
  * the screen the way it does on the device (`BarLayout.divisions` → `laptopFoldOf` → `useLaptopFold`).
  * Covered: keyboard up or not, the output ends at the fold (the cover from the fold's top down and the slide, also
  * with the cursor near the top, and with a layer up); the Befehlspad in the upper half above the fold at its default
- * place, at a stored and at a dragged place, unmoved by the keyboard and by the Keys and Agent layers, which open
- * below the fold in the keyboard's place; no key row; the text editor above the fold, and the pad giving way to it
+ * place (its toggle a finger's width above the fold), at a stored and at a dragged place, unmoved by the keyboard and
+ * by the Keys and Agent layers, which open below the fold in the keyboard's place; no key row; the text editor above
+ * the fold, and the pad giving way to it
  * where the upper half is too short for both (Send or the toggle bring the pad back; the editor's own close button
  * closes it as the pen does and leaves the pad closed); an upper half too short for the open pad even reaching over
- * the header: the open pad reaching below the fold by what is missing, the keyboard staying up, a layer clear of it
- * and a layer reaching into its room; the same keys and functions flat; the round buttons a finger's width above the
+ * the header, and one that was not too short while the toggle's lowest place was 16 pt above the fold: the open pad
+ * reaching below the fold by what is missing, the keyboard staying up, a layer clear of it and a layer reaching into
+ * its room; the same keys and functions flat; the round buttons a finger's width above the
  * fold with the pad switched off or its toggle on the left edge, keyboard up or not, above the toggle on the right
  * edge and above the open text editor as before, unchanged flat; and the negative cases flat, in the book pose and
  * without a division, keyboard up and down.
@@ -128,16 +130,25 @@ const FOLD = { top: 455.5, bottom: 495.5 };
 const LOW_DIVISION: FoldDivision = { ...LAPTOP_DIVISION, y: 520 };
 /** The safe area's top, as the stand-in for the safe-area insets reports it. */
 const SAFE_TOP = 80;
-/** The open pad from its toggle's bottom edge to its highest ring button; with its 16 pt margins it needs 340 pt. */
+/** The open pad from its toggle's bottom edge to its highest ring button. */
 const OPEN_PAD_HEIGHT = 308;
-const OPEN_PAD_NEEDS = 340;
+/**
+ * A finger's width: how far above the fold's top the pad's toggle at its lowest place and the round buttons stand
+ * while nothing above the fold covers the terminal.
+ */
+const FINGER = 44;
+/** What the open pad needs in the upper half: its toggle a finger's width above the bottom, 16 pt below the top. */
+const OPEN_PAD_NEEDS = FINGER + OPEN_PAD_HEIGHT + 16;
 /**
  * Folds placed higher, so the upper half is too short for the open pad even reaching over the header (2 pt there,
- * the area's top less the safe area's top): 40 pt short at y 380, 120 pt short at y 300. At y 420 it fits exactly.
+ * the area's top less the safe area's top): 68 pt short at y 380, 148 pt short at y 300, 18 pt short at y 430 (an
+ * upper half of 348 pt, where the pad fitted while its lowest place was 16 pt above the fold). At y 448 it fits
+ * exactly.
  */
 const SHORT_DIVISION: FoldDivision = { ...LAPTOP_DIVISION, y: 380 };
 const SHORTER_DIVISION: FoldDivision = { ...LAPTOP_DIVISION, y: 300 };
-const SNUG_DIVISION: FoldDivision = { ...LAPTOP_DIVISION, y: 420 };
+const BETWEEN_DIVISION: FoldDivision = { ...LAPTOP_DIVISION, y: 430 };
+const SNUG_DIVISION: FoldDivision = { ...LAPTOP_DIVISION, y: 448 };
 const KEYBOARD_TOP = 555;
 const HIDDEN_TOO = { hidden: true };
 const TOGGLE = 'Command pad';
@@ -491,12 +502,12 @@ describe('keyboard up or not, the output ends at the fold', () => {
 });
 
 describe('the pad stands in the upper half above the fold', () => {
-  test('its default place: bottom right, 16 pt above the fold, inside the upper half; no key row', async () => {
+  test('its default place: bottom right, a finger’s width above the fold, inside the upper half; no key row', async () => {
     await renderScreen();
     await press(TOGGLE);
     const frame = padFrame();
     expect(frame.right).toBe(PORTRAIT.width - 16);
-    expect(frame.bottom).toBe(FOLD.top - 16);
+    expect(frame.bottom).toBe(FOLD.top - FINGER);
     expectInUpperHalf(frame);
     // The nine keys in the 3x3 field and the ring, nothing else.
     for (const label of KEY_LABELS) expect(screen.getByLabelText(label)).toBeTruthy();
@@ -539,13 +550,16 @@ describe('the pad stands in the upper half above the fold', () => {
     await renderScreen();
     await press(TOGGLE);
     await keyboardWillShow();
-    // Down and left, far past the fold: it stays above the fold.
+    // Down and left, far past the fold: it stays a finger's width above the fold, stored at that place.
     await dragPad(-400, 300);
     const frame = padFrame();
     expect(frame.left).toBe(32);
-    expect(frame.bottom).toBe(FOLD.top - 16);
+    expect(frame.bottom).toBe(FOLD.top - FINGER);
     expectInUpperHalf(frame);
-    expect(useSettingsStore.getState().settings.commandPadPosition.laptop).toEqual({ side: 'left', height: 1 });
+    const range = FOLD.top - AREA_TOP - 32 - OPEN_PAD_HEIGHT;
+    const stored = useSettingsStore.getState().settings.commandPadPosition.laptop;
+    expect(stored?.side).toBe('left');
+    expect(stored?.height).toBeCloseTo(1 - (FINGER - 16) / range, 9);
     expect(useSettingsStore.getState().settings.commandPadPosition.flat).toBeUndefined();
     // Up past the area's top: 16 pt below it.
     await dragPad(0, -400);
@@ -653,7 +667,7 @@ describe('the pad stands in the upper half above the fold', () => {
     await reportDivisions([LAPTOP_DIVISION]);
     await act(() => jest.advanceTimersByTime(300));
     expect(padOpen()).toBe(true);
-    expect(padFrame().bottom).toBe(FOLD.top - 16);
+    expect(padFrame().bottom).toBe(FOLD.top - FINGER);
     await reportDivisions([FLAT_DIVISION]);
     await act(() => jest.advanceTimersByTime(300));
     expect(padOpen()).toBe(true);
@@ -697,7 +711,7 @@ describe('the text editor above the fold, and the pad giving way to it where the
     expect(mockNative.blurTerminal).not.toHaveBeenCalled();
     expect(screen.queryByLabelText(EDITOR)).toBeNull();
     expect(padOpen()).toBe(true);
-    expect(padFrame().bottom).toBe(FOLD.top - 16);
+    expect(padFrame().bottom).toBe(FOLD.top - FINGER);
   });
 
   test('too short: a tap on the toggle opens the pad and closes the editor; the keyboard stays', async () => {
@@ -779,7 +793,7 @@ describe('an upper half too short for the open pad even over the header: the ope
     const frame = padFrame();
     expect(frame.top).toBe(SAFE_TOP + 16);
     expect(frame.bottom - frame.top).toBe(OPEN_PAD_HEIGHT);
-    expect(frame.bottom).toBe(division.y + missing(division) - 16);
+    expect(frame.bottom).toBe(division.y + missing(division) - FINGER);
     expect(frame.bottom).toBeGreaterThan(division.y);
     // Nothing of it is cut off: the room it is drawn in, which cuts off what lies outside it, holds all of it.
     const room = roomOf(screen.getByLabelText(TOGGLE));
@@ -802,7 +816,7 @@ describe('an upper half too short for the open pad even over the header: the ope
     mockNative.focusTerminal.mockClear();
     await press(TOGGLE);
     expect(padOpen()).toBe(false);
-    expect(windowFrameOf(TOGGLE).bottom).toBe(SHORT_DIVISION.y - 16);
+    expect(windowFrameOf(TOGGLE).bottom).toBe(SHORT_DIVISION.y - FINGER);
     expect(mockNative.focusTerminal).not.toHaveBeenCalled();
   });
 
@@ -834,8 +848,25 @@ describe('an upper half too short for the open pad even over the header: the ope
     await press(TOGGLE);
     const frame = padFrame();
     expect(frame.top).toBe(SAFE_TOP + 16);
-    expect(frame.bottom).toBe(SNUG_DIVISION.y - 16);
+    expect(frame.bottom).toBe(SNUG_DIVISION.y - FINGER);
+    expect(roomOf(screen.getByLabelText(TOGGLE)).bottom).toBe(SNUG_DIVISION.y);
     expect(mockNative.blurTerminal).not.toHaveBeenCalled();
+  });
+
+  test('an upper half of 348 pt, where the open pad fitted at 16 pt: its room reaches 18 pt below the fold, the pad reaching over the header', async () => {
+    await renderScreen(PORTRAIT, [BETWEEN_DIVISION]);
+    await keyboardWillShow();
+    await press(TOGGLE);
+    expect(padOpen()).toBe(true);
+    const frame = padFrame();
+    expect(frame.top).toBe(SAFE_TOP + 16);
+    expect(frame.bottom).toBe(BETWEEN_DIVISION.y + missing(BETWEEN_DIVISION) - FINGER);
+    const room = roomOf(screen.getByLabelText(TOGGLE));
+    expect(room.bottom).toBe(BETWEEN_DIVISION.y + 18);
+    expect(room.top).toBeLessThanOrEqual(frame.top);
+    expect(mockNative.blurTerminal).not.toHaveBeenCalled();
+    await press(TOGGLE);
+    expect(windowFrameOf(TOGGLE).bottom).toBe(BETWEEN_DIVISION.y - FINGER);
   });
 
   test('a Keys layer clear of it: the layer lies below the fold in the keyboard place and the pad stays as it is', async () => {
@@ -862,7 +893,7 @@ describe('an upper half too short for the open pad even over the header: the ope
     // No keyboard seen yet: the layer takes the lower half up to 8 pt below the fold, above the open pad's lower edge.
     expect(PORTRAIT.height - required(layerPanel(), 'height')).toBe(SHORTER_DIVISION.y + 40 + 8);
     expect(padOpen()).toBe(false);
-    expect(windowFrameOf(TOGGLE).bottom).toBe(SHORTER_DIVISION.y - 16);
+    expect(windowFrameOf(TOGGLE).bottom).toBe(SHORTER_DIVISION.y - FINGER);
     mockNative.focusTerminal.mockClear();
     await fireEvent.press(screen.getByLabelText('Close', HIDDEN_TOO));
     expect(screen.queryByText('More keys')).toBeNull();
@@ -889,9 +920,6 @@ describe('an upper half too short for the open pad even over the header: the ope
 });
 
 describe('the round buttons a finger’s width above the fold', () => {
-  /** A finger's width: the space the round buttons keep from the fold's top while nothing above the fold covers. */
-  const FINGER = 44;
-
   async function renderWithoutPad(): Promise<void> {
     useSettingsStore.setState({
       settings: {
@@ -930,11 +958,12 @@ describe('the round buttons a finger’s width above the fold', () => {
     expect(stackBottom('Show keyboard')).toBe(FOLD.top - FINGER);
   });
 
-  test('the closed pad on the left edge: the keyboard button keeps the right corner, a finger’s width above the fold', async () => {
+  test('the closed pad on the left edge: toggle and keyboard button keep their sides, each a finger’s width above the fold', async () => {
     await renderWithPadLeft();
     await keyboardWillShow();
     expect(padOpen()).toBe(false);
     expect(windowFrameOf(TOGGLE).left).toBe(32);
+    expect(windowFrameOf(TOGGLE).bottom).toBe(FOLD.top - FINGER);
     expect(required(bottomCarrier(screen.getByLabelText('Dismiss keyboard')), 'right')).toBe(16);
     expect(stackBottom('Dismiss keyboard')).toBe(FOLD.top - FINGER);
   });

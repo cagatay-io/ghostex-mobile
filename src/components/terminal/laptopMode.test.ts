@@ -3,14 +3,14 @@
  * Run with `bun test src/components/terminal/laptopMode.test.ts`.
  *
  * Laptop mode's geometry: the laptop pose as the layout layer gets it from the active division (and the dev-only
- * debug row's text); the terminal's cover, keyboard up or not; the pad's room in the upper half above
- * the fold, covered only by the text editor, and reaching below the fold where the upper half is too short for the
- * open pad even over the header; the round buttons a finger's width above the fold; the editor above the fold; a
- * layer below it; sheets, centred cards and a web page off the fold (the page ends above it); a list running across
- * the fold, its copy below the band continuing where the list ends above it, the band not counted (no copy for short
- * content or with the keyboard up). Frames: the iPhone Duo's inner display in the laptop pose as the simulator reports
- * it, window 669 x 951 pt, division `[0, 455.5, 669, 40]` active when half folded, home indicator inset 20; the
- * keyboard's top at 555 is assumed.
+ * debug row's text); the terminal's cover, keyboard up or not; the pad's room in the upper half above the fold,
+ * covered only by the text editor, its toggle's lowest place a finger's width above the fold, and the room reaching
+ * below the fold where the upper half is too short for the open pad even over the header; the round buttons a
+ * finger's width above the fold; the editor above the fold; a layer below it; sheets, centred cards and a web page
+ * off the fold (the page ends above it); a list running across the fold, its copy below the band continuing where
+ * the list ends above it, the band not counted (no copy for short content or with the keyboard up). Frames: the
+ * iPhone Duo's inner display in the laptop pose as the simulator reports it, window 669 x 951 pt, division
+ * `[0, 455.5, 669, 40]` active when half folded, home indicator inset 20; the keyboard's top at 555 is assumed.
  */
 
 import assert from 'node:assert/strict';
@@ -28,7 +28,7 @@ import {
   laptopCoverTop,
   laptopFoldOf,
 } from '../common/verticalBar/layout';
-import { DEFAULT_PAD_PLACEMENT, PAD_MARGIN, padAnchor, padHeaderReach } from './commandPadLayout';
+import { DEFAULT_PAD_PLACEMENT, PAD_MARGIN, padAnchor, padHeaderReach, padPlacementAt } from './commandPadLayout';
 import {
   laptopEditorInset,
   laptopFloatingBottom,
@@ -51,6 +51,11 @@ const AREA = { x: 0, y: 82, width: WINDOW.width, height: AREA_BOTTOM - 82 };
 /** The open pad: 252 x 308 pt from the toggle's anchor, 16 pt margins around it. */
 const OPEN_PAD_HEIGHT = 308;
 const EDITOR = 56;
+/**
+ * A finger's width: how far above the fold's top the pad's toggle at its lowest place and the round buttons stand
+ * while nothing above the fold covers the terminal.
+ */
+const FINGER = 44;
 
 const obstruction = (patch: Partial<Parameters<typeof laptopObstruction>[0]> = {}) =>
   laptopObstruction({
@@ -123,18 +128,29 @@ describe('the pad: its room is the upper half above the fold', () => {
     assert.equal(laptopPadArea({ ...AREA, height: 300 }, FOLD).height, 300);
   });
 
-  test('default place: the toggle 16 pt above the fold, the open pad inside the upper half', () => {
-    const anchor = padAnchor(undefined, room, laptopPadCover(0));
-    assert.deepEqual(anchor, { side: DEFAULT_PAD_PLACEMENT.side, bottom: PAD_MARGIN });
+  test('default place: the toggle a finger’s width above the fold, the open pad 28 pt higher than at 16 pt and still inside the upper half', () => {
+    const anchor = padAnchor(undefined, room, laptopPadCover(0), FINGER);
+    assert.deepEqual(anchor, { side: DEFAULT_PAD_PLACEMENT.side, bottom: FINGER });
     const padTop = FOLD.top - anchor.bottom - OPEN_PAD_HEIGHT;
+    assert.equal(padTop, FOLD.top - PAD_MARGIN - OPEN_PAD_HEIGHT - 28);
     assert.ok(padTop >= AREA.y + PAD_MARGIN);
-    assert.equal(padHeaderReach(room, 0, 0), 0);
+    assert.equal(padHeaderReach(room, 0, 0, FINGER), 0);
   });
 
-  test('a moved place stays inside the upper half at its height, top and bottom', () => {
-    const top = padAnchor({ side: 'left', height: 0 }, room, 0);
+  test('a moved place stays inside the upper half at its height, top and bottom, and keeps its side', () => {
+    const top = padAnchor({ side: 'left', height: 0 }, room, 0, FINGER);
+    assert.equal(top.side, 'left');
     assert.equal(FOLD.top - top.bottom - OPEN_PAD_HEIGHT, AREA.y + PAD_MARGIN);
-    assert.equal(padAnchor({ side: 'left', height: 1 }, room, 0).bottom, PAD_MARGIN);
+    assert.deepEqual(padAnchor({ side: 'left', height: 1 }, room, 0, FINGER), { side: 'left', bottom: FINGER });
+  });
+
+  test('a stored place lower than a finger’s width shows at the lowest place; a drop there is stored at it', () => {
+    const low = { side: 'left', height: 0.9 } as const;
+    assert.ok(padAnchor(low, room, 0).bottom < FINGER);
+    assert.equal(padAnchor(low, room, 0, FINGER).bottom, FINGER);
+    const dropped = padPlacementAt({ side: 'right', left: room.width - 62, bottom: 20 }, room, 0, FINGER);
+    assert.equal(dropped.side, 'right');
+    assert.ok(Math.abs(padAnchor(dropped, room, 0).bottom - FINGER) < 1e-9);
   });
 
   test('the keyboard and the layers lie below the fold and cover nothing of the room; the editor does', () => {
@@ -143,40 +159,58 @@ describe('the pad: its room is the upper half above the fold', () => {
   });
 
   test('with the editor the open pad does not fit (the case the toggle above the editor is for); with more room it does', () => {
-    assert.equal(padHeaderReach(room, laptopPadCover(EDITOR), 0), null);
+    assert.equal(padHeaderReach(room, laptopPadCover(EDITOR), 0, FINGER), null);
     const tall = laptopPadArea({ ...AREA, y: 20, height: AREA_BOTTOM - 20 }, FOLD);
-    assert.equal(padHeaderReach(tall, laptopPadCover(EDITOR), 0), 0);
-    // There the toggle stands 12 pt above the editor.
-    assert.equal(padAnchor(undefined, tall, laptopPadCover(EDITOR)).bottom, 12 + EDITOR + 12);
+    assert.equal(padHeaderReach(tall, laptopPadCover(EDITOR), 0, FINGER), 0);
+    // There, and closed where it does not fit, the toggle stands 12 pt above the editor.
+    assert.equal(padAnchor(undefined, tall, laptopPadCover(EDITOR), FINGER).bottom, 12 + EDITOR + 12);
+    assert.equal(padAnchor(undefined, room, laptopPadCover(EDITOR), FINGER).bottom, 12 + EDITOR + 12);
   });
 });
 
 describe('an upper half too short for the open pad even over the header: its room reaches below the fold', () => {
   /** The header's room: the terminal area's top less the safe area's top. */
   const HEADER = 2;
-  /** A fold at y 380: an upper half of 298 pt, 40 pt short of the 340 pt the open pad needs with the header. */
+  /** What the open pad needs with its toggle a finger's width above the room's bottom and 16 pt above its top. */
+  const NEEDS = FINGER + OPEN_PAD_HEIGHT + PAD_MARGIN;
+  /** A fold at y 380: an upper half of 298 pt, 68 pt short of the 368 pt the open pad needs with the header. */
   const short = laptopPadArea(AREA, { top: 380, bottom: 420 });
 
   test('where the open pad fits, in the upper half or reaching over the header, its room stays there', () => {
+    assert.equal(NEEDS, 368);
     assert.equal(laptopPadRoomBelowFold(laptopPadArea(AREA, FOLD), HEADER), null);
-    // 338 pt and the header's 2 pt: exactly what the open pad needs.
-    assert.equal(laptopPadRoomBelowFold(laptopPadArea(AREA, { top: 420, bottom: 460 }), HEADER), null);
+    // 366 pt and the header's 2 pt: exactly what the open pad needs, reaching over the header.
+    const snug = laptopPadArea(AREA, { top: 448, bottom: 488 });
+    assert.equal(laptopPadRoomBelowFold(snug, HEADER), null);
+    assert.equal(padHeaderReach(snug, 0, HEADER, FINGER), HEADER);
   });
 
-  test('40 pt short: the room reaches 40 pt below the fold, exactly what reaching over the header needs', () => {
+  test('an upper half between 340 and 368 pt, where the pad stood above the fold at 16 pt, now reaches below it', () => {
+    // 348 pt and the header's 2 pt: 18 pt short.
+    const upper = laptopPadArea(AREA, { top: 430, bottom: 470 });
+    assert.equal(upper.height, 348);
+    assert.equal(padHeaderReach(upper, 0, HEADER), 0);
+    const below = laptopPadRoomBelowFold(upper, HEADER);
+    assert.ok(below !== null);
+    assert.equal(below.y + below.height - 430, 18);
+  });
+
+  test('68 pt short: the room reaches 68 pt below the fold, exactly what reaching over the header needs', () => {
     const below = laptopPadRoomBelowFold(short, HEADER);
     assert.ok(below !== null);
-    assert.deepEqual(below, { ...short, height: 2 * PAD_MARGIN + OPEN_PAD_HEIGHT - HEADER });
-    assert.equal(below.y + below.height - 380, 40);
-    assert.equal(padHeaderReach(below, 0, HEADER), HEADER);
-    assert.equal(padHeaderReach({ ...below, height: below.height - 1 }, 0, HEADER), null);
-    // The toggle 16 pt above the room's bottom: the open pad's top 16 pt below the safe area's top.
-    const toggleBottom = below.y + below.height - padAnchor(undefined, short, 0).bottom;
+    assert.deepEqual(below, { ...short, height: NEEDS - HEADER });
+    assert.equal(below.y + below.height - 380, 68);
+    assert.equal(padHeaderReach(below, 0, HEADER, FINGER), HEADER);
+    assert.equal(padHeaderReach({ ...below, height: below.height - 1 }, 0, HEADER, FINGER), null);
+    // The toggle a finger's width above the room's bottom: the open pad's top 16 pt below the safe area's top, where
+    // it stood with the toggle 16 pt above a room 28 pt shorter.
+    const toggleBottom = below.y + below.height - padAnchor(undefined, short, 0, FINGER).bottom;
     assert.equal(toggleBottom - OPEN_PAD_HEIGHT, AREA.y - HEADER + PAD_MARGIN);
+    assert.equal(toggleBottom, 380 + 40 - PAD_MARGIN);
   });
 
   test('without a header the room reaches below the fold by the whole shortfall', () => {
-    assert.equal(laptopPadRoomBelowFold(short, 0)?.height, 2 * PAD_MARGIN + OPEN_PAD_HEIGHT);
+    assert.equal(laptopPadRoomBelowFold(short, 0)?.height, NEEDS);
   });
 
   test('a layer below the fold: clear of the room, or covering no more than the pad keeps free, the pad stays; further up it gives way', () => {
@@ -185,15 +219,15 @@ describe('an upper half too short for the open pad even over the header: its roo
     const bottom = below.y + below.height;
     assert.equal(laptopPadReachBelowFold(below, HEADER, null), HEADER);
     assert.equal(laptopPadReachBelowFold(below, HEADER, bottom + 100), HEADER);
-    // The toggle stands 16 pt above the room's bottom and keeps 12 pt above what covers it: 4 pt may be covered.
-    assert.equal(laptopPadReachBelowFold(below, HEADER, bottom - 4), HEADER);
-    assert.equal(laptopPadReachBelowFold(below, HEADER, bottom - 5), null);
+    // The toggle stands a finger's width above the room's bottom and keeps 12 pt above what covers it: 32 pt may be
+    // covered, the same window line as before.
+    assert.equal(laptopPadReachBelowFold(below, HEADER, bottom - 32), HEADER);
+    assert.equal(laptopPadReachBelowFold(below, HEADER, bottom - 33), null);
+    assert.equal(bottom - 32, 380 + 40 - 4);
   });
 });
 
 describe('the round buttons stand a finger’s width above the fold', () => {
-  /** A finger's width above the fold's top, while nothing above the fold covers the terminal. */
-  const FINGER = 44;
   /** Their window y for a cover (`obstruction` patch): the corner 16 pt above it, lifted where that is lower. */
   const buttonsBottom = (patch: Partial<Parameters<typeof laptopObstruction>[0]> = {}) =>
     AREA_BOTTOM - laptopFloatingBottom(FOLD, AREA_BOTTOM, 16 + obstruction(patch));

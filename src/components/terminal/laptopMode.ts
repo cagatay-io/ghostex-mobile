@@ -6,11 +6,12 @@
  *   less) is covered in the terminal's background. The text editor stands above the fold, at the bottom of the upper
  *   half, and the terminal ends above it. The keyboard, or a Keys or Agent layer in its place, lies below the fold.
  * - The Befehlspad stands in the upper half above the fold: that is the room it is placed, moved and judged in
- *   (`laptopPadArea`), with its own stored place. The keyboard and the layers lie below the fold, so they never push
- *   it; only the text editor above the fold covers the bottom of that room (`laptopPadCover`). Only where the open
- *   pad does not fit there even reaching over the header, its room reaches below the fold by what is missing
- *   (`laptopPadRoomBelowFold`), and a layer that would come up into that room takes the place instead
- *   (`laptopPadReachBelowFold`).
+ *   (`laptopPadArea`), with its own stored place; while nothing covers that room its lowest place is
+ *   `LAPTOP_CONTROL_CLEAR` above the room's bottom, a finger's width clear of the knick. The keyboard and the layers
+ *   lie below the fold, so they never push it; only the text editor above the fold covers the bottom of that room
+ *   (`laptopPadCover`). Only where the open pad does not fit there even reaching over the header, its room reaches
+ *   below the fold by what is missing (`laptopPadRoomBelowFold`), and a layer that would come up into that room takes
+ *   the place instead (`laptopPadReachBelowFold`).
  * Lengths in points, window coordinates unless named otherwise.
  */
 
@@ -35,13 +36,14 @@ export function laptopPadCover(editorHeight: number): number {
 
 /**
  * The open pad's room where the upper half (`upperHalf`, nothing covering it) is too short for it even reaching over
- * the header (`headerRoom` points between the area's top and the window's safe area): the upper half reaching below
- * the fold's top by exactly what is missing, so the pad, reaching over all of the header, stands whole in it. The
- * keyboard lies below the fold, so lowering it would add no room here. Null where the pad fits without that.
+ * the header (`headerRoom` points between the area's top and the window's safe area), its toggle at its lowest place
+ * (`LAPTOP_CONTROL_CLEAR` above the room's bottom): the upper half reaching below the fold's top by exactly what is
+ * missing, so the pad, reaching over all of the header, stands whole in it. The keyboard lies below the fold, so
+ * lowering it would add no room here. Null where the pad fits without that.
  */
 export function laptopPadRoomBelowFold(upperHalf: LaptopRect, headerRoom: number): LaptopRect | null {
-  if (padHeaderReach(upperHalf, 0, headerRoom) !== null) return null;
-  return { ...upperHalf, height: padRequiredHeight(0) - headerRoom };
+  if (padHeaderReach(upperHalf, 0, headerRoom, LAPTOP_CONTROL_CLEAR) !== null) return null;
+  return { ...upperHalf, height: padRequiredHeight(0, LAPTOP_CONTROL_CLEAR) - headerRoom };
 }
 
 /**

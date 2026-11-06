@@ -107,6 +107,8 @@ export type CommandPadProps = {
   reach: number;
   /** How much of the area's bottom is covered (keyboard, text editor, layer); the pad stays above it. */
   cover: number;
+  /** The toggle's lowest place above the area's bottom while nothing covers it (`padAnchor`'s `floor`). */
+  floor: number;
   /** The user's place in this layout (undefined: the default); the accessibility moves keep its height. */
   placement: CommandPadPlacement | undefined;
   /** Stores a new place. */
@@ -138,6 +140,7 @@ function CommandPad({
   area,
   reach,
   cover,
+  floor,
   placement,
   onMove,
   onHold,
@@ -342,8 +345,8 @@ function CommandPad({
       return;
     }
     const at = { left: padToggleLeft(anchor.side, area.width) + current.dx, bottom: anchor.bottom - current.dy };
-    const next = padPlacementAt({ side: anchor.side, ...at }, area, cover);
-    const target = padAnchor(next, area, cover);
+    const next = padPlacementAt({ side: anchor.side, ...at }, area, cover, floor);
+    const target = padAnchor(next, area, cover, floor);
     onMove(next);
     if (target.side === anchor.side && target.bottom === anchor.bottom) springHome(drag, from, reduceMotion);
     else released.current = at;

@@ -5,9 +5,9 @@
  * from the toggle's anchor (its right and bottom edge), so the whole pad moves as one: with the keyboard, and
  * where the user drags it. The user's place is a side edge and a height in the room the pad has; what covers the
  * area's bottom only pushes it up while it would stand under that. Laptop mode passes its own area (the upper half
- * above the fold) and stores its own place. Offsets are named for the right
- * edge; on the left edge the pad is drawn mirrored (the toggle at the edge, the ring on the field's other side), its
- * toggle `PAD_LEFT_MARGIN` in from that edge, while the 3x3 field itself keeps its order.
+ * above the fold), a higher lowest place while nothing covers that area (`floor`) and stores its own place. Offsets
+ * are named for the right edge; on the left edge the pad is drawn mirrored (the toggle at the edge, the ring on the
+ * field's other side), its toggle `PAD_LEFT_MARGIN` in from that edge, while the 3x3 field itself keeps its order.
  */
 
 import type { CommandPadPlacement } from '../../settings/commandPad';
@@ -102,10 +102,11 @@ export const DEFAULT_PAD_PLACEMENT: CommandPadPlacement = { side: 'right', heigh
 
 /**
  * The lowest the toggle's bottom edge may stand above the terminal area's bottom: `cover` points of the area are
- * covered (keyboard, text editor or a layer; 0 when nothing is), and the pad stands just above that.
+ * covered (keyboard, text editor or a layer; 0 when nothing is), and the pad stands just above that; with nothing
+ * covering it, `floor` points above the bottom.
  */
-function lowestBottom(cover: number): number {
-  return cover > 0 ? cover + PAD_COVER_GAP : PAD_MARGIN;
+function lowestBottom(cover: number, floor: number): number {
+  return cover > 0 ? cover + PAD_COVER_GAP : floor;
 }
 
 /** How far the toggle's bottom edge can rise in `area` with nothing covering it, the open pad 16 pt below the top. */
@@ -125,12 +126,19 @@ export function padToggleLeft(side: PadSide, width: number): number {
 
 /**
  * The toggle's anchor for the user's place (absent: the default, bottom right) in `area` with `cover` points of its
- * bottom covered. The height is kept unless the pad would stand under what covers the area. Before the area is
- * measured: the default place. Where the area has less room than the open pad needs, the pad stands just above the
- * cover and its top reaches past the area's top (`padHeaderReach` says how far it may).
+ * bottom covered, and `floor` its lowest place while nothing covers the area (16 pt; laptop mode keeps it higher). The
+ * height is kept unless the pad would stand under what covers the area or below `floor`; the stored place is not
+ * changed by that. Before the area is measured: the default place. Where the area has less room than the open pad
+ * needs, the pad stands at its lowest place and its top reaches past the area's top (`padHeaderReach` says how far it
+ * may).
  */
-export function padAnchor(placement: CommandPadPlacement | undefined, area: PadArea | null, cover: number): PadAnchor {
-  const lowest = lowestBottom(cover);
+export function padAnchor(
+  placement: CommandPadPlacement | undefined,
+  area: PadArea | null,
+  cover: number,
+  floor = PAD_MARGIN,
+): PadAnchor {
+  const lowest = lowestBottom(cover, floor);
   if (area === null) return { side: DEFAULT_PAD_PLACEMENT.side, bottom: lowest };
   const { side, height } = placement ?? DEFAULT_PAD_PLACEMENT;
   return { side, bottom: Math.max(lowest, PAD_MARGIN + (1 - height) * heightRange(area)) };
@@ -138,34 +146,35 @@ export function padAnchor(placement: CommandPadPlacement | undefined, area: PadA
 
 /**
  * The height the open pad needs in the terminal area with `cover` points of its bottom covered: its toggle just
- * above the cover (or 16 pt above the bottom while nothing covers it) and its highest control 16 pt below the top.
+ * above the cover (or `floor` above the bottom while nothing covers it) and its highest control 16 pt below the top.
  */
-export function padRequiredHeight(cover: number): number {
-  return lowestBottom(cover) + PAD_EXTENT.height + PAD_MARGIN;
+export function padRequiredHeight(cover: number, floor = PAD_MARGIN): number {
+  return lowestBottom(cover, floor) + PAD_EXTENT.height + PAD_MARGIN;
 }
 
 /**
  * How far above the terminal area the open pad may reach, given `headerRoom` points between the area's top and the
- * window's safe area (the header): none while it fits in the area above `cover`; the header's room when it fits only
- * with that, still 16 pt below the safe area's top; null when it does not fit even then. The header's controls are
- * not used while typing on the pad, so covering them costs less than smaller keys would.
+ * window's safe area (the header): none while it fits in the area above `cover` (or above `floor` while nothing
+ * covers it); the header's room when it fits only with that, still 16 pt below the safe area's top; null when it does
+ * not fit even then. The header's controls are not used while typing on the pad, so covering them costs less than
+ * smaller keys would.
  */
-export function padHeaderReach(area: PadArea, cover: number, headerRoom: number): number | null {
-  const needed = padRequiredHeight(cover);
+export function padHeaderReach(area: PadArea, cover: number, headerRoom: number, floor = PAD_MARGIN): number | null {
+  const needed = padRequiredHeight(cover, floor);
   if (needed <= area.height) return 0;
   return needed <= area.height + headerRoom ? headerRoom : null;
 }
 
 /**
  * The place a pad let go at `drop` snaps to: the side edge nearer to the pad's middle as it is drawn, and the
- * released height clamped to the allowed area (above what covers it, below the top margin).
+ * released height clamped to the allowed area (above what covers it or `floor`, below the top margin).
  */
-export function padPlacementAt(drop: PadDrop, area: PadArea, cover: number): CommandPadPlacement {
+export function padPlacementAt(drop: PadDrop, area: PadArea, cover: number, floor = PAD_MARGIN): CommandPadPlacement {
   const middle =
     drop.side === 'left' ? drop.left + PAD_EXTENT.width / 2 : drop.left + PAD_TOGGLE - PAD_EXTENT.width / 2;
   const side = middle < area.width / 2 ? 'left' : 'right';
   const range = heightRange(area);
   if (range === 0) return { side, height: DEFAULT_PAD_PLACEMENT.height };
-  const bottom = Math.min(Math.max(drop.bottom, lowestBottom(cover)), PAD_MARGIN + range);
+  const bottom = Math.min(Math.max(drop.bottom, lowestBottom(cover, floor)), PAD_MARGIN + range);
   return { side, height: Math.min(1, Math.max(0, 1 - (bottom - PAD_MARGIN) / range)) };
 }

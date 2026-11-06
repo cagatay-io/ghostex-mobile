@@ -326,8 +326,9 @@ export type LaptopFold = { readonly top: number; readonly bottom: number };
 export const LAPTOP_CLEAR = 12;
 
 /**
- * Space the round buttons at the bottom of the upper half keep from the fold's top in the laptop pose while nothing
- * above the fold covers the terminal: a finger's width, so a thumb pressing them stays clear of the knick.
+ * Space the pad's toggle at its lowest place and the round buttons at the bottom of the upper half keep from the
+ * fold's top in the laptop pose while nothing above the fold covers the terminal: a finger's width, so a thumb
+ * pressing them stays clear of the knick.
  */
 export const LAPTOP_CONTROL_CLEAR = 44;
 
