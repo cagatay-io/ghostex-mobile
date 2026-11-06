@@ -52,7 +52,7 @@ import { laterAction, removeAction, rowAge, statusLabel } from './questionAge';
 import type { SessionLinksChatPill } from '../sessionLinks';
 import { Glyph as TranscriptGlyph } from '../transcript/icons';
 import { AgentFleetMenu, AgentTasksMenu, CoordinatorThreadsMenu } from './AgentPanels';
-import { CoordinatorBoardMenu, type BoardFocus } from './CoordinatorBoard';
+import { BLOCKED_PILL, CoordinatorBoardMenu, type BoardFocus } from './CoordinatorBoard';
 import { CoordinatorIntroMenu, INTRO_PILL, coordinatorIntro } from './CoordinatorIntro';
 import { SideChatsMenu } from './SideChats';
 import { Glyph } from './icons';
@@ -457,6 +457,8 @@ export function Pill({ pill, open, onPress }: { pill: ChatPill; open: boolean; o
                     ? 'messages'
                     : pill.id === 'board'
                       ? 'layout-board-split'
+                      : pill.id === BLOCKED_PILL
+                        ? 'circle-minus'
                       : pill.id === 'approvals'
                         ? 'shield-check'
                         : pill.id === INTRO_PILL

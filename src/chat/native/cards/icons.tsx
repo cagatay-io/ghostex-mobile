@@ -275,6 +275,27 @@ const GLYPHS = {
       'M14 14l1 -1c.928 -.893 2.072 -.893 3 0l3 3',
     ],
   },
+  /** Board card menus and the Blocked pill (desktop `titlebar/*.svg` of the same names). */
+  'external-link': {
+    paths: ['M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6', 'M11 13l9 -9', 'M15 4h5v5'],
+  },
+  'message-plus': {
+    paths: [
+      'M8 9h8',
+      'M8 13h6',
+      'M12.01 18.594l-4.01 2.406v-3h-2a3 3 0 0 1 -3 -3v-8a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v5.5',
+      'M16 19h6',
+      'M19 16v6',
+    ],
+  },
+  'circle-check': { paths: ['M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0', 'M9 12l2 2l4 -4'] },
+  'circle-minus': { paths: ['M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0', 'M9 12l6 0'] },
+  tag: {
+    paths: [
+      'M6.5 7.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0',
+      'M3 6v5.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.408 0l5.592 -5.592a2.41 2.41 0 0 0 0 -3.408l-7.71 -7.71a2 2 0 0 0 -1.414 -.586h-5.172a3 3 0 0 0 -3 3z',
+    ],
+  },
 } satisfies Record<string, GlyphSpec>;
 
 export type GlyphName = keyof typeof GLYPHS;

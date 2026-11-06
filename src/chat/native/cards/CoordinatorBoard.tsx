@@ -15,7 +15,10 @@ import type { ChatDocument } from '../../rust/document';
 import type { UserAction } from '../../rust/actions';
 import type { RustChat } from '../../rust/useRustChat';
 import { SidebarPalette } from '../../../theme/palette';
-import { Glyph } from './icons';
+import { Glyph, type GlyphName } from './icons';
+import type { TablerIconComponent } from '../../../assets/tablerIcons.generated';
+import { TagGlyph } from '../../../components/sessions/icons';
+import { customSessionTagIcon, sessionTagIcon } from '../../../contract/sessionTags';
 import { arr, asJson, isTrue, num, obj, str } from './json';
 import { PROSE_SIZE, themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { remoteWorkerNotice } from './remoteWorker';
@@ -84,6 +87,151 @@ function GroupMarker({ group }: { group: string }) {
   return <View style={[styles.ring, { borderColor: color, borderStyle: 'dashed' }]} />;
 }
 
+/** The Blocked pill's id (gx-chat-core `BLOCKED_PILL`): a tap opens the board at Blocked. */
+export const BLOCKED_PILL = 'boardBlocked';
+
+/** The user's own tag on a card: the sidebar's glyph and colour (gx-chat-core `userTag`). */
+function UserTagChip({ tag }: { tag: unknown }) {
+  const styles = useStyles();
+  const color = str(tag, 'color') || '#8e949d';
+  const Icon = tagIcon(str(tag, 'icon'));
+  return (
+    <View accessibilityLabel={str(tag, 'title')} style={[styles.tag, { borderColor: `${color}73` }]}>
+      <Icon size={12} color={color} />
+      <Text style={styles.tagText} numberOfLines={1}>
+        {str(tag, 'label')}
+      </Text>
+    </View>
+  );
+}
+
+/** A tag's glyph from its asset name (`star-filled`, `brand-github`): a built-in's by its value,
+ * a custom tag's by its catalog icon id. */
+function tagIcon(icon: string): TablerIconComponent {
+  const builtin: Record<string, string> = {
+    'star-filled': 'favorite',
+    'alert-triangle': 'high-priority',
+    'arrow-down': 'low-priority',
+    microscope: 'research',
+    checkbox: 'todo',
+    'player-play': 'in-progress',
+    'test-pipe': 'testing',
+    'barrier-block': 'blocked',
+    'player-pause': 'on-hold',
+    'circle-check': 'done',
+    bug: 'bug',
+    puzzle: 'feature',
+    palette: 'design',
+  };
+  const tag = builtin[icon];
+  if (tag !== undefined) return sessionTagIcon(tag) ?? TagGlyph;
+  const id = icon === 'terminal-2' ? 'terminal' : icon.replace(/-([a-z0-9])/gu, (_, next: string) => next.toUpperCase());
+  return customSessionTagIcon(id);
+}
+
+/** Which glyph a menu row draws (gx-chat-core `BoardMenuItem::icon`). */
+function menuGlyph(icon: string): GlyphName {
+  switch (icon) {
+    case 'external-link':
+    case 'message-plus':
+    case 'circle-check':
+    case 'tag':
+    case 'trash':
+    case 'arrow-back-up':
+      return icon;
+    default:
+      return 'chevron-right';
+  }
+}
+
+/**
+ * A card's menu, opened in place under the held card: the core's rows (Open, Mention in chat,
+ * Tags, Mark done, Remove or Restore), and Tags turning the list into the sidebar's tags with a
+ * back row, as the desktop's menu reopens in place. In place rather than a second sheet, which iOS
+ * cannot show over the board's own.
+ */
+function CardMenu({
+  row,
+  tagOptions,
+  tagsPage,
+  onTags,
+  onPick,
+}: {
+  row: unknown;
+  tagOptions: unknown[];
+  tagsPage: boolean;
+  onTags: (open: boolean) => void;
+  onPick: (command: Record<string, unknown>) => void;
+}) {
+  const styles = useStyles();
+  const P = useTranscriptTheme();
+  const setTag = obj(obj(row)?.setTag);
+  const current = str(row, 'tag');
+  if (tagsPage && setTag !== null) {
+    return (
+      <View style={styles.cardMenu}>
+        <Pressable accessibilityRole="button" onPress={() => onTags(false)} style={styles.cardMenuRow}>
+          <Glyph name="chevron-left" size={15} color={P.cardMuted} />
+          <Text style={[styles.cardMenuText, { color: P.cardMuted }]}>Tags</Text>
+        </Pressable>
+        {current.length > 0 ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => onPick({ ...setTag, tag: '' })}
+            style={styles.cardMenuRow}
+          >
+            <Glyph name="x" size={15} color={P.cardMuted} />
+            <Text style={styles.cardMenuText}>No tag</Text>
+          </Pressable>
+        ) : null}
+        {tagOptions.map((option) => {
+          const value = str(option, 'value');
+          const Icon = tagIcon(str(option, 'icon'));
+          return (
+            <Pressable
+              key={value}
+              accessibilityRole="button"
+              accessibilityState={{ selected: value === current }}
+              onPress={() => onPick({ ...setTag, tag: value })}
+              style={styles.cardMenuRow}
+            >
+              <Icon size={15} color={str(option, 'color') || P.cardMuted} />
+              <Text style={[styles.cardMenuText, styles.flex]}>{str(option, 'label')}</Text>
+              {value === current ? <Glyph name="check" size={14} color={P.cardMuted} /> : null}
+            </Pressable>
+          );
+        })}
+      </View>
+    );
+  }
+  return (
+    <View style={styles.cardMenu}>
+      {arr(obj(row)?.menu).map((item, index) => {
+        const destructive = isTrue(item, 'destructive');
+        const color = destructive ? SidebarPalette.ROW_APPROVAL : P.foreground;
+        const command = obj(obj(item)?.command);
+        const tags = str(item, 'submenu') === 'tags';
+        return (
+          <Pressable
+            key={`${index}:${str(item, 'label')}`}
+            accessibilityRole="button"
+            onPress={() => (tags ? onTags(true) : command !== null ? onPick(command) : undefined)}
+            style={styles.cardMenuRow}
+          >
+            {str(item, 'icon') === 'agent' ? (
+              <AgentMark icon={str(row, 'agentIcon') || null} size={15} />
+            ) : (
+              <Glyph name={menuGlyph(str(item, 'icon'))} size={15} color={color} />
+            )}
+            <Text style={[styles.cardMenuText, styles.flex, { color }]}>{str(item, 'label')}</Text>
+            {tags ? <Glyph name="chevron-right" size={14} color={P.cardMuted} /> : null}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 /** A board pill's tap (gx-chat-core `show_item`): the card to show, once per `seq`. */
 export type BoardFocus = { key: string; seq: number };
 
@@ -125,23 +273,21 @@ export function CoordinatorBoardMenu({
     // `scrollToFocus` reads refs; a new tap is a new `seq`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus?.key, focus?.seq]);
-  // The row whose × was tapped once, waiting three seconds for the second tap (desktop
-  // `REMOVE_ARMED_FOR`, as the links list's ×).
-  const [armed, setArmed] = useState<string | null>(null);
-  useEffect(() => {
-    if (armed === null) return;
-    const timer = setTimeout(() => setArmed(null), 3000);
-    return () => clearTimeout(timer);
-  }, [armed]);
+  // The card whose menu a long press opened, and whether it shows its Tags page. Remove is one of
+  // its rows (the phone's long-press rule: a card's actions open on a hold).
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [menuTags, setMenuTags] = useState(false);
   const board = obj(document.coordinatorBoard);
   if (board === null) return null;
-  const tapRemove = (key: string, remove: unknown) => {
-    if (armed === key) {
-      setArmed(null);
-      chat.dispatch(asJson(remove) as unknown as UserAction);
-    } else {
-      setArmed(key);
-    }
+  // Puts a card's reference in the chat box so the user can comment on it, and closes the sheet.
+  const mention = (reference: string) => {
+    if (reference.length === 0) return;
+    chat.dispatch({
+      type: 'insertBoardReference',
+      reference,
+      text: chat.state?.composer.text ?? '',
+    } as unknown as UserAction);
+    onDone();
   };
   const run = (command: unknown) => {
     const type = str(command, 'type');
@@ -187,52 +333,64 @@ export function CoordinatorBoardMenu({
               </Pressable>
               {arr(obj(group)?.rows).map((row, index) => {
                 const command = obj(obj(row)?.command);
+                const toggle = obj(obj(row)?.toggle);
                 const openThread = obj(obj(row)?.openThread);
                 const key = str(row, 'key') || String(index);
-                const remove = obj(obj(row)?.remove);
                 const restore = obj(obj(row)?.restore);
                 const tags = arr(obj(row)?.tags);
                 const answers = arr(obj(row)?.answers);
+                const menuRows = arr(obj(row)?.menu);
+                const expanded = isTrue(row, 'expanded');
                 // A thread waiting on a relayed approval shows that card's buttons in place of its
                 // chips (desktop `board_relay_buttons`; the user's Q1297).
                 const relayed = openRelayedCardForThread(document, str(openThread, 'sessionId'));
                 const reference = str(row, 'reference');
                 const note = str(row, 'note');
-                // A tap puts the card's reference in the chat box so the user can comment on it
-                // (desktop `insert_board_reference`); a question's card jumps to it instead.
+                // A tap opens the card in place (one at a time: gx-chat-core `toggle`); a question's
+                // card jumps to its form instead.
                 const tapCard =
-                  reference.length > 0
+                  toggle !== null
                     ? () => {
-                        chat.dispatch({
-                          type: 'insertBoardReference',
-                          reference,
-                          text: chat.state?.composer.text ?? '',
-                        } as unknown as UserAction);
-                        onDone();
+                        setMenuFor(null);
+                        chat.dispatch(asJson(toggle) as unknown as UserAction);
                       }
                     : command !== null
                       ? () => run(command)
                       : undefined;
                 // At most two chips fit beside the age; the rest are counted in "+N" (desktop
-                // `fit_chips`), so a card keeps its two lines.
-                const shownTags = tags.slice(0, 2);
+                // `fit_chips`), so a closed card keeps its two lines. An open card shows them all.
+                const shownTags = expanded ? tags : tags.slice(0, 2);
                 const hiddenTags = tags.length - shownTags.length;
+                const line = str(row, 'detail') || note;
+                const openCommand = obj(obj(row)?.open);
                 return (
                   <Pressable
                     key={key}
                     accessibilityRole={tapCard !== undefined ? 'button' : 'text'}
                     accessibilityLabel={str(row, 'title')}
-                    accessibilityHint={remove !== null ? 'Long-press to remove it from the board' : undefined}
+                    accessibilityState={{ expanded }}
+                    accessibilityHint={menuRows.length > 0 ? 'Long-press for its actions' : undefined}
                     onPress={tapCard}
-                    onLongPress={remove !== null ? () => setArmed(key) : undefined}
+                    onLongPress={
+                      menuRows.length > 0
+                        ? () => {
+                            setMenuTags(false);
+                            setMenuFor(menuFor === key ? null : key);
+                          }
+                        : undefined
+                    }
                     onLayout={(event) => {
                       cardTops.current[key] = { group: id, y: event.nativeEvent.layout.y };
                       if (focus?.key === key) scrollToFocus();
                     }}
-                    style={[styles.card, ringed === key ? { borderColor: P.accent, backgroundColor: `${P.accent}14` } : null]}
+                    style={[
+                      styles.card,
+                      expanded && styles.cardOpen,
+                      ringed === key ? { borderColor: P.accent, backgroundColor: `${P.accent}14` } : null,
+                    ]}
                   >
                     <View style={styles.cardTitleLine}>
-                      <Text style={styles.rowTitle} numberOfLines={1}>
+                      <Text style={styles.rowTitle} numberOfLines={expanded ? undefined : 1}>
                         {str(row, 'title')}
                       </Text>
                       {openThread !== null ? (
@@ -257,8 +415,9 @@ export function CoordinatorBoardMenu({
                         </Text>
                       ) : null}
                     </View>
-                    <View style={styles.chipLine}>
-                      <View style={styles.chips}>
+                    {expanded && line.length > 0 ? <Text style={styles.cardLine}>{line}</Text> : null}
+                    <View style={[styles.chipLine, expanded && styles.chipLineOpen]}>
+                      <View style={[styles.chips, expanded && styles.chipsOpen]}>
                         {relayed !== null ? (
                           <BoardRelayButtons card={relayed} dispatch={chat.dispatch} />
                         ) : answers.length > 0 ? (
@@ -270,8 +429,8 @@ export function CoordinatorBoardMenu({
                                 accessibilityLabel={`Answer ${str(answer, 'label')}`}
                                 disabled={isTrue(answer, 'locked')}
                                 onPress={() => {
-                                  const command = obj(obj(answer)?.command);
-                                  if (command !== null) chat.dispatch(asJson(command) as unknown as UserAction);
+                                  const answerCommand = obj(obj(answer)?.command);
+                                  if (answerCommand !== null) chat.dispatch(asJson(answerCommand) as unknown as UserAction);
                                 }}
                                 style={[
                                   styles.answer,
@@ -287,17 +446,20 @@ export function CoordinatorBoardMenu({
                                   ]}
                                   numberOfLines={1}
                                 >
-                                  {isTrue(answer, 'picked') ? `\u2713 ${str(answer, 'label')}` : str(answer, 'label')}
+                                  {isTrue(answer, 'picked') ? `✓ ${str(answer, 'label')}` : str(answer, 'label')}
                                 </Text>
                               </Pressable>
                             ))}
                           </View>
-                        ) : tags.length === 0 ? (
+                        ) : tags.length === 0 && !expanded ? (
                           <Text style={note.length > 0 ? styles.note : styles.noLinks} numberOfLines={1}>
                             {note.length > 0 ? note : 'No links yet'}
                           </Text>
                         ) : null}
                         {(answers.length > 0 || relayed !== null ? [] : shownTags).map((tag, tagIndex) => {
+                          if (str(tag, 'kind') === 'userTag') {
+                            return <UserTagChip key={`userTag:${tagIndex}`} tag={tag} />;
+                          }
                           const tint = toneColor(str(tag, 'tone'));
                           const open = obj(obj(tag)?.command);
                           const coloured = str(tag, 'kind') === 'release' || str(tag, 'kind') === 'question';
@@ -328,7 +490,7 @@ export function CoordinatorBoardMenu({
                           </View>
                         ) : null}
                       </View>
-                      <Text style={styles.age}>{str(row, 'age')}</Text>
+                      {expanded ? null : <Text style={styles.age}>{str(row, 'age')}</Text>}
                     </View>
                     {relayed !== null ? (
                       <Text style={styles.note} numberOfLines={2}>
@@ -337,16 +499,49 @@ export function CoordinatorBoardMenu({
                           .join('\n')}
                       </Text>
                     ) : null}
-                    {remove !== null && armed === key ? (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Tap to move it to Removed"
-                        hitSlop={8}
-                        onPress={() => tapRemove(key, remove)}
-                        style={styles.removeBadge}
-                      >
-                        <Glyph name="x" size={11} color={SidebarPalette.ROW_APPROVAL} />
-                      </Pressable>
+                    {expanded ? (
+                      <View style={styles.cardButtons}>
+                        {openCommand !== null && str(row, 'openLabel').length > 0 ? (
+                          <Pressable
+                            accessibilityRole="button"
+                            onPress={() => run(openCommand)}
+                            style={({ pressed }) => [styles.cardButton, pressed && styles.cardButtonPressed]}
+                          >
+                            <Text style={styles.cardButtonText}>{str(row, 'openLabel')}</Text>
+                          </Pressable>
+                        ) : null}
+                        {reference.length > 0 ? (
+                          <Pressable
+                            accessibilityRole="button"
+                            onPress={() => mention(reference)}
+                            style={({ pressed }) => [styles.cardButton, pressed && styles.cardButtonPressed]}
+                          >
+                            <Glyph name="message-plus" size={14} color={P.foreground} />
+                            <Text style={styles.cardButtonText}>Mention</Text>
+                          </Pressable>
+                        ) : null}
+                        <View style={styles.flex} />
+                        <Text style={styles.age}>{str(row, 'age')}</Text>
+                      </View>
+                    ) : null}
+                    {menuFor === key ? (
+                      <CardMenu
+                        row={row}
+                        tagOptions={arr(board.tagOptions)}
+                        tagsPage={menuTags}
+                        onTags={setMenuTags}
+                        onPick={(picked) => {
+                          setMenuFor(null);
+                          setMenuTags(false);
+                          if (str(picked, 'type') === 'insertBoardReference') {
+                            mention(str(picked, 'reference'));
+                          } else if (str(picked, 'type') === 'coordinatorBoardChange') {
+                            chat.dispatch(asJson(picked) as unknown as UserAction);
+                          } else {
+                            run(picked);
+                          }
+                        }}
+                      />
                     ) : null}
                   </Pressable>
                 );
@@ -428,6 +623,69 @@ const useStyles = themedStyles((P) => ({
     borderColor: P.ink(0.08),
     backgroundColor: P.ink(0.035),
   },
+  /** The open card (gx-chat-core `expanded`): a step brighter, growing to its content. */
+  cardOpen: {
+    borderColor: P.ink(0.14),
+    backgroundColor: P.ink(0.055),
+  },
+  /** The open card's latest line, whole. */
+  cardLine: {
+    color: P.cardMuted,
+    fontSize: PROSE_SIZE - 1,
+    lineHeight: Math.round((PROSE_SIZE - 1) * 1.4),
+  },
+  chipLineOpen: {
+    height: undefined,
+  },
+  chipsOpen: {
+    flexWrap: 'wrap',
+    overflow: 'visible',
+  },
+  cardButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  cardButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 34,
+    paddingHorizontal: 12,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: P.ink(0.12),
+  },
+  cardButtonPressed: {
+    backgroundColor: P.ink(0.08),
+  },
+  cardButtonText: {
+    color: P.foreground,
+    fontSize: PROSE_SIZE - 1,
+  },
+  flex: {
+    flex: 1,
+  },
+  /** A held card's menu, in place under its content. */
+  cardMenu: {
+    marginTop: 2,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: P.ink(0.1),
+    backgroundColor: P.ink(0.04),
+  },
+  cardMenuRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 42,
+    paddingHorizontal: 12,
+  },
+  cardMenuText: {
+    color: P.foreground,
+    fontSize: PROSE_SIZE,
+  },
   cardTitleLine: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -467,23 +725,6 @@ const useStyles = themedStyles((P) => ({
     overflow: 'hidden',
   },
   /** The red × that floats over a long-pressed card's top-right corner (desktop `board_remove_badge`). */
-  /**
-   * Soft red, never a dark slab: the user, of the desktop's black × ("i hate black in transparent
-   * design looks bad"); the armed × is the only one the phone shows.
-   */
-  removeBadge: {
-    position: 'absolute',
-    top: -8,
-    right: -8,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.45)',
-    backgroundColor: 'rgba(253, 226, 226, 0.88)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   noLinks: {
     color: P.cardMuted,
     fontSize: PROSE_SIZE - 2,
@@ -541,16 +782,6 @@ const useStyles = themedStyles((P) => ({
     flexShrink: 1,
     color: P.cardMuted,
     fontSize: PROSE_SIZE - 2,
-  },
-  remove: {
-    width: 18,
-    height: 18,
-    borderRadius: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  removeArmed: {
-    backgroundColor: 'rgba(239, 68, 68, 0.16)',
   },
   restore: {
     paddingHorizontal: 5,

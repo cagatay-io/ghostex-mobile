@@ -22,7 +22,8 @@ import { Animated, Easing, Pressable, ScrollView, Text, View } from 'react-nativ
 import { useReducedMotion } from 'react-native-reanimated';
 
 import type { ChatDocument, ViewChip } from '../../rust/document';
-import type { BoardFocus } from './CoordinatorBoard';
+import { BLOCKED_PILL, type BoardFocus } from './CoordinatorBoard';
+import type { UserAction } from '../../rust/actions';
 import { num, obj, str } from './json';
 import type { RustChat } from '../../rust/useRustChat';
 import type { GhostexSessionLinks } from '../../../contract/mobileSummary';
@@ -168,7 +169,15 @@ export function PillsStrip({
       key={pill.id}
       pill={pill}
       open={pill.id === menu}
-      onPress={() => (pill.id === 'stashed' ? onStashedPress?.() : setMenu(pill.id))}
+      onPress={() =>
+        pill.id === 'stashed'
+          ? onStashedPress?.()
+          : pill.id === BLOCKED_PILL
+            ? // Blocked opens the board at its Blocked group (gx-chat-core `show_group`), through
+              // the board focus below.
+              chat.dispatch({ type: 'showCoordinatorBoardGroup', group: 'blocked' } as unknown as UserAction)
+            : setMenu(pill.id)
+      }
     />
   ));
   // The Links pill is the last one (desktop `links_pill.rs` has the user's words).
