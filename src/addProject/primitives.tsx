@@ -11,7 +11,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import KeyboardAwareScrollView from '../components/common/keyboard/KeyboardAwareScrollView';
 import { useScrollToBarEdges } from '../components/common/verticalBar/VerticalBarArea';
 import { CaretRightGlyph } from '../components/sessions/icons';
-import { GhostexPalette, GhostexRadii, GhostexStrokeWidth } from '../theme/palette';
+import { GhostexPalette, GhostexRadii, GhostexStrokeWidth, mixHexColors } from '../theme/palette';
+import { readableSecondaryText } from '../theme/sidebarAppearance';
 
 const MONOSPACE = Platform.select({ ios: 'Menlo', default: 'monospace' });
 
@@ -172,10 +173,19 @@ export function ProjectPathInput({
 }
 
 /** Inline rose-tinted failure banner — mobile never uses toasts (spec §5.2). */
-export function ErrorBanner({ message }: { message: string }): ReactElement {
+export function ErrorBanner({
+  message,
+  page = { background: GhostexPalette.BACKGROUND, foreground: GhostexPalette.FOREGROUND },
+}: {
+  message: string;
+  page?: { background: string; foreground: string };
+}): ReactElement {
+  const color = readableSecondaryText(GhostexPalette.DANGER, page.foreground, [
+    mixHexColors(GhostexPalette.DANGER, page.background, 8),
+  ]);
   return (
     <View accessibilityRole="alert" style={styles.errorBanner}>
-      <Text style={styles.errorText}>{message}</Text>
+      <Text style={[styles.errorText, { color }]}>{message}</Text>
     </View>
   );
 }
@@ -321,7 +331,6 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   errorText: {
-    color: GhostexPalette.DANGER,
     fontSize: 13,
     lineHeight: 18,
   },

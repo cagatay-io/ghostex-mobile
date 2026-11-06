@@ -45,6 +45,11 @@ Header "Machines" + "Sessions" back button. Status line. Machine cards list. Foo
 
 Header "Settings" + back. Status "Edit chat, terminal behavior, and remote-session alerts." Theming starts with GPUI-parity Background Contrast (85–100, default 90) and Background Tint: the same calibrated preset swatches plus a custom `#RRGGBB` field. These settings recolor the drawer backing and its derived group, project, border, header-button, and session surfaces while leaving menus and Settings surfaces untinted. Chat settings select light/dark chat appearance, an installed font family, and message width from 50–100% in 5% steps (default 100%); width affects only transcript messages, with a 40px minimum side margin on viewports 500px and wider and 20px below 500px. Toggles: Auto scroll, Command pad (Settings > Keyboard; stored as `extraKeysToolbarVisible`, formerly Extra keys toolbar), Soft keyboard, Keep screen on, Show refresh/upload/keyboard button, Attention notification sound, Fullscreen, Hide keyboard on startup, Open URLs on tap, Confirm before closing tabs, Disable session change toasts; font size. Tab-close confirmation defaults to off. The file-upload floating button defaults on; the refresh and keyboard floating buttons default off.
 
+The existing tint resolver adjusts secondary text toward the foreground on page, card and pressed-card surfaces,
+while glyphs retain their original muted tone. Find's filter sheets use the fixed dark sheet's palette. Editor
+buttons use the accent's dark label; destructive labels and custom-action placeholders are adjusted on their actual
+fills. A surface too light for the existing foreground still needs a separate surface/foreground decision.
+
 ## 2. Row types
 
 Flat list items: STATE_CARD, MACHINE_HEADER, PROJECT_HEADER, PROJECT_AGENTS_ROW, PROJECT_EMPTY, GROUP_HEADER, SESSION. Every project lists all of its sessions (the 6-row "Show more" collapse was removed on 2026-10-13).

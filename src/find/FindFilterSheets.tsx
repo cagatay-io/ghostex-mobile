@@ -11,6 +11,7 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import BottomSheet from '../components/common/BottomSheet';
 import { CheckGlyph } from '../components/onboarding/SetupIcons';
 import { FindPromptsCopy } from '../copy';
+import { GhostexPalette } from '../theme/palette';
 import { useFindStyles } from './findStyles';
 import { FIND_PROMPT_AGENTS, type FindPromptAgent, type FindPromptProjectFacet } from './promptSearch';
 
@@ -27,16 +28,16 @@ function SheetRow({
   dotColor?: string;
   onPress: () => void;
 }) {
-  const { appearance, styles } = useFindStyles();
+  const { styles } = useFindStyles();
   return (
     <Pressable
       accessibilityRole="checkbox"
       accessibilityState={{ checked }}
-      style={({ pressed }) => [styles.sheetRow, pressed ? styles.rowPressed : null]}
+      style={({ pressed }) => [styles.sheetRow, pressed ? styles.sheetRowPressed : null]}
       onPress={onPress}
     >
       <View style={styles.sheetCheck}>
-        {checked ? <CheckGlyph size={16} color={appearance.foreground} strokeWidth={2.4} /> : null}
+        {checked ? <CheckGlyph size={16} color={GhostexPalette.FOREGROUND} strokeWidth={2.4} /> : null}
       </View>
       {dotColor !== undefined ? <View style={[styles.agentDot, { backgroundColor: dotColor }]} /> : null}
       <View style={styles.sheetRowText}>
@@ -68,7 +69,7 @@ export function FindAgentFilterSheet({
   onClear: () => void;
   onClose: () => void;
 }) {
-  const { appearance, styles } = useFindStyles();
+  const { styles } = useFindStyles();
   return (
     <BottomSheet visible={visible} onClose={onClose}>
       <Text style={styles.sheetTitle}>{FindPromptsCopy.agentsTitle}</Text>
@@ -78,7 +79,7 @@ export function FindAgentFilterSheet({
           key={agent}
           checked={selected.includes(agent)}
           label={agent}
-          dotColor={colors[agent] ?? appearance.muted}
+          dotColor={colors[agent] ?? GhostexPalette.MUTED}
           onPress={() => onToggle(agent)}
         />
       ))}
@@ -99,7 +100,7 @@ export function FindProjectFilterSheet({
   onSelect: (path: string | null) => void;
   onClose: () => void;
 }) {
-  const { appearance, styles } = useFindStyles();
+  const { styles } = useFindStyles();
   const [filter, setFilter] = useState('');
   const close = () => {
     setFilter('');
@@ -123,7 +124,7 @@ export function FindProjectFilterSheet({
         value={filter}
         onChangeText={setFilter}
         placeholder={FindPromptsCopy.projectsPlaceholder}
-        placeholderTextColor={appearance.muted}
+        placeholderTextColor={GhostexPalette.MUTED}
         style={styles.sheetField}
         autoCapitalize="none"
         autoCorrect={false}
@@ -142,7 +143,9 @@ export function FindProjectFilterSheet({
           onPress={() => pick(facet.path)}
         />
       ))}
-      {shown.length === 0 ? <Text style={styles.empty}>{FindPromptsCopy.noProjects}</Text> : null}
+      {shown.length === 0 ? (
+        <Text style={[styles.empty, { color: GhostexPalette.MUTED }]}>{FindPromptsCopy.noProjects}</Text>
+      ) : null}
     </BottomSheet>
   );
 }

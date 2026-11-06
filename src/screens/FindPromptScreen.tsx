@@ -27,7 +27,7 @@ import { runGhostexCli } from '../components/sessions/cli';
 import { FindPromptsCopy } from '../copy';
 import { formatLastActiveFull, formatPromptMetaLine } from '../find/findFormat';
 import { useFindPromptsStore } from '../find/findPromptsStore';
-import { FIND_STAR_COLOR } from '../find/findStyles';
+import { FIND_STAR_COLOR, findErrorInk } from '../find/findStyles';
 import {
   FIND_PROMPT_FORK_AGENTS,
   resolveFindPromptLaunch,
@@ -156,7 +156,7 @@ export default function FindPromptScreen({ navigation, route }: Props) {
             {text}
           </Text>
           {row.truncated && fullText === undefined ? (
-            <ActivityIndicator style={styles.more} size="small" color={appearance.muted} />
+            <ActivityIndicator style={styles.more} size="small" color={appearance.mutedGlyph} />
           ) : null}
         </View>
       </ScrollView>
@@ -168,7 +168,7 @@ export default function FindPromptScreen({ navigation, route }: Props) {
           accessibilityRole="alert"
         >
           {status.message}
-          {status.detail !== undefined ? <Text style={styles.statusDetail}> {status.detail}</Text> : null}
+          {status.detail !== undefined ? <Text> {status.detail}</Text> : null}
         </Text>
       ) : null}
 
@@ -308,10 +308,7 @@ function buildStyles(appearance: Appearance) {
       fontSize: 12,
     },
     statusError: {
-      color: '#ff8f8f',
-    },
-    statusDetail: {
-      opacity: 0.7,
+      color: findErrorInk(appearance, appearance.background),
     },
     actions: {
       flexDirection: 'row',
