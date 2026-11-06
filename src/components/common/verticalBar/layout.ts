@@ -326,6 +326,12 @@ export type LaptopFold = { readonly top: number; readonly bottom: number };
 export const LAPTOP_CLEAR = 12;
 
 /**
+ * Space the round buttons at the bottom of the upper half keep from the fold's top in the laptop pose while nothing
+ * above the fold covers the terminal: a finger's width, so a thumb pressing them stays clear of the knick.
+ */
+export const LAPTOP_CONTROL_CLEAR = 44;
+
+/**
  * The laptop pose: an active division that runs across the window, so the window is split into an upper and a
  * lower half. The pose comes from the division's shape only, never from the hinge. A division along the window's
  * height is the book pose, which has no layout of its own, and an inactive one (the device lies flat) divides

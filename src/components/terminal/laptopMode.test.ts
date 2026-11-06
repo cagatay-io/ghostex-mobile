@@ -5,11 +5,12 @@
  * Laptop mode's geometry: the laptop pose as the layout layer gets it from the active division (and the dev-only
  * debug row's text); the terminal's cover, keyboard up or not; the pad's room in the upper half above
  * the fold, covered only by the text editor, and reaching below the fold where the upper half is too short for the
- * open pad even over the header; the editor above the fold; a layer below it; sheets, centred cards and a
- * web page off the fold (the page ends above it); a list running across the fold, its copy below the band continuing
- * where the list ends above it, the band not counted (no copy for short content or with the keyboard up). Frames: the
- * iPhone Duo's inner display in the laptop pose as the simulator reports it, window 669 x 951 pt, division
- * `[0, 455.5, 669, 40]` active when half folded, home indicator inset 20; the keyboard's top at 555 is assumed.
+ * open pad even over the header; the round buttons a finger's width above the fold; the editor above the fold; a
+ * layer below it; sheets, centred cards and a web page off the fold (the page ends above it); a list running across
+ * the fold, its copy below the band continuing where the list ends above it, the band not counted (no copy for short
+ * content or with the keyboard up). Frames: the iPhone Duo's inner display in the laptop pose as the simulator reports
+ * it, window 669 x 951 pt, division `[0, 455.5, 669, 40]` active when half folded, home indicator inset 20; the
+ * keyboard's top at 555 is assumed.
  */
 
 import assert from 'node:assert/strict';
@@ -30,6 +31,7 @@ import {
 import { DEFAULT_PAD_PLACEMENT, PAD_MARGIN, padAnchor, padHeaderReach } from './commandPadLayout';
 import {
   laptopEditorInset,
+  laptopFloatingBottom,
   laptopLayerHeight,
   laptopObstruction,
   laptopPadArea,
@@ -186,6 +188,24 @@ describe('an upper half too short for the open pad even over the header: its roo
     // The toggle stands 16 pt above the room's bottom and keeps 12 pt above what covers it: 4 pt may be covered.
     assert.equal(laptopPadReachBelowFold(below, HEADER, bottom - 4), HEADER);
     assert.equal(laptopPadReachBelowFold(below, HEADER, bottom - 5), null);
+  });
+});
+
+describe('the round buttons stand a finger’s width above the fold', () => {
+  /** A finger's width above the fold's top, while nothing above the fold covers the terminal. */
+  const FINGER = 44;
+  /** Their window y for a cover (`obstruction` patch): the corner 16 pt above it, lifted where that is lower. */
+  const buttonsBottom = (patch: Partial<Parameters<typeof laptopObstruction>[0]> = {}) =>
+    AREA_BOTTOM - laptopFloatingBottom(FOLD, AREA_BOTTOM, 16 + obstruction(patch));
+
+  test('keyboard up, down, or a layer in its place: a finger’s width above the fold, not 16 pt', () => {
+    assert.equal(buttonsBottom(), FOLD.top - FINGER);
+    assert.equal(buttonsBottom({ keyboardCover: 0 }), FOLD.top - FINGER);
+    assert.equal(buttonsBottom({ keyboardCover: 0, layerCover: 300 }), FOLD.top - FINGER);
+  });
+
+  test('the text editor open: 16 pt above it, as before', () => {
+    assert.equal(buttonsBottom({ editorHeight: EDITOR }), FOLD.top - 12 - EDITOR - 16);
   });
 });
 

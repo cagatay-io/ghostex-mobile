@@ -79,6 +79,7 @@ import { ChatBubbleIcon, ChevronLeftIcon, EllipsisIcon, TerminalPromptIcon } fro
 import { PAD_TOGGLE, padAnchor, padHeaderReach } from '../components/terminal/commandPadLayout';
 import {
   laptopEditorInset,
+  laptopFloatingBottom,
   laptopLayerHeight,
   laptopObstruction,
   laptopPadArea,
@@ -684,12 +685,15 @@ export default function TerminalScreen({ navigation, route }: Props) {
   const floatingLift =
     laptopFold !== null ? obstruction : slidesWithKeyboard ? Math.max(0, bottomInset - insets.bottom) : 0;
   // The round buttons' bottom edge in the terminal area: above the closed pad's toggle at the right edge, else in the
-  // corner above what covers the area. On iOS, where the area does not shrink with the keyboard, the height left for
-  // them above it, 16 pt below the area's top.
+  // corner above what covers the area; in the laptop pose at least a finger's width above the fold's top
+  // (`laptopFloatingBottom`). On iOS, where the area does not shrink with the keyboard, the height left for them above
+  // it, 16 pt below the area's top.
   const floatingBottom =
     padSessionKey !== null && padAt.side === 'right'
       ? foldAboveAreaBottom + padAt.bottom + PAD_TOGGLE + 12
-      : 16 + floatingLift;
+      : laptopFold !== null
+        ? laptopFloatingBottom(laptopFold, terminalAreaBottom, 16 + floatingLift)
+        : 16 + floatingLift;
   const floatingRoom =
     slidesWithKeyboard && terminalArea !== null ? terminalArea.height - floatingBottom - 16 : undefined;
 

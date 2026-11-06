@@ -10,9 +10,10 @@
  * where the upper half is too short for both (Send or the toggle bring the pad back; the editor's own close button
  * closes it as the pen does and leaves the pad closed); an upper half too short for the open pad even reaching over
  * the header: the open pad reaching below the fold by what is missing, the keyboard staying up, a layer clear of it
- * and a layer reaching into its room; the same keys and functions flat; the round buttons with the pad switched off,
- * above the fold with and without the keyboard; and the negative cases flat, in the book pose and without a division,
- * keyboard up and down.
+ * and a layer reaching into its room; the same keys and functions flat; the round buttons a finger's width above the
+ * fold with the pad switched off or its toggle on the left edge, keyboard up or not, above the toggle on the right
+ * edge and above the open text editor as before, unchanged flat; and the negative cases flat, in the book pose and
+ * without a division, keyboard up and down.
  *
  * The device's window frames are asked of the styles the screen sets (the cover's height from the terminal area's
  * bottom, the terminal's `top`, the pad room's frame and each control's place in it), which give window frames only
@@ -887,7 +888,10 @@ describe('an upper half too short for the open pad even over the header: the ope
   });
 });
 
-describe('the round buttons with the pad switched off', () => {
+describe('the round buttons a finger’s width above the fold', () => {
+  /** A finger's width: the space the round buttons keep from the fold's top while nothing above the fold covers. */
+  const FINGER = 44;
+
   async function renderWithoutPad(): Promise<void> {
     useSettingsStore.setState({
       settings: {
@@ -899,17 +903,69 @@ describe('the round buttons with the pad switched off', () => {
     await renderScreen();
   }
 
-  test('with the keyboard up they stand above the fold, not on it', async () => {
+  /** The pad switched on, its laptop place stored on the left edge at its lowest height. */
+  async function renderWithPadLeft(): Promise<void> {
+    useSettingsStore.setState({
+      settings: {
+        ...useSettingsStore.getState().settings,
+        commandPadPosition: { laptop: { side: 'left', height: 1 } },
+      },
+    });
+    await renderScreen();
+  }
+
+  /** The window y of the round buttons' bottom edge, found from one of them. */
+  function stackBottom(label: string): number {
+    return AREA_BOTTOM - required(bottomCarrier(screen.getByLabelText(label)), 'bottom');
+  }
+
+  test('pad switched off, keyboard up: they stand a finger’s width above the fold, not on it', async () => {
     await renderWithoutPad();
     await keyboardWillShow();
-    const stack = bottomCarrier(screen.getByLabelText('Dismiss keyboard'));
-    expect(AREA_BOTTOM - required(stack, 'bottom')).toBe(FOLD.top - 16);
+    expect(stackBottom('Dismiss keyboard')).toBe(FOLD.top - FINGER);
   });
 
-  test('without the keyboard they stand above the fold too', async () => {
+  test('pad switched off, without the keyboard: the same', async () => {
     await renderWithoutPad();
-    const stack = bottomCarrier(screen.getByLabelText('Show keyboard'));
-    expect(AREA_BOTTOM - required(stack, 'bottom')).toBe(FOLD.top - 16);
+    expect(stackBottom('Show keyboard')).toBe(FOLD.top - FINGER);
+  });
+
+  test('the closed pad on the left edge: the keyboard button keeps the right corner, a finger’s width above the fold', async () => {
+    await renderWithPadLeft();
+    await keyboardWillShow();
+    expect(padOpen()).toBe(false);
+    expect(windowFrameOf(TOGGLE).left).toBe(32);
+    expect(required(bottomCarrier(screen.getByLabelText('Dismiss keyboard')), 'right')).toBe(16);
+    expect(stackBottom('Dismiss keyboard')).toBe(FOLD.top - FINGER);
+  });
+
+  test('the closed pad on the right edge: they keep standing 12 pt above its toggle', async () => {
+    await renderScreen();
+    await keyboardWillShow();
+    expect(padOpen()).toBe(false);
+    expect(stackBottom('Dismiss keyboard')).toBe(windowFrameOf(TOGGLE).top - 12);
+  });
+
+  test('the text editor open, the pad on the left edge closed for it: they stand 16 pt above the editor, as before', async () => {
+    await renderWithPadLeft();
+    await press(TOGGLE);
+    await keyboardWillShow();
+    await press('Text editor');
+    await settle();
+    expect(padOpen()).toBe(false);
+    expect(stackBottom('Dismiss keyboard')).toBe(FOLD.top - 12 - TEXT_EDITOR_HEIGHT - 16);
+  });
+
+  test('flat (inactive division), pad switched off: they stay 16 pt above the area’s bottom', async () => {
+    useSettingsStore.setState({
+      settings: {
+        ...useSettingsStore.getState().settings,
+        extraKeysToolbarVisible: false,
+        keyboardButtonVisible: true,
+      },
+    });
+    await renderScreen(PORTRAIT, [FLAT_DIVISION]);
+    expect(stackBottom('Show keyboard')).toBe(AREA_BOTTOM - 16);
   });
 });
 

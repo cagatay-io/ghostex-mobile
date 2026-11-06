@@ -14,7 +14,7 @@
  * Lengths in points, window coordinates unless named otherwise.
  */
 
-import { FOLD_CLEARANCE, LAPTOP_CLEAR, type LaptopFold } from '../common/verticalBar/layout';
+import { FOLD_CLEARANCE, LAPTOP_CLEAR, LAPTOP_CONTROL_CLEAR, type LaptopFold } from '../common/verticalBar/layout';
 import { padHeaderReach, padRequiredHeight } from './commandPadLayout';
 
 /** A rectangle in the window: the terminal area, or the pad's room in it. */
@@ -58,6 +58,15 @@ export function laptopPadReachBelowFold(room: LaptopRect, headerRoom: number, la
 /** The text editor's bottom edge above the window's bottom edge: `LAPTOP_CLEAR` above the fold's top. */
 export function laptopEditorInset(fold: LaptopFold, windowHeight: number): number {
   return windowHeight - fold.top + LAPTOP_CLEAR;
+}
+
+/**
+ * The round buttons' bottom edge above the terminal area's bottom (`areaBottom` in the window) where no pad toggle at
+ * the right edge places them: `LAPTOP_CONTROL_CLEAR` above the fold's top, or `corner` (their place 16 pt above what
+ * covers the area) where that stands higher, as above the open text editor.
+ */
+export function laptopFloatingBottom(fold: LaptopFold, areaBottom: number, corner: number): number {
+  return Math.max(corner, Math.max(0, areaBottom - fold.top) + LAPTOP_CONTROL_CLEAR);
 }
 
 /**
