@@ -549,7 +549,6 @@ export function HandoffSheet({
                 <Text style={styles.cardDescription}>{WHOLE_CONVERSATION_DESCRIPTION}</Text>
               </View>
               <Switch
-                accessibilityLabel={WHOLE_CONVERSATION}
                 value={history.all}
                 disabled={disabled}
                 onValueChange={(all) => {
@@ -593,7 +592,6 @@ export function HandoffSheet({
                   <Text style={styles.cardDescription}>{row.description}</Text>
                 </View>
                 <Switch
-                  accessibilityLabel={row.label}
                   value={include[row.key]}
                   disabled={disabled}
                   onValueChange={(on) => {

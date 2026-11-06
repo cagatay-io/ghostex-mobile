@@ -177,7 +177,7 @@ test('the card, the agent and Include come back as they were left', async () => 
     include: { commands: true, patches: false, reasoning: false },
   });
   expect(screen.getByText('Export')).toBeTruthy();
-  expect(screen.getByLabelText('Commands & output').props.value).toBe(true);
+  expect(screen.getByLabelText('Commands & output').props.accessibilityState.checked).toBe(true);
   await fireEvent.press(screen.getByText('Handoff to an agent'));
   expect(screen.getByText('Handoff to Claude')).toBeTruthy();
   expect(mockSave.mock.calls.at(-1)?.[0]).toMatchObject({ card: 'agent' });
@@ -187,7 +187,7 @@ test('changing Include is saved', async () => {
   await open();
   await fireEvent.press(screen.getByText('Include'));
   expect(mockSave.mock.calls.at(-1)?.[0]).toMatchObject({ includeOpen: true });
-  await fireEvent(screen.getByLabelText('File changes'), 'valueChange', true);
+  await fireEvent.press(screen.getByLabelText('File changes'));
   expect(mockSave.mock.calls.at(-1)?.[0]).toMatchObject({
     include: { commands: false, patches: true, reasoning: false },
   });
@@ -204,7 +204,7 @@ test("the model picker's handoff opens here and is not remembered", async () => 
 test('History starts on the last 20 turns, says what they hold, and the handoff keeps them', async () => {
   await open({ includeOpen: true });
   expect(screen.getByText('Last 20 turns · Messages only')).toBeTruthy();
-  expect(screen.getByLabelText('Whole conversation').props.value).toBe(false);
+  expect(screen.getByLabelText('Whole conversation').props.accessibilityState.checked).toBe(false);
   expect(screen.getByText('Last 20 turns')).toBeTruthy();
   expect(screen.getByText('20 of 120 turns · about 18k tokens (the whole is 108k)')).toBeTruthy();
   expect(mockCount.mock.calls[0]?.[3]).toEqual({ commands: false, patches: false, reasoning: false });
@@ -227,7 +227,7 @@ test('the slider moves between its stops and is remembered', async () => {
 
 test('Whole conversation hides the slider and exports all of it', async () => {
   await open({ includeOpen: true });
-  await fireEvent(screen.getByLabelText('Whole conversation'), 'valueChange', true);
+  await fireEvent.press(screen.getByLabelText('Whole conversation'));
   expect(screen.queryByLabelText('History')).toBeNull();
   expect(screen.getByText('Whole conversation · Messages only')).toBeTruthy();
   expect(screen.getByText('All 120 turns · about 108k tokens')).toBeTruthy();
@@ -250,7 +250,7 @@ test('a computer that cannot count shows no History and asks for no cut', async 
 
 test('a changed Include is counted again', async () => {
   await open({ includeOpen: true });
-  await fireEvent(screen.getByLabelText('Reasoning'), 'valueChange', true);
+  await fireEvent.press(screen.getByLabelText('Reasoning'));
   await waitFor(() => expect(mockCount).toHaveBeenCalledTimes(2));
   expect(mockCount.mock.calls[1]?.[3]).toEqual({ commands: false, patches: false, reasoning: true });
 });
