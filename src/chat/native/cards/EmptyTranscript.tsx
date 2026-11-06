@@ -109,7 +109,7 @@ function TranscriptSkeleton() {
     return () => loop.stop();
   }, [pulse]);
   return (
-    <Animated.View accessibilityLabel="Loading conversation…" style={[styles.skeleton, { opacity: pulse }]}>
+    <Animated.View accessibilityLabel="Loading chat…" style={[styles.skeleton, { opacity: pulse }]}>
       {SKELETON.rows.map((row, index) =>
         row.user ? (
           <View key={index} style={[styles.skeletonBubble, { width: `${row.widths[0] * 100}%` }]} />

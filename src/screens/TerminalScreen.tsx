@@ -68,6 +68,7 @@ import { useSessionLinksRefresh } from '../chat/native/useSessionLinksRefresh';
 import { useTranscriptTheme } from '../chat/native/transcript/theme';
 import { DuoChromeCopy, RenameCopy, SessionCopy, TerminalHeaderCopy } from '../copy';
 import { summarizeFailure } from '../inventory/client';
+import { hasPassword } from '../machines/credentials';
 import { useInventoryStore } from '../inventory/store';
 import { sessionNotesOnIn } from '../sessions/sessionNotesSwitch';
 import type { RootStackParamList } from '../navigation/types';
@@ -161,6 +162,24 @@ export default function TerminalScreen({ navigation, route }: Props) {
 
   const openMachineLink = useOpenMachineLink();
   const activeTab = tabs.find((tab) => tab.sessionKey === selectedSessionKey) ?? null;
+  // Whether the active tab's computer has a saved SSH password, so a failed connection names the
+  // right fix (it always claimed a saved password was rejected; CDXC:Notices 2026-11-06, Q1415).
+  const activeMachineId = activeTab?.machineId ?? null;
+  const [activeMachineHasPassword, setActiveMachineHasPassword] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    setActiveMachineHasPassword(false);
+    if (activeMachineId === null) return undefined;
+    hasPassword(activeMachineId).then(
+      (saved) => {
+        if (!cancelled) setActiveMachineHasPassword(saved);
+      },
+      () => undefined,
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [activeMachineId]);
   const activeSavedMachine = useMachinesStore((state) =>
     activeTab === null ? null : (state.machines.find((entry) => entry.id === activeTab.machineId) ?? null),
   );
@@ -786,7 +805,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
           onPress={() => void reopenTab(activeTab)}
         >
           <Text style={styles.chatStartupErrorText}>
-            {activeTab.error ? summarizeFailure(activeTab.error, true) : 'Agent startup failed.'} Tap to retry.
+            {activeTab.error ? summarizeFailure(activeTab.error, activeMachineHasPassword) : 'Agent startup failed.'} Tap to retry.
           </Text>
         </Pressable>
       ) : null}
@@ -843,7 +862,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
         {activeTab !== null && !chatModeActive && (
           <TerminalStateOverlay
             tab={activeTab}
-            errorCaption={activeTab.error !== undefined ? summarizeFailure(activeTab.error, true) : null}
+            errorCaption={activeTab.error !== undefined ? summarizeFailure(activeTab.error, activeMachineHasPassword) : null}
             onRetry={() => void reopenTab(activeTab)}
             onReconnect={() => void reopenTab(activeTab)}
           />

@@ -6,13 +6,15 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import ErrorBoundary, { errorBoundaryMessage } from '../../components/common/ErrorBoundary';
+import ErrorBoundary from '../../components/common/ErrorBoundary';
 import { GhostexRadii } from '../../theme/palette';
 import { useAppearance } from '../../theme/useAppearance';
 import { useSettingsStyles } from './SettingsControls';
 
 export const SectionErrorCopy = {
   title: "This section couldn't load",
+  /** The crash text itself goes to the app log (ErrorBoundary), not on the card (CDXC:Notices 2026-11-06). */
+  detail: 'Tap Try Again. If it keeps happening, send feedback.',
   tryAgain: 'Try Again',
 } as const;
 
@@ -26,14 +28,14 @@ const buttonStyles = StyleSheet.create({
   },
 });
 
-function SectionErrorCard({ error, retry }: { error: unknown; retry: () => void }) {
+function SectionErrorCard({ retry }: { error: unknown; retry: () => void }) {
   const styles = useSettingsStyles();
   const appearance = useAppearance();
   return (
     <View style={styles.card}>
       <Text style={styles.cardLabel}>{SectionErrorCopy.title}</Text>
       <Text style={styles.caption} numberOfLines={4}>
-        {errorBoundaryMessage(error)}
+        {SectionErrorCopy.detail}
       </Text>
       <Pressable
         accessibilityRole="button"

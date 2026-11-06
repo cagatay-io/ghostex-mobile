@@ -172,7 +172,7 @@ async function sessionChatRpcOverSsh(
       return {
         error: {
           code: typeof outcome.code === 'string' ? outcome.code : null,
-          message: typeof outcome.message === 'string' ? outcome.message : 'Request failed.',
+          message: typeof outcome.message === 'string' ? outcome.message : "Ghostex on the computer couldn't do that. Try again.",
           endpoint: typeof outcome.endpoint === 'string' ? outcome.endpoint : endpoint,
         },
       };

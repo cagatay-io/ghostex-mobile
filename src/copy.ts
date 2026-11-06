@@ -312,7 +312,12 @@ export const FailureCopy = {
     'Could not reach the computer. Confirm both devices are online and the computer is awake. For a Tailscale connection, check Tailscale on both devices.',
   timedOut:
     "The computer didn't answer. The connection timed out; check that the computer is awake and Ghostex is open.",
+  /** The sessions list's line while Ghostex on the computer starts; the store sets it there. */
   ghostexNotAnswering: "They'll appear in a moment.",
+  /** Any other action that failed because Ghostex on the computer didn't answer. */
+  ghostexNotRunning: "Ghostex on the computer isn't answering yet. Open it there, or try again in a moment.",
+  /** An action the computer refused for a reason the phone doesn't recognise; the raw text goes to the app log. */
+  computerRefused: "Ghostex on the computer couldn't do that. Try again; if it keeps failing, check Ghostex on the computer.",
   /** The same failure after about 30 s, the sidebar's and the chat's long-wait line. */
   ghostexNotAnsweringLong: 'Sessions are taking longer than usual to load. If this keeps happening, restart Ghostex.',
   noCli:
@@ -322,9 +327,9 @@ export const FailureCopy = {
   outdatedForFeature:
     "This machine's Ghostex is too old for this feature. Update Ghostex on the machine, then try again.",
   persistenceNotZmx:
-    'Ghostex is reachable, but Session persistence is not set to zmx. Open Ghostex Settings on the computer and set Session persistence to zmx.',
+    'One setting on the computer needs changing: open Ghostex Settings there and turn on keeping terminals running in the background.',
   zmxMissing:
-    'Ghostex is reachable, but ZMX is not available on the computer. Install zmx and set Ghostex session persistence to zmx.',
+    'Part of Ghostex is missing on the computer. Reinstall Ghostex there, then try again.',
   emptyOutput: 'Could not connect to the machine.',
   noJson: 'Ghostex CLI did not return JSON.',
   incompleteJson: 'Ghostex CLI returned incomplete JSON.',

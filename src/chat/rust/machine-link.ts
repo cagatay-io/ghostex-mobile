@@ -651,7 +651,8 @@ class ChatMachineLink {
       if (envelope.ok === false) {
         const error = {
           code: typeof envelope.error === 'string' ? envelope.error : null,
-          message: typeof envelope.message === 'string' ? envelope.message : 'Request failed.',
+          message:
+            typeof envelope.message === 'string' ? envelope.message : "Ghostex on the computer couldn't do that. Try again.",
           endpoint,
         };
         const startingRetryAfterMs =
@@ -661,7 +662,9 @@ class ChatMachineLink {
         return { kind: 'answered', answer: { error }, startingRetryAfterMs };
       }
       if (!response.ok || envelope.ok !== true) {
-        const message = `gxserver request failed with HTTP ${response.status}.`;
+        // CDXC:Notices 2026-11-06: no program name or HTTP code in the chat (Q1410, Q1412).
+        console.warn(`[machine-link] ${endpoint} answered HTTP ${response.status}`);
+        const message = "Ghostex on the computer didn't answer properly. Check that it's open there, then try again.";
         return { kind: 'answered', answer: { error: { code: null, message, endpoint } } };
       }
       return { kind: 'answered', answer: { result: envelope.result ?? null, error: null } };

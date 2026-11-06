@@ -7,17 +7,17 @@
 import type { ReactNode } from 'react';
 import { Text, View } from 'react-native';
 
-import ErrorBoundary, { errorBoundaryMessage } from '../../components/common/ErrorBoundary';
+import ErrorBoundary from '../../components/common/ErrorBoundary';
 import { SetupButton } from '../../components/onboarding/SetupPrimitives';
 import { SectionErrorCopy } from '../settings/SectionBoundary';
 import { formStyles } from './styles';
 
-function FormSectionErrorCard({ error, retry }: { error: unknown; retry: () => void }) {
+function FormSectionErrorCard({ retry }: { error: unknown; retry: () => void }) {
   return (
     <View style={[formStyles.rowsCard, formStyles.stack, { paddingVertical: 12 }]}>
       <Text style={formStyles.rowLabel}>{SectionErrorCopy.title}</Text>
       <Text style={formStyles.fieldHint} numberOfLines={4}>
-        {errorBoundaryMessage(error)}
+        {SectionErrorCopy.detail}
       </Text>
       <SetupButton small label={SectionErrorCopy.tryAgain} onPress={retry} style={{ alignSelf: 'flex-start' }} />
     </View>

@@ -460,7 +460,7 @@ export function useTerminalAgentActions({
         const pick = source === 'image' ? pickAndSendImageAttachment : pickAndSendAttachment;
         await pick(tab.machineId, tab.sessionKey, chatModeActive ? sendChatMessageFromUser : undefined);
       } catch {
-        Alert.alert('Upload Failed', undefined, [{ text: 'OK' }]);
+        Alert.alert('File Not Sent', "Ghostex couldn't upload it to the computer. Try again.", [{ text: 'OK' }]);
       } finally {
         setUploading(false);
       }

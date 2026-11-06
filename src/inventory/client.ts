@@ -10,6 +10,7 @@ export { ensureConnected } from '../remote/connection';
 
 import { sessionsListCommand } from '../commands/ghostexCli';
 import { parseMobileSummary, scanJsonObjects, type GhostexMobileSummary } from '../contract/mobileSummary';
+import { logAppEvent } from '../app/appLog';
 import { FailureCopy } from '../copy';
 import { readablePowerShellError } from '../remote/powershell';
 import type { MachineConnectionTarget } from '../machines/credentials';
@@ -222,7 +223,8 @@ function classifyFailure(error: unknown, hasPassword: boolean): Pick<FailureSumm
   // (`connection_error_for_target` in server/src/ghostex_cli/rpc.rs). Checked before the SSH
   // matchers: the computer was reached, only Ghostex on it was not.
   if (lowerText.includes('could not connect to local gxserver')) {
-    return { message: FailureCopy.ghostexNotAnswering, reasonCode: 'ghostexNotAnswering' };
+    // The sessions list swaps in its own line for this code (store.ts).
+    return { message: FailureCopy.ghostexNotRunning, reasonCode: 'ghostexNotAnswering' };
   }
   if (nativeCode === 'sshRefused' || text.includes('Connection refused')) {
     return { message: FailureCopy.refused, reasonCode: 'sshRefused' };
@@ -263,10 +265,11 @@ function classifyFailure(error: unknown, hasPassword: boolean): Pick<FailureSumm
     return { message: FailureCopy.zmxMissing, reasonCode: reason('unknown') };
   }
   if (text.length === 0) return { message: FailureCopy.emptyOutput, reasonCode: reason('unknown') };
-  return {
-    message: text.length > 220 ? `${text.slice(0, 220)}...` : text,
-    reasonCode: reason('unknown'),
-  };
+  // CDXC:Notices 2026-11-06 DECISION: User (Q1410, Q1411): raw command output was the whole alert
+  // ("Rename Failed" over 220 characters of CLI text). The person reads a plain sentence; the raw
+  // text goes to the app log (its logs sheet copies it).
+  logAppEvent(`Unrecognised computer failure: ${text.slice(0, 2000)}`);
+  return { message: FailureCopy.computerRefused, reasonCode: reason('unknown') };
 }
 
 /** Recovery matcher: summarized message asks for a password (sessions-drawer.md §4). */

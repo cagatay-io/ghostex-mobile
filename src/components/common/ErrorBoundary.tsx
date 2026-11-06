@@ -11,6 +11,7 @@
  */
 
 import { Component, Fragment, type ErrorInfo, type ReactNode } from 'react';
+import { logAppEvent } from '../../app/appLog';
 
 export type ErrorBoundaryFallbackProps = {
   error: unknown;
@@ -50,7 +51,9 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
   }
 
   componentDidCatch(error: unknown, info: ErrorInfo): void {
-    // The app logs with console.warn (chat/rust/*); there is no crash-reporting service.
+    // The app logs with console.warn (chat/rust/*); there is no crash-reporting service. The app
+    // log keeps the crash text that section cards no longer show (CDXC:Notices 2026-11-06).
+    logAppEvent(`${this.props.name} failed to render: ${errorBoundaryMessage(error)}`);
     console.warn(
       `[error-boundary] ${this.props.name} failed to render: ${errorBoundaryMessage(error)}`,
       error instanceof Error ? error.stack : undefined,

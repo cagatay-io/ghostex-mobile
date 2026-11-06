@@ -210,7 +210,11 @@ export const useInventoryStore = create<InventoryState>()((set, get) => {
           if (failure.reasonCode === 'ghostexNotAnswering') {
             const since = notAnsweringSince.get(machine.id) ?? Date.now();
             notAnsweringSince.set(machine.id, since);
-            if (Date.now() - since >= NOT_ANSWERING_LONG_MS) failure.message = FailureCopy.ghostexNotAnsweringLong;
+            // The sessions list's own words; other actions keep the general not-answering line.
+            failure.message =
+              Date.now() - since >= NOT_ANSWERING_LONG_MS
+                ? FailureCopy.ghostexNotAnsweringLong
+                : FailureCopy.ghostexNotAnswering;
           } else {
             notAnsweringSince.delete(machine.id);
           }
