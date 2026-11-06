@@ -41,6 +41,10 @@ export type ActionFields = {
   insertBoardReference: { reference: string; text: string; start?: number; end?: number };
   /** One of a board card's answers, sent to the coordinator ("B4: Yes"). */
   coordinatorBoardAnswer: { key: string; label: string; text: string };
+  /** "Don't show again" on the coordinator tips: gxserver drops their pill from every coordinator. Desktop: `coordinator_intro.rs`. */
+  hideCoordinatorIntro: {};
+  /** A coordinator tip's example put in the chat box at the caret; nothing is sent. */
+  useCoordinatorIntroExample: { example: string; text: string; start?: number; end?: number };
   /** The grouped background-task row's fold. Desktop: `background_tasks.rs`. */
   toggleBackgroundTasks: { open: boolean };
   /** Open one of the coordinator's threads: gxserver resumes it if closed, then the host opens its tab. */

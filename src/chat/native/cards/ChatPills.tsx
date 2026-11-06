@@ -53,6 +53,7 @@ import type { SessionLinksChatPill } from '../sessionLinks';
 import { Glyph as TranscriptGlyph } from '../transcript/icons';
 import { AgentFleetMenu, AgentTasksMenu, CoordinatorThreadsMenu } from './AgentPanels';
 import { CoordinatorBoardMenu, type BoardFocus } from './CoordinatorBoard';
+import { CoordinatorIntroMenu, INTRO_PILL, coordinatorIntro } from './CoordinatorIntro';
 import { SideChatsMenu } from './SideChats';
 import { Glyph } from './icons';
 import { obj } from './json';
@@ -458,7 +459,9 @@ export function Pill({ pill, open, onPress }: { pill: ChatPill; open: boolean; o
                       ? 'layout-board-split'
                       : pill.id === 'approvals'
                         ? 'shield-check'
-                        : 'users'
+                        : pill.id === INTRO_PILL
+                          ? 'bulb'
+                          : 'users'
         }
         size={12}
         color={P.cardMuted}
@@ -534,6 +537,8 @@ export function PillMenuSheet({
   useEffect(() => {
     if (!questions) setFiltersOpen(false);
   }, [questions]);
+  // The coordinator tips' "Don't show again", which applies when their sheet closes.
+  const [introDontShow, setIntroDontShow] = useState(false);
   const shown = questions
     ? ({ id: 'resources', label: 'Chat Resources' } as ChatPill)
     : (document.chatPills ?? []).find((pill) => pill.id === open);
@@ -546,6 +551,8 @@ export function PillMenuSheet({
     if (open === 'threads') chat.dispatch({ type: 'toggleCoordinatorThreadsMore', step: 0 });
     // The done tasks come back in their short form the next time the sheet opens.
     if (open === 'tasks') chat.dispatch({ type: 'toggleAgentTasksCompleted', step: 0 });
+    if (open === INTRO_PILL && introDontShow) chat.dispatch({ type: 'hideCoordinatorIntro' });
+    setIntroDontShow(false);
     onClose();
   };
   const background = obj(document.backgroundTasksPanel);
@@ -553,7 +560,7 @@ export function PillMenuSheet({
     <Sheet
       visible={shown !== undefined}
       onClose={close}
-      title={shown?.label ?? ''}
+      title={open === INTRO_PILL ? (coordinatorIntro(document)?.title ?? shown?.label ?? '') : (shown?.label ?? '')}
       accessory={
         questions ? (
           <QuestionsFilterTrigger document={document} onPress={() => setFiltersOpen((was) => !was)} />
@@ -564,6 +571,14 @@ export function PillMenuSheet({
         <CoordinatorThreadsMenu chat={chat} document={document} onDone={close} />
       ) : open === 'board' ? (
         <CoordinatorBoardMenu chat={chat} document={document} onDone={close} focus={boardFocus} />
+      ) : open === INTRO_PILL ? (
+        <CoordinatorIntroMenu
+          chat={chat}
+          document={document}
+          dontShowAgain={introDontShow}
+          onDontShowAgain={setIntroDontShow}
+          onDone={close}
+        />
       ) : open === 'approvals' ? (
         <RelayedApprovalsMenu chat={chat} document={document} />
       ) : open === 'sideChats' ? (
