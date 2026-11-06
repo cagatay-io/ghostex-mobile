@@ -13,8 +13,8 @@
  * opened over it), full screen while the Usage screen is open.
  *
  * In a pane its rows keep off a book fold (`controlInset`) and it reaches no side bar; full screen it reaches under
- * the side bar and, half folded like a laptop, ends above the fold (`FoldListFrame`, `foldGap.tsx`), as the app's
- * other lists do.
+ * the side bar and, half folded like a laptop, ends above the fold with the lower half empty (`FoldListFrame`,
+ * `foldGap.tsx`), as the Settings pages and the app's other scroll view pages do.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
