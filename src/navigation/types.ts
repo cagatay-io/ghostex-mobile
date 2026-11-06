@@ -97,8 +97,12 @@ export type RootStackParamList = {
   Feedback: { machineId?: string; crashReportId?: string; collectWithAgent?: boolean } | undefined;
   /** Settings home: the list of Settings pages. */
   Settings: undefined;
-  /** One Settings page (Interface, Chat, Terminal, Keyboard, Notifications, Connection, Updates, Advanced). */
-  SettingsPage: { page: SettingsPageId };
+  /**
+   * One Settings page (Interface, Chat, Terminal, Keyboard, Notifications, Connection, Updates, Advanced).
+   * `listOffset`: in two columns, where the Settings list stood when a row opened this page, so the
+   * list this screen draws starts there.
+   */
+  SettingsPage: { page: SettingsPageId; listOffset?: number };
   /** Notifications: the attention list, the computers' notification feeds (the bell on the Sessions screen). */
   AttentionList: undefined;
   /**
