@@ -142,4 +142,11 @@ describe('machineForSameComputer', () => {
     assert.equal(machineForSameComputer(machines, tokenOf, LIVE), null);
     assert.equal(machineForSameComputer(machines, tokenOf, 'tcbroken'), null);
   });
+
+  test('finds a computer by the second address it gave the phone, which has a server key of its own', () => {
+    // Record `b` was paired on B1; the computer later gave it LIVE (its address on our relay) too.
+    const addressesOf = (id: string): readonly string[] => (id === 'b' ? [B1, LIVE] : []);
+    assert.equal(machineForSameComputer(machines, tokenOf, LIVE, null, addressesOf)?.id, 'b');
+    assert.equal(machineForSameComputer(machines, tokenOf, LIVE, 'b', addressesOf), null);
+  });
 });

@@ -2,7 +2,7 @@
  * Machine credential storage.
  * - Saved credentials live in the platform secure store (Keychain/Keystore via
  *   expo-secure-store), keyed `machine.<id>.password` / `.sshkey` /
- *   `.passphrase` / `.publickey` / `.tailcattoken` / `.apitoken`.
+ *   `.passphrase` / `.publickey` / `.tailcattoken` / `.apitoken` / `.easyconnectaddresses`.
  * - Passwords entered with savePassword=false live only in an in-memory map
  *   for this app run.
  */
@@ -12,7 +12,8 @@ import * as SecureStore from 'expo-secure-store';
 import type { SshConfig } from '../../modules/ghostex-native/src';
 import { useSettingsStore } from '../settings/store';
 
-type CredentialKind = 'password' | 'sshkey' | 'passphrase' | 'publickey' | 'tailcattoken' | 'apitoken';
+type CredentialKind =
+  'password' | 'sshkey' | 'passphrase' | 'publickey' | 'tailcattoken' | 'apitoken' | 'easyconnectaddresses';
 
 /**
  * How the phone reaches a machine. `ssh` (or absent) dials host:port directly;
@@ -126,6 +127,18 @@ export function setDeviceApiToken(machineId: string, token: string): Promise<voi
   return setCredential(machineId, 'apitoken', token);
 }
 
+/**
+ * Every Easy Connect address the computer gave this phone (`easyConnectAddresses.ts`), as JSON. The
+ * address saved at pairing (`tailcattoken`) is kept apart and never rewritten from this list.
+ */
+export function getEasyConnectAddresses(machineId: string): Promise<string | null> {
+  return getCredential(machineId, 'easyconnectaddresses');
+}
+
+export function setEasyConnectAddresses(machineId: string, encoded: string): Promise<void> {
+  return setCredential(machineId, 'easyconnectaddresses', encoded);
+}
+
 /** Remove every stored credential for a machine (used when deleting it). */
 export async function deleteAllCredentials(machineId: string): Promise<void> {
   clearSessionPassword(machineId);
@@ -136,6 +149,7 @@ export async function deleteAllCredentials(machineId: string): Promise<void> {
     deleteCredential(machineId, 'publickey'),
     deleteCredential(machineId, 'tailcattoken'),
     deleteCredential(machineId, 'apitoken'),
+    deleteCredential(machineId, 'easyconnectaddresses'),
   ]);
 }
 

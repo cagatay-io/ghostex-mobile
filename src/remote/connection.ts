@@ -1,7 +1,12 @@
-import { GhostexNative } from '../../modules/ghostex-native/src';
+import { GhostexNative, type SshConfig } from '../../modules/ghostex-native/src';
 import { resolveSshConfig, type MachineConnectionTarget } from '../machines/credentials';
 import { forgetRemoteEnvironment } from './commands';
 import { isCloudBoxMachineId } from '../cloudBoxes/types';
+import {
+  easyConnectDialCandidates,
+  noteEasyConnectDial,
+  refreshEasyConnectAddressesSoon,
+} from '../machines/easyConnectDial';
 
 type Attempt = { promise: Promise<void>; reset: boolean; verify: boolean };
 const attempts = new Map<string, Attempt>();
@@ -64,7 +69,12 @@ export function ensureConnected(
     const config = await resolveSshConfig(machine);
     assertCurrent();
     forgetRemoteEnvironment(machine.id);
-    await GhostexNative.connect(machine.id, config);
+    if (machine.transport === 'tailcat') {
+      await connectEasyConnect(machine, config, assertCurrent);
+      refreshEasyConnectAddressesSoon(machine);
+    } else {
+      await GhostexNative.connect(machine.id, config);
+    }
     assertCurrent();
   })();
   const attempt = { promise, reset: options.reset === true, verify: options.verify === true };
@@ -74,6 +84,40 @@ export function ensureConnected(
   };
   void promise.then(clear, clear);
   return promise;
+}
+
+/**
+ * Dials an Easy Connect machine at each of its addresses in turn (ours first, then the public
+ * relays; CDXC:RemotePairing 2026-11-06 in machines/easyConnectAddresses.ts) until one connects,
+ * and throws the last failure when none does.
+ */
+async function connectEasyConnect(
+  machine: MachineConnectionTarget,
+  config: SshConfig,
+  assertCurrent: () => void,
+): Promise<void> {
+  const candidates = await easyConnectDialCandidates(machine.id);
+  assertCurrent();
+  if (candidates.length === 0) {
+    await GhostexNative.connect(machine.id, config);
+    return;
+  }
+  for (let index = 0; ; index += 1) {
+    const candidate = candidates[index]!;
+    const next = candidates[index + 1] ?? null;
+    const startedAt = Date.now();
+    try {
+      await GhostexNative.connect(machine.id, { ...config, tailcatToken: candidate.address });
+      noteEasyConnectDial(machine.id, candidate, { ok: true, elapsedMs: Date.now() - startedAt });
+      return;
+    } catch (error) {
+      noteEasyConnectDial(machine.id, candidate, { ok: false, elapsedMs: Date.now() - startedAt, next });
+      if (next === null) throw error;
+      assertCurrent();
+      // A half-built connection must not be what the next address's connect finds.
+      await GhostexNative.disconnect(machine.id).catch(() => undefined);
+    }
+  }
 }
 
 /** True when the shared connection still answers a trivial command. */

@@ -217,12 +217,17 @@ export function dedupeMachineRecords(
   return { machines: next, merges };
 }
 
-/** The saved Easy Connect machine (other than `ignoreId`) whose address names the same computer as `address`. */
+/**
+ * The saved Easy Connect machine (other than `ignoreId`) whose address names the same computer as
+ * `address`: its paired address, or any address in the list the computer gave it (`addressesOf`),
+ * since a computer's address on Ghostex's relay has a server key of its own.
+ */
 export function machineForSameComputer(
   machines: readonly MachineRecord[],
   tokenOf: (machineId: string) => string | null,
   address: string,
   ignoreId: string | null = null,
+  addressesOf: (machineId: string) => readonly string[] = () => [],
 ): MachineRecord | null {
   const serverKey = tailcatServerKey(address);
   if (serverKey === null) return null;
@@ -230,7 +235,8 @@ export function machineForSameComputer(
     machines.find((machine) => {
       if (machine.id === ignoreId || machine.transport !== 'tailcat') return false;
       const token = tokenOf(machine.id);
-      return token !== null && tailcatServerKey(token) === serverKey;
+      const known = [...(token === null ? [] : [token]), ...addressesOf(machine.id)];
+      return known.some((entry) => tailcatServerKey(entry) === serverKey);
     }) ?? null
   );
 }

@@ -20,7 +20,17 @@ import { Platform } from 'react-native';
 
 import { GhostexNative } from '../../modules/ghostex-native/src';
 import { machineForSameComputer } from './computerIdentity';
-import { getTailcatToken, setDeviceApiToken, setPassphrase, setPublicKey, setSshKey } from './credentials';
+import {
+  getEasyConnectAddresses,
+  getTailcatToken,
+  setDeviceApiToken,
+  setEasyConnectAddresses,
+  setPassphrase,
+  setPublicKey,
+  setSshKey,
+} from './credentials';
+import { decodeSavedAddresses } from './easyConnectAddresses';
+import { saveEasyConnectAddresses } from './easyConnectDial';
 import type { EasyConnectCode } from './pairingCodes';
 import { tailcatSyntheticHost, useMachinesStore, type MachineRecord } from './store';
 
@@ -55,6 +65,8 @@ export type PairDeviceResponse = {
   computerName: string;
   /** The phone's own API token; absent from a computer whose Ghostex predates device tokens. */
   deviceApiToken: string | null;
+  /** Every address the computer serves, ours first (`easyConnectAddresses.ts`); absent from an older Ghostex. */
+  easyConnectAddresses: unknown;
 };
 
 export type EasyConnectPairingFailure =
@@ -124,6 +136,7 @@ function parsePairDeviceResponse(body: unknown): PairDeviceResponse {
     user: result.user,
     computerName: result.computerName,
     deviceApiToken: typeof result.deviceApiToken === 'string' ? result.deviceApiToken : null,
+    easyConnectAddresses: result.easyConnectAddresses,
   };
 }
 
@@ -174,7 +187,25 @@ async function savedMachineForComputer(address: string): Promise<string | null> 
   const tokens = new Map<string, string | null>(
     await Promise.all(tailcat.map(async (machine) => [machine.id, await getTailcatToken(machine.id)] as const)),
   );
-  return machineForSameComputer(tailcat, (id) => tokens.get(id) ?? null, address)?.id ?? null;
+  // A computer's second address has its own server key, so a record saved with the other address is
+  // found through the address list the computer gave it.
+  const lists = new Map<string, string[]>(
+    await Promise.all(
+      tailcat.map(async (machine) => {
+        const saved = decodeSavedAddresses(await getEasyConnectAddresses(machine.id));
+        return [machine.id, (saved?.addresses ?? []).map((entry) => entry.address)] as const;
+      }),
+    ),
+  );
+  return (
+    machineForSameComputer(
+      tailcat,
+      (id) => tokens.get(id) ?? null,
+      address,
+      null,
+      (id) => lists.get(id) ?? [],
+    )?.id ?? null
+  );
 }
 
 async function saveEasyConnectMachine(
@@ -272,6 +303,11 @@ export async function pairEasyConnect(
         // A re-pair with a computer that sent none drops the old one, which that computer revoked.
         setDeviceApiToken(machine.id, registration.deviceApiToken ?? ''),
       ]);
+      // The QR carries one address; the reply names the fallback too. A computer that sends no list
+      // leaves the phone dialing the scanned address alone, as before.
+      if (!(await saveEasyConnectAddresses(machine.id, registration.easyConnectAddresses))) {
+        await setEasyConnectAddresses(machine.id, '');
+      }
       return { ok: true, machine };
     } finally {
       // The machine's own forward (keyed on its id) starts on first connect;
