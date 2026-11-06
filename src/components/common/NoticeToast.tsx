@@ -5,7 +5,7 @@
  * With the system's Reduce Motion on (followed live) a notice appears and leaves at once, without a fade.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 
 import { GhostexPalette } from '../../theme/palette';
@@ -21,12 +21,11 @@ export default function NoticeToast({ notice, bottom }: { notice: Notice | null;
   const [shown, setShown] = useState<Notice | null>(null);
   const reduceMotion = useReduceMotion();
   // Read when a notice comes or goes, so switching the setting does not show the current notice again.
-  const reduceMotionRef = useRef(reduceMotion);
-  reduceMotionRef.current = reduceMotion;
+  const reducesMotion = useEffectEvent(() => reduceMotion);
   useEffect(() => {
     // Only a fade that ran to its end hides the toast: one stopped by the next notice leaves that notice shown.
     const hide = () => {
-      if (reduceMotionRef.current) {
+      if (reducesMotion()) {
         opacity.stopAnimation();
         opacity.setValue(0);
         setShown(null);
@@ -41,7 +40,7 @@ export default function NoticeToast({ notice, bottom }: { notice: Notice | null;
       return undefined;
     }
     setShown(notice);
-    if (reduceMotionRef.current) {
+    if (reducesMotion()) {
       opacity.stopAnimation();
       opacity.setValue(1);
     } else {

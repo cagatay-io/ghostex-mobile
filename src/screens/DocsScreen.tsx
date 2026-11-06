@@ -317,8 +317,12 @@ export default function DocsScreen({ navigation, route }: Props) {
   // layout effect when the window's new size is committed (before that frame is painted), and again in the held
   // row's and the filter button's own layout callbacks whenever the list lays them out later; no timer guesses.
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  // The follow callbacks stay the same functions (the effect below runs on window changes only) and read the
+  // menus committed last; set here, before that effect and before any layout callback of this commit.
   const openMenus = useRef({ rowMenu, filterMenu });
-  openMenus.current = { rowMenu, filterMenu };
+  useLayoutEffect(() => {
+    openMenus.current = { rowMenu, filterMenu };
+  }, [filterMenu, rowMenu]);
   const followRowMenu = useCallback(() => {
     const row = openMenus.current.rowMenu;
     if (row?.open !== true) return;
