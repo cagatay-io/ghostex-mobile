@@ -12,6 +12,7 @@ import ReadAloudVoicePage from './ReadAloudVoicePage';
 import { SettingsColumnsFrame } from './SettingsColumns';
 import SessionsListPage from './SessionsListPage';
 import SoundsPage from './SoundsPage';
+import SyncPage from './SyncPage';
 import TerminalPage from './TerminalPage';
 import { SettingsPageBoundary } from './SectionBoundary';
 import ThemePage from './ThemePage';
@@ -57,6 +58,8 @@ function SettingsPageBody({ page }: { page: SettingsPageId }) {
       return <SoundsPage />;
     case 'connection':
       return <ConnectionPage />;
+    case 'sync':
+      return <SyncPage />;
     case 'advanced':
       return <AdvancedPage />;
     case 'readAloudVoice':

@@ -42,6 +42,8 @@ export type GhostexSettings = {
   fileUploadButtonVisible: boolean;
   keyboardButtonVisible: boolean;
   doneNotificationSound: boolean;
+  /** This phone carries settings sync between the computers it connects to (src/settingsSync/). */
+  settingsSyncThroughPhone: boolean;
   hideKeyboardOnStartup: boolean;
   openUrlsOnTap: boolean;
   confirmTabClose: boolean;
@@ -164,6 +166,7 @@ export function defaultSettings(): GhostexSettings {
     fileUploadButtonVisible: true,
     keyboardButtonVisible: false,
     doneNotificationSound: true,
+    settingsSyncThroughPhone: true,
     hideKeyboardOnStartup: true,
     openUrlsOnTap: true,
     confirmTabClose: false,
@@ -270,6 +273,7 @@ function sanitizeSettings(value: unknown): GhostexSettings {
     fileUploadButtonVisible: bool('fileUploadButtonVisible', defaults.fileUploadButtonVisible),
     keyboardButtonVisible: bool('keyboardButtonVisible', defaults.keyboardButtonVisible),
     doneNotificationSound: bool('doneNotificationSound', defaults.doneNotificationSound),
+    settingsSyncThroughPhone: bool('settingsSyncThroughPhone', defaults.settingsSyncThroughPhone),
     hideKeyboardOnStartup: bool('hideKeyboardOnStartup', defaults.hideKeyboardOnStartup),
     openUrlsOnTap: bool('openUrlsOnTap', defaults.openUrlsOnTap),
     confirmTabClose: bool('confirmTabClose', defaults.confirmTabClose),

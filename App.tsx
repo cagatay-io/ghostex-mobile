@@ -21,6 +21,7 @@ import { checkForCrashReport, noteCrashRoute } from './src/app/crashReports';
 import { reportMobileView } from './src/analytics/clientView';
 import { flushPendingDeepLink, initDeepLinks, navigationRef } from './src/app/deepLinks';
 import { initAppLifecycle } from './src/app/lifecycle';
+import { initSettingsSync } from './src/settingsSync/settingsSync';
 import { initPersistentNotification } from './src/app/persistentNotification';
 import { useMachinesStore } from './src/machines/store';
 import { useAgentHotkeysStore } from './src/settings/agentHotkeys';
@@ -132,6 +133,7 @@ export default function App() {
     initDeepLinks();
     initAlerts();
     initAutoReconnect();
+    initSettingsSync();
     initTerminalKeepAwake();
     initChatGridClaim();
     initAndroidSelfUpdate();

@@ -17,6 +17,7 @@ export type SettingsPageId =
   | 'keyboard'
   | 'sounds'
   | 'connection'
+  | 'sync'
   | 'advanced'
   | 'readAloudVoice'
   | 'dictateLanguage'
@@ -32,6 +33,7 @@ export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, { title: string; de
   keyboard: { title: 'Keyboard', description: 'Extra keys row and agent hotkeys.' },
   sounds: { title: 'Sounds', description: 'A sound when an agent needs you.' },
   connection: { title: 'Connection', description: 'Reconnecting to your computer.' },
+  sync: { title: 'Sync', description: 'Carrying Spaces and settings between your computers.' },
   advanced: { title: 'Advanced', description: 'Older settings most people never change.' },
   // Opened from Settings › Chat's Read aloud rows, not listed on the Settings home.
   readAloudVoice: { title: 'Read aloud voice', description: "Which of this phone's voices reads replies aloud." },
@@ -50,5 +52,6 @@ export const SETTINGS_PAGE_ORDER: readonly SettingsPageId[] = [
   'keyboard',
   'sounds',
   'connection',
+  'sync',
   'advanced',
 ];
