@@ -1,7 +1,7 @@
 /**
  * The card a published HTML page (`ghostex show`) gets in the transcript: a window bar with three
  * dots and the file name, a scaled-down picture of the page fading out at its bottom, then the
- * title, "Interactive page · file.html", the Answered pill once the page's answers were sent (or a
+ * title, "Ghostex page · file.html", the Answered pill once the page's answers were sent (or a
  * Withdrawn pill once a later block withdrew its questions), and
  * Open. Until the picture exists (the desktop app takes it the first time the page is opened in its
  * floating page window) the window shows a page icon and the file name. A touch screen has no hover, so the
@@ -68,7 +68,7 @@ function PageCardBody({
   const flags = useTranscriptFlags();
   const url = str(answer, 'url');
   const file = str(answer, 'file');
-  const title = str(answer, 'title') || 'Page';
+  const title = str(answer, 'title') || 'Ghostex page';
   const pageId = str(answer, 'pageId');
   const answered = pageId.length > 0 && flags.answeredPages.has(pageId);
   // Its questions a later block withdrew, some or all (desktop `page_card.rs`): the card says so
@@ -108,7 +108,7 @@ function PageCardBody({
 
   const open = () => dispatch({ type: 'openMarkdownLink', href: url, external: false });
   const picture = entry?.png ?? null;
-  const detail = file.length > 0 ? `Interactive page · ${file}` : 'Interactive page';
+  const detail = file.length > 0 ? `Ghostex page · ${file}` : 'Ghostex page';
   const good = answeredColor(theme.light);
   return (
     <Pressable

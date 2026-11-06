@@ -219,7 +219,7 @@ export function VisualBlock({ source }: { source: string }) {
                 onPress={() => setShowSource((value) => !value)}
                 accessibilityRole="button"
               >
-                <Text style={[styles.actionText, { color: theme.muted }]}>{showSource ? 'Chart' : 'Source'}</Text>
+                <Text style={[styles.actionText, { color: theme.muted }]}>{showSource ? 'Visual' : 'Source'}</Text>
               </Pressable>
             ) : null}
             <Pressable style={styles.action} onPress={copy} accessibilityRole="button" accessibilityLabel="Copy source">

@@ -330,10 +330,10 @@ export function PageSheet({ chat, machine, page, onClose, onOpenLink }: PageShee
         <View style={styles.bar}>
           <View style={styles.heading}>
             <Text numberOfLines={1} style={styles.title}>
-              {title.length > 0 ? title : 'Page'}
+              {title.length > 0 ? title : 'Ghostex page'}
             </Text>
             <Text numberOfLines={1} style={[styles.detail, armed && { color: P.foreground }]}>
-              {armed ? 'Press back again to close' : 'Interactive page'}
+              {armed ? 'Press back again to close' : 'Ghostex page'}
             </Text>
           </View>
           {changed || refreshing ? (

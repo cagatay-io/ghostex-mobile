@@ -876,7 +876,7 @@ export type OpenQuestionsState = {
   summary?: string;
   /** The ? pill's list for the picked filter, in order, each only when it has rows (newest first). */
   sections?: QuestionListSection[];
-  /** All, Html, Q&A and Charts over the list, each with its count. */
+  /** All, Pages, Forms and Visuals over the list, each with its count. */
   filters?: { id: 'all' | 'html' | 'qa' | 'charts'; label: string; count: number }[];
   /** The picked filter's id; `questionListFilter` picks one. */
   filter?: string;

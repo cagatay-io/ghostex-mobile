@@ -224,7 +224,7 @@ export function QuestionFormCard({ id, source }: { id: string; source: string })
         head={
           <AskHead
             singleLine
-            title={str(form, 'title') || 'Questions'}
+            title={str(form, 'title') || 'Ghostex form'}
             trailing={<SingleLinePill icon="check" label="Answered" color={answeredColor(theme.light)} />}
             accessibilityLabel={open ? 'Hide the questions' : 'Show the questions'}
             onPress={() => dispatch({ type: 'formToggle', form: id })}
@@ -238,7 +238,7 @@ export function QuestionFormCard({ id, source }: { id: string; source: string })
   const head = (
     <AskHead
       lead={<SingleLineTile glyph="checklist" ring={theme.cardPanel} />}
-      title={str(form, 'title') || 'Questions'}
+      title={str(form, 'title') || 'Ghostex form'}
       detail={detail}
       trailing={state}
     />
