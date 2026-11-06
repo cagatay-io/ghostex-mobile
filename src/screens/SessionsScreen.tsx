@@ -11,7 +11,6 @@ import { projectChoicesNow } from './sessions-screen/new-session-place';
 import {
   AppState,
   BackHandler,
-  FlatList,
   Platform,
   Pressable,
   RefreshControl,
@@ -124,6 +123,7 @@ import {
   type Overlay,
 } from './sessions-screen/session-actions';
 import { closeConfirmCopy } from './sessions-screen/close-confirm';
+import { SessionList } from './sessions-screen/session-list';
 import { SessionsBottomBar } from './sessions-screen/BottomBar';
 import { SESSIONS_HEADER_HEIGHT, styles } from './sessions-screen/styles';
 import { useSessionsScreenActions } from './sessions-screen/use-sessions-screen-actions';
@@ -966,25 +966,28 @@ export default function SessionsScreen({ navigation }: Props) {
         />
       ) : null}
       <View style={styles.listArea}>
-        {unified.on ? (
-          <FlatList
-            data={unified.items}
-            keyExtractor={unified.keyExtractor}
-            renderItem={unified.renderItem}
-            style={[styles.list, listEdges.scroll]}
-            contentContainerStyle={[styles.listContent, listEdges.content]}
-            refreshControl={listRefreshControl}
-            ListFooterComponent={listFooter}
-          />
-        ) : (
-          <FlatList
-            data={visibleEntries.blocks}
-            keyExtractor={(entry) => entry.listKey}
-            renderItem={renderBlock}
-            style={[styles.list, listEdges.scroll]}
-            contentContainerStyle={[styles.listContent, listEdges.content]}
-            refreshControl={listRefreshControl}
-            ListFooterComponent={
+        <SessionList
+          unified={
+            unified.on
+              ? {
+                  data: unified.items,
+                  keyExtractor: unified.keyExtractor,
+                  renderItem: unified.renderItem,
+                  style: [styles.list, listEdges.scroll],
+                  contentContainerStyle: [styles.listContent, listEdges.content],
+                  refreshControl: listRefreshControl,
+                  ListFooterComponent: listFooter,
+                }
+              : null
+          }
+          classic={{
+            data: visibleEntries.blocks,
+            keyExtractor: (entry) => entry.listKey,
+            renderItem: renderBlock,
+            style: [styles.list, listEdges.scroll],
+            contentContainerStyle: [styles.listContent, listEdges.content],
+            refreshControl: listRefreshControl,
+            ListFooterComponent: (
               <>
                 {visibleEntries.emptyProjects > 0 ? (
                   <Pressable
@@ -1001,9 +1004,9 @@ export default function SessionsScreen({ navigation }: Props) {
                 ) : null}
                 {listFooter}
               </>
-            }
-          />
-        )}
+            ),
+          }}
+        />
         {noticeTarget !== null && selectedNotice !== null ? (
           <MachineNotice
             notice={unified.on && selectedNotice.kind === 'failure'

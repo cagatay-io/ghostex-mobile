@@ -520,7 +520,8 @@ export function useTerminalAgentActions({
   /**
    * "Send & Attach File" covers both sources: iOS's Files browser cannot see
    * the photo library, so the row asks which one to open instead of hard-wiring
-   * the document picker.
+   * the document picker. The pad's Upload key and the round upload button ask
+   * the same question.
    */
   const promptAttachmentSource = useCallback((): void => {
     Alert.alert('Send & Attach File', undefined, [
@@ -678,7 +679,7 @@ export function useTerminalAgentActions({
     promptEditorDraft,
     pushPromptEditorDraft,
     submitPromptEditor,
-    handleUpload,
+    promptAttachmentSource,
     handleRefresh,
     handleMenuAction,
     handleMenuDismissed,

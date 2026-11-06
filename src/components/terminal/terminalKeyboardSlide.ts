@@ -10,19 +10,20 @@
  * Keyboard geometry of the iOS terminal (docs/specs/terminal-screen.md §2 "Keyboard: the terminal slides").
  * The terminal view keeps its size while the software keyboard comes and goes, so its grid (columns x
  * rows) and the pty behind it stay as they are; the view slides up instead, by as much as the cursor row
- * puts the bottom row above the key bar (above the keyboard, with the key bar off), or less when that would push the cursor row out at the top. All lengths are
+ * puts the bottom row above what covers it (the keyboard, the text editor on it, or a Befehlspad layer in its
+ * place), or less when that would push the cursor row out at the top. All lengths are
  * points, in the terminal view's own coordinates (y grows downwards from its top edge) unless named
  * otherwise.
  */
 
 /**
  * How much of the terminal view's bottom is covered while the keyboard (`keyboardOverlap`: from the
- * window's bottom edge up) and the key bar on top of it (`keyBarHeight`, 0 while it is off) are shown.
+ * window's bottom edge up) and what rides on it (`dockHeight`: the text editor, 0 while it is closed) are shown.
  * The view ends `bottomInset` above the window's bottom edge (the home indicator's margin), so that much
  * of the cover is not over the view.
  */
-export function terminalObstruction(keyboardOverlap: number, keyBarHeight: number, bottomInset: number): number {
-  return Math.max(0, keyboardOverlap + keyBarHeight - bottomInset);
+export function terminalObstruction(keyboardOverlap: number, dockHeight: number, bottomInset: number): number {
+  return Math.max(0, keyboardOverlap + dockHeight - bottomInset);
 }
 
 /**

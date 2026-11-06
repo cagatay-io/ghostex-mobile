@@ -4,7 +4,9 @@
  * page window. The page comes from the computer's gxserver through the chat's own forward
  * (`webPreview/machineLinks.ts`) and wears the chat's theme from its first paint. Like the desktop's
  * window it closes once the page's answers are sent (CDXC:SessionChat 2026-10-11 on
- * apps/desktop/src/app/window/visual_page_modal.rs).
+ * apps/desktop/src/app/window/visual_page_modal.rs). Half folded like a laptop the page, with its loading and
+ * failure states (Retry), ends 8 pt above the fold under the bar: the page is the computer's content with controls of
+ * its own that the app cannot move off the knick, so it keeps to the upper screen, where the keyboard never comes.
  *
  * CDXC:SessionChat 2026-10-23 DECISION:
  * User answered "Yes, after the desktop" when asked whether the phone's page gets the desktop page window's features (the 2026-10-22 decisions on apps/desktop/src/app/window/visual_page_modal.rs): tapping a picture in the page opens the chat's image viewer over the page with every picture of the page, the page is harder to lose, reopening it goes back to where it was scrolled, and a Refresh button appears when its file changed on the computer. Asked how Android's back closes the sheet, the user picked "Two presses within 2 seconds"; asked whether pages published with `ghostex show --browser` also open here, "Yes, every page opens in the sheet" (unlike the desktop, which sends those to the browser).
@@ -21,6 +23,8 @@ import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
 
 import { GhostexNative } from '../../../../modules/ghostex-native/src';
+import { foldUpperHalfInset } from '../../../components/common/verticalBar/layout';
+import { useLaptopFold } from '../../../components/common/verticalBar/laptopFold';
 import { useVerticalBarSpace } from '../../../components/common/verticalBar/VerticalBarArea';
 import { WebPreviewCopy } from '../../../copy';
 import type { MachineConnectionTarget } from '../../../machines/credentials';
@@ -90,6 +94,10 @@ export function PageSheet({ chat, machine, page, onClose, onOpenLink }: PageShee
   const P = useTranscriptTheme();
   const insets = useSafeAreaInsets();
   const bar = useVerticalBarSpace();
+  // Laptop pose: the page area's bottom edge in the window (the sheet covers the window from its top), so the page
+  // ends above the fold.
+  const fold = useLaptopFold();
+  const [pageBottom, setPageBottom] = useState<number | null>(null);
   const webviewRef = useRef<WebView<object>>(null);
   // The machine record is rebuilt on every connection the inventory records; only its id matters.
   const machineRef = useRef(machine);
@@ -317,6 +325,8 @@ export function PageSheet({ chat, machine, page, onClose, onOpenLink }: PageShee
 
   if (page === null) return null;
   const retry = () => setAttempt((current) => current + 1);
+  // What the page leaves free above the area's bottom in the laptop pose; 0 elsewhere.
+  const pageInset = pageBottom === null ? 0 : foldUpperHalfInset(fold, pageBottom);
   return (
     <Modal
       visible
@@ -364,54 +374,61 @@ export function PageSheet({ chat, machine, page, onClose, onOpenLink }: PageShee
             <Glyph name="x" size={18} color={P.primary} />
           </Pressable>
         </View>
-        <View style={styles.page}>
-          {uri !== null ? (
-            <WebView<object>
-              ref={webviewRef}
-              source={{ uri }}
-              originWhitelist={['http://*', 'https://*']}
-              style={styles.webview}
-              injectedJavaScriptBeforeContentLoaded={PAGE_SCRIPT}
-              injectedJavaScript={PAGE_SCRIPT}
-              onMessage={received}
-              onShouldStartLoadWithRequest={shouldStartLoad}
-              onLoadStart={() => setFailure(null)}
-              onLoadEnd={() => setLoading(false)}
-              onNavigationStateChange={(state) => setTitle(state.title?.startsWith('http') ? '' : (state.title ?? ''))}
-              onError={(event) => {
-                event.preventDefault();
-                // A link this sheet sent elsewhere comes back as a cancelled load, not a failure.
-                const { code, description } = event.nativeEvent;
-                if (code === -999 || description.includes('ERR_ABORTED')) return;
-                setFailure({
-                  message: WebPreviewCopy.forwardedPageFailed(page.remotePort),
-                  hint: WebPreviewCopy.connectionLostHint,
-                });
-              }}
-              renderError={() => <View style={styles.webview} />}
-              // Links the page opens leave through `onOpenLink`, never as a window of their own.
-              setSupportMultipleWindows={false}
-              allowsLinkPreview={false}
-              webviewDebuggingEnabled={__DEV__}
-            />
-          ) : null}
-          {failure !== null ? (
-            <View style={styles.state}>
-              <Text style={styles.stateBody}>{failure.message}</Text>
-              {failure.hint.length > 0 ? <Text style={styles.stateHint}>{failure.hint}</Text> : null}
-              <Pressable
-                accessibilityRole="button"
-                onPress={retry}
-                style={({ pressed }) => [styles.retry, pressed && { backgroundColor: P.input }]}
-              >
-                <Text style={styles.retryText}>{WebPreviewCopy.retryButton}</Text>
-              </Pressable>
-            </View>
-          ) : loading ? (
-            <View style={styles.state} pointerEvents="none">
-              <ActivityIndicator color={P.muted} />
-            </View>
-          ) : null}
+        <View
+          style={styles.page}
+          onLayout={(event) => setPageBottom(event.nativeEvent.layout.y + event.nativeEvent.layout.height)}
+        >
+          <View testID="page-area" style={[styles.page, pageInset > 0 && { marginBottom: pageInset }]}>
+            {uri !== null ? (
+              <WebView<object>
+                ref={webviewRef}
+                source={{ uri }}
+                originWhitelist={['http://*', 'https://*']}
+                style={styles.webview}
+                injectedJavaScriptBeforeContentLoaded={PAGE_SCRIPT}
+                injectedJavaScript={PAGE_SCRIPT}
+                onMessage={received}
+                onShouldStartLoadWithRequest={shouldStartLoad}
+                onLoadStart={() => setFailure(null)}
+                onLoadEnd={() => setLoading(false)}
+                onNavigationStateChange={(state) =>
+                  setTitle(state.title?.startsWith('http') ? '' : (state.title ?? ''))
+                }
+                onError={(event) => {
+                  event.preventDefault();
+                  // A link this sheet sent elsewhere comes back as a cancelled load, not a failure.
+                  const { code, description } = event.nativeEvent;
+                  if (code === -999 || description.includes('ERR_ABORTED')) return;
+                  setFailure({
+                    message: WebPreviewCopy.forwardedPageFailed(page.remotePort),
+                    hint: WebPreviewCopy.connectionLostHint,
+                  });
+                }}
+                renderError={() => <View style={styles.webview} />}
+                // Links the page opens leave through `onOpenLink`, never as a window of their own.
+                setSupportMultipleWindows={false}
+                allowsLinkPreview={false}
+                webviewDebuggingEnabled={__DEV__}
+              />
+            ) : null}
+            {failure !== null ? (
+              <View style={styles.state}>
+                <Text style={styles.stateBody}>{failure.message}</Text>
+                {failure.hint.length > 0 ? <Text style={styles.stateHint}>{failure.hint}</Text> : null}
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={retry}
+                  style={({ pressed }) => [styles.retry, pressed && { backgroundColor: P.input }]}
+                >
+                  <Text style={styles.retryText}>{WebPreviewCopy.retryButton}</Text>
+                </Pressable>
+              </View>
+            ) : loading ? (
+              <View style={styles.state} pointerEvents="none">
+                <ActivityIndicator color={P.muted} />
+              </View>
+            ) : null}
+          </View>
         </View>
       </View>
       {/* Inside the sheet's modal so it opens over the page, which stays open underneath. */}

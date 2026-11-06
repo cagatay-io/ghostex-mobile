@@ -6,13 +6,15 @@
  *
  * The rows are drawn by the transcript's row renderer when the screen hands one in
  * (`renderItem`), so a subagent's transcript reads like the main one; without it a plain reading
- * of each row stands in.
+ * of each row stands in. Half folded like a laptop the card starts below the fold and its rows scroll inside
+ * (`useFoldSheetTop`).
  */
 
 import type { ReactNode } from 'react';
 import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useFoldSheetTop } from '../../../components/common/foldAvoidance';
 import { useVerticalBarSpace } from '../../../components/common/verticalBar/VerticalBarArea';
 import { transcriptItemKey, type ProjectedMessage, type TranscriptItem } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
@@ -37,6 +39,7 @@ export function SubagentViewer({
   const P = useTranscriptTheme();
   const insets = useSafeAreaInsets();
   const bar = useVerticalBarSpace();
+  const foldTop = useFoldSheetTop();
   const state = obj(chat.state?.document?.subagent);
   const items = chat.state?.subagentItems ?? [];
   if (state === null) return null;
@@ -48,7 +51,7 @@ export function SubagentViewer({
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={close} statusBarTranslucent>
-      <View style={[styles.backdrop, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 12 }]}>
+      <View style={[styles.backdrop, { paddingTop: foldTop ?? insets.top + 12, paddingBottom: insets.bottom + 12 }]}>
         <Pressable accessibilityLabel="Close subagent transcript" style={StyleSheet.absoluteFill} onPress={close} />
         <View style={[styles.card, bar.margin]}>
           <View style={styles.header}>

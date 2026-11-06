@@ -23,6 +23,7 @@ import {
   type ViewInstance,
 } from 'react-native';
 
+import { useLaptopFold } from '../../../components/common/verticalBar/laptopFold';
 import type { Json } from '../../rust/document';
 import { useTranscriptEnv } from './context';
 import { useRevealFocusedField } from './fieldReveal';
@@ -55,18 +56,31 @@ const HINT_WIDTH = 236;
 const INFO_ICON_ROOM = 20;
 
 /**
- * A small (i) icon that shows `hint` in a bubble above it on a tap; a tap anywhere else closes it.
+ * A small (i) icon that shows `hint` in a bubble above it on a tap; a tap anywhere else closes it. Half folded like
+ * a laptop a bubble that would reach into the fold's band from below it stands under the icon instead (hints keep
+ * off the knick, as menus and sheets do).
  *
  * CDXC:SessionChat 2026-10-24 DECISION: User: "remove the text about skipped (add i icon there for that)". The footer's sentence wrapped into five lines beside the buttons on the phone, so the icon takes its place and the sentence shows on a tap (a hover tooltip on the computer, desktop `ask_info_hint` in ask_card.rs). Skip all and Send answers keep their size and place.
  */
 function InfoHint({ hint }: { hint: string }) {
   const { theme } = useTranscriptEnv();
   const icon = useRef<ViewInstance>(null);
-  const [anchor, setAnchor] = useState<{ x: number; y: number; width: number } | null>(null);
+  const [anchor, setAnchor] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [bubbleHeight, setBubbleHeight] = useState<number | null>(null);
   const screen = useWindowDimensions();
-  const close = () => setAnchor(null);
+  const fold = useLaptopFold();
+  const close = () => {
+    setAnchor(null);
+    setBubbleHeight(null);
+  };
   const left =
     anchor === null ? 0 : Math.max(12, Math.min(anchor.x + anchor.width / 2 - 24, screen.width - HINT_WIDTH - 12));
+  const underIcon =
+    anchor !== null &&
+    fold !== null &&
+    bubbleHeight !== null &&
+    anchor.y - 8 > fold.top &&
+    anchor.y - 8 - bubbleHeight < fold.bottom;
   return (
     <>
       <Pressable
@@ -75,7 +89,7 @@ function InfoHint({ hint }: { hint: string }) {
         accessibilityRole="button"
         accessibilityLabel={hint}
         hitSlop={12}
-        onPress={() => icon.current?.measureInWindow((x, y, width) => setAnchor({ x, y, width }))}
+        onPress={() => icon.current?.measureInWindow((x, y, width, height) => setAnchor({ x, y, width, height }))}
         style={styles.info}
       >
         <Glyph name="info-circle" size={17} color={theme.muted} />
@@ -85,11 +99,12 @@ function InfoHint({ hint }: { hint: string }) {
           <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="Close the hint" />
           <View
             pointerEvents="none"
+            onLayout={(event) => setBubbleHeight(event.nativeEvent.layout.height)}
             style={[
               styles.bubble,
               {
                 left,
-                bottom: screen.height - anchor.y + 8,
+                ...(underIcon ? { top: anchor.y + anchor.height + 8 } : { bottom: screen.height - anchor.y + 8 }),
                 backgroundColor: theme.light ? '#fefefe' : '#1d1d1d',
                 borderColor: theme.light ? '#e5e5e5' : 'rgba(255,255,255,0.1)',
               },
@@ -301,7 +316,12 @@ export function QuestionFormCard({ id, source }: { id: string; source: string })
         <SoftButton tight label="Skip all" onPress={() => dispatch({ type: 'formSkipAll', form: id })} />
       ) : null}
       {canceled ? null : (
-        <PrimaryButton tight label={sendLabel} disabled={!canSend} onPress={() => dispatch({ type: 'formSend', form: id })} />
+        <PrimaryButton
+          tight
+          label={sendLabel}
+          disabled={!canSend}
+          onPress={() => dispatch({ type: 'formSend', form: id })}
+        />
       )}
     </>
   );

@@ -84,6 +84,8 @@ export type RootStackParamList = {
   SettingsPage: { page: SettingsPageId };
   ExtraKeysEditor: undefined;
   AgentHotkeysEditor: undefined;
+  /** Settings > Keyboard > Pad keys: what the Befehlspad's nine positions do. */
+  CommandPadKeysEditor: undefined;
   /** Add Project step 1: pick a source on an already-chosen machine. */
   AddProjectSource: { machineId: string };
   /** Add Project local branch: type or browse a folder, then register it. */

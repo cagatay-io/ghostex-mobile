@@ -13,13 +13,14 @@
  * takes over that session's SYNCED draft (plan 016) while it is open: it opens
  * on whatever the last client left there and hands back whatever the user
  * leaves behind, so closing the sheet never destroys a half-written prompt and
- * the other clients see it.
+ * the other clients see it. Half folded like a laptop the card keeps off the fold.
  */
 
 import { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { GhostexPalette, GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
+import { useFoldCardPlacement } from '../common/foldAvoidance';
 import KeyboardAvoidingContainer from '../common/keyboard/KeyboardAvoidingContainer';
 import KeyboardAwareScrollView from '../common/keyboard/KeyboardAwareScrollView';
 
@@ -70,11 +71,12 @@ export default function PromptEditorSheet({
   const canSubmit = trimmed.length > 0 && !busy;
   const title = sessionTitle.trim();
 
+  const placement = useFoldCardPlacement({ avoidsKeyboard: true, belowSafeAreaTop: true });
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={() => onCancel(text)}>
       <KeyboardAvoidingContainer safeAreaTop style={styles.keyboardFill}>
-        <Pressable style={styles.backdrop} onPress={() => onCancel(text)}>
-          <Pressable style={styles.card} onPress={(event) => event.stopPropagation()}>
+        <Pressable style={[styles.backdrop, placement.style]} onPress={() => onCancel(text)}>
+          <Pressable style={styles.card} onLayout={placement.onCardLayout} onPress={(event) => event.stopPropagation()}>
             <KeyboardAwareScrollView bounces={false} contentContainerStyle={styles.cardContent}>
               <Text style={styles.title}>Prompt Editor</Text>
               <Text style={styles.body}>

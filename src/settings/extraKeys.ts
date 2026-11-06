@@ -1,7 +1,8 @@
 /**
- * Extra-keys toolbar layout (Settings › Extra keys). The two key-bar rows are
- * user-editable: built-in keys/modifiers from a fixed catalog plus custom
- * actions (insert text, insert text + Enter, shortcut with modifiers).
+ * Extra-keys layout (Settings › Keyboard › Extra keys layout): the two key rows of the key bar (Android) and of the
+ * Befehlspad's Keys layer (iOS), and the built-in keys and custom actions the pad's nine positions can take.
+ * User-editable: built-in keys/modifiers
+ * from a fixed catalog plus custom actions (insert text, insert text + Enter, shortcut with modifiers).
  * Persisted to AsyncStorage under extraKeys.v1; invalid persisted layouts fall
  * back to the spec default (terminal-screen.md §2).
  */
@@ -22,15 +23,24 @@ export const EXTRA_KEY_LABEL_MAX_LENGTH = 8;
 export type ExtraKeyModifier = 'ctrl' | 'alt' | 'shift';
 export type ArrowDirection = 'up' | 'down' | 'left' | 'right';
 
-/** One saved slot of the layout (what goes to AsyncStorage). */
+/**
+ * One saved slot of the layout (what goes to AsyncStorage). A custom action carries a stable `id`, so a Befehlspad
+ * position can refer to it and follow its later edits; layouts saved before it had one get theirs on
+ * load (`sanitizeLayout`).
+ */
 export type ExtraKeyStored =
   | { type: 'builtin'; id: string }
-  | { type: 'text'; label: string; text: string; sendEnter: boolean }
-  | { type: 'shortcut'; label: string; key: string; ctrl?: boolean; alt?: boolean; shift?: boolean };
+  | { type: 'text'; id: string; label: string; text: string; sendEnter: boolean }
+  | { type: 'shortcut'; id: string; label: string; key: string; ctrl?: boolean; alt?: boolean; shift?: boolean };
+
+/** A new custom action's id: unique on this phone, never reused. */
+export function makeCustomActionId(): string {
+  return `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
 
 export type ExtraKeysLayout = ExtraKeyStored[][];
 
-/** Resolved item the key bar renders. */
+/** Resolved item the key bar, the Befehlspad's Keys layer and pad keys render. */
 export type ResolvedExtraKey =
   | { id: string; kind: 'modifier'; label: string; modifier: ExtraKeyModifier }
   | {
@@ -157,7 +167,8 @@ export function validateExtraKeysLayout(layout: ExtraKeysLayout): string | null 
   return null;
 }
 
-function validateStoredItem(item: ExtraKeyStored): string | null {
+/** Human-readable validation failure of one saved slot, or null when it is valid (also the pad's custom keys). */
+export function validateStoredItem(item: ExtraKeyStored): string | null {
   switch (item.type) {
     case 'builtin':
       if (!CATALOG_KEYS_BY_ID.has(item.id) && !CATALOG_MODIFIERS_BY_ID.has(item.id as ExtraKeyModifier)) {
@@ -188,8 +199,8 @@ function validateStoredItem(item: ExtraKeyStored): string | null {
   }
 }
 
-/** Resolve one stored slot for rendering; null drops unknown persisted items. */
-function resolveStoredItem(item: ExtraKeyStored, slotId: string): ResolvedExtraKey | null {
+/** Resolve one stored slot for rendering (the pad's Keys layer and pad keys); null drops unknown persisted items. */
+export function resolveStoredItem(item: ExtraKeyStored, slotId: string): ResolvedExtraKey | null {
   switch (item.type) {
     case 'builtin': {
       const modifier = CATALOG_MODIFIERS_BY_ID.get(item.id as ExtraKeyModifier);
@@ -242,21 +253,40 @@ export function storedItemLabel(item: ExtraKeyStored): string {
   return item.label;
 }
 
-function sanitizeLayout(value: unknown): ExtraKeysLayout | null {
+/**
+ * The id a custom action saved without one gets on load: derived from its row, its place and its content, so
+ * every load gives the same id until the layout is saved with it. A reference a pad position stores to it
+ * therefore stays valid even when saving the migrated layout fails (it is written again on the next load).
+ */
+function migratedCustomActionId(item: ExtraKeyStored, row: number, index: number): string {
+  let hash = 0x811c9dc5;
+  for (const char of JSON.stringify(item)) {
+    hash = Math.imul(hash ^ char.charCodeAt(0), 0x01000193) >>> 0;
+  }
+  return `custom-legacy-${row}-${index}-${hash.toString(36)}`;
+}
+
+/** The persisted layout, or null when it is not one; custom actions without an id get one (`assigned`). */
+function sanitizeLayout(value: unknown): { layout: ExtraKeysLayout; assigned: boolean } | null {
   if (!Array.isArray(value) || value.length !== EXTRA_KEYS_ROW_COUNT) return null;
   const layout: ExtraKeysLayout = [];
-  for (const row of value) {
+  let assigned = false;
+  for (const [rowIndex, row] of value.entries()) {
     if (!Array.isArray(row)) return null;
     const items: ExtraKeyStored[] = [];
-    for (const raw of row) {
+    for (const [index, raw] of row.entries()) {
       if (typeof raw !== 'object' || raw === null) return null;
-      const item = raw as ExtraKeyStored;
+      let item = raw as ExtraKeyStored;
       if (validateStoredItem(item) !== null) return null;
+      if (item.type !== 'builtin' && (typeof item.id !== 'string' || item.id.length === 0)) {
+        item = { ...item, id: migratedCustomActionId(item, rowIndex, index) };
+        assigned = true;
+      }
       items.push(item);
     }
     layout.push(items);
   }
-  return validateExtraKeysLayout(layout) === null ? layout : null;
+  return validateExtraKeysLayout(layout) === null ? { layout, assigned } : null;
 }
 
 type ExtraKeysState = {
@@ -275,14 +305,27 @@ export const useExtraKeysStore = create<ExtraKeysState>()((set, get) => ({
   hydrate: async () => {
     if (get().hydrated) return;
     let layout = defaultExtraKeysLayout();
+    let migrated = false;
     try {
       const raw = await AsyncStorage.getItem(EXTRA_KEYS_STORAGE_KEY);
       if (raw !== null) {
         const sanitized = sanitizeLayout(JSON.parse(raw));
-        if (sanitized !== null) layout = sanitized;
+        if (sanitized !== null) {
+          layout = sanitized.layout;
+          migrated = sanitized.assigned;
+        }
       }
     } catch {
       // Corrupt persisted layout falls back to the default.
+    }
+    if (migrated) {
+      // The ids given on load are stable (`migratedCustomActionId`), so a failed write loses nothing: the next
+      // load gives the same ids and writes again. The failure is reported, not left unhandled.
+      try {
+        await AsyncStorage.setItem(EXTRA_KEYS_STORAGE_KEY, JSON.stringify(layout));
+      } catch (error) {
+        console.warn('Extra keys: saving the custom action ids failed; they are given again on the next load.', error);
+      }
     }
     set({ hydrated: true, layout });
   },

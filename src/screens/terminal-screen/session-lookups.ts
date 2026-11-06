@@ -134,8 +134,9 @@ export function sessionFolderFor(tab: TerminalTab | null): string {
 
 /**
  * Resolved agent icon id of the session shown in `tab` ('terminal' when it is
- * a shell tab or the session is unknown) — drives the key bar's agent-hotkey
- * page. Pure so the screen can subscribe to it as an inventory selector.
+ * a shell tab or the session is unknown) — drives the Befehlspad's Agent
+ * layer (iOS) and the key bar's agent-hotkey page (Android). Pure so the
+ * screen can subscribe to it as an inventory selector.
  */
 export function sessionAgentIdFor(tab: TerminalTab | null, summary: GhostexMobileSummary | null | undefined): string {
   if (tab === null || tab.ghostexSessionId === undefined) return 'terminal';

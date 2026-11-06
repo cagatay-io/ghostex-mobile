@@ -10,24 +10,17 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { GhostexNative, type KeyModifiers, type TerminalKey } from '../../../modules/ghostex-native/src';
-import {
-  AGENT_HOTKEY_SEQUENCE_DELAY_MS,
-  useAgentHotkeysStore,
-  type AgentHotkeyStep,
-} from '../../settings/agentHotkeys';
-import { useSettingsStore } from '../../settings/store';
+import { useAgentHotkeysStore } from '../../settings/agentHotkeys';
 import { resolveExtraKeysLayout, useExtraKeysStore, type ResolvedExtraKey } from '../../settings/extraKeys';
 import { agentKeyPage, EXTRA_KEYS_PAGE, type KeyPageItem } from './keyBarPages';
 import { GhostexPalette } from '../../theme/palette';
 import { ArrowIcon, KeyboardDismissIcon, PencilIcon, ReturnIcon, SendIcon } from './icons';
+import { useTerminalKeyInput } from './useTerminalKeyInput';
 
 export const KEY_BAR_HEIGHT = 88;
-const REPEAT_DELAY_MS = 350;
-const REPEAT_INTERVAL_MS = 50;
 const MODIFIER_ACTIVE_BG = '#007AFF';
 const MODIFIER_LOCKED_BG = '#AF52DE';
 const MODIFIER_LONG_PRESS_MS = 450;
@@ -35,54 +28,6 @@ const PAGE_HINT_LONG_PRESS_MS = 350;
 const PAGE_HINT_TIMEOUT_MS = 3500;
 /** Empty-state line keeping the hint slot's height stable while a page is open. */
 const PAGE_HINT_PLACEHOLDER = 'Hold a key to see what it does';
-
-type ModifierId = 'ctrl' | 'alt' | 'shift';
-type ModifierMode = 'off' | 'oneShot' | 'locked';
-type ModifierState = Record<ModifierId, ModifierMode>;
-
-const NO_MODIFIERS: ModifierState = { ctrl: 'off', alt: 'off', shift: 'off' };
-
-function modifierPayload(state: ModifierState): KeyModifiers {
-  return {
-    ctrl: state.ctrl !== 'off',
-    alt: state.alt !== 'off',
-    shift: state.shift !== 'off',
-    ctrlLocked: state.ctrl === 'locked',
-    altLocked: state.alt === 'locked',
-    shiftLocked: state.shift === 'locked',
-  };
-}
-
-function retainLockedModifiers(state: ModifierState): ModifierState {
-  return {
-    ctrl: state.ctrl === 'locked' ? 'locked' : 'off',
-    alt: state.alt === 'locked' ? 'locked' : 'off',
-    shift: state.shift === 'locked' ? 'locked' : 'off',
-  };
-}
-
-/** Short platform-native tick on every key-bar press (settings.keyBarHapticsEnabled). */
-function clickHaptic(): void {
-  if (!useSettingsStore.getState().settings.keyBarHapticsEnabled) return;
-  const feedback =
-    Platform.OS === 'android'
-      ? Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Keyboard_Tap)
-      : Haptics.selectionAsync();
-  void feedback.catch(() => {});
-}
-
-/**
- * Distinct, crisp second click when a held modifier locks into its persistent state,
- * so the user can feel Ctrl/Alt/Shift arming without watching the pill color.
- */
-function lockHaptic(): void {
-  if (!useSettingsStore.getState().settings.keyBarHapticsEnabled) return;
-  const feedback =
-    Platform.OS === 'android'
-      ? Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Context_Click)
-      : Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid);
-  void feedback.catch(() => {});
-}
 
 /** Rendered key model: the user-editable layout from the extra-keys store. */
 type KeyBarItem = ResolvedExtraKey;
@@ -101,7 +46,7 @@ export default function TerminalKeyBar({ sessionKey, agentId, onDismissKeyboard 
   const layout = useExtraKeysStore((state) => state.layout);
   const agentHotkeyProfiles = useAgentHotkeysStore((state) => state.profiles);
   const [row1 = [], row2 = []] = resolveExtraKeysLayout(layout);
-  const [modifiers, setModifiers] = useState<ModifierState>(NO_MODIFIERS);
+  const { input, modifiers } = useTerminalKeyInput(sessionKey);
   const [editorVisible, setEditorVisible] = useState(false);
   const [editorText, setEditorText] = useState('');
   const [page, setPage] = useState<KeyBarPage>('none');
@@ -110,8 +55,6 @@ export default function TerminalKeyBar({ sessionKey, agentId, onDismissKeyboard 
   // A tab switch to an agent without hotkeys drops a stale open agent page.
   const activePage = page === 'agent' && agentPage === null ? 'none' : page;
   const pageRows = activePage === 'extra' ? EXTRA_KEYS_PAGE : activePage === 'agent' ? agentPage : null;
-  const repeatTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const repeatInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const pageHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** A focus hand-over to the terminal is in flight; the pen ignores further presses until it answers. */
   const handOverPending = useRef(false);
@@ -129,40 +72,12 @@ export default function TerminalKeyBar({ sessionKey, agentId, onDismissKeyboard 
     [],
   );
 
-  const clearRepeat = useCallback((): void => {
-    if (repeatTimer.current !== null) {
-      clearTimeout(repeatTimer.current);
-      repeatTimer.current = null;
-    }
-    if (repeatInterval.current !== null) {
-      clearInterval(repeatInterval.current);
-      repeatInterval.current = null;
-    }
-  }, []);
-
-  useEffect(() => clearRepeat, [clearRepeat]);
-
-  const clearModifiers = useCallback((): void => {
-    setModifiers(NO_MODIFIERS);
-    void GhostexNative.setKeyModifiers(sessionKey, modifierPayload(NO_MODIFIERS)).catch(() => undefined);
-  }, [sessionKey]);
-
   useEffect(() => {
-    clearModifiers();
     setEditorVisible(false);
     setEditorText('');
     setPage('none');
     setPageHint(null);
-    const subscription = GhostexNative.addListener('onKeyModifiersConsumed', (event) => {
-      if (event.sessionKey === sessionKey) {
-        setModifiers((current) => retainLockedModifiers(current));
-      }
-    });
-    return () => {
-      subscription.remove();
-      void GhostexNative.setKeyModifiers(sessionKey, modifierPayload(NO_MODIFIERS)).catch(() => undefined);
-    };
-  }, [clearModifiers, sessionKey]);
+  }, [sessionKey]);
 
   const sendKey = useCallback(
     (key: TerminalKey, mods: KeyModifiers): void => {
@@ -173,82 +88,6 @@ export default function TerminalKeyBar({ sessionKey, agentId, onDismissKeyboard 
     [sessionKey],
   );
 
-  /** Apply every active modifier, send once, retain only long-press locks. */
-  const sendItemKeyOnce = (item: Extract<KeyBarItem, { kind: 'key' }>): KeyModifiers => {
-    clickHaptic();
-    const mods: KeyModifiers = {
-      ctrl: item.mods?.ctrl === true || modifiers.ctrl !== 'off',
-      alt: item.mods?.alt === true || modifiers.alt !== 'off',
-      shift: item.mods?.shift === true || modifiers.shift !== 'off',
-    };
-    setModifiers((current) => retainLockedModifiers(current));
-    sendKey(item.key, mods);
-    return mods;
-  };
-
-  const handleKeyPressIn = (item: Extract<KeyBarItem, { kind: 'key' }>): void => {
-    clearRepeat();
-    const mods = sendItemKeyOnce(item);
-    if (item.repeatable === true) {
-      repeatTimer.current = setTimeout(() => {
-        repeatTimer.current = null;
-        repeatInterval.current = setInterval(() => sendKey(item.key, mods), REPEAT_INTERVAL_MS);
-      }, REPEAT_DELAY_MS);
-    }
-  };
-
-  const handleTextActionPress = (item: Extract<KeyBarItem, { kind: 'text' }>): void => {
-    clearRepeat();
-    clickHaptic();
-    setModifiers((current) => retainLockedModifiers(current));
-    void GhostexNative.sendText(sessionKey, item.text)
-      .then(() => {
-        if (item.sendEnter) {
-          void GhostexNative.sendKey(sessionKey, 'enter', {}).catch(() => undefined);
-        }
-      })
-      .catch(() => {
-        // The native entry may be closed/failed; overlays surface that state.
-      });
-  };
-
-  const handleAgentHotkeyPress = (steps: AgentHotkeyStep[]): void => {
-    clearRepeat();
-    clickHaptic();
-    setModifiers((current) => retainLockedModifiers(current));
-    void (async () => {
-      for (const [index, hotkeyStep] of steps.entries()) {
-        if (index > 0) {
-          await new Promise<void>((resolve) => {
-            setTimeout(resolve, AGENT_HOTKEY_SEQUENCE_DELAY_MS);
-          });
-        }
-        await GhostexNative.sendKey(sessionKey, hotkeyStep.key, hotkeyStep.mods);
-      }
-    })().catch(() => {
-      // The native entry may be closed/failed; overlays surface that state.
-    });
-  };
-
-  const setModifierMode = (modifier: ModifierId, longPress: boolean): void => {
-    // Lock-in gets the distinct buzz; taps and unlocks get the plain tick.
-    if (longPress && modifiers[modifier] !== 'locked') lockHaptic();
-    else clickHaptic();
-    setModifiers((current) => {
-      const currentMode = current[modifier];
-      const nextMode: ModifierMode = longPress
-        ? currentMode === 'locked'
-          ? 'off'
-          : 'locked'
-        : currentMode === 'off'
-          ? 'oneShot'
-          : 'off';
-      const next = { ...current, [modifier]: nextMode };
-      void GhostexNative.setKeyModifiers(sessionKey, modifierPayload(next)).catch(() => undefined);
-      return next;
-    });
-  };
-
   /**
    * Pen pressed. Opening swaps the key rows for the editor. Closing asks the terminal for first responder
    * while the editor, which holds it now, is still mounted: UIKit then moves the responder straight over and
@@ -257,8 +96,8 @@ export default function TerminalKeyBar({ sessionKey, agentId, onDismissKeyboard 
    * keyboard then hides with the editor) and is logged, so the failure is not silent.
    */
   const toggleEditor = (): void => {
-    clearRepeat();
-    clearModifiers();
+    input.stopRepeat();
+    input.clearModifiers();
     if (!editorVisible) {
       setEditorVisible(true);
       return;
@@ -315,8 +154,8 @@ export default function TerminalKeyBar({ sessionKey, agentId, onDismissKeyboard 
             accessibilityState={{ selected: active }}
             style={[styles.pill, active && styles.pillActive]}
             onPress={() => {
-              clearRepeat();
-              clickHaptic();
+              input.stopRepeat();
+              input.selectionFeedback();
               setPageHint(null);
               setPage(active ? 'none' : target);
             }}
@@ -340,8 +179,8 @@ export default function TerminalKeyBar({ sessionKey, agentId, onDismissKeyboard 
             accessibilityHint="Tap for one key, or hold to lock until tapped again"
             delayLongPress={MODIFIER_LONG_PRESS_MS}
             style={[styles.pill, styles.modifierPill, active && styles.pillActive, locked && styles.pillLocked]}
-            onPress={() => setModifierMode(item.modifier, false)}
-            onLongPress={() => setModifierMode(item.modifier, true)}
+            onPress={() => input.toggleModifier(item.modifier, false)}
+            onLongPress={() => input.toggleModifier(item.modifier, true)}
           >
             <Text style={[styles.pillLabel, active && styles.pillLabelActive]} numberOfLines={1}>
               {item.label}
@@ -357,7 +196,7 @@ export default function TerminalKeyBar({ sessionKey, agentId, onDismissKeyboard 
             accessibilityRole="button"
             accessibilityLabel={item.label}
             style={({ pressed }) => [styles.pill, pressed && styles.pillPressed]}
-            onPress={() => handleTextActionPress(item)}
+            onPress={() => input.insertText(item.text, item.sendEnter)}
           >
             <Text style={styles.pillLabel} numberOfLines={1}>
               {item.label}
@@ -372,8 +211,8 @@ export default function TerminalKeyBar({ sessionKey, agentId, onDismissKeyboard 
           accessibilityRole="button"
           accessibilityLabel={item.returnGlyph === true ? 'New line' : item.label}
           style={({ pressed }) => [styles.pill, pressed && styles.pillPressed]}
-          onPressIn={() => handleKeyPressIn(item)}
-          onPressOut={clearRepeat}
+          onPressIn={() => input.pressKey(item.key, item.mods, item.repeatable === true)}
+          onPressOut={() => input.stopRepeat()}
         >
           {item.arrow !== undefined ? (
             <ArrowIcon direction={item.arrow} size={14} color={GhostexPalette.MUTED} />
@@ -404,10 +243,9 @@ export default function TerminalKeyBar({ sessionKey, agentId, onDismissKeyboard 
           delayLongPress={PAGE_HINT_LONG_PRESS_MS}
           style={({ pressed }) => [styles.pill, pressed && styles.pillPressed]}
           onPress={() => {
-            clearRepeat();
-            if (item.kind === 'sequence') handleAgentHotkeyPress(item.steps);
-            else if (item.kind === 'text') handleTextActionPress(item);
-            else sendItemKeyOnce(item);
+            if (item.kind === 'sequence') input.sendSequence(item.steps);
+            else if (item.kind === 'text') input.insertText(item.text, item.sendEnter);
+            else input.pressKey(item.key, item.mods, false);
           }}
           onLongPress={() => showPageHint(`${item.label}: ${item.description}`)}
         >

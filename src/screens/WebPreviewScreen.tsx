@@ -44,7 +44,8 @@ import type { ShouldStartLoadRequest, WebViewErrorEvent } from 'react-native-web
 
 import { GhostexNative } from '../../modules/ghostex-native/src';
 import { measureInWindow } from '../components/common/measureInWindow';
-import { bandRowFrame } from '../components/common/verticalBar/layout';
+import { useLaptopFold } from '../components/common/verticalBar/laptopFold';
+import { bandRowFrame, foldUpperHalfInset } from '../components/common/verticalBar/layout';
 import {
   barBackgroundToEdges,
   railMenuItems,
@@ -744,6 +745,12 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
   );
   const contentTop = useContentTop();
   const bar = useVerticalBarSpace();
+  // Half folded like a laptop the page, with its connecting and failure states (Retry), ends above the fold: the page
+  // has controls of its own that the app cannot move off the knick, so it keeps to the upper screen, as the chat's
+  // page sheet does. The content area's bottom edge in the window (the screen covers the window from its top).
+  const fold = useLaptopFold();
+  const [contentBottom, setContentBottom] = useState<number | null>(null);
+  const contentInset = contentBottom === null ? 0 : foldUpperHalfInset(fold, contentBottom);
   const reloadDisabled = source === null || failure !== null;
   const railButtons = useMemo<RailButtons>(
     () => ({
@@ -970,54 +977,61 @@ export default function WebPreviewScreen({ navigation, route }: Props) {
         ) : null}
       </View>
 
-      <View style={styles.contentArea}>
-        {source !== null ? (
-          <WebView<object>
-            ref={webviewRef}
-            key={`${source.nonce}:${desktopMode ? 'desktop' : 'phone'}`}
-            source={{ uri: source.uri }}
-            originWhitelist={['http://*', 'https://*']}
-            style={styles.webview}
-            onNavigationStateChange={handleNavigationStateChange}
-            onShouldStartLoadWithRequest={handleShouldStartLoad}
-            onError={handleLoadError}
-            renderError={renderLoadFailure}
-            // Android runs the before-content script at navigation start, ahead of the new document,
-            // so the viewport is also set once the page has loaded; WebKit runs it at document start.
-            injectedJavaScript={desktopMode ? `${linkRewriteScript}\n${DESKTOP_VIEWPORT_SCRIPT}` : linkRewriteScript}
-            // CDXC:Browser 2026-10-17 WHY: the Desktop site switch is the phone side of the desktop
-            // Browser's size and user-agent menu. WebKit takes a desktop content mode plus the Mac
-            // Safari agent; Android takes the Chrome agent and a desktop-width viewport tag.
-            userAgent={desktopMode ? desktopUserAgent() : undefined}
-            contentMode={desktopMode ? 'desktop' : 'recommended'}
-            injectedJavaScriptBeforeContentLoaded={desktopMode ? DESKTOP_VIEWPORT_SCRIPT : undefined}
-            onLoadStart={() => {
-              setPageLoading(true);
-              setLoadProgress(0);
-            }}
-            onLoadProgress={(event) => setLoadProgress(event.nativeEvent.progress)}
-            onLoadEnd={() => setPageLoading(false)}
-            // Every `target=_blank` link has to reach the handler above instead of
-            // asking for a window this screen has nowhere to put.
-            setSupportMultipleWindows={false}
-            allowsLinkPreview={false}
-            webviewDebuggingEnabled={__DEV__}
-            contentInsetAdjustmentBehavior="never"
-            automaticallyAdjustContentInsets={false}
-          />
-        ) : null}
-        {/*
-          A forward that never opened has no failed page load behind it, so
-          RNCWebView never enters its error state; that surface is drawn here.
-        */}
-        {failure !== null && failure.origin === 'forward' ? <PreviewFailure failure={failure} onRetry={retry} /> : null}
-        {source === null && failure === null ? <ConnectingSurface address={address} /> : null}
+      <View
+        style={styles.contentArea}
+        onLayout={(event) => setContentBottom(event.nativeEvent.layout.y + event.nativeEvent.layout.height)}
+      >
+        <View testID="preview-content" style={[styles.contentArea, contentInset > 0 && { marginBottom: contentInset }]}>
+          {source !== null ? (
+            <WebView<object>
+              ref={webviewRef}
+              key={`${source.nonce}:${desktopMode ? 'desktop' : 'phone'}`}
+              source={{ uri: source.uri }}
+              originWhitelist={['http://*', 'https://*']}
+              style={styles.webview}
+              onNavigationStateChange={handleNavigationStateChange}
+              onShouldStartLoadWithRequest={handleShouldStartLoad}
+              onError={handleLoadError}
+              renderError={renderLoadFailure}
+              // Android runs the before-content script at navigation start, ahead of the new document,
+              // so the viewport is also set once the page has loaded; WebKit runs it at document start.
+              injectedJavaScript={desktopMode ? `${linkRewriteScript}\n${DESKTOP_VIEWPORT_SCRIPT}` : linkRewriteScript}
+              // CDXC:Browser 2026-10-17 WHY: the Desktop site switch is the phone side of the desktop
+              // Browser's size and user-agent menu. WebKit takes a desktop content mode plus the Mac
+              // Safari agent; Android takes the Chrome agent and a desktop-width viewport tag.
+              userAgent={desktopMode ? desktopUserAgent() : undefined}
+              contentMode={desktopMode ? 'desktop' : 'recommended'}
+              injectedJavaScriptBeforeContentLoaded={desktopMode ? DESKTOP_VIEWPORT_SCRIPT : undefined}
+              onLoadStart={() => {
+                setPageLoading(true);
+                setLoadProgress(0);
+              }}
+              onLoadProgress={(event) => setLoadProgress(event.nativeEvent.progress)}
+              onLoadEnd={() => setPageLoading(false)}
+              // Every `target=_blank` link has to reach the handler above instead of
+              // asking for a window this screen has nowhere to put.
+              setSupportMultipleWindows={false}
+              allowsLinkPreview={false}
+              webviewDebuggingEnabled={__DEV__}
+              contentInsetAdjustmentBehavior="never"
+              automaticallyAdjustContentInsets={false}
+            />
+          ) : null}
+          {/*
+            A forward that never opened has no failed page load behind it, so
+            RNCWebView never enters its error state; that surface is drawn here.
+          */}
+          {failure !== null && failure.origin === 'forward' ? (
+            <PreviewFailure failure={failure} onRetry={retry} />
+          ) : null}
+          {source === null && failure === null ? <ConnectingSurface address={address} /> : null}
 
-        {/* Progress for work happening behind a page that is already on screen:
-            opening the next port's forward, or loading the next page. */}
-        {(connecting || pageLoading) && source !== null && failure === null ? (
-          <LoadProgressBar progress={pageLoading ? loadProgress : 0} />
-        ) : null}
+          {/* Progress for work happening behind a page that is already on screen:
+              opening the next port's forward, or loading the next page. */}
+          {(connecting || pageLoading) && source !== null && failure === null ? (
+            <LoadProgressBar progress={pageLoading ? loadProgress : 0} />
+          ) : null}
+        </View>
       </View>
       {railMenu !== null ? (
         <ContextMenu

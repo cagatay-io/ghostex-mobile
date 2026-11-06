@@ -1,13 +1,15 @@
 /**
  * Generic prompt dialog: title, optional body, single text input (optional
  * secure entry), optional checkbox row, inline error line, confirm + cancel.
- * Used for Rename session (§2) and the machine password prompt (§4).
+ * Used for Rename session (§2) and the machine password prompt (§4). Half folded like a laptop the card stands
+ * off the fold: above it with the keyboard up (the keyboard-avoiding layer), else below it when it fits.
  */
 
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
 import { GhostexPalette, GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
+import { useFoldCardPlacement } from './foldAvoidance';
 import KeyboardAvoidingContainer from './keyboard/KeyboardAvoidingContainer';
 import KeyboardAwareScrollView from './keyboard/KeyboardAwareScrollView';
 
@@ -50,6 +52,7 @@ export default function PromptDialog({
 }: PromptDialogProps) {
   const [value, setValue] = useState(initialValue);
   const [checkboxValue, setCheckboxValue] = useState(initialCheckboxValue);
+  const placement = useFoldCardPlacement({ avoidsKeyboard: true, belowSafeAreaTop: true });
 
   // Reset the form whenever the dialog opens with fresh initial values.
   useEffect(() => {
@@ -62,8 +65,8 @@ export default function PromptDialog({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <KeyboardAvoidingContainer safeAreaTop style={styles.keyboardFill}>
-        <Pressable style={styles.backdrop} onPress={onCancel}>
-          <Pressable style={styles.card} onPress={(event) => event.stopPropagation()}>
+        <Pressable style={[styles.backdrop, placement.style]} onPress={onCancel}>
+          <Pressable style={styles.card} onLayout={placement.onCardLayout} onPress={(event) => event.stopPropagation()}>
             <KeyboardAwareScrollView bounces={false} contentContainerStyle={styles.cardContent}>
               <Text style={styles.title}>{title}</Text>
               {body !== undefined && body.length > 0 ? <Text style={styles.body}>{body}</Text> : null}

@@ -15,6 +15,7 @@ import {
 } from '../settings/agentHotkeys';
 import { destructiveButtonFills, GhostexPalette, GhostexRadii, GhostexStrokeWidth } from '../theme/palette';
 import type { Appearance } from '../theme/useAppearance';
+import { useFoldCardPlacement } from '../components/common/foldAvoidance';
 import { barPadding } from '../components/common/verticalBar/layout';
 import { useVerticalBarSpace } from '../components/common/verticalBar/VerticalBarArea';
 import { SettingsCopy } from '../copy';
@@ -35,6 +36,8 @@ export default function AgentHotkeysEditorScreen() {
   const resetAgent = useAgentHotkeysStore((state) => state.resetAgent);
   const [agentId, setAgentId] = useState<ConfigurableAgentId>('codex');
   const [agentPickerVisible, setAgentPickerVisible] = useState(false);
+  // Half folded like a laptop the agent picker stands below the fold, or above it when it does not fit.
+  const pickerPlacement = useFoldCardPlacement({ avoidsKeyboard: false });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [label, setLabel] = useState('');
   const [hotkey, setHotkey] = useState('');
@@ -142,9 +145,7 @@ export default function AgentHotkeysEditorScreen() {
     <SettingsColumnsFrame title={SettingsCopy.agentHotkeysTitle}>
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <SettingsPageScrollView keyboardAware contentContainerStyle={styles.list}>
-          <Text style={styles.status}>
-            Configure the exact terminal shortcuts shown on each agent's key page. These keys never type slash commands.
-          </Text>
+          <Text style={styles.status}>{SettingsCopy.agentHotkeysIntro}</Text>
 
           <Text style={styles.fieldLabel}>Agent</Text>
           <Pressable
@@ -271,8 +272,11 @@ export default function AgentHotkeysEditorScreen() {
           visible={agentPickerVisible}
           onRequestClose={() => setAgentPickerVisible(false)}
         >
-          <Pressable style={[styles.backdrop, barPadding(bar, 24)]} onPress={() => setAgentPickerVisible(false)}>
-            <Pressable style={styles.pickerCard} onPress={() => undefined}>
+          <Pressable
+            style={[styles.backdrop, barPadding(bar, 24), pickerPlacement.style]}
+            onPress={() => setAgentPickerVisible(false)}
+          >
+            <Pressable style={styles.pickerCard} onLayout={pickerPlacement.onCardLayout} onPress={() => undefined}>
               <Text style={styles.pickerTitle}>Select agent</Text>
               {CONFIGURABLE_AGENT_IDS.map((option) => (
                 <Pressable

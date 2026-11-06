@@ -152,6 +152,12 @@ type TerminalState = {
    * survive restarts correctly.
    */
   sessionViewModeBySessionKey: Record<string, PreferredAgentInterface>;
+  /**
+   * The unsent text of each session's text editor (the command pad's pen), in memory only: closing the editor,
+   * however it closes, switching sessions or leaving the terminal screen keeps it, Send empties it, and a restart
+   * starts without it. A session without a draft has no entry.
+   */
+  textEditorDraftBySessionKey: Record<string, string>;
 
   hydrate: () => Promise<void>;
   /** Open (or re-select) an attach tab for a remote Ghostex session. */
@@ -193,6 +199,8 @@ type TerminalState = {
   setSessionViewMode: (sessionKey: string, mode: PreferredAgentInterface) => void;
   /** Flip one tab between terminal and Session Chat view. */
   toggleChatMode: (sessionKey: string) => void;
+  /** Keeps `text` as the session's editor draft; an empty one removes the entry. */
+  setTextEditorDraft: (sessionKey: string, text: string) => void;
 };
 
 function isFontSizeMap(value: unknown): value is Record<string, number> {
@@ -296,6 +304,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
     warmOrder: [],
     fontSizeBySessionKey: {},
     sessionViewModeBySessionKey: {},
+    textEditorDraftBySessionKey: {},
 
     hydrate: async () => {
       if (get().hydrated) return;
@@ -576,6 +585,12 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
 
     toggleChatMode: (sessionKey) => {
       get().setSessionViewMode(sessionKey, get().chatModeArmed(sessionKey) ? 'terminal' : 'chat');
+    },
+
+    setTextEditorDraft: (sessionKey, text) => {
+      const { [sessionKey]: current, ...others } = get().textEditorDraftBySessionKey;
+      if (current === text || (current === undefined && text.length === 0)) return;
+      set({ textEditorDraftBySessionKey: text.length === 0 ? others : { ...others, [sessionKey]: text } });
     },
   };
 });

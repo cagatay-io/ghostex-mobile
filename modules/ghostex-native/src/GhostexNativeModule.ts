@@ -103,6 +103,12 @@ declare class GhostexNativeModule extends NativeModule<GhostexNativeEvents> {
   sendKey(sessionKey: string, key: TerminalKey, mods?: KeyModifiers): Promise<void>;
   /** Apply one-shot modifiers to the next key produced by the terminal's software keyboard. */
   setKeyModifiers(sessionKey: string, mods: KeyModifiers): Promise<void>;
+  /**
+   * iOS only: paste the clipboard into the terminal through the terminal's own Paste, the one its edit menu
+   * runs (`paste(_:)`), so iOS's paste permission and the unsafe-paste question apply as there. Not bridged on
+   * Android.
+   */
+  pasteFromClipboard(sessionKey: string): Promise<void>;
   setFontSize(sessionKey: string, size: number): Promise<void>;
   scrollToBottom(sessionKey: string): Promise<void>;
 

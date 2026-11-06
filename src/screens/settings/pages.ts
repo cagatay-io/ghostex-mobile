@@ -30,7 +30,7 @@ export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, { title: string; de
   chat: { title: 'Chat', description: 'Default agent view, chat theme and detail.' },
   voice: { title: 'Voice', description: "Dictate's engine and models, and the voice agent, per computer." },
   terminal: { title: 'Terminal', description: 'Font size, screen and tab behavior.' },
-  keyboard: { title: 'Keyboard', description: 'Extra keys row and agent hotkeys.' },
+  keyboard: { title: 'Keyboard', description: 'Command pad, its keys and agent hotkeys.' },
   sounds: { title: 'Sounds', description: 'A sound when an agent needs you.' },
   connection: { title: 'Connection', description: 'Reconnecting to your computer.' },
   sync: { title: 'Sync', description: 'Carrying Spaces and settings between your computers.' },
