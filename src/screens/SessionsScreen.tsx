@@ -71,7 +71,7 @@ import CoordinatorDetailsSheet from './sessions-screen/CoordinatorDetailsSheet';
 import WorkLinkPicker from './sessions-screen/work-link-picker';
 import DrawerBlockView, { type DrawerBlockActions } from './sessions-screen/DrawerBlockView';
 import ExportTranscriptSheet from '../components/terminal/ExportTranscriptSheet';
-import { WarningTriangleIcon } from '../components/terminal/icons';
+import { CloseIcon, WarningTriangleIcon } from '../components/terminal/icons';
 import {
   cancelDelayedSendCommand,
   closeAfterDoneCommand,
@@ -186,6 +186,8 @@ export default function SessionsScreen({ navigation }: Props) {
   const sidebarBackgroundContrast = useSettingsStore((state) => state.settings.sidebarBackgroundContrast);
   const sidebarBackgroundTint = useSettingsStore((state) => state.settings.sidebarBackgroundTint);
   const sidebarGroupsOpacityPercent = useSettingsStore((state) => state.settings.sidebarGroupsOpacityPercent);
+  const tailscaleReminder = useSettingsStore((state) => state.settings.tailscaleReminder);
+  const setSetting = useSettingsStore((state) => state.setSetting);
   const sidebarAppearance = useMemo(
     () => resolveSidebarAppearance(sidebarBackgroundTint, sidebarBackgroundContrast),
     [sidebarBackgroundContrast, sidebarBackgroundTint],
@@ -304,6 +306,13 @@ export default function SessionsScreen({ navigation }: Props) {
   );
 
   const selectedInventory = machine === null ? undefined : inventoriesByMachineId[machine.id];
+  /*
+   * The computer answered its last list read (over the local network, another VPN or Tailscale
+   * alike), so Tailscale being off on this phone is not what stands between them: the notice stays
+   * hidden. Issue #439: it showed on the same Wi-Fi as the computer.
+   */
+  const computerReachable =
+    selectedInventory !== undefined && selectedInventory.summary !== null && selectedInventory.lastError === null;
   const machineWorkspaces = selectedInventory?.summary?.workspaces ?? null;
   /*
    * The workspace the machine's list shows (null while it has no workspaces, which is also every
@@ -860,19 +869,31 @@ export default function SessionsScreen({ navigation }: Props) {
           onAdd={() => navigation.navigate('ConnectChoose')}
         />
       ) : null}
-      {tailscaleApplies && tailscaleConnected === false ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Tailscale is not connected. Open Tailscale"
-          style={styles.tailscaleWarning}
-          onPress={() => void openTailscaleOrDownload()}
-        >
-          <WarningTriangleIcon size={18} color={GhostexPalette.STATUS_WORKING} />
-          <View style={styles.tailscaleWarningCopy}>
-            <Text style={styles.tailscaleWarningTitle}>Tailscale isn’t connected</Text>
-            <Text style={styles.tailscaleWarningBody}>Tap to open Tailscale and reconnect.</Text>
-          </View>
-        </Pressable>
+      {tailscaleApplies && tailscaleReminder && tailscaleConnected === false && !computerReachable ? (
+        <View style={styles.tailscaleWarning}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Tailscale is not connected. Open Tailscale"
+            style={styles.tailscaleWarningMain}
+            onPress={() => void openTailscaleOrDownload()}
+          >
+            <WarningTriangleIcon size={18} color={GhostexPalette.STATUS_WORKING} />
+            <View style={styles.tailscaleWarningCopy}>
+              <Text style={styles.tailscaleWarningTitle}>Tailscale isn’t connected</Text>
+              <Text style={styles.tailscaleWarningBody}>Tap to open Tailscale and reconnect.</Text>
+            </View>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Hide the Tailscale notice"
+            accessibilityHint="Turn it back on in Settings, Connection"
+            hitSlop={10}
+            style={styles.tailscaleWarningClose}
+            onPress={() => setSetting('tailscaleReminder', false)}
+          >
+            <CloseIcon size={16} color={GhostexPalette.MUTED} />
+          </Pressable>
+        </View>
       ) : null}
       <View style={styles.statusRow}>
         <Pressable

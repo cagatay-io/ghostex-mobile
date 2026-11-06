@@ -76,7 +76,8 @@ export const styles = StyleSheet.create({
   tailscaleWarning: {
     minHeight: 54,
     marginTop: 8,
-    paddingHorizontal: 12,
+    paddingLeft: 12,
+    paddingRight: 4,
     paddingVertical: 9,
     borderRadius: GhostexRadii.card,
     borderWidth: 1,
@@ -84,7 +85,20 @@ export const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,180,84,0.10)',
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+  },
+  tailscaleWarningMain: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
+  },
+  tailscaleWarningClose: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   tailscaleWarningCopy: {
     flex: 1,

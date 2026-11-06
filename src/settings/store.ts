@@ -112,6 +112,11 @@ export type GhostexSettings = {
   sessionsListGroupByProject: boolean;
   /** Unified only: working sessions fold into the Working section (the computer's `unifiedWorkingSection` until first set here). */
   sessionsListWorkingSection: boolean;
+  /**
+   * Show the "Tailscale isn't connected" notice on Sessions when Tailscale is off on this phone and
+   * the computer cannot be reached (Settings > Connection; the notice's close button turns it off).
+   */
+  tailscaleReminder: boolean;
   // SSH connection (appended group).
   autoReconnect: boolean;
   keepAliveEnabled: boolean;
@@ -195,6 +200,7 @@ export function defaultSettings(): GhostexSettings {
     sessionsListLayout: null,
     sessionsListGroupByProject: false,
     sessionsListWorkingSection: true,
+    tailscaleReminder: true,
     autoReconnect: true,
     keepAliveEnabled: true,
     keepAliveIntervalSec: 30,
@@ -323,6 +329,7 @@ function sanitizeSettings(value: unknown): GhostexSettings {
         : defaults.sessionsListLayout,
     sessionsListGroupByProject: bool('sessionsListGroupByProject', defaults.sessionsListGroupByProject),
     sessionsListWorkingSection: bool('sessionsListWorkingSection', defaults.sessionsListWorkingSection),
+    tailscaleReminder: bool('tailscaleReminder', defaults.tailscaleReminder),
     autoReconnect: bool('autoReconnect', defaults.autoReconnect),
     keepAliveEnabled: bool('keepAliveEnabled', defaults.keepAliveEnabled),
     keepAliveIntervalSec,
