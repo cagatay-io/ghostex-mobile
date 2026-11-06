@@ -1,6 +1,6 @@
 /**
  * A coordinator's board, the Board pill's sheet: its lines of work grouped by who has the ball
- * (Backlog, To do, Needs you, Blocked, Moving, Done today, Removed), each a card of its title and
+ * (Backlog, To do, Needs you, Blocked, On hold, Moving, Done today, Removed), each a card of its title and
  * its work's links.
  * Groups, rows, tags, folds and counts come from the core (gx-chat-core
  * `extras/coordinator_board.rs`, where the user's decision lives); this only lays them out. A row
@@ -30,6 +30,8 @@ import { openRelayedCardForThread } from './relayedApprovals';
 const GROUP_COLOR: Record<string, string | null> = {
   needs: SidebarPalette.ROW_QUESTION,
   blocked: SidebarPalette.ROW_APPROVAL,
+  // On hold: waiting on something outside, a calm blue-grey (desktop `HOLD_COLOR`).
+  hold: '#7fa1c4',
   moving: '#c68a06',
   done: '#2fa865',
 };
@@ -74,6 +76,15 @@ function GroupMarker({ group }: { group: string }) {
   const P = useTranscriptTheme();
   const color = GROUP_COLOR[group] ?? P.cardMuted;
   if (group === 'done') return <Glyph name="circle-check-filled" size={12} color={color} />;
+  // On hold: two bars, a pause (desktop `player-pause`).
+  if (group === 'hold') {
+    return (
+      <View style={styles.pause}>
+        <View style={[styles.pauseBar, { backgroundColor: color }]} />
+        <View style={[styles.pauseBar, { backgroundColor: color }]} />
+      </View>
+    );
+  }
   if (group === 'blocked' || group === 'moving') {
     return <View style={[styles.disc, { backgroundColor: color }]} />;
   }
@@ -362,7 +373,6 @@ export function CoordinatorBoardMenu({
                 const shownTags = expanded ? tags : tags.slice(0, 2);
                 const hiddenTags = tags.length - shownTags.length;
                 const line = str(row, 'detail') || note;
-                const openCommand = obj(obj(row)?.open);
                 return (
                   <Pressable
                     key={key}
@@ -501,15 +511,9 @@ export function CoordinatorBoardMenu({
                     ) : null}
                     {expanded ? (
                       <View style={styles.cardButtons}>
-                        {openCommand !== null && str(row, 'openLabel').length > 0 ? (
-                          <Pressable
-                            accessibilityRole="button"
-                            onPress={() => run(openCommand)}
-                            style={({ pressed }) => [styles.cardButton, pressed && styles.cardButtonPressed]}
-                          >
-                            <Text style={styles.cardButtonText}>{str(row, 'openLabel')}</Text>
-                          </Pressable>
-                        ) : null}
+                        {/* No Open button: the link chip opens the link and the agent button the
+                            thread, each thing once (the user's 2026-11-06 words on the desktop's
+                            `board_card_buttons`). Open stays in the long-press menu. */}
                         {reference.length > 0 ? (
                           <Pressable
                             accessibilityRole="button"
@@ -610,6 +614,18 @@ const useStyles = themedStyles((P) => ({
     width: 12,
     height: 12,
     borderRadius: 6,
+  },
+  pause: {
+    width: 12,
+    height: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 3,
+  },
+  pauseBar: {
+    width: 3,
+    height: 12,
+    borderRadius: 1.5,
   },
   /** A line of work's card: two lines, always (desktop `board_card`). */
   card: {
