@@ -5,10 +5,14 @@
 import { StyleSheet } from 'react-native';
 
 import { SIDEBAR_BACKGROUND } from '../../components/sessions/rows';
-import { GhostexPalette, GhostexRadii } from '../../theme/palette';
+import { colorWithOpacity, GhostexPalette, GhostexRadii } from '../../theme/palette';
 
 /** The header row's height: its title and buttons are 48 pt tall. */
 export const SESSIONS_HEADER_HEIGHT = 48;
+
+/** The Tailscale notice's amber: its border at 35 % and, over the page, its wash. */
+export const TAILSCALE_WARNING_AMBER = '#FFB454';
+export const TAILSCALE_WARNING_WASH_PERCENT = 10;
 
 const BAND_ROW_PADDING = 12;
 
@@ -81,8 +85,8 @@ export const styles = StyleSheet.create({
     paddingVertical: 9,
     borderRadius: GhostexRadii.card,
     borderWidth: 1,
-    borderColor: 'rgba(255,180,84,0.35)',
-    backgroundColor: 'rgba(255,180,84,0.10)',
+    borderColor: colorWithOpacity(TAILSCALE_WARNING_AMBER, 35),
+    backgroundColor: colorWithOpacity(TAILSCALE_WARNING_AMBER, TAILSCALE_WARNING_WASH_PERCENT),
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,

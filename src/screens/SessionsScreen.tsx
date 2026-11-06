@@ -123,7 +123,7 @@ import { restoreClosedSession } from '../sessions/closedSessions';
 import { filterSummaryForWorkspace, resolveWorkspaceId, workspaceSwitchTarget } from '../workspaces/workspaceFilter';
 import { useSettingsStore, type SessionListView } from '../settings/store';
 import { attachSessionKey, useTerminalStore } from '../terminal/sessions';
-import { GhostexPalette } from '../theme/palette';
+import { GhostexPalette, mixHexColors } from '../theme/palette';
 import { readableSecondaryText } from '../theme/sidebarAppearance';
 import { useStatusBarStyle } from '../theme/statusBar';
 import { useAppearance } from '../theme/useAppearance';
@@ -138,7 +138,12 @@ import {
 import { closeConfirmCopy } from './sessions-screen/close-confirm';
 import { SessionList } from './sessions-screen/session-list';
 import { SessionsBottomBar } from './sessions-screen/BottomBar';
-import { SESSIONS_HEADER_HEIGHT, styles } from './sessions-screen/styles';
+import {
+  SESSIONS_HEADER_HEIGHT,
+  styles,
+  TAILSCALE_WARNING_AMBER,
+  TAILSCALE_WARNING_WASH_PERCENT,
+} from './sessions-screen/styles';
 import { useSessionsScreenActions } from './sessions-screen/use-sessions-screen-actions';
 import { useSessionsScreenMenus } from './sessions-screen/use-sessions-screen-menus';
 import { makeSnoozeSession, useUnifiedList } from './sessions-screen/use-unified-list';
@@ -212,6 +217,15 @@ export default function SessionsScreen({ navigation }: Props) {
   const neutralExpandedGroupSurface = useMemo(
     () => expandedGroupBackground(sidebarAppearance.background),
     [sidebarAppearance.background],
+  );
+  // The Tailscale notice on a light appearance: its line and its close glyph in the list's muted ink, darkened where its
+  // amber wash over the page needs that for 4.5:1 (the glyph needs 3:1).
+  const tailscaleNoticeMuted = useMemo(
+    () =>
+      readableSecondaryText(listInk.muted, sidebarAppearance.foreground, [
+        mixHexColors(TAILSCALE_WARNING_AMBER, sidebarAppearance.background, TAILSCALE_WARNING_WASH_PERCENT),
+      ]),
+    [listInk.muted, sidebarAppearance.foreground, sidebarAppearance.background],
   );
   const tailscaleConnectedInk = useMemo(
     () => readableSecondaryText(GhostexPalette.STATUS_CONNECTED, sidebarAppearance.foreground, [sidebarAppearance.background]),
@@ -1013,7 +1027,7 @@ export default function SessionsScreen({ navigation }: Props) {
               <Text style={[styles.tailscaleWarningTitle, listInk.light ? { color: listInk.text } : null]}>
                 Tailscale isn’t connected
               </Text>
-              <Text style={[styles.tailscaleWarningBody, listInk.light ? { color: listInk.muted } : null]}>
+              <Text style={[styles.tailscaleWarningBody, listInk.light ? { color: tailscaleNoticeMuted } : null]}>
                 Tap to open Tailscale and reconnect.
               </Text>
             </View>
@@ -1026,7 +1040,7 @@ export default function SessionsScreen({ navigation }: Props) {
             style={styles.tailscaleWarningClose}
             onPress={() => setSetting('tailscaleReminder', false)}
           >
-            <CloseIcon size={16} color={GhostexPalette.MUTED} />
+            <CloseIcon size={16} color={listInk.light ? tailscaleNoticeMuted : GhostexPalette.MUTED} />
           </Pressable>
         </View>
       ) : null}

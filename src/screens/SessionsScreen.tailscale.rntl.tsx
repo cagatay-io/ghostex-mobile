@@ -2,23 +2,29 @@
 /**
  * Run with `bunx jest src/screens/SessionsScreen.tailscale.rntl.tsx`. The Sessions screen's "• Tailscale" indicator,
  * shown while the phone's Tailscale is connected, keeps 4.5:1 (WCAG AA for normal-size text) on the drawer page in
- * every preset. The real `SessionsScreen` with its real stores; mocked are the boundaries only: the native module
- * (Tailscale reports connected), storage, haptics, navigation focus (a focus effect runs once, as on arrival) and the
- * voice button.
+ * every preset; on every light preset the notice shown while it is not connected keeps its title and line at 4.5:1 and
+ * its close glyph at 3:1 (WCAG AA for a control's glyph) on the notice's wash. The real `SessionsScreen` with its real
+ * stores; mocked are the boundaries only: the native module (Tailscale reports connected, or not), storage, haptics,
+ * navigation focus (a focus effect runs once, as on arrival) and the voice button.
  */
 
 import { act, render, screen } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import type { TestInstance } from 'test-renderer';
 
+import { CloseIcon } from '../components/terminal/icons';
 import { emptyMachineInventory, useInventoryStore } from '../inventory/store';
 import { useMachinesStore, type MachineRecord } from '../machines/store';
 import { defaultSettings, useSettingsStore } from '../settings/store';
 import { THEME_PRESETS, themePresetPatch } from '../theme/presets';
 import SessionsScreen from './SessionsScreen';
 
+/** What the phone's Tailscale reports. */
+let mockTailscaleConnected = true;
+
 jest.mock('../../modules/ghostex-native/src', () => {
-  // Tailscale is connected; every other native call resolves to nothing; listeners can be removed.
+  // Tailscale reports `mockTailscaleConnected`; every other native call resolves to nothing; listeners can be removed.
   const call = () => Promise.resolve(undefined);
   const native = new Proxy(
     {},
@@ -27,7 +33,7 @@ jest.mock('../../modules/ghostex-native/src', () => {
         key === 'addListener'
           ? () => ({ remove: () => undefined })
           : key === 'isTailscaleConnected'
-            ? () => Promise.resolve(true)
+            ? () => Promise.resolve(mockTailscaleConnected)
             : call,
     },
   );
@@ -92,46 +98,85 @@ function over(fill: string, base: string): string {
 }
 
 afterEach(async () => {
+  mockTailscaleConnected = true;
   await act(() => {
     useSettingsStore.setState({ settings: defaultSettings() });
   });
 });
 
+/** The real Sessions screen in `preset`, its computer not answering (no list read yet). */
+async function renderSessions(preset: string): Promise<void> {
+  useSettingsStore.setState({
+    hydrated: true,
+    settings: { ...defaultSettings(), ...themePresetPatch(preset, false), tailscaleReminder: true },
+  });
+  useMachinesStore.setState({ hydrated: true, machines: [MACHINE], selectedMachineId: MACHINE.id });
+  useInventoryStore.setState({ inventoriesByMachineId: { [MACHINE.id]: emptyMachineInventory() } });
+  await render(
+    <SafeAreaProvider
+      initialMetrics={{
+        frame: { x: 0, y: 0, width: 402, height: 874 },
+        insets: { top: 59, left: 0, right: 0, bottom: 34 },
+      }}
+    >
+      <SessionsScreen
+        navigation={{ navigate: () => undefined } as never}
+        route={{ key: 'sessions', name: 'Sessions' } as never}
+      />
+    </SafeAreaProvider>,
+  );
+  await act(async () => undefined);
+}
+
+/** What is drawn behind `node`: the washes of its ancestors over the first opaque one. */
+function surfaceBehind(node: TestInstance): string {
+  const washes: string[] = [];
+  let base: string | null = null;
+  for (let at = node.parent; at !== null && base === null; at = at.parent) {
+    const fill = StyleSheet.flatten(at.props.style)?.backgroundColor;
+    if (typeof fill !== 'string' || fill === 'transparent') continue;
+    if (fill.startsWith('#')) base = fill;
+    else washes.push(fill);
+  }
+  return washes.reverse().reduce((under, wash) => over(wash, under), base!);
+}
+
+/** The props of the first `type` component inside `node`, through React's fiber (the test renderer keeps host views). */
+function componentProps(node: TestInstance, type: unknown): Record<string, unknown> | null {
+  const pending = [node.unstable_fiber?.child ?? null];
+  while (pending.length > 0) {
+    const fiber = pending.pop();
+    if (fiber === null || fiber === undefined) continue;
+    if (fiber.type === type) return fiber.memoizedProps as Record<string, unknown>;
+    pending.push(fiber.sibling, fiber.child);
+  }
+  return null;
+}
+
 test.each(THEME_PRESETS.map((preset) => [preset.id, preset.mode] as const))(
   '%s (%s): the connected Tailscale indicator keeps 4.5:1 on the drawer page',
   async (preset) => {
-    useSettingsStore.setState({
-      hydrated: true,
-      settings: { ...defaultSettings(), ...themePresetPatch(preset, false) },
-    });
-    useMachinesStore.setState({ hydrated: true, machines: [MACHINE], selectedMachineId: MACHINE.id });
-    useInventoryStore.setState({ inventoriesByMachineId: { [MACHINE.id]: emptyMachineInventory() } });
-    await render(
-      <SafeAreaProvider
-        initialMetrics={{
-          frame: { x: 0, y: 0, width: 402, height: 874 },
-          insets: { top: 59, left: 0, right: 0, bottom: 34 },
-        }}
-      >
-        <SessionsScreen
-          navigation={{ navigate: () => undefined } as never}
-          route={{ key: 'sessions', name: 'Sessions' } as never}
-        />
-      </SafeAreaProvider>,
-    );
-    await act(async () => undefined);
+    await renderSessions(preset);
     const label = screen.getByText('• Tailscale');
-    // What is drawn behind the label: the washes of its ancestors over the first opaque one.
-    const washes: string[] = [];
-    let base: string | null = null;
-    for (let at = label.parent; at !== null && base === null; at = at.parent) {
-      const fill = StyleSheet.flatten(at.props.style)?.backgroundColor;
-      if (typeof fill !== 'string' || fill === 'transparent') continue;
-      if (fill.startsWith('#')) base = fill;
-      else washes.push(fill);
-    }
-    const surface = washes.reverse().reduce((under, wash) => over(wash, under), base!);
     const ink = String(StyleSheet.flatten(label.props.style).color);
-    expect(contrast(ink, surface)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(ink, surfaceBehind(label))).toBeGreaterThanOrEqual(4.5);
+  },
+);
+
+test.each(THEME_PRESETS.filter((preset) => preset.mode === 'light').map((preset) => [preset.id] as const))(
+  '%s (light): the not-connected notice keeps its words at 4.5:1 and its close glyph at 3:1 on its wash',
+  async (preset) => {
+    mockTailscaleConnected = false;
+    await renderSessions(preset);
+    for (const words of ['Tailscale isn’t connected', 'Tap to open Tailscale and reconnect.']) {
+      const text = screen.getByText(words);
+      expect(contrast(String(StyleSheet.flatten(text.props.style).color), surfaceBehind(text))).toBeGreaterThanOrEqual(
+        4.5,
+      );
+    }
+    // The close button's glyph: the colour the screen hands its icon, on the notice's wash.
+    const close = screen.getByLabelText('Hide the Tailscale notice');
+    const color = String(componentProps(close, CloseIcon)?.color);
+    expect(contrast(color, surfaceBehind(close))).toBeGreaterThanOrEqual(3);
   },
 );
