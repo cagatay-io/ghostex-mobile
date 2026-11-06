@@ -101,6 +101,7 @@ import { hasPassword } from '../machines/credentials';
 import { useInventoryStore } from '../inventory/store';
 import { sessionNotesOnIn } from '../sessions/sessionNotesSwitch';
 import type { RootStackParamList } from '../navigation/types';
+import { contextSessionFor } from '../files/sessionContext';
 import { FORK_AGENT_ICONS, renameInitialTitle } from '../sessions/sessionCommands';
 import { useSettingsStore } from '../settings/store';
 import { acknowledgeSessionAttention } from '../terminal/attention';
@@ -815,11 +816,21 @@ export default function TerminalScreen({ navigation, route }: Props) {
       if (id === 'docs') {
         setMenuVisible(false);
         if (activeTab !== null && activeProject !== null && (activeProject.path ?? '').length > 0) {
+          // The agent session Files was opened from takes Add to Session Context.
+          const session = contextSessionFor(
+            activeTab,
+            activeAgentId,
+            activeSession === null || activeSession.displayTitle.length === 0
+              ? SessionCopy.fallbackTitle
+              : activeSession.displayTitle,
+            chatCapable,
+          );
           navigation.navigate('Docs', {
             machineId: activeTab.machineId,
             projectId: activeProject.projectId,
             projectName: activeProject.name ?? '',
             projectPath: activeProject.path ?? '',
+            ...(session !== null ? { session } : {}),
           });
         }
         return;
@@ -845,7 +856,18 @@ export default function TerminalScreen({ navigation, route }: Props) {
       }
       handleMenuAction(id);
     },
-    [activeProject, activeTab, chatModeActive, handleMenuAction, navigation, setMenuVisible, toggleChatView],
+    [
+      activeAgentId,
+      activeProject,
+      activeSession,
+      activeTab,
+      chatCapable,
+      chatModeActive,
+      handleMenuAction,
+      navigation,
+      setMenuVisible,
+      toggleChatView,
+    ],
   );
 
   const uploadEnabled = activeTab !== null && (chatModeActive ? agentActionsCapable : activeTab.state === 'open');

@@ -1,4 +1,5 @@
 import type { AddProjectSourceId } from '../addProject/client';
+import type { ContextSession } from '../files/sessionContext';
 import type { SettingsPageId } from '../screens/settings/pages';
 
 /**
@@ -57,13 +58,23 @@ export type RootStackParamList = {
       }
     | { url: string; remotePort?: never; path?: never; scheme?: never; host?: never }
   );
-  /** A project's Docs: its Markdown and HTML files, by folder, as the desktop Docs view lists them. */
-  Docs: { machineId: string; projectId: string; projectName: string; projectPath: string };
+  /**
+   * Files: a project's file browser, the whole project folder by folder with search, Recently changed on top.
+   * `session`: the agent session it was opened from (the terminal screen's menu), which Add to Session Context
+   * fills; absent when opened from a project's menu.
+   */
+  Docs: {
+    machineId: string;
+    projectId: string;
+    projectName: string;
+    projectPath: string;
+    session?: ContextSession;
+  };
   /** A project's Changes, read-only: its diff against main or HEAD, as the desktop Changes tab shows it. */
   Changes: { machineId: string; projectId: string; projectName: string };
   /**
-   * One Markdown or HTML file from the computer, by absolute path. `fragment` scrolls to an anchor
-   * (a link such as `other.md#setup`).
+   * One file from the computer, by absolute path. `fragment` scrolls to an anchor
+   * (a link such as `other.md#setup`). Files uses the same viewer for rendered documents, source and metadata.
    */
   DocViewer: {
     machineId: string;
@@ -71,6 +82,12 @@ export type RootStackParamList = {
     fragment?: string;
     /** The session's project, whose file link streams a video or audio file (`docs/mediaStream.ts`). */
     projectId?: string;
+    /** Opened from Files: the file's path in the project, which Share… fetches. */
+    entryPath?: string;
+    /** Opened from Files: the listed size; null when unknown. Enables the browser's preview policy. */
+    size?: number | null;
+    /** Opened from Files from an agent session: the session Add to Session Context fills. */
+    session?: ContextSession;
   };
   /**
    * Send Bug / Feedback; `machineId` is the computer the "Collect more data with an agent" switch uses,

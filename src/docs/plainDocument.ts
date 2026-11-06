@@ -1,11 +1,11 @@
 /**
  * The file viewer's pages for files that are not documents: plain text and source code as wrapped
- * monospace, and a picture at the screen's width (pinch to zoom, double-tap for its actual size).
- * Both are written beside the mirrored file like the Markdown page, so the picture loads by its
- * own relative name.
+ * monospace, numbered source for the project file browser, and a picture at the screen's width (pinch to
+ * zoom, double-tap for its actual size). The text and picture pages are written beside the mirrored file
+ * like the Markdown page, so the picture loads by its own relative name.
  */
 
-import { GhostexPalette } from '../theme/palette';
+import { GhostexPalette, SidebarPalette } from '../theme/palette';
 import { FILE_VIEWER_CODE_SIZE } from './textSizes';
 
 function escapeHtml(text: string): string {
@@ -31,6 +31,19 @@ ${body}
 /** Text the viewer shows as written, long lines wrapped so the phone never scrolls sideways. */
 export function renderTextDocument(text: string, title: string): string {
   return shell(title, TEXT_STYLES, `<pre class="plain-text">${escapeHtml(text)}</pre>`);
+}
+
+/**
+ * Source as the project file browser shows it (the design): monospace with
+ * line numbers, lines kept whole and scrolled sideways so indentation stays readable; the numbers are not
+ * selected with the text.
+ */
+export function renderSourceDocument(text: string, title: string): string {
+  const lines = text.split(/\r?\n/u);
+  // A file's closing newline ends its last line; it opens no line of its own.
+  if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop();
+  const numbered = lines.map((line, index) => `<span class="ln">${index + 1}</span>${escapeHtml(line)}`).join('\n');
+  return shell(title, sourceStyles(String(lines.length).length), `<pre class="source">${numbered}</pre>`);
 }
 
 /**
@@ -123,6 +136,31 @@ const TEXT_STYLES = `
   tab-size: 4;
 }
 `;
+
+/** The numbered source page's styles; the numbers' column is as wide as the last line's number. */
+function sourceStyles(numberDigits: number): string {
+  return `
+.source {
+  box-sizing: border-box;
+  width: max-content;
+  min-width: 100%;
+  margin: 0;
+  padding: 12px 14px calc(48px + env(safe-area-inset-bottom));
+  font: ${FILE_VIEWER_CODE_SIZE}px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  white-space: pre;
+  tab-size: 4;
+}
+.ln {
+  display: inline-block;
+  width: ${numberDigits}ch;
+  margin-right: 14px;
+  text-align: right;
+  color: ${SidebarPalette.MUTED};
+  -webkit-user-select: none;
+  user-select: none;
+}
+`;
+}
 
 const IMAGE_STYLES = `
 .picture {

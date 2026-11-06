@@ -158,3 +158,24 @@ describe('the pad position is stored per layout as commandPadPosition', () => {
     }
   });
 });
+
+describe('hidden files sit behind a switch that is off by default', () => {
+  test('a fresh install reads showHiddenFiles as false', async () => {
+    await reload();
+    expect(useSettingsStore.getState().settings.showHiddenFiles).toBe(false);
+  });
+
+  test('switched on, it is still on after a reload', async () => {
+    await reload();
+    useSettingsStore.getState().setSetting('showHiddenFiles', true);
+    await reload();
+    expect(useSettingsStore.getState().settings.showHiddenFiles).toBe(true);
+  });
+
+  test('settings saved before the switch existed read it as off', async () => {
+    memory.set('settings.v1', JSON.stringify({ fontSize: 12, autoReconnect: false }));
+    await reload();
+    expect(useSettingsStore.getState().settings.showHiddenFiles).toBe(false);
+    expect(useSettingsStore.getState().settings.autoReconnect).toBe(false);
+  });
+});

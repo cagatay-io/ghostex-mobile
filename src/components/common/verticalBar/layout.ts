@@ -465,6 +465,41 @@ export function foldDivisionsSummary(divisions: readonly FoldDivision[] | undefi
     .join('; ');
 }
 
+/** The least height a menu at its row keeps before it gives up the row's side (as in the design). */
+const ROW_MENU_MIN_HEIGHT = 150;
+
+/**
+ * A menu opened from a row (a long press) or from a control inside a screen's content stands at
+ * that row, as an iOS context menu does, in every pose and on every iPhone: under the row with its leading edge
+ * at the row's, above it when the room under it is short. Where neither side holds the whole menu it stays at
+ * the roomier side and scrolls inside (`maxHeight`), down to `ROW_MENU_MIN_HEIGHT`; with less room than that at
+ * the row it stands wherever `room` holds it. Pass the room `menuRoomBeside` leaves, so it stays off the fold.
+ */
+export function rowMenuOrigin(
+  anchor: WindowRect,
+  menu: { readonly width: number; readonly height: number },
+  room: MenuRoom,
+): { left: number; top: number; maxHeight: number | null } {
+  const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max));
+  const left = clamp(anchor.x, room.left, room.right - menu.width);
+  const below = anchor.y + anchor.height + MENU_GAP;
+  const roomBelow = room.bottom - below;
+  const roomAbove = anchor.y - MENU_GAP - room.top;
+  if (menu.height <= roomBelow) return { left, top: below, maxHeight: null };
+  if (menu.height <= roomAbove) return { left, top: anchor.y - MENU_GAP - menu.height, maxHeight: null };
+  if (Math.max(roomBelow, roomAbove) >= Math.min(menu.height, ROW_MENU_MIN_HEIGHT)) {
+    return roomBelow >= roomAbove
+      ? { left, top: below, maxHeight: roomBelow }
+      : { left, top: anchor.y - MENU_GAP - roomAbove, maxHeight: roomAbove };
+  }
+  const height = Math.min(menu.height, room.bottom - room.top);
+  return {
+    left,
+    top: clamp(below, room.top, room.bottom - height),
+    maxHeight: height < menu.height ? height : null,
+  };
+}
+
 /** The window frame of a side bar button standing at `top` (`railLayoutFor`'s `tops`), centred across it. */
 export function railButtonFrame(frame: WindowRect, fit: RailFit, top: number): WindowRect {
   return { x: frame.x + (frame.width - fit.size) / 2, y: top, width: fit.size, height: fit.size };

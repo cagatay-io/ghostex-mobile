@@ -1077,8 +1077,8 @@ export class RustChatHost {
 
 const hosts = new Map<string, { host: RustChatHost; references: number }>();
 
-function hostKey(target: RustChatTarget): string {
-  return JSON.stringify([target.machine.id, target.projectId, target.sessionId]);
+function hostKey(machineId: string, projectId: string, sessionId: string): string {
+  return JSON.stringify([machineId, projectId, sessionId]);
 }
 
 /**
@@ -1086,7 +1086,7 @@ function hostKey(target: RustChatTarget): string {
  * one releases it (a dev shadow and the future native screen can hold the same chat at once).
  */
 export function acquireRustChatHost(target: RustChatTarget): { host: RustChatHost; release: () => void } {
-  const key = hostKey(target);
+  const key = hostKey(target.machine.id, target.projectId, target.sessionId);
   let entry = hosts.get(key);
   if (entry === undefined) {
     entry = { host: new RustChatHost(target), references: 0 };
@@ -1108,4 +1108,13 @@ export function acquireRustChatHost(target: RustChatTarget): { host: RustChatHos
       }
     },
   };
+}
+
+/**
+ * The host of a chat that is open now (a mounted chat screen holds it), or null; unlike
+ * {@link acquireRustChatHost} it never starts one. For text another screen adds to that chat's draft (Files'
+ * Add to Session Context): a host started for that alone would close again before the draft reached the computer.
+ */
+export function openRustChatHost(machineId: string, projectId: string, sessionId: string): RustChatHost | null {
+  return hosts.get(hostKey(machineId, projectId, sessionId))?.host ?? null;
 }

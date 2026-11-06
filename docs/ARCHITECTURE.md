@@ -19,6 +19,8 @@ mobile/
     inventory/                # inventory client (exec over native ssh), 5s polling, per-machine fan-out
     terminal/                 # tab/session state, warm-session policy (max 7, within a scrollback-row budget), attach orchestration
     commands/                 # ghostex CLI command builders (login-shell wrapping, quoting)
+    docs/                     # document page builder, remote-file mirror and renderers
+    files/                    # project browser policy, listing, search, share and session-context actions
     components/               # shared UI (action sheets, state cards, chips, key bar)
     screens/
       WelcomeScreen.tsx       # docs/specs/onboarding.md §1
@@ -37,9 +39,22 @@ mobile/
   ios/ android/               # expo prebuild output, committed (bare workflow)
 ```
 
+### Project file previews
+
+`DocsScreen` opens a Ghostex page as its page in the Web preview (`openComputerPage` in `src/docs/openComputerFile.ts`,
+as chat file links do) and every other project file in `DocViewerScreen`, also used by chat and terminal file links.
+`src/docs/page.ts` (`buildDocPage`) applies the browser's existing preview policy when Files supplies a size:
+Markdown and HTML render up to 2 MB; other UTF-8 text opens as numbered source with JavaScript, asset loading
+and annotations disabled. Images, binary files and files over the limit show their name, kind, size and full
+path instead, with Copy Full Path and Share below the metadata and only Reload in the header. Reload measures
+the project file again before choosing its mode. The viewer owns loading, cancellation, failures, retry,
+clipboard feedback and sharing for all three modes. File links outside Files keep their existing text,
+image and media previews and limits.
+
+
 ## Native module contract (`modules/ghostex-native`)
 
-Both platforms implement this API, except the iOS-only bar layout functions and event (`observeBarLayout`, `stopObservingBarLayout`, `onBarLayoutChange`), which the shared layer calls only behind `Platform.OS === 'ios'`. TS bindings in `modules/ghostex-native/src/index.ts`.
+Both platforms implement this API, except the iOS-only bar layout functions and event (`observeBarLayout`, `stopObservingBarLayout`, `onBarLayoutChange`) and the iOS-only file share sheet (`shareFile`), which the shared layer calls only behind `Platform.OS === 'ios'`. TS bindings in `modules/ghostex-native/src/index.ts`.
 
 ### Concepts
 
@@ -86,6 +101,15 @@ focusTerminal(sessionKey: string): Promise<boolean>;
 // app's window, now and from then on through `onBarLayoutChange`. A new call replaces the running observation.
 observeBarLayout(sideExtent: number, topExtent: number): Promise<{ id: number; layout: BarLayout }>;
 stopObservingBarLayout(id: number): Promise<void>;
+
+// iOS only. Share… in the project file browser: the share sheet for one `file://` copy in the app's temporary storage.
+// Settles once, when the share is over: the sheet has left the screen and UIKit has reported its last activity's final
+// result (an activity cancelled while the sheet stayed open is no end; React Native 0.88's `Share` ignores that
+// completion). Resolves when that activity reported no error (shared or cancelled); rejects with `E_SHARE_FAILED` when it
+// failed, `E_SHARE_UNAVAILABLE` when no sheet could be shown, `E_SHARE_INTERRUPTED` when its presenting screen went away
+// before a result or the module was torn down (reload; OnDestroy ends and dismisses the module's open sheets). Nothing
+// settles from a released controller. The caller deletes the copy and releases its one-share lock on either answer.
+shareFile(fileUri: string): Promise<void>;
 ```
 
 `TerminalKey`: `'escape'|'tab'|'enter'|'backspace'|'delete'|'insert'|'home'|'end'|'pageUp'|'pageDown'|'up'|'down'|'left'|'right'|'f1'..'f12'` or a single character (e.g. `'c'` with `{ctrl:true}` → ^C).
@@ -114,7 +138,7 @@ The app uses the whole window on the Duo and draws its own header controls next 
 
 ### Error codes (rejections carry `code`)
 
-`E_AUTH_FAILED` · `E_HOST_KEY_MISMATCH` · `E_UNREACHABLE` · `E_REFUSED` · `E_TIMEOUT` · `E_NOT_CONNECTED` · `E_CHANNEL_FAILED` · `E_SFTP_FAILED`. JS maps these to the human copy in `docs/specs/sessions-drawer.md` §5.
+`E_AUTH_FAILED` · `E_HOST_KEY_MISMATCH` · `E_UNREACHABLE` · `E_REFUSED` · `E_TIMEOUT` · `E_NOT_CONNECTED` · `E_CHANNEL_FAILED` · `E_SFTP_FAILED`. JS maps these to the human copy in `docs/specs/sessions-drawer.md` §5. iOS-only `shareFile`: `E_SHARE_UNAVAILABLE` · `E_SHARE_FAILED` · `E_SHARE_INTERRUPTED`, which `src/files/shareSheet.ts` maps to one notice each (`DocsCopy`); any other rejection counts as interrupted.
 
 ### View
 
