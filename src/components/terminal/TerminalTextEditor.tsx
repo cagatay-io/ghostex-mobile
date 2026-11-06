@@ -12,6 +12,10 @@
  * while the editor, which holds it, is still mounted, so UIKit moves the responder straight over and the
  * keyboard stays up; the editor goes once the native call has answered. A refusal or an error still closes it
  * (the keyboard then hides with the editor) and is logged, so the failure is not silent.
+ *
+ * While the pad is closed because the open pad has no room above the keyboard and the editor, even over the header
+ * (a phone in landscape), the pen is out of reach: the editor then has its own close button at its end, the layer's
+ * (`CommandPadCloseButton`), which does what the pen does.
  */
 
 import { useCallback, useRef, useState } from 'react';
@@ -21,6 +25,7 @@ import { GhostexNative } from '../../../modules/ghostex-native/src';
 import { CommandPadCopy } from '../../copy';
 import { useTerminalStore } from '../../terminal/sessions';
 import { CommandPadPalette, GhostexPalette } from '../../theme/palette';
+import { CommandPadCloseButton } from './CommandPadLayer';
 import { ArrowIcon, SendIcon } from './icons';
 
 export type TerminalTextEditorState = {
@@ -72,6 +77,11 @@ export function useTerminalTextEditor(sessionKey: string | null): TerminalTextEd
 
 export type TerminalTextEditorProps = {
   sessionKey: string;
+  /**
+   * Given only while the pad is closed for lack of room above the keyboard and the editor: its own close button,
+   * since the pen in the pad's ring is not shown then. It closes the editor as the pen does.
+   */
+  onClose?: () => void;
 };
 
 /** The editor's height with one line of text: the dock's height until it has laid out. */
@@ -80,7 +90,7 @@ export const TEXT_EDITOR_HEIGHT = 56;
 // A failed call means the terminal entry closed or failed; the terminal's state overlay shows that.
 const ignoreClosedTerminal = (): void => undefined;
 
-export default function TerminalTextEditor({ sessionKey }: TerminalTextEditorProps) {
+export default function TerminalTextEditor({ sessionKey, onClose }: TerminalTextEditorProps) {
   // The session's draft (`textEditorDraftBySessionKey`): the editor starts with it and keeps it up to date. Only the
   // editor reads it, and only as it opens, so typing redraws the editor alone.
   const [text, setShownText] = useState(
@@ -135,6 +145,14 @@ export default function TerminalTextEditor({ sessionKey }: TerminalTextEditorPro
           <ArrowIcon direction="up" size={18} color={GhostexPalette.ACCENT_FOREGROUND} />
         )}
       </Pressable>
+      {onClose !== undefined ? (
+        <CommandPadCloseButton
+          accessibilityLabel={CommandPadCopy.closeEditor}
+          accessibilityHint={CommandPadCopy.closeEditorHint}
+          style={styles.close}
+          onPress={onClose}
+        />
+      ) : null}
     </View>
   );
 }
@@ -174,5 +192,9 @@ const styles = StyleSheet.create({
   },
   sendPressed: {
     opacity: 0.8,
+  },
+  // The 44 pt target's extra height lies over the bar's padding, so the bar keeps its height; its face centres on Send.
+  close: {
+    marginVertical: -2,
   },
 });

@@ -1038,6 +1038,12 @@ export const CommandPadCopy = {
   /** A layer's own close button, shown while it stands in for the open pad (too little room for both). */
   closeLayer: 'Close',
   closeLayerHint: 'Opens the command pad again',
+  /**
+   * The text editor's own close button in the same state: it does what the pen does. Named for what it closes, as the
+   * editor has no titled head that tells which "Close" it is.
+   */
+  closeEditor: 'Close text editor',
+  closeEditorHint: 'Keeps the text for the next opening; the keyboard stays up',
   holdHintIdle: 'Hold a key to see what it does',
   holdHint: 'Hold to see what this key does',
   modifierHint: 'Tap for one key, or hold to lock until tapped again',

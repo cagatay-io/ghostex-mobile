@@ -6,6 +6,7 @@
  */
 import {
   ACTIONS,
+  CLOSE_EDITOR,
   CLOSE_LAYER,
   DEFAULT_LABELS,
   DUO_FOLDED,
@@ -49,8 +50,9 @@ import type { TestInstance } from 'test-renderer';
  * three poses, and every event that changes one of them. After each event every pad control that is shown lies
  * inside the window's safe area, above what covers the window's bottom (keyboard, text editor, layer) and inside
  * every view that cuts off what leaves it, at its full size; and an open pad is never hidden: it is drawn open, or a
- * layer that stands in for it shows its own close button. A turn or fold that starts with the keyboard and the open
- * pad both up also checks which of the two stays (`keyboardAndPadAfter`).
+ * layer that stands in for it shows its own close button. The text editor without the pen (the pad closed where the
+ * open pad has no room above it) has its own close button, and only then. A turn or fold that starts with the
+ * keyboard and the open pad both up also checks which of the two stays (`keyboardAndPadAfter`).
  *
  * States that cannot rest are not started from: a layer with the keyboard up (the layer takes the keyboard's place and
  * the keyboard coming back ends it), a layer with the text editor (each closes the other), a layer with the pad closed
@@ -241,6 +243,12 @@ function expectPadWhole(moment: string): void {
   // The round keyboard button beside the closed pad shares the ring's keyboard name, so only the others tell.
   if (!open && [...DEFAULT_LABELS, ...RING_ONLY].some(shown)) problems.push('a closed pad shows keys');
   if (open && shown(CLOSE_LAYER)) problems.push('a layer stands in for a pad drawn open');
+  // The pen is out of reach exactly while the editor is open, the pad closed and the open pad without room.
+  const editorAlone = shown(EDITOR) && !open && !poseNow().roomAboveKeyboard;
+  if (editorAlone && !shown(CLOSE_EDITOR)) problems.push('the editor without the pen has no close button of its own');
+  if (!editorAlone && shown(CLOSE_EDITOR)) {
+    problems.push("the editor's own close button is shown where the pen is in reach");
+  }
   for (let node: TestInstance | null = toggle; node !== null; node = node.parent) {
     if (StyleSheet.flatten(node.props.style)?.opacity === 0) problems.push('the pad is not seen');
   }
@@ -310,6 +318,11 @@ const EVENTS: MatrixEvent[] = [
     name: 'layer close button',
     applies: (start) => start.shown.pad === 'standing in',
     run: () => matrixStep(() => press(CLOSE_LAYER)),
+  },
+  {
+    name: 'editor close button',
+    applies: (start, entry) => start.shown.editor && start.shown.pad === 'closed' && !entry.pose.roomAboveKeyboard,
+    run: () => matrixStep(() => press(CLOSE_EDITOR)),
   },
   {
     name: 'turn, window first',

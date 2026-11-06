@@ -8,11 +8,12 @@
  * Page keys and agent hotkeys send on release and explain themselves while held, in the hint line, as the key
  * bar's pages did. Sections stand side by side where the panel is wide enough (the iPhone Duo unfolded in
  * landscape) and one under the other elsewhere. A layer that stands in for the open pad (it leaves the open pad no
- * room above it, even over the header) has its own close button at the head's end, a 44 pt target.
+ * room above it, even over the header) has its own close button at the head's end, a 44 pt target
+ * (`CommandPadCloseButton`, which the text editor uses in the same state).
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { CommandPadCopy } from '../../copy';
 import { AGENT_NAMES, useAgentHotkeysStore, type ConfigurableAgentId } from '../../settings/agentHotkeys';
@@ -199,19 +200,12 @@ export default function CommandPadLayer({
           </Pressable>
         ) : null}
         {onClose !== undefined ? (
-          <Pressable
-            accessibilityRole="button"
+          <CommandPadCloseButton
             accessibilityLabel={CommandPadCopy.closeLayer}
             accessibilityHint={CommandPadCopy.closeLayerHint}
-            style={styles.close}
+            style={styles.closeInHead}
             onPress={onClose}
-          >
-            {({ pressed }) => (
-              <View style={[styles.closeFace, pressed && styles.pillPressed]}>
-                <CloseIcon size={14} color={GhostexPalette.MUTED} strokeWidth={1.8} />
-              </View>
-            )}
-          </Pressable>
+          />
         ) : null}
       </View>
       <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} bounces={false}>
@@ -243,6 +237,42 @@ export default function CommandPadLayer({
         )}
       </ScrollView>
     </View>
+  );
+}
+
+export type CommandPadCloseButtonProps = {
+  accessibilityLabel: string;
+  /** What else closing does, beyond closing. */
+  accessibilityHint: string;
+  /** Where its host places it: the margins that lay its extra height over the host's padding. */
+  style: StyleProp<ViewStyle>;
+  onPress: () => void;
+};
+
+/**
+ * The own close button of what stands in for the open pad where the two do not fit together (a layer, the text
+ * editor): the pad's ring is not shown then. A 44 pt target around a face that matches the Pad settings chip.
+ */
+export function CommandPadCloseButton({
+  accessibilityLabel,
+  accessibilityHint,
+  style,
+  onPress,
+}: CommandPadCloseButtonProps) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
+      style={[styles.close, style]}
+      onPress={onPress}
+    >
+      {({ pressed }) => (
+        <View style={[styles.closeFace, pressed && styles.pillPressed]}>
+          <CloseIcon size={14} color={GhostexPalette.MUTED} strokeWidth={1.8} />
+        </View>
+      )}
+    </Pressable>
   );
 }
 
@@ -300,15 +330,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: GhostexPalette.MUTED,
   },
-  // A 44 pt target whose extra height lies over the panel's top padding and the gap below the head, so the head
-  // keeps its height and the keys keep their room; the face matches the Pad settings chip.
   close: {
     width: 44,
     height: 44,
-    marginTop: -10,
-    marginBottom: -6,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // In the head, the target's extra height lies over the panel's top padding and the gap below the head, so the head
+  // keeps its height and the keys keep their room.
+  closeInHead: {
+    marginTop: -10,
+    marginBottom: -6,
   },
   closeFace: {
     width: 28,

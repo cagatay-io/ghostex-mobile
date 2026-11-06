@@ -4,8 +4,8 @@
  * and text editor: the pad replacing the key bar and the upload button, the setting that shows and hides it (and,
  * with the pad off, the round upload button as today), the 3x3 field, a key changed in Settings, the pad staying
  * open, Upload up to the terminal menu's source choice, every old function of the key bar reached from the pad, the
- * layer in the keyboard's place with cross and ring standing still, the pen's keyboard hand-over, and the text editor's
- * draft kept per session through every close until Send.
+ * layer in the keyboard's place with cross and ring standing still, the pen's keyboard hand-over, the text editor's
+ * draft kept per session through every close until Send, and the editor's own close button where the pad has no room.
  *
  * On the device these checks read the accessibility tree; here the same questions are asked of the rendered
  * component tree (labels, presence, the calls that reach the native module). Device behaviour (the keyboard really
@@ -23,8 +23,10 @@ import {
   ACCESSIBILITY_ACTIVATION,
   ACTIONS,
   AGENT_TAB,
+  CLOSE_EDITOR,
   DEFAULT_LABELS,
   EDITOR,
+  FRAME_FIRST,
   HIDDEN_TOO,
   IPHONE_TURNED,
   IPHONE_UPRIGHT,
@@ -34,7 +36,9 @@ import {
   SHELL_TAB,
   TOGGLE,
   WINDOW,
+  WINDOW_FIRST,
   bottomOf,
+  changePose,
   keyboardComesUp,
   keyboardWillHide,
   keyboardWillShow,
@@ -752,7 +756,7 @@ describe('the text editor keeps its draft however it closes', () => {
 
   test('the pad toggle lowering the keyboard where the open pad and the keyboard do not fit together', async () => {
     await typeDraft(IPHONE_TURNED);
-    // The editor opening on the keyboard closed the pad: the toggle is the one control left beside the editor.
+    // The editor opening on the keyboard closed the pad: the toggle and the editor's own close button are left.
     expect(shownNow()).toMatchObject({ keyboard: true, editor: true, pad: 'closed' });
     await matrixStep(ACTIONS.toggle);
     expect(shownNow()).toMatchObject({ keyboard: false, editor: false, pad: 'open' });
@@ -790,6 +794,59 @@ describe('the text editor keeps its draft however it closes', () => {
     await matrixStep(ACTIONS.pen);
     await matrixStep(ACTIONS.pen);
     expect(screen.getByLabelText(EDITOR).props.value).toBe('');
+  });
+
+  /*
+   * Where the open pad has no room above the keyboard and the editor, even over the header, the editor opening closed
+   * the pad and the pen is out of reach: the editor has its own close button, the layer's in the same state, and it
+   * does what the pen does.
+   */
+  describe('its own close button while the pad has no room', () => {
+    test('a phone in landscape: there, announced as a button with its label; a tap closes the editor, the keyboard stays up, the pad stays closed, and the next opening shows the draft', async () => {
+      await typeDraft(IPHONE_TURNED);
+      expect(shownNow()).toMatchObject({ keyboard: true, editor: true, pad: 'closed' });
+      const close = screen.getByRole('button', { name: CLOSE_EDITOR });
+      expect(close.props.accessibilityHint).toBe('Keeps the text for the next opening; the keyboard stays up');
+      expect(StyleSheet.flatten(close.props.style)).toMatchObject({ width: 44, height: 44 });
+      mockNative.focusTerminal.mockClear();
+
+      await matrixStep(() => fireEvent.press(screen.getByLabelText(CLOSE_EDITOR)));
+      // As the pen: the keyboard is handed to the terminal, not lowered.
+      expect(mockNative.focusTerminal).toHaveBeenCalledWith('agent-1');
+      expect(mockNative.blurTerminal).not.toHaveBeenCalled();
+      expect(shownNow()).toMatchObject({ keyboard: true, editor: false, layer: 'none', pad: 'closed' });
+      expect(screen.queryByLabelText(CLOSE_EDITOR)).toBeNull();
+      expect(mockNative.sendText).not.toHaveBeenCalled();
+
+      // The pad opens (lowering the keyboard, as before), and the pen brings the editor back with the draft.
+      await matrixStep(ACTIONS.toggle);
+      await penShowsDraft();
+      expect(screen.getByLabelText(CLOSE_EDITOR)).toBeTruthy();
+    });
+
+    test('where the open pad has room above the keyboard and the editor there is none, with the pad open or closed by its toggle', async () => {
+      await typeDraft(IPHONE_UPRIGHT);
+      expect(shownNow()).toMatchObject({ keyboard: true, editor: true, pad: 'open' });
+      expect(screen.queryByLabelText(CLOSE_EDITOR)).toBeNull();
+
+      await matrixStep(ACTIONS.toggle);
+      expect(shownNow()).toMatchObject({ keyboard: true, editor: true, pad: 'closed' });
+      expect(screen.queryByLabelText(CLOSE_EDITOR)).toBeNull();
+    });
+
+    // Each turn is reported in the order that keeps the text editor through it in this renderer: the keyboard's frame
+    // first into the shorter window, the window first into the taller one. What a turn does to the editor itself is
+    // not this test's question.
+    test('a turn that takes the room closes the pad and brings the button; turning back removes it and leaves the pad closed', async () => {
+      await typeDraft(IPHONE_UPRIGHT);
+      await matrixStep(() => changePose(IPHONE_TURNED, FRAME_FIRST));
+      expect(shownNow()).toMatchObject({ keyboard: true, editor: true, pad: 'closed' });
+      expect(screen.getByLabelText(CLOSE_EDITOR)).toBeTruthy();
+
+      await matrixStep(() => changePose(IPHONE_UPRIGHT, WINDOW_FIRST));
+      expect(shownNow()).toMatchObject({ keyboard: true, editor: true, pad: 'closed' });
+      expect(screen.queryByLabelText(CLOSE_EDITOR)).toBeNull();
+    });
   });
 });
 

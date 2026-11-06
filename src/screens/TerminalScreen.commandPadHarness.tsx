@@ -326,6 +326,8 @@ export const LANDSCAPE_KEYBOARD = { top: 202, height: 200 };
 
 /** A layer's own close button, there only while the layer stands in for the open pad. */
 export const CLOSE_LAYER = 'Close';
+/** The text editor's own close button, there only while the pad is closed for lack of room above the editor. */
+export const CLOSE_EDITOR = 'Close text editor';
 
 /**
  * A pose of the device: its window and safe area, the terminal area in it, the keyboard's height there, and whether

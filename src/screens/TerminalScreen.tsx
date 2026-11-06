@@ -562,6 +562,11 @@ export default function TerminalScreen({ navigation, route }: Props) {
     (): void => (padGivesWay ? closePadLayer() : togglePadOpen(padReach !== null)),
     [padGivesWay, closePadLayer, togglePadOpen, padReach],
   );
+  // The text editor open while the pad is closed and the open pad has no room above the keyboard and the editor, even
+  // over the header (a phone in landscape): the pen is out of reach, so the editor gets its own close button, which
+  // does what the pen does (the editor closes, its draft stays, the keyboard stays up) and leaves the pad closed. Read
+  // from the room on every render, as for a layer.
+  const editorStandsAlone = editorShown && !pad.open && padReach === null;
   // While the pad is lifted, the stack's swipe back to Sessions is off, so the drag is not taken for it; letting the
   // pad go, its touch being cancelled, the pad going away and leaving the screen turn it back on, and so does a session
   // switch (the lift belonged to the session it began in). At every other time the swipe works as before.
@@ -1141,7 +1146,11 @@ export default function TerminalScreen({ navigation, route }: Props) {
         <>
           <KeyBarDock shown={editorShown} inset={bottomInset} hideMs={hideMotionMs} onHeightChange={setEditorHeight}>
             {padSessionKey !== null ? (
-              <TerminalTextEditor key={padSessionKey} sessionKey={padSessionKey} />
+              <TerminalTextEditor
+                key={padSessionKey}
+                sessionKey={padSessionKey}
+                onClose={editorStandsAlone ? pad.toggleEditor : undefined}
+              />
             ) : null}
           </KeyBarDock>
           {padLayer !== null ? <View style={styles.padLayerDock}>{padLayer}</View> : null}
