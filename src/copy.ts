@@ -470,6 +470,16 @@ export const ProgressCopy = {
   restoredProject: (title: string) => `Restored ${title}.`,
 } as const;
 
+/** The project header's Actions… list and the hint shown when an action cannot start. */
+export const ActionCopy = {
+  /** Section names of the desktop's Actions settings. */
+  projectHeading: 'Project Actions',
+  globalHeading: 'Global Actions',
+  startFailedTitle: (name: string) => `Couldn't start ${name}`,
+  /** A Global Action tapped after the computer's latest summary stopped offering them. */
+  globalActionsUnavailable: 'Global Actions are no longer available on this computer.',
+} as const;
+
 /**
  * Add Project flow copy,
  * adapted to Ghostex mobile: the machine is chosen by the entry-point context

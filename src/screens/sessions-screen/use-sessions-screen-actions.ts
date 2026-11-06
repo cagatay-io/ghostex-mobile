@@ -11,19 +11,21 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 
+import { runQuickAction as runQuickActionOnMachine } from '../../actions/runAction';
+import type { QuickActionEntry } from '../../actions/quickActions';
 import {
   answerWorkCleanupCommand,
   renameCommandCommand,
   restoreRecentProjectCommand,
-  runActionCommand,
   sessionNoteSaveCommand,
 } from '../../commands/ghostexCli';
+import type { Notice } from '../../components/common/NoticeToast';
 import { createdSessionId, runGhostexCli } from '../../components/sessions/cli';
 import type { WorkChipActions } from '../../components/sessions/WorkChips';
 import { claudeCloudPageUrl } from '../../contract/claudeCloud';
 import { projectKeyForSession, type ProjectHeaderItem } from '../../contract/grouping';
-import type { GhostexQuickAction, GhostexSession } from '../../contract/mobileSummary';
-import { ProgressCopy, RenameCopy, SessionCopy } from '../../copy';
+import type { GhostexSession } from '../../contract/mobileSummary';
+import { ActionCopy, ProgressCopy, RenameCopy, SessionCopy } from '../../copy';
 import type { OptimisticInventoryChange } from '../../inventory/optimistic';
 import { useInventoryStore } from '../../inventory/store';
 import { machineDisplayLabel, type MachineRecord } from '../../machines/store';
@@ -38,14 +40,12 @@ import {
 import { acknowledgeSessionAttention } from '../../terminal/attention';
 import { markSessionOpen, markSessionOpenTap } from '../../terminal/openTiming';
 import { attachSessionKey, useTerminalStore } from '../../terminal/sessions';
-import { webPreviewTargetForUrl } from '../../webPreview/routing';
 import { sessionOpensInChatView } from '../terminal-screen/session-lookups';
 import { cloudBoxOpenTarget } from '../../cloudBoxes/open';
 import {
   killSessionAction,
   lifecycleSessionAction,
   NONE,
-  quickActionDisplayName,
   sessionTitle,
   type BulkSessionAction,
   type Overlay,
@@ -60,7 +60,7 @@ export type SessionsScreenActionsDeps = {
   setOverlay: (overlay: Overlay) => void;
   /** Full-screen progress line (null hides it). */
   setProgress: (message: string | null) => void;
-  setTransientStatus: (message: string | null) => void;
+  setTransientStatus: (message: string | null, options?: Partial<Pick<Notice, 'title' | 'error' | 'announce'>>) => void;
   refreshMachine: (machine: MachineRecord) => Promise<void>;
   retryMachine: (machineId: string) => Promise<void>;
 };
@@ -350,43 +350,40 @@ export function useSessionsScreenActions({
   );
 
   const runQuickAction = useCallback(
-    (target: MachineRecord, projectId: string, projectTitle: string, action: GhostexQuickAction): void => {
-      const name = quickActionDisplayName(action);
-      if (action.actionType === 'browser') {
-        const url = action.url ?? '';
-        if (url.length === 0) return;
-        /*
-         * The action's URL was written for the computer, so a loopback address
-         * names a listener there and not on the phone. Those open in the Web
-         * preview, which forwards the port; every other address is a real
-         * internet address and goes to the phone's browser as before.
-         */
-        const previewTarget = webPreviewTargetForUrl(url);
-        if (previewTarget !== null) {
-          setOverlay(NONE);
-          navigation.navigate('WebPreview', {
-            machineId: target.id,
-            remotePort: previewTarget.remotePort,
-            path: previewTarget.path,
-            scheme: previewTarget.scheme,
-            host: previewTarget.host,
-          });
-          return;
-        }
-        void Linking.openURL(url)
-          .then(() => setTransientStatus(ProgressCopy.openedInBrowser(name)))
-          .catch(() => setTransientStatus(ProgressCopy.openedInBrowser(name)));
-        return;
-      }
-      const commandId = action.commandId ?? '';
-      if (commandId.length === 0) return;
-      void runCreationFlow(
-        target,
-        runActionCommand(commandId, projectId),
-        ProgressCopy.startingAgent(name, projectTitle),
+    (target: MachineRecord, projectId: string, projectTitle: string, entry: QuickActionEntry): void => {
+      void runQuickActionOnMachine(
+        {
+          machine: target,
+          globalQuickActionsSupported: () => {
+            const summary = useInventoryStore.getState().inventoriesByMachineId[target.id]?.summary;
+            return summary?.globalQuickActionsSupported === true;
+          },
+          refresh: () => refreshMachine(target),
+          attach: (sessionId) => attachCreated(target, sessionId),
+          openWebPreview: (previewTarget) => {
+            setOverlay(NONE);
+            navigation.navigate('WebPreview', {
+              machineId: target.id,
+              remotePort: previewTarget.remotePort,
+              path: previewTarget.path,
+              scheme: previewTarget.scheme,
+              host: previewTarget.host,
+            });
+          },
+          openUrl: (url) => Linking.openURL(url),
+          setProgress,
+          showStatus: setTransientStatus,
+          showStartFailure: (failure) =>
+            setTransientStatus(failure.message, {
+              title: ActionCopy.startFailedTitle(failure.name),
+              error: true,
+              announce: true,
+            }),
+        },
+        { projectId, projectTitle, entry },
       );
     },
-    [navigation, runCreationFlow, setTransientStatus],
+    [attachCreated, navigation, refreshMachine, setOverlay, setProgress, setTransientStatus],
   );
 
   const restoreRecentProject = useCallback(

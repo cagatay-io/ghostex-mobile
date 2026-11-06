@@ -5,6 +5,8 @@
  * login-shell wrapper so remote commands see the user's PATH.
  */
 
+import type { QuickActionScope } from '../contract/mobileSummary';
+
 /** Single-quote `value` for POSIX shells, escaping embedded quotes as `'"'"'`. */
 export function shellQuote(value: string): string {
   if (value.length === 0) return "''";
@@ -330,11 +332,16 @@ export function coordinatorResolveCommand(globalRef: string, resolved: boolean):
   return `ghostex coordinator ${resolved ? 'resolve' : 'reopen'} ${shellQuote(requireId(globalRef, 'thread'))} --json`;
 }
 
-/** Quick action: `ghostex run-action <commandId> --project-id <id>` (always prints JSON). */
-export function runActionCommand(commandId: string, projectId: string): string {
+/**
+ * Quick action: `ghostex run-action <commandId> --project-id <id> [--scope global]` (always prints JSON). A Global
+ * Action runs in the project whose menu it was chosen from; without `--scope` the computer looks the id up in the
+ * project's own actions, as before.
+ */
+export function runActionCommand(commandId: string, projectId: string, scope: QuickActionScope): string {
   return (
     `ghostex run-action ${shellQuote(requireId(commandId, 'quick action command id'))}` +
-    ` --project-id ${shellQuote(requireId(projectId, 'project id'))}`
+    ` --project-id ${shellQuote(requireId(projectId, 'project id'))}` +
+    (scope === 'global' ? ' --scope global' : '')
   );
 }
 

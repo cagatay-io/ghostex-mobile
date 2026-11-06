@@ -84,6 +84,11 @@ export type SidebarMenuCommand =
   | { type: 'sessionLinks'; sessionId: string }
   /** The phone's own row: the session's project's Changes screen (`src/screens/ChangesScreen.tsx`). */
   | { type: 'changes'; sessionId: string }
+  /**
+   * The Unified list's own row: the Actions… list of the session's computer and project, which the Project list
+   * opens from the project menu (the Unified list has no project menu).
+   */
+  | { type: 'projectActions'; sessionId: string }
   /** The phone's own row: a Claude cloud session's terminal, whose tap opens claude.ai (`contract/claudeCloud.ts`). */
   | { type: 'claudeCloudTerminal'; sessionId: string }
   /** gx-core `MenuCommand::coordinator_session`: an orchestrator's Goal & Instructions / Memory, a thread's Mark Thread Done / Reopen Thread. */
@@ -447,6 +452,11 @@ export type SessionMenuInput = {
    * through gxserver directly. The Project list's menu leaves it out.
    */
   snooze?: boolean;
+  /**
+   * The Unified list's Actions… row, with the icon of the action it would mark (`player-play`, or `world` for a
+   * browser action); absent when the project and computer list no action, and in the Project list's menu.
+   */
+  actionsIcon?: 'player-play' | 'world';
 };
 
 // ---------------------------------------------------------------------------
@@ -697,6 +707,7 @@ export function buildSessionMenu(input: SessionMenuInput): SidebarMenuItem[] {
     voiceCall = false,
     sessionNotes = true,
     snooze = false,
+    actionsIcon,
   } = input;
   const settings = PHONE_MENU_SETTINGS;
   const caps = sessionCapabilities(session);
@@ -888,6 +899,9 @@ export function buildSessionMenu(input: SessionMenuInput): SidebarMenuItem[] {
   // CDXC:Changes 2026-10-25 SEE-ALSO: the user's decision in src/screens/ChangesScreen.tsx (the phone's read-only Changes, opened from this menu too).
   if (session.projectId.length > 0) {
     menu.push(row('Changes', 'file-diff', { type: 'changes', sessionId: id }));
+  }
+  if (actionsIcon !== undefined) {
+    menu.push(row('Actions…', actionsIcon, { type: 'projectActions', sessionId: id }));
   }
   const link = linkSubmenu(session, project);
   if (link !== null) menu.push(link);

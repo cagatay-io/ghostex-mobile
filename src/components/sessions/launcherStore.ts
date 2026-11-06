@@ -11,15 +11,22 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 
+import type { QuickActionRef } from '../../actions/quickActions';
 import { readAgentChoiceMap, rememberAgentChoice, type AgentChoicePlace } from './agentChoice';
 
 const LAUNCHER_STORAGE_KEY = 'drawer.launcher.v1';
+
+/**
+ * A last-run mark as stored: a project action as its bare commandId (the form every earlier version wrote), a
+ * Global Action with its scope.
+ */
+type PersistedLastAction = string | { scope: 'global'; commandId: string };
 
 type PersistedLauncher = {
   primaryAgentId?: string;
   agentByProject?: Record<string, string>;
   agentBySpace?: Record<string, string>;
-  lastActionByProject?: Record<string, string>;
+  lastActionByProject?: Record<string, PersistedLastAction>;
 };
 
 type LauncherState = {
@@ -30,22 +37,36 @@ type LauncherState = {
   agentByProject: Record<string, string>;
   /** The agent picked in each Space, keyed `${machineId}:${spaceId}`. */
   agentBySpace: Record<string, string>;
-  /** Last-run quick action commandId, keyed `${machineId}:${projectId}`. */
-  lastActionByProject: Record<string, string>;
+  /** Last-run quick action, keyed `${machineId}:${projectId}`. */
+  lastActionByProject: Record<string, QuickActionRef>;
 
   hydrate: () => Promise<void>;
   /** Remembers a launched agent for its project, its Space and as the last pick. */
   rememberAgent: (agentId: string, place: AgentChoicePlace) => void;
-  setLastAction: (machineId: string, projectId: string, commandId: string) => void;
+  setLastAction: (machineId: string, projectId: string, action: QuickActionRef) => void;
 };
 
 export function lastActionKey(machineId: string, projectId: string): string {
   return `${machineId}:${projectId}`;
 }
 
+function readLastAction(value: unknown): QuickActionRef | null {
+  if (typeof value === 'string') return { scope: 'project', commandId: value };
+  if (typeof value !== 'object' || value === null) return null;
+  const record = value as { scope?: unknown; commandId?: unknown };
+  return record.scope === 'global' && typeof record.commandId === 'string'
+    ? { scope: 'global', commandId: record.commandId }
+    : null;
+}
+
 export const useLauncherStore = create<LauncherState>()((set, get) => {
   const persist = (): void => {
-    const { primaryAgentId, agentByProject, agentBySpace, lastActionByProject } = get();
+    const { primaryAgentId, agentByProject, agentBySpace } = get();
+    const lastActionByProject: Record<string, PersistedLastAction> = {};
+    for (const [key, action] of Object.entries(get().lastActionByProject)) {
+      lastActionByProject[key] =
+        action.scope === 'project' ? action.commandId : { scope: 'global', commandId: action.commandId };
+    }
     const payload: PersistedLauncher = { primaryAgentId, agentByProject, agentBySpace, lastActionByProject };
     void AsyncStorage.setItem(LAUNCHER_STORAGE_KEY, JSON.stringify(payload));
   };
@@ -62,7 +83,7 @@ export const useLauncherStore = create<LauncherState>()((set, get) => {
       let primaryAgentId = '';
       let agentByProject: Record<string, string> = {};
       let agentBySpace: Record<string, string> = {};
-      let lastActionByProject: Record<string, string> = {};
+      const lastActionByProject: Record<string, QuickActionRef> = {};
       try {
         const raw = await AsyncStorage.getItem(LAUNCHER_STORAGE_KEY);
         if (raw !== null) {
@@ -74,7 +95,8 @@ export const useLauncherStore = create<LauncherState>()((set, get) => {
             agentBySpace = readAgentChoiceMap(record.agentBySpace);
             if (typeof record.lastActionByProject === 'object' && record.lastActionByProject !== null) {
               for (const [key, value] of Object.entries(record.lastActionByProject)) {
-                if (typeof value === 'string') lastActionByProject[key] = value;
+                const action = readLastAction(value);
+                if (action !== null) lastActionByProject[key] = action;
               }
             }
           }
@@ -96,11 +118,11 @@ export const useLauncherStore = create<LauncherState>()((set, get) => {
       persist();
     },
 
-    setLastAction: (machineId, projectId, commandId) => {
+    setLastAction: (machineId, projectId, action) => {
       set({
         lastActionByProject: {
           ...get().lastActionByProject,
-          [lastActionKey(machineId, projectId)]: commandId,
+          [lastActionKey(machineId, projectId)]: action,
         },
       });
       persist();

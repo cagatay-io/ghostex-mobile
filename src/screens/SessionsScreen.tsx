@@ -33,6 +33,7 @@ import DetailsSheet from '../components/common/DetailsSheet';
 import LogsSheet from '../components/common/LogsSheet';
 import NoticeToast, { type Notice } from '../components/common/NoticeToast';
 import ProgressOverlay from '../components/common/ProgressOverlay';
+import NoticeToast, { type Notice } from '../components/common/NoticeToast';
 import PromptDialog from '../components/common/PromptDialog';
 import { measureInWindow } from '../components/common/measureInWindow';
 import { bandRowFrame } from '../components/common/verticalBar/layout';
@@ -233,9 +234,9 @@ export default function SessionsScreen({ navigation }: Props) {
    * tick, so driving the control from that would blink it forever.
    */
   const [pullRefreshing, setPullRefreshing] = useState(false);
-  const [statusOverride, setStatusOverride] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const noticeCounter = useRef(0);
   const [tailscaleConnected, setTailscaleConnected] = useState<boolean | null>(null);
-  const statusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Last logged Tailscale state, so the 5s probe logs only transitions. */
   const tailscaleLogged = useRef<boolean | null>(null);
 
@@ -244,17 +245,18 @@ export default function SessionsScreen({ navigation }: Props) {
     [machines],
   );
 
-  const setTransientStatus = useCallback((message: string | null): void => {
-    if (statusTimer.current !== null) {
-      clearTimeout(statusTimer.current);
-      statusTimer.current = null;
-    }
-    setStatusOverride(message);
-    if (message !== null) {
-      logAppEvent(message);
-      statusTimer.current = setTimeout(() => setStatusOverride(null), 6000);
-    }
-  }, []);
+  const setTransientStatus = useCallback(
+    (message: string | null, options: Partial<Pick<Notice, 'title' | 'error' | 'announce'>> = {}): void => {
+      if (message === null) {
+        setNotice(null);
+        return;
+      }
+      logAppEvent(options.title === undefined ? message : `${options.title}: ${message}`);
+      noticeCounter.current += 1;
+      setNotice({ id: noticeCounter.current, message, error: false, durationMs: 6000, ...options });
+    },
+    [],
+  );
 
   // The summary poll is the app's own (src/app/lifecycle.ts): it runs on every screen while
   // the app is in the foreground and a machine is selected, so this screen only hydrates its own stores.
@@ -644,7 +646,7 @@ export default function SessionsScreen({ navigation }: Props) {
   );
   const noticeTarget = noticeId === null ? null : machineById(noticeId);
   const selectedNotice = notices.find(({ machineId }) => machineId === noticeId)?.notice ?? null;
-  const statusLine = statusOverride ?? drawerStatusLine(
+  const statusLine = drawerStatusLine(
     machine === null ? null : machineDisplayLabel(machine),
     selectedInventory,
     unified.on ? null : selectedNotice,

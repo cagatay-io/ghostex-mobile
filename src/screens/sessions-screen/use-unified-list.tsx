@@ -20,7 +20,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type ReactElement } from 'react';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View, type FlatListProps, type ViewInstance } from 'react-native';
 
-import { buildDrawerItems, projectKeyForSession, type ProjectHeaderItem, type SessionItem } from '../../contract/grouping';
+import { projectHeaderOf, projectKeyForSession, type SessionItem } from '../../contract/grouping';
 import {
   NO_SUMMARY_CAPABILITIES,
   type GhostexMobileSummary,
@@ -148,28 +148,6 @@ function sessionItemOf(machineId: string, session: GhostexSession, summary: Ghos
     session,
     capabilities: summary?.capabilities ?? NO_SUMMARY_CAPABILITIES,
   };
-}
-
-/** The project's header as its card in the Project list would carry it, for the agent picker. */
-export function projectHeaderOf(
-  machineId: string,
-  summary: GhostexMobileSummary,
-  projectId: string,
-): ProjectHeaderItem | null {
-  const items = buildDrawerItems({
-    machineId,
-    // A worktree's own header, which the Project list may fold into its parent's (grouping.ts).
-    summary: { ...summary, worktreeSessionsInProject: false },
-    nowMs: Date.now(),
-    expandedProjectKeys: new Set([`id:${projectId}`]),
-    expandedCollectionIds: new Set(),
-    expandedGroupKeys: new Set(),
-    collapsedSessionKindKeys: new Set(),
-  });
-  for (const item of items) {
-    if (item.type === 'PROJECT_HEADER' && item.projectId === projectId) return item;
-  }
-  return null;
 }
 
 function hasImage(icon: GhostexProjectIcon | undefined): icon is GhostexProjectIcon {

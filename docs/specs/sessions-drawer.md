@@ -147,6 +147,7 @@ Recovery matching: message contains "SSH needs a key or password" or "SSH reject
 - Recovery sheet rows: Retry connection / Open Tailscale / Setup / Add SSH machine / Manage machines / Tutorial.
 - Failure copy map: permission denied w/ password → "SSH rejected the saved password. Update the saved machine password or choose another machine."; w/o → "SSH needs a key or password. Open the machine settings and save a password, or configure SSH keys/Tailscale SSH."; refused → "The machine is reachable, but SSH refused the connection. Enable Remote Login on the Mac and confirm the saved SSH port."; unreachable → "Could not reach the machine. Open Tailscale and confirm both devices are online."; no CLI → "Connected over SSH, but the Mac could not find the Ghostex CLI. Install Ghostex CLI and make sure ghostex is available in the SSH login shell."; old CLI → "Connected over SSH, but this Mac has an older Ghostex CLI. Update Ghostex so ghostex android-check --json is available."; persistence not zmx → "Ghostex is reachable, but Session persistence is not set to zmx. Open Ghostex Settings on the Mac and set Session persistence to zmx."; zmx missing → "Ghostex is reachable, but ZMX is not available on the Mac. Install zmx and set Ghostex session persistence to zmx."; host key → "SSH host key verification failed. Open Setup and reset this phone's saved host key for the machine, or confirm you are connecting to the right Mac."; truncate 220 chars + "...".
 - Warm sessions: keep up to **7** attached terminals alive keyed machine+session, fewer when their scrollback rows would pass the shared 28,000-row budget (`src/terminal/warmBudget.ts`, so a big Scrollback setting cannot run the app out of memory); kill/sleep close warm surface; wake/focus/rename/refresh preserve. Attach status: "Preparing SSH attach for {alias}..." → "Attached to {alias} on {label}...". After attach + first render, send zmx viewport refresh OSC `\x1b]1337;ZMX_REFRESH\x07` once (~2s after visible).
+- Transient operation messages use the shared `NoticeToast` above the bottom bar, with a six-second reading time and the shared Reduce Motion behavior. The top status line continues to show machine/list status; transient messages no longer replace it.
 
 ## 6. Creation flows
 
@@ -154,11 +155,13 @@ All: close drawer → progress dialog (spinner + message) → run command → re
 
 - Project "+": `ghostex create-session --json [--project-id '<id>'] [--group-id '<id>']` — "Creating a terminal in {project}…".
 - Agent chip: `ghostex create-agent '<agentId>' --project-id '<projectId>' --json` — "Starting {agent} in {project}…". No stable projectId → "This project has no stable project id, so agent sessions cannot be started here."
-- Quick action: terminal → `ghostex run-action '<commandId>' --project-id '<projectId>'`; browser → open URL on device, status "Opened {name} in the browser."
+- Quick action: terminal → `ghostex run-action '<commandId>' --project-id '<projectId>'`, plus ` --scope global` for a Global Action (run in the project whose menu it was chosen from, and only while the current summary has `capabilities.globalQuickActions: true`); browser → open URL on device (loopback address → Web Preview, otherwise the phone's browser, notice "Opened {name} in the browser." once iOS has opened it). A start the computer refuses closes the progress dialog and shows "Couldn't start {name}" with the §5 failure copy in the shared bottom notice for 6 s before it fades out (a refusal the phone does not recognise reads as a plain sentence; the computer's own words go to the app log); an address the phone cannot open (no installed app handles it) shows the same "Couldn't start {name}" notice with the system's message instead of the opened notice. A failure after the start (list read, attach) uses the same channel as other transient Sessions messages, without a start-failure title. The next notice replaces the previous one, so they cannot overlap. The start-failure notice is an accessible alert; on iOS it also asks VoiceOver once to announce its title and message (whether VoiceOver speaks it is not yet checked on a device).
 
 ## 7. mobile-summary contract (build TS types from this)
 
-Root: `{ sessions: Session[], projects?, recentProjects?, agents?, quickActionsByProject? (Record<projectId, QuickAction[]>), workspaceGroups? { projectOrder?: string[], projects?: Record<projectId, {groups?: {groupId, title?, sessionIds?}[]}> }, capabilities? }`. `capabilities`: booleans naming the summary fields this computer sends; the phone reads `awaitingAnswer` and `attentionNotificationId`, other keys are ignored, absent = none.
+Root: `{ sessions: Session[], projects?, recentProjects?, agents?, quickActionsByProject? (Record<projectId, QuickAction[]>), globalQuickActions? (QuickAction[], the computer's Global Actions in its saved order), workspaceGroups? { projectOrder?: string[], projects?: Record<projectId, {groups?: {groupId, title?, sessionIds?}[]}> }, capabilities? }`. `capabilities`: booleans naming the summary fields this computer sends; the phone reads `awaitingAnswer`, `attentionNotificationId` and `globalQuickActions`, other keys are ignored, absent = none.
+
+Global Actions count only while `capabilities.globalQuickActions` is `true`; a missing `globalQuickActions` (an older computer, or a summary whose action read failed) is an empty list. The phone drops the cached Global Actions and the capability, until the computer answers again, when a list read fails, when an explicit retry of the connection starts, and when the automatic reconnect or the connection check on returning to the foreground starts. A list read already under way when a retry, reconnect or check starts was sent over the old connection: its answer is discarded, and a recovery in the foreground ends with a new read. Sessions, projects and project actions stay on screen meanwhile.
 
 Project: `{projectId (req), name?, path?}`. RecentProject: `{projectId, title?, path?, sessionCount?}`. AgentLauncher: `{agentId (req), icon?, name?}`. QuickAction: `{actionType ("browser"|"terminal"), commandId?, url?, icon?, name?}`.
 
@@ -231,9 +234,20 @@ and recloned every surface from the live CSS cascade.
   with brand-tinted icons and a check on the selected primary agent; selecting
   launches the agent AND persists it globally (`drawer.launcher.v1`,
   mirroring the desktop's ghostex-sidebar-project-terminal-launcher). The
-  actions menu lists the project's quick actions with a check on the last-run
-  action (persisted per machine+project). The old PROJECT_AGENTS_ROW chip row
-  is gone.
+  actions menu lists the project's quick actions under "Project Actions", then
+  the computer's Global Actions under "Global Actions" (each heading only when
+  its part is non-empty), with a check on the last-run action, identified by
+  scope and commandId (persisted per machine+project; a project action as its
+  bare commandId, a Global Action as `{scope:"global", commandId}`). Actions…
+  is in the project menu only while at least one action is listed. An open project
+  menu or actions menu takes the Global Actions from the current summary, so they
+  leave it as soon as the computer no longer offers them; the project's own actions
+  stay as they were when the menu opened. The Unified list has no project menu, so
+  under the same condition a Unified session's long-press menu offers Actions… (after
+  Changes) for that session's computer and project, read from that computer's current
+  summary (also for a project in a saved collection, however it is folded); it opens
+  the same actions menu, which runs on that computer. The old PROJECT_AGENTS_ROW chip
+  row is gone.
 - **Session rows**: 34dp flat rows, radius 4 fills, title 15.5dp weight-300
   #B4B8C0 (active #D8D8D8; sleeping dims ONLY the title to #5F646B at 0.42),
   with the gpui surface chain driven by warm terminal state: unsurfaced rows

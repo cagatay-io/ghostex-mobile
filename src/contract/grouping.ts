@@ -140,7 +140,8 @@ export type ProjectHeaderItem = {
   /**
    * Header launcher data (desktop agent split-button + actions menu): the
    * global agent launcher rows and this project's quick actions. Empty for
-   * projects without a stable projectId.
+   * projects without a stable projectId. The computer's Global Actions are not
+   * carried here; the menu reads them from the current summary.
    */
   agents: GhostexAgentLauncher[];
   quickActions: GhostexQuickAction[];
@@ -1104,4 +1105,38 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
     emitProject(projectKey);
   }
   return withOlderThreadRows(items);
+}
+
+/**
+ * The project's header as its card in the Project list would carry it, for the Unified list, which has no header: its
+ * agent picker and a session menu's Actions…. A project in a saved collection has a header only while that collection
+ * is open, as the Project list draws it; `throughCollections` opens the project's collections for the lookup, so the
+ * header does not depend on how the collection is folded (Actions… uses it; the agent picker does not).
+ */
+export function projectHeaderOf(
+  machineId: string,
+  summary: GhostexMobileSummary,
+  projectId: string,
+  { throughCollections = false }: { throughCollections?: boolean } = {},
+): ProjectHeaderItem | null {
+  const items = buildDrawerItems({
+    machineId,
+    // A worktree's own header, which the Project list may fold into its parent's (grouping.ts).
+    summary: { ...summary, worktreeSessionsInProject: false },
+    nowMs: Date.now(),
+    expandedProjectKeys: new Set([`id:${projectId}`]),
+    expandedCollectionIds: new Set(
+      throughCollections
+        ? summary.projectCollections
+            .filter((collection) => collection.projectIds.includes(projectId))
+            .map((collection) => collection.collectionId)
+        : [],
+    ),
+    expandedGroupKeys: new Set(),
+    collapsedSessionKindKeys: new Set(),
+  });
+  for (const item of items) {
+    if (item.type === 'PROJECT_HEADER' && item.projectId === projectId) return item;
+  }
+  return null;
 }
