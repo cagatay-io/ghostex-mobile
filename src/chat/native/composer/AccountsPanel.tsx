@@ -16,6 +16,7 @@
 import { useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
+import { SwitchRow } from '../../../components/common/SwitchRow';
 import { AGENT_ICONS } from '../../../assets/agentIcons.generated';
 import { currentProblem, usageColumns, usageLines } from './accountUsage';
 import { Glyph } from './icons';
@@ -390,10 +391,16 @@ function ToggleRow({
 }) {
   const styles = useStyles();
   return (
-    <View style={[styles.header, disabled ? styles.dim : null]}>
+    <SwitchRow
+      value={value}
+      disabled={disabled}
+      onValueChange={onChange}
+      label={label}
+      style={[styles.header, disabled ? styles.dim : null]}
+    >
       <Text style={styles.accountName}>{label}</Text>
       <Switch value={value} disabled={disabled} onValueChange={onChange} />
-    </View>
+    </SwitchRow>
   );
 }
 

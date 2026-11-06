@@ -7,6 +7,7 @@ import { createContext, useContext, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View, type ScrollViewProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { SwitchRow } from '../../components/common/SwitchRow';
 import SteppedSlider from '../../components/common/SteppedSlider';
 import KeyboardAwareScrollView from '../../components/common/keyboard/KeyboardAwareScrollView';
 import type { HorizontalInsets } from '../../components/common/verticalBar/layout';
@@ -305,7 +306,13 @@ export function ToggleRow({
   const styles = useSettingsStyles();
   const appearance = useAppearance();
   return (
-    <View style={styles.row}>
+    <SwitchRow
+      value={value}
+      onValueChange={onValueChange}
+      label={label}
+      style={styles.row}
+      pressedStyle={styles.rowPressed}
+    >
       {detail === undefined ? (
         <Text style={styles.rowLabel}>{label}</Text>
       ) : (
@@ -321,7 +328,7 @@ export function ToggleRow({
         thumbColor={value ? appearance.foreground : appearance.controlThumb}
         ios_backgroundColor={appearance.control}
       />
-    </View>
+    </SwitchRow>
   );
 }
 

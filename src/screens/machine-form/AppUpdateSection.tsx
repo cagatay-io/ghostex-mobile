@@ -16,6 +16,7 @@ import {
   useAppUpdateStore,
   type AppUpdateView,
 } from '../../machines/appUpdate';
+import { SwitchRow } from '../../components/common/SwitchRow';
 import type { MachineConnectionTarget } from '../../machines/credentials';
 import { SetupPalette } from '../../theme/palette';
 import { formStyles } from './styles';
@@ -64,7 +65,13 @@ export default function AppUpdateSection({ machine }: { machine: MachineConnecti
           </View>
         ) : null}
         {view.autoUpdate !== null ? (
-          <View style={formStyles.row}>
+          <SwitchRow
+            value={view.autoUpdate}
+            disabled={update.busy}
+            onValueChange={(enabled) => setAppAutoUpdate(machine, enabled)}
+            label={copy.autoUpdate}
+            style={formStyles.row}
+          >
             <View style={formStyles.rowMain}>
               <Text style={formStyles.rowLabel}>{copy.autoUpdate}</Text>
               <Text style={formStyles.rowDetail}>{copy.autoUpdateDetail}</Text>
@@ -76,7 +83,7 @@ export default function AppUpdateSection({ machine }: { machine: MachineConnecti
               trackColor={{ false: SetupPalette.MUTED_BG, true: SetupPalette.ACCENT }}
               thumbColor={SetupPalette.FOREGROUND}
             />
-          </View>
+          </SwitchRow>
         ) : null}
       </View>
     </>

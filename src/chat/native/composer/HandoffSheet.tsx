@@ -30,6 +30,7 @@ import {
 } from 'react-native';
 
 import { AGENT_ICONS } from '../../../assets/agentIcons.generated';
+import { SwitchRow } from '../../../components/common/SwitchRow';
 import type { GhostexAgentLauncher } from '../../../contract/mobileSummary';
 import { resolveAgentArtId } from '../../../contract/mobileSummary';
 import {
@@ -532,7 +533,17 @@ export function HandoffSheet({
         ) : null}
         {!showResult && includeOpen && historySupported ? (
           <View style={styles.agentList}>
-            <View style={styles.includeRow}>
+            <SwitchRow
+              value={history.all}
+              disabled={disabled}
+              onValueChange={(all) => {
+                const next = { ...history, all };
+                setHistory(next);
+                persist({ history: next });
+              }}
+              label={WHOLE_CONVERSATION}
+              style={styles.includeRow}
+            >
               <View style={styles.includeText}>
                 <Text style={styles.agentOptionText}>{WHOLE_CONVERSATION}</Text>
                 <Text style={styles.cardDescription}>{WHOLE_CONVERSATION_DESCRIPTION}</Text>
@@ -547,7 +558,7 @@ export function HandoffSheet({
                   persist({ history: next });
                 }}
               />
-            </View>
+            </SwitchRow>
             {!history.all ? (
               <HistorySlider
                 history={history}
@@ -565,7 +576,18 @@ export function HandoffSheet({
         {!showResult && includeOpen ? (
           <View style={styles.agentList}>
             {INCLUDE_ROWS.map((row) => (
-              <View key={row.key} style={styles.includeRow}>
+              <SwitchRow
+                key={row.key}
+                value={include[row.key]}
+                disabled={disabled}
+                onValueChange={(on) => {
+                  const next = { ...include, [row.key]: on };
+                  setInclude(next);
+                  persist({ include: next });
+                }}
+                label={row.label}
+                style={styles.includeRow}
+              >
                 <View style={styles.includeText}>
                   <Text style={styles.agentOptionText}>{row.label}</Text>
                   <Text style={styles.cardDescription}>{row.description}</Text>
@@ -580,7 +602,7 @@ export function HandoffSheet({
                     persist({ include: next });
                   }}
                 />
-              </View>
+              </SwitchRow>
             ))}
           </View>
         ) : null}

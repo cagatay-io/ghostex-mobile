@@ -14,6 +14,7 @@ import { agentIconTint, resolveAgentArtId } from '../../contract/mobileSummary';
 import { GhostexPalette, GhostexStrokeWidth } from '../../theme/palette';
 import KeyboardAvoidingContainer from '../common/keyboard/KeyboardAvoidingContainer';
 import KeyboardAwareScrollView from '../common/keyboard/KeyboardAwareScrollView';
+import { SwitchRow } from '../common/SwitchRow';
 import { formatDeadlineCountdown, remainingMsUntil, useNowTick } from './timerCountdown';
 
 /** After a delay uses whole minutes; Specific time can leave a partial minute. */
@@ -202,7 +203,12 @@ export default function DelayedSendDialog({
               </View>
               <View style={styles.automationStack}>
                 <View style={styles.automationCard}>
-                  <View style={styles.automationHeader}>
+                  <SwitchRow
+                    value={sendEnterEnabled}
+                    onValueChange={setSendEnterEnabled}
+                    label="Send Enter automation"
+                    style={styles.automationHeader}
+                  >
                     <View style={styles.automationCopy}>
                       <Text style={styles.automationTitle}>Send Enter</Text>
                       <Text style={styles.automationDescription}>
@@ -224,7 +230,7 @@ export default function DelayedSendDialog({
                       trackColor={{ false: GhostexPalette.CARD_ACTIVE, true: GhostexPalette.ACCENT }}
                       thumbColor={GhostexPalette.FOREGROUND}
                     />
-                  </View>
+                  </SwitchRow>
                   {sendEnterEnabled ? (
                     <View style={styles.automationContent}>
                       <Text style={styles.fieldLabel}>Trigger</Text>
@@ -344,7 +350,12 @@ export default function DelayedSendDialog({
                 </View>
                 {supportsCloseAfterDone ? (
                   <View style={styles.automationCard}>
-                    <View style={styles.automationHeader}>
+                    <SwitchRow
+                      value={closeAfterDoneEnabled}
+                      onValueChange={setCloseAfterDoneEnabled}
+                      label="Close session after Done"
+                      style={styles.automationHeader}
+                    >
                       <View style={styles.automationCopy}>
                         <Text style={styles.automationTitle}>Close session after Done</Text>
                         <Text numberOfLines={1} style={styles.automationDescription}>
@@ -358,7 +369,7 @@ export default function DelayedSendDialog({
                         trackColor={{ false: GhostexPalette.CARD_ACTIVE, true: GhostexPalette.ACCENT }}
                         thumbColor={GhostexPalette.FOREGROUND}
                       />
-                    </View>
+                    </SwitchRow>
                   </View>
                 ) : null}
               </View>

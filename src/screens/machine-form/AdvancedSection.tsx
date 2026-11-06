@@ -11,6 +11,7 @@ import { Switch, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 
 import Collapsible from '../../components/common/Collapsible';
+import { SwitchRow } from '../../components/common/SwitchRow';
 import { SetupButton } from '../../components/onboarding/SetupPrimitives';
 import { TailscaleFormCopy } from '../../copy';
 import type { MachineTransport } from '../../machines/store';
@@ -74,6 +75,7 @@ function Row({
   mono = false,
   first = false,
   trailing,
+  toggle,
   children,
 }: {
   label: string;
@@ -81,10 +83,12 @@ function Row({
   mono?: boolean;
   first?: boolean;
   trailing?: React.ReactNode;
+  /** Set when `trailing` is a switch: a tap anywhere on the row flips it. */
+  toggle?: { value: boolean; onValueChange: (value: boolean) => void };
   children?: React.ReactNode;
 }) {
-  return (
-    <View style={[formStyles.row, first ? formStyles.rowFirst : null]}>
+  const content = (
+    <>
       <View style={formStyles.rowMain}>
         <Text style={formStyles.rowLabel}>{label}</Text>
         {detail !== undefined ? (
@@ -93,7 +97,16 @@ function Row({
         {children}
       </View>
       {trailing}
-    </View>
+    </>
+  );
+  const style = [formStyles.row, first ? formStyles.rowFirst : null];
+  if (toggle === undefined) {
+    return <View style={style}>{content}</View>;
+  }
+  return (
+    <SwitchRow value={toggle.value} onValueChange={toggle.onValueChange} label={label} style={style}>
+      {content}
+    </SwitchRow>
   );
 }
 
@@ -200,6 +213,7 @@ function TailscaleRows(props: AdvancedSectionProps) {
         <Row
           label={copy.tailscaleSsh}
           detail={copy.tailscaleSshDetail}
+          toggle={{ value: props.tailscaleSsh, onValueChange: props.onTailscaleSshChange }}
           trailing={
             <Switch
               value={props.tailscaleSsh}

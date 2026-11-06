@@ -68,6 +68,7 @@ import AppUpdateSection from './machine-form/AppUpdateSection';
 import MachineToolsSection from './machine-form/MachineToolsSection';
 import { FormSection } from './machine-form/SectionBoundary';
 import EasyConnectSummary from './machine-form/EasyConnectSummary';
+import { SwitchRow } from '../components/common/SwitchRow';
 import PrecheckList from './machine-form/PrecheckList';
 import { formStyles } from './machine-form/styles';
 import TailscaleFields, { NameField, PairingAddressField, FormField } from './machine-form/TailscaleFields';
@@ -433,7 +434,12 @@ export default function MachineFormScreen({ navigation, route }: Props) {
 
   const showInSessionsRow =
     existing === null ? null : (
-      <View style={[formStyles.row, easyConnect ? null : formStyles.rowFirst]}>
+      <SwitchRow
+        value={isMachineEnabled(existing)}
+        onValueChange={(shown) => setMachineDisabled(existing.id, !shown)}
+        label={EditMachineCopy.showInSessions}
+        style={[formStyles.row, easyConnect ? null : formStyles.rowFirst]}
+      >
         <View style={formStyles.rowMain}>
           <Text style={formStyles.rowLabel}>{EditMachineCopy.showInSessions}</Text>
           <Text style={formStyles.rowDetail}>{EditMachineCopy.showInSessionsDetail}</Text>
@@ -444,7 +450,7 @@ export default function MachineFormScreen({ navigation, route }: Props) {
           trackColor={{ false: SetupPalette.MUTED_BG, true: SetupPalette.ACCENT }}
           thumbColor={SetupPalette.FOREGROUND}
         />
-      </View>
+      </SwitchRow>
     );
 
   const tailscaleFields = (
