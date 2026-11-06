@@ -14,7 +14,7 @@ import { DisclosureBody, DisclosureHeading, useFoldPlace } from './Disclosure';
 import { Glyph, toolGlyph } from './icons';
 import { ToolBody } from './ToolBody';
 import { ToolCard } from './ToolCard';
-import { arr, obj, str, type JsonRecord } from './json';
+import { arr, isTrue, obj, str, type JsonRecord } from './json';
 import { FOLDED_CALLS_INSET, ReadImageStrip, ReadImages } from './Images';
 import { highlightLabel, useRowFind } from './searchHighlight';
 import { useDisclosure } from './state';
@@ -129,8 +129,13 @@ function ToolRunRows({ message }: { message: ProjectedMessage }) {
       </DisclosureBody>
     );
   }
-  // The pictures the folded calls read stay in view under the toggle (gx-chat-core `read_images.rs`).
-  const foldedPictures = tools.filter((_, index) => keptFlags[index] !== true).flatMap((tool) => arr(tool.images));
+  // The pictures the folded calls read stay in view under the toggle, except one the user's own
+  // message already shows (`userShown`), which only its open row keeps (gx-chat-core
+  // `read_images.rs`, CDXC:SessionChat 2026-11-06).
+  const foldedPictures = tools
+    .filter((_, index) => keptFlags[index] !== true)
+    .flatMap((tool) => arr(tool.images))
+    .filter((image) => !isTrue(image, 'userShown'));
   return (
     <View style={styles.column}>
       {rows(visible.filter((index) => keptFlags[index] === true && index < before))}
