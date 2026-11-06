@@ -606,6 +606,36 @@ describe('the keyboard rules with a chat in a pane', () => {
     if (body === null) throw new Error('no pane body');
     expect(num(body, 'top')).toBe(PANE_TITLE_HEIGHT);
   });
+
+  test('the active chat pane with the keyboard up: the terminal’s keyboard button alone hides the keyboard', async () => {
+    // Every round button switched on, so only the active chat pane can keep Upload and Refresh away.
+    useSettingsStore.setState((state) => ({
+      settings: {
+        ...state.settings,
+        keyboardButtonVisible: true,
+        fileUploadButtonVisible: true,
+        refreshButtonVisible: true,
+      },
+    }));
+    await renderScreen({ stored: stacked(sessionSlot(A), sessionSlot(B)) });
+    // Alpha's chat in the first slot is the active pane; with the keyboard down no round button stands.
+    expect(chatInPane(A, 'a').props.visible).toBe(true);
+    expect(screen.queryByLabelText('Dismiss keyboard')).toBeNull();
+    expect(screen.queryByLabelText('Show keyboard')).toBeNull();
+
+    await keyboardWillShow();
+    expect(screen.getByLabelText('Dismiss keyboard')).toBeTruthy();
+    expect(screen.queryByLabelText('Upload Image or File')).toBeNull();
+    expect(screen.queryByLabelText('Refresh terminal')).toBeNull();
+    expect(screen.queryByLabelText(TOGGLE, HIDDEN_TOO)).toBeNull();
+
+    const dismiss = jest.spyOn(Keyboard, 'dismiss').mockImplementation(() => undefined);
+    await press('Dismiss keyboard');
+    expect(dismiss).toHaveBeenCalledTimes(1);
+    await keyboardWillHide();
+    expect(screen.queryByLabelText('Dismiss keyboard')).toBeNull();
+    expect(screen.queryByLabelText('Show keyboard')).toBeNull();
+  });
 });
 
 describe('the keyboard follows the active pane to and from the composer', () => {

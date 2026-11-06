@@ -8,7 +8,8 @@
  * - Keyboard button (`showKeyboardButton`): while the soft keyboard is up it
  *   is the dismiss control. The screen shows it per
  *   settings.keyboardButtonVisible, and on iOS also without that setting while
- *   the keyboard is up and the pad is off or closed; on Android with the key
+ *   the keyboard is up and the pad is off or closed, and alone while the
+ *   keyboard is up for a chat in the active pane; on Android with the key
  *   bar and this setting off nothing here dismisses the keyboard.
  * The buttons stand in a column; where the column needs more height than
  * `maxHeight` (a phone in landscape with the keyboard up), they stand in a row

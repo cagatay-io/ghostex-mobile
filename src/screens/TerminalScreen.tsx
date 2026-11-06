@@ -795,6 +795,13 @@ export default function TerminalScreen({ navigation, route }: Props) {
         : 16 + floatingLift;
   const floatingRoom =
     slidesWithKeyboard && terminalArea !== null ? terminalArea.height - floatingBottom - 16 : undefined;
+  // The round buttons over a terminal on screen (not in chat view, not while a pane without a terminal is active):
+  // without the pad while the key bar is down, with it while the pad is closed and no layer stands.
+  const terminalButtonsShown =
+    !chatModeActive && terminalPaneActive && (padSessionKey !== null ? !pad.open && !layerShown : !keyBarVisible);
+  // The chat in the active pane while the keyboard is up: the same keyboard button, at the same place, hides it.
+  const chatPaneKeyboardButton =
+    activePaneContent?.kind === 'session' && activePaneContent.sessionKey === paneChatKey && keyboardVisible;
 
   const toggleChatView = useCallback((): void => {
     const store = useTerminalStore.getState();
@@ -1461,31 +1468,33 @@ export default function TerminalScreen({ navigation, route }: Props) {
           closed pad's toggle; when the user moved the pad away from the right edge they keep their own corner.
           iOS: while the keyboard is up and the pad is off or closed, the keyboard button shows as its dismiss
           whatever its setting, so one tap hides the keyboard; with the pad on it is then the only one there. Not
-          while a pane without a terminal is the active one: they act on a terminal.
+          while a pane without a terminal is the active one: they act on a terminal. A chat pane that is the active
+          one gets the keyboard button alone, at the same place, while the keyboard is up (its dismiss).
         */}
-        {!chatModeActive &&
-          terminalPaneActive &&
-          (padSessionKey !== null ? !pad.open && !layerShown : !keyBarVisible) && (
-            <TerminalFloatingControls
-              showKeyboardButton={settings.keyboardButtonVisible || (slidesWithKeyboard && keyboardVisible)}
-              showUploadButton={padSessionKey === null && settings.fileUploadButtonVisible}
-              showRefreshButton={
-                settings.refreshButtonVisible &&
-                activeTab?.kind === 'attach' &&
-                (padSessionKey === null || !keyboardVisible)
-              }
-              uploadEnabled={uploadEnabled}
-              uploading={uploading}
-              refreshEnabled={activeTab?.state === 'open'}
-              keyboardShown={keyboardVisible}
-              bottomOffset={floatingBottom}
-              maxHeight={floatingRoom}
-              onKeyboard={showKeyboard}
-              onDismissKeyboard={dismissKeyboard}
-              onUpload={promptAttachmentSource}
-              onRefresh={handleRefresh}
-            />
-          )}
+        {(terminalButtonsShown || chatPaneKeyboardButton) && (
+          <TerminalFloatingControls
+            showKeyboardButton={
+              chatPaneKeyboardButton || settings.keyboardButtonVisible || (slidesWithKeyboard && keyboardVisible)
+            }
+            showUploadButton={terminalButtonsShown && padSessionKey === null && settings.fileUploadButtonVisible}
+            showRefreshButton={
+              terminalButtonsShown &&
+              settings.refreshButtonVisible &&
+              activeTab?.kind === 'attach' &&
+              (padSessionKey === null || !keyboardVisible)
+            }
+            uploadEnabled={uploadEnabled}
+            uploading={uploading}
+            refreshEnabled={activeTab?.state === 'open'}
+            keyboardShown={keyboardVisible}
+            bottomOffset={floatingBottom}
+            maxHeight={floatingRoom}
+            onKeyboard={showKeyboard}
+            onDismissKeyboard={dismissKeyboard}
+            onUpload={promptAttachmentSource}
+            onRefresh={handleRefresh}
+          />
+        )}
       </View>
       {/*
         The pad's room (`padRoom`): the terminal area within the window's safe area across, and the header above it
