@@ -47,8 +47,10 @@ import { sessionNotesOnIn } from '../../sessions/sessionNotesSwitch';
 import { useArmedActions } from './armedActions';
 import { NativeChatCards, NativeChatOverlays, PageSheet, ResourceSheet, questionReplacesComposer } from './cards';
 import { ChatPlacementProvider, type ChatPlacement } from './chatPlacement';
+import { PillMenuSheet } from './cards/ChatPills';
 import { ConnectionLostNotice } from './cards/ConnectionLostNotice';
-import { obj, str } from './cards/json';
+import type { BoardFocus } from './cards/CoordinatorBoard';
+import { num, obj, str } from './cards/json';
 import { remoteWorkerNotice, remoteWorkerOfAction } from './cards/remoteWorker';
 import { PillsStrip, type PillsStripLinks } from './cards/PillsStrip';
 import { SideChatBar } from './cards/SideChats';
@@ -300,6 +302,31 @@ export default function NativeChatScreen({
 
   // An image dropped anywhere on the chat view joins the draft, as the attach button adds one.
   const composerShown = !questionReplacesComposer(document);
+  // The sheet outlives the composer when a live question replaces it, including during modal dismissal.
+  const [pillMenu, setPillMenu] = useState<string | null>(null);
+  // The card a board pill in the chat asked to see (gx-chat-core `show_item`): the board opens at
+  // it once per tap. The first document a chat shows leaves an older tap alone.
+  const [boardFocus, setBoardFocus] = useState<BoardFocus | null>(null);
+  const closePillMenu = useCallback(() => {
+    setPillMenu(null);
+    setBoardFocus(null);
+  }, []);
+  const focus = obj(obj(document?.coordinatorBoard)?.focus);
+  const focusKey = str(focus, 'key');
+  const focusSeq = num(focus, 'seq') ?? null;
+  const seenFocus = useRef<number | null | undefined>(undefined);
+  // Before the chat has a document there is no tap to see yet; the first document's focus counts as seen.
+  const hasDocument = document !== null;
+  useEffect(() => {
+    if (!hasDocument) return;
+    if (seenFocus.current === undefined || focusSeq === null || focusSeq === seenFocus.current) {
+      seenFocus.current = focusSeq;
+      return;
+    }
+    seenFocus.current = focusSeq;
+    setBoardFocus({ key: focusKey, seq: focusSeq });
+    setPillMenu('board');
+  }, [focusKey, focusSeq, hasDocument]);
   const [dropActive, setDropActive] = useState(false);
   const receiveImages = useCallback(
     (event: { nativeEvent: unknown }) => attachIntakeImages(chat, event.nativeEvent, (message) => show(message, true)),
@@ -398,6 +425,8 @@ export default function NativeChatScreen({
                           <PillsStrip
                             chat={chat}
                             document={document}
+                            menu={pillMenu}
+                            onMenuChange={setPillMenu}
                             armed={armed}
                             links={links}
                             {...(sessionId.length > 0 && projectId.length > 0
@@ -414,6 +443,15 @@ export default function NativeChatScreen({
             {composerShown || document === null ? null : (
               <QuestionModelSheet chat={chat} document={document} openRequestId={modelRequestId} />
             )}
+            {document !== null ? (
+              <PillMenuSheet
+                chat={chat}
+                document={document}
+                open={pillMenu}
+                onClose={closePillMenu}
+                boardFocus={boardFocus}
+              />
+            ) : null}
             <RewindDialog chat={chat} />
             <SaveMarkdownDialog chat={chat} />
             <TranscriptMenuSheet chat={chat} host={menuHost} enabled={!subagentOpen} />

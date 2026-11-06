@@ -47,6 +47,10 @@ mobile/
   ios/ android/               # expo prebuild output, committed (bare workflow)
 ```
 
+Chat pill sheets belong to `NativeChatScreen`, not the composer: a live question may replace the composer while
+a sheet is dismissing. On iOS, a Subagents or Resources pick opens its destination from the sheet's native
+dismissal callback, not a timed delay. Android dispatches the pick immediately.
+
 ### Project file previews
 
 `DocsScreen` opens a Ghostex page as its page in the Web preview (`openComputerPage` in `src/docs/openComputerFile.ts`,
@@ -58,7 +62,6 @@ path instead, with Copy Full Path and Share below the metadata and only Reload i
 the project file again before choosing its mode. The viewer owns loading, cancellation, failures, retry,
 clipboard feedback and sharing for all three modes. File links outside Files keep their existing text,
 image and media previews and limits.
-
 
 ## Native module contract (`modules/ghostex-native`)
 

@@ -42,8 +42,9 @@
  */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
 
+import type { UserAction } from '../../rust/actions';
 import type { ChatDocument, ChatPill, QuestionListRow, QuestionListSection } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
 import { Sheet } from '../composer/Sheet';
@@ -174,12 +175,14 @@ export function QuestionsMenu({
   chat,
   document,
   onDone,
+  onOpenResource,
   filtersOpen,
   onFiltersClose,
 }: {
   chat: RustChat;
   document: ChatDocument;
   onDone: () => void;
+  onOpenResource: (action: UserAction) => void;
   /** The filter dropdown (`QuestionsFilterTrigger` in the sheet's header) is open. */
   filtersOpen: boolean;
   onFiltersClose: () => void;
@@ -255,9 +258,11 @@ export function QuestionsMenu({
             onLater={(action) => chat.dispatch(action)}
             onPick={(row) => {
               // A form or chart opens in the sheet and the chat stays where it is; a page opens as before.
-              if (row.kind === 'form' || row.kind === 'chart') chat.dispatch({ type: 'openResource', id: row.id });
-              else chat.dispatch({ type: 'jumpToQuestion', id: row.id });
-              onDone();
+              if (row.kind === 'form' || row.kind === 'chart') onOpenResource({ type: 'openResource', id: row.id });
+              else {
+                chat.dispatch({ type: 'jumpToQuestion', id: row.id });
+                onDone();
+              }
             }}
           />
         ))}
@@ -558,11 +563,27 @@ export function PillMenuSheet({
     setIntroDontShow(false);
     onClose();
   };
+  /** A modal picked in this sheet opens only after its presenter has gone on iOS. */
+  const openAfterDismiss = useRef<UserAction | null>(null);
+  const openModal = (action: UserAction) => {
+    // The transcript viewer is a modal of its own (`SubagentViewer`). iOS cannot present it while this
+    // sheet's modal is still up or sliding away, and drops it without a word, as it did the composer's
+    // photo picker (`NativeComposer.tsx`). Android's modal is a dialog.
+    if (Platform.OS === 'ios') openAfterDismiss.current = action;
+    else chat.dispatch(action);
+    close();
+  };
+  const onDismissed = () => {
+    const action = openAfterDismiss.current;
+    openAfterDismiss.current = null;
+    if (action !== null) chat.dispatch(action);
+  };
   const background = obj(document.backgroundTasksPanel);
   return (
     <Sheet
       visible={shown !== undefined}
       onClose={close}
+      onDismissed={onDismissed}
       title={open === INTRO_PILL ? (coordinatorIntro(document)?.title ?? shown?.label ?? '') : (shown?.label ?? '')}
       accessory={
         questions ? (
@@ -589,7 +610,7 @@ export function PillMenuSheet({
       ) : open === 'tasks' ? (
         <AgentTasksMenu chat={chat} document={document} />
       ) : open === 'subagents' ? (
-        <AgentFleetMenu chat={chat} document={document} onDone={close} />
+        <AgentFleetMenu document={document} onOpen={openModal} />
       ) : open === 'background' && background !== null ? (
         <BackgroundTasksMenu tasks={background} />
       ) : questions ? (
@@ -597,6 +618,7 @@ export function PillMenuSheet({
           chat={chat}
           document={document}
           onDone={close}
+          onOpenResource={openModal}
           filtersOpen={filtersOpen}
           onFiltersClose={() => setFiltersOpen(false)}
         />

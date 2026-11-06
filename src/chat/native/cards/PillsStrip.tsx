@@ -22,9 +22,8 @@ import { Animated, Easing, Pressable, ScrollView, Text, View } from 'react-nativ
 import { useReducedMotion } from 'react-native-reanimated';
 
 import type { ChatDocument, ViewChip } from '../../rust/document';
-import { BLOCKED_PILL, type BoardFocus } from './CoordinatorBoard';
+import { BLOCKED_PILL } from './CoordinatorBoard';
 import type { UserAction } from '../../rust/actions';
-import { num, obj, str } from './json';
 import type { RustChat } from '../../rust/useRustChat';
 import type { GhostexSessionLinks } from '../../../contract/mobileSummary';
 import { Glyph as ComposerGlyph } from '../composer/icons';
@@ -32,7 +31,7 @@ import { sessionLinksChatPill } from '../sessionLinks';
 import { useTranscriptBottomStore } from '../transcript/bottomStore';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { HorizontalFade } from '../transcript/verticalFade';
-import { IconPill, LinksPill, Pill, PillMenuSheet, QuestionPill } from './ChatPills';
+import { IconPill, LinksPill, Pill, QuestionPill } from './ChatPills';
 import { SavedDraftPill, SavedDraftSheet } from './SavedDraftPill';
 import { VISUAL, type ArmedAction } from './WorkingStrip';
 
@@ -92,9 +91,13 @@ export function PillsStrip({
   onArmedPress,
   links,
   onStashedPress,
+  menu,
+  onMenuChange,
 }: {
   chat: RustChat;
   document: ChatDocument;
+  menu: string | null;
+  onMenuChange: (menu: string | null) => void;
   armed: readonly ArmedAction[];
   /** Opens Delayed Actions; without it the timers are drawn but not pressable. */
   onArmedPress?: () => void;
@@ -107,27 +110,6 @@ export function PillsStrip({
   const reduceMotion = useReducedMotion();
   const awayFromBottom = useTranscriptBottomStore((store) => store.awayFromBottom);
   const jumpToBottom = useTranscriptBottomStore((store) => store.jumpToBottom);
-  const [menu, setMenu] = useState<string | null>(null);
-  // The card a board pill in the chat asked to see (gx-chat-core `show_item`): the board opens at
-  // it once per tap. The first document a chat shows leaves an older tap alone.
-  const [boardFocus, setBoardFocus] = useState<BoardFocus | null>(null);
-  const closeMenu = useCallback(() => {
-    setMenu(null);
-    setBoardFocus(null);
-  }, []);
-  const focus = obj(obj(document.coordinatorBoard)?.focus);
-  const focusKey = str(focus, 'key');
-  const focusSeq = num(focus, 'seq') ?? null;
-  const seenFocus = useRef<number | null | undefined>(undefined);
-  useEffect(() => {
-    if (seenFocus.current === undefined || focusSeq === null || focusSeq === seenFocus.current) {
-      seenFocus.current = focusSeq;
-      return;
-    }
-    seenFocus.current = focusSeq;
-    setBoardFocus({ key: focusKey, seq: focusSeq });
-    setMenu('board');
-  }, [focusKey, focusSeq]);
   const savedDraft = document.savedDraftPill ?? null;
   const [draftOpen, setDraftOpen] = useState(false);
   const closeDraft = useCallback(() => setDraftOpen(false), []);
@@ -174,9 +156,9 @@ export function PillsStrip({
           ? onStashedPress?.()
           : pill.id === BLOCKED_PILL
             ? // Blocked opens the board at its Blocked group (gx-chat-core `show_group`), through
-              // the board focus below.
+              // the board focus the chat screen keeps for the pill sheet.
               chat.dispatch({ type: 'showCoordinatorBoardGroup', group: 'blocked' } as unknown as UserAction)
-            : setMenu(pill.id)
+            : onMenuChange(pill.id)
       }
     />
   ));
@@ -256,7 +238,6 @@ export function PillsStrip({
           <View style={styles.hairline} />
         </Animated.View>
       ) : null}
-      <PillMenuSheet chat={chat} document={document} open={menu} onClose={closeMenu} boardFocus={boardFocus} />
       <SavedDraftSheet pill={savedDraft} open={draftOpen} onClose={closeDraft} dispatch={chat.dispatch} />
     </>
   );
