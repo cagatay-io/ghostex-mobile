@@ -13,7 +13,6 @@ import * as Haptics from 'expo-haptics';
 
 import { runQuickAction as runQuickActionOnMachine } from '../../actions/runAction';
 import type { QuickActionEntry } from '../../actions/quickActions';
-import { logAppEvent } from '../../app/appLog';
 import {
   answerWorkCleanupCommand,
   renameCommandCommand,
