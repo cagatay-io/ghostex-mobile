@@ -367,6 +367,7 @@ export function compareForSidebarOrder(
   left: GhostexSession,
   right: GhostexSession,
   nowMs: number = Date.now(),
+  pinnedOrder: 'manual' | 'recent' = 'manual',
 ): number {
   const kindDelta = sessionKindRank(left) - sessionKindRank(right);
   if (kindDelta !== 0) return kindDelta;
@@ -387,7 +388,15 @@ export function compareForSidebarOrder(
   if (leftDraft && rightDraft) return parseTimestamp(right.createdAt) - parseTimestamp(left.createdAt);
   const pinnedDelta = pinnedRank(left) - pinnedRank(right);
   if (pinnedDelta !== 0) return pinnedDelta;
-  if (left.isPinned && right.isPinned) return 0;
+  // CDXC:Sidebar 2026-11-07 SEE-ALSO: packages/gx-core/src/sidebar_view/ordering.rs `sort_pinned`. Manual follows
+  // the dragged order (`sidebarOrder`), which also places a worktree's folded sessions among their parent's; a row
+  // with none keeps its wire place after the numbered ones. Most recently updated puts the one that came back last first.
+  if (left.isPinned && right.isPinned) {
+    if (pinnedOrder === 'recent') {
+      return pinnedCameBackMs(right) - pinnedCameBackMs(left) || left.sessionId.localeCompare(right.sessionId);
+    }
+    return (left.sidebarOrder ?? Number.MAX_SAFE_INTEGER) - (right.sidebarOrder ?? Number.MAX_SAFE_INTEGER);
+  }
   const leftNew = sessionKindRank(left) !== 0 && isNewSidebarSession(left, nowMs);
   const rightNew = sessionKindRank(right) !== 0 && isNewSidebarSession(right, nowMs);
   if (leftNew !== rightNew) return Number(rightNew) - Number(leftNew);
@@ -398,6 +407,16 @@ export function compareForSidebarOrder(
   if (timeDelta > 0) return 1;
   if (timeDelta < 0) return -1;
   return 0;
+}
+
+/** When a session last came back to the user, as gx-core `came_back_ms` reads it (the Unified list's clock). */
+function pinnedCameBackMs(session: GhostexSession): number {
+  const created = parseTimestamp(session.createdAt);
+  const moment =
+    session.activity === 'working'
+      ? parseTimestamp(session.workingStartedAt ?? session.lastInteractionAt)
+      : parseTimestamp(session.lastInteractionAt);
+  return Math.max(created, moment);
 }
 
 function sessionKindRank(session: GhostexSession): number {
@@ -719,7 +738,9 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
   for (const [key, bucket] of sessionsByProjectKey) {
     sessionsByProjectKey.set(
       key,
-      stableSort(bucket, (left, right) => compareForSidebarOrder(left, right, nowMs)),
+      stableSort(bucket, (left, right) =>
+        compareForSidebarOrder(left, right, nowMs, summary.pinnedSessionOrder ?? 'manual'),
+      ),
     );
   }
 

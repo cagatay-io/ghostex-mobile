@@ -74,9 +74,14 @@ describe('the computer picks the layout', () => {
   test('Unified only when the computer sends it, with its switches on unless sent off', () => {
     assert.equal(wantsUnifiedSidebar(mac), true);
     assert.equal(wantsUnifiedSidebar(windows), false);
-    assert.deepEqual(unifiedSettingsOf(mac), { workingSection: true, parking: true });
-    const off = summary([], [], { sidebarView: 'unified', unifiedWorkingSection: false, enableSessionParking: false });
-    assert.deepEqual(unifiedSettingsOf(off), { workingSection: false, parking: false });
+    assert.deepEqual(unifiedSettingsOf(mac), { workingSection: true, parking: true, pinnedOrder: 'manual' });
+    const off = summary([], [], {
+      sidebarView: 'unified',
+      unifiedWorkingSection: false,
+      enableSessionParking: false,
+      pinnedSessionOrder: 'recent',
+    });
+    assert.deepEqual(unifiedSettingsOf(off), { workingSection: false, parking: false, pinnedOrder: 'recent' });
   });
 });
 

@@ -50,6 +50,8 @@ export type MobileSummaryWireSession = {
   nativePaneState?: string;
   providerSessionState?: string;
   sortOrder?: number;
+  /** gxserver's `sidebarOrder`: where a pinned session was dragged to, one number across projects. */
+  sidebarOrder?: number;
   /** Prompts held in this session's Ghostex queue; absent/0 hides the badge. */
   queuedPromptCount?: number;
   /** How many of those failed to deliver; absent/0 keeps the badge yellow. */
@@ -501,6 +503,8 @@ export type GhostexSession = {
   /** Normalized: exists | missing | persistence-disabled | unknown. */
   providerSessionState: string;
   sortOrder: number | null;
+  /** gxserver's `sidebarOrder` (see the raw field); `null` when the session has none. */
+  sidebarOrder: number | null;
   isFocused: boolean;
   isFavorite: boolean;
   isPinned: boolean;
@@ -702,6 +706,12 @@ export type GhostexMobileSummary = {
    * worktree's sessions under its parent project (contract/grouping.ts). On unless the computer sends `false`.
    */
   worktreeSessionsInProject?: boolean;
+  /**
+   * The computer's Advanced > Pinned order (CDXC:Sidebar 2026-11-07 in packages/gx-core/src/sidebar_view/inputs.rs):
+   * `manual` keeps the order pinned sessions were dragged into, `recent` puts the one that came back last first.
+   * Manual unless the computer sends `recent`.
+   */
+  pinnedSessionOrder?: 'manual' | 'recent';
 };
 
 // ---------------------------------------------------------------------------
@@ -1269,6 +1279,7 @@ export function parseSession(value: unknown): GhostexSession | null {
   const resolvedDisplayTitle = firstNonEmpty(trimmedValue(value, 'displayTitle'), rawTitle);
   const attention = isObject(value.attention) ? value.attention : null;
   const rawSortOrder = value.sortOrder;
+  const rawSidebarOrder = value.sidebarOrder;
 
   return {
     alias,
@@ -1311,6 +1322,7 @@ export function parseSession(value: unknown): GhostexSession | null {
     nativePaneState,
     providerSessionState,
     sortOrder: typeof rawSortOrder === 'number' && Number.isFinite(rawSortOrder) ? rawSortOrder : null,
+    sidebarOrder: typeof rawSidebarOrder === 'number' && Number.isFinite(rawSidebarOrder) ? rawSidebarOrder : null,
     isFocused: boolValue(value, 'isFocused', false),
     isFavorite: boolValue(value, 'isFavorite', false),
     isPinned: boolValue(value, 'isPinned', false),
@@ -1763,6 +1775,7 @@ function normalizeRoot(root: JsonObject): GhostexMobileSummary {
     sidebarHideProjectsWithoutSessions: root.sidebarHideProjectsWithoutSessions === true,
     enableSessionParking: root.enableSessionParking !== false,
     worktreeSessionsInProject: root.worktreeSessionsInProject !== false,
+    pinnedSessionOrder: root.pinnedSessionOrder === 'recent' ? 'recent' : 'manual',
   };
 }
 

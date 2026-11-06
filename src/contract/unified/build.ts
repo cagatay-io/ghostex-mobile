@@ -48,6 +48,8 @@ export type UnifiedSessionInput = {
   lastInteractionMs: number | null;
   workingStartedMs: number | null;
   snoozedUntilMs: number | null;
+  /** gxserver's `sidebarOrder`: where a pinned session was dragged to; absent when it has none. */
+  sidebarOrder?: number | null;
 };
 
 export type UnifiedProjectInput = {
@@ -93,6 +95,11 @@ export type UnifiedSettings = {
   workingSection: boolean;
   /** `enableSessionParking`: parked sessions sit in the Parked shelf. */
   parking: boolean;
+  /**
+   * `pinnedSessionOrder` (CDXC:Sidebar 2026-11-07 in packages/gx-core/src/sidebar_view/inputs.rs): pinned cards
+   * in the order they were dragged into, or the one that came back last first. Manual when absent.
+   */
+  pinnedOrder?: 'manual' | 'recent';
 };
 
 /** What the filter keeps. An empty list keeps everything of its kind; the kinds narrow together. */
@@ -411,7 +418,15 @@ export function buildUnifiedList<S>(
   const newestFirst = (value: (row: UnifiedRow<S>) => number) => (left: UnifiedRow<S>, right: UnifiedRow<S>) =>
     value(right) - value(left) || tie(left, right);
   view.drafts.sort(newestFirst((row) => row.session.createdMs ?? 0));
-  view.pinned.sort(newestFirst((row) => row.cameBackMs));
+  // Pinned order, as gx-core unified_sidebar/build.rs: the dragged order (`sidebarOrder`, rows with none after,
+  // by when they came back), or newest first.
+  if (settings.pinnedOrder === 'recent') {
+    view.pinned.sort(newestFirst((row) => row.cameBackMs));
+  } else {
+    const placed = (row: UnifiedRow<S>) => row.session.sidebarOrder ?? Number.MAX_SAFE_INTEGER;
+    const byCameBack = newestFirst((row) => row.cameBackMs);
+    view.pinned.sort((left, right) => placed(left) - placed(right) || byCameBack(left, right));
+  }
   view.active.sort(newestFirst((row) => row.cameBackMs));
   view.working.sort(newestFirst((row) => row.session.workingStartedMs ?? 0));
   view.snoozed.sort(

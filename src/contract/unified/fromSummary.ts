@@ -64,6 +64,7 @@ export function unifiedSessionInput(session: GhostexSession): UnifiedSessionInpu
     lastInteractionMs: millis(session.lastInteractionAt),
     workingStartedMs: millis(session.workingStartedAt),
     snoozedUntilMs: millis(session.snoozedUntil),
+    sidebarOrder: session.sidebarOrder,
     source: session,
   };
 }
@@ -115,6 +116,7 @@ export function unifiedSettingsOf(summary: GhostexMobileSummary | null): Unified
   return {
     workingSection: summary?.unifiedWorkingSection !== false,
     parking: summary?.enableSessionParking !== false,
+    pinnedOrder: summary?.pinnedSessionOrder === 'recent' ? 'recent' : 'manual',
   };
 }
 
