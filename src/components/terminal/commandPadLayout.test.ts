@@ -19,6 +19,7 @@ import {
   PAD_FIELD_OFFSET,
   PAD_KEY,
   PAD_KEY_GAP,
+  PAD_LEFT_MARGIN,
   PAD_MARGIN,
   PAD_RING_BUTTON,
   PAD_RING_OFFSETS,
@@ -53,11 +54,16 @@ const OPEN = {
 
 type Frame = { left: number; top: number; right: number; bottom: number };
 
-/** Where a control of the open pad at `anchor` is drawn in `area` (origin top left), mirrored on the left edge. */
+/**
+ * Where a control of the open pad at `anchor` is drawn in `area` (origin top left), mirrored on the left edge, where
+ * the toggle stands farther in.
+ */
 function frameOf(anchor: PadAnchor, area: PadArea, control: (typeof CONTROLS)[number]): Frame {
   const bottom = area.height - anchor.bottom - control.at.bottom;
   const left =
-    anchor.side === 'left' ? PAD_MARGIN + control.at.right : area.width - PAD_MARGIN - control.at.right - control.width;
+    anchor.side === 'left'
+      ? PAD_LEFT_MARGIN + control.at.right
+      : area.width - PAD_MARGIN - control.at.right - control.width;
   return { left, top: bottom - control.height, right: left + control.width, bottom };
 }
 
@@ -117,11 +123,12 @@ describe('a place in the allowed area', () => {
     // The toggle left of the area's middle, the mirrored pad mostly right of it.
     expect(padPlacementAt({ side: 'left', left: 120, bottom: 16 }, AREA, 0).side).toBe('right');
     expect(padPlacementAt({ side: 'left', left: 40, bottom: 16 }, AREA, 0).side).toBe('left');
-    expect(padToggleLeft('left', AREA.width)).toBe(PAD_MARGIN);
-    expect(padToggleLeft('right', AREA.width)).toBe(AREA.width - PAD_MARGIN - PAD_TOGGLE);
+    // The toggle stands 32 pt in from the left edge, clear of the system's swipe back there, and 16 pt from the right.
+    expect(padToggleLeft('left', AREA.width)).toBe(32);
+    expect(padToggleLeft('right', AREA.width)).toBe(AREA.width - 16 - PAD_TOGGLE);
   });
 
-  test('on the left edge every control lies where its mirror image on the right edge lies; the toggle at the edge', () => {
+  test('on the left edge every control lies where its mirror image on the right edge lies, 16 pt farther in; the toggle 32 pt from the edge', () => {
     for (const height of [0, 0.5, 1]) {
       const left = padAnchor({ side: 'left', height }, AREA, 0);
       const right = padAnchor({ side: 'right', height }, AREA, 0);
@@ -130,13 +137,13 @@ describe('a place in the allowed area', () => {
         const mirrored = frameOf(left, AREA, control);
         const original = frameOf(right, AREA, control);
         expect(mirrored).toEqual({
-          left: AREA.width - original.right,
+          left: AREA.width - original.right + 16,
           top: original.top,
-          right: AREA.width - original.left,
+          right: AREA.width - original.left + 16,
           bottom: original.bottom,
         });
       }
-      expect(frameOf(left, AREA, CONTROLS[0]).left).toBe(PAD_MARGIN);
+      expect(frameOf(left, AREA, CONTROLS[0]).left).toBe(32);
     }
   });
 
@@ -147,7 +154,7 @@ describe('a place in the allowed area', () => {
       { area: AREA, cover: EDITOR_COVER },
       // Exactly as tall and as wide as the open pad and its margins need.
       { area: { width: 874, height: 2 * PAD_MARGIN + OPEN.height }, cover: 0 },
-      { area: { width: 2 * PAD_MARGIN + OPEN.width, height: 700 }, cover: KEYBOARD_COVER },
+      { area: { width: PAD_LEFT_MARGIN + OPEN.width + PAD_MARGIN, height: 700 }, cover: KEYBOARD_COVER },
       { area: { width: 600, height: PAD_MARGIN + OPEN.height + 120 + PAD_COVER_GAP }, cover: 120 },
     ];
     for (const { area, cover } of cases) {

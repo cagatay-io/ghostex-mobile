@@ -132,6 +132,12 @@ const NATIVE_CHAT_HOST_ACTIONS: readonly string[] = [
 ];
 const NO_NATIVE_CHAT_HOST_ACTIONS: readonly string[] = [];
 
+/**
+ * Where the stack's full-width swipe back may begin: from `start` to `end` points across the screen. A start past the
+ * end leaves no point, so the swipe does not begin anywhere (used while a finger is on the pad's toggle).
+ */
+const NO_SWIPE_BACK_START = { start: 1, end: 0 } as const;
+
 export default function TerminalScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const headerPlacement = useHeaderPlacement();
@@ -567,20 +573,27 @@ export default function TerminalScreen({ navigation, route }: Props) {
   // does what the pen does (the editor closes, its draft stays, the keyboard stays up) and leaves the pad closed. Read
   // from the room on every render, as for a layer.
   const editorStandsAlone = editorShown && !pad.open && padReach === null;
-  // While the pad is lifted, the stack's swipe back to Sessions is off, so the drag is not taken for it; letting the
-  // pad go, its touch being cancelled, the pad going away and leaving the screen turn it back on, and so does a session
-  // switch (the lift belonged to the session it began in). At every other time the swipe works as before.
-  const [padLifted, setPadLifted] = useState(false);
-  const [liftSessionKey, setLiftSessionKey] = useState(padSessionKey);
-  if (liftSessionKey !== padSessionKey) {
-    setLiftSessionKey(padSessionKey);
-    setPadLifted(false);
+  // While a finger is on the pad's toggle, from its first touch until it is up or its touch is cancelled, the stack's
+  // swipe back to Sessions does not start, so neither the hold nor the drag is taken for it. The native stack reads
+  // its two options at different times: `gestureEnabled` only as a touch begins, so turning it off here keeps every
+  // touch that begins meanwhile (another finger) from starting the swipe, but not the toggle's own touch, which began
+  // before; `gestureResponseDistance` as the full-width swipe is about to begin, after the finger has moved, so an
+  // empty band (`NO_SWIPE_BACK_START`) keeps the toggle's own touch from starting it. The swipe from the screen's very
+  // left edge reads neither once the touch is down; the toggle's place on the left stands farther in to stay clear of
+  // it (`PAD_LEFT_MARGIN`). The finger going up, its touch being cancelled, the pad going away and leaving the screen
+  // turn the swipe back on, and so does a session switch (the touch belonged to the session it began in). At every
+  // other time the swipe works as before.
+  const [padHeld, setPadHeld] = useState(false);
+  const [heldSessionKey, setHeldSessionKey] = useState(padSessionKey);
+  if (heldSessionKey !== padSessionKey) {
+    setHeldSessionKey(padSessionKey);
+    setPadHeld(false);
   }
   useLayoutEffect(() => {
-    if (!padLifted) return;
-    navigation.setOptions({ gestureEnabled: false });
-    return () => navigation.setOptions({ gestureEnabled: undefined });
-  }, [navigation, padLifted]);
+    if (!padHeld) return;
+    navigation.setOptions({ gestureEnabled: false, gestureResponseDistance: NO_SWIPE_BACK_START });
+    return () => navigation.setOptions({ gestureEnabled: undefined, gestureResponseDistance: undefined });
+  }, [navigation, padHeld]);
   const floatingLift = slidesWithKeyboard ? Math.max(0, bottomInset - insets.bottom) : 0;
   // The round buttons' bottom edge in the terminal area: above the closed pad's toggle at the right edge, else in the
   // corner above what covers the area. On iOS, where the area does not shrink with the keyboard, the height left for
@@ -1101,7 +1114,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
             cover={obstruction}
             placement={pad.placement}
             onMove={pad.movePad}
-            onLift={setPadLifted}
+            onHold={setPadHeld}
             layer={pad.layer}
             onLayer={pad.selectLayer}
             agentAvailable={pad.agentAvailable}

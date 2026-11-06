@@ -12,10 +12,11 @@
  * it follows the finger and, let go, snaps to the nearer side edge at the released height inside the allowed area
  * (`padPlacementAt`), at once with Reduce Motion on (also when that is turned on during the snap). Only a drag
  * stores a new place: a hold let go without one (the finger never more than 10 pt from where it went down) puts
- * the pad back where it stood, so a place that only a cover pushed it to never becomes its resting place. While it is
- * lifted the pad keeps its touch: the toggle refuses to hand the press to another responder, the screen turns its
- * swipe back off (`onLift`), only the finger that lifted it moves it (from where that finger was at the lift), and a
- * touch the system cancels puts it back without storing a place. A
+ * the pad back where it stood, so a place that only a cover pushed it to never becomes its resting place. From the
+ * first touch on the toggle until that finger is up or its touch is cancelled, the toggle keeps its touch: it refuses
+ * to hand the press to another responder, and the screen keeps its swipe back from starting (`onHold`). Lifted, only
+ * the finger that lifted it moves it (from where that finger was at the lift), and a touch the system cancels puts it
+ * back without storing a place. A
  * shorter tap still opens and closes it. VoiceOver gets the same through the toggle's actions "Move to the left
  * side" and "Move to the right side". On the left edge the pad is drawn mirrored: the toggle at that edge, the ring
  * and the modifier chip on the field's other side; the field keeps its order, so every arrow still points its way.
@@ -60,6 +61,7 @@ import {
   PAD_TOGGLE,
   padAnchor,
   padPlacementAt,
+  padSideMargin,
   padToggleLeft,
   type PadAnchor,
   type PadArea,
@@ -110,10 +112,11 @@ export type CommandPadProps = {
   /** Stores a new place. */
   onMove: (placement: CommandPadPlacement) => void;
   /**
-   * The pad was lifted (true), or let go, cancelled or removed while lifted (false): the screen keeps its swipe back
-   * off meanwhile, so the drag is not taken for it.
+   * A finger went down on the toggle (true), or that finger is up, its touch was cancelled or the pad went away while
+   * it was down (false): the screen keeps its swipe back from starting meanwhile, so neither a hold nor a drag is
+   * taken for it.
    */
-  onLift: (lifted: boolean) => void;
+  onHold: (held: boolean) => void;
   layer: CommandPadLayerKind | null;
   onLayer: (layer: CommandPadLayerKind) => void;
   /** The session's agent has hotkeys (otherwise the Agent button is unavailable). */
@@ -137,7 +140,7 @@ function CommandPad({
   cover,
   placement,
   onMove,
-  onLift,
+  onHold,
   layer,
   onLayer,
   agentAvailable,
@@ -217,6 +220,8 @@ function CommandPad({
     return { drag: value, dragTransform: value.getTranslateTransform() };
   });
   const [lifted, setLifted] = useState(false);
+  // A finger is down on the toggle, from its press-in until that finger's end or cancel.
+  const [held, setHeld] = useState(false);
   // The finger that pressed the toggle and where it was last reported: only it lifts, moves and drops the pad.
   const press = useRef<{ id: NativeTouchEvent['identifier']; x: number; y: number } | null>(null);
   // A lift: where its finger went down (a drag is more than PAD_DRAG_MIN_DISTANCE from there), where it was as the
@@ -255,16 +260,19 @@ function CommandPad({
     drag.setValue({ x: 0, y: 0 });
   }, [drag, reduceMotion]);
 
-  // The screen keeps its swipe back off while the pad is lifted; let go, cancelled or gone, it gets it back.
-  useEffect(() => {
-    if (!lifted) return;
-    onLift(true);
-    return () => onLift(false);
-  }, [lifted, onLift]);
+  // The screen keeps its swipe back from starting while a finger is on the toggle; up, cancelled or gone, it gets it
+  // back. Before paint, so the screen's options reach the native stack as soon as React can send them: the stack's
+  // full-width swipe looks at them only when it is about to begin, after the finger has already moved.
+  useLayoutEffect(() => {
+    if (!held) return;
+    onHold(true);
+    return () => onHold(false);
+  }, [held, onHold]);
 
   const pressIn = (event: GestureResponderEvent): void => {
     const { identifier, pageX, pageY } = event.nativeEvent;
     press.current = { id: identifier, x: pageX, y: pageY };
+    setHeld(true);
   };
 
   // The long press's event is the touch-down's; the finger may have drifted up to 10 pt since, so the lift starts
@@ -317,6 +325,7 @@ function CommandPad({
   const endLift = (event: GestureResponderEvent, letGo: boolean): void => {
     if (pressingTouch(event) === undefined) return;
     press.current = null;
+    setHeld(false);
     const current = gesture.current;
     if (current === null) return;
     gesture.current = null;
@@ -421,7 +430,7 @@ function CommandPad({
             // Grow out of the toggle's corner, wherever the pad is (its room reaches `reach` above the area).
             area !== null && {
               transformOrigin: [
-                anchor.side === 'left' ? PAD_MARGIN : area.width - PAD_MARGIN,
+                anchor.side === 'left' ? padSideMargin('left') : area.width - padSideMargin('right'),
                 area.height + reach - anchor.bottom,
                 0,
               ],
@@ -494,9 +503,10 @@ function CommandPad({
         accessibilityActions={MOVE_ACTIONS}
         onAccessibilityAction={moveBy}
         delayLongPress={PAD_MOVE_HOLD_MS}
-        // Lifted, the finger may go anywhere without cancelling the drag, and no other responder takes the press.
+        // From the first touch the toggle refuses to hand its press to another responder; lifted, the finger may also
+        // go anywhere without cancelling the drag.
         pressRetentionOffset={lifted ? Number.POSITIVE_INFINITY : undefined}
-        cancelable={!lifted}
+        cancelable={false}
         style={({ pressed }) => [
           styles.toggle,
           placeAt(anchor, AT_TOGGLE),
@@ -524,7 +534,7 @@ function CommandPad({
  * toggle's side: bounded on both sides, so nothing in it runs out of the room.
  */
 function spanAt(anchor: PadAnchor, offset: PadOffset): ViewStyle {
-  const inset = PAD_MARGIN + offset.right;
+  const inset = padSideMargin(anchor.side) + offset.right;
   const bottom = anchor.bottom + offset.bottom;
   return anchor.side === 'left'
     ? { left: inset, right: PAD_MARGIN, bottom, alignItems: 'flex-start' }
@@ -545,7 +555,7 @@ function placeAt(
   anchor: PadAnchor,
   offset: PadOffset,
 ): { left: number; bottom: number } | { right: number; bottom: number } {
-  const inset = PAD_MARGIN + offset.right;
+  const inset = padSideMargin(anchor.side) + offset.right;
   const bottom = anchor.bottom + offset.bottom;
   return anchor.side === 'left' ? { left: inset, bottom } : { right: inset, bottom };
 }

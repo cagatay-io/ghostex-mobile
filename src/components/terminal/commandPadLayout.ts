@@ -6,8 +6,8 @@
  * where the user drags it. The user's place is a side edge and a height in the room the pad has; what covers the
  * area's bottom only pushes it up while it would stand under that. Laptop mode passes its own area (the upper half
  * above the fold) and stores its own place. Offsets are named for the right
- * edge; on the left edge the pad is drawn mirrored (the toggle at the edge, the ring on the field's other side) so
- * it stays as close to that edge as on the right, while the 3x3 field itself keeps its order.
+ * edge; on the left edge the pad is drawn mirrored (the toggle at the edge, the ring on the field's other side), its
+ * toggle `PAD_LEFT_MARGIN` in from that edge, while the 3x3 field itself keeps its order.
  */
 
 import type { CommandPadPlacement } from '../../settings/commandPad';
@@ -17,8 +17,16 @@ export const PAD_KEY = 52;
 export const PAD_KEY_GAP = 6;
 export const PAD_TOGGLE = 46;
 export const PAD_RING_BUTTON = 44;
-/** From the pad room's side edges, and from its bottom edge while nothing covers it. */
+/**
+ * From the pad room's right edge while the pad stands there and from its far edge across, and from its bottom edge
+ * while nothing covers it.
+ */
 export const PAD_MARGIN = 16;
+/**
+ * From the pad room's left edge while the pad stands there: farther in than on the right, so a finger on the toggle
+ * stays clear of the system's swipe back from the screen's left edge, whose width the system does not publish.
+ */
+export const PAD_LEFT_MARGIN = 32;
 /** Above whatever covers the area's bottom (keyboard, text editor, a layer). */
 export const PAD_COVER_GAP = 12;
 
@@ -33,7 +41,10 @@ export type PadOffset = { right: number; bottom: number };
 /** The room the pad is drawn in: the terminal area, across only as far as the window's safe area reaches. */
 export type PadArea = { width: number; height: number };
 export type PadSide = CommandPadPlacement['side'];
-/** Where the toggle stands: at a side edge, 16 pt in, its bottom edge `bottom` points above the area's bottom. */
+/**
+ * Where the toggle stands: at a side edge (`PAD_MARGIN` in on the right, `PAD_LEFT_MARGIN` on the left), its bottom
+ * edge `bottom` points above the area's bottom.
+ */
 export type PadAnchor = { side: PadSide; bottom: number };
 /** Where a lifted pad is let go: the side it is drawn for, and its toggle's left and bottom edge in the area. */
 export type PadDrop = { side: PadSide; left: number; bottom: number };
@@ -102,9 +113,14 @@ function heightRange(area: PadArea): number {
   return Math.max(0, area.height - 2 * PAD_MARGIN - PAD_EXTENT.height);
 }
 
+/** How far the toggle stands in from the side edge the pad stands at. */
+export function padSideMargin(side: PadSide): number {
+  return side === 'left' ? PAD_LEFT_MARGIN : PAD_MARGIN;
+}
+
 /** The toggle's left edge in an area `width` wide when it stands at `side`. */
 export function padToggleLeft(side: PadSide, width: number): number {
-  return side === 'left' ? PAD_MARGIN : width - PAD_MARGIN - PAD_TOGGLE;
+  return side === 'left' ? padSideMargin(side) : width - padSideMargin(side) - PAD_TOGGLE;
 }
 
 /**
