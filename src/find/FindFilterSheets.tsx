@@ -143,7 +143,9 @@ export function FindProjectFilterSheet({
           onPress={() => pick(facet.path)}
         />
       ))}
-      {shown.length === 0 ? <Text style={[styles.empty, { color: GhostexPalette.MUTED }]}>{FindPromptsCopy.noProjects}</Text> : null}
+      {shown.length === 0 ? (
+        <Text style={[styles.empty, { color: GhostexPalette.MUTED }]}>{FindPromptsCopy.noProjects}</Text>
+      ) : null}
     </BottomSheet>
   );
 }

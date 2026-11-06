@@ -122,7 +122,10 @@ function createFindStyles(appearance: Appearance) {
       lineHeight: 21,
     },
     match: {
-      color: readableSecondaryText(FIND_MATCH_COLOR, appearance.foreground, [appearance.background, appearance.cardActive]),
+      color: readableSecondaryText(FIND_MATCH_COLOR, appearance.foreground, [
+        appearance.background,
+        appearance.cardActive,
+      ]),
       fontWeight: '700',
     },
     rowMeta: {

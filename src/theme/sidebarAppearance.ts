@@ -159,7 +159,9 @@ export function readableSecondaryText(designed: string, foreground: string, surf
   const backgrounds = surfaces.map(luminance);
   const readable = (color: string): boolean => {
     const ink = luminance(color);
-    return backgrounds.every((background) => (Math.max(ink, background) + 0.05) / (Math.min(ink, background) + 0.05) >= 4.5);
+    return backgrounds.every(
+      (background) => (Math.max(ink, background) + 0.05) / (Math.min(ink, background) + 0.05) >= 4.5,
+    );
   };
   if (readable(designed)) return designed;
   for (let toward = 1; toward < 100; toward += 1) {

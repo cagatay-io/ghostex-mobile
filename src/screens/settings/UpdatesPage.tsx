@@ -87,9 +87,11 @@ function StatusText({ line }: { line: StatusLine }) {
   const color =
     line.tone === 'muted'
       ? appearance.muted
-      : readableSecondaryText(line.tone === 'accent' ? SetupPalette.ACCENT : SetupPalette.ERROR, appearance.foreground, [
-          appearance.background,
-        ]);
+      : readableSecondaryText(
+          line.tone === 'accent' ? SetupPalette.ACCENT : SetupPalette.ERROR,
+          appearance.foreground,
+          [appearance.background],
+        );
   return <Text style={[styles.status, { color }]}>{line.text}</Text>;
 }
 
@@ -154,9 +156,7 @@ function ApkSection() {
               onPress={() => void downloadUpdate()}
             />
           )}
-          {download.phase === 'error' ? (
-            <StatusText line={{ text: download.message, tone: 'error' }} />
-          ) : null}
+          {download.phase === 'error' ? <StatusText line={{ text: download.message, tone: 'error' }} /> : null}
           {download.phase === 'ready' && download.installError !== null ? (
             <StatusText line={{ text: download.installError, tone: 'error' }} />
           ) : null}

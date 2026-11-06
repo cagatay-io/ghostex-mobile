@@ -23,7 +23,13 @@ import {
   type ExtraKeyStored,
   type ExtraKeysLayout,
 } from '../settings/extraKeys';
-import { destructiveButtonFills, GhostexPalette, GhostexRadii, GhostexStrokeWidth, mixHexColors } from '../theme/palette';
+import {
+  destructiveButtonFills,
+  GhostexPalette,
+  GhostexRadii,
+  GhostexStrokeWidth,
+  mixHexColors,
+} from '../theme/palette';
 import { readableSecondaryText } from '../theme/sidebarAppearance';
 import type { Appearance } from '../theme/useAppearance';
 import KeyboardAvoidingContainer from '../components/common/keyboard/KeyboardAvoidingContainer';

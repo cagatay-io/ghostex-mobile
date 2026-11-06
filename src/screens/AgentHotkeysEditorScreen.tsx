@@ -13,7 +13,13 @@ import {
   type AgentHotkey,
   type ConfigurableAgentId,
 } from '../settings/agentHotkeys';
-import { destructiveButtonFills, GhostexPalette, GhostexRadii, GhostexStrokeWidth, mixHexColors } from '../theme/palette';
+import {
+  destructiveButtonFills,
+  GhostexPalette,
+  GhostexRadii,
+  GhostexStrokeWidth,
+  mixHexColors,
+} from '../theme/palette';
 import { readableSecondaryText } from '../theme/sidebarAppearance';
 import type { Appearance } from '../theme/useAppearance';
 import { barPadding } from '../components/common/verticalBar/layout';
