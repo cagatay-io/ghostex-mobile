@@ -22,8 +22,10 @@ import { reportMobileView } from './src/analytics/clientView';
 import { flushPendingDeepLink, initDeepLinks, navigationRef } from './src/app/deepLinks';
 import { initAppLifecycle } from './src/app/lifecycle';
 import { initSettingsSync } from './src/settingsSync/settingsSync';
+import { initLiveActivity } from './src/notifications/liveActivity';
 import { initPersistentNotification } from './src/app/persistentNotification';
 import { useMachinesStore } from './src/machines/store';
+import { initAttentionNotifications } from './src/notifications/feedStore';
 import { useAgentHotkeysStore } from './src/settings/agentHotkeys';
 import { useExtraKeysStore } from './src/settings/extraKeys';
 import { initSettingsNativeSync } from './src/settings/nativeSync';
@@ -67,6 +69,7 @@ import ConnectChooseScreen from './src/screens/ConnectChooseScreen';
 import ConnectedScreen from './src/screens/ConnectedScreen';
 import ScanCodeScreen from './src/screens/ScanCodeScreen';
 import CantReachScreen from './src/screens/CantReachScreen';
+import AttentionListScreen from './src/screens/AttentionListScreen';
 import ChangesScreen from './src/screens/ChangesScreen';
 import DocsScreen from './src/screens/DocsScreen';
 import DocViewerScreen from './src/screens/DocViewerScreen';
@@ -79,6 +82,7 @@ import {
   FeedbackCopy,
   FindPromptsCopy,
   MachineCopy,
+  NotificationsCopy,
   SettingsCopy,
   SshAccessCopy,
   TailscaleFormCopy,
@@ -133,6 +137,8 @@ export default function App() {
     initPersistentNotification();
     initDeepLinks();
     initAlerts();
+    initAttentionNotifications();
+    initLiveActivity();
     initAutoReconnect();
     initSettingsSync();
     initTerminalKeepAwake();
@@ -260,6 +266,11 @@ export default function App() {
                   <Stack.Screen name="Docs" component={DocsScreen} options={{ title: DocsCopy.listTitle }} />
                   <Stack.Screen name="DocViewer" component={DocViewerScreen} options={{ title: '' }} />
                   <Stack.Screen name="Changes" component={ChangesScreen} options={{ title: ChangesCopy.title }} />
+                  <Stack.Screen
+                    name="AttentionList"
+                    component={AttentionListScreen}
+                    options={{ title: NotificationsCopy.title }}
+                  />
                   <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: SettingsCopy.title }} />
                   <Stack.Screen
                     name="SettingsPage"

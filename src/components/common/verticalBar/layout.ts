@@ -464,7 +464,6 @@ export function foldDivisionsSummary(divisions: readonly FoldDivision[] | undefi
     )
     .join('; ');
 }
-
 /** The least height a menu at its row keeps before it gives up the row's side (as in the design). */
 const ROW_MENU_MIN_HEIGHT = 150;
 

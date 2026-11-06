@@ -172,3 +172,30 @@ describe('a card outside git', () => {
     assert.deepEqual(claims, { 'in-repo': false, 'no-origin': false, 'in-folder': true, 'folder-branch': false });
   });
 });
+
+describe('an open question card says Question, by the rule of the triage and the notifications', () => {
+  // OMP's stored question card: the computer publishes `awaitingAnswer` and counts no `pendingQuestionCount`.
+  const statusOf = (capabilities: object | undefined) => {
+    const parsed = summary(
+      [{ projectId: 'P1', name: 'Ghostex', path: '/Users/me/dev/Ghostex' }],
+      [session('omp', 'P1', { activity: 'attention', awaitingAnswer: true })],
+      capabilities === undefined ? {} : { capabilities },
+    );
+    const list = unifiedListOf(
+      [computer('mac', 'MacBook', parsed)],
+      unifiedSettingsOf(parsed),
+      EMPTY_UNIFIED_FILTER,
+      NOW,
+    );
+    return list.active.find((row) => row.session.sessionId === 'omp')?.status;
+  };
+
+  test('from a computer that announces the field the row says Question, not Done', () => {
+    assert.equal(statusOf({ awaitingAnswer: true }), 'Question');
+  });
+
+  test('from a computer that does not announce it the field is not read: Done', () => {
+    assert.equal(statusOf(undefined), 'Done');
+    assert.equal(statusOf({ awaitingAnswer: false }), 'Done');
+  });
+});

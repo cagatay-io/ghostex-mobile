@@ -59,7 +59,7 @@ async function loadFirstInventory(machine: MachineRecord): Promise<FirstLoad> {
     return { kind: 'failed', message: loaded?.lastError ?? ConnectedCopy.unavailable };
   }
   if (loaded.lastError !== null) return { kind: 'failed', message: loaded.lastError };
-  const counts = countSessions(loaded.summary.sessions);
+  const counts = countSessions(loaded.summary.sessions, loaded.summary.capabilities);
   return {
     kind: 'loaded',
     version: await readGhostexVersion(machine),

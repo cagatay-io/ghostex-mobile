@@ -1186,3 +1186,124 @@ export const CommandPadCopy = {
   resetBody: 'This puts the default nine keys back.',
   cancel: 'Cancel',
 } as const;
+
+/**
+ * Agent notifications and the attention list (the notifications design): the
+ * four event wordings, the list, the bell and Settings > Notifications. Text level: event and session
+ * only, never anything the agent wrote.
+ */
+export const NotificationsCopy = {
+  /** The line under "agent · project" in a notification. */
+  event: {
+    finished: 'Finished',
+    waiting: 'Waiting for you',
+    question: 'Has a question',
+    failed: 'Ended with an error',
+  },
+  /** The kind line of an attention list row. */
+  rowKind: {
+    finished: 'finished',
+    waiting: 'waiting',
+    question: 'has a question',
+    failed: 'ended with an error',
+    bell: 'bell',
+    custom: 'notification',
+    sendFailed: 'not sent',
+    resetExpiring: 'reset expiring',
+    resetRedeemed: 'reset used',
+  },
+  /** Who a row names when the computer did not say which agent it was. */
+  unknownAgent: 'Agent',
+  title: 'Notifications',
+  unread: 'Unread',
+  read: 'Read',
+  emptyTitle: 'No notifications yet',
+  emptyText: 'Agents that finish or need you will show up here.',
+  loading: 'Loading notifications…',
+  offline: (machine: string) => `${machine} is offline. Its notifications show again when it reconnects.`,
+  cantLoadTitle: 'Can’t load notifications',
+  cantLoadText: (machine: string) => `The list loads again as soon as the phone reaches ${machine}.`,
+  tooOld: (machine: string) =>
+    `${machine} runs a Ghostex that can’t share its notifications with the phone. Update Ghostex on that computer.`,
+  bell: 'Notifications',
+  bellUnread: (count: number) => `Notifications, ${count} unread`,
+  rowUnread: 'Unread.',
+  menuTitle: 'Notifications',
+  menuSubtitle: 'Shared with the bell on your computer',
+  markAllRead: 'Mark All Read',
+  clearAll: 'Clear All',
+  openSession: 'Open Session',
+  markRead: 'Mark as Read',
+  markUnread: 'Mark as Unread',
+  clear: 'Clear',
+  clearAllTitle: 'Clear all notifications?',
+  clearAllBody: 'They also disappear from the bell on your computer. Your sessions stay as they are.',
+  cancel: 'Cancel',
+  actionFailed: 'The computer didn’t take that change. Try again in a moment.',
+  /** Settings > Notifications; the page was "Sounds". */
+  settings: {
+    pageDescription: 'Agent alerts and the attention sound.',
+    sectionAgents: 'Agent notifications',
+    master: 'Notifications',
+    limit:
+      'Ghostex can notify you only while it is running: open, or briefly in the background. Once iOS pauses it, for example a while after you lock the phone, nothing arrives until you open Ghostex again. The bell on the Sessions screen then lists what happened.',
+    finished: 'Finished',
+    finishedDetail: 'An agent finished its turn.',
+    waiting: 'Waiting for you',
+    waitingDetail: 'Also when an agent has a question.',
+    error: 'Ended with an error',
+    errorDetail:
+      'When an agent’s run ends with an error, such as an API error. Stopping an agent yourself doesn’t notify.',
+    rules:
+      'Only main sessions notify, not their subagents. Starting, ending or working never notifies. At most one notification per session every 20 seconds, and 8 per minute.',
+    sectionSound: 'Sound',
+    sound: 'Attention notification sound',
+    soundDetail: 'Plays a sound when a session on your computer finishes or needs your attention.',
+    blockedTitle: 'Blocked in iOS Settings',
+    blockedText:
+      'iOS doesn’t allow Ghostex to notify you, so the switches below have no effect. Turn on Allow Notifications in iOS Settings › Apps › Ghostex › Notifications.',
+    openSettings: 'Open iOS Settings',
+  },
+} as const;
+
+/**
+ * Settings › Live Activity (approved mockup). The activity's own words (working,
+ * waiting, has a question, finished, "+N more", "Not current") are drawn by the widget extension
+ * (modules/ghostex-live-activity/ios/Extension); the preview here repeats them.
+ */
+export const LiveActivityCopy = {
+  /** The page's row on the Settings home and its title (`src/screens/settings/pages.ts`). */
+  pageTitle: 'Live Activity',
+  pageDescription: 'Agents on the Lock Screen and in the Dynamic Island.',
+  toggle: 'Show Live Activity',
+  onCaption:
+    'Shows working and waiting agents on the Lock Screen and in the Dynamic Island. It starts when an agent starts working and ends 15 minutes after the last one stops.',
+  // The design also says "or briefly in the background": that needs silent pushes, which this build
+  // does not have, so it claims only what it does (updates while the app is open).
+  freshnessCaption: 'Ghostex updates it while the app is open. Later it can show an older state and then says so.',
+  offCaption: 'Off. Ghostex ends the current Live Activity and starts no new one.',
+  /**
+   * The Live Activity starts only when every computer with agents sends their start times and whether
+   * they finished or wait.
+   */
+  needsUpdate: (names: readonly string[]) =>
+    names.length === 1
+      ? `${names[0]} needs a newer Ghostex for the Live Activity. Update Ghostex on that Mac; until then no Live Activity starts.`
+      : `${names.join(', ')} need a newer Ghostex for the Live Activity. Update Ghostex on those Macs; until then no Live Activity starts.`,
+  previewTitle: 'Preview',
+  previewLabel:
+    'Preview of the Live Activity: 1 working, 2 waiting, one more agent. Claude Code in ghostex-mobile has a question, Codex in homeserver is waiting, Codex in ghostex-mobile is working, omp in Ghostex finished.',
+  working: 'working',
+  waiting: 'waiting',
+  question: 'has a question',
+  finished: 'finished',
+  count: (count: number, word: string) => `${count} ${word}`,
+  more: (count: number) => `+${count} more`,
+  /** Sample rows of the preview: agent, project, state and time, as the design's Lock Screen. */
+  previewRows: [
+    { agent: 'Claude Code', project: 'ghostex-mobile', state: 'question', time: '4m' },
+    { agent: 'Codex', project: 'homeserver', state: 'waiting', time: '1m' },
+    { agent: 'Codex', project: 'ghostex-mobile', state: 'working', time: '12m' },
+    { agent: 'omp', project: 'Ghostex', state: 'finished', time: '18m' },
+  ],
+} as const;

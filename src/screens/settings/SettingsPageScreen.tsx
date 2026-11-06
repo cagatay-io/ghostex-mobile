@@ -7,11 +7,12 @@ import ConnectionPage from './ConnectionPage';
 import DictateDictionaryPage from './DictateDictionaryPage';
 import DictateLanguagePage from './DictateLanguagePage';
 import KeyboardPage from './KeyboardPage';
+import NotificationsPage from './NotificationsPage';
+import LiveActivityPage from './LiveActivityPage';
 import { SETTINGS_PAGES, type SettingsPageId } from './pages';
 import ReadAloudVoicePage from './ReadAloudVoicePage';
 import { SettingsColumnsFrame } from './SettingsColumns';
 import SessionsListPage from './SessionsListPage';
-import SoundsPage from './SoundsPage';
 import SyncPage from './SyncPage';
 import TerminalPage from './TerminalPage';
 import { SettingsPageBoundary } from './SectionBoundary';
@@ -54,8 +55,10 @@ function SettingsPageBody({ page }: { page: SettingsPageId }) {
       return <TerminalPage />;
     case 'keyboard':
       return <KeyboardPage />;
-    case 'sounds':
-      return <SoundsPage />;
+    case 'notifications':
+      return <NotificationsPage />;
+    case 'liveActivity':
+      return <LiveActivityPage />;
     case 'connection':
       return <ConnectionPage />;
     case 'sync':

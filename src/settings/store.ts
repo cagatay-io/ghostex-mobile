@@ -12,6 +12,11 @@ import { create } from 'zustand';
 
 import type { CursorStyle } from '../../modules/ghostex-native/src/GhostexNative.types';
 import {
+  DEFAULT_NOTIFICATION_SETTINGS,
+  sanitizeNotificationSettings,
+  type NotificationSettings,
+} from '../notifications/settings';
+import {
   clampSidebarContrast,
   DEFAULT_SIDEBAR_BACKGROUND_CONTRAST,
   DEFAULT_SIDEBAR_BACKGROUND_TINT,
@@ -51,6 +56,11 @@ export type GhostexSettings = {
   doneNotificationSound: boolean;
   /** This phone carries settings sync between the computers it connects to (src/settingsSync/). */
   settingsSyncThroughPhone: boolean;
+  /**
+   * The automatic Live Activity: off ends a
+   * running one and starts no other. iOS only.
+   */
+  liveActivityEnabled: boolean;
   hideKeyboardOnStartup: boolean;
   openUrlsOnTap: boolean;
   confirmTabClose: boolean;
@@ -138,6 +148,8 @@ export type GhostexSettings = {
   keepAliveEnabled: boolean;
   /** Keep-alive interval in seconds, 10-120 in 10-second steps. */
   keepAliveIntervalSec: number;
+  /** Agent notifications: master, finished, waiting, error and when the one-time ask was answered. */
+  notifications: NotificationSettings;
 };
 
 export const TERMINAL_FONT_SIZE_MIN = 4;
@@ -188,6 +200,7 @@ export function defaultSettings(): GhostexSettings {
     keyboardButtonVisible: false,
     doneNotificationSound: true,
     settingsSyncThroughPhone: true,
+    liveActivityEnabled: true,
     hideKeyboardOnStartup: true,
     openUrlsOnTap: true,
     confirmTabClose: false,
@@ -223,6 +236,7 @@ export function defaultSettings(): GhostexSettings {
     autoReconnect: true,
     keepAliveEnabled: true,
     keepAliveIntervalSec: 30,
+    notifications: { ...DEFAULT_NOTIFICATION_SETTINGS },
   };
 }
 
@@ -299,6 +313,7 @@ function sanitizeSettings(value: unknown): GhostexSettings {
     keyboardButtonVisible: bool('keyboardButtonVisible', defaults.keyboardButtonVisible),
     doneNotificationSound: bool('doneNotificationSound', defaults.doneNotificationSound),
     settingsSyncThroughPhone: bool('settingsSyncThroughPhone', defaults.settingsSyncThroughPhone),
+    liveActivityEnabled: bool('liveActivityEnabled', defaults.liveActivityEnabled),
     hideKeyboardOnStartup: bool('hideKeyboardOnStartup', defaults.hideKeyboardOnStartup),
     openUrlsOnTap: bool('openUrlsOnTap', defaults.openUrlsOnTap),
     confirmTabClose: bool('confirmTabClose', defaults.confirmTabClose),
@@ -355,6 +370,7 @@ function sanitizeSettings(value: unknown): GhostexSettings {
     autoReconnect: bool('autoReconnect', defaults.autoReconnect),
     keepAliveEnabled: bool('keepAliveEnabled', defaults.keepAliveEnabled),
     keepAliveIntervalSec,
+    notifications: sanitizeNotificationSettings(record.notifications),
   };
 }
 

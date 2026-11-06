@@ -9,7 +9,12 @@
  * main repo's packages/gx-core/src/sidebar_actions/close_confirm.rs, which this app cannot link;
  * change both together.
  */
-import { displayStatus, type GhostexSession } from '../../contract/mobileSummary';
+import {
+  displayStatus,
+  hasQuestion,
+  type GhostexSession,
+  type GhostexSummaryCapabilities,
+} from '../../contract/mobileSummary';
 import { isRunningSession } from './sidebar-menus';
 import { sessionTitle } from './session-actions';
 
@@ -37,6 +42,7 @@ function threads(count: number): string {
 export function closeConfirmCopy(
   session: GhostexSession,
   sessions: readonly GhostexSession[],
+  capabilities: GhostexSummaryCapabilities,
 ): { title: string; body: string } | null {
   const name = sessionTitle(session);
   const keep = 'Its conversation stays in Previous Sessions, where you can restore it.';
@@ -49,7 +55,10 @@ export function closeConfirmCopy(
     };
   }
   if (!isRunningSession(session) || session.kind !== 'agent') return null;
-  if (session.pendingQuestionCount > 0 || session.awaitingApproval) {
+  if (
+    hasQuestion(session.pendingQuestionCount, capabilities.awaitingAnswer && session.awaitingAnswer) ||
+    session.awaitingApproval
+  ) {
     return { title: `Close ${name}?`, body: `${name} is waiting for your answer to a question or approval. ${keep}` };
   }
   if (displayStatus(session) === 'working') {

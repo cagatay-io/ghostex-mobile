@@ -9,7 +9,7 @@
  * SessionRow.tsx draws it; the colors are the row tokens in theme/palette.ts.
  */
 
-import type { GhostexSession } from '../../contract/mobileSummary';
+import { hasQuestion, type GhostexSession, type GhostexSummaryCapabilities } from '../../contract/mobileSummary';
 import { formatTimerCountdown, isDelayedSendWaitingLabel } from './timerCountdown';
 
 type RowSession = Pick<
@@ -17,6 +17,7 @@ type RowSession = Pick<
   | 'sessionId'
   | 'activity'
   | 'pendingQuestionCount'
+  | 'awaitingAnswer'
   | 'awaitingApproval'
   | 'backgroundWorkDetectedAt'
   | 'programStatusFailed'
@@ -41,11 +42,6 @@ export type RowActivityIndicator = 'approval' | 'failed' | 'working' | 'attentio
  */
 export function isAwaitingApproval(session: RowSession): boolean {
   return session.awaitingApproval;
-}
-
-/** apps/desktop/src/app/native_sidebar/sessions.rs `question`: the row draws the question indicator. */
-export function hasPendingQuestion(session: RowSession): boolean {
-  return session.pendingQuestionCount > 0;
 }
 
 /** packages/gx-core/src/sidebar_view/rows.rs `has_background_work`. */
@@ -136,12 +132,20 @@ export function lastInteractionLabel(session: RowSession, nowMs: number): string
 
 /**
  * apps/desktop/src/app/native_sidebar/sessions.rs: the text after the status
- * dot. A pending question hides it; a timer label always shows; the relative
- * time shows only on a row that is neither working, in attention, nor running
- * background work, which draw their own dot instead.
+ * dot. A question (`hasQuestion`, read with the computer's `capabilities`) hides
+ * it; a timer label always shows; the relative time shows only on a row that is
+ * neither working, in attention, nor running background work, which draw their
+ * own dot instead.
  */
-export function rowTimeLabel(session: RowSession, nowMs: number): string | null {
-  if (isAwaitingApproval(session) || hasPendingQuestion(session)) return null;
+export function rowTimeLabel(
+  session: RowSession,
+  capabilities: GhostexSummaryCapabilities,
+  nowMs: number,
+): string | null {
+  if (
+    isAwaitingApproval(session) ||
+    hasQuestion(session.pendingQuestionCount, capabilities.awaitingAnswer && session.awaitingAnswer)
+  ) return null;
   const timer = timerTrailingLabel(session, nowMs);
   if (timer !== null) return timer;
   if (session.activity === 'working' || session.activity === 'attention' || hasBackgroundWork(session)) {

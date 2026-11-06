@@ -4,6 +4,9 @@
  * agent tabs whose native entries died while backgrounded, so the user should never
  * have to tap "Reconnect" after simply reopening the app.
  *
+ * The same lifecycle runs the app's one mobile-summary poll (`src/inventory/summaryRefresh.ts`):
+ * in the foreground with a machine selected, on every screen.
+ *
  * Foreground/background is also what flips attach tabs between the zmx
  * visible and hidden client states; that policy lives in
  * `src/terminal/zmxDisplay.ts`, which watches AppState itself.
@@ -13,6 +16,9 @@ import { AppState, type AppStateStatus } from 'react-native';
 
 import { Platform } from 'react-native';
 import { GhostexNative } from '../../modules/ghostex-native/src';
+import { INVENTORY_POLL_INTERVAL_MS, useInventoryStore } from '../inventory/store';
+import { startSummaryRefresh } from '../inventory/summaryRefresh';
+import { selectedMachine, useMachinesStore } from '../machines/store';
 import { recoverConnections } from './autoReconnect';
 
 let installed = false;
@@ -33,4 +39,26 @@ export function initAppLifecycle(): void {
   if (Platform.OS === 'android') {
     GhostexNative.addListener('onNetworkChanged', () => recoverConnections());
   }
+  // Runs for the app's lifetime, like the listeners above. The handle type is whatever the platform's timer
+  // returns (React Native's `setInterval` is overloaded, so it is named here rather than inferred).
+  startSummaryRefresh<ReturnType<typeof setInterval>>({
+    appState: {
+      get: () => AppState.currentState ?? 'unknown',
+      subscribe: (listener) => {
+        const subscription = AppState.addEventListener('change', listener);
+        return () => subscription.remove();
+      },
+    },
+    machineSelected: {
+      get: () => selectedMachine(useMachinesStore.getState()) !== null,
+      subscribe: (listener) => useMachinesStore.subscribe(listener),
+    },
+    refreshAll: () => void useInventoryStore.getState().refreshAll(),
+    setPolling: (polling) => useInventoryStore.getState().setPolling(polling),
+    intervalMs: INVENTORY_POLL_INTERVAL_MS,
+    timers: {
+      setInterval: (run, ms) => setInterval(run, ms),
+      clearInterval: (handle) => clearInterval(handle),
+    },
+  });
 }

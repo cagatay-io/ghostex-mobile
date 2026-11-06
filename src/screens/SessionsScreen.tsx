@@ -51,6 +51,7 @@ import SessionLinksSheet from '../chat/native/SessionLinksSheet';
 import { buildDrawerList, hideProjectsWithoutSessions, type DrawerBlock } from '../components/sessions/drawerModel';
 import { drawerStatusLine } from '../components/sessions/drawerStatusLine';
 import { MachinesGlyph, MenuGlyph, SearchGlyph, WorldGlyph } from '../components/sessions/icons';
+import { bellLabel, BellWithCount, useAttentionUnreadCount } from '../notifications/NotificationsBell';
 import { VoiceButton } from '../voice/VoiceButton';
 import { useVoiceStore, voiceActive } from '../voice/conversation';
 import MachineTabs, {
@@ -80,7 +81,7 @@ import {
 import { stateWithCollectionTitle } from '../contract/collectionsState';
 import { machineSessionCounts, tabStatusCounts } from '../contract/grouping';
 import { coordinatorRowKey } from '../contract/coordinatorTree';
-import { EMPTY_SIDEBAR_SPACES, type GhostexSession } from '../contract/mobileSummary';
+import { EMPTY_SIDEBAR_SPACES, NO_SUMMARY_CAPABILITIES, type GhostexSession } from '../contract/mobileSummary';
 import {
   DuoChromeCopy,
   ProgressCopy,
@@ -141,9 +142,10 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Sessions'>;
 function closeDialogCopy(ctx: SessionContext): { title: string; body: string } {
   const session = ctx.item.session;
   if (closePutsSessionToSleep(session)) return { title: 'Close session?', body: SessionCopy.claudeCloudCloseSleeps };
-  const sessions = useInventoryStore.getState().inventoriesByMachineId[ctx.machine.id]?.summary?.sessions ?? [];
+  const summary = useInventoryStore.getState().inventoriesByMachineId[ctx.machine.id]?.summary;
+  const sessions = summary?.sessions ?? [];
   return (
-    closeConfirmCopy(session, sessions) ?? {
+    closeConfirmCopy(session, sessions, summary?.capabilities ?? NO_SUMMARY_CAPABILITIES) ?? {
       title: 'Close session?',
       body: 'This closes the selected Ghostex session on the connected machine.',
     }
@@ -165,8 +167,7 @@ export default function SessionsScreen({ navigation }: Props) {
   const refreshMachineFresh = useInventoryStore((state) => state.refreshMachineFresh);
   const retryMachine = useInventoryStore((state) => state.retryMachine);
   const refreshAll = useInventoryStore((state) => state.refreshAll);
-  const startPolling = useInventoryStore((state) => state.startPolling);
-  const stopPolling = useInventoryStore((state) => state.stopPolling);
+  const unreadNotifications = useAttentionUnreadCount();
   const selectedSpaceIdByMachine = useSpacesStore((state) => state.selectedSpaceIdByMachine);
   const selectSpace = useSpacesStore((state) => state.selectSpace);
   const selectedWorkspaceIdByMachine = useWorkspacesStore((state) => state.selectedWorkspaceIdByMachine);
@@ -239,16 +240,15 @@ export default function SessionsScreen({ navigation }: Props) {
     }
   }, []);
 
-  // Poll every 5s only while this screen is focused AND a machine is selected.
+  // The summary poll is the app's own (src/app/lifecycle.ts): it runs on every screen while
+  // the app is in the foreground and a machine is selected, so this screen only hydrates its own stores.
   useFocusEffect(
     useCallback(() => {
       void useCollapseStore.getState().hydrate();
       void useLauncherStore.getState().hydrate();
       void useSpacesStore.getState().hydrate();
       void useWorkspacesStore.getState().hydrate();
-      if (machine !== null) startPolling();
-      return () => stopPolling();
-    }, [machine !== null, startPolling, stopPolling]),
+    }, []),
   );
 
   useFocusEffect(
@@ -781,9 +781,20 @@ export default function SessionsScreen({ navigation }: Props) {
     moreButtonRef,
   );
   const inRail = headerPlacement.kind === 'rail';
-  // The header keeps only the title and this menu button (Voice, Search, Web and Machines stand in the
-  // bottom bar, CDXC:Sessions 2026-10-27). On the iPhone Duo the status band holds the same row. In the
-  // side bar (a system that stands one) the button stands there as the rail's one entry.
+  // The header keeps only the title, the notifications bell and this menu button (Voice, Search, Web and
+  // Machines stand in the bottom bar, CDXC:Sessions 2026-10-27). On the iPhone Duo the status band holds the
+  // same row. In the side bar (a system that stands one) the bell and the menu stand there as its entries.
+  // The bell opens the attention list with its unread count.
+  const bellButton = (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={bellLabel(unreadNotifications)}
+      style={styles.headerButton}
+      onPress={() => navigation.navigate('AttentionList')}
+    >
+      <BellWithCount size={22} color={sidebarAppearance.foreground} unread={unreadNotifications} />
+    </Pressable>
+  );
   const moreButton = (
     <Pressable
       ref={moreButtonRef}
@@ -805,6 +816,12 @@ export default function SessionsScreen({ navigation }: Props) {
     const color = sidebarAppearance.foreground;
     const entries: RailEntry[] = [
       {
+        key: 'notifications',
+        label: bellLabel(unreadNotifications),
+        icon: (size) => <BellWithCount size={size} color={color} unread={unreadNotifications} />,
+        onPress: () => navigation.navigate('AttentionList'),
+      },
+      {
         key: 'more',
         label: DuoChromeCopy.more,
         icon: (size) => <MenuGlyph size={size} color={color} />,
@@ -813,7 +830,7 @@ export default function SessionsScreen({ navigation }: Props) {
     ];
     // The session search sheet and the rename and note dialogs take the keyboard.
     return { entries, pinned: 0, moreMenu: 'always', reserveKeyboard: true };
-  }, [sidebarAppearance.foreground]);
+  }, [sidebarAppearance.foreground, unreadNotifications, navigation]);
   useRailButtons(railButtons, sidebarAppearance.background, inRail && isFocused);
 
   return (
@@ -853,6 +870,7 @@ export default function SessionsScreen({ navigation }: Props) {
         >
           <Text style={[styles.title, { color: sidebarAppearance.foreground }]}>Ghostex</Text>
         </Pressable>
+        {inRail ? null : bellButton}
         {inRail ? null : moreButton}
       </View>
       {machineTabsVisible(unified.on, machines.length) ? (
