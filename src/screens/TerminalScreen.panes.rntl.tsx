@@ -14,11 +14,12 @@
  * selected tab closes, but never raised again once lowered nor taken from the text editor;
  * the active pane marked (accent title, `paneFocus`) only while two panes show; Panes, the chooser and closing;
  * swapping by the title bar without a terminal mounted again, and no swap while the chooser is one of the two; the
- * divider drag and its 25-75 % clamp; the keyboard rules and the divider coming back; one content area folded; the
- * laptop pose with the pad's rules; half folded like a book, nothing to touch on the fold; a restart bringing the
- * layout back; the window turning into a shape with nothing stored; a session selected outside the panes and the chat
- * view; the session beside the chooser kept at the warm-terminal limit; and that only the title bars and the divider
- * handle take a drag (nothing in a pane's content does).
+ * divider drag and its 25-75 % clamp, the terminals keeping their size until it is let go; the keyboard rules and the
+ * divider coming back; one content area folded; the laptop pose with the pad's rules; half folded like a book,
+ * nothing to touch on the fold; a restart bringing the layout back; the window turning into a shape with nothing
+ * stored; a session selected outside the panes and the chat view; the session beside the chooser kept at the
+ * warm-terminal limit; and that only the title bars and the divider handle take a drag (nothing in a pane's content
+ * does).
  *
  * Frames in window points of the iPhone Duo's inner display as the laptop test (`TerminalScreen.laptop.rntl.tsx`)
  * has them: upright 669 x 951, turned 951 x 669, the fold's division across at y 455.5 (40 pt) upright and down the
@@ -942,6 +943,45 @@ describe('resizing by the divider handle', () => {
     await nextFrame();
     expect(card(A).height - top).toBeCloseTo(80, 0);
     expect(storedLayouts().stacked?.dividerRatio).toBe(0.5);
+  });
+
+  test('while the handle is dragged the terminals keep their size and are not drawn again; letting go sizes each once', async () => {
+    await renderScreen({ stored: stacked(A, B) });
+    const top = card(A).height;
+    // Each new size of a terminal view measures its grid again and, for each row it gains or loses, resizes the
+    // computer's terminal: the sizes each terminal is handed, in order, one entry per change.
+    const handed: Record<string, number[]> = { [A]: [], [B]: [] };
+    const note = () => {
+      for (const key of [A, B]) {
+        const height = num(terminalView(key), 'height');
+        if (handed[key].at(-1) !== height) handed[key].push(height);
+      }
+    };
+    note();
+    const before = { [A]: handed[A][0], [B]: handed[B][0] };
+    mockTerminalRenders.length = 0;
+    await fireEvent(handle(), 'responderGrant', touch(300, 400));
+    for (let step = 1; step <= 10; step += 1) {
+      await fireEvent(handle(), 'responderMove', touch(300, 400 + step * 10));
+      await act(() => jest.advanceTimersByTime(16));
+      note();
+    }
+    // The panes followed the finger; the terminals were neither drawn again nor handed a size.
+    expect(card(A).height - top).toBeCloseTo(100, 0);
+    expect(mockTerminalRenders).toEqual([]);
+    expect(handed).toEqual({ [A]: [before[A]], [B]: [before[B]] });
+
+    await fireEvent(handle(), 'responderRelease', {
+      ...touch(300, 500),
+      nativeEvent: { ...touch(300, 500).nativeEvent, touches: [] },
+    });
+    await act(() => jest.advanceTimersByTime(16));
+    await settle();
+    note();
+    expect(handed[A]).toHaveLength(2);
+    expect(handed[B]).toHaveLength(2);
+    expect(handed[A][1] - before[A]).toBeCloseTo(100, 0);
+    expect(before[B] - handed[B][1]).toBeCloseTo(100, 0);
   });
 
   test('moves and the release in a frame that already resized: no second resize in it, one at the next frame, the released position stored', async () => {

@@ -1,9 +1,9 @@
 /**
  * An agent session's terminal in a pane: the native terminal view at the size the pane's body has without the
- * keyboard (its grid stays while the keyboard comes and goes), sliding over what the keyboard rules take from the pane
- * the way the full-screen terminal slides (`terminalSlideOffset`: the bottom row above the cover, the cursor row
- * wins), with the session's connection state over it. The terminal's own gestures (selection, scrolling, pinch) stay
- * inside it: nothing here takes a touch.
+ * keyboard (its grid stays while the keyboard comes and goes, and while the divider is dragged until it is let go),
+ * sliding over what the keyboard rules take from the pane the way the full-screen terminal slides
+ * (`terminalSlideOffset`: the bottom row above the cover, the cursor row wins), with the session's connection state
+ * over it. The terminal's own gestures (selection, scrolling, pinch) stay inside it: nothing here takes a touch.
  */
 
 import { useEffect, useState } from 'react';

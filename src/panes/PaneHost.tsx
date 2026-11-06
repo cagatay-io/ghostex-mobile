@@ -13,7 +13,9 @@
  *   space kept.
  * - Dragging the divider handle resizes both panes, 25-75 %; the handle is there only while the keyboard is down. The
  *   drag follows the finger at most once per frame, and a pane's body is drawn again only when what it is given
- *   changes (`PaneBody`): a terminal its size, any other body nothing of the card's size, which it fills by layout.
+ *   changes (`PaneBody`): a terminal its size, which it gets when the finger lets go (each new size measures its grid
+ *   again and, row by row, resizes the computer's terminal), any other body nothing of the card's size, which it fills
+ *   by layout.
  * - A gesture that starts in a pane's content is never a pane gesture: nothing here takes a touch there, so the
  *   terminal's own selection, scrolling and pinch stay as they are.
  * - Half folded like a book the content may run across the fold, but nothing to touch stands on it: the handle moves
@@ -74,7 +76,8 @@ const GRIP_ACTIONS = [{ name: 'activate' }] as const;
 /**
  * What a body is given: its terminal's size and what the keyboard rules hide of it, whether its pane is active, and
  * how far its own controls stay off its edges to keep off a book fold (`paneGeometry`'s `controlInsets`). `view` and
- * `covered` are a terminal's: every other body fills its card by layout and is not drawn again when only they change.
+ * `covered` are a terminal's (during a divider drag those where the drag started): every other body fills its card by
+ * layout and is not drawn again when only they change.
  */
 export type PaneFrame = { view: PaneSize; covered: number; active: boolean; controlInset: PaneBarInset };
 
@@ -223,6 +226,8 @@ export default function PaneHost(props: PaneHostProps) {
   const [menu, setMenu] = useState<{ slot: PaneIndex; anchor: WindowRect } | null>(null);
   const ratio = dragRatio ?? layout.ratio;
   const geometry = paneGeometry({ ...layout, ratio });
+  // The terminals' sizes: where the divider stands, or, while it is dragged, where the drag started.
+  const terminalGeometry = dragRatio === null ? geometry : paneGeometry(layout);
   const order: PaneIndex[] = contentKey(slots[0]) < contentKey(slots[1]) ? [0, 1] : [1, 0];
   const swappable = slots.every((content) => content.kind !== 'chooser');
   const onSwapDrag = (drag: SwapDrag | null): void => {
@@ -243,6 +248,7 @@ export default function PaneHost(props: PaneHostProps) {
           slot={slot}
           content={slots[slot]}
           geometry={geometry}
+          terminalGeometry={terminalGeometry}
           active={slot === active}
           chat={slots[slot].kind === 'session' && contentKey(slots[slot]) === props.chatSessionKey}
           swappable={swappable}
@@ -313,6 +319,8 @@ type PaneCardProps = {
   slot: PaneIndex;
   content: PaneContent;
   geometry: PaneGeometry;
+  /** Where its terminal's size comes from (`PaneHost`: while the divider is dragged, where the drag started). */
+  terminalGeometry: PaneGeometry;
   active: boolean;
   /** A session pane showing its chat view: the chat's icon and name in the title bar, the type menu as a session's. */
   chat: boolean;
@@ -425,8 +433,8 @@ function PaneCard(props: PaneCardProps) {
           content={content}
           renderContent={props.renderContent}
           frame={{
-            view: geometry.views[slot],
-            covered: geometry.covered[slot],
+            view: props.terminalGeometry.views[slot],
+            covered: props.terminalGeometry.covered[slot],
             active,
             controlInset: geometry.controlInsets[slot],
           }}
@@ -507,10 +515,10 @@ function Divider({
   onRatio: (ratio: number) => void;
 }) {
   const grab = useRef<{ position: number; ratio: number } | null>(null);
-  // The finger's newest position waits for the next frame: the panes, and a terminal's native size, follow it at most
-  // once per frame however often the touch reports a move. Letting go (or losing the touch) waits for that frame too,
-  // so the end of a drag never resizes a second time in a frame that has already resized (`end`: the drag's state is
-  // cleared then, and a released position is stored).
+  // The finger's newest position waits for the next frame: the panes follow it at most once per frame however often
+  // the touch reports a move, and the terminals keep their size until the drag ends. Letting go (or losing the touch)
+  // waits for that frame too, so the end of a drag never resizes a second time in a frame that has already resized
+  // (`end`: the drag's state is cleared then, and a released position is stored, the terminals sized to it).
   const nextFrame = useRef<{ request: number; ratio: number | null; end: boolean } | null>(null);
   const onFrame = (ratio: number | null, end: boolean): void => {
     if (nextFrame.current !== null) {
