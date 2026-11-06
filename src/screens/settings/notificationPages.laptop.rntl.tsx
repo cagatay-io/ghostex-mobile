@@ -6,28 +6,33 @@
  * Settings › Live Activity (its preview card), Settings › Licences (its list of components), Settings › Interface
  * (the presets' scroller, Appearance's cards, a mode colour's squares and its custom tint) and its terminal palette
  * picker (its list of palettes). The page's frame comes from the jest preset's `measureInWindow`: the
- * whole 669 x 951 window of the iPhone Duo in the laptop pose, whose fold's band is 455.5-495.5. Expected: the page's
- * scroll view ends 8 pt above the fold's top (447.5), before and after a scroll, and none of its own rows carries a
- * gap of its own; flat (inactive division) and in the book pose the page keeps its whole frame and its frame measures
- * nothing. The real pages, shared controls and stores under the real `VerticalBarArea`; stand-ins: navigation, the
- * safe area, storage, the native chrome, expo-notifications and the bundled notices file's native read (it returns
- * the real THIRD_PARTY_NOTICES.md).
+ * whole 669 x 951 window of the iPhone Duo in the laptop pose, whose fold's band is 455.5-495.5; a list's content
+ * height and its scrolls are the platform's events, fired here. Expected, by the laptop-pose decision for lists: a
+ * page's scroll view ends 8 pt above the fold's top (447.5), before and after a scroll; the Licences and palette
+ * lists, whose rows take their state from the page, run across the fold: the list ends at the fold's top and a copy
+ * of it, hidden from accessibility, fills the frame from the fold's bottom, starting where the list ends and
+ * following its scroll, and the copy's search field takes no touches. None of a page's own rows carries a gap of its
+ * own; flat (inactive division) and in the book pose the page keeps its whole frame and its frame measures nothing.
+ * The real pages, shared controls and stores under the real `VerticalBarArea`; stand-ins: navigation, the safe area,
+ * storage, the native chrome, expo-notifications and the bundled notices file's native read (it returns the real
+ * THIRD_PARTY_NOTICES.md).
  *
- * Not reached here: the scroll view's clipping of its rows (the platform's) and the device's real frames.
+ * Not reached here: the scroll views' clipping and native scrolling (the jest preset's scroll view records `scrollTo`
+ * and moves nothing) and the device's real frames.
  */
 
 import { readFileSync } from 'node:fs';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { ReactNode } from 'react';
-import { Dimensions, StyleSheet } from 'react-native';
+import { Dimensions, ScrollView, StyleSheet } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import type { TestInstance } from 'test-renderer';
 
 import type { BarLayout, FoldDivision } from '../../../modules/ghostex-native/src/GhostexNative.types';
 import { useBarGeometryStore } from '../../components/common/verticalBar/barGeometry';
 import VerticalBarArea from '../../components/common/verticalBar/VerticalBarArea';
-import { LiveActivityCopy, NotificationsCopy } from '../../copy';
+import { LicencesCopy, LiveActivityCopy, NotificationsCopy } from '../../copy';
 import { useInventoryStore } from '../../inventory/store';
 import { useMachinesStore } from '../../machines/store';
 import { useAttentionFeedStore } from '../../notifications/feedStore';
@@ -93,6 +98,8 @@ const OTHER_POSES: [string, FoldDivision, { width: number; height: number }][] =
 ];
 /** The window frame `measureInWindow` answers: the whole window. */
 let listFrame = { top: 0, height: PORTRAIT.height };
+/** The scroll command the jest preset's scroll view records (one function for every scroll view). */
+const nativeScrollTo = jest.mocked(ScrollView.prototype.scrollTo);
 
 function barLayout(division: FoldDivision, window: { width: number; height: number }): BarLayout {
   return {
@@ -176,6 +183,47 @@ async function expectEndsAboveFold(rows: () => TestInstance[]): Promise<void> {
   for (const row of rows()) expect(gapAbove(row)).toBe(0);
 }
 
+/** The scroll view of the list's copy below the fold's band (in the list's frame, after the list), or null. */
+function copyOf(node: TestInstance): TestInstance | null {
+  const list = scrollViewOf(node);
+  for (const child of list.parent?.children ?? []) {
+    if (typeof child === 'string' || child === list) continue;
+    const [copy] = child.queryAll((candidate) => candidate.type === 'RCTScrollView');
+    if (copy !== undefined) return copy;
+  }
+  return null;
+}
+
+/**
+ * In the laptop pose, at rest and scrolled: the list ends at the fold's top and its copy, hidden from accessibility,
+ * fills the frame from the fold's bottom at the offset where the list ends and follows its scroll, so its rows
+ * continue below the band and none of `rows` is drawn on it.
+ */
+async function expectRunsAcross(rows: () => TestInstance[]): Promise<void> {
+  const [first] = rows();
+  const upper = FOLD.top - listFrame.top;
+  nativeScrollTo.mockClear();
+  await fireEvent(scrollViewOf(first), 'contentSizeChange', 640, 1600);
+  await advance();
+  expect(visibleBottom(first)).toBe(FOLD.top);
+  const copy = copyOf(first);
+  if (copy === null) throw new Error('no copy below the fold');
+  const place = copy.parent;
+  expect(place?.props).toMatchObject({
+    accessibilityElementsHidden: true,
+    importantForAccessibility: 'no-hide-descendants',
+  });
+  const placed = StyleSheet.flatten(place?.props.style);
+  expect(listFrame.top + Number(placed?.top)).toBe(FOLD.bottom);
+  expect(listFrame.top + Number(placed?.top) + Number(placed?.height)).toBe(listFrame.top + listFrame.height);
+  expect(nativeScrollTo).toHaveBeenLastCalledWith({ animated: false, y: upper });
+  for (const row of rows()) expect(gapAbove(row)).toBe(0);
+  await scrollTo(first, 300);
+  expect(nativeScrollTo).toHaveBeenLastCalledWith({ animated: false, y: 300 + upper });
+  expect(visibleBottom(rows()[0])).toBe(FOLD.top);
+  for (const row of rows()) expect(gapAbove(row)).toBe(0);
+}
+
 /**
  * How many views other than scroll views were measured: the fold frame is a plain View. The pages' keyboard-aware
  * scroll view measures itself for its own keyboard handling, in every pose.
@@ -192,6 +240,7 @@ function measuredViews(): number {
 beforeEach(async () => {
   jest.useFakeTimers();
   listFrame = { top: 0, height: PORTRAIT.height };
+  nativeScrollTo.mockClear();
   mockNativeMethods.measureInWindow.mockImplementation((onFrame: (...frame: number[]) => void) =>
     onFrame(0, listFrame.top, PORTRAIT.width, listFrame.height),
   );
@@ -275,9 +324,33 @@ describe('Settings › Live Activity (its preview card)', () => {
 describe('Settings › Licences (its list of components)', () => {
   const units = () => [screen.getByText('FreeType'), screen.getByText('Ghostty')];
 
-  test('laptop pose: the list ends above the fold, also scrolled, and no component row carries a gap', async () => {
+  test('laptop pose: the list runs across the fold, also scrolled, and no component row carries a gap', async () => {
     await renderPage(<LicencesPage />);
-    await expectEndsAboveFold(units);
+    await expectRunsAcross(units);
+  });
+
+  test("laptop pose: the copy's search field, hidden from accessibility, takes no touches; the list's does", async () => {
+    await renderPage(<LicencesPage />);
+    await fireEvent(scrollViewOf(units()[0]), 'contentSizeChange', 640, 1600);
+    await advance();
+    expect(copyOf(units()[0])).not.toBeNull();
+    /** The nearest view up to the scroll view that takes no touches, or null. */
+    const untouchable = (field: TestInstance | undefined): TestInstance | null => {
+      for (
+        let node: TestInstance | null = field ?? null;
+        node !== null && node.type !== 'RCTScrollView';
+        node = node.parent
+      ) {
+        if (StyleSheet.flatten(node.props.style)?.pointerEvents === 'none') return node;
+      }
+      return null;
+    };
+    const shown = screen.getByLabelText(LicencesCopy.searchPlaceholder);
+    const fields = screen.getAllByLabelText(LicencesCopy.searchPlaceholder, { includeHiddenElements: true });
+    expect(fields).toHaveLength(2);
+    expect(untouchable(shown)).toBeNull();
+    expect(untouchable(fields.find((field) => field !== shown))).not.toBeNull();
+    expect(screen.getAllByText('Ghostty')).toHaveLength(1);
   });
 
   test.each(OTHER_POSES)('%s: the list keeps its whole frame and its frame measures nothing', async (_pose, division, window) => {
@@ -292,9 +365,9 @@ describe('Settings › Licences (its list of components)', () => {
 describe('Settings › Interface › Terminal palette (its list of palettes)', () => {
   const rows = () => [2, 3].map((index) => screen.getByRole('radio', { name: terminalPaletteLabel(terminalPaletteNames()[index]!) }));
 
-  test('laptop pose: the list ends above the fold, also scrolled, and no palette row carries a gap', async () => {
+  test('laptop pose: the list runs across the fold, also scrolled, and no palette row carries a gap', async () => {
     await renderPage(<TerminalPalettePage dark />);
-    await expectEndsAboveFold(rows);
+    await expectRunsAcross(rows);
   });
 
   test.each(OTHER_POSES)('%s: the list keeps its whole frame and its frame measures nothing', async (_pose, division, window) => {

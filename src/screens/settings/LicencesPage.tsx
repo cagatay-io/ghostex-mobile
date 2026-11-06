@@ -2,7 +2,8 @@
  * Settings › Licences: the third-party notices bundled with the app (THIRD_PARTY_NOTICES.md) as a searchable list
  * of components with their version and licence; a row opens the component's licence texts (LicenceNoticeScreen).
  * The file holds a couple of hundred entries, so one long page of licence texts would be hard to search.
- * Half folded like a laptop the list ends above the fold, as the Settings pages do (`components/common/foldGap.tsx`).
+ * Half folded like a laptop the list runs across the fold (`components/common/foldGap.tsx`): its rows, which take
+ * their state from this page, continue below the fold's band, and the search field in its header takes touches once.
  */
 
 import { useNavigation } from '@react-navigation/native';

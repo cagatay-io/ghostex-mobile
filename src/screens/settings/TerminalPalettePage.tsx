@@ -4,7 +4,8 @@
  * private imports. A filter narrows the list; a saved name the phone does not carry stays listed first, as on the Mac.
  * The list holds a couple of hundred palettes, so it is one virtualised list with the caption and filter as its
  * header: only the rows near the screen are built. Like every Settings page it keeps the focused filter above the
- * keyboard, a readable column clear of the side bar, and half folded like a laptop a list that ends above the fold.
+ * keyboard and a readable column clear of the side bar; half folded like a laptop the list runs across the fold, its
+ * rows (which take their state from the settings) continuing below the fold's band (`components/common/foldGap.tsx`).
  */
 
 import { useCallback, useContext, useMemo, useState } from 'react';
