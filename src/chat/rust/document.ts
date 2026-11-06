@@ -594,6 +594,10 @@ export type ChatDocument = {
   modelProvider?: string | null;
   /** The queued model selection and its outbox. Not drawn directly. */
   modelSelection: Json;
+  /** The card above the composer while a failed model change holds queued messages
+   * (`{tone, title, body, detail, note, action, heldCount}`); `body` is the plain sentence and `detail`
+   * the diagnostic behind Details. Absent otherwise. Desktop: `model_hold_card.rs`. */
+  modelHoldCard?: Json;
   /** The option dispatch in flight, or null. */
   optionDispatchId: string | null;
   /** The accounts read; absent until it answers. Desktop: `option_menu/accounts.rs`. */

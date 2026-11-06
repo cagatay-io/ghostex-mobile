@@ -96,6 +96,11 @@ export type NativeComposerProps = {
   openAccountsRequestId?: number;
   /** Bumped by the screen when the field is to take the keyboard (its pane became the active one); 0 asks nothing. */
   focusRequestId?: number;
+  /**
+   * Bumped by the screen when something outside the composer asks for the model sheet (the
+   * held-messages card's Pick model). Each new value opens what a tap on the model pill opens; 0 opens nothing.
+   */
+  openModelRequestId?: number;
   /** The session's title, for the More actions row "Voice call about this chat" (shown when `voiceCall` is served). */
   voiceCallTitle?: string;
   /**
@@ -157,6 +162,7 @@ export function NativeComposer({
   hostActions = DEFAULT_HOST_ACTIONS,
   openAccountsRequestId = 0,
   focusRequestId = 0,
+  openModelRequestId = 0,
   voiceCallTitle = '',
   room,
   strip,
@@ -542,6 +548,13 @@ export function NativeComposer({
       setMenu({ kind: 'rows', rows: [{ accounts: document.accountPanel }] });
     }
   }, [document, openAccountsRequestId]);
+
+  const handledModelRequest = useRef(openModelRequestId);
+  useEffect(() => {
+    if (openModelRequestId === handledModelRequest.current) return;
+    handledModelRequest.current = openModelRequestId;
+    if (openModelRequestId > 0) openPill('model');
+  }, [openModelRequestId, openPill]);
 
   // The chat's computer by name, for the Dictate menu ("Transcribes on MacBook Pro").
   const machineLabel = useMachinesStore((state) => {
