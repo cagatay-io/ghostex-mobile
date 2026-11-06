@@ -5,7 +5,8 @@
  * computer; an account row is only marked read. A long press opens the row's menu at the row (Open Session, Mark as
  * Read/Unread, Clear).
  * Half folded like a laptop the list ends above the fold, so no row, group title, notice or empty state is drawn on
- * the knick, at rest or while scrolling: it keeps the fold gap of the app's lists (`components/common/foldGap.tsx`).
+ * the knick, at rest or while scrolling, and the lower half stays empty, as the Settings pages do: it is a scroll view
+ * page, which `components/common/foldGap.tsx` keeps above the fold (only its `FlatList` adopters run across it).
  *
  * One component for the full screen (`AttentionListScreen`) and, later, the attention-list pane: the caller decides
  * what opening a session means (`onOpenSession`: navigate to it, or open it in the pane beside).

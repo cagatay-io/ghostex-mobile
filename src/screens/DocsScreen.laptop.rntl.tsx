@@ -4,20 +4,24 @@
  * on the fold in lists; the laptop pose only, `components/common/foldGap.tsx`), measured as `foldGap.rntl.tsx`
  * measures the Settings, Sessions and work-link lists: the list's frame comes from the jest preset's
  * `measureInWindow`, the whole 669 x 951 window of the iPhone Duo in the laptop pose, whose fold's band is
- * 455.5-495.5; a held row measures at its own frame (rows 44 pt tall, 8 pt apart from y 100, by the name they show).
- * Expected: the list's scroll view ends 8 pt above the fold's top (447.5), before and after a scroll, and no row or
- * section title carries a gap of its own; flat (inactive division) and in the book pose the list keeps its whole
- * frame. An open row menu stays at its row while the device folds into or out of the laptop pose, because the gap
- * moves no row. The real screen, tree and rows under the real `VerticalBarArea`; stand-ins: gxserver's
- * `runProjectDocsAction` and the native chrome.
+ * 455.5-495.5; a held row measures at its own frame (rows 44 pt tall, 8 pt apart from y 100, by the name they show);
+ * the list's content height and its scrolls are the platform's events, fired here. Expected, by the laptop-pose
+ * decision for lists (a list whose rows take their state from the screen runs across the fold, and the Files rows do):
+ * the list ends at the fold's top and a copy of it, hidden from accessibility and without pull to refresh, fills the
+ * frame from the fold's bottom, starting where the list ends and following its scroll, before and after a scroll; no
+ * row or section title carries a gap of its own; flat (inactive division) and in the book pose the list keeps its
+ * whole frame, with no copy. An open row menu stays at its row while the device folds into or out of the laptop
+ * pose, because the gap moves no row. The real screen, tree and rows under the real `VerticalBarArea`; stand-ins:
+ * gxserver's `runProjectDocsAction` and the native chrome.
  *
- * Not reached here: the scroll view's clipping of its rows (the platform's) and the device's real frames.
+ * Not reached here: the scroll views' clipping and native scrolling (the jest preset's scroll view records `scrollTo`
+ * and moves nothing) and the device's real frames.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { isValidElement } from 'react';
-import { Dimensions, StyleSheet } from 'react-native';
+import { Dimensions, ScrollView, StyleSheet } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import type { TestInstance } from 'test-renderer';
 
@@ -91,14 +95,16 @@ const LAPTOP: FoldDivision = { x: 0, y: 455.5, width: 669, height: 40, active: t
 const FLAT: FoldDivision = { ...LAPTOP, active: false };
 const BOOK: FoldDivision = { x: 455.5, y: 0, width: 40, height: 669, active: true };
 const FOLD = { top: 455.5, bottom: 495.5 };
-/** Where the list's visible part must end in the laptop pose: 8 pt above the fold's top. */
-const ABOVE_FOLD = FOLD.top - 8;
+/** Where the list's visible part ends in the laptop pose: at the fold's top, its copy continuing below the band. */
+const UPPER_END = FOLD.top;
 const OTHER_POSES: [string, FoldDivision, { width: number; height: number }][] = [
   ['flat', FLAT, PORTRAIT],
   ['book pose', BOOK, LANDSCAPE],
 ];
 /** The window frame `measureInWindow` answers for the list: the whole window unless a test moves it. */
 let listFrame = { top: 0, height: PORTRAIT.height };
+/** The scroll command the jest preset's scroll view records (one function for every scroll view). */
+const nativeScrollTo = jest.mocked(ScrollView.prototype.scrollTo);
 /** Window frames of rows by the name they show: 44 pt tall, 8 pt apart from y 100. */
 const frames = new Map<string, { top: number; height: number }>();
 const rowFrames = (labels: string[]) =>
@@ -198,10 +204,27 @@ async function scrollTo(text: string, y: number): Promise<void> {
     nativeEvent: {
       contentOffset: { x: 0, y },
       contentSize: { width: 640, height: 1600 },
-      layoutMeasurement: { width: 640, height: ABOVE_FOLD },
+      layoutMeasurement: { width: 640, height: UPPER_END },
     },
   });
   await advance();
+}
+
+/** The list holding `text` reports its content's height, as the platform does once its rows are laid out. */
+async function reportContent(text: string): Promise<void> {
+  await fireEvent(scrollViewOf(text), 'contentSizeChange', 640, 1600);
+  await advance();
+}
+
+/** The scroll view of the list's copy below the fold's band (hidden from accessibility), or null without a copy. */
+function copyOf(text: string): TestInstance | null {
+  const list = scrollViewOf(text);
+  for (const row of screen.queryAllByText(text, { includeHiddenElements: true })) {
+    let node: TestInstance | null = row;
+    while (node !== null && node.type !== 'RCTScrollView') node = node.parent;
+    if (node !== null && node !== list) return node;
+  }
+  return null;
 }
 
 /**
@@ -218,12 +241,34 @@ function gapAbove(text: string): number {
   return 0;
 }
 
-/** In the laptop pose, at rest and scrolled: the list ends above the fold, and none of `texts` carries a gap. */
-async function expectEndsAboveFold(texts: string[]): Promise<void> {
-  expect(visibleBottom(texts[0] ?? '')).toBe(ABOVE_FOLD);
+/**
+ * In the laptop pose, at rest and scrolled: the list ends at the fold's top and its copy, hidden from accessibility
+ * and without pull to refresh, fills the frame from the fold's bottom at the offset where the list ends, so the rows
+ * continue below the band and none is drawn on it; none of `texts` carries a gap.
+ */
+async function expectRunsAcross(texts: string[]): Promise<void> {
+  const first = texts[0] ?? '';
+  const upper = FOLD.top - listFrame.top;
+  nativeScrollTo.mockClear();
+  await reportContent(first);
+  expect(visibleBottom(first)).toBe(UPPER_END);
+  const copy = copyOf(first);
+  if (copy === null) throw new Error('no copy below the fold');
+  const place = copy.parent;
+  expect(place?.props).toMatchObject({
+    accessibilityElementsHidden: true,
+    importantForAccessibility: 'no-hide-descendants',
+  });
+  const placed = StyleSheet.flatten(place?.props.style);
+  expect(listFrame.top + Number(placed?.top)).toBe(FOLD.bottom);
+  expect(listFrame.top + Number(placed?.top) + Number(placed?.height)).toBe(listFrame.top + listFrame.height);
+  expect(scrollViewOf(first).props.refreshControl).toBeDefined();
+  expect(copy.props.refreshControl).toBeUndefined();
+  expect(nativeScrollTo).toHaveBeenLastCalledWith({ animated: false, y: upper });
   for (const text of texts) expect(gapAbove(text)).toBe(0);
-  await scrollTo(texts[0] ?? '', 300);
-  expect(visibleBottom(texts[0] ?? '')).toBe(ABOVE_FOLD);
+  await scrollTo(first, 300);
+  expect(nativeScrollTo).toHaveBeenLastCalledWith({ animated: false, y: 300 + upper });
+  expect(visibleBottom(first)).toBe(UPPER_END);
   for (const text of texts) expect(gapAbove(text)).toBe(0);
 }
 
@@ -239,6 +284,7 @@ function liftedTop(label: string): unknown {
 
 beforeEach(async () => {
   jest.useFakeTimers();
+  nativeScrollTo.mockClear();
   frames.clear();
   mockRecent = [];
   mockFolders = [];
@@ -262,35 +308,41 @@ afterEach(() => {
 });
 
 describe('Files (the project file browser list)', () => {
-  test('laptop pose: the list ends above the fold, also scrolled, and no file row carries a gap', async () => {
+  test('laptop pose: the list runs across the fold, also scrolled, and no file row carries a gap', async () => {
     await openBrowser();
-    await expectEndsAboveFold(FILES);
+    await expectRunsAcross(FILES);
   });
 
-  test('laptop pose: with Recently changed the list ends above the fold, and no section title carries a gap', async () => {
+  test('laptop pose: with Recently changed the list runs across the fold, and no section title carries a gap', async () => {
     mockRecent = [
       { path: 'docs/plan.md', name: 'plan.md', kind: 'file', modifiedAt: new Date().toISOString(), size: 100 },
     ];
     await openBrowser();
     await screen.findByText('plan.md');
     await advance();
-    await expectEndsAboveFold([DocsCopy.recentSection, 'plan.md', DocsCopy.foldersSection, ...FILES]);
+    await expectRunsAcross([DocsCopy.recentSection, 'plan.md', DocsCopy.foldersSection, ...FILES]);
   });
 
-  test.each(OTHER_POSES)('%s: the list keeps its whole frame', async (_pose, division, window) => {
+  test.each(OTHER_POSES)('%s: the list keeps its whole frame, with no copy', async (_pose, division, window) => {
     listFrame = { top: 0, height: window.height };
     await openBrowser(division, window);
+    await reportContent(FILES[0] ?? '');
     expect(visibleBottom(FILES[0] ?? '')).toBe(window.height);
+    expect(copyOf(FILES[0] ?? '')).toBeNull();
     for (const name of FILES) expect(gapAbove(name)).toBe(0);
   });
 
-  test('leaving the laptop pose gives the list its whole frame, coming back ends it above the fold', async () => {
+  test('leaving the laptop pose gives the list its whole frame with no copy, coming back runs it across the fold again', async () => {
     await openBrowser();
-    expect(visibleBottom(FILES[0] ?? '')).toBe(ABOVE_FOLD);
+    await reportContent(FILES[0] ?? '');
+    expect(visibleBottom(FILES[0] ?? '')).toBe(UPPER_END);
+    expect(copyOf(FILES[0] ?? '')).not.toBeNull();
     await reportPose(FLAT);
     expect(visibleBottom(FILES[0] ?? '')).toBe(PORTRAIT.height);
+    expect(copyOf(FILES[0] ?? '')).toBeNull();
     await reportPose(LAPTOP);
-    expect(visibleBottom(FILES[0] ?? '')).toBe(ABOVE_FOLD);
+    expect(visibleBottom(FILES[0] ?? '')).toBe(UPPER_END);
+    expect(copyOf(FILES[0] ?? '')).not.toBeNull();
   });
 });
 

@@ -5,8 +5,9 @@
  * Open and Copy Full Path, and for files Share… and, in a browser opened from an agent session, Add to Session
  * Context. Markdown and HTML open rendered in the Docs viewer, other text as source, and pictures, binary and
  * large files by name and size in that same viewer. Nothing here changes the project.
- * Half folded like a laptop the list ends above the fold, so no row or section title is drawn on the knick, at rest or
- * while scrolling: it keeps the fold gap of the app's lists (`components/common/foldGap.tsx`).
+ * Half folded like a laptop the list runs across the fold (`components/common/foldGap.tsx`): its rows, which take
+ * their state from this screen, continue below the fold's band, and no row or section title is drawn on the knick, at
+ * rest or while scrolling.
  *
  * CDXC:Docs 2026-09-24 DECISION:
  * User: "i want also docs list in the app for folders and the docs and mds in them. implement this
