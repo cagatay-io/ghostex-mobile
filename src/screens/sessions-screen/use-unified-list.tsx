@@ -392,7 +392,7 @@ export function useUnifiedList(deps: UnifiedListDeps) {
     const target = machineById(machineId);
     const summary = summaryOf(machineId);
     if (target === null || summary === null) return;
-    const projectHeader = projectHeaderOf(machineId, summary, projectId);
+    const projectHeader = projectHeaderOf(machineId, summary, projectId, { throughCollections: true });
     if (projectHeader !== null) setOverlay({ kind: 'agentMenu', ctx: { machine: target, header: projectHeader } });
   };
 
