@@ -18,13 +18,22 @@ import {
   EXTRA_KEY_TEXT_MAX_LENGTH,
   SHORTCUT_KEY_NAMES,
   extraKeyCatalog,
+  makeCustomActionId,
   storedItemLabel,
   useExtraKeysStore,
   type ExtraKeyStored,
   type ExtraKeysLayout,
 } from '../settings/extraKeys';
-import { destructiveButtonFills, GhostexPalette, GhostexRadii, GhostexStrokeWidth } from '../theme/palette';
+import {
+  destructiveButtonFills,
+  GhostexPalette,
+  GhostexRadii,
+  GhostexStrokeWidth,
+  mixHexColors,
+} from '../theme/palette';
+import { readableSecondaryText } from '../theme/sidebarAppearance';
 import type { Appearance } from '../theme/useAppearance';
+import { useFoldCardPlacement } from '../components/common/foldAvoidance';
 import KeyboardAvoidingContainer from '../components/common/keyboard/KeyboardAvoidingContainer';
 import KeyboardAwareScrollView from '../components/common/keyboard/KeyboardAwareScrollView';
 import { SettingsCopy } from '../copy';
@@ -32,7 +41,7 @@ import { SettingsColumnsFrame } from './settings/SettingsColumns';
 import { SettingsPageScrollView } from './settings/SettingsControls';
 import { useAppearanceHeader } from './settings/useAppearanceHeader';
 
-const STATUS_LINE = 'Customize the two key rows shown above the keyboard. Tap a key to move or remove it.';
+const STATUS_LINE = SettingsCopy.extraKeysStatus;
 const EXAMPLES_LINE =
   'Examples: a key that types "git status" and presses Enter, a key that inserts a long path, or Ctrl+C as a single tap.';
 
@@ -60,6 +69,10 @@ export default function ExtraKeysEditorScreen() {
   const navigation = useNavigation();
   const appearance = useAppearanceHeader();
   const styles = useMemo(() => createStyles(appearance), [appearance]);
+  const placeholder = useMemo(
+    () => readableSecondaryText(appearance.muted, appearance.foreground, [mixHexColors('#ffffff', appearance.card, 8)]),
+    [appearance],
+  );
   const savedLayout = useExtraKeysStore((state) => state.layout);
   const saveLayout = useExtraKeysStore((state) => state.saveLayout);
   const resetToDefault = useExtraKeysStore((state) => state.resetToDefault);
@@ -68,6 +81,10 @@ export default function ExtraKeysEditorScreen() {
   const [selected, setSelected] = useState<{ row: number; index: number } | null>(null);
   const [addTargetRow, setAddTargetRow] = useState<number | null>(null);
   const [customDraft, setCustomDraft] = useState<CustomDraft | null>(null);
+  // Half folded like a laptop each card stands off the fold: above it with the keyboard up (the keyboard-avoiding
+  // layer), else below it when it fits.
+  const addPlacement = useFoldCardPlacement({ avoidsKeyboard: true, belowSafeAreaTop: true });
+  const customPlacement = useFoldCardPlacement({ avoidsKeyboard: true, belowSafeAreaTop: true });
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(savedLayout);
 
@@ -169,6 +186,7 @@ export default function ExtraKeysEditorScreen() {
       }
       item = {
         type: 'shortcut',
+        id: makeCustomActionId(),
         label,
         key: normalized ?? key,
         ctrl: customDraft.ctrl,
@@ -182,6 +200,7 @@ export default function ExtraKeysEditorScreen() {
       }
       item = {
         type: 'text',
+        id: makeCustomActionId(),
         label,
         text: customDraft.text,
         sendEnter: customDraft.kind === 'textEnter',
@@ -291,8 +310,8 @@ export default function ExtraKeysEditorScreen() {
           onRequestClose={() => setAddTargetRow(null)}
         >
           <KeyboardAvoidingContainer safeAreaTop style={styles.modalKeyboardFill}>
-            <Pressable style={styles.modalBackdrop} onPress={() => setAddTargetRow(null)}>
-              <Pressable style={styles.modalCard} onPress={() => undefined}>
+            <Pressable style={[styles.modalBackdrop, addPlacement.style]} onPress={() => setAddTargetRow(null)}>
+              <Pressable style={styles.modalCard} onLayout={addPlacement.onCardLayout} onPress={() => undefined}>
                 <Text style={styles.modalTitle}>Add key</Text>
                 <ScrollView style={styles.modalScroll}>
                   <Text style={styles.modalSection}>Custom actions</Text>
@@ -342,8 +361,8 @@ export default function ExtraKeysEditorScreen() {
           onRequestClose={() => setCustomDraft(null)}
         >
           <KeyboardAvoidingContainer safeAreaTop style={styles.modalKeyboardFill}>
-            <Pressable style={styles.modalBackdrop} onPress={() => setCustomDraft(null)}>
-              <Pressable style={styles.modalCard} onPress={() => undefined}>
+            <Pressable style={[styles.modalBackdrop, customPlacement.style]} onPress={() => setCustomDraft(null)}>
+              <Pressable style={styles.modalCard} onLayout={customPlacement.onCardLayout} onPress={() => undefined}>
                 {customDraft !== null && (
                   <KeyboardAwareScrollView style={styles.modalScroll} contentContainerStyle={styles.modalForm}>
                     <Text style={styles.modalTitle}>
@@ -355,12 +374,13 @@ export default function ExtraKeysEditorScreen() {
                     </Text>
                     <Text style={styles.fieldLabel}>Key label</Text>
                     <TextInput
+                      keyboardAppearance={appearance.light ? 'light' : 'dark'}
                       style={styles.input}
                       autoCapitalize="characters"
                       autoCorrect={false}
                       maxLength={EXTRA_KEY_LABEL_MAX_LENGTH}
                       placeholder="e.g. GITST"
-                      placeholderTextColor={appearance.muted}
+                      placeholderTextColor={placeholder}
                       value={customDraft.label}
                       onChangeText={(label) => setCustomDraft({ ...customDraft, label })}
                     />
@@ -368,11 +388,12 @@ export default function ExtraKeysEditorScreen() {
                       <>
                         <Text style={styles.fieldLabel}>Key (single character or key name)</Text>
                         <TextInput
+                          keyboardAppearance={appearance.light ? 'light' : 'dark'}
                           style={styles.input}
                           autoCapitalize="none"
                           autoCorrect={false}
                           placeholder="e.g. c, escape, f5"
-                          placeholderTextColor={appearance.muted}
+                          placeholderTextColor={placeholder}
                           value={customDraft.shortcutKey}
                           onChangeText={(shortcutKey) => setCustomDraft({ ...customDraft, shortcutKey })}
                         />
@@ -382,8 +403,14 @@ export default function ExtraKeysEditorScreen() {
                             <Switch
                               value={customDraft[modifier]}
                               onValueChange={(value) => setCustomDraft({ ...customDraft, [modifier]: value })}
-                              trackColor={{ false: appearance.control, true: GhostexPalette.ACCENT }}
-                              thumbColor={customDraft[modifier] ? appearance.foreground : appearance.controlThumb}
+                              trackColor={{ false: appearance.control, true: appearance.accent }}
+                              thumbColor={
+                                customDraft[modifier]
+                                  ? appearance.light
+                                    ? '#ffffff'
+                                    : appearance.foreground
+                                  : appearance.controlThumb
+                              }
                               ios_backgroundColor={appearance.control}
                             />
                           </View>
@@ -393,13 +420,14 @@ export default function ExtraKeysEditorScreen() {
                       <>
                         <Text style={styles.fieldLabel}>Text to insert</Text>
                         <TextInput
+                          keyboardAppearance={appearance.light ? 'light' : 'dark'}
                           style={[styles.input, styles.inputMultiline]}
                           autoCapitalize="none"
                           autoCorrect={false}
                           multiline
                           maxLength={EXTRA_KEY_TEXT_MAX_LENGTH}
                           placeholder="e.g. git status"
-                          placeholderTextColor={appearance.muted}
+                          placeholderTextColor={placeholder}
                           value={customDraft.text}
                           onChangeText={(text) => setCustomDraft({ ...customDraft, text })}
                         />
@@ -485,7 +513,7 @@ function createStyles(appearance: Appearance) {
       color: appearance.foreground,
     },
     chipLabelSelected: {
-      color: '#FFFFFF',
+      color: GhostexPalette.ACCENT_FOREGROUND,
     },
     chipAdd: {
       backgroundColor: 'transparent',
@@ -493,7 +521,7 @@ function createStyles(appearance: Appearance) {
     },
     chipAddLabel: {
       fontSize: 16,
-      color: appearance.muted,
+      color: appearance.mutedGlyph,
     },
     selectionActions: {
       flexDirection: 'row',
@@ -521,7 +549,10 @@ function createStyles(appearance: Appearance) {
       fontSize: 12,
     },
     actionLabelDestructive: {
-      color: REMOVE_COLOR,
+      color: readableSecondaryText(REMOVE_COLOR, appearance.foreground, [
+        mixHexColors(REMOVE_COLOR, appearance.background, appearance.light ? 10 : 18),
+        mixHexColors(REMOVE_COLOR, appearance.background, appearance.light ? 22 : 32),
+      ]),
     },
     examples: {
       color: appearance.muted,
@@ -539,7 +570,7 @@ function createStyles(appearance: Appearance) {
       opacity: 0.45,
     },
     primaryButtonLabel: {
-      color: '#FFFFFF',
+      color: GhostexPalette.ACCENT_FOREGROUND,
       fontSize: 14,
       fontWeight: '600',
     },

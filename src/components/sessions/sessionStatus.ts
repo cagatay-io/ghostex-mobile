@@ -9,7 +9,9 @@
  * SessionRow.tsx draws it; the colors are the row tokens in theme/palette.ts.
  */
 
-import type { GhostexSession } from '../../contract/mobileSummary';
+import type { FoldedStatus } from '../../contract/coordinatorTree';
+import { hasQuestion, type GhostexSession, type GhostexSummaryCapabilities } from '../../contract/mobileSummary';
+import { SidebarPalette } from '../../theme/palette';
 import { formatTimerCountdown, isDelayedSendWaitingLabel } from './timerCountdown';
 
 type RowSession = Pick<
@@ -17,6 +19,7 @@ type RowSession = Pick<
   | 'sessionId'
   | 'activity'
   | 'pendingQuestionCount'
+  | 'awaitingAnswer'
   | 'awaitingApproval'
   | 'backgroundWorkDetectedAt'
   | 'programStatusFailed'
@@ -43,11 +46,6 @@ export function isAwaitingApproval(session: RowSession): boolean {
   return session.awaitingApproval;
 }
 
-/** apps/desktop/src/app/native_sidebar/sessions.rs `question`: the row draws the question indicator. */
-export function hasPendingQuestion(session: RowSession): boolean {
-  return session.pendingQuestionCount > 0;
-}
-
 /** packages/gx-core/src/sidebar_view/rows.rs `has_background_work`. */
 export function hasBackgroundWork(session: RowSession): boolean {
   return session.backgroundWorkDetectedAt.length > 0;
@@ -66,6 +64,34 @@ export function rowActivityIndicator(session: RowSession): RowActivityIndicator 
   if (session.activity === 'attention') return 'attention';
   if (hasBackgroundWork(session)) return 'backgroundWork';
   return null;
+}
+
+/**
+ * The folded coordinator's stack (coordinatorTree.ts `foldedStatus`) the row draws in its status slot, in place of its
+ * own dot, question and time: unless the coordinator itself waits for approval or shows a program error, whose red dot
+ * wins.
+ */
+export function shownFoldedStatus(
+  session: RowSession,
+  foldedStatus: FoldedStatus | undefined,
+): FoldedStatus | undefined {
+  const ownRedDot = isAwaitingApproval(session) || (session.programStatusFailed && session.activity === 'attention');
+  return ownRedDot ? undefined : foldedStatus;
+}
+
+/**
+ * apps/desktop/src/app/native_sidebar/status.rs `status_dot_stack`: the colours of an overlapping stack, back to
+ * front: pink furthest left and underneath, then grey (never together with orange), orange, blue, and the red
+ * approval dot rightmost and on top.
+ */
+export function statusStackColors(stack: FoldedStatus): string[] {
+  const colors: string[] = [];
+  if (stack.question) colors.push(SidebarPalette.ROW_QUESTION);
+  if (stack.backgroundWork && !stack.working) colors.push(SidebarPalette.ROW_BACKGROUND_WORK);
+  if (stack.working) colors.push(SidebarPalette.ROW_WORKING);
+  if (stack.attention) colors.push(SidebarPalette.ROW_ATTENTION);
+  if (stack.approval) colors.push(SidebarPalette.ROW_APPROVAL);
+  return colors;
 }
 
 /**
@@ -122,8 +148,13 @@ export function timerTrailingLabel(session: RowSession, nowMs: number): string |
 
 /** packages/gx-core/src/sidebar_view/session_text.rs `last_interaction_label`: 32s / 5m / 3h / 2d. */
 export function lastInteractionLabel(session: RowSession, nowMs: number): string | null {
-  if (session.lastInteractionAt.length === 0) return null;
-  const atMs = Date.parse(session.lastInteractionAt);
+  return elapsedLabel(session.lastInteractionAt, nowMs);
+}
+
+/** The time since an ISO instant in the row's words (32s / 5m / 3h / 2d); null when the instant is unknown. */
+export function elapsedLabel(atIso: string, nowMs: number): string | null {
+  if (atIso.length === 0) return null;
+  const atMs = Date.parse(atIso);
   if (Number.isNaN(atMs)) return null;
   const seconds = Math.floor(Math.max(0, nowMs - atMs) / 1000);
   if (seconds < 60) return `${seconds}s`;
@@ -136,12 +167,20 @@ export function lastInteractionLabel(session: RowSession, nowMs: number): string
 
 /**
  * apps/desktop/src/app/native_sidebar/sessions.rs: the text after the status
- * dot. A pending question hides it; a timer label always shows; the relative
- * time shows only on a row that is neither working, in attention, nor running
- * background work, which draw their own dot instead.
+ * dot. A question (`hasQuestion`, read with the computer's `capabilities`) hides
+ * it; a timer label always shows; the relative time shows only on a row that is
+ * neither working, in attention, nor running background work, which draw their
+ * own dot instead.
  */
-export function rowTimeLabel(session: RowSession, nowMs: number): string | null {
-  if (isAwaitingApproval(session) || hasPendingQuestion(session)) return null;
+export function rowTimeLabel(
+  session: RowSession,
+  capabilities: GhostexSummaryCapabilities,
+  nowMs: number,
+): string | null {
+  if (
+    isAwaitingApproval(session) ||
+    hasQuestion(session.pendingQuestionCount, capabilities.awaitingAnswer && session.awaitingAnswer)
+  ) return null;
   const timer = timerTrailingLabel(session, nowMs);
   if (timer !== null) return timer;
   if (session.activity === 'working' || session.activity === 'attention' || hasBackgroundWork(session)) {

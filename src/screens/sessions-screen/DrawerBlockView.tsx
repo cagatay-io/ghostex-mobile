@@ -7,6 +7,9 @@
  *
  * Pure rendering: every action goes back to SessionsScreen through `DrawerBlockActions`, which
  * also keeps this file renderable in the web harness the screenshots come from.
+ *
+ * The session wall (`tileColumns`): the same blocks with each run of session rows drawn as rows of tiles
+ * (`screens/wall/`); headers, group headers and other rows stay as they are.
  */
 
 import type { ReactElement } from 'react';
@@ -15,18 +18,21 @@ import { StyleSheet, View } from 'react-native';
 import StateCard from '../../components/common/StateCard';
 import type { MenuAnchor } from '../../components/sessions/ContextMenu';
 import type { DrawerBlock, ProjectCardBlock } from '../../components/sessions/drawerModel';
+import { projectFoldSections } from '../../components/sessions/projectFold';
 import {
   CollectionHeaderRow,
   collectionHeaderTint,
   ds,
   GroupHeaderRow,
   HEADER_CHEVRON_INSET,
+  inkStyleSheets,
   ProjectEmptyRow,
   ProjectHeaderRow,
   projectRailColor,
   SessionKindLabelRow,
   SessionListToggleRow,
   TOUCH_ROW_HEIGHT,
+  useSidebarInk,
 } from '../../components/sessions/rows';
 import SessionRow from '../../components/sessions/SessionRow';
 import type { WorkChipActions } from '../../components/sessions/WorkChips';
@@ -41,8 +47,11 @@ import type {
   StateCardItem,
 } from '../../contract/grouping';
 import type { GhostexAgentLauncher, GhostexMobileSummary } from '../../contract/mobileSummary';
-import { colorWithOpacity, SidebarPalette } from '../../theme/palette';
+import { colorWithOpacity } from '../../theme/palette';
 import type { SidebarAppearance } from '../../theme/sidebarAppearance';
+import { tileRuns } from '../wall/layout';
+import SessionTile from '../wall/SessionTile';
+import WallTileRow from '../wall/WallTileRow';
 
 export type DrawerBlockActions = {
   toggleProject: (machineId: string, header: ProjectHeaderItem) => void;
@@ -82,6 +91,8 @@ export type DrawerBlockViewProps = {
   /** A failure or connecting card the machine notice already says is drawn as nothing. */
   hideStateCard: (item: StateCardItem) => boolean;
   actions: DrawerBlockActions;
+  /** The session wall: sessions as tiles, this many side by side; absent or null, the list's rows. */
+  tileColumns?: number | null;
 };
 
 const sessionKey = (machineId: string, sessionId: string): string => `${machineId}:${sessionId}`;
@@ -95,9 +106,12 @@ const GROUP_GAP = ds(2);
 
 export default function DrawerBlockView(props: DrawerBlockViewProps): ReactElement | null {
   const { block, actions, summary, selectedSessionKey } = props;
+  const tree = treeInkStyles(useSidebarInk());
   const machineId = block.machineId;
   const linksDisplay = sessionLinksDisplay(summary?.sidebarSessionLinks);
   const dimSleeping = summary?.dimSleepingSessions === true;
+
+  const tileColumns = props.tileColumns ?? null;
 
   const sessionRow = (item: SessionItem): ReactElement => {
     const key = sessionKey(machineId, item.session.sessionId);
@@ -105,6 +119,7 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
       <SessionRow
         key={item.key}
         session={item.session}
+        capabilities={item.capabilities}
         active={selectedSessionKey === key || item.nesting?.containsActive === true}
         expandedGroupSurface={props.rowSurface}
         sidebarBackground={props.appearance.background}
@@ -164,36 +179,49 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
     }
   };
 
+  /** One grid row of the session wall (`WallTileRow`). */
+  const tileRow = (key: string, items: readonly SessionItem[], columns: number): ReactElement => (
+    <WallTileRow key={key} firstKey={items[0].key} columns={columns}>
+      {items.map((item) => (
+        <SessionTile
+          key={item.key}
+          item={item}
+          sessionKey={sessionKey(machineId, item.session.sessionId)}
+          appearance={props.appearance}
+          onPress={() => actions.openSession(machineId, item)}
+          onMenu={(anchor) => actions.sessionMenu(machineId, item, anchor)}
+        />
+      ))}
+    </WallTileRow>
+  );
+
+  /** A fold's rows as units: each a row, or on the session wall each run of sessions as rows of tiles. */
+  const foldUnits = (items: readonly DrawerItem[], header: ProjectHeaderItem): ReactElement[] => {
+    const asRow = (child: DrawerItem): ReactElement[] => {
+      const row = childRow(child, header);
+      return row === null ? [] : [row];
+    };
+    if (tileColumns === null) return items.flatMap(asRow);
+    return tileRuns(items, tileColumns).flatMap((run) =>
+      run.kind === 'tiles' ? [tileRow(run.key, run.items, tileColumns)] : asRow(run.item),
+    );
+  };
+
   /**
    * A project's open rows, then its session groups indented under it with a tree line from under
    * the project's chevron to each group's header (desktop session_group_tree.rs `project_tree`).
-   * A group's rows are the GROUP_HEADER's following rows of the same group.
+   * A group's rows are the GROUP_HEADER's following rows of the same group (`projectFoldSections`).
    */
   const projectFold = (card: ProjectCardBlock): ReactElement => {
-    const own: ReactElement[] = [];
-    const groups: { header: GroupHeaderItem; rows: ReactElement[] }[] = [];
-    for (const child of card.children) {
-      if (child.type === 'GROUP_HEADER') {
-        groups.push({ header: child, rows: [] });
-        continue;
-      }
-      const element = childRow(child, card.header);
-      if (element === null) continue;
-      const group = groups[groups.length - 1];
-      const inGroup =
-        (child.type === 'SESSION' || child.type === 'COORDINATOR_OLDER') &&
-        child.inSessionGroup === true &&
-        group !== undefined &&
-        child.groupId === group.header.groupId;
-      if (inGroup) group.rows.push(element);
-      else own.push(element);
-    }
+    const sections = projectFoldSections(card.children);
+    const own = foldUnits(sections.own, card.header);
+    const groups = sections.groups.map((group) => ({ header: group.header, rows: foldUnits(group.rows, card.header) }));
     if (groups.length === 0) return <View style={styles.rows}>{own}</View>;
     return (
       <View style={styles.fold}>
         <View style={styles.foldPart}>
           <View style={styles.rows}>{own}</View>
-          <View pointerEvents="none" style={[styles.treeLine, { top: 0, bottom: 0 }]} />
+          <View pointerEvents="none" style={[styles.treeLine, tree.line, { top: 0, bottom: 0 }]} />
         </View>
         {groups.map(({ header, rows }, index) => {
           const last = index === groups.length - 1;
@@ -213,10 +241,11 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
                 pointerEvents="none"
                 style={[
                   styles.treeLine,
+                  tree.line,
                   last ? { top: 0, height: GROUP_GAP + TOUCH_ROW_HEIGHT / 2 } : { top: 0, bottom: 0 },
                 ]}
               />
-              <View pointerEvents="none" style={styles.treeBranch} />
+              <View pointerEvents="none" style={[styles.treeBranch, tree.line]} />
             </View>
           );
         })}
@@ -317,7 +346,7 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
     );
   }
   if (item.type === 'PROJECT_EMPTY') return <ProjectEmptyRow text={item.text} />;
-  if (item.type === 'SESSION') return sessionRow(item);
+  if (item.type === 'SESSION') return tileColumns === null ? sessionRow(item) : tileRow(item.key, [item], tileColumns);
   return null;
 }
 
@@ -365,7 +394,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: TREE_LINE_X,
     width: ds(1),
-    backgroundColor: SidebarPalette.ROW_THREAD_LINE,
   },
   /* The turn towards a group's header, ending just short of its chevron. */
   treeBranch: {
@@ -374,7 +402,6 @@ const styles = StyleSheet.create({
     top: GROUP_GAP + TOUCH_ROW_HEIGHT / 2 - ds(0.5),
     width: ds(6),
     height: ds(1),
-    backgroundColor: SidebarPalette.ROW_THREAD_LINE,
   },
   /* collections.rs: 3px left and 5px right of the list, 10px below, after the 2px rail. */
   collection: {
@@ -403,3 +430,6 @@ const styles = StyleSheet.create({
     paddingTop: ds(5),
   },
 });
+
+/** The tree line in the list's ink (session_group_tree.rs `line_color`). */
+const treeInkStyles = inkStyleSheets((ink) => StyleSheet.create({ line: { backgroundColor: ink.threadLine } }));

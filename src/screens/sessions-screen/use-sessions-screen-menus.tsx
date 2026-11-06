@@ -23,7 +23,6 @@ import { runGhostexCli } from '../../components/sessions/cli';
 import { type ContextMenuItem } from '../../components/sessions/ContextMenu';
 import { NewSessionProjectRow } from '../../components/sessions/NewSessionPlace';
 import { noteNewSessionIn, projectChoicesNow, repoKeyOfProject } from './new-session-place';
-import { projectHeaderOf } from './use-unified-list';
 import { type DrawerBlock } from '../../components/sessions/drawerModel';
 import {
   ArrowGlyph,
@@ -85,7 +84,15 @@ import {
   stateWithoutProject,
   stateWithProjectInCollection,
 } from '../../contract/collectionsState';
-import type { ProjectHeaderItem } from '../../contract/grouping';
+import {
+  lastRunEntry,
+  quickActionDisplayName,
+  quickActionEntries,
+  quickActionListRows,
+  type QuickActionEntry,
+  type QuickActionRef,
+} from '../../actions/quickActions';
+import { projectHeaderOf, type ProjectHeaderItem } from '../../contract/grouping';
 import {
   agentIconTint,
   displayStatus,
@@ -93,7 +100,6 @@ import {
   resolveAgentArtId,
   resolveAgentIconId,
   type GhostexAgentLauncher,
-  type GhostexQuickAction,
   type GhostexSession,
 } from '../../contract/mobileSummary';
 import { DocsCopy, FeedbackCopy, ProgressCopy, StripCopy, WebPreviewCopy } from '../../copy';
@@ -102,7 +108,8 @@ import { useInventoryStore } from '../../inventory/store';
 import { enabledMachines, isMachineEnabled, useMachinesStore, type MachineRecord } from '../../machines/store';
 import { useSettingsStore } from '../../settings/store';
 import type { RootStackParamList } from '../../navigation/types';
-import { GhostexPalette, SidebarPalette } from '../../theme/palette';
+
+import { useAppearance } from '../../theme/useAppearance';
 import { useUpdateNotice } from '../../updates/updateNotice';
 import { loadHandoffPrefs } from '../../chat/native/composer/handoffPrefsStore';
 import { handoffLastTurns } from '../../contract/handoff/handoff';
@@ -116,7 +123,6 @@ import {
   NONE,
   parkSessionAction,
   pinSessionAction,
-  quickActionDisplayName,
   reloadSessionAction,
   sessionTitle,
   tagSessionAction,
@@ -160,7 +166,7 @@ export type SessionsScreenMenusDeps = {
     collapseAllProjects: (machineId: string) => void;
     expandAllProjects: (machineId: string, projectKeys: string[], collectionIds: string[]) => void;
   };
-  lastActionByProject: Record<string, string>;
+  lastActionByProject: Record<string, QuickActionRef>;
   navigation: SessionsNavigation;
   /** Opens a session on its terminal, whatever a tap on its row opens (a Claude cloud session's page). */
   openSessionTerminal: (target: MachineRecord, session: GhostexSession) => Promise<void>;
@@ -181,7 +187,7 @@ export type SessionsScreenMenusDeps = {
     message: string,
     chatLaunch?: { agentId: string; projectId: string; title: string },
   ) => Promise<void>;
-  runQuickAction: (target: MachineRecord, projectId: string, projectTitle: string, action: GhostexQuickAction) => void;
+  runQuickAction: (target: MachineRecord, projectId: string, projectTitle: string, entry: QuickActionEntry) => void;
   runSessionCommand: (
     target: MachineRecord,
     command: string,
@@ -227,6 +233,37 @@ export function useSessionsScreenMenus({
   const summaryFor = (machineId: string) =>
     useInventoryStore.getState().inventoriesByMachineId[machineId]?.summary ?? null;
 
+  /**
+   * A project menu's actions: the project's own from the header it was opened from, the Global Actions from the
+   * computer's current summary, so an open menu loses them as soon as the computer no longer offers them (the screen
+   * renders open menus again on every list change).
+   */
+  const currentQuickActionEntries = (ctx: ProjectContext): QuickActionEntry[] =>
+    quickActionEntries(
+      ctx.header.quickActions,
+      ctx.header.projectId.length > 0 ? (summaryFor(ctx.machine.id)?.globalQuickActions ?? []) : [],
+    );
+
+  /** The entry an Actions… row (the project menu's, a Unified row's) takes its icon from; null hides the row. */
+  const actionsEntryOf = (ctx: ProjectContext): QuickActionEntry | null =>
+    lastRunEntry(
+      currentQuickActionEntries(ctx),
+      lastActionByProject[lastActionKey(ctx.machine.id, ctx.header.projectId)],
+    );
+
+  /**
+   * A Unified row's project, for its menu's Actions…: the row's own computer and the project's header as the Project
+   * list draws it from the computer's current summary, also when the project sits in a saved collection. Null without
+   * a stable project id, which lists no action.
+   */
+  const sessionProjectContext = (ctx: SessionContext): ProjectContext | null => {
+    const { projectId } = ctx.item.session;
+    const summary = summaryFor(ctx.machine.id);
+    if (projectId.length === 0 || summary === null) return null;
+    const header = projectHeaderOf(ctx.machine.id, summary, projectId, { throughCollections: true });
+    return header === null ? null : { machine: ctx.machine, header };
+  };
+
   const isBrowserSession = (session: GhostexSession): boolean =>
     session.kind === 'browser' || session.surface === 'browser';
 
@@ -264,8 +301,9 @@ export function useSessionsScreenMenus({
     return summary.sessions.filter((session) => memberIds.has(session.sessionId));
   };
 
-  const menuIconColor = GhostexPalette.FOREGROUND;
-  const dangerIconColor = '#FF7B72';
+  const appearance = useAppearance();
+  const menuIconColor = appearance.foreground;
+  const dangerIconColor = appearance.danger;
 
   // Session and project menus (desktop sidebar parity) ------------------------
 
@@ -687,6 +725,14 @@ export function useSessionsScreenMenus({
           });
           return;
         }
+        case 'projectActions': {
+          const ctx = scope.session;
+          if (ctx === undefined) throw new Error('Actions… needs a session.');
+          const project = sessionProjectContext(ctx);
+          if (project === null) throw new Error('That project is no longer on the computer.');
+          setOverlay({ kind: 'actionsMenu', ctx: project });
+          return;
+        }
         case 'claudeCloudTerminal': {
           const ctx = scope.session;
           if (ctx === undefined) throw new Error('Open Terminal needs a session.');
@@ -748,8 +794,11 @@ export function useSessionsScreenMenus({
     ctx: SessionContext,
     menuPath: readonly string[],
   ): { subtitle: string; items: ContextMenuItem[] } => {
+    const actionsProject = ctx.unified === true ? sessionProjectContext(ctx) : null;
+    const actionsEntry = actionsProject === null ? null : actionsEntryOf(actionsProject);
     const menu = buildSessionMenu({
       session: ctx.item.session,
+      capabilities: ctx.item.capabilities,
       customTags: summaryFor(ctx.machine.id)?.customSessionTags ?? EMPTY_CUSTOM_SESSION_TAGS,
       below: sessionsBelow(ctx),
       threads: ctx.item.session.isCoordinator
@@ -768,11 +817,13 @@ export function useSessionsScreenMenus({
         voiceAgentOnFor(ctx.machine.id),
       sessionNotes: sessionNotesOnIn(summaryFor(ctx.machine.id)),
       snooze: ctx.unified === true,
+      actionsIcon:
+        actionsEntry === null ? undefined : actionsEntry.action.actionType === 'browser' ? 'world' : 'player-play',
     });
     const view = sidebarMenuView(menu, menuPath, {
       openPath: (next) => setOverlay({ kind: 'sessionMenu', ctx, menuPath: next }),
       run: (menuCommand) => runMenuCommand(ctx.machine, menuCommand, { session: ctx }),
-    });
+    }, appearance.foreground);
     // CDXC:SessionStatus 2026-10-15 SEE-ALSO: contract/programStatus.ts (the line the program reported, shown on long press only).
     const programLine = ctx.item.session.programStatusLine;
     const items =
@@ -807,7 +858,7 @@ export function useSessionsScreenMenus({
     const view = sidebarMenuView(menu, menuPath, {
       openPath: (next) => setOverlay({ kind: 'projectMenu', ctx, menuPath: next }),
       run: (menuCommand) => runMenuCommand(ctx.machine, menuCommand, { project: ctx }),
-    });
+    }, appearance.foreground);
     if (view.openedLabel !== null) return { subtitle: view.openedLabel, items: view.items };
 
     const orderedHeaders: ProjectHeaderItem[] = [];
@@ -836,18 +887,14 @@ export function useSessionsScreenMenus({
      * User: "move almost all of the buttons that appear next to an expanded project into the 3 dots menu; just keep the agent picker one and the new agent one." The project's quick actions and Create Terminal used to be header buttons; they lead this menu, each with the icon it had as a button. (Its Show fewer sessions row went with the compact list on 2026-10-13, CDXC:Projects in contract/grouping.ts.)
      */
     const headerRows: ContextMenuItem[] = [];
-    if (header.quickActions.length > 0) {
-      const lastAction =
-        header.quickActions.find(
-          (action) =>
-            (action.commandId ?? '') === (lastActionByProject[lastActionKey(ctx.machine.id, header.projectId)] ?? ''),
-        ) ?? header.quickActions[0];
+    const lastAction = actionsEntryOf(ctx);
+    if (lastAction !== null) {
       headerRows.push({
         kind: 'item',
         key: 'quick-actions',
         label: 'Actions…',
         icon:
-          lastAction.actionType === 'browser' ? (
+          lastAction.action.actionType === 'browser' ? (
             <WorldGlyph size={14} color={menuIconColor} />
           ) : (
             <PlayGlyph size={14} color={menuIconColor} />
@@ -1511,7 +1558,7 @@ export function useSessionsScreenMenus({
     const machine = useMachinesStore.getState().machines.find((entry) => entry.id === machineId) ?? null;
     const summary = summaryFor(machineId);
     if (machine === null || summary === null) return;
-    const header = projectHeaderOf(machineId, summary, projectId);
+    const header = projectHeaderOf(machineId, summary, projectId, { throughCollections: true });
     if (header !== null) setOverlay({ kind: 'agentMenu', ctx: { machine, header } });
   };
 
@@ -1552,7 +1599,7 @@ export function useSessionsScreenMenus({
               kind: 'item',
               key: 'new-coordinator',
               label: 'New Coordinator…',
-              icon: <CrewGlyph size={14} color={SidebarPalette.MUTED} />,
+              icon: <CrewGlyph size={14} color={appearance.mutedGlyph} />,
               info: NEW_ORCHESTRATOR_BENEFITS,
               onPress: () => setOverlay({ kind: 'newCoordinator', ctx }),
             },
@@ -1574,7 +1621,7 @@ export function useSessionsScreenMenus({
           icon: <Icon size={14} color={agentIconTint(artId)} />,
           selected: selected !== null && selected.agentId === agent.agentId,
           selectedPresentation: 'emphasis' as const,
-          trailingIcon: supportsChat ? <MessageCircleGlyph size={14} color={SidebarPalette.MUTED} /> : undefined,
+          trailingIcon: supportsChat ? <MessageCircleGlyph size={14} color={appearance.mutedGlyph} /> : undefined,
           trailingIconLabel: supportsChat ? 'Supports chat' : undefined,
           onPress: () => closeAgentMenuThen(() => launchAgent(ctx.machine, ctx.header, agent)),
         };
@@ -1616,17 +1663,21 @@ export function useSessionsScreenMenus({
     return parseCoordinatorOptions(result.json);
   };
 
-  /** Actions menu: one row per project quick action, check on the last run. */
-  const actionsMenuItems = (ctx: ProjectContext): ContextMenuItem[] => {
-    const selectedCommandId = lastActionByProject[lastActionKey(ctx.machine.id, ctx.header.projectId)] ?? '';
-    return ctx.header.quickActions.map((action, index) => {
-      const name = quickActionDisplayName(action);
-      const commandId = action.commandId ?? '';
-      const iconId = resolveAgentIconId(action.icon, action.actionType === 'browser' ? 'browser' : name);
+  /** Actions menu: the project's actions, then the computer's Global Actions, check on the last run. */
+  const actionsMenuItems = (ctx: ProjectContext): ContextMenuItem[] =>
+    quickActionListRows(
+      currentQuickActionEntries(ctx),
+      lastActionByProject[lastActionKey(ctx.machine.id, ctx.header.projectId)],
+    ).map((row): ContextMenuItem => {
+      if (row.kind !== 'action') return row;
+      const { entry } = row;
+      const name = quickActionDisplayName(entry.action);
+      const commandId = entry.action.commandId ?? '';
+      const iconId = resolveAgentIconId(entry.action.icon, entry.action.actionType === 'browser' ? 'browser' : name);
       const Icon = AGENT_ICONS[iconId];
       return {
-        kind: 'item' as const,
-        key: commandId.length > 0 ? commandId : `action-${index}`,
+        kind: 'item',
+        key: row.key,
         label: name,
         icon:
           Icon !== undefined ? (
@@ -1634,17 +1685,19 @@ export function useSessionsScreenMenus({
           ) : (
             <WorldGlyph size={14} color={agentIconTint('browser')} />
           ),
-        selected: commandId.length > 0 && commandId === selectedCommandId,
+        selected: row.selected,
         onPress: () => {
           setOverlay(NONE);
           if (commandId.length > 0) {
-            useLauncherStore.getState().setLastAction(ctx.machine.id, ctx.header.projectId, commandId);
+            useLauncherStore.getState().setLastAction(ctx.machine.id, ctx.header.projectId, {
+              scope: entry.scope,
+              commandId,
+            });
           }
-          runQuickAction(ctx.machine, ctx.header.projectId, ctx.header.title, action);
+          runQuickAction(ctx.machine, ctx.header.projectId, ctx.header.title, entry);
         },
       };
     });
-  };
 
   const recoveryItems = (target: MachineRecord | null): ActionSheetItem[] => [
     {

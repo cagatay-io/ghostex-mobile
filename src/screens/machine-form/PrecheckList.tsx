@@ -5,7 +5,9 @@
  * three OS buttons that open the SSH access help sheet.
  */
 
-import { useEffect, useState } from 'react';
+import { useMemo, useEffect, useState } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
+
 import { StyleSheet, Text, View } from 'react-native';
 
 import { GhostexNative } from '../../../modules/ghostex-native/src';
@@ -13,7 +15,7 @@ import { CheckGlyph } from '../../components/onboarding/SetupIcons';
 import { StepNumber } from '../../components/onboarding/SetupPrimitives';
 import { SshOsButtons, type SshOs } from '../../components/onboarding/SshAccessHelpSheet';
 import { TailscaleFormCopy } from '../../copy';
-import { GhostexStrokeWidth, SetupPalette } from '../../theme/palette';
+import { GhostexStrokeWidth } from '../../theme/palette';
 
 export type TailscalePhoneState =
   | { kind: 'checking' }
@@ -62,11 +64,13 @@ export function PrecheckStep({
   detail: string;
   children?: React.ReactNode;
 }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   return (
     <View style={styles.step}>
       {done ? (
         <View style={styles.doneMark}>
-          <CheckGlyph size={12} color={SetupPalette.OK} strokeWidth={2.6} />
+          <CheckGlyph size={12} color={appearance.connected} strokeWidth={2.6} />
         </View>
       ) : (
         <StepNumber number={number} />
@@ -87,6 +91,8 @@ export default function PrecheckList({
   onSelectOs: (os: SshOs) => void;
   currentOs: SshOs | null;
 }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const tailscale = useTailscalePhoneState();
   const copy = TailscaleFormCopy.precheck;
   const tailscaleDetail =
@@ -114,7 +120,7 @@ export default function PrecheckList({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   list: {
     gap: 12,
   },
@@ -139,12 +145,12 @@ const styles = StyleSheet.create({
     paddingTop: 1,
   },
   title: {
-    color: SetupPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 14,
     fontWeight: '600',
   },
   detail: {
-    color: SetupPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12.5,
     lineHeight: 18,
   },

@@ -66,6 +66,36 @@ export const GhostexPalette = {
 } as const;
 
 /**
+ * The Befehlspad over the terminal (the designs): light glass keys
+ * that keep the terminal readable behind them, the accent when open or pressed, the key bar's one-shot blue and
+ * locked purple for modifiers, and the keyboard-coloured panel of a layer in the keyboard's place.
+ */
+export const CommandPadPalette = {
+  GLASS: 'rgba(255,255,255,0.17)',
+  GLASS_STRONG: 'rgba(255,255,255,0.25)',
+  GLASS_PRESSED: 'rgba(255,255,255,0.34)',
+  GLASS_LINE: 'rgba(255,255,255,0.16)',
+  /** With Reduce Transparency on: the glass as a solid fill at rest, for Enter, and pressed. */
+  GLASS_OPAQUE: '#3A3A3C',
+  GLASS_OPAQUE_STRONG: '#48484A',
+  GLASS_OPAQUE_PRESSED: '#5A5A5E',
+  /** The face of a disabled control on the solid backplate (the backplate itself stays opaque). */
+  FACE_DISABLED: 'rgba(250,250,250,0.4)',
+  ACTIVE_FILL: 'rgba(125,211,252,0.24)',
+  MODIFIER_ONE_SHOT: '#007AFF',
+  MODIFIER_LOCKED: '#AF52DE',
+  MODIFIER_LOCKED_LINE: 'rgba(255,255,255,0.7)',
+  LAYER_PANEL: '#2B2B2D',
+  PILL: 'rgba(255,255,255,0.08)',
+  PILL_PRESSED: 'rgba(255,255,255,0.18)',
+  PILL_HELD: 'rgba(255,255,255,0.22)',
+  PILL_LINE: 'rgba(255,255,255,0.3)',
+  CHIP_FILL: 'rgba(255,255,255,0.1)',
+  EDITOR_LINE: 'rgba(255,255,255,0.12)',
+  SELECTION: 'rgba(125,211,252,0.45)',
+} as const;
+
+/**
  * Sessions-list tokens ported from the desktop gpui sidebar CSS
  * (packages/core-ui/styles/theme.css, groups.css, session-cards.css) so the mobile
  * drawer renders the same look as the macOS sidebar.
@@ -147,6 +177,12 @@ export const SidebarPalette = {
   /** Danger rows in context menus (desktop #ff7b72). */
   MENU_DANGER: '#FF7B72',
 } as const;
+
+/** Shared semantic washes: text adaptation and the painted surface read the same values. */
+export const ATTENTION_ROW_WASH = colorWithOpacity(SidebarPalette.ROW_ATTENTION, 9);
+export const BLOCKED_CARD_WASH = colorWithOpacity(SidebarPalette.ROW_FAILED, 12);
+export const VOICE_MEMORY_HUE = '#A78BFA';
+export const VOICE_MEMORY_WASH = colorWithOpacity(VOICE_MEMORY_HUE, 10);
 
 export type GhostexPaletteToken = keyof typeof GhostexPalette;
 
@@ -262,4 +298,21 @@ export function colorWithOpacity(color: string, opacityPercent: number): string 
   }
 
   throw new Error(`Unsupported color format: ${color}`);
+}
+
+/**
+ * `fill` (`#rrggbb`, or `rgba(...)` as `colorWithOpacity` and the button fills write it) as it shows painted over the
+ * opaque `#rrggbb` `base`: the one colour text on that wash is drawn on, for measuring its contrast.
+ */
+export function colorOver(fill: string, base: string): string {
+  const hex = /^#[0-9a-f]{6}$/iu;
+  if (!hex.test(base.trim())) throw new Error(`Unsupported base colour: ${base}`);
+  if (hex.test(fill.trim())) return mixHexColors(fill, base, 100);
+  const rgba = /^rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d*\.?\d+)\s*\)$/iu.exec(fill.trim());
+  if (rgba === null) throw new Error(`Unsupported color format: ${fill}`);
+  const top = `#${rgba
+    .slice(1, 4)
+    .map((channel) => Number(channel).toString(16).padStart(2, '0'))
+    .join('')}`;
+  return mixHexColors(top, base, Number.parseFloat(rgba[4]) * 100);
 }

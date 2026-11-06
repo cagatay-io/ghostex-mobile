@@ -16,6 +16,8 @@ import {
 import { isNewSidebarSession, isSidebarDraftSectionSession } from './sessionDrafts';
 import {
   displayStatus,
+  hasQuestion,
+  NO_SUMMARY_CAPABILITIES,
   type GhostexAgentLauncher,
   type GhostexMobileSummary,
   type GhostexProject,
@@ -23,6 +25,7 @@ import {
   type GhostexQuickAction,
   type GhostexSession,
   type GhostexSessionGroup,
+  type GhostexSummaryCapabilities,
   visibleSessions,
 } from './mobileSummary';
 
@@ -137,7 +140,8 @@ export type ProjectHeaderItem = {
   /**
    * Header launcher data (desktop agent split-button + actions menu): the
    * global agent launcher rows and this project's quick actions. Empty for
-   * projects without a stable projectId.
+   * projects without a stable projectId. The computer's Global Actions are not
+   * carried here; the menu reads them from the current summary.
    */
   agents: GhostexAgentLauncher[];
   quickActions: GhostexQuickAction[];
@@ -184,6 +188,8 @@ export type SessionItem = {
   projectTitle: string;
   projectPath: string;
   session: GhostexSession;
+  /** The capabilities of the computer's summary, which the row's question rule reads (`hasQuestion`). */
+  capabilities: GhostexSummaryCapabilities;
   collectionColor?: string;
   /** The row's place in its coordinator's tree; absent on an ordinary top-level row. */
   nesting?: RowNesting;
@@ -470,7 +476,7 @@ export type SessionCounts = {
   attentionCount: number;
   /** Rows drawing the grey dot: idle with a background shell or monitor still running. */
   backgroundWorkCount: number;
-  /** Rows with an unanswered question card (`pendingQuestionCount > 0`); every one is also in `attentionCount`, unless it waits for approval (then it is in `approvalCount` alone). */
+  /** Rows with a question (`hasQuestion`: an open question card the computer announces, or a counted question); every one is also in `attentionCount`, unless it waits for approval (then it is in `approvalCount` alone). */
   questionCount: number;
   /** Sessions waiting for approval (the red dot); never also in the attention or question counts. */
   approvalCount: number;
@@ -535,9 +541,13 @@ export function headerStatusCounts(
 /**
  * packages/gx-core/src/sidebar_view/groups.rs `group_summary`, the counts a
  * project, collection, Space or machine header draws. Read off the raw
- * activity the row draws, so a header never disagrees with its rows.
+ * activity the row draws, so a header never disagrees with its rows; a question
+ * by the row's rule, read with the computer's `capabilities`.
  */
-export function countSessions(sessions: readonly GhostexSession[]): SessionCounts {
+export function countSessions(
+  sessions: readonly GhostexSession[],
+  capabilities: GhostexSummaryCapabilities,
+): SessionCounts {
   const counts: SessionCounts = {
     workingCount: 0,
     attentionCount: 0,
@@ -549,12 +559,13 @@ export function countSessions(sessions: readonly GhostexSession[]): SessionCount
   };
   for (const session of sessions) {
     const status = displayStatus(session);
+    const question = hasQuestion(session.pendingQuestionCount, capabilities.awaitingAnswer && session.awaitingAnswer);
     if (session.activity === 'working') counts.workingCount++;
     // A session waiting for approval counts in red only (gx-core `SessionRow::needs_you`).
     if (session.awaitingApproval) counts.approvalCount++;
-    else if (session.activity === 'attention' || session.pendingQuestionCount > 0) counts.attentionCount++;
+    else if (session.activity === 'attention' || question) counts.attentionCount++;
     if (showsBackgroundWork(session)) counts.backgroundWorkCount++;
-    if (session.pendingQuestionCount > 0 && !session.awaitingApproval) counts.questionCount++;
+    if (question && !session.awaitingApproval) counts.questionCount++;
     if (status === 'sleep' || status === 'sleeping') counts.sleepingCount++;
     if (isAwakeSession(session)) counts.awakeCount++;
   }
@@ -576,8 +587,14 @@ export type SectionStatusCounts = {
   sessionIds: string[];
 };
 
-/** packages/gx-core/src/sidebar_view/sections.rs `project_session_sections`, one section's counts. */
-export function countSectionSessions(sessions: readonly GhostexSession[]): SectionStatusCounts {
+/**
+ * packages/gx-core/src/sidebar_view/sections.rs `project_session_sections`, one section's counts; a question by the
+ * row's rule, read with the computer's `capabilities`.
+ */
+export function countSectionSessions(
+  sessions: readonly GhostexSession[],
+  capabilities: GhostexSummaryCapabilities,
+): SectionStatusCounts {
   const counts: SectionStatusCounts = {
     count: sessions.length,
     workingCount: 0,
@@ -592,7 +609,9 @@ export function countSectionSessions(sessions: readonly GhostexSession[]): Secti
     if (showsBackgroundWork(session)) counts.backgroundWorkCount++;
     // gx-core `SessionRow::needs_you`: red, else pink, else blue, each row in one count.
     if (session.awaitingApproval) counts.approvalCount++;
-    else if (session.pendingQuestionCount > 0) counts.questionCount++;
+    else if (hasQuestion(session.pendingQuestionCount, capabilities.awaitingAnswer && session.awaitingAnswer)) {
+      counts.questionCount++;
+    }
     else if (session.activity === 'attention') counts.attentionCount++;
   }
   return counts;
@@ -604,7 +623,10 @@ export function countSectionSessions(sessions: readonly GhostexSession[]): Secti
  * unselected tab still says something needs the user (desktop machine-tabs.tsx).
  */
 export function machineSessionCounts(summary: GhostexMobileSummary | null): SessionCounts {
-  return countSessions(summary === null ? [] : visibleSessions(summary.sessions));
+  return countSessions(
+    summary === null ? [] : visibleSessions(summary.sessions),
+    summary?.capabilities ?? NO_SUMMARY_CAPABILITIES,
+  );
 }
 
 export type DrawerBuildInput = {
@@ -769,7 +791,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
       project !== null ? projectDisplayName(project) : first === null ? 'Project' : displayProjectName(first);
     const projectPath = project !== null ? (project.path ?? '') : first === null ? '' : first.projectPath;
     const legacyGroupId = first === null ? '' : first.groupId;
-    const counts = countSessions(allProjectSessions);
+    const counts = countSessions(allProjectSessions, summary.capabilities);
     const icon: GhostexProjectIcon =
       project !== null
         ? project.icon
@@ -789,6 +811,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
     const kindSection = (session: GhostexSession): SessionKindSection => sessionKindSection(session, nowMs);
     const tree = nestCoordinatorThreads(
       allProjectSessions.filter((session) => !inNamedGroup(session)),
+      summary.capabilities,
       collapsedCoordinatorKeys,
       kindSection,
       expandedCoordinatorOlderKeys,
@@ -872,6 +895,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
           projectTitle: projectDisplayName(worktree.project),
           projectPath: worktree.project.path ?? session.projectPath,
           session,
+          capabilities: summary.capabilities,
           collectionColor,
           nesting: nesting.get(coordinatorRowKey(session)),
           coordinatorBadge: session.isCoordinator
@@ -895,6 +919,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
       projectTitle,
       projectPath,
       session,
+      capabilities: summary.capabilities,
       collectionColor,
       nesting: nesting.get(coordinatorRowKey(session)),
       coordinatorBadge: session.isCoordinator
@@ -933,7 +958,10 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
             kindCollapseKey,
             label: SESSION_KIND_LABELS[section],
             collapsed: kindCollapsed,
-            status: countSectionSessions(sectionPool.filter((candidate) => sectionOf(candidate) === section)),
+            status: countSectionSessions(
+              sectionPool.filter((candidate) => sectionOf(candidate) === section),
+              summary.capabilities,
+            ),
             collectionColor,
           });
         }
@@ -992,6 +1020,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
       );
       const groupTree = nestCoordinatorThreads(
         groupSessions,
+        summary.capabilities,
         collapsedCoordinatorKeys,
         kindSection,
         expandedCoordinatorOlderKeys,
@@ -1013,7 +1042,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
         count: groupSessions.length,
         collapsed: groupCollapsed,
         containsActive: groupCollapsed && groupSessions.some(isActive),
-        status: headerStatusCounts(countSessions(groupSessions)),
+        status: headerStatusCounts(countSessions(groupSessions, summary.capabilities)),
         collectionColor,
       });
       if (groupCollapsed) continue;
@@ -1035,7 +1064,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
   const emittedProjectKeys = new Set<string>();
 
   const projectSessions = orderedProjectKeys.flatMap((projectKey) => sessionsByProjectKey.get(projectKey) ?? []);
-  const projectCounts = countSessions(projectSessions);
+  const projectCounts = countSessions(projectSessions, summary.capabilities);
   /*
    * Projects is the page itself, not a disclosure: collapsing it would leave
    * the drawer empty, so the header carries no caret and this section is
@@ -1065,7 +1094,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
     for (const key of memberKeys) {
       collectionSessions.push(...(sessionsByProjectKey.get(key) ?? []));
     }
-    const counts = countSessions(collectionSessions);
+    const counts = countSessions(collectionSessions, summary.capabilities);
     const collectionCollapsed = !expandedCollectionIds.has(collection.collectionId);
     items.push({
       type: 'COLLECTION_HEADER',
@@ -1097,4 +1126,38 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
     emitProject(projectKey);
   }
   return withOlderThreadRows(items);
+}
+
+/**
+ * The project's header as its card in the Project list would carry it, for the Unified list, which has no header: its
+ * agent picker and a session menu's Actions…. A project in a saved collection has a header only while that collection
+ * is open, as the Project list draws it; `throughCollections` opens the project's collections for the lookup, so the
+ * header does not depend on how the collection is folded (Actions… and the agent pickers use it).
+ */
+export function projectHeaderOf(
+  machineId: string,
+  summary: GhostexMobileSummary,
+  projectId: string,
+  { throughCollections = false }: { throughCollections?: boolean } = {},
+): ProjectHeaderItem | null {
+  const items = buildDrawerItems({
+    machineId,
+    // A worktree's own header, which the Project list may fold into its parent's (grouping.ts).
+    summary: { ...summary, worktreeSessionsInProject: false },
+    nowMs: Date.now(),
+    expandedProjectKeys: new Set([`id:${projectId}`]),
+    expandedCollectionIds: new Set(
+      throughCollections
+        ? summary.projectCollections
+            .filter((collection) => collection.projectIds.includes(projectId))
+            .map((collection) => collection.collectionId)
+        : [],
+    ),
+    expandedGroupKeys: new Set(),
+    collapsedSessionKindKeys: new Set(),
+  });
+  for (const item of items) {
+    if (item.type === 'PROJECT_HEADER' && item.projectId === projectId) return item;
+  }
+  return null;
 }

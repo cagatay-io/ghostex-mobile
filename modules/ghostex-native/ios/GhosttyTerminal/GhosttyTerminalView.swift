@@ -84,6 +84,15 @@ class GhosttyTerminalView: UIView {
     var didSignalReady = false
     var isShuttingDown = false
     var isPaused = false
+    /// Two panes on screen: true for the active pane's terminal (Ghostty draws its cursor filled), false for the other
+    /// (hollow), whichever view holds the keyboard. Nil with one terminal on screen: the surface's focus follows the
+    /// first responder, as before.
+    var paneFocus: Bool? {
+        didSet {
+            guard paneFocus != oldValue, !isPaused, let surface = surface?.unsafeCValue else { return }
+            ghostty_surface_set_focus(surface, paneFocus ?? isFirstResponder)
+        }
+    }
     private var customIORedrawScheduled = false
     var keyRepeatTimer: DispatchSourceTimer?
     var repeatingHardwareKey: UIKey?
@@ -245,6 +254,8 @@ class GhosttyTerminalView: UIView {
     var acceptsTerminalInput = true
     var keyboardFocusPolicy = TerminalKeyboardFocusPolicy()
     var hasHardwareKeyboardAttached = false
+    /// The keyboard appearance of the terminal's colours (`applyTerminalColors`): light terminals get the light keyboard.
+    var shownKeyboardAppearance: UIKeyboardAppearance = .dark
 
     // MARK: - Rendering Components
 
@@ -308,7 +319,7 @@ class GhosttyTerminalView: UIView {
         let initialFrame = frame.width > 0 && frame.height > 0 ? frame : CGRect(x: 0, y: 0, width: 800, height: 600)
         super.init(frame: initialFrame)
 
-        backgroundColor = .black
+        applyTerminalColors()
 
         // Set content scale factor for retina rendering (important before surface creation). The view
         // has no window yet, so the foreground window scene gives the scale of the display it will be
@@ -440,6 +451,10 @@ class GhosttyTerminalView: UIView {
 
         if let surface = surface?.unsafeCValue {
             ghostty_surface_set_occlusion(surface, true)
+            // A pause took the focus; a pane gets its own back (with one terminal it returns with the keyboard).
+            if let paneFocus {
+                ghostty_surface_set_focus(surface, paneFocus)
+            }
         }
 
         sizeDidChange(bounds.size)

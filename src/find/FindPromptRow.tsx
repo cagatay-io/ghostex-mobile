@@ -46,7 +46,7 @@ function FindPromptRow({ row, timeLabel, styles, dimColor, onOpen, onToggleFavor
           )}
         </Text>
         <View style={styles.rowMeta}>
-          <Text style={[styles.rowAgent, { color: row.agentColor || dimColor }]}>{row.agent}</Text>
+          <Text style={[styles.rowAgent, row.agentColor ? { color: row.agentColor } : null]}>{row.agent}</Text>
           <Text style={styles.rowDetail} numberOfLines={1}>
             {timeLabel}
             {'  '}

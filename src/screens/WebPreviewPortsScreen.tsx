@@ -6,25 +6,32 @@
  * the list below it is discovery for everything else, read from
  * `ghostex ports --json`. A failed listing therefore reports itself and leaves
  * the field working, rather than blocking the screen.
+ *
+ * The same start (`WebPreviewPortsView`) opens a browser pane on the iPhone Duo (`src/panes/BrowserPane.tsx`), where
+ * the page then opens in the pane instead of a screen of its own. There the whole start (its address field, buttons
+ * and port rows) keeps off a book fold.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useAppearance } from '../theme/useAppearance';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ActivityIndicator, Pressable, RefreshControl, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PortSections } from './web-preview/PortSections';
 import KeyboardAwareScrollView from '../components/common/keyboard/KeyboardAwareScrollView';
+import { NO_BAR_INSETS } from '../components/common/verticalBar/layout';
 import { useScrollToBarEdges } from '../components/common/verticalBar/VerticalBarArea';
 import { WebPreviewCopy } from '../copy';
 import { machineDisplayLabel, useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
-import { GhostexPalette } from '../theme/palette';
+import type { PaneBarInset } from '../panes/geometry';
+
 import { fetchRemotePorts, type RemoteListeningPort } from '../webPreview/ports';
 import { useWebPreviewStore } from '../webPreview/store';
 import { parseAddressInput } from '../webPreview/urls';
 import { webPreviewTargetForUrl } from '../webPreview/routing';
-import { styles } from './web-preview/styles';
+import { useWebPreviewStyles } from './web-preview/styles';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'WebPreviewPorts'>;
 
@@ -36,11 +43,56 @@ type ListingState =
  * User: allow typing an address immediately on the mobile browser list and editing it while browsing.
  */
 export default function WebPreviewPortsScreen({ navigation, route }: Props) {
-  const machine = useMachinesStore((state) =>
-    state.machines.find((candidate) => candidate.id === route.params.machineId),
+  const open = useCallback(
+    (page: RootStackParamList['WebPreview']) => navigation.navigate('WebPreview', page),
+    [navigation],
   );
+  return <WebPreviewPortsView machineId={route.params.machineId} inPane={false} onOpen={open} />;
+}
+
+export type WebPreviewPortsViewProps = {
+  machineId: string;
+  /** In a browser pane: no home indicator edge, no side bar to keep clear of. */
+  inPane: boolean;
+  /** In a browser pane: how far the start stays off the body's edges to keep off a book fold. */
+  controlInset?: PaneBarInset;
+  /** A port or an address was chosen: the page to open. */
+  onOpen: (page: RootStackParamList['WebPreview']) => void;
+};
+
+/** The screen keeps its content above the home indicator; a pane's body has no such edge, but may have a fold. */
+function Frame({
+  inPane,
+  controlInset,
+  children,
+}: {
+  inPane: boolean;
+  controlInset: PaneBarInset | undefined;
+  children: ReactNode;
+}) {
+  const styles = useWebPreviewStyles();
+  return inPane ? (
+    <View
+      style={[
+        styles.screen,
+        controlInset !== undefined && { paddingLeft: controlInset.left, paddingRight: controlInset.right },
+      ]}
+    >
+      {children}
+    </View>
+  ) : (
+    <SafeAreaView style={styles.screen} edges={['bottom']}>
+      {children}
+    </SafeAreaView>
+  );
+}
+
+export function WebPreviewPortsView({ machineId, inPane, controlInset, onOpen }: WebPreviewPortsViewProps) {
+  const appearance = useAppearance();
+  const styles = useWebPreviewStyles();
+  const machine = useMachinesStore((state) => state.machines.find((candidate) => candidate.id === machineId));
   const hydrateWebPreview = useWebPreviewStore((state) => state.hydrate);
-  const rememberedPort = useWebPreviewStore((state) => state.lastPortByMachine[route.params.machineId]);
+  const rememberedPort = useWebPreviewStore((state) => state.lastPortByMachine[machineId]);
 
   const [addressText, setAddressText] = useState(rememberedPort === undefined ? '' : String(rememberedPort));
   const [addressError, setAddressError] = useState<string | null>(null);
@@ -124,13 +176,9 @@ export default function WebPreviewPortsScreen({ navigation, route }: Props) {
 
   const openPort = useCallback(
     (entry: RemoteListeningPort): void => {
-      navigation.navigate('WebPreview', {
-        machineId: route.params.machineId,
-        remotePort: entry.port,
-        scheme: entry.web?.scheme ?? 'http',
-      });
+      onOpen({ machineId, remotePort: entry.port, scheme: entry.web?.scheme ?? 'http' });
     },
-    [navigation, route.params.machineId],
+    [machineId, onOpen],
   );
 
   const submitAddress = useCallback((): void => {
@@ -141,30 +189,27 @@ export default function WebPreviewPortsScreen({ navigation, route }: Props) {
     }
     setAddressError(null);
     const target = webPreviewTargetForUrl(url);
-    navigation.navigate(
-      'WebPreview',
-      target === null ? { machineId: route.params.machineId, url } : { machineId: route.params.machineId, ...target },
-    );
-  }, [navigation, route.params.machineId, addressText]);
+    onOpen(target === null ? { machineId, url } : { machineId, ...target });
+  }, [machineId, onOpen, addressText]);
 
   const addressValid = parseAddressInput(addressText) !== null;
   const listedPorts = listing.kind === 'loaded' ? listing.ports : [];
   // The list reaches under the iPhone Duo's side bar, its content keeps clear of it.
-  const pickerEdges = useScrollToBarEdges(styles.pickerContent);
+  const pickerEdges = useScrollToBarEdges(styles.pickerContent, inPane ? NO_BAR_INSETS : null);
 
   // A machine deleted while this screen was open has nothing left to preview.
   if (machine === undefined) {
     return (
-      <SafeAreaView style={styles.screen} edges={['bottom']}>
+      <Frame inPane={inPane} controlInset={controlInset}>
         <View style={styles.stateSurface}>
           <Text style={styles.stateBody}>{WebPreviewCopy.machineMissing}</Text>
         </View>
-      </SafeAreaView>
+      </Frame>
     );
   }
 
   return (
-    <SafeAreaView style={styles.screen} edges={['bottom']}>
+    <Frame inPane={inPane} controlInset={controlInset}>
       <KeyboardAwareScrollView
         style={pickerEdges.scroll}
         contentContainerStyle={[styles.pickerContent, pickerEdges.content]}
@@ -174,9 +219,9 @@ export default function WebPreviewPortsScreen({ navigation, route }: Props) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => void loadPorts(true)}
-            tintColor={GhostexPalette.MUTED}
-            colors={[GhostexPalette.ACCENT]}
-            progressBackgroundColor={GhostexPalette.CARD}
+            tintColor={appearance.muted}
+            colors={[appearance.accent]}
+            progressBackgroundColor={appearance.card}
           />
         }
       >
@@ -185,6 +230,7 @@ export default function WebPreviewPortsScreen({ navigation, route }: Props) {
         <Text style={styles.sectionTitle}>{WebPreviewCopy.manualSection}</Text>
         <View style={styles.portEntryRow}>
           <TextInput
+            keyboardAppearance={appearance.light ? 'light' : 'dark'}
             style={styles.portInput}
             value={addressText}
             onChangeText={(value) => {
@@ -194,7 +240,7 @@ export default function WebPreviewPortsScreen({ navigation, route }: Props) {
             }}
             onSubmitEditing={submitAddress}
             placeholder={WebPreviewCopy.manualPlaceholder}
-            placeholderTextColor={GhostexPalette.MUTED}
+            placeholderTextColor={appearance.muted}
             keyboardType="url"
             selectTextOnFocus
             autoCapitalize="none"
@@ -239,7 +285,7 @@ export default function WebPreviewPortsScreen({ navigation, route }: Props) {
 
         {listing.kind === 'loading' ? (
           <View style={styles.pendingRow}>
-            <ActivityIndicator size="small" color={GhostexPalette.ACCENT} />
+            <ActivityIndicator size="small" color={appearance.accent} />
             <Text style={styles.pendingLabel}>{WebPreviewCopy.listeningLoading}</Text>
           </View>
         ) : null}
@@ -258,13 +304,13 @@ export default function WebPreviewPortsScreen({ navigation, route }: Props) {
 
         {inspecting ? (
           <View style={styles.pendingRow}>
-            <ActivityIndicator size="small" color={GhostexPalette.ACCENT} />
+            <ActivityIndicator size="small" color={appearance.accent} />
             <Text style={styles.pendingLabel}>Reading page titles and icons…</Text>
           </View>
         ) : null}
         {detailsError ? <Text style={styles.hint}>{detailsError}</Text> : null}
         {listedPorts.length > 0 ? <PortSections ports={listedPorts} onOpen={openPort} /> : null}
       </KeyboardAwareScrollView>
-    </SafeAreaView>
+    </Frame>
   );
 }

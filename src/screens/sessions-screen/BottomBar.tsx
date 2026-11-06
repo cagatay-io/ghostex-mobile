@@ -1,4 +1,6 @@
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
+
 import { Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -12,6 +14,8 @@ export const BOTTOM_BAR_ITEMS_HEIGHT = 58;
  * keeps the bar as it was, above the screen's own bottom inset. Without an inset the bar is the 58 pt it was.
  */
 export function SessionsBottomBar({ children }: { children: ReactNode }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   // Android: the screen keeps the bottom inset itself (SessionsScreen's safe area edges), as it always has.
   const inset = useSafeAreaInsets().bottom;
   const bottom = Platform.OS === 'ios' ? inset : 0;
@@ -25,7 +29,7 @@ export function SessionsBottomBar({ children }: { children: ReactNode }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   /*
    * Option E's bottom bar (top-bar-buttons.html `.tb-bottom-bar`): 58pt of items, a hairline on top, #121212,
    * edge to edge under the list (it reaches through the screen's 12pt padding, also at the bottom).
@@ -36,7 +40,7 @@ const styles = StyleSheet.create({
     marginBottom: -12,
     marginTop: 8,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: '#121212',
+    borderTopColor: appearance.border,
+    backgroundColor: appearance.background,
   },
 });

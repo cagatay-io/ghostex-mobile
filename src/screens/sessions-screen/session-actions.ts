@@ -25,7 +25,7 @@ import type {
 } from '../../contract/grouping';
 import { claudeCloudCloseSleeps } from '../../contract/claudeCloud';
 import type { MenuAnchor } from '../../components/sessions/ContextMenu';
-import type { GhostexQuickAction, GhostexSession } from '../../contract/mobileSummary';
+import type { GhostexSession } from '../../contract/mobileSummary';
 import { SessionCopy } from '../../copy';
 import type { OptimisticInventoryChange } from '../../inventory/optimistic';
 import { lifecycleMutation, parkMutation, pinMutation, tagMutation } from '../../sessions/sessionCommands';
@@ -33,7 +33,7 @@ import type { MachineRecord } from '../../machines/store';
 import type { ExportedTranscript } from '../terminal-screen/session-lookups';
 import { isRunningSession } from './sidebar-menus';
 
-/** `unified`: opened from the Unified list, whose menu also offers Snooze. */
+/** `unified`: opened from the Unified list, whose menu also offers Snooze and the project's Actions…. */
 export type SessionContext = { machine: MachineRecord; item: SessionItem; unified?: boolean };
 export type ProjectContext = { machine: MachineRecord; header: ProjectHeaderItem };
 
@@ -202,11 +202,4 @@ export function cancelDelayedSendSessionAction(session: GhostexSession): BulkSes
 
 export function sessionTitle(session: GhostexSession): string {
   return session.displayTitle.length > 0 ? session.displayTitle : SessionCopy.fallbackTitle;
-}
-
-export function quickActionDisplayName(action: GhostexQuickAction): string {
-  if (action.name !== undefined && action.name.length > 0) {
-    return action.name;
-  }
-  return action.actionType === 'browser' ? 'Browser' : 'Terminal';
 }

@@ -3,6 +3,8 @@
  * (gxserver's `changesDiff`, `src/changes/client.ts`) against main or against HEAD, as a file list
  * with +/− counts and one unified stream with pinned file headers that fold, old and new line
  * numbers, word-level highlights and the unchanged lines between hunks folded into a count.
+ * The same view (`ChangesView`) fills a Git changes pane on the iPhone Duo (`src/panes/PaneContentView.tsx`), without
+ * the screen's header: a tap on a changed file shows its diff in the pane.
  *
  * CDXC:Changes 2026-10-25 DECISION:
  * The user chose "phone read-only" for the Changes view: the phone shows the diff, switches between
@@ -44,6 +46,7 @@ import {
   type TokenKind,
 } from '../changes/model';
 import { GitBranchGlyph, PencilGlyph } from '../components/sessions/icons';
+import { NO_BAR_INSETS } from '../components/common/verticalBar/layout';
 import { useStackScreenRail } from '../components/common/verticalBar/stackRail';
 import { useScrollToBarEdges } from '../components/common/verticalBar/VerticalBarArea';
 import { RefreshIcon } from '../components/terminal/icons';
@@ -51,6 +54,7 @@ import { ChangesCopy } from '../copy';
 import { FILE_LIST_DETAIL_SIZE, FILE_LIST_NAME_SIZE, FILE_VIEWER_CODE_SIZE } from '../docs/textSizes';
 import { useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
+import type { PaneBarInset } from '../panes/geometry';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Changes'>;
 
@@ -230,12 +234,15 @@ function ScopeMenu({
   scope,
   base,
   top,
+  controlInset,
   onPick,
   onClose,
 }: {
   scope: ChangesScope;
   base: string;
   top: number;
+  /** In a pane: under its button, off a book fold. */
+  controlInset: PaneBarInset | undefined;
   onPick: (scope: ChangesScope) => void;
   onClose: () => void;
 }) {
@@ -244,7 +251,14 @@ function ScopeMenu({
   return (
     <>
       <Pressable accessibilityLabel={ChangesCopy.scopeMenu} onPress={onClose} style={StyleSheet.absoluteFill} />
-      <View style={[styles.scopeMenu, { top }]} accessibilityRole="menu">
+      <View
+        style={[
+          styles.scopeMenu,
+          { top },
+          controlInset !== undefined && { right: styles.scopeMenu.right + controlInset.right },
+        ]}
+        accessibilityRole="menu"
+      >
         {SCOPES.map((value) => {
           const selected = value === scope;
           return (
@@ -286,13 +300,30 @@ function ScopeMenu({
 }
 
 export default function ChangesScreen({ navigation, route }: Props) {
-  const insets = useSafeAreaInsets();
-  // The list reaches under the iPhone Duo's side bar, its rows keep clear of it.
-  const listEdges = useScrollToBarEdges();
+  const { machineId, projectId, projectName } = route.params;
+  return <ChangesView machineId={machineId} projectId={projectId} projectName={projectName} navigation={navigation} />;
+}
+
+export type ChangesViewProps = {
+  machineId: string;
+  projectId: string;
+  projectName: string;
+  /** The Changes screen's: its header and the side bar take Reload. Absent in a pane, which pulls to refresh. */
+  navigation?: Props['navigation'];
+  /** A pane's: how far its scope row, menu and failure card stay off the body's edges to keep off a book fold. */
+  controlInset?: PaneBarInset;
+};
+
+/** The Changes view: the screen's body, and a Git changes pane's without the screen's chrome. */
+export function ChangesView({ machineId, projectId, projectName, navigation, controlInset }: ChangesViewProps) {
+  const inPane = navigation === undefined;
+  const safeArea = useSafeAreaInsets();
+  const bottomInset = inPane ? 0 : safeArea.bottom;
+  // The list reaches under the iPhone Duo's side bar, its rows keep clear of it; a pane is clear of it.
+  const listEdges = useScrollToBarEdges(undefined, inPane ? NO_BAR_INSETS : null);
   const theme = useTranscriptTheme();
   const styles = useStyles();
   const colors = useMemo(() => palette(theme), [theme]);
-  const { machineId, projectId, projectName } = route.params;
   const machine = useMachinesStore((state) => state.machines.find((candidate) => candidate.id === machineId));
   const machineRef = useRef(machine);
   machineRef.current = machine;
@@ -367,43 +398,6 @@ export default function ChangesScreen({ navigation, route }: Props) {
       setScope(next);
     },
     [machineId, projectId, scope],
-  );
-
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      title: projectName.length > 0 ? `${ChangesCopy.title} · ${projectName}` : ChangesCopy.title,
-      headerStyle: { backgroundColor: theme.background },
-      headerTintColor: theme.foreground,
-      contentStyle: { backgroundColor: theme.background },
-      headerRight: () => (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={ChangesCopy.reload}
-          hitSlop={6}
-          onPress={refresh}
-          style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}
-        >
-          <RefreshIcon size={18} color={theme.foreground} />
-        </Pressable>
-      ),
-    });
-  }, [navigation, projectName, refresh, styles, theme]);
-  // On the iPhone Duo, Reload stands in the side bar under Back; nothing here takes the keyboard.
-  useStackScreenRail(
-    useMemo(
-      () => ({
-        entries: [
-          {
-            key: 'reload',
-            label: ChangesCopy.reload,
-            icon: (size: number) => <RefreshIcon size={size} color={theme.foreground} />,
-            onPress: refresh,
-          },
-        ],
-        reserveKeyboard: false,
-      }),
-      [refresh, theme.foreground],
-    ),
   );
 
   const data: ChangesData | null = answer?.kind === 'repo' ? answer.data : null;
@@ -613,13 +607,24 @@ export default function ChangesScreen({ navigation, route }: Props) {
         {MEASURE_SAMPLE}
       </Text>
       <View
-        style={styles.toolbar}
+        style={[
+          styles.toolbar,
+          controlInset !== undefined && { marginLeft: controlInset.left, marginRight: controlInset.right },
+        ]}
         onLayout={(event) => setToolbarBottom(event.nativeEvent.layout.y + event.nativeEvent.layout.height)}
       >
         <ScopeButton scope={scope} open={scopeOpen} onPress={() => setScopeOpen((open) => !open)} />
       </View>
       {error !== null ? (
-        <View style={styles.errorCard}>
+        <View
+          style={[
+            styles.errorCard,
+            controlInset !== undefined && {
+              marginLeft: styles.errorCard.marginHorizontal + controlInset.left,
+              marginRight: styles.errorCard.marginHorizontal + controlInset.right,
+            },
+          ]}
+        >
           <Text style={styles.errorTitle}>{ChangesCopy.loadFailed}</Text>
           <Text style={styles.errorBody} selectable>
             {error}
@@ -640,7 +645,7 @@ export default function ChangesScreen({ navigation, route }: Props) {
         stickyHeaderIndices={empty === null ? stickyIndices : undefined}
         getItemLayout={getItemLayout}
         style={listEdges.scroll}
-        contentContainerStyle={[listEdges.content, { paddingBottom: insets.bottom + 24 }]}
+        contentContainerStyle={[listEdges.content, { paddingBottom: bottomInset + 24 }]}
         ListEmptyComponent={empty ?? undefined}
         refreshControl={
           <RefreshControl refreshing={loading && answer !== null} onRefresh={refresh} tintColor={theme.muted} />
@@ -654,6 +659,7 @@ export default function ChangesScreen({ navigation, route }: Props) {
           scope={scope}
           base={data?.baseLabel ?? 'main'}
           top={toolbarBottom}
+          controlInset={controlInset}
           onPick={(next) => {
             setScopeOpen(false);
             changeScope(next);
@@ -662,12 +668,66 @@ export default function ChangesScreen({ navigation, route }: Props) {
         />
       ) : null}
       {copied ? (
-        <View pointerEvents="none" style={[styles.toast, { bottom: insets.bottom + 24 }]}>
+        <View pointerEvents="none" style={[styles.toast, { bottom: bottomInset + 24 }]}>
           <Text style={styles.toastText}>{ChangesCopy.lineCopied}</Text>
         </View>
       ) : null}
+      {navigation !== undefined ? (
+        <ChangesScreenChrome navigation={navigation} projectName={projectName} refresh={refresh} />
+      ) : null}
     </View>
   );
+}
+
+/** The Changes screen's title and Reload, in its header or, on the iPhone Duo, in the side bar under Back. */
+function ChangesScreenChrome({
+  navigation,
+  projectName,
+  refresh,
+}: {
+  navigation: Props['navigation'];
+  projectName: string;
+  refresh: () => void;
+}) {
+  const theme = useTranscriptTheme();
+  const styles = useStyles();
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: projectName.length > 0 ? `${ChangesCopy.title} · ${projectName}` : ChangesCopy.title,
+      headerStyle: { backgroundColor: theme.background },
+      headerTintColor: theme.foreground,
+      contentStyle: { backgroundColor: theme.background },
+      headerRight: () => (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={ChangesCopy.reload}
+          hitSlop={6}
+          onPress={refresh}
+          style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}
+        >
+          <RefreshIcon size={18} color={theme.foreground} />
+        </Pressable>
+      ),
+    });
+  }, [navigation, projectName, refresh, styles, theme]);
+  // On the iPhone Duo, Reload stands in the side bar under Back; nothing here takes the keyboard.
+  useStackScreenRail(
+    useMemo(
+      () => ({
+        entries: [
+          {
+            key: 'reload',
+            label: ChangesCopy.reload,
+            icon: (size: number) => <RefreshIcon size={size} color={theme.foreground} />,
+            onPress: refresh,
+          },
+        ],
+        reserveKeyboard: false,
+      }),
+      [refresh, theme.foreground],
+    ),
+  );
+  return null;
 }
 
 const useStyles = themedStyles((t) => ({

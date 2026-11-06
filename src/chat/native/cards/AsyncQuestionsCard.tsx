@@ -5,9 +5,10 @@
  */
 
 import { useCallback } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import type { ChatDocument } from '../../rust/document';
+import { useChatViewSize } from '../chatPlacement';
 import type { RustChat } from '../../rust/useRustChat';
 import { Glyph } from './icons';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
@@ -18,7 +19,7 @@ export function AsyncQuestionsCard({ chat, document }: { chat: RustChat; documen
   const styles = useStyles();
   const P = useTranscriptTheme();
   const { dispatch } = chat;
-  const { height } = useWindowDimensions();
+  const { height } = useChatViewSize();
   const state = document.asyncQuestions;
   const question = state?.question;
   const key = question?.key ?? '';

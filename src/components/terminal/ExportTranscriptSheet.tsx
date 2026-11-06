@@ -7,16 +7,20 @@
  * that same machine, or copying it so the user can mention it themselves.
  *
  * Presentation follows the app's other bottom sheets (ActionSheet/LogsSheet):
- * modal backdrop, sheet card, selectable monospace body, action rows.
+ * modal backdrop, sheet card, selectable monospace body, action rows. Half folded
+ * like a laptop it starts below the fold and scrolls inside, as they do.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useMemo, useEffect, useRef, useState } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
+
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { useFoldSheetMaxHeight } from '../common/foldAvoidance';
 import { useVerticalBarSpace } from '../common/verticalBar/VerticalBarArea';
 import * as Clipboard from 'expo-clipboard';
 
-import { GhostexPalette, GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
+import { GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
 
 export type ExportTranscriptSheetProps = {
   visible: boolean;
@@ -46,7 +50,10 @@ export default function ExportTranscriptSheet({
   onStartNewConversation,
   onClose,
 }: ExportTranscriptSheetProps) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const bar = useVerticalBarSpace();
+  const foldMaxHeight = useFoldSheetMaxHeight({ avoidsKeyboard: false });
   const [copied, setCopied] = useState(false);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -68,7 +75,10 @@ export default function ExportTranscriptSheet({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={[styles.backdrop, bar.padding]} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}>
+        <Pressable
+          style={[styles.sheet, foldMaxHeight !== undefined && { maxHeight: foldMaxHeight }]}
+          onPress={(event) => event.stopPropagation()}
+        >
           <Text style={styles.title}>Transcript Exported</Text>
           <Text style={styles.subtitle} numberOfLines={2}>
             {sessionTitle}
@@ -112,31 +122,31 @@ export default function ExportTranscriptSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: GhostexPalette.BACKGROUND,
+    backgroundColor: appearance.background,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
     borderWidth: GhostexStrokeWidth,
-    borderColor: GhostexPalette.BORDER,
+    borderColor: appearance.border,
     paddingTop: 14,
     paddingBottom: 24,
     paddingHorizontal: 12,
     maxHeight: '80%',
   },
   title: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 15,
     fontWeight: 'bold',
     paddingHorizontal: 4,
   },
   subtitle: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     marginTop: 4,
     paddingHorizontal: 4,
@@ -145,18 +155,18 @@ const styles = StyleSheet.create({
     marginTop: 10,
     maxHeight: 120,
     borderRadius: GhostexRadii.input,
-    backgroundColor: GhostexPalette.INPUT_BACKGROUND,
+    backgroundColor: appearance.input,
   },
   pathContent: {
     padding: 10,
   },
   path: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontFamily: 'monospace',
     fontSize: 12,
   },
   error: {
-    color: GhostexPalette.DANGER,
+    color: appearance.danger,
     fontSize: 12,
     marginTop: 8,
     paddingHorizontal: 4,
@@ -171,23 +181,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: GhostexRadii.row,
-    backgroundColor: GhostexPalette.CARD,
+    backgroundColor: appearance.card,
     borderWidth: GhostexStrokeWidth,
-    borderColor: GhostexPalette.BORDER,
+    borderColor: appearance.border,
   },
   rowPressed: {
-    backgroundColor: GhostexPalette.CARD_ACTIVE,
+    backgroundColor: appearance.cardActive,
   },
   rowDisabled: {
     opacity: 0.4,
   },
   rowLabel: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 14,
     fontWeight: 'bold',
   },
   rowDetail: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     marginTop: 2,
   },

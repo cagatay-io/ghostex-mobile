@@ -3,12 +3,13 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import type { RootStackParamList } from '../../navigation/types';
+import { useStatusBarStyle } from '../../theme/statusBar';
 import { useAppearance, type Appearance } from '../../theme/useAppearance';
 
 /**
- * Paints the calling screen's navigation header and scene with the current
- * appearance and repaints them whenever tint or contrast change. The layout
- * effect applies the colors before the pushed screen is first drawn.
+ * Paints the calling screen's navigation header, scene and status bar ink with the current
+ * appearance and repaints them whenever the colours change. The layout effect applies the colors
+ * before the pushed screen is first drawn.
  */
 export function useAppearanceHeader(): Appearance {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -20,5 +21,6 @@ export function useAppearanceHeader(): Appearance {
       contentStyle: { backgroundColor: appearance.background },
     });
   }, [navigation, appearance]);
+  useStatusBarStyle(appearance.light);
   return appearance;
 }

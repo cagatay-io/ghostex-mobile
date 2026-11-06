@@ -77,14 +77,27 @@ export const SINGLE_LINE_TITLE: TextStyle = {
   fontWeight: SINGLE_LINE_CARD.titleWeight,
 };
 
-/** A pill on the card's right: `color` tints its glyph and words, its hairline stays neutral. */
-export function SingleLinePill({ icon, label, color }: { icon?: GlyphName; label?: string; color: string }) {
+/**
+ * A pill on the card's right: `color` tints its glyph and words, its hairline stays neutral.
+ * `labelColor` takes the words alone when the tone stays on the glyph.
+ */
+export function SingleLinePill({
+  icon,
+  label,
+  color,
+  labelColor = color,
+}: {
+  icon?: GlyphName;
+  label?: string;
+  color: string;
+  labelColor?: string;
+}) {
   const theme = useTranscriptTheme();
   const pill = SINGLE_LINE_CARD.pill;
   return (
     <View style={[styles.pill, { borderColor: theme.ink(pill.borderAlpha) }]}>
       {icon !== undefined ? <Glyph name={icon} size={pill.iconSize} color={color} /> : null}
-      {label !== undefined ? <Text style={[styles.pillText, { color }]}>{label}</Text> : null}
+      {label !== undefined ? <Text style={[styles.pillText, { color: labelColor }]}>{label}</Text> : null}
     </View>
   );
 }

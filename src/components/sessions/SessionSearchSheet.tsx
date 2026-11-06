@@ -8,10 +8,15 @@
  * Tapping an open row (or the keyboard's search key, which opens the first
  * row, as Enter does on the desktop) opens it the way tapping it in the list
  * does; tapping a closed row brings it back on its computer first. The
- * matching rules live in src/sessions/sessionSearch.ts.
+ * matching rules live in src/sessions/sessionSearch.ts. Half folded like a laptop
+ * the panel stays in the upper half, off the fold: above the keyboard's cover
+ * while it is up (`KeyboardAvoidingContainer`), and above the fold with the
+ * keyboard dismissed, so it does not jump between the halves.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useEffect, useRef, useState } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
+
 import {
   ActivityIndicator,
   Modal,
@@ -22,6 +27,7 @@ import {
   TextInput,
   View,
   type TextInputInstance,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -43,6 +49,8 @@ import { GhostexStrokeWidth, SetupPalette } from '../../theme/palette';
 import { useKeyboardTop } from '../common/keyboard/keyboardFrame';
 import KeyboardAvoidingContainer from '../common/keyboard/KeyboardAvoidingContainer';
 import { useVerticalBarSpace } from '../common/verticalBar/VerticalBarArea';
+import { FOLD_CLEARANCE } from '../common/verticalBar/layout';
+import { useLaptopFold } from '../common/verticalBar/laptopFold';
 import { ChevronLeftGlyph, SearchGlyph, XGlyph } from './icons';
 
 export type SessionSearchSheetProps = {
@@ -64,13 +72,20 @@ const STATUS_DOT_OPEN = '#FFFFFF';
 const CLOSED_QUERY_DEBOUNCE_MS = 300;
 
 export default function SessionSearchSheet({ visible, machines, onOpen, onRestore, onClose }: SessionSearchSheetProps) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const insets = useSafeAreaInsets();
   const bar = useVerticalBarSpace();
   const inputRef = useRef<TextInputInstance | null>(null);
   const [query, setQuery] = useState('');
   const inventoriesByMachineId = useInventoryStore((state) => state.inventoriesByMachineId);
-  // The navigation bar's inset is under the keyboard while it is open; the panel ends right on top of it.
-  const bottomInset = useKeyboardTop() === null ? insets.bottom : 0;
+  // The navigation bar's inset is under the keyboard while it is open; the panel ends 8 pt above it. Half folded like
+  // a laptop with the keyboard dismissed, it ends `FOLD_CLEARANCE` above the fold, where the keyboard's cover (from
+  // the fold's top) leaves it while the keyboard is up.
+  const keyboardUp = useKeyboardTop() !== null;
+  const fold = useLaptopFold();
+  const { height: windowHeight } = useWindowDimensions();
+  const panelBottom = keyboardUp ? 8 : fold !== null ? windowHeight - fold.top + FOLD_CLEARANCE : insets.bottom + 8;
   const [closedByMachine, setClosedByMachine] = useState<Record<string, ClosedSession[]>>({});
   const [closedLoading, setClosedLoading] = useState(false);
   const [closedFailures, setClosedFailures] = useState<string[]>([]);
@@ -200,7 +215,7 @@ export default function SessionSearchSheet({ visible, machines, onOpen, onRestor
         </View>
       ) : iconId === 'terminal' || iconId === 'browser' ? (
         <View style={styles.glyphTile}>
-          <AgentIcon size={14} color={SetupPalette.FOREGROUND} />
+          <AgentIcon size={14} color={appearance.foreground} />
         </View>
       ) : (
         <View style={styles.glyphImage}>
@@ -239,7 +254,7 @@ export default function SessionSearchSheet({ visible, machines, onOpen, onRestor
         {restoring ? (
           <>
             <Text style={styles.rowTime}>{SessionSearchCopy.restoring}</Text>
-            <ActivityIndicator size="small" color={SetupPalette.MUTED} />
+            <ActivityIndicator size="small" color={appearance.muted} />
           </>
         ) : (
           <>
@@ -275,7 +290,7 @@ export default function SessionSearchSheet({ visible, machines, onOpen, onRestor
       onRequestClose={close}
       onShow={() => inputRef.current?.focus()}
     >
-      <KeyboardAvoidingContainer style={[styles.fill, { paddingTop: insets.top + 8, paddingBottom: bottomInset + 8 }]}>
+      <KeyboardAvoidingContainer style={[styles.fill, { paddingTop: insets.top + 8, paddingBottom: panelBottom }]}>
         <Pressable
           style={styles.backdrop}
           accessibilityRole="button"
@@ -291,11 +306,12 @@ export default function SessionSearchSheet({ visible, machines, onOpen, onRestor
               style={styles.headerButton}
               onPress={close}
             >
-              <ChevronLeftGlyph size={22} color={SetupPalette.FOREGROUND} />
+              <ChevronLeftGlyph size={22} color={appearance.foreground} />
             </Pressable>
             <View style={styles.field}>
-              <SearchGlyph size={16} color={SetupPalette.MUTED} />
+              <SearchGlyph size={16} color={appearance.muted} />
               <TextInput
+                keyboardAppearance={appearance.light ? 'light' : 'dark'}
                 ref={inputRef}
                 autoFocus
                 value={query}
@@ -305,7 +321,7 @@ export default function SessionSearchSheet({ visible, machines, onOpen, onRestor
                 }}
                 editable={restoringKey === null}
                 placeholder={SessionSearchCopy.placeholder}
-                placeholderTextColor={SetupPalette.DIM}
+                placeholderTextColor={appearance.muted}
                 style={styles.input}
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -327,7 +343,7 @@ export default function SessionSearchSheet({ visible, machines, onOpen, onRestor
                     inputRef.current?.focus();
                   }}
                 >
-                  <XGlyph size={16} color={SetupPalette.MUTED} />
+                  <XGlyph size={16} color={appearance.muted} />
                 </Pressable>
               ) : null}
             </View>
@@ -366,7 +382,7 @@ export default function SessionSearchSheet({ visible, machines, onOpen, onRestor
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   fill: {
     flex: 1,
     paddingHorizontal: 10,
@@ -382,10 +398,10 @@ const styles = StyleSheet.create({
   panel: {
     flexShrink: 1,
     maxHeight: '100%',
-    backgroundColor: SetupPalette.PANEL,
+    backgroundColor: appearance.input,
     borderRadius: 12,
     borderWidth: GhostexStrokeWidth,
-    borderColor: SetupPalette.BORDER_STRONG,
+    borderColor: appearance.border,
     overflow: 'hidden',
   },
   header: {
@@ -394,7 +410,7 @@ const styles = StyleSheet.create({
     gap: 6,
     padding: 8,
     borderBottomWidth: GhostexStrokeWidth,
-    borderBottomColor: SetupPalette.BORDER,
+    borderBottomColor: appearance.border,
   },
   headerButton: {
     width: 36,
@@ -411,13 +427,13 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 10,
     borderRadius: 8,
-    backgroundColor: SetupPalette.CARD,
+    backgroundColor: appearance.card,
   },
   input: {
     flex: 1,
     minWidth: 0,
     paddingVertical: 0,
-    color: SetupPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 15,
   },
   list: {
@@ -428,7 +444,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   sectionHeading: {
-    color: SetupPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     fontWeight: '600',
     paddingHorizontal: 10,
@@ -469,18 +485,18 @@ const styles = StyleSheet.create({
   },
   rowTitle: {
     flexShrink: 1,
-    color: SetupPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 14.5,
   },
   rowProject: {
     flexShrink: 8,
-    color: SetupPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12.5,
   },
   rowTime: {
     minWidth: 28,
     textAlign: 'right',
-    color: SetupPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12.5,
   },
   statusDot: {
@@ -497,19 +513,19 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   footer: {
-    color: SetupPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     textAlign: 'center',
     paddingVertical: 12,
   },
   error: {
-    color: SetupPalette.ERROR,
+    color: appearance.danger,
     fontSize: 13,
     paddingHorizontal: 14,
     paddingTop: 10,
   },
   empty: {
-    color: SetupPalette.MUTED,
+    color: appearance.muted,
     fontSize: 13,
     textAlign: 'center',
     paddingVertical: 24,

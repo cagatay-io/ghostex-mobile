@@ -2,6 +2,8 @@
 
 Extracted from `/Users/madda/dev/_active/Ghostex/iOS` (VVTerm fork). User-facing copy says "Ghostex". All copy quoted verbatim.
 
+The native setup screens and shared setup primitives use the app's saved colour model (`useAppearance`), including their text, controls, sheets and navigation chrome. The colour examples below describe the original reference, not a fixed dark-only runtime palette.
+
 ## 0. Fresh-install sequence
 
 1. Launch → Welcome sheet shows while `hasSeenWelcome == false`.

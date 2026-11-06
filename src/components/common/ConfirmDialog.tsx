@@ -3,15 +3,20 @@
  * target line, confirm button (destructive tint option) + cancel. When
  * `cancelLabel` is null the dialog is informational (single Close-style
  * button). `selectableBody` renders the body as selectable text so users can
- * copy commands when no clipboard module is available.
+ * copy commands when no clipboard module is available. Half folded like a laptop the card stands below the
+ * fold, or above it when it does not fit there, held to that band: a longer body scrolls between the title and the
+ * buttons (`useFoldCardPlacement`).
  */
 
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useMemo } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { useFoldCardPlacement } from './foldAvoidance';
 import { barPadding } from './verticalBar/layout';
 import { useVerticalBarSpace } from './verticalBar/VerticalBarArea';
 
-import { GhostexPalette, GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
+import { GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
 
 export type ConfirmDialogProps = {
   visible: boolean;
@@ -41,22 +46,31 @@ export default function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const bar = useVerticalBarSpace();
+  const placement = useFoldCardPlacement({ avoidsKeyboard: false });
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <Pressable style={[styles.backdrop, barPadding(bar, 24)]} onPress={onCancel}>
-        <Pressable style={styles.card} onPress={(event) => event.stopPropagation()}>
+      <Pressable style={[styles.backdrop, barPadding(bar, 24), placement.style]} onPress={onCancel}>
+        <Pressable
+          style={[styles.card, placement.maxHeight !== null && { maxHeight: placement.maxHeight }]}
+          onLayout={placement.onCardLayout}
+          onPress={(event) => event.stopPropagation()}
+        >
           <Text style={styles.title}>{title}</Text>
-          {body !== undefined && body.length > 0 ? (
-            <Text selectable={selectableBody} style={[styles.body, selectableBody ? styles.bodyMono : null]}>
-              {body}
-            </Text>
-          ) : null}
-          {targetLine !== undefined && targetLine.length > 0 ? (
-            <Text style={styles.target} numberOfLines={1}>
-              {targetLine}
-            </Text>
-          ) : null}
+          <ScrollView style={styles.content} bounces={false}>
+            {body !== undefined && body.length > 0 ? (
+              <Text selectable={selectableBody} style={[styles.body, selectableBody ? styles.bodyMono : null]}>
+                {body}
+              </Text>
+            ) : null}
+            {targetLine !== undefined && targetLine.length > 0 ? (
+              <Text style={styles.target} numberOfLines={1}>
+                {targetLine}
+              </Text>
+            ) : null}
+          </ScrollView>
           <View style={styles.buttonRow}>
             {cancelLabel !== null ? (
               <Pressable
@@ -83,7 +97,7 @@ export default function ConfirmDialog({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',
@@ -91,31 +105,36 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   card: {
-    backgroundColor: GhostexPalette.BACKGROUND,
+    backgroundColor: appearance.background,
     borderRadius: 12,
     borderWidth: GhostexStrokeWidth,
-    borderColor: GhostexPalette.BORDER,
+    borderColor: appearance.border,
     padding: 16,
   },
   title: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 15,
     fontWeight: 'bold',
   },
+  // Its own height while it fits; it shrinks and scrolls where the card is held to its band.
+  content: {
+    flexGrow: 0,
+    flexShrink: 1,
+  },
   body: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     marginTop: 8,
   },
   bodyMono: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontFamily: 'monospace',
-    backgroundColor: GhostexPalette.INPUT_BACKGROUND,
+    backgroundColor: appearance.input,
     borderRadius: GhostexRadii.input,
     padding: 10,
   },
   target: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 13,
     fontWeight: 'bold',
     marginTop: 8,
@@ -130,15 +149,15 @@ const styles = StyleSheet.create({
     height: 40,
     paddingHorizontal: 16,
     borderRadius: GhostexRadii.card,
-    backgroundColor: GhostexPalette.NEUTRAL_FILL,
+    backgroundColor: appearance.neutralFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelButtonPressed: {
-    backgroundColor: GhostexPalette.NEUTRAL_FILL_PRESSED,
+    backgroundColor: appearance.neutralFillPressed,
   },
   cancelLabel: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -146,19 +165,19 @@ const styles = StyleSheet.create({
     height: 40,
     paddingHorizontal: 16,
     borderRadius: GhostexRadii.card,
-    backgroundColor: GhostexPalette.ACCENT,
+    backgroundColor: appearance.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
   confirmButtonDestructive: {
-    backgroundColor: GhostexPalette.DANGER,
+    backgroundColor: appearance.danger,
   },
   confirmLabel: {
-    color: GhostexPalette.ACCENT_FOREGROUND,
+    color: appearance.accentForeground,
     fontSize: 13,
     fontWeight: '600',
   },
   confirmLabelDestructive: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.accentForeground,
   },
 });

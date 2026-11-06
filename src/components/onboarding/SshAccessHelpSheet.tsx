@@ -6,13 +6,15 @@
  * Tailscale form's second precheck and by the "SSH refused" row of Can't reach.
  */
 
+import { useMemo } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { SshAccessCopy } from '../../copy';
 import { GhostexRadii, GhostexStrokeWidth, SetupPalette } from '../../theme/palette';
 import BottomSheet from '../common/BottomSheet';
-import { SetupButton, StepNumber, setupText } from './SetupPrimitives';
+import { SetupButton, StepNumber, useSetupText } from './SetupPrimitives';
 
 export type SshOs = 'macos' | 'windows' | 'linux';
 
@@ -65,6 +67,8 @@ export function SshOsButtons({
   /** Highlighted button (the sheet currently open). */
   current?: SshOs | null;
 }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   return (
     <View style={styles.buttons}>
       {SSH_OS_ORDER.map((os) => {
@@ -81,7 +85,7 @@ export function SshOsButtons({
             ]}
             onPress={() => onSelect(os)}
           >
-            <SshOsLogo os={os} size={24} color={active ? SetupPalette.ACCENT : SetupPalette.FOREGROUND} />
+            <SshOsLogo os={os} size={24} color={active ? appearance.accent : appearance.foreground} />
             <Text style={[styles.buttonLabel, active ? styles.buttonLabelActive : null]}>
               {SshAccessCopy.osLabels[os]}
             </Text>
@@ -94,11 +98,14 @@ export function SshOsButtons({
 
 /** The sheet body, also rendered full-screen by the `SshAccessHelp` route. */
 export function SshAccessHelpContent({ os }: { os: SshOs }) {
+  const setupText = useSetupText();
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const copy = SshAccessCopy.byOs[os];
   return (
     <View style={styles.content}>
       <View style={styles.head}>
-        <SshOsLogo os={os} size={22} color={SetupPalette.FOREGROUND} />
+        <SshOsLogo os={os} size={22} color={appearance.foreground} />
         <Text style={setupText.title}>{copy.title}</Text>
       </View>
       <View style={styles.steps}>
@@ -121,6 +128,8 @@ export type SshAccessHelpSheetProps = {
 };
 
 export default function SshAccessHelpSheet({ os, onClose }: SshAccessHelpSheetProps) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   return (
     <BottomSheet visible={os !== null} onClose={onClose}>
       {os !== null ? <SshAccessHelpContent os={os} /> : null}
@@ -129,7 +138,7 @@ export default function SshAccessHelpSheet({ os, onClose }: SshAccessHelpSheetPr
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   buttons: {
     flexDirection: 'row',
     gap: 8,
@@ -140,8 +149,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: GhostexRadii.control,
     borderWidth: GhostexStrokeWidth,
-    borderColor: SetupPalette.BORDER_STRONG,
-    backgroundColor: SetupPalette.CARD,
+    borderColor: appearance.border,
+    backgroundColor: appearance.card,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
@@ -151,15 +160,15 @@ const styles = StyleSheet.create({
     backgroundColor: SetupPalette.ACCENT_FILL,
   },
   buttonPressed: {
-    backgroundColor: SetupPalette.CARD_HOVER,
+    backgroundColor: appearance.cardActive,
   },
   buttonLabel: {
-    color: SetupPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     fontWeight: '600',
   },
   buttonLabelActive: {
-    color: SetupPalette.ACCENT,
+    color: appearance.accent,
   },
   content: {
     gap: 14,
@@ -180,7 +189,7 @@ const styles = StyleSheet.create({
   },
   stepText: {
     flex: 1,
-    color: SetupPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 14,
     lineHeight: 20,
   },

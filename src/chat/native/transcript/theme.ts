@@ -1,17 +1,40 @@
 /**
- * The native chat's tones and type, for the phone's two chat themes: the transcript, the composer
- * and its sheets, and the cards all read this one object (`useTranscriptTheme`), so the whole screen
- * follows Settings > Chat theme together.
+ * The native chat's tones and type: the transcript, the composer and its sheets, and the cards all read this one
+ * object (`useTranscriptTheme`), so the whole screen follows the chat's appearance together.
  *
- * Each value is desktop's `ChatAppearance` (apps/desktop/src/app/native_chat/appearance.rs) computed
- * over the phone chat's own backgrounds (`#0e0e0e` dark, `#fdfdfd` light, the ones the retired
- * WebView chat used), so a row here reads like the same row in the GPUI chat.
+ * Each value is the desktop's `ChatAppearance` (apps/desktop/src/app/native_chat/appearance.rs). Text, status and
+ * control roles are fixed per appearance; the surfaces (page, bubble, cards, composer, menus) are the desktop's
+ * steps off the chat's own work-area colour, so a theme preset carries into all of them. Over the phone's former
+ * fixed backgrounds (`#0e0e0e` dark, `#fdfdfd` light) the steps land on the values the phone drew before.
+ *
+ * CDXC:Theming WHY: the phone copies the Mac app's theme functions. The chat's appearance is the
+ * Mac's Chat theme (Follow app, System, Light, Dark) and its colours come from the same resolver as Settings.
  */
 
-import { type ImageStyle, Platform, StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
+import { useMemo } from 'react';
+import {
+  Appearance,
+  type ImageStyle,
+  Platform,
+  StyleSheet,
+  type TextStyle,
+  useColorScheme,
+  type ViewStyle,
+} from 'react-native';
+import { useShallow } from 'zustand/react/shallow';
 
-import { destructiveButtonFills, neutralButtonFills } from '../../../theme/palette';
-import { useSettingsStore } from '../../../settings/store';
+import { useSettingsStore, type GhostexSettings } from '../../../settings/store';
+import { colorOver, colorWithOpacity, destructiveButtonFills, mixHexColors, neutralButtonFills } from '../../../theme/palette';
+import {
+  contentIsLight,
+  readableSecondaryText,
+  resolveThemeAreas,
+  stepTowardHex,
+  type ContentColorScheme,
+  type SidebarThemeSetting,
+  type ThemeColourSettings,
+} from '../../../theme/sidebarAppearance';
+import { themeColourSettings } from '../../../theme/useAppearance';
 
 export type TranscriptTheme = {
   light: boolean;
@@ -124,18 +147,35 @@ export type TranscriptTheme = {
   mutedInk(alpha: number): string;
 };
 
-const DARK: TranscriptTheme = {
+/** The surfaces stepped off the chat's work-area colour (`chatSurfaces`); every other value is fixed per appearance. */
+type ChatSurfaceKey =
+  | 'background'
+  | 'input'
+  | 'border'
+  | 'cardBackground'
+  | 'cardPanel'
+  | 'cardRow'
+  | 'cardFooter'
+  | 'composerBackground'
+  | 'composerBorder'
+  | 'controlBorder'
+  | 'inputBorder'
+  | 'menu'
+  | 'wellFill'
+  | 'floatingSurface'
+  | 'floatingTile'
+  | 'markCard';
+
+type ChatRoles = Omit<TranscriptTheme, ChatSurfaceKey>;
+
+const DARK: ChatRoles = {
   light: false,
-  background: '#0e0e0e',
   foreground: '#fcfcfc',
   primary: '#b4b8c0',
   prose: '#b4b8c0',
   controlPrimary: '#e5e5e5',
   muted: '#9e9e9e',
   cardMuted: '#b4b8bf',
-  border: '#1d1d1d',
-  input: '#151515',
-  cardBackground: '#0e0e0e',
   error: '#ef9999',
   inlineCodeSurface: '#282828',
   inlineCodeBorder: 'rgba(252,252,252,0.18)',
@@ -152,11 +192,6 @@ const DARK: TranscriptTheme = {
   pressed: 'rgba(252,252,252,0.05)',
   searchMatch: 'rgba(250,204,21,0.3)',
   searchMatchActive: 'rgba(249,115,22,0.6)',
-  controlBorder: 'rgba(255,255,255,0.06)',
-  inputBorder: 'rgba(255,255,255,0.08)',
-  cardPanel: '#161616',
-  cardRow: '#121212',
-  cardFooter: '#141414',
   ring: '#737373',
   ringGlow: 'rgba(115,115,115,0.20)',
   accent: '#86d3f8',
@@ -167,15 +202,11 @@ const DARK: TranscriptTheme = {
   destructiveFillPressed: destructiveButtonFills('#ef9999', false).pressed,
   selectedFill: 'rgba(229,229,229,0.10)',
   selectedBorder: 'rgba(229,229,229,0.30)',
-  wellFill: 'rgba(14,14,14,0.7)',
   wellBorder: 'rgba(255,255,255,0.05)',
   modalBackdrop: 'rgba(0,0,0,0.58)',
   sheetBackdrop: 'rgba(0,0,0,0.5)',
   asyncDot: '#f472b6',
   asyncSpinner: '#d99a62',
-  composerBackground: '#151515',
-  composerBorder: '#212121',
-  menu: '#171717',
   menuBorder: 'rgba(255,255,255,0.10)',
   menuForeground: '#fcfcfc',
   controlPressed: 'rgba(252,252,252,0.08)',
@@ -200,27 +231,20 @@ const DARK: TranscriptTheme = {
     session: '#e4e4e7',
     board: '#e4e4e7',
   },
-  floatingSurface: '#181818',
-  floatingTile: '#1f1f1f',
-  markCard: '#2c2c2c',
   meterTrack: 'rgba(158,158,158,0.24)',
   meterFill: '#b9b9b9',
   ink: (alpha) => `rgba(252,252,252,${alpha})`,
   mutedInk: (alpha) => `rgba(158,158,158,${alpha})`,
 };
 
-const LIGHT: TranscriptTheme = {
+const LIGHT: ChatRoles = {
   light: true,
-  background: '#fdfdfd',
   foreground: '#27272a',
   primary: '#27272a',
   prose: '#4d4d50',
   controlPrimary: '#18181b',
   muted: '#71717b',
   cardMuted: '#71717b',
-  border: '#e5e5e5',
-  input: '#f5f5f5',
-  cardBackground: '#fefefe',
   error: '#c53030',
   inlineCodeSurface: '#efefef',
   inlineCodeBorder: 'rgba(39,39,42,0.16)',
@@ -237,11 +261,6 @@ const LIGHT: TranscriptTheme = {
   pressed: 'rgba(0,0,0,0.04)',
   searchMatch: 'rgba(250,204,21,0.45)',
   searchMatchActive: 'rgba(249,115,22,0.45)',
-  controlBorder: '#e5e5e5',
-  inputBorder: '#e5e5e5',
-  cardPanel: '#fefefe',
-  cardRow: '#f5f5f5',
-  cardFooter: '#fdfdfd',
   ring: '#9f9fa9',
   ringGlow: 'rgba(159,159,169,0.20)',
   accent: '#262626',
@@ -252,15 +271,11 @@ const LIGHT: TranscriptTheme = {
   destructiveFillPressed: destructiveButtonFills('#c53030', true).pressed,
   selectedFill: 'rgba(24,24,27,0.10)',
   selectedBorder: 'rgba(24,24,27,0.30)',
-  wellFill: '#f7f7f7',
   wellBorder: '#e5e5e5',
   modalBackdrop: 'rgba(0,0,0,0.38)',
   sheetBackdrop: 'rgba(0,0,0,0.3)',
   asyncDot: '#f472b6',
   asyncSpinner: '#d99a62',
-  composerBackground: '#fefefe',
-  composerBorder: '#ececec',
-  menu: '#ffffff',
   menuBorder: 'rgba(0,0,0,0.12)',
   menuForeground: '#292929',
   controlPressed: 'rgba(41,41,41,0.06)',
@@ -279,32 +294,129 @@ const LIGHT: TranscriptTheme = {
     session: '#27272a',
     board: '#27272a',
   },
-  floatingSurface: '#fefefe',
-  floatingTile: '#f5f5f5',
-  markCard: '#e4e4e5',
   meterTrack: 'rgba(85,85,92,0.24)',
   meterFill: '#8b8b8b',
   ink: (alpha) => `rgba(39,39,42,${alpha})`,
   mutedInk: (alpha) => `rgba(113,113,123,${alpha})`,
 };
 
-export function transcriptTheme(theme: 'light' | 'dark'): TranscriptTheme {
-  return theme === 'light' ? LIGHT : DARK;
+/**
+ * The surfaces over the chat's work-area colour `background` (`ChatAppearance::resolve`): dark fills step toward
+ * white, light ones toward black, and the light composer and cards a little toward white; menus take the sidebar
+ * menu colour of the same appearance (`menu`). The account-switch card's surface and tiles follow
+ * `account_switch_card.rs`; the welcome's mark card is the card background 12% toward the foreground.
+ */
+function chatSurfaces(roles: ChatRoles, background: string, menu: string): Pick<TranscriptTheme, ChatSurfaceKey> {
+  const light = roles.light;
+  const up = (amount: number): string => stepTowardHex(background, true, amount);
+  const down = (amount: number): string => stepTowardHex(background, false, amount);
+  const lifted = (dark: number, lightAmount: number): string => (light ? down(lightAmount) : up(dark));
+  const cardBackground = light ? up(0.3) : background;
+  return {
+    background,
+    input: lifted(0.03, 0.032),
+    border: lifted(0.062, 0.095),
+    cardBackground,
+    cardPanel: up(light ? 0.6 : 0.035),
+    cardRow: lifted(0.015, 0.032),
+    cardFooter: up(light ? 0.1 : 0.025),
+    composerBackground: up(light ? 0.3 : 0.03),
+    composerBorder: lifted(0.08, 0.067),
+    controlBorder: light ? down(0.095) : 'rgba(255,255,255,0.06)',
+    inputBorder: light ? down(0.095) : 'rgba(255,255,255,0.08)',
+    menu,
+    wellFill: light ? '#f7f7f7' : colorWithOpacity(background, 70),
+    floatingSurface: up(light ? 0.7 : 0.04),
+    floatingTile: light ? down(0.03) : up(0.07),
+    markCard: mixHexColors(roles.foreground, cardBackground, 12),
+  };
 }
 
-/** The chat theme for the current chat setting (Settings > Chat theme). */
+/** What the chat's colours read from the settings. */
+type ChatThemeSettings = ThemeColourSettings & {
+  sidebarTheme: SidebarThemeSetting;
+  sessionChatTheme: ContentColorScheme;
+};
+
+function chatThemeSettings(settings: GhostexSettings): ChatThemeSettings {
+  return {
+    ...themeColourSettings(settings),
+    sidebarTheme: settings.sidebarTheme,
+    sessionChatTheme: settings.sessionChatTheme,
+  };
+}
+
+/**
+ * The few chat themes in use, newest last: the same inputs return the same object, so the per-theme style sheets
+ * stay warm, while a Colourfulness drag does not keep every intermediate theme alive.
+ */
+const themes = new Map<string, TranscriptTheme>();
+const KEPT_THEMES = 4;
+
+/** The chat theme for `settings` with the chat drawn light or dark (`light`). */
+export function transcriptThemeFor(settings: ThemeColourSettings, light: boolean): TranscriptTheme {
+  const areas = resolveThemeAreas(settings, light);
+  const key = `${light}|${areas.workArea}|${areas.menu}`;
+  let theme = themes.get(key);
+  if (theme === undefined) {
+    const roles = light ? LIGHT : DARK;
+    const surfaces = chatSurfaces(roles, areas.workArea, areas.menu);
+    const backgrounds = [
+      surfaces.background, surfaces.input, surfaces.cardBackground, surfaces.cardPanel, surfaces.cardRow,
+      surfaces.cardFooter, surfaces.composerBackground, surfaces.menu, surfaces.floatingSurface,
+      surfaces.floatingTile, surfaces.markCard, roles.inlineCodeSurface,
+      colorOver(roles.neutralFill, surfaces.cardPanel),
+      colorOver(roles.neutralFillPressed, surfaces.cardPanel),
+      colorOver(roles.destructiveFill, surfaces.cardPanel),
+      colorOver(roles.destructiveFillPressed, surfaces.cardPanel),
+      colorOver(roles.selectedFill, surfaces.cardPanel),
+    ];
+    const foreground = readableSecondaryText(roles.foreground, light ? '#000000' : '#ffffff', backgrounds);
+    const text = (designed: string) => readableSecondaryText(designed, foreground, backgrounds);
+    theme = {
+      ...roles, ...surfaces, foreground,
+      primary: text(roles.primary), prose: text(roles.prose), controlPrimary: text(roles.controlPrimary),
+      muted: text(roles.muted), cardMuted: text(roles.cardMuted), error: text(roles.error),
+      menuForeground: text(roles.menuForeground),
+      placeholder: text(colorOver(roles.placeholder, surfaces.composerBackground)),
+      link: { url: text(roles.link.url), file: text(roles.link.file), folder: text(roles.link.folder), image: text(roles.link.image), skill: text(roles.link.skill), comment: text(roles.link.comment) },
+      alert: { note: text(roles.alert.note), tip: text(roles.alert.tip), important: text(roles.alert.important), warning: text(roles.alert.warning), caution: text(roles.alert.caution) },
+      diff: { ...roles.diff, added: text(roles.diff.added), removed: text(roles.diff.removed) },
+      reference: Object.fromEntries(Object.entries(roles.reference).map(([key, value]) => [key, text(value)])),
+    };
+    if (themes.size >= KEPT_THEMES) themes.delete(themes.keys().next().value!);
+  } else {
+    themes.delete(key);
+  }
+  themes.set(key, theme);
+  return theme;
+}
+
+/** Whether the chat draws light now, outside React (the page links opened from the chat follow it). */
+export function chatIsLightNow(): boolean {
+  return contentIsLight(
+    useSettingsStore.getState().settings,
+    'sessionChatTheme',
+    Appearance.getColorScheme() === 'light',
+  );
+}
+
+/** The chat theme for the current settings: Chat theme (Follow app, System, Light, Dark) over the app's colours. */
 export function useTranscriptTheme(): TranscriptTheme {
-  return transcriptTheme(useSettingsStore((store) => store.settings.sessionChatTheme));
+  const settings = useSettingsStore(useShallow(({ settings }) => chatThemeSettings(settings)));
+  const light = contentIsLight(settings, 'sessionChatTheme', useColorScheme() === 'light');
+  return useMemo(() => transcriptThemeFor(settings, light), [settings, light]);
 }
 
 /**
  * A style sheet built from the chat theme, created once per theme: `const useStyles =
- * themedStyles((t) => ({ ... }))` at module scope, then `const styles = useStyles()` in a component.
+ * themedStyles((t) => ({ ... }))` at module scope, then `const styles = useStyles()` in a component. A sheet lives as
+ * long as its theme object.
  */
 export function themedStyles<T extends { [P in keyof T]: ViewStyle | TextStyle | ImageStyle }>(
   build: (theme: TranscriptTheme) => T,
 ): () => T {
-  const sheets = new Map<TranscriptTheme, T>();
+  const sheets = new WeakMap<TranscriptTheme, T>();
   const sheetFor = (theme: TranscriptTheme): T => {
     let sheet = sheets.get(theme);
     if (sheet === undefined) {

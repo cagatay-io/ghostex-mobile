@@ -4,11 +4,12 @@
  * generic labelled `FormField` every other section of the form is built from.
  */
 
+import { useAppearance } from '../../theme/useAppearance';
 import { Text, TextInput, View, type TextInputProps } from 'react-native';
 
 import { TailscaleFormCopy } from '../../copy';
-import { SetupPalette } from '../../theme/palette';
-import { formStyles } from './styles';
+
+import { useFormStyles } from './styles';
 
 export type FormFieldProps = {
   label: string;
@@ -39,10 +40,13 @@ export function FormField({
   autoCapitalize = 'none',
   autoFocus = false,
 }: FormFieldProps) {
+  const appearance = useAppearance();
+  const formStyles = useFormStyles();
   return (
     <View style={formStyles.field}>
       {label.length > 0 ? <Text style={formStyles.fieldLabel}>{label}</Text> : null}
       <TextInput
+        keyboardAppearance={appearance.light ? 'light' : 'dark'}
         style={[
           formStyles.input,
           mono ? formStyles.inputMono : null,
@@ -50,7 +54,7 @@ export function FormField({
           error !== undefined ? formStyles.inputError : null,
         ]}
         placeholder={placeholder}
-        placeholderTextColor={SetupPalette.DIM}
+        placeholderTextColor={appearance.muted}
         value={value}
         onChangeText={onChangeText}
         multiline={multiline}

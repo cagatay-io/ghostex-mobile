@@ -38,7 +38,8 @@ import { useDisclosure } from './state';
 import type { TranscriptTheme } from './theme';
 import { ROW_GAP, cardStackMargin } from './cardSpacing';
 
-function toneColor(tone: string, theme: TranscriptTheme): string {
+/** A status tone's colour on a message card: `failed` red, `waiting` amber, otherwise green (the advisor card's red and amber too, `SystemRows.tsx`). */
+export function toneColor(tone: string, theme: TranscriptTheme): string {
   if (tone === 'failed') return theme.light ? '#e11d48' : '#fb7185';
   if (tone === 'waiting') return theme.light ? '#d97706' : '#fbbf24';
   return theme.light ? '#059669' : '#34d399';

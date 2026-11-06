@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useMemo, type ReactNode } from 'react';
-import { DarkTheme, NavigationContainer, type Theme } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, NavigationContainer, type Theme } from '@react-navigation/native';
 import { createNativeStackNavigator, type NativeStackNavigationOptions } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, View } from 'react-native';
@@ -22,8 +22,13 @@ import { reportMobileView } from './src/analytics/clientView';
 import { flushPendingDeepLink, initDeepLinks, navigationRef } from './src/app/deepLinks';
 import { initAppLifecycle } from './src/app/lifecycle';
 import { initSettingsSync } from './src/settingsSync/settingsSync';
+import { initLiveActivity } from './src/notifications/liveActivity';
+import { initWidgets } from './src/notifications/widgets';
 import { initPersistentNotification } from './src/app/persistentNotification';
 import { useMachinesStore } from './src/machines/store';
+import { initAttentionNotifications } from './src/notifications/feedStore';
+import { initPaneLayouts } from './src/panes/store';
+import { initPushNotifications } from './src/notifications/pushStore';
 import { useAgentHotkeysStore } from './src/settings/agentHotkeys';
 import { useExtraKeysStore } from './src/settings/extraKeys';
 import { initSettingsNativeSync } from './src/settings/nativeSync';
@@ -35,7 +40,7 @@ import { initZmxDisplayPolicy } from './src/terminal/zmxDisplay';
 import { initAndroidSelfUpdate } from './src/updates/androidSelfUpdateStore';
 import { initOverTheAirUpdates } from './src/updates/overTheAir';
 import { addProjectSourceLabel } from './src/addProject/sources';
-import { GhostexPalette } from './src/theme/palette';
+
 import CrashReportPrompt from './src/components/common/CrashReportPrompt';
 import { useBarGeometryStore } from './src/components/common/verticalBar/barGeometry';
 import { useStackHeaderOptions } from './src/components/common/verticalBar/StackHeader';
@@ -44,6 +49,8 @@ import { ChatCoreWebViewHost } from './src/chat/rust/wasm-core/ChatCoreWebView';
 import ExtraKeysEditorScreen from './src/screens/ExtraKeysEditorScreen';
 import FeedbackScreen from './src/screens/FeedbackScreen';
 import AgentHotkeysEditorScreen from './src/screens/AgentHotkeysEditorScreen';
+import CommandPadKeysEditorScreen from './src/screens/CommandPadKeysEditorScreen';
+import LicenceNoticeScreen from './src/screens/LicenceNoticeScreen';
 import AddProjectDestinationScreen from './src/screens/AddProjectDestinationScreen';
 import AddProjectLocalScreen from './src/screens/AddProjectLocalScreen';
 import AddProjectRepositoryScreen from './src/screens/AddProjectRepositoryScreen';
@@ -66,10 +73,12 @@ import ConnectChooseScreen from './src/screens/ConnectChooseScreen';
 import ConnectedScreen from './src/screens/ConnectedScreen';
 import ScanCodeScreen from './src/screens/ScanCodeScreen';
 import CantReachScreen from './src/screens/CantReachScreen';
+import AttentionListScreen from './src/screens/AttentionListScreen';
 import ChangesScreen from './src/screens/ChangesScreen';
 import DocsScreen from './src/screens/DocsScreen';
 import DocViewerScreen from './src/screens/DocViewerScreen';
 import SshAccessHelpScreen from './src/screens/SshAccessHelpScreen';
+import UsageScreen from './src/screens/UsageScreen';
 import { useWebPreviewStore } from './src/webPreview/store';
 import {
   AddProjectCopy,
@@ -78,12 +87,16 @@ import {
   FeedbackCopy,
   FindPromptsCopy,
   MachineCopy,
+  NotificationsCopy,
+  PanesCopy,
   SettingsCopy,
   SshAccessCopy,
   TailscaleFormCopy,
   WebPreviewCopy,
 } from './src/copy';
 import { isSettingsRoute } from './src/screens/settings/columnRules';
+import { useAppearance } from './src/theme/useAppearance';
+import { useTerminalColours } from './src/theme/useTerminalColours';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -109,19 +122,24 @@ function DuoStackNavigator({
   return <Stack.Navigator screenOptions={options}>{children}</Stack.Navigator>;
 }
 
-const navigationTheme: Theme = {
-  ...DarkTheme,
-  colors: {
-    ...DarkTheme.colors,
-    primary: GhostexPalette.ACCENT,
-    background: GhostexPalette.BACKGROUND,
-    card: GhostexPalette.BACKGROUND,
-    text: GhostexPalette.FOREGROUND,
-    border: GhostexPalette.BORDER,
-  },
-};
 
 export default function App() {
+  const appearance = useAppearance();
+  const terminalSurface = useTerminalColours().chrome;
+  const navigationTheme = useMemo<Theme>(() => {
+    const base = appearance.light ? DefaultTheme : DarkTheme;
+    return {
+      ...base,
+      colors: {
+        ...base.colors,
+        primary: appearance.accent,
+        background: appearance.background,
+        card: appearance.background,
+        text: appearance.foreground,
+        border: appearance.border,
+      },
+    };
+  }, [appearance]);
   const hydrated = useMachinesStore((state) => state.hydrated);
   const hasMachines = useMachinesStore((state) => state.machines.length > 0);
 
@@ -132,10 +150,15 @@ export default function App() {
     initPersistentNotification();
     initDeepLinks();
     initAlerts();
+    initAttentionNotifications();
+    initLiveActivity();
+    initWidgets();
+    initPushNotifications();
     initAutoReconnect();
     initSettingsSync();
     initTerminalKeepAwake();
     initChatGridClaim();
+    initPaneLayouts();
     initAndroidSelfUpdate();
     initOverTheAirUpdates();
     initVoice();
@@ -160,7 +183,7 @@ export default function App() {
   }, []);
 
   if (!hydrated) {
-    return <View style={styles.splash} />;
+    return <View style={[styles.splash, { backgroundColor: appearance.background }]} />;
   }
 
   return (
@@ -182,12 +205,12 @@ export default function App() {
               reportMobileView(navigationRef.getCurrentRoute());
             }}
           >
-            <StatusBar style="light" />
+            <StatusBar style={appearance.light ? 'dark' : 'light'} />
             <DuoStackNavigator
               screenOptions={{
-                headerStyle: { backgroundColor: GhostexPalette.BACKGROUND },
-                headerTintColor: GhostexPalette.FOREGROUND,
-                contentStyle: { backgroundColor: GhostexPalette.BACKGROUND },
+                headerStyle: { backgroundColor: appearance.background },
+                headerTintColor: appearance.foreground,
+                contentStyle: { backgroundColor: appearance.background },
               }}
             >
               {!hasMachines ? (
@@ -236,8 +259,8 @@ export default function App() {
                     component={TerminalScreen}
                     options={({ route }) => ({
                       title: route.params.title ?? 'Terminal',
-                      headerStyle: { backgroundColor: GhostexPalette.TERMINAL_BACKGROUND },
-                      contentStyle: { backgroundColor: GhostexPalette.TERMINAL_BACKGROUND },
+                      headerStyle: { backgroundColor: terminalSurface.background },
+                      contentStyle: { backgroundColor: terminalSurface.background },
                     })}
                   />
                   <Stack.Screen
@@ -259,6 +282,12 @@ export default function App() {
                   <Stack.Screen name="Docs" component={DocsScreen} options={{ title: DocsCopy.listTitle }} />
                   <Stack.Screen name="DocViewer" component={DocViewerScreen} options={{ title: '' }} />
                   <Stack.Screen name="Changes" component={ChangesScreen} options={{ title: ChangesCopy.title }} />
+                  <Stack.Screen
+                    name="AttentionList"
+                    component={AttentionListScreen}
+                    options={{ title: NotificationsCopy.title }}
+                  />
+                  <Stack.Screen name="Usage" component={UsageScreen} options={{ title: PanesCopy.usageType }} />
                   <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: SettingsCopy.title }} />
                   <Stack.Screen
                     name="SettingsPage"
@@ -274,6 +303,16 @@ export default function App() {
                     name="AgentHotkeysEditor"
                     component={AgentHotkeysEditorScreen}
                     options={{ title: SettingsCopy.agentHotkeysTitle }}
+                  />
+                  <Stack.Screen
+                    name="CommandPadKeysEditor"
+                    component={CommandPadKeysEditorScreen}
+                    options={{ title: SettingsCopy.padKeysTitle }}
+                  />
+                  <Stack.Screen
+                    name="LicenceNotice"
+                    component={LicenceNoticeScreen}
+                    options={({ route }) => ({ title: route.params.name })}
                   />
                   <Stack.Screen
                     name="AddProjectSource"
@@ -314,6 +353,5 @@ const styles = StyleSheet.create({
   },
   splash: {
     flex: 1,
-    backgroundColor: GhostexPalette.BACKGROUND,
   },
 });

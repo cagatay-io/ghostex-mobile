@@ -55,6 +55,90 @@ struct TerminalRuntimeSettings {
     var cursorBlink = true
     var softKeyboardEnabled = true
     var openUrlsOnTap = true
+    var colors = TerminalColors.unthemed
+}
+
+/// The colours a terminal paints with, resolved in JS from the theme settings (palette, Terminal
+/// background, the terminal's appearance) and sent as values: the phone has no Ghostty themes folder,
+/// so the config carries explicit colour lines instead of a theme name.
+///
+/// CDXC:Theming WHY: the phone copies the Mac's terminal colours: the palette of the
+/// terminal's appearance, the Terminal background choice painted behind the cells, no selection
+/// background in light mode (the Mac's adaptive selection) and selected text in each cell's own colour.
+/// SEE-ALSO: src/theme/terminalColours.ts (the resolver), apps/desktop/src/terminal_gpui_engine.rs
+/// (`apply_color_scheme`).
+struct TerminalColors: Hashable {
+    /// Light terminal: drives the keyboard appearance.
+    var light: Bool
+    var background: String
+    var foreground: String?
+    var cursor: String?
+    var cursorText: String?
+    var selectionBackground: String?
+    /// ANSI 0-15, or empty to keep Ghostty's default palette.
+    var palette: [String]
+
+    /// Terminals opened before the first JS push keep the earlier fixed look: black, Ghostty's palette.
+    nonisolated static let unthemed = TerminalColors(
+        light: false,
+        background: "#000000",
+        foreground: nil,
+        cursor: nil,
+        cursorText: nil,
+        selectionBackground: nil,
+        palette: []
+    )
+
+    /// The values from JS, accepted only as `#rrggbb` (they become config lines, so nothing else may
+    /// reach the file) and with zero or sixteen palette entries; nil for anything else.
+    nonisolated static func validated(
+        light: Bool,
+        background: String,
+        foreground: String?,
+        cursor: String?,
+        cursorText: String?,
+        selectionBackground: String?,
+        palette: [String]
+    ) -> TerminalColors? {
+        let optionals = [foreground, cursor, cursorText, selectionBackground].compactMap { $0 }
+        guard isHexColor(background),
+              optionals.allSatisfy(isHexColor),
+              palette.isEmpty || palette.count == 16,
+              palette.allSatisfy(isHexColor) else {
+            return nil
+        }
+        return TerminalColors(
+            light: light,
+            background: background.lowercased(),
+            foreground: foreground?.lowercased(),
+            cursor: cursor?.lowercased(),
+            cursorText: cursorText?.lowercased(),
+            selectionBackground: selectionBackground?.lowercased(),
+            palette: palette.map { $0.lowercased() }
+        )
+    }
+
+    nonisolated static func isHexColor(_ value: String) -> Bool {
+        let digits = value.utf8.dropFirst()
+        return value.utf8.first == UInt8(ascii: "#")
+            && digits.count == 6
+            && digits.allSatisfy { byte in
+                (UInt8(ascii: "0")...UInt8(ascii: "9")).contains(byte)
+                    || (UInt8(ascii: "a")...UInt8(ascii: "f")).contains(byte)
+                    || (UInt8(ascii: "A")...UInt8(ascii: "F")).contains(byte)
+            }
+    }
+
+    /// The background as a UIColor for the views behind and around the surface.
+    var backgroundColor: UIColor {
+        let value = UInt32(background.dropFirst(), radix: 16) ?? 0
+        return UIColor(
+            red: CGFloat((value >> 16) & 0xff) / 255,
+            green: CGFloat((value >> 8) & 0xff) / 255,
+            blue: CGFloat(value & 0xff) / 255,
+            alpha: 1
+        )
+    }
 }
 
 // MARK: - Zoom

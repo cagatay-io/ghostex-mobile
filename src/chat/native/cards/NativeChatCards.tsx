@@ -4,8 +4,10 @@
  *
  * 1. the composer-not-ready card, or a refused operation's error line,
  * 2. the terminal notice, then any secret requests,
- * 3. the async questions,
- * 4. the blocking question or approval.
+ * 3. a failed API call's card the agent keeps no record of,
+ * 4. the held-messages card (`ModelHoldCard.tsx`),
+ * 5. the async questions,
+ * 6. the blocking question or approval.
  *
  * The working card and its pills are not here: the screen draws them in their own row right above
  * this stack (`WorkingCard.tsx`), where desktop puts them first in the same stack.
@@ -16,14 +18,16 @@
  */
 
 import { useRef } from 'react';
-import { ScrollView, StyleSheet, useWindowDimensions, type ScrollViewInstance } from 'react-native';
+import { ScrollView, StyleSheet, type ScrollViewInstance } from 'react-native';
 
 import type { ChatDocument } from '../../rust/document';
+import { useChatViewSize } from '../chatPlacement';
 import type { RustChat } from '../../rust/useRustChat';
 import { ApiErrorCard } from './ApiErrorCard';
 import { AsyncQuestionsCard } from './AsyncQuestionsCard';
 import { ComposerNotReadyCard } from './ComposerNotReadyCard';
 import { arr, obj } from './json';
+import { ModelHoldCard } from './ModelHoldCard';
 import { NoticeCard } from './NoticeCard';
 import { CARD_BAND_SHARE, QuestionCard } from './QuestionCard';
 import { SecretRequestCards } from './SecretRequestCard';
@@ -44,6 +48,7 @@ export function chatCardsShown(document: ChatDocument): boolean {
     unrecordedApiError(document.apiErrorCard) ||
     arr(document.secretRequests).length > 0 ||
     relayedAnswerLineShown(document) ||
+    obj(document.modelHoldCard) !== null ||
     typeof document.asyncQuestions?.question?.key === 'string' ||
     document.questionCard?.visible === true
   );
@@ -51,12 +56,12 @@ export function chatCardsShown(document: ChatDocument): boolean {
 
 export type NativeChatCardsProps = {
   chat: RustChat;
-  /** The app-shell actions a card offers (Terminal View, Switch account). Without it those buttons are not drawn. */
+  /** The app-shell actions a card offers (Terminal View, Switch account, Pick model). Without it those buttons are not drawn. */
   onHostAction?: CardHostAction;
 };
 
 export function NativeChatCards({ chat, onHostAction }: NativeChatCardsProps) {
-  const { height } = useWindowDimensions();
+  const { height } = useChatViewSize();
   const band = useRef<ScrollViewInstance>(null);
   const document = chat.state?.document ?? null;
   if (document === null) return null;
@@ -79,6 +84,7 @@ export function NativeChatCards({ chat, onHostAction }: NativeChatCardsProps) {
       {unrecordedApiError(document.apiErrorCard) ? (
         <ApiErrorCard card={document.apiErrorCard} dispatch={chat.dispatch} />
       ) : null}
+      <ModelHoldCard card={document.modelHoldCard} onHostAction={onHostAction} />
       <AsyncQuestionsCard chat={chat} document={document} />
       <QuestionCard chat={chat} document={document} />
     </ScrollView>

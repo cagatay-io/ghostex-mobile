@@ -41,7 +41,8 @@ function sessionOf(raw: Json): UnifiedSessionInput {
     branch: raw.branch ?? '',
     activity: raw.activity ?? 'idle',
     awaitingApproval: raw.awaitingApproval === true,
-    pendingQuestionCount: raw.pendingQuestionCount ?? 0,
+    // The saved host fixture carries counted questions, not the question-card field.
+    hasQuestion: (raw.pendingQuestionCount ?? 0) > 0,
     modelSelectionFailed: raw.modelSelectionFailed === true,
     programStatusFailed: raw.programStatusFailed === true,
     hasBackgroundWork: raw.hasBackgroundWork === true,

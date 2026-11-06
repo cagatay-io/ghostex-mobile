@@ -18,7 +18,8 @@ Pod::Spec.new do |s|
   s.source_files = "**/*.{h,m,mm,swift,hpp,cpp}"
   # exclude_files is applied to EVERY attribute's globs (including
   # vendored_frameworks), so it must only match source-like files here.
-  s.exclude_files = ['Vendor/**/*.{h,m,mm,swift,hpp,cpp}']
+  # Tests/ belongs to the test spec below, never to the app.
+  s.exclude_files = ['Vendor/**/*.{h,m,mm,swift,hpp,cpp}', 'Tests/**/*.swift']
   # Fonts/…ttf is a git-tracked symlink into ../../../../assets, so iOS and
   # Android ship a byte-identical copy of the same font. It survives CocoaPods'
   # file enumeration because it is a symlinked FILE inside a real directory;
@@ -44,10 +45,11 @@ Pod::Spec.new do |s|
   # library search paths visible at the final (app) link step.
   s.preserve_paths = 'Vendor/**/*'
 
-  # Network is NWListener/NWConnection, the loopback side of SSH local port forwarding.
+  # Network is NWListener/NWConnection, the loopback side of SSH local port forwarding. GameController tells whether
+  # a hardware keyboard is connected (`GCKeyboard`, the pane keyboard follow).
   # AVFoundation, CallKit and UserNotifications are the voice agent, Dictate and Read aloud
   # (GhostexVoice*.swift, GhostexSpeech.swift).
-  s.frameworks = 'Metal', 'QuartzCore', 'UIKit', 'IOSurface', 'Security', 'AudioToolbox', 'Network', 'WebKit',
+  s.frameworks = 'Metal', 'QuartzCore', 'UIKit', 'IOSurface', 'Security', 'AudioToolbox', 'Network', 'WebKit', 'GameController',
                  'AVFoundation', 'CallKit', 'UserNotifications'
   s.libraries = 'z', 'c++'
 
@@ -81,4 +83,10 @@ Pod::Spec.new do |s|
     'LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]' => "$(inherited) \"#{ghostex_native_vendor}/libssh2/ios-simulator/lib\"",
     'OTHER_LDFLAGS' => '$(inherited) -lssh2 -lssl -lcrypto -lz',
   }
+
+  # The module's XCTest bundle (GhosttyConfigTests). Only the generated Podfile line that
+  # plugins/withGhostexNativeTests.js adds asks CocoaPods for it; the app never links it.
+  s.test_spec 'Tests' do |test_spec|
+    test_spec.source_files = 'Tests/**/*.swift'
+  end
 end

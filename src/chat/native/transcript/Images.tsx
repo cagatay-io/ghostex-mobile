@@ -6,19 +6,11 @@
  */
 
 import { memo, useId, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { openChatImageViewer } from '../cards';
 import { mixHex } from '../cards/PillsStrip';
+import { useChatViewSize } from '../chatPlacement';
 import { fileNameOf, imageFailureCopy } from '../cards/ImageUnavailable';
 import { useImageDisplay, useOptionalNativeChatUi, useTranscriptEnv, type ChatImageSource } from './context';
 import { Glyph } from './icons';
@@ -143,7 +135,7 @@ export const InlineImage = memo(function InlineImage({ image }: { image: ChatIma
  */
 export const PictureStrip = memo(function PictureStrip({ images }: { images: ChatImageSource[] }) {
   const single = images.length === 1;
-  const { width: screenWidth } = useWindowDimensions();
+  const { width: screenWidth } = useChatViewSize();
   const openPicture = useOpenPicture();
   const height = single ? VISUAL.singleHeight : VISUAL.stripHeight;
   // A lone picture is never wider than the screen it is read on; a row of them scrolls instead.

@@ -5,6 +5,8 @@
  * details" opens the Tailscale form.
  */
 
+import { useMemo } from 'react';
+import { useAppearance, type Appearance } from '../theme/useAppearance';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,14 +14,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useScrollToBarEdges } from '../components/common/verticalBar/VerticalBarArea';
 import PathCard from '../components/onboarding/PathCard';
 import { CameraGlyph, QrcodeGlyph, ShieldGlyph } from '../components/onboarding/SetupIcons';
-import { setupText } from '../components/onboarding/SetupPrimitives';
+import { useSetupText } from '../components/onboarding/SetupPrimitives';
 import { ConnectChooseCopy } from '../copy';
 import type { RootStackParamList } from '../navigation/types';
-import { SetupPalette } from '../theme/palette';
+
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ConnectChoose'>;
 
 export default function ConnectChooseScreen({ navigation }: Props) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
+  const setupText = useSetupText();
   const openScanner = (): void => navigation.navigate('ScanCode');
   // The page reaches under the iPhone Duo's side bar, its content keeps clear of it.
   const edges = useScrollToBarEdges(styles.content);
@@ -35,7 +40,7 @@ export default function ConnectChooseScreen({ navigation }: Props) {
         <View style={styles.cards}>
           <PathCard
             recommended
-            icon={<QrcodeGlyph size={20} color={SetupPalette.ACCENT} />}
+            icon={<QrcodeGlyph size={20} color={appearance.accent} />}
             title={ConnectChooseCopy.easyConnect.title}
             tag={ConnectChooseCopy.easyConnect.tag}
             subtitle={ConnectChooseCopy.easyConnect.subtitle}
@@ -43,12 +48,12 @@ export default function ConnectChooseScreen({ navigation }: Props) {
             footNote={ConnectChooseCopy.easyConnect.duration}
             button={{
               label: ConnectChooseCopy.easyConnect.button,
-              icon: <CameraGlyph size={14} color={SetupPalette.PRIMARY_BUTTON_FOREGROUND} />,
+              icon: <CameraGlyph size={14} color={appearance.accentForeground} />,
               onPress: openScanner,
             }}
           />
           <PathCard
-            icon={<ShieldGlyph size={20} color={SetupPalette.FOREGROUND} />}
+            icon={<ShieldGlyph size={20} color={appearance.foreground} />}
             title={ConnectChooseCopy.tailscale.title}
             subtitle={ConnectChooseCopy.tailscale.subtitle}
             footLink={{
@@ -57,7 +62,7 @@ export default function ConnectChooseScreen({ navigation }: Props) {
             }}
             button={{
               label: ConnectChooseCopy.tailscale.button,
-              icon: <CameraGlyph size={14} color={SetupPalette.FOREGROUND} />,
+              icon: <CameraGlyph size={14} color={appearance.foreground} />,
               onPress: openScanner,
             }}
           />
@@ -67,10 +72,10 @@ export default function ConnectChooseScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: SetupPalette.PAGE,
+    backgroundColor: appearance.background,
   },
   content: {
     paddingHorizontal: 16,

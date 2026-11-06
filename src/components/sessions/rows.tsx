@@ -27,6 +27,8 @@ import {
 import type { SectionStatusCounts } from '../../contract/grouping';
 import { decodeBase64Utf8 } from '../../docs/remoteFiles';
 import { GhostexPalette, mixHexColors, SidebarPalette } from '../../theme/palette';
+import { isLightBackground, readableSecondaryText } from '../../theme/sidebarAppearance';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
 import { measureInWindow as measurePress } from '../common/measureInWindow';
 import type { MenuAnchor } from './ContextMenu';
 import {
@@ -39,9 +41,142 @@ import {
   TerminalGlyph,
 } from './icons';
 
-/** The desktop sidebar's text and muted colors (appearance.rs, dark), which the phone's list draws with. */
-export const SIDEBAR_TEXT = '#B4B8C0';
-export const SIDEBAR_MUTED = '#7C828C';
+/**
+ * The list's ink for one appearance: the desktop sidebar's `chrome_color(dark, light)` pairs, picked by the chrome's
+ * light flag (apps/desktop/src/app/native_sidebar appearance.rs, sessions.rs, sections.rs, threads.rs,
+ * decorations.rs). The dark values are the ones the phone's list has always drawn.
+ *
+ * CDXC:Theming DECISION: as the phone copies the Mac app's theme functions,
+ * the Sessions list's ink flips with the appearance as the Mac sidebar's does, so a light preset draws dark text on
+ * its light list. Status and other meaning-carrying colours keep their values in both appearances.
+ */
+export type SidebarInk = {
+  light: boolean;
+  /** Row and header text (appearance.rs `foreground`). */
+  text: string;
+  /** Secondary text and the row and header glyphs (appearance.rs `muted`). */
+  muted: string;
+  /** The open session's title (sessions.rs). */
+  selectedText: string;
+  /** A section heading's caps: the selected text at 34% (sections.rs). */
+  sectionLabel: string;
+  /** The relative time and timer, and the same on a sleeping session (sessions.rs). */
+  time: string;
+  timeSleeping: string;
+  /** Coordinator and session-group tree lines (threads.rs, session_group_tree.rs). */
+  threadLine: string;
+  /** The hollow ring for the open session inside a folded part (sections.rs). */
+  activeRing: string;
+  /** A coordinator's crown (threads.rs `COORDINATOR_COLOR_*`). */
+  crown: string;
+  /** The session note dot (decorations.rs). */
+  noteDot: string;
+  /** The open session's card fill over the page (appearance.rs `session_selected`). */
+  selected: string;
+  /** Its outline and top highlight (appearance.rs `session_outline`, `selected_highlight`). */
+  selectedOutline: string;
+  selectedHighlight: string;
+  /** The header chips (Space and workspace tiles): their card, border and the selected chip's card. */
+  chipCard: string;
+  chipBorder: string;
+  chipSelected: string;
+};
+
+const DARK_INK: SidebarInk = {
+  light: false,
+  text: '#B4B8C0',
+  muted: '#7C828C',
+  selectedText: '#D8D8D8',
+  sectionLabel: 'rgba(216,216,216,0.34)',
+  time: SidebarPalette.ROW_TIME,
+  timeSleeping: SidebarPalette.ROW_TIME_SLEEPING,
+  threadLine: SidebarPalette.ROW_THREAD_LINE,
+  activeRing: '#A3A3A3',
+  crown: SidebarPalette.ROW_COORDINATOR_CROWN,
+  noteDot: '#FFFFFF',
+  selected: 'rgba(255,255,255,0.12)',
+  selectedOutline: 'rgba(255,255,255,0.08)',
+  selectedHighlight: 'rgba(255,255,255,0.04)',
+  chipCard: SidebarPalette.HEADER_BUTTON_BG,
+  chipBorder: SidebarPalette.HEADER_BUTTON_BORDER,
+  chipSelected: SidebarPalette.HEADER_BUTTON_BG,
+};
+
+const LIGHT_INK: SidebarInk = {
+  light: true,
+  text: '#262626',
+  muted: '#6B7280',
+  selectedText: '#292929',
+  sectionLabel: 'rgba(41,41,41,0.34)',
+  time: '#424242',
+  timeSleeping: '#959595',
+  threadLine: '#C8C8C8',
+  activeRing: '#858585',
+  crown: '#000000',
+  noteDot: '#262626',
+  selected: '#E7E7E7',
+  selectedOutline: 'rgba(0,0,0,0.22)',
+  selectedHighlight: 'rgba(255,255,255,0.6)',
+  // The desktop's light chrome card and border (`chrome_color(0x252525, 0xd4d4d4)`), and its white selected fill.
+  chipCard: '#D4D4D4',
+  chipBorder: 'rgba(0,0,0,0.10)',
+  chipSelected: '#FFFFFF',
+};
+
+/** The ink of the appearance (light or dark). */
+export function sidebarInk(light: boolean): SidebarInk {
+  return light ? LIGHT_INK : DARK_INK;
+}
+
+const INK_BY_APPEARANCE = new WeakMap<Appearance, SidebarInk>();
+
+/** List identities and chip surfaces from the same colour model as the page they stand on. */
+export function useSidebarInk(): SidebarInk {
+  const appearance = useAppearance();
+  return useMemo(() => {
+    const cached = INK_BY_APPEARANCE.get(appearance);
+    if (cached !== undefined) return cached;
+    const ink = sidebarInk(appearance.light);
+    const surfaces = [appearance.background, appearance.card, appearance.cardActive];
+    const text = (designed: string) => readableSecondaryText(designed, appearance.foreground, surfaces);
+    const resolved: SidebarInk = {
+      ...ink,
+      text: text(ink.text),
+      muted: text(ink.muted),
+      selectedText: appearance.foreground,
+      sectionLabel: appearance.muted,
+      time: text(ink.time),
+      timeSleeping: text(ink.timeSleeping),
+      selected: appearance.cardActive,
+      chipCard: appearance.card,
+      chipBorder: appearance.border,
+      chipSelected: appearance.cardActive,
+    };
+    INK_BY_APPEARANCE.set(appearance, resolved);
+    return resolved;
+  }, [appearance]);
+}
+
+/** Styles are cached by resolved ink, including its model-derived chip surfaces. */
+export function inkStyleSheets<T>(make: (ink: SidebarInk) => T): (ink: SidebarInk) => T {
+  const cache = new WeakMap<SidebarInk, T>();
+  return (ink) => {
+    let styles = cache.get(ink);
+    if (styles === undefined) {
+      styles = make(ink);
+      cache.set(ink, styles);
+    }
+    return styles;
+  };
+}
+
+/**
+ * A wash of the chrome's ink (`chrome_ink`: white on dark, black on light) at `alpha`, as the desktop draws its
+ * hover and pressed fills (sections.rs `chrome_ink().opacity(0.06)`).
+ */
+export function inkWash(ink: SidebarInk, alpha: number): string {
+  return `rgba(${ink.light ? '0,0,0' : '255,255,255'},${alpha})`;
+}
 
 /**
  * The phone's touch height for a session row and a project or group header: the desktop's 34 and 30
@@ -96,10 +231,11 @@ export const COLLECTION_BRANCH_WIDTH = ds(18);
 /** Vertical center of a project header row, where its branch meets the card. */
 const PROJECT_HEADER_CENTER = ds(15);
 
-/** Collection rail / branch color: the collection color at 18% over the page. */
+/** Collection rail / branch color: the collection color at 18% over the page; with no color, the page's ink. */
 export function projectRailColor(color: string, sidebarBackground: string): string {
   if (color === 'transparent') {
-    return mixHexColors(SidebarPalette.FOREGROUND, sidebarBackground, 18);
+    const ink = isLightBackground(sidebarBackground) ? LIGHT_INK.text : SidebarPalette.FOREGROUND;
+    return mixHexColors(ink, sidebarBackground, 18);
   }
   return mixHexColors(color, sidebarBackground, 18);
 }
@@ -151,35 +287,41 @@ function svgXmlFromDataUrl(uri: string): string | null {
   }
 }
 
-/** Default glyph tint: the same muted header color the desktop glyph uses. */
-const PROJECT_GLYPH_COLOR = mixHexColors(SidebarPalette.FOREGROUND, SidebarPalette.MUTED, 72);
+/** Default glyph tint: the same muted header color the desktop glyph uses (text 72%, muted 28%). */
+const PROJECT_GLYPH_COLOR = {
+  dark: mixHexColors(SidebarPalette.FOREGROUND, SidebarPalette.MUTED, 72),
+  light: mixHexColors(LIGHT_INK.text, LIGHT_INK.muted, 72),
+};
 
 /**
  * The first letter of a name on a muted square, in the project icon's slot (desktop project_header.rs `letter_tile`: muted at 12%, the muted letter, 10px semibold, 3px corners).
  */
 export function LetterTile({ title, size = ds(16) }: { title: string; size?: number }) {
   const letter = title.trim().charAt(0).toUpperCase() || '?';
+  const styles = letterStyles(useSidebarInk());
   return (
-    <View style={[letterStyles.tile, { width: size, height: size }]}>
-      <Text style={letterStyles.letter}>{letter}</Text>
+    <View style={[styles.tile, { width: size, height: size }]}>
+      <Text style={styles.letter}>{letter}</Text>
     </View>
   );
 }
 
-const letterStyles = StyleSheet.create({
-  tile: {
-    borderRadius: ds(3),
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(124,130,140,0.12)',
-  },
-  letter: {
-    color: SIDEBAR_MUTED,
-    fontSize: ds(10),
-    lineHeight: ds(16),
-    fontWeight: '600',
-  },
-});
+const letterStyles = inkStyleSheets((ink) =>
+  StyleSheet.create({
+    tile: {
+      borderRadius: ds(3),
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: ink.light ? 'rgba(107,114,128,0.12)' : 'rgba(124,130,140,0.12)',
+    },
+    letter: {
+      color: ink.muted,
+      fontSize: ds(10),
+      lineHeight: ds(16),
+      fontWeight: '600',
+    },
+  }),
+);
 
 /**
  * A project's icon: its image, the icon its repository ships, a typed glyph, else the first letter of
@@ -202,6 +344,7 @@ export function ProjectIcon({
         : '';
   const [failedUri, setFailedUri] = useState('');
   const svgXml = useMemo(() => svgXmlFromDataUrl(imageUri), [imageUri]);
+  const ink = useSidebarInk();
   if (imageUri.length > 0 && failedUri !== imageUri) {
     if (svgXml !== null) {
       return (
@@ -221,7 +364,7 @@ export function ProjectIcon({
   }
   const Glyph = icon.glyph.length > 0 ? COMMAND_ICONS[icon.glyph] : undefined;
   if (Glyph === undefined) return <LetterTile title={title} size={size} />;
-  const color = icon.glyphColor.length > 0 ? icon.glyphColor : PROJECT_GLYPH_COLOR;
+  const color = icon.glyphColor.length > 0 ? icon.glyphColor : PROJECT_GLYPH_COLOR[ink.light ? 'light' : 'dark'];
   return <Glyph size={size} color={color} strokeWidth={1.8} />;
 }
 
@@ -232,9 +375,6 @@ const SECTION_LABEL_COLOR = 'rgba(200,205,213,0.52)';
 // Collapsed header status, drawn as the desktop sidebar draws it
 // (ProjectStatusCounts, CollectionStatusCounts, SectionStatusDots).
 // ---------------------------------------------------------------------------
-
-/** Desktop sidebar text color (appearance.rs `foreground`, dark). */
-const HEADER_STATUS_TEXT = '#B4B8C0';
 
 export type HeaderStatusCounts = {
   workingCount: number;
@@ -247,10 +387,11 @@ export type HeaderStatusCounts = {
 };
 
 function ProjectStatusBadge({ count, dotColor }: { count: number; dotColor: string | null }) {
+  const ink = statusInkStyles(useSidebarInk());
   return (
     <View style={statusStyles.badge}>
       {dotColor !== null ? <View style={[statusStyles.badgeDot, { backgroundColor: dotColor }]} /> : null}
-      <Text style={statusStyles.count}>{count}</Text>
+      <Text style={[statusStyles.count, ink.count]}>{count}</Text>
     </View>
   );
 }
@@ -299,6 +440,7 @@ function CollectionStatusCounts({
   backgroundWorkCount,
   awakeCount,
 }: HeaderStatusCounts) {
+  const ink = useSidebarInk();
   const counts: { key: string; count: number; color: string }[] = [];
   if (workingCount > 0) counts.push({ key: 'working', count: workingCount, color: SidebarPalette.ROW_WORKING });
   if (attentionCount > 0) {
@@ -310,7 +452,7 @@ function CollectionStatusCounts({
     counts.push({ key: 'background', count: backgroundWorkCount, color: SidebarPalette.ROW_BACKGROUND_WORK });
   }
   if (workingCount === 0 && attentionCount === 0 && questionCount === 0 && approvalCount === 0 && awakeCount > 0) {
-    counts.push({ key: 'awake', count: awakeCount, color: HEADER_STATUS_TEXT });
+    counts.push({ key: 'awake', count: awakeCount, color: ink.text });
   }
   if (counts.length === 0) return null;
   return (
@@ -326,6 +468,7 @@ function CollectionStatusCounts({
 
 /** apps/desktop/src/app/native_sidebar/sections.rs: a collapsed section heading's dots. */
 function SectionStatusDots({ status, active }: { status: SectionStatusCounts; active: boolean }) {
+  const ink = statusInkStyles(useSidebarInk());
   const dots: { key: string; color: string }[] = [];
   if (status.workingCount > 0) dots.push({ key: 'working', color: SidebarPalette.ROW_WORKING });
   if (status.attentionCount > 0) dots.push({ key: 'attention', color: SidebarPalette.ROW_ATTENTION });
@@ -340,7 +483,7 @@ function SectionStatusDots({ status, active }: { status: SectionStatusCounts; ac
       {dots.map((dot) => (
         <View key={dot.key} style={[statusStyles.sectionDot, { backgroundColor: dot.color }]} />
       ))}
-      {active ? <View style={statusStyles.activeRing} /> : null}
+      {active ? <View style={[statusStyles.activeRing, ink.activeRing]} /> : null}
     </View>
   );
 }
@@ -368,7 +511,6 @@ const statusStyles = StyleSheet.create({
     borderRadius: 999,
   },
   count: {
-    color: HEADER_STATUS_TEXT,
     fontSize: ds(10),
     fontWeight: '300',
     fontVariant: ['tabular-nums'],
@@ -384,15 +526,22 @@ const statusStyles = StyleSheet.create({
     height: ds(STATUS_DOT_SIZE),
     borderRadius: 999,
   },
-  /* sections.rs: 9px hollow ring, 1.5px #a3a3a3 border. */
+  /* sections.rs: 9px hollow ring, 1.5px border (`ink.activeRing`). */
   activeRing: {
     width: ds(9),
     height: ds(9),
     borderRadius: 999,
     borderWidth: ds(1.5),
-    borderColor: '#A3A3A3',
   },
 });
+
+/** The header counts' number in the sidebar text color, and the open session's ring. */
+const statusInkStyles = inkStyleSheets((ink) =>
+  StyleSheet.create({
+    count: { color: ink.text },
+    activeRing: { borderColor: ink.activeRing },
+  }),
+);
 
 // ---------------------------------------------------------------------------
 // Header buttons (desktop project_header.rs actions, times DRAWER_SCALE): 22×22
@@ -459,6 +608,7 @@ function AgentSplitButton({
       ? 'terminal'
       : resolveAgentArtId(primaryAgent.icon, primaryAgent.name ?? primaryAgent.agentId);
   const Icon = AGENT_ICONS[iconId] ?? AGENT_ICONS.terminal;
+  const ink = useSidebarInk();
   return (
     <>
       <HeaderButton
@@ -473,7 +623,7 @@ function AgentSplitButton({
         <Icon size={ds(14)} color={agentIconTint(iconId)} />
       </HeaderButton>
       <HeaderButton accessibilityLabel="Select agent" width={ds(17)} shape="end" onAnchorPress={onOpenMenu}>
-        <ChevronDownGlyph size={ds(14)} color={SIDEBAR_MUTED} />
+        <ChevronDownGlyph size={ds(14)} color={ink.muted} />
       </HeaderButton>
     </>
   );
@@ -545,6 +695,7 @@ export function MachineHeaderRow({
   onPress: () => void;
   onMenu: (anchor: MenuAnchor) => void;
 }) {
+  const ink = useSidebarInk();
   const rowRef = useRef<ViewInstance | null>(null);
   return (
     <Pressable
@@ -554,7 +705,7 @@ export function MachineHeaderRow({
       onPress={onPress}
       onLongPress={() => measurePress(rowRef, onMenu)}
     >
-      <Text style={machineHeaderStyles.title} numberOfLines={1}>
+      <Text style={[machineHeaderStyles.title, { color: ink.muted }]} numberOfLines={1}>
         {`${title.toUpperCase()}${collapsed ? ' …' : ''}`}
       </Text>
       <View style={machineHeaderStyles.trailing}>
@@ -569,7 +720,7 @@ export function MachineHeaderRow({
           />
         ) : null}
         <HeaderButton accessibilityLabel={`${title} options`} onAnchorPress={onMenu}>
-          <MoreGlyph size={ds(14)} color={SidebarPalette.HEADER_BUTTON_ICON} />
+          <MoreGlyph size={ds(14)} color={ink.muted} />
         </HeaderButton>
       </View>
     </Pressable>
@@ -638,6 +789,7 @@ export function SectionLabelRow({
   /** Trailing "⋮" button; the section's discoverable action menu. */
   onMoreMenu?: (anchor: MenuAnchor) => void;
 }) {
+  const ink = useSidebarInk();
   const rowRef = useRef<ViewInstance | null>(null);
   return (
     <View ref={rowRef} style={[sectionStyles.row, first ? sectionStyles.rowFirst : null]}>
@@ -648,8 +800,8 @@ export function SectionLabelRow({
         onPress={onToggle}
         onLongPress={onMenu === undefined ? undefined : () => measurePress(rowRef, onMenu)}
       >
-        <Text style={sectionStyles.title}>{title}</Text>
-        {onToggle !== undefined ? <CaretRightGlyph size={ds(13)} color="#727982" rotated={!collapsed} /> : null}
+        <Text style={[sectionStyles.title, { color: ink.sectionLabel }]}>{title}</Text>
+        {onToggle !== undefined ? <CaretRightGlyph size={ds(13)} color={ink.muted} rotated={!collapsed} /> : null}
       </Pressable>
       <View style={sectionStyles.trailing}>
         {collapsed ? (
@@ -665,7 +817,7 @@ export function SectionLabelRow({
         <View style={sectionStyles.actions}>
           {onMoreMenu !== undefined ? (
             <HeaderButton accessibilityLabel={`${title} options`} onAnchorPress={onMoreMenu}>
-              <MoreGlyph size={ds(14)} color={SidebarPalette.HEADER_BUTTON_ICON} />
+              <MoreGlyph size={ds(14)} color={ink.muted} />
             </HeaderButton>
           ) : null}
         </View>
@@ -714,48 +866,49 @@ const sectionStyles = StyleSheet.create({
 
 // ---------------------------------------------------------------------------
 // The selected card (desktop appearance.rs `session_selected` and decorations.rs
-// `session_outline`): a 12% white fill, a 1px white-8% hairline and a faint 1px
-// highlight 5px in from each side at the top. A session row, and a collapsed
-// project, group or project group holding the open session, carry it.
+// `session_outline`): dark, a 12% white fill, a 1px white-8% hairline and a
+// faint 1px highlight 5px in from each side at the top; light, #e7e7e7 with a
+// black-22% hairline. A session row, and a collapsed project, group or project
+// group holding the open session, carry it.
 // ---------------------------------------------------------------------------
 
 /** The selected fill over `surface`, solid so a dot's ring can match it. */
-export function selectedFill(surface: string): string {
-  return mixHexColors('#FFFFFF', surface, 12);
+export function selectedFill(surface: string, ink: SidebarInk): string {
+  return ink.light ? ink.selected : mixHexColors('#FFFFFF', surface, 12);
 }
 
 /** The hairline and top highlight drawn over a selected card; `radius` is the card's own. */
 export function SelectedCardOutline({ radius = ds(5) }: { radius?: number }) {
+  const styles = selectedStyles(useSidebarInk());
   return (
     <>
-      <View pointerEvents="none" style={[selectedStyles.outline, { borderRadius: radius }]} />
-      <View pointerEvents="none" style={selectedStyles.highlight} />
+      <View pointerEvents="none" style={[styles.outline, { borderRadius: radius }]} />
+      <View pointerEvents="none" style={styles.highlight} />
     </>
   );
 }
 
-const selectedStyles = StyleSheet.create({
-  outline: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  highlight: {
-    position: 'absolute',
-    top: 1,
-    left: ds(5),
-    right: ds(5),
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-  },
-});
-
-/** Selected text (sessions.rs: #D8D8D8 on a focused or visible row). */
-export const SELECTED_TEXT = '#D8D8D8';
+const selectedStyles = inkStyleSheets((ink) =>
+  StyleSheet.create({
+    outline: {
+      position: 'absolute',
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+      borderWidth: 1,
+      borderColor: ink.selectedOutline,
+    },
+    highlight: {
+      position: 'absolute',
+      top: 1,
+      left: ds(5),
+      right: ds(5),
+      height: 1,
+      backgroundColor: ink.selectedHighlight,
+    },
+  }),
+);
 
 // ---------------------------------------------------------------------------
 // COLLECTION_HEADER (desktop native_sidebar/collections.rs): a full-width band
@@ -791,6 +944,7 @@ export function CollectionHeaderRow({
   onMenu: (anchor: MenuAnchor) => void;
 }) {
   const rowRef = useRef<ViewInstance | null>(null);
+  const collectionStyles = collectionInkStyles(useSidebarInk());
   return (
     <Pressable
       ref={rowRef}
@@ -823,30 +977,32 @@ export function CollectionHeaderRow({
   );
 }
 
-const collectionStyles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: ds(5),
-    height: TOUCH_ROW_HEIGHT,
-    paddingHorizontal: ds(8),
-  },
-  headerActive: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: ds(5),
-  },
-  headerPressed: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-  },
-  title: {
-    flex: 1,
-    minWidth: 0,
-    color: SIDEBAR_TEXT,
-    fontSize: ds(15.55),
-    fontWeight: '300',
-    lineHeight: ds(20),
-  },
-});
+const collectionInkStyles = inkStyleSheets((ink) =>
+  StyleSheet.create({
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: ds(5),
+      height: TOUCH_ROW_HEIGHT,
+      paddingHorizontal: ds(8),
+    },
+    headerActive: {
+      backgroundColor: ink.selected,
+      borderRadius: ds(5),
+    },
+    headerPressed: {
+      backgroundColor: inkWash(ink, 0.04),
+    },
+    title: {
+      flex: 1,
+      minWidth: 0,
+      color: ink.text,
+      fontSize: ds(15.55),
+      fontWeight: '300',
+      lineHeight: ds(20),
+    },
+  }),
+);
 
 // ---------------------------------------------------------------------------
 // The header box a project and a user-made session group share (desktop
@@ -878,6 +1034,8 @@ function SidebarHeaderBox({
   children: ReactNode;
 }) {
   const rowRef = useRef<ViewInstance | null>(null);
+  const ink = useSidebarInk();
+  const headerBoxStyles = headerBoxInkStyles(ink);
   return (
     <Pressable
       ref={rowRef}
@@ -894,7 +1052,7 @@ function SidebarHeaderBox({
     >
       {containsActive ? <SelectedCardOutline /> : null}
       <View pointerEvents="none" style={headerBoxStyles.chevron}>
-        <ChevronRightGlyph size={ds(16)} color={SIDEBAR_MUTED} rotated={!collapsed} />
+        <ChevronRightGlyph size={ds(16)} color={ink.muted} rotated={!collapsed} />
       </View>
       <View style={headerBoxStyles.icon}>{leading}</View>
       <Text style={headerBoxStyles.title} numberOfLines={1}>
@@ -905,44 +1063,46 @@ function SidebarHeaderBox({
   );
 }
 
-const headerBoxStyles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: TOUCH_ROW_HEIGHT,
-    marginLeft: -HEADER_CHEVRON_INSET,
-    marginRight: ds(3),
-    paddingLeft: ds(5 + 18),
-    paddingRight: ds(6),
-    gap: ds(10),
-    borderRadius: ds(5),
-  },
-  rowActive: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-  },
-  rowPressed: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  chevron: {
-    position: 'absolute',
-    left: 0,
-    top: (TOUCH_ROW_HEIGHT - ds(16)) / 2,
-  },
-  icon: {
-    width: ds(16),
-    height: ds(16),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    flex: 1,
-    minWidth: 0,
-    color: SIDEBAR_TEXT,
-    fontSize: ds(15.55),
-    fontWeight: '300',
-    lineHeight: ds(20),
-  },
-});
+const headerBoxInkStyles = inkStyleSheets((ink) =>
+  StyleSheet.create({
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      height: TOUCH_ROW_HEIGHT,
+      marginLeft: -HEADER_CHEVRON_INSET,
+      marginRight: ds(3),
+      paddingLeft: ds(5 + 18),
+      paddingRight: ds(6),
+      gap: ds(10),
+      borderRadius: ds(5),
+    },
+    rowActive: {
+      backgroundColor: ink.selected,
+    },
+    rowPressed: {
+      backgroundColor: inkWash(ink, 0.06),
+    },
+    chevron: {
+      position: 'absolute',
+      left: 0,
+      top: (TOUCH_ROW_HEIGHT - ds(16)) / 2,
+    },
+    icon: {
+      width: ds(16),
+      height: ds(16),
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    title: {
+      flex: 1,
+      minWidth: 0,
+      color: ink.text,
+      fontSize: ds(15.55),
+      fontWeight: '300',
+      lineHeight: ds(20),
+    },
+  }),
+);
 
 // ---------------------------------------------------------------------------
 // PROJECT_HEADER (desktop native_sidebar/project_header.rs, gx-core
@@ -997,6 +1157,7 @@ export function ProjectHeaderRow({
   onOpenAgentMenu: (anchor: MenuAnchor) => void;
   onMenu: (anchor: MenuAnchor) => void;
 }) {
+  const ink = useSidebarInk();
   return (
     <SidebarHeaderBox
       title={title}
@@ -1018,10 +1179,10 @@ export function ProjectHeaderRow({
       ) : (
         <View style={buttonStyles.actions}>
           <HeaderButton accessibilityLabel={`${title} options`} onAnchorPress={onMenu}>
-            <MoreGlyph size={ds(14)} color={SIDEBAR_MUTED} />
+            <MoreGlyph size={ds(14)} color={ink.muted} />
           </HeaderButton>
           <HeaderButton accessibilityLabel={`New terminal in ${title}`} onPress={onCreateTerminal}>
-            <TerminalGlyph size={ds(14)} color={SIDEBAR_MUTED} />
+            <TerminalGlyph size={ds(14)} color={ink.muted} />
           </HeaderButton>
           {primaryAgent !== null ? (
             <AgentSplitButton
@@ -1042,6 +1203,7 @@ export function ProjectHeaderRow({
 // ---------------------------------------------------------------------------
 
 export function ProjectEmptyRow({ text, onPress }: { text: string; onPress?: () => void }) {
+  const emptyStyles = emptyInkStyles(useSidebarInk());
   return (
     <Pressable
       accessibilityRole="button"
@@ -1055,23 +1217,25 @@ export function ProjectEmptyRow({ text, onPress }: { text: string; onPress?: () 
   );
 }
 
-const emptyStyles = StyleSheet.create({
-  row: {
-    height: TOUCH_ROW_HEIGHT,
-    justifyContent: 'center',
-    paddingLeft: ds(26),
-    borderRadius: ds(5),
-  },
-  rowPressed: {
-    backgroundColor: 'rgba(128,128,128,0.12)',
-  },
-  text: {
-    color: SIDEBAR_TEXT,
-    fontSize: ds(15.55),
-    fontWeight: '300',
-    lineHeight: ds(20),
-  },
-});
+const emptyInkStyles = inkStyleSheets((ink) =>
+  StyleSheet.create({
+    row: {
+      height: TOUCH_ROW_HEIGHT,
+      justifyContent: 'center',
+      paddingLeft: ds(26),
+      borderRadius: ds(5),
+    },
+    rowPressed: {
+      backgroundColor: 'rgba(128,128,128,0.12)',
+    },
+    text: {
+      color: ink.text,
+      fontSize: ds(15.55),
+      fontWeight: '300',
+      lineHeight: ds(20),
+    },
+  }),
+);
 
 // ---------------------------------------------------------------------------
 // GROUP_HEADER: a user-made session group, drawn with the project header box
@@ -1099,10 +1263,11 @@ export function GroupHeaderRow({
   onMenu: (anchor: MenuAnchor) => void;
   onCreateTerminal?: () => void;
 }) {
+  const ink = useSidebarInk();
   return (
     <SidebarHeaderBox
       title={title}
-      leading={<FolderGlyph size={ds(16)} color={SIDEBAR_MUTED} />}
+      leading={<FolderGlyph size={ds(16)} color={ink.muted} />}
       collapsed={collapsed}
       containsActive={containsActive}
       onToggle={onPress}
@@ -1120,11 +1285,11 @@ export function GroupHeaderRow({
       ) : (
         <View style={buttonStyles.actions}>
           <HeaderButton accessibilityLabel={`${title} options`} onAnchorPress={onMenu}>
-            <MoreGlyph size={ds(14)} color={SIDEBAR_MUTED} />
+            <MoreGlyph size={ds(14)} color={ink.muted} />
           </HeaderButton>
           {onCreateTerminal !== undefined ? (
             <HeaderButton accessibilityLabel={`New terminal in ${title}`} onPress={onCreateTerminal}>
-              <PlusGlyph size={ds(14)} color={SIDEBAR_MUTED} />
+              <PlusGlyph size={ds(14)} color={ink.muted} />
             </HeaderButton>
           ) : null}
         </View>
@@ -1160,6 +1325,7 @@ export function SessionKindLabelRow({
   /** Long press: the heading's menu. Only the Parked heading has one. */
   onMenu?: () => void;
 }) {
+  const kindLabelStyles = kindLabelInkStyles(useSidebarInk());
   return (
     <Pressable
       accessibilityRole="button"
@@ -1184,30 +1350,32 @@ export function SessionKindLabelRow({
   );
 }
 
-const kindLabelStyles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: ds(5),
-    height: ds(20),
-    paddingLeft: ds(5),
-    paddingRight: ds(6),
-    borderRadius: ds(5),
-  },
-  rowPressed: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  spacer: {
-    flex: 1,
-  },
-  label: {
-    color: 'rgba(216,216,216,0.34)',
-    fontSize: ds(12),
-    fontWeight: '300',
-    letterSpacing: ds(12) * 0.02,
-    lineHeight: ds(16),
-  },
-});
+const kindLabelInkStyles = inkStyleSheets((ink) =>
+  StyleSheet.create({
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: ds(5),
+      height: ds(20),
+      paddingLeft: ds(5),
+      paddingRight: ds(6),
+      borderRadius: ds(5),
+    },
+    rowPressed: {
+      backgroundColor: inkWash(ink, 0.06),
+    },
+    spacer: {
+      flex: 1,
+    },
+    label: {
+      color: ink.sectionLabel,
+      fontSize: ds(12),
+      fontWeight: '300',
+      letterSpacing: ds(12) * 0.02,
+      lineHeight: ds(16),
+    },
+  }),
+);
 
 // ---------------------------------------------------------------------------
 // A quiet session-styled text row (a coordinator's "N older threads"): 15.5dp
@@ -1232,6 +1400,7 @@ export function PassingThreadLines({
   levelLeft: (level: number) => number;
   height: number;
 }) {
+  const passingStyles = passingInkStyles(useSidebarInk());
   if (lines === 0) return null;
   const pieces: ReactNode[] = [];
   for (let level = 1; 1 << level <= lines; level += 1) {
@@ -1247,14 +1416,16 @@ export function PassingThreadLines({
   return <>{pieces}</>;
 }
 
-const passingStyles = StyleSheet.create({
-  piece: {
-    position: 'absolute',
-    top: -ds(1),
-    width: ds(1),
-    backgroundColor: SidebarPalette.ROW_THREAD_LINE,
-  },
-});
+const passingInkStyles = inkStyleSheets((ink) =>
+  StyleSheet.create({
+    piece: {
+      position: 'absolute',
+      top: -ds(1),
+      width: ds(1),
+      backgroundColor: ink.threadLine,
+    },
+  }),
+);
 
 export function SessionListToggleRow({
   label,
@@ -1273,6 +1444,7 @@ export function SessionListToggleRow({
   onPress: () => void;
 }) {
   const thread = threadDepth !== undefined;
+  const toggleStyles = toggleInkStyles(useSidebarInk());
   return (
     <Pressable
       accessibilityRole="button"
@@ -1297,30 +1469,33 @@ export function SessionListToggleRow({
   );
 }
 
-const toggleStyles = StyleSheet.create({
-  row: {
-    height: ds(34),
-    justifyContent: 'center',
-    opacity: 0.8,
-    borderRadius: ds(5),
-  },
-  rowCard: {
-    paddingLeft: ds(26),
-  },
-  rowPressed: {
-    backgroundColor: 'rgba(200,205,213,0.06)',
-  },
-  rowThread: {
-    height: ds(26),
-  },
-  label: {
-    color: '#B4B8C0',
-    fontSize: ds(15.5),
-    fontWeight: '300',
-    lineHeight: ds(20),
-  },
-  labelThread: {
-    fontSize: ds(13),
-    lineHeight: ds(17),
-  },
-});
+const toggleInkStyles = inkStyleSheets((ink) =>
+  StyleSheet.create({
+    row: {
+      height: ds(34),
+      justifyContent: 'center',
+      opacity: 0.8,
+      borderRadius: ds(5),
+    },
+    rowCard: {
+      paddingLeft: ds(26),
+    },
+    // The row text at 6%.
+    rowPressed: {
+      backgroundColor: ink.light ? 'rgba(38,38,38,0.06)' : 'rgba(200,205,213,0.06)',
+    },
+    rowThread: {
+      height: ds(26),
+    },
+    label: {
+      color: ink.text,
+      fontSize: ds(15.5),
+      fontWeight: '300',
+      lineHeight: ds(20),
+    },
+    labelThread: {
+      fontSize: ds(13),
+      lineHeight: ds(17),
+    },
+  }),
+);

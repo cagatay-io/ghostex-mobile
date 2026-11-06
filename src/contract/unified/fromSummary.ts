@@ -3,7 +3,13 @@
  * sessions and Spaces as its own Workspace shows them, in the terms of ./build.ts.
  */
 
-import { visibleSessions, type GhostexMobileSummary, type GhostexSession } from '../mobileSummary';
+import {
+  hasQuestion,
+  visibleSessions,
+  type GhostexMobileSummary,
+  type GhostexSession,
+  type GhostexSummaryCapabilities,
+} from '../mobileSummary';
 import { collectionIdByProjectId, orderedSpaces } from '../../spaces/spaceFilter';
 import { filterSummaryForWorkspace } from '../../workspaces/workspaceFilter';
 import {
@@ -37,8 +43,11 @@ export function isBrowserSession(session: GhostexSession): boolean {
   return session.kind === 'browser' || session.surface === 'browser';
 }
 
-/** A session in the builder's terms, keeping the phone's own record beside it. */
-export function unifiedSessionInput(session: GhostexSession): UnifiedSessionInput & { source: GhostexSession } {
+/** A session in the builder's terms, read by its computer's capabilities, keeping the phone's own record beside it. */
+export function unifiedSessionInput(
+  session: GhostexSession,
+  capabilities: GhostexSummaryCapabilities,
+): UnifiedSessionInput & { source: GhostexSession } {
   return {
     sessionId: session.sessionId,
     projectId: session.projectId ?? '',
@@ -49,7 +58,7 @@ export function unifiedSessionInput(session: GhostexSession): UnifiedSessionInpu
         : (session.work?.branch ?? ''),
     activity: session.activity,
     awaitingApproval: session.awaitingApproval === true,
-    pendingQuestionCount: session.pendingQuestionCount ?? 0,
+    hasQuestion: hasQuestion(session.pendingQuestionCount, capabilities.awaitingAnswer && session.awaitingAnswer),
     modelSelectionFailed: session.modelSelectionFailed === true,
     // The desktop counts a program's `error` as Failed only once its turn is over (gx-core rows.rs).
     programStatusFailed: session.programStatusFailed === true && session.activity === 'attention',
@@ -107,7 +116,7 @@ export function unifiedMachineInput(computer: UnifiedComputer, alone: boolean): 
         collectionId: collections.get(project.projectId) ?? null,
       };
     }),
-    sessions: visibleSessions(summary.sessions).map(unifiedSessionInput),
+    sessions: visibleSessions(summary.sessions).map((session) => unifiedSessionInput(session, summary.capabilities)),
   };
 }
 

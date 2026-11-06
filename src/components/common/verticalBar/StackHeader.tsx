@@ -20,7 +20,7 @@ import { Pressable, StyleSheet, Text, View, type ViewInstance } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DuoChromeCopy } from '../../../copy';
-import { GhostexPalette } from '../../../theme/palette';
+import { useAppearance } from '../../../theme/useAppearance';
 import ContextMenu, { type MenuAnchor } from '../../sessions/ContextMenu';
 import { ChevronLeftIcon, EllipsisIcon } from '../../terminal/icons';
 import { CONTENT_ROW_HEIGHT, bandRowFrame, type BandButtons } from './layout';
@@ -53,9 +53,9 @@ const BAND_TITLE_MIN = 64;
 const BAND_BUTTONS: BandButtons = { size: 40, gap: BAND_GAP };
 const BAND_GLYPH = 20;
 
-function headerBackground(options: NativeStackNavigationOptions): string {
+function headerBackground(options: NativeStackNavigationOptions, fallback: string): string {
   const background = StyleSheet.flatten(options.headerStyle)?.backgroundColor;
-  return typeof background === 'string' ? background : GhostexPalette.BACKGROUND;
+  return typeof background === 'string' ? background : fallback;
 }
 
 export function StackHeader({ navigation, route, options, back }: NativeStackHeaderProps) {
@@ -64,8 +64,9 @@ export function StackHeader({ navigation, route, options, back }: NativeStackHea
   const bar = useVerticalBarSpace();
   const focused = useIsFocused();
   const screenRail = useStackRailStore((state) => state.byRoute[route.key]);
-  const background = headerBackground(options);
-  const tint = options.headerTintColor ?? GhostexPalette.FOREGROUND;
+  const appearance = useAppearance();
+  const background = headerBackground(options, appearance.background);
+  const tint = options.headerTintColor ?? appearance.foreground;
   const title = typeof options.title === 'string' ? options.title : route.name;
   const canGoBack = back !== undefined && options.headerBackVisible !== false;
 

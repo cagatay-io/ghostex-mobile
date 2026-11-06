@@ -1,7 +1,8 @@
 /**
  * Per-machine session inventory store.
- * - 5s polling loop, active only while the sessions screen is focused AND a
- *   machine is selected (screens call startPolling/stopPolling on focus/blur).
+ * - 5s polling loop on every screen while the app is in the foreground AND a
+ *   machine is selected; `summaryRefresh.ts` owns the timer
+ *   and reports it through `setPolling`.
  * - Multi-machine refreshes run concurrently.
  * - Fingerprint change-skip avoids re-rendering identical summaries.
  */
@@ -10,7 +11,7 @@ import { create } from 'zustand';
 
 import { reportClientHello } from '../analytics/clientHello';
 import { logAppEvent } from '../app/appLog';
-import type { GhostexMobileSummary } from '../contract/mobileSummary';
+import { withoutGlobalQuickActions, type GhostexMobileSummary } from '../contract/mobileSummary';
 import { hasPassword } from '../machines/credentials';
 import { reconnectMachine } from '../remote/connection';
 import { restoreAttachTabs } from '../terminal/sessions';
@@ -30,7 +31,7 @@ export const INVENTORY_POLL_INTERVAL_MS = 5000;
  * While a computer's Ghostex is not answering, its list is read again this soon rather than on the
  * next 5 s poll (CDXC:Sidebar 2026-10-08 in `packages/gx-core/src/sidebar_view/daemon_wait.rs`):
  * the user asked every client to retry every 2 seconds until Ghostex is there. Only while the
- * Sessions screen polls, and one pending retry per machine.
+ * summary poll runs, and one pending retry per machine.
  */
 const NOT_ANSWERING_RETRY_MS = 2000;
 const notAnsweringRetries = new Map<string, ReturnType<typeof setTimeout>>();
@@ -57,6 +58,11 @@ export type MachineInventory = {
    */
   retrying: boolean;
   fingerprint: string | null;
+  /**
+   * When `summary` was last read from the computer (epoch ms), the data time the Live Activity shows;
+   * null before the first successful read. Failed reads keep the old time.
+   */
+  loadedAt: number | null;
 };
 
 export function emptyMachineInventory(): MachineInventory {
@@ -69,6 +75,7 @@ export function emptyMachineInventory(): MachineInventory {
     refreshing: false,
     retrying: false,
     fingerprint: null,
+    loadedAt: null,
   };
 }
 
@@ -91,13 +98,20 @@ type InventoryState = {
   retryMachine: (machineId: string) => Promise<void>;
   /** Refresh every saved machine concurrently. */
   refreshAll: () => Promise<void>;
-  startPolling: () => void;
-  stopPolling: () => void;
+  /** Set by the summary refresh (`summaryRefresh.ts`); false also drops pending not-answering retries. */
+  setPolling: (polling: boolean) => void;
   /** Drop cached inventory (e.g. when a machine is removed). */
   clearMachine: (machineId: string) => void;
   beginOptimisticMutations: (machineId: string, changes: readonly OptimisticInventoryChange[]) => Array<string | null>;
   commitOptimisticMutations: (machineId: string, mutationIds: readonly string[]) => void;
   rollbackOptimisticMutations: (machineId: string, mutationIds: readonly string[]) => void;
+  /**
+   * Forget the computer's cached Global Actions and capability, keeping everything else on screen; for a connection
+   * that is recovered outside this store (the automatic reconnect, the check on returning to the foreground). A list
+   * read already under way was sent over the connection being recovered: its answer is discarded, and the next
+   * read starts anew.
+   */
+  dropGlobalQuickActions: (machineId: string) => void;
   /**
    * Optimistically clear a session's attention state (desktop-parity instant
    * dot clear on tap). Drops the fingerprint so the next poll always swaps the
@@ -106,11 +120,16 @@ type InventoryState = {
   acknowledgeAttentionLocally: (machineId: string, sessionId: string) => void;
 };
 
-let pollTimer: ReturnType<typeof setInterval> | null = null;
 let nextMutationNumber = 1;
 const inFlightRefreshes = new Map<string, Promise<void>>();
 const refreshRevisions = new Map<string, number>();
 const retryRequests = new Map<string, Promise<void>>();
+
+/** A read already under way for the computer is not applied when it answers, and the next refresh starts anew. */
+function forgetInFlightRefresh(machineId: string): void {
+  refreshRevisions.set(machineId, (refreshRevisions.get(machineId) ?? 0) + 1);
+  inFlightRefreshes.delete(machineId);
+}
 
 export const useInventoryStore = create<InventoryState>()((set, get) => {
   const patchMachine = (machineId: string, patch: Partial<MachineInventory>): void => {
@@ -120,6 +139,25 @@ export const useInventoryStore = create<InventoryState>()((set, get) => {
         ...get().inventoriesByMachineId,
         [machineId]: { ...current, ...patch },
       },
+    });
+  };
+
+  /**
+   * A lost or re-established connection keeps the list on screen but not the computer's Global Actions: they are
+   * shown and run only from a summary read over the current connection, since the computer that answers next may
+   * no longer offer them. The fingerprint goes too, so the next answer is applied even when its text is unchanged.
+   */
+  const dropGlobalQuickActions = (machineId: string): void => {
+    const current = get().inventoriesByMachineId[machineId];
+    if (current === undefined) return;
+    const cached =
+      current.summary?.globalQuickActionsSupported === true ||
+      current.serverSummary?.globalQuickActionsSupported === true;
+    if (!cached) return;
+    patchMachine(machineId, {
+      summary: current.summary === null ? null : withoutGlobalQuickActions(current.summary),
+      serverSummary: current.serverSummary === null ? null : withoutGlobalQuickActions(current.serverSummary),
+      fingerprint: null,
     });
   };
 
@@ -178,6 +216,7 @@ export const useInventoryStore = create<InventoryState>()((set, get) => {
               hasLoaded: true,
               lastError: null,
               lastErrorCode: null,
+              loadedAt: Date.now(),
             });
             return;
           }
@@ -194,6 +233,7 @@ export const useInventoryStore = create<InventoryState>()((set, get) => {
                 hasLoaded: true,
                 lastError: null,
                 lastErrorCode: null,
+                loadedAt: Date.now(),
               },
             },
             pendingMutationsByMachineId: setPendingMutations(machine.id, reconciled.pending),
@@ -228,16 +268,13 @@ export const useInventoryStore = create<InventoryState>()((set, get) => {
             lastError: failure.message,
             lastErrorCode: failure.reasonCode,
           });
-          if (
-            failure.reasonCode === 'ghostexNotAnswering' &&
-            pollTimer !== null &&
-            !notAnsweringRetries.has(machine.id)
-          ) {
+          dropGlobalQuickActions(machine.id);
+          if (failure.reasonCode === 'ghostexNotAnswering' && get().polling && !notAnsweringRetries.has(machine.id)) {
             notAnsweringRetries.set(
               machine.id,
               setTimeout(() => {
                 notAnsweringRetries.delete(machine.id);
-                if (pollTimer !== null) void get().refreshMachine(machine);
+                if (get().polling) void get().refreshMachine(machine);
               }, NOT_ANSWERING_RETRY_MS),
             );
           }
@@ -271,9 +308,9 @@ export const useInventoryStore = create<InventoryState>()((set, get) => {
       if (existing !== undefined) return existing;
       const machine = enabledMachines(useMachinesStore.getState()).find((entry) => entry.id === machineId);
       if (machine === undefined) return Promise.resolve();
-      refreshRevisions.set(machineId, (refreshRevisions.get(machineId) ?? 0) + 1);
-      inFlightRefreshes.delete(machineId);
+      forgetInFlightRefresh(machineId);
       patchMachine(machine.id, { retrying: true });
+      dropGlobalQuickActions(machine.id);
       const request = Promise.resolve().then(async () => {
         try {
           await reconnectMachine(machine);
@@ -304,6 +341,11 @@ export const useInventoryStore = create<InventoryState>()((set, get) => {
       return request;
     },
 
+    dropGlobalQuickActions: (machineId) => {
+      forgetInFlightRefresh(machineId);
+      dropGlobalQuickActions(machineId);
+    },
+
     refreshAll: async () => {
       // Machines hidden from the Sessions screen are never connected to, so a
       // hidden machine costs no SSH connection and no poll.
@@ -316,26 +358,12 @@ export const useInventoryStore = create<InventoryState>()((set, get) => {
       void refreshCloudBoxes().catch(() => undefined);
     },
 
-    startPolling: () => {
-      if (pollTimer !== null) return;
-      set({ polling: true });
-      const tick = (): void => {
-        const machinesState = useMachinesStore.getState();
-        if (machinesState.selectedMachineId === null) return;
-        void get().refreshAll();
-      };
-      tick();
-      pollTimer = setInterval(tick, INVENTORY_POLL_INTERVAL_MS);
-    },
-
-    stopPolling: () => {
-      if (pollTimer !== null) {
-        clearInterval(pollTimer);
-        pollTimer = null;
+    setPolling: (polling) => {
+      if (!polling) {
+        for (const timer of notAnsweringRetries.values()) clearTimeout(timer);
+        notAnsweringRetries.clear();
       }
-      for (const timer of notAnsweringRetries.values()) clearTimeout(timer);
-      notAnsweringRetries.clear();
-      set({ polling: false });
+      set({ polling });
     },
 
     clearMachine: (machineId) => {
@@ -344,8 +372,7 @@ export const useInventoryStore = create<InventoryState>()((set, get) => {
       const nextPending = { ...get().pendingMutationsByMachineId };
       delete next[machineId];
       delete nextPending[machineId];
-      refreshRevisions.set(machineId, (refreshRevisions.get(machineId) ?? 0) + 1);
-      inFlightRefreshes.delete(machineId);
+      forgetInFlightRefresh(machineId);
       set({
         inventoriesByMachineId: next,
         pendingMutationsByMachineId: nextPending,

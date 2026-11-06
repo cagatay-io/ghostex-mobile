@@ -1,0 +1,60 @@
+{
+  "id": "sol-dark",
+  "name": "Solarized Dark",
+  "mode": "dark",
+  "partner": "sol-light",
+  "background": "#002b36",
+  "tintColor": "#002934",
+  "terminalPalette": "Ghostex Solarized Dark",
+  "palette": {
+    "background": "#002b36",
+    "foreground": "#839496",
+    "cursor": "#839496",
+    "selectionBackground": "#073642",
+    "ansi": [
+      "#073642",
+      "#dc322f",
+      "#859900",
+      "#b58900",
+      "#268bd2",
+      "#d33682",
+      "#2aa198",
+      "#eee8d5",
+      "#002b36",
+      "#cb4b16",
+      "#586e75",
+      "#657b83",
+      "#839496",
+      "#6c71c4",
+      "#93a1a1",
+      "#fdf6e3"
+    ]
+  },
+  "patches": {
+    "lightFollows": {
+      "sidebarTheme": "dark-2",
+      "darkThemePreset": "custom",
+      "customSidebarTitlebarBackgroundTintColor": "#002934",
+      "terminalGhosttyTheme": "Ghostex Solarized Dark",
+      "lightThemePreset": "custom",
+      "customSidebarTitlebarLightBackgroundTintColor": "#fcf3da",
+      "terminalGhosttyLightTheme": "Ghostex Solarized Light",
+      "themeSidebarContrast": -24,
+      "themeWorkAreaContrast": -24,
+      "customSidebarTitlebarBackgroundDarknessPercent": 85,
+      "customSidebarTitlebarLightBackgroundLightnessPercent": 84,
+      "terminalBackgroundMode": "theme"
+    },
+    "lightPickedOnPurpose": {
+      "sidebarTheme": "dark-2",
+      "darkThemePreset": "custom",
+      "customSidebarTitlebarBackgroundTintColor": "#002934",
+      "terminalGhosttyTheme": "Ghostex Solarized Dark",
+      "themeSidebarContrast": -24,
+      "themeWorkAreaContrast": -24,
+      "customSidebarTitlebarBackgroundDarknessPercent": 85,
+      "customSidebarTitlebarLightBackgroundLightnessPercent": 84,
+      "terminalBackgroundMode": "theme"
+    }
+  }
+}

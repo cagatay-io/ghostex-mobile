@@ -1,0 +1,60 @@
+{
+  "id": "ef-dark",
+  "name": "Everforest Dark",
+  "mode": "dark",
+  "partner": "ef-light",
+  "background": "#2d353b",
+  "tintColor": "#2b3339",
+  "terminalPalette": "Ghostex Everforest Dark",
+  "palette": {
+    "background": "#2d353b",
+    "foreground": "#d3c6aa",
+    "cursor": "#d3c6aa",
+    "selectionBackground": "#543a48",
+    "ansi": [
+      "#475258",
+      "#e67e80",
+      "#a7c080",
+      "#dbbc7f",
+      "#7fbbb3",
+      "#d699b6",
+      "#83c092",
+      "#d3c6aa",
+      "#475258",
+      "#e67e80",
+      "#a7c080",
+      "#dbbc7f",
+      "#7fbbb3",
+      "#d699b6",
+      "#83c092",
+      "#d3c6aa"
+    ]
+  },
+  "patches": {
+    "lightFollows": {
+      "sidebarTheme": "dark-2",
+      "darkThemePreset": "custom",
+      "customSidebarTitlebarBackgroundTintColor": "#2b3339",
+      "terminalGhosttyTheme": "Ghostex Everforest Dark",
+      "lightThemePreset": "custom",
+      "customSidebarTitlebarLightBackgroundTintColor": "#fcf3da",
+      "terminalGhosttyLightTheme": "Ghostex Everforest Light",
+      "themeSidebarContrast": -24,
+      "themeWorkAreaContrast": -24,
+      "customSidebarTitlebarBackgroundDarknessPercent": 85,
+      "customSidebarTitlebarLightBackgroundLightnessPercent": 84,
+      "terminalBackgroundMode": "theme"
+    },
+    "lightPickedOnPurpose": {
+      "sidebarTheme": "dark-2",
+      "darkThemePreset": "custom",
+      "customSidebarTitlebarBackgroundTintColor": "#2b3339",
+      "terminalGhosttyTheme": "Ghostex Everforest Dark",
+      "themeSidebarContrast": -24,
+      "themeWorkAreaContrast": -24,
+      "customSidebarTitlebarBackgroundDarknessPercent": 85,
+      "customSidebarTitlebarLightBackgroundLightnessPercent": 84,
+      "terminalBackgroundMode": "theme"
+    }
+  }
+}

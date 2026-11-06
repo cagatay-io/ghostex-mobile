@@ -15,6 +15,9 @@
 
 import { Directory, File, Paths } from 'expo-file-system';
 
+import { DocsCopy } from '../copy';
+import type { SidebarAppearance } from '../theme/sidebarAppearance';
+import { filePreview, isTextFile, PREVIEW_MAX_BYTES, type InfoReason } from '../files/preview';
 import type { MachineConnectionTarget } from '../machines/credentials';
 import { renderMarkdownDocument } from './markdownDocument';
 import { computerFileUrl, type ViewerProject } from './mediaStream';
@@ -30,7 +33,7 @@ import {
   resolveRemoteReference,
   type PreviewKind,
 } from './paths';
-import { renderImageDocument, renderMediaDocument, renderTextDocument } from './plainDocument';
+import { renderImageDocument, renderMediaDocument, renderSourceDocument, renderTextDocument } from './plainDocument';
 import { decodeBase64Utf8, readRemoteFiles } from './remoteFiles';
 
 export const MIRROR_FOLDER = 'ghostex-docs-view';
@@ -44,20 +47,23 @@ const ASSET_BATCH_SIZE = 40;
 /** HTML → stylesheet → the stylesheet's own imports and fonts. */
 const ASSET_MAX_DEPTH = 4;
 
-export type DocPage = {
-  kind: PreviewKind;
-  /** What the WebView loads. */
-  uri: string;
-  /** The mirror folder; iOS needs read access widened to it for the page's sibling files. */
-  rootUri: string;
-  title: string;
-  /** Referenced files that were missing, too large, or over the page budget. */
-  skippedAssets: number;
-  /** What this page has already copied or tried, for the files it asks for while it runs. */
-  mirror: DocMirror;
-  /** Computer loopback ports the document's own markup names: the only ones the viewer forwards. */
-  loopbackPorts: ReadonlySet<number>;
-};
+export type DocPage =
+  | { kind: 'info'; reason: InfoReason; size: number | null }
+  | { kind: 'source'; html: string }
+  | {
+      kind: PreviewKind;
+      /** What the WebView loads. */
+      uri: string;
+      /** The mirror folder; iOS needs read access widened to it for the page's sibling files. */
+      rootUri: string;
+      title: string;
+      /** Referenced files that were missing, too large, or over the page budget. */
+      skippedAssets: number;
+      /** What this page has already copied or tried, for the files it asks for while it runs. */
+      mirror: DocMirror;
+      /** Computer loopback ports the document's own markup names: the only ones the viewer forwards. */
+      loopbackPorts: ReadonlySet<number>;
+    };
 
 /** One opened page's mirror bookkeeping. */
 type DocMirror = {
@@ -400,7 +406,10 @@ function remotePathForRequestedUrl(url: string): string | null {
  * (the same URL for a mirror file); a file that is missing on the computer or too large is left
  * out, and the page tries each file again only once.
  */
-export async function mirrorRequestedAssets(page: DocPage, urls: readonly string[]): Promise<Record<string, string>> {
+export async function mirrorRequestedAssets(
+  page: Exclude<DocPage, { kind: 'info' | 'source' }>,
+  urls: readonly string[],
+): Promise<Record<string, string>> {
   const byPath = new Map<string, string[]>();
   for (const url of urls) {
     const remotePath = remotePathForRequestedUrl(url);
@@ -427,17 +436,23 @@ export async function mirrorRequestedAssets(page: DocPage, urls: readonly string
 
 /**
  * Reads a file off the computer and mirrors it, with what it embeds, for the viewer: HTML as
- * authored, Markdown rendered, text and pictures in a page of their own. Throws a message fit to
- * show when the file cannot be read.
+ * authored, Markdown rendered, text and pictures in a page of their own. A size from Files applies
+ * its preview limit and numbered source mode, or returns metadata without reading unsupported content.
+ * Throws a message fit to show when the file cannot be read.
  */
 export async function buildDocPage(
   machine: MachineConnectionTarget,
   remotePath: string,
+  appearance: SidebarAppearance,
   isCancelled: () => boolean = () => false,
   project: ViewerProject | null = null,
+  fileSize?: number | null,
 ): Promise<DocPage> {
   const documentPath = normalizeRemotePath(remotePath);
-  const kind = previewKindForPath(documentPath);
+  const browserPreview = fileSize === undefined ? null : filePreview(baseName(documentPath), fileSize);
+  if (browserPreview?.kind === 'info') return { ...browserPreview, size: fileSize ?? null };
+  const numberedSource = browserPreview?.kind === 'source';
+  const kind = numberedSource ? 'text' : previewKindForPath(documentPath);
   if (kind === null) throw new Error(`This kind of file can't be previewed on the phone: ${documentPath}`);
   const root = mirrorRoot();
   const rootUri = directoryUri(root);
@@ -451,7 +466,7 @@ export async function buildDocPage(
   if (kind === 'video' || kind === 'audio') {
     // Streamed from the computer rather than copied: the page only names where it plays from.
     const source = await computerFileUrl(machine, documentPath, project);
-    writeMirrorFile(pageUri, renderMediaDocument(kind, source, title), 'utf8');
+    writeMirrorFile(pageUri, renderMediaDocument(kind, source, title, appearance), 'utf8');
     return {
       kind,
       uri: pageUri,
@@ -463,14 +478,30 @@ export async function buildDocPage(
     };
   }
 
-  const maximumBytes = kind === 'image' ? ASSET_MAX_BYTES : kind === 'text' ? TEXT_MAX_BYTES : DOCUMENT_MAX_BYTES;
+  const maximumBytes =
+    fileSize !== undefined
+      ? PREVIEW_MAX_BYTES
+      : kind === 'image'
+        ? ASSET_MAX_BYTES
+        : kind === 'text'
+          ? TEXT_MAX_BYTES
+          : DOCUMENT_MAX_BYTES;
   const [read] = await readRemoteFiles(machine, [documentPath], maximumBytes);
-  if (read === undefined || read.status === 'missing') throw new Error(`File not found: ${documentPath}`);
-  if (read.status === 'tooLarge') throw new Error('This file is too large to open on the phone.');
+  if (read === undefined || read.status === 'missing') {
+    throw new Error(fileSize !== undefined ? DocsCopy.fileMissing : `File not found: ${documentPath}`);
+  }
+  if (read.status === 'tooLarge') {
+    if (fileSize !== undefined) return { kind: 'info', reason: 'large', size: fileSize };
+    throw new Error('This file is too large to open on the phone.');
+  }
+  if (numberedSource) {
+    if (!isTextFile(read.base64)) return { kind: 'info', reason: 'binary', size: read.bytes };
+    return { kind: 'source', html: renderSourceDocument(decodeBase64Utf8(read.base64), title, appearance) };
+  }
 
   if (kind === 'image') {
     writeMirrorFile(documentUri, read.base64, 'base64');
-    writeMirrorFile(pageUri, renderImageDocument(title, title), 'utf8');
+    writeMirrorFile(pageUri, renderImageDocument(title, title, appearance), 'utf8');
     return {
       kind,
       uri: pageUri,
@@ -484,7 +515,7 @@ export async function buildDocPage(
   const text = decodeBase64Utf8(read.base64);
   if (kind === 'text') {
     if (/\u0000/u.test(text)) throw new Error("This file isn't text, so it can't be previewed on the phone.");
-    writeMirrorFile(pageUri, renderTextDocument(text, title), 'utf8');
+    writeMirrorFile(pageUri, renderTextDocument(text, title, appearance), 'utf8');
     return {
       kind,
       uri: pageUri,
@@ -506,7 +537,7 @@ export async function buildDocPage(
     return { kind, uri: documentUri, rootUri, title, skippedAssets, mirror, loopbackPorts: loopbackPortsIn(text) };
   }
 
-  const html = renderMarkdownDocument(text, title);
+  const html = renderMarkdownDocument(text, title, appearance);
   writeMirrorFile(pageUri, html, 'utf8');
   const skippedAssets = await mirrorAssets(mirror, referencedPaths(htmlReferences(html)), isCancelled, true);
   return { kind, uri: pageUri, rootUri, title, skippedAssets, mirror, loopbackPorts: loopbackPortsIn(html) };

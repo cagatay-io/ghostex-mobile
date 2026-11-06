@@ -4,9 +4,11 @@
  * GhostexRadii, 1dp strokes).
  */
 
+import { useMemo } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
 import { Platform, StyleSheet } from 'react-native';
 
-import { GhostexPalette, GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
+import { GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
 
 export const MONOSPACE = Platform.select({ ios: 'Menlo', default: 'monospace' });
 
@@ -19,10 +21,10 @@ export const BAND_ROW_PADDING = 8;
 /** The toolbar's side padding. */
 export const TOOLBAR_PADDING = 8;
 
-export const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: GhostexPalette.BACKGROUND,
+    backgroundColor: appearance.background,
   },
 
   // Port picker -------------------------------------------------------------
@@ -32,12 +34,12 @@ export const styles = StyleSheet.create({
     gap: 10,
   },
   intro: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     lineHeight: 17,
   },
   sectionTitle: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'uppercase',
@@ -53,7 +55,7 @@ export const styles = StyleSheet.create({
     marginTop: 12,
   },
   sectionHeaderTitle: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'uppercase',
@@ -66,11 +68,11 @@ export const styles = StyleSheet.create({
   },
   portInput: {
     flex: 1,
-    backgroundColor: GhostexPalette.INPUT_BACKGROUND,
+    backgroundColor: appearance.input,
     borderRadius: GhostexRadii.input,
     borderWidth: GhostexStrokeWidth,
-    borderColor: GhostexPalette.BORDER,
-    color: GhostexPalette.FOREGROUND,
+    borderColor: appearance.border,
+    color: appearance.foreground,
     paddingHorizontal: 12,
     height: 48,
     fontSize: 15,
@@ -81,7 +83,7 @@ export const styles = StyleSheet.create({
     minWidth: 92,
     paddingHorizontal: 18,
     borderRadius: GhostexRadii.card,
-    backgroundColor: GhostexPalette.ACCENT,
+    backgroundColor: appearance.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -89,12 +91,12 @@ export const styles = StyleSheet.create({
     opacity: 0.45,
   },
   openButtonLabel: {
-    color: GhostexPalette.ACCENT_FOREGROUND,
+    color: appearance.accentForeground,
     fontSize: 15,
     fontWeight: '700',
   },
   hint: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     lineHeight: 17,
   },
@@ -102,15 +104,15 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 14,
     minHeight: 32,
     borderRadius: GhostexRadii.pill,
-    backgroundColor: GhostexPalette.NEUTRAL_FILL,
+    backgroundColor: appearance.neutralFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   pillButtonPressed: {
-    backgroundColor: GhostexPalette.NEUTRAL_FILL_PRESSED,
+    backgroundColor: appearance.neutralFillPressed,
   },
   pillButtonLabel: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -118,18 +120,18 @@ export const styles = StyleSheet.create({
     overflow: 'hidden',
     borderRadius: GhostexRadii.card,
     borderWidth: GhostexStrokeWidth,
-    borderColor: GhostexPalette.BORDER,
-    backgroundColor: GhostexPalette.CARD,
+    borderColor: appearance.border,
+    backgroundColor: appearance.card,
   },
   portSections: { gap: 12 },
   portSearch: {
     minHeight: 44,
     paddingHorizontal: 12,
-    color: GhostexPalette.FOREGROUND,
-    backgroundColor: GhostexPalette.INPUT_BACKGROUND,
+    color: appearance.foreground,
+    backgroundColor: appearance.input,
     borderRadius: GhostexRadii.input,
     borderWidth: GhostexStrokeWidth,
-    borderColor: GhostexPalette.BORDER,
+    borderColor: appearance.border,
     fontSize: 14,
   },
   portSectionHeader: {
@@ -139,11 +141,11 @@ export const styles = StyleSheet.create({
     gap: 10,
     minHeight: 56,
   },
-  portSectionTitle: { color: GhostexPalette.FOREGROUND, fontSize: 15, fontWeight: '600' },
-  portSectionCount: { color: GhostexPalette.MUTED, fontSize: 13 },
-  sectionChevron: { color: GhostexPalette.MUTED, fontSize: 16 },
-  portPageTitle: { color: GhostexPalette.FOREGROUND, fontSize: 15, fontWeight: '600' },
-  portAddress: { color: GhostexPalette.ACCENT, fontSize: 12, fontFamily: MONOSPACE },
+  portSectionTitle: { color: appearance.foreground, fontSize: 15, fontWeight: '600' },
+  portSectionCount: { color: appearance.muted, fontSize: 13 },
+  sectionChevron: { color: appearance.muted, fontSize: 16 },
+  portPageTitle: { color: appearance.foreground, fontSize: 15, fontWeight: '600' },
+  portAddress: { color: appearance.accent, fontSize: 12, fontFamily: MONOSPACE },
   portFavicon: { width: 22, height: 22, resizeMode: 'contain' },
   storybookIcon: { color: '#ff4785', fontSize: 21, fontWeight: '800' },
   portRow: {
@@ -156,10 +158,10 @@ export const styles = StyleSheet.create({
   },
   portRowDivided: {
     borderTopWidth: GhostexStrokeWidth,
-    borderTopColor: GhostexPalette.BORDER,
+    borderTopColor: appearance.border,
   },
   portRowPressed: {
-    backgroundColor: GhostexPalette.CARD_ACTIVE,
+    backgroundColor: appearance.cardActive,
   },
   portRowIcon: {
     width: 28,
@@ -167,20 +169,20 @@ export const styles = StyleSheet.create({
     borderRadius: GhostexRadii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: GhostexPalette.CARD_ACTIVE,
+    backgroundColor: appearance.cardActive,
   },
   portRowBody: {
     flex: 1,
     gap: 2,
   },
   portRowTitle: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 15,
     fontWeight: '600',
     fontFamily: MONOSPACE,
   },
   portRowDescription: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     lineHeight: 16,
   },
@@ -192,43 +194,43 @@ export const styles = StyleSheet.create({
   },
   pendingLabel: {
     flex: 1,
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
   },
   emptyRow: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     paddingVertical: 10,
   },
   errorBanner: {
     borderRadius: GhostexRadii.card,
     borderWidth: GhostexStrokeWidth,
-    borderColor: GhostexPalette.DANGER,
+    borderColor: appearance.danger,
     backgroundColor: 'rgba(232,92,92,0.08)',
     padding: 12,
     gap: 6,
   },
   errorBannerTitle: {
-    color: GhostexPalette.DANGER,
+    color: appearance.danger,
     fontSize: 13,
     fontWeight: '700',
   },
   errorBannerBody: {
-    color: GhostexPalette.DANGER,
+    color: appearance.danger,
     fontSize: 13,
     lineHeight: 18,
   },
   errorBannerHint: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     lineHeight: 17,
   },
 
   // Preview -----------------------------------------------------------------
   toolbar: {
-    backgroundColor: GhostexPalette.BACKGROUND,
+    backgroundColor: appearance.background,
     borderBottomWidth: GhostexStrokeWidth,
-    borderBottomColor: GhostexPalette.BORDER,
+    borderBottomColor: appearance.border,
     paddingHorizontal: TOOLBAR_PADDING,
     paddingBottom: 8,
     gap: 6,
@@ -256,7 +258,7 @@ export const styles = StyleSheet.create({
     borderRadius: GhostexRadii.card,
   },
   toolbarButtonPressed: {
-    backgroundColor: GhostexPalette.CARD_ACTIVE,
+    backgroundColor: appearance.cardActive,
   },
   toolbarButtonDisabled: {
     opacity: 0.3,
@@ -264,8 +266,8 @@ export const styles = StyleSheet.create({
   addressBar: {
     borderRadius: GhostexRadii.input,
     borderWidth: GhostexStrokeWidth,
-    borderColor: GhostexPalette.BORDER,
-    backgroundColor: GhostexPalette.INPUT_BACKGROUND,
+    borderColor: appearance.border,
+    backgroundColor: appearance.input,
     paddingHorizontal: 10,
     minHeight: 48,
     flexDirection: 'row',
@@ -276,13 +278,33 @@ export const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     paddingVertical: 8,
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 12,
     fontFamily: MONOSPACE,
   },
+  /** A browser pane's toolbar: one row under the pane's title bar, the address error below it. */
+  paneToolbar: {
+    backgroundColor: appearance.background,
+    borderBottomWidth: GhostexStrokeWidth,
+    borderBottomColor: appearance.border,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    gap: 2,
+  },
+  paneToolbarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  /** The address field between the pane's buttons: it takes the room they leave. */
+  paneAddressBar: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: TOOLBAR_BUTTON_SIZE,
+    paddingHorizontal: 8,
+  },
   webview: {
     flex: 1,
-    backgroundColor: GhostexPalette.BACKGROUND,
+    backgroundColor: appearance.background,
   },
   stateSurface: {
     flex: 1,
@@ -292,13 +314,13 @@ export const styles = StyleSheet.create({
     gap: 12,
   },
   stateTitle: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 15,
     fontWeight: 'bold',
     textAlign: 'center',
   },
   stateBody: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 13,
     lineHeight: 19,
     textAlign: 'center',
@@ -323,7 +345,7 @@ export const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: GhostexPalette.BACKGROUND,
+    backgroundColor: appearance.background,
   },
   /** Spinner over the page already on screen while the next forward opens. */
   /** The page's load progress, a thin bar along the top edge of the page. */
@@ -336,6 +358,12 @@ export const styles = StyleSheet.create({
   },
   progressFill: {
     height: 3,
-    backgroundColor: GhostexPalette.ACCENT,
+    backgroundColor: appearance.accent,
   },
 });
+
+/** Cached styles of the existing colour model for this shared surface. */
+export function useWebPreviewStyles() {
+  const appearance = useAppearance();
+  return useMemo(() => createStyles(appearance), [appearance]);
+}

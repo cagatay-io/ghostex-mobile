@@ -8,7 +8,6 @@ import {
   useSettingsStore,
   type MarkedHandoversStyle,
   type PreferredAgentInterface,
-  type SessionChatTheme,
 } from '../../settings/store';
 import { VOICE_SUPPORTED } from '../../voice/conversation';
 import { readAloudVoices, useReadAloudOnAnywhere } from '../../voice/readAloud';
@@ -22,11 +21,6 @@ const PREFERRED_AGENT_INTERFACE_ROWS: { value: PreferredAgentInterface; label: s
   { value: 'chat', label: 'Chat' },
 ];
 
-const SESSION_CHAT_THEME_ROWS: { value: SessionChatTheme; label: string }[] = [
-  { value: 'dark', label: 'Dark' },
-  { value: 'light', label: 'Light' },
-];
-
 /** The desktop's Marked sections style options, in its order, plus Plain text (see `MarkedSections.tsx`). */
 const MARKED_HANDOVERS_STYLE_ROWS: { value: MarkedHandoversStyle; label: string }[] = [
   { value: 'labels', label: 'Coloured labels' },
@@ -37,7 +31,6 @@ const MARKED_HANDOVERS_STYLE_ROWS: { value: MarkedHandoversStyle; label: string 
 
 export default function ChatPage() {
   const preferredAgentInterface = useSettingsStore((state) => state.settings.preferredAgentInterface);
-  const sessionChatTheme = useSettingsStore((state) => state.settings.sessionChatTheme);
   const markedHandoversStyle = useSettingsStore((state) => state.settings.markedHandoversStyle);
   const setSetting = useSettingsStore((state) => state.setSetting);
 
@@ -57,18 +50,6 @@ export default function ChatPage() {
           Agent sessions that support chat open in this view. Each tab can still be switched between chat and terminal
           at any time, and a switched tab remembers its own choice.
         </Caption>
-      </SettingsSection>
-      <SettingsSection name="settings:chat:chat-theme">
-        <SectionHeader title="Chat theme" />
-        {SESSION_CHAT_THEME_ROWS.map((row) => (
-          <ChoiceRow
-            key={row.value}
-            label={row.label}
-            selected={sessionChatTheme === row.value}
-            onPress={() => setSetting('sessionChatTheme', row.value)}
-          />
-        ))}
-        <Caption>Changes chat content only; the rest of the app keeps its dark theme.</Caption>
       </SettingsSection>
       <SettingsSection name="settings:chat:messages">
         <SectionHeader title="Messages" />

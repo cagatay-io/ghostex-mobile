@@ -36,6 +36,7 @@ import type { RootStackParamList } from '../../navigation/types';
 import { classifyMachineLink, visualPageAddress, type ComputerAddress } from '../../webPreview/machineLinks';
 import { useOpenMachineLink } from '../../webPreview/useOpenMachineLink';
 import type { ChatViewRequest } from '../rust/effects';
+import type { ChatDocument } from '../rust/document';
 import { machineIdOfGlobalRef } from '../rust/sessionDirectory';
 import { sessionChatRpc } from '../rust/transport';
 import { useRustChat, type RustChat } from '../rust/useRustChat';
@@ -45,8 +46,11 @@ import { useVoiceCapability } from '../../voice/VoiceButton';
 import { sessionNotesOnIn } from '../../sessions/sessionNotesSwitch';
 import { useArmedActions } from './armedActions';
 import { NativeChatCards, NativeChatOverlays, PageSheet, ResourceSheet, questionReplacesComposer } from './cards';
+import { ChatPlacementProvider, type ChatPlacement } from './chatPlacement';
+import { PillMenuSheet } from './cards/ChatPills';
 import { ConnectionLostNotice } from './cards/ConnectionLostNotice';
-import { obj } from './cards/json';
+import type { BoardFocus } from './cards/CoordinatorBoard';
+import { num, obj, str } from './cards/json';
 import { remoteWorkerNotice, remoteWorkerOfAction } from './cards/remoteWorker';
 import { PillsStrip, type PillsStripLinks } from './cards/PillsStrip';
 import { SideChatBar } from './cards/SideChats';
@@ -54,6 +58,7 @@ import { useTerminalStore } from '../../terminal/sessions';
 import { LoneScrollBottom, WorkingCard } from './cards/WorkingCard';
 import { NativeComposer } from './composer';
 import { HandoffSheet, type HandoffRequest } from './composer/HandoffSheet';
+import { ModelMenuSheet } from './composer/ModelMenuSheet';
 import type { MenuRow } from './composer/MenuSheet';
 import { attachIntakeImages } from './composer/imageIntake';
 import { SavedPromptsSheet } from './composer/SavedPromptsSheet';
@@ -93,6 +98,13 @@ export type NativeChatScreenProps = {
   onQueueCountChange?: (count: number) => void;
   /** The session's links for the working card's Links pill and the tap that opens their sheet. */
   links?: PillsStripLinks | null;
+  /**
+   * In one of the iPhone Duo's pane slots (`src/panes/`): the pane ends at the keyboard or the fold, so the composer
+   * lifts nothing itself, and the cards, tables and pictures are sized by this chat, not the window (`chatPlacement`).
+   */
+  inPane?: boolean;
+  /** Bumped when the composer is to take the keyboard (the pane it stands in became the active one); 0 asks nothing. */
+  focusRequestId?: number;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -108,6 +120,8 @@ export default function NativeChatScreen({
   openSessionNoteRequestId = 0,
   onQueueCountChange,
   links = null,
+  inPane = false,
+  focusRequestId = 0,
   style,
 }: NativeChatScreenProps) {
   const chat = useRustChat({ machine, projectId, sessionId });
@@ -196,6 +210,9 @@ export default function NativeChatScreen({
 
   // The notice card's Switch account opens the composer's Accounts & limits panel.
   const [accountsRequestId, setAccountsRequestId] = useState(0);
+  // The held-messages card's Pick model opens the composer's model sheet, the one the model pill opens (while a
+  // question takes the composer's place, the same sheet hosted by `QuestionModelSheet`).
+  const [modelRequestId, setModelRequestId] = useState(0);
   // The Stash button's Saved prompts (empty draft, or a long press), like desktop's Stashed Prompts modal.
   const [savedPromptsOpen, setSavedPromptsOpen] = useState(false);
   // More actions > Handoff / Export opens the chat's own dialog, the one the model menu's handoff opens.
@@ -203,6 +220,7 @@ export default function NativeChatScreen({
   const hostAction = useCallback(
     (action: string, params: Record<string, unknown> = {}) => {
       if (action === 'terminalView' || action === 'switchToTerminal') onSwitchToTerminal();
+      else if (action === 'pickModel') setModelRequestId((current) => current + 1);
       else if (action === 'switchAccount' && Object.keys(params).length === 0)
         setAccountsRequestId((current) => current + 1);
       else if (action === 'switchAccount') {
@@ -284,6 +302,31 @@ export default function NativeChatScreen({
 
   // An image dropped anywhere on the chat view joins the draft, as the attach button adds one.
   const composerShown = !questionReplacesComposer(document);
+  // The sheet outlives the composer when a live question replaces it, including during modal dismissal.
+  const [pillMenu, setPillMenu] = useState<string | null>(null);
+  // The card a board pill in the chat asked to see (gx-chat-core `show_item`): the board opens at
+  // it once per tap. The first document a chat shows leaves an older tap alone.
+  const [boardFocus, setBoardFocus] = useState<BoardFocus | null>(null);
+  const closePillMenu = useCallback(() => {
+    setPillMenu(null);
+    setBoardFocus(null);
+  }, []);
+  const focus = obj(obj(document?.coordinatorBoard)?.focus);
+  const focusKey = str(focus, 'key');
+  const focusSeq = num(focus, 'seq') ?? null;
+  const seenFocus = useRef<number | null | undefined>(undefined);
+  // Before the chat has a document there is no tap to see yet; the first document's focus counts as seen.
+  const hasDocument = document !== null;
+  useEffect(() => {
+    if (!hasDocument) return;
+    if (seenFocus.current === undefined || focusSeq === null || focusSeq === seenFocus.current) {
+      seenFocus.current = focusSeq;
+      return;
+    }
+    seenFocus.current = focusSeq;
+    setBoardFocus({ key: focusKey, seq: focusSeq });
+    setPillMenu('board');
+  }, [focusKey, focusSeq, hasDocument]);
   const [dropActive, setDropActive] = useState(false);
   const receiveImages = useCallback(
     (event: { nativeEvent: unknown }) => attachIntakeImages(chat, event.nativeEvent, (message) => show(message, true)),
@@ -302,6 +345,9 @@ export default function NativeChatScreen({
     transcriptBottom: -1,
     composerTop: -1,
   });
+  // In a pane, the chat's own size stands for the window's (`chatPlacement`).
+  const [paneSize, setPaneSize] = useState<{ width: number; height: number } | null>(null);
+  const placement = useMemo<ChatPlacement>(() => ({ inPane, size: inPane ? paneSize : null }), [inPane, paneSize]);
   const composerRoom =
     composerFrame.height < 0 || composerFrame.transcriptTop < 0 || composerFrame.composerTop < 0
       ? undefined
@@ -318,119 +364,177 @@ export default function NativeChatScreen({
 
   return (
     <NativeChatUiProvider chat={chat}>
-      {/* An Expo view takes no `pointerEvents`, so the preloading chat's stays on the view inside. */}
-      <GhostexImageIntakeView
-        style={[styles.root, style, !visible && styles.preloading]}
-        dropTarget={visible && composerShown}
-        onImages={receiveImages}
-        onDropActive={(event) => setDropActive(event.nativeEvent.active)}
-      >
-        <View
-          style={[styles.root, { backgroundColor: theme.background }]}
-          pointerEvents={visible ? 'auto' : 'none'}
-          onLayout={(event) => {
-            const height = event.nativeEvent.layout.height;
-            setComposerFrame((now) => ({ ...now, height }));
-          }}
+      <ChatPlacementProvider value={placement}>
+        {/* An Expo view takes no `pointerEvents`, so the preloading chat's stays on the view inside. */}
+        <GhostexImageIntakeView
+          style={[styles.root, style, !visible && styles.preloading]}
+          dropTarget={visible && composerShown}
+          onImages={receiveImages}
+          onDropActive={(event) => setDropActive(event.nativeEvent.active)}
         >
-          {chat.state?.error ? <Text style={[styles.error, { color: theme.error }]}>{chat.state.error}</Text> : null}
-          {document ? <SideChatBar chat={chat} document={document} /> : null}
-          <TranscriptSearchBar chat={chat} />
+
           <View
-            style={styles.transcript}
+            style={[styles.root, { backgroundColor: theme.background }]}
+            pointerEvents={visible ? 'auto' : 'none'}
             onLayout={(event) => {
-              const { y, height } = event.nativeEvent.layout;
-              setComposerFrame((now) => ({ ...now, transcriptTop: y, transcriptBottom: y + height }));
+              const { width, height } = event.nativeEvent.layout;
+              setComposerFrame((now) => ({ ...now, height }));
+              if (inPane)
+                setPaneSize((now) => (now?.width === width && now.height === height ? now : { width, height }));
             }}
           >
-            <NativeTranscript chat={chat} />
-            {/* Scroll-to-bottom alone while no card carries it. */}
-            {document === null ? null : <LoneScrollBottom document={document} armed={armed} links={links} />}
-          </View>
-          <ConnectionLostNotice machine={machine} active={visible} document={document} />
-          {/* The working card in its own row above the cards and the composer: the transcript ends above it. */}
-          {document === null ? null : <WorkingCard document={document} />}
-          <NativeChatCards chat={chat} onHostAction={hostAction} />
-          {!composerShown ? null : (
+            {chat.state?.error ? <Text style={[styles.error, { color: theme.error }]}>{chat.state.error}</Text> : null}
+            {document ? <SideChatBar chat={chat} document={document} /> : null}
+            <TranscriptSearchBar chat={chat} />
             <View
+              style={styles.transcript}
               onLayout={(event) => {
-                const composerTop = event.nativeEvent.layout.y;
-                setComposerFrame((now) => ({ ...now, composerTop }));
+                const { y, height } = event.nativeEvent.layout;
+                setComposerFrame((now) => ({ ...now, transcriptTop: y, transcriptBottom: y + height }));
               }}
             >
-              <NativeComposer
-                projectId={projectId}
-                sessionId={sessionId}
+              <NativeTranscript chat={chat} active={visible} />
+              {/* Scroll-to-bottom alone while no card carries it. */}
+              {document === null ? null : <LoneScrollBottom document={document} armed={armed} links={links} />}
+            </View>
+            <ConnectionLostNotice machine={machine} active={visible} document={document} />
+            {/* The working card in its own row above the cards and the composer: the transcript ends above it. */}
+            {document === null ? null : <WorkingCard document={document} />}
+            <NativeChatCards chat={chat} onHostAction={hostAction} />
+            {!composerShown ? null : (
+              <View
+                onLayout={(event) => {
+                  const composerTop = event.nativeEvent.layout.y;
+                  setComposerFrame((now) => ({ ...now, composerTop }));
+                }}
+              >
+                <NativeComposer
+                  projectId={projectId}
+                  sessionId={sessionId}
+                  chat={chat}
+                  onHostAction={hostAction}
+                  hostActions={composerHostActions}
+                  openAccountsRequestId={accountsRequestId}
+                  openModelRequestId={modelRequestId}
+                  focusRequestId={focusRequestId}
+                  voiceCallTitle={title}
+                  {...(composerRoom !== undefined ? { room: composerRoom } : {})}
+                  {...(document !== null
+                    ? {
+                        strip: (
+                          <PillsStrip
+                            chat={chat}
+                            document={document}
+                            menu={pillMenu}
+                            onMenuChange={setPillMenu}
+                            armed={armed}
+                            links={links}
+                            {...(sessionId.length > 0 && projectId.length > 0
+                              ? { onStashedPress: () => hostAction('stashedPrompts') }
+                              : {})}
+                            {...(openDelayedActions !== undefined ? { onArmedPress: openDelayedActions } : {})}
+                          />
+                        ),
+                      }
+                    : {})}
+                />
+              </View>
+            )}
+            {composerShown || document === null ? null : (
+              <QuestionModelSheet chat={chat} document={document} openRequestId={modelRequestId} />
+            )}
+            {document !== null ? (
+              <PillMenuSheet
                 chat={chat}
-                onHostAction={hostAction}
-                hostActions={composerHostActions}
-                openAccountsRequestId={accountsRequestId}
-                voiceCallTitle={title}
-                {...(composerRoom !== undefined ? { room: composerRoom } : {})}
-                {...(document !== null
-                  ? {
-                      strip: (
-                        <PillsStrip
-                          chat={chat}
-                          document={document}
-                          armed={armed}
-                          links={links}
-                          {...(sessionId.length > 0 && projectId.length > 0
-                            ? { onStashedPress: () => hostAction('stashedPrompts') }
-                            : {})}
-                          {...(openDelayedActions !== undefined ? { onArmedPress: openDelayedActions } : {})}
-                        />
-                      ),
-                    }
-                  : {})}
+                document={document}
+                open={pillMenu}
+                onClose={closePillMenu}
+                boardFocus={boardFocus}
               />
-            </View>
-          )}
-          <RewindDialog chat={chat} />
-          <SaveMarkdownDialog chat={chat} />
-          <TranscriptMenuSheet chat={chat} host={menuHost} enabled={!subagentOpen} />
-          <SavedPromptsSheet
-            visible={savedPromptsOpen}
-            machine={machine}
-            projectId={projectId}
-            sessionId={sessionId}
-            onClose={() => setSavedPromptsOpen(false)}
-            onInsert={(content) => chat.composer?.replace(content)}
-            onChanged={() => chat.dispatch({ type: 'refreshComposerChrome', sessionId })}
-          />
-          <HandoffSheet
-            request={handoff}
-            machine={machine}
-            projectId={projectId}
-            sessionId={sessionId}
-            onClose={() => setHandoff(null)}
-            onFailure={(failure, message) => show(message, true, failure)}
-          />
-          <NativeChatOverlays
-            chat={chat}
-            renderTranscriptItem={renderSubagentRow}
-            subagentMenu={<TranscriptMenuSheet chat={chat} host={menuHost} />}
-          />
-          <PageSheet chat={chat} machine={machine} page={page} onClose={closePage} onOpenLink={openPageLink} />
-          <ResourceSheet chat={chat} document={document} />
-          <ChatToast toast={toast} />
-          {dropActive ? (
-            <View
-              pointerEvents="none"
-              style={[styles.dropHighlight, { borderColor: theme.ring, backgroundColor: theme.ringGlow }]}
-            >
-              <Text style={[styles.dropLabel, { color: theme.foreground, backgroundColor: theme.cardBackground }]}>
-                Drop to attach
-              </Text>
-            </View>
-          ) : null}
-        </View>
-      </GhostexImageIntakeView>
+            ) : null}
+            <RewindDialog chat={chat} />
+            <SaveMarkdownDialog chat={chat} />
+            <TranscriptMenuSheet chat={chat} host={menuHost} enabled={!subagentOpen} />
+            <SavedPromptsSheet
+              visible={savedPromptsOpen}
+              machine={machine}
+              projectId={projectId}
+              sessionId={sessionId}
+              onClose={() => setSavedPromptsOpen(false)}
+              onInsert={(content) => chat.composer?.replace(content)}
+              onChanged={() => chat.dispatch({ type: 'refreshComposerChrome', sessionId })}
+            />
+            <HandoffSheet
+              request={handoff}
+              machine={machine}
+              projectId={projectId}
+              sessionId={sessionId}
+              onClose={() => setHandoff(null)}
+              onFailure={(failure, message) => show(message, true, failure)}
+            />
+            <NativeChatOverlays
+              chat={chat}
+              renderTranscriptItem={renderSubagentRow}
+              subagentMenu={<TranscriptMenuSheet chat={chat} host={menuHost} />}
+            />
+            <PageSheet chat={chat} machine={machine} page={page} onClose={closePage} onOpenLink={openPageLink} />
+            <ResourceSheet chat={chat} document={document} />
+            <ChatToast toast={toast} />
+            {dropActive ? (
+              <View
+                pointerEvents="none"
+                style={[styles.dropHighlight, { borderColor: theme.ring, backgroundColor: theme.ringGlow }]}
+              >
+                <Text style={[styles.dropLabel, { color: theme.foreground, backgroundColor: theme.cardBackground }]}>
+                  Drop to attach
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        </GhostexImageIntakeView>
+      </ChatPlacementProvider>
     </NativeChatUiProvider>
   );
 }
 
 const NO_HOST_ACTIONS: readonly string[] = [];
+
+/**
+ * The composer's model sheet while a question takes the composer's place: the held-messages card's Pick model
+ * (`openRequestId`, the request the composer answers otherwise) opens it here, the same sheet with the same
+ * actions, and only requests made while it is mounted count.
+ *
+ * CDXC:SessionChat WHY: The sheet's own host is the composer, which a question unmounts, and Pick
+ * model has to open the model sheet in that state too (desktop's Pick model works there). Hosting the same sheet
+ * here keeps the question in the composer's place and leaves the composer's path untouched.
+ */
+function QuestionModelSheet({
+  chat,
+  document,
+  openRequestId,
+}: {
+  chat: RustChat;
+  document: ChatDocument;
+  openRequestId: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const handledRequest = useRef(openRequestId);
+  useEffect(() => {
+    if (openRequestId === handledRequest.current) return;
+    handledRequest.current = openRequestId;
+    if (openRequestId > 0) setOpen(true);
+  }, [openRequestId]);
+  const close = useCallback(() => setOpen(false), []);
+  return (
+    <ModelMenuSheet
+      menu={obj(document.modelMenu)}
+      visible={open}
+      ownProvider={str(document.modelMenuContext, 'provider')}
+      onClose={close}
+      dispatch={chat.dispatch}
+    />
+  );
+}
 
 type Toast = { id: number; title?: string; message: string; error: boolean } | null;
 

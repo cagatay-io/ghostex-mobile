@@ -13,6 +13,7 @@ import ExpoModulesCore
 import Darwin
 import AudioToolbox
 import AVFoundation
+import GameController
 import Tailcatbridge
 
 // MARK: - Records
@@ -53,6 +54,18 @@ struct TerminalRuntimeSettingsRecord: Record {
     @Field var cursorBlink: Bool = true
     @Field var softKeyboardEnabled: Bool = true
     @Field var openUrlsOnTap: Bool = true
+    /// The resolved terminal colours (`TerminalColors` in GhostexNative.types.ts); absent keeps the unthemed look.
+    @Field var colors: TerminalColorsRecord?
+}
+
+struct TerminalColorsRecord: Record {
+    @Field var light: Bool = false
+    @Field var background: String = "#000000"
+    @Field var foreground: String?
+    @Field var cursor: String?
+    @Field var cursorText: String?
+    @Field var selectionBackground: String?
+    @Field var palette: [String] = []
 }
 
 struct KeyModifiersRecord: Record {
@@ -103,6 +116,8 @@ public class GhostexNativeModule: Module {
     /// instance's teardown never removes a newer instance's.
     private var barWindowObservers: [NSObjectProtocol] = []
     private let barWindowObserversLock = NSLock()
+    /// The share sheets this module instance started (`shareFile`) that are not over yet; ended at OnDestroy.
+    private let shareSheets = GhostexShareSheets()
 
     /// Starts (`listening`) or ends following the app to another window for the bar observation.
     private func followBarWindows(_ listening: Bool) {
@@ -632,6 +647,18 @@ public class GhostexNativeModule: Module {
             }
         }
 
+        // The command pad's Paste key: the terminal's own Paste, the one its edit menu runs, so
+        // iOS's paste permission, the unsafe-paste question and the clean-up after a paste stay the same.
+        AsyncFunction("pasteFromClipboard") { (sessionKey: String) async throws in
+            try await MainActor.run {
+                guard let entry = GhostexTerminalRegistry.shared.entry(for: sessionKey),
+                      let view = entry.view else {
+                    throw GhostexException(code: .notConnected, reason: "No terminal for session \(sessionKey)")
+                }
+                view.paste(nil)
+            }
+        }
+
         AsyncFunction("focusTerminal") { (sessionKey: String) async -> Bool in
             await MainActor.run {
                 guard let entry = GhostexTerminalRegistry.shared.entry(for: sessionKey),
@@ -652,6 +679,13 @@ public class GhostexNativeModule: Module {
                 }
                 view.dismissKeyboardForUser()
             }
+        }
+
+        // Whether something in the app holds a hardware keyboard's typing (`KeyboardInputHolder.held`): no software
+        // keyboard need cover the app then, so React sees no keyboard frame and asks this before it hands the typing to
+        // the active pane.
+        AsyncFunction("keyboardInputHeld") { () async -> Bool in
+            await MainActor.run { KeyboardInputHolder.held }
         }
 
         AsyncFunction("setFontSize") { (sessionKey: String, size: Double) async throws in
@@ -709,17 +743,36 @@ public class GhostexNativeModule: Module {
             guard let cursorStyle = TerminalRuntimeSettings.CursorStyle(rawValue: settings.cursorStyle) else {
                 throw GhostexException(code: .channelFailed, reason: "Unknown cursor style: \(settings.cursorStyle)")
             }
+            var colors = TerminalColors.unthemed
+            if let record = settings.colors {
+                guard let validated = TerminalColors.validated(
+                    light: record.light,
+                    background: record.background,
+                    foreground: record.foreground,
+                    cursor: record.cursor,
+                    cursorText: record.cursorText,
+                    selectionBackground: record.selectionBackground,
+                    palette: record.palette
+                ) else {
+                    throw GhostexException(code: .channelFailed, reason: "Terminal colours must be #rrggbb with 0 or 16 palette entries")
+                }
+                colors = validated
+            }
             await MainActor.run {
-                Ghostty.App.runtimeSettings = TerminalRuntimeSettings(
+                let next = TerminalRuntimeSettings(
                     autoScroll: settings.autoScroll,
                     cursorStyle: cursorStyle,
                     cursorBlink: settings.cursorBlink,
                     softKeyboardEnabled: settings.softKeyboardEnabled,
-                    openUrlsOnTap: settings.openUrlsOnTap
+                    openUrlsOnTap: settings.openUrlsOnTap,
+                    colors: colors
                 )
-                // Push the regenerated config (cursor style/blink) to every
-                // live surface; warm entries share the same views.
-                for entry in GhostexTerminalRegistry.shared.entries.values {
+                Ghostty.App.runtimeSettings = next
+                // Push the regenerated config (cursor, colours) to every live surface;
+                // warm entries share the same views. Only the current settings stay cached.
+                let registry = GhostexTerminalRegistry.shared
+                registry.discardCachedSurfaceConfigs()
+                for entry in registry.entries.values {
                     entry.view?.reapplySurfaceConfig()
                 }
             }
@@ -779,13 +832,16 @@ public class GhostexNativeModule: Module {
         }
 
         // A reload or teardown drops the module: the observation this instance started leaves the
-        // window with it and its notifications end; a newer module's observation keeps running.
+        // window with it and its notifications end; a newer module's observation keeps running. Its open
+        // share sheets end as interrupted and leave the screen, so none answers a JS side that is gone.
         OnDestroy { [weak self] in
             GhostexVoice.emitter = nil
             GhostexVoiceRecorder.emitter = nil
             GhostexSpeech.emitter = nil
             guard let self else { return }
             self.followBarWindows(false)
+            let shareSheets = self.shareSheets
+            Task { @MainActor in shareSheets.endAll() }
             guard let id = self.barObservationID else { return }
             Task { @MainActor in GhostexVerticalBar.stop(id: id) }
         }
@@ -803,6 +859,38 @@ public class GhostexNativeModule: Module {
             }
             AudioServicesPlaySystemSound(soundID)
         }
+
+        // MARK: Share sheet
+
+        // Share… in the project file browser: the iOS share sheet for one file of the app's
+        // temporary storage. Settles once the share is over (GhostexShareSheetEnd): resolves when the sheet has left
+        // and its last activity reported no error, so the copy is deleted then and not before; rejects with
+        // E_SHARE_FAILED when that activity failed, E_SHARE_UNAVAILABLE when no sheet could be shown, and
+        // E_SHARE_INTERRUPTED when its presenter or this module (reload) ended it before it reported a result.
+        AsyncFunction("shareFile") { [weak self] (fileUri: String, promise: Promise) in
+            guard let file = URL(string: fileUri), file.isFileURL else {
+                promise.reject(GhostexException(code: .shareUnavailable, reason: "Not a file on this phone: \(fileUri)"))
+                return
+            }
+            guard let self, let presenter = self.appContext?.utilities?.currentViewController() else {
+                promise.reject(GhostexException(code: .shareUnavailable, reason: "No screen to show the share sheet on"))
+                return
+            }
+            MainActor.assumeIsolated {
+                self.shareSheets.present(file: file, from: presenter) { outcome in
+                    switch outcome {
+                    case .closed:
+                        promise.resolve(nil)
+                    case let .activityFailed(error):
+                        promise.reject(GhostexException(code: .shareFailed, reason: error.localizedDescription))
+                    case .interrupted:
+                        promise.reject(GhostexException(code: .shareInterrupted, reason: "The share sheet ended before it finished"))
+                    case .unavailable:
+                        promise.reject(GhostexException(code: .shareUnavailable, reason: "The share sheet could not be shown"))
+                    }
+                }
+            }
+        }.runOnQueue(.main)
 
         // MARK: File upload
 
@@ -962,6 +1050,11 @@ public class GhostexNativeModule: Module {
             Prop("sessionKey") { (view: GhostexTerminalHostView, sessionKey: String) in
                 view.setSessionKey(sessionKey)
             }
+
+            // Two panes on screen: the active pane's terminal draws its cursor filled, the other's hollow.
+            Prop("paneFocus") { (view: GhostexTerminalHostView, paneFocus: Bool?) in
+                view.setPaneFocus(paneFocus)
+            }
         }
 
         // A chat message's text: its selection menu and the hold that opens its menu.
@@ -1095,5 +1188,39 @@ public class GhostexNativeModule: Module {
         case "f12": return .f12
         default: return nil
         }
+    }
+}
+
+// MARK: - Keyboard input holder
+
+/// Who holds a hardware keyboard's typing while no keyboard is on screen, for the pane controller's keyboard follow.
+@MainActor
+enum KeyboardInputHolder {
+    /// Whether the app's first responder takes the typing: a terminal outside its edit-menu-only focus (a terminal
+    /// always wants a keyboard, so with none on screen that is a hardware one), or any other text input (a field of a
+    /// web page, a text view) while a hardware keyboard is connected (`GCKeyboard`). Such a responder can also be first
+    /// responder without wanting a keyboard (a page tapped outside its fields); handing the focus on then would raise a
+    /// software keyboard nobody asked for, so without a hardware keyboard the answer is no.
+    static var held: Bool {
+        found = nil
+        // A nil-targeted action goes to the key window's first responder first.
+        _ = UIApplication.shared.sendAction(
+            #selector(UIResponder.ghostexReportFirstResponder(_:)), to: nil, from: nil, for: nil)
+        guard let responder = found else { return false }
+        found = nil
+        if let terminal = responder as? GhosttyTerminalView { return terminal.holdsKeyboardInput }
+        return responder is UIKeyInput && GCKeyboard.coalesced != nil
+    }
+
+    private static weak var found: UIResponder?
+
+    fileprivate static func report(_ responder: UIResponder) {
+        found = responder
+    }
+}
+
+extension UIResponder {
+    @objc fileprivate func ghostexReportFirstResponder(_ sender: Any?) {
+        KeyboardInputHolder.report(self)
     }
 }

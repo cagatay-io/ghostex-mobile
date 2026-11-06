@@ -50,7 +50,8 @@ import { useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
 import { useTerminalStore } from '../terminal/sessions';
 import { GhostexPalette, GhostexRadii } from '../theme/palette';
-import { useAppearance } from '../theme/useAppearance';
+import { useAppearance, type Appearance } from '../theme/useAppearance';
+import { readableSecondaryText } from '../theme/sidebarAppearance';
 import { Caption, SettingsScreenLayout, ToggleRow, useSettingsStyles } from './settings/SettingsControls';
 
 /** The GitHub username the last feedback named. */
@@ -68,7 +69,7 @@ export default function FeedbackScreen() {
   const route = useRoute<RouteProp<RootStackParamList, 'Feedback'>>();
   const styles = useSettingsStyles();
   const appearance = useAppearance();
-  const local = useMemo(() => createStyles(), []);
+  const local = useMemo(() => createStyles(appearance), [appearance]);
 
   const machineId = route.params?.machineId;
   const machine = useMachinesStore((state) => state.machines.find((entry) => entry.id === machineId));
@@ -250,6 +251,7 @@ export default function FeedbackScreen() {
       <SettingsScreenLayout intro={FeedbackCopy.reviewIntro}>
         <Text style={styles.cardLabel}>{FeedbackCopy.issueTitleLabel}</Text>
         <TextInput
+          keyboardAppearance={appearance.light ? 'light' : 'dark'}
           style={input}
           value={step.title}
           onChangeText={(title) => setStep({ ...step, title })}
@@ -258,6 +260,7 @@ export default function FeedbackScreen() {
         />
         <Text style={[styles.cardLabel, local.spaced]}>{FeedbackCopy.issueBodyLabel}</Text>
         <TextInput
+          keyboardAppearance={appearance.light ? 'light' : 'dark'}
           style={[...multiline, local.body]}
           value={step.body}
           onChangeText={(body) => setStep({ ...step, body })}
@@ -295,6 +298,7 @@ export default function FeedbackScreen() {
     <SettingsScreenLayout intro={withAgent ? FeedbackCopy.introAgent : FeedbackCopy.intro}>
       <Text style={styles.cardLabel}>{FeedbackCopy.usernameLabel}</Text>
       <TextInput
+        keyboardAppearance={appearance.light ? 'light' : 'dark'}
         style={input}
         value={username}
         onChangeText={setUsername}
@@ -314,6 +318,7 @@ export default function FeedbackScreen() {
 
       <Text style={[styles.cardLabel, local.spaced]}>{FeedbackCopy.messageLabel}</Text>
       <TextInput
+        keyboardAppearance={appearance.light ? 'light' : 'dark'}
         style={[...multiline, local.message]}
         value={message}
         onChangeText={setMessage}
@@ -428,7 +433,7 @@ export default function FeedbackScreen() {
   );
 }
 
-function createStyles() {
+function createStyles(appearance: Appearance) {
   return StyleSheet.create({
     heading: {
       marginTop: 4,
@@ -450,7 +455,7 @@ function createStyles() {
       gap: 6,
     },
     error: {
-      color: GhostexPalette.DANGER,
+      color: readableSecondaryText(GhostexPalette.DANGER, appearance.foreground, [appearance.background]),
     },
     crash: {
       maxHeight: 220,

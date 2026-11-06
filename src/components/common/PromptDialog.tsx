@@ -1,13 +1,17 @@
 /**
  * Generic prompt dialog: title, optional body, single text input (optional
  * secure entry), optional checkbox row, inline error line, confirm + cancel.
- * Used for Rename session (§2) and the machine password prompt (§4).
+ * Used for Rename session (§2) and the machine password prompt (§4). Half folded like a laptop the card stands
+ * off the fold: above it with the keyboard up (the keyboard-avoiding layer), else below it when it fits.
  */
 
-import { useEffect, useState } from 'react';
+import { useMemo, useEffect, useState } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
+
 import { Modal, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
-import { GhostexPalette, GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
+import { GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
+import { useFoldCardPlacement } from './foldAvoidance';
 import KeyboardAvoidingContainer from './keyboard/KeyboardAvoidingContainer';
 import KeyboardAwareScrollView from './keyboard/KeyboardAwareScrollView';
 
@@ -48,8 +52,11 @@ export default function PromptDialog({
   onSubmit,
   onCancel,
 }: PromptDialogProps) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const [value, setValue] = useState(initialValue);
   const [checkboxValue, setCheckboxValue] = useState(initialCheckboxValue);
+  const placement = useFoldCardPlacement({ avoidsKeyboard: true, belowSafeAreaTop: true });
 
   // Reset the form whenever the dialog opens with fresh initial values.
   useEffect(() => {
@@ -62,15 +69,16 @@ export default function PromptDialog({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <KeyboardAvoidingContainer safeAreaTop style={styles.keyboardFill}>
-        <Pressable style={styles.backdrop} onPress={onCancel}>
-          <Pressable style={styles.card} onPress={(event) => event.stopPropagation()}>
+        <Pressable style={[styles.backdrop, placement.style]} onPress={onCancel}>
+          <Pressable style={styles.card} onLayout={placement.onCardLayout} onPress={(event) => event.stopPropagation()}>
             <KeyboardAwareScrollView bounces={false} contentContainerStyle={styles.cardContent}>
               <Text style={styles.title}>{title}</Text>
               {body !== undefined && body.length > 0 ? <Text style={styles.body}>{body}</Text> : null}
               <TextInput
+                keyboardAppearance={appearance.light ? 'light' : 'dark'}
                 style={[styles.input, multiline ? styles.inputMultiline : null]}
                 placeholder={placeholder}
-                placeholderTextColor={GhostexPalette.MUTED}
+                placeholderTextColor={appearance.muted}
                 autoCapitalize={multiline ? 'sentences' : 'none'}
                 autoCorrect={multiline}
                 multiline={multiline}
@@ -110,7 +118,7 @@ export default function PromptDialog({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   // The dim sits on the keyboard-avoiding layer so it also covers the strip the keyboard leaves while it slides away.
   keyboardFill: {
     flex: 1,
@@ -123,32 +131,32 @@ const styles = StyleSheet.create({
   },
   card: {
     maxHeight: '100%',
-    backgroundColor: GhostexPalette.BACKGROUND,
+    backgroundColor: appearance.background,
     borderRadius: 12,
     borderWidth: GhostexStrokeWidth,
-    borderColor: GhostexPalette.BORDER,
+    borderColor: appearance.border,
     overflow: 'hidden',
   },
   cardContent: {
     padding: 16,
   },
   title: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 15,
     fontWeight: 'bold',
   },
   body: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     marginTop: 8,
   },
   input: {
     marginTop: 12,
-    backgroundColor: GhostexPalette.INPUT_BACKGROUND,
+    backgroundColor: appearance.input,
     borderRadius: GhostexRadii.input,
     borderWidth: GhostexStrokeWidth,
-    borderColor: GhostexPalette.BORDER,
-    color: GhostexPalette.FOREGROUND,
+    borderColor: appearance.border,
+    color: appearance.foreground,
     paddingHorizontal: 12,
     height: 44,
   },
@@ -170,12 +178,12 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   checkboxLabel: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 13,
     flex: 1,
   },
   error: {
-    color: GhostexPalette.DANGER,
+    color: appearance.danger,
     fontSize: 12,
     marginTop: 8,
   },
@@ -189,15 +197,15 @@ const styles = StyleSheet.create({
     height: 40,
     paddingHorizontal: 16,
     borderRadius: GhostexRadii.card,
-    backgroundColor: GhostexPalette.NEUTRAL_FILL,
+    backgroundColor: appearance.neutralFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelButtonPressed: {
-    backgroundColor: GhostexPalette.NEUTRAL_FILL_PRESSED,
+    backgroundColor: appearance.neutralFillPressed,
   },
   cancelLabel: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -205,12 +213,12 @@ const styles = StyleSheet.create({
     height: 40,
     paddingHorizontal: 16,
     borderRadius: GhostexRadii.card,
-    backgroundColor: GhostexPalette.ACCENT,
+    backgroundColor: appearance.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
   confirmLabel: {
-    color: GhostexPalette.ACCENT_FOREGROUND,
+    color: appearance.accentForeground,
     fontSize: 13,
     fontWeight: '600',
   },

@@ -7,6 +7,12 @@
  * keeps the bar as it was.
  */
 
+jest.mock('@react-native-async-storage/async-storage', () =>
+  jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+);
+
+import { resolveAppearance } from '../../theme/useAppearance';
+import { useSettingsStore } from '../../settings/store';
 import { Platform, StyleSheet, Text } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 
@@ -32,7 +38,7 @@ test('with a home indicator the bar grows by the inset and pads its items above 
   // The items' own room is still the 58 pt of the approved bar.
   expect(style.height - style.paddingBottom).toBe(58);
   // The bar's own background is what reaches the edge (not the screen's padding behind it).
-  expect(style.backgroundColor).toBe('#121212');
+  expect(style.backgroundColor).toBe(resolveAppearance(useSettingsStore.getState().settings, true).background);
 });
 
 test('without an inset the bar is the 58 pt it was', async () => {

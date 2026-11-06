@@ -1,9 +1,17 @@
 import { Pressable, Text } from 'react-native';
 
-import { TERMINAL_FONT_SIZE_MAX, TERMINAL_FONT_SIZE_MIN, useSettingsStore } from '../../settings/store';
+import {
+  TERMINAL_BACKGROUND_STARTING_COLOR,
+  TERMINAL_FONT_SIZE_MAX,
+  TERMINAL_FONT_SIZE_MIN,
+  useSettingsStore,
+  type TerminalBackgroundMode,
+} from '../../settings/store';
 import { useTerminalStore } from '../../terminal/sessions';
 import {
   Caption,
+  ChoiceRow,
+  HexColourField,
   SectionHeader,
   SettingsScreenLayout,
   SettingToggle,
@@ -57,11 +65,64 @@ function BehaviorSection() {
   );
 }
 
+/** The desktop's Terminal background choices (General › Terminal), in its order. */
+const TERMINAL_BACKGROUND_ROWS: ReadonlyArray<{ value: TerminalBackgroundMode; label: string }> = [
+  { value: 'pure', label: 'Black / white' },
+  { value: 'theme', label: 'Follow theme' },
+  { value: 'custom', label: 'Custom color' },
+];
+
+/**
+ * Terminal background and, for Custom, its colour (`terminalBackgroundMode`, `workspaceBackgroundColor`). Choosing
+ * Custom while no colour is set seeds #111111 in the same save, as the desktop does.
+ */
+function BackgroundSection() {
+  const mode = useSettingsStore((state) => state.settings.terminalBackgroundMode);
+  const colour = useSettingsStore((state) => state.settings.workspaceBackgroundColor);
+  const patchSettings = useSettingsStore((state) => state.patchSettings);
+
+  return (
+    <>
+      <SectionHeader title="Terminal background" />
+      {TERMINAL_BACKGROUND_ROWS.map((row) => (
+        <ChoiceRow
+          key={row.value}
+          label={row.label}
+          selected={mode === row.value}
+          onPress={() =>
+            patchSettings(
+              row.value === 'custom' && colour === ''
+                ? { terminalBackgroundMode: row.value, workspaceBackgroundColor: TERMINAL_BACKGROUND_STARTING_COLOR }
+                : { terminalBackgroundMode: row.value },
+            )
+          }
+        />
+      ))}
+      <Caption>
+        Only changes the terminal. Black / white is pure black in dark mode and pure white in light mode.
+      </Caption>
+      {mode === 'custom' ? (
+        <>
+          <HexColourField
+            label="Terminal background color"
+            value={colour}
+            onChange={(hex) => patchSettings({ workspaceBackgroundColor: hex })}
+          />
+          <Caption>Painted behind terminal text in dark and light mode.</Caption>
+        </>
+      ) : null}
+    </>
+  );
+}
+
 export default function TerminalPage() {
   return (
     <SettingsScreenLayout>
       <SettingsSection name="settings:terminal:font-size">
         <FontSizeSection />
+      </SettingsSection>
+      <SettingsSection name="settings:terminal:background">
+        <BackgroundSection />
       </SettingsSection>
       <SettingsSection name="settings:terminal:behavior">
         <BehaviorSection />

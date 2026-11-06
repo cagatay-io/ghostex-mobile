@@ -27,7 +27,7 @@ export function usageColumns(windows: unknown): UsageColumn[] {
 }
 
 /** The columns split into lines of three; the last line is padded with nulls so its columns stay as wide. */
-export function usageLines(columns: UsageColumn[]): (UsageColumn | null)[][] {
+export function usageLines(columns: readonly UsageColumn[]): (UsageColumn | null)[][] {
   const lines: (UsageColumn | null)[][] = [];
   for (let start = 0; start < columns.length; start += USAGE_COLUMNS) {
     const line: (UsageColumn | null)[] = columns.slice(start, start + USAGE_COLUMNS);

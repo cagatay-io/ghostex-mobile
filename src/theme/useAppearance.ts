@@ -1,14 +1,28 @@
 import { useMemo } from 'react';
+import { useColorScheme } from 'react-native';
+import { useShallow } from 'zustand/react/shallow';
 
-import { useSettingsStore } from '../settings/store';
-import { mixHexColors, neutralButtonFills } from './palette';
-import { resolveSidebarAppearance, type SidebarAppearance } from './sidebarAppearance';
+import { useSettingsStore, type GhostexSettings } from '../settings/store';
+import {
+  ATTENTION_ROW_WASH, BLOCKED_CARD_WASH, VOICE_MEMORY_WASH, colorOver, destructiveButtonFills,
+  GhostexPalette, mixHexColors, neutralButtonFills,
+} from './palette';
+import {
+  appearanceIsLight,
+  resolveThemeAreas,
+  readableSecondaryText,
+  sidebarAppearanceFor,
+  type SidebarAppearance,
+  type ThemeColourSettings,
+} from './sidebarAppearance';
 
 /**
  * The sessions drawer's colors plus the few control tokens a form screen needs.
- * Every drawer token comes unchanged from `resolveSidebarAppearance`.
+ * Every drawer token comes from `sidebarAppearanceFor` over the resolved sidebar colour.
  */
 export type Appearance = SidebarAppearance & {
+  /** The work area colour of the same appearance (chat, a theme-coloured terminal). */
+  workArea: string;
   /** Text fields: one step above the page so the field edge reads. */
   input: string;
   /** Off-state switch tracks, radio rings and slider tracks. */
@@ -20,46 +34,115 @@ export type Appearance = SidebarAppearance & {
   /** Secondary text buttons: the neutral fill at rest and pressed (`neutralButtonFills`, no border). */
   neutralFill: string;
   neutralFillPressed: string;
+  /** Selected radios, switches and slider fills, and accent text: the sky accent, a deep blue-grey on a light page. */
+  accent: string;
+  accentForeground: string;
+  danger: string;
+  dangerFill: string;
+  dangerFillPressed: string;
+  attention: string;
+  working: string;
+  connected: string;
+  sleeping: string;
 };
 
-/** Whether a `#rrggbb` page is light (the same luminance split that picks the drawer's foreground). */
-function isLightBackground(background: string): boolean {
-  const value = Number.parseInt(background.slice(1, 7), 16);
-  const luminance = (0.2126 * ((value >> 16) & 0xff) + 0.7152 * ((value >> 8) & 0xff) + 0.0722 * (value & 0xff)) / 255;
-  return luminance > 0.54;
-}
+/** The desktop's light Settings accent (`settings_accent`: #262626 mixed half with #174564). */
+const LIGHT_ACCENT = mixHexColors('#262626', '#174564', 50);
 
-let lastResolved: { tint: string; contrast: number; appearance: Appearance } | null = null;
+let lastResolved: { key: string; appearance: Appearance } | null = null;
 
 /**
- * Resolves the phone's Background Tint and Background Contrast into page colors.
+ * Resolves the colour settings for one appearance into page colors.
  * Equal inputs return the same object so per-appearance style caches stay warm.
  */
-export function resolveAppearance(tint: string, contrast: number): Appearance {
-  if (lastResolved !== null && lastResolved.tint === tint && lastResolved.contrast === contrast) {
-    return lastResolved.appearance;
-  }
-  const sidebar = resolveSidebarAppearance(tint, contrast);
-  const light = isLightBackground(sidebar.background);
+export function resolveAppearance(settings: ThemeColourSettings, light: boolean): Appearance {
+  const key = JSON.stringify([
+    light,
+    settings.darkThemePreset,
+    settings.lightThemePreset,
+    settings.customSidebarTitlebarBackgroundTintColor,
+    settings.customSidebarTitlebarLightBackgroundTintColor,
+    settings.customSidebarTitlebarBackgroundDarknessPercent,
+    settings.customSidebarTitlebarLightBackgroundLightnessPercent,
+    settings.themeSidebarContrast,
+    settings.themeWorkAreaContrast,
+  ]);
+  if (lastResolved !== null && lastResolved.key === key) return lastResolved.appearance;
+  const areas = resolveThemeAreas(settings, light);
+  const sidebar = sidebarAppearanceFor(areas.sidebar);
   const fills = neutralButtonFills(light);
+  const dangerFills = destructiveButtonFills(GhostexPalette.DANGER, light);
+  const surfaces = [
+    sidebar.background,
+    sidebar.card,
+    sidebar.cardActive,
+    ...[sidebar.background, sidebar.card].flatMap((base) =>
+      [fills.rest, fills.pressed, dangerFills.rest, dangerFills.pressed].map((fill) => colorOver(fill, base)),
+    ),
+    colorOver(BLOCKED_CARD_WASH, sidebar.background),
+    colorOver(ATTENTION_ROW_WASH, sidebar.background),
+    colorOver(VOICE_MEMORY_WASH, sidebar.background),
+  ];
+  // Keep the desktop's surfaces and fill alphas; strengthen text only where a surface needs it.
+  const foreground = readableSecondaryText(sidebar.foreground, light ? '#000000' : '#ffffff', surfaces);
+  const text = (designed: string) => readableSecondaryText(designed, foreground, surfaces);
+  const accent = text(light ? LIGHT_ACCENT : GhostexPalette.ACCENT);
+  const danger = text(GhostexPalette.DANGER);
   const appearance: Appearance = {
     ...sidebar,
+    foreground,
+    muted: text(sidebar.muted),
+    workArea: areas.workArea,
     input: mixHexColors(sidebar.foreground, sidebar.background, 3),
     control: mixHexColors(sidebar.foreground, sidebar.background, 22),
     controlThumb: mixHexColors(sidebar.foreground, sidebar.background, 75),
     light,
     neutralFill: fills.rest,
     neutralFillPressed: fills.pressed,
+    accent,
+    accentForeground: light ? GhostexPalette.FOREGROUND : GhostexPalette.ACCENT_FOREGROUND,
+    danger,
+    dangerFill: dangerFills.rest,
+    dangerFillPressed: dangerFills.pressed,
+    attention: text(GhostexPalette.STATUS_ATTENTION),
+    working: text(GhostexPalette.STATUS_WORKING),
+    connected: text(GhostexPalette.STATUS_CONNECTED),
+    sleeping: text(GhostexPalette.STATUS_SLEEPING),
   };
-  lastResolved = { tint, contrast, appearance };
+  lastResolved = { key, appearance };
   return appearance;
 }
 
+/** The colour keys of the settings, for a shallow store selector (the drawer, Settings and the chat read the same). */
+export function themeColourSettings(settings: GhostexSettings): ThemeColourSettings {
+  return {
+    darkThemePreset: settings.darkThemePreset,
+    lightThemePreset: settings.lightThemePreset,
+    customSidebarTitlebarBackgroundTintColor: settings.customSidebarTitlebarBackgroundTintColor,
+    customSidebarTitlebarLightBackgroundTintColor: settings.customSidebarTitlebarLightBackgroundTintColor,
+    customSidebarTitlebarBackgroundDarknessPercent: settings.customSidebarTitlebarBackgroundDarknessPercent,
+    customSidebarTitlebarLightBackgroundLightnessPercent: settings.customSidebarTitlebarLightBackgroundLightnessPercent,
+    themeSidebarContrast: settings.themeSidebarContrast,
+    themeWorkAreaContrast: settings.themeWorkAreaContrast,
+  };
+}
+
 /**
- * CDXC:Theming 2026-09-25 DECISION: User (2026-09-25): "i want settings to be affected by selected colors". The Background Tint and Background Contrast chosen in Settings > Theme paint every Settings page, the Extra Keys and Agent Hotkeys editors, and their navigation headers with the same colors as the sessions drawer, and a change repaints the open page at once. The drawer keeps calling `resolveSidebarAppearance` itself, so its colors did not change.
+ * CDXC:Theming DECISION: the selected colours reach the settings screens. The theme colours paint every Settings page, the Extra Keys and Agent Hotkeys editors, their navigation headers and the sessions drawer with the same colors, and a change repaints the open page at once.
+ *
+ * CDXC:Theming WHY: The colours come from the desktop's model (the phone copies the Mac app's theme functions): the saved appearance (System follows the device) picks the dark or light colour settings, and the drawer reads this same hook instead of a second resolver.
  */
 export function useAppearance(): Appearance {
-  const tint = useSettingsStore((state) => state.settings.sidebarBackgroundTint);
-  const contrast = useSettingsStore((state) => state.settings.sidebarBackgroundContrast);
-  return useMemo(() => resolveAppearance(tint, contrast), [tint, contrast]);
+  const theme = useSettingsStore(useShallow(({ settings }) => themeColourSettings(settings)));
+  const light = useAppearanceIsLight();
+  return useMemo(() => resolveAppearance(theme, light), [theme, light]);
+}
+
+/**
+ * Whether the saved appearance is light (System follows the device): `useAppearance().light` without resolving the
+ * colours, for the many Sessions list rows that only pick their ink by it (rows.tsx `useSidebarInk`).
+ */
+export function useAppearanceIsLight(): boolean {
+  const sidebarTheme = useSettingsStore((state) => state.settings.sidebarTheme);
+  return appearanceIsLight(sidebarTheme, useColorScheme() === 'light');
 }

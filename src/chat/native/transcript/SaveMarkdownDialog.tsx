@@ -4,7 +4,8 @@
  * name from the session title and the project's Docs files, and validates both); the dialog reports
  * every edit (`markdownSaveFolder`, `markdownSaveName`) and Save (`markdownSaveSubmit`), and the core
  * writes the file into the project's Docs folder on the computer through gxserver. When it is saved
- * the screen copies the full path and says so (`markdownSaved`), as desktop does.
+ * the screen copies the full path and says so (`markdownSaved`), as desktop does. Half folded like a laptop the
+ * card keeps off the fold (`useFoldCardPlacement`).
  *
  * CDXC:SessionChat 2026-09-25 WHY:
  * The file the dialog saves lives on the computer, like desktop's, so it shows up in Docs on both.
@@ -18,6 +19,7 @@ import { File, Paths } from 'expo-file-system';
 import { useRef } from 'react';
 import { ActivityIndicator, Modal, Platform, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { useFoldCardPlacement } from '../../../components/common/foldAvoidance';
 import KeyboardAvoidingContainer from '../../../components/common/keyboard/KeyboardAvoidingContainer';
 import KeyboardAwareScrollView from '../../../components/common/keyboard/KeyboardAwareScrollView';
 import type { RustChat } from '../../rust/useRustChat';
@@ -64,6 +66,7 @@ export function SaveMarkdownDialog({ chat }: { chat: RustChat }) {
   const [fileName, setFileName] = useEchoedText(identity, str(state, 'fileName'), (value) =>
     dispatch({ type: 'markdownSaveName', value }),
   );
+  const placement = useFoldCardPlacement({ avoidsKeyboard: true, belowSafeAreaTop: true });
   if (state === null) return null;
   const saving = isTrue(state, 'saving');
   const unavailable = isTrue(state, 'loading') || str(state, 'listingError').length > 0;
@@ -143,7 +146,7 @@ export function SaveMarkdownDialog({ chat }: { chat: RustChat }) {
   return (
     <Modal visible transparent animationType="fade" onRequestClose={cancel} statusBarTranslucent>
       <KeyboardAvoidingContainer safeAreaTop style={styles.fill}>
-        <View style={styles.backdrop}>
+        <View style={[styles.backdrop, placement.style]}>
           <Pressable
             style={StyleSheet.absoluteFill}
             onPress={saving ? undefined : cancel}
@@ -151,6 +154,7 @@ export function SaveMarkdownDialog({ chat }: { chat: RustChat }) {
           />
           <View
             style={[styles.card, { backgroundColor: theme.light ? theme.background : '#191919' }]}
+            onLayout={placement.onCardLayout}
             accessibilityViewIsModal
           >
             <View style={styles.header}>

@@ -135,6 +135,12 @@ final class GhostexTerminalRegistry {
         return app
     }
 
+    /// After a module-global settings change: drop the configs built for the previous settings
+    /// (no-op before the first terminal created the app).
+    func discardCachedSurfaceConfigs() {
+        ghosttyApp?.discardCachedSurfaceConfigs()
+    }
+
     func entry(for sessionKey: String) -> TerminalSessionEntry? {
         entries[sessionKey]
     }

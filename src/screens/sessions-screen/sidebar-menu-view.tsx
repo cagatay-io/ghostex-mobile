@@ -42,15 +42,15 @@ import {
   TagGlyph,
   TagOffGlyph,
   UnlinkGlyph,
+  WorldGlyph,
   XGlyph,
   type GlyphProps,
 } from '../../components/sessions/icons';
-import { GhostexPalette } from '../../theme/palette';
+
 import { HeadsetGlyph } from '../../voice/VoiceButton';
 import { BUILTIN_TAG_ICON_IDS, type SidebarMenuCommand, type SidebarMenuItem } from './sidebar-menus';
 
 const MENU_ICON_SIZE = 14;
-const MENU_ICON_COLOR = GhostexPalette.FOREGROUND;
 
 /** The desktop menu icon ids the phone's menus use (`titlebar/<id>.svg`). */
 const MENU_GLYPHS: Readonly<Record<string, (props: GlyphProps) => ReactElement>> = {
@@ -87,6 +87,7 @@ const MENU_GLYPHS: Readonly<Record<string, (props: GlyphProps) => ReactElement>>
   tag: TagGlyph,
   'tag-off': TagOffGlyph,
   unlink: UnlinkGlyph,
+  world: WorldGlyph,
   x: XGlyph,
 };
 
@@ -99,10 +100,10 @@ const TAG_VALUE_BY_ICON_ID: Readonly<Record<string, string>> = Object.fromEntrie
  * The glyph for a row. A tag row carries its tag's colour; every other row, danger rows
  * included, draws its icon in the menu foreground like the desktop does.
  */
-function menuIcon(item: SidebarMenuItem): ReactElement | undefined {
+function menuIcon(item: SidebarMenuItem, foreground: string): ReactElement | undefined {
   const icon = item.icon;
   if (icon === undefined) return undefined;
-  const color = item.iconColor ?? MENU_ICON_COLOR;
+  const color = item.iconColor ?? foreground;
   if (item.iconColor !== undefined) {
     const tagValue = TAG_VALUE_BY_ICON_ID[icon];
     const TagIcon = tagValue === undefined ? undefined : TAG_ICONS[tagValue];
@@ -131,6 +132,7 @@ export function sidebarMenuView(
     openPath: (menuPath: string[]) => void;
     run: (command: SidebarMenuCommand) => void;
   },
+  foreground: string,
 ): SidebarMenuView {
   let items: readonly SidebarMenuItem[] = menu;
   const opened: string[] = [];
@@ -147,7 +149,7 @@ export function sidebarMenuView(
       kind: 'item',
       key: `${prefix}:back`,
       label: 'Back',
-      icon: <ChevronLeftGlyph size={MENU_ICON_SIZE} color={MENU_ICON_COLOR} />,
+      icon: <ChevronLeftGlyph size={MENU_ICON_SIZE} color={foreground} />,
       onPress: () => handlers.openPath(opened.slice(0, -1)),
     });
     rows.push({ kind: 'separator', key: `${prefix}:back-separator` });
@@ -186,7 +188,7 @@ export function sidebarMenuView(
       rows.push({ ...base, swatch: item.color });
       return;
     }
-    const icon = menuIcon(item);
+    const icon = menuIcon(item, foreground);
     rows.push(icon === undefined ? base : { ...base, icon });
   });
   return { openedLabel: opened.length > 0 ? opened[opened.length - 1] : null, items: rows };

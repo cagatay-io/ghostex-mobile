@@ -6,15 +6,17 @@
  * the secure keystore.
  */
 
-import { useEffect, useState } from 'react';
+import { useMemo, useEffect, useState } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
+
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { ScanCopy } from '../../copy';
 import { tailscaleCodeAddress, type TailscaleCode } from '../../machines/pairingCodes';
-import { GhostexRadii, GhostexStrokeWidth, SetupPalette } from '../../theme/palette';
+import { GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
 import BottomSheet from '../common/BottomSheet';
 import { LockGlyph, ShieldGlyph } from './SetupIcons';
-import { SetupButton, SetupRow, SetupRows, setupText } from './SetupPrimitives';
+import { SetupButton, SetupRow, SetupRows, useSetupText } from './SetupPrimitives';
 
 export type TailscalePasswordSheetProps = {
   code: TailscaleCode | null;
@@ -26,6 +28,9 @@ export type TailscalePasswordSheetProps = {
 };
 
 export default function TailscalePasswordSheet({ code, busy, error, onClose, onSave }: TailscalePasswordSheetProps) {
+  const setupText = useSetupText();
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const [password, setPassword] = useState('');
   const [touched, setTouched] = useState(false);
 
@@ -47,7 +52,7 @@ export default function TailscalePasswordSheet({ code, busy, error, onClose, onS
       {code !== null ? (
         <>
           <View style={styles.eyebrow}>
-            <ShieldGlyph size={14} color={SetupPalette.MUTED} />
+            <ShieldGlyph size={14} color={appearance.muted} />
             <Text style={setupText.eyebrow}>{ScanCopy.tailscalePassword.eyebrow}</Text>
           </View>
           <Text style={[setupText.title, styles.title]}>{ScanCopy.tailscalePassword.title}</Text>
@@ -65,8 +70,9 @@ export default function TailscalePasswordSheet({ code, busy, error, onClose, onS
           <View style={styles.field}>
             <Text style={styles.label}>{ScanCopy.tailscalePassword.passwordLabel(code.user)}</Text>
             <View style={styles.inputRow}>
-              <LockGlyph size={14} color={SetupPalette.DIM} />
+              <LockGlyph size={14} color={appearance.muted} />
               <TextInput
+                keyboardAppearance={appearance.light ? 'light' : 'dark'}
                 style={styles.input}
                 secureTextEntry
                 autoCapitalize="none"
@@ -97,7 +103,7 @@ export default function TailscalePasswordSheet({ code, busy, error, onClose, onS
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   eyebrow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -117,7 +123,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   label: {
-    color: SetupPalette.MUTED,
+    color: appearance.muted,
     fontSize: 13,
   },
   inputRow: {
@@ -125,20 +131,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: GhostexRadii.control,
     borderWidth: GhostexStrokeWidth,
-    borderColor: SetupPalette.BORDER_STRONG,
-    backgroundColor: SetupPalette.PAGE,
+    borderColor: appearance.border,
+    backgroundColor: appearance.background,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
   input: {
     flex: 1,
-    color: SetupPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 15,
     paddingVertical: 0,
   },
   error: {
-    color: SetupPalette.ERROR,
+    color: appearance.danger,
     fontSize: 12,
     lineHeight: 17,
   },

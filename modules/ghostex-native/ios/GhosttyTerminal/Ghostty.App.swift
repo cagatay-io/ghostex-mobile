@@ -4,8 +4,8 @@
 //
 //  Ported from VVTerm/GhosttyTerminal/Ghostty.App.swift.
 //  Pruned: settings/themes managers, CloudKit-backed appearance, macOS paths,
-//  search actions, scrollbar notifications. Uses a fixed dark configuration
-//  (background #000000, bundled JetBrains Mono Nerd Font).
+//  search actions, scrollbar notifications. Colours come as values from JS
+//  (TerminalColors), the font is the bundled JetBrains Mono Nerd Font.
 //
 
 import Foundation
@@ -36,50 +36,6 @@ extension Ghostty {
 // MARK: - Ghostty.App
 
 extension Ghostty {
-    enum ConfigBuilder {
-        /// Fixed dark configuration for the Ghostex mobile terminal.
-        static func configContent(
-            fontSize: Double,
-            cursorStyle: TerminalRuntimeSettings.CursorStyle,
-            cursorBlink: Bool,
-            scrollbackRows: Int
-        ) -> String {
-            """
-            font-family = "JetBrainsMono Nerd Font"
-            font-size = \(Int(fontSize))
-            window-inherit-font-size = false
-            window-padding-balance = false
-            window-padding-x = 0
-            window-padding-y = 0
-            window-padding-color = extend-always
-
-            # Remote SSH sessions; no local shell integration.
-            shell-integration = none
-
-            # Cursor
-            cursor-style = \(cursorStyle.rawValue)
-            cursor-style-blink = \(cursorBlink)
-
-            # Fixed dark theme: black background.
-            background = #000000
-
-            # Disable audible bell (the app surfaces bells itself)
-            audible-bell = false
-
-            # Scrollback in bytes (this libghostty has no row limit): the
-            # setting's rows at about 2 KiB each, see ScrollbackLimit.swift.
-            scrollback-limit = \(ScrollbackLimit.bytes(forRows: scrollbackRows))
-
-            # Faster scroll speed for iOS touch
-            mouse-scroll-multiplier = 3
-
-            # Custom keybinds
-            keybind = shift+enter=text:\\n
-
-            """
-        }
-    }
-
     /// Minimal wrapper for ghostty_app_t lifecycle management.
     @MainActor
     final class App {
@@ -97,18 +53,11 @@ extension Ghostty {
         /// Readiness state
         private(set) var readiness: Readiness = .loading
 
-        /// Every setting that changes the generated ghostty config must be
-        /// part of this key, otherwise a stale cached config gets applied.
-        private struct SurfaceConfigKey: Hashable {
-            let fontSize: Int
-            let cursorStyle: TerminalRuntimeSettings.CursorStyle
-            let cursorBlink: Bool
-            let scrollbackRows: Int
-        }
-
         /// Track active surfaces for config propagation
         private var activeSurfaces: [Ghostty.SurfaceReference] = []
-        private var surfaceConfigCache: [SurfaceConfigKey: ghostty_config_t] = [:]
+        /// Per-surface configs by `ConfigBuilder.identity` of their content, so a cached config is
+        /// reused only for exactly the same settings (font size, cursor, scrollback, colours).
+        private var surfaceConfigCache: [String: ghostty_config_t] = [:]
 
         /// scrollback-limit currently baked into the app-level config. New
         /// surfaces inherit it at creation (libghostty reads it only then).
@@ -223,8 +172,8 @@ extension Ghostty {
         }
 
         /// Apply per-surface presentation overrides (font size) plus the
-        /// module-global cursor settings. scrollback-limit is included for
-        /// cache-key fidelity but only takes effect at surface creation.
+        /// module-global settings (cursor, colours). scrollback-limit is included for
+        /// config fidelity but only takes effect at surface creation.
         func updateSurfaceConfig(
             _ surface: ghostty_surface_t,
             presentationOverrides: TerminalPresentationOverrides,
@@ -266,32 +215,54 @@ extension Ghostty {
             }
         }
 
+        /// Drop the cached per-surface configs after the module-global settings changed: every
+        /// surface gets its config again right after (`reapplySurfaceConfig`), so the cache holds
+        /// the current settings only instead of one config per palette ever chosen. Surfaces keep
+        /// their own copies of what was applied (Ghostty derives them in `updateConfig`), so freeing
+        /// is safe.
+        func discardCachedSurfaceConfigs() {
+            clearSurfaceConfigCache()
+        }
+
         // MARK: - Private Helpers
 
+        private func configContent(fontSize: Double, scrollbackRows: Int) -> String {
+            let settings = Self.runtimeSettings
+            return ConfigBuilder.configContent(
+                fontSize: fontSize,
+                cursorStyle: settings.cursorStyle,
+                cursorBlink: settings.cursorBlink,
+                scrollbackRows: scrollbackRows,
+                colors: settings.colors
+            )
+        }
+
         private func makeConfig(fontSize: Double, scrollbackRows: Int) -> ghostty_config_t? {
+            makeConfig(content: configContent(fontSize: fontSize, scrollbackRows: scrollbackRows))
+        }
+
+        private func makeConfig(content: String) -> ghostty_config_t? {
             guard let config = ghostty_config_new() else {
                 Ghostty.logger.error("ghostty_config_new failed")
                 return nil
             }
 
-            loadConfigIntoGhostty(config, fontSize: fontSize, scrollbackRows: scrollbackRows)
+            loadConfigIntoGhostty(config, content: content)
             ghostty_config_finalize(config)
             return config
         }
 
         private func cachedSurfaceConfig(fontSize: Double, scrollbackRows: Int) -> ghostty_config_t? {
-            let settings = Self.runtimeSettings
-            let key = SurfaceConfigKey(
-                fontSize: Int(TerminalDefaults.clampedFontSize(fontSize)),
-                cursorStyle: settings.cursorStyle,
-                cursorBlink: settings.cursorBlink,
+            let content = configContent(
+                fontSize: TerminalDefaults.clampedFontSize(fontSize),
                 scrollbackRows: scrollbackRows
             )
+            let key = ConfigBuilder.identity(of: content)
             if let cachedConfig = surfaceConfigCache[key] {
                 return cachedConfig
             }
 
-            guard let config = makeConfig(fontSize: Double(key.fontSize), scrollbackRows: scrollbackRows) else {
+            guard let config = makeConfig(content: content) else {
                 return nil
             }
 
@@ -306,33 +277,25 @@ extension Ghostty {
             surfaceConfigCache.removeAll()
         }
 
-        /// Generate and load config content into a ghostty_config_t.
-        private func loadConfigIntoGhostty(_ config: ghostty_config_t, fontSize: Double, scrollbackRows: Int) {
-            let settings = Self.runtimeSettings
+        /// Load generated config content into a ghostty_config_t. libghostty reads configs from
+        /// files, so the content goes through a temp file named by its identity (two contents
+        /// never share a file) that is removed once loaded.
+        private func loadConfigIntoGhostty(_ config: ghostty_config_t, content: String) {
             let tempDir = NSTemporaryDirectory()
             let configDir = (tempDir as NSString).appendingPathComponent("ghostex-ghostty")
-            // The file name must be unique per generated content, otherwise
-            // concurrent cache entries overwrite each other's file.
-            let configFileName = "config-\(Int(fontSize))-\(settings.cursorStyle.rawValue)"
-                + "-\(settings.cursorBlink ? "blink" : "steady")-\(scrollbackRows)"
+            let configFileName = "config-\(ConfigBuilder.identity(of: content))"
             let configFilePath = (configDir as NSString).appendingPathComponent(configFileName)
 
             do {
                 try FileManager.default.createDirectory(atPath: configDir, withIntermediateDirectories: true)
-
-                let configContent = ConfigBuilder.configContent(
-                    fontSize: fontSize,
-                    cursorStyle: settings.cursorStyle,
-                    cursorBlink: settings.cursorBlink,
-                    scrollbackRows: scrollbackRows
-                )
-                try configContent.write(toFile: configFilePath, atomically: true, encoding: .utf8)
+                try content.write(toFile: configFilePath, atomically: true, encoding: .utf8)
 
                 configFilePath.withCString { pathPtr in
                     ghostty_config_load_file(config, pathPtr)
                 }
+                try? FileManager.default.removeItem(atPath: configFilePath)
 
-                Ghostty.logger.info("Loaded terminal config, font size \(Int(fontSize))pt")
+                Ghostty.logger.info("Loaded terminal config \(configFileName)")
             } catch {
                 Ghostty.logger.warning("Failed to write config: \(error)")
             }

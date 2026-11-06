@@ -3,22 +3,25 @@
  * come from the current appearance (Settings > Interface), never the static palette.
  */
 
-import { createContext, useContext, type ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, Text, View, type ScrollViewProps } from 'react-native';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View, type ScrollViewProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SwitchRow } from '../../components/common/SwitchRow';
 import SteppedSlider from '../../components/common/SteppedSlider';
+import { FoldListFrame } from '../../components/common/foldGap';
 import KeyboardAwareScrollView from '../../components/common/keyboard/KeyboardAwareScrollView';
 import type { HorizontalInsets } from '../../components/common/verticalBar/layout';
+import { useLaptopFold } from '../../components/common/verticalBar/laptopFold';
 import { useHeaderPlacement, useScrollToBarEdges } from '../../components/common/verticalBar/VerticalBarArea';
 import { useSettingsStore, type GhostexSettings } from '../../settings/store';
-import { GhostexPalette, GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
+import { GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
+import { normalizeHexColor } from '../../theme/sidebarAppearance';
 import { useAppearance, type Appearance } from '../../theme/useAppearance';
 import { useAppearanceHeader } from './useAppearanceHeader';
 
 export type BooleanSettingKey = {
-  [Key in keyof GhostexSettings]: GhostexSettings[Key] extends boolean ? Key : never;
+  [Key in keyof GhostexSettings]-?: GhostexSettings[Key] extends boolean ? Key : never;
 }[keyof GhostexSettings];
 
 const stylesByAppearance = new WeakMap<Appearance, ReturnType<typeof createSettingsStyles>>();
@@ -106,10 +109,10 @@ function createSettingsStyles(appearance: Appearance) {
       fontSize: 12,
     },
     linkDescriptionAccent: {
-      color: GhostexPalette.ACCENT,
+      color: appearance.accent,
     },
     chevron: {
-      color: appearance.muted,
+      color: appearance.mutedGlyph,
       fontSize: 22,
       lineHeight: 24,
     },
@@ -161,6 +164,17 @@ function createSettingsStyles(appearance: Appearance) {
       flex: 1,
       gap: 2,
     },
+    hexInput: {
+      width: 104,
+      fontFamily: 'monospace',
+    },
+    hexSwatch: {
+      width: 24,
+      height: 24,
+      borderRadius: 5,
+      borderWidth: GhostexStrokeWidth,
+      borderColor: appearance.border,
+    },
     radioOuter: {
       width: 20,
       height: 20,
@@ -171,13 +185,13 @@ function createSettingsStyles(appearance: Appearance) {
       justifyContent: 'center',
     },
     radioOuterSelected: {
-      borderColor: GhostexPalette.ACCENT,
+      borderColor: appearance.accent,
     },
     radioInner: {
       width: 10,
       height: 10,
       borderRadius: 5,
-      backgroundColor: GhostexPalette.ACCENT,
+      backgroundColor: appearance.accent,
     },
     stepper: {
       flexDirection: 'row',
@@ -230,7 +244,7 @@ export function useSettingsStyles(): ReturnType<typeof createSettingsStyles> {
  * stands beside the Settings list instead (`SettingsColumnsFrame`), in a
  * column narrower than this one. The 640 pt is this fallback, not the Settings layout.
  */
-const READABLE_COLUMN = { width: '100%', maxWidth: 640, alignSelf: 'center' } as const;
+export const READABLE_COLUMN = { width: '100%', maxWidth: 640, alignSelf: 'center' } as const;
 
 /**
  * The side bar's insets a Settings page's scroll view reaches over: both of them, or in two
@@ -242,7 +256,7 @@ export const SettingsPageEdgesContext = createContext<HorizontalInsets | null>(n
 /**
  * A Settings page's scroll view (the pages' and the editors'): it spans the window under the side bar
  * and its content keeps its own padding clear of it; unchanged without a side bar.
- * `keyboardAware` for a page with text fields.
+ * `keyboardAware` for a page with text fields. Half folded like a laptop it ends above the fold (fold gap).
  */
 export function SettingsPageScrollView({
   keyboardAware = false,
@@ -252,11 +266,14 @@ export function SettingsPageScrollView({
   ...props
 }: ScrollViewProps & { keyboardAware?: boolean }) {
   const edges = useScrollToBarEdges(contentContainerStyle, useContext(SettingsPageEdgesContext));
+  const fold = useLaptopFold();
   const Scroll = keyboardAware ? KeyboardAwareScrollView : ScrollView;
   return (
-    <Scroll {...props} style={[style, edges.scroll]} contentContainerStyle={[contentContainerStyle, edges.content]}>
-      {children}
-    </Scroll>
+    <FoldListFrame fold={fold}>
+      <Scroll {...props} style={[style, edges.scroll]} contentContainerStyle={[contentContainerStyle, edges.content]}>
+        {children}
+      </Scroll>
+    </FoldListFrame>
   );
 }
 
@@ -324,8 +341,8 @@ export function ToggleRow({
       <Switch
         value={value}
         onValueChange={onValueChange}
-        trackColor={{ false: appearance.control, true: GhostexPalette.ACCENT }}
-        thumbColor={value ? appearance.foreground : appearance.controlThumb}
+        trackColor={{ false: appearance.control, true: appearance.accent }}
+        thumbColor={value ? (appearance.light ? '#ffffff' : appearance.foreground) : appearance.controlThumb}
         ios_backgroundColor={appearance.control}
       />
     </SwitchRow>
@@ -476,6 +493,68 @@ export function ValueRow({ label, value }: { label: string; value: string }) {
     <View style={styles.row}>
       <Text style={styles.rowLabel}>{label}</Text>
       <Text style={styles.value}>{value}</Text>
+    </View>
+  );
+}
+
+/**
+ * A `#rrggbb` colour typed as hex, with a swatch of the saved colour: a complete colour (with or without `#`) saves
+ * at once; leaving a partial entry shows the saved value again. The custom theme tints and the custom terminal
+ * background use it.
+ */
+export function HexColourField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  /** The saved colour, or `''` when none is set. */
+  value: string;
+  onChange: (hex: string) => void;
+}) {
+  const styles = useSettingsStyles();
+  const appearance = useAppearance();
+  const [draft, setDraft] = useState(value.toUpperCase());
+
+  useEffect(() => {
+    setDraft(value.toUpperCase());
+  }, [value]);
+
+  const colour = (text: string): string => normalizeHexColor(text, '');
+  const commit = (): void => {
+    const next = colour(draft);
+    if (next === '') setDraft(value.toUpperCase());
+    else if (next !== value) onChange(next);
+  };
+
+  return (
+    <View style={styles.row}>
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={[styles.hexSwatch, value === '' ? null : { backgroundColor: value }]}
+      />
+      <Text style={styles.rowLabel}>{label}</Text>
+      <TextInput
+        accessibilityLabel={`${label}, hex colour`}
+        autoCapitalize="characters"
+        autoCorrect={false}
+        keyboardAppearance={appearance.light ? 'light' : 'dark'}
+        maxLength={7}
+        placeholder="#RRGGBB"
+        placeholderTextColor={appearance.muted}
+        returnKeyType="done"
+        spellCheck={false}
+        style={[styles.input, styles.hexInput]}
+        value={draft}
+        onBlur={commit}
+        onChangeText={(next) => {
+          setDraft(next);
+          const hex = colour(next);
+          if (hex !== '' && hex !== value) onChange(hex);
+        }}
+        onSubmitEditing={commit}
+      />
     </View>
   );
 }

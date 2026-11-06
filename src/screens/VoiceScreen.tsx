@@ -8,8 +8,11 @@
  * Voice button and the "Voice mode on" notification bring it back.
  */
 
+import { readableSecondaryText } from '../theme/sidebarAppearance';
+import { useMemo, useCallback, useRef, useState } from 'react';
+import { useAppearance, type Appearance } from '../theme/useAppearance';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useCallback, useRef, useState } from 'react';
+
 import {
   Pressable,
   ScrollView,
@@ -179,6 +182,8 @@ function speedLabel(speed: number): string {
 
 /** The voice list: the computer's voices for the conversation's provider, the current one checked. */
 function VoicePickerSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const provider = useVoiceStore((state) => state.provider);
   const current = useVoiceStore((state) => state.voice);
   const next = useVoiceStore((state) => state.nextVoice);
@@ -200,7 +205,7 @@ function VoicePickerSheet({ visible, onClose }: { visible: boolean; onClose: () 
             }}
           >
             <View style={styles.sheetCheck}>
-              {checked ? <CheckGlyph size={18} color={GhostexPalette.FOREGROUND} strokeWidth={2.4} /> : null}
+              {checked ? <CheckGlyph size={18} color={appearance.foreground} strokeWidth={2.4} /> : null}
             </View>
             <Text style={styles.sheetRowLabel}>{voiceName(voice)}</Text>
             {voice === next ? <Text style={styles.sheetRowDetail}>Next conversation</Text> : null}
@@ -213,6 +218,8 @@ function VoicePickerSheet({ visible, onClose }: { visible: boolean; onClose: () 
 
 /** The speed list: 1× to 2×, the current one checked; picking one plays faster at once and saves it. */
 function VoiceSpeedSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const current = useVoiceStore((state) => state.speed);
   return (
     <BottomSheet visible={visible} onClose={onClose}>
@@ -232,7 +239,7 @@ function VoiceSpeedSheet({ visible, onClose }: { visible: boolean; onClose: () =
             }}
           >
             <View style={styles.sheetCheck}>
-              {checked ? <CheckGlyph size={18} color={GhostexPalette.FOREGROUND} strokeWidth={2.4} /> : null}
+              {checked ? <CheckGlyph size={18} color={appearance.foreground} strokeWidth={2.4} /> : null}
             </View>
             <Text style={styles.sheetRowLabel}>{speedLabel(speed)}</Text>
           </Pressable>
@@ -244,6 +251,8 @@ function VoiceSpeedSheet({ visible, onClose }: { visible: boolean; onClose: () =
 
 /** The gear's sheet: the computer's call mode (`voiceAgentCallMode`), with each mode's pricing. */
 function VoiceSettingsSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const current = useVoiceStore((state) => state.callMode);
   return (
     <BottomSheet visible={visible} onClose={onClose}>
@@ -263,7 +272,7 @@ function VoiceSettingsSheet({ visible, onClose }: { visible: boolean; onClose: (
             }}
           >
             <View style={styles.sheetCheck}>
-              {checked ? <CheckGlyph size={18} color={GhostexPalette.FOREGROUND} strokeWidth={2.4} /> : null}
+              {checked ? <CheckGlyph size={18} color={appearance.foreground} strokeWidth={2.4} /> : null}
             </View>
             <View style={styles.sheetRowText}>
               <Text style={styles.sheetChoiceLabel}>{choice.label}</Text>
@@ -282,6 +291,8 @@ function VoiceSettingsSheet({ visible, onClose }: { visible: boolean; onClose: (
  * "<title> was closed", with All sessions at its right end (the WHY on `focusVoiceOn`).
  */
 function FocusBanner() {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const focus = useVoiceStore((state) => state.focus);
   const requested = useVoiceStore((state) => state.requestedFocus);
   const phase = useVoiceStore((state) => state.phase);
@@ -324,6 +335,8 @@ function FocusBanner() {
 }
 
 function Line({ line }: { line: VoiceLine }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   switch (line.kind) {
     case 'caption': {
       const parts = line.paragraphs.length > 1 ? line.paragraphs : [line.text];
@@ -350,9 +363,9 @@ function Line({ line }: { line: VoiceLine }) {
               {
                 color: line.finished
                   ? line.ok
-                    ? GhostexPalette.ACCENT
-                    : GhostexPalette.DANGER
-                  : GhostexPalette.STATUS_WORKING,
+                    ? appearance.accent
+                    : appearance.danger
+                  : appearance.working,
               },
             ]}
           >
@@ -371,6 +384,8 @@ function Line({ line }: { line: VoiceLine }) {
 }
 
 export default function VoiceScreen({ navigation }: Props) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const voice = useVoiceStore();
   const chatTheme = useTranscriptTheme();
   const { away, jumpToBottom, scrollProps } = useFollowBottom();
@@ -418,7 +433,7 @@ export default function VoiceScreen({ navigation }: Props) {
           style={styles.headerButton}
           onPress={close}
         >
-          <ChevronDown color={GhostexPalette.FOREGROUND} />
+          <ChevronDown color={appearance.foreground} />
         </Pressable>
         <View style={styles.headerTitles}>
           <Text style={styles.title}>Voice agent</Text>
@@ -442,7 +457,7 @@ export default function VoiceScreen({ navigation }: Props) {
                   <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
                     <Path
                       d="M 6 9 l 6 6 6 -6"
-                      stroke={GhostexPalette.MUTED}
+                      stroke={appearance.muted}
                       strokeWidth={2.4}
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -463,7 +478,7 @@ export default function VoiceScreen({ navigation }: Props) {
                 <Svg width={11} height={11} viewBox="0 0 24 24" fill="none">
                   <Path
                     d="M 6 9 l 6 6 6 -6"
-                    stroke={GhostexPalette.MUTED}
+                    stroke={appearance.muted}
                     strokeWidth={2.6}
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -481,7 +496,7 @@ export default function VoiceScreen({ navigation }: Props) {
             style={({ pressed }) => [styles.headerButton, pressed && styles.controlPressed]}
             onPress={() => setSettingsOpen(true)}
           >
-            <SettingsGlyph size={22} color={GhostexPalette.MUTED} />
+            <SettingsGlyph size={22} color={appearance.muted} />
           </Pressable>
         ) : (
           <View style={styles.headerButton} />
@@ -493,7 +508,7 @@ export default function VoiceScreen({ navigation }: Props) {
         <View style={[styles.orb, compact && styles.orbCompact, { borderColor: look.color }]}>
           <View style={[styles.orbCore, compact && styles.orbCoreCompact, { backgroundColor: look.color }]} />
         </View>
-        <Text style={[styles.stateLabel, compact && styles.stateLabelCompact, { color: look.color }]} numberOfLines={2}>
+        <Text style={[styles.stateLabel, compact && styles.stateLabelCompact, { color: readableSecondaryText(look.color, appearance.foreground, [appearance.background, appearance.card, appearance.cardActive]) }]} numberOfLines={2}>
           {look.label}
         </Text>
       </View>
@@ -550,7 +565,7 @@ export default function VoiceScreen({ navigation }: Props) {
           <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
             <Path
               d="M 9 6 l 6 6 -6 6"
-              stroke={GhostexPalette.MUTED}
+              stroke={appearance.muted}
               strokeWidth={2.4}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -570,7 +585,7 @@ export default function VoiceScreen({ navigation }: Props) {
           >
             <MicrophoneGlyph
               size={30}
-              color={voice.muted ? GhostexPalette.ACCENT_FOREGROUND : GhostexPalette.FOREGROUND}
+              color={voice.muted ? appearance.accentForeground : appearance.foreground}
               crossed={voice.muted}
             />
             <Text style={[styles.controlLabel, voice.muted && styles.controlLabelOn]}>
@@ -587,10 +602,10 @@ export default function VoiceScreen({ navigation }: Props) {
             <Svg width={30} height={30} viewBox="0 0 24 24" fill="none">
               <Path
                 d="M 3 14 c 5 -5 13 -5 18 0 l -2 3 l -4 -1.5 v -2.5 c -2 -0.6 -4 -0.6 -6 0 v 2.5 l -4 1.5 z"
-                fill={GhostexPalette.FOREGROUND}
+                fill={appearance.accentForeground}
               />
             </Svg>
-            <Text style={styles.controlLabel}>Hang up</Text>
+            <Text style={[styles.controlLabel, styles.controlLabelOn]}>Hang up</Text>
           </Pressable>
         </View>
       ) : (
@@ -611,7 +626,7 @@ export default function VoiceScreen({ navigation }: Props) {
                 )
               }
             >
-              <HeadsetGlyph size={30} color={GhostexPalette.ACCENT_FOREGROUND} />
+              <HeadsetGlyph size={30} color={appearance.accentForeground} />
               <Text style={[styles.controlLabel, styles.controlLabelOn]}>Talk again</Text>
             </Pressable>
           ) : null}
@@ -632,13 +647,13 @@ export default function VoiceScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: GhostexPalette.BACKGROUND },
+const createStyles = (appearance: Appearance) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: appearance.background },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8 },
   headerButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   headerTitles: { flex: 1, alignItems: 'center' },
-  title: { color: GhostexPalette.FOREGROUND, fontSize: 18, fontWeight: '600' },
-  subtitle: { color: GhostexPalette.MUTED, fontSize: 14, marginTop: 2 },
+  title: { color: appearance.foreground, fontSize: 18, fontWeight: '600' },
+  subtitle: { color: appearance.muted, fontSize: 14, marginTop: 2 },
   voiceChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -647,9 +662,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     minHeight: 32,
     borderRadius: 16,
-    backgroundColor: GhostexPalette.CARD_ACTIVE,
+    backgroundColor: appearance.cardActive,
   },
-  voiceChipText: { color: GhostexPalette.FOREGROUND, fontSize: 15, fontWeight: '600' },
+  voiceChipText: { color: appearance.foreground, fontSize: 15, fontWeight: '600' },
   voiceChips: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   focusBanner: {
     flexDirection: 'row',
@@ -661,18 +676,18 @@ const styles = StyleSheet.create({
     paddingRight: 6,
     paddingVertical: 6,
     borderRadius: GhostexRadii.section,
-    backgroundColor: GhostexPalette.CARD,
+    backgroundColor: appearance.card,
   },
-  focusText: { flex: 1, color: GhostexPalette.MUTED, fontSize: 16, lineHeight: 22 },
-  focusTitle: { color: GhostexPalette.FOREGROUND, fontWeight: '700' },
+  focusText: { flex: 1, color: appearance.muted, fontSize: 16, lineHeight: 22 },
+  focusTitle: { color: appearance.foreground, fontWeight: '700' },
   allSessions: {
     paddingHorizontal: 12,
     minHeight: 36,
     justifyContent: 'center',
     borderRadius: 18,
-    backgroundColor: GhostexPalette.CARD_ACTIVE,
+    backgroundColor: appearance.cardActive,
   },
-  allSessionsText: { color: GhostexPalette.FOREGROUND, fontSize: 14, fontWeight: '600' },
+  allSessionsText: { color: appearance.foreground, fontSize: 14, fontWeight: '600' },
   openSession: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -683,20 +698,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     minHeight: 36,
     borderRadius: 18,
-    backgroundColor: GhostexPalette.CARD_ACTIVE,
+    backgroundColor: appearance.cardActive,
   },
-  openSessionText: { flexShrink: 1, color: GhostexPalette.FOREGROUND, fontSize: 15, fontWeight: '600' },
+  openSessionText: { flexShrink: 1, color: appearance.foreground, fontSize: 15, fontWeight: '600' },
   speedChip: { paddingHorizontal: 8, minHeight: 26, borderRadius: 13 },
-  speedChipText: { color: GhostexPalette.FOREGROUND, fontSize: 13, fontWeight: '600' },
-  sheetTitle: { color: GhostexPalette.FOREGROUND, fontSize: 18, fontWeight: '700', marginBottom: 8 },
+  speedChipText: { color: appearance.foreground, fontSize: 13, fontWeight: '600' },
+  sheetTitle: { color: appearance.foreground, fontSize: 18, fontWeight: '700', marginBottom: 8 },
   sheetRow: { flexDirection: 'row', alignItems: 'center', minHeight: 52, gap: 10 },
   sheetRowTall: { paddingVertical: 8 },
   sheetRowText: { flex: 1, gap: 2 },
-  sheetChoiceLabel: { color: GhostexPalette.FOREGROUND, fontSize: 18 },
-  sheetNote: { color: GhostexPalette.MUTED, fontSize: 14, marginTop: 8 },
+  sheetChoiceLabel: { color: appearance.foreground, fontSize: 18 },
+  sheetNote: { color: appearance.muted, fontSize: 14, marginTop: 8 },
   sheetCheck: { width: 24, alignItems: 'center' },
-  sheetRowLabel: { flex: 1, color: GhostexPalette.FOREGROUND, fontSize: 18 },
-  sheetRowDetail: { color: GhostexPalette.MUTED, fontSize: 14 },
+  sheetRowLabel: { flex: 1, color: appearance.foreground, fontSize: 18 },
+  sheetRowDetail: { color: appearance.muted, fontSize: 14 },
   stateBlock: { alignItems: 'center', paddingTop: 12, paddingBottom: 16 },
   orb: { width: 132, height: 132, borderRadius: 66, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
   orbCore: { width: 72, height: 72, borderRadius: 36, opacity: 0.85 },
@@ -710,43 +725,43 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     padding: 14,
     borderRadius: GhostexRadii.section,
-    backgroundColor: GhostexPalette.DANGER_FILL,
+    backgroundColor: appearance.dangerFill,
   },
-  problemText: { color: GhostexPalette.FOREGROUND, fontSize: 17, lineHeight: 24 },
+  problemText: { color: appearance.foreground, fontSize: 17, lineHeight: 24 },
   lines: { flex: 1 },
   jumpRow: { position: 'absolute', right: 22, bottom: 16 },
   // CDXC:VoiceMode 2026-10-24 WHY: more room between lines so a reply, its tool line and an announcement read apart; the user's decision is in gxserver's paragraphs.rs.
   linesContent: { paddingHorizontal: 16, paddingBottom: 16, gap: 16 },
-  hint: { color: GhostexPalette.MUTED, fontSize: 17, textAlign: 'center', marginTop: 8 },
+  hint: { color: appearance.muted, fontSize: 17, textAlign: 'center', marginTop: 8 },
   caption: { borderRadius: GhostexRadii.section, padding: 12, maxWidth: '92%' },
-  captionUser: { alignSelf: 'flex-end', backgroundColor: GhostexPalette.CARD_ACTIVE },
-  captionAgent: { alignSelf: 'flex-start', backgroundColor: GhostexPalette.CARD },
-  captionWho: { color: GhostexPalette.MUTED, fontSize: 13, marginBottom: 4 },
-  captionText: { color: GhostexPalette.FOREGROUND, fontSize: 19, lineHeight: 26 },
+  captionUser: { alignSelf: 'flex-end', backgroundColor: appearance.cardActive },
+  captionAgent: { alignSelf: 'flex-start', backgroundColor: appearance.card },
+  captionWho: { color: appearance.muted, fontSize: 13, marginBottom: 4 },
+  captionText: { color: appearance.foreground, fontSize: 19, lineHeight: 26 },
   captionParagraph: { marginTop: 10 },
   captionDraft: { opacity: 0.7 },
   toolRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 4 },
   toolDot: { fontSize: 12 },
-  toolText: { color: GhostexPalette.MUTED, fontSize: 15, flex: 1 },
-  announcement: { color: GhostexPalette.STATUS_ATTENTION, fontSize: 16, paddingHorizontal: 4 },
-  notice: { color: GhostexPalette.MUTED, fontSize: 15, fontStyle: 'italic', paddingHorizontal: 4 },
+  toolText: { color: appearance.muted, fontSize: 15, flex: 1 },
+  announcement: { color: appearance.attention, fontSize: 16, paddingHorizontal: 4 },
+  notice: { color: appearance.muted, fontSize: 15, fontStyle: 'italic', paddingHorizontal: 4 },
   controls: { flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16 },
   control: {
     flex: 1,
     minHeight: 96,
     borderRadius: GhostexRadii.section,
-    backgroundColor: GhostexPalette.CARD_ACTIVE,
+    backgroundColor: appearance.cardActive,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     paddingHorizontal: 10,
   },
   wide: { minHeight: 72 },
-  controlOn: { backgroundColor: GhostexPalette.ACCENT },
+  controlOn: { backgroundColor: appearance.accent },
   controlPressed: { opacity: 0.75 },
   controlDisabled: { opacity: 0.35 },
-  controlLabel: { color: GhostexPalette.FOREGROUND, fontSize: 17, fontWeight: '600', textAlign: 'center' },
-  controlLabelOn: { color: GhostexPalette.ACCENT_FOREGROUND },
-  hangUp: { backgroundColor: GhostexPalette.DANGER },
-  hangUpPressed: { opacity: 0.8 },
+  controlLabel: { color: appearance.foreground, fontSize: 17, fontWeight: '600', textAlign: 'center' },
+  controlLabelOn: { color: appearance.accentForeground },
+  hangUp: { backgroundColor: appearance.danger },
+  hangUpPressed: { transform: [{ scale: 0.98 }] },
 });

@@ -10,8 +10,8 @@
 
 import { StyleSheet, View } from 'react-native';
 
-import { SidebarPalette } from '../../theme/palette';
 import { ds, STATUS_DOT_SIZE } from './rows';
+import { statusStackColors } from './sessionStatus';
 
 /**
  * The overlapping dots themselves (desktop status.rs `sized_overlapped_dots`): `colors` back to
@@ -73,15 +73,14 @@ export default function StatusDotStack({
   /** The surface the stack sits on, so each covered edge stays readable. */
   ringColor: string;
 }) {
-  const background = workingCount === 0 && backgroundWorkCount > 0;
-  /* status.rs `status_dot_stack`: pink furthest left and underneath, then grey, orange, and blue on top. */
-  const dots: { key: string; color: string }[] = [];
-  if (questionCount > 0) dots.push({ key: 'question', color: SidebarPalette.ROW_QUESTION });
-  if (background) dots.push({ key: 'background', color: SidebarPalette.ROW_BACKGROUND_WORK });
-  if (workingCount > 0) dots.push({ key: 'working', color: SidebarPalette.ROW_WORKING });
-  if (attentionCount > 0) dots.push({ key: 'attention', color: SidebarPalette.ROW_ATTENTION });
-  if (approvalCount > 0) dots.push({ key: 'approval', color: SidebarPalette.ROW_APPROVAL });
-  return <OverlappedDots colors={dots.map((dot) => dot.color)} size={STATUS_DOT_SIZE} ringColor={ringColor} />;
+  const colors = statusStackColors({
+    question: questionCount > 0,
+    backgroundWork: backgroundWorkCount > 0,
+    working: workingCount > 0,
+    attention: attentionCount > 0,
+    approval: approvalCount > 0,
+  });
+  return <OverlappedDots colors={colors} size={STATUS_DOT_SIZE} ringColor={ringColor} />;
 }
 
 const styles = StyleSheet.create({

@@ -15,6 +15,7 @@
  * Sections live in ./machine-form/; this file owns the state and the save.
  */
 
+import { useAppearance } from '../theme/useAppearance';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Pressable, Switch, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -32,7 +33,7 @@ import {
   useHeaderPlacement,
   useScrollToBarEdges,
 } from '../components/common/verticalBar/VerticalBarArea';
-import { SetupButton, setupText } from '../components/onboarding/SetupPrimitives';
+import { SetupButton, useSetupText } from '../components/onboarding/SetupPrimitives';
 import SshAccessHelpSheet, { type SshOs } from '../components/onboarding/SshAccessHelpSheet';
 import { CheckIcon } from '../components/terminal/icons';
 import { EditMachineCopy, MachineCopy, TailscaleFormCopy } from '../copy';
@@ -59,10 +60,11 @@ import {
   type MachineValidationErrors,
 } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
+import { unregisterBeforeRemoval, useRemovalAsksComputer } from '../notifications/pushStore';
 import { useSpacesStore } from '../spaces/store';
 import { useWorkspacesStore } from '../workspaces/store';
 import { useWebPreviewStore } from '../webPreview/store';
-import { SetupPalette } from '../theme/palette';
+
 import AdvancedSection from './machine-form/AdvancedSection';
 import AppUpdateSection from './machine-form/AppUpdateSection';
 import MachineToolsSection from './machine-form/MachineToolsSection';
@@ -70,7 +72,7 @@ import { FormSection } from './machine-form/SectionBoundary';
 import EasyConnectSummary from './machine-form/EasyConnectSummary';
 import { SwitchRow } from '../components/common/SwitchRow';
 import PrecheckList from './machine-form/PrecheckList';
-import { formStyles } from './machine-form/styles';
+import { useFormStyles } from './machine-form/styles';
 import TailscaleFields, { NameField, PairingAddressField, FormField } from './machine-form/TailscaleFields';
 import { TEST_MACHINE_ID, type ConnectionTestPlan } from './machine-form/testConnection';
 import TestConnectionButton, { useTestState } from './machine-form/TestConnectionButton';
@@ -90,6 +92,9 @@ function parsePort(value: string): number | null {
 }
 
 export default function MachineFormScreen({ navigation, route }: Props) {
+  const appearance = useAppearance();
+  const setupText = useSetupText();
+  const formStyles = useFormStyles();
   const machineId = route.params?.machineId ?? null;
   // The form reaches under the iPhone Duo's side bar, its content keeps clear of it.
   const scrollEdges = useScrollToBarEdges(formStyles.scroll);
@@ -108,6 +113,7 @@ export default function MachineFormScreen({ navigation, route }: Props) {
   const webPreviewPort = useWebPreviewStore((state) =>
     machineId === null ? undefined : state.lastPortByMachine[machineId],
   );
+  const removalAsksComputer = useRemovalAsksComputer();
   const existing = machineId === null ? null : (machines.find((m) => m.id === machineId) ?? null);
   const editing = existing !== null;
 
@@ -312,6 +318,8 @@ export default function MachineFormScreen({ navigation, route }: Props) {
     clearMachineInventory(existing.id);
     clearMachineSpace(existing.id);
     useWorkspacesStore.getState().clearMachine(existing.id);
+    // While its record and link still exist; waits a bounded time, and an unreachable computer is removed anyway.
+    await unregisterBeforeRemoval(existing.id);
     try {
       markManualDisconnect(existing.id);
       await GhostexNative.disconnect(existing.id);
@@ -355,11 +363,11 @@ export default function MachineFormScreen({ navigation, route }: Props) {
     () => ({
       key: 'save',
       label: EditMachineCopy.save,
-      icon: (size) => <CheckIcon size={size} color={SetupPalette.ACCENT} />,
+      icon: (size) => <CheckIcon size={size} color={appearance.accent} />,
       onPress: () => void saveRef.current(),
       disabled: saveDisabled,
     }),
-    [saveDisabled],
+    [saveDisabled, appearance],
   );
   useLayoutEffect(() => {
     if (removed !== 'no' || leaving.current) return;
@@ -379,7 +387,7 @@ export default function MachineFormScreen({ navigation, route }: Props) {
             </Pressable>
           ),
     });
-  }, [navigation, removed, editing, easyConnect, headerName, saveDisabled, roundSave, saveEntry]);
+  }, [navigation, removed, editing, easyConnect, headerName, saveDisabled, roundSave, saveEntry, setupText]);
   // The side bar shows Save under Back; every field of the form takes the keyboard.
   useStackScreenRail(
     useMemo(
@@ -447,8 +455,8 @@ export default function MachineFormScreen({ navigation, route }: Props) {
         <Switch
           value={isMachineEnabled(existing)}
           onValueChange={(shown) => setMachineDisabled(existing.id, !shown)}
-          trackColor={{ false: SetupPalette.MUTED_BG, true: SetupPalette.ACCENT }}
-          thumbColor={SetupPalette.FOREGROUND}
+          trackColor={{ false: appearance.cardActive, true: appearance.accent }}
+          thumbColor={appearance.foreground}
         />
       </SwitchRow>
     );
@@ -608,7 +616,10 @@ export default function MachineFormScreen({ navigation, route }: Props) {
         <ConfirmDialog
           visible={removeOpen}
           title={EditMachineCopy.remove.title}
-          body={EditMachineCopy.remove.body(existing.name.length > 0 ? existing.name : existing.username)}
+          body={EditMachineCopy.remove.body(
+            existing.name.length > 0 ? existing.name : existing.username,
+            removalAsksComputer,
+          )}
           confirmLabel={EditMachineCopy.remove.confirm}
           destructive
           onConfirm={() => void remove()}

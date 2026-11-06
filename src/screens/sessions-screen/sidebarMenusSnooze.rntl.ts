@@ -13,7 +13,7 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 
-import { parseMobileSummary, type GhostexSession } from '../../contract/mobileSummary';
+import { NO_SUMMARY_CAPABILITIES, parseMobileSummary, type GhostexSession } from '../../contract/mobileSummary';
 import { buildSessionMenu } from './sidebar-menus';
 
 function sessionWith(overrides: object): GhostexSession {
@@ -43,6 +43,7 @@ function sessionWith(overrides: object): GhostexSession {
 const menuOf = (session: GhostexSession, snooze?: boolean) =>
   buildSessionMenu({
     session,
+    capabilities: NO_SUMMARY_CAPABILITIES,
     customTags: { order: [], tags: {} } as never,
     below: [],
     threads: [],

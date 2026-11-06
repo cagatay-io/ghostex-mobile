@@ -3,16 +3,28 @@
  * - Refresh button (settings.refreshButtonVisible, zmx attach tabs only):
  *   explicit native ZMX viewport refresh.
  * - Upload button (settings.fileUploadButtonVisible, hourglass while
- *   uploading).
- * - Keyboard button (settings.keyboardButtonVisible). While the soft keyboard
- *   is up (extra-keys toolbar hidden), it becomes the dismiss control so a
- *   keyboard-dismiss path always exists without the accessory bar.
+ *   uploading); not while the Befehlspad is shown (iOS), whose Upload key
+ *   replaces it.
+ * - Keyboard button (`showKeyboardButton`): while the soft keyboard is up it
+ *   is the dismiss control. The screen shows it per
+ *   settings.keyboardButtonVisible, and on iOS also without that setting while
+ *   the keyboard is up and the pad is off or closed, and alone while the
+ *   keyboard is up for a chat in the active pane; on Android with the key
+ *   bar and this setting off nothing here dismisses the keyboard.
+ * The buttons stand in a column; where the column needs more height than
+ * `maxHeight` (a phone in landscape with the keyboard up), they stand in a row
+ * instead, the keyboard button still nearest the corner.
  */
 
+import { useMemo } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { GhostexPalette, GhostexStrokeWidth } from '../../theme/palette';
+import { GhostexStrokeWidth } from '../../theme/palette';
 import { HourglassIcon, KeyboardDismissIcon, KeyboardIcon, PaperclipIcon, RefreshIcon } from './icons';
+
+const BUTTON_SIZE = 44;
+const BUTTON_GAP = 12;
 
 export type TerminalFloatingControlsProps = {
   showKeyboardButton: boolean;
@@ -24,6 +36,8 @@ export type TerminalFloatingControlsProps = {
   /** True while the soft keyboard is visible: the keyboard button dismisses. */
   keyboardShown: boolean;
   bottomOffset: number;
+  /** The height the stack may take above `bottomOffset`; undefined: no limit. */
+  maxHeight?: number;
   onKeyboard: () => void;
   onDismissKeyboard: () => void;
   onUpload: () => void;
@@ -39,15 +53,20 @@ export default function TerminalFloatingControls({
   refreshEnabled,
   keyboardShown,
   bottomOffset,
+  maxHeight,
   onKeyboard,
   onDismissKeyboard,
   onUpload,
   onRefresh,
 }: TerminalFloatingControlsProps) {
-  if (!showKeyboardButton && !showUploadButton && !showRefreshButton) return null;
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
+  const count = Number(showKeyboardButton) + Number(showUploadButton) + Number(showRefreshButton);
+  if (count === 0) return null;
+  const across = maxHeight !== undefined && count * BUTTON_SIZE + (count - 1) * BUTTON_GAP > maxHeight;
 
   return (
-    <View style={[styles.stack, { bottom: bottomOffset }]} pointerEvents="box-none">
+    <View style={[styles.stack, across && styles.row, { bottom: bottomOffset }]} pointerEvents="box-none">
       {showRefreshButton && (
         <Pressable
           accessibilityRole="button"
@@ -56,7 +75,7 @@ export default function TerminalFloatingControls({
           style={[styles.button, !refreshEnabled && styles.buttonDisabled]}
           onPress={onRefresh}
         >
-          <RefreshIcon size={18} color={GhostexPalette.FOREGROUND} />
+          <RefreshIcon size={18} color={appearance.foreground} />
         </Pressable>
       )}
       {showUploadButton && (
@@ -68,9 +87,9 @@ export default function TerminalFloatingControls({
           onPress={onUpload}
         >
           {uploading ? (
-            <HourglassIcon size={18} color={GhostexPalette.FOREGROUND} />
+            <HourglassIcon size={18} color={appearance.foreground} />
           ) : (
-            <PaperclipIcon size={18} color={GhostexPalette.FOREGROUND} />
+            <PaperclipIcon size={18} color={appearance.foreground} />
           )}
         </Pressable>
       )}
@@ -82,9 +101,9 @@ export default function TerminalFloatingControls({
           onPress={keyboardShown ? onDismissKeyboard : onKeyboard}
         >
           {keyboardShown ? (
-            <KeyboardDismissIcon size={18} color={GhostexPalette.FOREGROUND} />
+            <KeyboardDismissIcon size={18} color={appearance.foreground} />
           ) : (
-            <KeyboardIcon size={18} color={GhostexPalette.FOREGROUND} />
+            <KeyboardIcon size={18} color={appearance.foreground} />
           )}
         </Pressable>
       )}
@@ -92,22 +111,25 @@ export default function TerminalFloatingControls({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   stack: {
     position: 'absolute',
     right: 16,
     alignItems: 'center',
-    gap: 12,
+    gap: BUTTON_GAP,
+  },
+  row: {
+    flexDirection: 'row',
   },
   button: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: BUTTON_SIZE,
+    height: BUTTON_SIZE,
+    borderRadius: BUTTON_SIZE / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: GhostexPalette.CARD_ACTIVE,
+    backgroundColor: appearance.cardActive,
     borderWidth: GhostexStrokeWidth,
-    borderColor: GhostexPalette.BORDER,
+    borderColor: appearance.border,
   },
   buttonDisabled: {
     opacity: 0.45,

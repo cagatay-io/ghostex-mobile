@@ -31,9 +31,11 @@ import { AGENT_ICONS } from '../../assets/agentIcons.generated';
 import type { CoordinatorBadge, FoldedStatus, RowNesting } from '../../contract/coordinatorTree';
 import {
   agentIconTint,
+  hasQuestion,
   resolveAgentArtId,
   type GhostexCustomSessionTags,
   type GhostexSession,
+  type GhostexSummaryCapabilities,
 } from '../../contract/mobileSummary';
 import { resolveSessionTag } from '../../contract/sessionTags';
 import { SessionCopy } from '../../copy';
@@ -42,13 +44,13 @@ import { mixHexColors, SidebarPalette } from '../../theme/palette';
 import type { MenuAnchor } from './ContextMenu';
 import {
   ds,
+  inkStyleSheets,
   PassingThreadLines,
-  SELECTED_TEXT,
   SelectedCardOutline,
   selectedFill,
-  SIDEBAR_MUTED,
   STATUS_DOT_SIZE,
   TOUCH_ROW_HEIGHT,
+  useSidebarInk,
 } from './rows';
 import CloudBoxBadge from './CloudBoxBadge';
 import { BranchGlyph } from './unified/glyphs';
@@ -82,13 +84,13 @@ import {
   COMPLETION_FLASH_MS,
   COMPLETION_FLASH_OPACITY,
   COMPLETION_FLASH_PROGRESS,
-  hasPendingQuestion,
   isAwaitingApproval,
   nextLabelDeadline,
   rowActivityIndicator,
   rowClockKind,
   rowTimeLabel,
   shouldStartCompletionFlash,
+  shownFoldedStatus,
 } from './sessionStatus';
 
 /** session_list.rs SESSION_SPACING: the gap under every row. */
@@ -104,8 +106,9 @@ const CHEVRON_EXTRA = 17;
  * Re-renders the row when the time it draws next reads differently
  * (nextLabelDeadline): every second while a countdown runs, and only when the
  * relative time's digit changes otherwise. Returns the clock the labels read.
+ * The session wall's tiles show the same label with the same clock.
  */
-function useRowLabelClock(session: GhostexSession): number {
+export function useRowLabelClock(session: GhostexSession): number {
   const [, wake] = useReducer((tick: number) => tick + 1, 0);
   const nowMs = Date.now();
   const deadline = nextLabelDeadline(session, nowMs);
@@ -229,6 +232,7 @@ function ThreadConnector({
   passingLines: number;
   rowHeight: number;
 }) {
+  const inkStyle = inkStyles(useSidebarInk());
   const mid = TOUCH_ROW_HEIGHT / 2;
   // From under the icon of the row above: the rest of that row below its icon, and the gap between.
   const rise = mid - ds(7.5) + ROW_SPACING;
@@ -241,9 +245,19 @@ function ThreadConnector({
     <>
       <View
         pointerEvents="none"
-        style={[styles.threadLine, { left, top: -rise, height: through ? rise + rowHeight : rise + mid }]}
+        style={[
+          styles.threadLine,
+          inkStyle.threadLine,
+          { left, top: -rise, height: through ? rise + rowHeight : rise + mid },
+        ]}
       >
-        <View style={[styles.threadLineAcross, { top: rise + mid - 0.5, width: ds(THREAD_INDENT - 6) }]} />
+        <View
+          style={[
+            styles.threadLineAcross,
+            inkStyle.threadLineAcross,
+            { top: rise + mid - 0.5, width: ds(THREAD_INDENT - 6) },
+          ]}
+        />
       </View>
       <PassingThreadLines
         lines={passingLines & ~ownLevel}
@@ -281,13 +295,14 @@ function CoordinatorBadgeView({ badge }: { badge: CoordinatorBadge }) {
  * (a box for local Docker, a server for a remote Docker host, else a cloud) and its label.
  */
 function AgentboxBadge({ agentbox }: { agentbox: NonNullable<GhostexSession['agentbox']> }) {
+  const ink = useSidebarInk();
   const label = agentbox.providerLabel.trim().length > 0 ? agentbox.providerLabel : agentbox.provider;
   const Glyph =
     agentbox.provider === 'docker' ? BoxGlyph : agentbox.provider.startsWith('docker:') ? ServerGlyph : CloudGlyph;
   return (
     <View accessible accessibilityLabel={`Runs in agentbox ${agentbox.boxName} (${label})`} style={styles.agentbox}>
-      <Glyph size={ds(12)} color={SIDEBAR_MUTED} />
-      <Text style={styles.agentboxLabel} numberOfLines={1}>
+      <Glyph size={ds(12)} color={ink.muted} />
+      <Text style={[styles.agentboxLabel, inkStyles(ink).agentboxLabel]} numberOfLines={1}>
         {label}
       </Text>
     </View>
@@ -298,11 +313,12 @@ function AgentboxBadge({ agentbox }: { agentbox: NonNullable<GhostexSession['age
  * native_sidebar/threads.rs `worktree_badge`: the branch of a worktree session its parent project
  * lists (CDXC:Worktrees 2026-11-06 in gx-core sidebar_view/worktree_fold.rs), in the agentbox badge's muted text.
  */
-function WorktreeBadge({ label }: { label: string }) {
+export function WorktreeBadge({ label }: { label: string }) {
+  const ink = useSidebarInk();
   return (
-    <View accessible accessibilityLabel={`In worktree ${label}`} style={styles.worktree}>
-      <BranchGlyph size={ds(12)} color={SIDEBAR_MUTED} />
-      <Text style={styles.agentboxLabel} numberOfLines={1}>
+    <View accessible accessibilityLabel={SessionCopy.inWorktree(label)} style={styles.worktree}>
+      <BranchGlyph size={ds(12)} color={ink.muted} />
+      <Text style={[styles.agentboxLabel, inkStyles(ink).agentboxLabel]} numberOfLines={1}>
         {label}
       </Text>
     </View>
@@ -367,6 +383,8 @@ function FoldedStatusIndicator({ status, ringColor }: { status: FoldedStatus; ri
 
 export type SessionRowProps = {
   session: GhostexSession;
+  /** The capabilities of the session's computer, which the question indicator reads (`hasQuestion`). */
+  capabilities: GhostexSummaryCapabilities;
   /** Warm-attached session key matches the current terminal. */
   active: boolean;
   /** Exact expanded-group surface behind this row, including collection tint. */
@@ -407,6 +425,7 @@ export type SessionRowProps = {
  */
 export default function SessionRow({
   session,
+  capabilities,
   active,
   expandedGroupSurface,
   sidebarForeground,
@@ -424,6 +443,8 @@ export default function SessionRow({
   worktree,
 }: SessionRowProps) {
   const rowRef = useRef<ViewInstance | null>(null);
+  const ink = useSidebarInk();
+  const inkStyle = inkStyles(ink);
   const iconId = resolveAgentArtId(
     session.agentIcon,
     session.agentName.length > 0 ? session.agentName : session.agent,
@@ -436,11 +457,13 @@ export default function SessionRow({
   const renameShake = useRenameShake(session);
   // The red approval dot wins over every other status (sessionStatus.ts `isAwaitingApproval`).
   const approval = isAwaitingApproval(session);
-  const foldedStatus =
-    approval || (session.programStatusFailed && session.activity === 'attention') ? undefined : nesting?.foldedStatus;
-  const question = hasPendingQuestion(session) && foldedStatus === undefined && !approval;
+  const foldedStatus = shownFoldedStatus(session, nesting?.foldedStatus);
+  const question =
+    hasQuestion(session.pendingQuestionCount, capabilities.awaitingAnswer && session.awaitingAnswer) &&
+    foldedStatus === undefined &&
+    !approval;
   const indicator = question || foldedStatus !== undefined ? null : rowActivityIndicator(session);
-  const timeLabel = foldedStatus !== undefined ? null : rowTimeLabel(session, nowMs);
+  const timeLabel = foldedStatus !== undefined ? null : rowTimeLabel(session, capabilities, nowMs);
   /*
    * Desktop leading-slot order (icons.rs render_session_icon): an armed Delayed
    * Send clock, then a Close After Done clock, then the session tag, then the
@@ -466,9 +489,9 @@ export default function SessionRow({
   const iconLeft = (inCard ? ds(5) : ds(26)) + indent;
   const showChevron = onToggleThreads !== undefined && (nesting?.threadCount ?? 0) > 0;
   const titleIndent = indent + (showChevron ? ds(CHEVRON_EXTRA) : 0);
-  const activeBackground = selectedFill(expandedGroupSurface);
-  // The desktop's hover fill (appearance.rs `session_hover`) is the phone's pressed state.
-  const pressedBackground = mixHexColors('#FFFFFF', expandedGroupSurface, 6);
+  const activeBackground = selectedFill(expandedGroupSurface, ink);
+  // The desktop's hover fill (appearance.rs `session_hover`) is the phone's pressed state: the chrome ink at 6%.
+  const pressedBackground = mixHexColors(ink.light ? '#000000' : '#FFFFFF', expandedGroupSurface, 6);
   /*
    * CDXC:SessionLinks 2026-10-24 SEE-ALSO: `SessionLinks::row` in packages/gx-core/src/sidebar_view/links.rs. A row draws its links as the computer's "Session links in the sidebar" says (a line, a badge or nothing); a Work mode card's own chip line is gone except for the merged-PR Clean up / Keep offer, which takes the line while it waits.
    */
@@ -576,9 +599,9 @@ export default function SessionRow({
             ) : draftPencil ? (
               <PencilGlyph size={ds(15)} color={sidebarForeground} />
             ) : session.isCoordinator && nesting?.containsActive === true ? (
-              <View style={styles.containsActiveRing} />
+              <View style={[styles.containsActiveRing, inkStyle.containsActiveRing]} />
             ) : session.isCoordinator ? (
-              <CoordinatorGlyph size={ds(13)} color={SidebarPalette.ROW_COORDINATOR_CROWN} />
+              <CoordinatorGlyph size={ds(13)} color={ink.crown} />
             ) : (
               <Icon size={iconSize} color={agentIconTint(iconId)} />
             )}
@@ -591,7 +614,11 @@ export default function SessionRow({
               onPress={onToggleThreads}
               style={[styles.threadChevron, { left: iconLeft + ds(18) }]}
             >
-              <ChevronRightGlyph size={ds(14)} color={SidebarPalette.MUTED} rotated={nesting?.collapsed !== true} />
+              <ChevronRightGlyph
+                size={ds(14)}
+                color={ink.light ? ink.muted : SidebarPalette.MUTED}
+                rotated={nesting?.collapsed !== true}
+              />
             </Pressable>
           ) : null}
           {/*
@@ -605,7 +632,7 @@ export default function SessionRow({
             The note dot: 4dp, white, at the row's left edge, level with the icon.
           */}
           {session.sessionNote.length > 0 ? (
-            <View pointerEvents="none" style={[styles.noteDot, { left: iconLeft - ds(5) }]} />
+            <View pointerEvents="none" style={[styles.noteDot, inkStyle.noteDot, { left: iconLeft - ds(5) }]} />
           ) : null}
           {/*
             The unsent-draft dot: 6dp #b9d8fa at the icon's top right, raised and
@@ -641,7 +668,12 @@ export default function SessionRow({
             </View>
           ) : null}
           <Animated.Text
-            style={[styles.title, active ? styles.titleActive : null, { transform: [{ translateX: renameShake }] }]}
+            style={[
+              styles.title,
+              inkStyle.title,
+              active ? inkStyle.titleActive : null,
+              { transform: [{ translateX: renameShake }] },
+            ]}
             numberOfLines={1}
             ellipsizeMode="tail"
           >
@@ -707,7 +739,7 @@ export default function SessionRow({
               ) : null}
               {indicator !== null ? <ActivityDot kind={indicator} /> : null}
               {timeLabel !== null ? (
-                <Text style={[styles.trailingText, session.isSleeping ? styles.trailingTextSleeping : null]}>
+                <Text style={[styles.trailingText, session.isSleeping ? inkStyle.timeSleeping : inkStyle.time]}>
                   {timeLabel}
                 </Text>
               ) : null}
@@ -773,7 +805,6 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   agentboxLabel: {
-    color: SIDEBAR_MUTED,
     fontSize: ds(11.5),
     fontWeight: '300',
     flexShrink: 1,
@@ -813,13 +844,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: ds(THREAD_INDENT - 5),
     borderLeftWidth: ds(1),
-    borderLeftColor: SidebarPalette.ROW_THREAD_LINE,
   },
   threadLineAcross: {
     position: 'absolute',
     left: 0,
     height: ds(1),
-    backgroundColor: SidebarPalette.ROW_THREAD_LINE,
   },
   threadChevron: {
     position: 'absolute',
@@ -836,7 +865,6 @@ const styles = StyleSheet.create({
     height: ds(9),
     borderRadius: 999,
     borderWidth: ds(1.5),
-    borderColor: '#A3A3A3',
   },
   coordinatorBadge: {
     flexDirection: 'row',
@@ -853,7 +881,6 @@ const styles = StyleSheet.create({
     width: ds(4),
     height: ds(4),
     borderRadius: ds(2),
-    backgroundColor: '#FFFFFF',
   },
   /* The desktop's composer-draft color (decorations.rs), #B9D8FA in both themes by the user's 2026-09-21 decision there. */
   composerDraftDot: {
@@ -891,13 +918,9 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    color: '#B4B8C0',
     fontSize: ds(15.5),
     fontWeight: '300',
     lineHeight: ds(20),
-  },
-  titleActive: {
-    color: SELECTED_TEXT,
   },
   /* The desktop row lays its title, status slot and time out with a 6px gap. */
   trailing: {
@@ -907,14 +930,10 @@ const styles = StyleSheet.create({
     marginStart: ds(6),
   },
   trailingText: {
-    color: SidebarPalette.ROW_TIME,
     fontSize: ds(13.55),
     fontWeight: '300',
     lineHeight: ds(20),
     textAlign: 'right',
-  },
-  trailingTextSleeping: {
-    color: SidebarPalette.ROW_TIME_SLEEPING,
   },
   indicatorSlot: {
     width: ds(19),
@@ -965,3 +984,18 @@ const styles = StyleSheet.create({
     backgroundColor: SidebarPalette.ROW_QUESTION,
   },
 });
+
+/** The row's ink (rows.tsx `SidebarInk`): its title, time, muted label, tree lines, ring and note dot. */
+const inkStyles = inkStyleSheets((ink) =>
+  StyleSheet.create({
+    agentboxLabel: { color: ink.muted },
+    threadLine: { borderLeftColor: ink.threadLine },
+    threadLineAcross: { backgroundColor: ink.threadLine },
+    containsActiveRing: { borderColor: ink.activeRing },
+    noteDot: { backgroundColor: ink.noteDot },
+    title: { color: ink.text },
+    titleActive: { color: ink.selectedText },
+    time: { color: ink.time },
+    timeSleeping: { color: ink.timeSleeping },
+  }),
+);

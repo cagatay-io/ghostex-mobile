@@ -6,13 +6,19 @@
 
 import { StyleSheet } from 'react-native';
 
-import { GhostexRadii, GhostexStrokeWidth } from '../theme/palette';
+import { GhostexRadii, GhostexStrokeWidth, mixHexColors } from '../theme/palette';
+import { readableSecondaryText } from '../theme/sidebarAppearance';
 import { useAppearance, type Appearance } from '../theme/useAppearance';
 
 /** Warm accent for matched characters, the terminal picker's bold yellow (desktop find_prompts/palette.rs). */
-export const FIND_MATCH_COLOR = '#e3b341';
+const FIND_MATCH_COLOR = '#e3b341';
 /** A starred prompt (Tailwind amber-400, the desktop Find row's star). */
 export const FIND_STAR_COLOR = '#fbbf24';
+
+/** The Find error tone on its actual page or notice surface. */
+export function findErrorInk(appearance: Appearance, surface: string): string {
+  return readableSecondaryText('#ff8f8f', appearance.foreground, [surface]);
+}
 
 const stylesByAppearance = new WeakMap<Appearance, ReturnType<typeof createFindStyles>>();
 
@@ -67,7 +73,7 @@ function createFindStyles(appearance: Appearance) {
       minWidth: 0,
     },
     chipActive: {
-      borderColor: appearance.muted,
+      borderColor: appearance.mutedGlyph,
       backgroundColor: appearance.cardActive,
     },
     chipPressed: {
@@ -116,7 +122,10 @@ function createFindStyles(appearance: Appearance) {
       lineHeight: 21,
     },
     match: {
-      color: FIND_MATCH_COLOR,
+      color: readableSecondaryText(FIND_MATCH_COLOR, appearance.foreground, [
+        appearance.background,
+        appearance.cardActive,
+      ]),
       fontWeight: '700',
     },
     rowMeta: {
@@ -125,6 +134,7 @@ function createFindStyles(appearance: Appearance) {
       gap: 8,
     },
     rowAgent: {
+      color: appearance.muted,
       fontSize: 13,
       fontWeight: '600',
     },
@@ -179,10 +189,7 @@ function createFindStyles(appearance: Appearance) {
       fontSize: 12,
     },
     noticeTextError: {
-      color: '#ff8f8f',
-    },
-    noticeDetail: {
-      opacity: 0.7,
+      color: findErrorInk(appearance, mixHexColors('#ff6b6b', appearance.background, 10)),
     },
     skeletonRow: {
       paddingHorizontal: 10,
@@ -218,6 +225,9 @@ function createFindStyles(appearance: Appearance) {
       gap: 10,
       paddingHorizontal: 10,
       borderRadius: GhostexRadii.row,
+    },
+    sheetRowPressed: {
+      backgroundColor: appearance.cardActive,
     },
     sheetRowText: {
       flex: 1,

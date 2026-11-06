@@ -23,6 +23,7 @@ import { GhostexRadii, GhostexStrokeWidth, SidebarPalette } from '../../theme/pa
 import { orderedWorkspaces } from '../../workspaces/workspaceFilter';
 import type { ContextMenuItem } from './ContextMenu';
 import { BriefcaseGlyph, ChevronDownGlyph, UserGlyph } from './icons';
+import { inkStyleSheets, useSidebarInk } from './rows';
 
 /** A Space chip's height (SpaceTabs `SPACE_CHIP_HEIGHT`), so the tile lines up with the chips. */
 const TILE_HEIGHT = 30;
@@ -42,6 +43,8 @@ export default function WorkspaceTile({
   onSwitch: (workspaceId: string) => void;
   onOpenMenu: () => void;
 }) {
+  const ink = useSidebarInk();
+  const styles = tileStyles(ink);
   return (
     <View style={styles.tile}>
       <Pressable
@@ -65,7 +68,7 @@ export default function WorkspaceTile({
         onPress={onOpenMenu}
         style={({ pressed }) => [styles.chevronPart, pressed ? styles.pressed : null]}
       >
-        <ChevronDownGlyph size={12} color={SidebarPalette.MUTED} />
+        <ChevronDownGlyph size={12} color={ink.light ? ink.muted : SidebarPalette.MUTED} />
       </Pressable>
     </View>
   );
@@ -95,42 +98,47 @@ export function workspaceMenuItems(
   ];
 }
 
-const styles = StyleSheet.create({
-  tile: {
-    flexDirection: 'row',
-    height: TILE_HEIGHT,
-    flexShrink: 0,
-    borderRadius: GhostexRadii.pill,
-    borderWidth: GhostexStrokeWidth,
-    borderColor: SidebarPalette.HEADER_BUTTON_BORDER,
-    backgroundColor: SidebarPalette.HEADER_BUTTON_BG,
-    overflow: 'hidden',
-  },
-  letterPart: {
-    width: LETTER_PART_WIDTH,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chevronPart: {
-    width: CHEVRON_PART_WIDTH,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderLeftWidth: GhostexStrokeWidth,
-    borderLeftColor: SidebarPalette.HEADER_BUTTON_BORDER,
-  },
-  pressed: {
-    backgroundColor: 'rgba(200,205,213,0.08)',
-  },
-  letterBlock: {
-    width: LETTER_BLOCK_SIZE,
-    height: LETTER_BLOCK_SIZE,
-    borderRadius: 5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  letter: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-});
+/** Sized and bordered like a Space chip (SpaceTabs), in the list's ink. */
+const tileStyles = inkStyleSheets((ink) =>
+  StyleSheet.create({
+    tile: {
+      flexDirection: 'row',
+      height: TILE_HEIGHT,
+      flexShrink: 0,
+      borderRadius: GhostexRadii.pill,
+      borderWidth: GhostexStrokeWidth,
+      borderColor: ink.chipBorder,
+      backgroundColor: ink.chipCard,
+      overflow: 'hidden',
+    },
+    letterPart: {
+      width: LETTER_PART_WIDTH,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    chevronPart: {
+      width: CHEVRON_PART_WIDTH,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderLeftWidth: GhostexStrokeWidth,
+      borderLeftColor: ink.chipBorder,
+    },
+    // The text ink at 8%.
+    pressed: {
+      backgroundColor: ink.light ? 'rgba(38,38,38,0.08)' : 'rgba(200,205,213,0.08)',
+    },
+    letterBlock: {
+      width: LETTER_BLOCK_SIZE,
+      height: LETTER_BLOCK_SIZE,
+      borderRadius: 5,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    // White on the workspace's own colour in both appearances.
+    letter: {
+      color: '#FFFFFF',
+      fontSize: 12,
+      fontWeight: '700',
+    },
+  }),
+);

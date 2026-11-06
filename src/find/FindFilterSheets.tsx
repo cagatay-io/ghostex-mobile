@@ -32,7 +32,7 @@ function SheetRow({
     <Pressable
       accessibilityRole="checkbox"
       accessibilityState={{ checked }}
-      style={({ pressed }) => [styles.sheetRow, pressed ? styles.rowPressed : null]}
+      style={({ pressed }) => [styles.sheetRow, pressed ? styles.sheetRowPressed : null]}
       onPress={onPress}
     >
       <View style={styles.sheetCheck}>
@@ -78,7 +78,7 @@ export function FindAgentFilterSheet({
           key={agent}
           checked={selected.includes(agent)}
           label={agent}
-          dotColor={colors[agent] ?? appearance.muted}
+          dotColor={colors[agent] ?? appearance.mutedGlyph}
           onPress={() => onToggle(agent)}
         />
       ))}
@@ -120,6 +120,7 @@ export function FindProjectFilterSheet({
     <BottomSheet visible={visible} onClose={close}>
       <Text style={styles.sheetTitle}>{FindPromptsCopy.projectsTitle}</Text>
       <TextInput
+        keyboardAppearance={appearance.light ? 'light' : 'dark'}
         value={filter}
         onChangeText={setFilter}
         placeholder={FindPromptsCopy.projectsPlaceholder}

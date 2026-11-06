@@ -13,6 +13,7 @@
  * behaves exactly like the session context menu one screen back.
  */
 
+import { useAppearance } from '../../theme/useAppearance';
 import ContextMenu, { type ContextMenuItem, type MenuAnchor } from '../sessions/ContextMenu';
 import {
   AxeGlyph,
@@ -31,7 +32,7 @@ import {
   TerminalGlyph,
 } from '../sessions/icons';
 import { PaperclipIcon, PencilIcon } from './icons';
-import { GhostexPalette } from '../../theme/palette';
+
 import { ChangesCopy, DocsCopy } from '../../copy';
 import { COMMAND_ICONS } from '../../assets/tablerIcons.generated';
 
@@ -116,7 +117,8 @@ export default function TerminalMenu({
   onDismissed,
   anchor,
 }: TerminalMenuProps) {
-  const iconColor = GhostexPalette.FOREGROUND;
+  const appearance = useAppearance();
+  const iconColor = appearance.foreground;
   const items: ContextMenuItem[] = [...leadingItems];
 
   if (agentActionsEnabled) {
@@ -261,7 +263,7 @@ export default function TerminalMenu({
       kind: 'item',
       key: 'disconnect',
       label: 'Disconnect',
-      icon: <ExitGlyph size={ICON_SIZE} color={GhostexPalette.DANGER} />,
+      icon: <ExitGlyph size={ICON_SIZE} color={appearance.danger} />,
       destructive: true,
       disabled: !disconnectEnabled,
       onPress: () => onSelect('disconnect'),
@@ -273,7 +275,7 @@ export default function TerminalMenu({
       kind: 'item',
       key: 'killSession',
       label: 'Kill Session',
-      icon: <AxeGlyph size={ICON_SIZE} color={GhostexPalette.DANGER} />,
+      icon: <AxeGlyph size={ICON_SIZE} color={appearance.danger} />,
       destructive: true,
       onPress: () => onSelect('killSession'),
     });

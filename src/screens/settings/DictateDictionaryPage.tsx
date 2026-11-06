@@ -157,7 +157,7 @@ function WordEditor({
       <Text
         style={[
           local.buttonText,
-          { color: tone === 'remove' ? '#ef9999' : appearance.foreground },
+          { color: tone === 'remove' ? appearance.danger : appearance.foreground },
           tone === 'accent' ? local.buttonStrong : null,
         ]}
       >
@@ -197,7 +197,9 @@ function WordEditor({
       <Text style={styles.linkDescription}>
         {`Separate spellings with commas, up to ${DICTIONARY_LIMITS.aliases}. Leave it empty to only hint the word.`}
       </Text>
-      {tried && problem !== null ? <Text style={[styles.linkDescription, local.problem]}>{problem}</Text> : null}
+      {tried && problem !== null ? (
+        <Text style={[styles.linkDescription, { color: appearance.danger }]}>{problem}</Text>
+      ) : null}
       <View style={local.buttons}>
         {onRemove !== undefined ? button('Remove', onRemove, 'remove') : null}
         <View style={local.spacer} />
@@ -235,7 +237,6 @@ const local = StyleSheet.create({
   button: { paddingHorizontal: 12, height: 32, justifyContent: 'center', borderRadius: GhostexRadii.row },
   buttonText: { fontSize: 14 },
   buttonStrong: { fontWeight: '600' },
-  problem: { color: '#ef9999' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 4 },
   chip: {
     borderWidth: GhostexStrokeWidth,

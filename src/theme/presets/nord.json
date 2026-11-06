@@ -1,0 +1,57 @@
+{
+  "id": "nord",
+  "name": "Nord",
+  "mode": "dark",
+  "partner": null,
+  "background": "#2e3440",
+  "tintColor": "#2c323e",
+  "terminalPalette": "Ghostex Nord",
+  "palette": {
+    "background": "#2e3440",
+    "foreground": "#d8dee9",
+    "cursor": "#d8dee9",
+    "selectionBackground": "#4c566a",
+    "ansi": [
+      "#3b4252",
+      "#bf616a",
+      "#a3be8c",
+      "#ebcb8b",
+      "#81a1c1",
+      "#b48ead",
+      "#88c0d0",
+      "#e5e9f0",
+      "#4c566a",
+      "#bf616a",
+      "#a3be8c",
+      "#ebcb8b",
+      "#81a1c1",
+      "#b48ead",
+      "#8fbcbb",
+      "#eceff4"
+    ]
+  },
+  "patches": {
+    "lightFollows": {
+      "sidebarTheme": "dark-2",
+      "darkThemePreset": "custom",
+      "customSidebarTitlebarBackgroundTintColor": "#2c323e",
+      "terminalGhosttyTheme": "Ghostex Nord",
+      "themeSidebarContrast": -24,
+      "themeWorkAreaContrast": -24,
+      "customSidebarTitlebarBackgroundDarknessPercent": 85,
+      "customSidebarTitlebarLightBackgroundLightnessPercent": 84,
+      "terminalBackgroundMode": "theme"
+    },
+    "lightPickedOnPurpose": {
+      "sidebarTheme": "dark-2",
+      "darkThemePreset": "custom",
+      "customSidebarTitlebarBackgroundTintColor": "#2c323e",
+      "terminalGhosttyTheme": "Ghostex Nord",
+      "themeSidebarContrast": -24,
+      "themeWorkAreaContrast": -24,
+      "customSidebarTitlebarBackgroundDarknessPercent": 85,
+      "customSidebarTitlebarLightBackgroundLightnessPercent": 84,
+      "terminalBackgroundMode": "theme"
+    }
+  }
+}

@@ -73,9 +73,25 @@ extension GhosttyTerminalView {
     }
 
     /// Re-push this surface's config so module-global setting changes
-    /// (cursor style/blink) take effect on an already-open terminal.
+    /// (cursor style/blink, colours) take effect on an already-open terminal,
+    /// with its own font size kept; the view's backing colour and the
+    /// keyboard follow the colours.
     func reapplySurfaceConfig() {
+        applyTerminalColors()
         applyPresentationOverrides(surfacePresentationOverrides)
+    }
+
+    /// The backing colour behind the surface and the keyboard appearance of the current colours.
+    /// An open keyboard is reloaded only when its appearance actually changes.
+    func applyTerminalColors() {
+        let colors = Ghostty.App.runtimeSettings.colors
+        backgroundColor = colors.backgroundColor
+        let appearance: UIKeyboardAppearance = colors.light ? .light : .dark
+        guard appearance != shownKeyboardAppearance else { return }
+        shownKeyboardAppearance = appearance
+        if isFirstResponder {
+            reloadInputViews()
+        }
     }
 
     /// Pixel size the surface takes: the view's bounds, or, while a grid is pinned,

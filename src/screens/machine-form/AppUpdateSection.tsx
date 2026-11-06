@@ -4,6 +4,8 @@
  * switch, the desktop's machine dialog row (`dialog_update_section`) on the phone.
  */
 
+import { readableSecondaryText } from '../../theme/sidebarAppearance';
+import { useAppearance } from '../../theme/useAppearance';
 import { ActivityIndicator, Switch, Text, View } from 'react-native';
 
 import { SetupButton } from '../../components/onboarding/SetupPrimitives';
@@ -19,7 +21,7 @@ import {
 import { SwitchRow } from '../../components/common/SwitchRow';
 import type { MachineConnectionTarget } from '../../machines/credentials';
 import { SetupPalette } from '../../theme/palette';
-import { formStyles } from './styles';
+import { useFormStyles } from './styles';
 
 const TONE_COLOR: Record<AppUpdateView['tone'], string> = {
   muted: SetupPalette.MUTED,
@@ -28,6 +30,8 @@ const TONE_COLOR: Record<AppUpdateView['tone'], string> = {
 };
 
 export default function AppUpdateSection({ machine }: { machine: MachineConnectionTarget }) {
+  const appearance = useAppearance();
+  const formStyles = useFormStyles();
   const update = useAppUpdateStore((state) => state.byMachineId[machine.id]);
   if (update === undefined) return null;
   const view = appUpdateView(update);
@@ -42,9 +46,9 @@ export default function AppUpdateSection({ machine }: { machine: MachineConnecti
       <Text style={formStyles.sectionLabel}>{copy.label}</Text>
       <View style={formStyles.rowsCard}>
         <View style={[formStyles.row, formStyles.rowFirst]}>
-          {view.busy ? <ActivityIndicator size="small" color={SetupPalette.MUTED} /> : null}
+          {view.busy ? <ActivityIndicator size="small" color={appearance.muted} /> : null}
           <View style={formStyles.rowMain}>
-            <Text style={[formStyles.rowDetail, { color: TONE_COLOR[view.tone] }]}>{line}</Text>
+            <Text style={[formStyles.rowDetail, { color: readableSecondaryText(TONE_COLOR[view.tone], appearance.foreground, [appearance.background, appearance.card, appearance.cardActive]) }]}>{line}</Text>
           </View>
         </View>
         {action !== null ? (
@@ -55,9 +59,9 @@ export default function AppUpdateSection({ machine }: { machine: MachineConnecti
               disabled={!action.enabled}
               icon={
                 action.op === 'install' ? (
-                  <DownloadGlyph size={14} color={SetupPalette.FOREGROUND} />
+                  <DownloadGlyph size={14} color={appearance.foreground} />
                 ) : (
-                  <RefreshGlyph size={14} color={SetupPalette.FOREGROUND} />
+                  <RefreshGlyph size={14} color={appearance.foreground} />
                 )
               }
               onPress={() => runAppUpdateOp(machine, action.op)}
@@ -80,8 +84,8 @@ export default function AppUpdateSection({ machine }: { machine: MachineConnecti
               value={view.autoUpdate}
               disabled={update.busy}
               onValueChange={(enabled) => setAppAutoUpdate(machine, enabled)}
-              trackColor={{ false: SetupPalette.MUTED_BG, true: SetupPalette.ACCENT }}
-              thumbColor={SetupPalette.FOREGROUND}
+              trackColor={{ false: appearance.cardActive, true: appearance.accent }}
+              thumbColor={appearance.foreground}
             />
           </SwitchRow>
         ) : null}

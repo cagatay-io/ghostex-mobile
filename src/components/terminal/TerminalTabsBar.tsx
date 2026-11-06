@@ -17,7 +17,8 @@ import { Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewInstance 
 import type { LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
 import type { TerminalTab, TerminalTabState } from '../../terminal/sessions';
-import { GhostexPalette } from '../../theme/palette';
+import { colorWithOpacity, GhostexPalette } from '../../theme/palette';
+import { terminalChrome, type TerminalChrome } from '../../theme/terminalColours';
 import { HorizontalFade } from '../../chat/native/transcript/verticalFade';
 import { CloseIcon } from './icons';
 import {
@@ -62,12 +63,14 @@ type TabButtonProps = {
    */
   fill: boolean;
   width?: number;
+  /** The ink over the header the strip stands in. */
+  chrome: TerminalChrome;
   onSelect: (sessionKey: string) => void;
   onClose: (sessionKey: string) => void;
   onSlotLayout?: (sessionKey: string, event: LayoutChangeEvent) => void;
 };
 
-function TabButton({ tab, selected, fill, width, onSelect, onClose, onSlotLayout }: TabButtonProps) {
+function TabButton({ tab, selected, fill, width, chrome, onSelect, onClose, onSlotLayout }: TabButtonProps) {
   const dotColor = statusDotColor(tab.state);
   const showClose = fill || selected;
   return (
@@ -78,11 +81,15 @@ function TabButton({ tab, selected, fill, width, onSelect, onClose, onSlotLayout
       <Pressable
         accessibilityRole="tab"
         accessibilityState={{ selected }}
-        style={[styles.tab, selected && styles.tabSelected, showClose ? null : styles.tabNoClose]}
+        style={[
+          styles.tab,
+          selected && { backgroundColor: colorWithOpacity(chrome.ink, 18) },
+          showClose ? null : styles.tabNoClose,
+        ]}
         onPress={() => onSelect(tab.sessionKey)}
       >
         {dotColor !== null && <View style={[styles.statusDot, { backgroundColor: dotColor }]} />}
-        <Text style={styles.tabTitle} numberOfLines={1}>
+        <Text style={[styles.tabTitle, { color: chrome.foreground }]} numberOfLines={1}>
           {tab.title}
         </Text>
       </Pressable>
@@ -91,10 +98,16 @@ function TabButton({ tab, selected, fill, width, onSelect, onClose, onSlotLayout
           accessibilityRole="button"
           accessibilityLabel={`Close ${tab.title}`}
           hitSlop={6}
-          style={[styles.closeButton, selected && styles.closeButtonSelected]}
+          style={[
+            styles.closeButton,
+            {
+              backgroundColor: colorWithOpacity(chrome.ink, selected ? 16 : 12),
+              borderColor: colorWithOpacity(chrome.ink, 12),
+            },
+          ]}
           onPress={() => onClose(tab.sessionKey)}
         >
-          <CloseIcon size={11} color="rgba(255,255,255,0.92)" strokeWidth={3} />
+          <CloseIcon size={11} color={colorWithOpacity(chrome.ink, 92)} strokeWidth={3} />
         </Pressable>
       ) : null}
     </View>
@@ -106,7 +119,10 @@ export type TerminalTabsBarProps = {
   selectedSessionKey: string | null;
   onSelect: (sessionKey: string) => void;
   onClose: (sessionKey: string) => void;
-  /** The colour of the header the strip stands in; its edge fades melt into the track over it. */
+  /**
+   * The colour of the header the strip stands in (`#rrggbb`): the track, tabs and close buttons take its ink (white
+   * over a dark header, dark over a light one) and the edge fades melt into the track over it.
+   */
   headerColor?: string;
 };
 
@@ -131,7 +147,8 @@ export default function TerminalTabsBar({
   const equalWidth = strip.equal;
   const tabWidth = strip.equal ? undefined : strip.tabWidth;
   const selectedIndex = tabs.findIndex((entry) => entry.sessionKey === selectedSessionKey);
-  const fadeColor = stripFadeColor(headerColor);
+  const chrome = terminalChrome(headerColor);
+  const fadeColor = stripFadeColor(headerColor, chrome.ink);
   const fades = equalWidth ? { left: false, right: false } : stripFades(fadeOffset, scrollContentWidth, trackWidth);
   const onStripScroll = (event: NativeSyntheticEvent<NativeScrollEvent>): void => {
     const offset = event.nativeEvent.contentOffset.x;
@@ -179,6 +196,7 @@ export default function TerminalTabsBar({
       selected={tab.sessionKey === selectedSessionKey}
       fill={equalWidth}
       width={tabWidth}
+      chrome={chrome}
       onSelect={onSelect}
       onClose={onClose}
       onSlotLayout={equalWidth ? undefined : handleSlotLayout}
@@ -188,7 +206,13 @@ export default function TerminalTabsBar({
   return (
     <View style={styles.container}>
       <View
-        style={styles.track}
+        style={[
+          styles.track,
+          {
+            backgroundColor: colorWithOpacity(chrome.ink, TRACK_TINT_ALPHA * 100),
+            borderColor: colorWithOpacity(chrome.ink, 12),
+          },
+        ]}
         onLayout={(event) => {
           setTrackWidth(event.nativeEvent.layout.width);
           setFadeOffset(scrollOffset.current);
@@ -246,12 +270,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginHorizontal: 4,
   },
+  /** The capsule around the tabs: its fill and border are the header's ink (`TRACK_TINT_ALPHA`, 12%). */
   track: {
     height: TRACK_HEIGHT,
     borderRadius: TRACK_HEIGHT / 2,
-    backgroundColor: `rgba(255,255,255,${TRACK_TINT_ALPHA})`,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
     overflow: 'hidden',
     justifyContent: 'center',
   },
@@ -299,9 +322,6 @@ const styles = StyleSheet.create({
   tabNoClose: {
     paddingRight: 14,
   },
-  tabSelected: {
-    backgroundColor: 'rgba(255,255,255,0.18)',
-  },
   statusDot: {
     width: 6,
     height: 6,
@@ -309,7 +329,6 @@ const styles = StyleSheet.create({
   },
   tabTitle: {
     flexShrink: 1,
-    color: GhostexPalette.FOREGROUND,
     fontSize: 14,
   },
   closeButton: {
@@ -320,11 +339,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-  },
-  closeButtonSelected: {
-    backgroundColor: 'rgba(255,255,255,0.16)',
   },
 });

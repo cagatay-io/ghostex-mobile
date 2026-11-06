@@ -6,6 +6,7 @@
  * lives outside this component so it is tappable whether or not it is open.
  */
 
+import { useAppearance } from '../../theme/useAppearance';
 import { useEffect, useRef, useState } from 'react';
 import { Switch, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
@@ -15,8 +16,8 @@ import { SwitchRow } from '../../components/common/SwitchRow';
 import { SetupButton } from '../../components/onboarding/SetupPrimitives';
 import { TailscaleFormCopy } from '../../copy';
 import type { MachineTransport } from '../../machines/store';
-import { SetupPalette } from '../../theme/palette';
-import { formStyles } from './styles';
+
+import { useFormStyles } from './styles';
 import { FormField } from './TailscaleFields';
 
 export type AdvancedSectionProps = {
@@ -87,6 +88,7 @@ function Row({
   toggle?: { value: boolean; onValueChange: (value: boolean) => void };
   children?: React.ReactNode;
 }) {
+  const formStyles = useFormStyles();
   const content = (
     <>
       <View style={formStyles.rowMain}>
@@ -160,6 +162,7 @@ function SshKeyRow({
 }
 
 function HostKeyRow({ onResetHostKey }: AdvancedSectionProps) {
+  const formStyles = useFormStyles();
   const copy = TailscaleFormCopy.advanced;
   const [resetDone, setResetDone] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -192,6 +195,8 @@ function HostKeyRow({ onResetHostKey }: AdvancedSectionProps) {
 }
 
 function TailscaleRows(props: AdvancedSectionProps) {
+  const appearance = useAppearance();
+  const formStyles = useFormStyles();
   const copy = TailscaleFormCopy.advanced;
   const hasKey = props.publicKey !== null && props.publicKey.length > 0;
   return (
@@ -218,8 +223,8 @@ function TailscaleRows(props: AdvancedSectionProps) {
             <Switch
               value={props.tailscaleSsh}
               onValueChange={props.onTailscaleSshChange}
-              trackColor={{ false: SetupPalette.MUTED_BG, true: SetupPalette.ACCENT }}
-              thumbColor={SetupPalette.FOREGROUND}
+              trackColor={{ false: appearance.cardActive, true: appearance.accent }}
+              thumbColor={appearance.foreground}
             />
           }
         />
@@ -230,6 +235,7 @@ function TailscaleRows(props: AdvancedSectionProps) {
 }
 
 function EasyConnectRows(props: AdvancedSectionProps) {
+  const formStyles = useFormStyles();
   const copy = TailscaleFormCopy.advanced;
   const [addressCopied, copyAddress] = useCopied();
   const [keyCopied, copyKey] = useCopied();

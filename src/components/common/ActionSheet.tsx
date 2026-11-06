@@ -1,14 +1,18 @@
 /**
  * Generic action sheet: modal bottom sheet with a title/subtitle header and a
  * scrollable list of action rows (label + optional detail line, destructive
- * tint, disabled state). Styling per docs/specs/sessions-drawer.md §0.
+ * tint, disabled state). Styling per docs/specs/sessions-drawer.md §0. Half folded like a laptop it starts
+ * below the fold and its list scrolls inside.
  */
 
+import { useMemo } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
 import { Modal, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 
+import { useFoldSheetMaxHeight } from './foldAvoidance';
 import { useVerticalBarSpace } from './verticalBar/VerticalBarArea';
 
-import { GhostexPalette, GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
+import { GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
 
 export type ActionSheetItem = {
   key: string;
@@ -29,11 +33,17 @@ export type ActionSheetProps = {
 };
 
 export default function ActionSheet({ visible, title, subtitle, items, onClose }: ActionSheetProps) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const bar = useVerticalBarSpace();
+  const foldMaxHeight = useFoldSheetMaxHeight({ avoidsKeyboard: false });
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={[styles.backdrop, bar.padding]} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}>
+        <Pressable
+          style={[styles.sheet, foldMaxHeight !== undefined && { maxHeight: foldMaxHeight }]}
+          onPress={(event) => event.stopPropagation()}
+        >
           <Text style={styles.title} numberOfLines={1}>
             {title}
           </Text>
@@ -70,31 +80,31 @@ export default function ActionSheet({ visible, title, subtitle, items, onClose }
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: GhostexPalette.BACKGROUND,
+    backgroundColor: appearance.background,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
     borderWidth: GhostexStrokeWidth,
-    borderColor: GhostexPalette.BORDER,
+    borderColor: appearance.border,
     paddingTop: 14,
     paddingBottom: 24,
     paddingHorizontal: 12,
     maxHeight: '80%',
   },
   title: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 15,
     fontWeight: 'bold',
     paddingHorizontal: 4,
   },
   subtitle: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     marginTop: 4,
     paddingHorizontal: 4,
@@ -111,26 +121,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: GhostexRadii.row,
-    backgroundColor: GhostexPalette.CARD,
+    backgroundColor: appearance.card,
     borderWidth: GhostexStrokeWidth,
-    borderColor: GhostexPalette.BORDER,
+    borderColor: appearance.border,
   },
   rowPressed: {
-    backgroundColor: GhostexPalette.CARD_ACTIVE,
+    backgroundColor: appearance.cardActive,
   },
   rowDisabled: {
     opacity: 0.4,
   },
   rowLabel: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 14,
     fontWeight: 'bold',
   },
   rowLabelDestructive: {
-    color: GhostexPalette.DANGER,
+    color: appearance.danger,
   },
   rowDetail: {
-    color: GhostexPalette.MUTED,
+    color: appearance.muted,
     fontSize: 12,
     marginTop: 2,
   },

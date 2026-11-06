@@ -5,6 +5,8 @@
  * login-shell wrapper so remote commands see the user's PATH.
  */
 
+import type { QuickActionScope } from '../contract/mobileSummary';
+
 /** Single-quote `value` for POSIX shells, escaping embedded quotes as `'"'"'`. */
 export function shellQuote(value: string): string {
   if (value.length === 0) return "''";
@@ -330,11 +332,16 @@ export function coordinatorResolveCommand(globalRef: string, resolved: boolean):
   return `ghostex coordinator ${resolved ? 'resolve' : 'reopen'} ${shellQuote(requireId(globalRef, 'thread'))} --json`;
 }
 
-/** Quick action: `ghostex run-action <commandId> --project-id <id>` (always prints JSON). */
-export function runActionCommand(commandId: string, projectId: string): string {
+/**
+ * Quick action: `ghostex run-action <commandId> --project-id <id> [--scope global]` (always prints JSON). A Global
+ * Action runs in the project whose menu it was chosen from; without `--scope` the computer looks the id up in the
+ * project's own actions, as before.
+ */
+export function runActionCommand(commandId: string, projectId: string, scope: QuickActionScope): string {
   return (
     `ghostex run-action ${shellQuote(requireId(commandId, 'quick action command id'))}` +
-    ` --project-id ${shellQuote(requireId(projectId, 'project id'))}`
+    ` --project-id ${shellQuote(requireId(projectId, 'project id'))}` +
+    (scope === 'global' ? ' --scope global' : '')
   );
 }
 
@@ -515,6 +522,19 @@ export function delayedSendCommand(sessionId: string, trigger: DelayedSendTrigge
 /** Cancel Delayed Send: `ghostex delayed-send --session-id <id> --cancel --json`. */
 export function cancelDelayedSendCommand(sessionId: string): string {
   return `ghostex delayed-send --session-id ${shellQuote(requireId(sessionId, 'session id'))}` + ' --cancel --json';
+}
+
+/**
+ * Type text into a session's terminal and submit it: `ghostex send-message --session-id <id> [--project-id <id>]
+ * --text=<text> --json`. gxserver clears the agent's input line, types the text and presses Enter in the session's
+ * own terminal (`/api/sendSessionMessage`), whether or not the phone has that terminal open. The folded triage's
+ * short reply to a session shown as a terminal.
+ */
+export function sendSessionMessageCommand(sessionId: string, projectId: string, text: string): string {
+  return (
+    `ghostex send-message --session-id ${shellQuote(requireId(sessionId, 'session id'))}` +
+    `${projectFlag(projectId)} ${inlineTextFlag('--text', text)} --json`
+  );
 }
 
 /** Toggle Close After Done: `ghostex close-after-done --session-id <id> --json`. */

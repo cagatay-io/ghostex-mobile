@@ -7,14 +7,18 @@ import ConnectionPage from './ConnectionPage';
 import DictateDictionaryPage from './DictateDictionaryPage';
 import DictateLanguagePage from './DictateLanguagePage';
 import KeyboardPage from './KeyboardPage';
+import NotificationsPage from './NotificationsPage';
+import LiveActivityPage from './LiveActivityPage';
+import LicencesPage from './LicencesPage';
 import { SETTINGS_PAGES, type SettingsPageId } from './pages';
 import ReadAloudVoicePage from './ReadAloudVoicePage';
 import { SettingsColumnsFrame } from './SettingsColumns';
 import SessionsListPage from './SessionsListPage';
-import SoundsPage from './SoundsPage';
+import ShortRepliesPage from './ShortRepliesPage';
 import SyncPage from './SyncPage';
 import TerminalPage from './TerminalPage';
 import { SettingsPageBoundary } from './SectionBoundary';
+import TerminalPalettePage from './TerminalPalettePage';
 import ThemePage from './ThemePage';
 import UpdatesPage from './UpdatesPage';
 import VoicePage from './VoicePage';
@@ -54,8 +58,12 @@ function SettingsPageBody({ page }: { page: SettingsPageId }) {
       return <TerminalPage />;
     case 'keyboard':
       return <KeyboardPage />;
-    case 'sounds':
-      return <SoundsPage />;
+    case 'shortReplies':
+      return <ShortRepliesPage />;
+    case 'notifications':
+      return <NotificationsPage />;
+    case 'liveActivity':
+      return <LiveActivityPage />;
     case 'connection':
       return <ConnectionPage />;
     case 'sync':
@@ -68,5 +76,11 @@ function SettingsPageBody({ page }: { page: SettingsPageId }) {
       return <DictateLanguagePage />;
     case 'dictateDictionary':
       return <DictateDictionaryPage />;
+    case 'terminalPaletteDark':
+      return <TerminalPalettePage dark />;
+    case 'terminalPaletteLight':
+      return <TerminalPalettePage dark={false} />;
+    case 'licences':
+      return <LicencesPage />;
   }
 }

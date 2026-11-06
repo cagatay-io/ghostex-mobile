@@ -5,14 +5,16 @@
  * (CDXC:CloudBoxes 2026-11-02 DECISION in src/cloudBoxes/chip.ts).
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useMemo, useEffect, useRef, useState } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
+
 import { Pressable, StyleSheet, Text, View, type ViewInstance } from 'react-native';
 
 import { chipDetail, chipDotColor, chipLabel } from '../../cloudBoxes/chip';
 import { cloudBoxMenuItems } from '../../cloudBoxes/menu';
 import type { CloudBoxEntry } from '../../cloudBoxes/store';
 import { cloudBoxStateLabel } from '../../cloudBoxes/types';
-import { GhostexPalette } from '../../theme/palette';
+
 import ContextMenu, { type MenuAnchor } from '../sessions/ContextMenu';
 import { CloudGlyph } from '../sessions/icons';
 
@@ -21,6 +23,8 @@ const TICK_MS = 30_000;
 const STATUS_MS = 5_000;
 
 export default function CloudBoxPill({ entry, sessionId }: { entry: CloudBoxEntry; sessionId: string | null }) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [anchor, setAnchor] = useState<MenuAnchor | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -50,7 +54,7 @@ export default function CloudBoxPill({ entry, sessionId }: { entry: CloudBoxEntr
         style={({ pressed }) => [styles.pill, pressed ? styles.pillPressed : null]}
       >
         <View style={[styles.dot, { backgroundColor: chipDotColor(entry.box.state) }]} />
-        <CloudGlyph size={12} color={GhostexPalette.FOREGROUND} />
+        <CloudGlyph size={12} color={appearance.foreground} />
         <Text numberOfLines={1} style={styles.label}>
           {label}
         </Text>
@@ -71,7 +75,7 @@ export default function CloudBoxPill({ entry, sessionId }: { entry: CloudBoxEntr
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -87,8 +91,8 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.18)',
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: appearance.border,
+    backgroundColor: appearance.card,
     maxWidth: '70%',
   },
   pillPressed: {
@@ -100,7 +104,7 @@ const styles = StyleSheet.create({
     borderRadius: 3.5,
   },
   label: {
-    color: GhostexPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 12,
     flexShrink: 1,
   },

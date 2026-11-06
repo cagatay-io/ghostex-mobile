@@ -22,6 +22,7 @@ import { OTHER_SIDEBAR_SPACE_ICON, OTHER_SIDEBAR_SPACE_ID, OTHER_SIDEBAR_SPACE_L
 import { tabStatusCounts, type SessionCounts } from '../../contract/grouping';
 import type { SpaceRowItem } from '../../spaces/spaceFilter';
 import { GhostexPalette, GhostexRadii, GhostexStrokeWidth, SidebarPalette } from '../../theme/palette';
+import { inkStyleSheets, useSidebarInk } from './rows';
 import StatusDotStack from './StatusDotStack';
 
 const OTHER_ROW_ITEM: SpaceRowItem = {
@@ -48,6 +49,10 @@ export default function SpaceTabs({
   style?: StyleProp<ViewStyle>;
 }) {
   const items = [...spaces, OTHER_ROW_ITEM];
+  const ink = useSidebarInk();
+  const styles = spaceStyles(ink);
+  // The ring between overlapping dots is drawn in the chip's own card (dark: its active card, as before).
+  const ringColor = ink.chipCard;
   return (
     <ScrollView
       contentContainerStyle={styles.row}
@@ -78,7 +83,7 @@ export default function SpaceTabs({
             style={[styles.chip, selected ? styles.chipSelected : null]}
           >
             <View style={hasStatus ? styles.iconWithStatus : null}>
-              <Icon size={14} color={selected ? GhostexPalette.FOREGROUND : SidebarPalette.MUTED} />
+              <Icon size={14} color={selected ? styles.labelSelected.color : styles.label.color} />
             </View>
             <Text ellipsizeMode="tail" numberOfLines={1} style={[styles.label, selected ? styles.labelSelected : null]}>
               {item.name}
@@ -90,7 +95,7 @@ export default function SpaceTabs({
                 backgroundWorkCount={counts.backgroundWorkCount}
                 questionCount={counts.questionCount}
                 approvalCount={counts.approvalCount}
-                ringColor={GhostexPalette.CARD_ACTIVE}
+                ringColor={ringColor}
               />
             ) : null}
             {selected ? <View style={[styles.selectedRail, { backgroundColor: item.color }]} /> : null}
@@ -104,60 +109,62 @@ export default function SpaceTabs({
 /** Chip height, and with it the row's: fixed so content cannot resize it. */
 const SPACE_CHIP_HEIGHT = 30;
 
-const styles = StyleSheet.create({
-  /*
-   * A horizontal ScrollView takes its height from its content and inherits
-   * `flexShrink: 1` from ScrollView's base style, so in a column beside a
-   * filling list it is the first thing Yoga squeezes. The row is one chip tall
-   * by definition, so it says so and opts out of shrinking.
-   */
-  scroll: {
-    marginTop: 6,
-    height: SPACE_CHIP_HEIGHT,
-    flexGrow: 0,
-    flexShrink: 0,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingRight: 8,
-  },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    height: SPACE_CHIP_HEIGHT,
-    maxWidth: 180,
-    paddingHorizontal: 10,
-    borderRadius: GhostexRadii.pill,
-    borderWidth: GhostexStrokeWidth,
-    borderColor: SidebarPalette.HEADER_BUTTON_BORDER,
-    backgroundColor: SidebarPalette.HEADER_BUTTON_BG,
-    overflow: 'hidden',
-  },
-  chipSelected: {
-    backgroundColor: GhostexPalette.CARD_ACTIVE,
-  },
-  label: {
-    flexShrink: 1,
-    minWidth: 0,
-    color: SidebarPalette.MUTED,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  labelSelected: {
-    color: GhostexPalette.FOREGROUND,
-  },
-  iconWithStatus: {
-    opacity: 0.8,
-  },
-  /** The Space's own color, drawn under the selected chip like the desktop rail. */
-  selectedRail: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 2,
-  },
-});
+const spaceStyles = inkStyleSheets((ink) =>
+  StyleSheet.create({
+    /*
+     * A horizontal ScrollView takes its height from its content and inherits
+     * `flexShrink: 1` from ScrollView's base style, so in a column beside a
+     * filling list it is the first thing Yoga squeezes. The row is one chip tall
+     * by definition, so it says so and opts out of shrinking.
+     */
+    scroll: {
+      marginTop: 6,
+      height: SPACE_CHIP_HEIGHT,
+      flexGrow: 0,
+      flexShrink: 0,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingRight: 8,
+    },
+    chip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      height: SPACE_CHIP_HEIGHT,
+      maxWidth: 180,
+      paddingHorizontal: 10,
+      borderRadius: GhostexRadii.pill,
+      borderWidth: GhostexStrokeWidth,
+      borderColor: ink.chipBorder,
+      backgroundColor: ink.chipCard,
+      overflow: 'hidden',
+    },
+    chipSelected: {
+      backgroundColor: ink.chipSelected,
+    },
+    label: {
+      flexShrink: 1,
+      minWidth: 0,
+      color: ink.light ? ink.muted : SidebarPalette.MUTED,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    labelSelected: {
+      color: ink.light ? ink.text : GhostexPalette.FOREGROUND,
+    },
+    iconWithStatus: {
+      opacity: 0.8,
+    },
+    /** The Space's own color, drawn under the selected chip like the desktop rail. */
+    selectedRail: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: 2,
+    },
+  }),
+);

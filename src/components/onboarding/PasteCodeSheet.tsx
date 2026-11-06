@@ -7,14 +7,16 @@
  */
 
 import { useMemo, useState } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
+
 import { Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { ScanCopy } from '../../copy';
 import { isGhostexPairingPayload, readPairingCode, type ReadPairingCodeResult } from '../../machines/pairingCodes';
-import { GhostexRadii, GhostexStrokeWidth, SetupPalette } from '../../theme/palette';
+import { GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
 import BottomSheet from '../common/BottomSheet';
 import { CheckGlyph } from './SetupIcons';
-import { SETUP_MONOSPACE, SetupButton, setupText } from './SetupPrimitives';
+import { SETUP_MONOSPACE, SetupButton, useSetupText } from './SetupPrimitives';
 
 export type PasteCodeSheetProps = {
   visible: boolean;
@@ -37,6 +39,9 @@ function validityLine(parsed: ReadPairingCodeResult, text: string): string {
 }
 
 export default function PasteCodeSheet({ visible, cameraDenied, onClose, onCode }: PasteCodeSheetProps) {
+  const setupText = useSetupText();
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   const [text, setText] = useState('');
   const parsed = useMemo(() => (text.trim().length === 0 ? null : readPairingCode(text)), [text]);
   const showHint = text.trim().length > 0;
@@ -65,9 +70,10 @@ export default function PasteCodeSheet({ visible, cameraDenied, onClose, onCode 
       </Text>
       <View style={styles.field}>
         <TextInput
+          keyboardAppearance={appearance.light ? 'light' : 'dark'}
           style={styles.input}
           placeholder={ScanCopy.paste.placeholder}
-          placeholderTextColor={SetupPalette.DIM}
+          placeholderTextColor={appearance.muted}
           multiline
           autoCapitalize="none"
           autoCorrect={false}
@@ -78,7 +84,7 @@ export default function PasteCodeSheet({ visible, cameraDenied, onClose, onCode 
         />
         {showHint ? (
           <View style={styles.hintRow}>
-            {parsed !== null ? <CheckGlyph size={14} color={SetupPalette.OK} /> : null}
+            {parsed !== null ? <CheckGlyph size={14} color={appearance.connected} /> : null}
             <Text style={[styles.hint, parsed !== null ? styles.hintOk : styles.hintError]}>
               {validityLine(parsed, text)}
             </Text>
@@ -99,10 +105,10 @@ export default function PasteCodeSheet({ visible, cameraDenied, onClose, onCode 
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   deniedLine: {
     marginTop: 8,
-    color: SetupPalette.WARN,
+    color: appearance.working,
   },
   lede: {
     marginTop: 8,
@@ -116,9 +122,9 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: GhostexRadii.control,
     borderWidth: GhostexStrokeWidth,
-    borderColor: SetupPalette.BORDER_STRONG,
-    backgroundColor: SetupPalette.PAGE,
-    color: SetupPalette.FOREGROUND,
+    borderColor: appearance.border,
+    backgroundColor: appearance.background,
+    color: appearance.foreground,
     fontFamily: SETUP_MONOSPACE,
     fontSize: 13,
     lineHeight: 18,
@@ -135,10 +141,10 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   hintOk: {
-    color: SetupPalette.OK,
+    color: appearance.connected,
   },
   hintError: {
-    color: SetupPalette.ERROR,
+    color: appearance.danger,
   },
   button: {
     marginTop: 16,

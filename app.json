@@ -5,7 +5,7 @@
     "version": "10.3.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "backgroundColor": "#181818",
     "scheme": ["ghostex", "ghostex-ec1", "ghostex-ts1"],
     "plugins": [
@@ -13,6 +13,8 @@
       "./plugins/withAndroidReleaseSize.js",
       "./plugins/withLoopbackCleartext.js",
       "./plugins/withVoiceLiveActivity.js",
+      "./plugins/withWidgets.js",
+      "./plugins/withGhostexNativeTests.js",
       "expo-status-bar",
       "@react-native-community/datetimepicker",
       [
@@ -28,7 +30,15 @@
           "microphonePermission": "Ghostex uses the microphone when you talk with the voice agent, dictate a message in the chat or record a video to attach to a session.",
           "speechRecognitionPermission": "Ghostex turns what you dictate in the chat into text."
         }
-      ]
+      ],
+      [
+        "expo-notifications",
+        {
+          "enableRemoteNotifications": true,
+          "enableBackgroundRemoteNotifications": true
+        }
+      ],
+      "./plugins/withoutBackgroundFetch.js"
     ],
     "ios": {
       "supportsTablet": true,
@@ -37,10 +47,10 @@
       "associatedDomains": ["applinks:ghostex.dev"],
       "entitlements": {
         "application-identifier": "$(AppIdentifierPrefix)com.maddada.ghostex.ios",
-        "keychain-access-groups": ["$(AppIdentifierPrefix)com.maddada.ghostex.ios"]
+        "keychain-access-groups": ["$(AppIdentifierPrefix)com.maddada.ghostex.ios"],
+        "com.apple.security.application-groups": ["group.com.maddada.ghostex.ios"]
       },
       "infoPlist": {
-        "UIUserInterfaceStyle": "Dark",
         "ITSAppUsesNonExemptEncryption": false,
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": false,
@@ -52,7 +62,8 @@
         "NSCameraUsageDescription": "Ghostex uses the camera to scan the tailcat pairing QR code shown on your computer, and when you capture a photo to attach to a session.",
         "NSMicrophoneUsageDescription": "Ghostex uses the microphone when you talk with the voice agent, dictate a message in the chat or record a video to attach to a session.",
         "NSSpeechRecognitionUsageDescription": "Ghostex turns what you dictate in the chat into text.",
-        "UIBackgroundModes": ["audio", "voip"]
+        "UIBackgroundModes": ["audio", "voip"],
+        "NSSupportsLiveActivities": true
       },
       "privacyManifests": {
         "NSPrivacyTracking": false,

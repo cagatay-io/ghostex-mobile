@@ -9,6 +9,7 @@
  * behind the "Setup required" badge.
  */
 
+import { useAppearance } from '../theme/useAppearance';
 import { useEffect, useState, type ReactElement } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -51,6 +52,7 @@ function sourceIcon(source: AddProjectSourceId): ReactElement {
 }
 
 export default function AddProjectSourceScreen({ navigation, route }: Props): ReactElement {
+  const appearance = useAppearance();
   const { machineId } = route.params;
   const machine = useMachinesStore((state) => state.machines.find((entry) => entry.id === machineId) ?? null);
 
@@ -107,7 +109,7 @@ export default function AddProjectSourceScreen({ navigation, route }: Props): Re
           testID="add-project-source-local"
           title={AddProjectCopy.localRowTitle}
           description={AddProjectCopy.localRowDescription}
-          icon={<FolderOpenGlyph size={16} color={GhostexPalette.MUTED} />}
+          icon={<FolderOpenGlyph size={16} color={appearance.muted} />}
           onPress={() => navigation.navigate('AddProjectLocal', { machineId })}
         />
         {sources.map((source) => {

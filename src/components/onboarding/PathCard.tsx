@@ -5,7 +5,9 @@
  * small button. Reused by Machines → Add a computer (M7).
  */
 
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
+import { useAppearance, type Appearance } from '../../theme/useAppearance';
+
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { GhostexRadii, GhostexStrokeWidth, SetupPalette } from '../../theme/palette';
@@ -38,6 +40,8 @@ export default function PathCard({
   button,
   recommended = false,
 }: PathCardProps) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
   return (
     <View style={[styles.card, recommended ? styles.cardRecommended : null]}>
       <View style={styles.head}>
@@ -84,11 +88,11 @@ export default function PathCard({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (appearance: Appearance) => StyleSheet.create({
   card: {
-    backgroundColor: SetupPalette.CARD,
+    backgroundColor: appearance.card,
     borderWidth: GhostexStrokeWidth,
-    borderColor: SetupPalette.BORDER,
+    borderColor: appearance.border,
     borderRadius: GhostexRadii.section,
     padding: 14,
     gap: 10,
@@ -105,9 +109,9 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 9,
-    backgroundColor: SetupPalette.MUTED_BG,
+    backgroundColor: appearance.cardActive,
     borderWidth: GhostexStrokeWidth,
-    borderColor: SetupPalette.BORDER,
+    borderColor: appearance.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -126,7 +130,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   title: {
-    color: SetupPalette.FOREGROUND,
+    color: appearance.foreground,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -140,12 +144,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tagLabel: {
-    color: SetupPalette.ACCENT,
+    color: appearance.accent,
     fontSize: 11,
     fontWeight: '600',
   },
   subtitle: {
-    color: SetupPalette.MUTED,
+    color: appearance.muted,
     fontSize: 13,
     lineHeight: 19,
   },
@@ -160,7 +164,7 @@ const styles = StyleSheet.create({
   },
   stepText: {
     flex: 1,
-    color: '#d4d4d8',
+    color: appearance.foreground,
     fontSize: 13,
     lineHeight: 18,
   },
@@ -172,12 +176,12 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   footNote: {
-    color: SetupPalette.DIM,
+    color: appearance.muted,
     fontSize: 12.5,
     flexShrink: 1,
   },
   footLink: {
-    color: SetupPalette.ACCENT,
+    color: appearance.accent,
     fontSize: 12.5,
   },
 });
