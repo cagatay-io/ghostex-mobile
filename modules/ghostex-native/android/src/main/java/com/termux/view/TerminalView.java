@@ -91,6 +91,11 @@ public final class TerminalView extends View {
 
     final Scroller mScroller;
 
+    /**
+     * CDXC:Terminal 2026-11-07 FIX: Issue #477, reported by rifnganadha from Ghostex 10.45.0 on Android 15 (Xiaomi), Terminal screen: "java.lang.NullPointerException: Attempt to invoke virtual method 'boolean q16.m()' on a null object reference at y16.run", which the 10.45.0 R8 mapping decodes to this fling runnable calling {@code mEmulator.isMouseTrackingActive()}. A fling re-posts itself every frame, and Easy Connect dropping and reconnecting detaches the session ({@code attachSession(null)} sets {@code mEmulator} to null) while a frame is still queued. The runnable is kept here so {@link #attachSession} and {@link #onDetachedFromWindow} cancel it, and each frame stops unless the emulator it started on is still the one shown.
+     */
+    private Runnable mFlingRunnable;
+
     /** What was left in from scrolling movement. */
     float mScrollRemainder;
 
@@ -210,32 +215,40 @@ public final class TerminalView extends View {
                 // Do not start scrolling until last fling has been taken care of:
                 if (!mScroller.isFinished()) return true;
 
-                final boolean mouseTrackingAtStartOfFling = mEmulator.isMouseTrackingActive();
+                final TerminalEmulator flingEmulator = mEmulator;
+                final boolean mouseTrackingAtStartOfFling = flingEmulator.isMouseTrackingActive();
                 float SCALE = 0.25f;
                 if (mouseTrackingAtStartOfFling) {
-                    mScroller.fling(0, 0, 0, -(int) (velocityY * SCALE), 0, 0, -mEmulator.mRows / 2, mEmulator.mRows / 2);
+                    mScroller.fling(0, 0, 0, -(int) (velocityY * SCALE), 0, 0, -flingEmulator.mRows / 2, flingEmulator.mRows / 2);
                 } else {
-                    mScroller.fling(0, mTopRow, 0, -(int) (velocityY * SCALE), 0, 0, -mEmulator.getScreen().getActiveTranscriptRows(), 0);
+                    mScroller.fling(0, mTopRow, 0, -(int) (velocityY * SCALE), 0, 0, -flingEmulator.getScreen().getActiveTranscriptRows(), 0);
                 }
 
-                post(new Runnable() {
+                mFlingRunnable = new Runnable() {
                     private int mLastY = 0;
 
                     @Override
                     public void run() {
-                        if (mouseTrackingAtStartOfFling != mEmulator.isMouseTrackingActive()) {
+                        if (!flingStillOwnsEmulator(flingEmulator, mEmulator)
+                            || mouseTrackingAtStartOfFling != mEmulator.isMouseTrackingActive()) {
                             mScroller.abortAnimation();
+                            mFlingRunnable = null;
                             return;
                         }
-                        if (mScroller.isFinished()) return;
+                        if (mScroller.isFinished()) {
+                            mFlingRunnable = null;
+                            return;
+                        }
                         boolean more = mScroller.computeScrollOffset();
                         int newY = mScroller.getCurrY();
                         int diff = mouseTrackingAtStartOfFling ? (newY - mLastY) : (newY - mTopRow);
                         doScroll(e2, diff);
                         mLastY = newY;
                         if (more) post(this);
+                        else mFlingRunnable = null;
                     }
-                });
+                };
+                post(mFlingRunnable);
 
                 return true;
             }
@@ -305,6 +318,7 @@ public final class TerminalView extends View {
      */
     public boolean attachSession(@Nullable TerminalSession session) {
         if (session == mTermSession) return false;
+        cancelFling();
         mTopRow = 0;
 
         mTermSession = session;
@@ -522,6 +536,20 @@ public final class TerminalView extends View {
 
     static boolean shouldFollowOutputAtScrollPosition(int topRow) {
         return topRow == AUTO_SCROLL_LIVE_BOTTOM_TOP_ROW;
+    }
+
+    /** Whether a fling started on {@code flingEmulator} may keep scrolling the view now showing {@code currentEmulator}. */
+    static boolean flingStillOwnsEmulator(@Nullable TerminalEmulator flingEmulator, @Nullable TerminalEmulator currentEmulator) {
+        return currentEmulator != null && currentEmulator == flingEmulator;
+    }
+
+    /** Drop a queued fling frame and stop its scroller (see {@link #mFlingRunnable}). */
+    private void cancelFling() {
+        if (mFlingRunnable != null) {
+            removeCallbacks(mFlingRunnable);
+            mFlingRunnable = null;
+        }
+        mScroller.forceFinished(true);
     }
 
     /** This must be called by the hosting activity in {@link Activity#onContextMenuClosed(Menu)}
@@ -1496,6 +1524,7 @@ public final class TerminalView extends View {
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
+        cancelFling();
 
         if (mTextSelectionCursorController != null) {
             // Might solve the following exception
