@@ -1,6 +1,6 @@
 /**
  * A coordinator's board, the Board pill's sheet: its lines of work grouped by who has the ball
- * (Backlog, To do, Needs you, Blocked, On hold, Moving, Done today, Removed), each a card of its title and
+ * (Backlog, To do, Needs you, Blocked, On hold, In progress, Done today, Removed), each a card of its title and
  * its work's links.
  * Groups, rows, tags, folds and counts come from the core (gx-chat-core
  * `extras/coordinator_board.rs`, where the user's decision lives); this only lays them out. A row
