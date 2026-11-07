@@ -21,7 +21,8 @@ export type CloudKit = {
   homeMachineId: string;
   gxserverVersion: string;
   issuedAt: string;
-  providers: Array<{ provider: string; key: string }>;
+  /** `plan` (`free`, `pro`) is absent from an older computer. */
+  providers: Array<{ provider: string; key: string; plan?: string }>;
   accounts: Array<{ accountId: string; agent: string; name: string; kind: string; value: string }>;
   allowDeviceKeys: string[];
   idleStopMinutes: number;
@@ -147,8 +148,11 @@ export function cloudKitCapRefusal(kit: CloudKit, now = new Date()): string | nu
   return `This month's Cloud Box spend ($${spend.totalUsd.toFixed(2)}) reached your $${spend.capUsd.toFixed(2)} cap. Raise the cap on the computer to start new boxes; running boxes keep running.`;
 }
 
-/** A provider's key from a computer's kit. */
-export async function cloudKitKey(machineId: string, provider: string): Promise<string | null> {
+/** A provider's key and plan from a computer's kit. */
+export async function cloudKitProvider(
+  machineId: string,
+  provider: string,
+): Promise<{ key: string; plan?: string } | null> {
   const kit = await cloudKitOf(machineId);
-  return kit?.providers.find((entry) => entry.provider === provider)?.key ?? null;
+  return kit?.providers.find((entry) => entry.provider === provider) ?? null;
 }

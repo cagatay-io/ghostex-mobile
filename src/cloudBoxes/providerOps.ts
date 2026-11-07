@@ -6,6 +6,7 @@
  * The `local` provider runs on the computer's Docker, so a phone cannot drive it.
  */
 
+import { providerCreateArgs } from './createArgs';
 import { gxCloud, ProviderCallError } from './gxCloud';
 
 /** How long a create or resume may take before the phone gives up (`MACHINE_WAIT`). */
@@ -148,6 +149,8 @@ export class ProviderOps {
   constructor(
     readonly provider: string,
     private readonly key: string,
+    /** The provider's plan from the computer's kit (`free`, `pro`); absent from an older computer. */
+    private readonly plan?: string | null,
   ) {}
 
   private async call<T>(op: string, args: Record<string, unknown> = {}): Promise<T> {
@@ -210,12 +213,7 @@ export class ProviderOps {
     idleMinutes: number,
     idempotencyKey: string,
   ): Promise<string> {
-    const args = {
-      metadata,
-      idempotencyKey,
-      idleMinutes,
-      ...(providerSnapshotId === null ? {} : { providerSnapshotId }),
-    };
+    const args = providerCreateArgs(metadata, providerSnapshotId, idleMinutes, idempotencyKey, this.plan);
     if (this.provider === 'instabox') {
       const operation = await this.call<Operation>('create', args);
       const machineId = operation.providerBoxId;

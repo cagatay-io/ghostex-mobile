@@ -13,7 +13,7 @@
  * SEE-ALSO: packages/gx-protocol/src/cloud_box/kit.rs (what the kit holds)
  */
 
-import { cloudKitCapRefusal, cloudKitKey, cloudKitOf, type CloudKit, type CloudKitProject } from './cloudKit';
+import { cloudKitCapRefusal, cloudKitOf, cloudKitProvider, type CloudKit, type CloudKitProject } from './cloudKit';
 import { gxCloud } from './gxCloud';
 import { ProviderOps, type ExecOutput, type ProviderMachine } from './providerOps';
 import { saveConnectInfo, useCloudBoxesStore, type CloudBoxEntry } from './store';
@@ -129,9 +129,9 @@ function verbAnswer(output: ExecOutput, verb: string): Record<string, unknown> {
 }
 
 async function opsFor(homeMachineId: string, provider: string): Promise<ProviderOps> {
-  const key = await cloudKitKey(homeMachineId, provider);
-  if (key === null) throw new Error(`The phone has no ${provider} key for this computer. Turn on Start boxes from your phone there.`);
-  return new ProviderOps(provider, key);
+  const entry = await cloudKitProvider(homeMachineId, provider);
+  if (entry === null) throw new Error(`The phone has no ${provider} key for this computer. Turn on Start boxes from your phone there.`);
+  return new ProviderOps(provider, entry.key, entry.plan);
 }
 
 /**
