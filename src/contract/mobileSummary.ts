@@ -999,6 +999,7 @@ export type AgentIconId =
   | 'empryo'
   | 'factory-droid'
   | 'freebuff'
+  | 'gbots'
   | 'gemini'
   | 'grok-build'
   | 'hermes-agent'
@@ -1026,6 +1027,8 @@ const AGENT_ICON_TINTS: Record<AgentIconId, string> = {
   empryo: '#1FA31D',
   'factory-droid': '#FF7A1A',
   freebuff: '#FFFFFF',
+  // The desktop's GBots tile colour (workspace_tab_visuals.rs).
+  gbots: '#9FB0FF',
   gemini: '#8B9AFF',
   'grok-build': '#FFFFFF',
   'hermes-agent': '#F3C46B',
@@ -1073,6 +1076,7 @@ export const AGENT_NAME_ALIASES: Readonly<Record<string, AgentIconId>> = {
   agy: 'antigravity-cli',
   amp: 'amp-cli',
   'amp cli': 'amp-cli',
+  gbots: 'gbots',
   hermes: 'hermes-agent',
   'hermes agent': 'hermes-agent',
   codebuddy: 'codebuddy',
