@@ -45,6 +45,8 @@ export type ActionFields = {
   hideCoordinatorIntro: {};
   /** The Autopilot pill: Autopilot itself on a coordinator, this session elsewhere (gx-chat-core `extras/autopilot.rs`). */
   toggleAutopilot: {};
+  /** The owner's Send, Edit or Decline on a guest's message (gx-chat-core `extras/collab.rs`). Desktop: `collab.rs`. */
+  resolveCollabMessage: { heldId: string; action: 'send' | 'edit' | 'decline' };
   /** A coordinator tip's example put in the chat box at the caret; nothing is sent. */
   useCoordinatorIntroExample: { example: string; text: string; start?: number; end?: number };
   /** The grouped background-task row's fold. Desktop: `background_tasks.rs`. */

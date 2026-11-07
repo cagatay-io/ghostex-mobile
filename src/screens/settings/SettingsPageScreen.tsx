@@ -3,6 +3,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../navigation/types';
 import AdvancedPage from './AdvancedPage';
 import AutopilotPage from './AutopilotPage';
+import CollabPage from './CollabPage';
 import ChatPage from './ChatPage';
 import ConnectionPage from './ConnectionPage';
 import DictateDictionaryPage from './DictateDictionaryPage';
@@ -71,6 +72,8 @@ function SettingsPageBody({ page }: { page: SettingsPageId }) {
       return <SyncPage />;
     case 'autopilot':
       return <AutopilotPage />;
+    case 'collab':
+      return <CollabPage />;
     case 'advanced':
       return <AdvancedPage />;
     case 'readAloudVoice':

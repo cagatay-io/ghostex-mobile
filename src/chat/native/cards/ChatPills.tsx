@@ -48,6 +48,7 @@ import type { UserAction } from '../../rust/actions';
 import type { ChatDocument, ChatPill, QuestionListRow, QuestionListSection } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
 import { Sheet } from '../composer/Sheet';
+import { CollabShareMenu } from './CollabShareMenu';
 import { answeredColor } from './askCard';
 import { laterAction, removeAction, rowAge, statusLabel } from './questionAge';
 import type { SessionLinksChatPill } from '../sessionLinks';
@@ -609,6 +610,8 @@ export function PillMenuSheet({
         />
       ) : open === 'approvals' ? (
         <RelayedApprovalsMenu chat={chat} document={document} />
+      ) : open === 'collab' ? (
+        <CollabShareMenu chat={chat} document={document} />
       ) : open === 'sideChats' ? (
         <SideChatsMenu chat={chat} document={document} onDone={close} />
       ) : open === 'tasks' ? (

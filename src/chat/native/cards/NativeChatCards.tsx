@@ -31,6 +31,7 @@ import { ModelHoldCard } from './ModelHoldCard';
 import { NoticeCard } from './NoticeCard';
 import { CARD_BAND_SHARE, QuestionCard } from './QuestionCard';
 import { SecretRequestCards } from './SecretRequestCard';
+import { CollabCards, collabCardsShown } from './CollabCards';
 import { RelayedAnswerLine, relayedAnswerLineShown } from './RelayedApprovalCard';
 import type { CardHostAction } from './types';
 
@@ -47,6 +48,7 @@ export function chatCardsShown(document: ChatDocument): boolean {
     (obj(document.terminalNotice) !== null && document.noticeVisible === true) ||
     unrecordedApiError(document.apiErrorCard) ||
     arr(document.secretRequests).length > 0 ||
+    collabCardsShown(document) ||
     relayedAnswerLineShown(document) ||
     obj(document.modelHoldCard) !== null ||
     typeof document.asyncQuestions?.question?.key === 'string' ||
@@ -80,6 +82,7 @@ export function NativeChatCards({ chat, onHostAction }: NativeChatCardsProps) {
       <ComposerNotReadyCard chat={chat} document={document} onHostAction={onHostAction} />
       <NoticeCard chat={chat} document={document} onHostAction={onHostAction} />
       <SecretRequestCards chat={chat} document={document} />
+      <CollabCards chat={chat} document={document} />
       <RelayedAnswerLine document={document} />
       {unrecordedApiError(document.apiErrorCard) ? (
         <ApiErrorCard card={document.apiErrorCard} dispatch={chat.dispatch} />

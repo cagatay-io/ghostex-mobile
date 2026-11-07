@@ -649,6 +649,12 @@ export type ChatDocument = {
   sideChatOf?: Json;
   /** The private secret request cards (gx-chat-core `extras/secret_requests.rs`), empty when none. Desktop: `secret_request.rs`. */
   secretRequests?: Json;
+  /**
+   * Ghostex Collab (gx-chat-core `extras/collab.rs`): who watches and types, the owner's "Message from"
+   * cards (`cards`: `{ id, title, text, images, busy }`), or null while the chat is not shared.
+   * Desktop: `collab.rs`.
+   */
+  collab?: Json;
   /** A coordinator's threads' relayed approval cards (gx-chat-core `extras/relayed_approvals.rs`), empty when none. Desktop: `relayed_approval.rs`. */
   relayedApprovals?: Json;
   /** A thread's "Approved from <coordinator>" lines, empty when none. Desktop: `relayed_approval.rs`. */

@@ -24,6 +24,7 @@ export type SettingsPageId =
   | 'connection'
   | 'sync'
   | 'autopilot'
+  | 'collab'
   | 'advanced'
   | 'readAloudVoice'
   | 'dictateLanguage'
@@ -46,6 +47,7 @@ export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, { title: string; de
   connection: { title: 'Connection', description: 'Reconnecting to your computer.' },
   sync: { title: 'Sync', description: 'Carrying Spaces and settings between your computers.' },
   autopilot: { title: 'Autopilot', description: 'Keep sessions going while you are away, and what it did.' },
+  collab: { title: 'Collab', description: 'Share a chat through a link that opens it in a browser.' },
   advanced: { title: 'Advanced', description: 'Older settings most people never change.' },
   licences: { title: LicencesCopy.pageTitle, description: LicencesCopy.pageDescription },
   // Opened from Settings › Chat's Read aloud rows, not listed on the Settings home.
@@ -72,6 +74,7 @@ export const SETTINGS_PAGE_ORDER: readonly SettingsPageId[] = [
   'connection',
   'sync',
   'autopilot',
+  'collab',
   'advanced',
   'licences',
 ];
