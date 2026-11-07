@@ -91,13 +91,22 @@ export function NoticeCard({
     // "Ready to code?" with "Tell Claude what to change" highlighted: the plan the feedback is about stays readable
     // above the field (notice.rs).
     const feedbackPlan = obj(notice.plan);
+    // A refused answer says why, and the card can then be closed (`dismiss_notice` in the chat core).
+    const refusal =
+      typeof document.noticeError === 'string'
+        ? [
+            <Text key="error" accessibilityRole="alert" style={cardText.prose}>
+              {document.noticeError}
+            </Text>,
+          ]
+        : [];
     return (
       <ToneCard
         tone={str(notice, 'tone')}
         title={copyTitle || panelTitle || str(dialog, 'title')}
         body={
           feedbackPlan === null
-            ? parts.body
+            ? [...parts.body, ...refusal]
             : [
                 <SideAnswer
                   key={`plan:${key}`}
@@ -106,9 +115,22 @@ export function NoticeCard({
                   references={asJson(feedbackPlan.references)}
                 />,
                 ...parts.body,
+                ...refusal,
               ]
         }
-        footerEnd={parts.actions}
+        footerEnd={
+          refusal.length > 0
+            ? [
+                ...parts.actions,
+                <ToneButton
+                  key="dismiss"
+                  kind="secondary"
+                  label="Dismiss"
+                  onPress={() => dispatch({ type: 'dismissNotice' })}
+                />,
+              ]
+            : parts.actions
+        }
       />
     );
   }
@@ -321,9 +343,12 @@ export function NoticeCard({
       />,
     );
   }
+  // A card with rows or a dialog is answered, not closed, until an answer on it is refused (`dismiss_notice` in the
+  // chat core's questions/actions.rs, GitHub #458).
   if (
-    (notice.choices === null || notice.choices === undefined) &&
-    (notice.dialog === null || notice.dialog === undefined)
+    ((notice.choices === null || notice.choices === undefined) &&
+      (notice.dialog === null || notice.dialog === undefined)) ||
+    typeof document.noticeError === 'string'
   ) {
     footerEnd.push(
       <ToneButton key="dismiss" kind="secondary" label="Dismiss" onPress={() => dispatch({ type: 'dismissNotice' })} />,
