@@ -23,6 +23,7 @@ export type SettingsPageId =
   | 'liveActivity'
   | 'connection'
   | 'sync'
+  | 'autopilot'
   | 'advanced'
   | 'readAloudVoice'
   | 'dictateLanguage'
@@ -44,6 +45,7 @@ export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, { title: string; de
   liveActivity: { title: LiveActivityCopy.pageTitle, description: LiveActivityCopy.pageDescription },
   connection: { title: 'Connection', description: 'Reconnecting to your computer.' },
   sync: { title: 'Sync', description: 'Carrying Spaces and settings between your computers.' },
+  autopilot: { title: 'Autopilot', description: 'Keep sessions going while you are away, and what it did.' },
   advanced: { title: 'Advanced', description: 'Older settings most people never change.' },
   licences: { title: LicencesCopy.pageTitle, description: LicencesCopy.pageDescription },
   // Opened from Settings › Chat's Read aloud rows, not listed on the Settings home.
@@ -69,6 +71,7 @@ export const SETTINGS_PAGE_ORDER: readonly SettingsPageId[] = [
   ...(LIVE_ACTIVITY_SUPPORTED ? (['liveActivity'] as const) : []),
   'connection',
   'sync',
+  'autopilot',
   'advanced',
   'licences',
 ];

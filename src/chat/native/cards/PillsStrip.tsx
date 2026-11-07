@@ -152,13 +152,16 @@ export function PillsStrip({
       pill={pill}
       open={pill.id === menu}
       onPress={() =>
-        pill.id === 'stashed'
-          ? onStashedPress?.()
-          : pill.id === BLOCKED_PILL
-            ? // Blocked opens the board at its Blocked group (gx-chat-core `show_group`), through
-              // the board focus the chat screen keeps for the pill sheet.
-              chat.dispatch({ type: 'showCoordinatorBoardGroup', group: 'blocked' } as unknown as UserAction)
-            : onMenuChange(pill.id)
+        pill.switch !== undefined
+          ? // Autopilot's pill flips on a tap (gx-chat-core `extras/autopilot.rs`).
+            chat.dispatch({ type: 'toggleAutopilot' })
+          : pill.id === 'stashed'
+            ? onStashedPress?.()
+            : pill.id === BLOCKED_PILL
+              ? // Blocked opens the board at its Blocked group (gx-chat-core `show_group`), through
+                // the board focus the chat screen keeps for the pill sheet.
+                chat.dispatch({ type: 'showCoordinatorBoardGroup', group: 'blocked' } as unknown as UserAction)
+              : onMenuChange(pill.id)
       }
     />
   ));

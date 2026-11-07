@@ -94,10 +94,7 @@ const GLYPHS = {
     ],
   },
   note: {
-    paths: [
-      'M13 20l7 -7',
-      'M13 20v-6a1 1 0 0 1 1 -1h6v-7a2 2 0 0 0 -2 -2h-12a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7',
-    ],
+    paths: ['M13 20l7 -7', 'M13 20v-6a1 1 0 0 1 1 -1h6v-7a2 2 0 0 0 -2 -2h-12a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7'],
   },
   bell: {
     paths: [
@@ -227,6 +224,8 @@ const GLYPHS = {
       'M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1',
     ],
   },
+  /** The Autopilot pill (desktop `titlebar/plane.svg`). */
+  plane: { paths: ['M16 10h4a2 2 0 0 1 0 4h-4l-4 7h-3l2 -7h-4l-2 2h-3l2 -4l-2 -4h3l2 2h4l-2 -7h3z'] },
   robot: {
     paths: [
       'M6 6a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2l0 -4',

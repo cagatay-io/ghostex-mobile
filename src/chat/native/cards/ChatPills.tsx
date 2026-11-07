@@ -441,9 +441,9 @@ export function Pill({ pill, open, onPress }: { pill: ChatPill; open: boolean; o
   const P = useTranscriptTheme();
   return (
     <Pressable
-      accessibilityRole="button"
+      accessibilityRole={pill.switch !== undefined ? 'switch' : 'button'}
       accessibilityLabel={pill.ariaLabel}
-      accessibilityState={{ expanded: open }}
+      accessibilityState={pill.switch !== undefined ? { checked: pill.switch } : { expanded: open }}
       onPress={onPress}
       hitSlop={4}
       style={({ pressed }) => [styles.pill, (pressed || open) && styles.pillPressed]}
@@ -464,17 +464,21 @@ export function Pill({ pill, open, onPress }: { pill: ChatPill; open: boolean; o
                       ? 'layout-board-split'
                       : pill.id === BLOCKED_PILL
                         ? 'circle-minus'
-                      : pill.id === 'approvals'
-                        ? 'shield-check'
-                        : pill.id === INTRO_PILL
-                          ? 'bulb'
-                          : 'users'
+                        : pill.id === 'approvals'
+                          ? 'shield-check'
+                          : pill.id === INTRO_PILL
+                            ? 'bulb'
+                            : pill.id === 'autopilot'
+                              ? 'plane'
+                              : 'users'
         }
         size={12}
         color={P.cardMuted}
       />
       {/* Blocked has no word, like the ? pill: its glyph and red dot (gx-chat-core `blocked_pill`). */}
       {pill.label.length > 0 ? <Text style={styles.label}>{pill.label}</Text> : null}
+      {/* Autopilot on: a green dot after its label (desktop chat_pills.rs `AUTOPILOT_ON_COLOR`). */}
+      {pill.switch === true ? <View style={styles.switchOnDot} /> : null}
       {(pill.dots ?? []).length > 0 ? (
         <InlineDots dots={pill.dots ?? []} />
       ) : pill.count.length > 0 ? (
@@ -628,6 +632,7 @@ export function PillMenuSheet({
 }
 
 const useStyles = themedStyles((P) => ({
+  switchOnDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#22c55e' },
   /** One of the Board pill's coloured counts: its group's dot and number. */
   boardCount: {
     flexDirection: 'row',

@@ -43,6 +43,8 @@ export type ActionFields = {
   coordinatorBoardAnswer: { key: string; label: string; text: string };
   /** "Don't show again" on the coordinator tips: gxserver drops their pill from every coordinator. Desktop: `coordinator_intro.rs`. */
   hideCoordinatorIntro: {};
+  /** The Autopilot pill: Autopilot itself on a coordinator, this session elsewhere (gx-chat-core `extras/autopilot.rs`). */
+  toggleAutopilot: {};
   /** A coordinator tip's example put in the chat box at the caret; nothing is sent. */
   useCoordinatorIntroExample: { example: string; text: string; start?: number; end?: number };
   /** The grouped background-task row's fold. Desktop: `background_tasks.rs`. */

@@ -1055,6 +1055,11 @@ export type ChatPill = {
   ariaLabel: string;
   /** What the pill flags, inside it after its label: a dot per tone followed by its count (gx-chat-core `PillDot`). */
   dots?: { tone: string; count: string }[];
+  /**
+   * A pill that is a switch (Autopilot, gx-chat-core `extras/autopilot.rs`): on or off, drawn with a
+   * green dot after its label while on; a tap flips it instead of opening a sheet.
+   */
+  switch?: boolean;
 };
 
 /** One status chip at the left of the pill strip (gx-chat-core `extras/chat_pills.rs` `view_chips`). */
