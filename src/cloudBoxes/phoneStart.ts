@@ -24,7 +24,12 @@ import type { CloudBox, CloudBoxProgressStep } from './types';
 const BOX_GHOSTEX_BIN = '/opt/ghostex/bin/ghostex';
 const TICKET_VERSION = 1;
 
-function privateDir(provider: string): string {
+/**
+ * The box's private folder: the one its boot reported (`privateDir`, issue #433: an Instabox box
+ * without passwordless sudo uses a per-user folder), else the provider's usual one.
+ */
+function privateDir(provider: string, reported?: unknown): string {
+  if (typeof reported === 'string' && reported.startsWith('/')) return reported;
   return provider === 'boat' ? '/tmp/ghostex' : '/run/ghostex';
 }
 
@@ -129,14 +134,17 @@ async function opsFor(homeMachineId: string, provider: string): Promise<Provider
   return new ProviderOps(provider, key);
 }
 
-/** Install, boot, then logins and secrets: the steps a create and a resume share (`finish_boot`). */
+/**
+ * Install, boot, then logins and secrets: the steps a create and a resume share (`finish_boot`).
+ * Answers the box's private folder.
+ */
 async function bootBox(
   row: PhoneBoxRow,
   ops: ProviderOps,
   providerBoxId: string,
   kit: CloudKit,
   project: CloudKitProject | null,
-): Promise<void> {
+): Promise<string> {
   const { box } = row;
   if (kit.allowDeviceKeys.length === 0) {
     throw new Error('The computer lists no paired device the box could admit; pair this phone with Easy Connect first.');
@@ -168,14 +176,14 @@ async function bootBox(
   if (tailcatAddress === undefined || gxserverToken.length === 0) throw new Error('The box started without an Easy Connect address.');
   await saveConnectInfo({ boxId: box.boxId, transport: 'tailcat', tailcatAddress, gxserverPort, gxserverToken, gxserverVersion });
   row.put({ tailcatAddress, gxserverVersion });
+  const folder = privateDir(box.provider, result.privateDir);
   const secrets = { accounts: kit.accounts, files: project?.files ?? [], vars: project?.vars ?? [] };
   if (secrets.accounts.length === 0 && secrets.files.length === 0 && secrets.vars.length === 0) {
     row.step('secrets', 'skipped');
-    return;
+    return folder;
   }
-  await row.run('secrets', () =>
-    ops.writeFile(providerBoxId, `${privateDir(box.provider)}/secrets.json`, JSON.stringify(secrets)),
-  );
+  await row.run('secrets', () => ops.writeFile(providerBoxId, `${folder}/secrets.json`, JSON.stringify(secrets)));
+  return folder;
 }
 
 export type PhoneStartInput = {
@@ -248,7 +256,7 @@ export async function startBoxFromPhone(input: PhoneStartInput): Promise<PhoneSt
     ),
   );
   row.put({ providerBoxId, state: 'booting' });
-  await bootBox(row, ops, providerBoxId, kit, project);
+  const folder = await bootBox(row, ops, providerBoxId, kit, project);
   const slug = project.name.replace(/[^A-Za-z0-9_-]/gu, '-') || 'project';
   const branch = phoneSessionBranch(boxId, input.firstMessage);
   const prepared = await row.run('prepareSession', async () => {
@@ -268,7 +276,7 @@ export async function startBoxFromPhone(input: PhoneStartInput): Promise<PhoneSt
       homeMachineId: kit.homeMachineId,
       snapshotId: project.snapshot.snapshotId,
     };
-    const path = `${privateDir(provider)}/prepare-session.json`;
+    const path = `${folder}/prepare-session.json`;
     await ops.writeFile(providerBoxId, path, JSON.stringify(request));
     return verbAnswer(
       await ops.exec(providerBoxId, [BOX_GHOSTEX_BIN, 'box', 'prepare-session', '--request', path], null, 600),
