@@ -34,6 +34,7 @@ const COORDINATOR_AGENT_FAMILIES = [
   'pi',
   'omp',
   'opencode',
+  'dsh',
 ];
 
 /** The icons whose name is not their agent's id (gx-core `default_agent_id_for_icon`). */

@@ -257,7 +257,7 @@ export default function NewCoordinatorSheet({
               ) : options.agents.length === 0 ? (
                 <Text style={styles.error}>
                   No agent a coordinator can run on is set up on this computer: Claude, Codex, ZCode, Cursor, Grok,
-                  Copilot, Antigravity, Pi, OMP or OpenCode.
+                  Copilot, Antigravity, Pi, OMP, OpenCode or DeepSeek Harness.
                 </Text>
               ) : (
                 <>
