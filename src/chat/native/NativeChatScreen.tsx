@@ -19,6 +19,7 @@
  */
 
 import { useNavigation } from '@react-navigation/native';
+import { useMachinesStore } from '../../machines/store';
 import { chooseVoiceComputer } from '../../voice/dictateSettings';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as Clipboard from 'expo-clipboard';
@@ -236,7 +237,11 @@ export default function NativeChatScreen({
           show(answer.error.message, true, 'Switch Account failed');
         });
       } else if (action === 'toast') show(String(params.message ?? ''), params.level === 'error');
-      else if (action === 'voiceSettings') {
+      else if (action === 'autopilotSettings') {
+        // The Autopilot pill's "Autopilot settings…": Settings › Autopilot, on this chat's computer.
+        useMachinesStore.getState().selectMachine(machine.id);
+        voiceNavigation.navigate('SettingsPage', { page: 'autopilot' });
+      } else if (action === 'voiceSettings') {
         // The Dictate menu's Voice settings: Settings › Voice, already on this chat's computer.
         chooseVoiceComputer(machine.id);
         voiceNavigation.navigate('SettingsPage', { page: 'voice' });
@@ -449,6 +454,7 @@ export default function NativeChatScreen({
                 document={document}
                 open={pillMenu}
                 onClose={closePillMenu}
+                onHost={hostAction}
                 boardFocus={boardFocus}
               />
             ) : null}

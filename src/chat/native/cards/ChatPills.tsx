@@ -47,6 +47,7 @@ import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import type { UserAction } from '../../rust/actions';
 import type { ChatDocument, ChatPill, QuestionListRow, QuestionListSection } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
+import { MenuRowView } from '../composer/MenuSheet';
 import { Sheet } from '../composer/Sheet';
 import { CollabShareMenu } from './CollabShareMenu';
 import { answeredColor } from './askCard';
@@ -536,12 +537,15 @@ export function PillMenuSheet({
   document,
   open,
   onClose,
+  onHost,
   boardFocus = null,
 }: {
   chat: RustChat;
   document: ChatDocument;
   open: string | null;
   onClose: () => void;
+  /** Runs a host action of the chat screen (Autopilot's "Autopilot settings…" row asks for `autopilotSettings`). */
+  onHost?: (action: string) => void;
   /** The card a board pill in the chat asked to see, which the Board sheet scrolls to. */
   boardFocus?: BoardFocus | null;
 }) {
@@ -578,10 +582,23 @@ export function PillMenuSheet({
     else chat.dispatch(action);
     close();
   };
+  /** Autopilot's settings row navigates away; on iOS that waits for this sheet's modal to go too. */
+  const hostAfterDismiss = useRef<string | null>(null);
   const onDismissed = () => {
     const action = openAfterDismiss.current;
     openAfterDismiss.current = null;
     if (action !== null) chat.dispatch(action);
+    const host = hostAfterDismiss.current;
+    hostAfterDismiss.current = null;
+    if (host !== null) onHost?.(host);
+  };
+  /** An Autopilot row: the toggle runs in the core, the settings row on the chat screen. */
+  const runAutopilotRow = (command: { [key: string]: unknown }) => {
+    if (command.type === 'openAutopilotSettings') {
+      if (Platform.OS === 'ios') hostAfterDismiss.current = 'autopilotSettings';
+      else onHost?.('autopilotSettings');
+    } else chat.dispatch(command as UserAction);
+    close();
   };
   const background = obj(document.backgroundTasksPanel);
   return (
@@ -589,7 +606,13 @@ export function PillMenuSheet({
       visible={shown !== undefined}
       onClose={close}
       onDismissed={onDismissed}
-      title={open === INTRO_PILL ? (coordinatorIntro(document)?.title ?? shown?.label ?? '') : (shown?.label ?? '')}
+      title={
+        open === INTRO_PILL
+          ? (coordinatorIntro(document)?.title ?? shown?.label ?? '')
+          : open === 'autopilot'
+            ? 'Autopilot'
+            : (shown?.label ?? '')
+      }
       accessory={
         questions ? (
           <QuestionsFilterTrigger document={document} onPress={() => setFiltersOpen((was) => !was)} />
@@ -612,6 +635,17 @@ export function PillMenuSheet({
         <RelayedApprovalsMenu chat={chat} document={document} />
       ) : open === 'collab' ? (
         <CollabShareMenu chat={chat} document={document} />
+      ) : open === 'autopilot' ? (
+        <View>
+          {(shown?.menu ?? []).map((row, index) => (
+            <MenuRowView
+              key={`${index}:${typeof row.label === 'string' ? row.label : 'row'}`}
+              row={row}
+              onRun={runAutopilotRow}
+              onOpen={() => undefined}
+            />
+          ))}
+        </View>
       ) : open === 'sideChats' ? (
         <SideChatsMenu chat={chat} document={document} onDone={close} />
       ) : open === 'tasks' ? (

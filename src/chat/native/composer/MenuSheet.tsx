@@ -152,7 +152,7 @@ export function MenuSheet({ rows, title, onClose, onCommand, header, onDismissed
   );
 }
 
-function MenuRowView({
+export function MenuRowView({
   row,
   onRun,
   onOpen,

@@ -1063,9 +1063,11 @@ export type ChatPill = {
   dots?: { tone: string; count: string }[];
   /**
    * A pill that is a switch (Autopilot, gx-chat-core `extras/autopilot.rs`): on or off, drawn with a
-   * green dot after its label while on; a tap flips it instead of opening a sheet.
+   * green dot after its label while on; a tap opens its sheet of `menu` rows.
    */
   switch?: boolean;
+  /** A switch pill's sheet rows, in the chat menus' row shape (`label`, `iconPath`, `command`, `separator`). */
+  menu?: { [key: string]: unknown }[];
 };
 
 /** One status chip at the left of the pill strip (gx-chat-core `extras/chat_pills.rs` `view_chips`). */
