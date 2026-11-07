@@ -1,6 +1,6 @@
 /**
  * Settings › Voice: Dictate and the voice agent on one computer, picked at the top, and the
- * phone's own microphone at the bottom. Dictate's engine (a local model, OpenAI or xAI), its
+ * phone's own microphone at the bottom. Dictate's engine (a local model, OpenAI, xAI or Hex 3), its
  * models, language, dictionary, filler removal and AI polish live on that computer and are read
  * and saved through its gxserver (`voice/dictateSettings.ts`); so is the voice agent's call mode.
  *
@@ -9,11 +9,12 @@
 
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, Linking, PermissionsAndroid, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import ActionSheet from '../../components/common/ActionSheet';
 import { useInventoryStore } from '../../inventory/store';
+import { jobActive, runRowAction, useMachineToolsStore } from '../../machines/machineTools';
 import { machineDisplayLabel, type MachineRecord } from '../../machines/store';
 import type { RootStackParamList } from '../../navigation/types';
 import { GhostexPalette, GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
@@ -26,7 +27,7 @@ import {
   type VoiceCallMode,
 } from '../../voice/conversation';
 import {
-  DICTATE_ENGINES,
+  dictateEngines,
   dictionarySummary,
   downloadPercent,
   engineCaption,
@@ -191,8 +192,14 @@ function DictateSection({ machine }: { machine: MachineRecord }) {
   return (
     <SettingsSection name="settings:voice:dictate">
       <SectionHeader title={`Dictate on ${name}`} />
-      <SegmentedRow label="Dictate engine" options={DICTATE_ENGINES} value={settings.engine} onChange={chooseEngine} />
+      <SegmentedRow
+        label="Dictate engine"
+        options={dictateEngines(overview)}
+        value={settings.engine}
+        onChange={chooseEngine}
+      />
       <Caption>{engineCaption(overview, name)}</Caption>
+      {settings.engine === 'hex' ? <HexBlock machine={machine} /> : null}
       {settings.engine === 'local' ? (
         <>
           {overview.models.map((model) => (
@@ -237,6 +244,60 @@ function DictateSection({ machine }: { machine: MachineRecord }) {
       />
       {problem !== null ? <Caption>{problem}</Caption> : null}
     </SettingsSection>
+  );
+}
+
+/**
+ * Hex on the picked computer (`hex` in its Dictate settings): Install Hex there when Hex 3 isn't
+ * installed (the Edit machine screen's install, only on a tap), Check again while Hex isn't
+ * running, and the models Hex has ready to pick from.
+ */
+function HexBlock({ machine }: { machine: MachineRecord }) {
+  const hex = useDictateStore((state) => state.overview?.hex);
+  const hexModel = useDictateStore((state) => state.overview?.settings.hexModel ?? null);
+  const tools = useMachineToolsStore((state) => state.byMachineId[machine.id]);
+  const name = computerName(machine);
+  const hexTool = tools?.tools.data?.find((tool) => tool.id === 'hex');
+  const installing = tools?.starting['tool:hex'] === true || jobActive(hexTool?.job);
+  const failed = tools?.failed['tool:hex'] ?? (hexTool?.job?.status === 'failed' ? hexTool.job.error : null);
+  const wasInstalling = useRef(false);
+
+  // When the install ends, read Hex's state again.
+  useEffect(() => {
+    if (wasInstalling.current && !installing) void loadDictate(machine, true);
+    wasInstalling.current = installing;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [installing]);
+
+  if (hex === undefined) return null;
+  // The install is followed until it ends (machineTools.ts), then Hex is read again above.
+  const install = () => void runRowAction(machine, 'tool:hex', { label: 'Install', operation: 'install' });
+  return (
+    <>
+      {/* The engine caption above says where Hex stands (hexCaption). */}
+      {installing ? <Caption>{`Installing Hex on ${name}…`}</Caption> : null}
+      {hex.state === 'notInstalled' && !installing ? (
+        <LinkRow
+          title={hex.olderVersion ? 'Install Hex 3' : 'Install Hex'}
+          description={`Installs it on ${name}. Hex then downloads a speech model the first time it runs there.`}
+          onPress={install}
+        />
+      ) : null}
+      {hex.state === 'ready'
+        ? hex.models.map((model) => (
+            <ChoiceRow
+              key={model.id}
+              label={model.name}
+              selected={(hex.model ?? hexModel) === model.id}
+              onPress={() => void changeDictate(machine, { hexModel: model.id })}
+            />
+          ))
+        : null}
+      {!installing ? (
+        <LinkRow title="Check again" description={`Asks Hex on ${name} again.`} onPress={() => void loadDictate(machine, true)} />
+      ) : null}
+      {failed ? <Caption>{`Hex wasn't installed: ${failed}`}</Caption> : null}
+    </>
   );
 }
 

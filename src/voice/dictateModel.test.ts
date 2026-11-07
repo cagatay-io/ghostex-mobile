@@ -5,12 +5,14 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
 import {
+  dictateEngines,
   dictionaryProblem,
   dictionarySummary,
   downloadPercent,
   engineCaption,
   engineStatusLine,
   formatBytes,
+  hexCaption,
   isUnknownRoute,
   modelDetail,
   modelsBusy,
@@ -18,6 +20,7 @@ import {
   parseAliases,
   type DictateEngine,
   type DictateOverview,
+  type HexView,
   type SpeechModel,
 } from './dictateModel';
 
@@ -163,5 +166,64 @@ describe('what the phone says about the engine', () => {
   test('a computer without the routes reads as one to update', () => {
     assert.equal(isUnknownRoute({ code: 'notFound', message: 'Unknown Dictate route.' }), true);
     assert.equal(isUnknownRoute({ code: 'unreachable', message: "Couldn't reach Ghostex." }), false);
+  });
+});
+
+describe('Hex', () => {
+  const hex = (state: HexView['state'], extra: Partial<HexView> = {}): HexView => ({
+    available: state !== 'unsupported',
+    state,
+    version: null,
+    olderVersion: null,
+    models: [],
+    model: null,
+    ready: false,
+    problem: null,
+    downloadUrl: 'https://github.com/anomalyco/hex#downloads',
+    ...extra,
+  });
+
+  test('the picker offers Hex only where the computer says Hex 3 ships', () => {
+    assert.deepEqual(dictateEngines({ hex: undefined }).map((engine) => engine.value), ['local', 'openai', 'xai']);
+    assert.deepEqual(
+      dictateEngines({ hex: hex('unsupported') }).map((engine) => engine.value),
+      ['local', 'openai', 'xai'],
+    );
+    assert.deepEqual(
+      dictateEngines({ hex: hex('notRunning') }).map((engine) => engine.value),
+      ['local', 'openai', 'xai', 'hex'],
+    );
+  });
+
+  test('the caption says where the user stands, in the phone\'s words', () => {
+    assert.equal(hexCaption(hex('notInstalled'), 'Mac'), "Hex 3 isn't installed on Mac. Install it there to transcribe with Hex.");
+    assert.equal(
+      hexCaption(hex('notInstalled', { olderVersion: '0.6.2' }), 'Mac'),
+      "Mac has Hex 0.6.2, which can't transcribe for Ghostex. Install Hex 3 there.",
+    );
+    assert.equal(hexCaption(hex('notRunning'), 'Mac'), "Hex isn't running on Mac. Open Hex there, then check again.");
+    assert.equal(
+      hexCaption(hex('ready', { version: '3.3.0', ready: true, model: 'a', models: [{ id: 'a', name: 'Parakeet v3', languages: ['en'], supportsLanguageDetection: false }] }), 'Mac'),
+      'Hex 3.3.0 on Mac transcribes with Parakeet v3. Recordings stay on Mac.',
+    );
+    assert.equal(
+      hexCaption(hex('ready', { problem: { code: 'hexNoModels', message: 'Hex has no model ready.' } }), 'Mac'),
+      'Hex on Mac has no model ready. Download one in Hex there, then check again.',
+    );
+    assert.match(hexCaption(undefined, 'Mac'), /too old for Hex/);
+  });
+
+  test('the chat menu line says what to do on the computer', () => {
+    const engine = (code: string): DictateEngine => ({
+      engine: 'hex',
+      label: 'Hex',
+      modelId: null,
+      ready: false,
+      problem: { code, message: 'gxserver words.' },
+      polish: false,
+    });
+    assert.equal(engineStatusLine(engine('hexNotRunning'), 'Mac'), "Hex isn't running on Mac. Open Hex there.");
+    assert.equal(engineStatusLine(engine('hexNotInstalled'), 'Mac'), "Hex 3 isn't installed on Mac. Install it in Voice settings.");
+    assert.match(engineStatusLine(engine('hexModelNotReady'), 'Mac'), /no ready model/);
   });
 });

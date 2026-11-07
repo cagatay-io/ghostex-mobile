@@ -1,6 +1,6 @@
 /**
  * Dictate's settings as each computer's gxserver keeps them (`/api/readDictateSettings`): the
- * engine that transcribes (a local model, or the OpenAI or xAI key), the local models and their
+ * engine that transcribes (a local model, the OpenAI or xAI key, or Hex 3), the local models and their
  * downloads, the language, the dictionary, filler removal and AI polish. The phone only reads and
  * writes them; the microphone is the phone's own. Kept free of React Native so its rules are
  * testable under `bun test`.
@@ -9,13 +9,15 @@
  * CDXC:VoiceMode 2026-11-05 SEE-ALSO: the routes and shapes are gxserver's `server/src/voice_agent/speech/http.rs`; the desktop's Voice page draws the same settings.
  */
 
-export type DictateEngineId = 'local' | 'openai' | 'xai';
+export type DictateEngineId = 'local' | 'openai' | 'xai' | 'hex';
 
 export type DictionaryWord = { word: string; aliases: string[] };
 
 export type DictateSettings = {
   engine: DictateEngineId;
   localModel: string;
+  /** The Hex model id; null uses Hex's first ready model. Older computers leave it out. */
+  hexModel?: string | null;
   language: string;
   dictionary: DictionaryWord[];
   addProjectNames: boolean;
@@ -52,6 +54,28 @@ export type DictateEngine = {
   polish: boolean;
 };
 
+/**
+ * Where the user stands with Hex 3 on a computer (`hex` in `/api/readDictateSettings`, from
+ * gxserver's `speech/hex.rs`): not offered where Hex 3 has no build, then not installed, not
+ * running, a problem (a version Ghostex doesn't speak), or ready with the models Hex has ready.
+ */
+export type HexState = 'unsupported' | 'notInstalled' | 'notRunning' | 'problem' | 'ready';
+
+export type HexModel = { id: string; name: string; languages: string[]; supportsLanguageDetection: boolean };
+
+export type HexView = {
+  available: boolean;
+  state: HexState;
+  version: string | null;
+  olderVersion: string | null;
+  models: HexModel[];
+  /** The model Dictate uses now, or null. */
+  model: string | null;
+  ready: boolean;
+  problem: { code: string; message: string } | null;
+  downloadUrl: string;
+};
+
 export type DictateOverview = {
   settings: DictateSettings;
   engine: DictateEngine;
@@ -62,6 +86,8 @@ export type DictateOverview = {
   projectWords: string[];
   polishAvailable: boolean;
   languages: { code: string; label: string }[];
+  /** Missing on a computer whose Ghostex predates the Hex engine. */
+  hex?: HexView;
 };
 
 export const DICTATE_ENGINES: readonly { value: DictateEngineId; label: string }[] = [
@@ -69,6 +95,43 @@ export const DICTATE_ENGINES: readonly { value: DictateEngineId; label: string }
   { value: 'openai', label: 'OpenAI' },
   { value: 'xai', label: 'xAI' },
 ];
+
+/**
+ * The engines the picker offers for a computer: Hex only where Hex 3 ships for it (gxserver says).
+ *
+ * CDXC:Dictate 2026-11-07 DECISION: User: a fourth engine, Hex, wherever the dictation engine is chosen, shown only on systems Hex 3 supports (macOS on Apple silicon, Windows, Linux), with the row saying where the user stands in plain words.
+ */
+export function dictateEngines(
+  overview: Pick<DictateOverview, 'hex'> | null,
+): readonly { value: DictateEngineId; label: string }[] {
+  return overview?.hex?.available === true ? [...DICTATE_ENGINES, { value: 'hex', label: 'Hex' }] : DICTATE_ENGINES;
+}
+
+/** The Hex block's caption on the phone: what transcribes, or what to do on the computer. */
+export function hexCaption(hex: HexView | undefined, computer: string): string {
+  if (hex === undefined) return `Ghostex on ${computer} is too old for Hex. Update Ghostex on that computer.`;
+  switch (hex.state) {
+    case 'unsupported':
+      return hex.problem?.message ?? `Hex 3 has no build for ${computer}.`;
+    case 'notInstalled':
+      return hex.olderVersion
+        ? `${computer} has Hex ${hex.olderVersion}, which can't transcribe for Ghostex. Install Hex 3 there.`
+        : `Hex 3 isn't installed on ${computer}. Install it there to transcribe with Hex.`;
+    case 'notRunning':
+      return `Hex isn't running on ${computer}. Open Hex there, then check again.`;
+    case 'ready': {
+      if (hex.problem !== null)
+        return hex.problem.code === 'hexNoModels'
+          ? `Hex on ${computer} has no model ready. Download one in Hex there, then check again.`
+          : `The Hex model Dictate uses isn't ready on ${computer}. Download it in Hex there, or pick another model below.`;
+      const model = hex.models.find((entry) => entry.id === hex.model);
+      const hexName = hex.version ? `Hex ${hex.version}` : 'Hex';
+      return `${hexName} on ${computer} transcribes${model ? ` with ${model.name}` : ''}. Recordings stay on ${computer}.`;
+    }
+    default:
+      return hex.problem?.message ?? '';
+  }
+}
 
 /** The dictionary's limits, as gxserver checks them (`speech/settings.rs`). */
 export const DICTIONARY_LIMITS = { words: 200, wordLength: 64, aliasMin: 3, aliasMax: 64, aliases: 8 } as const;
@@ -182,6 +245,13 @@ export function engineLine(engine: Pick<DictateEngine, 'label'> | null): string 
 export function engineStatusLine(engine: DictateEngine, computer: string): string {
   if (engine.ready) return `Transcribes on ${computer}${engine.polish ? ', then AI polish' : ''}.`;
   switch (engine.problem?.code) {
+    case 'hexNotInstalled':
+      return `Hex 3 isn't installed on ${computer}. Install it in Voice settings.`;
+    case 'hexNotRunning':
+      return `Hex isn't running on ${computer}. Open Hex there.`;
+    case 'hexNoModels':
+    case 'hexModelNotReady':
+      return `Hex on ${computer} has no ready model for Dictate. Download one in Hex there, or pick another in Voice settings.`;
     case 'modelMissing':
       return `The model isn't downloaded on ${computer} yet. Download it in Voice settings.`;
     case 'modelDownloading':
@@ -202,10 +272,11 @@ export function isUnknownRoute(error: { code?: string | null; message: string })
 
 /** The engine row's caption on the phone: what transcribes, and what is missing for it. */
 export function engineCaption(
-  overview: Pick<DictateOverview, 'engine' | 'keys' | 'models' | 'settings'>,
+  overview: Pick<DictateOverview, 'engine' | 'keys' | 'models' | 'settings' | 'hex'>,
   computer: string,
 ): string {
   const { engine, keys } = overview;
+  if (engine.engine === 'hex') return hexCaption(overview.hex, computer);
   if (engine.engine !== 'local') {
     const provider = engine.engine === 'xai' ? 'xAI' : 'OpenAI';
     const key = keys[engine.engine];
