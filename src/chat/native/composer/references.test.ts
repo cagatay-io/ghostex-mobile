@@ -18,8 +18,6 @@ function pill(draft: string, markdown: string, kind = 'image'): ComposerReferenc
     kind,
     label,
     path,
-    labelStart: start + 1,
-    labelEnd: start + 1 + label.length,
   };
 }
 

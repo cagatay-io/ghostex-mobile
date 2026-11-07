@@ -808,7 +808,6 @@ export function NativeComposer({
                       placeholder={placeholder}
                       collapsed={collapsed}
                       maxHeight={inputMaxHeightFor(bottom)}
-                      dispatch={dispatch}
                       onTextChange={setText}
                       onCaret={setCaret}
                       onImages={receiveImages}
