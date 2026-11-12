@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 import { GhostexNative, type SshConfig } from '../../modules/ghostex-native/src';
 import { getTailcatToken, resolveSshConfig, type MachineConnectionTarget } from '../machines/credentials';
 import { machineNameById } from '../machines/store';
@@ -63,6 +65,65 @@ async function dropConnection(machineId: string): Promise<void> {
   await GhostexNative.disconnect(machineId).catch(() => undefined);
   await GhostexNative.stopTailcatForward(machineId).catch(() => undefined);
 }
+
+/** On iOS: each computer's native connect or disconnect in flight, with its attempt's drop of a result not kept. */
+const changing = new Map<string, Promise<void>>();
+
+/**
+ * How long a newer attempt waits for that; a chosen value, not a measured connect time. A shorter wait lets an
+ * explicit retry dial sooner behind a connect that hangs; a longer one lets fewer late connects land on a newer
+ * connection. iOS has no deadline over a whole connect, only per stage: the tunnel bridge's 4 s check of a reused Easy
+ * Connect tunnel and 20 s rendezvous (a start that waits on another caller's start has none of its own), 30 s for
+ * dialling an accepted peer, and 20 s for each TCP connect and each blocking libssh2 call.
+ */
+const CHANGE_WAIT_MS = 30_000;
+
+/**
+ * Runs one native connect or disconnect of a connection attempt, after the computer's change in flight.
+ *
+ * CDXC:RemoteMachines 2026-11-12 WHY:
+ * On iOS a native connect that comes up replaces the computer's connection and closes the one before it, and an attempt replaced meanwhile drops what it connected by the computer's id, so a connect still running when a newer attempt began (Reconnect, a restart redial, the move back to Tailscale, the reset of a computer that kept refusing channels) closed the newer attempt's connection and its terminals.
+ * So a newer attempt's connect or disconnect waits for the one in flight and that drop; what an attempt does before or between them (credentials, route checks, the connection check) is not waited for.
+ * The wait ends after CHANGE_WAIT_MS because iOS sets no deadline over a whole connect and a direct SSH connect in flight cannot be called off (stopping a registered Easy Connect forward can abort only its tunnel phase): past it the newer attempt goes ahead, and an older connect that lands later still replaces the newer connection, which under today's native registry contract only a native change can prevent.
+ * Android registers a connect before it dials and a disconnect aborts it, so there nothing waits.
+ */
+async function changeConnection(
+  machineId: string,
+  assertCurrent: () => void,
+  change: () => Promise<void>,
+): Promise<void> {
+  const earlier = changing.get(machineId);
+  if (earlier !== undefined) await settledWithin(earlier, CHANGE_WAIT_MS);
+  assertCurrent();
+  if (Platform.OS !== 'ios') return change();
+  const running = change();
+  const settled = running.then(
+    () => undefined,
+    () => undefined,
+  );
+  changing.set(machineId, settled);
+  try {
+    await running;
+  } finally {
+    if (changing.get(machineId) === settled) changing.delete(machineId);
+  }
+}
+
+/** Resolves once `promise` settled or `ms` passed, whichever is first. */
+function settledWithin(promise: Promise<void>, ms: number): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const elapsed = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, ms);
+  });
+  return Promise.race([promise, elapsed]).finally(() => clearTimeout(timer));
+}
+
+/** What a connection attempt's dialling helpers use: its currency check and its native changes. */
+type AttemptSteps = {
+  assertCurrent: () => void;
+  connect: (config: SshConfig) => Promise<void>;
+  disconnect: () => Promise<void>;
+};
 
 /*
  * CDXC:RemotePairing 2026-11-11 WHY:
@@ -137,6 +198,16 @@ export function ensureConnected(
       throw error;
     }
   };
+  const steps: AttemptSteps = {
+    assertCurrent,
+    // A connection that comes up after the attempt was replaced is dropped before the next attempt's change.
+    connect: (config) =>
+      changeConnection(machine.id, assertCurrent, async () => {
+        await GhostexNative.connect(machine.id, config);
+        await assertKept();
+      }),
+    disconnect: () => changeConnection(machine.id, assertCurrent, () => GhostexNative.disconnect(machine.id)),
+  };
   const promise = (async () => {
     let replaceExisting = options.reset === true;
     let replacedBecause = options.reason ?? 'reset';
@@ -204,14 +275,14 @@ export function ensureConnected(
       phoneReplacedAt.set(machine.id, Date.now());
       forgetRemoteEnvironment(machine.id);
       endConnectionBudget(machine.id);
-      await GhostexNative.disconnect(machine.id);
+      await steps.disconnect();
     }
     assertCurrent();
     const config = await resolveSshConfig(machine);
     assertCurrent();
     forgetRemoteEnvironment(machine.id);
     try {
-      await dial(machine, config, epoch, assertCurrent, assertKept);
+      await dial(machine, config, epoch, steps, assertKept);
     } catch (error) {
       const code = unansweredDialCode(error);
       if (code !== null && samePairing(machine.id, epoch)) {
@@ -241,15 +312,15 @@ async function dial(
   machine: MachineConnectionTarget,
   config: SshConfig,
   epoch: number,
-  assertCurrent: () => void,
+  steps: AttemptSteps,
   assertKept: () => Promise<void>,
 ): Promise<void> {
   if (machine.transport === 'tailcat') {
-    const pairedAddress = await connectEasyConnect(machine, config, assertCurrent, assertKept);
+    const pairedAddress = await connectEasyConnect(machine, config, steps);
     await assertKept();
     refreshEasyConnectAddressesSoon(machine, { epoch, pairedAddress });
   } else if (hasEasyConnectRoute(machine)) {
-    await connectEitherRoute(machine, config, assertCurrent, assertKept);
+    await connectEitherRoute(machine, config, steps);
     await assertKept();
     refreshEasyConnectAddressesSoon(machine, { epoch, pairedAddress: null, secondRoute: true });
     // Whether Easy Connect is still on there, so a computer that turned it off is not dialled
@@ -261,8 +332,8 @@ async function dial(
   } else {
     // A Tailscale computer is not dialled while Tailscale is off on this phone (tailscaleOff.ts).
     await refuseWhileTailscaleOff(machine);
-    assertCurrent();
-    await GhostexNative.connect(machine.id, config);
+    steps.assertCurrent();
+    await steps.connect(config);
   }
   await assertKept();
 }
@@ -278,8 +349,7 @@ const EASY_CONNECT_CHECK_DELAY_MS = 3_000;
 async function connectEitherRoute(
   machine: MachineConnectionTarget,
   config: SshConfig,
-  assertCurrent: () => void,
-  assertKept: () => Promise<void>,
+  steps: AttemptSteps,
 ): Promise<void> {
   // Easy Connect only where the person chose to fall back to it (CDXC:RemotePairing 2026-11-13 in
   // machines/easyConnectRoute.ts) and the computer said its switch is on, checked before any relay
@@ -290,17 +360,17 @@ async function connectEitherRoute(
     (await knownEasyConnectOn(machine.id)) === true &&
     (await easyConnectConfig(machine, config)) !== null &&
     (await easyConnectDialCandidates(machine.id)).length > 0;
-  assertCurrent();
+  steps.assertCurrent();
   if (!easyConnectUsable) {
     await refuseWhileTailscaleOff(machine);
-    assertCurrent();
-    await GhostexNative.connect(machine.id, config);
+    steps.assertCurrent();
+    await steps.connect(config);
     await GhostexNative.stopTailcatForward(machine.id).catch(() => undefined);
     setActiveRoute(machine.id, 'tailscale');
     return;
   }
   const order = routeDialOrder(await tailscaleOnPhone());
-  assertCurrent();
+  steps.assertCurrent();
   let firstError: unknown = null;
   for (const [index, route] of order.entries()) {
     const startedAt = Date.now();
@@ -309,7 +379,7 @@ async function connectEitherRoute(
     try {
       if (route === 'tailscale') {
         // A short head start only when Easy Connect is next; as the last try it keeps its full time.
-        await GhostexNative.connect(machine.id, index === 0 ? withTailscaleHeadStart(config) : config);
+        await steps.connect(index === 0 ? withTailscaleHeadStart(config) : config);
         // The Easy Connect tunnel of an earlier connect is not needed on Tailscale.
         await GhostexNative.stopTailcatForward(machine.id).catch(() => undefined);
       } else {
@@ -318,21 +388,22 @@ async function connectEitherRoute(
         if ((await easyConnectDialCandidates(machine.id)).length === 0) {
           throw new Error(`No Easy Connect address is saved for ${machineNameById(machine.id)}.`);
         }
-        await connectEasyConnect(machine, routeConfig, assertCurrent, assertKept);
+        await connectEasyConnect(machine, routeConfig, steps);
       }
       setActiveRoute(machine.id, route);
       logAppEvent(`Connection: ${machine.id} connected over ${route} in ${Date.now() - startedAt}ms`);
       return;
     } catch (error) {
+      // Replaced or paired again: the attempt ends here, and its failure is not reported as the route's.
+      steps.assertCurrent();
       firstError ??= error;
       const code = (error as { code?: unknown } | null)?.code;
       logAppEvent(
         `Connection: ${machine.id} could not connect over ${route} (${typeof code === 'string' ? code : 'error'})`,
       );
       if (!triesOtherRoute(code)) throw error;
-      assertCurrent();
       // A half-built connection must not be what the other route's connect finds.
-      await GhostexNative.disconnect(machine.id).catch(() => undefined);
+      await steps.disconnect().catch(() => undefined);
     }
   }
   setActiveRoute(machine.id, null);
@@ -347,18 +418,17 @@ async function connectEitherRoute(
 async function connectEasyConnect(
   machine: MachineConnectionTarget,
   config: SshConfig,
-  assertCurrent: () => void,
-  assertKept: () => Promise<void>,
+  steps: AttemptSteps,
 ): Promise<string | null> {
   // What a connect proves counts for the pairing it began under (machines/provenComputer.ts).
   const pairedAddress = await getTailcatToken(machine.id);
   const candidates = await easyConnectDialCandidates(machine.id);
-  assertCurrent();
+  steps.assertCurrent();
   // This computer's own key once it accepted one, the phone's shared key otherwise (easyConnectLinkKeyState.ts).
   await applyEasyConnectLinkKey(machine.id);
-  assertCurrent();
+  steps.assertCurrent();
   if (candidates.length === 0) {
-    await GhostexNative.connect(machine.id, config);
+    await steps.connect(config);
     return pairedAddress;
   }
   for (let index = 0; ; index += 1) {
@@ -366,17 +436,17 @@ async function connectEasyConnect(
     const next = candidates[index + 1] ?? null;
     const startedAt = Date.now();
     try {
-      await GhostexNative.connect(machine.id, { ...config, tailcatToken: candidate.address });
+      // A connection that came up after the computer was paired again is dropped here (`steps.connect`).
+      await steps.connect({ ...config, tailcatToken: candidate.address });
     } catch (error) {
+      // Replaced or paired again: the attempt ends here, and its failure is not reported as the address's.
+      steps.assertCurrent();
       noteEasyConnectDial(machine.id, candidate, { ok: false, elapsedMs: Date.now() - startedAt, next, error });
       if (next === null) throw error;
-      assertCurrent();
       // A half-built connection must not be what the next address's connect finds.
-      await GhostexNative.disconnect(machine.id).catch(() => undefined);
+      await steps.disconnect().catch(() => undefined);
       continue;
     }
-    // Paired again while it dialled: this connection is the computer's before, and is not kept.
-    await assertKept();
     noteEasyConnectDial(machine.id, candidate, { ok: true, elapsedMs: Date.now() - startedAt });
     // This record reached the computer behind this address: an older record of the same computer stops now.
     noteConnectedThrough(machine.id, pairedAddress, candidate.address, (staleMachineId) => {
