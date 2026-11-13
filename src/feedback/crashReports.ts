@@ -19,8 +19,10 @@ export type CrashKind = 'javascript' | 'java' | 'native' | 'anr' | 'nsexception'
 export type StoredCrashReport = {
   id: string;
   kind: CrashKind;
-  /** Epoch milliseconds of the crash. */
+  /** Epoch milliseconds of the crash; for a MetricKit report, the end of the period it was reported in. */
   at: number;
+  /** MetricKit reports only: the reporting period the crash happened in (MetricKit names no exact crash time). */
+  period?: { begin: number; end: number };
   fatal: boolean;
   platform: 'android' | 'ios';
   appVersion: string;
@@ -46,6 +48,13 @@ const KIND_LABEL: Record<CrashKind, string> = {
 const REPORT_MAX_UNITS = 13_000;
 const LOG_MAX_UNITS = 3_000;
 
+/** A MetricKit report's reporting period, stored by the native reporter as `periodBegin` / `periodEnd`. */
+function reportingPeriod(value: object): StoredCrashReport['period'] {
+  if (!('periodBegin' in value) || !('periodEnd' in value)) return undefined;
+  const { periodBegin: begin, periodEnd: end } = value;
+  return typeof begin === 'number' && typeof end === 'number' ? { begin, end } : undefined;
+}
+
 function parse(json: string): StoredCrashReport | null {
   try {
     const value = JSON.parse(json) as Partial<StoredCrashReport>;
@@ -62,6 +71,7 @@ function parse(json: string): StoredCrashReport | null {
       device: String(value.device ?? ''),
       route: String(value.route ?? ''),
       thread: typeof value.thread === 'string' ? value.thread : undefined,
+      period: reportingPeriod(value),
       error: String(value.error ?? ''),
       stack: String(value.stack ?? ''),
       log: String(value.log ?? ''),
@@ -87,6 +97,38 @@ export async function deleteCrashReport(id: string): Promise<void> {
 
 export async function deleteAllCrashReports(): Promise<void> {
   for (const report of await listCrashReports()) await deleteCrashReport(report.id);
+}
+
+/**
+ * Whether the phone keeps crash reports: on until the user turns it off. The phone's own native store holds the setting,
+ * because native writers run before JavaScript and while it is not running. `null` where the installed app cannot
+ * turn it off (Android, and iPhone builds from before the switch): those keep every report, so nothing may offer them
+ * an off that stores none.
+ */
+export function keepingCrashReports(): boolean | null {
+  const native = GhostexCrashReports;
+  if (
+    native === null ||
+    typeof native.isKeepingReports !== 'function' ||
+    typeof native.setKeepingReports !== 'function'
+  ) {
+    return null;
+  }
+  return native.isKeepingReports();
+}
+
+/**
+ * Turns keeping crash reports on or off. Off deletes every stored report (natively, before any writer could add one);
+ * this then lists the reports again, so a report that is still there is an error, never a quiet success. Throws where
+ * the installed app cannot turn it off (`keepingCrashReports() === null`).
+ */
+export async function setKeepingCrashReports(keep: boolean): Promise<void> {
+  const native = GhostexCrashReports;
+  if (native === null || keepingCrashReports() === null || typeof native.setKeepingReports !== 'function') {
+    throw new Error('This app build cannot stop keeping crash reports.');
+  }
+  await native.setKeepingReports(keep);
+  if (!keep && (await listCrashReports()).length > 0) throw new Error('Stored crash reports could not all be deleted.');
 }
 
 /** "Oct 21, 14:03" for the prompt and the Attach row. */
@@ -133,9 +175,14 @@ function cut(text: string, maxUnits: number, keep: 'start' | 'end'): string {
 /** The report as plain text, with personal data already stripped. */
 export function crashReportText(report: StoredCrashReport): string {
   const clean = cleanReportText;
+  const time = (at: number) => new Date(at).toISOString().replace(/\.\d{3}Z$/, 'Z');
+  // MetricKit names only the period a crash was reported in, never its exact time.
+  const when = report.period
+    ? `between ${time(report.period.begin)} and ${time(report.period.end)} (MetricKit's reporting period)`
+    : time(report.at);
   const lines = [
     `Crash: ${KIND_LABEL[report.kind] ?? report.kind}${report.fatal ? '' : ' (not fatal)'}`,
-    `When: ${new Date(report.at).toISOString().replace(/\.\d{3}Z$/, 'Z')}`,
+    `When: ${when}`,
     `App: Ghostex ${report.appVersion || 'unknown'}${report.appBuild ? ` (${report.appBuild})` : ''}`,
     `Device: ${[report.os, report.device].filter(Boolean).join(' · ')}`,
   ];

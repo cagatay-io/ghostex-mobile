@@ -13,7 +13,12 @@ import { Platform } from 'react-native';
 import { create } from 'zustand';
 
 import GhostexCrashReports from '../../modules/ghostex-native/src/GhostexCrashReports';
-import { deleteAllCrashReports, listCrashReports, type StoredCrashReport } from '../feedback/crashReports';
+import {
+  deleteAllCrashReports,
+  keepingCrashReports,
+  listCrashReports,
+  type StoredCrashReport,
+} from '../feedback/crashReports';
 import { formatAppLog, useAppLogStore } from './appLog';
 
 /** The reports the launch prompt already offered, so each crash is offered once. */
@@ -59,8 +64,9 @@ export function installCrashReporting(): void {
   installed = true;
   const previous = ErrorUtils.getGlobalHandler();
   ErrorUtils.setGlobalHandler((error, isFatal) => {
-    // Development builds show the red error screen instead of closing; only real crashes are kept.
-    if (isFatal && !__DEV__) {
+    // Development builds show the red error screen instead of closing; only real crashes are kept, and none while
+    // keeping crash reports is off.
+    if (isFatal && !__DEV__ && keepingCrashReports() !== false) {
       try {
         const { message, stack } = errorParts(error);
         // The native log tail may be up to a second old; this one is current.

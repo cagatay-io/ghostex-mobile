@@ -9,6 +9,8 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { logAppEvent } from '../app/appLog';
+import { useCrashPromptStore } from '../app/crashReports';
+import { keepingCrashReports, setKeepingCrashReports } from '../feedback/crashReports';
 import type { AttentionAlertsFor } from '../notifications/attentionAlerts';
 import { Platform } from 'react-native';
 import { create } from 'zustand';
@@ -622,15 +624,23 @@ function sanitizeSettings(value: unknown): GhostexSettings {
 type SettingsState = {
   hydrated: boolean;
   settings: GhostexSettings;
+  /**
+   * Keeping crash reports on the phone. Not part of `settings` (settings.v1): the phone's native crash reporter holds it,
+   * since it writes before JavaScript runs. `null` where the installed app cannot turn it off (see `keepingCrashReports`).
+   */
+  crashReportsKept: boolean | null;
   hydrate: () => Promise<void>;
   setSetting: <K extends keyof GhostexSettings>(key: K, value: GhostexSettings[K]) => void;
   /** Several settings in one change: one publish and one save (a theme preset, a Colourfulness position). */
   patchSettings: (patch: Partial<GhostexSettings>) => void;
+  /** Turns keeping crash reports on or off; off deletes the stored reports. Throws when that did not fully happen. */
+  setCrashReportsKept: (keep: boolean) => Promise<void>;
 };
 
 export const useSettingsStore = create<SettingsState>()((set, get) => ({
   hydrated: false,
   settings: defaultSettings(),
+  crashReportsKept: null,
 
   hydrate: async () => {
     if (get().hydrated) return;
@@ -641,7 +651,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     } catch {
       // Corrupt persisted settings fall back to defaults.
     }
-    set({ hydrated: true, settings });
+    set({ hydrated: true, settings, crashReportsKept: keepingCrashReports() });
   },
 
   setSetting: (key, value) => {
@@ -659,5 +669,17 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
         logAppEvent('Settings: a change was not saved; it holds until Ghostex closes');
       }
     })();
+  },
+
+  setCrashReportsKept: async (keep) => {
+    try {
+      await setKeepingCrashReports(keep);
+    } finally {
+      // What the phone holds now, also after a failure halfway; and no prompt for a report turning it off deleted.
+      // Only a build with the switch (iOS) can be off; elsewhere nothing changes.
+      const kept = keepingCrashReports();
+      set({ crashReportsKept: kept });
+      if (kept === false) useCrashPromptStore.setState({ pending: null });
+    }
   },
 }));
