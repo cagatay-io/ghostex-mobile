@@ -15,7 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, Platform } from 'react-native';
 import { create } from 'zustand';
 
-import { GhostexNative } from '../../modules/ghostex-native/src';
+import { GhostexNative, type OpenTerminalOptions } from '../../modules/ghostex-native/src';
 import { attachCommand } from '../commands/ghostexCli';
 import { ensureConnected } from '../inventory/client';
 import type { MachineConnectionTarget } from '../machines/credentials';
@@ -35,10 +35,12 @@ import { warmPoolOverBudget } from './warmBudget';
 import { forgetAttach, noteAttachOpened } from './zmxDisplay';
 import { isDemoMachineId } from '../demo/identity';
 import { logAppEvent } from '../app/appLog';
+import { inFrontCountdown } from '../app/foregroundClock';
 import { FailureCopy } from '../copy';
 import { isChannelRefusal, reportChannelRefused } from '../remote/channelBudget';
 import { isSlowOpenFailure, noteSlowOpenFailure } from '../remote/stallWatch';
 import { clearDialBackoff } from '../remote/dialBackoff';
+import { beginLinkTransfer } from '../remote/linkActivity';
 
 const tabOpenRequests = new Map<string, Promise<unknown>>();
 /** Scrollback rows each warm native entry was opened with (the setting applies to new terminals only). */
@@ -84,8 +86,152 @@ function verifyAfterFailedOpen(machine: MachineConnectionTarget): void {
   void ensureConnected(machine, { verify: true, reason: 'a terminal that failed to open' }).catch(() => undefined);
 }
 
-function trackTabOpen<T>(sessionKey: string, work: () => Promise<T>): Promise<T> {
-  const request = Promise.resolve().then(work);
+/**
+ * CDXC:RemoteMachines 2026-11-12 WHY:
+ * On iOS a terminal's channel open holds the computer's SSH connection while it runs: `SSHConnection.startShell` waits for the channel-open turn, then makes blocking libssh2 calls.
+ * The chat link's quiet check heard nothing meanwhile and its `GET /api/health` queued behind the open, so a slow open read as a cut-off link and started a reconnect.
+ * The open therefore counts as a transfer on the link (src/remote/linkActivity.ts) for as long as its tab waits for it, and never past its limit: until it settles, its 30 s pass, or its tab is closed.
+ * Android's open, a different SSH library, is left as it was.
+ */
+async function openNativeTerminal(
+  sessionKey: string,
+  machineId: string,
+  opts: OpenTerminalOptions,
+  open: TabOpen,
+): Promise<void> {
+  if (Platform.OS !== 'ios' || open.limitPassed) return GhostexNative.openTerminal(sessionKey, machineId, opts);
+  const end = beginLinkTransfer(machineId, Infinity);
+  open.endTransfer = end;
+  try {
+    await GhostexNative.openTerminal(sessionKey, machineId, opts);
+    end(true);
+  } catch (error) {
+    end(false);
+    throw error;
+  }
+}
+
+/**
+ * How long a terminal open (the dial, then the channel and the shell) may take in the foreground on iOS before its tab
+ * leaves "Connecting..." for "Connection Failed" with Retry. Android's opens are left as they were.
+ *
+ * CDXC:RemoteMachines 2026-11-12 DECISION:
+ * A terminal that does not open shows its failure with Retry after 30 seconds in the foreground.
+ * Time while the app is in the background does not count (`inFrontCountdown`, src/app/foregroundClock.ts); the computer's log showed single dials of several minutes measured by the wall clock, which also counts time the app was not in front.
+ */
+const TERMINAL_OPEN_LIMIT_MS = 30_000;
+
+/** One open of a tab's terminal. */
+type TabOpen = {
+  /**
+   * Why its tab stopped waiting for it before it settled: the limit, the tab was closed, or the limit passed while only
+   * the connection check of an open tab ran (`check`: that tab is left as it is).
+   */
+  ended: 'limit' | 'closed' | 'check' | null;
+  /** Only the connection check of an open tab runs (an attach of that tab), before any reopen. */
+  checking: boolean;
+  /** Ends its mark on the link once its native open has started. */
+  endTransfer: ((delivered: boolean) => void) | null;
+  /** Its 30 s have passed: its link mark has ended, and a native open it starts later gets none. */
+  limitPassed: boolean;
+  /** Its tab was closed: stops its countdown and settles its request; the open runs on until it settles. */
+  detach: () => void;
+};
+
+/** The newest open of each tab's terminal. */
+const latestTabOpens = new Map<string, TabOpen>();
+
+/**
+ * Per session key, opens that ended before they settled and still run natively (JavaScript cannot cancel one).
+ * Until they settle, the key's native events are theirs and dropped, and a newer open of the key waits before its own
+ * native calls, so a key never has two native opens at once.
+ */
+const unsettledOpens = new Map<string, Promise<void>>();
+
+/** Waits until no earlier open of `sessionKey` is still running natively, or `open` itself ended meanwhile. */
+async function waitForEarlierOpens(sessionKey: string, open: TabOpen): Promise<void> {
+  let earlier = unsettledOpens.get(sessionKey);
+  while (earlier !== undefined && open.ended === null) {
+    await earlier;
+    earlier = unsettledOpens.get(sessionKey);
+  }
+}
+
+/**
+ * Native events of `sessionKey` that belong to an open its tab no longer waits for, and must not change the tab: those
+ * arriving while such an open still runs, and, for one given up at the limit, after it settled until the tab's next
+ * open or close. Events carry only the session key, so one delivered after its open settled is taken for the newer
+ * open's.
+ */
+function eventOfEndedOpen(sessionKey: string): boolean {
+  return unsettledOpens.has(sessionKey) || latestTabOpens.get(sessionKey)?.ended === 'limit';
+}
+
+/**
+ * Runs one open of `sessionKey`'s terminal. On iOS, if its tab is still opening after `TERMINAL_OPEN_LIMIT_MS` in the
+ * foreground, `giveUp` marks it failed and the request settles with its result (or its throw); when its tab is closed,
+ * or the limit passes while only the connection check of an open tab runs, the request settles with `noResult`. Either
+ * way `work` runs on, reads `open.ended` after each wait and then leaves the tab alone.
+ */
+function trackTabOpen<T>(
+  sessionKey: string,
+  giveUp: () => T,
+  noResult: T,
+  work: (open: TabOpen) => Promise<T>,
+): Promise<T> {
+  const open: TabOpen = {
+    ended: null,
+    checking: false,
+    endTransfer: null,
+    limitPassed: false,
+    detach: () => undefined,
+  };
+  latestTabOpens.set(sessionKey, open);
+  const run = Promise.resolve().then(() => work(open));
+  const early = Promise.withResolvers<T>();
+  if (Platform.OS === 'ios') {
+    const end = (why: 'limit' | 'closed'): void => {
+      open.ended = why;
+      stopLimit();
+      open.endTransfer?.(false);
+      const settled = run.then(
+        () => undefined,
+        () => undefined,
+      );
+      unsettledOpens.set(sessionKey, settled);
+      void settled.then(() => {
+        if (unsettledOpens.get(sessionKey) === settled) unsettledOpens.delete(sessionKey);
+      });
+    };
+    const stopLimit = inFrontCountdown(TERMINAL_OPEN_LIMIT_MS, () => {
+      // The link mark ends at the limit whatever the tab shows by then: a native event of the key can move the tab off
+      // "opening" without this open having settled (events name no open), and the mark must not outlast its bound.
+      open.limitPassed = true;
+      open.endTransfer?.(false);
+      if (latestTabOpens.get(sessionKey) !== open) return;
+      if (open.checking) {
+        // No native open has started: the tab keeps its terminal and its events, and the check runs on unowned.
+        open.ended = 'check';
+        early.resolve(noResult);
+        return;
+      }
+      const tab = useTerminalStore.getState().tabs.find((entry) => entry.sessionKey === sessionKey);
+      if (tab?.state !== 'opening') return;
+      end('limit');
+      try {
+        early.resolve(giveUp());
+      } catch (error) {
+        early.reject(error);
+      }
+    });
+    open.detach = () => {
+      if (open.ended !== null) return;
+      end('closed');
+      early.resolve(noResult);
+    };
+    void run.then(stopLimit, stopLimit);
+  }
+  const request = Promise.race([run, early.promise]);
   tabOpenRequests.set(sessionKey, request);
   const clear = () => {
     if (tabOpenRequests.get(sessionKey) === request) tabOpenRequests.delete(sessionKey);
@@ -254,10 +400,11 @@ type TerminalState = {
   detachIdleTerminals: (machineId: string, keep: number) => Promise<number>;
   /**
    * Re-run the open flow for a failed/closed tab. Shared by the Terminal
-   * screen's Retry/Reconnect buttons and the app-resume auto-reattach.
+   * screen's Retry/Reconnect buttons and the app-resume auto-reattach. `verify` (an attach of an existing tab) asks
+   * that computer's connection to answer first, for an open tab too; that check counts toward the open's limit.
    */
   /** `dialNow` (default true) dials a computer waiting after unanswered dials; the automatic restore passes false. */
-  reopenTab: (sessionKey: string, options?: { dialNow?: boolean }) => Promise<void>;
+  reopenTab: (sessionKey: string, options?: { verify?: MachineConnectionTarget; dialNow?: boolean }) => Promise<void>;
   setFontSizeForSession: (sessionKey: string, size: number) => void;
   /** Drop all pinch-zoom overrides and re-apply the global default everywhere. */
   clearFontSizeOverrides: () => void;
@@ -360,8 +507,13 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
     tab: TerminalTab,
     command: string | null,
     select = true,
-  ): Promise<string> =>
-    trackTabOpen(tab.sessionKey, async () => {
+  ): Promise<string> => {
+    const giveUp = (): never => {
+      patchTab(tab.sessionKey, { state: 'failed', error: FailureCopy.timedOut });
+      dropWarm(tab.sessionKey);
+      throw new Error(FailureCopy.timedOut);
+    };
+    return trackTabOpen(tab.sessionKey, giveUp, tab.sessionKey, async (open) => {
       set({ tabs: [...get().tabs, tab], selectedSessionKey: select ? tab.sessionKey : get().selectedSessionKey });
       touchWarm(tab.sessionKey);
       await evictExcessWarmEntries();
@@ -370,12 +522,14 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
       try {
         await ensureConnected(machine, { dialNow: true, reason: 'opening a terminal' });
         connected = true;
-        if (!get().tabs.some((entry) => entry.sessionKey === tab.sessionKey)) return tab.sessionKey;
+        if (open.ended !== null || !get().tabs.some((entry) => entry.sessionKey === tab.sessionKey)) {
+          return tab.sessionKey;
+        }
         if (isDemoMachineId(machine.id)) {
           patchTab(tab.sessionKey, { state: 'open', error: undefined });
           return tab.sessionKey;
         }
-        const opts: { command?: string; fontSize?: number; zmxBacked?: boolean; scrollbackRows?: number } = {
+        const opts: OpenTerminalOptions = {
           fontSize: initialFontSize(tab.sessionKey),
           zmxBacked: tab.kind === 'attach',
           scrollbackRows: scrollbackRowsForNewTerminal(tab.sessionKey),
@@ -384,20 +538,27 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
           command !== null
             ? await remoteTerminalCommand(machine.id, command)
             : await remoteShellCommand(machine.id, tab.cwd);
+        await waitForEarlierOpens(tab.sessionKey, open);
+        if (open.ended !== null) return tab.sessionKey;
         if (remoteCommand !== null) opts.command = remoteCommand;
         openStartedAt = Date.now();
-        await GhostexNative.openTerminal(tab.sessionKey, machine.id, opts);
-        if (!get().tabs.some((entry) => entry.sessionKey === tab.sessionKey)) {
-          await GhostexNative.closeTerminal(tab.sessionKey);
-        }
+        await openNativeTerminal(tab.sessionKey, machine.id, opts, open);
+        // A terminal its tab no longer waits for is closed again by key (which finds it only while its native entry is
+        // still registered); a newer open of the key waits until this one settled.
+        const stale = open.ended !== null || !get().tabs.some((entry) => entry.sessionKey === tab.sessionKey);
+        if (stale) await GhostexNative.closeTerminal(tab.sessionKey);
       } catch (error) {
-        patchTab(tab.sessionKey, { state: 'failed', error: terminalOpenError(machine.id, error, openStartedAt) });
-        dropWarm(tab.sessionKey);
+        const message = terminalOpenError(machine.id, error, openStartedAt);
+        if (open.ended === null) {
+          patchTab(tab.sessionKey, { state: 'failed', error: message });
+          dropWarm(tab.sessionKey);
+        }
         if (connected) verifyAfterFailedOpen(machine);
         throw error;
       }
       return tab.sessionKey;
     });
+  };
 
   return {
     hydrated: false,
@@ -472,12 +633,19 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
         }
         if (select) set({ selectedSessionKey: sessionKey });
         touchWarm(sessionKey);
-        await ensureConnected(machine, { verify: true, dialNow: true, reason: 'opening an agent terminal' });
-        const opening = tabOpenRequests.get(sessionKey);
-        if (opening) await opening;
-        const current = get().tabs.find((tab) => tab.sessionKey === sessionKey);
-        if (current?.state === 'closed' || current?.state === 'failed' || current?.state === 'detached') {
-          await get().reopenTab(sessionKey);
+        if (Platform.OS === 'ios') {
+          // The connection check of an open tab and the reopen of any other run as one open under its limit.
+          await get().reopenTab(sessionKey, { verify: machine });
+          if (latestTabOpens.get(sessionKey)?.ended === 'check') throw new Error(FailureCopy.timedOut);
+        } else {
+          // Android has no open limit: the check comes first and a failed one leaves the tab as it is, as before.
+          await ensureConnected(machine, { verify: true, dialNow: true, reason: 'opening an agent terminal' });
+          const opening = tabOpenRequests.get(sessionKey);
+          if (opening) await opening;
+          const current = get().tabs.find((tab) => tab.sessionKey === sessionKey);
+          if (current?.state === 'closed' || current?.state === 'failed' || current?.state === 'detached') {
+            await get().reopenTab(sessionKey);
+          }
         }
         const attached = get().tabs.find((tab) => tab.sessionKey === sessionKey);
         if (attached?.state !== 'open') throw new Error(attached?.error ?? 'The terminal is not connected yet.');
@@ -636,6 +804,9 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
       forgetAttach(sessionKey);
       dropWarm(sessionKey);
       removeTab(sessionKey);
+      // An open still under way stops counting toward its limit and lets go of its request; it runs on natively.
+      latestTabOpens.get(sessionKey)?.detach();
+      latestTabOpens.delete(sessionKey);
       // Chat mode is intentionally NOT cleared here: the persisted last-used
       // view survives tab close so a later reopen restores it.
       try {
@@ -694,12 +865,29 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
           () => undefined,
           () => undefined,
         );
-      return trackTabOpen(sessionKey, async () => {
-        const tab = get().tabs.find((entry) => entry.sessionKey === sessionKey);
+      const giveUp = (): void => patchTab(sessionKey, { state: 'failed', error: FailureCopy.timedOut });
+      return trackTabOpen(sessionKey, giveUp, undefined, async (open) => {
+        let tab = get().tabs.find((entry) => entry.sessionKey === sessionKey);
         // An open tab is already showing a live terminal, and a tab mid-open has
         // an attach in flight; reopening either would race two attaches onto one
         // session key. Everything else is a restart.
-        if (tab === undefined || tab.state === 'opening' || tab.state === 'open') return;
+        if (tab === undefined || tab.state === 'opening') return;
+        let verify = options?.verify;
+        if (tab.state === 'open') {
+          if (verify === undefined) return;
+          // An attach of an open tab checks its connection, under this open's limit. A dead connection is replaced,
+          // which closes the terminal; it is then reopened below.
+          open.checking = true;
+          await ensureConnected(verify, {
+            verify: true,
+            dialNow: options?.dialNow ?? true,
+            reason: 'opening an agent terminal',
+          });
+          open.checking = false;
+          verify = undefined;
+          tab = get().tabs.find((entry) => entry.sessionKey === sessionKey);
+          if (open.ended !== null || tab === undefined || tab.state === 'opening' || tab.state === 'open') return;
+        }
         const record = useMachinesStore.getState().machines.find((machine) => machine.id === tab.machineId);
         if (record === undefined) return;
         const target: MachineConnectionTarget = {
@@ -734,10 +922,18 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
            * how a Reconnect could report success while the user kept staring at
            * the exited process.
            */
+          await waitForEarlierOpens(sessionKey, open);
+          if (open.ended !== null) return;
           await GhostexNative.closeTerminal(sessionKey).catch(() => undefined);
-          await ensureConnected(target, { dialNow: options?.dialNow ?? true, reason: 'reconnecting a terminal' });
+          await ensureConnected(target, {
+            dialNow: options?.dialNow ?? true,
+            ...(verify === undefined
+              ? { reason: 'reconnecting a terminal' }
+              : { verify: true, reason: 'opening an agent terminal' }),
+          });
           connected = true;
-          const opts: { command?: string; fontSize?: number; zmxBacked?: boolean; scrollbackRows?: number } = {
+          if (open.ended !== null) return;
+          const opts: OpenTerminalOptions = {
             fontSize: initialFontSize(sessionKey),
             zmxBacked: tab.kind === 'attach',
             scrollbackRows: scrollbackRowsForNewTerminal(sessionKey),
@@ -754,10 +950,14 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
             const command = await remoteShellCommand(tab.machineId, tab.cwd);
             if (command !== null) opts.command = command;
           }
+          if (open.ended !== null) return;
           openStartedAt = Date.now();
-          await GhostexNative.openTerminal(sessionKey, tab.machineId, opts);
+          await openNativeTerminal(sessionKey, tab.machineId, opts, open);
+          // A terminal its tab no longer waits for (given up, or the tab closed) is closed by key, as in `openTab`.
+          if (open.ended !== null) await GhostexNative.closeTerminal(sessionKey);
         } catch (error) {
-          patchTab(sessionKey, { state: 'failed', error: terminalOpenError(tab.machineId, error, openStartedAt) });
+          const message = terminalOpenError(tab.machineId, error, openStartedAt);
+          if (open.ended === null) patchTab(sessionKey, { state: 'failed', error: message });
           logAppEvent(`Terminal: ${tab.machineId}: reopening ${tab.kind} tab failed (${errorCodeOf(error)})`);
           if (connected) verifyAfterFailedOpen(target);
         }
@@ -869,6 +1069,7 @@ export function initTerminalEvents(): void {
     const store = useTerminalStore.getState();
     const tab = store.tabs.find((entry) => entry.sessionKey === event.sessionKey);
     if (tab === undefined) return;
+    if (eventOfEndedOpen(event.sessionKey)) return;
     if (event.state === 'closed' && tab.state === 'opening' && tabOpenRequests.has(event.sessionKey)) return;
     // A detached tab has no terminal: a close or failure arriving now is the end of the one it gave up on purpose
     // (`detachIdleTerminals`), and the tab stays detached so it attaches when shown instead of reading Disconnected
@@ -904,6 +1105,7 @@ export function initTerminalEvents(): void {
     // A Ghostex session tab is named as its session is (`tabTitles.ts`), not by what its agent writes as the
     // terminal's title.
     if (titled.kind === 'attach' && titled.ghostexSessionId !== undefined) return;
+    if (eventOfEndedOpen(event.sessionKey)) return;
     if (event.title.trim().length === 0) return;
     useTerminalStore.setState({
       tabs: store.tabs.map((tab) => (tab.sessionKey === event.sessionKey ? { ...tab, title: event.title } : tab)),
@@ -912,6 +1114,7 @@ export function initTerminalEvents(): void {
 
   GhostexNative.addListener('onFontSizeChange', (event) => {
     // Native pinch-to-zoom ratchet; persist per session for the next open.
+    if (eventOfEndedOpen(event.sessionKey)) return;
     useTerminalStore.getState().setFontSizeForSession(event.sessionKey, event.fontSize);
   });
 }

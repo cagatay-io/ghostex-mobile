@@ -4,8 +4,9 @@
  *
  * - Progress: anything that came back over the connection (a command's output, a chat answer or
  *   frame, a finished upload) proves it alive (`noteLinkProgress`).
- * - Heavy transfers: an upload, a chat snapshot the phone subscribed to, a large chat read. While one
- *   is under way the link may say nothing for a long time and still work (`beginLinkTransfer`).
+ * - Heavy transfers: an upload, a chat snapshot the phone subscribed to, a large chat read, a terminal's channel open
+ *   on iOS (which holds the connection until it settles). While one is under way the link may say nothing for a long
+ *   time and still work (`beginLinkTransfer`).
  *   Small commands (the Sessions poll) do not count: a link that cannot answer them is not busy.
  *
  * CDXC:RemoteMachines 2026-11-10 WHY:
@@ -96,6 +97,7 @@ export function transferDefers(machineId: string, now = Date.now()): boolean {
  * Registers one heavy transfer on `machineId`'s connection for at most `maxMs`, its own deadline,
  * so one whose caller never ends it cannot keep the link exempt for good. Returns its end: pass
  * `true` when it delivered something, which counts as progress. Ending twice does nothing.
+ * `Infinity` gives it no deadline of its own: it lasts until its caller ends it.
  */
 export function beginLinkTransfer(machineId: string, maxMs: number): (delivered: boolean) => void {
   const transfer: Transfer = { until: Date.now() + maxMs, startedAt: Date.now() };
@@ -114,7 +116,7 @@ export function beginLinkTransfer(machineId: string, maxMs: number): (delivered:
     if (delivered) noteLinkProgress(machineId);
     if (liveTransfers(machineId) === undefined) notify(idleListeners, machineId);
   };
-  const timer = setTimeout(() => end(false), maxMs);
+  const timer = Number.isFinite(maxMs) ? setTimeout(() => end(false), maxMs) : undefined;
   return end;
 }
 
