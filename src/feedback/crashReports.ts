@@ -131,9 +131,13 @@ export async function setKeepingCrashReports(keep: boolean): Promise<void> {
   if (!keep && (await listCrashReports()).length > 0) throw new Error('Stored crash reports could not all be deleted.');
 }
 
-/** "Oct 21, 14:03" for the prompt and the Attach row. */
-export function crashTimeLabel(at: number): string {
-  const date = new Date(at);
+/**
+ * "Oct 21, 14:03" for the prompt and the Attach row; null for a MetricKit report, which has only a reporting period, so
+ * that no closing time is shown for it.
+ */
+export function crashTimeLabel(report: Pick<StoredCrashReport, 'at' | 'period'>): string | null {
+  if (report.period !== undefined) return null;
+  const date = new Date(report.at);
   const month = date.toLocaleString('en-US', { month: 'short' });
   const pad = (value: number) => (value < 10 ? `0${value}` : String(value));
   return `${month} ${date.getDate()}, ${pad(date.getHours())}:${pad(date.getMinutes())}`;

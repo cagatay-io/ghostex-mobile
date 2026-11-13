@@ -36,7 +36,7 @@ export default function CrashReportPrompt() {
     <View style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, 10) }]}>
       <View style={styles.card} accessibilityRole="summary">
         <Text style={styles.title}>{CrashReportCopy.title}</Text>
-        <Text style={styles.body}>{CrashReportCopy.body(crashTimeLabel(pending.at))}</Text>
+        <Text style={styles.body}>{CrashReportCopy.body(crashTimeLabel(pending))}</Text>
         <View style={styles.buttons}>
           <SetupButton
             label={CrashReportCopy.dismiss}
