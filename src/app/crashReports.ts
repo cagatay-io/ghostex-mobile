@@ -9,6 +9,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import { create } from 'zustand';
 
 import GhostexCrashReports from '../../modules/ghostex-native/src/GhostexCrashReports';
@@ -82,20 +83,26 @@ type CrashPromptState = {
 
 export const useCrashPromptStore = create<CrashPromptState>()(() => ({ pending: null }));
 
-/** Looks for a crash from an earlier run that was never offered, once per launch. */
+/**
+ * Looks for a crash from an earlier run that was never offered, once per launch, and offers the newest of those. On iOS
+ * reports stay on the phone after the prompt, so the newest report may already have been offered while an older one
+ * never was (two crashes before one launch, or a report that arrived after a newer one was offered); that one is
+ * offered at a later launch. Android, whose Dismiss still deletes the reports, looks at the newest report only, as before.
+ */
 export async function checkForCrashReport(): Promise<void> {
   const [reports, stored] = await Promise.all([
     listCrashReports(),
     AsyncStorage.getItem(OFFERED_KEY).catch(() => null),
   ]);
   const offered = new Set<string>(stored ? (JSON.parse(stored) as string[]) : []);
-  const newest = reports[0];
-  if (newest === undefined || offered.has(newest.id)) return;
+  const candidates = Platform.OS === 'ios' ? reports : reports.slice(0, 1);
+  const next = candidates.find((report) => !offered.has(report.id));
+  if (next === undefined) return;
   // Remembered as offered now: an ignored prompt does not come back on every start. The report
   // stays on the phone and Send Bug / Feedback can still attach it.
-  const ids = [...reports.map((report) => report.id).filter((id) => offered.has(id)), newest.id];
+  const ids = [...reports.map((report) => report.id).filter((id) => offered.has(id)), next.id];
   await AsyncStorage.setItem(OFFERED_KEY, JSON.stringify(ids)).catch(() => undefined);
-  useCrashPromptStore.setState({ pending: newest });
+  useCrashPromptStore.setState({ pending: next });
 }
 
 /** Send report: hides the prompt; the report is deleted once the feedback screen sends it. */
@@ -105,8 +112,11 @@ export function takePendingCrashReport(): StoredCrashReport | null {
   return pending;
 }
 
-/** Dismiss: hides the prompt and deletes every stored report. */
+/**
+ * Dismiss: hides the prompt. On iOS the report stays on the phone and is not offered again; Android deletes every stored
+ * report, as before.
+ */
 export async function dismissCrashReports(): Promise<void> {
   useCrashPromptStore.setState({ pending: null });
-  await deleteAllCrashReports();
+  if (Platform.OS !== 'ios') await deleteAllCrashReports();
 }

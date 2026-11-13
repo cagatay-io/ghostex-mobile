@@ -1,7 +1,8 @@
 /**
  * The next-launch offer after a crash: a card under the screens (never over them, never a blocking
  * dialog) saying the app closed unexpectedly, with Dismiss and Send Report. Send Report opens Send
- * Bug / Feedback with the report attached. Shown once per crash (src/app/crashReports.ts).
+ * Bug / Feedback with the report attached; Dismiss hides the card (on iOS the report stays on the
+ * phone). Shown once per crash (src/app/crashReports.ts).
  */
 
 import { useMemo } from 'react';
