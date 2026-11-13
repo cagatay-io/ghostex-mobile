@@ -7,10 +7,12 @@
  * SEE-ALSO: src/feedback/crashReportScrub.ts, src/app/crashReports.ts, src/screens/FeedbackScreen.tsx.
  */
 
+import { Platform } from 'react-native';
+
 import GhostexCrashReports from '../../modules/ghostex-native/src/GhostexCrashReports';
-import { useMachinesStore } from '../machines/store';
+import { useMachinesStore, type MachineRecord } from '../machines/store';
 import { FEEDBACK_BODY_MAX_UNITS } from './feedbackDraft';
-import { scrubPersonalData } from './crashReportScrub';
+import { scrubPersonalData, scrubShortNames } from './crashReportScrub';
 
 export type CrashKind = 'javascript' | 'java' | 'native' | 'anr' | 'nsexception';
 
@@ -95,18 +97,32 @@ export function crashTimeLabel(at: number): string {
   return `${month} ${date.getDate()}, ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-/** The saved computers' names, addresses and SSH usernames, which a report must never show. */
-/** What the phone knows that names its owner or computers: their names, hosts, user names and ids. */
+/** A saved computer's name, host, SSH username and the name it reports for itself. */
+function machineNames(machine: MachineRecord): string[] {
+  return [machine.name, machine.host, machine.username, machine.computerName ?? ''];
+}
+
+/** The saved computers' names, hosts, SSH usernames and the names they report for themselves. */
+export function savedNames(): string[] {
+  return useMachinesStore.getState().machines.flatMap(machineNames);
+}
+
+/**
+ * What the phone knows that names its owner or computers: their names, hosts, user names and ids, machine by machine (the
+ * order decides which of two overlapping terms of the same length is replaced first).
+ */
 export function privateTerms(): string[] {
-  return useMachinesStore
-    .getState()
-    .machines.flatMap((machine) => [
-      machine.name,
-      machine.host,
-      machine.username,
-      machine.computerName ?? '',
-      machine.deviceId ?? '',
-    ]);
+  return useMachinesStore.getState().machines.flatMap((machine) => [...machineNames(machine), machine.deviceId ?? '']);
+}
+
+/**
+ * A crash report's or a sent log's text as it may leave the phone: `scrubPersonalData` with every private term, and on
+ * iOS also the saved names of one or two characters (`scrubShortNames`, which the event log export applies everywhere).
+ * Android keeps the cleaning it had.
+ */
+export function cleanReportText(text: string): string {
+  const clean = scrubPersonalData(text, privateTerms());
+  return Platform.OS === 'ios' ? scrubShortNames(clean, savedNames()) : clean;
 }
 
 function cut(text: string, maxUnits: number, keep: 'start' | 'end'): string {
@@ -116,8 +132,7 @@ function cut(text: string, maxUnits: number, keep: 'start' | 'end'): string {
 
 /** The report as plain text, with personal data already stripped. */
 export function crashReportText(report: StoredCrashReport): string {
-  const terms = privateTerms();
-  const clean = (text: string) => scrubPersonalData(text, terms);
+  const clean = cleanReportText;
   const lines = [
     `Crash: ${KIND_LABEL[report.kind] ?? report.kind}${report.fatal ? '' : ' (not fatal)'}`,
     `When: ${new Date(report.at).toISOString().replace(/\.\d{3}Z$/, 'Z')}`,
@@ -137,7 +152,7 @@ export function crashReportText(report: StoredCrashReport): string {
 
 /** The first line of the cleaned error, for the message the feedback screen starts with. */
 export function crashSummary(report: StoredCrashReport): string {
-  const first = scrubPersonalData(report.error, privateTerms()).split('\n')[0]?.trim() ?? '';
+  const first = cleanReportText(report.error).split('\n')[0]?.trim() ?? '';
   const short = first.length > 90 ? `${first.slice(0, 89)}…` : first;
   return short ? `Ghostex closed unexpectedly: ${short}` : 'Ghostex closed unexpectedly.';
 }

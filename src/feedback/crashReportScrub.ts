@@ -115,3 +115,17 @@ export function scrubPersonalData(text: string, terms: ScrubTerms = []): string 
   }
   return result.replace(/\b[A-Za-z0-9._-]+@(?=<private>)/g, '<user>@');
 }
+
+/**
+ * `text` (already through `scrubPersonalData`) with the saved computers' names, hosts and users of one or two characters
+ * ("pi") replaced, which `scrubPersonalData` leaves alone because so short a word matches ordinary text: only where one
+ * stands as a whole word in exactly its own case, so `Pi` in a sentence or `pip` stays.
+ */
+export function scrubShortNames(text: string, names: ScrubTerms): string {
+  const short = new Set(names.map((name) => name.trim()).filter((name) => name.length > 0 && name.length < 3));
+  let result = text;
+  for (const word of short) {
+    result = result.replace(new RegExp(`(?<![A-Za-z0-9<])${escapeRegExp(word)}(?![A-Za-z0-9>])`, 'g'), '<private>');
+  }
+  return result;
+}
