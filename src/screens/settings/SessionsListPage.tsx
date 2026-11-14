@@ -1,3 +1,4 @@
+import { SessionGroupsCopy } from '../../copy';
 import { useInventoryStore } from '../../inventory/store';
 import { useMachinesStore } from '../../machines/store';
 import { useSettingsStore } from '../../settings/store';
@@ -84,11 +85,13 @@ export default function SessionsListPage() {
             )}
         {unified ? (
           <>
+            {toggle('groupSessionsByTags', SessionGroupsCopy.switchLabel, SessionGroupsCopy.switchDetail)}
             {toggle(
               'unifiedWorkingSection',
               'Moving section',
               'Sessions that are working fold into a Moving section at the bottom until they need you.',
             )}
+            {organization.groupSessionsByTags ? <Caption>{SessionGroupsCopy.movingKept}</Caption> : null}
             {toggle(
               'unifiedGroupByProject',
               'Group by project',
@@ -166,7 +169,11 @@ export default function SessionsListPage() {
           </>
         ) : null}
       </SettingsSection>
-      <SessionTagsSection items={organization.sidebarSessionTagListItems} summary={selectedSummary} />
+      <SessionTagsSection
+        items={organization.sidebarSessionTagListItems}
+        summary={selectedSummary}
+        grouping={unified && organization.groupSessionsByTags}
+      />
       <SettingsSection name="settings:sessions-list:sync">
         <Caption>
           {!carrying
