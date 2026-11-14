@@ -448,27 +448,20 @@ export function useUnifiedList(deps: UnifiedListDeps) {
     [view, layout.groupByProject, grouping, layout.projectOrder.join('\n')],
   );
   const catalog = selectedSummary?.customSessionTags;
-  const sessionGroups = useMemo(
-    () =>
-      grouping
-        ? groupUnifiedBySessionTags(view, {
-            tagList: organization.sidebarSessionTagListItems,
-            catalog: catalog ?? null,
-            projectOrder: layout.projectOrder,
-            groupByProject: layout.groupByProject,
-          })
-        : [],
-    // `projectOrder` and the tag list are new arrays per summary read, so their content is the dependency.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      view,
-      grouping,
-      catalog,
-      layout.groupByProject,
-      layout.projectOrder.join('\n'),
-      JSON.stringify(organization.sidebarSessionTagListItems),
-    ],
-  );
+  // `projectOrder` and the tag list are new arrays per summary read; their content is what the groups depend on.
+  const projectOrderKey = layout.projectOrder.join('\n');
+  const tagListKey = JSON.stringify(organization.sidebarSessionTagListItems);
+  const groupByProject = layout.groupByProject;
+  const sessionGroups = useMemo(() => {
+    if (!grouping) return [];
+    const tagList: unknown = JSON.parse(tagListKey);
+    return groupUnifiedBySessionTags(view, {
+      tagList: Array.isArray(tagList) ? tagList : null,
+      catalog: catalog ?? null,
+      projectOrder: projectOrderKey === '' ? [] : projectOrderKey.split('\n'),
+      groupByProject,
+    });
+  }, [view, grouping, catalog, groupByProject, projectOrderKey, tagListKey]);
   const choices = useMemo((): UnifiedProjectChoice[] => {
     if (!on) return [];
     return unifiedProjectChoices(

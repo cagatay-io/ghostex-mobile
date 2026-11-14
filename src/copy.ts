@@ -355,6 +355,8 @@ export const SessionGroupsCopy = {
   statusCaption: 'Status',
   /** A group header or a project heading inside a group, for VoiceOver: "Needs you, 1 card". */
   headerLabel: (name: string, count: number) => `${name}, ${count} ${count === 1 ? 'card' : 'cards'}`,
+  /** The "+" beside a project heading inside a group. */
+  newSessionIn: (project: string) => `New session in ${project}`,
   tags: {
     reorderCaption:
       'Drag a handle to reorder, or tap it for Move Up and Move Down. Add, rename or delete tags on a computer.',

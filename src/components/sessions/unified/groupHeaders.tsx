@@ -16,7 +16,7 @@ import { resolveSessionTag } from '../../../contract/sessionTags';
 import { SessionGroupsCopy } from '../../../copy';
 import { colorWithOpacity, SidebarPalette } from '../../../theme/palette';
 import { PlusGlyph, TagGlyph } from '../icons';
-import { ds, inkStyleSheets, useSidebarInk, type SidebarInk } from '../rows';
+import { ds, inkStyleSheets, inkWash, useSidebarInk, type SidebarInk } from '../rows';
 import {
   AlertCircleGlyph,
   AlertTriangleGlyph,
@@ -124,9 +124,9 @@ export function SessionGroupProjectHeading({
       </View>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`New session in ${label}`}
+        accessibilityLabel={SessionGroupsCopy.newSessionIn(label)}
         onPress={onNew}
-        style={styles.projectNew}
+        style={({ pressed }) => [styles.projectNew, pressed ? styles.projectNewPressed : null]}
       >
         <PlusGlyph size={ds(14)} color={ink.muted} />
       </Pressable>
@@ -162,6 +162,7 @@ const groupStyles = inkStyleSheets((ink) =>
     projectTitle: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: ds(6) },
     projectLabel: { flex: 1, minWidth: 0, color: ink.muted, fontSize: ds(13), fontWeight: '400' },
     projectNew: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+    projectNewPressed: { backgroundColor: inkWash(ink, 0.06) },
     projectCount: { color: ink.muted, fontSize: ds(13), fontWeight: '300', paddingRight: ds(6) },
   }),
 );
