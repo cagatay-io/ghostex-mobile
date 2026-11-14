@@ -18,6 +18,9 @@
  *   with the rule a tap in the Sessions list uses (`chatModeArmed`) as soon as the list is there.
  *   A link that opens a tapped notification carries its opening's check (`current`): once a later tap came
  *   or the person left, no step of the opening selects, switches the view or navigates any more.
+ *   An attach that ended at the terminal open's time limit opens the terminal as a successful one does (its tab shows
+ *   the failure with Retry), but only while the link's opening is the latest of every entry path and the person has
+ *   not moved on since it began (`beginOpening`; a tapped notification's begins at its tap, `opening`).
  */
 
 import { readPairingCode } from '../machines/pairingCodes';
@@ -163,18 +166,36 @@ export type DeepLinkDeps = {
    * once its feed is read: the tap of an Android persistent notification row.
    */
   markOpened(machineId: string, sessionId: string): void;
+  /**
+   * The session key of an attach that ended at the terminal open's time limit (its tab shows the failure with Retry),
+   * else null.
+   */
+  openTimedOut(error: unknown): string | null;
+  /**
+   * Begins an opening of the session from this entry path; every earlier opening of any entry path stops being
+   * current. Its check is true while no later opening began and the person has not moved on since (the screens and
+   * the Terminal screen's selected tab went nowhere but to this session).
+   */
+  beginOpening(machineId: string, sessionId: string): () => boolean;
 };
 
 /**
  * `current` is the check of a tapped notification's opening: false once a later tap came or the person left (the
  * caller decides). It is checked at the start, at every retry while the stores load, inside the attach once an
  * opening of the same tab under way finished (before it selects), once the attach is done and once the session list
- * is read, so a superseded opening never selects, switches the view or navigates.
+ * is read, so a superseded opening never selects, switches the view or navigates. `opening` is this link's opening
+ * among every entry path's (`DeepLinkDeps.beginOpening`): an attach that ended at the time limit goes on only while it
+ * holds too, up to a navigation that waits for the screens.
  */
-function openSession(link: SessionLink, deps: DeepLinkDeps, current: (() => boolean) | undefined): void {
+function openSession(
+  link: SessionLink,
+  deps: DeepLinkDeps,
+  current: (() => boolean) | undefined,
+  opening: () => boolean,
+): void {
   if (current?.() === false) return;
   if (!deps.storesReady()) {
-    deps.later(() => openSession(link, deps, current));
+    deps.later(() => openSession(link, deps, current, opening));
     return;
   }
   const machine = deps.machine(link.machineId);
@@ -196,19 +217,29 @@ function openSession(link: SessionLink, deps: DeepLinkDeps, current: (() => bool
   }
   void deps
     .attachSession(machine, { sessionId: link.sessionId, title }, current)
-    .then(async (sessionKey) => {
+    .then(
+      (sessionKey) => ({ sessionKey, check: current }),
+      (error: unknown) => {
+        // Ended at the time limit: the tab shows the failure with Retry, so the terminal opens as on success, but
+        // only while this opening is still current.
+        const sessionKey = deps.openTimedOut(error);
+        if (sessionKey === null) throw error;
+        return { sessionKey, check: () => current?.() !== false && opening() };
+      },
+    )
+    .then(async ({ sessionKey, check }) => {
       // The attach can take long: a later tap or the person may have moved on meanwhile.
-      if (current?.() === false) return;
+      if (check?.() === false) return;
       // On a cold start the summary may only have arrived during the attach.
       deps.revealWorkspace(link.machineId, link.sessionId);
       const question = link.view === 'question' && session === undefined;
       const arrived = question ? deps.session(link.machineId, link.sessionId) : undefined;
       if (arrived?.hasChatView === true) deps.showChatView(sessionKey);
-      deps.navigate({ name: 'Terminal', params: { sessionKey, machineId: machine.id, title } }, current);
+      deps.navigate({ name: 'Terminal', params: { sessionKey, machineId: machine.id, title } }, check);
       if (!question || arrived !== undefined) return;
       // Not there yet: read it, then show the question card when the session has a Chat View.
       const loaded = await deps.loadSession(link.machineId, link.sessionId);
-      if (loaded?.hasChatView === true && current?.() !== false) deps.showChatView(sessionKey);
+      if (loaded?.hasChatView === true && check?.() !== false) deps.showChatView(sessionKey);
     })
     .catch(() => {
       // Connection failures surface on the Sessions screen as usual.
@@ -234,8 +265,14 @@ function openAccounts(
 /**
  * Handles one incoming link (cold start or while running); links the app does not own are ignored. `current`: see
  * `openSession` (a tapped notification's opening); links from outside the app and attention-list rows have none.
+ * `opening`: a tapped notification's entry-path opening, begun at its tap; any other session link begins its own here.
  */
-export function handleDeepLink(url: string | null, deps: DeepLinkDeps, current?: () => boolean): void {
+export function handleDeepLink(
+  url: string | null,
+  deps: DeepLinkDeps,
+  current?: () => boolean,
+  opening?: () => boolean,
+): void {
   if (url === null) return;
   if (url.startsWith('ghostex://voice')) {
     deps.navigate({ name: 'Voice' });
@@ -254,5 +291,5 @@ export function handleDeepLink(url: string | null, deps: DeepLinkDeps, current?:
   const link = parseSessionLink(url);
   if (link === null || link.sessionId.startsWith('account:')) return;
   if (link.source === 'notification') deps.markOpened(link.machineId, link.sessionId);
-  openSession(link, deps, current);
+  openSession(link, deps, current, opening ?? deps.beginOpening(link.machineId, link.sessionId));
 }

@@ -121,6 +121,19 @@ async function openNativeTerminal(
  */
 const TERMINAL_OPEN_LIMIT_MS = 30_000;
 
+/**
+ * An attach whose terminal open its tab gave up at `TERMINAL_OPEN_LIMIT_MS`: the tab shows "Connection Failed" with
+ * Retry. Its message is the tab's timed-out caption, as any failed attach's is its tab's error.
+ */
+export class TerminalOpenTimedOut extends Error {
+  readonly sessionKey: string;
+
+  constructor(sessionKey: string) {
+    super(FailureCopy.timedOut);
+    this.sessionKey = sessionKey;
+  }
+}
+
 /** One open of a tab's terminal. */
 type TabOpen = {
   /**
@@ -360,7 +373,8 @@ type TerminalState = {
   /**
    * Open (or re-select) an attach tab for a remote Ghostex session. `select: false` opens it without changing the
    * selection (a stored pane's session coming back beside the selected one). `current`, when given, is checked
-   * after any existing opening finishes so an obsolete notification tap selects nothing.
+   * after any existing opening finishes so an obsolete notification tap selects nothing. An attach whose terminal open
+   * its tab gave up at the open limit (iOS) rejects with `TerminalOpenTimedOut`; its tab shows the failure with Retry.
    */
   attachSession: (
     machine: MachineConnectionTarget,
@@ -511,7 +525,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
     const giveUp = (): never => {
       patchTab(tab.sessionKey, { state: 'failed', error: FailureCopy.timedOut });
       dropWarm(tab.sessionKey);
-      throw new Error(FailureCopy.timedOut);
+      throw new TerminalOpenTimedOut(tab.sessionKey);
     };
     return trackTabOpen(tab.sessionKey, giveUp, tab.sessionKey, async (open) => {
       set({ tabs: [...get().tabs, tab], selectedSessionKey: select ? tab.sessionKey : get().selectedSessionKey });
@@ -636,7 +650,12 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
         if (Platform.OS === 'ios') {
           // The connection check of an open tab and the reopen of any other run as one open under its limit.
           await get().reopenTab(sessionKey, { verify: machine });
-          if (latestTabOpens.get(sessionKey)?.ended === 'check') throw new Error(FailureCopy.timedOut);
+          const ended = latestTabOpens.get(sessionKey)?.ended;
+          if (ended === 'check') throw new Error(FailureCopy.timedOut);
+          // Its reopen was given up at the limit: the tab shows the failure with Retry.
+          if (ended === 'limit' && get().tabs.find((tab) => tab.sessionKey === sessionKey)?.state === 'failed') {
+            throw new TerminalOpenTimedOut(sessionKey);
+          }
         } else {
           // Android has no open limit: the check comes first and a failed one leaves the tab as it is, as before.
           await ensureConnected(machine, { verify: true, dialNow: true, reason: 'opening an agent terminal' });

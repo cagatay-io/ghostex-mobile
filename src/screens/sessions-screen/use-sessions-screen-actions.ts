@@ -14,6 +14,7 @@ import * as Haptics from 'expo-haptics';
 import { runQuickAction as runQuickActionOnMachine } from '../../actions/runAction';
 import { parseAgentNotInstalled, showMissingAgentNotice } from '../../agents/missingAgent';
 import { logAppEvent } from '../../app/appLog';
+import { beginOpening } from '../../app/currentOpening';
 import type { QuickActionEntry } from '../../actions/quickActions';
 import {
   answerWorkCleanupCommand,
@@ -43,7 +44,7 @@ import {
 } from '../../sessions/sessionCommands';
 import { acknowledgeSessionAttention } from '../../terminal/attention';
 import { markSessionOpen, markSessionOpenTap } from '../../terminal/openTiming';
-import { attachSessionKey, useTerminalStore } from '../../terminal/sessions';
+import { attachSessionKey, TerminalOpenTimedOut, useTerminalStore } from '../../terminal/sessions';
 import { sessionOpensInChatView } from '../terminal-screen/session-lookups';
 import { cloudBoxOpenTarget } from '../../cloudBoxes/open';
 import {
@@ -133,23 +134,33 @@ export function useSessionsScreenActions({
         return;
       }
       setTransientStatus(ProgressCopy.preparingAttach(session.alias));
+      const opening = beginOpening(openKey);
+      let sessionKey: string;
       try {
-        const sessionKey = await useTerminalStore.getState().attachSession(target, {
+        sessionKey = await useTerminalStore.getState().attachSession(target, {
           sessionId: session.sessionId,
           projectId: session.projectId.length > 0 ? session.projectId : undefined,
           title: sessionTitle(session),
         });
         markSessionOpen(sessionKey, 'terminalOpen');
         setTransientStatus(ProgressCopy.attached(session.alias, machineDisplayLabel(target)));
-        navigation.navigate('Terminal', {
-          sessionKey,
-          machineId: target.id,
-          title: sessionTitle(session),
-        });
-        markSessionOpen(sessionKey, 'navigate');
       } catch (error) {
-        setTransientStatus(error instanceof Error ? error.message : String(error));
+        if (!(error instanceof TerminalOpenTimedOut)) {
+          setTransientStatus(error instanceof Error ? error.message : String(error));
+          return;
+        }
+        // Ended at the time limit: the Terminal opens as on success, where the tab shows the failure with Retry, but
+        // only while this opening is current (`currentOpening.ts`). The notice is left alone either way: "Preparing"
+        // left after its 6 s long ago, and a notice shown now belongs to something newer.
+        if (!opening.current()) return;
+        sessionKey = error.sessionKey;
       }
+      navigation.navigate('Terminal', {
+        sessionKey,
+        machineId: target.id,
+        title: sessionTitle(session),
+      });
+      markSessionOpen(sessionKey, 'navigate');
     },
     [navigation, setTransientStatus],
   );
@@ -166,6 +177,7 @@ export function useSessionsScreenActions({
         .inventoriesByMachineId[target.id]?.summary?.sessions.find((session) => session.sessionId === sessionId);
       const sessionKey = attachSessionKey(target.id, sessionId);
       if (chatLaunch) useTerminalStore.getState().setSessionViewMode(sessionKey, 'chat');
+      const opening = beginOpening(sessionKey);
       const attaching = useTerminalStore.getState().attachSession(target, {
         sessionId,
         projectId:
@@ -176,7 +188,18 @@ export function useSessionsScreenActions({
       });
       // CDXC:SessionChat 2026-09-09 DECISION:
       // User: open chat immediately while the terminal starts in the background. Creation supplies the identity, so inventory and SSH attachment do not gate navigation.
-      if (!chatLaunch) await attaching;
+      if (!chatLaunch) {
+        // Ended at the time limit: the Terminal opens as on success, where the tab shows the failure with Retry, but
+        // only while this opening is current (`currentOpening.ts`); otherwise nothing opens or reaches the caller.
+        const opens = await attaching.then(
+          () => true,
+          (error: unknown) => {
+            if (!(error instanceof TerminalOpenTimedOut)) throw error;
+            return opening.current();
+          },
+        );
+        if (!opens) return;
+      }
       // Issue #558: once a new session's draft started while the app stayed on the list; this line
       // in the Logs sheet tells the next report whether the app tried to open it.
       logAppEvent(`New session: opening its ${chatLaunch ? 'chat' : 'terminal'}`);
