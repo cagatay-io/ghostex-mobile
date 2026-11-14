@@ -127,6 +127,21 @@ export function storedTagListItems(items: readonly TagListItem[]): unknown[] {
 }
 
 /**
+ * A held stored list with the status entries it lacks put at its top (in their default order, switched on), every held
+ * entry kept exactly as it is: its place, its flags, and custom tags or separators this phone's catalog does not know.
+ * Written when Group sessions by tags is switched on, so the switch never drops an entry another computer still knows.
+ */
+export function withStatusEntries(held: readonly unknown[]): unknown[] {
+  const present = new Set(
+    held.map((entry) =>
+      typeof entry === 'object' && entry !== null && 'id' in entry && typeof entry.id === 'string' ? entry.id : '',
+    ),
+  );
+  const missing = defaultTagListItems().filter((item) => item.kind === 'status' && !present.has(item.id));
+  return [...storedTagListItems(missing), ...held];
+}
+
+/**
  * gx-core `enabled_visible_tag_sections`: the tags the Tag As menu offers, built-in sections then Custom, each
  * filtered to the enabled and visible tags; `include` puts back a tag a session already carries so it can be taken
  * off again. Empty sections are dropped.
