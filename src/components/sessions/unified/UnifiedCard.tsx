@@ -147,8 +147,10 @@ export function StatusSlot({ row, nowMs }: { row: UnifiedRow<GhostexSession>; no
   const ink = useSidebarInk();
   const styles = unifiedStyles(ink);
   const { status } = row;
+  // Settings › Experience's Sessions list: without last-active times a card shows no age (src/settings/experience.ts).
+  const showLastActive = useSettingsStore((state) => state.settings.sessionsShowLastActive);
   if (status === null) {
-    const age = lastInteractionLabel(row.session.source!, nowMs);
+    const age = showLastActive ? lastInteractionLabel(row.session.source!, nowMs) : null;
     return <Text style={styles.age}>{age ?? ''}</Text>;
   }
   const { Glyph, color } = statusLook(status, ink);
@@ -169,6 +171,7 @@ export function StatusSlot({ row, nowMs }: { row: UnifiedRow<GhostexSession>; no
 /** The repository's icon, or its first letter on a tile when it has none (cards.rs `repo_tile`). */
 export function RepoTile({ icon, label, dim = false }: { icon: GhostexProjectIcon | null; label: string; dim?: boolean }) {
   const styles = unifiedStyles(useSidebarInk());
+  if (!useSettingsStore((state) => state.settings.sessionsShowProjectIcons)) return null;
   const tile =
     icon === null ? <LetterTile title={label} size={ds(16)} /> : <ProjectIcon icon={{ ...icon, glyph: '' }} title={label} size={ds(16)} />;
   return <View style={dim ? styles.dim : null}>{tile}</View>;
@@ -176,7 +179,9 @@ export function RepoTile({ icon, label, dim = false }: { icon: GhostexProjectIco
 
 export function AgentIcon({ session }: { session: GhostexSession }) {
   const ink = useSidebarInk();
+  const showAgentIcon = useSettingsStore((state) => state.settings.sessionsShowAgentIcons);
   if (session.isDraft === true) return <PencilGlyph size={ds(15)} color={ink.text} />;
+  if (!showAgentIcon) return null;
   const iconId = resolveAgentArtId(session.agentIcon, session.agentName.length > 0 ? session.agentName : session.agent);
   const Icon = AGENT_ICONS[iconId] ?? AGENT_ICONS.terminal;
   return <Icon size={iconId === 'terminal' || iconId === 'browser' ? ds(15) : ds(13)} color={agentIconTint(iconId)} />;
@@ -433,6 +438,7 @@ export function UnifiedSlimRow({
   onRestore,
   onToggleCrew = () => {},
 }: UnifiedSlimRowProps) {
+  const showLastActive = useSettingsStore((state) => state.settings.sessionsShowLastActive);
   const active = open || row.crew?.containsActive === true;
   const rowRef = useRef<ViewInstance | null>(null);
   const ink = useSidebarInk();
@@ -482,7 +488,7 @@ export function UnifiedSlimRow({
               <Text style={[styles.statusTimer, { color: DONE_COLOR }]}>{wakeLabel(wake, nowMs)}</Text>
             </View>
           ) : (
-            <Text style={styles.age}>{lastInteractionLabel(session, nowMs) ?? ''}</Text>
+            <Text style={styles.age}>{showLastActive ? (lastInteractionLabel(session, nowMs) ?? '') : ''}</Text>
           )}
         </Pressable>
       </SwipeRevealRow>
