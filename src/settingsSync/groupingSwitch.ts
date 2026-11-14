@@ -3,6 +3,10 @@
  * saves the Session Tags list in its full form (the six status entries in their places) through the same Sidebar
  * organization writer, so the groups' order rests on a stored list rather than on how each app reads an older one;
  * then the switch. Turning it off writes the switch only.
+ *
+ * When the phone holds no list at all (no synced value, none of its own and none in a computer's summary: the default
+ * fallback), turning it on writes the switch only: a written default list could reach a computer whose own list has
+ * never synced and replace its custom tags and order.
  */
 
 import type { GhostexMobileSummary } from '../contract/mobileSummary';
@@ -12,7 +16,7 @@ import { currentSidebarOrganization } from './sidebarOrganization';
 
 export type GroupingSwitchDeps = {
   write: typeof setSidebarSetting;
-  /** The stored tag list now (`sidebarSessionTagListItems`; `null` for the first-run list). */
+  /** The tag list held now (`sidebarSessionTagListItems`; `null` when the phone holds none, the default fallback). */
   readTagList: () => unknown[] | null;
 };
 
@@ -24,8 +28,9 @@ export function setGroupSessionsByTags(
     readTagList: () => currentSidebarOrganization(summary).sidebarSessionTagListItems,
   },
 ): void {
-  if (on) {
-    const items = normalizeTagListItems(deps.readTagList(), summary === null ? null : summary.customSessionTags);
+  const held = deps.readTagList();
+  if (on && held !== null) {
+    const items = normalizeTagListItems(held, summary === null ? null : summary.customSessionTags);
     deps.write('sidebarSessionTagListItems', storedTagListItems(items));
   }
   deps.write('groupSessionsByTags', on);
