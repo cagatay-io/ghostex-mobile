@@ -381,6 +381,8 @@ export type QuietStretch = {
   time?: string;
   /** The turn still runs: the line counts up. */
   running?: boolean;
+  /** Calm Quiet View's running line: when the turn began (ms); drawn "Working · 1m 12s", counting up. */
+  startedAt?: number;
   /** Starts open (Expand the last turn). */
   open?: boolean;
   tail?: { row: number; turns: QuietTurnTail[] };

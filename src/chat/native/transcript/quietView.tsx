@@ -14,7 +14,7 @@
  * other fold.
  */
 
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import type { ProjectedMessage, QuietAnswers, QuietStretch, TranscriptItem } from '../../rust/document';
@@ -225,7 +225,12 @@ function KeptTail({ item, tail }: { item: TranscriptItem; tail: NonNullable<Quie
 function StretchLine({ line, open, onPress }: { line: QuietStretch; open: boolean; onPress(): void }) {
   const time = line.time ?? '';
   // An open line drops its counts: its rows show them (gx-chat-core quiet_view.rs, 2026-11-13).
-  const text = open && (line.openText ?? '').length > 0 ? (line.openText as string) : line.text;
+  const shown = open && (line.openText ?? '').length > 0 ? (line.openText as string) : line.text;
+  // Calm Quiet View's running line counts its time, "Working · 1m 12s" (CDXC:Experience 2026-11-15 in
+  // gx-chat-core quiet_view.rs); the desktop counts the same way.
+  const startedAt = line.running === true && !open && typeof line.startedAt === 'number' ? line.startedAt : null;
+  const elapsed = useElapsed(startedAt);
+  const text = elapsed === null ? shown : `${shown} · ${elapsed}`;
   const segments: QuietSegment[] = [{ text }];
   if (time.length > 0) segments.push({ text: ` ${time}` });
   return (
@@ -243,6 +248,24 @@ function StretchLine({ line, open, onPress }: { line: QuietStretch; open: boolea
       onPress={onPress}
     />
   );
+}
+
+/** "12s", "1m 12s" or "1h 2m 3s" since `startedAt`, redrawn each second; null without a start. */
+function useElapsed(startedAt: number | null): string | null {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (startedAt === null) return undefined;
+    const timer = setInterval(() => setNow(Date.now()), 1_000);
+    return () => clearInterval(timer);
+  }, [startedAt]);
+  if (startedAt === null) return null;
+  const seconds = Math.max(0, Math.floor((now - startedAt) / 1_000));
+  const hours = Math.floor(seconds / 3_600);
+  const minutes = Math.floor((seconds % 3_600) / 60);
+  const rest = seconds % 60;
+  if (hours > 0) return `${hours}h ${minutes}m ${rest}s`;
+  if (minutes > 0) return `${minutes}m ${rest}s`;
+  return `${rest}s`;
 }
 
 /**
