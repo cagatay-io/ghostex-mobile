@@ -193,6 +193,23 @@ function applies<S>(entry: TagListItem, top: UnifiedRow<S>, status: StatusTagId)
 }
 
 /**
+ * The grouping's array inputs (the saved project order and the stored tag list) as one string a memo can depend on,
+ * new arrays with the same content giving the same string; JSON keeps every key whole, newlines included.
+ */
+export function sessionGroupInputsKey(projectOrder: readonly string[], tagList: readonly unknown[] | null): string {
+  return JSON.stringify({ projectOrder, tagList });
+}
+
+/** The inputs back from `sessionGroupInputsKey`. */
+export function sessionGroupInputsOf(key: string): { projectOrder: string[]; tagList: unknown[] | null } {
+  const parsed: unknown = JSON.parse(key);
+  const object = typeof parsed === 'object' && parsed !== null ? parsed : {};
+  const projectOrder = 'projectOrder' in object && Array.isArray(object.projectOrder) ? object.projectOrder : [];
+  const tagList = 'tagList' in object && Array.isArray(object.tagList) ? object.tagList : null;
+  return { projectOrder: projectOrder.filter((item): item is string => typeof item === 'string'), tagList };
+}
+
+/**
  * The active cards (`view.active`) in their groups, in the Session Tags order, then the unheaded rest. Only groups
  * with cards are returned. Inside each, cards follow the Unified project order (the saved order, then A to Z) and,
  * within one project, the list's own order.

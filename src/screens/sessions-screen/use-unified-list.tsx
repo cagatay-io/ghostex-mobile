@@ -51,6 +51,8 @@ import { unifiedListOf, unifiedMachineInput, type UnifiedComputer } from '../../
 import {
   groupedUnifiedSettings,
   groupUnifiedBySessionTags,
+  sessionGroupInputsKey,
+  sessionGroupInputsOf,
   type SessionGroupHeader as GroupHeader,
 } from '../../contract/unified/sessionGroups';
 import { useSidebarOrganization } from '../../settingsSync/sidebarOrganization';
@@ -448,20 +450,15 @@ export function useUnifiedList(deps: UnifiedListDeps) {
     [view, layout.groupByProject, grouping, layout.projectOrder.join('\n')],
   );
   const catalog = selectedSummary?.customSessionTags;
-  // `projectOrder` and the tag list are new arrays per summary read; their content is what the groups depend on.
-  const projectOrderKey = layout.projectOrder.join('\n');
-  const tagListKey = JSON.stringify(organization.sidebarSessionTagListItems);
+  // `projectOrder` and the tag list are new arrays per summary read; their content, in one lossless key, is what the
+  // groups depend on.
+  const inputsKey = sessionGroupInputsKey(layout.projectOrder, organization.sidebarSessionTagListItems);
   const groupByProject = layout.groupByProject;
   const sessionGroups = useMemo(() => {
     if (!grouping) return [];
-    const tagList: unknown = JSON.parse(tagListKey);
-    return groupUnifiedBySessionTags(view, {
-      tagList: Array.isArray(tagList) ? tagList : null,
-      catalog: catalog ?? null,
-      projectOrder: projectOrderKey === '' ? [] : projectOrderKey.split('\n'),
-      groupByProject,
-    });
-  }, [view, grouping, catalog, groupByProject, projectOrderKey, tagListKey]);
+    const { projectOrder, tagList } = sessionGroupInputsOf(inputsKey);
+    return groupUnifiedBySessionTags(view, { tagList, catalog: catalog ?? null, projectOrder, groupByProject });
+  }, [view, grouping, catalog, groupByProject, inputsKey]);
   const choices = useMemo((): UnifiedProjectChoice[] => {
     if (!on) return [];
     return unifiedProjectChoices(
