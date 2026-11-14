@@ -3,6 +3,8 @@
  * desktop host's `apps/desktop/src/app/gx_chat/boot.rs`, key for key.
  */
 
+import { composerRowSettings } from '../../settings/experience';
+import type { PhoneQuietView } from '../../settings/store';
 import type { ChatStorageKey } from './events';
 import { decodeStoredDraft, nextDraftVersion, type StoredDraft } from './host-records';
 import { readRecords, scanRecords, writeRecord } from './storage';
@@ -23,6 +25,8 @@ export type ComposerBootRead = {
     toolCards: boolean;
     detailedDefault: boolean;
     statusLineFromComputer: boolean;
+    composerRow: ReturnType<typeof composerRowSettings>;
+    quietView?: PhoneQuietView;
   };
   contextPreferences: {
     claude: unknown;
@@ -299,6 +303,12 @@ export async function readComposerBoot(sessionKey: string, nowMs: number): Promi
       // carry; this phone's own pins stay for a computer that sends none (gx-chat-core
       // `menus/context/computer_pins.rs`, CDXC:SessionChat 2026-11-12).
       statusLineFromComputer: true,
+      // Settings › Experience on this phone: the chat box row, and its own Quiet View once it set one
+      // (src/settings/experience.ts); without one each chat keeps its computer's.
+      composerRow: composerRowSettings(useSettingsStore.getState().settings),
+      ...(useSettingsStore.getState().settings.chatQuietView === null
+        ? {}
+        : { quietView: useSettingsStore.getState().settings.chatQuietView as PhoneQuietView }),
     },
     contextPreferences: { claude, codex, cursor, hermes, pi, basic },
     dismissedNotice,

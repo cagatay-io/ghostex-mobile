@@ -755,6 +755,69 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     catalog: 'collabLog',
   },
 
+  // Experience
+  {
+    page: 'experience',
+    section: 'settings:experience:preset',
+    title: 'Experience',
+    anchor: null,
+    description: 'How many buttons and details this phone shows: Chill, Regular or Advanced.',
+    catalog: 'experiencePreset',
+    options: ['Chill', 'Regular', 'Advanced', 'Custom'],
+  },
+  {
+    page: 'experience',
+    section: 'settings:experience:chatBox',
+    title: 'Chat box',
+    anchor: null,
+    description: 'Chill, Regular or Advanced for the chat box.',
+    catalog: 'experienceChatBox',
+  },
+  {
+    page: 'experience',
+    section: 'settings:experience:chat',
+    title: 'Chat',
+    anchor: null,
+    description: 'Chill, Regular or Advanced for the chat.',
+    catalog: 'experienceChat',
+  },
+  {
+    page: 'experience',
+    section: 'settings:experience:sessionsList',
+    title: 'Sessions list',
+    anchor: null,
+    description: 'Chill, Regular or Advanced for the sessions list.',
+    catalog: 'experienceSessionsList',
+  },
+  {
+    page: 'experience',
+    section: 'settings:experience:switches',
+    group: 'Switches',
+    title: 'Mode in the chat box',
+    catalog: 'chatComposerModePicker',
+  },
+  {
+    page: 'experience',
+    section: 'settings:experience:switches',
+    group: 'Switches',
+    title: 'Terminal button in the chat box',
+    catalog: 'chatComposerTerminalButton',
+  },
+  {
+    page: 'experience',
+    section: 'settings:experience:switches',
+    group: 'Switches',
+    title: 'Context ring in the chat box',
+    catalog: 'chatComposerContextRing',
+  },
+  {
+    page: 'experience',
+    section: 'settings:experience:switches',
+    group: 'Switches',
+    title: 'Calm Quiet View',
+    catalog: 'chatQuietViewCalm',
+  },
+
   // Updates
   {
     page: 'updates',

@@ -92,6 +92,7 @@ import {
   rowActivityIndicator,
   rowClockKind,
   rowTimeLabel,
+  timerTrailingLabel,
   shouldStartCompletionFlash,
   shownFoldedStatus,
 } from './sessionStatus';
@@ -470,7 +471,12 @@ export default function SessionRow({
     foldedStatus === undefined &&
     !approval;
   const indicator = question || foldedStatus !== undefined ? null : rowActivityIndicator(session);
-  const timeLabel = foldedStatus !== undefined ? null : rowTimeLabel(session, capabilities, nowMs);
+  // Settings › Experience's Sessions list (src/settings/experience.ts): without last-active times a row keeps only
+  // its countdowns (Delayed Send, Close After Done); without agent icons the leading slot keeps only its marks.
+  const showLastActive = useSettingsStore((state) => state.settings.sessionsShowLastActive);
+  const showAgentIcon = useSettingsStore((state) => state.settings.sessionsShowAgentIcons);
+  const rowTime = foldedStatus !== undefined ? null : rowTimeLabel(session, capabilities, nowMs);
+  const timeLabel = rowTime !== null && !showLastActive && timerTrailingLabel(session, nowMs) === null ? null : rowTime;
   /*
    * Desktop leading-slot order (icons.rs render_session_icon): an armed Delayed
    * Send clock, then a Close After Done clock, then the session tag, then the
@@ -622,9 +628,9 @@ export default function SessionRow({
             ) : session.isCoordinator ? (
               /* The crown fills the 15dp slot like the desktop's row (threads.rs `coordinator_icon`); gold on the main coordinator. */
               <CoordinatorGlyph size={ds(15)} color={session.isMainCoordinator ? ink.mainCrown : ink.crown} />
-            ) : (
+            ) : showAgentIcon ? (
               <Icon size={iconSize} color={agentIconTint(iconId)} />
-            )}
+            ) : null}
           </View>
           {showChevron && onToggleThreads !== undefined ? (
             <CoordinatorFold

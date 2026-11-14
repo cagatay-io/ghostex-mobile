@@ -13,6 +13,7 @@ import { VOICE_SUPPORTED } from '../../voice/conversation';
 
 export type SettingsPageId =
   | 'updates'
+  | 'experience'
   | 'theme'
   | 'sessionsList'
   | 'chat'
@@ -36,6 +37,10 @@ export type SettingsPageId =
 
 export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, { title: string; description: string }>> = {
   updates: { title: 'Updates', description: 'The app, the update it runs, and what is waiting.' },
+  experience: {
+    title: 'Experience',
+    description: 'How many buttons and details this phone shows: Chill, Regular or Advanced.',
+  },
   theme: { title: 'Interface', description: 'Theme presets, colours, and the chat and terminal appearance.' },
   sessionsList: {
     title: 'Sidebar & Sessions',
@@ -66,6 +71,7 @@ export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, { title: string; de
 
 export const SETTINGS_PAGE_ORDER: readonly SettingsPageId[] = [
   ...(ANDROID_SELF_UPDATE_ENABLED || OTA_ENABLED ? (['updates'] as const) : []),
+  'experience',
   'theme',
   'sessionsList',
   'chat',

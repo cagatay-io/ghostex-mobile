@@ -221,7 +221,7 @@ export function OptionPills({
           </View>
         </Pressable>
       ) : null}
-      {context !== null && !optionsOverflowed && !modelOnly ? (
+      {context !== null && !optionsOverflowed && !modelOnly && document.composerRow?.hideContextRing !== true ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={str(context, 'label')}

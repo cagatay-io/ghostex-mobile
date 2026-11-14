@@ -67,7 +67,15 @@ export type ChatCoreEvent =
       type: 'settingsChanged';
       /** `toolCards`: Settings > Chat > Tool call cards; left out, the core keeps what it has. */
       /** `detailedDefault`: Default to Detailed view, the level a chat with no level of its own opens in. */
-      settings: { hideAccountEmails: boolean; title: string | null; toolCards?: boolean; detailedDefault?: boolean };
+      /** `composerRow` and `quietView`: Settings › Experience on this phone (src/settings/experience.ts). */
+      settings: {
+        hideAccountEmails: boolean;
+        title: string | null;
+        toolCards?: boolean;
+        detailedDefault?: boolean;
+        composerRow?: { modePicker: boolean; terminalButton: boolean; contextRing: boolean; maximize: boolean };
+        quietView?: { coordinators: boolean; chats: boolean; expandLast: boolean; calm: boolean };
+      };
     }
   | { type: 'contextPreferencesChanged'; provider: string; preferences: unknown }
   | { type: 'modelCatalogChanged'; catalog: unknown }

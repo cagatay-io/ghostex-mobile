@@ -23,6 +23,7 @@ import TerminalPage from './TerminalPage';
 import { SettingsPageBoundary } from './SectionBoundary';
 import TerminalPalettePage from './TerminalPalettePage';
 import ThemePage from './ThemePage';
+import ExperiencePage from './ExperiencePage';
 import UpdatesPage from './UpdatesPage';
 import VoicePage from './VoicePage';
 import { SettingsSearchFocusProvider, type SettingsSearchFocus } from './search/SettingsSearchAnchor';
@@ -57,6 +58,8 @@ function SettingsPageBody({ page }: { page: SettingsPageId }) {
   switch (page) {
     case 'updates':
       return <UpdatesPage />;
+    case 'experience':
+      return <ExperiencePage />;
     case 'theme':
       return <ThemePage />;
     case 'sessionsList':

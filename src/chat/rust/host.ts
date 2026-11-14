@@ -14,6 +14,7 @@
  * and timers answer later, each as a burst of its own. Bursts never interleave.
  */
 
+import { composerRowSettings } from '../../settings/experience';
 import { AppState, type AppStateStatus, type NativeEventSubscription } from 'react-native';
 
 import {
@@ -362,18 +363,35 @@ export class RustChatHost {
     // Tool call lines is a phone setting: the boot read carries it in (`boot.ts`), and a change
     // while the chat is open goes in here (gx-chat-core `tool_card.rs`). Default to Detailed view
     // rides along: the level a chat with no level of its own opens in.
+    // Settings › Experience's chat box switches and this phone's own Quiet View go in the same way
+    // (src/settings/experience.ts, gx-chat-core `composer/row.rs` and `quiet_view.rs`).
     const wantsCards = (settings: { chatToolCallLines: boolean }) => settings.chatToolCallLines;
     let toolCards = wantsCards(useSettingsStore.getState().settings);
     let detailedDefault = useSettingsStore.getState().settings.sessionChatDetailedView;
+    let composerRow = JSON.stringify(composerRowSettings(useSettingsStore.getState().settings));
+    let quietView = useSettingsStore.getState().settings.chatQuietView;
     this.unsubscribeToolCards = useSettingsStore.subscribe((store) => {
       const next = wantsCards(store.settings);
       const nextDetailed = store.settings.sessionChatDetailedView;
-      if (next === toolCards && nextDetailed === detailedDefault) return;
+      const nextRow = JSON.stringify(composerRowSettings(store.settings));
+      const nextQuiet = store.settings.chatQuietView;
+      if (next === toolCards && nextDetailed === detailedDefault && nextRow === composerRow && nextQuiet === quietView) {
+        return;
+      }
       toolCards = next;
       detailedDefault = nextDetailed;
+      composerRow = nextRow;
+      quietView = nextQuiet;
       this.enqueue({
         type: 'settingsChanged',
-        settings: { hideAccountEmails: false, title: this.title, toolCards: next, detailedDefault: nextDetailed },
+        settings: {
+          hideAccountEmails: false,
+          title: this.title,
+          toolCards: next,
+          detailedDefault: nextDetailed,
+          composerRow: composerRowSettings(store.settings),
+          ...(nextQuiet === null ? {} : { quietView: nextQuiet }),
+        },
       });
     });
     // This computer's model lineup, pushed on its chat socket; the `subscribe` effect hands over

@@ -78,6 +78,30 @@ export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords
     "options": [],
     "keywords": []
   },
+  "chatComposerContextRing": {
+    "title": "Context ring in the chat box",
+    "subtitle": "Show how full the agent's context is as a ring in the chat box. Off, it stays in ••• › More › Context window.",
+    "options": [],
+    "keywords": []
+  },
+  "chatComposerModePicker": {
+    "title": "Mode in the chat box",
+    "subtitle": "Show the mode picker (Auto, Plan, Bypass permissions and the like) in the chat box. Off, sessions run in Auto, or in Bypass permissions while Skip permissions is on. The phone has its own switch.",
+    "options": [],
+    "keywords": []
+  },
+  "chatComposerTerminalButton": {
+    "title": "Terminal button in the chat box",
+    "subtitle": "Show the Terminal View button in the chat box. Off, Terminal View is in the ••• menu, and the ••• button turns red with the reason when the terminal has a problem.",
+    "options": [],
+    "keywords": []
+  },
+  "chatQuietViewCalm": {
+    "title": "Calm Quiet View",
+    "subtitle": "Keep the turn that is running as one line that counts its time (Working · 1m 12s), and have each line name only its reports; open a line to see the tool calls and messages sent inside it. Experience's Chill turns it on.",
+    "options": [],
+    "keywords": []
+  },
   "chatToolCallLines": {
     "title": "Tool call lines",
     "subtitle": "Draw each run of an agent's tool calls as one quiet line that says what it is doing or did, with the calls as rows under it. Detailed view opens the lines, Simple keeps them shut. Off keeps the tool rows. Settings > Chat > Agent work set to Reduced or Quiet replaces these lines. Experimental, off by default.",
@@ -299,6 +323,66 @@ export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords
     "title": "Enable session parking",
     "subtitle": "Move deferred sessions into a collapsible Parked section at the bottom of the sidebar.",
     "options": [],
+    "keywords": []
+  },
+  "experienceChat": {
+    "title": "Chat",
+    "subtitle": "Chill: Quiet View keeps the running turn as one line with its time and names only reports. Regular and Advanced: Quiet View with the last turn open.",
+    "options": [
+      "Chill",
+      "chill",
+      "Regular",
+      "regular",
+      "Advanced",
+      "advanced",
+      "Custom",
+      "custom"
+    ],
+    "keywords": []
+  },
+  "experienceChatBox": {
+    "title": "Chat box",
+    "subtitle": "Chill: the field, the model, the effort, •••, attach, the mic and Send. Regular adds the mode and Maximize; the terminal is in •••. Advanced adds the terminal button and the context ring.",
+    "options": [
+      "Chill",
+      "chill",
+      "Regular",
+      "regular",
+      "Advanced",
+      "advanced",
+      "Custom",
+      "custom"
+    ],
+    "keywords": []
+  },
+  "experiencePreset": {
+    "title": "Experience",
+    "subtitle": "How many buttons and details Ghostex shows. Chill: a simple chat box and a calm chat. Regular: pick the model, the mode and the effort as you chat. Advanced: for people who use terminals more. Each area below follows it; change one and it says Custom.",
+    "options": [
+      "Chill",
+      "chill",
+      "Regular",
+      "regular",
+      "Advanced",
+      "advanced",
+      "Custom",
+      "custom"
+    ],
+    "keywords": []
+  },
+  "experienceSessionsList": {
+    "title": "Sessions list",
+    "subtitle": "Chill is the Sidebar's Minimal preset (no project icons, times or git numbers), Regular its Recommended, Advanced its Detailed (with last-active times).",
+    "options": [
+      "Chill",
+      "chill",
+      "Regular",
+      "regular",
+      "Advanced",
+      "advanced",
+      "Custom",
+      "custom"
+    ],
     "keywords": []
   },
   "groupWorkingSessions": {

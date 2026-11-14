@@ -35,6 +35,7 @@ import { GhostexPalette, mixHexColors, SidebarPalette } from '../../theme/palett
 import { isLightBackground, readableSecondaryText } from '../../theme/sidebarAppearance';
 import { useAppearance, type Appearance } from '../../theme/useAppearance';
 import { measureInWindow as measurePress } from '../common/measureInWindow';
+import { useSettingsStore } from '../../settings/store';
 import type { MenuAnchor } from './ContextMenu';
 import {
   CaretRightGlyph,
@@ -1180,11 +1181,17 @@ export function ProjectHeaderRow({
   home?: { onMenu: () => void };
 }) {
   const ink = useSidebarInk();
+  // Settings › Experience's Sessions list (src/settings/experience.ts): Chill draws no project icons.
+  const showProjectIcons = useSettingsStore((state) => state.settings.sessionsShowProjectIcons);
   return (
     <SidebarHeaderBox
       title={home !== undefined ? HOME_LABEL : title}
       leading={
-        home !== undefined ? <FlowerGlyph size={ds(16)} color={ink.muted} /> : <ProjectIcon icon={icon} title={title} />
+        home !== undefined ? (
+          <FlowerGlyph size={ds(16)} color={ink.muted} />
+        ) : showProjectIcons ? (
+          <ProjectIcon icon={icon} title={title} />
+        ) : null
       }
       collapsed={collapsed}
       containsActive={containsActive}

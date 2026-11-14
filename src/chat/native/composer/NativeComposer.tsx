@@ -40,6 +40,8 @@ import {
   moreActionsRows,
   optionMenuRows,
   overflowed,
+  rowFolded,
+  terminalIssue,
   sendMenuRows,
   type ComposerActionId,
   type ComposerControlId,
@@ -338,7 +340,7 @@ export function NativeComposer({
    */
   const voiceInMic = !compact && voiceAgent && dictation.available;
   const voiceShown = !compact && (voiceLit || (voiceAgent && !dictation.available));
-  const terminalFixed = !compact && available('terminal');
+  const terminalFixed = !compact && available('terminal') && !(document !== null && rowFolded(document, 'terminal'));
   const [footerWidth, setFooterWidth] = useState(0);
   const [optionsWidth, setOptionsWidth] = useState(0);
   const sentMeasurement = useRef('');
@@ -361,7 +363,7 @@ export function NativeComposer({
       actions:
         (fixed + controls.length) * (CONTROL_WIDTH + ACTION_GAP) +
         SEND_WIDTH +
-        (document.terminalTail?.readiness === 'notReady' ? COPY_REPORT_PILL_WIDTH + ACTION_GAP : 0),
+        (terminalFixed && document.terminalTail?.readiness === 'notReady' ? COPY_REPORT_PILL_WIDTH + ACTION_GAP : 0),
       footerGap: FOOTER_GAP,
       actionGap: ACTION_GAP,
       clearance: CLEARANCE,
@@ -966,9 +968,14 @@ export function NativeComposer({
                     <View style={styles.toolbar}>
                       <ToolbarButton
                         glyph="dots"
-                        label="More actions"
+                        label={
+                          document !== null && terminalIssue(document) !== null
+                            ? `More actions. Terminal problem: ${terminalIssue(document)}`
+                            : 'More actions'
+                        }
                         onPress={openMore}
                         disabled={document === null}
+                        tint={document !== null && terminalIssue(document) !== null ? NOT_READY_TINT : null}
                       />
                       {document !== null && !compact
                         ? COMPOSER_CONTROLS.filter(
