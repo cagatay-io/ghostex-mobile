@@ -1,7 +1,15 @@
 import { useRef, useState } from 'react';
-import { AccessibilityInfo, Pressable, StyleSheet, View, type AccessibilityActionEvent } from 'react-native';
+import {
+  AccessibilityInfo,
+  Pressable,
+  StyleSheet,
+  View,
+  type AccessibilityActionEvent,
+  type ViewInstance,
+} from 'react-native';
 import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
 
+import { measureInWindow } from '../../components/common/measureInWindow';
 import ContextMenu from '../../components/sessions/ContextMenu';
 import { MenuGlyph } from '../../components/sessions/icons';
 import { useSidebarInk } from '../../components/sessions/rows';
@@ -29,9 +37,11 @@ import { SESSION_TAG_SECTIONS } from '../../contract/sessionTags';
 import { STATUS_GROUP_LOOK } from '../../contract/unified/sessionGroups';
 import { SessionGroupsCopy } from '../../copy';
 import { setSidebarSetting } from '../../settingsSync/settingsSync';
+import { currentSidebarOrganization } from '../../settingsSync/sidebarOrganization';
 import { useAppearance } from '../../theme/useAppearance';
 import { SettingsSection } from './SectionBoundary';
-import { Caption, SectionHeader, ToggleRow } from './SettingsControls';
+import { Caption, SectionHeader, ToggleRow, useSettingsStyles } from './SettingsControls';
+import { cancelTagDrag, dropTag, liftTag, type RowFrame, type TagDragDeps, type TagDragState } from './sessionTagDrag';
 
 const BUILTIN_LABELS: Readonly<Record<string, string>> = Object.fromEntries(
   SESSION_TAG_SECTIONS.flatMap((section) => section.options.map((option) => [option.value, option.label])),
@@ -54,8 +64,6 @@ const MOVE_ACTIONS = [
   { name: 'moveUp', label: SessionGroupsCopy.tags.moveUp },
   { name: 'moveDown', label: SessionGroupsCopy.tags.moveDown },
 ];
-
-type RowFrame = { y: number; height: number };
 
 /**
  * Settings › Sidebar & Sessions › Session Tags: the desktop's Tag filter list (`sidebarSessionTagListItems`), one
@@ -85,14 +93,11 @@ export function SessionTagsSection({
   const catalog = summary?.customSessionTags ?? EMPTY_CUSTOM_SESSION_TAGS;
   const list = normalizeTagListItems(items, summary === null ? null : catalog);
   const listed = listedTagItems(list, grouping);
-  const stored = JSON.stringify(storedTagListItems(list));
-  /** The list as last drawn, which a drop compares with the one its drag started on. */
-  const current = useRef(stored);
-  current.current = stored;
+  const listRef = useRef<ViewInstance | null>(null);
   const frames = useRef(new Map<string, RowFrame>());
   const [drag, setDrag] = useState<{ id: string; dy: number } | null>(null);
-  /** The dragged entry and the list its drag started on, read by the drop whatever render its gesture last saw. */
-  const lifted = useRef<{ id: string; from: string } | null>(null);
+  /** The drag under way, changed only by the gesture's events (sessionTagDrag.ts). */
+  const dragState = useRef<TagDragState>({ lifted: null });
   const [menuFor, setMenuFor] = useState<string | null>(null);
 
   const label = (item: TagListItem): string =>
@@ -116,28 +121,25 @@ export function SessionTagsSection({
     else if (event.nativeEvent.actionName === 'moveDown') move(item, at + 1);
   };
 
-  /** Where a dragged row's centre falls among the listed rows' frames; `null` outside the list. */
-  const dropPosition = (id: string, dy: number): number | null => {
-    const start = frames.current.get(id);
-    if (start === undefined) return null;
-    const centre = start.y + start.height / 2 + dy;
-    for (const [index, item] of listed.entries()) {
-      const frame = frames.current.get(item.id);
-      if (frame !== undefined && centre >= frame.y && centre < frame.y + frame.height) return index;
-    }
-    return null;
+  const dragDeps: TagDragDeps = {
+    // The list the stores hold at the event, which a drop compares with the one its drag started on.
+    readList: () =>
+      normalizeTagListItems(
+        currentSidebarOrganization(summary).sidebarSessionTagListItems,
+        summary === null ? null : catalog,
+      ),
+    grouping,
+    write,
+    announce: (item, position) =>
+      AccessibilityInfo.announceForAccessibility(SessionGroupsCopy.tags.moved(label(item), position + 1)),
   };
-  const drop = (item: TagListItem, dy: number): void => {
-    const started = lifted.current;
-    lifted.current = null;
+  const drop = (item: TagListItem, finger: { x: number; y: number }): void => {
     setDrag(null);
-    // A list that changed during the drag (an edit synced in) is not overwritten by the stale one.
-    if (started === null || started.id !== item.id || started.from !== current.current) return;
-    const position = dropPosition(item.id, dy);
-    if (position !== null) move(item, position);
+    // The list's frame now, in the finger's window coordinates, so the page's scroll counts.
+    measureInWindow(listRef, (frame) => dropTag(dragState.current, dragDeps, item.id, finger, frame, frames.current));
   };
   const cancel = (): void => {
-    lifted.current = null;
+    cancelTagDrag(dragState.current);
     setDrag(null);
   };
 
@@ -154,7 +156,7 @@ export function SessionTagsSection({
       <Caption>{SessionGroupsCopy.tags.reorderCaption}</Caption>
       {grouping ? <Caption>{SessionGroupsCopy.tags.statusCaption}</Caption> : null}
       <Caption>{SessionGroupsCopy.tags.syncCaption}</Caption>
-      <View>
+      <View ref={listRef} collapsable={false}>
         {listed.map((item, at) => {
           const name = label(item);
           const dy = drag !== null && drag.id === item.id ? drag.dy : null;
@@ -175,11 +177,11 @@ export function SessionTagsSection({
                 onOpenMenu={() => setMenuFor(item.id)}
                 onAccessibilityAction={onAction(item, at)}
                 onLift={() => {
-                  lifted.current = { id: item.id, from: current.current };
+                  liftTag(dragState.current, dragDeps, item.id);
                   setDrag({ id: item.id, dy: 0 });
                 }}
                 onMove={(dy) => setDrag((was) => (was === null || was.id !== item.id ? was : { ...was, dy }))}
-                onDrop={(dy) => drop(item, dy)}
+                onDrop={(finger) => drop(item, finger)}
                 onCancel={cancel}
               />
               <View style={styles.toggle}>
@@ -253,15 +255,16 @@ function ReorderHandle({
   onAccessibilityAction: (event: AccessibilityActionEvent) => void;
   onLift: () => void;
   onMove: (dy: number) => void;
-  onDrop: (dy: number) => void;
+  onDrop: (finger: { x: number; y: number }) => void;
   onCancel: () => void;
 }) {
+  const settingsStyles = useSettingsStyles();
   const pan = usePanGesture({
     activateAfterLongPress: LIFT_HOLD_MS,
     runOnJS: true,
     onActivate: onLift,
     onUpdate: (event) => onMove(event.translationY),
-    onDeactivate: (event) => (event.canceled ? onCancel() : onDrop(event.translationY)),
+    onDeactivate: (event) => (event.canceled ? onCancel() : onDrop({ x: event.absoluteX, y: event.absoluteY })),
     // A touch the system took: the row goes back and nothing is written (nothing once the drop above ended it).
     onFinalize: onCancel,
   });
@@ -273,7 +276,7 @@ function ReorderHandle({
         accessibilityActions={MOVE_ACTIONS}
         onAccessibilityAction={onAccessibilityAction}
         onPress={onOpenMenu}
-        style={styles.handle}
+        style={({ pressed }) => [styles.handle, pressed ? settingsStyles.rowPressed : null]}
       >
         <MenuGlyph size={18} color={color} />
       </Pressable>

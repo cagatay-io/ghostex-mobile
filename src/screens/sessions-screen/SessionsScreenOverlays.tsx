@@ -49,6 +49,7 @@ import { machineDisplayLabel, machineName, type MachineRecord } from '../../mach
 import type { RootStackParamList } from '../../navigation/types';
 import { plural } from '../../plural';
 import { renameInitialTitle, runSessionCommand as runSessionCommandOnMachine } from '../../sessions/sessionCommands';
+import { setGroupSessionsByTags } from '../../settingsSync/groupingSwitch';
 import { setSidebarSetting } from '../../settingsSync/settingsSync';
 import type { Appearance } from '../../theme/useAppearance';
 import { closeConfirmCopy } from './close-confirm';
@@ -135,7 +136,7 @@ function sortFilterItems(
         key: 'group-by-tags',
         label: SessionGroupsCopy.switchLabel,
         selected: grouping,
-        onPress: () => setSidebarSetting('groupSessionsByTags', !grouping),
+        onPress: () => setGroupSessionsByTags(!grouping, summary),
       },
     );
     // No Moving section while the groups are on, so no row for it either; its setting is kept.

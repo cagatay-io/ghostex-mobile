@@ -2,6 +2,7 @@ import { SessionGroupsCopy } from '../../copy';
 import { useInventoryStore } from '../../inventory/store';
 import { useMachinesStore } from '../../machines/store';
 import { useSettingsStore } from '../../settings/store';
+import { setGroupSessionsByTags } from '../../settingsSync/groupingSwitch';
 import { setSidebarSetting } from '../../settingsSync/settingsSync';
 import { useSidebarOrganization, type SidebarOrganization } from '../../settingsSync/sidebarOrganization';
 import { useSyncedEntriesStore } from '../../settingsSync/syncedEntries';
@@ -85,7 +86,12 @@ export default function SessionsListPage() {
             )}
         {unified ? (
           <>
-            {toggle('groupSessionsByTags', SessionGroupsCopy.switchLabel, SessionGroupsCopy.switchDetail)}
+            <ToggleRow
+              label={SessionGroupsCopy.switchLabel}
+              detail={SessionGroupsCopy.switchDetail}
+              value={organization.groupSessionsByTags}
+              onValueChange={(next) => setGroupSessionsByTags(next, selectedSummary)}
+            />
             {toggle(
               'unifiedWorkingSection',
               'Moving section',
