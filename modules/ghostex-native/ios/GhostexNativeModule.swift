@@ -109,6 +109,18 @@ final class TailcatClientKeyException: GenericException<String> {
     override var reason: String { "Could not load the Easy Connect client key. (\(param))" }
 }
 
+/// Who takes a shell that `openTerminal` started, decided once it has started.
+private enum StartedShellOwner {
+    /// The open's entry, still the live one under its key on the machine's current connection.
+    case entry
+    /// Nobody: the terminal was closed, or a newer open took its key.
+    case superseded
+    /// Nobody: `disconnect` took the entry down with its machine's connection.
+    case disconnected
+    /// Nobody: the entry is still registered, but its connection was replaced or dropped.
+    case staleConnection
+}
+
 // MARK: - Module
 
 public class GhostexNativeModule: Module {
@@ -272,6 +284,7 @@ public class GhostexNativeModule: Module {
             // finish cleanly.
             await MainActor.run {
                 for entry in GhostexTerminalRegistry.shared.entries(forMachineId: machineId) {
+                    entry.removedByDisconnect = true
                     entry.teardown()
                     _ = GhostexTerminalRegistry.shared.remove(entry.sessionKey)
                     self.sendTerminalState(entry.sessionKey, state: "closed")
@@ -609,22 +622,41 @@ public class GhostexNativeModule: Module {
                     startupCommand: command
                 )
             } catch {
-                await MainActor.run {
+                // Only this open's own entry comes out. One that a close or a newer open of the
+                // same key already removed has had its state sent, and a newer entry is not ours.
+                let removedOwnEntry = await MainActor.run { () -> Bool in
                     entry.teardown()
-                    _ = GhostexTerminalRegistry.shared.remove(sessionKey)
+                    return GhostexTerminalRegistry.shared.remove(entry)
                 }
                 let exception = ghostexException(from: error)
-                self.sendTerminalState(
-                    sessionKey,
-                    state: "failed",
-                    error: exception.reason,
-                    errorCode: exception.code
-                )
+                if removedOwnEntry {
+                    self.sendTerminalState(
+                        sessionKey,
+                        state: "failed",
+                        error: exception.reason,
+                        errorCode: exception.code
+                    )
+                }
                 throw exception
             }
 
-            // SSH channel bytes -> ghostty_surface_feed_data, entirely natively.
-            await MainActor.run {
+            // The shell started while the terminal may have been closed, its key taken by a newer
+            // open, or its connection replaced or dropped. It goes to this entry only while the
+            // entry is still the live one under its key on the connection that is still the
+            // machine's; otherwise it is handed back to the connection that started it to be
+            // closed, and no "open" is sent for it.
+            let owner = await MainActor.run { () -> StartedShellOwner in
+                let registry = GhostexTerminalRegistry.shared
+                guard !entry.isClosed, registry.entry(for: sessionKey) === entry else {
+                    return entry.removedByDisconnect ? .disconnected : .superseded
+                }
+                guard GhostexConnectionStore.shared.connection(for: machineId) === connection else {
+                    registry.remove(entry)
+                    entry.teardown()
+                    return .staleConnection
+                }
+
+                // SSH channel bytes -> ghostty_surface_feed_data, entirely natively.
                 entry.shellId = handle.id
                 entry.pumpTask = Task { [weak self, weak entry] in
                     for await data in handle.stream {
@@ -644,9 +676,33 @@ public class GhostexNativeModule: Module {
                         self?.sendTerminalState(entry.sessionKey, state: "closed")
                     }
                 }
+                return .entry
             }
 
-            self.sendTerminalState(sessionKey, state: "open")
+            switch owner {
+            case .entry:
+                self.sendTerminalState(sessionKey, state: "open")
+            case .superseded:
+                // Its terminal was closed or its key taken by a newer open, and that close or open
+                // sent the key's state. The call resolves without an "open": the caller's tab is
+                // gone or belongs to that newer open now, and a rejection would be taken for it.
+                await connection.closeShell(handle.id)
+            case .disconnected:
+                // `disconnect` already sent "closed", which a tab that is still opening ignores; the
+                // rejection is what ends its wait.
+                await connection.closeShell(handle.id)
+                throw GhostexException(code: .notConnected, reason: "Machine \(machineId) is not connected")
+            case .staleConnection:
+                await connection.closeShell(handle.id)
+                let exception = GhostexException(code: .notConnected, reason: "Machine \(machineId) is not connected")
+                self.sendTerminalState(
+                    sessionKey,
+                    state: "failed",
+                    error: exception.reason,
+                    errorCode: exception.code
+                )
+                throw exception
+            }
         }
 
         AsyncFunction("closeTerminal") { (sessionKey: String) async in

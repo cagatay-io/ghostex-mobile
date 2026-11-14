@@ -93,6 +93,12 @@ isConnected(machineId: string): Promise<boolean>;
 exec(machineId: string, command: string, timeoutMs?: number): Promise<{ stdout: string; stderr: string; exitCode: number }>;
 
 // PTY terminal lifecycle. command==null → interactive login shell; else run command in PTY.
+// openTerminal (iOS), when its shell starts after the terminal stopped waiting for it: closed by `closeTerminal` or
+// taken over by a newer open of its key, it resolves without sending any state (that close or open sent its own);
+// taken down by `disconnect`, it rejects with E_NOT_CONNECTED (`disconnect` sent `closed`); still registered while its
+// connection was replaced or dropped, it sends `failed` and rejects with E_NOT_CONNECTED. No `open` is sent for such a
+// shell, and it is handed to its connection to close, which keeps driving the close until libssh2 frees the channel
+// or the session ends.
 openTerminal(sessionKey: string, machineId: string, opts: {
   command?: string; termType?: string;      // default "xterm-256color"
   fontSize?: number;                        // initial pt/sp
