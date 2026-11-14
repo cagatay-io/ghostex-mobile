@@ -11,6 +11,7 @@ import {
   type GhostexSummaryCapabilities,
 } from '../mobileSummary';
 import { withoutGbots } from '../gbotsFilter';
+import { effectiveSessionTag } from '../sessionTags';
 import { collectionIdByProjectId, orderedSpaces } from '../../spaces/spaceFilter';
 import { filterSummaryForWorkspace } from '../../workspaces/workspaceFilter';
 import {
@@ -65,6 +66,9 @@ export function unifiedSessionInput(
     // The desktop counts a program's `error` as Failed only once its turn is over (gx-core rows.rs).
     programStatusFailed: session.programStatusFailed === true && session.activity === 'attention',
     hasBackgroundWork: (session.backgroundWorkDetectedAt ?? '') !== '',
+    attentionKind: session.attentionKind,
+    attentionHandoverNeedsYou: session.attentionHandoverNeedsYou,
+    sessionTag: effectiveSessionTag(session),
     isPinned: session.isPinned === true,
     isParked: session.isParked === true,
     isDraft: session.isDraft === true,

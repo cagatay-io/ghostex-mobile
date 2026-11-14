@@ -42,7 +42,7 @@ import { folderAskAiPrompt, folderFixedWords, type FolderProblemView } from '../
 import type { recentProjectsWithoutGbots } from '../../contract/gbotsFilter';
 import { machineSessionCounts, tileStatusLines, type TileStatusCounts } from '../../contract/grouping';
 import { NO_SUMMARY_CAPABILITIES, type GhostexMobileSummary } from '../../contract/mobileSummary';
-import { ProgressCopy, RenameCopy, SessionCopy, SessionNoteCopy, StateCardCopy } from '../../copy';
+import { ProgressCopy, RenameCopy, SessionCopy, SessionGroupsCopy, SessionNoteCopy, StateCardCopy } from '../../copy';
 import { useInventoryStore, type MachineInventory } from '../../inventory/store';
 import LinksSheet from '../../links/LinksSheet';
 import { machineDisplayLabel, machineName, type MachineRecord } from '../../machines/store';
@@ -121,6 +121,7 @@ function sortFilterItems(
     { kind: 'separator', key: 'sep-view' },
   ];
   if (unifiedOn) {
+    const grouping = summary?.groupSessionsByTags === true;
     items.push(
       {
         kind: 'item',
@@ -131,12 +132,22 @@ function sortFilterItems(
       },
       {
         kind: 'item',
+        key: 'group-by-tags',
+        label: SessionGroupsCopy.switchLabel,
+        selected: grouping,
+        onPress: () => setSidebarSetting('groupSessionsByTags', !grouping),
+      },
+    );
+    // No Moving section while the groups are on, so no row for it either; its setting is kept.
+    if (!grouping) {
+      items.push({
+        kind: 'item',
         key: 'moving-section',
         label: 'Moving Section',
         selected: summary?.unifiedWorkingSection !== false,
         onPress: () => setSidebarSetting('unifiedWorkingSection', summary?.unifiedWorkingSection === false),
-      },
-    );
+      });
+    }
     // Session order, as the desktop's Sort & Filter lists it (CDXC:Sidebar 2026-11-17 in gx-core
     // unified_sidebar/build.rs `unified_session_cmp`).
     const sessionOrder = summary?.unifiedSessionOrder ?? 'recent';

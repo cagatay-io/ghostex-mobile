@@ -334,6 +334,45 @@ export const WallCopy = {
 } as const;
 
 /**
+ * Group sessions by tags: the Unified list's group headers, the switch in Sort & Filter and Settings, and the Session
+ * Tags settings' status entries and reordering (the approved status-groups design's words).
+ */
+export const SessionGroupsCopy = {
+  switchLabel: 'Group sessions by tags',
+  switchDetail: 'Group Unified by the Session Tags order. Change the order in Session Tags.',
+  movingKept: 'The Moving section is not shown while grouping is on. Its setting is kept.',
+  /** The status entries' names, which are also their groups' headers. */
+  status: {
+    'status-needs-you': 'Needs you',
+    'status-question': 'Question',
+    'status-error': 'Error',
+    'status-finished': 'Finished (not yet read)',
+    'status-working': 'Working',
+    'status-idle': 'Idle',
+  },
+  noTag: 'No tag',
+  /** The quiet caption of a status entry in Session Tags. */
+  statusCaption: 'Status',
+  /** A group header or a project heading inside a group, for VoiceOver: "Needs you, 1 card". */
+  headerLabel: (name: string, count: number) => `${name}, ${count} ${count === 1 ? 'card' : 'cards'}`,
+  tags: {
+    reorderCaption:
+      'Drag a handle to reorder, or tap it for Move Up and Move Down. Add, rename or delete tags on a computer.',
+    statusCaption:
+      'Status follows the agent. These entries are never offered in Tag As. The first enabled entry that applies sets the group.',
+    syncCaption:
+      'The order changes on this phone now. It reaches a connected computer at the next exchange only while Carry settings between computers is on and that computer syncs Sidebar organization. Otherwise it stays on this phone.',
+    handleLabel: (name: string, position: number, total: number) => `Move ${name}, position ${position} of ${total}`,
+    menuTitle: (name: string, position: number) => `${name}, position ${position}`,
+    moveUp: 'Move Up',
+    moveDown: 'Move Down',
+    moveToTop: 'Move to top',
+    done: 'Done',
+    moved: (name: string, position: number) => `${name} moved to position ${position}.`,
+  },
+} as const;
+
+/**
  * The folded triage: the waiting sessions above the Sessions list on the iPhone Duo's outer display (the triage
  * design's words). Allow and Deny are the chat's approval card's labels.
  */
