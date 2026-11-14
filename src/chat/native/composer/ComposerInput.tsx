@@ -22,6 +22,7 @@ import {
 import GhostexImageIntakeView from '../../../../modules/ghostex-native/src/GhostexImageIntakeView';
 import type { ComposerModelState } from '../../rust/composer';
 import type { RustChat } from '../../rust/useRustChat';
+import { dottedUnderline } from '../transcript/LinkWords';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 import {
   draftOffset,
@@ -240,10 +241,13 @@ export const ComposerInput = forwardRef<
       plain += text.shown.slice(cursor, chip.bodyStart);
       if (plain.length > 0) parts.push(<Text key={`text:${index}`}>{plain}</Text>);
       const tint = P.reference[chip.reference.kind] ?? P.reference.file;
-      // CDXC:SessionChat 2026-11-13 DECISION: User, answering the session-mention design page: Q3062 "the phone's chat box shows the mention as the tinted run". A session's run takes the sent pill's ink (its foreground title on the ink its frame is drawn in, `SessionPill`) instead of the reference palette's grey, so it reads as the same thing before and after Send. Its corners stay square and its size the field's: a run inside a `TextInput` is a nested text span, which takes no border radius on either platform, and the field's one size keeps every line, and the caret on it, the same height.
-      const look = chip.reference.kind === 'session' ? { color: P.foreground, backgroundColor: P.ink(0.14) } : { color: tint, backgroundColor: `${tint}26` };
+      // CDXC:SessionChat 2026-11-15 DECISION: User, after mentions lost their frame in the chat (CDXC:SessionChat 2026-11-15 on `mention_card` in gx-chat-core): the chat box too, "plain text with the same faint dotted underline ... instead of the framed pill, keeping it one piece for delete and cursor moves". A session's run is the field's own text in the sent name's ink with the faint dotted underline (`dottedUnderline`, Android draws it solid), no fill; the caret still steps over it whole. Supersedes the tinted run of 2026-11-13 (Q3062). Other references keep their tinted run.
+      const look =
+        chip.reference.kind === 'session'
+          ? [{ color: P.foreground }, dottedUnderline(P.foreground)]
+          : [styles.chip, { color: tint, backgroundColor: `${tint}26` }];
       parts.push(
-        <Text key={`chip:${index}`} style={[styles.chip, look]}>
+        <Text key={`chip:${index}`} style={look}>
           {text.shown.slice(chip.bodyStart, chip.bodyEnd)}
         </Text>,
       );
