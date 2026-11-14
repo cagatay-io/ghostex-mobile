@@ -45,7 +45,17 @@ export type ComposerModelState = {
    * the send takes it along (core `composer/attaching.rs`). Desktop: `composer_attach.rs`.
    */
   heldSend: SubmitMode | null;
+  /**
+   * Pictures whose upload failed twice (`RustChatHost.attachFiles` tries again once by itself): they stay in the chat
+   * box, marked failed, and the next Send uploads them again and takes them along.
+   * CDXC:Clipboard 2026-11-15 DECISION (issue #618, Q3274 A): a failed picture never leaves the chat box; Ghostex
+   * retries once by itself, then shows it failed; pressing Send again retries the upload (not a tap on the picture).
+   */
+  failedPictures: readonly FailedPicture[];
 };
+
+/** A picture still on the phone whose upload failed (`ComposerModelState.failedPictures`). */
+export type FailedPicture = { key: number; uri: string; name?: string; error: string };
 
 export type ComposerHooks = {
   dispatch(action: UserAction): void;
@@ -69,6 +79,7 @@ export class ComposerModel {
     ready: false,
     pendingSend: false,
     heldSend: null,
+    failedPictures: [],
   };
 
   /**
@@ -248,17 +259,32 @@ export class ComposerModel {
 
   /**
    * Upload `id` ended; with `references` its pills are on their way (`attachmentReferences`),
-   * unless a send took it, whose message they go to instead.
+   * unless a send took it, whose message they go to instead. Answers whether a send had taken it.
    */
-  uploadFinished(id: number, references: boolean): void {
+  uploadFinished(id: number, references: boolean): boolean {
     const claimed = this.uploads.claimed.indexOf(id);
     if (claimed >= 0) {
       this.uploads.claimed.splice(claimed, 1);
-      return;
+      return true;
     }
     const at = this.uploads.saving.indexOf(id);
     if (at >= 0) this.uploads.saving.splice(at, 1);
     if (references) this.uploads.inserting += 1;
+    return false;
+  }
+
+  /** A picture's upload failed for good: it stays in the chat box, marked failed (`failedPictures`). */
+  uploadFailed(picture: Omit<FailedPicture, 'key'>): void {
+    this.uploads.next += 1;
+    this.set({ failedPictures: [...this.state.failedPictures, { ...picture, key: this.uploads.next }] });
+  }
+
+  /** The failed pictures, taken out of the chat box for another upload (Send) or dropped (their remove button). */
+  takeFailedPictures(key?: number): FailedPicture[] {
+    const taken = this.state.failedPictures.filter((picture) => key === undefined || picture.key === key);
+    if (taken.length === 0) return [];
+    this.set({ failedPictures: this.state.failedPictures.filter((picture) => !taken.includes(picture)) });
+    return taken;
   }
 
   /** The held send goes once the pills it waited for are in. */

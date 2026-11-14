@@ -149,6 +149,12 @@ export type GhostexSettings = ThemeColourSettings & {
   /** Opacity percentage for sidebar collection-panel backgrounds and borders. */
   sidebarGroupsOpacityPercent: number;
   /**
+   * Bold coordinator title (Settings > Advanced > Sessions list, off by default): a coordinator's title in the
+   * Sessions list is drawn bold. Off, coordinators and their threads stand apart by icon, colour and dimmer thread
+   * text only (CDXC:Coordinators 2026-11-15, issue #618 Q3275: the user dislikes bold text).
+   */
+  sessionsBoldCoordinatorTitle: boolean;
+  /**
    * Which view chat-capable agent sessions open in when the user has not
    * flipped that session's own toggle yet (desktop-parity Default Agent View).
    */
@@ -326,6 +332,7 @@ export function defaultSettings(): GhostexSettings {
     workspaceBackgroundColor: '',
     terminalColorScheme: 'app',
     sidebarGroupsOpacityPercent: SIDEBAR_SURFACE_OPACITY_MIN,
+    sessionsBoldCoordinatorTitle: false,
     preferredAgentInterface: 'chat',
     sessionChatTheme: 'app',
     sessionChatCustomTranscriptWidthEnabled: false,
@@ -563,6 +570,7 @@ function sanitizeSettings(value: unknown): GhostexSettings {
     ...themeSettingsFromRecord(record, sidebarBackgroundTint, sidebarBackgroundContrast, defaults),
     ...(importedTerminalPalettes === undefined ? {} : { importedTerminalPalettes }),
     sidebarGroupsOpacityPercent,
+    sessionsBoldCoordinatorTitle: bool('sessionsBoldCoordinatorTitle', defaults.sessionsBoldCoordinatorTitle),
     preferredAgentInterface,
     sessionChatTheme,
     sessionChatCustomTranscriptWidthEnabled: bool(

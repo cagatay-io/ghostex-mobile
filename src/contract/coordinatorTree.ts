@@ -115,6 +115,14 @@ export type RowNesting = {
    * blue) in this case (they need to be overlapping dots pls)"). Absent when nothing has a dot.
    */
   foldedStatus?: FoldedStatus;
+  /**
+   * On a coordinator row with threads under it, folded or not: the status dots of its whole team (itself, its
+   * threads and theirs, at any depth), absent when none has a dot. An unfolded coordinator draws them in its status
+   * slot, so a coordinator with sub-coordinators under it still says its team works or needs you.
+   * CDXC:Coordinators 2026-11-15 DECISION (issue #618, Q3275): the user wants coloured status dots on each
+   * coordinator, no bold; a folded coordinator keeps `foldedStatus`, the same dots.
+   */
+  teamStatus?: FoldedStatus;
 };
 
 /**
@@ -335,8 +343,8 @@ export function nestCoordinatorThreads<S>(
     children.set(parent, [...list.filter((child) => !isOlder[child]), ...list.filter((child) => isOlder[child])]);
   }
   const isCollapsed = sessions.map((_, index) => children.has(index) && collapsedCoordinators.has(keys[index]));
-  const foldedStatus = (index: number): FoldedStatus | undefined => {
-    if (!isCollapsed[index]) return undefined;
+  const teamStatus = (index: number): FoldedStatus | undefined => {
+    if (!children.has(index)) return undefined;
     const status: FoldedStatus = {
       working: false,
       attention: false,
@@ -353,6 +361,7 @@ export function nestCoordinatorThreads<S>(
       ? status
       : undefined;
   };
+  const foldedStatus = (index: number): FoldedStatus | undefined => (isCollapsed[index] ? teamStatus(index) : undefined);
   const result: NestedSessions<S> = { sessions: [], sections: new Map(), nesting: new Map() };
   const foldedOf = sessions.map(() => false);
   const sectionOfRow = [...baseSections];
@@ -387,6 +396,7 @@ export function nestCoordinatorThreads<S>(
         olderShown: olderShown.has(keys[index]),
         containsActive: false,
         foldedStatus: foldedStatus(index),
+        teamStatus: teamStatus(index),
       });
     }
   };

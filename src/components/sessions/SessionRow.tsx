@@ -463,7 +463,8 @@ export default function SessionRow({
   const renameShake = useRenameShake(session);
   // The red approval dot wins over every other status (sessionStatus.ts `isAwaitingApproval`).
   const approval = isAwaitingApproval(session);
-  const foldedStatus = shownFoldedStatus(session, nesting?.foldedStatus);
+  // A coordinator's team dots: folded, the threads the fold hides; unfolded, its whole team (coordinatorTree.ts `teamStatus`).
+  const foldedStatus = shownFoldedStatus(session, nesting?.foldedStatus ?? nesting?.teamStatus);
   const question =
     hasQuestion(session.pendingQuestionCount, capabilities.awaitingAnswer && session.awaitingAnswer) &&
     foldedStatus === undefined &&
@@ -491,6 +492,15 @@ export default function SessionRow({
     session.isDraft === true &&
     iconId !== 'browser';
   const depth = nesting?.depth ?? 0;
+  /*
+   * CDXC:Coordinators 2026-11-15 DECISION (issue #618, Q3275): "no bold" (the user dislikes bold text). A coordinator
+   * and its threads stand apart by the crown, colour and dimmer thread text: a coordinator's title is the bright
+   * selected-title ink, a thread's sits between the row text and the muted ink. Settings > Advanced > Bold coordinator
+   * title (off by default) bolds the coordinator's title for people who want it.
+   */
+  const boldCoordinatorTitle = useSettingsStore((state) => state.settings.sessionsBoldCoordinatorTitle);
+  const coordinatorTitle = session.isCoordinator === true;
+  const threadTitle = !coordinatorTitle && depth > 0;
   const indent = ds(depth * THREAD_INDENT);
   const iconLeft = (inCard ? ds(5) : ds(26)) + indent;
   const showChevron = onToggleThreads !== undefined && (nesting?.threadCount ?? 0) > 0;
@@ -673,6 +683,8 @@ export default function SessionRow({
             style={[
               styles.title,
               inkStyle.title,
+              coordinatorTitle ? inkStyle.titleCoordinator : threadTitle ? inkStyle.titleThread : null,
+              coordinatorTitle && boldCoordinatorTitle ? styles.titleBold : null,
               active ? inkStyle.titleActive : null,
               { transform: [{ translateX: renameShake }] },
             ]}
@@ -927,6 +939,9 @@ const styles = StyleSheet.create({
     fontWeight: '300',
     lineHeight: ds(20),
   },
+  titleBold: {
+    fontWeight: '600',
+  },
   /* The desktop row lays its title, status slot and time out with a 6px gap. */
   trailing: {
     flexDirection: 'row',
@@ -1006,6 +1021,8 @@ const inkStyles = inkStyleSheets((ink) =>
     noteDot: { backgroundColor: ink.noteDot },
     title: { color: ink.text },
     titleActive: { color: ink.selectedText },
+    titleCoordinator: { color: ink.selectedText },
+    titleThread: { color: mixHexColors(ink.text, ink.muted, 55) },
     time: { color: ink.time },
     timeSleeping: { color: ink.timeSleeping },
   }),

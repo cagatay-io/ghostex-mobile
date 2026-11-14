@@ -17,16 +17,22 @@ export function UnifiedCrewCount({ row }: { row: UnifiedRow<GhostexSession> }) {
   return <CoordinatorBadgeView badge={badge} />;
 }
 
-/** Whether a row draws its folded dots in its status's place: it is folded and something under it, or itself, has a dot. */
+/**
+ * Whether a row draws its team's dots in its status's place: it has threads and something under it, or itself, has a
+ * dot. Folded or not: CDXC:Coordinators 2026-11-15 DECISION (issue #618, Q3275), coloured status dots on each
+ * coordinator, so an unfolded one (and one with sub-coordinators under it) still says its team works or needs you.
+ */
 export function showsFoldedStatus(row: UnifiedRow<GhostexSession>): boolean {
   const crew = row.crew;
-  if (crew === null || crew.open) return false;
-  const status = crew.foldedStatus;
+  if (crew === null) return false;
+  const status = crew.open ? crew.teamStatus : crew.foldedStatus;
   return status.working || status.attention || status.backgroundWork || status.question || status.approval;
 }
 
-/** The dots of everything a folded card hides, with its own status ([`showsFoldedStatus`]). */
+/** The dots of everything under a card, with its own status ([`showsFoldedStatus`]). */
 export function UnifiedFoldedStatus({ row, ringColor }: { row: UnifiedRow<GhostexSession>; ringColor: string }) {
   if (row.crew === null || !showsFoldedStatus(row)) return null;
-  return <FoldedStatusIndicator status={row.crew.foldedStatus} ringColor={ringColor} />;
+  return (
+    <FoldedStatusIndicator status={row.crew.open ? row.crew.teamStatus : row.crew.foldedStatus} ringColor={ringColor} />
+  );
 }

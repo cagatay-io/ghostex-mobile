@@ -332,7 +332,7 @@ export function ShellCommandCard({ message }: { message: ProjectedMessage }) {
   const look = useChatLook();
   const band = look.userStyle === 'band';
   const left = look.messageLayout === 'left';
-  const frame = band ? [styles.shellBand, { backgroundColor: userBandFill(theme) }] : { backgroundColor: theme.input };
+  const frame = band ? [styles.shellBand, { backgroundColor: userBandFill(theme) }] : { backgroundColor: theme.userBubble };
   const { disclosures } = useNativeChatUi();
   const card = obj(message.shellCard);
   const hasBody = card?.hasBody === true;

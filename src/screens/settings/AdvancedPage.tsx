@@ -189,6 +189,9 @@ export default function AdvancedPage() {
           onValueChange={(value) => setSetting('sidebarGroupsOpacityPercent', value)}
         />
         <Caption>Changes only group backgrounds and borders.</Caption>
+        {/* CDXC:Coordinators 2026-11-15 DECISION (issue #618, Q3275): coordinators stand apart without bold; bold is opt-in. */}
+        <SettingToggle settingKey="sessionsBoldCoordinatorTitle" label="Bold coordinator title" />
+        <Caption>Draws each coordinator's title in bold in the Sessions list.</Caption>
       </SettingsSection>
       <SettingsSection name="settings:advanced:ssh-connection">
         <SectionHeader title="SSH connection" />

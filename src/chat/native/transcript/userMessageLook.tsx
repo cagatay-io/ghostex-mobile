@@ -19,7 +19,7 @@ import { stepTowardHex } from '../../../theme/sidebarAppearance';
 import type { ChatLook, ProjectedMessage } from '../../rust/document';
 import { useTranscriptEnv } from './context';
 import { ImageRow } from './Images';
-import { DeliveryIndicator, UserActions } from './MessageActions';
+import { AttachingLine, DeliveryIndicator, UserActions } from './MessageActions';
 import { MessageLongPressContext } from './markdown/blockLongPress';
 import { MessageSelection } from './messageSelection';
 import { StartupDelivery } from './SystemRows';
@@ -61,7 +61,7 @@ export function LeftUserMessage({
   const band = look.userStyle === 'band';
   const frameStyle = band
     ? [styles.line, styles.band, { backgroundColor: userBandFill(theme) }]
-    : [styles.bubble, { backgroundColor: theme.input }];
+    : [styles.bubble, { backgroundColor: theme.userBubble }];
   // Under Band the icons sit inside the full-width line, at its right end.
   const inside = band;
   const words = inside ? <View style={styles.words}>{children}</View> : children;
@@ -97,6 +97,7 @@ export function LeftUserMessage({
         </View>
       )}
       {/* The not-sent note under the message, on its own side, as the desktop draws it. */}
+      <AttachingLine message={message} end={false} />
       <StartupDelivery message={message} waitingLine={false} end={false} />
       <UserActions message={message} start />
     </View>

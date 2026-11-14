@@ -47,8 +47,10 @@ type InlineContext = {
   find: RowFind | null;
   /** False in a prompt somebody sent: its pictures stay small thumbnails (`pictureRuns`). */
   strips: boolean;
-  /** The heading colour (levels 1 to 5): the theme's `primary` unless the row's lane sets one. */
+  /** The heading colour (levels 1 to 5): the theme's `foreground` unless the row's lane sets one. */
   heading: string;
+  /** Bold words' colour: the theme's `foreground`, or null to keep the running text's (a lane that sets its own headings). */
+  strong: string | null;
   /** The inline code colour: the theme's `primary` unless the row's Text strength raises it. */
   inlineCode: string;
   /** A table's body text: the row's running text colour. */
@@ -161,7 +163,7 @@ function renderInlines(
         );
       case 'strong':
         return (
-          <Text key={key} style={[style, styles.strong]}>
+          <Text key={key} style={[style, styles.strong, context.strong !== null ? { color: context.strong } : null]}>
             {renderInlines(inline.c, context, key)}
           </Text>
         );
@@ -427,8 +429,14 @@ const CODE_COLLAPSE_AFTER_LINES = 26;
 /** `styles.codeText` line height and `styles.codeBody` vertical padding. */
 const CODE_CAP = CODE_COLLAPSED_LINES * 17.5 + 12 * 2;
 
-/** `markdown-visual.json`: the shared heading sizes, gaps and leading. */
-const HEADING_SIZES = [0, 20, 18, 16, 14, 14, 14];
+/**
+ * The heading sizes, by level, and their leading (`markdown-visual.json` has the gaps).
+ * CDXC:SessionChat 2026-11-15 DECISION (issue #618, Q3270 A): "Bold text and headings look almost like body text".
+ * Headings are bigger than `markdown-visual.json`'s 20/18/16/14 (22/19/17/15.5 here), heavier (700) and in the
+ * foreground colour instead of the prose's; bold words take the foreground colour too. Phone only so far: the desktop
+ * still reads the shared sizes.
+ */
+const HEADING_SIZES = [0, 22, 19, 17, 15.5, 14, 14];
 const HEADING_LINE = 1.3;
 
 function CodeBlock({
@@ -1102,7 +1110,7 @@ export type MarkdownProps = {
   references?: unknown;
   /** The running text colour; defaults to the answer's prose tone. */
   color?: string;
-  /** The headings' colour; defaults to the theme's `primary` (Grey thinking sets it, desktop `thinking_lane`). */
+  /** The headings' colour; defaults to the theme's `foreground` (Grey thinking sets it, desktop `thinking_lane`), and a set one keeps bold words in the running colour. */
   headingColor?: string;
   /** The inline code colour; defaults to the theme's `primary` (Text strength sets it). */
   codeColor?: string;
@@ -1143,7 +1151,8 @@ export const Markdown = memo(function Markdown({
       selectable,
       find,
       strips,
-      heading: headingColor ?? theme.primary,
+      heading: headingColor ?? theme.foreground,
+      strong: headingColor === undefined ? theme.foreground : null,
       inlineCode: codeColor ?? theme.primary,
       body: color ?? theme.prose,
       issueLinkBase,
@@ -1198,7 +1207,7 @@ const styles = StyleSheet.create({
   blockGap: { marginTop: 10.4 },
   headingGap: { marginTop: 20 },
   headingBottom: { marginBottom: 0 },
-  heading: { fontWeight: '600' },
+  heading: { fontWeight: '700' },
   rule: { height: 1 },
   quote: { borderLeftWidth: 2, paddingLeft: 12 },
   alert: { borderLeftWidth: 2, paddingLeft: 12 },

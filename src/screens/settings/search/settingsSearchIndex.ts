@@ -844,6 +844,13 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
   },
   {
     page: 'advanced',
+    section: 'settings:advanced:sessions-list',
+    group: 'Sessions list',
+    title: 'Bold coordinator title',
+    description: "Draws each coordinator's title in bold in the Sessions list.",
+  },
+  {
+    page: 'advanced',
     section: 'settings:advanced:ssh-connection',
     group: 'SSH connection',
     title: 'Send keep-alive packets',

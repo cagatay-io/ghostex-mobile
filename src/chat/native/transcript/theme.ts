@@ -48,8 +48,14 @@ export type TranscriptTheme = {
   muted: string;
   cardMuted: string;
   border: string;
-  /** The user bubble, tool bodies and file cards. */
+  /** Tool bodies and file cards (and the user bubble before `userBubble`). */
   input: string;
+  /**
+   * Your message's bubble: a soft blue tint over the chat background, so your own messages are found at a glance.
+   * CDXC:SessionChat 2026-11-15 DECISION (issue #618, Q3270 A): "my own message bubble is nearly the same grey as the
+   * background"; the user picked stronger headings plus a soft blue bubble for their own messages.
+   */
+  userBubble: string;
   cardBackground: string;
   error: string;
   /** Inline code chips. */
@@ -151,6 +157,7 @@ export type TranscriptTheme = {
 type ChatSurfaceKey =
   | 'background'
   | 'input'
+  | 'userBubble'
   | 'border'
   | 'cardBackground'
   | 'cardPanel'
@@ -301,6 +308,10 @@ const LIGHT: ChatRoles = {
   mutedInk: (alpha) => `rgba(113,113,123,${alpha})`,
 };
 
+/** Your bubble's tint (`userBubble`): a calm blue, lighter over a dark chat so it reads as blue, not navy. */
+const USER_BUBBLE_BLUE = '#3b82f6';
+const USER_BUBBLE_BLUE_DARK = '#4a90d9';
+
 /**
  * The surfaces over the chat's work-area colour `background` (`ChatAppearance::resolve`): dark fills step toward
  * white, light ones toward black, and the light composer and cards a little toward white; menus take the sidebar
@@ -316,6 +327,12 @@ function chatSurfaces(roles: ChatRoles, background: string, menu: string): Pick<
   return {
     background,
     input: lifted(0.03, 0.032),
+    // A blue 30% over a dark background, 12% over a light one; a background that is not `#rrggbb` keeps the grey bubble.
+    userBubble: !/^#[0-9a-f]{6}$/iu.test(background.trim())
+      ? lifted(0.03, 0.032)
+      : light
+        ? mixHexColors(USER_BUBBLE_BLUE, background, 12)
+        : mixHexColors(USER_BUBBLE_BLUE_DARK, background, 30),
     border: lifted(0.062, 0.095),
     cardBackground,
     cardPanel: up(light ? 0.6 : 0.035),

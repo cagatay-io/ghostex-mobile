@@ -714,7 +714,8 @@ export function NativeComposer({
       rows: sendMenuRows({
         ready: model.ready,
         canQueue: document.queue.capabilities.canQueue === true,
-        hasDraft: model.text.trim().length > 0 || (document.pendingAttachments ?? 0) > 0,
+        hasDraft:
+          model.text.trim().length > 0 || (document.pendingAttachments ?? 0) > 0 || model.failedPictures.length > 0,
         hasText: model.text.trim().length > 0,
         working: document.working === true,
       }),
@@ -748,7 +749,8 @@ export function NativeComposer({
         }
       : null;
   const collapsed = motion.collapsed;
-  const hasDraft = text.trim().length > 0;
+  // A picture whose upload failed counts as a draft: Send uploads it again (`RustChatHost.retryFailedPictures`).
+  const hasDraft = text.trim().length > 0 || (model?.failedPictures.length ?? 0) > 0;
   const placeholder = phonePlaceholder(document?.composerPlaceholder ?? '', available('dictate'));
   const statusLine = document !== null && statusLineReserved(document);
   /*
@@ -891,6 +893,8 @@ export function NativeComposer({
                     active={activeImage}
                     dispatch={dispatch}
                     waiting={model?.heldSend != null}
+                    failed={model?.failedPictures}
+                    onDropFailed={chat.dropFailedPicture}
                   />
                 ) : null}
                 {document !== null ? <QueueList document={document} dispatch={dispatch} /> : null}

@@ -47,6 +47,11 @@ export type UnifiedCrew = {
   badge: CoordinatorBadge;
   /** While it is not open: the dots of every session under it, with its own. */
   foldedStatus: FoldedStatus;
+  /**
+   * Open or not: the dots of every session under it, with its own (`RowNesting.teamStatus`; CDXC:Coordinators
+   * 2026-11-15, issue #618 Q3275). Not part of gx-core's port: the phone draws it on an unfolded crew.
+   */
+  teamStatus: FoldedStatus;
   /** The focused session is under it and not drawn. */
   containsActive: boolean;
 };
@@ -255,13 +260,13 @@ export function nestUnifiedRows<S>(
       question: false,
       approval: false,
     };
-    if (!open) {
-      const stack: UnifiedRow<S>[] = [row];
-      for (let next = stack.pop(); next !== undefined; next = stack.pop()) {
-        addFolded(foldedStatus, next.session);
-        stack.push(...next.threads);
-      }
+    const teamStatus: FoldedStatus = { ...foldedStatus };
+    const stack: UnifiedRow<S>[] = [row];
+    for (let next = stack.pop(); next !== undefined; next = stack.pop()) {
+      addFolded(teamStatus, next.session);
+      stack.push(...next.threads);
     }
+    if (!open) Object.assign(foldedStatus, teamStatus);
     row.crew = {
       key,
       open,
@@ -274,6 +279,7 @@ export function nestUnifiedRows<S>(
       olderRow: open && !narrowed && !forced && total > listed,
       badge: badgeOf(tally),
       foldedStatus,
+      teamStatus,
       containsActive: false,
     };
     for (const child of row.threads) layOut(child, narrowingHere, child.subtreeMatched);
@@ -314,6 +320,10 @@ function lift<S>(top: UnifiedRow<S>): void {
   if (top.shelf === 'working') top.shelf = 'active';
 }
 
+function hasAnyDot(status: FoldedStatus): boolean {
+  return status.working || status.attention || status.backgroundWork || status.question || status.approval;
+}
+
 /** The `RowNesting` a project-list row in this place carries: its tree place and, for a row with threads, its crew (gx-core `UnifiedRow::nesting_at`). */
 export function nestingAt<S>(row: UnifiedRow<S>, spot: TreeSpot = TREE_ROOT): RowNesting {
   const crew = row.crew;
@@ -332,6 +342,7 @@ export function nestingAt<S>(row: UnifiedRow<S>, spot: TreeSpot = TREE_ROOT): Ro
     olderShown: crew?.olderShown ?? false,
     containsActive: crew?.containsActive ?? false,
     foldedStatus: anyDot ? folded : undefined,
+    teamStatus: crew !== null && hasAnyDot(crew.teamStatus) ? crew.teamStatus : undefined,
   };
 }
 

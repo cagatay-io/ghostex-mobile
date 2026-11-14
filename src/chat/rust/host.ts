@@ -194,6 +194,17 @@ function fileName(uri: string): string {
   }
 }
 
+/** How many times a picked file's upload is tried before it shows as failed: once more by itself (Q3274 A). */
+const UPLOAD_ATTEMPTS = 2;
+/** The wait before that second try, so a link that was waking up has come back. */
+const UPLOAD_RETRY_DELAY_MS = 1500;
+
+/** The error card's words when a message's picture failed to upload twice: Send uploads it again. */
+function pictureFailedMessage(reason: string | null): string {
+  const why = reason === null ? '' : ` (${reason.replace(/[.\s]+$/u, '')})`;
+  return `The picture couldn't be uploaded${why}. It is still in the chat box: press Send to try again.`;
+}
+
 export class RustChatHost {
   /** `JSON.stringify([machineId, projectId, sessionId])`, the retained transcript's key. */
   readonly retainedKey: string;
@@ -610,6 +621,8 @@ export class RustChatHost {
    */
   private submitCarrying(mode: SubmitMode): boolean {
     if (this.carryingSend) return false;
+    // Send uploads the pictures whose upload failed again; the message waits for them (core `composer/attaching.rs`).
+    this.retryFailedPictures();
     const text = this.composer.state.text;
     if (!this.composer.state.ready || !this.carrier.mayCarry(text)) return this.composer.submit(mode);
     this.carryingSend = true;
@@ -644,21 +657,57 @@ export class RustChatHost {
    */
   async attachFiles(files: readonly { uri: string; name?: string }[]): Promise<void> {
     if (files.length === 0) return;
-    // A send made before the upload lands takes it by this id (core `composer/attaching.rs`).
-    const id = this.composer.uploadStarted();
-    this.dispatch({ type: 'attachmentsStarted', id });
-    try {
-      const paths = await this.uploadLocalFiles(files);
-      this.composer.uploadFinished(id, paths.length > 0);
-      this.dispatch({ type: 'attachmentsFinished', id, paths });
-    } catch (error) {
-      this.composer.uploadFinished(id, false);
-      this.dispatch({
-        type: 'attachmentsFinished',
-        id,
-        error: error instanceof Error ? error.message : 'The attachment could not be uploaded.',
-      });
+    // Each file is its own upload, so one that fails stays in the chat box on its own while the others land. A send
+    // made before an upload lands takes it by its id (core `composer/attaching.rs`); the ids start before any await,
+    // so a Send pressed right after (`retryFailedPictures`) finds them on their way.
+    const started = files.map((file) => {
+      const id = this.composer.uploadStarted();
+      this.dispatch({ type: 'attachmentsStarted', id });
+      return { id, file };
+    });
+    for (const { id, file } of started) await this.attachOne(id, file);
+  }
+
+  /**
+   * One picked file's upload, tried again once by itself after a short wait (a link that was waking up, a dropped
+   * transfer). One that fails twice stays in the chat box, marked failed (`ComposerModel.uploadFailed`); a message
+   * that waited for it ends as a refused send does, its words back in the chat box with the error card saying why.
+   * CDXC:Clipboard 2026-11-15 DECISION (issue #618, Q3274 A).
+   */
+  private async attachOne(id: number, file: { uri: string; name?: string }): Promise<void> {
+    let failure: unknown = null;
+    for (let attempt = 0; attempt < UPLOAD_ATTEMPTS; attempt += 1) {
+      if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, UPLOAD_RETRY_DELAY_MS));
+      try {
+        const paths = await this.uploadLocalFiles([file]);
+        this.composer.uploadFinished(id, paths.length > 0);
+        this.dispatch({ type: 'attachmentsFinished', id, paths });
+        return;
+      } catch (error) {
+        failure = error;
+      }
     }
+    const reason = failure instanceof Error && failure.message.trim().length > 0 ? failure.message.trim() : null;
+    const claimed = this.composer.uploadFinished(id, false);
+    this.composer.uploadFailed({ uri: file.uri, ...(file.name !== undefined ? { name: file.name } : {}), error: reason ?? '' });
+    // Unclaimed, the picture's own failed mark says it; a waiting message comes back with the error card.
+    this.dispatch({
+      type: 'attachmentsFinished',
+      id,
+      ...(claimed ? { error: pictureFailedMessage(reason) } : {}),
+    });
+  }
+
+  /** Send: the pictures whose upload failed go up again (Q3274: pressing Send again retries the upload). */
+  private retryFailedPictures(): void {
+    const failed = this.composer.takeFailedPictures();
+    if (failed.length === 0) return;
+    void this.attachFiles(failed.map((picture) => ({ uri: picture.uri, ...(picture.name !== undefined ? { name: picture.name } : {}) })));
+  }
+
+  /** A failed picture's remove button: it leaves the chat box. */
+  dropFailedPicture(key: number): void {
+    this.composer.takeFailedPictures(key);
   }
 
   /**

@@ -2,7 +2,9 @@
  * The image tiles above the input (`attachment_previews.rs`): one 48pt thumbnail per image
  * reference in the draft, with its remove button (always shown: a phone has no hover), plus a
  * spinner tile per upload still in flight (`pendingAttachments`). Tapping a tile opens the image
- * viewer, as a click does on desktop.
+ * viewer, as a click does on desktop. A picture whose upload failed twice stays as a tile of its own, from the
+ * phone's copy, with a red mark and the words saying Send tries again (`ComposerModelState.failedPictures`;
+ * CDXC:Clipboard 2026-11-15 DECISION, issue #618 Q3274 A: never "tap the picture to retry", Send retries).
  */
 
 import { useEffect, useRef } from 'react';
@@ -14,6 +16,10 @@ import { openChatImageViewer, type ChatImage } from '../cards';
 import { Glyph } from './icons';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 import type { ComposerReference } from './references';
+import type { FailedPicture } from '../../rust/composer';
+
+/** Under the failed tiles: what happened, and that Send uploads them again. */
+export const PICTURE_FAILED_WORDS = "Couldn't upload. Press Send to try again.";
 
 export function AttachmentPreviews({
   references,
@@ -23,6 +29,8 @@ export function AttachmentPreviews({
   active,
   dispatch,
   waiting = false,
+  failed = [],
+  onDropFailed,
 }: {
   references: readonly ComposerReference[];
   pending: number;
@@ -32,6 +40,10 @@ export function AttachmentPreviews({
   draft: string;
   active: string | null;
   dispatch: (action: UserAction) => void;
+  /** Pictures whose upload failed, still in the chat box. */
+  failed?: readonly FailedPicture[];
+  /** A failed picture's remove button. */
+  onDropFailed?: (key: number) => void;
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
@@ -44,7 +56,7 @@ export function AttachmentPreviews({
       dispatch({ type: 'loadImage', path: tile.path });
     }
   }, [tiles, images, dispatch]);
-  if (tiles.length === 0 && pending === 0) return null;
+  if (tiles.length === 0 && pending === 0 && failed.length === 0) return null;
   const viewerImages: ChatImage[] = tiles.map((tile) => ({
     transport: 'read',
     path: tile.path,
@@ -93,6 +105,33 @@ export function AttachmentPreviews({
           <ActivityIndicator size="small" color={P.muted} />
         </View>
       ))}
+      {failed.map((picture) => (
+        <View key={`failed:${picture.key}`} style={styles.tileWrap}>
+          <View
+            accessible
+            accessibilityRole="image"
+            accessibilityLabel={`${picture.name ?? 'Picture'}: ${PICTURE_FAILED_WORDS}`}
+            style={[styles.tile, styles.tileFailed]}
+          >
+            <Image source={{ uri: picture.uri }} style={[styles.image, styles.imageFailed]} resizeMode="cover" />
+            <View pointerEvents="none" style={styles.failedMark}>
+              <Text style={styles.failedMarkText}>!</Text>
+            </View>
+          </View>
+          {onDropFailed !== undefined ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Remove image"
+              hitSlop={8}
+              onPress={() => onDropFailed(picture.key)}
+              style={styles.remove}
+            >
+              <Glyph name="x" size={10} color={P.foreground} strokeWidth={2.4} />
+            </Pressable>
+          ) : null}
+        </View>
+      ))}
+      {failed.length > 0 ? <Text style={styles.failedWords}>{PICTURE_FAILED_WORDS}</Text> : null}
       {waiting && pending > 0 ? <Text style={styles.waiting}>Sends once the image is attached</Text> : null}
     </View>
   );
@@ -115,6 +154,19 @@ const useStyles = themedStyles((P) => ({
   tileActive: { borderColor: P.foreground, borderWidth: 2 },
   image: { width: '100%', height: '100%' },
   waiting: { color: P.muted, fontSize: 12 },
+  tileFailed: { borderColor: P.error, borderWidth: 1.5 },
+  imageFailed: { opacity: 0.55 },
+  failedMark: {
+    position: 'absolute',
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: P.error,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  failedMarkText: { color: P.light ? '#ffffff' : '#1a0b0b', fontSize: 12, lineHeight: 14, fontWeight: '700' },
+  failedWords: { color: P.error, fontSize: 12, flexShrink: 1 },
   remove: {
     position: 'absolute',
     top: -6,

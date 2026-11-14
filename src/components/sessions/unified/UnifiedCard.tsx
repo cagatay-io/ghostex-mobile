@@ -28,6 +28,7 @@ import {
 } from '../../../contract/mobileSummary';
 import { SessionCopy } from '../../../copy';
 import { SidebarPalette } from '../../../theme/palette';
+import { useSettingsStore } from '../../../settings/store';
 import SwipeRevealRow from '../../../screens/machines-screen/SwipeRevealRow';
 import type { MenuAnchor } from '../ContextMenu';
 import { ChevronDownGlyph, ChevronRightGlyph, GitPullRequestGlyph, PencilGlyph, PlusGlyph } from '../icons';
@@ -288,6 +289,8 @@ export function UnifiedCard({
   const active = open || row.crew?.containsActive === true;
   const needsYou = row.status === 'Approval' || row.status === 'Question' || row.status === 'Done' || row.status === 'Failed';
   const ringColor = active ? selectedFill(sidebarBackground, ink) : sidebarBackground;
+  // Settings > Advanced > Bold coordinator title (CDXC:Coordinators 2026-11-15, issue #618 Q3275; SessionRow.tsx).
+  const boldCoordinatorTitle = useSettingsStore((state) => state.settings.sessionsBoldCoordinatorTitle);
   const status = showsFoldedStatus(row) ? (
     <UnifiedFoldedStatus row={row} ringColor={ringColor} />
   ) : (
@@ -352,7 +355,12 @@ export function UnifiedCard({
             {titleLineOnly && session.isPinned ? <PinFilledGlyph size={ds(13)} color={ink.muted} /> : null}
             <Text
               numberOfLines={1}
-              style={[styles.title, needsYou || active ? styles.titleBright : null, recede ? styles.recede : null]}
+              style={[
+                styles.title,
+                needsYou || active ? styles.titleBright : null,
+                recede ? styles.recede : null,
+                boldCoordinatorTitle && session.isCoordinator === true ? styles.titleBold : null,
+              ]}
             >
               {title}
             </Text>
@@ -589,6 +597,7 @@ const unifiedStyles = inkStyleSheets((ink) =>
     lineTwo: { minHeight: ds(20), flexDirection: 'row', alignItems: 'center', gap: ds(6) },
     title: { flex: 1, minWidth: 0, color: ink.text, fontSize: ds(15.5), fontWeight: '300', lineHeight: ds(20) },
     titleBright: { color: ink.selectedText },
+    titleBold: { fontWeight: '600' },
     recede: { opacity: 0.75 },
     lineThree: { height: ds(17), flexDirection: 'row', alignItems: 'center', gap: ds(5) },
     branch: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: ds(4) },

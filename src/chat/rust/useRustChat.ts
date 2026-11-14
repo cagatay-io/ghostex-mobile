@@ -34,6 +34,8 @@ export type RustChat = {
   setShown(shown: boolean): void;
   composer: RustChatHost['composerInput'] | null;
   attachFiles(files: readonly { uri: string; name?: string }[]): Promise<void>;
+  /** Removes a picture whose upload failed from the chat box (see `RustChatHost.dropFailedPicture`). */
+  dropFailedPicture(key: number): void;
   /** Uploads files to the machine and answers their paths (see `RustChatHost.uploadFiles`). */
   uploadFiles(files: readonly { uri: string; name?: string }[]): Promise<string[]>;
   /**
@@ -88,6 +90,7 @@ export function useRustChat(target: RustChatTarget | null): RustChat {
     (files: readonly { uri: string; name?: string }[]) => host?.attachFiles(files) ?? Promise.resolve(),
     [host],
   );
+  const dropFailedPicture = useCallback((key: number) => host?.dropFailedPicture(key), [host]);
   const uploadFiles = useCallback(
     (files: readonly { uri: string; name?: string }[]) => host?.uploadFiles(files) ?? Promise.resolve([]),
     [host],
@@ -116,6 +119,7 @@ export function useRustChat(target: RustChatTarget | null): RustChat {
       setShown,
       composer: host?.composerInput ?? null,
       attachFiles,
+      dropFailedPicture,
       uploadFiles,
       query,
       queryAsync,
@@ -130,6 +134,7 @@ export function useRustChat(target: RustChatTarget | null): RustChat {
       setTitle,
       setShown,
       attachFiles,
+      dropFailedPicture,
       uploadFiles,
       query,
       queryAsync,

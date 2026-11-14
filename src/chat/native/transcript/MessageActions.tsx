@@ -156,6 +156,28 @@ export function useReplyMenuActions(message: ProjectedMessage): MessageMenuActio
 }
 
 /**
+ * The words under your message while it waits for its picture to upload (core `composer/attaching.rs`): it shows at
+ * once with the picture's loading tile, and goes to the agent with the picture the moment it lands.
+ * CDXC:Clipboard 2026-11-15 DECISION (issue #618, Q3273 A): the message shows right away and waits for the picture;
+ * the waiting words read exactly "Image is being uploaded". Shown with the spinner, once the wait has lasted a moment.
+ */
+export const IMAGE_UPLOADING_WORDS = 'Image is being uploaded';
+
+export function AttachingLine({ message, end = true }: { message: ProjectedMessage; end?: boolean }) {
+  const { theme } = useTranscriptEnv();
+  const flags = useTranscriptFlags();
+  if (flags.attaching.get(message.id)?.status !== true) return null;
+  return (
+    <Text
+      accessibilityRole="text"
+      style={[styles.attachingLine, end ? styles.attachingLineEnd : null, { color: theme.muted }]}
+    >
+      {IMAGE_UPLOADING_WORDS}
+    </Text>
+  );
+}
+
+/**
  * Desktop's `delivery_indicator` (`startup_delivery.rs`): a spinner while the send waits for the
  * agent's terminal, a play button while the agent holds it queued behind its running turn, drawn
  * left of the bubble level with its last line. A tap on play interrupts the turn so the agent takes
@@ -188,7 +210,7 @@ export function DeliveryIndicator({ message, inline = false }: { message: Projec
             <Glyph name="arrow-back-up" size={13} color={theme.muted} />
           </Pressable>
         ) : null}
-        <View style={styles.button} accessibilityRole="progressbar" accessibilityLabel="Attaching the picture">
+        <View style={styles.button} accessibilityRole="progressbar" accessibilityLabel={IMAGE_UPLOADING_WORDS}>
           <ActivityIndicator size={13} color={theme.muted} />
         </View>
       </View>
@@ -370,6 +392,8 @@ export function useUserMenuActions(message: ProjectedMessage): MessageMenuAction
 }
 
 const styles = StyleSheet.create({
+  attachingLine: { fontSize: 12, lineHeight: 16 },
+  attachingLineEnd: { alignSelf: 'flex-end', textAlign: 'right' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   footer: { alignSelf: 'stretch', height: FOOTER_HEIGHT, flexDirection: 'row', alignItems: 'center', gap: 8 },
   footerEnd: { marginLeft: 'auto', flexShrink: 0 },

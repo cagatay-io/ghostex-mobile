@@ -22,6 +22,7 @@ import { quietLineLift, useCardStackGap, useInnerGap } from './messageSpacing';
 import { ignoreHold, MESSAGE_TEXT_SELECTABLE, MessageSelection, messageMenuAccessibility } from './messageSelection';
 import { Markdown } from './markdown/Markdown';
 import {
+  AttachingLine,
   DeliveryIndicator,
   hasReplyActions,
   isFlushReply,
@@ -197,15 +198,16 @@ function UserMessage({ message }: { message: ProjectedMessage }) {
           <DeliveryIndicator message={message} />
           {hasBody ? (
             openMenu === undefined ? (
-              <View style={[styles.bubble, { backgroundColor: theme.input }]}>{content}</View>
+              <View style={[styles.bubble, { backgroundColor: theme.userBubble }]}>{content}</View>
             ) : (
-              <MessageSelection openMenu={openMenu} style={[styles.bubble, { backgroundColor: theme.input }]}>
+              <MessageSelection openMenu={openMenu} style={[styles.bubble, { backgroundColor: theme.userBubble }]}>
                 <MessageLongPressContext.Provider value={openMenu}>{content}</MessageLongPressContext.Provider>
               </MessageSelection>
             )
           ) : null}
         </View>
         {/* What became of a message that has not reached the agent sits under its bubble, as on the desktop (it drew above it). */}
+        <AttachingLine message={message} />
         <StartupDelivery message={message} waitingLine={false} />
         <UserActions message={message} />
       </View>
@@ -296,7 +298,6 @@ function AgentMessage({ message, proseColor }: { message: ProjectedMessage; pros
               text={body}
               references={message.markdownReferences}
               color={strengthened(proseColor)}
-              headingColor={flags.chatTextStrength > 0 ? strengthened(theme.primary) : undefined}
               codeColor={strengthened(theme.primary)}
               selectable={openMenu === undefined || MESSAGE_TEXT_SELECTABLE}
             />
