@@ -215,6 +215,11 @@ export type GhostexSettings = ThemeColourSettings & {
   sessionsShowProjectIcons: boolean;
   sessionsShowAgentIcons: boolean;
   sessionsShowLastActive: boolean;
+  /**
+   * The first-run Experience card was answered or skipped (src/screens/sessions-screen/ExperienceCard.tsx). An install
+   * that saved settings before the card existed counts as asked: existing users are not moved (Q3287).
+   */
+  experienceAsked: boolean;
   markedHandoversStyle: MarkedHandoversStyle;
   /** Show the marker emoji in coloured marked sections (desktop `markedHandoversEmoji`, off by default). */
   markedHandoversEmoji: boolean;
@@ -383,6 +388,7 @@ export function defaultSettings(): GhostexSettings {
     sessionsShowProjectIcons: true,
     sessionsShowAgentIcons: true,
     sessionsShowLastActive: true,
+    experienceAsked: false,
     markedHandoversStyle: 'labels',
     markedHandoversEmoji: false,
     readAloudVoice: '',
@@ -629,6 +635,9 @@ function sanitizeSettings(value: unknown): GhostexSettings {
     sessionsShowProjectIcons: bool('sessionsShowProjectIcons', defaults.sessionsShowProjectIcons),
     sessionsShowAgentIcons: bool('sessionsShowAgentIcons', defaults.sessionsShowAgentIcons),
     sessionsShowLastActive: bool('sessionsShowLastActive', defaults.sessionsShowLastActive),
+    experienceAsked: Object.hasOwn(record, 'experienceAsked')
+      ? bool('experienceAsked', defaults.experienceAsked)
+      : Object.keys(record).length > 0,
     // The retired Simple mode off or Verbose Mode on opened chats in more detail, which is Detailed
     // now (desktop settings catalog `migrate_chat_view_default`).
     sessionChatDetailedView: bool(

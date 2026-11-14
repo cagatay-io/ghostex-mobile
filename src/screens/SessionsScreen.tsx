@@ -147,6 +147,7 @@ import {
   WebPreviewCopy,
   WallCopy,
 } from '../copy';
+import ExperienceCard from './sessions-screen/ExperienceCard';
 import JustPairedLine from './sessions-screen/JustPairedLine';
 import { MachineNoticeLine, useNoticeClock, useShownNotices } from './sessions-screen/MachineNotice';
 import ComputerStatusIcons from '../components/sessions/ComputerStatusIcons';
@@ -1535,6 +1536,7 @@ export default function SessionsScreen({ navigation }: Props) {
           onAdd={() => navigation.navigate('ConnectChoose')}
         />
       ) : null}
+      {machine !== null ? <ExperienceCard appearance={sidebarAppearance} /> : null}
       {machine !== null ? (
         <JustPairedLine
           machineId={machine.id}
