@@ -685,6 +685,8 @@ export type ChatDocument = {
   composerCollapsed: boolean;
   /** Which toolbar controls did not fit (fold them into More actions). Desktop: `toolbar.rs`. */
   composerOverflow: ComposerOverflow;
+  /** Absent from a core older than Experience. */
+  composerRow?: ComposerRow;
   /** Which composer controls this host can serve. Desktop: `toolbar.rs`. */
   composerActions: ComposerActions;
   /** The note dot, stash badge and pressed states. Desktop: `composer.rs`. */
@@ -1001,6 +1003,17 @@ export type DraftState = {
 };
 
 export type ComposerOverflow = { overflowed: string[]; optionsOverflowed: boolean };
+
+/**
+ * What the chat box row leaves out (Settings › Experience, gx-chat-core `composer/row.rs`): controls that sit in •••
+ * (`folded`), no mode, no context ring, and why the terminal reads not ready while its button is off the row.
+ */
+export type ComposerRow = {
+  folded?: string[];
+  hideMode?: boolean;
+  hideContextRing?: boolean;
+  terminalIssue?: string;
+};
 
 export type ComposerActions = {
   summary: boolean;

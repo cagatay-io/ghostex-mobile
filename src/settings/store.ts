@@ -47,6 +47,21 @@ import { sanitizeImportedTerminalPalettes, type ImportedTerminalPalette } from '
 
 const SETTINGS_STORAGE_KEY = 'settings.v1';
 
+/** This phone's own Quiet View (gx-chat-core `QuietViewSettings`), set by Settings › Experience's Chat row. */
+export type PhoneQuietView = { coordinators: boolean; chats: boolean; expandLast: boolean; calm: boolean };
+
+function sanitizePhoneQuietView(value: unknown): PhoneQuietView | null {
+  if (value === null || typeof value !== 'object') return null;
+  const record = value as Record<string, unknown>;
+  const flag = (key: string, fallback: boolean) => (typeof record[key] === 'boolean' ? (record[key] as boolean) : fallback);
+  return {
+    coordinators: flag('coordinators', true),
+    chats: flag('chats', true),
+    expandLast: flag('expandLast', true),
+    calm: flag('calm', false),
+  };
+}
+
 export type BellBehavior = 'vibrate' | 'beep' | 'ignore';
 /** Terminal background (desktop `terminalBackgroundMode`): pure black/white, the theme's work area, or a custom colour. */
 export type TerminalBackgroundMode = 'pure' | 'theme' | 'custom';
@@ -181,6 +196,25 @@ export type GhostexSettings = ThemeColourSettings & {
   sessionChatMutedThinking: boolean;
   /** Tool call lines (experimental): each run of tool calls as one quiet line with its calls as rows under it (desktop `chatToolCallLines`). */
   chatToolCallLines: boolean;
+  /**
+   * The chat box row switches Settings › Experience sets on this phone (desktop `chatComposerModePicker`,
+   * `chatComposerTerminalButton`, `chatComposerContextRing`; gx-chat-core `composer/row.rs`). On by default.
+   */
+  chatComposerModePicker: boolean;
+  chatComposerTerminalButton: boolean;
+  chatComposerContextRing: boolean;
+  /**
+   * This phone's own Quiet View, set by Settings › Experience's Chat row; `null` (the default) draws each chat with
+   * its computer's (gx-chat-core `quiet_view.rs`).
+   */
+  chatQuietView: PhoneQuietView | null;
+  /**
+   * What the Sessions list's rows show, set by Settings › Experience (desktop Card details: project icons, agent
+   * icon, last active time). On by default, today's rows.
+   */
+  sessionsShowProjectIcons: boolean;
+  sessionsShowAgentIcons: boolean;
+  sessionsShowLastActive: boolean;
   markedHandoversStyle: MarkedHandoversStyle;
   /** Show the marker emoji in coloured marked sections (desktop `markedHandoversEmoji`, off by default). */
   markedHandoversEmoji: boolean;
@@ -342,6 +376,13 @@ export function defaultSettings(): GhostexSettings {
     sessionChatFileEditPreviews: false,
     sessionChatMutedThinking: false,
     chatToolCallLines: false,
+    chatComposerModePicker: true,
+    chatComposerTerminalButton: true,
+    chatComposerContextRing: true,
+    chatQuietView: null,
+    sessionsShowProjectIcons: true,
+    sessionsShowAgentIcons: true,
+    sessionsShowLastActive: true,
     markedHandoversStyle: 'labels',
     markedHandoversEmoji: false,
     readAloudVoice: '',
@@ -581,6 +622,13 @@ function sanitizeSettings(value: unknown): GhostexSettings {
     sessionChatFileEditPreviews: bool('sessionChatFileEditPreviews', defaults.sessionChatFileEditPreviews),
     sessionChatMutedThinking: bool('sessionChatMutedThinking', defaults.sessionChatMutedThinking),
     chatToolCallLines: bool('chatToolCallLines', defaults.chatToolCallLines),
+    chatComposerModePicker: bool('chatComposerModePicker', defaults.chatComposerModePicker),
+    chatComposerTerminalButton: bool('chatComposerTerminalButton', defaults.chatComposerTerminalButton),
+    chatComposerContextRing: bool('chatComposerContextRing', defaults.chatComposerContextRing),
+    chatQuietView: sanitizePhoneQuietView(record.chatQuietView),
+    sessionsShowProjectIcons: bool('sessionsShowProjectIcons', defaults.sessionsShowProjectIcons),
+    sessionsShowAgentIcons: bool('sessionsShowAgentIcons', defaults.sessionsShowAgentIcons),
+    sessionsShowLastActive: bool('sessionsShowLastActive', defaults.sessionsShowLastActive),
     // The retired Simple mode off or Verbose Mode on opened chats in more detail, which is Detailed
     // now (desktop settings catalog `migrate_chat_view_default`).
     sessionChatDetailedView: bool(

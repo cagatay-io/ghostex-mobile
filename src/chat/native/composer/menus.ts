@@ -34,7 +34,18 @@ const HOST_ACTION_ICONS: Record<string, string> = {
 };
 
 export function overflowed(document: ChatDocument, id: string): boolean {
-  return document.composerOverflow?.overflowed?.includes(id) === true;
+  return document.composerOverflow?.overflowed?.includes(id) === true || rowFolded(document, id);
+}
+
+/** A control Settings › Experience keeps in More actions instead of the row (gx-chat-core `composer/row.rs`). */
+export function rowFolded(document: ChatDocument, id: string): boolean {
+  return document.composerRow?.folded?.includes(id) === true;
+}
+
+/** Why the terminal reads not ready while its button is off the row: ••• turns red and this row says it. */
+export function terminalIssue(document: ChatDocument): string | null {
+  const issue = document.composerRow?.terminalIssue;
+  return typeof issue === 'string' && issue.length > 0 ? issue : null;
 }
 
 export type MoreActionsInput = {
@@ -380,13 +391,20 @@ export function moreActionsRows({
       command: { type: 'catchUp' },
     });
   }
-  // Terminal View never folds on the phone's full chat box (`NativeComposer`), so it is a row only in a pane's.
-  if (allFolded && available('terminal')) {
+  // Terminal View never folds for width on the phone's full chat box (`NativeComposer`), so it is a row only in a
+  // pane's, or where Settings › Experience keeps it off the row; there a terminal problem shows under it, with Copy
+  // Report (CDXC:Experience 2026-11-15 in gx-chat-core composer/row.rs).
+  if ((allFolded || rowFolded(document, 'terminal')) && available('terminal')) {
+    const issue = terminalIssue(document);
     rows.push({
       label: 'Terminal View',
       iconPath: 'titlebar/terminal-2.svg',
+      ...(issue === null ? {} : { description: issue }),
       command: { type: 'composerHost', action: 'terminalView' },
     });
+    if (issue !== null) {
+      rows.push({ label: 'Copy Report', iconPath: 'titlebar/copy.svg', command: { type: 'copyReport' } });
+    }
   }
   // Agent ›: the session's actions, then the ones about this chat, then Kill session.
   const sessionRows: MenuRow[] = [];
@@ -488,7 +506,9 @@ export function moreActionsRows({
   const optionsFolded = allFolded
     ? (isTrue(labels, 'showOptions') && !merged) || contextRow
     : document.composerOverflow?.optionsOverflowed === true;
-  if (optionsFolded) {
+  // Settings › Experience can keep the context ring off the row: then only its row is here.
+  const ringOff = document.composerRow?.hideContextRing === true;
+  if (optionsFolded || ringOff) {
     if (contextRow) {
       moreRows.push({
         label: 'Context window',
@@ -497,7 +517,7 @@ export function moreActionsRows({
         children: [{ context: document.contextMeter }],
       });
     }
-    if (isTrue(labels, 'showOptions') && !merged) {
+    if (optionsFolded && isTrue(labels, 'showOptions') && !merged) {
       moreRows.push({
         label: str(labels, 'optionsTitle') || 'Options',
         iconPath: 'titlebar/adjustments-horizontal.svg',
