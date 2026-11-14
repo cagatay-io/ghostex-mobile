@@ -404,6 +404,11 @@ export type GhostexMobileSummary = {
   /** The computer's Separate by machine, under which its list never merges copies. Off unless the computer sends `true`. */
   separateByMachine?: boolean;
   /**
+   * The computer's Advanced > Hide sessions and projects from computers that aren't connected (CDXC:RemoteMachines
+   * 2026-11-15 in packages/gx-core/src/sidebar_view/merged.rs). Off unless the computer sends `true`.
+   */
+  hideDisconnectedMachines?: boolean;
+  /**
    * The computer's Advanced > Pinned order (CDXC:Sidebar 2026-11-07 in packages/gx-core/src/sidebar_view/inputs.rs):
    * `manual` keeps the order pinned sessions were dragged into, `recent` puts the one that came back last first.
    * Manual unless the computer sends `recent`.

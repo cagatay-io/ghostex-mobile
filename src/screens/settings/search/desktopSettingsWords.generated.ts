@@ -481,6 +481,16 @@ export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords
     "options": [],
     "keywords": []
   },
+  "sidebarHideDisconnectedMachines": {
+    "title": "Hide sessions and projects from computers that aren't connected",
+    "subtitle": "Leave a computer that isn't connected out of the Project sidebar: its sessions leave every project, and a project only it has is hidden. They come back when it reconnects. Off: its last sessions stay, faded. The Unified sidebar always leaves it out. The phone follows this. Shown while Separate by machine is off.",
+    "options": [],
+    "keywords": [
+      "offline",
+      "disconnected machines",
+      "hide offline"
+    ]
+  },
   "sidebarHideProjectsWithoutSessions": {
     "title": "Hide projects without sessions",
     "subtitle": "Leave projects with no sessions out of the Project sidebar, whatever state a session is in; the open project always stays, and a Show all projects row at the end of the list brings them back. Also in the sidebar's Sort & Filter menu.",

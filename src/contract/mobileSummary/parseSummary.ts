@@ -486,6 +486,7 @@ function normalizeRoot(root: JsonObject): GhostexMobileSummary {
     worktreeSessionsInProject: root.worktreeSessionsInProject !== false,
     mergeRepositoryCopies: root.sidebarMergeRepositoryCopies !== false,
     separateByMachine: root.sidebarSeparateByMachine === true,
+    hideDisconnectedMachines: root.sidebarHideDisconnectedMachines === true,
     pinnedSessionOrder: root.pinnedSessionOrder === 'recent' ? 'recent' : 'manual',
     capabilities: parseCapabilities(root.capabilities),
   };

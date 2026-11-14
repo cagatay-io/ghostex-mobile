@@ -96,6 +96,16 @@ export default function SessionsListPage() {
               'Worktree sessions show in their project',
               "Listed under the repository's project, with the worktree's branch on the row.",
             )}
+            {/* CDXC:RemoteMachines 2026-11-15 DECISION (packages/gx-core/src/sidebar_view/merged.rs): off by default;
+                the Unified list always leaves a computer that isn't connected out, and Separate by machine gives each its
+                own tab. */}
+            {organization.sidebarSeparateByMachine
+              ? null
+              : toggle(
+                  'sidebarHideDisconnectedMachines',
+                  "Hide sessions and projects from computers that aren't connected",
+                  'They come back when the computer reconnects.',
+                )}
             {toggle(
               'groupWorkingSessions',
               'Group working sessions',

@@ -23,6 +23,7 @@ export type SidebarOrganization = {
   sidebarView: 'project' | 'unified';
   sidebarSeparateByMachine: boolean;
   sidebarMergeRepositoryCopies: boolean;
+  sidebarHideDisconnectedMachines: boolean;
   worktreeSessionsInProject: boolean;
   sidebarSpacesEnabled: boolean;
   sidebarActiveProjects: boolean;
@@ -44,6 +45,7 @@ export const SIDEBAR_ORGANIZATION_DEFAULTS: SidebarOrganization = {
   sidebarView: 'project',
   sidebarSeparateByMachine: false,
   sidebarMergeRepositoryCopies: true,
+  sidebarHideDisconnectedMachines: false,
   worktreeSessionsInProject: true,
   sidebarSpacesEnabled: false,
   sidebarActiveProjects: true,
@@ -111,6 +113,7 @@ export function computerSidebarValues(summary: GhostexMobileSummary): Partial<Si
     sidebarView: summary.sidebarView ?? 'project',
     sidebarSeparateByMachine: summary.separateByMachine === true,
     sidebarMergeRepositoryCopies: summary.mergeRepositoryCopies !== false,
+    sidebarHideDisconnectedMachines: summary.hideDisconnectedMachines === true,
     worktreeSessionsInProject: summary.worktreeSessionsInProject !== false,
     sidebarActiveProjects: summary.sidebarActiveProjects !== false,
     chiefShowOnAllSpaces: summary.chiefShowOnAllSpaces === true,
@@ -169,6 +172,7 @@ export function organizeSummary(summary: GhostexMobileSummary): GhostexMobileSum
     sidebarView: organization.sidebarView,
     separateByMachine: organization.sidebarSeparateByMachine,
     mergeRepositoryCopies: organization.sidebarMergeRepositoryCopies,
+    hideDisconnectedMachines: organization.sidebarHideDisconnectedMachines,
     worktreeSessionsInProject: organization.worktreeSessionsInProject,
     sidebarActiveProjects: organization.sidebarActiveProjects,
     chiefShowOnAllSpaces: organization.chiefShowOnAllSpaces,

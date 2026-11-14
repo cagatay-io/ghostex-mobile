@@ -39,6 +39,8 @@ export type MergedComputers = {
   origins: Map<GhostexSession, SessionOrigin>;
   /** Each entry's copies, the selected computer's first, by the entry's project id in the merged summary. */
   copies: Map<string, ProjectCopyOrigin[]>;
+  /** How many computers the list was made of. */
+  computerCount: number;
 };
 
 function displayName(project: GhostexProject): string {
@@ -210,6 +212,7 @@ export function mergeComputers(computers: readonly MergeComputer[]): MergedCompu
     },
     origins,
     copies,
+    computerCount: computers.length,
   };
 }
 

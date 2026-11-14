@@ -385,8 +385,19 @@ export function everyComputerList(
   input: Pick<DrawerListInput, 'machines' | 'inventoriesByMachineId' | 'selectedWorkspaceId' | 'workspaceIdOf' | 'selectedSpaceId'>,
   selected: MachineRecord,
 ): MergedComputers | null {
-  const own = input.inventoriesByMachineId[selected.id]?.summary ?? null;
-  if (own === null) return null;
+  const ownInventory = input.inventoriesByMachineId[selected.id];
+  const ownSummary = ownInventory?.summary ?? null;
+  if (ownSummary === null) return null;
+  /*
+   * CDXC:RemoteMachines 2026-11-15 DECISION (packages/gx-core/src/sidebar_view/merged.rs): with Hide sessions and
+   * projects from computers that aren't connected on, the selected computer's last rows leave the list too while it
+   * is not connected (another computer's never join it), and come back once it answers. Its settings still drive the
+   * list, so its summary stays the list's first, with no sessions and only Main Hub's project.
+   */
+  const ownOffline = ownSummary.hideDisconnectedMachines === true && (ownInventory?.lastError ?? null) !== null;
+  const own: GhostexMobileSummary = ownOffline
+    ? { ...ownSummary, sessions: [], projects: ownSummary.projects.filter((project) => project.isHome === true) }
+    : ownSummary;
   const others = input.machines.filter((machine) => {
     if (machine.id === selected.id) return false;
     const inventory = input.inventoriesByMachineId[machine.id];
@@ -394,16 +405,18 @@ export function everyComputerList(
     return inventory?.summary != null && inventory.lastError === null;
   });
   const active = input.selectedSpaceId === ACTIVE_SPACE_ID;
-  if (!active && (own.separateByMachine === true || others.length === 0)) return null;
+  if (!active && (own.separateByMachine === true || (others.length === 0 && !ownOffline))) return null;
   const inWorkspace = (summary: GhostexMobileSummary, workspaceId: string | null) =>
     workspaceId === null ? summary : filterSummaryForWorkspace(summary, workspaceId);
-  return mergeComputers([
+  const merged = mergeComputers([
     { machineId: selected.id, summary: inWorkspace(own, input.selectedWorkspaceId) },
     ...others.map((machine) => ({
       machineId: machine.id,
       summary: inWorkspace(input.inventoriesByMachineId[machine.id]!.summary!, input.workspaceIdOf?.(machine.id) ?? null),
     })),
   ]);
+  // The left-out selected computer gives the list nothing, so it is not one of the computers project headers name.
+  return ownOffline ? { ...merged, computerCount: others.length } : merged;
 }
 
 /** Each drawn row of the one list given back its own computer, and each entry's header its creating copy. */
@@ -423,9 +436,12 @@ function withOrigins(items: DrawerItem[], merged: MergedComputers, listMachineId
       };
     }
     if (item.type === 'PROJECT_HEADER') {
-      // A project on several computers names them with their icons after its title (gx-core view.rs `MachineChip`).
+      // While the list holds more than one computer every project names its computers with their icons after its
+      // title, one on a single computer too (gx-core view.rs `MachineChip`, CDXC:RemoteMachines 2026-11-15 in
+      // sidebar_view/merged.rs).
       const machineIds = [...new Set((merged.copies.get(item.projectId) ?? []).map((copy) => copy.machineId))];
-      const withMachines = machineIds.length > 1 ? { ...item, machineIds } : item;
+      const withMachines =
+        machineIds.length > 1 || (machineIds.length > 0 && merged.computerCount > 1) ? { ...item, machineIds } : item;
       const copy = creatingCopy(merged, item.projectId);
       if (copy === null || (copy.machineId === listMachineId && copy.projectId === item.projectId)) return withMachines;
       const theirs = summaryOf(copy.machineId);
