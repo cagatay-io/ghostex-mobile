@@ -1,18 +1,27 @@
 /**
  * The crash reports the phone kept (modules/ghostex-native GhostexCrashReports), read back for the
- * next-launch prompt and Send Bug / Feedback, and the cleaned text a report adds to the issue.
+ * next-launch prompt, Send Bug / Feedback and Settings › Connection › Crash reports, and the cleaned text a report
+ * adds to the issue, puts on the clipboard (Copy) or hands to the share sheet (Share).
  *
  * CDXC:Feedback 2026-10-21 DECISION:
  * User (Q372): "Yes, add crash reports", "should be able to send it to github issues please after agent cleans up any personal data. same as what we have in the modal for Send Bug/Feedback". A report stays on the phone until the user sends it: the next launch offers it once, Send report opens Send Bug / Feedback with the report attached, and it posts only through that screen's Review step (or the feedback agent, which cleans it again).
  * SEE-ALSO: src/feedback/crashReportScrub.ts, src/app/crashReports.ts, src/screens/FeedbackScreen.tsx.
  */
 
+import * as Clipboard from 'expo-clipboard';
 import { Platform } from 'react-native';
 
 import GhostexCrashReports from '../../modules/ghostex-native/src/GhostexCrashReports';
+import { shareText, type ShareOutcome, type ShareSheet } from '../files/share';
 import { useMachinesStore, type MachineRecord } from '../machines/store';
 import { FEEDBACK_BODY_MAX_UNITS } from './feedbackDraft';
 import { scrubPersonalData, scrubShortNames } from './crashReportScrub';
+
+/**
+ * Whether Settings › Connection lists the crash reports: on iOS. Android keeps what it had (the launch prompt and Send
+ * Bug / Feedback), as its app cannot share a file or stop keeping reports.
+ */
+export const CRASH_REPORTS_IN_SETTINGS = Platform.OS === 'ios';
 
 export type CrashKind = 'javascript' | 'java' | 'native' | 'anr' | 'nsexception';
 
@@ -131,16 +140,60 @@ export async function setKeepingCrashReports(keep: boolean): Promise<void> {
   if (!keep && (await listCrashReports()).length > 0) throw new Error('Stored crash reports could not all be deleted.');
 }
 
+/** "Oct 21, 14:03", in the phone's time zone. */
+function shortTime(at: number): string {
+  const date = new Date(at);
+  const month = date.toLocaleString('en-US', { month: 'short' });
+  return `${month} ${date.getDate()}, ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+}
+
+function pad2(value: number): string {
+  return value < 10 ? `0${value}` : String(value);
+}
+
 /**
  * "Oct 21, 14:03" for the prompt and the Attach row; null for a MetricKit report, which has only a reporting period, so
  * that no closing time is shown for it.
  */
 export function crashTimeLabel(report: Pick<StoredCrashReport, 'at' | 'period'>): string | null {
-  if (report.period !== undefined) return null;
-  const date = new Date(report.at);
-  const month = date.toLocaleString('en-US', { month: 'short' });
-  const pad = (value: number) => (value < 10 ? `0${value}` : String(value));
-  return `${month} ${date.getDate()}, ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return report.period !== undefined ? null : shortTime(report.at);
+}
+
+/**
+ * When a report in Settings happened: "Oct 21, 14:03", or for a MetricKit report the period it was reported in, "Nov 14,
+ * 22:10 – Nov 15, 09:41", since iOS names no closer time.
+ */
+export function crashWhenLabel(report: Pick<StoredCrashReport, 'at' | 'period'>): string {
+  return report.period === undefined
+    ? shortTime(report.at)
+    : `${shortTime(report.period.begin)} – ${shortTime(report.period.end)}`;
+}
+
+/** "Native crash", "JavaScript error", …: what kind of crash a report records. */
+export function crashKindLabel(kind: CrashKind): string {
+  return KIND_LABEL[kind] ?? kind;
+}
+
+/**
+ * The shared file's name, in the phone's time zone: "ghostex-crash-2026-11-13-1806.txt", or for a MetricKit report the
+ * day its period ends, "ghostex-crash-2026-11-15.txt".
+ */
+export function crashReportFileName(report: Pick<StoredCrashReport, 'at' | 'period'>): string {
+  const date = new Date(report.period?.end ?? report.at);
+  const day = `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+  return report.period === undefined
+    ? `ghostex-crash-${day}-${pad2(date.getHours())}${pad2(date.getMinutes())}.txt`
+    : `ghostex-crash-${day}.txt`;
+}
+
+/** Copy: the report's cleaned text, exactly as Share and Send Bug / Feedback hand it on, on the clipboard. */
+export async function copyCrashReport(report: StoredCrashReport): Promise<void> {
+  await Clipboard.setStringAsync(crashReportText(report));
+}
+
+/** Share: the report's cleaned text as a plain-text file on the share sheet (the app's one sheet, one share at a time). */
+export function shareCrashReport(report: StoredCrashReport, sheet: ShareSheet): Promise<ShareOutcome> {
+  return shareText(crashReportFileName(report), crashReportText(report), sheet);
 }
 
 /** A saved computer's name, host, SSH username and the name it reports for itself. */

@@ -15,11 +15,12 @@ import { create } from 'zustand';
 import GhostexCrashReports from '../../modules/ghostex-native/src/GhostexCrashReports';
 import {
   deleteAllCrashReports,
+  deleteCrashReport,
   keepingCrashReports,
   listCrashReports,
   type StoredCrashReport,
 } from '../feedback/crashReports';
-import { formatAppLog, useAppLogStore } from './appLog';
+import { formatAppLog, logAppEvent, useAppLogStore } from './appLog';
 
 /** The reports the launch prompt already offered, so each crash is offered once. */
 const OFFERED_KEY = 'crashReports.offered.v1';
@@ -125,4 +126,71 @@ export function takePendingCrashReport(): StoredCrashReport | null {
 export async function dismissCrashReports(): Promise<void> {
   useCrashPromptStore.setState({ pending: null });
   if (Platform.OS !== 'ios') await deleteAllCrashReports();
+}
+
+type CrashReportListState = {
+  /** `failed`: the phone's reports could not be read, so the list says so instead of showing none. */
+  status: 'loading' | 'ready' | 'failed';
+  /** Newest first, as last read. */
+  reports: readonly StoredCrashReport[];
+};
+
+/** The reports Settings › Connection › Crash reports and a report opened from it show. */
+export const useCrashReportListStore = create<CrashReportListState>()(() => ({ status: 'loading', reports: [] }));
+
+/** The latest read; an older read that answers after it is dropped. */
+let listRead = 0;
+
+/**
+ * Reads the kept reports again into the Settings list, and hides the launch prompt when the report it offers is gone
+ * (deleted here, or keeping turned off). Answers the reports read, or null when they could not be read: the list then
+ * shows `failed` and the failure is in the app log, so callers have nothing more to report.
+ */
+export async function refreshCrashReportList(): Promise<readonly StoredCrashReport[] | null> {
+  listRead += 1;
+  const read = listRead;
+  let reports: StoredCrashReport[];
+  try {
+    reports = await listCrashReports();
+  } catch (error) {
+    if (read === listRead) useCrashReportListStore.setState({ status: 'failed', reports: [] });
+    logAppEvent(`Crash reports: reading the kept reports failed (${describeError(error)})`);
+    return null;
+  }
+  if (read === listRead) useCrashReportListStore.setState({ status: 'ready', reports });
+  const pending = useCrashPromptStore.getState().pending;
+  if (pending !== null && !reports.some((report) => report.id === pending.id)) {
+    useCrashPromptStore.setState({ pending: null });
+  }
+  return reports;
+}
+
+/** A failure's message for the app log lines of the crash reports in Settings. */
+export function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Delete on one report. The list is read again afterwards, also when the phone reported a failure; throws when the
+ * report is still listed then, or the list could not be read.
+ */
+export async function deleteListedCrashReport(id: string): Promise<void> {
+  const failure = await deleteCrashReport(id).then(
+    () => null,
+    (error: unknown) => error,
+  );
+  const reports = await refreshCrashReportList();
+  if (reports === null || reports.some((report) => report.id === id)) {
+    throw failure ?? new Error('The crash report is still listed.');
+  }
+}
+
+/** Delete All Reports, read again as Delete on one report is; throws when a report is still listed. */
+export async function deleteAllListedCrashReports(): Promise<void> {
+  const failure = await deleteAllCrashReports().then(
+    () => null,
+    (error: unknown) => error,
+  );
+  const reports = await refreshCrashReportList();
+  if (reports === null || reports.length > 0) throw failure ?? new Error('Crash reports are still listed.');
 }

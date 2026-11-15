@@ -1,6 +1,6 @@
 /**
  * Settings › Connection: every computer with its live route and status, Auto-reconnect, the memory guard
- * (MemoryGuardRows.tsx), and Logs.
+ * (MemoryGuardRows.tsx), Logs, and on iOS the crash reports kept on the phone (CrashReportsPage.tsx).
  *
  * CDXC:RemoteMachines 2026-11-12 DECISION:
  * User (Q2732 note): the route is not shown on the Sessions screen while things work; "when it's connected he can see
@@ -17,6 +17,8 @@ import LogsSheet from '../../components/common/LogsSheet';
 import { linkStatusColor, LinkIcon } from '../../components/sessions/ConnectionsSheet';
 import { useConnectionEntries } from '../../components/sessions/useConnectionEntries';
 import { ConnectionsCopy } from '../../copy';
+import { CrashReportsSettingsCopy } from '../../copy/crashReports';
+import { CRASH_REPORTS_IN_SETTINGS } from '../../feedback/crashReports';
 import { tailscaleOnPhone } from '../../machines/easyConnectRoute';
 import { isMachineEnabled, useMachinesStore } from '../../machines/store';
 import type { RootStackParamList } from '../../navigation/types';
@@ -84,6 +86,13 @@ export default function ConnectionPage() {
         description="Recent connection and status events on this phone. Copy them, or send them to the developer."
         onPress={() => setLogsOpen(true)}
       />
+      {CRASH_REPORTS_IN_SETTINGS ? (
+        <LinkRow
+          title={CrashReportsSettingsCopy.title}
+          description={CrashReportsSettingsCopy.rowDescription}
+          onPress={() => navigation.navigate('SettingsPage', { page: 'crashReports' })}
+        />
+      ) : null}
       {logsOpen ? <LogsSheet visible onClose={() => setLogsOpen(false)} /> : null}
     </SettingsScreenLayout>
   );

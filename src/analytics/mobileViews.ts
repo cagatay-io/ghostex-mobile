@@ -42,6 +42,7 @@ const VIEW_BY_ROUTE: Record<string, MobileView> = {
   AgentHotkeysEditor: 'mobile_settings',
   CommandPadKeysEditor: 'mobile_settings',
   LicenceNotice: 'mobile_settings',
+  CrashReport: 'mobile_settings',
   AddProjectSource: 'mobile_add_project',
   AddProjectLocal: 'mobile_add_project',
   AddProjectRepository: 'mobile_add_project',

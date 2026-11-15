@@ -29,7 +29,7 @@ let keptCopies = 0;
 let copyCount = 0;
 
 export const appShareSheet: ShareSheet = {
-  async keepCopy(name, base64) {
+  async keepCopy(name, contents) {
     const root = new Directory(Paths.cache, SHARE_FOLDER);
     // A copy an earlier run left behind (the app closed while its sheet was open) goes first, never one in use.
     if (keptCopies === 0 && root.exists) root.delete();
@@ -47,7 +47,8 @@ export const appShareSheet: ShareSheet = {
     try {
       const file = new File(folder, name);
       file.create();
-      await file.write(base64, { encoding: 'base64' });
+      if ('base64' in contents) await file.write(contents.base64, { encoding: 'base64' });
+      else await file.write(contents.text);
       return { uri: file.uri, drop };
     } catch (failure) {
       drop();
