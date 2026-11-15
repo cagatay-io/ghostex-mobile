@@ -1925,7 +1925,8 @@ export function useSessionsScreenMenus({
     );
     if (refusal === null) return null;
     if (refusal.open !== undefined) {
-      void refusal.open();
+      // A form cancelled meanwhile already got the computer's sentence as a status line; nothing opens over the list.
+      if (stillOpen()) void refusal.open();
       return null;
     }
     return refusal.reason;
