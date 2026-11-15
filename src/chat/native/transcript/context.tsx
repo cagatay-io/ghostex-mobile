@@ -83,10 +83,19 @@ export function NativeChatUiProvider({
   useEffect(() => () => demand.dispose(), [demand]);
   // A new core (the host changed) has forgotten which rows are open and which images it read.
   const requested = useRef(new Set<string>());
+  useMemo(() => {
+    disclosures.resetAnswerMigration();
+    requested.current = new Set();
+  }, [chat.dispatch, disclosures]);
   useEffect(() => {
     demand.reset();
-    requested.current = new Set();
   }, [chat.dispatch, demand]);
+  useMemo(() => {
+    disclosures.reconcilePageAnswers(chat.state?.items);
+  }, [disclosures, chat.state?.items]);
+  useEffect(() => {
+    disclosures.flushAnswerMigrationNotifications();
+  }, [disclosures, chat.state?.items]);
   const requestImage = useCallback((path: string) => {
     if (path.length === 0 || requested.current.has(path)) return;
     requested.current.add(path);
@@ -211,6 +220,23 @@ export function useNativeChatUi(): NativeChatUi {
   const value = useContext(UiContext);
   if (value === null) throw new Error('useNativeChatUi outside NativeChatUiProvider');
   return value;
+}
+
+/**
+ * Wraps any action dispatcher so cancelling a queued prompt (via Remove buttons, long-press
+ * actions, or the queue strip) records its promptId before its card leaves the list.
+ */
+export function useDispatchWithAnswerCancel(dispatch: RustChat['dispatch']): RustChat['dispatch'] {
+  const ui = useOptionalNativeChatUi();
+  return useCallback<RustChat['dispatch']>(
+    (action) => {
+      if (action.type === 'removeQueue' && action.promptId.length > 0) {
+        ui?.disclosures.noteCancelledPrompt(action.promptId);
+      }
+      dispatch(action);
+    },
+    [dispatch, ui],
+  );
 }
 
 /** How one list draws (`ChatAppearance` plus the list it belongs to). */

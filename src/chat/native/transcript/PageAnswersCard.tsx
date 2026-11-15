@@ -49,6 +49,7 @@ export function PageAnswersCard({ message }: { message: ProjectedMessage }) {
   // visible and opened by default so the forms stay distinct (desktop transcript.rs / page_answers.rs).
   return (
     <PageAnswersCards
+      rowId={message.id}
       cards={cards}
       delivery={message.startupDelivery ?? null}
       bodyOnly={quietBodyOnly && cards.length === 1}
@@ -59,11 +60,13 @@ export function PageAnswersCard({ message }: { message: ProjectedMessage }) {
 
 /** Shared stacked renderer used by transcript rows (`PageAnswersCard`) and held Collab cards (`CollabCards`). */
 export function PageAnswersCards({
+  rowId = '',
   cards,
   delivery = null,
   bodyOnly = false,
   defaultOpen = false,
 }: {
+  rowId?: string;
   cards: JsonRecord[];
   delivery?: NonNullable<ProjectedMessage['startupDelivery']> | null;
   bodyOnly?: boolean;
@@ -74,6 +77,8 @@ export function PageAnswersCards({
   const rendered = cards.map((answers, index) => (
     <SinglePageAnswersCard
       key={`${str(answers, 'pageId')}:${str(answers, 'by')}:${index}`}
+      rowId={rowId}
+      occurrence={index}
       answers={answers}
       delivery={index === last ? delivery : null}
       bodyOnly={bodyOnly}
@@ -84,11 +89,15 @@ export function PageAnswersCards({
 }
 
 function SinglePageAnswersCard({
+  rowId = '',
+  occurrence = 0,
   answers,
   delivery,
   bodyOnly,
   defaultOpen,
 }: {
+  rowId?: string;
+  occurrence?: number;
   answers: JsonRecord;
   delivery: NonNullable<ProjectedMessage['startupDelivery']> | null;
   bodyOnly: boolean;
@@ -105,7 +114,11 @@ function SinglePageAnswersCard({
   const promptId = delivery?.promptId ?? '';
   const removable = promptId.length > 0 && (unconfirmed || (delivery?.state === 'queued' && canRemoveQueued));
   const removeAction = (
-    <Pressable hitSlop={6} accessibilityRole="button" onPress={() => dispatch({ type: 'removeQueue', promptId })}>
+    <Pressable
+      hitSlop={6}
+      accessibilityRole="button"
+      onPress={() => dispatch({ type: 'removeQueue', promptId })}
+    >
       <Text style={[styles.deliveryAction, { color: theme.primary }]}>Remove</Text>
     </Pressable>
   );
@@ -113,7 +126,9 @@ function SinglePageAnswersCard({
   const more = num(answers, 'more') ?? 0;
   const pageId = str(answers, 'pageId');
   const by = str(answers, 'by');
-  const [toggledOpen, toggle] = useDisclosure(disclosures, `answers-card:${pageId}:${by}`, defaultOpen);
+  const scope = rowId.length > 0 ? `${rowId}:${occurrence}:` : `${occurrence}:`;
+  const cardKey = `answers-card:${scope}${pageId}:${by}`;
+  const [toggledOpen, toggle] = useDisclosure(disclosures, cardKey, defaultOpen);
   const open = bodyOnly || toggledOpen;
   // Older chat cores sent no `skipped` or `extra`: their words stand in.
   const rows = arr(answers?.rows).map((row) => {
@@ -169,7 +184,7 @@ function SinglePageAnswersCard({
                   <Text style={[styles.answer, { color: theme.foreground, fontWeight: row.extra ? '400' : '500' }]}>
                     {row.value}
                   </Text>
-                  {row.note.length > 0 ? <AnswerNote note={row.note} /> : null}
+                  {row.note.length > 0 ? <AnswerNote disclosureKey={`${cardKey}:note:${index}`} note={row.note} /> : null}
                 </View>
               );
             })
@@ -304,9 +319,10 @@ function QuestionLine({ marker, label, runs }: { marker: string; label: string; 
 }
 
 /** A note under its answer: muted, behind a thin rule, two lines until More opens it. */
-function AnswerNote({ note }: { note: string }) {
+function AnswerNote({ disclosureKey, note }: { disclosureKey: string; note: string }) {
   const { theme } = useTranscriptEnv();
-  const [whole, setWhole] = useState(false);
+  const { disclosures } = useNativeChatUi();
+  const [whole, toggleWhole] = useDisclosure(disclosures, disclosureKey, false);
   const long = note.length > NOTE_TWO_LINES || note.split('\n').length > 2;
   return (
     <View style={styles.noteBox}>
@@ -317,7 +333,7 @@ function AnswerNote({ note }: { note: string }) {
         {note}
       </Text>
       {long ? (
-        <Pressable hitSlop={6} accessibilityRole="button" onPress={() => setWhole((shown) => !shown)}>
+        <Pressable hitSlop={6} accessibilityRole="button" onPress={toggleWhole}>
           <Text style={[styles.moreNote, { color: theme.foreground }]}>{whole ? 'Less' : 'More'}</Text>
         </Pressable>
       ) : null}

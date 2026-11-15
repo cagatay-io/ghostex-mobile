@@ -73,7 +73,7 @@ export function CollabCards({ chat, document }: { chat: RustChat; document: Chat
                   {pictures === 1 ? 'With 1 picture' : `With ${pictures} pictures`}
                 </Text>
               ) : null,
-              answerCards.length > 0 ? <PageAnswersCards key="answers" cards={answerCards} /> : null,
+              answerCards.length > 0 ? <PageAnswersCards key="answers" rowId={`collab:${id}`} cards={answerCards} /> : null,
               str(card, 'text').length > 0 ? (
                 <Text key="text" selectable style={styles.text}>
                   {str(card, 'text')}
