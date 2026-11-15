@@ -178,7 +178,7 @@ export function InlineAnswers({ mark }: { mark: JsonRecord }) {
                 { backgroundColor: withAlpha(theme.foreground, pressed ? 0.1 : 0.035) },
               ]}
             >
-              <Text style={[styles.label, { color: theme.cardMuted }]}>
+              <Text style={[styles.label, stacked && styles.wrapped, { color: theme.cardMuted }]}>
                 {stacked ? `${own}  Write your own answer` : own}
               </Text>
             </Pressable>
