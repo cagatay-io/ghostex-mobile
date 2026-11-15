@@ -86,7 +86,10 @@ function PageCardBody({
       : { label: 'Canceled', hint: 'Canceled, no answer needed' }
     : withdrawnEntry === undefined
       ? null
-      : withdrawnEntry.tags.length >= withdrawnEntry.total
+      : // A newer `ghostex show` of the same file replaced it (gx-chat-core `Asker::replaced`).
+        withdrawnEntry.replaced === true
+        ? { label: 'Replaced', hint: 'Replaced by a newer version of this page' }
+        : withdrawnEntry.tags.length >= withdrawnEntry.total
         ? { label: 'Withdrawn', hint: 'Withdrawn, no answer needed' }
         : {
             label: `${withdrawnEntry.tags.length} of ${withdrawnEntry.total} withdrawn`,

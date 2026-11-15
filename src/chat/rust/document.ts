@@ -637,7 +637,7 @@ export type ChatDocument = {
   answersBelow?: string[];
   /** Question pages not answered whose questions were withdrawn, some or all, by page id
    * (gx-chat-core `open_questions.rs` `withdrawn_pages`). */
-  withdrawnPages?: { [pageId: string]: { tags: string[]; total: number } };
+  withdrawnPages?: { [pageId: string]: { tags: string[]; total: number; replaced?: boolean } };
   /** Question pages and forms put off "For later" that still wait (gx-chat-core `questions/later.rs`). */
   laterQuestions?: string[];
   /** The question forms (```questions blocks) by id (`questions/forms.rs`). */

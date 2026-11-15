@@ -299,7 +299,7 @@ export type TranscriptFlags = {
   /** Forms and pages whose answers card sits right under them, so they draw nothing (Q2995). */
   answersBelow: ReadonlySet<string>;
   /** Question pages whose questions were withdrawn, some or all (desktop `page_card.rs`). */
-  withdrawnPages: { [pageId: string]: { tags: string[]; total: number } };
+  withdrawnPages: { [pageId: string]: { tags: string[]; total: number; replaced?: boolean } };
   /** Question pages and forms still unanswered, which offer For later (gx-chat-core `questions/later.rs`). */
   unansweredQuestions: ReadonlySet<string>;
   /** Question pages and forms put off For later, which offer Back to unanswered. */
