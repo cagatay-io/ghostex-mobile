@@ -7,14 +7,17 @@
  * CDXC:Collab 2026-11-07 DECISION: User (Q1616): the phone is "full (share, approve messages, Stop sharing, see viewers)".
  */
 
+import { useMemo } from 'react';
 import { Text } from 'react-native';
 
 import type { ChatDocument } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
+import { TranscriptEnvProvider, type TranscriptEnv } from '../transcript/context';
 import { arr, isTrue, obj, str, type JsonRecord } from './json';
 import { CARD_TEXT_SIZE } from './primitives';
 import { ToneButton, ToneCard } from './ToneCard';
-import { themedStyles } from '../transcript/theme';
+import { PageAnswersCards } from '../transcript/PageAnswersCard';
+import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 
 function collabOf(document: ChatDocument): JsonRecord | null {
   return obj(document.collab);
@@ -28,6 +31,19 @@ export function collabCardsShown(document: ChatDocument): boolean {
 
 export function CollabCards({ chat, document }: { chat: RustChat; document: ChatDocument }) {
   const styles = useStyles();
+  const theme = useTranscriptTheme();
+  const env = useMemo<TranscriptEnv>(
+    () => ({
+      dispatch: chat.dispatch,
+      theme,
+      simple: false,
+      workOpen: false,
+      filePreviews: false,
+      mutedThinking: false,
+      main: false,
+    }),
+    [chat.dispatch, theme],
+  );
   const collab = collabOf(document);
   if (collab === null) return null;
   const cards = arr(collab.cards)
@@ -35,11 +51,14 @@ export function CollabCards({ chat, document }: { chat: RustChat; document: Chat
     .filter((card): card is JsonRecord => card !== null && str(card, 'id').length > 0);
   const typing = str(collab, 'typing');
   return (
-    <>
+    <TranscriptEnvProvider value={env}>
       {cards.map((card) => {
         const id = str(card, 'id');
         const busy = isTrue(card, 'busy');
         const pictures = arr(card.images).length;
+        const answerCards = [obj(card.answers), ...arr(card.extraAnswers).map(obj)].filter(
+          (entry): entry is JsonRecord => entry !== null,
+        );
         const resolve = (action: 'send' | 'edit' | 'decline') =>
           chat.dispatch({ type: 'resolveCollabMessage', heldId: id, action });
         return (
@@ -49,14 +68,15 @@ export function CollabCards({ chat, document }: { chat: RustChat; document: Chat
             icon="users"
             title={str(card, 'title')}
             body={[
-              str(card, 'text').length > 0 ? (
-                <Text key="text" selectable style={styles.text}>
-                  {str(card, 'text')}
-                </Text>
-              ) : null,
               pictures > 0 ? (
                 <Text key="pictures" style={styles.pictures}>
                   {pictures === 1 ? 'With 1 picture' : `With ${pictures} pictures`}
+                </Text>
+              ) : null,
+              answerCards.length > 0 ? <PageAnswersCards key="answers" cards={answerCards} /> : null,
+              str(card, 'text').length > 0 ? (
+                <Text key="text" selectable style={styles.text}>
+                  {str(card, 'text')}
                 </Text>
               ) : null,
             ]}
@@ -79,7 +99,7 @@ export function CollabCards({ chat, document }: { chat: RustChat; document: Chat
           {`${typing}…`}
         </Text>
       ) : null}
-    </>
+    </TranscriptEnvProvider>
   );
 }
 
