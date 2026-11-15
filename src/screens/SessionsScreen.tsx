@@ -824,6 +824,12 @@ export default function SessionsScreen({ navigation }: Props) {
   const statusLine = drawerStatusLine(machine === null ? null : machineDisplayLabel(machine));
   const tabsShown = machineTabsVisible(unified.on, machines.length, selectedSummary?.separateByMachine === true);
   const connectionEntries = useConnectionEntries(machines, tailscaleConnected);
+  // CDXC:RemoteMachines 2026-11-15 DECISION:
+  // User: "I already see red icon for the machine, no need to show this text". While the row shows several computers'
+  // icons (no tabs), a computer that can't connect is its own red icon and the line about it is left out; a tap on the
+  // icons opens the Connections sheet with which computer and why. One computer, or the tab strip, keeps the line.
+  const iconsSayIt = !tabsShown && connectionEntries.length > 1;
+  const noticeShown = shownNotices.length > 0 && !iconsSayIt;
   const sortedConnectionEntries = useConnectionEntries(machines, tailscaleConnected, true);
   useWallPreviews(tilesShown && isFocused, unified.on ? unified.wallTargets : classicWallTargets);
 
@@ -1560,9 +1566,9 @@ export default function SessionsScreen({ navigation }: Props) {
           <Text style={{ color: sidebarAppearance.muted, fontSize: 13, lineHeight: 18 }}>{DemoCopy.banner}</Text>
         </View>
       ) : null}
-      {shownNotices.length > 0 || statusLine.length > 0 || !tabsShown ? (
+      {noticeShown || statusLine.length > 0 || !tabsShown ? (
         <View style={styles.statusRow}>
-          {shownNotices.length > 0 ? (
+          {noticeShown ? (
             <View style={styles.statusPressable}>
               <MachineNoticeLine
                 entries={shownNotices}
