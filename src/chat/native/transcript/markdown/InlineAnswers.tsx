@@ -1,13 +1,15 @@
 /**
  * One-click answers under an agent's question: the marked line gx-chat-core puts under the question
- * (`transcript/inline_answers.rs`), drawn as one compact segmented pill. The state is the question's
- * one-question form in the document's `questionForms` (open, sending, queued, answered, changing);
+ * (`transcript/inline_answers.rs`), drawn as one compact segmented pill, or one answer per row when the pill
+ * does not fit on the line. The state is the question's one-question form in the document's `questionForms`
+ * (open, sending, queued, answered, changing);
  * this file only lays it out and sends the taps, as desktop `inline_answers.rs` does.
  *
  * CDXC:SessionChat 2026-11-05 SEE-ALSO: The decision (Q1245 C, the segmented pill on the line under the question; Q1247 B, Change while queued or after) is in packages/gx-chat-core/src/transcript/inline_answers.rs.
  */
 
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 
 import { useTranscriptEnv, useTranscriptFlags } from '../context';
 import { arr, obj, str, type JsonRecord } from '../json';
@@ -68,6 +70,25 @@ export function InlineAnswers({ mark }: { mark: JsonRecord }) {
   const edge = withAlpha(theme.foreground, 0.16);
   const inkText = theme.light ? '#fafafa' : '#111113';
   const choices = arr(mark.choices).map((choice) => obj(choice)).filter((choice) => choice !== null);
+  /*
+   * CDXC:SessionChat 2026-11-15 WHY:
+   * On an iPhone a question's three long answers ("Rebuild my desktop from the fix branch now", ...) drew as one
+   * segmented pill that ran off the screen: the second was cut to "Push the" and the third could not be reached.
+   * The pill on one line is measured against the line's own width (split screen and large text included); when
+   * it does not fit, the answers stack one per row, full width, and a long answer wraps inside its row. Desktop
+   * inline_answers.rs stacks the same way.
+   */
+  const [lineWidth, setLineWidth] = useState(0);
+  const [naturalWidth, setNaturalWidth] = useState(0);
+  const onLine = useCallback((event: LayoutChangeEvent) => {
+    const next = Math.floor(event.nativeEvent.layout.width);
+    setLineWidth((was) => (was === next ? was : next));
+  }, []);
+  const onNatural = useCallback((event: LayoutChangeEvent) => {
+    const next = Math.ceil(event.nativeEvent.layout.width);
+    setNaturalWidth((was) => (was === next ? was : next));
+  }, []);
+  const stacked = lineWidth > 0 && naturalWidth > lineWidth;
 
   let status: { text: string; link: string | null } | null = null;
   if (withdrawn) status = { text: 'Withdrawn', link: null };
@@ -78,10 +99,52 @@ export function InlineAnswers({ mark }: { mark: JsonRecord }) {
   else if (phase === 'answered') status = { text: `Sent${words} ·`, link: 'Change' };
 
   if (covered) return null;
+  const divider = StyleSheet.hairlineWidth * 2;
+  const own = clickable ? '✎' : null;
+  // The words a segment shows, the same in the drawn pill and in the measured copy.
+  const content = (choice: JsonRecord, index: number, wrap: boolean) => {
+    const label = str(choice, 'label');
+    const chosen = sent && picked === index;
+    const recommended = choice.recommended === true && !sent;
+    return (
+      <>
+        {recommended ? <View style={[styles.dot, { backgroundColor: withAlpha(theme.foreground, 0.55) }]} /> : null}
+        <Text
+          style={[styles.label, wrap && styles.wrapped, { color: chosen ? inkText : theme.foreground }]}
+          numberOfLines={wrap ? undefined : 1}
+        >
+          {chosen ? `${label} ✓` : label}
+        </Text>
+      </>
+    );
+  };
   return (
     <QuestionFlashFrame target={formId} light={theme.light}>
-      <View style={styles.row}>
-        <View style={[styles.pill, { borderColor: edge }]} accessibilityRole="radiogroup">
+      <View style={styles.row} onLayout={onLine}>
+        {/* The pill on one line at its whole width, never seen: what decides whether it fits. */}
+        <View
+          style={styles.measureRoom}
+          pointerEvents="none"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        >
+          <View style={[styles.pill, styles.measured]} onLayout={onNatural}>
+            {choices.map((choice, index) => (
+              <View key={index} style={[styles.segment, index > 0 && { borderLeftWidth: divider }]}>
+                {content(choice, index, false)}
+              </View>
+            ))}
+            {own !== null ? (
+              <View style={[styles.segment, choices.length > 0 && { borderLeftWidth: divider }]}>
+                <Text style={styles.label}>{own}</Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
+        <View
+          style={[styles.pill, stacked && styles.stackedPill, { borderColor: edge }]}
+          accessibilityRole="radiogroup"
+        >
           {choices.map((choice, index) => {
             const label = str(choice, 'label');
             const chosen = sent && picked === index;
@@ -98,7 +161,11 @@ export function InlineAnswers({ mark }: { mark: JsonRecord }) {
                 onPress={() => dispatch({ type: 'inlineAnswer', form: formId, choice: index })}
                 style={({ pressed }) => [
                   styles.segment,
-                  index > 0 && { borderLeftWidth: StyleSheet.hairlineWidth * 2, borderLeftColor: edge },
+                  stacked && styles.stackedSegment,
+                  index > 0 &&
+                    (stacked
+                      ? { borderTopWidth: divider, borderTopColor: edge }
+                      : { borderLeftWidth: divider, borderLeftColor: edge }),
                   {
                     backgroundColor: chosen
                       ? theme.foreground
@@ -107,27 +174,28 @@ export function InlineAnswers({ mark }: { mark: JsonRecord }) {
                   faded && styles.faded,
                 ]}
               >
-                {recommended ? (
-                  <View style={[styles.dot, { backgroundColor: withAlpha(theme.foreground, 0.55) }]} />
-                ) : null}
-                <Text style={[styles.label, { color: chosen ? inkText : theme.foreground }]} numberOfLines={1}>
-                  {chosen ? `${label} ✓` : label}
-                </Text>
+                {content(choice, index, stacked)}
               </Pressable>
             );
           })}
-          {clickable ? (
+          {own !== null ? (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Write your own answer"
               onPress={() => openQuestionReply({ form: formId, tag, name: shortName(str(mark, 'question')) })}
               style={({ pressed }) => [
                 styles.segment,
-                choices.length > 0 && { borderLeftWidth: StyleSheet.hairlineWidth * 2, borderLeftColor: edge },
+                stacked && styles.stackedSegment,
+                choices.length > 0 &&
+                  (stacked
+                    ? { borderTopWidth: divider, borderTopColor: edge }
+                    : { borderLeftWidth: divider, borderLeftColor: edge }),
                 { backgroundColor: withAlpha(theme.foreground, pressed ? 0.1 : 0.035) },
               ]}
             >
-              <Text style={[styles.label, { color: theme.cardMuted }]}>✎</Text>
+              <Text style={[styles.label, stacked && styles.wrapped, { color: theme.cardMuted }]}>
+                {stacked ? `${own}  Write your own answer` : own}
+              </Text>
             </Pressable>
           ) : null}
         </View>
@@ -153,8 +221,13 @@ export function InlineAnswers({ mark }: { mark: JsonRecord }) {
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   pill: { flexDirection: 'row', borderWidth: StyleSheet.hairlineWidth * 2, borderRadius: 9, overflow: 'hidden', flexShrink: 1 },
+  stackedPill: { flexDirection: 'column', width: '100%' },
+  measureRoom: { position: 'absolute', left: 0, top: 0, width: 20000, flexDirection: 'row', opacity: 0 },
+  measured: { flexShrink: 0, borderColor: 'transparent' },
   segment: { flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 32, paddingHorizontal: 13 },
+  stackedSegment: { paddingVertical: 7 },
   label: { fontSize: 13.5, fontWeight: '600' },
+  wrapped: { flexShrink: 1 },
   dot: { width: 5, height: 5, borderRadius: 3 },
   faded: { opacity: 0.4 },
   status: { flexDirection: 'row', alignItems: 'center', gap: 4 },
