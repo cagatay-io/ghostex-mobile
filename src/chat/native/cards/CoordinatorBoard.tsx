@@ -414,9 +414,11 @@ function ClosedAnswers({
       accessibilityLabel={`${CHOOSE_ANSWER}, ${answers.length} answers`}
       hitSlop={{ top: 10, bottom: 10 }}
       onPress={onPress}
-      style={styles.answer}
+      style={[styles.answer, styles.answerKept]}
     >
-      <Text style={[styles.tagText, styles.answerStrong]}>{CHOOSE_ANSWER}</Text>
+      <Text style={[styles.tagText, styles.answerStrong, styles.answerKept]} numberOfLines={1}>
+        {CHOOSE_ANSWER}
+      </Text>
       <Glyph name="chevron-down" size={11} color={P.cardMuted} />
     </Pressable>
   );
@@ -460,11 +462,15 @@ function ClosedAnswers({
         // A divider after the answers or the dropdown before it (always one of them here).
         answers.length > 0 && styles.answerDivider,
         replied.length > 0 && styles.answerPicked,
+        replied.length === 0 && styles.answerKept,
         locked && replied.length === 0 && styles.answerFaded,
       ]}
     >
       <Glyph name={replied.length > 0 ? 'check' : 'arrow-back-up'} size={11} color={P.cardMuted} />
-      <Text style={[styles.tagText, replied.length > 0 && styles.answerStrong]} numberOfLines={1}>
+      <Text
+        style={[styles.tagText, replied.length > 0 ? styles.answerStrong : styles.answerKept]}
+        numberOfLines={1}
+      >
         {replyWords.length > 0 ? replyWords : 'Reply'}
       </Text>
       {draft && replied.length === 0 ? <Text style={[styles.tagText, { color: P.muted }]}>Draft</Text> : null}
@@ -1136,6 +1142,8 @@ const useStyles = themedStyles((P) => ({
   },
   /** An item's one-click answers, one segmented pill (desktop `board_answers`). */
   answersWhole: { flexShrink: 0 },
+  // Choices and an unsent Reply hold their words' width: the work's name, then Reply, give way first.
+  answerKept: { flexShrink: 0 },
   // A closed card's answers line: it fills the chips' row, so its width is the answers' room.
   closedLine: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 6 },
   // Unseen and out of the flow: wide enough that every segment lays out at its whole width.

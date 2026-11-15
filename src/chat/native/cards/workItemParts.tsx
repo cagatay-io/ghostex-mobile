@@ -44,7 +44,13 @@ import { replyDraftRow, useReplyDraft, type ReplyDraftScope } from './replyDraft
 export const WORK_BUTTON_SLOP = { top: 8, bottom: 8, left: 3, right: 3 };
 
 /** The button the answers fold into when they do not fit one line (desktop `CHOOSE_ANSWER`). */
-export const CHOOSE_ANSWER = 'Choose an answer';
+/*
+ * CDXC:Coordinators 2026-11-15 DECISION:
+ * User, of an opened ask whose "Choose an answer" wrapped to two lines beside a "Repl / y": "This
+ * looks broken at the bottom please say just Choices instead of choose an answer there". One short
+ * word everywhere the answers fold (the dock, the Work sheet, an opened ask; desktop too).
+ */
+export const CHOOSE_ANSWER = 'Choices';
 
 /**
  * A button's width, roughly as `WorkButton` draws it on one line: its label at 14 points grown by
@@ -68,7 +74,7 @@ export const STATUS_COLOR: Record<string, string> = {
 const PILL_PAD = 7;
 const PILL_DOT = 6;
 
-type PillFit = 'full' | 'dots' | 'plus';
+type PillFit = 'full' | 'dots' | 'plus' | 'none';
 
 /** The item pills' widths, each with the 6 gap after it: whole, dots only, one "+N" pill. */
 function pillWidths(pills: JsonRecord[], fontScale: number): [number, number, number] {
@@ -86,7 +92,9 @@ function pillWidths(pills: JsonRecord[], fontScale: number): [number, number, nu
 function pillFit(widths: [number, number, number], room: number): PillFit {
   if (widths[0] <= room) return 'full';
   if (widths[1] <= room) return 'dots';
-  return 'plus';
+  // Past "+N" the pills step out of the line: the answers and Reply never give way to them.
+  if (widths[2] <= room) return 'plus';
+  return 'none';
 }
 
 /**
@@ -110,7 +118,7 @@ function ItemPills({ pills, fit, dispatch }: { pills: JsonRecord[]; fit: PillFit
   };
   return (
     <>
-      {fit === 'plus' ? (
+      {fit === 'none' ? null : fit === 'plus' ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={pills.map((pill) => str(pill, 'tip')).join(', ')}
@@ -513,8 +521,12 @@ export function WorkAnswerLine({
         : replyWidthOf(replied, draft, fontScale);
     const lead = (
       <>
-        <ItemPills pills={pills} fit={pillFit(pillRoom, lineRoom - alone - logosWidth)} dispatch={dispatch} />
-        {logos}
+        {pills.length > 0 || logos != null ? (
+          <View style={styles.lead}>
+            <ItemPills pills={pills} fit={pillFit(pillRoom, lineRoom - alone - logosWidth)} dispatch={dispatch} />
+            {logos}
+          </View>
+        ) : null}
         {divider ? <View style={styles.flex} /> : null}
       </>
     );
@@ -522,7 +534,7 @@ export function WorkAnswerLine({
       return (
         <View style={styles.line}>
           {lead}
-          <WorkButton label="Open" icon="external-link" onPress={() => dispatch(open as never)} />
+          <WorkButton keep label="Open" icon="external-link" onPress={() => dispatch(open as never)} />
           {replyButton}
         </View>
       );
@@ -618,13 +630,19 @@ export function WorkAnswerLine({
         </View>
       </View>
       <View style={styles.line}>
-        <ItemPills pills={pills} fit={pillFit(pillRoom, lineRoom - used - logosWidth)} dispatch={dispatch} />
-        {logos}
+        {/* The pills and logos give way (clipped, then left out) before a button ever shrinks. */}
+        {pills.length > 0 || logos != null ? (
+          <View style={styles.lead}>
+            <ItemPills pills={pills} fit={pillFit(pillRoom, lineRoom - used - logosWidth)} dispatch={dispatch} />
+            {logos}
+          </View>
+        ) : null}
         {/* Opened: the item pills at the left, the answers and Reply at the right edge (user,
             2026-11-12: "move the answer buttons to bottom right. keep work item tag bottom left"). */}
         {divider ? <View style={styles.flex} /> : null}
         {fold ? (
           <WorkButton
+            keep
             label={CHOOSE_ANSWER}
             icon={chooser === 'inline' && choosing ? 'chevron-up' : 'chevron-down'}
             accessibilityLabel={`${CHOOSE_ANSWER}, ${answers.length} answers`}
@@ -879,6 +897,8 @@ const useStyles = themedStyles((P) => ({
   buttonLabel: { flexShrink: 1, fontSize: PROSE_SIZE, lineHeight: 20, fontWeight: '400' },
   // A button the line was measured to hold: it keeps its words' whole width.
   kept: { flexShrink: 0 },
+  // The line's item pills and logos: the part that gives way, clipped rather than pushing a button.
+  lead: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, minWidth: 0, overflow: 'hidden' },
   // Unseen and out of the flow: wide enough that every button lays out at its whole width.
   measure: { position: 'absolute', left: 0, top: 0, width: 10000, opacity: 0, alignItems: 'flex-start' },
   measureItem: { flexDirection: 'row' },
