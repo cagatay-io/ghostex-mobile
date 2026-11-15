@@ -113,6 +113,9 @@ extension GhosttyTerminalView {
             invalidateLocalTextInputSession()
             return
         }
+        // From here the text reaches the local text model or goes as Return or Tab: the user's operation is admitted
+        // and counted once, before the model reconciles it into key calls. The branches above count at their keys.
+        guard softwareInputTakes(.insert(normalized)) else { return }
 
         if normalized == "\n" || normalized == "\r" {
             _ = textInputModel.invalidateSession()
@@ -146,6 +149,16 @@ extension GhosttyTerminalView {
     /// The input boundary of every key path: false keeps a typed key here (see `admitsKey`).
     private func admits(_ key: GhostexTerminalUnsentKeys) -> Bool {
         admitsKey?(key) ?? true
+    }
+
+    /// The software keyboard's operation at the not-sent boundary (`GhostexSoftwareInputGate`), before
+    /// `textInputModel` takes it: true lets the model take it; otherwise it is kept, and counted where it typed keys.
+    func softwareInputTakes(_ operation: GhostexSoftwareInputGate.Operation) -> Bool {
+        let linked = admits(GhostexTerminalUnsentKeys())
+        let decision = softwareInputGate.decide(operation, linked: linked, model: &textInputModel)
+        applyTerminalTextInputEffects(decision.effects)
+        if !decision.unsent.isEmpty { reportsUnsentKeys?(decision.unsent) }
+        return decision.takes
     }
 
     /// A hardware keyboard's key event at the same boundary (GhosttyTerminalView+HardwareKeyboard.swift); see
@@ -536,6 +549,7 @@ extension GhosttyTerminalView: UIKeyInput, UITextInputTraits {
         if isNativeSelectionTextInputContext {
             guard exitNativeSelectionTextInputContextForTerminalInput() else { return }
         }
+        guard softwareInputTakes(.deleteBackward) else { return }
         if !keyModifiers.isEmpty {
             invalidateLocalTextInputSession()
             sendTerminalKey(.backspace, accumulatedMods: consumeKeyModifiers())

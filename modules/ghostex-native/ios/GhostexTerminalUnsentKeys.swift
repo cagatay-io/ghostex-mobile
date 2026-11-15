@@ -99,6 +99,14 @@ final class GhostexTerminalNotSent {
         return (true, .sent)
     }
 
+    /// Keys the software keyboard's boundary (`GhostexSoftwareInputGate`) kept back: counted as not sent, whatever the
+    /// link is now (a composition begun without a link is not sent when it ends after the link is back).
+    func lost(_ key: GhostexTerminalUnsentKeys, sessionKey: String) -> Report? {
+        guard !key.isEmpty else { return nil }
+        marked.insert(sessionKey)
+        return .notSent(key)
+    }
+
     /// `sessionKey`'s terminal was opened (again).
     func opened(_ sessionKey: String) {
         marked.insert(sessionKey)
@@ -118,5 +126,83 @@ final class GhostexTerminalNotSent {
     /// bytes are dropped by the write callback like any other write. A press or a repeat is asked through `admit`.
     static func hardwareKeyGoesOnUncounted(_ key: GhostexTerminalUnsentKeys) -> Bool {
         key.isEmpty
+    }
+}
+
+/// The software keyboard's operations at the not-sent boundary, taken before the local text model
+/// (TerminalTextInputModel) turns them into key calls, so the user's operation is what counts, once: a Backspace over a
+/// selection is one Backspace, a caret or selection change counts nothing. Without a link an operation leaves the model
+/// as it was, so nothing typed then can be sent later as part of other text. An IME composition that begins or changes
+/// without a link is held out of the model until it ends; its commit is counted as not sent, also when the link is
+/// back by then. Foundation only.
+struct GhostexSoftwareInputGate {
+    enum Operation: Equatable {
+        /// Typed or committed text (a line break is a Return).
+        case insert(String)
+        case deleteBackward
+        /// The keyboard replaces a range; empty text deletes it.
+        case replace(String)
+        case setMarked(String?)
+        case unmark
+        /// The caret or selection moves.
+        case select
+    }
+
+    struct Decision: Equatable {
+        /// The model takes the operation (the terminal has a link and no held composition).
+        var takes: Bool
+        /// Counted as not sent.
+        var unsent = GhostexTerminalUnsentKeys()
+        /// Applied to the view instead of the operation; never a key.
+        var effects: [TerminalTextInputModel.Effect] = []
+    }
+
+    /// The marked text of a composition held out of the model.
+    private(set) var heldComposition: String?
+
+    mutating func decide(
+        _ operation: Operation,
+        linked: Bool,
+        model: inout TerminalTextInputModel
+    ) -> Decision {
+        if let held = heldComposition {
+            switch operation {
+            case let .setMarked(text):
+                heldComposition = (text ?? "").isEmpty ? nil : text
+                return Decision(takes: false)
+            case .unmark:
+                heldComposition = nil
+                return Decision(takes: false, unsent: GhostexTerminalUnsentKeys(typed: held))
+            case let .insert(text), let .replace(text):
+                heldComposition = nil
+                return Decision(takes: false, unsent: GhostexTerminalUnsentKeys(typed: text))
+            case .deleteBackward, .select:
+                return Decision(takes: false)
+            }
+        }
+        guard !linked else { return Decision(takes: true) }
+        switch operation {
+        case let .insert(text):
+            return Decision(takes: false, unsent: GhostexTerminalUnsentKeys(typed: text), effects: Self.cancel(&model))
+        case let .replace(text):
+            let unsent = text.isEmpty ? GhostexTerminalUnsentKeys(.backspace) : GhostexTerminalUnsentKeys(typed: text)
+            return Decision(takes: false, unsent: unsent, effects: Self.cancel(&model))
+        case .deleteBackward:
+            return Decision(takes: false, unsent: GhostexTerminalUnsentKeys(.backspace))
+        case let .setMarked(text):
+            heldComposition = (text ?? "").isEmpty ? nil : text
+            return Decision(takes: false, effects: Self.cancel(&model))
+        case .unmark:
+            let committed = model.hasActiveIMEComposition ? model.markedText : ""
+            return Decision(takes: false, unsent: GhostexTerminalUnsentKeys(typed: committed), effects: Self.cancel(&model))
+        case .select:
+            return Decision(takes: false)
+        }
+    }
+
+    /// Ends the model's own composition without committing it (its text was never sent).
+    private static func cancel(_ model: inout TerminalTextInputModel) -> [TerminalTextInputModel.Effect] {
+        guard model.hasActiveIMEComposition else { return [] }
+        return model.handleSetMarkedText(nil, selectedRangeLocation: 0)
     }
 }

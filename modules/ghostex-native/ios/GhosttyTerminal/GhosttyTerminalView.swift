@@ -415,6 +415,7 @@ class GhosttyTerminalView: UIView {
         onOpenUrl = nil
         writeCallback = nil
         admitsKey = nil
+        reportsUnsentKeys = nil
 
         // Stop rendering/input callbacks and mark the surface as not visible.
         if let cSurface = surface?.unsafeCValue {
@@ -521,4 +522,10 @@ class GhosttyTerminalView: UIView {
     /// Asked by every key path before a typed key goes to Ghostty (GhosttyTerminalView+SoftwareKeyboard.swift); false
     /// keeps the key here: the terminal has no link, and the module counted the key as not sent. Nil lets every key on.
     var admitsKey: ((GhostexTerminalUnsentKeys) -> Bool)?
+
+    /// Counts keys the software keyboard's boundary kept back (`softwareInputTakes`) as not sent.
+    var reportsUnsentKeys: ((GhostexTerminalUnsentKeys) -> Void)?
+
+    /// The software keyboard's operations at the not-sent boundary, before `textInputModel` takes them.
+    var softwareInputGate = GhostexSoftwareInputGate()
 }

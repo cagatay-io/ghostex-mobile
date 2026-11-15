@@ -606,6 +606,12 @@ public class GhostexNativeModule: Module {
                         return goesOn
                     }
                 }
+                view.reportsUnsentKeys = { [weak self] key in
+                    MainActor.assumeIsolated {
+                        guard let self, let report = self.notSent.lost(key, sessionKey: sessionKey) else { return }
+                        self.reportNotSent(report, sessionKey)
+                    }
+                }
                 self.notSent.opened(sessionKey)
 
                 registry.register(entry)
