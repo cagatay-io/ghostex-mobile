@@ -12,12 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { logAppEvent } from '../../app/appLog';
-import {
-  deleteAllListedCrashReports,
-  describeError,
-  refreshCrashReportList,
-  useCrashReportListStore,
-} from '../../app/crashReports';
+import { describeError, refreshCrashReportList, useCrashReportListStore } from '../../app/crashReports';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { CrashReportsSettingsCopy as Copy } from '../../copy/crashReports';
 import { crashKindLabel, crashWhenLabel } from '../../feedback/crashReports';
@@ -25,9 +20,16 @@ import type { RootStackParamList } from '../../navigation/types';
 import { useSettingsStore } from '../../settings/store';
 import { GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
 import { useAppearance, type Appearance } from '../../theme/useAppearance';
+import {
+  answerStep,
+  DELETE_ALL_STEP,
+  keepSwitchStep,
+  runCrashReportsChange,
+  type CrashReportsChange,
+  type CrashReportsDialog,
+  type CrashReportsStep,
+} from './crashReportsFlow';
 import { Caption, LinkRow, SectionHeader, SettingsScreenLayout, ToggleRow } from './SettingsControls';
-
-type Dialog = 'deleteAll' | 'keepOff' | null;
 
 /** How long a failure note stays under the switch, as long as the Share button's "Couldn't share". */
 const FAILURE_NOTE_MS = 3000;
@@ -37,10 +39,9 @@ export default function CrashReportsPage() {
   const appearance = useAppearance();
   const styles = useMemo(() => createStyles(appearance), [appearance]);
   const kept = useSettingsStore((state) => state.crashReportsKept);
-  const setKept = useSettingsStore((state) => state.setCrashReportsKept);
   const status = useCrashReportListStore((state) => state.status);
   const reports = useCrashReportListStore((state) => state.reports);
-  const [dialog, setDialog] = useState<Dialog>(null);
+  const [dialog, setDialog] = useState<CrashReportsDialog | null>(null);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const failedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -64,14 +65,14 @@ export default function CrashReportsPage() {
    * should have deleted reports also says so under the switch for a moment, and the reports still kept stay listed.
    * The switch itself always shows what the phone holds (`setCrashReportsKept` reads it back).
    */
-  const run = (what: string, deletes: boolean, change: () => Promise<void>): void => {
+  const run = (change: CrashReportsChange): void => {
     if (busy) return;
     setBusy(true);
     setFailed(false);
-    change()
+    runCrashReportsChange(change)
       .catch((error: unknown) => {
-        logAppEvent(`Crash reports: ${what} failed (${describeError(error)})`);
-        if (!deletes) return;
+        logAppEvent(`Crash reports: ${change} failed (${describeError(error)})`);
+        if (change === 'keepOn') return;
         setFailed(true);
         if (failedTimer.current !== null) clearTimeout(failedTimer.current);
         failedTimer.current = setTimeout(() => setFailed(false), FAILURE_NOTE_MS);
@@ -82,19 +83,17 @@ export default function CrashReportsPage() {
       });
   };
 
-  const turnKeepingOff = (): void => run('turning keeping off', true, () => setKept(false));
-
-  const onKeepChange = (next: boolean): void => {
-    if (next) run('turning keeping on', false, () => setKept(true));
-    else if (reports.length > 0) setDialog('keepOff');
-    else turnKeepingOff();
+  /** Asks in the confirm dialog, runs a change, or does nothing (crashReportsFlow.ts decides which). */
+  const take = (step: CrashReportsStep): void => {
+    if (step === null) return;
+    if ('ask' in step) setDialog(step.ask);
+    else run(step.run);
   };
 
-  const confirm = (): void => {
+  const answer = (confirmed: boolean): void => {
     const asked = dialog;
     setDialog(null);
-    if (asked === 'deleteAll') run('deleting every report', true, deleteAllListedCrashReports);
-    else if (asked === 'keepOff') turnKeepingOff();
+    if (asked !== null) take(answerStep(asked, confirmed));
   };
 
   // Off with nothing left: the page says so instead of a list. A report that turning off could not delete stays listed.
@@ -105,7 +104,11 @@ export default function CrashReportsPage() {
     <SettingsScreenLayout>
       {kept === null ? null : (
         <>
-          <ToggleRow label={Copy.keep} value={kept} onValueChange={onKeepChange} />
+          <ToggleRow
+            label={Copy.keep}
+            value={kept}
+            onValueChange={(next) => take(keepSwitchStep(next, reports.length))}
+          />
           <Caption>{Copy.keepCaption}</Caption>
         </>
       )}
@@ -138,7 +141,7 @@ export default function CrashReportsPage() {
             accessibilityRole="button"
             disabled={busy}
             style={({ pressed }) => [styles.deleteAll, pressed && styles.deleteAllPressed]}
-            onPress={() => setDialog('deleteAll')}
+            onPress={() => take(DELETE_ALL_STEP)}
           >
             <Text style={styles.deleteAllLabel}>{Copy.deleteAll}</Text>
           </Pressable>
@@ -150,8 +153,8 @@ export default function CrashReportsPage() {
         body={askedDialog.body(reports.length)}
         confirmLabel={askedDialog.confirm}
         destructive
-        onConfirm={confirm}
-        onCancel={() => setDialog(null)}
+        onConfirm={() => answer(true)}
+        onCancel={() => answer(false)}
       />
     </SettingsScreenLayout>
   );
