@@ -1,7 +1,7 @@
 /**
- * The two "Can't reach" checklists (docs/2026-09-03/mobile-setup/
+ * The "Can't reach" checklists (docs/2026-09-03/mobile-setup/
  * mobile-09-cant-reach.html), one per transport, ordered by how often each
- * cause is the real one; a plain SSH computer gets the Tailscale one without the phone's Tailscale check. A step the phone can verify itself carries a `verify`
+ * cause is the real one; a plain SSH computer gets its own, without Tailscale. A step the phone can verify itself carries a `verify`
  * key and is ticked from live state; a step with a fix inside the app carries
  * an `action` the screen turns into a button.
  */
@@ -56,15 +56,26 @@ export const TAILSCALE_CHECKLIST: readonly ChecklistStep[] = [
   },
 ];
 
+/** A computer reached by plain SSH, not through a tailnet: no Tailscale steps, and awake and address in plain words. */
+export const PLAIN_SSH_CHECKLIST: readonly ChecklistStep[] = [
+  { id: 'awake', title: tailscale.plainSsh.awake.title, detail: tailscale.plainSsh.awake.detail },
+  {
+    id: 'address',
+    title: tailscale.plainSsh.address.title,
+    detail: tailscale.plainSsh.address.detail,
+    action: { kind: 'editAddress', label: tailscale.plainSsh.address.button },
+  },
+];
+
 /**
  * CDXC:RemotePairing 2026-11-16 DECISION:
- * User (yes to the suggestion after "SSH · <address>" labels landed): a computer reached by plain SSH, not through
- * a tailnet (`isTailscaleSshMachine`), skips "Tailscale is connected on this phone"; Tailscale computers keep it.
+ * User (yes to the suggestions after "SSH · <address>" labels landed): a computer reached by plain SSH, not through
+ * a tailnet (`isTailscaleSshMachine`), gets no Tailscale steps (neither on this phone nor on the computer), and its
+ * awake and address lines say nothing of the tailnet or Tailscale IPs; Tailscale computers keep their checklist.
  */
 export function checklistFor(
   machine: Pick<MachineRecord, 'transport' | 'host' | 'tailscaleSsh'>,
 ): readonly ChecklistStep[] {
   if (machine.transport === 'tailcat') return EASY_CONNECT_CHECKLIST;
-  if (isTailscaleSshMachine(machine)) return TAILSCALE_CHECKLIST;
-  return TAILSCALE_CHECKLIST.filter((step) => step.verify !== 'tailscaleOnPhone');
+  return isTailscaleSshMachine(machine) ? TAILSCALE_CHECKLIST : PLAIN_SSH_CHECKLIST;
 }

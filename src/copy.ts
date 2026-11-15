@@ -1234,6 +1234,20 @@ export const CantReachCopy = {
       detail: 'Tailscale IPs rarely change, but a re-added computer gets a new one. The MagicDNS name is safer.',
       button: 'Edit address',
     },
+    /** A computer reached by plain SSH, not through a tailnet: the awake and address lines without Tailscale. */
+    plainSsh: {
+      awake: {
+        title: 'Is the computer awake?',
+        detail:
+          "A sleeping computer can't answer. Ghostex can keep it awake while sessions run (Keep awake in Settings → General).",
+      },
+      address: {
+        title: 'Is the address still right?',
+        detail:
+          'A router can give the computer a new IP after a restart. Check its address there, and that this phone is on a network that reaches it.',
+        button: 'Edit address',
+      },
+    },
     /** One accordion row per rarer SSH error: a short title, then a cause sentence, a fix sentence and the fix itself. */
     otherReasons: {
       title: 'Other reasons you might see here',
