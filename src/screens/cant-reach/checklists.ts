@@ -1,13 +1,13 @@
 /**
  * The two "Can't reach" checklists (docs/2026-09-03/mobile-setup/
  * mobile-09-cant-reach.html), one per transport, ordered by how often each
- * cause is the real one. A step the phone can verify itself carries a `verify`
+ * cause is the real one; a plain SSH computer gets the Tailscale one without the phone's Tailscale check. A step the phone can verify itself carries a `verify`
  * key and is ticked from live state; a step with a fix inside the app carries
  * an `action` the screen turns into a button.
  */
 
 import { CantReachCopy } from '../../copy';
-import type { MachineTransport } from '../../machines/store';
+import { isTailscaleSshMachine, type MachineRecord } from '../../machines/store';
 
 export type ChecklistVerify = 'tailscaleOnPhone';
 export type ChecklistAction = 'scanNewCode' | 'editAddress';
@@ -56,6 +56,15 @@ export const TAILSCALE_CHECKLIST: readonly ChecklistStep[] = [
   },
 ];
 
-export function checklistFor(transport: MachineTransport | undefined): readonly ChecklistStep[] {
-  return transport === 'tailcat' ? EASY_CONNECT_CHECKLIST : TAILSCALE_CHECKLIST;
+/**
+ * CDXC:RemotePairing 2026-11-16 DECISION:
+ * User (yes to the suggestion after "SSH · <address>" labels landed): a computer reached by plain SSH, not through
+ * a tailnet (`isTailscaleSshMachine`), skips "Tailscale is connected on this phone"; Tailscale computers keep it.
+ */
+export function checklistFor(
+  machine: Pick<MachineRecord, 'transport' | 'host' | 'tailscaleSsh'>,
+): readonly ChecklistStep[] {
+  if (machine.transport === 'tailcat') return EASY_CONNECT_CHECKLIST;
+  if (isTailscaleSshMachine(machine)) return TAILSCALE_CHECKLIST;
+  return TAILSCALE_CHECKLIST.filter((step) => step.verify !== 'tailscaleOnPhone');
 }

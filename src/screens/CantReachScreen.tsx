@@ -67,7 +67,7 @@ export default function CantReachScreen({ navigation, route }: Props) {
   const lastError = inventory?.lastError ?? null;
   const reasonCode = inventory?.lastErrorCode ?? 'unknown';
   const easyConnect = machine.transport === 'tailcat';
-  const steps = checklistFor(machine.transport);
+  const steps = checklistFor(machine);
   const lastReached =
     machine.lastConnectedAt === null
       ? CantReachCopy.neverReached
