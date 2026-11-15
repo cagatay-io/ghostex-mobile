@@ -2,7 +2,7 @@
  * A computer's page (Machines > a computer, Sessions' Remote Settings): whether it is connected and how, its
  * Approvals, the devices that can reach it, then four rows (name and Sessions tab, Ghostex updates, agents and
  * tools, Advanced) that each open a short page, and Remove at the bottom. Nothing on it is saved with a button.
- * CDXC:RemotePairing 2026-11-10 in copy.ts (`ComputerPageCopy`) has the user's pick.
+ * CDXC:RemotePairing 2026-11-10 in src/copy/machines.ts (`ComputerPageCopy`) has the user's pick.
  */
 
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
