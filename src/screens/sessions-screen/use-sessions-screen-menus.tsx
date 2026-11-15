@@ -7,7 +7,7 @@
  * launchAgent) run in their original relative order.
  */
 
-import { unifiedNewSessionTarget } from '../../contract/unified/choices';
+import { unifiedNewSessionTarget, type ActiveProject } from '../../contract/unified/choices';
 import { snoozeWakeAt } from '../../contract/unified/snooze';
 import { useCallback, useRef, useState } from 'react';
 import { Platform } from 'react-native';
@@ -1708,18 +1708,29 @@ export function useSessionsScreenMenus({
 
   /**
    * The header's New session (./new-session-button.tsx): the agent menu on the project a new
-   * session aims at (the Unified filter's one repository, else the top of Recent), where nothing
-   * starts until a row is picked. When that project can't open its menu (its computer is off or not
-   * read yet), the project list opens instead, and a pick there opens the menu. With no project to
-   * list it returns false, and the screen offers Add computer, Add project or says why.
+   * session aims at, by gx-core's start rule (`unifiedNewSessionTarget`): the Unified filter's one
+   * repository (only while the Unified layout shows it; the Project layout has no visible filter),
+   * else the project of the session open on the phone (a worktree stays that worktree), else the top
+   * of Recent. Nothing starts until a row is picked. When that project can't open its menu (its
+   * computer is off or not read yet), the project list opens instead, and a pick there opens the
+   * menu. With no project to list it returns false, and the screen offers Add computer, Add project
+   * or says why.
    */
-  const openNewSessionMenu = (currentMachineId: string): boolean => {
+  const openNewSessionMenu = (input: {
+    currentMachineId: string;
+    selectedSessionKey: string | null;
+    unifiedOn: boolean;
+  }): boolean => {
+    const { currentMachineId, selectedSessionKey, unifiedOn } = input;
     const choices = projectChoicesNow(currentMachineId);
-    const target = unifiedNewSessionTarget(useUnifiedListStore.getState().filter, choices, null);
+    const filter = unifiedOn ? useUnifiedListStore.getState().filter : { repos: [] };
+    const target = unifiedNewSessionTarget(filter, choices, activeProjectOf(selectedSessionKey));
     if (target === null) return false;
+    // The chip of the target's computer; an open worktree is folded into its repository's row, so
+    // the chip names the main checkout while the target keeps the worktree's project.
     const chip = choices
       .find((choice) => choice.repoKey === target.repoKey)
-      ?.machines.find((machine) => machine.machineId === target.machineId && machine.projectId === target.projectId);
+      ?.machines.find((machine) => machine.machineId === target.machineId);
     const summary = summaryFor(target.machineId);
     const header =
       summary === null ? null : projectHeaderOf(target.machineId, summary, target.projectId, { throughCollections: true });
@@ -1730,6 +1741,19 @@ export function useSessionsScreenMenus({
       setOverlay({ kind: 'newSessionProject', currentMachineId });
     }
     return true;
+  };
+
+  /** The project of the session open on the phone (`machineId:sessionId`), on its computer, or null. */
+  const activeProjectOf = (sessionKey: string | null): ActiveProject | null => {
+    if (sessionKey === null) return null;
+    const split = sessionKey.indexOf(':');
+    if (split <= 0) return null;
+    const machineId = sessionKey.slice(0, split);
+    const sessionId = sessionKey.slice(split + 1);
+    const session = summaryFor(machineId)?.sessions.find((entry) => entry.sessionId === sessionId);
+    if (session === undefined || session.projectId.length === 0) return null;
+    const repoKey = repoKeyOfProject(machineId, session.projectId);
+    return repoKey === null ? null : { repoKey, machineId, projectId: session.projectId };
   };
 
   /** The project row above the agents, naming the computer while there is more than one. */

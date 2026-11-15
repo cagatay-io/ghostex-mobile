@@ -939,7 +939,7 @@ export default function SessionsScreen({ navigation }: Props) {
    */
   const openNewSessionSheet = (): void => {
     const currentMachineId = machine?.id ?? '';
-    if (openNewSessionMenu(currentMachineId)) return;
+    if (openNewSessionMenu({ currentMachineId, selectedSessionKey, unifiedOn: unified.on })) return;
     const empty = newSessionEmptyList(newSessionComputersNow());
     if (empty.kind === 'addComputer') navigation.navigate('ConnectChoose');
     else if (empty.kind === 'addProject') openAddProject(currentMachineId);
