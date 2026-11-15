@@ -47,9 +47,10 @@ Pod::Spec.new do |s|
   # Network is NWListener/NWConnection, the loopback side of SSH local port forwarding. GameController tells whether
   # a hardware keyboard is connected (`GCKeyboard`, the pane keyboard follow).
   # AVFoundation, CallKit and UserNotifications are the voice agent, Dictate and Read aloud
-  # (GhostexVoice*.swift, GhostexSpeech.swift).
+  # (GhostexVoice*.swift, GhostexSpeech.swift). MetricKit hands the crash reports the crashes the app's own exception
+  # handler cannot catch (GhostexCrashReports.swift).
   s.frameworks = 'Metal', 'QuartzCore', 'UIKit', 'IOSurface', 'Security', 'AudioToolbox', 'Network', 'WebKit', 'GameController',
-                 'AVFoundation', 'CallKit', 'UserNotifications'
+                 'AVFoundation', 'CallKit', 'UserNotifications', 'MetricKit'
   s.libraries = 'z', 'c++'
 
   s.pod_target_xcconfig = {

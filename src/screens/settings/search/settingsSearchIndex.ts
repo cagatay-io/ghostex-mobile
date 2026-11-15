@@ -12,6 +12,8 @@
  */
 
 import { CommandPadCopy, LiveActivityCopy, NotificationChoicesCopy, NotificationsCopy } from '../../../copy';
+import { CrashReportsSettingsCopy } from '../../../copy/crashReports';
+import { CRASH_REPORTS_IN_SETTINGS } from '../../../feedback/crashReports';
 import { LIVE_ACTIVITY_PUSH_SUPPORTED } from '../../../notifications/liveActivityPushStore';
 import { NOTIFICATIONS_SUPPORTED } from '../../../notifications/notificationCentre';
 import { SETTINGS_PAGES, type SettingsPageId } from '../pages';
@@ -649,6 +651,26 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     description: 'Recent connection and status events on this phone. Copy them, or send them to the developer.',
     keywords: ['log', 'debug', 'send logs'],
   },
+  // Connection › Crash reports (iOS): the row under Logs opens the page; the switch is found by its own name.
+  ...(CRASH_REPORTS_IN_SETTINGS
+    ? [
+        {
+          page: 'crashReports',
+          section: '',
+          title: CrashReportsSettingsCopy.title,
+          description: CrashReportsSettingsCopy.rowDescription,
+          anchor: null,
+          keywords: CrashReportsSettingsCopy.searchWords,
+        } as const,
+        {
+          page: 'crashReports',
+          section: '',
+          title: CrashReportsSettingsCopy.keep,
+          description: CrashReportsSettingsCopy.keepCaption,
+          keywords: CrashReportsSettingsCopy.searchWords,
+        } as const,
+      ]
+    : []),
 
   // Sync
   {
@@ -958,6 +980,7 @@ const SUB_PAGE_PARENT: Partial<Record<SettingsPageId, SettingsPageId>> = {
   dictateLanguage: 'voice',
   terminalPaletteDark: 'theme',
   terminalPaletteLight: 'theme',
+  crashReports: 'connection',
 };
 
 export type SettingsSearchResult = {

@@ -151,6 +151,8 @@ export type RootStackParamList = {
   CommandPadKeysEditor: undefined;
   /** Settings › Licences: one component's licence texts, by the `name` and `version` of its notices entry. */
   LicenceNotice: { name: string; version: string };
+  /** Settings › Connection › Crash reports: one kept crash report, by its id (iOS). */
+  CrashReport: { id: string };
   /** Add Project step 1: pick a source on an already-chosen machine. */
   AddProjectSource: { machineId: string };
   /** Add Project local branch: type or browse a folder, then register it. */

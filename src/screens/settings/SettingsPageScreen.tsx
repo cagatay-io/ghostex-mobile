@@ -6,6 +6,7 @@ import AdvancedPage from './AdvancedPage';
 import AutopilotPage from './AutopilotPage';
 import CollabPage from './CollabPage';
 import ChatPage from './ChatPage';
+import CrashReportsPage from './CrashReportsPage';
 import ConnectionPage from './ConnectionPage';
 import DictateLanguagePage from './DictateLanguagePage';
 import KeyboardPage from './KeyboardPage';
@@ -100,5 +101,7 @@ function SettingsPageBody({ page }: { page: SettingsPageId }) {
       return <TerminalPalettePage dark={false} />;
     case 'licences':
       return <LicencesPage />;
+    case 'crashReports':
+      return <CrashReportsPage />;
   }
 }

@@ -24,8 +24,8 @@ import { isDemoMachine } from '../demo/identity';
 import { tailscaleOnPhone } from '../machines/easyConnectRoute';
 import { useMachinesStore, type MachineRecord } from '../machines/store';
 import { connectionTrace, routeLabel } from '../remote/connectionTrace';
-import { privateTerms } from './crashReports';
-import { scrubPersonalData } from './crashReportScrub';
+import { privateTerms, savedNames } from './crashReports';
+import { scrubPersonalData, scrubShortNames } from './crashReportScrub';
 
 const EXPORT_FOLDER = 'logs-export';
 
@@ -81,27 +81,6 @@ export function computerLabel(machineId: string): string {
   return `computer ${machineId.slice(0, 4)}`;
 }
 
-/**
- * The saved computers' names, hosts and users of one or two characters ("pi"), which `scrubPersonalData` leaves alone
- * because so short a word matches ordinary text; here they are replaced where they stand as a whole, case-sensitive
- * word, so a computer called "pi" never leaves the phone in a log.
- */
-function scrubShortNames(text: string): string {
-  const short = new Set(
-    useMachinesStore
-      .getState()
-      .machines.flatMap((machine) => [machine.name, machine.host, machine.username, machine.computerName ?? ''])
-      .map((term) => term.trim())
-      .filter((term) => term.length > 0 && term.length < 3),
-  );
-  let result = text;
-  for (const word of short) {
-    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    result = result.replace(new RegExp(`(?<![A-Za-z0-9<])${escaped}(?![A-Za-z0-9>])`, 'g'), '<private>');
-  }
-  return result;
-}
-
 /** The log text as it may leave the phone or be kept: computer ids shortened, then personal details replaced. */
 export function scrubLogText(
   text: string,
@@ -111,7 +90,7 @@ export function scrubLogText(
   for (const machine of machines) {
     if (machine.id.length > 4) labelled = labelled.split(machine.id).join(computerLabel(machine.id));
   }
-  return scrubShortNames(scrubPersonalData(labelled, privateTerms()));
+  return scrubShortNames(scrubPersonalData(labelled, privateTerms()), savedNames());
 }
 
 /** The lines above the log; the app line goes in after the scrub (an update id has the shape of a key). */
