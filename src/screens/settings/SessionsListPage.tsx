@@ -46,7 +46,7 @@ export default function SessionsListPage() {
   return (
     <SettingsScreenLayout>
       <SettingsSection name="settings:sessions-list:sidebar">
-        <SectionHeader title="Sidebar" />
+        <SectionHeader title="Layout" />
         <SegmentedRow
           label="Sidebar"
           options={VIEW_OPTIONS}

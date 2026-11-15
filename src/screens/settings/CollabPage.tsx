@@ -224,7 +224,7 @@ export default function CollabPage() {
         )
       ) : view.installed === false || view.config === undefined ? (
         <SettingsSection name="settings:collab:install">
-          <SectionHeader title="Collab (extension)" />
+          <SectionHeader title="Install" />
           <Caption>{installStatus(view.component)}</Caption>
           {view.component?.installed !== true && view.component?.canInstall !== false && waiting === null ? (
             <LinkRow title="Install Collab" onPress={() => void component('install')} />
@@ -263,7 +263,7 @@ function CollabBody({
   return (
     <>
       <SettingsSection name="settings:collab:switch">
-        <SectionHeader title="Ghostex Collab" />
+        <SectionHeader title="This computer" />
         <LinkRow
           title="Uninstall Collab"
           description={`Installed${view.version ? ` (${view.version})` : ''}. Each share needs your approval. Uninstalling ends every share at once and removes Collab from this computer.`}
