@@ -23,8 +23,8 @@ import {
   singleLineShell,
 } from './singleLineCard';
 import { useDisclosure } from './state';
-import { MONO_FONT } from './theme';
-import { arr, num, obj, str } from './json';
+import { MONO_FONT, MESSAGE_PART_GAP } from './theme';
+import { arr, num, obj, str, type JsonRecord } from './json';
 
 /** The green that marks an answered page or form (desktop `answered_color`). */
 export { answeredColor } from '../cards/askCard';
@@ -41,29 +41,94 @@ const NOTE_TWO_LINES = 110;
  * the card opens straight onto its rows without a line of its own.
  */
 export function PageAnswersCard({ message }: { message: ProjectedMessage }) {
-  const bodyOnly = useContext(AnswersUnderQuietLine);
+  const quietBodyOnly = useContext(AnswersUnderQuietLine);
+  const cards = [obj(message.pageAnswers), ...arr(message.extraPageAnswers).map(obj)].filter(
+    (card): card is JsonRecord => card !== null,
+  );
+  // When one message carries several envelopes under Quiet View, keep each card's own header
+  // visible and opened by default so the forms stay distinct (desktop transcript.rs / page_answers.rs).
+  return (
+    <PageAnswersCards
+      rowId={message.id}
+      cards={cards}
+      delivery={message.startupDelivery ?? null}
+      bodyOnly={quietBodyOnly && cards.length === 1}
+      defaultOpen={quietBodyOnly && cards.length > 1}
+    />
+  );
+}
+
+/** Shared stacked renderer used by transcript rows (`PageAnswersCard`) and held Collab cards (`CollabCards`). */
+export function PageAnswersCards({
+  rowId = '',
+  cards,
+  delivery = null,
+  bodyOnly = false,
+  defaultOpen = false,
+}: {
+  rowId?: string;
+  cards: JsonRecord[];
+  delivery?: NonNullable<ProjectedMessage['startupDelivery']> | null;
+  bodyOnly?: boolean;
+  defaultOpen?: boolean;
+}) {
+  if (cards.length === 0) return null;
+  const last = cards.length - 1;
+  const rendered = cards.map((answers, index) => (
+    <SinglePageAnswersCard
+      key={`${str(answers, 'pageId')}:${str(answers, 'by')}:${index}`}
+      rowId={rowId}
+      occurrence={index}
+      answers={answers}
+      delivery={index === last ? delivery : null}
+      bodyOnly={bodyOnly}
+      defaultOpen={defaultOpen}
+    />
+  ));
+  return cards.length === 1 ? rendered[0] : <View style={styles.stack}>{rendered}</View>;
+}
+
+function SinglePageAnswersCard({
+  rowId = '',
+  occurrence = 0,
+  answers,
+  delivery,
+  bodyOnly,
+  defaultOpen,
+}: {
+  rowId?: string;
+  occurrence?: number;
+  answers: JsonRecord;
+  delivery: NonNullable<ProjectedMessage['startupDelivery']> | null;
+  bodyOnly: boolean;
+  defaultOpen: boolean;
+}) {
   const { theme, dispatch } = useTranscriptEnv();
   const { disclosures } = useNativeChatUi();
   const { canRemoveQueued, sendFailureCardPromptId } = useTranscriptFlags();
   // Answers on their way to the agent (gx-chat-core `session/answer_echoes.rs`): the card shows at
   // once with a spinner at its bottom left, or why they could not be delivered with Retry and Remove.
-  const delivery = message.startupDelivery ?? null;
   const failed = delivery?.state === 'failed';
   // Left the queue and the conversation never showed it: the fact and Remove, no spinner (CDXC:SessionChat 2026-10-31 in packages/gx-chat-core/src/session/startup_sends.rs).
   const unconfirmed = delivery?.state === 'unconfirmed';
   const promptId = delivery?.promptId ?? '';
   const removable = promptId.length > 0 && (unconfirmed || (delivery?.state === 'queued' && canRemoveQueued));
   const removeAction = (
-    <Pressable hitSlop={6} accessibilityRole="button" onPress={() => dispatch({ type: 'removeQueue', promptId })}>
+    <Pressable
+      hitSlop={6}
+      accessibilityRole="button"
+      onPress={() => dispatch({ type: 'removeQueue', promptId })}
+    >
       <Text style={[styles.deliveryAction, { color: theme.primary }]}>Remove</Text>
     </Pressable>
   );
   const errorColor = theme.light ? '#b91c1c' : '#fb7185';
-  const answers = obj(message.pageAnswers);
   const more = num(answers, 'more') ?? 0;
   const pageId = str(answers, 'pageId');
   const by = str(answers, 'by');
-  const [toggledOpen, toggle] = useDisclosure(disclosures, `answers-card:${pageId}:${by}`, false);
+  const scope = rowId.length > 0 ? `${rowId}:${occurrence}:` : `${occurrence}:`;
+  const cardKey = `answers-card:${scope}${pageId}:${by}`;
+  const [toggledOpen, toggle] = useDisclosure(disclosures, cardKey, defaultOpen);
   const open = bodyOnly || toggledOpen;
   // Older chat cores sent no `skipped` or `extra`: their words stand in.
   const rows = arr(answers?.rows).map((row) => {
@@ -119,7 +184,7 @@ export function PageAnswersCard({ message }: { message: ProjectedMessage }) {
                   <Text style={[styles.answer, { color: theme.foreground, fontWeight: row.extra ? '400' : '500' }]}>
                     {row.value}
                   </Text>
-                  {row.note.length > 0 ? <AnswerNote note={row.note} /> : null}
+                  {row.note.length > 0 ? <AnswerNote disclosureKey={`${cardKey}:note:${index}`} note={row.note} /> : null}
                 </View>
               );
             })
@@ -254,9 +319,10 @@ function QuestionLine({ marker, label, runs }: { marker: string; label: string; 
 }
 
 /** A note under its answer: muted, behind a thin rule, two lines until More opens it. */
-function AnswerNote({ note }: { note: string }) {
+function AnswerNote({ disclosureKey, note }: { disclosureKey: string; note: string }) {
   const { theme } = useTranscriptEnv();
-  const [whole, setWhole] = useState(false);
+  const { disclosures } = useNativeChatUi();
+  const [whole, toggleWhole] = useDisclosure(disclosures, disclosureKey, false);
   const long = note.length > NOTE_TWO_LINES || note.split('\n').length > 2;
   return (
     <View style={styles.noteBox}>
@@ -267,7 +333,7 @@ function AnswerNote({ note }: { note: string }) {
         {note}
       </Text>
       {long ? (
-        <Pressable hitSlop={6} accessibilityRole="button" onPress={() => setWhole((shown) => !shown)}>
+        <Pressable hitSlop={6} accessibilityRole="button" onPress={toggleWhole}>
           <Text style={[styles.moreNote, { color: theme.foreground }]}>{whole ? 'Less' : 'More'}</Text>
         </Pressable>
       ) : null}
@@ -276,6 +342,7 @@ function AnswerNote({ note }: { note: string }) {
 }
 
 const styles = StyleSheet.create({
+  stack: { gap: MESSAGE_PART_GAP, minWidth: 0 },
   head: {
     height: SINGLE_LINE_HEADER_HEIGHT,
     flexDirection: 'row',

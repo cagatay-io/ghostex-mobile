@@ -40,6 +40,7 @@ import {
   TranscriptEnvProvider,
   TranscriptFlagsProvider,
   transcriptFlags,
+  useDispatchWithAnswerCancel,
   useNativeChatUi,
   useTranscriptEnv,
   type TranscriptEnv,
@@ -135,7 +136,7 @@ export function TranscriptScope({ chat, main, children }: { chat: RustChat; main
   const workOpen = main && !simple;
   const working = document?.working === true;
   // An answer sent from inside the main transcript stops it following the newest row (`answerHold.ts`).
-  const chatDispatch = chat.dispatch;
+  const chatDispatch = useDispatchWithAnswerCancel(chat.dispatch);
   const dispatch = useCallback<RustChat['dispatch']>(
     (action) => {
       if (main && holdsTranscript(action.type)) holdForAnswer();

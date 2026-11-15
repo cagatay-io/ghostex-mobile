@@ -484,6 +484,10 @@ export type ProjectedMessage = {
   interAgentMessage?: Json;
   /** Question / answer exchanges on this row. Desktop: `question_exchange.rs`. */
   questions?: Json;
+  /** First answered page or form envelope (`{pageId, title, rows, more, withText, page?}`). */
+  pageAnswers?: Json;
+  /** Additional answered page/form envelopes when one message carries multiple; omitted when single. */
+  extraPageAnswers?: Json[];
   /** Messages this row's tool calls sent other agents: `{key, title, detail, body, markdown,
    * markdownReferences, failed}`. Desktop: `inter_agent_message.rs`. */
   sentMessages?: Json;
@@ -844,7 +848,7 @@ export type ChatDocument = {
   secretRequests?: Json;
   /**
    * Ghostex Collab (gx-chat-core `extras/collab.rs`): who watches and types, the owner's "Message from"
-   * cards (`cards`: `{ id, title, text, images, busy }`), or null while the chat is not shared.
+   * cards (`cards`: `{ id, title, text, images, busy, answers?, extraAnswers? }`), or null while the chat is not shared.
    * Desktop: `collab.rs`.
    */
   collab?: Json;
