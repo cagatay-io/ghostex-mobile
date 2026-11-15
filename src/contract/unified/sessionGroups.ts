@@ -33,19 +33,19 @@ import { orderedRepoKeys } from './grouping';
 import { rowsInTree } from './tree';
 
 /**
- * Where three kinds of session stand until the owner of the rule says otherwise, kept here, beside the mapper, and the
- * same in the computer's port:
+ * Where three kinds of session stand, kept here, beside the mapper, and the same in the computer's port:
  * - `plainWaitAfterFailure`: a wait for input on a session whose model change, program or agent failed stands in
  *   Error, as `unifiedStatus` checks a failure before attention (false: in Needs you);
  * - `unknownAttentionIsInputWait`: an attention without a kind (a computer that does not send it) is a wait for
  *   input, in Needs you, as the folded display's triage counts it (false: in Finished (not yet read));
- * - `finishedHandoverStaysFinished`: a finished turn whose handover asks for the user stays in Finished (not yet
- *   read), as its kind says (false: in Needs you).
+ * - `finishedHandoverStaysFinished`: false, decided by the owner: a finished turn whose handover ends with a Blocked
+ *   or Needs-you section is a wait for input, in Needs you (after an approval, a question or a failure, as any wait),
+ *   also with background work; a finished turn without it stays in Finished (not yet read).
  */
 export const GROUPING_POLICY = {
   plainWaitAfterFailure: true,
   unknownAttentionIsInputWait: true,
-  finishedHandoverStaysFinished: true,
+  finishedHandoverStaysFinished: false,
 } as const;
 
 export type GroupingPolicy = { readonly [K in keyof typeof GROUPING_POLICY]: boolean };
