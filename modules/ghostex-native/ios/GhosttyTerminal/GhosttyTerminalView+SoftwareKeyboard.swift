@@ -58,6 +58,7 @@ extension GhosttyTerminalView {
             .replacingOccurrences(of: "\n", with: "\r")
         let data = Data(terminalText.utf8)
         guard !data.isEmpty else { return }
+        guard admits(GhostexTerminalUnsentKeys(typed: terminalText)) else { return }
 
         if invalidateLocalSession {
             invalidateLocalTextInputSession()
@@ -136,9 +137,44 @@ extension GhosttyTerminalView {
     func sendKeyPress(_ key: Ghostty.Input.Key) {
         guard canRouteTerminalInput else { return }
         guard let surface = surface else { return }
+        guard admits(GhostexTerminalUnsentKeys(Self.unsentName(key))) else { return }
         surface.sendKeyEvent(.init(key: key, action: .press))
         surface.sendKeyEvent(.init(key: key, action: .release))
         requestRender()
+    }
+
+    /// The input boundary of every key path: false keeps a typed key here (see `admitsKey`).
+    private func admits(_ key: GhostexTerminalUnsentKeys) -> Bool {
+        admitsKey?(key) ?? true
+    }
+
+    /// A hardware keyboard's key event at the same boundary (GhosttyTerminalView+HardwareKeyboard.swift); see
+    /// `GhostexTerminalNotSent.hardwareKeyGoesOnUncounted`.
+    func admitsHardwareKey(_ event: Ghostty.Input.KeyEvent) -> Bool {
+        let name = Self.isModifierKey(event.key) ? .modifier : Self.unsentName(event.key)
+        let action: GhostexTerminalUnsentKeys.Action =
+            event.action == .release ? .release : event.action == .repeat ? .repeated : .press
+        let key = GhostexTerminalUnsentKeys(name, action)
+        return GhostexTerminalNotSent.hardwareKeyGoesOnUncounted(key) || admits(key)
+    }
+
+    private static func isModifierKey(_ key: Ghostty.Input.Key) -> Bool {
+        switch key {
+        case .shiftLeft, .shiftRight, .controlLeft, .controlRight, .altLeft, .altRight, .metaLeft, .metaRight, .capsLock:
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// How the not-sent sign names a Ghostty key.
+    private static func unsentName(_ key: Ghostty.Input.Key) -> GhostexTerminalUnsentKeys.Name {
+        switch key {
+        case .enter: return .enter
+        case .backspace: return .backspace
+        case .escape: return .escape
+        default: return .other
+        }
     }
 
     private func sendControlByte(_ value: UInt8) {
@@ -206,6 +242,7 @@ extension GhosttyTerminalView {
     ) {
         guard canRouteTerminalInput else { return }
         guard let surface = surface else { return }
+        guard admits(GhostexTerminalUnsentKeys(Self.unsentName(key))) else { return }
         if invalidateLocalSession {
             invalidateLocalTextInputSession()
         }
@@ -427,6 +464,7 @@ extension GhosttyTerminalView {
         if mods.contains(.super) {
             return
         }
+        guard admits(GhostexTerminalUnsentKeys(typed: String(character))) else { return }
         var data = Data()
         if mods.contains(.alt) {
             data.append(0x1B)
@@ -524,7 +562,11 @@ extension GhosttyTerminalView: UIKeyInput, UITextInputTraits {
     @discardableResult
     func sendInterpretedHardwareKeyText(_ text: String, for key: UIKey) -> Bool {
         guard canRouteTerminalInput, let surface else { return false }
-        guard let sourceEvent = Ghostty.Input.KeyEvent(uiKey: key, action: .press) else {
+        let sourceEvent = Ghostty.Input.KeyEvent(uiKey: key, action: .press)
+        // A key the terminal could not send is handled: it stays here, counted (`admitsKey`).
+        let unsent = sourceEvent.map { GhostexTerminalUnsentKeys(Self.unsentName($0.key)) }
+        guard admits(unsent ?? GhostexTerminalUnsentKeys(typed: text)) else { return true }
+        guard let sourceEvent else {
             sendText(text)
             return true
         }

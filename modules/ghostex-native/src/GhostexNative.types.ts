@@ -251,6 +251,20 @@ export type KeyModifiersConsumedEvent = {
   sessionKey: string;
 };
 
+/** Keys a terminal could not send while its link was replaced, counted; never the characters typed. */
+export type TerminalInputNotSentEvent = {
+  sessionKey: string;
+  /** Keys other than the three named below. */
+  keys: number;
+  returns: number;
+  backspaces: number;
+  escapes: number;
+};
+
+export type TerminalInputSentEvent = {
+  sessionKey: string;
+};
+
 /** Terminal grid in cells. */
 export type TerminalGrid = {
   cols: number;
@@ -283,6 +297,10 @@ export type GhostexNativeEvents = {
   onTerminalBell: (event: TerminalBellEvent) => void;
   onFontSizeChange: (event: FontSizeChangeEvent) => void;
   onKeyModifiersConsumed: (event: KeyModifiersConsumedEvent) => void;
+  /** iOS: keys typed into a terminal whose link is being replaced, which were not sent and never will be. */
+  onTerminalInputNotSent: (event: TerminalInputNotSentEvent) => void;
+  /** iOS: a typed key went on to the terminal after `onTerminalInputNotSent`, or first after the terminal opened again. */
+  onTerminalInputSent: (event: TerminalInputSentEvent) => void;
   onVisibleWindowFrameChange: (event: VisibleWindowFrameChangeEvent) => void;
   onTerminalGridChange: (event: TerminalGridChangeEvent) => void;
   onConnectionState: (event: ConnectionStateEvent) => void;
