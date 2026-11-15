@@ -433,6 +433,7 @@ export function useExtensionPanels(deps: ExtensionPanelsDeps) {
           confirm: 'Add',
           submit: (text) => sendEdit(place, blockId, { op: 'add', text }),
         }),
+      editText: (place, blockId, text) => sendEdit(place, blockId, { op: 'text', text }),
       done: (place, blockId, item) => {
         const tick = pending[pendingKey(place, blockId, item.id)];
         // Until the computer's next panel arrives (a new revision), the tap just made shows.

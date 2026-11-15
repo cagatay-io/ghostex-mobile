@@ -57,7 +57,8 @@ export type PanelBlockBody =
   | { type: 'checklist'; editable: boolean; items: ChecklistItem[] }
   | { type: 'map'; root?: { title: string; subtitle?: string; icon?: string }; groups: MapGroup[] }
   | { type: 'progress'; value: number; max: number; label?: string }
-  | { type: 'text'; text: string }
+  /** `editable`: a tap rewrites it in place and the computer applies it (`{op: "text"}`). */
+  | { type: 'text'; text: string; editable: boolean }
   | { type: 'buttons'; items: PanelButton[] }
   | { type: 'empty'; subtitle?: string; icon?: string; action?: PanelAction }
   /** A small page of the extension's own: the desktop shows it, the phone an Open on computer row. */
@@ -227,7 +228,9 @@ function parseBlock(value: unknown): PanelBlock | null {
       };
     }
     case 'text':
-      return typeof value.text === 'string' ? { ...head, body: { type: 'text', text: value.text } } : null;
+      return typeof value.text === 'string'
+        ? { ...head, body: { type: 'text', text: value.text, editable: value.editable === true } }
+        : null;
     case 'buttons':
       return {
         ...head,

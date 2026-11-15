@@ -9,8 +9,8 @@
  * CDXC:Extensions 2026-11-14 SEE-ALSO: apps/desktop/src/app/native_sidebar/extension_panel/ (the desktop's blocks).
  */
 
-import { useRef, useState, type ReactElement } from 'react';
-import { Linking, Platform, Pressable, StyleSheet, Text, View, type ViewInstance } from 'react-native';
+import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { Linking, Platform, Pressable, StyleSheet, Text, TextInput, View, type ViewInstance } from 'react-native';
 
 import type { MenuAnchor } from '../components/sessions/ContextMenu';
 import { measureInWindow } from '../components/common/measureInWindow';
@@ -55,6 +55,8 @@ export type PanelHandlers = {
   itemMenu: (place: PanelPlace, blockId: string, item: ChecklistItem, editable: boolean, anchor: MenuAnchor) => void;
   check: (place: PanelPlace, blockId: string, item: ChecklistItem, done: boolean) => void;
   add: (place: PanelPlace, blockId: string) => void;
+  /** A new text for an editable text block. */
+  editText: (place: PanelPlace, blockId: string, text: string) => void;
   /** A tick the computer has not confirmed yet wins over the item's `done`. */
   done: (place: PanelPlace, blockId: string, item: ChecklistItem) => boolean;
   project: (place: PanelPlace, reference: string) => PanelRefFacts | null;
@@ -186,7 +188,13 @@ export default function PanelBlockView({
         </View>
       ) : null}
       {body.type === 'progress' ? <Progress value={body.value} max={body.max} label={body.label} ink={ink} /> : null}
-      {body.type === 'text' ? <PanelText source={body.text} ink={ink} /> : null}
+      {body.type === 'text' ? (
+        <PanelText
+          source={body.text}
+          ink={ink}
+          onEdit={body.editable ? (text) => handlers.editText(place, block.id, text) : undefined}
+        />
+      ) : null}
       {body.type === 'buttons' ? (
         <View style={styles.buttons}>
           {body.items.map((button, index) => (
@@ -423,14 +431,67 @@ function Progress({
   );
 }
 
-function PanelText({ source, ink }: { source: string; ink: SidebarInk }): ReactElement {
+/**
+ * A text block. With `onEdit` (an editable one) a tap opens it in an inline field; Done or leaving the field sends the
+ * new text, which shows until the computer's panel catches up.
+ *
+ * CDXC:Extensions 2026-11-16 DECISION: user (Thread brief, after Q3433): "yes, the phone should let you edit the
+ * objective too", the way the desktop does (apps/desktop/src/app/native_sidebar/extension_panel/text.rs): a tap opens
+ * an inline field, the edit goes to the computer as `{op: "text"}` and the extension hears `textEdited`.
+ */
+function PanelText({
+  source,
+  ink,
+  onEdit,
+}: {
+  source: string;
+  ink: SidebarInk;
+  onEdit?: (text: string) => void;
+}): ReactElement {
   const styles = blockInkStyles(ink);
   const [expanded, setExpanded] = useState(false);
-  const lines = parseText(source);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(source);
+  // What was sent, shown until the computer's panel carries it (or anything newer).
+  const [sent, setSent] = useState<string | null>(null);
+  // Done blurs the field too: the first of the two ends the edit.
+  const finished = useRef(true);
+  useEffect(() => setSent(null), [source]);
+  const shownSource = sent ?? source;
+  const lines = parseText(shownSource);
   const truncated = !expanded && lines.length > TEXT_PREVIEW_LINES;
   const shown = truncated ? lines.slice(0, TEXT_PREVIEW_LINES) : lines;
-  return (
-    <View style={styles.text}>
+  const finish = (): void => {
+    if (finished.current) return;
+    finished.current = true;
+    setEditing(false);
+    const text = draft.trim();
+    if (onEdit === undefined || text.length === 0 || text === shownSource.trim()) return;
+    setSent(text);
+    onEdit(text);
+  };
+  if (editing) {
+    return (
+      <View style={styles.text}>
+        <TextInput
+          style={[styles.paragraph, styles.textField]}
+          value={draft}
+          onChangeText={setDraft}
+          autoFocus
+          multiline
+          submitBehavior="blurAndSubmit"
+          returnKeyType="done"
+          onSubmitEditing={finish}
+          onBlur={finish}
+          placeholderTextColor={ink.muted}
+          selectionColor={ink.text}
+          accessibilityLabel="Edit text"
+        />
+      </View>
+    );
+  }
+  const body = (
+    <>
       {shown.map((line, index) => (
         <TextLineView key={index} line={line} ink={ink} />
       ))}
@@ -439,7 +500,22 @@ function PanelText({ source, ink }: { source: string; ink: SidebarInk }): ReactE
           <Text style={[styles.paragraph, styles.mutedText]}>Show more</Text>
         </Pressable>
       ) : null}
-    </View>
+    </>
+  );
+  if (onEdit === undefined) return <View style={styles.text}>{body}</View>;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityHint="Edits the text"
+      onPress={() => {
+        finished.current = false;
+        setDraft(shownSource);
+        setEditing(true);
+      }}
+      style={({ pressed }) => [styles.text, styles.textEditable, pressed ? styles.rowPressed : null]}
+    >
+      {body}
+    </Pressable>
   );
 }
 
@@ -650,6 +726,19 @@ const blockInkStyles = inkStyleSheets((ink) =>
       color: ink.text,
       fontSize: ds(13.5),
       lineHeight: ds(19),
+    },
+    /* An editable text: the row's pressed wash on a tap, nothing drawn at rest (the desktop's hover). */
+    textEditable: {
+      borderRadius: ds(5),
+      paddingVertical: ds(2),
+    },
+    /* The inline field: a hairline outline like the panel's buttons, no fill. */
+    textField: {
+      paddingHorizontal: ds(6),
+      paddingVertical: ds(4),
+      borderRadius: ds(6),
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: inkWash(ink, 0.18),
     },
     bulletLine: {
       flexDirection: 'row',
