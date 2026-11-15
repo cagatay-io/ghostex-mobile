@@ -34,7 +34,7 @@ import { arr, num, obj, str, type JsonRecord } from './json';
 import { useDisclosure } from './state';
 import type { TranscriptTheme } from './theme';
 import { SINGLE_LINE_CARD, SINGLE_LINE_HEADER_HEIGHT, singleLineShell } from './singleLineCard';
-import { ToolBody } from './ToolBody';
+import { ToolBody, ToolDescription } from './ToolBody';
 import { FoldChevron } from './foldChevron';
 import { useChatShown } from '../chatShown';
 
@@ -455,6 +455,8 @@ function CardToolDetail({
   const copyPending = detail.loadingFullOutput === true;
   const command = tool.glyph === 'terminal';
   const parts = [];
+  // The full description first: the row's title above is cut to one line (`ToolDescription`).
+  const description = str(tool, 'description');
   if (input.length > 0) {
     parts.push(
       <ToolBody
@@ -482,6 +484,7 @@ function CardToolDetail({
       parts.push(<ShowAllLines key="show-all" count={outputLines.length} onPress={() => setShowAll(true)} />);
     }
   }
+  if (parts.length > 0 && description.length > 0) parts.unshift(<ToolDescription key="description" text={description} />);
   if (parts.length === 0) return null;
   return (
     <View style={styles.detail}>

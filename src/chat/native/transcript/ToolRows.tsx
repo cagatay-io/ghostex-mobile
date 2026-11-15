@@ -19,7 +19,7 @@ import {
 } from './context';
 import { DisclosureBody, DisclosureHeading, useFoldPlace } from './Disclosure';
 import { Glyph, toolGlyph } from './icons';
-import { ToolBody } from './ToolBody';
+import { ToolBody, ToolDescription } from './ToolBody';
 import { BoxedToolCards, LINE_OUTPUT_LINES, Shimmer, ShowAllLines, ToolCard } from './ToolCard';
 import {
   SINGLE_LINE_CARD,
@@ -579,6 +579,8 @@ function ToolDetail({
   // A cut output being read back whole (gx-chat-core `output_cut.rs`): its copy waits for the full text.
   const copyPending = detail.loadingFullOutput === true;
     const parts = [];
+    // The full description first: the row's title above is cut to one line (`ToolDescription`).
+    const description = str(tool, 'description');
     if (input.length > 0) {
       parts.push(
         <ToolBody
@@ -608,6 +610,7 @@ function ToolDetail({
         );
       }
     }
+    if (parts.length > 0 && description.length > 0) parts.unshift(<ToolDescription key="description" text={description} />);
     if (parts.length > 0) {
       // The rail hangs from the middle of the glyph tile, which the row's padding moved right of the
       // marker column the rail is measured from.
