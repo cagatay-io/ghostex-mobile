@@ -1880,7 +1880,8 @@ export function useSessionsScreenMenus({
               label: 'New Coordinator…',
               icon: <CrewGlyph size={14} color={appearance.mutedGlyph} />,
               info: NEW_ORCHESTRATOR_BENEFITS,
-              onPress: () => setOverlay({ kind: 'newCoordinator', ctx }),
+              // The form is its own modal, so it opens once the menu has gone (iOS), like the rows below.
+              onPress: () => closeAgentMenuThen(() => setOverlay({ kind: 'newCoordinator', ctx })),
             },
             { kind: 'separator', key: 'new-coordinator-separator' },
           ]
