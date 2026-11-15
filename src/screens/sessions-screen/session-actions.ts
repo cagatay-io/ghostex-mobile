@@ -67,10 +67,10 @@ export type Overlay =
   | { kind: 'projectDetails'; ctx: ProjectContext }
   | { kind: 'agentMenu'; ctx: ProjectContext }
   /**
-   * The project list: from the agent menu's project row a pick opens the agent menu again on that
-   * project (`agentMenu`); from the header's New session a pick starts there (`start`).
+   * The project list (the agent menu's project row, or New session when its project can't open the
+   * menu): a pick opens the agent menu on that project.
    */
-  | { kind: 'newSessionProject'; currentMachineId: string; purpose: 'agentMenu' | 'start' }
+  | { kind: 'newSessionProject'; currentMachineId: string }
   | { kind: 'newCoordinator'; ctx: ProjectContext }
   /** The New Coordinator form's agent step (its Next): the agent menu as "Pick the coordinator's agent". */
   | { kind: 'coordinatorAgentMenu'; ctx: ProjectContext; pick: NewCoordinatorPick; token: number }

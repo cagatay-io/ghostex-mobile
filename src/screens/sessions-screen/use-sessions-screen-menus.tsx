@@ -7,6 +7,7 @@
  * launchAgent) run in their original relative order.
  */
 
+import { unifiedNewSessionTarget, type ActiveProject } from '../../contract/unified/choices';
 import { snoozeWakeAt } from '../../contract/unified/snooze';
 import { useCallback, useRef, useState } from 'react';
 import { Platform } from 'react-native';
@@ -25,7 +26,8 @@ import { type ContextMenuItem } from '../../components/sessions/ContextMenu';
 import { NewSessionProjectRow } from '../../components/sessions/NewSessionPlace';
 import { blockedDetail } from '../../components/sessions/sessionStatus';
 import { noteNewSessionIn, projectChoicesNow, repoKeyOfProject } from './new-session-place';
-import { agentMenuNotice, newSessionStart } from './new-session-button';
+import { agentMenuNotice } from './new-session-button';
+import { useUnifiedListStore } from './unified-list-store';
 import { hidesProjectsWithoutSessions, type DrawerBlock } from '../../components/sessions/drawerModel';
 import {
   ArrowGlyph,
@@ -1705,33 +1707,53 @@ export function useSessionsScreenMenus({
   };
 
   /**
-   * The header's New session, a project picked in its sheet: the project's remembered agent starts
-   * there as the project's agent button starts it, or the toast says why it can't
-   * (./new-session-button.tsx).
+   * The header's New session (./new-session-button.tsx): the agent menu on the project a new
+   * session aims at, by gx-core's start rule (`unifiedNewSessionTarget`): the Unified filter's one
+   * repository (only while the Unified layout shows it; the Project layout has no visible filter),
+   * else the project of the session open on the phone (a worktree stays that worktree), else the top
+   * of Recent. Nothing starts until a row is picked. When that project can't open its menu (its
+   * computer is off or not read yet), the project list opens instead, and a pick there opens the
+   * menu. With no project to list it returns false, and the screen offers Add computer, Add project
+   * or says why.
    */
-  const startNewSessionAt = (pick: {
-    machineId: string;
-    projectId: string;
-    connected: boolean;
-    label: string;
-  }): void => {
-    const machine = useMachinesStore.getState().machines.find((entry) => entry.id === pick.machineId) ?? null;
-    const summary = summaryFor(pick.machineId);
+  const openNewSessionMenu = (input: {
+    currentMachineId: string;
+    selectedSessionKey: string | null;
+    unifiedOn: boolean;
+  }): boolean => {
+    const { currentMachineId, selectedSessionKey, unifiedOn } = input;
+    const choices = projectChoicesNow(currentMachineId);
+    const filter = unifiedOn ? useUnifiedListStore.getState().filter : { repos: [] };
+    const target = unifiedNewSessionTarget(filter, choices, activeProjectOf(selectedSessionKey));
+    if (target === null) return false;
+    // The chip of the target's computer; an open worktree is folded into its repository's row, so
+    // the chip names the main checkout while the target keeps the worktree's project.
+    const chip = choices
+      .find((choice) => choice.repoKey === target.repoKey)
+      ?.machines.find((machine) => machine.machineId === target.machineId);
+    const summary = summaryFor(target.machineId);
     const header =
-      machine === null || summary === null
-        ? null
-        : projectHeaderOf(pick.machineId, summary, pick.projectId, { throughCollections: true });
-    const outcome = newSessionStart({
-      connected: pick.connected,
-      computer: pick.label,
-      header,
-      agent: header === null ? null : resolvePrimaryAgent(header),
-    });
-    if (outcome.kind === 'notice') {
-      setTransientStatus(outcome.notice.message, { title: outcome.notice.title });
-      return;
+      summary === null ? null : projectHeaderOf(target.machineId, summary, target.projectId, { throughCollections: true });
+    const machine = useMachinesStore.getState().machines.find((entry) => entry.id === target.machineId) ?? null;
+    if (chip !== undefined && chip.connected && header !== null && machine !== null) {
+      setOverlay({ kind: 'agentMenu', ctx: { machine, header } });
+    } else {
+      setOverlay({ kind: 'newSessionProject', currentMachineId });
     }
-    if (machine !== null) launchAgent(machine, outcome.header, outcome.agent);
+    return true;
+  };
+
+  /** The project of the session open on the phone (`machineId:sessionId`), on its computer, or null. */
+  const activeProjectOf = (sessionKey: string | null): ActiveProject | null => {
+    if (sessionKey === null) return null;
+    const split = sessionKey.indexOf(':');
+    if (split <= 0) return null;
+    const machineId = sessionKey.slice(0, split);
+    const sessionId = sessionKey.slice(split + 1);
+    const session = summaryFor(machineId)?.sessions.find((entry) => entry.sessionId === sessionId);
+    if (session === undefined || session.projectId.length === 0) return null;
+    const repoKey = repoKeyOfProject(machineId, session.projectId);
+    return repoKey === null ? null : { repoKey, machineId, projectId: session.projectId };
   };
 
   /** The project row above the agents, naming the computer while there is more than one. */
@@ -1754,7 +1776,7 @@ export function useSessionsScreenMenus({
             machineLabel={machineLabel}
             onPress={() =>
               closeAgentMenuThen(() =>
-                setOverlay({ kind: 'newSessionProject', currentMachineId: ctx.machine.id, purpose: 'agentMenu' }),
+                setOverlay({ kind: 'newSessionProject', currentMachineId: ctx.machine.id }),
               )
             }
           />
@@ -1858,7 +1880,8 @@ export function useSessionsScreenMenus({
               label: 'New Coordinator…',
               icon: <CrewGlyph size={14} color={appearance.mutedGlyph} />,
               info: NEW_ORCHESTRATOR_BENEFITS,
-              onPress: () => setOverlay({ kind: 'newCoordinator', ctx }),
+              // The form is its own modal, so it opens once the menu has gone (iOS), like the rows below.
+              onPress: () => closeAgentMenuThen(() => setOverlay({ kind: 'newCoordinator', ctx })),
             },
             { kind: 'separator', key: 'new-coordinator-separator' },
           ]
@@ -1870,12 +1893,23 @@ export function useSessionsScreenMenus({
           closeAgentMenuThen(() => launchAgent(ctx.machine, ctx.header, agent)),
         ),
       ),
+      // The desktop New Thread picker's Terminal row (new_thread_picker.rs); the phone has no browser pane, so no Browser row.
+      { kind: 'separator', key: 'terminal-separator' },
+      {
+        kind: 'item',
+        key: 'new-terminal',
+        label: 'Terminal',
+        icon: <TerminalGlyph size={14} color={appearance.mutedGlyph} />,
+        onPress: () => closeAgentMenuThen(() => createProjectTerminal(ctx)),
+      },
     ];
   };
 
   /** A new terminal session in the project: the header's New Terminal button and the project menu's Create Terminal row. */
   const createProjectTerminal = (ctx: ProjectContext): void => {
     const { header } = ctx;
+    // As an agent launch does: the project's machine and Recent, and a Unified filter that would hide the terminal gains it.
+    if (header.projectId.length > 0) noteNewSessionIn(ctx.machine.id, header.projectId);
     void runCreationFlow(
       ctx.machine,
       createSessionCommand({
@@ -2028,7 +2062,7 @@ export function useSessionsScreenMenus({
     agentMenuItems,
     placeItems,
     openAgentMenuAt,
-    startNewSessionAt,
+    openNewSessionMenu,
     closeAgentMenuThen,
     onAgentMenuDismissed,
     openCoordinatorAgentStep,

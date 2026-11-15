@@ -25,8 +25,9 @@ import { isTrue, num, obj, str } from './json';
 import { chatCardsShown, COMPOSER_TOP_PADDING, STACK_GAP } from './NativeChatCards';
 import { PulseDot, Spinner } from './primitives';
 import { ProgressTrack, VISUAL, WorkingSpark } from './WorkingStrip';
+import { columnPercentStyle, useTranscriptColumnPercent } from '../transcript/rowWidth';
 
-/** The transcript rows' column (`Transcript.tsx` `ROW_MAX_WIDTH`). */
+/** The transcript rows' column (`Transcript.tsx` `ROW_MAX_WIDTH`), widened like the rows by ../transcript/rowWidth.ts. */
 const ROW_MAX_WIDTH = 768;
 /** How far the lone scroll-to-bottom pill sits above the transcript's bottom edge (desktop `transcript_layout.rs`). */
 const END_PADDING = 16;
@@ -162,6 +163,7 @@ export function WorkingCard({
   hidden?: boolean;
 }) {
   const styles = useStyles();
+  const columnWidth = columnPercentStyle(useTranscriptColumnPercent());
   const awayFromBottom = useTranscriptBottomStore((store) => store.awayFromBottom);
   const jumpToBottom = useTranscriptBottomStore((store) => store.jumpToBottom);
   const [held, setHeld] = useState(false);
@@ -173,7 +175,7 @@ export function WorkingCard({
   const label = card.label;
   return (
     <View style={styles.row}>
-      <View style={[styles.column, { paddingBottom: cardGap(document) }]}>
+      <View style={[styles.column, columnWidth, { paddingBottom: cardGap(document) }]}>
         <Pressable
           onPress={showJump ? () => jumpToBottom?.() : undefined}
           onLongPress={() => setHeld(true)}
@@ -258,6 +260,7 @@ export const StatusTail = memo(function StatusTail({ document }: { document: Cha
 export function LoneScrollBottom() {
   const styles = useStyles();
   const P = useTranscriptTheme();
+  const columnWidth = columnPercentStyle(useTranscriptColumnPercent());
   const awayFromBottom = useTranscriptBottomStore((store) => store.awayFromBottom);
   const jumpToBottom = useTranscriptBottomStore((store) => store.jumpToBottom);
   if (!awayFromBottom || jumpToBottom === null) {
@@ -265,7 +268,7 @@ export function LoneScrollBottom() {
   }
   return (
     <View pointerEvents="box-none" style={styles.lone}>
-      <View pointerEvents="box-none" style={styles.loneColumn}>
+      <View pointerEvents="box-none" style={[styles.loneColumn, columnWidth]}>
         <IconPill
           glyph="arrow-down"
           accessibilityLabel="Scroll to bottom"

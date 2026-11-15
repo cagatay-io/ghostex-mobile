@@ -27,6 +27,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import { NO_BAR_INSETS } from '../../../components/common/verticalBar/layout';
 import { useScrollToBarEdges } from '../../../components/common/verticalBar/VerticalBarArea';
 import { useSettingsStore } from '../../../settings/store';
+import { columnPercentStyle, useTranscriptColumnPercent } from './rowWidth';
 import { transcriptItemKey, type ChatDocument, type TranscriptItem } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
 import { EmptyTranscript } from '../cards';
@@ -448,11 +449,9 @@ export function NativeTranscript({ chat, items, main = true, active = true }: Na
     };
   }, [jumpToBottom, publishes]);
 
-  // Settings > Chat's custom transcript width (desktop's `transcript_width`): the rows take that
-  // share of the pane instead of the composer's 768pt column.
-  const customWidth = useSettingsStore((store) => store.settings.sessionChatCustomTranscriptWidthEnabled);
-  const widthPercent = useSettingsStore((store) => store.settings.sessionChatTranscriptWidthPercent);
-  const rowWidth = main && customWidth ? widthPercent : null;
+  // The custom transcript width (desktop's `transcript_width`), or full width on a tablet: the rows
+  // take that share of the pane instead of the composer's 768pt column (./rowWidth.ts).
+  const rowWidth = useTranscriptColumnPercent(main);
 
   const renderItem = useCallback(
     ({ item: row }: ListRenderItemInfo<Row>) => (
@@ -701,7 +700,7 @@ const TranscriptRowFrame = memo(function TranscriptRowFrame({
   /** The label (by key) the selected occurrence is in, when it is in one of this row's labels (`activeLabel`). */
   findActiveLabel: string | null;
   findActiveLabelOccurrence: number;
-  /** The custom transcript width, as a share of the pane; null keeps the 768pt column. */
+  /** The transcript's column width, as a share of the pane (./rowWidth.ts); null keeps the 768pt column. */
   widthPercent: number | null;
   /** The space the row ends with (Message spacing, `messageSpacing.ts`). */
   rowGap: number;
@@ -736,7 +735,7 @@ const TranscriptRowFrame = memo(function TranscriptRowFrame({
         style={[
           styles.rowInner,
           bottom !== ROW_GAP && { paddingBottom: bottom },
-          widthPercent !== null && { width: `${widthPercent}%`, maxWidth: '100%' },
+          columnPercentStyle(widthPercent),
         ]}
       >
         <RowFindContext.Provider value={find}>
@@ -767,7 +766,7 @@ function StatusTailFrame({
         style={[
           styles.rowInner,
           rowGap !== ROW_GAP && { paddingBottom: rowGap },
-          widthPercent !== null && { width: `${widthPercent}%`, maxWidth: '100%' },
+          columnPercentStyle(widthPercent),
         ]}
       >
         <StatusTail document={document} />
