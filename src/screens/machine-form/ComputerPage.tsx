@@ -33,7 +33,7 @@ import { refreshMachineTools, useMachineToolsStore } from '../../machines/machin
 import { agentCliRow, toolRow } from '../../machines/machineToolsView';
 import { removeComputerFromPhone } from '../../machines/removeComputer';
 import { signsInOverSsh, startSshPairing, useSshPairings } from '../../machines/sshPairing';
-import { isMachineEnabled, useMachinesStore, type MachineRecord } from '../../machines/store';
+import { isMachineEnabled, isTailscaleSshMachine, sshRouteLabel, useMachinesStore, type MachineRecord } from '../../machines/store';
 import type { RootStackParamList } from '../../navigation/types';
 import { useRemovalAsksComputer } from '../../notifications/pushStore';
 import { approvalMode, listApprovals, setRequirePresence, usePlainApprovals } from '../../security/approvals';
@@ -190,7 +190,9 @@ function ComputerPageBody({
     ? path === null
       ? copy.easyConnect
       : copy.easyConnectRoute(easyConnectRouteName(path))
-    : copy.tailscale(machine.host);
+    : isTailscaleSshMachine(machine)
+      ? copy.tailscale(machine.host)
+      : copy.ssh(machine.host);
   const dotColor =
     status === 'connected' ? appearance.connected : status === 'failed' ? appearance.danger : appearance.muted;
 
@@ -270,7 +272,7 @@ function ComputerPageBody({
                 <View style={formStyles.rowMain}>
                   <View style={styles.statusLine}>
                     <StatusDot color={connectedNow && liveRoute === 'tailscale' ? appearance.connected : appearance.muted} />
-                    <Text style={formStyles.rowLabel}>{copy.routes.tailscale}</Text>
+                    <Text style={formStyles.rowLabel}>{sshRouteLabel(machine)}</Text>
                   </View>
                   <Text style={formStyles.rowDetail}>
                     {copy.routes.tailscaleDetail(machine.host, connectedNow && liveRoute === 'tailscale')}

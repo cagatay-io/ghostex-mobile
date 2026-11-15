@@ -1063,6 +1063,8 @@ export const ComputerPageCopy = {
   /** "Easy Connect · Private Relay" (`easyConnectRouteName`). */
   easyConnectRoute: (route: string) => `Easy Connect · ${route}`,
   tailscale: (address: string) => `Tailscale · ${address}`,
+  /** A computer added by plain SSH, not through a tailnet (`isTailscaleSshMachine`). */
+  ssh: (address: string) => `SSH · ${address}`,
   /** A Tailscale computer that also reaches its computer through Easy Connect (`easyConnectRoute.ts`). */
   routes: {
     label: 'Routes',

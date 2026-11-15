@@ -9,7 +9,7 @@ import type { MachineInventory } from '../inventory/store';
 import { latestRoundTrip, type MachineHealth } from './connectionHealthModel';
 import { easyConnectRouteName, type EasyConnectPath } from './easyConnectPathModel';
 import type { MachineRoute } from './routeChoice';
-import type { MachineRecord } from './store';
+import { sshRouteLabel, type MachineRecord } from './store';
 
 export type LinkStatus = 'failed' | 'slow' | 'connecting' | 'connected' | 'notConnected';
 
@@ -29,9 +29,9 @@ export function linkStatus(state: MachineTabConnectionState, health: MachineHeal
   }
 }
 
-/** "Tailscale · 100.77.81.4 · 38 ms", "Easy Connect · Private Relay · 120 ms", "Easy Connect". */
+/** "Tailscale · 100.77.81.4 · 38 ms", "SSH · 192.168.1.20", "Easy Connect · Private Relay · 120 ms", "Easy Connect". */
 export function routeLine(
-  machine: Pick<MachineRecord, 'transport' | 'host'>,
+  machine: Pick<MachineRecord, 'transport' | 'host' | 'tailscaleSsh'>,
   activeRoute: MachineRoute | undefined,
   path: EasyConnectPath | undefined,
   health: MachineHealth | undefined,
@@ -41,7 +41,7 @@ export function routeLine(
   const onEasyConnect = machine.transport === 'tailcat' || activeRoute === 'easyConnect';
   const parts = onEasyConnect
     ? [ConnectionsCopy.easyConnect, ...(path === undefined ? [] : [easyConnectRouteName(path)])]
-    : [ConnectionsCopy.tailscale, ...(machine.host.length > 0 ? [machine.host] : [])];
+    : [sshRouteLabel(machine), ...(machine.host.length > 0 ? [machine.host] : [])];
   const ms = latestRoundTrip(health);
   if ((status === 'connected' || status === 'slow') && ms !== null) parts.push(ConnectionsCopy.roundTrip(ms));
   return parts.join(' · ');

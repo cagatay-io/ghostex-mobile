@@ -56,10 +56,36 @@ const SELECTED_MACHINE_STORAGE_KEY = 'machines.selectedId';
 /** User-facing name of the `tailcat` transport. */
 export const EASY_CONNECT_LABEL = 'Easy Connect';
 
+/**
+ * Whether an SSH computer is reached through Tailscale, read from what is saved: Tailscale SSH is on, or its
+ * address is a Tailscale one (an IPv4 in 100.64.0.0/10, an IPv6 in fd7a:115c:a1e0::/48, or a MagicDNS name
+ * under .ts.net). Records carry no "added by" field, so the address decides, for computers saved before too.
+ * A bare MagicDNS short name ("studio") can't be told apart from a name on the home network and reads as SSH.
+ *
+ * CDXC:RemotePairing 2026-11-16 DECISION:
+ * User (yes to the suggestion after Use SSH details landed): a computer added by plain SSH shows as "SSH ·
+ * <address>" on its page and card, not "Tailscale · <address>"; Tailscale computers keep their label.
+ */
+export function isTailscaleSshMachine(machine: Pick<MachineRecord, 'host' | 'tailscaleSsh'>): boolean {
+  if (machine.tailscaleSsh === true) return true;
+  const host = machine.host.trim().toLowerCase().replace(/^\[|\]$/g, '').replace(/\.$/, '');
+  const ipv4 = /^(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/.exec(host);
+  if (ipv4 !== null) {
+    const second = Number(ipv4[2]);
+    return Number(ipv4[1]) === 100 && second >= 64 && second <= 127;
+  }
+  return host.startsWith('fd7a:115c:a1e0:') || host.endsWith('.ts.net');
+}
+
+/** What a computer reached over SSH is called: Tailscale through a tailnet, SSH otherwise. */
+export function sshRouteLabel(machine: Pick<MachineRecord, 'host' | 'tailscaleSsh'>): string {
+  return isTailscaleSshMachine(machine) ? 'Tailscale' : 'SSH';
+}
+
 /** How a machine is reached, in the words the app uses for it. */
-export function machineTransportLabel(machine: Pick<MachineRecord, 'transport'>): string {
+export function machineTransportLabel(machine: Pick<MachineRecord, 'transport' | 'host' | 'tailscaleSsh'>): string {
   if (machine.transport === 'demo') return 'Demo';
-  return machine.transport === 'tailcat' ? EASY_CONNECT_LABEL : 'Tailscale';
+  return machine.transport === 'tailcat' ? EASY_CONNECT_LABEL : sshRouteLabel(machine);
 }
 
 export type MachineRecord = {
