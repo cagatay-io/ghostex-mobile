@@ -1,7 +1,7 @@
 /**
  * ghostex-mobile entry: dark navigation shell over the shared TS core.
  * Welcome shows while no machine is saved; once one exists Sessions is home.
- * The setup routes (ConnectChoose, ScanCode, TailscaleForm, MachineForm) are registered in both states so the stack survives the
+ * The setup routes (ConnectChoose, ScanCode, TailscaleForm, SshDetailsForm, MachineForm) are registered in both states so the stack survives the
  * moment the first machine is saved mid-flow.
  */
 
@@ -106,6 +106,7 @@ import {
   SettingsCopy,
   SshAccessCopy,
   TailscaleFormCopy,
+  SshDetailsFormCopy,
   WebPreviewCopy,
 } from './src/copy';
 import { isSettingsRoute } from './src/screens/settings/columnRules';
@@ -262,6 +263,11 @@ export default function App() {
                 name="TailscaleForm"
                 component={MachineFormScreen}
                 options={{ title: TailscaleFormCopy.navTitle }}
+              />
+              <Stack.Screen
+                name="SshDetailsForm"
+                component={MachineFormScreen}
+                options={{ title: SshDetailsFormCopy.navTitle }}
               />
               <Stack.Screen
                 name="SshAccessHelp"

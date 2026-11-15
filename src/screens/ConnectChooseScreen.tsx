@@ -1,6 +1,7 @@
 /**
  * Add a computer (the sessions screen's + and its menu): the first screen's connect steps without the app's
- * name and without the demo, Scan the code, and "Other ways to connect" (Paste a code, Use Tailscale). The route
+ * name and without the demo, Scan the code, "Other ways to connect" (Paste a code, Use Tailscale) and Use SSH
+ * details (type the computer's address and sign-in, no code). The route
  * keeps its old name, ConnectChoose: it replaced the "How does your phone reach your computer?" chooser.
  */
 
@@ -31,6 +32,7 @@ export default function ConnectChooseScreen({ navigation }: Props) {
           onScan={() => navigation.navigate('ScanCode')}
           onPaste={() => navigation.navigate('ScanCode', { startWith: 'paste' })}
           onTailscale={() => navigation.navigate('TailscaleForm')}
+          onSshDetails={() => navigation.navigate('SshDetailsForm')}
         />
       </View>
     </SafeAreaView>

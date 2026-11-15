@@ -1,7 +1,7 @@
 /**
  * The first screen: app mark and headline over the connect steps (ConnectStart), then two equal buttons, Scan the
- * code and Use Tailscale, and one small link to the demo experience (App Review needs it reachable without a
- * computer). Paste a code stays one tap away on the Scan the code screen. Shown only while no machine is saved
+ * code and Use Tailscale, and two small links: Use SSH details (the computer's address and sign-in typed by hand,
+ * no code) and the demo experience (App Review needs it reachable without a computer). Paste a code stays one tap away on the Scan the code screen. Shown only while no machine is saved
  * (App.tsx), so there is no skip affordance.
  *
  * CDXC:RemotePairing 2026-11-13 DECISION:
@@ -61,14 +61,18 @@ export default function WelcomeScreen({ navigation }: Props) {
           icon={<ShieldGlyph size={18} color={appearance.foreground} />}
           onPress={() => navigation.navigate('TailscaleForm')}
         />
-        <Pressable
-          accessibilityRole="button"
-          hitSlop={8}
-          style={styles.demoLink}
-          onPress={() => useMachinesStore.getState().addDemoComputer()}
-        >
-          <Text style={styles.demoLinkText}>{DemoCopy.welcomeButton}</Text>
-        </Pressable>
+        <View style={styles.links}>
+          <Pressable accessibilityRole="button" hitSlop={8} onPress={() => navigation.navigate('SshDetailsForm')}>
+            <Text style={styles.demoLinkText}>{ConnectStartCopy.sshDetails}</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={() => useMachinesStore.getState().addDemoComputer()}
+          >
+            <Text style={styles.demoLinkText}>{DemoCopy.welcomeButton}</Text>
+          </Pressable>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -122,8 +126,12 @@ const createStyles = (appearance: Appearance) => StyleSheet.create({
     paddingBottom: 12,
     gap: 10,
   },
-  demoLink: {
-    alignSelf: 'center',
+  links: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    columnGap: 22,
+    rowGap: 8,
     marginTop: 4,
   },
   demoLinkText: {

@@ -55,6 +55,8 @@ export const ConnectStartCopy = {
   installUrl: 'https://ghostex.dev',
   scanButton: 'Scan the code',
   otherWays: 'Other ways to connect',
+  /** The quiet link beside "Other ways to connect": type the computer's SSH details instead of a code. */
+  sshDetails: 'Use SSH details',
   otherWaysSheet: {
     title: 'Other ways to connect',
     paste: { title: 'Paste a code', detail: "When the camera can't scan it." },
@@ -1007,6 +1009,39 @@ export const TailscaleFormCopy = {
       `Reached ${name}. SSH as ${user} works, but Ghostex is not installed for this user.`,
   },
   connect: 'Connect',
+} as const;
+
+/**
+ * Use SSH details (Add a computer's quiet link beside "Other ways to connect"): the computer's address, username and
+ * password typed by hand, no code. The phone signs in over SSH itself, like a Tailscale computer, so the form is
+ * the Tailscale form without its Tailscale checks.
+ *
+ * CDXC:RemotePairing 2026-11-16 DECISION:
+ * User: "i dont always wanna use the ghostex code". The wording is the desktop's Add a computer dialog's (SSH
+ * host, SSH username, SSH password, "Enter a machine name and SSH host first.", the Tailscale code hint), from
+ * apps/desktop/src/app/window/settings_modal/tabs/remote/machines.rs and model.rs in the Ghostex repo.
+ */
+export const SshDetailsFormCopy = {
+  navTitle: 'SSH details',
+  title: 'Use SSH details',
+  lede: 'Enter the other computer’s address and the username and password you sign in with there.',
+  fields: {
+    host: 'SSH host',
+    hostPlaceholder: '100.77.81.4',
+    username: 'SSH username',
+    usernamePlaceholder: 'machine username',
+    usernameHint: 'The account you sign in with on the other computer.',
+    password: 'SSH password',
+    passwordPlaceholder: 'SSH password',
+    passwordHint:
+      'Use the password for this username on the other computer. If you already use SSH keys, leave this blank and set the key under Advanced.',
+  },
+  validation: {
+    nameAndHost: 'Enter a machine name and SSH host first.',
+    username: 'Enter an SSH username first.',
+    tailscaleCode: 'That is a Tailscale code. Use SSH details with its Tailscale name or IP instead.',
+    easyConnectCode: 'That is an Easy Connect code. Use Paste a code instead.',
+  },
 } as const;
 
 /**

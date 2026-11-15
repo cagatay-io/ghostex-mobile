@@ -1,7 +1,8 @@
 /**
  * The connect steps the first screen and Add a computer share: three steps with an icon each (get Ghostex on the
  * computer, open Connect a Phone there, scan here), Scan the code as the one button, and the small links under it:
- * "Other ways to connect" opens a sheet with Paste a code and Use Tailscale, and the first screen adds the demo.
+ * "Other ways to connect" opens a sheet with Paste a code and Use Tailscale, Use SSH details opens the SSH form
+ * (no code), and the first screen adds the demo.
  * CDXC:RemotePairing 2026-11-10 in copy.ts (`ConnectStartCopy`) has the user's picks.
  */
 
@@ -70,12 +71,14 @@ export type ConnectActionsProps = {
   onScan: () => void;
   onPaste: () => void;
   onTailscale: () => void;
+  /** Use SSH details: the quiet link beside "Other ways to connect", for adding a computer without its code. */
+  onSshDetails?: () => void;
   /** A last small link beside "Other ways to connect" (the first screen's demo). */
   extraLink?: { label: string; onPress: () => void };
 };
 
 /** Scan the code, then the small links; "Other ways to connect" opens its sheet. */
-export function ConnectActions({ onScan, onPaste, onTailscale, extraLink }: ConnectActionsProps) {
+export function ConnectActions({ onScan, onPaste, onTailscale, onSshDetails, extraLink }: ConnectActionsProps) {
   const appearance = useAppearance();
   const styles = useMemo(() => createStyles(appearance), [appearance]);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -96,6 +99,11 @@ export function ConnectActions({ onScan, onPaste, onTailscale, extraLink }: Conn
         <Pressable accessibilityRole="button" hitSlop={8} onPress={() => setSheetOpen(true)}>
           <Text style={styles.smallLink}>{ConnectStartCopy.otherWays}</Text>
         </Pressable>
+        {onSshDetails !== undefined ? (
+          <Pressable accessibilityRole="button" hitSlop={8} onPress={onSshDetails}>
+            <Text style={styles.smallLink}>{ConnectStartCopy.sshDetails}</Text>
+          </Pressable>
+        ) : null}
         {extraLink !== undefined ? (
           <Pressable accessibilityRole="button" hitSlop={8} onPress={extraLink.onPress}>
             <Text style={styles.smallLink}>{extraLink.label}</Text>

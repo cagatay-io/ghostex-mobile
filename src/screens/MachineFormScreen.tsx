@@ -5,6 +5,9 @@
  *   two prechecks, a scan shortcut, name / address / username / password,
  *   Advanced (port, SSH key, Tailscale SSH, host key), Test connection below
  *   Advanced, and Connect = save + select + Sessions.
+ * - Add with SSH details (`SshDetailsForm`, Add a computer's "Use SSH details" link): the same SSH computer
+ *   without the Tailscale checks, worded like the desktop's Add a computer dialog (`SshDetailsFormCopy`):
+ *   name / SSH host / SSH username / SSH password, Advanced, Test connection, and Connect.
  * - Add over Easy Connect with a bare pairing address (`MachineForm` with
  *   `tailcatToken`, the legacy "paste the address" path from the scanner).
  * - A saved computer (`machineId`) opens on its page (machine-form/ComputerPage); each of the page's rows
@@ -33,7 +36,7 @@ import {
 import { SetupButton, useSetupText } from '../components/onboarding/SetupPrimitives';
 import SshAccessHelpSheet, { type SshOs } from '../components/onboarding/SshAccessHelpSheet';
 import { CheckIcon } from '../components/terminal/icons';
-import { ComputerPageCopy, EditMachineCopy, MachineCopy, TailscaleFormCopy } from '../copy';
+import { ComputerPageCopy, EditMachineCopy, MachineCopy, SshDetailsFormCopy, TailscaleFormCopy } from '../copy';
 import { useInventoryStore } from '../inventory/store';
 import { APP_UPDATE_FRESH_MS, refreshAppUpdate } from '../machines/appUpdate';
 import { refreshMachineTools } from '../machines/machineTools';
@@ -57,6 +60,7 @@ import {
   type MachineValidationErrors,
 } from '../machines/store';
 import { useOpenSessionsAfterPairing } from '../machines/justPaired';
+import { readPairingCode } from '../machines/pairingCodes';
 import type { RootStackParamList } from '../navigation/types';
 import { useWebPreviewStore } from '../webPreview/store';
 
@@ -73,13 +77,24 @@ import TailscaleFields, { NameField, PairingAddressField, FormField } from './ma
 import { TEST_MACHINE_ID, type ConnectionTestPlan } from './machine-form/testConnection';
 import TestConnectionButton, { useTestState } from './machine-form/TestConnectionButton';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'MachineForm' | 'TailscaleForm'>;
+type Props = NativeStackScreenProps<RootStackParamList, 'MachineForm' | 'TailscaleForm' | 'SshDetailsForm'>;
 
 /** "Connected now" on the Easy Connect summary: the machine answered within the last 3 minutes. */
 const CONNECTED_NOW_WINDOW_MS = 3 * 60 * 1000;
 /** The round Save in the iPhone Duo's status band: the side bar's smallest button, to sit in the 44-pt row. */
 const BAND_SAVE_SIZE = 40;
 const BAND_SAVE_GLYPH = 20;
+
+/**
+ * What a pairing code typed into Use SSH details' SSH host means, or null for an address. A bare legacy
+ * pairing address is not read here: a host name may start with "tc".
+ */
+function codeInHost(host: string): string | null {
+  const read = readPairingCode(host);
+  if (read?.kind === 'tailscale') return SshDetailsFormCopy.validation.tailscaleCode;
+  if (read?.kind === 'easyConnect') return SshDetailsFormCopy.validation.easyConnectCode;
+  return null;
+}
 
 function parsePort(value: string): number | null {
   const parsed = Number.parseInt(value.trim(), 10);
@@ -119,6 +134,8 @@ function MachineFormBody({ navigation, route }: Props) {
   );
   const existing = machineId === null ? null : (machines.find((m) => m.id === machineId) ?? null);
   const editing = existing !== null;
+  // Use SSH details: always a new SSH computer, worded like the desktop's Add a computer.
+  const sshDetails = route.name === 'SshDetailsForm' && !editing;
 
   const [transport, setTransport] = useState<MachineTransport>(
     existing?.transport ?? (scannedToken !== undefined ? 'tailcat' : 'ssh'),
@@ -204,7 +221,20 @@ function MachineFormBody({ navigation, route }: Props) {
   const targetValid = easyConnect
     ? trimmedToken.length > 0 && trimmedToken.startsWith(TAILCAT_TOKEN_PREFIX)
     : address.trim().length > 0;
-  const canSave = targetValid && username.trim().length > 0 && parsedPort !== null;
+  const hostCode = sshDetails ? codeInHost(address) : null;
+  // The desktop's Add a computer saves with a name and an SSH host; the phone also needs the username.
+  const sshDetailsReason = !sshDetails
+    ? null
+    : hostCode !== null
+      ? hostCode
+      : name.trim().length === 0 || address.trim().length === 0
+        ? SshDetailsFormCopy.validation.nameAndHost
+        : username.trim().length === 0
+          ? SshDetailsFormCopy.validation.username
+          : parsedPort === null
+            ? MachineCopy.validation.port
+            : null;
+  const canSave = targetValid && username.trim().length > 0 && parsedPort !== null && sshDetailsReason === null;
   const computerName = name.trim().length > 0 ? name.trim() : username.trim();
 
   const buildPlan = async (): Promise<ConnectionTestPlan> => {
@@ -346,7 +376,13 @@ function MachineFormBody({ navigation, route }: Props) {
   useLayoutEffect(() => {
     if (leaving.current) return;
     if (!editing) {
-      navigation.setOptions({ title: easyConnect ? MachineCopy.editor.addTitle : TailscaleFormCopy.navTitle });
+      navigation.setOptions({
+        title: easyConnect
+          ? MachineCopy.editor.addTitle
+          : sshDetails
+            ? SshDetailsFormCopy.navTitle
+            : TailscaleFormCopy.navTitle,
+      });
       return;
     }
     if (!saves) {
@@ -365,7 +401,7 @@ function MachineFormBody({ navigation, route }: Props) {
             </Pressable>
           ),
     });
-  }, [navigation, editing, saves, easyConnect, sectionTitle, saveDisabled, roundSave, saveEntry, setupText]);
+  }, [navigation, editing, saves, easyConnect, sshDetails, sectionTitle, saveDisabled, roundSave, saveEntry, setupText]);
   // The side bar shows Save under Back; every field of the form takes the keyboard.
   useStackScreenRail(
     useMemo(
@@ -512,6 +548,48 @@ function MachineFormBody({ navigation, route }: Props) {
                 {errorBanner}
               </>
             )
+          ) : sshDetails ? (
+            <>
+              <View style={styles.hero}>
+                <Text style={setupText.titleLg}>{SshDetailsFormCopy.title}</Text>
+                <Text style={setupText.lede}>{SshDetailsFormCopy.lede}</Text>
+              </View>
+              <NameField value={name} onChangeText={setName} />
+              <FormSection name="machine-form:ssh-details-fields">
+                <FormField
+                  label={SshDetailsFormCopy.fields.host}
+                  value={address}
+                  onChangeText={editField(setAddress)}
+                  placeholder={SshDetailsFormCopy.fields.hostPlaceholder}
+                  error={hostCode ?? errors?.host ?? errors?.duplicate}
+                  mono
+                  keyboardType="url"
+                />
+                <FormField
+                  label={SshDetailsFormCopy.fields.username}
+                  value={username}
+                  onChangeText={editField(setUsername)}
+                  placeholder={SshDetailsFormCopy.fields.usernamePlaceholder}
+                  hint={SshDetailsFormCopy.fields.usernameHint}
+                  error={errors?.username}
+                  mono
+                />
+                {tailscaleSsh ? null : (
+                  <FormField
+                    label={SshDetailsFormCopy.fields.password}
+                    value={password}
+                    onChangeText={editField(setPassword)}
+                    placeholder={SshDetailsFormCopy.fields.passwordPlaceholder}
+                    hint={SshDetailsFormCopy.fields.passwordHint}
+                    error={errors?.password}
+                    secureTextEntry
+                  />
+                )}
+              </FormSection>
+              {advanced}
+              {test}
+              {errorBanner}
+            </>
           ) : easyConnect ? (
             <>
               <NameField value={name} onChangeText={setName} />
@@ -554,6 +632,10 @@ function MachineFormBody({ navigation, route }: Props) {
 
         {existing === null ? (
           <View style={formStyles.footer}>
+            {/* Use SSH details says why Connect waits, as the desktop's disabled Add computer does. */}
+            {sshDetailsReason !== null && hostCode === null ? (
+              <Text style={[formStyles.fieldHint, styles.footerReason]}>{sshDetailsReason}</Text>
+            ) : null}
             <SetupButton
               variant="primary"
               large
@@ -575,4 +657,5 @@ function MachineFormBody({ navigation, route }: Props) {
 const styles = {
   headerAction: { fontSize: 16, fontWeight: '600' as const },
   hero: { gap: 6 },
+  footerReason: { textAlign: 'center' as const, marginBottom: 8 },
 };

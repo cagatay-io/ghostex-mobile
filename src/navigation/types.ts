@@ -43,6 +43,8 @@ export type RootStackParamList = {
     | undefined;
   /** The Tailscale (plain SSH over the tailnet) form: the manual "type the details" path. */
   TailscaleForm: MachineFormParams;
+  /** Use SSH details: the Tailscale form without its Tailscale checks, worded like the desktop's Add a computer. */
+  SshDetailsForm: undefined;
   /** The "Can't reach <computer>" checklist screen (registered once a machine exists). */
   CantReach: { machineId: string };
   /** Per-OS "turn on SSH access" instructions as a full screen. */
