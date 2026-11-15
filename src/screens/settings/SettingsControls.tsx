@@ -505,6 +505,7 @@ export function LinkRow({
   description,
   descriptionAccent = false,
   selected,
+  accessibilityLabel,
   onPress,
 }: {
   title: string;
@@ -512,6 +513,8 @@ export function LinkRow({
   descriptionAccent?: boolean;
   /** The page open beside the list (Settings in two columns). */
   selected?: boolean;
+  /** What VoiceOver says instead of the title, where the title alone reads poorly (a crash report's time). */
+  accessibilityLabel?: string;
   onPress: () => void;
 }) {
   const styles = useSettingsStyles();
@@ -519,6 +522,7 @@ export function LinkRow({
     <SettingsSearchAnchor label={title}>
       <Pressable
         accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
         accessibilityHint={description}
         // Only a list beside its page (two columns) has a selected row; a plain list reports no selection.
         accessibilityState={selected === undefined ? undefined : { selected }}

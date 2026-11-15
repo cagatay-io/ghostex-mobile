@@ -7,6 +7,8 @@
 import { ANDROID_SELF_UPDATE_ENABLED } from '../../config/featureFlags';
 import { DemoCopy } from '../../demo/copy';
 import { LicencesCopy, LiveActivityCopy, NotificationsCopy, ShortRepliesCopy } from '../../copy';
+import { CrashReportsSettingsCopy } from '../../copy/crashReports';
+import { CRASH_REPORTS_IN_SETTINGS } from '../../feedback/crashReports';
 import { OTA_ENABLED } from '../../updates/overTheAir';
 import { LIVE_ACTIVITY_SUPPORTED } from '../../notifications/liveActivity';
 import { VOICE_SUPPORTED } from '../../voice/conversation';
@@ -32,7 +34,8 @@ export type SettingsPageId =
   | 'dictateLanguage'
   | 'terminalPaletteDark'
   | 'terminalPaletteLight'
-  | 'licences';
+  | 'licences'
+  | 'crashReports';
 
 export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, { title: string; description: string }>> = {
   updates: { title: 'Updates', description: 'The app, the update it runs, and what is waiting.' },
@@ -48,7 +51,12 @@ export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, { title: string; de
   shortReplies: { title: ShortRepliesCopy.pageTitle, description: ShortRepliesCopy.pageDescription },
   notifications: { title: NotificationsCopy.title, description: NotificationsCopy.settings.pageDescription },
   liveActivity: { title: LiveActivityCopy.pageTitle, description: LiveActivityCopy.pageDescription },
-  connection: { title: 'Connection', description: 'Your computers, their routes, reconnecting, memory and logs.' },
+  connection: {
+    title: 'Connection',
+    description: CRASH_REPORTS_IN_SETTINGS
+      ? CrashReportsSettingsCopy.connectionIntro
+      : 'Your computers, their routes, reconnecting, memory and logs.',
+  },
   sync: { title: 'Sync', description: 'Carrying Spaces and settings between your computers.' },
   autopilot: { title: 'Autopilot', description: 'Keep sessions going while you are away, and what it did.' },
   collab: { title: 'Collab', description: 'An extension: share a chat through a link that opens it in a browser.' },
@@ -62,6 +70,8 @@ export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, { title: string; de
   // Opened from Settings › Interface's Terminal palettes rows, not listed on the Settings home.
   terminalPaletteDark: { title: 'Terminal palette in dark mode', description: 'The terminal colours in dark mode.' },
   terminalPaletteLight: { title: 'Terminal palette in light mode', description: 'The terminal colours in light mode.' },
+  // Opened from Settings › Connection's Troubleshooting rows (iOS), not listed on the Settings home.
+  crashReports: { title: CrashReportsSettingsCopy.title, description: CrashReportsSettingsCopy.pageIntro },
 };
 
 export const SETTINGS_PAGE_ORDER: readonly SettingsPageId[] = [

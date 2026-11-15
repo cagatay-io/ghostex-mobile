@@ -4,7 +4,8 @@
  * temporary storage while the iOS share sheet has it, and deletes that copy once the sheet closes, shared or
  * cancelled (data minimisation). Nothing is written to the project. One share at a time per share
  * sheet, and every screen hands its file to the app's one sheet, so one at a time for the whole app; each share
- * keeps and deletes only its own copy. Kept free of native imports so `bun test` drives it with a stand-in request
+ * keeps and deletes only its own copy. Text the phone holds itself (a crash report) takes the same sheet, copy and
+ * turn without a fetch (`shareText`). Kept free of native imports so `bun test` drives it with a stand-in request
  * and share sheet; `shareSheet.ts` holds the app's.
  */
 
@@ -14,10 +15,13 @@ import { projectScopeAction, type DocsRpc } from './request';
 /** One share's temporary copy: its address, and the deletion of this copy alone. */
 export type SharedCopy = { uri: string; drop(): void };
 
+/** What a copy holds: a file's bytes as base64, or text written as UTF-8. */
+export type SharedContents = { base64: string } | { text: string };
+
 /** The share sheet and the temporary copies it is handed: the app's (`shareSheet.ts`) or a test's. */
 export type ShareSheet = {
-  /** Keeps the file's bytes (base64) as a copy of its own named `name`, apart from every other share's. */
-  keepCopy(name: string, base64: string): Promise<SharedCopy>;
+  /** Keeps `contents` as a copy of its own named `name`, apart from every other share's. */
+  keepCopy(name: string, contents: SharedContents): Promise<SharedCopy>;
   /** Hands the copy to the share sheet; settles once the sheet has closed. */
   open(uri: string, name: string): Promise<void>;
 };
@@ -74,17 +78,37 @@ export async function shareProjectFile(
     if (typeof data !== 'string') return { shared: false, message: DocsCopy.shareNoData };
     // The name comes from the computer: one that would leave the copy's folder is never used as a file name.
     const name = /^\.{0,2}$|[/\\\u0000]/u.test(file.name) ? DocsCopy.shareFallbackName : file.name;
-    let copy: SharedCopy | null = null;
-    try {
-      copy = await sheet.keepCopy(name, data);
-      await sheet.open(copy.uri, name);
-      return { shared: true };
-    } catch (failure) {
-      return { shared: false, message: failure instanceof Error ? failure.message : String(failure) };
-    } finally {
-      copy?.drop();
-    }
+    return await handOver(sheet, name, { base64: data });
   } finally {
     setSharing(sheet, false);
+  }
+}
+
+/**
+ * Hands `text` to the share sheet as a file named `name` (a name the app chose itself), with the same copy lifetime
+ * and one share at a time as a project file. While another share on the same sheet runs, it does nothing and answers
+ * `busy`.
+ */
+export async function shareText(name: string, text: string, sheet: ShareSheet): Promise<ShareOutcome> {
+  if (sharing.has(sheet)) return { shared: false, busy: true };
+  setSharing(sheet, true);
+  try {
+    return await handOver(sheet, name, { text });
+  } finally {
+    setSharing(sheet, false);
+  }
+}
+
+/** Keeps the copy, opens the sheet with it and drops the copy once the sheet is over, shared or not. */
+async function handOver(sheet: ShareSheet, name: string, contents: SharedContents): Promise<ShareOutcome> {
+  let copy: SharedCopy | null = null;
+  try {
+    copy = await sheet.keepCopy(name, contents);
+    await sheet.open(copy.uri, name);
+    return { shared: true };
+  } catch (failure) {
+    return { shared: false, message: failure instanceof Error ? failure.message : String(failure) };
+  } finally {
+    copy?.drop();
   }
 }
