@@ -368,7 +368,7 @@ export default function FeedbackScreen() {
       {crash !== null ? (
         <View style={local.spaced}>
           <Text style={styles.cardLabel}>{FeedbackCopy.crashAttached}</Text>
-          <Caption>{`${crashTimeLabel(crash.report.at)} · ${FeedbackCopy.crashAttachedHint}`}</Caption>
+          <Caption>{FeedbackCopy.crashAttachedHint(crashTimeLabel(crash.report))}</Caption>
           {withAgent ? <Caption>{FeedbackCopy.crashAgentHint}</Caption> : null}
           {showCrash ? (
             <ScrollView
@@ -402,7 +402,7 @@ export default function FeedbackScreen() {
       ) : storedCrash !== null ? (
         <View style={local.buttons}>
           <SetupButton
-            label={FeedbackCopy.attachCrash(crashTimeLabel(storedCrash.at))}
+            label={FeedbackCopy.attachCrash(crashTimeLabel(storedCrash))}
             small
             disabled={busy}
             onPress={() => attachCrash(storedCrash)}

@@ -9,8 +9,7 @@
  */
 
 import { formatAppLog, type AppLogEntry } from '../app/appLog';
-import { scrubPersonalData } from './crashReportScrub';
-import { privateTerms } from './crashReports';
+import { cleanReportText } from './crashReports';
 import { draftTitle, FEEDBACK_BODY_MAX_UNITS, reporterLine } from './feedbackDraft';
 
 /** Where the relay files the issue (anyone can read it). */
@@ -22,8 +21,7 @@ const LOG_FENCE = '```';
 export type LogReport = { title: string; body: string; lineCount: number };
 
 export function logReport(entries: readonly AppLogEntry[], note: string, reporter: string | null): LogReport {
-  const terms = privateTerms();
-  const cleanNote = scrubPersonalData(note.trim(), terms);
+  const cleanNote = cleanReportText(note.trim());
   const head = [
     ...(reporter !== null ? [reporterLine(reporter), ''] : []),
     cleanNote.length > 0 ? cleanNote : 'Connection logs sent from the phone.',
@@ -32,7 +30,7 @@ export function logReport(entries: readonly AppLogEntry[], note: string, reporte
     `${LOG_FENCE}text`,
   ].join('\n');
   const tail = `\n${LOG_FENCE}`;
-  let log = scrubPersonalData(formatAppLog([...entries]), terms);
+  let log = cleanReportText(formatAppLog([...entries]));
   // The newest lines matter most: an over-long log loses its oldest ones.
   const room = FEEDBACK_BODY_MAX_UNITS - head.length - tail.length - 2;
   if (log.length > room) log = `(older lines cut)\n${log.slice(log.length - room + 20)}`;
