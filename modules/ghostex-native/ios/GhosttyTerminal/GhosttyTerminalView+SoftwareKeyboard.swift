@@ -80,6 +80,9 @@ extension GhosttyTerminalView {
 
         let normalized = text.precomposedStringWithCanonicalMapping
         guard !normalized.isEmpty else { return }
+        // The commit of a composition held out of the model (begun or changed without a link) ends here, whatever
+        // route it would take below (with a modifier, as a key command): counted once and never sent.
+        if softwareInputGate.heldComposition != nil, !softwareInputTakes(.insert(normalized)) { return }
         if !keyModifiers.isEmpty {
             let modifiers = consumeKeyModifiers()
             invalidateLocalTextInputSession()
