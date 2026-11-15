@@ -5,6 +5,7 @@
  * (`composer_references.rs`).
  */
 
+import { findUploadTokens, uploadPath } from '../../rust/uploadTokens';
 import { arr, obj } from './json';
 
 export type ComposerReference = {
@@ -86,6 +87,27 @@ export function createDraftReferenceParser(): (draft: string, answer: unknown) =
         ? parseReferences(draft, answer)
         : rebaseReferences(last.draft, last.references, draft);
     last = { draft, references: parsed };
-    return parsed;
+    return withUploadStandIns(draft, parsed);
   };
+}
+
+/**
+ * `references` with the stand-ins of uploads on their way (`uploadTokens.ts`), which the core
+ * skips: each is a chip of its own kind whose `path` is its stand-in destination.
+ */
+export function withUploadStandIns(draft: string, references: readonly ComposerReference[]): ComposerReference[] {
+  const standIns = findUploadTokens(draft);
+  if (standIns.length === 0) return [...references];
+  const all: ComposerReference[] = [...references];
+  for (const standIn of standIns) {
+    if (references.some((reference) => reference.start < standIn.end && standIn.start < reference.end)) continue;
+    all.push({
+      start: standIn.start,
+      end: standIn.end,
+      kind: standIn.label.startsWith('Image #') ? 'image' : 'file',
+      label: standIn.label,
+      path: uploadPath(standIn.token),
+    });
+  }
+  return all.sort((a, b) => a.start - b.start);
 }

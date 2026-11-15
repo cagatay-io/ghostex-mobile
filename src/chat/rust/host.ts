@@ -58,6 +58,7 @@ import { currentSessionDirectory, subscribeSessionDirectory } from './sessionDir
 import { projectOrigin, subscribeProjectOrigin } from './projectOrigin';
 import { readRecord, readRetainedSnapshot, writeRecord, writeRetainedSnapshot } from './storage';
 import { chatMachineLink, TOOL_OUTPUT_CUT_CAPABILITY } from './machine-link';
+import { findUploadTokens } from './uploadTokens';
 import { checkComputer, HELD_SEND_METHODS, heldSendRpc, sessionComputer, subscribeSessionComputer } from './computer';
 import { coreUnavailableMessage } from './wasm-core/pageLoad';
 import { AttachmentCarrier } from './carryAttachments';
@@ -669,21 +670,32 @@ export class RustChatHost {
   }
 
   /**
-   * Files the phone picked (image picker, document picker, camera), uploaded to the machine and
-   * inserted as reference pills: `attachmentsStarted`, the SFTP uploads, then
-   * `attachmentsFinished` with the machine paths.
+   * Files the phone picked (image picker, document picker, camera), pasted, dropped or got from the keyboard: each
+   * one's reference goes in at the caret at once as a stand-in (`uploadTokens.ts`, `ComposerModel.placeUploads`),
+   * then `attachmentsStarted`, the SFTP upload, and the stand-in becomes the reference to the machine path in place.
+   * A failed picture's retry (`token`) lands in the stand-in it already has.
    */
-  async attachFiles(files: readonly { uri: string; name?: string }[]): Promise<void> {
+  async attachFiles(files: readonly { uri: string; name?: string; token?: number }[]): Promise<void> {
     if (files.length === 0) return;
+    // A retried picture whose stand-in is no longer in the text (deleted, or the text came back from a failed send
+    // without it) gets a new one, as a new picture does.
+    const present = new Set(findUploadTokens(this.composer.state.text).map((entry) => entry.token));
+    const kept = files.map((file) => (file.token !== undefined && present.has(file.token) ? file.token : undefined));
+    const fresh = files.filter((_, index) => kept[index] === undefined);
+    const placed = this.composer.placeUploads(fresh.map((file) => file.name ?? fileName(file.uri)));
     // Each file is its own upload, so one that fails stays in the chat box on its own while the others land. A send
     // made before an upload lands takes it by its id (core `composer/attaching.rs`); the ids start before any await,
     // so a Send pressed right after (`retryFailedPictures`) finds them on their way.
-    const started = files.map((file) => {
+    let next = 0;
+    const started = files.map((file, index) => {
+      const retried = kept[index];
+      const token = retried ?? placed[next++];
+      if (retried !== undefined) this.composer.retryingUpload(retried);
       const id = this.composer.uploadStarted();
       this.dispatch({ type: 'attachmentsStarted', id });
-      return { id, file };
+      return { id, file, token };
     });
-    for (const { id, file } of started) await this.attachOne(id, file);
+    for (const { id, file, token } of started) await this.attachOne(id, file, token);
   }
 
   /**
@@ -692,14 +704,24 @@ export class RustChatHost {
    * that waited for it ends as a refused send does, its words back in the chat box with the error card saying why.
    * CDXC:Clipboard 2026-11-15 DECISION (issue #618, Q3274 A).
    */
-  private async attachOne(id: number, file: { uri: string; name?: string }): Promise<void> {
+  private async attachOne(id: number, file: { uri: string; name?: string }, token: number | undefined): Promise<void> {
     let failure: unknown = null;
     for (let attempt = 0; attempt < UPLOAD_ATTEMPTS; attempt += 1) {
       if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, UPLOAD_RETRY_DELAY_MS));
       try {
         const paths = await this.uploadLocalFiles([file]);
-        this.composer.uploadFinished(id, paths.length > 0);
-        this.dispatch({ type: 'attachmentsFinished', id, paths });
+        if (token === undefined) {
+          this.composer.uploadFinished(id, paths.length > 0);
+          this.dispatch({ type: 'attachmentsFinished', id, paths });
+          return;
+        }
+        // A send took it: its references go to that message (core `composer/attaching.rs`), the stand-in left with
+        // the send. Else the stand-in becomes them where it stands, and the core is told the upload ended with
+        // nothing for it to write into the chat box.
+        const claimed = this.composer.uploadFinished(id, false);
+        if (claimed) this.composer.landUpload(token, []);
+        else this.composer.landUpload(token, paths);
+        this.dispatch({ type: 'attachmentsFinished', id, paths: claimed ? paths : [] });
         return;
       } catch (error) {
         failure = error;
@@ -707,7 +729,12 @@ export class RustChatHost {
     }
     const reason = failure instanceof Error && failure.message.trim().length > 0 ? failure.message.trim() : null;
     const claimed = this.composer.uploadFinished(id, false);
-    this.composer.uploadFailed({ uri: file.uri, ...(file.name !== undefined ? { name: file.name } : {}), error: reason ?? '' });
+    this.composer.uploadFailed({
+      uri: file.uri,
+      ...(file.name !== undefined ? { name: file.name } : {}),
+      ...(token !== undefined ? { token } : {}),
+      error: reason ?? '',
+    });
     // Unclaimed, the picture's own failed mark says it; a waiting message comes back with the error card.
     this.dispatch({
       type: 'attachmentsFinished',
@@ -720,7 +747,13 @@ export class RustChatHost {
   private retryFailedPictures(): void {
     const failed = this.composer.takeFailedPictures();
     if (failed.length === 0) return;
-    void this.attachFiles(failed.map((picture) => ({ uri: picture.uri, ...(picture.name !== undefined ? { name: picture.name } : {}) })));
+    void this.attachFiles(
+      failed.map((picture) => ({
+        uri: picture.uri,
+        ...(picture.name !== undefined ? { name: picture.name } : {}),
+        ...(picture.token !== undefined ? { token: picture.token } : {}),
+      })),
+    );
   }
 
   /** A failed picture's remove button: it leaves the chat box. */

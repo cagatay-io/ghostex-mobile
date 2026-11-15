@@ -16,6 +16,14 @@ import type { ChatDocument } from './document';
 import { nextDraftVersion, randomUuid } from './host-records';
 import type { UserAction } from './actions';
 import { releaseAnswerHold } from '../native/transcript/answerHold';
+import {
+  findUploadTokens,
+  insertUploadTokens,
+  landedReferences,
+  replaceUploadToken,
+  stripUploadTokens,
+  type UploadTokenState,
+} from './uploadTokens';
 
 /** What a submission does; `interrupt` is Interrupt & Send. */
 export type SubmitMode = 'send' | 'queue' | 'compact' | 'handoff' | 'interrupt';
@@ -52,10 +60,18 @@ export type ComposerModelState = {
    * retries once by itself, then shows it failed; pressing Send again retries the upload (not a tap on the picture).
    */
   failedPictures: readonly FailedPicture[];
+  /**
+   * The uploads whose stand-in reference is in the text (`uploadTokens.ts`), by token: on their way, or failed.
+   * A stand-in whose token is not here was left by an upload this phone no longer runs (the app restarted).
+   */
+  uploadTokens: Readonly<Record<number, UploadTokenState>>;
 };
 
-/** A picture still on the phone whose upload failed (`ComposerModelState.failedPictures`). */
-export type FailedPicture = { key: number; uri: string; name?: string; error: string };
+/**
+ * A picture still on the phone whose upload failed (`ComposerModelState.failedPictures`); `token` names its stand-in
+ * in the text, which Send's retry lands in place.
+ */
+export type FailedPicture = { key: number; uri: string; name?: string; error: string; token?: number };
 
 export type ComposerHooks = {
   dispatch(action: UserAction): void;
@@ -80,7 +96,11 @@ export class ComposerModel {
     pendingSend: false,
     heldSend: null,
     failedPictures: [],
+    uploadTokens: {},
   };
+
+  /** The last stand-in token handed out (`placeUploads`). */
+  private lastUploadToken = 0;
 
   /**
    * Uploads still on their way into the field: being uploaded, or uploaded with their pills not in
@@ -183,7 +203,10 @@ export class ComposerModel {
     // leaves now and waits for it in the transcript (core `composer/attaching.rs`, where the
     // user's words are). Even a message of pictures alone.
     const uploading = this.uploads.saving.length > 0;
-    if (this.state.text.trim().length === 0 && !uploading) return false;
+    // The stand-ins of uploads still on their way never leave: the core writes their landed references where the
+    // first one stood (`caret`), the way it writes them at the caret for a send made before the stand-ins existed.
+    const { text: sent, firstAt } = stripUploadTokens(this.state.text);
+    if (sent.trim().length === 0 && !uploading) return false;
     if (mode !== 'send' && mode !== 'handoff' && document?.queue.capabilities.canQueue !== true) return false;
     const blocked = document?.sendBlockedReason ?? null;
     if (blocked !== null) {
@@ -196,10 +219,10 @@ export class ComposerModel {
     }
     const submission = {
       type: mode,
-      text: this.state.text,
+      text: sent,
       draftVersion: this.version(),
       ...(interrupt ? { interrupt } : {}),
-      ...(uploading ? { caret: utf16Caret(this.state.text, this.state.selection.end) } : {}),
+      ...(uploading ? { caret: firstAt ?? utf16Caret(sent, this.state.selection.end) } : {}),
     } as UserAction;
     if (uploading) this.uploads.claimed.push(...this.uploads.saving.splice(0));
     this.set({
@@ -210,6 +233,7 @@ export class ComposerModel {
       caret: 0,
       replaceSequence: this.state.replaceSequence + 1,
       fromHistory: false,
+      uploadTokens: {},
     });
     // A send from the chat box follows the newest row again (`answerHold.ts`).
     releaseAnswerHold();
@@ -273,17 +297,102 @@ export class ComposerModel {
     return false;
   }
 
-  /** A picture's upload failed for good: it stays in the chat box, marked failed (`failedPictures`). */
+  /**
+   * A picture's upload failed for good: it stays in the chat box, marked failed (`failedPictures`), and so does its
+   * stand-in in the text, when the user kept it.
+   */
   uploadFailed(picture: Omit<FailedPicture, 'key'>): void {
     this.uploads.next += 1;
-    this.set({ failedPictures: [...this.state.failedPictures, { ...picture, key: this.uploads.next }] });
+    const token = picture.token;
+    const kept = token !== undefined && findUploadTokens(this.state.text).some((entry) => entry.token === token);
+    this.set({
+      failedPictures: [...this.state.failedPictures, { ...picture, key: this.uploads.next }],
+      ...(kept ? { uploadTokens: { ...this.state.uploadTokens, [token]: 'failed' as const } } : {}),
+    });
   }
 
-  /** The failed pictures, taken out of the chat box for another upload (Send) or dropped (their remove button). */
+  /**
+   * Uploads that just began (a paste, a keyboard image, a drop, a pick): a stand-in reference for each goes in at
+   * the caret now, over any selection, and the caret goes after them. Answers each upload's token, in order.
+   */
+  placeUploads(names: readonly string[]): number[] {
+    if (names.length === 0) return [];
+    // A stand-in left in a saved draft by an earlier run keeps its number: new ones count on past it.
+    for (const entry of findUploadTokens(this.state.text)) this.lastUploadToken = Math.max(this.lastUploadToken, entry.token);
+    const uploads = names.map((name) => ({ token: ++this.lastUploadToken, name }));
+    const { start, end } = this.state.selection;
+    const edit = insertUploadTokens(this.state.text, start, end, uploads);
+    const states = { ...this.state.uploadTokens };
+    for (const upload of uploads) states[upload.token] = 'uploading';
+    this.set({ uploadTokens: states });
+    this.write(edit.text, edit.caret);
+    // The box takes the keyboard after a pick, as it did when the reference landed.
+    this.hooks.onFocusRequested();
+    return uploads.map((upload) => upload.token);
+  }
+
+  /** A failed upload goes up again (Send): its stand-in shows it on its way. */
+  retryingUpload(token: number): void {
+    this.set({ uploadTokens: { ...this.state.uploadTokens, [token]: 'uploading' } });
+  }
+
+  /**
+   * Upload `token` landed at `paths`: its stand-in becomes their references where it stands, the caret and the rest
+   * of the text untouched. With no paths (or a failed picture's remove button) the stand-in goes. Answers whether
+   * the stand-in was still there; one the user deleted keeps the upload out of the text.
+   */
+  landUpload(token: number, paths: readonly string[]): boolean {
+    const text = this.state.text;
+    const standIn = findUploadTokens(text).find((entry) => entry.token === token);
+    const states = { ...this.state.uploadTokens };
+    delete states[token];
+    if (standIn === undefined) {
+      this.set({ uploadTokens: states });
+      return false;
+    }
+    const references = paths.length > 0 ? landedReferences(text, standIn, paths) : '';
+    const edit = replaceUploadToken(text, token, references);
+    if (edit === null) return false;
+    const map = (offset: number): number =>
+      offset <= edit.start ? offset : offset >= edit.end ? offset + edit.shift : edit.start + references.length;
+    const selection = { start: map(this.state.selection.start), end: map(this.state.selection.end) };
+    // The field keeps its caret when the chip reads the same ("Image #2" stays "Image #2"): only the hidden
+    // destination changed, so the field's text is not touched under the user's typing.
+    const sameChip = paths.length === 1 && references.startsWith(`[${standIn.label}](`);
+    this.set({ uploadTokens: states, selection });
+    this.write(edit.text, sameChip ? null : selection.end);
+    return true;
+  }
+
+  /**
+   * The text set by the phone itself around what the user typed (a stand-in placed or landed): the core and the
+   * save get it as an edit, the field shows it, and `caret` (when not null) is where its caret goes.
+   */
+  private write(text: string, caret: number | null): void {
+    this.set({
+      text,
+      revision: this.state.revision + 1,
+      caret,
+      fromHistory: false,
+      replaceSequence: this.state.replaceSequence + 1,
+    });
+    if (!this.state.ready) return;
+    this.hooks.dispatch({ type: 'editDraft', text, draftVersion: this.version() });
+    this.selected(caret !== null ? { start: caret, end: caret } : this.state.selection);
+    this.save();
+  }
+
+  /**
+   * The failed pictures, taken out of the chat box for another upload (Send) or dropped (their remove button, which
+   * takes the picture's stand-in out of the text too).
+   */
   takeFailedPictures(key?: number): FailedPicture[] {
     const taken = this.state.failedPictures.filter((picture) => key === undefined || picture.key === key);
     if (taken.length === 0) return [];
     this.set({ failedPictures: this.state.failedPictures.filter((picture) => !taken.includes(picture)) });
+    if (key !== undefined) {
+      for (const picture of taken) if (picture.token !== undefined) this.landUpload(picture.token, []);
+    }
     return taken;
   }
 
