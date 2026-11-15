@@ -7,6 +7,7 @@
  * launchAgent) run in their original relative order.
  */
 
+import { unifiedNewSessionTarget } from '../../contract/unified/choices';
 import { snoozeWakeAt } from '../../contract/unified/snooze';
 import { useCallback, useRef, useState } from 'react';
 import { Platform } from 'react-native';
@@ -25,7 +26,8 @@ import { type ContextMenuItem } from '../../components/sessions/ContextMenu';
 import { NewSessionProjectRow } from '../../components/sessions/NewSessionPlace';
 import { blockedDetail } from '../../components/sessions/sessionStatus';
 import { noteNewSessionIn, projectChoicesNow, repoKeyOfProject } from './new-session-place';
-import { agentMenuNotice, newSessionStart } from './new-session-button';
+import { agentMenuNotice } from './new-session-button';
+import { useUnifiedListStore } from './unified-list-store';
 import { hidesProjectsWithoutSessions, type DrawerBlock } from '../../components/sessions/drawerModel';
 import {
   ArrowGlyph,
@@ -1705,33 +1707,29 @@ export function useSessionsScreenMenus({
   };
 
   /**
-   * The header's New session, a project picked in its sheet: the project's remembered agent starts
-   * there as the project's agent button starts it, or the toast says why it can't
-   * (./new-session-button.tsx).
+   * The header's New session (./new-session-button.tsx): the agent menu on the project a new
+   * session aims at (the Unified filter's one repository, else the top of Recent), where nothing
+   * starts until a row is picked. When that project can't open its menu (its computer is off or not
+   * read yet), the project list opens instead, and a pick there opens the menu. With no project to
+   * list it returns false, and the screen offers Add computer, Add project or says why.
    */
-  const startNewSessionAt = (pick: {
-    machineId: string;
-    projectId: string;
-    connected: boolean;
-    label: string;
-  }): void => {
-    const machine = useMachinesStore.getState().machines.find((entry) => entry.id === pick.machineId) ?? null;
-    const summary = summaryFor(pick.machineId);
+  const openNewSessionMenu = (currentMachineId: string): boolean => {
+    const choices = projectChoicesNow(currentMachineId);
+    const target = unifiedNewSessionTarget(useUnifiedListStore.getState().filter, choices, null);
+    if (target === null) return false;
+    const chip = choices
+      .find((choice) => choice.repoKey === target.repoKey)
+      ?.machines.find((machine) => machine.machineId === target.machineId && machine.projectId === target.projectId);
+    const summary = summaryFor(target.machineId);
     const header =
-      machine === null || summary === null
-        ? null
-        : projectHeaderOf(pick.machineId, summary, pick.projectId, { throughCollections: true });
-    const outcome = newSessionStart({
-      connected: pick.connected,
-      computer: pick.label,
-      header,
-      agent: header === null ? null : resolvePrimaryAgent(header),
-    });
-    if (outcome.kind === 'notice') {
-      setTransientStatus(outcome.notice.message, { title: outcome.notice.title });
-      return;
+      summary === null ? null : projectHeaderOf(target.machineId, summary, target.projectId, { throughCollections: true });
+    const machine = useMachinesStore.getState().machines.find((entry) => entry.id === target.machineId) ?? null;
+    if (chip !== undefined && chip.connected && header !== null && machine !== null) {
+      setOverlay({ kind: 'agentMenu', ctx: { machine, header } });
+    } else {
+      setOverlay({ kind: 'newSessionProject', currentMachineId });
     }
-    if (machine !== null) launchAgent(machine, outcome.header, outcome.agent);
+    return true;
   };
 
   /** The project row above the agents, naming the computer while there is more than one. */
@@ -1754,7 +1752,7 @@ export function useSessionsScreenMenus({
             machineLabel={machineLabel}
             onPress={() =>
               closeAgentMenuThen(() =>
-                setOverlay({ kind: 'newSessionProject', currentMachineId: ctx.machine.id, purpose: 'agentMenu' }),
+                setOverlay({ kind: 'newSessionProject', currentMachineId: ctx.machine.id }),
               )
             }
           />
@@ -1870,6 +1868,15 @@ export function useSessionsScreenMenus({
           closeAgentMenuThen(() => launchAgent(ctx.machine, ctx.header, agent)),
         ),
       ),
+      // The desktop New Thread picker's Terminal row (new_thread_picker.rs); the phone has no browser pane, so no Browser row.
+      { kind: 'separator', key: 'terminal-separator' },
+      {
+        kind: 'item',
+        key: 'new-terminal',
+        label: 'Terminal',
+        icon: <TerminalGlyph size={14} color={appearance.mutedGlyph} />,
+        onPress: () => closeAgentMenuThen(() => createProjectTerminal(ctx)),
+      },
     ];
   };
 
@@ -2028,7 +2035,7 @@ export function useSessionsScreenMenus({
     agentMenuItems,
     placeItems,
     openAgentMenuAt,
-    startNewSessionAt,
+    openNewSessionMenu,
     closeAgentMenuThen,
     onAgentMenuDismissed,
     openCoordinatorAgentStep,

@@ -882,7 +882,7 @@ export default function SessionsScreen({ navigation }: Props) {
     agentMenuItems,
     placeItems,
     openAgentMenuAt,
-    startNewSessionAt,
+    openNewSessionMenu,
     closeAgentMenuThen,
     onAgentMenuDismissed,
     openCoordinatorAgentStep,
@@ -933,15 +933,13 @@ export default function SessionsScreen({ navigation }: Props) {
   });
 
   /**
-   * The header's New session (./sessions-screen/new-session-button.tsx): the project sheet, or,
-   * with no project to list, Add computer, Add project, or why the list is empty.
+   * The header's New session (./sessions-screen/new-session-button.tsx): the agent menu on the
+   * project a new session aims at, or, with no project to list, Add computer, Add project, or why
+   * the list is empty.
    */
   const openNewSessionSheet = (): void => {
     const currentMachineId = machine?.id ?? '';
-    if (projectChoicesNow(currentMachineId).length > 0) {
-      setOverlay({ kind: 'newSessionProject', currentMachineId, purpose: 'start' });
-      return;
-    }
+    if (openNewSessionMenu(currentMachineId)) return;
     const empty = newSessionEmptyList(newSessionComputersNow());
     if (empty.kind === 'addComputer') navigation.navigate('ConnectChoose');
     else if (empty.kind === 'addProject') openAddProject(currentMachineId);
@@ -2240,16 +2238,12 @@ export default function SessionsScreen({ navigation }: Props) {
       />
 
       {/*
-        The agent menu's project row (a pick opens the menu again there) and the header's New session
-        (a pick starts there); either runs once the sheet has gone (iOS).
+        The agent menu's project row and the header's New session when its project can't open the menu:
+        a pick opens the agent menu there once the sheet has gone (iOS).
       */}
       <ProjectPickerSheet
         visible={overlay.kind === 'newSessionProject'}
-        title={
-          overlay.kind === 'newSessionProject' && overlay.purpose === 'start'
-            ? NewSessionCopy.sheetTitle
-            : 'Choose a project'
-        }
+        title="Choose a project"
         choices={overlay.kind === 'newSessionProject' ? projectChoicesNow(overlay.currentMachineId) : []}
         onClose={() => setOverlay(NONE)}
         onDismissed={() => {
@@ -2259,18 +2253,9 @@ export default function SessionsScreen({ navigation }: Props) {
         }}
         onPick={(choice, machineIndex) => {
           const machine = choice.machines[machineIndex];
-          const purpose = overlay.kind === 'newSessionProject' ? overlay.purpose : 'agentMenu';
           setOverlay(NONE);
           if (machine === undefined) return;
-          const work = (): void =>
-            purpose === 'start'
-              ? startNewSessionAt({
-                  machineId: machine.machineId,
-                  projectId: machine.projectId,
-                  connected: machine.connected,
-                  label: machine.label,
-                })
-              : openAgentMenuAt(machine);
+          const work = (): void => openAgentMenuAt(machine);
           if (Platform.OS === 'ios') afterProjectSheet.current = work;
           else work();
         }}
