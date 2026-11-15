@@ -17,9 +17,17 @@
  * into "Choose an answer", which opens them one per line under it.
  */
 
-import { useState, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import * as Clipboard from 'expo-clipboard';
-import { Pressable, Text, View, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native';
+import {
+  Pressable,
+  Text,
+  View,
+  useWindowDimensions,
+  type LayoutChangeEvent,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 
 import { SidebarPalette } from '../../../theme/palette';
 import { Glyph, type GlyphName } from './icons';
@@ -36,7 +44,13 @@ import { replyDraftRow, useReplyDraft, type ReplyDraftScope } from './replyDraft
 export const WORK_BUTTON_SLOP = { top: 8, bottom: 8, left: 3, right: 3 };
 
 /** The button the answers fold into when they do not fit one line (desktop `CHOOSE_ANSWER`). */
-export const CHOOSE_ANSWER = 'Choose an answer';
+/*
+ * CDXC:Coordinators 2026-11-15 DECISION:
+ * User, of an opened ask whose "Choose an answer" wrapped to two lines beside a "Repl / y": "This
+ * looks broken at the bottom please say just Choices instead of choose an answer there". One short
+ * word everywhere the answers fold (the dock, the Work sheet, an opened ask; desktop too).
+ */
+export const CHOOSE_ANSWER = 'Choices';
 
 /**
  * A button's width, roughly as `WorkButton` draws it on one line: its label at 14 points grown by
@@ -60,7 +74,7 @@ export const STATUS_COLOR: Record<string, string> = {
 const PILL_PAD = 7;
 const PILL_DOT = 6;
 
-type PillFit = 'full' | 'dots' | 'plus';
+type PillFit = 'full' | 'dots' | 'plus' | 'none';
 
 /** The item pills' widths, each with the 6 gap after it: whole, dots only, one "+N" pill. */
 function pillWidths(pills: JsonRecord[], fontScale: number): [number, number, number] {
@@ -78,7 +92,9 @@ function pillWidths(pills: JsonRecord[], fontScale: number): [number, number, nu
 function pillFit(widths: [number, number, number], room: number): PillFit {
   if (widths[0] <= room) return 'full';
   if (widths[1] <= room) return 'dots';
-  return 'plus';
+  // Past "+N" the pills step out of the line: the answers and Reply never give way to them.
+  if (widths[2] <= room) return 'plus';
+  return 'none';
 }
 
 /**
@@ -102,7 +118,7 @@ function ItemPills({ pills, fit, dispatch }: { pills: JsonRecord[]; fit: PillFit
   };
   return (
     <>
-      {fit === 'plus' ? (
+      {fit === 'none' ? null : fit === 'plus' ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={pills.map((pill) => str(pill, 'tip')).join(', ')}
@@ -307,6 +323,7 @@ function WorkButton({
   disabled,
   onPress,
   accessibilityLabel,
+  keep,
 }: {
   label: string;
   icon?: GlyphName;
@@ -314,6 +331,8 @@ function WorkButton({
   disabled?: boolean;
   onPress: () => void;
   accessibilityLabel?: string;
+  /** Hold the label's whole width: the line was measured to fit it, so it never squeezes. */
+  keep?: boolean;
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
@@ -327,12 +346,13 @@ function WorkButton({
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
+        keep === true && styles.kept,
         { backgroundColor: pressed ? P.neutralFillPressed : P.neutralFill },
         disabled === true && styles.disabled,
       ]}
     >
       {icon !== undefined ? <Glyph name={icon} size={14} color={P.foreground} /> : null}
-      <Text style={[styles.buttonLabel, { color: P.foreground }]}>{label}</Text>
+      <Text style={[styles.buttonLabel, keep === true && styles.kept, { color: P.foreground }]}>{label}</Text>
       {trailing}
     </Pressable>
   );
@@ -346,10 +366,13 @@ function AnswerChoices({
   answers,
   disabled,
   onPick,
+  onReply,
 }: {
   answers: JsonRecord[];
   disabled: boolean;
   onPick: (command: JsonRecord) => void;
+  /** Reply as the list's last row, when the line had no room for it beside Choose an answer. */
+  onReply?: () => void;
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
@@ -380,6 +403,18 @@ function AnswerChoices({
           </Pressable>
         );
       })}
+      {onReply !== undefined ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Reply"
+          disabled={disabled}
+          onPress={onReply}
+          style={({ pressed }) => [styles.choice, pressed && styles.menuRowPressed, disabled && styles.disabled]}
+        >
+          <Glyph name="arrow-back-up" size={15} color={P.foreground} />
+          <Text style={styles.choiceText}>Reply</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -438,15 +473,32 @@ export function WorkAnswerLine({
   const P = useTranscriptTheme();
   const { width, fontScale } = useWindowDimensions();
   const [choosing, setChoosing] = useState(initialChoosing);
+  // The line's own width and each button's whole width, measured (`measured`), so the fold holds at
+  // any width the window gets (split screen, a folded or unfolded foldable, a small phone) rather
+  // than trusting the screen's width and a guess at the letters'.
+  const [lineWidth, setLineWidth] = useState(0);
+  const [measured, setMeasured] = useState<Record<string, number>>({});
+  const measure = useCallback(
+    (key: string) => (event: LayoutChangeEvent) => {
+      const next = Math.ceil(event.nativeEvent.layout.width);
+      setMeasured((was) => (was[key] === next ? was : { ...was, [key]: next }));
+    },
+    [],
+  );
+  const onLine = useCallback((event: LayoutChangeEvent) => {
+    const next = Math.floor(event.nativeEvent.layout.width);
+    setLineWidth((was) => (was === next ? was : next));
+  }, []);
   const row = reply !== null ? replyDraftRow(reply as never) : null;
   const draft = useReplyDraft(scope, row).length > 0;
   const given = answers.some((answer) => isTrue(answer, 'picked'));
   const locked = given || answers.some((answer) => isTrue(answer, 'locked'));
-  const lineRoom = room > 0 ? room : width + room;
+  const lineRoom = lineWidth > 0 ? lineWidth : room > 0 ? room : width + room;
   const replyButton =
     reply !== null ? (
       <WorkButton
         key="reply"
+        keep={replied.length === 0}
         label={replyLabel(replied)}
         icon={replied.length > 0 ? 'check' : 'arrow-back-up'}
         trailing={draft && replied.length === 0 ? <DraftSign /> : undefined}
@@ -469,8 +521,12 @@ export function WorkAnswerLine({
         : replyWidthOf(replied, draft, fontScale);
     const lead = (
       <>
-        <ItemPills pills={pills} fit={pillFit(pillRoom, lineRoom - alone - logosWidth)} dispatch={dispatch} />
-        {logos}
+        {pills.length > 0 || logos != null ? (
+          <View style={styles.lead}>
+            <ItemPills pills={pills} fit={pillFit(pillRoom, lineRoom - alone - logosWidth)} dispatch={dispatch} />
+            {logos}
+          </View>
+        ) : null}
         {divider ? <View style={styles.flex} /> : null}
       </>
     );
@@ -478,7 +534,7 @@ export function WorkAnswerLine({
       return (
         <View style={styles.line}>
           {lead}
-          <WorkButton label="Open" icon="external-link" onPress={() => dispatch(open as never)} />
+          <WorkButton keep label="Open" icon="external-link" onPress={() => dispatch(open as never)} />
           {replyButton}
         </View>
       );
@@ -496,13 +552,14 @@ export function WorkAnswerLine({
     before?.('answer');
     dispatch(command as never);
   };
-  const answerButton = (choice: JsonRecord, index: number) => {
+  const answerButton = (choice: JsonRecord, index: number, keep: boolean) => {
     const picked = isTrue(choice, 'picked');
     const recommended = isTrue(choice, 'recommended');
     const command = obj(choice.command);
     return (
       <WorkButton
         key={`answer:${index}`}
+        keep={keep}
         label={str(choice, 'label')}
         icon={picked ? 'check' : undefined}
         trailing={recommended ? <Star /> : undefined}
@@ -512,31 +569,80 @@ export function WorkAnswerLine({
       />
     );
   };
-  const widths = answers.map((choice) =>
-    buttonWidth(str(choice, 'label'), isTrue(choice, 'picked'), isTrue(choice, 'recommended'), fontScale),
+  const answerKey = (choice: JsonRecord) =>
+    `answer:${str(choice, 'label')}:${isTrue(choice, 'picked')}:${isTrue(choice, 'recommended')}`;
+  const replyKey = `reply:${replyLabel(replied)}:${draft}`;
+  const widths = answers.map(
+    (choice) =>
+      measured[answerKey(choice)] ??
+      buttonWidth(str(choice, 'label'), isTrue(choice, 'picked'), isTrue(choice, 'recommended'), fontScale),
   );
-  const replyWidth =
-    reply !== null ? buttonWidth(replyLabel(replied), true, draft, fontScale) + 6 + (divider ? 13 : 0) : 0;
+  const replyAlone = reply !== null ? (measured[replyKey] ?? replyWidthOf(replied, draft, fontScale)) : 0;
+  const replyWidth = reply !== null ? replyAlone + 6 + (divider ? 13 : 0) : 0;
+  const chooseWidth = measured.choose ?? buttonWidth(CHOOSE_ANSWER, true, false, fontScale);
   const answersWidth = widths.reduce((sum, value) => sum + value, 0) + 6 * Math.max(0, widths.length - 1);
   // The item pills lead: the answers fold first, then the pills drop their ids, then they are one "+N".
   const fits = answersWidth + replyWidth + pillRoom[0] + logosWidth <= lineRoom;
-  // Answers no wider than the dropdown stay as they are: folding them would gain nothing.
-  const fold = !given && !fits && answersWidth > buttonWidth(CHOOSE_ANSWER, true, false, fontScale);
+  /*
+   * CDXC:Coordinators 2026-11-15 WHY:
+   * User, on an Android foldable in split screen, of a docked ask whose chips broke inside their
+   * words ("Y / es", "fix / them", "Re / ply"): "The choice options in the left side are being
+   * wrapped weird please show a dropdown button in this case." The fold was decided from the screen's
+   * width and a letter-count guess, which split screen and a large text size both outran, and the
+   * buttons shrank below their words. Now the line and every button are measured, a shown answer
+   * keeps its whole width, and any two or more answers that do not fit fold into Choose an answer;
+   * Reply joins the list too when the line has no room for it beside the dropdown.
+   */
+  const fold = !given && !fits && answers.length > 1;
   const shown = fits || !given ? answers : answers.filter((choice) => isTrue(choice, 'picked'));
-  const list = <AnswerChoices answers={answers} disabled={busy || locked} onPick={answer} />;
+  const replyInList = fold && reply !== null && replied.length === 0 && chooseWidth + replyWidth > lineRoom;
+  const replyFromList =
+    replyInList && reply !== null
+      ? () => {
+          if (busy || locked) return;
+          setChoosing(false);
+          before?.('reply');
+          openWorkReply(reply, scope);
+        }
+      : undefined;
+  const list = (
+    <AnswerChoices answers={answers} disabled={busy || locked} onPick={answer} onReply={replyFromList} />
+  );
   const used = fold
-    ? buttonWidth(CHOOSE_ANSWER, true, false, fontScale) + replyWidth
+    ? chooseWidth + (replyInList ? 0 : replyWidth)
     : (fits ? answersWidth : shown.reduce((sum, choice) => sum + widths[answers.indexOf(choice)]!, 0)) + replyWidth;
   return (
-    <View style={styles.column}>
+    <View style={styles.column} onLayout={onLine}>
+      {/* Every button at its whole width, unseen, to measure the line by (`measured`). */}
+      <View style={styles.measure} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        {answers.map((choice, index) => (
+          <View key={`m:${index}`} style={styles.measureItem} onLayout={measure(answerKey(choice))}>
+            {answerButton(choice, index, true)}
+          </View>
+        ))}
+        {replyButton !== null ? (
+          <View style={styles.measureItem} onLayout={measure(replyKey)}>
+            {replyButton}
+          </View>
+        ) : null}
+        <View style={styles.measureItem} onLayout={measure('choose')}>
+          <WorkButton keep label={CHOOSE_ANSWER} icon="chevron-down" onPress={() => undefined} />
+        </View>
+      </View>
       <View style={styles.line}>
-        <ItemPills pills={pills} fit={pillFit(pillRoom, lineRoom - used - logosWidth)} dispatch={dispatch} />
-        {logos}
+        {/* The pills and logos give way (clipped, then left out) before a button ever shrinks. */}
+        {pills.length > 0 || logos != null ? (
+          <View style={styles.lead}>
+            <ItemPills pills={pills} fit={pillFit(pillRoom, lineRoom - used - logosWidth)} dispatch={dispatch} />
+            {logos}
+          </View>
+        ) : null}
         {/* Opened: the item pills at the left, the answers and Reply at the right edge (user,
             2026-11-12: "move the answer buttons to bottom right. keep work item tag bottom left"). */}
         {divider ? <View style={styles.flex} /> : null}
         {fold ? (
           <WorkButton
+            keep
             label={CHOOSE_ANSWER}
             icon={chooser === 'inline' && choosing ? 'chevron-up' : 'chevron-down'}
             accessibilityLabel={`${CHOOSE_ANSWER}, ${answers.length} answers`}
@@ -544,10 +650,10 @@ export function WorkAnswerLine({
             onPress={() => setChoosing((was) => !was)}
           />
         ) : (
-          shown.map((choice) => answerButton(choice, answers.indexOf(choice)))
+          shown.map((choice) => answerButton(choice, answers.indexOf(choice), fits))
         )}
-        {replyButton !== null && divider ? <View style={styles.divider} /> : null}
-        {replyButton}
+        {replyButton !== null && divider && !replyInList ? <View style={styles.divider} /> : null}
+        {replyInList ? null : replyButton}
       </View>
       {fold && chooser === 'inline' && choosing ? <View style={styles.choicesBox}>{list}</View> : null}
       {fold && chooser === 'sheet' ? (
@@ -789,6 +895,13 @@ const useStyles = themedStyles((P) => ({
     gap: 6,
   },
   buttonLabel: { flexShrink: 1, fontSize: PROSE_SIZE, lineHeight: 20, fontWeight: '400' },
+  // A button the line was measured to hold: it keeps its words' whole width.
+  kept: { flexShrink: 0 },
+  // The line's item pills and logos: the part that gives way, clipped rather than pushing a button.
+  lead: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, minWidth: 0, overflow: 'hidden' },
+  // Unseen and out of the flow: wide enough that every button lays out at its whole width.
+  measure: { position: 'absolute', left: 0, top: 0, width: 10000, opacity: 0, alignItems: 'flex-start' },
+  measureItem: { flexDirection: 'row' },
   disabled: { opacity: 0.5 },
   choicesBox: {
     borderRadius: 10,

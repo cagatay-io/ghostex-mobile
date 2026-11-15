@@ -899,7 +899,11 @@ export function initTerminalEvents(): void {
 
   GhostexNative.addListener('onTerminalTitle', (event) => {
     const store = useTerminalStore.getState();
-    if (!store.tabs.some((tab) => tab.sessionKey === event.sessionKey)) return;
+    const titled = store.tabs.find((tab) => tab.sessionKey === event.sessionKey);
+    if (titled === undefined) return;
+    // A Ghostex session tab is named as its session is (`tabTitles.ts`), not by what its agent writes as the
+    // terminal's title.
+    if (titled.kind === 'attach' && titled.ghostexSessionId !== undefined) return;
     if (event.title.trim().length === 0) return;
     useTerminalStore.setState({
       tabs: store.tabs.map((tab) => (tab.sessionKey === event.sessionKey ? { ...tab, title: event.title } : tab)),

@@ -7,7 +7,7 @@
  * CDXC:Clipboard 2026-11-15 DECISION, issue #618 Q3274 A: never "tap the picture to retry", Send retries).
  */
 
-import { useEffect, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import { ActivityIndicator, Image, Pressable, Text, View } from 'react-native';
 
 import type { UserAction } from '../../rust/actions';
@@ -17,6 +17,7 @@ import { Glyph } from './icons';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 import type { ComposerReference } from './references';
 import type { FailedPicture } from '../../rust/composer';
+import { isUploadPath } from '../../rust/uploadTokens';
 
 /** Under the failed tiles: what happened, and that Send uploads them again. */
 export const PICTURE_FAILED_WORDS = "Couldn't upload. Press Send to try again.";
@@ -47,7 +48,8 @@ export function AttachmentPreviews({
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
-  const tiles = references.filter((reference) => reference.kind === 'image');
+  // A picture still uploading has its stand-in in the text and the spinner tile below, not a tile of its own.
+  const tiles = references.filter((reference) => reference.kind === 'image' && !isUploadPath(reference.path));
   const requested = useRef(new Set<string>());
   useEffect(() => {
     for (const tile of tiles) {
@@ -64,12 +66,18 @@ export function AttachmentPreviews({
     copyPath: tile.path,
     fileName: tile.path.replace(/^.*[\\/]/u, ''),
   }));
+  /** How many tiles for each path came before, so a tile's key survives typing before its reference. */
+  const seen = new Map<string, number>();
   return (
     <View style={styles.row}>
       {tiles.map((tile, index) => {
         const image = images[tile.path];
+        const occurrence = seen.get(tile.path) ?? 0;
+        seen.set(tile.path, occurrence + 1);
         return (
-          <View key={`${tile.start}:${tile.path}`} style={styles.tileWrap}>
+          // CDXC:SessionChat 2026-11-15 FIX: keyed by its path, not its place in the draft: typing before the
+          // reference moved its offset and remounted the tile, so the picture was decoded and drawn again.
+          <View key={`${tile.path}\u0000${occurrence}`} style={styles.tileWrap}>
             <Pressable
               onPress={() => openChatImageViewer(viewerImages, index)}
               accessibilityRole="imagebutton"
@@ -77,11 +85,7 @@ export function AttachmentPreviews({
               style={[styles.tile, active === tile.path ? styles.tileActive : null]}
             >
               {image?.status === 'loaded' ? (
-                <Image
-                  source={{ uri: `data:${image.mediaType};base64,${image.base64Data}` }}
-                  style={styles.image}
-                  resizeMode="cover"
-                />
+                <Thumbnail mediaType={image.mediaType} data={image.base64Data} style={styles.image} />
               ) : image === undefined ? (
                 <ActivityIndicator size="small" color={P.muted} />
               ) : (
@@ -136,6 +140,22 @@ export function AttachmentPreviews({
     </View>
   );
 }
+
+/**
+ * A loaded picture's tile image. The chat box draws again on every keystroke; memoized on its bytes, the picture's
+ * multi-megabyte data URI is not built and handed to the native image again each time.
+ */
+const Thumbnail = memo(function Thumbnail({
+  mediaType,
+  data,
+  style,
+}: {
+  mediaType: string;
+  data: string;
+  style: ReturnType<typeof useStyles>['image'];
+}) {
+  return <Image source={{ uri: `data:${mediaType};base64,${data}` }} style={style} resizeMode="cover" />;
+});
 
 const useStyles = themedStyles((P) => ({
   row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, paddingTop: 4, paddingBottom: 8 },

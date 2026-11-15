@@ -33,8 +33,16 @@ import { ReadImages } from './Images';
 import { arr, num, obj, str, type JsonRecord } from './json';
 import { useDisclosure } from './state';
 import type { TranscriptTheme } from './theme';
-import { SINGLE_LINE_CARD, SINGLE_LINE_HEADER_HEIGHT, singleLineShell } from './singleLineCard';
-import { ToolBody } from './ToolBody';
+import {
+  SINGLE_LINE_CARD,
+  SINGLE_LINE_HEADER_HEIGHT,
+  SINGLE_LINE_TITLE,
+  SingleLinePill,
+  SingleLineTile,
+  TITLE_ROW_GAP,
+  singleLineShell,
+} from './singleLineCard';
+import { ToolBody, ToolDescription } from './ToolBody';
 import { FoldChevron } from './foldChevron';
 import { useChatShown } from '../chatShown';
 
@@ -161,13 +169,12 @@ export function ToolCard({ message }: { message: ProjectedMessage }) {
   return (
     <Animated.View
       layout={LinearTransition.duration(ENTER_MS)}
-      style={
-        line
-          ? styles.line
-          : boxed
-            ? [styles.card, singleLineShell(theme)]
-            : [styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]
-      }
+      // CDXC:SessionChat 2026-11-15 DECISION: User, picking Q3400 B on the event cards page
+      // (~/.local/share/agent-work/Ghostex/chat-event-cards/more-cards.html): closed, a tool call card
+      // is the shared one-line card (the tools icon in the tile with a green check, or a red cross when
+      // a call failed, the title in the card's type, the time, no chevron and no stack of round logos);
+      // opened, today's rows. Tool call lines keep their look. Desktop `tool_card_shared_header`.
+      style={line ? styles.line : [styles.card, singleLineShell(theme)]}
     >
       <Pressable
         onPress={toggle}
@@ -175,48 +182,78 @@ export function ToolCard({ message }: { message: ProjectedMessage }) {
         accessibilityLabel={[title, liveMore, failed, time].filter((part) => part.length > 0).join(', ')}
         accessibilityState={{ expanded: open }}
         style={({ pressed }) => [
-          line ? styles.lineHeader : styles.header,
-          boxed && styles.boxedHeader,
+          line ? styles.lineHeader : styles.sharedHeader,
           pressed && { backgroundColor: theme.pressed },
         ]}
       >
-        <View style={styles.stack}>
-          {icons.map((icon, index) => (
-            <StackTile key={index} index={index} animate={animate} ring={ring} disc={colors.disc}>
-              <ToolIcon icon={icon} size={STACK_ICON - STACK_RING * 2} round />
-            </StackTile>
-          ))}
-          {more > 0 ? (
-            <StackTile index={icons.length} animate={animate} ring={ring} disc={colors.disc}>
-              <Text style={[styles.more, { color: theme.ink(0.75) }]}>{`+${more}`}</Text>
-            </StackTile>
-          ) : null}
-        </View>
-        {/* The header's words settle into their next value while the card is live; the running
-            call's words take the row's shimmer. */}
-        <View style={styles.titleBox}>
-          <Animated.Text
-            key={animate ? title : 'title'}
-            entering={animate ? FadeIn.duration(ENTER_MS) : undefined}
-            numberOfLines={1}
-            style={[styles.title, { color: theme.muted }]}
-          >
-            {title}
-          </Animated.Text>
-          {liveLabel.length > 0 && animate ? <Shimmer color={theme.light ? '#000000' : '#ffffff'} /> : null}
-        </View>
-        <View style={styles.spacer} />
-        {failed.length > 0 ? <Text style={[styles.meta, { color: theme.error }]}>{failed}</Text> : null}
-        {failed.length > 0 && time.length > 0 ? <Text style={[styles.meta, { color: theme.muted }]}>·</Text> : null}
-        {time.length > 0 ? <Text style={[styles.meta, { color: theme.muted }]}>{time}</Text> : null}
-        {/* The card's other calls beside the live line ("+2 more"), and the running call's spinner. */}
-        {liveMore.length > 0 ? <Text style={[styles.meta, { color: theme.muted }]}>{liveMore}</Text> : null}
-        {liveLabel.length > 0 ? (
-          <View style={styles.status}>
-            <ActivityIndicator size="small" color={theme.muted} style={styles.spinner} />
-          </View>
-        ) : null}
-        <FoldChevron open={open} size={12} color={theme.muted} half />
+        {line ? (
+          <>
+            <View style={styles.stack}>
+              {icons.map((icon, index) => (
+                <StackTile key={index} index={index} animate={animate} ring={ring} disc={colors.disc}>
+                  <ToolIcon icon={icon} size={STACK_ICON - STACK_RING * 2} round />
+                </StackTile>
+              ))}
+              {more > 0 ? (
+                <StackTile index={icons.length} animate={animate} ring={ring} disc={colors.disc}>
+                  <Text style={[styles.more, { color: theme.ink(0.75) }]}>{`+${more}`}</Text>
+                </StackTile>
+              ) : null}
+            </View>
+            {/* The header's words settle into their next value while the card is live; the running
+                call's words take the row's shimmer. */}
+            <View style={styles.titleBox}>
+              <Animated.Text
+                key={animate ? title : 'title'}
+                entering={animate ? FadeIn.duration(ENTER_MS) : undefined}
+                numberOfLines={1}
+                style={[styles.title, { color: theme.muted }]}
+              >
+                {title}
+              </Animated.Text>
+              {liveLabel.length > 0 && animate ? <Shimmer color={theme.light ? '#000000' : '#ffffff'} /> : null}
+            </View>
+            <View style={styles.spacer} />
+            {failed.length > 0 ? <Text style={[styles.meta, { color: theme.error }]}>{failed}</Text> : null}
+            {failed.length > 0 && time.length > 0 ? <Text style={[styles.meta, { color: theme.muted }]}>·</Text> : null}
+            {time.length > 0 ? <Text style={[styles.meta, { color: theme.muted }]}>{time}</Text> : null}
+            {/* The card's other calls beside the live line ("+2 more"), and the running call's spinner. */}
+            {liveMore.length > 0 ? <Text style={[styles.meta, { color: theme.muted }]}>{liveMore}</Text> : null}
+            {liveLabel.length > 0 ? (
+              <View style={styles.status}>
+                <ActivityIndicator size="small" color={theme.muted} style={styles.spinner} />
+              </View>
+            ) : null}
+            <FoldChevron open={open} size={12} color={theme.muted} half />
+          </>
+        ) : (
+          <>
+            <SingleLineTile
+              glyph="tool"
+              {...(running || liveLabel.length > 0 ? {} : { badge: failed.length > 0 ? ('error' as const) : ('check' as const) })}
+            />
+            <View style={styles.titleBox}>
+              <Animated.Text
+                key={animate ? title : 'title'}
+                entering={animate ? FadeIn.duration(ENTER_MS) : undefined}
+                numberOfLines={1}
+                style={[SINGLE_LINE_TITLE, styles.sharedTitle, { color: theme.foreground }]}
+              >
+                {title}
+              </Animated.Text>
+              {liveLabel.length > 0 && animate ? <Shimmer color={theme.light ? '#000000' : '#ffffff'} /> : null}
+            </View>
+            <View style={styles.spacer} />
+            {failed.length > 0 ? <SingleLinePill label={failed} color={theme.error} /> : null}
+            {time.length > 0 ? <Text style={[styles.meta, { color: theme.muted }]}>{time}</Text> : null}
+            {liveMore.length > 0 ? <Text style={[styles.meta, { color: theme.muted }]}>{liveMore}</Text> : null}
+            {liveLabel.length > 0 ? (
+              <View style={styles.status}>
+                <ActivityIndicator size="small" color={theme.muted} style={styles.spinner} />
+              </View>
+            ) : null}
+          </>
+        )}
       </Pressable>
       {open ? (
         <Animated.View
@@ -455,6 +492,8 @@ function CardToolDetail({
   const copyPending = detail.loadingFullOutput === true;
   const command = tool.glyph === 'terminal';
   const parts = [];
+  // The full description first: the row's title above is cut to one line (`ToolDescription`).
+  const description = str(tool, 'description');
   if (input.length > 0) {
     parts.push(
       <ToolBody
@@ -482,6 +521,7 @@ function CardToolDetail({
       parts.push(<ShowAllLines key="show-all" count={outputLines.length} onPress={() => setShowAll(true)} />);
     }
   }
+  if (parts.length > 0 && description.length > 0) parts.unshift(<ToolDescription key="description" text={description} />);
   if (parts.length === 0) return null;
   return (
     <View style={styles.detail}>
@@ -503,16 +543,16 @@ const styles = StyleSheet.create({
   lineRows: { marginTop: 2, marginLeft: 18, paddingLeft: 8, borderLeftWidth: StyleSheet.hairlineWidth, gap: 1 },
   showAll: { alignSelf: 'flex-start', borderWidth: StyleSheet.hairlineWidth, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
   showAllText: { fontSize: 12 },
-  // The "Message to …" card's side padding (`SINGLE_LINE_CARD.paddingX`).
-  boxedHeader: { paddingHorizontal: SINGLE_LINE_CARD.paddingX },
-  header: {
+  // The shared one-line card's header (`singleLineCard.tsx`).
+  sharedHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 10,
+    gap: TITLE_ROW_GAP,
+    paddingHorizontal: SINGLE_LINE_CARD.paddingX,
     height: SINGLE_LINE_HEADER_HEIGHT,
     minWidth: 0,
   },
+  sharedTitle: { flexShrink: 1, minWidth: 0 },
   stack: { flexDirection: 'row', alignItems: 'center', flexShrink: 0 },
   stackTile: {
     width: STACK_ICON,

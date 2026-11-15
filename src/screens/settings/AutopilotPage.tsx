@@ -297,7 +297,7 @@ function AutopilotBody({
   return (
     <>
       <SettingsSection name="settings:autopilot:switch">
-        <SectionHeader title="Autopilot" />
+        <SectionHeader title="Mode" />
         <SegmentedRow
           label="Autopilot"
           options={[

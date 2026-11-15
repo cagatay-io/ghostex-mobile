@@ -22,6 +22,16 @@ import { relayedCards } from './relayedApprovals';
 import { CARD_TEXT_SIZE } from './primitives';
 import { AutoBlockLine, CommandBox, PendingAnswerNote, ToneButton, ToneCard, dimPending } from './ToneCard';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
+import {
+  SINGLE_LINE_CARD,
+  SINGLE_LINE_HEADER_HEIGHT,
+  SINGLE_LINE_TITLE,
+  SingleLineBadge,
+  SingleLineTileBox,
+  TITLE_ROW_GAP,
+  singleLinePressed,
+  singleLineShell,
+} from '../transcript/singleLineCard';
 
 type Dispatch = RustChat['dispatch'];
 
@@ -141,20 +151,64 @@ export function RelayedApprovalCard({ card, dispatch }: { card: JsonRecord; disp
   );
 }
 
-/** An ended card: its mark, how it ended and when. */
+/** How a settled card ended, as its tile's badge: a green check, a red cross or an amber clock. */
+const SETTLED_BADGE: Record<string, { fill: string; icon: GlyphName }> = {
+  good: { fill: SINGLE_LINE_CARD.badge.fill, icon: 'check' },
+  bad: { fill: SINGLE_LINE_CARD.badge.errorFill, icon: 'x' },
+  warn: { fill: '#d97706', icon: 'clock' },
+};
+
+/**
+ * An ended card as the shared one-line card (`singleLineCard.tsx`): the approvals shield in the
+ * tile with how it ended as the badge, how it ended as the title and when; a tap opens the whole
+ * sentence and the command it asked about.
+ *
+ * CDXC:SessionChat 2026-11-15 DECISION: User, picking Q3401 B on the event cards page
+ * (~/.local/share/agent-work/Ghostex/chat-event-cards/more-cards.html): a settled approval is the
+ * shared card that opens, not the smaller tinted line whose sentence wrapped to two lines. Desktop
+ * `relayed_settled_row` (native_chat/relayed_approval.rs).
+ */
 function RelayedSettledRow({ card }: { card: JsonRecord }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
-  const mark = settledMark(str(card, 'settledTone'), P.muted);
+  const [open, setOpen] = useState(false);
+  const badge = SETTLED_BADGE[str(card, 'settledTone')];
   const time = clock(str(card, 'settledAt'));
+  const lead = str(card, 'settledLead');
+  const sentence = str(card, 'settledText');
+  const code = str(card, 'code');
   return (
-    <View style={styles.line} accessibilityLabel={`${str(card, 'settledLead')} ${str(card, 'settledText')}`}>
-      <Glyph name={mark.icon} size={14} color={mark.color} />
-      <Text style={styles.lineText} numberOfLines={2}>
-        <Text style={styles.lineLead}>{str(card, 'settledLead')} </Text>
-        {str(card, 'settledText')}
-      </Text>
-      {time.length > 0 ? <Text style={styles.lineTime}>{time}</Text> : null}
+    <View style={singleLineShell(P)}>
+      <Pressable
+        onPress={() => setOpen((was) => !was)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel={`${lead} ${sentence}`}
+        style={({ pressed }) => [styles.settledHeader, pressed && singleLinePressed(P)]}
+      >
+        <SingleLineTileBox>
+          <Glyph
+            name="shield-check"
+            size={SINGLE_LINE_CARD.tile.glyphSize}
+            color={P.ink(SINGLE_LINE_CARD.tile.glyphAlpha)}
+          />
+          {badge !== undefined ? (
+            <SingleLineBadge fill={badge.fill}>
+              <Glyph name={badge.icon} size={SINGLE_LINE_CARD.badge.glyphSize + 2} color="#ffffff" />
+            </SingleLineBadge>
+          ) : null}
+        </SingleLineTileBox>
+        <Text numberOfLines={1} style={[SINGLE_LINE_TITLE, styles.settledTitle]}>
+          {lead.replace(/\.$/u, '')}
+        </Text>
+        {time.length > 0 ? <Text style={styles.settledTime}>{time}</Text> : null}
+      </Pressable>
+      {open ? (
+        <View style={styles.settledBody}>
+          {sentence.length > 0 ? <Text style={styles.settledSentence}>{sentence}</Text> : null}
+          {code.length > 0 ? <CommandBox command={code} shell={str(card, 'codeLabel') === 'Command'} /> : null}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -268,6 +322,24 @@ const useStyles = themedStyles((P) => ({
     color: P.muted,
     fontSize: 12,
   },
+  settledHeader: {
+    height: SINGLE_LINE_HEADER_HEIGHT,
+    paddingHorizontal: SINGLE_LINE_CARD.paddingX,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: TITLE_ROW_GAP,
+  },
+  settledTitle: { flex: 1, minWidth: 0, color: P.foreground },
+  settledTime: { flexShrink: 0, fontSize: 12, lineHeight: 16, color: P.muted },
+  settledBody: {
+    borderTopWidth: 1,
+    borderTopColor: P.ink(0.06),
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 10,
+    gap: 6,
+  },
+  settledSentence: { fontSize: 13, lineHeight: 19, color: P.cardMuted },
   line: {
     flexDirection: 'row',
     alignItems: 'center',

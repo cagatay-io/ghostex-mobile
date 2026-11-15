@@ -9,7 +9,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useTranscriptEnv } from './context';
 import { Glyph } from './icons';
-import { CODE_LINE, CODE_SIZE, MONO_FONT } from './theme';
+import { CODE_LINE, CODE_SIZE, MONO_FONT, PROSE_LINE, PROSE_SIZE } from './theme';
 
 /**
  * One labelled block of a tool's detail: verbatim monospaced text in a height-capped box, selectable
@@ -82,6 +82,30 @@ export function ToolBody({
   );
 }
 
+/**
+ * An open call's full description, above its Command and Result: the row's title is cut to one line,
+ * so this is where the whole of it reads, wrapped and selectable with a long press.
+ * CDXC:SessionChat 2026-11-15 DECISION: User, of tool rows on the phone cut with "…" and nowhere to
+ * read the rest: "I'm not able to read the text here when I want to read a tool"; Q3293 picked "Open
+ * row adds a Description line" over wrapping the title, two-line titles or a hold sheet. Shut rows
+ * stay one line; the desktop is unchanged.
+ */
+export function ToolDescription({ text }: { text: string }) {
+  const { theme } = useTranscriptEnv();
+  return (
+    <View style={styles.bodyGroup}>
+      <View style={styles.bodyHeader}>
+        <Text numberOfLines={1} style={[styles.bodyLabel, { color: theme.muted }]}>
+          Description
+        </Text>
+      </View>
+      <Text selectable style={[styles.descriptionText, { color: theme.foreground }]}>
+        {text}
+      </Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   bodyGroup: { gap: 4, minWidth: 0 },
   bodyHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, minWidth: 0 },
@@ -91,4 +115,5 @@ const styles = StyleSheet.create({
   bodyBoxUncapped: { maxHeight: undefined },
   bodyContent: { paddingHorizontal: 10, paddingVertical: 8 },
   bodyText: { fontFamily: MONO_FONT, fontSize: CODE_SIZE, lineHeight: CODE_LINE },
+  descriptionText: { fontSize: PROSE_SIZE, lineHeight: PROSE_LINE },
 });

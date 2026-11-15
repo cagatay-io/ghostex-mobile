@@ -18,6 +18,8 @@ import { SetupPalette } from '../../theme/palette';
 /** A computer connecting this long is said on the line; a quicker connect says nothing. */
 const CONNECTING_SHOWN_AFTER_MS = 5_000;
 
+const FAILURE_LINE_HEIGHT = 17;
+
 /**
  * `entries` with each connecting computer left out until it has been connecting for 5 s.
  *
@@ -91,7 +93,10 @@ export function MachineNoticeLine({
       onPress={onPress}
       style={({ pressed }) => [styles.line, styles.failureLine, pressed ? styles.pressed : null]}
     >
-      <WarningTriangleIcon size={13} color={SetupPalette.ERROR} />
+      {/* The mark sits in a box as tall as the first text line, centred in it, so it shares the text's centre line. */}
+      <View style={styles.failureMark}>
+        <WarningTriangleIcon size={13} color={SetupPalette.ERROR} />
+      </View>
       {/* Two lines at most: in the flow it may wrap, so a long computer name never cuts the message. */}
       <Text numberOfLines={2} style={[styles.lineText, styles.failureText, { color: appearance.foreground }]}>
         {line.text}
@@ -104,6 +109,8 @@ const styles = StyleSheet.create({
   line: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 20, minWidth: 0 },
   failureLine: { alignItems: 'flex-start', paddingVertical: 2 },
   lineText: { fontSize: 12, flexShrink: 1 },
-  failureText: { fontSize: 13, lineHeight: 17, fontWeight: '600' },
+  failureMark: { height: FAILURE_LINE_HEIGHT, justifyContent: 'center' },
+  // `includeFontPadding: false` (Android) stops the font's built-in padding pushing the text below its line's centre.
+  failureText: { fontSize: 13, lineHeight: FAILURE_LINE_HEIGHT, fontWeight: '600', includeFontPadding: false },
   pressed: { opacity: 0.6 },
 });

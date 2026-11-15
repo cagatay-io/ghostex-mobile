@@ -165,6 +165,23 @@ export function sidebarMenuView(
       rows.push({ kind: 'separator', key });
       return;
     }
+    if (item.quick !== undefined) {
+      rows.push({
+        kind: 'quick',
+        key,
+        buttons: item.quick.map((button, buttonIndex) => {
+          const buttonCommand = button.command;
+          return {
+            key: `${key}:${buttonIndex}`,
+            label: button.label ?? '',
+            icon: menuIcon(button, foreground),
+            disabled: button.disabled || buttonCommand === undefined,
+            onPress: buttonCommand === undefined ? () => undefined : () => handlers.run(buttonCommand),
+          };
+        }),
+      });
+      return;
+    }
     const label = item.label ?? '';
     if (item.heading === true) {
       rows.push({ kind: 'heading', key, label });

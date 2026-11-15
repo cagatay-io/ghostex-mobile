@@ -53,6 +53,11 @@ export function inventoryConnectionState(
     | Pick<MachineInventory, 'hasLoaded' | 'retrying' | 'refreshing' | 'summary' | 'lastError'>
     | undefined,
 ): MachineTabConnectionState {
+  // CDXC:RemoteMachines 2026-11-15 DECISION:
+  // User (phone, offline Windows PC): "I already see red icon for the machine". A computer whose last read failed is red
+  // while its retries run (the sheet's Retry shows the busy part), not a grey loading ring; the ring is the first
+  // connect only, before any failure.
+  if (inventory !== undefined && inventory.lastError !== null) return 'failed';
   if (
     inventory === undefined ||
     !inventory.hasLoaded ||
@@ -61,6 +66,5 @@ export function inventoryConnectionState(
   ) {
     return 'busy';
   }
-  if (inventory.lastError !== null) return 'failed';
   return inventory.summary === null ? 'disconnected' : 'connected';
 }

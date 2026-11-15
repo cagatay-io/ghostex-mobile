@@ -3,9 +3,24 @@
  * composer model (`src/chat/rust/composer.ts`), which mirrors desktop's text-field handling.
  *
  * Reference pills (`[label](path)` in the draft, parsed by the core's `composerReferences`) show
- * in the field as one short tinted chip each, and the draft's markdown stays beside the field
- * (`chipText.ts`): the caret steps over a chip as one unit, Backspace after it deletes the whole
- * reference, and every edit is made to the draft, which is what the core keeps and Send sends.
+ * in the field as one short chip each, in their kind's ink after their kind's icon as desktop
+ * draws them, and the draft's markdown stays beside the field (`chipText.ts`): the caret steps
+ * over a chip as one unit, Backspace after it deletes the whole reference, and every edit is made
+ * to the draft, which is what the core keeps and Send sends. A picture still uploading is the same
+ * chip in the muted ink, and one whose upload failed is in the error ink (`uploadTokens.ts`).
+ *
+ * CDXC:SessionChat 2026-11-15 FIX:
+ * User (Android, a draft with an "Image #1" chip on its own line between two lines of text): "When I type in this
+ * case the image pill flashes over and over and moves up and down pls fix." The field drew its chips as styled
+ * children, rebuilt from the new text on every keystroke. React Native hands every change to a text field's
+ * children to the native field as a new text: Android's `ReactEditText.maybeSetText` then strips every style span
+ * and replaces the whole text, even when it is exactly what the field already shows (iOS's `_setAttributedString`
+ * skips an identical one), and the field is measured from that pushed text instead of its own until the next
+ * keystroke (`AndroidTextInputShadowNode::updateStateIfNeeded` clears `cachedAttributedStringId`). So each letter
+ * re-laid the chip and the box around it. Typing never needs that push: the native field already holds the letter,
+ * and spans move with the text the way `editShown` moves the chips. The children are now rebuilt only when the field
+ * must change: the host replaced the text, a chip came, went or changed its look, an edit cut into a chip, or the
+ * theme changed (`fieldSource` below).
  */
 
 import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -21,15 +36,19 @@ import {
 
 import GhostexImageIntakeView from '../../../../modules/ghostex-native/src/GhostexImageIntakeView';
 import type { ComposerModelState } from '../../rust/composer';
+import { uploadTokenOfPath, type UploadTokenState } from '../../rust/uploadTokens';
 import type { RustChat } from '../../rust/useRustChat';
 import { dottedUnderline } from '../transcript/LinkWords';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
+import { CHIP_ICON_FAMILY, CHIP_IMAGE_ICON, useChipIconFont } from './chipIconFont';
 import {
   draftOffset,
   editShown,
   projectDraft,
   shownOffset,
   snapSelection,
+  type Chip,
+  type ChipIcons,
   type ChipText,
   type Selection,
   type SnappedSelection,
@@ -61,6 +80,26 @@ const FORCED_SELECTION_SETTLE_MS = 250;
  * on but its typings leave out), so an image held over it stays the chat view's drop.
  */
 const TEXT_DROPS: Record<string, unknown> = { experimental_acceptDragAndDropTypes: ['text/*'] };
+
+/** How soon after the field was given new text an edit may mean it never took it (it was typing ahead). */
+const PUSH_SETTLE_MS = 600;
+
+const NO_ICONS: ChipIcons = {};
+const ICONS: ChipIcons = { image: CHIP_IMAGE_ICON };
+
+/** Where a chip's upload stands, or null for a landed reference; a stand-in this phone no longer runs reads as failed. */
+function chipUpload(chip: Chip, uploads: ComposerModelState['uploadTokens']): UploadTokenState | null {
+  const token = uploadTokenOfPath(chip.reference.path);
+  if (token === null) return null;
+  return uploads[token] ?? 'failed';
+}
+
+/** What the chips look like, as one string: the field gets new children when it changes. */
+function chipsLook(text: ChipText, uploads: ComposerModelState['uploadTokens']): string {
+  return text.chips
+    .map((chip) => `${chip.reference.kind}\u0000${text.shown.slice(chip.start, chip.end)}\u0000${chipUpload(chip, uploads) ?? ''}`)
+    .join('\u0001');
+}
 
 export const ComposerInput = forwardRef<
   ComposerInputHandle,
@@ -113,6 +152,17 @@ export const ComposerInput = forwardRef<
   const caretRequested = useRef(false);
   /** A caret the phone moved, until the field reports it. */
   const awaited = useRef<{ selection: Selection; until: number } | null>(null);
+  /** The styled children the field was last given, and what they were built for. */
+  const fieldSource = useRef<{
+    look: string;
+    theme: ReturnType<typeof useTranscriptTheme>;
+    styles: ReturnType<typeof useStyles>;
+    children: React.ReactNode[];
+  } | null>(null);
+  /** The field must get its text again at the next render: an edit cut into a chip, or one may have missed a push. */
+  const pushNext = useRef(false);
+  /** Until when an edit may mean the field missed the text it was last given. */
+  const settle = useRef<number | null>(null);
 
   useImperativeHandle(ref, () => ({
     focus: () => field.current?.focus(),
@@ -150,7 +200,8 @@ export const ComposerInput = forwardRef<
   }, []);
 
   const live = parsedFor === draft ? references : parse(draft);
-  const text = useMemo(() => projectDraft(draft, live), [draft, live]);
+  const icons = useChipIconFont() ? ICONS : NO_ICONS;
+  const text = useMemo(() => projectDraft(draft, live, icons), [draft, live, icons]);
   /** The text the field showed last; an edit is diffed against it before the next render. */
   const textRef = useRef<ChipText>(text);
 
@@ -182,7 +233,14 @@ export const ComposerInput = forwardRef<
     const first = fieldText.current === null;
     const pushed = fieldText.current !== text.shown;
     fieldText.current = text.shown;
-    if (first || (!pushed && !caretRequested.current)) return;
+    if (!first && !pushed && !caretRequested.current) {
+      // The field's text is unchanged (an upload landed behind its chip): its caret stands where it stood, and that
+      // place in the draft follows the draft.
+      const shown = shownSelection.current;
+      if (shown !== null) draftSelection.current = { start: draftOffset(text, shown.start), end: draftOffset(text, shown.end) };
+      return;
+    }
+    if (first) return;
     caretRequested.current = false;
     const caret = shownOffset(text, draftSelection.current.end);
     force({ start: caret, end: caret });
@@ -200,7 +258,16 @@ export const ComposerInput = forwardRef<
     const caretInDraft = { start: result.draftCaret, end: result.draftCaret };
     draftSelection.current = caretInDraft;
     shownSelection.current = caret;
-    if (result.rewritten) force(caret);
+    if (result.rewritten) {
+      force(caret);
+      // The field holds what the edit typed into a chip: it gets the text as it must read.
+      pushNext.current = true;
+    } else if (settle.current !== null && Date.now() < settle.current) {
+      // An edit right after the field was given new text may have been typed before it took it, so it never did:
+      // it gets the text once more.
+      pushNext.current = true;
+      settle.current = null;
+    }
     setDraft(result.text.draft);
     onTextChange(result.text.draft);
     input.edited(result.text.draft, caretInDraft);
@@ -232,32 +299,29 @@ export const ComposerInput = forwardRef<
     onCaret(inDraft.end);
   };
 
-  const children = useMemo(() => {
-    if (text.chips.length === 0) return null;
-    const parts: React.ReactNode[] = [];
-    let plain = '';
-    let cursor = 0;
-    text.chips.forEach((chip, index) => {
-      plain += text.shown.slice(cursor, chip.bodyStart);
-      if (plain.length > 0) parts.push(<Text key={`text:${index}`}>{plain}</Text>);
-      const tint = P.reference[chip.reference.kind] ?? P.reference.file;
-      // CDXC:SessionChat 2026-11-15 DECISION: User, after mentions lost their frame in the chat (CDXC:SessionChat 2026-11-15 on `mention_card` in gx-chat-core): the chat box too, "plain text with the same faint dotted underline ... instead of the framed pill, keeping it one piece for delete and cursor moves". A session's run is the field's own text in the sent name's ink with the faint dotted underline (`dottedUnderline`, Android draws it solid), no fill; the caret still steps over it whole. Supersedes the tinted run of 2026-11-13 (Q3062). Other references keep their tinted run.
-      const look =
-        chip.reference.kind === 'session'
-          ? [{ color: P.foreground }, dottedUnderline(P.foreground)]
-          : [styles.chip, { color: tint, backgroundColor: `${tint}26` }];
-      parts.push(
-        <Text key={`chip:${index}`} style={look}>
-          {text.shown.slice(chip.bodyStart, chip.bodyEnd)}
-        </Text>,
-      );
-      plain = text.shown.slice(chip.bodyEnd, chip.end);
-      cursor = chip.end;
-    });
-    plain += text.shown.slice(cursor);
-    if (plain.length > 0) parts.push(<Text key="text:end">{plain}</Text>);
-    return parts;
-  }, [P, styles, text]);
+  // The field's styled text, rebuilt only when the field must change (see the FIX above): the host replaced the text
+  // (the field holds other words), a chip came, went or changed its look, an edit cut into a chip, or the theme
+  // changed. Typing elsewhere keeps the children the field was last given.
+  const look = chipsLook(text, model.uploadTokens);
+  const source = fieldSource.current;
+  if (
+    text.chips.length > 0 &&
+    (source === null ||
+      pushNext.current ||
+      fieldText.current !== text.shown ||
+      source.look !== look ||
+      source.theme !== P ||
+      source.styles !== styles)
+  ) {
+    const fresh = !pushNext.current;
+    pushNext.current = false;
+    // A push that may not take (the user typing ahead of it) is pushed once more by the next edit (`onChangeText`).
+    settle.current = fresh ? Date.now() + PUSH_SETTLE_MS : null;
+    fieldSource.current = { look, theme: P, styles, children: chipChildren(text, model.uploadTokens, P, styles) };
+  } else if (text.chips.length === 0 && source !== null) {
+    fieldSource.current = null;
+  }
+  const children = text.chips.length > 0 ? (fieldSource.current?.children ?? null) : null;
 
   // A TextInput wraps its placeholder and cannot truncate it, so the field draws the placeholder's
   // first line itself, cut to one line with an ellipsis, over the empty field: at a large text size
@@ -301,6 +365,54 @@ export const ComposerInput = forwardRef<
   );
 });
 
+/**
+ * The field's text as styled children: plain runs, and each chip as desktop draws its pill (`replacements` in
+ * apps/desktop/src/app/native_chat/composer_references.rs): its kind's icon, then the label in its kind's ink, no
+ * frame and no fill.
+ */
+function chipChildren(
+  text: ChipText,
+  uploads: ComposerModelState['uploadTokens'],
+  P: ReturnType<typeof useTranscriptTheme>,
+  styles: ReturnType<typeof useStyles>,
+): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+  let plain = '';
+  let cursor = 0;
+  text.chips.forEach((chip, index) => {
+    plain += text.shown.slice(cursor, chip.bodyStart);
+    if (plain.length > 0) parts.push(<Text key={`text:${index}`}>{plain}</Text>);
+    const tint = P.reference[chip.reference.kind] ?? P.reference.file ?? P.foreground;
+    const upload = chipUpload(chip, uploads);
+    // CDXC:SessionChat 2026-11-15 DECISION: User: "Also pls make it look like it does on desktop." A reference in the chat box is desktop's pill: its kind's icon (a picture's, `chipIconFont.ts`) and its label in its kind's ink, no tinted box and no heavier weight. Supersedes the tinted run of 2026-11-07; the ink stays the transcript's brighter reference colour the phone's chips took before (theme.ts `reference`). A picture still uploading is the same chip in the muted ink; one whose upload failed is in the error ink until Send uploads it again.
+    // CDXC:SessionChat 2026-11-15 DECISION: User, after mentions lost their frame in the chat (CDXC:SessionChat 2026-11-15 on `mention_card` in gx-chat-core): the chat box too, "plain text with the same faint dotted underline ... instead of the framed pill, keeping it one piece for delete and cursor moves". A session's run is the field's own text in the sent name's ink with the faint dotted underline (`dottedUnderline`, Android draws it solid), no fill; the caret still steps over it whole. Supersedes the tinted run of 2026-11-13 (Q3062).
+    const look =
+      chip.reference.kind === 'session'
+        ? [{ color: P.foreground }, dottedUnderline(P.foreground)]
+        : { color: upload === 'failed' ? P.error : upload === 'uploading' ? P.muted : tint };
+    const body = text.shown.slice(chip.bodyStart, chip.bodyEnd);
+    const icon = chip.iconAt === null ? -1 : chip.iconAt - chip.bodyStart;
+    parts.push(
+      <Text key={`chip:${index}`} style={look}>
+        {icon < 0 ? (
+          body
+        ) : (
+          <>
+            {body.slice(0, icon)}
+            <Text style={styles.chipIcon}>{body.slice(icon, icon + 1)}</Text>
+            {body.slice(icon + 1)}
+          </>
+        )}
+      </Text>,
+    );
+    plain = text.shown.slice(chip.bodyEnd, chip.end);
+    cursor = chip.end;
+  });
+  plain += text.shown.slice(cursor);
+  if (plain.length > 0) parts.push(<Text key="text:end">{plain}</Text>);
+  return parts;
+}
+
 const useStyles = themedStyles((P) => ({
   input: {
     color: P.foreground,
@@ -314,5 +426,6 @@ const useStyles = themedStyles((P) => ({
   // A bit fainter than the theme's placeholder ink (layout A, `placeholder.ts`), so the hint reads as a hint.
   hint: { position: 'absolute', left: 0, right: 0, top: 2, fontSize: 15, lineHeight: 21, opacity: 0.7 },
   collapsed: { height: COLLAPSED_INPUT_HEIGHT, maxHeight: COLLAPSED_INPUT_HEIGHT },
-  chip: { fontWeight: '500' },
+  // The picture glyph sits in its font's 0.6em cell; a size up from the line's 15 brings it near desktop's 1em icon.
+  chipIcon: { fontFamily: CHIP_ICON_FAMILY, fontSize: 17 },
 }));

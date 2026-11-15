@@ -25,6 +25,8 @@ export type SettingsSearchEntry = {
   readonly section: string;
   /** The group the row shows under (its section header), for the result's breadcrumb. */
   readonly group?: string;
+  /** The group's name before it was renamed: the row is still found by it. */
+  readonly formerGroup?: string;
   /** The row's name in the result. */
   readonly title: string;
   readonly description?: string;
@@ -171,7 +173,8 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
   {
     page: 'sessionsList',
     section: 'settings:sessions-list:sidebar',
-    group: 'Sidebar',
+    group: 'Layout',
+    formerGroup: 'Sidebar',
     title: 'Sidebar',
     description: 'Project sidebar or Unified sidebar.',
     catalog: 'sidebarView',
@@ -180,7 +183,8 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
   {
     page: 'sessionsList',
     section: 'settings:sessions-list:sidebar',
-    group: 'Sidebar',
+    group: 'Layout',
+    formerGroup: 'Sidebar',
     title: 'Separate by machine',
     description: 'One computer at a time, each with its own tab, project list and Spaces.',
     catalog: 'sidebarSeparateByMachine',
@@ -188,7 +192,8 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
   {
     page: 'sessionsList',
     section: 'settings:sessions-list:sidebar',
-    group: 'Sidebar',
+    group: 'Layout',
+    formerGroup: 'Sidebar',
     title: 'Merge copies of the same repository',
     description: 'Two folders of one computer that are copies of one repository show as one project.',
     catalog: 'sidebarMergeRepositoryCopies',
@@ -196,7 +201,8 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
   {
     page: 'sessionsList',
     section: 'settings:sessions-list:sidebar',
-    group: 'Sidebar',
+    group: 'Layout',
+    formerGroup: 'Sidebar',
     title: "Hide sessions and projects from computers that aren't connected",
     description: 'They come back when the computer reconnects.',
     catalog: 'sidebarHideDisconnectedMachines',
@@ -204,7 +210,8 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
   {
     page: 'sessionsList',
     section: 'settings:sessions-list:sidebar',
-    group: 'Sidebar',
+    group: 'Layout',
+    formerGroup: 'Sidebar',
     title: 'Moving section',
     description: 'Sessions that are working fold into a Moving section at the bottom until they need you.',
     catalog: 'unifiedWorkingSection',
@@ -212,7 +219,8 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
   {
     page: 'sessionsList',
     section: 'settings:sessions-list:sidebar',
-    group: 'Sidebar',
+    group: 'Layout',
+    formerGroup: 'Sidebar',
     title: 'Group by project',
     description: "Every computer's sessions of one repository under one header.",
     catalog: 'unifiedGroupByProject',
@@ -220,7 +228,8 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
   {
     page: 'sessionsList',
     section: 'settings:sessions-list:sidebar',
-    group: 'Sidebar',
+    group: 'Layout',
+    formerGroup: 'Sidebar',
     title: 'Hide projects without sessions',
     description: 'A Show all projects row at the end brings them back.',
     catalog: 'sidebarHideProjectsWithoutSessions',
@@ -228,7 +237,8 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
   {
     page: 'sessionsList',
     section: 'settings:sessions-list:sidebar',
-    group: 'Sidebar',
+    group: 'Layout',
+    formerGroup: 'Sidebar',
     title: 'Worktree sessions show in their project',
     description: "Listed under the repository's project, with the worktree's branch on the row.",
     catalog: 'worktreeSessionsInProject',
@@ -236,7 +246,8 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
   {
     page: 'sessionsList',
     section: 'settings:sessions-list:sidebar',
-    group: 'Sidebar',
+    group: 'Layout',
+    formerGroup: 'Sidebar',
     title: 'Group working sessions',
     description: 'Working sessions move into a folded Working section under their project.',
     catalog: 'groupWorkingSessions',
@@ -244,7 +255,8 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
   {
     page: 'sessionsList',
     section: 'settings:sessions-list:sidebar',
-    group: 'Sidebar',
+    group: 'Layout',
+    formerGroup: 'Sidebar',
     title: 'Pinned order',
     description: 'The order you arranged them in, or the one that came back to you last first.',
     catalog: 'pinnedSessionOrder',
@@ -253,7 +265,8 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
   {
     page: 'sessionsList',
     section: 'settings:sessions-list:sidebar',
-    group: 'Sidebar',
+    group: 'Layout',
+    formerGroup: 'Sidebar',
     title: 'Enable session parking',
     description: 'Deferred sessions move into a folded Parked section.',
     catalog: 'enableSessionParking',
@@ -650,7 +663,8 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
   {
     page: 'autopilot',
     section: 'settings:autopilot:switch',
-    group: 'Autopilot',
+    group: 'Mode',
+    formerGroup: 'Autopilot',
     title: 'Autopilot',
     description: 'Off, Careful, Full or Custom. Carries on stopped sessions, interrupts hung commands, reloads frozen ones, switches account at a limit.',
     catalog: 'autopilotEnabled',
@@ -658,7 +672,8 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
   {
     page: 'autopilot',
     section: 'settings:autopilot:switch',
-    group: 'Autopilot',
+    group: 'Mode',
+    formerGroup: 'Autopilot',
     title: 'Which sessions',
     description: 'Every session, projects you pick, or sessions you pick, and what is left out.',
     catalog: 'autopilotScope',
@@ -714,14 +729,16 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
   {
     page: 'collab',
     section: 'settings:collab:switch',
-    title: 'Ghostex Collab',
-    anchor: header('Ghostex Collab'),
+    title: 'This computer',
+    anchor: header('This computer'),
+    keywords: ['ghostex collab'],
     catalog: 'collabEnabled',
   },
   {
     page: 'collab',
     section: 'settings:collab:switch',
-    group: 'Ghostex Collab',
+    group: 'This computer',
+    formerGroup: 'Ghostex Collab',
     title: 'Uninstall Collab',
   },
   {
@@ -969,6 +986,7 @@ function entryTexts(entry: SettingsSearchEntry): { titles: string[]; names: stri
     titles: [entry.title, ...(desktop === undefined ? [] : [desktop.title])],
     names: [
       entry.group ?? '',
+      entry.formerGroup ?? '',
       ...(entry.options ?? []),
       ...(entry.keywords ?? []),
       ...(desktop === undefined ? [] : [...desktop.options, ...desktop.keywords]),
