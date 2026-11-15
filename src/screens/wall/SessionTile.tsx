@@ -15,6 +15,7 @@ import { Platform, Pressable, StyleSheet, Text, View, type ViewInstance } from '
 
 import { AGENT_ICONS } from '../../assets/agentIcons.generated';
 import type { MenuAnchor } from '../../components/sessions/ContextMenu';
+import { CoordinatorGlyph, CrownGlyph } from '../../components/sessions/icons';
 import { STATUS_DOT_SIZE, useSidebarInk } from '../../components/sessions/rows';
 import { useRowLabelClock, WorktreeBadge } from '../../components/sessions/SessionRow';
 import { COMPLETION_FLASH_MS, rowTimeLabel, shownFoldedStatus } from '../../components/sessions/sessionStatus';
@@ -139,6 +140,7 @@ function TileFrame({
     session.agentName.length > 0 ? session.agentName : session.agent,
   );
   const Icon = AGENT_ICONS[iconId] ?? AGENT_ICONS.terminal;
+  const ink = useSidebarInk();
   const title = session.displayTitle.length > 0 ? session.displayTitle : SessionCopy.fallbackTitle;
 
   return (
@@ -154,7 +156,14 @@ function TileFrame({
       onLongPress={() => tileRef.current?.measureInWindow((x, y, width, height) => onMenu({ x, y, width, height }))}
     >
       <View style={styles.head}>
-        <Icon size={18} color={agentIconTint(iconId)} />
+        {/* A coordinator's crown in place of its agent logo, gold on its project's main one, as its row draws it (SessionRow.tsx, desktop threads.rs `coordinator_icon`). */}
+        {session.isCoordinator && session.isChief ? (
+          <CrownGlyph size={16} color={ink.crown} />
+        ) : session.isCoordinator ? (
+          <CoordinatorGlyph size={18} color={session.isMainCoordinator ? ink.mainCrown : ink.crown} />
+        ) : (
+          <Icon size={18} color={agentIconTint(iconId)} />
+        )}
         <View style={styles.name}>
           <Text style={[styles.title, { color: appearance.foreground }]} numberOfLines={1}>
             {title}
