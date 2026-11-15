@@ -891,8 +891,10 @@ export default function SessionsScreen({ navigation }: Props) {
     openNewSessionMenu,
     closeAgentMenuThen,
     onAgentMenuDismissed,
+    forgetAgentMenuWork,
     openCoordinatorAgentStep,
     coordinatorAgentMenuItems,
+    createCoordinatorOn,
     loadCoordinatorDetails,
     loadCoordinatorPlaybook,
     saveCoordinatorDetails,
@@ -920,6 +922,11 @@ export default function SessionsScreen({ navigation }: Props) {
     setOverlay,
     setTransientStatus,
   });
+  // A pick in an agent menu that never reported its dismissal (iOS) must not run when this one closes.
+  const agentMenuOpen = overlay.kind === 'agentMenu';
+  useEffect(() => {
+    if (agentMenuOpen) forgetAgentMenuWork();
+  }, [agentMenuOpen, forgetAgentMenuWork]);
 
   /** Sidebar extensions: their modes, their sections in the list and what their items do (src/extensions/). */
   const extensionPanels = useExtensionPanels({
@@ -2229,20 +2236,6 @@ export default function SessionsScreen({ navigation }: Props) {
         onDismissed={onAgentMenuDismissed}
       />
 
-      {/* The New Coordinator form's agent step; a pick creates the coordinator once the menu has gone (iOS). */}
-      <ContextMenu
-        visible={overlay.kind === 'coordinatorAgentMenu'}
-        title="Pick the coordinator's agent"
-        subtitle={overlay.kind === 'coordinatorAgentMenu' ? overlay.ctx.header.title : undefined}
-        items={
-          overlay.kind === 'coordinatorAgentMenu'
-            ? coordinatorAgentMenuItems(overlay.ctx, overlay.pick, overlay.token)
-            : []
-        }
-        onClose={() => setOverlay(NONE)}
-        onDismissed={onAgentMenuDismissed}
-      />
-
       {/*
         The agent menu's project row and the header's New session when its project can't open the menu:
         a pick opens the agent menu there once the sheet has gone (iOS).
@@ -2283,7 +2276,9 @@ export default function SessionsScreen({ navigation }: Props) {
           projectTitle={overlay.ctx.header.title}
           copies={overlay.ctx.header.copies}
           defaultProjectId={overlay.ctx.header.defaultCopyProjectId}
-          onNext={(pick) => openCoordinatorAgentStep(overlay.ctx, pick)}
+          onNext={() => openCoordinatorAgentStep(overlay.ctx)}
+          agentItems={(token, onPick, busy) => coordinatorAgentMenuItems(overlay.ctx, token, onPick, busy)}
+          onCreate={(pick, agent, stillOpen) => createCoordinatorOn(overlay.ctx, pick, agent, stillOpen)}
           onCancel={() => setOverlay(NONE)}
         />
       ) : null}

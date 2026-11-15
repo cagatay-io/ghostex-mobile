@@ -1675,6 +1675,10 @@ export function useSessionsScreenMenus({
     },
     [setOverlay],
   );
+  /** An agent menu opening: work a menu that never reported its dismissal left behind must not run on this one's. */
+  const forgetAgentMenuWork = useCallback((): void => {
+    afterAgentMenu.current = null;
+  }, []);
   const onAgentMenuDismissed = useCallback((): void => {
     const work = afterAgentMenu.current;
     afterAgentMenu.current = null;
@@ -1792,6 +1796,7 @@ export function useSessionsScreenMenus({
     selected: boolean,
     onPress: () => void,
     info?: string,
+    disabled = false,
   ): ContextMenuItem => {
     const name = agent.name !== undefined && agent.name.length > 0 ? agent.name : agent.agentId;
     const iconId = resolveAgentIconId(agent.icon, name);
@@ -1808,6 +1813,7 @@ export function useSessionsScreenMenus({
       trailingIcon: supportsChat ? <MessageCircleGlyph size={14} color={appearance.mutedGlyph} /> : undefined,
       trailingIconLabel: supportsChat ? 'Supports chat' : undefined,
       ...(info !== undefined ? { info } : {}),
+      disabled,
       onPress,
     };
   };
@@ -1823,14 +1829,13 @@ export function useSessionsScreenMenus({
   const coordinatorStepToken = useRef(0);
 
   /**
-   * The New Coordinator form's Next: the agent menu as "Pick the coordinator's agent", its rows'
-   * warnings read from the computer once it has answered.
+   * The New Coordinator form's Next: reads the computer's `ghostex coordinator options` for the agent step's
+   * warnings while the form shows that step in its own window.
    */
-  const openCoordinatorAgentStep = (ctx: ProjectContext, pick: NewCoordinatorPick): void => {
+  const openCoordinatorAgentStep = (ctx: ProjectContext): number => {
     coordinatorStepToken.current += 1;
     const token = coordinatorStepToken.current;
     setCoordinatorWarnings(null);
-    setOverlay({ kind: 'coordinatorAgentMenu', ctx, pick, token });
     void runGhostexCli(ctx.machine, coordinatorOptionsCommand()).then(
       (result) => {
         if (coordinatorStepToken.current === token)
@@ -1838,13 +1843,20 @@ export function useSessionsScreenMenus({
       },
       () => undefined,
     );
+    return token;
   };
 
   /**
    * The coordinator's agent step: every agent of the project but Claude (cloud) (a coordinator runs the `ghostex` CLI
    * on the computer), each weak-model agent with its warning behind the (i), and a note saying what the (i) means.
+   * A pick hands the agent to the form (`onPick`), which creates the coordinator without leaving its window.
    */
-  const coordinatorAgentMenuItems = (ctx: ProjectContext, pick: NewCoordinatorPick, token: number): ContextMenuItem[] => {
+  const coordinatorAgentMenuItems = (
+    ctx: ProjectContext,
+    token: number,
+    onPick: (agent: GhostexAgentLauncher) => void,
+    busy: boolean,
+  ): ContextMenuItem[] => {
     const warnings = coordinatorWarnings?.token === token ? coordinatorWarnings.warnings : {};
     const agents = ctx.header.agents.filter((agent) => agent.agentId !== 'claude-cloud');
     const warned = agents.some((agent) => warnings[agent.agentId] !== undefined);
@@ -1858,14 +1870,7 @@ export function useSessionsScreenMenus({
             },
           ]
         : []),
-      ...agents.map((agent) =>
-        agentRow(
-          agent,
-          false,
-          () => closeAgentMenuThen(() => void createCoordinatorOn(ctx, pick, agent)),
-          warnings[agent.agentId],
-        ),
-      ),
+      ...agents.map((agent) => agentRow(agent, false, () => onPick(agent), warnings[agent.agentId], busy)),
     ];
   };
 
@@ -1923,22 +1928,24 @@ export function useSessionsScreenMenus({
   /**
    * The coordinator's agent step's pick: `ghostex coordinator create` on that agent, in the folder the form's Folder
    * row picked (a project cloned twice on this computer), else the project's own; gxserver gives it its start model
-   * and effort and sends its first message. It opens in chat, where its reports read best (as on the desktop). A
-   * refusal shows as a notice; when the computer made the coordinator but its agent did not start (`ghostex
-   * coordinator create` says so), that one is opened instead of making another.
+   * and effort and sends its first message. The form stays open while the computer answers and closes once it is
+   * created (`keepOverlay`); the coordinator opens in chat, where its reports read best (as on the desktop). A refusal
+   * comes back to the form as a sentence; when the computer made the coordinator but its agent did not start
+   * (`ghostex coordinator create` says so), that one is opened instead of making another.
+   *
+   * CDXC:Coordinators 2026-11-15 WHY:
+   * The agent step used to be a separate menu window opened as the form's window closed, and the create waited for that menu's iOS dismissal callback. iOS cannot present a window while another is still closing, so the callback could fail to come and a pick then created nothing (no progress, no notice, nothing sent to the computer). The step is drawn inside the form's own window now and the create runs straight from the pick, so no step waits on a window hand-off.
    */
   const createCoordinatorOn = async (
     ctx: ProjectContext,
     pick: NewCoordinatorPick,
     agent: GhostexAgentLauncher,
-  ): Promise<void> => {
+    stillOpen: () => boolean,
+  ): Promise<string | null> => {
     const projectId = pick.projectId ?? ctx.header.projectId;
     const summary = summaryFor(ctx.machine.id);
     if (!(summary?.projects ?? []).some((project) => project.projectId === projectId)) {
-      setTransientStatus('That folder is no longer open. Open New Coordinator again.', {
-        title: 'Coordinator not created',
-      });
-      return;
+      return 'That folder is no longer open. Close this and open New Coordinator again.';
     }
     const agentName = agent.name !== undefined && agent.name.length > 0 ? agent.name : agent.agentId;
     const iconId = resolveAgentIconId(agent.icon, agentName);
@@ -1948,9 +1955,15 @@ export function useSessionsScreenMenus({
       createCoordinatorCommand({ projectId, agentId: agent.agentId, title: pick.title, model: '', effort: '' }),
       ProgressCopy.startingCoordinator(ctx.header.title),
       { agentId: iconId, projectId, title },
-      { createdSessionIdOf: createdButNotStartedSessionId },
+      { keepOverlay: true, stillOpen, createdSessionIdOf: createdButNotStartedSessionId },
     );
-    if (refusal?.open !== undefined) void refusal.open();
+    if (refusal === null) return null;
+    if (refusal.open !== undefined) {
+      // A form cancelled meanwhile already got the computer's sentence as a status line; nothing opens over the list.
+      if (stillOpen()) void refusal.open();
+      return null;
+    }
+    return refusal.reason;
   };
 
   /** Actions menu: the project's actions, then the computer's Global Actions, check on the last run. */
@@ -2065,8 +2078,10 @@ export function useSessionsScreenMenus({
     openNewSessionMenu,
     closeAgentMenuThen,
     onAgentMenuDismissed,
+    forgetAgentMenuWork,
     openCoordinatorAgentStep,
     coordinatorAgentMenuItems,
+    createCoordinatorOn,
     loadCoordinatorDetails,
     loadCoordinatorPlaybook,
     saveCoordinatorDetails,
