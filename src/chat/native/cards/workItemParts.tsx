@@ -185,6 +185,7 @@ export function openWorkReply(reply: JsonRecord, scope: ReplyDraftScope | null):
   openQuestionReply({
     form: typeof reply.form === 'string' ? reply.form : null,
     tag: str(reply, 'tag'),
+    name: str(reply, 'name'),
     ...(typeof reply.item === 'string' ? { item: reply.item, key: str(reply, 'key') } : {}),
     ...(typeof reply.questions === 'string' ? { questions: reply.questions, to: str(reply, 'to') } : {}),
     scope,
@@ -715,10 +716,10 @@ export function rowMarkdown(row: JsonRecord, forms: { [id: string]: unknown } | 
   }
   if (kind !== 'form') return '';
   if (isTrue(row, 'page')) {
-    // Its mention is `[Name](url) Q12 Q13` (gx-chat-core `questions_mention`), or the name in quotes
-    // when the page has no address: the heading is the link, else the title.
+    // Its mention is `[Name](url) (Q12 to Q14)` (gx-chat-core `questions_mention`), or the name in
+    // quotes when the page has no address: the heading is the link, else the title.
     const mention = str(row, 'mention');
-    const link = (tags.length > 0 && mention.endsWith(tags) ? mention.slice(0, -tags.length) : mention).trimEnd();
+    const link = (tags.length > 0 ? mention.replace(/ \([^()]*\)$/u, '') : mention).trimEnd();
     const heading = link.startsWith('[') && link.endsWith(')') ? link : title;
     return join([`## ${heading}`, tags.length > 0 ? `Open questions: ${tags}` : '']);
   }

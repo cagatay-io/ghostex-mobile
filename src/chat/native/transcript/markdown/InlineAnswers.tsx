@@ -22,6 +22,21 @@ function short(text: string): string {
   return cut.length < line.length || text.trim().includes('\n') ? `${cut}…` : cut;
 }
 
+/**
+ * The question's words as its Reply sheet's title (gx-chat-core `reply_name`): without its leading
+ * tag or Markdown marks, cut with … past 60 characters.
+ */
+function shortName(question: string): string {
+  const plain = question
+    .replace(/^\s*Q\d+[:.)]?\s*/iu, '')
+    .replace(/\[([^\]]*)\]\([^)]*\)/gu, '$1')
+    .replace(/[*`]/gu, '')
+    .replace(/\s+/gu, ' ')
+    .trim();
+  const chars = Array.from(plain);
+  return chars.length <= 60 ? plain : `${chars.slice(0, 59).join('').trimEnd()}…`;
+}
+
 /** `rgba()` of a `#rrggbb` colour at `alpha`; other colour strings come back as they are. */
 function withAlpha(color: string, alpha: number): string {
   const match = /^#([0-9a-f]{6})$/i.exec(color);
@@ -105,7 +120,7 @@ export function InlineAnswers({ mark }: { mark: JsonRecord }) {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Write your own answer"
-              onPress={() => openQuestionReply({ form: formId, tag })}
+              onPress={() => openQuestionReply({ form: formId, tag, name: shortName(str(mark, 'question')) })}
               style={({ pressed }) => [
                 styles.segment,
                 choices.length > 0 && { borderLeftWidth: StyleSheet.hairlineWidth * 2, borderLeftColor: edge },

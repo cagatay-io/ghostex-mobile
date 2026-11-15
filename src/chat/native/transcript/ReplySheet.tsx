@@ -24,7 +24,11 @@ export function ReplySheet({
 }: {
   /** The Reply row's `quote` (Add to Chat's text); null closes the sheet. */
   quote: string | null;
-  /** The tag of the one-click question it answers instead (`InlineAnswers.tsx`): Send answer only. */
+  /**
+   * Set when it answers a question, form, page or work item instead (Send answer only): what it
+   * is about, by its title or the question's words (gx-chat-core `reply_name`), never its Q tags;
+   * empty when the opener has no name for it.
+   */
   question?: string;
   onClose: () => void;
   onReply: (quote: string, reply: string, action: ReplyAction) => void;
@@ -66,7 +70,7 @@ export function ReplySheet({
     </Pressable>
   );
   return (
-    <Sheet visible={quote !== null} onClose={onClose} title={question !== undefined ? `Answer ${question}` : 'Reply'}>
+    <Sheet visible={quote !== null} onClose={onClose} title={question === undefined ? 'Reply' : question.length > 0 ? question : 'Your answer'}>
       <View style={styles.body}>
         {preview.length > 0 ? (
           <Text style={styles.quote} numberOfLines={3}>
@@ -81,9 +85,9 @@ export function ReplySheet({
           }}
           multiline
           autoFocus
-          placeholder={question !== undefined ? `Your answer to ${question}…` : 'Reply…'}
+          placeholder={question !== undefined ? 'Your answer…' : 'Reply…'}
           placeholderTextColor={P.placeholder}
-          accessibilityLabel={question !== undefined ? `Answer ${question}` : 'Reply'}
+          accessibilityLabel={question === undefined ? 'Reply' : question.length > 0 ? `Your answer about ${question}` : 'Your answer'}
           style={styles.input}
         />
         <View style={styles.footer}>

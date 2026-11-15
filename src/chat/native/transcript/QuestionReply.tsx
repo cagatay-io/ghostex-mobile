@@ -31,6 +31,13 @@ export type QuestionReplyTarget = {
   to?: string;
   /** The chat it belongs to, so its draft is kept (a work item's Reply). */
   scope?: ReplyDraftScope | null;
+  /**
+   * What the sheet calls it: a page's or form's title, a question's words (gx-chat-core
+   * `reply_name`). Never its tags: the user, of a sheet titled "Answer Q3310 Q3311 …": "Please
+   * stop showing Q1, Q2, Q3, Q4 like this. Just say the main title of what you want me to answer
+   * about" (CDXC:Coordinators 2026-11-15 DECISION).
+   */
+  name?: string;
 };
 
 type Opened = { target: QuestionReplyTarget; row: string | null; initial: string };
@@ -58,7 +65,7 @@ export function QuestionReplyHost() {
   return (
     <ReplySheet
       quote={target !== null ? '' : null}
-      question={target === null ? '' : target.tag.length > 0 ? target.tag : (target.item ?? target.to ?? '')}
+      question={target?.name ?? ''}
       initialText={opened?.initial ?? ''}
       onChangeText={scope !== null && row !== null ? (text) => keepReplyDraft(scope, row, text) : undefined}
       onClose={closeQuestionReply}
