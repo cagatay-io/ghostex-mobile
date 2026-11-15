@@ -11,6 +11,7 @@ import { ActivityIndicator, Animated, PanResponder, Pressable, Text, View } from
 import type { UserAction } from '../../rust/actions';
 import type { ChatDocument, QueuedPrompt } from '../../rust/document';
 import { Glyph, type GlyphName } from './icons';
+import { useDispatchWithAnswerCancel } from '../transcript/context';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 
 const ROW_HEIGHT = 34;
@@ -31,8 +32,15 @@ function notSent(reason: string | null | undefined): string {
   return text.length > 0 ? `Not sent: ${text}` : 'Not sent.';
 }
 
-export function QueueList({ document, dispatch }: { document: ChatDocument; dispatch: (action: UserAction) => void }) {
+export function QueueList({
+  document,
+  dispatch: rawDispatch,
+}: {
+  document: ChatDocument;
+  dispatch: (action: UserAction) => void;
+}) {
   const styles = useStyles();
+  const dispatch = useDispatchWithAnswerCancel(rawDispatch);
   const prompts = document.queue.prompts.filter((prompt) => prompt.startupSend !== true);
   const capabilities = document.queue.capabilities;
   if (!capabilities.supported || prompts.length === 0) return null;
