@@ -125,6 +125,8 @@ export type SidebarMenuItem = {
   /** `presentation: 'page'`: the submenu replaces the panel (every submenu does on the phone). */
   presentation?: 'page';
   children?: SidebarMenuItem[];
+  /** A row of icon buttons across the menu, each an action row of its own (gx-core `MenuItem::quick_row`). */
+  quick?: SidebarMenuItem[];
   command?: SidebarMenuCommand;
 };
 
@@ -606,6 +608,7 @@ function linkSubmenu(session: GhostexSession, project: SessionMenuInput['project
  *
  * CDXC:ContextMenus 2026-11-12 DECISION:
  * User: "i want a new Copy ID that let's me just copy the id and name of an agent so i can mention it in other chats" (2026-10-28), then (2026-11-12) "move Copy ID to sit directly above Tag As": Copy ID leaves the Copy submenu and is a row of the menu itself, right above Tag As, as on the desktop (gx-core copy.rs `copy_id_row`). It copies `[<session title>](<Global Ref>)`.
+ * Since 2026-11-15 it is a button in the menu's quick row instead (CDXC:ContextMenus 2026-11-15 in `buildSessionMenu`).
  */
 function copyIdRow(session: GhostexSession): SidebarMenuItem | null {
   const ref = session.globalRef.trim();
@@ -806,22 +809,30 @@ export function buildSessionMenu(input: SessionMenuInput): SidebarMenuItem[] {
       ? ['sleep']
       : enabled.filter((action) => action !== 'close' && action !== 'closeAfterDone')
     : [];
-  // gx-core `full_menu` order (CDXC:ContextMenus): ChatGPT's order, mirrored hover buttons
-  // included, Tag As after a line; Note shows here only as a mirrored hover button.
-  const primaryOrder: HoverAction[] = ['rename', 'pin', 'snooze', 'park', 'sleep', 'note', 'tag'];
+  const shown = (action: HoverAction): boolean =>
+    mirror.includes(action) || (action !== 'note' && !enabled.includes(action));
+  /*
+   * CDXC:ContextMenus 2026-11-15 DECISION:
+   * User (Android screenshot of this menu running off the screen): "This is too long", then picked the quick row with
+   * "Put sleep under advanced, 4 quick actions only pls" (Q3420 C), and the same on the desktop (Q3421 Yes). The menu
+   * opens with four icon buttons, Rename, Pin, Copy ID and Voice Call (the desktop has the first three; Voice Call is the
+   * phone's own), then Snooze, Park, Note and Tag As as rows with no line between them; Sleep (or Wake) moves to the
+   * top of Advanced. At very large text the buttons drop their labels (components/sessions/ContextMenu.tsx).
+   * SEE-ALSO: packages/gx-core/src/sidebar_menu/session.rs `full_menu`, which this must match.
+   */
   const menu: SidebarMenuItem[] = [];
-  // Copy ID opens the block after the line, right above Tag As, and keeps that place when Tag As
-  // is not in the menu (gx-core `full_menu`).
+  const quick: SidebarMenuItem[] = [];
+  if (shown('rename') && rows.rename !== undefined) quick.push(rows.rename);
+  if (shown('pin') && rows.pin !== undefined) quick.push(pinned ? rows.pin : { ...rows.pin, icon: 'pinned' });
   const copyId = copyIdRow(session);
-  for (const action of primaryOrder) {
-    const shown = mirror.includes(action) || (action !== 'note' && !enabled.includes(action));
-    const item = shown ? rows[action] : undefined;
-    if (action === 'tag') {
-      if (menu.length > 0 && (copyId !== null || item !== undefined)) menu.push(separator());
-      if (copyId !== null) menu.push(copyId);
-    }
-    if (item === undefined) continue;
-    menu.push(action === 'pin' && !pinned ? { ...item, icon: 'pinned' } : item);
+  if (copyId !== null) quick.push(copyId);
+  if (voiceCall && !caps.isBrowser && session.isDraft !== true) {
+    quick.push(row('Voice Call', 'headset', { type: 'voiceCall', sessionId: id }));
+  }
+  if (quick.length > 0) menu.push({ quick, checked: false, disabled: false });
+  for (const action of ['snooze', 'park', 'note', 'tag'] as const) {
+    const item = shown(action) ? rows[action] : undefined;
+    if (item !== undefined) menu.push(item);
   }
 
   const coordinatorBlock = coordinatorRows(session);
@@ -837,6 +848,8 @@ export function buildSessionMenu(input: SessionMenuInput): SidebarMenuItem[] {
   }
 
   const advanced: SidebarMenuItem[] = [heading('Session')];
+  // Sleep sits first in Advanced (CDXC:ContextMenus 2026-11-15 above).
+  if (shown('sleep') && rows.sleep !== undefined) advanced.push(rows.sleep);
   if (!enabled.includes('note') && rows.note !== undefined) {
     advanced.push(rows.note);
   }
@@ -896,11 +909,6 @@ export function buildSessionMenu(input: SessionMenuInput): SidebarMenuItem[] {
   // contract/claudeCloud.ts).
   if (claudeCloudPageUrl(session.claudeCloud) !== null) {
     menu.push(row('Open Terminal', 'terminal', { type: 'claudeCloudTerminal', sessionId: id }));
-  }
-
-  // Voice Call, Title Case like its neighbours.
-  if (voiceCall && !caps.isBrowser && session.isDraft !== true) {
-    menu.push(row('Voice Call', 'headset', { type: 'voiceCall', sessionId: id }));
   }
 
   if (caps.canDelayedSend && session.delayedSendDeadlineAt.length > 0) {

@@ -2095,6 +2095,12 @@ export const FONT_FILES: Readonly<Record<string, Fingerprinted>> = {
     sha256: 'a2f4268a1719b95d1f1448376173a42317919cb598423f18ea327eaca13dd916',
     components: ['jetbrainsMonoNerdFont'],
   },
+  // One glyph (Material Design Icons' image-outline) cut from the font above for the chat box's picture chip
+  // (src/chat/native/composer/chipIconFont.ts).
+  'GhostexChipIcons.ttf': {
+    sha256: '98597e38d1d61be45c3f8a9f0039a54598159d364d9c706a673d0a0c134b93f9',
+    components: ['jetbrainsMonoNerdFont'],
+  },
 };
 
 /** The entries whose `themes` list Ghostty themes: what `src/theme/ghosttyThemes.json` contains. */

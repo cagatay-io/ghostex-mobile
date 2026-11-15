@@ -95,6 +95,14 @@ type ContextMenuLeadingVisual =
       swatch?: never;
     };
 
+export type ContextMenuQuickButton = {
+  key: string;
+  label: string;
+  icon?: ReactElement;
+  disabled?: boolean;
+  onPress: () => void;
+};
+
 export type ContextMenuItem =
   | { kind: 'separator'; key: string }
   | { kind: 'label'; key: string; label: string }
@@ -102,6 +110,11 @@ export type ContextMenuItem =
   | { kind: 'note'; key: string; label: string }
   /** The desktop sidebar menu's small dimmed heading ("Session", "Below"), sentence case. */
   | { kind: 'heading'; key: string; label: string }
+  /**
+   * A row of icon buttons across the menu (the session menu's Rename, Pin, Copy ID and Voice Call): an icon over a
+   * short label each, icons only at very large text (`QUICK_ICONS_ONLY_FONT_SCALE`).
+   */
+  | { kind: 'quick'; key: string; buttons: ContextMenuQuickButton[] }
   /** A row drawn by its menu (the agent menu's project row and machine chips). */
   | { kind: 'custom'; key: string; render: () => ReactElement }
   | (ContextMenuAction & ContextMenuLeadingVisual);
@@ -145,6 +158,12 @@ export type ContextMenuProps = {
    */
   inline?: boolean;
 };
+
+/**
+ * From this font scale on, a quick row's buttons show their icons only: four labels side by side no longer fit the
+ * card, and a cut label ("Re…") reads worse than none. VoiceOver and TalkBack still read each button's label.
+ */
+const QUICK_ICONS_ONLY_FONT_SCALE = 1.3;
 
 /** Comfortable reading width; the card shrinks on narrow screens. */
 const MENU_MAX_WIDTH = 360;
@@ -218,7 +237,8 @@ export default function ContextMenu({
 }: ContextMenuProps) {
   const appearance = useAppearance();
   const styles = useMemo(() => createStyles(appearance), [appearance]);
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const { width: screenWidth, height: screenHeight, fontScale } = useWindowDimensions();
+  const quickIconsOnly = fontScale >= QUICK_ICONS_ONLY_FONT_SCALE;
   const safeArea = useSafeAreaInsets();
   const bar = useVerticalBarSpace();
   const barEdge = useVerticalBarEdge();
@@ -374,6 +394,35 @@ export default function ContextMenu({
               );
             }
             if (item.kind === 'custom') return <Fragment key={item.key}>{item.render()}</Fragment>;
+            if (item.kind === 'quick') {
+              return (
+                <View key={item.key} style={styles.quickRow}>
+                  {item.buttons.map((button) => (
+                    <Pressable
+                      key={button.key}
+                      accessibilityRole={COMMAND_ROLE}
+                      accessibilityLabel={button.label}
+                      accessibilityState={{ disabled: button.disabled === true }}
+                      disabled={button.disabled === true}
+                      style={({ pressed }) => [
+                        styles.quickButton,
+                        quickIconsOnly ? styles.quickButtonIconOnly : null,
+                        pressed ? styles.itemActive : null,
+                        button.disabled === true ? styles.itemDisabled : null,
+                      ]}
+                      onPress={button.onPress}
+                    >
+                      {button.icon !== undefined ? <View style={styles.quickIcon}>{button.icon}</View> : null}
+                      {quickIconsOnly ? null : (
+                        <Text style={styles.quickLabel} numberOfLines={1}>
+                          {button.label}
+                        </Text>
+                      )}
+                    </Pressable>
+                  ))}
+                </View>
+              );
+            }
             const infoOpen = item.info !== undefined && openInfo === item.key;
             const command = (
               <Pressable
@@ -551,6 +600,37 @@ const createStyles = (appearance: Appearance) => StyleSheet.create({
   itemBesideInfo: {
     flex: 1,
     paddingRight: 0,
+  },
+  quickRow: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingBottom: 6,
+  },
+  quickButton: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingTop: 9,
+    paddingBottom: 7,
+    paddingHorizontal: 2,
+    borderRadius: 8,
+    backgroundColor: appearance.cardActive,
+  },
+  quickButtonIconOnly: {
+    paddingVertical: 11,
+  },
+  quickIcon: {
+    width: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickLabel: {
+    color: appearance.foreground,
+    fontSize: 11,
+    lineHeight: 14,
   },
   itemActive: {
     backgroundColor: appearance.cardActive,

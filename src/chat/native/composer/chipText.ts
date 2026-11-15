@@ -19,6 +19,8 @@ export type Chip = {
   /** The tinted part, inside `[start, end)`. */
   bodyStart: number;
   bodyEnd: number;
+  /** Where the kind's icon character stands in the body (`chipIconFont.ts`), or null for none. */
+  iconAt: number | null;
 };
 
 export type ChipText = {
@@ -54,12 +56,29 @@ export function chipLabel(reference: ComposerReference): string {
  * The Side Chat chip stands for `/btw ` with its space, which desktop draws at full width after the
  * pill (core `reference_pill_text`), so its trailing edge is a no-break space.
  */
-function chipPieces(reference: ComposerReference): { lead: string; body: string; trail: string } {
-  return { lead: EDGE, body: `${PAD}${chipLabel(reference)}${PAD}`, trail: reference.kind === 'sideChat' ? ' ' : EDGE };
+function chipPieces(
+  reference: ComposerReference,
+  icons: ChipIcons,
+): { lead: string; body: string; trail: string; icon: boolean } {
+  const icon = icons[reference.kind];
+  return {
+    lead: EDGE,
+    // The icon keeps a no-break space from the label, so the two never wrap apart.
+    body: icon === undefined ? `${PAD}${chipLabel(reference)}${PAD}` : `${PAD}${icon}\u00a0${chipLabel(reference)}${PAD}`,
+    trail: reference.kind === 'sideChat' ? ' ' : EDGE,
+    icon: icon !== undefined,
+  };
 }
 
+/** The icon character a chip of each kind leads with, as desktop's pill leads with its kind's icon. */
+export type ChipIcons = Readonly<Record<string, string>>;
+
 /** The draft as the field shows it. References that overlap or fall outside the draft are left as text. */
-export function projectDraft(draft: string, references: readonly ComposerReference[]): ChipText {
+export function projectDraft(
+  draft: string,
+  references: readonly ComposerReference[],
+  icons: ChipIcons = {},
+): ChipText {
   const sorted = [...references].sort((a, b) => a.start - b.start);
   let shown = '';
   let cursor = 0;
@@ -67,7 +86,7 @@ export function projectDraft(draft: string, references: readonly ComposerReferen
   for (const reference of sorted) {
     if (reference.start < cursor || reference.end > draft.length || reference.start >= reference.end) continue;
     shown += draft.slice(cursor, reference.start);
-    const { lead, body, trail } = chipPieces(reference);
+    const { lead, body, trail, icon } = chipPieces(reference, icons);
     const start = shown.length;
     shown += lead + body + trail;
     chips.push({
@@ -76,6 +95,7 @@ export function projectDraft(draft: string, references: readonly ComposerReferen
       end: shown.length,
       bodyStart: start + lead.length,
       bodyEnd: start + lead.length + body.length,
+      iconAt: icon ? start + lead.length + PAD.length : null,
     });
     cursor = reference.end;
   }
@@ -153,6 +173,7 @@ export function editShown(text: ChipText, next: string): ShownEdit {
         end: chip.end + shownShift,
         bodyStart: chip.bodyStart + shownShift,
         bodyEnd: chip.bodyEnd + shownShift,
+        iconAt: chip.iconAt === null ? null : chip.iconAt + shownShift,
       });
     }
   }
