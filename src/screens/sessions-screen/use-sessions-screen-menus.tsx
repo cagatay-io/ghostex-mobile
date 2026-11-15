@@ -1908,6 +1908,8 @@ export function useSessionsScreenMenus({
   /** A new terminal session in the project: the header's New Terminal button and the project menu's Create Terminal row. */
   const createProjectTerminal = (ctx: ProjectContext): void => {
     const { header } = ctx;
+    // As an agent launch does: the project's machine and Recent, and a Unified filter that would hide the terminal gains it.
+    if (header.projectId.length > 0) noteNewSessionIn(ctx.machine.id, header.projectId);
     void runCreationFlow(
       ctx.machine,
       createSessionCommand({
