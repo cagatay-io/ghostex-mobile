@@ -139,6 +139,11 @@ export type ContextMenuProps = {
   rowAnchor?: MenuAnchor;
   /** With `rowAnchor`: the row drawn again above the dimmed screen at its place; a tap on it runs `onPress`. */
   lifted?: { content: ReactNode; accessibilityLabel: string; onPress: () => void };
+  /**
+   * Drawn in the window of the sheet that shows it (a step of that sheet) instead of a window of its own, so no
+   * window opens while the sheet's closes (the New Coordinator form's agent step). `onDismissed` never fires then.
+   */
+  inline?: boolean;
 };
 
 /** Comfortable reading width; the card shrinks on narrow screens. */
@@ -209,6 +214,7 @@ export default function ContextMenu({
   maxHeight: cap,
   rowAnchor: liveRowAnchor,
   lifted,
+  inline = false,
 }: ContextMenuProps) {
   const appearance = useAppearance();
   const styles = useMemo(() => createStyles(appearance), [appearance]);
@@ -306,163 +312,167 @@ export default function ContextMenu({
   // The Modal stays mounted while `visible` is false (it renders nothing then,
   // exactly like the old early return) so `onDismiss` can still fire after a
   // close instead of being unmounted out from under the dismissal.
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} onDismiss={onDismissed}>
-      {/* A plain View keeps the menu's commands separate for VoiceOver. */}
-      <View style={[styles.backdrop, !placed ? foldPlacement.style : null]} onAccessibilityEscape={onClose}>
-        {/* The dimmed screen behind the card closes the menu; presses on the card never reach it. */}
+  /* A plain View keeps the menu's commands separate for VoiceOver. */
+  const content = (
+    <View style={[styles.backdrop, !placed ? foldPlacement.style : null]} onAccessibilityEscape={onClose}>
+      {/* The dimmed screen behind the card closes the menu; presses on the card never reach it. */}
+      <Pressable
+        style={StyleSheet.absoluteFill}
+        accessibilityRole="button"
+        accessibilityLabel={ContextMenuCopy.close}
+        onPress={onClose}
+      />
+      {lift !== undefined && rowAnchor !== undefined && lifted !== undefined ? (
         <Pressable
-          style={StyleSheet.absoluteFill}
           accessibilityRole="button"
-          accessibilityLabel={ContextMenuCopy.close}
-          onPress={onClose}
-        />
-        {lift !== undefined && rowAnchor !== undefined && lifted !== undefined ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={lifted.accessibilityLabel}
-            onPress={lifted.onPress}
-            style={[styles.lifted, { left: lift.x, top: lift.y, width: lift.width, height: lift.height }]}
-          >
-            {/* The row's content stays where it was; only its card is inset. */}
-            <View style={[styles.liftedContent, { marginLeft: rowAnchor.x - lift.x, width: rowAnchor.width }]}>
-              {lifted.content}
-            </View>
-          </Pressable>
-        ) : null}
-        <View
-          style={[styles.menu, { width: menuWidth, maxHeight }, placedStyle]}
-          onLayout={onCardLayout === null ? foldPlacement.onCardLayout : (event) => onCardLayout(event.nativeEvent.layout.height)}
+          accessibilityLabel={lifted.accessibilityLabel}
+          onPress={lifted.onPress}
+          style={[styles.lifted, { left: lift.x, top: lift.y, width: lift.width, height: lift.height }]}
         >
-          <View style={styles.header}>
-            <Text style={styles.headerTitle} numberOfLines={2}>
-              {title}
-            </Text>
-            {subtitle !== undefined && subtitle.length > 0 ? (
-              <Text style={styles.headerSubtitle} numberOfLines={1}>
-                {subtitle}
-              </Text>
-            ) : null}
+          {/* The row's content stays where it was; only its card is inset. */}
+          <View style={[styles.liftedContent, { marginLeft: rowAnchor.x - lift.x, width: rowAnchor.width }]}>
+            {lifted.content}
           </View>
-          <ScrollView style={styles.menuScroll} contentContainerStyle={styles.menuContent} bounces={false}>
-            {items.map((item) => {
-              if (item.kind === 'separator') return <View key={item.key} style={styles.separator} />;
-              if (item.kind === 'label') {
-                return (
-                  <Text key={item.key} style={styles.sectionLabel} numberOfLines={1}>
-                    {item.label}
-                  </Text>
-                );
-              }
-              if (item.kind === 'note') {
-                return (
-                  <Text key={item.key} style={styles.note} numberOfLines={4} selectable>
-                    {item.label}
-                  </Text>
-                );
-              }
-              if (item.kind === 'heading') {
-                return (
-                  <Text key={item.key} style={styles.heading} numberOfLines={1}>
-                    {item.label}
-                  </Text>
-                );
-              }
-              if (item.kind === 'custom') return <Fragment key={item.key}>{item.render()}</Fragment>;
-              const infoOpen = item.info !== undefined && openInfo === item.key;
-              const command = (
-                <Pressable
-                  accessibilityHint={item.hint ?? item.trailingIconLabel}
-                  accessibilityRole={COMMAND_ROLE}
-                  accessibilityState={{
-                    disabled: item.disabled === true,
-                    selected: item.selected === true,
-                  }}
-                  disabled={item.disabled === true}
-                  style={({ pressed }) => [
-                    styles.item,
-                    item.info !== undefined ? styles.itemBesideInfo : null,
-                    pressed || item.selected === true ? styles.itemActive : null,
-                    item.disabled === true ? styles.itemDisabled : null,
-                  ]}
-                  onPress={item.onPress}
-                >
-                  {item.swatch !== undefined ? (
-                    <View
-                      style={[
-                        styles.itemSwatch,
-                        item.swatch === 'transparent' ? styles.itemSwatchTransparent : { backgroundColor: item.swatch },
-                      ]}
-                    />
-                  ) : item.icon !== undefined ? (
-                    <View style={styles.itemIcon}>{item.icon}</View>
-                  ) : null}
-                  <Text
+        </Pressable>
+      ) : null}
+      <View
+        style={[styles.menu, { width: menuWidth, maxHeight }, placedStyle]}
+        onLayout={onCardLayout === null ? foldPlacement.onCardLayout : (event) => onCardLayout(event.nativeEvent.layout.height)}
+      >
+        <View style={styles.header}>
+          <Text style={styles.headerTitle} numberOfLines={2}>
+            {title}
+          </Text>
+          {subtitle !== undefined && subtitle.length > 0 ? (
+            <Text style={styles.headerSubtitle} numberOfLines={1}>
+              {subtitle}
+            </Text>
+          ) : null}
+        </View>
+        <ScrollView style={styles.menuScroll} contentContainerStyle={styles.menuContent} bounces={false}>
+          {items.map((item) => {
+            if (item.kind === 'separator') return <View key={item.key} style={styles.separator} />;
+            if (item.kind === 'label') {
+              return (
+                <Text key={item.key} style={styles.sectionLabel} numberOfLines={1}>
+                  {item.label}
+                </Text>
+              );
+            }
+            if (item.kind === 'note') {
+              return (
+                <Text key={item.key} style={styles.note} numberOfLines={4} selectable>
+                  {item.label}
+                </Text>
+              );
+            }
+            if (item.kind === 'heading') {
+              return (
+                <Text key={item.key} style={styles.heading} numberOfLines={1}>
+                  {item.label}
+                </Text>
+              );
+            }
+            if (item.kind === 'custom') return <Fragment key={item.key}>{item.render()}</Fragment>;
+            const infoOpen = item.info !== undefined && openInfo === item.key;
+            const command = (
+              <Pressable
+                accessibilityHint={item.hint ?? item.trailingIconLabel}
+                accessibilityRole={COMMAND_ROLE}
+                accessibilityState={{
+                  disabled: item.disabled === true,
+                  selected: item.selected === true,
+                }}
+                disabled={item.disabled === true}
+                style={({ pressed }) => [
+                  styles.item,
+                  item.info !== undefined ? styles.itemBesideInfo : null,
+                  pressed || item.selected === true ? styles.itemActive : null,
+                  item.disabled === true ? styles.itemDisabled : null,
+                ]}
+                onPress={item.onPress}
+              >
+                {item.swatch !== undefined ? (
+                  <View
                     style={[
-                      styles.itemLabel,
-                      item.selected === true && item.selectedPresentation === 'emphasis'
-                        ? styles.itemLabelSelected
-                        : null,
-                      item.destructive === true ? styles.itemLabelDanger : null,
+                      styles.itemSwatch,
+                      item.swatch === 'transparent' ? styles.itemSwatchTransparent : { backgroundColor: item.swatch },
                     ]}
-                  >
-                    {item.label}
+                  />
+                ) : item.icon !== undefined ? (
+                  <View style={styles.itemIcon}>{item.icon}</View>
+                ) : null}
+                <Text
+                  style={[
+                    styles.itemLabel,
+                    item.selected === true && item.selectedPresentation === 'emphasis'
+                      ? styles.itemLabelSelected
+                      : null,
+                    item.destructive === true ? styles.itemLabelDanger : null,
+                  ]}
+                >
+                  {item.label}
+                </Text>
+                {item.suffix !== undefined ? (
+                  <Text style={styles.itemSuffix} numberOfLines={1}>
+                    {item.suffix}
                   </Text>
-                  {item.suffix !== undefined ? (
-                    <Text style={styles.itemSuffix} numberOfLines={1}>
-                      {item.suffix}
-                    </Text>
-                  ) : null}
-                  {item.trailingIcon !== undefined ? (
-                    <View style={styles.itemTrailingIcon}>{item.trailingIcon}</View>
-                  ) : null}
-                  {item.secondary !== undefined ? (
+                ) : null}
+                {item.trailingIcon !== undefined ? (
+                  <View style={styles.itemTrailingIcon}>{item.trailingIcon}</View>
+                ) : null}
+                {item.secondary !== undefined ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={item.secondary.label}
+                    hitSlop={10}
+                    style={({ pressed }) => [styles.itemSecondary, pressed ? styles.itemActive : null]}
+                    onPress={item.secondary.onPress}
+                  >
+                    {item.secondary.icon}
+                  </Pressable>
+                ) : null}
+                {item.selected === true && item.selectedPresentation !== 'emphasis' ? (
+                  <View style={styles.itemCheck}>
+                    <CheckGlyph color={appearance.foreground} />
+                  </View>
+                ) : item.submenu === true ? (
+                  <Text style={styles.itemChevron}>›</Text>
+                ) : null}
+              </Pressable>
+            );
+            return (
+              <Fragment key={item.key}>
+                {item.info === undefined ? (
+                  command
+                ) : (
+                  // The (i) stands beside the command, not inside it: inside, iOS reads both as one element with
+                  // the command's action only, and the explanation cannot be reached.
+                  <View style={styles.itemRow}>
+                    {command}
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel={item.secondary.label}
-                      hitSlop={10}
-                      style={({ pressed }) => [styles.itemSecondary, pressed ? styles.itemActive : null]}
-                      onPress={item.secondary.onPress}
+                      accessibilityLabel={`About ${item.label}`}
+                      accessibilityState={{ expanded: infoOpen }}
+                      style={styles.itemInfo}
+                      onPress={() => setOpenInfo(infoOpen ? null : item.key)}
                     >
-                      {item.secondary.icon}
+                      <InfoGlyph size={15} color={infoOpen ? appearance.foreground : appearance.muted} />
                     </Pressable>
-                  ) : null}
-                  {item.selected === true && item.selectedPresentation !== 'emphasis' ? (
-                    <View style={styles.itemCheck}>
-                      <CheckGlyph color={appearance.foreground} />
-                    </View>
-                  ) : item.submenu === true ? (
-                    <Text style={styles.itemChevron}>›</Text>
-                  ) : null}
-                </Pressable>
-              );
-              return (
-                <Fragment key={item.key}>
-                  {item.info === undefined ? (
-                    command
-                  ) : (
-                    // The (i) stands beside the command, not inside it: inside, iOS reads both as one element with
-                    // the command's action only, and the explanation cannot be reached.
-                    <View style={styles.itemRow}>
-                      {command}
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={`About ${item.label}`}
-                        accessibilityState={{ expanded: infoOpen }}
-                        style={styles.itemInfo}
-                        onPress={() => setOpenInfo(infoOpen ? null : item.key)}
-                      >
-                        <InfoGlyph size={15} color={infoOpen ? appearance.foreground : appearance.muted} />
-                      </Pressable>
-                    </View>
-                  )}
-                  {infoOpen ? <Text style={styles.itemInfoText}>{item.info}</Text> : null}
-                </Fragment>
-              );
-            })}
-          </ScrollView>
-        </View>
+                  </View>
+                )}
+                {infoOpen ? <Text style={styles.itemInfoText}>{item.info}</Text> : null}
+              </Fragment>
+            );
+          })}
+        </ScrollView>
       </View>
+    </View>
+  );
+  if (inline) return visible ? content : null;
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} onDismiss={onDismissed}>
+      {content}
     </Modal>
   );
 }

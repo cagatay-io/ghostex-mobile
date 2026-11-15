@@ -1,8 +1,8 @@
 /**
  * The phone's New Coordinator form, opened from a project's agent menu: name the coordinator, pick
  * its folder when the project is cloned twice, and see the locked line its first message starts
- * with. Next opens the agent menu as "Pick the coordinator's agent", and the pick creates it
- * (use-sessions-screen-menus.tsx `coordinatorAgentMenuItems`).
+ * with. Next turns the form into the agent menu "Pick the coordinator's agent" in this same window,
+ * and the pick creates it (use-sessions-screen-menus.tsx `coordinatorAgentMenuItems`, `createCoordinatorOn`).
  *
  * The desktop's dialog is apps/desktop/src/app/window/new_coordinator_modal.rs; the copy matches
  * it. The coordinator is created by `ghostex coordinator create`, so its start model and effort
@@ -21,12 +21,14 @@
  * User (Q2980 "Build it: auto-send + remind on drift"): the form drops its Agent, Model and Effort fields; Next opens the normal agent picker titled "Pick the coordinator's agent", where any agent may be picked, and the pick starts the coordinator and sends its first message. Agents whose start model may make a weaker coordinator carry the warning on their row.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppearance, type Appearance } from '../../theme/useAppearance';
 
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import type { ProjectCopy } from '../../contract/grouping';
+import ContextMenu, { type ContextMenuItem } from '../../components/sessions/ContextMenu';
+import type { GhostexAgentLauncher } from '../../contract/mobileSummary';
 import { useFoldCardPlacement } from '../../components/common/foldAvoidance';
 import KeyboardAvoidingContainer from '../../components/common/keyboard/KeyboardAvoidingContainer';
 import { LockGlyph } from '../../components/onboarding/SetupIcons';
@@ -89,7 +91,15 @@ export type NewCoordinatorSheetProps = {
   copies?: ProjectCopy[];
   /** The folder the Folder row starts on: one of `copies`. */
   defaultProjectId?: string;
-  onNext: (pick: NewCoordinatorPick) => void;
+  /** Next: starts reading the agent step's warnings; returns that step's token. */
+  onNext: () => number;
+  /** The agent step's rows for that token; a pick calls `onPick`, and `busy` disables them while one is created. */
+  agentItems: (token: number, onPick: (agent: GhostexAgentLauncher) => void, busy: boolean) => ContextMenuItem[];
+  /**
+   * Creates the coordinator on the picked agent while this window stays open; resolves to the refusal's sentence,
+   * or null once it is created (the window closes) or it went on elsewhere. `stillOpen` says this step still asks.
+   */
+  onCreate: (pick: NewCoordinatorPick, agent: GhostexAgentLauncher, stillOpen: () => boolean) => Promise<string | null>;
   onCancel: () => void;
 };
 
@@ -98,6 +108,8 @@ export default function NewCoordinatorSheet({
   copies,
   defaultProjectId,
   onNext,
+  agentItems,
+  onCreate,
   onCancel,
 }: NewCoordinatorSheetProps) {
   const appearance = useAppearance();
@@ -108,9 +120,62 @@ export default function NewCoordinatorSheet({
     () => folders?.find((copy) => copy.projectId === defaultProjectId)?.projectId ?? folders?.[0]?.projectId ?? '',
   );
 
-  const next = (): void => onNext({ title: name.trim(), ...(folders !== null ? { projectId: folder } : {}) });
+  const pick: NewCoordinatorPick = { title: name.trim(), ...(folders !== null ? { projectId: folder } : {}) };
+  // The agent step (Next), drawn in this window: its token, the agent being created and the last refusal.
+  const [step, setStep] = useState<{ token: number } | null>(null);
+  const [creating, setCreating] = useState<string | null>(null);
+  const [refusal, setRefusal] = useState<string | null>(null);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  const next = (): void => {
+    setRefusal(null);
+    setStep({ token: onNext() });
+  };
+  const create = (agent: GhostexAgentLauncher): void => {
+    if (creating !== null) return;
+    const agentName = agent.name !== undefined && agent.name.length > 0 ? agent.name : agent.agentId;
+    setRefusal(null);
+    setCreating(agentName);
+    void onCreate(pick, agent, () => mounted.current).then(
+      (reason) => {
+        if (!mounted.current) return;
+        setCreating(null);
+        setRefusal(reason);
+      },
+      (error: unknown) => {
+        if (!mounted.current) return;
+        setCreating(null);
+        setRefusal(error instanceof Error ? error.message : String(error));
+      },
+    );
+  };
 
   const placement = useFoldCardPlacement({ avoidsKeyboard: true, belowSafeAreaTop: true });
+  if (step !== null) {
+    const status: ContextMenuItem[] =
+      creating !== null
+        ? [{ kind: 'note', key: 'coordinator-creating', label: `Starting the coordinator on ${creating}…` }]
+        : refusal !== null
+          ? [{ kind: 'note', key: 'coordinator-refusal', label: `Coordinator not created. ${refusal}` }]
+          : [];
+    return (
+      <Modal visible transparent animationType="fade" onRequestClose={onCancel}>
+        <ContextMenu
+          inline
+          visible
+          title="Pick the coordinator's agent"
+          subtitle={projectTitle}
+          items={[...status, ...agentItems(step.token, create, creating !== null)]}
+          onClose={onCancel}
+        />
+      </Modal>
+    );
+  }
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onCancel}>
       <KeyboardAvoidingContainer safeAreaTop style={styles.keyboardFill}>
