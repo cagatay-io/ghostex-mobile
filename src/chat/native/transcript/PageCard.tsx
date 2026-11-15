@@ -77,8 +77,13 @@ function PageCardBody({
   const withdrawnEntry = !answered && pageId.length > 0 ? flags.withdrawnPages[pageId] : undefined;
   // One the reader removed without answering says Canceled in the same place (gx-chat-core `questions/later.rs`).
   const canceled = !answered && flags.canceledQuestions.has(pageId);
+  // A page that waited only to be looked at and was cleared from the dock (Mark all seen, Dismiss)
+  // reads Seen (gx-chat-core `questions/later.rs` `mark_seen`, desktop `page_card.rs`).
+  const seenOnly = answer?.awaitsSeen === true && !Array.isArray(answer?.questions);
   const withdrawn = canceled
-    ? { label: 'Canceled', hint: 'Canceled, no answer needed' }
+    ? seenOnly
+      ? { label: 'Seen', hint: 'Seen, no answer needed' }
+      : { label: 'Canceled', hint: 'Canceled, no answer needed' }
     : withdrawnEntry === undefined
       ? null
       : withdrawnEntry.tags.length >= withdrawnEntry.total

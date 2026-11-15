@@ -343,6 +343,7 @@ export function WorkDock({
   const limit = typeof dock?.phoneLimit === 'number' ? dock.phoneLimit : 3;
   const hidden = Math.max(0, rows.length - limit);
   const shown = all && hidden > 0 ? rows : rows.slice(0, limit);
+  const markAllSeen = obj(dock?.markAllSeen);
   // A tap on a row shows its ask in a sheet over the chat (desktop `dock_ask_modal`): the dock's
   // rows never open in place. The sheet goes when the row does (answered, dismissed, snoozed).
   //
@@ -393,17 +394,32 @@ export function WorkDock({
                     </QuestionFlashFrame>
                   </View>
                 ))}
-                {hidden > 0 ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityState={{ expanded: all }}
-                    hitSlop={8}
-                    onPress={() => setAll((was) => !was)}
-                  >
-                    <Text style={styles.dockMore}>
-                      {all ? 'Show fewer' : hidden === 1 ? '1 more needs you' : `${hidden} more need you`}
-                    </Text>
-                  </Pressable>
+                {hidden > 0 || markAllSeen !== null ? (
+                  <View style={styles.dockFoot}>
+                    {hidden > 0 ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityState={{ expanded: all }}
+                        hitSlop={8}
+                        onPress={() => setAll((was) => !was)}
+                      >
+                        <Text style={styles.dockMore}>
+                          {all ? 'Show fewer' : hidden === 1 ? '1 more needs you' : `${hidden} more need you`}
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                    {/* Mark all seen (gx-chat-core `dock_with`), in the more line's quiet words, at its right. */}
+                    {markAllSeen !== null ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        hitSlop={8}
+                        style={styles.dockMarkSeen}
+                        onPress={() => dispatch(markAllSeen.command as never)}
+                      >
+                        <Text style={styles.dockMarkSeenText}>{str(markAllSeen, 'label') || 'Mark all seen'}</Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
                 ) : null}
               </ScrollView>
             )}
@@ -1473,6 +1489,9 @@ const useStyles = themedStyles((P) => ({
   itemDot: { flexShrink: 0, fontSize: PROSE_SIZE, color: P.muted, opacity: 0.6 },
   itemWords: { flexShrink: 0, fontSize: PROSE_SIZE, lineHeight: 20, color: P.cardMuted },
   dockMore: { paddingLeft: 31, paddingRight: 8, paddingTop: 2, paddingBottom: 6, fontSize: PROSE_SIZE, color: P.muted },
+  dockFoot: { flexDirection: 'row', alignItems: 'flex-start' },
+  dockMarkSeen: { marginLeft: 'auto', flexShrink: 0 },
+  dockMarkSeenText: { paddingLeft: 8, paddingRight: 8, paddingTop: 2, paddingBottom: 6, fontSize: PROSE_SIZE, color: P.muted },
   dismiss: { width: 20, height: PROSE_LINE, alignItems: 'center', justifyContent: 'center' },
   dockFold: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
   dockLineText: { flex: 1, minWidth: 0, fontSize: PROSE_SIZE, color: P.cardMuted },
