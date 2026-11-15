@@ -16,8 +16,8 @@
  * input tone.
  */
 
-import type { ReactNode } from 'react';
-import { StyleSheet, Text, View, type TextStyle, type ViewStyle } from 'react-native';
+import { useRef, useState, type ReactNode } from 'react';
+import { StyleSheet, Text, View, type LayoutChangeEvent, type TextStyle, type ViewStyle } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { Glyph, type GlyphName } from './icons';
@@ -30,6 +30,8 @@ export const SINGLE_LINE_CARD = {
   titleSize: 13.5,
   titleLineHeight: 18,
   titleWeight: '500' as TextStyle['fontWeight'],
+  /** The least the name in a title keeps before the time, then the name's marks, step aside. */
+  nameMin: 40,
   borderAlpha: 0.06,
   pill: { paddingX: 8, paddingY: 2, gap: 5, textSize: 11.5, lineHeight: 16, iconSize: 12, borderAlpha: 0.1 },
   tile: {
@@ -52,6 +54,87 @@ export const SINGLE_LINE_CARD = {
     askInk: '#161616',
   },
 };
+
+/** The gap between a one-line card's row parts: its tile, title, time and pills. */
+export const TITLE_ROW_GAP = 10;
+
+/** What a one-line card's title keeps on its row (`singleLineTitleFit`). */
+export type TitleFit = { showTime: boolean; showMarks: boolean };
+
+/**
+ * What a title that names something (a "Message from" card's session, a work item card's item)
+ * keeps on a tight row. `room` is the title's width with the time stepped aside (null before it is
+ * laid out, when everything shows and the title clips); `lead` is the words before the name with
+ * their gap, `time` the time's own width (0 with none), `marks` the name's logo, state dot and
+ * computer icon with their gaps. Desktop `SingleLineCard::title_fit` (cards.rs).
+ *
+ * CDXC:SessionChat 2026-11-15 DECISION: User, picking Q3300 A on the event cards page
+ * (~/.local/share/agent-work/Ghostex/chat-event-cards/event-cards.html), of "Message from" cards
+ * whose session name shrank to nothing while its agent logo, Arch logo and status dot painted over
+ * "7:27 PM": cut the name, never collapse it. The name keeps at least `nameMin` and ends in "…";
+ * when the row is too tight the time steps aside first (the opened message still has it), then the
+ * logo, dot and computer icon; the title clips, so nothing paints over the time.
+ */
+export function singleLineTitleFit(room: number | null, lead: number, time: number, marks: number): TitleFit {
+  if (room === null) return { showTime: true, showMarks: true };
+  const withTime = room - (time > 0 ? time + TITLE_ROW_GAP : 0) - lead;
+  const showTime = time <= 0 || withTime - marks >= SINGLE_LINE_CARD.nameMin;
+  const nameRoom = showTime ? withTime : room - lead;
+  return { showTime, showMarks: nameRoom - marks >= SINGLE_LINE_CARD.nameMin };
+}
+
+/**
+ * `singleLineTitleFit` from what the card lays out: the title's width (`onTitleLayout`), the words
+ * before the name (`onLeadLayout`, `leadGap` after them) and the time (`onTimeLayout`). A new width
+ * lays the card out once more.
+ */
+export function useSingleLineTitleFit({
+  hasTime,
+  marks,
+  leadGap,
+}: {
+  hasTime: boolean;
+  marks: number;
+  leadGap: number;
+}): TitleFit & {
+  onTitleLayout: (event: LayoutChangeEvent) => void;
+  onLeadLayout: (event: LayoutChangeEvent) => void;
+  onTimeLayout: (event: LayoutChangeEvent) => void;
+} {
+  const [title, setTitle] = useState<{ width: number; withTime: boolean } | null>(null);
+  const [lead, setLead] = useState(0);
+  const [time, setTime] = useState(0);
+  const timeWidth = hasTime ? time : 0;
+  const room =
+    title === null || (hasTime && time === 0)
+      ? null
+      : title.width + (title.withTime && timeWidth > 0 ? timeWidth + TITLE_ROW_GAP : 0);
+  const fit = singleLineTitleFit(room, lead > 0 ? lead + leadGap : 0, timeWidth, marks);
+  const showTime = hasTime && fit.showTime;
+  // Whether the time showed when the title was laid out, so its width reads with the time aside.
+  const shownTime = useRef(showTime);
+  shownTime.current = showTime;
+  const settle = (was: number, width: number) => (Math.abs(was - width) < 0.5 ? was : width);
+  return {
+    showTime,
+    showMarks: fit.showMarks,
+    onTitleLayout: (event) => {
+      const width = event.nativeEvent.layout.width;
+      const withTime = shownTime.current;
+      setTitle((was) =>
+        was !== null && was.withTime === withTime && Math.abs(was.width - width) < 0.5 ? was : { width, withTime },
+      );
+    },
+    onLeadLayout: (event) => {
+      const width = event.nativeEvent.layout.width;
+      setLead((was) => settle(was, width));
+    },
+    onTimeLayout: (event) => {
+      const width = event.nativeEvent.layout.width;
+      setTime((was) => settle(was, width));
+    },
+  };
+}
 
 /** The fold's border width, which the header inside a shell leaves room for. */
 const BORDER = StyleSheet.hairlineWidth;

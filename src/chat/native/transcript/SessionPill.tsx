@@ -28,6 +28,7 @@
  * with the link's own text.
  */
 
+import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View, type StyleProp, type TextStyle } from 'react-native';
 
 import { ComputerIconGlyph } from '../../../components/sessions/ComputerIconGlyph';
@@ -42,6 +43,10 @@ import { MentionStateDot } from './MentionCard';
 import { useComputerIconDrawing, useMentionedSession, type MentionTarget } from './mentionedSession';
 import { openTranscriptMenu } from './transcriptMenuStore';
 
+/** The gap between a name and its marks (`styles.pill`), and the state dot's size (`MentionStateDot`). */
+const MARK_GAP = 4;
+const MENTION_DOT = 6;
+
 /** How far the side chat bar's name's pressed fill reaches past it (desktop `CARD_PILL_PAD`). */
 const CARD_PILL_PAD = 3;
 
@@ -51,6 +56,8 @@ export function SessionPill({
   onLongPress,
   textStyle,
   plain = false,
+  showMarks = true,
+  onMarksWidth,
 }: {
   /** The card's `pill`, or a `session` reference: `label`, `agentIcon`, `coordinator`, `missing`, `logo`. */
   pill: JsonRecord;
@@ -64,6 +71,13 @@ export function SessionPill({
    * fill only while pressed, a faint dotted underline when it opens its session.
    */
   plain?: boolean;
+  /**
+   * False leaves out the logo, state dot and computer icon, which a tight card row drops before
+   * the name gets shorter than a few letters (`singleLineTitleFit`, singleLineCard.tsx).
+   */
+  showMarks?: boolean;
+  /** How wide the logo, state dot and computer icon are with their gaps, while they would show. */
+  onMarksWidth?: (width: number) => void;
 }) {
   const { theme, dispatch } = useTranscriptEnv();
   const { boardItemTitles } = useTranscriptFlags();
@@ -111,6 +125,16 @@ export function SessionPill({
   const nameColor = StyleSheet.flatten(textStyle)?.color;
   const ink = typeof nameColor === 'string' ? nameColor : theme.foreground;
   const opens = !missing && open !== undefined;
+  // Only a session that works or needs you shows its state; idle and sleeping show none.
+  const running = live !== null && (live.state === 'Working' || live.state === 'Needs you');
+  const computer = live !== null && live.computer.length > 0;
+  const marksWidth =
+    plain || board
+      ? 0
+      : (showsLogo ? 12 + MARK_GAP : 0) + (running ? MENTION_DOT + MARK_GAP : 0) + (computer ? 11 + MARK_GAP : 0);
+  useEffect(() => {
+    onMarksWidth?.(marksWidth);
+  }, [marksWidth, onMarksWidth]);
   if (plain) {
     return (
       <Pressable
@@ -142,8 +166,6 @@ export function SessionPill({
     );
   }
   if (!board) {
-    // Only a session that works or needs you shows its state; idle and sleeping show none.
-    const running = live !== null && (live.state === 'Working' || live.state === 'Needs you');
     return (
       <Pressable
         disabled={!opens}
@@ -158,7 +180,7 @@ export function SessionPill({
       >
         {({ pressed }) => (
           <>
-            {showsLogo ? (
+            {showsLogo && showMarks ? (
               <View style={missing ? styles.faded : null}>
                 {pill.coordinator === true ? (
                   <CoordinatorGlyph size={12} color={theme.light ? '#000000' : SidebarPalette.ROW_COORDINATOR_CROWN} />
@@ -178,8 +200,8 @@ export function SessionPill({
             >
               {label}
             </Text>
-            {running && live !== null ? <MentionStateDot state={live.state} theme={theme} /> : null}
-            {live !== null && live.computer.length > 0 ? (
+            {showMarks && running && live !== null ? <MentionStateDot state={live.state} theme={theme} /> : null}
+            {showMarks && computer ? (
               <ComputerIconGlyph drawing={computerDrawing} size={11} color={theme.muted} />
             ) : null}
           </>

@@ -11,7 +11,7 @@
  * a message sent to several sessions lists each of them in the opened message, each name opening its session.
  */
 
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { ProjectedMessage } from '../../rust/document';
@@ -34,6 +34,7 @@ import {
   SingleLineTileBox,
   singleLinePressed,
   singleLineShell,
+  useSingleLineTitleFit,
 } from './singleLineCard';
 import { useDisclosure } from './state';
 import type { TranscriptTheme } from './theme';
@@ -125,6 +126,10 @@ const AgentCard = memo(function AgentCard({
     .map((recipient) => obj(recipient))
     .filter((recipient): recipient is JsonRecord => recipient !== null);
   const pill = obj(card.pill);
+  // The session's name is cut, never collapsed: on a tight row the time steps aside, then the
+  // name's marks (`singleLineTitleFit`, the user's Q3300 A).
+  const [marks, setMarks] = useState(0);
+  const fit = useSingleLineTitleFit({ hasTime: time.length > 0, marks: pill !== null ? marks : 0, leadGap: TITLE_GAP });
 
   return (
     <View style={[styles.card, singleLineShell(theme)]}>
@@ -139,19 +144,30 @@ const AgentCard = memo(function AgentCard({
         <Mark card={card} />
         {pill !== null ? (
           // `Message from` / `Message to`, then the other session's pill (`session_mentions.rs`).
-          <View style={[styles.name, styles.pillTitle]}>
-            <Text style={[SINGLE_LINE_TITLE, styles.fixed, { color: theme.foreground }]} numberOfLines={1}>
+          <View style={[styles.name, styles.pillTitle]} onLayout={fit.onTitleLayout}>
+            <Text
+              style={[SINGLE_LINE_TITLE, styles.fixed, { color: theme.foreground }]}
+              numberOfLines={1}
+              onLayout={fit.onLeadLayout}
+            >
               {str(pill, 'prefix')}
             </Text>
-            <SessionPill pill={pill} textStyle={[SINGLE_LINE_TITLE, { color: theme.foreground }]} />
+            <View style={styles.pillName}>
+              <SessionPill
+                pill={pill}
+                textStyle={[SINGLE_LINE_TITLE, { color: theme.foreground }]}
+                showMarks={fit.showMarks}
+                onMarksWidth={setMarks}
+              />
+            </View>
           </View>
         ) : (
           <Text style={[SINGLE_LINE_TITLE, styles.name, { color: theme.foreground }]} numberOfLines={1}>
             {str(card, 'name')}
           </Text>
         )}
-        {time.length > 0 ? (
-          <Text style={[styles.small, styles.fixed, { color: theme.muted }]} numberOfLines={1}>
+        {fit.showTime ? (
+          <Text style={[styles.small, styles.fixed, { color: theme.muted }]} numberOfLines={1} onLayout={fit.onTimeLayout}>
             {time}
           </Text>
         ) : null}
@@ -315,6 +331,9 @@ export function SentAgentMessageCards({ cards, aboveIsCard = false, columnGap = 
   );
 }
 
+/** The space between `Message from` and the session's name. */
+const TITLE_GAP = 6;
+
 const styles = StyleSheet.create({
   /** A report row with its relayed approval card under it. */
   relayed: {
@@ -335,8 +354,11 @@ const styles = StyleSheet.create({
    * session's name shortens, with an ellipsis (`SessionPill`'s label).
    */
   fixed: { flexShrink: 0 },
-  // `Message to`, then the session's framed pill (`SessionPill`), a little apart.
-  pillTitle: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  // `Message to` / `Message from`, then the session's name (`SessionPill`), a little apart; the
+  // title clips, so a name's marks never paint over the time beside it.
+  pillTitle: { flexDirection: 'row', alignItems: 'center', gap: TITLE_GAP, overflow: 'hidden' },
+  // The name keeps at least a few letters (`SINGLE_LINE_CARD.nameMin`) and ends in "…".
+  pillName: { flexDirection: 'row', flexShrink: 1, minWidth: SINGLE_LINE_CARD.nameMin },
   small: { fontSize: 12, lineHeight: 16 },
   opened: { borderTopWidth: 1, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10, gap: 6 },
   recipients: { gap: 4, paddingBottom: 4 },

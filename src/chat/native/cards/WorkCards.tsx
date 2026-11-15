@@ -58,6 +58,18 @@ import { FoldChevron } from '../transcript/foldChevron';
 import { animateNextFold } from '../transcript/foldMotion';
 import { useTranscriptBottomStore } from '../transcript/bottomStore';
 import { WorkingLine } from './WorkingCard';
+import {
+  SINGLE_LINE_CARD,
+  SINGLE_LINE_HEADER_HEIGHT,
+  SINGLE_LINE_TITLE,
+  SingleLineBadge,
+  SingleLinePill,
+  SingleLineTileBox,
+  TITLE_ROW_GAP,
+  singleLinePressed,
+  singleLineShell,
+  useSingleLineTitleFit,
+} from '../transcript/singleLineCard';
 
 type Dispatch = RustChat['dispatch'];
 
@@ -147,6 +159,8 @@ export function WorkCardStack({ cards, dispatch, gap }: { cards: JsonRecord[]; d
         <QuestionFlashFrame key={str(card, 'key')} target={str(card, 'key')} light={P.light}>
           {str(card, 'kind') === 'moving' ? (
             <WorkMovingRow card={card} dispatch={dispatch} />
+          ) : typeof card.lead === 'string' ? (
+            <WorkTurnCard card={card} dispatch={dispatch} />
           ) : isTrue(card, 'folded') ? (
             <WorkFoldLine card={card} dispatch={dispatch} />
           ) : (
@@ -1227,6 +1241,106 @@ function WhoMark({ who }: { who: JsonRecord | null }) {
   if (kind === 'coordinator') return <Glyph name="coordinator-crown-points" size={14} color={P.muted} />;
   return <Glyph name="clock" size={14} color={P.muted} />;
 }
+
+/** The space between a work item card's lead-in and the item's title. */
+const TURN_TITLE_GAP = 6;
+
+/**
+ * What a coordinator's turn did to one of its work items, as the chat's other one-line cards look
+ * (the "Message from" card's shape, `singleLineCard.tsx`): the work items icon in the tile with the
+ * item's state mark as its badge, "Work item added" then the item's title set apart and the line
+ * that changed, the time, and the state it is in as a pill. A tap opens the item in the Work sheet
+ * (`jumpToWorkCard`). Port of desktop `work_turn_card` (native_chat/work_cards.rs).
+ *
+ * CDXC:SessionChat 2026-11-15 DECISION: User, of a phone screenshot where "Work item added: Before
+ * a …" was an outlined line with an orange dot beside filled "Message from" cards: "The work item
+ * added card looks different from the other cards. We need to make them all look the same", then
+ * Q3298 A on the event cards page (~/.local/share/agent-work/Ghostex/chat-event-cards/event-cards.html):
+ * every event card wears the message card's look. The phone drew these with `WorkFoldLine`, the
+ * quiet line meant for an item's earlier card, because the core marks them `folded`; a card with a
+ * `lead` is this card instead, as on the desktop. The item's title is cut, never collapsed: on a
+ * tight row the time steps aside first (`singleLineTitleFit`, Q3300 A).
+ */
+function WorkTurnCard({ card, dispatch }: { card: JsonRecord; dispatch: Dispatch }) {
+  const P = useTranscriptTheme();
+  const status = str(card, 'status') || str(card, 'foldStatus');
+  const color = status === 'dropped' ? P.muted : (STATUS_COLOR[status] ?? P.cardMuted);
+  const lead = str(card, 'lead');
+  const title = str(card, 'title');
+  const detail = str(card, 'detail').replace(/\n/g, ' ');
+  const label = str(card, 'statusLabel');
+  const time = str(card, 'time');
+  const command = obj(card.command);
+  const titled = title.length > 0;
+  const fit = useSingleLineTitleFit({ hasTime: time.length > 0, marks: 0, leadGap: TURN_TITLE_GAP });
+  const showTime = titled ? fit.showTime : time.length > 0;
+  return (
+    <Pressable
+      disabled={command === null}
+      onPress={() => (command !== null ? dispatch(command as never) : undefined)}
+      accessibilityRole={command !== null ? 'button' : undefined}
+      accessibilityLabel={[titled ? `${lead}: ${title}` : lead, detail, label].filter((part) => part.length > 0).join(', ')}
+      style={({ pressed }) => [singleLineShell(P), pressed && command !== null && singleLinePressed(P)]}
+    >
+      <View style={turnStyles.row}>
+        <SingleLineTileBox>
+          <Glyph
+            name="layout-board-split"
+            size={SINGLE_LINE_CARD.tile.glyphSize}
+            color={P.ink(SINGLE_LINE_CARD.tile.glyphAlpha)}
+          />
+          <SingleLineBadge fill="transparent">
+            <StatusMarker status={status} size={SINGLE_LINE_CARD.badge.size} />
+          </SingleLineBadge>
+        </SingleLineTileBox>
+        <View style={turnStyles.title} onLayout={titled ? fit.onTitleLayout : undefined}>
+          {/* The lead-in is quieter than the item's title it names; alone, it is the title. */}
+          <Text
+            numberOfLines={1}
+            onLayout={titled ? fit.onLeadLayout : undefined}
+            style={[SINGLE_LINE_TITLE, turnStyles.lead, { color: titled ? P.cardMuted : P.foreground }]}
+          >
+            {lead}
+          </Text>
+          {titled ? (
+            <Text numberOfLines={1} style={[SINGLE_LINE_TITLE, turnStyles.item, { color: P.foreground }]}>
+              {title}
+            </Text>
+          ) : null}
+          {/* The line that changed gives way first. */}
+          {detail.length > 0 ? (
+            <Text numberOfLines={1} style={[turnStyles.detail, { color: P.muted }]}>
+              {detail}
+            </Text>
+          ) : null}
+        </View>
+        {showTime ? (
+          <Text numberOfLines={1} onLayout={fit.onTimeLayout} style={[turnStyles.time, { color: P.muted }]}>
+            {time}
+          </Text>
+        ) : null}
+        {label.length > 0 ? <SingleLinePill label={label} color={color} /> : null}
+      </View>
+    </Pressable>
+  );
+}
+
+const turnStyles = {
+  row: {
+    height: SINGLE_LINE_HEADER_HEIGHT,
+    paddingHorizontal: SINGLE_LINE_CARD.paddingX,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: TITLE_ROW_GAP,
+  },
+  // The title clips, so nothing in it paints over the time.
+  title: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: TURN_TITLE_GAP, overflow: 'hidden' },
+  lead: { flexShrink: 0 },
+  // The item's title keeps at least a few letters and ends in "…".
+  item: { flexShrink: 1, minWidth: SINGLE_LINE_CARD.nameMin },
+  detail: { flex: 1, minWidth: 0, fontSize: 12.5, lineHeight: 18 },
+  time: { flexShrink: 0, fontSize: 12, lineHeight: 16 },
+} as const;
 
 /** An item's earlier card, or a settled ask: one quiet line, what that turn did, and when. */
 function WorkFoldLine({ card, dispatch }: { card: JsonRecord; dispatch: Dispatch }) {
