@@ -204,8 +204,10 @@ export function NoticeCard({
               width: 18,
               height: 18,
               borderRadius: 4,
-              borderWidth: 1,
-              borderColor: checked ? look.P.controlPrimary : look.P.controlBorder,
+              // An empty box reads as off: a soft grey outline, not the 6% white control border that
+              // barely showed (desktop notice.rs `notice_checkbox`, 2026-11-16).
+              borderWidth: 1.5,
+              borderColor: checked ? look.P.controlPrimary : look.P.muted,
               backgroundColor: checked ? look.P.controlPrimary : 'transparent',
               alignItems: 'center',
               justifyContent: 'center',
