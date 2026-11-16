@@ -44,6 +44,7 @@ import { Glyph } from './icons';
 import { ImageViewerModal, type ImageViewerList } from './ImageViewer';
 import { CardMoreMenu, pageRows, snoozeRow, starRow } from './CardMoreMenu';
 import { keepUnsavedDraft, sendUnsavedDraft } from './pageDrafts';
+import { PAGE_DICTATION_SCRIPT, usePageDictation } from './pageDictation';
 import { PAGE_SCRIPT, PENDING_DRAFT_SCRIPT, pageIdOfPath, readPageMessage } from './pageSheetScript';
 
 /** How long the first back press keeps the sheet armed for a second one to close it. */
@@ -124,6 +125,14 @@ export function PageSheet({ chat, machine, page, starredPages, onClose, onHide, 
   const [changed, setChanged] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const refreshingRef = useRef(false);
+  const [appActive, setAppActive] = useState(() => AppState.currentState === 'active');
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => setAppActive(state === 'active'));
+    return () => subscription.remove();
+  }, []);
+  // The page's text boxes dictate only while the reader sees the page (`pageDictation.ts`).
+  const dictation = usePageDictation(machine, webviewRef, page !== null && uri !== null && appActive && pictures === null);
+  const askDictation = dictation.asked;
   /** Takes the page's answer to {@link PENDING_DRAFT_SCRIPT} while one is awaited. */
   const draftReplyRef = useRef<((draft: Record<string, unknown> | null) => void) | null>(null);
 
@@ -338,9 +347,10 @@ export function PageSheet({ chat, machine, page, starredPages, onClose, onHide, 
       if (message === null) return;
       if (message.type === 'images') setPictures({ images: message.images, index: message.index });
       else if (message.type === 'draft') draftReplyRef.current?.(message.draft);
+      else if (message.type === 'dictate') askDictation(message.action);
       else close();
     },
-    [close],
+    [askDictation, close],
   );
 
   if (page === null) return null;
@@ -426,7 +436,9 @@ export function PageSheet({ chat, machine, page, starredPages, onClose, onHide, 
                 source={{ uri }}
                 originWhitelist={['http://*', 'https://*']}
                 style={styles.webview}
-                injectedJavaScriptBeforeContentLoaded={PAGE_SCRIPT}
+                injectedJavaScriptBeforeContentLoaded={
+                  dictation.available ? `${PAGE_SCRIPT}\n${PAGE_DICTATION_SCRIPT}` : PAGE_SCRIPT
+                }
                 injectedJavaScript={PAGE_SCRIPT}
                 onMessage={received}
                 onShouldStartLoadWithRequest={shouldStartLoad}
