@@ -43,6 +43,7 @@ import { initTerminalEvents, useTerminalStore } from './src/terminal/sessions';
 import { initTabTitleSync } from './src/terminal/tabTitles';
 import { initZmxDisplayPolicy } from './src/terminal/zmxDisplay';
 import { initAppUpdates } from './src/updates/appUpdateStore';
+import { initTestFlightNotice } from './src/updates/testFlightNotice';
 import { initOverTheAirUpdates } from './src/updates/overTheAir';
 import { addProjectSourceLabel } from './src/addProject/sources';
 
@@ -88,6 +89,7 @@ import AccountsScreen from './src/accounts/AccountsScreen';
 import ApprovalsScreen from './src/screens/ApprovalsScreen';
 import SshPairingNotices from './src/components/security/SshPairingNotices';
 import EasyConnectFallbackAsk from './src/components/security/EasyConnectFallbackAsk';
+import TestFlightNotice from './src/components/common/TestFlightNotice';
 import { useWebPreviewStore } from './src/webPreview/store';
 import {
   AddProjectCopy,
@@ -180,6 +182,8 @@ export default function App() {
     initChatGridClaim();
     initPaneLayouts();
     initAppUpdates();
+    // 11.8.0 is the last TestFlight build: a TestFlight install is asked once to switch to the App Store.
+    initTestFlightNotice();
     initOverTheAirUpdates();
     initVoice();
     void checkForCrashReport().catch(() => undefined);
@@ -398,6 +402,8 @@ export default function App() {
         <SshPairingNotices />
         {/* Whether a Tailscale computer falls back to Easy Connect: asked once per computer. */}
         <EasyConnectFallbackAsk />
+        {/* TestFlight installs only: switch to the App Store version (src/updates/testFlightNotice.ts). */}
+        <TestFlightNotice />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

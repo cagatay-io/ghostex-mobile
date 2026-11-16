@@ -1579,6 +1579,14 @@ export const FeedbackCopy = {
   hideCrash: 'Hide Report',
 } as const;
 
+/** The one-time notice on a TestFlight install: 11.8.0 is the last TestFlight build (src/updates/testFlightNotice.ts). */
+export const TestFlightNoticeCopy = {
+  title: 'Switch to the App Store version',
+  body: 'This is the last TestFlight build. New versions of Ghostex come only on the App Store now, so please switch. Install it from the App Store without deleting this app first, and your computers and sessions stay as they are.',
+  open: 'Open the App Store',
+  later: 'Later',
+} as const;
+
 /** The next-launch offer to send the crash report the last run left behind. */
 export const CrashReportCopy = {
   title: 'Ghostex closed unexpectedly',

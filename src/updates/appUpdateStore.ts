@@ -4,7 +4,7 @@
  * arrive over the air (new native code); a release the update server already serves this binary
  * needs no install.
  *
- * Where the newest version is read: the GitHub release (GitHub APK, Google Play, TestFlight) or the
+ * Where the newest version is read: the GitHub release (GitHub APK, Google Play) or the
  * App Store's lookup (App Store, or an iPhone that cannot tell). What taking it does: the GitHub APK
  * downloads and opens the Android installer; every other install opens its store page.
  *
@@ -88,7 +88,8 @@ export function checksForNewApp(source: InstallSource): boolean {
 
 /** The newest app version where this install's next app comes from, with its APK for the GitHub APK. */
 async function newestApp(source: InstallSource): Promise<NewApp | null> {
-  if (source === 'appStore' || source === 'iphone') {
+  // TestFlight's next app is the App Store's: 11.8.0 is the last TestFlight build.
+  if (source === 'appStore' || source === 'iphone' || source === 'testflight') {
     const version = await fetchAppStoreVersion();
     return version === null ? null : { version, apk: null };
   }

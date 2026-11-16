@@ -33,7 +33,8 @@ export const InstallSourceCopy: Record<InstallSource, string> = {
 /** What a newer app's button says, per source. */
 export const StoreButtonCopy: Record<Exclude<InstallSource, 'github' | 'development'>, string> = {
   play: 'Open Google Play',
-  testflight: 'Open TestFlight',
+  // 11.8.0 is the last TestFlight build, so a TestFlight install's next app is on the App Store.
+  testflight: 'Open the App Store',
   appStore: 'Open the App Store',
   iphone: 'Open the App Store',
 };
@@ -77,16 +78,15 @@ export async function openStorePage(source: InstallSource): Promise<void> {
   const [app, web] =
     source === 'play'
       ? [`market://details?id=${PLAY_PACKAGE}`, `https://play.google.com/store/apps/details?id=${PLAY_PACKAGE}`]
-      : source === 'testflight'
-        ? [`itms-beta://beta.itunes.apple.com/v1/app/${APP_STORE_ID}`, `https://beta.itunes.apple.com/v1/app/${APP_STORE_ID}`]
-        : [`itms-apps://apps.apple.com/app/id${APP_STORE_ID}`, `https://apps.apple.com/app/id${APP_STORE_ID}`];
+      : // TestFlight too: 11.8.0 is its last build, and its next app is the App Store's (src/updates/testFlightNotice.ts).
+        [`itms-apps://apps.apple.com/app/id${APP_STORE_ID}`, `https://apps.apple.com/app/id${APP_STORE_ID}`];
   try {
     await Linking.openURL(app);
   } catch {
     try {
       await Linking.openURL(web);
     } catch {
-      throw new Error(`Could not open ${InstallSourceCopy[source]}. Open it yourself to install the new app.`);
+      throw new Error(`Could not open ${source === 'play' ? InstallSourceCopy.play : InstallSourceCopy.appStore}. Open it yourself to install the new app.`);
     }
   }
 }

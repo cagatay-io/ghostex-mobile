@@ -1,7 +1,8 @@
 /**
  * The one update there is to take, for the Sessions screen's Update button and the Settings row: a
  * downloaded over-the-air update (taking it restarts into it), or a newer app (the GitHub APK
- * downloads and opens the installer; Google Play, TestFlight and the App Store open their page).
+ * downloads and opens the installer; Google Play and the App Store open their page; TestFlight, whose
+ * last build is 11.8.0, opens the App Store).
  * A ready update comes first: it is a restart away, and the newer app still shows after it.
  */
 
@@ -38,7 +39,7 @@ export function updateActionLabel(action: UpdateAction): string {
   if (action.downloadPercent !== null) return `Downloading Ghostex ${action.version}, ${action.downloadPercent}%`;
   return action.source === 'github'
     ? `Install Ghostex ${action.version}`
-    : `Ghostex ${action.version} is on ${InstallSourceCopy[action.source]}`;
+    : `Ghostex ${action.version} is on ${InstallSourceCopy[action.source === 'testflight' ? 'appStore' : action.source]}`;
 }
 
 export function useUpdateNotice(): string | null {
