@@ -44,7 +44,7 @@ import {
   workMenuRows,
   type WorkMenuRow,
 } from './workItemParts';
-import { replyDraftRow, replyDraftScopeOf, useReplyDraft, type ReplyDraftScope } from './replyDrafts';
+import { replyDraftScopeOf, type ReplyDraftScope } from './replyDrafts';
 import { remoteWorkerNotice } from './remoteWorker';
 import { AgentMark } from './agentMark';
 import { BoardRelayButtons } from './RelayedApprovalCard';
@@ -320,7 +320,7 @@ function segmentWidth(label: string, marks: number, fontScale: number): number {
 /**
  * A closed card's answers as one segmented pill (desktop `board_answers` and `work_compact_answers`):
  * the recommended one starred, the one given checked, then Reply, which shows the words sent from
- * here or "Draft" while it keeps unsent words (`replyDrafts.ts`). When they do not fit the card's
+ * here. When they do not fit the card's
  * line the answers fold into "Choose an answer", which opens the card with them listed whole
  * (`onChoose`), so none is cut; once one is given only that one shows. `room` is the line's width.
  */
@@ -349,7 +349,6 @@ function ClosedAnswers({
   const styles = useStyles();
   const P = useTranscriptTheme();
   const { fontScale } = useWindowDimensions();
-  const draft = useReplyDraft(scope, reply !== null ? replyDraftRow(reply as never) : null).length > 0;
   const given = answers.some((answer) => isTrue(answer, 'picked'));
   const locked = answers.some((answer) => isTrue(answer, 'locked') || isTrue(answer, 'picked'));
   const replyWords = replied.length > 32 ? `${replied.slice(0, 31).trimEnd()}…` : replied;
@@ -369,7 +368,7 @@ function ClosedAnswers({
   const line = lineWidth > 0 ? lineWidth : room;
   const answerKey = (answer: Record<string, unknown>, index: number) =>
     `answer:${index}:${str(answer, 'label')}:${isTrue(answer, 'picked')}:${isTrue(answer, 'recommended')}`;
-  const replyKey = `reply:${replyWords}:${draft}`;
+  const replyKey = `reply:${replyWords}`;
   const widths = answers.map(
     (answer, index) =>
       measured[answerKey(answer, index)] ??
@@ -385,7 +384,7 @@ function ClosedAnswers({
   const replyWidth =
     reply !== null
       ? (measured[replyKey] ??
-        segmentWidth(replyWords.length > 0 ? replyWords : 'Reply', 15 + (draft ? 40 : 0), fontScale))
+        segmentWidth(replyWords.length > 0 ? replyWords : 'Reply', 15, fontScale))
       : 0;
   const fits = answersWidth + replyWidth + frame <= line;
   /*
@@ -453,7 +452,7 @@ function ClosedAnswers({
   const replySegment = (target: Record<string, unknown>) => (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={draft ? 'Reply, draft kept' : 'Reply'}
+      accessibilityLabel="Reply"
       disabled={(locked && replied.length === 0) || replied.length > 0}
       hitSlop={{ top: 10, bottom: 10 }}
       onPress={() => onReply(target)}
@@ -473,7 +472,6 @@ function ClosedAnswers({
       >
         {replyWords.length > 0 ? replyWords : 'Reply'}
       </Text>
-      {draft && replied.length === 0 ? <Text style={[styles.tagText, { color: P.muted }]}>Draft</Text> : null}
     </Pressable>
   );
   // While it fits, the pill keeps its width and the work's name gives way; a pill wider than the

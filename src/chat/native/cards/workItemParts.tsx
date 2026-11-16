@@ -38,7 +38,7 @@ import { PROSE_SIZE, themedStyles, useTranscriptTheme } from '../transcript/them
 import { openQuestionReply } from '../transcript/QuestionReply';
 import { Markdown } from '../transcript/markdown/Markdown';
 import { messageCommands } from '../transcript/markdown/runCommands';
-import { replyDraftRow, useReplyDraft, type ReplyDraftScope } from './replyDrafts';
+import { replyDraftRow, type ReplyDraftScope } from './replyDrafts';
 
 /** Every button's touch area: 8 above and below a 28-point button make Apple's 44. */
 export const WORK_BUTTON_SLOP = { top: 8, bottom: 8, left: 3, right: 3 };
@@ -170,8 +170,8 @@ function ItemPills({ pills, fit, dispatch }: { pills: JsonRecord[]; fit: PillFit
 }
 
 /** A Reply button's width as `WorkAnswerLine` measures it. */
-function replyWidthOf(replied: string, draft: boolean, fontScale: number): number {
-  return buttonWidth(replyLabel(replied), true, draft, fontScale);
+function replyWidthOf(replied: string, fontScale: number): number {
+  return buttonWidth(replyLabel(replied), true, false, fontScale);
 }
 
 /** A Reply's label: the words it sent, cut short so the button stays a button (desktop `reply_answer`). */
@@ -293,12 +293,6 @@ export function WorkDescription({
       </Sheet>
     </>
   );
-}
-
-/** The quiet word after a Reply that holds words not yet sent (desktop `draft_sign`). */
-function DraftSign() {
-  const styles = useStyles();
-  return <Text style={styles.draft}>Draft</Text>;
 }
 
 /** The recommended answer's star, the question forms' (`askCard.tsx`). */
@@ -491,7 +485,6 @@ export function WorkAnswerLine({
     setLineWidth((was) => (was === next ? was : next));
   }, []);
   const row = reply !== null ? replyDraftRow(reply as never) : null;
-  const draft = useReplyDraft(scope, row).length > 0;
   const given = answers.some((answer) => isTrue(answer, 'picked'));
   const locked = given || answers.some((answer) => isTrue(answer, 'locked'));
   const lineRoom = lineWidth > 0 ? lineWidth : room > 0 ? room : width + room;
@@ -502,8 +495,6 @@ export function WorkAnswerLine({
         keep={replied.length === 0}
         label={replyLabel(replied)}
         icon={replied.length > 0 ? 'check' : 'arrow-back-up'}
-        trailing={draft && replied.length === 0 ? <DraftSign /> : undefined}
-        accessibilityLabel={draft ? 'Reply, draft kept' : undefined}
         disabled={(busy || locked) && replied.length === 0}
         onPress={() => {
           if (replied.length > 0) return;
@@ -518,8 +509,8 @@ export function WorkAnswerLine({
     const alone =
       open != null
         ? buttonWidth('Open', true, false, fontScale) +
-          (replyButton !== null ? 6 + replyWidthOf(replied, draft, fontScale) : 0)
-        : replyWidthOf(replied, draft, fontScale);
+          (replyButton !== null ? 6 + replyWidthOf(replied, fontScale) : 0)
+        : replyWidthOf(replied, fontScale);
     const lead = (
       <>
         {pills.length > 0 || logos != null ? (
@@ -572,13 +563,13 @@ export function WorkAnswerLine({
   };
   const answerKey = (choice: JsonRecord) =>
     `answer:${str(choice, 'label')}:${isTrue(choice, 'picked')}:${isTrue(choice, 'recommended')}`;
-  const replyKey = `reply:${replyLabel(replied)}:${draft}`;
+  const replyKey = `reply:${replyLabel(replied)}`;
   const widths = answers.map(
     (choice) =>
       measured[answerKey(choice)] ??
       buttonWidth(str(choice, 'label'), isTrue(choice, 'picked'), isTrue(choice, 'recommended'), fontScale),
   );
-  const replyAlone = reply !== null ? (measured[replyKey] ?? replyWidthOf(replied, draft, fontScale)) : 0;
+  const replyAlone = reply !== null ? (measured[replyKey] ?? replyWidthOf(replied, fontScale)) : 0;
   const replyWidth = reply !== null ? replyAlone + 6 + (divider ? 13 : 0) : 0;
   const chooseWidth = measured.choose ?? buttonWidth(CHOOSE_ANSWER, true, false, fontScale);
   const answersWidth = widths.reduce((sum, value) => sum + value, 0) + 6 * Math.max(0, widths.length - 1);
@@ -929,7 +920,6 @@ const useStyles = themedStyles((P) => ({
   choiceText: { flexShrink: 1, color: P.foreground, fontSize: PROSE_SIZE + 1, lineHeight: 21 },
   choiceQuestion: { paddingHorizontal: 16, paddingBottom: 8, fontSize: PROSE_SIZE, lineHeight: 20 },
   divider: { width: 1, height: 16, marginHorizontal: 3, backgroundColor: P.ink(0.1) },
-  draft: { fontSize: PROSE_SIZE, color: P.muted },
   menuRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44, paddingHorizontal: 16 },
   menuRowPressed: { backgroundColor: P.neutralFillPressed },
   menuText: { color: P.foreground, fontSize: PROSE_SIZE + 1 },
