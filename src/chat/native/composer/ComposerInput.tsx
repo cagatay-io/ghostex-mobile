@@ -38,7 +38,6 @@ import GhostexImageIntakeView from '../../../../modules/ghostex-native/src/Ghost
 import type { ComposerModelState } from '../../rust/composer';
 import { uploadTokenOfPath, type UploadTokenState } from '../../rust/uploadTokens';
 import type { RustChat } from '../../rust/useRustChat';
-import { dottedUnderline } from '../transcript/LinkWords';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { CHIP_ICON_FAMILY, CHIP_IMAGE_ICON, useChipIconFont } from './chipIconFont';
 import {
@@ -386,9 +385,10 @@ function chipChildren(
     const upload = chipUpload(chip, uploads);
     // CDXC:SessionChat 2026-11-15 DECISION: User: "Also pls make it look like it does on desktop." A reference in the chat box is desktop's pill: its kind's icon (a picture's, `chipIconFont.ts`) and its label in its kind's ink, no tinted box and no heavier weight. Supersedes the tinted run of 2026-11-07; the ink stays the transcript's brighter reference colour the phone's chips took before (theme.ts `reference`). A picture still uploading is the same chip in the muted ink; one whose upload failed is in the error ink until Send uploads it again.
     // CDXC:SessionChat 2026-11-15 DECISION: User, after mentions lost their frame in the chat (CDXC:SessionChat 2026-11-15 on `mention_card` in gx-chat-core): the chat box too, "plain text with the same faint dotted underline ... instead of the framed pill, keeping it one piece for delete and cursor moves". A session's run is the field's own text in the sent name's ink with the faint dotted underline (`dottedUnderline`, Android draws it solid), no fill; the caret still steps over it whole. Supersedes the tinted run of 2026-11-13 (Q3062).
+    // CDXC:SessionChat 2026-11-16 DECISION: the user picked the "Soft chip" (on `mention_card` in gx-chat-core): a session's run is the field's own text in medium weight on a faint fill, no underline and no state dot, its no-break edges keeping it clear of the words beside it; the caret still steps over it whole. A field's run cannot round its corners or draw the logo and computer icon, which the sent chip has (SessionPill.tsx). Supersedes the dotted run of 2026-11-15 below.
     const look =
       chip.reference.kind === 'session'
-        ? [{ color: P.foreground }, dottedUnderline(P.foreground)]
+        ? { color: P.foreground, fontWeight: '500' as const, backgroundColor: P.ink(0.1) }
         : { color: upload === 'failed' ? P.error : upload === 'uploading' ? P.muted : tint };
     const body = text.shown.slice(chip.bodyStart, chip.bodyEnd);
     const icon = chip.iconAt === null ? -1 : chip.iconAt - chip.bodyStart;

@@ -17,9 +17,13 @@
  * card (`MentionCard.tsx`); a session that is gone draws muted, without an underline, and does
  * nothing.
  *
- * CDXC:SessionChat 2026-11-15 SEE-ALSO: the user's "i dont like the pill border around the name of
- * different agents ... only show status when running (red/yellow dots only should show)" is on
- * `mention_card` in gx-chat-core; it supersedes the framed pill and the idle ring of 2026-11-13.
+ * CDXC:SessionChat 2026-11-16 SEE-ALSO: the user's pick of the "Soft chip" (no state dot anywhere,
+ * the computer icon left of the agent's logo, always room beside a mention) is on `mention_card` in
+ * gx-chat-core; it supersedes the dotted-underline name and running dots of 2026-11-15. A session
+ * mentioned in a message (a `href`) is the soft chip: a faint fill, rounded corners, no border, the
+ * computer's icon for a session on another computer, the logo and the title cut past
+ * `CHIP_TITLE_MAX` characters, with `CHIP_MARGIN` clear on each side. A card's name keeps its
+ * dotted underline, without the dot.
  * The side chat bar's parent name (`plain`) keeps the line's own type without the logo or marks.
  *
  * A board card's mention (`[title](board:B4)`, gx-chat-core `board_reference`) is not a session: it
@@ -39,13 +43,23 @@ import { Glyph } from '../cards/icons';
 import { useHomeMachineId, useTranscriptEnv, useTranscriptFlags } from './context';
 import { dottedUnderline } from './LinkWords';
 import { obj, str, type JsonRecord } from './json';
-import { MentionStateDot } from './MentionCard';
 import { useComputerIconDrawing, useMentionedSession, type MentionTarget } from './mentionedSession';
 import { openTranscriptMenu } from './transcriptMenuStore';
 
-/** The gap between a name and its marks (`styles.pill`), and the state dot's size (`MentionStateDot`). */
+/** The gap between a name and its marks (`styles.pill`). */
 const MARK_GAP = 4;
-const MENTION_DOT = 6;
+
+/** A mention chip's clear room each side, and the most of a title it shows (desktop `SESSION_CHIP_MARGIN`, `SESSION_TITLE_MAX_CHARACTERS`). */
+const CHIP_MARGIN = 3;
+const CHIP_TITLE_MAX = 30;
+
+/** `title` cut to `CHIP_TITLE_MAX` characters with an ellipsis. */
+function chipTitle(title: string): string {
+  const characters = Array.from(title.trim());
+  return characters.length > CHIP_TITLE_MAX
+    ? `${characters.slice(0, CHIP_TITLE_MAX - 1).join('').trimEnd()}\u2026`
+    : title.trim();
+}
 
 /** How far the side chat bar's name's pressed fill reaches past it (desktop `CARD_PILL_PAD`). */
 const CARD_PILL_PAD = 3;
@@ -125,13 +139,11 @@ export function SessionPill({
   const nameColor = StyleSheet.flatten(textStyle)?.color;
   const ink = typeof nameColor === 'string' ? nameColor : theme.foreground;
   const opens = !missing && open !== undefined;
-  // Only a session that works or needs you shows its state; idle and sleeping show none.
-  const running = live !== null && (live.state === 'Working' || live.state === 'Needs you');
+  // No state dot on a session's name (CDXC:SessionChat 2026-11-16); the card says the state.
   const computer = live !== null && live.computer.length > 0;
-  const marksWidth =
-    plain || board
-      ? 0
-      : (showsLogo ? 12 + MARK_GAP : 0) + (running ? MENTION_DOT + MARK_GAP : 0) + (computer ? 11 + MARK_GAP : 0);
+  // A mention in a message's text is the soft chip; a card's name keeps the line's look.
+  const chip = str(pill, 'href').length > 0;
+  const marksWidth = plain || board ? 0 : (showsLogo ? 12 + MARK_GAP : 0) + (computer ? 11 + MARK_GAP : 0);
   useEffect(() => {
     onMarksWidth?.(marksWidth);
   }, [marksWidth, onMarksWidth]);
@@ -166,6 +178,8 @@ export function SessionPill({
     );
   }
   if (!board) {
+    const computerMark =
+      showMarks && computer ? <ComputerIconGlyph drawing={computerDrawing} size={11} color={theme.muted} /> : null;
     return (
       <Pressable
         disabled={!opens}
@@ -176,10 +190,17 @@ export function SessionPill({
           live !== null && live.computer.length > 0 ? `, on ${live.computer}` : ''
         }`}
         hitSlop={4}
-        style={[styles.pill, styles.name]}
+        style={({ pressed }) => [
+          styles.pill,
+          styles.name,
+          chip
+            ? [styles.chip, { backgroundColor: theme.ink(pressed && opens ? 0.15 : 0.08) }]
+            : null,
+        ]}
       >
         {({ pressed }) => (
           <>
+            {chip ? computerMark : null}
             {showsLogo && showMarks ? (
               <View style={missing ? styles.faded : null}>
                 {pill.coordinator === true ? (
@@ -194,16 +215,13 @@ export function SessionPill({
                 styles.nameLabel,
                 textStyle,
                 { color: missing ? theme.cardMuted : ink },
-                opens ? dottedUnderline(ink, pressed) : null,
+                chip ? styles.chipLabel : opens ? dottedUnderline(ink, pressed) : null,
               ]}
               numberOfLines={1}
             >
-              {label}
+              {chip ? chipTitle(label) : label}
             </Text>
-            {showMarks && running && live !== null ? <MentionStateDot state={live.state} theme={theme} /> : null}
-            {showMarks && computer ? (
-              <ComputerIconGlyph drawing={computerDrawing} size={11} color={theme.muted} />
-            ) : null}
+            {chip ? null : computerMark}
           </>
         )}
       </Pressable>
@@ -257,6 +275,9 @@ const styles = StyleSheet.create({
   // A session's name: no frame, the line's own height.
   name: { alignSelf: 'auto' },
   nameLabel: { fontSize: 13, lineHeight: 18, flexShrink: 1 },
+  // A mention's soft chip: a faint fill, rounded, no border, clear of the words beside it.
+  chip: { paddingHorizontal: 5, height: 20, borderRadius: 6, marginHorizontal: CHIP_MARGIN },
+  chipLabel: { fontWeight: '500' },
   // The pressed fill reaches past the name on each side and the margin takes it back.
   plainPill: { paddingHorizontal: CARD_PILL_PAD, marginHorizontal: -CARD_PILL_PAD, borderRadius: 5 },
   plainLabel: { flexShrink: 1 },

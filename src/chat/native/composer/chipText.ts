@@ -36,6 +36,8 @@ export type Selection = { start: number; end: number };
 
 const EDGE = ' ';
 const PAD = ' ';
+/** The most of a session's title its chip shows (desktop composer_references.rs `SESSION_TITLE_MAX_CHARACTERS`). */
+const SESSION_TITLE_MAX = 30;
 /** The space the core's pill text keeps for desktop's icon (`REFERENCE_PILL_ICON_SPACE`). */
 const ICON_SPACE = '     ';
 
@@ -49,7 +51,13 @@ export function chipLabel(reference: ComposerReference): string {
     typeof pill === 'string' && pill.startsWith(ICON_SPACE) && pill.length > ICON_SPACE.length + 1
       ? pill.slice(ICON_SPACE.length, -1)
       : reference.label;
-  return label.replace(/ /gu, ' ');
+  // A session's title is cut past 30 characters, as its chip is everywhere (desktop `session_title`).
+  const characters = Array.from(label);
+  const shown =
+    reference.kind === 'session' && characters.length > SESSION_TITLE_MAX
+      ? `${characters.slice(0, SESSION_TITLE_MAX - 1).join('').trimEnd()}\u2026`
+      : label;
+  return shown.replace(/ /gu, ' ');
 }
 
 /**
