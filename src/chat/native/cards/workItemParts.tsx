@@ -742,7 +742,7 @@ export function rowMarkdown(row: JsonRecord, forms: { [id: string]: unknown } | 
 }
 
 /**
- * An item's menu rows from its actions (desktop `row_menu`): Show in chat, Dismiss, Snooze with its
+ * An item's menu rows from its actions (desktop `row_menu`): Show in chat, Mark answered, Dismiss, Snooze with its
  * lengths, Copy as Markdown when `markdown` has words (`rowMarkdown`), then Mention in chat box,
  * which puts the item, form or page in the chat box.
  */
@@ -756,6 +756,10 @@ export function workMenuRows(
   const rows: WorkMenuRow[] = [];
   const show = obj(actions.showInChat);
   if (show !== null) rows.push({ label: 'Show in chat', icon: 'arrow-down-left', command: show });
+  // Mark answered, beside Dismiss: one answered in the chat box closes by hand (gx-chat-core
+  // `questions::later::mark_answered`, CDXC:Coordinators 2026-11-16 DECISION).
+  const markAnswered = obj(actions.markAnswered);
+  if (markAnswered !== null) rows.push({ label: 'Mark answered', icon: 'circle-check', command: markAnswered });
   const dismiss = obj(actions.dismiss);
   if (dismiss !== null) rows.push({ label: 'Dismiss', icon: 'x', command: dismiss });
   const snooze = arr(actions.snooze)
