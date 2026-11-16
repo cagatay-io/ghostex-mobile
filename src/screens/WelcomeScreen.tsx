@@ -103,11 +103,6 @@ const createStyles = (appearance: Appearance) => StyleSheet.create({
     borderColor: appearance.border,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000000',
-    shadowOpacity: 0.5,
-    shadowRadius: 15,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 8,
   },
   headline: {
     color: appearance.foreground,
