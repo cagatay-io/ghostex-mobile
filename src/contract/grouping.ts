@@ -890,6 +890,72 @@ function mergeRepositoryCopyBuckets(
   return copiesOf;
 }
 
+/**
+ * CDXC:Coordinators 2026-11-16 SEE-ALSO: the WHY in packages/gx-core/src/sidebar_view/thread_fold.rs. In the Project list a coordinator's thread that lives in another project of this computer (linked with `ghostex coordinator link`, or started with `--project-id`/`--path`) moves into the bucket that holds its coordinator, so it is nested under it instead of listed as a plain row in its own project; the session still runs and acts in its own project. A thread in a worktree of the coordinator's own project is left to the worktree fold, and Chief of Staff's sessions stay in their projects. The Unified list nests across projects itself. Returns the moved threads' row keys.
+ */
+function foldCrossProjectThreads(
+  summary: GhostexMobileSummary,
+  projectById: ReadonlyMap<string, GhostexProject>,
+  sessionsByProjectKey: Map<string, GhostexSession[]>,
+): Set<string> {
+  const moved = new Set<string>();
+  if (summary.sidebarView === 'unified') return moved;
+  const bucketOfCoordinator = new Map<string, string>();
+  for (const [bucketKey, bucket] of sessionsByProjectKey) {
+    for (const session of bucket) {
+      if (session.isCoordinator && !session.isChief) bucketOfCoordinator.set(coordinatorRowKey(session), bucketKey);
+    }
+  }
+  if (bucketOfCoordinator.size === 0) return moved;
+  const moves: { from: string; to: string; session: GhostexSession }[] = [];
+  for (const [bucketKey, bucket] of sessionsByProjectKey) {
+    for (const session of bucket) {
+      const parentProjectId = session.coordinatorProjectId ?? '';
+      const parentSessionId = session.coordinatorSessionId ?? '';
+      if (parentProjectId.length === 0 || parentSessionId.length === 0) continue;
+      if (session.projectId === parentProjectId) continue;
+      if (projectById.get(session.projectId)?.worktreeParentProjectId === parentProjectId) continue;
+      const target = bucketOfCoordinator.get(coordinatorRowKey({ projectId: parentProjectId, sessionId: parentSessionId }));
+      if (target === undefined || target === bucketKey) continue;
+      moves.push({ from: bucketKey, to: target, session });
+    }
+  }
+  for (const { from, to, session } of moves) {
+    const source = sessionsByProjectKey.get(from);
+    if (source !== undefined) sessionsByProjectKey.set(from, source.filter((listed) => listed !== session));
+    sessionsByProjectKey.get(to)?.push(session);
+    moved.add(coordinatorRowKey(session));
+  }
+  return moved;
+}
+
+/**
+ * A project's session groups, with each moved thread (`foldCrossProjectThreads`) added to the group that holds its
+ * coordinator, as gx-core moves the row into whichever group draws the coordinator.
+ */
+function withMovedThreads(
+  groups: GhostexSessionGroup[],
+  sessions: readonly GhostexSession[],
+  moved: ReadonlySet<string>,
+): GhostexSessionGroup[] {
+  if (moved.size === 0 || groups.length === 0) return groups;
+  const extra = new Map<string, string[]>();
+  for (const session of sessions) {
+    if (!moved.has(coordinatorRowKey(session))) continue;
+    const coordinatorInBucket = sessions.some(
+      (listed) => listed.projectId === session.coordinatorProjectId && listed.sessionId === session.coordinatorSessionId,
+    );
+    const group = coordinatorInBucket
+      ? groups.find((candidate) => candidate.sessionIds.includes(session.coordinatorSessionId))
+      : undefined;
+    if (group !== undefined) extra.set(group.groupId, [...(extra.get(group.groupId) ?? []), session.sessionId]);
+  }
+  if (extra.size === 0) return groups;
+  return groups.map((group) =>
+    extra.has(group.groupId) ? { ...group, sessionIds: [...group.sessionIds, ...extra.get(group.groupId)!] } : group,
+  );
+}
+
 function pathParts(path: string): string[] {
   return path.split(/[\\/]/).filter((part) => part.length > 0);
 }
@@ -971,6 +1037,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
 
   const worktreeOf = foldWorktreeBuckets(summary, projectById, sessionsByProjectKey);
   const copiesOf = mergeRepositoryCopyBuckets(summary, projectById, sessionsByProjectKey);
+  const movedThreads = foldCrossProjectThreads(summary, projectById, sessionsByProjectKey);
 
   // Desktop display layout: the wire order (server sortOrder) is the stable
   // manual base; browser-first/pinned-first/draft-first/activity sorting is applied on top
@@ -1021,7 +1088,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
         ? project.icon
         : { imageDataUrl: '', discoveredIconDataUrl: '', discoveredIconRef: '', glyph: '', glyphColor: '', isWorktree: false };
 
-    const namedGroups = groupsForProject(summary, projectId);
+    const namedGroups = withMovedThreads(groupsForProject(summary, projectId), allProjectSessions, movedThreads);
     const groupedSessionIds = new Set(namedGroups.flatMap((group) => group.sessionIds));
     // The synced Enable session parking and Group working sessions (settingsSync/sidebarOrganization.ts).
     const rules: SectionRules = {
