@@ -745,6 +745,9 @@ export function workMenuRows(
 ): WorkMenuRow[] {
   if (actions === null) return [];
   const rows: WorkMenuRow[] = [];
+  // A snoozed row's Unsnooze (gx-chat-core `dock_with`'s `snoozed`): back under Needs you now.
+  const unsnooze = obj(actions.unsnooze);
+  if (unsnooze !== null) rows.push({ label: 'Unsnooze', icon: 'arrow-back-up', command: unsnooze });
   // A Needs you to-do's command (gx-chat-core `extras::needs_you`), as its chip copies it.
   const command = str(actions, 'command').trim();
   if (command.length > 0) rows.push({ label: 'Copy command', icon: 'copy', copy: command });

@@ -271,6 +271,7 @@ export function WorkDock({
   // The row whose ask is shown in its sheet (`DockRow` with `onClose`), by key.
   const [sheetKey, setSheetKey] = useState<string | null>(null);
   const [all, setAll] = useState(false);
+  const [snoozedOpen, setSnoozedOpen] = useState(false);
   const env = useMemo<TranscriptEnv>(
     () => ({
       dispatch,
@@ -310,6 +311,7 @@ export function WorkDock({
   const shownCollapsed = useRef<boolean | null>(null);
   const dock = obj(dockValue);
   const rows = dockRows(document);
+  const snoozed = dockSnoozed(document);
   const board = obj(boardValue);
   // The sheet's row left the dock while it was open: the sheet goes (its key with it, so the same
   // row coming back later does not pop it up again), and an ask the coordinator, the computer or
@@ -320,7 +322,8 @@ export function WorkDock({
   // CDXC:Coordinators 2026-11-14 DECISION:
   // User: "when question is marked as answered give a toast at least that it has been answered",
   // then yes to the same toast on the phone (Q3109).
-  const sheetGone = sheetKey !== null && !rows.some((row) => str(row, 'key') === sheetKey);
+  const sheetGone =
+    sheetKey !== null && !rows.some((row) => str(row, 'key') === sheetKey) && !snoozed.some((row) => str(row, 'key') === sheetKey);
   const settledValue = document?.workAsksSettled;
   useEffect(() => {
     if (!sheetGone || sheetKey === null) return;
@@ -336,7 +339,7 @@ export function WorkDock({
     return null;
   }
   // With nothing docked the bar is one line: no chevron, nothing to open.
-  const collapsible = rows.length > 0;
+  const collapsible = rows.length > 0 || snoozed.length > 0;
   const hiddenInCore = isTrue(dock, 'hidden');
   const collapsed = !collapsible || hiddenInCore || (typing && !peek);
   if (shownCollapsed.current !== null && shownCollapsed.current !== collapsed) animateNextFold();
@@ -352,7 +355,8 @@ export function WorkDock({
   // User: "i want when i click on a thing like this one to open modal instead of expanding like
   // accordion because accordion is annoying pls fix". Supersedes the rows opening in place
   // (2026-11-12, opening and closing each docked card animated).
-  const sheetRow = sheetKey === null ? null : (rows.find((row) => str(row, 'key') === sheetKey) ?? null);
+  const sheetRow =
+    sheetKey === null ? null : ([...rows, ...snoozed].find((row) => str(row, 'key') === sheetKey) ?? null);
   return (
     <TranscriptFlagsProvider value={flags}>
       <TranscriptEnvProvider value={env}>
@@ -422,6 +426,32 @@ export function WorkDock({
                     ) : null}
                   </View>
                 ) : null}
+                {/* The snoozed ones, folded under one quiet row (desktop `work_dock_snoozed`): a tap
+                    opens them in place, dimmed, each saying when it is back; Unsnooze is in its
+                    long-press menu (`workMenuRows`). */}
+                {snoozed.length > 0 ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: snoozedOpen }}
+                    style={styles.dockSnoozed}
+                    onPress={() => setSnoozedOpen((was) => !was)}
+                  >
+                    <Glyph name="clock" size={13} color={P.cardMuted} />
+                    <Text style={styles.dockSnoozedText} numberOfLines={1}>
+                      {`Snoozed (${snoozed.length})`}
+                    </Text>
+                    <View style={snoozedOpen ? styles.dockSnoozedChevronOpen : null}>
+                      <Glyph name="chevron-down" size={12} color={P.cardMuted} />
+                    </View>
+                  </Pressable>
+                ) : null}
+                {snoozedOpen
+                  ? snoozed.map((row) => (
+                      <View key={str(row, 'key')} style={styles.dockSnoozedRow}>
+                        <DockRow row={row} chat={chat} scope={scope} onShow={() => setSheetKey(str(row, 'key'))} />
+                      </View>
+                    ))
+                  : null}
               </ScrollView>
             )}
           </View>
@@ -448,6 +478,13 @@ const HEADER_GROUPS: { id: string; status: string; one: string; many: string }[]
 /** The dock's rows (gx-chat-core `workDock.rows`). */
 function dockRows(document: ChatDocument | null): JsonRecord[] {
   return arr(obj(document?.workDock)?.rows)
+    .map(obj)
+    .filter((row): row is JsonRecord => row !== null);
+}
+
+/** The dock's snoozed asks, forms and pages (gx-chat-core `dock_with`'s `snoozed`), soonest back first. */
+function dockSnoozed(document: ChatDocument | null): JsonRecord[] {
+  return arr(obj(document?.workDock)?.snoozed)
     .map(obj)
     .filter((row): row is JsonRecord => row !== null);
 }
@@ -481,7 +518,7 @@ function dockCounts(
  * bar carries the status and the working card does not show.
  */
 export function workDockShown(document: ChatDocument, status: WorkingCardValue | null): boolean {
-  if (dockRows(document).length > 0) return true;
+  if (dockRows(document).length > 0 || dockSnoozed(document).length > 0) return true;
   const board = obj(document.coordinatorBoard);
   if (board === null) return false;
   return status !== null || dockCounts([], board).length > 0;
@@ -1460,6 +1497,11 @@ const useStyles = themedStyles((P) => ({
     backgroundColor: P.cardPanel,
   },
   dockRows: { padding: 4 },
+  // The Snoozed row: the "N more need you" line's quiet words, with a clock and a chevron.
+  dockSnoozed: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 8 },
+  dockSnoozedText: { flex: 1, minWidth: 0, fontSize: PROSE_SIZE, lineHeight: PROSE_LINE, color: P.muted },
+  dockSnoozedChevronOpen: { transform: [{ rotate: '180deg' }] },
+  dockSnoozedRow: { opacity: 0.72 },
   // The header: the band over the rows while open, as the desktop's (`work_dock_header`).
   dockHead: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingLeft: 12, paddingRight: 6 },
   dockHeadOpen: {
