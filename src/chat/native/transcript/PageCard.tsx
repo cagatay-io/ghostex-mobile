@@ -80,7 +80,8 @@ function PageCardBody({
   // A page that waited only to be looked at and was cleared from the dock (Mark all seen, Dismiss)
   // reads Seen (gx-chat-core `questions/later.rs` `mark_seen`, desktop `page_card.rs`).
   const seenOnly = answer?.awaitsSeen === true && !Array.isArray(answer?.questions);
-  const withdrawn = canceled
+  // A page its agent retired is on that removed list too, but reads Replaced (`replaced`).
+  const withdrawn = canceled && withdrawnEntry?.replaced !== true
     ? seenOnly
       ? { label: 'Seen', hint: 'Seen, no answer needed' }
       : { label: 'Canceled', hint: 'Canceled, no answer needed' }
