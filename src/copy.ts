@@ -112,14 +112,14 @@ export const ScanCopy = {
   },
   outdated: {
     title: 'This code needs a newer Ghostex app',
-    detail: 'Update Ghostex on this phone, or click Copy Easy Connect code on the computer and paste the code here.',
+    detail: 'Update Ghostex on this phone, or click Copy the code on the computer and paste the code here.',
   },
   cameraDenied: 'Camera access is off for Ghostex, so paste the code instead.',
   cameraDeniedSettingsLink: 'Allow the camera in Settings',
   paste: {
     title: 'Paste an Easy Connect code',
-    ledePrefix: 'On the computer, open Settings → Remote → Easy Connect, click Show QR, then ',
-    ledeStrong: 'Copy Easy Connect code',
+    ledePrefix: 'On the computer, open the Ghostex menu and click Connect a Phone, then click ',
+    ledeStrong: 'Copy the code',
     ledeSuffix: ', and send the text to this phone.',
     placeholder: 'ghostex-ec1:…',
     validEasyConnect: (user: string, computer: string) => `Looks like an Easy Connect code for ${user} on ${computer}`,
@@ -160,7 +160,7 @@ export const PairingCopy = {
       {
         title: 'Look for the words on the computer',
         detail:
-          'They show in its Connect a device window, or in a window called "Approve this phone?". It can take a few seconds.',
+          'They show in its Connect a device window, or in a window called "Is this your phone?". It can take a few seconds.',
       },
       {
         title: 'Open Settings > Remote there',
@@ -2193,7 +2193,7 @@ CDXC:RemotePairing 2026-11-09 WHY:
 User (Android, 11.2.1, two tall "Pair this phone with madda@100.77.81.4" / "Pair this phone with W"
 cards): "i don't understand as a user what the heck I need to do here". The card now says it
 plainly: this phone isn't approved on that computer yet; Ghostex on the computer (named as the
-person named it, or as the computer names itself, not by its address) shows "Approve this phone?"
+person named it, or as the computer names itself, not by its address) shows "Is this your phone?"
 with the same words, and Approve is the step; reading works meanwhile and replying, Stop and typing
 wait. Several computers share one compact card. The computer's notice carries the same title
 (apps/desktop/src/app/owner_security/ui.rs `approval_title`).
@@ -2203,11 +2203,11 @@ export const SshPairingCopy = {
   approveTitle: (computer: string) => `Approve this phone on ${computer}`,
   approveTitleMany: (count: number) => `Approve this phone on ${count} computers`,
   pendingSteps: (computer: string) =>
-    `This phone isn't approved on ${computer} yet. Ghostex on ${computer} shows “Approve this phone?” with these words. If they match, choose Approve there.`,
+    `This phone isn't approved on ${computer} yet. Ghostex on ${computer} shows “Is this your phone?” with these words. If they match, choose Approve there.`,
   pendingStepsEasyConnect: (computer: string) =>
-    `Ghostex on ${computer} shows “Approve this phone?” with these words. If they match, choose Approve there, and this phone also reaches ${computer} through Easy Connect when Tailscale can't.`,
+    `Ghostex on ${computer} shows “Is this your phone?” with these words. If they match, choose Approve there, and this phone also reaches ${computer} through Easy Connect when Tailscale can't.`,
   pendingStepsMany:
-    "This phone isn't approved on these computers yet. Ghostex on each one shows “Approve this phone?” with the words next to its name. If they match, choose Approve there.",
+    "This phone isn't approved on these computers yet. Ghostex on each one shows “Is this your phone?” with the words next to its name. If they match, choose Approve there.",
   lapsedSteps: (computer: string) =>
     `This phone isn't approved on ${computer} yet, and nobody approved its last request in time. Tap Ask again, then approve it in Ghostex on ${computer}.`,
   lapsedRow: 'Not approved in time',

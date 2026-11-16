@@ -24,6 +24,20 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Approvals'>;
 
 const REFRESH_MS = 3_000;
 
+/*
+CDXC:RemotePairing 2026-11-16 DECISION:
+User, on the Connect a Computer gaps page ("Fix all"): the desktop's approval card shows a pairing's three words as three big boxes, but this list showed them only inside gxserver's long sentence ("…the same three words: a · b · c. Approving lets…"). A pairing request's words are read out of that sentence and drawn as three boxes above it; any other request, or a sentence worded otherwise, shows as before.
+*/
+function pairingWords(detail: string | undefined): string[] | null {
+  const match = detail?.match(/three words: ([^.]+)\./);
+  if (!match) return null;
+  const words = match[1]
+    .split('·')
+    .map((word) => word.trim())
+    .filter((word) => word.length > 0);
+  return words.length === 3 ? words : null;
+}
+
 export default function ApprovalsScreen({ navigation, route }: Props) {
   const appearance = useAppearance();
   const styles = useMemo(() => createStyles(appearance), [appearance]);
@@ -81,10 +95,21 @@ export default function ApprovalsScreen({ navigation, route }: Props) {
         {notice !== null ? <Text style={styles.notice}>{notice}</Text> : null}
         {error !== null ? <Text style={styles.notice}>{error}</Text> : null}
         {requests.length === 0 && error === null ? <Text style={styles.empty}>{ApprovalsCopy.empty}</Text> : null}
-        {requests.map((request) => (
+        {requests.map((request) => {
+          const words = pairingWords(request.detail);
+          return (
           <View key={request.id} style={styles.card}>
             <Text style={styles.summary}>{request.summary}</Text>
             <Text style={styles.meta}>{ApprovalsCopy.askedBy(request.requestedBy.label || request.requestedBy.kind)}</Text>
+            {words !== null ? (
+              <View style={styles.words}>
+                {words.map((word) => (
+                  <View key={word} style={styles.word}>
+                    <Text style={styles.wordText}>{word}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
             {request.detail ? <Text style={styles.meta}>{request.detail}</Text> : null}
             <View style={styles.buttons}>
               <SetupButton
@@ -103,7 +128,8 @@ export default function ApprovalsScreen({ navigation, route }: Props) {
               />
             </View>
           </View>
-        ))}
+          );
+        })}
       </ScrollView>
     </SafeAreaView>
   );
@@ -116,6 +142,18 @@ const createStyles = (appearance: Appearance) =>
     card: { borderRadius: 12, padding: 14, gap: 6, backgroundColor: appearance.card },
     summary: { fontSize: 16, fontWeight: '600', color: appearance.foreground },
     meta: { fontSize: 13, color: appearance.muted },
+    words: { flexDirection: 'row', gap: 8, marginVertical: 6 },
+    word: {
+      flex: 1,
+      minWidth: 0,
+      height: 56,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 10,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: appearance.muted,
+    },
+    wordText: { fontSize: 18, fontWeight: '600', color: appearance.foreground },
     buttons: { flexDirection: 'row', gap: 8, marginTop: 6 },
     empty: { fontSize: 15, color: appearance.muted, textAlign: 'center', marginTop: 32 },
     notice: { fontSize: 14, color: appearance.foreground },

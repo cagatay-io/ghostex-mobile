@@ -68,7 +68,7 @@ export function securityNoticeText(names: readonly string[]): { title: string; m
   const [first, ...rest] = names;
   return {
     title: 'Pair this phone again',
-    message: `Ghostex now gives each phone its own key, so a copied code can't let anyone in. On ${first}, open Settings › Remote › Show QR, then scan it here.`,
+    message: `Ghostex now gives each phone its own key, so a copied code can't let anyone in. On ${first}, open the Ghostex menu and click Connect a Phone, then scan it here.`,
     others: rest.length > 0 ? `Then pair again with ${rest.join(', ')} the same way.` : null,
   };
 }
