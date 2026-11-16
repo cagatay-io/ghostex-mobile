@@ -183,39 +183,52 @@ export function NoticeCard({
     );
   }
   // CDXC:AgentProviders 2026-11-14 DECISION in server/src/carry_on_compaction.rs (GitHub #608, Q3238): a card
-  // Ghostex makes itself can carry a checkbox (Compact first) with an (i) that shows why on a tap; a tap on the row
-  // sends its `answer`, and gxserver redraws the card (desktop notice.rs `notice_checkbox`).
-  const checkbox = obj(notice.checkbox);
-  if (!collapsed && checkbox !== null) {
-    const checked = isTrue(checkbox, 'checked');
-    const hint = str(checkbox, 'hint');
+  // Ghostex makes itself can carry checkboxes (Compact first; one per thread on the stopped-threads card, Q68) with an
+  // (i) that shows why on a tap; a tap on a row sends its `answer`, and gxserver redraws the card (desktop notice.rs
+  // `notice_checkbox`). The chat core gives them as `checkboxes` (gx-chat-core questions/notice_checkboxes.rs).
+  const checkboxes = collapsed ? [] : arr(notice.checkboxes).flatMap((row) => {
+    const checkbox = obj(row);
+    return checkbox === null ? [] : [checkbox];
+  });
+  if (checkboxes.length > 0) {
     body.push(
-      <View key="checkbox" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Pressable
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked }}
-          accessibilityLabel={str(checkbox, 'label')}
-          hitSlop={8}
-          onPress={() => dispatch({ type: 'answer', answer: asJson(checkbox.answer) })}
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 }}
-        >
-          <View
-            style={{
-              width: 18,
-              height: 18,
-              borderRadius: 4,
-              borderWidth: 1,
-              borderColor: checked ? look.P.controlPrimary : look.P.controlBorder,
-              backgroundColor: checked ? look.P.controlPrimary : 'transparent',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            {checked ? <Glyph name="check" size={13} color={look.P.background} /> : null}
-          </View>
-          <Text style={[cardText.prose, { flexShrink: 1 }]}>{str(checkbox, 'label')}</Text>
-        </Pressable>
-        {hint.length > 0 ? <InfoHint hint={hint} /> : null}
+      <View key="checkboxes" style={{ gap: 6 }}>
+        {checkboxes.map((checkbox, index) => {
+          const checked = isTrue(checkbox, 'checked');
+          const hint = str(checkbox, 'hint');
+          return (
+            <View
+              key={`${str(checkbox, 'id')}:${index}`}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+            >
+              <Pressable
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked }}
+                accessibilityLabel={str(checkbox, 'label')}
+                hitSlop={8}
+                onPress={() => dispatch({ type: 'answer', answer: asJson(checkbox.answer) })}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 }}
+              >
+                <View
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: 4,
+                    borderWidth: 1,
+                    borderColor: checked ? look.P.controlPrimary : look.P.controlBorder,
+                    backgroundColor: checked ? look.P.controlPrimary : 'transparent',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {checked ? <Glyph name="check" size={13} color={look.P.background} /> : null}
+                </View>
+                <Text style={[cardText.prose, { flexShrink: 1 }]}>{str(checkbox, 'label')}</Text>
+              </Pressable>
+              {hint.length > 0 ? <InfoHint hint={hint} /> : null}
+            </View>
+          );
+        })}
       </View>,
     );
   }
