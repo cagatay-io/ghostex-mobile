@@ -599,7 +599,7 @@ export function NativeTranscript({ chat, items, main = true, active = true }: Na
   return (
     <TranscriptScope chat={chat} main={main}>
       {main ? <SearchFoldsReport dispatch={dispatch} /> : null}
-      {main ? <QuestionReplyHost /> : null}
+      {main ? <QuestionReplyHost chat={chat} /> : null}
       <QuestionFlashProvider value={questionFlash}>
         <QuestionAnchorsProvider value={questionAnchors}>
           <TranscriptFieldRevealContext.Provider value={revealFocusedField}>

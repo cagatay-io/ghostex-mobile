@@ -244,6 +244,8 @@ export type ChatCoreQuery =
   | 'transcriptMenu'
   /** `transcriptReply({draft, quote, reply})`: the chat box after the transcript menu's Reply adds a reply. */
   | 'transcriptReply'
+  /** `answerInChatBox({draft, name, tags, settles, reply})`: the chat box after a Reply in chat box puts the question's pill and the words in it. */
+  | 'answerInChatBox'
   | 'sendBlockedToast'
   | 'renderVisual'
   | 'speakableSegments'

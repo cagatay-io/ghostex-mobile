@@ -12,6 +12,7 @@
 
 import { create } from 'zustand';
 
+import type { RustChat } from '../../rust/useRustChat';
 import { useTranscriptEnv } from './context';
 import { ReplySheet } from './ReplySheet';
 import { dropReplyDrafts, keepReplyDraft, replyDraft, replyDraftRow, type ReplyDraftScope } from '../cards/replyDrafts';
@@ -56,7 +57,7 @@ function closeQuestionReply(): void {
   useQuestionReply.setState({ opened: null });
 }
 
-export function QuestionReplyHost() {
+export function QuestionReplyHost({ chat }: { chat: RustChat }) {
   const { dispatch } = useTranscriptEnv();
   const opened = useQuestionReply((store) => store.opened);
   const target = opened?.target ?? null;
@@ -69,10 +70,31 @@ export function QuestionReplyHost() {
       initialText={opened?.initial ?? ''}
       onChangeText={scope !== null && row !== null ? (text) => keepReplyDraft(scope, row, text) : undefined}
       onClose={closeQuestionReply}
-      onReply={(_, reply) => {
+      extras={{ machine: chat.machine, uploadFiles: chat.uploadFiles }}
+      onReply={(_, reply, action) => {
         closeQuestionReply();
         const text = reply.trim();
-        if (target === null || text.length === 0) return;
+        if (target === null) return;
+        // Reply in chat box: what it answers goes into the chat box as a pill inside the text, by
+        // its title, with the words after it; its tags ride in the pill's link only (gx-chat-core
+        // `questions/answer_pills.rs`, CDXC:Coordinators 2026-11-16 DECISION). It goes also with
+        // no words yet, to say them in the chat box, beside other answers.
+        if (action === 'add') {
+          const whole = target.questions !== undefined && target.questions.length > 0;
+          const item = target.item ?? '';
+          const tags = !whole && item.length > 0 ? `${item} ${target.tag}` : target.tag;
+          void chat
+            .queryAsync('answerInChatBox', [
+              { draft: chat.state?.composer.text ?? '', name: target.name ?? '', tags, settles: !whole, reply: text },
+            ])
+            .then((draft) => {
+              if (typeof draft !== 'string' || chat.composer === null) return;
+              if (scope !== null && row !== null) dropReplyDrafts(scope, [row]);
+              chat.composer.replace(draft);
+            });
+          return;
+        }
+        if (text.length === 0) return;
         // Sent: the draft has done its job.
         if (scope !== null && row !== null) dropReplyDrafts(scope, [row]);
         // A whole form or page: the words go after its open tags, as one message.
