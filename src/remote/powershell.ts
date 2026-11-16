@@ -22,6 +22,29 @@ export function powershellCommand(script: string, interactive = false): string {
 export const powershellPrelude =
   "$ErrorActionPreference='Stop'; $ProgressPreference='SilentlyContinue'; [Console]::InputEncoding=[Text.UTF8Encoding]::new($false); [Console]::OutputEncoding=[Text.UTF8Encoding]::new($false); $OutputEncoding=[Console]::OutputEncoding; ";
 
+/**
+ * A PowerShell expression for the bytes a command was sent as base64 on its stdin (`stdinBase64`).
+ *
+ * CDXC:RemoteMachines 2026-11-17 WHY:
+ * Under Windows OpenSSH, PowerShell 5.1's `[Console]::In` and `[Console]::OpenStandardInput()` never return when the
+ * stdin bytes reach the computer after the script started reading: the console host takes them, and the read waits
+ * for good (8 of 8 runs with the input 1.5 s late, about 1 in 6 with it sent at once, measured against Windows 11
+ * OpenSSH on 2026-11-17, issue #647). The phone writes stdin only once the command has started, so a slow link made
+ * any Windows script or upload hang until its deadline. `$input` gets the bytes whenever they come, but reads them in
+ * the console's OEM code page, which garbles non-ASCII text, so they travel as base64 (ASCII) and are decoded here.
+ */
+export const stdinBase64Bytes = "[Convert]::FromBase64String((@($input) -join ''))";
+
+/** `text` as UTF-8 base64, for a script that reads it with `stdinBase64Bytes`. */
+export function stdinBase64(text: string): string {
+  let binary = '';
+  const bytes = new TextEncoder().encode(text);
+  for (let index = 0; index < bytes.length; index += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+  }
+  return btoa(binary);
+}
+
 export const windowsStorage = `
 $gxData = Join-Path $env:LOCALAPPDATA 'Ghostex/Data'
 $gxConfig = Join-Path $env:APPDATA 'Ghostex'
