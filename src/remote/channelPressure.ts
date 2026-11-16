@@ -191,13 +191,15 @@ async function plannedReset(
   now: number,
   what: string,
   reason: string,
+  /** Commands still counted as running that the caller gave up on, which the reset is meant to end. */
+  abandoned = 0,
 ): Promise<void> {
   const active = handlers;
   if (active === null) return;
   const name = machineId;
   const shellsOpen = active.openTerminals(machineId).shells > 0;
   const tooSoon = pressure.lastResetAt !== null && now - pressure.lastResetAt < RESET_MIN_GAP_MS;
-  const running = active.commandsInFlight(machineId);
+  const running = Math.max(0, active.commandsInFlight(machineId) - abandoned);
   const recoveryOff = active.mayRecover !== undefined && !active.mayRecover(machineId);
   // A heavy transfer (a chat snapshot, a large read over the forward) is not a command, but a reset would cut it too;
   // the stall watch waits for it the same way.
@@ -234,6 +236,28 @@ async function plannedReset(
   Object.assign(pressure, before);
   logAppEvent(`Connection: ${name} ${what}; not resetting by itself (the recovery rules do not allow it now)`);
   setNeedsReset(machineId, true);
+}
+
+/**
+ * An upload the phone gave up on (`uploadOverLink`'s deadline) still runs natively and holds its slot until its
+ * connection ends: the same planned reset as a stuck close, under the same rules, not counting that upload as running.
+ */
+export async function resetAfterAbandonedUpload(machineId: string, now = Date.now()): Promise<void> {
+  const active = handlers;
+  if (active === null) return;
+  if (active.mayRecover !== undefined && !active.mayRecover(machineId)) {
+    logAppEvent(`Connection: ${machineId} has an upload the computer stopped taking; not resetting by itself`);
+    setNeedsReset(machineId, true);
+    return;
+  }
+  await plannedReset(
+    machineId,
+    pressureFor(machineId),
+    now,
+    'has an upload the computer stopped taking',
+    'an upload the computer stopped taking',
+    1,
+  );
 }
 
 /** Computers whose stats read is still waiting for its native answer (one at a time per computer). */

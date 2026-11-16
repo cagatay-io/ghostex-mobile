@@ -14,7 +14,9 @@ import {
 } from './powershell';
 import { noteLinkAnswer, trackLinkTransfer } from './linkActivity';
 import { MAX_ADMISSION_WAIT_MS, withCommandChannel } from './channelBudget';
+import { resetAfterAbandonedUpload } from './channelPressure';
 import { logAppEvent } from '../app/appLog';
+import { File } from 'expo-file-system';
 
 export type RemoteEnvironment = { kind: 'posix' } | { kind: 'powershell' } | { kind: 'wsl'; distribution: string };
 
@@ -62,19 +64,81 @@ function logFailedCommand<T>(machineId: string, command: string, settled: Promis
   });
 }
 
-/** The longest an upload keeps a quiet link from being judged; a dead link fails it natively long before. */
+/** The longest an upload keeps a quiet link from being judged, and the longest any upload may take. */
 const UPLOAD_TRANSFER_MAX_MS = 10 * 60_000;
+/** Every upload may take this long on top of its bytes (opening its channel, the computer's answers). */
+const UPLOAD_BASE_MS = 60_000;
+/**
+ * The slowest rate an upload is allowed before it is given up: 64 KB/s, over twice its bytes, since iPhone builds
+ * before the issue #647 fix send a picture twice (SCP, then the exec upload).
+ */
+const UPLOAD_FLOOR_BYTES_PER_MS = 64;
+const UPLOAD_SENDS = 2;
+
+/** The local file's size in bytes, or null when it cannot be read (the upload then gets the longest deadline). */
+function localFileSize(localPath: string): number | null {
+  for (const uri of [`file://${encodeURI(localPath)}`, `file://${localPath}`]) {
+    try {
+      const file = new File(uri);
+      if (file.exists && typeof file.size === 'number' && file.size >= 0) return file.size;
+    } catch {
+      // The other spelling of the URI, or no size.
+    }
+  }
+  return null;
+}
+
+function uploadDeadlineMs(size: number | null): number {
+  if (size === null) return UPLOAD_TRANSFER_MAX_MS;
+  return Math.min(UPLOAD_TRANSFER_MAX_MS, UPLOAD_BASE_MS + (size * UPLOAD_SENDS) / UPLOAD_FLOOR_BYTES_PER_MS);
+}
+
+function spokenDuration(ms: number): string {
+  const seconds = Math.round(ms / 1000);
+  return seconds < 120 ? `${seconds} s` : `${Math.round(seconds / 60)} minutes`;
+}
 
 /**
  * Uploads a phone file to `remotePath` over the machine's connection, as one heavy transfer: while it
  * runs, a quiet link is busy, not lost, so no liveness check tears the connection down under it.
+ *
+ * CDXC:RemoteMachines 2026-11-17 WHY:
+ * An upload always ends (issue #647: a picture sent from the phone's chat never arrived, the chat box waited 6+
+ * minutes, no error). iPhone builds without the native fix wait in native code for good when the computer stops
+ * taking the bytes (a remote command that ended at once leaves libssh2 answering EAGAIN forever) while the connection
+ * answers every check, so the transfer kept checks and the stuck-close reset away and nothing ever failed. Past a deadline from
+ * the file's size the upload fails with words the chat shows (it retries once, then the picture stays in the chat
+ * box for Send), the transfer stops deferring checks, and the connection gets the planned reset under its usual
+ * rules (`resetAfterAbandonedUpload`): only a new connection ends the native upload and gives its slot back.
+ * Newer builds fail such an upload natively within a minute (SSHUpload.swift `uploadStallSeconds`).
  */
 export function uploadOverLink(machineId: string, localPath: string, remotePath: string): Promise<void> {
-  return withCommandChannel(machineId, MAX_ADMISSION_WAIT_MS, () =>
-    trackLinkTransfer(machineId, UPLOAD_TRANSFER_MAX_MS, () =>
-      GhostexNative.uploadFile(machineId, localPath, remotePath),
-    ),
+  const size = localFileSize(localPath);
+  const deadlineMs = uploadDeadlineMs(size);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let startDeadline: () => void = () => undefined;
+  const late = new Promise<never>((_, reject) => {
+    startDeadline = () => {
+      timer = setTimeout(() => {
+        logAppEvent(
+          `Upload: ${machineId}: not finished after ${Math.round(deadlineMs / 1000)} s ` +
+            `(${size === null ? 'size unknown' : `${Math.round(size / 1024)} KB`}); given up`,
+        );
+        reject(new Error(`the computer did not finish taking it in ${spokenDuration(deadlineMs)}`));
+        void resetAfterAbandonedUpload(machineId);
+      }, deadlineMs);
+    };
+  });
+  // The deadline starts once the upload has its slot, after its transfer began, so the transfer has ended (it has the
+  // same length) when the reset looks for one. The slot is still given back only when the native call settles
+  // (`withCommandChannel`), which the reset makes happen.
+  const upload = withCommandChannel(machineId, MAX_ADMISSION_WAIT_MS, () =>
+    trackLinkTransfer(machineId, deadlineMs, () => {
+      startDeadline();
+      return GhostexNative.uploadFile(machineId, localPath, remotePath);
+    }),
   );
+  return Promise.race([upload, late]).finally(() => clearTimeout(timer));
 }
 
 export function forgetRemoteEnvironment(machineId: string): void {
