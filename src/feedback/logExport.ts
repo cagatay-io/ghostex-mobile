@@ -86,11 +86,19 @@ export function scrubLogText(
   text: string,
   machines: readonly Pick<MachineRecord, 'id'>[] = useMachinesStore.getState().machines,
 ): string {
+  return scrubShortNames(scrubPersonalData(labelComputers(text, machines), privateTerms()), savedNames());
+}
+
+/** `text` with each saved computer's id shortened to its label ("computer 7f3a"), before any scrub replaces it. */
+export function labelComputers(
+  text: string,
+  machines: readonly Pick<MachineRecord, 'id'>[] = useMachinesStore.getState().machines,
+): string {
   let labelled = text;
   for (const machine of machines) {
     if (machine.id.length > 4) labelled = labelled.split(machine.id).join(computerLabel(machine.id));
   }
-  return scrubShortNames(scrubPersonalData(labelled, privateTerms()), savedNames());
+  return labelled;
 }
 
 /** The lines above the log; the app line goes in after the scrub (an update id has the shape of a key). */

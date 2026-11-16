@@ -8,9 +8,10 @@
  * anything leaves the phone. The relay files the issue in the public Ghostex repository, so the review says so.
  */
 
-import { formatAppLog, type AppLogEntry } from '../app/appLog';
+import { formatLogDateTime, logEntryBuild, logEntryScrubbedText, type AppLogEntry } from '../app/appLog';
 import { cleanReportText } from './crashReports';
 import { draftTitle, FEEDBACK_BODY_MAX_UNITS, reporterLine } from './feedbackDraft';
+import { labelComputers } from './logExport';
 
 /** Where the relay files the issue (anyone can read it). */
 export const FEEDBACK_ISSUES_REPOSITORY = 'github.com/maddada/Ghostex';
@@ -30,7 +31,19 @@ export function logReport(entries: readonly AppLogEntry[], note: string, reporte
     `${LOG_FENCE}text`,
   ].join('\n');
   const tail = `\n${LOG_FENCE}`;
-  let log = cleanReportText(formatAppLog([...entries]));
+  /**
+   * CDXC:Feedback 2026-11-16 WHY: issues #631 and #632 came with every computer as "<redacted>" (an id has the shape
+   * of a key), so three computers' lines read as one computer whose check answered and then failed. Each line is
+   * the copy scrubbed when it was logged, where ids are already "computer 7f3a" like the Export's, with today's ids
+   * shortened the same way before the clean.
+   */
+  let log = cleanReportText(
+    labelComputers(
+      entries
+        .map((entry) => `${formatLogDateTime(entry.at)} ${logEntryScrubbedText(entry)}${logEntryBuild(entry)}`)
+        .join('\n'),
+    ),
+  );
   // The newest lines matter most: an over-long log loses its oldest ones.
   const room = FEEDBACK_BODY_MAX_UNITS - head.length - tail.length - 2;
   if (log.length > room) log = `(older lines cut)\n${log.slice(log.length - room + 20)}`;
