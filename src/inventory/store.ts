@@ -14,7 +14,7 @@ import { reportClientHello } from '../analytics/clientHello';
 import { logAppEvent } from '../app/appLog';
 import { withoutGlobalQuickActions, type GhostexMobileSummary } from '../contract/mobileSummary';
 import { hasPassword } from '../machines/credentials';
-import { reconnectMachine } from '../remote/connection';
+import { reconnectMachine, replacedByPhoneSince } from '../remote/connection';
 import { dialWaitMs } from '../remote/dialBackoff';
 import { restoreAttachTabs } from '../terminal/sessions';
 import { enabledMachines, machineDisplayLabel, useMachinesStore, type MachineRecord } from '../machines/store';
@@ -64,6 +64,8 @@ function waitingOutBusy(machineId: string): boolean {
  * summary poll runs, and one pending retry per machine.
  */
 const NOT_ANSWERING_RETRY_MS = 2000;
+/** How soon a sessions read cut off by the phone's own reconnect is read again; it waits for the new connection. */
+const REREAD_AFTER_REPLACE_MS = 500;
 const notAnsweringRetries = new Map<string, ReturnType<typeof setTimeout>>();
 /** Machines whose next refresh must be read after the caller's change (`refreshMachineFresh`). */
 const freshReads = new Set<string>();
@@ -276,6 +278,7 @@ export const useInventoryStore = create<InventoryState>()((set, get) => {
         return true;
       };
       patchMachine(machine.id, { refreshing: true });
+      const startedAt = Date.now();
 
       const refresh = (async (): Promise<void> => {
         try {
@@ -337,6 +340,18 @@ export const useInventoryStore = create<InventoryState>()((set, get) => {
             pendingMutationsByMachineId: setPendingMutations(machine.id, reconciled.pending),
           });
         } catch (error) {
+          // The phone ended this connection itself meanwhile (a move back to Tailscale, a check, a Retry): not the
+          // computer's failure, so nothing is shown and the list is read again over the new connection.
+          if (replacedByPhoneSince(machine.id, startedAt) && refreshRevisions.get(machine.id) === refreshRevision) {
+            logAppEvent(
+              `${machineDisplayLabel(machine)}: sessions read cut off by the phone's own reconnect; reading again`,
+            );
+            patchMachine(machine.id, { refreshing: false });
+            setTimeout(() => {
+              if (get().polling) void get().refreshMachine(machine);
+            }, REREAD_AFTER_REPLACE_MS);
+            return;
+          }
           let machineHasPassword = false;
           try {
             machineHasPassword = await hasPassword(machine.id);

@@ -294,7 +294,8 @@ function classifyFailure(error: unknown, hasPassword: boolean): Pick<FailureSumm
   // failure: Socket error: Exec read failed: -43" showed as "Ghostex on the computer couldn't do that", which
   // blamed Ghostex for a connection that had dropped. It reads as a dropped connection and counts as one, so
   // the automatic reconnect replaces it (autoReconnect.ts `CONNECTION_FAILURES`).
-  if (SOCKET_DROPPED_TEXT.test(text)) {
+  // A channel that failed because its connection ended under it ("E_CHANNEL_FAILED: Disconnected", issue #632).
+  if (SOCKET_DROPPED_TEXT.test(text) || (code === 'E_CHANNEL_FAILED' && /\bdisconnected\b/iu.test(text))) {
     return { message: FailureCopy.connectionDropped, reasonCode: reason('timeout') };
   }
   if (

@@ -75,6 +75,17 @@ onPairingChanged((machineId) => {
   void dropConnection(machineId);
 });
 
+/** When the phone last ended a computer's connection itself to dial it again (a Retry, a check, a move back). */
+const phoneReplacedAt = new Map<string, number>();
+
+/**
+ * Whether the phone ended `machineId`'s connection itself at or after `since`: a read that failed since then was
+ * cut off by the phone, not the computer, and is read again (inventory/store.ts).
+ */
+export function replacedByPhoneSince(machineId: string, since: number): boolean {
+  return (phoneReplacedAt.get(machineId) ?? -1) >= since;
+}
+
 /**
  * CDXC:RemoteMachines 2026-09-14 WHY:
  * Inventory, chat and terminal opens share one connection attempt per computer.
@@ -189,6 +200,7 @@ export function ensureConnected(
           `Connection: ${machine.id} replaced by the phone (${replacedBecause}; app ${whereTheAppIs()}). ${channelSnapshot(machine.id)}`,
         );
       }
+      phoneReplacedAt.set(machine.id, Date.now());
       forgetRemoteEnvironment(machine.id);
       endConnectionBudget(machine.id);
       await GhostexNative.disconnect(machine.id);

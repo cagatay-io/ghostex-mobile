@@ -21,6 +21,7 @@ import {
 } from '../machines/easyConnectRoute';
 import { MOVE_BACK_INTERVAL_MS, shouldTryMoveBack, tailscaleProbeId } from '../machines/routeChoice';
 import { enabledMachines, useMachinesStore, type MachineRecord } from '../machines/store';
+import { commandsInFlight } from '../remote/channelBudget';
 import { ensureConnected } from '../remote/connection';
 import { logAppEvent } from './appLog';
 import { networkChangesHeard } from './networkChanges';
@@ -40,6 +41,28 @@ async function tailscaleReaches(machine: MachineRecord): Promise<boolean> {
   } finally {
     await GhostexNative.disconnect(probeId).catch(() => undefined);
   }
+}
+
+/** How long a move back waits for the commands running on the Easy Connect connection to finish. */
+const COMMANDS_FINISH_WAIT_MS = 10_000;
+const COMMANDS_FINISH_STEP_MS = 250;
+
+/**
+ * Whether the commands running on `machineId`'s connection finished within `COMMANDS_FINISH_WAIT_MS`.
+ *
+ * CDXC:RemoteMachines 2026-11-16 WHY: issue #632: moving back to Tailscale replaced the Easy Connect connection
+ * while a `ghostex sessions` read ran on it; the read failed ("E_CHANNEL_FAILED: Disconnected") and the phone said
+ * "Ghostex on the computer couldn't do that", for a disconnect the phone made itself. The move back is never urgent
+ * (Easy Connect works meanwhile), so it waits for what runs, and with commands still running it tries again at the
+ * next check (`MOVE_BACK_INTERVAL_MS`). A read cut off anyway is read again quietly (inventory/store.ts).
+ */
+async function commandsFinished(machineId: string): Promise<boolean> {
+  const until = Date.now() + COMMANDS_FINISH_WAIT_MS;
+  while (commandsInFlight(machineId) > 0) {
+    if (Date.now() >= until) return false;
+    await new Promise((resolve) => setTimeout(resolve, COMMANDS_FINISH_STEP_MS));
+  }
+  return true;
 }
 
 async function check(force: boolean): Promise<void> {
@@ -67,6 +90,13 @@ async function check(force: boolean): Promise<void> {
       try {
         if (!(await tailscaleReaches(machine))) return;
         // Still on Easy Connect (nothing else moved it meanwhile): dial again, Tailscale first.
+        if (useMachineRoutes.getState().active[machine.id] !== 'easyConnect') return;
+        if (!(await commandsFinished(machine.id))) {
+          logAppEvent(
+            `Connection: ${machine.id} stays on Easy Connect for now (${commandsInFlight(machine.id)} commands still running)`,
+          );
+          return;
+        }
         if (useMachineRoutes.getState().active[machine.id] !== 'easyConnect') return;
         logAppEvent(`Connection: ${machine.id} moves back to Tailscale`);
         await ensureConnected(machine, { reset: true, reason: 'moving back to Tailscale' });
