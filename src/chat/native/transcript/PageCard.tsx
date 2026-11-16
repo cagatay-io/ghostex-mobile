@@ -21,7 +21,7 @@ import { useTranscriptEnv, useTranscriptFlags } from './context';
 import { Glyph } from './icons';
 import { str, type JsonRecord } from './json';
 import { answeredColor } from './PageAnswersCard';
-import { CardMoreMenu, pageRows, snoozeRow } from '../cards/CardMoreMenu';
+import { CardMoreMenu, pageRows, snoozeRow, starRow } from '../cards/CardMoreMenu';
 import { askedPageThumbnail, usePageThumbnailStore } from './pageThumbnails';
 import { QuestionFlashFrame } from './OpenQuestions';
 import { VerticalFade } from './verticalFade';
@@ -223,9 +223,13 @@ function PageCardBody({
             </Pressable>
           ) : null}
           {pageId.length > 0 ? (
-            // Export page, Import answers and, while it waits, Snooze (`cards/CardMoreMenu.tsx`).
+            // While it waits Snooze, then Star, Export page and Import answers (`cards/CardMoreMenu.tsx`).
             <CardMoreMenu
-              rows={[...(waiting ? [snoozeRow(pageId)] : []), ...pageRows(pageId)]}
+              rows={[
+                ...(waiting ? [snoozeRow(pageId)] : []),
+                starRow(pageId, flags.starredPages.has(pageId)),
+                ...pageRows(pageId),
+              ]}
               dispatch={dispatch}
               color={theme.foreground}
             />

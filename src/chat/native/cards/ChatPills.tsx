@@ -416,6 +416,10 @@ function QuestionsSection({
                     <Glyph name={button.glyph} size={14} color={P.cardMuted} />
                   </Pressable>
                 ))}
+                {row.starred === true ? (
+                  // A starred page (gx-chat-core `questions/later.rs` `starred_page_ids`); it stars from its card's ⋯.
+                  <Glyph name="star" size={13} color={STAR_YELLOW} />
+                ) : null}
                 {label !== null ? <Text style={styles.questionsMeta}>{label}</Text> : null}
                 {age.length > 0 ? <Text style={styles.questionsMeta}>{age}</Text> : null}
               </Pressable>
@@ -437,6 +441,9 @@ function QuestionsSection({
     </View>
   );
 }
+
+/** A starred page's star (desktop `page_card.rs` `STAR_YELLOW`). */
+const STAR_YELLOW = '#f3cd5f';
 
 /** The coordinator model warning's pill (gx-chat-core `extras/coordinator_quality.rs`), drawn in amber. */
 const QUALITY_PILL = 'coordinatorQuality';

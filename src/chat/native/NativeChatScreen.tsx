@@ -720,6 +720,7 @@ export default function NativeChatScreen({
                 chat={chat}
                 machine={machine}
                 page={page}
+                starredPages={document?.starredPages ?? []}
                 onClose={closePage}
                 {...(pageIdOfPath(page?.path ?? '') !== null ? { onHide: hidePage } : {})}
                 onOpenLink={openPageLink}

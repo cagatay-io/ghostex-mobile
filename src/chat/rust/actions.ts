@@ -115,6 +115,8 @@ export type ActionFields = {
   importPageAnswers: { text: string };
   /** The X on a For later row: removes a form or page without answering it; it reads Canceled (gx-chat-core `questions/later.rs`). */
   questionRemove: { id: string };
+  /** Stars a page in this chat, or takes its star off every version of its file (gx-chat-core `questions/later.rs` `star`). */
+  pageStar: { id: string; starred: boolean };
   /** The dock's Mark all seen: removes every page that waits only to be looked at, as `questionRemove` does; their cards read Seen (gx-chat-core `questions/later.rs` `mark_seen`). */
   markPagesSeen: { ids: string[] };
   /** Snooze on a form or page: For later for `hours` (1, 6 or 24), brought back by gxserver (gx-chat-core `questions/later.rs`). */

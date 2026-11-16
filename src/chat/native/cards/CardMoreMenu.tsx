@@ -4,6 +4,12 @@
  * `questions/later.rs` `snooze`) and, for a page, Export page and Import answers (`pageExport.ts`),
  * as the desktop page window's ⋯ menu holds them.
  *
+ * CDXC:SessionChat 2026-11-16 DECISION:
+ * The user picked the ⋯ menus for starring a page on the phone (Q3546 on the star-resources page):
+ * a page card's and the page sheet's ⋯ get Star (Unstar once starred) after Snooze, which stays
+ * first, and a starred page's row in Chat Resources shows a yellow star. The rest of the decision
+ * is on gx-chat-core questions/later.rs `starred_page_ids`.
+ *
  * CDXC:SessionChat 2026-11-13 DECISION:
  * User, asked whether the phone gets Snooze for forms and pages (Q2940): "on phone just a clock icon under the 3 dots". So no Snooze button on the card: a ⋯ on the form card, the page card and the page sheet's bar holds Snooze (a clock), which opens the three lengths; the page sheet closes once the page is snoozed. Export page and Import answers moved into the page's ⋯ too, as on the desktop (apps/desktop/src/app/window/visual_page_modal/more_menu.rs). A snoozed form or page leaves the dock and the unanswered counts until it comes back, and the agent is told nothing.
  */
@@ -26,6 +32,15 @@ export function snoozeRow(id: string): MenuRow {
       { label: '6 hours', hours: 6 },
       { label: '24 hours', hours: 24 },
     ].map(({ label, hours }) => ({ label, command: { type: 'snoozeQuestion', id, hours } })),
+  };
+}
+
+/** A page's Star row, Unstar once it is starred (gx-chat-core `pageStar`). */
+export function starRow(pageId: string, starred: boolean): MenuRow {
+  return {
+    label: starred ? 'Unstar' : 'Star',
+    iconPath: starred ? 'titlebar/star-filled.svg' : 'titlebar/star.svg',
+    command: { type: 'pageStar', id: pageId, starred: !starred },
   };
 }
 

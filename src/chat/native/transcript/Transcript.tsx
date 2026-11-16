@@ -170,6 +170,7 @@ export function TranscriptScope({ chat, main, children }: { chat: RustChat; main
           document.answersBelow,
           document.withdrawnPages,
           document.laterQuestions,
+          document.starredPages,
           document.openQuestions?.sections,
           document.savedPrompts,
           document.rewindAvailable,

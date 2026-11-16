@@ -304,6 +304,8 @@ export type TranscriptFlags = {
   unansweredQuestions: ReadonlySet<string>;
   /** Question pages and forms put off For later, which offer Back to unanswered. */
   laterQuestions: ReadonlySet<string>;
+  /** The pages the reader starred (`starredPages`): their cards' ⋯ offers Unstar. */
+  starredPages: ReadonlySet<string>;
   /** Question pages and forms the reader removed without answering: their cards read Canceled. */
   canceledQuestions: ReadonlySet<string>;
   savedPrompts: { [messageId: string]: Json };
@@ -398,6 +400,7 @@ const EMPTY_FLAGS: TranscriptFlags = {
   withdrawnPages: {},
   unansweredQuestions: new Set(),
   laterQuestions: new Set(),
+  starredPages: new Set(),
   canceledQuestions: new Set(),
   savedPrompts: {},
   rewindAvailable: false,
@@ -467,6 +470,7 @@ export function transcriptFlags(document: ChatDocument | null): TranscriptFlags 
         .flatMap((section) => section.rows.filter((row) => row.status !== 'later').map((row) => row.id)),
     ),
     laterQuestions: new Set(arr(document.laterQuestions).filter((id): id is string => typeof id === 'string')),
+    starredPages: new Set(arr(document.starredPages).filter((id): id is string => typeof id === 'string')),
     canceledQuestions: new Set(
       (document.openQuestions?.sections ?? []).flatMap((section) =>
         section.rows.filter((row) => row.status === 'canceled').map((row) => row.id),

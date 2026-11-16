@@ -42,7 +42,7 @@ import type { RustChat } from '../../rust/useRustChat';
 import { chatIsLightNow, themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { Glyph } from './icons';
 import { ImageViewerModal, type ImageViewerList } from './ImageViewer';
-import { CardMoreMenu, pageRows, snoozeRow } from './CardMoreMenu';
+import { CardMoreMenu, pageRows, snoozeRow, starRow } from './CardMoreMenu';
 import { keepUnsavedDraft, sendUnsavedDraft } from './pageDrafts';
 import { PAGE_SCRIPT, PENDING_DRAFT_SCRIPT, pageIdOfPath, readPageMessage } from './pageSheetScript';
 
@@ -93,9 +93,11 @@ export type PageSheetProps = {
    * and opens elsewhere, as the desktop's page window sends the page's links out.
    */
   onOpenLink: (url: string) => void;
+  /** The pages starred in this chat (the document's `starredPages`), for the ⋯ menu's Star or Unstar. */
+  starredPages?: readonly string[];
 };
 
-export function PageSheet({ chat, machine, page, onClose, onHide, onOpenLink }: PageSheetProps) {
+export function PageSheet({ chat, machine, page, starredPages, onClose, onHide, onOpenLink }: PageSheetProps) {
   const styles = useStyles();
   const P = useTranscriptTheme();
   const insets = useSafeAreaInsets();
@@ -383,9 +385,9 @@ export function PageSheet({ chat, machine, page, onClose, onHide, onOpenLink }: 
             </Pressable>
           ) : null}
           {pageId !== null ? (
-            // Export page, Import answers and Snooze (`CardMoreMenu.tsx`); a snoozed page's sheet closes.
+            // Snooze, Star, Export page and Import answers (`CardMoreMenu.tsx`); a snoozed page's sheet closes.
             <CardMoreMenu
-              rows={[snoozeRow(pageId), ...pageRows(pageId)]}
+              rows={[snoozeRow(pageId), starRow(pageId, starredPages?.includes(pageId) ?? false), ...pageRows(pageId)]}
               dispatch={chat.dispatch}
               color={P.primary}
               onSnoozed={close}

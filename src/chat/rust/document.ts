@@ -652,6 +652,8 @@ export type ChatDocument = {
   withdrawnPages?: { [pageId: string]: { tags: string[]; total: number; replaced?: boolean } };
   /** Question pages and forms put off "For later" that still wait (gx-chat-core `questions/later.rs`). */
   laterQuestions?: string[];
+  /** The pages the reader starred, each on the newest version of its file (gx-chat-core `questions::later::starred_page_ids`). */
+  starredPages?: string[];
   /** The question forms (```questions blocks) by id (`questions/forms.rs`). */
   questionForms?: { [id: string]: Json };
   /**
@@ -1175,6 +1177,8 @@ export type QuestionListRow = {
   status?: 'waiting' | 'later' | 'answered' | 'withdrawn' | 'canceled' | 'other';
   /** The thread that posted this page, on a row of a coordinator's Thread pages group. */
   thread?: string;
+  /** A page the reader starred: the row shows a yellow star (Resources' Starred filter lists it). */
+  starred?: boolean;
   timeTitle: string;
 };
 
