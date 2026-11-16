@@ -365,8 +365,14 @@ const useStyles = themedStyles((P) => ({
     color: P.muted,
     fontSize: 11,
   },
+  /**
+   * The list shrinks to the room the sheet has (80% of the screen at most), so on a short phone
+   * it scrolls inside the sheet. Without `flexShrink` it kept its full height and ran past the
+   * sheet's bottom edge, and the last card's buttons could not be scrolled to (2026-11-16).
+   */
   menu: {
     maxHeight: 560,
+    flexShrink: 1,
   },
   menuList: {
     gap: 8,
