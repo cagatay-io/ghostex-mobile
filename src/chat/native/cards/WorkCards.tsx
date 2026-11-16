@@ -11,6 +11,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import * as Clipboard from 'expo-clipboard';
 import {
   Pressable,
   ScrollView,
@@ -29,7 +30,7 @@ import { askColor, tint } from './askCard';
 import { AgentMark } from './agentMark';
 import { toneColor } from './CoordinatorBoard';
 import { QuestionFlashFrame } from '../transcript/OpenQuestions';
-import { PROSE_LINE, PROSE_SIZE, themedStyles, useTranscriptTheme } from '../transcript/theme';
+import { CODE_SIZE, MONO_FONT, PROSE_LINE, PROSE_SIZE, themedStyles, useTranscriptTheme } from '../transcript/theme';
 import {
   TranscriptEnvProvider,
   TranscriptFlagsProvider,
@@ -780,6 +781,9 @@ function DockRow({
           </View>
         </TextArea>
       ) : null}
+      {/* A Needs you to-do's command, closed rows only: opened, its description shows it as a
+          code block with its own copy (gx-chat-core `extras::needs_you`). */}
+      {!opened && str(row, 'command').trim().length > 0 ? <CommandChip command={str(row, 'command').trim()} /> : null}
       {answerLine}
       {menuRows.length > 0 ? (
         <Sheet visible={menu} onClose={() => setMenu(false)} title={str(row, 'title')}>
@@ -793,6 +797,42 @@ function DockRow({
           />
         </Sheet>
       ) : null}
+    </View>
+  );
+}
+
+/**
+ * A Needs you to-do's command under its title (`ghostex needs-you add --command`; desktop
+ * `dock_command_chip`): the chat's monospace in a quiet chip, a tap copying it and saying Copied
+ * for a moment. The row's long-press menu has Copy command too (`workMenuRows`).
+ */
+function CommandChip({ command }: { command: string }) {
+  const styles = useStyles();
+  const P = useTranscriptTheme();
+  const body = useBodyColor();
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 1500);
+    return () => clearTimeout(timer);
+  }, [copied]);
+  return (
+    <View style={styles.commandChipLine}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Copy command ${command}`}
+        hitSlop={WORK_BUTTON_SLOP}
+        onPress={() => {
+          void Clipboard.setStringAsync(command);
+          setCopied(true);
+        }}
+        style={({ pressed }) => [styles.commandChip, pressed && { backgroundColor: P.ink(0.1) }]}
+      >
+        <Glyph name={copied ? 'check' : 'copy'} size={13} color={P.cardMuted} />
+        <Text numberOfLines={1} style={[styles.commandChipText, { color: body }]}>
+          {copied ? 'Copied' : command}
+        </Text>
+      </Pressable>
     </View>
   );
 }
@@ -1436,6 +1476,20 @@ const useStyles = themedStyles((P) => ({
   dockIcon: { height: PROSE_LINE, justifyContent: 'center' },
   dockMain: { flex: 1, minWidth: 0, gap: 2 },
   dockTitle: { fontSize: PROSE_SIZE, lineHeight: PROSE_LINE },
+  // Under the title, from its left edge (the mark's 14 and the row's 10 gap past the row's 8).
+  commandChipLine: { flexDirection: 'row', paddingLeft: 8 + 14 + 10, paddingRight: 8, paddingBottom: 6 },
+  commandChip: {
+    flexShrink: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: P.ink(0.05),
+  },
+  commandChipText: { flexShrink: 1, fontFamily: MONO_FONT, fontSize: CODE_SIZE },
   pageTitle: { flexDirection: 'row', gap: 6, minWidth: 0 },
   pageName: { flexShrink: 1 },
   pageCount: { flexShrink: 0, fontSize: PROSE_SIZE, lineHeight: PROSE_LINE, color: P.cardMuted },

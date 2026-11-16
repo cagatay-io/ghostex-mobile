@@ -753,6 +753,9 @@ export function workMenuRows(
 ): WorkMenuRow[] {
   if (actions === null) return [];
   const rows: WorkMenuRow[] = [];
+  // A Needs you to-do's command (gx-chat-core `extras::needs_you`), as its chip copies it.
+  const command = str(actions, 'command').trim();
+  if (command.length > 0) rows.push({ label: 'Copy command', icon: 'copy', copy: command });
   const show = obj(actions.showInChat);
   if (show !== null) rows.push({ label: 'Show in chat', icon: 'arrow-down-left', command: show });
   const dismiss = obj(actions.dismiss);
