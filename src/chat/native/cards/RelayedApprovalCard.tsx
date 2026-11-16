@@ -11,7 +11,7 @@
  */
 
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 
 import type { ChatDocument } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
@@ -50,7 +50,16 @@ function settledMark(tone: string, muted: string): { icon: GlyphName; color: str
 }
 
 /** One relayed card: open with the thread's own buttons, or one line saying how it ended. */
-export function RelayedApprovalCard({ card, dispatch }: { card: JsonRecord; dispatch: Dispatch }) {
+export function RelayedApprovalCard({
+  card,
+  dispatch,
+  pinned,
+}: {
+  card: JsonRecord;
+  dispatch: Dispatch;
+  /** Its buttons stay in sight and only its body scrolls when it is taller than its room (the sheet). */
+  pinned?: boolean;
+}) {
   const styles = useStyles();
   const P = useTranscriptTheme();
   const [codeOpen, setCodeOpen] = useState(false);
@@ -73,6 +82,7 @@ export function RelayedApprovalCard({ card, dispatch }: { card: JsonRecord; disp
     <ToneCard
       tone="approval"
       icon="shield-check"
+      pinFooter={pinned}
       title={str(card, 'title')}
       detail={detail}
       body={dimPending(
@@ -216,11 +226,19 @@ function RelayedSettledRow({ card }: { card: JsonRecord }) {
 /** The Approvals pill's sheet: every card that waits on the user. */
 export function RelayedApprovalsMenu({ chat, document }: { chat: RustChat; document: ChatDocument }) {
   const styles = useStyles();
+  const { height } = useWindowDimensions();
   const open = relayedCards(document).filter((card) => isTrue(card, 'open'));
+  // CDXC:SessionChat 2026-11-16 DECISION: User: a card's Yes / No stay pinned at its bottom and
+  // only its command area scrolls. Each card is at most about half the screen, so it always fits
+  // the sheet (80% of the screen) with its buttons in sight; several cards scroll as a list.
+  // SEE-ALSO: apps/desktop/src/app/native_chat/relayed_approval.rs (`approvals_menu_body`).
+  const cardMax = Math.max(240, Math.round(height * 0.55));
   return (
     <ScrollView style={styles.menu} contentContainerStyle={styles.menuList} nestedScrollEnabled>
       {open.map((card) => (
-        <RelayedApprovalCard key={str(card, 'key')} card={card} dispatch={chat.dispatch} />
+        <View key={str(card, 'key')} style={{ maxHeight: cardMax }}>
+          <RelayedApprovalCard card={card} dispatch={chat.dispatch} pinned />
+        </View>
       ))}
     </ScrollView>
   );

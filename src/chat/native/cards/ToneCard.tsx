@@ -57,8 +57,16 @@ export function ToneCard({
   accessibilityLabel,
   hue,
   tileGlyph,
+  pinFooter,
 }: {
   tone: string;
+  /**
+   * Keeps the header and the buttons in sight when the card's container is shorter than the
+   * card: the card shrinks to it and only its body scrolls (the Approvals sheet). Without it the
+   * card is as tall as its content, as before. Desktop's `tone_card` always does this, since a
+   * GPUI card with room lays out the same either way.
+   */
+  pinFooter?: boolean;
   /** Replaces the tone's own glyph (an API error card draws its failure's). */
   icon?: GlyphName;
   /** Replaces the tone's colour (`#rrggbb`; a GBot card wears its bot's). */
@@ -127,7 +135,7 @@ export function ToneCard({
     </>
   );
   return (
-    <View style={[styles.card, { backgroundColor: P.cardPanel }]}>
+    <View style={[styles.card, pinFooter === true && styles.cardPinned, { backgroundColor: P.cardPanel }]}>
       {onPressHeader === undefined ? (
         <View style={styles.header}>{headerContent}</View>
       ) : (
@@ -140,7 +148,19 @@ export function ToneCard({
           {headerContent}
         </Pressable>
       )}
-      {bodyItems.length > 0 ? <View style={styles.body}>{bodyItems}</View> : null}
+      {bodyItems.length === 0 ? null : pinFooter === true ? (
+        <ScrollView
+          style={styles.bodyPinned}
+          contentContainerStyle={styles.body}
+          nestedScrollEnabled
+          alwaysBounceVertical={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {bodyItems}
+        </ScrollView>
+      ) : (
+        <View style={styles.body}>{bodyItems}</View>
+      )}
       {hasFooter ? (
         <View
           onLayout={measureFooter}
@@ -319,6 +339,8 @@ const useStyles = themedStyles((P) => ({
     paddingHorizontal: SHELL.padX,
     paddingBottom: SHELL.padX,
   },
+  cardPinned: { flexShrink: 1 },
+  bodyPinned: { flexShrink: 1 },
   footer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
