@@ -270,7 +270,8 @@ export function initAutoReconnect(): void {
       return true;
     },
     mayRecover: canRecover,
-    // iPhone builds with the SSH send queue only (`sshChannelStats`); elsewhere nothing is read.
+    // iPhone builds with the SSH send queue and Android builds with the probe lane (`sshChannelStats`); elsewhere
+    // nothing is read.
     stuckCloses: async (machineId) => {
       const read = GhostexNative.sshChannelStats;
       if (typeof read !== 'function') return null;
