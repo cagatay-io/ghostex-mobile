@@ -42,15 +42,15 @@ export function unansweredDialCode(error: unknown): string | null {
   return typeof code === 'string' && UNANSWERED_CODES.has(code) ? code : null;
 }
 
-/** A dial to `machineId` got no answer. */
-export function noteDialFailure(machineId: string, code: string, message: string): void {
+/** A dial to `machineId` got no answer; `note` ends the log line ("; Tailscale off on this phone"). */
+export function noteDialFailure(machineId: string, code: string, message: string, note = ''): void {
   const failures = (backoffs.get(machineId)?.failures ?? 0) + 1;
   const step = failures - QUICK_FAILURES; // 0 at the second failure
   const wait = step < 0 ? 0 : DIAL_BACKOFF_STEPS_MS[Math.min(step, DIAL_BACKOFF_STEPS_MS.length - 1)]!;
   backoffs.set(machineId, { failures, until: wait === 0 ? 0 : Date.now() + wait, code, message });
   if (wait > 0) {
     logAppEvent(
-      `Connection: ${machineId} did not answer ${failures} dials (${code}); next dial in ${Math.round(wait / 1000)} s`,
+      `Connection: ${machineId} did not answer ${failures} dials (${code}${note}); next dial in ${Math.round(wait / 1000)} s`,
     );
   }
 }

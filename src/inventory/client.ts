@@ -242,6 +242,8 @@ function classifyFailure(error: unknown, hasPassword: boolean): Pick<FailureSumm
   // Out of channels is not a dropped connection, whatever the words say (CDXC:RemoteMachines 2026-11-13 in
   // src/remote/channelBudget.ts): it must not start a reconnect.
   const code = typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : undefined;
+  // Not dialled: Tailscale is off on this phone (src/remote/tailscaleOff.ts). The computer's own line says so.
+  if (code === 'E_TAILSCALE_OFF') return { message: FailureCopy.tailscaleOff, reasonCode: 'noRoute' };
   if (isChannelRefusal(error) || code === 'E_BUSY' || text === FailureCopy.channelsBusy) {
     return { message: FailureCopy.channelsBusy, reasonCode: 'channelsBusy' };
   }

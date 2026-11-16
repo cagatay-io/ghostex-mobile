@@ -17,7 +17,7 @@ import { GhostexNative } from '../../modules/ghostex-native/src';
 import type { FailureReasonCode } from '../inventory/client';
 import { useInventoryStore } from '../inventory/store';
 import { chatLinkKeptInBackground, onChatLinkCutOff } from '../chat/rust/machine-link';
-import { hasEasyConnectRoute, useMachineRoutes } from '../machines/easyConnectRoute';
+import { hasEasyConnectRoute, tailscaleOnPhone, useMachineRoutes } from '../machines/easyConnectRoute';
 import { enabledMachines, useMachinesStore } from '../machines/store';
 import { cancelConnectionAttempt, ensureConnected } from '../remote/connection';
 import { isDemoMachineId } from '../demo/identity';
@@ -35,6 +35,12 @@ import {
 import { installStallWatch, resetStallWatch } from '../remote/stallWatch';
 import { clearDialBackoff, dialWaitMs } from '../remote/dialBackoff';
 import { noteConnectionEnded, startChannelSnapshots } from '../remote/connectionTrace';
+import {
+  isTailscaleOffError,
+  machinesWaitingForTailscale,
+  stopWaitingForTailscale,
+  tailscaleOffNote,
+} from '../remote/tailscaleOff';
 import { checkStalledConnection, reconnectMachine } from '../remote/connection';
 import { logAppEvent } from './appLog';
 
@@ -132,8 +138,10 @@ function recoverMachine(machineId: string, verify = false, reason = 'retry'): Pr
       } else {
         attemptsByMachineId.delete(machineId);
       }
-    } catch {
-      scheduleReconnect(machineId);
+    } catch (error) {
+      // Not dialled because Tailscale is off on this phone: no ladder, it dials once Tailscale is on.
+      if (isTailscaleOffError(error)) watchForTailscale();
+      else scheduleReconnect(machineId);
     }
   })();
   recovering.set(machineId, request);
@@ -142,6 +150,36 @@ function recoverMachine(machineId: string, verify = false, reason = 'retry'): Pr
   };
   void request.then(clear, clear);
   return request;
+}
+
+/** How often the phone looks whether Tailscale is on again while a computer waits for it. */
+const TAILSCALE_WATCH_MS = 5_000;
+let tailscaleWatch: ReturnType<typeof setInterval> | null = null;
+
+/**
+ * While a Tailscale computer waits because Tailscale is off on this phone (src/remote/tailscaleOff.ts), looks every
+ * 5 s in the foreground whether it is on, and then recovers each waiting computer. A network change (Android brings
+ * the VPN up as one) and coming back to the front recover every computer anyway (`recoverConnections`).
+ */
+function watchForTailscale(): void {
+  if (tailscaleWatch !== null) return;
+  tailscaleWatch = setInterval(() => {
+    const ids = machinesWaitingForTailscale();
+    if (ids.length === 0) {
+      if (tailscaleWatch !== null) clearInterval(tailscaleWatch);
+      tailscaleWatch = null;
+      return;
+    }
+    if (!foreground()) return;
+    void tailscaleOnPhone().then((on) => {
+      if (on !== true) return;
+      for (const machineId of machinesWaitingForTailscale()) {
+        stopWaitingForTailscale(machineId);
+        logAppEvent(`Connection: ${machineId} may dial now (Tailscale is on)`);
+        void recoverMachine(machineId, false, 'Tailscale is on');
+      }
+    });
+  }, TAILSCALE_WATCH_MS);
 }
 
 /**
@@ -274,7 +312,7 @@ export function initAutoReconnect(): void {
   GhostexNative.addListener('onConnectionState', (event) => {
     const ended =
       event.state === 'disconnected' || event.state === 'failed'
-        ? `, ${noteConnectionEnded(event.machineId)}. ${channelSnapshotAtEnd(event.machineId)}`
+        ? `, ${noteConnectionEnded(event.machineId)}${tailscaleOffNote(machineTarget(event.machineId))}. ${channelSnapshotAtEnd(event.machineId)}`
         : '';
     logAppEvent(
       `Connection: ${event.machineId} ${event.state}${'errorCode' in event && event.errorCode ? ` (${event.errorCode})` : ''}${ended}`,

@@ -43,6 +43,7 @@ import {
 import { channelSnapshot } from './channelPressure';
 import { clearDialBackoff, dialWaitError, noteDialFailure, noteDialSuccess, unansweredDialCode } from './dialBackoff';
 import { noteConnected } from './connectionTrace';
+import { refuseWhileTailscaleOff, tailscaleOffFor, tailscaleOffNote } from './tailscaleOff';
 import { whereTheAppIs } from '../app/foregroundClock';
 
 type Attempt = { promise: Promise<void>; reset: boolean; verify: boolean };
@@ -201,7 +202,12 @@ export function ensureConnected(
     } catch (error) {
       const code = unansweredDialCode(error);
       if (code !== null && samePairing(machine.id, epoch)) {
-        noteDialFailure(machine.id, code, error instanceof Error ? error.message : String(error));
+        noteDialFailure(
+          machine.id,
+          code,
+          error instanceof Error ? error.message : String(error),
+          tailscaleOffNote(machine),
+        );
       }
       throw error;
     }
@@ -240,6 +246,9 @@ async function dial(
       if (samePairing(machine.id, epoch)) void checkEasyConnectOn(machine);
     }, EASY_CONNECT_CHECK_DELAY_MS);
   } else {
+    // A Tailscale computer is not dialled while Tailscale is off on this phone (tailscaleOff.ts).
+    await refuseWhileTailscaleOff(machine);
+    assertCurrent();
     await GhostexNative.connect(machine.id, config);
   }
   await assertKept();
@@ -270,6 +279,8 @@ async function connectEitherRoute(
     (await easyConnectDialCandidates(machine.id)).length > 0;
   assertCurrent();
   if (!easyConnectUsable) {
+    await refuseWhileTailscaleOff(machine);
+    assertCurrent();
     await GhostexNative.connect(machine.id, config);
     await GhostexNative.stopTailcatForward(machine.id).catch(() => undefined);
     setActiveRoute(machine.id, 'tailscale');
@@ -280,6 +291,8 @@ async function connectEitherRoute(
   let firstError: unknown = null;
   for (const [index, route] of order.entries()) {
     const startedAt = Date.now();
+    // Easy Connect went first and failed; Tailscale, off on this phone, would only run out its time (tailscaleOff.ts).
+    if (route === 'tailscale' && firstError !== null && (await tailscaleOffFor(machine))) continue;
     try {
       if (route === 'tailscale') {
         // A short head start only when Easy Connect is next; as the last try it keeps its full time.

@@ -208,13 +208,21 @@ export function withTailscaleHeadStart(config: SshConfig): SshConfig {
   return { ...config, dialTimeoutSec: TAILSCALE_HEAD_START_SEC };
 }
 
+let lastTailscaleOnPhone: boolean | null = null;
+
 /** Whether Tailscale's VPN is on here; null when this app build can't tell. */
 export async function tailscaleOnPhone(): Promise<boolean | null> {
   try {
-    return await GhostexNative.isTailscaleConnected();
+    lastTailscaleOnPhone = await GhostexNative.isTailscaleConnected();
   } catch {
-    return null;
+    lastTailscaleOnPhone = null;
   }
+  return lastTailscaleOnPhone;
+}
+
+/** What `tailscaleOnPhone` answered last, without asking again (for log lines); null before it was asked. */
+export function lastKnownTailscaleOnPhone(): boolean | null {
+  return lastTailscaleOnPhone;
 }
 
 /**

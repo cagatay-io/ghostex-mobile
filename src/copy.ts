@@ -545,6 +545,8 @@ export const FailureCopy = {
     'Could not reach the computer. Confirm both devices are online and the computer is awake. For a Tailscale connection, check Tailscale on both devices.',
   timedOut:
     "The computer didn't answer. The connection timed out; check that the computer is awake and Ghostex is open.",
+  /** A Tailscale computer while Tailscale is off on this phone: it isn't dialled (src/remote/tailscaleOff.ts). */
+  tailscaleOff: 'Tailscale is off on this phone. Turn it on in the Tailscale app and Ghostex connects by itself.',
   /** The SSH socket closed under a running command (libssh2's socket errors, "Exec read failed: -43"). */
   connectionDropped:
     'The connection to the computer dropped. Ghostex reconnects by itself; if it keeps dropping, check that the computer is awake and on the network.',
