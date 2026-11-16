@@ -39,7 +39,20 @@ export type ReplyExtras = {
   uploadFiles(files: readonly PickedFile[]): Promise<string[]>;
 };
 
-type Picture = { uri: string; path: string | null };
+/** A picture in the field: its file on the phone when picked here (`uri`), its path on the computer once saved. */
+type Picture = { uri: string | null; path: string | null };
+
+const PICTURE_REFERENCE = /\[Image #\d+\]\(([^)\n]+)\)/gu;
+
+/** A kept draft's words and its pictures (`withPictures` wrote them), so the sheet opens with both. */
+function splitPictures(draft: string): { text: string; pictures: Picture[] } {
+  const pictures: Picture[] = [];
+  const text = draft.replace(PICTURE_REFERENCE, (_, path: string) => {
+    pictures.push({ uri: null, path });
+    return '';
+  });
+  return { text: text.replace(/[ \t]+$/gmu, '').replace(/\n+$/u, ''), pictures };
+}
 
 /** `text` with `words` over `[start, end)`, a space kept from the words on each side. */
 function typedIn(text: string, start: number, end: number, words: string): { text: string; caret: number } {
@@ -99,24 +112,39 @@ export function ReplySheet({
   textRef.current = text;
   const open = useRef(false);
   open.current = quote !== null;
-  // Every Reply starts with an empty field, or with the draft its row kept.
+  /** Where the draft is kept, as it was while the sheet was open: words or a picture that arrive after it closed are kept there too. */
+  const keep = useRef(onChangeText);
+  if (quote !== null) keep.current = onChangeText;
+  // Every Reply starts with the session's Reply draft, its pictures as tiles (`replyDrafts.ts`).
   useEffect(() => {
     if (quote !== null) {
-      setText(initialText);
-      selection.current = { start: initialText.length, end: initialText.length };
-      setPictures([]);
+      const kept = splitPictures(initialText);
+      setText(kept.text);
+      selection.current = { start: kept.text.length, end: kept.text.length };
+      setPictures(kept.pictures);
       setStatus(null);
     }
     // Only a new opening resets the field; the draft follows the typing, not the other way round.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quote]);
+  // The draft is kept on every change of its words or pictures, also one that arrives after the
+  // sheet closed (a transcription, a picture saved).
+  const loaded = useRef(false);
+  useEffect(() => {
+    if (!loaded.current) {
+      loaded.current = true;
+      return;
+    }
+    (open.current ? onChangeText : keep.current)?.(withPictures(text, pictures));
+    // Only a change of the draft itself keeps it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text, pictures]);
   // A placed caret is handed to the field once, then released to the reader.
   useEffect(() => {
     if (placed !== null) setPlaced(null);
   }, [placed]);
   const write = (next: string, caret: number) => {
     setText(next);
-    onChangeText?.(next);
     selection.current = { start: caret, end: caret };
     setPlaced({ start: caret, end: caret });
   };
@@ -131,7 +159,7 @@ export function ReplySheet({
 
   const addPictures = (files: readonly PickedFile[]) => {
     if (extras === undefined || files.length === 0) return;
-    const added = files.map((file) => ({ uri: file.uri, path: null as string | null }));
+    const added: Picture[] = files.map((file) => ({ uri: file.uri, path: null }));
     setPictures((current) => [...current, ...added]);
     setStatus({ text: files.length > 1 ? 'Saving the pictures…' : 'Saving the picture…', error: false });
     extras
@@ -182,8 +210,8 @@ export function ReplySheet({
     const result = await saveAndTranscribe(machine, { kind: 'local', recording }, () => false, () => undefined);
     setVoice('idle');
     if (result?.kind === 'text' && result.text.trim().length > 0) {
-      if (!open.current) return; // Closed meanwhile: the chat box offers the recording again.
-      const { start, end } = selection.current;
+      // Closed meanwhile: the words go at the end of the kept draft.
+      const { start, end } = open.current ? selection.current : { start: textRef.current.length, end: textRef.current.length };
       const typed = typedIn(textRef.current, start, end, result.text);
       write(typed.text, typed.caret);
       await forgetRecording(recording.id);
@@ -232,10 +260,7 @@ export function ReplySheet({
   const field = (
     <TextInput
       value={text}
-      onChangeText={(next) => {
-        setText(next);
-        onChangeText?.(next);
-      }}
+      onChangeText={setText}
       onSelectionChange={(event) => {
         selection.current = event.nativeEvent.selection;
       }}
@@ -272,8 +297,14 @@ export function ReplySheet({
         {pictures.length > 0 ? (
           <View style={styles.tiles}>
             {pictures.map((picture, index) => (
-              <View key={`${picture.uri}-${index}`} style={styles.tile}>
-                <Image source={{ uri: picture.uri }} style={styles.tileImage} />
+              <View key={`${picture.uri ?? picture.path}-${index}`} style={styles.tile}>
+                {picture.uri !== null ? (
+                  <Image source={{ uri: picture.uri }} style={styles.tileImage} />
+                ) : (
+                  <View style={[styles.tileImage, styles.tileKept]}>
+                    <Glyph name="photo" size={18} color={P.muted} />
+                  </View>
+                )}
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`Remove picture ${index + 1}`}
@@ -347,6 +378,7 @@ const useStyles = themedStyles((P) => ({
   tiles: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 8 },
   tile: { width: 56, height: 48 },
   tileImage: { width: 56, height: 48, borderRadius: 8, borderWidth: 1, borderColor: P.border },
+  tileKept: { alignItems: 'center' as const, justifyContent: 'center' as const, backgroundColor: P.neutralFill },
   tileRemove: {
     position: 'absolute' as const,
     top: -6,

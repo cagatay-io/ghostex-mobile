@@ -52,12 +52,33 @@ function draftKey(scope: ReplyDraftScope, row: string): string {
 }
 
 /**
- * The row a Reply belongs to, from its `reply` object (`{item, key, tag}` or `{form, tag}`): a
- * work item ask's `work-ask:W7:Q12`, an item's own `work-item:W7`, else its key or the question's
- * form and tag. The same names as the desktop's `kept_reply_row`, so both find the same draft on
- * gxserver.
+ * The one Reply draft a session keeps (desktop `SESSION_REPLY_ROW`): every Reply sheet in the
+ * session, whatever question or selection it opens on, opens with it and writes to it, until a send
+ * clears it.
+ *
+ * CDXC:Coordinators 2026-11-16 DECISION:
+ * User: "if i write something in a floating reply bubble and i click away or w/e then we MUST keep
+ * that content in that reply bubble". One draft per session, not per question: the last words,
+ * pictures and dictation typed into Reply, kept through a tap away, a closed sheet, another
+ * session, a restart or a crash; sending clears it. Supersedes the 2026-11-11 one draft per row.
  */
+export const SESSION_REPLY_ROW = 'reply';
+
+/** The row a Reply belongs to: the session's one draft for any `reply` object that names something. */
 export function replyDraftRow(reply: {
+  item?: string;
+  key?: string;
+  tag?: string;
+  form?: string | null;
+}): string | null {
+  return legacyReplyDraftRow(reply) === null ? null : SESSION_REPLY_ROW;
+}
+
+/**
+ * The row a draft was kept under before one draft per session: a work item ask's
+ * `work-ask:W7:Q12`, an item's own `work-item:W7`, else its key or the question's form and tag.
+ */
+function legacyReplyDraftRow(reply: {
   item?: string;
   key?: string;
   tag?: string;
@@ -161,6 +182,8 @@ export function loadReplyDrafts(scope: ReplyDraftScope): void {
   void restore().then(async () => {
     if (listed.has(prefix)) return;
     listed.add(prefix);
+    // The phone's own older drafts first, so an offline computer does not hold them back.
+    adoptLegacyDrafts(scope);
     const answer = await call(scope, { op: 'list' });
     const remote = answer?.drafts;
     if (typeof remote !== 'object' || remote === null) return;
@@ -176,7 +199,29 @@ export function loadReplyDrafts(scope: ReplyDraftScope): void {
       return changed ? { drafts } : state;
     });
     persistSoon();
+    adoptLegacyDrafts(scope);
   });
+}
+
+/**
+ * Drafts kept per row before one draft per session: the newest becomes the session's one when it
+ * has none yet, and the old rows go, here and on the computer.
+ */
+function adoptLegacyDrafts(scope: ReplyDraftScope): void {
+  const prefix = scopePrefix(scope);
+  const shared = `${prefix}${SESSION_REPLY_ROW}`;
+  const drafts = useDrafts.getState().drafts;
+  const legacy = Object.entries(drafts)
+    .filter(([key]) => key.startsWith(prefix) && key !== shared)
+    .sort((left, right) => right[1].at - left[1].at);
+  if (legacy.length === 0) return;
+  const newest = legacy[0];
+  if (drafts[shared] === undefined && newest !== undefined && newest[1].text.trim().length > 0)
+    keepReplyDraft(scope, SESSION_REPLY_ROW, newest[1].text);
+  dropReplyDrafts(
+    scope,
+    legacy.map(([key]) => key.slice(prefix.length)),
+  );
 }
 
 /** The draft kept for `row`, or '' (a hook: a row's Reply shows "Draft" while it holds one). */

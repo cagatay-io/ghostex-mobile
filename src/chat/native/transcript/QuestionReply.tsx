@@ -15,7 +15,15 @@ import { create } from 'zustand';
 import type { RustChat } from '../../rust/useRustChat';
 import { useTranscriptEnv } from './context';
 import { ReplySheet } from './ReplySheet';
-import { dropReplyDrafts, keepReplyDraft, replyDraft, replyDraftRow, type ReplyDraftScope } from '../cards/replyDrafts';
+import {
+  dropReplyDrafts,
+  keepReplyDraft,
+  replyDraft,
+  replyDraftRow,
+  replyDraftScopeOf,
+  SESSION_REPLY_ROW,
+  type ReplyDraftScope,
+} from '../cards/replyDrafts';
 
 /** `item` and `key` when it answers a coordinator's work item ask (the dock's Reply). */
 export type QuestionReplyTarget = {
@@ -49,7 +57,7 @@ export function openQuestionReply(target: QuestionReplyTarget): void {
   // A work item's own Reply (no question tag) answers the item: "W7: words".
   if (target.tag.length === 0 && (target.item ?? '').length === 0 && (target.questions ?? '').length === 0) return;
   const scope = target.scope ?? null;
-  const row = scope !== null ? replyDraftRow(target) : null;
+  const row = replyDraftRow(target) ?? SESSION_REPLY_ROW;
   useQuestionReply.setState({ opened: { target, row, initial: replyDraft(scope, row) } });
 }
 
@@ -61,13 +69,16 @@ export function QuestionReplyHost({ chat }: { chat: RustChat }) {
   const { dispatch } = useTranscriptEnv();
   const opened = useQuestionReply((store) => store.opened);
   const target = opened?.target ?? null;
-  const scope = target?.scope ?? null;
+  // Every Reply keeps the session's one draft: a question in the transcript has no scope of its
+  // own, so it takes its chat's (the dock registers it, `replyDrafts.ts`).
+  const scope = target === null ? null : (target.scope ?? replyDraftScopeOf(chat.dispatch));
   const row = opened?.row ?? null;
+  const initial = opened === null ? '' : opened.initial.length > 0 ? opened.initial : replyDraft(scope, row);
   return (
     <ReplySheet
       quote={target !== null ? '' : null}
       question={target?.name ?? ''}
-      initialText={opened?.initial ?? ''}
+      initialText={initial}
       onChangeText={scope !== null && row !== null ? (text) => keepReplyDraft(scope, row, text) : undefined}
       onClose={closeQuestionReply}
       extras={{ machine: chat.machine, uploadFiles: chat.uploadFiles }}

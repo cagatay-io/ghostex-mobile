@@ -28,6 +28,7 @@ import type { RustChat } from '../../rust/useRustChat';
 import { MenuSheet, type MenuRow } from '../composer/MenuSheet';
 import { arr, obj, str } from './json';
 import { MentionCard } from './MentionCard';
+import { dropReplyDrafts, keepReplyDraft, replyDraft, replyDraftScopeOf, SESSION_REPLY_ROW } from '../cards/replyDrafts';
 import { ReplySheet, type ReplyAction } from './ReplySheet';
 import { closeTranscriptMenu, replySelection, useTranscriptMenuStore } from './transcriptMenuStore';
 
@@ -139,16 +140,19 @@ export function TranscriptMenuSheet({
     [active, queryAsync, request],
   );
   // The core composes the chat box (`transcriptReply`); Send reply then sends it as Send does.
+  const replyScope = replyDraftScopeOf(chat.dispatch);
   const onReply = useCallback(
     (quote: string, reply: string, action: ReplyAction) => {
       setReplyQuote(null);
+      // Taken into the chat box: the draft has done its job.
+      if (replyScope !== null) dropReplyDrafts(replyScope, [SESSION_REPLY_ROW]);
       void queryAsync('transcriptReply', [{ draft: composerText, quote, reply }]).then((draft) => {
         if (typeof draft !== 'string' || chat.composer === null) return;
         chat.composer.replace(draft);
         if (action === 'send') chat.composer.submit('send');
       });
     },
-    [chat.composer, composerText, queryAsync],
+    [chat.composer, composerText, queryAsync, replyScope],
   );
   const onCommand = useCallback(
     (command: MenuRow): boolean => {
@@ -184,7 +188,16 @@ export function TranscriptMenuSheet({
         onDismissed={onMenuDismissed}
         {...(mention !== null ? { header: <MentionCard target={mention} homeMachineId={homeMachineId} /> } : {})}
       />
-      <ReplySheet quote={replyQuote} onClose={() => setReplyQuote(null)} onReply={onReply} />
+      <ReplySheet
+        quote={replyQuote}
+        onClose={() => setReplyQuote(null)}
+        onReply={onReply}
+        // The session's one Reply draft, as a question's Reply keeps it (`replyDrafts.ts`).
+        initialText={replyScope !== null ? replyDraft(replyScope, SESSION_REPLY_ROW) : ''}
+        {...(replyScope !== null
+          ? { onChangeText: (text: string) => keepReplyDraft(replyScope, SESSION_REPLY_ROW, text) }
+          : {})}
+      />
     </>
   );
 }
