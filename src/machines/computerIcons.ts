@@ -14,6 +14,12 @@
  * shown". The icons include the systems' logos (Apple, Windows, Tux and Linux distributions), and an unpicked icon is
  * gx-core's `computer_icon_asset`: the logo the computer's gxserver names (`logo`, its Linux distribution's where
  * known), else its system's logo, else its kind (laptop or desktop), else the desktop.
+ *
+ * CDXC:RemoteMachines 2026-11-16 DECISION:
+ * User: a Linux computer with no pick shows its distribution's logo (Manjaro, EndeavourOS, CachyOS, Linux Mint,
+ * Pop!_OS, openSUSE and NixOS joined Arch, Ubuntu, Debian, Fedora and Red Hat), as gx-core's list does. A read that a
+ * computer answered with an error other than "no such endpoint" (a server restarting, a token not ready yet) is asked
+ * again on the next sessions update instead of leaving that computer without its icon until it reconnects.
  */
 
 import { create } from 'zustand';
@@ -42,6 +48,13 @@ export const COMPUTER_ICON_IDS = [
   'debian',
   'fedora',
   'arch',
+  'manjaro',
+  'endeavouros',
+  'cachyos',
+  'mint',
+  'popos',
+  'opensuse',
+  'nixos',
   'redhat',
   'laptop',
   'desktop',
@@ -72,6 +85,13 @@ const LOGO_DRAWINGS: Readonly<Record<string, string>> = {
   debian: 'brandDebian',
   fedora: 'brandFedora',
   arch: 'brandArch',
+  manjaro: 'brandManjaro',
+  endeavouros: 'brandEndeavouros',
+  cachyos: 'brandCachyos',
+  mint: 'brandMint',
+  popos: 'brandPopos',
+  opensuse: 'brandOpensuse',
+  nixos: 'brandNixos',
   redhat: 'brandRedhat',
 };
 
@@ -141,8 +161,11 @@ export async function readComputerIcon(machine: MachineConnectionTarget): Promis
         }),
         signal: controller.signal,
       });
-      // An older gxserver has no such endpoint: today's look.
-      if (!response.ok) return;
+      // An older gxserver has no such endpoint: today's look. Any other refusal is asked again later.
+      if (!response.ok) {
+        if (response.status !== 404) asked.delete(machine.id);
+        return;
+      }
       body = await response.json();
     } finally {
       clearTimeout(timer);
