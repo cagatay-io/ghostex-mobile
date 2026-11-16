@@ -104,6 +104,47 @@ function unionCollections(
 }
 
 /**
+ * Links each coordinator's threads on another computer of the list to it, so the Project list nests them under it.
+ *
+ * CDXC:Coordinators 2026-11-16 FIX:
+ * User, of a thread their Mac's coordinator started with `ghostex coordinator start-thread --computer m7-arch`: "this
+ * thread should be under u no? since u started it on the arch machine. pls fix this for the future." The thread's
+ * own computer does not know it is a thread (the link lives with the coordinator, migration 0051), so its session
+ * carries no coordinator fields and the one list drew it as a plain row of its own computer's project (there Main
+ * Hub, as the thread ran in that computer's home folder). The coordinator's `coordinatorRemoteThreads` names it by
+ * the `globalRef` its computer lists it under, as the Unified list and the desktop's borrowed row read it
+ * (unified/build.ts, gx-core sidebar_view/model.rs `remote_thread_rows`); the list's copy now takes the coordinator's
+ * link and the state its computer reports, so `foldCrossProjectThreads` (grouping.ts) moves it under the coordinator
+ * whatever project it runs in. `origins` keeps its own computer and session, so the row still names that computer
+ * and opens there. A thread already linked on its own computer keeps that link.
+ */
+function linkRemoteThreads(sessions: GhostexSession[], origins: Map<GhostexSession, SessionOrigin>): void {
+  const indexOfRef = new Map<string, number>();
+  sessions.forEach((session, index) => {
+    if (session.globalRef.length > 0) indexOfRef.set(session.globalRef, index);
+  });
+  for (const coordinator of [...sessions]) {
+    for (const thread of coordinator.coordinatorRemoteThreads ?? []) {
+      const index = indexOfRef.get(thread.globalRef);
+      if (index === undefined) continue;
+      const linked = sessions[index]!;
+      if (linked === coordinator || linked.coordinatorSessionId.length > 0) continue;
+      const origin = origins.get(linked);
+      if (origin === undefined || origin.machineId === origins.get(coordinator)?.machineId) continue;
+      const nested: GhostexSession = {
+        ...linked,
+        coordinatorProjectId: coordinator.projectId,
+        coordinatorSessionId: coordinator.sessionId,
+        coordinatorThreadState: thread.threadState,
+      };
+      origins.delete(linked);
+      origins.set(nested, origin);
+      sessions[index] = nested;
+    }
+  }
+}
+
+/**
  * One summary for `computers`, the selected computer first (its projects, order, collections and settings lead).
  * Sessions and projects of the others keep their objects' identity apart through `origins`.
  */
@@ -186,6 +227,7 @@ export function mergeComputers(computers: readonly MergeComputer[]): MergedCompu
       sessions.push(copy);
     }
   });
+  linkRemoteThreads(sessions, origins);
 
   // Each project's own session groups, for the projects drawn as their own entry (a merged copy's are not: its
   // sessions are listed with the entry's own, as on the desktop).
