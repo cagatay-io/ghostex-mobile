@@ -17,7 +17,7 @@ import { Pressable, Text, View, type LayoutChangeEvent } from 'react-native';
 import type { WorktreeTray as Tray } from '../../rust/document';
 import { CloudBoxCardView } from './BoxPicker';
 import { Glyph, type GlyphName } from './icons';
-import type { MenuRow } from './MenuSheet';
+import type { MenuRow, MenuSearch } from './MenuSheet';
 import { NARROW_WIDTH, trayLayout, type PartSize } from './trayLayout';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 
@@ -43,11 +43,35 @@ type Part = {
   onPress: (() => void) | null;
 };
 
-/** The core's menu rows with their `glyph` turned into the `iconPath` the menu sheet draws. */
+/**
+ * The core's menu rows with their `glyph` turned into the `iconPath` the menu sheet draws, and a
+ * heading before each new `section` (This folder's branch list: Recent, Local, Remote).
+ */
 function menuRows(rows: { [key: string]: unknown }[] | null | undefined): MenuRow[] {
-  return (rows ?? []).map((row) =>
-    typeof row.glyph === 'string' ? { ...row, iconPath: `titlebar/${row.glyph}.svg` } : row,
-  );
+  const drawn: MenuRow[] = [];
+  let section: string | null = null;
+  for (const row of rows ?? []) {
+    if (typeof row.section === 'string' && row.section.length > 0 && row.section !== section) {
+      section = row.section;
+      drawn.push({ heading: true, label: section });
+    }
+    drawn.push(typeof row.glyph === 'string' ? { ...row, iconPath: `titlebar/${row.glyph}.svg` } : row);
+  }
+  return drawn;
+}
+
+/** The search the detail part's list gets: branches and worktrees can run long. */
+function detailSearch(detail: NonNullable<Tray['detail']>): MenuSearch | null {
+  switch (detail.kind) {
+    case 'folderBranch':
+      return { placeholder: 'Search branches', create: detail.create ?? null };
+    case 'baseBranch':
+      return { placeholder: 'Search branches' };
+    case 'worktree':
+      return { placeholder: 'Search worktrees' };
+    default:
+      return null;
+  }
 }
 
 function glyphName(name: string | undefined, fallback: GlyphName): GlyphName {
@@ -58,6 +82,7 @@ function glyphName(name: string | undefined, fallback: GlyphName): GlyphName {
 export function WorktreeTray({
   tray,
   openRows,
+  runCommand,
   retry,
   projectLabel,
   openProjects,
@@ -65,8 +90,10 @@ export function WorktreeTray({
   openMachines,
 }: {
   tray: Tray;
-  /** Opens the composer's menu sheet with these rows. */
-  openRows: (title: string, rows: MenuRow[]) => void;
+  /** Opens the composer's menu sheet with these rows, and a search over them. */
+  openRows: (title: string, rows: MenuRow[], search?: MenuSearch | null) => void;
+  /** Runs a core command (the folder switch prompt's buttons). */
+  runCommand: (command: MenuRow) => void;
   /** Sends the box's text again (Try again after a failure). */
   retry: () => void;
   /** The project part's words, or null while the tray can't offer one. */
@@ -141,7 +168,8 @@ export function WorktreeTray({
       label: detail.label,
       muted: menu === null || detail.placeholder === true,
       full: detail.tooltip ?? detail.label,
-      onPress: menu === null ? null : () => openRows(detail.menuTitle ?? detail.label, menuRows(menu)),
+      onPress:
+        menu === null ? null : () => openRows(detail.menuTitle ?? detail.label, menuRows(menu), detailSearch(detail)),
     });
   }
   const rows: [Part[], Part[]] = [place, choice];
@@ -285,6 +313,35 @@ export function WorktreeTray({
           </Pressable>
         </View>
       ) : null}
+      {tray.folderPrompt ? (
+        <View style={styles.prompt}>
+          <View style={styles.promptLine}>
+            <Glyph
+              name={tray.folderPrompt.tone === 'busy' ? 'loader' : tray.folderPrompt.tone === 'done' ? 'check' : 'alert-triangle'}
+              size={13}
+              color={tray.folderPrompt.tone === 'error' ? P.error : P.muted}
+            />
+            <Text style={[styles.statusText, tray.folderPrompt.tone === 'error' ? { color: P.error } : null]} numberOfLines={3}>
+              {tray.folderPrompt.message}
+            </Text>
+          </View>
+          {tray.folderPrompt.actions.length > 0 ? (
+            <View style={styles.promptActions}>
+              {tray.folderPrompt.actions.map((action, index) => (
+                <Pressable
+                  key={action.label}
+                  accessibilityRole="button"
+                  accessibilityLabel={action.label}
+                  onPress={() => runCommand(action.command)}
+                  style={({ pressed }) => [styles.part, pressed ? styles.pressed : null]}
+                >
+                  <Text style={[styles.label, index === 0 ? styles.promptFirst : null]}>{action.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+        </View>
+      ) : null}
       {status !== null && status.state !== 'failed' && status.card ? <CloudBoxCardView card={status.card} /> : null}
     </View>
   );
@@ -336,4 +393,8 @@ const useStyles = themedStyles((P) => ({
   peek: { color: P.primary, fontSize: 12.5, paddingHorizontal: PART_PADDING },
   status: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: PART_PADDING },
   statusText: { color: P.muted, fontSize: 12.5, flexShrink: 1 },
+  prompt: { gap: 2, paddingHorizontal: PART_PADDING },
+  promptLine: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, paddingTop: 2 },
+  promptActions: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -PART_PADDING },
+  promptFirst: { fontWeight: '600' },
 }));

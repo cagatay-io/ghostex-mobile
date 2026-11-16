@@ -181,6 +181,7 @@ const GLYPHS = {
     filled: true,
   },
   search: { paths: ['M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0', 'M21 21l-6 -6'] },
+  plus: { paths: ['M12 5l0 14', 'M5 12l14 0'] },
   // The rows the chat's top bar menu held before it merged into More actions.
   'player-play': { paths: ['M7 4v16l13 -8z'] },
   // The permission mode's glyphs (`ModeGlyph`, `titlebar/mode-advance.svg` and `mode-pause.svg`) on a 24pt grid, for

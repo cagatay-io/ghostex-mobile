@@ -56,6 +56,15 @@ export type WorktreeTray = {
   worktreeLabel: string | null;
   /** The first message is moving the chat into a worktree. */
   busy: boolean;
+  /**
+   * The line under the bar about This folder's branch switch (gx-chat-core `menus/folder_branch.rs`):
+   * how it went, or why it waits, with the ways on. Absent from an older core.
+   */
+  folderPrompt?: {
+    tone: 'busy' | 'done' | 'warn' | 'error';
+    message: string;
+    actions: { label: string; glyph: string; command: { [key: string]: unknown } }[];
+  } | null;
   status:
     | null
     | { state: 'creating' | 'opened'; label: string; card?: CloudBoxCard | null }
@@ -71,11 +80,14 @@ export type WorktreeTray = {
    */
   where?: { label: string; glyph: string; menu: { [key: string]: unknown }[] } | null;
   /**
-   * The breadcrumb's last part (`detail_part` in the core): This folder's branch (only shown, `menu` null),
-   * a new worktree's base branch, the existing worktree, or the Cloud Box pick.
+   * The breadcrumb's last part (`detail_part` in the core): This folder's branch (`folderBranch`, a menu
+   * in sections that switches the folder, with `create` for its search; `branch` and a null menu from an
+   * older core), a new worktree's base branch, the existing worktree, or the Cloud Box pick.
    */
   detail?: {
-    kind: 'branch' | 'baseBranch' | 'worktree' | 'cloudBox';
+    kind: 'branch' | 'folderBranch' | 'baseBranch' | 'worktree' | 'cloudBox';
+    /** This folder's branch search: "Create <typed> from <from>" runs `command` with the name. */
+    create?: { from: string; command: { [key: string]: unknown } } | null;
     label: string;
     glyph: string;
     prefix?: string;

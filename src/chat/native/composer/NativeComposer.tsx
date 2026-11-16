@@ -46,7 +46,7 @@ import {
   type ComposerActionId,
   type ComposerControlId,
 } from './menus';
-import { MenuSheet, type MenuRow } from './MenuSheet';
+import { MenuSheet, type MenuRow, type MenuSearch } from './MenuSheet';
 import { ModelMenuSheet, type ModelSheetMode } from './ModelMenuSheet';
 import { NotePanel } from './NotePanel';
 import { phonePlaceholder } from './placeholder';
@@ -170,7 +170,10 @@ const CONTROL_GLYPHS: Record<ComposerControlId, GlyphName> = {
   terminal: 'terminal-2',
 };
 
-type OpenMenu = { kind: 'rows'; title?: string; rows: MenuRow[]; pasteImage?: boolean } | { kind: 'model' } | null;
+type OpenMenu =
+  | { kind: 'rows'; title?: string; rows: MenuRow[]; pasteImage?: boolean; search?: MenuSearch | null }
+  | { kind: 'model' }
+  | null;
 
 export function NativeComposer({
   projectId,
@@ -853,7 +856,8 @@ export function NativeComposer({
           {document?.worktreeTray ? (
             <WorktreeTray
               tray={document.worktreeTray}
-              openRows={(title, rows) => setMenu({ kind: 'rows', title, rows })}
+              openRows={(title, rows, search) => setMenu({ kind: 'rows', title, rows, search: search ?? null })}
+              runCommand={(command) => void runCommand(command)}
               retry={() => input?.submit('send')}
               projectLabel={projectChipLabel}
               openProjects={() => setProjectChoices(chat.machine === null ? [] : draftProjectChoices(chat.machine.id))}
@@ -1070,6 +1074,7 @@ export function NativeComposer({
             onClose={closeMenu}
             onCommand={runCommand}
             onDismissed={onMenuDismissed}
+            search={menu?.kind === 'rows' ? (menu.search ?? null) : null}
             {...(menu?.kind === 'rows' && menu.pasteImage === true
               ? { header: <PasteImageRow onImage={attachPastedImage} /> }
               : {})}

@@ -6,8 +6,8 @@
  * panel rows `accounts` (the Accounts & limits panel) and `context` (the context window panel).
  */
 
-import { useEffect, useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AGENT_ICONS } from '../../../assets/agentIcons.generated';
 import { AccountsPanel } from './AccountsPanel';
@@ -53,6 +53,8 @@ const KNOWN_GLYPHS = new Set<string>([
   'folder',
   'folder-open',
   'git-fork',
+  'git-branch',
+  'plus',
   'stack',
   'photo',
   'camera',
@@ -111,6 +113,43 @@ function isGlyph(name: string): name is GlyphName {
 
 type Page = { title?: string; rows: MenuRow[] };
 
+/**
+ * A search over a sheet's rows (the bar's branch and worktree lists): a field above them that keeps
+ * the rows whose label holds what is typed and the headings of the sections still showing. With
+ * `create` (This folder's branch), a name no row is called adds "Create <name> from <from>", whose
+ * command carries the name as `folderBranch` (gx-chat-core `menus/folder_branch.rs`).
+ */
+export type MenuSearch = { placeholder: string; create?: { from: string; command: MenuRow } | null };
+
+export function searchRows(rows: MenuRow[], query: string, create: MenuSearch['create']): MenuRow[] {
+  const typed = query.trim();
+  const needle = typed.toLowerCase();
+  if (needle.length === 0) return rows;
+  const kept: MenuRow[] = [];
+  let heading: MenuRow | null = null;
+  for (const row of rows) {
+    if (isTrue(row, 'heading')) {
+      heading = row;
+      continue;
+    }
+    if (!str(row, 'label').toLowerCase().includes(needle)) continue;
+    if (heading !== null) {
+      kept.push(heading);
+      heading = null;
+    }
+    kept.push(row);
+  }
+  const exact = kept.some((row) => !isTrue(row, 'heading') && str(row, 'label') === typed);
+  if (create && !exact && !/\s/u.test(typed)) {
+    kept.push({
+      label: `Create ${typed} from ${create.from}`,
+      iconPath: 'titlebar/plus.svg',
+      command: { ...create.command, folderBranch: typed },
+    });
+  }
+  return kept;
+}
+
 export type MenuSheetProps = {
   /** Null closes the sheet. */
   rows: MenuRow[] | null;
@@ -122,15 +161,25 @@ export type MenuSheetProps = {
   header?: ReactNode;
   /** iOS: the sheet finished going away (see `Sheet`). */
   onDismissed?: () => void;
+  /** A search field over the rows (`MenuSearch`). */
+  search?: MenuSearch | null;
 };
 
-export function MenuSheet({ rows, title, onClose, onCommand, header, onDismissed }: MenuSheetProps) {
+export function MenuSheet({ rows, title, onClose, onCommand, header, onDismissed, search }: MenuSheetProps) {
   const styles = useStyles();
+  const P = useTranscriptTheme();
   const [stack, setStack] = useState<Page[]>([]);
+  const [query, setQuery] = useState('');
   useEffect(() => {
     setStack([]);
+    setQuery('');
   }, [rows]);
-  const page: Page | null = stack.length > 0 ? stack[stack.length - 1]! : rows !== null ? { title, rows } : null;
+  const searched = useMemo(
+    () => (rows !== null && search ? searchRows(rows, query, search.create ?? null) : rows),
+    [rows, query, search],
+  );
+  const page: Page | null =
+    stack.length > 0 ? stack[stack.length - 1]! : searched !== null ? { title, rows: searched } : null;
   const rootIsPanel =
     page !== null &&
     page.rows.length === 1 &&
@@ -155,6 +204,19 @@ export function MenuSheet({ rows, title, onClose, onCommand, header, onDismissed
           contentContainerStyle={rootIsPanel ? styles.panelContent : styles.content}
         >
           {stack.length === 0 ? header : null}
+          {stack.length === 0 && search ? (
+            <TextInput
+              accessibilityLabel={search.placeholder}
+              placeholder={search.placeholder}
+              placeholderTextColor={P.muted}
+              value={query}
+              onChangeText={setQuery}
+              autoCorrect={false}
+              autoCapitalize="none"
+              style={styles.search}
+            />
+          ) : null}
+          {stack.length === 0 && search && page.rows.length === 0 ? <Text style={styles.empty}>No matches</Text> : null}
           {page.rows.map((row, index) => (
             <MenuRowView
               key={`${index}:${str(row, 'id') || str(row, 'label')}`}
@@ -272,6 +334,18 @@ export function rowsOf(value: unknown): MenuRow[] {
 
 const useStyles = themedStyles((P) => ({
   content: { paddingHorizontal: 8, paddingBottom: 8 },
+  search: {
+    marginHorizontal: 4,
+    marginBottom: 6,
+    paddingHorizontal: 12,
+    height: 38,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: P.menuBorder,
+    color: P.foreground,
+    fontSize: 15,
+  },
+  empty: { color: P.muted, fontSize: 14, paddingHorizontal: 12, paddingVertical: 10 },
   panelContent: { paddingHorizontal: 16, paddingBottom: 12 },
   separator: {
     height: StyleSheet.hairlineWidth,
