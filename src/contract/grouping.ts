@@ -873,9 +873,12 @@ function mergeRepositoryCopyBuckets(
   for (const project of mergeable) {
     const identity = identityOf(project);
     const fromOrigin = !identity.key.startsWith('dir:');
-    const folder = fromOrigin ? folderInRepository(project.path ?? '', project.gitRepositoryRootPath) : null;
-    const key = projectRepoKey(canonical.get(identity.key)?.key ?? identity.key, folder);
     const ownKey = `id:${project.projectId}`;
+    // A project with no git origin is only itself (gx-core merged.rs `key_of`, 2026-11-16): two folders of one name are
+    // not copies of one repository.
+    if (!fromOrigin) continue;
+    const folder = folderInRepository(project.path ?? '', project.gitRepositoryRootPath);
+    const key = projectRepoKey(canonical.get(identity.key)?.key ?? identity.key, folder);
     const entry = entryOfKey.get(key);
     if (entry === undefined) {
       entryOfKey.set(key, ownKey);

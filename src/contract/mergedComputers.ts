@@ -9,8 +9,8 @@
  * drawn row its own computer back (`restoreOrigins`), so opening, menus and actions still go to that computer.
  *
  * CDXC:RemoteMachines 2026-11-12 SEE-ALSO: the DECISIONs in packages/gx-core/src/sidebar_view/merged.rs (Q1350 to
- * Q1353, #461, #518, Q1993). A project matches another by git remote and its folder inside the repository, else by
- * folder name (./unified/repo.ts); every computer's home project is one Main Hub entry; a worktree and a GBot are
+ * Q1353, #461, #518, Q1993). A project matches another by git remote and its folder inside the repository (./unified/repo.ts); one
+ * with no origin matches nothing (2026-11-16); every computer's home project is one Main Hub entry; a worktree and a GBot are
  * never merged; an entry takes at most one copy from each other computer; the header's creating actions go to the
  * copy a session last started in; Spaces and project groups are each computer's added together, by id, else by name.
  */
@@ -161,12 +161,13 @@ export function mergeComputers(computers: readonly MergeComputer[]): MergedCompu
   const canonical = mergeRepoIdentities(
     computers.flatMap(({ summary }) => summary.projects.filter(mergeable).map(identityOf)),
   );
-  const keyOf = (project: GhostexProject): string => {
+  // CDXC:RemoteMachines 2026-11-16 SEE-ALSO: the DECISION at gx-core merged.rs `key_of`. A project with no git origin
+  // is only itself: its key names its computer and project id, so it never joins a same-named folder or repository.
+  const keyOf = (project: GhostexProject, machineId: string): string => {
     if (project.isHome === true) return 'home:';
     const identity = identityOf(project);
-    const folder = identity.key.startsWith('dir:')
-      ? null
-      : folderInRepository(project.path ?? '', project.gitRepositoryRootPath);
+    if (identity.key.startsWith('dir:')) return `${identity.key}@${machineId}#${project.projectId}`;
+    const folder = folderInRepository(project.path ?? '', project.gitRepositoryRootPath);
     return projectRepoKey(canonical.get(identity.key)?.key ?? identity.key, folder);
   };
 
@@ -184,7 +185,7 @@ export function mergeComputers(computers: readonly MergeComputer[]): MergedCompu
     for (const projectId of order) {
       const project = byId.get(projectId);
       if (project === undefined) continue;
-      const key = mergeable(project) || project.isHome === true ? keyOf(project) : null;
+      const key = mergeable(project) || project.isHome === true ? keyOf(project, machineId) : null;
       const entry = key === null ? undefined : entries.get(key);
       if (entry !== undefined && machineIndex > 0 && !entry.machines.has(machineIndex)) {
         entry.machines.add(machineIndex);
