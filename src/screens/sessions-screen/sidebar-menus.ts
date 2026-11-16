@@ -1015,7 +1015,7 @@ function projectMembershipMenu(input: ProjectMenuInput): SidebarMenuItem[] {
       }),
     );
   }
-  return [{ ...submenu('Add to Group', 'plus', children), presentation: 'page' }];
+  return [{ ...submenu('Project Group', 'plus', children), presentation: 'page' }];
 }
 
 /**
