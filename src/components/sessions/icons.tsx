@@ -61,6 +61,21 @@ export function ClockGlyph({ size, color }: GlyphProps) {
   );
 }
 
+/** View playbook's open book (desktop `titlebar/book.svg`, Tabler `book` outline). */
+export function BookGlyph({ size, color }: GlyphProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 19a9 9 0 0 1 9 0a9 9 0 0 1 9 0 M3 6a9 9 0 0 1 9 0a9 9 0 0 1 9 0 M3 6v13 M12 6v13 M21 6v13"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 /** Circular-arrows refresh glyph. */
 export function RefreshGlyph({ size, color }: GlyphProps) {
   return (

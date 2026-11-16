@@ -15,6 +15,7 @@ import { COMMAND_ICONS, TAG_ICONS } from '../../assets/tablerIcons.generated';
 import type { ContextMenuItem } from '../../components/sessions/ContextMenu';
 import {
   ArchiveGlyph,
+  BookGlyph,
   BoxGlyph,
   BriefcaseGlyph,
   ChevronLeftGlyph,
@@ -57,6 +58,7 @@ const MENU_ICON_SIZE = 14;
 const MENU_GLYPHS: Readonly<Record<string, (props: GlyphProps) => ReactElement>> = {
   alarm: AlarmGlyph,
   archive: ArchiveGlyph,
+  book: BookGlyph,
   box: BoxGlyph,
   brain: COMMAND_ICONS.brain,
   briefcase: BriefcaseGlyph,

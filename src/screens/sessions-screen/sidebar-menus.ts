@@ -669,10 +669,10 @@ function copySubmenu(session: GhostexSession, project: SessionMenuInput['project
 
 /**
  * gx-core `coordinator_rows` (CDXC:Coordinators 2026-10-13, the user's decision there): an
- * orchestrator's Goal & Instructions and Memory editors and its View playbook page, a thread's Mark Thread Done (disabled
+ * orchestrator's Coordinator submenu (Goal & Instructions, Memory, View playbook, Sleep Inactive Threads), a thread's Mark Thread Done (disabled
  * while it works or waits on an answer) or, once done, Reopen Thread, after a separator.
  */
-function coordinatorRows(session: GhostexSession): SidebarMenuItem[] {
+function coordinatorRows(session: GhostexSession, sleepInactive: SidebarMenuItem | null): SidebarMenuItem[] {
   if (session.isDraft === true) return [];
   const id = session.sessionId;
   const action = (kind: 'goal' | 'memory' | 'viewPlaybook' | 'markDone' | 'reopen' | 'makeMain'): SidebarMenuCommand => ({
@@ -687,10 +687,22 @@ function coordinatorRows(session: GhostexSession): SidebarMenuItem[] {
     if (!session.isMainCoordinator && !session.isChief) {
       rows.push(row('Make main coordinator', 'coordinator-crown-points', action('makeMain')));
     }
-    rows.push(row('Goal & Instructions…', 'checklist', action('goal')));
-    rows.push(row('Memory…', 'brain', action('memory')));
-    // CDXC:Coordinators 2026-11-09 (gx-core `coordinator_rows`): the playbook this coordinator reads.
-    rows.push(row('View playbook', 'book', action('viewPlaybook')));
+    /*
+     * CDXC:Coordinators 2026-11-16 DECISION:
+     * User (Android screenshot of a coordinator's long-press menu): "the context menu for coordinator is too long. Also
+     * view playbook didn't have icon. Pls put all these under 1 menu". Goal & Instructions, Memory, View playbook and
+     * Sleep Inactive Threads are one Coordinator submenu (the crown icon) where the loose rows were; Make main
+     * coordinator stays a row of its own above it. The desktop got the same (gx-core `coordinator_rows`, which this
+     * must match; it also lists Playbook overrides, which the phone has no editor for).
+     */
+    const children: SidebarMenuItem[] = [
+      row('Goal & Instructions…', 'checklist', action('goal')),
+      row('Memory…', 'brain', action('memory')),
+      // CDXC:Coordinators 2026-11-09 (gx-core `coordinator_rows`): the playbook this coordinator reads.
+      row('View playbook', 'book', action('viewPlaybook')),
+    ];
+    if (sleepInactive !== null) children.push(sleepInactive);
+    rows.push(submenu('Coordinator', 'coordinator-crown-points', children));
   } else if ((session.coordinatorSessionId ?? '').length > 0) {
     const state = session.coordinatorThreadState;
     if (state === 'done') {
@@ -835,17 +847,16 @@ export function buildSessionMenu(input: SessionMenuInput): SidebarMenuItem[] {
     if (item !== undefined) menu.push(item);
   }
 
-  const coordinatorBlock = coordinatorRows(session);
-  menu.push(...coordinatorBlock);
-
-  // CDXC:Coordinators 2026-10-13 SEE-ALSO: the user's decision on `is_sleep_inactive_session` in server/src/coordinators/sleep_threads.rs, which decides which threads sleep (gx-core `full_menu` draws the desktop's twin row). The disabled test is only the phone's Sleep Inactive hint, which never greys out a row gxserver would act on.
-  if (session.isCoordinator && session.isDraft !== true) {
-    if (coordinatorBlock.length === 0 && menu.length > 0) menu.push(separator());
-    menu.push({
-      ...row('Sleep Inactive Threads', 'moon', command({ type: 'sleepInactiveCoordinatorThreads', sessionId: id })),
-      disabled: !threads.some(isInactiveSession),
-    });
-  }
+  // CDXC:Coordinators 2026-10-13 SEE-ALSO: the user's decision on `is_sleep_inactive_session` in server/src/coordinators/sleep_threads.rs, which decides which threads sleep (gx-core `coordinator_rows` draws the desktop's twin row). The disabled test is only the phone's Sleep Inactive hint, which never greys out a row gxserver would act on.
+  const sleepInactive: SidebarMenuItem | null =
+    session.isCoordinator && session.isDraft !== true
+      ? {
+          ...row('Sleep Inactive Threads', 'moon', command({ type: 'sleepInactiveCoordinatorThreads', sessionId: id })),
+          disabled: !threads.some(isInactiveSession),
+        }
+      : null;
+  // The Sleep Inactive Threads row sits inside the Coordinator submenu (CDXC:Coordinators 2026-11-16 in `coordinatorRows`).
+  menu.push(...coordinatorRows(session, sleepInactive));
 
   const advanced: SidebarMenuItem[] = [heading('Session')];
   // Sleep sits first in Advanced (CDXC:ContextMenus 2026-11-15 above).
