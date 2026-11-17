@@ -38,6 +38,8 @@ type Config = {
   answerQuestions: boolean;
   answerAfterMinutes: number;
   answerApprovals: boolean;
+  /** Absent on a computer whose Ghostex predates the switch: then the row is hidden and the old wording kept. */
+  readOnlyLeavePlan?: boolean;
   supervisor: 'opusMedium' | 'solHigh';
   sweepSeconds: number;
 };
@@ -139,9 +141,23 @@ const PRESET_LINE: Record<Exclude<Preset, 'off'>, string> = {
 
 const PERMISSION_LINE: Record<PermissionChoice, string> = {
   wait: 'Permission prompts, Connectors cards and folder trust wait for you.',
-  safe: "After a minute without your answer, it approves reads, builds, tests, edits and local commits inside the project; anything else waits for you, and hard limits are declined. A read-only thread's cards always wait for you.",
-  all: "After a minute without your answer, it approves anything that is not a hard limit below and declines the rest. A read-only thread's cards always wait for you.",
+  safe: 'After a minute without your answer, it approves reads, builds, tests, edits and local commits inside the project; anything else waits for you, and hard limits are declined.',
+  all: 'After a minute without your answer, it approves anything that is not a hard limit below and declines the rest.',
 };
+
+/**
+ * The read-only sentence of that line. A computer that sends `readOnlyLeavePlan` has the new behaviour
+ * (CDXC:Autopilot 2026-11-18 in server/src/autopilot/config.rs); one that does not still leaves a
+ * read-only thread's cards for you, so its words stay true.
+ */
+function permissionLine(choice: PermissionChoice, config: Config): string {
+  if (choice === 'wait') return PERMISSION_LINE.wait;
+  return `${PERMISSION_LINE[choice]} ${
+    config.readOnlyLeavePlan === undefined
+      ? "A read-only thread's cards always wait for you."
+      : 'A read-only thread stays in plan mode: its reads are approved, the rest declined.'
+  }`;
+}
 
 async function call(
   machine: MachineRecord,
@@ -417,7 +433,17 @@ function AutopilotBody({
                 )
               }
             />
-            <Caption>{PERMISSION_LINE[permission]}</Caption>
+            <Caption>{permissionLine(permission, config)}</Caption>
+            {/* Hidden while permission prompts wait for you (AGENTS.md, Q3107), and on a computer that
+                does not send the field yet. */}
+            {permission !== 'wait' && config.readOnlyLeavePlan !== undefined ? (
+              <ToggleRow
+                label="Let read-only threads leave plan mode"
+                detail="Autopilot approves a read-only helper's request to stop planning and start changing files, instead of keeping it in plan mode. Its edits and commands are then judged like any other session's."
+                value={config.readOnlyLeavePlan}
+                onValueChange={(on) => set({ readOnlyLeavePlan: on })}
+              />
+            ) : null}
           </SettingsSection>
           {/* The hard limits show and count only with All but limits (Q3033). */}
           {permission === 'all' ? (
