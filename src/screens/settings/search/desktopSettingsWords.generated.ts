@@ -38,7 +38,7 @@ export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords
   },
   "autopilotApprovals": {
     "title": "When it asks permission",
-    "subtitle": "Permission prompts, Connectors cards and folder trust: Wait for me, Safe steps (after a minute, approve reads, builds, tests, edits and local commits inside the project; anything else waits for you) or All but limits (after a minute, approve anything that is not a hard limit). A read-only thread's cards always wait for you.",
+    "subtitle": "Permission prompts, Connectors cards and folder trust: Wait for me, Safe steps (after a minute, approve reads, builds, tests, edits and local commits inside the project; anything else waits for you) or All but limits (after a minute, approve anything that is not a hard limit). A read-only thread stays in plan mode: its reads are approved, a request to stop planning gets \"No, keep planning\", and its edits and commands are declined.",
     "options": [],
     "keywords": []
   },
