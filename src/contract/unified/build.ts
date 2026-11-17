@@ -273,6 +273,22 @@ export function spaceOfProject(spaces: UnifiedSpaceInput[], project: UnifiedProj
   return claimed?.spaceId ?? OTHER_SPACE_ID;
 }
 
+/**
+ * Unicode code point order, which is Rust's `str` order (UTF-8 bytes): unlike `<` on UTF-16 code units, a character
+ * past U+FFFF (an emoji) sorts after U+E000..U+FFFF (a fullwidth letter), as on the desktop.
+ */
+export function compareCodePoints(left: string, right: string): number {
+  const a = left[Symbol.iterator]();
+  const b = right[Symbol.iterator]();
+  for (;;) {
+    const x = a.next();
+    const y = b.next();
+    if (x.done || y.done) return x.done === y.done ? 0 : x.done ? -1 : 1;
+    const diff = (x.value.codePointAt(0) ?? 0) - (y.value.codePointAt(0) ?? 0);
+    if (diff !== 0) return diff;
+  }
+}
+
 /** Byte order, as the desktop compares strings. */
 function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -528,12 +544,17 @@ export function unifiedSessionCompare<S>(
   order: 'recent' | 'alphabetical' | 'created',
   recent: (left: UnifiedRow<S>, right: UnifiedRow<S>) => number,
 ): (left: UnifiedRow<S>, right: UnifiedRow<S>) => number {
-  const tie = (left: UnifiedRow<S>, right: UnifiedRow<S>) => compareText(left.sidebarSessionId, right.sidebarSessionId);
+  // gx-core `stable_identity_cmp`: the project id, then the session id, the same on every client (the routed
+  // `sidebarSessionId` is shaped differently here and on the desktop).
+  const tie = (left: UnifiedRow<S>, right: UnifiedRow<S>) =>
+    compareCodePoints(left.session.projectId, right.session.projectId) ||
+    compareCodePoints(left.session.sessionId, right.session.sessionId) ||
+    compareText(left.sidebarSessionId, right.sidebarSessionId);
   switch (order) {
     case 'alphabetical':
       return (left, right) =>
-        compareText((left.session.title ?? '').toLowerCase(), (right.session.title ?? '').toLowerCase()) ||
-        compareText(left.repo.label.toLowerCase(), right.repo.label.toLowerCase()) ||
+        compareCodePoints((left.session.title ?? '').toLowerCase(), (right.session.title ?? '').toLowerCase()) ||
+        compareCodePoints(left.repo.label.toLowerCase(), right.repo.label.toLowerCase()) ||
         tie(left, right);
     case 'created':
       return (left, right) => (right.session.createdMs ?? 0) - (left.session.createdMs ?? 0) || tie(left, right);
