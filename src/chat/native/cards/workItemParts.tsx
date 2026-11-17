@@ -733,7 +733,7 @@ export function rowMarkdown(row: JsonRecord, forms: { [id: string]: unknown } | 
 }
 
 /**
- * An item's menu rows from its actions (desktop `row_menu`): Show in chat, Mark answered, Dismiss, Snooze with its
+ * An item's menu rows from its actions (desktop `row_menu`): Show in chat, Mark answered, Dismiss (or Mark as read), Snooze with its
  * lengths, Copy as Markdown when `markdown` has words (`rowMarkdown`), then Mention in chat box,
  * which puts the item, form or page in the chat box.
  */
@@ -757,8 +757,12 @@ export function workMenuRows(
   // `questions::later::mark_answered`, CDXC:Coordinators 2026-11-16 DECISION).
   const markAnswered = obj(actions.markAnswered);
   if (markAnswered !== null) rows.push({ label: 'Mark answered', icon: 'circle-check', command: markAnswered });
+  // Dismiss, or Mark as read on a row that asks no question (a Needs you to-do, a page that only
+  // waits to be seen): gx-chat-core's `dismissLabel`. Both send the agent nothing; gxserver tells
+  // it with its next message (server/src/session_chat_dismissed.rs).
   const dismiss = obj(actions.dismiss);
-  if (dismiss !== null) rows.push({ label: 'Dismiss', icon: 'x', command: dismiss });
+  const dismissLabel = str(actions, 'dismissLabel') === 'Mark as read' ? 'Mark as read' : 'Dismiss';
+  if (dismiss !== null) rows.push({ label: dismissLabel, icon: 'x', command: dismiss });
   const snooze = arr(actions.snooze)
     .map(obj)
     .filter((choice): choice is JsonRecord => choice !== null);
