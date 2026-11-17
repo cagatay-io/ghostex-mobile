@@ -22,8 +22,9 @@ import {
   singleLinePressed,
   singleLineShell,
 } from './singleLineCard';
+import { FoldChevron } from './foldChevron';
 import { useDisclosure } from './state';
-import { MONO_FONT, MESSAGE_PART_GAP } from './theme';
+import { MESSAGE_PART_GAP } from './theme';
 import { arr, num, obj, str, type JsonRecord } from './json';
 
 /** The green that marks an answered page or form (desktop `answered_color`). */
@@ -39,6 +40,14 @@ const NOTE_TWO_LINES = 110;
  * The folded answers card and, opened, each question once (CDXC:SessionChat 2026-11-13 DECISION in
  * desktop page_answers.rs, Q2990 A to Q2997). Under Quiet View's own line (`AnswersUnderQuietLine`)
  * the card opens straight onto its rows without a line of its own.
+ *
+ * CDXC:SessionChat 2026-11-17 DECISION: the user picked Q3764 B and Q3765 "Yes, the same look on the
+ * phone" (desktop `answers_rows` in page_answers.rs has their words): the reader's note leads as a
+ * quoted line, each answered question shows its question on one line with no tag (a long press shows
+ * all of it with its tag) and each pick as a quiet pill (the core's `picks`), Other's words in quotes
+ * with "Your own answer", and the skipped questions fold into one "N skipped" row, shut by default,
+ * that opens onto one dimmed line each with their links kept. Supersedes the tags beside each
+ * question and the one line of skipped questions.
  */
 export function PageAnswersCard({ message }: { message: ProjectedMessage }) {
   const quietBodyOnly = useContext(AnswersUnderQuietLine);
@@ -156,6 +165,9 @@ function SinglePageAnswersCard({
         : answeredCount === 0
           ? `${skippedRows.length} skipped`
           : `${answeredCount} of ${questions.length}`;
+  const notesCount = rows.filter((row) => row.extra).length;
+  const answeredRows = rows.filter((row) => !row.extra && !row.skipped);
+  const [skippedOpen, toggleSkipped] = useDisclosure(disclosures, `${cardKey}:skipped`, false);
   const page = obj(answers?.page);
   const pageUrl = str(page, 'url');
   const hairline = theme.ink(0.05);
@@ -163,51 +175,101 @@ function SinglePageAnswersCard({
     <View style={[styles.rows, bodyOnly ? styles.rowsBodyOnly : null]}>
       {open
         ? rows
-            .filter((row) => !row.skipped)
-            .map((row, drawn) => {
+            .filter((row) => row.extra)
+            .map((row) => {
               const index = rows.indexOf(row);
-              // Older answers carry no tags: their place in the list stands in.
-              const marker = row.extra ? '' : row.tag.length > 0 ? row.tag : `${index + 1}.`;
+              const drawn = rows.filter((other) => other.extra).indexOf(row);
               return (
                 <View
-                  key={index}
+                  key={`note:${index}`}
                   style={[
                     styles.row,
                     drawn > 0 ? { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: hairline } : null,
                   ]}
                 >
-                  <QuestionLine
-                    marker={marker}
-                    label={row.extra ? 'Your note' : row.label}
-                    runs={row.extra ? undefined : obj(row.row)?.labelRuns}
-                  />
-                  <Text style={[styles.answer, { color: theme.foreground, fontWeight: row.extra ? '400' : '500' }]}>
-                    {row.value}
-                  </Text>
-                  {row.note.length > 0 ? <AnswerNote disclosureKey={`${cardKey}:note:${index}`} note={row.note} /> : null}
+                  <Text style={[styles.noteLabel, { color: theme.muted }]}>Your note</Text>
+                  <AnswerNote disclosureKey={`${cardKey}:note:${index}`} note={row.value} lead />
                 </View>
               );
             })
         : null}
+      {open
+        ? answeredRows.map((row, at) => {
+            const index = rows.indexOf(row);
+            const drawn = notesCount + at;
+            const picks = Array.isArray(obj(row.row)?.picks)
+              ? arr(obj(row.row)?.picks).map((pick) => String(pick))
+              : null;
+            const other = obj(row.row)?.other === true;
+            // Other's words are the question's note: they are the answer, not a note on it.
+            const own = other && row.note.length > 0 ? row.note : '';
+            const note = own.length > 0 ? '' : row.note;
+            const labels = picks === null ? null : other && own.length === 0 ? [...picks, 'Other'] : picks;
+            return (
+              <View
+                key={index}
+                style={[
+                  styles.row,
+                  drawn > 0 ? { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: hairline } : null,
+                ]}
+              >
+                <QuestionLine tag={row.tag} label={row.label} runs={obj(row.row)?.labelRuns} />
+                {labels === null ? (
+                  <Text style={[styles.answer, { color: theme.foreground }]}>{row.value}</Text>
+                ) : labels.length > 0 ? (
+                  <View style={styles.pills}>
+                    {labels.map((label, pick) => (
+                      <Text
+                        key={pick}
+                        numberOfLines={1}
+                        style={[
+                          styles.pill,
+                          { color: theme.foreground, borderColor: theme.ink(0.1), backgroundColor: theme.ink(0.04) },
+                        ]}
+                      >
+                        {label}
+                      </Text>
+                    ))}
+                  </View>
+                ) : null}
+                {own.length > 0 ? (
+                  <View>
+                    <Text style={[styles.own, { color: theme.foreground }]}>{`“${own}”`}</Text>
+                    <Text style={[styles.ownAside, { color: theme.muted }]}>Your own answer</Text>
+                  </View>
+                ) : null}
+                {note.length > 0 ? <AnswerNote disclosureKey={`${cardKey}:note:${index}`} note={note} /> : null}
+              </View>
+            );
+          })
+        : null}
       {open && skippedRows.length > 0 ? (
-        <Text
-          style={[
-            styles.skipped,
-            { color: theme.muted },
-            rows.some((row) => !row.skipped)
+        <View
+          style={
+            notesCount + answeredRows.length > 0
               ? { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: hairline }
-              : null,
-          ]}
+              : null
+          }
         >
-          Skipped{' '}
-          {skippedRows.map((row, at) => (
-            <Text key={at}>
-              {row.tag.length > 0 ? <Text style={styles.tag}>{row.tag} </Text> : null}
-              {row.label}
-              {at + 1 < skippedRows.length ? ', ' : ''}
-            </Text>
-          ))}
-        </Text>
+          <Pressable
+            hitSlop={4}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: skippedOpen }}
+            accessibilityLabel={skippedOpen ? 'Hide the skipped questions' : 'Show the skipped questions'}
+            onPress={toggleSkipped}
+            style={[styles.skippedHead, skippedOpen ? styles.skippedHeadOpen : null]}
+          >
+            <FoldChevron open={skippedOpen} size={13} color={theme.muted} />
+            <Text style={[styles.skippedLabel, { color: theme.muted }]}>{skippedRows.length} skipped</Text>
+          </Pressable>
+          {skippedOpen ? (
+            <View style={styles.skippedList}>
+              {skippedRows.map((row) => (
+                <SkippedLine key={rows.indexOf(row)} tag={row.tag} label={row.label} runs={obj(row.row)?.labelRuns} />
+              ))}
+            </View>
+          ) : null}
+        </View>
       ) : null}
       {open && more > 0 ? <Text style={[styles.more, { color: theme.muted }]}>and {more} more</Text> : null}
       {unconfirmed ? (
@@ -297,15 +359,17 @@ function SinglePageAnswersCard({
   );
 }
 
-/** A row's first line: its tag (or number) and its question on one line; a long press shows all of it. */
-function QuestionLine({ marker, label, runs }: { marker: string; label: string; runs: unknown }) {
+/**
+ * A row's first line: its question on one line; a long press shows all of it with its tag. The
+ * question's links open on a tap (`labelRuns`, gx-chat-core `questions/form_links.rs`).
+ */
+function QuestionLine({ tag, label, runs }: { tag: string; label: string; runs: unknown }) {
   const { theme } = useTranscriptEnv();
   const [whole, setWhole] = useState(false);
   return (
     <Pressable onLongPress={() => setWhole((shown) => !shown)} style={styles.questionLine}>
-      {marker.length > 0 ? <Text style={[styles.tag, { color: theme.muted }]}>{marker}</Text> : null}
+      {whole && tag.length > 0 ? <Text style={[styles.tag, { color: theme.muted }]}>{tag}</Text> : null}
       <View style={styles.questionText}>
-        {/* The question's links open on a tap (`labelRuns`, gx-chat-core `questions/form_links.rs`). */}
         <LinkWords
           text={label}
           runs={runs}
@@ -318,8 +382,31 @@ function QuestionLine({ marker, label, runs }: { marker: string; label: string; 
   );
 }
 
-/** A note under its answer: muted, behind a thin rule, two lines until More opens it. */
-function AnswerNote({ disclosureKey, note }: { disclosureKey: string; note: string }) {
+/** One skipped question, dimmed, on one line, its links kept; a long press shows all of it with its tag. */
+function SkippedLine({ tag, label, runs }: { tag: string; label: string; runs: unknown }) {
+  const { theme } = useTranscriptEnv();
+  const [whole, setWhole] = useState(false);
+  return (
+    <Pressable onLongPress={() => setWhole((shown) => !shown)} style={[styles.questionLine, styles.skippedLine]}>
+      {whole && tag.length > 0 ? <Text style={[styles.tag, { color: theme.muted }]}>{tag}</Text> : null}
+      <View style={styles.questionText}>
+        <LinkWords
+          text={label}
+          runs={runs}
+          color={theme.muted}
+          style={styles.skippedText}
+          numberOfLines={whole ? undefined : 1}
+        />
+      </View>
+    </Pressable>
+  );
+}
+
+/**
+ * A note behind a thin rule, two lines until More opens it: muted under its answer, or, for the
+ * reader's own note on the whole form (`lead`), in the foreground's normal type.
+ */
+function AnswerNote({ disclosureKey, note, lead = false }: { disclosureKey: string; note: string; lead?: boolean }) {
   const { theme } = useTranscriptEnv();
   const { disclosures } = useNativeChatUi();
   const [whole, toggleWhole] = useDisclosure(disclosures, disclosureKey, false);
@@ -328,7 +415,11 @@ function AnswerNote({ disclosureKey, note }: { disclosureKey: string; note: stri
     <View style={styles.noteBox}>
       <Text
         numberOfLines={long && !whole ? 2 : undefined}
-        style={[styles.note, { color: theme.muted, borderLeftColor: theme.ink(0.1) }]}
+        style={[
+          styles.note,
+          lead ? styles.leadNote : null,
+          { color: lead ? theme.foreground : theme.muted, borderLeftColor: theme.ink(0.1) },
+        ]}
       >
         {note}
       </Text>
@@ -358,15 +449,37 @@ const styles = StyleSheet.create({
   rows: { minWidth: 0 },
   rowsBodyOnly: { paddingTop: 2 },
   row: { paddingVertical: 8, gap: 2, minWidth: 0 },
+  noteLabel: { fontSize: 11.5, lineHeight: 16 },
+  pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 1, minWidth: 0 },
+  pill: {
+    flexShrink: 1,
+    maxWidth: '100%',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 1,
+    fontSize: 12.5,
+    lineHeight: 18,
+    fontWeight: '500',
+  },
+  own: { fontSize: 13, lineHeight: 19, fontWeight: '500' },
+  ownAside: { fontSize: 12.5, lineHeight: 18 },
+  skippedHead: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 8 },
+  skippedHeadOpen: { paddingBottom: 3 },
+  skippedLabel: { fontSize: 12.5, lineHeight: 18 },
+  skippedList: { paddingBottom: 4 },
+  skippedLine: { opacity: 0.75 },
+  skippedText: { fontSize: 12.5, lineHeight: 22 },
+  leadNote: { fontSize: 13, lineHeight: 19 },
   questionLine: { flexDirection: 'row', alignItems: 'baseline', gap: 8, minWidth: 0 },
   questionText: { flex: 1, minWidth: 0 },
   question: { fontSize: 13, lineHeight: 19 },
-  tag: { fontFamily: MONO_FONT, fontSize: 11.5, lineHeight: 16, fontWeight: '500', flexShrink: 0 },
-  answer: { fontSize: 15, lineHeight: 21 },
+  tag: { fontSize: 10.5, lineHeight: 19, flexShrink: 0, opacity: 0.75 },
+  answer: { fontSize: 15, lineHeight: 21, fontWeight: '500' },
   noteBox: { marginTop: 3, alignItems: 'flex-start', gap: 1 },
   note: { fontSize: 12.5, lineHeight: 18, borderLeftWidth: 2, paddingLeft: 8, alignSelf: 'stretch' },
   moreNote: { fontSize: 12.5, lineHeight: 18, fontWeight: '500' },
-  skipped: { fontSize: 12.5, lineHeight: 18, paddingVertical: 8 },
   more: { fontSize: 12, paddingTop: 2 },
   delivery: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, paddingTop: 10 },
   deliveryText: { fontSize: 12, lineHeight: 18 },
