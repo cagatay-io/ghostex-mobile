@@ -134,6 +134,8 @@ export type UnifiedSettings = {
    * in the order they were dragged into, or the one that came back last first. Manual when absent.
    */
   pinnedOrder?: 'manual' | 'recent';
+  /** `unifiedSessionOrder` (`unifiedSessionCompare`). Recent when absent. */
+  sessionOrder?: 'recent' | 'alphabetical' | 'created';
 };
 
 /** What the filter keeps. An empty list keeps everything of its kind; the kinds narrow together. */
@@ -504,13 +506,38 @@ export function buildUnifiedList<S>(
     const byCameBack = newestFirst((row) => row.cameBackMs);
     view.pinned.sort((left, right) => placed(left) - placed(right) || byCameBack(left, right));
   }
-  view.active.sort(newestFirst((row) => row.cameBackMs));
-  view.working.sort(newestFirst((row) => row.session.workingStartedMs ?? 0));
+  const order = settings.sessionOrder ?? 'recent';
+  view.active.sort(unifiedSessionCompare(order, newestFirst((row) => row.cameBackMs)));
+  view.working.sort(unifiedSessionCompare(order, newestFirst((row) => row.session.workingStartedMs ?? 0)));
   view.snoozed.sort(
     (left, right) =>
       (left.session.snoozedUntilMs ?? Number.MAX_SAFE_INTEGER) -
         (right.session.snoozedUntilMs ?? Number.MAX_SAFE_INTEGER) || tie(left, right),
   );
-  view.parked.sort(newestFirst((row) => row.session.lastInteractionMs ?? 0));
+  view.parked.sort(unifiedSessionCompare(order, newestFirst((row) => row.session.lastInteractionMs ?? 0)));
   return view;
+}
+
+/**
+ * How two cards of the list, the Moving shelf or the Parked shelf compare, as gx-core unified_sidebar/build.rs
+ * `unified_session_cmp` does (CDXC:Sidebar 2026-11-17 there): the shelf's own clock (`recent`) under Recent, the
+ * title A to Z (then the project, then the id) under Alphabetical, newest first under Created. Alphabetical and
+ * Created never read when a session came back, so a send, a turn's end or a thread that needs you moves no card.
+ */
+export function unifiedSessionCompare<S>(
+  order: 'recent' | 'alphabetical' | 'created',
+  recent: (left: UnifiedRow<S>, right: UnifiedRow<S>) => number,
+): (left: UnifiedRow<S>, right: UnifiedRow<S>) => number {
+  const tie = (left: UnifiedRow<S>, right: UnifiedRow<S>) => compareText(left.sidebarSessionId, right.sidebarSessionId);
+  switch (order) {
+    case 'alphabetical':
+      return (left, right) =>
+        compareText((left.session.title ?? '').toLowerCase(), (right.session.title ?? '').toLowerCase()) ||
+        compareText(left.repo.label.toLowerCase(), right.repo.label.toLowerCase()) ||
+        tie(left, right);
+    case 'created':
+      return (left, right) => (right.session.createdMs ?? 0) - (left.session.createdMs ?? 0) || tie(left, right);
+    default:
+      return recent;
+  }
 }

@@ -488,6 +488,10 @@ function normalizeRoot(root: JsonObject): GhostexMobileSummary {
     separateByMachine: root.sidebarSeparateByMachine === true,
     hideDisconnectedMachines: root.sidebarHideDisconnectedMachines === true,
     pinnedSessionOrder: root.pinnedSessionOrder === 'recent' ? 'recent' : 'manual',
+    unifiedSessionOrder:
+      root.unifiedSessionOrder === 'alphabetical' || root.unifiedSessionOrder === 'created'
+        ? root.unifiedSessionOrder
+        : 'recent',
     capabilities: parseCapabilities(root.capabilities),
   };
 }

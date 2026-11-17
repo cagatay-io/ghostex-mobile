@@ -1798,6 +1798,19 @@ export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords
     "options": [],
     "keywords": []
   },
+  "unifiedSessionOrder": {
+    "title": "Session order",
+    "subtitle": "Order the Unified sidebar's sessions by recent activity (a session moves to the top when you send it a message and when it finishes or needs you), alphabetically by title, or by when each was created, newest first. Alphabetical and Created never move a session when it works or finishes; turn off the Moving section too for a list that never moves. Pinned sessions follow Pinned order. Applies to the phone too. Also in the sidebar's Sort & Filter menu. Shown while the Unified sidebar is selected.",
+    "options": [
+      "Recent activity",
+      "recent",
+      "Alphabetical",
+      "alphabetical",
+      "Created (newest first)",
+      "created"
+    ],
+    "keywords": []
+  },
   "unifiedWorkingSection": {
     "title": "Moving section",
     "subtitle": "Fold sessions whose agent is working or still running something in the background into a Moving section at the bottom of the list. They return to the top of the list when they need you. Shown while the Unified sidebar is selected.",
