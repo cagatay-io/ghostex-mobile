@@ -608,7 +608,10 @@ function linkSubmenu(session: GhostexSession, project: SessionMenuInput['project
  *
  * CDXC:ContextMenus 2026-11-12 DECISION:
  * User: "i want a new Copy ID that let's me just copy the id and name of an agent so i can mention it in other chats" (2026-10-28), then (2026-11-12) "move Copy ID to sit directly above Tag As": Copy ID leaves the Copy submenu and is a row of the menu itself, right above Tag As, as on the desktop (gx-core copy.rs `copy_id_row`). It copies `[<session title>](<Global Ref>)`.
- * Since 2026-11-15 it is a button in the menu's quick row instead (CDXC:ContextMenus 2026-11-15 in `buildSessionMenu`).
+ * Since 2026-11-15 it was a button in the menu's quick row instead (CDXC:ContextMenus 2026-11-15 in `buildSessionMenu`).
+ *
+ * CDXC:ContextMenus 2026-11-18 DECISION:
+ * User: "please move copy id to the top of the copy menu item in the context menu for a session in the sidebar and move Popup to be the 3rd button after rename and pin". Copy ID is the first row of the Copy submenu again (`copySubmenu`), as on the desktop (gx-core copy.rs); the phone has no popup, so its quick row is Rename, Pin, Voice Call.
  */
 function copyIdRow(session: GhostexSession): SidebarMenuItem | null {
   const ref = session.globalRef.trim();
@@ -627,7 +630,9 @@ function copyIdRow(session: GhostexSession): SidebarMenuItem | null {
  * User (GitHub issue #373): a Copy Link row next to Copy Details copies the https page that opens the session (`https://ghostex.dev/open/session#<Global Ref>`), as on the desktop. A link opens on a computer; the phone only copies it for now.
  */
 function copySubmenu(session: GhostexSession, project: SessionMenuInput['project']): SidebarMenuItem {
-  const children: SidebarMenuItem[] = [
+  const copyId = copyIdRow(session);
+  const children: SidebarMenuItem[] = copyId === null ? [] : [copyId];
+  children.push(
     row(
       'Copy Details',
       'copy',
@@ -637,7 +642,7 @@ function copySubmenu(session: GhostexSession, project: SessionMenuInput['project
         text: sessionDetailsText(session, project),
       }),
     ),
-  ];
+  );
   const copyRow = (label: string, icon: string, text: string): void => {
     if (text.trim().length > 0) children.push(row(label, icon, command({ type: 'copyText', text })));
   };
@@ -827,8 +832,8 @@ export function buildSessionMenu(input: SessionMenuInput): SidebarMenuItem[] {
    * CDXC:ContextMenus 2026-11-15 DECISION:
    * User (Android screenshot of this menu running off the screen): "This is too long", then picked the quick row with
    * "Put sleep under advanced, 4 quick actions only pls" (Q3420 C), and the same on the desktop (Q3421 Yes). The menu
-   * opens with four icon buttons, Rename, Pin, Copy ID and Voice Call (the desktop has the first three; Voice Call is the
-   * phone's own), then Snooze, Park, Note and Tag As as rows with no line between them; Sleep (or Wake) moves to the
+   * opens with icon buttons, Rename, Pin and Voice Call (the desktop has Rename, Pin and Open in a Popup; Voice Call is the
+   * phone's own; Copy ID is the first row of the Copy submenu since 2026-11-18), then Snooze, Park, Note and Tag As as rows with no line between them; Sleep (or Wake) moves to the
    * top of Advanced. At very large text the buttons drop their labels (components/sessions/ContextMenu.tsx).
    * SEE-ALSO: packages/gx-core/src/sidebar_menu/session.rs `full_menu`, which this must match.
    */
@@ -836,8 +841,6 @@ export function buildSessionMenu(input: SessionMenuInput): SidebarMenuItem[] {
   const quick: SidebarMenuItem[] = [];
   if (shown('rename') && rows.rename !== undefined) quick.push(rows.rename);
   if (shown('pin') && rows.pin !== undefined) quick.push(pinned ? rows.pin : { ...rows.pin, icon: 'pinned' });
-  const copyId = copyIdRow(session);
-  if (copyId !== null) quick.push(copyId);
   if (voiceCall && !caps.isBrowser && session.isDraft !== true) {
     quick.push(row('Voice Call', 'headset', { type: 'voiceCall', sessionId: id }));
   }
