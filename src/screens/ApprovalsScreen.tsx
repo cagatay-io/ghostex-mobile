@@ -18,6 +18,7 @@ import type { RootStackParamList } from '../navigation/types';
 import type { ApprovalRequest } from '../security/approvalPayload';
 import { approveRequest, denyRequest, listApprovals } from '../security/approvals';
 import { hasApproverKey } from '../security/approverKey';
+import { plainAsk } from '../security/plainAsk';
 import { useAppearance, type Appearance } from '../theme/useAppearance';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Approvals'>;
@@ -75,7 +76,7 @@ export default function ApprovalsScreen({ navigation, route }: Props) {
     setNotice(null);
     try {
       if (approve) {
-        await approveRequest(machine, request, () => setNotice(ApprovalsCopy.waitingForComputer));
+        await approveRequest(machine, request, () => setNotice(ApprovalsCopy.waitingForComputer(computer)));
       } else {
         await denyRequest(machine, request.id);
       }
@@ -96,11 +97,18 @@ export default function ApprovalsScreen({ navigation, route }: Props) {
         {error !== null ? <Text style={styles.notice}>{error}</Text> : null}
         {requests.length === 0 && error === null ? <Text style={styles.empty}>{ApprovalsCopy.empty}</Text> : null}
         {requests.map((request) => {
-          const words = pairingWords(request.detail);
+          // The question the computer's own card asks (`security/plainAsk.ts`); a request it
+          // doesn't know keeps gxserver's sentence, who asked and its words.
+          const ask = plainAsk(request, computer);
+          const words = ask !== null ? (ask.words.length > 0 ? ask.words : null) : pairingWords(request.detail);
           return (
           <View key={request.id} style={styles.card}>
-            <Text style={styles.summary}>{request.summary}</Text>
-            <Text style={styles.meta}>{ApprovalsCopy.askedBy(request.requestedBy.label || request.requestedBy.kind)}</Text>
+            <Text style={styles.summary}>{ask?.question ?? request.summary}</Text>
+            {ask === null ? (
+              <Text style={styles.meta}>{ApprovalsCopy.askedBy(request.requestedBy.label || request.requestedBy.kind)}</Text>
+            ) : ask.body !== null ? (
+              <Text style={styles.meta}>{ask.body}</Text>
+            ) : null}
             {words !== null ? (
               <View style={styles.words}>
                 {words.map((word) => (
@@ -110,8 +118,16 @@ export default function ApprovalsScreen({ navigation, route }: Props) {
                 ))}
               </View>
             ) : null}
-            {request.detail ? <Text style={styles.meta}>{request.detail}</Text> : null}
+            {ask === null && request.detail ? <Text style={styles.meta}>{request.detail}</Text> : null}
+            {ask?.check ? <Text style={styles.meta}>{ask.check}</Text> : null}
+            {/* Deny, then Approve, as on the computer (the approval cards page). */}
             <View style={styles.buttons}>
+              <SetupButton
+                small
+                label={ApprovalsCopy.deny}
+                disabled={busy !== null}
+                onPress={() => void decide(request, false)}
+              />
               <SetupButton
                 small
                 variant="primary"
@@ -119,12 +135,6 @@ export default function ApprovalsScreen({ navigation, route }: Props) {
                 busy={busy === request.id}
                 disabled={busy !== null || !hasApproverKey()}
                 onPress={() => void decide(request, true)}
-              />
-              <SetupButton
-                small
-                label={ApprovalsCopy.deny}
-                disabled={busy !== null}
-                onPress={() => void decide(request, false)}
               />
             </View>
           </View>

@@ -18,7 +18,7 @@ import { chatMachineLink } from '../../chat/rust/machine-link';
 import type { ApprovalRequest } from '../../security/approvalPayload';
 import { approveRequest } from '../../security/approvals';
 import { hasApproverKey } from '../../security/approverKey';
-import type { MachineRecord } from '../../machines/store';
+import { machineDisplayLabel, type MachineRecord } from '../../machines/store';
 import { useFormStyles } from './styles';
 
 const REFRESH_MS = 5000;
@@ -27,7 +27,7 @@ const RPC_TIMEOUT_MS = 15_000;
 const REMOVE_TIMEOUT_MS = 180_000;
 
 type ListedDevice = { id: string; name: string; legacy: boolean };
-type PendingDevice = { id: string; name: string; words: string[]; approvalId: string };
+type PendingDevice = { id: string; name: string; words: string[]; approvalId: string; phone: boolean };
 export type PairedDevicesList = { devices: ListedDevice[]; pending: PendingDevice[] };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -44,7 +44,15 @@ export function readPairedDevicesList(result: unknown): PairedDevicesList | null
   const pending = (Array.isArray(result.pending) ? result.pending : []).filter(isRecord).flatMap((device) => {
     const words = Array.isArray(device.words) ? device.words.filter((word) => typeof word === 'string') : [];
     return typeof device.id === 'string' && typeof device.name === 'string' && words.length > 0
-      ? [{ id: device.id, name: device.name, words, approvalId: typeof device.approvalId === 'string' ? device.approvalId : '' }]
+      ? [
+          {
+            id: device.id,
+            name: device.name,
+            words,
+            approvalId: typeof device.approvalId === 'string' ? device.approvalId : '',
+            phone: device.platform === 'ios' || device.platform === 'android',
+          },
+        ]
       : [];
   });
   return { devices, pending };
@@ -127,9 +135,9 @@ export default function PairedDevicesSection({ machine, reachable }: { machine: 
         {list.pending.map((device, index) => (
           <View key={device.id} style={[formStyles.row, index === 0 ? formStyles.rowFirst : null]}>
             <View style={formStyles.rowMain}>
-              <Text style={formStyles.rowLabel}>{copy.waiting(device.name)}</Text>
+              <Text style={formStyles.rowLabel}>{copy.waiting(device.name, device.phone, machineDisplayLabel(machine))}</Text>
               <Text style={formStyles.rowLabel}>{device.words.join(' · ')}</Text>
-              <Text style={formStyles.rowDetail}>{copy.waitingDetail}</Text>
+              <Text style={formStyles.rowDetail}>{copy.waitingDetail(device.name, device.phone)}</Text>
             </View>
             <View style={{ gap: 6 }}>
               {hasApproverKey() && device.approvalId ? (

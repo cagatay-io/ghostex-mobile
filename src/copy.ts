@@ -1119,9 +1119,13 @@ export const EditMachineCopy = {
   /** Pairing v2 (GitHub #495): what this computer has paired, with one-tap Remove. */
   pairedDevices: {
     title: 'Devices that can reach this computer',
-    waiting: (name: string) => `${name} is waiting for approval`,
-    waitingDetail:
-      'Approve its request only if that phone or computer shows the same three words. Deny it if nobody is pairing one right now.',
+    /** The plain question, as the computer's own card asks it (`security/plainAsk.ts`). */
+    waiting: (name: string, phone: boolean, computer: string) =>
+      phone ? `Add ${name} to ${computer}?` : `Let ${name} connect to ${computer}?`,
+    waitingDetail: (name: string, phone: boolean) =>
+      phone
+        ? 'Approve only if your phone shows the same words. Deny it if you aren’t adding one right now.'
+        : `Approve only if ${name} shows the same words. Deny it if you aren’t connecting it right now.`,
     deny: 'Deny',
     approve: 'Approve',
     approveFailed: 'Not approved',
@@ -2241,7 +2245,8 @@ export const ApprovalsCopy = {
   askedBy: (label: string) => `Asked by ${label}`,
   approve: 'Approve',
   deny: 'Deny',
-  waitingForComputer: 'Approve adding this phone on your computer first. Ghostex shows it there.',
+  waitingForComputer: (computer: string) =>
+    `First approve "Add this phone to ${computer}?" in Ghostex on ${computer}, then try again.`,
   loadFailed: 'Could not read the requests',
   notApproved: 'Not approved',
   couldNotDeny: 'Could not deny it',
