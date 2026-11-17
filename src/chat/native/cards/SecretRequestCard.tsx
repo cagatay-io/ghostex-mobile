@@ -20,6 +20,22 @@ import { CARD_TEXT_SIZE } from './primitives';
 import { ToneButton, ToneCard } from './ToneCard';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 
+/**
+ * Whether the chat has an open (unanswered) secret request card.
+ *
+ * CDXC:Secrets 2026-11-18 WHY:
+ * #648: a secret typed into the card could end up in the chat box. Here the composer took the keyboard on its own
+ * whenever a draft arrived from another device, a send settled or the core put text back (`onFocusRequested` in
+ * `rust/composer.ts`), and when a hardware keyboard moved to the chat's pane, so a password being typed in the card
+ * went on into the chat box. While a card is open those automatic moves are skipped (`NativeComposer.tsx`); the
+ * composer still takes the keyboard when it is tapped.
+ */
+export function secretRequestOpen(document: ChatDocument | null): boolean {
+  return arr(document?.secretRequests)
+    .map(obj)
+    .some((card) => card !== null && isTrue(card, 'open'));
+}
+
 export function SecretRequestCards({ chat, document }: { chat: RustChat; document: ChatDocument }) {
   const cards = arr(document.secretRequests)
     .map(obj)

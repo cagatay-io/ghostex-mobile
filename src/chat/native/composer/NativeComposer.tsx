@@ -53,6 +53,7 @@ import { phonePlaceholder } from './placeholder';
 import { CatchUpCard } from '../cards/CatchUpCard';
 import { sessionDetailsRingOf } from '../cards/SessionDetailsSheet';
 import { FilesLinksCard } from '../cards/FilesLinksCard';
+import { secretRequestOpen } from '../cards/SecretRequestCard';
 import { OptionPills, modeInModelPill, modeLook, optionPillsLeadIn, type PillKind } from './OptionPills';
 import { RunLocationRow } from './RunLocationRow';
 import { ProjectPickerSheet } from './ProjectPickerSheet';
@@ -283,10 +284,13 @@ export function NativeComposer({
     dictationChat,
   );
 
+  // An open secret request card keeps the keyboard: the composer is not focused for it (`secretRequestOpen`).
+  const secretOpen = useRef(false);
+  secretOpen.current = secretRequestOpen(document);
   useEffect(
     () =>
       chat.onViewRequest((request) => {
-        if (request.kind === 'focusComposer') field.current?.focus();
+        if (request.kind === 'focusComposer' && !secretOpen.current) field.current?.focus();
       }),
     [chat.onViewRequest],
   );
@@ -294,7 +298,7 @@ export function NativeComposer({
   useEffect(() => {
     if (focusRequestId === handledFocusRequest.current) return;
     handledFocusRequest.current = focusRequestId;
-    if (focusRequestId > 0) field.current?.focus();
+    if (focusRequestId > 0 && !secretOpen.current) field.current?.focus();
   }, [focusRequestId]);
 
   // Pills: the core parses the draft (`composerReferences`) and answers a moment after the text
