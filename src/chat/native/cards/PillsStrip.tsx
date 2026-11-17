@@ -13,6 +13,8 @@
  * goes back to Normal view, and its view's icon sits at its left as on the desktop (gx-chat-core extras/chat_pills.rs `view_chips` has the user's words).
  * Before it, while a draft saved elsewhere is offered, the Saved draft pill (`SavedDraftPill.tsx`),
  * which alone is enough to show the strip and opens its own sheet.
+ * First of all, at the band's left end, the where pill of a running session (`WherePill.tsx`), which
+ * alone is enough to show the strip and counts in the fit (`planStripWithWhere`). Desktop: `where_pill.rs`.
  *
  * A Ghostex page put aside with the page sheet's Hide shows as a pill of its own, first among the
  * panel pills (`PagePill`, `hiddenPages.ts`), and is enough to show the strip. It shrinks with the
@@ -49,6 +51,7 @@ import {
 import type { HiddenPage } from './hiddenPages';
 import { Sheet } from '../composer/Sheet';
 import { SavedDraftPill, SavedDraftSheet } from './SavedDraftPill';
+import { WHERE_TIERS, WherePill, WhereSheet, type WhereTier } from './WherePill';
 import { VISUAL, type ArmedAction } from './WorkingStrip';
 
 /** The session's links and the Links pill's tap, from the screen that knows the session (`TerminalScreen`). */
@@ -114,6 +117,7 @@ export function pillsStripShown(
     hiddenPages > 0 ||
     armed.length > 0 ||
     (document.savedDraftPill ?? null) !== null ||
+    (document.wherePill ?? null) !== null ||
     (document.viewChips?.length ?? 0) > 0 ||
     questionWaiting(document) ||
     (document.workingCard?.pills ?? []).some((id) => !omitPills.includes(id)) ||
@@ -131,6 +135,7 @@ export function PillsStrip({
   links,
   onStashedPress,
   onSessionDetailsPress,
+  onOpenFolder,
   menu,
   onMenuChange,
   hiddenPages = [],
@@ -158,6 +163,8 @@ export function PillsStrip({
   onStashedPress?: () => void;
   /** Opens the Session details sheet: the ring at the strip's right end, while the chat has the panel. */
   onSessionDetailsPress?: () => void;
+  /** Opens the project's Files browser: the where pill's Open folder, left out without it. */
+  onOpenFolder?: () => void;
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
@@ -169,6 +176,23 @@ export function PillsStrip({
   const [overflowOpen, setOverflowOpen] = useState(false);
   const afterDismiss = useRef<ChatPill | HiddenPage | null>(null);
   const closeDraft = useCallback(() => setDraftOpen(false), []);
+  // The where pill, its sheet, the tier the fit picked and its width at each tier, measured unseen.
+  const where = document.wherePill ?? null;
+  const [whereOpen, setWhereOpen] = useState(false);
+  const closeWhere = useCallback(() => setWhereOpen(false), []);
+  const [whereTier, setWhereTier] = useState<WhereTier>('full');
+  const [whereWidths, setWhereWidths] = useState<Partial<Record<WhereTier, number>>>({});
+  useEffect(() => {
+    if (where === null) setWhereOpen(false);
+  }, [where]);
+  const measureWhere = (tier: WhereTier) => (event: { nativeEvent: { layout: { width: number } } }) => {
+    const width = event.nativeEvent.layout.width;
+    setWhereWidths((was) => (Math.abs((was[tier] ?? -1) - width) < 0.5 ? was : { ...was, [tier]: width }));
+  };
+  const leadWidths =
+    where !== null && WHERE_TIERS.every((tier) => (whereWidths[tier] ?? 0) > 0)
+      ? (WHERE_TIERS.map((tier) => whereWidths[tier] ?? 0) as [number, number, number])
+      : null;
   // A draft answered or withdrawn elsewhere takes its sheet with it.
   useEffect(() => {
     if (savedDraft === null) setDraftOpen(false);
@@ -284,6 +308,23 @@ export function PillsStrip({
           ]}
         >
           <View style={styles.band} onLayout={(event) => setStripWidth(event.nativeEvent.layout.width)}>
+            {shown && where !== null ? (
+              <>
+                <WherePill pill={where} tier={whereTier} open={whereOpen} onPress={() => setWhereOpen(true)} />
+                <View
+                  style={styles.measureWhere}
+                  pointerEvents="none"
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                >
+                  {WHERE_TIERS.map((tier) => (
+                    <View key={tier} onLayout={measureWhere(tier)}>
+                      <WherePill pill={where} tier={tier} open={false} />
+                    </View>
+                  ))}
+                </View>
+              </>
+            ) : null}
             {/* The Saved draft pill and the view chips stay pinned left; the pills scroll in what is left beside them. */}
             {shown && (savedDraft !== null || (document.viewChips?.length ?? 0) > 0) ? (
               <View style={styles.chips}>
@@ -307,6 +348,9 @@ export function PillsStrip({
                 <OverflowPill count={count} open={overflowOpen} onPress={() => setOverflowOpen(true)} />
               )}
               onHidden={setHiddenIds}
+              lead={leadWidths}
+              leadTier={whereTier}
+              onLeadTier={setWhereTier}
             >
               {armed.map((action) => (
                 <Pressable
@@ -342,6 +386,13 @@ export function PillsStrip({
         </Animated.View>
       ) : null}
       <SavedDraftSheet pill={savedDraft} open={draftOpen} onClose={closeDraft} dispatch={chat.dispatch} />
+      <WhereSheet
+        pill={where}
+        open={whereOpen}
+        onClose={closeWhere}
+        dispatch={chat.dispatch}
+        {...(onOpenFolder !== undefined ? { onOpenFolder } : {})}
+      />
       <Sheet
         visible={overflowOpen && overflowCount > 0}
         title="More pills"
@@ -503,6 +554,65 @@ export function planStripTiers(
   return { hidden: n, collapsed: 0, tiny: 0 };
 }
 
+/** The gap between the band's parts: the where pill, the chips and the pills (`band.gap`). */
+const BAND_GAP = 8;
+
+/** How wide the row is for a plan from `planStripTiers`. */
+function planTotal(
+  fixed: readonly number[],
+  pills: readonly { full: number; icon: number; least: number }[],
+  plan: { hidden: number; collapsed: number; tiny: number },
+  overflow: number,
+  gap: number,
+): number {
+  const visible = pills.length - Math.min(plan.hidden, pills.length);
+  let total = fixed.reduce((sum, width) => sum + width, 0);
+  let count = fixed.length;
+  for (let index = 0; index < visible; index += 1) {
+    const pill = pills[index];
+    total +=
+      index >= visible - plan.tiny
+        ? (pill?.least ?? 0)
+        : index >= visible - plan.collapsed
+          ? (pill?.icon ?? 0)
+          : (pill?.full ?? 0);
+    count += 1;
+  }
+  if (plan.hidden > 0) {
+    total += overflow;
+    count += 1;
+  }
+  return total + gap * Math.max(0, count - 1);
+}
+
+/**
+ * `planStripTiers` with the where pill at the band's left counted in: `room` is what the where pill
+ * and the pills share (its `BAND_GAP` included). The panel pills drop their labels first, then the
+ * where pill shrinks a tier at a time (`lead`: its widths, widest first), and only at its narrowest
+ * do pills go into "+N". Port of desktop `plan_strip_with_where`, which has the user's words.
+ */
+export function planStripWithWhere(
+  room: number,
+  lead: readonly [number, number, number] | null,
+  fixed: readonly number[],
+  pills: readonly { full: number; icon: number; least: number }[],
+  overflow: number,
+  gap: number,
+): { tier: WhereTier; plan: { hidden: number; collapsed: number; tiny: number } } {
+  if (lead === null) return { tier: 'full', plan: planStripTiers(room, fixed, pills, overflow, gap) };
+  let last: { tier: WhereTier; plan: { hidden: number; collapsed: number; tiny: number } } = {
+    tier: 'icon',
+    plan: { hidden: pills.length, collapsed: 0, tiny: 0 },
+  };
+  for (const [index, tier] of WHERE_TIERS.entries()) {
+    const avail = room - (lead[index] ?? 0) - BAND_GAP;
+    const plan = planStripTiers(avail, fixed, pills, overflow, gap);
+    last = { tier, plan };
+    if (plan.hidden === 0 && planTotal(fixed, pills, plan, overflow, gap) <= avail + 0.5) return last;
+  }
+  return last;
+}
+
 /** A panel pill drawn at a tier; `tiny` pills (a hidden page's) have a narrowest one of their own. */
 type FitPanel = { id: string; tiny?: boolean; node: (tier: PagePillTier) => ReactNode };
 
@@ -523,7 +633,15 @@ function PillsFit({
   after,
   overflow,
   onHidden,
+  lead,
+  leadTier,
+  onLeadTier,
 }: {
+  /** The where pill's widths at its tiers (`WherePill.tsx`), drawn left of this area, or null. */
+  lead: readonly [number, number, number] | null;
+  leadTier: WhereTier;
+  /** The tier the fit picked for the where pill. */
+  onLeadTier: (tier: WhereTier) => void;
   /** The pills that always show (↓, timers, ?), before the panel pills. */
   children: ReactNode;
   panel: readonly FitPanel[];
@@ -550,11 +668,15 @@ function PillsFit({
       widths[`icon:${pill.id}`] !== undefined &&
       (pill.tiny !== true || widths[`tiny:${pill.id}`] !== undefined),
   );
+  // The where pill sits left of this area at its current tier; the room the two share is this area,
+  // that pill and the band's gap.
+  const room = avail + (lead !== null ? (lead[WHERE_TIERS.indexOf(leadTier)] ?? 0) + BAND_GAP : 0);
   // Everything drawn whole until the widths are known.
-  const plan =
+  const fitted =
     avail > 0 && known
-      ? planStripTiers(
-          avail,
+      ? planStripWithWhere(
+          room,
+          lead,
           fixed,
           panel.map((pill) => {
             const icon = widths[`icon:${pill.id}`] ?? 0;
@@ -567,7 +689,12 @@ function PillsFit({
           widths.overflow ?? 56,
           PILL_GAP,
         )
-      : { hidden: 0, collapsed: 0, tiny: 0 };
+      : null;
+  const plan = fitted?.plan ?? { hidden: 0, collapsed: 0, tiny: 0 };
+  const nextTier = fitted?.tier ?? leadTier;
+  useEffect(() => {
+    if (nextTier !== leadTier) onLeadTier(nextTier);
+  }, [nextTier, leadTier, onLeadTier]);
   const visible = panel.length - plan.hidden;
   const hiddenIds = panel.slice(visible).map((pill) => pill.id);
   const hiddenKey = hiddenIds.join(',');
@@ -663,6 +790,14 @@ const useStyles = themedStyles((P) => ({
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'flex-end',
+  },
+  /** The where pill drawn invisibly at its three tiers, to know their widths. */
+  measureWhere: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    opacity: 0,
+    alignItems: 'flex-start',
   },
   /** The pills drawn invisibly to know their widths. */
   measure: {

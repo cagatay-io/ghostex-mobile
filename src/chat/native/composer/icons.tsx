@@ -255,6 +255,18 @@ const GLYPHS = {
       'M14 14l3 -3l3 3',
     ],
   },
+  // The where pill's Changes and Pull request rows (`cards/WherePill.tsx`).
+  'git-commit': { paths: ['M9 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0', 'M12 3l0 6', 'M12 15l0 6'] },
+  'git-pull-request': {
+    paths: [
+      'M4 18a2 2 0 1 0 4 0a2 2 0 1 0 -4 0',
+      'M4 6a2 2 0 1 0 4 0a2 2 0 1 0 -4 0',
+      'M16 18a2 2 0 1 0 4 0a2 2 0 1 0 -4 0',
+      'M6 8l0 8',
+      'M11 6h5a2 2 0 0 1 2 2v8',
+      'M14 9l-3 -3l3 -3',
+    ],
+  },
   moon: { paths: ['M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454l0 .008'] },
   'switch-horizontal': { paths: ['M16 3l4 4l-4 4', 'M10 7l10 0', 'M8 13l-4 4l4 4', 'M4 17l9 0'] },
   maximize: {

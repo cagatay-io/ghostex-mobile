@@ -727,6 +727,10 @@ export type ChatDocument = {
   /** The Saved draft pill for `incomingDraft`, pinned at the left of the pill strip, or null.
    * Desktop: `saved_draft_pill.rs`; phone: `cards/SavedDraftPill.tsx`. */
   savedDraftPill?: SavedDraftPill | null;
+  /** Where a running session runs, the two-part pill at the left of the pill strip, or null (a draft, no
+   * answer yet, a computer too old for the read). Absent from an older core.
+   * Desktop: `where_pill.rs`; phone: `cards/WherePill.tsx`. */
+  wherePill?: WherePill | null;
   /** The session note sheet. Desktop: `note.rs`. */
   note: NoteState;
   /** The Catch me up button and card (`composer/catch_up.rs`). Desktop: `catch_up.rs`. */
@@ -1215,6 +1219,32 @@ export type SavedDraftPill = {
   /** "Replaces what's in the box" while Use draft would replace typed text, else empty. */
   hint: string;
 };
+
+/** gx-chat-core `extras/where_pill.rs` `document`: where the session runs. */
+export type WherePill = {
+  project: string;
+  machine: {
+    /** `this`, `remote` (another computer), `cloudBox` or `box` (an agentbox). */
+    kind: 'this' | 'remote' | 'cloudBox' | 'box' | string;
+    /** "This computer", the other computer's name, "Cloud Box" or "<provider> box". */
+    name: string;
+    provider?: string | null;
+    serverId?: string | null;
+    offline?: boolean;
+  };
+  /** The checkout's branch, or null (no git, a detached HEAD). */
+  branch: string | null;
+  /** The session runs in a worktree: the branch's icon is a fork. */
+  worktree: boolean;
+  ariaLabel: string;
+  /** The details: the project and computer as the header, then one row per other fact. */
+  card: { title: string; subtitle: string; rows: WherePillRow[] };
+  /** Copy branch (`{type: 'wherePill', do: 'copyBranch'}`) and Open folder, as the session allows. */
+  actions: { id: string; icon: string; label: string; action: Json }[];
+};
+
+/** One row of the where pill's details: a Tabler icon name, its label, its value and a muted detail. */
+export type WherePillRow = { id: string; icon: string; label: string; value: string; detail?: string };
 
 /** One More actions row. `group` is `agent` or `session`. Pressing it is an app-shell action. */
 export type HostActionRow = {
