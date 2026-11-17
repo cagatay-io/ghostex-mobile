@@ -89,7 +89,8 @@ import MachineTabs, {
   type MachineTabItem,
   type MachineTabStripItem,
 } from '../components/sessions/MachineTabs';
-import SpaceTabs, { spaceMenuIcon } from '../components/sessions/SpaceTabs';
+import SpaceSwipe from '../components/sessions/SpaceSwipe';
+import SpaceTabs, { spaceMenuIcon, spaceRowOrder } from '../components/sessions/SpaceTabs';
 import { useExtensionPanels } from '../extensions/useExtensionPanels';
 import ChiefRow, { CHIEF_LABEL } from '../components/sessions/ChiefRow';
 import { runGhostexCli } from '../components/sessions/cli';
@@ -475,6 +476,11 @@ export default function SessionsScreen({ navigation }: Props) {
     activeProjects,
   );
   const spaceItems = useMemo(() => spaceRowItems(machineSpaces), [machineSpaces]);
+  /** The Space row's ids in its order, for the list's swipe between Spaces. */
+  const spaceSwipeOrder = useMemo(
+    () => spaceRowOrder(spaceItems, activeProjects).map((item) => item.spaceId),
+    [spaceItems, activeProjects],
+  );
   /**
    * Where a project's agent pick is remembered and which pick it starts (./agentChoice.ts): the
    * computer's "Remember the agent you pick", the project (a worktree counts as its parent) and the
@@ -1733,7 +1739,17 @@ export default function SessionsScreen({ navigation }: Props) {
           onClose={() => setWorkspaceMenuOpen(false)}
         />
       ) : null}
-      <View style={styles.listArea} onLayout={(event) => setListWidth(event.nativeEvent.layout.width)}>
+      <SpaceSwipe
+        order={spaceSwipeOrder}
+        selectedId={selectedSpaceId}
+        onSelect={(spaceId) => {
+          if (machine !== null) selectSpace(machine.id, spaceId);
+        }}
+        // Only where the Space row shows above the list: the classic list of a computer with Spaces.
+        enabled={machine !== null && !extensionPanels.active && !unified.on && spaceItems.length > 0}
+        style={styles.listArea}
+        onLayout={(event) => setListWidth(event.nativeEvent.layout.width)}
+      >
         {/* A sidebar extension's own mode takes the list's place, as on the desktop. */}
         {extensionPanels.active ? (
           extensionPanels.modeView(listRefreshControl)
@@ -1789,7 +1805,7 @@ export default function SessionsScreen({ navigation }: Props) {
           />
         )}
         <NoticeToast notice={notice} bottom={12} />
-      </View>
+      </SpaceSwipe>
       {/*
         CDXC:Sessions 2026-10-27 DECISION:
         User picked option E for the Sessions screen's top bar buttons (Q362, docs/2026-10-21/phone-sessions-screen/top-bar-buttons.html): "Voice, Search, Web and Machines move to a labelled bar at the bottom; the top keeps only the title and the menu." The bottom bar holds the four, labelled, within thumb reach. Search still opens SessionSearchSheet, which searches every visible computer's open and closed sessions with the desktop's Sessions search rules and restores a closed one when tapped (the 2026-10-01 decision); only its place moves from the top right to the bar. Voice shows only where the computer runs the voice agent, and Web only once a computer is chosen.
