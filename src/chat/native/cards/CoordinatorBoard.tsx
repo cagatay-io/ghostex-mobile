@@ -14,6 +14,7 @@ import {
   Pressable,
   ScrollView,
   Text,
+  TextInput,
   View,
   useWindowDimensions,
   type LayoutChangeEvent,
@@ -585,8 +586,18 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
   const { width: screenWidth, fontScale } = useWindowDimensions();
   // The chat the dock registered, so a Reply from here keeps its draft (`replyDrafts.ts`).
   const scope = replyDraftScopeOf(chat.dispatch);
+  // The Topic being rewritten in place, and its words so far.
+  const [topicDraft, setTopicDraft] = useState<string | null>(null);
   const board = obj(document.coordinatorBoard);
   if (board === null) return null;
+  const topic = str(obj(board.topic), 'text');
+  // Saved on Return or when the field loses the keyboard; unchanged words send nothing.
+  const saveTopic = () => {
+    if (topicDraft === null) return;
+    const words = topicDraft.trim();
+    setTopicDraft(null);
+    if (words !== topic) chat.dispatch({ type: 'setWorkTopic', text: words } as unknown as UserAction);
+  };
   // Puts a card's reference in the chat box so the user can comment on it, and closes the sheet.
   const mention = (reference: string) => {
     if (reference.length === 0) return;
@@ -615,6 +626,34 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
       <Text style={styles.meta} numberOfLines={1}>
         {isTrue(board, 'empty') ? 'Nothing open' : str(board, 'meta')}
       </Text>
+      {/* The Topic: what the session is about, in one line; a tap rewrites it (desktop
+          `native_chat/work_topic.rs`). Only where the computer keeps one (the core's `topicEditable`). */}
+      {isTrue(board, 'topicEditable') &&
+        (topicDraft !== null ? (
+          <TextInput
+            accessibilityLabel="Topic"
+            autoFocus
+            value={topicDraft}
+            onChangeText={setTopicDraft}
+            onSubmitEditing={saveTopic}
+            onBlur={saveTopic}
+            returnKeyType="done"
+            maxLength={200}
+            placeholder="What this session is about, in one line"
+            placeholderTextColor={P.cardMuted}
+            style={[styles.topic, styles.topicField]}
+          />
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={topic ? `Topic: ${topic}. Tap to rewrite it` : 'Add a topic'}
+            onPress={() => setTopicDraft(topic)}
+          >
+            <Text style={[styles.topic, topic ? null : styles.topicEmpty]} numberOfLines={2}>
+              {topic || 'Add a topic'}
+            </Text>
+          </Pressable>
+        ))}
       <ScrollView ref={list} style={styles.rows} nestedScrollEnabled>
         {arr(board.groups).map((group) => {
           const id = str(group, 'id');
@@ -940,6 +979,18 @@ const useStyles = themedStyles((P) => ({
   meta: {
     color: P.cardMuted,
     fontSize: PROSE_SIZE,
+  },
+  topic: {
+    color: P.foreground,
+    fontSize: PROSE_SIZE,
+    paddingVertical: 4,
+  },
+  topicEmpty: {
+    color: P.cardMuted,
+  },
+  topicField: {
+    borderBottomWidth: 1,
+    borderBottomColor: P.cardMuted,
   },
   rows: {
     flexShrink: 1,
