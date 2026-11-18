@@ -501,7 +501,6 @@ function AutopilotBody({
           />
         </SettingsSection>
       ) : null}
-      <Log view={view} onMore={onMore} logLimit={logLimit} />
       {config.enabled ? (
         <SettingsSection name="settings:autopilot:advanced">
           <SectionHeader title="Advanced" />
@@ -551,6 +550,7 @@ function AutopilotBody({
           ) : null}
         </SettingsSection>
       ) : null}
+      <Log view={view} onMore={onMore} logLimit={logLimit} />
     </>
   );
 }
