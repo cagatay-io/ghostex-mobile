@@ -988,6 +988,8 @@ export type FirstMessageCard = {
   note: string;
   /** The whole message. */
   text: string;
+  /** The message without its blank lines, for the collapsed card. */
+  preview?: string;
   inBox: boolean;
   /** Show all is open. */
   expanded: boolean;

@@ -42,6 +42,9 @@ export function FirstMessageCard({
   const expanded = isTrue(card, 'expanded');
   const collapsedLines = num(card, 'collapsedLines') ?? 2;
   const message = str(card, 'text');
+  // Collapsed, the card shows the message without its blank lines (the core's `preview`), so the
+  // skill line's blank line does not take one of the two lines from the request under it.
+  const preview = str(card, 'preview') || message;
   const title = str(card, 'title');
   const note = str(card, 'note');
   const expandable = (num(card, 'lines') ?? 0) > collapsedLines || message.length > LONG_TEXT_CHARS;
@@ -64,7 +67,7 @@ export function FirstMessageCard({
         </ScrollView>
       ) : (
         <Text style={styles.text} numberOfLines={collapsedLines} ellipsizeMode="tail">
-          {message}
+          {preview}
         </Text>
       )}
       <View style={styles.footer}>
