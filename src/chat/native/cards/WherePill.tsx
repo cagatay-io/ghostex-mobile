@@ -1,8 +1,9 @@
 /**
  * The where pill at the left end of the pill strip (`PillsStrip.tsx`): one pill split by a hairline,
  * the computer's own icon with the project on the left, the branch on the right (a fork in a
- * worktree). A tap or a long press opens its sheet: where the session runs, then Copy branch and
- * Open folder (the project's Files browser, the phone's stand-in for a folder window). gx-chat-core
+ * worktree). A tap or a long press opens its sheet: where the session runs, a tap on a value copies
+ * it, and the Folder row has Copy path and Open folder (the project's Files browser, the phone's
+ * stand-in for a folder window). gx-chat-core
  * words all of it (`wherePill`, packages/gx-chat-core/src/extras/where_pill.rs, where the user's
  * decision lives). Desktop: `where_pill.rs`.
  *
@@ -23,9 +24,10 @@
  * only while that is not known yet.
  */
 
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import type { WherePill as WherePillState } from '../../rust/document';
+import type { WherePill as WherePillState, WherePillButton } from '../../rust/document';
 import type { UserAction } from '../../rust/actions';
 import { ComputerIconGlyph } from '../../../components/sessions/ComputerIconGlyph';
 import { computerIconDrawing, useComputerIconsStore } from '../../../machines/computerIcons';
@@ -60,6 +62,7 @@ const ROW_GLYPHS: readonly GlyphName[] = [
   'user',
   'terminal-2',
   'copy',
+  'check',
 ];
 
 function glyphOf(name: string): GlyphName {
@@ -142,7 +145,19 @@ export function WherePill({
   );
 }
 
-/** The pill's sheet: the project and computer as its title, a row per other fact, then the actions. */
+/** How long "Copied" stays beside a value or on Copy path. */
+const COPIED_MS = 1400;
+
+/**
+ * The pill's sheet: the project and computer as its title, then a row per other fact.
+ *
+ * CDXC:SessionChat 2026-11-18 DECISION:
+ * User: "remove the buttons at the bottom, instead make clicking on different values there copy them
+ * also make folder have 2 buttons next to it for copy path and open folder". No bottom actions: a
+ * row with something to copy (the core's `copy`) copies it on a tap and says "Copied" in its
+ * detail's place for a moment, and the Folder row ends in Copy path and Open folder. Desktop:
+ * `where_pill.rs` `where_menu_body`.
+ */
 export function WhereSheet({
   pill,
   open,
@@ -159,14 +174,31 @@ export function WhereSheet({
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
-  // Copy branch is the core's own action; Open folder is the phone's Files browser, where it has one.
-  const actions = (pill?.actions ?? []).filter(
-    (action) => action.id === 'copyBranch' || (action.id === 'openFolder' && onOpenFolder !== undefined),
+  const [copied, setCopied] = useState<string | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (timer.current !== null) clearTimeout(timer.current);
+    },
+    [],
   );
-  const run = (id: string, action: unknown) => {
-    onClose();
-    if (id === 'openFolder') onOpenFolder?.();
-    else dispatch(action as UserAction);
+  const noteCopied = (id: string) => {
+    setCopied(id);
+    if (timer.current !== null) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setCopied(null), COPIED_MS);
+  };
+  const copyRow = (id: string) => {
+    dispatch({ type: 'wherePill', do: 'copy', row: id } as unknown as UserAction);
+    noteCopied(id);
+  };
+  const press = (button: WherePillButton) => {
+    if (button.id === 'openFolder') {
+      onClose();
+      onOpenFolder?.();
+      return;
+    }
+    dispatch(button.action as UserAction);
+    noteCopied(button.id);
   };
   return (
     <Sheet
@@ -177,40 +209,67 @@ export function WhereSheet({
     >
       {pill ? (
         <View style={styles.body}>
-          {pill.card.rows.map((row) => (
-            <View key={row.id} style={styles.row}>
-              <Glyph name={glyphOf(row.icon)} size={15} color={P.cardMuted} />
-              <Text style={styles.rowLabel} numberOfLines={1}>
-                {row.label}
-              </Text>
-              <View style={styles.rowValue}>
-                <Text style={styles.value} numberOfLines={1} selectable>
-                  {row.value}
+          {pill.card.rows.map((row) => {
+            const done = copied === row.id;
+            // Open folder is the phone's Files browser, where it has one.
+            const buttons = (row.buttons ?? []).filter(
+              (button) => button.id !== 'openFolder' || onOpenFolder !== undefined,
+            );
+            const line = (
+              <>
+                <Glyph name={glyphOf(row.icon)} size={15} color={P.cardMuted} />
+                <Text style={styles.rowLabel} numberOfLines={1}>
+                  {row.label}
                 </Text>
-                {row.detail !== undefined && row.detail.length > 0 ? (
-                  <Text style={styles.detail} numberOfLines={1}>
-                    {row.detail}
+                <View style={styles.rowValue}>
+                  <Text style={styles.value} numberOfLines={1}>
+                    {row.value}
                   </Text>
-                ) : null}
+                  {done ? (
+                    <View style={styles.copied}>
+                      <Glyph name="check" size={13} color={P.cardMuted} />
+                      <Text style={styles.detail}>Copied</Text>
+                    </View>
+                  ) : row.detail !== undefined && row.detail.length > 0 ? (
+                    <Text style={styles.detail} numberOfLines={1}>
+                      {row.detail}
+                    </Text>
+                  ) : null}
+                </View>
+              </>
+            );
+            return (
+              <View key={row.id} style={styles.row}>
+                {row.copy !== undefined ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Copy ${row.label.toLowerCase()}`}
+                    onPress={() => copyRow(row.id)}
+                    style={({ pressed }) => [styles.rowLine, pressed && styles.rowPressed]}
+                  >
+                    {line}
+                  </Pressable>
+                ) : (
+                  <View style={styles.rowLine}>{line}</View>
+                )}
+                {buttons.map((button) => {
+                  const buttonDone = button.id !== 'openFolder' && copied === button.id;
+                  return (
+                    <Pressable
+                      key={button.id}
+                      accessibilityRole="button"
+                      accessibilityLabel={buttonDone ? 'Copied' : button.label}
+                      onPress={() => press(button)}
+                      hitSlop={4}
+                      style={({ pressed }) => [styles.iconButton, pressed && styles.buttonPressed]}
+                    >
+                      <Glyph name={buttonDone ? 'check' : glyphOf(button.icon)} size={16} color={P.cardMuted} />
+                    </Pressable>
+                  );
+                })}
               </View>
-            </View>
-          ))}
-          {actions.length > 0 ? (
-            <View style={styles.actions}>
-              {actions.map((action) => (
-                <Pressable
-                  key={action.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={action.label}
-                  onPress={() => run(action.id, action.action)}
-                  style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
-                >
-                  <Glyph name={glyphOf(action.icon)} size={15} color={P.cardMuted} />
-                  <Text style={styles.buttonText}>{action.label}</Text>
-                </Pressable>
-              ))}
-            </View>
-          ) : null}
+            );
+          })}
         </View>
       ) : null}
     </Sheet>
@@ -256,10 +315,37 @@ const useStyles = themedStyles((P) => ({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 4,
     minHeight: 36,
     borderBottomWidth: 1,
     borderBottomColor: P.ink(0.06),
+  },
+  /** The tappable part of a row: its icon, label and value. */
+  rowLine: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 36,
+    borderRadius: 8,
+  },
+  rowPressed: {
+    backgroundColor: P.ink(0.06),
+  },
+  copied: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    flexShrink: 0,
+  },
+  /** Copy path and Open folder at the end of the Folder row. */
+  iconButton: {
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
   },
   rowLabel: {
     width: 96,
@@ -284,26 +370,7 @@ const useStyles = themedStyles((P) => ({
     color: P.cardMuted,
     fontSize: 13,
   },
-  actions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    paddingTop: 12,
-  },
-  button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    height: 36,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    backgroundColor: P.ink(0.06),
-  },
   buttonPressed: {
     backgroundColor: P.ink(0.1),
-  },
-  buttonText: {
-    color: P.foreground,
-    fontSize: 14,
   },
 }));

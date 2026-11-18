@@ -1239,12 +1239,23 @@ export type WherePill = {
   ariaLabel: string;
   /** The details: the project and computer as the header, then one row per other fact. */
   card: { title: string; subtitle: string; rows: WherePillRow[] };
-  /** Copy branch (`{type: 'wherePill', do: 'copyBranch'}`) and Open folder, as the session allows. */
-  actions: { id: string; icon: string; label: string; action: Json }[];
 };
 
-/** One row of the where pill's details: a Tabler icon name, its label, its value and a muted detail. */
-export type WherePillRow = { id: string; icon: string; label: string; value: string; detail?: string };
+/** One row of the where pill's details: a Tabler icon name, its label, its value and a muted detail.
+ * `copy` is what a tap copies (`{type: 'wherePill', do: 'copy', row: id}`), absent when there is
+ * nothing to copy; the Folder row's `buttons` are Copy path and Open folder. */
+export type WherePillRow = {
+  id: string;
+  icon: string;
+  label: string;
+  value: string;
+  detail?: string;
+  copy?: string;
+  buttons?: WherePillButton[];
+};
+
+/** A small icon button at the end of a details row: `copyPath` or `openFolder`. */
+export type WherePillButton = { id: string; icon: string; label: string; action: Json };
 
 /** One More actions row. `group` is `agent` or `session`. Pressing it is an app-shell action. */
 export type HostActionRow = {
