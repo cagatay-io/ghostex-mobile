@@ -1155,11 +1155,12 @@ function WorkCard({ card, dispatch }: { card: JsonRecord; dispatch: Dispatch }) 
         </View>
         <Text style={[styles.title, { color: body }]}>{str(card, 'title')}</Text>
         {right.length > 0 ? <Text style={styles.right}>{right}</Text> : null}
-        {/* A finished card in the dock goes away with its × (gx-chat-core `dock`). */}
+        {/* A finished card in the dock goes away with its × (gx-chat-core `dock`). It asks no
+            question, so it reads Mark as read, as the dock's finished row does; it sends nothing. */}
         {obj(card.dismiss) !== null ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Dismiss"
+            accessibilityLabel="Mark as read"
             hitSlop={8}
             onPress={() => dispatch(card.dismiss as never)}
             style={styles.dismiss}
