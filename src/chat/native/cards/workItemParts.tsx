@@ -733,7 +733,7 @@ export function rowMarkdown(row: JsonRecord, forms: { [id: string]: unknown } | 
 }
 
 /**
- * An item's menu rows from its actions (desktop `row_menu`): Show in chat, Mark answered, Dismiss, Snooze with its
+ * An item's menu rows from its actions (desktop `row_menu`): Show in chat, Mark answered, Dismiss (or Mark as read), Snooze with its
  * lengths, Copy as Markdown when `markdown` has words (`rowMarkdown`), then Mention in chat box,
  * which puts the item, form or page in the chat box.
  */
@@ -760,7 +760,7 @@ export function workMenuRows(
   const dismiss = obj(actions.dismiss);
   // Dismiss, or Mark as read on a row that asks no question (a Needs you to-do, a page that only
   // waits to be seen, what the newest turn finished): gx-chat-core's `dismissLabel`. Both send the
-  // agent nothing.
+  // agent nothing; gxserver tells it with its next message (server/src/session_chat_dismissed.rs).
   if (dismiss !== null) {
     const read = str(actions, 'dismissLabel') === 'Mark as read';
     rows.push({ label: read ? 'Mark as read' : 'Dismiss', icon: read ? 'check' : 'x', command: dismiss });
