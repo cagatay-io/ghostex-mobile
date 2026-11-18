@@ -1008,6 +1008,14 @@ export type FirstMessageCard = {
   showAllLabel: string;
   showLessLabel: string;
   placeholder: string;
+  /** "This model might give a degraded experience." while the model and effort it would start on are low-end; absent from an older core. */
+  degradedText?: string | null;
+  /** The user confirmed that model and effort. */
+  degradedConfirmed?: boolean;
+  confirmLabel?: string;
+  confirmedLabel?: string;
+  /** Start waits for Confirm. */
+  startBlocked?: boolean;
 };
 
 export type Queue = {
