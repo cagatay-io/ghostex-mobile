@@ -667,6 +667,9 @@ export default function NativeChatScreen({
                               onShowPage={showHiddenPage}
                               onClosePage={closeHiddenPage}
                               onSessionDetailsPress={openDetails}
+                              // The where pill's Open folder: the screen's Files browser for this project
+                              // (the terminal menu's Files, `handleTerminalMenuAction('docs')`).
+                              {...(onHostAction !== undefined ? { onOpenFolder: () => onHostAction('docs', {}) } : {})}
                               {...(sessionId.length > 0 && projectId.length > 0
                                 ? { onStashedPress: () => hostAction('stashedPrompts') }
                                 : {})}

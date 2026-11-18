@@ -139,7 +139,12 @@ export function mentionMeta(session: MentionedSession): string {
  * icon (machines/computerIcons.ts), else the plain computer.
  */
 export function useServerComputerDrawing(serverId: string): string {
-  const machineId = useInventoryStore((store) => {
+  return useComputerIconDrawing(useServerMachineId(serverId));
+}
+
+/** The phone's machine whose sessions run on the gxserver `serverId`, or '' when none does. */
+export function useServerMachineId(serverId: string): string {
+  return useInventoryStore((store) => {
     if (serverId.length === 0) return '';
     for (const [machineId, inventory] of Object.entries(store.inventoriesByMachineId)) {
       if ((inventory?.summary?.sessions ?? []).some((session) => serverOfRef(session.globalRef) === serverId)) {
@@ -148,7 +153,6 @@ export function useServerComputerDrawing(serverId: string): string {
     }
     return '';
   });
-  return useComputerIconDrawing(machineId);
 }
 
 /** The drawing of the computer `machineId` names: its own icon, else the plain computer. */
