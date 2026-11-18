@@ -1,11 +1,13 @@
 /**
- * When a coordinator's model or effort may make it work worse: the phone's copy of
- * `coordinator_quality_concern` in packages/gx-protocol/src/coordinator.rs (the Ghostex main repo),
+ * When a coordinator's model or effort may give the user a degraded experience: the phone's copy of
+ * `coordinator_model_may_degrade` in packages/gx-protocol/src/coordinator.rs (the Ghostex main repo),
  * which the phone cannot link outside the chat core, for the agent step of New Coordinator. Change
  * both together.
  *
- * CDXC:Coordinators 2026-11-13 SEE-ALSO: packages/gx-protocol/src/coordinator.rs (the user's Q2980 decision: a model other than Opus, Fable, GPT Sol or GPT Astra, an effort below medium, or an unknown model warns).
+ * CDXC:Coordinators 2026-11-18 SEE-ALSO: packages/gx-protocol/src/coordinator.rs (the user's GitHub #665 decision: "You might get a degraded experience." only on a low-end model, Haiku, Sonnet or a Flash, Mini, Lite or Nano tier, or on Opus, Fable, Astra or Sol at medium effort or below; every other model, Argon included, says nothing).
  */
+
+export const COORDINATOR_DEGRADED_TEXT = 'You might get a degraded experience.';
 
 function modelWords(text: string): string[] {
   return text
@@ -14,31 +16,26 @@ function modelWords(text: string): string[] {
     .filter((word) => word.length > 0);
 }
 
-/** Opus, Fable, GPT Sol or GPT Astra, any version (`opus[1m]`, `claude-opus-5-5`, `GPT-6.1 Sol`). */
-export function coordinatorModelIsStrong(model: string): boolean {
-  const words = modelWords(model);
-  const has = (word: string): boolean => words.includes(word);
-  return has('opus') || has('fable') || (has('gpt') && (has('sol') || has('astra')));
+/** Haiku, Sonnet, or any Flash, Mini, Lite or Nano tier (`deepseek-v4-flash`, `gpt-6-mini`). */
+export function coordinatorModelIsLowEnd(model: string): boolean {
+  return modelWords(model).some((word) => ['haiku', 'sonnet', 'flash', 'mini', 'lite', 'nano'].includes(word));
 }
 
-function present(text: string | undefined): string | null {
-  const trimmed = (text ?? '').trim();
-  return trimmed.length === 0 || trimmed.toLowerCase() === 'default' ? null : trimmed;
+/** Opus, Fable, Astra or Sol, any version, which warn only at medium effort or below. */
+export function coordinatorModelIsTop(model: string): boolean {
+  return modelWords(model).some((word) => ['opus', 'fable', 'astra', 'sol'].includes(word));
 }
+
+const MEDIUM_OR_LOWER = ['medium', 'med', 'low', 'minimal', 'min', 'none'];
 
 /**
- * "Coordinator quality may be degraded on <model>", or null when the coordinator would run on a
- * model it works well on at medium effort or above. Either of the model's value and label may be
- * empty; an unknown effort is no reason on its own.
+ * "You might get a degraded experience.", or null when the coordinator's model and effort give no
+ * reason to say so. Either of the model's value and label may be empty; an unknown effort is no
+ * reason on its own.
  */
 export function coordinatorQualityWarning(model: { value?: string; label?: string }, effort?: string): string | null {
-  const value = present(model.value);
-  const label = present(model.label);
-  const knownEffort = present(effort);
-  const strong = [value, label].some((text) => text !== null && coordinatorModelIsStrong(text));
-  const lowEffort = knownEffort !== null && ['low', 'minimal', 'none', 'min'].includes(knownEffort.toLowerCase());
-  if (strong && !lowEffort) return null;
-  const name = label ?? value ?? 'an unknown model';
-  const runsOn = lowEffort ? `${name} at ${knownEffort} effort` : name;
-  return `Coordinator quality may be degraded on ${runsOn}`;
+  const names = [model.value, model.label].map((text) => (text ?? '').trim()).filter((text) => text.length > 0);
+  if (names.some(coordinatorModelIsLowEnd)) return COORDINATOR_DEGRADED_TEXT;
+  const level = (effort ?? '').trim().toLowerCase();
+  return names.some(coordinatorModelIsTop) && MEDIUM_OR_LOWER.includes(level) ? COORDINATOR_DEGRADED_TEXT : null;
 }

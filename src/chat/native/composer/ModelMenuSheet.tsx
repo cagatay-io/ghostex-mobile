@@ -30,7 +30,7 @@ import type { UserAction } from '../../rust/actions';
 import { agentAccent } from './agentColors';
 import { Glyph, ModeGlyph } from './icons';
 import { arr, isTrue, obj, str, type JsonRecord } from './json';
-import { effortFor, reasoningFor } from './modelMenuState';
+import { degradedNoteFor, effortFor, reasoningFor } from './modelMenuState';
 import { ModelMenuChoices, ModelMenuTray } from './ModelMenuTray';
 import { Sheet } from './Sheet';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
@@ -169,6 +169,7 @@ export function ModelMenuSheet({
     if (openButton !== null && open === undefined) setOpenButton(null);
   }, [openButton, open]);
   const error = str(menu, 'error');
+  const degradedNote = degradedNoteFor(menu, highlighted, effort);
   const emptyText = str(menu, 'emptyText');
   /**
    * CDXC:AgentModelCatalog 2026-11-12 DECISION:
@@ -467,6 +468,7 @@ export function ModelMenuSheet({
           ownProvider={ownProvider}
           handoff={highlighted !== null && handoffTabs.has(str(highlighted, 'provider'))}
           disabled={disabled}
+          note={degradedNote}
           onApply={apply}
         />
       </View>
@@ -556,6 +558,7 @@ function ApplyBar({
   ownProvider,
   handoff,
   disabled,
+  note,
   onApply,
 }: {
   menu: JsonRecord | null;
@@ -563,6 +566,8 @@ function ApplyBar({
   ownProvider: string;
   handoff: boolean;
   disabled: boolean;
+  /** A coordinator's quiet note on a low-end pick (`degradedNoteFor`), or ''. */
+  note: string;
   onApply: (secondary: boolean) => void;
 }) {
   const styles = useStyles();
@@ -590,6 +595,13 @@ function ApplyBar({
   );
   return (
     <View style={styles.applyBar}>
+      {note.length > 0 ? (
+        // CDXC:Coordinators 2026-11-18 DECISION: GitHub #665, user: "just say you might get degraded experience that's all". A small amber mark and muted words above the buttons, never red and never a dialog (render.rs `render_degraded_note` on the desktop).
+        <View style={styles.degraded} accessibilityRole="text">
+          <Glyph name="alert-triangle" size={13} color={DEGRADED_COLOR} />
+          <Text style={styles.hint}>{note}</Text>
+        </View>
+      ) : null}
       {hint.length > 0 ? <Text style={styles.hint}>{hint}</Text> : null}
       <View style={styles.applyRow}>
         {!own ? (
@@ -606,6 +618,9 @@ function ApplyBar({
     </View>
   );
 }
+
+/** The amber of the chat's model note pill (ChatPills.tsx `QUALITY_COLOR`). */
+const DEGRADED_COLOR = '#f5a524';
 
 const useStyles = themedStyles((P) => ({
   hidden: { display: 'none' },
@@ -713,6 +728,7 @@ const useStyles = themedStyles((P) => ({
     gap: 8,
   },
   hint: { color: P.ink(0.64), fontSize: 12, lineHeight: 16, paddingHorizontal: 4 },
+  degraded: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 4 },
   applyRow: { flexDirection: 'row', gap: 8 },
   apply: {
     flex: 1,
