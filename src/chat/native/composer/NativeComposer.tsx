@@ -7,8 +7,8 @@
  * `gx-chat-core`. The text itself lives in the host's composer model (`src/chat/rust/composer.ts`).
  *
  * Top to bottom, as desktop's `render_composer` stacks them: the incoming draft offer, the
- * operation error, the session note, the suggestions popup, then the card (image tiles, queue,
- * input, option pills + toolbar + Send), then the status line.
+ * operation error, the session note, the suggestions popup, then the card (a new coordinator's
+ * first message, image tiles, queue, input, option pills + toolbar + Send), then the status line.
  *
  * In one of the iPhone Duo's pane slots (`chatPlacement`) the card takes the approved panes mockup's compact form,
  * with Dictate kept right before Send: under the field one row of the model pill, More actions, Dictate and Send.
@@ -27,6 +27,7 @@ import type { ChatDocument } from '../../rust/document';
 import type { SubmitMode } from '../../rust/composer';
 import type { RustChat } from '../../rust/useRustChat';
 import { AttachmentPreviews } from './AttachmentPreviews';
+import { FirstMessageCard } from './FirstMessageCard';
 import { clipboardHasImage, pickAttachments, savePastedImage, type AttachSource } from './attachments';
 import { COLLAPSED_INPUT_HEIGHT, ComposerInput, type ComposerInputHandle } from './ComposerInput';
 import { ContextEditorSheet } from './ContextEditorSheet';
@@ -890,6 +891,8 @@ export function NativeComposer({
                 }}
                 style={[styles.cardBody, collapsed ? styles.cardCollapsed : null]}
               >
+                {/* A new coordinator's first message, waiting for Start (`FirstMessageCard.tsx`); desktop draws it above the image tiles too. */}
+                {!collapsed && document !== null ? <FirstMessageCard document={document} dispatch={dispatch} /> : null}
                 {!collapsed && document !== null ? (
                   <AttachmentPreviews
                     references={references}
