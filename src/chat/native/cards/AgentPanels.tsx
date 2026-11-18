@@ -15,7 +15,7 @@ import type { RustChat } from '../../rust/useRustChat';
 import { SidebarPalette } from '../../../theme/palette';
 import { CoordinatorGlyph } from '../../../components/sessions/icons';
 import { AgentMark } from './agentMark';
-import { Glyph } from './icons';
+import { Glyph, type GlyphName } from './icons';
 import { arr, asJson, isTrue, num, obj, str } from './json';
 import { PROSE_SIZE, themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { PulseDot, Spinner } from './primitives';
@@ -177,7 +177,15 @@ export function CoordinatorThreadsMenu({
 function ThreadRow({ row, chat, onDone }: { row: unknown; chat: RustChat; onDone: () => void }) {
   const styles = useStyles();
   const title = str(row, 'title');
-  const detail = str(row, 'detail');
+  // Two lines, as on the desktop: the title line (with its work item refs) and the stats line, in
+  // place of its newest chat words (gx-chat-core `RowStat`, CDXC:Coordinators 2026-11-18: "no need
+  // for the last message to be sent here at all"; Q3974, the phone follows the desktop). Its work
+  // item's Now line shows on a long press, the phone's hover ("i want all workers to be 2 lines
+  // always", the desktop's coordinator_threads.rs); a tap still opens the worker.
+  const nowLine = str(row, 'nowLine');
+  const [nowShown, setNowShown] = useState(false);
+  const [itemShown, setItemShown] = useState<string | null>(null);
+  const openItem = arr(obj(row)?.items).find((item) => str(item, 'ref') === itemShown) ?? null;
   const branch = str(row, 'branch');
   // A worker on another computer: the phone cannot open it, so a tap says where it runs.
   const computer = remoteWorkerComputer(row);
@@ -198,7 +206,9 @@ function ThreadRow({ row, chat, onDone }: { row: unknown; chat: RustChat; onDone
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={computer !== null ? `Worker ${title}, runs on ${computer}` : `Open worker ${title}`}
+      accessibilityHint={nowLine.length > 0 ? 'Long press to show where its work item stands' : undefined}
       onPress={openThread}
+      onLongPress={nowLine.length > 0 ? () => setNowShown((was) => !was) : undefined}
       style={styles.threadRow}
     >
       <View style={styles.taskMarker}>
@@ -214,15 +224,69 @@ function ThreadRow({ row, chat, onDone }: { row: unknown; chat: RustChat; onDone
         <View style={styles.threadTitleLine}>
           <WorkerPill row={row} title={title} remote={computer !== null} />
           {isTrue(row, 'needsApproval') ? <Text style={styles.approvalTag}>{NEEDS_APPROVAL_LABEL}</Text> : null}
+          <WorkItemRefs row={row} shown={itemShown} onToggle={setItemShown} />
         </View>
-        {detail.length > 0 || branch.length > 0 ? (
-          <Text style={styles.threadDetail} numberOfLines={1}>
-            {[detail, branch].filter((part) => part.length > 0).join(' · ')}
-          </Text>
+        <ThreadStats row={row} branch={branch} />
+        {nowShown && nowLine.length > 0 ? (
+          <View style={[styles.itemCard, styles.rowCard]}>
+            <Text style={styles.itemCardText}>{nowLine}</Text>
+          </View>
         ) : null}
-        <WorkItemPills row={row} chat={chat} />
+        {openItem !== null ? (
+          <View style={styles.rowCard}>
+            <WorkItemCard item={openItem} chat={chat} />
+          </View>
+        ) : null}
       </View>
     </Pressable>
+  );
+}
+
+/** The icon of a Workers row's stats piece (desktop `coordinator_threads.rs` `stat_icon`). */
+const STAT_GLYPHS: Record<string, GlyphName> = {
+  reading: 'file-search',
+  web: 'world',
+  editing: 'pencil-code',
+  building: 'package',
+  testing: 'test-pipe',
+  command: 'terminal-2',
+  agent: 'robot',
+  planning: 'list-check',
+  thinking: 'bulb',
+  approval: 'shield-check',
+  question: 'help-circle',
+  stalled: 'clock',
+  untested: 'flask',
+  delivered: 'circle-check',
+  finished: 'circle-check',
+  files: 'pencil',
+};
+
+/**
+ * "Building · 46 tool calls · 3 files": the row's phase in its muted text, then its turn's counts
+ * in the quieter grey, each after its icon, and the worktree branch when it has one.
+ */
+function ThreadStats({ row, branch }: { row: unknown; branch: string }) {
+  const styles = useStyles();
+  const theme = useTranscriptTheme();
+  const stats = arr(obj(row)?.stats);
+  if (stats.length === 0 && branch.length === 0) return null;
+  return (
+    <View style={styles.statsLine}>
+      {stats.map((stat, index) => (
+        <View key={`${str(stat, 'kind')}-${index}`} style={[styles.stat, index === 0 && styles.statPhase]}>
+          <Glyph name={STAT_GLYPHS[str(stat, 'kind')] ?? 'tool'} size={12} color={theme.muted} />
+          <Text style={index === 0 ? styles.statPhaseText : styles.statText} numberOfLines={1}>
+            {str(stat, 'label')}
+          </Text>
+        </View>
+      ))}
+      {branch.length > 0 ? (
+        <Text style={[styles.statText, styles.statBranch]} numberOfLines={1}>
+          {branch}
+        </Text>
+      ) : null}
+    </View>
   );
 }
 
@@ -258,52 +322,54 @@ function WorkerPill({ row, title, remote }: { row: unknown; title: string; remot
 
 /**
  * A worker row's work items (gx-chat-core `coordinator_threads.rs` `attach_items`, where the user's
- * decision lives, CDXC:Coordinators 2026-11-13): a pill per item, two then "+N", under the row's
- * line, the finished ones dimmed. A tap shows the item's card under the pills (Q3022), whose Show in
- * Work opens the Work sheet at it (`jumpToWorkCard`; NativeChatScreen turns the focus into the
- * sheet). A thread on no item shows nothing.
+ * decision lives, CDXC:Coordinators 2026-11-13): a ref per item after the worker's name, two then
+ * "+N", the finished ones dimmed, as the desktop draws them. A tap shows the item's card under the
+ * row (Q3022), whose Show in Work opens the Work sheet at it (`jumpToWorkCard`; NativeChatScreen
+ * turns the focus into the sheet). They sat on a line of their own under the row until every row
+ * became two lines (CDXC:Coordinators 2026-11-18). A thread on no item shows nothing.
  */
-function WorkItemPills({ row, chat }: { row: unknown; chat: RustChat }) {
+function WorkItemRefs({
+  row,
+  shown,
+  onToggle,
+}: {
+  row: unknown;
+  shown: string | null;
+  onToggle: (reference: string | null) => void;
+}) {
   const styles = useStyles();
   const theme = useTranscriptTheme();
-  const [shown, setShown] = useState<string | null>(null);
   const items = arr(obj(row)?.items);
   if (items.length === 0) return null;
   const more = str(row, 'moreItems');
-  const open = items.find((item) => str(item, 'ref') === shown) ?? null;
   return (
-    <View style={styles.itemsBlock}>
-      <View style={styles.itemsLine}>
-        {items.map((item) => {
-          const reference = str(item, 'ref');
-          return (
-            <Pressable
-              key={reference}
-              accessibilityRole="button"
-              accessibilityLabel={`${reference} ${str(item, 'title')}, show its card`}
-              accessibilityState={{ expanded: shown === reference }}
-              onPress={() => setShown((was) => (was === reference ? null : reference))}
-              style={[
-                styles.itemPill,
-                shown === reference ? styles.itemPillOpen : null,
-                isTrue(item, 'done') ? styles.itemPillDone : null,
-              ]}
-            >
-              <Glyph name="layout-board-split" size={12} color={theme.reference.board} />
-              <Text style={styles.itemRef}>{reference}</Text>
-              <Text style={styles.itemTitle} numberOfLines={1}>
-                {str(item, 'title')}
-              </Text>
-            </Pressable>
-          );
-        })}
-        {more.length > 0 ? (
-          <View style={styles.itemPill} accessibilityLabel={str(row, 'moreItemsTooltip')}>
-            <Text style={styles.itemMore}>{more}</Text>
-          </View>
-        ) : null}
-      </View>
-      {open !== null ? <WorkItemCard item={open} chat={chat} /> : null}
+    <View style={styles.itemsLine}>
+      {items.map((item) => {
+        const reference = str(item, 'ref');
+        return (
+          <Pressable
+            key={reference}
+            accessibilityRole="button"
+            accessibilityLabel={`${reference} ${str(item, 'title')}, show its card`}
+            accessibilityState={{ expanded: shown === reference }}
+            onPress={() => onToggle(shown === reference ? null : reference)}
+            hitSlop={6}
+            style={[
+              styles.itemRefPill,
+              shown === reference ? styles.itemPillOpen : null,
+              isTrue(item, 'done') ? styles.itemPillDone : null,
+            ]}
+          >
+            <Glyph name="layout-board-split" size={12} color={theme.reference.board} />
+            <Text style={styles.itemRefText}>{reference}</Text>
+          </Pressable>
+        );
+      })}
+      {more.length > 0 ? (
+        <Text style={styles.itemMore} accessibilityLabel={str(row, 'moreItemsTooltip')}>
+          {more}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -615,33 +681,59 @@ const useStyles = themedStyles((P) => ({
     fontSize: PROSE_SIZE - 1,
     fontWeight: '500',
   },
-  /** One line under the title: muted, a step under it so the title still leads. */
-  threadDetail: {
+  /** A worker's stats line (`ThreadStats`): the phase, then the counts. */
+  statsLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 2,
+    overflow: 'hidden',
+  },
+  stat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flexShrink: 0,
+  },
+  statPhase: {
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  statPhaseText: {
+    flexShrink: 1,
     color: P.cardMuted,
-    fontSize: PROSE_SIZE - 1,
+    fontSize: PROSE_SIZE - 2,
   },
-  /** A worker's work item pills and the card a tap opens (desktop `items_line`). */
-  itemsBlock: {
-    gap: 6,
-    marginTop: 4,
+  statText: {
+    color: P.muted,
+    fontSize: PROSE_SIZE - 2,
   },
+  statBranch: {
+    flexShrink: 1,
+  },
+  /** A ref after the worker's name (`WorkItemRefs`): the board icon and "W645", as on the desktop. */
+  itemRefPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    height: 22,
+    paddingHorizontal: 3,
+    borderRadius: 5,
+  },
+  itemRefText: {
+    color: P.muted,
+    fontSize: PROSE_SIZE - 2,
+  },
+  /** The card a long press (the Now line) or a ref's tap opens under the row. */
+  rowCard: {
+    marginTop: 6,
+  },
+  /** A worker's work item refs on its title line, and the card a tap opens (desktop `item_refs`). */
   itemsLine: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    overflow: 'hidden',
-  },
-  itemPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexShrink: 1,
-    gap: 4,
-    maxWidth: 150,
-    height: 22,
-    paddingHorizontal: 7,
-    borderRadius: 11,
-    borderWidth: 1,
-    borderColor: P.ink(0.1),
+    flexShrink: 0,
+    gap: 2,
   },
   itemPillOpen: {
     backgroundColor: P.ink(0.08),
@@ -653,11 +745,6 @@ const useStyles = themedStyles((P) => ({
     color: P.foreground,
     fontSize: PROSE_SIZE - 2,
     fontWeight: '600',
-  },
-  itemTitle: {
-    flexShrink: 1,
-    color: P.cardMuted,
-    fontSize: PROSE_SIZE - 2,
   },
   itemMore: {
     color: P.muted,
