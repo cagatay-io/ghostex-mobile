@@ -22,8 +22,16 @@
  * edge as on the desktop, the icon dimmed to 80% while they show.
  */
 
-import type { ReactElement } from 'react';
-import { Pressable, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { useEffect, useRef, type ReactElement } from 'react';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+  type ScrollViewInstance,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 
 import { COMMAND_ICONS } from '../../assets/tablerIcons.generated';
 import { ACTIVE_SPACE_COLOR, ACTIVE_SPACE_ICON, ACTIVE_SPACE_ID } from '../../spaces/activeProjects';
@@ -68,6 +76,11 @@ export function spaceMenuIcon(item: SpaceRowItem, ink: SidebarInk): ReactElement
   return <Icon size={14} color={spaceIconColor(item.color, ink)} />;
 }
 
+/** The row's tiles in order: the star (while on), the machine's Spaces, then Other. A swipe on the list steps through it (SpaceSwipe.tsx). */
+export function spaceRowOrder(spaces: readonly SpaceRowItem[], activeProjects: boolean): SpaceRowItem[] {
+  return activeProjects ? [ACTIVE_ROW_ITEM, ...spaces, OTHER_ROW_ITEM] : [...spaces, OTHER_ROW_ITEM];
+}
+
 export default function SpaceTabs({
   spaces,
   selectedSpaceId,
@@ -90,11 +103,31 @@ export default function SpaceTabs({
   /** Overrides for the row's own box, e.g. when it shares a line with the workspace tile. */
   style?: StyleProp<ViewStyle>;
 }) {
-  const items = activeProjects ? [ACTIVE_ROW_ITEM, ...spaces, OTHER_ROW_ITEM] : [...spaces, OTHER_ROW_ITEM];
+  const items = spaceRowOrder(spaces, activeProjects);
   const ink = useSidebarInk();
   const styles = spaceStyles(ink);
+  // When the row scrolls, a Space picked off screen (a swipe on the list) is scrolled into view.
+  const scrollRef = useRef<ScrollViewInstance>(null);
+  const tileFrames = useRef(new Map<string, { x: number; width: number }>());
+  const rowWidth = useRef(0);
+  const scrollX = useRef(0);
+  useEffect(() => {
+    const frame = tileFrames.current.get(selectedSpaceId);
+    if (frame === undefined || rowWidth.current === 0) return;
+    if (frame.x < scrollX.current) scrollRef.current?.scrollTo({ x: frame.x, animated: true });
+    else if (frame.x + frame.width > scrollX.current + rowWidth.current)
+      scrollRef.current?.scrollTo({ x: frame.x + frame.width - rowWidth.current, animated: true });
+  }, [selectedSpaceId]);
   return (
     <ScrollView
+      ref={scrollRef}
+      onLayout={(event) => {
+        rowWidth.current = event.nativeEvent.layout.width;
+      }}
+      onScroll={(event) => {
+        scrollX.current = event.nativeEvent.contentOffset.x;
+      }}
+      scrollEventThrottle={64}
       contentContainerStyle={styles.row}
       horizontal
       showsHorizontalScrollIndicator={false}
@@ -123,6 +156,10 @@ export default function SpaceTabs({
             key={item.spaceId}
             onPress={() => onSelect(item.spaceId)}
             onLongPress={onSpaceMenu === undefined ? undefined : () => onSpaceMenu(item)}
+            onLayout={(event) => {
+              const { x, width } = event.nativeEvent.layout;
+              tileFrames.current.set(item.spaceId, { x, width });
+            }}
             style={({ pressed }) => [
               styles.tile,
               selected ? styles.tileSelected : null,
