@@ -720,6 +720,7 @@ function DockRow({
       : null;
   const logosWidth = threadChips.length * (THREAD_LOGO + 6);
   const count = str(row, 'count');
+  const markRead = str(row, 'kind') === 'finished' ? obj(row.dismiss) : null;
   // A question form that needs the reader is the visuals list's checklist in the need-you pink
   // (desktop `row_mark`; the user: "use this icon for this one when it's a question form (keep
   // pink color)"); a page its page, everything else its status's mark.
@@ -794,6 +795,26 @@ function DockRow({
           </View>
           <View style={styles.ageSlot}>
             <Text style={styles.foldTime}>{str(row, 'age')}</Text>
+            {/* What the newest turn finished asks nothing: Mark as read stands on the row itself,
+                always shown since the phone has no hover (the desktop shows it over the age under
+                the pointer). It is the row's own silent `dismissWorkDockCard`, as its menu's Mark
+                as read: the row leaves the dock, the agent is sent nothing and the item stays Done.
+
+                CDXC:Coordinators 2026-11-18 DECISION:
+                User, of a Done row in the dock: "i need a button on the right there to mark this
+                one as read pls ... should be an icon button on the right side shown only when
+                hovered". */}
+            {markRead !== null ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Mark as read"
+                hitSlop={{ top: 11, bottom: 11, left: 6, right: 6 }}
+                onPress={() => dispatch(markRead as never)}
+                style={({ pressed }) => [styles.dismiss, pressed && { backgroundColor: P.neutralFillPressed }]}
+              >
+                <Glyph name="check" size={14} color={P.cardMuted} />
+              </Pressable>
+            ) : null}
             {menuRows.length > 0 ? <WorkMenuButton active={menu} onPress={() => setMenu(true)} /> : null}
           </View>
         </View>
@@ -1134,11 +1155,12 @@ function WorkCard({ card, dispatch }: { card: JsonRecord; dispatch: Dispatch }) 
         </View>
         <Text style={[styles.title, { color: body }]}>{str(card, 'title')}</Text>
         {right.length > 0 ? <Text style={styles.right}>{right}</Text> : null}
-        {/* A finished card in the dock goes away with its × (gx-chat-core `dock`). */}
+        {/* A finished card in the dock goes away with its × (gx-chat-core `dock`). It asks no
+            question, so it reads Mark as read, as the dock's finished row does; it sends nothing. */}
         {obj(card.dismiss) !== null ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Dismiss"
+            accessibilityLabel="Mark as read"
             hitSlop={8}
             onPress={() => dispatch(card.dismiss as never)}
             style={styles.dismiss}
@@ -1588,7 +1610,7 @@ const useStyles = themedStyles((P) => ({
   dockFoot: { flexDirection: 'row', alignItems: 'flex-start' },
   dockMarkSeen: { marginLeft: 'auto', flexShrink: 0 },
   dockMarkSeenText: { paddingLeft: 8, paddingRight: 8, paddingTop: 2, paddingBottom: 6, fontSize: PROSE_SIZE, color: P.muted },
-  dismiss: { width: 20, height: PROSE_LINE, alignItems: 'center', justifyContent: 'center' },
+  dismiss: { width: 20, height: PROSE_LINE, alignItems: 'center', justifyContent: 'center', borderRadius: 6 },
   dockFold: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
   dockLineText: { flex: 1, minWidth: 0, fontSize: PROSE_SIZE, color: P.cardMuted },
   card: {

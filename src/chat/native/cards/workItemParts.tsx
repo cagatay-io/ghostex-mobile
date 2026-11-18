@@ -758,7 +758,13 @@ export function workMenuRows(
   const markAnswered = obj(actions.markAnswered);
   if (markAnswered !== null) rows.push({ label: 'Mark answered', icon: 'circle-check', command: markAnswered });
   const dismiss = obj(actions.dismiss);
-  if (dismiss !== null) rows.push({ label: 'Dismiss', icon: 'x', command: dismiss });
+  // Dismiss, or Mark as read on a row that asks no question (a Needs you to-do, a page that only
+  // waits to be seen, what the newest turn finished): gx-chat-core's `dismissLabel`. Both send the
+  // agent nothing.
+  if (dismiss !== null) {
+    const read = str(actions, 'dismissLabel') === 'Mark as read';
+    rows.push({ label: read ? 'Mark as read' : 'Dismiss', icon: read ? 'check' : 'x', command: dismiss });
+  }
   const snooze = arr(actions.snooze)
     .map(obj)
     .filter((choice): choice is JsonRecord => choice !== null);
