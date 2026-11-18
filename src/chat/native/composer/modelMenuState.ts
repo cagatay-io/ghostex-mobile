@@ -35,6 +35,22 @@ export function effortFor(row: JsonRecord, effort: string | null): string {
 }
 
 /**
+ * A coordinator picker's note ("You might get a degraded experience.") while `row`, at the level a
+ * pick of it carries, is marked degraded by the core (gx-chat-core `mark_degraded`); '' otherwise.
+ * CDXC:Coordinators 2026-11-18 SEE-ALSO: `degraded_note` in apps/desktop/src/app/native_chat/option_menu/model_menu/state.rs (the same note on the desktop) and `coordinator_model_may_degrade` in packages/gx-protocol/src/coordinator.rs (the user's #665 decision).
+ */
+export function degradedNoteFor(menu: JsonRecord | null, row: JsonRecord | null, effort: string | null): string {
+  const note = str(menu, 'degradedNote');
+  if (note.length === 0 || row === null) return '';
+  const level = effortFor(row, effort);
+  const entry = arr(row.efforts)
+    .map(obj)
+    .find((candidate) => candidate !== null && candidate.value === level);
+  const degraded = entry === undefined || entry === null ? isTrue(row, 'degraded') : isTrue(entry, 'degraded');
+  return degraded ? note : '';
+}
+
+/**
  * CDXC:SessionChat 2026-09-25 SEE-ALSO: `reasoning_for` in apps/desktop/src/app/native_chat/option_menu/model_menu/state.rs draws the same button; keep the two in step.
  * The Reasoning button for the highlighted row: its levels, with the one the list moved to
  * marked. `browse` names the row, and `browseCurrent` says whether it is the model in use, whose
