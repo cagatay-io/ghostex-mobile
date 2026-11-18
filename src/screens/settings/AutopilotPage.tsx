@@ -10,6 +10,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 
+import { openDeepLink } from '../../app/deepLinks';
+import { sessionDeepLink } from '../../app/deepLinkHandler';
 import { chatMachineLink } from '../../chat/rust/machine-link';
 import { isMachineEnabled, machineDisplayLabel, useMachinesStore, type MachineRecord } from '../../machines/store';
 import { useAppearance } from '../../theme/useAppearance';
@@ -42,6 +44,8 @@ type Config = {
   readOnlyLeavePlan?: boolean;
   supervisor: 'opusMedium' | 'solHigh';
   sweepSeconds: number;
+  /** Supervisor check-up period in minutes, 0 is Off; absent from a computer whose Ghostex predates it. */
+  checkupMinutes?: number;
 };
 
 type LogEntry = {
@@ -63,7 +67,18 @@ type View_ = {
   summary: { actions: number; keptMoving: number; parkedCount: number; failed: number };
   log: LogEntry[];
   watching: { covered: number };
+  /** The supervisor (`supervisor_view`, server/src/server/autopilot_judge.rs); its session once one exists. */
+  supervisor?: { projectId?: string; sessionId?: string } | null;
 };
+
+/** The check-up's choices, as the desktop lists them (server/src/autopilot/config.rs, `CHECKUP_MINUTES`). */
+const CHECKUP_CHOICES: readonly { minutes: number; label: string }[] = [
+  { minutes: 0, label: 'Off' },
+  { minutes: 10, label: 'Every 10 minutes' },
+  { minutes: 20, label: 'Every 20 minutes' },
+  { minutes: 30, label: 'Every 30 minutes' },
+  { minutes: 60, label: 'Every hour' },
+];
 
 /** The hard limits, as the desktop page lists them. */
 const HARD_LIMITS: readonly { key: string; label: string; detail: string }[] = [
@@ -271,6 +286,7 @@ export default function AutopilotPage() {
         )
       ) : (
         <AutopilotBody
+          machine={machine}
           view={view}
           set={set}
           send={send}
@@ -283,12 +299,14 @@ export default function AutopilotPage() {
 }
 
 function AutopilotBody({
+  machine,
   view,
   set,
   send,
   onMore,
   logLimit,
 }: {
+  machine: MachineRecord;
   view: View_;
   set: (patch: Partial<Config>) => void;
   send: (params: Record<string, unknown>) => Promise<void>;
@@ -301,6 +319,13 @@ function AutopilotBody({
   const preset = presetOf(config);
   const question = questionChoice(config);
   const permission = permissionChoice(config);
+  const supervisorSession =
+    typeof view.supervisor?.sessionId === 'string' &&
+    view.supervisor.sessionId.length > 0 &&
+    typeof view.supervisor.projectId === 'string' &&
+    view.supervisor.projectId.length > 0
+      ? view.supervisor.sessionId
+      : null;
   const nameCount = (name: string) =>
     view.projects.filter((project) => project.name.toLowerCase() === name.toLowerCase()).length;
   // Projects I pick lists every project; Every session only the ones taken out (Q3036).
@@ -465,6 +490,17 @@ function AutopilotBody({
           ) : null}
         </>
       ) : null}
+      {/* Open supervisor: only once the computer reports a supervisor session; before that the desktop says
+          "Not started yet", and the phone shows nothing. */}
+      {config.enabled && supervisorSession !== null ? (
+        <SettingsSection name="settings:autopilot:supervisor">
+          <LinkRow
+            title="Open supervisor"
+            description="Its chat, in the Autopilot project that stays hidden from your lists."
+            onPress={() => openDeepLink(sessionDeepLink({ machineId: machine.id, sessionId: supervisorSession }))}
+          />
+        </SettingsSection>
+      ) : null}
       <Log view={view} onMore={onMore} logLimit={logLimit} />
       {config.enabled ? (
         <SettingsSection name="settings:autopilot:advanced">
@@ -486,6 +522,24 @@ function AutopilotBody({
                 onPress={() => set({ supervisor: 'solHigh' })}
               />
               <Caption>The supervisor wakes only for judgment calls, on whichever of your accounts has room.</Caption>
+              {/* Only a computer that sends checkupMinutes has the check-up. */}
+              {config.checkupMinutes !== undefined ? (
+                <>
+                  <SectionHeader title="Supervisor check-up" />
+                  {CHECKUP_CHOICES.map((choice) => (
+                    <ChoiceRow
+                      key={choice.minutes}
+                      label={choice.label}
+                      selected={config.checkupMinutes === choice.minutes}
+                      onPress={() => set({ checkupMinutes: choice.minutes })}
+                    />
+                  ))}
+                  <Caption>
+                    Ghostex looks for sessions that seem stuck in ways its rules don't settle, and wakes the supervisor
+                    only when it finds one.
+                  </Caption>
+                </>
+              ) : null}
               <StepperRow
                 label={`Look at every session every ${minutes} min`}
                 value={`${minutes}`}
