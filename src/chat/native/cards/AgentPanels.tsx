@@ -15,7 +15,7 @@ import type { RustChat } from '../../rust/useRustChat';
 import { SidebarPalette } from '../../../theme/palette';
 import { CoordinatorGlyph } from '../../../components/sessions/icons';
 import { AgentMark } from './agentMark';
-import { Glyph } from './icons';
+import { Glyph, type GlyphName } from './icons';
 import { arr, asJson, isTrue, num, obj, str } from './json';
 import { PROSE_SIZE, themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { PulseDot, Spinner } from './primitives';
@@ -177,7 +177,10 @@ export function CoordinatorThreadsMenu({
 function ThreadRow({ row, chat, onDone }: { row: unknown; chat: RustChat; onDone: () => void }) {
   const styles = useStyles();
   const title = str(row, 'title');
-  const detail = str(row, 'detail');
+  // Its work item's Now line, then its stats line, in place of its newest chat words
+  // (gx-chat-core `RowStat`, CDXC:Coordinators 2026-11-18: "no need for the last message to be
+  // sent here at all"; Q3974, the phone follows the desktop).
+  const nowLine = str(row, 'nowLine');
   const branch = str(row, 'branch');
   // A worker on another computer: the phone cannot open it, so a tap says where it runs.
   const computer = remoteWorkerComputer(row);
@@ -215,14 +218,63 @@ function ThreadRow({ row, chat, onDone }: { row: unknown; chat: RustChat; onDone
           <WorkerPill row={row} title={title} remote={computer !== null} />
           {isTrue(row, 'needsApproval') ? <Text style={styles.approvalTag}>{NEEDS_APPROVAL_LABEL}</Text> : null}
         </View>
-        {detail.length > 0 || branch.length > 0 ? (
+        {nowLine.length > 0 ? (
           <Text style={styles.threadDetail} numberOfLines={1}>
-            {[detail, branch].filter((part) => part.length > 0).join(' · ')}
+            {nowLine}
           </Text>
         ) : null}
+        <ThreadStats row={row} branch={branch} />
         <WorkItemPills row={row} chat={chat} />
       </View>
     </Pressable>
+  );
+}
+
+/** The icon of a Workers row's stats piece (desktop `coordinator_threads.rs` `stat_icon`). */
+const STAT_GLYPHS: Record<string, GlyphName> = {
+  reading: 'file-search',
+  web: 'world',
+  editing: 'pencil-code',
+  building: 'package',
+  testing: 'test-pipe',
+  command: 'terminal-2',
+  agent: 'robot',
+  planning: 'list-check',
+  thinking: 'bulb',
+  approval: 'shield-check',
+  question: 'help-circle',
+  stalled: 'clock',
+  untested: 'flask',
+  delivered: 'circle-check',
+  finished: 'circle-check',
+  files: 'pencil',
+};
+
+/**
+ * "Building · 46 tool calls · 3 files": the row's phase in its muted text, then its turn's counts
+ * in the quieter grey, each after its icon, and the worktree branch when it has one.
+ */
+function ThreadStats({ row, branch }: { row: unknown; branch: string }) {
+  const styles = useStyles();
+  const theme = useTranscriptTheme();
+  const stats = arr(obj(row)?.stats);
+  if (stats.length === 0 && branch.length === 0) return null;
+  return (
+    <View style={styles.statsLine}>
+      {stats.map((stat, index) => (
+        <View key={`${str(stat, 'kind')}-${index}`} style={[styles.stat, index === 0 && styles.statPhase]}>
+          <Glyph name={STAT_GLYPHS[str(stat, 'kind')] ?? 'tool'} size={12} color={theme.muted} />
+          <Text style={index === 0 ? styles.statPhaseText : styles.statText} numberOfLines={1}>
+            {str(stat, 'label')}
+          </Text>
+        </View>
+      ))}
+      {branch.length > 0 ? (
+        <Text style={[styles.statText, styles.statBranch]} numberOfLines={1}>
+          {branch}
+        </Text>
+      ) : null}
+    </View>
   );
 }
 
@@ -619,6 +671,36 @@ const useStyles = themedStyles((P) => ({
   threadDetail: {
     color: P.cardMuted,
     fontSize: PROSE_SIZE - 1,
+  },
+  /** A worker's stats line (`ThreadStats`): the phase, then the counts. */
+  statsLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 2,
+    overflow: 'hidden',
+  },
+  stat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flexShrink: 0,
+  },
+  statPhase: {
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  statPhaseText: {
+    flexShrink: 1,
+    color: P.cardMuted,
+    fontSize: PROSE_SIZE - 2,
+  },
+  statText: {
+    color: P.muted,
+    fontSize: PROSE_SIZE - 2,
+  },
+  statBranch: {
+    flexShrink: 1,
   },
   /** A worker's work item pills and the card a tap opens (desktop `items_line`). */
   itemsBlock: {
