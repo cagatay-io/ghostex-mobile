@@ -18,7 +18,7 @@
  * User: "we should just include a line that can't be removed saying: "Read and adhere to this skill: /ghostex-orchestrator" ... also remove this [First request] and this [Goal]", and for the phone: "phone too". No Goal or First request field; the first message is shown locked.
  *
  * CDXC:Coordinators 2026-11-13 DECISION:
- * User (Q2980 "Build it: auto-send + remind on drift"): the form drops its Agent, Model and Effort fields; Next opens the normal agent picker titled "Pick the coordinator's agent", where any agent may be picked, and the pick starts the coordinator and sends its first message. Agents whose start model may make a weaker coordinator carry the warning on their row.
+ * User (Q2980 "Build it: auto-send + remind on drift"): the form drops its Agent, Model and Effort fields; Next opens the normal agent picker titled "Pick the coordinator's agent", where any agent may be picked, and the pick starts the coordinator and sends its first message. Since 2026-11-18 the first message is typed into the agent's box and waits for Start instead of being sent (CDXC:Coordinators 2026-11-18 in server/src/session_chat_first_message.rs). Agents whose start model may make a weaker coordinator carry the warning on their row.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -237,7 +237,8 @@ export default function NewCoordinatorSheet({
                 </View>
                 <Text style={styles.hint}>
                   Every coordinator starts with this line, which loads its playbook, written the way its agent runs a
-                  skill. Write your first request in its chat.
+                  skill. It waits in the agent's input box until you press Start, so you can change the model and effort
+                  first. Write your first request in its chat.
                 </Text>
               </View>
               <View style={styles.buttonRow}>

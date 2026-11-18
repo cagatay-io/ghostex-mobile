@@ -203,6 +203,14 @@ export type ActionFields = {
   /** Back to composer: takes a message the agent itself queued back into the composer. */
   takeBackQueued: { messageId?: string };
 
+  // ---- a new coordinator's first message (core `composer/first_message.rs`) ----------------
+  /** Start on the card: hand the waiting first message to the agent. */
+  firstMessageStart: {};
+  /** Edit on the card: take the message out of the agent's box into the chat box. */
+  firstMessageEdit: {};
+  /** Show all / Show less on the card. */
+  firstMessageToggle: {};
+
   // ---- questions, approvals and notices -----------------------------------------------------
   /** Answer the blocking prompt or a terminal dialog. Desktop: `approval.rs`, `notice.rs`,
    * `terminal_dialog.rs`. */

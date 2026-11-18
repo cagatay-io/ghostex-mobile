@@ -676,6 +676,12 @@ export type ChatDocument = {
 
   // ---- composer ---------------------------------------------------------------------------
 
+  /**
+   * A new coordinator's first message, typed into the agent's input box and not sent, drawn as a
+   * card at the top of the chat box; absent when nothing waits. Core: `composer/first_message.rs`;
+   * phone: `composer/FirstMessageCard.tsx`.
+   */
+  firstMessageCard?: FirstMessageCard | null;
   /** Ghostex's own prompt queue above the composer. Desktop: `queue.rs`, `send_control.rs`. */
   queue: Queue;
   /**
@@ -974,6 +980,31 @@ export type NewSessionWelcome = {
 };
 
 export type DeferredWorkRow = { loading: boolean; error?: string | null };
+
+/** The `firstMessageCard` key (core `composer/first_message.rs`): every word the card shows is here. */
+export type FirstMessageCard = {
+  title: string;
+  /** "In the agent's input box, not sent" while it sits there, else "Not sent yet". */
+  note: string;
+  /** The whole message. */
+  text: string;
+  /** The message without its blank lines, for the collapsed card. */
+  preview?: string;
+  inBox: boolean;
+  /** Show all is open. */
+  expanded: boolean;
+  /** The lines shown before Show all. */
+  collapsedLines: number;
+  /** How many non-empty lines the message has. */
+  lines: number;
+  /** Start or Edit in flight. */
+  busy: boolean;
+  startLabel: string;
+  editLabel: string;
+  showAllLabel: string;
+  showLessLabel: string;
+  placeholder: string;
+};
 
 export type Queue = {
   capabilities: QueueCapabilities;

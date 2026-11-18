@@ -1928,7 +1928,8 @@ export function useSessionsScreenMenus({
   /**
    * The coordinator's agent step's pick: `ghostex coordinator create` on that agent, in the folder the form's Folder
    * row picked (a project cloned twice on this computer), else the project's own; gxserver gives it its start model
-   * and effort and sends its first message. The form stays open while the computer answers and closes once it is
+   * and effort and types its first message into the agent's box, where it waits for Start (CDXC:Coordinators
+   * 2026-11-18 in server/src/session_chat_first_message.rs). The form stays open while the computer answers and closes once it is
    * created (`keepOverlay`); the coordinator opens in chat, where its reports read best (as on the desktop). A refusal
    * comes back to the form as a sentence; when the computer made the coordinator but its agent did not start
    * (`ghostex coordinator create` says so), that one is opened instead of making another.
