@@ -443,6 +443,24 @@ export function TagGlyph({ size, color }: GlyphProps) {
   );
 }
 
+/**
+ * A laptop with a slash through it (desktop titlebar/device-laptop-off.svg): the mark of a project
+ * whose folder is missing (contract/folderProblem.ts).
+ */
+export function LaptopOffGlyph({ size, color }: GlyphProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M 8.5 6 h 9.5 a 1 1 0 0 1 1 1 v 8 a 1 1 0 0 1 -0.4 0.8 M 14 16 h -8 a 1 1 0 0 1 -1 -1 v -8 a 1 1 0 0 1 0.3 -0.7 M 3 19 h 13.5 M 3 3 l 18 18"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 /** Terminal window (desktop IconTerminal2, create-terminal header button). */
 export function TerminalGlyph({ size, color }: GlyphProps) {
   return (

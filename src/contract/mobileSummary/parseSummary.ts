@@ -5,6 +5,7 @@
 
 import { sessionNotesOnIn } from '../../sessions/sessionNotesSwitch';
 import { parseExtensionPanels } from '../extensionPanels';
+import { parsePathProblem } from '../folderProblem';
 import { boolValue, firstNonEmpty, isObject, trimmedValue, type JsonObject } from './json';
 import { scanJsonObjects } from './jsonScan';
 import type {
@@ -58,6 +59,8 @@ function parseProjects(value: unknown): GhostexProject[] {
       gitRemoteOriginUrl: trimmedValue(entry, 'gitRemoteOriginUrl') || undefined,
       gitWorkTree: 'gitRemoteOriginUrl' in entry,
       gitRepositoryRootPath: trimmedValue(entry, 'gitRepositoryRootPath') || undefined,
+      pathState: trimmedValue(entry, 'pathState') || undefined,
+      pathProblem: parsePathProblem(entry.pathProblem),
     });
   }
   return projects;

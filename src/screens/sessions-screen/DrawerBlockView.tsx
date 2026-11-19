@@ -80,6 +80,8 @@ export type DrawerBlockActions = {
   createProjectTerminal: (machineId: string, header: ProjectHeaderItem) => void;
   createGroupTerminal: (machineId: string, item: GroupHeaderItem) => void;
   agentMenu: (machineId: string, header: ProjectHeaderItem) => void;
+  /** The slashed computer of a project whose folder is missing: its sheet (contract/folderProblem.ts). */
+  folderMark: (machineId: string, header: ProjectHeaderItem) => void;
   /** Main Hub's "Pick an agent" row: asks which agent runs the computer's Chief of Staff. */
   openHomeChief: (machineId: string, header: ProjectHeaderItem) => void;
   /** Main Hub's long press: what it is, Start Chief of Staff before its first open, the project's options. */
@@ -356,6 +358,8 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
           awakeCount={header.awakeCount}
           primaryAgent={primaryAgent}
           machineIds={header.machineIds}
+          folderProblem={header.folderProblem}
+          onFolderMark={() => actions.folderMark(machineId, header)}
           onToggle={() => actions.toggleProject(machineId, header)}
           onMenu={() => actions.projectMenu(...acting(header))}
           onLaunchPrimary={() => {

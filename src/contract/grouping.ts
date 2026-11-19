@@ -5,6 +5,7 @@
  * Android reference implementation (GhostexDrawerItem.buildItems).
  */
 
+import { folderProblemOf, type FolderProblemView } from './folderProblem';
 import { SessionCopy } from '../copy';
 import {
   coordinatorBadges,
@@ -170,6 +171,8 @@ export type ProjectHeaderItem = {
   copies?: ProjectCopy[];
   /** The folder New Coordinator starts on: the one holding the entry's newest session, else the entry's own. */
   defaultCopyProjectId?: string;
+  /** The project's folder is missing: the slashed computer after its name and the sheet it opens (folderProblem.ts). */
+  folderProblem?: FolderProblemView;
 };
 
 /** One folder of a merged project (`ProjectHeaderItem.copies`). */
@@ -1173,6 +1176,8 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
       agents: projectId.length > 0 ? summary.agents : [],
       quickActions: projectId.length > 0 ? (summary.quickActionsByProject[projectId] ?? []) : [],
       ...(folders !== null ? { copies: folders.copies, defaultCopyProjectId: folders.defaultProjectId } : {}),
+      folderProblem:
+        project !== null ? folderProblemOf(projectTitle, projectPath, project.pathState, project.pathProblem) : undefined,
     });
     if (collapsed) return;
 

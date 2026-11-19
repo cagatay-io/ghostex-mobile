@@ -1,3 +1,5 @@
+import type { GhostexPathProblem } from '../folderProblem';
+
 /**
  * The normalized model's project, launcher, workspace and session-link types.
  * Part of the mobile summary contract (`./index.ts`).
@@ -103,6 +105,13 @@ export type GhostexProject = {
    * a repository or from an older computer.
    */
   gitRepositoryRootPath?: string;
+  /**
+   * `missing` or `notDirectory` while the project's folder is gone (server/src/project_folder_problem.rs), with
+   * `pathProblem` saying why; both absent while it is there and from an older computer. The header draws the
+   * slashed computer from them (contract/folderProblem.ts).
+   */
+  pathState?: string;
+  pathProblem?: GhostexPathProblem;
 };
 
 /** A GBot's look and place, as the computer publishes it on its project (`gbotsBot`). */

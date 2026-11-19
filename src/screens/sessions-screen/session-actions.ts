@@ -64,6 +64,8 @@ export type Overlay =
   | { kind: 'projectMenu'; ctx: ProjectContext; menuPath: readonly string[] }
   | { kind: 'projectKillConfirm'; ctx: ProjectContext }
   | { kind: 'projectDetails'; ctx: ProjectContext }
+  /** The sheet of a project whose folder is missing (contract/folderProblem.ts); `confirmRemove` after Remove project. */
+  | { kind: 'folderProblem'; ctx: ProjectContext; confirmRemove: boolean; busy: boolean }
   | { kind: 'agentMenu'; ctx: ProjectContext }
   /**
    * The project list (the agent menu's project row, or New session when its project can't open the

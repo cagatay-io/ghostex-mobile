@@ -34,7 +34,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { GhostexNative } from '../../modules/ghostex-native/src';
 import { logAppEvent } from '../app/appLog';
 import { openTailscaleOrDownload } from '../app/tailscale';
-import ActionSheet from '../components/common/ActionSheet';
+import ActionSheet, { type ActionSheetItem } from '../components/common/ActionSheet';
+import { folderAskAiPrompt, folderFixedWords, type FolderProblemView } from '../contract/folderProblem';
+import { runSessionCommand as runSessionCommandOnMachine } from '../sessions/sessionCommands';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import DetailsSheet from '../components/common/DetailsSheet';
 import LogsSheet from '../components/common/LogsSheet';
@@ -130,8 +132,11 @@ import { isDemoMachine } from '../demo/identity';
 import {
   cancelDelayedSendCommand,
   closeAfterDoneCommand,
+  createAgentCommand,
   createSessionInGroupCommand,
   delayedSendCommand,
+  relocateProjectCommand,
+  removeProjectCommand,
 } from '../commands/ghostexCli';
 import { stateWithCollectionTitle } from '../contract/collectionsState';
 import { countSessions, machineSessionCounts, sessionItemCoordinatorKey, tabStatusCounts } from '../contract/grouping';
@@ -1214,6 +1219,10 @@ export default function SessionsScreen({ navigation }: Props) {
           ProgressCopy.creatingTerminal(item.title),
         );
       }),
+    folderMark: (machineId, header) =>
+      withMachine(machineId, (target) =>
+        setOverlay({ kind: 'folderProblem', ctx: { machine: target, header }, confirmRemove: false, busy: false }),
+      ),
     agentMenu: (machineId, header) =>
       withMachine(machineId, (target) => setOverlay({ kind: 'agentMenu', ctx: { machine: target, header } })),
     openHomeChief: (machineId) => withMachine(machineId, (target) => void openChiefPicker(target)),
@@ -2361,6 +2370,78 @@ export default function SessionsScreen({ navigation }: Props) {
           onCancel={() => setOverlay(NONE)}
         />
       ) : null}
+
+      {overlay.kind === 'folderProblem' && overlay.ctx.header.folderProblem !== undefined
+        ? (() => {
+            // CDXC:Projects 2026-11-20 DECISION: the sheet of one project whose folder is missing (Q4244, contract/
+            // folderProblem.ts): Use the folder the computer found, Ask AI to fix in Main Hub, Remove project, which
+            // asks once. No Locate Folder…: it needs the computer's folder picker.
+            const { machine, header } = overlay.ctx;
+            const problem = header.folderProblem as FolderProblemView;
+            const summary = inventoriesByMachineId[machine.id]?.summary ?? null;
+            const homeProjectId = summary?.projects.find((project) => project.isHome === true)?.projectId;
+            const agent = resolvePrimaryAgent(header);
+            const items: ActionSheetItem[] = [];
+            if (problem.useFolder !== undefined && problem.useLabel !== undefined) {
+              const folder = problem.useFolder;
+              items.push({
+                key: 'use',
+                label: overlay.busy ? 'Moving…' : problem.useLabel,
+                detail: `Found: ${folder}`,
+                disabled: overlay.busy,
+                onPress: () => {
+                  setOverlay({ ...overlay, busy: true });
+                  void runSessionCommandOnMachine(machine, relocateProjectCommand(header.projectId, folder), {
+                    onError: (message: string) =>
+                      setTransientStatus(message, { title: "Couldn't move the project", error: true }),
+                  }).then((result) => {
+                    setOverlay(NONE);
+                    if (result !== null) setTransientStatus(folderFixedWords(header.title, folder));
+                  });
+                },
+              });
+            }
+            if (homeProjectId !== undefined && agent !== null) {
+              items.push({
+                key: 'ask-ai',
+                label: 'Ask AI to fix',
+                detail: `Starts a chat in ${HOME_LABEL} with what Ghostex found`,
+                onPress: () => {
+                  setOverlay(NONE);
+                  const agentName = agent.name !== undefined && agent.name.length > 0 ? agent.name : agent.agentId;
+                  void runCreationFlow(
+                    machine,
+                    createAgentCommand(agent.agentId, homeProjectId, folderAskAiPrompt(header.title, problem)),
+                    ProgressCopy.startingAgent(agentName, HOME_LABEL),
+                  );
+                },
+              });
+            }
+            items.push({
+              key: 'remove',
+              label: overlay.confirmRemove ? `Remove ${header.title} from Ghostex` : 'Remove project',
+              detail: overlay.confirmRemove ? 'Tap again to remove it. Its folder on disk is not touched.' : undefined,
+              destructive: true,
+              onPress: () => {
+                if (!overlay.confirmRemove) {
+                  setOverlay({ ...overlay, confirmRemove: true });
+                  return;
+                }
+                setOverlay(NONE);
+                void runSessionCommand(machine, removeProjectCommand(header.projectId));
+              },
+            });
+            return (
+              <ActionSheet
+                visible
+                title={problem.title}
+                subtitle={problem.line}
+                items={items}
+                onClose={() => setOverlay(NONE)}
+              />
+            );
+          })()
+        : null}
 
       {overlay.kind === 'projectDetails' ? (
         <DetailsSheet

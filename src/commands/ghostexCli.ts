@@ -774,6 +774,17 @@ export function closeAfterDoneCommand(sessionId: string): string {
   return `ghostex close-after-done --session-id ${shellQuote(requireId(sessionId, 'session id'))}` + ' --json';
 }
 
+/**
+ * A project whose folder is missing pointed at the folder it is in now, its sessions moved with it:
+ * `ghostex relocate-project --project-id <id> --path <folder> --json` (contract/folderProblem.ts).
+ */
+export function relocateProjectCommand(projectId: string, folder: string): string {
+  return (
+    `ghostex relocate-project --project-id ${shellQuote(requireId(projectId, 'project id'))}` +
+    ` --path ${shellQuote(folder)} --json`
+  );
+}
+
 /** Close project: `ghostex remove-project --project-id <id> --json`. */
 export function removeProjectCommand(projectId: string): string {
   return `ghostex remove-project --project-id ${shellQuote(requireId(projectId, 'project id'))} --json`;

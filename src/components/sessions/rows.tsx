@@ -46,7 +46,9 @@ import {
   MoreGlyph,
   PlusGlyph,
   TerminalGlyph,
+  LaptopOffGlyph,
 } from './icons';
+import type { FolderProblemView } from '../../contract/folderProblem';
 
 /**
  * The list's ink for one appearance: the desktop sidebar's `chrome_color(dark, light)` pairs, picked by the chrome's
@@ -1152,8 +1154,16 @@ export function ProjectHeaderRow({
   onMenu,
   home,
   machineIds,
+  folderProblem,
+  onFolderMark,
 }: {
   title: string;
+  /**
+   * The project's folder is missing: the slashed computer after its name, amber (grey while its drive is away), whose
+   * tap opens the project's sheet (CDXC:Projects 2026-11-20 in contract/folderProblem.ts).
+   */
+  folderProblem?: FolderProblemView;
+  onFolderMark?: () => void;
   /** The computers a project of the one list of every computer is on, when more than one: their icons follow the title. */
   machineIds?: readonly string[];
   /** Project identity, ranked by ProjectIcon like the desktop header does. */
@@ -1181,6 +1191,7 @@ export function ProjectHeaderRow({
   home?: { onMenu: () => void };
 }) {
   const ink = useSidebarInk();
+  const lightTheme = useAppearance().light;
   // Settings › Experience's Sessions list (src/settings/experience.ts): Chill draws no project icons.
   const showProjectIcons = useSettingsStore((state) => state.settings.sessionsShowProjectIcons);
   return (
@@ -1198,6 +1209,16 @@ export function ProjectHeaderRow({
       onToggle={onToggle}
       onMenu={home !== undefined ? () => home.onMenu() : onMenu}
     >
+      {folderProblem !== undefined && home === undefined ? (
+        <HeaderButton
+          accessibilityLabel={
+            folderProblem.quiet ? `${title}: drive not connected` : `${title}: folder missing, fix it`
+          }
+          onPress={onFolderMark}
+        >
+          <LaptopOffGlyph size={ds(14)} color={folderProblem.quiet ? ink.muted : folderMarkAmber(lightTheme)} />
+        </HeaderButton>
+      ) : null}
       {machineIds !== undefined && machineIds.length > 1 ? <ProjectMachineIcons machineIds={machineIds} /> : null}
       {collapsed ? (
         <ProjectStatusCounts
@@ -1227,6 +1248,11 @@ export function ProjectHeaderRow({
       )}
     </SidebarHeaderBox>
   );
+}
+
+/** The missing folder mark's amber, kept apart from the soft red of an offline computer (desktop folder_mark.rs). */
+function folderMarkAmber(light: boolean): string {
+  return light ? '#b8650a' : '#e8a33d';
 }
 
 /** The icons of a merged project's computers (desktop native_sidebar/project_header.rs machine chips). */
