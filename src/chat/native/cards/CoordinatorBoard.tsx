@@ -30,6 +30,7 @@ import type { TablerIconComponent } from '../../../assets/tablerIcons.generated'
 import { TagGlyph } from '../../../components/sessions/icons';
 import { customSessionTagIcon, sessionTagIcon } from '../../../contract/sessionTags';
 import { arr, asJson, isTrue, num, obj, str } from './json';
+import { usePageCountRefresh } from './pageCounts';
 import { PROSE_SIZE, themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { TranscriptEnvProvider, type TranscriptEnv } from '../transcript/context';
 import { LinkWords } from '../transcript/LinkWords';
@@ -121,6 +122,14 @@ function GroupMarker({ group }: { group: string }) {
     );
   }
   return <View style={[styles.ring, { borderColor: color, borderStyle: 'dashed' }]} />;
+}
+
+/**
+ * A Needs you card's answered/total count ("0/1"): a page's own, else its dock row's (a form's).
+ * A computer that sends neither keeps today's card.
+ */
+function cardCount(row: unknown): string {
+  return str(row, 'count') || str(obj(obj(row)?.dock), 'count');
 }
 
 /** The Blocked pill's id (gx-chat-core `BLOCKED_PILL`): a tap opens the board at Blocked. */
@@ -589,6 +598,11 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
   // The Topic being rewritten in place, and its words so far.
   const [topicDraft, setTopicDraft] = useState<string | null>(null);
   const board = obj(document.coordinatorBoard);
+  // The Needs you pages' answered/total counts follow their drafts while the sheet is open.
+  usePageCountRefresh(
+    chat.dispatch,
+    arr(board?.groups).flatMap((group) => arr(obj(group)?.rows).map((row) => str(obj(obj(row)?.dock), 'pageId'))),
+  );
   if (board === null) return null;
   const topic = str(obj(board.topic), 'text');
   // Saved on Return or when the field loses the keyboard; unchanged words send nothing.
@@ -770,6 +784,15 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
                           color={P.foreground}
                           style={styles.rowTitleOpen}
                         />
+                      ) : cardCount(row) !== '' ? (
+                        // A page or form says how much is answered after its name, quietly
+                        // (gx-chat-core `page_count`: "0/1", "2/7").
+                        <View style={styles.countedTitle}>
+                          <Text style={[styles.rowTitle, styles.countedName]} numberOfLines={1}>
+                            {str(row, 'title')}
+                          </Text>
+                          <Text style={[styles.rowCount, { color: P.cardMuted }]}>{cardCount(row)}</Text>
+                        </View>
                       ) : (
                         <Text style={styles.rowTitle} numberOfLines={1}>
                           {str(row, 'title')}
@@ -1159,6 +1182,20 @@ const useStyles = themedStyles((P) => ({
   rowTitle: {
     flex: 1,
     color: P.foreground,
+    fontSize: PROSE_SIZE,
+  },
+  countedTitle: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  countedName: {
+    flex: 0,
+    flexShrink: 1,
+  },
+  rowCount: {
+    flexShrink: 0,
     fontSize: PROSE_SIZE,
   },
   rowTitleOpen: {

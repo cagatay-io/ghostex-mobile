@@ -25,6 +25,7 @@ import type { RustChat } from '../../rust/useRustChat';
 import { SidebarPalette } from '../../../theme/palette';
 import { Glyph, type GlyphName } from './icons';
 import { arr, isTrue, obj, str, type JsonRecord } from './json';
+import { usePageCountRefresh } from './pageCounts';
 import { ToneButton } from './ToneCard';
 import { askColor, tint } from './askCard';
 import { AgentMark } from './agentMark';
@@ -664,6 +665,8 @@ function DockRow({
   const body = useBodyColor();
   const [menu, setMenu] = useState(false);
   const page = isTrue(row, 'page') && obj(row.open) !== null;
+  // Its answered/total count ("0/3") follows the page's draft while the row is drawn.
+  usePageCountRefresh(chat.dispatch, page ? [str(row, 'pageId')] : []);
   // A form's row opens the form at once, as a page's opens the page (gx-chat-core
   // `details_fields`' decision): no sheet with only another Open in it.
   const direct = page || (str(row, 'kind') === 'form' && obj(row.open) !== null);
