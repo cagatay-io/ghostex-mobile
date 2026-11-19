@@ -87,7 +87,7 @@ export async function loadCloudWhere(machineId: string, projectId: string): Prom
   });
 }
 
-/** Remembers This computer or Cloud Box for the project's next new chat; answers an error message. */
+/** Remembers the computer or Cloud Box for the project's next new chat; answers an error message. */
 export async function setCloudWhere(machineId: string, projectId: string, cloud: boolean): Promise<string | null> {
   const current = cloudWhereOf(machineId, projectId);
   if (current === null) return 'Cloud Box is not available for this project.';

@@ -233,6 +233,7 @@ export default function CollabPage() {
         </SettingsSection>
       ) : (
         <CollabBody
+          computer={machine !== null ? machineDisplayLabel(machine) : ''}
           view={view}
           config={view.config}
           log={log}
@@ -246,6 +247,7 @@ export default function CollabPage() {
 }
 
 function CollabBody({
+  computer,
   view,
   config,
   log,
@@ -253,6 +255,8 @@ function CollabBody({
   send,
   uninstall,
 }: {
+  /** The computer the page shows, by name. */
+  computer: string;
   view: View_;
   config: Config;
   log: LogEntry[];
@@ -264,7 +268,8 @@ function CollabBody({
   return (
     <>
       <SettingsSection name="settings:collab:switch">
-        <SectionHeader title="This computer" />
+        {/* The computer by its name, never "This computer" (CDXC:RemoteMachines 2026-11-19 in packages/gx-chat-core/src/extras/where_pill.rs). */}
+        <SectionHeader title={computer.length > 0 ? computer : 'Collab'} />
         <LinkRow
           title="Uninstall Collab"
           description={`Installed${view.version ? ` (${view.version})` : ''}. Each share needs your approval. Uninstalling ends every share at once and removes Collab from this computer.`}

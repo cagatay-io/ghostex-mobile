@@ -642,7 +642,8 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     section: '',
     group: 'Memory',
     title: 'Stop sessions that run the computer out of memory',
-    description: 'When the computer is about to run out of memory, Ghostex stops what an agent started that uses the most.',
+    description:
+      'When the computer is about to run out of memory, Ghostex stops what an agent started that uses the most.',
     catalog: 'memoryGuardEnabled',
     keywords: ['memory guard', 'out of memory', 'ram', 'oom'],
   },
@@ -651,7 +652,8 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     section: '',
     group: 'Memory',
     title: 'Notify me when it steps in',
-    description: 'A notification whenever Ghostex stops or restarts something to free memory. Shown while the memory guard is on.',
+    description:
+      'A notification whenever Ghostex stops or restarts something to free memory. Shown while the memory guard is on.',
     catalog: 'memoryGuardNotify',
   },
   {
@@ -698,7 +700,8 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     group: 'Mode',
     formerGroup: 'Autopilot',
     title: 'Autopilot',
-    description: 'Off, Careful, Full or Custom. Carries on stopped sessions, interrupts hung commands, reloads frozen ones, switches account at a limit.',
+    description:
+      'Off, Careful, Full or Custom. Carries on stopped sessions, interrupts hung commands, reloads frozen ones, switches account at a limit.',
     catalog: 'autopilotEnabled',
   },
   {
@@ -761,15 +764,16 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
   {
     page: 'collab',
     section: 'settings:collab:switch',
-    title: 'This computer',
-    anchor: header('This computer'),
-    keywords: ['ghostex collab'],
+    // The section is titled by the computer's name (CollabPage), so the search lands on its first row.
+    title: 'Collab on your computer',
+    anchor: row('Uninstall Collab'),
+    keywords: ['ghostex collab', 'this computer'],
     catalog: 'collabEnabled',
   },
   {
     page: 'collab',
     section: 'settings:collab:switch',
-    group: 'This computer',
+    group: 'Collab on your computer',
     formerGroup: 'Ghostex Collab',
     title: 'Uninstall Collab',
   },
@@ -1038,7 +1042,7 @@ function rank(
   pattern: SearchPattern,
   titles: readonly string[],
   names: readonly string[],
-  prose: readonly string[]
+  prose: readonly string[],
 ): number | null {
   const lower = query.toLowerCase();
   const lowered = titles.map((title) => title.toLowerCase());

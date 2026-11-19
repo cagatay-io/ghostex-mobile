@@ -283,13 +283,7 @@ export function SessionDetailsSheet({
                   : undefined
               }
             >
-              <SectionCard
-                chat={chat}
-                section={section}
-                details={details}
-                act={act}
-                onCompact={compact}
-              />
+              <SectionCard chat={chat} section={section} details={details} act={act} onCompact={compact} />
             </View>
           ))}
         </View>
@@ -408,7 +402,9 @@ function UsageTab({ usage, onChooseDetails }: { usage: JsonRecord | null; onChoo
   const choose = obj(usage?.chooseDetails);
   return (
     <View style={[styles.cards, styles.tabPage]}>
-      {cards.length === 0 && str(usage, 'empty').length > 0 ? <Text style={styles.empty}>{str(usage, 'empty')}</Text> : null}
+      {cards.length === 0 && str(usage, 'empty').length > 0 ? (
+        <Text style={styles.empty}>{str(usage, 'empty')}</Text>
+      ) : null}
       {cards.map((card, index) => (
         <View key={str(card, 'id') || String(index)} accessibilityLabel={str(card, 'title')} style={styles.card}>
           <View style={styles.cardHeader}>
@@ -447,6 +443,8 @@ function UsageTab({ usage, onChooseDetails }: { usage: JsonRecord | null; onChoo
 
 /** The glyph of an Environment row (`icon` in the core's rows). */
 const ROW_ICONS: Record<string, GlyphName> = {
+  // The computer the session runs on (named since 2026-11-19); `laptop` from an older core.
+  computer: 'device-desktop',
   laptop: 'device-desktop',
   box: 'stack',
   folder: 'folder',

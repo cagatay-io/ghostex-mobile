@@ -27,6 +27,8 @@ export type MentionedSession = {
   computer: string;
   /** That computer's machine id, which its icon is read for; '' on the chat's own. */
   machineId: string;
+  /** The name of the computer the chat itself runs on; '' when the phone does not know it. */
+  homeComputer: string;
 };
 
 /** The server part of a Global Ref (`S90` of `S90:P3lv0:G7hgi`); '' for anything else. */
@@ -117,6 +119,7 @@ export function useMentionedSession(
     string,
   ];
   const machine = machineId.length > 0 ? machines.find((candidate) => candidate.id === machineId) : undefined;
+  const home = homeMachineId === null ? undefined : machines.find((candidate) => candidate.id === homeMachineId);
   return {
     title,
     agentName,
@@ -124,12 +127,16 @@ export function useMentionedSession(
     state,
     computer: machineId.length === 0 ? '' : machine !== undefined ? machineDisplayLabel(machine) : 'Another computer',
     machineId,
+    homeComputer: home !== undefined ? machineDisplayLabel(home) : '',
   };
 }
 
-/** The card's second line: agent, project and computer ("This computer" for the chat's own). */
+/**
+ * The card's second line: agent, project and computer, by its name on the chat's own too (CDXC:RemoteMachines
+ * 2026-11-19 in packages/gx-chat-core/src/extras/where_pill.rs: never "This computer").
+ */
 export function mentionMeta(session: MentionedSession): string {
-  return [session.agentName, session.projectName, session.computer || 'This computer']
+  return [session.agentName, session.projectName, session.computer || session.homeComputer]
     .filter((part) => part.length > 0)
     .join(' · ');
 }

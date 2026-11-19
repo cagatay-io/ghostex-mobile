@@ -1,12 +1,16 @@
 /**
- * The Where rows at the top of a project's agent menu (./where.ts): This computer or Cloud Box.
+ * The Where rows at the top of a project's agent menu (./where.ts): the computer (its icon and name) or Cloud Box.
  * Picking one keeps the menu open, so the agent is picked next.
  */
 
 import { useEffect } from 'react';
 
 import type { ContextMenuItem } from '../components/sessions/ContextMenu';
+import { Glyph } from '../chat/native/transcript/icons';
+import { ComputerIconGlyph } from '../components/sessions/ComputerIconGlyph';
 import { CloudGlyph } from '../components/sessions/icons';
+import { computerIconDrawing, useComputerIconsStore } from '../machines/computerIcons';
+import { machineDisplayLabel, useMachinesStore } from '../machines/store';
 import { SidebarPalette } from '../theme/palette';
 import { loadCloudWhere, setCloudWhere, useCloudWhereStore } from './where';
 
@@ -43,8 +47,14 @@ export function cloudWhereItems(
       ...(capReached !== null
         ? [{ kind: 'note' as const, key: 'where.capReached', label: capReached }]
         : rows.length > 0
-        ? rows
-        : [{ kind: 'note' as const, key: 'where.noAgents', label: 'Allow an agent login on cloud boxes on the computer first.' }]),
+          ? rows
+          : [
+              {
+                kind: 'note' as const,
+                key: 'where.noAgents',
+                label: 'Allow an agent login on cloud boxes on the computer first.',
+              },
+            ]),
       { kind: 'separator', key: 'where.separator' },
     ];
   }
@@ -54,9 +64,25 @@ export function cloudWhereItems(
       if (error !== null) report(`Couldn't change where new chats run: ${error}`);
     });
   };
+  const computer = useMachinesStore.getState().machines.find((machine) => machine.id === machineId);
+  const iconFacts = useComputerIconsStore.getState().facts[machineId];
   return [
     { kind: 'heading', key: 'where.heading', label: 'Where' },
-    { kind: 'item', key: 'where.local', label: 'This computer', selected: !where.cloud, onPress: pick(false) },
+    // The computer by its icon and name, never "This computer" (CDXC:RemoteMachines 2026-11-19 in
+    // packages/gx-chat-core/src/extras/where_pill.rs).
+    {
+      kind: 'item',
+      key: 'where.local',
+      label: computer !== undefined ? machineDisplayLabel(computer) : 'Your computer',
+      icon:
+        iconFacts !== undefined ? (
+          <ComputerIconGlyph drawing={computerIconDrawing(iconFacts)} size={14} color={SidebarPalette.MUTED} />
+        ) : (
+          <Glyph name="device-desktop" size={14} color={SidebarPalette.MUTED} />
+        ),
+      selected: !where.cloud,
+      onPress: pick(false),
+    },
     {
       kind: 'item',
       key: 'where.cloud',

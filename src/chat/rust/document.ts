@@ -1272,7 +1272,7 @@ export type WherePill = {
   machine: {
     /** `this`, `remote` (another computer), `cloudBox` or `box` (an agentbox). */
     kind: 'this' | 'remote' | 'cloudBox' | 'box' | string;
-    /** "This computer", the other computer's name, "Cloud Box" or "<provider> box". */
+    /** The computer's name, "Cloud Box" or "<provider> box". */
     name: string;
     provider?: string | null;
     serverId?: string | null;
