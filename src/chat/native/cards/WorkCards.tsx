@@ -232,7 +232,8 @@ export function dockHeightCap(space: number, keyboardUp: boolean): number {
  */
 export function WorkDock({
   document,
-  chat,
+  chat: coreChat,
+  onHostAction,
   projectId,
   sessionId,
   status = null,
@@ -248,6 +249,8 @@ export function WorkDock({
   status?: WorkingCardValue | null;
   /** Opens the Work sheet, as the Work pill does (the chat screen's pill sheet). */
   onOpenWork?: () => void;
+  /** A row's button that opens something of the app's (`{ type: 'hostAction', action }`, gx-chat-core `extras/dock_stack.rs`): Pick model. */
+  onHostAction?: (action: string) => void;
   /** Shows the chat's toast for an ask settled elsewhere while its sheet was open: "Answered" or "Withdrawn". */
   onAskSettled?: (title: string) => void;
   projectId?: string;
@@ -259,6 +262,20 @@ export function WorkDock({
   /** The space under it: the stack's gap to the working card, or its share of the gap to the box. */
   gapBelow?: number;
 }) {
+  // A row's `hostAction` button opens the app's own sheet instead of going to the chat core.
+  const chat = useMemo<RustChat>(
+    () => ({
+      ...coreChat,
+      dispatch: ((action: { type?: unknown; action?: unknown }) => {
+        if (action?.type === 'hostAction') {
+          if (typeof action.action === 'string') onHostAction?.(action.action);
+          return;
+        }
+        coreChat.dispatch(action as never);
+      }) as RustChat['dispatch'],
+    }),
+    [coreChat, onHostAction],
+  );
   const flags = useMemo(() => transcriptFlags(document), [document]);
   // While he types, the dock is folded here, not in the core: the keyboard going down gives back
   // the dock as it was (its opened row still opened). A tap on the bar opens it for this typing.
@@ -342,7 +359,10 @@ export function WorkDock({
   // With nothing docked the bar is one line: no chevron, nothing to open.
   const collapsible = rows.length > 0 || snoozed.length > 0;
   const hiddenInCore = isTrue(dock, 'hidden');
-  const collapsed = !collapsible || hiddenInCore || (typing && !peek);
+  // An approval the agent waits on (or one just answered) keeps the dock open while typing: it is
+  // drawn nowhere else (gx-chat-core extras/dock_approvals.rs; desktop `render_work_dock`).
+  const stays = rows.some((row) => isTrue(row, 'stays'));
+  const collapsed = !collapsible || hiddenInCore || (typing && !peek && !stays);
   if (shownCollapsed.current !== null && shownCollapsed.current !== collapsed) animateNextFold();
   shownCollapsed.current = collapsed;
   const limit = typeof dock?.phoneLimit === 'number' ? dock.phoneLimit : 3;
@@ -683,6 +703,12 @@ function DockRow({
           chat.dispatch(action);
         }) as RustChat['dispatch']);
   const busy = isTrue(row, 'busy');
+  // An answered approval says so quietly for its few seconds, then leaves (gx-chat-core
+  // extras/dock_approvals.rs); there is nothing to open.
+  const settled = isTrue(row, 'settled');
+  const titleColor = settled ? P.cardMuted : body;
+  // Why an approval's answer did not land.
+  const error = str(row, 'error');
   const answers = arr(row.buttons)
     .map(obj)
     .filter((button): button is JsonRecord => button !== null);
@@ -770,7 +796,7 @@ function DockRow({
       <Pressable
         accessibilityRole="button"
         accessibilityHint={direct || opened ? undefined : 'Shows the whole ask'}
-        disabled={opened}
+        disabled={opened || settled}
         onPress={direct ? () => dispatch(row.open as never) : onShow}
         onLongPress={menuRows.length > 0 ? () => setMenu(true) : undefined}
         style={({ pressed }) => [
@@ -801,10 +827,11 @@ function DockRow({
               // Opened, its references (`#562`, a Markdown link) open on a tap, as a question's do.
               <LinkWords text={str(row, 'title')} runs={row.titleRuns} color={body} style={styles.dockTitle} />
             ) : (
-              <Text numberOfLines={2} style={[styles.dockTitle, { color: body }]}>
+              <Text numberOfLines={2} style={[styles.dockTitle, { color: titleColor }]}>
                 {str(row, 'title')}
               </Text>
             )}
+            {error.length > 0 ? <Text style={styles.dockError}>{error}</Text> : null}
           </View>
           <View style={styles.ageSlot}>
             <Text style={styles.foldTime}>{str(row, 'age')}</Text>
@@ -1569,6 +1596,7 @@ const useStyles = themedStyles((P) => ({
   dockIcon: { height: PROSE_LINE, justifyContent: 'center' },
   dockMain: { flex: 1, minWidth: 0, gap: 2 },
   dockTitle: { fontSize: PROSE_SIZE, lineHeight: PROSE_LINE },
+  dockError: { fontSize: PROSE_SIZE - 1, lineHeight: PROSE_LINE - 2, color: SidebarPalette.ROW_APPROVAL, marginTop: 2 },
   // Under the title, from its left edge (the mark's 14 and the row's 10 gap past the row's 8).
   commandChipLine: { flexDirection: 'row', paddingLeft: 8 + 14 + 10, paddingRight: 8, paddingBottom: 6 },
   commandChip: {

@@ -5,9 +5,12 @@
  * 1. the composer-not-ready card, or a refused operation's error line,
  * 2. the terminal notice, then any secret requests,
  * 3. a failed API call's card the agent keeps no record of,
- * 4. the held-messages card (`ModelHoldCard.tsx`),
- * 5. the async questions,
- * 6. the blocking question or approval.
+ * 4. the async questions,
+ * 5. the blocking question.
+ *
+ * An approval the agent waits on, the session's computer being offline and messages held behind a
+ * failed model change are rows of the dock above this stack instead (gx-chat-core
+ * `extras/dock_approvals.rs`, `extras/dock_stack.rs`; `WorkCards.tsx`).
  *
  * The working card and its pills are not here: the screen draws them in their own row right above
  * this stack (`WorkingCard.tsx`), where desktop puts them first in the same stack.
@@ -27,12 +30,10 @@ import { ApiErrorCard } from './ApiErrorCard';
 import { AsyncQuestionsCard } from './AsyncQuestionsCard';
 import { ComposerNotReadyCard } from './ComposerNotReadyCard';
 import { arr, obj } from './json';
-import { ModelHoldCard } from './ModelHoldCard';
 import { NoticeCard } from './NoticeCard';
 import { CARD_BAND_SHARE, QuestionCard } from './QuestionCard';
 import { SecretRequestCards } from './SecretRequestCard';
 import { CollabCards, collabCardsShown } from './CollabCards';
-import { RelayedAnswerLine, relayedAnswerLineShown } from './RelayedApprovalCard';
 import type { CardHostAction } from './types';
 
 /** A failure the agent keeps no record of (Codex shows it only on screen): its card sits here, where its screen notice would have been. */
@@ -45,14 +46,12 @@ function unrecordedApiError(card: unknown): boolean {
 export function chatCardsShown(document: ChatDocument): boolean {
   return (
     typeof document.operationError === 'string' ||
-    (obj(document.terminalNotice) !== null && document.noticeVisible === true) ||
+    (obj(document.terminalNotice) !== null && document.noticeVisible === true && document.approvalInDock !== 'notice') ||
     unrecordedApiError(document.apiErrorCard) ||
     arr(document.secretRequests).length > 0 ||
     collabCardsShown(document) ||
-    relayedAnswerLineShown(document) ||
-    obj(document.modelHoldCard) !== null ||
     typeof document.asyncQuestions?.question?.key === 'string' ||
-    document.questionCard?.visible === true
+    (document.questionCard?.visible === true && document.approvalInDock !== 'prompt')
   );
 }
 
@@ -80,16 +79,18 @@ export function NativeChatCards({ chat, onHostAction }: NativeChatCardsProps) {
       nestedScrollEnabled
     >
       <ComposerNotReadyCard chat={chat} document={document} onHostAction={onHostAction} />
-      <NoticeCard chat={chat} document={document} onHostAction={onHostAction} />
+      {/* An approval the agent waits on is a row of the dock instead (gx-chat-core
+          extras/dock_approvals.rs, `approvalInDock`), so its card stays out. */}
+      {document.approvalInDock === 'notice' ? null : (
+        <NoticeCard chat={chat} document={document} onHostAction={onHostAction} />
+      )}
       <SecretRequestCards chat={chat} document={document} />
       <CollabCards chat={chat} document={document} />
-      <RelayedAnswerLine document={document} />
       {unrecordedApiError(document.apiErrorCard) ? (
         <ApiErrorCard card={document.apiErrorCard} dispatch={chat.dispatch} />
       ) : null}
-      <ModelHoldCard card={document.modelHoldCard} onHostAction={onHostAction} />
       <AsyncQuestionsCard chat={chat} document={document} />
-      <QuestionCard chat={chat} document={document} />
+      {document.approvalInDock === 'prompt' ? null : <QuestionCard chat={chat} document={document} />}
     </ScrollView>
   );
 }

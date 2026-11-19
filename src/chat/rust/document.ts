@@ -892,7 +892,8 @@ export type ChatDocument = {
   /** The question tags work items ask (gx-chat-core `card_tags`): such a one-click question is drawn as its ask card only. */
   workAskTags?: Json;
   /** A thread's "Approved from <coordinator>" lines, empty when none. Desktop: `relayed_approval.rs`. */
-  relayedAnswerLines?: Json;
+  /** The approval the agent waits on is a `workDock` row: which card steps aside (gx-chat-core `extras::dock_approvals`). */
+  approvalInDock?: 'notice' | 'prompt' | null;
   /** The background tasks the agent left running, or null; the Background pill's sheet. Desktop: `background_tasks.rs`. */
   backgroundTasksPanel: Json;
   /** The working card's pills, each opening the menu of one of the panels above. Desktop: `chat_pills.rs`. */

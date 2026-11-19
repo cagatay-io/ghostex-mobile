@@ -69,7 +69,6 @@ import { PillMenuSheet } from './cards/ChatPills';
 import { SessionDetailsSheet } from './cards/SessionDetailsSheet';
 import { readExportedPage, shareExportedPage } from './cards/pageExport';
 import { ConnectionLostNotice } from './cards/ConnectionLostNotice';
-import { ComputerCard } from './cards/ComputerCard';
 import type { BoardFocus } from './cards/CoordinatorBoard';
 import { num, obj, str } from './cards/json';
 import { remoteWorkerNotice, remoteWorkerOfAction } from './cards/remoteWorker';
@@ -592,9 +591,8 @@ export default function NativeChatScreen({
                   {document === null ? null : <LoneScrollBottom />}
                 </TabSwipeView>
               </View>
-              {/* The offline computer's card tops the stack, above the working card; it names the
-                computer itself, so "Reconnecting to …" steps aside while it shows. */}
-              <ComputerCard document={document} onRetry={() => chat.dispatch({ type: 'computerRetry' })} />
+              {/* The offline computer is a row of the dock (gx-chat-core `extras/dock_stack.rs`); it
+                names the computer itself, so "Reconnecting to …" steps aside while it shows. */}
               {document?.computerNotice != null ? null : (
                 <ConnectionLostNotice machine={machine} active={visible} document={document} />
               )}
@@ -609,6 +607,7 @@ export default function NativeChatScreen({
               <WorkDock
                 document={document}
                 chat={chat}
+                onHostAction={hostAction}
                 projectId={projectId}
                 sessionId={sessionId}
                 status={dockStatus}

@@ -42,13 +42,6 @@ function clock(at: string): string {
   return new Date(time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
-function settledMark(tone: string, muted: string): { icon: GlyphName; color: string } {
-  if (tone === 'good') return { icon: 'check', color: '#3fb871' };
-  if (tone === 'bad') return { icon: 'x', color: SidebarPalette.ROW_APPROVAL };
-  if (tone === 'warn') return { icon: 'clock', color: '#f5a524' };
-  return { icon: 'chevron-right', color: muted };
-}
-
 /** One relayed card: open with the thread's own buttons, or one line saying how it ended. */
 export function RelayedApprovalCard({
   card,
@@ -244,32 +237,6 @@ export function RelayedApprovalsMenu({ chat, document }: { chat: RustChat; docum
   );
 }
 
-/** A thread's chat: the newest answer its coordinator's chat sent for it, where its card was. */
-export function RelayedAnswerLine({ document }: { document: ChatDocument }) {
-  const styles = useStyles();
-  const P = useTranscriptTheme();
-  const lines = arr(document.relayedAnswerLines);
-  const line = obj(lines[lines.length - 1]);
-  if (line === null) return null;
-  const mark = settledMark(str(line, 'tone'), P.muted);
-  const time = clock(str(line, 'at'));
-  return (
-    <View style={styles.line} accessibilityLabel={`${str(line, 'text')}. ${str(line, 'detail')}`}>
-      <Glyph name={mark.icon} size={14} color={mark.color} />
-      <Text style={styles.lineText} numberOfLines={2}>
-        <Text style={styles.lineLead}>{str(line, 'text')} </Text>
-        {str(line, 'detail')}
-      </Text>
-      {time.length > 0 ? <Text style={styles.lineTime}>{time}</Text> : null}
-    </View>
-  );
-}
-
-/** Whether the thread's chat shows its relayed answer line (`chatCardsShown`). */
-export function relayedAnswerLineShown(document: ChatDocument): boolean {
-  return arr(document.relayedAnswerLines).length > 0;
-}
-
 /**
  * The board row's buttons for its thread's open card: one segmented pill, the thread card's own
  * choices, and the question on the line under it (the phone has no tooltip).
@@ -358,31 +325,6 @@ const useStyles = themedStyles((P) => ({
     gap: 6,
   },
   settledSentence: { fontSize: 13, lineHeight: 19, color: P.cardMuted },
-  line: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 9,
-    borderWidth: 1,
-    borderColor: P.inputBorder,
-    backgroundColor: P.ink(0.04),
-  },
-  lineText: {
-    flex: 1,
-    color: P.cardMuted,
-    fontSize: CARD_TEXT_SIZE - 1.5,
-    lineHeight: 17,
-  },
-  lineLead: {
-    color: P.foreground,
-    fontWeight: '600',
-  },
-  lineTime: {
-    color: P.muted,
-    fontSize: 11,
-  },
   /**
    * The list shrinks to the room the sheet has (80% of the screen at most), so on a short phone
    * it scrolls inside the sheet. Without `flexShrink` it kept its full height and ran past the
