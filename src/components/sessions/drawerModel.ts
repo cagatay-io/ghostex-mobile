@@ -298,6 +298,34 @@ function withGbotsSection(
   });
 }
 
+/**
+ * The computer the Sessions screen draws its Project list, Space row and Sort & Filter for: the selected computer,
+ * unless it can't give a list and another listed computer can, then the first connected one with a list.
+ *
+ * "Can't give a list": it is not one of the listed computers (none picked, hidden, a Cloud Box's id), or its read
+ * failed with nothing read yet. A computer still on its first read keeps its place, so the list doesn't hop to
+ * another computer while the app starts. With no other list it stays, and its own state card and notice speak.
+ *
+ * CDXC:RemoteMachines 2026-11-19: user, "i can't see my sessions on android". The selected computer was the one
+ * that couldn't connect (a red cloud icon), so the list was its failure card alone, which the screen hides behind
+ * the notice line, and the line is left out while its red icon shows (2026-11-15): the list was empty, with no
+ * Space row, while two other computers were connected.
+ */
+export function listMachine(
+  selected: MachineRecord | null,
+  machines: readonly MachineRecord[],
+  inventoriesByMachineId: Record<string, MachineInventory>,
+): MachineRecord | null {
+  const listed = selected === null ? undefined : machines.find((entry) => entry.id === selected.id);
+  if (listed !== undefined) {
+    const inventory = inventoriesByMachineId[listed.id];
+    if (inventory === undefined || inventory.summary !== null || inventory.lastError === null) return listed;
+  }
+  const withList = machines.filter((entry) => inventoriesByMachineId[entry.id]?.summary != null);
+  const anchor = withList.find((entry) => inventoriesByMachineId[entry.id]?.lastError === null) ?? withList[0];
+  return anchor ?? selected;
+}
+
 export function buildDrawerList(input: DrawerListInput): DrawerBlock[] {
   const { machines, selectedMachineId, inventoriesByMachineId, selectedSpaceId, selectedWorkspaceId, collapse } = input;
   if (machines.length === 0) {

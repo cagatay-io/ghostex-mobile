@@ -65,6 +65,7 @@ import {
   hidesProjectsWithoutSessions,
   type DrawerBlock,
   everyComputerList,
+  listMachine,
 } from '../components/sessions/drawerModel';
 import { useTagFilterStore } from '../components/sessions/tagFilterStore';
 import { enabledVisibleTagFilters, UNTAGGED_TAG_FILTER } from '../contract/sessionTagList';
@@ -256,10 +257,15 @@ export default function SessionsScreen({ navigation }: Props) {
   // Only machines the user keeps visible reach the tab strip, the drawer, and
   // the polling loop; hidden ones stay in Machines and are never connected to.
   const machines = useMemo(() => savedMachines.filter(isMachineEnabled), [savedMachines]);
-  const machine = useMachinesStore((state) => selectedMachine(state));
+  const selectedComputer = useMachinesStore((state) => selectedMachine(state));
   const selectMachine = useMachinesStore((state) => state.selectMachine);
   // Cloud Box sessions are listed inside their home project (cloudBoxes/listInventories.ts).
   const inventoriesByMachineId = useListInventories();
+  // The computer the list is drawn for: the selected one, or another with a list while it has none (drawerModel.ts).
+  const machine = useMemo(
+    () => listMachine(selectedComputer, machines, inventoriesByMachineId),
+    [selectedComputer, machines, inventoriesByMachineId],
+  );
   const computerIconFacts = useComputerIconsStore((state) => state.facts);
   const connectionHealth = useConnectionHealth((state) => state.byId);
   const refreshMachine = useInventoryStore((state) => state.refreshMachine);
