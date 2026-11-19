@@ -55,6 +55,7 @@ import { CatchUpCard } from '../cards/CatchUpCard';
 import { sessionDetailsRingOf } from '../cards/SessionDetailsSheet';
 import { FilesLinksCard } from '../cards/FilesLinksCard';
 import { secretRequestOpen } from '../cards/SecretRequestCard';
+import { SecretSendWarning } from './SecretSendWarning';
 import { OptionPills, modeInModelPill, modeLook, optionPillsLeadIn, type PillKind } from './OptionPills';
 import { RunLocationRow } from './RunLocationRow';
 import { ProjectPickerSheet } from './ProjectPickerSheet';
@@ -803,6 +804,7 @@ export function NativeComposer({
           {document !== null ? <FilesLinksCard filesLinks={document.filesLinks} dispatch={dispatch} /> : null}
           {document?.suggestions ? <Suggestions data={document.suggestions} dispatch={dispatch} /> : null}
           {document?.runLocation ? <RunLocationRow row={document.runLocation} dispatch={dispatch} /> : null}
+          <SecretSendWarning model={model} cardOpen={secretRequestOpen(document)} />
           {attachError !== null ? (
             <DictationCard
               icon="alert-circle"

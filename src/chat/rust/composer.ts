@@ -16,6 +16,7 @@ import type { ChatDocument } from './document';
 import { nextDraftVersion, randomUuid } from './host-records';
 import type { UserAction } from './actions';
 import { endAnswerHoldForSend } from '../native/transcript/answerHold';
+import { looksLikeSecret } from './secretLike';
 import { useTranscriptBottomStore } from '../native/transcript/bottomStore';
 import {
   findUploadTokens,
@@ -66,6 +67,11 @@ export type ComposerModelState = {
    * A stand-in whose token is not here was left by an upload this phone no longer runs (the app restarted).
    */
   uploadTokens: Readonly<Record<number, UploadTokenState>>;
+  /**
+   * The draft (its id and revision) whose first Send was held for looking like a key or password: the field shows a
+   * warning while it is unedited, and a second Send posts it (`secretLike.ts`). Desktop: `secret_send_warning.rs`.
+   */
+  secretHeld: { draftId: string; revision: number } | null;
 };
 
 /**
@@ -98,6 +104,7 @@ export class ComposerModel {
     heldSend: null,
     failedPictures: [],
     uploadTokens: {},
+    secretHeld: null,
   };
 
   /** The last stand-in token handed out (`placeUploads`). */
@@ -218,6 +225,13 @@ export class ComposerModel {
       this.hooks.dispatch({ type: 'completeComposerCommand' });
       return false;
     }
+    // Text that looks like a key waits for a second Send of the same, unedited text (`secretLike.ts`).
+    const held = this.state.secretHeld;
+    const warned = held !== null && held.draftId === this.state.draftId && held.revision === this.state.revision;
+    if (!warned && looksLikeSecret(sent)) {
+      this.set({ secretHeld: { draftId: this.state.draftId, revision: this.state.revision } });
+      return false;
+    }
     const submission = {
       type: mode,
       text: sent,
@@ -235,6 +249,7 @@ export class ComposerModel {
       replaceSequence: this.state.replaceSequence + 1,
       fromHistory: false,
       uploadTokens: {},
+      secretHeld: null,
     });
     // A message sent (not queued) brings the list back to the bottom wherever the reader had
     // scrolled, as desktop's `follow_tail_for_send` (native_chat/answer_anchor.rs, where the reason
