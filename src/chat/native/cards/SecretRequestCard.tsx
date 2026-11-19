@@ -8,7 +8,7 @@
  * the composer draft. The field is cleared when its card closes.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 
 import type { ChatDocument } from '../../rust/document';
@@ -19,6 +19,8 @@ import { arr, isTrue, str, type JsonRecord, obj } from './json';
 import { CARD_TEXT_SIZE } from './primitives';
 import { ToneButton, ToneCard } from './ToneCard';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
+import { useOptionalNativeChatUi } from '../transcript/context';
+import type { SecretField } from '../composer/dictationTarget';
 
 /**
  * Whether the chat has an open (unanswered) secret request card.
@@ -60,6 +62,18 @@ function SecretRequestCard({ chat, card }: { chat: RustChat; card: JsonRecord })
   useEffect(() => {
     if (!open) setSecret('');
   }, [open]);
+  // Dictate types into this field while it has the keyboard (`SecretField` in composer/dictationTarget.ts).
+  const targets = useOptionalNativeChatUi()?.dictationTargets ?? null;
+  const takesWords = useRef(false);
+  takesWords.current = open && !busy;
+  const field = useMemo<SecretField>(
+    () => ({
+      insert: (words) => setSecret((current) => (current.length === 0 ? words : `${current} ${words}`)),
+      open: () => takesWords.current,
+    }),
+    [],
+  );
+  useEffect(() => () => targets?.setSecretFocused(field, false), [targets, field]);
   if (!open) {
     return <ToneCard tone="approval" icon="lock" title={str(card, 'label')} detail={str(card, 'closedLabel')} />;
   }
@@ -93,6 +107,8 @@ function SecretRequestCard({ chat, card }: { chat: RustChat; card: JsonRecord })
           submitBehavior="submit"
           returnKeyType="done"
           onSubmitEditing={save}
+          onFocus={() => targets?.setSecretFocused(field, true)}
+          onBlur={() => targets?.setSecretFocused(field, false)}
           placeholder={str(card, 'placeholder')}
           placeholderTextColor={P.placeholder}
           accessibilityLabel={str(card, 'label')}

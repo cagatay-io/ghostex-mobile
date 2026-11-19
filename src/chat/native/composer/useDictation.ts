@@ -292,6 +292,14 @@ export function useDictation(
         void forgetRecording(id);
         return;
       }
+      // A secret card's field the recording started in takes the words here, never through the core
+      // (`SecretField` in dictationTarget.ts); a card that closed meanwhile drops them.
+      const secret = targets?.secretTarget() ?? null;
+      if (secret !== null) {
+        if (secret.open()) secret.insert(words);
+        if (id.length > 0) void forgetRecording(id);
+        return;
+      }
       // The question form box the recording started in; the core checks that it still takes text.
       // The host adds the chat box as it is now, which takes the words when the form box does not.
       const box = targets?.target() ?? null;

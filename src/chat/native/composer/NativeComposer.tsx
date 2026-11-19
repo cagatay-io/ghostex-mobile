@@ -19,7 +19,7 @@
 
 import * as Clipboard from 'expo-clipboard';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Alert, Platform, Pressable, Text, View, type LayoutChangeEvent } from 'react-native';
+import { Alert, AppState, Platform, Pressable, Text, View, type LayoutChangeEvent } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import type { UserAction } from '../../rust/actions';
@@ -297,6 +297,24 @@ export function NativeComposer({
     [chat.onViewRequest],
   );
   const handledFocusRequest = useRef(focusRequestId);
+  /*
+   * CDXC:Secrets 2026-11-19 WHY:
+   * The chat box kept the keyboard through a Send and a trip to another app while a secret card was open, so a key
+   * copied from a password manager was pasted into the chat box on return (a hardware keyboard's Cmd+V needs no menu).
+   * While a card is open the chat box lets go of the keyboard once a message leaves it (its draft id changes) and when
+   * the app comes back; a tap on it or on the card's field picks where typing goes. Desktop: `return_keyboard_to_card`
+   * in `apps/desktop/src/app/native_chat/secret_request.rs`.
+   */
+  useEffect(() => {
+    if (secretOpen.current) field.current?.blur();
+  }, [model?.draftId]);
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (next) => {
+      if (next === 'active' && secretOpen.current) field.current?.blur();
+    });
+    return () => subscription.remove();
+  }, []);
+
   useEffect(() => {
     if (focusRequestId === handledFocusRequest.current) return;
     handledFocusRequest.current = focusRequestId;

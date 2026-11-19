@@ -1,5 +1,5 @@
 /**
- * The quiet warning above the chat box for text that looks like a key or password: the first Send of it stays in the
+ * The quiet warning above the chat box for text that looks like a key or token: the first Send of it stays in the
  * box and shows this, and a second Send of the same text posts it (`ComposerModel.submit`, `rust/secretLike.ts`).
  * Port of desktop `native_chat/secret_send_warning.rs` (CDXC:Secrets 2026-11-19 in
  * `packages/gx-chat-core/src/composer/secret_like.rs`).
@@ -20,8 +20,8 @@ export function SecretSendWarning({ model, cardOpen }: { model: ComposerModelSta
     return null;
   }
   const words = cardOpen
-    ? 'This looks like a key or password. Paste it into the private card above to keep it out of the chat, or send again to post it here.'
-    : 'This looks like a key or password, and anyone who can read this chat would see it. Send again to post it anyway.';
+    ? 'This looks like a key or token. Paste it into the private card above to keep it out of the chat, or send again to post it here.'
+    : 'This looks like a key or token, and anyone who can read this chat would see it. Send again to post it anyway.';
   return (
     <View style={styles.row} accessibilityRole="alert">
       <Glyph name="alert-triangle" size={13} color={P.light ? '#e17100' : '#fe9a00'} />

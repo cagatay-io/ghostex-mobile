@@ -27,6 +27,19 @@ import {
   type UploadTokenState,
 } from './uploadTokens';
 
+/** How long after the first Send of key-looking text a second one is the same tap, not a confirmation. */
+const SECOND_SEND_AFTER_MS = 500;
+
+/** A 32-bit FNV-1a hash: the confirmed text is remembered without keeping a copy of it. */
+function textHash(text: string): number {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash;
+}
+
 /** What a submission does; `interrupt` is Interrupt & Send. */
 export type SubmitMode = 'send' | 'queue' | 'compact' | 'handoff' | 'interrupt';
 
@@ -68,10 +81,11 @@ export type ComposerModelState = {
    */
   uploadTokens: Readonly<Record<number, UploadTokenState>>;
   /**
-   * The draft (its id and revision) whose first Send was held for looking like a key or password: the field shows a
-   * warning while it is unedited, and a second Send posts it (`secretLike.ts`). Desktop: `secret_send_warning.rs`.
+   * The draft (its id and revision) whose first Send was held for looking like a key or token, and when: the field
+   * shows a warning while it is unedited, and a second Send at least `SECOND_SEND_AFTER_MS` later posts it
+   * (`secretLike.ts`). Desktop: `secret_send_warning.rs`.
    */
-  secretHeld: { draftId: string; revision: number } | null;
+  secretHeld: { draftId: string; revision: number; at: number } | null;
 };
 
 /**
@@ -122,6 +136,9 @@ export class ComposerModel {
   };
 
   private selectionSent: { text: string; caret: number } | null = null;
+
+  /** A hash of the key-looking text the user last confirmed with a second Send, so a Retry of it goes at once. */
+  private secretConfirmed: number | null = null;
 
   /** The field has the keyboard (`focused`, `blurred`). */
   private hasKeyboard = false;
@@ -225,12 +242,17 @@ export class ComposerModel {
       this.hooks.dispatch({ type: 'completeComposerCommand' });
       return false;
     }
-    // Text that looks like a key waits for a second Send of the same, unedited text (`secretLike.ts`).
-    const held = this.state.secretHeld;
-    const warned = held !== null && held.draftId === this.state.draftId && held.revision === this.state.revision;
-    if (!warned && looksLikeSecret(sent)) {
-      this.set({ secretHeld: { draftId: this.state.draftId, revision: this.state.revision } });
-      return false;
+    // Text that looks like a key waits for a second Send of the same, unedited text (`secretLike.ts`). A second Send
+    // within half a second is the same tap (a double tap), and a Retry of text already confirmed does not ask again.
+    if (looksLikeSecret(sent) && textHash(sent) !== this.secretConfirmed) {
+      const held = this.state.secretHeld;
+      const warned = held !== null && held.draftId === this.state.draftId && held.revision === this.state.revision;
+      if (!warned || held === null) {
+        this.set({ secretHeld: { draftId: this.state.draftId, revision: this.state.revision, at: Date.now() } });
+        return false;
+      }
+      if (Date.now() - held.at < SECOND_SEND_AFTER_MS) return false;
+      this.secretConfirmed = textHash(sent);
     }
     const submission = {
       type: mode,
