@@ -822,7 +822,11 @@ export function NativeComposer({
           {document !== null ? <FilesLinksCard filesLinks={document.filesLinks} dispatch={dispatch} /> : null}
           {document?.suggestions ? <Suggestions data={document.suggestions} dispatch={dispatch} /> : null}
           {document?.runLocation ? <RunLocationRow row={document.runLocation} dispatch={dispatch} /> : null}
-          <SecretSendWarning model={model} cardOpen={secretRequestOpen(document)} />
+          <SecretSendWarning
+            model={model}
+            cardOpen={secretRequestOpen(document)}
+            keptOnDevice={document?.draftKeptOnDevice === true}
+          />
           {attachError !== null ? (
             <DictationCard
               icon="alert-circle"

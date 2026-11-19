@@ -703,6 +703,11 @@ export type ChatDocument = {
   draft: DraftState;
   /** Placeholder text for the composer field. Desktop: `state.rs` (`ensure_input`). */
   composerPlaceholder: string;
+  /**
+   * The chat box holds a key or a piece of one, so the core keeps its draft off the computer and it does not follow to
+   * other devices (gx-chat-core `composer/draft_sync.rs`); a small note says so. Absent when false.
+   */
+  draftKeptOnDevice?: boolean;
   /** Why sending is blocked, or null. Send shows the `sendBlockedToast` query's text instead.
    * Desktop: `composer.rs`, `send_control.rs`. */
   sendBlockedReason: string | null;
