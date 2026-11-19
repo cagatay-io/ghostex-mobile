@@ -4,14 +4,14 @@
  *
  * 1. the composer-not-ready card, or a refused operation's error line,
  * 2. the terminal notice, then any secret requests,
- * 3. a failed API call's card the agent keeps no record of,
- * 4. the async questions,
- * 5. the blocking question.
+ * 3. the async questions,
+ * 4. the blocking question.
  *
  * An approval the agent waits on, the session's computer being offline, messages held behind a
  * failed model change and Ghostex Collab's held messages are rows of the dock above this stack
- * instead (who is typing is a line inside the chat box, `composer/BoxNotes.tsx`) (gx-chat-core
- * `extras/dock_approvals.rs`, `extras/dock_stack.rs`; `WorkCards.tsx`).
+ * instead (gx-chat-core `extras/dock_approvals.rs`, `extras/dock_stack.rs`; `WorkCards.tsx`); who
+ * is typing is a line inside the chat box (`composer/BoxNotes.tsx`), and a failed call the agent
+ * keeps no record of is a row at the transcript's end (gx-chat-core `transcript/api_errors.rs`).
  *
  * The working card and its pills are not here: the screen draws them in their own row right above
  * this stack (`WorkingCard.tsx`), where desktop puts them first in the same stack.
@@ -27,7 +27,6 @@ import { ScrollView, StyleSheet, type ScrollViewInstance } from 'react-native';
 import type { ChatDocument } from '../../rust/document';
 import { useChatViewSize } from '../chatPlacement';
 import type { RustChat } from '../../rust/useRustChat';
-import { ApiErrorCard } from './ApiErrorCard';
 import { AsyncQuestionsCard } from './AsyncQuestionsCard';
 import { ComposerNotReadyCard } from './ComposerNotReadyCard';
 import { arr, obj } from './json';
@@ -36,18 +35,11 @@ import { CARD_BAND_SHARE, QuestionCard } from './QuestionCard';
 import { SecretRequestCards } from './SecretRequestCard';
 import type { CardHostAction } from './types';
 
-/** A failure the agent keeps no record of (Codex shows it only on screen): its card sits here, where its screen notice would have been. */
-function unrecordedApiError(card: unknown): boolean {
-  const value = obj(card);
-  return value !== null && value.messageId === null;
-}
-
 /** Whether this stack draws anything, so the working card above it knows what it sits on (`WorkingCard.tsx`). */
 export function chatCardsShown(document: ChatDocument): boolean {
   return (
     typeof document.operationError === 'string' ||
     (obj(document.terminalNotice) !== null && document.noticeVisible === true && document.approvalInDock !== 'notice') ||
-    unrecordedApiError(document.apiErrorCard) ||
     arr(document.secretRequests).length > 0 ||
     typeof document.asyncQuestions?.question?.key === 'string' ||
     (document.questionCard?.visible === true && document.approvalInDock !== 'prompt')
@@ -84,9 +76,6 @@ export function NativeChatCards({ chat, onHostAction }: NativeChatCardsProps) {
         <NoticeCard chat={chat} document={document} onHostAction={onHostAction} />
       )}
       <SecretRequestCards chat={chat} document={document} />
-      {unrecordedApiError(document.apiErrorCard) ? (
-        <ApiErrorCard card={document.apiErrorCard} dispatch={chat.dispatch} />
-      ) : null}
       <AsyncQuestionsCard chat={chat} document={document} />
       {document.approvalInDock === 'prompt' ? null : <QuestionCard chat={chat} document={document} />}
     </ScrollView>
