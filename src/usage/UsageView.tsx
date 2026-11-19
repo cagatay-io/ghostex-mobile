@@ -184,6 +184,10 @@ export default function UsageView({ machineId, placement }: { machineId: string;
             account={account}
             refreshing={refreshing === account.id}
             onRefresh={known && refreshing === null ? () => refreshAccount(account.id) : null}
+            computer={computer}
+            onSignIn={
+              known ? () => navigation.navigate('Accounts', { machineId, reconnectAccountId: account.id }) : null
+            }
           />
         ))}
         {known ? (
@@ -204,11 +208,17 @@ function AccountSection({
   account,
   refreshing,
   onRefresh,
+  computer,
+  onSignIn,
 }: {
   account: UsageAccount;
   refreshing: boolean;
   /** Null while another account is being read, or the computer is unknown. */
   onRefresh: (() => void) | null;
+  /** The computer the pane shows, as its title names it. */
+  computer: string;
+  /** Opens the Accounts screen on this computer with the account's sign-in started; null when the computer is unknown. */
+  onSignIn: (() => void) | null;
 }) {
   const appearance = useAppearance();
   const styles = useMemo(() => createStyles(appearance), [appearance]);
@@ -227,6 +237,26 @@ function AccountSection({
   const Icon = AGENT_ICONS[account.provider];
   return (
     <View style={styles.account}>
+      {/* CDXC:AgentProviders 2026-11-20 DECISION: User, of an amber account whose usage said nothing about it: "I see
+          it's yellow so it's not connected, but when I open it it doesn't say anything about this so I can fix it with 1
+          click". A signed-out account's section opens with where it is signed out and Sign in again, which runs that
+          computer's sign-in (the Accounts screen's Reconnect, as the chat's Accounts & limits panel opens it). */}
+      {amber !== null ? (
+        <View accessibilityRole="alert" style={[styles.signIn, { borderColor: amber }]}>
+          <Text style={[styles.signInText, { color: amber }]}>{UsageCopy.signedOutOn(computer)}</Text>
+          {onSignIn !== null ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${account.name}: ${UsageCopy.signInAgain}`}
+              hitSlop={6}
+              onPress={onSignIn}
+              style={({ pressed }) => [styles.signInButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.signInLabel}>{UsageCopy.signInAgain}</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
       <View style={styles.nameLine}>
         {Icon !== undefined ? <Icon size={16} color={agentIconTint(account.provider)} /> : null}
         <Text style={[styles.name, amber !== null && { color: amber }]} numberOfLines={1}>
@@ -287,6 +317,23 @@ const createStyles = (appearance: Appearance) =>
     nameLine: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 20 },
     name: { color: appearance.foreground, fontSize: 14, fontWeight: '600', flexShrink: 1 },
     email: { flex: 1, minWidth: 0, color: appearance.muted, fontSize: 12 },
+    signIn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingVertical: 8,
+      paddingHorizontal: 10,
+      borderRadius: GhostexRadii.control,
+      borderWidth: StyleSheet.hairlineWidth,
+    },
+    signInText: { flex: 1, minWidth: 0, fontSize: 13, fontWeight: '600' },
+    signInButton: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: GhostexRadii.control,
+      backgroundColor: appearance.neutralFill,
+    },
+    signInLabel: { color: appearance.foreground, fontSize: 13, fontWeight: '600' },
     accountRefresh: { width: 28, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
     manage: {
       alignSelf: 'flex-start',

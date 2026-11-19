@@ -1736,6 +1736,10 @@ export const UsageCopy = {
   onHub: (hub: string) => `on ${hub}`,
   /** Opens the Accounts screen on this computer: sign-ins and Reconnect (src/accounts/). */
   manageAccounts: 'Manage accounts',
+  /** The amber line at the top of a signed-out account's section. */
+  signedOutOn: (computer: string) => `Signed out on ${computer}`,
+  /** Its button: the Accounts screen on that computer, with the account's sign-in started. */
+  signInAgain: 'Sign in again',
   /** No saved and enabled account to show: none saved, or every saved one turned off on the computer. */
   noAccounts: (computer: string) =>
     `No Claude or Codex account is enabled in Ghostex on ${computer}. Enable or add one there to see its usage and reset times here.`,
