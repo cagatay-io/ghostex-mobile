@@ -6,7 +6,7 @@
 
 export type GbotComputer = {
   kind: 'this' | 'computer' | 'cloudBox';
-  /** The computer's or box's name ("This computer" for `this`). */
+  /** The computer's or box's name (the computer's own name for `this`; an older one says "This computer"). */
   name: string;
   /** The folder its chats work in on that computer; empty for this computer and a Cloud Box. */
   folder: string;

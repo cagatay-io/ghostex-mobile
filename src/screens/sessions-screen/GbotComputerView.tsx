@@ -35,9 +35,11 @@ function placeLine(computer: GbotComputer): string {
     case 'cloudBox':
       return `Its chats run on the Cloud Box ${computer.name}, each in its own worktree of that project.`;
     default:
+      // The computer by its own name, never "this computer" (CDXC:RemoteMachines 2026-11-19 in
+      // packages/gx-chat-core/src/extras/where_pill.rs).
       return computer.thisComputer.length > 0
-        ? `Its chats run on this computer (${computer.thisComputer}), beside its folder.`
-        : 'Its chats run on this computer, beside its folder.';
+        ? `Its chats run on ${computer.thisComputer}, beside its folder.`
+        : 'Its chats run on its own computer, beside its folder.';
   }
 }
 
@@ -147,7 +149,11 @@ export default function GbotComputerView(props: GbotComputerViewProps): ReactEle
         <Text style={styles.line}>{placeLine(computer)}</Text>
         {elsewhere !== null ? <Text style={styles.small}>{elsewhere}</Text> : null}
         {computer.kind !== 'this' ? (
-          <View style={styles.buttons}>{button('Use this computer', { thisComputer: true })}</View>
+          <View style={styles.buttons}>
+            {button(computer.thisComputer.length > 0 ? `Use ${computer.thisComputer}` : 'Use its own computer', {
+              thisComputer: true,
+            })}
+          </View>
         ) : null}
       </View>
       <View style={styles.box}>
@@ -157,9 +163,7 @@ export default function GbotComputerView(props: GbotComputerViewProps): ReactEle
             ? `${props.name} may open and drive apps on the computer it works on.`
             : `${props.name}'s chats start without the screen tools. A Codex GBot at Full access can still run their command-line tools from a shell.`}
         </Text>
-        {computer.computerUse ? (
-          <View style={styles.buttons}>{button('Turn off', { screen: false })}</View>
-        ) : null}
+        {computer.computerUse ? <View style={styles.buttons}>{button('Turn off', { screen: false })}</View> : null}
       </View>
       <Text style={styles.note}>
         {`Its folder, memory and routines stay on this computer. To give ${props.name} another computer, a Cloud Box or computer use, open its GBot Settings on the computer.`}
