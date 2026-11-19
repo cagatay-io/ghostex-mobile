@@ -747,6 +747,10 @@ export type ChatDocument = {
    * answer yet, a computer too old for the read). Absent from an older core.
    * Desktop: `where_pill.rs`; phone: `cards/WherePill.tsx`. */
   wherePill?: WherePill | null;
+  /** The Boosts (gx-chat-core `extras/boosts.rs`): the strip's Boost pill and its menu, every Boost
+   * with its prompt, the open prompt editor and the one-time hint; null while the computer has none
+   * (older, or not answered yet). Absent from an older core. Phone: `cards/Boosts.tsx`. */
+  boosts?: BoostsDocument | null;
   /** The session note sheet. Desktop: `note.rs`. */
   note: NoteState;
   /** The Catch me up button and card (`composer/catch_up.rs`). Desktop: `catch_up.rs`. */
@@ -1469,4 +1473,32 @@ export type TerminalTail = {
     /** Why the sheet is empty, as a sentence, or null. */
     empty: string | null;
   };
+};
+
+/** One Boost as the chat shows it (`boosts.list`). */
+export type BoostRow = {
+  id: string;
+  label: string;
+  /** The desktop's icon path, `titlebar/<name>.svg`. */
+  iconPath: string;
+  description: string;
+  /** What the agent is told now: the edited prompt, else Ghostex's. */
+  prompt: string;
+  edited: boolean;
+  /** The prompt and "Double click to edit prompt" (desktop's hover). */
+  tooltip: string;
+  /** The Boost is in the chat box's text. */
+  inDraft: boolean;
+};
+
+/** `boosts` (gx-chat-core `extras/boosts.rs` `document`). Actions: `toggleBoost {id}`,
+ * `openBoostEditor {id}`, `editBoostPrompt {text}`, `saveBoostPrompt`, `resetBoostPrompt`,
+ * `closeBoostEditor`, `dismissBoostHint`. */
+export type BoostsDocument = {
+  pill: { id: string; label: string; ariaLabel: string; active: boolean };
+  list: BoostRow[];
+  /** The prompt being edited, or null. */
+  editor: { id: string; label: string; iconPath: string; value: string; edited: boolean; default: string } | null;
+  /** The one-time hint's words while it has not been seen, or null. */
+  hint: string | null;
 };

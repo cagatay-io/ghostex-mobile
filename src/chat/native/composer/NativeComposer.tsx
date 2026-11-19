@@ -992,7 +992,7 @@ export function NativeComposer({
                     keptOnDevice={document?.draftKeptOnDevice === true}
                   />
                 ) : null}
-                {!collapsed && document !== null ? <BoxNotes document={document} /> : null}
+                {!collapsed && document !== null ? <BoxNotes document={document} dispatch={dispatch} /> : null}
                 {!collapsed ? (
                   <Animated.View
                     style={[styles.footer, motion.controlsStyle]}

@@ -124,6 +124,7 @@ const REFERENCE_GLYPHS: { [kind: string]: GlyphName } = {
   url: 'link',
   comment: 'comment',
   message: 'quote',
+  boost: 'sparkles',
 };
 
 function linkColor(theme: TranscriptTheme, kind: string): string {

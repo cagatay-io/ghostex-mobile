@@ -50,6 +50,7 @@ import {
 } from './ChatPills';
 import type { HiddenPage } from './hiddenPages';
 import { Sheet } from '../composer/Sheet';
+import { BoostEditorSheet, BoostPill, BoostSheet } from './Boosts';
 import { SavedDraftPill, SavedDraftSheet } from './SavedDraftPill';
 import { WHERE_TIERS, WherePill, WhereSheet, type WhereTier } from './WherePill';
 import { VISUAL, type ArmedAction } from './WorkingStrip';
@@ -118,6 +119,8 @@ export function pillsStripShown(
     armed.length > 0 ||
     (document.savedDraftPill ?? null) !== null ||
     (document.wherePill ?? null) !== null ||
+    // The Boost pill (`Boosts.tsx`) is always there while the computer has Boosts.
+    (document.boosts ?? null) !== null ||
     (document.viewChips?.length ?? 0) > 0 ||
     questionWaiting(document) ||
     (document.workingCard?.pills ?? []).some((id) => !omitPills.includes(id)) ||
@@ -178,6 +181,13 @@ export function PillsStrip({
   const closeDraft = useCallback(() => setDraftOpen(false), []);
   // The where pill, its sheet, the tier the fit picked and its width at each tier, measured unseen.
   const where = document.wherePill ?? null;
+  // The Boost pill and its sheet (`Boosts.tsx`).
+  const boosts = document.boosts ?? null;
+  const [boostOpen, setBoostOpen] = useState(false);
+  const closeBoost = useCallback(() => setBoostOpen(false), []);
+  useEffect(() => {
+    if (boosts === null) setBoostOpen(false);
+  }, [boosts]);
   const [whereOpen, setWhereOpen] = useState(false);
   const closeWhere = useCallback(() => setWhereOpen(false), []);
   const [whereTier, setWhereTier] = useState<WhereTier>('full');
@@ -268,8 +278,19 @@ export function PillsStrip({
     })),
   ];
   // The Links pill is the last one (desktop `links_pill.rs` has the user's words).
-  const linksNode =
+  const linksPillNode =
     links && linksPill !== null ? <LinksPill key="links" pill={linksPill} onPress={links.onOpen} /> : null;
+  // The Boost pill sits after the panel pills, before Links, among the pills that always show (never in
+  // "+N", it is the one way in); desktop `boosts.rs`.
+  const linksNode =
+    boosts !== null ? (
+      <View style={styles.after}>
+        <BoostPill boosts={boosts} open={boostOpen} onPress={() => setBoostOpen(true)} />
+        {linksPillNode}
+      </View>
+    ) : (
+      linksPillNode
+    );
   /*
    * CDXC:SessionDetails 2026-11-11 DECISION:
    * User, of the ring button in the phone's chat header: "Please move the new session details button
@@ -386,6 +407,8 @@ export function PillsStrip({
         </Animated.View>
       ) : null}
       <SavedDraftSheet pill={savedDraft} open={draftOpen} onClose={closeDraft} dispatch={chat.dispatch} />
+      <BoostSheet boosts={boosts} open={boostOpen} onClose={closeBoost} dispatch={chat.dispatch} />
+      <BoostEditorSheet boosts={boosts} dispatch={chat.dispatch} />
       <WhereSheet
         pill={where}
         open={whereOpen}

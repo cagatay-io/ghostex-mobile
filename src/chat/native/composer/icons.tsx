@@ -236,6 +236,22 @@ const GLYPHS = {
   },
   clock: { paths: ['M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0', 'M12 7v5l3 3'] },
   'clock-check': { paths: ['M20.942 13.021a9 9 0 1 0 -9.407 7.967', 'M12 7v5l3 3', 'M15 19l2 2l4 -4'] },
+  // The Boosts' icons (desktop titlebar/browser.svg, sitemap.svg and checklist.svg).
+  browser: {
+    paths: ['M4 5a1 1 0 0 1 1 -1h14a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-14a1 1 0 0 1 -1 -1z', 'M4 8h16', 'M8 4v4'],
+  },
+  sitemap: {
+    paths: [
+      'M3 17a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v2a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2l0 -2',
+      'M15 17a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v2a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2l0 -2',
+      'M9 5a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v2a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2l0 -2',
+      'M6 15v-1a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v1',
+      'M12 9l0 3',
+    ],
+  },
+  checklist: {
+    paths: ['M9.615 20h-2.615a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8', 'M14 19l2 2l4 -4', 'M9 8h4', 'M9 12h2'],
+  },
   'layout-columns': {
     paths: ['M4 6a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2l0 -12', 'M12 4l0 16'],
   },

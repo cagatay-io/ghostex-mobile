@@ -18,6 +18,7 @@ import { Animated, Easing, Text, View } from 'react-native';
 import type { ChatDocument } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
 import { AgentMark } from './agentMark';
+import { TryABoost } from './Boosts';
 import { chatLookOf } from '../transcript/context';
 import { themedStyles } from '../transcript/theme';
 import { ChatButton } from './primitives';
@@ -54,6 +55,10 @@ export function EmptyTranscript({ chat, document }: { chat: RustChat; document: 
         </View>
         {welcome.showTitle !== false ? (
           <Text style={styles.welcomeTitle}>{wrapWelcomeTitle(welcome.title || 'What should we work on?')}</Text>
+        ) : null}
+        {/* "Try a Boost" under a regular new chat's headline (`Boosts.tsx`, desktop `boosts.rs`). */}
+        {welcome.showTitle !== false && (document.boosts ?? null) !== null ? (
+          <TryABoost boosts={document.boosts!} dispatch={chat.dispatch} />
         ) : null}
       </View>
     );
