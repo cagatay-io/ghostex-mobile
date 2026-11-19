@@ -694,14 +694,17 @@ function DockRow({
   // A question with details shows Details on its closed row, its answers only in its sheet under
   // the details. A computer too old to send `details` keeps today's row.
   const details = !opened && isTrue(row, 'details') && onShow !== undefined ? onShow : null;
+  // An approval row's answers take no tap for a moment after it appears, so a tap meant for the row
+  // that was there before lands on nothing (desktop `approval_armed`).
+  const shownAt = useRef<{ key: string; at: number }>({ key: '', at: 0 });
+  if (shownAt.current.key !== str(row, 'key')) shownAt.current = { key: str(row, 'key'), at: Date.now() };
+  const armed = () => str(row, 'kind') !== 'approval' || Date.now() - shownAt.current.at >= APPROVAL_ARM_MS;
   // In the sheet, whatever a row's buttons send closes it first.
-  const dispatch: RustChat['dispatch'] =
-    onClose === undefined
-      ? chat.dispatch
-      : (((action: never) => {
-          onClose();
-          chat.dispatch(action);
-        }) as RustChat['dispatch']);
+  const dispatch: RustChat['dispatch'] = ((action: never) => {
+    if (!armed()) return;
+    if (onClose !== undefined) onClose();
+    chat.dispatch(action);
+  }) as RustChat['dispatch'];
   const busy = isTrue(row, 'busy');
   // An answered approval says so quietly for its few seconds, then leaves (gx-chat-core
   // extras/dock_approvals.rs); there is nothing to open.
@@ -709,6 +712,9 @@ function DockRow({
   const titleColor = settled ? P.cardMuted : body;
   // Why an approval's answer did not land.
   const error = str(row, 'error');
+  // Why the agent flagged an approval ("Dangerous rm operation …"), on the row itself.
+  const note = obj(row.note);
+  const noteText = note === null ? '' : str(note, 'text');
   const answers = arr(row.buttons)
     .map(obj)
     .filter((button): button is JsonRecord => button !== null);
@@ -831,6 +837,11 @@ function DockRow({
                 {str(row, 'title')}
               </Text>
             )}
+            {noteText.length > 0 ? (
+              <Text style={[styles.dockNote, str(note, 'tone') === 'warning' && { color: P.light ? '#b45309' : '#f5a524' }]}>
+                {noteText}
+              </Text>
+            ) : null}
             {error.length > 0 ? <Text style={styles.dockError}>{error}</Text> : null}
           </View>
           <View style={styles.ageSlot}>
@@ -897,7 +908,11 @@ function DockRow({
       ) : null}
       {/* A Needs you to-do's command, closed rows only: opened, its description shows it as a
           code block with its own copy (gx-chat-core `extras::needs_you`). */}
-      {!opened && str(row, 'command').trim().length > 0 ? <CommandChip command={str(row, 'command').trim()} /> : null}
+      {isTrue(row, 'commandLines') ? (
+        <ApprovalCommand row={row} />
+      ) : !opened && str(row, 'command').trim().length > 0 ? (
+        <CommandChip command={str(row, 'command').trim()} />
+      ) : null}
       {answerLine}
       {menuRows.length > 0 ? (
         <Sheet visible={menu} onClose={() => setMenu(false)} title={str(row, 'title')}>
@@ -950,6 +965,61 @@ function CommandChip({ command }: { command: string }) {
     </View>
   );
 }
+
+/**
+ * An approval's command (gx-chat-core `extras/dock_approvals.rs`): its first lines, wrapped, never
+ * cut without saying so; "Show N more lines" opens the rest in place and "Show fewer" folds it, and
+ * the lines gxserver itself left out say so. A tap copies the whole command. Desktop:
+ * `dock_command_block` (CDXC:SessionChat 2026-11-20 WHY there: a one-line chip hid most of a
+ * multi-line command).
+ */
+function ApprovalCommand({ row }: { row: JsonRecord }) {
+  const styles = useStyles();
+  const P = useTranscriptTheme();
+  const body = useBodyColor();
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 1500);
+    return () => clearTimeout(timer);
+  }, [copied]);
+  const command = str(row, 'command');
+  if (command.trim().length === 0) return null;
+  const more = typeof row.commandMore === 'number' ? row.commandMore : 0;
+  const shown = more === 0 || open ? command : str(row, 'commandPreview');
+  const cut = str(row, 'commandCut');
+  return (
+    <View style={styles.approvalCommandLine}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Copy command ${command}`}
+        onPress={() => {
+          void Clipboard.setStringAsync(command);
+          setCopied(true);
+        }}
+        style={({ pressed }) => [styles.approvalCommand, pressed && { backgroundColor: P.ink(0.1) }]}
+      >
+        <Text style={[styles.commandChipText, { color: body }]}>
+          {shown}
+          {more > 0 && !open ? '\n…' : ''}
+        </Text>
+        {copied ? <Text style={styles.approvalCommandMeta}>Copied</Text> : null}
+      </Pressable>
+      {more > 0 ? (
+        <Pressable accessibilityRole="button" hitSlop={WORK_BUTTON_SLOP} onPress={() => setOpen((was) => !was)}>
+          <Text style={styles.approvalCommandMeta}>
+            {open ? 'Show fewer' : more === 1 ? 'Show 1 more line' : `Show ${more} more lines`}
+          </Text>
+        </Pressable>
+      ) : null}
+      {cut.length > 0 ? <Text style={styles.approvalCommandMeta}>{cut}</Text> : null}
+    </View>
+  );
+}
+
+/** How long a new approval row's answers wait before they take a tap. */
+const APPROVAL_ARM_MS = 400;
 
 /** A thread's logo button: 28 points square, like the buttons beside it. */
 const THREAD_LOGO = 28;
@@ -1596,6 +1666,7 @@ const useStyles = themedStyles((P) => ({
   dockIcon: { height: PROSE_LINE, justifyContent: 'center' },
   dockMain: { flex: 1, minWidth: 0, gap: 2 },
   dockTitle: { fontSize: PROSE_SIZE, lineHeight: PROSE_LINE },
+  dockNote: { fontSize: PROSE_SIZE - 1, lineHeight: PROSE_LINE - 2, color: P.cardMuted, marginTop: 2 },
   dockError: { fontSize: PROSE_SIZE - 1, lineHeight: PROSE_LINE - 2, color: SidebarPalette.ROW_APPROVAL, marginTop: 2 },
   // Under the title, from its left edge (the mark's 14 and the row's 10 gap past the row's 8).
   commandChipLine: { flexDirection: 'row', paddingLeft: 8 + 14 + 10, paddingRight: 8, paddingBottom: 6 },
@@ -1611,6 +1682,9 @@ const useStyles = themedStyles((P) => ({
     backgroundColor: P.ink(0.05),
   },
   commandChipText: { flexShrink: 1, fontFamily: MONO_FONT, fontSize: CODE_SIZE },
+  approvalCommandLine: { paddingLeft: 8 + 14 + 10, paddingRight: 8, paddingBottom: 6, gap: 4 },
+  approvalCommand: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: P.ink(0.05) },
+  approvalCommandMeta: { fontSize: CODE_SIZE, color: P.cardMuted },
   pageTitle: { flexDirection: 'row', gap: 6, minWidth: 0 },
   pageName: { flexShrink: 1 },
   pageCount: { flexShrink: 0, fontSize: PROSE_SIZE, lineHeight: PROSE_LINE, color: P.cardMuted },
