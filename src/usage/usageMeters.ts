@@ -29,8 +29,8 @@ export type UsageAccount = {
   /** The CLIProxyAPI hub the account is on (its name), or empty for a Claude Swap or Codex Swap account. */
   readonly hub: string;
   /**
-   * The computer reads this login as needing a sign-in (`loginRequired`, `identityChanged`): its name and numbers draw
-   * amber, as the computer's sidebar meters do (CDXC:AgentProviders 2026-11-19, apps/desktop/src/app/titlebar/account_usage.rs).
+   * The computer reads this login as needing a sign-in (`isSignedOut`): its name and numbers draw amber, as the
+   * computer's sidebar meters do (CDXC:AgentProviders 2026-11-19, apps/desktop/src/app/titlebar/account_usage.rs).
    */
   readonly signedOut: boolean;
 };
@@ -105,8 +105,16 @@ function savedAccounts(answer: unknown): { row: unknown; provider: UsageProvider
   return accounts;
 }
 
-/** The states the computer reads as needing a sign-in (`ghostex accounts` calls them `needsSignIn`). */
-const SIGNED_OUT = new Set(['loginRequired', 'identityChanged']);
+/**
+ * Whether the computer reads this login as signed out: `loginRequired` (a dead saved login, or a session reported
+ * "Login expired"), `identityChanged`, or `unavailable` for an account synced from another computer that was never
+ * signed in on this one (`syncedFrom`). A plain `unavailable` (the saved login missing for another reason) is not.
+ */
+export function isSignedOut(row: unknown): boolean {
+  const status = str(row, 'status');
+  if (status === 'loginRequired' || status === 'identityChanged') return true;
+  return status === 'unavailable' && str(row, 'syncedFrom').length > 0;
+}
 
 /** Join by input position before filtering: the core includes rows with missing or duplicate account ids. */
 export function buildUsageMeters(answer: unknown, columns: unknown): UsageAccount[] {
@@ -124,7 +132,7 @@ export function buildUsageMeters(answer: unknown, columns: unknown): UsageAccoun
       meters,
       unavailable: meters.length === 0,
       hub: str(row, 'hubLabel'),
-      signedOut: SIGNED_OUT.has(str(row, 'status')),
+      signedOut: isSignedOut(row),
     };
   });
 }
