@@ -698,7 +698,9 @@ function DockRow({
   // that was there before lands on nothing (desktop `approval_armed`).
   const shownAt = useRef<{ key: string; at: number }>({ key: '', at: 0 });
   if (shownAt.current.key !== str(row, 'key')) shownAt.current = { key: str(row, 'key'), at: Date.now() };
-  const armed = () => str(row, 'kind') !== 'approval' || Date.now() - shownAt.current.at >= APPROVAL_ARM_MS;
+  // A Collab message's row too: a guest chooses when it arrives (security review N5).
+  const armed = () =>
+    !['approval', 'collab'].includes(str(row, 'kind')) || Date.now() - shownAt.current.at >= APPROVAL_ARM_MS;
   // In the sheet, whatever a row's buttons send closes it first.
   const dispatch: RustChat['dispatch'] = ((action: never) => {
     if (!armed()) return;
@@ -989,20 +991,24 @@ function ApprovalCommand({ row }: { row: JsonRecord }) {
   const more = typeof row.commandMore === 'number' ? row.commandMore : 0;
   const shown = more === 0 || open ? command : str(row, 'commandPreview');
   const cut = str(row, 'commandCut');
+  // A Collab message's words are drawn in the chat's own type and copied as a message.
+  const plain = isTrue(row, 'commandPlain');
+  // Cut whole lines say so with "…" (a line cut short already ends with one).
+  const ellipsis = more > 0 && !open && !shown.trimEnd().endsWith('…');
   return (
     <View style={styles.approvalCommandLine}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Copy command ${command}`}
+        accessibilityLabel={`${plain ? 'Copy message' : 'Copy command'} ${command}`}
         onPress={() => {
           void Clipboard.setStringAsync(command);
           setCopied(true);
         }}
         style={({ pressed }) => [styles.approvalCommand, pressed && { backgroundColor: P.ink(0.1) }]}
       >
-        <Text style={[styles.commandChipText, { color: body }]}>
+        <Text style={[plain ? styles.approvalMessageText : styles.commandChipText, { color: body }]}>
           {shown}
-          {more > 0 && !open ? '\n…' : ''}
+          {ellipsis ? '\n…' : ''}
         </Text>
         {copied ? <Text style={styles.approvalCommandMeta}>Copied</Text> : null}
       </Pressable>
@@ -1685,6 +1691,7 @@ const useStyles = themedStyles((P) => ({
   approvalCommandLine: { paddingLeft: 8 + 14 + 10, paddingRight: 8, paddingBottom: 6, gap: 4 },
   approvalCommand: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: P.ink(0.05) },
   approvalCommandMeta: { fontSize: CODE_SIZE, color: P.cardMuted },
+  approvalMessageText: { flexShrink: 1, fontSize: PROSE_SIZE, lineHeight: PROSE_LINE },
   pageTitle: { flexDirection: 'row', gap: 6, minWidth: 0 },
   pageName: { flexShrink: 1 },
   pageCount: { flexShrink: 0, fontSize: PROSE_SIZE, lineHeight: PROSE_LINE, color: P.cardMuted },
