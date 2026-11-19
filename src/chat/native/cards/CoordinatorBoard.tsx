@@ -677,7 +677,8 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
                 <Glyph name={open ? 'chevron-down' : 'chevron-right'} size={12} color={P.cardMuted} />
                 <GroupMarker group={id} />
                 <Text style={styles.groupTitle}>{str(group, 'title')}</Text>
-                <Text style={styles.groupCount}>{num(group, 'count') ?? 0}</Text>
+                {/* No number for a group holding only opened pages (gx-chat-core `coordinator_board`: shown, counted 0). */}
+                <Text style={styles.groupCount}>{num(group, 'count') || ''}</Text>
               </Pressable>
               {arr(obj(group)?.rows).map((row, index) => {
                 const command = obj(obj(row)?.command);
