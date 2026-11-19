@@ -834,6 +834,7 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
                               room={-80}
                               scope={scope}
                               dispatch={chat.dispatch as never}
+                              iconOnly
                               details={() => {
                                 setMenuFor(null);
                                 chat.dispatch(asJson(toggle) as unknown as UserAction);

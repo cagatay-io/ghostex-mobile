@@ -753,6 +753,7 @@ function DockRow({
           logosWidth={logosWidth}
           openLabel={str(row, 'openLabel') === 'Answer' ? 'Answer' : 'Open'}
           details={details}
+          iconOnly={!opened}
         />
       </View>
     ) : logos !== null ? (

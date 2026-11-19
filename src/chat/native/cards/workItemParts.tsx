@@ -169,6 +169,11 @@ function ItemPills({ pills, fit, dispatch }: { pills: JsonRecord[]; fit: PillFit
   );
 }
 
+/** A square icon button's side (`WorkButton` `iconOnly`): a one-line button's height. */
+const ICON_BUTTON = 30;
+/** The one glyph of a Needs you row's Details, whatever it opens (desktop `DETAILS_ICON`). */
+const DETAILS_GLYPH: GlyphName = 'note';
+
 /** A Reply button's width as `WorkAnswerLine` measures it. */
 function replyWidthOf(replied: string, fontScale: number): number {
   return buttonWidth(replyLabel(replied), true, false, fontScale);
@@ -319,9 +324,13 @@ function WorkButton({
   onPress,
   accessibilityLabel,
   keep,
+  iconOnly,
 }: {
   label: string;
   icon?: GlyphName;
+  /** Only its icon, in a square at the buttons' height: the dock's Details and Reply (its label
+   * is what a screen reader says). */
+  iconOnly?: boolean;
   trailing?: ReactNode;
   disabled?: boolean;
   onPress: () => void;
@@ -342,13 +351,16 @@ function WorkButton({
       style={({ pressed }) => [
         styles.button,
         keep === true && styles.kept,
+        iconOnly === true && styles.iconButton,
         { backgroundColor: pressed ? P.neutralFillPressed : P.neutralFill },
         disabled === true && styles.disabled,
       ]}
     >
-      {icon !== undefined ? <Glyph name={icon} size={14} color={P.foreground} /> : null}
-      <Text style={[styles.buttonLabel, keep === true && styles.kept, { color: P.foreground }]}>{label}</Text>
-      {trailing}
+      {icon !== undefined ? <Glyph name={icon} size={iconOnly === true ? 16 : 14} color={P.foreground} /> : null}
+      {iconOnly === true ? null : (
+        <Text style={[styles.buttonLabel, keep === true && styles.kept, { color: P.foreground }]}>{label}</Text>
+      )}
+      {iconOnly === true ? null : trailing}
     </Pressable>
   );
 }
@@ -442,6 +454,7 @@ export function WorkAnswerLine({
   logosWidth = 0,
   openLabel = 'Open',
   details = null,
+  iconOnly = false,
 }: {
   answers: JsonRecord[];
   reply: JsonRecord | null;
@@ -470,6 +483,13 @@ export function WorkAnswerLine({
   /** A closed row whose question has details: Details (which shows them, with the answers under
    * them) and Reply in the answers' place (gx-chat-core `details_fields`). */
   details?: (() => void) | null;
+  /** The dock's closed row: Details (for anything that opens something) and Reply as icon
+   * buttons; answers keep their words.
+   *
+   * CDXC:Coordinators 2026-11-19 DECISION: the user, of the dock rows' "Open" and "Reply": "They
+   * should be just icon buttons. Same for details ... Let's just unify the icon details for all of
+   * them" (desktop `dock_row_icon_action`). */
+  iconOnly?: boolean;
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
@@ -500,6 +520,8 @@ export function WorkAnswerLine({
       <WorkButton
         key="reply"
         keep={replied.length === 0}
+        iconOnly={iconOnly}
+        accessibilityLabel={iconOnly && replied.length > 0 ? `Replied: ${replied}` : undefined}
         label={replyLabel(replied)}
         icon={replied.length > 0 ? 'check' : 'arrow-back-up'}
         disabled={(busy || locked) && replied.length === 0}
@@ -514,7 +536,7 @@ export function WorkAnswerLine({
   if (details != null) {
     return (
       <View style={styles.line}>
-        <WorkButton keep label="Details" icon="note" onPress={details} />
+        <WorkButton keep iconOnly={iconOnly} label="Details" icon={DETAILS_GLYPH} onPress={details} />
         {replyButton}
       </View>
     );
@@ -523,9 +545,11 @@ export function WorkAnswerLine({
     // A form or page offers Reply after its Open (gx-chat-core `questionsReply`).
     const alone =
       open != null
-        ? buttonWidth(openLabel, true, false, fontScale) +
-          (replyButton !== null ? 6 + replyWidthOf(replied, fontScale) : 0)
-        : replyWidthOf(replied, fontScale);
+        ? (iconOnly ? ICON_BUTTON : buttonWidth(openLabel, true, false, fontScale)) +
+          (replyButton !== null ? 6 + (iconOnly ? ICON_BUTTON : replyWidthOf(replied, fontScale)) : 0)
+        : iconOnly
+          ? ICON_BUTTON
+          : replyWidthOf(replied, fontScale);
     const lead = (
       <>
         {pills.length > 0 || logos != null ? (
@@ -541,7 +565,11 @@ export function WorkAnswerLine({
       return (
         <View style={styles.line}>
           {lead}
-          <WorkButton keep label={openLabel} icon="external-link" onPress={() => dispatch(open as never)} />
+          {iconOnly ? (
+            <WorkButton keep iconOnly label="Details" icon={DETAILS_GLYPH} onPress={() => dispatch(open as never)} />
+          ) : (
+            <WorkButton keep label={openLabel} icon="external-link" onPress={() => dispatch(open as never)} />
+          )}
           {replyButton}
         </View>
       );
@@ -918,6 +946,7 @@ const useStyles = themedStyles((P) => ({
     gap: 6,
   },
   buttonLabel: { flexShrink: 1, fontSize: PROSE_SIZE, lineHeight: 20, fontWeight: '400' },
+  iconButton: { width: ICON_BUTTON, height: ICON_BUTTON, minHeight: ICON_BUTTON, paddingHorizontal: 0, paddingVertical: 0, flexShrink: 0 },
   // A button the line was measured to hold: it keeps its words' whole width.
   kept: { flexShrink: 0 },
   // The line's item pills and logos: the part that gives way, clipped rather than pushing a button.
