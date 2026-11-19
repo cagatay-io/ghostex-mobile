@@ -844,6 +844,9 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
                             <BoardRelayButtons card={relayed} dispatch={chat.dispatch} />
                           ) : answers.length > 0 && expanded ? null : answers.length > 0 &&
                             description.length > 0 &&
+                            // A short description keeps the answers on the card (gx-chat-core
+                            // `details_fields`); a computer too old to say so keeps Details.
+                            (obj(obj(row)?.dock)?.details === undefined || isTrue(obj(obj(row)?.dock), 'details')) &&
                             toggle !== null ? (
                             // An ask with details shows Details and Reply on its closed card; its
                             // answers wait under the details once it opens (gx-chat-core
@@ -862,6 +865,8 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
                                 setMenuFor(null);
                                 chat.dispatch(asJson(toggle) as unknown as UserAction);
                               }}
+                              context={obj(actions?.context)}
+                              before={(kind) => (kind === 'reply' ? onDone() : undefined)}
                             />
                           ) : answers.length > 0 ? (
                             <>
@@ -954,6 +959,7 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
                           scope={scope}
                           dispatch={chat.dispatch as never}
                           before={(kind) => (kind === 'reply' ? onDone() : undefined)}
+                          context={obj(actions?.context)}
                         />
                         <View style={styles.cardButtons}>
                           {menuRows.length > 0 ? (

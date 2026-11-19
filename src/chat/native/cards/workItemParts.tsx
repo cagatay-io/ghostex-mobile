@@ -173,6 +173,8 @@ function ItemPills({ pills, fit, dispatch }: { pills: JsonRecord[]; fit: PillFit
 const ICON_BUTTON = 30;
 /** The one glyph of a Needs you row's Details, whatever it opens (desktop `DETAILS_ICON`). */
 const DETAILS_GLYPH: GlyphName = 'note';
+/** A Needs you row's Jump to context (desktop `CONTEXT_ICON`). */
+const CONTEXT_GLYPH: GlyphName = 'focus-2';
 
 /** A Reply button's width as `WorkAnswerLine` measures it. */
 function replyWidthOf(replied: string, fontScale: number): number {
@@ -455,6 +457,7 @@ export function WorkAnswerLine({
   openLabel = 'Open',
   details = null,
   iconOnly = false,
+  context = null,
 }: {
   answers: JsonRecord[];
   reply: JsonRecord | null;
@@ -490,6 +493,10 @@ export function WorkAnswerLine({
    * should be just icon buttons. Same for details ... Let's just unify the icon details for all of
    * them" (desktop `dock_row_icon_action`). */
   iconOnly?: boolean;
+  /** Jump to context after Reply: what opens the chat that asked, at the message that did
+   * (gx-chat-core `work_cards::context_of`; desktop `dock_context_icon`). A computer too old to
+   * send it draws no button. */
+  context?: JsonRecord | null;
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
@@ -532,24 +539,41 @@ export function WorkAnswerLine({
         }}
       />
     ) : null;
+  const contextButton =
+    context != null ? (
+      <WorkButton
+        key="context"
+        keep
+        iconOnly
+        label="Jump to context"
+        icon={CONTEXT_GLYPH}
+        onPress={() => {
+          // Into the chat: the Work sheet closes as it does for a Reply.
+          before?.('reply');
+          dispatch(context as never);
+        }}
+      />
+    ) : null;
+  const contextWidth = contextButton !== null ? ICON_BUTTON + 6 : 0;
   const pillRoom = pillWidths(pills, fontScale);
   if (details != null) {
     return (
       <View style={styles.line}>
         <WorkButton keep iconOnly={iconOnly} label="Details" icon={DETAILS_GLYPH} onPress={details} />
         {replyButton}
+        {contextButton}
       </View>
     );
   }
   if (answers.length === 0) {
     // A form or page offers Reply after its Open (gx-chat-core `questionsReply`).
     const alone =
-      open != null
+      (open != null
         ? (iconOnly ? ICON_BUTTON : buttonWidth(openLabel, true, false, fontScale)) +
           (replyButton !== null ? 6 + (iconOnly ? ICON_BUTTON : replyWidthOf(replied, fontScale)) : 0)
         : iconOnly
           ? ICON_BUTTON
-          : replyWidthOf(replied, fontScale);
+          : replyWidthOf(replied, fontScale)) + contextWidth;
     const lead = (
       <>
         {pills.length > 0 || logos != null ? (
@@ -571,13 +595,15 @@ export function WorkAnswerLine({
             <WorkButton keep label={openLabel} icon="external-link" onPress={() => dispatch(open as never)} />
           )}
           {replyButton}
+          {contextButton}
         </View>
       );
     }
-    return replyButton !== null || pills.length > 0 || logos != null ? (
+    return replyButton !== null || contextButton !== null || pills.length > 0 || logos != null ? (
       <View style={styles.line}>
         {lead}
         {replyButton}
+        {contextButton}
       </View>
     ) : null;
   }
@@ -613,7 +639,7 @@ export function WorkAnswerLine({
       buttonWidth(str(choice, 'label'), isTrue(choice, 'picked'), isTrue(choice, 'recommended'), fontScale),
   );
   const replyAlone = reply !== null ? (measured[replyKey] ?? replyWidthOf(replied, fontScale)) : 0;
-  const replyWidth = reply !== null ? replyAlone + 6 + (divider ? 13 : 0) : 0;
+  const replyWidth = (reply !== null ? replyAlone + 6 + (divider ? 13 : 0) : 0) + contextWidth;
   const chooseWidth = measured.choose ?? buttonWidth(CHOOSE_ANSWER, true, false, fontScale);
   const answersWidth = widths.reduce((sum, value) => sum + value, 0) + 6 * Math.max(0, widths.length - 1);
   // The item pills lead: the answers fold first, then the pills drop their ids, then they are one "+N".
@@ -689,6 +715,7 @@ export function WorkAnswerLine({
         )}
         {replyButton !== null && divider && !replyInList ? <View style={styles.divider} /> : null}
         {replyInList ? null : replyButton}
+        {contextButton}
       </View>
       {fold && chooser === 'inline' && choosing ? <View style={styles.choicesBox}>{list}</View> : null}
       {fold && chooser === 'sheet' ? (

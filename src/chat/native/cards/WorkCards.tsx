@@ -791,6 +791,7 @@ function DockRow({
           openLabel={str(row, 'openLabel') === 'Answer' ? 'Answer' : 'Open'}
           details={details}
           iconOnly={!opened}
+          context={obj(row.context)}
         />
       </View>
     ) : logos !== null ? (
@@ -836,6 +837,13 @@ function DockRow({
                 {str(row, 'title')}
               </Text>
             )}
+            {/* A short description that is not Details, quiet under the title, its answers still on
+                the row (gx-chat-core `details_fields`' 2026-11-20 decision; desktop `dock_row_look`). */}
+            {!opened && !isTrue(row, 'details') && str(row, 'preview').length > 0 ? (
+              <Text numberOfLines={2} style={styles.dockNote}>
+                {str(row, 'preview')}
+              </Text>
+            ) : null}
             {noteText.length > 0 ? (
               <Text style={[styles.dockNote, str(note, 'tone') === 'warning' && { color: P.light ? '#b45309' : '#f5a524' }]}>
                 {noteText}
