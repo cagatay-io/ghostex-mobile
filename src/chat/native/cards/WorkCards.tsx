@@ -664,7 +664,13 @@ function DockRow({
   const body = useBodyColor();
   const [menu, setMenu] = useState(false);
   const page = isTrue(row, 'page') && obj(row.open) !== null;
-  const opened = onClose !== undefined && !page;
+  // A form's row opens the form at once, as a page's opens the page (gx-chat-core
+  // `details_fields`' decision): no sheet with only another Open in it.
+  const direct = page || (str(row, 'kind') === 'form' && obj(row.open) !== null);
+  const opened = onClose !== undefined && !direct;
+  // A question with details shows Details on its closed row, its answers only in its sheet under
+  // the details. A computer too old to send `details` keeps today's row.
+  const details = !opened && isTrue(row, 'details') && onShow !== undefined ? onShow : null;
   // In the sheet, whatever a row's buttons send closes it first.
   const dispatch: RustChat['dispatch'] =
     onClose === undefined
@@ -745,6 +751,8 @@ function DockRow({
           pills={pills}
           logos={logos}
           logosWidth={logosWidth}
+          openLabel={str(row, 'openLabel') === 'Answer' ? 'Answer' : 'Open'}
+          details={details}
         />
       </View>
     ) : logos !== null ? (
@@ -757,9 +765,9 @@ function DockRow({
     <View>
       <Pressable
         accessibilityRole="button"
-        accessibilityHint={page || opened ? undefined : 'Shows the whole ask'}
+        accessibilityHint={direct || opened ? undefined : 'Shows the whole ask'}
         disabled={opened}
-        onPress={page ? () => dispatch(row.open as never) : onShow}
+        onPress={direct ? () => dispatch(row.open as never) : onShow}
         onLongPress={menuRows.length > 0 ? () => setMenu(true) : undefined}
         style={({ pressed }) => [
           styles.dockPress,
@@ -778,7 +786,7 @@ function DockRow({
             )}
           </View>
           <View style={styles.dockMain}>
-            {page && count.length > 0 ? (
+            {direct && count.length > 0 ? (
               <View style={styles.pageTitle}>
                 <Text numberOfLines={1} style={[styles.dockTitle, styles.pageName, { color: body }]}>
                   {str(row, 'title')}

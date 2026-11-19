@@ -819,7 +819,27 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
                         <View style={[styles.chips, expanded && styles.chipsOpen]}>
                           {relayed !== null ? (
                             <BoardRelayButtons card={relayed} dispatch={chat.dispatch} />
-                          ) : answers.length > 0 && expanded ? null : answers.length > 0 ? (
+                          ) : answers.length > 0 && expanded ? null : answers.length > 0 &&
+                            description.length > 0 &&
+                            toggle !== null ? (
+                            // An ask with details shows Details and Reply on its closed card; its
+                            // answers wait under the details once it opens (gx-chat-core
+                            // `details_fields`).
+                            <WorkAnswerLine
+                              answers={answerRecords}
+                              reply={reply}
+                              replied={str(row, 'replied')}
+                              busy={false}
+                              divider={false}
+                              room={-80}
+                              scope={scope}
+                              dispatch={chat.dispatch as never}
+                              details={() => {
+                                setMenuFor(null);
+                                chat.dispatch(asJson(toggle) as unknown as UserAction);
+                              }}
+                            />
+                          ) : answers.length > 0 ? (
                             <>
                               {/* A Work panel ask names the work it belongs to before its answers (gx-chat-core work_panel.rs). */}
                               <ClosedAnswers

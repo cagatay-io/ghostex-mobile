@@ -440,6 +440,8 @@ export function WorkAnswerLine({
   pills = [],
   logos,
   logosWidth = 0,
+  openLabel = 'Open',
+  details = null,
 }: {
   answers: JsonRecord[];
   reply: JsonRecord | null;
@@ -463,6 +465,11 @@ export function WorkAnswerLine({
   /** An opened row's threads as their logos, after the item pills at the line's left, and their width. */
   logos?: ReactNode;
   logosWidth?: number;
+  /** What a form's or page's button says: Answer while it asks something (gx-chat-core `openLabel`). */
+  openLabel?: string;
+  /** A closed row whose question has details: Details (which shows them, with the answers under
+   * them) and Reply in the answers' place (gx-chat-core `details_fields`). */
+  details?: (() => void) | null;
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
@@ -504,11 +511,19 @@ export function WorkAnswerLine({
       />
     ) : null;
   const pillRoom = pillWidths(pills, fontScale);
+  if (details != null) {
+    return (
+      <View style={styles.line}>
+        <WorkButton keep label="Details" icon="note" onPress={details} />
+        {replyButton}
+      </View>
+    );
+  }
   if (answers.length === 0) {
     // A form or page offers Reply after its Open (gx-chat-core `questionsReply`).
     const alone =
       open != null
-        ? buttonWidth('Open', true, false, fontScale) +
+        ? buttonWidth(openLabel, true, false, fontScale) +
           (replyButton !== null ? 6 + replyWidthOf(replied, fontScale) : 0)
         : replyWidthOf(replied, fontScale);
     const lead = (
@@ -526,7 +541,7 @@ export function WorkAnswerLine({
       return (
         <View style={styles.line}>
           {lead}
-          <WorkButton keep label="Open" icon="external-link" onPress={() => dispatch(open as never)} />
+          <WorkButton keep label={openLabel} icon="external-link" onPress={() => dispatch(open as never)} />
           {replyButton}
         </View>
       );
