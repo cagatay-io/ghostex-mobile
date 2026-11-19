@@ -8,7 +8,7 @@
  * the composer draft. The field is cleared when its card closes.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 
 import type { ChatDocument } from '../../rust/document';
@@ -62,17 +62,9 @@ function SecretRequestCard({ chat, card }: { chat: RustChat; card: JsonRecord })
   useEffect(() => {
     if (!open) setSecret('');
   }, [open]);
-  // Dictate types into this field while it has the keyboard (`SecretField` in composer/dictationTarget.ts).
+  // Dictate does not start while this field has the keyboard (`SecretField` in composer/dictationTarget.ts).
   const targets = useOptionalNativeChatUi()?.dictationTargets ?? null;
-  const takesWords = useRef(false);
-  takesWords.current = open && !busy;
-  const field = useMemo<SecretField>(
-    () => ({
-      insert: (words) => setSecret((current) => (current.length === 0 ? words : `${current} ${words}`)),
-      open: () => takesWords.current,
-    }),
-    [],
-  );
+  const field = useMemo<SecretField>(() => ({}), []);
   useEffect(() => () => targets?.setSecretFocused(field, false), [targets, field]);
   if (!open) {
     return <ToneCard tone="approval" icon="lock" title={str(card, 'label')} detail={str(card, 'closedLabel')} />;

@@ -292,14 +292,6 @@ export function useDictation(
         void forgetRecording(id);
         return;
       }
-      // A secret card's field the recording started in takes the words here, never through the core
-      // (`SecretField` in dictationTarget.ts); a card that closed meanwhile drops them.
-      const secret = targets?.secretTarget() ?? null;
-      if (secret !== null) {
-        if (secret.open()) secret.insert(words);
-        if (id.length > 0) void forgetRecording(id);
-        return;
-      }
       // The question form box the recording started in; the core checks that it still takes text.
       // The host adds the chat box as it is now, which takes the words when the form box does not.
       const box = targets?.target() ?? null;
@@ -442,6 +434,15 @@ export function useDictation(
 
   const start = useCallback(async () => {
     if (machine === null) return;
+    // Not while a private secret card's field has the keyboard (`SecretField` in dictationTarget.ts).
+    if (targets?.secretFocused()) {
+      setNotice({
+        code: 'secretCard',
+        message: 'Dictate is off while you type in a private card. Type or paste the secret instead.',
+      });
+      setPhase('notice');
+      return;
+    }
     const current = { cancelled: false, serverId: null };
     run.current = current;
     // Decided now, at the press: a box touched while it records does not move the words, and they

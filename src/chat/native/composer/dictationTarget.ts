@@ -77,22 +77,22 @@ export type Shown = { text: string; start: number; end: number };
 const keyOf = (box: DictationBox): string => `${box.form}:${box.slot}`;
 
 /**
- * A private secret card's field (`cards/SecretRequestCard.tsx`): Dictate's words are typed into it on the phone, never
- * sent through the core, whose document must not hold a secret (CDXC:Secrets 2026-11-02 there).
+ * A private secret card's field (`cards/SecretRequestCard.tsx`), which reports when it has the keyboard: Dictate does
+ * not start then (`useDictation.ts`).
  *
  * CDXC:Secrets 2026-11-19 WHY:
  * Dictate typed into the chat box even when the caret was in a card's field, so words meant for the card were posted to
- * the chat. They now go into the field that had the keyboard when the recording started, and are dropped if that card
- * closed meanwhile rather than falling back to the chat box. Desktop: `focused_secret_dictation` in
+ * the chat. Typing them into the card instead still left a plain copy: gxserver keeps every dictation's audio and words
+ * in Dictation history, and the words are transcribed by an outside service. So the microphone does nothing while a
+ * card's field has the keyboard; the secret is typed or pasted. Desktop: `secret_field_focused` in
  * `apps/desktop/src/app/native_chat/secret_request.rs`.
  */
-export type SecretField = { insert(words: string): void; open(): boolean };
+export type SecretField = object;
 
 export class DictationTargets {
   private focused: { box: DictationBox; copy: DrawnBox } | null = null;
   private aimed: DictationBox | null = null;
   private focusedSecret: SecretField | null = null;
-  private aimedSecret: SecretField | null = null;
   /** The aimed box as its focused copy showed it when the recording started (`placeIn`). */
   private anchor: Shown | null = null;
   private readonly drawn = new Map<string, Set<DrawnBox>>();
@@ -124,22 +124,20 @@ export class DictationTargets {
     else if (this.focusedSecret === field) this.focusedSecret = null;
   }
 
-  /** A recording starts: its words go to the box that has the keyboard now, or to the chat box. */
-  aimAtFocused(): void {
-    this.aimedSecret = this.focusedSecret;
-    this.anchor = this.aimedSecret !== null ? null : (this.focused?.copy.shown() ?? null);
-    this.aim(this.aimedSecret !== null ? null : (this.focused?.box ?? null));
+  /** Whether a secret card's field has the keyboard: Dictate does not start then. */
+  secretFocused(): boolean {
+    return this.focusedSecret !== null;
   }
 
-  /** The secret card's field the running dictation types into, or null. */
-  secretTarget(): SecretField | null {
-    return this.aimedSecret;
+  /** A recording starts: its words go to the box that has the keyboard now, or to the chat box. */
+  aimAtFocused(): void {
+    this.anchor = this.focused?.copy.shown() ?? null;
+    this.aim(this.focused?.box ?? null);
   }
 
   /** The run is over, or its words come later: the chat box takes what still arrives. */
   release(): void {
     this.anchor = null;
-    this.aimedSecret = null;
     this.aim(null);
   }
 

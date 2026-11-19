@@ -11,34 +11,40 @@
  */
 
 /**
- * Known key and token prefixes: the shortest body that follows each in a real key, and whether that body may hold `-`
- * and `_` (`npm_` and `hf_` bodies are letters and digits only, so `npm_package_…` variables are not keys).
+ * Known key and token prefixes: the shortest body, whether it may hold `-` and `_` (`npm_` and `hf_` bodies are letters
+ * and digits only, so `npm_package_…` variables are not keys), and whether ordinary words can follow the prefix
+ * (`sk-learn-…`), so a body made of words is not a key. A prefix only keys carry skips that test: a random body
+ * sometimes looks word-shaped, and about one key in ten was missed with it. `gxs_`, `gxo_` and `gxd_` are Ghostex's own
+ * tokens (32 random bytes in URL-safe base64).
  */
-const PREFIXES: ReadonlyArray<readonly [string, number, boolean]> = [
-  ['sk-ant-', 20, true],
-  ['sk-', 20, true],
-  ['sk_live_', 16, true],
-  ['sk_test_', 16, true],
-  ['rk_live_', 16, true],
-  ['lin_api_', 20, true],
-  ['lin_oauth_', 20, true],
-  ['ghp_', 20, true],
-  ['gho_', 20, true],
-  ['ghu_', 20, true],
-  ['ghs_', 20, true],
-  ['ghr_', 20, true],
-  ['github_pat_', 20, true],
-  ['glpat-', 16, true],
-  ['xoxb-', 10, true],
-  ['xoxp-', 10, true],
-  ['xoxa-', 10, true],
-  ['xoxr-', 10, true],
-  ['xoxs-', 10, true],
-  ['xapp-', 10, true],
-  ['npm_', 30, false],
-  ['hf_', 30, false],
-  ['AIza', 30, true],
-  ['gxs_', 20, true],
+const PREFIXES: ReadonlyArray<readonly [prefix: string, body: number, separators: boolean, words: boolean]> = [
+  ['sk-ant-', 20, true, false],
+  ['sk-proj-', 20, true, false],
+  ['sk-', 20, true, true],
+  ['sk_live_', 16, true, false],
+  ['sk_test_', 16, true, false],
+  ['rk_live_', 16, true, false],
+  ['lin_api_', 20, true, false],
+  ['lin_oauth_', 20, true, false],
+  ['ghp_', 20, true, false],
+  ['gho_', 20, true, false],
+  ['ghu_', 20, true, false],
+  ['ghs_', 20, true, false],
+  ['ghr_', 20, true, false],
+  ['github_pat_', 20, true, false],
+  ['glpat-', 16, true, false],
+  ['xoxb-', 10, true, false],
+  ['xoxp-', 10, true, false],
+  ['xoxa-', 10, true, false],
+  ['xoxr-', 10, true, false],
+  ['xoxs-', 10, true, false],
+  ['xapp-', 10, true, false],
+  ['npm_', 30, false, true],
+  ['hf_', 30, false, false],
+  ['AIza', 30, true, false],
+  ['gxs_', 20, true, false],
+  ['gxo_', 20, true, false],
+  ['gxd_', 20, true, false],
 ];
 
 export function looksLikeSecret(text: string): boolean {
@@ -55,11 +61,11 @@ function tokens(text: string): string[] {
 }
 
 function knownPrefix(token: string): boolean {
-  return PREFIXES.some(([prefix, body, separators]) => {
+  return PREFIXES.some(([prefix, body, separators, words]) => {
     if (!token.startsWith(prefix)) return false;
     const rest = token.slice(prefix.length);
     const run = (separators ? /^[A-Za-z0-9_-]*/ : /^[A-Za-z0-9]*/).exec(rest)?.[0] ?? '';
-    return run.length >= body && mixed(run) && !wordShaped(run);
+    return run.length >= body && mixed(run) && !(words && wordShaped(run));
   });
 }
 
@@ -94,7 +100,7 @@ function randomToken(raw: string): boolean {
   return (
     count(/[A-Z]/g) >= 2 &&
     count(/[a-z]/g) >= 2 &&
-    count(/[0-9]/g) >= 2 &&
+    count(/[0-9]/g) >= 1 &&
     longestRun >= 24 &&
     entropy(token) >= 4.0 &&
     !wordShaped(token)
@@ -102,7 +108,7 @@ function randomToken(raw: string): boolean {
 }
 
 /**
- * Whether at least half of `token`'s letters and digits sit in words: runs of three or more letters written as a word
+ * Whether at least half of `token`'s letters and digits sit in words: runs of four or more letters written as a word
  * is (`some`, `Branch`), split where camelCase starts a new word.
  */
 function wordShaped(token: string): boolean {
@@ -110,9 +116,17 @@ function wordShaped(token: string): boolean {
   if (alphanumeric === 0) return false;
   let inWords = 0;
   for (const run of token.split(/[^A-Za-z]/)) {
-    for (const word of camelWords(run)) if (word.length >= 3 && /^[A-Za-z][a-z]*$/.test(word)) inWords += word.length;
+    for (const word of camelWords(run)) if (word.length >= 4 && wordCased(word)) inWords += word.length;
   }
   return inWords * 2 >= alphanumeric;
+}
+
+/**
+ * Written as a word is: all lower case, or one capital and then lower case; and pronounceable, with a vowel and no four
+ * consonants in a row, which a run of random letters often is not.
+ */
+function wordCased(word: string): boolean {
+  return /^[A-Za-z][a-z]*$/.test(word) && /[aeiouy]/i.test(word) && !/[^aeiouy]{4}/i.test(word);
 }
 
 /**
