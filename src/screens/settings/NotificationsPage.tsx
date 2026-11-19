@@ -39,6 +39,7 @@ import { readableSecondaryText } from '../../theme/sidebarAppearance';
 import { useAppearance } from '../../theme/useAppearance';
 import {
   Caption,
+  NoticeCard,
   SectionHeader,
   SegmentedRow,
   SettingsScreenLayout,
@@ -113,9 +114,8 @@ function TestNotification({ settings }: { settings: NotificationSettings }) {
           <Text style={styles.rowLabel}>{NotificationChoicesCopy.test}</Text>
         </Pressable>
       </SettingsSearchAnchor>
-      {outcome !== null ? (
-        <Caption>{outcome === 'sent' ? NotificationChoicesCopy.testSent : NotificationChoicesCopy.testFailed}</Caption>
-      ) : null}
+      {outcome === 'sent' ? <Caption>{NotificationChoicesCopy.testSent}</Caption> : null}
+      {outcome !== null && outcome !== 'sent' ? <NoticeCard title={NotificationChoicesCopy.testFailed} /> : null}
     </>
   );
 }

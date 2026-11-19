@@ -46,6 +46,7 @@ import { voiceAgentOnIn } from '../../voice/featureSwitch';
 import { SettingsSection } from './SectionBoundary';
 import {
   Caption,
+  NoticeCard,
   ChoiceRow,
   LinkRow,
   SectionHeader,
@@ -176,10 +177,11 @@ function DictateSection({ machine }: { machine: MachineRecord }) {
           <Caption>{`Ghostex on ${name} is too old to change Dictate from the phone. Update Ghostex on that computer.`}</Caption>
         ) : null}
         {status === 'failed' ? (
-          <>
-            <Caption>{`Couldn't read Dictate's settings from ${name}: ${problem ?? 'no answer'}`}</Caption>
-            <LinkRow title="Try again" onPress={() => void loadDictate(machine)} />
-          </>
+          <NoticeCard
+            title="Couldn't read Dictate's settings"
+            detail={`${name}: ${problem ?? 'no answer'}`}
+            actions={[{ label: 'Try again', onPress: () => void loadDictate(machine) }]}
+          />
         ) : null}
       </SettingsSection>
     );
@@ -208,7 +210,7 @@ function DictateSection({ machine }: { machine: MachineRecord }) {
           onPress={() => navigation.navigate('SettingsPage', { page: 'dictateLanguage' })}
         />
       )}
-      {problem !== null ? <Caption>{problem}</Caption> : null}
+      {problem !== null ? <NoticeCard title="Couldn't change Dictate" detail={problem} /> : null}
     </SettingsSection>
   );
 }
@@ -262,7 +264,7 @@ function HexBlock({ machine }: { machine: MachineRecord }) {
       {!installing ? (
         <LinkRow title="Check again" description={`Asks Hex on ${name} again.`} onPress={() => void loadDictate(machine, true)} />
       ) : null}
-      {failed ? <Caption>{`Hex wasn't installed: ${failed}`}</Caption> : null}
+      {failed ? <NoticeCard title="Hex wasn't installed" detail={failed} /> : null}
     </>
   );
 }
@@ -351,7 +353,7 @@ function CallModeSection({ machine }: { machine: MachineRecord }) {
           <Caption>{voiceCallModeNote(callModeSwitchesLive(machine.id))}</Caption>
           <Caption>The voice agent keeps its own provider (OpenAI or xAI), set on the computer; Dictate's engine never changes it.</Caption>
           {mode === null && problem === null ? <Caption>Reading the setting from your computer…</Caption> : null}
-          {problem !== null ? <Caption>{problem}</Caption> : null}
+          {problem !== null ? <NoticeCard title="Couldn't change the setting" detail={problem} /> : null}
         </>
       )}
     </SettingsSection>

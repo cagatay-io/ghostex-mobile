@@ -31,7 +31,7 @@ import type { RootStackParamList } from '../../navigation/types';
 import { GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
 import { useAppearance, type Appearance } from '../../theme/useAppearance';
 import { SettingsColumnsFrame } from './SettingsColumns';
-import { Caption, SettingsScreenLayout } from './SettingsControls';
+import { Caption, NoticeCard, SettingsScreenLayout } from './SettingsControls';
 
 /** As long as the Logs sheet shows "Copied" and "Couldn't export". */
 const COPIED_MS = 2000;
@@ -97,7 +97,7 @@ export default function CrashReportScreen({
   if (report === undefined) {
     return (
       <SettingsColumnsFrame title={Copy.title}>
-        <SettingsScreenLayout>{status === 'failed' ? <Caption>{Copy.readFailed}</Caption> : null}</SettingsScreenLayout>
+        <SettingsScreenLayout>{status === 'failed' ? <NoticeCard title={Copy.readFailed} /> : null}</SettingsScreenLayout>
       </SettingsColumnsFrame>
     );
   }

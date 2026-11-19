@@ -28,6 +28,7 @@ import { useAppearance } from '../../theme/useAppearance';
 import { SettingsSection } from './SectionBoundary';
 import {
   Caption,
+  NoticeCard,
   ChoiceRow,
   LinkRow,
   SectionHeader,
@@ -214,7 +215,7 @@ export default function CollabPage() {
         </SettingsSection>
       ) : null}
       {waiting !== null ? <Caption>{`Approve on your computer or this phone: ${waiting}.`}</Caption> : null}
-      {error !== null ? <Caption>{error}</Caption> : null}
+      {error !== null ? <NoticeCard title="Collab didn't go through" detail={error} /> : null}
       {view?.guestPage?.message ? <Caption>{view.guestPage.message}</Caption> : null}
       {view === null ? (
         error === null ? (

@@ -23,7 +23,7 @@ import { chatMachineLink } from '../../chat/rust/machine-link';
 import { isDemoMachine } from '../../demo/identity';
 import { isMachineEnabled, machineDisplayLabel, useMachinesStore, type MachineRecord } from '../../machines/store';
 import { useAppearance } from '../../theme/useAppearance';
-import { Caption, LinkRow, SectionHeader, SegmentedRow, ToggleRow, useSettingsStyles } from './SettingsControls';
+import { Caption, LinkRow, NoticeCard, SectionHeader, SegmentedRow, ToggleRow, useSettingsStyles } from './SettingsControls';
 import { SettingsSearchAnchor } from './search/SettingsSearchAnchor';
 
 const CALL_TIMEOUT_MS = 15_000;
@@ -184,7 +184,7 @@ export function ClaudeCompactionRows() {
             value={loaded.values.claudeOneHourPromptCache}
             onValueChange={(next) => change({ claudeOneHourPromptCache: next })}
           />
-          {saveError !== null ? <Caption>{saveError}</Caption> : null}
+          {saveError !== null ? <NoticeCard title="Couldn't save the setting" detail={saveError} /> : null}
           <Caption>
             Claude Code compacts a long chat that has been idle for about 54 minutes, just before its 1-hour prompt cache
             expires, so your next message doesn't re-read the whole chat uncached. It runs only on a 1-hour cache, which a

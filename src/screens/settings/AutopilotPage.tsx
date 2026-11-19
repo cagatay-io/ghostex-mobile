@@ -18,6 +18,7 @@ import { useAppearance } from '../../theme/useAppearance';
 import { SettingsSection } from './SectionBoundary';
 import {
   Caption,
+  NoticeCard,
   ChoiceRow,
   LinkRow,
   SectionHeader,
@@ -277,7 +278,7 @@ export default function AutopilotPage() {
           ))}
         </SettingsSection>
       ) : null}
-      {error !== null ? <Caption>{error}</Caption> : null}
+      {error !== null ? <NoticeCard title="Autopilot didn't go through" detail={error} /> : null}
       {view === null ? (
         error === null ? (
           <Caption>Reading Autopilot…</Caption>

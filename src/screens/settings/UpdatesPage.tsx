@@ -44,7 +44,7 @@ import {
   type UpdateDetails,
 } from '../../updates/overTheAir';
 import { SettingsSection } from './SectionBoundary';
-import { SectionHeader, SettingsScreenLayout, useSettingsStyles } from './SettingsControls';
+import { NoticeCard, SectionHeader, SettingsScreenLayout, useSettingsStyles } from './SettingsControls';
 import { SettingsSearchAnchor } from './search/SettingsSearchAnchor';
 
 const UpdatesCopy = {
@@ -64,8 +64,15 @@ const UpdatesCopy = {
     percent === null ? 'Downloading a newer update…' : `Downloading a newer update… ${percent}%`,
   ready: (details: UpdateDetails) => `${UpdatesCopy.update(details.createdAt)} is ready.`,
   restartButton: 'Restart to update',
-  updateError: (message: string | null) =>
-    message === null ? 'The last update check failed.' : `The last update check failed: ${message}`,
+  updateErrorTitle: "Couldn't check for updates",
+  updateErrorDetail: (message: string | null) => message ?? 'The update server did not answer.',
+  appErrorTitle: "Couldn't look for a newer app",
+  publishingTitle: (version: string) => `The Android app for ${version} is still being published.`,
+  publishingDetail: 'It shows up here, ready to install, as soon as it is published.',
+  downloadErrorTitle: "Couldn't download the app",
+  installErrorTitle: "Couldn't start the installer",
+  storeErrorTitle: "Couldn't open the store",
+  retry: 'Retry',
   newApp: (version: string) => `Ghostex ${version} needs a new app: its changes cannot arrive over the air.`,
   downloadButton: (version: string, size: number) => `Download and install Ghostex ${version} (${formatByteSize(size)})`,
   downloadingApp: (percent: number) => `Downloading… ${percent}%`,
@@ -108,7 +115,11 @@ function hasError(error: unknown): boolean {
   return error !== null && error !== undefined && error !== false;
 }
 
-/** The one plain line Check for updates leaves. */
+/**
+ * The one plain line Check for updates leaves. It says what was found, never a failure or its
+ * message: those are cards (the OTA card, the App card) and are said once there. A newer app still
+ * being published is the App card's note too, so it adds nothing here.
+ */
 function checkSummary(result: CheckForUpdatesResult): { text: string; tone: Tone } {
   const parts: string[] = [];
   let tone: Tone = 'muted';
@@ -118,38 +129,30 @@ function checkSummary(result: CheckForUpdatesResult): { text: string; tone: Tone
     tone = 'accent';
   } else if (overTheAir.kind === 'rollback') {
     parts.push('the app goes back to its built-in code at the next start');
-  } else if (overTheAir.kind === 'error') {
-    parts.push(`could not reach the update server (${overTheAir.message})`);
-    tone = 'error';
   } else if (overTheAir.kind === 'none') {
     parts.push('no newer update');
   }
   if (app.kind === 'newApp') {
     parts.push(`Ghostex ${app.version} needs a new app`);
-    if (tone !== 'error') tone = 'accent';
-  } else if (app.kind === 'error') {
-    parts.push(`could not look for a newer app (${app.message})`);
-    tone = 'error';
+    tone = 'accent';
   } else if (app.kind === 'none') {
     parts.push('no newer app');
   }
   const checked = `Checked ${formatRelativeTime(result.at)}`;
   if (parts.length === 0) return { text: `${checked}.`, tone };
   const allClear = tone === 'muted' && parts.every((part) => part.startsWith('no newer'));
-  if (allClear) return { text: `${checked}: you have the newest update and app.`, tone };
+  if (allClear && parts.length > 1) return { text: `${checked}: you have the newest update and app.`, tone };
   return { text: `${checked}: ${parts.join(', and ')}.`, tone };
 }
 
-type Tone = 'muted' | 'accent' | 'error';
+type Tone = 'muted' | 'accent';
 
 function StatusText({ text, tone }: { text: string; tone: Tone }) {
   const appearance = useAppearance();
   const color =
     tone === 'muted'
       ? appearance.muted
-      : readableSecondaryText(tone === 'accent' ? SetupPalette.ACCENT : SetupPalette.ERROR, appearance.foreground, [
-          appearance.background,
-        ]);
+      : readableSecondaryText(SetupPalette.ACCENT, appearance.foreground, [appearance.background]);
   return <Text style={[styles.status, { color }]}>{text}</Text>;
 }
 
@@ -160,7 +163,7 @@ function Line({ label, value, hint }: { label: string; value: string; hint?: str
   return (
     <View style={styles.line}>
       <View style={styles.lineRow}>
-        <Text style={settings.rowLabel}>{label}</Text>
+        <Text style={[settings.rowLabel, styles.lineLabel]}>{label}</Text>
         <Text selectable style={[settings.value, styles.lineValue]}>
           {value}
         </Text>
@@ -204,19 +207,17 @@ function downloadPercent(download: UpdateDownloadState): number {
   return Math.min(100, Math.floor((download.bytesWritten / download.totalBytes) * 100));
 }
 
-/** The newer app and its action, or the reason the last check failed. */
+/** The newer app and its action. What went wrong, or is still on its way, is `AppNotices`, below the card. */
 function NewAppActions() {
   const appearance = useAppearance();
   const source = useAppUpdateStore((state) => state.source);
   const check = useAppUpdateStore((state) => state.check);
   const download = useAppUpdateStore((state) => state.download);
-  const storeError = useAppUpdateStore((state) => state.storeError);
   const takeNewApp = useAppUpdateStore((state) => state.takeNewApp);
   const cancelDownload = useAppUpdateStore((state) => state.cancelDownload);
   const installUpdate = useAppUpdateStore((state) => state.installUpdate);
   const newApp = availableUpdate(check);
 
-  if (check.phase === 'error') return <StatusText text={check.message} tone="error" />;
   if (newApp === null) return null;
 
   if (source !== 'github') {
@@ -227,7 +228,6 @@ function NewAppActions() {
         {label !== null ? (
           <SetupButton variant="primary" label={label} accessibilityLabel={label} onPress={() => void takeNewApp()} />
         ) : null}
-        {storeError !== null ? <StatusText text={storeError} tone="error" /> : null}
       </View>
     );
   }
@@ -260,12 +260,46 @@ function NewAppActions() {
           onPress={() => void takeNewApp()}
         />
       ) : null}
-      {download.phase === 'error' ? <StatusText text={download.message} tone="error" /> : null}
-      {download.phase === 'ready' && download.installError !== null ? (
-        <StatusText text={download.installError} tone="error" />
-      ) : null}
       <Text style={[styles.status, { color: appearance.muted }]}>{UpdatesCopy.installHint}</Text>
     </View>
+  );
+}
+
+/** Each thing the app side has to say besides the newer app itself, as one card each, once. */
+function AppNotices() {
+  const check = useAppUpdateStore((state) => state.check);
+  const download = useAppUpdateStore((state) => state.download);
+  const storeError = useAppUpdateStore((state) => state.storeError);
+  const checkForUpdates = useAppUpdateStore((state) => state.checkForUpdates);
+  const takeNewApp = useAppUpdateStore((state) => state.takeNewApp);
+  return (
+    <>
+      {check.phase === 'publishing' ? (
+        <NoticeCard
+          tone="info"
+          title={UpdatesCopy.publishingTitle(check.version)}
+          detail={UpdatesCopy.publishingDetail}
+        />
+      ) : null}
+      {check.phase === 'error' ? (
+        <NoticeCard
+          title={UpdatesCopy.appErrorTitle}
+          detail={check.message}
+          actions={[{ label: UpdatesCopy.retry, onPress: () => void checkForUpdates() }]}
+        />
+      ) : null}
+      {download.phase === 'error' ? (
+        <NoticeCard
+          title={UpdatesCopy.downloadErrorTitle}
+          detail={download.message}
+          actions={[{ label: UpdatesCopy.retry, onPress: () => void takeNewApp() }]}
+        />
+      ) : null}
+      {download.phase === 'ready' && download.installError !== null ? (
+        <NoticeCard title={UpdatesCopy.installErrorTitle} detail={download.installError} />
+      ) : null}
+      {storeError !== null ? <NoticeCard title={UpdatesCopy.storeErrorTitle} detail={storeError} /> : null}
+    </>
   );
 }
 
@@ -281,6 +315,7 @@ function AppSection() {
         <Line label={UpdatesCopy.sourceLabel} value={InstallSourceCopy[source]} />
         {checksForNewApp(source) ? <NewAppActions /> : null}
       </Card>
+      {checksForNewApp(source) ? <AppNotices /> : null}
     </>
   );
 }
@@ -296,6 +331,9 @@ function OverTheAirSection() {
   const commits = commitsText(running.details);
   const error = hasError(downloadError) ? downloadError : checkError;
   const percent = typeof downloadProgress === 'number' ? Math.round(downloadProgress * 100) : null;
+  // What Check for updates just heard from the update server, when expo-updates kept no error of its own.
+  const checked = useAppUpdateStore((state) => state.manualCheck.result);
+  const checkedProblem = checked?.overTheAir.kind === 'error' ? checked.overTheAir.message : null;
 
   return (
     <>
@@ -331,8 +369,11 @@ function OverTheAirSection() {
         </Card>
       ) : isDownloading ? (
         <StatusText text={UpdatesCopy.downloading(percent)} tone="muted" />
-      ) : hasError(error) ? (
-        <StatusText text={UpdatesCopy.updateError(errorText(error))} tone="error" />
+      ) : hasError(error) || checkedProblem !== null ? (
+        <NoticeCard
+          title={UpdatesCopy.updateErrorTitle}
+          detail={UpdatesCopy.updateErrorDetail(errorText(error) ?? checkedProblem)}
+        />
       ) : null}
     </>
   );
@@ -400,8 +441,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
+  /** The label keeps its own width: a long value shrinks and wraps beside it, it never squeezes the label to nothing. */
+  lineLabel: {
+    flex: 0,
+    flexShrink: 0,
+  },
   lineValue: {
-    flexShrink: 1,
+    flex: 1,
     textAlign: 'right',
   },
   hint: {

@@ -8,7 +8,7 @@ import { useNavigation } from '@react-navigation/native';
 
 import { changeDictate, useDictateStore } from '../../voice/dictateSettings';
 import { SettingsSection } from './SectionBoundary';
-import { Caption, ChoiceRow, SectionHeader, SettingsScreenLayout } from './SettingsControls';
+import { Caption, ChoiceRow, NoticeCard, SectionHeader, SettingsScreenLayout } from './SettingsControls';
 import { computerName, useVoiceComputer } from './voiceComputer';
 
 export default function DictateLanguagePage() {
@@ -36,7 +36,7 @@ export default function DictateLanguagePage() {
     <SettingsScreenLayout>
       <SettingsSection name="settings:dictateLanguage:list">
         <SectionHeader title={`Dictate on ${computerName(machine)}`} />
-        {problem !== null ? <Caption>{problem}</Caption> : null}
+        {problem !== null ? <NoticeCard title="Couldn't change the language" detail={problem} /> : null}
         {overview.languages.map((language) => (
           <ChoiceRow
             key={language.code}

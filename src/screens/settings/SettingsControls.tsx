@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Glyph } from '../../chat/native/cards/icons';
 import { SwitchRow } from '../../components/common/SwitchRow';
 import SteppedSlider from '../../components/common/SteppedSlider';
 import { FoldListFrame } from '../../components/common/foldGap';
@@ -343,6 +344,85 @@ export function Caption({ children }: { children: ReactNode }) {
   const styles = useSettingsStyles();
   return <Text style={styles.caption}>{children}</Text>;
 }
+
+export type NoticeAction = { label: string; onPress: () => void };
+
+/**
+ * The one place a Settings page says something went wrong, or that something is still on its way: a
+ * calm card in the page's own card style (themed fill and hairline, no tinted wall): an icon (only the
+ * icon carries the red), a one-line title, a short detail, and the action where there is one (Retry,
+ * Copy details). `tone="info"` is for what is expected and not a failure. Say a message once: a page
+ * does not repeat it in a second card or a status line.
+ *
+ * CDXC:Settings 2026-11-19 DECISION: User (phone Updates page): "don't repeat the error here and make
+ * errors here and in settings pages appear in nice cards". Errors on Settings pages are this card, not loose red or
+ * grey text.
+ */
+export function NoticeCard({
+  tone = 'error',
+  title,
+  detail,
+  actions,
+}: {
+  tone?: 'error' | 'info';
+  title: string;
+  detail?: string;
+  actions?: NoticeAction[];
+}) {
+  const styles = useSettingsStyles();
+  const appearance = useAppearance();
+  const iconColor = tone === 'error' ? appearance.danger : appearance.accent;
+  return (
+    <View accessibilityRole={tone === 'error' ? 'alert' : undefined} style={[styles.card, noticeStyles.card]}>
+      <View style={noticeStyles.head}>
+        <View style={noticeStyles.icon}>
+          <Glyph name={tone === 'error' ? 'alert-circle' : 'info-circle'} size={20} color={iconColor} />
+        </View>
+        <View style={noticeStyles.text}>
+          <Text style={styles.linkTitle}>{title}</Text>
+          {detail !== undefined && detail.length > 0 ? (
+            <Text selectable style={[styles.linkDescription, noticeStyles.detail]}>
+              {detail}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+      {actions !== undefined && actions.length > 0 ? (
+        <View style={noticeStyles.actions}>
+          {actions.map((action) => (
+            <Pressable
+              key={action.label}
+              accessibilityRole="button"
+              accessibilityLabel={action.label}
+              style={({ pressed }) => [
+                noticeStyles.button,
+                { backgroundColor: pressed ? appearance.neutralFillPressed : appearance.neutralFill },
+              ]}
+              onPress={action.onPress}
+            >
+              <Text style={styles.cardLabel}>{action.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+const noticeStyles = StyleSheet.create({
+  card: { gap: 10 },
+  head: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  icon: { width: 20, height: 22, justifyContent: 'center', alignItems: 'center' },
+  text: { flex: 1, gap: 3 },
+  detail: { lineHeight: 17 },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  button: {
+    minHeight: 36,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    borderRadius: GhostexRadii.row,
+  },
+});
 
 export function ToggleRow({
   label,

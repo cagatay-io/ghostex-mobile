@@ -22,7 +22,7 @@ import { chatMachineLink } from '../../chat/rust/machine-link';
 import { isDemoMachine } from '../../demo/identity';
 import { isMachineEnabled, machineDisplayLabel, useMachinesStore, type MachineRecord } from '../../machines/store';
 import { useAppearance } from '../../theme/useAppearance';
-import { Caption, LinkRow, SectionHeader, ToggleRow, useSettingsStyles } from './SettingsControls';
+import { Caption, LinkRow, NoticeCard, SectionHeader, ToggleRow, useSettingsStyles } from './SettingsControls';
 import { SettingsSearchAnchor } from './search/SettingsSearchAnchor';
 
 const CALL_TIMEOUT_MS = 15_000;
@@ -152,7 +152,7 @@ export function MemoryGuardRows() {
               </Caption>
             </>
           ) : null}
-          {saveError !== null ? <Caption>{saveError}</Caption> : null}
+          {saveError !== null ? <NoticeCard title="Couldn't save the setting" detail={saveError} /> : null}
         </>
       ) : null}
     </>

@@ -40,6 +40,8 @@ export type UpdateCheckState =
   | { phase: 'idle' }
   | { phase: 'checking' }
   | { phase: 'checked'; newApp: NewApp | null; checkedAt: number }
+  /** A newer app that needs installing exists, but its Android APK is not on the release yet: information, not a failure. */
+  | { phase: 'publishing'; version: string; checkedAt: number }
   | { phase: 'error'; message: string; checkedAt: number };
 
 export type UpdateDownloadState =
@@ -52,7 +54,12 @@ export type UpdateDownloadState =
 export type CheckForUpdatesResult = {
   at: number;
   overTheAir: OverTheAirCheckOutcome;
-  app: { kind: 'off' } | { kind: 'none' } | { kind: 'newApp'; version: string } | { kind: 'error'; message: string };
+  app:
+    | { kind: 'off' }
+    | { kind: 'none' }
+    | { kind: 'newApp'; version: string }
+    | { kind: 'publishing'; version: string }
+    | { kind: 'error'; message: string };
 };
 
 type AppUpdateState = {
@@ -94,19 +101,22 @@ async function newestApp(source: InstallSource): Promise<NewApp | null> {
     return version === null ? null : { version, apk: null };
   }
   const latest = await fetchLatestRelease();
-  if (source === 'github' && latest.apk === null) {
-    throw new Error(`Release ${latest.tag} has no Android app to download yet.`);
-  }
   return { version: latest.version, apk: source === 'github' ? latest.apk : null };
 }
 
-/** The newer app this install should take, or null when there is none or it arrives over the air. */
-async function findNewApp(source: InstallSource): Promise<NewApp | null> {
+/**
+ * The newer app this install should take, or null when there is none or it arrives over the air.
+ * `publishing` is the version of a newer GitHub release whose APK is not attached yet (right after a
+ * release, while the APK builds): the page says so as information.
+ */
+async function findNewApp(source: InstallSource): Promise<{ newApp: NewApp | null; publishing: string | null }> {
   const newest = await newestApp(source);
-  if (newest === null || !isNewerVersion(newest.version, installedAppVersion())) return null;
+  if (newest === null || !isNewerVersion(newest.version, installedAppVersion())) return { newApp: null, publishing: null };
   const served = await overTheAirReleaseVersion();
   const arrivesOverTheAir = served !== null && !isNewerVersion(newest.version, served);
-  return arrivesOverTheAir ? null : newest;
+  if (arrivesOverTheAir) return { newApp: null, publishing: null };
+  if (source === 'github' && newest.apk === null) return { newApp: null, publishing: newest.version };
+  return { newApp: newest, publishing: null };
 }
 
 let checkInFlight: Promise<void> | null = null;
@@ -130,8 +140,14 @@ export const useAppUpdateStore = create<AppUpdateState>()((set, get) => ({
       set({ check: { phase: 'checking' } });
       const checkedAt = Date.now();
       try {
-        const newApp = await findNewApp(get().source);
-        set({ check: { phase: 'checked', newApp, checkedAt }, storeError: null });
+        const { newApp, publishing } = await findNewApp(get().source);
+        set({
+          check:
+            publishing === null
+              ? { phase: 'checked', newApp, checkedAt }
+              : { phase: 'publishing', version: publishing, checkedAt },
+          storeError: null,
+        });
         // A previously downloaded copy of this same release is still installable, so offer Install
         // directly instead of a second download.
         const { download } = get();
@@ -163,7 +179,9 @@ export const useAppUpdateStore = create<AppUpdateState>()((set, get) => ({
         ? { kind: 'error', message: check.message }
         : check.phase === 'checked' && check.newApp !== null
           ? { kind: 'newApp', version: check.newApp.version }
-          : { kind: 'none' };
+          : check.phase === 'publishing'
+            ? { kind: 'publishing', version: check.version }
+            : { kind: 'none' };
     set({ manualCheck: { running: false, result: { at: Date.now(), overTheAir, app } } });
   },
 

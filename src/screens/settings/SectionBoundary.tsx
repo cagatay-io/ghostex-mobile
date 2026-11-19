@@ -4,12 +4,10 @@
  */
 
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { View } from 'react-native';
 
 import ErrorBoundary from '../../components/common/ErrorBoundary';
-import { GhostexRadii } from '../../theme/palette';
-import { useAppearance } from '../../theme/useAppearance';
-import { useSettingsStyles } from './SettingsControls';
+import { NoticeCard, useSettingsStyles } from './SettingsControls';
 import { SettingsSearchSectionContext } from './search/SettingsSearchAnchor';
 
 export const SectionErrorCopy = {
@@ -19,37 +17,13 @@ export const SectionErrorCopy = {
   tryAgain: 'Try Again',
 } as const;
 
-const buttonStyles = StyleSheet.create({
-  button: {
-    alignSelf: 'flex-start',
-    minHeight: 36,
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-    borderRadius: GhostexRadii.row,
-  },
-});
-
 function SectionErrorCard({ retry }: { error: unknown; retry: () => void }) {
-  const styles = useSettingsStyles();
-  const appearance = useAppearance();
   return (
-    <View style={styles.card}>
-      <Text style={styles.cardLabel}>{SectionErrorCopy.title}</Text>
-      <Text style={styles.caption} numberOfLines={4}>
-        {SectionErrorCopy.detail}
-      </Text>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={SectionErrorCopy.tryAgain}
-        style={({ pressed }) => [
-          buttonStyles.button,
-          { backgroundColor: pressed ? appearance.neutralFillPressed : appearance.neutralFill },
-        ]}
-        onPress={retry}
-      >
-        <Text style={styles.cardLabel}>{SectionErrorCopy.tryAgain}</Text>
-      </Pressable>
-    </View>
+    <NoticeCard
+      title={SectionErrorCopy.title}
+      detail={SectionErrorCopy.detail}
+      actions={[{ label: SectionErrorCopy.tryAgain, onPress: retry }]}
+    />
   );
 }
 

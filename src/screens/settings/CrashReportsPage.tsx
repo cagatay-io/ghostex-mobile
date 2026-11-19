@@ -29,7 +29,7 @@ import {
   type CrashReportsDialog,
   type CrashReportsStep,
 } from './crashReportsFlow';
-import { Caption, LinkRow, SectionHeader, SettingsScreenLayout, ToggleRow } from './SettingsControls';
+import { Caption, LinkRow, NoticeCard, SectionHeader, SettingsScreenLayout, ToggleRow } from './SettingsControls';
 
 /** How long a failure note stays under the switch, as long as the Share button's "Couldn't share". */
 const FAILURE_NOTE_MS = 3000;
@@ -112,9 +112,9 @@ export default function CrashReportsPage() {
           <Caption>{Copy.keepCaption}</Caption>
         </>
       )}
-      {failed ? <Caption>{Copy.deleteAllFailed}</Caption> : null}
+      {failed ? <NoticeCard title="Couldn't delete every report" detail="The ones listed are still on this phone." /> : null}
       {status === 'failed' ? (
-        <Text style={styles.note}>{Copy.readFailed}</Text>
+        <NoticeCard title={Copy.readFailed} />
       ) : keptOff ? (
         <Text style={styles.note}>{Copy.keptOff}</Text>
       ) : status === 'ready' && reports.length === 0 ? (
