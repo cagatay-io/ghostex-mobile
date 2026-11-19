@@ -504,7 +504,8 @@ function dockCounts(
     }
     const count =
       group.id === 'needs'
-        ? rows.filter((row) => isTrue(row, 'needs')).length
+        ? // An opened page that waits only to be seen keeps its row but not its count (gx-chat-core `questions/later.rs` `seen_on_open`).
+          rows.filter((row) => isTrue(row, 'needs') && !isTrue(row, 'opened')).length
         : group.id === 'blocked'
           ? rows.filter((row) => str(row, 'status') === 'blocked').length
           : 0;
