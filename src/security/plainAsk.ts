@@ -12,6 +12,9 @@
  */
 import type { ApprovalRequest } from './approvalPayload';
 
+/** How gxserver ends a server link's summary (`SERVER_LINK_SUMMARY_TAIL` in plain_ask.rs). */
+export const SERVER_LINK_SUMMARY_TAIL = '" link its agents with this computer through Easy Connect';
+
 export type PlainAsk = {
   question: string;
   body: string | null;
@@ -35,6 +38,16 @@ export function plainAsk(request: ApprovalRequest, computer: string): PlainAsk |
             : `It can then use Ghostex on ${computer} from anywhere, and approve asks like this one.`,
           words,
           check: words.length > 0 ? 'Approve only if your phone shows the same words.' : null,
+        };
+      }
+      // A server link (GitHub #674): gxserver ends its summary with SERVER_LINK_SUMMARY_TAIL, after
+      // the computer's own quoted name, so a name can't make a plain pairing read as a link.
+      if (summary.endsWith(SERVER_LINK_SUMMARY_TAIL)) {
+        return {
+          question: `Let ${name} link its agents with ${computer}?`,
+          body: `Agents on ${name} can then start, message and read agents on ${computer}. It gets no sign-in to ${computer}.`,
+          words,
+          check: words.length > 0 ? `Approve only if ${name} shows the same words.` : null,
         };
       }
       return {

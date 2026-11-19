@@ -1140,6 +1140,27 @@ export const EditMachineCopy = {
       'This phone loses its access to this computer at once. To use it again, show a code on the computer and pair again.',
     removeFailed: "Couldn't remove the device",
   },
+  /** Paired computers: the server links a computer keeps (ServerLinksSection.tsx, the desktop's words). */
+  serverLinks: {
+    title: 'Paired computers',
+    footer: (computer: string) =>
+      `Computers linked with ${computer} as servers: their agents and ${computer}'s reach each other with no app open.`,
+    waiting: (name: string, words: string) => `Waiting for approval on ${name}. Words: ${words}`,
+    ended: (why: string | null) => `Not linked: ${why ?? 'it ended.'}`,
+    accessOff: 'Agent access is off: neither computer’s agents use the other.',
+    bothWays: 'Linked both ways: the agents on each can use the other.',
+    oneWay: 'Linked one way so far: waiting for it to link back.',
+    incomingOnly: 'Its agents can use this computer; it isn’t linked back yet.',
+    notLinked: 'Not linked.',
+    accessLabel: (name: string) => `Agent access with ${name}`,
+    accessFailed: "Couldn't change Agent access",
+    remove: 'Remove',
+    cancel: 'Cancel',
+    removeTitle: (name: string) => `Remove ${name}?`,
+    removeDetail: (name: string, computer: string) =>
+      `This ends the link on both computers: agents on ${name} and ${computer} can no longer use each other.`,
+    removeFailed: "Couldn't remove the link",
+  },
   easyConnect: {
     title: 'Easy Connect',
     /** "Paired as madda · Sep 3 · connected now" */

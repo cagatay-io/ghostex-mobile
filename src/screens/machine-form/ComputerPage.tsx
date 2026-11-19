@@ -41,6 +41,7 @@ import { useAppearance } from '../../theme/useAppearance';
 import { machineCardStatus, machineCardTitle } from '../machines-screen/machineCardModel';
 import { EasyConnectFallbackSwitch } from './EasyConnectFallbackSwitch';
 import PairedDevicesSection from './PairedDevicesSection';
+import ServerLinksSection from './ServerLinksSection';
 import LinkComputersSection from './LinkComputersSection';
 import { FormSection } from './SectionBoundary';
 import { useFormStyles } from './styles';
@@ -367,6 +368,10 @@ function ComputerPageBody({
             <PairedDevicesSection machine={machine} reachable={reachable} />
           </FormSection>
         ) : null}
+
+        <FormSection name="machine-form:server-links">
+          <ServerLinksSection machine={machine} reachable={reachable} />
+        </FormSection>
 
         <FormSection name="machine-form:link-computers">
           <LinkComputersSection machine={machine} name={name} />
