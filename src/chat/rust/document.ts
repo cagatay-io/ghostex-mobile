@@ -473,6 +473,11 @@ export type ProjectedMessage = {
   text?: string;
   /** What Copy copies. Desktop: `message_actions.rs`. */
   copyText?: string;
+  /** On a message the user wrote: its number in this chat (12 for M12), from gxserver (core
+   * `transcript/message_numbers.rs`). Absent before message IDs existed and from an older computer. */
+  messageNumber?: number;
+  /** The same message's ID written from anywhere, `G9jt7.M12`: what Copy message ID copies. */
+  messageRef?: string;
   /** A one-line slash command: the bubble draws it in monospace (core `is_slash_command_line`). */
   slashCommand?: boolean;
   /** Whether Rewind is offered on this row. Desktop: `message_actions.rs`, `rewind.rs`. */

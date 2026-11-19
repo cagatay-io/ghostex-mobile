@@ -65,7 +65,7 @@ export type TranscriptTheme = {
    * Reference colours in the transcript, by kind: `transcript` in `reference-visual.json`, the same
    * brighter set the GPUI transcript uses (see `presentations` in native_chat/markdown_links.rs).
    */
-  link: { url: string; file: string; folder: string; image: string; skill: string; comment: string };
+  link: { url: string; file: string; folder: string; image: string; skill: string; comment: string; message: string };
   alert: { note: string; tip: string; important: string; warning: string; caution: string };
   diff: { added: string; removed: string; addedRow: string; removedRow: string; rail: string; border: string };
   /** A pressed row. */
@@ -186,7 +186,7 @@ const DARK: ChatRoles = {
   error: '#ef9999',
   inlineCodeSurface: '#282828',
   inlineCodeBorder: 'rgba(252,252,252,0.18)',
-  link: { url: '#6cb4ff', file: '#9dbcf0', folder: '#e3c283', image: '#8ed8ab', skill: '#a3d9bd', comment: '#b4c3ef' },
+  link: { url: '#6cb4ff', file: '#9dbcf0', folder: '#e3c283', image: '#8ed8ab', skill: '#a3d9bd', comment: '#b4c3ef', message: '#7dd3fc' },
   alert: { note: '#51a2ff', tip: '#00d492', important: '#c27aff', warning: '#fe9a00', caution: '#ff6467' },
   diff: {
     added: '#94caaa',
@@ -256,7 +256,7 @@ const LIGHT: ChatRoles = {
   error: '#c53030',
   inlineCodeSurface: '#efefef',
   inlineCodeBorder: 'rgba(39,39,42,0.16)',
-  link: { url: '#1447e6', file: '#3f6aa8', folder: '#93631a', image: '#2a7d4c', skill: '#3d7458', comment: '#4b5c99' },
+  link: { url: '#1447e6', file: '#3f6aa8', folder: '#93631a', image: '#2a7d4c', skill: '#3d7458', comment: '#4b5c99', message: '#0369a1' },
   alert: { note: '#1447e6', tip: '#009966', important: '#9810fa', warning: '#e17100', caution: '#e7000b' },
   diff: {
     added: '#16803d',
@@ -397,7 +397,7 @@ export function transcriptThemeFor(settings: ThemeColourSettings, light: boolean
       muted: text(roles.muted), cardMuted: text(roles.cardMuted), error: text(roles.error),
       menuForeground: text(roles.menuForeground),
       placeholder: text(colorOver(roles.placeholder, surfaces.composerBackground)),
-      link: { url: text(roles.link.url), file: text(roles.link.file), folder: text(roles.link.folder), image: text(roles.link.image), skill: text(roles.link.skill), comment: text(roles.link.comment) },
+      link: { url: text(roles.link.url), file: text(roles.link.file), folder: text(roles.link.folder), image: text(roles.link.image), skill: text(roles.link.skill), comment: text(roles.link.comment), message: text(roles.link.message) },
       alert: { note: text(roles.alert.note), tip: text(roles.alert.tip), important: text(roles.alert.important), warning: text(roles.alert.warning), caution: text(roles.alert.caution) },
       diff: { ...roles.diff, added: text(roles.diff.added), removed: text(roles.diff.removed) },
       reference: Object.fromEntries(Object.entries(roles.reference).map(([key, value]) => [key, text(value)])),

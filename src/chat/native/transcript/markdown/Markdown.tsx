@@ -123,6 +123,7 @@ const REFERENCE_GLYPHS: { [kind: string]: GlyphName } = {
   skill: 'skill',
   url: 'link',
   comment: 'comment',
+  message: 'quote',
 };
 
 function linkColor(theme: TranscriptTheme, kind: string): string {

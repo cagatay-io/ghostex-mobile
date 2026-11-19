@@ -92,8 +92,9 @@ export type ActionFields = {
   suggestionRetry: {};
   suggestionDismiss: {};
   measureComposer: { measurements: Json };
-  /** Transcript selection menu: append the selection to the draft. */
-  appendToDraft: { text: string; draft: string };
+  /** Transcript selection menu: append the selection to the draft. `inline` (a message's Reference in chat) puts a pill
+   * after the words, a space apart; without `draft` the core uses the chat box's own text. */
+  appendToDraft: { text: string; draft?: string; inline?: boolean };
   /** The composer text changed (every keystroke). `history`/`preserveError` only from a replace. */
   editDraft: { text: string; draftVersion: DraftVersion; history?: boolean; preserveError?: boolean };
   /** Push the draft to gxserver (blur, replace). */

@@ -73,6 +73,8 @@ const KNOWN_GLYPHS = new Set<string>([
   'minimize',
   'settings',
   'copy',
+  'hash',
+  'quote',
   'star',
   'star-filled',
   'cloud',
