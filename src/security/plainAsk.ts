@@ -15,6 +15,9 @@ import type { ApprovalRequest } from './approvalPayload';
 /** How gxserver ends a server link's summary (`SERVER_LINK_SUMMARY_TAIL` in plain_ask.rs). */
 export const SERVER_LINK_SUMMARY_TAIL = '" link its agents with this computer through Easy Connect';
 
+/** How gxserver's detail names what this computer already calls the claimed server (`SERVER_LINK_KNOWN_AS`). */
+export const SERVER_LINK_KNOWN_AS = 'already knows the server it names as "';
+
 export type PlainAsk = {
   question: string;
   body: string | null;
@@ -43,9 +46,13 @@ export function plainAsk(request: ApprovalRequest, computer: string): PlainAsk |
       // A server link (GitHub #674): gxserver ends its summary with SERVER_LINK_SUMMARY_TAIL, after
       // the computer's own quoted name, so a name can't make a plain pairing read as a link.
       if (summary.endsWith(SERVER_LINK_SUMMARY_TAIL)) {
+        // What this computer already calls the server it claims to be (gxserver's detail).
+        const knownAt = request.detail?.indexOf(SERVER_LINK_KNOWN_AS) ?? -1;
+        const knownRest = knownAt >= 0 ? (request.detail ?? '').slice(knownAt + SERVER_LINK_KNOWN_AS.length) : '';
+        const known = knownRest.includes('"') ? knownRest.slice(0, knownRest.indexOf('"')).trim() : '';
         return {
           question: `Let ${name} link its agents with ${computer}?`,
-          body: `Agents on ${name} can then start, message and read agents on ${computer}. It gets no sign-in to ${computer}.`,
+          body: `Agents on ${name} can then start, message and read agents on ${computer}, and the two keep your synced settings the same. It gets no sign-in to ${computer}.${known ? ` Ghostex on ${computer} already knows that server as ${known}.` : ''}`,
           words,
           check: words.length > 0 ? `Approve only if ${name} shows the same words.` : null,
         };

@@ -152,6 +152,13 @@ async function ensureEnrolled(machine: MachineConnectionTarget, onWaiting: () =>
   return { keyId, serverId: status.serverId };
 }
 
+/**
+ * What this phone's cards word in their own way (`security/plainAsk.ts`): a server link's ask as a
+ * link (Ghostex GitHub #674). gxserver lets a link in only through an approval that says so; an
+ * older gxserver ignores the field.
+ */
+const UNDERSTANDS = ['serverLink'];
+
 /** Signs `request` after the system prompt and approves it on `machine`. */
 export async function approveRequest(
   machine: MachineConnectionTarget,
@@ -163,12 +170,12 @@ export async function approveRequest(
     // The computer's Face ID switch: the system prompt first (the approver key's own prompt, over a
     // payload nobody checks), then the same one-tap approval.
     if (mode.requirePresence) await approverKeySign(`ghostex-approve-check\n${request.id}`, request.summary);
-    const error = failed(await rpc(machine, 'approveApprovalRequest', { id: request.id }));
+    const error = failed(await rpc(machine, 'approveApprovalRequest', { id: request.id, understands: UNDERSTANDS }));
     if (error !== null) throw error;
     return;
   }
   const { keyId, serverId } = await ensureEnrolled(machine, onWaitingForComputer);
   const signature = await approverKeySign(approvalSigningPayload(serverId, request), request.summary);
-  const error = failed(await rpc(machine, 'approveApprovalRequest', { id: request.id, keyId, signature }));
+  const error = failed(await rpc(machine, 'approveApprovalRequest', { id: request.id, keyId, signature, understands: UNDERSTANDS }));
   if (error !== null) throw error;
 }
