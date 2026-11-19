@@ -825,12 +825,9 @@ function DockRow({
           </View>
           <View style={styles.dockMain}>
             {direct && count.length > 0 ? (
-              <View style={styles.pageTitle}>
-                <Text numberOfLines={1} style={[styles.dockTitle, styles.pageName, { color: body }]}>
-                  {str(row, 'title')}
-                </Text>
-                <Text style={styles.pageCount}>{count}</Text>
-              </View>
+              <Text numberOfLines={1} style={[styles.dockTitle, { color: body }]}>
+                {str(row, 'title')}
+              </Text>
             ) : opened ? (
               // Opened, its references (`#562`, a Markdown link) open on a tap, as a question's do.
               <LinkWords text={str(row, 'title')} runs={row.titleRuns} color={body} style={styles.dockTitle} />
@@ -846,6 +843,10 @@ function DockRow({
             ) : null}
             {error.length > 0 ? <Text style={styles.dockError}>{error}</Text> : null}
           </View>
+          {/* A page or form's answered/total ("0/1"), quiet, at the title line's right end before
+              the age (desktop `dock_row_look`; CDXC:Coordinators 2026-11-20: the user wants it on
+              the right side of the row, not after the title). */}
+          {direct && count.length > 0 ? <Text style={styles.pageCount}>{count}</Text> : null}
           <View style={styles.ageSlot}>
             <Text style={styles.foldTime}>{str(row, 'age')}</Text>
             {/* What the newest turn finished asks nothing: Mark as read stands on the row itself,
@@ -1692,8 +1693,6 @@ const useStyles = themedStyles((P) => ({
   approvalCommand: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: P.ink(0.05) },
   approvalCommandMeta: { fontSize: CODE_SIZE, color: P.cardMuted },
   approvalMessageText: { flexShrink: 1, fontSize: PROSE_SIZE, lineHeight: PROSE_LINE },
-  pageTitle: { flexDirection: 'row', gap: 6, minWidth: 0 },
-  pageName: { flexShrink: 1 },
   pageCount: { flexShrink: 0, fontSize: PROSE_SIZE, lineHeight: PROSE_LINE, color: P.cardMuted },
   ageSlot: { flexDirection: 'row', alignItems: 'center', gap: 4, height: PROSE_LINE },
   dockAnswers: { paddingLeft: 31, paddingRight: 8, paddingBottom: 6 },
