@@ -59,7 +59,7 @@ import Svg, { Circle } from 'react-native-svg';
 import type { UserAction } from '../../rust/actions';
 import type { ChatDocument } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
-import { GitBranchGlyph } from '../../../components/sessions/icons';
+import { FlowerGlyph, GitBranchGlyph } from '../../../components/sessions/icons';
 import { Sheet } from '../composer/Sheet';
 import { FoldChevron } from '../transcript/foldChevron';
 import { PROSE_SIZE, themedStyles, useTranscriptTheme, type TranscriptTheme } from '../transcript/theme';
@@ -478,6 +478,8 @@ function PlainRows({ rows, act }: { rows: unknown[]; act: Act }) {
           >
             {icon === 'branch' ? (
               <GitBranchGlyph size={14} color={P.cardMuted} />
+            ) : icon === 'mainHub' ? (
+              <FlowerGlyph size={14} color={P.cardMuted} />
             ) : glyph !== undefined ? (
               <Glyph name={glyph} size={14} color={P.cardMuted} />
             ) : null}

@@ -30,6 +30,7 @@ import { Pressable, Text, View } from 'react-native';
 import type { WherePill as WherePillState, WherePillButton } from '../../rust/document';
 import type { UserAction } from '../../rust/actions';
 import { ComputerIconGlyph } from '../../../components/sessions/ComputerIconGlyph';
+import { FlowerGlyph } from '../../../components/sessions/icons';
 import { computerIconDrawing, useComputerIconsStore } from '../../../machines/computerIcons';
 import { useServerMachineId } from '../transcript/mentionedSession';
 import { Glyph, type GlyphName } from '../composer/icons';
@@ -119,7 +120,10 @@ export function WherePill({
       style={({ pressed }) => [styles.pill, (pressed || open) && styles.pillPressed]}
     >
       <View style={styles.half}>
-        {drawing !== null ? (
+        {pill.mainHub === true ? (
+          // Main Hub's flower stands for the session's place; its sheet names the computer.
+          <FlowerGlyph size={14} color={P.cardMuted} />
+        ) : drawing !== null ? (
           <ComputerIconGlyph drawing={drawing} size={14} color={P.cardMuted} />
         ) : (
           <Glyph name={machineGlyph(pill)} size={14} color={P.cardMuted} />

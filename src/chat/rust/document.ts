@@ -1267,6 +1267,8 @@ export type SavedDraftPill = {
 /** gx-chat-core `extras/where_pill.rs` `document`: where the session runs. */
 export type WherePill = {
   project: string;
+  /** A Main Hub session: the project reads "Main Hub" and the pill wears its flower (older cores send none). */
+  mainHub?: boolean;
   machine: {
     /** `this`, `remote` (another computer), `cloudBox` or `box` (an agentbox). */
     kind: 'this' | 'remote' | 'cloudBox' | 'box' | string;
@@ -1282,7 +1284,7 @@ export type WherePill = {
   worktree: boolean;
   ariaLabel: string;
   /** The details: the project and computer as the header, then one row per other fact. */
-  card: { title: string; subtitle: string; rows: WherePillRow[] };
+  card: { title: string; subtitle: string; rows: WherePillRow[]; icon?: 'folder' | 'mainHub' | string };
 };
 
 /** One row of the where pill's details: a Tabler icon name, its label, its value and a muted detail.
