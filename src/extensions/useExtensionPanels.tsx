@@ -54,7 +54,7 @@ import {
 } from '../contract/mobileSummary';
 import { ProgressCopy } from '../copy';
 import type { MachineInventory } from '../inventory/store';
-import type { MachineRecord } from '../machines/store';
+import { machineName, type MachineRecord } from '../machines/store';
 import { sessionItemOf } from '../screens/sessions-screen/use-unified-list';
 import { SidebarPalette } from '../theme/palette';
 import PanelBlockView, { type PanelHandlers, type PanelPlace, type PanelRefFacts } from './PanelBlockView';
@@ -229,7 +229,7 @@ export function useExtensionPanels(deps: ExtensionPanelsDeps) {
         case 'openProject': {
           const projectId = projectIdOf(place.machineId, action.project);
           if (projectId === null || summary === null) {
-            deps.notify('Project not found', `${action.project} isn't a project on this computer.`);
+            deps.notify('Project not found', `${action.project} isn't a project on ${machineName(target)}.`);
             return;
           }
           const newest = newestSession(
@@ -249,7 +249,7 @@ export function useExtensionPanels(deps: ExtensionPanelsDeps) {
             (entry) => entry.projectId === projectId && entry.sessionId === sessionId,
           );
           if (session === undefined) {
-            deps.notify('Session not found', "This session isn't on this computer anymore.");
+            deps.notify('Session not found', `This session isn't on ${machineName(target)} anymore.`);
             return;
           }
           void deps.attach(target, session);
@@ -262,7 +262,7 @@ export function useExtensionPanels(deps: ExtensionPanelsDeps) {
               ? null
               : projectHeaderOf(place.machineId, summary, projectId, { throughCollections: true });
           if (header === null) {
-            deps.notify('Project not found', `${action.project} isn't a project on this computer.`);
+            deps.notify('Project not found', `${action.project} isn't a project on ${machineName(target)}.`);
             return;
           }
           const agent =

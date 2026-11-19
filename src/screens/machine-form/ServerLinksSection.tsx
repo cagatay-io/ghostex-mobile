@@ -18,7 +18,7 @@ import { SwitchRow } from '../../components/common/SwitchRow';
 import { SetupButton } from '../../components/onboarding/SetupPrimitives';
 import { EditMachineCopy } from '../../copy';
 import { chatMachineLink } from '../../chat/rust/machine-link';
-import { machineDisplayLabel, type MachineRecord } from '../../machines/store';
+import { machineDisplayLabel, machineName, type MachineRecord } from '../../machines/store';
 import { useAppearance } from '../../theme/useAppearance';
 import { useFormStyles } from './styles';
 
@@ -63,14 +63,14 @@ export function readServerLinks(result: unknown): ServerLinkRow[] | null {
 }
 
 /** Where a link stands, in a line (the desktop's `row_detail`). */
-export function serverLinkLine(row: ServerLinkRow): string {
+export function serverLinkLine(row: ServerLinkRow, computer: string): string {
   const copy = EditMachineCopy.serverLinks;
   if (row.state === 'pairing') return copy.waiting(row.name, row.words.join(' · '));
   if (row.state === 'ended') return copy.ended(row.error);
   if (!row.agentAccess) return copy.accessOff;
   if (row.outgoing && row.incoming) return copy.bothWays;
   if (row.outgoing) return copy.oneWay;
-  if (row.incoming) return copy.incomingOnly;
+  if (row.incoming) return copy.incomingOnly(computer);
   return copy.notLinked;
 }
 
@@ -121,7 +121,8 @@ export default function ServerLinksSection({ machine, reachable }: { machine: Ma
       {
         text: copy.remove,
         style: 'destructive',
-        onPress: () => void send(row.serverId, { op: 'remove', serverId: row.serverId }, REMOVE_TIMEOUT_MS, copy.removeFailed),
+        onPress: () =>
+          void send(row.serverId, { op: 'remove', serverId: row.serverId }, REMOVE_TIMEOUT_MS, copy.removeFailed),
       },
     ]);
   };
@@ -134,11 +135,16 @@ export default function ServerLinksSection({ machine, reachable }: { machine: Ma
         {rows.map((row, index) => {
           const settled = row.state === 'linked' || row.state === 'incomingOnly';
           const toggle = (on: boolean): void =>
-            void send(row.serverId, { op: 'setAgentAccess', serverId: row.serverId, on }, RPC_TIMEOUT_MS, copy.accessFailed);
+            void send(
+              row.serverId,
+              { op: 'setAgentAccess', serverId: row.serverId, on },
+              RPC_TIMEOUT_MS,
+              copy.accessFailed,
+            );
           const main = (
             <View style={formStyles.rowMain}>
               <Text style={formStyles.rowLabel}>{row.name}</Text>
-              <Text style={formStyles.rowDetail}>{serverLinkLine(row)}</Text>
+              <Text style={formStyles.rowDetail}>{serverLinkLine(row, machineName(machine))}</Text>
             </View>
           );
           return (

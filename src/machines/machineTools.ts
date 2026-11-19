@@ -17,13 +17,14 @@
 import { FailureCopy } from '../copy';
 import { create } from 'zustand';
 
-import { chatMachineLink, UNREACHABLE_MESSAGE } from '../chat/rust/machine-link';
+import { chatMachineLink, unreachableMessage } from '../chat/rust/machine-link';
 import { isDemoMachine } from '../demo/identity';
 import type { MachineConnectionTarget } from './credentials';
+import { machineNameById } from './store';
 import {
   answerError,
   jobActive,
-  TOO_OLD_MESSAGE,
+  tooOldMessage,
   type AgentCli,
   type MachineIntegrations,
   type ManagedTool,
@@ -95,10 +96,11 @@ type Answer<T> = { result: T } | { error: string };
 async function call<T>(machine: MachineConnectionTarget, method: string, params: unknown): Promise<Answer<T>> {
   const link = chatMachineLink(machine);
   const route = await link.routeOrRepair();
-  if (route === 'legacy') return { error: TOO_OLD_MESSAGE };
-  if (route !== 'socket') return { error: link.routeBusy() ? FailureCopy.channelsBusy : UNREACHABLE_MESSAGE };
+  const computer = machineNameById(machine.id);
+  if (route === 'legacy') return { error: tooOldMessage(computer) };
+  if (route !== 'socket') return { error: link.routeBusy() ? FailureCopy.channelsBusy : unreachableMessage(computer) };
   const answer = await link.rpc(method, params, READ_TIMEOUT_MS);
-  if (answer.error !== null) return { error: answerError(answer.error, UNREACHABLE_MESSAGE) };
+  if (answer.error !== null) return { error: answerError(answer.error, unreachableMessage(computer), computer) };
   return { result: answer.result as T };
 }
 

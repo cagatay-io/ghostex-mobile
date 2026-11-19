@@ -12,7 +12,8 @@
  */
 
 import type { MachineConnectionTarget } from '../../../machines/credentials';
-import { chatMachineLink } from '../../rust/machine-link';
+import { machineNameById } from '../../../machines/store';
+import { chatMachineLink, unreachableMessage } from '../../rust/machine-link';
 
 const CALL_TIMEOUT_MS = 15_000;
 const RETRY_MS = 3_000;
@@ -52,7 +53,7 @@ export async function collabCall(
       return {
         result: null,
         error: unknown
-          ? 'Update Ghostex on this computer to use Ghostex Collab from your phone.'
+          ? `Update Ghostex on ${machineNameById(machine.id)} to use Ghostex Collab from your phone.`
           : answer.error.message,
       };
     }
@@ -60,7 +61,7 @@ export async function collabCall(
     onWaiting?.(null);
     return {
       result: null,
-      error: failure instanceof Error ? failure.message : "Couldn't reach Ghostex on your computer.",
+      error: failure instanceof Error ? failure.message : unreachableMessage(machineNameById(machine.id)),
     };
   }
 }

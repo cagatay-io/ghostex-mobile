@@ -53,6 +53,7 @@ import {
 import {
   TAILCAT_TOKEN_PREFIX,
   isMachineEnabled,
+  machineName,
   tailcatSyntheticHost,
   useMachinesStore,
   type MachineInput,
@@ -105,7 +106,12 @@ function parsePort(value: string): number | null {
 /** A saved computer without a `section` opens on its page; everything else is the form. */
 export default function MachineFormScreen(props: Props) {
   const params = props.route.params;
-  if (props.route.name === 'MachineForm' && params?.machineId !== undefined && params.section === undefined && params.focus === undefined) {
+  if (
+    props.route.name === 'MachineForm' &&
+    params?.machineId !== undefined &&
+    params.section === undefined &&
+    params.focus === undefined
+  ) {
     return <ComputerPage navigation={props.navigation as never} machineId={params.machineId} />;
   }
   return <MachineFormBody {...props} />;
@@ -401,14 +407,20 @@ function MachineFormBody({ navigation, route }: Props) {
             </Pressable>
           ),
     });
-  }, [navigation, editing, saves, easyConnect, sshDetails, sectionTitle, saveDisabled, roundSave, saveEntry, setupText]);
+  }, [
+    navigation,
+    editing,
+    saves,
+    easyConnect,
+    sshDetails,
+    sectionTitle,
+    saveDisabled,
+    roundSave,
+    saveEntry,
+    setupText,
+  ]);
   // The side bar shows Save under Back; every field of the form takes the keyboard.
-  useStackScreenRail(
-    useMemo(
-      () => ({ entries: saves ? [saveEntry] : [], reserveKeyboard: true }),
-      [saves, saveEntry],
-    ),
-  );
+  useStackScreenRail(useMemo(() => ({ entries: saves ? [saveEntry] : [], reserveKeyboard: true }), [saves, saveEntry]));
 
   const connectedNow =
     existing !== null &&
@@ -464,7 +476,7 @@ function MachineFormBody({ navigation, route }: Props) {
       >
         <View style={formStyles.rowMain}>
           <Text style={formStyles.rowLabel}>{EditMachineCopy.showInSessions}</Text>
-          <Text style={formStyles.rowDetail}>{EditMachineCopy.showInSessionsDetail}</Text>
+          <Text style={formStyles.rowDetail}>{EditMachineCopy.showInSessionsDetail(machineName(existing))}</Text>
         </View>
         <Switch
           value={isMachineEnabled(existing)}
@@ -649,7 +661,6 @@ function MachineFormBody({ navigation, route }: Props) {
       </KeyboardAvoidingContainer>
 
       <SshAccessHelpSheet os={helpOs} onClose={() => setHelpOs(null)} />
-
     </SafeAreaView>
   );
 }

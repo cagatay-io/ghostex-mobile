@@ -108,31 +108,35 @@ export default function MachinesScreen({ navigation }: Props) {
       <ScrollView style={edges.scroll} contentContainerStyle={[styles.content, edges.content]}>
         {machines.length > 0 ? (
           <View style={styles.cards}>
-              {machines.map((machine) => {
-                const inventory = inventoriesByMachineId[machine.id];
-                const status = machineCardStatus(machine, inventory);
-                const appUpdate = appUpdates[machine.id];
-                const view = appUpdate === undefined ? null : appUpdateView(appUpdate);
-                const line = view === null ? null : appUpdateCardLine(view);
-                const duplicate = duplicateNotices[machine.id];
-                return (
-                  <MachineCard
-                    key={machine.id}
-                    title={machineCardTitle(machine)}
-                    detail={machineCardDetail(machine, status, inventory, now)}
-                    status={status}
-                    update={
-                      view !== null && line !== null
-                        ? { line, view, onUpdate: () => runAppUpdateOp(machine, 'install') }
-                        : null
-                    }
-                    note={duplicate === undefined ? null : MachinesCopy.duplicate[duplicate.kind](duplicate.ids.length)}
-                    onPress={() => editMachine(machine)}
-                    onRemove={() => setOverlay({ kind: 'remove', machine })}
-                  />
-                );
-              })}
-            </View>
+            {machines.map((machine) => {
+              const inventory = inventoriesByMachineId[machine.id];
+              const status = machineCardStatus(machine, inventory);
+              const appUpdate = appUpdates[machine.id];
+              const view = appUpdate === undefined ? null : appUpdateView(appUpdate, machineCardTitle(machine));
+              const line = view === null ? null : appUpdateCardLine(view);
+              const duplicate = duplicateNotices[machine.id];
+              return (
+                <MachineCard
+                  key={machine.id}
+                  title={machineCardTitle(machine)}
+                  detail={machineCardDetail(machine, status, inventory, now)}
+                  status={status}
+                  update={
+                    view !== null && line !== null
+                      ? { line, view, onUpdate: () => runAppUpdateOp(machine, 'install') }
+                      : null
+                  }
+                  note={
+                    duplicate === undefined
+                      ? null
+                      : MachinesCopy.duplicate[duplicate.kind](duplicate.ids.length, machineCardTitle(machine))
+                  }
+                  onPress={() => editMachine(machine)}
+                  onRemove={() => setOverlay({ kind: 'remove', machine })}
+                />
+              );
+            })}
+          </View>
         ) : null}
 
         <Text style={[styles.sectionLabel, machines.length > 0 ? styles.sectionLabelSpaced : null]}>
@@ -177,7 +181,7 @@ export default function MachinesScreen({ navigation }: Props) {
       {overlay.kind === 'remove' ? (
         <ConfirmDialog
           visible
-          title={MachinesCopy.remove.title}
+          title={MachinesCopy.remove.title(machineCardTitle(overlay.machine))}
           body={MachinesCopy.remove.body(machineCardTitle(overlay.machine), removalAsksComputer)}
           targetLine={machineCardTitle(overlay.machine)}
           confirmLabel={MachinesCopy.remove.confirm}
@@ -190,28 +194,29 @@ export default function MachinesScreen({ navigation }: Props) {
   );
 }
 
-const createStyles = (appearance: Appearance) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: appearance.background,
-  },
-  content: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 24,
-  },
-  cards: {
-    gap: 10,
-  },
-  sectionLabel: {
-    color: appearance.muted,
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
-    marginBottom: 10,
-  },
-  sectionLabelSpaced: {
-    marginTop: 24,
-  },
-});
+const createStyles = (appearance: Appearance) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: appearance.background,
+    },
+    content: {
+      paddingHorizontal: 16,
+      paddingTop: 8,
+      paddingBottom: 24,
+    },
+    cards: {
+      gap: 10,
+    },
+    sectionLabel: {
+      color: appearance.muted,
+      fontSize: 12,
+      fontWeight: '600',
+      letterSpacing: 0.4,
+      textTransform: 'uppercase',
+      marginBottom: 10,
+    },
+    sectionLabelSpaced: {
+      marginTop: 24,
+    },
+  });

@@ -28,14 +28,14 @@ import { AGENT_ICONS } from '../assets/agentIcons.generated';
 import { COMMAND_ICONS } from '../assets/tablerIcons.generated';
 import { UsageRow } from '../chat/native/composer/AccountsPanel';
 
-import { UNREACHABLE_MESSAGE } from '../chat/rust/machine-link';
+import { unreachableMessage } from '../chat/rust/machine-link';
 import { FoldListFrame } from '../components/common/foldGap';
 import { useLaptopFold } from '../components/common/verticalBar/laptopFold';
 import { NO_BAR_INSETS } from '../components/common/verticalBar/layout';
 import { useScrollToBarEdges } from '../components/common/verticalBar/VerticalBarArea';
 import { agentIconTint } from '../contract/mobileSummary';
 import { UsageCopy } from '../copy';
-import { machineDisplayLabel, useMachinesStore } from '../machines/store';
+import { machineDisplayLabel, machineName, useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
 import type { PaneBarInset } from '../panes/geometry';
 import { machineTargetFor } from '../screens/terminal-screen/session-lookups';
@@ -136,7 +136,7 @@ export default function UsageView({ machineId, placement }: { machineId: string;
   const laptopFold = useLaptopFold();
   const edges = useScrollToBarEdges(styles.content, inPane ? NO_BAR_INSETS : null);
   const inset = inPane ? placement.controlInset : NO_BAR_INSETS;
-  const error = known ? reading.error : UNREACHABLE_MESSAGE;
+  const error = known ? reading.error : unreachableMessage(record === null ? 'the computer' : machineName(record));
   const { accounts, busy } = reading;
 
   return (
@@ -215,9 +215,15 @@ function AccountSection({
   // CDXC:AgentProviders 2026-11-19 DECISION: User (Q4198 A): a signed-out account's name and numbers turn amber, the
   // amber the computer's Settings > Accounts gives "Needs sign-in" and its sidebar meters now use.
   const amber = account.signedOut ? (appearance.light ? NEEDS_SIGN_IN_AMBER.light : NEEDS_SIGN_IN_AMBER.dark) : null;
-  const meterAppearance = useMemo(() => ({
-    foreground: amber ?? appearance.foreground, muted: appearance.muted, meterTrack: appearance.control, meterFill: appearance.accent,
-  }), [appearance, amber]);
+  const meterAppearance = useMemo(
+    () => ({
+      foreground: amber ?? appearance.foreground,
+      muted: appearance.muted,
+      meterTrack: appearance.control,
+      meterFill: appearance.accent,
+    }),
+    [appearance, amber],
+  );
   const Icon = AGENT_ICONS[account.provider];
   return (
     <View style={styles.account}>
@@ -240,7 +246,11 @@ function AccountSection({
             disabled={onRefresh === null}
             hitSlop={10}
             onPress={onRefresh ?? undefined}
-            style={({ pressed }) => [styles.accountRefresh, pressed && styles.pressed, onRefresh === null && styles.dim]}
+            style={({ pressed }) => [
+              styles.accountRefresh,
+              pressed && styles.pressed,
+              onRefresh === null && styles.dim,
+            ]}
           >
             <COMMAND_ICONS.refresh size={14} color={appearance.muted} />
           </Pressable>
@@ -256,27 +266,34 @@ function AccountSection({
   );
 }
 
-const createStyles = (appearance: Appearance) => StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: appearance.background },
-  content: { padding: PADDING, gap: 12, paddingBottom: 28 },
-  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingLeft: 4 },
-  headTitle: { color: appearance.foreground, fontSize: 16, fontWeight: '600' },
-  refresh: { width: 44, height: 44, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  pressed: { backgroundColor: appearance.cardActive },
-  dim: { opacity: 0.45 },
-  alert: {
-    padding: 12,
-    borderRadius: GhostexRadii.card,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: appearance.border,
-  },
-  pending: { alignItems: 'center', paddingVertical: 16 },
-  paragraph: { color: appearance.muted, fontSize: 13, lineHeight: 18 },
-  account: { gap: 10, padding: 12, borderRadius: GhostexRadii.section, backgroundColor: appearance.card },
-  nameLine: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 20 },
-  name: { color: appearance.foreground, fontSize: 14, fontWeight: '600', flexShrink: 1 },
-  email: { flex: 1, minWidth: 0, color: appearance.muted, fontSize: 12 },
-  accountRefresh: { width: 28, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-  manage: { alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 8, borderRadius: GhostexRadii.control, backgroundColor: appearance.neutralFill },
-  manageLabel: { color: appearance.foreground, fontSize: 13, fontWeight: '600' },
-});
+const createStyles = (appearance: Appearance) =>
+  StyleSheet.create({
+    scroll: { flex: 1, backgroundColor: appearance.background },
+    content: { padding: PADDING, gap: 12, paddingBottom: 28 },
+    head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingLeft: 4 },
+    headTitle: { color: appearance.foreground, fontSize: 16, fontWeight: '600' },
+    refresh: { width: 44, height: 44, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    pressed: { backgroundColor: appearance.cardActive },
+    dim: { opacity: 0.45 },
+    alert: {
+      padding: 12,
+      borderRadius: GhostexRadii.card,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: appearance.border,
+    },
+    pending: { alignItems: 'center', paddingVertical: 16 },
+    paragraph: { color: appearance.muted, fontSize: 13, lineHeight: 18 },
+    account: { gap: 10, padding: 12, borderRadius: GhostexRadii.section, backgroundColor: appearance.card },
+    nameLine: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 20 },
+    name: { color: appearance.foreground, fontSize: 14, fontWeight: '600', flexShrink: 1 },
+    email: { flex: 1, minWidth: 0, color: appearance.muted, fontSize: 12 },
+    accountRefresh: { width: 28, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+    manage: {
+      alignSelf: 'flex-start',
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: GhostexRadii.control,
+      backgroundColor: appearance.neutralFill,
+    },
+    manageLabel: { color: appearance.foreground, fontSize: 13, fontWeight: '600' },
+  });

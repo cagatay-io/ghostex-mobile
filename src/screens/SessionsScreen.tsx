@@ -163,6 +163,7 @@ import { useInventoryStore } from '../inventory/store';
 import {
   isMachineEnabled,
   machineDisplayLabel,
+  machineName,
   selectedMachine,
   useMachinesStore,
   type MachineRecord,
@@ -2332,7 +2333,11 @@ export default function SessionsScreen({ navigation }: Props) {
       ) : null}
 
       {overlay.kind === 'coordinatorPlaybook' ? (
-        <CoordinatorPlaybookSheet load={() => loadCoordinatorPlaybook(overlay.ctx)} onClose={() => setOverlay(NONE)} />
+        <CoordinatorPlaybookSheet
+          load={() => loadCoordinatorPlaybook(overlay.ctx)}
+          computer={machineName(overlay.ctx.machine)}
+          onClose={() => setOverlay(NONE)}
+        />
       ) : null}
 
       {overlay.kind === 'actionsMenu' ? (

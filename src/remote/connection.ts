@@ -1,5 +1,6 @@
 import { GhostexNative, type SshConfig } from '../../modules/ghostex-native/src';
 import { getTailcatToken, resolveSshConfig, type MachineConnectionTarget } from '../machines/credentials';
+import { machineNameById } from '../machines/store';
 import { forgetRemoteEnvironment } from './commands';
 import { isCloudBoxMachineId } from '../cloudBoxes/types';
 import { isDemoMachine } from '../demo/identity';
@@ -313,9 +314,9 @@ async function connectEitherRoute(
         await GhostexNative.stopTailcatForward(machine.id).catch(() => undefined);
       } else {
         const routeConfig = await easyConnectConfig(machine, config);
-        if (routeConfig === null) throw new Error('No Easy Connect key is saved for this computer.');
+        if (routeConfig === null) throw new Error(`No Easy Connect key is saved for ${machineNameById(machine.id)}.`);
         if ((await easyConnectDialCandidates(machine.id)).length === 0) {
-          throw new Error('No Easy Connect address is saved for this computer.');
+          throw new Error(`No Easy Connect address is saved for ${machineNameById(machine.id)}.`);
         }
         await connectEasyConnect(machine, routeConfig, assertCurrent, assertKept);
       }

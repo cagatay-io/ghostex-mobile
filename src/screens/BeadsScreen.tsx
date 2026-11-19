@@ -15,7 +15,17 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BEADS_SYNC_CAPABILITY } from '../beads/model';
@@ -38,6 +48,7 @@ import SegmentedStrip from '../components/common/SegmentedStrip';
 import { SwitchRow } from '../components/common/SwitchRow';
 import { useScrollToBarEdges } from '../components/common/verticalBar/VerticalBarArea';
 import { BeadsCopy } from '../copy';
+import { machineNameById } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Beads'>;
@@ -48,7 +59,10 @@ type Item =
   | { type: 'done'; key: string; section: BeadsSection };
 
 /** What the filter strip and the folds were, per project, so reopening Beads keeps them. */
-const viewState = new Map<string, { filter: BeadsFilter; showDone: boolean; openDone: Set<string>; collapsed: Set<string> }>();
+const viewState = new Map<
+  string,
+  { filter: BeadsFilter; showDone: boolean; openDone: Set<string>; collapsed: Set<string> }
+>();
 
 /**
  * The screen only while the computer's Beads extension is on (`beads/featureSwitch.ts`): otherwise
@@ -167,7 +181,8 @@ function BeadsScreenView({ navigation, route }: Props) {
   );
   const openSync = useCallback(() => setSyncOpen(currentBinding(machineId, projectId)), [machineId, projectId]);
 
-  const canSync = snapshot !== null && snapshot.workspace.state === 'ready' && snapshot.capabilities.includes(BEADS_SYNC_CAPABILITY);
+  const canSync =
+    snapshot !== null && snapshot.workspace.state === 'ready' && snapshot.capabilities.includes(BEADS_SYNC_CAPABILITY);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -175,11 +190,12 @@ function BeadsScreenView({ navigation, route }: Props) {
       headerStyle: { backgroundColor: theme.background },
       headerTintColor: theme.foreground,
       contentStyle: { backgroundColor: theme.background },
-      headerRight: canSync && snapshot !== null ? () => <SyncPill sync={snapshot.sync} onPress={openSync} /> : undefined,
+      headerRight:
+        canSync && snapshot !== null ? () => <SyncPill sync={snapshot.sync} onPress={openSync} /> : undefined,
     });
   }, [canSync, navigation, openSync, projectName, snapshot, theme]);
 
-  const syncCard = snapshot !== null ? syncFailure(snapshot.sync.lastResult) : null;
+  const syncCard = snapshot !== null ? syncFailure(snapshot.sync.lastResult, machineNameById(machineId)) : null;
   const [dismissedSyncAt, setDismissedSyncAt] = useState<string | null>(null);
 
   const renderItem = useCallback(
@@ -187,7 +203,8 @@ function BeadsScreenView({ navigation, route }: Props) {
       if (item.type === 'section') {
         const { section } = item;
         const epic = section.epic;
-        const progress = section.summary !== null && section.summary.total > 0 ? section.summary.done / section.summary.total : 0;
+        const progress =
+          section.summary !== null && section.summary.total > 0 ? section.summary.done / section.summary.total : 0;
         return (
           <View style={styles.sectionHeader}>
             <Pressable
@@ -306,11 +323,17 @@ function BeadsScreenView({ navigation, route }: Props) {
           action={{ label: BeadsCopy.retry, onPress: refresh }}
         />
       ) : null}
-      {entry.notice !== null ? <NoticeCard notice={entry.notice} onDismiss={() => dismissBeadsNotice(machineId, projectId)} /> : null}
+      {entry.notice !== null ? (
+        <NoticeCard notice={entry.notice} onDismiss={() => dismissBeadsNotice(machineId, projectId)} />
+      ) : null}
       {syncCard !== null && snapshot?.sync.lastResult?.at !== dismissedSyncAt ? (
         <NoticeCard
           notice={syncCard}
-          action={syncCard.pullNow ? { label: BeadsCopy.pull, onPress: () => startSync('pull', currentBinding(machineId, projectId)) } : undefined}
+          action={
+            syncCard.pullNow
+              ? { label: BeadsCopy.pull, onPress: () => startSync('pull', currentBinding(machineId, projectId)) }
+              : undefined
+          }
           onDismiss={() => setDismissedSyncAt(snapshot?.sync.lastResult?.at ?? null)}
         />
       ) : null}
@@ -332,7 +355,11 @@ function BeadsScreenView({ navigation, route }: Props) {
   } else if (snapshot === null) {
     body =
       entry.error !== null ? (
-        <StateBlock title={BeadsCopy.loadFailed} body={entry.error} action={{ label: BeadsCopy.retry, onPress: refresh }} />
+        <StateBlock
+          title={BeadsCopy.loadFailed}
+          body={entry.error}
+          action={{ label: BeadsCopy.retry, onPress: refresh }}
+        />
       ) : (
         <View style={styles.centered}>
           <ActivityIndicator color={theme.muted} />
@@ -348,7 +375,13 @@ function BeadsScreenView({ navigation, route }: Props) {
       />
     );
   } else if (snapshot.workspace.state === 'noBd') {
-    body = <StateBlock title={BeadsCopy.noBdTitle} body={BeadsCopy.noBd} action={{ label: BeadsCopy.reload, onPress: refresh }} />;
+    body = (
+      <StateBlock
+        title={BeadsCopy.noBdTitle}
+        body={BeadsCopy.noBd}
+        action={{ label: BeadsCopy.reload, onPress: refresh }}
+      />
+    );
   } else if (snapshot.workspace.state === 'failed') {
     body = (
       <StateBlock
@@ -390,6 +423,7 @@ function BeadsScreenView({ navigation, route }: Props) {
         <SyncSheet
           visible={syncOpen !== null}
           sync={snapshot.sync}
+          computer={machineNameById(machineId)}
           onSync={(kind) => startSync(kind, syncOpen)}
           onClose={() => setSyncOpen(null)}
         />

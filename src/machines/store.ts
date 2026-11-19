@@ -68,7 +68,11 @@ export const EASY_CONNECT_LABEL = 'Easy Connect';
  */
 export function isTailscaleSshMachine(machine: Pick<MachineRecord, 'host' | 'tailscaleSsh'>): boolean {
   if (machine.tailscaleSsh === true) return true;
-  const host = machine.host.trim().toLowerCase().replace(/^\[|\]$/g, '').replace(/\.$/, '');
+  const host = machine.host
+    .trim()
+    .toLowerCase()
+    .replace(/^\[|\]$/g, '')
+    .replace(/\.$/, '');
   const ipv4 = /^(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/.exec(host);
   if (ipv4 !== null) {
     const second = Number(ipv4[2]);
@@ -176,6 +180,17 @@ export function machineDisplayLabel(machine: MachineRecord): string {
   if (machine.name.length > 0) return machine.name;
   const portSuffix = machine.port === 22 ? '' : `:${machine.port}`;
   return `${machine.username}@${machine.host}${portSuffix}`;
+}
+
+/**
+ * The computer's plain name for a sentence about it ("Remove <name>?", "Update Ghostex on <name>…"): its
+ * chosen name, else the name it paired with, else what `machineDisplayLabel` shows without the Easy
+ * Connect tag. Ghostex never calls a computer "this computer" (CDXC:RemoteMachines 2026-11-19).
+ */
+export function machineName(machine: MachineRecord): string {
+  const chosen = machine.name.trim() || machine.computerName?.trim() || '';
+  if (chosen.length > 0) return chosen;
+  return machine.transport === 'tailcat' ? machine.username : machineDisplayLabel(machine);
 }
 
 /** Records written before the machine tab strip existed have no flag at all. */
@@ -542,8 +557,7 @@ export const useMachinesStore = create<MachinesState>()((set, get) => ({
      * Connect again on its next sign-in), and a connect still running under the route is ended.
      */
     const { easyConnectPairedAt: routePairedAt, ...withoutRoute } = edited;
-    const routeGone =
-      routePairedAt !== undefined && (edited.transport === 'tailcat' || edited.host !== existing.host);
+    const routeGone = routePairedAt !== undefined && (edited.transport === 'tailcat' || edited.host !== existing.host);
     const machine: MachineRecord = routeGone ? withoutRoute : edited;
     if (routeGone) {
       notePairingChanged(machine.id);
@@ -588,9 +602,10 @@ export const useMachinesStore = create<MachinesState>()((set, get) => ({
     const current = get().machines;
     const existing = current.find((machine) => isDemoMachine(machine));
     if (existing !== undefined) {
-      const machines = existing.disabled === true
-        ? current.map((machine) => (machine.id === existing.id ? { ...machine, disabled: false } : machine))
-        : current;
+      const machines =
+        existing.disabled === true
+          ? current.map((machine) => (machine.id === existing.id ? { ...machine, disabled: false } : machine))
+          : current;
       set({ machines, selectedMachineId: existing.id });
       persistMachines(machines);
       persistSelectedMachineId(existing.id);
@@ -692,6 +707,12 @@ export const useMachinesStore = create<MachinesState>()((set, get) => ({
     persistMachines(nextMachines);
   },
 }));
+
+/** `machineName` of a saved computer by its id, for a sentence; "the computer" once the phone no longer has it. */
+export function machineNameById(machineId: string): string {
+  const machine = useMachinesStore.getState().machines.find((entry) => entry.id === machineId);
+  return machine !== undefined ? machineName(machine) : 'the computer';
+}
 
 /** Convenience selector for the currently selected machine record. */
 export function selectedMachine(state: Pick<MachinesState, 'machines' | 'selectedMachineId'>): MachineRecord | null {

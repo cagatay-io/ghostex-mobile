@@ -15,7 +15,7 @@ import { Linking, PermissionsAndroid, Platform, Pressable, StyleSheet, Text, Vie
 import ActionSheet from '../../components/common/ActionSheet';
 import { useInventoryStore } from '../../inventory/store';
 import { jobActive, runRowAction, useMachineToolsStore } from '../../machines/machineTools';
-import { machineDisplayLabel, type MachineRecord } from '../../machines/store';
+import { machineDisplayLabel, machineName, type MachineRecord } from '../../machines/store';
 import type { RootStackParamList } from '../../navigation/types';
 import { GhostexPalette } from '../../theme/palette';
 import { useAppearance } from '../../theme/useAppearance';
@@ -115,7 +115,10 @@ function ComputerPicker({ machine, machines }: { machine: MachineRecord; machine
     for (const entry of machines) {
       void readDictateEngine(entry).then((engine) => {
         if (live)
-          setEngines((known) => ({ ...known, [entry.id]: engine === null ? "Couldn't reach it" : `Dictate: ${engine.label}` }));
+          setEngines((known) => ({
+            ...known,
+            [entry.id]: engine === null ? "Couldn't reach it" : `Dictate: ${engine.label}`,
+          }));
       });
     }
     return () => {
@@ -136,7 +139,7 @@ function ComputerPicker({ machine, machines }: { machine: MachineRecord; machine
         >
           <View style={styles.linkText}>
             <Text style={styles.linkTitle}>{machineDisplayLabel(machine)}</Text>
-            <Text style={styles.linkDescription}>The settings below are saved on this computer</Text>
+            <Text style={styles.linkDescription}>{`The settings below are saved on ${machineName(machine)}`}</Text>
           </View>
           {several ? <Text style={[styles.chevron, { color: appearance.muted }]}>⌄</Text> : null}
         </Pressable>
@@ -262,7 +265,11 @@ function HexBlock({ machine }: { machine: MachineRecord }) {
           ))
         : null}
       {!installing ? (
-        <LinkRow title="Check again" description={`Asks Hex on ${name} again.`} onPress={() => void loadDictate(machine, true)} />
+        <LinkRow
+          title="Check again"
+          description={`Asks Hex on ${name} again.`}
+          onPress={() => void loadDictate(machine, true)}
+        />
       ) : null}
       {failed ? <NoticeCard title="Hex wasn't installed" detail={failed} /> : null}
     </>
@@ -351,7 +358,10 @@ function CallModeSection({ machine }: { machine: MachineRecord }) {
             <Caption key={choice.mode}>{`${choice.label}: ${choice.detail}`}</Caption>
           ))}
           <Caption>{voiceCallModeNote(callModeSwitchesLive(machine.id))}</Caption>
-          <Caption>The voice agent keeps its own provider (OpenAI or xAI), set on the computer; Dictate's engine never changes it.</Caption>
+          <Caption>
+            The voice agent keeps its own provider (OpenAI or xAI), set on the computer; Dictate's engine never changes
+            it.
+          </Caption>
           {mode === null && problem === null ? <Caption>Reading the setting from your computer…</Caption> : null}
           {problem !== null ? <NoticeCard title="Couldn't change the setting" detail={problem} /> : null}
         </>

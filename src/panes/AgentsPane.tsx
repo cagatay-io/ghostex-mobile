@@ -15,6 +15,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-nat
 import { NO_SUMMARY_CAPABILITIES, type GhostexSession } from '../contract/mobileSummary';
 import { PanesCopy } from '../copy';
 import { useInventoryStore } from '../inventory/store';
+import { machineNameById } from '../machines/store';
 import { SidebarPalette } from '../theme/palette';
 import type { PaneBarInset } from './geometry';
 import { paneSessionStatus, PaneSessionRow, usePaneRowStyles, type PaneSessionStatus } from './SessionChooser';
@@ -68,7 +69,9 @@ export default function AgentsPane({ machineId, controlInset, onPick }: AgentsPa
           <ActivityIndicator size="small" color={appearance.muted} accessibilityLabel={PanesCopy.chooserLoading} />
         </View>
       ) : null}
-      {summary !== null && sessions.length === 0 ? <Text style={styles.empty}>{PanesCopy.agentsEmpty}</Text> : null}
+      {summary !== null && sessions.length === 0 ? (
+        <Text style={styles.empty}>{PanesCopy.agentsEmpty(machineNameById(machineId))}</Text>
+      ) : null}
       {chips.length > 0 ? (
         <View style={styles.summary} accessibilityRole="summary" accessibilityLabel={PanesCopy.agentsSummary}>
           {chips.map((chip) => (
@@ -102,23 +105,24 @@ export default function AgentsPane({ machineId, controlInset, onPick }: AgentsPa
   );
 }
 
-const createStyles = (appearance: Appearance) => StyleSheet.create({
-  list: { flex: 1, backgroundColor: appearance.background },
-  content: { padding: PADDING, gap: 12 },
-  pending: { alignItems: 'center', paddingVertical: 16 },
-  empty: { color: appearance.muted, fontSize: 15, paddingHorizontal: 4 },
-  summary: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: appearance.card,
-  },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  chipText: { color: appearance.foreground, fontSize: 13 },
-  group: { gap: 8 },
-  project: { color: appearance.muted, fontSize: 13, fontWeight: '600', paddingHorizontal: 4 },
-});
+const createStyles = (appearance: Appearance) =>
+  StyleSheet.create({
+    list: { flex: 1, backgroundColor: appearance.background },
+    content: { padding: PADDING, gap: 12 },
+    pending: { alignItems: 'center', paddingVertical: 16 },
+    empty: { color: appearance.muted, fontSize: 15, paddingHorizontal: 4 },
+    summary: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+    chip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 12,
+      backgroundColor: appearance.card,
+    },
+    dot: { width: 8, height: 8, borderRadius: 4 },
+    chipText: { color: appearance.foreground, fontSize: 13 },
+    group: { gap: 8 },
+    project: { color: appearance.muted, fontSize: 13, fontWeight: '600', paddingHorizontal: 4 },
+  });

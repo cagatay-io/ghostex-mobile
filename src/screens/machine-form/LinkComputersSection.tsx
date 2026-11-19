@@ -56,9 +56,9 @@ export default function LinkComputersSection({ machine, name }: { machine: Machi
           const state = states[other.id];
           const detail =
             state === undefined
-              ? LinkComputersCopy.idle(otherName)
+              ? LinkComputersCopy.idle(name, otherName)
               : state.kind === 'running'
-                ? progressLine(state.progress, LinkComputersCopy.idle(otherName))
+                ? progressLine(state.progress, LinkComputersCopy.idle(name, otherName))
                 : state.kind === 'done'
                   ? LinkComputersCopy.done
                   : state.message;

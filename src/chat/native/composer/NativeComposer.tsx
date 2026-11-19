@@ -572,8 +572,7 @@ export function NativeComposer({
   );
   // The keyboard's images and Paste's join the draft the way a picked photo does.
   const receiveImages = useCallback(
-    (event: { nativeEvent: unknown }) =>
-      attachIntakeImages(chat, event.nativeEvent, setAttachError),
+    (event: { nativeEvent: unknown }) => attachIntakeImages(chat, event.nativeEvent, setAttachError),
     [chat],
   );
   /** The sheet's modal was still sliding away when the host asked for the keyboard (iOS cannot focus the field then). */
@@ -715,7 +714,7 @@ export function NativeComposer({
       }
       rows.push({
         label: 'Voice settings',
-        description: `Dictate's engine and language on ${machineLabel ?? 'this computer'}`,
+        description: `Dictate's engine and language on ${machineLabel ?? 'your computer'}`,
         iconPath: 'titlebar/settings.svg',
         command: { type: 'composerHost', action: 'voiceSettings' },
       });
@@ -811,11 +810,7 @@ export function NativeComposer({
           Math.min(
             INPUT_MAX_HEIGHT,
             room -
-              (frame.cardTop +
-                (compact ? 0 : stripHeight) +
-                CARD_BORDER * 2 +
-                (frame.content - frame.field) +
-                bottom),
+              (frame.cardTop + (compact ? 0 : stripHeight) + CARD_BORDER * 2 + (frame.content - frame.field) + bottom),
           ),
         );
 
@@ -1064,7 +1059,7 @@ export function NativeComposer({
                             dictation.listening
                               ? 'Stop dictating'
                               : !dictation.ready
-                                ? "Dictate isn't ready on this computer"
+                                ? `Dictate isn't ready on ${machineLabel ?? 'your computer'}`
                                 : dictation.engine !== null
                                   ? `Dictate · ${dictation.engine.label}`
                                   : 'Dictate'

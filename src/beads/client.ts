@@ -10,6 +10,7 @@
 
 import { sessionChatRpc } from '../chat/rust/transport';
 import type { MachineConnectionTarget } from '../machines/credentials';
+import { machineNameById } from '../machines/store';
 import { beadsOnFor } from './featureSwitch';
 import { snapshotFrom, type BeadsSnapshot } from './model';
 
@@ -26,8 +27,9 @@ export class BeadsUnsupportedError extends Error {}
  * (`featureSwitch.ts`).
  */
 export class BeadsOffError extends Error {
-  constructor() {
-    super('Beads is turned off on this computer. Turn it on in Settings > Extensions there.');
+  /** `computer` is the computer's name (`machineName`). */
+  constructor(computer: string) {
+    super(`Beads is turned off on ${computer}. Turn it on in Settings > Extensions there.`);
   }
 }
 
@@ -60,9 +62,10 @@ export async function readBeadsView(
   project: BeadsProject,
   options: { knownRevision?: string; refresh?: boolean },
 ): Promise<BeadsSnapshot> {
-  if (!beadsOnFor(machine.id)) throw new BeadsOffError();
+  if (!beadsOnFor(machine.id)) throw new BeadsOffError(machineNameById(machine.id));
   const params: Record<string, unknown> = { ...scope(project) };
-  if (options.knownRevision !== undefined && options.knownRevision.length > 0) params.knownRevision = options.knownRevision;
+  if (options.knownRevision !== undefined && options.knownRevision.length > 0)
+    params.knownRevision = options.knownRevision;
   if (options.refresh === true) params.refresh = true;
   const answer = await sessionChatRpc(machine, 'beadsView', params, READ_TIMEOUT_MS);
   if (answer.error !== null) {
@@ -89,12 +92,17 @@ export async function runBeadsAction(
   params: Record<string, unknown>,
   workspaceKey: string,
 ): Promise<BeadsActionReply> {
-  if (!beadsOnFor(machine.id)) throw new BeadsOffError();
+  if (!beadsOnFor(machine.id)) throw new BeadsOffError(machineNameById(machine.id));
   const action = typeof params.action === 'string' ? params.action : '';
   // The workspace the screen read this bead from; gxserver refuses the call if the project now
   // points at another one.
   const sent: Record<string, unknown> = { ...params, ...scope(project), expectedWorkspaceKey: workspaceKey };
-  const timeout = action === 'doltPull' || action === 'doltPush' ? SYNC_TIMEOUT_MS : action === 'show' ? READ_TIMEOUT_MS : WRITE_TIMEOUT_MS;
+  const timeout =
+    action === 'doltPull' || action === 'doltPush'
+      ? SYNC_TIMEOUT_MS
+      : action === 'show'
+        ? READ_TIMEOUT_MS
+        : WRITE_TIMEOUT_MS;
   const answer = await sessionChatRpc(machine, 'runBeadsAction', sent, timeout);
   if (answer.error !== null) {
     if (unsupported(answer.error)) throw new BeadsUnsupportedError(answer.error.message);

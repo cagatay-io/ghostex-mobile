@@ -24,6 +24,7 @@ import { Platform, Share } from 'react-native';
 import { GhostexNative, type LocalDictation } from '../../../../modules/ghostex-native/src';
 
 import type { MachineConnectionTarget } from '../../../machines/credentials';
+import { machineNameById } from '../../../machines/store';
 import {
   dictationSupported,
   dismissDictation,
@@ -516,7 +517,9 @@ export function useDictation(
       }
       setFailure({
         kept: { kind: 'local', recording },
-        message: fresh.problem?.message ?? 'Dictation on this computer needs setting up first.',
+        message:
+          fresh.problem?.message ??
+          `Dictation on ${machine === null ? 'your computer' : machineNameById(machine.id)} needs setting up first.`,
         code: fresh.problem?.code ?? 'notReady',
       });
       setPhase('failed');

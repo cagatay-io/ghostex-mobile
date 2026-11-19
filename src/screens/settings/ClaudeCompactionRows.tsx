@@ -21,9 +21,23 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import ActionSheet from '../../components/common/ActionSheet';
 import { chatMachineLink } from '../../chat/rust/machine-link';
 import { isDemoMachine } from '../../demo/identity';
-import { isMachineEnabled, machineDisplayLabel, useMachinesStore, type MachineRecord } from '../../machines/store';
+import {
+  isMachineEnabled,
+  machineDisplayLabel,
+  machineName,
+  useMachinesStore,
+  type MachineRecord,
+} from '../../machines/store';
 import { useAppearance } from '../../theme/useAppearance';
-import { Caption, LinkRow, NoticeCard, SectionHeader, SegmentedRow, ToggleRow, useSettingsStyles } from './SettingsControls';
+import {
+  Caption,
+  LinkRow,
+  NoticeCard,
+  SectionHeader,
+  SegmentedRow,
+  ToggleRow,
+  useSettingsStyles,
+} from './SettingsControls';
 import { SettingsSearchAnchor } from './search/SettingsSearchAnchor';
 
 const CALL_TIMEOUT_MS = 15_000;
@@ -142,9 +156,7 @@ export function ClaudeCompactionRows() {
   return (
     <>
       <SectionHeader title="Claude Code" />
-      {machines.length > 1 ? (
-        <ComputerRow machine={machine} machines={machines} onPick={setPickedId} />
-      ) : null}
+      {machines.length > 1 ? <ComputerRow machine={machine} machines={machines} onPick={setPickedId} /> : null}
       {loaded.kind === 'loading' ? <Caption>Reading {machineDisplayLabel(machine)}'s settings…</Caption> : null}
       {loaded.kind === 'failed' ? (
         <>
@@ -186,11 +198,11 @@ export function ClaudeCompactionRows() {
           />
           {saveError !== null ? <NoticeCard title="Couldn't save the setting" detail={saveError} /> : null}
           <Caption>
-            Claude Code compacts a long chat that has been idle for about 54 minutes, just before its 1-hour prompt cache
-            expires, so your next message doesn't re-read the whole chat uncached. It runs only on a 1-hour cache, which a
-            Claude subscription gets; an API key, Bedrock, Vertex or Foundry gets 5 minutes unless Use a 1-hour prompt
-            cache is on, and 1-hour cache writes cost more. Saved on {machineDisplayLabel(machine)}; applies to Claude
-            sessions started or resumed after you change it.
+            Claude Code compacts a long chat that has been idle for about 54 minutes, just before its 1-hour prompt
+            cache expires, so your next message doesn't re-read the whole chat uncached. It runs only on a 1-hour cache,
+            which a Claude subscription gets; an API key, Bedrock, Vertex or Foundry gets 5 minutes unless Use a 1-hour
+            prompt cache is on, and 1-hour cache writes cost more. Saved on {machineDisplayLabel(machine)}; applies to
+            Claude sessions started or resumed after you change it.
           </Caption>
         </>
       ) : null}
@@ -222,7 +234,9 @@ function ComputerRow({
       >
         <View style={styles.linkText}>
           <Text style={styles.linkTitle}>{machineDisplayLabel(machine)}</Text>
-          <Text style={styles.linkDescription}>The Claude Code settings below are saved on this computer</Text>
+          <Text
+            style={styles.linkDescription}
+          >{`The Claude Code settings below are saved on ${machineName(machine)}`}</Text>
         </View>
         <Text style={[styles.chevron, { color: appearance.muted }]}>⌄</Text>
       </Pressable>

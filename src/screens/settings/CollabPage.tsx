@@ -23,7 +23,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 
 import { collabCall } from '../../chat/native/cards/collabCall';
-import { isMachineEnabled, machineDisplayLabel, useMachinesStore, type MachineRecord } from '../../machines/store';
+import {
+  isMachineEnabled,
+  machineDisplayLabel,
+  machineName,
+  useMachinesStore,
+  type MachineRecord,
+} from '../../machines/store';
 import { useAppearance } from '../../theme/useAppearance';
 import { SettingsSection } from './SectionBoundary';
 import {
@@ -90,8 +96,9 @@ async function call(
   return collabCall(machine, params, onWaiting, undefined, endpoint);
 }
 
-function installStatus(component: Component | undefined): string {
-  if (component === undefined) return "Collab isn't installed on this computer.";
+/** `computer` is the computer's name (`machineName`). */
+function installStatus(component: Component | undefined, computer: string): string {
+  if (component === undefined) return `Collab isn't installed on ${computer}.`;
   switch (component.phase) {
     case 'downloading': {
       const done = component.doneBytes ?? 0;
@@ -108,8 +115,8 @@ function installStatus(component: Component | undefined): string {
       return `Couldn't install Collab. ${component.error ?? ''}`;
     default:
       if (component.installed) return 'Collab is installed and starting…';
-      if (component.canInstall === false) return "This computer's Ghostex has no Collab component to install.";
-      return "Collab isn't installed on this computer. Installing it downloads the Collab component and asks for your approval.";
+      if (component.canInstall === false) return `Ghostex on ${computer} has no Collab component to install.`;
+      return `Collab isn't installed on ${computer}. Installing it downloads the Collab component and asks for your approval.`;
   }
 }
 
@@ -226,7 +233,7 @@ export default function CollabPage() {
       ) : view.installed === false || view.config === undefined ? (
         <SettingsSection name="settings:collab:install">
           <SectionHeader title="Install" />
-          <Caption>{installStatus(view.component)}</Caption>
+          <Caption>{installStatus(view.component, machineName(machine))}</Caption>
           {view.component?.installed !== true && view.component?.canInstall !== false && waiting === null ? (
             <LinkRow title="Install Collab" onPress={() => void component('install')} />
           ) : null}
@@ -234,6 +241,7 @@ export default function CollabPage() {
       ) : (
         <CollabBody
           computer={machine !== null ? machineDisplayLabel(machine) : ''}
+          computerName={machine !== null ? machineName(machine) : 'the computer'}
           view={view}
           config={view.config}
           log={log}
@@ -248,6 +256,7 @@ export default function CollabPage() {
 
 function CollabBody({
   computer,
+  computerName,
   view,
   config,
   log,
@@ -257,6 +266,8 @@ function CollabBody({
 }: {
   /** The computer the page shows, by name. */
   computer: string;
+  /** Its plain name for a sentence (`machineName`). */
+  computerName: string;
   view: View_;
   config: Config;
   log: LogEntry[];
@@ -272,12 +283,13 @@ function CollabBody({
         <SectionHeader title={computer.length > 0 ? computer : 'Collab'} />
         <LinkRow
           title="Uninstall Collab"
-          description={`Installed${view.version ? ` (${view.version})` : ''}. Each share needs your approval. Uninstalling ends every share at once and removes Collab from this computer.`}
+          description={`Installed${view.version ? ` (${view.version})` : ''}. Each share needs your approval. Uninstalling ends every share at once and removes Collab from ${computerName}.`}
           onPress={uninstall}
         />
         <NameRow
           value={config.ownerName}
           placeholder={config.ownerDisplayName}
+          computer={computerName}
           onSave={(ownerName) => set({ ownerName })}
         />
       </SettingsSection>
@@ -340,10 +352,13 @@ function CollabBody({
 function NameRow({
   value,
   placeholder,
+  computer,
   onSave,
 }: {
   value: string;
   placeholder: string;
+  /** The computer's name (`machineName`). */
+  computer: string;
   onSave: (name: string) => void;
 }) {
   const styles = useSettingsStyles();
@@ -375,7 +390,7 @@ function NameRow({
             timer.current = setTimeout(() => onSave(next), 700);
           }}
         />
-        <Caption>What guests see for you. Empty uses this computer's user name.</Caption>
+        <Caption>{`What guests see for you. Empty uses your user name on ${computer}.`}</Caption>
       </View>
     </View>
   );

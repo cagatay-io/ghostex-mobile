@@ -55,11 +55,7 @@ import {
   WorldGlyph,
   XGlyph,
 } from '../../components/sessions/icons';
-import {
-  resolveAgentChoice,
-  type AgentChoiceContext,
-  type AgentChoices,
-} from '../../components/sessions/agentChoice';
+import { resolveAgentChoice, type AgentChoiceContext, type AgentChoices } from '../../components/sessions/agentChoice';
 import { useLauncherStore, lastActionKey } from '../../components/sessions/launcherStore';
 import {
   coordinatorOptionsCommand,
@@ -112,7 +108,13 @@ import {
 import { ConnectionsCopy, DocsCopy, FeedbackCopy, ProgressCopy, StripCopy, WebPreviewCopy } from '../../copy';
 import type { OptimisticInventoryChange } from '../../inventory/optimistic';
 import { useInventoryStore } from '../../inventory/store';
-import { enabledMachines, isMachineEnabled, useMachinesStore, type MachineRecord } from '../../machines/store';
+import {
+  enabledMachines,
+  isMachineEnabled,
+  machineName,
+  useMachinesStore,
+  type MachineRecord,
+} from '../../machines/store';
 import { useSettingsStore } from '../../settings/store';
 import { setSidebarSetting } from '../../settingsSync/settingsSync';
 import type { RootStackParamList } from '../../navigation/types';
@@ -806,7 +808,7 @@ export function useSessionsScreenMenus({
         case 'beads': {
           const ctx = scope.session;
           if (ctx === undefined) throw new Error('Beads need a session.');
-          if (!beadsOnIn(summaryFor(machine.id))) throw new Error('Beads is turned off on this computer.');
+          if (!beadsOnIn(summaryFor(machine.id))) throw new Error(`Beads is turned off on ${machineName(machine)}.`);
           const { session } = ctx.item;
           const project = summaryFor(machine.id)?.projects.find((entry) => entry.projectId === session.projectId);
           setOverlay(NONE);
@@ -926,10 +928,15 @@ export function useSessionsScreenMenus({
       actionsIcon:
         actionsEntry === null ? undefined : actionsEntry.action.actionType === 'browser' ? 'world' : 'player-play',
     });
-    const view = sidebarMenuView(menu, menuPath, {
-      openPath: (next) => setOverlay({ kind: 'sessionMenu', ctx, menuPath: next }),
-      run: (menuCommand) => runMenuCommand(ctx.machine, menuCommand, { session: ctx }),
-    }, appearance.foreground);
+    const view = sidebarMenuView(
+      menu,
+      menuPath,
+      {
+        openPath: (next) => setOverlay({ kind: 'sessionMenu', ctx, menuPath: next }),
+        run: (menuCommand) => runMenuCommand(ctx.machine, menuCommand, { session: ctx }),
+      },
+      appearance.foreground,
+    );
     // CDXC:SessionStatus 2026-10-15 SEE-ALSO: contract/programStatus.ts (the line the program reported, shown on long press only).
     const programLine = ctx.item.session.programStatusLine;
     // CDXC:Notifications 2026-11-08 SEE-ALSO: components/sessions/sessionStatus.ts `isBlocked` (why the red dot is red, on long press, as the desktop row's hover says it).
@@ -963,10 +970,15 @@ export function useSessionsScreenMenus({
       collectionId: collectionIdForProject(summary?.projectCollectionsState ?? null, header.projectId),
       collections: summary?.projectCollections ?? [],
     });
-    const view = sidebarMenuView(menu, menuPath, {
-      openPath: (next) => setOverlay({ kind: 'projectMenu', ctx, menuPath: next }),
-      run: (menuCommand) => runMenuCommand(ctx.machine, menuCommand, { project: ctx }),
-    }, appearance.foreground);
+    const view = sidebarMenuView(
+      menu,
+      menuPath,
+      {
+        openPath: (next) => setOverlay({ kind: 'projectMenu', ctx, menuPath: next }),
+        run: (menuCommand) => runMenuCommand(ctx.machine, menuCommand, { project: ctx }),
+      },
+      appearance.foreground,
+    );
     if (view.openedLabel !== null) return { subtitle: view.openedLabel, items: view.items };
 
     const orderedHeaders: ProjectHeaderItem[] = [];
@@ -1737,7 +1749,9 @@ export function useSessionsScreenMenus({
       ?.machines.find((machine) => machine.machineId === target.machineId);
     const summary = summaryFor(target.machineId);
     const header =
-      summary === null ? null : projectHeaderOf(target.machineId, summary, target.projectId, { throughCollections: true });
+      summary === null
+        ? null
+        : projectHeaderOf(target.machineId, summary, target.projectId, { throughCollections: true });
     const machine = useMachinesStore.getState().machines.find((entry) => entry.id === target.machineId) ?? null;
     if (chip !== undefined && chip.connected && header !== null && machine !== null) {
       setOverlay({ kind: 'agentMenu', ctx: { machine, header } });
@@ -1779,9 +1793,7 @@ export function useSessionsScreenMenus({
             label={choice.label}
             machineLabel={machineLabel}
             onPress={() =>
-              closeAgentMenuThen(() =>
-                setOverlay({ kind: 'newSessionProject', currentMachineId: ctx.machine.id }),
-              )
+              closeAgentMenuThen(() => setOverlay({ kind: 'newSessionProject', currentMachineId: ctx.machine.id }))
             }
           />
         ),

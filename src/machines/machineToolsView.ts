@@ -3,7 +3,10 @@
  * runs them): pure, so they are tested without the app.
  */
 
-export const TOO_OLD_MESSAGE = "This computer's Ghostex is too old for this; update Ghostex there first.";
+/** `computer` is the computer's name (`machineName`). */
+export function tooOldMessage(computer: string): string {
+  return `Ghostex on ${computer} is too old for this; update Ghostex there first.`;
+}
 
 export type ToolJob = {
   id?: string;
@@ -138,14 +141,14 @@ export function agentCliRow(agent: AgentCli): ToolRowView {
 }
 
 /** A tool row, `permissionNote` first: an installed Desktop control tool without its macOS grants isn't done. */
-export function toolRow(tool: ManagedTool): ToolRowView {
+export function toolRow(tool: ManagedTool, computer: string): ToolRowView {
   const key = `tool:${tool.id}`;
   const title = tool.label?.trim() || tool.id;
   if (tool.supported !== true) {
     return {
       key,
       title,
-      detail: tool.unsupportedReason?.trim() || 'Not available on this computer.',
+      detail: tool.unsupportedReason?.trim() || `Not available on ${computer}.`,
       tone: 'muted',
       busy: false,
       action: null,
@@ -235,7 +238,11 @@ export function skillRow(skill: MachineSkill): ToolRowView {
 export const DESKTOP_CONTROL_TOOL_IDS = ['trycua', 'spaceo'];
 
 /** The words for a failed call: `notFound` is a gxserver from before the endpoint. */
-export function answerError(error: { code?: string | null; message: string }, unreachable: string): string {
-  if (error.code === 'notFound') return TOO_OLD_MESSAGE;
+export function answerError(
+  error: { code?: string | null; message: string },
+  unreachable: string,
+  computer: string,
+): string {
+  if (error.code === 'notFound') return tooOldMessage(computer);
   return error.message.trim() || unreachable;
 }

@@ -102,8 +102,14 @@ export function NoticeCard({
   );
 }
 
-/** The card for a sync that did not go through (`cards.rs` `sync_failure`); `pullNow` offers Pull. */
-export function syncFailure(result: BeadsSyncResult | null): (BeadsNotice & { pullNow: boolean }) | null {
+/**
+ * The card for a sync that did not go through (`cards.rs` `sync_failure`); `pullNow` offers Pull. `computer` is
+ * the computer's name (`machineName`).
+ */
+export function syncFailure(
+  result: BeadsSyncResult | null,
+  computer: string,
+): (BeadsNotice & { pullNow: boolean }) | null {
   if (result === null || result.ok) return null;
   const push = result.kind === 'push';
   const didnt = push ? 'Push didn’t go through' : 'Pull didn’t go through';
@@ -112,14 +118,15 @@ export function syncFailure(result: BeadsSyncResult | null): (BeadsNotice & { pu
     case 'notFastForward':
       return {
         title: 'Push didn’t go through',
-        message: 'The remote has changes this computer doesn’t have yet. Pull them, then push again.',
+        message: `The remote has changes ${computer} doesn’t have yet. Pull them, then push again.`,
         details,
         pullNow: true,
       };
     case 'conflict':
       return {
         title: push ? didnt : 'Pull found conflicting changes',
-        message: 'The same beads changed here and on another computer. Ask an agent to resolve the conflict with bd, then sync again.',
+        message:
+          'The same beads changed here and on another computer. Ask an agent to resolve the conflict with bd, then sync again.',
         details,
         pullNow: false,
       };
@@ -131,9 +138,19 @@ export function syncFailure(result: BeadsSyncResult | null): (BeadsNotice & { pu
         pullNow: false,
       };
     case 'auth':
-      return { title: didnt, message: 'The remote refused this computer’s credentials. Check access to it, then try again.', details, pullNow: false };
+      return {
+        title: didnt,
+        message: `The remote refused ${computer}’s credentials. Check access to it, then try again.`,
+        details,
+        pullNow: false,
+      };
     case 'network':
-      return { title: didnt, message: 'Couldn’t reach the remote. Check the connection, then try again.', details, pullNow: false };
+      return {
+        title: didnt,
+        message: 'Couldn’t reach the remote. Check the connection, then try again.',
+        details,
+        pullNow: false,
+      };
     case 'timeout':
       return {
         title: push ? 'Push took too long' : 'Pull took too long',
@@ -142,13 +159,23 @@ export function syncFailure(result: BeadsSyncResult | null): (BeadsNotice & { pu
         pullNow: false,
       };
     default:
-      return { title: didnt, message: 'Beads stopped with an error. Details has what it said.', details, pullNow: false };
+      return {
+        title: didnt,
+        message: 'Beads stopped with an error. Details has what it said.',
+        details,
+        pullNow: false,
+      };
   }
 }
 
 /** "Synced 4 min ago", "Pulling…", "Not synced yet", and whether the last sync failed (`cards.rs` `synced_label`). */
 export function syncStatus(sync: BeadsSync): { label: string; failed: boolean; running: boolean } {
-  if (sync.running !== null) return { label: sync.running.kind === 'push' ? BeadsCopy.pushing : BeadsCopy.pulling, failed: false, running: true };
+  if (sync.running !== null)
+    return {
+      label: sync.running.kind === 'push' ? BeadsCopy.pushing : BeadsCopy.pulling,
+      failed: false,
+      running: true,
+    };
   const times = [sync.lastPushAt, sync.lastPullAt].map(parseBdTime).filter((time): time is number => time !== null);
   const failed = sync.lastResult !== null && !sync.lastResult.ok && sync.lastResult.code !== 'noRemote';
   const label = times.length > 0 ? BeadsCopy.synced(relativeAgo(Math.max(...times))) : BeadsCopy.syncNotYet;
@@ -180,11 +207,14 @@ export function SyncPill({ sync, onPress }: { sync: BeadsSync; onPress: () => vo
 export function SyncSheet({
   visible,
   sync,
+  computer,
   onSync,
   onClose,
 }: {
   visible: boolean;
   sync: BeadsSync;
+  /** The computer's name (`machineName`). */
+  computer: string;
   onSync: (kind: 'pull' | 'push') => void;
   onClose: () => void;
 }) {
@@ -207,7 +237,13 @@ export function SyncSheet({
         sync.remote === null
           ? []
           : [
-              { key: 'pull', label: BeadsCopy.pull, detail: BeadsCopy.syncHelp, disabled: running, onPress: () => onSync('pull') },
+              {
+                key: 'pull',
+                label: BeadsCopy.pull,
+                detail: BeadsCopy.syncHelp(computer),
+                disabled: running,
+                onPress: () => onSync('pull'),
+              },
               { key: 'push', label: BeadsCopy.push, disabled: running, onPress: () => onSync('push') },
             ]
       }

@@ -17,9 +17,10 @@
 import { FailureCopy } from '../copy';
 import { create } from 'zustand';
 
-import { chatMachineLink, UNREACHABLE_MESSAGE } from '../chat/rust/machine-link';
+import { chatMachineLink, unreachableMessage } from '../chat/rust/machine-link';
 import { isDemoMachine } from '../demo/identity';
 import type { MachineConnectionTarget } from './credentials';
+import { machineNameById } from './store';
 
 const REQUEST_TIMEOUT_MS = 20_000;
 const FOLLOW_POLL_MS = 2_000;
@@ -29,7 +30,9 @@ const FOLLOW_LIMIT_MS = 20 * 60_000;
 export const APP_UPDATE_FRESH_MS = 60_000;
 const DAY_MS = 24 * 60 * 60_000;
 
-const TOO_OLD_MESSAGE = "This computer's Ghostex is too old to update from here; update it there once.";
+function tooOldMessage(computer: string): string {
+  return `Ghostex on ${computer} is too old to update from here; update it there once.`;
+}
 
 /** `compose_status` in server/src/app_update/status.rs, as far as the phone reads it. */
 export type AppUpdateStatus = {
@@ -106,7 +109,8 @@ function text(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-export function appUpdateView(update: RemoteAppUpdate): AppUpdateView {
+/** `computer` is the computer's name (`machineName`), for the lines about it. */
+export function appUpdateView(update: RemoteAppUpdate, computer: string): AppUpdateView {
   const status = update.status;
   if (status === null) {
     return {
@@ -152,7 +156,7 @@ export function appUpdateView(update: RemoteAppUpdate): AppUpdateView {
     detail = 'Checking for updates…';
   } else if (phase === 'appNotRunning') {
     tone = 'warning';
-    detail = 'Ghostex is not open on this computer; open it there to update from here.';
+    detail = `Ghostex is not open on ${computer}; open it there to update from here.`;
   } else if (phase === 'failed') {
     tone = 'warning';
     detail = text(status.message) ?? 'The update failed.';
@@ -204,7 +208,8 @@ const LINUX_COMMAND_LINE = 'Update it in a terminal.';
  */
 function linuxUpdateOf(status: AppUpdateStatus, available: string | null, supported: boolean): AppUpdateView['linux'] {
   const info = status.linuxUpdate;
-  if (available === null || supported || info == null || typeof info !== 'object' || info.kind === 'appimage') return null;
+  if (available === null || supported || info == null || typeof info !== 'object' || info.kind === 'appimage')
+    return null;
   const releaseUrl = text(info.releaseUrl);
   return {
     command: text(info.command),
@@ -229,12 +234,13 @@ async function request(machine: MachineConnectionTarget, method: string, params:
   const link = chatMachineLink(machine);
   const route = await link.routeOrRepair();
   // A computer without the endpoint handshake predates these endpoints too.
-  if (route === 'legacy') return { error: TOO_OLD_MESSAGE };
-  if (route !== 'socket') return { error: link.routeBusy() ? FailureCopy.channelsBusy : UNREACHABLE_MESSAGE };
+  const computer = machineNameById(machine.id);
+  if (route === 'legacy') return { error: tooOldMessage(computer) };
+  if (route !== 'socket') return { error: link.routeBusy() ? FailureCopy.channelsBusy : unreachableMessage(computer) };
   const answer = await link.rpc(method, params, REQUEST_TIMEOUT_MS);
   if (answer.error !== null) {
     // A gxserver from before these endpoints does not know the path.
-    if (answer.error.code === 'notFound') return { error: TOO_OLD_MESSAGE };
+    if (answer.error.code === 'notFound') return { error: tooOldMessage(computer) };
     return { error: answer.error.message };
   }
   const status = (answer.result as { status?: unknown } | null)?.status;

@@ -11,6 +11,7 @@ import { useAppearance, type Appearance } from '../theme/useAppearance';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { PanesCopy } from '../copy';
+import { machineNameById } from '../machines/store';
 
 import { usePaneProject, type PaneProject } from './paneProject';
 
@@ -34,25 +35,28 @@ export default function ProjectPane({ origin, children }: ProjectPaneProps) {
   if (state.kind === 'unknown') {
     return (
       <View style={styles.center}>
-        <Text style={styles.notice}>{PanesCopy.projectGone}</Text>
+        <Text style={styles.notice}>
+          {PanesCopy.projectGone(machineNameById(origin.slice(0, origin.indexOf(':'))))}
+        </Text>
       </View>
     );
   }
   return children(state.project);
 }
 
-const createStyles = (appearance: Appearance) => StyleSheet.create({
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-    backgroundColor: appearance.background,
-  },
-  notice: {
-    color: appearance.muted,
-    fontSize: 15,
-    lineHeight: 21,
-    textAlign: 'center',
-  },
-});
+const createStyles = (appearance: Appearance) =>
+  StyleSheet.create({
+    center: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 24,
+      backgroundColor: appearance.background,
+    },
+    notice: {
+      color: appearance.muted,
+      fontSize: 15,
+      lineHeight: 21,
+      textAlign: 'center',
+    },
+  });

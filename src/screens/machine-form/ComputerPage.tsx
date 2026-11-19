@@ -19,7 +19,13 @@ import { ApprovalsCopy, ComputerPageCopy, EditMachineCopy, SshPairingCopy } from
 import DemoMachineForm from '../../demo/DemoMachineForm';
 import { isDemoMachine } from '../../demo/identity';
 import { useInventoryStore } from '../../inventory/store';
-import { APP_UPDATE_FRESH_MS, appUpdateCardLine, appUpdateView, refreshAppUpdate, useAppUpdateStore } from '../../machines/appUpdate';
+import {
+  APP_UPDATE_FRESH_MS,
+  appUpdateCardLine,
+  appUpdateView,
+  refreshAppUpdate,
+  useAppUpdateStore,
+} from '../../machines/appUpdate';
 import { easyConnectRouteName, useEasyConnectPath } from '../../machines/easyConnectPath';
 import { checkEasyConnectOn } from '../../machines/easyConnectDial';
 import {
@@ -33,7 +39,13 @@ import { refreshMachineTools, useMachineToolsStore } from '../../machines/machin
 import { agentCliRow, toolRow } from '../../machines/machineToolsView';
 import { removeComputerFromPhone } from '../../machines/removeComputer';
 import { signsInOverSsh, startSshPairing, useSshPairings } from '../../machines/sshPairing';
-import { isMachineEnabled, isTailscaleSshMachine, sshRouteLabel, useMachinesStore, type MachineRecord } from '../../machines/store';
+import {
+  isMachineEnabled,
+  isTailscaleSshMachine,
+  sshRouteLabel,
+  useMachinesStore,
+  type MachineRecord,
+} from '../../machines/store';
 import type { RootStackParamList } from '../../navigation/types';
 import { useRemovalAsksComputer } from '../../notifications/pushStore';
 import { approvalMode, listApprovals, setRequirePresence, usePlainApprovals } from '../../security/approvals';
@@ -199,16 +211,17 @@ function ComputerPageBody({
 
   const updateLine = (() => {
     if (update === undefined) return reachable ? copy.rows.updatesReading : copy.rows.updatesUnknown;
-    const view = appUpdateView(update);
+    const view = appUpdateView(update, name);
     const line = appUpdateCardLine(view) ?? copy.rows.updatesReading;
     return view.autoUpdate === true ? `${line} · ${copy.rows.updatesByItself}` : line;
   })();
   const toolUpdates =
     tools === undefined
       ? 0
-      : [...(tools.agents.data ?? []).map(agentCliRow), ...(tools.tools.data ?? []).map(toolRow)].filter(
-          (row) => row.action?.operation === 'update',
-        ).length;
+      : [
+          ...(tools.agents.data ?? []).map(agentCliRow),
+          ...(tools.tools.data ?? []).map((tool) => toolRow(tool, name)),
+        ].filter((row) => row.action?.operation === 'update').length;
   const showsApprovals = easyConnect || machine.deviceId !== undefined || plainApprovals;
 
   const moreRows: { key: string; label: string; detail: string; onPress: () => void }[] = [
@@ -272,7 +285,9 @@ function ComputerPageBody({
               <View style={[formStyles.row, formStyles.rowFirst]}>
                 <View style={formStyles.rowMain}>
                   <View style={styles.statusLine}>
-                    <StatusDot color={connectedNow && liveRoute === 'tailscale' ? appearance.connected : appearance.muted} />
+                    <StatusDot
+                      color={connectedNow && liveRoute === 'tailscale' ? appearance.connected : appearance.muted}
+                    />
                     <Text style={formStyles.rowLabel}>{sshRouteLabel(machine)}</Text>
                   </View>
                   <Text style={formStyles.rowDetail}>
@@ -283,7 +298,9 @@ function ComputerPageBody({
               <View style={formStyles.row}>
                 <View style={formStyles.rowMain}>
                   <View style={styles.statusLine}>
-                    <StatusDot color={connectedNow && liveRoute === 'easyConnect' ? appearance.connected : appearance.muted} />
+                    <StatusDot
+                      color={connectedNow && liveRoute === 'easyConnect' ? appearance.connected : appearance.muted}
+                    />
                     <Text style={formStyles.rowLabel}>{copy.routes.easyConnect}</Text>
                   </View>
                   <Text style={formStyles.rowDetail}>
@@ -292,10 +309,10 @@ function ComputerPageBody({
                       : !fallsBack
                         ? copy.routes.easyConnectNotUsed
                         : easyConnectOn === true
-                        ? copy.routes.easyConnectDetail(false)
-                        : easyConnectOn === false
-                          ? copy.routes.easyConnectOff(name)
-                          : copy.routes.easyConnectUnknown}
+                          ? copy.routes.easyConnectDetail(false)
+                          : easyConnectOn === false
+                            ? copy.routes.easyConnectOff(name)
+                            : copy.routes.easyConnectUnknown}
                   </Text>
                 </View>
               </View>
@@ -322,7 +339,11 @@ function ComputerPageBody({
                 <Text style={formStyles.rowLabel}>{SshPairingCopy.rowLabel}</Text>
                 <Text style={formStyles.rowDetail}>{SshPairingCopy.rowDetail(sshPairing.computer)}</Text>
               </View>
-              <SetupButton small label={SshPairingCopy.rowShow} onPress={() => void startSshPairing(machine, { auto: false })} />
+              <SetupButton
+                small
+                label={SshPairingCopy.rowShow}
+                onPress={() => void startSshPairing(machine, { auto: false })}
+              />
             </View>
           </View>
         ) : null}
@@ -335,7 +356,11 @@ function ComputerPageBody({
               first
               label={copy.approvals}
               detail={
-                waiting === null ? copy.approvalsUnknown : waiting === 0 ? copy.approvalsNone : copy.approvalsWaiting(waiting)
+                waiting === null
+                  ? copy.approvalsUnknown(name)
+                  : waiting === 0
+                    ? copy.approvalsNone
+                    : copy.approvalsWaiting(waiting)
               }
               onPress={() => navigation.navigate('Approvals', { machineId: machine.id })}
             />
@@ -349,7 +374,7 @@ function ComputerPageBody({
                 <View style={formStyles.rowMain}>
                   <Text style={formStyles.rowLabel}>{ApprovalsCopy.requirePresence(Platform.OS === 'ios')}</Text>
                   <Text style={formStyles.rowDetail}>
-                    {requirePresenceError ?? copy.requirePresenceDetail(Platform.OS === 'ios')}
+                    {requirePresenceError ?? copy.requirePresenceDetail(Platform.OS === 'ios', name)}
                   </Text>
                 </View>
                 <Switch
@@ -386,13 +411,13 @@ function ComputerPageBody({
 
         <View style={formStyles.divider} />
         <Pressable accessibilityRole="button" style={styles.removeButton} onPress={() => setRemoveOpen(true)}>
-          <Text style={[styles.removeLabel, formStyles.danger]}>{EditMachineCopy.remove.button}</Text>
+          <Text style={[styles.removeLabel, formStyles.danger]}>{EditMachineCopy.remove.button(name)}</Text>
         </Pressable>
       </ScrollView>
 
       <ConfirmDialog
         visible={removeOpen}
-        title={EditMachineCopy.remove.title}
+        title={EditMachineCopy.remove.title(name)}
         body={EditMachineCopy.remove.body(name, removalAsksComputer)}
         confirmLabel={EditMachineCopy.remove.confirm}
         destructive

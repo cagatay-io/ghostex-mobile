@@ -371,7 +371,7 @@ export const FindPromptsCopy = {
   groupByDay: 'Days',
   groupByDayOn: 'Stop grouping results by day',
   groupByDayOff: 'Group results by day',
-  noHistory: 'No agent prompt history was found on this computer.',
+  noHistory: (computer: string) => `No agent prompt history was found on ${computer}.`,
   noMatches: 'No prompts match this search.',
   searchFailed: 'Pull down to try again.',
   noProject: 'No project',
@@ -445,7 +445,8 @@ export const EasyConnectFallbackCopy = {
   undecided: "Not chosen yet. On: when Tailscale can't reach it, this phone connects through Easy Connect.",
   waiting: (computer: string) => `Asking ${computer} to add this phone to Easy Connect.`,
   notAdded: (computer: string) => `${computer} hasn't added this phone to Easy Connect yet.`,
-  computerOff: (computer: string) => `Easy Connect is off on ${computer}. Turn it on in Ghostex Settings › Remote there.`,
+  computerOff: (computer: string) =>
+    `Easy Connect is off on ${computer}. Turn it on in Ghostex Settings › Remote there.`,
   askAgain: 'Ask again',
 } as const;
 
@@ -485,7 +486,7 @@ export const ConnectionsCopy = {
   roundTrip: (ms: number) => `${ms} ms`,
   /** A computer icon's VoiceOver label. */
   iconLabel: (name: string, status: string) => `${name}, ${status}`,
-  iconHint: 'Shows every computer\'s connection',
+  iconHint: "Shows every computer's connection",
   /** Settings › Connection. */
   computers: 'Computers',
   noComputers: 'No computers yet.',
@@ -657,7 +658,7 @@ export const ActionCopy = {
   globalHeading: 'Global Actions',
   startFailedTitle: (name: string) => `Couldn't start ${name}`,
   /** A Global Action tapped after the computer's latest summary stopped offering them. */
-  globalActionsUnavailable: 'Global Actions are no longer available on this computer.',
+  globalActionsUnavailable: (computer: string) => `Global Actions are no longer available on ${computer}.`,
 } as const;
 
 /**
@@ -857,17 +858,17 @@ export const MachinesCopy = {
    * (machines/duplicateNotice.ts), shown the first time the list opens after it happened.
    */
   duplicate: {
-    hidden: (count: number) =>
+    hidden: (count: number, computer: string) =>
       count === 1
-        ? 'An older entry for this computer stopped working and is hidden. It goes when the app next opens.'
-        : `${count} older entries for this computer stopped working and are hidden. They go when the app next opens.`,
-    merged: (count: number) =>
+        ? `An older entry for ${computer} stopped working and is hidden. It goes when the app next opens.`
+        : `${count} older entries for ${computer} stopped working and are hidden. They go when the app next opens.`,
+    merged: (count: number, computer: string) =>
       count === 1
-        ? 'An older entry for this computer was removed. Its saved data is now here.'
-        : `${count} older entries for this computer were removed. Their saved data is now here.`,
+        ? `An older entry for ${computer} was removed. Its saved data is now here.`
+        : `${count} older entries for ${computer} were removed. Their saved data is now here.`,
   },
   remove: {
-    title: 'Remove this computer?',
+    title: (name: string) => `Remove ${name}?`,
     /** `asksComputer`: the removal first asks the computer to stop its push notifications. */
     body: (name: string, asksComputer: boolean) =>
       `${name} is removed from this phone, along with its saved password and pairing key. ${asksComputer ? `If ${name} can be reached, it also stops sending push notifications. Nothing else changes on the computer.` : 'Nothing changes on the computer.'}`,
@@ -1067,11 +1068,11 @@ export const ComputerPageCopy = {
     label: 'Routes',
     tailscale: 'Tailscale',
     easyConnect: 'Easy Connect',
-    tailscaleDetail: (address: string, inUse: boolean) =>
-      inUse ? `${address} · In use` : `${address} · Tried first`,
-    easyConnectDetail: (inUse: boolean) => (inUse ? 'In use' : 'When Tailscale doesn\'t answer'),
+    tailscaleDetail: (address: string, inUse: boolean) => (inUse ? `${address} · In use` : `${address} · Tried first`),
+    easyConnectDetail: (inUse: boolean) => (inUse ? 'In use' : "When Tailscale doesn't answer"),
     /** Easy Connect is off on the computer: this phone can't use it, whatever key it holds. */
-    easyConnectOff: (computer: string) => `Off on ${computer}. Turn it on in Ghostex Settings › Remote there to use it.`,
+    easyConnectOff: (computer: string) =>
+      `Off on ${computer}. Turn it on in Ghostex Settings › Remote there to use it.`,
     /** The computer hasn't said yet whether Easy Connect is on there. */
     easyConnectUnknown: 'Not checked yet',
     /** Fall back to Easy Connect is off (or not chosen yet) for this computer. */
@@ -1080,9 +1081,9 @@ export const ComputerPageCopy = {
   approvals: 'Approvals',
   approvalsNone: 'Nothing is waiting',
   approvalsWaiting: (count: number) => (count === 1 ? '1 request is waiting' : `${count} requests are waiting`),
-  approvalsUnknown: 'Requests that wait for you on this computer',
-  requirePresenceDetail: (ios: boolean) =>
-    `On: Approve asks for ${ios ? 'Face ID' : 'your fingerprint'} first here, and for Touch ID or the password on the computer. It applies to every device that approves for this computer.`,
+  approvalsUnknown: (computer: string) => `Requests that wait for you on ${computer}`,
+  requirePresenceDetail: (ios: boolean, computer: string) =>
+    `On: Approve asks for ${ios ? 'Face ID' : 'your fingerprint'} first here, and for Touch ID or the password on ${computer}. It applies to every device that approves for ${computer}.`,
   moreLabel: 'More',
   rows: {
     name: { easyConnect: 'Name and Sessions tab', tailscale: 'Name, address and password' },
@@ -1118,7 +1119,7 @@ export const EditMachineCopy = {
   connectionTailscaleLabel: 'Connection · Tailscale',
   /** Pairing v2 (GitHub #495): what this computer has paired, with one-tap Remove. */
   pairedDevices: {
-    title: 'Devices that can reach this computer',
+    title: (computer: string) => `Devices that can reach ${computer}`,
     /** The plain question, as the computer's own card asks it (`security/plainAsk.ts`). */
     waiting: (name: string, phone: boolean, computer: string) =>
       phone ? `Add ${name} to ${computer}?` : `Let ${name} connect to ${computer}?`,
@@ -1135,9 +1136,10 @@ export const EditMachineCopy = {
     thisPhone: (name: string) => `This phone (${name})`,
     legacy: 'Paired before Ghostex 11.1.0, so it no longer connects. Pair it again, or remove it.',
     removeTitle: (name: string) => `Remove ${name}?`,
-    removeDetail: 'It loses its access to this computer at once: its sign-in key and its Ghostex token are removed.',
-    removeSelfDetail:
-      'This phone loses its access to this computer at once. To use it again, show a code on the computer and pair again.',
+    removeDetail: (computer: string) =>
+      `It loses its access to ${computer} at once: its sign-in key and its Ghostex token are removed.`,
+    removeSelfDetail: (computer: string) =>
+      `This phone loses its access to ${computer} at once. To use it again, show a code on ${computer} and pair again.`,
     removeFailed: "Couldn't remove the device",
   },
   /** Paired computers: the server links a computer keeps (ServerLinksSection.tsx, the desktop's words). */
@@ -1150,7 +1152,7 @@ export const EditMachineCopy = {
     accessOff: 'Agent access is off: neither computer’s agents use the other.',
     bothWays: 'Linked both ways: the agents on each can use the other.',
     oneWay: 'Linked one way so far: waiting for it to link back.',
-    incomingOnly: 'Its agents can use this computer; it isn’t linked back yet.',
+    incomingOnly: (computer: string) => `Its agents can use ${computer}; it isn’t linked back yet.`,
     notLinked: 'Not linked.',
     accessLabel: (name: string) => `Agent access with ${name}`,
     accessFailed: "Couldn't change Agent access",
@@ -1170,7 +1172,7 @@ export const EditMachineCopy = {
     rePair: 'Re-pair',
   },
   showInSessions: 'Show in Sessions',
-  showInSessionsDetail: "Shows this computer's tab at the top of Sessions.",
+  showInSessionsDetail: (computer: string) => `Shows ${computer}'s tab at the top of Sessions.`,
   /** The computer's Ghostex row; the status wording lives in src/machines/appUpdate.ts with the desktop's. */
   appUpdate: {
     label: 'Ghostex',
@@ -1187,7 +1189,7 @@ export const EditMachineCopy = {
     agentsLabel: 'Agent CLIs',
     toolsLabel: 'Skills and tools',
     reading: 'Reading what is installed there…',
-    notConnected: 'Connect to this computer to see and update its agent CLIs, skills and tools.',
+    notConnected: (computer: string) => `Connect to ${computer} to see and update its agent CLIs, skills and tools.`,
     retry: 'Read again',
     skills: 'Skills',
     desktopControl: 'Desktop control',
@@ -1199,8 +1201,8 @@ export const EditMachineCopy = {
   errorPrefix: (name: string) => `Can't reach ${name}. `,
   whatCanICheck: 'What can I check?',
   remove: {
-    button: 'Remove this computer from the phone',
-    title: 'Remove this computer?',
+    button: (name: string) => `Remove ${name} from the phone`,
+    title: (name: string) => `Remove ${name}?`,
     /** `asksComputer`: the removal first asks the computer to stop its push notifications. */
     body: (name: string, asksComputer: boolean) =>
       `${name} is removed from this phone, along with its saved password and pairing key. ${asksComputer ? `If ${name} can be reached, it also stops sending push notifications. Nothing else changes on the computer.` : 'Nothing changes on the computer.'}`,
@@ -1361,12 +1363,15 @@ export const BeadsCopy = {
   machineMissing: 'This computer is no longer saved on this phone.',
   noWorkspaceTitle: 'No beads here yet',
   noWorkspace: (folder: string | null) =>
-    folder !== null ? `Beads found no workspace in ${folder}. Ask an agent to set up Beads there.` : 'Beads found no workspace for this project. Ask an agent to set up Beads there.',
+    folder !== null
+      ? `Beads found no workspace in ${folder}. Ask an agent to set up Beads there.`
+      : 'Beads found no workspace for this project. Ask an agent to set up Beads there.',
   noBdTitle: 'Beads isn’t installed',
   noBd: 'Install Beads (bd) on that computer, then reload.',
   failedTitle: 'Beads didn’t answer',
   failedBody: 'Beads couldn’t read this project’s workspace. Try again; Details has what it said.',
-  coreFailed: 'This phone’s Ghostex couldn’t lay it out. Try again; if it keeps failing, update the app. Details has what it said.',
+  coreFailed:
+    'This phone’s Ghostex couldn’t lay it out. Try again; if it keeps failing, update the app. Details has what it said.',
   listFailedTitle: 'Couldn’t show the beads',
   pageFailedTitle: 'Couldn’t show this bead',
   backToList: 'Back to the list',
@@ -1389,7 +1394,7 @@ export const BeadsCopy = {
   noRemote: 'No remote set up',
   lastPush: (ago: string) => `Last push: ${ago}`,
   lastPull: (ago: string) => `Last pull: ${ago}`,
-  syncHelp: 'Push sends this computer’s changes. Pull brings in changes from your other computers.',
+  syncHelp: (computer: string) => `Push sends ${computer}’s changes. Pull brings in changes from your other computers.`,
   pull: 'Pull',
   push: 'Push',
   pullFailed: 'Pull didn’t start',
@@ -1595,7 +1600,7 @@ export const FeedbackCopy = {
     `Added when it is posted: ${
       screenshots === 0 ? '' : screenshots === 1 ? '1 screenshot and ' : `${screenshots} screenshots and `
     }“${footer}”.`,
-  agentUnsupported: 'Update Ghostex on this computer to start the feedback agent from the phone.',
+  agentUnsupported: (computer: string) => `Update Ghostex on ${computer} to start the feedback agent from the phone.`,
   agentNoSession: 'The agent started, but Ghostex did not say which session it is in.',
   crashAttached: 'Crash report attached',
   crashAttachedHint: (when: string | null) =>
@@ -1681,12 +1686,12 @@ export const PanesCopy = {
     done: (count: number) => `${count} done`,
     failed: (count: number) => `${count} failed`,
   },
-  agentsEmpty: 'No sessions on this computer.',
+  agentsEmpty: (computer: string) => `No sessions on ${computer}.`,
   newPane: 'New pane',
   /** The chooser's pane types, above its sessions. */
   chooserTypesLead: 'Show in this pane',
   chooserLead: 'Open a session here',
-  chooserEmpty: 'No other session on this computer.',
+  chooserEmpty: (computer: string) => `No other session on ${computer}.`,
   chooserLoading: 'Loading sessions',
   /** The chooser's first row: closes it, as its close button does. */
   chooserClose: 'Close',
@@ -1698,7 +1703,8 @@ export const PanesCopy = {
   /** A files or Git changes pane while the computer's session list is read. */
   projectLoading: 'Loading the project',
   /** A files or Git changes pane whose session (its project's) the computer no longer lists. */
-  projectGone: 'The session this pane was opened from is no longer on this computer, so its project is not known.',
+  projectGone: (computer: string) =>
+    `The session this pane was opened from is no longer on ${computer}, so its project is not known.`,
   resize: 'Resize panes',
   /** While the divider is dragged: both shares, and "limit" at 25 or 75 percent. */
   shares: (first: number, second: number, atLimit: boolean) => `${first} % · ${second} %${atLimit ? ' · limit' : ''}`,
@@ -2009,7 +2015,7 @@ export const NotificationsCopy = {
     rowMenu: 'More actions',
     /** The Remove on the row for a phone added for Easy Connect without a click. */
     removeDevice: 'Remove',
-    removeDeviceLabel: (name: string) => `Remove ${name} from this computer`,
+    removeDeviceLabel: (name: string, computer: string) => `Remove ${name} from ${computer}`,
     unreadBell: (count: number) => `Notifications, ${count} unread`,
   },
   /** The attention list's sections, in their order. */
@@ -2285,7 +2291,7 @@ export const ApprovalsCopy = {
 /** Connect two of this phone's computers to each other (`machines/linkComputers.ts`). */
 export const LinkComputersCopy = {
   sectionLabel: 'Connect to another computer',
-  idle: (other: string) => `Let this computer and ${other} open each other's chats and terminals.`,
+  idle: (computer: string, other: string) => `Let ${computer} and ${other} open each other's chats and terminals.`,
   connect: 'Connect',
   confirmTitle: (first: string, second: string) => `Connect ${first} and ${second}?`,
   confirmBody: (first: string, second: string) =>

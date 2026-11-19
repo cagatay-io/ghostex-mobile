@@ -39,7 +39,7 @@ import { formatDayHeader, formatLastActiveCompact } from '../find/findFormat';
 import { useFindPromptsStore } from '../find/findPromptsStore';
 import { useFindStyles, type FindStyles } from '../find/findStyles';
 import { FIND_PROMPT_AGENTS, type FindPromptRow as FindPromptRowData } from '../find/promptSearch';
-import { useMachinesStore } from '../machines/store';
+import { machineName, useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
 import { useAppearanceHeader } from './settings/useAppearanceHeader';
 
@@ -332,7 +332,7 @@ export default function FindPromptsScreen({ navigation, route }: Props) {
                 {searchFailed
                   ? FindPromptsCopy.searchFailed
                   : find.total === 0
-                    ? FindPromptsCopy.noHistory
+                    ? FindPromptsCopy.noHistory(machineName(machine))
                     : FindPromptsCopy.noMatches}
               </Text>
             )

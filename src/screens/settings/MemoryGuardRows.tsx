@@ -20,7 +20,13 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import ActionSheet from '../../components/common/ActionSheet';
 import { chatMachineLink } from '../../chat/rust/machine-link';
 import { isDemoMachine } from '../../demo/identity';
-import { isMachineEnabled, machineDisplayLabel, useMachinesStore, type MachineRecord } from '../../machines/store';
+import {
+  isMachineEnabled,
+  machineDisplayLabel,
+  machineName,
+  useMachinesStore,
+  type MachineRecord,
+} from '../../machines/store';
 import { useAppearance } from '../../theme/useAppearance';
 import { Caption, LinkRow, NoticeCard, SectionHeader, ToggleRow, useSettingsStyles } from './SettingsControls';
 import { SettingsSearchAnchor } from './search/SettingsSearchAnchor';
@@ -137,8 +143,8 @@ export function MemoryGuardRows() {
           />
           <Caption>
             When {machineDisplayLabel(machine)} is about to run out of memory, Ghostex stops the build, test run or dev
-            server an agent started that uses the most, restarts an agent that grew too big, and as a last step stops the
-            session so you can resume it. Apps outside Ghostex are never touched.
+            server an agent started that uses the most, restarts an agent that grew too big, and as a last step stops
+            the session so you can resume it. Apps outside Ghostex are never touched.
           </Caption>
           {loaded.values.memoryGuardEnabled ? (
             <>
@@ -148,7 +154,8 @@ export function MemoryGuardRows() {
                 onValueChange={(next) => change({ memoryGuardNotify: next })}
               />
               <Caption>
-                A notification on the computer and this phone whenever Ghostex stops or restarts something to free memory.
+                A notification on the computer and this phone whenever Ghostex stops or restarts something to free
+                memory.
               </Caption>
             </>
           ) : null}
@@ -183,7 +190,7 @@ function ComputerRow({
       >
         <View style={styles.linkText}>
           <Text style={styles.linkTitle}>{machineDisplayLabel(machine)}</Text>
-          <Text style={styles.linkDescription}>The memory settings below are saved on this computer</Text>
+          <Text style={styles.linkDescription}>{`The memory settings below are saved on ${machineName(machine)}`}</Text>
         </View>
         <Text style={[styles.chevron, { color: appearance.muted }]}>⌄</Text>
       </Pressable>

@@ -12,8 +12,14 @@ import { Text, View } from 'react-native';
 
 import { openDeepLink } from '../../app/deepLinks';
 import { sessionDeepLink } from '../../app/deepLinkHandler';
-import { chatMachineLink } from '../../chat/rust/machine-link';
-import { isMachineEnabled, machineDisplayLabel, useMachinesStore, type MachineRecord } from '../../machines/store';
+import { chatMachineLink, unreachableMessage } from '../../chat/rust/machine-link';
+import {
+  isMachineEnabled,
+  machineDisplayLabel,
+  machineName,
+  useMachinesStore,
+  type MachineRecord,
+} from '../../machines/store';
 import { useAppearance } from '../../theme/useAppearance';
 import { SettingsSection } from './SectionBoundary';
 import {
@@ -143,7 +149,13 @@ function presetPatch(preset: Preset): Partial<Config> {
     case 'careful':
       return { enabled: true, answerQuestions: true, answerAfterMinutes: 15, answerApprovals: true, tier: 'decide' };
     case 'full':
-      return { enabled: true, answerQuestions: true, answerAfterMinutes: 10, answerApprovals: true, tier: 'everything' };
+      return {
+        enabled: true,
+        answerQuestions: true,
+        answerAfterMinutes: 10,
+        answerApprovals: true,
+        tier: 'everything',
+      };
     default:
       return { enabled: true };
   }
@@ -185,12 +197,14 @@ async function call(
       const unknown = /unknown|not a gxserver|no gxserver endpoint/i.test(answer.error.message);
       return {
         view: null,
-        error: unknown ? 'Update Ghostex on this computer to use Autopilot from your phone.' : answer.error.message,
+        error: unknown
+          ? `Update Ghostex on ${machineName(machine)} to use Autopilot from your phone.`
+          : answer.error.message,
       };
     }
     return { view: answer.result as View_, error: null };
   } catch (error) {
-    return { view: null, error: error instanceof Error ? error.message : "Couldn't reach Ghostex on your computer." };
+    return { view: null, error: error instanceof Error ? error.message : unreachableMessage(machineName(machine)) };
   }
 }
 

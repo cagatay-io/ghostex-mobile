@@ -23,7 +23,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Image, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { chatMachineLink, UNREACHABLE_MESSAGE } from '../chat/rust/machine-link';
+import { chatMachineLink, unreachableMessage } from '../chat/rust/machine-link';
 import { ErrorBanner } from '../addProject/primitives';
 import { SetupButton } from '../components/onboarding/SetupPrimitives';
 import { FeedbackCopy } from '../copy';
@@ -46,7 +46,7 @@ import {
 } from '../feedback/feedbackImages';
 import { feedbackClient, feedbackFooter, feedbackRequest, sendFeedback } from '../feedback/feedbackRelay';
 import { useInventoryStore } from '../inventory/store';
-import { useMachinesStore } from '../machines/store';
+import { machineName, useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
 import { useTerminalStore } from '../terminal/sessions';
 import { GhostexPalette, GhostexRadii } from '../theme/palette';
@@ -161,7 +161,7 @@ export default function FeedbackScreen() {
     try {
       const link = chatMachineLink(machine);
       if ((await link.route()) !== 'socket') {
-        setError(FeedbackCopy.agentUnsupported);
+        setError(FeedbackCopy.agentUnsupported(machineName(machine)));
         return;
       }
       const sent = await link.request(
@@ -175,7 +175,7 @@ export default function FeedbackScreen() {
         START_AGENT_TIMEOUT_MS,
       );
       if (sent.kind !== 'answered') {
-        setError(UNREACHABLE_MESSAGE);
+        setError(unreachableMessage(machineName(machine)));
         return;
       }
       if (sent.answer.error !== null) {

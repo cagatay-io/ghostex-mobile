@@ -56,7 +56,7 @@ import { agentIconTint, resolveAgentIconId } from '../contract/mobileSummary';
 import { NotificationsCopy } from '../copy';
 import { useInventoryStore } from '../inventory/store';
 import { useSessionComputerIcon } from '../machines/computerIcons';
-import { enabledMachines, machineDisplayLabel, useMachinesStore } from '../machines/store';
+import { enabledMachines, machineDisplayLabel, machineNameById, useMachinesStore } from '../machines/store';
 import type { PaneBarInset } from '../panes/geometry';
 import type { ClosedSession } from '../sessions/sessionSearch';
 import { useSettingsStore } from '../settings/store';
@@ -360,47 +360,50 @@ const Row = memo(function Row({
         ink={ink}
         appearance={appearance}
         trailing={
-      <View style={styles.cardButtons}>
-        {row.removeDevice !== undefined ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={NotificationsCopy.feed.removeDeviceLabel(row.removeDevice.name)}
-            testID={`attention-row-remove-${row.id}`}
-            hitSlop={6}
-            onPress={() => onRemove(row)}
-            style={({ pressed }) => [
-              styles.cardTextButton,
-              { backgroundColor: colorWithOpacity(appearance.foreground, pressed ? 20 : 10) },
-            ]}
-          >
-            <Text style={[styles.cardTextButtonLabel, { color: colorWithOpacity(appearance.foreground, 92) }]}>
-              {NotificationsCopy.feed.removeDevice}
-            </Text>
-          </Pressable>
-        ) : null}
-        <CardButton
-          label={NotificationsCopy.feed.rowMenu}
-          testID={`attention-row-menu-${row.id}`}
-          fill={colorWithOpacity(appearance.foreground, 8)}
-          border={colorWithOpacity(appearance.foreground, 14)}
-          pressedFill={colorWithOpacity(appearance.foreground, 20)}
-          onPress={() => measureInWindow(ref, (frame) => onMenu(row, frame))}
-        >
-          <MoreGlyph size={15} color={colorWithOpacity(appearance.foreground, 85)} />
-        </CardButton>
-        {check ? (
-          <CardButton
-            label={unread ? NotificationsCopy.feed.checkRead : NotificationsCopy.feed.checkClear}
-            testID={`attention-row-check-${row.id}`}
-            fill={unread ? colorWithOpacity(accent, 18) : colorWithOpacity(appearance.foreground, 12)}
-            border={unread ? colorWithOpacity(accent, 45) : colorWithOpacity(appearance.foreground, 16)}
-            pressedFill={unread ? colorWithOpacity(accent, 32) : colorWithOpacity(appearance.foreground, 22)}
-            onPress={() => onCheck(row)}
-          >
-            <PanelGlyph name="check" size={15} color={colorWithOpacity(appearance.foreground, 92)} />
-          </CardButton>
-        ) : null}
-      </View>
+          <View style={styles.cardButtons}>
+            {row.removeDevice !== undefined ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={NotificationsCopy.feed.removeDeviceLabel(
+                  row.removeDevice.name,
+                  machineNameById(row.machineId),
+                )}
+                testID={`attention-row-remove-${row.id}`}
+                hitSlop={6}
+                onPress={() => onRemove(row)}
+                style={({ pressed }) => [
+                  styles.cardTextButton,
+                  { backgroundColor: colorWithOpacity(appearance.foreground, pressed ? 20 : 10) },
+                ]}
+              >
+                <Text style={[styles.cardTextButtonLabel, { color: colorWithOpacity(appearance.foreground, 92) }]}>
+                  {NotificationsCopy.feed.removeDevice}
+                </Text>
+              </Pressable>
+            ) : null}
+            <CardButton
+              label={NotificationsCopy.feed.rowMenu}
+              testID={`attention-row-menu-${row.id}`}
+              fill={colorWithOpacity(appearance.foreground, 8)}
+              border={colorWithOpacity(appearance.foreground, 14)}
+              pressedFill={colorWithOpacity(appearance.foreground, 20)}
+              onPress={() => measureInWindow(ref, (frame) => onMenu(row, frame))}
+            >
+              <MoreGlyph size={15} color={colorWithOpacity(appearance.foreground, 85)} />
+            </CardButton>
+            {check ? (
+              <CardButton
+                label={unread ? NotificationsCopy.feed.checkRead : NotificationsCopy.feed.checkClear}
+                testID={`attention-row-check-${row.id}`}
+                fill={unread ? colorWithOpacity(accent, 18) : colorWithOpacity(appearance.foreground, 12)}
+                border={unread ? colorWithOpacity(accent, 45) : colorWithOpacity(appearance.foreground, 16)}
+                pressedFill={unread ? colorWithOpacity(accent, 32) : colorWithOpacity(appearance.foreground, 22)}
+                onPress={() => onCheck(row)}
+              >
+                <PanelGlyph name="check" size={15} color={colorWithOpacity(appearance.foreground, 92)} />
+              </CardButton>
+            ) : null}
+          </View>
         }
       />
     </Pressable>
@@ -521,7 +524,9 @@ function EndedSheet({
         {NotificationsCopy.ended.restoringText}
       </Text>
     );
-    buttons = <SheetButton label={NotificationsCopy.close} fills={neutral} ink={appearance.foreground} onPress={onClose} />;
+    buttons = (
+      <SheetButton label={NotificationsCopy.close} fills={neutral} ink={appearance.foreground} onPress={onClose} />
+    );
   } else if (target !== null && restore === 'failed') {
     title = NotificationsCopy.ended.failedTitle;
     body = (

@@ -15,6 +15,7 @@ import { createdSessionId, runGhostexCli } from '../components/sessions/cli';
 import { runActionCommand } from '../commands/ghostexCli';
 import { ActionCopy, ProgressCopy } from '../copy';
 import type { MachineConnectionTarget } from '../machines/credentials';
+import { machineNameById } from '../machines/store';
 import { webPreviewTargetForUrl, type WebPreviewTarget } from '../webPreview/routing';
 import { quickActionDisplayName, type QuickActionEntry } from './quickActions';
 
@@ -48,7 +49,7 @@ export async function runQuickAction(host: QuickActionRunHost, run: QuickActionR
   const url = action.url ?? '';
   if (action.actionType === 'browser' ? url.length === 0 : commandId.length === 0) return;
   if (scope === 'global' && !host.globalQuickActionsSupported()) {
-    host.showStartFailure({ name, message: ActionCopy.globalActionsUnavailable });
+    host.showStartFailure({ name, message: ActionCopy.globalActionsUnavailable(machineNameById(host.machine.id)) });
     return;
   }
 

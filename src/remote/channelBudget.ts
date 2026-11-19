@@ -25,6 +25,7 @@
 import { Platform } from 'react-native';
 
 import { GhostexNative } from '../../modules/ghostex-native/src';
+import { machineNameById } from '../machines/store';
 import { nativeProbeLane } from './probeLane';
 import { isSlowOpenFailure, noteOperationEnded, noteOperationStarted, noteSlowOpenFailure } from './stallWatch';
 
@@ -36,7 +37,7 @@ export const MAX_ADMISSION_WAIT_MS = 20_000;
 /** A command that never got a slot: the phone was busy, the connection was not judged. */
 export class ChannelBusyError extends Error {
   readonly code = 'E_BUSY';
-  constructor(message = 'Ghostex is still busy with other requests to this computer.') {
+  constructor(message = 'Ghostex is still busy with other requests to the computer.') {
     super(message);
   }
 }
@@ -340,7 +341,7 @@ export function withCommandChannel<T>(machineId: string, admissionMs: number, ru
         () => {
           const index = budget.queue.indexOf(waiter);
           if (index >= 0) budget.queue.splice(index, 1);
-          reject(new ChannelBusyError());
+          reject(new ChannelBusyError(`Ghostex is still busy with other requests to ${machineNameById(machineId)}.`));
         },
         Math.max(0, deadline - Date.now()),
       );

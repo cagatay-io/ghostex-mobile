@@ -127,7 +127,7 @@ import { useStatusBarStyle } from '../theme/statusBar';
 import { terminalChrome } from '../theme/terminalColours';
 import { useTerminalColours } from '../theme/useTerminalColours';
 import { useAppearance } from '../theme/useAppearance';
-import { useMachinesStore } from '../machines/store';
+import { machineNameById, useMachinesStore } from '../machines/store';
 import { VoiceButton } from '../voice/VoiceButton';
 import { readAloudChatKey, setReadAloudOnScreen } from '../voice/readAloud';
 import { useOpenMachineLink } from '../webPreview/useOpenMachineLink';
@@ -1142,7 +1142,12 @@ export default function TerminalScreen({ navigation, route }: Props) {
       }
       if (id === 'beads') {
         setMenuVisible(false);
-        if (activeTab !== null && beadsOnFor(activeTab.machineId) && activeProject !== null && activeProject.projectId.length > 0) {
+        if (
+          activeTab !== null &&
+          beadsOnFor(activeTab.machineId) &&
+          activeProject !== null &&
+          activeProject.projectId.length > 0
+        ) {
           navigation.navigate('Beads', {
             machineId: activeTab.machineId,
             projectId: activeProject.projectId,
@@ -1505,8 +1510,12 @@ export default function TerminalScreen({ navigation, route }: Props) {
         if (action === 'openAccountsSettings') {
           // The session's own computer keeps its logins, so its Accounts screen signs them in (src/accounts/).
           if (machine === null) return;
-          const accountId = typeof params.accountId === 'string' && params.accountId.length > 0 ? params.accountId : undefined;
-          navigation.navigate('Accounts', { machineId: machine.id, ...(accountId !== undefined ? { reconnectAccountId: accountId } : {}) });
+          const accountId =
+            typeof params.accountId === 'string' && params.accountId.length > 0 ? params.accountId : undefined;
+          navigation.navigate('Accounts', {
+            machineId: machine.id,
+            ...(accountId !== undefined ? { reconnectAccountId: accountId } : {}),
+          });
         } else if (action !== 'viewPlaybook') chatHostActionRef.current(action, params);
         else if (machine !== null && projectId.length > 0) setPlaybook({ machine, projectId });
       },
@@ -2001,6 +2010,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
       {playbook !== null ? (
         <CoordinatorPlaybookSheet
           load={() => loadCoordinatorPlaybook(playbook.machine, playbook.projectId)}
+          computer={machineNameById(playbook.machine.id)}
           onClose={() => setPlaybook(null)}
         />
       ) : null}

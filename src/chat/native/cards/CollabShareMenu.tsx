@@ -27,6 +27,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Share, Text, View } from 'react-native';
 
+import { machineNameById } from '../../../machines/store';
 import type { ChatDocument } from '../../rust/document';
 import { collabCall, revealedShares, spacedCode } from './collabCall';
 import type { RustChat } from '../../rust/useRustChat';
@@ -342,7 +343,9 @@ export function CollabShareMenu({
               onPress={() => void change({ op: 'install', name: 'collab' }, 'install', 'extensionComponents')}
             />
           ) : (
-            <Text style={styles.small}>This computer's Ghostex has no Collab component to install.</Text>
+            <Text style={styles.small}>
+              {`Ghostex on ${machine !== null ? machineNameById(machine.id) : 'the computer'} has no Collab component to install.`}
+            </Text>
           )}
           <Text style={[styles.small, styles.center]}>
             Installing asks for your approval, on your computer or this phone

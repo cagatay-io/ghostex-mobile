@@ -34,10 +34,12 @@ export async function loadCoordinatorPlaybook(
 export type CoordinatorPlaybookSheetProps = {
   /** The guide's text; a rejection shows its message in the sheet. */
   load: () => Promise<string>;
+  /** The computer's name (`machineName`), for the line when it shows no playbook. */
+  computer: string;
   onClose: () => void;
 };
 
-export default function CoordinatorPlaybookSheet({ load, onClose }: CoordinatorPlaybookSheetProps) {
+export default function CoordinatorPlaybookSheet({ load, computer, onClose }: CoordinatorPlaybookSheetProps) {
   const appearance = useAppearance();
   const styles = useMemo(() => createStyles(appearance), [appearance]);
   const [guide, setGuide] = useState<string | null>(null);
@@ -71,12 +73,14 @@ export default function CoordinatorPlaybookSheet({ load, onClose }: CoordinatorP
             follows over the playbook. Edit your overrides on the computer, in Settings &gt; Chat &gt; Coordinator
             playbook.
           </Text>
-          {guide === null && error === null ? <ActivityIndicator style={styles.loading} color={appearance.muted} /> : null}
+          {guide === null && error === null ? (
+            <ActivityIndicator style={styles.loading} color={appearance.muted} />
+          ) : null}
           {error !== null ? <Text style={styles.error}>{error}</Text> : null}
           {guide !== null ? (
             <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
               <Text selectable style={styles.guide}>
-                {guide.length > 0 ? guide : 'This computer did not show a playbook.'}
+                {guide.length > 0 ? guide : `No playbook came from ${computer}.`}
               </Text>
             </ScrollView>
           ) : null}

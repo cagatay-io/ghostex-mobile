@@ -20,6 +20,7 @@ import { saveConnectInfo, useCloudBoxesStore, type CloudBoxEntry } from './store
 import { setProviderBoxOps } from './actions';
 import { setProviderResumer } from './wake';
 import type { CloudBox, CloudBoxProgressStep } from './types';
+import { machineNameById } from '../machines/store';
 
 const BOX_GHOSTEX_BIN = '/opt/ghostex/bin/ghostex';
 const TICKET_VERSION = 1;
@@ -130,7 +131,11 @@ function verbAnswer(output: ExecOutput, verb: string): Record<string, unknown> {
 
 async function opsFor(homeMachineId: string, provider: string): Promise<ProviderOps> {
   const entry = await cloudKitProvider(homeMachineId, provider);
-  if (entry === null) throw new Error(`The phone has no ${provider} key for this computer. Turn on Start boxes from your phone there.`);
+  if (entry === null) {
+    throw new Error(
+      `The phone has no ${provider} key for ${machineNameById(homeMachineId)}. Turn on Start boxes from your phone there.`,
+    );
+  }
   return new ProviderOps(provider, entry.key, entry.plan);
 }
 
@@ -147,7 +152,9 @@ async function bootBox(
 ): Promise<string> {
   const { box } = row;
   if (kit.allowDeviceKeys.length === 0) {
-    throw new Error('The computer lists no paired device the box could admit; pair this phone with Easy Connect first.');
+    throw new Error(
+      'The computer lists no paired device the box could admit; pair this phone with Easy Connect first.',
+    );
   }
   const result = await row.run('boot', async () => {
     const { script } = await gxCloud<{ script: string }>('installScript', { version: kit.gxserverVersion });
@@ -167,14 +174,25 @@ async function bootBox(
         tailcat: true,
       },
     });
-    return verbAnswer(await ops.exec(providerBoxId, [BOX_GHOSTEX_BIN, 'box', 'boot', '--ticket', ticket], null, 180), 'boot');
+    return verbAnswer(
+      await ops.exec(providerBoxId, [BOX_GHOSTEX_BIN, 'box', 'boot', '--ticket', ticket], null, 180),
+      'boot',
+    );
   });
   const tailcatAddress = typeof result.tailcatAddress === 'string' ? result.tailcatAddress : undefined;
   const gxserverToken = typeof result.gxserverToken === 'string' ? result.gxserverToken : '';
   const gxserverPort = typeof result.gxserverPort === 'number' ? result.gxserverPort : 0;
   const gxserverVersion = typeof result.gxserverVersion === 'string' ? result.gxserverVersion : undefined;
-  if (tailcatAddress === undefined || gxserverToken.length === 0) throw new Error('The box started without an Easy Connect address.');
-  await saveConnectInfo({ boxId: box.boxId, transport: 'tailcat', tailcatAddress, gxserverPort, gxserverToken, gxserverVersion });
+  if (tailcatAddress === undefined || gxserverToken.length === 0)
+    throw new Error('The box started without an Easy Connect address.');
+  await saveConnectInfo({
+    boxId: box.boxId,
+    transport: 'tailcat',
+    tailcatAddress,
+    gxserverPort,
+    gxserverToken,
+    gxserverVersion,
+  });
   row.put({ tailcatAddress, gxserverVersion });
   const folder = privateDir(box.provider, result.privateDir);
   const secrets = { accounts: kit.accounts, files: project?.files ?? [], vars: project?.vars ?? [] };
@@ -214,27 +232,33 @@ export async function startBoxFromPhone(input: PhoneStartInput): Promise<PhoneSt
   const ops = await opsFor(input.homeMachineId, provider);
   const entropy = new Uint8Array(16);
   globalThis.crypto.getRandomValues(entropy);
-  const { boxId, name } = await gxCloud<{ boxId: string; name: string }>('newBoxId', { entropyBase64url: base64url(entropy) });
+  const { boxId, name } = await gxCloud<{ boxId: string; name: string }>('newBoxId', {
+    entropyBase64url: base64url(entropy),
+  });
   const size = await gxCloud<{ id: string; usdPerHour?: number }>('size', { provider, size: project.snapshot.size });
   const createdAt = nowIso();
   const idempotencyKey = `ghostex-${boxId}-create`;
-  const row = new PhoneBoxRow(input.homeMachineId, {
-    boxId,
-    provider,
-    name,
-    state: 'creating',
-    projectKey: project.projectKey,
-    homeProjectId: project.homeProjectId,
-    snapshotId: project.snapshot.snapshotId,
-    size: size.id,
-    usdPerHour: size.usdPerHour,
-    costTotalUsd: 0,
-    costEstimated: true,
-    createdBy: `phone:${input.deviceId ?? 'phone'}`,
-    createdAt,
-    sessions: [],
-    progress: { kind: 'create', steps: [] },
-  }, input.onProgress);
+  const row = new PhoneBoxRow(
+    input.homeMachineId,
+    {
+      boxId,
+      provider,
+      name,
+      state: 'creating',
+      projectKey: project.projectKey,
+      homeProjectId: project.homeProjectId,
+      snapshotId: project.snapshot.snapshotId,
+      size: size.id,
+      usdPerHour: size.usdPerHour,
+      costTotalUsd: 0,
+      costEstimated: true,
+      createdBy: `phone:${input.deviceId ?? 'phone'}`,
+      createdAt,
+      sessions: [],
+      progress: { kind: 'create', steps: [] },
+    },
+    input.onProgress,
+  );
   // Checked above against the kit's last spend (`cloudKitCapRefusal`), before anything was made.
   row.step('checkCap', 'done');
   const providerBoxId = await row.run('create', () =>
@@ -323,7 +347,13 @@ async function resumeFromPhone(box: CloudBox, homeMachineId: string): Promise<Cl
         row.put({ state: 'booting' });
         const project = kit.projects.find((candidate) => candidate.homeProjectId === box.homeProjectId) ?? null;
         await bootBox(row, ops, providerBoxId, kit, project);
-        row.put({ state: 'running', stateDetail: undefined, startedAt: nowIso(), stoppedAt: undefined, progress: undefined });
+        row.put({
+          state: 'running',
+          stateDetail: undefined,
+          startedAt: nowIso(),
+          stoppedAt: undefined,
+          progress: undefined,
+        });
       } catch {
         // `run` marked the row failed with the reason; the waiting send reads it.
       }

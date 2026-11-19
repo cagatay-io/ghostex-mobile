@@ -166,7 +166,9 @@ export default function GbotComputerView(props: GbotComputerViewProps): ReactEle
         {computer.computerUse ? <View style={styles.buttons}>{button('Turn off', { screen: false })}</View> : null}
       </View>
       <Text style={styles.note}>
-        {`Its folder, memory and routines stay on this computer. To give ${props.name} another computer, a Cloud Box or computer use, open its GBot Settings on the computer.`}
+        {computer.thisComputer.length > 0
+          ? `Its folder, memory and routines stay on ${computer.thisComputer}. To give ${props.name} another computer, a Cloud Box or computer use, open its GBot Settings on ${computer.thisComputer}.`
+          : `Its folder, memory and routines stay on its own computer. To give ${props.name} another computer, a Cloud Box or computer use, open its GBot Settings on that computer.`}
       </Text>
     </View>
   );

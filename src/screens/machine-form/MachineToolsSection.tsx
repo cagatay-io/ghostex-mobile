@@ -12,13 +12,14 @@ import { SetupButton } from '../../components/onboarding/SetupPrimitives';
 import { DownloadGlyph, RefreshGlyph } from '../../components/sessions/icons';
 import { EditMachineCopy } from '../../copy';
 import type { MachineConnectionTarget } from '../../machines/credentials';
+import { machineNameById } from '../../machines/store';
 import {
   agentCliRow,
   DESKTOP_CONTROL_TOOL_IDS,
   refreshMachineTools,
   runRowAction,
   skillRow,
-  TOO_OLD_MESSAGE,
+  tooOldMessage,
   toolRow,
   useMachineToolsStore,
   type MachineTools,
@@ -54,7 +55,18 @@ function Row({
     <View style={[formStyles.row, first ? formStyles.rowFirst : null]}>
       <View style={formStyles.rowMain}>
         <Text style={formStyles.rowLabel}>{row.title}</Text>
-        <Text style={[formStyles.rowDetail, { color: readableSecondaryText(TONE_COLOR[failed ? 'warning' : row.tone], appearance.foreground, [appearance.background, appearance.card, appearance.cardActive]) }]}>
+        <Text
+          style={[
+            formStyles.rowDetail,
+            {
+              color: readableSecondaryText(TONE_COLOR[failed ? 'warning' : row.tone], appearance.foreground, [
+                appearance.background,
+                appearance.card,
+                appearance.cardActive,
+              ]),
+            },
+          ]}
+        >
           {failed ?? row.detail}
         </Text>
       </View>
@@ -131,11 +143,12 @@ export default function MachineToolsSection({
   const formStyles = useFormStyles();
   const tools = useMachineToolsStore((state) => state.byMachineId[machine.id]);
   const copy = EditMachineCopy.machineTools;
+  const computer = machineNameById(machine.id);
   if (!reachable) {
     return (
       <>
         <Text style={formStyles.sectionLabel}>{copy.agentsLabel}</Text>
-        <Notice text={copy.notConnected} busy={false} />
+        <Notice text={copy.notConnected(computer)} busy={false} />
       </>
     );
   }
@@ -145,12 +158,14 @@ export default function MachineToolsSection({
   const integrations = tools?.integrations;
   const managed = tools?.tools;
   const allTools = managed?.data ?? [];
-  const desktopRows = DESKTOP_CONTROL_TOOL_IDS.flatMap((id) => allTools.filter((tool) => tool.id === id)).map(toolRow);
+  const desktopRows = DESKTOP_CONTROL_TOOL_IDS.flatMap((id) => allTools.filter((tool) => tool.id === id)).map((tool) =>
+    toolRow(tool, computer),
+  );
   const toolRows = allTools
     .filter(
       (tool) => tool.supported === true && tool.id !== 'powershell' && !DESKTOP_CONTROL_TOOL_IDS.includes(tool.id),
     )
-    .map(toolRow);
+    .map((tool) => toolRow(tool, computer));
   const cli = integrations?.data?.ghostexCli;
   const cliRow: ToolRowView | null =
     cli === undefined
@@ -196,7 +211,7 @@ export default function MachineToolsSection({
                 // A Ghostex from before Desktop control could be installed from another device.
                 <>
                   <Text style={formStyles.fieldHint}>{copy.desktopControl}</Text>
-                  <Notice text={TOO_OLD_MESSAGE} busy={false} />
+                  <Notice text={tooOldMessage(computer)} busy={false} />
                 </>
               ) : (
                 <Card machine={machine} tools={tools} heading={copy.desktopControl} rows={desktopRows} />

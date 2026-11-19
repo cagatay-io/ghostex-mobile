@@ -23,10 +23,11 @@
  */
 
 import type { MachineConnectionTarget } from '../../machines/credentials';
+import { machineNameById } from '../../machines/store';
 import { execRemoteCommand } from '../../remote/commands';
 import { ensureConnected } from '../../inventory/client';
 import type { ChatRpcError } from './events';
-import { chatMachineLink, UNREACHABLE_MESSAGE, type ChatMachineLink, type ChatRoute } from './machine-link';
+import { chatMachineLink, unreachableMessage, type ChatMachineLink, type ChatRoute } from './machine-link';
 import { CLOUD_BOX_UNAVAILABLE, isCloudBoxMachineId } from '../../cloudBoxes/types';
 import { cloudBoxRequestGate } from '../../cloudBoxes/wake';
 
@@ -174,7 +175,11 @@ async function cloudBoxChatRpc(
     if (sent.kind === 'answered') return sent.answer;
   }
   return {
-    error: { code: CLOUD_BOX_UNAVAILABLE, message: "Couldn't reach the cloud box; try again in a moment.", endpoint: `/api/${method}` },
+    error: {
+      code: CLOUD_BOX_UNAVAILABLE,
+      message: "Couldn't reach the cloud box; try again in a moment.",
+      endpoint: `/api/${method}`,
+    },
   };
 }
 
@@ -195,7 +200,10 @@ async function sessionChatRpcOverSsh(
       return {
         error: {
           code: typeof outcome.code === 'string' ? outcome.code : null,
-          message: typeof outcome.message === 'string' ? outcome.message : "Ghostex on the computer couldn't do that. Try again.",
+          message:
+            typeof outcome.message === 'string'
+              ? outcome.message
+              : "Ghostex on the computer couldn't do that. Try again.",
           endpoint: typeof outcome.endpoint === 'string' ? outcome.endpoint : endpoint,
         },
       };
@@ -208,9 +216,9 @@ async function sessionChatRpcOverSsh(
       error: {
         code: unknownVerb || unknownMethod ? 'unsupportedClient' : null,
         message: unknownVerb
-          ? 'Update Ghostex on this computer to use the new chat engine.'
+          ? `Update Ghostex on ${machineNameById(machine.id)} to use the new chat engine.`
           : unknownMethod
-            ? 'Update Ghostex on this computer to use this from the phone.'
+            ? `Update Ghostex on ${machineNameById(machine.id)} to use this from the phone.`
             : detail.split('\n').slice(-1)[0] || 'The computer did not answer the chat request.',
         endpoint,
       },
@@ -218,7 +226,7 @@ async function sessionChatRpcOverSsh(
   } catch (error) {
     // The SSH layer's own text (a Java or Swift exception) is for the log, not the chat.
     console.warn(`[chat-rpc] ${method} over SSH failed: ${error instanceof Error ? error.message : String(error)}`);
-    return { error: { code: 'unreachable', message: UNREACHABLE_MESSAGE, endpoint } };
+    return { error: { code: 'unreachable', message: unreachableMessage(machineNameById(machine.id)), endpoint } };
   }
 }
 

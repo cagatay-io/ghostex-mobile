@@ -22,6 +22,7 @@ import {
 } from '../../machines/appUpdate';
 import { SwitchRow } from '../../components/common/SwitchRow';
 import type { MachineConnectionTarget } from '../../machines/credentials';
+import { machineNameById } from '../../machines/store';
 import { SetupPalette } from '../../theme/palette';
 import { useFormStyles } from './styles';
 
@@ -42,7 +43,7 @@ export default function AppUpdateSection({ machine }: { machine: MachineConnecti
     return () => clearTimeout(timer);
   }, [copied]);
   if (update === undefined) return null;
-  const view = appUpdateView(update);
+  const view = appUpdateView(update, machineNameById(machine.id));
   const copy = EditMachineCopy.appUpdate;
   const line =
     [view.versionText, view.detail].filter((part): part is string => part !== null).join(' · ') ||
@@ -56,7 +57,20 @@ export default function AppUpdateSection({ machine }: { machine: MachineConnecti
         <View style={[formStyles.row, formStyles.rowFirst]}>
           {view.busy ? <ActivityIndicator size="small" color={appearance.muted} /> : null}
           <View style={formStyles.rowMain}>
-            <Text style={[formStyles.rowDetail, { color: readableSecondaryText(TONE_COLOR[view.tone], appearance.foreground, [appearance.background, appearance.card, appearance.cardActive]) }]}>{line}</Text>
+            <Text
+              style={[
+                formStyles.rowDetail,
+                {
+                  color: readableSecondaryText(TONE_COLOR[view.tone], appearance.foreground, [
+                    appearance.background,
+                    appearance.card,
+                    appearance.cardActive,
+                  ]),
+                },
+              ]}
+            >
+              {line}
+            </Text>
           </View>
         </View>
         {view.linux !== null && view.linux.command !== null ? (

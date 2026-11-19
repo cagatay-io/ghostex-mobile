@@ -32,6 +32,7 @@ import {
 } from '../contract/mobileSummary';
 import { PanesCopy, SessionCopy } from '../copy';
 import { useInventoryStore } from '../inventory/store';
+import { machineNameById } from '../machines/store';
 import { GhostexRadii } from '../theme/palette';
 import type { PaneBarInset } from './geometry';
 import { AVAILABLE_PANE_TYPES } from './paneTypes';
@@ -65,7 +66,8 @@ export function paneSessionStatus(
 ): PaneSessionStatus {
   const activity = rowActivityIndicator(session);
   if (activity === 'approval') return 'approval';
-  if (hasQuestion(session.pendingQuestionCount, capabilities.awaitingAnswer && session.awaitingAnswer)) return 'question';
+  if (hasQuestion(session.pendingQuestionCount, capabilities.awaitingAnswer && session.awaitingAnswer))
+    return 'question';
   switch (activity) {
     case 'failed':
       return 'failed';
@@ -266,7 +268,7 @@ export default function SessionChooser({
             </View>
           ) : null}
           {summary !== null && sessions.length === 0 ? (
-            <Text style={styles.empty}>{PanesCopy.chooserEmpty}</Text>
+            <Text style={styles.empty}>{PanesCopy.chooserEmpty(machineNameById(machineId))}</Text>
           ) : null}
         </View>
       }
@@ -278,39 +280,40 @@ function sessionKey(session: GhostexSession): string {
   return session.sessionId;
 }
 
-const createStyles = (appearance: Appearance) => StyleSheet.create({
-  /** The rows above the sessions, as far apart as the sessions are (`content`'s gap). */
-  header: {
-    gap: 8,
-  },
-  pending: {
-    alignItems: 'center',
-    paddingVertical: 16,
-  },
-  list: {
-    flex: 1,
-    backgroundColor: appearance.background,
-  },
-  content: {
-    padding: 12,
-    gap: 8,
-  },
-  lead: {
-    color: appearance.muted,
-    fontSize: 13,
-    fontWeight: '600',
-    paddingHorizontal: 4,
-    paddingBottom: 4,
-  },
-  leadAfter: {
-    paddingTop: 12,
-  },
-  empty: {
-    color: appearance.muted,
-    fontSize: 15,
-    paddingHorizontal: 4,
-  },
-});
+const createStyles = (appearance: Appearance) =>
+  StyleSheet.create({
+    /** The rows above the sessions, as far apart as the sessions are (`content`'s gap). */
+    header: {
+      gap: 8,
+    },
+    pending: {
+      alignItems: 'center',
+      paddingVertical: 16,
+    },
+    list: {
+      flex: 1,
+      backgroundColor: appearance.background,
+    },
+    content: {
+      padding: 12,
+      gap: 8,
+    },
+    lead: {
+      color: appearance.muted,
+      fontSize: 13,
+      fontWeight: '600',
+      paddingHorizontal: 4,
+      paddingBottom: 4,
+    },
+    leadAfter: {
+      paddingTop: 12,
+    },
+    empty: {
+      color: appearance.muted,
+      fontSize: 15,
+      paddingHorizontal: 4,
+    },
+  });
 
 /** The rows' styles for one appearance (`usePaneRowStyles`), apart from the list's own. */
 export type PaneRowStyles = ReturnType<typeof createRowStyles>;
@@ -321,40 +324,41 @@ export function usePaneRowStyles(): PaneRowStyles {
   return useMemo(() => createRowStyles(appearance), [appearance]);
 }
 
-const createRowStyles = (appearance: Appearance) => StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    minHeight: 52,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    backgroundColor: appearance.card,
-  },
-  rowPressed: {
-    backgroundColor: appearance.cardActive,
-  },
-  typeIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: GhostexRadii.card,
-    backgroundColor: appearance.neutralFill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  text: {
-    flex: 1,
-    minWidth: 0,
-  },
-  title: {
-    color: appearance.foreground,
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  detail: {
-    color: appearance.muted,
-    fontSize: 13,
-    marginTop: 2,
-  },
-});
+const createRowStyles = (appearance: Appearance) =>
+  StyleSheet.create({
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      minHeight: 52,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 10,
+      backgroundColor: appearance.card,
+    },
+    rowPressed: {
+      backgroundColor: appearance.cardActive,
+    },
+    typeIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: GhostexRadii.card,
+      backgroundColor: appearance.neutralFill,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    text: {
+      flex: 1,
+      minWidth: 0,
+    },
+    title: {
+      color: appearance.foreground,
+      fontSize: 15,
+      fontWeight: '500',
+    },
+    detail: {
+      color: appearance.muted,
+      fontSize: 13,
+      marginTop: 2,
+    },
+  });

@@ -28,6 +28,7 @@ import { Glyph, ModeGlyph, type GlyphName } from '../../chat/native/composer/ico
 import { useDictation, type DictationChat } from '../../chat/native/composer/useDictation';
 import type { UserAction } from '../../chat/rust/actions';
 import type { MachineConnectionTarget } from '../../machines/credentials';
+import { machineNameById } from '../../machines/store';
 import { colorWithOpacity, GhostexPalette } from '../../theme/palette';
 import type { TerminalChrome } from '../../theme/terminalColours';
 import type { RootStackParamList } from '../../navigation/types';
@@ -181,8 +182,8 @@ export default function TerminalBottomBar({
         fix={dictation.fix}
         problem={unavailableProblem(dictation.unavailable, machine?.name ?? null)}
         recordingId={dictation.recordingId}
-            notice={dictation.notice}
-            failureCode={dictation.failureCode}
+        notice={dictation.notice}
+        failureCode={dictation.failureCode}
         onCancel={() => void dictation.cancel()}
         onRetry={() => void dictation.retry()}
         onFix={openVoiceSettings}
@@ -248,7 +249,7 @@ export default function TerminalBottomBar({
                 dictation.listening
                   ? 'Stop dictating'
                   : !dictation.ready
-                    ? "Dictate isn't ready on this computer"
+                    ? `Dictate isn't ready on ${machine === null ? 'your computer' : machineNameById(machine.id)}`
                     : dictation.engine !== null
                       ? `Dictate · ${dictation.engine.label}`
                       : 'Dictate',

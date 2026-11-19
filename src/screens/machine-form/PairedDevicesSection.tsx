@@ -18,7 +18,7 @@ import { chatMachineLink } from '../../chat/rust/machine-link';
 import type { ApprovalRequest } from '../../security/approvalPayload';
 import { approveRequest } from '../../security/approvals';
 import { hasApproverKey } from '../../security/approverKey';
-import { machineDisplayLabel, type MachineRecord } from '../../machines/store';
+import { machineDisplayLabel, machineName, type MachineRecord } from '../../machines/store';
 import { useFormStyles } from './styles';
 
 const REFRESH_MS = 5000;
@@ -36,11 +36,13 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 /** `/api/pairedDevices`'s answer; `pending` is empty from a computer older than pairing v2. */
 export function readPairedDevicesList(result: unknown): PairedDevicesList | null {
   if (!isRecord(result) || !Array.isArray(result.devices)) return null;
-  const devices = result.devices.filter(isRecord).flatMap((device) =>
-    typeof device.id === 'string' && typeof device.name === 'string'
-      ? [{ id: device.id, name: device.name, legacy: device.status === 'legacy' }]
-      : [],
-  );
+  const devices = result.devices
+    .filter(isRecord)
+    .flatMap((device) =>
+      typeof device.id === 'string' && typeof device.name === 'string'
+        ? [{ id: device.id, name: device.name, legacy: device.status === 'legacy' }]
+        : [],
+    );
   const pending = (Array.isArray(result.pending) ? result.pending : []).filter(isRecord).flatMap((device) => {
     const words = Array.isArray(device.words) ? device.words.filter((word) => typeof word === 'string') : [];
     return typeof device.id === 'string' && typeof device.name === 'string' && words.length > 0
@@ -102,7 +104,11 @@ export default function PairedDevicesSection({ machine, reachable }: { machine: 
     async (device: PendingDevice): Promise<void> => {
       setBusy(device.id);
       try {
-        const answer = await chatMachineLink(machine).rpc('readApprovalRequest', { id: device.approvalId }, RPC_TIMEOUT_MS);
+        const answer = await chatMachineLink(machine).rpc(
+          'readApprovalRequest',
+          { id: device.approvalId },
+          RPC_TIMEOUT_MS,
+        );
         const request = (answer.result as { request?: ApprovalRequest } | null)?.request;
         if (answer.error !== null || request === undefined) {
           Alert.alert(copy.approveFailed, answer.error?.message ?? copy.noLongerWaiting);
@@ -121,7 +127,8 @@ export default function PairedDevicesSection({ machine, reachable }: { machine: 
 
   const confirmRemove = (device: ListedDevice): void => {
     const self = device.id === machine.deviceId;
-    Alert.alert(copy.removeTitle(device.name), self ? copy.removeSelfDetail : copy.removeDetail, [
+    const computer = machineName(machine);
+    Alert.alert(copy.removeTitle(device.name), self ? copy.removeSelfDetail(computer) : copy.removeDetail(computer), [
       { text: copy.cancel, style: 'cancel' },
       { text: copy.remove, style: 'destructive', onPress: () => void remove(device.id) },
     ]);
@@ -130,12 +137,14 @@ export default function PairedDevicesSection({ machine, reachable }: { machine: 
   if (machine.transport !== 'tailcat' || list === null) return null;
   return (
     <>
-      <Text style={formStyles.sectionLabel}>{copy.title}</Text>
+      <Text style={formStyles.sectionLabel}>{copy.title(machineName(machine))}</Text>
       <View style={formStyles.rowsCard}>
         {list.pending.map((device, index) => (
           <View key={device.id} style={[formStyles.row, index === 0 ? formStyles.rowFirst : null]}>
             <View style={formStyles.rowMain}>
-              <Text style={formStyles.rowLabel}>{copy.waiting(device.name, device.phone, machineDisplayLabel(machine))}</Text>
+              <Text style={formStyles.rowLabel}>
+                {copy.waiting(device.name, device.phone, machineDisplayLabel(machine))}
+              </Text>
               <Text style={formStyles.rowLabel}>{device.words.join(' · ')}</Text>
               <Text style={formStyles.rowDetail}>{copy.waitingDetail(device.name, device.phone)}</Text>
             </View>
@@ -158,12 +167,7 @@ export default function PairedDevicesSection({ machine, reachable }: { machine: 
               </Text>
               {device.legacy ? <Text style={formStyles.rowDetail}>{copy.legacy}</Text> : null}
             </View>
-            <SetupButton
-              small
-              label={copy.remove}
-              disabled={busy !== null}
-              onPress={() => confirmRemove(device)}
-            />
+            <SetupButton small label={copy.remove} disabled={busy !== null} onPress={() => confirmRemove(device)} />
           </View>
         ))}
       </View>

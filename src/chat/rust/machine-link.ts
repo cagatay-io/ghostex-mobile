@@ -30,6 +30,7 @@ import { AppState, type AppStateStatus } from 'react-native';
 import { GhostexNative } from '../../../modules/ghostex-native/src';
 import { ensureConnected } from '../../inventory/client';
 import type { MachineConnectionTarget } from '../../machines/credentials';
+import { machineNameById } from '../../machines/store';
 import { GXSERVER_FORWARD_HOST, readServerEndpoint } from './serverEndpoint';
 import { boxForward, boxHandshake, closeBoxForward, type BoxEndpoint } from '../../cloudBoxes/boxLink';
 import { isCloudBoxMachineId } from '../../cloudBoxes/types';
@@ -123,9 +124,16 @@ const READ_ONLY_METHODS = new Set([
 /** The sends gxserver delivers at most once per `sendRequestId` (`session_chat_send_requests.rs`). */
 const LEDGER_SEND_METHODS = new Set(['sendSessionChatMessage', 'queueSessionChatPrompt', 'answerSessionChatPrompt']);
 
-/** What the user reads when a request never got an answer: one plain sentence, never a Java exception. */
-export const UNREACHABLE_MESSAGE = "Couldn't reach Ghostex on this computer; try again in a moment.";
-const TIMEOUT_MESSAGE = "Ghostex on this computer didn't answer in time.";
+/**
+ * What the user reads when a request never got an answer: one plain sentence naming the computer
+ * (`machineName`), never a Java exception.
+ */
+export function unreachableMessage(computer: string): string {
+  return `Couldn't reach Ghostex on ${computer}; try again in a moment.`;
+}
+function timeoutMessage(computer: string): string {
+  return `Ghostex on ${computer} didn't answer in time.`;
+}
 
 /**
  * How this computer's chat traffic travels: `socket` (the warm link), `legacy` (an older Ghostex, or
@@ -773,14 +781,16 @@ class ChatMachineLink {
     if (first.kind === 'answered') return first;
     if (first.kind === 'notSent') return { kind: 'fallBack' };
     // A timed-out request may still be running on the computer; the core decides what follows.
-    if (first.timedOut) return unreachable(endpoint, TIMEOUT_MESSAGE);
+    if (first.timedOut) return unreachable(endpoint, timeoutMessage(machineNameById(this.machine.id)));
     await this.repair();
-    if (!retrySafe) return unreachable(endpoint, UNREACHABLE_MESSAGE);
+    if (!retrySafe) return unreachable(endpoint, unreachableMessage(machineNameById(this.machine.id)));
     const repaired = this.state;
     if (repaired.kind === 'socket') {
       const second = await this.attempt(repaired.endpoint, method, params, timeoutMs);
       if (second.kind === 'answered') return second;
-      if (second.kind === 'lost' && second.timedOut) return unreachable(endpoint, TIMEOUT_MESSAGE);
+      if (second.kind === 'lost' && second.timedOut) {
+        return unreachable(endpoint, timeoutMessage(machineNameById(this.machine.id)));
+      }
     }
     return { kind: 'fallBack' };
   }
@@ -789,7 +799,8 @@ class ChatMachineLink {
   async rpc(method: string, params: unknown, timeoutMs: number): Promise<RpcAnswer> {
     const sent = await this.request(method, params, timeoutMs);
     if (sent.kind === 'answered') return sent.answer;
-    return { error: { code: 'unreachable', message: UNREACHABLE_MESSAGE, endpoint: `/api/${method}` } };
+    const message = unreachableMessage(machineNameById(this.machine.id));
+    return { error: { code: 'unreachable', message, endpoint: `/api/${method}` } };
   }
 
   /**
@@ -853,7 +864,7 @@ class ChatMachineLink {
         // Answered below.
       }
       if (envelope === null) {
-        const message = "Ghostex on this computer sent an answer the phone couldn't read.";
+        const message = `Ghostex on ${machineNameById(this.machine.id)} sent an answer the phone couldn't read.`;
         return { kind: 'answered', answer: { error: { code: null, message, endpoint } } };
       }
       if (envelope.ok === false) {
