@@ -67,7 +67,7 @@ export function PageAnswersCard({ message }: { message: ProjectedMessage }) {
   );
 }
 
-/** Shared stacked renderer used by transcript rows (`PageAnswersCard`) and held Collab cards (`CollabCards`). */
+/** Shared stacked renderer used by transcript rows (`PageAnswersCard`). */
 export function PageAnswersCards({
   rowId = '',
   cards,

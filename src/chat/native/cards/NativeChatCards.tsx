@@ -8,8 +8,9 @@
  * 4. the async questions,
  * 5. the blocking question.
  *
- * An approval the agent waits on, the session's computer being offline and messages held behind a
- * failed model change are rows of the dock above this stack instead (gx-chat-core
+ * An approval the agent waits on, the session's computer being offline, messages held behind a
+ * failed model change and Ghostex Collab's held messages are rows of the dock above this stack
+ * instead (who is typing is a line inside the chat box, `composer/BoxNotes.tsx`) (gx-chat-core
  * `extras/dock_approvals.rs`, `extras/dock_stack.rs`; `WorkCards.tsx`).
  *
  * The working card and its pills are not here: the screen draws them in their own row right above
@@ -33,7 +34,6 @@ import { arr, obj } from './json';
 import { NoticeCard } from './NoticeCard';
 import { CARD_BAND_SHARE, QuestionCard } from './QuestionCard';
 import { SecretRequestCards } from './SecretRequestCard';
-import { CollabCards, collabCardsShown } from './CollabCards';
 import type { CardHostAction } from './types';
 
 /** A failure the agent keeps no record of (Codex shows it only on screen): its card sits here, where its screen notice would have been. */
@@ -49,7 +49,6 @@ export function chatCardsShown(document: ChatDocument): boolean {
     (obj(document.terminalNotice) !== null && document.noticeVisible === true && document.approvalInDock !== 'notice') ||
     unrecordedApiError(document.apiErrorCard) ||
     arr(document.secretRequests).length > 0 ||
-    collabCardsShown(document) ||
     typeof document.asyncQuestions?.question?.key === 'string' ||
     (document.questionCard?.visible === true && document.approvalInDock !== 'prompt')
   );
@@ -85,7 +84,6 @@ export function NativeChatCards({ chat, onHostAction }: NativeChatCardsProps) {
         <NoticeCard chat={chat} document={document} onHostAction={onHostAction} />
       )}
       <SecretRequestCards chat={chat} document={document} />
-      <CollabCards chat={chat} document={document} />
       {unrecordedApiError(document.apiErrorCard) ? (
         <ApiErrorCard card={document.apiErrorCard} dispatch={chat.dispatch} />
       ) : null}

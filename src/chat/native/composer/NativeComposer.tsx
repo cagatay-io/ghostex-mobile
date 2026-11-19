@@ -51,6 +51,7 @@ import { MenuSheet, type MenuRow, type MenuSearch } from './MenuSheet';
 import { ModelMenuSheet, type ModelSheetMode } from './ModelMenuSheet';
 import { NotePanel } from './NotePanel';
 import { phonePlaceholder } from './placeholder';
+import { BoxNotes } from './BoxNotes';
 import { CatchUpCard } from '../cards/CatchUpCard';
 import { sessionDetailsRingOf } from '../cards/SessionDetailsSheet';
 import { FilesLinksCard } from '../cards/FilesLinksCard';
@@ -988,6 +989,8 @@ export function NativeComposer({
                     />
                   ) : null}
                 </View>
+                {/* Quiet lines about the box itself, under its text (`BoxNotes.tsx`). */}
+                {!collapsed && document !== null ? <BoxNotes document={document} /> : null}
                 {!collapsed ? (
                   <Animated.View
                     style={[styles.footer, motion.controlsStyle]}
