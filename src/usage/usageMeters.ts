@@ -50,11 +50,13 @@ export function withHubAccounts(answer: unknown): unknown {
   const hubs = arr(root?.cliproxyHubs);
   if (root === null || root === undefined || hubs.length === 0) return answer;
   const accounts = arr(root.accounts);
-  // Only a Swap login saved here and not turned off stands in for its hub twin, matched by provider, email and,
+  // Only a Swap login saved here, not turned off and signed in stands in for its hub twin, matched by provider, email and,
   // when both name one, Codex workspace (gxserver's `swapLogins`; older computers: the saved accounts themselves).
   const saved = Array.isArray(root.swapLogins)
     ? arr(root.swapLogins)
-    : accounts.filter((row) => isTrue(row, 'registered') && !isTrue(row, 'userDisabled'));
+    : accounts.filter(
+        (row) => isTrue(row, 'registered') && !isTrue(row, 'userDisabled') && str(row, 'status') === 'ready',
+      );
   const swapLogin = (provider: string, email: string, workspace: string) =>
     email.length > 0 &&
     saved.some((row) => {
@@ -72,6 +74,8 @@ export function withHubAccounts(answer: unknown): unknown {
       const name = str(row, 'name');
       const email = name.includes('@') ? name : '';
       if (!PROVIDERS.some((entry) => entry === provider) || str(row, 'status') === 'disabled') continue;
+      // Hidden from the computer's sidebar meters (its Show usage in the sidebar): not listed here either.
+      if (obj(row)?.showInSidebar === false) continue;
       if (swapLogin(provider, email, str(row, 'workspace'))) continue;
       // The hub's reason for an account it can't use, when there is no usage error to show.
       const reason = str(row, 'usageError') || (str(row, 'status') === 'error' ? str(row, 'statusMessage') : '');
