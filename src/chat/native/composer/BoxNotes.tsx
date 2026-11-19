@@ -1,6 +1,6 @@
 /**
  * The quiet lines inside the chat box, between its text and its toolbar: who else is typing in a
- * shared chat. They were lines over the box; the dock above it is the one bar there (gx-chat-core
+ * shared chat (the key hints beside it are `SecretSendWarning.tsx`). They were lines over the box; the dock above it is the one bar there (gx-chat-core
  * `extras/dock_stack.rs`, CDXC:SessionChat 2026-11-20). Desktop: `box_notes.rs`.
  */
 

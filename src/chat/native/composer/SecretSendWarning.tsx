@@ -1,5 +1,5 @@
 /**
- * The quiet warning above the chat box for text that looks like a key or token: the first Send of it stays in the
+ * The quiet warning inside the chat box, under its text, for text that looks like a key or token: the first Send of it stays in the
  * box and shows this, and a second Send of the same text posts it (`ComposerModel.submit`, `rust/secretLike.ts`).
  * Port of desktop `native_chat/secret_send_warning.rs` (CDXC:Secrets 2026-11-19 in
  * `packages/gx-chat-core/src/composer/secret_like.rs`).
@@ -50,8 +50,7 @@ const useStyles = themedStyles((P) => ({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingTop: 4,
   },
   note: {
     flex: 1,

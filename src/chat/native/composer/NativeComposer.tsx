@@ -826,11 +826,6 @@ export function NativeComposer({
           {document !== null ? <FilesLinksCard filesLinks={document.filesLinks} dispatch={dispatch} /> : null}
           {document?.suggestions ? <Suggestions data={document.suggestions} dispatch={dispatch} /> : null}
           {document?.runLocation ? <RunLocationRow row={document.runLocation} dispatch={dispatch} /> : null}
-          <SecretSendWarning
-            model={model}
-            cardOpen={secretRequestOpen(document)}
-            keptOnDevice={document?.draftKeptOnDevice === true}
-          />
           {attachError !== null ? (
             <DictationCard
               icon="alert-circle"
@@ -990,6 +985,13 @@ export function NativeComposer({
                   ) : null}
                 </View>
                 {/* Quiet lines about the box itself, under its text (`BoxNotes.tsx`). */}
+                {!collapsed ? (
+                  <SecretSendWarning
+                    model={model}
+                    cardOpen={secretRequestOpen(document)}
+                    keptOnDevice={document?.draftKeptOnDevice === true}
+                  />
+                ) : null}
                 {!collapsed && document !== null ? <BoxNotes document={document} /> : null}
                 {!collapsed ? (
                   <Animated.View
