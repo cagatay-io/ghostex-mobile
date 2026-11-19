@@ -1819,7 +1819,7 @@ export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords
   },
   "updatesCheckNow": {
     "title": "Check now",
-    "subtitle": "Checks every item for a newer version now instead of waiting for the next check (every half hour).",
+    "subtitle": "Checks everything for a newer version now (Ghostex, agents, tools and extensions), whatever Checking for updates says.",
     "options": [],
     "keywords": []
   },
