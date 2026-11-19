@@ -576,9 +576,13 @@ export function NativeComposer({
       attachIntakeImages(chat, event.nativeEvent, setAttachError),
     [chat],
   );
+  /** The sheet's modal was still sliding away when the host asked for the keyboard (iOS cannot focus the field then). */
+  const focusOnDismiss = useRef(false);
   /** An image pasted with the Attach sheet's Paste control joins the draft like a picked photo. */
   const attachPastedImage = useCallback(
     (dataUri: string) => {
+      // The chip's caret is placed at once; the keyboard comes when the sheet is gone (`onMenuDismissed`).
+      if (Platform.OS === 'ios') focusOnDismiss.current = true;
       setMenu(null);
       savePastedImage(dataUri)
         .then((file) => chat.attachFiles([file]))
@@ -611,6 +615,10 @@ export function NativeComposer({
   }, [launchPick]);
   const onMenuDismissed = useCallback(() => {
     typeTrigger();
+    if (focusOnDismiss.current) {
+      focusOnDismiss.current = false;
+      field.current?.focus();
+    }
     const source = pickAfterDismiss.current;
     pickAfterDismiss.current = null;
     if (source !== null) launchPick(source);

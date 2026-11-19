@@ -75,6 +75,20 @@ export const COLLAPSED_INPUT_HEIGHT = 21 + 2 + 2;
 const FORCED_SELECTION_SETTLE_MS = 250;
 
 /**
+ * How long a caret the host placed (a pasted, dropped, keyboard or picked image's chip, a restored draft) is held
+ * against the field's own reports and set on it again: the field can still be taking the focus, a sheet's modal
+ * sliding away, or the new styled text, and each of those puts its caret somewhere of its own (the start, the end,
+ * where it was before the chip).
+ *
+ * CDXC:SessionChat 2026-11-19 DECISION: User (phone chat): "on mobile app when i paste an image we should put the caret
+ * right after that image. We put it very weird place now." The caret goes right after the image's chip, with the
+ * keyboard up, and stays there until the user moves it or types.
+ */
+const HOST_CARET_HOLD_MS = 400;
+/** When, after the host placed a caret, it is set on the field again (ms). */
+const HOST_CARET_REASSERT_MS = [0, 60, 160, 320] as const;
+
+/**
  * The field takes dragged text only (React Native's Android drag filter, which `TextInput.js` passes
  * on but its typings leave out), so an image held over it stays the chat view's drop.
  */
@@ -149,6 +163,9 @@ export const ComposerInput = forwardRef<
   const fieldText = useRef<string | null>(null);
   /** The host asked for a caret (a send, a pick, a restore): place it once the text is shown. */
   const caretRequested = useRef(false);
+  /** The caret the host placed, until the user moves it or types, or its hold runs out. */
+  const hostCaret = useRef<{ offset: number; until: number } | null>(null);
+  const hostCaretTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   /** A caret the phone moved, until the field reports it. */
   const awaited = useRef<{ selection: Selection; until: number } | null>(null);
   /** The styled children the field was last given, and what they were built for. */
@@ -204,6 +221,25 @@ export const ComposerInput = forwardRef<
   /** The text the field showed last; an edit is diffed against it before the next render. */
   const textRef = useRef<ChipText>(text);
 
+  const clearHostCaretTimers = (): void => {
+    for (const timer of hostCaretTimers.current) clearTimeout(timer);
+    hostCaretTimers.current = [];
+  };
+  /** Sets the host's caret on the field itself, whatever the `selection` prop was last given. */
+  const holdHostCaret = (offset: number): void => {
+    clearHostCaretTimers();
+    hostCaret.current = { offset, until: Date.now() + HOST_CARET_HOLD_MS };
+    hostCaretTimers.current = HOST_CARET_REASSERT_MS.map((delay) =>
+      setTimeout(() => {
+        const held = hostCaret.current;
+        if (held === null || held.offset !== offset) return;
+        if (Date.now() >= held.until) hostCaret.current = null;
+        field.current?.setSelection(offset, offset);
+      }, delay),
+    );
+  };
+  useEffect(() => clearHostCaretTimers, []);
+
   const force = ({ start, end, backward }: SnappedSelection): void => {
     awaited.current = { selection: { start, end }, until: Date.now() + FORCED_SELECTION_SETTLE_MS };
     shownSelection.current = { start, end };
@@ -240,14 +276,18 @@ export const ComposerInput = forwardRef<
       return;
     }
     if (first) return;
+    const hostPlaced = caretRequested.current;
     caretRequested.current = false;
     const caret = shownOffset(text, draftSelection.current.end);
     force({ start: caret, end: caret });
+    if (hostPlaced) holdHostCaret(caret);
   }, [text]);
 
   const onChangeText = (next: string): void => {
     const before = textRef.current;
     if (next === before.shown) return;
+    // The user typed: the caret is theirs now.
+    hostCaret.current = null;
     // Key repeats (a held Backspace) arrive before the next render: each is diffed against the
     // text the last one left.
     const result = editShown(before, next);
@@ -282,6 +322,16 @@ export const ComposerInput = forwardRef<
     if (typeof reportedText === 'string' && reportedText !== current.shown) return;
     const snapped = snapSelection(current, selection, shownSelection.current);
     const moved = snapped.start !== selection.start || snapped.end !== selection.end;
+    const held = hostCaret.current;
+    if (held !== null) {
+      if (Date.now() >= held.until) hostCaret.current = null;
+      else if (selection.start !== held.offset || selection.end !== held.offset) {
+        // The field's own report, before it took the caret the host placed (or from the focus, or the new text it
+        // was just given): not the user's. The host's caret is set on it again.
+        field.current?.setSelection(held.offset, held.offset);
+        return;
+      } else hostCaret.current = null;
+    }
     const waiting = awaited.current;
     if (waiting !== null) {
       const arrived = waiting.selection.start === selection.start && waiting.selection.end === selection.end;
@@ -321,6 +371,14 @@ export const ComposerInput = forwardRef<
     fieldSource.current = null;
   }
   const children = text.chips.length > 0 ? (fieldSource.current?.children ?? null) : null;
+
+  // The field was handed new styled children (a chip came, went or changed its look: an upload landed): Android
+  // applies them as a whole new text, and the field's caret goes where it likes. The caret the field had goes back.
+  useLayoutEffect(() => {
+    const shown = shownSelection.current;
+    if (shown === null || field.current?.isFocused() !== true) return;
+    field.current.setSelection(shown.start, shown.end);
+  }, [children]);
 
   // A TextInput wraps its placeholder and cannot truncate it, so the field draws the placeholder's
   // first line itself, cut to one line with an ellipsis, over the empty field: at a large text size
