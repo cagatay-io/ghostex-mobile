@@ -29,8 +29,8 @@ const REST_SCALE = 0.2;
 const BAR_WIDTH = 2.5;
 const BAR_GAP = 2;
 const HEIGHT = 18;
-/** Below this level the microphone counts as hearing nothing (about -40 dBFS). */
-const QUIET_LEVEL = 0.04;
+/** Below this level the microphone counts as hearing nothing (-40 dBFS on `dictationLevel.ts`'s scale). */
+const QUIET_LEVEL = 0.25;
 /** How long near-silence lasts before the pill says it can't hear (Q2919). */
 export const QUIET_MS = 3_000;
 const EASE = { duration: 100, easing: Easing.out(Easing.quad), reduceMotion: ReduceMotion.System } as const;
