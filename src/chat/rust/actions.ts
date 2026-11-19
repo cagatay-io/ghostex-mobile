@@ -210,6 +210,8 @@ export type ActionFields = {
   firstMessageEdit: {};
   /** Show all / Show less on the card. */
   firstMessageToggle: {};
+  /** Confirm on the card's degraded-model line (a second press takes it back). */
+  firstMessageConfirmModel: {};
 
   // ---- questions, approvals and notices -----------------------------------------------------
   /** Answer the blocking prompt or a terminal dialog. Desktop: `approval.rs`, `notice.rs`,

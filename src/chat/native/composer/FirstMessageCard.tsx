@@ -9,7 +9,9 @@
  *
  * CDXC:Coordinators 2026-11-18 SEE-ALSO: the user's decision (Q3950 A: a card inside the chat box) is
  * recorded in server/src/session_chat_first_message.rs; the desktop draws the same card in
- * apps/desktop/src/app/native_chat/first_message_card.rs.
+ * apps/desktop/src/app/native_chat/first_message_card.rs. The degraded-model line and its Confirm, which
+ * Start waits on, are the user's decision recorded on `DEGRADED_TEXT` in the core's first_message.rs; an
+ * older core sends no `degradedText`, and the card stays as it was.
  */
 
 import { Pressable, ScrollView, Text, View } from 'react-native';
@@ -22,6 +24,8 @@ import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 
 /** A message longer than this many characters gets Show all even on two lines (they wrap). Desktop: `LONG_TEXT_CHARS`. */
 const LONG_TEXT_CHARS = 140;
+/** The degraded-model mark's amber, the model warning pill's (`QUALITY_COLOR` in cards/ChatPills.tsx). */
+const DEGRADED_COLOR = '#f5a524';
 /** The buttons' height: at least 32 for a finger. */
 const BUTTON_HEIGHT = 32;
 const TEXT_SIZE = 15;
@@ -39,6 +43,9 @@ export function FirstMessageCard({
   const card = obj(document.firstMessageCard);
   if (card === null) return null;
   const busy = isTrue(card, 'busy');
+  const startBlocked = isTrue(card, 'startBlocked');
+  const degradedText = str(card, 'degradedText');
+  const degradedConfirmed = isTrue(card, 'degradedConfirmed');
   const expanded = isTrue(card, 'expanded');
   const collapsedLines = num(card, 'collapsedLines') ?? 2;
   const message = str(card, 'text');
@@ -96,11 +103,24 @@ export function FirstMessageCard({
             label={str(card, 'startLabel')}
             icon="player-play"
             primary
-            disabled={busy}
+            disabled={busy || startBlocked}
             onPress={() => dispatch({ type: 'firstMessageStart' })}
           />
         </View>
       </View>
+      {degradedText.length > 0 ? (
+        <View style={styles.degraded}>
+          <Glyph name="alert-triangle" size={13} color={DEGRADED_COLOR} />
+          <Text style={styles.degradedText}>{degradedText}</Text>
+          <CardButton
+            label={str(card, degradedConfirmed ? 'confirmedLabel' : 'confirmLabel')}
+            icon={degradedConfirmed ? 'check' : 'alert-triangle'}
+            primary={false}
+            disabled={busy}
+            onPress={() => dispatch({ type: 'firstMessageConfirmModel' })}
+          />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -168,6 +188,8 @@ const useStyles = themedStyles((P) => ({
   togglePressed: { opacity: 0.6 },
   toggleLabel: { color: P.muted, fontSize: 12.5, lineHeight: 18 },
   actions: { flex: 1, flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
+  degraded: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+  degradedText: { flex: 1, minWidth: 0, color: P.muted, fontSize: 12.5, lineHeight: 18 },
   button: {
     minHeight: BUTTON_HEIGHT,
     paddingHorizontal: 12,
