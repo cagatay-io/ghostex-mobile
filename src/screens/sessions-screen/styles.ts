@@ -5,7 +5,6 @@
 import { StyleSheet } from 'react-native';
 
 import { SIDEBAR_BACKGROUND } from '../../components/sessions/rows';
-import { SPACE_CHIP_HEIGHT } from '../../components/sessions/SpaceTabs';
 import { GhostexPalette, GhostexRadii } from '../../theme/palette';
 
 /** The header row's height: its title and buttons are 48 pt tall. */
@@ -35,6 +34,13 @@ export const styles = StyleSheet.create({
     minWidth: 0,
     minHeight: 48,
     justifyContent: 'center',
+  },
+  /** The title, then the shown workspace's name (WorkspaceName) when the computer has several. */
+  titleLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minWidth: 0,
   },
   title: {
     color: GhostexPalette.FOREGROUND,
@@ -103,27 +109,6 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   /** The workspace tile, then the Space row; fixed height so the list cannot squeeze it. */
-  workspaceRow: {
-    marginTop: 6,
-    height: SPACE_CHIP_HEIGHT,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flexShrink: 0,
-  },
-  /**
-   * The Space row beside the tile takes the rest of the line; the row above owns the top margin.
-   * SpaceTabs' own box sets `flexGrow: 0, flexShrink: 0`, and Yoga lets an explicit flexGrow win
-   * over the `flex` shorthand while `flex: 1` still zeroes the basis, so a bare `flex: 1` here left
-   * the chips a 0-wide box. The grow, shrink and basis are therefore all spelled out.
-   */
-  workspaceRowSpaces: {
-    marginTop: 0,
-    flexGrow: 1,
-    flexShrink: 1,
-    flexBasis: 0,
-    minWidth: 0,
-  },
   listContent: {
     paddingBottom: 24,
   },

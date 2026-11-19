@@ -194,7 +194,7 @@ export default function SpaceTabs({
 
 /**
  * Tile height, and with it the row's: fixed so content cannot resize it. The desktop's 28pt tile
- * and 16pt icon, grown for a finger (the workspace tile matches it, WorkspaceTile.tsx).
+ * and 16pt icon, grown for a finger.
  */
 export const SPACE_CHIP_HEIGHT = 34;
 const SPACE_ICON_SIZE = 20;

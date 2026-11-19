@@ -113,7 +113,7 @@ import {
   chiefStatusCommand,
   chiefStopAskingCommand,
 } from '../commands/ghostexCli';
-import WorkspaceTile, { workspaceMenuItems } from '../components/sessions/WorkspaceTile';
+import WorkspaceName, { workspaceMenuItems } from '../components/sessions/WorkspaceName';
 import { agentChoicePlace, parseAgentChoiceScope, type AgentChoiceContext } from '../components/sessions/agentChoice';
 import { useLauncherStore } from '../components/sessions/launcherStore';
 import { expandedGroupBackground, inkWash, sidebarInk } from '../components/sessions/rows';
@@ -196,7 +196,7 @@ import { useSpacesStore } from '../spaces/store';
 import { useActiveProjectsClock } from '../spaces/useActiveProjectsClock';
 import { revealSessionWorkspace, useWorkspacesStore } from '../workspaces/store';
 import { restoreClosedSession } from '../sessions/closedSessions';
-import { filterSummaryForWorkspace, resolveWorkspaceId, workspaceSwitchTarget } from '../workspaces/workspaceFilter';
+import { filterSummaryForWorkspace, resolveWorkspaceId } from '../workspaces/workspaceFilter';
 import { useSettingsStore, type SessionListView } from '../settings/store';
 import { attachSessionKey, useTerminalStore } from '../terminal/sessions';
 import { GhostexPalette } from '../theme/palette';
@@ -282,7 +282,6 @@ export default function SessionsScreen({ navigation }: Props) {
   const selectedSpaceIdByMachine = useSpacesStore((state) => state.selectedSpaceIdByMachine);
   const selectSpace = useSpacesStore((state) => state.selectSpace);
   const selectedWorkspaceIdByMachine = useWorkspacesStore((state) => state.selectedWorkspaceIdByMachine);
-  const recentWorkspaceIdsByMachine = useWorkspacesStore((state) => state.recentWorkspaceIdsByMachine);
   const selectWorkspace = useWorkspacesStore((state) => state.selectWorkspace);
 
   const collapse = useCollapseStore();
@@ -428,14 +427,6 @@ export default function SessionsScreen({ navigation }: Props) {
     machineWorkspaces === null || selectedWorkspaceId === null
       ? null
       : (machineWorkspaces.workspaces[selectedWorkspaceId] ?? null);
-  const workspaceSwitchTo =
-    machineWorkspaces === null || selectedWorkspaceId === null
-      ? null
-      : workspaceSwitchTarget(
-          machineWorkspaces,
-          selectedWorkspaceId,
-          machine === null ? [] : (recentWorkspaceIdsByMachine[machine.id] ?? []),
-        );
   /** The machine's summary as the shown workspace sees it: its projects, sessions and Spaces. */
   const selectedSummary = useMemo(() => {
     const summary = selectedInventory?.summary ?? null;
@@ -468,13 +459,14 @@ export default function SessionsScreen({ navigation }: Props) {
   const listSummary = everyComputer?.summary ?? selectedSummary;
   const machineSpaces = listSummary?.sidebarSpaces ?? EMPTY_SIDEBAR_SPACES;
   /*
-   * The tile shows whenever the computer has Spaces, and on its own once there is more than one
-   * workspace (desktop `native_sidebar_shows_workspace_tile`).
+   * The workspace's name after the title shows only while the computer has more than one workspace
+   * (desktop `gx_store_workspace_tile`), and not over the Unified list or an extension panel, whose
+   * own headers stand where the Space row does.
    */
-  const showWorkspaceTile =
+  const showWorkspaceName =
     selectedWorkspace !== null &&
     machineWorkspaces !== null &&
-    ((selectedInventory?.summary?.sidebarSpaces.order.length ?? 0) > 0 || machineWorkspaces.order.length > 1);
+    machineWorkspaces.order.length > 1;
   /*
    * A Space id is only ever resolved against the machine that owns it, so a
    * stored id from another machine — or one this daemon has since deleted —
@@ -1560,7 +1552,16 @@ export default function SessionsScreen({ navigation }: Props) {
           }}
           style={styles.titlePressable}
         >
-          <Text style={[styles.title, { color: sidebarAppearance.foreground }]}>Ghostex</Text>
+          <View style={styles.titleLine}>
+            <Text style={[styles.title, { color: sidebarAppearance.foreground }]}>Ghostex</Text>
+            {machine !== null &&
+            showWorkspaceName &&
+            selectedWorkspace !== null &&
+            !extensionPanels.active &&
+            !unified.on ? (
+              <WorkspaceName workspace={selectedWorkspace} onOpenMenu={() => setWorkspaceMenuOpen(true)} />
+            ) : null}
+          </View>
         </Pressable>
         {wallOffered && !inRail ? (
           <WallSwitch view={sessionListView} appearance={sidebarAppearance} onChange={chooseListView} />
@@ -1642,26 +1643,6 @@ export default function SessionsScreen({ navigation }: Props) {
       {extensionPanels.active ? null : unified.on ? (
         // The Unified list's header stands where the Workspace and Space tiles stand: its filter narrows by them.
         unified.header
-      ) : machine !== null && showWorkspaceTile && selectedWorkspace !== null ? (
-        <View style={styles.workspaceRow}>
-          <WorkspaceTile
-            workspace={selectedWorkspace}
-            switchTo={workspaceSwitchTo}
-            onSwitch={(workspaceId) => selectWorkspace(machine.id, workspaceId)}
-            onOpenMenu={() => setWorkspaceMenuOpen(true)}
-          />
-          {spaceItems.length > 0 ? (
-            <SpaceTabs
-              spaces={spaceItems}
-              selectedSpaceId={selectedSpaceId}
-              countsBySpaceId={spaceCounts}
-              onSelect={(spaceId) => selectSpace(machine.id, spaceId)}
-              activeProjects={activeProjects}
-              onSpaceMenu={openSpaceMenu}
-              style={styles.workspaceRowSpaces}
-            />
-          ) : null}
-        </View>
       ) : machine !== null && spaceItems.length > 0 ? (
         <SpaceTabs
           spaces={spaceItems}
