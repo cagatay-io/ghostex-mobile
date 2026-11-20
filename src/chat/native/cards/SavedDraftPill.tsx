@@ -124,6 +124,7 @@ const useStyles = themedStyles((P) => ({
     alignItems: 'center',
     flexShrink: 0,
     gap: 5,
+    height: 25,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 999,

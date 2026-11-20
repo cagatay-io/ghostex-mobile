@@ -286,6 +286,7 @@ const useStyles = themedStyles((P) => ({
     flexDirection: 'row',
     alignItems: 'center',
     flexShrink: 0,
+    height: 25,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: P.ink(0.1),

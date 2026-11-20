@@ -888,6 +888,9 @@ const useStyles = themedStyles((P) => ({
     alignItems: 'center',
     flexShrink: 0,
     gap: 5,
+    // Every pill in the strip is this tall (desktop `chat_pills.rs` PILL_HEIGHT): an icon-and-dot pill
+    // (Autopilot, the tips' bulb) has no 19pt text line to hold 25 open.
+    height: 25,
     paddingHorizontal: PILL_PADDING_X,
     paddingVertical: 2,
     borderRadius: 999,
