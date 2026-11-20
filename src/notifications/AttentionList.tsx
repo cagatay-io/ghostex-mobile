@@ -683,12 +683,21 @@ export default function AttentionList({
   // CDXC:Notifications 2026-11-20 DECISION: opening the list reads the "finished" rows, so the bell's number drops to what
   // still needs the user (the desktop's bell does the same when its panel opens); open approvals, questions and failures
   // keep counting, and the sessions' own "finished" marks clear when a session is opened, not here.
+  // It runs again when the list closes, for the rows that arrived while it was open.
   const finishedSeenSent = useRef(false);
+  const machinesRef = useRef(onlineMachines);
+  machinesRef.current = onlineMachines;
   useEffect(() => {
     if (finishedSeenSent.current || onlineMachines.length === 0) return;
     finishedSeenSent.current = true;
     void changeEveryFeed(onlineMachines, 'markFinishedSeen');
   }, [onlineMachines]);
+  useEffect(
+    () => () => {
+      if (machinesRef.current.length > 0) void changeEveryFeed(machinesRef.current, 'markFinishedSeen');
+    },
+    [],
+  );
 
   const menuItems = useMemo((): ContextMenuItem[] => {
     if (menu === null) return [];

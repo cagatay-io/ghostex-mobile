@@ -635,6 +635,14 @@ export async function changeFeedRow(machineId: string, update: FeedUpdate): Prom
 export async function changeEveryFeed(machineIds: readonly string[], action: 'markAllRead' | 'markFinishedSeen' | 'clearAll'): Promise<boolean> {
   const results = await Promise.all(
     machineIds.map(async (machineId) => {
+      // A computer on an older gxserver refuses markFinishedSeen: its unread "finished" rows are then marked read one
+      // by one (taken before the optimistic edit below reads them here).
+      const finishedIds =
+        action === 'markFinishedSeen'
+          ? (useAttentionFeedStore.getState().feeds[machineId]?.rows ?? [])
+              .filter((row) => row.kind === 'finished' && !row.read && row.awaitingApproval !== true)
+              .map((row) => row.id)
+          : [];
       editFeed(machineId, (rows) =>
         action === 'clearAll'
           ? rows.filter((row) => row.awaitingApproval === true)
@@ -648,6 +656,7 @@ export async function changeEveryFeed(machineIds: readonly string[], action: 'ma
         applySnapshot(machineId, await updateWholeFeed(await feedRpc(machine), action));
         return true;
       } catch (error) {
+        if (action === 'markFinishedSeen') return markAttentionRowsRead(machineId, finishedIds);
         logAppEvent(`${machineDisplayLabel(machine)}: notification ${action} failed (${failureCategory(error)})`);
         void source.refresh(machineId);
         return false;
