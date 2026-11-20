@@ -13,6 +13,9 @@
  * shows only while one is, and Start Agent has that computer's gxserver start the feedback agent and
  * opens its chat. The row sits in the Sessions screen's app menu after Settings, since the phone's
  * menu has no Join Discord row.
+ *
+ * CDXC:Feedback 2026-11-20 DECISION:
+ * User: "we need to recommend to people that they update to the latest version before they can post a bug using the Send Bug thingy. If they're not on the latest version, ask them to please upgrade before sending it, to make sure the issue isn't fixed on latest." While the phone knows of a newer app, or a downloaded over-the-air update waits for a restart (the Sessions screen's Update button, src/updates/updateNotice.ts), the form's top says so with an Update now button, and Review / Start Agent turn secondary. Nothing shows while that is unknown (offline, never checked).
  * SEE-ALSO: server/src/feedback/ (the draft rules, the relay post and the feedback agent),
  * src/feedback/ (the phone's copies of those rules), apps/desktop/src/app/window/feedback_modal/.
  */
@@ -45,6 +48,8 @@ import {
   withoutImage,
 } from '../feedback/feedbackImages';
 import { feedbackClient, feedbackFooter, feedbackRequest, sendFeedback } from '../feedback/feedbackRelay';
+import { installedAppVersion } from '../updates/androidSelfUpdate';
+import { takeUpdateAction, useUpdateAction } from '../updates/updateNotice';
 import { useInventoryStore } from '../inventory/store';
 import { machineName, useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
@@ -79,6 +84,7 @@ export default function FeedbackScreen() {
     return inventory !== undefined && inventory.summary !== null && inventory.lastError === null;
   });
 
+  const updateAction = useUpdateAction();
   const [step, setStep] = useState<Step>({ kind: 'compose' });
   const [username, setUsername] = useState('');
   const [message, setMessage] = useState('');
@@ -296,6 +302,22 @@ export default function FeedbackScreen() {
 
   return (
     <SettingsScreenLayout intro={withAgent ? FeedbackCopy.introAgent : FeedbackCopy.intro}>
+      {updateAction !== null ? (
+        <View style={[local.update, { borderColor: appearance.border }]}>
+          <Text style={[styles.cardLabel, local.updateText]}>
+            {updateAction.kind === 'restart'
+              ? FeedbackCopy.updateReady
+              : FeedbackCopy.newerVersion(installedVersion(), updateAction.version)}
+          </Text>
+          <SetupButton
+            label={updateAction.kind === 'restart' ? FeedbackCopy.restartNow : FeedbackCopy.updateNow}
+            variant="primary"
+            small
+            disabled={busy}
+            onPress={() => takeUpdateAction(updateAction)}
+          />
+        </View>
+      ) : null}
       <Text style={styles.cardLabel}>{FeedbackCopy.usernameLabel}</Text>
       <TextInput
         keyboardAppearance={appearance.light ? 'light' : 'dark'}
@@ -422,7 +444,7 @@ export default function FeedbackScreen() {
         <SetupButton label="Cancel" disabled={busy} onPress={() => navigation.goBack()} style={local.button} />
         <SetupButton
           label={withAgent ? FeedbackCopy.startAgent : FeedbackCopy.review}
-          variant="primary"
+          variant={updateAction === null ? 'primary' : 'secondary'}
           busy={busy}
           disabled={!canContinue}
           onPress={() => (withAgent ? void startAgent() : review())}
@@ -433,8 +455,27 @@ export default function FeedbackScreen() {
   );
 }
 
+/** The installed app's version, or null where the build cannot say (development builds). */
+function installedVersion(): string | null {
+  try {
+    return installedAppVersion();
+  } catch {
+    return null;
+  }
+}
+
 function createStyles(appearance: Appearance) {
   return StyleSheet.create({
+    update: {
+      borderWidth: 1,
+      borderRadius: GhostexRadii.row,
+      padding: 12,
+      gap: 10,
+      marginBottom: 6,
+    },
+    updateText: {
+      fontWeight: '400',
+    },
     heading: {
       marginTop: 4,
     },

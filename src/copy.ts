@@ -1600,6 +1600,12 @@ export const FeedbackCopy = {
     `Added when it is posted: ${
       screenshots === 0 ? '' : screenshots === 1 ? '1 screenshot and ' : `${screenshots} screenshots and `
     }“${footer}”.`,
+  /** CDXC:Feedback 2026-11-20: ask for the update first, as the computer's Send Bug / Feedback does. */
+  newerVersion: (installed: string | null, latest: string) =>
+    `${installed === null ? "You're not on the newest version" : `You're on ${installed}`}; ${latest} is out. Please update first: it may already be fixed.`,
+  updateReady: 'An update is ready. Please restart to update first: it may already be fixed.',
+  updateNow: 'Update now',
+  restartNow: 'Restart to update',
   agentUnsupported: (computer: string) => `Update Ghostex on ${computer} to start the feedback agent from the phone.`,
   agentNoSession: 'The agent started, but Ghostex did not say which session it is in.',
   crashAttached: 'Crash report attached',
