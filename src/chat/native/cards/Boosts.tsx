@@ -1,7 +1,7 @@
 /**
  * Boosts on the phone (gx-chat-core `extras/boosts.rs` has the user's decisions and the rules; desktop
  * `native_chat/boosts.rs`): the Boost pill at the right of the pill strip, its sheet of Boosts in Show,
- * Do, Work and Custom tabs with every description in full, the prompt sheet a long press opens, "Try a
+ * Actions, Work and Custom tabs with every description in full, the prompt sheet a long press opens, "Try a
  * Boost" on a new chat, and the one-time callout above the pill. Everything is drawn from the core's
  * `boosts` key, which is null while the computer has no Boosts or they are switched off. `*` in the chat
  * box and Save as Boost come from the core (its suggestion list and its transcript menu rows).

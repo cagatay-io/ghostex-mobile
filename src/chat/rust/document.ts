@@ -1506,7 +1506,7 @@ export type BoostRow = {
  * `setBoostTab {tab}`, `refreshBoosts`, `dismissBoostHint`, `saveAsBoost {text}`. */
 export type BoostsDocument = {
   pill: { id: string; label: string; ariaLabel: string; active: boolean };
-  /** Show, Do, Work, and Custom once the user has a Boost of their own. */
+  /** Show, Actions, Work, and Custom once the user has a Boost of their own. */
   tabs: { id: string; label: string; count: number }[];
   /** The open tab. */
   tab: string;
