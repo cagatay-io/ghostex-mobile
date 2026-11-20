@@ -99,16 +99,18 @@ export function shownFoldedStatus(
 }
 
 /**
- * apps/desktop/src/app/native_sidebar/status.rs `status_dot_stack`: the colours of an overlapping stack, back to
- * front: pink furthest left and underneath, then grey (never together with orange), orange, blue, and the red
- * approval dot rightmost and on top.
+ * apps/desktop/src/app/native_sidebar/status.rs `stack_colors`: the colours of an overlapping stack, back to front,
+ * least urgent first: grey furthest left (never together with orange), orange, blue, pink, and the red blocker dot
+ * (approval, failed or stuck) rightmost and on top. CDXC:SessionStatus 2026-11-20 DECISION: User: "make question and
+ * blocker higher priority here than the working indicator"; the most urgent dot is in front, red > pink > blue >
+ * orange > grey, the order the Space and computer tiles pick their one dot (StatusDotStack.tsx `tileStatusColor`).
  */
 export function statusStackColors(stack: FoldedStatus): string[] {
   const colors: string[] = [];
-  if (stack.question) colors.push(SidebarPalette.ROW_QUESTION);
   if (stack.backgroundWork && !stack.working) colors.push(SidebarPalette.ROW_BACKGROUND_WORK);
   if (stack.working) colors.push(SidebarPalette.ROW_WORKING);
   if (stack.attention) colors.push(SidebarPalette.ROW_ATTENTION);
+  if (stack.question) colors.push(SidebarPalette.ROW_QUESTION);
   if (stack.approval) colors.push(SidebarPalette.ROW_APPROVAL);
   return colors;
 }

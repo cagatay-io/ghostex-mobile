@@ -37,7 +37,7 @@ const DOT: Record<NonNullable<RowActivityIndicator>, string> = {
 };
 
 /** A folded stack's word: the most urgent of its dots, in the order of a single session's badge below. */
-const FOLDED_ORDER = ['approval', 'question', 'working', 'attention', 'backgroundWork'] as const;
+const FOLDED_ORDER = ['approval', 'question', 'attention', 'working', 'backgroundWork'] as const;
 
 /** The session's own computer capabilities and, when folded, its row's shown status stack. */
 export function statusBadge(
@@ -51,9 +51,9 @@ export function statusBadge(
   }
   if (isAwaitingApproval(session)) return { kind: 'approval', label: WallCopy.badge.approval, dots: [DOT.approval] };
   if (hasQuestion(session.pendingQuestionCount, capabilities.awaitingAnswer && session.awaitingAnswer)) {
-    // The row pairs the question with the working or the waiting dot (`QuestionIndicator`).
+    // The row pairs the question with the working or the waiting dot (`QuestionIndicator`), the pink one in front.
     const paired = session.activity === 'working' || session.activity === 'attention' ? [DOT[session.activity]] : [];
-    return { kind: 'question', label: WallCopy.badge.question, dots: [SidebarPalette.ROW_QUESTION, ...paired] };
+    return { kind: 'question', label: WallCopy.badge.question, dots: [...paired, SidebarPalette.ROW_QUESTION] };
   }
   const indicator = rowActivityIndicator(session);
   if (indicator === null || indicator === 'approval') return null;

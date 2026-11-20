@@ -1,11 +1,10 @@
 /**
- * The overlapping status dots a machine tab or a Space shows, ported from
- * apps/desktop/src/app/native_sidebar/status.rs `status_dot_stack`: every dot
+ * The overlapping status dots of a folded coordinator or a question pair, ported from
+ * apps/desktop/src/app/native_sidebar/status.rs `stack_colors`: every dot
  * is STATUS_DOT_SIZE inside a 1dp ring in the surface color (the 2026-10-20
  * decision: "1px border around the dots"), and each overlaps the one before it
- * by half; blue sits rightmost and on top, orange in the middle, the grey
- * background-work dot (never shown together with orange) behind them, and the
- * pink question dot furthest left, covered by the others.
+ * by half, the most urgent rightmost and on top (sessionStatus.ts
+ * `statusStackColors`). A Space or computer tile draws one dot (`TileStatusDot`).
  */
 
 import { StyleSheet, View } from 'react-native';

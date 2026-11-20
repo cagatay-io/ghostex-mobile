@@ -325,7 +325,7 @@ function VoiceCallBadge() {
 /**
  * apps/desktop/src/app/native_sidebar/status.rs `question_indicator`: the pink
  * question dot in the same 19x16 slot as every other indicator. CDXC:SessionStatus 2026-10-23 DECISION:
- * User: "also 1 more thing if there's question + working or question + done then show those 2 dots overlapping like we show it at the bottom of the space button". While the session is also working (orange) or done (blue), the pair overlaps through StatusDotStack, the same stack the Space buttons draw, with the pink dot behind and a ring in the row's surface between them; the pair is centered in the slot.
+ * User: "also 1 more thing if there's question + working or question + done then show those 2 dots overlapping like we show it at the bottom of the space button". While the session is also working (orange) or done (blue), the pair overlaps through StatusDotStack, with a ring in the row's surface between them; the pair is centered in the slot. Since 2026-11-20 the pink dot is in front and the other behind it (sessionStatus.ts `statusStackColors`: the most urgent dot in front).
  */
 function QuestionIndicator({ activity, ringColor }: { activity: string; ringColor: string }) {
   const pair = activity === 'working' || activity === 'attention';
