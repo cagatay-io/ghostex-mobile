@@ -14,7 +14,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import type { CoordinatorBadge, FoldedStatus } from '../../contract/coordinatorTree';
 import { SidebarPalette } from '../../theme/palette';
-import { CrewGlyph } from './icons';
+import { CrewGlyph, LinkGlyph } from './icons';
 import { ds } from './rows';
 import StatusDotStack from './StatusDotStack';
 
@@ -35,6 +35,19 @@ export function CoordinatorBadgeView({ badge }: { badge: CoordinatorBadge }) {
     <View style={styles.badge}>
       <CrewGlyph size={ds(13.55)} color={tint} />
       {badge.count > 0 ? <Text style={[styles.count, { color: tint }]}>{badge.count}</Text> : null}
+    </View>
+  );
+}
+
+/**
+ * A lead's mark (lead links, server/src/agents/lead_links): the link icon and how many sessions report to it, muted
+ * (the desktop's native_sidebar/threads.rs `lead_badge`). The row keeps its agent's own logo.
+ */
+export function LeadBadgeView({ count }: { count: number }) {
+  return (
+    <View style={styles.badge} accessibilityLabel={`Leads ${count} linked session${count === 1 ? '' : 's'}`}>
+      <LinkGlyph size={ds(13.55)} color={SidebarPalette.MUTED} />
+      <Text style={[styles.count, { color: SidebarPalette.MUTED }]}>{count}</Text>
     </View>
   );
 }

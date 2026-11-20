@@ -68,6 +68,7 @@ import {
   makeMainCoordinatorCommand,
   coordinatorEditCommand,
   coordinatorResolveCommand,
+  leadUnlinkCommand,
   coordinatorStatusCommand,
   sleepInactiveCoordinatorThreadsCommand,
   moveProjectCommand,
@@ -518,6 +519,19 @@ export function useSessionsScreenMenus({
     }
   };
 
+  /** Unlink from Lead / Stop leading (lead links): the session or the lead's sessions stop reporting to it. */
+  const unlinkLead = async (machine: MachineRecord, session: GhostexSession, allOfLead: boolean): Promise<void> => {
+    setProgress('Unlinking…');
+    try {
+      await runGhostexCli(machine, leadUnlinkCommand(session.globalRef, allOfLead));
+      setTransientStatus(allOfLead ? 'Stopped leading' : 'Unlinked from its lead');
+    } catch (error) {
+      setTransientStatus(error instanceof Error ? error.message : String(error));
+    } finally {
+      setProgress(null);
+    }
+  };
+
   /** What the Goal & Instructions and Memory editors start from (`ghostex coordinator status`). */
   const loadCoordinatorDetails = async (ctx: SessionContext): Promise<CoordinatorDetails> => {
     const { json } = await runGhostexCli(ctx.machine, coordinatorStatusCommand(ctx.item.session.globalRef));
@@ -870,6 +884,11 @@ export function useSessionsScreenMenus({
           if (menuCommand.action === 'makeMain') {
             setOverlay(NONE);
             void makeMainCoordinator(machine, ctx.item.session);
+            return;
+          }
+          if (menuCommand.action === 'unlinkLead' || menuCommand.action === 'stopLeading') {
+            setOverlay(NONE);
+            void unlinkLead(machine, ctx.item.session, menuCommand.action === 'stopLeading');
             return;
           }
           setOverlay(NONE);

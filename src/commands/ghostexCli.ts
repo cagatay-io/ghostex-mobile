@@ -557,6 +557,15 @@ export function coordinatorResolveCommand(globalRef: string, resolved: boolean):
 }
 
 /**
+ * Lead links (server/src/agents/lead_links): Unlink from Lead on a linked session (`ghostex agents unlink <ref>`), or
+ * Stop leading on its lead (`ghostex agents unlink --all --lead <ref>`), the gxserver call the desktop's rows make.
+ */
+export function leadUnlinkCommand(globalRef: string, allOfLead: boolean): string {
+  const ref = shellQuote(requireId(globalRef, allOfLead ? 'lead' : 'session'));
+  return allOfLead ? `ghostex agents unlink --all --lead ${ref}` : `ghostex agents unlink ${ref}`;
+}
+
+/**
  * Quick action: `ghostex run-action <commandId> --project-id <id> [--scope global]` (always prints JSON). A Global
  * Action runs in the project whose menu it was chosen from; without `--scope` the computer looks the id up in the
  * project's own actions, as before.

@@ -184,8 +184,14 @@ export function coordinatorRowKey(session: Pick<GhostexSession, 'projectId' | 's
 }
 
 function parentKey(session: GhostexSession): string | null {
-  if ((session.coordinatorProjectId ?? '').length === 0 || (session.coordinatorSessionId ?? '').length === 0) return null;
-  return JSON.stringify([session.coordinatorProjectId, session.coordinatorSessionId]);
+  if ((session.coordinatorProjectId ?? '').length > 0 && (session.coordinatorSessionId ?? '').length > 0) {
+    return JSON.stringify([session.coordinatorProjectId, session.coordinatorSessionId]);
+  }
+  // A lead link nests the session under its lead the same way (gx-core rows.rs).
+  if ((session.leadProjectId ?? '').length > 0 && (session.leadSessionId ?? '').length > 0) {
+    return JSON.stringify([session.leadProjectId, session.leadSessionId]);
+  }
+  return null;
 }
 
 function isBrowser(session: GhostexSession): boolean {
@@ -304,7 +310,7 @@ export function nestCoordinatorThreads<S>(
   });
   const coordinators = new Map<string, number>();
   sessions.forEach((session, index) => {
-    if (session.isCoordinator) coordinators.set(keys[index], index);
+    if (session.isCoordinator || session.isLead === true) coordinators.set(keys[index], index);
   });
   if (coordinators.size === 0) return flat();
 
@@ -365,7 +371,10 @@ export function nestCoordinatorThreads<S>(
   const result: NestedSessions<S> = { sessions: [], sections: new Map(), nesting: new Map() };
   const foldedOf = sessions.map(() => false);
   const sectionOfRow = [...baseSections];
-  const hidden = (parent: number, child: number): boolean => !olderShown.has(keys[parent]) && isOlder[child];
+  // A lead (lead links) has no "N older threads" row or fold, so all its linked sessions stay listed (gx-core threads.rs).
+  const leadParent = sessions.map((session) => session.isLead === true && !session.isCoordinator);
+  const hidden = (parent: number, child: number): boolean =>
+    !leadParent[parent] && !olderShown.has(keys[parent]) && isOlder[child];
   const threadsOf = (index: number): TreeChildren<number> => {
     const list = children.get(index) ?? [];
     return { list, drawn: list.filter((child) => !hidden(index, child)).length, open: !isCollapsed[index] };
@@ -392,7 +401,7 @@ export function nestCoordinatorThreads<S>(
         threadCount: list.length,
         collapsed: isCollapsed[index],
         folded: foldedOf[index],
-        olderThreads: list.filter((child) => isOlder[child]).length,
+        olderThreads: leadParent[index] ? 0 : list.filter((child) => isOlder[child]).length,
         olderShown: olderShown.has(keys[index]),
         containsActive: false,
         foldedStatus: foldedStatus(index),

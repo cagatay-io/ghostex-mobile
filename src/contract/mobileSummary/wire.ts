@@ -74,6 +74,12 @@ export type MobileSummaryWireSession = {
   coordinatorThreadState?: string;
   /** On a coordinator: its threads on other computers (server/src/coordinators/remote_threads.rs); absent when none. */
   coordinatorRemoteThreads?: Array<{ serverId?: string; projectId?: string; sessionId?: string; threadState?: string }>;
+  /** On a session linked to a lead (server/src/agents/lead_links): the lead's ids; absent otherwise. */
+  leadProjectId?: string;
+  leadSessionId?: string;
+  /** On a lead: true, with how many sessions are linked to it. */
+  isLead?: boolean;
+  leadLinkCount?: number;
   /** Working with no output for long enough to count as stuck (server/src/coordinators/stall.rs); absent while it moves. */
   stuckSince?: string;
   /** The provider resume id the note is keyed by; absent before the agent starts. */

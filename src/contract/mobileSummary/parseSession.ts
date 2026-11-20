@@ -272,6 +272,13 @@ export function parseSession(value: unknown): GhostexSession | null {
     coordinatorSessionId: trimmedValue(value, 'coordinatorSessionId'),
     coordinatorThreadState: trimmedValue(value, 'coordinatorThreadState'),
     coordinatorRemoteThreads: parseRemoteThreads(value.coordinatorRemoteThreads),
+    leadProjectId: trimmedValue(value, 'leadProjectId'),
+    leadSessionId: trimmedValue(value, 'leadSessionId'),
+    isLead: value.isLead === true,
+    leadLinkCount:
+      typeof value.leadLinkCount === 'number' && Number.isFinite(value.leadLinkCount)
+        ? Math.max(0, Math.floor(value.leadLinkCount))
+        : 0,
     stuckSince: trimmedValue(value, 'stuckSince'),
     sideChatParentSessionId: trimmedValue(value, 'sideChatParentSessionId'),
     agentSessionId: trimmedValue(value, 'agentSessionId'),

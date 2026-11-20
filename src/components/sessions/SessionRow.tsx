@@ -57,7 +57,7 @@ import CloudBoxBadge from './CloudBoxBadge';
 import { CoordinatorFold } from './CoordinatorFold';
 import { BranchGlyph } from './unified/glyphs';
 import StatusDotStack from './StatusDotStack';
-import { CoordinatorBadgeView, FoldedStatusIndicator } from './CoordinatorBadgeView';
+import { CoordinatorBadgeView, FoldedStatusIndicator, LeadBadgeView } from './CoordinatorBadgeView';
 import {
   BoxGlyph,
   ClockGlyph,
@@ -742,6 +742,9 @@ export default function SessionRow({
                 </View>
               ) : null}
               {shownCoordinatorBadge !== undefined ? <CoordinatorBadgeView badge={shownCoordinatorBadge} /> : null}
+              {session.isLead && !session.isCoordinator && session.leadLinkCount > 0 ? (
+                <LeadBadgeView count={session.leadLinkCount} />
+              ) : null}
               {voiceCall ? <VoiceCallBadge /> : null}
               {worktree !== undefined && worktree.length > 0 ? <WorktreeBadge label={worktree} /> : null}
               {openerTag !== undefined && openerTag.length > 0 ? (

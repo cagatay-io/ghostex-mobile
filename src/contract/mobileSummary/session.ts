@@ -161,6 +161,15 @@ export type GhostexSession = {
    * from a computer that predates the field. The Unified list nests them under it (contract/unified/tree.ts).
    */
   coordinatorRemoteThreads: Array<{ globalRef: string; threadState: string }>;
+  /**
+   * On a session linked to a lead (lead links, server/src/agents/lead_links): the lead's ids ('' otherwise). The
+   * drawer nests it under the lead like a thread (coordinatorTree.ts); it stays an ordinary session.
+   */
+  leadProjectId: string;
+  leadSessionId: string;
+  /** The session leads others through lead links: its row shows the link icon and leadLinkCount. */
+  isLead: boolean;
+  leadLinkCount: number;
   /** Working with no output for long enough to count as stuck ('' while it moves, or from an older computer). */
   stuckSince: string;
   /**

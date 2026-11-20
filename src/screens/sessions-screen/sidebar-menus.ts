@@ -98,7 +98,7 @@ export type SidebarMenuCommand =
   | {
       type: 'coordinatorSessionAction';
       sessionId: string;
-      action: 'goal' | 'memory' | 'viewPlaybook' | 'markDone' | 'reopen' | 'makeMain';
+      action: 'goal' | 'memory' | 'viewPlaybook' | 'markDone' | 'reopen' | 'makeMain' | 'unlinkLead' | 'stopLeading';
     }
   | {
       type: 'projectMembership';
@@ -680,7 +680,9 @@ function copySubmenu(session: GhostexSession, project: SessionMenuInput['project
 function coordinatorRows(session: GhostexSession, sleepInactive: SidebarMenuItem | null): SidebarMenuItem[] {
   if (session.isDraft === true) return [];
   const id = session.sessionId;
-  const action = (kind: 'goal' | 'memory' | 'viewPlaybook' | 'markDone' | 'reopen' | 'makeMain'): SidebarMenuCommand => ({
+  const action = (
+    kind: 'goal' | 'memory' | 'viewPlaybook' | 'markDone' | 'reopen' | 'makeMain' | 'unlinkLead' | 'stopLeading',
+  ): SidebarMenuCommand => ({
     type: 'coordinatorSessionAction',
     sessionId: id,
     action: kind,
@@ -708,6 +710,10 @@ function coordinatorRows(session: GhostexSession, sleepInactive: SidebarMenuItem
     ];
     if (sleepInactive !== null) children.push(sleepInactive);
     rows.push(submenu('Coordinator', 'coordinator-crown-points', children));
+  } else if ((session.coordinatorSessionId ?? '').length === 0 && (session.leadSessionId ?? '').length > 0) {
+    // Lead links (gx-core `coordinator_rows`, CDXC:LeadLinks 2026-11-20): a linked session is an ordinary session, so
+    // Unlink only, never Mark Thread Done; no menu ever offers linking.
+    rows.push(row('Unlink from Lead', 'unlink', action('unlinkLead')));
   } else if ((session.coordinatorSessionId ?? '').length > 0) {
     const state = session.coordinatorThreadState;
     if (state === 'done') {
@@ -718,6 +724,10 @@ function coordinatorRows(session: GhostexSession, sleepInactive: SidebarMenuItem
         disabled: state === 'working' || state === 'waiting',
       });
     }
+  }
+  if (session.isLead && !session.isCoordinator && session.leadLinkCount > 0) {
+    const count = session.leadLinkCount;
+    rows.push(row(count === 1 ? 'Stop leading 1 session' : `Stop leading ${count} sessions`, 'unlink', action('stopLeading')));
   }
   return rows.length === 1 ? [] : rows;
 }
