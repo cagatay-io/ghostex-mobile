@@ -1257,7 +1257,7 @@ export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords
   },
   "terminalGhosttyTheme": {
     "title": "Terminal palette in dark mode",
-    "subtitle": "Uses the dark theme set in Ghostex's terminal config, or GitHub Dark when none is set.",
+    "subtitle": "Uses the dark theme set in Ghostex's terminal config, or Ghostex Kanagawa Dragon when none is set.",
     "options": [
       "Use terminal config file",
       "__ghostex_ghostty_theme_unmanaged__",
