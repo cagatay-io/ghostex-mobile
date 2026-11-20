@@ -18,6 +18,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import { userBubbleTint } from '../chat/native/transcript/theme';
 import { useAppearance, type Appearance } from '../theme/useAppearance';
 import { DemoCopy } from './copy';
 import { demoProjectName, demoTranscript, sendDemoMessage, type DemoTurn } from './world';
@@ -138,7 +139,8 @@ const createStyles = (appearance: Appearance) =>
     },
     transcript: { paddingHorizontal: 16, paddingBottom: 12, gap: 10 },
     bubble: { maxWidth: '92%', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, gap: 4 },
-    userBubble: { alignSelf: 'flex-end', backgroundColor: appearance.accent },
+    // The chat's own bubble: a soft blue tint over the page, under the normal text colour (the accent fill left dark text on dark navy in the light theme and light text on pale blue in the dark one).
+    userBubble: { alignSelf: 'flex-end', backgroundColor: userBubbleTint(appearance.background, appearance.light) },
     agentBubble: { alignSelf: 'flex-start', backgroundColor: appearance.card, borderWidth: 1, borderColor: appearance.border },
     role: { fontSize: 11, fontWeight: '700', letterSpacing: 0.3, textTransform: 'uppercase', color: appearance.muted },
     body: { fontSize: 16, lineHeight: 22, color: appearance.foreground },

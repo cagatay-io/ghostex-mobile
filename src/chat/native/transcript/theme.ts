@@ -315,6 +315,13 @@ const LIGHT: ChatRoles = {
 const USER_BUBBLE_BLUE = '#3b82f6';
 const USER_BUBBLE_BLUE_DARK = '#4a90d9';
 
+/** The blue tint over `background`: 30% over a dark one, 12% over a light one (the chat's `userBubble`, and the demo chat's). */
+export function userBubbleTint(background: string, light: boolean): string {
+  return light
+    ? mixHexColors(USER_BUBBLE_BLUE, background, 12)
+    : mixHexColors(USER_BUBBLE_BLUE_DARK, background, 30);
+}
+
 /**
  * The surfaces over the chat's work-area colour `background` (`ChatAppearance::resolve`): dark fills step toward
  * white, light ones toward black, and the light composer and cards a little toward white; menus take the sidebar
@@ -333,9 +340,7 @@ function chatSurfaces(roles: ChatRoles, background: string, menu: string): Pick<
     // A blue 30% over a dark background, 12% over a light one; a background that is not `#rrggbb` keeps the grey bubble.
     userBubble: !/^#[0-9a-f]{6}$/iu.test(background.trim())
       ? lifted(0.03, 0.032)
-      : light
-        ? mixHexColors(USER_BUBBLE_BLUE, background, 12)
-        : mixHexColors(USER_BUBBLE_BLUE_DARK, background, 30),
+      : userBubbleTint(background, light),
     border: lifted(0.062, 0.095),
     cardBackground,
     cardPanel: up(light ? 0.6 : 0.035),
