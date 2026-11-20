@@ -16,7 +16,7 @@
  */
 
 import { useRef, useState } from 'react';
-import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewInstance } from 'react-native';
 
 import type { UserAction } from '../../rust/actions';
 import type { BoostRow, BoostsDocument } from '../../rust/document';
@@ -125,18 +125,25 @@ export function BoostSheet({
     if (Platform.OS === 'ios') promptAfter.current = row;
     else setPrompt(row);
   };
-  const tab = boosts?.tab ?? 'show';
-  // CDXC:Boosts 2026-11-20 DECISION: User: switching tabs "changes the menu's height so the tabs
-  // jump". Every tab's rows are laid out unseen and the list keeps the tallest one's height, so the
-  // sheet (and its tabs) stay put; the desktop menu does the same (`boost_menu_height`).
-  const [heights, setHeights] = useState<Record<string, number>>({});
-  const tallest = Math.max(0, ...Object.values(heights));
-  const rowsOf = (id: string) => (boosts?.list ?? []).filter((row) => row.category === id);
-  const rows = rowsOf(tab);
-  const rowView = (row: BoostRow, live: boolean) => (
+  // CDXC:Boosts 2026-11-20 DECISION: User (Q4304 "B"): the menu is one list under section headers with
+  // the section chips at the bottom left (desktop `boost_menu_body`); the sheet is the same list, its chips
+  // scrolling to a section. A phone has no preview card, so each description stays whole here.
+  const sections = (boosts?.tabs ?? [])
+    .map((entry) => ({ ...entry, rows: (boosts?.list ?? []).filter((row) => row.category === entry.id) }))
+    .filter((section) => section.rows.length > 0);
+  const scroll = useRef<ScrollViewInstance>(null);
+  const sectionTops = useRef<Record<string, number>>({});
+  const [current, setCurrent] = useState(sections[0]?.id ?? 'show');
+  const onScroll = (y: number) => {
+    let at = sections[0]?.id ?? 'show';
+    for (const section of sections) {
+      if ((sectionTops.current[section.id] ?? Infinity) <= y + 8) at = section.id;
+    }
+    if (at !== current) setCurrent(at);
+  };
+  const rowView = (row: BoostRow) => (
     <Pressable
       key={row.id}
-      disabled={!live}
       accessibilityRole="button"
       accessibilityLabel={row.label}
       accessibilityHint={`${row.description} Press and hold to read its prompt.`}
@@ -172,45 +179,52 @@ export function BoostSheet({
         title="Boosts"
         subtitle="The agent answers with a page, a chart, a browser run and more"
       >
-        <View style={styles.tabs} accessibilityRole="tablist">
-          {(boosts?.tabs ?? []).map((entry) => {
-            const on = entry.id === tab;
-            return (
-              <Pressable
-                key={entry.id}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: on }}
-                onPress={() => dispatch({ type: 'setBoostTab', tab: entry.id })}
-                style={[styles.tab, on && styles.tabOn]}
-              >
-                <Text style={[styles.tabLabel, on && styles.tabLabelOn]}>{entry.label}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        <View style={styles.rows}>
-          <View style={{ minHeight: tallest }}>
-            {rows.map((row) => rowView(row, true))}
-            {(boosts?.tabs ?? []).map((entry) => (
-              <View
-                key={entry.id}
-                pointerEvents="none"
-                accessibilityElementsHidden
-                importantForAccessibility="no-hide-descendants"
-                style={styles.measure}
-                onLayout={(event) => {
-                  const height = Math.ceil(event.nativeEvent.layout.height);
-                  setHeights((known) => (known[entry.id] === height ? known : { ...known, [entry.id]: height }));
-                }}
-              >
-                {rowsOf(entry.id).map((row) => rowView(row, false))}
-              </View>
-            ))}
-          </View>
+        <ScrollView
+          ref={scroll}
+          style={styles.scroll}
+          contentContainerStyle={styles.rows}
+          scrollEventThrottle={32}
+          onScroll={(event) => onScroll(event.nativeEvent.contentOffset.y)}
+        >
+          {sections.map((section) => (
+            <View
+              key={section.id}
+              onLayout={(event) => {
+                sectionTops.current[section.id] = event.nativeEvent.layout.y;
+              }}
+            >
+              <Text style={styles.section} accessibilityRole="header">
+                {section.label.toUpperCase()}
+              </Text>
+              {section.rows.map(rowView)}
+            </View>
+          ))}
           <Text style={styles.footnote}>
             Press and hold a Boost to read what the agent is told. Settings › Boosts on your computer edits them and
             makes your own.
           </Text>
+        </ScrollView>
+        <View style={styles.chips} accessibilityRole="tablist">
+          {sections.map((section) => {
+            const on = section.id === current;
+            return (
+              <Pressable
+                key={section.id}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: on }}
+                accessibilityLabel={`Go to ${section.label}`}
+                onPress={() => {
+                  setCurrent(section.id);
+                  scroll.current?.scrollTo({ y: sectionTops.current[section.id] ?? 0, animated: true });
+                }}
+                style={[styles.chip, styles.sectionChip, on && styles.sectionChipOn]}
+              >
+                <Text style={[styles.tabLabel, on && styles.tabLabelOn]} numberOfLines={1}>
+                  {section.label}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
       </Sheet>
       <BoostPromptSheet row={prompt} onClose={() => setPrompt(null)} />
@@ -390,21 +404,21 @@ const useStyles = themedStyles((P) => ({
     borderWidth: 1,
   },
   pillLabel: { fontSize: 13, lineHeight: 19 },
-  tabs: {
-    flexDirection: 'row',
-    gap: 2,
-    padding: 2,
-    marginHorizontal: 16,
-    marginBottom: 6,
-    borderRadius: 9,
-    backgroundColor: P.ink(0.06),
-  },
-  tab: { flex: 1, alignItems: 'center', paddingVertical: 6, borderRadius: 7 },
-  tabOn: { backgroundColor: P.ink(0.12) },
   tabLabel: { color: P.cardMuted, fontSize: 13 },
   tabLabelOn: { color: P.foreground },
   rows: { paddingHorizontal: 8, paddingBottom: 12 },
-  measure: { position: 'absolute', left: 0, right: 0, top: 0, opacity: 0 },
+  scroll: { flexShrink: 1 },
+  section: { color: P.muted, fontSize: 11, fontWeight: '600', letterSpacing: 0.8, paddingHorizontal: 10, paddingTop: 10, paddingBottom: 4 },
+  chips: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: P.ink(0.12),
+  },
+  sectionChip: { paddingHorizontal: 12, paddingVertical: 6 },
+  sectionChipOn: { backgroundColor: P.ink(0.1), borderColor: 'transparent' },
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
