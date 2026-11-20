@@ -68,6 +68,20 @@ function isTopNavigation(request: ShouldStartLoadRequest & { hasTargetFrame?: bo
 const withoutFragment = (url: string): string => url.split('#')[0] ?? url;
 
 /**
+ * A page's link to another HTML file beside it, which the page itself follows in place through its
+ * gxserver (`/visual/<id>/link?href=…`, server/src/visual_pages/linked.rs and the page bootstrap in
+ * theme.rs); gxserver answers with a redirect to that file's own page.
+ *
+ * CDXC:SessionChat 2026-11-20 DECISION:
+ * User, asked whether a Live page's links to the other pages of its set (a cover page and its decks)
+ * should switch pages inside the phone's page view, as they do in the desktop's page window: yes. The
+ * sheet lets the page go to that route and, once it lands on the other page, opens that page as its
+ * own (`onOpenLink`), so Refresh, Hide, the title and the drafts kept while offline all belong to the
+ * page on screen rather than to the one the card opened. Older phones send the route out as a link.
+ */
+const PAGE_LINK_PATH = /^\/visual\/[0-9a-f]{32}\/link\?/u;
+
+/**
  * The page through the phone's forward on `localPort`, in the chat's theme. `gx-floating=1`: the
  * page closes itself once its answers are sent, as in the desktop's window.
  */
@@ -331,14 +345,33 @@ export function PageSheet({ chat, machine, page, starredPages, onClose, onHide, 
       }
       // An address through the page's own forward is the computer's gxserver, as the page wrote it.
       const localPort = localPortRef.current;
-      const url =
-        page !== null && parsed.host === LOOPBACK_HOST && parsed.port === localPort
-          ? `${parsed.scheme}://${LOOPBACK_HOST}:${page.remotePort}${parsed.pathAndQuery}`
-          : request.url;
+      const onForward = page !== null && parsed.host === LOOPBACK_HOST && parsed.port === localPort;
+      // A link to another page of its set: the page goes there itself (`PAGE_LINK_PATH`).
+      if (onForward && PAGE_LINK_PATH.test(parsed.pathAndQuery)) return true;
+      const url = onForward
+        ? `${parsed.scheme}://${LOOPBACK_HOST}:${page.remotePort}${parsed.pathAndQuery}`
+        : request.url;
       onOpenLink(url);
       return false;
     },
     [onOpenLink, page],
+  );
+
+  /**
+   * The page landed on another page of its set (`PAGE_LINK_PATH`) without the redirect passing
+   * {@link shouldStartLoad} (where a platform does not ask for redirects): that page becomes the
+   * sheet's own.
+   */
+  const followLinkedPage = useCallback(
+    (url: string) => {
+      const parsed = parseHttpUrl(url);
+      if (page === null || parsed === null || PAGE_LINK_PATH.test(parsed.pathAndQuery)) return;
+      if (parsed.host !== LOOPBACK_HOST || parsed.port !== localPortRef.current) return;
+      const landed = pageIdOfPath(parsed.pathAndQuery);
+      if (landed === null || landed === pageId) return;
+      onOpenLink(`${parsed.scheme}://${LOOPBACK_HOST}:${page.remotePort}${withoutFragment(parsed.pathAndQuery)}`);
+    },
+    [onOpenLink, page, pageId],
   );
 
   const received = useCallback(
@@ -444,9 +477,10 @@ export function PageSheet({ chat, machine, page, starredPages, onClose, onHide, 
                 onShouldStartLoadWithRequest={shouldStartLoad}
                 onLoadStart={() => setFailure(null)}
                 onLoadEnd={() => setLoading(false)}
-                onNavigationStateChange={(state) =>
-                  setTitle(state.title?.startsWith('http') ? '' : (state.title ?? ''))
-                }
+                onNavigationStateChange={(state) => {
+                  setTitle(state.title?.startsWith('http') ? '' : (state.title ?? ''));
+                  followLinkedPage(state.url);
+                }}
                 onError={(event) => {
                   event.preventDefault();
                   // A link this sheet sent elsewhere comes back as a cancelled load, not a failure.
