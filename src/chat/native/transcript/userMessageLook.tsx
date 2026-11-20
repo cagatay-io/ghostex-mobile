@@ -19,6 +19,7 @@ import { stepTowardHex } from '../../../theme/sidebarAppearance';
 import type { ChatLook, ProjectedMessage } from '../../rust/document';
 import { useTranscriptEnv } from './context';
 import { ImageRow } from './Images';
+import { HeldNotesLine } from './HeldNotesLine';
 import { AttachingLine, DeliveryIndicator, UserActions } from './MessageActions';
 import { MessageLongPressContext } from './markdown/blockLongPress';
 import { MessageSelection } from './messageSelection';
@@ -98,6 +99,7 @@ export function LeftUserMessage({
       )}
       {/* The not-sent note under the message, on its own side, as the desktop draws it. */}
       <AttachingLine message={message} end={false} />
+      <HeldNotesLine message={message} end={false} />
       <StartupDelivery message={message} waitingLine={false} end={false} />
       <UserActions message={message} start />
     </View>

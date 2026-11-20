@@ -493,6 +493,11 @@ export type ProjectedMessage = {
   collapsedText?: string | null;
   /** `markdownReferences` for `collapsedText`. */
   collapsedReferences?: Json;
+  /** On a message you sent: the messages other sessions held for it with `ghostex agents send
+   * --with-next` (`{label, notes: [{from, body}]}`), drawn as "2 held notes went in with this
+   * message"; null on every other row. Core: `presentation.rs` `held_notes_line`. Desktop:
+   * `transcript.rs` `held_notes_line`. */
+  heldNotes?: Json;
   /** A reasoning row split into headline and body. Desktop: `thinking.rs`. */
   reasoning?: Json;
   /** A message from another agent, with its display name. Desktop: `inter_agent_message.rs`. */

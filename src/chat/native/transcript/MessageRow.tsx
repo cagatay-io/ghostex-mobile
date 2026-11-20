@@ -45,6 +45,7 @@ import { BoxedToolCards } from './ToolCard';
 import { hasVisibleTools, ShellCommandCard, ToolRows } from './ToolRows';
 import { fileNames, QuietEditLine } from './quietWork';
 import { LeftUserMessage, userStyleProse } from './userMessageLook';
+import { HeldNotesLine } from './HeldNotesLine';
 import { Glyph } from './icons';
 import { strengthenedText } from './textStrength';
 import { useHiddenWorkFor } from './hiddenWorkButton';
@@ -208,6 +209,8 @@ function UserMessage({ message }: { message: ProjectedMessage }) {
         </View>
         {/* What became of a message that has not reached the agent sits under its bubble, as on the desktop (it drew above it). */}
         <AttachingLine message={message} />
+        {/* "2 held notes went in with this message", which opens onto them (`HeldNotesLine.tsx`). */}
+        <HeldNotesLine message={message} />
         <StartupDelivery message={message} waitingLine={false} />
         <UserActions message={message} />
       </View>
