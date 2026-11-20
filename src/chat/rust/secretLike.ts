@@ -49,7 +49,16 @@ const PREFIXES: ReadonlyArray<readonly [prefix: string, body: number, separators
 
 export function looksLikeSecret(text: string): boolean {
   if (text.includes('PRIVATE KEY-----')) return true;
-  return tokens(text).some((token) => knownPrefix(token) || awsKeyId(token) || randomToken(token));
+  return tokens(text).some((token) => knownKey(token) || randomToken(token));
+}
+
+/**
+ * A known prefix's key or an AWS key id at the start of `token` or of one of its pieces split at `/`, `?`, `&` and `@`,
+ * where a key sits in a link or path (`https://host/hook/<key>`, `?<key>&x=1`, `https://<key>@host`). The core's
+ * `url_pieces` has the CDXC:Secrets 2026-11-20 WHY.
+ */
+function knownKey(token: string): boolean {
+  return token.split(/[/?&@]/).some((piece) => knownPrefix(piece) || awsKeyId(piece));
 }
 
 /**
@@ -82,7 +91,9 @@ function awsKeyId(token: string): boolean {
 /**
  * A long run of letters, digits and `_-+/.` with upper case, lower case and digits mixed, little repetition, and not
  * made of words. Hex (commit ids, hashes, UUIDs) has one case only, even inside a path, and paths have a `/` between
- * words, so neither counts: the long run between `/` and `.` must have both upper and lower case.
+ * words, so neither counts: the long run between `/` and `.` must have both upper and lower case. A `/` splits the run
+ * only in a word with a word-shaped piece between its `/`, as a path's folder is: standard base64 has `/` among its
+ * characters.
  */
 function randomToken(raw: string): boolean {
   const token = raw.replace(/[.!?]+$/, '');
@@ -96,10 +107,11 @@ function randomToken(raw: string): boolean {
     return false;
   }
   const count = (pattern: RegExp) => (token.match(pattern) ?? []).length;
+  const path = token.split('/').some(wordShaped);
   const longestRun = Math.max(
     0,
     ...token
-      .split(/[/.]/)
+      .split(path ? /[/.]/ : /\./)
       .filter((part) => /[A-Z]/.test(part) && /[a-z]/.test(part))
       .map((part) => part.length),
   );
