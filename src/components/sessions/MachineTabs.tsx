@@ -17,9 +17,10 @@
  * icon not the whole tab", CDXC:RemoteMachines 2026-10-25), and is dim while not
  * connected. Pressing the glyph on a failed or not-connected machine retries
  * through `onConnect` WITHOUT selecting the tab; pressing the label selects.
- * Unselected tabs show their machine's status as the desktop's overlapping
- * dots (StatusDotStack) so a machine still reports that something needs the
- * user. A long press opens the tab's menu.
+ * Unselected tabs show their machine's status as the desktop's one dot, the
+ * most urgent state's colour (TileStatusDot), so a machine still reports that
+ * something needs the user. A long press opens the tab's menu, which lists the
+ * counts.
  */
 
 import { useMemo, useEffect, useRef, useState } from 'react';
@@ -43,7 +44,8 @@ import { GhostexStrokeWidth, SetupPalette } from '../../theme/palette';
 import { ComputerIconGlyph } from './ComputerIconGlyph';
 import { CloudGlyph, LoaderGlyph, PlusGlyph } from './icons';
 import { machineTabLayout, machineTabRevealOffset, machineTabsOutOfView } from './machineTabLayout';
-import StatusDotStack from './StatusDotStack';
+import { TileStatusDot, tileStatusColor } from './StatusDotStack';
+import { tileStatusLines, type TileStatusCounts } from '../../contract/grouping';
 
 export type MachineTabConnectionState = 'busy' | 'connected' | 'disconnected' | 'failed';
 
@@ -61,13 +63,8 @@ export type MachineTabItem = {
   slow?: boolean;
   /** Opens the Connections sheet from the glyph; absent while connected and fine, or busy. */
   onConnect?: () => void;
-  /** grouping.ts tabStatusCounts: the desktop machine tab's counts. */
-  workingCount: number;
-  attentionCount: number;
-  backgroundWorkCount: number;
-  questionCount: number;
-  /** Sessions waiting for approval: the red dot. */
-  approvalCount: number;
+  /** grouping.ts `machineSessionCounts`: what the tab's one dot and its menu's counts draw. */
+  counts: TileStatusCounts;
   /**
    * The computer's icon (machines/computerIcons.ts), drawn in the cloud's place with the same colours and press;
    * absent while unknown, which keeps the cloud.
@@ -171,43 +168,15 @@ function ConnectionGlyph({ item }: { item: MachineTabItem }) {
  * User: "Please make the indicators for sessions status in the RN session list match gpui one exactly". The desktop machine tab shows no status on the selected machine and the other machines' status as dots, not numbers, like its Spaces (apps/desktop/src/app/native_sidebar/machines.rs), so the phone draws the same overlapping dots on unselected tabs only. This supersedes the phone's numbered pills on every tab.
  * CDXC:SessionStatus 2026-10-24 DECISION:
  * User: "when we show those colored circles on remote machines let's make those circles appear below the remote machine tab instead of showing in a way that pushes the icon and name of the remote/local machine", and "Yes, same as the desktop" for the phone. The dots are drawn absolutely at the bottom of the tab, centred, so the glyph and label stay centred where they sit without dots and the tab keeps its height. Supersedes the dots sitting inline after the name.
+ * Since 2026-11-20 one dot, the most urgent (CDXC:Spaces 2026-11-20 in grouping.ts).
  */
 function StatusDots({ item }: { item: MachineTabItem }) {
   const appearance = useAppearance();
   const styles = useMemo(() => createStyles(appearance), [appearance]);
-  if (
-    item.workingCount <= 0 &&
-    item.attentionCount <= 0 &&
-    item.backgroundWorkCount <= 0 &&
-    item.questionCount <= 0 &&
-    item.approvalCount <= 0
-  ) {
-    return null;
-  }
+  if (tileStatusColor(item.counts) === null) return null;
   return (
-    <View
-      pointerEvents="none"
-      style={styles.dots}
-      accessibilityLabel={[
-        item.workingCount > 0 ? `${item.workingCount} working` : '',
-        item.attentionCount > 0 ? `${item.attentionCount} need attention` : '',
-        item.questionCount > 0 ? `${item.questionCount} waiting on an answer` : '',
-        item.approvalCount > 0 ? `${item.approvalCount} waiting for approval` : '',
-        item.workingCount === 0 && item.backgroundWorkCount > 0
-          ? `${item.backgroundWorkCount} running in the background`
-          : '',
-      ]
-        .filter(Boolean)
-        .join(', ')}
-    >
-      <StatusDotStack
-        workingCount={item.workingCount}
-        attentionCount={item.attentionCount}
-        backgroundWorkCount={item.backgroundWorkCount}
-        questionCount={item.questionCount}
-        approvalCount={item.approvalCount}
-        ringColor={appearance.input}
-      />
+    <View pointerEvents="none" style={styles.dots} accessibilityLabel={tileStatusLines(item.counts).join(', ')}>
+      <TileStatusDot counts={item.counts} ringColor={appearance.input} />
     </View>
   );
 }
@@ -281,18 +250,20 @@ function EdgeFade({ side }: { side: 'left' | 'right' }) {
 function EdgeDots({ side, hidden }: { side: 'left' | 'right'; hidden: readonly MachineTabItem[] }) {
   const appearance = useAppearance();
   const styles = useMemo(() => createStyles(appearance), [appearance]);
-  const sum = (count: (item: MachineTabItem) => number): number => hidden.reduce((total, item) => total + count(item), 0);
-  const counts = {
-    workingCount: sum((item) => item.workingCount),
-    attentionCount: sum((item) => item.attentionCount),
-    backgroundWorkCount: sum((item) => item.backgroundWorkCount),
-    questionCount: sum((item) => item.questionCount),
-    approvalCount: sum((item) => item.approvalCount),
+  const sum = (count: (counts: TileStatusCounts) => number): number =>
+    hidden.reduce((total, item) => total + count(item.counts), 0);
+  const counts: TileStatusCounts = {
+    approvalCount: sum((counts) => counts.approvalCount),
+    failedCount: sum((counts) => counts.failedCount),
+    questionCount: sum((counts) => counts.questionCount),
+    attentionCount: sum((counts) => counts.attentionCount),
+    workingCount: sum((counts) => counts.workingCount),
+    backgroundWorkCount: sum((counts) => counts.backgroundWorkCount),
   };
-  if (Object.values(counts).every((count) => count <= 0)) return null;
+  if (tileStatusColor(counts) === null) return null;
   return (
     <View pointerEvents="none" style={[styles.edgeDots, side === 'left' ? styles.edgeDotsLeft : styles.edgeDotsRight]}>
-      <StatusDotStack {...counts} ringColor={appearance.input} />
+      <TileStatusDot counts={counts} ringColor={appearance.input} />
     </View>
   );
 }

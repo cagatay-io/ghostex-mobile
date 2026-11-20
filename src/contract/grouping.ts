@@ -604,7 +604,7 @@ function isAwakeSession(session: GhostexSession): boolean {
 
 export type SessionCounts = {
   workingCount: number;
-  /** In attention or waiting on an answer; the header and tab views (`headerStatusCounts`, `tabStatusCounts`) leave the question rows out of the blue count and draw them pink. */
+  /** In attention or waiting on an answer; the header views (`headerStatusCounts`) leave the question rows out of the blue count and draw them pink. */
   attentionCount: number;
   /** Rows drawing the grey dot: idle with a background shell or monitor still running. */
   backgroundWorkCount: number;
@@ -617,28 +617,68 @@ export type SessionCounts = {
 };
 
 /**
- * What a Space or machine tab's overlapping dots draw (packages/gx-core/src/sidebar_view/assemble.rs): a
- * session with a pending question counts pink instead of blue, so the attention count leaves it out.
+ * What a Space or computer tile's one status dot and its long-press counts draw (packages/gx-core
+ * view.rs `TileStatus`): each session once, under its most urgent state.
+ *
+ * CDXC:Spaces 2026-11-20 DECISION: User picked A of the one-dot page (Q4264): a Space tile and a
+ * computer tile show at most one dot, in the colour of their most urgent state, with the counts on
+ * the desktop's hover and in the phone's long-press menu. "blocker is higher than needs you": an
+ * approval, then a failed, blocked or stuck session (red), outrank a question (pink) and an unseen
+ * finished turn (blue), which outrank working (amber) and a running shell (grey).
  */
-export function tabStatusCounts(
-  counts: Pick<
-    SessionCounts,
-    'workingCount' | 'attentionCount' | 'backgroundWorkCount' | 'questionCount' | 'approvalCount'
-  >,
-): {
-  workingCount: number;
-  attentionCount: number;
-  backgroundWorkCount: number;
-  questionCount: number;
+export type TileStatusCounts = {
   approvalCount: number;
-} {
-  return {
-    workingCount: counts.workingCount,
-    attentionCount: counts.attentionCount - counts.questionCount,
-    backgroundWorkCount: counts.backgroundWorkCount,
-    questionCount: counts.questionCount,
-    approvalCount: counts.approvalCount,
-  };
+  /** The red failed dot, not waiting for approval: a program error, blocked, or stuck. */
+  failedCount: number;
+  questionCount: number;
+  attentionCount: number;
+  workingCount: number;
+  backgroundWorkCount: number;
+};
+
+export const NO_TILE_STATUS: TileStatusCounts = {
+  approvalCount: 0,
+  failedCount: 0,
+  questionCount: 0,
+  attentionCount: 0,
+  workingCount: 0,
+  backgroundWorkCount: 0,
+};
+
+/** packages/gx-core view.rs `tile_status`, after rows.rs `session_failed`. */
+export function countTileStatus(
+  sessions: readonly GhostexSession[],
+  capabilities: GhostexSummaryCapabilities,
+): TileStatusCounts {
+  const counts = { ...NO_TILE_STATUS };
+  for (const session of sessions) {
+    const failed =
+      (session.blockedSince ?? '').length > 0 ||
+      session.stuckSince.length > 0 ||
+      (session.programStatusFailed && session.activity === 'attention');
+    if (session.awaitingApproval) counts.approvalCount++;
+    else if (failed) counts.failedCount++;
+    else if (hasQuestion(session.pendingQuestionCount, capabilities.awaitingAnswer && session.awaitingAnswer))
+      counts.questionCount++;
+    else if (session.activity === 'attention') counts.attentionCount++;
+    else if (session.activity === 'working') counts.workingCount++;
+    else if (session.backgroundWorkDetectedAt.length > 0) counts.backgroundWorkCount++;
+  }
+  return counts;
+}
+
+/** The tile's counts as lines, the most urgent first (desktop status.rs `TileCounts::tooltip_lines`). */
+export function tileStatusLines(counts: TileStatusCounts): string[] {
+  const line = (count: number, one: string, many: string) =>
+    count > 0 ? `${count} ${count === 1 ? one : many}` : '';
+  return [
+    line(counts.approvalCount, 'waiting for approval', 'waiting for approval'),
+    line(counts.failedCount, 'blocked or failed', 'blocked or failed'),
+    line(counts.questionCount, 'question', 'questions'),
+    line(counts.attentionCount, 'finished', 'finished'),
+    line(counts.workingCount, 'working', 'working'),
+    line(counts.backgroundWorkCount, 'shell running', 'shells running'),
+  ].filter((text) => text.length > 0);
 }
 
 /**
@@ -753,8 +793,8 @@ export function countSectionSessions(
  * counts of every session the machine reports, before any Space filter, so an
  * unselected tab still says something needs the user (desktop machine-tabs.tsx).
  */
-export function machineSessionCounts(summary: GhostexMobileSummary | null): SessionCounts {
-  return countSessions(
+export function machineSessionCounts(summary: GhostexMobileSummary | null): TileStatusCounts {
+  return countTileStatus(
     summary === null ? [] : visibleSessions(summary.sessions),
     summary?.capabilities ?? NO_SUMMARY_CAPABILITIES,
   );

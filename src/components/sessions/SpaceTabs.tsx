@@ -17,9 +17,10 @@
  * scrolls instead. With no names on the tiles, a long press opens the Space's menu, titled with its
  * name, and each tile's accessibility label carries the name.
  *
- * Each tile shows the status of the sessions it holds with the desktop Space's
- * overlapping dots (StatusDotStack; selectors.rs), hung under the icon and over its lower
- * edge as on the desktop, the icon dimmed to 80% while they show.
+ * Each tile shows the status of the sessions it holds with the desktop Space's one dot, the most
+ * urgent state's colour (TileStatusDot; selectors.rs, CDXC:Spaces 2026-11-20 in grouping.ts), hung
+ * under the icon and over its lower edge as on the desktop, the icon dimmed to 80% while it shows.
+ * The long-press menu lists the counts under the Space's name.
  */
 
 import { useEffect, useRef, type ReactElement } from 'react';
@@ -36,12 +37,12 @@ import {
 import { COMMAND_ICONS } from '../../assets/tablerIcons.generated';
 import { ACTIVE_SPACE_COLOR, ACTIVE_SPACE_ICON, ACTIVE_SPACE_ID } from '../../spaces/activeProjects';
 import { OTHER_SIDEBAR_SPACE_ICON, OTHER_SIDEBAR_SPACE_ID, OTHER_SIDEBAR_SPACE_LABEL } from '../../spaces/otherSpace';
-import { tabStatusCounts, type SessionCounts } from '../../contract/grouping';
+import { tileStatusLines, type TileStatusCounts } from '../../contract/grouping';
 import type { SpaceRowItem } from '../../spaces/spaceFilter';
 import { GhostexStrokeWidth } from '../../theme/palette';
 import { inkStyleSheets, SIDEBAR_BACKGROUND, useSidebarInk, type SidebarInk } from './rows';
 import { StarGlyph } from './icons';
-import StatusDotStack from './StatusDotStack';
+import { TileStatusDot, tileStatusColor } from './StatusDotStack';
 
 /** The Active projects star, first in the row (src/spaces/activeProjects.ts), in the desktop star's yellow. */
 export const ACTIVE_ROW_ITEM: SpaceRowItem = {
@@ -93,8 +94,8 @@ export default function SpaceTabs({
   /** The machine's own Spaces, in order; the star leads them and Other is appended here. */
   spaces: readonly SpaceRowItem[];
   selectedSpaceId: string;
-  /** spaceSessionCounts: what each tile's status dots draw. */
-  countsBySpaceId: Readonly<Record<string, SessionCounts>>;
+  /** spaceSessionCounts: what each tile's status dot draws. */
+  countsBySpaceId: Readonly<Record<string, TileStatusCounts>>;
   onSelect: (spaceId: string) => void;
   /** The computer shows the Active projects star (its `sidebarActiveProjects`); it leads the row. */
   activeProjects?: boolean;
@@ -138,19 +139,14 @@ export default function SpaceTabs({
         const star = item.spaceId === ACTIVE_SPACE_ID;
         const Icon = COMMAND_ICONS[item.icon] ?? COMMAND_ICONS.stack;
         const sessionCounts = countsBySpaceId[item.spaceId];
-        // The Space being shown has its sessions on screen, so only the other tiles carry status dots (desktop `assemble.rs`).
-        const counts = sessionCounts === undefined || selected ? undefined : tabStatusCounts(sessionCounts);
-        const hasStatus =
-          counts !== undefined &&
-          (counts.workingCount > 0 ||
-            counts.attentionCount > 0 ||
-            counts.backgroundWorkCount > 0 ||
-            counts.questionCount > 0 ||
-            counts.approvalCount > 0);
+        // The Space being shown has its sessions on screen, so only the other tiles carry a status dot (desktop `assemble.rs`).
+        const counts = sessionCounts === undefined || selected ? undefined : sessionCounts;
+        const hasStatus = counts !== undefined && tileStatusColor(counts) !== null;
+        const name = star ? item.name : `Space ${item.name}`;
         return (
           <Pressable
             accessibilityRole="tab"
-            accessibilityLabel={star ? item.name : `Space ${item.name}`}
+            accessibilityLabel={hasStatus ? [name, ...tileStatusLines(counts)].join(', ') : name}
             accessibilityHint="Long press for the Space's menu"
             accessibilityState={{ selected }}
             key={item.spaceId}
@@ -175,14 +171,7 @@ export default function SpaceTabs({
             </View>
             {hasStatus ? (
               <View pointerEvents="none" style={styles.dots}>
-                <StatusDotStack
-                  workingCount={counts.workingCount}
-                  attentionCount={counts.attentionCount}
-                  backgroundWorkCount={counts.backgroundWorkCount}
-                  questionCount={counts.questionCount}
-                  approvalCount={counts.approvalCount}
-                  ringColor={ink.light ? '#FFFFFF' : SIDEBAR_BACKGROUND}
-                />
+                <TileStatusDot counts={counts} ringColor={ink.light ? '#FFFFFF' : SIDEBAR_BACKGROUND} />
               </View>
             ) : null}
           </Pressable>

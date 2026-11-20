@@ -139,7 +139,13 @@ import {
   removeProjectCommand,
 } from '../commands/ghostexCli';
 import { stateWithCollectionTitle } from '../contract/collectionsState';
-import { countSessions, machineSessionCounts, sessionItemCoordinatorKey, tabStatusCounts } from '../contract/grouping';
+import {
+  countTileStatus,
+  machineSessionCounts,
+  sessionItemCoordinatorKey,
+  tileStatusLines,
+  type TileStatusCounts,
+} from '../contract/grouping';
 import { EMPTY_SIDEBAR_SPACES, NO_SUMMARY_CAPABILITIES, type GhostexSession } from '../contract/mobileSummary';
 import {
   DuoChromeCopy,
@@ -231,6 +237,12 @@ import { foldedOuterDisplay, triageSessions, unifiedTriageWaits, type TriageWait
 import TriageSection from './triage/TriageSection';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Sessions'>;
+
+/** A Space or computer tile's counts for its long-press menu's subtitle (grouping.ts `tileStatusLines`). */
+function tileCountsLine(counts: TileStatusCounts | undefined): string | undefined {
+  const lines = counts === undefined ? [] : tileStatusLines(counts);
+  return lines.length > 0 ? lines.join(' · ') : undefined;
+}
 
 /** The Close dialog's words: a coordinator or a busy agent names what closes (close-confirm.ts). */
 function closeDialogCopy(ctx: SessionContext): { title: string; body: string } {
@@ -538,7 +550,7 @@ export default function SessionsScreen({ navigation }: Props) {
     });
     return {
       ...counts,
-      [ACTIVE_SPACE_ID]: countSessions(sessions, selectedSummary?.capabilities ?? NO_SUMMARY_CAPABILITIES),
+      [ACTIVE_SPACE_ID]: countTileStatus(sessions, selectedSummary?.capabilities ?? NO_SUMMARY_CAPABILITIES),
     };
   }, [selectedSummary, listSummary, spaceItems, activeProjects, inventoriesByMachineId, spaceCountsNowMs]);
   /** The star's long-press menu: Remove Active projects, which turns the computer's switch off. */
@@ -673,7 +685,7 @@ export default function SessionsScreen({ navigation }: Props) {
     const tabs = machines.map((entry): MachineTabItem => {
       const inventory = inventoriesByMachineId[entry.id];
       const connectionState = inventoryConnectionState(inventory);
-      const counts = tabStatusCounts(machineSessionCounts(inventory?.summary ?? null));
+      const counts = machineSessionCounts(inventory?.summary ?? null);
       const iconFacts = computerIconFacts[entry.id];
       const slow = connectionState === 'connected' && connectionHealth[entry.id]?.slowSince != null;
       const explained = connectionState === 'failed' || connectionState === 'disconnected' || slow;
@@ -687,11 +699,7 @@ export default function SessionsScreen({ navigation }: Props) {
             : StripCopy.connection[connectionState],
         slow,
         onConnect: explained ? () => setOverlay({ kind: 'connections' }) : undefined,
-        workingCount: counts.workingCount,
-        attentionCount: counts.attentionCount,
-        backgroundWorkCount: counts.backgroundWorkCount,
-        questionCount: counts.questionCount,
-        approvalCount: counts.approvalCount,
+        counts,
         iconDrawing: iconFacts !== undefined ? computerIconDrawing(iconFacts) : undefined,
       };
     });
@@ -1657,6 +1665,7 @@ export default function SessionsScreen({ navigation }: Props) {
         <ContextMenu
           visible
           title={spaceMenu.name}
+          subtitle={tileCountsLine(spaceCounts[spaceMenu.spaceId])}
           items={[
             {
               kind: 'item',
@@ -1685,6 +1694,7 @@ export default function SessionsScreen({ navigation }: Props) {
         <ContextMenu
           visible
           title="Active projects"
+          subtitle={tileCountsLine(spaceCounts[ACTIVE_SPACE_ID])}
           items={[
             {
               kind: 'item',
@@ -2066,7 +2076,14 @@ export default function SessionsScreen({ navigation }: Props) {
         <ContextMenu
           visible
           title={machineDisplayLabel(overlay.ctx.machine)}
-          subtitle={machineConnectionLine(overlay.ctx.machine.id)}
+          subtitle={
+            [
+              machineConnectionLine(overlay.ctx.machine.id),
+              tileCountsLine(machineSessionCounts(inventoriesByMachineId[overlay.ctx.machine.id]?.summary ?? null)),
+            ]
+              .filter(Boolean)
+              .join(' · ') || undefined
+          }
           items={machineMenuItems(overlay.ctx.machine)}
           onClose={() => setOverlay(NONE)}
         />

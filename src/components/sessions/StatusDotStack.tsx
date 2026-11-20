@@ -10,8 +10,26 @@
 
 import { StyleSheet, View } from 'react-native';
 
+import type { TileStatusCounts } from '../../contract/grouping';
+import { SidebarPalette } from '../../theme/palette';
 import { ds, STATUS_DOT_SIZE } from './rows';
 import { statusStackColors } from './sessionStatus';
+
+/** A Space or computer tile's one dot: the colour of its most urgent state (desktop status.rs `TileCounts`). */
+export function tileStatusColor(counts: TileStatusCounts): string | null {
+  if (counts.approvalCount + counts.failedCount > 0) return SidebarPalette.ROW_FAILED;
+  if (counts.questionCount > 0) return SidebarPalette.ROW_QUESTION;
+  if (counts.attentionCount > 0) return SidebarPalette.ROW_ATTENTION;
+  if (counts.workingCount > 0) return SidebarPalette.ROW_WORKING;
+  if (counts.backgroundWorkCount > 0) return SidebarPalette.ROW_BACKGROUND_WORK;
+  return null;
+}
+
+/** The tile's one dot in its 1dp ring (`ringColor`, the surface it sits on); nothing while it has no state. */
+export function TileStatusDot({ counts, ringColor }: { counts: TileStatusCounts; ringColor: string }) {
+  const color = tileStatusColor(counts);
+  return color === null ? null : <OverlappedDots colors={[color]} size={STATUS_DOT_SIZE} ringColor={ringColor} />;
+}
 
 /**
  * The overlapping dots themselves (desktop status.rs `sized_overlapped_dots`): `colors` back to

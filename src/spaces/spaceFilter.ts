@@ -9,7 +9,7 @@
 
 import type { GhostexMobileSummary, GhostexSidebarSpace, GhostexSidebarSpaces } from '../contract/mobileSummary';
 import { withoutGbots } from '../contract/gbotsFilter';
-import { countSessions, type SessionCounts } from '../contract/grouping';
+import { countTileStatus, type TileStatusCounts } from '../contract/grouping';
 import { ACTIVE_SPACE_ID, filterSummaryForActiveProjects, type ActiveProjectsContext } from './activeProjects';
 import { isSidebarSpaceProject, isUnassignedSidebarSpaceProject, OTHER_SIDEBAR_SPACE_ID } from './otherSpace';
 
@@ -155,19 +155,19 @@ export function spaceRowItems(spaces: GhostexSidebarSpaces): SpaceRowItem[] {
 }
 
 /**
- * The counts each Space button's status dots draw: the sessions that Space
- * shows, counted by the desktop header rule (packages/gx-core/src/sidebar_view/
+ * The counts each Space button's status dot draws: the sessions that Space
+ * shows, each under its most urgent state (packages/gx-core/src/sidebar_view/
  * assemble.rs, the Space rows), for every Space plus Other.
  */
 export function spaceSessionCounts(
   summary: GhostexMobileSummary | null,
   spaceIds: readonly string[],
   active?: ActiveProjectsContext,
-): Record<string, SessionCounts> {
-  const counts: Record<string, SessionCounts> = {};
+): Record<string, TileStatusCounts> {
+  const counts: Record<string, TileStatusCounts> = {};
   if (summary === null) return counts;
   for (const spaceId of [...spaceIds, OTHER_SIDEBAR_SPACE_ID]) {
-    counts[spaceId] = countSessions(filterSummaryForSpace(summary, spaceId, active).sessions, summary.capabilities);
+    counts[spaceId] = countTileStatus(filterSummaryForSpace(summary, spaceId, active).sessions, summary.capabilities);
   }
   return counts;
 }
