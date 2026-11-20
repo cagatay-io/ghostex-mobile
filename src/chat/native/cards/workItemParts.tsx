@@ -493,9 +493,10 @@ export function WorkAnswerLine({
    * should be just icon buttons. Same for details ... Let's just unify the icon details for all of
    * them" (desktop `dock_row_icon_action`). */
   iconOnly?: boolean;
-  /** Jump to context after Reply: what opens the chat that asked, at the message that did
-   * (gx-chat-core `work_cards::context_of`; desktop `dock_context_icon`). A computer too old to
-   * send it draws no button. */
+  /** Jump to context, just before Reply so Reply is always the rightmost button: what opens the
+   * chat that asked when that is another chat, today a thread's to-do (gx-chat-core
+   * `work_cards::context_of`; desktop `dock_context_icon`). A computer that sends none draws no
+   * button. */
   context?: JsonRecord | null;
 }) {
   const styles = useStyles();
@@ -560,8 +561,8 @@ export function WorkAnswerLine({
     return (
       <View style={styles.line}>
         <WorkButton keep iconOnly={iconOnly} label="Details" icon={DETAILS_GLYPH} onPress={details} />
-        {replyButton}
         {contextButton}
+        {replyButton}
       </View>
     );
   }
@@ -594,16 +595,16 @@ export function WorkAnswerLine({
           ) : (
             <WorkButton keep label={openLabel} icon="external-link" onPress={() => dispatch(open as never)} />
           )}
-          {replyButton}
           {contextButton}
+          {replyButton}
         </View>
       );
     }
     return replyButton !== null || contextButton !== null || pills.length > 0 || logos != null ? (
       <View style={styles.line}>
         {lead}
-        {replyButton}
         {contextButton}
+        {replyButton}
       </View>
     ) : null;
   }
@@ -713,9 +714,9 @@ export function WorkAnswerLine({
         ) : (
           shown.map((choice) => answerButton(choice, answers.indexOf(choice), fits))
         )}
+        {contextButton}
         {replyButton !== null && divider && !replyInList ? <View style={styles.divider} /> : null}
         {replyInList ? null : replyButton}
-        {contextButton}
       </View>
       {fold && chooser === 'inline' && choosing ? <View style={styles.choicesBox}>{list}</View> : null}
       {fold && chooser === 'sheet' ? (
