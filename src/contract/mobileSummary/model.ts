@@ -253,8 +253,14 @@ export type GhostexWorkspace = {
   name: string;
   /** "#rrggbb" the workspace tile is filled with. */
   color: string;
-  /** The one character drawn on the tile. */
+  /** The one character, kept beside `icon` for desktops older than the workspace icons. */
   letter: string;
+  /**
+   * The icon drawn in white on a disc of `color` (gx-protocol `WORKSPACE_ICONS`): the one picked
+   * in Settings, else `briefcase` for a work workspace and `home` for a personal one, as
+   * `SidebarWorkspace::icon_id` resolves it on the desktop.
+   */
+  icon: string;
   /** `work` or `personal`. */
   kind: string;
 };

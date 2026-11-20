@@ -23,7 +23,7 @@
  * The long-press menu lists the counts under the Space's name.
  */
 
-import { useEffect, useRef, type ReactElement } from 'react';
+import { useEffect, useRef, type ReactElement, type ReactNode } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -89,6 +89,8 @@ export default function SpaceTabs({
   onSelect,
   activeProjects = false,
   onSpaceMenu,
+  leading,
+  spacesShown = true,
   style,
 }: {
   /** The machine's own Spaces, in order; the star leads them and Other is appended here. */
@@ -101,10 +103,17 @@ export default function SpaceTabs({
   activeProjects?: boolean;
   /** A long press on a tile: that Space's menu (the star's has Remove Active projects), as the desktop's right click. */
   onSpaceMenu?: (item: SpaceRowItem) => void;
-  /** Overrides for the row's own box, e.g. when it shares a line with the workspace tile. */
+  /**
+   * The workspace tile (WorkspaceTile.tsx), drawn first with a hairline after it while Spaces
+   * follow, as the desktop's row leads with it (CDXC:Workspaces 2026-11-20).
+   */
+  leading?: ReactNode;
+  /** False when the computer has no Spaces and the row is there only for `leading`. */
+  spacesShown?: boolean;
+  /** Overrides for the row's own box. */
   style?: StyleProp<ViewStyle>;
 }) {
-  const items = spaceRowOrder(spaces, activeProjects);
+  const items = spacesShown ? spaceRowOrder(spaces, activeProjects) : [];
   const ink = useSidebarInk();
   const styles = spaceStyles(ink);
   // When the row scrolls, a Space picked off screen (a swipe on the list) is scrolled into view.
@@ -134,6 +143,8 @@ export default function SpaceTabs({
       showsHorizontalScrollIndicator={false}
       style={[styles.scroll, style]}
     >
+      {leading}
+      {leading !== undefined && items.length > 0 ? <View style={styles.divider} /> : null}
       {items.map((item) => {
         const selected = item.spaceId === selectedSpaceId;
         const star = item.spaceId === ACTIVE_SPACE_ID;
@@ -244,6 +255,13 @@ const spaceStyles = inkStyleSheets((ink) =>
         },
     tilePressed: {
       backgroundColor: ink.light ? 'rgba(38,38,38,0.08)' : 'rgba(200,205,213,0.08)',
+    },
+    /** The hairline after the workspace tile (the desktop's 1×16 at the sidebar's foreground 12%). */
+    divider: {
+      width: 1,
+      height: 18,
+      flexShrink: 0,
+      backgroundColor: ink.light ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.12)',
     },
     iconWithStatus: {
       opacity: 0.8,

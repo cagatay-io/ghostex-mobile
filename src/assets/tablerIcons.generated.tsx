@@ -630,7 +630,7 @@ function CmdSearch({ size, color }: TablerIconProps) {
 function CmdServer({ size, color, strokeWidth = 1.9 }: TablerIconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
-      <Path d="M3 7a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v2a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3" stroke={color} />
+      <Path d="M3 7a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v2a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3v-2" stroke={color} />
       <Path d="M3 15a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v2a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3l0 -2" stroke={color} />
       <Path d="M7 8l0 .01" stroke={color} />
       <Path d="M7 16l0 .01" stroke={color} />
@@ -732,6 +732,130 @@ function CmdWorld({ size, color, strokeWidth = 1.9 }: TablerIconProps) {
       <Path d="M3.6 15h16.8" stroke={color} />
       <Path d="M11.5 3a17 17 0 0 0 0 18" stroke={color} />
       <Path d="M12.5 3a17 17 0 0 1 0 18" stroke={color} />
+    </Svg>
+  );
+}
+
+function WorkspaceHome({ size, color, strokeWidth = 1.9 }: TablerIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M5 12l-2 0l9 -9l9 9l-2 0" stroke={color} />
+      <Path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" stroke={color} />
+      <Path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" stroke={color} />
+    </Svg>
+  );
+}
+
+function WorkspaceBriefcase({ size, color, strokeWidth = 1.9 }: TablerIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M3 9a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v9a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2l0 -9" stroke={color} />
+      <Path d="M8 7v-2a2 2 0 0 1 2 -2h4a2 2 0 0 1 2 2v2" stroke={color} />
+      <Path d="M12 12l0 .01" stroke={color} />
+      <Path d="M3 13a20 20 0 0 0 18 0" stroke={color} />
+    </Svg>
+  );
+}
+
+function WorkspaceBuilding({ size, color, strokeWidth = 1.9 }: TablerIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M3 21l18 0" stroke={color} />
+      <Path d="M9 8l1 0" stroke={color} />
+      <Path d="M9 12l1 0" stroke={color} />
+      <Path d="M9 16l1 0" stroke={color} />
+      <Path d="M14 8l1 0" stroke={color} />
+      <Path d="M14 12l1 0" stroke={color} />
+      <Path d="M14 16l1 0" stroke={color} />
+      <Path d="M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16" stroke={color} />
+    </Svg>
+  );
+}
+
+function WorkspaceUser({ size, color, strokeWidth = 1.9 }: TablerIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" stroke={color} />
+      <Path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" stroke={color} />
+    </Svg>
+  );
+}
+
+function WorkspaceUsers({ size, color, strokeWidth = 1.9 }: TablerIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M5 7a4 4 0 1 0 8 0a4 4 0 1 0 -8 0" stroke={color} />
+      <Path d="M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" stroke={color} />
+      <Path d="M16 3.13a4 4 0 0 1 0 7.75" stroke={color} />
+      <Path d="M21 21v-2a4 4 0 0 0 -3 -3.85" stroke={color} />
+    </Svg>
+  );
+}
+
+function WorkspaceCoffee({ size, color, strokeWidth = 1.9 }: TablerIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M3 14c.83 .642 2.077 1.017 3.5 1c1.423 .017 2.67 -.358 3.5 -1c.83 -.642 2.077 -1.017 3.5 -1c1.423 -.017 2.67 .358 3.5 1" stroke={color} />
+      <Path d="M8 3a2.4 2.4 0 0 0 -1 2a2.4 2.4 0 0 0 1 2" stroke={color} />
+      <Path d="M12 3a2.4 2.4 0 0 0 -1 2a2.4 2.4 0 0 0 1 2" stroke={color} />
+      <Path d="M3 10h14v5a6 6 0 0 1 -6 6h-2a6 6 0 0 1 -6 -6v-5" stroke={color} />
+      <Path d="M16.746 16.726a3 3 0 1 0 .252 -5.555" stroke={color} />
+    </Svg>
+  );
+}
+
+function WorkspaceCamera({ size, color, strokeWidth = 1.9 }: TablerIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M5 7h1a2 2 0 0 0 2 -2a1 1 0 0 1 1 -1h6a1 1 0 0 1 1 1a2 2 0 0 0 2 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-9a2 2 0 0 1 2 -2" stroke={color} />
+      <Path d="M9 13a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" stroke={color} />
+    </Svg>
+  );
+}
+
+function WorkspaceMusic({ size, color, strokeWidth = 1.9 }: TablerIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M3 17a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" stroke={color} />
+      <Path d="M13 17a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" stroke={color} />
+      <Path d="M9 17v-13h10v13" stroke={color} />
+      <Path d="M9 8h10" stroke={color} />
+    </Svg>
+  );
+}
+
+function WorkspacePalette({ size, color, strokeWidth = 1.9 }: TablerIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M12 21a9 9 0 0 1 0 -18c4.97 0 9 3.582 9 8c0 1.06 -.474 2.078 -1.318 2.828c-.844 .75 -1.989 1.172 -3.182 1.172h-2.5a2 2 0 0 0 -1 3.75a1.3 1.3 0 0 1 -1 2.25" stroke={color} />
+      <Path d="M7.5 10.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" stroke={color} />
+      <Path d="M11.5 7.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" stroke={color} />
+      <Path d="M15.5 10.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" stroke={color} />
+    </Svg>
+  );
+}
+
+function WorkspacePlane({ size, color, strokeWidth = 1.9 }: TablerIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M16 10h4a2 2 0 0 1 0 4h-4l-4 7h-3l2 -7h-4l-2 2h-3l2 -4l-2 -4h3l2 2h4l-2 -7h3l4 7" stroke={color} />
+    </Svg>
+  );
+}
+
+function WorkspaceLeaf({ size, color, strokeWidth = 1.9 }: TablerIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M5 21c.5 -4.5 2.5 -8 7 -10" stroke={color} />
+      <Path d="M9 18c6.218 0 10.5 -3.288 11 -12v-2h-4.014c-9 0 -11.986 4 -12 9c0 1 0 3 2 5h3l.014 0" stroke={color} />
+    </Svg>
+  );
+}
+
+function WorkspaceMoon({ size, color, strokeWidth = 1.9 }: TablerIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454l0 .008" stroke={color} />
     </Svg>
   );
 }
@@ -843,6 +967,22 @@ export const COMMAND_ICONS: Record<string, TablerIconComponent> = {
   "upload": CmdUpload,
   "wand": CmdWand,
   "world": CmdWorld,
+};
+
+/** Workspace icons, keyed by the workspace's `icon` (gx-protocol WORKSPACE_ICONS). */
+export const WORKSPACE_ICONS: Record<string, TablerIconComponent> = {
+  "home": WorkspaceHome,
+  "briefcase": WorkspaceBriefcase,
+  "building": WorkspaceBuilding,
+  "user": WorkspaceUser,
+  "users": WorkspaceUsers,
+  "coffee": WorkspaceCoffee,
+  "camera": WorkspaceCamera,
+  "music": WorkspaceMusic,
+  "palette": WorkspacePalette,
+  "plane": WorkspacePlane,
+  "leaf": WorkspaceLeaf,
+  "moon": WorkspaceMoon,
 };
 
 /** Project-icon fallbacks when a project ships no icon of its own. */

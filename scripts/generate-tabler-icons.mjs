@@ -112,6 +112,27 @@ const COMMAND_ICONS = {
   world: 'world',
 };
 
+/**
+ * Workspace icons, mirroring WORKSPACE_ICONS in the Ghostex main repo's
+ * packages/gx-protocol/src/side_state.rs (the desktop's assets/titlebar/<id>.svg). They are
+ * their own set, none of them a Space icon, drawn in white on a disc of the workspace's colour
+ * (CDXC:Workspaces 2026-11-20, Q4296 F).
+ */
+const WORKSPACE_ICONS = {
+  home: 'home',
+  briefcase: 'briefcase',
+  building: 'building',
+  user: 'user',
+  users: 'users',
+  coffee: 'coffee',
+  camera: 'camera',
+  music: 'music',
+  palette: 'palette',
+  plane: 'plane',
+  leaf: 'leaf',
+  moon: 'moon',
+};
+
 /** Fallbacks the project-icon chain lands on when a project ships no icon. */
 const FALLBACK_ICONS = {
   folder: 'folder',
@@ -183,6 +204,11 @@ for (const [id, spec] of Object.entries(COMMAND_ICONS)) {
   parts.push(renderComponent('Cmd', id, spec));
   commandEntries.push(`  ${JSON.stringify(id)}: ${componentName('Cmd', id)},`);
 }
+const workspaceEntries = [];
+for (const [id, spec] of Object.entries(WORKSPACE_ICONS)) {
+  parts.push(renderComponent('Workspace', id, spec));
+  workspaceEntries.push(`  ${JSON.stringify(id)}: ${componentName('Workspace', id)},`);
+}
 const fallbackEntries = [];
 for (const [id, spec] of Object.entries(FALLBACK_ICONS)) {
   parts.push(renderComponent('Fallback', id, spec));
@@ -210,6 +236,11 @@ export const COMMAND_ICONS: Record<string, TablerIconComponent> = {
 ${commandEntries.join('\n')}
 };
 
+/** Workspace icons, keyed by the workspace's \`icon\` (gx-protocol WORKSPACE_ICONS). */
+export const WORKSPACE_ICONS: Record<string, TablerIconComponent> = {
+${workspaceEntries.join('\n')}
+};
+
 /** Project-icon fallbacks when a project ships no icon of its own. */
 export const PROJECT_FALLBACK_ICONS: Record<string, TablerIconComponent> = {
 ${fallbackEntries.join('\n')}
@@ -219,5 +250,5 @@ ${fallbackEntries.join('\n')}
 fs.mkdirSync(path.dirname(outFile), { recursive: true });
 fs.writeFileSync(outFile, output);
 console.log(
-  `Wrote ${path.relative(mobileRoot, outFile)} (${Object.keys(TAG_ICONS).length} tag, ${Object.keys(COMMAND_ICONS).length} command, ${Object.keys(FALLBACK_ICONS).length} fallback icons).`,
+  `Wrote ${path.relative(mobileRoot, outFile)} (${Object.keys(TAG_ICONS).length} tag, ${Object.keys(COMMAND_ICONS).length} command, ${Object.keys(WORKSPACE_ICONS).length} workspace, ${Object.keys(FALLBACK_ICONS).length} fallback icons).`,
 );

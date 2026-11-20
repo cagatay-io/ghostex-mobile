@@ -93,7 +93,7 @@ import MachineTabs, {
   type MachineTabStripItem,
 } from '../components/sessions/MachineTabs';
 import SpaceSwipe from '../components/sessions/SpaceSwipe';
-import SpaceTabs, { spaceMenuIcon, spaceRowOrder } from '../components/sessions/SpaceTabs';
+import SpaceTabs, { SPACE_CHIP_HEIGHT, spaceMenuIcon, spaceRowOrder } from '../components/sessions/SpaceTabs';
 import { useExtensionPanels } from '../extensions/useExtensionPanels';
 import ChiefRow, { CHIEF_LABEL } from '../components/sessions/ChiefRow';
 import { runGhostexCli } from '../components/sessions/cli';
@@ -113,7 +113,7 @@ import {
   chiefStatusCommand,
   chiefStopAskingCommand,
 } from '../commands/ghostexCli';
-import WorkspaceName, { workspaceMenuItems } from '../components/sessions/WorkspaceName';
+import WorkspaceTile, { workspaceMenuItems } from '../components/sessions/WorkspaceTile';
 import { agentChoicePlace, parseAgentChoiceScope, type AgentChoiceContext } from '../components/sessions/agentChoice';
 import { useLauncherStore } from '../components/sessions/launcherStore';
 import { expandedGroupBackground, inkWash, sidebarInk } from '../components/sessions/rows';
@@ -202,7 +202,7 @@ import { useSpacesStore } from '../spaces/store';
 import { useActiveProjectsClock } from '../spaces/useActiveProjectsClock';
 import { revealSessionWorkspace, useWorkspacesStore } from '../workspaces/store';
 import { restoreClosedSession } from '../sessions/closedSessions';
-import { filterSummaryForWorkspace, resolveWorkspaceId } from '../workspaces/workspaceFilter';
+import { filterSummaryForWorkspace, resolveWorkspaceId, workspaceSwitchTarget } from '../workspaces/workspaceFilter';
 import { useSettingsStore, type SessionListView } from '../settings/store';
 import { attachSessionKey, useTerminalStore } from '../terminal/sessions';
 import { GhostexPalette } from '../theme/palette';
@@ -295,6 +295,7 @@ export default function SessionsScreen({ navigation }: Props) {
   const selectSpace = useSpacesStore((state) => state.selectSpace);
   const selectedWorkspaceIdByMachine = useWorkspacesStore((state) => state.selectedWorkspaceIdByMachine);
   const selectWorkspace = useWorkspacesStore((state) => state.selectWorkspace);
+  const recentWorkspaceIdsByMachine = useWorkspacesStore((state) => state.recentWorkspaceIdsByMachine);
 
   const collapse = useCollapseStore();
   const primaryAgentId = useLauncherStore((state) => state.primaryAgentId);
@@ -471,14 +472,22 @@ export default function SessionsScreen({ navigation }: Props) {
   const listSummary = everyComputer?.summary ?? selectedSummary;
   const machineSpaces = listSummary?.sidebarSpaces ?? EMPTY_SIDEBAR_SPACES;
   /*
-   * The workspace's name after the title shows only while the computer has more than one workspace
-   * (desktop `gx_store_workspace_tile`), and not over the Unified list or an extension panel, whose
-   * own headers stand where the Space row does.
+   * The workspace tile leads the Space row only while the computer has more than one workspace
+   * (desktop `gx_store_workspace_tile`); the row is not drawn over the Unified list or an extension
+   * panel, whose own headers stand where it does. A tap goes where `workspaceSwitchTarget` says.
    */
-  const showWorkspaceName =
+  const showWorkspaceTile =
     selectedWorkspace !== null &&
     machineWorkspaces !== null &&
     machineWorkspaces.order.length > 1;
+  const workspaceSwitchTo =
+    machineWorkspaces === null || selectedWorkspaceId === null
+      ? null
+      : workspaceSwitchTarget(
+          machineWorkspaces,
+          selectedWorkspaceId,
+          machine === null ? [] : (recentWorkspaceIdsByMachine[machine.id] ?? []),
+        );
   /*
    * A Space id is only ever resolved against the machine that owns it, so a
    * stored id from another machine — or one this daemon has since deleted —
@@ -1564,16 +1573,7 @@ export default function SessionsScreen({ navigation }: Props) {
           }}
           style={styles.titlePressable}
         >
-          <View style={styles.titleLine}>
-            <Text style={[styles.title, { color: sidebarAppearance.foreground }]}>Ghostex</Text>
-            {machine !== null &&
-            showWorkspaceName &&
-            selectedWorkspace !== null &&
-            !extensionPanels.active &&
-            !unified.on ? (
-              <WorkspaceName workspace={selectedWorkspace} onOpenMenu={() => setWorkspaceMenuOpen(true)} />
-            ) : null}
-          </View>
+          <Text style={[styles.title, { color: sidebarAppearance.foreground }]}>Ghostex</Text>
         </Pressable>
         {wallOffered && !inRail ? (
           <WallSwitch view={sessionListView} appearance={sidebarAppearance} onChange={chooseListView} />
@@ -1655,7 +1655,7 @@ export default function SessionsScreen({ navigation }: Props) {
       {extensionPanels.active ? null : unified.on ? (
         // The Unified list's header stands where the Workspace and Space tiles stand: its filter narrows by them.
         unified.header
-      ) : machine !== null && spaceItems.length > 0 ? (
+      ) : machine !== null && (spaceItems.length > 0 || showWorkspaceTile) ? (
         <SpaceTabs
           spaces={spaceItems}
           selectedSpaceId={selectedSpaceId}
@@ -1663,6 +1663,24 @@ export default function SessionsScreen({ navigation }: Props) {
           onSelect={(spaceId) => selectSpace(machine.id, spaceId)}
           activeProjects={activeProjects}
           onSpaceMenu={openSpaceMenu}
+          spacesShown={spaceItems.length > 0}
+          leading={
+            showWorkspaceTile && selectedWorkspace !== null ? (
+              <WorkspaceTile
+                workspace={selectedWorkspace}
+                height={SPACE_CHIP_HEIGHT}
+                onSwitch={
+                  workspaceSwitchTo === null
+                    ? null
+                    : () => selectWorkspace(machine.id, workspaceSwitchTo.workspaceId)
+                }
+                onOpenMenu={() => {
+                  void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                  setWorkspaceMenuOpen(true);
+                }}
+              />
+            ) : undefined
+          }
         />
       ) : null}
       {spaceMenu !== null && machine !== null ? (

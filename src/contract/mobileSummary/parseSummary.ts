@@ -387,6 +387,35 @@ export function parseCustomSessionTags(value: unknown): GhostexCustomSessionTags
 }
 
 /**
+ * The workspace icons a workspace can wear, mirroring gx-protocol `WORKSPACE_ICONS` (the phone draws
+ * them from `WORKSPACE_ICONS` in assets/tablerIcons.generated.tsx).
+ */
+const WORKSPACE_ICON_IDS: readonly string[] = [
+  'home',
+  'briefcase',
+  'building',
+  'user',
+  'users',
+  'coffee',
+  'camera',
+  'music',
+  'palette',
+  'plane',
+  'leaf',
+  'moon',
+];
+
+/**
+ * A workspace's icon as gx-protocol `SidebarWorkspace::icon_id` resolves it: the picked one while
+ * it is a workspace icon, else `briefcase` for a work workspace and `home` for any other, which
+ * is also what an older desktop that sends no `icon` gets.
+ */
+export function workspaceIconId(icon: string, kind: string): string {
+  if (WORKSPACE_ICON_IDS.includes(icon)) return icon;
+  return kind === 'work' ? 'briefcase' : 'home';
+}
+
+/**
  * Parse the `sidebarWorkspaces` wire key (gx-protocol `SidebarWorkspacesState`). Null when the
  * daemon has no workspaces, which is also what leaves the phone's list unfiltered. The default
  * workspace is `personal` when the document names none, as `SidebarWorkspacesState::default_id`.
@@ -405,6 +434,7 @@ export function parseWorkspaces(value: unknown): GhostexWorkspaces | null {
       name,
       color: /^#[0-9a-f]{6}$/i.test(rawColor) ? rawColor : '#4f5663',
       letter: firstNonEmpty(trimmedValue(entry, 'letter')) || name.slice(0, 1).toUpperCase(),
+      icon: workspaceIconId(trimmedValue(entry, 'icon'), trimmedValue(entry, 'kind')),
       kind: trimmedValue(entry, 'kind'),
     };
   }

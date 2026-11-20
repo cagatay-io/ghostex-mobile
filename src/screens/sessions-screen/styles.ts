@@ -35,13 +35,6 @@ export const styles = StyleSheet.create({
     minHeight: 48,
     justifyContent: 'center',
   },
-  /** The title, then the shown workspace's name (WorkspaceName) when the computer has several. */
-  titleLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    minWidth: 0,
-  },
   title: {
     color: GhostexPalette.FOREGROUND,
     fontSize: 18,
