@@ -82,6 +82,19 @@ export type UnifiedSessionInput = {
   snoozedUntilMs: number | null;
   /** gxserver's `sidebarOrder`: where a pinned session was dragged to; absent when it has none. */
   sidebarOrder?: number | null;
+  /** What a work-mode session's merged PR left (gx-core `SessionWork`); absent outside work mode. */
+  work?: UnifiedSessionWork;
+};
+
+/** The work fields the tree reads: the finished fold and the coordinator's merged-worktrees banner (tree.ts). */
+export type UnifiedSessionWork = {
+  /** `merged` once the linked PR is. */
+  pullRequestState: string;
+  offerCleanup: boolean;
+  offerCleanupAll: boolean;
+  /** Cleaned up by itself and still reported: whether Undo can put it back; null otherwise. */
+  autoCleaned: boolean | null;
+  cleanedUp: boolean;
 };
 
 export type UnifiedProjectInput = {
@@ -186,6 +199,8 @@ export type UnifiedRow<S = unknown> = {
   subtreeMatched: boolean;
   /** Set on a row with threads under it. */
   crew: UnifiedCrew | null;
+  /** On a thread: its coordinator's banner answers its merged-PR offer (`RowNesting.cleanupInBanner`). */
+  cleanupInBanner?: boolean;
 };
 
 export type UnifiedFilterOption = {

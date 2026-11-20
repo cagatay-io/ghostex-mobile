@@ -901,6 +901,23 @@ export function answerWorkCleanupCommand(sessionId: string, projectId: string, a
   return `ghostex work-mode cleanup ${sessionChatSelector(sessionId, projectId)} ${answer === 'cleanUp' ? 'clean-up' : 'keep'} --json`;
 }
 
+/** An answer a coordinator's merged-worktrees banner sends for all its threads (CleanupBanner.tsx). */
+export type WorkCleanupThreadsAnswer = 'cleanUp' | 'keep' | 'undo' | 'dismiss';
+
+/**
+ * A coordinator's merged-worktrees banner: `ghostex issues cleanup-threads <coordinator> clean-up|keep|undo|dismiss
+ * --json` (server/src/ghostex_cli/work_mode.rs `answer_cleanup_threads`). Only computers new enough for `issues`
+ * publish the banner (`offerCleanupAll`, `autoCleaned`), so it needs no `work-mode` alias.
+ */
+export function answerWorkCleanupThreadsCommand(
+  sessionId: string,
+  projectId: string,
+  answer: WorkCleanupThreadsAnswer,
+): string {
+  const verb = answer === 'cleanUp' ? 'clean-up' : answer;
+  return `ghostex issues cleanup-threads ${sessionChatSelector(sessionId, projectId)} ${verb} --json`;
+}
+
 /**
  * Add project: `ghostex add-project <path> [--create-if-missing] --json`.
  * `--create-if-missing` is what lets the Add Project flow register a folder the

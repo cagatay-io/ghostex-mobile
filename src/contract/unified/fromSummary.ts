@@ -81,6 +81,7 @@ export function unifiedSessionInput(
     workingStartedMs: millis(session.workingStartedAt),
     snoozedUntilMs: millis(session.snoozedUntil),
     sidebarOrder: session.sidebarOrder,
+    work: session.work,
     source: session,
   };
 }

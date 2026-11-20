@@ -201,6 +201,14 @@ export function ChipGlyph({ glyph, color, size }: { glyph: WorkChipGlyph; color:
     case 'keep':
       body = <Path d="M18 6l-12 12M6 6l12 12" {...stroke} />;
       break;
+    case 'undo':
+      body = (
+        <>
+          <Path d="M9 14l-4 -4l4 -4" {...stroke} />
+          <Path d="M5 10h11a4 4 0 1 1 0 8h-1" {...stroke} />
+        </>
+      );
+      break;
     case 'link':
       body = (
         <>

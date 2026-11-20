@@ -16,6 +16,8 @@ import type { ReactElement } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import StateCard from '../../components/common/StateCard';
+import type { WorkCleanupThreadsAnswer } from '../../commands/ghostexCli';
+import CleanupBanner from '../../components/sessions/CleanupBanner';
 import type { MenuAnchor } from '../../components/sessions/ContextMenu';
 import type { DrawerBlock, ProjectCardBlock } from '../../components/sessions/drawerModel';
 import { projectFoldSections } from '../../components/sessions/projectFold';
@@ -40,6 +42,7 @@ import SessionRow from '../../components/sessions/SessionRow';
 import type { WorkChipActions } from '../../components/sessions/WorkChips';
 import { sessionLinksDisplay } from '../../chat/native/sessionLinks';
 import type {
+  CleanupBannerModel,
   CollectionHeaderItem,
   DrawerItem,
   GroupHeaderItem,
@@ -69,6 +72,8 @@ export type DrawerBlockActions = {
   toggleSessionKind: (machineId: string, item: SessionKindLabelItem) => void;
   toggleCoordinator: (machineId: string, item: SessionItem) => void;
   toggleCoordinatorOlder: (machineId: string, coordinatorKey: string) => void;
+  /** A coordinator's merged-worktrees banner was answered (CleanupBanner.tsx), on `banner.machineId`. */
+  answerCleanupThreads: (banner: CleanupBannerModel, answer: WorkCleanupThreadsAnswer) => void;
   openSession: (machineId: string, item: SessionItem) => void;
   sessionMenu: (machineId: string, item: SessionItem, anchor: MenuAnchor) => void;
   projectMenu: (machineId: string, header: ProjectHeaderItem) => void;
@@ -206,16 +211,31 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
             onMenu={child.section === 'parked' ? () => actions.parkedMenu(machineId, child) : undefined}
           />
         );
-      case 'COORDINATOR_OLDER':
+      case 'COORDINATOR_OLDER': {
+        // The coordinator's merged-worktrees banner, then its older-threads row (desktop threads.rs `render_older_threads_row`).
+        const banner = child.banner;
+        const label = child.label;
         return (
-          <SessionListToggleRow
-            key={child.key}
-            label={child.label}
-            threadDepth={child.depth + 1}
-            passingLines={child.passingLines}
-            onPress={() => actions.toggleCoordinatorOlder(machineId, child.coordinatorKey)}
-          />
+          <View key={child.key}>
+            {banner !== undefined ? (
+              <CleanupBanner
+                banner={banner}
+                threadDepth={child.depth + 1}
+                passingLines={child.passingLines}
+                onAnswer={(answer) => actions.answerCleanupThreads(banner, answer)}
+              />
+            ) : null}
+            {label !== null ? (
+              <SessionListToggleRow
+                label={label}
+                threadDepth={child.depth + 1}
+                passingLines={child.passingLines}
+                onPress={() => actions.toggleCoordinatorOlder(machineId, child.coordinatorKey)}
+              />
+            ) : null}
+          </View>
         );
+      }
       default:
         return null;
     }

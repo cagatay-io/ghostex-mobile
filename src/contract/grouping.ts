@@ -275,8 +275,39 @@ export type SessionKindLabelItem = {
 };
 
 /**
- * The quiet row at the end of an expanded coordinator's threads that lists its older ones (or
- * tucks them away again); coordinatorTree.ts decides which threads are older.
+ * A coordinator's merged-worktrees banner (src/components/sessions/CleanupBanner.tsx): its threads' merged-PR offers,
+ * answered all at once, and the ones cleaned up by themselves (coordinatorTree.ts `RowNesting.cleanupOffers`).
+ */
+export type CleanupBannerModel = {
+  /** The coordinator, whose computer answers for all its threads (`ghostex issues cleanup-threads`). */
+  coordinator: GhostexSession;
+  /** The computer the coordinator runs on: in the one list of every computer, its own (drawerModel.ts `withOrigins`). */
+  machineId: string;
+  offers: number;
+  autoCleaned: number;
+  autoCleanedUndo: number;
+};
+
+/** The banner a coordinator's nesting asks for, or undefined when it says nothing. */
+export function cleanupBannerOf(
+  nesting: Pick<RowNesting, 'cleanupOffers' | 'autoCleaned' | 'autoCleanedUndo'>,
+  coordinator: GhostexSession,
+  machineId: string,
+): CleanupBannerModel | undefined {
+  if (nesting.cleanupOffers === 0 && nesting.autoCleaned === 0) return undefined;
+  return {
+    coordinator,
+    machineId,
+    offers: nesting.cleanupOffers,
+    autoCleaned: nesting.autoCleaned,
+    autoCleanedUndo: nesting.autoCleanedUndo,
+  };
+}
+
+/**
+ * What follows an expanded coordinator's threads: its merged-worktrees banner, then the quiet row that lists its older
+ * ones (or tucks them away again); coordinatorTree.ts decides which threads are older. A coordinator with a banner
+ * and no older threads draws only the banner (`label` null), as the desktop's threads.rs `render_older_threads_row`.
  */
 export type CoordinatorOlderItem = {
   type: 'COORDINATOR_OLDER';
@@ -289,7 +320,9 @@ export type CoordinatorOlderItem = {
   depth: number;
   /** The tree lines that run past the row, toward the coordinator's next sibling or an ancestor's. */
   passingLines: number;
-  label: string;
+  /** The older-threads row's words; null when the coordinator has no older threads, only a banner. */
+  label: string | null;
+  banner?: CleanupBannerModel;
   collectionColor?: string;
   /** The coordinator's session group, so a row of a user-made group stays among that group's indented rows. */
   groupId: string;
@@ -830,7 +863,7 @@ export type DrawerBuildInput = {
   expandedCoordinatorOlderKeys?: ReadonlySet<string>;
 };
 
-/** Puts each expanded coordinator's "N older threads" row after the last row of its tree. */
+/** Puts each expanded coordinator's banner and "N older threads" row after the last row of its tree. */
 function withOlderThreadRows(items: DrawerItem[]): DrawerItem[] {
   const result: DrawerItem[] = [];
   const open: CoordinatorOlderItem[] = [];
@@ -841,7 +874,9 @@ function withOlderThreadRows(items: DrawerItem[]): DrawerItem[] {
     close(item.type === 'SESSION' ? (item.nesting?.depth ?? 0) : -1);
     result.push(item);
     const nesting = item.type === 'SESSION' ? item.nesting : undefined;
-    if (item.type !== 'SESSION' || nesting === undefined || nesting.olderThreads === 0 || nesting.collapsed) continue;
+    if (item.type !== 'SESSION' || nesting === undefined || nesting.collapsed) continue;
+    const banner = cleanupBannerOf(nesting, item.session, item.machineId);
+    if (nesting.olderThreads === 0 && banner === undefined) continue;
     open.push({
       type: 'COORDINATOR_OLDER',
       key: `older:${item.projectKey}:${item.session.sessionId}`,
@@ -850,7 +885,11 @@ function withOlderThreadRows(items: DrawerItem[]): DrawerItem[] {
       coordinatorKey: coordinatorRowKey(item.session),
       depth: nesting.depth,
       passingLines: nesting.passingLinesBelow,
-      label: nesting.olderShown ? SessionCopy.hideOlderThreads : SessionCopy.olderThreads(nesting.olderThreads),
+      label:
+        nesting.olderThreads === 0
+          ? null
+          : SessionCopy.olderThreadsRow(nesting.olderThreads, nesting.finishedThreads, nesting.olderShown),
+      banner,
       collectionColor: item.collectionColor,
       groupId: item.groupId,
       inSessionGroup: item.inSessionGroup,
@@ -1059,7 +1098,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
   // A GBot's folder and chats are drawn under Main Hub (contract/gbots.ts), never as a project (contract/gbotsFilter.ts).
   const summary = withoutGbots(input.summary);
   const isActive = (session: GhostexSession): boolean => session.sessionId === activeSessionId;
-  const badges = coordinatorBadges(summary.sessions, nowMs);
+  const badges = coordinatorBadges(summary.sessions, summary.capabilities, nowMs);
 
   const projectById = new Map<string, GhostexProject>();
   for (const project of summary.projects) projectById.set(project.projectId, project);

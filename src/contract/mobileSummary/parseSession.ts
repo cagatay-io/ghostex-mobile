@@ -155,6 +155,9 @@ function parseSessionWork(value: unknown): GhostexSessionWork | null {
     githubProjectStatus: isObject(value.githubProject) ? trimmedValue(value.githubProject, 'status') : '',
     handSet: value.handSet === true,
     offerCleanup: value.offerCleanup === true,
+    offerCleanupAll: value.offerCleanupAll === true,
+    autoCleaned: isObject(value.autoCleaned) ? value.autoCleaned.undo === true : null,
+    cleanedUp: value.cleanedUp === true,
   };
 }
 

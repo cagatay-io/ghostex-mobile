@@ -752,6 +752,7 @@ export default function SessionsScreen({ navigation }: Props) {
     attachCreated,
     runSessionCommand,
     workChipActions,
+    answerCleanupThreads,
     runBulkSessionActions,
     runCreationFlow,
     reconnectMachine,
@@ -810,6 +811,7 @@ export default function SessionsScreen({ navigation }: Props) {
     openAddProject,
     notify: (notice) => setTransientStatus(notice.message, { title: notice.title }),
     workChipActions,
+    answerCleanupThreads,
     wall: tileColumns === null ? null : { columns: tileColumns, appearance: sidebarAppearance },
   });
   useOpenProjectDraftsOnArrival(inventoriesByMachineId, !unified.on);
@@ -1170,6 +1172,8 @@ export default function SessionsScreen({ navigation }: Props) {
     toggleSessionKind: (machineId, item) => collapse.toggleSessionKind(machineId, item.kindCollapseKey),
     toggleCoordinator: (machineId, item) => collapse.toggleCoordinator(machineId, sessionItemCoordinatorKey(item)),
     toggleCoordinatorOlder: (machineId, coordinatorKey) => collapse.toggleCoordinatorOlder(machineId, coordinatorKey),
+    answerCleanupThreads: (banner, answer) =>
+      withMachine(banner.machineId, (target) => answerCleanupThreads(target, banner.coordinator, answer)),
     openSession: (machineId, item) => withMachine(machineId, (target) => void attach(target, item.session)),
     sessionMenu: (machineId, item) =>
       withMachine(

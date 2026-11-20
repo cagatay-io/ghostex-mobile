@@ -54,11 +54,23 @@ export type UnifiedCrew = {
   teamStatus: FoldedStatus;
   /** The focused session is under it and not drawn. */
   containsActive: boolean;
+  /** Its older threads that are finished (`RowNesting.finishedThreads`). */
+  finished: number;
+  /** What its merged-worktrees banner says (`RowNesting.cleanupOffers`, `autoCleaned`). */
+  cleanupOffers: number;
+  autoCleaned: number;
+  autoCleanedUndo: number;
 };
+
+/** Its merged-worktrees banner is drawn after its threads (gx-core `UnifiedCrew::has_banner`). */
+export function crewHasBanner(crew: UnifiedCrew): boolean {
+  return crew.open && (crew.cleanupOffers > 0 || crew.autoCleaned > 0);
+}
 
 /**
  * One line under a card: a thread with the `RowNesting` its `SessionRow` draws its tree line and fold from, or a
- * coordinator's "N older threads" row with the coordinator's own nesting (its `passingLinesBelow`).
+ * coordinator's end-of-threads line (its merged-worktrees banner and its "N older threads" row, whichever it has) with
+ * the coordinator's own nesting (its `passingLinesBelow`).
  */
 export type UnifiedTreeLine<S> =
   | { kind: 'thread'; row: UnifiedRow<S>; nesting: RowNesting }
@@ -73,8 +85,18 @@ function isBusy(session: UnifiedSessionInput): boolean {
   return session.threadState === 'working' || session.threadState === 'waiting' || session.activity === 'working';
 }
 
+/** Its PR is merged (or its worktree was cleaned up for it), and it neither works nor waits on the user (gx-core `is_finished_thread`). */
+function isFinished(session: UnifiedSessionInput): boolean {
+  const work = session.work;
+  if (work === undefined || !(work.cleanedUp || work.pullRequestState === 'merged')) return false;
+  return !isBusy(session) && !session.awaitingApproval && !session.hasQuestion && session.activity !== 'attention';
+}
+
 function isRecent(session: UnifiedSessionInput, nowMs: number): boolean {
-  return isBusy(session) || (session.lastInteractionMs !== null && session.lastInteractionMs + RECENT_THREAD_MS > nowMs);
+  return (
+    isBusy(session) ||
+    (!isFinished(session) && session.lastInteractionMs !== null && session.lastInteractionMs + RECENT_THREAD_MS > nowMs)
+  );
 }
 
 /** A session that needs the user: approval, stuck, a question, waiting on them, or failed. */
@@ -243,7 +265,17 @@ export function nestUnifiedRows<S>(
     const forced = !narrowed && query && !unfolded && matchBelow;
     const open = narrowed ? matchBelow : unfolded || forced;
     const tally = { total: 0, waiting: 0, working: 0, approval: 0 };
+    const banner = { finished: 0, cleanupOffers: 0, autoCleaned: 0, autoCleanedUndo: 0 };
     for (const child of row.threads) {
+      const work = child.session.work;
+      if (!child.shown && isFinished(child.session)) banner.finished += 1;
+      // gx-core `offer_in_banner`: answered for all at once, by the coordinator's computer.
+      child.cleanupInBanner = work?.offerCleanup === true && work.offerCleanupAll && child.machine === row.machine;
+      if (child.cleanupInBanner) banner.cleanupOffers += 1;
+      if (work !== undefined && work.autoCleaned !== null) {
+        banner.autoCleaned += 1;
+        if (work.autoCleaned) banner.autoCleanedUndo += 1;
+      }
       tally.total += 1;
       if (child.session.threadState === 'waiting') tally.waiting += 1;
       if (child.session.threadState === 'working') tally.working += 1;
@@ -281,6 +313,7 @@ export function nestUnifiedRows<S>(
       foldedStatus,
       teamStatus,
       containsActive: false,
+      ...banner,
     };
     for (const child of row.threads) layOut(child, narrowingHere, child.subtreeMatched);
   };
@@ -340,6 +373,11 @@ export function nestingAt<S>(row: UnifiedRow<S>, spot: TreeSpot = TREE_ROOT): Ro
     folded: false,
     olderThreads: crew !== null && crew.olderRow ? crew.older : 0,
     olderShown: crew?.olderShown ?? false,
+    finishedThreads: crew !== null && crew.olderRow ? crew.finished : 0,
+    cleanupOffers: crew?.cleanupOffers ?? 0,
+    autoCleaned: crew?.autoCleaned ?? 0,
+    autoCleanedUndo: crew?.autoCleanedUndo ?? 0,
+    cleanupInBanner: row.cleanupInBanner === true,
     containsActive: crew?.containsActive ?? false,
     foldedStatus: anyDot ? folded : undefined,
     teamStatus: crew !== null && hasAnyDot(crew.teamStatus) ? crew.teamStatus : undefined,
@@ -357,7 +395,7 @@ export function drawnLines<S>(card: UnifiedRow<S>): UnifiedTreeLine<S>[] {
   layOutTree(card, TREE_ROOT, threadsOf, (step) => {
     if (step.kind === 'row' && step.node !== card) {
       lines.push({ kind: 'thread', row: step.node, nesting: nestingAt(step.node, step.spot) });
-    } else if (step.kind === 'done' && step.node.crew?.olderRow === true) {
+    } else if (step.kind === 'done' && step.node.crew !== null && (step.node.crew.olderRow || crewHasBanner(step.node.crew))) {
       lines.push({ kind: 'older', coordinator: step.node, nesting: nestingAt(step.node, step.spot) });
     }
   });

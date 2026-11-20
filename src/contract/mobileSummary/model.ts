@@ -357,6 +357,19 @@ export type GhostexSessionWork = {
   handSet: boolean;
   /** The linked PR is merged and its Clean up / Keep offer is unanswered. */
   offerCleanup: boolean;
+  /**
+   * The computer answers the offer for all of a coordinator's threads at once
+   * (`ghostex issues cleanup-threads`), so the offer goes in the coordinator's banner instead of on
+   * the row. Older computers never send it and the offer stays on the row.
+   */
+  offerCleanupAll: boolean;
+  /**
+   * Cleaned up by itself and the coordinator's banner still reports it: whether Undo can put the
+   * worktree back; null otherwise (gx-core `SessionWork::auto_cleaned`).
+   */
+  autoCleaned: boolean | null;
+  /** The worktree was cleaned up for the merged PR, by the user or by itself. */
+  cleanedUp: boolean;
 };
 
 /**

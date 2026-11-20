@@ -239,8 +239,29 @@ export const SessionCopy = {
   /** Desktop parity: project cards say exactly "No sessions". */
   /** The row an open project with no sessions shows; a tap opens a terminal there (desktop rows.rs "New Session"). */
   emptyProjectRow: 'New Session',
-  olderThreads: (count: number) => (count === 1 ? '1 older thread' : `${count} older threads`),
-  hideOlderThreads: 'Hide older threads',
+  /**
+   * What a coordinator's older-threads row reads: `finished` of its `count` older threads are finished (merged or
+   * cleaned up), and when they all are it names them so (desktop threads.rs `render_older_threads_row`).
+   */
+  olderThreadsRow: (count: number, finished: number, shown: boolean): string => {
+    const allFinished = finished === count;
+    if (shown) return allFinished ? 'Hide finished threads' : 'Hide older threads';
+    if (allFinished) return count === 1 ? '1 finished thread' : `${count} finished threads`;
+    return count === 1 ? '1 older thread' : `${count} older threads`;
+  },
+  /** A coordinator's merged-worktrees banner (CleanupBanner.tsx; desktop cleanup_banner.rs). */
+  mergedWorktrees: (count: number) => (count === 1 ? '1 merged worktree' : `${count} merged worktrees`),
+  cleanUpAll: 'Clean up all',
+  cleanUpAllHint: (count: number) =>
+    `Remove the worktrees of these ${count} threads and put them to sleep. A worktree with uncommitted changes is kept.`,
+  keepWorktrees: 'Keep',
+  keepWorktreesHint: "Keep these threads and their worktrees. Ghostex won't ask again for these PRs.",
+  cleanedUpWorktrees: (count: number) =>
+    count === 1 ? 'Cleaned up 1 worktree' : `Cleaned up ${count} worktrees`,
+  undoCleanup: 'Undo',
+  undoCleanupHint: 'Put the worktrees back on their branches and keep them.',
+  dismissCleanupHint: 'Hide this line. The threads stay asleep under the coordinator.',
+  cleaningUp: 'Cleaning up…',
   /** Desktop reference sidebar section label. */
   projectsSectionTitle: 'Projects',
   /**

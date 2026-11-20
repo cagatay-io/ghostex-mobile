@@ -480,6 +480,12 @@ function withOrigins(items: DrawerItem[], merged: MergedComputers, listMachineId
         quickActions: theirs?.quickActionsByProject[copy.projectId] ?? [],
       };
     }
+    if (item.type === 'COORDINATOR_OLDER' && item.banner !== undefined) {
+      // The banner answers on the coordinator's own computer, as its row's actions do.
+      const origin = merged.origins.get(item.banner.coordinator);
+      if (origin === undefined || origin.machineId === listMachineId) return item;
+      return { ...item, banner: { ...item.banner, coordinator: origin.session, machineId: origin.machineId } };
+    }
     if (item.type === 'GROUP_HEADER') {
       const copy = merged.copies.get(item.projectId)?.[0];
       if (copy === undefined || (copy.machineId === listMachineId && copy.projectId === item.projectId)) return item;

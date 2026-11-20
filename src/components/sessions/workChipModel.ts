@@ -35,6 +35,7 @@ export type WorkChipGlyph =
   | 'linearProject'
   | 'cleanUp'
   | 'keep'
+  | 'undo'
   | 'link';
 
 export type WorkChip = {
@@ -94,8 +95,12 @@ function joinParts(parts: readonly string[]): string {
   return parts.filter((part) => part.trim().length > 0).join(' · ');
 }
 
-/** The chips a session's card draws, in the desktop's order; empty keeps the card one line. */
-export function workChips(work: GhostexSessionWork | undefined): WorkChip[] {
+/**
+ * The chips a session's card draws, in the desktop's order; empty keeps the card one line. `cleanupInBanner`: its
+ * coordinator's banner answers the merged-PR offer (coordinatorTree.ts `RowNesting.cleanupInBanner`), so the card
+ * draws no Clean up / Keep of its own.
+ */
+export function workChips(work: GhostexSessionWork | undefined, cleanupInBanner = false): WorkChip[] {
   if (work === undefined) return [];
   const chips: WorkChip[] = [];
   const prNumber = work.pullRequestNumber;
@@ -116,7 +121,7 @@ export function workChips(work: GhostexSessionWork | undefined): WorkChip[] {
       description: joinParts([`PR #${prNumber}`, state.label, checks?.label ?? '']),
     });
   }
-  if (work.offerCleanup) {
+  if (work.offerCleanup && !cleanupInBanner) {
     chips.push({
       key: 'cleanup',
       glyph: 'cleanUp',

@@ -15,7 +15,15 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type ReactElement } from 'react';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View, type FlatListProps, type ViewInstance } from 'react-native';
 
-import { projectHeaderOf, projectKeyForSession, type SessionItem } from '../../contract/grouping';
+import {
+  cleanupBannerOf,
+  projectHeaderOf,
+  projectKeyForSession,
+  type CleanupBannerModel,
+  type SessionItem,
+} from '../../contract/grouping';
+import type { WorkCleanupThreadsAnswer } from '../../commands/ghostexCli';
+import CleanupBanner from '../../components/sessions/CleanupBanner';
 import {
   NO_SUMMARY_CAPABILITIES,
   type GhostexMobileSummary,
@@ -63,7 +71,7 @@ import { showsFoldedStatus, UnifiedCrewCount, UnifiedFoldedStatus } from '../../
 import { sessionLinksDisplay } from '../../chat/native/sessionLinks';
 import { SessionCopy } from '../../copy';
 import type { RowNesting } from '../../contract/coordinatorTree';
-import { ancestorsOf, drawnLines, rowsInTree } from '../../contract/unified/tree';
+import { ancestorsOf, crewHasBanner, drawnLines, rowsInTree } from '../../contract/unified/tree';
 import type { MachineInventory } from '../../inventory/store';
 import { agentMenuNotice, type NewSessionNotice } from './new-session-button';
 import { machineDisplayLabel, type MachineRecord } from '../../machines/store';
@@ -121,7 +129,18 @@ type UnifiedListItem =
    * item, so a card draws only itself. `anchor` is set on the first one, whose tree line rises to the card's hat.
    */
   | { kind: 'thread'; key: string; row: UnifiedRow<GhostexSession>; nesting: RowNesting; anchor?: number }
-  | { kind: 'older'; key: string; coordinatorKey: string; label: string; nesting: RowNesting }
+  /**
+   * A coordinator's end-of-threads line: its merged-worktrees banner and its older-threads row (`label` null when it
+   * has only the banner).
+   */
+  | {
+      kind: 'older';
+      key: string;
+      coordinatorKey: string;
+      label: string | null;
+      banner?: CleanupBannerModel;
+      nesting: RowNesting;
+    }
   | { kind: 'gap'; key: string }
   | { kind: 'divider'; key: string }
   | { kind: 'empty'; key: string; text: string }
@@ -154,6 +173,8 @@ export type UnifiedListDeps = {
   notify: (notice: NewSessionNotice) => void;
   /** What a thread row's chips do (its links line, a merged PR's Clean up / Keep), as the Project list wires them. */
   workChipActions: (target: MachineRecord | null, session: GhostexSession) => WorkChipActions | undefined;
+  /** A coordinator's merged-worktrees banner was answered, on its computer (CleanupBanner.tsx). */
+  answerCleanupThreads: (target: MachineRecord, coordinator: GhostexSession, answer: WorkCleanupThreadsAnswer) => void;
   /** The session wall: tiles this many side by side, drawn in `appearance`; absent or null, the list's cards. */
   wall?: { columns: number; appearance: SidebarAppearance } | null;
 };
@@ -207,6 +228,7 @@ export function useUnifiedList(deps: UnifiedListDeps) {
     openAddProject,
     notify,
     workChipActions,
+    answerCleanupThreads,
     wall = null,
   } = deps;
   const selectedSummary = selectedMachine === null ? null : (inventoriesByMachineId[selectedMachine.id]?.summary ?? null);
@@ -438,12 +460,23 @@ export function useUnifiedList(deps: UnifiedListDeps) {
             session,
             sessionLinksDisplay(summary?.sidebarSessionLinks),
             workChipActions(machines.find((machine) => machine.id === line.row.machine) ?? null, session) !== undefined,
+            line.nesting.cleanupInBanner,
           );
         } else {
           if (line.coordinator.crew !== null) {
             const crew = line.coordinator.crew;
-            const label = crew.olderShown ? SessionCopy.hideOlderThreads : SessionCopy.olderThreads(crew.older);
-            list.push({ kind: 'older', key: `older:${crew.key}`, coordinatorKey: crew.key, label, nesting: line.nesting });
+            const label = crew.olderRow ? SessionCopy.olderThreadsRow(crew.older, crew.finished, crew.olderShown) : null;
+            const banner = crewHasBanner(crew)
+              ? cleanupBannerOf(line.nesting, line.coordinator.session.source!, line.coordinator.machine)
+              : undefined;
+            list.push({
+              kind: 'older',
+              key: `older:${crew.key}`,
+              coordinatorKey: crew.key,
+              label,
+              banner,
+              nesting: line.nesting,
+            });
           }
           // As the project list starts the rows after an older-threads row.
           anchor = undefined;
@@ -649,14 +682,28 @@ export function useUnifiedList(deps: UnifiedListDeps) {
       );
     }
     if (item.kind === 'older') {
+      const { banner, label } = item;
       return (
         <View style={styles.threadInset}>
-          <SessionListToggleRow
-            label={item.label}
-            threadDepth={item.nesting.depth + 1}
-            passingLines={item.nesting.passingLinesBelow}
-            onPress={() => toggleOlderThreads(item.coordinatorKey)}
-          />
+          {banner !== undefined ? (
+            <CleanupBanner
+              banner={banner}
+              threadDepth={item.nesting.depth + 1}
+              passingLines={item.nesting.passingLinesBelow}
+              onAnswer={(answer) => {
+                const bannerTarget = machineById(banner.machineId);
+                if (bannerTarget !== null) answerCleanupThreads(bannerTarget, banner.coordinator, answer);
+              }}
+            />
+          ) : null}
+          {label !== null ? (
+            <SessionListToggleRow
+              label={label}
+              threadDepth={item.nesting.depth + 1}
+              passingLines={item.nesting.passingLinesBelow}
+              onPress={() => toggleOlderThreads(item.coordinatorKey)}
+            />
+          ) : null}
         </View>
       );
     }

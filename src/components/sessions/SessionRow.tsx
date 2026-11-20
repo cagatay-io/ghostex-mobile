@@ -353,12 +353,18 @@ function sessionRowHeight(chipLine: boolean): number {
 }
 
 /**
- * Whether a row draws its second line: a merged PR's Clean up / Keep offer, or its links under "Session links in the
- * sidebar: Line", once its caller wires the chips' actions. SessionRow draws it from the same facts.
+ * Whether a row draws its second line: a merged PR's Clean up / Keep offer (unless its coordinator's banner answers it,
+ * `cleanupInBanner`), or its links under "Session links in the sidebar: Line", once its caller wires the chips'
+ * actions. SessionRow draws it from the same facts.
  */
-export function sessionRowHasChipLine(session: GhostexSession, display: SessionLinksDisplay, hasActions: boolean): boolean {
+export function sessionRowHasChipLine(
+  session: GhostexSession,
+  display: SessionLinksDisplay,
+  hasActions: boolean,
+  cleanupInBanner = false,
+): boolean {
   if (!hasActions) return false;
-  if (session.work?.offerCleanup === true) {
+  if (session.work?.offerCleanup === true && !cleanupInBanner) {
     return workChips(session.work).some((chip) => chip.key === 'pr' || chip.key === 'cleanup' || chip.key === 'keep');
   }
   return sessionLinksRow(session.links, display, session.isFocused).line.length > 0;
@@ -368,8 +374,15 @@ export function sessionRowHasChipLine(session: GhostexSession, display: SessionL
  * The `treeAnchor` of a thread drawn right under a row: from the centre of that row's icon (in its first line) down
  * to the thread's top, so the tree line meets a two-line row's icon too.
  */
-export function treeAnchorBelowRow(session: GhostexSession, display: SessionLinksDisplay, hasActions: boolean): number {
-  return sessionRowHeight(sessionRowHasChipLine(session, display, hasActions)) - TOUCH_ROW_HEIGHT / 2 + ROW_SPACING;
+export function treeAnchorBelowRow(
+  session: GhostexSession,
+  display: SessionLinksDisplay,
+  hasActions: boolean,
+  cleanupInBanner = false,
+): number {
+  return (
+    sessionRowHeight(sessionRowHasChipLine(session, display, hasActions, cleanupInBanner)) - TOUCH_ROW_HEIGHT / 2 + ROW_SPACING
+  );
 }
 
 export type SessionRowProps = {
@@ -517,14 +530,16 @@ export default function SessionRow({
   /*
    * CDXC:SessionLinks 2026-10-24 SEE-ALSO: `SessionLinks::row` in packages/gx-core/src/sidebar_view/links.rs. A row draws its links as the computer's "Session links in the sidebar" says (a line, a badge or nothing); a Work mode card's own chip line is gone except for the merged-PR Clean up / Keep offer, which takes the line while it waits.
    */
-  const offerCleanup = session.work?.offerCleanup === true;
+  // A thread whose coordinator's banner answers its offer draws none of its own (CleanupBanner.tsx).
+  const cleanupInBanner = nesting?.cleanupInBanner === true;
+  const offerCleanup = session.work?.offerCleanup === true && !cleanupInBanner;
   const linksRow = useMemo(
     () => sessionLinksRow(session.links, sessionLinksDisplay, session.isFocused),
     [session.links, sessionLinksDisplay, session.isFocused],
   );
   const chips = useMemo((): WorkChip[] => {
     if (offerCleanup) {
-      return workChips(session.work)
+      return workChips(session.work, cleanupInBanner)
         .filter((chip) => chip.key === 'pr' || chip.key === 'cleanup' || chip.key === 'keep')
         .map((chip) => (chip.key === 'pr' ? { ...chip, trailing: undefined } : chip));
     }
@@ -542,7 +557,7 @@ export default function SessionRow({
         description: sessionLinkSummary(link),
       };
     });
-  }, [offerCleanup, session.work, linksRow]);
+  }, [offerCleanup, cleanupInBanner, session.work, linksRow]);
   // The line fits what it can to its width (WorkChips); the links it never lists count into "+N".
   // Under Badge there is no line: the title row's badge names a link and counts the rest.
   const linksNeverShown = offerCleanup

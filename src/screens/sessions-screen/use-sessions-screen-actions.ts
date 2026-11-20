@@ -16,9 +16,11 @@ import { logAppEvent } from '../../app/appLog';
 import type { QuickActionEntry } from '../../actions/quickActions';
 import {
   answerWorkCleanupCommand,
+  answerWorkCleanupThreadsCommand,
   renameCommandCommand,
   restoreRecentProjectCommand,
   sessionNoteSaveCommand,
+  type WorkCleanupThreadsAnswer,
 } from '../../commands/ghostexCli';
 import type { Notice } from '../../components/common/NoticeToast';
 import { createdSessionId, GhostexCliFailure, runGhostexCli } from '../../components/sessions/cli';
@@ -226,10 +228,25 @@ export function useSessionsScreenActions({
             .catch((error: unknown) => setTransientStatus(error instanceof Error ? error.message : String(error)));
         },
         answerCleanup: (answer) => {
-          if (answer === 'cleanUp') setTransientStatus('Cleaning up…');
+          if (answer === 'cleanUp') setTransientStatus(SessionCopy.cleaningUp);
           void runSessionCommand(target, answerWorkCleanupCommand(session.sessionId, session.projectId, answer));
         },
       };
+    },
+    [runSessionCommand, setTransientStatus],
+  );
+
+  /**
+   * What a coordinator's merged-worktrees banner (CleanupBanner.tsx) answers for all its threads at once, on the
+   * coordinator's computer (`ghostex issues cleanup-threads`); a failure shows as the per-row offer's does.
+   */
+  const answerCleanupThreads = useCallback(
+    (target: MachineRecord, coordinator: GhostexSession, answer: WorkCleanupThreadsAnswer): void => {
+      if (answer === 'cleanUp') setTransientStatus(SessionCopy.cleaningUp);
+      void runSessionCommand(
+        target,
+        answerWorkCleanupThreadsCommand(coordinator.sessionId, coordinator.projectId, answer),
+      );
     },
     [runSessionCommand, setTransientStatus],
   );
@@ -499,6 +516,7 @@ export function useSessionsScreenActions({
     attachCreated,
     runSessionCommand,
     workChipActions,
+    answerCleanupThreads,
     runBulkSessionActions,
     runCreationFlow,
     reconnectMachine,

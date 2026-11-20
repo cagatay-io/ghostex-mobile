@@ -103,6 +103,21 @@ export type RowNesting = {
   /** On a coordinator row: the user listed its older threads. */
   olderShown: boolean;
   /**
+   * On a coordinator row: how many of its older threads are finished (`isFinishedThread`); when they all are, its
+   * older-threads row reads "N finished threads" (gx-core `RowNesting::finished_threads`).
+   */
+  finishedThreads: number;
+  /**
+   * On a coordinator row: its threads whose merged-PR Clean up / Keep offer its banner answers for all of them at once
+   * (`offerInBanner`, gx-core `RowNesting::cleanup_offers`).
+   */
+  cleanupOffers: number;
+  /** On a coordinator row: its threads cleaned up by themselves that the banner reports, and how many Undo can put back. */
+  autoCleaned: number;
+  autoCleanedUndo: number;
+  /** On a thread row: its merged-PR offer is answered in its coordinator's banner, so the row draws none of its own. */
+  cleanupInBanner: boolean;
+  /**
    * On a coordinator row: the selected session is one of its threads that a fold hides, so this row
    * carries the active highlight and the hollow ring in the crown's place (gx-core
    * `RowNesting::contains_active_session`, the user's 2026-10-22 decision there).
@@ -215,16 +230,46 @@ function isBusyThread(session: GhostexSession): boolean {
   );
 }
 
-/** A thread an expanded coordinator lists without its "N older threads" row. */
-function isRecentThread(session: GhostexSession, nowMs: number): boolean {
+/**
+ * A thread whose work is over: its PR is merged (or its worktree was cleaned up for it), and it neither works nor
+ * waits on the user (gx-core threads.rs `is_finished_thread`).
+ *
+ * CDXC:WorkMode 2026-11-20 SEE-ALSO: the user's decision in server/src/server/work_cleanup_threads.rs (Q4286, B and C): finished threads fold away behind the coordinator's older-threads row however recently they were active, the row reads "N finished threads" while every thread it holds is finished, and a coordinator's merged-PR offers go in one "N merged worktrees" banner after its threads (`offerInBanner`; drawn by src/components/sessions/CleanupBanner.tsx, the desktop's in apps/desktop/src/app/native_sidebar/cleanup_banner.rs).
+ */
+export function isFinishedThread(session: GhostexSession, capabilities: GhostexSummaryCapabilities): boolean {
+  const work = session.work;
+  if (work === undefined || !(work.cleanedUp || work.pullRequestState === 'merged')) return false;
+  const needsYou =
+    session.awaitingApproval ||
+    hasQuestion(session.pendingQuestionCount, capabilities.awaitingAnswer && session.awaitingAnswer) ||
+    session.activity === 'attention';
+  return !isBusyThread(session) && !needsYou;
+}
+
+/** A thread an expanded coordinator lists without its "N older threads" row; a finished one never is. */
+function isRecentThread(session: GhostexSession, nowMs: number, capabilities: GhostexSummaryCapabilities): boolean {
   if (isBusyThread(session)) return true;
+  if (isFinishedThread(session, capabilities)) return false;
   const activeAt = Date.parse(session.lastActiveAt);
   return Number.isFinite(activeAt) && activeAt + RECENT_THREAD_MS > nowMs;
+}
+
+/**
+ * A thread whose merged-PR offer its coordinator's banner answers: its computer answers it for all the coordinator's
+ * threads at once, and it runs on the coordinator's computer, which is the one that answers (gx-core
+ * `offer_in_banner`). In one computer's list every row is on that computer; in the one list of every computer a
+ * thread on another computer is one the coordinator names in `coordinatorRemoteThreads` (mergedComputers.ts).
+ */
+function offerInBanner(thread: GhostexSession, coordinator: GhostexSession): boolean {
+  if (thread.work?.offerCleanup !== true || !thread.work.offerCleanupAll) return false;
+  const ref = thread.globalRef;
+  return ref.length === 0 || !(coordinator.coordinatorRemoteThreads ?? []).some((remote) => remote.globalRef === ref);
 }
 
 /** Every coordinator's badge, from all of the machine's sessions (a worktree thread sits in another project). */
 export function coordinatorBadges(
   sessions: readonly GhostexSession[],
+  capabilities: GhostexSummaryCapabilities,
   nowMs: number = Date.now(),
 ): Map<string, CoordinatorBadge> {
   const seen = new Set<string>();
@@ -246,7 +291,7 @@ export function coordinatorBadges(
     parents.set(key, parent);
     if (session.awaitingApproval) approvals.push(parent);
     const tally = tallyOf(parent);
-    if (isRecentThread(session, nowMs)) tally.total += 1;
+    if (isRecentThread(session, nowMs, capabilities)) tally.total += 1;
     if (session.coordinatorThreadState === 'waiting') tally.waiting += 1;
     if (session.coordinatorThreadState === 'working') tally.working += 1;
   }
@@ -344,7 +389,7 @@ export function nestCoordinatorThreads<S>(
     else children.set(parent, kept);
   }
 
-  const isOlder = sessions.map((session) => !isRecentThread(session, nowMs));
+  const isOlder = sessions.map((session) => !isRecentThread(session, nowMs, capabilities));
   for (const [parent, list] of children) {
     children.set(parent, [...list.filter((child) => !isOlder[child]), ...list.filter((child) => isOlder[child])]);
   }
@@ -377,6 +422,28 @@ export function nestCoordinatorThreads<S>(
   const sectionOfRow = [...baseSections];
   // A lead (lead links) has no "N older threads" row or fold, so all its linked sessions stay listed (gx-core threads.rs).
   const leadParent = sessions.map((session) => session.isLead === true && !session.isCoordinator);
+  // The coordinator banner's counts over its direct threads, folded or not (a lead has none).
+  type Banner = { offers: number; autoCleaned: number; autoCleanedUndo: number; finished: number };
+  const banners = new Map<number, Banner>();
+  const inBanner = sessions.map(() => false);
+  for (const [parent, list] of children) {
+    if (leadParent[parent]) continue;
+    const banner: Banner = { offers: 0, autoCleaned: 0, autoCleanedUndo: 0, finished: 0 };
+    for (const child of list) {
+      const thread = sessions[child];
+      if (offerInBanner(thread, sessions[parent])) {
+        inBanner[child] = true;
+        banner.offers += 1;
+      }
+      const autoCleaned = thread.work?.autoCleaned ?? null;
+      if (autoCleaned !== null) {
+        banner.autoCleaned += 1;
+        if (autoCleaned) banner.autoCleanedUndo += 1;
+      }
+      if (isOlder[child] && isFinishedThread(thread, capabilities)) banner.finished += 1;
+    }
+    banners.set(parent, banner);
+  }
   const hidden = (parent: number, child: number): boolean =>
     !leadParent[parent] && !olderShown.has(keys[parent]) && isOlder[child];
   const threadsOf = (index: number): TreeChildren<number> => {
@@ -407,6 +474,11 @@ export function nestCoordinatorThreads<S>(
         folded: foldedOf[index],
         olderThreads: leadParent[index] ? 0 : list.filter((child) => isOlder[child]).length,
         olderShown: olderShown.has(keys[index]),
+        finishedThreads: banners.get(index)?.finished ?? 0,
+        cleanupOffers: banners.get(index)?.offers ?? 0,
+        autoCleaned: banners.get(index)?.autoCleaned ?? 0,
+        autoCleanedUndo: banners.get(index)?.autoCleanedUndo ?? 0,
+        cleanupInBanner: inBanner[index],
         containsActive: false,
         foldedStatus: foldedStatus(index),
         teamStatus: teamStatus(index),

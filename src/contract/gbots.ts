@@ -167,7 +167,7 @@ export function gbotsSection(input: {
     .sort((left, right) => compareGbots(left.gbotsBot, right.gbotsBot) || left.projectId.localeCompare(right.projectId));
   if (botProjects.length === 0) return null;
   const sessions = visibleSessions(summary.sessions);
-  const badges = coordinatorBadges(summary.sessions, nowMs);
+  const badges = coordinatorBadges(summary.sessions, summary.capabilities, nowMs);
   const allChats: GhostexSession[] = [];
   const bots = botProjects.map((project): GbotRowModel => {
     const bot = project.gbotsBot;
