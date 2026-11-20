@@ -49,46 +49,15 @@ const PREFIXES: ReadonlyArray<readonly [prefix: string, body: number, separators
 
 export function looksLikeSecret(text: string): boolean {
   if (text.includes('PRIVATE KEY-----')) return true;
-  return judgedTokens(text).some(
-    ([token, path]) => knownPrefix(token) || awsKeyId(token) || (!path && randomToken(token)),
-  );
+  return tokens(text).some((token) => knownPrefix(token) || awsKeyId(token) || randomToken(token));
 }
 
 /**
  * The words of `text`, split at whitespace (U+FEFF and U+0085 included, as the core's copy splits), quotes, brackets
- * and the `=`/`:` of `KEY=value`, each with whether it is a piece of a path written with spaces in it. Only a key's
- * prefix or an AWS key id counts in such a piece, not how random it looks. A path starts at a word that starts with `/`
- * or `~` and goes on through each word one space after the last that has a `/` and a folder named as a word is
- * (`Support/ClipBook`), and ends at a file name with its extension (`Chrome_19-33-36@2x.png`). The core's
- * `judged_tokens` has the CDXC:Secrets 2026-11-20 WHY (a pasted picture's `[Image #1](…)` path read as a key).
+ * and the `=`/`:` of `KEY=value`.
  */
-function judgedTokens(text: string): Array<[token: string, path: boolean]> {
-  const judged: Array<[string, boolean]> = [];
-  let inPath = false;
-  let previousEnd = 0;
-  for (const match of text.matchAll(/[^\s\u0085\ufeff"'`=:,;()[\]{}<>]+/g)) {
-    const token = match[0];
-    const start = match.index ?? 0;
-    const joined = inPath && text.slice(previousEnd, start) === ' ';
-    previousEnd = start + token.length;
-    if (token.startsWith('/') || token.startsWith('~')) {
-      inPath = true;
-      judged.push([token, false]);
-    } else if (joined && token.includes('/') && token.split('/').some(wordShaped)) {
-      judged.push([token, true]);
-    } else {
-      inPath = false;
-      judged.push([token, joined && fileName(token)]);
-    }
-  }
-  return judged;
-}
-
-/** A file name ending in an extension of one to five letters and digits (`2x.png`, `notes.md`). */
-function fileName(token: string): boolean {
-  const dot = token.lastIndexOf('.');
-  const extension = token.slice(dot + 1);
-  return dot > 0 && /^[A-Za-z0-9]{1,5}$/.test(extension) && /[A-Za-z]/.test(extension);
+function tokens(text: string): string[] {
+  return text.split(/[\s\u0085﻿"'`=:,;()[\]{}<>]+/).filter((token) => token.length > 0);
 }
 
 function knownPrefix(token: string): boolean {
