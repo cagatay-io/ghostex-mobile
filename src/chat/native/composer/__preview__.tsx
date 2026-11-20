@@ -11,6 +11,7 @@ import data from './__preview-data__.json';
 import { MenuSheet } from './MenuSheet';
 import { ModelMenuSheet } from './ModelMenuSheet';
 import { moreActionsRows } from './menus';
+import { useSessionMenuLayout } from '../../../session-menu/layout';
 import { NativeComposer } from './NativeComposer';
 
 const SCENE: string = 'queue';
@@ -171,6 +172,7 @@ function useFakeChat(scene: string): RustChat {
 function Preview() {
   const chat = useFakeChat(SCENE);
   const doc = chat.state!.document!;
+  const { layout } = useSessionMenuLayout();
   return (
     <SafeAreaProvider>
       <SafeAreaView style={{ flex: 1, backgroundColor: '#0e0e0e' }} edges={['top']}>
@@ -184,10 +186,11 @@ function Preview() {
           chat={chat}
           onHostAction={(action) => console.log('[preview] host', action)}
         />
-        {SCENE === 'more' ? (
+        {SCENE === 'more' && layout !== null ? (
           <MenuSheet
             rows={moreActionsRows({
               document: doc,
+              layout,
               available: () => true,
               serves: () => true,
             })}

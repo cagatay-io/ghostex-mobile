@@ -248,7 +248,7 @@ function CardMenu({
       <View style={styles.cardMenu}>
         <Pressable accessibilityRole="button" onPress={() => onTags(false)} style={styles.cardMenuRow}>
           <Glyph name="chevron-left" size={15} color={P.cardMuted} />
-          <Text style={[styles.cardMenuText, { color: P.cardMuted }]}>Tags</Text>
+          <Text style={[styles.cardMenuText, { color: P.cardMuted }]}>Tag As</Text>
         </Pressable>
         {current.length > 0 ? (
           <Pressable

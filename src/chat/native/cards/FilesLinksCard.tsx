@@ -53,7 +53,7 @@ export function FilesLinksCard({
   const close = () => dispatch({ type: 'filesLinksClose' });
   if (!open)
     return (
-      <Sheet visible={false} onClose={close} title="Files and links">
+      <Sheet visible={false} onClose={close} title="Files and Links">
         {null}
       </Sheet>
     );
@@ -214,7 +214,7 @@ export function FilesLinksCard({
     <Sheet
       visible
       onClose={close}
-      title="Files and links"
+      title="Files and Links"
       accessory={
         <ChatButton
           label="Refresh"

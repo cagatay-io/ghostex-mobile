@@ -12,6 +12,7 @@ import { findNodeHandle, StyleSheet, View, type HostInstance } from 'react-nativ
 import { WebView } from 'react-native-webview';
 
 import { logAppEvent } from '../../../app/appLog';
+import { loadSessionMenuLayout } from '../../../session-menu/layout';
 import { wasmCoreBridge } from './bridge';
 import { describeLoadError, pageFromUpdate, pageUriProblem, uriBasename, type PagePathKind } from './pageLoad';
 
@@ -81,6 +82,9 @@ export function ChatCoreWebViewHost() {
 
   useEffect(() => {
     wasmCoreBridge.mounted();
+    // The session menus' layout comes from this core (session-menu/layout.ts): asked for now, so the first long
+    // press finds it here; the ask waits for the page like a chat does.
+    void loadSessionMenuLayout().catch(() => undefined);
     return () => wasmCoreBridge.unmounted();
   }, []);
 

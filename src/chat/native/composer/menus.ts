@@ -8,13 +8,22 @@ import type { ChatDocument } from '../../rust/document';
 import { arr, isTrue, obj, str } from './json';
 import { rowsOf, type MenuRow } from './MenuSheet';
 import { sessionDetailsRingOf } from '../cards/SessionDetailsSheet';
+import {
+  assembleSessionMenu,
+  entryDanger,
+  entryIcon,
+  entryLabel,
+  type SessionMenuLayout,
+  type SessionMenuMake,
+} from '../../../session-menu/layout';
+import type { SidebarMenuItem } from '../../../screens/sessions-screen/sidebar-menus';
 
 /** The toolbar controls in desktop's order, which is also the order they fold into More actions
- * (`toolbar.rs`, `COMPOSER_CONTROLS`). Maximize is desktop-only. Files and links, Summary mode (under
- * View) and Stash prompt are always More actions rows, and Dictate always shows right before Send and
+ * (`toolbar.rs`, `COMPOSER_CONTROLS`). Maximize is desktop-only. Files and Links, Summary mode (under
+ * View) and Stash Prompt are always More actions rows, and Dictate always shows right before Send and
  * never folds (desktop CDXC:SessionChat 2026-10-20). */
 export const COMPOSER_CONTROLS = [
-  { id: 'note', action: 'sessionNote', label: 'Session note', icon: 'titlebar/note.svg' },
+  { id: 'note', action: 'sessionNote', label: 'Note', icon: 'titlebar/note.svg' },
   { id: 'attach', action: 'attachPath', label: 'Attach a file or folder', icon: 'titlebar/paperclip.svg' },
   { id: 'terminal', action: 'terminalView', label: 'Terminal View', icon: 'titlebar/terminal-2.svg' },
 ] as const;
@@ -22,16 +31,6 @@ export const COMPOSER_CONTROLS = [
 export type ComposerControlId = (typeof COMPOSER_CONTROLS)[number]['id'];
 /** A host gate under `composerActions`: the toolbar controls plus the More actions rows they gate. */
 export type ComposerActionId = ComposerControlId | 'summary' | 'stash' | 'dictate';
-
-const HOST_ACTION_ICONS: Record<string, string> = {
-  delayedActions: 'titlebar/clock-check.svg',
-  fork: 'titlebar/git-fork.svg',
-  fullReload: 'titlebar/refresh.svg',
-  rename: 'titlebar/pencil.svg',
-  sleep: 'titlebar/moon.svg',
-  switchAccount: 'titlebar/switch-horizontal.svg',
-  viewPlaybook: 'titlebar/book.svg',
-};
 
 export function overflowed(document: ChatDocument, id: string): boolean {
   return document.composerOverflow?.overflowed?.includes(id) === true || rowFolded(document, id);
@@ -50,13 +49,21 @@ export function terminalIssue(document: ChatDocument): string | null {
 
 export type MoreActionsInput = {
   document: ChatDocument;
+  /** The one session menu (session-menu/layout.ts), whose `phoneChat` spot this menu is. */
+  layout: SessionMenuLayout;
+  /**
+   * The places this chat shares with the long-press menu (Coordinator, Mark Thread Done, Copy, Tag As, Link to…),
+   * filled for its session (`sessionMenuRows` of sidebar-menus.ts `sessionMenuPlaces`); absent while the screen runs
+   * none of them or the session is not known yet.
+   */
+  sessionRows?: (id: string) => MenuRow[];
   /** Controls this composer can draw (the host gates plus what the phone serves). */
   available: (id: ComposerActionId) => boolean;
   /** Whether the screen performs this app-shell action (`NativeComposer`'s `hostActions`). */
   serves: (action: string) => boolean;
-  /** The chat box's text, which Side chat toggles its `/btw ` prefix on. */
+  /** The chat box's text, which Side Chat toggles its `/btw ` prefix on. */
   draft?: string;
-  /** The session's title, for Voice call about this chat's hint (the row shows when `serves('voiceCall')`). */
+  /** The session's title, for Voice Call's hint (the row shows when `serves('voiceCall')`). */
   voiceCallTitle?: string;
   /** A GBot's chat: the GBot's name, the row then being "Call <GBot>" (src/voice/gbotCall.ts). */
   voiceCallGbotName?: string;
@@ -104,7 +111,7 @@ function viewModesRow(document: ChatDocument, summaryAvailable: boolean): MenuRo
       ...(level === 'summary' ? { description: 'Summary view folds more, so it wins while it is on' } : {}),
     });
   }
-  // Auto-read, under the view settings since layout A (CDXC:SessionChat 2026-11-12 above `moreActionsRows`).
+  // Auto-read, under the view settings since layout A (2026-11-12, Q2723), which the one session menu keeps.
   const autoRead = autoReadRow(document);
   if (autoRead !== null) modes.push({ separator: true }, autoRead);
   return {
@@ -134,8 +141,8 @@ function branchesRow(document: ChatDocument): MenuRow | null {
 }
 
 /**
- * Read aloud's Auto-read check, in View, which says why it is quiet during a voice call or dictation. Stop reading
- * is a first-page row of its own while this chat is being read (`moreActionsRows`).
+ * Read aloud's Auto-read check, in View, which says why it is quiet during a voice call or dictation. Stop Reading
+ * is a row of its own while this chat is being read (`moreActionsRows`).
  *
  * CDXC:VoiceMode 2026-10-20 DECISION: User: the Auto-read switch lives in the composer's ⋯ (More actions) menu on both apps; it reads each finished reply of the chat on screen. Its rows show only while the chat's computer has Read aloud on and the phone has a voice (`readAloud.available`).
  */
@@ -273,30 +280,15 @@ export function sendMenuRows({
 
 /**
  * CDXC:SessionChat 2026-11-12 DECISION:
- * User picked layout A of the "phone chat menu cleanup" page (Q2723) for the chat box's ⋯ (More actions), on the phone
- * and the computer, then which rows go (Q2725): "Move send ones under holding send button". The first page holds the
- * rows a phone uses (Attach, Search conversation, Files and links, Voice call, Side chat, Prompt editor, View ›, and
- * Catch me up, Stop reading and a pane's Terminal View when they apply), then three submenus: Agent › (the session's
- * actions, Session note, Branches, Kill session), Project › (Files, Changes, New terminal) and More › (Stash prompt,
- * Skills, and the folded Context window and Options). Auto-read moved into View ›. Interrupt & Send and Compact & Send
- * left for Send's hold menu (`sendMenuRows`); Close After Done and Handoff / Export left (gx-chat-core
- * `composer/host_actions.rs`, which no longer offers them here); Settings and Disconnect left (the Sessions list's ⋯
- * and the tab's ×). Every row, submenu and value row has its own glyph. The computer's menu takes the same shape
- * (desktop `actions.rs` `show_actions`) without the phone-only rows.
+ * User, of the chat's top bar ⋯ menu and the chat box's ⋯ (More actions): "please merge these 2. No need for top 3 dots. The one in chat is enough." The rows only the top bar menu had (the app's own screens and the tab, which the core's `hostActions` do not carry) are More actions rows now, each shown only where the screen performs it (`serves`); the top bar keeps its ⋯ in the terminal view alone, which has no chat box. Settings and Disconnect left.
+ *
+ * CDXC:ContextMenus 2026-11-20 SEE-ALSO: packages/gx-core/src/sidebar_menu/layout.rs, where the user's decision (Q4292,
+ * "Apply as shown") is recorded. This menu is the `phoneChat` spot of the one session menu (session-menu/layout.ts):
+ * the tiles Rename, Files and Links and Side Chat, the chat's own rows, the rows every session menu shares
+ * (Coordinator, Mark Thread Done, Copy, Tag As, from the long-press menu's builders for this chat's session), one More
+ * submenu and Close. It supersedes layout A (2026-11-12, Q2723): the Agent ›, Project › and More › submenus are this one
+ * More, and every row's name and icon are the layout's.
  */
-const AGENT_FIRST = ['rename', 'sleep', 'fork', 'fullReload', 'switchAccount'];
-
-/**
- * CDXC:SessionChat 2026-11-12 DECISION:
- * User, of the chat's top bar ⋯ menu and the chat box's ⋯ (More actions): "please merge these 2. No need for top 3 dots. The one in chat is enough." The rows only the top bar menu had (the app's own screens and the tab, which the core's `hostActions` do not carry) are More actions rows now, each shown only where the screen performs it (`serves`); the top bar keeps its ⋯ in the terminal view alone, which has no chat box. Layout A (above) keeps Files, Changes and New terminal under Project and Kill session under Agent; Settings and Disconnect left.
- */
-
-const SHELL_ICONS: Record<string, string> = {
-  docs: 'titlebar/folder.svg',
-  changes: 'titlebar/file-diff.svg',
-  newTerminal: 'titlebar/terminal.svg',
-  killSession: 'titlebar/axe.svg',
-};
 
 /** A submenu row whose value rows lack a glyph get the given one (the core's option values, a fork's branch). */
 function withIcon(rows: MenuRow[], iconPath: string): MenuRow[] {
@@ -307,198 +299,268 @@ function withIcon(rows: MenuRow[], iconPath: string): MenuRow[] {
   );
 }
 
+/** The layout's icon id as the path this sheet's rows name glyphs by. */
+function iconPathOf(icon: string): string {
+  return `titlebar/${icon}.svg`;
+}
+
+/**
+ * Rows of the long-press menu's builders (screens/sessions-screen/sidebar-menus.ts) as this sheet's rows: each row's
+ * command goes to the screen as the `sessionMenu` host action, which runs it for this chat's session
+ * (screens/terminal-screen/use-session-menu-runner.tsx).
+ */
+export function sessionMenuRows(items: readonly SidebarMenuItem[]): MenuRow[] {
+  return items.map((item): MenuRow => {
+    if (item.separator === true) return { separator: true };
+    if (item.heading === true) return { heading: true, label: item.label ?? '' };
+    const row: MenuRow = {
+      label: item.label ?? '',
+      checked: item.checked,
+      disabled: item.disabled,
+      ...(item.icon !== undefined ? { iconPath: iconPathOf(item.icon) } : {}),
+      ...(item.iconColor !== undefined ? { iconColor: item.iconColor } : {}),
+      ...(item.danger === true ? { destructive: true } : {}),
+      ...(item.suffix !== undefined ? { detail: item.suffix } : {}),
+    };
+    if (item.children !== undefined) return { ...row, children: sessionMenuRows(item.children) };
+    if (item.command !== undefined) return { ...row, command: { type: 'host', action: 'sessionMenu', menuCommand: item.command } };
+    return row;
+  });
+}
+
+/** How this sheet's rows are put together around the layout's places. */
+const CHAT_MENU_MAKE: SessionMenuMake<MenuRow> = {
+  separator: () => ({ separator: true }),
+  tiles: (tiles) => ({ tiles }),
+  more: (label, icon, children) => ({ label, iconPath: iconPathOf(icon), children }),
+  isSeparator: (row) => row.separator === true,
+};
+
+/** The places the chat fills from the long-press menu's builders, for its session (`MoreActionsInput.sessionRows`). */
+const SHARED_PLACES = new Set([
+  'coordinator',
+  'markThreadDone',
+  'copy',
+  'tagAs',
+  'closeAfterDone',
+  'linkTo',
+  'makeCoordinator',
+  'postponeBy',
+  'close',
+]);
+
+/** The chat's host action for a place of the layout, where the two names differ. */
+const HOST_ACTION_FOR: Record<string, string> = {
+  delayedSend: 'delayedActions',
+  files: 'docs',
+};
+
 export function moreActionsRows({
   document,
+  layout,
   available,
   serves,
+  sessionRows,
   draft = '',
   voiceCallTitle = '',
   voiceCallGbotName = '',
   allFolded = false,
   sleeping = false,
 }: MoreActionsInput): MenuRow[] {
-  const rows: MenuRow[] = [];
   const folded = (id: string): boolean => allFolded || overflowed(document, id);
   const actions = document.hostActions ?? [];
-  const hostRow = (action: (typeof actions)[number]): MenuRow =>
-    action.id === 'sleep' && sleeping
-      ? { label: 'Wake', iconPath: 'titlebar/player-play.svg', command: { type: 'host', action: action.id } }
-      : {
-          label: action.label,
-          iconPath: HOST_ACTION_ICONS[action.id] ?? null,
-          command: { type: 'host', action: action.id },
-        };
+  const label = (id: string, alt = false): string => entryLabel(layout, id, alt);
+  const icon = (id: string, alt = false): string => iconPathOf(entryIcon(layout, id, alt));
+  /** A row under the layout's name and icon for `id`, red when the layout says so. */
+  const layoutRow = (id: string, command: MenuRow, extra: MenuRow = {}, alt = false): MenuRow => ({
+    label: label(id, alt),
+    iconPath: icon(id, alt),
+    ...(entryDanger(layout, id) ? { destructive: true } : {}),
+    ...extra,
+    command,
+  });
+  /** A row of an app-shell action the screen performs, when it does. */
+  const hostRow = (id: string, extra: MenuRow = {}, alt = false): MenuRow[] => {
+    const action = HOST_ACTION_FOR[id] ?? id;
+    return serves(action) ? [layoutRow(id, { type: 'host', action }, extra, alt)] : [];
+  };
+  /** A row of a host action the core offers here (gx-chat-core `composer/host_actions.rs`) and the screen performs. */
+  const coreRow = (id: string, alt = false): MenuRow[] => {
+    const action = HOST_ACTION_FOR[id] ?? id;
+    return actions.some((entry) => entry.id === action) ? hostRow(id, {}, alt) : [];
+  };
 
-  // The first page.
-  if (folded('attach') && available('attach')) {
-    rows.push({
-      label: 'Attach a file or folder',
-      iconPath: 'titlebar/paperclip.svg',
-      command: { type: 'composerHost', action: 'attachPath' },
-    });
-  }
-  // The transcript's search bar, which the top bar menu opened before the two menus merged.
-  rows.push({ label: 'Search conversation', iconPath: 'titlebar/search.svg', command: { type: 'searchOpen' } });
-  // Files and links is always here, never a toolbar button (desktop `actions.rs`,
-  // CDXC:FilesAndLinks 2026-10-15 there); it opens as a sheet.
-  if (document.composerActions?.files !== false) {
-    rows.push({
-      label: 'Files and links',
-      iconPath: 'titlebar/link.svg',
-      checked: document.filesLinks?.open === true,
-      command: { type: 'composerHost', action: 'filesLinks' },
-    });
-  }
-  // A voice call about this session (`src/voice/callAbout.ts` has the DECISION).
-  if (serves('voiceCall')) {
-    const chatName = voiceCallTitle.length > 0 ? voiceCallTitle : 'this chat';
-    rows.push({
-      label: voiceCallGbotName.length > 0 ? `Call ${voiceCallGbotName}` : 'Voice call about this chat',
-      iconPath: 'titlebar/headset.svg',
-      description:
-        voiceCallGbotName.length > 0 ? `Talk with ${voiceCallGbotName} about ${chatName}` : `Talk only about ${chatName}`,
-      command: { type: 'host', action: 'voiceCall' },
-    });
-  }
-  // Side chat: offered only for agents that take `/btw` (core `composer/side_chat.rs`).
-  if (typeof document.sideChat === 'string') {
-    rows.push({
-      label: 'Side chat',
-      iconPath: 'titlebar/message-circle.svg',
-      checked: draft.startsWith(document.sideChat),
-      command: { type: 'toggleSideChat', text: draft },
-    });
-  }
-  // Prompt editor writes the next message in a full-screen sheet; the core leaves it out of this menu for the
-  // desktop, whose chat box has its own button, which the phone's has not.
-  if (serves('promptEditor')) {
-    rows.push({ label: 'Prompt editor', iconPath: 'titlebar/edit.svg', command: { type: 'host', action: 'promptEditor' } });
-  }
-  rows.push(viewModesRow(document, available('summary')));
-  // Stop reading, while this chat is being read; Auto-read lives under View.
-  if (document.readAloud?.available === true && document.readAloud.speaking) {
-    rows.push({ label: 'Stop reading', iconPath: 'titlebar/player-stop.svg', command: { type: 'readAloudStop' } });
-  }
-  /**
-   * CDXC:SessionChat 2026-10-17 DECISION:
-   * User: "Move catch me up on mobile to be inside the 3 dots menu above side chat". The phone has no Catch me up button on the composer; this row sends the same action (it opens the card, or closes it when open) whenever the button would have shown. Desktop keeps its button.
-   * Layout A (2026-11-12, above) puts it under View, with the other rows that show only now and then.
-   */
-  if (document.catchUp?.button === true) {
-    rows.push({
-      label: document.catchUp.loading ? 'Catching up…' : 'Catch me up',
-      iconPath: 'titlebar/history.svg',
-      command: { type: 'catchUp' },
-    });
-  }
-  // Terminal View never folds for width on the phone's full chat box (`NativeComposer`), so it is a row only in a
-  // pane's, or where Settings › Experience keeps it off the row; there a terminal problem shows under it, with Copy
-  // Report (CDXC:Experience 2026-11-15 in gx-chat-core composer/row.rs).
-  if ((allFolded || rowFolded(document, 'terminal')) && available('terminal')) {
-    const issue = terminalIssue(document);
-    rows.push({
-      label: 'Terminal View',
-      iconPath: 'titlebar/terminal-2.svg',
-      ...(issue === null ? {} : { description: issue }),
-      command: { type: 'composerHost', action: 'terminalView' },
-    });
-    if (issue !== null) {
-      rows.push({ label: 'Copy Report', iconPath: 'titlebar/copy.svg', command: { type: 'copyReport' } });
-    }
-  }
-  // Agent ›: the session's actions, then the ones about this chat, then Kill session.
-  const sessionRows: MenuRow[] = [];
-  const chatRows: MenuRow[] = [];
-  // Every host action the core offers here (gx-chat-core `composer/host_actions.rs`), the agent's own first.
-  const ordered = [
-    ...AGENT_FIRST.flatMap((id) => actions.filter((action) => action.id === id)),
-    ...actions.filter((action) => !AGENT_FIRST.includes(action.id)),
-  ];
-  for (const action of ordered) {
-    const into = AGENT_FIRST.includes(action.id) ? sessionRows : chatRows;
-    if (action.id === 'switchAccount') {
-      // Desktop's rule (actions.rs, a user decision there): Claude and Codex sessions open the
-      // Accounts & limits panel; other agents keep the daemon's switchable-agent rows.
-      if (obj(document.accountPanel) !== null) {
-        into.push({
-          label: 'Switch Account',
-          iconPath: HOST_ACTION_ICONS.switchAccount,
-          children: [{ accounts: document.accountPanel }],
-        });
-        continue;
+  const fill = (id: string): MenuRow[] => {
+    if (SHARED_PLACES.has(id)) return sessionRows === undefined ? [] : sessionRows(id);
+    switch (id) {
+      case 'rename':
+      case 'fork':
+      case 'fullReload':
+      case 'delayedSend':
+        return coreRow(id);
+      case 'sleep':
+        // The session sleeps: the core's Sleep row reads Wake, as the sidebar's does.
+        return coreRow(id, sleeping);
+      case 'filesLinks':
+        // Files and Links is always here, never a toolbar button (desktop `actions.rs`, CDXC:FilesAndLinks
+        // 2026-10-15 there); it opens as a sheet.
+        return document.composerActions?.files !== false
+          ? [
+              layoutRow(
+                id,
+                { type: 'composerHost', action: 'filesLinks' },
+                { checked: document.filesLinks?.open === true },
+              ),
+            ]
+          : [];
+      case 'sideChat':
+        // Side Chat: offered only for agents that take `/btw` (core `composer/side_chat.rs`).
+        return typeof document.sideChat === 'string'
+          ? [layoutRow(id, { type: 'toggleSideChat', text: draft }, { checked: draft.startsWith(document.sideChat) })]
+          : [];
+      case 'chatToolbar': {
+        // The toolbar controls folded off the chat box, in their own words (`COMPOSER_CONTROLS`).
+        const rows: MenuRow[] = [];
+        if (folded('attach') && available('attach')) {
+          rows.push({
+            label: 'Attach a file or folder',
+            iconPath: 'titlebar/paperclip.svg',
+            command: { type: 'composerHost', action: 'attachPath' },
+          });
+        }
+        // Terminal View never folds for width on the phone's full chat box (`NativeComposer`), so it is a row only in a
+        // pane's, or where Settings › Experience keeps it off the row; there a terminal problem shows under it, with
+        // Copy Report (CDXC:Experience 2026-11-15 in gx-chat-core composer/row.rs).
+        if ((allFolded || rowFolded(document, 'terminal')) && available('terminal')) {
+          const issue = terminalIssue(document);
+          rows.push({
+            label: 'Terminal View',
+            iconPath: 'titlebar/terminal-2.svg',
+            ...(issue === null ? {} : { description: issue }),
+            command: { type: 'composerHost', action: 'terminalView' },
+          });
+          if (issue !== null) {
+            rows.push({ label: 'Copy Report', iconPath: 'titlebar/copy.svg', command: { type: 'copyReport' } });
+          }
+        }
+        return rows;
       }
-      if (!serves('switchAccount')) continue;
-      const accounts = arr(document.switchableAgents).map((account) => ({
-        label: str(account, 'name'),
-        icon: str(account, 'icon'),
-        command: { type: 'host', action: 'switchAccount', agentId: obj(account)?.agentId ?? null },
-      }));
-      if (accounts.length > 0)
-        into.push({ label: 'Switch Account', iconPath: HOST_ACTION_ICONS.switchAccount, children: accounts });
-    } else if (serves(action.id)) {
-      into.push(hostRow(action));
+      case 'view':
+        return [{ ...viewModesRow(document, available('summary')), label: label(id), iconPath: icon(id) }];
+      case 'stopReading':
+        // Stop Reading, while this chat is being read; Auto-read lives under View.
+        return document.readAloud?.available === true && document.readAloud.speaking
+          ? [layoutRow(id, { type: 'readAloudStop' })]
+          : [];
+      case 'searchConversation':
+        // The transcript's search bar, which the top bar menu opened before the two menus merged.
+        return [layoutRow(id, { type: 'searchOpen' })];
+      case 'switchAccount': {
+        if (!actions.some((action) => action.id === 'switchAccount')) return [];
+        // Desktop's rule (actions.rs, a user decision there): Claude and Codex sessions open the
+        // Accounts & limits panel; other agents keep the daemon's switchable-agent rows.
+        if (obj(document.accountPanel) !== null) {
+          return [{ label: label(id), iconPath: icon(id), children: [{ accounts: document.accountPanel }] }];
+        }
+        if (!serves('switchAccount')) return [];
+        const accounts = arr(document.switchableAgents).map((account) => ({
+          label: str(account, 'name'),
+          icon: str(account, 'icon'),
+          command: { type: 'host', action: 'switchAccount', agentId: obj(account)?.agentId ?? null },
+        }));
+        return accounts.length > 0 ? [{ label: label(id), iconPath: icon(id), children: accounts }] : [];
+      }
+      case 'note': {
+        /**
+         * CDXC:SessionChat 2026-10-29 DECISION:
+         * User, on the terminal view's More actions menu matching the chat's (Q729, "Yes, add it"): the chat's More actions menu gets a Session note row after Close After Done, with the same "1" badge when a note exists, on the computer and the phone. The note toolbar button is never offered (the core's `composerActions.note` is off), so this row is the only way in unless the control folded here itself.
+         * Here it opens the chat's own note panel, the one the terminal view's menu opens on the phone; the computer opens the same note dialog the terminal row opens (desktop `actions.rs`). Since 2026-11-20 it is the layout's Note, in More.
+         */
+        // The screen lists `sessionNote` among its actions only while the computer has Session notes on
+        // (`sessions/sessionNotesSwitch.ts`; CDXC:SessionNotes 2026-10-30).
+        const noteFolded = folded('note') && available('note');
+        if (!((serves('sessionNote') && document.composerActions?.files !== false) || noteFolded)) return [];
+        return [
+          layoutRow(
+            id,
+            { type: 'composerHost', action: 'sessionNote' },
+            { ...(document.composerChrome.notePresence ? { badge: '1' } : {}), checked: document.note.open },
+          ),
+        ];
+      }
+      case 'export':
+        // The chat's own Handoff / Export dialog (NativeChatScreen), on the sessions the long-press menu offers it for.
+        return (sessionRows === undefined || sessionRows('export').length > 0) && serves('exportTranscript')
+          ? [layoutRow(id, { type: 'host', action: 'exportTranscript' })]
+          : [];
+      case 'branches': {
+        const branches = branchesRow(document);
+        return branches === null ? [] : [{ ...branches, label: label(id), iconPath: icon(id) }];
+      }
+      case 'voiceCall': {
+        // A voice call about this session (`src/voice/callAbout.ts` has the DECISION).
+        if (!serves('voiceCall')) return [];
+        const chatName = voiceCallTitle.length > 0 ? voiceCallTitle : 'this chat';
+        return [
+          layoutRow(
+            id,
+            { type: 'host', action: 'voiceCall' },
+            {
+              ...(voiceCallGbotName.length > 0 ? { label: `Call ${voiceCallGbotName}` } : {}),
+              description:
+                voiceCallGbotName.length > 0
+                  ? `Talk with ${voiceCallGbotName} about ${chatName}`
+                  : `Talk only about ${chatName}`,
+            },
+          ),
+        ];
+      }
+      case 'promptEditor':
+        // Prompt Editor writes the next message in a full-screen sheet; the core leaves it out of this menu for the
+        // desktop, whose chat box has its own button, which the phone's has not.
+        return hostRow(id);
+      case 'catchUp':
+        /**
+         * CDXC:SessionChat 2026-10-17 DECISION:
+         * User: "Move catch me up on mobile to be inside the 3 dots menu above side chat". The phone has no Catch me up button on the composer; this row sends the same action (it opens the card, or closes it when open) whenever the button would have shown. Desktop keeps its button.
+         * The one session menu (2026-11-20) puts it in More.
+         */
+        return document.catchUp?.button === true
+          ? [layoutRow(id, { type: 'catchUp' }, document.catchUp.loading ? { label: 'Catching up…' } : {})]
+          : [];
+      case 'files':
+      case 'changes':
+      case 'newTerminal':
+      case 'killSession':
+        return hostRow(id);
+      case 'stashPrompt': {
+        // Stash Prompt stashes the draft, or opens Saved prompts from an empty chat box (actions.rs
+        // `stash_menu_row`). The stash count is the row's `badge`, a circle after the label (user, 2026-10-22).
+        if (!available('stash')) return [];
+        const stashed = document.composerChrome.stashBadge;
+        return [
+          layoutRow(id, { type: 'composerHost', action: 'stashPrompt' }, stashed !== null ? { badge: stashed } : {}),
+        ];
+      }
+      case 'skills':
+        return [{ ...skillsRow(document), label: label(id), iconPath: icon(id) }];
+      case 'chatOptions':
+        return chatOptionRows(document, allFolded);
+      default:
+        return [];
     }
-  }
-  /**
-   * CDXC:SessionChat 2026-10-29 DECISION:
-   * User, on the terminal view's More actions menu matching the chat's (Q729, "Yes, add it"): the chat's More actions menu gets a Session note row after Close After Done, with the same "1" badge when a note exists, on the computer and the phone. The note toolbar button is never offered (the core's `composerActions.note` is off), so this row is the only way in unless the control folded here itself.
-   * Here it opens the chat's own note panel, the one the terminal view's menu opens on the phone; the computer opens the same note dialog the terminal row opens (desktop `actions.rs`). Layout A (2026-11-12) puts it under Agent.
-   */
-  // The screen lists `sessionNote` among its actions only while the computer has Session notes on
-  // (`sessions/sessionNotesSwitch.ts`; CDXC:SessionNotes 2026-10-30).
-  const noteFolded = folded('note') && available('note');
-  if ((serves('sessionNote') && document.composerActions?.files !== false) || noteFolded) {
-    chatRows.push({
-      label: 'Session note',
-      iconPath: 'titlebar/note.svg',
-      ...(document.composerChrome.notePresence ? { badge: '1' } : {}),
-      checked: document.note.open,
-      command: { type: 'composerHost', action: 'sessionNote' },
-    });
-  }
-  const branches = branchesRow(document);
-  if (branches !== null) chatRows.push(branches);
-  const killRows: MenuRow[] = serves('killSession')
-    ? [
-        {
-          label: 'Kill session',
-          iconPath: SHELL_ICONS.killSession,
-          destructive: true,
-          command: { type: 'host', action: 'killSession' },
-        },
-      ]
-    : [];
-  const agentRows = [sessionRows, chatRows, killRows]
-    .filter((group) => group.length > 0)
-    .flatMap((group, index) => (index === 0 ? group : [{ separator: true }, ...group]));
+  };
+  return assembleSessionMenu(layout, 'phoneChat', fill, CHAT_MENU_MAKE);
+}
 
-  // Project ›: the project's own screens and a new terminal.
-  const projectRows: MenuRow[] = [
-    { id: 'docs', label: 'Files' },
-    { id: 'changes', label: 'Changes' },
-    { id: 'newTerminal', label: 'New terminal' },
-  ]
-    .filter((row) => serves(row.id))
-    .map((row) => ({ label: row.label, iconPath: SHELL_ICONS[row.id], command: { type: 'host', action: row.id } }));
-
-  // More ›: Stash prompt, Skills, then the option settings when they fold here.
-  const moreRows: MenuRow[] = [];
-  // Stash prompt stashes the draft, or opens Saved prompts from an empty chat box (actions.rs
-  // `stash_menu_row`). The stash count is the row's `badge`, a circle after the label (user, 2026-10-22).
-  if (available('stash')) {
-    const stashed = document.composerChrome.stashBadge;
-    moreRows.push({
-      label: 'Stash prompt',
-      iconPath: 'titlebar/stack-push.svg',
-      ...(stashed !== null ? { badge: stashed } : {}),
-      command: { type: 'composerHost', action: 'stashPrompt' },
-    });
-  }
-  moreRows.push(skillsRow(document));
+/**
+ * The option settings, when they fold here because the core says they overflow or the composer draws none of them;
+ * then only where there is one to show, as the core's `hasOverflowOptions` has it.
+ */
+function chatOptionRows(document: ChatDocument, allFolded: boolean): MenuRow[] {
+  const rows: MenuRow[] = [];
   const labels = obj(document.optionLabels);
   const merged = obj(document.modelMenu) !== null;
-  // The option settings fold here when the core says they overflow, or when the composer draws none of them; then
-  // only where there is one to show, as the core's `hasOverflowOptions` has it.
   // CDXC:SessionDetails 2026-11-12 DECISION: the Context window row and its sheet went where Session details carries
   // the context (its first tab's Context card and its second tab's details, `SessionDetailsSheet.tsx`); a computer too
   // old to send Session details keeps them.
@@ -510,7 +572,7 @@ export function moreActionsRows({
   const ringOff = document.composerRow?.hideContextRing === true;
   if (optionsFolded || ringOff) {
     if (contextRow) {
-      moreRows.push({
+      rows.push({
         label: 'Context window',
         iconPath: 'titlebar/circle-half.svg',
         detail: str(document.contextMeter, 'percentage'),
@@ -518,7 +580,7 @@ export function moreActionsRows({
       });
     }
     if (optionsFolded && isTrue(labels, 'showOptions') && !merged) {
-      moreRows.push({
+      rows.push({
         label: str(labels, 'optionsTitle') || 'Options',
         iconPath: 'titlebar/adjustments-horizontal.svg',
         detail: str(labels, 'options'),
@@ -527,12 +589,7 @@ export function moreActionsRows({
       });
     }
   }
-
-  const submenus: MenuRow[] = [];
-  if (agentRows.length > 0) submenus.push({ label: 'Agent', iconPath: 'titlebar/robot.svg', children: agentRows });
-  if (projectRows.length > 0) submenus.push({ label: 'Project', iconPath: 'titlebar/folders.svg', children: projectRows });
-  submenus.push({ label: 'More', iconPath: 'titlebar/dots.svg', children: moreRows });
-  return [...rows, { separator: true }, ...submenus];
+  return rows;
 }
 
 /** A pill's menu (`show_option_menu`): the document's rows. */

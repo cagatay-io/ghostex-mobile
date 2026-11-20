@@ -2,12 +2,15 @@
  * The chat's row menus on the phone: More actions, the option pills' menus, the attach sheet. Rows
  * have the shape desktop's `show_chat_menu` draws (`option_menu/render.rs`): `heading`,
  * `separator`, `label` + `description` / `detail` / `badge` (a count circle after the label), `checked`, `disabled`, `destructive` (label and glyph in the error colour), `iconPath`, `icon` (an
- * agent mark), a `command` to run, `children` for a submenu (a pushed page here), and the two
- * panel rows `accounts` (the Accounts & limits panel) and `context` (the context window panel).
+ * agent mark), a `command` to run, `children` for a submenu (a pushed page here), the two
+ * panel rows `accounts` (the Accounts & limits panel) and `context` (the context window panel), and `tiles`, the quick
+ * row of the one session menu (session-menu/layout.ts): its rows side by side, each an icon over a label of up to two
+ * lines. A row may also carry `iconColor` (a tag's colour), and an icon id this file has no glyph for is drawn from the
+ * session menus' shared map (session-menu/glyphs.tsx).
  */
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 import { AGENT_ICONS } from '../../../assets/agentIcons.generated';
 import { AccountsPanel } from './AccountsPanel';
@@ -16,6 +19,7 @@ import { Glyph, type GlyphName } from './icons';
 import { arr, isTrue, obj, str } from './json';
 import { themedStyles, useTranscriptTheme, type TranscriptTheme } from '../transcript/theme';
 import { Sheet } from './Sheet';
+import { sessionMenuIcon } from '../../../session-menu/glyphs';
 
 export type MenuRow = { [key: string]: unknown };
 
@@ -246,6 +250,7 @@ export function MenuRowView({
   const styles = useStyles();
   const P = useTranscriptTheme();
   if (isTrue(row, 'separator')) return <View style={styles.separator} />;
+  if (Array.isArray(row.tiles)) return <MenuTilesView tiles={rowsOf(row.tiles)} onRun={onRun} onOpen={onOpen} />;
   const accounts = obj(row.accounts);
   if (accounts !== null) return <AccountsPanel panel={accounts} onCommand={(command, keep) => onRun(command, keep)} />;
   const context = obj(row.context);
@@ -269,6 +274,7 @@ export function MenuRowView({
   const detail = typeof row.detail === 'string' ? row.detail : '';
   const badge = str(row, 'badge');
   const glyph = glyphForIconPath(row.iconPath);
+  const sharedIcon = menuRowSharedIcon(row, glyph, destructive ? P.error : P.primary, 17);
   // A trigger character (`/`, `@`, `+`) in the icon's place: the key that opens the picker.
   const character = str(row, 'character');
   const AgentIcon = typeof row.icon === 'string' ? AGENT_ICONS[row.icon] : undefined;
@@ -290,6 +296,8 @@ export function MenuRowView({
         <Text style={styles.character} accessibilityElementsHidden importantForAccessibility="no">
           {character}
         </Text>
+      ) : sharedIcon !== undefined ? (
+        sharedIcon
       ) : glyph !== null ? (
         <Glyph name={glyph} size={17} color={destructive ? P.error : P.primary} />
       ) : AgentIcon !== undefined ? (
@@ -321,6 +329,82 @@ export function MenuRowView({
       {checked ? <Glyph name="check" size={17} color={P.foreground} /> : null}
       {children !== null ? <Glyph name="chevron-right" size={16} color={P.muted} /> : null}
     </Pressable>
+  );
+}
+
+/**
+ * The glyph of a row whose icon this file cannot draw, or a tag row (its colour and its tag's glyph), from the session
+ * menus' shared map; undefined leaves the row to this file's own glyphs.
+ */
+function menuRowSharedIcon(row: MenuRow, glyph: GlyphName | null, color: string, size: number): ReactNode | undefined {
+  const iconColor = typeof row.iconColor === 'string' ? row.iconColor : undefined;
+  if (glyph !== null && iconColor === undefined) return undefined;
+  if (typeof row.iconPath !== 'string') return undefined;
+  const name = row.iconPath.replace(/^.*\//u, '').replace(/\.svg$/u, '');
+  return sessionMenuIcon(name, { size, color, ...(iconColor !== undefined ? { iconColor } : {}) });
+}
+
+/**
+ * From this font scale on, the tiles show their icons only, as the session card's quick row does
+ * (components/sessions/ContextMenu.tsx `QUICK_ICONS_ONLY_FONT_SCALE`); VoiceOver and TalkBack still read each label.
+ */
+const TILES_ICONS_ONLY_FONT_SCALE = 1.3;
+
+/** The quick row of tiles (Rename, Files and Links, Side Chat…): side by side, an icon over a label of up to two lines. */
+function MenuTilesView({
+  tiles,
+  onRun,
+  onOpen,
+}: {
+  tiles: MenuRow[];
+  onRun: (command: MenuRow, keepOpen: boolean) => void;
+  onOpen: (page: Page) => void;
+}) {
+  const styles = useStyles();
+  const P = useTranscriptTheme();
+  const { fontScale } = useWindowDimensions();
+  const iconsOnly = fontScale >= TILES_ICONS_ONLY_FONT_SCALE;
+  return (
+    <View style={styles.tiles}>
+      {tiles.map((tile, index) => {
+        const label = str(tile, 'label');
+        const children = Array.isArray(tile.children) ? (tile.children as MenuRow[]) : null;
+        const command = obj(tile.command);
+        const disabled = isTrue(tile, 'disabled') || (children === null && command === null);
+        const checked = tile.checked === true;
+        const glyph = glyphForIconPath(tile.iconPath);
+        const icon =
+          menuRowSharedIcon(tile, glyph, P.primary, 18) ??
+          (glyph !== null ? <Glyph name={glyph} size={18} color={P.primary} /> : null);
+        return (
+          <Pressable
+            key={`${index}:${label}`}
+            accessibilityRole="menuitem"
+            accessibilityState={{ disabled, checked }}
+            accessibilityLabel={label}
+            disabled={disabled}
+            onPress={() => {
+              if (children !== null) onOpen({ title: label, rows: children });
+              else if (command !== null) onRun(command, isTrue(tile, 'keepOpen'));
+            }}
+            style={({ pressed }) => [
+              styles.tile,
+              iconsOnly ? styles.tileIconOnly : null,
+              checked ? styles.tileChecked : null,
+              pressed ? styles.tilePressed : null,
+              disabled ? styles.rowDisabled : null,
+            ]}
+          >
+            {icon}
+            {iconsOnly ? null : (
+              <Text style={styles.tileLabel} numberOfLines={2}>
+                {label}
+              </Text>
+            )}
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 
@@ -369,6 +453,24 @@ const useStyles = themedStyles((P) => ({
     borderRadius: 10,
   },
   rowPressed: { backgroundColor: P.controlPressed },
+  // The quick row, styled like the session card's (components/sessions/ContextMenu.tsx `quickRow`).
+  tiles: { flexDirection: 'row', gap: 6, paddingHorizontal: 4, paddingTop: 2, paddingBottom: 6 },
+  tile: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingTop: 10,
+    paddingBottom: 8,
+    paddingHorizontal: 4,
+    borderRadius: 10,
+    backgroundColor: P.controlPressed,
+  },
+  tileIconOnly: { paddingVertical: 12 },
+  tileChecked: { borderWidth: StyleSheet.hairlineWidth, borderColor: P.menuBorder },
+  tilePressed: { opacity: 0.7 },
+  tileLabel: { color: P.foreground, fontSize: 12, lineHeight: 15, textAlign: 'center' },
   rowDisabled: { opacity: 0.45 },
   rowText: { flex: 1, minWidth: 0, gap: 2 },
   label: { color: P.foreground, fontSize: 15 },

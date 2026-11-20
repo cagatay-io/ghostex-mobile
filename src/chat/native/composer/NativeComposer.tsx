@@ -36,9 +36,13 @@ import { Glyph, type GlyphName } from './icons';
 import { Glyph as CardGlyph } from '../cards/icons';
 import { attachIntakeImages } from './imageIntake';
 import { isTrue, obj, str, type JsonRecord } from './json';
+import { useInventoryStore } from '../../../inventory/store';
+import { loadSessionMenuLayout } from '../../../session-menu/layout';
+import { sessionMenuInputFromSummary, sessionMenuPlaces } from '../../../screens/sessions-screen/sidebar-menus';
 import {
   COMPOSER_CONTROLS,
   moreActionsRows,
+  sessionMenuRows,
   optionMenuRows,
   overflowed,
   rowFolded,
@@ -115,7 +119,7 @@ export type NativeComposerProps = {
    * held-messages card's Pick model). Each new value opens what a tap on the model pill opens; 0 opens nothing.
    */
   openModelRequestId?: number;
-  /** The session's title, for the More actions row "Voice call about this chat" (shown when `voiceCall` is served). */
+  /** The session's title, for the More actions row Voice Call's hint (shown when `voiceCall` is served). */
   voiceCallTitle?: string;
   /** A GBot's chat: the GBot's name, that row then being "Call <GBot>". */
   voiceCallGbotName?: string;
@@ -724,22 +728,58 @@ export function NativeComposer({
     });
   }, [dictation, machineLabel, voiceInMic, voiceLit]);
 
+  /**
+   * More actions: the `phoneChat` spot of the one session menu (session-menu/layout.ts), which a menu opened before the
+   * chat core answered waits for. Its shared places are the long-press menu's rows for this chat's session, run by the
+   * screen (`sessionMenu`).
+   */
   const openMore = useCallback(() => {
     if (document === null) return;
-    setMenu({
-      kind: 'rows',
-      rows: moreActionsRows({
-        document,
-        available,
-        serves,
-        draft: model?.text ?? '',
-        voiceCallTitle,
-        voiceCallGbotName,
-        allFolded: compact,
-        sleeping,
-      }),
-    });
-  }, [available, compact, document, model, serves, sleeping, voiceCallGbotName, voiceCallTitle]);
+    const machineId = chat.machine?.id ?? null;
+    void loadSessionMenuLayout()
+      .then((layout) => {
+        const summary =
+          machineId === null ? null : useInventoryStore.getState().inventoriesByMachineId[machineId]?.summary;
+        const session = summary?.sessions.find((entry) => entry.sessionId === sessionId) ?? null;
+        const places =
+          session !== null && serves('sessionMenu')
+            ? sessionMenuPlaces(sessionMenuInputFromSummary(summary, session), layout)
+            : null;
+        setMenu({
+          kind: 'rows',
+          rows: moreActionsRows({
+            document,
+            layout,
+            available,
+            serves,
+            ...(places !== null ? { sessionRows: (id: string) => sessionMenuRows(places(id)) } : {}),
+            draft: model?.text ?? '',
+            voiceCallTitle,
+            voiceCallGbotName,
+            allFolded: compact,
+            sleeping,
+          }),
+        });
+      })
+      .catch((error: unknown) =>
+        host('toast', {
+          message: `More actions could not load: ${error instanceof Error ? error.message : String(error)}`,
+          level: 'error',
+        }),
+      );
+  }, [
+    available,
+    chat.machine,
+    compact,
+    document,
+    host,
+    model,
+    serves,
+    sessionId,
+    sleeping,
+    voiceCallGbotName,
+    voiceCallTitle,
+  ]);
 
   /**
    * Send held: the `/` `@` `+` pickers, then Queue (Interrupt & Send while the agent works, Compact & Send while

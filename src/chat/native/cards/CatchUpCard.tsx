@@ -31,7 +31,7 @@ export function CatchUpCard({
   const header = (
     <View style={styles.header}>
       <Glyph name="sparkles" size={14} color={P.primary} />
-      <Text style={styles.title}>Catch me up</Text>
+      <Text style={styles.title}>Catch Me Up</Text>
       {catchUp.loading ? <Text style={styles.status}>Reading the session…</Text> : null}
     </View>
   );

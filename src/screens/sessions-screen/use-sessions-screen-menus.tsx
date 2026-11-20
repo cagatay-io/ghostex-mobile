@@ -159,6 +159,7 @@ import {
 } from './CoordinatorDetailsSheet';
 import { parseWorkLinkCandidates, type WorkLinkCandidates } from './work-link-picker';
 import { sidebarMenuView } from './sidebar-menu-view';
+import { retrySessionMenuLayout, useSessionMenuLayout } from '../../session-menu/layout';
 import { chatMachineLink } from '../../chat/rust/machine-link';
 import { callVoiceAbout } from '../../voice/callAbout';
 import { VOICE_SUPPORTED } from '../../voice/conversation';
@@ -270,6 +271,9 @@ export function useSessionsScreenMenus({
   setTransientStatus,
   snoozeSession,
 }: SessionsScreenMenusDeps) {
+  // The one session menu's layout, from the chat core (session-menu/layout.ts); the screen draws again once it arrives.
+  const sessionMenuLayout = useSessionMenuLayout();
+
   // Desktop-parity context menus ---------------------------------------------
 
   const summaryFor = (machineId: string) =>
@@ -895,6 +899,9 @@ export function useSessionsScreenMenus({
           void resolveCoordinatorThread(machine, ctx.item.session, menuCommand.action === 'markDone');
           return;
         }
+        case 'host':
+          // Only the terminal's ⋯ makes these rows (components/terminal/TerminalMenu.tsx).
+          return;
         case 'projectMembership': {
           const ctx = scope.project;
           if (ctx === undefined) throw new Error('A project group change needs a project.');
@@ -923,36 +930,48 @@ export function useSessionsScreenMenus({
     ctx: SessionContext,
     menuPath: readonly string[],
   ): { subtitle: string; items: ContextMenuItem[] } => {
+    const { layout } = sessionMenuLayout;
+    if (layout === null) {
+      // Opened before the chat core answered: the menu waits for its layout rather than drawing another list (and asks
+      // again, outside this render, when the last ask failed).
+      setTimeout(retrySessionMenuLayout, 0);
+      const label =
+        sessionMenuLayout.error === null ? 'Loading…' : `The menu could not load: ${sessionMenuLayout.error}`;
+      return { subtitle: ctx.item.projectTitle, items: [{ kind: 'note', key: 'session-menu-layout', label }] };
+    }
     const actionsProject = ctx.unified === true ? sessionProjectContext(ctx) : null;
     const actionsEntry = actionsProject === null ? null : actionsEntryOf(actionsProject);
-    const menu = buildSessionMenu({
-      session: ctx.item.session,
-      capabilities: ctx.item.capabilities,
-      customTags: summaryFor(ctx.machine.id)?.customSessionTags ?? EMPTY_CUSTOM_SESSION_TAGS,
-      below: sessionsBelow(ctx),
-      threads: ctx.item.session.isCoordinator
-        ? (summaryFor(ctx.machine.id)?.sessions ?? []).filter(
-            (thread) =>
-              thread.coordinatorProjectId === ctx.item.session.projectId &&
-              thread.coordinatorSessionId === ctx.item.session.sessionId,
-          )
-        : [],
-      project:
-        summaryFor(ctx.machine.id)?.projects.find((project) => project.projectId === ctx.item.session.projectId) ??
-        null,
-      voiceCall:
-        VOICE_SUPPORTED &&
-        chatMachineLink(ctx.machine).capabilities()?.includes('voiceAgent') === true &&
-        voiceAgentOnFor(ctx.machine.id),
-      sessionNotes: sessionNotesOnIn(summaryFor(ctx.machine.id)),
-      beads: beadsOnIn(summaryFor(ctx.machine.id)),
-      // Both lists offer Snooze, as both desktop sidebars do (the Project list's Snoozed section, contract/grouping.ts).
-      snooze: true,
-      tagListItems: summaryFor(ctx.machine.id)?.sessionTagListItems,
-      parking: summaryFor(ctx.machine.id)?.enableSessionParking !== false,
-      actionsIcon:
-        actionsEntry === null ? undefined : actionsEntry.action.actionType === 'browser' ? 'world' : 'player-play',
-    });
+    const menu = buildSessionMenu(
+      {
+        session: ctx.item.session,
+        capabilities: ctx.item.capabilities,
+        customTags: summaryFor(ctx.machine.id)?.customSessionTags ?? EMPTY_CUSTOM_SESSION_TAGS,
+        below: sessionsBelow(ctx),
+        threads: ctx.item.session.isCoordinator
+          ? (summaryFor(ctx.machine.id)?.sessions ?? []).filter(
+              (thread) =>
+                thread.coordinatorProjectId === ctx.item.session.projectId &&
+                thread.coordinatorSessionId === ctx.item.session.sessionId,
+            )
+          : [],
+        project:
+          summaryFor(ctx.machine.id)?.projects.find((project) => project.projectId === ctx.item.session.projectId) ??
+          null,
+        voiceCall:
+          VOICE_SUPPORTED &&
+          chatMachineLink(ctx.machine).capabilities()?.includes('voiceAgent') === true &&
+          voiceAgentOnFor(ctx.machine.id),
+        sessionNotes: sessionNotesOnIn(summaryFor(ctx.machine.id)),
+        beads: beadsOnIn(summaryFor(ctx.machine.id)),
+        // Both lists offer Snooze, as both desktop sidebars do (the Project list's Snoozed section, contract/grouping.ts).
+        snooze: true,
+        tagListItems: summaryFor(ctx.machine.id)?.sessionTagListItems,
+        parking: summaryFor(ctx.machine.id)?.enableSessionParking !== false,
+        actionsIcon:
+          actionsEntry === null ? undefined : actionsEntry.action.actionType === 'browser' ? 'world' : 'player-play',
+      },
+      layout,
+    );
     const view = sidebarMenuView(
       menu,
       menuPath,

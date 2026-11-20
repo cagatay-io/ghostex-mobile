@@ -771,7 +771,9 @@ export default function NativeChatScreen({
 const NO_HOST_ACTIONS: readonly string[] = [];
 
 /** The More actions rows (once the top bar menu's) whose action presents a dialog or an alert over the chat. */
-const OPENS_OVER_SHEET = new Set(['promptEditor', 'disconnect', 'killSession']);
+// `sessionMenu`: the rows shared with the long-press menu, which open alerts and sheets of the screen
+// (screens/terminal-screen/use-session-menu-runner.tsx).
+const OPENS_OVER_SHEET = new Set(['promptEditor', 'disconnect', 'killSession', 'sessionMenu']);
 
 /**
  * The composer's model sheet while a question takes the composer's place: the held-messages card's Pick model

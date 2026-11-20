@@ -6,15 +6,13 @@
  * `projectMembership`). Nothing here draws or runs anything; the renderer is
  * ./sidebar-menu-view.tsx and the commands run in ./use-sessions-screen-menus.tsx.
  *
- * CDXC:ContextMenus 2026-09-25 DECISION:
- * User 2026-09-25: "please make the react native session list context menu match the gpui one".
- * The session menu is a port of `full_menu` in packages/gx-core/src/sidebar_menu/session.rs, row
- * for row: same items, order, labels, icons, headings, separators, submenus and danger rows. An
- * item the phone cannot run (no `ghostex` verb for it, or it acts on the computer's own screen) is
- * left out rather than drawn dead; the phone-only rows the old menu had (Attach, Chat, Copy attach
- * command, Details) are gone because the desktop menu has none of them. When the phone gets
- * gx-core through UniFFI, the two builders below are replaced by the core's output and the
- * renderer and the command runner stay.
+ * CDXC:ContextMenus 2026-11-20 SEE-ALSO: packages/gx-core/src/sidebar_menu/layout.rs, where the user's decision
+ * (Q4292, "Apply as shown") is recorded. The session menu is no longer a row-for-row port of the desktop's: its order,
+ * grouping, names and icons are the `phoneRow` spot of that one list, read from the chat core (session-menu/layout.ts),
+ * and this file only fills each of its places with the phone's rows (`sessionMenuPlaces`), the same way gx-core
+ * `full_menu` fills the desktop's `sidebar` spot. An item the phone cannot run (no `ghostex` verb for it, or it acts on
+ * the computer's own screen) fills nothing rather than being drawn dead. The chat's ⋯ and the terminal's ⋯ fill their
+ * shared places (Coordinator, Copy, Tag As, Link to…) from the same builders for their session.
  *
  * SEE-ALSO: packages/gx-core/src/sidebar_menu/{session,project,membership,capabilities,copy,clipboard}.rs,
  * packages/gx-core/src/sidebar_view/tags.rs (the default tag list).
@@ -23,8 +21,11 @@
 import { SNOOZE_PRESETS, type SnoozePreset } from '../../contract/unified/snooze';
 import {
   displayStatus,
+  EMPTY_CUSTOM_SESSION_TAGS,
   hasQuestion,
+  NO_SUMMARY_CAPABILITIES,
   type GhostexCustomSessionTags,
+  type GhostexMobileSummary,
   type GhostexProject,
   type GhostexProjectCollection,
   type GhostexSession,
@@ -38,6 +39,16 @@ import type { SessionWorkLinks, WorkLinkKind } from '../../commands/ghostexCli';
 import { enabledVisibleTagIds } from '../../contract/sessionTagList';
 import { effectiveSessionTag, SESSION_TAG_SECTIONS } from '../../contract/sessionTags';
 import { FORK_AGENT_ICONS, isCoordinatorAgent } from '../../sessions/sessionCommands';
+import { sessionNotesOnIn } from '../../sessions/sessionNotesSwitch';
+import { beadsOnIn } from '../../beads/featureSwitch';
+import {
+  assembleSessionMenu,
+  entryDanger,
+  entryIcon,
+  entryLabel,
+  type SessionMenuLayout,
+  type SessionMenuMake,
+} from '../../session-menu/layout';
 
 // ---------------------------------------------------------------------------
 // The menu shape (gx-core `MenuItem` JSON and `MenuCommand` payloads).
@@ -105,7 +116,9 @@ export type SidebarMenuCommand =
       groupId: string;
       action: 'createCollection' | 'moveCollection';
       collectionId?: string;
-    };
+    }
+  /** A row the screen drawing the menu performs itself (the terminal ⋯'s own rows, components/terminal/TerminalMenu.tsx). */
+  | { type: 'host'; action: string };
 
 /** One menu row: a label with an action, a submenu, a heading, or a separator. */
 export type SidebarMenuItem = {
@@ -128,6 +141,8 @@ export type SidebarMenuItem = {
   /** A row of icon buttons across the menu, each an action row of its own (gx-core `MenuItem::quick_row`). */
   quick?: SidebarMenuItem[];
   command?: SidebarMenuCommand;
+  /** Where the screen draws rows of its own (a layout's host place, `sidebarMenuView`'s `hostSlots`). */
+  hostSlot?: string;
 };
 
 function row(label: string, icon: string, command: SidebarMenuCommand): SidebarMenuItem {
@@ -140,10 +155,6 @@ function submenu(label: string, icon: string, children: SidebarMenuItem[]): Side
 
 function separator(): SidebarMenuItem {
   return { separator: true, checked: false, disabled: false };
-}
-
-function heading(label: string): SidebarMenuItem {
-  return { label, heading: true, checked: false, disabled: false };
 }
 
 function command(message: SidebarMenuMessage): SidebarMenuCommand {
@@ -165,8 +176,7 @@ type HoverAction = 'rename' | 'pin' | 'note' | 'snooze' | 'closeAfterDone' | 'ta
  * section (the two debugging copy switches are off) and the Spaces submenu (Spaces are off) out.
  * The one deliberate difference is the hover strip: the phone has no hover buttons, so its strip is
  * the desktop default (Tag, Park and Sleep left of the chevron, Close right of it) WITHOUT Close.
- * The top of the menu then reads exactly like the desktop's default menu, and Close drops to the
- * bottom of the menu, which is where the desktop puts it whenever Close is not a hover button.
+ * Close then always fills the layout's last place, as on the desktop whenever Close is not a hover button.
  */
 const PHONE_MENU_SETTINGS = {
   enableSessionParking: true,
@@ -468,6 +478,33 @@ export type SessionMenuInput = {
   parking?: boolean;
 };
 
+/**
+ * A session menu's input from its computer's summary alone, for the chat's and the terminal's ⋯, which open on one
+ * session rather than a list row: nothing is below it, and the rows only the long-press offers (Voice Call, Snooze,
+ * Actions…) are the screen's own there.
+ */
+export function sessionMenuInputFromSummary(
+  summary: GhostexMobileSummary | null | undefined,
+  session: GhostexSession,
+): SessionMenuInput {
+  return {
+    session,
+    capabilities: summary?.capabilities ?? NO_SUMMARY_CAPABILITIES,
+    customTags: summary?.customSessionTags ?? EMPTY_CUSTOM_SESSION_TAGS,
+    below: [],
+    threads: session.isCoordinator
+      ? (summary?.sessions ?? []).filter(
+          (thread) => thread.coordinatorProjectId === session.projectId && thread.coordinatorSessionId === session.sessionId,
+        )
+      : [],
+    project: summary?.projects.find((project) => project.projectId === session.projectId) ?? null,
+    sessionNotes: sessionNotesOnIn(summary),
+    beads: beadsOnIn(summary),
+    tagListItems: summary?.sessionTagListItems,
+    parking: summary?.enableSessionParking !== false,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // The Copy submenu (gx-core `copy.rs` and `clipboard.rs`).
 // ---------------------------------------------------------------------------
@@ -536,7 +573,11 @@ function sessionDetailsText(session: GhostexSession, project: SessionMenuInput['
  *
  * SEE-ALSO: packages/gx-core/src/sidebar_menu/link_menu.rs, ./work-link-picker.tsx.
  */
-function linkSubmenu(session: GhostexSession, project: SessionMenuInput['project']): SidebarMenuItem | null {
+function linkSubmenu(
+  session: GhostexSession,
+  project: SessionMenuInput['project'],
+  layout: SessionMenuLayout,
+): SidebarMenuItem | null {
   if (project?.workMode !== true || session.projectId.length === 0) return null;
   const id = session.sessionId;
   const work = session.work;
@@ -600,7 +641,7 @@ function linkSubmenu(session: GhostexSession, project: SessionMenuInput['project
       ),
     );
   }
-  return children.length > 0 ? submenu('Link to', 'link', children) : null;
+  return children.length > 0 ? layoutSubmenu(layout, 'linkTo', children) : null;
 }
 
 /**
@@ -608,7 +649,7 @@ function linkSubmenu(session: GhostexSession, project: SessionMenuInput['project
  *
  * CDXC:ContextMenus 2026-11-12 DECISION:
  * User: "i want a new Copy ID that let's me just copy the id and name of an agent so i can mention it in other chats" (2026-10-28), then (2026-11-12) "move Copy ID to sit directly above Tag As": Copy ID leaves the Copy submenu and is a row of the menu itself, right above Tag As, as on the desktop (gx-core copy.rs `copy_id_row`). It copies `[<session title>](<Global Ref>)`.
- * Since 2026-11-15 it was a button in the menu's quick row instead (CDXC:ContextMenus 2026-11-15 in `buildSessionMenu`).
+ * From 2026-11-15 it was a button in the menu's quick row instead (a decision the one session menu of 2026-11-20 in packages/gx-core/src/sidebar_menu/layout.rs superseded).
  *
  * CDXC:ContextMenus 2026-11-18 DECISION:
  * User: "please move copy id to the top of the copy menu item in the context menu for a session in the sidebar and move Popup to be the 3rd button after rename and pin". Copy ID is the first row of the Copy submenu again (`copySubmenu`), as on the desktop (gx-core copy.rs); the phone has no popup, so its quick row is Rename, Pin, Voice Call.
@@ -629,7 +670,11 @@ function copyIdRow(session: GhostexSession): SidebarMenuItem | null {
  * CDXC:ContextMenus 2026-10-31 DECISION:
  * User (GitHub issue #373): a Copy Link row next to Copy Details copies the https page that opens the session (`https://ghostex.dev/open/session#<Global Ref>`), as on the desktop. A link opens on a computer; the phone only copies it for now.
  */
-function copySubmenu(session: GhostexSession, project: SessionMenuInput['project']): SidebarMenuItem {
+function copySubmenu(
+  session: GhostexSession,
+  project: SessionMenuInput['project'],
+  layout: SessionMenuLayout,
+): SidebarMenuItem {
   const copyId = copyIdRow(session);
   const children: SidebarMenuItem[] = copyId === null ? [] : [copyId];
   children.push(
@@ -669,84 +714,122 @@ function copySubmenu(session: GhostexSession, project: SessionMenuInput['project
   copyRow('Copy Linear Project Link', 'box', work?.linearProjectUrl ?? '');
   // The claude.ai conversation a Claude cloud session's row is linked to (gx-core copy.rs).
   copyRow('Copy claude.ai Link', 'link', session.claudeCloud?.url ?? '');
-  return submenu('Copy', 'copy', children);
+  return layoutSubmenu(layout, 'copy', children);
 }
 
 /**
- * gx-core `coordinator_rows` (CDXC:Coordinators 2026-10-13, the user's decision there): an
- * orchestrator's Coordinator submenu (Goal & Instructions, Memory, View playbook, Sleep Inactive Threads), a thread's Mark Thread Done (disabled
- * while it works or waits on an answer) or, once done, Reopen Thread, after a separator.
+ * The `coordinator` place (gx-core `coordinator_rows`, CDXC:Coordinators 2026-10-13, the user's decision there): an
+ * orchestrator's Make Main Coordinator and its Coordinator submenu, a lead-linked session's Unlink from Lead, a lead's
+ * Stop Leading.
  */
-function coordinatorRows(session: GhostexSession, sleepInactive: SidebarMenuItem | null): SidebarMenuItem[] {
+function coordinatorPlaceRows(
+  session: GhostexSession,
+  sleepInactive: SidebarMenuItem | null,
+  layout: SessionMenuLayout,
+): SidebarMenuItem[] {
   if (session.isDraft === true) return [];
-  const id = session.sessionId;
-  const action = (
-    kind: 'goal' | 'memory' | 'viewPlaybook' | 'markDone' | 'reopen' | 'makeMain' | 'unlinkLead' | 'stopLeading',
-  ): SidebarMenuCommand => ({
-    type: 'coordinatorSessionAction',
-    sessionId: id,
-    action: kind,
-  });
-  const rows: SidebarMenuItem[] = [separator()];
+  const rows: SidebarMenuItem[] = [];
   if (session.isCoordinator) {
     // CDXC:Coordinators 2026-11-10 (gx-core `coordinator_rows`): gives this coordinator its project's
     // main-coordinator label on its computer; hidden on the main one and on Chief of Staff.
     if (!session.isMainCoordinator && !session.isChief) {
-      rows.push(row('Make main coordinator', 'coordinator-crown-points', action('makeMain')));
+      rows.push(row('Make Main Coordinator', 'coordinator-crown-points', coordinatorAction(session, 'makeMain')));
     }
     /*
      * CDXC:Coordinators 2026-11-16 DECISION:
      * User (Android screenshot of a coordinator's long-press menu): "the context menu for coordinator is too long. Also
-     * view playbook didn't have icon. Pls put all these under 1 menu". Goal & Instructions, Memory, View playbook and
-     * Sleep Inactive Threads are one Coordinator submenu (the crown icon) where the loose rows were; Make main
-     * coordinator stays a row of its own above it. The desktop got the same (gx-core `coordinator_rows`, which this
-     * must match; it also lists Playbook overrides, which the phone has no editor for).
+     * view playbook didn't have icon. Pls put all these under 1 menu". Goal & Instructions, Memory, View Playbook and
+     * Sleep Inactive Threads are one Coordinator submenu (the crown icon) where the loose rows were; Make Main
+     * Coordinator stays a row of its own above it. The desktop got the same (gx-core `coordinator_rows`, which this
+     * must match; it also lists Playbook Overrides…, which the phone has no editor for).
      */
     const children: SidebarMenuItem[] = [
-      row('Goal & Instructions…', 'checklist', action('goal')),
-      row('Memory…', 'brain', action('memory')),
+      row('Goal & Instructions…', 'checklist', coordinatorAction(session, 'goal')),
+      row('Memory…', 'brain', coordinatorAction(session, 'memory')),
       // CDXC:Coordinators 2026-11-09 (gx-core `coordinator_rows`): the playbook this coordinator reads.
-      row('View playbook', 'book', action('viewPlaybook')),
+      row('View Playbook', 'book', coordinatorAction(session, 'viewPlaybook')),
     ];
     if (sleepInactive !== null) children.push(sleepInactive);
-    rows.push(submenu('Coordinator', 'coordinator-crown-points', children));
+    rows.push(submenu(entryLabel(layout, 'coordinator'), entryIcon(layout, 'coordinator'), children));
   } else if ((session.coordinatorSessionId ?? '').length === 0 && (session.leadSessionId ?? '').length > 0) {
     // Lead links (gx-core `coordinator_rows`, CDXC:LeadLinks 2026-11-20): a linked session is an ordinary session, so
     // Unlink only, never Mark Thread Done; no menu ever offers linking.
-    rows.push(row('Unlink from Lead', 'unlink', action('unlinkLead')));
-  } else if ((session.coordinatorSessionId ?? '').length > 0) {
-    const state = session.coordinatorThreadState;
-    if (state === 'done') {
-      rows.push(row('Reopen Thread', 'rotate-clockwise', action('reopen')));
-    } else {
-      rows.push({
-        ...row('Mark Thread Done', 'circle-check', action('markDone')),
-        disabled: state === 'working' || state === 'waiting',
-      });
-    }
+    rows.push(row('Unlink from Lead', 'unlink', coordinatorAction(session, 'unlinkLead')));
   }
   if (session.isLead && !session.isCoordinator && session.leadLinkCount > 0) {
     const count = session.leadLinkCount;
-    rows.push(row(count === 1 ? 'Stop leading 1 session' : `Stop leading ${count} sessions`, 'unlink', action('stopLeading')));
+    rows.push(
+      row(
+        count === 1 ? 'Stop Leading 1 Session' : `Stop Leading ${count} Sessions`,
+        'unlink',
+        coordinatorAction(session, 'stopLeading'),
+      ),
+    );
   }
-  return rows.length === 1 ? [] : rows;
+  return rows;
 }
 
-/**
- * The session row's context menu.
- *
- * Left out, because the phone has no way to run them: the five Postpone By presets (no verb for
- * `/api/postponeDelayedSend`), Switch Account, View 1st Message (the summary carries no first
- * message), Generate Title, Move to New Sessions Group, and New Tag…; Split Right and Focus act on the
- * computer's own panes.
- */
+/** The `markThreadDone` place (gx-core `thread_rows`): a thread's Mark Thread Done (disabled while it works or waits on an answer), or Reopen Thread once done. */
+function threadRows(session: GhostexSession, layout: SessionMenuLayout): SidebarMenuItem[] {
+  if (session.isDraft === true || session.isCoordinator || (session.coordinatorSessionId ?? '').length === 0) return [];
+  const state = session.coordinatorThreadState;
+  if (state === 'done') {
+    return [layoutRow(layout, 'markThreadDone', coordinatorAction(session, 'reopen'), true)];
+  }
+  return [
+    {
+      ...layoutRow(layout, 'markThreadDone', coordinatorAction(session, 'markDone')),
+      disabled: state === 'working' || state === 'waiting',
+    },
+  ];
+}
+
+function coordinatorAction(
+  session: GhostexSession,
+  action: 'goal' | 'memory' | 'viewPlaybook' | 'markDone' | 'reopen' | 'makeMain' | 'unlinkLead' | 'stopLeading',
+): SidebarMenuCommand {
+  return { type: 'coordinatorSessionAction', sessionId: session.sessionId, action };
+}
+
+/** A row under the layout's one name and icon for `id` (its reverse when `alt`), red when the layout says so. */
+export function layoutRow(
+  layout: SessionMenuLayout,
+  id: string,
+  command: SidebarMenuCommand,
+  alt = false,
+): SidebarMenuItem {
+  const item = row(entryLabel(layout, id, alt), entryIcon(layout, id, alt), command);
+  return entryDanger(layout, id) ? { ...item, danger: true } : item;
+}
+
+function layoutSubmenu(layout: SessionMenuLayout, id: string, children: SidebarMenuItem[], alt = false): SidebarMenuItem {
+  return submenu(entryLabel(layout, id, alt), entryIcon(layout, id, alt), children);
+}
+
 /** A wake time still ahead (gx-core `session_is_snoozed`). */
 function isSnoozedNow(session: GhostexSession): boolean {
   const wake = Date.parse(session.snoozedUntil ?? '');
   return Number.isFinite(wake) && wake > Date.now();
 }
 
-export function buildSessionMenu(input: SessionMenuInput): SidebarMenuItem[] {
+/** How a session menu's rows are put together around the places (gx-core `MenuItem` quick rows, submenus, lines). */
+export const SIDEBAR_MENU_MAKE: SessionMenuMake<SidebarMenuItem> = {
+  separator,
+  tiles: (quick) => ({ quick, checked: false, disabled: false }),
+  more: (label, icon, items) => submenu(label, icon, items),
+  isSeparator: (item) => item.separator === true,
+};
+
+/**
+ * What the phone's session menus fill each place of the one session menu with, for one session (gx-core `full_menu`'s
+ * `fill`): none, one row, or a block. The long-press menu fills every place from here (`buildSessionMenu`); the chat's
+ * and the terminal's ⋯ take the places they share with it (Coordinator, Mark Thread Done, Copy, Tag As, Close After
+ * Done, Handoff / Export, Link to, Make Coordinator, Postpone By, Close) and fill the rest themselves.
+ *
+ * Fill nothing, because the phone has no way to run them: Switch Account, Branches, Box, claude.ai and Move to Group,
+ * and Postpone By's presets (no verb for `/api/postponeDelayedSend`; Edit and Disable Delayed Send stay).
+ */
+export function sessionMenuPlaces(input: SessionMenuInput, layout: SessionMenuLayout): (id: string) => SidebarMenuItem[] {
   const {
     session,
     capabilities,
@@ -764,70 +847,6 @@ export function buildSessionMenu(input: SessionMenuInput): SidebarMenuItem[] {
   const settings = { ...PHONE_MENU_SETTINGS, enableSessionParking: parking };
   const caps = sessionCapabilities(session);
   const id = session.sessionId;
-  const sleeping = isSleepingSession(session);
-  const pinned = session.isPinned;
-  const parked = session.isParked === true;
-  const tags = caps.canTag ? tagItems(session, customTags, tagListItems) : [];
-
-  let park = row(
-    parked ? 'Unpark' : 'Park',
-    'archive',
-    command({ type: 'setSessionParked', sessionId: id, parked: !parked }),
-  );
-  if (!parked && settings.showTagMenuWhenParking && caps.canTag && tags.length > 0) {
-    park = submenu('Park', 'archive', [
-      row('No Tag Change', 'tag-off', command({ type: 'setSessionParked', sessionId: id, parked: true })),
-      separator(),
-      ...tags.map((item) => parkWithTag(item, session)),
-    ]);
-  }
-
-  const rows: Partial<Record<HoverAction, SidebarMenuItem>> = {
-    close: {
-      ...row('Close', 'x', command({ type: 'closeSession', sessionId: id })),
-      danger: true,
-    },
-    ...(caps.canRename
-      ? { rename: row('Rename', 'pencil', { type: 'sessionAction', sessionId: id, action: 'rename' }) }
-      : {}),
-    ...(sessionNotes && caps.canOpenNote
-      ? { note: row('Note', 'note', { type: 'sessionAction', sessionId: id, action: 'note' }) }
-      : {}),
-    ...(caps.canSleep
-      ? {
-          sleep: row(
-            sleeping ? 'Wake' : 'Sleep',
-            sleeping ? 'player-play' : 'moon',
-            command({ type: 'setSessionSleeping', sessionId: id, sleeping: !sleeping }),
-          ),
-        }
-      : {}),
-    pin: row(
-      pinned ? 'Unpin' : 'Pin',
-      pinned ? 'pinned-off' : 'pin',
-      command({ type: 'setSessionPinned', sessionId: id, pinned: !pinned }),
-    ),
-    ...(!caps.isBrowser && settings.enableSessionParking && caps.canPark ? { park } : {}),
-    // CDXC:Sidebar 2026-10-30 SEE-ALSO: gx-core `session.rs` `snooze`: Unsnooze on a snoozed session, else the presets.
-    ...(snooze && !caps.isBrowser
-      ? {
-          snooze: isSnoozedNow(session)
-            ? row('Unsnooze', 'alarm', { type: 'unsnooze', sessionId: id })
-            : submenu(
-                'Snooze',
-                'alarm',
-                SNOOZE_PRESETS.map(({ preset, label }) => row(label, 'alarm', { type: 'snooze', sessionId: id, preset })),
-              ),
-        }
-      : {}),
-    ...(caps.canTag && tags.length > 0 ? { tag: submenu('Tag As', 'tag', tags) } : {}),
-    ...(caps.canCloseAfterDone
-      ? {
-          closeAfterDone: row('Close After Done', 'clock', command({ type: 'toggleCloseAfterDone', sessionId: id })),
-        }
-      : {}),
-  };
-
   const enabled = settings.hoverStrip;
   // An action the hover strip offers is repeated in the menu too, with the two that have rows of
   // their own left out.
@@ -838,144 +857,201 @@ export function buildSessionMenu(input: SessionMenuInput): SidebarMenuItem[] {
     : [];
   const shown = (action: HoverAction): boolean =>
     mirror.includes(action) || (action !== 'note' && !enabled.includes(action));
-  /*
-   * CDXC:ContextMenus 2026-11-15 DECISION:
-   * User (Android screenshot of this menu running off the screen): "This is too long", then picked the quick row with
-   * "Put sleep under advanced, 4 quick actions only pls" (Q3420 C), and the same on the desktop (Q3421 Yes). The menu
-   * opens with icon buttons, Rename, Pin and Voice Call (the desktop has Rename, Pin and Open in a Popup; Voice Call is the
-   * phone's own; Copy ID is the first row of the Copy submenu since 2026-11-18), then Snooze, Park, Note and Tag As as rows with no line between them; Sleep (or Wake) moves to the
-   * top of Advanced. At very large text the buttons drop their labels (components/sessions/ContextMenu.tsx).
-   * SEE-ALSO: packages/gx-core/src/sidebar_menu/session.rs `full_menu`, which this must match.
-   */
-  const menu: SidebarMenuItem[] = [];
-  const quick: SidebarMenuItem[] = [];
-  if (shown('rename') && rows.rename !== undefined) quick.push(rows.rename);
-  if (shown('pin') && rows.pin !== undefined) quick.push(pinned ? rows.pin : { ...rows.pin, icon: 'pinned' });
-  if (voiceCall && !caps.isBrowser && session.isDraft !== true) {
-    quick.push(row('Voice Call', 'headset', { type: 'voiceCall', sessionId: id }));
-  }
-  if (quick.length > 0) menu.push({ quick, checked: false, disabled: false });
-  for (const action of ['snooze', 'park', 'note', 'tag'] as const) {
-    const item = shown(action) ? rows[action] : undefined;
-    if (item !== undefined) menu.push(item);
-  }
+  const tags = (): SidebarMenuItem[] => (caps.canTag ? tagItems(session, customTags, tagListItems) : []);
 
-  // CDXC:Coordinators 2026-10-13 SEE-ALSO: the user's decision on `is_sleep_inactive_session` in server/src/coordinators/sleep_threads.rs, which decides which threads sleep (gx-core `coordinator_rows` draws the desktop's twin row). The disabled test is only the phone's Sleep Inactive hint, which never greys out a row gxserver would act on.
-  const sleepInactive: SidebarMenuItem | null =
-    session.isCoordinator && session.isDraft !== true
-      ? {
-          ...row('Sleep Inactive Threads', 'moon', command({ type: 'sleepInactiveCoordinatorThreads', sessionId: id })),
-          disabled: !threads.some(isInactiveSession),
+  return (place: string): SidebarMenuItem[] => {
+    switch (place) {
+      case 'rename':
+        return caps.canRename && shown('rename')
+          ? [layoutRow(layout, 'rename', { type: 'sessionAction', sessionId: id, action: 'rename' })]
+          : [];
+      case 'pin': {
+        const pinned = session.isPinned;
+        return [layoutRow(layout, 'pin', command({ type: 'setSessionPinned', sessionId: id, pinned: !pinned }), pinned)];
+      }
+      case 'voiceCall':
+        return voiceCall && !caps.isBrowser && session.isDraft !== true
+          ? [layoutRow(layout, 'voiceCall', { type: 'voiceCall', sessionId: id })]
+          : [];
+      case 'snooze':
+        // CDXC:Sidebar 2026-10-30 SEE-ALSO: gx-core `session.rs` `snooze`: Unsnooze on a snoozed session, else the presets.
+        if (!snooze || caps.isBrowser || !shown('snooze')) return [];
+        return isSnoozedNow(session)
+          ? [layoutRow(layout, 'snooze', { type: 'unsnooze', sessionId: id }, true)]
+          : [
+              layoutSubmenu(
+                layout,
+                'snooze',
+                SNOOZE_PRESETS.map(({ preset, label }) =>
+                  row(label, entryIcon(layout, 'snooze'), { type: 'snooze', sessionId: id, preset }),
+                ),
+              ),
+            ];
+      case 'park': {
+        if (caps.isBrowser || !settings.enableSessionParking || !caps.canPark || !shown('park')) return [];
+        const parked = session.isParked === true;
+        const tagRows = tags();
+        if (!parked && settings.showTagMenuWhenParking && tagRows.length > 0) {
+          return [
+            layoutSubmenu(layout, 'park', [
+              row('No Tag Change', 'tag-off', command({ type: 'setSessionParked', sessionId: id, parked: true })),
+              separator(),
+              ...tagRows.map((item) => parkWithTag(item, session)),
+            ]),
+          ];
         }
-      : null;
-  // The Sleep Inactive Threads row sits inside the Coordinator submenu (CDXC:Coordinators 2026-11-16 in `coordinatorRows`).
-  menu.push(...coordinatorRows(session, sleepInactive));
-
-  const advanced: SidebarMenuItem[] = [heading('Session')];
-  // Sleep sits first in Advanced (CDXC:ContextMenus 2026-11-15 above).
-  if (shown('sleep') && rows.sleep !== undefined) advanced.push(rows.sleep);
-  if (!enabled.includes('note') && rows.note !== undefined) {
-    advanced.push(rows.note);
-  }
-  if (caps.canDelayedSend) {
-    advanced.push(row('Delayed Send', 'clock', { type: 'sessionAction', sessionId: id, action: 'delayedSend' }));
-  }
-  if (
-    caps.canCloseAfterDone &&
-    (!enabled.includes('closeAfterDone') || settings.showSessionCardHoverButtonsInContextMenu) &&
-    rows.closeAfterDone !== undefined
-  ) {
-    advanced.push(rows.closeAfterDone);
-  }
-  if (caps.canFork) {
-    advanced.push(row('Fork', 'git-fork', command({ type: 'forkSession', sessionId: id })));
-  }
-  if (caps.canFullReload) {
-    advanced.push(row('Full Reload', 'refresh', command({ type: 'fullReloadSession', sessionId: id })));
-  }
-  if (caps.canMakeCoordinator) {
-    advanced.push(row('Make Coordinator', 'users-group', command({ type: 'makeCoordinator', sessionId: id })));
-  }
-  if (caps.canExportTranscript) {
-    advanced.push(row('Handoff / Export', 'file-export', command({ type: 'exportSessionTranscript', sessionId: id })));
-  }
-  if (below.length > 0) {
-    advanced.push(separator());
-    advanced.push(heading('Below'));
-    /**
-     * CDXC:SessionSleep 2026-10-01 DECISION: User: "please don't sleep terminal sessions that have shell running or a question status", and Sleep Below is a bulk sweep too, so it skips rows with the grey shell-running dot or an unanswered question (the desktop's gx-core sidebar_menu/session.rs `full_menu`).
-     */
-    // The question is the row's: an open question card the computer announces counts too.
-    const sleepable = below
-      .filter(
-        (entry) =>
-          isRunningSession(entry) &&
-          !hasBackgroundWork(entry) &&
-          !hasQuestion(entry.pendingQuestionCount, capabilities.awaitingAnswer && entry.awaitingAnswer),
-      )
-      .map((entry) => entry.sessionId);
-    if (sleepable.length > 0) {
-      advanced.push(
-        row(
-          'Sleep Below',
-          'moon',
-          command({ type: 'setSessionsSleeping', sessionIds: sleepable, sleeping: true, source: 'sleepBelow' }),
-        ),
-      );
+        return [layoutRow(layout, 'park', command({ type: 'setSessionParked', sessionId: id, parked: !parked }), parked)];
+      }
+      case 'coordinator': {
+        // CDXC:Coordinators 2026-10-13 SEE-ALSO: the user's decision on `is_sleep_inactive_session` in server/src/coordinators/sleep_threads.rs, which decides which threads sleep (gx-core `coordinator_rows` draws the desktop's twin row). The disabled test is only the phone's Sleep Inactive hint, which never greys out a row gxserver would act on.
+        const sleepInactive: SidebarMenuItem | null =
+          session.isCoordinator && session.isDraft !== true
+            ? {
+                ...row('Sleep Inactive Threads', 'moon', command({ type: 'sleepInactiveCoordinatorThreads', sessionId: id })),
+                disabled: !threads.some(isInactiveSession),
+              }
+            : null;
+        return coordinatorPlaceRows(session, sleepInactive, layout);
+      }
+      case 'markThreadDone':
+        return threadRows(session, layout);
+      case 'copy':
+        return [copySubmenu(session, project, layout)];
+      case 'tagAs': {
+        const tagRows = shown('tag') ? tags() : [];
+        return tagRows.length > 0 ? [layoutSubmenu(layout, 'tagAs', tagRows)] : [];
+      }
+      case 'sleep': {
+        if (!caps.canSleep || !shown('sleep')) return [];
+        const sleeping = isSleepingSession(session);
+        return [
+          layoutRow(layout, 'sleep', command({ type: 'setSessionSleeping', sessionId: id, sleeping: !sleeping }), sleeping),
+        ];
+      }
+      case 'fork':
+        return caps.canFork ? [layoutRow(layout, 'fork', command({ type: 'forkSession', sessionId: id }))] : [];
+      case 'fullReload':
+        return caps.canFullReload
+          ? [layoutRow(layout, 'fullReload', command({ type: 'fullReloadSession', sessionId: id }))]
+          : [];
+      case 'delayedSend':
+        return caps.canDelayedSend
+          ? [layoutRow(layout, 'delayedSend', { type: 'sessionAction', sessionId: id, action: 'delayedSend' })]
+          : [];
+      case 'note':
+        return sessionNotes && caps.canOpenNote
+          ? [layoutRow(layout, 'note', { type: 'sessionAction', sessionId: id, action: 'note' })]
+          : [];
+      case 'closeAfterDone':
+        return caps.canCloseAfterDone
+          ? [layoutRow(layout, 'closeAfterDone', command({ type: 'toggleCloseAfterDone', sessionId: id }))]
+          : [];
+      case 'export':
+        return caps.canExportTranscript
+          ? [layoutRow(layout, 'export', command({ type: 'exportSessionTranscript', sessionId: id }))]
+          : [];
+      case 'linkTo': {
+        const link = linkSubmenu(session, project, layout);
+        return link === null ? [] : [link];
+      }
+      case 'makeCoordinator':
+        return caps.canMakeCoordinator
+          ? [layoutRow(layout, 'makeCoordinator', command({ type: 'makeCoordinator', sessionId: id }))]
+          : [];
+      case 'postponeBy':
+        return caps.canDelayedSend && session.delayedSendDeadlineAt.length > 0
+          ? [
+              layoutSubmenu(layout, 'postponeBy', [
+                row('Edit Delayed Send', 'pencil', { type: 'sessionAction', sessionId: id, action: 'delayedSend' }),
+                row('Disable Delayed Send', 'x', command({ type: 'cancelDelayedSend', sessionId: id })),
+              ]),
+            ]
+          : [];
+      case 'openTerminal':
+        // A Claude cloud session's tap opens claude.ai, so its terminal is here (CDXC:ClaudeCloud in
+        // contract/claudeCloud.ts).
+        return claudeCloudPageUrl(session.claudeCloud) !== null
+          ? [layoutRow(layout, 'openTerminal', { type: 'claudeCloudTerminal', sessionId: id })]
+          : [];
+      case 'links': {
+        /*
+         * CDXC:SessionLinks 2026-10-24 DECISION:
+         * User: "also didn't we agree to have a way to see these floating on the right of the sidebar when i hover somewhere?". The desktop shows a hovered row's links in a card beside the sidebar; the phone has no hover, so its long-press menu gets a Links row that opens the same sheet the chat strip's "+N" opens.
+         */
+        const linkCount = session.links?.items.length ?? 0;
+        const suggestedCount = session.links?.suggested.length ?? 0;
+        if (linkCount === 0 && suggestedCount === 0 && (session.links?.removed.length ?? 0) === 0) return [];
+        return [
+          {
+            ...layoutRow(layout, 'links', { type: 'sessionLinks', sessionId: id }),
+            suffix: linkCount === 0 && suggestedCount > 0 ? `${suggestedCount} suggested` : String(linkCount),
+          },
+        ];
+      }
+      case 'changes':
+        // CDXC:Changes 2026-10-25 SEE-ALSO: the user's decision in src/screens/ChangesScreen.tsx (the phone's read-only Changes, opened from this menu too).
+        return session.projectId.length > 0 ? [layoutRow(layout, 'changes', { type: 'changes', sessionId: id })] : [];
+      case 'beads':
+        // CDXC:ProjectBoard 2026-11-13 SEE-ALSO: the user's decision in src/screens/BeadsScreen.tsx (opened from a row beside Changes).
+        return session.projectId.length > 0 && input.beads === true
+          ? [layoutRow(layout, 'beads', { type: 'beads', sessionId: id })]
+          : [];
+      case 'projectActions':
+        // The icon of the action it would mark (a browser action's globe).
+        return actionsIcon === undefined
+          ? []
+          : [
+              {
+                ...layoutRow(layout, 'projectActions', { type: 'projectActions', sessionId: id }),
+                ...(actionsIcon === 'world' ? { icon: 'world' } : {}),
+              },
+            ];
+      case 'sleepBelow': {
+        if (below.length === 0) return [];
+        /**
+         * CDXC:SessionSleep 2026-10-01 DECISION: User: "please don't sleep terminal sessions that have shell running or a question status", and Sleep Below is a bulk sweep too, so it skips rows with the grey shell-running dot or an unanswered question (the desktop's gx-core sidebar_menu/session.rs `full_menu`).
+         */
+        // The question is the row's: an open question card the computer announces counts too.
+        const sleepable = below
+          .filter(
+            (entry) =>
+              isRunningSession(entry) &&
+              !hasBackgroundWork(entry) &&
+              !hasQuestion(entry.pendingQuestionCount, capabilities.awaitingAnswer && entry.awaitingAnswer),
+          )
+          .map((entry) => entry.sessionId);
+        return sleepable.length > 0
+          ? [
+              layoutRow(
+                layout,
+                'sleepBelow',
+                command({ type: 'setSessionsSleeping', sessionIds: sleepable, sleeping: true, source: 'sleepBelow' }),
+              ),
+            ]
+          : [];
+      }
+      case 'closeBelow':
+        return below.length > 0
+          ? [
+              layoutRow(
+                layout,
+                'closeBelow',
+                command({ type: 'closeSessions', sessionIds: below.map((entry) => entry.sessionId) }),
+              ),
+            ]
+          : [];
+      case 'close':
+        // The phone's hover strip has no Close (PHONE_MENU_SETTINGS), so Close always ends the menu.
+        return enabled.includes('close') ? [] : [layoutRow(layout, 'close', command({ type: 'closeSession', sessionId: id }))];
+      default:
+        return [];
     }
-    advanced.push({
-      ...row('Close Below', 'x', command({ type: 'closeSessions', sessionIds: below.map((entry) => entry.sessionId) })),
-      danger: true,
-    });
-  }
+  };
+}
 
-  // A Claude cloud session's tap opens claude.ai, so its terminal is here (CDXC:ClaudeCloud in
-  // contract/claudeCloud.ts).
-  if (claudeCloudPageUrl(session.claudeCloud) !== null) {
-    menu.push(row('Open Terminal', 'terminal', { type: 'claudeCloudTerminal', sessionId: id }));
-  }
-
-  if (caps.canDelayedSend && session.delayedSendDeadlineAt.length > 0) {
-    menu.push(
-      submenu('Postpone By', 'clock', [
-        row('Edit Delayed Send', 'pencil', { type: 'sessionAction', sessionId: id, action: 'delayedSend' }),
-        row('Disable Delayed Send', 'x', command({ type: 'cancelDelayedSend', sessionId: id })),
-      ]),
-    );
-  }
-  if (menu.length > 0) menu.push(separator());
-  /*
-   * CDXC:SessionLinks 2026-10-24 DECISION:
-   * User: "also didn't we agree to have a way to see these floating on the right of the sidebar when i hover somewhere?". The desktop shows a hovered row's links in a card beside the sidebar; the phone has no hover, so its long-press menu gets a Links row that opens the same sheet the chat strip's "+N" opens.
-   */
-  const linkCount = session.links?.items.length ?? 0;
-  const suggestedCount = session.links?.suggested.length ?? 0;
-  if (linkCount > 0 || suggestedCount > 0 || (session.links?.removed.length ?? 0) > 0) {
-    menu.push({
-      ...row('Links', 'link', { type: 'sessionLinks', sessionId: id }),
-      suffix: linkCount === 0 && suggestedCount > 0 ? `${suggestedCount} suggested` : String(linkCount),
-    });
-  }
-  // CDXC:Changes 2026-10-25 SEE-ALSO: the user's decision in src/screens/ChangesScreen.tsx (the phone's read-only Changes, opened from this menu too).
-  if (session.projectId.length > 0) {
-    menu.push(row('Changes', 'file-diff', { type: 'changes', sessionId: id }));
-    // CDXC:ProjectBoard 2026-11-13 SEE-ALSO: the user's decision in src/screens/BeadsScreen.tsx (opened from a row beside Changes).
-    if (input.beads === true) menu.push(row('Beads', 'checklist', { type: 'beads', sessionId: id }));
-  }
-  if (actionsIcon !== undefined) {
-    menu.push(row('Actions…', actionsIcon, { type: 'projectActions', sessionId: id }));
-  }
-  const link = linkSubmenu(session, project);
-  if (link !== null) menu.push(link);
-  menu.push(copySubmenu(session, project));
-  if (advanced.length > 1) {
-    menu.push(submenu('Advanced', 'dots', advanced));
-  }
-  if (!enabled.includes('close') && rows.close !== undefined) {
-    menu.push(separator());
-    menu.push(rows.close);
-  }
-  return menu;
+/** The session row's context menu: the layout's `phoneRow` spot, filled for this session. */
+export function buildSessionMenu(input: SessionMenuInput, layout: SessionMenuLayout): SidebarMenuItem[] {
+  return assembleSessionMenu(layout, 'phoneRow', sessionMenuPlaces(input, layout), SIDEBAR_MENU_MAKE);
 }
 
 // ---------------------------------------------------------------------------

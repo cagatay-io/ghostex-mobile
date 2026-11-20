@@ -1,40 +1,43 @@
 /**
- * The terminal screen's single header menu (⋯). It merges what used to be two
- * separate trailing buttons: the Agent Actions menu (the phone's copy of the
- * desktop terminal-overlay action strip and the shared chat view's "Agent
- * Actions" cluster — same ids and same order: rename, sleep, delayedActions,
- * fork, fullReload, promptEditor, Session Note, exportTranscript) and the screen's overflow menu (search conversation,
- * the project's Docs and Changes, attach, new terminal, settings, disconnect, kill session).
+ * The terminal screen's single header menu (⋯): the `phoneTerminal` spot of the one session menu
+ * (packages/gx-core/src/sidebar_menu/layout.rs, read from the chat core by session-menu/layout.ts), filled with this
+ * screen's own rows (Rename, Search Conversation, Prompt Editor, Sleep, Fork, the project's Files, Changes and Beads,
+ * Send & Attach File, New Terminal, Settings, Disconnect, Kill Session…) and with the rows it shares with the
+ * long-press session menu (Coordinator, Mark Thread Done, Copy, Tag As, Link to, Postpone By, Close…), which
+ * screens/sessions-screen/sidebar-menus.ts builds for the session on screen.
  *
- * The Agent Actions section is present only for a resolved gxserver session;
- * the screen section is always present, so shell tabs still get the menu.
+ * The session's rows are present only for a resolved gxserver session; the screen's rows always are, so shell tabs
+ * still get the menu.
  *
- * Presentation reuses the sessions-drawer ContextMenu so this menu looks and
- * behaves exactly like the session context menu one screen back.
+ * Presentation reuses the sessions-drawer ContextMenu (through `sidebarMenuView`, which opens submenus as pages) so
+ * this menu looks and behaves exactly like the session context menu one screen back.
+ *
+ * CDXC:ContextMenus 2026-11-20 SEE-ALSO: packages/gx-core/src/sidebar_menu/layout.rs (the user's decision, Q4292: one
+ * session menu everywhere; the "Agent Actions" and "Session" headings went with it).
  */
 
+import { useEffect, useState } from 'react';
+
+import type { GhostexSession } from '../../contract/mobileSummary';
+import { useInventoryStore } from '../../inventory/store';
+import {
+  assembleSessionMenu,
+  entryDanger,
+  entryIcon,
+  entryLabel,
+  useSessionMenuLayout,
+  type SessionMenuLayout,
+} from '../../session-menu/layout';
+import { sidebarMenuView } from '../../screens/sessions-screen/sidebar-menu-view';
+import {
+  SIDEBAR_MENU_MAKE,
+  sessionMenuInputFromSummary,
+  sessionMenuPlaces,
+  type SidebarMenuCommand,
+  type SidebarMenuItem,
+} from '../../screens/sessions-screen/sidebar-menus';
 import { useAppearance } from '../../theme/useAppearance';
 import ContextMenu, { type ContextMenuItem, type MenuAnchor } from '../sessions/ContextMenu';
-import {
-  AxeGlyph,
-  ClockGlyph,
-  ExitGlyph,
-  FileExportGlyph,
-  GitForkGlyph,
-  NoteGlyph,
-  PencilGlyph,
-  PlayGlyph,
-  RefreshGlyph,
-  SearchGlyph,
-  SettingsGlyph,
-  SleepGlyph,
-  SparklesGlyph,
-  TerminalGlyph,
-} from '../sessions/icons';
-import { PaperclipIcon, PencilIcon } from './icons';
-
-import { BeadsCopy, ChangesCopy, DocsCopy } from '../../copy';
-import { COMMAND_ICONS } from '../../assets/tablerIcons.generated';
 
 export type TerminalMenuActionId =
   | 'rename'
@@ -60,8 +63,11 @@ export type TerminalMenuProps = {
   visible: boolean;
   /** Session (or tab) the actions apply to — shown as the menu's header title. */
   sessionTitle: string;
-  /** Agent Actions only exist for a resolved gxserver session. */
+  /** The session's own rows only exist for a resolved gxserver session. */
   agentActionsEnabled: boolean;
+  /** The resolved session and its computer, whose rows the long-press menu shares (Coordinator, Copy, Tag As…). */
+  session: GhostexSession | null;
+  machineId: string | null;
   /** Flips the lifecycle row between Sleep and Wake. */
   sleeping: boolean;
   /** gxserver can only fork agents that keep a resumable session file. */
@@ -85,6 +91,8 @@ export type TerminalMenuProps = {
   /** Skills lists the agent's Ghostex skills and types one into its terminal input. */
   skillsEnabled: boolean;
   onSelect: (id: TerminalMenuActionId) => void;
+  /** A row shared with the long-press menu, for `session` (screens/terminal-screen/use-session-menu-runner.tsx). */
+  onSessionCommand: (command: SidebarMenuCommand) => void;
   /** Items shown before the menu's own, each with its own action (the iPhone Duo rail's overflow). */
   leadingItems?: readonly ContextMenuItem[];
   onClose: () => void;
@@ -98,208 +106,171 @@ export type TerminalMenuProps = {
   anchor?: MenuAnchor;
 };
 
-const ICON_SIZE = 14;
+/** The places this menu fills itself (the layout's ids) and the screen action each runs. */
+const OWN_ACTIONS: Readonly<Record<string, TerminalMenuActionId>> = {
+  rename: 'rename',
+  searchConversation: 'searchConversation',
+  promptEditor: 'promptEditor',
+  sleep: 'sleep',
+  fork: 'fork',
+  fullReload: 'fullReload',
+  delayedSend: 'delayedActions',
+  note: 'sessionNote',
+  export: 'exportTranscript',
+  files: 'docs',
+  changes: 'changes',
+  beads: 'beads',
+  skills: 'skills',
+  attachFile: 'attachPath',
+  newTerminal: 'newTerminal',
+  terminalSettings: 'settings',
+  disconnect: 'disconnect',
+  killSession: 'killSession',
+};
 
-export default function TerminalMenu({
-  visible,
-  sessionTitle,
-  agentActionsEnabled,
-  sleeping,
-  forkEnabled,
-  exportTranscriptEnabled,
-  sessionNoteEnabled,
-  searchConversationEnabled,
-  docsEnabled,
-  beadsEnabled,
-  attachEnabled,
-  disconnectEnabled,
-  killSessionEnabled,
-  skillsEnabled,
-  onSelect,
-  leadingItems = [],
-  onClose,
-  onDismissed,
-  anchor,
-}: TerminalMenuProps) {
+/** The places shared with the long-press menu, filled for the session (`sessionMenuPlaces`). */
+const SHARED_PLACES = new Set([
+  'coordinator',
+  'markThreadDone',
+  'copy',
+  'tagAs',
+  'closeAfterDone',
+  'linkTo',
+  'makeCoordinator',
+  'postponeBy',
+  'close',
+]);
+
+function terminalMenu(props: TerminalMenuProps, layout: SessionMenuLayout): SidebarMenuItem[] {
+  const {
+    agentActionsEnabled,
+    session,
+    machineId,
+    sleeping,
+    forkEnabled,
+    exportTranscriptEnabled,
+    sessionNoteEnabled,
+    searchConversationEnabled,
+    docsEnabled,
+    beadsEnabled,
+    attachEnabled,
+    disconnectEnabled,
+    killSessionEnabled,
+    skillsEnabled,
+    leadingItems = [],
+  } = props;
+  const shared =
+    agentActionsEnabled && session !== null && machineId !== null
+      ? sessionMenuPlaces(
+          sessionMenuInputFromSummary(useInventoryStore.getState().inventoriesByMachineId[machineId]?.summary, session),
+          layout,
+        )
+      : null;
+  const own = (id: string, options: { alt?: boolean; disabled?: boolean } = {}): SidebarMenuItem[] => {
+    const action = OWN_ACTIONS[id];
+    if (action === undefined) return [];
+    const alt = options.alt === true;
+    return [
+      {
+        label: entryLabel(layout, id, alt),
+        icon: entryIcon(layout, id, alt),
+        command: { type: 'host', action },
+        checked: false,
+        disabled: options.disabled === true,
+        ...(entryDanger(layout, id) ? { danger: true as const } : {}),
+      },
+    ];
+  };
+  const fill = (id: string): SidebarMenuItem[] => {
+    if (SHARED_PLACES.has(id)) return shared === null ? [] : shared(id);
+    switch (id) {
+      case 'terminalLeading':
+        return leadingItems.length > 0 ? [{ hostSlot: 'terminalLeading', checked: false, disabled: false }] : [];
+      case 'rename':
+      case 'promptEditor':
+      case 'fullReload':
+      case 'delayedSend':
+        return agentActionsEnabled ? own(id) : [];
+      case 'sleep':
+        return agentActionsEnabled ? own(id, { alt: sleeping }) : [];
+      case 'fork':
+        return agentActionsEnabled && forkEnabled ? own(id) : [];
+      case 'export':
+        return agentActionsEnabled && exportTranscriptEnabled ? own(id) : [];
+      case 'note':
+        return agentActionsEnabled && sessionNoteEnabled ? own(id) : [];
+      case 'skills':
+        // The terminal's own input; chat mode has the composer's More actions > Skills.
+        return skillsEnabled ? own(id) : [];
+      case 'searchConversation':
+        // The chat screen has no search button of its own; this row is its entry point.
+        return searchConversationEnabled ? own(id) : [];
+      case 'files':
+      case 'changes':
+        return docsEnabled ? own(id) : [];
+      case 'beads':
+        // CDXC:ProjectBoard 2026-11-13 SEE-ALSO: the user's decision in src/screens/BeadsScreen.tsx (a row beside Changes), shown only while the computer's Beads extension is on (src/beads/featureSwitch.ts).
+        return docsEnabled && beadsEnabled ? own(id) : [];
+      case 'attachFile':
+        return own(id, { disabled: !attachEnabled });
+      case 'newTerminal':
+      case 'terminalSettings':
+        return own(id);
+      case 'disconnect':
+        return own(id, { disabled: !disconnectEnabled });
+      case 'killSession':
+        return killSessionEnabled ? own(id) : [];
+      default:
+        return [];
+    }
+  };
+  return assembleSessionMenu(layout, 'phoneTerminal', fill, SIDEBAR_MENU_MAKE);
+}
+
+export default function TerminalMenu(props: TerminalMenuProps) {
+  const { visible, sessionTitle, onSelect, onSessionCommand, leadingItems = [], onClose, onDismissed, anchor } = props;
   const appearance = useAppearance();
-  const iconColor = appearance.foreground;
-  const items: ContextMenuItem[] = [...leadingItems];
+  const { layout, error } = useSessionMenuLayout();
+  // The submenus opened so far (Coordinator, Copy, More…), each a page of the same card.
+  const [menuPath, setMenuPath] = useState<readonly string[]>([]);
+  useEffect(() => {
+    if (!visible) setMenuPath([]);
+  }, [visible]);
 
-  if (agentActionsEnabled) {
-    items.push(
-      { kind: 'label', key: 'agent-actions', label: 'Agent Actions' },
-      {
-        kind: 'item',
-        key: 'rename',
-        label: 'Rename',
-        icon: <PencilGlyph size={ICON_SIZE} color={iconColor} />,
-        onPress: () => onSelect('rename'),
-      },
-      {
-        kind: 'item',
-        key: 'sleep',
-        label: sleeping ? 'Wake' : 'Sleep',
-        icon: sleeping ? (
-          <PlayGlyph size={ICON_SIZE} color={iconColor} />
-        ) : (
-          <SleepGlyph size={ICON_SIZE} color={iconColor} />
-        ),
-        onPress: () => onSelect('sleep'),
-      },
-      {
-        kind: 'item',
-        key: 'delayedActions',
-        label: 'Delayed Actions',
-        icon: <ClockGlyph size={ICON_SIZE} color={iconColor} />,
-        onPress: () => onSelect('delayedActions'),
-      },
-    );
-    if (forkEnabled) {
-      items.push({
-        kind: 'item',
-        key: 'fork',
-        label: 'Fork',
-        icon: <GitForkGlyph size={ICON_SIZE} color={iconColor} />,
-        onPress: () => onSelect('fork'),
-      });
-    }
-    items.push(
-      {
-        kind: 'item',
-        key: 'fullReload',
-        label: 'Full Reload',
-        icon: <RefreshGlyph size={ICON_SIZE} color={iconColor} />,
-        onPress: () => onSelect('fullReload'),
-      },
-      {
-        kind: 'item',
-        key: 'promptEditor',
-        label: 'Prompt Editor',
-        icon: <PencilIcon size={ICON_SIZE} color={iconColor} />,
-        onPress: () => onSelect('promptEditor'),
-      },
-    );
-    if (sessionNoteEnabled) {
-      items.push({
-        kind: 'item',
-        key: 'sessionNote',
-        label: 'Session Note',
-        icon: <NoteGlyph size={ICON_SIZE} color={iconColor} />,
-        onPress: () => onSelect('sessionNote'),
-      });
-    }
-    // Just above Handoff / Export, as in the desktop terminal's ⋯ menu (gx-chat-core
-    // `composer/ghostex_skills.rs`); its list opens as a menu of its own.
-    if (skillsEnabled) {
-      items.push({
-        kind: 'item',
-        key: 'skills',
-        label: 'Skills',
-        icon: <SparklesGlyph size={ICON_SIZE} color={iconColor} />,
-        submenu: true,
-        onPress: () => onSelect('skills'),
-      });
-    }
-    if (exportTranscriptEnabled) {
-      items.push({
-        kind: 'item',
-        key: 'exportTranscript',
-        label: 'Handoff / Export',
-        icon: <FileExportGlyph size={ICON_SIZE} color={iconColor} />,
-        onPress: () => onSelect('exportTranscript'),
-      });
-    }
-    items.push({ kind: 'separator', key: 'agent-separator' });
-  }
-
-  items.push({ kind: 'label', key: 'session-label', label: 'Session' });
-  // The chat screen has no search button of its own; this row is its entry point.
-  if (searchConversationEnabled) {
-    items.push({
-      kind: 'item',
-      key: 'searchConversation',
-      label: 'Search Conversation',
-      icon: <SearchGlyph size={ICON_SIZE} color={iconColor} />,
-      onPress: () => onSelect('searchConversation'),
-    });
-  }
-  if (docsEnabled) {
-    items.push({
-      kind: 'item',
-      key: 'docs',
-      label: DocsCopy.menuLabel,
-      icon: <NoteGlyph size={ICON_SIZE} color={iconColor} />,
-      onPress: () => onSelect('docs'),
-    });
-    // The same project the Docs row needs; CDXC:Changes 2026-10-25 in src/screens/ChangesScreen.tsx.
-    items.push({
-      kind: 'item',
-      key: 'changes',
-      label: ChangesCopy.menuLabel,
-      icon: <COMMAND_ICONS.fileDiff size={ICON_SIZE} color={iconColor} />,
-      onPress: () => onSelect('changes'),
-    });
-  }
-  // CDXC:ProjectBoard 2026-11-13 SEE-ALSO: the user's decision in src/screens/BeadsScreen.tsx (a row beside Changes), shown only while the computer's Beads extension is on (src/beads/featureSwitch.ts).
-  if (docsEnabled && beadsEnabled) {
-    items.push({
-      kind: 'item',
-      key: 'beads',
-      label: BeadsCopy.menuLabel,
-      icon: <COMMAND_ICONS.checklist size={ICON_SIZE} color={iconColor} />,
-      onPress: () => onSelect('beads'),
-    });
-  }
-  items.push(
-    {
-      kind: 'item',
-      key: 'attachPath',
-      label: 'Send & Attach File',
-      icon: <PaperclipIcon size={ICON_SIZE} color={iconColor} />,
-      disabled: !attachEnabled,
-      onPress: () => onSelect('attachPath'),
-    },
-    {
-      kind: 'item',
-      key: 'newTerminal',
-      label: 'New Terminal',
-      icon: <TerminalGlyph size={ICON_SIZE} color={iconColor} />,
-      onPress: () => onSelect('newTerminal'),
-    },
-    {
-      kind: 'item',
-      key: 'settings',
-      label: 'Settings',
-      icon: <SettingsGlyph size={ICON_SIZE} color={iconColor} />,
-      onPress: () => onSelect('settings'),
-    },
-    {
-      kind: 'item',
-      key: 'disconnect',
-      label: 'Disconnect',
-      icon: <ExitGlyph size={ICON_SIZE} color={appearance.danger} />,
-      destructive: true,
-      disabled: !disconnectEnabled,
-      onPress: () => onSelect('disconnect'),
-    },
-  );
-
-  if (killSessionEnabled) {
-    items.push({
-      kind: 'item',
-      key: 'killSession',
-      label: 'Kill Session',
-      icon: <AxeGlyph size={ICON_SIZE} color={appearance.danger} />,
-      destructive: true,
-      onPress: () => onSelect('killSession'),
-    });
-  }
+  const view =
+    layout === null
+      ? {
+          // Opened before the chat core answered: wait for the layout rather than drawing another list.
+          openedLabel: null,
+          items: [
+            ...leadingItems,
+            {
+              kind: 'note' as const,
+              key: 'session-menu-layout',
+              label: error === null ? 'Loading…' : `The menu could not load: ${error}`,
+            },
+          ],
+        }
+      : sidebarMenuView(
+          terminalMenu(props, layout),
+          menuPath,
+          {
+            openPath: setMenuPath,
+            run: (command) => {
+              if (command.type === 'host') onSelect(command.action as TerminalMenuActionId);
+              else onSessionCommand(command);
+            },
+          },
+          appearance.foreground,
+          { terminalLeading: leadingItems },
+        );
 
   return (
     <ContextMenu
       visible={visible}
       title={sessionTitle}
-      items={items}
+      {...(view.openedLabel !== null ? { subtitle: view.openedLabel } : {})}
+      items={view.items}
       onClose={onClose}
       onDismissed={onDismissed}
       anchor={anchor}

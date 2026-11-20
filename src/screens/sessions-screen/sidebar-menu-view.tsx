@@ -10,116 +10,20 @@
 
 import type { ReactElement } from 'react';
 
-import { AlarmGlyph } from '../../components/sessions/unified/glyphs';
-import { COMMAND_ICONS, TAG_ICONS } from '../../assets/tablerIcons.generated';
 import type { ContextMenuItem } from '../../components/sessions/ContextMenu';
-import {
-  ArchiveGlyph,
-  BookGlyph,
-  BoxGlyph,
-  BriefcaseGlyph,
-  ChevronLeftGlyph,
-  CircleCheckGlyph,
-  CircleDotGlyph,
-  ClockGlyph,
-  CoordinatorGlyph,
-  CopyGlyph,
-  DotsGlyph,
-  FileExportGlyph,
-  GitBranchGlyph,
-  GitForkGlyph,
-  GitPullRequestGlyph,
-  HashGlyph,
-  LinkGlyph,
-  NoteGlyph,
-  PencilGlyph,
-  PinGlyph,
-  PinnedGlyph,
-  PinnedOffGlyph,
-  PlayGlyph,
-  PlusGlyph,
-  RefreshGlyph,
-  RotateClockwiseGlyph,
-  SleepGlyph,
-  TagGlyph,
-  TagOffGlyph,
-  UnlinkGlyph,
-  WorldGlyph,
-  XGlyph,
-  type GlyphProps,
-} from '../../components/sessions/icons';
-
-import { HeadsetGlyph } from '../../voice/VoiceButton';
-import { BUILTIN_TAG_ICON_IDS, type SidebarMenuCommand, type SidebarMenuItem } from './sidebar-menus';
+import { ChevronLeftGlyph } from '../../components/sessions/icons';
+import { sessionMenuIcon } from '../../session-menu/glyphs';
+import type { SidebarMenuCommand, SidebarMenuItem } from './sidebar-menus';
 
 const MENU_ICON_SIZE = 14;
 
-/** The desktop menu icon ids the phone's menus use (`titlebar/<id>.svg`). */
-const MENU_GLYPHS: Readonly<Record<string, (props: GlyphProps) => ReactElement>> = {
-  alarm: AlarmGlyph,
-  archive: ArchiveGlyph,
-  book: BookGlyph,
-  box: BoxGlyph,
-  brain: COMMAND_ICONS.brain,
-  briefcase: BriefcaseGlyph,
-  checklist: COMMAND_ICONS.checklist,
-  'chevron-left': ChevronLeftGlyph,
-  'circle-check': CircleCheckGlyph,
-  'circle-dot': CircleDotGlyph,
-  clock: ClockGlyph,
-  // An older chat core names the captain's hat (or its small copy) for the same row.
-  'coordinator-captain-hat': CoordinatorGlyph,
-  'coordinator-captain-hat-small': CoordinatorGlyph,
-  'coordinator-crown-points': CoordinatorGlyph,
-  copy: CopyGlyph,
-  dots: DotsGlyph,
-  'file-diff': COMMAND_ICONS.fileDiff,
-  'file-export': FileExportGlyph,
-  'git-branch': GitBranchGlyph,
-  'git-fork': GitForkGlyph,
-  'git-pull-request': GitPullRequestGlyph,
-  hash: HashGlyph,
-  headset: HeadsetGlyph,
-  link: LinkGlyph,
-  moon: SleepGlyph,
-  note: NoteGlyph,
-  pencil: PencilGlyph,
-  pin: PinGlyph,
-  pinned: PinnedGlyph,
-  'pinned-off': PinnedOffGlyph,
-  'player-play': PlayGlyph,
-  plus: PlusGlyph,
-  refresh: RefreshGlyph,
-  'rotate-clockwise': RotateClockwiseGlyph,
-  tag: TagGlyph,
-  'tag-off': TagOffGlyph,
-  unlink: UnlinkGlyph,
-  world: WorldGlyph,
-  x: XGlyph,
-};
-
-/** Built-in tag glyph id → the tag value TAG_ICONS is keyed by. */
-const TAG_VALUE_BY_ICON_ID: Readonly<Record<string, string>> = Object.fromEntries(
-  Object.entries(BUILTIN_TAG_ICON_IDS).map(([tag, icon]) => [icon, tag]),
-);
-
-/**
- * The glyph for a row. A tag row carries its tag's colour; every other row, danger rows
- * included, draws its icon in the menu foreground like the desktop does.
- */
+/** The glyph for a row (session-menu/glyphs.tsx holds the one map of icon ids every session menu shares). */
 function menuIcon(item: SidebarMenuItem, foreground: string): ReactElement | undefined {
-  const icon = item.icon;
-  if (icon === undefined) return undefined;
-  const color = item.iconColor ?? foreground;
-  if (item.iconColor !== undefined) {
-    const tagValue = TAG_VALUE_BY_ICON_ID[icon];
-    const TagIcon = tagValue === undefined ? undefined : TAG_ICONS[tagValue];
-    if (TagIcon !== undefined) return <TagIcon size={MENU_ICON_SIZE} color={color} strokeWidth={1.9} />;
-    const CustomIcon = COMMAND_ICONS[icon];
-    if (CustomIcon !== undefined) return <CustomIcon size={MENU_ICON_SIZE} color={color} strokeWidth={1.9} />;
-  }
-  const Glyph = MENU_GLYPHS[icon];
-  return Glyph === undefined ? undefined : <Glyph size={MENU_ICON_SIZE} color={color} />;
+  return sessionMenuIcon(item.icon, {
+    size: MENU_ICON_SIZE,
+    color: foreground,
+    ...(item.iconColor !== undefined ? { iconColor: item.iconColor } : {}),
+  });
 }
 
 export type SidebarMenuView = {
@@ -140,6 +44,8 @@ export function sidebarMenuView(
     run: (command: SidebarMenuCommand) => void;
   },
   foreground: string,
+  /** Rows the screen draws itself where the menu holds a `hostSlot` (the terminal ⋯'s leading rows). */
+  hostSlots: Readonly<Record<string, readonly ContextMenuItem[]>> = {},
 ): SidebarMenuView {
   let items: readonly SidebarMenuItem[] = menu;
   const opened: string[] = [];
@@ -163,6 +69,10 @@ export function sidebarMenuView(
   }
   items.forEach((item, index) => {
     const key = `${prefix}:${index}`;
+    if (item.hostSlot !== undefined) {
+      rows.push(...(hostSlots[item.hostSlot] ?? []));
+      return;
+    }
     if (item.separator === true) {
       rows.push({ kind: 'separator', key });
       return;

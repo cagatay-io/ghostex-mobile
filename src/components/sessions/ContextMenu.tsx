@@ -111,8 +111,8 @@ export type ContextMenuItem =
   /** The desktop sidebar menu's small dimmed heading ("Session", "Below"), sentence case. */
   | { kind: 'heading'; key: string; label: string }
   /**
-   * A row of icon buttons across the menu (the session menu's Rename, Pin, Copy ID and Voice Call): an icon over a
-   * short label each, icons only at very large text (`QUICK_ICONS_ONLY_FONT_SCALE`).
+   * A row of icon buttons across the menu (the session menu's Rename, Pin and Voice Call): an icon over a label of up
+   * to two lines each, icons only at very large text (`QUICK_ICONS_ONLY_FONT_SCALE`).
    */
   | { kind: 'quick'; key: string; buttons: ContextMenuQuickButton[] }
   /** A row drawn by its menu (the agent menu's project row and machine chips). */
@@ -414,7 +414,7 @@ export default function ContextMenu({
                     >
                       {button.icon !== undefined ? <View style={styles.quickIcon}>{button.icon}</View> : null}
                       {quickIconsOnly ? null : (
-                        <Text style={styles.quickLabel} numberOfLines={1}>
+                        <Text style={styles.quickLabel} numberOfLines={2}>
                           {button.label}
                         </Text>
                       )}
@@ -627,10 +627,12 @@ const createStyles = (appearance: Appearance) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Up to two lines, so a longer name ("Search Conversation", "Files and Links") wraps instead of being cut.
   quickLabel: {
     color: appearance.foreground,
     fontSize: 11,
     lineHeight: 14,
+    textAlign: 'center',
   },
   itemActive: {
     backgroundColor: appearance.cardActive,

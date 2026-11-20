@@ -140,6 +140,7 @@ import { paneLayoutInput, useTerminalPanes, type PaneQuestion } from '../panes/u
 import {
   AGENT_OVERLAY_NONE,
   ANDROID_KEYBOARD_GAP,
+  machineRecordFor,
   HEADER_HEIGHT,
   HEADER_PADDING,
   sessionAgentIdFor,
@@ -151,6 +152,8 @@ import {
   type AgentOverlay,
   type ExportedTranscript,
 } from './terminal-screen/session-lookups';
+import { useSessionMenuRunner } from './terminal-screen/use-session-menu-runner';
+import type { SidebarMenuCommand } from './sessions-screen/sidebar-menus';
 import { styles } from './terminal-screen/styles';
 import { SplitChatPanes, SplitPaneChat, SplitTabsHeader } from './terminal-screen/SplitTabs';
 import { splitView, splitWindow } from '../terminal/tabSplit';
@@ -173,6 +176,8 @@ const NO_CHAT_SWITCH = (): void => undefined;
 
 /** The native chat's More actions rows this screen performs (the terminal menu's own actions). */
 const NATIVE_CHAT_HOST_ACTIONS: readonly string[] = [
+  // The rows the chat's ⋯ shares with the long-press menu (Coordinator, Copy, Tag As…), run by `useSessionMenuRunner`.
+  'sessionMenu',
   'rename',
   'sleep',
   'delayedActions',
@@ -1116,6 +1121,40 @@ export default function TerminalScreen({ navigation, route }: Props) {
     openShellTab,
   });
 
+  // The rows the ⋯ menus share with the long-press session menu, on the selected session.
+  const sessionMenu = useSessionMenuRunner({
+    setProgress: setAgentProgress,
+    editDelayedSend: () => setAgentOverlay({ kind: 'delayedSend' }),
+    viewPlaybook: (machine, session) => setPlaybook({ machine, projectId: session.projectId }),
+    exportTranscript: () => handleMenuAction('exportTranscript'),
+    toggleCloseAfterDone: () => void toggleCloseAfterDone(),
+  });
+  const runSessionMenuCommand = useCallback(
+    (command: SidebarMenuCommand): void => {
+      if (activeTab === null || activeSession === null) return;
+      const machine = machineRecordFor(activeTab.machineId);
+      if (machine !== null) sessionMenu.run(machine, activeSession, command);
+    },
+    [activeSession, activeTab, sessionMenu],
+  );
+  // A shared row of the terminal's ⋯ waits on iOS for the card to finish closing: an alert or a sheet presented while
+  // it is still dismissing is dropped (use-agent-actions.ts `attachPath`).
+  const pendingSessionMenuCommand = useRef<SidebarMenuCommand | null>(null);
+  const handleSessionMenuCommand = useCallback(
+    (command: SidebarMenuCommand): void => {
+      setMenuVisible(false);
+      if (Platform.OS === 'ios') pendingSessionMenuCommand.current = command;
+      else runSessionMenuCommand(command);
+    },
+    [runSessionMenuCommand, setMenuVisible],
+  );
+  const handleTerminalMenuDismissed = useCallback((): void => {
+    handleMenuDismissed();
+    const pending = pendingSessionMenuCommand.current;
+    pendingSessionMenuCommand.current = null;
+    if (pending !== null) runSessionMenuCommand(pending);
+  }, [handleMenuDismissed, runSessionMenuCommand]);
+
   const handleTerminalMenuAction = useCallback(
     (id: Parameters<typeof handleMenuAction>[0]): void => {
       if (id === 'docs') {
@@ -1494,7 +1533,10 @@ export default function TerminalScreen({ navigation, route }: Props) {
   // What the chat's More actions rows and cards ask of the screen: the terminal menu's own actions, on the selected
   // session (a touch in a chat pane selects its session before its rows are reached).
   const chatHostAction = (action: string, params: Record<string, unknown> = {}): void => {
-    if (action === 'closeAfterDone') void toggleCloseAfterDone();
+    if (action === 'sessionMenu') {
+      const command = params.menuCommand as SidebarMenuCommand | undefined;
+      if (command !== undefined) runSessionMenuCommand(command);
+    } else if (action === 'closeAfterDone') void toggleCloseAfterDone();
     // A prompt's or a reply's Fork from here: the session's fork, ending at that message.
     else if (action === 'forkFromMessage') {
       if (typeof params.messageId === 'string' && params.messageId.length > 0) void runAgentFork(params.messageId);
@@ -1985,6 +2027,9 @@ export default function TerminalScreen({ navigation, route }: Props) {
         visible={menuVisible}
         sessionTitle={menuTitle}
         agentActionsEnabled={agentActionsCapable && activeSession !== null}
+        session={activeSession}
+        machineId={activeTab?.machineId ?? null}
+        onSessionCommand={handleSessionMenuCommand}
         sleeping={activeSession?.isSleeping === true}
         forkEnabled={FORK_AGENT_ICONS.includes(activeAgentId)}
         // gxserver only parses the transcripts of the agents the chat view
@@ -2003,9 +2048,10 @@ export default function TerminalScreen({ navigation, route }: Props) {
         // Rail buttons with no room above the keyboard (iPhone Duo), first.
         leadingItems={railMenuItems(overflowEntries, () => setMenuVisible(false))}
         onClose={() => setMenuVisible(false)}
-        onDismissed={handleMenuDismissed}
+        onDismissed={handleTerminalMenuDismissed}
         anchor={menuAnchor}
       />
+      {sessionMenu.sheets}
 
       {playbook !== null ? (
         <CoordinatorPlaybookSheet
