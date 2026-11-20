@@ -288,14 +288,14 @@ export type NestedSessions<S> = {
 /**
  * Reorders one list's rows (already in display order) so each thread follows its coordinator, its
  * recent threads before its older ones. A pinned coordinator takes its threads to Pinned, a parked
- * one to Parked. The threads of a folded coordinator, and the older threads of one not in
+ * one to Parked. The threads of a folded coordinator (every one not in `expandedCoordinators`), and the older threads of one not in
  * `olderShown`, stay in the list, marked folded, so the section headings above still count them.
  * `capabilities` are the computer's, which a folded stack's question dot reads.
  */
 export function nestCoordinatorThreads<S>(
   sessions: readonly GhostexSession[],
   capabilities: GhostexSummaryCapabilities,
-  collapsedCoordinators: ReadonlySet<string>,
+  expandedCoordinators: ReadonlySet<string>,
   sectionOf: (session: GhostexSession) => S,
   olderShown: ReadonlySet<string> = new Set<string>(),
   nowMs: number = Date.now(),
@@ -348,7 +348,11 @@ export function nestCoordinatorThreads<S>(
   for (const [parent, list] of children) {
     children.set(parent, [...list.filter((child) => !isOlder[child]), ...list.filter((child) => isOlder[child])]);
   }
-  const isCollapsed = sessions.map((_, index) => children.has(index) && collapsedCoordinators.has(keys[index]));
+  // A coordinator starts folded, on every launch and when a computer's sessions first appear; only
+  // the ones the user unfolded during this run (`expandedCoordinators`) are open. A lead has no fold.
+  const isCollapsed = sessions.map(
+    (session, index) => children.has(index) && session.isCoordinator && !expandedCoordinators.has(keys[index]),
+  );
   const teamStatus = (index: number): FoldedStatus | undefined => {
     if (!children.has(index)) return undefined;
     const status: FoldedStatus = {

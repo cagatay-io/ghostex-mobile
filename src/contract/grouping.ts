@@ -249,7 +249,7 @@ export type SessionItem = {
   listCoordinatorKey?: string;
 };
 
-/** The key a SESSION row's coordinator fold is saved and read under (`collapsedCoordinatorKeys`). */
+/** The key a SESSION row's coordinator fold is saved and read under (`expandedCoordinatorKeys`). */
 export function sessionItemCoordinatorKey(item: Pick<SessionItem, 'session' | 'listCoordinatorKey'>): string {
   return item.listCoordinatorKey ?? coordinatorRowKey(item.session);
 }
@@ -824,8 +824,8 @@ export type DrawerBuildInput = {
   collapsedSessionKindKeys: ReadonlySet<string>;
   /** Parked starts collapsed on each app launch, matching the desktop sidebar. */
   expandedParkedSessionKeys?: ReadonlySet<string>;
-  /** Coordinators whose threads are folded away, by coordinatorRowKey() (persisted per machine). */
-  collapsedCoordinatorKeys?: ReadonlySet<string>;
+  /** Coordinators the user unfolded during this run, by coordinatorRowKey() (never saved: every coordinator starts folded). */
+  expandedCoordinatorKeys?: ReadonlySet<string>;
   /** Coordinators whose older threads the user listed, by coordinatorRowKey() (persisted per machine). */
   expandedCoordinatorOlderKeys?: ReadonlySet<string>;
 };
@@ -1051,7 +1051,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
     collapsedSessionKindKeys,
     expandedParkedSessionKeys = new Set<string>(),
     expandedDraftSessionKeys = new Set<string>(),
-    collapsedCoordinatorKeys = new Set<string>(),
+    expandedCoordinatorKeys = new Set<string>(),
     expandedCoordinatorOlderKeys = new Set<string>(),
     nowMs = Date.now(),
     activeSessionId = null,
@@ -1155,7 +1155,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
     const tree = nestCoordinatorThreads(
       allProjectSessions.filter((session) => !inNamedGroup(session)),
       summary.capabilities,
-      collapsedCoordinatorKeys,
+      expandedCoordinatorKeys,
       kindSection,
       expandedCoordinatorOlderKeys,
       nowMs,
@@ -1377,7 +1377,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
       const groupTree = nestCoordinatorThreads(
         groupSessions,
         summary.capabilities,
-        collapsedCoordinatorKeys,
+        expandedCoordinatorKeys,
         kindSection,
         expandedCoordinatorOlderKeys,
         nowMs,

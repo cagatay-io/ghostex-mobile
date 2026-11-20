@@ -54,7 +54,7 @@ export type DrawerCollapseInput = {
   expandedCollectionsByMachine: Record<string, string[]>;
   expandedGroupsByMachine: Record<string, string[]>;
   collapsedSessionKindsByMachine: Record<string, string[]>;
-  collapsedCoordinatorsByMachine?: Record<string, string[]>;
+  expandedCoordinatorsByMachine?: Record<string, string[]>;
   expandedCoordinatorOlderByMachine?: Record<string, string[]>;
   expandedParkedSessionKeysByMachine?: Record<string, string[]>;
   expandedDraftSessionKeysByMachine?: Record<string, string[]>;
@@ -244,7 +244,7 @@ function machineBlocks(
       expandedGroupKeys: new Set(collapse.expandedGroupsByMachine[machine.id] ?? []),
       collapsedSessionKindKeys: new Set(collapse.collapsedSessionKindsByMachine[machine.id] ?? []),
       expandedParkedSessionKeys: new Set(collapse.expandedParkedSessionKeysByMachine?.[machine.id] ?? []),
-      collapsedCoordinatorKeys: new Set(collapse.collapsedCoordinatorsByMachine?.[machine.id] ?? []),
+      expandedCoordinatorKeys: new Set(collapse.expandedCoordinatorsByMachine?.[machine.id] ?? []),
       expandedCoordinatorOlderKeys: new Set(collapse.expandedCoordinatorOlderByMachine?.[machine.id] ?? []),
     }),
   );
@@ -517,7 +517,7 @@ function mergedBlocks(input: DrawerListInput, selected: MachineRecord, merged: M
       expandedGroupKeys: new Set(collapse.expandedGroupsByMachine[selected.id] ?? []),
       collapsedSessionKindKeys: new Set(collapse.collapsedSessionKindsByMachine[selected.id] ?? []),
       expandedParkedSessionKeys: new Set(collapse.expandedParkedSessionKeysByMachine?.[selected.id] ?? []),
-      collapsedCoordinatorKeys: new Set(collapse.collapsedCoordinatorsByMachine?.[selected.id] ?? []),
+      expandedCoordinatorKeys: new Set(collapse.expandedCoordinatorsByMachine?.[selected.id] ?? []),
       expandedCoordinatorOlderKeys: new Set(collapse.expandedCoordinatorOlderByMachine?.[selected.id] ?? []),
     }),
   );

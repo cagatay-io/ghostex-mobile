@@ -23,8 +23,6 @@ type PersistedMachineDisclosure = {
   expandedGroups: string[];
   /** Collapsed in-project Browser/Pinned/Sessions labels (default expanded). */
   collapsedSessionKinds?: string[];
-  /** Coordinators whose threads are folded away (default unfolded). */
-  collapsedCoordinators?: string[];
   /** Coordinators whose older threads are listed (default tucked away). */
   expandedCoordinatorOlder?: string[];
 };
@@ -51,10 +49,11 @@ type CollapseState = {
   /** Persisted per machine: collapsed in-project kind-disclosure keys. */
   collapsedSessionKindsByMachine: Record<string, string[]>;
   /**
-   * Persisted per machine: coordinators (coordinatorRowKey) whose threads are folded away, like
-   * the desktop's fold chevron (gx-core nest_threads, the user's 2026-10-01 decision there).
+   * In memory per machine: coordinators (coordinatorRowKey) the user unfolded during this run.
+   * Every coordinator starts folded on each launch and when a computer connects (the user's
+   * 2026-11-20 decision in gx-core `SidebarCollapseState::expanded_coordinators`).
    */
-  collapsedCoordinatorsByMachine: Record<string, string[]>;
+  expandedCoordinatorsByMachine: Record<string, string[]>;
   /**
    * Persisted per machine: coordinators whose older threads (idle two hours) the user listed with
    * their "N older threads" row (coordinatorTree.ts, the user's 2026-10-07 decision in gx-chat-core).
@@ -97,7 +96,6 @@ export const useCollapseStore = create<CollapseState>()((set, get) => {
       expandedCollectionsByMachine,
       expandedGroupsByMachine,
       collapsedSessionKindsByMachine,
-      collapsedCoordinatorsByMachine,
       expandedCoordinatorOlderByMachine,
     } = get();
     const persisted: PersistedDisclosure = {};
@@ -106,7 +104,6 @@ export const useCollapseStore = create<CollapseState>()((set, get) => {
       ...Object.keys(expandedCollectionsByMachine),
       ...Object.keys(expandedGroupsByMachine),
       ...Object.keys(collapsedSessionKindsByMachine),
-      ...Object.keys(collapsedCoordinatorsByMachine),
       ...Object.keys(expandedCoordinatorOlderByMachine),
     ]);
     for (const machineId of machineIds) {
@@ -115,7 +112,6 @@ export const useCollapseStore = create<CollapseState>()((set, get) => {
         expandedCollections: expandedCollectionsByMachine[machineId] ?? [],
         expandedGroups: expandedGroupsByMachine[machineId] ?? [],
         collapsedSessionKinds: collapsedSessionKindsByMachine[machineId] ?? [],
-        collapsedCoordinators: collapsedCoordinatorsByMachine[machineId] ?? [],
         expandedCoordinatorOlder: expandedCoordinatorOlderByMachine[machineId] ?? [],
       };
     }
@@ -128,7 +124,6 @@ export const useCollapseStore = create<CollapseState>()((set, get) => {
       | 'expandedCollectionsByMachine'
       | 'expandedGroupsByMachine'
       | 'collapsedSessionKindsByMachine'
-      | 'collapsedCoordinatorsByMachine'
       | 'expandedCoordinatorOlderByMachine',
     machineId: string,
     key: string,
@@ -149,7 +144,7 @@ export const useCollapseStore = create<CollapseState>()((set, get) => {
     expandedCollectionsByMachine: {},
     expandedGroupsByMachine: {},
     collapsedSessionKindsByMachine: {},
-    collapsedCoordinatorsByMachine: {},
+    expandedCoordinatorsByMachine: {},
     expandedCoordinatorOlderByMachine: {},
     expandedParkedSessionKeysByMachine: {},
     expandedDraftSessionKeysByMachine: {},
@@ -161,7 +156,6 @@ export const useCollapseStore = create<CollapseState>()((set, get) => {
       let expandedCollections: Record<string, string[]> = {};
       let expandedGroups: Record<string, string[]> = {};
       let collapsedSessionKinds: Record<string, string[]> = {};
-      let collapsedCoordinators: Record<string, string[]> = {};
       let expandedCoordinatorOlder: Record<string, string[]> = {};
       try {
         const raw = await AsyncStorage.getItem(DISCLOSURE_STORAGE_KEY);
@@ -184,10 +178,6 @@ export const useCollapseStore = create<CollapseState>()((set, get) => {
                 ...collapsedSessionKinds,
                 [machineId]: stringArray(record.collapsedSessionKinds),
               };
-              collapsedCoordinators = {
-                ...collapsedCoordinators,
-                [machineId]: stringArray(record.collapsedCoordinators),
-              };
               expandedCoordinatorOlder = {
                 ...expandedCoordinatorOlder,
                 [machineId]: stringArray(record.expandedCoordinatorOlder),
@@ -204,7 +194,6 @@ export const useCollapseStore = create<CollapseState>()((set, get) => {
         expandedCollectionsByMachine: expandedCollections,
         expandedGroupsByMachine: expandedGroups,
         collapsedSessionKindsByMachine: collapsedSessionKinds,
-        collapsedCoordinatorsByMachine: collapsedCoordinators,
         expandedCoordinatorOlderByMachine: expandedCoordinatorOlder,
       });
     },
@@ -238,8 +227,16 @@ export const useCollapseStore = create<CollapseState>()((set, get) => {
       }
     },
 
-    toggleCoordinator: (machineId, coordinatorKey) =>
-      toggleIn('collapsedCoordinatorsByMachine', machineId, coordinatorKey),
+    // In memory only: every coordinator starts folded on each launch, like Parked and Drafts.
+    toggleCoordinator: (machineId, coordinatorKey) => {
+      const current = get().expandedCoordinatorsByMachine;
+      set({
+        expandedCoordinatorsByMachine: {
+          ...current,
+          [machineId]: toggled(current[machineId] ?? [], coordinatorKey),
+        },
+      });
+    },
 
     toggleCoordinatorOlder: (machineId, coordinatorKey) =>
       toggleIn('expandedCoordinatorOlderByMachine', machineId, coordinatorKey),

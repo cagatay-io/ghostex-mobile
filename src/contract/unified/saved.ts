@@ -80,7 +80,8 @@ export function parseUnifiedSaved(raw: string | null): UnifiedSavedState {
     foldedGroups: strings(saved.foldedGroups),
     lastMachines,
     recentRepos: strings(saved.recentRepos).slice(0, RECENT_REPOS_MAX),
-    unfoldedCoordinators: strings(saved.unfoldedCoordinators),
+    // Never read back: every coordinator starts folded on each launch (gx-core `UnifiedSavedState`).
+    unfoldedCoordinators: [],
     olderShownCoordinators: strings(saved.olderShownCoordinators),
   };
 }
@@ -94,7 +95,6 @@ export function serializeUnifiedSaved(state: UnifiedSavedState): string {
     foldedGroups: state.foldedGroups,
     lastMachines: state.lastMachines,
     recentRepos: state.recentRepos,
-    unfoldedCoordinators: state.unfoldedCoordinators,
     olderShownCoordinators: state.olderShownCoordinators,
   });
 }
