@@ -46,8 +46,11 @@ export const NEW_ORCHESTRATOR_BENEFITS = `Recommended
 • It keeps improving as it saves memories about your project
 • Needs a very good model, e.g. Opus 5.5 at high or xhigh`;
 
-/** The locked first line before the agent is picked: the skill by its name, which each agent's first message writes its own way. */
-const FIRST_LINE = 'Read and adhere to this skill: ghostex-coordinator';
+/**
+ * The locked first line every coordinator's first message starts with (gx-chat-core `COORDINATOR_GUIDE_LINE`).
+ * CDXC:AgentSkills 2026-11-20: the coordinator skill is retired for CLI help (Q4262), so the line sends it to `ghostex coordinator guide`.
+ */
+const FIRST_LINE = 'Read and adhere to this skill: run `ghostex coordinator guide` and follow what it prints for the whole session.';
 
 function text(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';

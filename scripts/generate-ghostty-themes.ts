@@ -8,7 +8,7 @@
  *
  * Inputs, all pinned:
  *   - the names the Mac's Settings offers: the `terminalGhosttyTheme` options in the checkout's
- *     skills/ghostex-help/references/settings-catalog.json, without the "Use terminal config file" sentinel and the
+ *     server/src/ghostex_cli/guide/settings-catalog.json, without the "Use terminal config file" sentinel and the
  *     `Ghostex …` preset palettes (the phone carries those in src/theme/presets);
  *   - the theme files: the `iterm2_themes` package of the checkout's .dependencies/ghostty/build.zig.zon, the
  *     iTerm2-Color-Schemes release named in the `iterm2ColorSchemes` entry of scripts/notices/pinned.ts, as
@@ -239,7 +239,7 @@ function parseArgs(argv: readonly string[]): { host: string; kept: string | null
 async function main(): Promise<void> {
   const { host, kept: keptFile } = parseArgs(process.argv.slice(2));
   const catalog = JSON.parse(
-    readFileSync(path.join(host, 'skills/ghostex-help/references/settings-catalog.json'), 'utf8'),
+    readFileSync(path.join(host, 'server/src/ghostex_cli/guide/settings-catalog.json'), 'utf8'),
   );
   const row = catalog.settings.find((setting: { key: string }) => setting.key === 'terminalGhosttyTheme');
   if (row === undefined) throw new Error('settings-catalog.json has no terminalGhosttyTheme row');
