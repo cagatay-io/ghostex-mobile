@@ -18,7 +18,6 @@ import { Animated, Easing, Text, View } from 'react-native';
 import type { ChatDocument } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
 import { AgentMark } from './agentMark';
-import { TryABoost } from './Boosts';
 import { chatLookOf } from '../transcript/context';
 import { themedStyles } from '../transcript/theme';
 import { ChatButton } from './primitives';
@@ -54,11 +53,11 @@ export function EmptyTranscript({ chat, document }: { chat: RustChat; document: 
           <AgentMark icon={welcome.icon} size={28} />
         </View>
         {welcome.showTitle !== false ? (
-          <Text style={styles.welcomeTitle}>{wrapWelcomeTitle(welcome.title || 'What should we work on?')}</Text>
-        ) : null}
-        {/* "Try a Boost" under a regular new chat's headline (`Boosts.tsx`, desktop `boosts.rs`). */}
-        {welcome.showTitle !== false && (document.boosts ?? null) !== null ? (
-          <TryABoost boosts={document.boosts!} dispatch={chat.dispatch} />
+          /* One line at every width, shrunk to fit a narrow phone (CDXC:SessionChat 2026-11-20 in gx-chat-core
+              `extras/welcome.rs`: "make the text there not wrap"). */
+          <Text style={styles.welcomeTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+            {(welcome.title || 'What should we work on?').replace(/\n/g, ' ')}
+          </Text>
         ) : null}
       </View>
     );
@@ -148,19 +147,6 @@ function TranscriptSkeleton({ document }: { document: ChatDocument }) {
       )}
     </Animated.View>
   );
-}
-
-/**
- * Desktop's user decision for a narrow chat: a wrapped welcome title keeps 2 or 3 words on its
- * last line, never 1 (`new_session_welcome_title_wrap`, React's `wrapNewSessionWelcomeTitle`).
- */
-function wrapWelcomeTitle(title: string): string {
-  if (title.includes('\n')) return title;
-  const words = title.split(/\s+/).filter((word) => word.length > 0);
-  if (words.length < 4) return title;
-  const last = words.length >= 6 ? 3 : 2;
-  const split = words.length - last;
-  return `${words.slice(0, split).join(' ')}\n${words.slice(split).join(' ')}`;
 }
 
 const useStyles = themedStyles((P) => ({

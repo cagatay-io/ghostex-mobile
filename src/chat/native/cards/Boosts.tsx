@@ -245,20 +245,49 @@ function BoostPromptSheet({ row, onClose }: { row: BoostRow | null; onClose: () 
   );
 }
 
-/** "Try a Boost" under a new chat's headline: a chip per Show Boost; a tap puts it in the message. */
-export function TryABoost({ boosts, dispatch }: { boosts: BoostsDocument; dispatch: (action: UserAction) => void }) {
+/** The Boosts "Try a Boost" offers on a new chat, in order (desktop `boosts.rs` `TRY_A_BOOST`). */
+const TRY_A_BOOST = ['live-page', 'chart', 'compare', 'computer-use'];
+
+/**
+ * "Try a Boost" just above a new chat's chat box, while its welcome shows the headline: a chip per
+ * featured Boost on one row that scrolls sideways when the phone is narrow; a tap puts it in the message.
+ *
+ * CDXC:Boosts 2026-11-20 DECISION: User: the chips wrapping under the headline "looks very ugly", then
+ * "on a new chat they belong just above the chat box", one row, and "feature 'Computer & Browser use'"
+ * instead of Ask me in a form. The desktop folds what does not fit into "+N"; a phone row scrolls instead.
+ */
+export function TryABoost({
+  boosts,
+  welcome,
+  dispatch,
+}: {
+  boosts: BoostsDocument | null | undefined;
+  welcome: { showTitle?: boolean } | null | undefined;
+  dispatch: (action: UserAction) => void;
+}) {
   const styles = useStyles();
   const P = useTranscriptTheme();
   const tone = accent(P.light);
+  if (boosts === null || boosts === undefined || welcome === null || welcome === undefined) return null;
+  if (welcome.showTitle === false) return null;
+  const featured = TRY_A_BOOST.map((id) => boosts.list.find((row) => row.id === id)).filter(
+    (row): row is BoostRow => row !== undefined,
+  );
+  if (featured.length === 0) return null;
   return (
-    <View style={styles.try} accessibilityRole="none" accessibilityLabel="Try a Boost">
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      keyboardShouldPersistTaps="always"
+      style={styles.tryScroll}
+      contentContainerStyle={styles.try}
+      accessibilityLabel="Try a Boost"
+    >
       <View style={styles.tryLead}>
         <Glyph name="sparkles" size={13} color={tone} />
         <Text style={styles.tryLabel}>Try a Boost</Text>
       </View>
-      {boosts.list
-        .filter((row) => row.category === 'show')
-        .map((row: BoostRow) => (
+      {featured.map((row: BoostRow) => (
           <Pressable
             key={row.id}
             accessibilityRole="button"
@@ -273,10 +302,12 @@ export function TryABoost({ boosts, dispatch }: { boosts: BoostsDocument; dispat
             ]}
           >
             <Glyph name={boostGlyph(row.iconPath)} size={14} color={tone} />
-            <Text style={styles.chipLabel}>{row.label}</Text>
+            <Text style={styles.chipLabel} numberOfLines={1}>
+              {row.label}
+            </Text>
           </Pressable>
         ))}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -391,13 +422,13 @@ const useStyles = themedStyles((P) => ({
   editor: { paddingHorizontal: 16, paddingBottom: 12, gap: 10 },
   field: { maxHeight: 280, borderRadius: 10, backgroundColor: P.ink(0.05) },
   prompt: { color: P.foreground, fontSize: 14, lineHeight: 20, paddingHorizontal: 12, paddingVertical: 10 },
+  tryScroll: { flexGrow: 0, marginBottom: 6 },
   try: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
+    flexWrap: 'nowrap',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
   },
   tryLead: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   tryLabel: { color: P.muted, fontSize: 13 },

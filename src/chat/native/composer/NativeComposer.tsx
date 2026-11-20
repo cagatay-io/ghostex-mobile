@@ -51,7 +51,7 @@ import { MenuSheet, type MenuRow, type MenuSearch } from './MenuSheet';
 import { ModelMenuSheet, type ModelSheetMode } from './ModelMenuSheet';
 import { NotePanel } from './NotePanel';
 import { phonePlaceholder } from './placeholder';
-import { BoostCalloutAbove } from '../cards/Boosts';
+import { BoostCalloutAbove, TryABoost } from '../cards/Boosts';
 import { BoxNotes } from './BoxNotes';
 import { CatchUpCard } from '../cards/CatchUpCard';
 import { sessionDetailsRingOf } from '../cards/SessionDetailsSheet';
@@ -898,6 +898,10 @@ export function NativeComposer({
               (`cards/Boosts.tsx`); the box clips anything drawn inside it. */}
           {strip !== undefined && !compact ? (
             <BoostCalloutAbove hint={document?.boosts?.hint} dispatch={dispatch} />
+          ) : null}
+          {/* "Try a Boost" on a new chat, one row just above the box (`cards/Boosts.tsx`). */}
+          {!compact ? (
+            <TryABoost boosts={document?.boosts} welcome={document?.newSessionWelcome} dispatch={dispatch} />
           ) : null}
           <View
             style={[styles.card, focused ? styles.cardFocused : null]}
