@@ -6,7 +6,8 @@
  * reminder.
  *
  * Everything drawn comes from the core's `modelMenu`, and every gesture is the action desktop
- * sends (`modelMenuView`, `modelMenuPick`, `modelMenuFavorite`, `modelMenuTrait`). This file owns
+ * sends (`modelMenuView`, `modelMenuPick`, `modelMenuFavorite`, `modelMenuTrait`,
+ * `modelMenuRefresh`). This file owns
  * only what desktop's `ModelMenuState` owns: the highlighted row, the reasoning levels picked this
  * visit, and the open choice list.
  */
@@ -27,6 +28,7 @@ import {
 import { AGENT_ICONS } from '../../../assets/agentIcons.generated';
 import { SwitchRow } from '../../../components/common/SwitchRow';
 import type { UserAction } from '../../rust/actions';
+import { Spinner } from '../cards/primitives';
 import { agentAccent } from './agentColors';
 import { Glyph, ModeGlyph } from './icons';
 import { arr, isTrue, obj, str, type JsonRecord } from './json';
@@ -135,6 +137,11 @@ export function ModelMenuSheet({
   }, [visible, menu, onClose]);
 
   const searchEnabled = isTrue(menu, 'searchEnabled');
+  // Fetch latest models at the right end of the search field, as on desktop (`render_model_refresh`):
+  // the core says whether the tab's agent can be read again, whether it is being read, and why not.
+  const refresh = obj(menu?.refresh);
+  const refreshAvailable = isTrue(refresh, 'available');
+  const refreshBusy = isTrue(refresh, 'busy');
   const search = (text: string): void => {
     setQuery(text);
     setCursor(null);
@@ -377,6 +384,23 @@ export function ModelMenuSheet({
                 style={({ pressed }) => [styles.rowButton, pressed ? styles.rowButtonPressed : null]}
               >
                 <Glyph name="x" size={16} color={P.ink(0.64)} />
+              </Pressable>
+            ) : null}
+            {refresh !== null ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={str(refresh, 'tooltip')}
+                accessibilityState={{ disabled: !refreshAvailable, busy: refreshBusy }}
+                disabled={!refreshAvailable || refreshBusy}
+                hitSlop={8}
+                onPress={() => dispatch({ type: 'modelMenuRefresh', tab })}
+                style={({ pressed }) => [styles.rowButton, pressed ? styles.rowButtonPressed : null]}
+              >
+                {refreshBusy ? (
+                  <Spinner size={16} color={P.ink(0.64)} />
+                ) : (
+                  <Glyph name="refresh" size={16} color={P.ink(refreshAvailable ? 0.64 : 0.26)} />
+                )}
               </Pressable>
             ) : null}
           </View>

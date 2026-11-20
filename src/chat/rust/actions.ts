@@ -307,6 +307,8 @@ export type ActionFields = {
   /** `effort` is the reasoning level the pick carries (desktop's Left and Right); left out, the model keeps its own. */
   modelMenuPick: { key: string; secondary?: boolean; effort?: string };
   modelMenuTrait: { id: string; value: Json; exitPlan?: boolean; secondary?: boolean };
+  /** Fetch latest models: reads the tab's agent's model list from its CLI again (`menus/picker/refresh.rs`). */
+  modelMenuRefresh: { tab: string };
   /** Accounts panel operations: `{operation, request?, accountId?, policy?, refresh?}`. */
   accounts: { operation?: string; request?: Json; accountId?: string; policy?: Json; refresh?: boolean };
   switchDraftAgent: { agentId: string };
