@@ -115,6 +115,9 @@ export type RowNesting = {
   /** On a coordinator row: its threads cleaned up by themselves that the banner reports, and how many Undo can put back. */
   autoCleaned: number;
   autoCleanedUndo: number;
+  /** On a coordinator row: its banner's threads the pass kept, and every reason why (`autoKept` codes, in order). */
+  autoKept: number;
+  autoKeptReasons: string[];
   /** On a thread row: its merged-PR offer is answered in its coordinator's banner, so the row draws none of its own. */
   cleanupInBanner: boolean;
   /**
@@ -423,17 +426,36 @@ export function nestCoordinatorThreads<S>(
   // A lead (lead links) has no "N older threads" row or fold, so all its linked sessions stay listed (gx-core threads.rs).
   const leadParent = sessions.map((session) => session.isLead === true && !session.isCoordinator);
   // The coordinator banner's counts over its direct threads, folded or not (a lead has none).
-  type Banner = { offers: number; autoCleaned: number; autoCleanedUndo: number; finished: number };
+  type Banner = {
+    offers: number;
+    autoCleaned: number;
+    autoCleanedUndo: number;
+    finished: number;
+    kept: number;
+    keptReasons: string[];
+  };
   const banners = new Map<number, Banner>();
   const inBanner = sessions.map(() => false);
   for (const [parent, list] of children) {
     if (leadParent[parent]) continue;
-    const banner: Banner = { offers: 0, autoCleaned: 0, autoCleanedUndo: 0, finished: 0 };
+    const banner: Banner = {
+      offers: 0,
+      autoCleaned: 0,
+      autoCleanedUndo: 0,
+      finished: 0,
+      kept: 0,
+      keptReasons: [],
+    };
     for (const child of list) {
       const thread = sessions[child];
       if (offerInBanner(thread, sessions[parent])) {
         inBanner[child] = true;
         banner.offers += 1;
+        const kept = thread.work?.autoKept ?? null;
+        if (kept !== null) {
+          if (!banner.keptReasons.includes(kept)) banner.keptReasons.push(kept);
+          banner.kept += 1;
+        }
       }
       const autoCleaned = thread.work?.autoCleaned ?? null;
       if (autoCleaned !== null) {
@@ -478,6 +500,8 @@ export function nestCoordinatorThreads<S>(
         cleanupOffers: banners.get(index)?.offers ?? 0,
         autoCleaned: banners.get(index)?.autoCleaned ?? 0,
         autoCleanedUndo: banners.get(index)?.autoCleanedUndo ?? 0,
+        autoKept: banners.get(index)?.kept ?? 0,
+        autoKeptReasons: banners.get(index)?.keptReasons ?? [],
         cleanupInBanner: inBanner[index],
         containsActive: false,
         foldedStatus: foldedStatus(index),

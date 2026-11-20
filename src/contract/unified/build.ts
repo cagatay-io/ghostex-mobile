@@ -95,6 +95,8 @@ export type UnifiedSessionWork = {
   /** Cleaned up by itself and still reported: whether Undo can put it back; null otherwise. */
   autoCleaned: boolean | null;
   cleanedUp: boolean;
+  /** Why the pass that cleans up by itself kept it (`GhostexSessionWork.autoKept`). */
+  autoKept?: string | null;
 };
 
 export type UnifiedProjectInput = {

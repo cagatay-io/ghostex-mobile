@@ -286,11 +286,14 @@ export type CleanupBannerModel = {
   offers: number;
   autoCleaned: number;
   autoCleanedUndo: number;
+  /** Of the offers, the ones the pass kept, and every reason why. */
+  kept: number;
+  keptReasons: string[];
 };
 
 /** The banner a coordinator's nesting asks for, or undefined when it says nothing. */
 export function cleanupBannerOf(
-  nesting: Pick<RowNesting, 'cleanupOffers' | 'autoCleaned' | 'autoCleanedUndo'>,
+  nesting: Pick<RowNesting, 'cleanupOffers' | 'autoCleaned' | 'autoCleanedUndo' | 'autoKept' | 'autoKeptReasons'>,
   coordinator: GhostexSession,
   machineId: string,
 ): CleanupBannerModel | undefined {
@@ -301,6 +304,8 @@ export function cleanupBannerOf(
     offers: nesting.cleanupOffers,
     autoCleaned: nesting.autoCleaned,
     autoCleanedUndo: nesting.autoCleanedUndo,
+    kept: nesting.autoKept,
+    keptReasons: nesting.autoKeptReasons,
   };
 }
 

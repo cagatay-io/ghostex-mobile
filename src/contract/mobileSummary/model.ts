@@ -370,6 +370,11 @@ export type GhostexSessionWork = {
   autoCleaned: boolean | null;
   /** The worktree was cleaned up for the merged PR, by the user or by itself. */
   cleanedUp: boolean;
+  /**
+   * Why the computer's pass that cleans up by itself kept this merged thread's worktree: `uncommitted`, `ignored`,
+   * `hidden` or `unmerged` (gx-core `CleanupKept`); null otherwise.
+   */
+  autoKept: string | null;
 };
 
 /**

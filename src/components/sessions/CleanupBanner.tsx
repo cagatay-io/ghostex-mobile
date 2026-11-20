@@ -25,7 +25,8 @@ const GLYPH_SIZE = 12;
 
 /** Its height in dp: two lines for the offer, one for the cleaned-up line. */
 function bannerHeight(banner: CleanupBannerModel): number {
-  const lines = (banner.offers > 0 ? 2 : 0) + (banner.autoCleaned > 0 ? 1 : 0);
+  const lines =
+    (banner.offers > 0 ? 2 : 0) + (banner.offers > 0 && banner.kept > 0 ? 1 : 0) + (banner.autoCleaned > 0 ? 1 : 0);
   return ds(lines * LINE_HEIGHT + 2 * PADDING_Y);
 }
 
@@ -85,6 +86,13 @@ export default function CleanupBanner({
               {SessionCopy.mergedWorktrees(banner.offers)}
             </Text>
           </View>
+          {banner.kept > 0 ? (
+            <View style={styles.line}>
+              <Text style={styles.text} numberOfLines={1}>
+                {SessionCopy.keptWorktrees(banner.kept, banner.keptReasons)}
+              </Text>
+            </View>
+          ) : null}
           <View style={styles.line}>
             {action(
               'cleanUp',

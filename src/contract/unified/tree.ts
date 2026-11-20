@@ -60,6 +60,9 @@ export type UnifiedCrew = {
   cleanupOffers: number;
   autoCleaned: number;
   autoCleanedUndo: number;
+  /** Its banner's threads the pass kept, and every reason why. */
+  autoKept: number;
+  autoKeptReasons: string[];
 };
 
 /** Its merged-worktrees banner is drawn after its threads (gx-core `UnifiedCrew::has_banner`). */
@@ -265,13 +268,27 @@ export function nestUnifiedRows<S>(
     const forced = !narrowed && query && !unfolded && matchBelow;
     const open = narrowed ? matchBelow : unfolded || forced;
     const tally = { total: 0, waiting: 0, working: 0, approval: 0 };
-    const banner = { finished: 0, cleanupOffers: 0, autoCleaned: 0, autoCleanedUndo: 0 };
+    const banner = {
+      finished: 0,
+      cleanupOffers: 0,
+      autoCleaned: 0,
+      autoCleanedUndo: 0,
+      autoKept: 0,
+      autoKeptReasons: [] as string[],
+    };
     for (const child of row.threads) {
       const work = child.session.work;
       if (!child.shown && isFinished(child.session)) banner.finished += 1;
       // gx-core `offer_in_banner`: answered for all at once, by the coordinator's computer.
       child.cleanupInBanner = work?.offerCleanup === true && work.offerCleanupAll && child.machine === row.machine;
-      if (child.cleanupInBanner) banner.cleanupOffers += 1;
+      if (child.cleanupInBanner) {
+        banner.cleanupOffers += 1;
+        const kept = work?.autoKept ?? null;
+        if (kept !== null) {
+          if (!banner.autoKeptReasons.includes(kept)) banner.autoKeptReasons.push(kept);
+          banner.autoKept += 1;
+        }
+      }
       if (work !== undefined && work.autoCleaned !== null) {
         banner.autoCleaned += 1;
         if (work.autoCleaned) banner.autoCleanedUndo += 1;
@@ -377,6 +394,8 @@ export function nestingAt<S>(row: UnifiedRow<S>, spot: TreeSpot = TREE_ROOT): Ro
     cleanupOffers: crew?.cleanupOffers ?? 0,
     autoCleaned: crew?.autoCleaned ?? 0,
     autoCleanedUndo: crew?.autoCleanedUndo ?? 0,
+    autoKept: crew?.autoKept ?? 0,
+    autoKeptReasons: crew?.autoKeptReasons ?? [],
     cleanupInBanner: row.cleanupInBanner === true,
     containsActive: crew?.containsActive ?? false,
     foldedStatus: anyDot ? folded : undefined,

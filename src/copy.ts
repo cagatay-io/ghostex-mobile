@@ -258,6 +258,16 @@ export const SessionCopy = {
   keepWorktreesHint: "Keep these threads and their worktrees. Ghostex won't ask again for these PRs.",
   cleanedUpWorktrees: (count: number) =>
     count === 1 ? 'Cleaned up 1 worktree' : `Cleaned up ${count} worktrees`,
+  /** Why the computer kept merged threads' worktrees (gx-core `CleanupKept::words`). */
+  keptWorktrees: (count: number, reasons: readonly string[]): string => {
+    const words: Record<string, string> = {
+      uncommitted: 'uncommitted changes',
+      ignored: 'ignored files',
+      hidden: 'hidden changes',
+      unmerged: 'unmerged commits',
+    };
+    return `${count} kept: ${reasons.map((reason) => words[reason] ?? 'other reasons').join(', ')}`;
+  },
   undoCleanup: 'Undo',
   undoCleanupHint: 'Put the worktrees back on their branches and keep them.',
   dismissCleanupHint: 'Hide this line. The threads stay asleep under the coordinator.',

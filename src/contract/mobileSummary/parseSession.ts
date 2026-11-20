@@ -158,6 +158,7 @@ function parseSessionWork(value: unknown): GhostexSessionWork | null {
     offerCleanupAll: value.offerCleanupAll === true,
     autoCleaned: isObject(value.autoCleaned) ? value.autoCleaned.undo === true : null,
     cleanedUp: value.cleanedUp === true,
+    autoKept: typeof value.autoKept === 'string' ? value.autoKept : null,
   };
 }
 
