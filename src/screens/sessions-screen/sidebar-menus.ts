@@ -103,6 +103,11 @@ export type SidebarMenuCommand =
    * opens from the project menu (the Unified list has no project menu).
    */
   | { type: 'projectActions'; sessionId: string }
+  /**
+   * The phone's own project menu rows (the project menu's layout, gx-core `project_menu_layout`): New Terminal,
+   * Actions…, Files, Details, Move Project Up and Down, Refresh Sessions. The project menu's screen runs them.
+   */
+  | { type: 'projectOwn'; action: ProjectOwnAction }
   /** The phone's own row: a Claude cloud session's terminal, whose tap opens claude.ai (`contract/claudeCloud.ts`). */
   | { type: 'claudeCloudTerminal'; sessionId: string }
   /** gx-core `MenuCommand::coordinator_session`: an orchestrator's Goal & Instructions / Memory / View playbook, a thread's Mark Thread Done / Reopen Thread. */
@@ -1058,6 +1063,16 @@ export function buildSessionMenu(input: SessionMenuInput, layout: SessionMenuLay
 // The project header menu (gx-core `project.rs` and `membership.rs`).
 // ---------------------------------------------------------------------------
 
+/** The phone's own project menu rows, by their place in the project menu's layout. */
+export type ProjectOwnAction =
+  | 'newTerminal'
+  | 'projectActions'
+  | 'files'
+  | 'projectDetails'
+  | 'moveProjectUp'
+  | 'moveProjectDown'
+  | 'refreshSessions';
+
 export type ProjectMenuInput = {
   /** The id the commands name the project by (the phone's project key). */
   groupId: string;
@@ -1069,10 +1084,14 @@ export type ProjectMenuInput = {
   /** The collection the project belongs to, or null. */
   collectionId: string | null;
   collections: readonly GhostexProjectCollection[];
+  /** The phone's own rows the project shows; one left out is not drawn. */
+  own: readonly ProjectOwnAction[];
+  /** Own rows drawn but greyed (Move Project Up on the first project…). */
+  ownDisabled: readonly ProjectOwnAction[];
 };
 
-/** Add to Group (gx-core `project_membership_menu`); Spaces is off on the desktop's defaults. */
-function projectMembershipMenu(input: ProjectMenuInput): SidebarMenuItem[] {
+/** Project Group (gx-core `project_membership_menu`); Spaces is off on the desktop's defaults. */
+function projectMembershipMenu(input: ProjectMenuInput, layout: SessionMenuLayout): SidebarMenuItem[] {
   if (input.projectId.length === 0) return [];
   const children: SidebarMenuItem[] = [
     row('New Group', 'plus', {
@@ -1105,15 +1124,16 @@ function projectMembershipMenu(input: ProjectMenuInput): SidebarMenuItem[] {
       }),
     );
   }
-  return [{ ...submenu('Project Group', 'plus', children), presentation: 'page' }];
+  return [{ ...layoutSubmenu(layout, 'projectGroup', children), presentation: 'page' }];
 }
 
 /**
- * A project header's context menu.
+ * A project header's context menu: the project menu's `phoneProject` layout (gx-core `project_menu_layout`, the
+ * user's Q4313 A), filled for this project. A worktree keeps its own short menu (Copy Path, Remove Worktree).
  *
- * Left out: Open Folder (opens Finder on the computer), Rename Worktree, Delete Worktree, New
- * Group and Copy Remote URL (no `ghostex` verb, and the summary carries no git remote), Hide (the
- * desktop's own list state), and Close Project.
+ * Left out: Open Folder (opens Finder on the computer), Rename Project, Rename Worktree, Delete Worktree, New
+ * Group and Copy Remote URL (no `ghostex` verb, and the summary carries no git remote), Hide (the desktop's own list
+ * state), and Close Project.
  *
  * CDXC:ContextMenus 2026-09-25 WHY:
  * Close Project parks the project in Recent Projects through gxserver's `/api/closeProjectToRecent`,
@@ -1121,12 +1141,11 @@ function projectMembershipMenu(input: ProjectMenuInput): SidebarMenuItem[] {
  * `/api/removeProject`, the hard delete the desktop uses only for Remove Worktree, and the phone's
  * old Close Project did exactly that while its confirmation promised a park.
  */
-export function buildProjectMenu(input: ProjectMenuInput): SidebarMenuItem[] {
+export function buildProjectMenu(input: ProjectMenuInput, layout: SessionMenuLayout): SidebarMenuItem[] {
   const groupId = input.groupId;
-  const menu: SidebarMenuItem[] = [
-    row('Copy Path', 'copy', command({ type: 'copyWorkspaceProjectPathForGroup', groupId })),
-  ];
+  const copyPath = layoutRow(layout, 'copyPath', command({ type: 'copyWorkspaceProjectPathForGroup', groupId }));
   if (input.isWorktree) {
+    const menu: SidebarMenuItem[] = [copyPath];
     if (input.projectId.length > 0) {
       menu.push(separator());
       menu.push({
@@ -1136,33 +1155,60 @@ export function buildProjectMenu(input: ProjectMenuInput): SidebarMenuItem[] {
     }
     return menu;
   }
-  menu.push(...projectMembershipMenu(input));
-  // CDXC:WorkMode 2026-10-24 DECISION: User: Issues Workflow has "No switch", so the phone's project menu drops its Work Mode row like the desktop's (supersedes the 2026-10-09 tick-row decisions).
-  menu.push(separator());
   const sleeping = input.sessions.some(isSleepingSession);
   const running = input.sessions.some(isRunningSession);
   const allSleeping = sleeping && !running;
   const hasInactive = input.sessions.some(isInactiveSession);
-  menu.push({
-    ...row(
-      allSleeping ? 'Wake' : 'Sleep Inactive',
-      allSleeping ? 'player-play' : 'moon',
-      command(
-        allSleeping
-          ? { type: 'wakeProjectSleepingSessions', groupId }
-          : { type: 'sleepInactiveProjectSessions', groupId },
-      ),
-    ),
-    disabled: !allSleeping && !hasInactive,
-  });
-  if (input.sessions.length > 0) {
-    menu.push(row('Full Reload', 'refresh', command({ type: 'fullReloadProjectZmxSessions', groupId })));
-  }
-  menu.push(separator());
-  menu.push({
-    ...row('Close Inactive', 'x', command({ type: 'closeInactiveProjectSessions', groupId })),
-    danger: true,
-    disabled: !hasInactive,
-  });
-  return menu;
+  const fill = (id: string): SidebarMenuItem[] => {
+    switch (id) {
+      case 'newTerminal':
+      case 'projectActions':
+      case 'files':
+      case 'projectDetails':
+      case 'moveProjectUp':
+      case 'moveProjectDown':
+      case 'refreshSessions': {
+        const action: ProjectOwnAction = id;
+        if (!input.own.includes(action)) return [];
+        return [
+          { ...layoutRow(layout, id, { type: 'projectOwn', action }), disabled: input.ownDisabled.includes(action) },
+        ];
+      }
+      case 'copyPath':
+        return [copyPath];
+      case 'projectGroup':
+        return projectMembershipMenu(input, layout);
+      // CDXC:WorkMode 2026-10-24 DECISION: User: Issues Workflow has "No switch", so the phone's project menu drops its Work Mode row like the desktop's (supersedes the 2026-10-09 tick-row decisions).
+      case 'sleepInactive':
+        return [
+          {
+            ...layoutRow(
+              layout,
+              'sleepInactive',
+              command(
+                allSleeping
+                  ? { type: 'wakeProjectSleepingSessions', groupId }
+                  : { type: 'sleepInactiveProjectSessions', groupId },
+              ),
+              allSleeping,
+            ),
+            disabled: !allSleeping && !hasInactive,
+          },
+        ];
+      case 'fullReload':
+        return input.sessions.length > 0
+          ? [layoutRow(layout, 'fullReload', command({ type: 'fullReloadProjectZmxSessions', groupId }))]
+          : [];
+      case 'closeInactive':
+        return [
+          {
+            ...layoutRow(layout, 'closeInactive', command({ type: 'closeInactiveProjectSessions', groupId })),
+            disabled: !hasInactive,
+          },
+        ];
+      default:
+        return [];
+    }
+  };
+  return assembleSessionMenu(layout, 'phoneProject', fill, SIDEBAR_MENU_MAKE);
 }

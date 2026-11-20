@@ -1,8 +1,16 @@
 {
   "entries": {
+    "addWorktree": {
+      "icon": "git-branch",
+      "label": "Add Worktree"
+    },
     "attachFile": {
       "icon": "paperclip",
       "label": "Send & Attach File"
+    },
+    "autopilot": {
+      "icon": "plane",
+      "label": "Autopilot"
     },
     "beads": {
       "icon": "checklist",
@@ -38,6 +46,10 @@
       "icon": "external-link",
       "label": "claude.ai"
     },
+    "cloneOn": {
+      "icon": "copy-plus",
+      "label": "Clone on…"
+    },
     "close": {
       "danger": true,
       "hotkey": "closeFocusedSession",
@@ -53,6 +65,16 @@
       "icon": "x",
       "label": "Close Below"
     },
+    "closeInactive": {
+      "danger": true,
+      "icon": "x",
+      "label": "Close Inactive"
+    },
+    "closeProject": {
+      "danger": true,
+      "icon": "x",
+      "label": "Close Project"
+    },
     "coordinator": {
       "icon": "coordinator-crown-points",
       "label": "Coordinator"
@@ -61,10 +83,28 @@
       "icon": "copy",
       "label": "Copy"
     },
+    "copyPath": {
+      "icon": "copy",
+      "label": "Copy Path"
+    },
+    "copyRemoteUrl": {
+      "icon": "link",
+      "label": "Copy Remote URL"
+    },
+    "createTicket": {
+      "host": true,
+      "icon": "",
+      "label": ""
+    },
     "delayedSend": {
       "hotkey": "delayedSend",
       "icon": "clock-check",
       "label": "Delayed Send"
+    },
+    "deleteWorktree": {
+      "danger": true,
+      "icon": "trash",
+      "label": "Delete Worktree"
     },
     "disconnect": {
       "danger": true,
@@ -94,6 +134,16 @@
       "icon": "refresh",
       "label": "Full Reload"
     },
+    "hide": {
+      "altIcon": "eye",
+      "altLabel": "Unhide",
+      "icon": "eye-off",
+      "label": "Hide"
+    },
+    "history": {
+      "icon": "history",
+      "label": "History"
+    },
     "killSession": {
       "danger": true,
       "icon": "x",
@@ -117,9 +167,26 @@
       "icon": "circle-check",
       "label": "Mark Thread Done"
     },
+    "moveProjectDown": {
+      "icon": "arrow-down",
+      "label": "Move Project Down"
+    },
+    "moveProjectUp": {
+      "icon": "arrow-up",
+      "label": "Move Project Up"
+    },
     "moveToGroup": {
       "icon": "layout-sidebar-right-expand",
       "label": "Move to Group"
+    },
+    "moveToWorkspace": {
+      "icon": "switch-horizontal",
+      "label": "Move to Workspace"
+    },
+    "newTab": {
+      "hotkey": "openBrowserPane",
+      "icon": "world",
+      "label": "New Tab"
     },
     "newTerminal": {
       "icon": "terminal-2",
@@ -130,9 +197,21 @@
       "icon": "note",
       "label": "Note"
     },
+    "openFolder": {
+      "icon": "folder-open",
+      "label": "Open Folder"
+    },
+    "openIn": {
+      "icon": "external-link",
+      "label": "Open in"
+    },
     "openTerminal": {
       "icon": "terminal-2",
       "label": "Open Terminal"
+    },
+    "organise": {
+      "icon": "folders",
+      "label": "Organise"
     },
     "park": {
       "altIcon": "archive",
@@ -145,6 +224,11 @@
       "altLabel": "Unpin",
       "icon": "pin-outline",
       "label": "Pin"
+    },
+    "pinnedActions": {
+      "host": true,
+      "icon": "",
+      "label": ""
     },
     "popout": {
       "hotkey": "popOutPane",
@@ -159,15 +243,31 @@
       "icon": "player-play",
       "label": "Actions…"
     },
+    "projectDetails": {
+      "icon": "info-circle",
+      "label": "Details"
+    },
+    "projectGroup": {
+      "icon": "folder",
+      "label": "Project Group"
+    },
     "promptEditor": {
       "hotkey": "promptEditor",
       "icon": "edit",
       "label": "Prompt Editor"
     },
+    "refreshSessions": {
+      "icon": "refresh",
+      "label": "Refresh Sessions"
+    },
     "rename": {
       "hotkey": "renameActiveSession",
       "icon": "pencil",
       "label": "Rename"
+    },
+    "renameProject": {
+      "icon": "pencil",
+      "label": "Rename Project"
     },
     "searchConversation": {
       "icon": "search",
@@ -192,11 +292,21 @@
       "icon": "moon",
       "label": "Sleep Below"
     },
+    "sleepInactive": {
+      "altIcon": "player-play",
+      "altLabel": "Wake",
+      "icon": "moon",
+      "label": "Sleep Inactive"
+    },
     "snooze": {
       "altIcon": "alarm",
       "altLabel": "Unsnooze",
       "icon": "alarm",
       "label": "Snooze"
+    },
+    "spaces": {
+      "icon": "stack",
+      "label": "Spaces"
     },
     "stashPrompt": {
       "hotkey": "stashPrompt",
@@ -451,6 +561,64 @@
         "row": "close"
       }
     ],
+    "phoneProject": [
+      {
+        "tiles": [
+          "newTerminal",
+          "projectActions"
+        ]
+      },
+      {
+        "rows": [
+          {
+            "row": "copyPath"
+          }
+        ],
+        "submenu": "copy"
+      },
+      {
+        "rows": [
+          {
+            "row": "projectGroup"
+          }
+        ],
+        "submenu": "organise"
+      },
+      {
+        "row": "files"
+      },
+      {
+        "more": [
+          {
+            "row": "projectDetails"
+          },
+          {
+            "row": "moveProjectUp"
+          },
+          {
+            "row": "moveProjectDown"
+          },
+          {
+            "row": "refreshSessions"
+          },
+          {
+            "separator": true
+          },
+          {
+            "row": "sleepInactive"
+          },
+          {
+            "row": "fullReload"
+          }
+        ]
+      },
+      {
+        "separator": true
+      },
+      {
+        "row": "closeInactive"
+      }
+    ],
     "phoneRow": [
       {
         "tiles": [
@@ -661,6 +829,90 @@
       },
       {
         "row": "close"
+      }
+    ],
+    "project": [
+      {
+        "tiles": [
+          "renameProject",
+          "addWorktree",
+          "newTerminal",
+          "newTab"
+        ]
+      },
+      {
+        "rows": [
+          {
+            "row": "copyPath"
+          },
+          {
+            "row": "copyRemoteUrl"
+          }
+        ],
+        "submenu": "copy"
+      },
+      {
+        "rows": [
+          {
+            "row": "projectGroup"
+          },
+          {
+            "row": "spaces"
+          },
+          {
+            "row": "moveToWorkspace"
+          }
+        ],
+        "submenu": "organise"
+      },
+      {
+        "row": "hide"
+      },
+      {
+        "more": [
+          {
+            "row": "history"
+          },
+          {
+            "row": "openFolder"
+          },
+          {
+            "row": "openIn"
+          },
+          {
+            "row": "createTicket"
+          },
+          {
+            "row": "pinnedActions"
+          },
+          {
+            "row": "cloneOn"
+          },
+          {
+            "separator": true
+          },
+          {
+            "row": "sleepInactive"
+          },
+          {
+            "row": "fullReload"
+          },
+          {
+            "row": "autopilot"
+          }
+        ]
+      },
+      {
+        "separator": true
+      },
+      {
+        "row": "closeInactive"
+      },
+      {
+        "row": "closeProject"
+      },
+      {
+        "row": "deleteWorktree"
       }
     ],
     "sidebar": [

@@ -12,6 +12,7 @@ import { COMMAND_ICONS, TAG_ICONS } from '../assets/tablerIcons.generated';
 import { AlarmGlyph } from '../components/sessions/unified/glyphs';
 import {
   ArchiveGlyph,
+  ArrowGlyph,
   AxeGlyph,
   BookGlyph,
   BoxGlyph,
@@ -32,6 +33,7 @@ import {
   GitPullRequestGlyph,
   HashGlyph,
   HeadsetGlyph,
+  InfoGlyph,
   LinkGlyph,
   MessageCircleGlyph,
   NoteGlyph,
@@ -113,6 +115,14 @@ const ExternalLinkGlyph = strokeGlyph([
   'M15 4h5v5',
 ]);
 
+function ArrowUpGlyph(props: GlyphProps) {
+  return <ArrowGlyph {...props} direction="up" />;
+}
+
+function ArrowDownGlyph(props: GlyphProps) {
+  return <ArrowGlyph {...props} direction="down" />;
+}
+
 function PaperclipGlyph({ size, color }: GlyphProps) {
   return <PaperclipIcon size={size} color={color} />;
 }
@@ -121,6 +131,8 @@ function PaperclipGlyph({ size, color }: GlyphProps) {
 const SESSION_MENU_GLYPHS: Readonly<Record<string, (props: GlyphProps) => ReactElement>> = {
   alarm: AlarmGlyph,
   archive: ArchiveGlyph,
+  'arrow-down': ArrowDownGlyph,
+  'arrow-up': ArrowUpGlyph,
   axe: AxeGlyph,
   book: BookGlyph,
   box: BoxGlyph,
@@ -150,6 +162,7 @@ const SESSION_MENU_GLYPHS: Readonly<Record<string, (props: GlyphProps) => ReactE
   hash: HashGlyph,
   headset: HeadsetGlyph,
   history: HistoryGlyph,
+  'info-circle': InfoGlyph,
   link: LinkGlyph,
   'message-circle': MessageCircleGlyph,
   moon: SleepGlyph,

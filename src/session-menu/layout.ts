@@ -22,8 +22,18 @@ import { logAppEvent } from '../app/appLog';
 import { wasmCoreBridge } from '../chat/rust/wasm-core/bridge';
 import BUNDLED_LAYOUT_JSON from './layout.generated.json';
 
-/** Where a session's menu opens (gx-core `SessionMenuSpot`). */
-export type SessionMenuSpot = 'sidebar' | 'chatBox' | 'phoneRow' | 'phoneChat' | 'phoneTerminal';
+/**
+ * Where a menu opens: a session's (gx-core `SessionMenuSpot`), or a project's (`ProjectMenuSpot`: `project` is the
+ * desktop's, `phoneProject` the phone's project header menu).
+ */
+export type SessionMenuSpot =
+  | 'sidebar'
+  | 'chatBox'
+  | 'phoneRow'
+  | 'phoneChat'
+  | 'phoneTerminal'
+  | 'project'
+  | 'phoneProject';
 
 /** One row's name and icon, and the reverse a toggle reads (Unpin, Wake, Reopen Thread…). */
 export type SessionMenuEntry = {
@@ -38,8 +48,13 @@ export type SessionMenuEntry = {
   host?: boolean;
 };
 
-/** One place in a spot's layout. */
-export type SessionMenuNode = { tiles: string[] } | { row: string } | { separator: true } | { more: SessionMenuNode[] };
+/** One place in a spot's layout. A `submenu` (the project menu's Copy and Organise) is named by its entry. */
+export type SessionMenuNode =
+  | { tiles: string[] }
+  | { row: string }
+  | { separator: true }
+  | { more: SessionMenuNode[] }
+  | { submenu: string; rows: SessionMenuNode[] };
 
 export type SessionMenuLayout = {
   entries: Record<string, SessionMenuEntry>;
@@ -53,7 +68,7 @@ export type SessionMenuMake<T> = {
   separator(): T;
   /** The quick row of tiles (only called with at least one). */
   tiles(items: T[]): T;
-  /** The More submenu (only called with at least one row). */
+  /** The More submenu, or a named one (only called with at least one row). */
   more(label: string, icon: string, items: T[]): T;
   isSeparator(item: T): boolean;
 };
@@ -155,23 +170,31 @@ export function useSessionMenuLayout(): SessionMenuLayout {
   return current.core ?? BUNDLED_LAYOUT;
 }
 
+/**
+ * A row of the list, from the bundled copy when an older core's list lacks it (the project menu's rows came after
+ * the session menu's), so a newer phone page never draws a row by its id.
+ */
+function entryOf(layout: SessionMenuLayout, id: string): SessionMenuEntry | undefined {
+  return layout.entries[id] ?? BUNDLED_LAYOUT.entries[id];
+}
+
 /** A row's one name (its reverse, `altLabel`, for a toggle that is on: Unpin, Wake…). */
 export function entryLabel(layout: SessionMenuLayout, id: string, alt = false): string {
-  const entry = layout.entries[id];
+  const entry = entryOf(layout, id);
   if (entry === undefined) return id;
   return alt ? (entry.altLabel ?? entry.label) : entry.label;
 }
 
 /** A row's icon id (`titlebar/<id>.svg` on the desktop). */
 export function entryIcon(layout: SessionMenuLayout, id: string, alt = false): string {
-  const entry = layout.entries[id];
+  const entry = entryOf(layout, id);
   if (entry === undefined) return '';
   return alt ? (entry.altIcon ?? entry.icon) : entry.icon;
 }
 
 /** Whether a row is red (Close, Close Below, Kill Session, Disconnect). */
 export function entryDanger(layout: SessionMenuLayout, id: string): boolean {
-  return layout.entries[id]?.danger === true;
+  return entryOf(layout, id)?.danger === true;
 }
 
 /** Drops a line that would open, end or double up a list (gx-core `tidy_separators`). */
@@ -186,9 +209,11 @@ export function tidySeparators<T>(items: readonly T[], isSeparator: (item: T) =>
 }
 
 /**
- * A spot's menu from its layout (gx-core `assemble_session_menu`): `fill` answers each row id with the rows the spot
- * shows for it right now (none, one, or a block such as a coordinator's). Tiles become one quick row of the filled
- * tiles, More one submenu of its filled rows; either is left out when empty, and stray lines are dropped.
+ * A spot's menu from its layout (gx-core `assemble_menu`): `fill` answers each row id with the rows the spot shows
+ * for it right now (none, one, or a block such as a coordinator's). Tiles become one quick row of the filled tiles,
+ * More and a named submenu one submenu each of its filled rows (a named submenu left with one row shows that row
+ * instead); any of them is left out when empty, and stray lines are dropped. A spot an older core's list lacks comes
+ * from the bundled copy.
  */
 export function assembleSessionMenu<T>(
   layout: SessionMenuLayout,
@@ -196,6 +221,11 @@ export function assembleSessionMenu<T>(
   fill: (id: string) => T[],
   make: SessionMenuMake<T>,
 ): T[] {
+  const rowsOf = (children: SessionMenuNode[]): T[] =>
+    tidySeparators(
+      children.flatMap((child) => ('row' in child ? fill(child.row) : [make.separator()])),
+      make.isSeparator,
+    );
   const place = (node: SessionMenuNode): T[] => {
     if ('row' in node) return fill(node.row);
     if ('tiles' in node) {
@@ -203,13 +233,16 @@ export function assembleSessionMenu<T>(
       return tiles.length === 0 ? [] : [make.tiles(tiles)];
     }
     if ('more' in node) {
-      const rows = tidySeparators(
-        node.more.flatMap((child) => ('row' in child ? fill(child.row) : [make.separator()])),
-        make.isSeparator,
-      );
+      const rows = rowsOf(node.more);
       return rows.length === 0 ? [] : [make.more(layout.more.label, layout.more.icon, rows)];
+    }
+    if ('submenu' in node) {
+      const rows = rowsOf(node.rows);
+      if (rows.length <= 1) return rows;
+      return [make.more(entryLabel(layout, node.submenu), entryIcon(layout, node.submenu), rows)];
     }
     return [make.separator()];
   };
-  return tidySeparators((layout.spots[spot] ?? []).flatMap(place), make.isSeparator);
+  const nodes = layout.spots[spot] ?? BUNDLED_LAYOUT.spots[spot] ?? [];
+  return tidySeparators(nodes.flatMap(place), make.isSeparator);
 }

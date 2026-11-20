@@ -178,6 +178,7 @@ import {
   isInactiveSession,
   isRunningSession as isRunningMenuSession,
   isBrowserSession as isBrowserMenuSession,
+  type ProjectOwnAction,
   type SidebarMenuCommand,
   type SidebarMenuMessage,
 } from './sidebar-menus';
@@ -934,35 +935,8 @@ export function useSessionsScreenMenus({
     return { subtitle: view.openedLabel ?? ctx.item.projectTitle, items };
   };
 
-  /**
-   * The project header's context menu at `menuPath`: the desktop's rows (./sidebar-menus.ts), then
-   * the phone's own project rows, which have no other home on the phone.
-   */
-  const projectMenuView = (
-    ctx: ProjectContext,
-    menuPath: readonly string[],
-  ): { subtitle: string; items: ContextMenuItem[] } => {
-    const { header } = ctx;
-    const summary = summaryFor(ctx.machine.id);
-    const menu = buildProjectMenu({
-      groupId: header.projectKey,
-      projectId: header.projectId,
-      isWorktree: header.icon.isWorktree,
-      sessions: sessionsForProject(ctx.machine, header),
-      collectionId: collectionIdForProject(summary?.projectCollectionsState ?? null, header.projectId),
-      collections: summary?.projectCollections ?? [],
-    });
-    const view = sidebarMenuView(
-      menu,
-      menuPath,
-      {
-        openPath: (next) => setOverlay({ kind: 'projectMenu', ctx, menuPath: next }),
-        run: (menuCommand) => runMenuCommand(ctx.machine, menuCommand, { project: ctx }),
-      },
-      appearance.foreground,
-    );
-    if (view.openedLabel !== null) return { subtitle: view.openedLabel, items: view.items };
-
+  /** Where the project sits among its computer's drawn projects, for Move Project Up and Down. */
+  const projectOrderOf = (ctx: ProjectContext) => {
     const orderedHeaders: ProjectHeaderItem[] = [];
     for (const block of entries) {
       if (block.machineId !== ctx.machine.id) continue;
@@ -971,112 +945,104 @@ export function useSessionsScreenMenus({
         for (const projectBlock of block.projects) orderedHeaders.push(projectBlock.header);
       }
     }
-    const orderedProjectIds = orderedHeaders
-      .map((entry) => entry.projectId)
-      .filter((projectId) => projectId.length > 0);
-    const projectIndex = orderedProjectIds.indexOf(header.projectId);
-    const canMove = header.projectId.length > 0 && projectIndex >= 0;
-    const movedProjectOrder = (direction: 'up' | 'down'): string[] => {
-      const next = [...orderedProjectIds];
-      const destination = direction === 'up' ? projectIndex - 1 : projectIndex + 1;
-      if (projectIndex < 0 || destination < 0 || destination >= next.length) return next;
-      const [projectId] = next.splice(projectIndex, 1);
+    const projectIds = orderedHeaders.map((entry) => entry.projectId).filter((projectId) => projectId.length > 0);
+    const index = projectIds.indexOf(ctx.header.projectId);
+    const canMove = ctx.header.projectId.length > 0 && index >= 0;
+    const moved = (direction: 'up' | 'down'): string[] => {
+      const next = [...projectIds];
+      const destination = direction === 'up' ? index - 1 : index + 1;
+      if (index < 0 || destination < 0 || destination >= next.length) return next;
+      const [projectId] = next.splice(index, 1);
       next.splice(destination, 0, projectId);
       return next;
     };
-    /*
-     * CDXC:Sessions 2026-10-08 DECISION:
-     * User: "move almost all of the buttons that appear next to an expanded project into the 3 dots menu; just keep the agent picker one and the new agent one." The project's quick actions and Create Terminal used to be header buttons; they lead this menu, each with the icon it had as a button. (Its Show fewer sessions row went with the compact list on 2026-10-13, CDXC:Projects in contract/grouping.ts.)
-     */
-    const headerRows: ContextMenuItem[] = [];
-    const lastAction = actionsEntryOf(ctx);
-    if (lastAction !== null) {
-      headerRows.push({
-        kind: 'item',
-        key: 'quick-actions',
-        label: 'Actions…',
-        icon:
-          lastAction.action.actionType === 'browser' ? (
-            <WorldGlyph size={14} color={menuIconColor} />
-          ) : (
-            <PlayGlyph size={14} color={menuIconColor} />
-          ),
-        onPress: () => setOverlay({ kind: 'actionsMenu', ctx }),
-      });
-    }
-    headerRows.push({
-      kind: 'item',
-      key: 'create-terminal',
-      label: 'Create Terminal',
-      icon: <TerminalGlyph size={14} color={menuIconColor} />,
-      onPress: () => {
+    return { canMoveUp: canMove && index > 0, canMoveDown: canMove && index < projectIds.length - 1, moved };
+  };
+
+  /** One of the phone's own project menu rows (./sidebar-menus.ts `ProjectOwnAction`). */
+  const runProjectOwn = (ctx: ProjectContext, action: ProjectOwnAction): void => {
+    const { header } = ctx;
+    switch (action) {
+      case 'newTerminal':
         setOverlay(NONE);
         createProjectTerminal(ctx);
-      },
-    });
-    const phoneRows: ContextMenuItem[] = [{ kind: 'separator', key: 'phone-sep' }];
-    if (header.projectId.length > 0 && header.projectPath.length > 0) {
-      phoneRows.push({
-        kind: 'item',
-        key: 'docs',
-        label: DocsCopy.menuLabel,
-        icon: <NoteGlyph size={14} color={menuIconColor} />,
-        onPress: () => {
-          setOverlay(NONE);
-          navigation.navigate('Docs', {
-            machineId: ctx.machine.id,
-            projectId: header.projectId,
-            projectName: header.title,
-            projectPath: header.projectPath,
-          });
-        },
-      });
+        return;
+      case 'projectActions':
+        setOverlay({ kind: 'actionsMenu', ctx });
+        return;
+      case 'files':
+        setOverlay(NONE);
+        navigation.navigate('Docs', {
+          machineId: ctx.machine.id,
+          projectId: header.projectId,
+          projectName: header.title,
+          projectPath: header.projectPath,
+        });
+        return;
+      case 'projectDetails':
+        setOverlay({ kind: 'projectDetails', ctx });
+        return;
+      case 'moveProjectUp':
+      case 'moveProjectDown': {
+        const direction = action === 'moveProjectUp' ? 'up' : 'down';
+        void runSessionCommand(ctx.machine, moveProjectCommand(header.projectId, direction), {
+          optimisticChange: { kind: 'projectOrder', projectOrder: projectOrderOf(ctx).moved(direction) },
+        });
+        return;
+      }
+      case 'refreshSessions':
+        setOverlay(NONE);
+        void refreshMachine(ctx.machine);
+        return;
     }
-    phoneRows.push(
+  };
+
+  /**
+   * The project header's context menu at `menuPath`: the project menu's layout (./sidebar-menus.ts
+   * `buildProjectMenu`), with the phone's own rows in their places.
+   *
+   * CDXC:Sessions 2026-10-08 DECISION:
+   * User: "move almost all of the buttons that appear next to an expanded project into the 3 dots menu; just keep the agent picker one and the new agent one." The project's quick actions and New Terminal used to be header buttons; since Q4313 (2026-11-20, gx-core sidebar_menu/layout.rs) they are this menu's tiles. (Its Show fewer sessions row went with the compact list on 2026-10-13, CDXC:Projects in contract/grouping.ts.)
+   */
+  const projectMenuView = (
+    ctx: ProjectContext,
+    menuPath: readonly string[],
+  ): { subtitle: string; items: ContextMenuItem[] } => {
+    const { header } = ctx;
+    const summary = summaryFor(ctx.machine.id);
+    const order = projectOrderOf(ctx);
+    const own: ProjectOwnAction[] = ['newTerminal', 'projectDetails', 'moveProjectUp', 'moveProjectDown', 'refreshSessions'];
+    if (actionsEntryOf(ctx) !== null) own.push('projectActions');
+    if (header.projectId.length > 0 && header.projectPath.length > 0) own.push('files');
+    const ownDisabled: ProjectOwnAction[] = [];
+    if (!order.canMoveUp) ownDisabled.push('moveProjectUp');
+    if (!order.canMoveDown) ownDisabled.push('moveProjectDown');
+    const menu = buildProjectMenu(
       {
-        kind: 'item',
-        key: 'move-up',
-        label: 'Move Project Up',
-        icon: <ArrowGlyph size={14} color={menuIconColor} direction="up" />,
-        disabled: !canMove || projectIndex <= 0,
-        onPress: () =>
-          void runSessionCommand(ctx.machine, moveProjectCommand(header.projectId, 'up'), {
-            optimisticChange: { kind: 'projectOrder', projectOrder: movedProjectOrder('up') },
-          }),
+        groupId: header.projectKey,
+        projectId: header.projectId,
+        isWorktree: header.icon.isWorktree,
+        sessions: sessionsForProject(ctx.machine, header),
+        collectionId: collectionIdForProject(summary?.projectCollectionsState ?? null, header.projectId),
+        collections: summary?.projectCollections ?? [],
+        own,
+        ownDisabled,
       },
-      {
-        kind: 'item',
-        key: 'move-down',
-        label: 'Move Project Down',
-        icon: <ArrowGlyph size={14} color={menuIconColor} direction="down" />,
-        disabled: !canMove || projectIndex >= orderedProjectIds.length - 1,
-        onPress: () =>
-          void runSessionCommand(ctx.machine, moveProjectCommand(header.projectId, 'down'), {
-            optimisticChange: { kind: 'projectOrder', projectOrder: movedProjectOrder('down') },
-          }),
-      },
-      {
-        kind: 'item',
-        key: 'refresh',
-        label: 'Refresh Sessions',
-        icon: <RefreshGlyph size={14} color={menuIconColor} />,
-        onPress: () => {
-          setOverlay(NONE);
-          void refreshMachine(ctx.machine);
-        },
-      },
-      {
-        kind: 'item',
-        key: 'details',
-        label: 'Details',
-        icon: <InfoGlyph size={14} color={menuIconColor} />,
-        onPress: () => setOverlay({ kind: 'projectDetails', ctx }),
-      },
+      sessionMenuLayout,
     );
-    return {
-      subtitle: 'Project',
-      items: [...headerRows, { kind: 'separator', key: 'header-sep' }, ...view.items, ...phoneRows],
-    };
+    const view = sidebarMenuView(
+      menu,
+      menuPath,
+      {
+        openPath: (next) => setOverlay({ kind: 'projectMenu', ctx, menuPath: next }),
+        run: (menuCommand) =>
+          menuCommand.type === 'projectOwn'
+            ? runProjectOwn(ctx, menuCommand.action)
+            : runMenuCommand(ctx.machine, menuCommand, { project: ctx }),
+      },
+      appearance.foreground,
+    );
+    return { subtitle: view.openedLabel ?? 'Project', items: view.items };
   };
 
   /** COLLECTION header menu root — desktop project-collection menu. */
