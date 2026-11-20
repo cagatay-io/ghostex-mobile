@@ -84,7 +84,6 @@ export type Overlay =
   | { kind: 'appMenu'; anchor?: MenuAnchor }
   /** The desktop's More › Sort & Filter: how the list is organized (synced) and the tag filter (this phone's). */
   | { kind: 'sortFilter' }
-  | { kind: 'sectionMenu'; machine: MachineRecord; section: 'projects' }
   | {
       kind: 'confirmAction';
       title: string;

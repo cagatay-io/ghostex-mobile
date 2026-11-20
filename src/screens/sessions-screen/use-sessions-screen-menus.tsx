@@ -203,6 +203,11 @@ export type SessionsScreenMenusDeps = {
   agentChoiceContext: (machineId: string, projectId: string) => AgentChoiceContext;
   /** Full-screen progress line (null hides it). */
   setProgress: (message: string | null) => void;
+  /**
+   * Add Project on a computer (it asks which one when there are several); null leaves the ☰ menu's row out, as in the
+   * Unified list, whose header has its own Add project button.
+   */
+  openAddProject: ((machineId: string) => void) | null;
   /** Drop and re-establish one machine's SSH connection, then refresh it. */
   reconnectMachine: (target: MachineRecord) => Promise<void>;
   refreshAll: () => Promise<void>;
@@ -250,6 +255,7 @@ export function useSessionsScreenMenus({
   agentChoices,
   agentChoiceContext,
   setProgress,
+  openAddProject,
   reconnectMachine,
   refreshAll,
   refreshMachine,
@@ -1410,23 +1416,6 @@ export function useSessionsScreenMenus({
     ];
   };
 
-  /** Projects section-label menu — desktop section hover actions. */
-  const sectionMenuItems = (target: MachineRecord): ContextMenuItem[] => {
-    return [
-      {
-        kind: 'item',
-        key: 'add-project',
-        label: 'Add Project',
-        icon: <PlusGlyph size={14} color={menuIconColor} />,
-        onPress: () => {
-          setOverlay(NONE);
-          navigation.navigate('AddProjectSource', { machineId: target.id });
-        },
-      },
-      ...projectListMenuItems(target),
-    ];
-  };
-
   /**
    * Machine tab long-press menu (mobile-06-sessions.html): the four rows the
    * mockup lists, then the machine-scoped entry points that have no other
@@ -1569,6 +1558,19 @@ export function useSessionsScreenMenus({
         },
       },
     ];
+    // CDXC:RemoteMachines 2026-11-20 DECISION: Add Project sits in the ☰ menu right above Recent Projects (issue #679, the user's triage answer): the redesign that moved Recent Projects here left Add Project only on a computer tab's long-press, where nobody found it.
+    if (target !== null && openAddProject !== null) {
+      items.push({
+        kind: 'item',
+        key: 'add-project',
+        label: StripCopy.menu.addProject,
+        icon: <PlusGlyph size={14} color={menuIconColor} />,
+        onPress: () => {
+          setOverlay(NONE);
+          openAddProject(target.id);
+        },
+      });
+    }
     if (target !== null && recentProjectsWithoutGbots(summaryFor(target.id)).length > 0) {
       items.push({
         kind: 'item',
@@ -2081,7 +2083,6 @@ export function useSessionsScreenMenus({
     parkedMenuItems,
     machineMenuItems,
     appMenuItems,
-    sectionMenuItems,
     resolvePrimaryAgent,
     launchAgent,
     createProjectTerminal,

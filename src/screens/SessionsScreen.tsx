@@ -899,7 +899,6 @@ export default function SessionsScreen({ navigation }: Props) {
     parkedMenuItems,
     machineMenuItems,
     appMenuItems,
-    sectionMenuItems,
     resolvePrimaryAgent,
     launchAgent,
     createProjectTerminal,
@@ -928,6 +927,7 @@ export default function SessionsScreen({ navigation }: Props) {
     agentChoices,
     agentChoiceContext,
     setProgress,
+    openAddProject: unified.on ? null : openAddProject,
     reconnectMachine,
     refreshAll,
     refreshMachine,
@@ -2171,16 +2171,6 @@ export default function SessionsScreen({ navigation }: Props) {
               },
             },
           ]}
-          onClose={() => setOverlay(NONE)}
-        />
-      ) : null}
-
-      {overlay.kind === 'sectionMenu' ? (
-        <ContextMenu
-          visible
-          title="Projects"
-          subtitle={machineDisplayLabel(overlay.machine)}
-          items={sectionMenuItems(overlay.machine)}
           onClose={() => setOverlay(NONE)}
         />
       ) : null}
