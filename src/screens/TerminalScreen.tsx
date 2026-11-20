@@ -140,7 +140,6 @@ import { paneLayoutInput, useTerminalPanes, type PaneQuestion } from '../panes/u
 import {
   AGENT_OVERLAY_NONE,
   ANDROID_KEYBOARD_GAP,
-  machineRecordFor,
   HEADER_HEIGHT,
   HEADER_PADDING,
   sessionAgentIdFor,
@@ -152,7 +151,7 @@ import {
   type AgentOverlay,
   type ExportedTranscript,
 } from './terminal-screen/session-lookups';
-import { useSessionMenuRunner } from './terminal-screen/use-session-menu-runner';
+import { useSessionMenuRunner, type SessionMenuTarget } from './terminal-screen/use-session-menu-runner';
 import type { SidebarMenuCommand } from './sessions-screen/sidebar-menus';
 import { styles } from './terminal-screen/styles';
 import { SplitChatPanes, SplitPaneChat, SplitTabsHeader } from './terminal-screen/SplitTabs';
@@ -1124,36 +1123,34 @@ export default function TerminalScreen({ navigation, route }: Props) {
   // The rows the ⋯ menus share with the long-press session menu, on the selected session.
   const sessionMenu = useSessionMenuRunner({
     setProgress: setAgentProgress,
+    isSelected: (target) =>
+      activeTab !== null &&
+      activeSession !== null &&
+      target.machineId === activeTab.machineId &&
+      target.sessionId === activeSession.sessionId,
     editDelayedSend: () => setAgentOverlay({ kind: 'delayedSend' }),
-    viewPlaybook: (machine, session) => setPlaybook({ machine, projectId: session.projectId }),
     exportTranscript: () => handleMenuAction('exportTranscript'),
     toggleCloseAfterDone: () => void toggleCloseAfterDone(),
+    viewPlaybook: (machine, session) => setPlaybook({ machine, projectId: session.projectId }),
+    noticeBottom: insets.bottom + 96,
   });
-  const runSessionMenuCommand = useCallback(
-    (command: SidebarMenuCommand): void => {
-      if (activeTab === null || activeSession === null) return;
-      const machine = machineRecordFor(activeTab.machineId);
-      if (machine !== null) sessionMenu.run(machine, activeSession, command);
-    },
-    [activeSession, activeTab, sessionMenu],
-  );
   // A shared row of the terminal's ⋯ waits on iOS for the card to finish closing: an alert or a sheet presented while
   // it is still dismissing is dropped (use-agent-actions.ts `attachPath`).
-  const pendingSessionMenuCommand = useRef<SidebarMenuCommand | null>(null);
+  const pendingSessionMenuCommand = useRef<{ target: SessionMenuTarget; command: SidebarMenuCommand } | null>(null);
   const handleSessionMenuCommand = useCallback(
-    (command: SidebarMenuCommand): void => {
+    (command: SidebarMenuCommand, target: SessionMenuTarget): void => {
       setMenuVisible(false);
-      if (Platform.OS === 'ios') pendingSessionMenuCommand.current = command;
-      else runSessionMenuCommand(command);
+      if (Platform.OS === 'ios') pendingSessionMenuCommand.current = { target, command };
+      else sessionMenu.run(target, command);
     },
-    [runSessionMenuCommand, setMenuVisible],
+    [sessionMenu, setMenuVisible],
   );
   const handleTerminalMenuDismissed = useCallback((): void => {
     handleMenuDismissed();
     const pending = pendingSessionMenuCommand.current;
     pendingSessionMenuCommand.current = null;
-    if (pending !== null) runSessionMenuCommand(pending);
-  }, [handleMenuDismissed, runSessionMenuCommand]);
+    if (pending !== null) sessionMenu.run(pending.target, pending.command);
+  }, [handleMenuDismissed, sessionMenu]);
 
   const handleTerminalMenuAction = useCallback(
     (id: Parameters<typeof handleMenuAction>[0]): void => {
@@ -1534,8 +1531,12 @@ export default function TerminalScreen({ navigation, route }: Props) {
   // session (a touch in a chat pane selects its session before its rows are reached).
   const chatHostAction = (action: string, params: Record<string, unknown> = {}): void => {
     if (action === 'sessionMenu') {
+      // A row the chat's ⋯ shares with the long-press menu, for the session it was built for (`sessionMenuRows`).
       const command = params.menuCommand as SidebarMenuCommand | undefined;
-      if (command !== undefined) runSessionMenuCommand(command);
+      const { machineId, sessionId } = params;
+      if (command !== undefined && typeof machineId === 'string' && typeof sessionId === 'string') {
+        sessionMenu.run({ machineId, sessionId }, command);
+      }
     } else if (action === 'closeAfterDone') void toggleCloseAfterDone();
     // A prompt's or a reply's Fork from here: the session's fork, ending at that message.
     else if (action === 'forkFromMessage') {

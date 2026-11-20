@@ -1,33 +1,30 @@
 /**
  * Runs the rows the chat's ⋯ and the terminal's ⋯ share with the long-press session menu (Coordinator, Mark Thread
  * Done, Copy, Tag As, Close After Done, Handoff / Export, Link to, Make Coordinator, Postpone By, Close), which
- * screens/sessions-screen/sidebar-menus.ts builds for the session on screen (`sessionMenuPlaces`). The Sessions list
- * runs the same commands through its own overlays (use-sessions-screen-menus.tsx `runMenuCommand`); here the sheets
- * those rows open (Goal & Instructions, Memory, Link to's picker) are this hook's, and what the screen already does
- * for its session (Edit Delayed Send, View Playbook, Handoff / Export, Close After Done) is handed back to it.
+ * screens/sessions-screen/sidebar-menus.ts builds for one session (`sessionMenuPlaces`). Each row carries the computer
+ * and session it was built for, and acts on that session even when another tab is selected by then; the rows the
+ * screen performs for its selected session (Edit Delayed Send, Handoff / Export, Close After Done) refuse when that
+ * session is no longer the selected one. The words a row answers with are the long-press menu's
+ * (../sessions-screen/session-menu-actions.ts), shown in this hook's own notice.
  *
  * CDXC:ContextMenus 2026-11-20 SEE-ALSO: packages/gx-core/src/sidebar_menu/layout.rs (the user's decision that every
  * session menu is one list, so these rows are in the chat's and the terminal's ⋯ too).
  */
 
-import * as Clipboard from 'expo-clipboard';
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Alert } from 'react-native';
 
 import {
   coordinatorEditCommand,
-  coordinatorResolveCommand,
   coordinatorStatusCommand,
-  leadUnlinkCommand,
-  makeMainCoordinatorCommand,
-  promoteCoordinatorCommand,
   setSessionWorkLinksCommand,
-  sleepInactiveCoordinatorThreadsCommand,
   workLinkCandidatesCommand,
   type WorkLinkKind,
 } from '../../commands/ghostexCli';
+import NoticeToast, { type Notice } from '../../components/common/NoticeToast';
 import { runGhostexCli } from '../../components/sessions/cli';
 import { NO_SUMMARY_CAPABILITIES, type GhostexSession } from '../../contract/mobileSummary';
+import { SessionCopy } from '../../copy';
 import { useInventoryStore } from '../../inventory/store';
 import type { MachineRecord } from '../../machines/store';
 import { runSessionCommand } from '../../sessions/sessionCommands';
@@ -44,9 +41,24 @@ import {
   tagSessionAction,
   type BulkSessionAction,
 } from '../sessions-screen/session-actions';
+import {
+  COORDINATOR_UPDATED_NOTICE,
+  COPY_NOTICES,
+  copyWithNotice,
+  makeCoordinator,
+  makeCoordinatorConfirm,
+  makeMainCoordinator,
+  resolveCoordinatorThread,
+  sleepInactiveCoordinatorThreads,
+  unlinkLead,
+  type SessionMenuFeedback,
+} from '../sessions-screen/session-menu-actions';
 import type { SidebarMenuCommand } from '../sessions-screen/sidebar-menus';
 import WorkLinkPicker, { parseWorkLinkCandidates } from '../sessions-screen/work-link-picker';
-import { SessionCopy } from '../../copy';
+import { machineRecordFor } from './session-lookups';
+
+/** The session a shared row was built for. */
+export type SessionMenuTarget = { machineId: string; sessionId: string };
 
 type Sheet =
   | { kind: 'none' }
@@ -58,54 +70,51 @@ const NO_SHEET: Sheet = { kind: 'none' };
 export type SessionMenuRunnerDeps = {
   /** The full-screen progress line (null hides it). */
   setProgress: (message: string | null) => void;
-  /** Delayed Send's dialog for the session on screen (Postpone By › Edit Delayed Send). */
+  /** Whether `target` is the session the screen has selected, which the three rows below act on. */
+  isSelected: (target: SessionMenuTarget) => boolean;
+  /** Delayed Send's dialog for the selected session (Postpone By › Edit Delayed Send). */
   editDelayedSend: () => void;
-  /** The coordinator's playbook sheet (Coordinator › View Playbook). */
-  viewPlaybook: (machine: MachineRecord, session: GhostexSession) => void;
-  /** Handoff / Export for the session on screen. */
+  /** Handoff / Export for the selected session. */
   exportTranscript: () => void;
-  /** Close After Done for the session on screen. */
+  /** Close After Done for the selected session. */
   toggleCloseAfterDone: () => void;
+  /** The coordinator's playbook sheet, on its own computer and project (Coordinator › View Playbook). */
+  viewPlaybook: (machine: MachineRecord, session: GhostexSession) => void;
+  /** Where the notice stands above the screen's bottom edge. */
+  noticeBottom: number;
 };
-
-function failure(title: string, error: unknown): void {
-  Alert.alert(title, error instanceof Error ? error.message : String(error), [{ text: 'OK' }]);
-}
 
 export function useSessionMenuRunner({
   setProgress,
+  isSelected,
   editDelayedSend,
-  viewPlaybook,
   exportTranscript,
   toggleCloseAfterDone,
+  viewPlaybook,
+  noticeBottom,
 }: SessionMenuRunnerDeps): {
-  run: (machine: MachineRecord, session: GhostexSession, command: SidebarMenuCommand) => void;
+  run: (target: SessionMenuTarget, command: SidebarMenuCommand) => void;
   sheets: ReactNode;
 } {
   const [sheet, setSheet] = useState<Sheet>(NO_SHEET);
-
-  /** One `ghostex` call behind the progress line; a refusal is the computer's own words in an alert. */
-  const cli = useCallback(
-    async (machine: MachineRecord, command: string, progress: string, failedTitle: string): Promise<void> => {
-      setProgress(progress);
-      try {
-        await runGhostexCli(machine, command);
-      } catch (error) {
-        failure(failedTitle, error);
-      } finally {
-        setProgress(null);
-      }
-    },
-    [setProgress],
-  );
-
-  const runAction = useCallback((machine: MachineRecord, action: BulkSessionAction, failedTitle: string): void => {
-    void runSessionCommand(machine, action.command, {
-      closeWarmSessionId: action.closeWarmSession ? action.sessionId : undefined,
-      optimisticChange: action.optimisticChange,
-      onError: (message) => Alert.alert(failedTitle, message, [{ text: 'OK' }]),
-    });
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const noticeCounter = useRef(0);
+  const notify = useCallback((message: string, error: boolean): void => {
+    noticeCounter.current += 1;
+    setNotice({ id: noticeCounter.current, message, error });
   }, []);
+  const feedback = useMemo<SessionMenuFeedback>(() => ({ setProgress, notify }), [notify, setProgress]);
+
+  const runAction = useCallback(
+    (machine: MachineRecord, action: BulkSessionAction): void => {
+      void runSessionCommand(machine, action.command, {
+        closeWarmSessionId: action.closeWarmSession ? action.sessionId : undefined,
+        optimisticChange: action.optimisticChange,
+        onError: (message) => notify(message, true),
+      });
+    },
+    [notify],
+  );
 
   const confirmClose = useCallback(
     (machine: MachineRecord, session: GhostexSession): void => {
@@ -121,7 +130,7 @@ export function useSessionMenuRunner({
         {
           text: 'Close Session',
           style: 'destructive',
-          onPress: () => runAction(machine, closeSessionAction(session, 'phone.sessionMenu'), 'Close Failed'),
+          onPress: () => runAction(machine, closeSessionAction(session, 'phone.sessionMenu')),
         },
       ]);
     },
@@ -129,62 +138,64 @@ export function useSessionMenuRunner({
   );
 
   const run = useCallback(
-    (machine: MachineRecord, session: GhostexSession, command: SidebarMenuCommand): void => {
+    (target: SessionMenuTarget, command: SidebarMenuCommand): void => {
+      const machine = machineRecordFor(target.machineId);
+      const session =
+        useInventoryStore
+          .getState()
+          .inventoriesByMachineId[target.machineId]?.summary?.sessions.find(
+            (entry) => entry.sessionId === target.sessionId,
+          ) ?? null;
+      if (machine === null || session === null) {
+        notify('That session is no longer on the computer.', true);
+        return;
+      }
+      /** A row the screen performs for its selected session, only while this is still it. */
+      const onSelected = (perform: () => void): void => {
+        if (isSelected(target)) perform();
+        else notify('That session is no longer selected.', true);
+      };
       switch (command.type) {
         case 'command': {
           const message = command.message;
           switch (message.type) {
             case 'copyText':
+              copyWithNotice(message.text, COPY_NOTICES.text, feedback);
+              return;
             case 'copySessionDetails':
-              void Clipboard.setStringAsync(message.text).catch((error: unknown) => failure('Copy Failed', error));
+              copyWithNotice(message.text, COPY_NOTICES.details, feedback);
               return;
             case 'setSessionTag':
-              runAction(machine, tagSessionAction(session, message.sessionTag), 'Tag Failed');
+              runAction(machine, tagSessionAction(session, message.sessionTag));
               return;
             case 'toggleCloseAfterDone':
-              toggleCloseAfterDone();
+              onSelected(toggleCloseAfterDone);
               return;
             case 'exportSessionTranscript':
-              exportTranscript();
+              onSelected(exportTranscript);
               return;
             case 'cancelDelayedSend':
-              runAction(machine, cancelDelayedSendSessionAction(session), 'Delayed Send Failed');
+              runAction(machine, cancelDelayedSendSessionAction(session));
               return;
             case 'closeSession':
               confirmClose(machine, session);
               return;
-            case 'makeCoordinator':
-              Alert.alert(
-                'Make coordinator?',
-                `${sessionTitle(session)} keeps its conversation and keeps running: nothing restarts or interrupts it. It gets the coordinator's crown now, and its coordinator playbook arrives once its current turn is over.`,
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Make Coordinator',
-                    onPress: () =>
-                      void cli(
-                        machine,
-                        promoteCoordinatorCommand(session.globalRef),
-                        'Making it a coordinator…',
-                        'Make Coordinator Failed',
-                      ),
-                  },
-                ],
-              );
+            case 'makeCoordinator': {
+              const confirm = makeCoordinatorConfirm(session);
+              Alert.alert(confirm.title, confirm.body, [
+                { text: 'Cancel', style: 'cancel' },
+                { text: confirm.confirmLabel, onPress: () => void makeCoordinator(machine, session, feedback) },
+              ]);
               return;
+            }
             case 'sleepInactiveCoordinatorThreads':
-              void cli(
-                machine,
-                sleepInactiveCoordinatorThreadsCommand(session.globalRef),
-                'Sleeping inactive threads…',
-                'Sleep Inactive Threads Failed',
-              );
+              void sleepInactiveCoordinatorThreads(machine, session, feedback);
               return;
             case 'setSessionWorkLinks':
               void runSessionCommand(
                 machine,
                 setSessionWorkLinksCommand(session.sessionId, session.projectId, message.links),
-                { onError: (text) => Alert.alert('Link Failed', text, [{ text: 'OK' }]) },
+                { onError: (text) => notify(text, true) },
               );
               return;
             default:
@@ -196,7 +207,7 @@ export function useSessionMenuRunner({
           if (command.action === 'linkWork') {
             setSheet({ kind: 'workLinkPicker', machine, session, linkKind: command.kind });
           } else if (command.action === 'delayedSend') {
-            editDelayedSend();
+            onSelected(editDelayedSend);
           }
           return;
         case 'coordinatorSessionAction':
@@ -209,30 +220,15 @@ export function useSessionMenuRunner({
               viewPlaybook(machine, session);
               return;
             case 'makeMain':
-              void cli(
-                machine,
-                makeMainCoordinatorCommand(session.globalRef),
-                'Making it the main coordinator…',
-                'Make Main Coordinator Failed',
-              );
+              void makeMainCoordinator(machine, session, feedback);
               return;
             case 'unlinkLead':
             case 'stopLeading':
-              void cli(
-                machine,
-                leadUnlinkCommand(session.globalRef, command.action === 'stopLeading'),
-                'Unlinking…',
-                'Unlink Failed',
-              );
+              void unlinkLead(machine, session, command.action === 'stopLeading', feedback);
               return;
             case 'markDone':
             case 'reopen':
-              void cli(
-                machine,
-                coordinatorResolveCommand(session.globalRef, command.action === 'markDone'),
-                command.action === 'markDone' ? 'Marking the thread done…' : 'Reopening the thread…',
-                command.action === 'markDone' ? 'Mark Thread Done Failed' : 'Reopen Thread Failed',
-              );
+              void resolveCoordinatorThread(machine, session, command.action === 'markDone', feedback);
               return;
           }
           return;
@@ -240,15 +236,25 @@ export function useSessionMenuRunner({
           return;
       }
     },
-    [cli, confirmClose, editDelayedSend, exportTranscript, runAction, toggleCloseAfterDone, viewPlaybook],
+    [
+      confirmClose,
+      editDelayedSend,
+      exportTranscript,
+      feedback,
+      isSelected,
+      notify,
+      runAction,
+      toggleCloseAfterDone,
+      viewPlaybook,
+    ],
   );
 
   const close = useCallback(() => setSheet(NO_SHEET), []);
 
-  let sheets: ReactNode = null;
+  let sheetView: ReactNode = null;
   if (sheet.kind === 'coordinatorDetails') {
     const { machine, session } = sheet;
-    sheets = (
+    sheetView = (
       <CoordinatorDetailsSheet
         mode={sheet.mode}
         load={async () =>
@@ -257,13 +263,14 @@ export function useSessionMenuRunner({
         onSave={async (edit) => {
           await runGhostexCli(machine, coordinatorEditCommand(session.globalRef, edit));
           close();
+          notify(COORDINATOR_UPDATED_NOTICE, false);
         }}
         onCancel={close}
       />
     );
   } else if (sheet.kind === 'workLinkPicker') {
     const { machine, session, linkKind } = sheet;
-    sheets = (
+    sheetView = (
       <WorkLinkPicker
         kind={linkKind}
         sessionTitle={sessionTitle(session)}
@@ -292,12 +299,20 @@ export function useSessionMenuRunner({
                     ? { linearIssues: values }
                     : { githubIssues: values };
           void runSessionCommand(machine, setSessionWorkLinksCommand(session.sessionId, session.projectId, links), {
-            onError: (text) => Alert.alert('Link Failed', text, [{ text: 'OK' }]),
+            onError: (text) => notify(text, true),
           });
         }}
         onCancel={close}
       />
     );
   }
-  return { run, sheets };
+  return {
+    run,
+    sheets: (
+      <>
+        {sheetView}
+        <NoticeToast notice={notice} bottom={noticeBottom} />
+      </>
+    ),
+  };
 }

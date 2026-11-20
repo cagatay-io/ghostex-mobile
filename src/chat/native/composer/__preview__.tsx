@@ -172,7 +172,7 @@ function useFakeChat(scene: string): RustChat {
 function Preview() {
   const chat = useFakeChat(SCENE);
   const doc = chat.state!.document!;
-  const { layout } = useSessionMenuLayout();
+  const layout = useSessionMenuLayout();
   return (
     <SafeAreaProvider>
       <SafeAreaView style={{ flex: 1, backgroundColor: '#0e0e0e' }} edges={['top']}>
@@ -186,7 +186,7 @@ function Preview() {
           chat={chat}
           onHostAction={(action) => console.log('[preview] host', action)}
         />
-        {SCENE === 'more' && layout !== null ? (
+        {SCENE === 'more' ? (
           <MenuSheet
             rows={moreActionsRows({
               document: doc,

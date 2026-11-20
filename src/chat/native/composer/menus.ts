@@ -306,10 +306,14 @@ function iconPathOf(icon: string): string {
 
 /**
  * Rows of the long-press menu's builders (screens/sessions-screen/sidebar-menus.ts) as this sheet's rows: each row's
- * command goes to the screen as the `sessionMenu` host action, which runs it for this chat's session
- * (screens/terminal-screen/use-session-menu-runner.tsx).
+ * command goes to the screen as the `sessionMenu` host action with the computer and session the rows were built for,
+ * and the screen runs it on that session (screens/terminal-screen/use-session-menu-runner.tsx). Coordinator › View
+ * Playbook is the chat's own `viewPlaybook` host action, which opens the playbook of the chat's computer and project.
  */
-export function sessionMenuRows(items: readonly SidebarMenuItem[]): MenuRow[] {
+export function sessionMenuRows(
+  items: readonly SidebarMenuItem[],
+  target: { machineId: string; sessionId: string },
+): MenuRow[] {
   return items.map((item): MenuRow => {
     if (item.separator === true) return { separator: true };
     if (item.heading === true) return { heading: true, label: item.label ?? '' };
@@ -322,9 +326,13 @@ export function sessionMenuRows(items: readonly SidebarMenuItem[]): MenuRow[] {
       ...(item.danger === true ? { destructive: true } : {}),
       ...(item.suffix !== undefined ? { detail: item.suffix } : {}),
     };
-    if (item.children !== undefined) return { ...row, children: sessionMenuRows(item.children) };
-    if (item.command !== undefined) return { ...row, command: { type: 'host', action: 'sessionMenu', menuCommand: item.command } };
-    return row;
+    if (item.children !== undefined) return { ...row, children: sessionMenuRows(item.children, target) };
+    const command = item.command;
+    if (command === undefined) return row;
+    if (command.type === 'coordinatorSessionAction' && command.action === 'viewPlaybook') {
+      return { ...row, command: { type: 'host', action: 'viewPlaybook' } };
+    }
+    return { ...row, command: { type: 'host', action: 'sessionMenu', menuCommand: command, ...target } };
   });
 }
 

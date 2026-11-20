@@ -37,7 +37,7 @@ import { Glyph as CardGlyph } from '../cards/icons';
 import { attachIntakeImages } from './imageIntake';
 import { isTrue, obj, str, type JsonRecord } from './json';
 import { useInventoryStore } from '../../../inventory/store';
-import { loadSessionMenuLayout } from '../../../session-menu/layout';
+import { sessionMenuLayoutNow } from '../../../session-menu/layout';
 import { sessionMenuInputFromSummary, sessionMenuPlaces } from '../../../screens/sessions-screen/sidebar-menus';
 import {
   COMPOSER_CONTROLS,
@@ -729,50 +729,40 @@ export function NativeComposer({
   }, [dictation, machineLabel, voiceInMic, voiceLit]);
 
   /**
-   * More actions: the `phoneChat` spot of the one session menu (session-menu/layout.ts), which a menu opened before the
-   * chat core answered waits for. Its shared places are the long-press menu's rows for this chat's session, run by the
-   * screen (`sessionMenu`).
+   * More actions: the `phoneChat` spot of the one session menu (session-menu/layout.ts: the core's, else the bundled
+   * copy). Its shared places are the long-press menu's rows for this chat's session, run by the screen (`sessionMenu`).
    */
   const openMore = useCallback(() => {
     if (document === null) return;
+    const layout = sessionMenuLayoutNow();
     const machineId = chat.machine?.id ?? null;
-    void loadSessionMenuLayout()
-      .then((layout) => {
-        const summary =
-          machineId === null ? null : useInventoryStore.getState().inventoriesByMachineId[machineId]?.summary;
-        const session = summary?.sessions.find((entry) => entry.sessionId === sessionId) ?? null;
-        const places =
-          session !== null && serves('sessionMenu')
-            ? sessionMenuPlaces(sessionMenuInputFromSummary(summary, session), layout)
-            : null;
-        setMenu({
-          kind: 'rows',
-          rows: moreActionsRows({
-            document,
-            layout,
-            available,
-            serves,
-            ...(places !== null ? { sessionRows: (id: string) => sessionMenuRows(places(id)) } : {}),
-            draft: model?.text ?? '',
-            voiceCallTitle,
-            voiceCallGbotName,
-            allFolded: compact,
-            sleeping,
-          }),
-        });
-      })
-      .catch((error: unknown) =>
-        host('toast', {
-          message: `More actions could not load: ${error instanceof Error ? error.message : String(error)}`,
-          level: 'error',
-        }),
-      );
+    const summary = machineId === null ? null : useInventoryStore.getState().inventoriesByMachineId[machineId]?.summary;
+    const session = summary?.sessions.find((entry) => entry.sessionId === sessionId) ?? null;
+    const places =
+      machineId !== null && session !== null && serves('sessionMenu')
+        ? sessionMenuPlaces(sessionMenuInputFromSummary(summary, session), layout)
+        : null;
+    const target = { machineId: machineId ?? '', sessionId };
+    setMenu({
+      kind: 'rows',
+      rows: moreActionsRows({
+        document,
+        layout,
+        available,
+        serves,
+        ...(places !== null ? { sessionRows: (id: string) => sessionMenuRows(places(id), target) } : {}),
+        draft: model?.text ?? '',
+        voiceCallTitle,
+        voiceCallGbotName,
+        allFolded: compact,
+        sleeping,
+      }),
+    });
   }, [
     available,
     chat.machine,
     compact,
     document,
-    host,
     model,
     serves,
     sessionId,

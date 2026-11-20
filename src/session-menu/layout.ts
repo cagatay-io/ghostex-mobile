@@ -9,14 +9,18 @@
  * sidebar-menus.ts (the long-press), chat/native/composer/menus.ts (the chat's ⋯), components/terminal/TerminalMenu.tsx
  * (the terminal's ⋯).
  *
- * CDXC:ContextMenus 2026-11-20 WHY: there is no hard-coded copy of the list to fall back on. The layout rides in the
- * same over-the-air update as this code, so a menu opened before the core answered waits for it (`useSessionMenuLayout`,
- * `loadSessionMenuLayout`) instead of drawing a second list that could drift from the desktop's.
+ * CDXC:ContextMenus 2026-11-20 WHY: a menu never waits on the core and never lacks its rows. Until the core has
+ * answered (a page still starting, an old page without the call, one that crashed or did not answer within
+ * `CORE_TIMEOUT_MS`), the menus use the copy bundled with this code (layout.generated.json, written from the same
+ * gx-core function by scripts/generate-session-menu-layout.mjs; the release fails on a stale one), so Close, Kill
+ * Session, Disconnect and Settings are always there. The core's own answer replaces it as soon as it arrives.
  */
 
 import { useEffect, useSyncExternalStore } from 'react';
 
+import { logAppEvent } from '../app/appLog';
 import { wasmCoreBridge } from '../chat/rust/wasm-core/bridge';
+import BUNDLED_LAYOUT_JSON from './layout.generated.json';
 
 /** Where a session's menu opens (gx-core `SessionMenuSpot`). */
 export type SessionMenuSpot = 'sidebar' | 'chatBox' | 'phoneRow' | 'phoneChat' | 'phoneTerminal';
@@ -54,24 +58,10 @@ export type SessionMenuMake<T> = {
   isSeparator(item: T): boolean;
 };
 
-type LayoutState = {
-  layout: SessionMenuLayout | null;
-  error: string | null;
-  /** When the last ask failed, so a menu re-rendering does not ask again in a tight loop. */
-  failedAt: number;
-  loading: Promise<SessionMenuLayout> | null;
-};
-
-/** A failed ask is tried again by the next menu that draws, at most this often. */
-const RETRY_AFTER_MS = 3_000;
-
-let state: LayoutState = { layout: null, error: null, failedAt: 0, loading: null };
-const listeners = new Set<() => void>();
-
-function setState(next: LayoutState): void {
-  state = next;
-  for (const listener of [...listeners]) listener();
-}
+/** How long a request for the layout waits on the core before the bundled copy stands in. */
+const CORE_TIMEOUT_MS = 5_000;
+/** After a failed request, the next menu that draws asks the core again at most this often. */
+const RETRY_AFTER_MS = 30_000;
 
 function parseLayout(value: unknown): SessionMenuLayout {
   const layout = value as Partial<SessionMenuLayout> | null;
@@ -89,32 +79,62 @@ function parseLayout(value: unknown): SessionMenuLayout {
   return layout as SessionMenuLayout;
 }
 
+/** The copy bundled with this code, for whenever the core has not answered. */
+const BUNDLED_LAYOUT: SessionMenuLayout = parseLayout(BUNDLED_LAYOUT_JSON);
+
+type LayoutState = {
+  /** The core's answer, once it came. */
+  core: SessionMenuLayout | null;
+  /** When the last request failed, so menus drawing again do not ask in a tight loop. */
+  failedAt: number;
+  loading: Promise<SessionMenuLayout> | null;
+};
+
+let state: LayoutState = { core: null, failedAt: 0, loading: null };
+const listeners = new Set<() => void>();
+
+function setState(next: LayoutState): void {
+  state = next;
+  for (const listener of [...listeners]) listener();
+}
+
 /**
- * The layout, asked of the chat core once and kept for the app's life (it only changes with the update that carries
- * the core). A failed ask is forgotten, so the next menu asks again.
+ * Asks the chat core for the layout (once it has answered, its answer is kept for the app's life: it only changes with
+ * the update that carries the core). Resolves with the core's answer, or with the bundled copy when the core fails or
+ * does not answer within `CORE_TIMEOUT_MS`; never rejects.
  */
 export function loadSessionMenuLayout(): Promise<SessionMenuLayout> {
-  if (state.layout !== null) return Promise.resolve(state.layout);
+  if (state.core !== null) return Promise.resolve(state.core);
   if (state.loading !== null) return state.loading;
   const loading = wasmCoreBridge
-    .call({ op: 'sessionMenuLayout' })
+    .call({ op: 'sessionMenuLayout' }, { timeoutMs: CORE_TIMEOUT_MS })
     .then((answer) => {
-      const layout = parseLayout(answer);
-      setState({ layout, error: null, failedAt: 0, loading: null });
-      return layout;
+      const core = parseLayout(answer);
+      setState({ core, failedAt: 0, loading: null });
+      return core;
     })
     .catch((error: unknown) => {
       const message = error instanceof Error ? error.message : String(error);
-      setState({ layout: null, error: message, failedAt: Date.now(), loading: null });
-      throw error instanceof Error ? error : new Error(message);
+      logAppEvent(`Session menus: using the bundled list (${message}).`);
+      setState({ core: null, failedAt: Date.now(), loading: null });
+      return BUNDLED_LAYOUT;
     });
   setState({ ...state, loading });
   return loading;
 }
 
-/** The layout if the core has answered, else null. */
-export function sessionMenuLayoutNow(): SessionMenuLayout | null {
-  return state.layout;
+/** Asks the core again unless it has answered, a request is on its way, or the last one failed a moment ago. */
+function retrySessionMenuLayout(): void {
+  if (state.core !== null || state.loading !== null) return;
+  if (state.failedAt > 0 && Date.now() - state.failedAt < RETRY_AFTER_MS) return;
+  void loadSessionMenuLayout();
+}
+
+/** The layout to draw now: the core's answer, else the bundled copy (asking the core again, outside the caller). */
+export function sessionMenuLayoutNow(): SessionMenuLayout {
+  if (state.core !== null) return state.core;
+  setTimeout(retrySessionMenuLayout, 0);
+  return BUNDLED_LAYOUT;
 }
 
 function subscribe(listener: () => void): () => void {
@@ -126,23 +146,13 @@ function subscribe(listener: () => void): () => void {
 
 const snapshot = (): LayoutState => state;
 
-/**
- * The layout for a component that draws a session menu: null until the core answers (the component re-renders then),
- * with the last failure's words in `error`. Asks the core when nothing is on its way.
- */
-export function useSessionMenuLayout(): { layout: SessionMenuLayout | null; error: string | null } {
+/** The layout for a component that draws a session menu, drawn again when the core's answer replaces the bundled copy. */
+export function useSessionMenuLayout(): SessionMenuLayout {
   const current = useSyncExternalStore(subscribe, snapshot);
   useEffect(() => {
-    if (current.layout === null && current.loading === null) retrySessionMenuLayout();
+    if (current.core === null) retrySessionMenuLayout();
   }, [current]);
-  return { layout: current.layout, error: current.error };
-}
-
-/** Asks the core unless the layout is here, on its way, or the last ask failed only a moment ago. */
-export function retrySessionMenuLayout(): void {
-  if (state.layout !== null || state.loading !== null) return;
-  if (state.error !== null && Date.now() - state.failedAt < RETRY_AFTER_MS) return;
-  void loadSessionMenuLayout().catch(() => undefined);
+  return current.core ?? BUNDLED_LAYOUT;
 }
 
 /** A row's one name (its reverse, `altLabel`, for a toggle that is on: Unpin, Wake…). */

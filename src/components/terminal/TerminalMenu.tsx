@@ -91,8 +91,11 @@ export type TerminalMenuProps = {
   /** Skills lists the agent's Ghostex skills and types one into its terminal input. */
   skillsEnabled: boolean;
   onSelect: (id: TerminalMenuActionId) => void;
-  /** A row shared with the long-press menu, for `session` (screens/terminal-screen/use-session-menu-runner.tsx). */
-  onSessionCommand: (command: SidebarMenuCommand) => void;
+  /**
+   * A row shared with the long-press menu, with the computer and session it was built for
+   * (screens/terminal-screen/use-session-menu-runner.tsx).
+   */
+  onSessionCommand: (command: SidebarMenuCommand, target: { machineId: string; sessionId: string }) => void;
   /** Items shown before the menu's own, each with its own action (the iPhone Duo rail's overflow). */
   leadingItems?: readonly ContextMenuItem[];
   onClose: () => void;
@@ -230,40 +233,28 @@ function terminalMenu(props: TerminalMenuProps, layout: SessionMenuLayout): Side
 export default function TerminalMenu(props: TerminalMenuProps) {
   const { visible, sessionTitle, onSelect, onSessionCommand, leadingItems = [], onClose, onDismissed, anchor } = props;
   const appearance = useAppearance();
-  const { layout, error } = useSessionMenuLayout();
+  const layout = useSessionMenuLayout();
   // The submenus opened so far (Coordinator, Copy, More…), each a page of the same card.
   const [menuPath, setMenuPath] = useState<readonly string[]>([]);
   useEffect(() => {
     if (!visible) setMenuPath([]);
   }, [visible]);
 
-  const view =
-    layout === null
-      ? {
-          // Opened before the chat core answered: wait for the layout rather than drawing another list.
-          openedLabel: null,
-          items: [
-            ...leadingItems,
-            {
-              kind: 'note' as const,
-              key: 'session-menu-layout',
-              label: error === null ? 'Loading…' : `The menu could not load: ${error}`,
-            },
-          ],
+  const view = sidebarMenuView(
+    terminalMenu(props, layout),
+    menuPath,
+    {
+      openPath: setMenuPath,
+      run: (command) => {
+        if (command.type === 'host') onSelect(command.action as TerminalMenuActionId);
+        else if (props.session !== null && props.machineId !== null) {
+          onSessionCommand(command, { machineId: props.machineId, sessionId: props.session.sessionId });
         }
-      : sidebarMenuView(
-          terminalMenu(props, layout),
-          menuPath,
-          {
-            openPath: setMenuPath,
-            run: (command) => {
-              if (command.type === 'host') onSelect(command.action as TerminalMenuActionId);
-              else onSessionCommand(command);
-            },
-          },
-          appearance.foreground,
-          { terminalLeading: leadingItems },
-        );
+      },
+    },
+    appearance.foreground,
+    { terminalLeading: leadingItems },
+  );
 
   return (
     <ContextMenu

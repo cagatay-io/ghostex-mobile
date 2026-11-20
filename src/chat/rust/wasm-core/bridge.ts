@@ -236,18 +236,64 @@ class WasmCoreBridge {
     };
   }
 
-  /** One request, one answer. */
-  async call(request: WasmCoreRequest): Promise<unknown> {
-    const [answer] = await this.batch([request]);
-    if (answer.ok) return answer.value;
-    throw answer.error;
+  /**
+   * One request, one answer. With `timeoutMs`, a request the page has not answered by then (still starting, or not
+   * answering) rejects with code `timeout` and is forgotten, so a late reply is dropped; one not yet sent is never sent.
+   */
+  async call(request: WasmCoreRequest, options: { timeoutMs?: number } = {}): Promise<unknown> {
+    const { timeoutMs } = options;
+    if (timeoutMs === undefined) {
+      const [answer] = await this.batch([request]);
+      if (answer.ok) return answer.value;
+      throw answer.error;
+    }
+    return new Promise((resolve, reject) => {
+      let abandoned = false;
+      let sentIds: number[] = [];
+      const timer = setTimeout(() => {
+        abandoned = true;
+        for (const id of sentIds) this.pending.delete(id);
+        reject(new ChatCoreError('timeout', `The chat core did not answer ${request.op} in time.`));
+      }, timeoutMs);
+      this.send([request], () => abandoned)
+        .then(async (sent) => {
+          if (sent === null) return;
+          sentIds = sent.ids;
+          const [answer] = await Promise.all(sent.answers);
+          if (abandoned || answer === undefined) return;
+          clearTimeout(timer);
+          if (answer.ok) resolve(answer.value);
+          else reject(answer.error);
+        })
+        .catch((error: unknown) => {
+          if (abandoned) return;
+          clearTimeout(timer);
+          reject(error);
+        });
+    });
   }
 
   /** Several requests in one message (one settle round's events); answers in request order. */
   async batch(
     requests: readonly WasmCoreRequest[],
   ): Promise<({ ok: true; value: unknown } | { ok: false; error: ChatCoreError })[]> {
+    const sent = await this.send(requests);
+    return sent === null ? [] : Promise.all(sent.answers);
+  }
+
+  /**
+   * Posts `requests` once the page is ready, unless `abandoned` says by then that nobody waits for them (null).
+   * Answers in request order, with the ids they wait under in `pending`.
+   */
+  private async send(
+    requests: readonly WasmCoreRequest[],
+    abandoned: () => boolean = () => false,
+  ): Promise<{
+    ids: number[];
+    answers: Promise<{ ok: true; value: unknown } | { ok: false; error: ChatCoreError }>[];
+  } | null> {
     await this.ready();
+    if (abandoned()) return null;
     const tag = this.viewTag;
     if (tag === null) throw new ChatCoreError('unavailable', 'The chat core page has no view yet.');
     const ids: number[] = [];
@@ -266,7 +312,7 @@ class WasmCoreBridge {
         ? { id: ids[0], ...requests[0] }
         : { batch: requests.map((request, index) => ({ id: ids[index], ...request })) };
     GhostexNative.postToWebView(tag, `window.gxChatCore.receive(${JSON.stringify(JSON.stringify(message))})`);
-    return Promise.all(answers);
+    return { ids, answers };
   }
 
   /**

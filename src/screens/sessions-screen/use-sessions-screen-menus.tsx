@@ -12,7 +12,6 @@ import { snoozeWakeAt } from '../../contract/unified/snooze';
 import { useCallback, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import * as Clipboard from 'expo-clipboard';
 
 import { GhostexNative } from '../../../modules/ghostex-native/src';
 
@@ -64,13 +63,8 @@ import {
   createSessionCommand,
   exportSessionTranscriptCommand,
   forkSessionCommand,
-  promoteCoordinatorCommand,
-  makeMainCoordinatorCommand,
   coordinatorEditCommand,
-  coordinatorResolveCommand,
-  leadUnlinkCommand,
   coordinatorStatusCommand,
-  sleepInactiveCoordinatorThreadsCommand,
   moveProjectCommand,
   removeProjectCommand,
   setSessionWorkLinksCommand,
@@ -159,7 +153,19 @@ import {
 } from './CoordinatorDetailsSheet';
 import { parseWorkLinkCandidates, type WorkLinkCandidates } from './work-link-picker';
 import { sidebarMenuView } from './sidebar-menu-view';
-import { retrySessionMenuLayout, useSessionMenuLayout } from '../../session-menu/layout';
+import { useSessionMenuLayout } from '../../session-menu/layout';
+import {
+  COORDINATOR_UPDATED_NOTICE,
+  COPY_NOTICES,
+  copyWithNotice,
+  makeCoordinator as makeCoordinatorWith,
+  makeCoordinatorConfirm,
+  makeMainCoordinator as makeMainCoordinatorWith,
+  resolveCoordinatorThread as resolveCoordinatorThreadWith,
+  sleepInactiveCoordinatorThreads as sleepInactiveCoordinatorThreadsWith,
+  unlinkLead as unlinkLeadWith,
+  type SessionMenuFeedback,
+} from './session-menu-actions';
 import { chatMachineLink } from '../../chat/rust/machine-link';
 import { callVoiceAbout } from '../../voice/callAbout';
 import { VOICE_SUPPORTED } from '../../voice/conversation';
@@ -271,7 +277,7 @@ export function useSessionsScreenMenus({
   setTransientStatus,
   snoozeSession,
 }: SessionsScreenMenusDeps) {
-  // The one session menu's layout, from the chat core (session-menu/layout.ts); the screen draws again once it arrives.
+  // The one session menu's layout (session-menu/layout.ts): the chat core's, or the bundled copy until it answers.
   const sessionMenuLayout = useSessionMenuLayout();
 
   // Desktop-parity context menus ---------------------------------------------
@@ -464,77 +470,21 @@ export function useSessionsScreenMenus({
     }
   };
 
-  /** Make Coordinator: gxserver promotes the session in place; its running turn is never touched. */
-  const makeCoordinator = async (machine: MachineRecord, session: GhostexSession): Promise<void> => {
-    setProgress('Making it a coordinator…');
-    try {
-      await runGhostexCli(machine, promoteCoordinatorCommand(session.globalRef));
-      setTransientStatus('Now a coordinator');
-    } catch (error) {
-      setTransientStatus(error instanceof Error ? error.message : String(error));
-    } finally {
-      setProgress(null);
-    }
+  /** The coordinator rows' progress line and notices (./session-menu-actions.ts, shared with the chat's and terminal's ⋯). */
+  const menuFeedback: SessionMenuFeedback = {
+    setProgress,
+    notify: (message) => setTransientStatus(message),
   };
-
-  /** Make main coordinator: its project's main one on that computer (`ghostex coordinator make-main`). */
-  const makeMainCoordinator = async (machine: MachineRecord, session: GhostexSession): Promise<void> => {
-    setProgress('Making it the main coordinator…');
-    try {
-      await runGhostexCli(machine, makeMainCoordinatorCommand(session.globalRef));
-      setTransientStatus('Now the main coordinator');
-    } catch (error) {
-      setTransientStatus(error instanceof Error ? error.message : String(error));
-    } finally {
-      setProgress(null);
-    }
-  };
-
-  /** Sleep Inactive Threads: gxserver picks the orchestrator's idle threads and sleeps them. */
-  const sleepInactiveCoordinatorThreads = async (machine: MachineRecord, session: GhostexSession): Promise<void> => {
-    setProgress('Sleeping inactive threads…');
-    try {
-      const { json } = await runGhostexCli(machine, sleepInactiveCoordinatorThreadsCommand(session.globalRef));
-      const slept = Array.isArray(json?.slept) ? json.slept.length : 0;
-      setTransientStatus(
-        slept === 0 ? 'No inactive threads to sleep' : `Slept ${slept} inactive thread${slept === 1 ? '' : 's'}`,
-      );
-    } catch (error) {
-      setTransientStatus(error instanceof Error ? error.message : String(error));
-    } finally {
-      setProgress(null);
-    }
-  };
-
-  /** Mark Thread Done / Reopen Thread: gxserver resolves the thread, closing or waking its session. */
-  const resolveCoordinatorThread = async (
-    machine: MachineRecord,
-    session: GhostexSession,
-    resolved: boolean,
-  ): Promise<void> => {
-    setProgress(resolved ? 'Marking the thread done…' : 'Reopening the thread…');
-    try {
-      await runGhostexCli(machine, coordinatorResolveCommand(session.globalRef, resolved));
-      setTransientStatus(resolved ? 'Thread marked done' : 'Thread reopened');
-    } catch (error) {
-      setTransientStatus(error instanceof Error ? error.message : String(error));
-    } finally {
-      setProgress(null);
-    }
-  };
-
-  /** Unlink from Lead / Stop leading (lead links): the session or the lead's sessions stop reporting to it. */
-  const unlinkLead = async (machine: MachineRecord, session: GhostexSession, allOfLead: boolean): Promise<void> => {
-    setProgress('Unlinking…');
-    try {
-      await runGhostexCli(machine, leadUnlinkCommand(session.globalRef, allOfLead));
-      setTransientStatus(allOfLead ? 'Stopped leading' : 'Unlinked from its lead');
-    } catch (error) {
-      setTransientStatus(error instanceof Error ? error.message : String(error));
-    } finally {
-      setProgress(null);
-    }
-  };
+  const makeCoordinator = (machine: MachineRecord, session: GhostexSession) =>
+    makeCoordinatorWith(machine, session, menuFeedback);
+  const makeMainCoordinator = (machine: MachineRecord, session: GhostexSession) =>
+    makeMainCoordinatorWith(machine, session, menuFeedback);
+  const sleepInactiveCoordinatorThreads = (machine: MachineRecord, session: GhostexSession) =>
+    sleepInactiveCoordinatorThreadsWith(machine, session, menuFeedback);
+  const resolveCoordinatorThread = (machine: MachineRecord, session: GhostexSession, resolved: boolean) =>
+    resolveCoordinatorThreadWith(machine, session, resolved, menuFeedback);
+  const unlinkLead = (machine: MachineRecord, session: GhostexSession, allOfLead: boolean) =>
+    unlinkLeadWith(machine, session, allOfLead, menuFeedback);
 
   /** What the Goal & Instructions and Memory editors start from (`ghostex coordinator status`). */
   const loadCoordinatorDetails = async (ctx: SessionContext): Promise<CoordinatorDetails> => {
@@ -550,7 +500,7 @@ export function useSessionsScreenMenus({
   const saveCoordinatorDetails = async (ctx: SessionContext, edit: CoordinatorDetailsEdit): Promise<void> => {
     await runGhostexCli(ctx.machine, coordinatorEditCommand(ctx.item.session.globalRef, edit));
     setOverlay(NONE);
-    setTransientStatus('Coordinator updated');
+    setTransientStatus(COORDINATOR_UPDATED_NOTICE);
   };
 
   /** The Link to picker's suggestions for `query` (`ghostex link-session --candidates`). */
@@ -632,9 +582,7 @@ export function useSessionsScreenMenus({
   /** Close the menu, put `text` on the phone's clipboard and say so. */
   const copyToClipboard = (text: string, notice: string): void => {
     setOverlay(NONE);
-    void Clipboard.setStringAsync(text)
-      .then(() => setTransientStatus(notice))
-      .catch((error: unknown) => setTransientStatus(error instanceof Error ? error.message : String(error)));
+    copyWithNotice(text, notice, menuFeedback);
   };
 
   /** One `command` message from a session or project menu. */
@@ -687,9 +635,7 @@ export function useSessionsScreenMenus({
         const { session } = requireSession().item;
         setOverlay({
           kind: 'confirmAction',
-          title: 'Make coordinator?',
-          body: `${sessionTitle(session)} keeps its conversation and keeps running: nothing restarts or interrupts it. It gets the coordinator's crown now, and its coordinator playbook arrives once its current turn is over.`,
-          confirmLabel: 'Make Coordinator',
+          ...makeCoordinatorConfirm(session),
           run: () => void makeCoordinator(machine, session),
         });
         return;
@@ -699,14 +645,14 @@ export function useSessionsScreenMenus({
         return;
       case 'copyWorkspaceProjectPathForGroup': {
         const { header } = requireProject();
-        copyToClipboard(header.projectPath, 'Path copied');
+        copyToClipboard(header.projectPath, COPY_NOTICES.path);
         return;
       }
       case 'copySessionDetails':
-        copyToClipboard(message.text, 'Details copied');
+        copyToClipboard(message.text, COPY_NOTICES.details);
         return;
       case 'copyText':
-        copyToClipboard(message.text, 'Copied');
+        copyToClipboard(message.text, COPY_NOTICES.text);
         return;
       case 'setSessionWorkLinks': {
         const { session } = requireSession().item;
@@ -930,15 +876,7 @@ export function useSessionsScreenMenus({
     ctx: SessionContext,
     menuPath: readonly string[],
   ): { subtitle: string; items: ContextMenuItem[] } => {
-    const { layout } = sessionMenuLayout;
-    if (layout === null) {
-      // Opened before the chat core answered: the menu waits for its layout rather than drawing another list (and asks
-      // again, outside this render, when the last ask failed).
-      setTimeout(retrySessionMenuLayout, 0);
-      const label =
-        sessionMenuLayout.error === null ? 'Loading…' : `The menu could not load: ${sessionMenuLayout.error}`;
-      return { subtitle: ctx.item.projectTitle, items: [{ kind: 'note', key: 'session-menu-layout', label }] };
-    }
+    const layout = sessionMenuLayout;
     const actionsProject = ctx.unified === true ? sessionProjectContext(ctx) : null;
     const actionsEntry = actionsProject === null ? null : actionsEntryOf(actionsProject);
     const menu = buildSessionMenu(

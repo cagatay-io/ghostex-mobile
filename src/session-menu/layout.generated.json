@@ -1,0 +1,764 @@
+{
+  "entries": {
+    "attachFile": {
+      "icon": "paperclip",
+      "label": "Send & Attach File"
+    },
+    "beads": {
+      "icon": "checklist",
+      "label": "Beads"
+    },
+    "box": {
+      "icon": "world",
+      "label": "Box"
+    },
+    "branches": {
+      "icon": "git-branch",
+      "label": "Branches"
+    },
+    "catchUp": {
+      "icon": "history",
+      "label": "Catch Me Up"
+    },
+    "changes": {
+      "icon": "file-diff",
+      "label": "Changes"
+    },
+    "chatOptions": {
+      "host": true,
+      "icon": "",
+      "label": ""
+    },
+    "chatToolbar": {
+      "host": true,
+      "icon": "",
+      "label": ""
+    },
+    "claudeAi": {
+      "icon": "external-link",
+      "label": "claude.ai"
+    },
+    "close": {
+      "danger": true,
+      "hotkey": "closeFocusedSession",
+      "icon": "x",
+      "label": "Close"
+    },
+    "closeAfterDone": {
+      "icon": "clock",
+      "label": "Close After Done"
+    },
+    "closeBelow": {
+      "danger": true,
+      "icon": "x",
+      "label": "Close Below"
+    },
+    "coordinator": {
+      "icon": "coordinator-crown-points",
+      "label": "Coordinator"
+    },
+    "copy": {
+      "icon": "copy",
+      "label": "Copy"
+    },
+    "delayedSend": {
+      "hotkey": "delayedSend",
+      "icon": "clock-check",
+      "label": "Delayed Send"
+    },
+    "disconnect": {
+      "danger": true,
+      "icon": "plug-x",
+      "label": "Disconnect"
+    },
+    "export": {
+      "icon": "file-export",
+      "label": "Handoff / Export"
+    },
+    "files": {
+      "icon": "folder",
+      "label": "Files"
+    },
+    "filesLinks": {
+      "hotkey": "toggleChatFilesLinks",
+      "icon": "link",
+      "label": "Files and Links"
+    },
+    "fork": {
+      "hotkey": "forkSession",
+      "icon": "git-fork",
+      "label": "Fork"
+    },
+    "fullReload": {
+      "hotkey": "reloadSession",
+      "icon": "refresh",
+      "label": "Full Reload"
+    },
+    "killSession": {
+      "danger": true,
+      "icon": "x",
+      "label": "Kill Session"
+    },
+    "linkTo": {
+      "icon": "link",
+      "label": "Link to"
+    },
+    "links": {
+      "icon": "link",
+      "label": "Links"
+    },
+    "makeCoordinator": {
+      "icon": "users-group",
+      "label": "Make Coordinator"
+    },
+    "markThreadDone": {
+      "altIcon": "rotate-clockwise",
+      "altLabel": "Reopen Thread",
+      "icon": "circle-check",
+      "label": "Mark Thread Done"
+    },
+    "moveToGroup": {
+      "icon": "layout-sidebar-right-expand",
+      "label": "Move to Group"
+    },
+    "newTerminal": {
+      "icon": "terminal-2",
+      "label": "New Terminal"
+    },
+    "note": {
+      "hotkey": "sessionNote",
+      "icon": "note",
+      "label": "Note"
+    },
+    "openTerminal": {
+      "icon": "terminal-2",
+      "label": "Open Terminal"
+    },
+    "park": {
+      "altIcon": "archive",
+      "altLabel": "Unpark",
+      "icon": "archive",
+      "label": "Park"
+    },
+    "pin": {
+      "altIcon": "pin-filled",
+      "altLabel": "Unpin",
+      "icon": "pin-outline",
+      "label": "Pin"
+    },
+    "popout": {
+      "hotkey": "popOutPane",
+      "icon": "external-link",
+      "label": "Popout"
+    },
+    "postponeBy": {
+      "icon": "clock",
+      "label": "Postpone By"
+    },
+    "projectActions": {
+      "icon": "player-play",
+      "label": "Actions…"
+    },
+    "promptEditor": {
+      "hotkey": "promptEditor",
+      "icon": "edit",
+      "label": "Prompt Editor"
+    },
+    "rename": {
+      "hotkey": "renameActiveSession",
+      "icon": "pencil",
+      "label": "Rename"
+    },
+    "searchConversation": {
+      "icon": "search",
+      "label": "Search Conversation"
+    },
+    "sideChat": {
+      "icon": "message-circle",
+      "label": "Side Chat"
+    },
+    "skills": {
+      "icon": "sparkles",
+      "label": "Skills"
+    },
+    "sleep": {
+      "altIcon": "player-play",
+      "altLabel": "Wake",
+      "hotkey": "sleepFocusedSession",
+      "icon": "moon",
+      "label": "Sleep"
+    },
+    "sleepBelow": {
+      "icon": "moon",
+      "label": "Sleep Below"
+    },
+    "snooze": {
+      "altIcon": "alarm",
+      "altLabel": "Unsnooze",
+      "icon": "alarm",
+      "label": "Snooze"
+    },
+    "stashPrompt": {
+      "hotkey": "stashPrompt",
+      "icon": "stack-push",
+      "label": "Stash Prompt"
+    },
+    "stopReading": {
+      "icon": "player-stop",
+      "label": "Stop Reading"
+    },
+    "switchAccount": {
+      "icon": "switch-horizontal",
+      "label": "Switch Account"
+    },
+    "tagAs": {
+      "icon": "tag",
+      "label": "Tag As"
+    },
+    "terminalLeading": {
+      "host": true,
+      "icon": "",
+      "label": ""
+    },
+    "terminalSettings": {
+      "icon": "settings",
+      "label": "Settings"
+    },
+    "view": {
+      "icon": "eye",
+      "label": "View"
+    },
+    "voiceCall": {
+      "hotkey": "voiceCallAboutSession",
+      "icon": "headset",
+      "label": "Voice Call"
+    }
+  },
+  "more": {
+    "icon": "dots",
+    "label": "More"
+  },
+  "spots": {
+    "chatBox": [
+      {
+        "tiles": [
+          "rename",
+          "filesLinks",
+          "sideChat"
+        ]
+      },
+      {
+        "row": "chatToolbar"
+      },
+      {
+        "row": "view"
+      },
+      {
+        "row": "stopReading"
+      },
+      {
+        "separator": true
+      },
+      {
+        "row": "coordinator"
+      },
+      {
+        "row": "markThreadDone"
+      },
+      {
+        "row": "copy"
+      },
+      {
+        "row": "tagAs"
+      },
+      {
+        "more": [
+          {
+            "row": "sleep"
+          },
+          {
+            "row": "fork"
+          },
+          {
+            "row": "fullReload"
+          },
+          {
+            "row": "switchAccount"
+          },
+          {
+            "row": "delayedSend"
+          },
+          {
+            "row": "note"
+          },
+          {
+            "separator": true
+          },
+          {
+            "row": "closeAfterDone"
+          },
+          {
+            "row": "export"
+          },
+          {
+            "row": "linkTo"
+          },
+          {
+            "row": "branches"
+          },
+          {
+            "row": "makeCoordinator"
+          },
+          {
+            "row": "postponeBy"
+          },
+          {
+            "separator": true
+          },
+          {
+            "row": "stashPrompt"
+          },
+          {
+            "row": "skills"
+          },
+          {
+            "row": "chatOptions"
+          }
+        ]
+      },
+      {
+        "separator": true
+      },
+      {
+        "row": "close"
+      }
+    ],
+    "phoneChat": [
+      {
+        "tiles": [
+          "rename",
+          "filesLinks",
+          "sideChat"
+        ]
+      },
+      {
+        "row": "chatToolbar"
+      },
+      {
+        "row": "view"
+      },
+      {
+        "row": "stopReading"
+      },
+      {
+        "row": "searchConversation"
+      },
+      {
+        "separator": true
+      },
+      {
+        "row": "coordinator"
+      },
+      {
+        "row": "markThreadDone"
+      },
+      {
+        "row": "copy"
+      },
+      {
+        "row": "tagAs"
+      },
+      {
+        "more": [
+          {
+            "row": "sleep"
+          },
+          {
+            "row": "fork"
+          },
+          {
+            "row": "fullReload"
+          },
+          {
+            "row": "switchAccount"
+          },
+          {
+            "row": "delayedSend"
+          },
+          {
+            "row": "note"
+          },
+          {
+            "separator": true
+          },
+          {
+            "row": "closeAfterDone"
+          },
+          {
+            "row": "export"
+          },
+          {
+            "row": "linkTo"
+          },
+          {
+            "row": "branches"
+          },
+          {
+            "row": "makeCoordinator"
+          },
+          {
+            "row": "postponeBy"
+          },
+          {
+            "separator": true
+          },
+          {
+            "row": "voiceCall"
+          },
+          {
+            "row": "promptEditor"
+          },
+          {
+            "row": "catchUp"
+          },
+          {
+            "row": "files"
+          },
+          {
+            "row": "changes"
+          },
+          {
+            "row": "newTerminal"
+          },
+          {
+            "row": "stashPrompt"
+          },
+          {
+            "row": "skills"
+          },
+          {
+            "row": "chatOptions"
+          },
+          {
+            "row": "killSession"
+          }
+        ]
+      },
+      {
+        "separator": true
+      },
+      {
+        "row": "close"
+      }
+    ],
+    "phoneRow": [
+      {
+        "tiles": [
+          "rename",
+          "pin",
+          "voiceCall"
+        ]
+      },
+      {
+        "row": "snooze"
+      },
+      {
+        "row": "park"
+      },
+      {
+        "separator": true
+      },
+      {
+        "row": "coordinator"
+      },
+      {
+        "row": "markThreadDone"
+      },
+      {
+        "row": "copy"
+      },
+      {
+        "row": "tagAs"
+      },
+      {
+        "more": [
+          {
+            "row": "sleep"
+          },
+          {
+            "row": "fork"
+          },
+          {
+            "row": "fullReload"
+          },
+          {
+            "row": "switchAccount"
+          },
+          {
+            "row": "delayedSend"
+          },
+          {
+            "row": "note"
+          },
+          {
+            "separator": true
+          },
+          {
+            "row": "closeAfterDone"
+          },
+          {
+            "row": "export"
+          },
+          {
+            "row": "linkTo"
+          },
+          {
+            "row": "branches"
+          },
+          {
+            "row": "makeCoordinator"
+          },
+          {
+            "row": "postponeBy"
+          },
+          {
+            "separator": true
+          },
+          {
+            "row": "openTerminal"
+          },
+          {
+            "row": "links"
+          },
+          {
+            "row": "changes"
+          },
+          {
+            "row": "beads"
+          },
+          {
+            "row": "projectActions"
+          },
+          {
+            "row": "sleepBelow"
+          },
+          {
+            "row": "closeBelow"
+          }
+        ]
+      },
+      {
+        "separator": true
+      },
+      {
+        "row": "close"
+      }
+    ],
+    "phoneTerminal": [
+      {
+        "tiles": [
+          "rename",
+          "searchConversation",
+          "promptEditor"
+        ]
+      },
+      {
+        "row": "terminalLeading"
+      },
+      {
+        "separator": true
+      },
+      {
+        "row": "coordinator"
+      },
+      {
+        "row": "markThreadDone"
+      },
+      {
+        "row": "copy"
+      },
+      {
+        "row": "tagAs"
+      },
+      {
+        "more": [
+          {
+            "row": "sleep"
+          },
+          {
+            "row": "fork"
+          },
+          {
+            "row": "fullReload"
+          },
+          {
+            "row": "switchAccount"
+          },
+          {
+            "row": "delayedSend"
+          },
+          {
+            "row": "note"
+          },
+          {
+            "separator": true
+          },
+          {
+            "row": "closeAfterDone"
+          },
+          {
+            "row": "export"
+          },
+          {
+            "row": "linkTo"
+          },
+          {
+            "row": "branches"
+          },
+          {
+            "row": "makeCoordinator"
+          },
+          {
+            "row": "postponeBy"
+          },
+          {
+            "separator": true
+          },
+          {
+            "row": "files"
+          },
+          {
+            "row": "changes"
+          },
+          {
+            "row": "beads"
+          },
+          {
+            "row": "skills"
+          },
+          {
+            "separator": true
+          },
+          {
+            "row": "attachFile"
+          },
+          {
+            "row": "newTerminal"
+          },
+          {
+            "row": "terminalSettings"
+          },
+          {
+            "row": "disconnect"
+          },
+          {
+            "row": "killSession"
+          }
+        ]
+      },
+      {
+        "separator": true
+      },
+      {
+        "row": "close"
+      }
+    ],
+    "sidebar": [
+      {
+        "tiles": [
+          "rename",
+          "pin",
+          "popout"
+        ]
+      },
+      {
+        "row": "snooze"
+      },
+      {
+        "row": "park"
+      },
+      {
+        "row": "box"
+      },
+      {
+        "row": "claudeAi"
+      },
+      {
+        "separator": true
+      },
+      {
+        "row": "coordinator"
+      },
+      {
+        "row": "markThreadDone"
+      },
+      {
+        "row": "copy"
+      },
+      {
+        "row": "tagAs"
+      },
+      {
+        "more": [
+          {
+            "row": "sleep"
+          },
+          {
+            "row": "fork"
+          },
+          {
+            "row": "fullReload"
+          },
+          {
+            "row": "switchAccount"
+          },
+          {
+            "row": "delayedSend"
+          },
+          {
+            "row": "note"
+          },
+          {
+            "separator": true
+          },
+          {
+            "row": "closeAfterDone"
+          },
+          {
+            "row": "export"
+          },
+          {
+            "row": "linkTo"
+          },
+          {
+            "row": "branches"
+          },
+          {
+            "row": "makeCoordinator"
+          },
+          {
+            "row": "postponeBy"
+          },
+          {
+            "separator": true
+          },
+          {
+            "row": "moveToGroup"
+          },
+          {
+            "row": "sleepBelow"
+          },
+          {
+            "row": "closeBelow"
+          }
+        ]
+      },
+      {
+        "separator": true
+      },
+      {
+        "row": "close"
+      }
+    ]
+  }
+}
