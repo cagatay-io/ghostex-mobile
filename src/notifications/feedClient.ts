@@ -52,7 +52,7 @@ export async function updateFeed(rpc: FeedRpc, update: FeedUpdate): Promise<Feed
  * Mark all read or Clear all on one computer (the desktop panel's header actions); the computer keeps an open
  * approval's row unread and in the list. Answers with the whole feed after it.
  */
-export async function updateWholeFeed(rpc: FeedRpc, action: 'markAllRead' | 'clearAll'): Promise<FeedSnapshot> {
+export async function updateWholeFeed(rpc: FeedRpc, action: 'markAllRead' | 'markFinishedSeen' | 'clearAll'): Promise<FeedSnapshot> {
   return snapshotOf(await rpc(UPDATE_FEED_METHOD, { action }));
 }
 

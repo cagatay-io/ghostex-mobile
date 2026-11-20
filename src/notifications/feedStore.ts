@@ -628,17 +628,19 @@ export async function changeFeedRow(machineId: string, update: FeedUpdate): Prom
 }
 
 /**
- * Mark all read or Clear all on every computer the list shows (the desktop panel's header actions, on its All tab):
+ * Mark all read, Mark finished seen (opening the list: only the "finished" rows, see the desktop's bell) or Clear all on every computer the list shows (the desktop panel's header actions, on its All tab):
  * each one's copy changes at once and its answer replaces it. An open approval stays unread and stays in the list, as
  * the computer keeps it. False when a computer did not take it (its feed is read again).
  */
-export async function changeEveryFeed(machineIds: readonly string[], action: 'markAllRead' | 'clearAll'): Promise<boolean> {
+export async function changeEveryFeed(machineIds: readonly string[], action: 'markAllRead' | 'markFinishedSeen' | 'clearAll'): Promise<boolean> {
   const results = await Promise.all(
     machineIds.map(async (machineId) => {
       editFeed(machineId, (rows) =>
         action === 'clearAll'
           ? rows.filter((row) => row.awaitingApproval === true)
-          : rows.map((row) => (row.awaitingApproval === true ? row : { ...row, read: true })),
+          : action === 'markFinishedSeen'
+            ? rows.map((row) => (row.kind === 'finished' && row.awaitingApproval !== true ? { ...row, read: true } : row))
+            : rows.map((row) => (row.awaitingApproval === true ? row : { ...row, read: true })),
       );
       const machine = machineById(machineId);
       if (machine === undefined) return false;
