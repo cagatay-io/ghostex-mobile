@@ -89,6 +89,7 @@ import AccountsScreen from './src/accounts/AccountsScreen';
 import ApprovalsScreen from './src/screens/ApprovalsScreen';
 import SshPairingNotices from './src/components/security/SshPairingNotices';
 import EasyConnectFallbackAsk from './src/components/security/EasyConnectFallbackAsk';
+import ApprovalAlerts from './src/components/security/ApprovalAlerts';
 import TestFlightNotice from './src/components/common/TestFlightNotice';
 import { useWebPreviewStore } from './src/webPreview/store';
 import {
@@ -402,6 +403,8 @@ export default function App() {
         <SshPairingNotices />
         {/* Whether a Tailscale computer falls back to Easy Connect: asked once per computer. */}
         <EasyConnectFallbackAsk />
+        {/* A connected computer's approval request, live (src/security/approvalAlerts.ts). */}
+        <ApprovalAlerts />
         {/* TestFlight installs only: switch to the App Store version (src/updates/testFlightNotice.ts). */}
         <TestFlightNotice />
       </SafeAreaProvider>

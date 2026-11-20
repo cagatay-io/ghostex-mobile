@@ -2334,6 +2334,15 @@ export const ApprovalsCopy = {
   requirePresenceFailed: 'Could not change it',
 } as const;
 
+/** The live card for a computer's approval request (`components/security/ApprovalAlerts.tsx`). */
+export const ApprovalAlertCopy = {
+  title: (computer: string) => `${computer} asks for your approval`,
+  aComputer: 'A computer',
+  more: (count: number) => (count === 1 ? 'One more is waiting.' : `${count} more are waiting.`),
+  hide: 'Hide',
+  open: 'Open',
+} as const;
+
 /** Connect two of this phone's computers to each other (`machines/linkComputers.ts`). */
 export const LinkComputersCopy = {
   sectionLabel: 'Connect to another computer',

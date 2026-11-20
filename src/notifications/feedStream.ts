@@ -27,7 +27,9 @@ type HeaderWebSocket = new (
 
 /**
  * Opens the stream; `onChanged` on each feed change, `onClosed` once when it ends, `onStopping` when the
- * computer's gxserver says it is stopping (a restart or an update). Returns a close function.
+ * computer's gxserver says it is stopping (a restart or an update), `onApproval` for each approval request
+ * made or answered there (`approvalRequestsChanged`, which a gxserver since 11.12.0 passes on this socket:
+ * CDXC:Security 2026-11-20 in `security/approvalAlerts.ts`). Returns a close function.
  */
 export function openFeedStream(
   link: GxserverLink,
@@ -35,6 +37,7 @@ export function openFeedStream(
   onClosed: () => void,
   onStopping?: () => void,
   onStarted?: () => void,
+  onApproval?: (frame: { change?: unknown; request?: unknown }) => void,
 ): () => void {
   const url = `ws://127.0.0.1:${link.localPort}/api/events?protocolVersion=${PROTOCOL_VERSION}&stream=notifications`;
   // React Native's WebSocket takes headers, so the token never travels in the URL. The cast holds: React
@@ -51,11 +54,12 @@ export function openFeedStream(
   socket.onmessage = (event: WebSocketMessageEvent) => {
     if (typeof event.data !== 'string') return;
     try {
-      const frame = JSON.parse(event.data) as { type?: unknown } | null;
+      const frame = JSON.parse(event.data) as { type?: unknown; change?: unknown; request?: unknown } | null;
       // A restarted gxserver may have written rows while it came up; read the feed again then too.
       if (frame?.type === 'notificationFeedChanged' || frame?.type === 'serverStarted') onChanged();
       else if (frame?.type === 'serverStopping') onStopping?.();
       if (frame?.type === 'serverStarted') onStarted?.();
+      if (frame?.type === 'approvalRequestsChanged') onApproval?.(frame);
     } catch {
       // Not a frame of this stream.
     }
