@@ -186,7 +186,7 @@ const DARK: ChatRoles = {
   error: '#ef9999',
   inlineCodeSurface: '#282828',
   inlineCodeBorder: 'rgba(252,252,252,0.18)',
-  link: { url: '#6cb4ff', file: '#9dbcf0', folder: '#e3c283', image: '#8ed8ab', skill: '#a3d9bd', comment: '#b4c3ef', message: '#7dd3fc', boost: '#e7a47a' },
+  link: { url: '#6cb4ff', file: '#9dbcf0', folder: '#e3c283', image: '#8ed8ab', skill: '#a3d9bd', comment: '#b4c3ef', message: '#7dd3fc', boost: '#fbbf24' },
   alert: { note: '#51a2ff', tip: '#00d492', important: '#c27aff', warning: '#fe9a00', caution: '#ff6467' },
   diff: {
     added: '#94caaa',
@@ -239,7 +239,7 @@ const DARK: ChatRoles = {
     // A board mention's own tint (`board` in reference-visual.json's `transcript`, desktop `board_mention_link`).
     board: '#5ccfc4',
     // A Boost (`boost` in reference-visual.json's `transcript`, core `extras/boosts.rs`).
-    boost: '#e7a47a',
+    boost: '#fbbf24',
   },
   meterTrack: 'rgba(158,158,158,0.24)',
   meterFill: '#b9b9b9',
@@ -258,7 +258,7 @@ const LIGHT: ChatRoles = {
   error: '#c53030',
   inlineCodeSurface: '#efefef',
   inlineCodeBorder: 'rgba(39,39,42,0.16)',
-  link: { url: '#1447e6', file: '#3f6aa8', folder: '#93631a', image: '#2a7d4c', skill: '#3d7458', comment: '#4b5c99', message: '#0369a1', boost: '#b75d2a' },
+  link: { url: '#1447e6', file: '#3f6aa8', folder: '#93631a', image: '#2a7d4c', skill: '#3d7458', comment: '#4b5c99', message: '#0369a1', boost: '#a16207' },
   alert: { note: '#1447e6', tip: '#009966', important: '#9810fa', warning: '#e17100', caution: '#e7000b' },
   diff: {
     added: '#16803d',
@@ -303,7 +303,7 @@ const LIGHT: ChatRoles = {
     comment: '#4b5c99',
     session: '#27272a',
     board: '#0f766e',
-    boost: '#b75d2a',
+    boost: '#a16207',
   },
   meterTrack: 'rgba(85,85,92,0.24)',
   meterFill: '#8b8b8b',

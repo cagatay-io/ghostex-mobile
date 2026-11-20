@@ -36,9 +36,9 @@ export function openBoostSheet(): void {
   boostSheetOpener?.();
 }
 
-/** The Boosts' accent, the desktop's (`boosts.rs` `accent`). */
+/** The Boosts' accent, the desktop's (`boosts.rs` `accent`): the main coordinator's gold on dark, a deeper gold on light. */
 function accent(light: boolean): string {
-  return light ? '#b75d2a' : '#e7a47a';
+  return light ? '#a16207' : '#fbbf24';
 }
 
 /** A Boost's glyph from the desktop icon path the core names (`titlebar/<name>.svg`). */

@@ -67,6 +67,8 @@ export function Suggestions({ data, dispatch }: { data: unknown; dispatch: (acti
               style={({ pressed }) => [styles.row, index === selected || pressed ? styles.rowSelected : null]}
             >
               {files ? <Glyph name="file" size={16} color={P.muted} strokeWidth={1.6} /> : null}
+              {/* A Boost (the `*` list) leads with the sparkles in the Boosts' gold (cards/Boosts.tsx). */}
+              {str(popup, 'kind') === 'boost' ? <Glyph name="sparkles" size={16} color={P.link.boost} strokeWidth={1.6} /> : null}
               {sessions ? (
                 isTrue(row, 'coordinator') ? (
                   /* A main coordinator's crown is gold (the core's `mainCoordinator`; CDXC:Coordinators 2026-11-12 in gx-chat-core session_mentions.rs). */
