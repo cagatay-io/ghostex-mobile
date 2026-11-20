@@ -3,7 +3,7 @@
  * `security/approvalAlerts.ts`): it floats at the bottom of whatever screen is open, names the
  * computer and the plain question, and opens that computer's Approvals.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,7 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { navigationRef } from '../../app/deepLinks';
 import { ApprovalAlertCopy } from '../../copy';
 import { machineDisplayLabel, useMachinesStore } from '../../machines/store';
-import { dismissApprovalAlert, useApprovalAlerts } from '../../security/approvalAlerts';
+import { dismissApprovalAlert, pruneLapsedApprovalAlerts, useApprovalAlerts } from '../../security/approvalAlerts';
 import { plainAsk } from '../../security/plainAsk';
 import { useAppearance, type Appearance } from '../../theme/useAppearance';
 
@@ -21,14 +21,15 @@ export default function ApprovalAlerts() {
   const insets = useSafeAreaInsets();
   const appearance = useAppearance();
   const styles = useMemo(() => createStyles(appearance), [appearance]);
-  const [now, setNow] = useState(() => Date.now());
-  // A request that lapsed while its expiry event was missed (the socket dropped) leaves on its own.
+  // A request that lapsed while its expiry event was missed (the socket dropped) leaves the store
+  // on its own; Hide and Open drop the card at once (`dismissApprovalAlert`).
   useEffect(() => {
     if (alerts.length === 0) return;
-    const timer = setInterval(() => setNow(Date.now()), 15_000);
+    pruneLapsedApprovalAlerts();
+    const timer = setInterval(() => pruneLapsedApprovalAlerts(), 15_000);
     return () => clearInterval(timer);
   }, [alerts.length]);
-  const live = alerts.filter((alert) => !(alert.request.expiresAtMs > 0 && alert.request.expiresAtMs <= now));
+  const live = alerts;
   const alert = live[live.length - 1];
   if (alert === undefined) return null;
   const record = machines.find((machine) => machine.id === alert.machineId);

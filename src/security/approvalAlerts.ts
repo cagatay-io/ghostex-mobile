@@ -29,14 +29,33 @@ function isRequest(value: unknown): value is ApprovalRequest {
   return typeof request.id === 'string' && typeof request.action === 'string' && typeof request.summary === 'string';
 }
 
+/** At most this many cards are kept; the oldest go first. */
+const MAX_ALERTS = 20;
+
+function lapsed(alert: ApprovalAlert, now: number): boolean {
+  return alert.request.expiresAtMs > 0 && alert.request.expiresAtMs <= now;
+}
+
 /** A frame from `machineId`'s feed socket: `approvalRequestsChanged` adds or drops its card. */
 export function noteApprovalFrame(machineId: string, frame: { change?: unknown; request?: unknown }): void {
   if (!isRequest(frame.request)) return;
   const request = frame.request;
+  const now = Date.now();
   useApprovalAlerts.setState((state) => {
-    const others = state.alerts.filter((alert) => !(alert.machineId === machineId && alert.request.id === request.id));
-    return { alerts: frame.change === 'requested' ? [...others, { machineId, request }] : others };
+    const others = state.alerts.filter(
+      (alert) => !(alert.machineId === machineId && alert.request.id === request.id) && !lapsed(alert, now),
+    );
+    const next = frame.change === 'requested' ? [...others, { machineId, request }] : others;
+    return { alerts: next.slice(-MAX_ALERTS) };
   });
+}
+
+/** Drops the cards whose request lapsed (one whose answer this phone missed, the socket away). */
+export function pruneLapsedApprovalAlerts(now: number = Date.now()): void {
+  const { alerts } = useApprovalAlerts.getState();
+  if (alerts.some((alert) => lapsed(alert, now))) {
+    useApprovalAlerts.setState({ alerts: alerts.filter((alert) => !lapsed(alert, now)) });
+  }
 }
 
 /** Hide (or Open): the card goes; the request still waits on the computer's Approvals page. */
