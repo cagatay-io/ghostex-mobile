@@ -75,7 +75,10 @@ export function TranscriptMenuSheet({
       .filter((row): row is MenuRow => {
         const command = obj(row?.command);
         const type = str(command, 'type');
-        return command !== null && (type === 'appendToDraft' || type === 'replyToSelection' || host.serves(command));
+        return (
+          command !== null &&
+          (type === 'appendToDraft' || type === 'replyToSelection' || type === 'saveAsBoost' || host.serves(command))
+        );
       });
     // The message's own actions follow Copy and Add to Chat: the phone shows none of them until
     // the message is held (desktop shows them on hover).
@@ -164,6 +167,12 @@ export function TranscriptMenuSheet({
       if (str(command, 'type') === 'appendToDraft') {
         const text = str(command, 'text');
         if (text.length > 0) chat.dispatch({ type: 'appendToDraft', text, draft: composerText });
+        return false;
+      }
+      // Save as Boost (gx-chat-core `extras/boosts.rs`): the core saves it on the computer and says so.
+      if (str(command, 'type') === 'saveAsBoost') {
+        const text = str(command, 'text');
+        if (text.length > 0) chat.dispatch({ type: 'saveAsBoost', text });
         return false;
       }
       if (str(command, 'type') === 'replyToSelection') {

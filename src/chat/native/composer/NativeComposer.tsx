@@ -51,6 +51,7 @@ import { MenuSheet, type MenuRow, type MenuSearch } from './MenuSheet';
 import { ModelMenuSheet, type ModelSheetMode } from './ModelMenuSheet';
 import { NotePanel } from './NotePanel';
 import { phonePlaceholder } from './placeholder';
+import { BoostCalloutAbove } from '../cards/Boosts';
 import { BoxNotes } from './BoxNotes';
 import { CatchUpCard } from '../cards/CatchUpCard';
 import { sessionDetailsRingOf } from '../cards/SessionDetailsSheet';
@@ -893,6 +894,11 @@ export function NativeComposer({
               openMachines={openMachines}
             />
           ) : null}
+          {/* The Boosts' one-time callout, over the end of the chat and pointing at the Boost pill
+              (`cards/Boosts.tsx`); the box clips anything drawn inside it. */}
+          {strip !== undefined && !compact ? (
+            <BoostCalloutAbove hint={document?.boosts?.hint} dispatch={dispatch} />
+          ) : null}
           <View
             style={[styles.card, focused ? styles.cardFocused : null]}
             onLayout={(event: LayoutChangeEvent) => measureFrame('cardTop', event.nativeEvent.layout.y)}
@@ -992,7 +998,7 @@ export function NativeComposer({
                     keptOnDevice={document?.draftKeptOnDevice === true}
                   />
                 ) : null}
-                {!collapsed && document !== null ? <BoxNotes document={document} dispatch={dispatch} /> : null}
+                {!collapsed && document !== null ? <BoxNotes document={document} /> : null}
                 {!collapsed ? (
                   <Animated.View
                     style={[styles.footer, motion.controlsStyle]}

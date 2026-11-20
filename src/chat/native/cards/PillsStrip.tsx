@@ -50,7 +50,7 @@ import {
 } from './ChatPills';
 import type { HiddenPage } from './hiddenPages';
 import { Sheet } from '../composer/Sheet';
-import { BoostEditorSheet, BoostPill, BoostSheet } from './Boosts';
+import { BoostPill, BoostSheet, registerBoostSheetOpener } from './Boosts';
 import { SavedDraftPill, SavedDraftSheet } from './SavedDraftPill';
 import { WHERE_TIERS, WherePill, WhereSheet, type WhereTier } from './WherePill';
 import { VISUAL, type ArmedAction } from './WorkingStrip';
@@ -185,6 +185,20 @@ export function PillsStrip({
   const boosts = document.boosts ?? null;
   const [boostOpen, setBoostOpen] = useState(false);
   const closeBoost = useCallback(() => setBoostOpen(false), []);
+  // Opening the sheet reads the Boosts again (the computer's Settings may have changed them) and is
+  // what the one-time callout asked for.
+  const openBoosts = useCallback(() => {
+    if (boosts?.hint != null) chat.dispatch({ type: 'dismissBoostHint' });
+    chat.dispatch({ type: 'refreshBoosts' });
+    setBoostOpen(true);
+  }, [boosts, chat]);
+  useEffect(() => {
+    registerBoostSheetOpener(() => {
+      chat.dispatch({ type: 'refreshBoosts' });
+      setBoostOpen(true);
+    });
+    return () => registerBoostSheetOpener(null);
+  }, [chat]);
   useEffect(() => {
     if (boosts === null) setBoostOpen(false);
   }, [boosts]);
@@ -285,7 +299,7 @@ export function PillsStrip({
   const linksNode =
     boosts !== null ? (
       <View style={styles.after}>
-        <BoostPill boosts={boosts} open={boostOpen} onPress={() => setBoostOpen(true)} />
+        <BoostPill boosts={boosts} open={boostOpen} onPress={openBoosts} />
         {linksPillNode}
       </View>
     ) : (
@@ -408,7 +422,6 @@ export function PillsStrip({
       ) : null}
       <SavedDraftSheet pill={savedDraft} open={draftOpen} onClose={closeDraft} dispatch={chat.dispatch} />
       <BoostSheet boosts={boosts} open={boostOpen} onClose={closeBoost} dispatch={chat.dispatch} />
-      <BoostEditorSheet boosts={boosts} dispatch={chat.dispatch} />
       <WhereSheet
         pill={where}
         open={whereOpen}

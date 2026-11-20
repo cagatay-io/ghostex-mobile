@@ -48,12 +48,11 @@ export type ActionFields = {
   /** Boosts (gx-chat-core `extras/boosts.rs`): a Boost into or out of the chat box (`text` is the
    * box's text when the host has it, else the core's copy), its prompt editor, and the hint. */
   toggleBoost: { id: string; text?: string };
-  openBoostEditor: { id: string };
-  editBoostPrompt: { text: string };
-  saveBoostPrompt: {};
-  resetBoostPrompt: {};
-  closeBoostEditor: {};
+  setBoostTab: { tab: string };
+  refreshBoosts: {};
   dismissBoostHint: {};
+  /** Selected words become one of the user's Boosts, named by their first words. */
+  saveAsBoost: { text: string };
   /** "Hide for this chat" on a coordinator's model warning pill (gx-chat-core `extras/coordinator_quality.rs`). */
   dismissCoordinatorQuality: {};
   /** The owner's Send, Edit or Decline on a guest's message (gx-chat-core `extras/collab.rs`). Desktop: `collab.rs`. */

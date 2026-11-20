@@ -1481,10 +1481,16 @@ export type BoostRow = {
   label: string;
   /** The desktop's icon path, `titlebar/<name>.svg`. */
   iconPath: string;
+  /** Its tab: `show`, `do`, `work` or `custom`. */
+  category: string;
   description: string;
-  /** What the agent is told now: the edited prompt, else Ghostex's. */
+  /** What the desktop's preview beside the menu draws. */
+  preview: string;
+  /** What the agent is told now: the edited prompt, else Ghostex's; or the user's own. */
   prompt: string;
   edited: boolean;
+  /** One of the user's own Boosts. */
+  custom: boolean;
   /** The prompt and "Double click to edit prompt" (desktop's hover). */
   tooltip: string;
   /** The Boost is in the chat box's text. */
@@ -1492,13 +1498,14 @@ export type BoostRow = {
 };
 
 /** `boosts` (gx-chat-core `extras/boosts.rs` `document`). Actions: `toggleBoost {id}`,
- * `openBoostEditor {id}`, `editBoostPrompt {text}`, `saveBoostPrompt`, `resetBoostPrompt`,
- * `closeBoostEditor`, `dismissBoostHint`. */
+ * `setBoostTab {tab}`, `refreshBoosts`, `dismissBoostHint`, `saveAsBoost {text}`. */
 export type BoostsDocument = {
   pill: { id: string; label: string; ariaLabel: string; active: boolean };
+  /** Show, Do, Work, and Custom once the user has a Boost of their own. */
+  tabs: { id: string; label: string; count: number }[];
+  /** The open tab. */
+  tab: string;
   list: BoostRow[];
-  /** The prompt being edited, or null. */
-  editor: { id: string; label: string; iconPath: string; value: string; edited: boolean; default: string } | null;
-  /** The one-time hint's words while it has not been seen, or null. */
-  hint: string | null;
+  /** The one-time callout while it has not been seen, or null. */
+  hint: { title: string; text: string } | null;
 };

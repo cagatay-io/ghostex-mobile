@@ -6,9 +6,7 @@
 
 import { Text, View } from 'react-native';
 
-import type { UserAction } from '../../rust/actions';
 import type { ChatDocument } from '../../rust/document';
-import { BoostHint } from '../cards/Boosts';
 import { obj, str } from '../cards/json';
 import { themedStyles } from '../transcript/theme';
 
@@ -19,26 +17,15 @@ function typingLine(document: ChatDocument): string {
   return str(collab, 'typing');
 }
 
-export function BoxNotes({
-  document,
-  dispatch,
-}: {
-  document: ChatDocument;
-  dispatch?: (action: UserAction) => void;
-}) {
+export function BoxNotes({ document }: { document: ChatDocument }) {
   const styles = useStyles();
   const typing = typingLine(document);
-  // The Boosts' one-time hint (`cards/Boosts.tsx`), until it is seen on this computer.
-  const hint = dispatch !== undefined ? (document.boosts?.hint ?? null) : null;
-  if (typing.length === 0 && hint === null) return null;
+  if (typing.length === 0) return null;
   return (
     <View style={styles.notes}>
-      {hint !== null ? <BoostHint hint={hint} dispatch={dispatch!} /> : null}
-      {typing.length > 0 ? (
-        <Text accessibilityRole="text" accessibilityLiveRegion="polite" style={styles.line}>
-          {`${typing}…`}
-        </Text>
-      ) : null}
+      <Text accessibilityRole="text" accessibilityLiveRegion="polite" style={styles.line}>
+        {`${typing}…`}
+      </Text>
     </View>
   );
 }
