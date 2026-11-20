@@ -20,6 +20,7 @@ import { SidebarPalette } from '../../../theme/palette';
 import { AgentMark } from '../cards/agentMark';
 import { useNativeChatUi, useTranscriptEnv, useTranscriptFlags } from './context';
 import { RelayedApprovalCard } from '../cards/RelayedApprovalCard';
+import { HeldNotesLine } from './HeldNotesLine';
 import { Glyph, type GlyphName } from './icons';
 import { arr, obj, str, type JsonRecord } from './json';
 import { dottedUnderline } from './LinkWords';
@@ -270,16 +271,29 @@ export const InterAgentCard = memo(function InterAgentCard({ message }: { messag
       references={message.markdownReferences}
     />
   );
+  // "2 held notes went in with this message" under the card, as under a bubble: a message sent with
+  // `ghostex agents send --with-next` goes in with the next one, often another agent's (the desktop's
+  // `inter_agent_message_card`).
+  const held = obj(message.heldNotes) !== null ? <HeldNotesLine message={message} end={false} /> : null;
   // A thread's "waiting for an answer" report carries its relayed approval card under it. Once the
   // card ended the report goes with it: answered here, the card's one line stands in for both;
   // ended anywhere else, neither shows (gx-chat-core `report_look`, which holds the decision).
-  if (relayed === undefined) return agentCard;
+  if (relayed === undefined) {
+    if (held === null) return agentCard;
+    return (
+      <View style={styles.held}>
+        {agentCard}
+        {held}
+      </View>
+    );
+  }
   if (relayed.report === 'hidden') return null;
   if (relayed.report === 'line') return <RelayedApprovalCard card={relayed} dispatch={dispatch} />;
   return (
     <View style={styles.relayed}>
       {agentCard}
       <RelayedApprovalCard card={relayed} dispatch={dispatch} />
+      {held}
     </View>
   );
 });
@@ -338,6 +352,9 @@ const styles = StyleSheet.create({
   /** A report row with its relayed approval card under it. */
   relayed: {
     gap: 6,
+  },
+  held: {
+    gap: 4,
   },
   column: { gap: ROW_GAP, minWidth: 0 },
   card: { minWidth: 0 },
