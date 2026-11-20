@@ -33,6 +33,11 @@ export type UsageAccount = {
    * computer's sidebar meters do (CDXC:AgentProviders 2026-11-19, apps/desktop/src/app/titlebar/account_usage.rs).
    */
   readonly signedOut: boolean;
+  /**
+   * Signed out, and the user said the account isn't used on this computer ("Don't use on <computer>", gxserver's
+   * `signInIgnored`, kept on the computer): no amber, a "Not used on <computer> · Undo" line instead.
+   */
+  readonly signInIgnored: boolean;
 };
 
 /**
@@ -115,9 +120,19 @@ function savedAccounts(answer: unknown): { row: unknown; provider: UsageProvider
  * signed in on this one (`syncedFrom`). A plain `unavailable` (the saved login missing for another reason) is not.
  */
 export function isSignedOut(row: unknown): boolean {
+  return needsSignIn(row) && !isTrue(row, 'signInIgnored');
+}
+
+/** `isSignedOut` before the user's "Don't use on <computer>" (`signInIgnored`). */
+function needsSignIn(row: unknown): boolean {
   const status = str(row, 'status');
   if (status === 'loginRequired' || status === 'identityChanged') return true;
   return status === 'unavailable' && str(row, 'syncedFrom').length > 0;
+}
+
+/** Needs a sign-in the user said it won't get on this computer (`signInIgnored`). */
+export function isSignInIgnored(row: unknown): boolean {
+  return needsSignIn(row) && isTrue(row, 'signInIgnored');
 }
 
 /** Join by input position before filtering: the core includes rows with missing or duplicate account ids. */
@@ -137,6 +152,7 @@ export function buildUsageMeters(answer: unknown, columns: unknown): UsageAccoun
       unavailable: meters.length === 0,
       hub: str(row, 'hubLabel'),
       signedOut: isSignedOut(row),
+      signInIgnored: isSignInIgnored(row),
     };
   });
 }

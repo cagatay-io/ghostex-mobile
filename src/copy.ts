@@ -1746,6 +1746,11 @@ export const UsageCopy = {
   signedOutOn: (computer: string) => `Signed out on ${computer}`,
   /** Its button: the Accounts screen on that computer, with the account's sign-in started. */
   signInAgain: 'Sign in again',
+  /** The x beside it: the computer stops warning about this account until it signs in there again. */
+  dontUseOn: (computer: string) => `Don't use on ${computer}`,
+  /** The line an account the user said isn't used on the computer shows instead, with its Undo. */
+  notUsedOn: (computer: string) => `Not used on ${computer}`,
+  undo: 'Undo',
   /** No saved and enabled account to show: none saved, or every saved one turned off on the computer. */
   noAccounts: (computer: string) =>
     `No Claude or Codex account is enabled in Ghostex on ${computer}. Enable or add one there to see its usage and reset times here.`,

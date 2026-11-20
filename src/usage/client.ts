@@ -43,6 +43,26 @@ export async function readAccountUsageNow(machine: MachineConnectionTarget, acco
   if (answer.error !== null) throw new Error(answer.error.message);
 }
 
+/**
+ * "Don't use on <computer>" and its Undo (`setSignInIgnored`): the computer keeps it on the account, so its desktop
+ * sidebar and this pane both stop warning that the account is signed out there, until it signs in there again.
+ *
+ * SEE-ALSO: server/src/accounts/model.rs (`SavedAccount::sign_in_ignored`)
+ */
+export async function setSignInIgnored(
+  machine: MachineConnectionTarget,
+  accountId: string,
+  ignored: boolean,
+): Promise<void> {
+  const answer = await sessionChatRpc(
+    machine,
+    'agentAccounts',
+    { operation: 'setSignInIgnored', id: accountId, ignored },
+    30_000,
+  );
+  if (answer.error !== null) throw new Error(answer.error.message);
+}
+
 /** The accounts with core-projected meters at the time of the answer, for the usage pane. */
 export async function readAccountUsage(machine: MachineConnectionTarget, refresh: boolean): Promise<UsageAccount[]> {
   // The computer's CLIProxyAPI hub accounts show under its own ones (usageMeters.ts `withHubAccounts`).

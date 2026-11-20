@@ -41,7 +41,7 @@ import type { PaneBarInset } from '../panes/geometry';
 import { machineTargetFor } from '../screens/terminal-screen/session-lookups';
 import { GhostexRadii } from '../theme/palette';
 
-import { readAccountUsage, readAccountUsageNow } from './client';
+import { readAccountUsage, readAccountUsageNow, setSignInIgnored } from './client';
 import type { UsageAccount } from './usageMeters';
 
 /** Settings > Accounts' "Needs sign-in" amber on the computer (settings_modal/tabs/accounts/widgets.rs). */
@@ -185,6 +185,19 @@ export default function UsageView({ machineId, placement }: { machineId: string;
             refreshing={refreshing === account.id}
             onRefresh={known && refreshing === null ? () => refreshAccount(account.id) : null}
             computer={computer}
+            onIgnore={
+              known
+                ? (ignored: boolean) => {
+                    const machine = machineTargetFor(machineId);
+                    if (machine === null) return;
+                    // The computer's answer either way: a computer too old to keep it shows the warning again.
+                    setSignInIgnored(machine, account.id, ignored).then(
+                      () => read(false),
+                      () => read(false),
+                    );
+                  }
+                : null
+            }
             onSignIn={
               known ? () => navigation.navigate('Accounts', { machineId, reconnectAccountId: account.id }) : null
             }
@@ -209,6 +222,7 @@ function AccountSection({
   refreshing,
   onRefresh,
   computer,
+  onIgnore,
   onSignIn,
 }: {
   account: UsageAccount;
@@ -217,6 +231,8 @@ function AccountSection({
   onRefresh: (() => void) | null;
   /** The computer the pane shows, as its title names it. */
   computer: string;
+  /** "Don't use on <computer>" (true) and its Undo (false); null when the computer is unknown. */
+  onIgnore: ((ignored: boolean) => void) | null;
   /** Opens the Accounts screen on this computer with the account's sign-in started; null when the computer is unknown. */
   onSignIn: (() => void) | null;
 }) {
@@ -254,6 +270,33 @@ function AccountSection({
             >
               <Text style={styles.signInLabel}>{UsageCopy.signInAgain}</Text>
             </Pressable>
+          ) : null}
+          {/* CDXC:AgentProviders 2026-11-20 DECISION: User: "I want this account to actually not be signed in on arch,
+              but I still see the warning. Can we have a button to dismiss the warning?". The x tells the computer the
+              account isn't used there (gxserver's `signInIgnored`), which its desktop sidebar reads too. */}
+          {onIgnore !== null ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={UsageCopy.dontUseOn(computer)}
+              hitSlop={8}
+              onPress={() => onIgnore(true)}
+              style={({ pressed }) => [styles.signInDismiss, pressed && styles.pressed]}
+            >
+              <Text style={styles.signInDismissLabel}>×</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+      {account.signInIgnored ? (
+        <View style={styles.ignoredLine}>
+          <Text style={styles.paragraph}>{UsageCopy.notUsedOn(computer)}</Text>
+          {onIgnore !== null ? (
+            <>
+              <Text style={styles.paragraph}>·</Text>
+              <Pressable accessibilityRole="button" hitSlop={8} onPress={() => onIgnore(false)}>
+                <Text style={styles.undo}>{UsageCopy.undo}</Text>
+              </Pressable>
+            </>
           ) : null}
         </View>
       ) : null}
@@ -334,6 +377,10 @@ const createStyles = (appearance: Appearance) =>
       backgroundColor: appearance.neutralFill,
     },
     signInLabel: { color: appearance.foreground, fontSize: 13, fontWeight: '600' },
+    signInDismiss: { width: 28, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+    signInDismissLabel: { color: appearance.muted, fontSize: 18, lineHeight: 20 },
+    ignoredLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    undo: { color: appearance.foreground, fontSize: 13, fontWeight: '600' },
     accountRefresh: { width: 28, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
     manage: {
       alignSelf: 'flex-start',

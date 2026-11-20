@@ -19,7 +19,7 @@ import { sessionChatRpc } from '../chat/rust/transport';
 import { wasmCoreBridge } from '../chat/rust/wasm-core/bridge';
 import { arr, isTrue, obj, str } from '../chat/native/composer/json';
 import type { MachineConnectionTarget } from '../machines/credentials';
-import { buildUsageMeters, isSignedOut, type UsageAccount } from '../usage/usageMeters';
+import { buildUsageMeters, isSignInIgnored, isSignedOut, type UsageAccount } from '../usage/usageMeters';
 
 /** This phone's sign-ins on a computer: gxserver shows and lets change only the jobs of the owner that started them. */
 export const MOBILE_ACCOUNTS_OWNER = 'ghostex-mobile-accounts';
@@ -112,6 +112,7 @@ export async function readManagedAccounts(
       unavailable: (meters.get(id)?.meters.length ?? 0) === 0,
       hub: '',
       signedOut: isSignedOut(row),
+      signInIgnored: isSignInIgnored(row),
       status,
       disabled,
       needsSignIn: !disabled && status !== 'ready' && status !== 'loading' && status.length > 0,
