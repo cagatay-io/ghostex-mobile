@@ -59,6 +59,10 @@ function boostGlyph(iconPath: string): GlyphName {
     case 'photo':
     case 'wand':
     case 'bolt':
+    case 'inbox':
+    case 'bug':
+    case 'clock':
+    case 'git-pull-request':
       return name;
     case 'device-desktop':
       return 'device-desktop';

@@ -255,6 +255,23 @@ const GLYPHS = {
   'layout-columns': {
     paths: ['M4 6a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2l0 -12', 'M12 4l0 16'],
   },
+  // Inbox it! and Fix and prove (desktop titlebar/inbox.svg and bug.svg).
+  inbox: {
+    paths: ['M4 6a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2l0 -12', 'M4 13h3l3 3h4l3 -3h3'],
+  },
+  bug: {
+    paths: [
+      'M9 9v-1a3 3 0 0 1 6 0v1',
+      'M8 9h8a6 6 0 0 1 1 3v3a5 5 0 0 1 -10 0v-3a6 6 0 0 1 1 -3',
+      'M3 13l4 0',
+      'M17 13l4 0',
+      'M12 20l0 -6',
+      'M4 19l3.35 -2',
+      'M20 19l-3.35 -2',
+      'M4 7l3.75 2.4',
+      'M20 7l-3.75 2.4',
+    ],
+  },
   'file-export': {
     paths: [
       'M14 3v4a1 1 0 0 0 1 1h4',
