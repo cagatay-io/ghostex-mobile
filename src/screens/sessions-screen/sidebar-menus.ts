@@ -1084,6 +1084,7 @@ function projectMembershipMenu(input: ProjectMenuInput): SidebarMenuItem[] {
   for (const collection of input.collections) {
     children.push({
       label: collection.title,
+      icon: 'folder',
       checked: input.collectionId === collection.collectionId,
       disabled: false,
       command: {
