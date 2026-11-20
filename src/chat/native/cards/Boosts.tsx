@@ -126,7 +126,39 @@ export function BoostSheet({
     else setPrompt(row);
   };
   const tab = boosts?.tab ?? 'show';
-  const rows = (boosts?.list ?? []).filter((row) => row.category === tab);
+  // CDXC:Boosts 2026-11-20 DECISION: User: switching tabs "changes the menu's height so the tabs
+  // jump". Every tab's rows are laid out unseen and the list keeps the tallest one's height, so the
+  // sheet (and its tabs) stay put; the desktop menu does the same (`boost_menu_height`).
+  const [heights, setHeights] = useState<Record<string, number>>({});
+  const tallest = Math.max(0, ...Object.values(heights));
+  const rowsOf = (id: string) => (boosts?.list ?? []).filter((row) => row.category === id);
+  const rows = rowsOf(tab);
+  const rowView = (row: BoostRow, live: boolean) => (
+    <Pressable
+      key={row.id}
+      disabled={!live}
+      accessibilityRole="button"
+      accessibilityLabel={row.label}
+      accessibilityHint={`${row.description} Press and hold to read its prompt.`}
+      accessibilityState={{ selected: row.inDraft }}
+      onPress={() => {
+        onClose();
+        dispatch({ type: 'toggleBoost', id: row.id });
+      }}
+      onLongPress={() => showPrompt(row)}
+      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+    >
+      <Glyph name={boostGlyph(row.iconPath)} size={18} color={tone} />
+      <View style={styles.rowText}>
+        <Text style={styles.rowLabel}>
+          {row.label}
+          {row.edited ? <Text style={styles.rowEdited}> · edited prompt</Text> : null}
+        </Text>
+        <Text style={styles.rowDetail}>{row.description}</Text>
+      </View>
+      {row.inDraft ? <Glyph name="check" size={16} color={P.foreground} /> : null}
+    </Pressable>
+  );
   return (
     <>
       <Sheet
@@ -157,31 +189,24 @@ export function BoostSheet({
           })}
         </View>
         <View style={styles.rows}>
-          {rows.map((row) => (
-            <Pressable
-              key={row.id}
-              accessibilityRole="button"
-              accessibilityLabel={row.label}
-              accessibilityHint={`${row.description} Press and hold to read its prompt.`}
-              accessibilityState={{ selected: row.inDraft }}
-              onPress={() => {
-                onClose();
-                dispatch({ type: 'toggleBoost', id: row.id });
-              }}
-              onLongPress={() => showPrompt(row)}
-              style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-            >
-              <Glyph name={boostGlyph(row.iconPath)} size={18} color={tone} />
-              <View style={styles.rowText}>
-                <Text style={styles.rowLabel}>
-                  {row.label}
-                  {row.edited ? <Text style={styles.rowEdited}> · edited prompt</Text> : null}
-                </Text>
-                <Text style={styles.rowDetail}>{row.description}</Text>
+          <View style={{ minHeight: tallest }}>
+            {rows.map((row) => rowView(row, true))}
+            {(boosts?.tabs ?? []).map((entry) => (
+              <View
+                key={entry.id}
+                pointerEvents="none"
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                style={styles.measure}
+                onLayout={(event) => {
+                  const height = Math.ceil(event.nativeEvent.layout.height);
+                  setHeights((known) => (known[entry.id] === height ? known : { ...known, [entry.id]: height }));
+                }}
+              >
+                {rowsOf(entry.id).map((row) => rowView(row, false))}
               </View>
-              {row.inDraft ? <Glyph name="check" size={16} color={P.foreground} /> : null}
-            </Pressable>
-          ))}
+            ))}
+          </View>
           <Text style={styles.footnote}>
             Press and hold a Boost to read what the agent is told. Settings › Boosts on your computer edits them and
             makes your own.
@@ -348,6 +373,7 @@ const useStyles = themedStyles((P) => ({
   tabLabel: { color: P.cardMuted, fontSize: 13 },
   tabLabelOn: { color: P.foreground },
   rows: { paddingHorizontal: 8, paddingBottom: 12 },
+  measure: { position: 'absolute', left: 0, right: 0, top: 0, opacity: 0 },
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
