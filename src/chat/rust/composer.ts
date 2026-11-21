@@ -43,6 +43,11 @@ function textHash(text: string): number {
 /** What a submission does; `interrupt` is Interrupt & Send. */
 export type SubmitMode = 'send' | 'queue' | 'compact' | 'handoff' | 'interrupt';
 
+export type SubmitOptions = {
+  /** Skip the Ask-on-Enter compact-before-sending hold (used by the card's "Send now" button). */
+  bypassCompactPrompt?: boolean;
+};
+
 export type ComposerModelState = {
   /** The field's text. */
   text: string;
@@ -140,6 +145,9 @@ export class ComposerModel {
   /** A hash of the key-looking text the user last confirmed with a second Send, so a Retry of it goes at once. */
   private secretConfirmed: number | null = null;
 
+  /** When the Ask-on-Enter compact prompt opened, to ignore a rapid double-tap on Send. */
+  private compactPromptOpenedAt: number | null = null;
+
   /** The field has the keyboard (`focused`, `blurred`). */
   private hasKeyboard = false;
 
@@ -209,12 +217,68 @@ export class ComposerModel {
     return { text, start, end: Math.min(Math.max(selection.start, selection.end), text.length) };
   }
 
+  /** Whether the composer currently has non-empty text or attachments that can be sent. */
+  hasDraftToSend(): boolean {
+    if (this.uploads.saving.length > 0 || this.uploads.inserting > 0 || this.state.failedPictures.length > 0) {
+      return true;
+    }
+    const { text: sent } = stripUploadTokens(this.state.text);
+    return sent.trim().length > 0;
+  }
+
+  /** Closes an open compact-before-sending card without changing Don't ask again preferences. */
+  dismissCompactPrompt(): boolean {
+    this.compactPromptOpenedAt = null;
+    if (this.hooks.document()?.compactBeforeSend?.open !== true) return false;
+    this.hooks.dispatch({ type: 'compactPromptClose' });
+    return true;
+  }
+
+  /** Clears the rapid-double-tap timer for the compact-before-sending prompt. */
+  clearCompactPromptGuard(): void {
+    this.compactPromptOpenedAt = null;
+  }
+
+  /**
+   * Holds a plain Send on a qualifying long, cold chat so the user can choose to compact first
+   * (`packages/gx-chat-core/src/composer/compact_prompt.rs`, desktop `native_chat/compact_prompt.rs`).
+   */
+  private holdCompactBeforeSend(
+    mode: Exclude<SubmitMode, 'interrupt'>,
+    interrupt: boolean,
+    sent: string,
+    options?: SubmitOptions,
+  ): boolean {
+    if (mode !== 'send' || interrupt || options?.bypassCompactPrompt === true) {
+      this.compactPromptOpenedAt = null;
+      return false;
+    }
+    if (sent.trimStart().startsWith('/')) {
+      return false;
+    }
+    const offer = this.hooks.document()?.compactBeforeSend ?? null;
+    if (offer === null) {
+      this.compactPromptOpenedAt = null;
+      return false;
+    }
+    if (offer.open === true) {
+      const tooSoon =
+        this.compactPromptOpenedAt !== null && Date.now() - this.compactPromptOpenedAt < SECOND_SEND_AFTER_MS;
+      if (tooSoon) return true;
+      this.compactPromptOpenedAt = null;
+      return false;
+    }
+    this.compactPromptOpenedAt = Date.now();
+    this.hooks.dispatch({ type: 'compactPromptOpen' });
+    return true;
+  }
+
   /**
    * Send, Queue, Compact, Handoff, or Interrupt & Send (a send that stops the agent's running turn
    * first), with desktop's gates (`native_chat/composer.rs`, `submit`).
    * Returns whether the text left the composer.
    */
-  submit(requested: SubmitMode): boolean {
+  submit(requested: SubmitMode, options?: SubmitOptions): boolean {
     const interrupt = requested === 'interrupt';
     const mode = interrupt ? 'send' : requested;
     const document = this.hooks.document();
@@ -254,6 +318,8 @@ export class ComposerModel {
       if (Date.now() - held.at < SECOND_SEND_AFTER_MS) return false;
       this.secretConfirmed = textHash(sent);
     }
+    // Long chats whose prompt cache expired offer to compact first (`compact_prompt.rs`, Q4396).
+    if (this.holdCompactBeforeSend(mode, interrupt, sent, options)) return false;
     const submission = {
       type: mode,
       text: sent,

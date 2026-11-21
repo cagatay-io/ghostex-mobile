@@ -193,6 +193,10 @@ export type ActionFields = {
   send: { text: string; draftVersion: DraftVersion; imagePaths?: string[]; interrupt?: boolean; caret?: number };
   queue: { text: string; draftVersion: DraftVersion; caret?: number };
   compact: { text: string; draftVersion: DraftVersion; caret?: number };
+  /** Ask-on-Enter compact-before-sending prompt (core `composer/compact_prompt.rs`). */
+  compactPromptOpen: {};
+  compactPromptClose: {};
+  compactPromptDismiss: { scope: 'session' | 'always' };
   /** A terminal key: `enter`, `shift-tab`, `shift-up`, `shift-down`. */
   sendKey: { key: string; marker?: string };
   interrupt: {};

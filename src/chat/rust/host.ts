@@ -30,7 +30,7 @@ import { uploadSessionChatLocalFile } from '../session-chat-helpers';
 import type { UserAction } from './actions';
 import { useSettingsStore } from '../../settings/store';
 import { readComposerBoot } from './boot';
-import { ComposerModel, type ComposerModelState, type SubmitMode } from './composer';
+import { ComposerModel, type ComposerModelState, type SubmitMode, type SubmitOptions } from './composer';
 import { createChatCoreBackend, type ChatCoreBackend } from './core-backend';
 import {
   applyItemsSplice,
@@ -628,7 +628,10 @@ export class RustChatHost {
     selected: (selection: { start: number; end: number }) => this.composer.selected(selection),
     focused: () => this.composer.focused(),
     blurred: () => this.composer.blurred(),
-    submit: (mode: SubmitMode) => this.submitCarrying(mode),
+    submit: (mode: SubmitMode, options?: SubmitOptions) => this.submitCarrying(mode, options),
+    hasDraftToSend: () => this.composer.hasDraftToSend(),
+    dismissCompactPrompt: () => this.composer.dismissCompactPrompt(),
+    clearCompactPromptGuard: () => this.composer.clearCompactPromptGuard(),
     /** Replaces the whole draft (a picked saved prompt), desktop's `insert_prompt`; `caret` when the caller knows where it belongs (a dictation), the end otherwise. */
     replace: (text: string, caret: number | null = null) => this.composer.replace(text, caret, false),
   };
@@ -638,12 +641,12 @@ export class RustChatHost {
    * copies (`carryAttachments.ts`), then goes with the references rewritten; one with no attachment
    * reference goes at once. A copy that failed keeps the text in the box and says why.
    */
-  private submitCarrying(mode: SubmitMode): boolean {
+  private submitCarrying(mode: SubmitMode, options?: SubmitOptions): boolean {
     if (this.carryingSend) return false;
     // Send uploads the pictures whose upload failed again; the message waits for them (core `composer/attaching.rs`).
     this.retryFailedPictures();
     const text = this.composer.state.text;
-    if (!this.composer.state.ready || !this.carrier.mayCarry(text)) return this.composer.submit(mode);
+    if (!this.composer.state.ready || !this.carrier.mayCarry(text)) return this.composer.submit(mode, options);
     this.carryingSend = true;
     void this.carrier
       .carry(text)
@@ -657,11 +660,11 @@ export class RustChatHost {
           this.view({ kind: 'toast', level: 'error', title: "Picture wasn't copied", message: error });
           return;
         }
-        this.composer.submit(mode);
+        this.composer.submit(mode, options);
       })
       // A look that broke on its own still sends the message as it was.
       .catch(() => {
-        if (!this.disposed) this.composer.submit(mode);
+        if (!this.disposed) this.composer.submit(mode, options);
       })
       .finally(() => {
         this.carryingSend = false;
@@ -1101,6 +1104,23 @@ export class RustChatHost {
         return;
       case 'dictationInserted':
         this.dictationInserted(params, answers);
+        return;
+      // Ask-on-Enter compact-before-sending "Don't ask again: Always" (Q4396): persists
+      // `offerCompactBeforeSending: false` on this chat's computer so it does not revert.
+      case 'disableOfferCompactBeforeSending':
+        void chatMachineLink(this.target.machine)
+          .rpc(
+            'dispatchRendererCommand',
+            {
+              action: 'updateSettingsPatch',
+              payload: {
+                patch: { offerCompactBeforeSending: false },
+                source: 'chat:compactBeforeSend',
+              },
+            },
+            15_000,
+          )
+          .catch(() => undefined);
         return;
       default:
         this.view({ kind: 'hostAction', action, params });

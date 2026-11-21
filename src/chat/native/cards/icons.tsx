@@ -423,6 +423,10 @@ const GLYPHS = {
   tool: { paths: ['M7 10h3v-3l-3.5 -3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1 -3 3l-6 -6a6 6 0 0 1 -8 -8l3.5 3.5'] },
   flask: { paths: ['M9 3l6 0', 'M10 9l4 0', 'M10 3v6l-4 11a.7 .7 0 0 0 .5 1h11a.7 .7 0 0 0 .5 -1l-4 -11v-6'] },
   'loader-2': { paths: ['M12 3a9 9 0 1 0 9 9'] },
+  /** Compact-before-sending card and button (desktop `titlebar/arrows-diagonal-minimize.svg`). */
+  'arrows-diagonal-minimize': {
+    paths: ['M4 4l6 6', 'M4 10h6v-6', 'M20 20l-6 -6', 'M20 14h-6v6', 'M20 4l-6 6', 'M14 4v6h6', 'M4 20l6 -6', 'M10 20v-6h-6'],
+  },
 } satisfies Record<string, GlyphSpec>;
 
 export type GlyphName = keyof typeof GLYPHS;

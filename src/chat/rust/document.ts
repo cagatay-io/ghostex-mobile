@@ -756,6 +756,9 @@ export type ChatDocument = {
    * with its prompt, the open prompt editor and the one-time hint; null while the computer has none
    * (older, or not answered yet). Absent from an older core. Phone: `cards/Boosts.tsx`. */
   boosts?: BoostsDocument | null;
+  /** The Ask-on-Enter compact-before-sending offer (`composer/compact_prompt.rs`), present when
+   * the chat is long and its prompt cache has expired. Absent from an older core or older computer. */
+  compactBeforeSend?: CompactBeforeSendOffer | null;
   /** The session note sheet. Desktop: `note.rs`. */
   note: NoteState;
   /** The Catch me up button and card (`composer/catch_up.rs`). Desktop: `catch_up.rs`. */
@@ -1132,6 +1135,20 @@ export type CatchUpState = {
   copyText: string;
   error: string | null;
   caption: string | null;
+};
+
+/**
+ * The Ask-on-Enter compact-before-sending offer (`composer/compact_prompt.rs`): present whenever a
+ * long chat's prompt cache has expired and compacting first is offered. When `open` is `true`,
+ * the confirmation card is shown above the chat box.
+ */
+export type CompactBeforeSendOffer = {
+  open: boolean;
+  tokens: number;
+  tokensLabel: string;
+  idleLabel?: string | null;
+  title: string;
+  detail: string;
 };
 
 /** One Files and links row (core `composer/files_links.rs`). `icon` is photo, file, folder or link; `open` is the

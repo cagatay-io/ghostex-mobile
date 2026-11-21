@@ -116,7 +116,7 @@ export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords
   },
   "claudeIdleCompactAbove": {
     "title": "Compact chats above",
-    "subtitle": "The size at and above which Claude Code compacts an idle chat, and Ghostex compacts any session before carrying it on after a restart or a usage-limit reset. Claude Code's default is 200K.",
+    "subtitle": "The size at and above which Claude Code compacts an idle chat, and Ghostex offers to compact before sending or compacts before carrying a session on after a restart or a usage-limit reset. Claude Code's default is 200K.",
     "options": [
       "100K",
       "100000",
@@ -133,7 +133,7 @@ export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords
   },
   "claudeIdleCompaction": {
     "title": "Compact idle chats before the prompt cache expires",
-    "subtitle": "Claude Code compacts a long chat that has been idle for about 54 minutes, just before its 1-hour prompt cache expires, so your next message doesn't re-read the whole chat uncached. Runs only on a 1-hour cache. In Claude Code's row. Applies to Claude sessions started or resumed after you change it.",
+    "subtitle": "Claude Code compacts a long chat that has been idle for about 54 minutes, just before its 1-hour prompt cache expires, so your next message doesn't re-read the whole chat uncached. Runs only on a 1-hour cache. Auto Sleep waits for it before sleeping a qualifying Claude chat. In Claude Code's row. Applies to Claude sessions started or resumed after you change it.",
     "options": [],
     "keywords": []
   },
@@ -175,7 +175,7 @@ export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords
   },
   "compactWorkersBeforeReturn": {
     "title": "Compact workers before a coordinator returns to them",
-    "subtitle": "When a coordinator messages one of its workers after the worker sat idle longer than its prompt cache lasts (5 minutes or 1 hour for Claude, about a day for Codex), Ghostex compacts a worker at or above Compact chats above first, then hands it the message, to save tokens. Messages you type are never held.",
+    "subtitle": "When a coordinator messages one of its workers after the worker sat idle longer than its prompt cache lasts (5 minutes or 1 hour for Claude, 30 minutes for Codex), Ghostex compacts a worker at or above Compact chats above first, then hands it the message, to save tokens. Messages you type are never held.",
     "options": [],
     "keywords": []
   },
@@ -460,6 +460,12 @@ export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords
   "memoryGuardNotify": {
     "title": "Notify me when it steps in",
     "subtitle": "A notification on this computer and your phone whenever Ghostex stops or restarts something to free memory. Needs Stop sessions that run the computer out of memory.",
+    "options": [],
+    "keywords": []
+  },
+  "offerCompactBeforeSending": {
+    "title": "Offer to compact long chats before sending",
+    "subtitle": "When a chat is at or above Compact chats above and its prompt cache has expired, pressing Enter offers to compact it first to save usage (Option + Enter). For every agent with a compact command.",
     "options": [],
     "keywords": []
   },

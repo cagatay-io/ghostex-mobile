@@ -58,6 +58,7 @@ import { phonePlaceholder } from './placeholder';
 import { BoostCalloutAbove, TryABoost } from '../cards/Boosts';
 import { BoxNotes } from './BoxNotes';
 import { CatchUpCard } from '../cards/CatchUpCard';
+import { CompactPromptCard } from '../cards/CompactPromptCard';
 import { sessionDetailsRingOf } from '../cards/SessionDetailsSheet';
 import { FilesLinksCard } from '../cards/FilesLinksCard';
 import { secretRequestOpen } from '../cards/SecretRequestCard';
@@ -856,6 +857,9 @@ export function NativeComposer({
           {/* A refused operation's error line is the card band's (`ComposerNotReadyCard`), where desktop draws it; drawing it here too showed it twice. */}
           {document !== null ? <NotePanel note={document.note} dispatch={dispatch} /> : null}
           {document !== null ? <CatchUpCard catchUp={document.catchUp} dispatch={dispatch} /> : null}
+          {document !== null ? (
+            <CompactPromptCard offer={document.compactBeforeSend} composer={input} dispatch={dispatch} />
+          ) : null}
           {document !== null ? <FilesLinksCard filesLinks={document.filesLinks} dispatch={dispatch} /> : null}
           {document?.suggestions ? <Suggestions data={document.suggestions} dispatch={dispatch} /> : null}
           {document?.runLocation ? <RunLocationRow row={document.runLocation} dispatch={dispatch} /> : null}

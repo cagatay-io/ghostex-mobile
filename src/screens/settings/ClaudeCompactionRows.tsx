@@ -1,8 +1,9 @@
 /**
- * Settings › Chat › Claude Code: Claude Code's idle compaction and prompt cache length on one
- * computer, the same three settings as the desktop's Settings › Agents › Claude Code › Context
- * (`claudeIdleCompaction`, `claudeIdleCompactAbove`, `claudeOneHourPromptCache`). They live in that
- * computer's settings, which its gxserver hands to each Claude launch: read through
+ * Settings › Chat › Claude Code: Claude Code's idle compaction, compact-before-sending, worker
+ * compaction, and prompt cache length on one computer, matching desktop's
+ * Settings › Agents › Claude Code › Context (`claudeIdleCompaction`, `claudeIdleCompactAbove`,
+ * `offerCompactBeforeSending`, `compactWorkersBeforeReturn`, `claudeOneHourPromptCache`). They live
+ * in that computer's settings, which its gxserver hands to each Claude launch: read through
  * `/api/readClaudeCompaction` and saved with `updateSettingsPatch`, like any settings write.
  *
  * CDXC:AgentProviders 2026-11-14 DECISION:
@@ -56,6 +57,8 @@ type OnlyAbove = (typeof ONLY_ABOVE_OPTIONS)[number]['value'];
 type Values = {
   claudeIdleCompaction: boolean;
   claudeIdleCompactAbove: OnlyAbove;
+  /** Null: the computer's Ghostex predates the switch, so the row is not shown. */
+  offerCompactBeforeSending: boolean | null;
   claudeOneHourPromptCache: boolean;
   /** Null: the computer's Ghostex predates the switch, so the row is not shown. */
   compactWorkersBeforeReturn: boolean | null;
@@ -84,6 +87,8 @@ async function readValues(machine: MachineRecord): Promise<Loaded> {
     values: {
       claudeIdleCompaction: result.idleCompaction !== false,
       claudeIdleCompactAbove: onlyAbove(result.idleCompactAbove),
+      offerCompactBeforeSending:
+        typeof result.offerCompactBeforeSending === 'boolean' ? result.offerCompactBeforeSending : null,
       claudeOneHourPromptCache: result.oneHourPromptCache === true,
       compactWorkersBeforeReturn:
         typeof result.compactWorkersBeforeReturn === 'boolean' ? result.compactWorkersBeforeReturn : null,
@@ -174,8 +179,8 @@ export function ClaudeCompactionRows() {
           {/* Shown always: the size also decides which sessions Ghostex compacts before carrying them on
               (CDXC:AgentProviders 2026-11-14 in server/src/carry_on_compaction.rs, Q3239). */}
           <Caption>
-            Compact chats above: the size at which Claude Code compacts an idle chat, and Ghostex compacts a session
-            before carrying it on after a restart or a usage-limit reset.
+            Compact chats above: the size at which Claude Code compacts an idle chat, and Ghostex offers to compact
+            before sending or compacts a session before carrying it on after a restart or a usage-limit reset.
           </Caption>
           <SegmentedRow
             label="Compact chats above"
@@ -183,6 +188,14 @@ export function ClaudeCompactionRows() {
             value={loaded.values.claudeIdleCompactAbove}
             onChange={(next) => change({ claudeIdleCompactAbove: next })}
           />
+          {/* CDXC:SessionChat 2026-11-22 DECISION in packages/gx-chat-core/src/composer/compact_prompt.rs: on by default (Q4396). */}
+          {loaded.values.offerCompactBeforeSending !== null ? (
+            <ToggleRow
+              label="Offer to compact long chats before sending"
+              value={loaded.values.offerCompactBeforeSending}
+              onValueChange={(next) => change({ offerCompactBeforeSending: next })}
+            />
+          ) : null}
           {/* CDXC:Coordinators 2026-11-15 DECISION in server/src/carry_on_compaction.rs: on by default. */}
           {loaded.values.compactWorkersBeforeReturn !== null ? (
             <ToggleRow
@@ -201,8 +214,10 @@ export function ClaudeCompactionRows() {
             Claude Code compacts a long chat that has been idle for about 54 minutes, just before its 1-hour prompt
             cache expires, so your next message doesn't re-read the whole chat uncached. It runs only on a 1-hour cache,
             which a Claude subscription gets; an API key, Bedrock, Vertex or Foundry gets 5 minutes unless Use a 1-hour
-            prompt cache is on, and 1-hour cache writes cost more. Saved on {machineDisplayLabel(machine)}; applies to
-            Claude sessions started or resumed after you change it.
+            prompt cache is on, and 1-hour cache writes cost more. Auto Sleep waits for it before sleeping a qualifying
+            Claude chat. When Offer to compact long chats before sending is on, sending on any long chat whose prompt
+            cache has expired offers to compact it first to save usage. Saved on {machineDisplayLabel(machine)};
+            applies to Claude sessions started or resumed after you change it.
           </Caption>
         </>
       ) : null}

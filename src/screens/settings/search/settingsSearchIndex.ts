@@ -388,7 +388,8 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     section: 'settings:chat:claude-code',
     group: 'Claude Code',
     title: 'Compact idle chats before the prompt cache expires',
-    description: 'Claude Code compacts a long idle chat just before its 1-hour prompt cache expires.',
+    description:
+      'Claude Code compacts a long idle chat just before its 1-hour prompt cache expires; Auto Sleep waits for it.',
     catalog: 'claudeIdleCompaction',
   },
   {
@@ -397,8 +398,16 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     group: 'Claude Code',
     title: 'Compact chats above',
     description:
-      'The size at which Claude Code compacts an idle chat, and Ghostex compacts a session before carrying it on.',
+      'The size at which Claude Code compacts an idle chat, and Ghostex offers to compact before sending or before carrying a session on.',
     catalog: 'claudeIdleCompactAbove',
+  },
+  {
+    page: 'chat',
+    section: 'settings:chat:claude-code',
+    group: 'Claude Code',
+    title: 'Offer to compact long chats before sending',
+    description: 'Offers to compact a long chat whose prompt cache has expired before sending, to save usage.',
+    catalog: 'offerCompactBeforeSending',
   },
   {
     page: 'chat',
