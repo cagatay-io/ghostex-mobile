@@ -182,12 +182,22 @@ export type DeepLinkDeps = {
 };
 
 /**
+ * The openings whose attach ended at the terminal open's time limit. A tapped notification's opening (`opening`, begun
+ * at its tap for its one session) can hand the handler a second link: a waiting push opens the session after 5 s and
+ * follows with its question link once the session list shows the question (`openWaitingPush` in
+ * src/notifications/feedStore.ts). That follow-up must not switch a tab whose attach for the same opening ended at the
+ * limit to its Chat View: the tab stays on its failure with Retry. Any other link begins its own opening.
+ */
+const timedOutOpenings = new WeakSet<() => boolean>();
+
+/**
  * `current` is the check of a tapped notification's opening: false once a later tap came or the person left (the
  * caller decides). It is checked at the start, at every retry while the stores load, inside the attach once an
  * opening of the same tab under way finished (before it selects), once the attach is done and once the session list
  * is read, so a superseded opening never selects, switches the view or navigates. `opening` is this link's opening
  * among every entry path's (`DeepLinkDeps.beginOpening`): an attach that ended at the time limit goes on only while it
- * holds too, up to a navigation that waits for the screens.
+ * holds too, up to a navigation that waits for the screens, and a later question link of that opening for the same
+ * session leaves the tab on its terminal (`timedOutOpenings`).
  */
 function openSession(
   link: SessionLink,
@@ -208,6 +218,8 @@ function openSession(
     session !== undefined && session.title.length > 0 ? session.title : link.title.length > 0 ? link.title : undefined;
   const chat = session !== undefined && (link.view === 'question' ? session.hasChatView : session.opensInChatView);
   if (chat) {
+    // A question link that follows an opening whose attach ended at the time limit: the tab stays on its terminal.
+    if (link.view === 'question' && timedOutOpenings.has(opening)) return;
     const sessionKey = deps.openChatTab(machine, {
       sessionId: link.sessionId,
       projectId: session.projectId.length > 0 ? session.projectId : undefined,
@@ -226,6 +238,7 @@ function openSession(
         // only while this opening is still current.
         const sessionKey = deps.openTimedOut(error);
         if (sessionKey === null) throw error;
+        timedOutOpenings.add(opening);
         return { sessionKey, check: () => current?.() !== false && opening(), timedOut: true };
       },
     )
