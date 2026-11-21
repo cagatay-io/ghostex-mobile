@@ -6,6 +6,7 @@
 //  Moved verbatim from GhosttyTerminalView.swift (no logic changes).
 //
 
+import GameController
 import UIKit
 import GhosttyKit
 
@@ -39,7 +40,7 @@ extension GhosttyTerminalView {
     }
 
     /// The keyboard for one of the reasons a button or a hardware keyboard gives (`TerminalKeyboardFocusReason`); a
-    /// touch on the terminal never calls this.
+    /// touch on the terminal calls this only with a hardware keyboard connected (`handleSingleTap`).
     @discardableResult
     func requestKeyboardFocus(for reason: TerminalKeyboardFocusReason) -> Bool {
         guard keyboardFocusPolicy.requestFocus(for: reason) else { return false }
@@ -139,7 +140,9 @@ extension GhosttyTerminalView {
     /// that gives a pane the focus, and every touch while the command pad is open. The keyboard comes up through the
     /// terminal bar's keyboard button or its empty room, the pad's keyboard button, or a hardware keyboard. This
     /// replaces asking for the keyboard as a touch began (before it was known to become a tap, a scroll or a pane's
-    /// focus) and a completed tap returning to typing. A touch on a terminal whose keyboard is up leaves it up.
+    /// focus) and a completed tap returning to typing. A touch on a terminal whose keyboard is up leaves it up. A
+    /// hardware keyboard is not affected: with one connected, a tap gives the terminal its typing again as before,
+    /// which shows no software keyboard (`handleSingleTap`).
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesBegan(touches, with: event)
         let location = touches.first?.location(in: self)
@@ -174,7 +177,12 @@ extension GhosttyTerminalView {
         if isPointOnTouchSelectionHandle(location) {
             return
         }
-        // The tap reaches the program (its mouse) or a link; the keyboard stays as it is (see the decision above).
+        // The tap reaches the program (its mouse) or a link; the keyboard stays as it is (see the decision above). With
+        // a hardware keyboard connected and its typing going nowhere here, the tap takes it back: iOS shows no software
+        // keyboard for a terminal while a hardware keyboard is connected.
+        if GCKeyboard.coalesced != nil, !holdsKeyboardInput {
+            requestKeyboardFocus(for: .hardwareKeyboard)
+        }
         if surface?.mouseCaptured == true {
             sendCapturedTerminalTap(at: location)
         } else {

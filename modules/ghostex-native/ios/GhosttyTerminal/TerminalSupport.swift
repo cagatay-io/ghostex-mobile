@@ -244,7 +244,8 @@ struct TerminalGridSelection: Equatable {
 /// Why the keyboard is asked for. A touch on the terminal is none of these: a scroll, a tap (also the one that makes a
 /// pane the active one) or a selection never brings the keyboard up. It comes up through a button (the terminal bar's
 /// keyboard button or its empty room, the pad's keyboard button, the round keyboard button), which React asks for
-/// with `focusTerminal`, or through a hardware keyboard.
+/// with `focusTerminal`, or through a hardware keyboard (with one connected a tap gives the terminal its typing,
+/// `hardwareKeyboard`; iOS shows no software keyboard then).
 enum TerminalKeyboardFocusReason {
     case explicitUserRequest
     case initialActivation
