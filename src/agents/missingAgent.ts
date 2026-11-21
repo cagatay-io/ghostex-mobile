@@ -52,6 +52,15 @@ function extractNameFromSentence(text: string): string | null {
   return null;
 }
 
+function structuredErrorCode(codeField: string, errorField: string, messageField: string): string | null {
+  if (codeField.length > 0) return codeField;
+  if (errorField === AGENT_NOT_INSTALLED_CODE) return AGENT_NOT_INSTALLED_CODE;
+  // gxserver HTTP/RPC JSON envelopes put the error code in `error` alongside human `message`,
+  // while `ghostex ... --json` CLI failures omit `message` and place the refusal sentence in `error`.
+  if (errorField.length > 0 && messageField.length > 0) return errorField;
+  return null;
+}
+
 function parseFromJsonBlocks(text: string): MissingAgentError | null {
   return scanJsonObjects<MissingAgentError | null>(text, (block, start) => {
     try {
@@ -61,8 +70,7 @@ function parseFromJsonBlocks(text: string): MissingAgentError | null {
         const codeField = typeof record.code === 'string' ? record.code.trim() : '';
         const errorField = typeof record.error === 'string' ? record.error.trim() : '';
         const messageField = typeof record.message === 'string' ? record.message.trim() : '';
-        const code =
-          codeField.length > 0 ? codeField : errorField === AGENT_NOT_INSTALLED_CODE ? AGENT_NOT_INSTALLED_CODE : null;
+        const code = structuredErrorCode(codeField, errorField, messageField);
         if (code !== null && code !== AGENT_NOT_INSTALLED_CODE) {
           return { done: false, nextIndex: start + block.length };
         }
@@ -112,8 +120,7 @@ export function parseAgentNotInstalled(error: unknown): MissingAgentError | null
     const errorField = typeof record.error === 'string' ? record.error.trim() : '';
     const messageField = typeof record.message === 'string' ? record.message.trim() : '';
     const rawField = typeof record.raw === 'string' ? record.raw.trim() : '';
-    const code =
-      codeField.length > 0 ? codeField : errorField === AGENT_NOT_INSTALLED_CODE ? AGENT_NOT_INSTALLED_CODE : null;
+    const code = structuredErrorCode(codeField, errorField, messageField);
 
     if (code !== null && code !== AGENT_NOT_INSTALLED_CODE) {
       return null;

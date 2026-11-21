@@ -342,8 +342,10 @@ export function useSessionsScreenActions({
         const missingAgent = parseAgentNotInstalled(error);
         if (missingAgent !== null) {
           setProgress(null);
-          setOverlay(NONE);
-          showMissingAgentNotice(target.id, missingAgent.agentName);
+          if (!keepOverlay || stillOpen()) {
+            setOverlay(NONE);
+            showMissingAgentNotice(target.id, missingAgent.agentName);
+          }
           return null;
         }
         const reason = error instanceof Error ? error.message : String(error);

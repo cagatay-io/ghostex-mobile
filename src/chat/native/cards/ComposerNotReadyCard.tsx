@@ -15,6 +15,7 @@ import type { ChatDocument } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
 import { ErrorCard, type ErrorCardValue } from './ErrorCard';
 import { Glyph } from './icons';
+import { obj } from './json';
 import { ToneButton, ToneCard, ToneDismiss } from './ToneCard';
 import { MONO_FONT, themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { CARD_LINE_HEIGHT, CARD_TEXT_SIZE, ChatButton, StatusCard, useCardText } from './primitives';
@@ -55,8 +56,9 @@ export function ComposerNotReadyCard({
     if (missingAgent !== null) {
       if (missingKey !== null && dismissedMissingKey === missingKey) return null;
       const copy = missingAgentNoticeCopy(missingAgent.agentName, chat.machine?.id ?? '');
+      const canPickAgent = obj(document.modelMenu) !== null;
       const footerEnd = [
-        onHostAction ? (
+        onHostAction && canPickAgent ? (
           <ToneButton
             key="pick"
             kind={copy.openLabel === null ? 'primary' : 'secondary'}

@@ -37,7 +37,7 @@ import {
 } from 'react-native';
 
 import { DocsCopy } from '../../copy';
-import { reportMissingAgentError } from '../../agents/missingAgent';
+import { openAgentClisScreen, reportMissingAgentError } from '../../agents/missingAgent';
 import { openComputerFile, phoneOpensFile } from '../../docs/openComputerFile';
 import { remotePathForChatFile } from '../../docs/openDoc';
 import GhostexImageIntakeView from '../../../modules/ghostex-native/src/GhostexImageIntakeView';
@@ -312,7 +312,7 @@ export default function NativeChatScreen({
       if (action === 'terminalView' || action === 'switchToTerminal') onSwitchToTerminal();
       else if (action === 'pickModel') setModelRequestId((current) => current + 1);
       else if (action === 'openAgentSettings') {
-        voiceNavigation.navigate('MachineForm', { machineId: machine.id, section: 'tools' });
+        openAgentClisScreen(machine.id);
       } else if (action === 'switchAccount' && Object.keys(params).length === 0)
         setAccountsRequestId((current) => current + 1);
       else if (action === 'switchAccount') {
