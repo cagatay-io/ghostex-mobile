@@ -58,12 +58,34 @@ export function TileCornerDot({
   ringColor: string;
   border: number;
 }) {
-  if (tileStatusColor(counts) === null) return null;
-  // Absolute insets count from inside the tile's edge, and the ring adds 1 round the dot.
-  const offset = Math.max(0, ds(TILE_DOT_INSET) - border - ds(1));
+  const color = tileStatusColor(counts);
+  return color === null ? null : <CornerDot color={color} ringColor={ringColor} border={border} />;
+}
+
+/**
+ * CDXC:AgentProviders 2026-11-21 DECISION:
+ * User: "change how we indicate that an account has issues: instead of the text name of the account
+ * becoming yellow, add a small dot top right of the account's icon (like the one we have on top right
+ * of space icon now)". An account's icon draws the Space tile's dot, `color` in the same 4 size, inset
+ * and ring (desktop status.rs `corner_dot`). The icon's box must be `position: 'relative'`; `unit` turns
+ * design pixels into this surface's (the drawer's `ds` by default, `(value) => value` outside it).
+ */
+export function CornerDot({
+  color,
+  ringColor,
+  border,
+  unit = ds,
+}: {
+  color: string;
+  ringColor: string;
+  border: number;
+  unit?: (value: number) => number;
+}) {
+  // Absolute insets count from inside the box's edge, and the ring adds 1 round the dot.
+  const offset = Math.max(0, unit(TILE_DOT_INSET) - border - unit(1));
   return (
     <View pointerEvents="none" style={[styles.corner, { top: offset, right: offset }]}>
-      <TileStatusDot counts={counts} ringColor={ringColor} size={TILE_DOT_SIZE} />
+      <OverlappedDots colors={[color]} size={TILE_DOT_SIZE} ringColor={ringColor} unit={unit} />
     </View>
   );
 }

@@ -30,6 +30,7 @@ import { UsageRow } from '../chat/native/composer/AccountsPanel';
 
 import { unreachableMessage } from '../chat/rust/machine-link';
 import { FoldListFrame } from '../components/common/foldGap';
+import { CornerDot } from '../components/sessions/StatusDotStack';
 import { useLaptopFold } from '../components/common/verticalBar/laptopFold';
 import { NO_BAR_INSETS } from '../components/common/verticalBar/layout';
 import { useScrollToBarEdges } from '../components/common/verticalBar/VerticalBarArea';
@@ -238,17 +239,19 @@ function AccountSection({
 }) {
   const appearance = useAppearance();
   const styles = useMemo(() => createStyles(appearance), [appearance]);
-  // CDXC:AgentProviders 2026-11-19 DECISION: User (Q4198 A): a signed-out account's name and numbers turn amber, the
-  // amber the computer's Settings > Accounts gives "Needs sign-in" and its sidebar meters now use.
+  // CDXC:AgentProviders 2026-11-21 DECISION: User: "change how we indicate that an account has issues: instead of the
+  // text name of the account becoming yellow, add a small dot top right of the account's icon". A signed-out account
+  // keeps its name and numbers in their usual colours and its icon wears the Space tile's dot in the amber its name
+  // and numbers turned on 2026-11-19 (Q4198 A), the amber the computer's Settings > Accounts gives "Needs sign-in".
   const amber = account.signedOut ? (appearance.light ? NEEDS_SIGN_IN_AMBER.light : NEEDS_SIGN_IN_AMBER.dark) : null;
   const meterAppearance = useMemo(
     () => ({
-      foreground: amber ?? appearance.foreground,
+      foreground: appearance.foreground,
       muted: appearance.muted,
       meterTrack: appearance.control,
       meterFill: appearance.accent,
     }),
-    [appearance, amber],
+    [appearance],
   );
   const Icon = AGENT_ICONS[account.provider];
   return (
@@ -301,8 +304,13 @@ function AccountSection({
         </View>
       ) : null}
       <View style={styles.nameLine}>
-        {Icon !== undefined ? <Icon size={16} color={agentIconTint(account.provider)} /> : null}
-        <Text style={[styles.name, amber !== null && { color: amber }]} numberOfLines={1}>
+        {Icon !== undefined ? (
+          <View style={styles.icon}>
+            <Icon size={16} color={agentIconTint(account.provider)} />
+            {amber !== null ? <CornerDot color={amber} ringColor={appearance.card} border={0} unit={(value) => value} /> : null}
+          </View>
+        ) : null}
+        <Text style={styles.name} numberOfLines={1}>
           {account.name}
         </Text>
         <Text style={styles.email} numberOfLines={1}>
@@ -359,6 +367,7 @@ const createStyles = (appearance: Appearance) =>
     paragraph: { color: appearance.muted, fontSize: 13, lineHeight: 18 },
     account: { gap: 10, padding: 12, borderRadius: GhostexRadii.section, backgroundColor: appearance.card },
     nameLine: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 20 },
+    icon: { width: 16, height: 16 },
     name: { color: appearance.foreground, fontSize: 14, fontWeight: '600', flexShrink: 1 },
     email: { flex: 1, minWidth: 0, color: appearance.muted, fontSize: 12 },
     signIn: {
