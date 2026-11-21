@@ -81,7 +81,8 @@ const LEGACY_TERMINAL_TOGGLES: { key: BooleanSettingKey; label: string; iosNote?
   {
     key: 'softKeyboardEnabled',
     label: 'Soft keyboard',
-    iosNote: 'Android only: lets a tap on the terminal bring up the keyboard. On iPhone a keyboard button brings it up.',
+    iosNote:
+      'Android only: lets a tap on the terminal bring up the keyboard. On iPhone a keyboard button brings it up.',
   },
   { key: 'refreshButtonVisible', label: 'Show refresh button' },
   { key: 'fileUploadButtonVisible', label: 'Show file upload button' },
