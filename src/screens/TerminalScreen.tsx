@@ -884,7 +884,6 @@ export default function TerminalScreen({ navigation, route }: Props) {
   // The chat in the active pane while the keyboard is up: the same keyboard button, at the same place, hides it.
   const chatPaneKeyboardButton =
     activePaneContent?.kind === 'session' && activePaneContent.sessionKey === paneChatKey && keyboardVisible;
-  // The startup keyboard, the bar's keyboard button and the round one (`useKeyboardEntry`).
   const keyboardEntry = useKeyboardEntry({
     hideKeyboardOnStartup: settings.hideKeyboardOnStartup,
     isFocused,
@@ -1489,6 +1488,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
       }
       onHeightChange={slidesWithKeyboard ? setTerminalBarHeight : undefined}
       covered={!terminalBarShown}
+      keyboardDisabled={keyboardEntry.padOpen}
     />
   );
   const docsEnabled = activeProject !== null && (activeProject.path ?? '').length > 0;

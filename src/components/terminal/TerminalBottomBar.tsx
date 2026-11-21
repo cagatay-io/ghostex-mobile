@@ -3,10 +3,10 @@
  * terminal, with no message field and no model picker, as the desktop's terminal bar is (`terminal_agent_action_bar.rs`):
  * the mode button (Shift+Tab, which cycles an agent TUI's permission mode), then More actions, Attach, Chat view, the
  * voice agent, Dictate and, in Send's place, the keyboard (on the iPhone also Panes, from its top bar). A tap on the
- * bar's empty room brings the keyboard back too (both call `onKeyboard`, which the screen makes do nothing while the
- * command pad is open: only the pad's keyboard button moves the keyboard then). With the keyboard up Android shows its
- * key bar instead (`TerminalKeyBar`); the iPhone keeps the bar under the terminal, where the keyboard covers it, so the
- * terminal keeps its size and only slides (`terminalKeyboardSlide.ts`).
+ * bar's empty room brings the keyboard back too; while the command pad is open the keyboard button is drawn disabled
+ * and the empty room takes no tap (`keyboardDisabled`): only the pad's keyboard button moves the keyboard then. With
+ * the keyboard up Android shows its key bar instead (`TerminalKeyBar`); the iPhone keeps the bar under the terminal,
+ * where the keyboard covers it, so the terminal keeps its size and only slides (`terminalKeyboardSlide.ts`).
  *
  * CDXC:Terminal 2026-11-12 DECISION:
  * User, of the phone's terminal view: show a bottom bar like the desktop's terminal bar, its buttons the chat box's
@@ -81,6 +81,15 @@ export type TerminalBottomBarProps = {
    * through it.
    */
   covered?: boolean;
+  /**
+   * The keyboard button stays in its place drawn disabled, and the bar's empty room takes no tap: the command pad is
+   * open, and only its own keyboard button moves the keyboard then. The bar's other buttons keep working.
+   *
+   * CDXC:Terminal 2026-11-21 DECISION:
+   * User: while the command pad is open the bar's keyboard button stays in its place, drawn with the bar's disabled
+   * style and marked disabled for accessibility, and the empty room does nothing; it works again once the pad closes.
+   */
+  keyboardDisabled?: boolean;
 };
 
 /** A short problem no row shows (no microphone permission, nothing to transcribe again). */
@@ -107,6 +116,7 @@ export default function TerminalBottomBar({
   panes = null,
   onHeightChange,
   covered = false,
+  keyboardDisabled = false,
 }: TerminalBottomBarProps) {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   // Dictate's Set up Hex: Settings › Voice on this terminal's computer, as the chat box's does.
@@ -193,7 +203,7 @@ export default function TerminalBottomBar({
           itself, so VoiceOver and TalkBack reach each button (the keyboard button is the bar's Show the keyboard). */}
       <Pressable
         accessible={false}
-        onPress={onKeyboard}
+        onPress={keyboardDisabled ? undefined : onKeyboard}
         style={[
           styles.bar,
           {
@@ -261,12 +271,15 @@ export default function TerminalBottomBar({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Show the keyboard"
+            accessibilityState={{ disabled: keyboardDisabled }}
+            disabled={keyboardDisabled}
             hitSlop={4}
             onPress={onKeyboard}
             style={({ pressed }) => [
               styles.accent,
               { backgroundColor: chrome.foreground },
               pressed ? styles.pressed : null,
+              keyboardDisabled ? styles.dim : null,
             ]}
           >
             <KeyboardIcon size={18} color={chrome.background} />
