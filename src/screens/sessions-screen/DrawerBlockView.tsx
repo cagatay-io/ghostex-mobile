@@ -87,7 +87,7 @@ export type DrawerBlockActions = {
   agentMenu: (machineId: string, header: ProjectHeaderItem) => void;
   /** The slashed computer of a project whose folder is missing: its sheet (contract/folderProblem.ts). */
   folderMark: (machineId: string, header: ProjectHeaderItem) => void;
-  /** Main Hub's "Pick an agent" row: asks which agent runs the computer's Chief of Staff. */
+  /** Main Hub's "Start here" row: starts the computer's Chief of Staff on its default agent. */
   openHomeChief: (machineId: string, header: ProjectHeaderItem) => void;
   /** Main Hub's long press: what it is, Start Chief of Staff before its first open, the project's options. */
   homeMenu: (machineId: string, header: ProjectHeaderItem) => void;
@@ -276,7 +276,7 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
    */
   /**
    * Main Hub's GBots section, right after Chief of Staff's row (before its first open, or with it off, at the top of the
-   * fold, under the "Pick an agent" row): contract/gbots.ts.
+   * fold, under the "Start here" row): contract/gbots.ts.
    */
   const gbotsRows = (gbots: GbotsSectionModel): ReactElement => (
     <GbotsRows

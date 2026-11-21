@@ -115,6 +115,16 @@ export function chiefRows(
 }
 
 /** `ghostex chief status --json`: the agents Chief can run on, for the first open. */
+/**
+ * The agent Chief of Staff's first open starts on (`defaultAgentId` of `ghostex chief status`: the computer's
+ * default agent, server/src/chief/model.rs). `null` from a computer whose Ghostex predates it, which keeps the
+ * agent question.
+ */
+export function parseChiefDefaultAgent(json: unknown): string | null {
+  const root = typeof json === 'object' && json !== null ? (json as Record<string, unknown>) : {};
+  return typeof root.defaultAgentId === 'string' && root.defaultAgentId.length > 0 ? root.defaultAgentId : null;
+}
+
 export function parseChiefAgents(json: unknown): { agentId: string; name: string }[] {
   const root = typeof json === 'object' && json !== null ? (json as Record<string, unknown>) : {};
   const agents = Array.isArray(root.agents) ? root.agents : [];

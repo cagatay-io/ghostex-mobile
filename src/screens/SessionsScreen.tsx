@@ -104,6 +104,7 @@ import {
   HOME_LABEL,
   MAIN_HUB_EXPLANATION,
   parseChiefAgents,
+  parseChiefDefaultAgent,
   type ChiefRowModel,
 } from '../contract/chief';
 import {
@@ -1092,10 +1093,18 @@ export default function SessionsScreen({ navigation }: Props) {
     [runChief],
   );
 
-  /** First open: which agent runs Chief (Q1740). */
+  /**
+   * First open. CDXC:Chief 2026-11-21 DECISION: Chief of Staff starts on the computer's default agent with no
+   * question (server/src/chief/model.rs); a computer whose Ghostex predates that still asks which agent (Q1740).
+   */
   const openChiefPicker = useCallback(
     async (target: MachineRecord): Promise<void> => {
       try {
+        const defaultAgent = parseChiefDefaultAgent((await runGhostexCli(target, chiefStatusCommand())).json);
+        if (defaultAgent !== null) {
+          void runChief(target, chiefOpenCommand(defaultAgent));
+          return;
+        }
         const items = await chiefAgentItems(target, chiefOpenCommand, '');
         if (items.length === 0) {
           setTransientStatus(
@@ -1108,7 +1117,7 @@ export default function SessionsScreen({ navigation }: Props) {
         setTransientStatus(error instanceof Error ? error.message : String(error));
       }
     },
-    [chiefAgentItems, setTransientStatus],
+    [chiefAgentItems, runChief, setTransientStatus],
   );
 
   /** Chief of Staff's long press: New Chat, Change Agent's agents, then (`more`) the row's own session options. */

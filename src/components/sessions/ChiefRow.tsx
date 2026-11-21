@@ -78,7 +78,7 @@ export default function ChiefRow({
         <Text numberOfLines={1} style={styles.title}>
           {CHIEF_LABEL}
         </Text>
-        {mainSession === null ? <Text style={styles.hint}>Pick an agent</Text> : null}
+        {mainSession === null ? <Text style={styles.hint}>Start here</Text> : null}
         {counts !== null && hasDot(counts) ? <StatusDotStack {...counts} ringColor={ink.chipCard} /> : null}
       </Pressable>
       {unfolded
@@ -184,8 +184,9 @@ const chiefStyles = inkStyleSheets((ink) =>
 );
 
 /**
- * Main Hub's first row before Chief of Staff's first open: the flower, "Chief of Staff" and "Pick an agent"; a tap asks
- * which agent runs it, then its real row (pinned first) takes this place. The desktop draws the same row
+ * Main Hub's first row before Chief of Staff's first open: the flower, "Chief of Staff" and "Start here"; a tap starts
+ * it on the computer's default agent (an older computer asks which agent), then its real row (pinned first) takes
+ * this place. The desktop draws the same row
  * (apps/desktop/src/app/native_sidebar/chief.rs `render_native_sidebar_chief_placeholder`).
  */
 export function ChiefPlaceholderRow({ onPress }: { onPress: () => void }) {
@@ -194,7 +195,7 @@ export function ChiefPlaceholderRow({ onPress }: { onPress: () => void }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${CHIEF_LABEL}: pick the agent it runs on`}
+      accessibilityLabel={`${CHIEF_LABEL}: start here`}
       onPress={onPress}
       style={({ pressed }) => [styles.other, pressed ? styles.pressed : null]}
     >
@@ -202,7 +203,7 @@ export function ChiefPlaceholderRow({ onPress }: { onPress: () => void }) {
       <Text numberOfLines={1} style={styles.otherTitle}>
         {CHIEF_LABEL}
       </Text>
-      <Text style={styles.hint}>Pick an agent</Text>
+      <Text style={styles.hint}>Start here</Text>
     </Pressable>
   );
 }
