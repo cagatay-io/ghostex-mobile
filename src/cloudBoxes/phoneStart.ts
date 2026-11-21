@@ -76,6 +76,9 @@ const STEP_LABELS: Record<string, string> = {
   connect: 'Connecting',
 };
 
+/** The steps whose failure fails the box itself; any later one is that session's own. */
+const BOX_STEPS = new Set(['checkCap', 'create', 'boot']);
+
 /** Keeps the phone's row of a box it drives, and its boot card's steps. */
 class PhoneBoxRow {
   constructor(
@@ -116,7 +119,13 @@ class PhoneBoxRow {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.step(step, 'failed', message);
-      this.put({ state: 'failed', stateDetail: message });
+      // CDXC:CloudBoxes 2026-11-21 WHY: only bringing the box up (cap, machine, boot) fails it, as
+      // on the computer (server/src/cloud_boxes/registry.rs `step_fails_the_box`). A session step
+      // that fails on a box that is up (secrets it can't write, a repository it can't clone) marked
+      // the whole box failed while it kept running and billing; the error now stays on its step
+      // line and reaches the waiting chat through the thrown error, and the box reads running.
+      if (BOX_STEPS.has(step)) this.put({ state: 'failed', stateDetail: message });
+      else this.put({ state: 'running', stateDetail: undefined, startedAt: nowIso(), stoppedAt: undefined });
       throw error;
     }
   }
@@ -355,7 +364,8 @@ async function resumeFromPhone(box: CloudBox, homeMachineId: string): Promise<Cl
           progress: undefined,
         });
       } catch {
-        // `run` marked the row failed with the reason; the waiting send reads it.
+        // `run` marked the row failed (a failed boot) or running (a session step) with the reason; the
+        // waiting send reads it.
       }
     })();
     return row.box;
