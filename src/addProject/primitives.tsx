@@ -55,7 +55,25 @@ export function ListSection({ children }: { children: ReactNode }): ReactElement
   return <View style={styles.listSection}>{children}</View>;
 }
 
+export function SectionHeaderRow({
+  action,
+  title,
+}: {
+  action?: ReactNode;
+  title: string;
+}): ReactElement {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
+  return (
+    <View style={styles.sectionHeaderRow}>
+      <Text style={styles.sectionHeaderRowTitle}>{title}</Text>
+      {action === undefined ? null : <View style={styles.sectionHeaderRowAction}>{action}</View>}
+    </View>
+  );
+}
+
 export function ListRow({
+  badges,
   description,
   disabled,
   first,
@@ -65,6 +83,7 @@ export function ListRow({
   title,
   trailing,
 }: {
+  badges?: ReactNode;
   description?: string | null;
   disabled?: boolean;
   first?: boolean;
@@ -102,11 +121,109 @@ export function ListRow({
             {description}
           </Text>
         )}
+        {badges === undefined ? null : <View style={styles.listRowBadges}>{badges}</View>}
       </View>
       {trailing !== undefined ? (
         trailing
       ) : isDisabled ? null : (
         <CaretRightGlyph size={14} color={appearance.muted} />
+      )}
+    </Pressable>
+  );
+}
+
+export type MetadataBadgeTone = 'muted' | 'accent' | 'connected';
+
+export function MetadataBadge({
+  icon,
+  label,
+  tone = 'muted',
+}: {
+  icon?: ReactNode;
+  label: string;
+  tone?: MetadataBadgeTone;
+}): ReactElement {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
+  const containerStyle =
+    tone === 'connected'
+      ? styles.metaBadgeConnected
+      : tone === 'accent'
+        ? styles.metaBadgeAccent
+        : styles.metaBadgeMuted;
+  const labelStyle =
+    tone === 'connected'
+      ? styles.metaBadgeLabelConnected
+      : tone === 'accent'
+        ? styles.metaBadgeLabelAccent
+        : styles.metaBadgeLabelMuted;
+  return (
+    <View style={[styles.metaBadge, containerStyle]}>
+      {icon === undefined ? null : icon}
+      <Text numberOfLines={1} style={[styles.metaBadgeLabel, labelStyle]}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+export function InlineActionButton({
+  active,
+  disabled,
+  icon,
+  label,
+  loading,
+  onPress,
+  primary,
+  testID,
+}: {
+  active?: boolean;
+  disabled?: boolean;
+  icon?: ReactNode;
+  label: string;
+  loading?: boolean;
+  onPress: () => void;
+  primary?: boolean;
+  testID?: string;
+}): ReactElement {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
+  const isDisabled = disabled === true || loading === true;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: isDisabled, busy: loading === true, selected: active === true }}
+      testID={testID}
+      disabled={isDisabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.inlineButton,
+        primary === true ? styles.inlineButtonPrimary : styles.inlineButtonSecondary,
+        active === true && primary !== true && styles.inlineButtonActive,
+        isDisabled && styles.inlineButtonDisabled,
+        pressed && !isDisabled && (primary === true ? styles.inlineButtonPrimaryPressed : styles.inlineButtonSecondaryPressed),
+      ]}
+    >
+      {loading === true ? (
+        <ActivityIndicator size="small" color={primary === true ? appearance.accentForeground : appearance.accent} />
+      ) : (
+        <>
+          {icon === undefined ? null : icon}
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.inlineButtonLabel,
+              primary === true
+                ? styles.inlineButtonLabelPrimary
+                : active === true
+                  ? styles.inlineButtonLabelActive
+                  : styles.inlineButtonLabelSecondary,
+            ]}
+          >
+            {label}
+          </Text>
+        </>
       )}
     </Pressable>
   );
@@ -247,6 +364,26 @@ const createStyles = (appearance: Appearance) => StyleSheet.create({
     letterSpacing: 0.5,
     marginTop: 12,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginTop: 12,
+  },
+  sectionHeaderRowTitle: {
+    color: appearance.muted,
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    flexShrink: 1,
+  },
+  sectionHeaderRowAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   mutedText: {
     color: appearance.muted,
     fontSize: 12,
@@ -298,6 +435,89 @@ const createStyles = (appearance: Appearance) => StyleSheet.create({
     color: appearance.muted,
     fontSize: 12,
     lineHeight: 16,
+  },
+  listRowBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 4,
+  },
+  metaBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: GhostexRadii.pill,
+    borderWidth: GhostexStrokeWidth,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    maxWidth: 160,
+  },
+  metaBadgeMuted: {
+    borderColor: appearance.border,
+    backgroundColor: appearance.cardActive,
+  },
+  metaBadgeAccent: {
+    borderColor: mixHexColors(appearance.accent, appearance.border, 40),
+    backgroundColor: mixHexColors(appearance.accent, appearance.card, 12),
+  },
+  metaBadgeConnected: {
+    borderColor: mixHexColors(appearance.connected, appearance.border, 40),
+    backgroundColor: mixHexColors(appearance.connected, appearance.card, 12),
+  },
+  metaBadgeLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  metaBadgeLabelMuted: {
+    color: appearance.muted,
+  },
+  metaBadgeLabelAccent: {
+    color: appearance.accent,
+  },
+  metaBadgeLabelConnected: {
+    color: appearance.connected,
+  },
+  inlineButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    borderRadius: GhostexRadii.pill,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    minHeight: 30,
+  },
+  inlineButtonPrimary: {
+    backgroundColor: appearance.accent,
+  },
+  inlineButtonPrimaryPressed: {
+    opacity: 0.85,
+  },
+  inlineButtonSecondary: {
+    backgroundColor: appearance.neutralFill,
+  },
+  inlineButtonSecondaryPressed: {
+    backgroundColor: appearance.neutralFillPressed,
+  },
+  inlineButtonActive: {
+    backgroundColor: mixHexColors(appearance.accent, appearance.card, 18),
+  },
+  inlineButtonDisabled: {
+    opacity: 0.45,
+  },
+  inlineButtonLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  inlineButtonLabelPrimary: {
+    color: appearance.accentForeground,
+  },
+  inlineButtonLabelSecondary: {
+    color: appearance.foreground,
+  },
+  inlineButtonLabelActive: {
+    color: appearance.accent,
   },
   badge: {
     borderRadius: GhostexRadii.pill,

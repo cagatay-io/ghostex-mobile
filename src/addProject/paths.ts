@@ -87,3 +87,41 @@ export function cloneFolderName(repositoryTitle: string, remoteUrl: string): str
       .pop() ?? ''
   ).replace(/\.git$/i, '');
 }
+
+/** Last non-empty segment of a remote path for compact labels, or the path itself at root. */
+export function pathFolderName(value: string): string {
+  const stripped = stripTrailingSeparators(value.trim());
+  if (stripped.length === 0) return '';
+  const parts = stripped.split('/').filter((part) => part.length > 0);
+  return parts[parts.length - 1] ?? stripped;
+}
+
+/** Replaces a leading `home` prefix with `~` for compact display on phone screens. */
+export function tildifyRemotePath(value: string, home?: string | null): string {
+  const trimmed = value.trim();
+  const normalizedHome = home === undefined || home === null ? '' : stripTrailingSeparators(home.trim());
+  if (trimmed.length === 0 || normalizedHome.length === 0) return trimmed;
+  const normalizedValue = stripTrailingSeparators(trimmed);
+  const same = remotePathIdentity(normalizedValue) === remotePathIdentity(normalizedHome);
+  if (same) return '~';
+  const prefix = normalizedHome.endsWith('/') ? normalizedHome : `${normalizedHome}/`;
+  const valueForCompare = isWindowsRemotePath(trimmed) ? normalizedValue.toLowerCase() : normalizedValue;
+  const prefixForCompare = isWindowsRemotePath(normalizedHome) ? prefix.toLowerCase() : prefix;
+  if (valueForCompare.startsWith(prefixForCompare)) {
+    return `~/${normalizedValue.slice(prefix.length)}`;
+  }
+  return trimmed;
+}
+
+/** Expands a leading `~` or `~/` using `home` when known, for path deduplication. */
+export function expandHomePrefix(value: string, home?: string | null): string {
+  const trimmed = value.trim();
+  const normalizedHome = home === undefined || home === null ? '' : stripTrailingSeparators(home.trim());
+  if (normalizedHome.length === 0) return trimmed;
+  if (trimmed === '~') return normalizedHome;
+  if (trimmed.startsWith('~/') || trimmed.startsWith('~\\')) {
+    const rest = trimmed.slice(2).replace(/^[/\\]+/u, '');
+    return rest.length === 0 ? normalizedHome : joinPathSegment(normalizedHome, rest);
+  }
+  return trimmed;
+}

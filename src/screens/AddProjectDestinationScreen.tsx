@@ -1,6 +1,6 @@
 /**
- * Add Project clone branch, step 2: repository card → path
- * input → "Clone project" → the same folder browser.
+ * Add Project clone branch, step 2: repository card -> optional Places bar ->
+ * path input -> "Clone project" -> folder browser.
  *
  * gxserver refuses a destination that already exists and is not empty, so a
  * browsed directory alone is never a valid destination. When the path still
@@ -13,18 +13,30 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { cloneRepository } from '../addProject/client';
 import FolderBrowser from '../addProject/FolderBrowser';
-import { cloneFolderName, hasTrailingPathSeparator, joinPathSegment } from '../addProject/paths';
+import {
+  cloneFolderName,
+  ensureBrowseDirectoryPath,
+  hasTrailingPathSeparator,
+  joinPathSegment,
+} from '../addProject/paths';
+import { AllPlacesPanel, QuickPlacesStrip } from '../addProject/PlacesPicker';
 import {
   AddProjectShell,
   ErrorBanner,
+  InlineActionButton,
   MutedText,
   PrimaryActionButton,
   ProjectPathInput,
   RepositoryCard,
+  SectionHeaderRow,
   SectionTitle,
 } from '../addProject/primitives';
 import { ADD_PROJECT_DEFAULT_PATH, resolveSubmittedPath } from '../addProject/submit';
 import { useDirectoryBrowse } from '../addProject/useDirectoryBrowse';
+import {
+  invalidateProjectPickerPlacesCache,
+  useProjectPickerPlaces,
+} from '../addProject/useProjectPickerPlaces';
 import { AddProjectCopy } from '../copy';
 import { useInventoryStore } from '../inventory/store';
 import { useMachinesStore } from '../machines/store';
@@ -42,12 +54,21 @@ export default function AddProjectDestinationScreen({ navigation, route }: Props
   );
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [showAllPlaces, setShowAllPlaces] = useState(false);
 
   const browse = useDirectoryBrowse(machine, path);
+  const pickerPlaces = useProjectPickerPlaces(machine);
+  const { places } = pickerPlaces;
 
   const changePath = useCallback((next: string) => {
     setPath(next);
     setError(null);
+  }, []);
+
+  const selectPlace = useCallback((placePath: string) => {
+    setPath(ensureBrowseDirectoryPath(placePath));
+    setError(null);
+    setShowAllPlaces(false);
   }, []);
 
   const trimmed = path.trim();
@@ -68,13 +89,14 @@ export default function AddProjectDestinationScreen({ navigation, route }: Props
     setError(null);
     try {
       await cloneRepository(machine, remoteUrl, destination);
+      invalidateProjectPickerPlacesCache(machineId);
       await useInventoryStore.getState().refreshMachineFresh(machine);
       navigation.navigate('Sessions');
     } catch (failure) {
       setPending(false);
       setError(failure instanceof Error ? failure.message : String(failure));
     }
-  }, [destination, machine, navigation, pending, remoteUrl]);
+  }, [destination, machine, machineId, navigation, pending, remoteUrl]);
 
   if (machine === null) {
     return (
@@ -90,6 +112,31 @@ export default function AddProjectDestinationScreen({ navigation, route }: Props
       {browse.error === null ? null : <ErrorBanner message={browse.error} />}
       <SectionTitle>{AddProjectCopy.repositorySection}</SectionTitle>
       <RepositoryCard title={repositoryTitle} subtitle={repositoryUrl} />
+
+      {places !== null ? (
+        <>
+          <SectionHeaderRow
+            title={AddProjectCopy.placesSection}
+            action={
+              <InlineActionButton
+                testID="add-project-destination-all-places"
+                label={showAllPlaces ? AddProjectCopy.hidePlacesButton : AddProjectCopy.allPlacesButton}
+                active={showAllPlaces}
+                onPress={() => setShowAllPlaces((prev) => !prev)}
+              />
+            }
+          />
+          <QuickPlacesStrip
+            places={places}
+            currentPath={browse.result?.parentPath ?? path}
+            onSelectPlace={selectPlace}
+          />
+          {showAllPlaces ? (
+            <AllPlacesPanel places={places} onSelectPlace={selectPlace} />
+          ) : null}
+        </>
+      ) : null}
+
       <SectionTitle>{AddProjectCopy.destinationSection}</SectionTitle>
       <ProjectPathInput
         testID="add-project-destination-input"

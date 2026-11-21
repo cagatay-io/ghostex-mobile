@@ -1,30 +1,38 @@
 /**
- * Add Project step 1 — source picker.
+ * Add Project step 1: source picker, plus Suggested repositories and quick
+ * Places jumps on computers that expose `/api/projectPickerPlaces`.
  *
  * The machine is already chosen by the Projects context menu that opened this
- * flow, so there is no environment list here. Local folder is offered first,
- * then Git URL, then the hosting providers ordered by readiness. Unready
- * providers render disabled with the machine's own readiness hint; mobile has
- * no source-control settings screen to deep-link into, so there is no action
- * behind the "Setup required" badge.
+ * flow, so there is no environment list here. On newer computers, unadded
+ * Git repositories appear at the top for one-tap adding, followed by quick
+ * Place jumps (Home, Default projects folder, Pinned, Project folders, Recent,
+ * Volumes) and the standard source list. Older computers return `null` for
+ * places and render the existing source list unchanged with zero errors.
  */
 
-import { useAppearance } from '../theme/useAppearance';
-import { useEffect, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useState, type ReactElement } from 'react';
+import { Alert } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import {
+  addProjectPath,
   discoverSourceControl,
   type AddProjectSourceControlDiscovery,
   type AddProjectSourceId,
+  type AddProjectSuggestion,
 } from '../addProject/client';
+import { ensureBrowseDirectoryPath, tildifyRemotePath } from '../addProject/paths';
+import { AllPlacesPanel, QuickPlacesStrip } from '../addProject/PlacesPicker';
 import {
   AddProjectShell,
   ErrorBanner,
+  InlineActionButton,
   ListRow,
   ListSection,
+  MetadataBadge,
   MutedText,
   PendingRow,
+  SectionHeaderRow,
   SectionTitle,
   SetupRequiredBadge,
 } from '../addProject/primitives';
@@ -35,20 +43,41 @@ import {
   isLookupProvider,
   orderedAddProjectSources,
 } from '../addProject/sources';
-import { FolderOpenGlyph, GitForkGlyph, WorldGlyph } from '../components/sessions/icons';
+import { duplicateProjectFor } from '../addProject/submit';
+import {
+  invalidateProjectPickerPlacesCache,
+  useProjectPickerPlaces,
+} from '../addProject/useProjectPickerPlaces';
+import {
+  FolderOpenGlyph,
+  GitBranchGlyph,
+  GitForkGlyph,
+  WorldGlyph,
+} from '../components/sessions/icons';
 import { AddProjectCopy } from '../copy';
+import { useInventoryStore } from '../inventory/store';
 import { machineDisplayLabel, useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
-import { GhostexPalette } from '../theme/palette';
+import { useAppearance } from '../theme/useAppearance';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AddProjectSource'>;
 
-function sourceIcon(source: AddProjectSourceId): ReactElement {
+const INITIAL_SUGGESTIONS_LIMIT = 6;
+
+function sourceIcon(source: AddProjectSourceId, color: string): ReactElement {
   return source === 'url' ? (
-    <WorldGlyph size={16} color={GhostexPalette.MUTED} />
+    <WorldGlyph size={16} color={color} />
   ) : (
-    <GitForkGlyph size={16} color={GhostexPalette.MUTED} />
+    <GitForkGlyph size={16} color={color} />
   );
+}
+
+function suggestionSourceLabel(suggestion: AddProjectSuggestion): string | null {
+  if (suggestion.source === 'otherApps') return AddProjectCopy.suggestedFromOtherApps;
+  if (suggestion.from !== undefined && suggestion.from.length > 0) {
+    return AddProjectCopy.suggestedFromFolder(suggestion.from);
+  }
+  return null;
 }
 
 export default function AddProjectSourceScreen({ navigation, route }: Props): ReactElement {
@@ -59,6 +88,13 @@ export default function AddProjectSourceScreen({ navigation, route }: Props): Re
   const [discovery, setDiscovery] = useState<AddProjectSourceControlDiscovery | null>(null);
   const [discoveryPending, setDiscoveryPending] = useState(true);
   const [discoveryError, setDiscoveryError] = useState<string | null>(null);
+  const [showAllSuggestions, setShowAllSuggestions] = useState(false);
+  const [showAllPlaces, setShowAllPlaces] = useState(false);
+  const [addingPath, setAddingPath] = useState<string | null>(null);
+  const [addError, setAddError] = useState<string | null>(null);
+
+  const pickerPlaces = useProjectPickerPlaces(machine);
+  const { places } = pickerPlaces;
 
   useEffect(() => {
     if (machine === null) {
@@ -87,6 +123,45 @@ export default function AddProjectSourceScreen({ navigation, route }: Props): Re
     // The machine record is looked up per render; its id is the stable key.
   }, [machineId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const openFolder = useCallback(
+    (folderPath?: string): void => {
+      navigation.navigate('AddProjectLocal', {
+        machineId,
+        ...(folderPath !== undefined && folderPath.trim().length > 0
+          ? { initialPath: ensureBrowseDirectoryPath(folderPath) }
+          : {}),
+      });
+    },
+    [machineId, navigation],
+  );
+
+  const addSuggested = useCallback(
+    async (suggestion: AddProjectSuggestion): Promise<void> => {
+      if (machine === null || addingPath !== null) return;
+      const duplicate = duplicateProjectFor(machineId, suggestion.path);
+      if (duplicate !== null) {
+        Alert.alert(
+          AddProjectCopy.duplicateTitle,
+          AddProjectCopy.duplicateBody(duplicate.name ?? duplicate.path ?? suggestion.path),
+        );
+        navigation.navigate('Sessions');
+        return;
+      }
+      setAddingPath(suggestion.path);
+      setAddError(null);
+      try {
+        await addProjectPath(machine, suggestion.path, { createIfMissing: false });
+        invalidateProjectPickerPlacesCache(machineId);
+        await useInventoryStore.getState().refreshMachineFresh(machine);
+        navigation.navigate('Sessions');
+      } catch (failure) {
+        setAddingPath(null);
+        setAddError(failure instanceof Error ? failure.message : String(failure));
+      }
+    },
+    [addingPath, machine, machineId, navigation],
+  );
+
   if (machine === null) {
     return (
       <AddProjectShell>
@@ -97,11 +172,107 @@ export default function AddProjectSourceScreen({ navigation, route }: Props): Re
 
   const readiness = buildAddProjectSourceReadiness(discovery);
   const sources = orderedAddProjectSources(readiness);
+  const suggestions = places?.suggested ?? [];
+  const visibleSuggestions = showAllSuggestions ? suggestions : suggestions.slice(0, INITIAL_SUGGESTIONS_LIMIT);
+  const hasHiddenSuggestions = suggestions.length > INITIAL_SUGGESTIONS_LIMIT;
+  const defaultLocalPath = places?.defaultProjectsFolder;
 
   return (
     <AddProjectShell>
       <MutedText>{AddProjectCopy.machineLine(machineDisplayLabel(machine))}</MutedText>
+      {addError === null ? null : <ErrorBanner message={addError} />}
+      {pickerPlaces.pinError === null ? null : <ErrorBanner message={pickerPlaces.pinError} />}
       {discoveryError === null ? null : <ErrorBanner message={discoveryError} />}
+
+      {suggestions.length > 0 ? (
+        <>
+          <SectionHeaderRow
+            title={AddProjectCopy.suggestedSection}
+            action={
+              hasHiddenSuggestions ? (
+                <InlineActionButton
+                  label={
+                    showAllSuggestions
+                      ? AddProjectCopy.suggestedShowLess
+                      : AddProjectCopy.suggestedShowAll(suggestions.length)
+                  }
+                  onPress={() => setShowAllSuggestions((prev) => !prev)}
+                />
+              ) : undefined
+            }
+          />
+          <ListSection>
+            {visibleSuggestions.map((suggestion, index) => {
+              const sourceLabel = suggestionSourceLabel(suggestion);
+              const isAddingThis = addingPath === suggestion.path;
+              const isBusy = addingPath !== null;
+              return (
+                <ListRow
+                  key={suggestion.path}
+                  first={index === 0}
+                  testID={`add-project-suggested-${suggestion.name}`}
+                  title={suggestion.name}
+                  description={tildifyRemotePath(suggestion.path, places?.home)}
+                  icon={<GitBranchGlyph size={16} color={appearance.accent} />}
+                  disabled={isBusy && !isAddingThis}
+                  badges={
+                    <>
+                      {sourceLabel === null ? null : <MetadataBadge label={sourceLabel} tone="muted" />}
+                      {suggestion.branch === undefined ? null : (
+                        <MetadataBadge
+                          label={suggestion.branch}
+                          tone="accent"
+                          icon={<GitBranchGlyph size={11} color={appearance.accent} />}
+                        />
+                      )}
+                      {suggestion.language === undefined ? null : (
+                        <MetadataBadge label={suggestion.language} tone="muted" />
+                      )}
+                    </>
+                  }
+                  trailing={
+                    <InlineActionButton
+                      primary
+                      testID={`add-project-suggested-add-${suggestion.name}`}
+                      label={AddProjectCopy.quickAddButton}
+                      loading={isAddingThis}
+                      disabled={isBusy}
+                      onPress={() => void addSuggested(suggestion)}
+                    />
+                  }
+                  onPress={() => openFolder(suggestion.path)}
+                />
+              );
+            })}
+          </ListSection>
+        </>
+      ) : null}
+
+      {places !== null ? (
+        <>
+          <SectionHeaderRow
+            title={AddProjectCopy.placesSection}
+            action={
+              <InlineActionButton
+                testID="add-project-source-all-places"
+                label={showAllPlaces ? AddProjectCopy.hidePlacesButton : AddProjectCopy.allPlacesButton}
+                active={showAllPlaces}
+                onPress={() => setShowAllPlaces((prev) => !prev)}
+              />
+            }
+          />
+          <QuickPlacesStrip places={places} onSelectPlace={(placePath) => openFolder(placePath)} />
+          {showAllPlaces ? (
+            <AllPlacesPanel
+              places={places}
+              pinningPath={pickerPlaces.pinningPath}
+              onUnpin={(placePath) => void pickerPlaces.togglePin(placePath)}
+              onSelectPlace={(placePath) => openFolder(placePath)}
+            />
+          ) : null}
+        </>
+      ) : null}
+
       <SectionTitle>{AddProjectCopy.sourcesSection}</SectionTitle>
       <ListSection>
         <ListRow
@@ -110,7 +281,7 @@ export default function AddProjectSourceScreen({ navigation, route }: Props): Re
           title={AddProjectCopy.localRowTitle}
           description={AddProjectCopy.localRowDescription}
           icon={<FolderOpenGlyph size={16} color={appearance.muted} />}
-          onPress={() => navigation.navigate('AddProjectLocal', { machineId })}
+          onPress={() => openFolder(defaultLocalPath)}
         />
         {sources.map((source) => {
           const state = readiness[source];
@@ -124,7 +295,7 @@ export default function AddProjectSourceScreen({ navigation, route }: Props): Re
               testID={`add-project-source-${source}`}
               title={addProjectSourceRowTitle(source)}
               description={enabled ? addProjectSourceRowDescription(source) : state.hint}
-              icon={sourceIcon(source)}
+              icon={sourceIcon(source, appearance.muted)}
               disabled={!enabled}
               trailing={enabled ? undefined : <SetupRequiredBadge label={AddProjectCopy.setupRequired} />}
               onPress={() => navigation.navigate('AddProjectRepository', { machineId, source })}

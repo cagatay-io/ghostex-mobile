@@ -1,17 +1,26 @@
 import { execRemoteCommand } from '../remote/commands';
 /**
- * Add Project transport: the four gxserver reads/writes the flow needs, run as
- * Ghostex CLI verbs over the machine's existing SSH connection.
+ * Add Project transport: gxserver reads/writes for adding local folders and
+ * cloning repositories.
  *
- * This does not reuse `components/sessions/cli.ts::runGhostexCli` because the
- * Add Project verbs need three things the session runner deliberately does not
- * have: per-command exec timeouts (a clone outlives the 20s inventory budget),
- * the parsed JSON payload even when the CLI exits non-zero (a failed clone job
- * exits 1 while the RPC itself succeeded, and the real reason lives in
- * `job.error`), and structured error strings surfaced verbatim to the inline
- * error banners instead of a truncated blob of stdout.
+ * Directory browsing (`browseProjectDirectories` with `details: true`),
+ * picker places (`projectPickerPlaces`), and folder creation
+ * (`createProjectDirectory`) use the machine's warm HTTP link when available
+ * and degrade cleanly on older computers (HTTP 404 on `/api/projectPickerPlaces`
+ * returns `null` with zero errors; older servers ignore `details: true`;
+ * legacy SSH-only computers fall back to `ghostex browse-directories`).
+ *
+ * CLI-backed verbs do not reuse `components/sessions/cli.ts::runGhostexCli`
+ * because Add Project needs per-command exec timeouts (a clone outlives the
+ * 20s inventory budget), the parsed JSON payload even when the CLI exits
+ * non-zero (a failed clone job exits 1 while the RPC itself succeeded, and
+ * the real reason lives in `job.error`), and structured error strings surfaced
+ * verbatim to the inline error banners instead of a truncated blob of stdout.
  */
 
+import { chatMachineLink } from '../chat/rust/machine-link';
+import type { RpcAnswer } from '../chat/rust/transport';
+import { isCloudBoxMachineId } from '../cloudBoxes/types';
 import {
   addProjectCommand,
   browseDirectoriesCommand,
@@ -20,6 +29,7 @@ import {
   lookupRepositoryCommand,
   type SourceControlLookupProvider,
 } from '../commands/ghostexCli';
+import { runGhostexCli } from '../components/sessions/cli';
 import { scanJsonObjects } from '../contract/mobileSummary';
 import { FailureCopy } from '../copy';
 import {
@@ -59,12 +69,62 @@ export type AddProjectSourceControlDiscovery = {
   providers: AddProjectProviderDiscovery[];
 };
 
-export type AddProjectBrowseEntry = { name: string; fullPath: string };
+export type AddProjectBrowseEntry = {
+  name: string;
+  fullPath: string;
+  /** True when the folder contains a `.git` entry (newer gxserver with `details: true`). */
+  git?: boolean;
+  /** Current branch or short detached commit hash when `git` is true. */
+  branch?: string;
+  /** Detected main language from the folder's manifest files. */
+  language?: string;
+  /** Registered Ghostex project id when this folder is already in Ghostex. */
+  projectId?: string;
+};
 
 export type AddProjectBrowseResult = {
   /** Server-resolved absolute directory the entries live in. */
   parentPath: string;
   entries: AddProjectBrowseEntry[];
+  /** True when listing top-level Windows drives at `/`. */
+  isDriveList?: boolean;
+  /** True when the server hit its time budget or skipped a network share for details. */
+  detailsPartial?: boolean;
+};
+
+export type AddProjectPlace = {
+  name: string;
+  path: string;
+  kind?: string;
+};
+
+export type AddProjectSuggestion = {
+  name: string;
+  path: string;
+  branch?: string;
+  language?: string;
+  /** `'otherApps'` | `'projectFolder'` | `''` */
+  source: string;
+  /** Parent project folder name when `source === 'projectFolder'`. */
+  from?: string;
+};
+
+export type AddProjectPlaces = {
+  home: string;
+  platform: string;
+  defaultProjectsFolder?: string;
+  volumes: AddProjectPlace[];
+  standard: AddProjectPlace[];
+  projectFolders: AddProjectPlace[];
+  otherApps: AddProjectPlace[];
+  recent: AddProjectPlace[];
+  pinned: AddProjectPlace[];
+  suggested: AddProjectSuggestion[];
+};
+
+export type AddProjectCreatedDirectory = {
+  name: string;
+  path: string;
 };
 
 export type AddProjectRepositoryInfo = {
@@ -87,6 +147,11 @@ function isObject(value: unknown): value is JsonObject {
 
 function readString(value: unknown): string {
   return typeof value === 'string' ? value : '';
+}
+
+function readOptionalNonEmptyString(value: unknown): string | undefined {
+  const text = readString(value).trim();
+  return text.length > 0 ? text : undefined;
 }
 
 function firstJsonObject(output: string): JsonObject | null {
@@ -155,6 +220,23 @@ async function runAddProjectCli(
   throw new Error(summarizeFailure(output, machineHasPassword));
 }
 
+async function tryAddProjectHttpRpc(
+  machine: MachineConnectionTarget,
+  method: string,
+  params: Record<string, unknown>,
+  timeoutMs: number,
+): Promise<{ kind: 'answered'; answer: RpcAnswer } | { kind: 'unavailable' }> {
+  try {
+    const link = chatMachineLink(machine);
+    if ((await link.route()) !== 'socket') return { kind: 'unavailable' };
+    const sent = await link.request(method, params, timeoutMs);
+    if (sent.kind !== 'answered') return { kind: 'unavailable' };
+    return { kind: 'answered', answer: sent.answer };
+  } catch {
+    return { kind: 'unavailable' };
+  }
+}
+
 function parseBrowseEntries(value: unknown): AddProjectBrowseEntry[] {
   if (!Array.isArray(value)) return [];
   const entries: AddProjectBrowseEntry[] = [];
@@ -163,20 +245,219 @@ function parseBrowseEntries(value: unknown): AddProjectBrowseEntry[] {
     const name = readString(raw.name);
     const fullPath = readString(raw.fullPath);
     if (name.length === 0 || fullPath.length === 0) continue;
-    entries.push({ name, fullPath });
+    const git = raw.git === true ? true : undefined;
+    const branch = readOptionalNonEmptyString(raw.branch);
+    const language = readOptionalNonEmptyString(raw.language);
+    const projectId = readOptionalNonEmptyString(raw.projectId);
+    entries.push({
+      name,
+      fullPath,
+      ...(git !== undefined ? { git } : {}),
+      ...(branch !== undefined ? { branch } : {}),
+      ...(language !== undefined ? { language } : {}),
+      ...(projectId !== undefined ? { projectId } : {}),
+    });
   }
   return entries;
+}
+
+function parsePlacesList(value: unknown): AddProjectPlace[] {
+  if (!Array.isArray(value)) return [];
+  const places: AddProjectPlace[] = [];
+  for (const raw of value) {
+    if (!isObject(raw)) continue;
+    const name = readOptionalNonEmptyString(raw.name);
+    const path = readOptionalNonEmptyString(raw.path);
+    if (name === undefined || path === undefined) continue;
+    const kind = readOptionalNonEmptyString(raw.kind);
+    places.push({
+      name,
+      path,
+      ...(kind !== undefined ? { kind } : {}),
+    });
+  }
+  return places;
+}
+
+function parseSuggestionsList(value: unknown): AddProjectSuggestion[] {
+  if (!Array.isArray(value)) return [];
+  const suggestions: AddProjectSuggestion[] = [];
+  for (const raw of value) {
+    if (!isObject(raw)) continue;
+    const name = readOptionalNonEmptyString(raw.name);
+    const path = readOptionalNonEmptyString(raw.path);
+    if (name === undefined || path === undefined) continue;
+    const branch = readOptionalNonEmptyString(raw.branch);
+    const language = readOptionalNonEmptyString(raw.language);
+    const from = readOptionalNonEmptyString(raw.from);
+    suggestions.push({
+      name,
+      path,
+      source: readString(raw.source),
+      ...(branch !== undefined ? { branch } : {}),
+      ...(language !== undefined ? { language } : {}),
+      ...(from !== undefined ? { from } : {}),
+    });
+  }
+  return suggestions;
+}
+
+function parseAddProjectPlaces(
+  value: unknown,
+  defaultProjectsFolder?: string | null,
+): AddProjectPlaces | null {
+  if (!isObject(value)) return null;
+  const home = readOptionalNonEmptyString(value.home);
+  if (home === undefined) return null;
+  const normalizedDefault =
+    defaultProjectsFolder !== undefined && defaultProjectsFolder !== null && defaultProjectsFolder.trim().length > 0
+      ? defaultProjectsFolder.trim()
+      : undefined;
+  return {
+    home,
+    platform: readString(value.platform),
+    ...(normalizedDefault !== undefined ? { defaultProjectsFolder: normalizedDefault } : {}),
+    volumes: parsePlacesList(value.volumes),
+    standard: parsePlacesList(value.standard),
+    projectFolders: parsePlacesList(value.projectFolders),
+    otherApps: parsePlacesList(value.otherApps),
+    recent: parsePlacesList(value.recent),
+    pinned: parsePlacesList(value.pinned),
+    suggested: parseSuggestionsList(value.suggested),
+  };
+}
+
+/** Best-effort read of the computer's configured Default projects folder setting. */
+async function readDefaultProjectsFolder(machine: MachineConnectionTarget): Promise<string | null> {
+  if (isCloudBoxMachineId(machine.id)) return null;
+  try {
+    const result = await runGhostexCli(machine, 'ghostex settings get defaultProjectsFolder --json');
+    const current = result.json?.current;
+    if (typeof current !== 'string') return null;
+    const trimmed = current.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetches Add Project places and suggested repositories from `/api/projectPickerPlaces`.
+ *
+ * On older computers (which answer 404 / `notFound`) or legacy SSH-only links, read calls
+ * return `null` with zero errors so the UI degrades cleanly to the existing flow.
+ * Explicit `pin` / `unpin` writes throw on failure so the user sees feedback.
+ */
+export async function fetchProjectPickerPlaces(
+  machine: MachineConnectionTarget,
+  options?: { pin?: string; unpin?: string; refresh?: boolean; defaultProjectsFolder?: string | null },
+): Promise<AddProjectPlaces | null> {
+  const isMutation = options?.pin !== undefined || options?.unpin !== undefined;
+  const params: Record<string, unknown> = {};
+  if (options?.pin !== undefined) params.pin = options.pin;
+  if (options?.unpin !== undefined) params.unpin = options.unpin;
+  if (options?.refresh === true) params.refresh = true;
+
+  const defaultFolderPromise =
+    options?.defaultProjectsFolder !== undefined
+      ? Promise.resolve(options.defaultProjectsFolder)
+      : isMutation
+        ? Promise.resolve(null)
+        : readDefaultProjectsFolder(machine);
+
+  const [rpc, defaultProjectsFolder] = await Promise.all([
+    tryAddProjectHttpRpc(machine, 'projectPickerPlaces', params, INVENTORY_EXEC_TIMEOUT_MS),
+    defaultFolderPromise,
+  ]);
+
+  if (rpc.kind !== 'answered') {
+    if (isMutation) {
+      throw new Error('Could not update pinned folders on this machine.');
+    }
+    return null;
+  }
+  if (rpc.answer.error !== null) {
+    if (isMutation) {
+      throw new Error(rpc.answer.error.message);
+    }
+    return null;
+  }
+  const parsed = parseAddProjectPlaces(rpc.answer.result, defaultProjectsFolder);
+  if (parsed === null && isMutation) {
+    throw new Error('The machine returned an unexpected answer when updating pinned folders.');
+  }
+  return parsed;
 }
 
 /** Directory suggestions for one directory query (no `cwd`, dirs only). */
 export async function browseDirectories(
   machine: MachineConnectionTarget,
   partialPath: string,
+  options?: { details?: boolean },
 ): Promise<AddProjectBrowseResult> {
+  const wantDetails = options?.details !== false;
+  if (wantDetails) {
+    const rpc = await tryAddProjectHttpRpc(
+      machine,
+      'browseProjectDirectories',
+      { partialPath, details: true },
+      INVENTORY_EXEC_TIMEOUT_MS,
+    );
+    if (rpc.kind === 'answered') {
+      if (rpc.answer.error !== null) {
+        // Fall through to SSH CLI only on transport unreachability; surface real server errors.
+        if (rpc.answer.error.code !== 'unreachable') {
+          throw new Error(rpc.answer.error.message);
+        }
+      } else if (isObject(rpc.answer.result)) {
+        const result = rpc.answer.result;
+        return {
+          parentPath: readString(result.parentPath),
+          entries: parseBrowseEntries(result.entries),
+          ...(result.isDriveList === true ? { isDriveList: true } : {}),
+          ...(result.detailsPartial === true ? { detailsPartial: true } : {}),
+        };
+      }
+    }
+  }
   const json = await runAddProjectCli(machine, browseDirectoriesCommand(partialPath), INVENTORY_EXEC_TIMEOUT_MS);
   return {
     parentPath: readString(json.parentPath),
     entries: parseBrowseEntries(json.entries),
+    ...(json.isDriveList === true ? { isDriveList: true } : {}),
+    ...(json.detailsPartial === true ? { detailsPartial: true } : {}),
+  };
+}
+
+/**
+ * Creates a child directory inside an existing parent folder via `/api/createProjectDirectory`.
+ * Returns `null` when the computer has no warm HTTP link or predates the endpoint so the caller
+ * can fall back to setting the path input and creating on submit.
+ */
+export async function createProjectDirectory(
+  machine: MachineConnectionTarget,
+  parentPath: string,
+  name: string,
+): Promise<AddProjectCreatedDirectory | null> {
+  const rpc = await tryAddProjectHttpRpc(
+    machine,
+    'createProjectDirectory',
+    { parentPath, name },
+    INVENTORY_EXEC_TIMEOUT_MS,
+  );
+  if (rpc.kind !== 'answered') return null;
+  if (rpc.answer.error !== null) {
+    if (rpc.answer.error.code === 'notFound' || rpc.answer.error.code === 'unreachable') {
+      return null;
+    }
+    throw new Error(rpc.answer.error.message);
+  }
+  const result = isObject(rpc.answer.result) ? rpc.answer.result : null;
+  const createdPath = result === null ? '' : readString(result.path);
+  if (createdPath.length === 0) return null;
+  return {
+    name: readString(result?.name) || name,
+    path: createdPath,
   };
 }
 

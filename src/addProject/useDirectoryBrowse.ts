@@ -7,7 +7,7 @@
  * and hidden folders are always excluded on mobile (spec §5.6).
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { MachineConnectionTarget } from '../machines/credentials';
 import { browseDirectories, type AddProjectBrowseEntry, type AddProjectBrowseResult } from './client';
@@ -25,6 +25,8 @@ export type DirectoryBrowseState = {
   error: string | null;
   /** Entry whose name matches the typed leaf exactly (case-sensitive). */
   exactEntry: AddProjectBrowseEntry | null;
+  /** Re-fetches the current directory listing (e.g., after creating a folder). */
+  reload: () => void;
 };
 
 export function useDirectoryBrowse(machine: MachineConnectionTarget | null, query: string): DirectoryBrowseState {
@@ -34,7 +36,12 @@ export function useDirectoryBrowse(machine: MachineConnectionTarget | null, quer
   const [loadedDirectory, setLoadedDirectory] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
   const requestRef = useRef(0);
+
+  const reload = useCallback(() => {
+    setReloadNonce((nonce) => nonce + 1);
+  }, []);
 
   useEffect(() => {
     if (machine === null || directory.length === 0) {
@@ -49,7 +56,7 @@ export function useDirectoryBrowse(machine: MachineConnectionTarget | null, quer
     setError(null);
     void (async () => {
       try {
-        const next = await browseDirectories(machine, directory);
+        const next = await browseDirectories(machine, directory, { details: true });
         if (requestRef.current !== requestId) return;
         setResult(next);
         setLoadedDirectory(directory);
@@ -64,7 +71,7 @@ export function useDirectoryBrowse(machine: MachineConnectionTarget | null, quer
     })();
     // Keyed on the machine ID rather than the record: the record is looked up
     // fresh on every render, so depending on it would refetch on every keystroke.
-  }, [directory, machineId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [directory, machineId, reloadNonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isCurrent = loadedDirectory === directory;
   const currentResult = isCurrent ? result : null;
@@ -74,7 +81,11 @@ export function useDirectoryBrowse(machine: MachineConnectionTarget | null, quer
   const entries = useMemo(() => {
     const source = currentResult?.entries ?? [];
     const lower = filter.toLowerCase();
-    return source.filter((entry) => !entry.name.startsWith('.') && entry.name.toLowerCase().startsWith(lower));
+    const isDriveList = currentResult?.isDriveList === true;
+    return source.filter((entry) => {
+      if (!isDriveList && entry.name.startsWith('.')) return false;
+      return entry.name.toLowerCase().startsWith(lower);
+    });
   }, [currentResult, filter]);
 
   const exactEntry = useMemo(() => {
@@ -89,5 +100,6 @@ export function useDirectoryBrowse(machine: MachineConnectionTarget | null, quer
     firstLoad: pending && !isCurrent,
     error: isCurrent ? error : null,
     exactEntry,
+    reload,
   };
 }

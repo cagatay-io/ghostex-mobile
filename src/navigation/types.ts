@@ -156,7 +156,7 @@ export type RootStackParamList = {
   /** Add Project step 1: pick a source on an already-chosen machine. */
   AddProjectSource: { machineId: string };
   /** Add Project local branch: type or browse a folder, then register it. */
-  AddProjectLocal: { machineId: string };
+  AddProjectLocal: { machineId: string; initialPath?: string };
   /** Add Project clone branch: enter a URL or a provider repository path. */
   AddProjectRepository: { machineId: string; source: AddProjectSourceId };
   /** Add Project clone branch: choose where the repository is cloned to. */
