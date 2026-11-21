@@ -2,6 +2,7 @@ import { Fragment } from 'react';
 import { Platform } from 'react-native';
 
 import type { CursorStyle } from '../../../modules/ghostex-native/src/GhostexNative.types';
+import { AdvancedSettingsCopy } from '../../copy/advancedSettings';
 import {
   KEEP_ALIVE_INTERVAL_MAX_SEC,
   KEEP_ALIVE_INTERVAL_MIN_SEC,
@@ -78,12 +79,7 @@ function PaneLayoutDebugRow() {
  */
 const LEGACY_TERMINAL_TOGGLES: { key: BooleanSettingKey; label: string; iosNote?: string }[] = [
   { key: 'autoScroll', label: 'Auto scroll' },
-  {
-    key: 'softKeyboardEnabled',
-    label: 'Soft keyboard',
-    iosNote:
-      'Android only: lets a tap on the terminal bring up the keyboard. On iPhone a keyboard button brings it up.',
-  },
+  { key: 'softKeyboardEnabled', label: 'Soft keyboard', iosNote: AdvancedSettingsCopy.softKeyboardIosNote },
   { key: 'refreshButtonVisible', label: 'Show refresh button' },
   { key: 'fileUploadButtonVisible', label: 'Show file upload button' },
   { key: 'keyboardButtonVisible', label: 'Show keyboard button' },
