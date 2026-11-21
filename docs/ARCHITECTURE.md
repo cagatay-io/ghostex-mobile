@@ -166,7 +166,7 @@ The app uses the whole window on the Duo and draws its own header controls next 
 <GhostexTerminalView
   sessionKey={key}
   style={...}
-  onSingleTap={() => ...}   // optional: show keyboard
+  onSingleTap={() => ...}   // optional: a tap that did not touch a selection (Android brings the keyboard on it; iOS never does on a touch)
   onCaretChange={({ nativeEvent }) => ...}   // iOS only: { top } of the cursor row, points from the view's top
   paneFocus={true}          // iOS only, two panes only: the active pane's terminal (cursor filled) or not (hollow)
 />

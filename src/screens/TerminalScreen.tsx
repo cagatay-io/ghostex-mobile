@@ -626,7 +626,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
   }, []);
 
   // Android: the key bar in the flow, as before the pad.
-  // Optimistic key-bar visibility from onSingleTap until keyboard events land.
+  // Optimistic key-bar visibility after the keyboard button, and on Android a tap, until keyboard events land.
   useEffect(() => {
     if (!tapKeyboardHint) return;
     if (keyboardVisible) {
@@ -1065,6 +1065,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
     showSessions,
     setProgress: setAgentProgress,
     padHeld,
+    padOpen: padSessionKey !== null && pad.open,
   });
   // The Panes button over a question a link opened brings the panes back (those that waited, else as Panes opens them).
   const openPanes = panes.openPanes;
@@ -1752,7 +1753,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
               sessionKey={activeTab.sessionKey}
               style={slidesWithKeyboard ? [styles.terminal, { top: -terminalOffset }] : styles.terminal}
               onCaretChange={slidesWithKeyboard ? ({ nativeEvent }) => setCaretTop(nativeEvent.top) : undefined}
-              onSingleTap={() => setTapKeyboardHint(true)}
+              onSingleTap={Platform.OS === 'android' ? () => setTapKeyboardHint(true) : undefined}
               onOpenUrl={({ nativeEvent }) =>
                 openMachineLink(activeTab.machineId, nativeEvent.url, { projectId: activeProjectId })
               }

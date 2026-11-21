@@ -1,7 +1,8 @@
 /**
  * The terminal screen's pane controller, beside the pane state of `usePaneHost`: what a touch in a pane, a pick in the
  * chooser (also its Close row and its new terminal), a row of the agents or attention list pane and the header's Panes
- * button do, the keyboard following the active pane (to a terminal or to the composer of a chat in a pane), Back from a
+ * button do, the keyboard following the active pane (to a terminal or to the composer of a chat in a pane; a touch that
+ * moves the focus from one terminal pane to the other lowers it instead while the command pad is closed), Back from a
  * question opened in the attention list pane, and the active pane's content opening full screen when the Duo folds.
  * `paneLayoutInput` places the two panes in the terminal area from the keyboard, the text editor and the fold.
  * `TerminalScreen` calls the hook once its keyboard and editor state are known, and holds the question opened from the
@@ -86,6 +87,8 @@ export type TerminalPanesInput = {
    * meanwhile, not even for that finger's own touch.
    */
   padHeld: boolean;
+  /** The command pad is open over the active terminal: a touch in the other pane leaves the keyboard as it is. */
+  padOpen: boolean;
 };
 
 export type TerminalPanes = {
@@ -132,6 +135,7 @@ export function useTerminalPanes({
   showSessions,
   setProgress,
   padHeld,
+  padOpen,
 }: TerminalPanesInput): TerminalPanes {
   const twoPanes: TwoPanes | null = panes.display.kind === 'panes' ? panes.display : null;
 
@@ -181,12 +185,15 @@ export function useTerminalPanes({
 
   // A touch in a pane makes it the active one (the pane tapped last): a session pane's session is selected where it
   // stands, not scrolled, and its attention acknowledged as a tap on its tab does; a pane without a terminal only
-  // becomes the active one. The keyboard follows below.
+  // becomes the active one. The keyboard follows below; a touch that moved the focus is told apart there
+  // (`paneTouched`) from every other way the active pane changes.
+  const paneTouched = useRef(false);
   const activatePane = useCallback(
     (slot: PaneIndex): void => {
       const content = twoPanes?.slots[slot];
       const store = useTerminalStore.getState();
       if (content === undefined || content.kind === 'chooser') return;
+      if (slot !== twoPanes?.active) paneTouched.current = true;
       usePaneStore.getState().setActiveSlot(slot);
       if (content.kind !== 'session' || content.sessionKey === store.selectedSessionKey) return;
       const tab = store.tabs.find((entry) => entry.sessionKey === content.sessionKey);
@@ -213,6 +220,14 @@ export function useTerminalPanes({
   // as the native side answers (`keyboardInputHeld`), a terminal or a field of a web page) hands it on. A keyboard the
   // person lowered let its holder go, so nothing comes up. An answer that arrives after the active pane, the text
   // editor or the keyboard changed, or after a newer question, is stale and moves nothing.
+  //
+  // CDXC:Terminal 2026-11-21 DECISION:
+  // User: a touch on a terminal never brings the keyboard up. A touch that moves the focus from one terminal pane to
+  // the other while the keyboard is up and the command pad is closed moves the focus and lowers the keyboard, instead
+  // of the keyboard following. While the pad is open the keyboard keeps its state: up, it follows to the newly active
+  // terminal as above; down, it stays down. A hardware keyboard's typing follows as above (no software keyboard is
+  // up to lower), and the text editor keeps the keyboard while it is open. Every other way the active pane changes,
+  // and a touch into or out of a pane without a terminal or a chat pane, keeps the rules above.
   const chatSessionKey = panes.chatSessionKey;
   const activePaneContent = twoPanes === null || !isFocused ? null : twoPanes.slots[twoPanes.active];
   const activeIsChat = activePaneContent?.kind === 'session' && activePaneContent.sessionKey === chatSessionKey;
@@ -277,6 +292,9 @@ export function useTerminalPanes({
       visible: keyboardVisible,
     };
     const paneChanged = activePane !== previous.pane || typingInPanes !== previous.inPanes;
+    // A touch moved the focus (`activatePane`); it counts for this change only.
+    const touched = paneTouched.current && paneChanged;
+    paneTouched.current = false;
     if (paneChanged || editorShown !== previous.editor || keyboardVisible !== previous.visible) {
       keyboardRequest.current += 1;
     }
@@ -290,7 +308,12 @@ export function useTerminalPanes({
         fromPane &&
         typingSessionKey !== null &&
         (typingInPanes ? previous.inPanes : typingSessionKey === previous.beside);
-      keyboardFollows.current = follows ? typingSessionKey : null;
+      // A touch from one terminal pane to the other with the keyboard up and the pad closed: the keyboard goes down.
+      const from = previous.sessionKey;
+      const lowers =
+        follows && touched && typingInPanes && from !== null && keyboardVisible && !padOpen && !editorShown;
+      keyboardFollows.current = follows && !lowers ? typingSessionKey : null;
+      if (lowers) void GhostexNative.blurTerminal(from).catch(() => undefined);
     }
     // A move of the keyboard: at once while it is on screen or a text field of the app holds its input; otherwise once
     // the native side answers that something holds a hardware keyboard's typing, unless that answer is stale.
@@ -341,6 +364,7 @@ export function useTerminalPanes({
     activePane,
     focusComposer,
     panesOffered,
+    padOpen,
   ]);
 
   // A session opened from a pane goes into the session pane as its terminal (the approved mockup): the chooser's pick

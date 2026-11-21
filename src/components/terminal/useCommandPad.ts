@@ -3,10 +3,16 @@
  * editor, the key input, and the nine keys from Settings. The rules between them follow the designs:
  * - The pad stays open until its toggle is tapped again. Closing it closes a layer and drops armed
  *   modifiers, so nothing stays armed out of sight.
+ * - While the pad is open, no touch on the terminal moves the keyboard: a tap, a scroll or a selection on the terminal
+ *   leaves it up or down as it is and leaves a layer standing; the ring's keyboard button raises and lowers it. That is
+ *   the terminal's own rule (no touch on a terminal brings the keyboard, open pad or not), so nothing here watches
+ *   touches; with two panes a touch in the other pane keeps the keyboard's state while the pad is open
+ *   (`useTerminalPanes`). A hardware keyboard is not affected.
  * - A layer (Keys, Agent) takes the keyboard's place: opening one while the keyboard is up hides the keyboard;
  *   tapping the same layer button again brings back what was there before; the keyboard button, or the keyboard
- *   coming up any other way (a tap on the terminal), ends the layer. A layer that waits for the keyboard stays
- *   until the keyboard is up, so the pad does not drop and rise again in between.
+ *   coming up any other way (the text editor, the pad closing where it held the keyboard down), ends the layer. A
+ *   layer that waits for the keyboard stays until the keyboard is up, so the pad does not drop and rise again in
+ *   between.
  * - The text editor lives on the keyboard: it opens with the pen (closing a layer), and the keyboard going away
  *   closes it. Its unsent draft belongs to its session and outlives every close (the pen, the keyboard going away, a
  *   layer, a session switch, leaving the screen; `textEditorDraftBySessionKey` in the terminal store); Send empties it.
@@ -15,15 +21,15 @@
  *   never change it: they move the pad only while it would stand under them.
  * - Where the open pad does not fit above the keyboard even reaching over the header (a phone in landscape),
  *   opening it lowers the keyboard and closing it brings the keyboard back, as a layer takes the keyboard's place.
- *   Asking for the keyboard while the pad holds it down (the ring's keyboard button, a tap on the terminal) closes
- *   the pad first: the two do not fit together. Likewise, whenever the keyboard is up and the open pad has no room
- *   above it, the pad closes and the keyboard stays, and armed modifiers go with the pad: when the keyboard comes up
- *   (a tap on the terminal, the ring's keyboard button, the text editor taking the focus, any other way), and when a
- *   turn, fold or resize takes the room while both are up. The pad wins only while the person is opening it. What
- *   the person asks for is judged at once, also while the room waits to settle (below): the iOS keyboard brought up
- *   from hidden (`keyboardAppearances`), the text editor opening on it. A keyboard request while a turn runs with the
- *   keyboard up brings no keyboard up and belongs to the turn: the ring's keyboard button, shown for a moment while
- *   the old keyboard frame lies outside the new window, or a tap on the terminal is judged with the turn's wait. A
+ *   Asking for the keyboard while the pad holds it down (the ring's keyboard button) closes the pad first: the two do
+ *   not fit together. Likewise, whenever the keyboard is up and the open pad has no room above it, the pad closes and
+ *   the keyboard stays, and armed modifiers go with the pad: when the keyboard comes up (the ring's keyboard button,
+ *   the text editor taking the focus, any other way), and when a turn, fold or resize takes the room while both are
+ *   up. The pad wins only while the person is opening it. What the person asks for is judged at once, also while the
+ *   room waits to settle (below): the iOS keyboard brought up from hidden (`keyboardAppearances`), the text editor
+ *   opening on it. A keyboard request while a turn runs with the keyboard up brings no keyboard up and belongs to the
+ *   turn: the ring's keyboard button, shown for a moment while the old keyboard frame lies outside the new window, is
+ *   judged with the turn's wait. A
  *   turn, fold or resize is not judged while it is under way: the system reports the window's size, its safe area,
  *   the keyboard's frame and the terminal area's layout separately and in any order, and a mix of old and new reports
  *   can show too little room where the new pose has enough, or the reverse. So the room is judged once none of these
@@ -118,8 +124,8 @@ export type CommandPadOptions = {
   roomInputs: readonly number[];
   /**
    * How often the keyboard has come up from hidden (iOS: the shared keyboard store's count; a turn or fold of a
-   * keyboard that is up is none). Each new one is the person's request (a tap on the terminal, the ring's keyboard
-   * button, the text editor taking the focus) and is judged at once, also while the room waits to settle. A request
+   * keyboard that is up is none). Each new one is the person's request (the ring's keyboard button, the text editor
+   * taking the focus, any other way) and is judged at once, also while the room waits to settle. A request
    * while the keyboard is still up, as during a turn, adds none and is judged with the turn's wait.
    */
   keyboardAppearances: number;

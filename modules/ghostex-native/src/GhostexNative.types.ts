@@ -82,7 +82,10 @@ export type TerminalRuntimeSettings = {
   autoScroll: boolean;
   cursorStyle: CursorStyle;
   cursorBlink: boolean;
-  /** When false, terminal taps must not implicitly present the software keyboard (explicit focusTerminal still works). */
+  /**
+   * Android: when false, terminal taps must not implicitly present the software keyboard (explicit focusTerminal still
+   * works). iOS does not read it: there no touch on a terminal presents the keyboard.
+   */
   softKeyboardEnabled: boolean;
   /** When true, tapping a URL rendered in the terminal opens it in the system browser. */
   openUrlsOnTap: boolean;

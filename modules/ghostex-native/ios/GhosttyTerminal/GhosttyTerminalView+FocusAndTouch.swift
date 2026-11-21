@@ -38,20 +38,10 @@ extension GhosttyTerminalView {
         editMenuFocusHidesKeyboard ? editMenuEmptyInputView : nil
     }
 
+    /// The keyboard for one of the reasons a button or a hardware keyboard gives (`TerminalKeyboardFocusReason`); a
+    /// touch on the terminal never calls this.
     @discardableResult
     func requestKeyboardFocus(for reason: TerminalKeyboardFocusReason) -> Bool {
-        // First-responder status is what presents the IME (UIKeyInput), so
-        // with the soft keyboard disabled, touch-driven focus must not go
-        // through; the explicit keyboard button (module focusTerminal) and
-        // hardware-keyboard focus still may.
-        if !Ghostty.App.runtimeSettings.softKeyboardEnabled {
-            switch reason {
-            case .directTouch, .terminalTap, .selectionGesture:
-                return false
-            case .explicitUserRequest, .initialActivation, .reconnectRestore, .hardwareKeyboard:
-                break
-            }
-        }
         guard keyboardFocusPolicy.requestFocus(for: reason) else { return false }
         if editMenuFocusHidesKeyboard {
             // The terminal is already first responder for the edit menu; bring the keyboard back.
@@ -62,9 +52,9 @@ extension GhosttyTerminalView {
         return becomeFirstResponder()
     }
 
-    /// CDXC:Clipboard 2026-10-16 WHY: the edit menu's Paste is UIKit's `paste:` command, which UIKit sends to the first responder, so a long press must make the terminal first responder or the menu has nothing to paste into and does not appear. A long press after the user hid the keyboard (browse mode) or with the software keyboard turned off was refused focus, so the menu never showed, the reported "long press doesn't show Paste". Focus taken only for the menu keeps the keyboard hidden through `inputView` until the user taps the terminal again.
+    /// CDXC:Clipboard 2026-10-16 WHY: the edit menu's Paste is UIKit's `paste:` command, which UIKit sends to the first responder, so a long press must make the terminal first responder or the menu has nothing to paste into and does not appear. A long press after the user hid the keyboard (browse mode) or with the software keyboard turned off was refused focus, so the menu never showed, the reported "long press doesn't show Paste". Focus taken only for the menu keeps the keyboard hidden through `inputView` until a keyboard button asks for it; a touch on the terminal never brings it, so a press, a double tap or a selection with the keyboard down leaves it down.
     func focusForEditMenu() -> Bool {
-        if requestKeyboardFocus(for: .selectionGesture) || isFirstResponder { return true }
+        if isFirstResponder { return true }
         editMenuFocusHidesKeyboard = true
         if becomeFirstResponder() { return true }
         editMenuFocusHidesKeyboard = false
@@ -92,12 +82,6 @@ extension GhosttyTerminalView {
 
     func markKeyboardFocusForReconnect() {
         keyboardFocusPolicy.markForReconnect()
-    }
-
-    fileprivate func shouldAutoFocusKeyboard(for touches: Set<UITouch>) -> Bool {
-        guard keyboardFocusPolicy.allowsAutomaticFocus else { return false }
-        guard touches.count == 1 else { return false }
-        return true
     }
 
     override func becomeFirstResponder() -> Bool {
@@ -150,6 +134,12 @@ extension GhosttyTerminalView {
 
     // MARK: - Touch Input
 
+    /// CDXC:Terminal 2026-11-21 DECISION:
+    /// User: no touch on a terminal brings the keyboard up: a scroll, a tap on the terminal that has the focus, a tap
+    /// that gives a pane the focus, and every touch while the command pad is open. The keyboard comes up through the
+    /// terminal bar's keyboard button or its empty room, the pad's keyboard button, or a hardware keyboard. This
+    /// replaces asking for the keyboard as a touch began (before it was known to become a tap, a scroll or a pane's
+    /// focus) and a completed tap returning to typing. A touch on a terminal whose keyboard is up leaves it up.
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesBegan(touches, with: event)
         let location = touches.first?.location(in: self)
@@ -161,22 +151,16 @@ extension GhosttyTerminalView {
                 return
             }
             clearNativeSelectionStateForTerminalInput()
-            guard shouldAutoFocusKeyboard(for: touches) else { return }
-            requestKeyboardFocus(for: .directTouch)
             return
         }
+        // A touch away from the selection's handles ends the selection. It brings no keyboard and sends no mouse
+        // events (avoids accidental selection).
         if usesAppOwnedTouchSelection,
            touchSelection != nil,
            let location,
            !isPointOnTouchSelectionHandle(location) {
             clearTouchSelection()
         }
-        if let location, isPointOnTouchSelectionHandle(location) {
-            return
-        }
-        // Tap just focuses keyboard - no mouse events (avoids accidental selection)
-        guard shouldAutoFocusKeyboard(for: touches) else { return }
-        requestKeyboardFocus(for: .directTouch)
     }
 
     /// Discrete single tap that did not interact with a selection.
@@ -190,9 +174,7 @@ extension GhosttyTerminalView {
         if isPointOnTouchSelectionHandle(location) {
             return
         }
-        // A completed terminal tap is an explicit return to typing, including
-        // after navigation or a user keyboard dismissal left us in browse mode.
-        requestKeyboardFocus(for: .terminalTap)
+        // The tap reaches the program (its mouse) or a link; the keyboard stays as it is (see the decision above).
         if surface?.mouseCaptured == true {
             sendCapturedTerminalTap(at: location)
         } else {

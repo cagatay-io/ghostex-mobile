@@ -55,6 +55,7 @@ struct TerminalRuntimeSettingsRecord: Record {
     @Field var autoScroll: Bool = true
     @Field var cursorStyle: String = "bar"
     @Field var cursorBlink: Bool = true
+    /// Sent for both platforms; only Android reads it (whether a tap brings the keyboard). On iOS no tap does.
     @Field var softKeyboardEnabled: Bool = true
     @Field var openUrlsOnTap: Bool = true
     /// The resolved terminal colours (`TerminalColors` in GhostexNative.types.ts); absent keeps the unthemed look.
@@ -864,7 +865,6 @@ public class GhostexNativeModule: Module {
                     autoScroll: settings.autoScroll,
                     cursorStyle: cursorStyle,
                     cursorBlink: settings.cursorBlink,
-                    softKeyboardEnabled: settings.softKeyboardEnabled,
                     openUrlsOnTap: settings.openUrlsOnTap,
                     colors: colors
                 )

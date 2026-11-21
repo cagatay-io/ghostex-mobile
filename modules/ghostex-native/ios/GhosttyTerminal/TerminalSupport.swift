@@ -43,6 +43,8 @@ enum TerminalDefaults {
 /// Module-global terminal behavior settings mirroring the JS
 /// TerminalRuntimeSettings contract. Defaults match the pre-settings-screen
 /// behavior so terminals opened before the first JS push are unchanged.
+/// `softKeyboardEnabled` is not mirrored: it decides whether a tap brings the
+/// keyboard, and on iOS no tap does (`TerminalKeyboardFocusReason`).
 struct TerminalRuntimeSettings {
     enum CursorStyle: String {
         case block
@@ -53,7 +55,6 @@ struct TerminalRuntimeSettings {
     var autoScroll = true
     var cursorStyle: CursorStyle = .bar
     var cursorBlink = true
-    var softKeyboardEnabled = true
     var openUrlsOnTap = true
     var colors = TerminalColors.unthemed
 }
@@ -240,13 +241,14 @@ struct TerminalGridSelection: Equatable {
 
 // MARK: - Keyboard Focus Policy
 
+/// Why the keyboard is asked for. A touch on the terminal is none of these: a scroll, a tap (also the one that makes a
+/// pane the active one) or a selection never brings the keyboard up. It comes up through a button (the terminal bar's
+/// keyboard button or its empty room, the pad's keyboard button, the round keyboard button), which React asks for
+/// with `focusTerminal`, or through a hardware keyboard.
 enum TerminalKeyboardFocusReason {
     case explicitUserRequest
     case initialActivation
     case reconnectRestore
-    case directTouch
-    case terminalTap
-    case selectionGesture
     case hardwareKeyboard
 }
 
@@ -259,21 +261,17 @@ struct TerminalKeyboardFocusPolicy {
     private var mode: Mode = .typing
     private(set) var shouldRestoreOnReconnect = false
 
-    var allowsAutomaticFocus: Bool {
-        mode == .typing
-    }
-
     var isBrowsing: Bool {
         mode == .browse
     }
 
     mutating func requestFocus(for reason: TerminalKeyboardFocusReason) -> Bool {
         switch reason {
-        case .explicitUserRequest, .terminalTap, .hardwareKeyboard:
+        case .explicitUserRequest, .hardwareKeyboard:
             mode = .typing
             shouldRestoreOnReconnect = true
             return true
-        case .initialActivation, .directTouch, .selectionGesture:
+        case .initialActivation:
             guard mode == .typing else { return false }
             shouldRestoreOnReconnect = true
             return true

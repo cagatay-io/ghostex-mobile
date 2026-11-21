@@ -568,7 +568,8 @@ extension GhosttyTerminalView {
         switch recognizer.state {
         case .began:
             isSelecting = true
-            requestKeyboardFocus(for: .selectionGesture)
+            // Same focus as the app-owned press above: first responder for the edit menu, no keyboard.
+            _ = focusForEditMenu()
             surface.sendMousePos(.init(x: pos.x, y: pos.y, mods: []))
             surface.sendMouseButton(.init(action: .press, button: .left, mods: []))
             requestRender()
@@ -748,7 +749,7 @@ extension GhosttyTerminalView: UITextInteractionDelegate {
         shouldRestoreFocusAfterNativeSelection = shouldRestoreFocusAfterNativeSelection || isFirstResponder
         nativeSelectionInteractionActive = true
         if !isFirstResponder {
-            // Same focus as the long-press Paste menu: no keyboard when the user hid it or turned it off.
+            // Same focus as the long-press Paste menu: no keyboard.
             _ = focusForEditMenu()
         }
         refreshNativeSelectionSnapshot()
