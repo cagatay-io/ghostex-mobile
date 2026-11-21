@@ -122,7 +122,7 @@
     "filesLinks": {
       "hotkey": "toggleChatFilesLinks",
       "icon": "link",
-      "label": "Files and Links"
+      "label": "Files & Links"
     },
     "fork": {
       "hotkey": "forkSession",

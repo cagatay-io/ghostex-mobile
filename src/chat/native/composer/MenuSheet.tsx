@@ -350,7 +350,7 @@ function menuRowSharedIcon(row: MenuRow, glyph: GlyphName | null, color: string,
  */
 const TILES_ICONS_ONLY_FONT_SCALE = 1.3;
 
-/** The quick row of tiles (Rename, Files and Links, Side Chat…): side by side, an icon over a label of up to two lines. */
+/** The quick row of tiles (Rename, Files & Links, Side Chat…): side by side, an icon over a label of up to two lines. */
 function MenuTilesView({
   tiles,
   onRun,

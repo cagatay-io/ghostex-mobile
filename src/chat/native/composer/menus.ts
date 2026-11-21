@@ -19,7 +19,7 @@ import {
 import type { SidebarMenuItem } from '../../../screens/sessions-screen/sidebar-menus';
 
 /** The toolbar controls in desktop's order, which is also the order they fold into More actions
- * (`toolbar.rs`, `COMPOSER_CONTROLS`). Maximize is desktop-only. Files and Links, Summary mode (under
+ * (`toolbar.rs`, `COMPOSER_CONTROLS`). Maximize is desktop-only. Files & Links, Summary mode (under
  * View) and Stash Prompt are always More actions rows, and Dictate always shows right before Send and
  * never folds (desktop CDXC:SessionChat 2026-10-20). */
 export const COMPOSER_CONTROLS = [
@@ -284,7 +284,7 @@ export function sendMenuRows({
  *
  * CDXC:ContextMenus 2026-11-20 SEE-ALSO: packages/gx-core/src/sidebar_menu/layout.rs, where the user's decision (Q4292,
  * "Apply as shown") is recorded. This menu is the `phoneChat` spot of the one session menu (session-menu/layout.ts):
- * the tiles Rename, Files and Links and Side Chat, the chat's own rows, the rows every session menu shares
+ * the tiles Rename, Files & Links and Side Chat, the chat's own rows, the rows every session menu shares
  * (Coordinator, Mark Thread Done, Copy, Tag As, from the long-press menu's builders for this chat's session), one More
  * submenu and Close. It supersedes layout A (2026-11-12, Q2723): the Agent ›, Project › and More › submenus are this one
  * More, and every row's name and icon are the layout's.
@@ -410,7 +410,7 @@ export function moreActionsRows({
         // The session sleeps: the core's Sleep row reads Wake, as the sidebar's does.
         return coreRow(id, sleeping);
       case 'filesLinks':
-        // Files and Links is always here, never a toolbar button (desktop `actions.rs`, CDXC:FilesAndLinks
+        // Files & Links is always here, never a toolbar button (desktop `actions.rs`, CDXC:FilesAndLinks
         // 2026-10-15 there); it opens as a sheet.
         return document.composerActions?.files !== false
           ? [

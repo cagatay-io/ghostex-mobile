@@ -627,7 +627,7 @@ const createStyles = (appearance: Appearance) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // Up to two lines, so a longer name ("Search Conversation", "Files and Links") wraps instead of being cut.
+  // Up to two lines, so a longer name ("Search Conversation", "Files & Links") wraps instead of being cut.
   quickLabel: {
     color: appearance.foreground,
     fontSize: 11,
