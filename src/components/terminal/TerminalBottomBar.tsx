@@ -3,9 +3,10 @@
  * terminal, with no message field and no model picker, as the desktop's terminal bar is (`terminal_agent_action_bar.rs`):
  * the mode button (Shift+Tab, which cycles an agent TUI's permission mode), then More actions, Attach, Chat view, the
  * voice agent, Dictate and, in Send's place, the keyboard (on the iPhone also Panes, from its top bar). A tap on the
- * bar's empty room brings the keyboard back too. With the keyboard up Android shows its key bar instead
- * (`TerminalKeyBar`); the iPhone keeps the bar under the terminal, where the keyboard covers it, so the terminal keeps
- * its size and only slides (`terminalKeyboardSlide.ts`).
+ * bar's empty room brings the keyboard back too (both call `onKeyboard`, which the screen makes do nothing while the
+ * command pad is open: only the pad's keyboard button moves the keyboard then). With the keyboard up Android shows its
+ * key bar instead (`TerminalKeyBar`); the iPhone keeps the bar under the terminal, where the keyboard covers it, so the
+ * terminal keeps its size and only slides (`terminalKeyboardSlide.ts`).
  *
  * CDXC:Terminal 2026-11-12 DECISION:
  * User, of the phone's terminal view: show a bottom bar like the desktop's terminal bar, its buttons the chat box's

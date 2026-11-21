@@ -71,7 +71,6 @@ import KeyBarDock from '../components/terminal/KeyBarDock';
 import PromptEditorSheet from '../components/terminal/PromptEditorSheet';
 import TerminalBottomBar from '../components/terminal/TerminalBottomBar';
 import TerminalFloatingControls from '../components/terminal/TerminalFloatingControls';
-import { terminalKeyboardButtonShown } from '../components/terminal/terminalKeyboardButton';
 import TerminalKeyBar from '../components/terminal/TerminalKeyBar';
 import TerminalMenu, { type TerminalMenuActionId } from '../components/terminal/TerminalMenu';
 import TerminalSkillsMenu from '../components/terminal/TerminalSkillsMenu';
@@ -158,6 +157,7 @@ import { styles } from './terminal-screen/styles';
 import { SplitChatPanes, SplitPaneChat, SplitTabsHeader } from './terminal-screen/SplitTabs';
 import { splitView, splitWindow } from '../terminal/tabSplit';
 import { useTerminalAgentActions } from './terminal-screen/use-agent-actions';
+import { padPlace, useKeyboardEntry } from './terminal-screen/use-keyboard-entry';
 import { boxMachineRecord, useCloudBoxesStore } from '../cloudBoxes/store';
 import { boxIdOfMachine } from '../cloudBoxes/types';
 import CloudBoxPill from '../components/terminal/CloudBoxPill';
@@ -263,8 +263,6 @@ export default function TerminalScreen({ navigation, route }: Props) {
   // What covers the terminal's bottom besides the keyboard: the text editor on it, or a pad layer in its place.
   const [editorHeight, setEditorHeight] = useState(0);
   const [layerHeight, setLayerHeight] = useState(0);
-  /** Session keys already auto-focused this visit (hide-keyboard-on-startup off). */
-  const autoFocusedSessionsRef = useRef<Set<string>>(new Set());
 
   const openMachineLink = useOpenMachineLink();
   const activeTab = tabs.find((tab) => tab.sessionKey === selectedSessionKey) ?? null;
@@ -547,17 +545,6 @@ export default function TerminalScreen({ navigation, route }: Props) {
     };
   }, [isFocused, settings.keepScreenOn]);
 
-  // Hide keyboard on startup OFF → explicitly focus a terminal once it opens,
-  // at most once per session per visit (a deliberate dismissal stays dismissed).
-  useEffect(() => {
-    if (settings.hideKeyboardOnStartup || !isFocused) return;
-    if (activeTab === null || activeTab.state !== 'open') return;
-    if (autoFocusedSessionsRef.current.has(activeTab.sessionKey)) return;
-    autoFocusedSessionsRef.current.add(activeTab.sessionKey);
-    setTapKeyboardHint(true);
-    void GhostexNative.focusTerminal(activeTab.sessionKey).catch(() => setTapKeyboardHint(false));
-  }, [settings.hideKeyboardOnStartup, isFocused, activeTab]);
-
   /*
    * Android's reported keyboard height can fall short of what actually covers
    * the window (IME candidate/tool rows, gesture bar), so measure the screen's
@@ -662,18 +649,14 @@ export default function TerminalScreen({ navigation, route }: Props) {
   // indicator's margin) while the bar stands under it, else that margin.
   const terminalBottomRoom =
     slidesWithKeyboard && terminalBarPlace && terminalBarHeight > 0 ? terminalBarHeight : insets.bottom;
-  // A pane without a terminal (browser, files, Git changes, agents, attention list, usage, a session's chat view) tapped
-  // last is the active one: the pad's keys, the text editor and Upload would reach no terminal there, so they are not
-  // shown (the approved panes mockup).
   const activePaneContent = twoPanes === null ? null : twoPanes.slots[twoPanes.active];
-  const terminalPaneActive =
-    twoPanes === null || (activePaneContent?.kind === 'session' && activePaneContent.sessionKey !== paneChatKey);
-  // The Befehlspad: over the shown terminal while it is switched on, where the terminal slides with the keyboard
-  // (iOS; never in chat view).
-  const padSessionKey =
-    settings.extraKeysToolbarVisible && activeTab !== null && slidesWithKeyboard && terminalPaneActive
-      ? activeTab.sessionKey
-      : null;
+  const { terminalPaneActive, padSessionKey } = padPlace({
+    panes: twoPanes,
+    paneChatKey,
+    padSwitchedOn: settings.extraKeysToolbarVisible,
+    activeTab,
+    slides: slidesWithKeyboard,
+  });
   // zmx display policy: the terminals on screen own their real grid (with two panes both, unless one shows its
   // session's chat), the chat view its own; none while another screen is on top.
   const mountedPaneSessionKey =
@@ -901,6 +884,24 @@ export default function TerminalScreen({ navigation, route }: Props) {
   // The chat in the active pane while the keyboard is up: the same keyboard button, at the same place, hides it.
   const chatPaneKeyboardButton =
     activePaneContent?.kind === 'session' && activePaneContent.sessionKey === paneChatKey && keyboardVisible;
+  // The startup keyboard, the bar's keyboard button and the round one (`useKeyboardEntry`).
+  const keyboardEntry = useKeyboardEntry({
+    hideKeyboardOnStartup: settings.hideKeyboardOnStartup,
+    isFocused,
+    activeTab,
+    setTapKeyboardHint,
+    showKeyboard,
+    padOpen: padSessionKey !== null && pad.open,
+    floatingButton: {
+      barShown: terminalBarShown,
+      barPlace: terminalBarPlace,
+      padShown: padSessionKey !== null,
+      slides: slidesWithKeyboard,
+      keyboardVisible,
+      setting: settings.keyboardButtonVisible,
+      chatPaneKeyboardUp: chatPaneKeyboardButton,
+    },
+  });
 
   const toggleChatView = useCallback((): void => {
     const store = useTerminalStore.getState();
@@ -1066,7 +1067,8 @@ export default function TerminalScreen({ navigation, route }: Props) {
     showSessions,
     setProgress: setAgentProgress,
     padHeld,
-    padOpen: padSessionKey !== null && pad.open,
+    padOpen: keyboardEntry.padOpen,
+    touchSelected: keyboardEntry.touchSelected,
   });
   // The Panes button over a question a link opened brings the panes back (those that waited, else as Panes opens them).
   const openPanes = panes.openPanes;
@@ -1476,7 +1478,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
       upload={settings.fileUploadButtonVisible}
       uploadEnabled={uploadEnabled}
       uploading={uploading}
-      onKeyboard={showKeyboard}
+      onKeyboard={keyboardEntry.barKeyboard}
       onMore={() => openMenu()}
       onChatView={toggleChatView}
       onUpload={promptAttachmentSource}
@@ -1885,23 +1887,13 @@ export default function TerminalScreen({ navigation, route }: Props) {
           Without the pad (switched off, or Android): the round buttons as before the pad, hidden while the key bar
           is up. With it on, Upload is a pad key and the optional keyboard and refresh buttons stand above the
           closed pad's toggle; when the user moved the pad away from the right edge they keep their own corner.
-          iOS: while the keyboard is up and the pad is off or closed, the keyboard button shows as its dismiss
-          whatever its setting, so one tap hides the keyboard; with the pad on it is then the only one there; and it
-          shows wherever neither the bottom bar nor the pad brings the keyboard (`terminalKeyboardButtonShown`). Not
-          while a pane without a terminal is the active one: they act on a terminal. A chat pane that is the active
-          one gets the keyboard button alone, at the same place, while the keyboard is up (its dismiss).
+          The keyboard button's own rule (its dismiss on iOS, where neither the bottom bar nor the pad brings the
+          keyboard, alone for a chat pane with the keyboard up) is `terminalKeyboardButtonShown`. Not while a pane
+          without a terminal is the active one: they act on a terminal.
         */}
         {(terminalButtonsShown || chatPaneKeyboardButton) && (
           <TerminalFloatingControls
-            showKeyboardButton={terminalKeyboardButtonShown({
-              barShown: terminalBarShown,
-              barPlace: terminalBarPlace,
-              padShown: padSessionKey !== null,
-              slides: slidesWithKeyboard,
-              keyboardVisible,
-              setting: settings.keyboardButtonVisible,
-              chatPaneKeyboardUp: chatPaneKeyboardButton,
-            })}
+            showKeyboardButton={keyboardEntry.floatingKeyboardButton}
             showUploadButton={
               !terminalBarShown && terminalButtonsShown && padSessionKey === null && settings.fileUploadButtonVisible
             }
