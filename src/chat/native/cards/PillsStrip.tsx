@@ -223,6 +223,8 @@ export function PillsStrip({
   }, [savedDraft]);
   // The box's width, which the Saved draft pill shortens its label by (`savedDraft.ts`).
   const [stripWidth, setStripWidth] = useState(0);
+  // The chips' width (the Saved draft pill and the view chips), beside which the where pill and the pills fit.
+  const [chipsWidth, setChipsWidth] = useState(0);
   const shown = pillsStripShown(document, armed, links, P.cardMuted, hiddenPages.length, omitPills);
   // Grows in and shrinks away; drawn while it shrinks, dropped once it has.
   const open = useRef(new Animated.Value(shown ? 1 : 0)).current;
@@ -330,6 +332,15 @@ export function PillsStrip({
   useEffect(() => {
     if (overflowCount === 0) setOverflowOpen(false);
   }, [overflowCount]);
+  const chipsShown = shown && (savedDraft !== null || (document.viewChips?.length ?? 0) > 0);
+  // What the where pill and the pills share: the band inside its padding, less the chips and their gap. It is taken
+  // from the band, whose width no where pill tier changes, never from the pills' area, which each tier makes narrower
+  // or wider: that area measured under one tier and read with the next planned yet another tier, so the strip flickered
+  // between layouts and kept pills its area cut off.
+  const room =
+    stripWidth > 0 && (!chipsShown || chipsWidth > 0)
+      ? stripWidth - 2 * BAND_PADDING - (chipsShown ? chipsWidth + BAND_GAP : 0)
+      : null;
   const questions = document.openQuestions;
   return (
     <>
@@ -361,8 +372,8 @@ export function PillsStrip({
               </>
             ) : null}
             {/* The Saved draft pill and the view chips stay pinned left; the pills scroll in what is left beside them. */}
-            {shown && (savedDraft !== null || (document.viewChips?.length ?? 0) > 0) ? (
-              <View style={styles.chips}>
+            {chipsShown ? (
+              <View style={styles.chips} onLayout={(event) => setChipsWidth(event.nativeEvent.layout.width)}>
                 {savedDraft !== null ? (
                   <SavedDraftPill
                     pill={savedDraft}
@@ -383,6 +394,7 @@ export function PillsStrip({
                 <OverflowPill count={count} open={overflowOpen} onPress={() => setOverflowOpen(true)} />
               )}
               onHidden={setHiddenIds}
+              room={room}
               lead={leadWidths}
               leadTier={whereTier}
               onLeadTier={setWhereTier}
@@ -592,6 +604,8 @@ export function planStripTiers(
 
 /** The gap between the band's parts: the where pill, the chips and the pills (`band.gap`). */
 const BAND_GAP = 8;
+/** The band's padding at each end (`band.paddingHorizontal`). */
+const BAND_PADDING = 10;
 
 /** How wide the row is for a plan from `planStripTiers`. */
 function planTotal(
@@ -669,10 +683,16 @@ function PillsFit({
   after,
   overflow,
   onHidden,
+  room,
   lead,
   leadTier,
   onLeadTier,
 }: {
+  /**
+   * What the where pill and the pills share (the band less its padding and the chips), or null until measured. It
+   * never depends on the where pill's tier, so the tier picked from it cannot change it.
+   */
+  room: number | null;
   /** The where pill's widths at its tiers (`WherePill.tsx`), drawn left of this area, or null. */
   lead: readonly [number, number, number] | null;
   leadTier: WhereTier;
@@ -687,7 +707,6 @@ function PillsFit({
   onHidden: (ids: readonly string[]) => void;
 }) {
   const styles = useStyles();
-  const [avail, setAvail] = useState(0);
   const [widths, setWidths] = useState<Record<string, number>>({});
   const measure = (key: string) => (event: { nativeEvent: { layout: { width: number } } }) => {
     const width = event.nativeEvent.layout.width;
@@ -704,12 +723,9 @@ function PillsFit({
       widths[`icon:${pill.id}`] !== undefined &&
       (pill.tiny !== true || widths[`tiny:${pill.id}`] !== undefined),
   );
-  // The where pill sits left of this area at its current tier; the room the two share is this area,
-  // that pill and the band's gap.
-  const room = avail + (lead !== null ? (lead[WHERE_TIERS.indexOf(leadTier)] ?? 0) + BAND_GAP : 0);
   // Everything drawn whole until the widths are known.
   const fitted =
-    avail > 0 && known
+    room !== null && room > 0 && known
       ? planStripWithWhere(
           room,
           lead,
@@ -738,7 +754,7 @@ function PillsFit({
     onHidden(hiddenKey === '' ? [] : hiddenKey.split(','));
   }, [hiddenKey, onHidden]);
   return (
-    <View style={styles.fit} onLayout={(event) => setAvail(event.nativeEvent.layout.width)}>
+    <View style={styles.fit}>
       <View style={styles.pills}>
         {hasBefore ? (
           <View style={styles.pills} onLayout={measure('fixed:before')}>
@@ -784,10 +800,10 @@ const useStyles = themedStyles((P) => ({
   },
   band: {
     height: BAND,
-    paddingHorizontal: 10,
+    paddingHorizontal: BAND_PADDING,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: BAND_GAP,
   },
   chips: {
     flexDirection: 'row',
