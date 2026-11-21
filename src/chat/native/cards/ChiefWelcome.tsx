@@ -90,7 +90,11 @@ function Ghost({ size }: { size: number }) {
 export function ChiefWelcome({ chat, card }: { chat: RustChat; card: ChiefWelcomeCard }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
-  const fill = (text: string) => chat.composer?.replace(text);
+  // On a new line after anything already typed, never replacing it.
+  const fill = (text: string) => {
+    const typed = (chat.state?.composer.text ?? '').trimEnd();
+    chat.composer?.replace(typed.length > 0 ? `${typed}\n${text}` : text);
+  };
   const focus = () => chat.composer?.replace(chat.state?.composer.text ?? '');
   const newUser = card.card === 'newUser';
   const done = card.steps.filter((step) => step.done).length;
