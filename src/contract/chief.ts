@@ -15,7 +15,12 @@ import type { GhostexSession, GhostexMobileSummary } from './mobileSummary';
  * Chief's name on its row and its menus: "Chief of Staff". The one place the phone spells it, as
  * server/src/chief/mod.rs `CHIEF_TITLE` is gxserver's (CDXC:Chief 2026-11-08 there).
  */
-export const CHIEF_LABEL = 'Chief of Staff';
+export const CHIEF_LABEL = 'Ask Ghostex AI';
+/**
+ * Its name inside a sentence. CDXC:Chief 2026-11-21 DECISION (server/src/chief/mod.rs): Chief of Staff is "Ask Ghostex AI" on
+ * its row and in menus, "Ghostex AI" in a sentence.
+ */
+export const CHIEF_NAME = 'Ghostex AI';
 
 /**
  * The home project's name on its header and menu: "Main Hub".
@@ -34,7 +39,7 @@ export const HOME_LABEL = 'Main Hub';
  */
 export const MAIN_HUB_EXPLANATION = [
   "The home for chats that don't belong to a project: quick questions, terminals and agents started in your home folder.",
-  'Chief of Staff, pinned at the top, is the agent that sees and steers every Ghostex agent on this computer, and talks to the Chiefs of Staff on your other computers.',
+  'Ghostex AI, pinned at the top, is the agent that sees and steers every Ghostex agent on this computer, and talks to Ghostex AI on your other computers.',
 ] as const;
 
 /** The one dot a Chief's row draws, in the session card's order. */

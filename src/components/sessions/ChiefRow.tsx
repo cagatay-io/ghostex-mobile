@@ -12,13 +12,13 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { CHIEF_LABEL, chiefCounts, chiefHasDot as hasDot, type ChiefRowModel } from '../../contract/chief';
+import { CHIEF_LABEL, CHIEF_NAME, chiefCounts, chiefHasDot as hasDot, type ChiefRowModel } from '../../contract/chief';
 import type { GhostexSession } from '../../contract/mobileSummary';
 import { ChevronRightGlyph, FlowerGlyph } from './icons';
 import { HEADER_CHEVRON_INSET, TOUCH_ROW_HEIGHT, ds, inkStyleSheets, inkWash, useSidebarInk } from './rows';
 import StatusDotStack from './StatusDotStack';
 
-export { CHIEF_LABEL } from '../../contract/chief';
+export { CHIEF_LABEL, CHIEF_NAME } from '../../contract/chief';
 
 export default function ChiefRow({
   rows,
@@ -57,7 +57,7 @@ export default function ChiefRow({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={
-              unfolded ? `Fold ${CHIEF_LABEL} on the other computers` : `Show ${CHIEF_LABEL} on the other computers`
+              unfolded ? `Fold ${CHIEF_NAME} on the other computers` : `Show ${CHIEF_NAME} on the other computers`
             }
             accessibilityState={{ expanded: unfolded }}
             hitSlop={{ top: 12, bottom: 12, left: 8, right: 4 }}

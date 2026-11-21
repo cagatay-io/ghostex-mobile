@@ -158,12 +158,12 @@ export default function GbotDepartmentView(props: GbotDepartmentViewProps): Reac
   );
   const leadNote =
     current === undefined
-      ? 'Chief of Staff hands it work.'
+      ? 'Ghostex AI hands it work.'
       : state.isLead
         ? `${props.name} hands ${current.name}'s GBots work and may change their instructions.`
         : current.leadName.length > 0
           ? `${current.leadName} leads ${current.name} and hands ${props.name} its work.`
-          : `${current.name} has no lead, so Chief of Staff hands its GBots work.`;
+          : `${current.name} has no lead, so Ghostex AI hands its GBots work.`;
   return (
     <View>
       {error !== null ? <Text style={form.error}>{error}</Text> : null}

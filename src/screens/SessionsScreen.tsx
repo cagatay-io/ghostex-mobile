@@ -95,7 +95,7 @@ import MachineTabs, {
 import SpaceSwipe from '../components/sessions/SpaceSwipe';
 import SpaceTabs, { SPACE_CHIP_HEIGHT, spaceMenuIcon, spaceRowOrder } from '../components/sessions/SpaceTabs';
 import { useExtensionPanels } from '../extensions/useExtensionPanels';
-import ChiefRow, { CHIEF_LABEL } from '../components/sessions/ChiefRow';
+import ChiefRow, { CHIEF_LABEL, CHIEF_NAME } from '../components/sessions/ChiefRow';
 import { runGhostexCli } from '../components/sessions/cli';
 import {
   chiefOnIn,
@@ -1023,7 +1023,7 @@ export default function SessionsScreen({ navigation }: Props) {
   const runChief = useCallback(
     async (target: MachineRecord, command: string): Promise<void> => {
       setChiefMenu(null);
-      setProgress(`Starting ${CHIEF_LABEL}…`);
+      setProgress(`Starting ${CHIEF_NAME}…`);
       try {
         const result = await runGhostexCli(target, command);
         setProgress(null);
@@ -1108,11 +1108,11 @@ export default function SessionsScreen({ navigation }: Props) {
         const items = await chiefAgentItems(target, chiefOpenCommand, '');
         if (items.length === 0) {
           setTransientStatus(
-            `No agent can run ${CHIEF_LABEL} yet. Set up Claude, Codex or another coordinator agent first.`,
+            `No agent can run ${CHIEF_NAME} yet. Set up Claude, Codex or another coordinator agent first.`,
           );
           return;
         }
-        setChiefMenu({ title: `Which agent runs ${CHIEF_LABEL}?`, items: [...MAIN_HUB_NOTES, ...items] });
+        setChiefMenu({ title: `Which agent runs ${CHIEF_NAME}?`, items: [...MAIN_HUB_NOTES, ...items] });
       } catch (error) {
         setTransientStatus(error instanceof Error ? error.message : String(error));
       }
@@ -1261,7 +1261,7 @@ export default function SessionsScreen({ navigation }: Props) {
                     {
                       kind: 'item',
                       key: 'main-hub-start-chief',
-                      label: `Start ${CHIEF_LABEL}`,
+                      label: `Start ${CHIEF_NAME}`,
                       onPress: () => void openChiefPicker(target),
                     } as ContextMenuItem,
                   ]
@@ -1763,12 +1763,12 @@ export default function SessionsScreen({ navigation }: Props) {
         <ConfirmDialog
           visible
           title={
-            chiefConfirm.changeAgent ? `Move ${CHIEF_LABEL} to another agent?` : `Start a new chat with ${CHIEF_LABEL}?`
+            chiefConfirm.changeAgent ? `Move ${CHIEF_NAME} to another agent?` : `Start a new chat with ${CHIEF_NAME}?`
           }
           body={
             chiefConfirm.changeAgent
-              ? `A new chat starts on that agent. This chat stays under ${CHIEF_LABEL} as an earlier chat, and its goal, memory and threads carry over.`
-              : `This chat stays under ${CHIEF_LABEL} as an earlier chat. Its goal, memory and threads carry over to the new one.`
+              ? `A new chat starts on that agent. This chat stays under ${CHIEF_NAME} as an earlier chat, and its goal, memory and threads carry over.`
+              : `This chat stays under ${CHIEF_NAME} as an earlier chat. Its goal, memory and threads carry over to the new one.`
           }
           confirmLabel={chiefConfirm.changeAgent ? 'Change Agent' : 'New Chat'}
           checkbox={{

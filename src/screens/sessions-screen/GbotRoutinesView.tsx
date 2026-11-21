@@ -36,7 +36,7 @@ function lines(routine: GbotRoutine): string[] {
         : `Checks ${routine.precheckSentence} first, and runs only when that changes.`,
     );
   }
-  if (routine.toChief) out.push('Tells Chief of Staff when it finds something.');
+  if (routine.toChief) out.push('Tells Ghostex AI when it finds something.');
   if (routine.lastRunStatus.length > 0) {
     const status = gbotRoutineRunStatus(routine.lastRunStatus);
     out.push(
