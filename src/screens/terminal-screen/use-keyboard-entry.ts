@@ -114,13 +114,29 @@ export function useKeyboardEntry({
 }: KeyboardEntryInput): KeyboardEntry {
   /** Session keys already auto-focused this visit (hide-keyboard-on-startup off). */
   const autoFocusedSessionsRef = useRef<Set<string>>(new Set());
+  /**
+   * The session a touch in a pane selected, and how far the touch's own selection has been seen: `null` until the
+   * screen shows that session selected, then the terminal's state then (`opening` or `open`), for as long as the
+   * terminal stays in that opening.
+   */
+  const touchHoldRef = useRef<{ sessionKey: string; seen: 'opening' | 'open' | null } | null>(null);
 
   // Hide keyboard on startup OFF → explicitly focus a terminal once it opens,
   // at most once per session per visit (a deliberate dismissal stays dismissed).
   useEffect(() => {
+    // The touch's own selection ends when another session is selected, or when its terminal leaves the opening it
+    // was in at the touch (a terminal that was not attached and attaches later, a reattach, a failed open's Retry).
+    const hold = touchHoldRef.current;
+    if (hold !== null && (hold.seen !== null || activeTab?.sessionKey === hold.sessionKey)) {
+      const state = activeTab?.sessionKey === hold.sessionKey ? activeTab.state : null;
+      if (state === 'open' && hold.seen !== null) hold.seen = 'open';
+      else if ((state === 'opening' || state === 'open') && hold.seen === null) hold.seen = state;
+      else if (state !== 'opening' || hold.seen !== 'opening') touchHoldRef.current = null;
+    }
     if (hideKeyboardOnStartup || !isFocused) return;
     if (activeTab === null || activeTab.state !== 'open') return;
     if (autoFocusedSessionsRef.current.has(activeTab.sessionKey)) return;
+    if (touchHoldRef.current?.sessionKey === activeTab.sessionKey) return;
     autoFocusedSessionsRef.current.add(activeTab.sessionKey);
     setTapKeyboardHint(true);
     void GhostexNative.focusTerminal(activeTab.sessionKey).catch(() => setTapKeyboardHint(false));
@@ -128,10 +144,12 @@ export function useKeyboardEntry({
 
   // CDXC:Terminal 2026-11-21 DECISION:
   // User: no touch on a terminal brings the keyboard up. A touch that selects a pane's session is not an opening:
-  // the startup keyboard is for a terminal that opens or attaches while selected, so the touch takes its turn and the
-  // keyboard stays as it is, also for a pane that opened in the background and was never selected while open.
+  // the startup keyboard is for a terminal that opens or attaches while selected, so the touch holds it back for its
+  // own selection, the terminal open or opening as the touch found it, also for a pane that opened in the background
+  // and was never selected while open. An attach that starts after the touch (Terminal View on a chat whose terminal
+  // was not attached, a reattach, Retry) is an opening again and brings it, once, as before.
   const touchSelected = useCallback((sessionKey: string): void => {
-    autoFocusedSessionsRef.current.add(sessionKey);
+    touchHoldRef.current = { sessionKey, seen: null };
   }, []);
 
   // While the pad is open only its own keyboard button raises and lowers the keyboard; the bar's keyboard button and
