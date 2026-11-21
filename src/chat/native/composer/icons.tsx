@@ -9,6 +9,36 @@ import Svg, { Path, Rect } from 'react-native-svg';
 type GlyphSpec = { paths: string[]; filled?: boolean; fills?: string[] };
 
 const GLYPHS = {
+  // Ask Ghostex AI's welcome card (cards/ChiefWelcome.tsx), from `titlebar/<name>.svg`.
+  palette: {
+    paths: [
+      'M12 21a9 9 0 0 1 0 -18c4.97 0 9 3.582 9 8c0 1.06 -.474 2.078 -1.318 2.828c-.844 .75 -1.989 1.172 -3.182 1.172h-2.5a2 2 0 0 0 -1 3.75a1.3 1.3 0 0 1 -1 2.25',
+      'M7.5 10.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0',
+      'M11.5 7.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0',
+      'M15.5 10.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0',
+    ],
+  },
+  'layout-dashboard': {
+    paths: [
+      'M5 4h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-6a1 1 0 0 1 1 -1',
+      'M5 16h4a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-2a1 1 0 0 1 1 -1',
+      'M15 12h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-6a1 1 0 0 1 1 -1',
+      'M15 4h4a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-2a1 1 0 0 1 1 -1',
+    ],
+  },
+  'alert-circle': {
+    paths: ['M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0', 'M12 8v4', 'M12 16h.01'],
+  },
+  devices: {
+    paths: [
+      'M13 9a1 1 0 0 1 1 -1h6a1 1 0 0 1 1 1v10a1 1 0 0 1 -1 1h-6a1 1 0 0 1 -1 -1v-10',
+      'M18 8v-3a1 1 0 0 0 -1 -1h-13a1 1 0 0 0 -1 1v12a1 1 0 0 0 1 1h9',
+      'M16 9h2',
+    ],
+  },
+  'coordinator-crown-points': {
+    paths: ['M5 18.5 3.5 8.5 8.5 12.5 12 5.5 15.5 12.5 20.5 8.5 19 18.5Z'],
+  },
   // The voice agent's headset (`titlebar/headset.svg`), for Voice call about this chat.
   headset: {
     paths: [

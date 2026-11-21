@@ -21,6 +21,7 @@ import { AgentMark } from './agentMark';
 import { chatLookOf } from '../transcript/context';
 import { themedStyles } from '../transcript/theme';
 import { ChatButton } from './primitives';
+import { ChiefWelcome } from './ChiefWelcome';
 import { useChatShown } from '../chatShown';
 
 export function EmptyTranscript({ chat, document }: { chat: RustChat; document: ChatDocument | null }) {
@@ -44,6 +45,10 @@ export function EmptyTranscript({ chat, document }: { chat: RustChat; document: 
         ) : null}
       </View>
     );
+  }
+  // Ask Ghostex AI's own card in place of the mark and the headline (ChiefWelcome.tsx).
+  if (document.chiefWelcome !== null && document.chiefWelcome !== undefined) {
+    return <ChiefWelcome chat={chat} card={document.chiefWelcome} />;
   }
   const welcome = document.newSessionWelcome;
   if (welcome !== null && welcome !== undefined) {

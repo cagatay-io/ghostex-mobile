@@ -952,6 +952,8 @@ export type ChatDocument = {
   emptyState: EmptyState;
   /** The greeting a brand new session shows, or null. Desktop: `new_session_welcome.rs`. */
   newSessionWelcome: NewSessionWelcome | null;
+  /** Ask Ghostex AI's welcome card in place of the welcome's headline, tips and Try a Boost; absent from older cores and every other chat. Desktop: `chief_welcome.rs`. */
+  chiefWelcome?: ChiefWelcome | null;
   /** `blank`, `indicator` or `retry` while loading; null otherwise. Desktop: `transcript_reveal.rs`. */
   loadingStage: string | null;
   /** What the loading hold says once a read runs long, above its Try now button; null while it
@@ -1514,3 +1516,23 @@ export type BoostsDocument = {
   /** The one-time callout while it has not been seen, or null. */
   hint: { title: string; text: string } | null;
 };
+
+/** A prompt Ask Ghostex AI's welcome card offers: a tap fills the chat box with `fill`. */
+export interface ChiefWelcomePrompt {
+  label: string;
+  icon: string;
+  fill: string;
+}
+
+/** Ask Ghostex AI's welcome card (gx-chat-core `extras/chief_welcome.rs`). */
+export interface ChiefWelcome {
+  card: 'newUser' | 'setUp';
+  title: string;
+  line: string | null;
+  steps: { label: string; fill: string; done: boolean }[];
+  askTitle: string;
+  askDetail: string;
+  chips: ChiefWelcomePrompt[];
+  status: { text: string; needs: string | null; attention: boolean; fill: string } | null;
+  prompts: ChiefWelcomePrompt[];
+}
