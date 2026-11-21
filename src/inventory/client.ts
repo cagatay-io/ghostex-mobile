@@ -10,6 +10,7 @@ export { ensureConnected } from '../remote/connection';
  */
 
 import { sessionsListCommand } from '../commands/ghostexCli';
+import { AGENT_NOT_INSTALLED_SENTENCE } from '../agents/missingAgent';
 import { parseMobileSummary, scanJsonObjects, type GhostexMobileSummary } from '../contract/mobileSummary';
 import { logAppEvent } from '../app/appLog';
 import { FailureCopy } from '../copy';
@@ -313,6 +314,9 @@ function classifyFailure(error: unknown, hasPassword: boolean): Pick<FailureSumm
   }
   if (lowerText.includes('zmx') && (lowerText.includes('not found') || lowerText.includes('not configured'))) {
     return { message: FailureCopy.zmxMissing, reasonCode: reason('unknown') };
+  }
+  if (text.includes(AGENT_NOT_INSTALLED_SENTENCE)) {
+    return { message: text, reasonCode: reason('unknown') };
   }
   if (text.length === 0) return { message: FailureCopy.emptyOutput, reasonCode: reason('unknown') };
   // CDXC:Notices 2026-11-06 DECISION: User (Q1410, Q1411): raw command output was the whole alert

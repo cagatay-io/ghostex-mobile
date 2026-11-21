@@ -13,6 +13,7 @@ import { File } from 'expo-file-system';
 import { useCallback, useState, type ReactElement } from 'react';
 
 import ConfirmDialog from '../../components/common/ConfirmDialog';
+import { reportMissingAgentError } from '../../agents/missingAgent';
 import ContextMenu, { type ContextMenuItem, type MenuAnchor } from '../../components/sessions/ContextMenu';
 import { runGhostexCli } from '../../components/sessions/cli';
 import {
@@ -92,6 +93,7 @@ export function useGbots(deps: GbotsScreenDeps) {
         void refreshMachine(target);
       } catch (error) {
         setProgress(null);
+        if (reportMissingAgentError(target.id, error)) return;
         failed('Chat not opened', error);
       }
     },

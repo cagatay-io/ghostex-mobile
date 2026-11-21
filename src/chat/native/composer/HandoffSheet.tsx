@@ -30,6 +30,7 @@ import {
 } from 'react-native';
 
 import { AGENT_ICONS } from '../../../assets/agentIcons.generated';
+import { reportMissingAgentError } from '../../../agents/missingAgent';
 import { SwitchRow } from '../../../components/common/SwitchRow';
 import type { GhostexAgentLauncher } from '../../../contract/mobileSummary';
 import { resolveAgentArtId } from '../../../contract/mobileSummary';
@@ -340,6 +341,8 @@ export function HandoffSheet({
           target: elsewhere ? null : request.target,
           ...(destination !== undefined ? { destination } : {}),
         }).catch((error: unknown) => {
+          const targetMachineId = destination?.machine.id ?? machine.id;
+          if (reportMissingAgentError(targetMachineId, error)) return;
           const message =
             error instanceof Error && error.message.trim().length > 0
               ? error.message

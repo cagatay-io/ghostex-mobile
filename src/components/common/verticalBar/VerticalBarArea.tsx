@@ -46,6 +46,7 @@ import type { FoldDivision, WindowRect } from '../../../../modules/ghostex-nativ
 import { logAppEvent } from '../../../app/appLog';
 
 import { useAppearance, type Appearance } from '../../../theme/useAppearance';
+import MissingAgentNotice from '../MissingAgentNotice';
 import type { ContextMenuItem } from '../../sessions/ContextMenu';
 import { useKeyboardFrame } from '../keyboard/keyboardFrame';
 import { keyboardHeightForWindow } from '../keyboard/keyboardTop';
@@ -529,6 +530,7 @@ export default function VerticalBarArea({ children }: { children: ReactNode }) {
                         ))}
                       </View>
                     ) : null}
+                    <MissingAgentNotice bar={space} />
                   </View>
                 </RailContext.Provider>
               </RailFrameContext.Provider>

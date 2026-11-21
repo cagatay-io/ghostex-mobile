@@ -7,12 +7,15 @@
  * Any other refused operation is the one-line error card desktop draws in the same place (`ErrorCard.tsx`).
  */
 
+import { useEffect, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
+import { missingAgentNoticeCopy, parseAgentNotInstalled } from '../../../agents/missingAgent';
 import type { ChatDocument } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
 import { ErrorCard, type ErrorCardValue } from './ErrorCard';
 import { Glyph } from './icons';
+import { ToneButton, ToneCard, ToneDismiss } from './ToneCard';
 import { MONO_FONT, themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { CARD_LINE_HEIGHT, CARD_TEXT_SIZE, ChatButton, StatusCard, useCardText } from './primitives';
 import type { CardHostAction } from './types';
@@ -35,8 +38,57 @@ export function ComposerNotReadyCard({
   const cardText = useCardText();
   const styles = useStyles();
   const P = useTranscriptTheme();
+  const [dismissedMissingKey, setDismissedMissingKey] = useState<string | null>(null);
+  const missingKey =
+    typeof document.operationError === 'string'
+      ? `${document.operationErrorCode ?? ''}:${document.operationError}`
+      : null;
+  useEffect(() => {
+    if (missingKey === null && dismissedMissingKey !== null) setDismissedMissingKey(null);
+  }, [dismissedMissingKey, missingKey]);
   if (!composerNotReady(document)) {
     if (typeof document.operationError !== 'string') return null;
+    const missingAgent = parseAgentNotInstalled({
+      code: document.operationErrorCode,
+      message: document.operationError,
+    });
+    if (missingAgent !== null) {
+      if (missingKey !== null && dismissedMissingKey === missingKey) return null;
+      const copy = missingAgentNoticeCopy(missingAgent.agentName, chat.machine?.id ?? '');
+      const footerEnd = [
+        onHostAction ? (
+          <ToneButton
+            key="pick"
+            kind={copy.openLabel === null ? 'primary' : 'secondary'}
+            label="Pick another agent"
+            onPress={() => onHostAction('pickModel')}
+          />
+        ) : null,
+        copy.openLabel !== null && onHostAction ? (
+          <ToneButton
+            key="agents"
+            kind="primary"
+            label={copy.openLabel}
+            onPress={() => onHostAction('openAgentSettings')}
+          />
+        ) : null,
+      ].filter(Boolean);
+      return (
+        <View accessibilityRole="alert" style={styles.fill}>
+          <ToneCard
+            tone="warning"
+            title={copy.title}
+            trailing={<ToneDismiss onPress={() => setDismissedMissingKey(missingKey)} />}
+            body={[
+              <Text key="body" style={cardText.prose}>
+                {copy.body}
+              </Text>,
+            ]}
+            {...(footerEnd.length > 0 ? { footerEnd } : {})}
+          />
+        </View>
+      );
+    }
     const card: ErrorCardValue = document.operationErrorCard ?? {
       tone: 'error',
       title: document.operationError,

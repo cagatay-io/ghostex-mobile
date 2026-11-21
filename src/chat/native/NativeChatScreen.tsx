@@ -37,6 +37,7 @@ import {
 } from 'react-native';
 
 import { DocsCopy } from '../../copy';
+import { reportMissingAgentError } from '../../agents/missingAgent';
 import { openComputerFile, phoneOpensFile } from '../../docs/openComputerFile';
 import { remotePathForChatFile } from '../../docs/openDoc';
 import GhostexImageIntakeView from '../../../modules/ghostex-native/src/GhostexImageIntakeView';
@@ -310,7 +311,9 @@ export default function NativeChatScreen({
     (action: string, params: Record<string, unknown> = {}) => {
       if (action === 'terminalView' || action === 'switchToTerminal') onSwitchToTerminal();
       else if (action === 'pickModel') setModelRequestId((current) => current + 1);
-      else if (action === 'switchAccount' && Object.keys(params).length === 0)
+      else if (action === 'openAgentSettings') {
+        voiceNavigation.navigate('MachineForm', { machineId: machine.id, section: 'tools' });
+      } else if (action === 'switchAccount' && Object.keys(params).length === 0)
         setAccountsRequestId((current) => current + 1);
       else if (action === 'switchAccount') {
         // A switchable-agent row (agents without the Accounts panel): rewrite the session's agent,
@@ -322,6 +325,7 @@ export default function NativeChatScreen({
             if (hostActions.includes('fullReload')) onHostAction?.('fullReload', {});
             return;
           }
+          if (reportMissingAgentError(machine.id, answer.error)) return;
           show(answer.error.message, true, 'Switch Account failed');
         });
       } else if (action === 'toast') show(String(params.message ?? ''), params.level === 'error');

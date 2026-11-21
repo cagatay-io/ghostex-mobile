@@ -15,6 +15,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { GhostexNative } from '../../../modules/ghostex-native/src';
 
+import { reportMissingAgentError } from '../../agents/missingAgent';
 import { openTailscaleOrDownload } from '../../app/tailscale';
 import type { ActionSheetItem } from '../../components/common/ActionSheet';
 import { AGENT_ICONS } from '../../assets/agentIcons.generated';
@@ -575,6 +576,7 @@ export function useSessionsScreenMenus({
         void refreshMachine(machine).catch(() => undefined);
       } catch (error) {
         setProgress(null);
+        if (reportMissingAgentError(machine.id, error)) return;
         setTransientStatus(error instanceof Error ? error.message : String(error));
       }
     })();

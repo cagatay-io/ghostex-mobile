@@ -12,6 +12,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 
 import { runQuickAction as runQuickActionOnMachine } from '../../actions/runAction';
+import { parseAgentNotInstalled, showMissingAgentNotice } from '../../agents/missingAgent';
 import { logAppEvent } from '../../app/appLog';
 import type { QuickActionEntry } from '../../actions/quickActions';
 import {
@@ -338,6 +339,13 @@ export function useSessionsScreenActions({
       try {
         result = await runGhostexCli(target, command);
       } catch (error) {
+        const missingAgent = parseAgentNotInstalled(error);
+        if (missingAgent !== null) {
+          setProgress(null);
+          setOverlay(NONE);
+          showMissingAgentNotice(target.id, missingAgent.agentName);
+          return null;
+        }
         const reason = error instanceof Error ? error.message : String(error);
         const raw = error instanceof GhostexCliFailure ? error.raw : reason;
         setProgress(null);

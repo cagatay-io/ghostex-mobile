@@ -6,6 +6,6 @@
  * opens its model menu within the chat view).
  */
 export type CardHostAction = (
-  action: 'terminalView' | 'switchAccount' | 'pickModel',
+  action: 'terminalView' | 'switchAccount' | 'pickModel' | 'openAgentSettings',
   params?: Record<string, unknown>,
 ) => void;

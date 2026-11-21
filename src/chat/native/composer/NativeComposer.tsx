@@ -66,6 +66,7 @@ import { OptionPills, modeInModelPill, modeLook, optionPillsLeadIn, type PillKin
 import { RunLocationRow } from './RunLocationRow';
 import { ProjectPickerSheet } from './ProjectPickerSheet';
 import { draftProjectChoices, moveDraftToProject } from './draftProjectChoices';
+import { reportMissingAgentError } from '../../../agents/missingAgent';
 import { MachinePickerSheet } from './MachinePickerSheet';
 import { repoKeyOfProject } from '../../../screens/sessions-screen/new-session-place';
 import { machineTargetFor } from '../../../screens/terminal-screen/session-lookups';
@@ -231,6 +232,7 @@ export function NativeComposer({
       to,
       toProjectId,
     }).catch((error: unknown) => {
+      if (reportMissingAgentError(to.id, error)) return;
       onHostAction?.('toast', { message: error instanceof Error ? error.message : String(error), level: 'error' });
     });
   };

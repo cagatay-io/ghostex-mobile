@@ -10,6 +10,7 @@ import { Alert, Platform } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { GhostexNative } from '../../../modules/ghostex-native/src';
+import { reportMissingAgentError } from '../../agents/missingAgent';
 import { createdSessionId, runGhostexCli } from '../../components/sessions/cli';
 import { type TerminalMenuActionId } from '../../components/terminal/TerminalMenu';
 import { pickAndSendAttachment, pickAndSendImageAttachment } from '../../components/terminal/uploads';
@@ -389,6 +390,10 @@ export function useTerminalAgentActions({
       setExportedTranscript(null);
     } catch (error) {
       setStartingTranscriptConversation(false);
+      if (reportMissingAgentError(machine.id, error)) {
+        setExportedTranscript(null);
+        return;
+      }
       setExportedTranscriptError(error instanceof Error ? error.message : String(error));
     }
   }, [exportedTranscript, startingTranscriptConversation]);

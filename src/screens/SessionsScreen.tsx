@@ -32,6 +32,7 @@ import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GhostexNative } from '../../modules/ghostex-native/src';
+import { reportMissingAgentError } from '../agents/missingAgent';
 import { logAppEvent } from '../app/appLog';
 import { openTailscaleOrDownload } from '../app/tailscale';
 import ActionSheet, { type ActionSheetItem } from '../components/common/ActionSheet';
@@ -1032,6 +1033,7 @@ export default function SessionsScreen({ navigation }: Props) {
         void refreshMachine(target);
       } catch (error) {
         setProgress(null);
+        if (reportMissingAgentError(target.id, error)) return;
         setTransientStatus(error instanceof Error ? error.message : String(error));
       }
     },
