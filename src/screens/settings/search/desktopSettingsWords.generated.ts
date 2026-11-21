@@ -342,7 +342,7 @@ export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords
   },
   "experienceChatBox": {
     "title": "Chat box",
-    "subtitle": "Chill: the field, the model, the effort, •••, attach, the mic and Send. Regular adds the mode and Maximize; the terminal is in •••. Advanced adds the terminal button and the context ring.",
+    "subtitle": "Chill: the field, the model, the effort, •••, attach, the mic and Send. Regular adds the mode and Maximize chat box; the terminal is in •••. Advanced adds the terminal button and the context ring.",
     "options": [
       "Chill",
       "chill",
@@ -357,7 +357,7 @@ export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords
   },
   "experiencePreset": {
     "title": "Experience",
-    "subtitle": "How many buttons and details Ghostex shows. Chill: a simple chat box and a calm chat. Regular: pick the model, the mode and the effort as you chat. Advanced: for people who use terminals more. Each area below follows it; change one and it says Custom.",
+    "subtitle": "How many buttons and details Ghostex shows. Chill: a simple chat box and a calm chat. Regular: pick the model, the mode and the effort as you chat. Advanced: for people who use terminals more. Pick one to try it in the preview first; nothing changes until Apply. Each area below follows it; change one and it says Custom.",
     "options": [
       "Chill",
       "chill",
