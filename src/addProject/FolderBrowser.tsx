@@ -86,7 +86,7 @@ export default function FolderBrowser({
   const rows = browse.entries;
 
   return (
-    <View>
+    <View style={{ gap: 10 }}>
       <SectionHeaderRow title={AddProjectCopy.browseSection} action={headerAction} />
       {headerContent ?? null}
       {browse.firstLoad ? (

@@ -13,7 +13,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import KeyboardAwareScrollView from '../components/common/keyboard/KeyboardAwareScrollView';
 import { useScrollToBarEdges } from '../components/common/verticalBar/VerticalBarArea';
 import { CaretRightGlyph } from '../components/sessions/icons';
-import { GhostexPalette, GhostexRadii, GhostexStrokeWidth, mixHexColors } from '../theme/palette';
+import {
+  colorWithOpacity,
+  GhostexPalette,
+  GhostexRadii,
+  GhostexStrokeWidth,
+  mixHexColors,
+} from '../theme/palette';
 import { readableSecondaryText } from '../theme/sidebarAppearance';
 
 const MONOSPACE = Platform.select({ ios: 'Menlo', default: 'monospace' });
@@ -97,38 +103,44 @@ export function ListRow({
   const styles = useMemo(() => createStyles(appearance), [appearance]);
   const isDisabled = disabled === true;
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ disabled: isDisabled }}
-      accessibilityLabel={title}
-      testID={testID}
-      disabled={isDisabled}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.listRow,
+    <View
+      style={[
+        styles.listRowContainer,
         first !== true && styles.listRowDivided,
-        isDisabled && styles.listRowDisabled,
-        pressed && !isDisabled && styles.listRowPressed,
       ]}
     >
-      {icon === undefined ? null : <View style={styles.listRowIcon}>{icon}</View>}
-      <View style={styles.listRowBody}>
-        <Text numberOfLines={1} style={styles.listRowTitle}>
-          {title}
-        </Text>
-        {description === undefined || description === null || description.length === 0 ? null : (
-          <Text numberOfLines={2} style={styles.listRowDescription}>
-            {description}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ disabled: isDisabled }}
+        accessibilityLabel={title}
+        testID={testID}
+        disabled={isDisabled}
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.listRow,
+          trailing !== undefined && styles.listRowWithTrailing,
+          isDisabled && styles.listRowDisabled,
+          pressed && !isDisabled && styles.listRowPressed,
+        ]}
+      >
+        {icon === undefined ? null : <View style={styles.listRowIcon}>{icon}</View>}
+        <View style={styles.listRowBody}>
+          <Text numberOfLines={1} style={styles.listRowTitle}>
+            {title}
           </Text>
-        )}
-        {badges === undefined ? null : <View style={styles.listRowBadges}>{badges}</View>}
-      </View>
-      {trailing !== undefined ? (
-        trailing
-      ) : isDisabled ? null : (
-        <CaretRightGlyph size={14} color={appearance.muted} />
-      )}
-    </Pressable>
+          {description === undefined || description === null || description.length === 0 ? null : (
+            <Text numberOfLines={2} style={styles.listRowDescription}>
+              {description}
+            </Text>
+          )}
+          {badges === undefined ? null : <View style={styles.listRowBadges}>{badges}</View>}
+        </View>
+        {trailing === undefined && !isDisabled ? (
+          <CaretRightGlyph size={14} color={appearance.muted} />
+        ) : null}
+      </Pressable>
+      {trailing === undefined ? null : <View style={styles.listRowTrailing}>{trailing}</View>}
+    </View>
   );
 }
 
@@ -396,13 +408,28 @@ const createStyles = (appearance: Appearance) => StyleSheet.create({
     borderColor: appearance.border,
     backgroundColor: appearance.card,
   },
+  listRowContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 52,
+  },
   listRow: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     paddingHorizontal: 12,
     paddingVertical: 12,
     minHeight: 52,
+  },
+  listRowWithTrailing: {
+    paddingRight: 8,
+  },
+  listRowTrailing: {
+    paddingRight: 12,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   listRowDivided: {
     borderTopWidth: GhostexStrokeWidth,
@@ -458,11 +485,11 @@ const createStyles = (appearance: Appearance) => StyleSheet.create({
     backgroundColor: appearance.cardActive,
   },
   metaBadgeAccent: {
-    borderColor: mixHexColors(appearance.accent, appearance.border, 40),
+    borderColor: colorWithOpacity(appearance.accent, 40),
     backgroundColor: mixHexColors(appearance.accent, appearance.card, 12),
   },
   metaBadgeConnected: {
-    borderColor: mixHexColors(appearance.connected, appearance.border, 40),
+    borderColor: colorWithOpacity(appearance.connected, 40),
     backgroundColor: mixHexColors(appearance.connected, appearance.card, 12),
   },
   metaBadgeLabel: {

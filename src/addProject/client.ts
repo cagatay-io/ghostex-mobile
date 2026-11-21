@@ -32,6 +32,7 @@ import {
 import { runGhostexCli } from '../components/sessions/cli';
 import { scanJsonObjects } from '../contract/mobileSummary';
 import { FailureCopy } from '../copy';
+import { isDemoMachine } from '../demo/identity';
 import {
   ensureConnected,
   INVENTORY_EXEC_TIMEOUT_MS,
@@ -220,15 +221,22 @@ async function runAddProjectCli(
   throw new Error(summarizeFailure(output, machineHasPassword));
 }
 
+type AddProjectHttpRpcOutcome =
+  | { kind: 'answered'; answer: RpcAnswer }
+  | { kind: 'legacy' }
+  | { kind: 'unavailable' };
+
 async function tryAddProjectHttpRpc(
   machine: MachineConnectionTarget,
   method: string,
   params: Record<string, unknown>,
   timeoutMs: number,
-): Promise<{ kind: 'answered'; answer: RpcAnswer } | { kind: 'unavailable' }> {
+): Promise<AddProjectHttpRpcOutcome> {
   try {
     const link = chatMachineLink(machine);
-    if ((await link.route()) !== 'socket') return { kind: 'unavailable' };
+    const route = await link.route();
+    if (route === 'legacy') return { kind: 'legacy' };
+    if (route !== 'socket') return { kind: 'unavailable' };
     const sent = await link.request(method, params, timeoutMs);
     if (sent.kind !== 'answered') return { kind: 'unavailable' };
     return { kind: 'answered', answer: sent.answer };
@@ -329,7 +337,7 @@ function parseAddProjectPlaces(
 
 /** Best-effort read of the computer's configured Default projects folder setting. */
 async function readDefaultProjectsFolder(machine: MachineConnectionTarget): Promise<string | null> {
-  if (isCloudBoxMachineId(machine.id)) return null;
+  if (isCloudBoxMachineId(machine.id) || isDemoMachine(machine)) return null;
   try {
     const result = await runGhostexCli(machine, 'ghostex settings get defaultProjectsFolder --json');
     const current = result.json?.current;
@@ -341,52 +349,80 @@ async function readDefaultProjectsFolder(machine: MachineConnectionTarget): Prom
   }
 }
 
+export type FetchProjectPickerPlacesOutcome =
+  | { status: 'ok'; places: AddProjectPlaces }
+  | { status: 'unsupported' }
+  | { status: 'transient' };
+
 /**
- * Fetches Add Project places and suggested repositories from `/api/projectPickerPlaces`.
+ * Fetches Add Project places and suggested repositories from `/api/projectPickerPlaces`,
+ * distinguishing older/legacy computers (`unsupported`, safe to cache as absent) from
+ * transient connection hiccups (`transient`, should not be cached as absent).
  *
- * On older computers (which answer 404 / `notFound`) or legacy SSH-only links, read calls
- * return `null` with zero errors so the UI degrades cleanly to the existing flow.
+ * `readDefaultProjectsFolder` runs only after `/api/projectPickerPlaces` succeeds so
+ * legacy SSH-only, older 404, unreachable, and demo machines perform zero SSH execs.
  * Explicit `pin` / `unpin` writes throw on failure so the user sees feedback.
  */
-export async function fetchProjectPickerPlaces(
+export async function fetchProjectPickerPlacesResult(
   machine: MachineConnectionTarget,
   options?: { pin?: string; unpin?: string; refresh?: boolean; defaultProjectsFolder?: string | null },
-): Promise<AddProjectPlaces | null> {
+): Promise<FetchProjectPickerPlacesOutcome> {
   const isMutation = options?.pin !== undefined || options?.unpin !== undefined;
   const params: Record<string, unknown> = {};
   if (options?.pin !== undefined) params.pin = options.pin;
   if (options?.unpin !== undefined) params.unpin = options.unpin;
   if (options?.refresh === true) params.refresh = true;
 
-  const defaultFolderPromise =
-    options?.defaultProjectsFolder !== undefined
-      ? Promise.resolve(options.defaultProjectsFolder)
-      : isMutation
-        ? Promise.resolve(null)
-        : readDefaultProjectsFolder(machine);
+  const rpc = await tryAddProjectHttpRpc(machine, 'projectPickerPlaces', params, INVENTORY_EXEC_TIMEOUT_MS);
 
-  const [rpc, defaultProjectsFolder] = await Promise.all([
-    tryAddProjectHttpRpc(machine, 'projectPickerPlaces', params, INVENTORY_EXEC_TIMEOUT_MS),
-    defaultFolderPromise,
-  ]);
-
+  if (rpc.kind === 'legacy') {
+    if (isMutation) {
+      throw new Error('Could not update pinned folders on this machine.');
+    }
+    return { status: 'unsupported' };
+  }
   if (rpc.kind !== 'answered') {
     if (isMutation) {
       throw new Error('Could not update pinned folders on this machine.');
     }
-    return null;
+    return { status: 'transient' };
   }
   if (rpc.answer.error !== null) {
     if (isMutation) {
       throw new Error(rpc.answer.error.message);
     }
-    return null;
+    if (rpc.answer.error.code === 'notFound') {
+      return { status: 'unsupported' };
+    }
+    return { status: 'transient' };
   }
+
+  const defaultProjectsFolder =
+    options?.defaultProjectsFolder !== undefined
+      ? options.defaultProjectsFolder
+      : isMutation
+        ? null
+        : await readDefaultProjectsFolder(machine);
+
   const parsed = parseAddProjectPlaces(rpc.answer.result, defaultProjectsFolder);
-  if (parsed === null && isMutation) {
-    throw new Error('The machine returned an unexpected answer when updating pinned folders.');
+  if (parsed === null) {
+    if (isMutation) {
+      throw new Error('The machine returned an unexpected answer when updating pinned folders.');
+    }
+    return { status: 'transient' };
   }
-  return parsed;
+  return { status: 'ok', places: parsed };
+}
+
+/**
+ * Convenience wrapper over `fetchProjectPickerPlacesResult` returning `AddProjectPlaces | null`.
+ */
+export async function fetchProjectPickerPlaces(
+  machine: MachineConnectionTarget,
+  options?: { pin?: string; unpin?: string; refresh?: boolean; defaultProjectsFolder?: string | null },
+): Promise<AddProjectPlaces | null> {
+  const outcome = await fetchProjectPickerPlacesResult(machine, options);
+  return outcome.status === 'ok' ? outcome.places : null;
 }
 
 /** Directory suggestions for one directory query (no `cwd`, dirs only). */

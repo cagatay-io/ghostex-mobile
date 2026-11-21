@@ -120,6 +120,7 @@ const READ_ONLY_METHODS = new Set([
   'sessionForkBranches',
   'agentAccounts',
   'listStashedPrompts',
+  'browseProjectDirectories',
 ]);
 /** The sends gxserver delivers at most once per `sendRequestId` (`session_chat_send_requests.rs`). */
 const LEDGER_SEND_METHODS = new Set(['sendSessionChatMessage', 'queueSessionChatPrompt', 'answerSessionChatPrompt']);
@@ -733,6 +734,10 @@ class ChatMachineLink {
    */
   private retrySafe(method: string, params: unknown, endpoint: Endpoint): boolean {
     if (READ_ONLY_METHODS.has(method)) return true;
+    if (method === 'projectPickerPlaces') {
+      const record = params as { pin?: unknown; unpin?: unknown } | null;
+      return record?.pin === undefined && record?.unpin === undefined;
+    }
     const sendRequestId = (params as { sendRequestId?: unknown } | null)?.sendRequestId;
     return LEDGER_SEND_METHODS.has(method) && endpoint.sendLedger && typeof sendRequestId === 'string';
   }

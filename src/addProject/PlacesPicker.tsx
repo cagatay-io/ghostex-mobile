@@ -20,7 +20,12 @@ import {
   XGlyph,
 } from '../components/sessions/icons';
 import { AddProjectCopy } from '../copy';
-import { GhostexRadii, GhostexStrokeWidth, mixHexColors } from '../theme/palette';
+import {
+  colorWithOpacity,
+  GhostexRadii,
+  GhostexStrokeWidth,
+  mixHexColors,
+} from '../theme/palette';
 import { useAppearance, type Appearance } from '../theme/useAppearance';
 import type { AddProjectPlace, AddProjectPlaces } from './client';
 import {
@@ -415,7 +420,7 @@ const createStyles = (appearance: Appearance) =>
       maxWidth: 200,
     },
     pillActive: {
-      borderColor: mixHexColors(appearance.accent, appearance.border, 50),
+      borderColor: colorWithOpacity(appearance.accent, 50),
       backgroundColor: mixHexColors(appearance.accent, appearance.card, 14),
     },
     pillPressed: {

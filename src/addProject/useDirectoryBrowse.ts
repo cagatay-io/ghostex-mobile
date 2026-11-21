@@ -32,8 +32,9 @@ export type DirectoryBrowseState = {
 export function useDirectoryBrowse(machine: MachineConnectionTarget | null, query: string): DirectoryBrowseState {
   const directory = getBrowseDirectoryPath(query);
   const machineId = machine?.id ?? null;
+  const currentKey = machineId === null || directory.length === 0 ? null : `${machineId}:${directory}`;
   const [result, setResult] = useState<AddProjectBrowseResult | null>(null);
-  const [loadedDirectory, setLoadedDirectory] = useState<string | null>(null);
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
@@ -44,14 +45,16 @@ export function useDirectoryBrowse(machine: MachineConnectionTarget | null, quer
   }, []);
 
   useEffect(() => {
-    if (machine === null || directory.length === 0) {
+    const requestId = ++requestRef.current;
+    if (machine === null || currentKey === null || directory.length === 0) {
       setResult(null);
-      setLoadedDirectory(null);
+      setLoadedKey(null);
       setPending(false);
       setError(null);
-      return;
+      return () => {
+        requestRef.current += 1;
+      };
     }
-    const requestId = ++requestRef.current;
     setPending(true);
     setError(null);
     void (async () => {
@@ -59,21 +62,24 @@ export function useDirectoryBrowse(machine: MachineConnectionTarget | null, quer
         const next = await browseDirectories(machine, directory, { details: true });
         if (requestRef.current !== requestId) return;
         setResult(next);
-        setLoadedDirectory(directory);
+        setLoadedKey(currentKey);
         setPending(false);
       } catch (failure) {
         if (requestRef.current !== requestId) return;
         setResult(null);
-        setLoadedDirectory(directory);
+        setLoadedKey(currentKey);
         setPending(false);
         setError(failure instanceof Error ? failure.message : String(failure));
       }
     })();
+    return () => {
+      requestRef.current += 1;
+    };
     // Keyed on the machine ID rather than the record: the record is looked up
     // fresh on every render, so depending on it would refetch on every keystroke.
-  }, [directory, machineId, reloadNonce]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentKey, directory, machineId, reloadNonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const isCurrent = loadedDirectory === directory;
+  const isCurrent = currentKey !== null && loadedKey === currentKey;
   const currentResult = isCurrent ? result : null;
 
   const filter = hasTrailingPathSeparator(query) ? '' : getBrowseLeafPathSegment(query);

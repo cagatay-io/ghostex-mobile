@@ -10,7 +10,7 @@
  * places and render the existing source list unchanged with zero errors.
  */
 
-import { useCallback, useEffect, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 import { Alert } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -92,6 +92,15 @@ export default function AddProjectSourceScreen({ navigation, route }: Props): Re
   const [showAllPlaces, setShowAllPlaces] = useState(false);
   const [addingPath, setAddingPath] = useState<string | null>(null);
   const [addError, setAddError] = useState<string | null>(null);
+  const mountedRef = useRef(true);
+  const addingRef = useRef(false);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const pickerPlaces = useProjectPickerPlaces(machine);
   const { places } = pickerPlaces;
@@ -137,7 +146,7 @@ export default function AddProjectSourceScreen({ navigation, route }: Props): Re
 
   const addSuggested = useCallback(
     async (suggestion: AddProjectSuggestion): Promise<void> => {
-      if (machine === null || addingPath !== null) return;
+      if (machine === null || addingRef.current) return;
       const duplicate = duplicateProjectFor(machineId, suggestion.path);
       if (duplicate !== null) {
         Alert.alert(
@@ -147,19 +156,24 @@ export default function AddProjectSourceScreen({ navigation, route }: Props): Re
         navigation.navigate('Sessions');
         return;
       }
+      addingRef.current = true;
       setAddingPath(suggestion.path);
       setAddError(null);
       try {
         await addProjectPath(machine, suggestion.path, { createIfMissing: false });
         invalidateProjectPickerPlacesCache(machineId);
         await useInventoryStore.getState().refreshMachineFresh(machine);
+        if (!mountedRef.current) return;
         navigation.navigate('Sessions');
       } catch (failure) {
+        if (!mountedRef.current) return;
         setAddingPath(null);
         setAddError(failure instanceof Error ? failure.message : String(failure));
+      } finally {
+        addingRef.current = false;
       }
     },
-    [addingPath, machine, machineId, navigation],
+    [machine, machineId, navigation],
   );
 
   if (machine === null) {
@@ -204,6 +218,8 @@ export default function AddProjectSourceScreen({ navigation, route }: Props): Re
           <ListSection>
             {visibleSuggestions.map((suggestion, index) => {
               const sourceLabel = suggestionSourceLabel(suggestion);
+              const hasBadges =
+                sourceLabel !== null || suggestion.branch !== undefined || suggestion.language !== undefined;
               const isAddingThis = addingPath === suggestion.path;
               const isBusy = addingPath !== null;
               return (
@@ -214,21 +230,23 @@ export default function AddProjectSourceScreen({ navigation, route }: Props): Re
                   title={suggestion.name}
                   description={tildifyRemotePath(suggestion.path, places?.home)}
                   icon={<GitBranchGlyph size={16} color={appearance.accent} />}
-                  disabled={isBusy && !isAddingThis}
+                  disabled={isBusy}
                   badges={
-                    <>
-                      {sourceLabel === null ? null : <MetadataBadge label={sourceLabel} tone="muted" />}
-                      {suggestion.branch === undefined ? null : (
-                        <MetadataBadge
-                          label={suggestion.branch}
-                          tone="accent"
-                          icon={<GitBranchGlyph size={11} color={appearance.accent} />}
-                        />
-                      )}
-                      {suggestion.language === undefined ? null : (
-                        <MetadataBadge label={suggestion.language} tone="muted" />
-                      )}
-                    </>
+                    hasBadges ? (
+                      <>
+                        {sourceLabel === null ? null : <MetadataBadge label={sourceLabel} tone="muted" />}
+                        {suggestion.branch === undefined ? null : (
+                          <MetadataBadge
+                            label={suggestion.branch}
+                            tone="accent"
+                            icon={<GitBranchGlyph size={11} color={appearance.accent} />}
+                          />
+                        )}
+                        {suggestion.language === undefined ? null : (
+                          <MetadataBadge label={suggestion.language} tone="muted" />
+                        )}
+                      </>
+                    ) : undefined
                   }
                   trailing={
                     <InlineActionButton

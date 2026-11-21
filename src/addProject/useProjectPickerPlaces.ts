@@ -5,14 +5,19 @@
  * screen into Local folder or Clone destination shows places immediately
  * without a duplicate scan. Invalidated whenever a project is added or cloned.
  *
- * Older computers return `null` from `fetchProjectPickerPlaces` with no error
- * so callers simply omit the Suggested and Places UI.
+ * Older or legacy computers (`unsupported`) cache `null` for the TTL and render
+ * zero errors; transient failures (`transient`, such as an unreachable link or
+ * timeout) leave the cache empty so revisiting retries immediately.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { MachineConnectionTarget } from '../machines/credentials';
-import { fetchProjectPickerPlaces, type AddProjectPlaces } from './client';
+import {
+  fetchProjectPickerPlaces,
+  fetchProjectPickerPlacesResult,
+  type AddProjectPlaces,
+} from './client';
 import { expandHomePrefix, remotePathIdentity } from './paths';
 
 const PLACES_CACHE_TTL_MS = 30_000;
@@ -51,27 +56,39 @@ export type ProjectPickerPlacesState = {
 
 export function useProjectPickerPlaces(machine: MachineConnectionTarget | null): ProjectPickerPlacesState {
   const machineId = machine?.id ?? null;
-  const cached = readCachedPlaces(machineId);
+  const initialCached = readCachedPlaces(machineId);
 
-  const [places, setPlaces] = useState<AddProjectPlaces | null>(cached?.places ?? null);
-  const [pending, setPending] = useState<boolean>(machine !== null && cached === null);
+  const [places, setPlaces] = useState<AddProjectPlaces | null>(initialCached?.places ?? null);
+  const [pending, setPending] = useState<boolean>(machine !== null && initialCached === null);
   const [pinningPath, setPinningPath] = useState<string | null>(null);
   const [pinError, setPinError] = useState<string | null>(null);
+
   const requestRef = useRef(0);
   const mountedRef = useRef(true);
+  const activeMachineIdRef = useRef<string | null>(machineId);
+  const loadedMachineIdRef = useRef<string | null>(initialCached !== null ? machineId : null);
+  const pinningRef = useRef(false);
   const placesRef = useRef<AddProjectPlaces | null>(places);
+
+  activeMachineIdRef.current = machineId;
   placesRef.current = places;
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      requestRef.current += 1;
     };
   }, []);
 
   const load = useCallback(
     (forceRefresh: boolean): void => {
+      // Always advance the generation before early returns so any prior in-flight
+      // fetch for another machine cannot overwrite the newly active machine.
+      const requestId = ++requestRef.current;
+
       if (machine === null || machineId === null) {
+        loadedMachineIdRef.current = null;
         setPlaces(null);
         setPending(false);
         return;
@@ -79,22 +96,51 @@ export function useProjectPickerPlaces(machine: MachineConnectionTarget | null):
       if (!forceRefresh) {
         const hit = readCachedPlaces(machineId);
         if (hit !== null) {
+          loadedMachineIdRef.current = machineId;
           setPlaces(hit.places);
           setPending(false);
           return;
         }
       }
-      const requestId = ++requestRef.current;
+      if (loadedMachineIdRef.current !== machineId) {
+        loadedMachineIdRef.current = null;
+        setPlaces(null);
+      }
       setPending(true);
       void (async () => {
         try {
-          const result = await fetchProjectPickerPlaces(machine, forceRefresh ? { refresh: true } : undefined);
-          if (!mountedRef.current || requestRef.current !== requestId) return;
-          placesCache.set(machineId, { places: result, fetchedAt: Date.now() });
-          setPlaces(result);
+          const outcome = await fetchProjectPickerPlacesResult(
+            machine,
+            forceRefresh ? { refresh: true } : undefined,
+          );
+          if (
+            !mountedRef.current ||
+            requestRef.current !== requestId ||
+            activeMachineIdRef.current !== machineId
+          ) {
+            return;
+          }
+          if (outcome.status === 'ok') {
+            placesCache.set(machineId, { places: outcome.places, fetchedAt: Date.now() });
+            loadedMachineIdRef.current = machineId;
+            setPlaces(outcome.places);
+          } else if (outcome.status === 'unsupported') {
+            placesCache.set(machineId, { places: null, fetchedAt: Date.now() });
+            loadedMachineIdRef.current = machineId;
+            setPlaces(null);
+          } else if (loadedMachineIdRef.current !== machineId) {
+            // Transient failure: do not cache `null`, so a later open retries immediately.
+            setPlaces(null);
+          }
           setPending(false);
         } catch {
-          if (!mountedRef.current || requestRef.current !== requestId) return;
+          if (
+            !mountedRef.current ||
+            requestRef.current !== requestId ||
+            activeMachineIdRef.current !== machineId
+          ) {
+            return;
+          }
           setPending(false);
         }
       })();
@@ -105,6 +151,7 @@ export function useProjectPickerPlaces(machine: MachineConnectionTarget | null):
   );
 
   useEffect(() => {
+    pinningRef.current = false;
     setPinError(null);
     setPinningPath(null);
     load(false);
@@ -122,9 +169,13 @@ export function useProjectPickerPlaces(machine: MachineConnectionTarget | null):
   const togglePin = useCallback(
     async (folderPath: string): Promise<void> => {
       const current = placesRef.current;
-      if (machine === null || machineId === null || current === null || pinningPath !== null) return;
+      if (machine === null || machineId === null || current === null || pinningRef.current) return;
+      const targetMachineId = machineId;
       const expanded = expandHomePrefix(folderPath, current.home);
       const alreadyPinned = isPinned(expanded);
+      pinningRef.current = true;
+      // Bump request generation so an in-flight load cannot overwrite this mutation's answer.
+      const requestId = ++requestRef.current;
       setPinningPath(expanded);
       setPinError(null);
       try {
@@ -132,20 +183,30 @@ export function useProjectPickerPlaces(machine: MachineConnectionTarget | null):
           ...(alreadyPinned ? { unpin: expanded } : { pin: expanded }),
           defaultProjectsFolder: current.defaultProjectsFolder ?? null,
         });
-        if (!mountedRef.current) return;
+        if (
+          !mountedRef.current ||
+          activeMachineIdRef.current !== targetMachineId ||
+          requestRef.current !== requestId
+        ) {
+          return;
+        }
         if (updated !== null) {
-          placesCache.set(machineId, { places: updated, fetchedAt: Date.now() });
+          placesCache.set(targetMachineId, { places: updated, fetchedAt: Date.now() });
+          loadedMachineIdRef.current = targetMachineId;
           setPlaces(updated);
         }
       } catch (failure) {
-        if (!mountedRef.current) return;
+        if (!mountedRef.current || activeMachineIdRef.current !== targetMachineId) return;
         setPinError(failure instanceof Error ? failure.message : String(failure));
       } finally {
-        if (mountedRef.current) setPinningPath(null);
+        if (activeMachineIdRef.current === targetMachineId) {
+          pinningRef.current = false;
+          if (mountedRef.current) setPinningPath(null);
+        }
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isPinned, machineId, pinningPath],
+    [isPinned, machineId],
   );
 
   const refresh = useCallback(() => {

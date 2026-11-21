@@ -252,7 +252,7 @@ export default function AddProjectLocalScreen({ navigation, route }: Props): Rea
           ) : undefined
         }
         headerContent={
-          newFolderOpen ? (
+          canCreateFolder && newFolderOpen ? (
             <View style={styles.newFolderBox}>
               <ProjectPathInput
                 testID="add-project-new-folder-input"
@@ -299,7 +299,6 @@ const createStyles = (appearance: Appearance) =>
       backgroundColor: appearance.card,
       padding: 10,
       gap: 8,
-      marginBottom: 8,
     },
     newFolderActions: {
       flexDirection: 'row',
