@@ -25,9 +25,47 @@ export function tileStatusColor(counts: TileStatusCounts): string | null {
 }
 
 /** The tile's one dot in its 1dp ring (`ringColor`, the surface it sits on); nothing while it has no state. */
-export function TileStatusDot({ counts, ringColor }: { counts: TileStatusCounts; ringColor: string }) {
+export function TileStatusDot({
+  counts,
+  ringColor,
+  size = STATUS_DOT_SIZE,
+}: {
+  counts: TileStatusCounts;
+  ringColor: string;
+  size?: number;
+}) {
   const color = tileStatusColor(counts);
-  return color === null ? null : <OverlappedDots colors={[color]} size={STATUS_DOT_SIZE} ringColor={ringColor} />;
+  return color === null ? null : <OverlappedDots colors={[color]} size={size} ringColor={ringColor} />;
+}
+
+/**
+ * CDXC:Spaces 2026-11-21 DECISION:
+ * User picked A at the size of C on the Spaces dot page (Q4353): a tile's one status dot is a 4pt
+ * dot inside its top-right corner, 3pt in from the top and right edges, instead of the 8pt dot hung
+ * over its lower edge (desktop status.rs `tile_status_dot`). The phone's Space tiles and computer
+ * tabs draw it the same way, at the same size (`ds`), through `TileCornerDot`.
+ */
+export const TILE_DOT_SIZE = 4;
+const TILE_DOT_INSET = 3;
+
+/** A tile's one dot in its top-right corner (`TILE_DOT_SIZE`, `TILE_DOT_INSET`); the tile draws `border` wide edges. */
+export function TileCornerDot({
+  counts,
+  ringColor,
+  border,
+}: {
+  counts: TileStatusCounts;
+  ringColor: string;
+  border: number;
+}) {
+  if (tileStatusColor(counts) === null) return null;
+  // Absolute insets count from inside the tile's edge, and the ring adds 1 round the dot.
+  const offset = Math.max(0, ds(TILE_DOT_INSET) - border - ds(1));
+  return (
+    <View pointerEvents="none" style={[styles.corner, { top: offset, right: offset }]}>
+      <TileStatusDot counts={counts} ringColor={ringColor} size={TILE_DOT_SIZE} />
+    </View>
+  );
 }
 
 /**
@@ -101,6 +139,7 @@ export default function StatusDotStack({
 }
 
 const styles = StyleSheet.create({
+  corner: { position: 'absolute' },
   stack: {
     flexDirection: 'row',
     alignItems: 'center',

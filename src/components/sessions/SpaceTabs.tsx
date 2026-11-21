@@ -18,8 +18,9 @@
  * name, and each tile's accessibility label carries the name.
  *
  * Each tile shows the status of the sessions it holds with the desktop Space's one dot, the most
- * urgent state's colour (TileStatusDot; selectors.rs, CDXC:Spaces 2026-11-20 in grouping.ts), hung
- * under the icon and over its lower edge as on the desktop, the icon dimmed to 80% while it shows.
+ * urgent state's colour (TileCornerDot; selectors.rs, CDXC:Spaces 2026-11-20 in grouping.ts), a
+ * small dot inside the tile's top-right corner as on the desktop since 2026-11-21, the icon dimmed
+ * to 80% while it shows.
  * The long-press menu lists the counts under the Space's name.
  */
 
@@ -42,7 +43,7 @@ import type { SpaceRowItem } from '../../spaces/spaceFilter';
 import { GhostexStrokeWidth } from '../../theme/palette';
 import { inkStyleSheets, SIDEBAR_BACKGROUND, useSidebarInk, type SidebarInk } from './rows';
 import { StarGlyph } from './icons';
-import { TileStatusDot, tileStatusColor } from './StatusDotStack';
+import { TileCornerDot, tileStatusColor } from './StatusDotStack';
 
 /** The Active projects star, first in the row (src/spaces/activeProjects.ts), in the desktop star's yellow. */
 export const ACTIVE_ROW_ITEM: SpaceRowItem = {
@@ -181,9 +182,7 @@ export default function SpaceTabs({
               )}
             </View>
             {hasStatus ? (
-              <View pointerEvents="none" style={styles.dots}>
-                <TileStatusDot counts={counts} ringColor={ink.light ? '#FFFFFF' : SIDEBAR_BACKGROUND} />
-              </View>
+              <TileCornerDot counts={counts} ringColor={ink.light ? '#FFFFFF' : SIDEBAR_BACKGROUND} border={GhostexStrokeWidth} />
             ) : null}
           </Pressable>
         );
@@ -200,11 +199,6 @@ export const SPACE_CHIP_HEIGHT = 34;
 const SPACE_ICON_SIZE = 20;
 /** The narrowest a tile gets before the row scrolls instead (the desktop's 28, grown with the tile). */
 const SPACE_TILE_MIN_WIDTH = 40;
-/**
- * The desktop's dots stand 20.5 down a 28 tile, over the icon's lower edge. Here they stay inside
- * the tile, since the row's scroll view clips what hangs out of it.
- */
-const SPACE_DOTS_TOP = 22;
 
 const spaceStyles = inkStyleSheets((ink) =>
   StyleSheet.create({
@@ -265,15 +259,6 @@ const spaceStyles = inkStyleSheets((ink) =>
     },
     iconWithStatus: {
       opacity: 0.8,
-    },
-    dots: {
-      position: 'absolute',
-      top: SPACE_DOTS_TOP,
-      left: 0,
-      right: 0,
-      height: 11,
-      alignItems: 'center',
-      justifyContent: 'center',
     },
   }),
 );

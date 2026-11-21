@@ -44,7 +44,7 @@ import { GhostexStrokeWidth, SetupPalette } from '../../theme/palette';
 import { ComputerIconGlyph } from './ComputerIconGlyph';
 import { CloudGlyph, LoaderGlyph, PlusGlyph } from './icons';
 import { machineTabLayout, machineTabRevealOffset, machineTabsOutOfView } from './machineTabLayout';
-import { TileStatusDot, tileStatusColor } from './StatusDotStack';
+import { TileCornerDot, TileStatusDot, tileStatusColor } from './StatusDotStack';
 import { tileStatusLines, type TileStatusCounts } from '../../contract/grouping';
 
 export type MachineTabConnectionState = 'busy' | 'connected' | 'disconnected' | 'failed';
@@ -168,7 +168,8 @@ function ConnectionGlyph({ item }: { item: MachineTabItem }) {
  * User: "Please make the indicators for sessions status in the RN session list match gpui one exactly". The desktop machine tab shows no status on the selected machine and the other machines' status as dots, not numbers, like its Spaces (apps/desktop/src/app/native_sidebar/machines.rs), so the phone draws the same overlapping dots on unselected tabs only. This supersedes the phone's numbered pills on every tab.
  * CDXC:SessionStatus 2026-10-24 DECISION:
  * User: "when we show those colored circles on remote machines let's make those circles appear below the remote machine tab instead of showing in a way that pushes the icon and name of the remote/local machine", and "Yes, same as the desktop" for the phone. The dots are drawn absolutely at the bottom of the tab, centred, so the glyph and label stay centred where they sit without dots and the tab keeps its height. Supersedes the dots sitting inline after the name.
- * Since 2026-11-20 one dot, the most urgent (CDXC:Spaces 2026-11-20 in grouping.ts).
+ * Since 2026-11-20 one dot, the most urgent (CDXC:Spaces 2026-11-20 in grouping.ts); since 2026-11-21 a
+ * 4pt dot in the tab's top-right corner (CDXC:Spaces 2026-11-21 in StatusDotStack.tsx).
  */
 function StatusDots({ item }: { item: MachineTabItem }) {
   const appearance = useAppearance();
@@ -176,7 +177,7 @@ function StatusDots({ item }: { item: MachineTabItem }) {
   if (tileStatusColor(item.counts) === null) return null;
   return (
     <View pointerEvents="none" style={styles.dots} accessibilityLabel={tileStatusLines(item.counts).join(', ')}>
-      <TileStatusDot counts={item.counts} ringColor={appearance.input} />
+      <TileCornerDot counts={item.counts} ringColor={appearance.input} border={0} />
     </View>
   );
 }
@@ -407,13 +408,13 @@ const createStyles = (appearance: Appearance) => StyleSheet.create({
     gap: 6,
     paddingHorizontal: 8,
   },
-  /** Below the label, centred, out of the tab's row so nothing shifts when it appears. */
+  /** The whole tab, out of its row so nothing shifts when the corner dot appears. */
   dots: {
     position: 'absolute',
     left: 0,
     right: 0,
+    top: 0,
     bottom: 0,
-    alignItems: 'center',
   },
   scrollArea: {
     flex: 1,
