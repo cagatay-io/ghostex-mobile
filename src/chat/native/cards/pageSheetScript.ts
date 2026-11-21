@@ -142,6 +142,9 @@ true;`;
 /** The most pictures one tap hands the viewer. */
 const IMAGES_MAX = 200;
 
+/** What a box's microphone asks (`pageDictation.ts`): start or stop, cancel, or Restore after a cancel. */
+export type PageDictateAction = 'toggle' | 'cancel' | 'restore';
+
 export type PageMessage =
   /** The reader tapped picture `index` of `images` (image values the chat's viewer reads). */
   | { type: 'images'; images: ChatImage[]; index: number }
@@ -149,8 +152,8 @@ export type PageMessage =
   | { type: 'close' }
   /** What the page had not saved yet ({@link PENDING_DRAFT_SCRIPT}), `null` when nothing. */
   | { type: 'draft'; draft: Record<string, unknown> | null }
-  /** A box's microphone was pressed, or Escape cancelled it (`pageDictation.ts`). */
-  | { type: 'dictate'; action: 'toggle' | 'cancel' };
+  /** A box's microphone was pressed, Escape cancelled it, or Restore was pressed (`pageDictation.ts`). */
+  | { type: 'dictate'; action: PageDictateAction };
 
 /**
  * Asks the page for its draft that has not reached gxserver yet (`ghostex.__pending()`,
@@ -194,7 +197,9 @@ export function readPageMessage(payload: string): PageMessage | null {
   }
   if (message.type === 'draft') return { type: 'draft', draft: record(message.draft) };
   if (message.type === 'dictate') {
-    return message.action === 'toggle' || message.action === 'cancel' ? { type: 'dictate', action: message.action } : null;
+    return message.action === 'toggle' || message.action === 'cancel' || message.action === 'restore'
+      ? { type: 'dictate', action: message.action }
+      : null;
   }
   return message.type === 'close' ? { type: 'close' } : null;
 }
