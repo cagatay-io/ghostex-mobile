@@ -33,6 +33,9 @@ export const QUESTION_PILL = {
  * to it. User (2026-11-11): "let's change these to the same #F472B6 color that we use to represent
  * questions everywhere pls": a waiting (open) tag is the question pink, #f472b6 on a dark chat and
  * #be185d on a light one, as `ROW_QUESTION` and the marked "Needs you" headings are.
+ * User (2026-11-21): the pill takes that pink with its HSL saturation cut by 20 percent (relative,
+ * hue and lightness kept): #f472b6 becomes #e77fb5 and #be185d becomes #ad2960. Only the pill; the
+ * dot and the headings keep the original pink.
  */
 export const QUESTION_TAGS = {
   radius: 6,
@@ -41,13 +44,13 @@ export const QUESTION_TAGS = {
   gap: 3,
   tone: {
     dark: {
-      open: { text: '#f472b6', border: 'rgba(244,114,182,0.4)' },
+      open: { text: '#e77fb5', border: 'rgba(231,127,181,0.4)' },
       answered: { text: '#a3c9aa', border: 'rgba(143,191,153,0.3)' },
       withdrawn: { text: '#838383', border: 'rgba(255,255,255,0.13)' },
       skipped: { text: '#838383', border: 'rgba(255,255,255,0.13)' },
     },
     light: {
-      open: { text: '#be185d', border: 'rgba(190,24,93,0.4)' },
+      open: { text: '#ad2960', border: 'rgba(173,41,96,0.4)' },
       answered: { text: '#3f6e4a', border: 'rgba(79,138,92,0.34)' },
       withdrawn: { text: '#71717a', border: 'rgba(0,0,0,0.16)' },
       skipped: { text: '#71717a', border: 'rgba(0,0,0,0.16)' },
