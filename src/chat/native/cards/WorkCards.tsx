@@ -51,6 +51,7 @@ import {
   WorkDescription,
   WorkMenuButton,
   WorkMenuList,
+  rowAsksQuestion,
   rowMarkdown,
   workMenuRows,
 } from './workItemParts';
@@ -434,7 +435,7 @@ export function WorkDock({
                         </Text>
                       </Pressable>
                     ) : null}
-                    {/* Mark all seen (gx-chat-core `dock_with`), in the more line's quiet words, at its right. */}
+                    {/* Mark all read (gx-chat-core `dock_with`), in the more line's quiet words, at its right. */}
                     {markAllSeen !== null ? (
                       <Pressable
                         accessibilityRole="button"
@@ -442,7 +443,7 @@ export function WorkDock({
                         style={styles.dockMarkSeen}
                         onPress={() => dispatch(markAllSeen.command as never)}
                       >
-                        <Text style={styles.dockMarkSeenText}>{str(markAllSeen, 'label') || 'Mark all seen'}</Text>
+                        <Text style={styles.dockMarkSeenText}>{str(markAllSeen, 'label') || 'Mark all read'}</Text>
                       </Pressable>
                     ) : null}
                   </View>
@@ -766,8 +767,8 @@ function DockRow({
   const count = str(row, 'count');
   const markRead = str(row, 'kind') === 'finished' ? obj(row.dismiss) : null;
   // Every other closed row with a Dismiss or Mark as read in its menu leads its buttons with Mark
-  // as read, the same command (desktop `dock_mark_read_icon`).
-  const readButton = !opened && !settled && markRead === null ? obj(row.dismiss) : null;
+  // as read, the same command (desktop `dock_mark_read_icon`), unless it asks a question.
+  const readButton = !opened && !settled && markRead === null && !rowAsksQuestion(row) ? obj(row.dismiss) : null;
   // A question form that needs the reader is the visuals list's checklist in the need-you pink
   // (desktop `row_mark`; the user: "use this icon for this one when it's a question form (keep
   // pink color)"); a page its page, everything else its status's mark.

@@ -202,6 +202,23 @@ export function openWorkReply(reply: JsonRecord, scope: ReplyDraftScope | null):
 }
 
 /**
+ * Whether a dock row carries a question the reader must answer, so it has no Mark as read: an ask
+ * with answers, a one-click question, a form or page with open questions, an approval with buttons,
+ * a to-do that offers its own choices. A page that only waits to be seen (its dismiss reads "Mark
+ * as read"), a to-do with only Done, a blocked line of work and a notice with no answers ask
+ * nothing. Desktop has the same rule (native_chat/work_actions.rs `row_asks_question`).
+ */
+export function rowAsksQuestion(row: JsonRecord): boolean {
+  const key = str(row, 'key');
+  const buttons = arr(row.buttons);
+  if (key.startsWith('work-ask:')) return true;
+  if (key.startsWith('dock-questions:')) return str(row, 'dismissLabel') !== 'Mark as read';
+  const onlyDone = buttons.length === 0 || (buttons.length === 1 && str(buttons[0], 'label') === 'Done');
+  if (key.startsWith('needs-you:')) return !onlyDone;
+  return buttons.length > 0;
+}
+
+/**
  * An opened row's (and an opened Work sheet card's) space between its title with its work item
  * line, its description and its answers: the question card's (desktop question.rs, 12 from the
  * head to the text and from the text to the options; `OPENED_ROW_GAP` in work_cards.rs).
