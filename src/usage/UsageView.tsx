@@ -335,6 +335,7 @@ function AccountSection({
       ) : (
         <UsageRow columns={account.meters} resets appearance={meterAppearance} />
       )}
+      {account.resets !== null ? <Text style={styles.paragraph}>{UsageCopy.resetsLeft(account.resets)}</Text> : null}
     </View>
   );
 }

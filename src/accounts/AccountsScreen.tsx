@@ -18,7 +18,7 @@ import { AGENT_ICONS } from '../assets/agentIcons.generated';
 import { UsageRow } from '../chat/native/composer/AccountsPanel';
 import ActionSheet from '../components/common/ActionSheet';
 import { agentIconTint } from '../contract/mobileSummary';
-import { AccountsCopy } from '../copy';
+import { AccountsCopy, UsageCopy } from '../copy';
 import { isMachineEnabled, machineDisplayLabel, useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
 import { machineTargetFor } from '../screens/terminal-screen/session-lookups';
@@ -411,6 +411,9 @@ function AccountRow({ account, busy, onReconnect }: { account: ManagedAccount; b
       ) : null}
       {!account.disabled && !account.needsSignIn && account.meters.length > 0 ? (
         <UsageRow columns={account.meters} resets appearance={meterAppearance} />
+      ) : null}
+      {!account.disabled && !account.needsSignIn && account.resets !== null ? (
+        <Text style={styles.paragraph}>{UsageCopy.resetsLeft(account.resets)}</Text>
       ) : null}
     </View>
   );

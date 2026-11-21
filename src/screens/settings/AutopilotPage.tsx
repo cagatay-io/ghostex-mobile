@@ -49,6 +49,12 @@ type Config = {
   answerApprovals: boolean;
   /** Absent on a computer whose Ghostex predates the switch: then the row is hidden and the old wording kept. */
   readOnlyLeavePlan?: boolean;
+  /**
+   * "Use a limit reset when an account hits its limit" (server/src/autopilot/config.rs `use_limit_resets`, off by
+   * default); absent on a computer whose Ghostex predates it, which hides the row. The phone is the user's own device,
+   * so the computer lets it turn the switch on.
+   */
+  useLimitResets?: boolean;
   supervisor: 'opusMedium' | 'solHigh';
   sweepSeconds: number;
   /** Supervisor check-up period in minutes, 0 is Off; absent from a computer whose Ghostex predates it. */
@@ -482,6 +488,14 @@ function AutopilotBody({
                 detail="Autopilot approves a read-only helper's request to stop planning and start changing files, instead of keeping it in plan mode. Its edits and commands are then judged like any other session's."
                 value={config.readOnlyLeavePlan}
                 onValueChange={(on) => set({ readOnlyLeavePlan: on })}
+              />
+            ) : null}
+            {config.useLimitResets !== undefined ? (
+              <ToggleRow
+                label="Use a limit reset when an account hits its limit"
+                detail="When a Claude account reaches a usage limit and Anthropic offers it a limit reset that clears that limit, Autopilot uses it right away. It waits if the limit lifts on its own within 30 minutes. Each use is in the security log and the bell. Agents can't turn it on."
+                value={config.useLimitResets}
+                onValueChange={(on) => set({ useLimitResets: on })}
               />
             ) : null}
           </SettingsSection>

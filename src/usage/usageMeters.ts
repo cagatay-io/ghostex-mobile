@@ -38,7 +38,21 @@ export type UsageAccount = {
    * `signInIgnored`, kept on the computer): no amber, a "Not used on <computer> · Undo" line instead.
    */
   readonly signInIgnored: boolean;
+  /**
+   * The limit resets the computer reads for this login (`resetCredits`), or null when it reports none (no reset
+   * program for the plan, or not read yet).
+   *
+   * CDXC:AgentProviders 2026-11-21 DECISION: User: "please add to sessions in ghostex the ability to see the resets for
+   * my claude accounts". The phone's usage pane and Accounts screen name how many are left under the meters.
+   */
+  readonly resets: number | null;
 };
+
+/** gxserver's `resetCredits`: a count, or null when the account reports none. */
+export function resetCount(row: unknown): number | null {
+  const value = obj(row)?.resetCredits;
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? Math.floor(value) : null;
+}
 
 /**
  * The answer with each CLIProxyAPI hub account (`cliproxyHubs[].accounts`, sent only while that extension is on and
@@ -153,6 +167,7 @@ export function buildUsageMeters(answer: unknown, columns: unknown): UsageAccoun
       hub: str(row, 'hubLabel'),
       signedOut: isSignedOut(row),
       signInIgnored: isSignInIgnored(row),
+      resets: resetCount(row),
     };
   });
 }

@@ -1790,6 +1790,12 @@ export const UsageCopy = {
     `${name} ${value}${resetIn.length > 0 ? `, resets in ${resetIn}` : ''}`,
   /** The countdown under a meter's bar. */
   resetIn: (resetIn: string) => `↻ ${resetIn}`,
+  /**
+   * The account's banked limit resets (gxserver's `resetCredits`): Claude's from Anthropic's reset grants, Codex's from
+   * its reset credits. A reset gives back a used-up limit at once; desktop's usage popup uses one.
+   */
+  resetsLeft: (count: number) =>
+    count === 0 ? 'No limit resets left' : `${count} limit ${count === 1 ? 'reset' : 'resets'} left`,
   /** The provider's name on a Home Screen widget bar ("Claude 5h"), when the computer has one account of it. */
   provider: { claude: 'Claude', codex: 'Codex' },
   /** A Home Screen widget bar: the provider's or, with several accounts of one provider, the account's name. */
