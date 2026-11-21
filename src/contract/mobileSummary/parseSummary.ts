@@ -319,6 +319,7 @@ export function parseSidebarSpaces(value: unknown): GhostexSidebarSpaces {
       memberCollectionIds: stringArray(entry, 'memberCollectionIds'),
       memberProjectIds: stringArray(entry, 'memberProjectIds'),
       workspaceId: trimmedValue(entry, 'workspaceId') || undefined,
+      ...(entry.hidden === true ? { hidden: true } : {}),
     };
   }
   const order: string[] = [];

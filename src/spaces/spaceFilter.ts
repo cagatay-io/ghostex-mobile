@@ -45,10 +45,15 @@ export function resolveSelectedSpaceId(
   if (storedSpaceId === OTHER_SIDEBAR_SPACE_ID) return OTHER_SIDEBAR_SPACE_ID;
   // The Active projects star (./activeProjects.ts) resolves while the computer shows it; off, it falls back.
   if (activeProjects && storedSpaceId === ACTIVE_SPACE_ID) return ACTIVE_SPACE_ID;
-  if (storedSpaceId !== undefined && spaces.spaces[storedSpaceId] !== undefined) {
+  // A hidden Space is never the selection: the phone has no Show hidden to draw it with (spaceRowItems).
+  const shown = (spaceId: string): boolean => {
+    const space = spaces.spaces[spaceId];
+    return space !== undefined && space.hidden !== true;
+  };
+  if (storedSpaceId !== undefined && shown(storedSpaceId)) {
     return storedSpaceId;
   }
-  return spaces.order.find((spaceId) => spaces.spaces[spaceId] !== undefined) ?? OTHER_SIDEBAR_SPACE_ID;
+  return spaces.order.find(shown) ?? OTHER_SIDEBAR_SPACE_ID;
 }
 
 /**
@@ -144,9 +149,13 @@ export function filterSummaryForSpace(
 /**
  * The machine's own Spaces as row items, in order. The built-in Other button is
  * appended by the row component, which owns its reserved id, label, and glyph.
+ *
+ * CDXC:Spaces 2026-11-21 SEE-ALSO: the DECISION at `Space::shown` in packages/gx-core/src/sidebar_view/spaces.rs.
+ * A Space hidden on the desktop is left off the phone's row; the phone has no Show hidden, so it is unhidden there.
+ * Its projects stay its members, so they do not move to Other (`filterSummaryForSpace` still reads every Space).
  */
 export function spaceRowItems(spaces: GhostexSidebarSpaces): SpaceRowItem[] {
-  return orderedSpaces(spaces).map((space) => ({
+  return orderedSpaces(spaces).filter((space) => space.hidden !== true).map((space) => ({
     spaceId: space.spaceId,
     name: space.name,
     icon: space.icon,

@@ -211,6 +211,8 @@ export type GhostexSidebarSpace = {
   memberProjectIds: string[];
   /** The workspace this Space belongs to; absent = the default workspace. */
   workspaceId?: string;
+  /** Hidden with the desktop's Hide Space: off the Space row, its projects still its members. */
+  hidden?: boolean;
 };
 
 /** Ordered Space set for one machine. Empty `order` means the daemon has none. */

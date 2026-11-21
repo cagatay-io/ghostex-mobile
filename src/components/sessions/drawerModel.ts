@@ -436,15 +436,54 @@ export function everyComputerList(
   if (!active && (own.separateByMachine === true || (others.length === 0 && !ownOffline))) return null;
   const inWorkspace = (summary: GhostexMobileSummary, workspaceId: string | null) =>
     workspaceId === null ? summary : filterSummaryForWorkspace(summary, workspaceId);
+  const ownShown = inWorkspace(own, input.selectedWorkspaceId);
   const merged = mergeComputers([
-    { machineId: selected.id, summary: inWorkspace(own, input.selectedWorkspaceId) },
+    { machineId: selected.id, summary: ownShown },
     ...others.map((machine) => ({
       machineId: machine.id,
-      summary: inWorkspace(input.inventoriesByMachineId[machine.id]!.summary!, input.workspaceIdOf?.(machine.id) ?? null),
+      summary: withoutSpacesFiledElsewhere(
+        inWorkspace(input.inventoriesByMachineId[machine.id]!.summary!, input.workspaceIdOf?.(machine.id) ?? null),
+        own,
+        ownShown,
+      ),
     })),
   ]);
   // The left-out selected computer gives the list nothing, so it is not one of the computers project headers name.
   return ownOffline ? { ...merged, computerCount: others.length } : merged;
+}
+
+/**
+ * Another computer's summary without the Spaces the selected computer files in a workspace it is not showing, matched
+ * as `unionSpaces` (contract/mergedComputers.ts) matches them: by id, else by name. A name the shown Spaces also use
+ * still joins, and a Space the selected computer does not have joins as before.
+ *
+ * CDXC:Workspaces 2026-11-21 SEE-ALSO: the WHY at `OtherWorkspaceSpaces` in packages/gx-core/src/sidebar_view/merged.rs.
+ * Settings sync gives every computer the same Spaces but not their workspace, so the other computer holds a Work Space
+ * in its own default workspace, and the one list showed it (empty) in Personal too.
+ */
+function withoutSpacesFiledElsewhere(
+  theirs: GhostexMobileSummary,
+  own: GhostexMobileSummary,
+  ownShown: GhostexMobileSummary,
+): GhostexMobileSummary {
+  const key = (name: string) => name.trim().toLowerCase();
+  const shownIds = new Set(ownShown.sidebarSpaces.order);
+  const shownNames = new Set(Object.values(ownShown.sidebarSpaces.spaces).map((space) => key(space.name)));
+  const elsewhere = Object.values(own.sidebarSpaces.spaces).filter((space) => !shownIds.has(space.spaceId));
+  if (elsewhere.length === 0) return theirs;
+  const elsewhereIds = new Set(elsewhere.map((space) => space.spaceId));
+  const elsewhereNames = new Set(elsewhere.map((space) => key(space.name)));
+  const keep = (spaceId: string): boolean => {
+    const space = theirs.sidebarSpaces.spaces[spaceId];
+    if (space === undefined) return false;
+    if (shownIds.has(spaceId)) return true;
+    if (elsewhereIds.has(spaceId)) return false;
+    return shownNames.has(key(space.name)) || !elsewhereNames.has(key(space.name));
+  };
+  const order = theirs.sidebarSpaces.order.filter(keep);
+  if (order.length === theirs.sidebarSpaces.order.length) return theirs;
+  const spaces = Object.fromEntries(order.map((spaceId) => [spaceId, theirs.sidebarSpaces.spaces[spaceId]!]));
+  return { ...theirs, sidebarSpaces: { order, spaces } };
 }
 
 /** Each drawn row of the one list given back its own computer, and each entry's header its creating copy. */
