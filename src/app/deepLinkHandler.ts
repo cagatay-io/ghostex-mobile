@@ -14,8 +14,10 @@
  *   At a cold start the link waits until the stores that decide or overwrite the session's view are
  *   loaded (`storesReady`); the computer's session list may still be missing then: the session is
  *   attached, and once the list shows it (during the attach, or read anew right after it) a question link
- *   switches to its Chat View when it has one. An ordinary link forces no view: the Terminal screen picks it
- *   with the rule a tap in the Sessions list uses (`chatModeArmed`) as soon as the list is there.
+ *   switches to its Chat View when it has one, but only after an attach that succeeded: one that ended at the time
+ *   limit keeps its tab on the terminal, where the failure and Retry show. An ordinary link forces no view: the
+ *   Terminal screen picks it with the rule a tap in the Sessions list uses (`chatModeArmed`) as soon as the list is
+ *   there.
  *   A link that opens a tapped notification carries its opening's check (`current`): once a later tap came
  *   or the person left, no step of the opening selects, switches the view or navigates any more.
  *   An attach that ended at the terminal open's time limit opens the terminal as a successful one does (its tab shows
@@ -218,21 +220,23 @@ function openSession(
   void deps
     .attachSession(machine, { sessionId: link.sessionId, title }, current)
     .then(
-      (sessionKey) => ({ sessionKey, check: current }),
+      (sessionKey) => ({ sessionKey, check: current, timedOut: false }),
       (error: unknown) => {
         // Ended at the time limit: the tab shows the failure with Retry, so the terminal opens as on success, but
         // only while this opening is still current.
         const sessionKey = deps.openTimedOut(error);
         if (sessionKey === null) throw error;
-        return { sessionKey, check: () => current?.() !== false && opening() };
+        return { sessionKey, check: () => current?.() !== false && opening(), timedOut: true };
       },
     )
-    .then(async ({ sessionKey, check }) => {
+    .then(async ({ sessionKey, check, timedOut }) => {
       // The attach can take long: a later tap or the person may have moved on meanwhile.
       if (check?.() === false) return;
       // On a cold start the summary may only have arrived during the attach.
       deps.revealWorkspace(link.machineId, link.sessionId);
-      const question = link.view === 'question' && session === undefined;
+      // A question's Chat View only after a successful attach: a timed-out tab stays on its terminal's failure and
+      // Retry, also when the session list shows the session during or after the attach.
+      const question = !timedOut && link.view === 'question' && session === undefined;
       const arrived = question ? deps.session(link.machineId, link.sessionId) : undefined;
       if (arrived?.hasChatView === true) deps.showChatView(sessionKey);
       deps.navigate({ name: 'Terminal', params: { sessionKey, machineId: machine.id, title } }, check);
