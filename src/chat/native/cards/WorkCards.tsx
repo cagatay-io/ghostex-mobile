@@ -205,12 +205,28 @@ export function dockHeightCap(space: number, keyboardUp: boolean): number {
 }
 
 /**
+ * The dock's overflow line, by what is hidden: "3 more done", "2 more need you · 1 more done". Never
+ * says "need you" of a row that does not (a finished row has `needs` false). Same words as
+ * gx-chat-core `work_cards::dock_more_label`.
+ */
+function dockMoreLabel(hiddenRows: JsonRecord[]): string {
+  const needs = hiddenRows.filter((row) => isTrue(row, 'needs')).length;
+  const blocked = hiddenRows.filter((row) => !isTrue(row, 'needs') && str(row, 'kind') === 'blocked').length;
+  const done = hiddenRows.length - needs - blocked;
+  const parts: string[] = [];
+  if (needs > 0) parts.push(`${needs} more ${needs === 1 ? 'needs you' : 'need you'}`);
+  if (blocked > 0) parts.push(`${blocked} more blocked`);
+  if (done > 0) parts.push(`${done} more done`);
+  return parts.join(' \u00b7 ');
+}
+
+/**
  * The dock directly on the chat box (gx-chat-core `work_cards::dock`, which holds the user's
  * decisions; desktop `render_work_dock`): one surface with a header bar, then compact rows, what
  * needs him first, then blocked work and what the newest turn finished. The header counts what
  * needs him, what is blocked and what is in progress, opens the Work sheet, and collapses the dock to
  * itself; a collapsed dock opens by itself when something new needs him (the core's `hidden`). At
- * most `phoneLimit` rows show, then "N more need you", which opens the rest in place. A tap shows a
+ * most `phoneLimit` rows show, then "N more" by what is hidden (`dockMoreLabel`), which opens the rest in place. A tap shows a
  * row's ask in a sheet (`DockRow` with `onClose`). It sits outside the transcript, so it carries the
  * transcript's flags (Text strength) and an env for the description's Markdown.
  *
@@ -431,7 +447,7 @@ export function WorkDock({
                         onPress={() => setAll((was) => !was)}
                       >
                         <Text style={styles.dockMore}>
-                          {all ? 'Show fewer' : hidden === 1 ? '1 more needs you' : `${hidden} more need you`}
+                          {all ? 'Show fewer' : dockMoreLabel(rows.slice(limit))}
                         </Text>
                       </Pressable>
                     ) : null}
