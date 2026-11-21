@@ -326,6 +326,8 @@ export type ActionFields = {
   };
   /** Settings › Cloud Boxes (or `projects` for snapshots); the phone points at the computer. */
   openCloudBoxSettings: { page?: string };
+  /** The model picker's "+": Settings › Agents on desktop, this computer's Agent CLIs on the phone. */
+  openAgentSettings: {};
   selectForkBranch: { [field: string]: unknown };
 
   // ---- context ------------------------------------------------------------------------------

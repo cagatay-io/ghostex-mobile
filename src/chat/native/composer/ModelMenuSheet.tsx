@@ -351,6 +351,21 @@ export function ModelMenuSheet({
               </Pressable>
             );
           })}
+          {isTrue(menu, 'addAgent') ? (
+            // The "+" at the row's right end, as on desktop (CDXC:AgentLauncher 2026-11-21 in
+            // gx-chat-core menus/picker/projection.rs): this computer's Agent CLIs, where more are installed.
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Add agents"
+              onPress={() => {
+                onClose();
+                dispatch({ type: 'openAgentSettings' });
+              }}
+              style={({ pressed }) => [styles.tab, styles.addAgent, pressed ? styles.tabPressed : null]}
+            >
+              <Glyph name="plus" size={18} color={P.ink(0.64)} />
+            </Pressable>
+          ) : null}
         </View>
         {error.length > 0 ? (
           // A choice the agent's own list could not offer is said here, where it was made.
@@ -678,6 +693,7 @@ const useStyles = themedStyles((P) => ({
   tab: { width: 44, height: 44, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   tabPressed: { backgroundColor: P.ink(0.06) },
   tabIdle: { opacity: 0.72 },
+  addAgent: { marginLeft: 'auto' },
   handoff: {
     position: 'absolute',
     right: 6,
