@@ -175,6 +175,8 @@ const ICON_BUTTON = 30;
 const DETAILS_GLYPH: GlyphName = 'note';
 /** A Needs you row's Jump to context (desktop `CONTEXT_ICON`). */
 const CONTEXT_GLYPH: GlyphName = 'focus-2';
+/** A Needs you row's Mark as read (desktop `MARK_READ_ICON`). */
+const MARK_READ_GLYPH: GlyphName = 'mail-opened';
 
 /** A Reply button's width as `WorkAnswerLine` measures it. */
 function replyWidthOf(replied: string, fontScale: number): number {
@@ -458,6 +460,7 @@ export function WorkAnswerLine({
   details = null,
   iconOnly = false,
   context = null,
+  markRead = null,
 }: {
   answers: JsonRecord[];
   reply: JsonRecord | null;
@@ -498,6 +501,13 @@ export function WorkAnswerLine({
    * `work_cards::context_of`; desktop `dock_context_icon`). A computer that sends none draws no
    * button. */
   context?: JsonRecord | null;
+  /** Mark as read, the first of the dock's closed row's buttons: the row's own `dismiss`, the
+   * command its menu's Dismiss / Mark as read sends (desktop `dock_mark_read_icon`).
+   *
+   * CDXC:Coordinators 2026-11-21 DECISION: the user, of Needs you rows with Details and Reply:
+   * "can we add the message open icon to mark as read to be to the left of the current 2 buttons
+   * that are there?" */
+  markRead?: JsonRecord | null;
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
@@ -555,11 +565,23 @@ export function WorkAnswerLine({
         }}
       />
     ) : null;
-  const contextWidth = contextButton !== null ? ICON_BUTTON + 6 : 0;
+  const markReadButton =
+    markRead != null ? (
+      <WorkButton
+        key="read"
+        keep
+        iconOnly
+        label="Mark as read"
+        icon={MARK_READ_GLYPH}
+        onPress={() => dispatch(markRead as never)}
+      />
+    ) : null;
+  const contextWidth = (contextButton !== null ? ICON_BUTTON + 6 : 0) + (markReadButton !== null ? ICON_BUTTON + 6 : 0);
   const pillRoom = pillWidths(pills, fontScale);
   if (details != null) {
     return (
       <View style={styles.line}>
+        {markReadButton}
         <WorkButton keep iconOnly={iconOnly} label="Details" icon={DETAILS_GLYPH} onPress={details} />
         {contextButton}
         {replyButton}
@@ -590,6 +612,7 @@ export function WorkAnswerLine({
       return (
         <View style={styles.line}>
           {lead}
+          {markReadButton}
           {iconOnly ? (
             <WorkButton keep iconOnly label="Details" icon={DETAILS_GLYPH} onPress={() => dispatch(open as never)} />
           ) : (
@@ -603,6 +626,7 @@ export function WorkAnswerLine({
     return replyButton !== null || contextButton !== null || pills.length > 0 || logos != null ? (
       <View style={styles.line}>
         {lead}
+        {markReadButton}
         {contextButton}
         {replyButton}
       </View>
@@ -702,6 +726,7 @@ export function WorkAnswerLine({
         {/* Opened: the item pills at the left, the answers and Reply at the right edge (user,
             2026-11-12: "move the answer buttons to bottom right. keep work item tag bottom left"). */}
         {divider ? <View style={styles.flex} /> : null}
+        {markReadButton}
         {fold ? (
           <WorkButton
             keep

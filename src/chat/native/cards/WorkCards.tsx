@@ -765,6 +765,9 @@ function DockRow({
   const logosWidth = threadChips.length * (THREAD_LOGO + 6);
   const count = str(row, 'count');
   const markRead = str(row, 'kind') === 'finished' ? obj(row.dismiss) : null;
+  // Every other closed row with a Dismiss or Mark as read in its menu leads its buttons with Mark
+  // as read, the same command (desktop `dock_mark_read_icon`).
+  const readButton = !opened && !settled && markRead === null ? obj(row.dismiss) : null;
   // A question form that needs the reader is the visuals list's checklist in the need-you pink
   // (desktop `row_mark`; the user: "use this icon for this one when it's a question form (keep
   // pink color)"); a page its page, everything else its status's mark.
@@ -792,6 +795,7 @@ function DockRow({
           details={details}
           iconOnly={!opened}
           context={obj(row.context)}
+          markRead={readButton}
         />
       </View>
     ) : logos !== null ? (

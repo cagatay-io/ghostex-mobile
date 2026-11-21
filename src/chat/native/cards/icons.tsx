@@ -147,6 +147,8 @@ const GLYPHS = {
   'stack-push': { paths: ['M6 10l-2 1l8 4l8 -4l-2 -1', 'M4 15l8 4l8 -4', 'M12 4v7', 'M15 8l-3 3l-3 -3'] },
   /** "Back to open" on a For later row (desktop `titlebar/arrow-back-up.svg`). */
   'arrow-back-up': { paths: ['M9 14l-4 -4l4 -4', 'M5 10h11a4 4 0 1 1 0 8h-1'] },
+  /** A Needs you row's Mark as read (desktop `titlebar/mail-opened.svg`). */
+  'mail-opened': { paths: ['M3 9l9 6l9 -6l-9 -6l-9 6', 'M21 9v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-10', 'M3 19l6 -6', 'M15 13l6 6'] },
   /** A Needs you row's Jump to context (desktop `titlebar/focus-2.svg`). */
   'focus-2': {
     paths: [
