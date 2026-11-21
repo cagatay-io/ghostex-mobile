@@ -180,11 +180,11 @@ export function ChiefWelcome({ chat, card }: { chat: RustChat; card: ChiefWelcom
         </View>
         <Glyph name="chevron-right" size={15} color={ink} />
       </Pressable>
-      {newUser ? (
+      {newUser ? null : <View style={styles.prompts}>{card.prompts.map((row) => prompt(row, 'prompt'))}</View>}
+      {/* The new user's four asks and Report a bug; on the set-up card Report a bug alone. */}
+      {card.chips.length > 0 ? (
         <View style={styles.chips}>{card.chips.map((chip) => prompt(chip, 'chip'))}</View>
-      ) : (
-        <View style={styles.prompts}>{card.prompts.map((row) => prompt(row, 'prompt'))}</View>
-      )}
+      ) : null}
     </View>
   );
 }
