@@ -71,6 +71,7 @@ import KeyBarDock from '../components/terminal/KeyBarDock';
 import PromptEditorSheet from '../components/terminal/PromptEditorSheet';
 import TerminalBottomBar from '../components/terminal/TerminalBottomBar';
 import TerminalFloatingControls from '../components/terminal/TerminalFloatingControls';
+import { terminalKeyboardButtonShown } from '../components/terminal/terminalKeyboardButton';
 import TerminalKeyBar from '../components/terminal/TerminalKeyBar';
 import TerminalMenu, { type TerminalMenuActionId } from '../components/terminal/TerminalMenu';
 import TerminalSkillsMenu from '../components/terminal/TerminalSkillsMenu';
@@ -1885,16 +1886,22 @@ export default function TerminalScreen({ navigation, route }: Props) {
           is up. With it on, Upload is a pad key and the optional keyboard and refresh buttons stand above the
           closed pad's toggle; when the user moved the pad away from the right edge they keep their own corner.
           iOS: while the keyboard is up and the pad is off or closed, the keyboard button shows as its dismiss
-          whatever its setting, so one tap hides the keyboard; with the pad on it is then the only one there. Not
+          whatever its setting, so one tap hides the keyboard; with the pad on it is then the only one there; and it
+          shows wherever neither the bottom bar nor the pad brings the keyboard (`terminalKeyboardButtonShown`). Not
           while a pane without a terminal is the active one: they act on a terminal. A chat pane that is the active
           one gets the keyboard button alone, at the same place, while the keyboard is up (its dismiss).
         */}
         {(terminalButtonsShown || chatPaneKeyboardButton) && (
           <TerminalFloatingControls
-            showKeyboardButton={
-              !terminalBarShown &&
-              (chatPaneKeyboardButton || settings.keyboardButtonVisible || (slidesWithKeyboard && keyboardVisible))
-            }
+            showKeyboardButton={terminalKeyboardButtonShown({
+              barShown: terminalBarShown,
+              barPlace: terminalBarPlace,
+              padShown: padSessionKey !== null,
+              slides: slidesWithKeyboard,
+              keyboardVisible,
+              setting: settings.keyboardButtonVisible,
+              chatPaneKeyboardUp: chatPaneKeyboardButton,
+            })}
             showUploadButton={
               !terminalBarShown && terminalButtonsShown && padSessionKey === null && settings.fileUploadButtonVisible
             }
