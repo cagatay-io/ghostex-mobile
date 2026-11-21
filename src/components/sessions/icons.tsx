@@ -1074,21 +1074,33 @@ export function ShareGlyph({ size, color }: GlyphProps) {
   );
 }
 
-/** The Ghostex flower in one colour: Chief's icon (desktop titlebar/ghostex-flower.svg). */
+/**
+ * The app icon's seven petals, filled, one path each: the desktop's titlebar/ghostex.svg and the
+ * Android status bar icon (modules/ghostex-native/android/src/main/res/drawable/ic_ghostex_service.xml).
+ */
+const GHOSTEX_FLOWER_PATH = [
+  'M12.37,2.03L11.63,2.03L11.21,2.16L10.60,2.51L10.15,2.93L9.80,3.41L9.51,3.99L9.35,4.47L9.18,5.28L9.22,6.63L9.35,7.27L9.60,8.07L10.44,9.75L11.37,11.16L11.69,11.55L11.82,11.29L12.37,9.49L12.98,8.11L13.79,6.79L14.82,5.66L14.78,5.05L14.59,4.25L14.40,3.76L14.08,3.22L13.40,2.51L12.79,2.16z',
+  'M3.84,5.95L3.59,6.37L3.43,6.92L3.39,7.62L3.46,8.04L3.72,8.81L3.94,9.23L4.36,9.81L4.94,10.39L5.87,11.03L6.61,11.39L7.45,11.68L9.18,12.00L10.73,12.13L11.15,12.10L10.18,10.68L9.35,9.17L8.77,7.62L8.61,6.88L8.54,6.08L8.44,5.95L7.99,5.66L7.19,5.28L6.16,5.05L5.61,5.05L4.97,5.18L4.33,5.50z',
+  'M20.25,6.08L19.80,5.60L19.58,5.44L18.93,5.15L18.39,5.05L17.55,5.08L17.00,5.21L16.23,5.53L15.56,5.95L15.04,6.37L14.53,6.92L13.79,8.01L13.05,9.68L12.47,11.61L12.63,11.61L13.43,11.26L14.62,10.84L16.07,10.49L17.49,10.33L18.51,10.36L18.77,10.42L19.09,10.36L19.87,9.52L20.19,9.01L20.48,8.30L20.61,7.62L20.61,7.14L20.54,6.76z',
+  'M12.92,12.29L13.05,12.42L14.49,13.22L15.72,14.09L17.04,15.35L17.42,15.83L17.87,16.60L18.06,16.70L18.61,16.76L19.51,16.73L20.48,16.47L21.09,16.15L21.70,15.60L21.93,15.28L22.12,14.80L22.18,14.48L22.15,13.80L21.99,13.29L21.60,12.64L21.22,12.23L20.64,11.77L19.99,11.42L19.09,11.10L18.29,10.97L17.23,10.97L16.49,11.07L15.75,11.23L14.62,11.58z',
+  'M1.85,14.67L1.98,15.09L2.30,15.60L2.91,16.15L3.52,16.47L4.13,16.67L4.84,16.76L5.39,16.76L6.13,16.67L7.19,16.31L7.99,15.89L8.57,15.51L9.99,14.28L11.02,13.19L11.24,12.87L11.12,12.80L10.05,12.77L8.86,12.64L7.35,12.32L6.03,11.87L5.20,11.42L4.87,11.16L4.68,11.16L4.01,11.42L3.36,11.77L2.81,12.19L2.40,12.64L2.14,13.03L1.88,13.67L1.82,14.03z',
+  'M12.63,13.06L12.88,14.83L12.95,16.83L12.82,18.18L12.66,18.88L12.40,19.56L12.40,19.75L12.98,20.62L13.50,21.14L14.04,21.52L14.72,21.84L15.27,21.97L15.84,21.97L16.33,21.84L16.81,21.59L17.29,21.14L17.45,20.91L17.74,20.27L17.87,19.69L17.90,18.98L17.81,18.24L17.49,17.24L17.26,16.79L16.81,16.12L15.91,15.15L14.40,14.03L12.92,13.16z',
+  'M11.89,13.32L10.15,15.12L9.35,15.80L8.19,16.57L7.38,16.95L6.61,17.18L6.51,17.28L6.32,17.76L6.13,18.63L6.10,19.34L6.16,19.88L6.29,20.36L6.55,20.91L6.71,21.14L7.29,21.65L7.83,21.91L8.16,21.97L8.96,21.94L9.44,21.78L9.96,21.52L10.50,21.14L11.15,20.46L11.63,19.72L11.89,19.14L12.14,18.27L12.31,16.95L12.21,15.06L11.98,13.54z',
+].join('');
+
+/**
+ * The Ghostex flower in one colour: Main Hub's and Chief of Staff's icon (the desktop's
+ * `FLOWER_ICON`, titlebar/ghostex.svg).
+ *
+ * CDXC:Chief 2026-11-21 DECISION: User: "please this flower doesn't look like ghostex' icon. pls
+ * fix make it match exactly ghostex icon silhouette (more rounded)". The app icon's silhouette,
+ * filled, with thin cuts between its petals, replacing the outlined lemon-shaped petals; the same
+ * paths as the desktop's so the two change together.
+ */
 export function FlowerGlyph({ size, color }: GlyphProps) {
-  const petal = 'M12 12C9.1 9.9 9.3 4.5 12 2.6C14.7 4.5 14.9 9.9 12 12Z';
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      {[0, 1, 2, 3, 4, 5, 6].map((index) => (
-        <Path
-          key={index}
-          d={petal}
-          transform={`rotate(${(index * 360) / 7} 12 12)`}
-          stroke={color}
-          strokeWidth={1.5}
-          strokeLinejoin="round"
-        />
-      ))}
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path d={GHOSTEX_FLOWER_PATH} fill={color} />
     </Svg>
   );
 }
