@@ -1789,8 +1789,9 @@ export const PanesCopy = {
 } as const;
 
 /**
- * The usage of a computer's Claude and Codex accounts, in a usage pane and full screen: the chat Accounts panel's
- * head, meters and sentences (`AccountsPanel.tsx`), and the computer it is for.
+ * The usage of a computer's saved accounts (Claude, Codex, and usage-only accounts such as Gemini, Cursor and
+ * Copilot), in a usage pane and full screen: the chat Accounts panel's head, meters and sentences
+ * (`AccountsPanel.tsx`), and the computer it is for.
  */
 export const UsageCopy = {
   title: (computer: string) => `Usage · ${computer}`,
@@ -1799,6 +1800,8 @@ export const UsageCopy = {
   /** One account's Refresh now: reads that account's usage again on the computer. */
   refreshAccount: (name: string) => `Refresh ${name}'s usage now`,
   loading: 'Reading accounts and usage…',
+  /** A usage-only account whose first usage read is still in flight on the computer. */
+  loadingAccount: 'Reading usage…',
   unavailable: 'Usage is unavailable for this login.',
   /** Beside a CLIProxyAPI hub account's name: the hub it is on. */
   onHub: (hub: string) => `on ${hub}`,
@@ -1806,6 +1809,8 @@ export const UsageCopy = {
   manageAccounts: 'Manage accounts',
   /** The amber line at the top of a signed-out account's section. */
   signedOutOn: (computer: string) => `Signed out on ${computer}`,
+  /** The amber line for a signed-out usage-only account, which reconnects in desktop Settings > Accounts. */
+  signedOutUsageOnly: (computer: string) => `Signed out on ${computer}. Reconnect in Ghostex there.`,
   /** Its button: the Accounts screen on that computer, with the account's sign-in started. */
   signInAgain: 'Sign in again',
   /** The x beside it: the computer stops warning about this account until it signs in there again. */
@@ -1815,7 +1820,7 @@ export const UsageCopy = {
   undo: 'Undo',
   /** No saved and enabled account to show: none saved, or every saved one turned off on the computer. */
   noAccounts: (computer: string) =>
-    `No Claude or Codex account is enabled in Ghostex on ${computer}. Enable or add one there to see its usage and reset times here.`,
+    `No account is enabled in Ghostex on ${computer}. Enable or add one there to see its usage and reset times here.`,
   /** A meter for VoiceOver, as the Accounts panel reads it. */
   meter: (name: string, value: string, resetIn: string) =>
     `${name} ${value}${resetIn.length > 0 ? `, resets in ${resetIn}` : ''}`,
@@ -1827,13 +1832,13 @@ export const UsageCopy = {
    */
   resetsLeft: (count: number) =>
     count === 0 ? 'No limit resets left' : `${count} limit ${count === 1 ? 'reset' : 'resets'} left`,
-  /** The provider's name on a Home Screen widget bar ("Claude 5h"), when the computer has one account of it. */
-  provider: { claude: 'Claude', codex: 'Codex' },
+  /** Known provider display names for Home Screen widget bars and fallbacks. */
+  provider: { claude: 'Claude', codex: 'Codex', gemini: 'Gemini', cursor: 'Cursor', copilot: 'Copilot' },
   /** A Home Screen widget bar: the provider's or, with several accounts of one provider, the account's name. */
   widgetBar: (owner: string, window: string) => `${owner} ${window}`,
 } as const;
 
-/** The Accounts screen: one computer's Claude and Codex accounts and their sign-ins (src/accounts/). */
+/** The Accounts screen: one computer's saved accounts and sign-ins (src/accounts/). */
 export const AccountsCopy = {
   title: 'Accounts',
   computerLabel: (computer: string) => `Accounts on ${computer}`,
@@ -1849,8 +1854,10 @@ export const AccountsCopy = {
   unreachable: (computer: string) =>
     `Can't reach ${computer} right now. Its accounts sign in on ${computer}: reconnect there in Ghostex, or come back when it's connected.`,
   tryAgain: 'Try again',
-  noAccounts: (computer: string) => `No Claude or Codex account is saved in Ghostex on ${computer} yet.`,
+  noAccounts: (computer: string) => `No account is saved in Ghostex on ${computer} yet.`,
   provider: { claude: 'Claude', codex: 'Codex' },
+  usageOnlyHeading: 'Usage only',
+  reconnectOnComputer: (computer: string) => `Sign in again in Ghostex on ${computer}.`,
   addAccount: (provider: string) => `Add ${provider} account`,
   reconnect: 'Reconnect',
   turnedOff: 'Turned off',

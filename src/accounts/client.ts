@@ -19,7 +19,16 @@ import { sessionChatRpc } from '../chat/rust/transport';
 import { wasmCoreBridge } from '../chat/rust/wasm-core/bridge';
 import { arr, isTrue, obj, str } from '../chat/native/composer/json';
 import type { MachineConnectionTarget } from '../machines/credentials';
-import { buildUsageMeters, isSignInIgnored, isSignedOut, resetCount, type UsageAccount } from '../usage/usageMeters';
+import {
+  buildUsageMeters,
+  isSignInIgnored,
+  isSignedOut,
+  resetCount,
+  usageDetails,
+  usageProviderLabel,
+  withUsageAccounts,
+  type UsageAccount,
+} from '../usage/usageMeters';
 
 /** This phone's sign-ins on a computer: gxserver shows and lets change only the jobs of the owner that started them. */
 export const MOBILE_ACCOUNTS_OWNER = 'ghostex-mobile-accounts';
@@ -30,12 +39,16 @@ const JOB_TIMEOUT_MS = 30_000;
 export type AccountProvider = 'claude' | 'codex';
 export const ACCOUNT_PROVIDERS: readonly AccountProvider[] = ['claude', 'codex'];
 
+export function isManagedProvider(provider: string): provider is AccountProvider {
+  return provider === 'claude' || provider === 'codex';
+}
+
 /** What a request to the computer came back with: its answer, or why not (`unreachable`: it didn't get there). */
 export type AccountsAnswer<T> =
   | { ok: true; value: T }
   | { ok: false; unreachable: boolean; message: string };
 
-/** One saved Claude or Codex account on the computer. */
+/** One saved account on the computer (managed Claude/Codex or usage-only Gemini/Cursor/Copilot). */
 export type ManagedAccount = UsageAccount & {
   /** gxserver's state: `ready`, `loginRequired`, `identityChanged`, `unavailable`, `disabled`… */
   readonly status: string;
@@ -73,53 +86,80 @@ async function call(machine: MachineConnectionTarget, params: Record<string, unk
   return { ok: true as const, value: answer.result };
 }
 
-/** The computer's saved Claude and Codex accounts with their meters, turned-off ones last. */
+/** The computer's saved accounts (managed Claude/Codex and usage-only accounts) with their meters, turned-off ones last per group. */
 export async function readManagedAccounts(
   machine: MachineConnectionTarget,
   refresh: boolean,
 ): Promise<AccountsAnswer<ManagedAccount[]>> {
   const answer = await call(machine, { operation: 'list', ...(refresh ? { refresh: true } : {}) }, LIST_TIMEOUT_MS);
   if (!answer.ok) return answer;
-  const rows = arr(obj(answer.value)?.accounts).filter(
-    (row) => ACCOUNT_PROVIDERS.includes(str(row, 'provider') as AccountProvider) && isTrue(row, 'registered'),
+  const managedRows = arr(obj(answer.value)?.accounts).filter(
+    (row) => isManagedProvider(str(row, 'provider')) && isTrue(row, 'registered'),
   );
-  // The core projects the meters as the chat panel and the usage pane draw them; without it a row keeps its name.
-  let meters = new Map<string, UsageAccount>();
+  // Usage-only accounts (Gemini, Cursor, Copilot, etc.) arrive under `usageAccounts`; older computers omit it.
+  const normalizedUsage = withUsageAccounts({ accounts: [], usageAccounts: arr(obj(answer.value)?.usageAccounts) });
+  const usageRows = arr(obj(normalizedUsage)?.accounts).filter((row) => isTrue(row, 'registered'));
+  const rows = [...managedRows, ...usageRows];
+  // The core projects the meters as the chat panel and the usage pane draw them; without it managed rows keep their
+  // names and usage-only rows fall back to local concise window formatting.
+  const nowMs = Date.now();
+  let columns: unknown = [];
   if (rows.length > 0) {
     try {
-      const columns = await wasmCoreBridge.call({
+      columns = await wasmCoreBridge.call({
         op: 'accountUsageColumns',
-        args: [JSON.stringify({ accounts: rows }), Date.now()],
+        args: [JSON.stringify({ accounts: rows }), nowMs],
       });
-      meters = new Map(buildUsageMeters({ accounts: rows }, columns).map((account) => [account.id, account]));
     } catch {
-      // No chat core yet: names and states only.
+      // No chat core yet: names and states (plus local fallback bars for usage-only rows).
     }
   }
-  const accounts = rows.map((row): ManagedAccount => {
+  const meters = new Map(
+    buildUsageMeters({ accounts: rows }, columns, nowMs).map((account) => [`${account.provider}:${account.id}`, account]),
+  );
+  const toManaged = (row: unknown): ManagedAccount => {
     const id = str(row, 'id');
-    const name = str(row, 'name');
+    const provider = str(row, 'provider').trim().toLowerCase();
+    const usageOnly = isTrue(row, 'usageOnly');
+    const name = str(row, 'name') || (usageOnly ? usageProviderLabel(provider) : '');
     const email = str(row, 'email');
     const status = str(row, 'status');
     const disabled = isTrue(row, 'userDisabled') || status === 'disabled';
+    const projected = meters.get(`${provider}:${id}`);
+    const rowMeters = projected?.meters ?? [];
     return {
       id,
-      provider: str(row, 'provider') as AccountProvider,
+      provider,
       name,
       email: email === name ? '' : email,
       usageError: str(row, 'usageError'),
-      meters: meters.get(id)?.meters ?? [],
-      unavailable: (meters.get(id)?.meters.length ?? 0) === 0,
+      meters: rowMeters,
+      unavailable: rowMeters.length === 0,
       hub: '',
       signedOut: isSignedOut(row),
-      signInIgnored: isSignInIgnored(row),
-      resets: resetCount(row),
+      signInIgnored: usageOnly ? false : isSignInIgnored(row),
+      resets: usageOnly ? null : resetCount(row),
+      usageOnly,
       status,
+      plan: usageOnly ? str(row, 'plan').trim() : '',
+      details: usageOnly ? (projected?.details ?? usageDetails(row)) : [],
       disabled,
-      needsSignIn: !disabled && status !== 'ready' && status !== 'loading' && status.length > 0,
+      needsSignIn: usageOnly
+        ? !disabled && status === 'loginRequired'
+        : !disabled && status !== 'ready' && status !== 'loading' && status.length > 0,
     };
-  });
-  return { ok: true, value: [...accounts.filter((a) => !a.disabled), ...accounts.filter((a) => a.disabled)] };
+  };
+  const managed = managedRows.map(toManaged);
+  const usageOnlyAccounts = usageRows.map(toManaged);
+  return {
+    ok: true,
+    value: [
+      ...managed.filter((a) => !a.disabled),
+      ...managed.filter((a) => a.disabled),
+      ...usageOnlyAccounts.filter((a) => !a.disabled),
+      ...usageOnlyAccounts.filter((a) => a.disabled),
+    ],
+  };
 }
 
 function jobs(value: unknown): SignInJob[] {

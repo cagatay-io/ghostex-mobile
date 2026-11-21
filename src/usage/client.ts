@@ -13,7 +13,7 @@
 import { sessionChatRpc } from '../chat/rust/transport';
 import { wasmCoreBridge } from '../chat/rust/wasm-core/bridge';
 import type { MachineConnectionTarget } from '../machines/credentials';
-import { buildUsageMeters, withHubAccounts, type UsageAccount } from './usageMeters';
+import { buildUsageMeters, withHubAccounts, withUsageAccounts, type UsageAccount } from './usageMeters';
 
 /** A computer reading every account's usage afresh can take a while (it asks Claude and Codex). */
 const ACCOUNTS_TIMEOUT_MS = 60_000;
@@ -65,11 +65,13 @@ export async function setSignInIgnored(
 
 /** The accounts with core-projected meters at the time of the answer, for the usage pane. */
 export async function readAccountUsage(machine: MachineConnectionTarget, refresh: boolean): Promise<UsageAccount[]> {
-  // The computer's CLIProxyAPI hub accounts show under its own ones (usageMeters.ts `withHubAccounts`).
-  const answer = withHubAccounts(await readAccountsAnswer(machine, refresh));
+  // The computer's CLIProxyAPI hub accounts and usage-only accounts (Gemini, Cursor, Copilot, etc.)
+  // show under its Claude and Codex accounts (`withHubAccounts`, `withUsageAccounts`).
+  const answer = withUsageAccounts(withHubAccounts(await readAccountsAnswer(machine, refresh)));
+  const nowMs = Date.now();
   const columns = await wasmCoreBridge.call({
     op: 'accountUsageColumns',
-    args: [JSON.stringify(answer), Date.now()],
+    args: [JSON.stringify(answer), nowMs],
   });
-  return buildUsageMeters(answer, columns);
+  return buildUsageMeters(answer, columns, nowMs);
 }

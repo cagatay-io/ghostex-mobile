@@ -19,7 +19,7 @@ import { selectedMachine, useMachinesStore } from '../machines/store';
 import { machineTargetFor } from '../screens/terminal-screen/session-lookups';
 import { useSettingsStore } from '../settings/store';
 import { readAccountsAnswer } from '../usage/client';
-import { buildUsageBars } from '../usage/usageMeters';
+import { buildUsageBars, withUsageAccounts } from '../usage/usageMeters';
 import { currentSources } from './liveActivity';
 import { createWidgetWriter, type NamesRecord, type WidgetInputs, type WidgetWriter } from './widgetWriter';
 
@@ -80,7 +80,7 @@ export function initWidgets(): void {
     readUsageBars: async (machineId) => {
       const machine = machineTargetFor(machineId);
       if (machine === null) return [];
-      const answer = await readAccountsAnswer(machine, false);
+      const answer = withUsageAccounts(await readAccountsAnswer(machine, false));
       const columns = await wasmCoreBridge.call({
         op: 'accountUsageColumns',
         args: [JSON.stringify(answer), Date.now()],

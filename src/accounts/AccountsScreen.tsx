@@ -17,19 +17,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AGENT_ICONS } from '../assets/agentIcons.generated';
 import { UsageRow } from '../chat/native/composer/AccountsPanel';
 import ActionSheet from '../components/common/ActionSheet';
-import { agentIconTint } from '../contract/mobileSummary';
+import { CornerDot } from '../components/sessions/StatusDotStack';
 import { AccountsCopy, UsageCopy } from '../copy';
 import { isMachineEnabled, machineDisplayLabel, useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
 import { machineTargetFor } from '../screens/terminal-screen/session-lookups';
 import { GhostexRadii } from '../theme/palette';
 import { useAppearance, type Appearance } from '../theme/useAppearance';
+import { usageProviderIconColor, usageProviderIconId, usageProviderLabel } from '../usage/usageMeters';
 
 import {
   ACCOUNT_PROVIDERS,
   acknowledgeSignIn,
   asksForCode,
   cancelSignIn,
+  isManagedProvider,
   readManagedAccounts,
   readSignIns,
   sendSignInCode,
@@ -39,6 +41,9 @@ import {
   type ManagedAccount,
   type SignInJob,
 } from './client';
+
+/** Settings > Accounts' "Needs sign-in" amber on the computer (settings_modal/tabs/accounts/widgets.rs). */
+const NEEDS_SIGN_IN_AMBER = { dark: '#fcd34d', light: '#b45309' } as const;
 
 /** How often a running sign-in is asked for its progress, as desktop Settings › Accounts does. */
 const POLL_MS = 2_000;
@@ -130,12 +135,14 @@ export default function AccountsScreen({ navigation, route }: Props) {
     [machineId],
   );
 
-  // Reconnect from the chat: once the accounts are read, that account's sign-in starts (only when it needs one).
+  // Reconnect from the chat: once the accounts are read, that account's sign-in starts (only for managed accounts that need one).
   useEffect(() => {
     if (reconnectId.current === null || reading.kind !== 'accounts' || job !== null) return;
     const account = reading.accounts.find((entry) => entry.id === reconnectId.current);
     reconnectId.current = null;
-    if (account?.needsSignIn) start(account.provider, account.id);
+    if (account?.needsSignIn && !account.usageOnly && isManagedProvider(account.provider)) {
+      start(account.provider, account.id);
+    }
   }, [reading, job, start]);
 
   // A running sign-in: its progress every two seconds; its page opens in the phone's browser once it appears.
@@ -221,7 +228,11 @@ export default function AccountsScreen({ navigation, route }: Props) {
           setReading({ kind: 'loading' });
           read(true);
         }}
-        onReconnect={(account) => start(account.provider, account.id)}
+        onReconnect={(account) => {
+          if (!account.usageOnly && isManagedProvider(account.provider)) {
+            start(account.provider, account.id);
+          }
+        }}
         onAdd={(provider) => start(provider, null)}
         onOpenPage={(url) => void Linking.openURL(url).catch(() => undefined)}
         onSendCode={onSendCode}
@@ -337,36 +348,91 @@ export function AccountsBody({
       {job === null && jobError !== null ? <Text style={styles.paragraph}>{jobError}</Text> : null}
 
       {reading.kind === 'accounts' ? (
-        <>
-          {reading.accounts.length === 0 ? <Text style={styles.paragraph}>{AccountsCopy.noAccounts(computer)}</Text> : null}
-          {reading.accounts.map((account) => (
-            <AccountRow
-              key={account.id}
-              account={account}
-              busy={signingIn}
-              onReconnect={() => onReconnect(account)}
-            />
-          ))}
-          <View style={styles.addRow}>
-            {ACCOUNT_PROVIDERS.map((provider) => (
-              <Pressable
-                key={provider}
-                accessibilityRole="button"
-                disabled={signingIn}
-                onPress={() => onAdd(provider)}
-                style={({ pressed }) => [styles.neutralButton, pressed && styles.neutralPressed, signingIn && styles.dim]}
-              >
-                <Text style={styles.neutralLabel}>{AccountsCopy.addAccount(AccountsCopy.provider[provider])}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </>
+        <AccountsListSection
+          accounts={reading.accounts}
+          computer={computer}
+          signingIn={signingIn}
+          onReconnect={onReconnect}
+          onAdd={onAdd}
+        />
       ) : null}
     </ScrollView>
   );
 }
 
-function AccountRow({ account, busy, onReconnect }: { account: ManagedAccount; busy: boolean; onReconnect: () => void }) {
+function AccountsListSection({
+  accounts,
+  computer,
+  signingIn,
+  onReconnect,
+  onAdd,
+}: {
+  accounts: readonly ManagedAccount[];
+  computer: string;
+  signingIn: boolean;
+  onReconnect: (account: ManagedAccount) => void;
+  onAdd: (provider: AccountProvider) => void;
+}) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
+  const managedAccounts = accounts.filter((account) => !account.usageOnly);
+  const usageOnlyAccounts = accounts.filter((account) => account.usageOnly);
+  return (
+    <>
+      {accounts.length === 0 ? <Text style={styles.paragraph}>{AccountsCopy.noAccounts(computer)}</Text> : null}
+      {managedAccounts.map((account) => (
+        <AccountRow
+          key={`${account.provider}:${account.id}`}
+          account={account}
+          computer={computer}
+          busy={signingIn}
+          onReconnect={() => onReconnect(account)}
+        />
+      ))}
+      <View style={styles.addRow}>
+        {ACCOUNT_PROVIDERS.map((provider) => (
+          <Pressable
+            key={provider}
+            accessibilityRole="button"
+            disabled={signingIn}
+            onPress={() => onAdd(provider)}
+            style={({ pressed }) => [styles.neutralButton, pressed && styles.neutralPressed, signingIn && styles.dim]}
+          >
+            <Text style={styles.neutralLabel}>{AccountsCopy.addAccount(AccountsCopy.provider[provider])}</Text>
+          </Pressable>
+        ))}
+      </View>
+      {usageOnlyAccounts.length > 0 ? (
+        <>
+          <Text style={styles.sectionHeading} accessibilityRole="header">
+            {AccountsCopy.usageOnlyHeading}
+          </Text>
+          {usageOnlyAccounts.map((account) => (
+            <AccountRow
+              key={`${account.provider}:${account.id}`}
+              account={account}
+              computer={computer}
+              busy={signingIn}
+              onReconnect={null}
+            />
+          ))}
+        </>
+      ) : null}
+    </>
+  );
+}
+
+function AccountRow({
+  account,
+  computer,
+  busy,
+  onReconnect,
+}: {
+  account: ManagedAccount;
+  computer: string;
+  busy: boolean;
+  onReconnect: (() => void) | null;
+}) {
   const appearance = useAppearance();
   const styles = useMemo(() => createStyles(appearance), [appearance]);
   const meterAppearance = useMemo(
@@ -378,21 +444,38 @@ function AccountRow({ account, busy, onReconnect }: { account: ManagedAccount; b
     }),
     [appearance],
   );
-  const Icon = AGENT_ICONS[account.provider];
+  const iconId = usageProviderIconId(account.provider);
+  const Icon = AGENT_ICONS[iconId];
+  const iconColor = usageProviderIconColor(iconId, appearance.light, appearance.foreground);
+  const amber =
+    !account.disabled && account.signedOut
+      ? appearance.light
+        ? NEEDS_SIGN_IN_AMBER.light
+        : NEEDS_SIGN_IN_AMBER.dark
+      : null;
+  const displayName = account.name.length > 0 ? account.name : usageProviderLabel(account.provider);
+  const subtitle = [account.email, account.plan].filter((part) => part.length > 0).join(' · ');
+  const detailLine =
+    account.details.length > 0 ? account.details.map((entry) => `${entry.label} ${entry.value}`).join(' · ') : '';
   return (
     <View style={[styles.account, account.disabled && styles.dim]}>
       <View style={styles.nameLine}>
-        {Icon !== undefined ? <Icon size={16} color={agentIconTint(account.provider)} /> : null}
+        {Icon !== undefined ? (
+          <View style={styles.icon}>
+            <Icon size={16} color={iconColor} />
+            {amber !== null ? <CornerDot color={amber} ringColor={appearance.card} border={0} unit={(value) => value} /> : null}
+          </View>
+        ) : null}
         <Text style={styles.name} numberOfLines={1}>
-          {account.name}
+          {displayName}
         </Text>
         <Text style={styles.email} numberOfLines={1}>
-          {account.email}
+          {subtitle}
         </Text>
-        {account.needsSignIn ? (
+        {account.needsSignIn && !account.usageOnly && onReconnect !== null ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`${account.name} ${AccountsCopy.reconnect}`}
+            accessibilityLabel={`${displayName} ${AccountsCopy.reconnect}`}
             disabled={busy}
             hitSlop={8}
             onPress={onReconnect}
@@ -407,12 +490,26 @@ function AccountRow({ account, busy, onReconnect }: { account: ManagedAccount; b
         <Text style={styles.paragraph}>{account.usageError}</Text>
       ) : null}
       {!account.disabled && account.usageError.length === 0 && account.needsSignIn ? (
-        <Text style={styles.paragraph}>{AccountsCopy.needsSignIn}</Text>
+        <Text style={styles.paragraph}>
+          {account.usageOnly ? AccountsCopy.reconnectOnComputer(computer) : AccountsCopy.needsSignIn}
+        </Text>
       ) : null}
-      {!account.disabled && !account.needsSignIn && account.meters.length > 0 ? (
+      {!account.disabled && account.usageOnly ? (
+        <>
+          {account.meters.length > 0 ? (
+            <UsageRow columns={account.meters} resets appearance={meterAppearance} />
+          ) : account.status === 'loading' ? (
+            <Text style={styles.paragraph}>{UsageCopy.loadingAccount}</Text>
+          ) : account.usageError.length === 0 && !account.needsSignIn ? (
+            <Text style={styles.paragraph}>{UsageCopy.unavailable}</Text>
+          ) : null}
+          {detailLine.length > 0 ? <Text style={styles.paragraph}>{detailLine}</Text> : null}
+        </>
+      ) : null}
+      {!account.disabled && !account.usageOnly && !account.needsSignIn && account.meters.length > 0 ? (
         <UsageRow columns={account.meters} resets appearance={meterAppearance} />
       ) : null}
-      {!account.disabled && !account.needsSignIn && account.resets !== null ? (
+      {!account.disabled && !account.usageOnly && !account.needsSignIn && account.resets !== null ? (
         <Text style={styles.paragraph}>{UsageCopy.resetsLeft(account.resets)}</Text>
       ) : null}
     </View>
@@ -554,7 +651,9 @@ const createStyles = (appearance: Appearance) =>
     body: { color: appearance.foreground, fontSize: 13, lineHeight: 18 },
     paragraph: { color: appearance.muted, fontSize: 13, lineHeight: 18 },
     account: { gap: 10, padding: 12, borderRadius: GhostexRadii.section, backgroundColor: appearance.card },
+    sectionHeading: { color: appearance.muted, fontSize: 12, fontWeight: '600', paddingLeft: 4, marginTop: 4 },
     nameLine: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 20 },
+    icon: { width: 16, height: 16 },
     name: { color: appearance.foreground, fontSize: 14, fontWeight: '600', flexShrink: 1 },
     email: { flex: 1, minWidth: 0, color: appearance.muted, fontSize: 12 },
     action: { color: appearance.foreground, fontSize: 13, fontWeight: '600' },

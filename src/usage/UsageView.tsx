@@ -34,7 +34,6 @@ import { CornerDot } from '../components/sessions/StatusDotStack';
 import { useLaptopFold } from '../components/common/verticalBar/laptopFold';
 import { NO_BAR_INSETS } from '../components/common/verticalBar/layout';
 import { useScrollToBarEdges } from '../components/common/verticalBar/VerticalBarArea';
-import { agentIconTint } from '../contract/mobileSummary';
 import { UsageCopy } from '../copy';
 import { machineDisplayLabel, machineName, useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
@@ -43,7 +42,12 @@ import { machineTargetFor } from '../screens/terminal-screen/session-lookups';
 import { GhostexRadii } from '../theme/palette';
 
 import { readAccountUsage, readAccountUsageNow, setSignInIgnored } from './client';
-import type { UsageAccount } from './usageMeters';
+import {
+  usageProviderIconColor,
+  usageProviderIconId,
+  usageProviderLabel,
+  type UsageAccount,
+} from './usageMeters';
 
 /** Settings > Accounts' "Needs sign-in" amber on the computer (settings_modal/tabs/accounts/widgets.rs). */
 const NEEDS_SIGN_IN_AMBER = { dark: '#fcd34d', light: '#b45309' } as const;
@@ -101,14 +105,19 @@ export default function UsageView({ machineId, placement }: { machineId: string;
   );
 
   // Refresh now on one account (CDXC:AgentProviders 2026-11-13 in server/src/accounts/usage_screen.rs): the computer
-  // reads that account again, then the view reads the list. A computer too old for it gets the usual fresh read.
+  // reads that account again, then the view reads the list. Usage-only accounts refresh through a fresh `list`, and
+  // computers too old for `readUsageNow` fall back to a fresh `list` too.
   const [refreshing, setRefreshing] = useState<string | null>(null);
   const refreshAccount = useCallback(
-    (accountId: string) => {
+    (account: UsageAccount) => {
       const machine = machineTargetFor(machineId);
       if (machine === null || refreshing !== null) return;
-      setRefreshing(accountId);
-      readAccountUsageNow(machine, accountId).then(
+      if (account.usageOnly) {
+        read(true);
+        return;
+      }
+      setRefreshing(account.id);
+      readAccountUsageNow(machine, account.id).then(
         () => {
           setRefreshing(null);
           read(false);
@@ -183,11 +192,15 @@ export default function UsageView({ machineId, placement }: { machineId: string;
           <AccountSection
             key={`${account.provider}:${account.id}`}
             account={account}
-            refreshing={refreshing === account.id}
-            onRefresh={known && refreshing === null ? () => refreshAccount(account.id) : null}
+            refreshing={refreshing === account.id || (account.usageOnly && busy)}
+            onRefresh={
+              known && refreshing === null && (!account.usageOnly || !busy)
+                ? () => refreshAccount(account)
+                : null
+            }
             computer={computer}
             onIgnore={
-              known
+              known && !account.usageOnly
                 ? (ignored: boolean) => {
                     const machine = machineTargetFor(machineId);
                     if (machine === null) return;
@@ -200,7 +213,9 @@ export default function UsageView({ machineId, placement }: { machineId: string;
                 : null
             }
             onSignIn={
-              known ? () => navigation.navigate('Accounts', { machineId, reconnectAccountId: account.id }) : null
+              known && !account.usageOnly
+                ? () => navigation.navigate('Accounts', { machineId, reconnectAccountId: account.id })
+                : null
             }
           />
         ))}
@@ -253,7 +268,16 @@ function AccountSection({
     }),
     [appearance],
   );
-  const Icon = AGENT_ICONS[account.provider];
+  const iconId = usageProviderIconId(account.provider);
+  const Icon = AGENT_ICONS[iconId];
+  const iconColor = usageProviderIconColor(iconId, appearance.light, appearance.foreground);
+  const displayName = account.name.length > 0 ? account.name : usageProviderLabel(account.provider);
+  const subtitle =
+    account.hub.length > 0
+      ? UsageCopy.onHub(account.hub)
+      : [account.email, account.plan].filter((part) => part.length > 0).join(' · ');
+  const detailLine =
+    account.details.length > 0 ? account.details.map((entry) => `${entry.label} ${entry.value}`).join(' · ') : '';
   return (
     <View style={styles.account}>
       {/* CDXC:AgentProviders 2026-11-20 DECISION: User, of an amber account whose usage said nothing about it: "I see
@@ -262,11 +286,13 @@ function AccountSection({
           computer's sign-in (the Accounts screen's Reconnect, as the chat's Accounts & limits panel opens it). */}
       {amber !== null ? (
         <View accessibilityRole="alert" style={[styles.signIn, { borderColor: amber }]}>
-          <Text style={[styles.signInText, { color: amber }]}>{UsageCopy.signedOutOn(computer)}</Text>
+          <Text style={[styles.signInText, { color: amber }]}>
+            {account.usageOnly ? UsageCopy.signedOutUsageOnly(computer) : UsageCopy.signedOutOn(computer)}
+          </Text>
           {onSignIn !== null ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`${account.name}: ${UsageCopy.signInAgain}`}
+              accessibilityLabel={`${displayName}: ${UsageCopy.signInAgain}`}
               hitSlop={6}
               onPress={onSignIn}
               style={({ pressed }) => [styles.signInButton, pressed && styles.pressed]}
@@ -306,15 +332,15 @@ function AccountSection({
       <View style={styles.nameLine}>
         {Icon !== undefined ? (
           <View style={styles.icon}>
-            <Icon size={16} color={agentIconTint(account.provider)} />
+            <Icon size={16} color={iconColor} />
             {amber !== null ? <CornerDot color={amber} ringColor={appearance.card} border={0} unit={(value) => value} /> : null}
           </View>
         ) : null}
         <Text style={styles.name} numberOfLines={1}>
-          {account.name}
+          {displayName}
         </Text>
         <Text style={styles.email} numberOfLines={1}>
-          {account.hub.length > 0 ? UsageCopy.onHub(account.hub) : account.email}
+          {subtitle}
         </Text>
         {/* A hub account is read by the computer through its hub on its own schedule: it has no Refresh now. */}
         {account.hub.length > 0 ? null : refreshing ? (
@@ -322,7 +348,7 @@ function AccountSection({
         ) : (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={UsageCopy.refreshAccount(account.name)}
+            accessibilityLabel={UsageCopy.refreshAccount(displayName)}
             accessibilityState={{ disabled: onRefresh === null }}
             disabled={onRefresh === null}
             hitSlop={10}
@@ -339,10 +365,15 @@ function AccountSection({
       </View>
       {account.usageError.length > 0 ? <Text style={styles.paragraph}>{account.usageError}</Text> : null}
       {account.unavailable ? (
-        <Text style={styles.paragraph}>{UsageCopy.unavailable}</Text>
+        account.status === 'loading' ? (
+          <Text style={styles.paragraph}>{UsageCopy.loadingAccount}</Text>
+        ) : account.usageOnly && (account.usageError.length > 0 || account.signedOut) ? null : (
+          <Text style={styles.paragraph}>{UsageCopy.unavailable}</Text>
+        )
       ) : (
         <UsageRow columns={account.meters} resets appearance={meterAppearance} />
       )}
+      {detailLine.length > 0 ? <Text style={styles.paragraph}>{detailLine}</Text> : null}
       {account.resets !== null ? <Text style={styles.paragraph}>{UsageCopy.resetsLeft(account.resets)}</Text> : null}
     </View>
   );
