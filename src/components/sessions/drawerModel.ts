@@ -455,11 +455,14 @@ export function everyComputerList(
 /**
  * Another computer's summary without the Spaces the selected computer files in a workspace it is not showing, matched
  * as `unionSpaces` (contract/mergedComputers.ts) matches them: by id, else by name. A name the shown Spaces also use
- * still joins, and a Space the selected computer does not have joins as before.
+ * still joins, and a Space the selected computer does not have joins as before. The projects filed in such a Space
+ * (directly, through their group, or as a worktree of such a project) leave with it, with their sessions, instead of
+ * falling to Other.
  *
- * CDXC:Workspaces 2026-11-21 SEE-ALSO: the WHY at `OtherWorkspaceSpaces` in packages/gx-core/src/sidebar_view/merged.rs.
- * Settings sync gives every computer the same Spaces but not their workspace, so the other computer holds a Work Space
- * in its own default workspace, and the one list showed it (empty) in Personal too.
+ * CDXC:Workspaces 2026-11-21 SEE-ALSO: the WHY and the DECISION (option b) at `OtherWorkspaceSpaces` in
+ * packages/gx-core/src/sidebar_view/merged.rs. Settings sync gives every computer the same Spaces but not their
+ * workspace, so the other computer holds a Work Space in its own default workspace, and the one list showed it (empty)
+ * in Personal too, and its projects under Other.
  */
 function withoutSpacesFiledElsewhere(
   theirs: GhostexMobileSummary,
@@ -483,7 +486,25 @@ function withoutSpacesFiledElsewhere(
   const order = theirs.sidebarSpaces.order.filter(keep);
   if (order.length === theirs.sidebarSpaces.order.length) return theirs;
   const spaces = Object.fromEntries(order.map((spaceId) => [spaceId, theirs.sidebarSpaces.spaces[spaceId]!]));
-  return { ...theirs, sidebarSpaces: { order, spaces } };
+  // The projects the left-out Spaces hold, directly or through a group; a worktree follows its parent.
+  const filed = new Set<string>();
+  for (const spaceId of theirs.sidebarSpaces.order) {
+    const space = theirs.sidebarSpaces.spaces[spaceId];
+    if (space === undefined || keep(spaceId)) continue;
+    for (const projectId of space.memberProjectIds) filed.add(projectId);
+    for (const collection of theirs.projectCollections) {
+      if (space.memberCollectionIds.includes(collection.collectionId)) {
+        for (const projectId of collection.projectIds) filed.add(projectId);
+      }
+    }
+  }
+  const leaves = (projectId: string, parentProjectId: string) =>
+    filed.has(parentProjectId.length > 0 ? parentProjectId : projectId);
+  const projects = theirs.projects.filter((project) => !leaves(project.projectId, project.worktreeParentProjectId));
+  const kept = new Set(projects.map((project) => project.projectId));
+  const known = new Set(theirs.projects.map((project) => project.projectId));
+  const sessions = theirs.sessions.filter((session) => !known.has(session.projectId) || kept.has(session.projectId));
+  return { ...theirs, projects, sessions, sidebarSpaces: { order, spaces } };
 }
 
 /** Each drawn row of the one list given back its own computer, and each entry's header its creating copy. */
