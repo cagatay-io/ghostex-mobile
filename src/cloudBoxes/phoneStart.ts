@@ -165,7 +165,7 @@ async function bootBox(
       'The computer lists no paired device the box could admit; pair this phone with Easy Connect first.',
     );
   }
-  const result = await row.run('boot', async () => {
+  const booted = await row.run('boot', async () => {
     const { script } = await gxCloud<{ script: string }>('installScript', { version: kit.gxserverVersion });
     const installed = await ops.exec(providerBoxId, ['sh', '-c', script], null, 600);
     if (installed.exitCode !== 0) throw new Error(`Couldn't install Ghostex on the box: ${installed.failureTail}`);
@@ -183,17 +183,21 @@ async function bootBox(
         tailcat: true,
       },
     });
-    return verbAnswer(
+    const answer = verbAnswer(
       await ops.exec(providerBoxId, [BOX_GHOSTEX_BIN, 'box', 'boot', '--ticket', ticket], null, 180),
       'boot',
     );
+    // A boot that answers without an address failed like any other, so the box is marked failed
+    // (`run`) instead of staying "booting".
+    const tailcatAddress = typeof answer.tailcatAddress === 'string' ? answer.tailcatAddress : '';
+    const gxserverToken = typeof answer.gxserverToken === 'string' ? answer.gxserverToken : '';
+    if (tailcatAddress.length === 0 || gxserverToken.length === 0)
+      throw new Error('The box started without an Easy Connect address.');
+    return { answer, tailcatAddress, gxserverToken };
   });
-  const tailcatAddress = typeof result.tailcatAddress === 'string' ? result.tailcatAddress : undefined;
-  const gxserverToken = typeof result.gxserverToken === 'string' ? result.gxserverToken : '';
+  const { answer: result, tailcatAddress, gxserverToken } = booted;
   const gxserverPort = typeof result.gxserverPort === 'number' ? result.gxserverPort : 0;
   const gxserverVersion = typeof result.gxserverVersion === 'string' ? result.gxserverVersion : undefined;
-  if (tailcatAddress === undefined || gxserverToken.length === 0)
-    throw new Error('The box started without an Easy Connect address.');
   await saveConnectInfo({
     boxId: box.boxId,
     transport: 'tailcat',
