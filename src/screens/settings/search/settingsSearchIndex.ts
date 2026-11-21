@@ -58,24 +58,44 @@ const ADVANCED_TERMINAL_SWITCHES: readonly string[] = [
 
 /** Every searchable row, by page in the Settings list's order. */
 export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
-  // Interface
+  // Themes (formerly Interface)
+  {
+    page: 'theme',
+    section: 'settings:theme:copy-computer',
+    title: 'Copy from a computer',
+    description: 'Pick a paired Mac or PC, preview its swatches, and copy its theme once to this phone.',
+    keywords: ['interface', 'sync theme', 'copy theme', 'pc theme', 'mac theme'],
+  },
+  {
+    page: 'theme',
+    section: 'settings:theme:gallery',
+    title: 'Themes',
+    description: 'Default, Art looks (Moonwater, Glasshouse, Red Earth, Deep Current, Night Garden, Nocturne Canyon), and Agent-made looks.',
+    keywords: ['interface', 'art', 'moonwater', 'glasshouse', 'inkstone', 'looks'],
+  },
+  {
+    page: 'theme',
+    section: 'settings:theme:gallery',
+    title: 'Show dimmed artwork in header',
+    description: 'Shows dimmed static artwork or a static tint gradient behind the phone header.',
+    keywords: ['backdrop', 'art', 'wallpaper', 'header'],
+  },
   {
     page: 'theme',
     section: 'settings:theme:presets',
     title: 'Presets',
     anchor: header('Presets'),
     description: 'Sets the colours below together. You can change each of them afterwards.',
-    keywords: ['theme presets', 'themes'],
+    keywords: ['theme presets', 'themes', 'interface'],
   },
   {
     page: 'theme',
-    section: 'settings:theme:colours',
-    group: 'Colours',
+    section: 'settings:theme:appearance',
     title: 'Appearance',
     description: 'System follows your phone’s light or dark mode.',
     catalog: 'sidebarTheme',
-    options: ['System', 'Light', 'Dark'],
-    keywords: ['dark mode', 'light mode'],
+    options: ['System', 'Dark', 'Light'],
+    keywords: ['dark mode', 'light mode', 'interface'],
   },
   {
     page: 'theme',
@@ -98,7 +118,7 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     section: 'settings:theme:colours',
     group: 'Colours',
     title: 'Custom tint',
-    description: 'Any colour for the app, typed as hex, after picking the + square.',
+    description: 'Any uncapped colour for the app, typed as hex, after picking the + square.',
     catalog: 'customSidebarTitlebarBackgroundTintColor',
   },
   {
@@ -131,6 +151,21 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     title: 'Work area colourfulness',
     anchor: row('Set the sidebar and work area separately'),
     catalog: 'themeWorkAreaContrast',
+  },
+  {
+    page: 'theme',
+    section: 'settings:theme:fine-tune',
+    group: 'Fine-tune',
+    title: 'Fine-tune colours',
+    description: 'Accent, chat bubbles, cards, borders, text, links, and code block overrides.',
+    keywords: ['themeRoles', 'accent', 'userMessage', 'chatBox', 'bubble', 'borders'],
+  },
+  {
+    page: 'theme',
+    section: 'settings:theme:reset',
+    title: 'Reset to default',
+    description: 'Restores default colours, artwork settings, and fine-tune overrides on this phone.',
+    keywords: ['reset theme', 'default theme'],
   },
   {
     page: 'theme',

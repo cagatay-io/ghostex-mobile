@@ -9,12 +9,14 @@ import {
 } from './palette';
 import {
   appearanceIsLight,
+  isLightBackground,
   resolveThemeAreas,
   readableSecondaryText,
   sidebarAppearanceFor,
   type SidebarAppearance,
   type ThemeColourSettings,
 } from './sidebarAppearance';
+import { resolveRoleCss, resolveRoleOverBase, rolesForAppearance } from './themeRoles';
 
 /**
  * The sessions drawer's colors plus the few control tokens a form screen needs.
@@ -56,6 +58,7 @@ let lastResolved: { key: string; appearance: Appearance } | null = null;
  * Equal inputs return the same object so per-appearance style caches stay warm.
  */
 export function resolveAppearance(settings: ThemeColourSettings, light: boolean): Appearance {
+  const activeRoles = rolesForAppearance(settings.themeRoles, light);
   const key = JSON.stringify([
     light,
     settings.darkThemePreset,
@@ -66,47 +69,73 @@ export function resolveAppearance(settings: ThemeColourSettings, light: boolean)
     settings.customSidebarTitlebarLightBackgroundLightnessPercent,
     settings.themeSidebarContrast,
     settings.themeWorkAreaContrast,
+    activeRoles,
   ]);
   if (lastResolved !== null && lastResolved.key === key) return lastResolved.appearance;
   const areas = resolveThemeAreas(settings, light);
   const sidebar = sidebarAppearanceFor(areas.sidebar);
+  const card = resolveRoleOverBase(activeRoles.surface, light, areas.sidebar) ?? sidebar.card;
+  const controlSurface = resolveRoleOverBase(activeRoles.control, light, areas.sidebar);
+  const cardActive =
+    resolveRoleOverBase(activeRoles.selection, light, areas.sidebar) ??
+    controlSurface ??
+    sidebar.cardActive;
+  const border = resolveRoleCss(activeRoles.border, light, areas.sidebar) ?? sidebar.border;
   const fills = neutralButtonFills(light);
-  const dangerFills = destructiveButtonFills(GhostexPalette.DANGER, light);
+  const customDanger = resolveRoleOverBase(activeRoles.danger, light, areas.sidebar);
+  const dangerBase = customDanger ?? GhostexPalette.DANGER;
+  const dangerFills = destructiveButtonFills(dangerBase, light);
   const surfaces = [
     sidebar.background,
-    sidebar.card,
-    sidebar.cardActive,
-    ...[sidebar.background, sidebar.card].flatMap((base) =>
+    card,
+    cardActive,
+    ...[sidebar.background, card].flatMap((base) =>
       [fills.rest, fills.pressed, dangerFills.rest, dangerFills.pressed].map((fill) => colorOver(fill, base)),
     ),
     colorOver(BLOCKED_CARD_WASH, sidebar.background),
     colorOver(ATTENTION_ROW_WASH, sidebar.background),
     colorOver(VOICE_MEMORY_WASH, sidebar.background),
   ];
-  // Keep the desktop's surfaces and fill alphas; strengthen text only where a surface needs it.
-  const foreground = readableSecondaryText(sidebar.foreground, light ? '#000000' : '#ffffff', surfaces);
+  // Keep the desktop's surfaces and fill alphas; honour explicit themeRoles text/accent while preserving readability.
+  const baseForeground = resolveRoleOverBase(activeRoles.text, light, areas.sidebar) ?? sidebar.foreground;
+  const foreground = readableSecondaryText(baseForeground, light ? '#000000' : '#ffffff', surfaces);
   const text = (designed: string) => readableSecondaryText(designed, foreground, surfaces);
-  const accent = text(light ? LIGHT_ACCENT : GhostexPalette.ACCENT);
-  const danger = text(GhostexPalette.DANGER);
+  const baseMuted = resolveRoleOverBase(activeRoles.mutedText, light, areas.sidebar) ?? sidebar.muted;
+  const customAccent = resolveRoleOverBase(activeRoles.accent, light, areas.sidebar);
+  const accent = customAccent ?? text(light ? LIGHT_ACCENT : GhostexPalette.ACCENT);
+  const accentForeground =
+    customAccent !== null
+      ? isLightBackground(accent)
+        ? '#141518'
+        : '#ffffff'
+      : light
+        ? GhostexPalette.FOREGROUND
+        : GhostexPalette.ACCENT_FOREGROUND;
+  const danger = text(dangerBase);
+  const customSuccess = resolveRoleOverBase(activeRoles.success, light, areas.sidebar);
+  const customWarning = resolveRoleOverBase(activeRoles.warning, light, areas.sidebar);
   const appearance: Appearance = {
     ...sidebar,
+    card,
+    cardActive,
+    border,
     foreground,
-    muted: text(sidebar.muted),
+    muted: text(baseMuted),
     workArea: areas.workArea,
-    input: mixHexColors(sidebar.foreground, sidebar.background, 3),
-    control: mixHexColors(sidebar.foreground, sidebar.background, 22),
-    controlThumb: mixHexColors(sidebar.foreground, sidebar.background, 75),
+    input: controlSurface ?? mixHexColors(foreground, sidebar.background, 3),
+    control: mixHexColors(foreground, sidebar.background, 22),
+    controlThumb: mixHexColors(foreground, sidebar.background, 75),
     light,
     neutralFill: fills.rest,
     neutralFillPressed: fills.pressed,
     accent,
-    accentForeground: light ? GhostexPalette.FOREGROUND : GhostexPalette.ACCENT_FOREGROUND,
+    accentForeground,
     danger,
     dangerFill: dangerFills.rest,
     dangerFillPressed: dangerFills.pressed,
-    attention: text(GhostexPalette.STATUS_ATTENTION),
-    working: text(GhostexPalette.STATUS_WORKING),
-    connected: text(GhostexPalette.STATUS_CONNECTED),
+    attention: text(customAccent ?? GhostexPalette.STATUS_ATTENTION),
+    working: text(customWarning ?? GhostexPalette.STATUS_WORKING),
+    connected: text(customSuccess ?? GhostexPalette.STATUS_CONNECTED),
     sleeping: text(GhostexPalette.STATUS_SLEEPING),
   };
   lastResolved = { key, appearance };
@@ -124,6 +153,7 @@ export function themeColourSettings(settings: GhostexSettings): ThemeColourSetti
     customSidebarTitlebarLightBackgroundLightnessPercent: settings.customSidebarTitlebarLightBackgroundLightnessPercent,
     themeSidebarContrast: settings.themeSidebarContrast,
     themeWorkAreaContrast: settings.themeWorkAreaContrast,
+    themeRoles: settings.themeRoles,
   };
 }
 

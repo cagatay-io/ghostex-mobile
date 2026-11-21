@@ -46,6 +46,7 @@ import {
 } from './commandPad';
 import { DEFAULT_TERMINAL_PALETTE } from '../theme/terminalPalettes';
 import { sanitizeImportedTerminalPalettes, type ImportedTerminalPalette } from '../theme/importGhostty';
+import { sanitizeThemeRoles, type ThemeRolesByAppearance } from '../theme/themeRoles';
 
 const SETTINGS_STORAGE_KEY = 'settings.v1';
 
@@ -145,11 +146,20 @@ export type GhostexSettings = ThemeColourSettings & {
    */
   sidebarBackgroundContrast: number;
   sidebarBackgroundTint: string;
-  /**
-   * The app's appearance (desktop `sidebarTheme`): `system`, `plain-light` or `dark-2`. The colour keys come from
+  /** The app's appearance (desktop `sidebarTheme`): `system`, `plain-light` or `dark-2`. The colour keys come from
    * `ThemeColourSettings` (the desktop's names and ranges).
    */
   sidebarTheme: SidebarThemeSetting;
+  /** Per-appearance theme colour role overrides (Stage 1 `themeRoles`). */
+  themeRoles: ThemeRolesByAppearance;
+  /** Bundled Art backdrop id (`moonwater`, `glasshouse`, etc.) or `'none'`. */
+  windowArt: string;
+  /** Dimming strength (0 to 100, default 45) for the optional header artwork backdrop. */
+  windowArtDim: number;
+  /** Desktop Live shader style name (`ink`, `drift`, `nebula`, etc.) mapped to a static header tint gradient, or `'none'`. */
+  windowLiveStyle: string;
+  /** Show the optional dimmed artwork or static tint gradient behind the phone's header/top bar. */
+  showHeaderArtworkBackdrop: boolean;
   /** The terminal palettes per appearance (desktop `terminalGhosttyTheme` / `terminalGhosttyLightTheme`). */
   terminalGhosttyTheme: string;
   terminalGhosttyLightTheme: string;
@@ -367,6 +377,11 @@ export function defaultSettings(): GhostexSettings {
     customSidebarTitlebarLightBackgroundLightnessPercent: DEFAULT_THEME_DEPTH,
     themeSidebarContrast: 0,
     themeWorkAreaContrast: 0,
+    themeRoles: {},
+    windowArt: 'none',
+    windowArtDim: 45,
+    windowLiveStyle: 'none',
+    showHeaderArtworkBackdrop: true,
     terminalGhosttyTheme: DEFAULT_TERMINAL_PALETTE.dark,
     terminalGhosttyLightTheme: DEFAULT_TERMINAL_PALETTE.light,
     terminalBackgroundMode: 'pure',
@@ -437,7 +452,12 @@ export function keptShortReplies(entries: readonly unknown[]): string[] {
 
 /** The keys the colour model added to the stored settings; `themeSettingsFromRecord` derives each missing one. */
 type ColourModelKey =
-  | keyof ThemeColourSettings
+  | Exclude<keyof ThemeColourSettings, 'themeRoles'>
+  | 'themeRoles'
+  | 'windowArt'
+  | 'windowArtDim'
+  | 'windowLiveStyle'
+  | 'showHeaderArtworkBackdrop'
   | 'sidebarTheme'
   | 'terminalGhosttyTheme'
   | 'terminalGhosttyLightTheme'
@@ -459,6 +479,11 @@ const COLOUR_MODEL_STORED_KEYS = Object.keys({
   customSidebarTitlebarLightBackgroundLightnessPercent: true,
   themeSidebarContrast: true,
   themeWorkAreaContrast: true,
+  themeRoles: true,
+  windowArt: true,
+  windowArtDim: true,
+  windowLiveStyle: true,
+  showHeaderArtworkBackdrop: true,
   terminalGhosttyTheme: true,
   terminalGhosttyLightTheme: true,
   terminalBackgroundMode: true,
@@ -520,6 +545,14 @@ function themeSettingsFromRecord(
     ),
     themeSidebarContrast: contrast('themeSidebarContrast'),
     themeWorkAreaContrast: contrast('themeWorkAreaContrast'),
+    themeRoles: sanitizeThemeRoles(record.themeRoles),
+    windowArt: name('windowArt', defaults.windowArt).trim().toLowerCase(),
+    windowArtDim: Math.min(100, Math.max(0, Math.round(number('windowArtDim') ?? defaults.windowArtDim))),
+    windowLiveStyle: name('windowLiveStyle', defaults.windowLiveStyle).trim().toLowerCase(),
+    showHeaderArtworkBackdrop:
+      typeof record.showHeaderArtworkBackdrop === 'boolean'
+        ? record.showHeaderArtworkBackdrop
+        : defaults.showHeaderArtworkBackdrop,
     terminalGhosttyTheme: name('terminalGhosttyTheme', defaults.terminalGhosttyTheme),
     terminalGhosttyLightTheme: name('terminalGhosttyLightTheme', defaults.terminalGhosttyLightTheme),
     terminalBackgroundMode:

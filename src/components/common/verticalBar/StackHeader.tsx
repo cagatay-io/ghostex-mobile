@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DuoChromeCopy } from '../../../copy';
 import { useAppearance } from '../../../theme/useAppearance';
+import { HeaderBackdrop } from '../../../theme/HeaderBackdrop';
 import ContextMenu, { type MenuAnchor } from '../../sessions/ContextMenu';
 import { ChevronLeftIcon, EllipsisIcon } from '../../terminal/icons';
 import { CONTENT_ROW_HEIGHT, bandRowFrame, type BandButtons } from './layout';
@@ -158,7 +159,8 @@ export function StackHeader({ navigation, route, options, back }: NativeStackHea
     const contentTitles = screenRail?.titleInContent === true;
     const overflowing = bandOverflow.shows('more');
     header = (
-      <View style={{ height: insets.top, backgroundColor: background }}>
+      <View style={{ height: insets.top, backgroundColor: background, overflow: 'hidden' }}>
+        <HeaderBackdrop baseColor={background} />
         <View style={[styles.row, styles.bandRow, bandRowFrame(placement.frame, ROW_HEIGHT)]}>
           {canGoBack ? (
             <Pressable
@@ -196,7 +198,8 @@ export function StackHeader({ navigation, route, options, back }: NativeStackHea
     // any others keep their place at the row's end. Settings in two columns draws a title row over each
     // column itself.
     header = (
-      <View style={[{ backgroundColor: background }, barBackgroundToEdges(bar, 0)]}>
+      <View style={[{ backgroundColor: background, overflow: 'hidden' }, barBackgroundToEdges(bar, 0)]}>
+        <HeaderBackdrop baseColor={background} />
         <ContentTitleRow title={title} tint={tint} trailing={screenRail === undefined ? right : null} />
       </View>
     );

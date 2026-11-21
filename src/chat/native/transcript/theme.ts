@@ -27,6 +27,7 @@ import { useSettingsStore, type GhostexSettings } from '../../../settings/store'
 import { colorOver, colorWithOpacity, destructiveButtonFills, mixHexColors, neutralButtonFills } from '../../../theme/palette';
 import {
   contentIsLight,
+  isLightBackground,
   readableSecondaryText,
   resolveThemeAreas,
   stepTowardHex,
@@ -34,6 +35,7 @@ import {
   type SidebarThemeSetting,
   type ThemeColourSettings,
 } from '../../../theme/sidebarAppearance';
+import { resolveRoleCss, resolveRoleOverBase, rolesForAppearance } from '../../../theme/themeRoles';
 import { themeColourSettings } from '../../../theme/useAppearance';
 
 export type TranscriptTheme = {
@@ -382,33 +384,122 @@ const KEPT_THEMES = 4;
 /** The chat theme for `settings` with the chat drawn light or dark (`light`). */
 export function transcriptThemeFor(settings: ThemeColourSettings, light: boolean): TranscriptTheme {
   const areas = resolveThemeAreas(settings, light);
-  const key = `${light}|${areas.workArea}|${areas.menu}`;
+  const activeRoles = rolesForAppearance(settings.themeRoles, light);
+  const key = JSON.stringify([light, areas.workArea, areas.menu, activeRoles]);
   let theme = themes.get(key);
   if (theme === undefined) {
     const roles = light ? LIGHT : DARK;
-    const surfaces = chatSurfaces(roles, areas.workArea, areas.menu);
+    const baseSurfaces = chatSurfaces(roles, areas.workArea, areas.menu);
+    const roleOver = (value: string | undefined): string | null => resolveRoleOverBase(value, light, areas.workArea);
+    const roleCss = (value: string | undefined): string | null => resolveRoleCss(value, light, areas.workArea);
+
+    const surfaceOverride = roleOver(activeRoles.surface);
+    const controlOverride = roleOver(activeRoles.control);
+    const menuOverride = roleOver(activeRoles.menu);
+    const userMessageOverride = roleOver(activeRoles.userMessage);
+    const chatBoxOverride = roleOver(activeRoles.chatBox);
+    const codeBlockOverride = roleOver(activeRoles.codeBlock);
+    const borderOverride = roleCss(activeRoles.border);
+
+    const surfaces: Pick<TranscriptTheme, ChatSurfaceKey> = {
+      ...baseSurfaces,
+      ...(userMessageOverride !== null ? { userBubble: userMessageOverride } : {}),
+      ...(chatBoxOverride !== null ? { composerBackground: chatBoxOverride } : {}),
+      ...(surfaceOverride !== null ? { cardBackground: surfaceOverride, cardPanel: surfaceOverride } : {}),
+      ...(controlOverride !== null ? { input: controlOverride, cardRow: controlOverride } : {}),
+      ...(menuOverride !== null ? { menu: menuOverride } : {}),
+      ...(borderOverride !== null
+        ? {
+            border: borderOverride,
+            controlBorder: borderOverride,
+            inputBorder: borderOverride,
+            composerBorder: borderOverride,
+          }
+        : {}),
+      ...(codeBlockOverride !== null ? { wellFill: codeBlockOverride } : {}),
+    };
+
+    const customAccent = roleOver(activeRoles.accent);
+    const customLink = roleOver(activeRoles.link) ?? customAccent;
+    const customText = roleOver(activeRoles.text);
+    const customMuted = roleOver(activeRoles.mutedText);
+    const customError = roleOver(activeRoles.danger);
+    const customSuccess = roleOver(activeRoles.success);
+    const customWarning = roleOver(activeRoles.warning);
+    const customFocusRing = roleOver(activeRoles.focusRing) ?? customAccent;
+
+    const inlineCodeSurface = codeBlockOverride ?? controlOverride ?? roles.inlineCodeSurface;
+    const errorBase = customError ?? roles.error;
+    const destructiveFills = destructiveButtonFills(errorBase, light);
+
     const backgrounds = [
       surfaces.background, surfaces.input, surfaces.cardBackground, surfaces.cardPanel, surfaces.cardRow,
       surfaces.cardFooter, surfaces.composerBackground, surfaces.menu, surfaces.floatingSurface,
-      surfaces.floatingTile, surfaces.markCard, roles.inlineCodeSurface,
+      surfaces.floatingTile, surfaces.markCard, inlineCodeSurface,
       colorOver(roles.neutralFill, surfaces.cardPanel),
       colorOver(roles.neutralFillPressed, surfaces.cardPanel),
-      colorOver(roles.destructiveFill, surfaces.cardPanel),
-      colorOver(roles.destructiveFillPressed, surfaces.cardPanel),
+      colorOver(destructiveFills.rest, surfaces.cardPanel),
+      colorOver(destructiveFills.pressed, surfaces.cardPanel),
       colorOver(roles.selectedFill, surfaces.cardPanel),
     ];
-    const foreground = readableSecondaryText(roles.foreground, light ? '#000000' : '#ffffff', backgrounds);
+    const foreground = readableSecondaryText(
+      customText ?? roles.foreground,
+      light ? '#000000' : '#ffffff',
+      backgrounds,
+    );
     const text = (designed: string) => readableSecondaryText(designed, foreground, backgrounds);
+    const accent = customAccent ?? roles.accent;
+    const send =
+      customAccent !== null
+        ? {
+            ...roles.send,
+            fill: customAccent,
+            ink: isLightBackground(customAccent) ? '#141518' : '#ffffff',
+          }
+        : roles.send;
+
     theme = {
-      ...roles, ...surfaces, foreground,
-      primary: text(roles.primary), prose: text(roles.prose), controlPrimary: text(roles.controlPrimary),
-      muted: text(roles.muted), cardMuted: text(roles.cardMuted), error: text(roles.error),
-      menuForeground: text(roles.menuForeground),
+      ...roles,
+      ...surfaces,
+      foreground,
+      accent,
+      send,
+      inlineCodeSurface,
+      destructiveFill: destructiveFills.rest,
+      destructiveFillPressed: destructiveFills.pressed,
+      primary: text(customText ?? roles.primary),
+      prose: text(customText ?? roles.prose),
+      controlPrimary: text(customText ?? roles.controlPrimary),
+      muted: text(customMuted ?? roles.muted),
+      cardMuted: text(customMuted ?? roles.cardMuted),
+      error: text(errorBase),
+      menuForeground: text(customText ?? roles.menuForeground),
       placeholder: text(colorOver(roles.placeholder, surfaces.composerBackground)),
-      link: { url: text(roles.link.url), file: text(roles.link.file), folder: text(roles.link.folder), image: text(roles.link.image), skill: text(roles.link.skill), comment: text(roles.link.comment), message: text(roles.link.message), boost: text(roles.link.boost) },
-      alert: { note: text(roles.alert.note), tip: text(roles.alert.tip), important: text(roles.alert.important), warning: text(roles.alert.warning), caution: text(roles.alert.caution) },
-      diff: { ...roles.diff, added: text(roles.diff.added), removed: text(roles.diff.removed) },
-      reference: Object.fromEntries(Object.entries(roles.reference).map(([key, value]) => [key, text(value)])),
+      ring: customFocusRing ?? roles.ring,
+      ringGlow: customFocusRing !== null ? colorWithOpacity(customFocusRing, 20) : roles.ringGlow,
+      link: {
+        url: text(customLink ?? roles.link.url),
+        file: text(roles.link.file),
+        folder: text(roles.link.folder),
+        image: text(roles.link.image),
+        skill: text(roles.link.skill),
+        comment: text(roles.link.comment),
+        message: text(customAccent ?? roles.link.message),
+        boost: text(roles.link.boost),
+      },
+      alert: {
+        note: text(customLink ?? roles.alert.note),
+        tip: text(customSuccess ?? roles.alert.tip),
+        important: text(roles.alert.important),
+        warning: text(customWarning ?? roles.alert.warning),
+        caution: text(customError ?? roles.alert.caution),
+      },
+      diff: {
+        ...roles.diff,
+        added: text(customSuccess ?? roles.diff.added),
+        removed: text(customError ?? roles.diff.removed),
+      },
+      reference: Object.fromEntries(Object.entries(roles.reference).map(([refKey, value]) => [refKey, text(value)])),
     };
     if (themes.size >= KEPT_THEMES) themes.delete(themes.keys().next().value!);
   } else {

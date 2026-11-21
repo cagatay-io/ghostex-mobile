@@ -1,4 +1,5 @@
 import { mixHexColors } from './palette';
+import type { ThemeRolesByAppearance } from './themeRoles';
 
 /**
  * The phone's colour model: a port of the desktop's chrome resolver (apps/desktop/src/app/helpers/titlebar/chrome_tints.rs,
@@ -139,6 +140,15 @@ export const THEME_CONTRAST_FULL_POINTS = -24;
 const FULL_COLOUR_MAX_LUMINANCE = 0.04;
 const LIGHT_FULL_COLOUR_MIN_LUMINANCE = 0.62;
 
+/**
+ * Desktop Stage 1 (d5ac33b34, Q4388) subtle OKLCH tint caps for built-in colour squares:
+ * sidebar chroma <= 0.020, work area chroma <= 0.016, and dark lightness <= 0.23.
+ * Custom hex colours and Fine-tune theme roles are never capped.
+ */
+export const SUBTLE_SIDEBAR_MAX_CHROMA = 0.02;
+export const SUBTLE_WORK_AREA_MAX_CHROMA = 0.016;
+export const SUBTLE_DARK_MAX_LIGHTNESS = 0.23;
+
 /** The last Colourfulness position: 0 is Subtle (+4), 32 Vivid (-12), 56 Full (-24), half a point apart. */
 export const COLOURFULNESS_LAST_POSITION = 56;
 
@@ -152,6 +162,8 @@ export type ThemeColourSettings = {
   customSidebarTitlebarLightBackgroundLightnessPercent: number;
   themeSidebarContrast: number;
   themeWorkAreaContrast: number;
+  /** Optional per-appearance theme role overrides (Stage 1 `themeRoles`). */
+  themeRoles?: ThemeRolesByAppearance;
 };
 
 type Channels = [number, number, number];
@@ -299,6 +311,56 @@ function lightFullColourTarget(picked: Channels): Channels {
   return towardWhite(high);
 }
 
+function delinear(value: number): number {
+  const clamped = Math.max(0, value);
+  return clamped <= 0.0031308 ? 12.92 * clamped : 1.055 * clamped ** (1 / 2.4) - 0.055;
+}
+
+/** sRGB (0-255 channels) to OKLCH `(L, C, h_radians)` (`srgb_to_oklch` in desktop `dark_chrome.rs`). */
+export function srgbToOklch(rgb: Channels): [number, number, number] {
+  const r = linear(rgb[0]);
+  const g = linear(rgb[1]);
+  const b = linear(rgb[2]);
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  const lightness = 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s;
+  const a = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s;
+  const bAxis = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s;
+  return [lightness, Math.hypot(a, bAxis), Math.atan2(bAxis, a)];
+}
+
+/** OKLCH `(L, C, h_radians)` back to sRGB 0-255 channels (`oklch_to_srgb` in desktop `dark_chrome.rs`). */
+export function oklchToSrgb(lightness: number, chroma: number, hue: number): Channels {
+  const a = chroma * Math.cos(hue);
+  const bAxis = chroma * Math.sin(hue);
+  const l = (lightness + 0.3963377774 * a + 0.2158037573 * bAxis) ** 3;
+  const m = (lightness - 0.1055613458 * a - 0.0638541728 * bAxis) ** 3;
+  const s = (lightness - 0.0894841775 * a - 1.291485548 * bAxis) ** 3;
+  const r = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+  const g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+  const b = -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s;
+  return [
+    clamp(delinear(r), 0, 1) * 255,
+    clamp(delinear(g), 0, 1) * 255,
+    clamp(delinear(b), 0, 1) * 255,
+  ];
+}
+
+/** Caps a dark built-in surface colour in OKLCH to at most `maxChroma` and `maxLightness`. */
+export function capSubtleDarkRgb(rgb: Channels, maxChroma: number, maxLightness: number): Channels {
+  const [lightness, chroma, hue] = srgbToOklch(rgb);
+  if (chroma <= maxChroma && lightness <= maxLightness) return rgb;
+  return oklchToSrgb(Math.min(lightness, maxLightness), Math.min(chroma, maxChroma), hue);
+}
+
+/** Caps a light built-in surface colour in OKLCH to at most `maxChroma`. */
+export function capSubtleLightRgb(rgb: Channels, maxChroma: number): Channels {
+  const [lightness, chroma, hue] = srgbToOklch(rgb);
+  if (chroma <= maxChroma) return rgb;
+  return oklchToSrgb(lightness, maxChroma, hue);
+}
+
 /** `sidebar_titlebar_background_for_darkness`: the calibrated dark chrome scaled by depth (100 is black). */
 function darkChrome(depth: number, tint: number): number {
   const darkness = clampDarkThemeDepth(depth);
@@ -343,6 +405,25 @@ function chromeTowardFull(light: boolean, depth: number, tint: number, fade: num
   const target = light ? lightFullColourTarget(channels(tint)) : fullColourTarget(channels(tint));
   const amount = Math.min(fade, 1);
   return pack(from.map((value, index) => f32(value + (target[index]! - value) * amount)) as Channels);
+}
+
+/** Built-in square chrome capped with Stage 1 subtle OKLCH bounds (`dark_chrome_toward_full_subtle` / light twin). */
+function chromeTowardFullSubtle(
+  light: boolean,
+  depth: number,
+  tint: number,
+  fade: number,
+  maxChroma: number,
+): number {
+  const vividRaw = channels(light ? lightChrome(depth, tint) : darkChrome(depth, tint));
+  const cap = (rgb: Channels): Channels =>
+    light ? capSubtleLightRgb(rgb, maxChroma) : capSubtleDarkRgb(rgb, maxChroma, SUBTLE_DARK_MAX_LIGHTNESS);
+  const vivid = cap(vividRaw);
+  if (fade <= 0) return pack(vivid);
+  const target = cap(light ? lightFullColourTarget(channels(tint)) : fullColourTarget(channels(tint)));
+  const amount = Math.min(fade, 1);
+  const mixed = vivid.map((value, index) => value + (target[index]! - value) * amount) as Channels;
+  return pack(cap(mixed));
 }
 
 /**
@@ -413,17 +494,27 @@ export function resolveThemeAreas(settings: ThemeColourSettings, light: boolean)
   const { depth, tint } = rawControls(settings, light);
   const clampArea = light ? clampLightThemeDepth : clampDarkThemeDepth;
   const delta = depthPoints(settings.themeWorkAreaContrast) - depthPoints(settings.themeSidebarContrast);
-  const sidebar = chromeTowardFull(light, clampArea(depth), tint, fullColourFade(settings.themeSidebarContrast));
-  const workChrome = chromeTowardFull(
-    light,
-    clampArea(depth + delta),
-    tint,
-    fullColourFade(settings.themeWorkAreaContrast),
-  );
+  const isCustom = light ? settings.lightThemePreset === 'custom' : settings.darkThemePreset === 'custom';
+  const sidebarFade = fullColourFade(settings.themeSidebarContrast);
+  const workFade = fullColourFade(settings.themeWorkAreaContrast);
+  const sidebar = isCustom
+    ? chromeTowardFull(light, clampArea(depth), tint, sidebarFade)
+    : chromeTowardFullSubtle(light, clampArea(depth), tint, sidebarFade, SUBTLE_SIDEBAR_MAX_CHROMA);
+  const workChrome = isCustom
+    ? chromeTowardFull(light, clampArea(depth + delta), tint, workFade)
+    : chromeTowardFullSubtle(light, clampArea(depth + delta), tint, workFade, SUBTLE_WORK_AREA_MAX_CHROMA);
+  const rawWorkArea = stepToward(workChrome, 255, chromeIsLight(workChrome) ? 0.25 : 0.01);
+  const workArea = isCustom
+    ? rawWorkArea
+    : pack(
+        light
+          ? capSubtleLightRgb(channels(rawWorkArea), SUBTLE_WORK_AREA_MAX_CHROMA)
+          : capSubtleDarkRgb(channels(rawWorkArea), SUBTLE_WORK_AREA_MAX_CHROMA, SUBTLE_DARK_MAX_LIGHTNESS),
+      );
   return {
     sidebar: hexOf(sidebar),
     workChrome: hexOf(workChrome),
-    workArea: hexOf(stepToward(workChrome, 255, chromeIsLight(workChrome) ? 0.25 : 0.01)),
+    workArea: hexOf(workArea),
     menu: hexOf(stepToward(sidebar, 255, chromeIsLight(sidebar) ? 0.7 : 0.05)),
   };
 }
@@ -464,15 +555,38 @@ export function contentIsLight<K extends ContentColorSchemeKey>(
   return scheme === 'system' ? systemIsLight : scheme === 'light';
 }
 
-export type ThemeSquare = { id: DarkThemeSquare | LightThemeSquare; label: string; tint: string };
+export type ThemeSquare = {
+  id: DarkThemeSquare | LightThemeSquare;
+  label: string;
+  /** Raw desktop tint hex. */
+  tint: string;
+  /** Subtle OKLCH-capped preview swatch matching Stage 1 built-in squares. */
+  swatch: string;
+};
 
 /** The sixteen squares of one appearance as Settings offers them (`DARK_THEME_PRESET_OPTIONS` / `LIGHT_...`). */
 export function themeSquares(light: boolean): readonly ThemeSquare[] {
-  return (light ? LIGHT_SQUARES : DARK_SQUARES).map(([id, , tint]) => ({
-    id,
-    label: id === 'gray' ? 'Graphite' : `${id[0]!.toUpperCase()}${id.slice(1)}`,
-    tint: hexOf(tint),
-  }));
+  return (light ? LIGHT_SQUARES : DARK_SQUARES).map(([id, depth, tint]) => {
+    let swatchRgb: number;
+    if (!light && id === 'black') {
+      swatchRgb = 0x050506;
+    } else if (!light && id === 'gray') {
+      swatchRgb = 0x181a1e;
+    } else if (light && id === 'white') {
+      swatchRgb = 0xffffff;
+    } else if (light && id === 'gray') {
+      swatchRgb = 0xe8e9ed;
+    } else {
+      // Preview swatch at a readable subtle tint cap matching Stage 1 desktop swatches.
+      swatchRgb = chromeTowardFullSubtle(light, depth, tint, 1, SUBTLE_SIDEBAR_MAX_CHROMA);
+    }
+    return {
+      id,
+      label: id === 'gray' ? 'Graphite' : `${id[0]!.toUpperCase()}${id.slice(1)}`,
+      tint: hexOf(tint),
+      swatch: hexOf(swatchRgb),
+    };
+  });
 }
 
 /** `paired_preset`: the matching square in the other appearance (Black and White swap); Custom has none. */

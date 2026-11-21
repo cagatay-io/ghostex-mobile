@@ -127,6 +127,7 @@ import { useStatusBarStyle } from '../theme/statusBar';
 import { terminalChrome } from '../theme/terminalColours';
 import { useTerminalColours } from '../theme/useTerminalColours';
 import { useAppearance } from '../theme/useAppearance';
+import { HeaderBackdrop } from '../theme/HeaderBackdrop';
 import { machineNameById, useMachinesStore } from '../machines/store';
 import { VoiceButton } from '../voice/VoiceButton';
 import { readAloudChatKey, setReadAloudOnScreen } from '../voice/readAloud';
@@ -1643,7 +1644,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
       <View
         style={[
           styles.header,
-          { backgroundColor: surfaceBackground },
+          { backgroundColor: surfaceBackground, overflow: 'hidden' },
           // No Back on Android and no buttons in the chat view: the tab strip keeps the chat's side margin there.
           headerPlacement.kind === 'top'
             ? {
@@ -1664,6 +1665,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
             : null,
         ]}
       >
+        <HeaderBackdrop baseColor={surfaceBackground} />
         {/* Android's own Back (gesture and button) goes back to Sessions (`BackHandler` above): no arrow there. The
             iPhone has no system Back, so it keeps the arrow. */}
         {inRail || Platform.OS === 'android' ? null : backButton(styles.headerButton)}

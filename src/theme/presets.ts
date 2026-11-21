@@ -14,6 +14,7 @@
 
 import type { GhostexSettings } from '../settings/store';
 import { colourfulnessPatch, COLOURFULNESS_LAST_POSITION } from './sidebarAppearance';
+import { PRESET_ROLES, STAGE1_PRESET_TINTS, type ThemeRolesByAppearance } from './themeRoles';
 import alucard from './presets/alucard.json';
 import dracula from './presets/dracula.json';
 import efDark from './presets/ef-dark.json';
@@ -113,9 +114,51 @@ export const THEME_PRESET_FAMILIES: ReadonlyArray<{ family: string; presets: The
  * purpose on the page since it opened, so a dark preset leaves light mode alone; a light preset always brings its
  * dark partner.
  */
-export function themePresetPatch(id: string, lightPicked: boolean): ThemePresetPatch | undefined {
+export function themePresetPatch(
+  id: string,
+  lightPicked: boolean,
+  currentRoles?: ThemeRolesByAppearance,
+): ThemePresetPatch | undefined {
   const preset = THEME_PRESETS.find((entry) => entry.id === id);
-  return preset?.patches[lightPicked ? 'lightPickedOnPurpose' : 'lightFollows'];
+  if (preset === undefined) return undefined;
+  const basePatch = { ...preset.patches[lightPicked ? 'lightPickedOnPurpose' : 'lightFollows'] };
+  const stage1 = STAGE1_PRESET_TINTS[preset.id];
+  if (stage1 !== undefined) {
+    if (preset.mode === 'dark') {
+      basePatch.customSidebarTitlebarBackgroundTintColor = stage1.tintColor;
+    } else {
+      basePatch.customSidebarTitlebarLightBackgroundTintColor = stage1.tintColor;
+    }
+  }
+  const partnerStage1 = preset.partner !== null ? STAGE1_PRESET_TINTS[preset.partner] : undefined;
+  if (partnerStage1 !== undefined) {
+    if (preset.mode === 'dark' && !lightPicked) {
+      basePatch.customSidebarTitlebarLightBackgroundTintColor = partnerStage1.tintColor;
+    } else if (preset.mode === 'light') {
+      basePatch.customSidebarTitlebarBackgroundTintColor = partnerStage1.tintColor;
+    }
+  }
+  const nextRoles: ThemeRolesByAppearance = {
+    ...(currentRoles?.dark !== undefined ? { dark: { ...currentRoles.dark } } : {}),
+    ...(currentRoles?.light !== undefined ? { light: { ...currentRoles.light } } : {}),
+  };
+  const ownRoles = PRESET_ROLES[preset.id];
+  if (ownRoles !== undefined) {
+    nextRoles[preset.mode] = { ...ownRoles };
+  }
+  if (preset.partner !== null) {
+    const partnerRoles = PRESET_ROLES[preset.partner];
+    const partnerMode = preset.mode === 'dark' ? 'light' : 'dark';
+    if (partnerRoles !== undefined && (preset.mode === 'light' || !lightPicked)) {
+      nextRoles[partnerMode] = { ...partnerRoles };
+    }
+  }
+  return {
+    ...basePatch,
+    windowArt: 'none',
+    windowLiveStyle: 'none',
+    themeRoles: nextRoles,
+  };
 }
 
 /**
@@ -126,14 +169,20 @@ export function themePresetPatch(id: string, lightPicked: boolean): ThemePresetP
 export function themePresetMatches(settings: GhostexSettings, preset: ThemePreset): boolean {
   const dark = preset.mode === 'dark';
   const full = colourfulnessPatch(COLOURFULNESS_LAST_POSITION);
+  const currentTint = (
+    dark ? settings.customSidebarTitlebarBackgroundTintColor : settings.customSidebarTitlebarLightBackgroundTintColor
+  )
+    .trim()
+    .toLowerCase();
+  const stage1Tint = STAGE1_PRESET_TINTS[preset.id]?.tintColor.toLowerCase();
+  const tintMatches = currentTint === preset.tintColor.toLowerCase() || (stage1Tint !== undefined && currentTint === stage1Tint);
   return (
     settings.sidebarTheme === (dark ? 'dark-2' : 'plain-light') &&
     (dark ? settings.darkThemePreset : settings.lightThemePreset) === 'custom' &&
-    (dark ? settings.customSidebarTitlebarBackgroundTintColor : settings.customSidebarTitlebarLightBackgroundTintColor)
-      .trim()
-      .toLowerCase() === preset.tintColor.toLowerCase() &&
+    tintMatches &&
     (dark ? settings.terminalGhosttyTheme : settings.terminalGhosttyLightTheme) === preset.terminalPalette &&
     settings.terminalBackgroundMode === 'theme' &&
+    settings.windowArt === 'none' &&
     (Object.keys(full) as (keyof typeof full)[]).every((key) => settings[key] === full[key])
   );
 }

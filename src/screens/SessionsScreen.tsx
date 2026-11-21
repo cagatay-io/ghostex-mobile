@@ -210,6 +210,7 @@ import { attachSessionKey, useTerminalStore } from '../terminal/sessions';
 import { GhostexPalette } from '../theme/palette';
 import { useStatusBarStyle } from '../theme/statusBar';
 import { useAppearance } from '../theme/useAppearance';
+import { HeaderBackdrop } from '../theme/HeaderBackdrop';
 import { clearDialBackoff } from '../remote/dialBackoff';
 import {
   closePutsSessionToSleep,
@@ -1564,11 +1565,13 @@ export default function SessionsScreen({ navigation }: Props) {
       <View
         style={[
           styles.headerRow,
+          { overflow: 'hidden' },
           headerPlacement.kind === 'band'
             ? [styles.bandRow, bandRowFrame(headerPlacement.frame, SESSIONS_HEADER_HEIGHT)]
             : null,
         ]}
       >
+        <HeaderBackdrop baseColor={sidebarAppearance.background} />
         {/*
           Manual refresh is pull-to-refresh on the list below, so the title has
           the header row's leading space to itself. Long-pressing it opens the

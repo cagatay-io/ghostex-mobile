@@ -1,6 +1,6 @@
 /**
  * The Settings pages listed on the Settings home, in order. Names follow the
- * desktop Settings where one exists (Interface, Chat, Terminal, Notifications:
+ * desktop Settings where one exists (Themes, Chat, Terminal, Notifications:
  * the desktop files its sounds under Notifications).
  */
 
@@ -44,7 +44,7 @@ export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, { title: string; de
     title: 'Experience',
     description: 'How many buttons and details this phone shows: Chill, Regular or Advanced.',
   },
-  theme: { title: 'Interface', description: 'Theme presets, colours, and the chat and terminal appearance.' },
+  theme: { title: 'Themes', description: 'Looks, subtle colours, fine-tune roles, and copying from a computer.' },
   sessionsList: {
     title: 'Sidebar & Sessions',
     description: 'How the sessions list is organized, synced with your computers.',
@@ -72,7 +72,7 @@ export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, { title: string; de
   readAloudVoice: { title: 'Read aloud voice', description: "Which of this phone's voices reads replies aloud." },
   // Opened from Settings › Voice, for the computer picked there; not listed on the Settings home.
   dictateLanguage: { title: 'Language', description: 'The language Dictate listens for.' },
-  // Opened from Settings › Interface's Terminal palettes rows, not listed on the Settings home.
+  // Opened from Settings › Themes' Terminal palettes rows, not listed on the Settings home.
   terminalPaletteDark: { title: 'Terminal palette in dark mode', description: 'The terminal colours in dark mode.' },
   terminalPaletteLight: { title: 'Terminal palette in light mode', description: 'The terminal colours in light mode.' },
   // Opened from Settings › Connection's Troubleshooting rows (iOS), not listed on the Settings home.

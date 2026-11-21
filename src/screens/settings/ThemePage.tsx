@@ -1,29 +1,32 @@
 /**
- * Settings › Interface: the desktop's theme controls in its order, where they make sense on a phone. Presets, then
- * Colours (Appearance, Dark mode colour, Light mode colour, Colourfulness and the separate sidebar and work area
- * sliders), then Chat theme, Terminal theme and the terminal palettes.
+ * Settings > Themes: full desktop-matching Themes screen (Q4465, Q4466, Q4467).
  *
- * CDXC:Theming DECISION: the phone copies the Mac app's theme functions, presets included. The controls write the desktop's keys through
- * the settings store; a preset is one save, and the card whose always-written keys still hold shows as selected
- * (presets.ts). Picking a colour square or preset of one appearance, or typing its custom tint, marks it picked on
- * purpose for as long as the page stays open, which stops the other appearance's colour from following
- * (`select_preset`, `theme_preset_choice` in the desktop's settings_modal/tabs/theme). The squares show their own
- * tint; the desktop's Pick Color dialog is a hex field here, and the desktop-only rows (fonts, transparency, the pane
- * outline, the terminal config file) are left out.
+ * Order matches desktop Settings > Themes:
+ * 1. Compact live mini-chat preview (with optional dimmed Art backdrop or static Live tint gradient)
+ * 2. Copy from a computer (one-time copy with live swatch preview over chatMachineLink + SSH fallback)
+ * 3. Appearance mode (System / Dark / Light)
+ * 4. Themes strip (Default + 6 Art looks + 6 Agent-made looks) + Header artwork backdrop toggle + Named presets
+ * 5. Dark and Light subtle OKLCH colour swatches + uncapped Custom hex
+ * 6. Colourfulness (unified or separate sidebar and work area sliders)
+ * 7. Fine-tune accents & fills (all 18 desktop themeRoles, uncapped)
+ * 8. Chat theme, Terminal theme, Terminal palettes, Import Ghostty theme, and Reset to default
  */
 
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
-import { useEffect, useRef, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
+import { Glyph } from '../../chat/native/cards/icons';
+import { useTranscriptTheme } from '../../chat/native/transcript/theme';
 import type { RootStackParamList } from '../../navigation/types';
 import { defaultSettings, useSettingsStore, type GhostexSettings } from '../../settings/store';
+import { HeaderBackdrop } from '../../theme/HeaderBackdrop';
 import { GhosttyImportError, importGhosttyTheme } from '../../theme/importGhostty';
-import { colorWithOpacity, GhostexStrokeWidth } from '../../theme/palette';
+import { colorWithOpacity, GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
 import {
   THEME_PRESET_FAMILIES,
   THEME_PRESETS,
@@ -52,7 +55,30 @@ import {
   type SidebarThemeSetting,
 } from '../../theme/sidebarAppearance';
 import { terminalPaletteLabel } from '../../theme/terminalPalettes';
+import {
+  ALL_THEME_LOOKS,
+  BUNDLED_ART_IMAGES,
+  isBundledArtId,
+  liveGradientForStyle,
+  QUICK_ACCENT_SWATCHES,
+  resetThemeToDefaultPatch,
+  themeLookMatches,
+  themeLookPatch,
+  type ThemeLook,
+} from '../../theme/themeLooks';
+import {
+  countThemeRoleOverrides,
+  parseRoleValue,
+  resolveRoleOverBase,
+  rolesForAppearance,
+  setThemeRole,
+  STAGE1_PRESET_TINTS,
+  THEME_ROLES,
+  type ThemeRoleDefinition,
+  type ThemeRoleId,
+} from '../../theme/themeRoles';
 import { useAppearance, type Appearance } from '../../theme/useAppearance';
+import { CopyComputerThemeSheet } from './CopyComputerThemeSheet';
 import { SettingsSection } from './SectionBoundary';
 import {
   Caption,
@@ -60,6 +86,7 @@ import {
   HexColourField,
   LinkRow,
   SectionHeader,
+  SegmentedRow,
   SettingsScreenLayout,
   SettingsSlider,
   ToggleRow,
@@ -71,14 +98,13 @@ import { SettingsSearchAnchor } from './search/SettingsSearchAnchor';
 /** Which appearance had a colour or preset picked on purpose since the page opened (`pickedOnPurpose`). */
 type Picked = { dark: boolean; light: boolean };
 
-/** Appearance's three cards in the desktop's order (`APPEARANCE_CHOICES`). */
+/** Appearance mode choices in desktop/mockup order: System, Dark, Light. */
 const APPEARANCE_CHOICES: ReadonlyArray<{ value: SidebarThemeSetting; label: string }> = [
   { value: 'system', label: 'System' },
-  { value: 'plain-light', label: 'Light' },
   { value: 'dark-2', label: 'Dark' },
+  { value: 'plain-light', label: 'Light' },
 ];
 
-/** `SESSION_CHAT_THEME_OPTIONS`, for Chat theme and Terminal theme alike. */
 const CONTENT_SCHEME_LABELS: Readonly<Record<ContentColorScheme, string>> = {
   app: 'Follow app',
   system: 'System',
@@ -86,19 +112,55 @@ const CONTENT_SCHEME_LABELS: Readonly<Record<ContentColorScheme, string>> = {
   dark: 'Dark',
 };
 
-/** Each preset as its card draws it: its own patch over the defaults, in its own appearance (`preview_colours`). */
+/** Primary chat & chrome roles shown directly in the Fine-tune card; the rest sit under More theme colours. */
+const PRIMARY_ROLE_IDS: readonly ThemeRoleId[] = [
+  'userMessage',
+  'chatBox',
+  'surface',
+  'border',
+  'text',
+  'mutedText',
+  'link',
+  'codeBlock',
+];
+
+const PRIMARY_ROLES: readonly ThemeRoleDefinition[] = PRIMARY_ROLE_IDS.map(
+  (id) => THEME_ROLES.find((role) => role.id === id)!,
+);
+const EXTRA_ROLES: readonly ThemeRoleDefinition[] = THEME_ROLES.filter(
+  (role) => role.id !== 'accent' && !PRIMARY_ROLE_IDS.includes(role.id),
+);
+
+/** Each named preset preview using Stage 1 subtle tint overrides where present. */
 const PRESET_PREVIEWS: ReadonlyMap<string, { sidebar: string; work: string; ink: string }> = new Map(
   THEME_PRESETS.map((preset) => {
-    const areas = resolveThemeAreas(
-      { ...defaultSettings(), ...preset.patches.lightPickedOnPurpose },
-      preset.mode === 'light',
-    );
+    const stage1 = STAGE1_PRESET_TINTS[preset.id];
+    const patch = {
+      ...preset.patches.lightPickedOnPurpose,
+      ...(stage1 !== undefined
+        ? preset.mode === 'dark'
+          ? { customSidebarTitlebarBackgroundTintColor: stage1.tintColor }
+          : { customSidebarTitlebarLightBackgroundTintColor: stage1.tintColor }
+        : {}),
+    };
+    const areas = resolveThemeAreas({ ...defaultSettings(), ...patch }, preset.mode === 'light');
     return [
       preset.id,
       { sidebar: areas.sidebar, work: areas.workArea, ink: sidebarAppearanceFor(areas.workArea).foreground },
     ];
   }),
 );
+
+function activeThemeBadge(settings: GhostexSettings, light: boolean): string {
+  const matchedLook = ALL_THEME_LOOKS.find((look) => themeLookMatches(settings, look));
+  if (matchedLook !== undefined) return matchedLook.badge;
+  const matchedPreset = THEME_PRESETS.find((preset) => themePresetMatches(settings, preset));
+  if (matchedPreset !== undefined) return `${matchedPreset.label} · Preset`;
+  const preset = light ? settings.lightThemePreset : settings.darkThemePreset;
+  if (preset === 'custom') return 'Custom · Uncapped';
+  const sq = themeSquares(light).find((entry) => entry.id === preset);
+  return `${sq?.label ?? 'Graphite'} · Subtle`;
+}
 
 function ModeGlyph({ dark, size, color }: { dark: boolean; size: number; color: string }) {
   return (
@@ -122,6 +184,219 @@ function ModeGlyph({ dark, size, color }: { dark: boolean; size: number; color: 
         </>
       )}
     </Svg>
+  );
+}
+
+/** Compact live mini-chat preview at the top of Settings > Themes (Q4465 Option A + Q4467 Art/Live header). */
+function LiveMiniChatPreview() {
+  const settings = useSettingsStore((state) => state.settings);
+  const appearance = useAppearance();
+  const chatTheme = useTranscriptTheme();
+  const badge = activeThemeBadge(settings, appearance.light);
+  const hasArtOrLive =
+    isBundledArtId(settings.windowArt) ||
+    liveGradientForStyle(settings.windowLiveStyle, appearance.background, appearance.accent) !== null;
+
+  return (
+    <View
+      accessibilityLabel={`Live preview: ${badge}`}
+      style={[
+        styles.previewCard,
+        {
+          backgroundColor: chatTheme.background,
+          borderColor: chatTheme.border,
+        },
+      ]}
+    >
+      <View
+        style={[
+          styles.previewHeader,
+          {
+            backgroundColor: appearance.background,
+            borderBottomColor: chatTheme.border,
+          },
+        ]}
+      >
+        <HeaderBackdrop baseColor={chatTheme.background} />
+        <Text style={[styles.previewTitle, { color: appearance.foreground }]} numberOfLines={1}>
+          Live preview
+        </Text>
+        <Text style={[styles.previewBadge, { color: appearance.accent }]} numberOfLines={1}>
+          {hasArtOrLive && settings.showHeaderArtworkBackdrop && isBundledArtId(settings.windowArt)
+            ? `${badge} · ${settings.windowArtDim}% dim`
+            : badge}
+        </Text>
+      </View>
+
+      <View style={styles.previewBody}>
+        <View style={[styles.previewBubble, { backgroundColor: chatTheme.userBubble }]}>
+          <Text style={[styles.previewBubbleText, { color: chatTheme.foreground }]}>
+            Show my open PRs on Ghostex
+          </Text>
+        </View>
+
+        <View style={styles.previewReply}>
+          <Text style={[styles.previewThinking, { color: chatTheme.muted }]}>Checked 2 branches in 0.4s</Text>
+          <Text style={[styles.previewReplyText, { color: chatTheme.foreground }]}>
+            Ready to review{' '}
+            <Text style={{ color: chatTheme.link.url, fontWeight: '600' }}>#1842</Text> and merge.
+          </Text>
+        </View>
+
+        <View
+          style={[
+            styles.previewComposer,
+            {
+              backgroundColor: chatTheme.composerBackground,
+              borderColor: chatTheme.composerBorder,
+            },
+          ]}
+        >
+          <Text style={[styles.previewComposerText, { color: chatTheme.muted }]}>Message Claude…</Text>
+          <View style={[styles.previewSendDot, { backgroundColor: chatTheme.send.fill }]}>
+            <Text style={[styles.previewSendGlyph, { color: chatTheme.send.ink }]}>↑</Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+/** One tile in the Themes gallery strip (Default, Art look with real .webp thumbnail, or Agent-made Live look). */
+function LookTile({
+  look,
+  selected,
+  appearance,
+  onPress,
+}: {
+  look: ThemeLook;
+  selected: boolean;
+  appearance: Appearance;
+  onPress: () => void;
+}) {
+  const gradId = useId().replace(/[^a-zA-Z0-9_-]/gu, '');
+  const thumbBorder = selected ? appearance.accent : colorWithOpacity(appearance.foreground, 14);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${look.name} theme`}
+      accessibilityState={{ selected }}
+      style={styles.lookTile}
+      onPress={onPress}
+    >
+      <View
+        style={[
+          styles.lookThumb,
+          {
+            borderColor: thumbBorder,
+            borderWidth: selected ? 2 : 1.5,
+            backgroundColor: look.preview.work,
+          },
+        ]}
+      >
+        {look.artId !== null ? (
+          <Image source={BUNDLED_ART_IMAGES[look.artId]} resizeMode="cover" style={StyleSheet.absoluteFill} />
+        ) : look.preview.gradient !== undefined ? (
+          <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
+            <Defs>
+              <LinearGradient id={`look-${gradId}`} x1="0" y1="0" x2="1" y2="1">
+                <Stop offset="0%" stopColor={look.preview.gradient[0]} />
+                <Stop offset="55%" stopColor={look.preview.gradient[1]} />
+                <Stop offset="100%" stopColor={look.preview.gradient[2]} />
+              </LinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100%" height="100%" fill={`url(#look-${gradId})`} />
+          </Svg>
+        ) : (
+          <View style={styles.lookDefaultSplit}>
+            <View style={[styles.lookDefaultSide, { backgroundColor: look.preview.sidebar }]} />
+            <View style={[styles.lookDefaultMain, { backgroundColor: look.preview.work }]} />
+          </View>
+        )}
+        <View style={[styles.lookAccentDot, { backgroundColor: look.preview.accent }]} />
+      </View>
+      <Text
+        numberOfLines={1}
+        style={[
+          styles.lookName,
+          {
+            color: selected ? appearance.foreground : appearance.muted,
+            fontWeight: selected ? '600' : '400',
+          },
+        ]}
+      >
+        {look.label}
+      </Text>
+    </Pressable>
+  );
+}
+
+/** Themes gallery strip: Default + 6 Art looks + 6 Agent-made looks + optional header artwork toggle. */
+function ThemesGallerySection({ onPicked }: { onPicked: (dark: boolean) => void }) {
+  const settings = useSettingsStore((state) => state.settings);
+  const patchSettings = useSettingsStore((state) => state.patchSettings);
+  const setSetting = useSettingsStore((state) => state.setSetting);
+  const settingsStyles = useSettingsStyles();
+  const appearance = useAppearance();
+  const hasArt = isBundledArtId(settings.windowArt);
+  const liveSpec = liveGradientForStyle(settings.windowLiveStyle, appearance.background, appearance.accent);
+
+  return (
+    <>
+      <SettingsSearchAnchor label="Themes">
+        <View style={settingsStyles.card}>
+          <View style={styles.colourHeader}>
+            <Text style={settingsStyles.cardLabel}>Themes</Text>
+            <Text style={[styles.readout, { color: appearance.muted }]}>Art &amp; looks</Text>
+          </View>
+          <ScrollView
+            horizontal
+            accessibilityLabel="Built-in themes"
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.lookStrip}
+          >
+            {ALL_THEME_LOOKS.map((look) => (
+              <LookTile
+                key={look.id}
+                look={look}
+                selected={themeLookMatches(settings, look)}
+                appearance={appearance}
+                onPress={() => {
+                  patchSettings(themeLookPatch(look, settings.themeRoles));
+                  if (look.kind !== 'default') onPicked(true);
+                }}
+              />
+            ))}
+          </ScrollView>
+        </View>
+      </SettingsSearchAnchor>
+
+      <ToggleRow
+        label="Show dimmed artwork in header"
+        detail={
+          hasArt
+            ? 'Shows the active Art look softly dimmed behind the top bar.'
+            : liveSpec !== null
+              ? `Maps ${liveSpec.label} to a clean static tint gradient behind the top bar.`
+              : 'When an Art or Live look is active, shows its dimmed backdrop behind the top bar.'
+        }
+        value={settings.showHeaderArtworkBackdrop}
+        onValueChange={(next) => setSetting('showHeaderArtworkBackdrop', next)}
+      />
+
+      {hasArt && settings.showHeaderArtworkBackdrop ? (
+        <SettingsSlider
+          label="Artwork dimming"
+          minimumValue={15}
+          maximumValue={80}
+          step={5}
+          value={Math.min(80, Math.max(15, settings.windowArtDim))}
+          valueLabel={`${settings.windowArtDim}%`}
+          rangeLabels={['Lighter', 'Darker']}
+          onValueChange={(next) => setSetting('windowArtDim', next)}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -208,7 +483,7 @@ function PresetsSection({ picked, onPicked }: { picked: Picked; onPicked: (dark:
                   selected={themePresetMatches(settings, preset)}
                   appearance={appearance}
                   onPress={() => {
-                    patchSettings(themePresetPatch(preset.id, picked.light)!);
+                    patchSettings(themePresetPatch(preset.id, picked.light, settings.themeRoles)!);
                     onPicked(preset.mode === 'dark');
                   }}
                 />
@@ -221,63 +496,33 @@ function PresetsSection({ picked, onPicked }: { picked: Picked; onPicked: (dark:
   );
 }
 
-/** A small window in one appearance's colours: its sidebar and work area. */
-function MiniWindow({ settings, light }: { settings: GhostexSettings; light: boolean }) {
-  const areas = resolveThemeAreas(settings, light);
-  return (
-    <View style={styles.miniWindow}>
-      <View style={[styles.miniSidebar, { backgroundColor: areas.sidebar }]} />
-      <View style={[styles.miniWork, { backgroundColor: areas.workArea }]} />
-    </View>
-  );
-}
-
 function AppearanceRow() {
-  const settings = useSettingsStore((state) => state.settings);
+  const sidebarTheme = useSettingsStore((state) => state.settings.sidebarTheme);
   const setSetting = useSettingsStore((state) => state.setSetting);
   const settingsStyles = useSettingsStyles();
   const appearance = useAppearance();
+  const currentLabel = APPEARANCE_CHOICES.find((choice) => choice.value === sidebarTheme)?.label ?? 'System';
 
   return (
     <SettingsSearchAnchor label="Appearance">
       <View style={settingsStyles.card}>
-        <Text style={settingsStyles.cardLabel}>Appearance</Text>
-        <Caption>System follows your phone’s light or dark mode.</Caption>
-        <View style={styles.appearanceCards}>
-          {APPEARANCE_CHOICES.map((choice) => {
-            const selected = settings.sidebarTheme === choice.value;
-            return (
-              <Pressable
-                key={choice.value}
-                accessibilityRole="radio"
-                accessibilityLabel={`${choice.label} appearance`}
-                accessibilityState={{ selected }}
-                style={styles.appearanceCard}
-                onPress={() => setSetting('sidebarTheme', choice.value)}
-              >
-                <View
-                  style={[
-                    styles.appearanceArt,
-                    { borderColor: selected ? colorWithOpacity(appearance.foreground, 85) : appearance.border },
-                    selected ? styles.appearanceArtSelected : null,
-                  ]}
-                >
-                  {choice.value !== 'dark-2' ? <MiniWindow settings={settings} light /> : null}
-                  {choice.value !== 'plain-light' ? <MiniWindow settings={settings} light={false} /> : null}
-                </View>
-                <Text style={[styles.appearanceLabel, { color: selected ? appearance.foreground : appearance.muted }]}>
-                  {choice.label}
-                </Text>
-              </Pressable>
-            );
-          })}
+        <View style={styles.colourHeader}>
+          <Text style={settingsStyles.cardLabel}>Appearance</Text>
+          <Text style={[styles.readout, { color: appearance.muted }]}>{currentLabel}</Text>
         </View>
+        <SegmentedRow
+          label="Appearance mode"
+          options={APPEARANCE_CHOICES}
+          value={sidebarTheme}
+          onChange={(next) => setSetting('sidebarTheme', next)}
+        />
+        <Caption>System follows your phone&apos;s light or dark mode.</Caption>
       </View>
     </SettingsSearchAnchor>
   );
 }
 
-/** Dark mode colour or Light mode colour: the sixteen squares and the custom colour, with its hex field. */
+/** Dark mode colour or Light mode colour: the sixteen Stage 1 subtle OKLCH squares plus uncapped Custom hex. */
 function ColourRow({ dark, picked, onPicked }: { dark: boolean; picked: Picked; onPicked: (dark: boolean) => void }) {
   const settings = useSettingsStore((state) => state.settings);
   const patchSettings = useSettingsStore((state) => state.patchSettings);
@@ -289,12 +534,13 @@ function ColourRow({ dark, picked, onPicked }: { dark: boolean; picked: Picked; 
   const squares = themeSquares(!dark);
   const pickedHere = dark ? picked.dark : picked.light;
   const otherPicked = dark ? picked.light : picked.dark;
-  // Light mode follows the dark pick until a light colour is picked on purpose; dark mode follows only when light was
-  // picked first.
   const follows = themeColoursPaired(settings, dark) && !pickedHere && (!dark || otherPicked);
   const name = selected === 'custom' ? 'Custom' : (squares.find((square) => square.id === selected)?.label ?? selected);
   const choose = (preset: DarkThemePreset | LightThemePreset): void => {
-    patchSettings(themeColourPatch(settings, dark, preset, otherPicked));
+    patchSettings({
+      ...themeColourPatch(settings, dark, preset, otherPicked),
+      ...(preset !== 'custom' && dark ? { windowArt: 'none', windowLiveStyle: 'none' } : {}),
+    });
     onPicked(dark);
   };
 
@@ -309,7 +555,11 @@ function ColourRow({ dark, picked, onPicked }: { dark: boolean; picked: Picked; 
       onPress={onPress}
     >
       <View
-        style={[styles.square, { borderColor: appearance.border }, fill === null ? null : { backgroundColor: fill }]}
+        style={[
+          styles.square,
+          { borderColor: colorWithOpacity(appearance.foreground, 18) },
+          fill === null ? null : { backgroundColor: fill },
+        ]}
       >
         {fill === null ? <Text style={[styles.squarePlus, { color: appearance.mutedGlyph }]}>+</Text> : null}
       </View>
@@ -327,35 +577,38 @@ function ColourRow({ dark, picked, onPicked }: { dark: boolean; picked: Picked; 
         </View>
         <Caption>
           {dark
-            ? 'The colour of the app in dark mode. Picking one gives light mode the same colour until you pick one there. The + square takes any tint.'
-            : 'The colour of the app in light mode. It follows the dark mode colour until you pick one here. The + square takes any tint.'}
+            ? 'Built-in squares stay subtle in dark mode. Tap + for any uncapped custom hex colour.'
+            : 'Follows dark mode until picked here. Tap + for any uncapped custom hex colour.'}
         </Caption>
         <View style={styles.squares}>
           {squares.map((entry) =>
-            square(entry.id, entry.label, entry.tint, selected === entry.id, () => choose(entry.id)),
+            square(entry.id, entry.label, entry.swatch, selected === entry.id, () => choose(entry.id)),
           )}
           {square('custom', 'Custom', selected === 'custom' ? settings[tintKey] : null, selected === 'custom', () =>
             choose('custom'),
           )}
         </View>
         {selected === 'custom' ? (
-          <HexColourField
-            label="Custom tint"
-            value={settings[tintKey]}
-            // Typing a tint is picking this appearance's colour on purpose, as the desktop's picker records it
-            // (tabs/theme/mod.rs `picked_light`), so a later preset of the other appearance leaves it alone.
-            onChange={(hex) => {
-              patchSettings({ [tintKey]: hex });
-              onPicked(dark);
-            }}
-          />
+          <View style={styles.uncappedWrap}>
+            <HexColourField
+              label="Custom tint"
+              value={settings[tintKey]}
+              onChange={(hex) => {
+                patchSettings({ [tintKey]: hex });
+                onPicked(dark);
+              }}
+            />
+            <Text style={[styles.uncappedNote, { color: appearance.muted }]}>
+              Uncapped: custom hex colours keep their exact chroma and lightness.
+            </Text>
+          </View>
         ) : null}
       </View>
     </SettingsSearchAnchor>
   );
 }
 
-/** Colourfulness, and the sidebar and work area set apart (the desktop's More colour options). */
+/** Colourfulness, and the sidebar and work area set apart. */
 function ColourfulnessRows() {
   const settings = useSettingsStore((state) => state.settings);
   const patchSettings = useSettingsStore((state) => state.patchSettings);
@@ -383,8 +636,7 @@ function ColourfulnessRows() {
         />
       )}
       <Caption>
-        How much of the colour shows in the sidebar and work area. Subtle is deeper and nearly neutral, Vivid lighter
-        and more colourful, and Full is the colour you picked itself.
+        How much of the colour shows in the sidebar and work area. Subtle is nearly neutral; Full reaches the picked tint.
       </Caption>
       <ToggleRow
         label="Set the sidebar and work area separately"
@@ -419,6 +671,253 @@ function ColourfulnessRows() {
           })
         : null}
     </>
+  );
+}
+
+/** Single editable theme role row accepting `#rrggbb`, `#rrggbbaa`, `base+N%`, `base-N%`, `base+N%/A%`, or `N%`. */
+function ThemeRoleEditorRow({
+  role,
+  value,
+  light,
+  baseHex,
+  appearance,
+  onChange,
+}: {
+  role: ThemeRoleDefinition;
+  value: string | undefined;
+  light: boolean;
+  baseHex: string;
+  appearance: Appearance;
+  onChange: (next: string | null) => void;
+}) {
+  const [draft, setDraft] = useState(value ?? '');
+  useEffect(() => {
+    setDraft(value ?? '');
+  }, [value]);
+
+  const resolvedSwatch = resolveRoleOverBase(value, light, baseHex);
+
+  const commit = (): void => {
+    const trimmed = draft.trim();
+    if (trimmed === '' || trimmed.toLowerCase() === 'default') {
+      if (value !== undefined) onChange(null);
+      setDraft('');
+      return;
+    }
+    if (parseRoleValue(trimmed) !== null) {
+      if (trimmed !== value) onChange(trimmed);
+    } else {
+      setDraft(value ?? '');
+    }
+  };
+
+  return (
+    <View style={[styles.roleRow, { borderTopColor: appearance.border }]}>
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={[
+          styles.roleSwatch,
+          {
+            borderColor: colorWithOpacity(appearance.foreground, 22),
+            backgroundColor: resolvedSwatch ?? 'transparent',
+          },
+        ]}
+      />
+      <View style={styles.roleInfo}>
+        <Text style={[styles.roleTitle, { color: appearance.foreground }]}>{role.title}</Text>
+        <Text style={[styles.roleAbout, { color: appearance.muted }]} numberOfLines={2}>
+          {role.about}
+        </Text>
+      </View>
+      <TextInput
+        accessibilityLabel={`${role.title} role value`}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardAppearance={appearance.light ? 'light' : 'dark'}
+        placeholder="default"
+        placeholderTextColor={appearance.muted}
+        returnKeyType="done"
+        spellCheck={false}
+        style={[
+          styles.roleInput,
+          {
+            backgroundColor: appearance.input,
+            borderColor: appearance.border,
+            color: appearance.foreground,
+          },
+        ]}
+        value={draft}
+        onBlur={commit}
+        onSubmitEditing={commit}
+        onChangeText={(next) => {
+          setDraft(next);
+          const trimmed = next.trim();
+          if (trimmed === '') {
+            if (value !== undefined) onChange(null);
+          } else if (parseRoleValue(trimmed) !== null && trimmed !== value) {
+            onChange(trimmed);
+          }
+        }}
+      />
+      {value !== undefined ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Clear ${role.title}`}
+          hitSlop={6}
+          onPress={() => onChange(null)}
+          style={[styles.roleClearBtn, { backgroundColor: appearance.neutralFill }]}
+        >
+          <Text style={[styles.roleClearText, { color: appearance.muted }]}>×</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+/** Fine-tune accents & fills (`themeRoles`): quick accent dots, chat/surface fills, and expandable More theme colours. */
+function FineTuneSection() {
+  const settings = useSettingsStore((state) => state.settings);
+  const setSetting = useSettingsStore((state) => state.setSetting);
+  const settingsStyles = useSettingsStyles();
+  const appearance = useAppearance();
+  const light = appearance.light;
+  const activeRoles = rolesForAppearance(settings.themeRoles, light);
+  const overrideCount = countThemeRoleOverrides(settings.themeRoles, light);
+  const [showMore, setShowMore] = useState(() =>
+    EXTRA_ROLES.some((role) => activeRoles[role.id] !== undefined),
+  );
+
+  const updateRole = (role: ThemeRoleId, next: string | null): void => {
+    setSetting('themeRoles', setThemeRole(settings.themeRoles, light, role, next));
+  };
+
+  const accentValue = activeRoles.accent ?? '';
+  const modeLabel = light ? 'Light mode' : 'Dark mode';
+
+  return (
+    <SettingsSearchAnchor label="Fine-tune colours">
+      <View style={settingsStyles.card}>
+        <View style={styles.colourHeader}>
+          <Text style={settingsStyles.cardLabel}>Accent &amp; chat fills</Text>
+          <Text style={[styles.readout, { color: appearance.muted }]}>
+            {overrideCount > 0 ? `${modeLabel} · ${overrideCount} set` : modeLabel}
+          </Text>
+        </View>
+        <Caption>
+          Uncapped overrides for the current appearance. Accepts #hex, opacity like 8%, or relative steps like base+7%.
+        </Caption>
+
+        <View style={styles.accentRow}>
+          <Text style={[styles.roleTitle, { color: appearance.foreground }]}>Accent</Text>
+          <View style={styles.accentDots}>
+            {QUICK_ACCENT_SWATCHES.map((swatch) => {
+              const selected = accentValue.toLowerCase() === swatch.hex.toLowerCase();
+              return (
+                <Pressable
+                  key={swatch.hex}
+                  accessibilityRole="radio"
+                  accessibilityLabel={`${swatch.label} accent`}
+                  accessibilityState={{ selected }}
+                  hitSlop={4}
+                  onPress={() => {
+                    const withAccent = setThemeRole(settings.themeRoles, light, 'accent', swatch.hex);
+                    setSetting('themeRoles', setThemeRole(withAccent, light, 'focusRing', swatch.hex));
+                  }}
+                  style={[
+                    styles.accentDotFrame,
+                    selected && { borderColor: appearance.foreground },
+                  ]}
+                >
+                  <View style={[styles.accentDot, { backgroundColor: swatch.hex }]} />
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <ThemeRoleEditorRow
+          role={THEME_ROLES.find((r) => r.id === 'accent')!}
+          value={activeRoles.accent}
+          light={light}
+          baseHex={appearance.workArea}
+          appearance={appearance}
+          onChange={(next) => {
+            const withAccent = setThemeRole(settings.themeRoles, light, 'accent', next);
+            setSetting('themeRoles', setThemeRole(withAccent, light, 'focusRing', next));
+          }}
+        />
+
+        {PRIMARY_ROLES.map((role) => (
+          <ThemeRoleEditorRow
+            key={role.id}
+            role={role}
+            value={activeRoles[role.id]}
+            light={light}
+            baseHex={appearance.workArea}
+            appearance={appearance}
+            onChange={(next) => updateRole(role.id, next)}
+          />
+        ))}
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: showMore }}
+          onPress={() => setShowMore((prev) => !prev)}
+          style={({ pressed }) => [
+            styles.moreToggle,
+            {
+              borderTopColor: appearance.border,
+              backgroundColor: pressed ? appearance.cardActive : 'transparent',
+            },
+          ]}
+        >
+          <Text style={[styles.roleTitle, { color: appearance.foreground }]}>
+            {showMore ? 'Hide more theme colours' : 'More theme colours'}
+          </Text>
+          <Glyph
+            name={showMore ? 'chevron-up' : 'chevron-down'}
+            size={16}
+            color={appearance.mutedGlyph}
+          />
+        </Pressable>
+
+        {showMore
+          ? EXTRA_ROLES.map((role) => (
+              <ThemeRoleEditorRow
+                key={role.id}
+                role={role}
+                value={activeRoles[role.id]}
+                light={light}
+                baseHex={appearance.workArea}
+                appearance={appearance}
+                onChange={(next) => updateRole(role.id, next)}
+              />
+            ))
+          : null}
+
+        {overrideCount > 0 ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Clear fine-tune colours"
+            onPress={() => {
+              const mode = light ? 'light' : 'dark';
+              const next = { ...settings.themeRoles };
+              delete next[mode];
+              setSetting('themeRoles', next);
+            }}
+            style={({ pressed }) => [
+              styles.clearAllBtn,
+              { backgroundColor: pressed ? appearance.neutralFillPressed : appearance.neutralFill },
+            ]}
+          >
+            <Text style={[styles.clearAllText, { color: appearance.foreground }]}>
+              Reset {modeLabel.toLowerCase()} fine-tune colours
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
+    </SettingsSearchAnchor>
   );
 }
 
@@ -482,7 +981,6 @@ function TerminalPaletteRows() {
         if (!active.current) return;
         text = await file.text();
       } finally {
-        // The picker supplied a cache copy, never the document provider's original file.
         file.delete();
       }
       if (!active.current) return;
@@ -544,23 +1042,121 @@ function TerminalPaletteRows() {
 }
 
 export default function ThemePage() {
-  // Reset whenever the page opens: a page is a new mount each time it is opened.
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute();
+  const patchSettings = useSettingsStore((state) => state.patchSettings);
+  const settingsStyles = useSettingsStyles();
+  const appearance = useAppearance();
+
   const [picked, setPicked] = useState<Picked>({ dark: false, light: false });
+  const [copySheetOpen, setCopySheetOpen] = useState(false);
+  const [copiedNote, setCopiedNote] = useState<string | null>(null);
+
   const onPicked = (dark: boolean): void =>
     setPicked((current) => (dark ? { ...current, dark: true } : { ...current, light: true }));
 
+  const confirmReset = useMemo(
+    () => () => {
+      Alert.alert(
+        'Reset theme to default?',
+        'This restores Ghostex default colours, artwork settings, and fine-tune overrides on this phone.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Reset',
+            style: 'destructive',
+            onPress: () => {
+              patchSettings(resetThemeToDefaultPatch());
+              setPicked({ dark: false, light: false });
+              setCopiedNote(null);
+            },
+          },
+        ],
+      );
+    },
+    [patchSettings],
+  );
+
+  useLayoutEffect(() => {
+    if (route.name !== 'SettingsPage') return;
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Reset theme to default"
+          hitSlop={8}
+          onPress={confirmReset}
+          style={({ pressed }) => [
+            styles.headerResetBtn,
+            { backgroundColor: pressed ? appearance.neutralFillPressed : appearance.neutralFill },
+          ]}
+        >
+          <Text style={[styles.headerResetText, { color: appearance.foreground }]}>Reset</Text>
+        </Pressable>
+      ),
+    });
+    return () => {
+      navigation.setOptions({ headerRight: undefined });
+    };
+  }, [navigation, route.name, appearance, confirmReset]);
+
   return (
     <SettingsScreenLayout>
-      <SettingsSection name="settings:theme:presets">
-        <PresetsSection picked={picked} onPicked={onPicked} />
+      <SettingsSection name="settings:theme:preview">
+        <LiveMiniChatPreview />
       </SettingsSection>
+
+      <SettingsSection name="settings:theme:copy-computer">
+        <SettingsSearchAnchor label="Copy from a computer">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Copy from a computer"
+            onPress={() => setCopySheetOpen(true)}
+            style={({ pressed }) => [settingsStyles.row, pressed && settingsStyles.rowPressed]}
+          >
+            <View
+              style={[
+                styles.copyIconBox,
+                { backgroundColor: appearance.cardActive, borderColor: appearance.border },
+              ]}
+            >
+              <Glyph name="device-desktop" size={17} color={appearance.foreground} />
+            </View>
+            <View style={settingsStyles.linkText}>
+              <Text style={settingsStyles.linkTitle}>Copy from a computer…</Text>
+              <Text style={settingsStyles.linkDescription}>
+                {copiedNote ?? 'Pick a paired Mac or PC and preview its look.'}
+              </Text>
+            </View>
+            <Text style={settingsStyles.chevron}>›</Text>
+          </Pressable>
+        </SettingsSearchAnchor>
+      </SettingsSection>
+
+      <SettingsSection name="settings:theme:appearance">
+        <AppearanceRow />
+      </SettingsSection>
+
+      <SettingsSection name="settings:theme:gallery">
+        <ThemesGallerySection onPicked={onPicked} />
+      </SettingsSection>
+
       <SettingsSection name="settings:theme:colours">
         <SectionHeader title="Colours" />
-        <AppearanceRow />
         <ColourRow dark picked={picked} onPicked={onPicked} />
         <ColourRow dark={false} picked={picked} onPicked={onPicked} />
         <ColourfulnessRows />
       </SettingsSection>
+
+      <SettingsSection name="settings:theme:fine-tune">
+        <SectionHeader title="Fine-tune" />
+        <FineTuneSection />
+      </SettingsSection>
+
+      <SettingsSection name="settings:theme:presets">
+        <PresetsSection picked={picked} onPicked={onPicked} />
+      </SettingsSection>
+
       <SettingsSection name="settings:theme:chat-terminal">
         <ContentSchemeRows
           settingKey="sessionChatTheme"
@@ -574,11 +1170,165 @@ export default function ThemePage() {
         />
         <TerminalPaletteRows />
       </SettingsSection>
+
+      <SettingsSection name="settings:theme:reset">
+        <SettingsSearchAnchor label="Reset to default">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Reset theme to default"
+            onPress={confirmReset}
+            style={({ pressed }) => [
+              settingsStyles.row,
+              styles.resetRow,
+              pressed && settingsStyles.rowPressed,
+            ]}
+          >
+            <Text style={[styles.resetRowText, { color: appearance.danger }]}>Reset to default</Text>
+          </Pressable>
+        </SettingsSearchAnchor>
+      </SettingsSection>
+
+      <CopyComputerThemeSheet
+        visible={copySheetOpen}
+        onClose={() => setCopySheetOpen(false)}
+        onCopied={(machineName, themeName) => setCopiedNote(`Last copied ${themeName} from ${machineName}.`)}
+      />
     </SettingsScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
+  headerResetBtn: {
+    borderRadius: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  headerResetText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  previewCard: {
+    borderRadius: 12,
+    borderWidth: GhostexStrokeWidth,
+    overflow: 'hidden',
+  },
+  previewHeader: {
+    position: 'relative',
+    overflow: 'hidden',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderBottomWidth: GhostexStrokeWidth,
+  },
+  previewTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  previewBadge: {
+    fontSize: 11,
+    fontWeight: '600',
+    flexShrink: 1,
+  },
+  previewBody: {
+    padding: 11,
+    gap: 8,
+  },
+  previewBubble: {
+    alignSelf: 'flex-end',
+    maxWidth: '86%',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  previewBubbleText: {
+    fontSize: 12.5,
+    lineHeight: 17,
+  },
+  previewReply: {
+    gap: 2,
+  },
+  previewThinking: {
+    fontSize: 11,
+  },
+  previewReplyText: {
+    fontSize: 12.5,
+    lineHeight: 17,
+  },
+  previewComposer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    borderRadius: 9,
+    borderWidth: GhostexStrokeWidth,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  previewComposerText: {
+    fontSize: 12,
+  },
+  previewSendDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewSendGlyph: {
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 14,
+  },
+  copyIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    borderWidth: GhostexStrokeWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lookStrip: {
+    gap: 10,
+    paddingVertical: 2,
+  },
+  lookTile: {
+    width: 72,
+    gap: 5,
+  },
+  lookThumb: {
+    width: 72,
+    height: 46,
+    borderRadius: 8,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  lookDefaultSplit: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  lookDefaultSide: {
+    width: '34%',
+    height: '100%',
+  },
+  lookDefaultMain: {
+    flex: 1,
+    height: '100%',
+  },
+  lookAccentDot: {
+    position: 'absolute',
+    right: 5,
+    bottom: 5,
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+  },
+  lookName: {
+    fontSize: 11,
+    lineHeight: 14,
+  },
   families: {
     gap: 20,
     paddingHorizontal: 4,
@@ -650,39 +1400,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 13,
   },
-  appearanceCards: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  appearanceCard: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 6,
-  },
-  appearanceArt: {
-    width: '100%',
-    height: 56,
-    flexDirection: 'row',
-    borderRadius: 8,
-    borderWidth: GhostexStrokeWidth,
-    overflow: 'hidden',
-  },
-  appearanceArtSelected: {
-    borderWidth: 2,
-  },
-  miniWindow: {
-    flex: 1,
-    flexDirection: 'row',
-  },
-  miniSidebar: {
-    width: '34%',
-  },
-  miniWork: {
-    flex: 1,
-  },
-  appearanceLabel: {
-    fontSize: 13,
-  },
   colourHeader: {
     flexDirection: 'row',
     alignItems: 'baseline',
@@ -716,5 +1433,112 @@ const styles = StyleSheet.create({
   squarePlus: {
     fontSize: 18,
     lineHeight: 20,
+  },
+  uncappedWrap: {
+    gap: 5,
+  },
+  uncappedNote: {
+    fontSize: 11,
+    paddingHorizontal: 2,
+  },
+  accentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    paddingVertical: 2,
+  },
+  accentDots: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    justifyContent: 'flex-end',
+    flex: 1,
+  },
+  accentDotFrame: {
+    padding: 2,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  accentDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+  },
+  roleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingTop: 9,
+    borderTopWidth: GhostexStrokeWidth,
+  },
+  roleSwatch: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    borderWidth: GhostexStrokeWidth,
+  },
+  roleInfo: {
+    flex: 1,
+    minWidth: 0,
+    gap: 1,
+  },
+  roleTitle: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  roleAbout: {
+    fontSize: 11,
+    lineHeight: 14,
+  },
+  roleInput: {
+    width: 108,
+    minHeight: 34,
+    paddingHorizontal: 8,
+    borderRadius: GhostexRadii.row,
+    borderWidth: GhostexStrokeWidth,
+    fontFamily: 'monospace',
+    fontSize: 12,
+  },
+  roleClearBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  roleClearText: {
+    fontSize: 15,
+    lineHeight: 17,
+    fontWeight: '600',
+  },
+  moreToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 10,
+    paddingBottom: 2,
+    borderTopWidth: GhostexStrokeWidth,
+  },
+  clearAllBtn: {
+    borderRadius: GhostexRadii.row,
+    minHeight: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    marginTop: 2,
+  },
+  clearAllText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  resetRow: {
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  resetRowText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
