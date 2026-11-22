@@ -440,7 +440,7 @@ const useStyles = themedStyles((P) => ({
   editor: { paddingHorizontal: 16, paddingBottom: 12, gap: 10 },
   field: { maxHeight: 280, borderRadius: 10, backgroundColor: P.ink(0.05) },
   prompt: { color: P.foreground, fontSize: 14, lineHeight: 20, paddingHorizontal: 12, paddingVertical: 10 },
-  tryScroll: { flexGrow: 0, marginBottom: 6 },
+  tryScroll: { flexGrow: 0 },
   try: {
     flexDirection: 'row',
     flexWrap: 'nowrap',

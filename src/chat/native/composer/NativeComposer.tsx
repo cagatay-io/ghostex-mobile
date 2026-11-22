@@ -862,6 +862,10 @@ export function NativeComposer({
           ) : null}
           {document !== null ? <FilesLinksCard filesLinks={document.filesLinks} dispatch={dispatch} /> : null}
           {document?.suggestions ? <Suggestions data={document.suggestions} dispatch={dispatch} /> : null}
+          {/* "Try a Boost" on a new chat, above the run-location and worktree bar (`cards/Boosts.tsx`). */}
+          {!compact ? (
+            <TryABoost boosts={document?.boosts} welcome={document?.newSessionWelcome} dispatch={dispatch} />
+          ) : null}
           {document?.runLocation ? <RunLocationRow row={document.runLocation} dispatch={dispatch} /> : null}
           {attachError !== null ? (
             <DictationCard
@@ -934,10 +938,6 @@ export function NativeComposer({
               (`cards/Boosts.tsx`); the box clips anything drawn inside it. */}
           {strip !== undefined && !compact ? (
             <BoostCalloutAbove hint={document?.boosts?.hint} dispatch={dispatch} />
-          ) : null}
-          {/* "Try a Boost" on a new chat, one row just above the box (`cards/Boosts.tsx`). */}
-          {!compact ? (
-            <TryABoost boosts={document?.boosts} welcome={document?.newSessionWelcome} dispatch={dispatch} />
           ) : null}
           <View
             style={[styles.card, focused ? styles.cardFocused : null]}
